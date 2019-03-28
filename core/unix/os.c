@@ -8465,20 +8465,31 @@ exit_post_system_call:
     dcontext->whereami = old_whereami;
 }
 
-#ifdef STATIC_LIBRARY
+#ifdef LINUX
+#    ifdef STATIC_LIBRARY
 /* static libraries may optionally define two linker variables
  * (dynamorio_so_start and dynamorio_so_end) to help mitigate
- * edge cases in detecting DR's library bounds.
+ * edge cases in detecting DR's library bounds. They are optional.
  *
  * If not specified, the variables' location will default to
  * weak_dynamorio_so_bounds_filler and they will not be used.
+ * Note that referencing the value of these symbols will crash:
+ * always use the address only.
  */
+extern int dynamorio_so_start WEAK
+    __attribute__((alias("weak_dynamorio_so_bounds_filler")));
+extern int dynamorio_so_end WEAK
+    __attribute__((alias("weak_dynamorio_so_bounds_filler")));
 static int weak_dynamorio_so_bounds_filler;
-extern int dynamorio_so_start
-    __attribute__((weak, alias("weak_dynamorio_so_bounds_filler")));
-extern int dynamorio_so_end
-    __attribute__((weak, alias("weak_dynamorio_so_bounds_filler")));
-#endif
+
+#    else /* !STATIC_LIBRARY */
+/* For non-static linux we always get our bounds from linker-provided symbols.
+ * Note that referencing the value of these symbols will crash: always use the
+ * address only.
+ */
+extern int dynamorio_so_start, dynamorio_so_end;
+#    endif /* STATIC_LIBRARY */
+#endif /* LINUX */
 
 /* get_dynamo_library_bounds initializes dynamorio library bounds, using a
  * release-time assert if there is a problem doing so. It does not use any
@@ -8496,34 +8507,35 @@ get_dynamo_library_bounds(void)
     app_pc check_start, check_end;
     char *libdir;
     const char *dynamorio_libname;
-#ifdef STATIC_LIBRARY
-    bool have_linker_vars = &dynamorio_so_start != &weak_dynamorio_so_bounds_filler &&
-            &dynamorio_so_end != &weak_dynamorio_so_bounds_filler;
+#ifdef LINUX
+    bool have_linker_vars;
+#    ifdef STATIC_LIBRARY
+    have_linker_vars = &dynamorio_so_start != &weak_dynamorio_so_bounds_filler &&
+        &dynamorio_so_end != &weak_dynamorio_so_bounds_filler;
     dynamorio_libname = NULL;
+#    else
+    have_linker_vars = true;
+#    endif
     if (have_linker_vars) {
         dynamo_dll_start = (app_pc)&dynamorio_so_start;
         dynamo_dll_end = (app_pc)ALIGN_FORWARD(&dynamorio_so_end, PAGE_SIZE);
         check_start = dynamo_dll_start;
+        LOG(GLOBAL, LOG_VMAREAS, 2,
+            "Using dynamorio_so_start and dynamorio_so_end for library bounds"
+            "\n");
     } else {
         /* We don't know our image name nor bounds, so look up our bounds with
          * an internal address.
          */
         check_start = (app_pc)&get_dynamo_library_bounds;
+        LOG(GLOBAL, LOG_VMAREAS, 2,
+            "dynamorio_so_start and dynamorio_so_end not set: using memquery"
+            "\n");
     }
-#else /* !STATIC_LIBRARY */
-#    ifdef LINUX
-    /* PR 361594: we get our bounds from linker-provided symbols.
-     * Note that referencing the value of these symbols will crash:
-     * always use the address only.
-     */
-    extern int dynamorio_so_start, dynamorio_so_end;
-    dynamo_dll_start = (app_pc)&dynamorio_so_start;
-    dynamo_dll_end = (app_pc)ALIGN_FORWARD(&dynamorio_so_end, PAGE_SIZE);
-#    elif defined(MACOS)
+#elif defined(MACOS)
     dynamo_dll_start = module_dynamorio_lib_base();
-#    endif
     check_start = dynamo_dll_start;
-#endif /* STATIC_LIBRARY */
+#endif
 
     static char dynamorio_libname_buf[MAXIMUM_PATH];
     res = memquery_library_bounds(NULL, &check_start, &check_end, dynamorio_library_path,
@@ -8542,16 +8554,16 @@ get_dynamo_library_bounds(void)
     LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library file path: %s\n",
         dynamorio_library_filepath);
     NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
-#if !defined(STATIC_LIBRARY) && defined(LINUX)
-    ASSERT(check_start == dynamo_dll_start && check_end == dynamo_dll_end);
-#elif defined(MACOS)
-    ASSERT(check_start == dynamo_dll_start);
-    dynamo_dll_end = check_end;
-#else
-    if (!have_linker_vars) {
+#if defined(LINUX)
+    if (have_linker_vars) {
+        ASSERT(check_start == dynamo_dll_start && check_end == dynamo_dll_end);
+    } else {
         dynamo_dll_start = check_start;
         dynamo_dll_end = check_end;
     }
+#elif defined(MACOS)
+    ASSERT(check_start == dynamo_dll_start);
+    dynamo_dll_end = check_end;
 #endif
     LOG(GLOBAL, LOG_VMAREAS, 1, "DR library bounds: " PFX " to " PFX "\n",
         dynamo_dll_start, dynamo_dll_end);
