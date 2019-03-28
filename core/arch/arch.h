@@ -101,7 +101,7 @@ mixed_mode_enabled(void)
 #        define R14_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r14)))
 #        define R15_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r15)))
 #    endif /* X64 */
-#    define XMM_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, simd)))
+#    define SIMD_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, simd)))
 #    define SCRATCH_REG0 DR_REG_XAX
 #    define SCRATCH_REG1 DR_REG_XBX
 #    define SCRATCH_REG2 DR_REG_XCX
