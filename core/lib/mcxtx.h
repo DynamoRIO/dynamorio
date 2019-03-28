@@ -252,7 +252,8 @@
      * heap structure and only maintain a pointer on the stack. This would save space on
      * memory constraint platforms as well as keep our signal stack size smaller.
      * XXX i#1312: Currently, only 512 bytes are added on 64-bit until MCXT_NUM_SIMD_SLOTS
-     * will be 32.
+     * will be 32. This excludes AVX-512 k mask registers, which will add another 64
+     * bytes.
      */
 #    endif
     dr_zmm_t simd[MCXT_NUM_SIMD_SLOTS];
