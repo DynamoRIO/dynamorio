@@ -306,8 +306,8 @@ dump_diff_mcontexts(void)
     /* XXX i#1312: check if test can get extended to AVX-512. */
     for (i = 0; i < proc_num_simd_registers(); i++) {
 #ifdef X86
-        dr_zmm_t before_reg = before_mcontext.ymm[i];
-        dr_zmm_t after_reg = after_mcontext.ymm[i];
+        dr_zmm_t before_reg = before_mcontext.simd[i];
+        dr_zmm_t after_reg = after_mcontext.simd[i];
         size_t mmsz = proc_has_feature(FEATURE_AVX) ? sizeof(dr_ymm_t) : sizeof(dr_xmm_t);
         const char *diff_str =
             (memcmp(&before_reg, &after_reg, mmsz) == 0 ? "" : " <- DIFFERS");
