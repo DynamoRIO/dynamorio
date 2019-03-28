@@ -243,6 +243,16 @@
      * for normal 32-bit.
      * PR 306394: we preserve xmm0-7 for 32-bit linux too.
      * DrMi#665: we now preserve all of the xmm registers.
+     *
+     * The size of mcontext's simd strucure has become a potential risk for DynamoRIO's
+     * stack- and signal stack size or for general memory usage becoming too large.
+     * Compared to AVX's ymm registers, the AVX-512 zmm register slots are adding 1536
+     * bytes on 64-bit on Linux. On 32-bit Linux, it is adding 256 bytes.
+     * XXX i#1312: If this will become a problem, we may want to separate this out into a
+     * heap structure and only maintain a pointer on the stack. This would save space on
+     * memory constraint platforms as well as keep our signal stack size smaller.
+     * XXX i#1312: Currently, only 512 bytes are added on 64-bit until MCXT_NUM_SIMD_SLOTS
+     * will be 32.
      */
 #    endif
     dr_zmm_t simd[MCXT_NUM_SIMD_SLOTS];
