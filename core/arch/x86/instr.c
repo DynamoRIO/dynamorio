@@ -192,7 +192,7 @@ opc_is_not_a_real_memory_load(int opc)
  */
 static bool
 instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, instr_t *instr,
-                         int ordinal, priv_mcontext_t *mc, size_t mc_size,
+                         int ordinal, priv_mcontreg_ext_t *mc, size_t mc_size,
                          dr_mcontext_flags_t mc_flags)
 {
     /* XXX i#1312: Needs support for AVX-512. */
