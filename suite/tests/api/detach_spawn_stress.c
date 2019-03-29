@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,9 +31,9 @@
  * DAMAGE.
  */
 
-/* Tests races between new threads and detach (i#2600).
- * To more reliably hit the race, add os_thread_yield(50) at the top of
- * dynamo_thread_init() which makes this hit the race about half the time.
+/* This test is a modified version of api.detach_spawn. It adds start/stop re-attach to
+ * api.detach_spawn. It increases the number of spawned parent and child threads to 25
+ * each, spawning a total number of 25 + 25 * 25 = 650 threads at a time.
  */
 
 #include <assert.h>

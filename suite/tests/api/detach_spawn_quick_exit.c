@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,9 +31,10 @@
  * DAMAGE.
  */
 
-/* Tests races between new threads and detach (i#2600).
- * To more reliably hit the race, add os_thread_yield(50) at the top of
- * dynamo_thread_init() which makes this hit the race about half the time.
+/* This test is a modified version of api.detach_spawn. It adds start/stop re-attach to
+ * api.detach_spawn. It only spawns one thread. The thread is synch'd such that it exits
+ * while running native. This case is not supported by DynamoRIO's dr_app_stop w/o detach,
+ * but must work w/ dr_app_stop_and_cleanup()
  */
 
 #include <assert.h>
