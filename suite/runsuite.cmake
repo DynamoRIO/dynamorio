@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -39,6 +39,9 @@ if (APPLE)
   # For now we run just a quarter of the tests, using a test label.
   # FIXME i#1815: get all the tests working.
   set(extra_ctest_args INCLUDE_LABEL OSX)
+endif ()
+if (NOT DEBUG AND UNIX AND X64)
+  set(extra_ctest_args RUN_IN_RELEASE)
 endif ()
 include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
 
@@ -322,6 +325,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
     testbuild("release-internal-64" ON "
       DEBUG:BOOL=OFF
       INTERNAL:BOOL=ON
+      BUILD_TESTS:BOOL=ON blah
       ${install_path_cache}
       ")
     if (UNIX)

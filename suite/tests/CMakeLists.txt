@@ -3742,6 +3742,12 @@ foreach (run ${run_list})
   endif (enabled)
 endforeach(run)
 
+if (NOT DEBUG AND UNIX AND X64)
+  set_tests_properties(
+    code_api|tool.drcacheoff.simple
+    PROPERTIES LABELS RUN_IN_RELEASE)
+endif ()
+
 if (APPLE)
   # Enable just the quarter of the tests that pass, to get our test suite started
   # on the bot without perturbing all the code above and without disabling tests
