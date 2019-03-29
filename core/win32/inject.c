@@ -245,14 +245,15 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_pa
             /* XXX i#1312: This should be proc_num_simd_registers() which is part of
              * the dynamorio lib.
              */
+            ASSERT(MCXT_SIMD_SLOT_SIZE == YMM_REG_SIZE);
             for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
-                for (j = 0; j < IF_X64_ELSE(2, 4); j++) {
+                for (j = 0; j < XMM_REG_SIZE / sizeof(*bufptr); j++) {
                     *bufptr++ = CXT_XMM(cxt, i)->reg[j];
                 }
                 /* FIXME i#437: save ymm fields.  For now we assume we're
                  * not saving and we just skip the upper 128 bits.
                  */
-                bufptr += IF_X64_ELSE(2, 4);
+                bufptr += (YMM_REG_SIZE - XMM_REG_SIZE) / sizeof(*bufptr);
             }
         } else {
             /* skip xmm slots */
