@@ -139,7 +139,6 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} MATCHES "^32_only")
     set(arg_32_only ON)
   endif ()
-  blah
   if (${arg} MATCHES "^64_only")
     set(arg_64_only ON)
   endif ()
