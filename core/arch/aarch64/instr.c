@@ -336,6 +336,18 @@ reg_is_gpr(reg_id_t reg)
 }
 
 bool
+reg_is_opmask(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_zmm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_ymm(reg_id_t reg)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */

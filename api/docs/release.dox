@@ -153,6 +153,10 @@ Further non-compatibility-affecting changes include:
  - Added new fields to #dr_os_version_info_t which contain the build number,
    edition, and Windows 10 release identifier.
  - Added the function instr_is_xsave().
+ - Added the AVX-512 registers DR_REG_XMM16 - DR_REG_XMM31, DR_REG_YMM16 - DR_REG_YMM31
+   and their DR_REG_ZMM0 - DR_REG__ZMM31 siblings as well as DR_REG_K0 - DR_REG_K7.
+ - Added the function reg_is_zmm().
+ - Added the function reg_is_opmask().
 
 **************************************************
 <hr>

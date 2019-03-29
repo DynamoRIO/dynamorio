@@ -731,6 +731,18 @@ reg_is_simd(reg_id_t reg)
 }
 
 bool
+reg_is_opmask(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_zmm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_ymm(reg_id_t reg)
 {
     return false;

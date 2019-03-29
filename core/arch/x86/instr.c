@@ -192,9 +192,10 @@ opc_is_not_a_real_memory_load(int opc)
  */
 static bool
 instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, instr_t *instr,
-                         int ordinal, priv_mcontext_t *mc, size_t mc_size,
+                         int ordinal, priv_mcontreg_ext_t *mc, size_t mc_size,
                          dr_mcontext_flags_t mc_flags)
 {
+    /* XXX i#1312: Needs support for AVX-512. */
     int opc = instr_get_opcode(instr);
     opnd_size_t index_size = OPSZ_NA;
     opnd_size_t mem_size = OPSZ_NA;
@@ -1873,6 +1874,18 @@ bool
 reg_is_simd(reg_id_t reg)
 {
     return reg_is_xmm(reg) /*includes ymm*/ || reg_is_mmx(reg);
+}
+
+bool
+reg_is_opmask(reg_id_t reg)
+{
+    return (reg >= REG_START_OPMASK && reg <= REG_STOP_OPMASK);
+}
+
+bool
+reg_is_zmm(reg_id_t reg)
+{
+    return (reg >= REG_START_ZMM && reg <= REG_STOP_ZMM);
 }
 
 bool

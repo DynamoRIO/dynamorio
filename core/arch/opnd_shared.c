@@ -1742,8 +1742,8 @@ reg_get_value_priv(reg_id_t reg, priv_mcontext_t *mc)
     }
 #endif
     /* mmx and segment cannot be part of address.
-     * xmm/ymm can with VSIB, but we'd have to either return a larger type,
-     * or take in an offset within the xmm/ymm register -- so we leave this
+     * xmm/ymm/zmm can with VSIB, but we'd have to either return a larger type,
+     * or take in an offset within the xmm/ymm/zmm register -- so we leave this
      * routine supporting only GPR and have a separate routine for VSIB
      * (opnd_compute_VSIB_index()).
      * if want to use this routine for more than just effective address
@@ -1778,6 +1778,10 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val)
         if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->simd[reg - DR_REG_START_YMM], YMM_REG_SIZE);
+    } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
+        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+            return false;
+        memcpy(val, &mc->simd[reg - DR_REG_START_ZMM], ZMM_REG_SIZE);
     } else {
         reg_t regval = reg_get_value(reg, mc);
         *(reg_t *)val = regval;
@@ -1982,6 +1986,7 @@ reg_is_extended(reg_id_t reg)
             (reg >= REG_START_x64_8 && reg <= REG_STOP_x64_8) ||
             (reg >= REG_START_XMM + 8 && reg <= REG_STOP_XMM) ||
             (reg >= REG_START_YMM + 8 && reg <= REG_STOP_YMM) ||
+            (reg >= REG_START_ZMM + 8 && reg <= REG_STOP_ZMM) ||
             (reg >= REG_START_DR + 8 && reg <= REG_STOP_DR) ||
             (reg >= REG_START_CR + 8 && reg <= REG_STOP_CR));
 }
@@ -2078,6 +2083,8 @@ reg_get_bits(reg_id_t reg)
         return (byte)((reg - REG_START_XMM) % 8);
     if (reg >= REG_START_YMM && reg <= REG_STOP_YMM)
         return (byte)((reg - REG_START_YMM) % 8);
+    if (reg >= REG_START_ZMM && reg <= REG_STOP_ZMM)
+        return (byte)((reg - REG_START_ZMM) % 8);
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return (byte)((reg - REG_START_SEGMENT) % 8);
     if (reg >= REG_START_DR && reg <= REG_STOP_DR)
@@ -2118,6 +2125,15 @@ reg_get_size(reg_id_t reg)
         return OPSZ_16;
     if (reg >= REG_START_YMM && reg <= REG_STOP_YMM)
         return OPSZ_32;
+    if (reg >= REG_START_ZMM && reg <= REG_STOP_ZMM)
+        return OPSZ_64;
+    if (reg >= REG_START_OPMASK && reg <= REG_STOP_OPMASK) {
+        /* The default is 16 bits wide. The register may be up to 64 bits wide with
+         * the AVX-512BW extension, which depends on the processor. The number of
+         * bits actually used depends on the vector type of the instruction.
+         */
+        return OPSZ_64;
+    }
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return OPSZ_2;
     if (reg >= REG_START_DR && reg <= REG_STOP_DR)

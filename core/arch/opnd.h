@@ -225,6 +225,22 @@ enum {
     DR_REG_XMM13,
     DR_REG_XMM14,
     DR_REG_XMM15,
+    DR_REG_XMM16,
+    DR_REG_XMM17,
+    DR_REG_XMM18,
+    DR_REG_XMM19,
+    DR_REG_XMM20,
+    DR_REG_XMM21,
+    DR_REG_XMM22,
+    DR_REG_XMM23,
+    DR_REG_XMM24,
+    DR_REG_XMM25,
+    DR_REG_XMM26,
+    DR_REG_XMM27,
+    DR_REG_XMM28,
+    DR_REG_XMM29,
+    DR_REG_XMM30,
+    DR_REG_XMM31,
     /* floating point registers */
     DR_REG_ST0,
     DR_REG_ST1,
@@ -300,6 +316,64 @@ enum {
     DR_REG_YMM13,
     DR_REG_YMM14,
     DR_REG_YMM15,
+    DR_REG_YMM16,
+    DR_REG_YMM17,
+    DR_REG_YMM18,
+    DR_REG_YMM19,
+    DR_REG_YMM20,
+    DR_REG_YMM21,
+    DR_REG_YMM22,
+    DR_REG_YMM23,
+    DR_REG_YMM24,
+    DR_REG_YMM25,
+    DR_REG_YMM26,
+    DR_REG_YMM27,
+    DR_REG_YMM28,
+    DR_REG_YMM29,
+    DR_REG_YMM30,
+    DR_REG_YMM31,
+    /* 512-BIT ZMM */
+    DR_REG_ZMM0,
+    DR_REG_ZMM1,
+    DR_REG_ZMM2,
+    DR_REG_ZMM3,
+    DR_REG_ZMM4,
+    DR_REG_ZMM5,
+    DR_REG_ZMM6,
+    DR_REG_ZMM7,
+    DR_REG_ZMM8,
+    DR_REG_ZMM9,
+    DR_REG_ZMM10,
+    DR_REG_ZMM11,
+    DR_REG_ZMM12,
+    DR_REG_ZMM13,
+    DR_REG_ZMM14,
+    DR_REG_ZMM15,
+    DR_REG_ZMM16,
+    DR_REG_ZMM17,
+    DR_REG_ZMM18,
+    DR_REG_ZMM19,
+    DR_REG_ZMM20,
+    DR_REG_ZMM21,
+    DR_REG_ZMM22,
+    DR_REG_ZMM23,
+    DR_REG_ZMM24,
+    DR_REG_ZMM25,
+    DR_REG_ZMM26,
+    DR_REG_ZMM27,
+    DR_REG_ZMM28,
+    DR_REG_ZMM29,
+    DR_REG_ZMM30,
+    DR_REG_ZMM31,
+    /* opmask registers */
+    DR_REG_K0,
+    DR_REG_K1,
+    DR_REG_K2,
+    DR_REG_K3,
+    DR_REG_K4,
+    DR_REG_K5,
+    DR_REG_K6,
+    DR_REG_K7,
 
 /****************************************************************************/
 #elif defined(AARCHXX)
@@ -850,9 +924,13 @@ extern const reg_id_t dr_reg_fixer[];
 #    define DR_REG_START_MMX DR_REG_MM0  /**< Start of mmx register enum values */
 #    define DR_REG_STOP_MMX DR_REG_MM7   /**< End of mmx register enum values */
 #    define DR_REG_START_XMM DR_REG_XMM0 /**< Start of xmm register enum values */
-#    define DR_REG_STOP_XMM DR_REG_XMM15 /**< End of xmm register enum values */
+#    define DR_REG_STOP_XMM DR_REG_XMM31 /**< End of xmm register enum values */
 #    define DR_REG_START_YMM DR_REG_YMM0 /**< Start of ymm register enum values */
-#    define DR_REG_STOP_YMM DR_REG_YMM15 /**< End of ymm register enum values */
+#    define DR_REG_STOP_YMM DR_REG_YMM31 /**< End of ymm register enum values */
+#    define DR_REG_START_ZMM DR_REG_ZMM0 /**< Start of zmm register enum values */
+#    define DR_REG_STOP_ZMM DR_REG_ZMM31 /**< End of zmm register enum values */
+#    define DR_REG_START_OPMASK DR_REG_K0 /**< Start of opmask register enum values */
+#    define DR_REG_STOP_OPMASK DR_REG_K7 /**< End of opmask register enum values */
 #    define DR_REG_START_FLOAT \
         DR_REG_ST0 /**< Start of floating-point-register enum values*/
 #    define DR_REG_STOP_FLOAT \
@@ -867,8 +945,8 @@ extern const reg_id_t dr_reg_fixer[];
  * Last valid register enum value.  Note: DR_REG_INVALID is now smaller
  * than this value.
  */
-#    define DR_REG_LAST_VALID_ENUM DR_REG_YMM15
-#    define DR_REG_LAST_ENUM DR_REG_YMM15 /**< Last value of register enums */
+#    define DR_REG_LAST_VALID_ENUM DR_REG_K7
+#    define DR_REG_LAST_ENUM DR_REG_K7 /**< Last value of register enums */
 #endif                                    /* X86 */
 /* DR_API EXPORT END */
 
@@ -996,6 +1074,22 @@ extern const reg_id_t dr_reg_fixer[];
 #    define REG_XMM13 DR_REG_XMM13
 #    define REG_XMM14 DR_REG_XMM14
 #    define REG_XMM15 DR_REG_XMM15
+#    define REG_XMM16 DR_REG_XMM16
+#    define REG_XMM17 DR_REG_XMM17
+#    define REG_XMM18 DR_REG_XMM18
+#    define REG_XMM19 DR_REG_XMM19
+#    define REG_XMM20 DR_REG_XMM20
+#    define REG_XMM21 DR_REG_XMM21
+#    define REG_XMM22 DR_REG_XMM22
+#    define REG_XMM23 DR_REG_XMM23
+#    define REG_XMM24 DR_REG_XMM24
+#    define REG_XMM25 DR_REG_XMM25
+#    define REG_XMM26 DR_REG_XMM26
+#    define REG_XMM27 DR_REG_XMM27
+#    define REG_XMM28 DR_REG_XMM28
+#    define REG_XMM29 DR_REG_XMM29
+#    define REG_XMM30 DR_REG_XMM30
+#    define REG_XMM31 DR_REG_XMM31
 #    define REG_ST0 DR_REG_ST0
 #    define REG_ST1 DR_REG_ST1
 #    define REG_ST2 DR_REG_ST2
@@ -1057,10 +1151,14 @@ extern const reg_id_t dr_reg_fixer[];
 #    define REG_STOP_x64_8 DR_REG_STOP_x64_8
 #    define REG_START_MMX DR_REG_START_MMX
 #    define REG_STOP_MMX DR_REG_STOP_MMX
-#    define REG_START_YMM DR_REG_START_YMM
-#    define REG_STOP_YMM DR_REG_STOP_YMM
 #    define REG_START_XMM DR_REG_START_XMM
 #    define REG_STOP_XMM DR_REG_STOP_XMM
+#    define REG_START_YMM DR_REG_START_YMM
+#    define REG_STOP_YMM DR_REG_STOP_YMM
+#    define REG_START_ZMM DR_REG_START_ZMM
+#    define REG_STOP_ZMM DR_REG_STOP_ZMM
+#    define REG_START_OPMASK DR_REG_START_OPMASK
+#    define REG_STOP_OPMASK DR_REG_STOP_OPMASK
 #    define REG_START_FLOAT DR_REG_START_FLOAT
 #    define REG_STOP_FLOAT DR_REG_STOP_FLOAT
 #    define REG_START_SEGMENT DR_REG_START_SEGMENT
@@ -1085,6 +1183,62 @@ extern const reg_id_t dr_reg_fixer[];
 #    define REG_YMM13 DR_REG_YMM13
 #    define REG_YMM14 DR_REG_YMM14
 #    define REG_YMM15 DR_REG_YMM15
+#    define REG_YMM16 DR_REG_YMM16
+#    define REG_YMM17 DR_REG_YMM17
+#    define REG_YMM18 DR_REG_YMM18
+#    define REG_YMM19 DR_REG_YMM19
+#    define REG_YMM20 DR_REG_YMM20
+#    define REG_YMM21 DR_REG_YMM21
+#    define REG_YMM22 DR_REG_YMM22
+#    define REG_YMM23 DR_REG_YMM23
+#    define REG_YMM24 DR_REG_YMM24
+#    define REG_YMM25 DR_REG_YMM25
+#    define REG_YMM26 DR_REG_YMM26
+#    define REG_YMM27 DR_REG_YMM27
+#    define REG_YMM28 DR_REG_YMM28
+#    define REG_YMM29 DR_REG_YMM29
+#    define REG_YMM30 DR_REG_YMM30
+#    define REG_YMM31 DR_REG_YMM31
+#    define REG_ZMM0 DR_REG_ZMM0
+#    define REG_ZMM1 DR_REG_ZMM1
+#    define REG_ZMM2 DR_REG_ZMM2
+#    define REG_ZMM3 DR_REG_ZMM3
+#    define REG_ZMM4 DR_REG_ZMM4
+#    define REG_ZMM5 DR_REG_ZMM5
+#    define REG_ZMM6 DR_REG_ZMM6
+#    define REG_ZMM7 DR_REG_ZMM7
+#    define REG_ZMM8 DR_REG_ZMM8
+#    define REG_ZMM9 DR_REG_ZMM9
+#    define REG_ZMM10 DR_REG_ZMM10
+#    define REG_ZMM11 DR_REG_ZMM11
+#    define REG_ZMM12 DR_REG_ZMM12
+#    define REG_ZMM13 DR_REG_ZMM13
+#    define REG_ZMM14 DR_REG_ZMM14
+#    define REG_ZMM15 DR_REG_ZMM15
+#    define REG_ZMM16 DR_REG_ZMM16
+#    define REG_ZMM17 DR_REG_ZMM17
+#    define REG_ZMM18 DR_REG_ZMM18
+#    define REG_ZMM19 DR_REG_ZMM19
+#    define REG_ZMM20 DR_REG_ZMM20
+#    define REG_ZMM21 DR_REG_ZMM21
+#    define REG_ZMM22 DR_REG_ZMM22
+#    define REG_ZMM23 DR_REG_ZMM23
+#    define REG_ZMM24 DR_REG_ZMM24
+#    define REG_ZMM25 DR_REG_ZMM25
+#    define REG_ZMM26 DR_REG_ZMM26
+#    define REG_ZMM27 DR_REG_ZMM27
+#    define REG_ZMM28 DR_REG_ZMM28
+#    define REG_ZMM29 DR_REG_ZMM29
+#    define REG_ZMM30 DR_REG_ZMM30
+#    define REG_ZMM31 DR_REG_ZMM31
+#    define REG_K0 DR_REG_K0
+#    define REG_K1 DR_REG_K1
+#    define REG_K2 DR_REG_K2
+#    define REG_K3 DR_REG_K3
+#    define REG_K4 DR_REG_K4
+#    define REG_K5 DR_REG_K5
+#    define REG_K6 DR_REG_K6
+#    define REG_K7 DR_REG_K7
 #endif /* X86 && DR_REG_ENUM_COMPATIBILITY */
 /* DR_API EXPORT END */
 
@@ -1355,7 +1509,7 @@ INSTR_INLINE
  * Returns a register operand corresponding to a part of the
  * register represented by the DR_REG_ constant \p r.
  *
- * On x86, \p r must be a multimedia (mmx, xmm, or ymm) register.  For
+ * On x86, \p r must be a multimedia (mmx, xmm, ymm or zmm) register.  For
  * partial general-purpose registers on x86, use the appropriate
  * sub-register name with opnd_create_reg() instead.
  */
@@ -2362,6 +2516,22 @@ DR_API
  */
 bool
 reg_is_ymm(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to a zmm (512-bit multimedia) register.
+ */
+bool
+reg_is_zmm(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to an opmask register.
+ */
+bool
+reg_is_opmask(reg_id_t reg);
 
 DR_API
 /**
