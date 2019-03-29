@@ -322,12 +322,12 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
       INTERNAL:BOOL=ON
       ${install_path_cache}
       ")
-    testbuild("release-internal-64" ON "
+    testbuild_ex("release-internal-64" ON "
       DEBUG:BOOL=OFF
       INTERNAL:BOOL=ON
-      BUILD_TESTS:BOOL=ON blah
+      BUILD_TESTS:BOOL=ON
       ${install_path_cache}
-      ")
+      " OFF ${arg_package} "${install_build_args}")
     if (UNIX)
       # Ensure the code to record memquery unit test cases continues to
       # at least compile.
