@@ -212,7 +212,7 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
              * bytes for the x87 + SSE user state components, or up to 1536 if AVX-512
              * is enabled.
              */
-            CHECK(size >= 576 && size <= 1536, "xsave area size unexpected");
+            CHECK(size >= 576 && size <= 2688, "xsave area size unexpected");
         }
 #endif
     }
