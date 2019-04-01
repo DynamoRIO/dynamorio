@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1115,14 +1115,14 @@ test_vsib_helper(void *dc, dr_mcontext_t *mc, instr_t *instr, reg_t base, int ma
         ptr_int_t index =
             ((index_sz == OPSZ_4) ?
                                   /* this only works w/ the mask all enabled */
-                 (mc->ymm[index_idx].u32[memopidx])
+                 (mc->simd[index_idx].u32[memopidx])
                                   :
 #ifdef X64
-                                  (mc->ymm[index_idx].u64[memopidx])
+                                  (mc->simd[index_idx].u64[memopidx])
 #else
-                                  ((((int64)mc->ymm[index_idx].u32[memopidx * 2 + 1])
+                                  ((((int64)mc->simd[index_idx].u32[memopidx * 2 + 1])
                                     << 32) |
-                                   mc->ymm[index_idx].u32[memopidx * 2])
+                                   mc->simd[index_idx].u32[memopidx * 2])
 #endif
             );
         ASSERT(!write);
@@ -1162,23 +1162,23 @@ test_vsib(void *dc)
     mc.size = sizeof(mc);
     mc.flags = DR_MC_ALL;
     mc.xcx = 0x42;
-    mc.ymm[1].u32[0] = 0x11111111;
-    mc.ymm[1].u32[1] = 0x22222222;
-    mc.ymm[1].u32[2] = 0x33333333;
-    mc.ymm[1].u32[3] = 0x44444444;
-    mc.ymm[1].u32[4] = 0x12345678;
-    mc.ymm[1].u32[5] = 0x87654321;
-    mc.ymm[1].u32[6] = 0xabababab;
-    mc.ymm[1].u32[7] = 0xcdcdcdcd;
+    mc.simd[1].u32[0] = 0x11111111;
+    mc.simd[1].u32[1] = 0x22222222;
+    mc.simd[1].u32[2] = 0x33333333;
+    mc.simd[1].u32[3] = 0x44444444;
+    mc.simd[1].u32[4] = 0x12345678;
+    mc.simd[1].u32[5] = 0x87654321;
+    mc.simd[1].u32[6] = 0xabababab;
+    mc.simd[1].u32[7] = 0xcdcdcdcd;
     /* mask */
-    mc.ymm[2].u32[0] = 0xf1111111;
-    mc.ymm[2].u32[1] = 0xf2222222;
-    mc.ymm[2].u32[2] = 0xf3333333;
-    mc.ymm[2].u32[3] = 0xf4444444;
-    mc.ymm[2].u32[4] = 0xf5444444;
-    mc.ymm[2].u32[5] = 0xf6444444;
-    mc.ymm[2].u32[6] = 0xf7444444;
-    mc.ymm[2].u32[7] = 0xf8444444;
+    mc.simd[2].u32[0] = 0xf1111111;
+    mc.simd[2].u32[1] = 0xf2222222;
+    mc.simd[2].u32[2] = 0xf3333333;
+    mc.simd[2].u32[3] = 0xf4444444;
+    mc.simd[2].u32[4] = 0xf5444444;
+    mc.simd[2].u32[5] = 0xf6444444;
+    mc.simd[2].u32[6] = 0xf7444444;
+    mc.simd[2].u32[7] = 0xf8444444;
 
     /* test index size 4 and mem size 8 */
     instr =
@@ -1223,14 +1223,14 @@ test_vsib(void *dc)
     /* test mask not selecting things -- in the middle complicates
      * our helper checks so we just do the ends
      */
-    mc.ymm[2].u32[0] = 0x71111111;
-    mc.ymm[2].u32[1] = 0x32222222;
-    mc.ymm[2].u32[2] = 0x13333333;
-    mc.ymm[2].u32[3] = 0x04444444;
-    mc.ymm[2].u32[4] = 0x65444444;
-    mc.ymm[2].u32[5] = 0x56444444;
-    mc.ymm[2].u32[6] = 0x47444444;
-    mc.ymm[2].u32[7] = 0x28444444;
+    mc.simd[2].u32[0] = 0x71111111;
+    mc.simd[2].u32[1] = 0x32222222;
+    mc.simd[2].u32[2] = 0x13333333;
+    mc.simd[2].u32[3] = 0x04444444;
+    mc.simd[2].u32[4] = 0x65444444;
+    mc.simd[2].u32[5] = 0x56444444;
+    mc.simd[2].u32[6] = 0x47444444;
+    mc.simd[2].u32[7] = 0x28444444;
     instr =
         INSTR_CREATE_vgatherdps(dc, opnd_create_reg(REG_YMM0),
                                 opnd_create_base_disp(REG_XCX, REG_YMM1, 2, 0x12, OPSZ_4),

@@ -2624,7 +2624,7 @@ DR_API
 /**
  * Returns the value of the register \p reg as stored in \p mc, or
  * for an mmx register as stored in the physical register.
- * Up to sizeof(dr_ymm_t) bytes will be written to \p val.
+ * Up to sizeof(dr_zmm_t) bytes will be written to \p val.
  *
  * This routine does not support floating-point registers.
  *
