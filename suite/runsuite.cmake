@@ -308,26 +308,25 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   else ()
     set(32bit_path "")
   endif ()
-  testbuild_ex("release-external-64" ON "
+  testbuild_ex("release-internal-64" ON "
     DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
+    INTERNAL:BOOL=ON
+    BUILD_TESTS:BOOL=ON
     ${install_path_cache}
-    ${32bit_path}
     " OFF ${arg_package} "${install_build_args}")
   if (DO_ALL_BUILDS)
     # we rarely use internal release builds but keep them working in long
     # suite (not much burden) in case we need to tweak internal options
+    testbuild_ex("release-external-64" ON "
+      DEBUG:BOOL=OFF
+      INTERNAL:BOOL=OFF
+      ${install_path_cache}
+      ")
     testbuild("release-internal-32" OFF "
       DEBUG:BOOL=OFF
       INTERNAL:BOOL=ON
       ${install_path_cache}
       ")
-    testbuild_ex("release-internal-64" ON "
-      DEBUG:BOOL=OFF
-      INTERNAL:BOOL=ON
-      BUILD_TESTS:BOOL=ON
-      ${install_path_cache}
-      " OFF ${arg_package} "${install_build_args}")
     if (UNIX)
       # Ensure the code to record memquery unit test cases continues to
       # at least compile.
@@ -428,6 +427,7 @@ if (UNIX AND ARCH_IS_X86)
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
     " OFF ${arg_package} "")
+
   set(run_tests ${prev_run_tests})
   set(optional_cross_compile ${prev_optional_cross_compile})
 

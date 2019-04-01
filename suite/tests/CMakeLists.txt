@@ -3743,9 +3743,7 @@ foreach (run ${run_list})
 endforeach(run)
 
 if (NOT DEBUG AND UNIX AND X64)
-  set_tests_properties(
-    code_api|tool.drcacheoff.simple
-    PROPERTIES LABELS RUN_IN_RELEASE)
+  set_tests_properties(code_api|tool.drcacheoff.simple PROPERTIES LABELS RUN_IN_RELEASE)
 endif ()
 
 if (APPLE)
