@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,12 +57,12 @@ at_syscall()
 
         {
             /* Sanity checks for reg_get_value_ex() */
-            byte val[sizeof(dr_ymm_t)];
+            byte val[sizeof(dr_zmm_t)];
             if (!reg_get_value_ex(DR_REG_XMM0, &mcontext, val) ||
-                memcmp(val, &mcontext.ymm[0], sizeof(dr_xmm_t)) != 0)
+                memcmp(val, &mcontext.simd[0], sizeof(dr_xmm_t)) != 0)
                 dr_fprintf(STDERR, "reg_get_value_ex xmm0 mismatch\n");
             if (!reg_get_value_ex(DR_REG_YMM0, &mcontext, val) ||
-                memcmp(val, &mcontext.ymm[0], sizeof(dr_ymm_t)) != 0)
+                memcmp(val, &mcontext.simd[0], sizeof(dr_ymm_t)) != 0)
                 dr_fprintf(STDERR, "reg_get_value_ex ymm0 mismatch\n");
             if (!reg_get_value_ex(DR_REG_XBP, &mcontext, val) ||
                 *(reg_t *)val != reg_get_value(DR_REG_XBP, &mcontext))

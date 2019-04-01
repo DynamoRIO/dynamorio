@@ -110,12 +110,9 @@ test_cpuid()
 static void
 unit_test_get_ymm_caller_saved()
 {
-    /* XXX i#1312: Once get_ymm_caller_saved(byte* buf) changes to reflect a dr_zmm_t type
-     * of the SIMD field in DynamoRIO's mcontext, this needs to become dr_zmm_t.
-     */
-    dr_ymm_t ref_buffer[MCXT_NUM_SIMD_SLOTS];
-    dr_ymm_t get_buffer[MCXT_NUM_SIMD_SLOTS];
-    ASSERT(sizeof(dr_ymm_t) == YMM_REG_SIZE);
+    dr_zmm_t ref_buffer[MCXT_NUM_SIMD_SLOTS];
+    dr_zmm_t get_buffer[MCXT_NUM_SIMD_SLOTS];
+    ASSERT(sizeof(dr_zmm_t) == ZMM_REG_SIZE);
     uint base = 0x78abcdef;
 
     register __m256 ymm0 asm("ymm0");
@@ -142,6 +139,10 @@ unit_test_get_ymm_caller_saved()
             get_buffer[regno].u32[dword] = 0;
             ref_buffer[regno].u32[dword] = base++;
         }
+        memset(&get_buffer[regno].u32[sizeof(dr_ymm_t) / sizeof(uint)], 0,
+               sizeof(dr_zmm_t) - sizeof(dr_ymm_t));
+        memset(&ref_buffer[regno].u32[sizeof(dr_ymm_t) / sizeof(uint)], 0,
+               sizeof(dr_zmm_t) - sizeof(dr_ymm_t));
     }
 
 #        define MAKE_YMM_REG(num) ymm##num
