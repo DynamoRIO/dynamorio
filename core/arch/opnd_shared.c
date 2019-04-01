@@ -1773,11 +1773,11 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val)
     } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
         if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
-        memcpy(val, &mc->ymm[reg - DR_REG_START_XMM], XMM_REG_SIZE);
+        memcpy(val, &mc->simd[reg - DR_REG_START_XMM], XMM_REG_SIZE);
     } else if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) {
         if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
-        memcpy(val, &mc->ymm[reg - DR_REG_START_YMM], YMM_REG_SIZE);
+        memcpy(val, &mc->simd[reg - DR_REG_START_YMM], YMM_REG_SIZE);
     } else {
         reg_t regval = reg_get_value(reg, mc);
         *(reg_t *)val = regval;
