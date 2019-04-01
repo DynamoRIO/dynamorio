@@ -3742,7 +3742,7 @@ foreach (run ${run_list})
   endif (enabled)
 endforeach(run)
 
-if (NOT DEBUG AND UNIX AND X64)
+if (NOT DEBUG AND UNIX AND X64 AND NOT CMAKE_COMPILER_IS_CLANG)
   set_tests_properties(
     code_api|tool.drcacheoff.simple
     code_api|tool.drcachesim.simple
