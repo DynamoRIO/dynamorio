@@ -37,16 +37,13 @@
  * but must work w/ dr_app_stop_and_cleanup()
  */
 
-#include <assert.h>
 #include <stdio.h>
 #include <math.h>
-#include <stdint.h>
 #include "configure.h"
 #include "dr_api.h"
 #include "tools.h"
 #include "thread.h"
 #include "condvar.h"
-#include <sys/syscall.h>
 
 #define VERBOSE 0
 #define NUM_THREADS 1
@@ -63,8 +60,10 @@ THREAD_FUNC_RETURN_TYPE
 thread_func(void *arg)
 {
     signal_cond_var(thread_ready);
-    while (thread_do_stuff)
+    while (thread_do_stuff) {
+        /* Deliberately empty. */
         ;
+    }
     return THREAD_FUNC_RETURN_ZERO;
 }
 
@@ -80,8 +79,6 @@ main(void)
     for (i = 0; i < NUM_THREADS; ++i)
         threads[i] = create_thread(thread_func, NULL);
 
-    pid_t tid = dynamorio_syscall(SYS_gettid, 0);
-
     /* We setup and start at once to avoid process memory changing much between
      * the two.
      */
@@ -89,8 +86,9 @@ main(void)
 
     dr_app_setup_and_start();
 
-    if (!dr_app_running_under_dynamorio())
-        print("ERROR: should be running under DynamoRio before calling dr_app_stop()\n");
+    if (!dr_app_running_under_dynamorio()) {
+        print("ERROR: should be running under DynamoRIO before calling dr_app_stop()\n");
+    }
 
     print("Running under DynamoRIO\n");
 
@@ -98,9 +96,10 @@ main(void)
 
     thread_sleep(50);
 
-    if (dr_app_running_under_dynamorio())
-        print("ERROR: should not be running under DynamoRio before calling "
+    if (dr_app_running_under_dynamorio()) {
+        print("ERROR: should not be running under DynamoRIO before calling "
               "dr_app_stop()\n");
+    }
 
     print("Not running under DynamoRIO\n");
 
@@ -109,8 +108,9 @@ main(void)
 
     dr_app_setup_and_start();
 
-    if (!dr_app_running_under_dynamorio())
-        print("ERROR: should be running under DynamoRio before calling dr_app_stop()\n");
+    if (!dr_app_running_under_dynamorio()) {
+        print("ERROR: should be running under DynamoRIO before calling dr_app_stop()\n");
+    }
 
     print("Running under DynamoRIO\n");
 

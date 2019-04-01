@@ -36,16 +36,13 @@
  * each, spawning a total number of 25 + 25 * 25 = 650 threads at a time.
  */
 
-#include <assert.h>
 #include <stdio.h>
 #include <math.h>
-#include <stdint.h>
 #include "configure.h"
 #include "dr_api.h"
 #include "tools.h"
 #include "thread.h"
 #include "condvar.h"
-#include <sys/syscall.h>
 
 #define VERBOSE 0
 #define NUM_PARENT_THREADS 25
@@ -63,8 +60,6 @@ static volatile bool parent_exit = false;
 THREAD_FUNC_RETURN_TYPE
 child_func(void *arg)
 {
-    pid_t tid = dynamorio_syscall(SYS_gettid, 0);
-    dr_log(NULL, DR_LOG_ALL, 1, "\nThread exits tid %d\n", tid);
     return THREAD_FUNC_RETURN_ZERO;
 }
 
@@ -99,8 +94,6 @@ main(void)
     for (i = 0; i < NUM_PARENT_THREADS; ++i)
         threads[i] = create_thread(parent_func, NULL);
 
-    pid_t tid = dynamorio_syscall(SYS_gettid, 0);
-
     /* We setup and start at once to avoid process memory changing much between
      * the two.
      */
@@ -108,9 +101,10 @@ main(void)
     wait_cond_var(parent_ready);
     thread_sleep(50);
 
-    if (!dr_app_running_under_dynamorio())
-        print("ERROR: should be running under DynamoRio before calling "
+    if (!dr_app_running_under_dynamorio()) {
+        print("ERROR: should be running under DynamoRIO before calling "
               "dr_app_stop_and_cleanup()\n");
+    }
 
     print("Running under DynamoRIO\n");
 
@@ -118,9 +112,10 @@ main(void)
 
     thread_sleep(50);
 
-    if (dr_app_running_under_dynamorio())
-        print("ERROR: should not be running under DynamoRio before calling "
+    if (dr_app_running_under_dynamorio()) {
+        print("ERROR: should not be running under DynamoRIO before calling "
               "dr_app_stop()\n");
+    }
 
     print("Not running under DynamoRIO\n");
 
@@ -128,15 +123,14 @@ main(void)
 
     thread_sleep(50);
 
-    if (!dr_app_running_under_dynamorio())
-        print("ERROR: should be running under DynamoRio before calling "
+    if (!dr_app_running_under_dynamorio()) {
+        print("ERROR: should be running under DynamoRIO before calling "
               "dr_app_stop_and_cleanup()\n");
+    }
 
     print("Running under DynamoRIO\n");
 
-    dr_log(NULL, DR_LOG_ALL, 1, "\nCalling dr_app_stop_and_cleanup, tid %d\n", tid);
     dr_app_stop_and_cleanup();
-    dr_log(NULL, DR_LOG_ALL, 1, "\ndr_app_stop_and_cleanup done, tid %d\n", tid);
 
     print("Not running under DynamoRIO, exiting\n");
 
