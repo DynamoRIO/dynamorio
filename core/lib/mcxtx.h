@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -217,7 +217,7 @@
         byte *IF_X64_ELSE(rip, eip); /**< The platform-dependent name for
                                           rip/eip register. */
     };
-    byte padding[PRE_XMM_PADDING]; /**< The padding to get ymm field 32-byte aligned. */
+    byte padding[PRE_XMM_PADDING]; /**< The padding to get zmm field 64-byte aligned. */
     /**
      * The SSE registers xmm0-xmm5 (-xmm15 on Linux) are volatile
      * (caller-saved) for 64-bit and WOW64, and are actually zeroed out on
@@ -243,7 +243,18 @@
      * for normal 32-bit.
      * PR 306394: we preserve xmm0-7 for 32-bit linux too.
      * DrMi#665: we now preserve all of the xmm registers.
+     *
+     * The size of mcontext's simd strucure has become a potential risk for DynamoRIO's
+     * stack- and signal stack size or for general memory usage becoming too large.
+     * Compared to AVX's ymm registers, the AVX-512 zmm register slots are adding 1536
+     * bytes on 64-bit on Linux. On 32-bit Linux, it is adding 256 bytes.
+     * XXX i#1312: If this will become a problem, we may want to separate this out into a
+     * heap structure and only maintain a pointer on the stack. This would save space on
+     * memory constraint platforms as well as keep our signal stack size smaller.
+     * XXX i#1312: Currently, only 512 bytes are added on 64-bit until MCXT_NUM_SIMD_SLOTS
+     * will be 32. This excludes AVX-512 k mask registers, which will add another 64
+     * bytes.
      */
 #    endif
-    dr_ymm_t ymm[MCXT_NUM_SIMD_SLOTS];
+    dr_zmm_t simd[MCXT_NUM_SIMD_SLOTS];
 #endif /* ARM/X86 */

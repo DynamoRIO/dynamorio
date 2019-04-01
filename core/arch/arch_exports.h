@@ -59,7 +59,7 @@
 #    define XMM_REG_SIZE 16
 #    define YMM_REG_SIZE 32
 #    define ZMM_REG_SIZE 64
-#    define MCXT_SIMD_SLOT_SIZE YMM_REG_SIZE
+#    define MCXT_SIMD_SLOT_SIZE ZMM_REG_SIZE
 #    define MCXT_TOTAL_SIMD_SLOTS_SIZE (MCXT_NUM_SIMD_SLOTS * MCXT_SIMD_SLOT_SIZE)
 /* Indicates OS support, not just processor support (xref i#1278) */
 #    define YMM_ENABLED() (proc_avx_enabled())
