@@ -38,7 +38,6 @@
  */
 
 #include <stdio.h>
-#include <math.h>
 #include "configure.h"
 #include "dr_api.h"
 #include "tools.h"
@@ -46,10 +45,9 @@
 #include "condvar.h"
 
 #define VERBOSE 0
-#define NUM_THREADS 1
 
 static void *thread_ready;
-static volatile bool thread_do_stuff = true;
+static volatile bool thread_should_exit = false;
 #if VERBOSE
 #    define VPRINT(...) print(__VA_ARGS__)
 #else
@@ -60,7 +58,7 @@ THREAD_FUNC_RETURN_TYPE
 thread_func(void *arg)
 {
     signal_cond_var(thread_ready);
-    while (thread_do_stuff) {
+    while (!thread_should_exit) {
         /* Deliberately empty. */
         ;
     }
@@ -72,12 +70,10 @@ main(void)
 {
     thread_ready = create_cond_var();
     int i;
-    thread_t threads[NUM_THREADS];
 
     print("Starting thread(s)\n");
 
-    for (i = 0; i < NUM_THREADS; ++i)
-        threads[i] = create_thread(thread_func, NULL);
+    thread_t thread = create_thread(thread_func, NULL);
 
     /* We setup and start at once to avoid process memory changing much between
      * the two.
@@ -87,29 +83,29 @@ main(void)
     dr_app_setup_and_start();
 
     if (!dr_app_running_under_dynamorio()) {
-        print("ERROR: should be running under DynamoRIO before calling dr_app_stop()\n");
+        print("ERROR: should be running under DynamoRIO before calling "
+              "dr_app_stop_and_cleanup()\n");
     }
 
     print("Running under DynamoRIO\n");
 
     dr_app_stop_and_cleanup();
 
-    thread_sleep(50);
-
     if (dr_app_running_under_dynamorio()) {
         print("ERROR: should not be running under DynamoRIO before calling "
-              "dr_app_stop()\n");
+              "dr_app_stop_and_cleanup()\n");
     }
 
     print("Not running under DynamoRIO\n");
 
-    thread_do_stuff = false;
+    thread_should_exit = true;
     thread_sleep(50);
 
     dr_app_setup_and_start();
 
     if (!dr_app_running_under_dynamorio()) {
-        print("ERROR: should be running under DynamoRIO before calling dr_app_stop()\n");
+        print("ERROR: should be running under DynamoRIO before calling "
+              "dr_app_stop_and_cleanup()\n");
     }
 
     print("Running under DynamoRIO\n");
@@ -118,8 +114,7 @@ main(void)
 
     print("Not running under DynamoRIO, exiting\n");
 
-    for (i = 0; i < NUM_THREADS; ++i)
-        join_thread(threads[i]);
+    join_thread(thread);
     destroy_cond_var(thread_ready);
 
     print("all done\n");

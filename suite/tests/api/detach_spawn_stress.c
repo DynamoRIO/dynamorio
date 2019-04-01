@@ -37,7 +37,6 @@
  */
 
 #include <stdio.h>
-#include <math.h>
 #include "configure.h"
 #include "dr_api.h"
 #include "tools.h"
@@ -114,7 +113,7 @@ main(void)
 
     if (dr_app_running_under_dynamorio()) {
         print("ERROR: should not be running under DynamoRIO before calling "
-              "dr_app_stop()\n");
+              "dr_app_stop_and_cleanup()\n");
     }
 
     print("Not running under DynamoRIO\n");
