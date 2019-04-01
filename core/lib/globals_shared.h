@@ -1897,7 +1897,7 @@ typedef union _dr_simd_t {
                     */
 #        endif
 #        define PRE_XMM_PADDING \
-            16 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
+            48 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
 #    else
 /*xmm0-7*/
 #        define MCXT_NUM_SIMD_SLOTS                            \

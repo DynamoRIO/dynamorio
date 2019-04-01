@@ -54,9 +54,9 @@ get_xmm_vals(priv_mcontext_t *mc)
     if (preserve_xmm_caller_saved()) {
         ASSERT(proc_has_feature(FEATURE_SSE));
         if (YMM_ENABLED())
-            get_ymm_caller_saved(&mc->ymm[0]);
+            get_ymm_caller_saved(&mc->simd[0]);
         else
-            get_xmm_caller_saved(&mc->ymm[0]);
+            get_xmm_caller_saved(&mc->simd[0]);
     }
 #elif defined(ARM)
     /* FIXME i#1551: no xmm but SIMD regs on ARM */
