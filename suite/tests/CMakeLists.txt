@@ -3743,7 +3743,43 @@ foreach (run ${run_list})
 endforeach(run)
 
 if (NOT DEBUG AND UNIX AND X64)
-  set_tests_properties(code_api|tool.drcacheoff.simple PROPERTIES LABELS RUN_IN_RELEASE)
+  set_tests_properties(
+    code_api|tool.drcacheoff.simple
+    code_api|tool.drcachesim.simple
+    code_api|tool.drcachesim.simple-config-file
+    code_api|tool.drcachesim.TLB-simple
+    code_api|tool.drcachesim.missfile
+    code_api|tool.drcachesim.missfile-config-file
+    code_api|tool.drcachesim.phys
+    code_api|tool.drcachesim.filter-simple
+    code_api|tool.drcachesim.filter-no-i
+    code_api|tool.drcachesim.filter-no-d
+    code_api|tool.drcachesim.delay-simple
+    code_api|tool.drcachesim.warmup-valid
+    code_api|tool.drcachesim.warmup-zeros
+    code_api|tool.drcachesim.threads
+    code_api|tool.drcachesim.threads-with-config-file
+    code_api|tool.drcachesim.TLB-threads
+    code_api|tool.drcachesim.multiproc
+    code_api|tool.drcachesim.miss_analyzer
+    code_api|tool.drcacheoff.simple
+    code_api|tool.drcacheoff.multiproc
+    code_api|tool.drcacheoff.filter
+    code_api|tool.drcacheoff.basic_counts
+    code_api|tool.drcacheoff.opcode_mix
+    code_api|tool.drcacheoff.view
+    code_api|tool.drcacheoff.burst_static
+    code_api|tool.drcacheoff.burst_replace
+    code_api|tool.drcacheoff.burst_replaceall
+    code_api|tool.drcacheoff.burst_noreach
+    code_api|tool.drcacheoff.burst_maps
+    code_api|tool.drcacheoff.burst_threads
+    code_api|tool.drcacheoff.burst_malloc
+    code_api|tool.drcacheoff.burst_threadfilter
+    code_api|tool.drcacheoff.burst_threadL0filter
+    code_api|tool.drcacheoff.burst_client
+    code_api|tool.drcacheoff.legacy
+    PROPERTIES LABELS RUN_IN_RELEASE)
 endif ()
 
 if (APPLE)

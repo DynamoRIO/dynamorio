@@ -40,9 +40,6 @@ if (APPLE)
   # FIXME i#1815: get all the tests working.
   set(extra_ctest_args INCLUDE_LABEL OSX)
 endif ()
-if (NOT DEBUG AND UNIX AND X64)
-  set(extra_ctest_args RUN_IN_RELEASE)
-endif ()
 include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
 
 # extra args (note that runsuite_common_pre.cmake has already walked
@@ -265,7 +262,9 @@ endif ()
 
 # for short suite, don't build tests for builds that don't run tests
 # (since building takes forever on windows): so we only turn
-# on BUILD_TESTS for TEST_LONG or debug-internal-{32,64}
+# on BUILD_TESTS for TEST_LONG or debug-internal-{32,64}. BUILD_TESTS is
+# also turned on for release-external-64, but ctest will run with label
+# RUN_IN_RELEASE.
 
 if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   # For cross-arch execve test we need to "make install"
@@ -308,21 +307,25 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   else ()
     set(32bit_path "")
   endif ()
-  testbuild_ex("release-internal-64" ON "
+  set(orig_extra_ctest_args extra_ctest_args)
+  set(extra_ctest_args INCLUDE_LABEL RUN_IN_RELEASE)
+  testbuild_ex("release-external-64" ON "
     DEBUG:BOOL=OFF
-    INTERNAL:BOOL=ON
+    INTERNAL:BOOL=OFF
     BUILD_TESTS:BOOL=ON
     ${install_path_cache}
+    ${32bit_path}
     " OFF ${arg_package} "${install_build_args}")
+  set(extra_ctest_args orig_extra_ctest_args)
   if (DO_ALL_BUILDS)
     # we rarely use internal release builds but keep them working in long
     # suite (not much burden) in case we need to tweak internal options
-    testbuild_ex("release-external-64" ON "
+    testbuild("release-internal-32" OFF "
       DEBUG:BOOL=OFF
       INTERNAL:BOOL=OFF
       ${install_path_cache}
       ")
-    testbuild("release-internal-32" OFF "
+    testbuild("release-internal-64" ON "
       DEBUG:BOOL=OFF
       INTERNAL:BOOL=ON
       ${install_path_cache}
