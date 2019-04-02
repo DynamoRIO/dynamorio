@@ -921,16 +921,16 @@ extern const reg_id_t dr_reg_fixer[];
         DR_REG_SPL /**< Start of 8-bit x64-only register enum values*/
 #    define DR_REG_STOP_x64_8 \
         DR_REG_DIL /**< Stop of 8-bit x64-only register enum values */
-#    define DR_REG_START_MMX DR_REG_MM0  /**< Start of mmx register enum values */
-#    define DR_REG_STOP_MMX DR_REG_MM7   /**< End of mmx register enum values */
-#    define DR_REG_START_XMM DR_REG_XMM0 /**< Start of xmm register enum values */
-#    define DR_REG_STOP_XMM DR_REG_XMM31 /**< End of xmm register enum values */
-#    define DR_REG_START_YMM DR_REG_YMM0 /**< Start of ymm register enum values */
-#    define DR_REG_STOP_YMM DR_REG_YMM31 /**< End of ymm register enum values */
-#    define DR_REG_START_ZMM DR_REG_ZMM0 /**< Start of zmm register enum values */
-#    define DR_REG_STOP_ZMM DR_REG_ZMM31 /**< End of zmm register enum values */
+#    define DR_REG_START_MMX DR_REG_MM0   /**< Start of mmx register enum values */
+#    define DR_REG_STOP_MMX DR_REG_MM7    /**< End of mmx register enum values */
+#    define DR_REG_START_XMM DR_REG_XMM0  /**< Start of xmm register enum values */
+#    define DR_REG_STOP_XMM DR_REG_XMM31  /**< End of xmm register enum values */
+#    define DR_REG_START_YMM DR_REG_YMM0  /**< Start of ymm register enum values */
+#    define DR_REG_STOP_YMM DR_REG_YMM31  /**< End of ymm register enum values */
+#    define DR_REG_START_ZMM DR_REG_ZMM0  /**< Start of zmm register enum values */
+#    define DR_REG_STOP_ZMM DR_REG_ZMM31  /**< End of zmm register enum values */
 #    define DR_REG_START_OPMASK DR_REG_K0 /**< Start of opmask register enum values */
-#    define DR_REG_STOP_OPMASK DR_REG_K7 /**< End of opmask register enum values */
+#    define DR_REG_STOP_OPMASK DR_REG_K7  /**< End of opmask register enum values */
 #    define DR_REG_START_FLOAT \
         DR_REG_ST0 /**< Start of floating-point-register enum values*/
 #    define DR_REG_STOP_FLOAT \
@@ -947,7 +947,7 @@ extern const reg_id_t dr_reg_fixer[];
  */
 #    define DR_REG_LAST_VALID_ENUM DR_REG_K7
 #    define DR_REG_LAST_ENUM DR_REG_K7 /**< Last value of register enums */
-#endif                                    /* X86 */
+#endif                                 /* X86 */
 /* DR_API EXPORT END */
 
 #ifdef X86
