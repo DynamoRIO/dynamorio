@@ -322,7 +322,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
     # suite (not much burden) in case we need to tweak internal options
     testbuild("release-internal-32" OFF "
       DEBUG:BOOL=OFF
-      INTERNAL:BOOL=OFF
+      INTERNAL:BOOL=ON
       ${install_path_cache}
       ")
     testbuild("release-internal-64" ON "
