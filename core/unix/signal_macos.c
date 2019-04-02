@@ -158,11 +158,11 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
      */
     ASSERT(MCXT_NUM_SIMD_SLOTS == proc_num_simd_registers());
     for (i = 0; i < proc_num_simd_registers(); i++) {
-        memcpy(&mc->ymm[i], &sc->__fs.__fpu_xmm0 + i, XMM_REG_SIZE);
+        memcpy(&mc->simd[i], &sc->__fs.__fpu_xmm0 + i, XMM_REG_SIZE);
     }
     if (YMM_ENABLED()) {
         for (i = 0; i < proc_num_simd_registers(); i++) {
-            memcpy(&mc->ymm[i].u32[4], &sc->__fs.__fpu_ymmh0 + i, YMMH_REG_SIZE);
+            memcpy(&mc->simd[i].u32[4], &sc->__fs.__fpu_ymmh0 + i, YMMH_REG_SIZE);
         }
     }
 }
@@ -177,11 +177,11 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
      */
     ASSERT(MCXT_NUM_SIMD_SLOTS == proc_num_simd_registers());
     for (i = 0; i < proc_num_simd_registers(); i++) {
-        memcpy(&sc->__fs.__fpu_xmm0 + i, &mc->ymm[i], XMM_REG_SIZE);
+        memcpy(&sc->__fs.__fpu_xmm0 + i, &mc->simd[i], XMM_REG_SIZE);
     }
     if (YMM_ENABLED()) {
         for (i = 0; i < proc_num_simd_registers(); i++) {
-            memcpy(&sc->__fs.__fpu_ymmh0 + i, &mc->ymm[i].u32[4], YMMH_REG_SIZE);
+            memcpy(&sc->__fs.__fpu_ymmh0 + i, &mc->simd[i].u32[4], YMMH_REG_SIZE);
         }
     }
 }
