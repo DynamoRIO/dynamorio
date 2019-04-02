@@ -3742,8 +3742,14 @@ foreach (run ${run_list})
   endif (enabled)
 endforeach(run)
 
+# A subset of release tests has been added and labeled with RUN_IN_RELEASE. It focuses on
+# Google's use of the drcachesim client. We do not want to extend the Travis regression
+# time by too much and keep the following list concise.
 if (NOT DEBUG AND UNIX AND X64 AND NOT CMAKE_COMPILER_IS_CLANG)
   set_tests_properties(
+    unit_tests
+    samples_proj
+    code_api|common.eflags
     code_api|tool.drcachesim.simple
     code_api|tool.drcachesim.simple-config-file
     code_api|tool.drcachesim.TLB-simple
