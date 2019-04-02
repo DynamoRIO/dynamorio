@@ -342,7 +342,7 @@ unit_test_get_opmask_caller_saved()
      * the type will be __mmask64. Also DynamoRIO's get_opmask_caller_saved has to
      * dynamically switch dependent on a proc_ flag indicating AVX512BW is enabled.
      */
-    FAIL();
+#            error "Unimplemented. Should test using __mmask64 instructions."
 #        else
     ASSERT(MCXT_NUM_OPMASK_SLOTS == 8);
     register __mmask16 k0 asm("k0");
