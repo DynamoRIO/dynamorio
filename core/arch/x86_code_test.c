@@ -324,6 +324,73 @@ unit_test_get_zmm_caller_saved()
         0);
 }
 
+static void
+unit_test_get_opmask_caller_saved()
+{
+    /* While DynamoRIO's dr_opmask_t type is 8 bytes, the actual machine register is
+     * really only 8 bytes if the processor and OS support AVX512BW. Otherwise it is
+     * 2 Bytes.
+     */
+    dr_opmask_t ref_buffer[MCXT_NUM_OPMASK_SLOTS];
+    dr_opmask_t get_buffer[MCXT_NUM_OPMASK_SLOTS];
+    ASSERT(sizeof(dr_opmask_t) == OPMASK_REG_SIZE);
+    uint base = 0x0000348e;
+
+#        ifdef __AVX512BW__
+    /* i#1312: Modern AVX-512 machines support AVX512BW which extends the OpMask registers
+     * to 8 bytes. The right compile flags must then to be used to compile this test, and
+     * the type will be __mmask64. Also DynamoRIO's get_opmask_caller_saved has to
+     * dynamically switch dependent on a proc_ flag indicating AVX512BW is enabled.
+     */
+    FAIL();
+#        else
+    ASSERT(MCXT_NUM_OPMASK_SLOTS == 8);
+    register __mmask16 k0 asm("k0");
+    register __mmask16 k1 asm("k1");
+    register __mmask16 k2 asm("k2");
+    register __mmask16 k3 asm("k3");
+    register __mmask16 k4 asm("k4");
+    register __mmask16 k5 asm("k5");
+    register __mmask16 k6 asm("k6");
+    register __mmask16 k7 asm("k7");
+#        endif
+
+    for (int regno = 0; regno < MCXT_NUM_OPMASK_SLOTS; ++regno) {
+        get_buffer[regno] = 0;
+        ref_buffer[regno] = base++;
+    }
+
+#        define MAKE_OPMASK_REG(num) k##num
+#        define MOVE_TO_OPMASK(buf, num) \
+            asm volatile("kmovw %1, %0" : "=k"(MAKE_OPMASK_REG(num)) : "m"(buf[num]) :);
+
+    MOVE_TO_OPMASK(ref_buffer, 0)
+    MOVE_TO_OPMASK(ref_buffer, 1)
+    MOVE_TO_OPMASK(ref_buffer, 2)
+    MOVE_TO_OPMASK(ref_buffer, 3)
+    MOVE_TO_OPMASK(ref_buffer, 4)
+    MOVE_TO_OPMASK(ref_buffer, 5)
+    MOVE_TO_OPMASK(ref_buffer, 6)
+    MOVE_TO_OPMASK(ref_buffer, 7)
+
+    get_opmask_caller_saved(get_buffer);
+
+    /* Barrier, as described in unit_test_get_zmm_caller_saved. */
+    asm volatile("" ::: "k0", "k1", "k2", "k3", "k4", "k5", "k6", "k7");
+
+    for (int regno = 0; regno < MCXT_NUM_OPMASK_SLOTS; ++regno) {
+        print_file(STDERR, "K%d ref\n:", regno);
+        dump_buffer_as_bytes(STDERR, &ref_buffer[regno], sizeof(ref_buffer[regno]),
+                             DUMP_RAW | DUMP_DWORD);
+        print_file(STDERR, "\nK%d get\n:", regno);
+        dump_buffer_as_bytes(STDERR, &get_buffer[regno], sizeof(get_buffer[regno]),
+                             DUMP_RAW | DUMP_DWORD);
+        print_file(STDERR, "\n");
+    }
+    EXPECT(memcmp(ref_buffer, get_buffer, MCXT_NUM_OPMASK_SLOTS * sizeof(dr_opmask_t)),
+           0);
+}
+
 #    endif
 
 void
@@ -338,6 +405,7 @@ unit_test_asm(dcontext_t *dc)
 #        endif
 #        ifdef __AVX512F__
     unit_test_get_zmm_caller_saved();
+    unit_test_get_opmask_caller_saved();
 #        endif
 #    endif
 }
