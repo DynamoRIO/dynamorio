@@ -3747,7 +3747,6 @@ endforeach(run)
 # time by too much and keep the following list concise.
 if (NOT DEBUG AND UNIX AND X64 AND NOT CMAKE_COMPILER_IS_CLANG)
   set_tests_properties(
-    unit_tests
     samples_proj
     code_api|common.eflags
     code_api|tool.drcachesim.simple
