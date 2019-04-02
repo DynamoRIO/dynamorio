@@ -1,3 +1,4 @@
+
 /* **********************************************************
  * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
@@ -60,7 +61,6 @@ thread_func(void *arg)
     signal_cond_var(thread_ready);
     while (!thread_should_exit) {
         /* Deliberately empty. */
-        ;
     }
     return THREAD_FUNC_RETURN_ZERO;
 }
