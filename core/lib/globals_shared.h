@@ -1838,6 +1838,14 @@ typedef union _dr_zmm_t {
     reg_t reg[IF_X64_ELSE(8, 16)]; /**< Representation as 8 or 16 registers. */
 } dr_zmm_t;
 
+/** AVX-512 OpMask (k-)register. */
+#ifdef AVOID_API_EXPORT
+/* The register may be only 16 bits wide on systems without AVX512BW, but can be up to
+ * MAX_KL = 64 bits.
+ */
+#endif
+typedef uint64 dr_opmask_t;
+
 #if defined(AARCHXX)
 /**
  * 128-bit ARM SIMD Vn register.
@@ -1873,6 +1881,10 @@ typedef union _dr_simd_t {
 #    define PRE_SIMD_PADDING                                       \
         0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots \
            */
+#    define MCXT_NUM_OPMASK_SLOTS                                    \
+        0 /**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, \
+           * if architecture supports.                               \
+           */
 
 #elif defined(X86)
 
@@ -1906,7 +1918,10 @@ typedef union _dr_simd_t {
 #        define PRE_XMM_PADDING \
             24 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
 #    endif
-
+#    define MCXT_NUM_OPMASK_SLOTS                                    \
+        8 /**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, \
+           * if architecture supports.                               \
+           */
 #else
 #    error NYI
 #endif /* AARCHXX/X86 */
