@@ -595,7 +595,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                         OUT void **handle, OUT uint *num_mods)
 {
     module_read_info_t *info = NULL;
-    uint i, mods_parsed;
+    uint i, mods_parsed = 0;
     uint64 file_size;
     size_t map_size = 0;
     const char *buf, *map_start;
