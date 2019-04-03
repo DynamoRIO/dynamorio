@@ -2371,6 +2371,38 @@ GLOBAL_LABEL(get_zmm_caller_saved:)
         ret
         END_FUNC(get_zmm_caller_saved)
 
+/* void get_opmask_caller_saved(byte *opmask_caller_saved_buf)
+ *   stores the values of k0 through k7 consecutively in 8 byte slots each into
+ *   opmask_caller_saved_buf. opmask_caller_saved_buf need not be 8-byte aligned.
+ *   The caller must ensure that the underlying processor supports AVX-512!
+ *   XXX i#1312: Eventually this routine must dynamically switch the instructions
+ *   used dependent on whether AVX512BW is enabled or not (2 bytes vs. 8 bytes
+ *   OpMask registers).
+ */
+        DECLARE_FUNC(get_opmask_caller_saved)
+GLOBAL_LABEL(get_opmask_caller_saved:)
+        mov      REG_XAX, ARG1
+       /*
+        * c5 f8 91 00       kmovw  %k0,(%rax)
+        * c5 f8 91 48 08    kmovw  %k1,0x8(%rax)
+        * c5 f8 91 50 10    kmovw  %k2,0x10(%rax)
+        * c5 f8 91 58 18    kmovw  %k3,0x18(%rax)
+        * c5 f8 91 60 20    kmovw  %k4,0x20(%rax)
+        * c5 f8 91 68 28    kmovw  %k5,0x28(%rax)
+        * c5 f8 91 70 30    kmovw  %k6,0x30(%rax)
+        * c5 f8 91 78 38    kmovw  %k7,0x38(%rax)
+        */
+        RAW(c5) RAW(f8) RAW(91) RAW(00)
+        RAW(c5) RAW(f8) RAW(91) RAW(48) RAW(08)
+        RAW(c5) RAW(f8) RAW(91) RAW(50) RAW(10)
+        RAW(c5) RAW(f8) RAW(91) RAW(58) RAW(18)
+        RAW(c5) RAW(f8) RAW(91) RAW(60) RAW(20)
+        RAW(c5) RAW(f8) RAW(91) RAW(68) RAW(28)
+        RAW(c5) RAW(f8) RAW(91) RAW(70) RAW(30)
+        RAW(c5) RAW(f8) RAW(91) RAW(78) RAW(38)
+        ret
+        END_FUNC(get_opmask_caller_saved)
+
 /* void hashlookup_null_handler(void)
  * PR 305731: if the app targets NULL, it ends up here, which indirects
  * through hashlookup_null_target to end up in an ibl miss routine.
