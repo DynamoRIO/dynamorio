@@ -1329,6 +1329,8 @@ void
 get_ymm_caller_saved(dr_zmm_t *ymm_caller_saved_buf);
 void
 get_zmm_caller_saved(dr_zmm_t *zmm_caller_saved_buf);
+void
+get_opmask_caller_saved(dr_opmask_t *opmask_caller_saved_buf);
 
 /* in encode.c */
 byte *
