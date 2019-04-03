@@ -119,7 +119,7 @@ static const char *
 parse_alloc_error_cb(const char *src, OUT void **data)
 {
     static int count_calls;
-    if (++count_calls == 2)
+    if (++count_calls == 4)
         return NULL; /* fail to test parsing errors */
     const char *res;
     app_pc module_start;

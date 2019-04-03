@@ -710,7 +710,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
 read_error:
     if (module_free_cb != NULL) {
         for (i = 0; i < mods_parsed; i++)
-            module_free_cb(&info->mod[i].custom);
+            module_free_cb(info->mod[i].custom);
     }
     if (info != NULL) {
         dr_global_free(info->mod, *num_mods * sizeof(*info->mod));
