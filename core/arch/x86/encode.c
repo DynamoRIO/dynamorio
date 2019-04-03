@@ -140,38 +140,42 @@ const char *const reg_names[] = {
 
 /* Maps sub-registers to their containing register. */
 const reg_id_t dr_reg_fixer[] = {
-    REG_NULL,    REG_XAX,   REG_XCX,   REG_XDX,  REG_XBX,   REG_XSP,   REG_XBP,
-    REG_XSI,     REG_XDI,   REG_R8,    REG_R9,   REG_R10,   REG_R11,   REG_R12,
-    REG_R13,     REG_R14,   REG_R15,   REG_XAX,  REG_XCX,   REG_XDX,   REG_XBX,
-    REG_XSP,     REG_XBP,   REG_XSI,   REG_XDI,  REG_R8,    REG_R9,    REG_R10,
-    REG_R11,     REG_R12,   REG_R13,   REG_R14,  REG_R15,   REG_XAX,   REG_XCX,
-    REG_XDX,     REG_XBX,   REG_XSP,   REG_XBP,  REG_XSI,   REG_XDI,   REG_R8,
-    REG_R9,      REG_R10,   REG_R11,   REG_R12,  REG_R13,   REG_R14,   REG_R15,
-    REG_XAX,     REG_XCX,   REG_XDX,   REG_XBX,  REG_XAX,   REG_XCX,   REG_XDX,
-    REG_XBX,     REG_R8,    REG_R9,    REG_R10,  REG_R11,   REG_R12,   REG_R13,
-    REG_R14,     REG_R15,   REG_XSP,   REG_XBP,  REG_XSI,   REG_XDI, /* i#201 */
-    REG_MM0,     REG_MM1,   REG_MM2,   REG_MM3,  REG_MM4,   REG_MM5,   REG_MM6,
-    REG_MM7,     REG_YMM0,  REG_YMM1,  REG_YMM2, REG_YMM3,  REG_YMM4,  REG_YMM5,
-    REG_YMM6,    REG_YMM7,  REG_YMM8,  REG_YMM9, REG_YMM10, REG_YMM11, REG_YMM12,
-    REG_YMM13,   REG_YMM14, REG_YMM15, REG_ST0,  REG_ST1,   REG_ST2,   REG_ST3,
-    REG_ST4,     REG_ST5,   REG_ST6,   REG_ST7,  SEG_ES,    SEG_CS,    SEG_SS,
-    SEG_DS,      SEG_FS,    SEG_GS,    REG_DR0,  REG_DR1,   REG_DR2,   REG_DR3,
-    REG_DR4,     REG_DR5,   REG_DR6,   REG_DR7,  REG_DR8,   REG_DR9,   REG_DR10,
-    REG_DR11,    REG_DR12,  REG_DR13,  REG_DR14, REG_DR15,  REG_CR0,   REG_CR1,
-    REG_CR2,     REG_CR3,   REG_CR4,   REG_CR5,  REG_CR6,   REG_CR7,   REG_CR8,
-    REG_CR9,     REG_CR10,  REG_CR11,  REG_CR12, REG_CR13,  REG_CR14,  REG_CR15,
-    REG_INVALID, REG_YMM0,  REG_YMM1,  REG_YMM2, REG_YMM3,  REG_YMM4,  REG_YMM5,
-    REG_YMM6,    REG_YMM7,  REG_YMM8,  REG_YMM9, REG_YMM10, REG_YMM11, REG_YMM12,
-    REG_YMM13,   REG_YMM14, REG_YMM15,
+    DR_REG_NULL,  DR_REG_XAX,   DR_REG_XCX,   DR_REG_XDX,   DR_REG_XBX,     DR_REG_XSP,
+    DR_REG_XBP,   DR_REG_XSI,   DR_REG_XDI,   DR_REG_R8,    DR_REG_R9,      DR_REG_R10,
+    DR_REG_R11,   DR_REG_R12,   DR_REG_R13,   DR_REG_R14,   DR_REG_R15,     DR_REG_XAX,
+    DR_REG_XCX,   DR_REG_XDX,   DR_REG_XBX,   DR_REG_XSP,   DR_REG_XBP,     DR_REG_XSI,
+    DR_REG_XDI,   DR_REG_R8,    DR_REG_R9,    DR_REG_R10,   DR_REG_R11,     DR_REG_R12,
+    DR_REG_R13,   DR_REG_R14,   DR_REG_R15,   DR_REG_XAX,   DR_REG_XCX,     DR_REG_XDX,
+    DR_REG_XBX,   DR_REG_XSP,   DR_REG_XBP,   DR_REG_XSI,   DR_REG_XDI,     DR_REG_R8,
+    DR_REG_R9,    DR_REG_R10,   DR_REG_R11,   DR_REG_R12,   DR_REG_R13,     DR_REG_R14,
+    DR_REG_R15,   DR_REG_XAX,   DR_REG_XCX,   DR_REG_XDX,   DR_REG_XBX,     DR_REG_XAX,
+    DR_REG_XCX,   DR_REG_XDX,   DR_REG_XBX,   DR_REG_R8,    DR_REG_R9,      DR_REG_R10,
+    DR_REG_R11,   DR_REG_R12,   DR_REG_R13,   DR_REG_R14,   DR_REG_R15,     DR_REG_XSP,
+    DR_REG_XBP,   DR_REG_XSI,   DR_REG_XDI, /* i#201 */
+    DR_REG_MM0,   DR_REG_MM1,   DR_REG_MM2,   DR_REG_MM3,   DR_REG_MM4,     DR_REG_MM5,
+    DR_REG_MM6,   DR_REG_MM7,   DR_REG_YMM0,  DR_REG_YMM1,  DR_REG_YMM2,    DR_REG_YMM3,
+    DR_REG_YMM4,  DR_REG_YMM5,  DR_REG_YMM6,  DR_REG_YMM7,  DR_REG_YMM8,    DR_REG_YMM9,
+    DR_REG_YMM10, DR_REG_YMM11, DR_REG_YMM12, DR_REG_YMM13, DR_REG_YMM14,   DR_REG_YMM15,
+    DR_REG_ST0,   DR_REG_ST1,   DR_REG_ST2,   DR_REG_ST3,   DR_REG_ST4,     DR_REG_ST5,
+    DR_REG_ST6,   DR_REG_ST7,   DR_SEG_ES,    DR_SEG_CS,    DR_SEG_SS,      DR_SEG_DS,
+    DR_SEG_FS,    DR_SEG_GS,    DR_REG_DR0,   DR_REG_DR1,   DR_REG_DR2,     DR_REG_DR3,
+    DR_REG_DR4,   DR_REG_DR5,   DR_REG_DR6,   DR_REG_DR7,   DR_REG_DR8,     DR_REG_DR9,
+    DR_REG_DR10,  DR_REG_DR11,  DR_REG_DR12,  DR_REG_DR13,  DR_REG_DR14,    DR_REG_DR15,
+    DR_REG_CR0,   DR_REG_CR1,   DR_REG_CR2,   DR_REG_CR3,   DR_REG_CR4,     DR_REG_CR5,
+    DR_REG_CR6,   DR_REG_CR7,   DR_REG_CR8,   DR_REG_CR9,   DR_REG_CR10,    DR_REG_CR11,
+    DR_REG_CR12,  DR_REG_CR13,  DR_REG_CR14,  DR_REG_CR15,  DR_REG_INVALID, DR_REG_YMM0,
+    DR_REG_YMM1,  DR_REG_YMM2,  DR_REG_YMM3,  DR_REG_YMM4,  DR_REG_YMM5,    DR_REG_YMM6,
+    DR_REG_YMM7,  DR_REG_YMM8,  DR_REG_YMM9,  DR_REG_YMM10, DR_REG_YMM11,   DR_REG_YMM12,
+    DR_REG_YMM13, DR_REG_YMM14, DR_REG_YMM15,
 };
 
 #ifdef DEBUG
 void
 encode_debug_checks(void)
 {
-    CLIENT_ASSERT(sizeof(dr_reg_fixer) / sizeof(dr_reg_fixer[0]) == REG_LAST_ENUM + 1,
+    CLIENT_ASSERT(sizeof(dr_reg_fixer) / sizeof(dr_reg_fixer[0]) == DR_REG_LAST_ENUM + 1,
                   "internal register enum error");
-    CLIENT_ASSERT(sizeof(reg_names) / sizeof(reg_names[0]) == REG_LAST_ENUM + 1,
+    CLIENT_ASSERT(sizeof(reg_names) / sizeof(reg_names[0]) == DR_REG_LAST_ENUM + 1,
                   "reg_names missing an entry");
     CLIENT_ASSERT(sizeof(type_names) / sizeof(type_names[0]) == TYPE_BEYOND_LAST_ENUM,
                   "type_names missing an entry");

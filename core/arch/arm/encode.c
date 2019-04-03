@@ -759,9 +759,9 @@ encode_reset_it_block(dcontext_t *dcontext)
 void
 encode_debug_checks(void)
 {
-    CLIENT_ASSERT(sizeof(dr_reg_fixer) / sizeof(dr_reg_fixer[0]) == REG_LAST_ENUM + 1,
+    CLIENT_ASSERT(sizeof(dr_reg_fixer) / sizeof(dr_reg_fixer[0]) == DR_REG_LAST_ENUM + 1,
                   "internal register enum error");
-    CLIENT_ASSERT(sizeof(reg_names) / sizeof(reg_names[0]) == REG_LAST_ENUM + 1,
+    CLIENT_ASSERT(sizeof(reg_names) / sizeof(reg_names[0]) == DR_REG_LAST_ENUM + 1,
                   "reg_names missing an entry");
     CLIENT_ASSERT(sizeof(type_names) / sizeof(type_names[0]) == TYPE_BEYOND_LAST_ENUM,
                   "type_names missing an entry");
