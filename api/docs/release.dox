@@ -145,9 +145,6 @@ compatibility changes:
    expression and code relying on this needs to be rewritten.
    DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY is set automatically if clients target
    version 7.1.0 or earlier.
- - Added the type #dr_zmm_t.
- - Added the type #dr_opmask_t.
- - Added the define #MCXT_NUM_OPMASK_SLOTS for the number of AVX-512 OpMask registers.
 
 Further non-compatibility-affecting changes include:
 
@@ -156,6 +153,9 @@ Further non-compatibility-affecting changes include:
  - Added new fields to #dr_os_version_info_t which contain the build number,
    edition, and Windows 10 release identifier.
  - Added the function instr_is_xsave().
+ - Added the type #dr_zmm_t.
+ - Added the type #dr_opmask_t.
+ - Added the define #MCXT_NUM_OPMASK_SLOTS for the number of AVX-512 OpMask registers.
 
 **************************************************
 <hr>
