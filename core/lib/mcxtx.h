@@ -260,8 +260,8 @@
 #    endif
         dr_zmm_t simd[MCXT_NUM_SIMD_SLOTS];
         /**
-         * The ymm field is provided for backward compatibility and is an alias for the
-         * simd field.
+         * \deprecated The ymm field is provided for backward compatibility and is an
+         * alias for the simd field.
          */
         dr_zmm_t ymm[MCXT_NUM_SIMD_SLOTS];
     };
