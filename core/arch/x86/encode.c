@@ -31,7 +31,6 @@
  * DAMAGE.
  */
 
-/* Copyright (c) 2019 Google */
 /* Copyright (c) 2003-2007 Determina Corp. */
 /* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
 /* Copyright (c) 2001 Hewlett-Packard Company */
