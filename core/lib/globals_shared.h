@@ -1281,9 +1281,8 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #    define INJECT_HELPER_DLL2_NAME "drearlyhelp2.dll"
 
 #    define DEBUGGER_INJECTION_HIVE HKEY_LOCAL_MACHINE
-#    define DEBUGGER_INJECTION_KEY                                               \
-        "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution " \
-        "Options"
+#    define DEBUGGER_INJECTION_KEY \
+        "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options"
 #    define DEBUGGER_INJECTION_VALUE_NAME "Debugger"
 
 #    define DEBUGGER_INJECTION_HIVE_L L"\\Registry\\Machine\\"
