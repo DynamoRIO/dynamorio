@@ -256,5 +256,11 @@
      * bytes.
      */
 #    endif
-    dr_zmm_t simd[MCXT_NUM_SIMD_SLOTS];
+    union {
+        dr_zmm_t simd[MCXT_NUM_SIMD_SLOTS];
+#    ifdef AVOID_API_EXPORT
+        /* The ymm field is provided for backward compat. */
+#    endif
+        dr_zmm_t ymm[MCXT_NUM_SIMD_SLOTS];
+    };
 #endif /* ARM/X86 */
