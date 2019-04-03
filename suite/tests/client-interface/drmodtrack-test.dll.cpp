@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -80,6 +80,63 @@ static void
 free_cb(void *data)
 {
     /* Nothing. */
+}
+
+/* We do simple leak checking via a counter.  We assume single-threaded code. */
+static int alloc_counter;
+
+static void *
+my_alloc(void)
+{
+    ++alloc_counter;
+    return dr_global_alloc(sizeof(app_pc));
+}
+
+static void
+my_free(void *ptr)
+{
+    CHECK(alloc_counter > 0, "double free");
+    --alloc_counter;
+    dr_global_free(ptr, sizeof(app_pc));
+}
+
+static const char *
+parse_alloc_cb(const char *src, OUT void **data)
+{
+    const char *res;
+    app_pc module_start;
+    if (dr_sscanf(src, PIFX ",", &module_start) != 1)
+        return NULL;
+    /* We store it on the heap to test leaks. */
+    app_pc *ptr_to_start = (app_pc *)my_alloc();
+    *ptr_to_start = module_start;
+    *data = ptr_to_start;
+    res = strchr(src, ',');
+    return (res == NULL) ? NULL : res + 1;
+}
+
+static const char *
+parse_alloc_error_cb(const char *src, OUT void **data)
+{
+    static int count_calls;
+    if (++count_calls == 4)
+        return NULL; /* fail to test parsing errors */
+    const char *res;
+    app_pc module_start;
+    if (dr_sscanf(src, PIFX ",", &module_start) != 1)
+        return NULL;
+    /* We store it on the heap to test leaks. */
+    app_pc *ptr_to_start = (app_pc *)my_alloc();
+    *ptr_to_start = module_start;
+    *data = ptr_to_start;
+    res = strchr(src, ',');
+    return (res == NULL) ? NULL : res + 1;
+}
+
+static void
+free_alloc_cb(void *data)
+{
+    my_free(data);
 }
 
 static void
@@ -165,16 +222,41 @@ event_exit(void)
     CHECK(wrote == strlen(buf_offline) + 1 /*null*/, "returned size off");
     CHECK(strcmp(buf_online, buf_offline) == 0, "buffers do not match");
 
+    res = drmodtrack_offline_exit(modhandle);
+    CHECK(res == DRCOVLIB_SUCCESS, "exit failed");
+    modhandle = NULL;
+    dr_global_free(buf_online, size_online);
+    dr_global_free(buf_offline, size_offline);
+
+    /* We do some more offline reads, to test leaks on parsing errors. */
+    /* First ensure no leaks on successful parsing. */
+    res = drmodtrack_add_custom_data(load_cb, print_cb, parse_alloc_cb, free_alloc_cb);
+    CHECK(res == DRCOVLIB_SUCCESS, "customization failed");
+    void *modhandle2;
+    res = drmodtrack_offline_read(f, NULL, NULL, &modhandle2, &num_mods);
+    CHECK(res == DRCOVLIB_SUCCESS, "read failed");
+    res = drmodtrack_offline_exit(modhandle2);
+    CHECK(res == DRCOVLIB_SUCCESS, "exit failed");
+    modhandle2 = NULL;
+    CHECK(alloc_counter == 0, "memory leak");
+    /* Now ensure no leaks on a parsing error. */
+    res = drmodtrack_add_custom_data(load_cb, print_cb, parse_alloc_error_cb,
+                                     free_alloc_cb);
+    CHECK(res == DRCOVLIB_SUCCESS, "customization failed");
+    void *modhandle3;
+    res = drmodtrack_offline_read(f, NULL, NULL, &modhandle3, &num_mods);
+    CHECK(res == DRCOVLIB_ERROR, "read should fail");
+    modhandle3 = NULL;
+    CHECK(alloc_counter == 0, "memory leak");
+
+    /* Final cleanup. */
     dr_close_file(f);
     ok = dr_delete_file(fname);
     CHECK(ok, "failed to delete file");
 
-    res = drmodtrack_offline_exit(modhandle);
-    CHECK(res == DRCOVLIB_SUCCESS, "exit failed");
-
-    dr_global_free(buf_online, size_online);
-    dr_global_free(buf_offline, size_offline);
-
+    /* We have to restore the old free_cb as it will be called on the live table. */
+    res = drmodtrack_add_custom_data(load_cb, print_cb, parse_cb, free_cb);
+    CHECK(res == DRCOVLIB_SUCCESS, "customization failed");
     res = drmodtrack_exit();
     CHECK(res == DRCOVLIB_SUCCESS, "module exit failed");
 }
