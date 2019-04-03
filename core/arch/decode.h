@@ -264,7 +264,6 @@ enum {
     OPSZ_32,              /**< 32 bytes: pusha/popa
                            * Also Intel 'qq','pd','ps','x': 32 bytes (256 bits) */
     OPSZ_40,              /**< 40 bytes: 64-bit iret */
-    OPSZ_64,              /**< 64 bytes (512 bits) */
     OPSZ_32_short16,      /**< unresolved pusha/popa */
     OPSZ_8_rex16,         /**< cmpxcgh8b/cmpxchg16b */
     OPSZ_8_rex16_short4,  /**< Intel 'v' * 2 (far call/ret) */
@@ -303,6 +302,8 @@ enum {
     OPSZ_52,  /**< 52 bytes.  Needed for load/store of register lists. */
     OPSZ_56,  /**< 56 bytes.  Needed for load/store of register lists. */
     OPSZ_60,  /**< 60 bytes.  Needed for load/store of register lists. */
+    OPSZ_64,  /**< 64 bytes.  Needed for load/store of register lists.
+               * Also Intel: 64 bytes (512 bits) */
     OPSZ_68,  /**< 68 bytes.  Needed for load/store of register lists. */
     OPSZ_72,  /**< 72 bytes.  Needed for load/store of register lists. */
     OPSZ_76,  /**< 76 bytes.  Needed for load/store of register lists. */
@@ -390,7 +391,7 @@ enum {
     OPSZ_14_of_16,           /* 112 bits; all but one word of XMM */
     OPSZ_15_of_16,           /* 120 bits: all but one byte of XMM */
     OPSZ_8_of_16_vex32,      /* 64 bits, but can be half of XMM register;
-                              * if vex.L then is 256 bits (YMM or memory)
+                              * if vex.L then is 256 bits (YMM or memory);
                               * if evex.L' then is 512 bits (ZMM or memory)
                               */
     OPSZ_16_of_32,           /* 128 bits: half of YMM */

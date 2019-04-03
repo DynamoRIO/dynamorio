@@ -571,6 +571,7 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
   endif (UNIX)
 
   if (DynamoRIO_REG_COMPATIBILITY)
+    # amhere
     set(extra_cflags "${extra_cflags} -DDR_REG_ENUM_COMPATIBILITY")
   endif (DynamoRIO_REG_COMPATIBILITY)
 
