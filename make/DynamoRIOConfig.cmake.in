@@ -178,7 +178,10 @@
 #  set(DynamoRIO_VISATT ON)
 #
 # To request the old REG_ enum symbols (which were changed to DR_REG_ to
-# avoid conflicts with system headers) set this variable:
+# avoid conflicts with system headers) set this variable (all AVX-512 registers
+# like DR_REG_XMM15 - DR_REG_XMM31 and their YMM and ZMM versions as well as
+# DR_REG_K0 - DR_REG_K7 are excluded from this):
+#
 #
 #  set(DynamoRIO_REG_COMPATIBILITY ON)
 #

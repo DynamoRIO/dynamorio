@@ -1167,14 +1167,6 @@ extern const reg_id_t dr_reg_fixer[];
 #    define REG_YMM13 DR_REG_YMM13
 #    define REG_YMM14 DR_REG_YMM14
 #    define REG_YMM15 DR_REG_YMM15
-#    define REG_K0 DR_REG_K0
-#    define REG_K1 DR_REG_K1
-#    define REG_K2 DR_REG_K2
-#    define REG_K3 DR_REG_K3
-#    define REG_K4 DR_REG_K4
-#    define REG_K5 DR_REG_K5
-#    define REG_K6 DR_REG_K6
-#    define REG_K7 DR_REG_K7
 #endif /* X86 && DR_REG_ENUM_COMPATIBILITY */
 /* DR_API EXPORT END */
 
