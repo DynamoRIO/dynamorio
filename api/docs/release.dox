@@ -156,6 +156,7 @@ Further non-compatibility-affecting changes include:
  - Added the type #dr_zmm_t.
  - Added the type #dr_opmask_t.
  - Added the define #MCXT_NUM_OPMASK_SLOTS for the number of AVX-512 OpMask registers.
+ - Renamed mcontext's ymm structure into simd.
 
 **************************************************
 <hr>
