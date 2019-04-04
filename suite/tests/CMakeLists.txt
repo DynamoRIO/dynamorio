@@ -3752,6 +3752,25 @@ endforeach(run)
 # Google's use of the drcachesim client. We do not want to extend the Travis regression
 # time by too much and keep the following list concise.
 if (NOT DEBUG AND UNIX AND X64 AND NOT CMAKE_COMPILER_IS_CLANG)
+  if (X86)
+    set_tests_properties(
+      code_api|tool.drcachesim.threads
+      code_api|tool.drcachesim.threads-with-config-file
+      code_api|tool.drcachesim.TLB-threads
+      code_api|tool.drcacheoff.basic_counts
+      code_api|tool.drcacheoff.burst_static
+      code_api|tool.drcacheoff.burst_replace
+      code_api|tool.drcacheoff.burst_replaceall
+      code_api|tool.drcacheoff.burst_noreach
+      code_api|tool.drcacheoff.burst_maps
+      code_api|tool.drcacheoff.burst_threads
+      code_api|tool.drcacheoff.burst_malloc
+      code_api|tool.drcacheoff.burst_threadfilter
+      code_api|tool.drcacheoff.burst_threadL0filter
+      code_api|tool.drcacheoff.burst_client
+      code_api|tool.drcacheoff.legacy
+      PROPERTIES LABELS RUN_IN_RELEASE)
+  endif (X86)
   set_tests_properties(
     samples_proj
     code_api|common.${control_flags}
@@ -3767,28 +3786,13 @@ if (NOT DEBUG AND UNIX AND X64 AND NOT CMAKE_COMPILER_IS_CLANG)
     code_api|tool.drcachesim.delay-simple
     code_api|tool.drcachesim.warmup-valid
     code_api|tool.drcachesim.warmup-zeros
-    code_api|tool.drcachesim.threads
-    code_api|tool.drcachesim.threads-with-config-file
-    code_api|tool.drcachesim.TLB-threads
     code_api|tool.drcachesim.multiproc
     code_api|tool.drcachesim.miss_analyzer
     code_api|tool.drcacheoff.simple
     code_api|tool.drcacheoff.multiproc
     code_api|tool.drcacheoff.filter
-    code_api|tool.drcacheoff.basic_counts
     code_api|tool.drcacheoff.opcode_mix
     code_api|tool.drcacheoff.view
-    code_api|tool.drcacheoff.burst_static
-    code_api|tool.drcacheoff.burst_replace
-    code_api|tool.drcacheoff.burst_replaceall
-    code_api|tool.drcacheoff.burst_noreach
-    code_api|tool.drcacheoff.burst_maps
-    code_api|tool.drcacheoff.burst_threads
-    code_api|tool.drcacheoff.burst_malloc
-    code_api|tool.drcacheoff.burst_threadfilter
-    code_api|tool.drcacheoff.burst_threadL0filter
-    code_api|tool.drcacheoff.burst_client
-    code_api|tool.drcacheoff.legacy
     PROPERTIES LABELS RUN_IN_RELEASE)
 endif ()
 
