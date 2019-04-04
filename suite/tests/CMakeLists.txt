@@ -3752,6 +3752,7 @@ endforeach(run)
 # Google's use of the drcachesim client. We do not want to extend the Travis regression
 # time by too much and keep the following list concise.
 if (NOT DEBUG AND UNIX AND X64 AND NOT CMAKE_COMPILER_IS_CLANG)
+  # XXX i#3479: We might want to add the label to individual tests above instead.
   if (X86)
     set_tests_properties(
       code_api|tool.drcachesim.threads
