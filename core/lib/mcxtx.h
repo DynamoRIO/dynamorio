@@ -218,6 +218,10 @@
                                           rip/eip register. */
     };
     byte padding[PRE_XMM_PADDING]; /**< The padding to get zmm field 64-byte aligned. */
+    /**
+     * Anonymous union of alternative names for the simd structure in dr_mcontext_t. The
+     * deprecated name ymm is provided for backward compatibility.
+     */
     union {
         /**
          * The SSE registers xmm0-xmm5 (-xmm15 on Linux) are volatile
