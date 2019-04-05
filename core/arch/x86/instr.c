@@ -192,7 +192,7 @@ opc_is_not_a_real_memory_load(int opc)
  */
 static bool
 instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, instr_t *instr,
-                         int ordinal, priv_mcontreg_ext_t *mc, size_t mc_size,
+                         int ordinal, priv_mcontext_t *mc, size_t mc_size,
                          dr_mcontext_flags_t mc_flags)
 {
     /* XXX i#1312: Needs support for AVX-512. */
@@ -1879,37 +1879,47 @@ reg_is_simd(reg_id_t reg)
 bool
 reg_is_opmask(reg_id_t reg)
 {
-    return (reg >= REG_START_OPMASK && reg <= REG_STOP_OPMASK);
+    return (reg >= DR_REG_START_OPMASK && reg <= DR_REG_STOP_OPMASK);
 }
 
 bool
 reg_is_zmm(reg_id_t reg)
 {
-    return (reg >= REG_START_ZMM && reg <= REG_STOP_ZMM);
+    return (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM);
 }
 
 bool
 reg_is_ymm(reg_id_t reg)
 {
-    return (reg >= REG_START_YMM && reg <= REG_STOP_YMM);
+    return (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) || reg_is_zmm(reg);
 }
 
 bool
 reg_is_xmm(reg_id_t reg)
 {
-    return (reg >= REG_START_XMM && reg <= REG_STOP_XMM) || reg_is_ymm(reg);
+    return (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) ||
+        (reg >= DR_REG_START_EXT_XMM && reg <= DR_REG_STOP_EXT_XMM) || reg_is_ymm(reg) ||
+        reg_is_zmm(reg);
+}
+
+bool
+reg_is_ext_xmm(reg_id_t reg)
+{
+    return (reg >= DR_REG_START_EXT_XMM && reg <= DR_REG_STOP_EXT_XMM) ||
+        (reg >= DR_REG_YMM16 && reg <= DR_REG_YMM31) ||
+        (reg >= DR_REG_ZMM16 && reg <= DR_REG_ZMM31);
 }
 
 bool
 reg_is_mmx(reg_id_t reg)
 {
-    return (reg >= REG_START_MMX && reg <= REG_STOP_MMX);
+    return (reg >= DR_REG_START_MMX && reg <= DR_REG_STOP_MMX);
 }
 
 bool
 reg_is_fp(reg_id_t reg)
 {
-    return (reg >= REG_START_FLOAT && reg <= REG_STOP_FLOAT);
+    return (reg >= DR_REG_START_FLOAT && reg <= DR_REG_STOP_FLOAT);
 }
 
 bool

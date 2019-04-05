@@ -182,7 +182,7 @@ enum {
  * starting at the same spot, now midway through the reg enum:
  */
 #ifdef X86
-    OPSZ_NA = DR_REG_INVALID + 1,
+    OPSZ_NA = RESERVED_XMM + 1,
 /**< Sentinel value: not a valid size. */ /* = 140 */
 #else
     OPSZ_NA = 0, /**< Sentinel value: not a valid size. */

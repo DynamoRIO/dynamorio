@@ -241,6 +241,14 @@ enum {
     DR_REG_XMM29,
     DR_REG_XMM30,
     DR_REG_XMM31,
+    /* 32 enums are reserved for future Intel SIMD extensions. */
+    RESERVED_XMM = DR_REG_XMM31 + 32,
+#    ifdef AVOID_API_EXPORT
+/* Below here overlaps with OPSZ_ enum but all cases where the two
+ * are used in the same field (instr_info_t operand sizes) have the type
+ * and distinguish properly.
+ */
+#    endif
     /* floating point registers */
     DR_REG_ST0,
     DR_REG_ST1,
@@ -257,7 +265,8 @@ enum {
     DR_SEG_DS,
     DR_SEG_FS,
     DR_SEG_GS,
-    /* debug & control registers (privileged access only; 8-15 for future processors) */
+    /* debug & control registers (privileged access only; 8-15 for future processors)
+     */
     DR_REG_DR0,
     DR_REG_DR1,
     DR_REG_DR2,
@@ -292,13 +301,6 @@ enum {
     DR_REG_CR14,
     DR_REG_CR15,
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
-
-#    ifdef AVOID_API_EXPORT
-/* Below here overlaps with OPSZ_ enum but all cases where the two
- * are used in the same field (instr_info_t operand sizes) have the type
- * and distinguish properly.
- */
-#    endif
     /* 256-BIT YMM */
     DR_REG_YMM0,
     DR_REG_YMM1,
@@ -332,6 +334,8 @@ enum {
     DR_REG_YMM29,
     DR_REG_YMM30,
     DR_REG_YMM31,
+    /* 32 enums are reserved for future Intel SIMD extensions. */
+    RESERVED_YMM = DR_REG_YMM31 + 32,
     /* 512-BIT ZMM */
     DR_REG_ZMM0,
     DR_REG_ZMM1,
@@ -365,6 +369,8 @@ enum {
     DR_REG_ZMM29,
     DR_REG_ZMM30,
     DR_REG_ZMM31,
+    /* 32 enums are reserved for future Intel SIMD extensions. */
+    RESERVED_ZMM = DR_REG_ZMM31 + 32,
     /* opmask registers */
     DR_REG_K0,
     DR_REG_K1,
@@ -788,7 +794,8 @@ enum {
     DR_REG_FP = DR_REG_R11,  /**< Alias for the r11 register. */
     DR_REG_IP = DR_REG_R12,  /**< Alias for the r12 register. */
 #    ifndef AARCH64
-    /** Alias for cpsr register (thus this is the full cpsr, not just the apsr bits). */
+    /** Alias for cpsr register (thus this is the full cpsr, not just the apsr bits).
+     */
     DR_REG_APSR = DR_REG_CPSR,
 #    endif
 
@@ -921,10 +928,14 @@ extern const reg_id_t dr_reg_fixer[];
         DR_REG_SPL /**< Start of 8-bit x64-only register enum values*/
 #    define DR_REG_STOP_x64_8 \
         DR_REG_DIL /**< Stop of 8-bit x64-only register enum values */
-#    define DR_REG_START_MMX DR_REG_MM0   /**< Start of mmx register enum values */
-#    define DR_REG_STOP_MMX DR_REG_MM7    /**< End of mmx register enum values */
-#    define DR_REG_START_XMM DR_REG_XMM0  /**< Start of xmm register enum values */
-#    define DR_REG_STOP_XMM DR_REG_XMM31  /**< End of xmm register enum values */
+#    define DR_REG_START_MMX DR_REG_MM0  /**< Start of mmx register enum values */
+#    define DR_REG_STOP_MMX DR_REG_MM7   /**< End of mmx register enum values */
+#    define DR_REG_START_XMM DR_REG_XMM0 /**< Start of sse xmm register enum values */
+#    define DR_REG_STOP_XMM DR_REG_XMM15 /**< End of sse xmm register enum values */
+#    define DR_REG_START_EXT_XMM \
+        DR_REG_XMM16 /**< Start of AVX-512 xmm register enum values */
+#    define DR_REG_STOP_EXT_XMM \
+        DR_REG_XMM31                      /**< End of AVX-512 xmm register enum values */
 #    define DR_REG_START_YMM DR_REG_YMM0  /**< Start of ymm register enum values */
 #    define DR_REG_STOP_YMM DR_REG_YMM31  /**< End of ymm register enum values */
 #    define DR_REG_START_ZMM DR_REG_ZMM0  /**< Start of zmm register enum values */
@@ -1437,7 +1448,7 @@ INSTR_INLINE
  * Returns a register operand corresponding to a part of the
  * register represented by the DR_REG_ constant \p r.
  *
- * On x86, \p r must be a multimedia (mmx, xmm, ymm or zmm) register.  For
+ * On x86, \p r must be a multimedia (mmx, xmm, ymm, zmm) register.  For
  * partial general-purpose registers on x86, use the appropriate
  * sub-register name with opnd_create_reg() instead.
  */
@@ -2432,7 +2443,7 @@ DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to an xmm (128-bit SSE/SSE2) register
- * or a ymm (256-bit multimedia) register.
+ * or a ymm (256-bit multimedia) or a zmm (512-bit multimedia) register.
  */
 bool
 reg_is_xmm(reg_id_t reg);
@@ -2440,7 +2451,18 @@ reg_is_xmm(reg_id_t reg);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
- * Returns true iff it refers to a ymm (256-bit multimedia) register.
+ * Returns true iff it refers to an AVX-512 extended xmm16 - xmm31 (128-bit SSE/SSE2)
+ * register or a ymm16 - ymm31 (256-bit multimedia) or a zmm16 - zmm31 (512-bit
+ * multimedia) register.
+ */
+bool
+reg_is_ext_xmm(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to a ymm (256-bit multimedia) or a zmm
+ * (512-bit multimedia) register.
  */
 bool
 reg_is_ymm(reg_id_t reg);
