@@ -724,7 +724,6 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
     info = *ret_info;
 
     CLIENT_ASSERT(info->type == EVEX_PREFIX_EXT, "internal evex decoding error");
-    CLIENT_ASSERT(info->code == PREFIX_EVEX, "internal evex decoding error");
 
     /* If 64-bit mode or EVEX.R' bit is flipped, P[3:2] are 0
      * and P[10] is 1 then this is evex
@@ -736,6 +735,8 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
         *ret_info = &evex_prefix_extensions[0][0];
         return pc;
     }
+
+    CLIENT_ASSERT(info->code == PREFIX_EVEX, "internal evex decoding error");
 
     /* read 2nd evex byte */
     instr_byte = *pc;
@@ -1307,7 +1308,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     switch (which_reg) {
     case DECODE_REG_REG:
         reg = di->reg;
-        extend = X64_MODE(di) && (TEST(PREFIX_REX_R, di->prefixes)
+        extend = X64_MODE(di) && (TEST(PREFIX_REX_R, di->prefixes) ||
                  TEST(PREFIX_EVEX_RR, di->prefixes)); /* for evex instructions */;
         break;
     case DECODE_REG_BASE:

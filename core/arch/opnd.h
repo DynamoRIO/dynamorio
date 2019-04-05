@@ -887,6 +887,8 @@ extern const reg_id_t dr_reg_fixer[];
 #    define DR_REG_STOP_XMM DR_REG_XMM15 /**< End of xmm register enum values */
 #    define DR_REG_START_YMM DR_REG_YMM0 /**< Start of ymm register enum values */
 #    define DR_REG_STOP_YMM DR_REG_YMM15 /**< End of ymm register enum values */
+#    define DR_REG_START_ZMM DR_REG_ZMM0 /**< Start of zmm register enum values */
+#    define DR_REG_STOP_ZMM DR_REG_ZMM31 /**< End of zmm register enum values */
 #    define DR_REG_START_FLOAT \
         DR_REG_ST0 /**< Start of floating-point-register enum values*/
 #    define DR_REG_STOP_FLOAT \
@@ -901,8 +903,8 @@ extern const reg_id_t dr_reg_fixer[];
  * Last valid register enum value.  Note: DR_REG_INVALID is now smaller
  * than this value.
  */
-#    define DR_REG_LAST_VALID_ENUM DR_REG_YMM15
-#    define DR_REG_LAST_ENUM DR_REG_YMM15 /**< Last value of register enums */
+#    define DR_REG_LAST_VALID_ENUM DR_REG_ZMM31
+#    define DR_REG_LAST_ENUM DR_REG_ZMM31 /**< Last value of register enums */
 #endif                                    /* X86 */
 /* DR_API EXPORT END */
 
