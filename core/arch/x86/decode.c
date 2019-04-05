@@ -1307,7 +1307,8 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     switch (which_reg) {
     case DECODE_REG_REG:
         reg = di->reg;
-        extend = X64_MODE(di) && TEST(PREFIX_REX_R, di->prefixes);
+        extend = X64_MODE(di) && (TEST(PREFIX_REX_R, di->prefixes)
+                 TEST(PREFIX_EVEX_RR, di->prefixes)); /* for evex instructions */;
         break;
     case DECODE_REG_BASE:
         reg = di->base;
@@ -1339,14 +1340,16 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_W:
     case TYPE_V_MODRM:
     case TYPE_VSIB:
-        return ((TEST(PREFIX_VEX_L, di->prefixes) &&
-                 /* Not only do we use this for .LIG (where raw reg is either
-                  * OPSZ_32 or OPSZ_16_vex32) but also for VSIB which currently
-                  * does not get up to OPSZ_16 so we can use this negative check.
-                  */
-                 expand_subreg_size(opsize) != OPSZ_16)
-                    ? (extend ? (REG_START_YMM + 8 + reg) : (REG_START_YMM + reg))
-                    : (extend ? (REG_START_XMM + 8 + reg) : (REG_START_XMM + reg)));
+        return ((TEST(PREFIX_EVEX_RR, di->prefixes))
+                   ? (extend ? (REG_START_ZMM + 16 + reg) : (REG_START_ZMM + reg))
+                   : ((TEST(PREFIX_VEX_L, di->prefixes) &&
+                     /* Not only do we use this for .LIG (where raw reg is either
+                      * OPSZ_32 or OPSZ_16_vex32) but also for VSIB which currently
+                      * does not get up to OPSZ_16 so we can use this negative check.
+                      */
+                      expand_subreg_size(opsize) != OPSZ_16)
+                        ? (extend ? (REG_START_YMM + 8 + reg) : (REG_START_YMM + reg))
+                        : (extend ? (REG_START_XMM + 8 + reg) : (REG_START_XMM + reg))));
     case TYPE_S:
         if (reg >= 6)
             return REG_NULL;

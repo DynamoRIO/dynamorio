@@ -1982,6 +1982,7 @@ reg_is_extended(reg_id_t reg)
             (reg >= REG_START_x64_8 && reg <= REG_STOP_x64_8) ||
             (reg >= REG_START_XMM + 8 && reg <= REG_STOP_XMM) ||
             (reg >= REG_START_YMM + 8 && reg <= REG_STOP_YMM) ||
+            (reg >= REG_START_ZMM + 16 && reg <= REG_STOP_ZMM) ||
             (reg >= REG_START_DR + 8 && reg <= REG_STOP_DR) ||
             (reg >= REG_START_CR + 8 && reg <= REG_STOP_CR));
 }
@@ -2078,6 +2079,8 @@ reg_get_bits(reg_id_t reg)
         return (byte)((reg - REG_START_XMM) % 8);
     if (reg >= REG_START_YMM && reg <= REG_STOP_YMM)
         return (byte)((reg - REG_START_YMM) % 8);
+    if (reg >= REG_START_ZMM && reg <= REG_STOP_ZMM)
+        return (byte)((reg - REG_START_ZMM) % 16);
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return (byte)((reg - REG_START_SEGMENT) % 8);
     if (reg >= REG_START_DR && reg <= REG_STOP_DR)
@@ -2118,6 +2121,8 @@ reg_get_size(reg_id_t reg)
         return OPSZ_16;
     if (reg >= REG_START_YMM && reg <= REG_STOP_YMM)
         return OPSZ_32;
+    if (reg >= REG_START_ZMM && reg <= REG_STOP_ZMM)
+        return OPSZ_64;
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return OPSZ_2;
     if (reg >= REG_START_DR && reg <= REG_STOP_DR)
