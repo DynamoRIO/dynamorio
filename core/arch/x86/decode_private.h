@@ -70,6 +70,7 @@
 #define PREFIX_VEX_L 0x000040000
 /* Also only used during initial decode */
 #define PREFIX_XOP 0x000080000
+#define PREFIX_EVEX 0x000100000
 
 /* branch hints show up as segment modifiers */
 #define SEG_JCC_NOT_TAKEN SEG_CS
@@ -213,6 +214,8 @@ enum {
     XOP_9_EXT,
     /* xop opcode map 10 */
     XOP_A_EXT,
+    /* instructions differing based on evex */
+    EVEX_PREFIX_EXT,
     /* else, from OP_ enum */
 };
 
@@ -479,6 +482,7 @@ extern const byte xop_9_index[256];
 extern const byte xop_a_index[256];
 extern const instr_info_t xop_prefix_extensions[][2];
 extern const instr_info_t xop_extensions[];
+extern const instr_info_t evex_prefix_extensions[][2];
 
 /* table that translates opcode enums into pointers into decoding tables */
 extern const instr_info_t *const op_instr[];

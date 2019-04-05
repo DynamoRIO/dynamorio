@@ -708,6 +708,116 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
     return pc;
 }
 
+/* Given the potential first evex byte at pc, reads any subsequent evex
+* bytes (and any prefix bytes) and sets the appropriate prefix flags in di.
+* Sets info to the entry for the first opcode byte, and pc to point past
+* the first opcode byte.
+*/
+static byte *
+read_evex(byte *pc, decode_info_t *di, byte instr_byte,
+          const instr_info_t **ret_info INOUT)
+{
+
+    const instr_info_t *info;
+    byte prefix_byte = 0, evex_pp = 0;
+    ASSERT(ret_info != NULL && *ret_info != NULL);
+    info = *ret_info;
+
+    CLIENT_ASSERT(info->type == EVEX_PREFIX_EXT, "internal evex decoding error");
+    CLIENT_ASSERT(info->code == PREFIX_EVEX, "internal evex decoding error");
+
+    /* If 64-bit mode or EVEX.R' bit is flipped, P[3:2] are 0
+     * and P[10] is 1 then this is evex
+     */
+    if ((X64_MODE(di) || TEST(0x10, *pc)) && !TEST(0xC, *pc) && TEST(0x04, *(pc + 1))) {
+        info = &evex_prefix_extensions[0][1];
+    } else {
+        /* not evex */
+        *ret_info = &evex_prefix_extensions[0][0];
+        return pc;
+    }
+
+    /* read 2nd evex byte */
+    instr_byte = *pc;
+    prefix_byte = instr_byte;
+    pc++;
+
+    if (TESTANY(PREFIX_REX_ALL | PREFIX_LOCK, di->prefixes) || di->data_prefix ||
+        di->rep_prefix || di->repne_prefix) {
+        /* #UD if combined w/ EVEX prefix */
+        *ret_info = &invalid_instr;
+        return pc;
+    }
+
+    byte evex_mm;
+    CLIENT_ASSERT(info->type == PREFIX, "internal vex decoding error");
+    /* fields are: R, X, B, R', 00, mm.  R, X, and B are inverted. */
+    if (!TEST(0x80, prefix_byte)) {
+        di->prefixes |= PREFIX_REX_R;
+    }
+
+    if (!TEST(0x40, prefix_byte)) {
+        di->prefixes |= PREFIX_REX_X;
+    }
+
+    if (!TEST(0x20, prefix_byte)) {
+        di->prefixes |= PREFIX_REX_B;
+    }
+
+    if (!TEST(0x01, prefix_byte)) {
+        CLIENT_ASSERT(false, "internal evex decoding error R'");
+    }
+
+    evex_mm = instr_byte & 0x3;
+
+    if (evex_mm == 1) {
+        *ret_info = &escape_instr;
+    } else if (evex_mm == 2) {
+        *ret_info = &escape_38_instr;
+    } else if (evex_mm == 3) {
+        *ret_info = &escape_3a_instr;
+    } else {
+        /* #UD: reserved for future use */
+        *ret_info = &invalid_instr;
+        return pc;
+    }
+
+    /* read 3rd evex byte */
+    prefix_byte = *pc;
+    pc++;
+
+    /* fields are: W, vvvv, 1, PP */
+    if (TEST(0x80, prefix_byte)) {
+        di->prefixes |= PREFIX_REX_W;
+    }
+
+    evex_pp = prefix_byte & 0x03;
+    di->vex_vvvv = (prefix_byte & 0x78) >> 3;
+
+    if (evex_pp == 0x1) {
+        di->data_prefix = true;
+    } else if (evex_pp == 0x2) {
+        di->rep_prefix = true;
+    } else if (evex_pp == 0x3) {
+        di->repne_prefix = true;
+    }
+
+    /* read 4th evex byte */
+    prefix_byte = *pc;
+    pc++;
+
+    if (TEST(0x04, prefix_byte)) {
+        di->prefixes |= PREFIX_VEX_L;
+    }
+
+    di->vex_encoded = true;
+
+    //TODO: take care of about the rest prefixes
+
+    return pc;
+
+}
+
 /* Given an instr_info_t PREFIX_EXT entry, reads the next entry based on the prefixes.
  * Note that this function does not initialise the opcode field in \p di but is set in
  * \p info->type.
@@ -810,6 +920,9 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
                     vex_noprefix = true; /* staying in loop, but ensure no prefixes */
                 continue;
             }
+        } else if (info->type == EVEX_PREFIX_EXT) {
+            pc = read_evex(pc, di, instr_byte, &info);
+            break;
         }
         if (info->type == PREFIX) {
             if (vex_noprefix) {

@@ -98,7 +98,7 @@ const instr_info_t * const op_instr[] =
     /* OP_pop     */   &first_byte[0x58],
     /* OP_pusha   */   &first_byte[0x60],
     /* OP_popa    */   &first_byte[0x61],
-    /* OP_bound   */   &first_byte[0x62],
+    /* OP_bound   */   &evex_prefix_extensions[0][0],
     /* OP_arpl    */   &x64_extensions[16][0],
     /* OP_imul    */   &base_extensions[10][5],
 
@@ -1787,7 +1787,7 @@ const instr_info_t first_byte[] = {
     /* 60 */
     {OP_pusha, 0x600000, "pusha", xsp, i_xSPo8, xsp, eAX, eBX, xop|i64, x, exop[0x00]},
     {OP_popa,  0x610000, "popa", xsp, eAX, xsp, i_xSPs8, xx, xop|i64, x, exop[0x02]},
-    {OP_bound, 0x620000, "bound", xx, xx, Gv, Ma, xx, mrm|i64, x, END_LIST},
+    {EVEX_PREFIX_EXT, 0x620000, "(evex_prefix_ext)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {X64_EXT,  0x630000, "(x64_ext 16)", xx, xx, xx, xx, xx, no, x, 16},
     {PREFIX, 0x640000, "fs", xx, xx, xx, xx, xx, no, x, SEG_FS},
     {PREFIX, 0x650000, "gs", xx, xx, xx, xx, xx, no, x, SEG_GS},
@@ -4848,6 +4848,18 @@ const instr_info_t rex_w_extensions[][2] = {
     {OP_xsavec32, 0x0fc734, "xsavec",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
     {OP_xsavec64, 0x0fc734, "xsavec64", Mxsave, xx, edx, eax, xx, mrm|rex, o64, END_LIST},
   },
+};
+
+/****************************************************************************
+* Instructions that differ depending on whether evex-encoded
+* Index 0 = no evex, 1 = evex
+*/
+
+const instr_info_t evex_prefix_extensions[][2] = {
+    {    /* evex_prefix_ext */
+        { OP_bound, 0x620000, "bound", xx, xx, Gv, Ma, xx, mrm | i64, x, END_LIST },
+        { PREFIX,   0x620000, "(evex prefix)", xx, xx, xx, xx, xx, mrm, x, PREFIX_EVEX },
+    }
 };
 
 /****************************************************************************
