@@ -751,7 +751,7 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
 
     byte evex_mm;
     CLIENT_ASSERT(info->type == PREFIX, "internal vex decoding error");
-    /* fields are: R, X, B, R', 00, mm.  R, X, and B are inverted. */
+    /* fields are: R, X, B, R', 00, mm.  R, R', X, and B are inverted. */
     if (!TEST(0x80, prefix_byte)) {
         di->prefixes |= PREFIX_REX_R;
     }
@@ -764,8 +764,8 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
         di->prefixes |= PREFIX_REX_B;
     }
 
-    if (!TEST(0x01, prefix_byte)) {
-        CLIENT_ASSERT(false, "internal evex decoding error R'");
+    if (!TEST(0x10, prefix_byte)) {
+        di->prefixes |= PREFIX_EVEX_RR;
     }
 
     evex_mm = instr_byte & 0x3;
@@ -806,13 +806,16 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
     prefix_byte = *pc;
     pc++;
 
-    if (TEST(0x04, prefix_byte)) {
+    if (TEST(0x40, prefix_byte)) {
+        di->prefixes |= PREFIX_EVEX_LL;
+    }
+
+    if (TEST(0x20, prefix_byte)) {
         di->prefixes |= PREFIX_VEX_L;
     }
 
     di->vex_encoded = true;
 
-    //TODO: take care of about the rest prefixes
 
     return pc;
 
