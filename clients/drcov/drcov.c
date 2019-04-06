@@ -139,6 +139,9 @@ options_init(client_id_t id, int argc, const char *argv[], drcovlib_options_t *o
         else if (strcmp(token, "-logdir") == 0) {
             USAGE_CHECK((i + 1) < argc, "missing logdir path");
             ops->logdir = argv[++i];
+        } else if (strcmp(token, "-logprefix") == 0) {
+            USAGE_CHECK((i + 1) < argc, "missing logprefix string");
+            ops->logprefix = argv[++i];
         } else if (strcmp(token, "-native_until_thread") == 0) {
             USAGE_CHECK((i + 1) < argc, "missing -native_until_thread number");
             token = argv[++i];
