@@ -106,13 +106,13 @@
 /* Shortcut for defining alias command line options to set another option to a constant
    value, Note we can't read the real type/description, and aliases are not transitive */
 #define OPTION_ALIAS(new_alias, real_internal_name, real_value, dynamic_flag, pcache) \
-    OPTION_COMMAND(                                                                   \
-        bool, new_alias##_aka_##real_internal_name, false, #new_alias,                \
-        {                                                                             \
-            if (options->new_alias##_aka_##real_internal_name)                        \
-                options->real_internal_name = real_value;                             \
-        },                                                                            \
-        #new_alias " is an alias for " #real_internal_name, dynamic_flag, pcache)
+    OPTION_COMMAND(bool, new_alias##_aka_##real_internal_name, false, #new_alias,     \
+                   {                                                                  \
+                       if (options->new_alias##_aka_##real_internal_name)             \
+                           options->real_internal_name = real_value;                  \
+                   },                                                                 \
+                   #new_alias " is an alias for " #real_internal_name, dynamic_flag,  \
+                   pcache)
 
 /* OPTION_COMMAND_INTERNAL is parsed separately in options.h to
    define constants with default values that are used by INTERNAL_OPTION */
@@ -212,13 +212,12 @@
 DYNAMIC_OPTION_DEFAULT(bool, dynamic_options, true, "dynamically update options")
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
-OPTION_COMMAND_INTERNAL(
-    bool, dummy_version, 0, "version",
-    {
-        if (for_this_process)
-            print_file(STDERR, "<%s>\n", dynamorio_version_string);
-    },
-    "print version number", STATIC, OP_PCACHE_NOP)
+OPTION_COMMAND_INTERNAL(bool, dummy_version, 0, "version",
+                        {
+                            if (for_this_process)
+                                print_file(STDERR, "<%s>\n", dynamorio_version_string);
+                        },
+                        "print version number", STATIC, OP_PCACHE_NOP)
 #endif /* EXPOSE_INTERNAL_OPTIONS */
 
 PC_OPTION_INTERNAL(bool, nolink, "disable linking")
@@ -248,21 +247,19 @@ OPTION_DEFAULT(pathstring_t, logdir, EMPTY_STRING, "directory for log files")
  */
 /* log control fields will be kept in dr_statistics_t structure so they can be updated,
  yet we'll also have the initial value in options_t at the cost of 8 bytes */
-OPTION_COMMAND(
-    uint, stats_logmask, 0, "logmask",
-    {
-        if (d_r_stats != NULL && for_this_process)
-            d_r_stats->logmask = options->stats_logmask;
-    },
-    "set mask for logging from specified modules", DYNAMIC, OP_PCACHE_NOP)
+OPTION_COMMAND(uint, stats_logmask, 0, "logmask",
+               {
+                   if (d_r_stats != NULL && for_this_process)
+                       d_r_stats->logmask = options->stats_logmask;
+               },
+               "set mask for logging from specified modules", DYNAMIC, OP_PCACHE_NOP)
 
-OPTION_COMMAND(
-    uint, stats_loglevel, 0, "loglevel",
-    {
-        if (d_r_stats != NULL && for_this_process)
-            d_r_stats->loglevel = options->stats_loglevel;
-    },
-    "set level of detail for logging", DYNAMIC, OP_PCACHE_NOP)
+OPTION_COMMAND(uint, stats_loglevel, 0, "loglevel",
+               {
+                   if (d_r_stats != NULL && for_this_process)
+                       d_r_stats->loglevel = options->stats_loglevel;
+               },
+               "set level of detail for logging", DYNAMIC, OP_PCACHE_NOP)
 OPTION_INTERNAL(bool, log_to_stderr, "log to stderr instead of files")
 OPTION_INTERNAL(uint, log_at_fragment_count,
                 "start execution at loglevel 1 and raise to the specified -loglevel at "
@@ -2867,10 +2864,9 @@ OPTION_DEFAULT(bool, pad_jmps_mark_no_trace, false,
 #ifdef EXPOSE_INTERNAL_OPTIONS
     OPTION_NAME(bool, optimize, " synthethic", "set if ANY opts are on")
 
-#    define OPTIMIZE_OPTION(type, name)                                                  \
-        OPTION_COMMAND(                                                                  \
-            type, name, 0, #name, { options->optimize = true; }, "optimization", STATIC, \
-            OP_PCACHE_NOP)
+#    define OPTIMIZE_OPTION(type, name)                                     \
+        OPTION_COMMAND(type, name, 0, #name, { options->optimize = true; }, \
+                       "optimization", STATIC, OP_PCACHE_NOP)
 
 #    ifdef SIDELINE
     OPTION(bool, sideline, "use sideline thread for optimization")
