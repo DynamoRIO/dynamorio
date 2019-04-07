@@ -42,6 +42,7 @@ notifications:
 branches:
   only:
   - master
+  - project-mac64
 
 # We use Trusty to get cmake 3.5 via the cmake3 package.
 sudo: required
