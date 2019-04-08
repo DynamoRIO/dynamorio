@@ -157,6 +157,8 @@ Further non-compatibility-affecting changes include:
  - Added the type #dr_zmm_t.
  - Added the type #dr_opmask_t.
  - Added the define #MCXT_NUM_OPMASK_SLOTS for the number of AVX-512 OpMask registers.
+ - Renamed mcontext's ymm structure into simd.
+ - Added a new option -logprefix to drcov.
  - Added the AVX-512 registers #DR_REG_XMM16 - #DR_REG_XMM31, #DR_REG_YMM16 - #DR_REG_YMM31
    and their #DR_REG_ZMM0 - #DR_REG_ZMM31 siblings as well as #DR_REG_K0 - #DR_REG_K7.
  - Added the functions reg_is_zmm() and reg_is_opmask().
