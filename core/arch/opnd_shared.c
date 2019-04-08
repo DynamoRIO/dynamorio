@@ -2131,9 +2131,11 @@ reg_get_size(reg_id_t reg)
         /* The default is 16 bits wide. The register may be up to 64 bits wide with
          * the AVX-512BW extension, which depends on the processor. The number of
          * bits actually used depends on the vector type of the instruction.
-         * XXX i#1312: return variable size dependent on processor feature.
+         * XXX i#1312: return variable size dependent on processor feature. OPSZ_8
+         * is the most recent maximal physical register, but may not apply to every
+         * processor and OS we're running on.
          */
-        return OPSZ_64;
+        return OPSZ_8;
     }
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return OPSZ_2;
