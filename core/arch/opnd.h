@@ -124,6 +124,10 @@ enum {
 #ifdef AVOID_API_EXPORT
 /* compiler gives weird errors for "REG_NONE" */
 /* PR 227381: genapi.pl auto-inserts doxygen comments for lines without any! */
+/* The entire enum below overlaps with the OPSZ_ enum but all cases where the two are
+ * used in the same field (instr_info_t operand sizes) have the type and distinguish
+ * properly.
+ */
 #endif
     DR_REG_NULL, /**< Sentinel value indicating no register, for address modes. */
 #ifdef X86
@@ -243,12 +247,6 @@ enum {
     DR_REG_XMM31,
     /* 32 enums are reserved for future Intel SIMD extensions. */
     RESERVED_XMM = DR_REG_XMM31 + 32,
-#    ifdef AVOID_API_EXPORT
-/* Below here overlaps with OPSZ_ enum but all cases where the two
- * are used in the same field (instr_info_t operand sizes) have the type
- * and distinguish properly.
- */
-#    endif
     /* floating point registers */
     DR_REG_ST0,
     DR_REG_ST1,

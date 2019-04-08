@@ -133,6 +133,16 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
+The changes between version \DR_VERSION and 7.1.0 include the following compatibility
+changes:
+
+ - Changes the enumeration of the REG_ enum by adding x86 AVX-512 registers as well
+   as reserved ranges for future extensions.
+   This is a binary compatibility change for the REG_ enum.
+ - Changes the enumeration of the OPSZ_ enum by moving its start back to 0. The OPSZ_
+   enum now completely overlaps the REG_ enum.
+   This is a binary compatibility change for the OPSZ_ enum.
+
 The changes between version \DR_VERSION and 7.1.0 include the following minor
 compatibility changes:
 

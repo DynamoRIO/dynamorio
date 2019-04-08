@@ -239,7 +239,10 @@ encode_debug_checks(void)
 #endif
 
 #if defined(DEBUG) && defined(INTERNAL) && !defined(STANDALONE_DECODER)
-/* These operand types store a reg_id_t as their operand "size" */
+/* These operand types store a reg_id_t as their operand "size". Therefore, this function
+ * can be used to determine whether the operand stores a REG_ enum instead of an OPSZ_
+ * enum. The operand size is then implicit.
+ */
 static bool
 template_optype_is_reg(int optype)
 {
