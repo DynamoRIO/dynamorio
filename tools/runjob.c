@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-
 #define _WIN32_WINNT 0x0500
 /* for Jobs on Win2000+ */
 
@@ -45,9 +44,9 @@
 #ifndef USING_SDK
 
 typedef struct _IO_COUNTERS {
-    ULONGLONG  ReadOperationCount;
-    ULONGLONG  WriteOperationCount;
-    ULONGLONG  OtherOperationCount;
+    ULONGLONG ReadOperationCount;
+    ULONGLONG WriteOperationCount;
+    ULONGLONG OtherOperationCount;
     ULONGLONG ReadTransferCount;
     ULONGLONG WriteTransferCount;
     ULONGLONG OtherTransferCount;
@@ -56,7 +55,8 @@ typedef IO_COUNTERS *PIO_COUNTERS;
 
 /* FIXME: this is really screwed up: they have added a field in the
  * object and
- * LastErrorValue: (Win32) 0x18 (24) - The program issued a command but the command length is incorrect.
+ * LastErrorValue: (Win32) 0x18 (24) - The program issued a command but the command length
+ * is incorrect.
  */
 typedef struct _NEW_JOBOBJECT_BASIC_LIMIT_INFORMATION {
     LARGE_INTEGER PerProcessUserTimeLimit;
@@ -65,7 +65,7 @@ typedef struct _NEW_JOBOBJECT_BASIC_LIMIT_INFORMATION {
     SIZE_T MinimumWorkingSetSize;
     SIZE_T MaximumWorkingSetSize;
     DWORD ActiveProcessLimit;
-    ULONG* Affinity;
+    ULONG *Affinity;
     DWORD PriorityClass;
     /* VC98 has only the above fields */
 
@@ -84,8 +84,7 @@ typedef struct _JOBOBJECT_EXTENDED_LIMIT_INFORMATION {
 #endif
 
 void
-StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline,
-                            SIZE_T pagefile_limit)
+StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline, SIZE_T pagefile_limit)
 {
     // based on http://www.microsoft.com/msj/0399/jobkernelobj/jobkernelobj.aspx
 
@@ -109,17 +108,18 @@ StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline,
     jobli.PriorityClass = IDLE_PRIORITY_CLASS;
 
     // The job cannot use more than 10 second of CPU time
-    jobli.PerJobUserTimeLimit.QuadPart = 10*10000000;    // 1 second in 100-ns intervals
+    jobli.PerJobUserTimeLimit.QuadPart = 10 * 10000000; // 1 second in 100-ns intervals
 
     // These are two 2 restrictions I want placed on the job (process)
     jobli.LimitFlags = JOB_OBJECT_LIMIT_PRIORITY_CLASS | JOB_OBJECT_LIMIT_JOB_TIME;
-    ok = SetInformationJobObject(hjob, JobObjectBasicLimitInformation, &jobli, sizeof(jobli));
+    ok = SetInformationJobObject(hjob, JobObjectBasicLimitInformation, &jobli,
+                                 sizeof(jobli));
     if (!ok) {
         fprintf(FP, "GLE %d", GetLastError());
     }
 
     // Second, set some UI restrictions
-    jobuir.UIRestrictionsClass  = JOB_OBJECT_UILIMIT_NONE;    // A fancy 0
+    jobuir.UIRestrictionsClass = JOB_OBJECT_UILIMIT_NONE; // A fancy 0
 
     // The process can’t logoff the system
     jobuir.UIRestrictionsClass |= JOB_OBJECT_UILIMIT_EXITWINDOWS;
@@ -127,7 +127,8 @@ StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline,
     // The process can’t access USER object (like other windows) in the system
     jobuir.UIRestrictionsClass |= JOB_OBJECT_UILIMIT_HANDLES;
 
-    ok = SetInformationJobObject(hjob, JobObjectBasicUIRestrictions, &jobuir, sizeof(jobuir));
+    ok = SetInformationJobObject(hjob, JobObjectBasicUIRestrictions, &jobuir,
+                                 sizeof(jobuir));
     if (!ok) {
         fprintf(FP, "GLE %d", GetLastError());
     }
@@ -136,10 +137,10 @@ StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline,
     // and we'll set separately
     // The process always runs in the idle priority class
     jobext.ProcessMemoryLimit = pagefile_limit;
-    jobext.BasicLimitInformation.LimitFlags = 0x00000100 /* JOB_OBJECT_LIMIT_PROCESS_MEMORY */;
+    jobext.BasicLimitInformation.LimitFlags =
+        0x00000100 /* JOB_OBJECT_LIMIT_PROCESS_MEMORY */;
 
-    ok = SetInformationJobObject(hjob,
-                                 9 /* FIXME: JobObjectExtendedLimitInformation */,
+    ok = SetInformationJobObject(hjob, 9 /* FIXME: JobObjectExtendedLimitInformation */,
                                  &jobext, sizeof(jobext));
     if (!ok) {
         fprintf(FP, "GLE %d", GetLastError());
@@ -149,9 +150,8 @@ StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline,
     // Note: You must first spawn the process and then place the process in the job.
     //        This means that the process's thread must be initially suspended so that
     //        it can't execute any code outside of the job's restrictions.
-    CreateProcess(app_name, app_cmdline,
-                  NULL, NULL, FALSE,
-                  CREATE_SUSPENDED, NULL, NULL, &si, &pi);
+    CreateProcess(app_name, app_cmdline, NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL,
+                  &si, &pi);
 
     // Place the process in the job.
     // Note: if this process spawns any children, the children are
@@ -185,57 +185,49 @@ StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline,
 }
 
 // FIXME: note that we can use a Job limit to precisely alot the CPU time
-int usage(char *us)
+int
+usage(char *us)
 {
     fprintf(FP, "Usage: %s [-p page_limit in MB] [-kb] <program> <args...>\n", us);
     fflush(FP);
     return 0;
 }
 
-int __cdecl
-main(int argc, char *argv[], char *envp[])
+int __cdecl main(int argc, char *argv[], char *envp[])
 {
-    LPTSTR              app_name = NULL;
-    TCHAR               full_app_name[2*MAX_PATH];
-    TCHAR               app_cmdline[2*MAX_PATH];
-    int                 arg_offs = 1;
+    LPTSTR app_name = NULL;
+    TCHAR full_app_name[2 * MAX_PATH];
+    TCHAR app_cmdline[2 * MAX_PATH];
+    int arg_offs = 1;
 
-    int allocation_unit = 1024*1024;
-    int pagelimit = 10*allocation_unit; /* 10 MB */
+    int allocation_unit = 1024 * 1024;
+    int pagelimit = 10 * allocation_unit; /* 10 MB */
 
     if (argc < 2) {
         return usage(argv[0]);
     }
     while (argv[arg_offs][0] == '-') {
         if (strcmp(argv[arg_offs], "-p") == 0) {
-            if (argc <= arg_offs+1)
+            if (argc <= arg_offs + 1)
                 return usage(argv[0]);
-            pagelimit = atoi(argv[arg_offs+1]) * allocation_unit;
+            pagelimit = atoi(argv[arg_offs + 1]) * allocation_unit;
             arg_offs += 2;
-        }
-        else if (strcmp(argv[arg_offs], "-kb") == 0) {
-            allocation_unit=1024;
+        } else if (strcmp(argv[arg_offs], "-kb") == 0) {
+            allocation_unit = 1024;
             arg_offs += 1;
         }
-
     }
 
     /* FIXME: watch out for the usual /Program BUG */
     _snwprintf(full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name), L"%hs",
-              argv[arg_offs]);
+               argv[arg_offs]);
 
     /* FIXME: only one argument taken */
-    _snwprintf(app_cmdline, BUFFER_SIZE_ELEMENTS(app_cmdline), L"%hs %hs",
-              argv[arg_offs], argv[arg_offs + 1]);
+    _snwprintf(app_cmdline, BUFFER_SIZE_ELEMENTS(app_cmdline), L"%hs %hs", argv[arg_offs],
+               argv[arg_offs + 1]);
 
-    StartRestrictedProcess(NULL/* FIXME: full_app_name */,
-                           app_cmdline,
-                           pagelimit);
+    StartRestrictedProcess(NULL /* FIXME: full_app_name */, app_cmdline, pagelimit);
     fprintf(FP, "done\n");
     fflush(FP);
     return 0;
 }
-
-
-
-

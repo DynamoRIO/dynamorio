@@ -1,0 +1,30 @@
+Hello, world!
+---- <application exited with code 0> ----
+Cache simulation results:
+Core #0 \(1 thread\(s\)\)
+  L1I stats:
+    Warmup hits:                  *[0]*..
+    Warmup misses:                *[0]*..
+    Hits:                         *[0-9,\.]*....
+    Misses:                       *[0-9,\.]*..
+    Invalidations:                *0
+.*    Miss rate:                        [0-1][,\.]..%
+  L1D stats:
+    Warmup hits:                  *[0]*..
+    Warmup misses:                *[0]*..
+    Hits:                         *[0-9,\.]*....
+    Misses:                       *[0-9,\.]*...
+    Invalidations:                *0
+.*   Miss rate:                        [0-9][,\.]..%
+Core #1 \(0 thread\(s\)\)
+Core #2 \(0 thread\(s\)\)
+Core #3 \(0 thread\(s\)\)
+LL stats:
+    Warmup hits:                  *[0]*..
+    Warmup misses:                *[0]*..
+    Hits:                         *[0-9,\.]*..
+    Misses:                       *[0-9,\.]*...
+    Invalidations:                *0
+.*   Local miss rate:                 [0-9].[,\.]..%
+    Child hits:                   *[0-9,\.]*.....
+    Total miss rate:                  [0-3][,\.]..%

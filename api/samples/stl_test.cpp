@@ -46,7 +46,7 @@
 
 #ifdef UNIX
 /* included as a test of i#34 */
-# include <signal.h>
+#    include <signal.h>
 #endif
 
 using namespace std;
@@ -59,13 +59,12 @@ static void
 event_exit(void)
 {
 #ifdef SHOW_RESULTS
-# ifdef UNIX
+#    ifdef UNIX
     cout << "value of tls_var on exit: " << tls_var << endl;
-# endif
+#    endif
     cout << "Exit..." << endl;
 #endif
 }
-
 
 DR_EXPORT void
 dr_init(client_id_t client_id)
@@ -93,12 +92,12 @@ dr_init(client_id_t client_id)
     cout << "testing vector...";
 #endif
 
-    vector<int>* v = new vector<int>();
-    for (i=0; i<5; i++) {
+    vector<int> *v = new vector<int>();
+    for (i = 0; i < 5; i++) {
         v->push_back(i);
     }
 
-    for (i=0; i<5; i++) {
+    for (i = 0; i < 5; i++) {
 #ifdef SHOW_RESULTS
         cout << (*v)[i];
 #endif
@@ -116,7 +115,7 @@ dr_init(client_id_t client_id)
 #endif
 
     list<int> l;
-    for (i=0; i<5; i++) {
+    for (i = 0; i < 5; i++) {
         l.push_back(i);
     }
 
@@ -138,12 +137,12 @@ dr_init(client_id_t client_id)
     cout << "\ntesting map...";
 #endif
 
-    map<int,int> m;
-    for (i=0; i<5; i++) {
+    map<int, int> m;
+    for (i = 0; i < 5; i++) {
         m[i] = i;
     }
 
-    for (i=0; i<5; i++) {
+    for (i = 0; i < 5; i++) {
 #ifdef SHOW_RESULTS
         cout << m[i];
 #endif
@@ -157,18 +156,17 @@ dr_init(client_id_t client_id)
     //
 #ifdef SHOW_RESULTS
     if (success) {
-# ifdef WINDOWS
+#    ifdef WINDOWS
         dr_messagebox("SUCCESS");
-# else
+#    else
         cout << "\nSUCCESS\n";
-# endif
-    }
-    else {
-# ifdef WINDOWS
+#    endif
+    } else {
+#    ifdef WINDOWS
         dr_messagebox("FAILURE");
-# else
+#    else
         cout << "\nFAILURE\n";
-# endif
+#    endif
     }
 #endif
 }

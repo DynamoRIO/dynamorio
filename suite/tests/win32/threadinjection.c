@@ -37,38 +37,41 @@
 #include <process.h>
 #include "tools.h"
 
-#define MAX_THREADS  32
+#define MAX_THREADS 32
 //////////////////////////////////////////////////////////////////
 // Prototypes
-int   main(int argc, char *argv[]);      // Thread 1: main
-DWORD WINAPI ThreadProc(LPVOID lpParam); // Thread 2: Sleep
-DWORD WINAPI ThreadProc2(LPVOID lpParam);// Thread 3: Exit immediately
+int
+main(int argc, char *argv[]); // Thread 1: main
+DWORD WINAPI
+ThreadProc(LPVOID lpParam); // Thread 2: Sleep
+DWORD WINAPI
+ThreadProc2(LPVOID lpParam); // Thread 3: Exit immediately
 //////////////////////////////////////////////////////////////////
 
-typedef struct _Parameters
-{
+typedef struct _Parameters {
     BOOL bAll;
     BOOL bGetContext;
     BOOL bSetContext;
     BOOL bSuspend;
     BOOL bVerbose;
-    int  nPID;
-    int  nSleepTime;
+    int nPID;
+    int nSleepTime;
 } PARAMETERS, *LPPARAMETERS;
 
 #define YIELD() Sleep(0)
 
-int    ThreadNr;                        /* Number of threads started */
+int ThreadNr; /* Number of threads started */
 
 BOOL thread_proc_wait = FALSE;
 BOOL thread_proc_waiting = FALSE;
 
-DWORD WINAPI ThreadProc( LPVOID lpParam )
+DWORD WINAPI
+ThreadProc(LPVOID lpParam)
 {
 
     int nSleepTime;
 
-    nSleepTime = (*(int *) lpParam);
+    nSleepTime = (*(int *)lpParam);
 
     /* a simple spinning synchronization for the TerminateThread test */
     while (thread_proc_wait) {
@@ -77,147 +80,143 @@ DWORD WINAPI ThreadProc( LPVOID lpParam )
     }
     thread_proc_waiting = FALSE;
 
-    if (nSleepTime < 5000)
-    {
+    if (nSleepTime < 5000) {
         Sleep(nSleepTime);
     }
 
     return 0;
-
 }
 
-DWORD WINAPI ThreadProc2( LPVOID lpParam )
+DWORD WINAPI
+ThreadProc2(LPVOID lpParam)
 {
 
     ExitThread(-1);
 
     // You should never get here
     return 0;
-
 }
 
-void LaunchTest
-(
-        char szCommandLine[],
-        PARAMETERS myParameters
-)
+void
+LaunchTest(char szCommandLine[], PARAMETERS myParameters)
 {
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
 
-    ZeroMemory( &si, sizeof(si) );
+    ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
-    ZeroMemory( &pi, sizeof(pi) );
+    ZeroMemory(&pi, sizeof(pi));
 
-        if (myParameters.bVerbose == TRUE)
-        {
-                print("------------------------------------------------------------\n");
-                print("Test beginning with options: %s\n",szCommandLine);
-                print("------------------------------------------------------------\n");
-        }
+    if (myParameters.bVerbose == TRUE) {
+        print("------------------------------------------------------------\n");
+        print("Test beginning with options: %s\n", szCommandLine);
+        print("------------------------------------------------------------\n");
+    }
 
-        if(0 == CreateProcess(NULL, szCommandLine, NULL, NULL, FALSE, 0, NULL, ".", &si, &pi))
-        {
-                print("Error creating process:\n\"%s\"\n", szCommandLine);
-        }
-        else if (myParameters.bVerbose == TRUE)
-        {
-            print("------------------------------------------------------------\n");
-            print("Test completed: %s options executed\n",szCommandLine);
-            print("------------------------------------------------------------\n");
-        }
+    if (0 ==
+        CreateProcess(NULL, szCommandLine, NULL, NULL, FALSE, 0, NULL, ".", &si, &pi)) {
+        print("Error creating process:\n\"%s\"\n", szCommandLine);
+    } else if (myParameters.bVerbose == TRUE) {
+        print("------------------------------------------------------------\n");
+        print("Test completed: %s options executed\n", szCommandLine);
+        print("------------------------------------------------------------\n");
+    }
 
     WaitForSingleObject(pi.hProcess, INFINITE);
 }
 
-void LaunchAllTests
-(
-    char *argv[],
-    PARAMETERS myParameters
-)
+void
+LaunchAllTests(char *argv[], PARAMETERS myParameters)
 {
-    char   szCommandLine[512];
+    char szCommandLine[512];
 
-// Remote thread test
-// Launch a separate process that injects threads into this one
-// Need to pass this process ID in the arguments
+    // Remote thread test
+    // Launch a separate process that injects threads into this one
+    // Need to pass this process ID in the arguments
 
     sprintf(szCommandLine, "%s /PID=%d\n", argv[0], GetCurrentProcessId());
     LaunchTest(szCommandLine, myParameters);
 
-// GetContextThread()
-// Launch a separate process that creates threads and attempts to GetContextThread()
-// without suspending or pausing
+    // GetContextThread()
+    // Launch a separate process that creates threads and attempts to GetContextThread()
+    // without suspending or pausing
 
     sprintf(szCommandLine, "%s /PID=%d /GETCONTEXT\n", argv[0], GetCurrentProcessId());
     LaunchTest(szCommandLine, myParameters);
 
-// SetContextThread()
-// Launch a separate process that creates threads and attempts to SetContextThread()
-// without suspending or pausing
+    // SetContextThread()
+    // Launch a separate process that creates threads and attempts to SetContextThread()
+    // without suspending or pausing
 
     sprintf(szCommandLine, "%s /PID=%d /SETCONTEXT\n", argv[0], GetCurrentProcessId());
     LaunchTest(szCommandLine, myParameters);
 
-// SuspendThread()
-// Launch a separate process that creates threads and attempts to SuspendThread()
-// and ResumeThread() without pausing
+    // SuspendThread()
+    // Launch a separate process that creates threads and attempts to SuspendThread()
+    // and ResumeThread() without pausing
 
     sprintf(szCommandLine, "%s /PID=%d /SUSPEND\n", argv[0], GetCurrentProcessId());
     LaunchTest(szCommandLine, myParameters);
 
-// GetContextThread() with SuspendThread()
-// Launch a separate process that creates threads, suspends them, and attempts
-// to GetContextThread() without pausing
+    // GetContextThread() with SuspendThread()
+    // Launch a separate process that creates threads, suspends them, and attempts
+    // to GetContextThread() without pausing
 
-    sprintf(szCommandLine, "%s /PID=%d /GETCONTEXT /SUSPEND\n", argv[0], GetCurrentProcessId());
+    sprintf(szCommandLine, "%s /PID=%d /GETCONTEXT /SUSPEND\n", argv[0],
+            GetCurrentProcessId());
     LaunchTest(szCommandLine, myParameters);
 
-// SetContextThread() with SuspendThread()
-// Launch a separate process that creates threads, suspends them, and attempts
-// to SetContextThread() without pausing
+    // SetContextThread() with SuspendThread()
+    // Launch a separate process that creates threads, suspends them, and attempts
+    // to SetContextThread() without pausing
 
-    sprintf(szCommandLine, "%s /PID=%d /SETCONTEXT /SUSPEND\n", argv[0], GetCurrentProcessId());
+    sprintf(szCommandLine, "%s /PID=%d /SETCONTEXT /SUSPEND\n", argv[0],
+            GetCurrentProcessId());
     LaunchTest(szCommandLine, myParameters);
 
-// SuspendThread() with Sleep()
-// Launch a separate process that creates threads, pauses for 5 seconds, and
-// attempts to SuspendThread() and ResumeThread()
+    // SuspendThread() with Sleep()
+    // Launch a separate process that creates threads, pauses for 5 seconds, and
+    // attempts to SuspendThread() and ResumeThread()
 
-    sprintf(szCommandLine, "%s /PID=%d /SUSPEND /SLEEP=10\n", argv[0], GetCurrentProcessId());
+    sprintf(szCommandLine, "%s /PID=%d /SUSPEND /SLEEP=10\n", argv[0],
+            GetCurrentProcessId());
     LaunchTest(szCommandLine, myParameters);
 
-// GetContextThread() with Sleep()
-// Launch a separate process that creates threads, pauses for 5 seconds, and
-// attempts to GetContextThread()
+    // GetContextThread() with Sleep()
+    // Launch a separate process that creates threads, pauses for 5 seconds, and
+    // attempts to GetContextThread()
 
-    sprintf(szCommandLine, "%s /PID=%d /GETCONTEXT /SLEEP=10", argv[0], GetCurrentProcessId());
+    sprintf(szCommandLine, "%s /PID=%d /GETCONTEXT /SLEEP=10", argv[0],
+            GetCurrentProcessId());
     LaunchTest(szCommandLine, myParameters);
 
-// SetContextThread() with Sleep()
-// Launch a separate process that creates threads, pauses for 5 seconds, and
-// attempts to SetContextThread()
+    // SetContextThread() with Sleep()
+    // Launch a separate process that creates threads, pauses for 5 seconds, and
+    // attempts to SetContextThread()
 
-    sprintf(szCommandLine, "%s /PID=%d /SETCONTEXT /SLEEP=10", argv[0], GetCurrentProcessId());
+    sprintf(szCommandLine, "%s /PID=%d /SETCONTEXT /SLEEP=10", argv[0],
+            GetCurrentProcessId());
     LaunchTest(szCommandLine, myParameters);
 
-// GetContextThread() with Sleep() & SuspendThread()
-// Launch a separate process that creates threads, pauses for 5 seconds,
-// suspends the thread & attempts to GetContextThread()
+    // GetContextThread() with Sleep() & SuspendThread()
+    // Launch a separate process that creates threads, pauses for 5 seconds,
+    // suspends the thread & attempts to GetContextThread()
 
-    sprintf(szCommandLine, "%s /PID=%d /GETCONTEXT /SLEEP=10 /SUSPEND", argv[0], GetCurrentProcessId());
+    sprintf(szCommandLine, "%s /PID=%d /GETCONTEXT /SLEEP=10 /SUSPEND", argv[0],
+            GetCurrentProcessId());
     LaunchTest(szCommandLine, myParameters);
 
-// SetContextThread() with Sleep() & SuspendThread()
-// Launch a separate process that creates threads, pauses for 5 seconds,
-// suspends the thread & attempts to SetContextThread()
+    // SetContextThread() with Sleep() & SuspendThread()
+    // Launch a separate process that creates threads, pauses for 5 seconds,
+    // suspends the thread & attempts to SetContextThread()
 
-    sprintf(szCommandLine, "%s /PID=%d /SETCONTEXT /SLEEP=10 /SUSPEND", argv[0], GetCurrentProcessId());
+    sprintf(szCommandLine, "%s /PID=%d /SETCONTEXT /SLEEP=10 /SUSPEND", argv[0],
+            GetCurrentProcessId());
     LaunchTest(szCommandLine, myParameters);
-
 }
 
-void Usage()
+void
+Usage()
 {
     print("\nInjectionTests");
     print("\nCreates process, threads & remote threads and tests thread corner cases");
@@ -234,124 +233,92 @@ void Usage()
     exit(0);
 }
 
-void InitializeArguments
-(
-    LPPARAMETERS myParameters
-)
+void
+InitializeArguments(LPPARAMETERS myParameters)
 {
-    myParameters->bAll          = FALSE;
-    myParameters->bGetContext   = FALSE;
-    myParameters->bSetContext   = FALSE;
-    myParameters->bSuspend      = FALSE;
-    myParameters->bVerbose      = FALSE;
-    myParameters->nPID          = 0;
-    myParameters->nSleepTime    = 0;
+    myParameters->bAll = FALSE;
+    myParameters->bGetContext = FALSE;
+    myParameters->bSetContext = FALSE;
+    myParameters->bSuspend = FALSE;
+    myParameters->bVerbose = FALSE;
+    myParameters->nPID = 0;
+    myParameters->nSleepTime = 0;
 }
 
-void ParseArguments
-(
-    int argc,
-    char *argv[],
-    LPPARAMETERS myParameters
-)
+void
+ParseArguments(int argc, char *argv[], LPPARAMETERS myParameters)
 {
     int i;
 
-    for (i=1;i<argc;i++)
-    {
+    for (i = 1; i < argc; i++) {
         strupr(argv[i]);
 
-        if (!strcmp(argv[i],"/?") ||
-            !strcmp(argv[i],"/HELP"))
-        {
+        if (!strcmp(argv[i], "/?") || !strcmp(argv[i], "/HELP")) {
             Usage();
         }
 
-        if (!strncmp(argv[i],"/PID=",5))
-        {
+        if (!strncmp(argv[i], "/PID=", 5)) {
             // Skip over argument, save PID
             myParameters->nPID = atoi(argv[i] + 5);
-        }
-        else if (!strncmp(argv[i],"/SLEEP=",7))
-        {
+        } else if (!strncmp(argv[i], "/SLEEP=", 7)) {
             // Skip over argument, save SleepTime
             myParameters->nSleepTime = atoi(argv[i] + 7);
-        }
-        else if (!strncmp(argv[i],"/GETCONTEXT",11))
-        {
+        } else if (!strncmp(argv[i], "/GETCONTEXT", 11)) {
             myParameters->bGetContext = TRUE;
-        }
-        else if (!strncmp(argv[i],"/SETCONTEXT",11))
-        {
+        } else if (!strncmp(argv[i], "/SETCONTEXT", 11)) {
             myParameters->bSetContext = TRUE;
-        }
-        else if (!strncmp(argv[i],"/SUSPEND",8))
-        {
+        } else if (!strncmp(argv[i], "/SUSPEND", 8)) {
             myParameters->bSuspend = TRUE;
-        }
-        else if (!strncmp(argv[i],"/VERBOSE",8))
-        {
+        } else if (!strncmp(argv[i], "/VERBOSE", 8)) {
             myParameters->bVerbose = TRUE;
-        }
-        else if (!strncmp(argv[i],"/ALL",4))
-        {
+        } else if (!strncmp(argv[i], "/ALL", 4)) {
             myParameters->bAll = TRUE;
         }
     }
 }
 
-void ExerciseThread
-(
-    HANDLE     hThread,
-    PARAMETERS myParameters
-)
+void
+ExerciseThread(HANDLE hThread, PARAMETERS myParameters)
 {
 
     CONTEXT Context;
     BOOL bError;
 
-    if (myParameters.nSleepTime != 0)
-    {
+    if (myParameters.nSleepTime != 0) {
         Sleep(myParameters.nSleepTime);
     }
 
-    if (myParameters.bSuspend == TRUE)
-    {
-        if ((SuspendThread(hThread) == -1) && (myParameters.bVerbose == TRUE))
-        {
-            print("Error in SuspendThread()(Code %d)\n",GetLastError());
+    if (myParameters.bSuspend == TRUE) {
+        if ((SuspendThread(hThread) == -1) && (myParameters.bVerbose == TRUE)) {
+            print("Error in SuspendThread()(Code %d)\n", GetLastError());
         }
-        if ((ResumeThread(hThread) == -1) && (myParameters.bVerbose == TRUE))
-        {
-            print("Error in ResumeThread() (Code %d)\n",GetLastError());
+        if ((ResumeThread(hThread) == -1) && (myParameters.bVerbose == TRUE)) {
+            print("Error in ResumeThread() (Code %d)\n", GetLastError());
         }
     }
-    if (myParameters.bGetContext == TRUE)
-    {
+    if (myParameters.bGetContext == TRUE) {
         bError = GetThreadContext(hThread, &Context);
-        if ((bError == 0) && (myParameters.bVerbose == TRUE))
-        {
-            print("Error in GetThreadContext (Code %d)\n",GetLastError());
+        if ((bError == 0) && (myParameters.bVerbose == TRUE)) {
+            print("Error in GetThreadContext (Code %d)\n", GetLastError());
         }
     }
-    if ((myParameters.bSetContext == TRUE) && (myParameters.bVerbose == TRUE))
-    {
+    if ((myParameters.bSetContext == TRUE) && (myParameters.bVerbose == TRUE)) {
         bError = SetThreadContext(hThread, &Context);
-        if ((bError == 0)  && (myParameters.bVerbose == TRUE))
-        {
-            print("Error in SetThreadContext (Code %d)\n",GetLastError());
+        if ((bError == 0) && (myParameters.bVerbose == TRUE)) {
+            print("Error in SetThreadContext (Code %d)\n", GetLastError());
         }
     }
 }
 
-int main( int argc, char *argv[])       /* Thread One */
+int
+main(int argc, char *argv[]) /* Thread One */
 {
 
-    DWORD  dwThreadID;
+    DWORD dwThreadID;
     HANDLE hProcess;
     HANDLE hThread1, hThread2, hThread3, hThread4;
-        char   szCommandLine[1024];
-        int    i;
+    char szCommandLine[1024];
+    int i;
     PARAMETERS myParameters;
 
     INIT();
@@ -363,41 +330,34 @@ int main( int argc, char *argv[])       /* Thread One */
     InitializeArguments(&myParameters);
     ParseArguments(argc, argv, &myParameters);
 
-    if (argc == 1)
-    {
+    if (argc == 1) {
         myParameters.bAll = TRUE;
     }
 
     // On initial call, no args are present; execute each subtest below
-    if (myParameters.bAll == TRUE)
-    {
+    if (myParameters.bAll == TRUE) {
         LaunchAllTests(argv, myParameters);
-    }
-    else
-    {
-                print("Entering thread with options:\n");
-                for (i = 1; i < argc; i++)
-                {
-                        if (!strncmp(argv[i], "/PID", 4))
-                        {
-                                strcat(szCommandLine, "/PID");
-                        }
-                        else
-                        {
-                                strcat(szCommandLine, argv[i]);
-                        }
-                }
-                print("%s\n", szCommandLine);
+    } else {
+        print("Entering thread with options:\n");
+        for (i = 1; i < argc; i++) {
+            if (!strncmp(argv[i], "/PID", 4)) {
+                strcat(szCommandLine, "/PID");
+            } else {
+                strcat(szCommandLine, argv[i]);
+            }
+        }
+        print("%s\n", szCommandLine);
 
-        do
-        {
-            hThread1 = CreateThread(NULL, 0, &ThreadProc, &(myParameters.nSleepTime), 0, &dwThreadID );
+        do {
+            hThread1 = CreateThread(NULL, 0, &ThreadProc, &(myParameters.nSleepTime), 0,
+                                    &dwThreadID);
             ExerciseThread(hThread1, myParameters);
             WaitForSingleObject(hThread1, INFINITE);
             ThreadNr++;
 
             thread_proc_wait = TRUE;
-            hThread2 = CreateThread(NULL, 0, &ThreadProc, &(myParameters.nSleepTime), 0, &dwThreadID );
+            hThread2 = CreateThread(NULL, 0, &ThreadProc, &(myParameters.nSleepTime), 0,
+                                    &dwThreadID);
             while (!thread_proc_waiting) {
                 YIELD();
             }
@@ -407,51 +367,44 @@ int main( int argc, char *argv[])       /* Thread One */
             ThreadNr++;
 
             // ThreadProc2 calls ExitThread() immediately
-            hThread3 = CreateThread(NULL, 0, &ThreadProc2, &ThreadNr, 0, &dwThreadID );
+            hThread3 = CreateThread(NULL, 0, &ThreadProc2, &ThreadNr, 0, &dwThreadID);
             WaitForSingleObject(hThread3, INFINITE);
             ThreadNr++;
 
-            if (hThread1 != NULL)
-            {
+            if (hThread1 != NULL) {
                 CloseHandle(hThread1);
             }
-            if (hThread2 != NULL)
-            {
+            if (hThread2 != NULL) {
                 CloseHandle(hThread2);
             }
-            if (hThread3 != NULL)
-            {
+            if (hThread3 != NULL) {
                 CloseHandle(hThread3);
             }
 
-                } while(ThreadNr < MAX_THREADS);
+        } while (ThreadNr < MAX_THREADS);
 
-        if (myParameters.nPID != 0)
-        {
+        if (myParameters.nPID != 0) {
             // Prints out results in host PID
             hProcess = OpenProcess(PROCESS_ALL_ACCESS, TRUE, myParameters.nPID);
-            if ((hProcess == NULL) && (myParameters.bVerbose == TRUE))
-            {
-                print("Error in OpenProcess(Code %d)\n",GetLastError());
+            if ((hProcess == NULL) && (myParameters.bVerbose == TRUE)) {
+                print("Error in OpenProcess(Code %d)\n", GetLastError());
             }
 
-            hThread4 = CreateRemoteThread(hProcess, 0, 0, &ThreadProc, &(myParameters.nSleepTime), 0, &dwThreadID );
+            hThread4 = CreateRemoteThread(hProcess, 0, 0, &ThreadProc,
+                                          &(myParameters.nSleepTime), 0, &dwThreadID);
 
-            if ((hThread4 == NULL) && (myParameters.bVerbose == TRUE))
-            {
-                print("Error in CreateRemoteThread(Code %d)\n",GetLastError());
+            if ((hThread4 == NULL) && (myParameters.bVerbose == TRUE)) {
+                print("Error in CreateRemoteThread(Code %d)\n", GetLastError());
             }
             WaitForSingleObject(hThread4, INFINITE);
 
-            if (hThread4 != NULL)
-            {
+            if (hThread4 != NULL) {
                 CloseHandle(hThread4);
             }
         }
-                print("Exiting thread with options:\n");
-                print("%s\n", szCommandLine);
+        print("Exiting thread with options:\n");
+        print("%s\n", szCommandLine);
     }
 
     return 0;
 }
-

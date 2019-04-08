@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,7 @@
 
 #include "tools.h"
 #ifdef LINUX
-# include "threads.h"
+#    include "thread_clone.h"
 #endif
 
 #include <sys/types.h>
@@ -80,7 +80,8 @@ run_child(void *arg)
     return 0;
 }
 
-int main(int argc, char** argv)
+int
+main(int argc, char **argv)
 {
     pid_t child;
     void *stack;

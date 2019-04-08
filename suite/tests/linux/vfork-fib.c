@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,22 +46,27 @@ const int N = 8;
 
 /***************************************************************************/
 
-int fib(int n) {
-    if (n <= 1) return 1;
-    return fib(n-1) + fib(n-2);
+int
+fib(int n)
+{
+    if (n <= 1)
+        return 1;
+    return fib(n - 1) + fib(n - 2);
 }
 
 #ifdef DEBUG
-#  define pf printf
+#    define pf printf
 #else
-#  define pf if(0)printf
+#    define pf \
+        if (0) \
+        printf
 #endif
 
-
-int main(int argc, char** argv)
+int
+main(int argc, char **argv)
 {
     pid_t child1, child2;
-    int do_vfork = 1; //argc == 1;
+    int do_vfork = 1; // argc == 1;
 
     int n, sum = 0;
     int result;
@@ -73,9 +79,9 @@ int main(int argc, char** argv)
     else
         printf("native\n");
 
-    //printf("%d %s %s %s\n", argc, argv[0], argv[1], argv[2]);
-    if (argc < 3) {  // start calculation
-        if (2 == argc)  // vfork-fib 10
+    // printf("%d %s %s %s\n", argc, argv[0], argv[1], argv[2]);
+    if (argc < 3) {    // start calculation
+        if (2 == argc) // vfork-fib 10
             n = atoi(argv[1]);
         else
             n = N;
@@ -83,7 +89,7 @@ int main(int argc, char** argv)
         printf("parent fib(%d)=%d\n", n, fib(n));
         sum = 0;
     } else {
-        assert(argc == 3);  // vfork-fib fib 10
+        assert(argc == 3); // vfork-fib fib 10
         n = atoi(argv[2]);
         sum = 0;
     }
@@ -100,8 +106,7 @@ int main(int argc, char** argv)
     arg[1] = "fib";
     arg[3] = NULL;
 
-
-    if (do_vfork) {                /* default */
+    if (do_vfork) { /* default */
         pf("using vfork()\n");
         child1 = vfork();
     } else {
@@ -112,10 +117,10 @@ int main(int argc, char** argv)
     if (child1 < 0) {
         perror("ERROR on fork");
     } else if (child1 == 0) {
-        snprintf(carg, 10, "%d", n-2);
+        snprintf(carg, 10, "%d", n - 2);
         arg[2] = carg;
 
-#if  0
+#if 0
         pf("execing %d %s %s=%s %s\n",
                3, arg[0], carg, arg[1], arg[2]);
 #endif
@@ -127,7 +132,7 @@ int main(int argc, char** argv)
         int status;
         int children = 2;
 
-        if (do_vfork) {                /* default */
+        if (do_vfork) { /* default */
             pf("second child using vfork()\n");
             child2 = vfork();
         } else {
@@ -137,20 +142,21 @@ int main(int argc, char** argv)
         if (child2 < 0) {
             perror("ERROR on fork");
         } else if (child2 == 0) {
-            snprintf(carg, 10, "%d", n-1);
+            snprintf(carg, 10, "%d", n - 1);
             arg[2] = carg;
             result = execve(arg[0], arg, env);
-            if (result < 0) perror("ERROR in execve");
+            if (result < 0)
+                perror("ERROR in execve");
         }
 
-        while(children > 0) {
+        while (children > 0) {
             pf("parent waiting for %d children\n", children);
             result = wait(&status);
 
             assert(result == child2 || result == child1);
             assert(WIFEXITED(status));
-            //printf("child %d has exited with status=%d %d\n", result, status, WEXITSTATUS(status));
-            sum+=WEXITSTATUS(status);
+
+            sum += WEXITSTATUS(status);
 
             if (children == 2 && result == child1)
                 pf("first child before second\n");
@@ -185,6 +191,6 @@ int main(int argc, char** argv)
     _exit(sum);
 }
 
-
-// TODO it would be nice to have in the tests a measure for nondeterminism
-// to also a guarantee that we don't introduce extra synchronization to stifle any parallelism
+// TODO it would be nice to have in the tests a measure for
+// nondeterminism to also a guarantee that we don't introduce extra
+// synchronization to stifle any parallelism

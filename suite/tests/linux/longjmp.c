@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,27 +37,29 @@
 
 jmp_buf mark;
 
-void foo()
+void
+foo()
 {
-   printf("about to do longjmp\n");
-   fflush(stdout);
-   longjmp(mark, -1);
+    printf("about to do longjmp\n");
+    fflush(stdout);
+    longjmp(mark, -1);
 }
 
-int main()
+int
+main()
 {
-   int jmpret;
-   /* Save stack environment for return in case of error. First
-    * time through, jmpret is 0, so true conditional is executed.
-    * If an error occurs, jmpret will be set to -1 and false
-    * conditional will be executed.
-    */
-   jmpret = setjmp(mark);
-   if (jmpret == 0) {
-       printf("doing stuff\n");
-       foo();
-   } else {
-       printf("after longjmp\n");
-   }
-   return 0;
+    int jmpret;
+    /* Save stack environment for return in case of error. First
+     * time through, jmpret is 0, so true conditional is executed.
+     * If an error occurs, jmpret will be set to -1 and false
+     * conditional will be executed.
+     */
+    jmpret = setjmp(mark);
+    if (jmpret == 0) {
+        printf("doing stuff\n");
+        foo();
+    } else {
+        printf("after longjmp\n");
+    }
+    return 0;
 }

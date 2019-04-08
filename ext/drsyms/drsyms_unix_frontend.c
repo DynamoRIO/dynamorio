@@ -71,11 +71,11 @@ static int shmid;
 static void *
 lookup_or_load(const char *modpath)
 {
-    void *mod = hashtable_lookup(&modtable, (void*)modpath);
+    void *mod = hashtable_lookup(&modtable, (void *)modpath);
     if (mod == NULL) {
         mod = drsym_unix_load(modpath);
         if (mod != NULL) {
-            hashtable_add(&modtable, (void*)modpath, mod);
+            hashtable_add(&modtable, (void *)modpath, mod);
         }
     }
     return mod;
@@ -108,8 +108,8 @@ drsym_enumerate_symbols_local(const char *modpath, drsym_enumerate_cb callback,
 }
 
 static drsym_error_t
-drsym_lookup_symbol_local(const char *modpath, const char *symbol,
-                          size_t *modoffs OUT, uint flags)
+drsym_lookup_symbol_local(const char *modpath, const char *symbol, size_t *modoffs OUT,
+                          uint flags)
 {
     void *mod;
     drsym_error_t r;
@@ -131,8 +131,8 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
 }
 
 static drsym_error_t
-drsym_lookup_address_local(const char *modpath, size_t modoffs,
-                           drsym_info_t *out INOUT, uint flags)
+drsym_lookup_address_local(const char *modpath, size_t modoffs, drsym_info_t *out INOUT,
+                           uint flags)
 {
     void *mod;
     drsym_error_t r;
@@ -179,7 +179,6 @@ drsym_enumerate_lines_local(const char *modpath, drsym_enumerate_lines_cb callba
     return res;
 }
 
-
 /******************************************************************************
  * Exports.
  */
@@ -206,8 +205,8 @@ drsym_init(int shmid_in)
          * memory specified by shmid
          */
     } else {
-        hashtable_init_ex(&modtable, MODTABLE_HASH_BITS, HASH_STRING,
-                          true/*strdup*/, false/*!synch: using symbol_lock*/,
+        hashtable_init_ex(&modtable, MODTABLE_HASH_BITS, HASH_STRING, true /*strdup*/,
+                          false /*!synch: using symbol_lock*/,
                           (generic_func_t)drsym_unix_unload, NULL, NULL);
     }
     return DRSYM_SUCCESS;
@@ -279,41 +278,38 @@ drsym_enumerate_symbols_ex(const char *modpath, drsym_enumerate_ex_cb callback,
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        return drsym_enumerate_symbols_local(modpath, NULL, callback, info_size,
-                                             data, flags);
+        return drsym_enumerate_symbols_local(modpath, NULL, callback, info_size, data,
+                                             flags);
     }
 }
 
 DR_EXPORT
 drsym_error_t
-drsym_get_type(const char *modpath, size_t modoffs, uint levels_to_expand,
-               char *buf, size_t buf_sz, drsym_type_t **type OUT)
-{
-    return DRSYM_ERROR_NOT_IMPLEMENTED;
-}
-
-
-DR_EXPORT
-drsym_error_t
-drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
-                    size_t buf_sz, drsym_func_type_t **func_type OUT)
+drsym_get_type(const char *modpath, size_t modoffs, uint levels_to_expand, char *buf,
+               size_t buf_sz, drsym_type_t **type OUT)
 {
     return DRSYM_ERROR_NOT_IMPLEMENTED;
 }
 
 DR_EXPORT
 drsym_error_t
-drsym_expand_type(const char *modpath, uint type_id, uint levels_to_expand,
-                  char *buf, size_t buf_sz,
-                  drsym_type_t **expanded_type OUT)
+drsym_get_func_type(const char *modpath, size_t modoffs, char *buf, size_t buf_sz,
+                    drsym_func_type_t **func_type OUT)
+{
+    return DRSYM_ERROR_NOT_IMPLEMENTED;
+}
+
+DR_EXPORT
+drsym_error_t
+drsym_expand_type(const char *modpath, uint type_id, uint levels_to_expand, char *buf,
+                  size_t buf_sz, drsym_type_t **expanded_type OUT)
 {
     return DRSYM_ERROR_NOT_IMPLEMENTED;
 }
 
 DR_EXPORT
 size_t
-drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
-                      uint flags)
+drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags)
 {
     return drsym_unix_demangle_symbol(dst, dst_sz, mangled, flags);
 }

@@ -31,15 +31,9 @@
 
 # symbol access library
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.2)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
-
-if ("${CMAKE_VERSION}" VERSION_EQUAL "2.8.12" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "2.8.12")
-  # XXX i#1481: update to cmake 2.8.12's better handling of interface imports
-  cmake_policy(SET CMP0022 OLD)
-endif ()
 
 if (X64)
   set(BITS "64")
@@ -161,6 +155,8 @@ macro(configure_drsyms_target target)
       add_dependencies(${target} dbghelp_tgt)
     endif ()
   endif ()
+  # we always use the elftoolchain library when building with cmake
+  append_property_string(TARGET ${target} COMPILE_FLAGS "-DDRSYM_HAVE_LIBELFTC")
 endmacro(configure_drsyms_target)
 
 configure_drsyms_target(drsyms)

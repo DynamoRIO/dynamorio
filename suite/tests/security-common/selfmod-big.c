@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,17 +37,18 @@
 
 #ifndef ASM_CODE_ONLY
 
-#include "tools.h"
+#    include "tools.h"
 
-#ifdef USE_DYNAMO
-# include "dynamorio.h"
-#endif
+#    ifdef USE_DYNAMO
+#        include "dynamorio.h"
+#    endif
 
 uint big[1024];
 
 /* executes iters iters, by modifying the iters bound using self-modifying code
  */
-int foo(int iters);
+int
+foo(int iters);
 
 int
 main(void)
@@ -63,8 +64,9 @@ main(void)
 
 #else /* ASM_CODE_ONLY */
 
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
 
+/* clang-format off */
 START_FILE
 
 DECL_EXTERN(big)
@@ -108,7 +110,11 @@ ADDRTAKEN_LABEL(foo_start:)
         /* now we have as many write instrs as necessary to cause a too-big
          * selfmod fragment.  xref case 7893.
          */
+#if defined(LINUX) && defined(X64)
+        lea      REG_XDX, SYMREF(big) /* rip-relative on x64 */
+#else
         mov      REG_XDX, offset GLOBAL_REF(big)
+#endif
         mov      DWORD [REG_XDX + 0], ecx
         mov      DWORD [REG_XDX + 1], ecx
         mov      DWORD [REG_XDX + 2], ecx
@@ -1026,5 +1032,6 @@ ADDRTAKEN_LABEL(foo_end:)
         END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 
 #endif /* ASM_CODE_ONLY */

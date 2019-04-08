@@ -103,7 +103,7 @@ fault_selfmod()
 }
 
 void
-do_run(void (*func) (), uint *target_addr_location)
+do_run(void (*func)(), uint *target_addr_location)
 {
     EXCEPTION_RECORD exception;
     CONTEXT *context;
@@ -114,11 +114,9 @@ do_run(void (*func) (), uint *target_addr_location)
             __try {
                 func();
                 print("At statement after exception\n");
-            }
-            __except (
-                      context = (GetExceptionInformation())->ContextRecord,
-                      context->CXT_XAX = (unsigned long) &slot,
-                      EXCEPTION_CONTINUE_EXECUTION) {
+            } __except (context = (GetExceptionInformation())->ContextRecord,
+                        context->CXT_XAX = (unsigned long)&slot,
+                        EXCEPTION_CONTINUE_EXECUTION) {
                 print("Inside first handler (should NOT be printed)\n");
             }
             print("At statement after 1st try-except\n");
@@ -128,17 +126,15 @@ do_run(void (*func) (), uint *target_addr_location)
             } __except (EXCEPTION_CONTINUE_SEARCH) {
                 print("This should NOT be printed2\n");
             }
-        }
-        __finally {
+        } __finally {
             print("Finally!\n");
         }
         print("At statement after 2nd try-finally (should NOT be printed)\n");
-    }
-    __except (
-              exception = *(GetExceptionInformation())->ExceptionRecord,
-              context = (GetExceptionInformation())->ContextRecord,
-              (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION) ?
-              EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+    } __except (exception = *(GetExceptionInformation())->ExceptionRecord,
+                context = (GetExceptionInformation())->ContextRecord,
+                (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION)
+                    ? EXCEPTION_EXECUTE_HANDLER
+                    : EXCEPTION_CONTINUE_SEARCH) {
         print("Caught my own memory access violation, ignoring it!\n");
         if (exception.ExceptionAddress == (void *)exception_location &&
             exception.ExceptionInformation[1] == *target_addr_location &&
@@ -154,10 +150,11 @@ do_run(void (*func) (), uint *target_addr_location)
                 print("Register mismatch!");
             }
         } else {
-            print("PC "PFX" (expected "PFX") tried to %s address "PFX" (expected "PFX")\n",
-                   exception.ExceptionAddress, exception_location,
-                   (exception.ExceptionInformation[0]==0)?"read":"write",
-                   exception.ExceptionInformation[1], *target_addr_location);
+            print("PC " PFX " (expected " PFX ") tried to %s address " PFX
+                  " (expected " PFX ")\n",
+                  exception.ExceptionAddress, exception_location,
+                  (exception.ExceptionInformation[0] == 0) ? "read" : "write",
+                  exception.ExceptionInformation[1], *target_addr_location);
         }
     }
     print("After exception handler\n");
@@ -168,10 +165,10 @@ main()
 {
     uint default_target = DEFAULT_TARGET_ADDR;
     do_run(fault, &default_target);
-    protect_mem(fault_selfmod, PAGE_SIZE, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(fault_selfmod, PAGE_SIZE, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     do_run(fault_selfmod, &default_target);
     /* reprotect page, faulting address/target is now the selfmod write */
-    protect_mem(fault_selfmod, PAGE_SIZE, ALLOW_READ|ALLOW_EXEC);
+    protect_mem(fault_selfmod, PAGE_SIZE, ALLOW_READ | ALLOW_EXEC);
     do_run(fault_selfmod, &target_addr);
     return 0;
 }

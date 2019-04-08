@@ -36,13 +36,13 @@
 #include "stdio.h"
 
 #if defined(X64) || defined(ARM)
-# define FASTCALL /* there is no fastcall on these platforms */
+#    define FASTCALL /* there is no fastcall on these platforms */
 #else
-# ifdef WINDOWS
-#  define FASTCALL __fastcall
-# elif defined(UNIX)
-#  define FASTCALL __attribute__((fastcall))
-# endif
+#    ifdef WINDOWS
+#        define FASTCALL __fastcall
+#    elif defined(UNIX)
+#        define FASTCALL __attribute__((fastcall))
+#    endif
 #endif
 
 #define DEFAULT_LENGTH 8
@@ -58,10 +58,9 @@ public:
     computeWeight(int width, int height, int density);
 
     EXPORT void /* implies thiscall on Windows x86 */
-    computeDisplacement(int xContact, int yContact, int zContact,
-                          int contactVelocity, int contactWeight,
-                          int surfaceViscosity, int xSurfaceAngle,
-                          int ySurfaceAngle, int zSurfaceAngle);
+    computeDisplacement(int xContact, int yContact, int zContact, int contactVelocity,
+                        int contactWeight, int surfaceViscosity, int xSurfaceAngle,
+                        int ySurfaceAngle, int zSurfaceAngle);
 
 private:
     int length;

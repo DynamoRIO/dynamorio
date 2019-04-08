@@ -27,7 +27,7 @@
 
 typedef struct {
     uint flags;
-    void* stack_base;
+    void *stack_base;
     size_t stack_size;
     size_t guard_size;
     int sched_policy;
@@ -70,14 +70,14 @@ enum {
 #define ANDROID_DLERROR_BUFFER_SIZE 512
 
 typedef struct _android_v5_pthread_internal_t {
-    struct _pthread_internal_t* next;
-    struct _pthread_internal_t* prev;
+    struct _pthread_internal_t *next;
+    struct _pthread_internal_t *prev;
     pid_t tid;
     pid_t cached_pid_;
     android_pthread_attr_t attr;
     int /* really std::atomic<ThreadJoinState> */ join_state;
     void *cleanup_stack;
-    void *(*start_routine)(void*);
+    void *(*start_routine)(void *);
     void *start_routine_arg;
     void *return_value;
     void *alternate_signal_stack;
@@ -91,14 +91,14 @@ typedef struct _android_v5_pthread_internal_t {
 } android_v5_pthread_internal_t;
 
 typedef struct _android_v6_pthread_internal_t {
-    struct _pthread_internal_t* next;
-    struct _pthread_internal_t* prev;
+    struct _pthread_internal_t *next;
+    struct _pthread_internal_t *prev;
     pid_t tid;
     pid_t cached_pid_;
     android_pthread_attr_t attr;
     int /* really std::atomic<ThreadJoinState> */ join_state;
     void *cleanup_stack;
-    void *(*start_routine)(void*);
+    void *(*start_routine)(void *);
     void *start_routine_arg;
     void *return_value;
     void *alternate_signal_stack;
@@ -113,7 +113,6 @@ typedef struct _android_v6_pthread_internal_t {
     void *dr_tls_base;
 } android_v6_pthread_internal_t;
 
-
 /* Adapated from class KernelArgumentBlock */
 typedef struct _android_kernel_args_t {
     int argc;
@@ -122,6 +121,5 @@ typedef struct _android_kernel_args_t {
     ELF_AUXV_TYPE *auxv;
     char *abort_message_ptr;
 } android_kernel_args_t;
-
 
 #endif /* _ANDROID_LINKER_H_ */

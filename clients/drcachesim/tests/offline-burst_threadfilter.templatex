@@ -1,0 +1,29 @@
+pre-DR init
+pre-DR start
+pre-DR detach
+pre-DR init
+pre-DR start
+pre-DR detach
+pre-DR init
+pre-DR start
+pre-DR detach
+pre-DR init
+pre-DR start
+pre-DR detach
+all done
+Basic counts tool results:
+Total counts:
+    *[0-9]* total \(fetched\) instructions
+    *[0-9]* total non-fetched instructions
+    *[0-9]* total prefetches
+    *[0-9]* total data loads
+    *[0-9]* total data stores
+           4 total threads
+    *[0-9]* total scheduling markers
+    *[0-9]* total transfer markers
+           0 total function id markers
+           0 total function return address markers
+           0 total function argument markers
+           0 total function return value markers
+           0 total other markers
+.*

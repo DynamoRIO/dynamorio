@@ -34,8 +34,7 @@
 #include <stdio.h>
 #include "tools.h"
 
-int __declspec(dllimport)
-in_lib(int arg);
+int __declspec(dllimport) in_lib(int arg);
 
 int
 main()

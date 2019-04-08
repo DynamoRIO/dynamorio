@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,13 +40,15 @@
 
 bool
 cache_fifo_t::init(int associativity_, int block_size_, int total_size,
-                   caching_device_t *parent_, caching_device_stats_t *stats_)
+                   caching_device_t *parent_, caching_device_stats_t *stats_,
+                   prefetcher_t *prefetcher_, bool inclusive_,
+                   const std::vector<caching_device_t *> &children_)
 {
     // Works in the same way as the base class,
     // except that the counters are initialized in a different way.
 
-    bool ret_val = cache_t::init(associativity_, block_size_, total_size,
-                                 parent_, stats_);
+    bool ret_val = cache_t::init(associativity_, block_size_, total_size, parent_, stats_,
+                                 prefetcher_, inclusive_, children_);
     if (ret_val == false)
         return false;
 
@@ -75,7 +77,8 @@ cache_fifo_t::replace_which_way(int block_idx)
             // clear the counter of the victim block
             get_caching_device_block(block_idx, i).counter = 0;
             // set the next block as victim
-            get_caching_device_block(block_idx, (i + 1) & (associativity - 1)).counter = 1;
+            get_caching_device_block(block_idx, (i + 1) & (associativity - 1)).counter =
+                1;
             return i;
         }
     }

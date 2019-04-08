@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,8 +39,8 @@
  */
 
 #include "../globals.h" /* need this to include decode.h (uint, etc.) */
-#include "arch.h"    /* need this to include decode.h (byte, etc. */
-#include "instr.h" /* for REG_ constants */
+#include "arch.h"       /* need this to include decode.h (byte, etc. */
+#include "instr.h"      /* for REG_ constants */
 #include "decode.h"
 #include "decode_private.h"
 
@@ -61,11 +61,15 @@
  * invalid.
  */
 
+// We skip auto-formatting for the entire file to keep our aligned op_instr
+// entries and our single-line table entries:
+/* clang-format off */
+
 /****************************************************************************
  * Operand pointers into tables
  * When there are multiple encodings of an opcode, this points to the first
  * entry in a linked list.
- * This array corresponds with the enum in instr.h
+ * This array corresponds with the enum in opcode.h
  * IF YOU CHANGE ONE YOU MUST CHANGE THE OTHER
  */
 const instr_info_t * const op_instr[] =
@@ -96,7 +100,7 @@ const instr_info_t * const op_instr[] =
     /* OP_popa    */   &first_byte[0x61],
     /* OP_bound   */   &first_byte[0x62],
     /* OP_arpl    */   &x64_extensions[16][0],
-    /* OP_imul    */   &extensions[10][5],
+    /* OP_imul    */   &base_extensions[10][5],
 
     /* OP_jo_short    */   &first_byte[0x70],
     /* OP_jno_short   */   &first_byte[0x71],
@@ -116,14 +120,14 @@ const instr_info_t * const op_instr[] =
     /* OP_jnle_short  */   &first_byte[0x7f],
 
     /* OP_call          */   &first_byte[0xe8],
-    /* OP_call_ind      */   &extensions[12][2],
+    /* OP_call_ind      */   &base_extensions[12][2],
     /* OP_call_far      */   &first_byte[0x9a],
-    /* OP_call_far_ind  */   &extensions[12][3],
+    /* OP_call_far_ind  */   &base_extensions[12][3],
     /* OP_jmp           */   &first_byte[0xe9],
     /* OP_jmp_short     */   &first_byte[0xeb],
-    /* OP_jmp_ind       */   &extensions[12][4],
+    /* OP_jmp_ind       */   &base_extensions[12][4],
     /* OP_jmp_far       */   &first_byte[0xea],
-    /* OP_jmp_far_ind   */   &extensions[12][5],
+    /* OP_jmp_far_ind   */   &base_extensions[12][5],
 
     /* OP_loopne  */   &first_byte[0xe0],
     /* OP_loope   */   &first_byte[0xe1],
@@ -344,32 +348,32 @@ const instr_info_t * const op_instr[] =
     /* OP_pslldq      */   &prefix_extensions[102][2],
 
 
-    /* OP_rol          */   &extensions[ 4][0],
-    /* OP_ror          */   &extensions[ 4][1],
-    /* OP_rcl          */   &extensions[ 4][2],
-    /* OP_rcr          */   &extensions[ 4][3],
-    /* OP_shl          */   &extensions[ 4][4],
-    /* OP_shr          */   &extensions[ 4][5],
-    /* OP_sar          */   &extensions[ 4][7],
-    /* OP_not          */   &extensions[10][2],
-    /* OP_neg          */   &extensions[10][3],
-    /* OP_mul          */   &extensions[10][4],
-    /* OP_div          */   &extensions[10][6],
-    /* OP_idiv         */   &extensions[10][7],
-    /* OP_sldt         */   &extensions[13][0],
-    /* OP_str          */   &extensions[13][1],
-    /* OP_lldt         */   &extensions[13][2],
-    /* OP_ltr          */   &extensions[13][3],
-    /* OP_verr         */   &extensions[13][4],
-    /* OP_verw         */   &extensions[13][5],
+    /* OP_rol          */   &base_extensions[ 4][0],
+    /* OP_ror          */   &base_extensions[ 4][1],
+    /* OP_rcl          */   &base_extensions[ 4][2],
+    /* OP_rcr          */   &base_extensions[ 4][3],
+    /* OP_shl          */   &base_extensions[ 4][4],
+    /* OP_shr          */   &base_extensions[ 4][5],
+    /* OP_sar          */   &base_extensions[ 4][7],
+    /* OP_not          */   &base_extensions[10][2],
+    /* OP_neg          */   &base_extensions[10][3],
+    /* OP_mul          */   &base_extensions[10][4],
+    /* OP_div          */   &base_extensions[10][6],
+    /* OP_idiv         */   &base_extensions[10][7],
+    /* OP_sldt         */   &base_extensions[13][0],
+    /* OP_str          */   &base_extensions[13][1],
+    /* OP_lldt         */   &base_extensions[13][2],
+    /* OP_ltr          */   &base_extensions[13][3],
+    /* OP_verr         */   &base_extensions[13][4],
+    /* OP_verw         */   &base_extensions[13][5],
     /* OP_sgdt         */   &mod_extensions[0][0],
     /* OP_sidt         */   &mod_extensions[1][0],
     /* OP_lgdt         */   &mod_extensions[5][0],
     /* OP_lidt         */   &mod_extensions[4][0],
-    /* OP_smsw         */   &extensions[14][4],
-    /* OP_lmsw         */   &extensions[14][6],
+    /* OP_smsw         */   &base_extensions[14][4],
+    /* OP_lmsw         */   &base_extensions[14][6],
     /* OP_invlpg       */   &mod_extensions[2][0],
-    /* OP_cmpxchg8b    */   &extensions[16][1],
+    /* OP_cmpxchg8b    */   &base_extensions[16][1],
     /* OP_fxsave32     */   &rex_w_extensions[0][0],
     /* OP_fxrstor32    */   &rex_w_extensions[1][0],
     /* OP_ldmxcsr      */   &vex_extensions[61][0],
@@ -378,12 +382,12 @@ const instr_info_t * const op_instr[] =
     /* OP_mfence       */   &mod_extensions[7][1],
     /* OP_clflush      */   &mod_extensions[3][0],
     /* OP_sfence       */   &mod_extensions[3][1],
-    /* OP_prefetchnta  */   &extensions[23][0],
-    /* OP_prefetcht0   */   &extensions[23][1],
-    /* OP_prefetcht1   */   &extensions[23][2],
-    /* OP_prefetcht2   */   &extensions[23][3],
-    /* OP_prefetch     */   &extensions[24][0],
-    /* OP_prefetchw    */   &extensions[24][1],
+    /* OP_prefetchnta  */   &base_extensions[23][0],
+    /* OP_prefetcht0   */   &base_extensions[23][1],
+    /* OP_prefetcht1   */   &base_extensions[23][2],
+    /* OP_prefetcht2   */   &base_extensions[23][3],
+    /* OP_prefetch     */   &base_extensions[24][0],
+    /* OP_prefetchw    */   &base_extensions[24][1],
 
 
     /* OP_movups     */   &prefix_extensions[ 0][0],
@@ -1185,28 +1189,28 @@ const instr_info_t * const op_instr[] =
 
     /* AMD TBM */
     /* OP_bextr         */   &prefix_extensions[141][4],
-    /* OP_blcfill       */   &extensions[27][1],
-    /* OP_blci          */   &extensions[28][6],
-    /* OP_blcic         */   &extensions[27][5],
-    /* OP_blcmsk        */   &extensions[28][1],
-    /* OP_blcs          */   &extensions[27][3],
-    /* OP_blsfill       */   &extensions[27][2],
-    /* OP_blsic         */   &extensions[27][6],
-    /* OP_t1mskc        */   &extensions[27][7],
-    /* OP_tzmsk         */   &extensions[27][4],
+    /* OP_blcfill       */   &base_extensions[27][1],
+    /* OP_blci          */   &base_extensions[28][6],
+    /* OP_blcic         */   &base_extensions[27][5],
+    /* OP_blcmsk        */   &base_extensions[28][1],
+    /* OP_blcs          */   &base_extensions[27][3],
+    /* OP_blsfill       */   &base_extensions[27][2],
+    /* OP_blsic         */   &base_extensions[27][6],
+    /* OP_t1mskc        */   &base_extensions[27][7],
+    /* OP_tzmsk         */   &base_extensions[27][4],
 
     /* AMD LWP */
-    /* OP_llwpcb        */   &extensions[29][0],
-    /* OP_slwpcb        */   &extensions[29][1],
-    /* OP_lwpins        */   &extensions[30][0],
-    /* OP_lwpval        */   &extensions[30][1],
+    /* OP_llwpcb        */   &base_extensions[29][0],
+    /* OP_slwpcb        */   &base_extensions[29][1],
+    /* OP_lwpins        */   &base_extensions[30][0],
+    /* OP_lwpval        */   &base_extensions[30][1],
 
     /* Intel BMI1 */
     /* (includes non-immed form of OP_bextr) */
     /* OP_andn          */   &third_byte_38[100],
-    /* OP_blsr          */   &extensions[31][1],
-    /* OP_blsmsk        */   &extensions[31][2],
-    /* OP_blsi          */   &extensions[31][3],
+    /* OP_blsr          */   &base_extensions[31][1],
+    /* OP_blsmsk        */   &base_extensions[31][2],
+    /* OP_blsi          */   &base_extensions[31][3],
     /* OP_tzcnt         */   &prefix_extensions[140][1],
 
     /* Intel BMI2 */
@@ -1227,8 +1231,8 @@ const instr_info_t * const op_instr[] =
     /* OP_invpcid       */   &third_byte_38[103],
 
     /* Intel TSX */
-    /* OP_xabort        */   &extensions[17][7],
-    /* OP_xbegin        */   &extensions[18][7],
+    /* OP_xabort        */   &base_extensions[17][7],
+    /* OP_xbegin        */   &base_extensions[18][7],
     /* OP_xend          */   &rm_extensions[4][5],
     /* OP_xtest         */   &rm_extensions[4][6],
 
@@ -1262,9 +1266,17 @@ const instr_info_t * const op_instr[] =
     /* OP_vpbroadcastd  */   &third_byte_38[118],
     /* OP_vpbroadcastq  */   &third_byte_38[119],
 
+    /* added in Intel Skylake */
+    /* OP_xsavec32      */   &rex_w_extensions[5][0],
+    /* OP_xsavec64      */   &rex_w_extensions[5][1],
+
+    /* Intel ADX */
+    /* OP_adox          */   &prefix_extensions[143][1],
+    /* OP_adcx          */   &prefix_extensions[143][2],
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-    /* OP_jmpe      */   &extensions[13][6],
+    /* OP_jmpe      */   &base_extensions[13][6],
     /* OP_jmpe_abs  */   &second_byte[0xb8],
 #endif
 };
@@ -1452,7 +1464,7 @@ const instr_info_t * const op_instr[] =
 #define cF  TYPE_FLOATCONST, OPSZ_0
 
 #ifdef IA32_ON_IA64
-#define Av TYPE_A, OPSZ_4_short2
+# define Av TYPE_A, OPSZ_4_short2
 #endif
 
 /* registers that are base 32 but vary down or up */
@@ -1487,14 +1499,9 @@ const instr_info_t * const op_instr[] =
 #define xSI TYPE_VAR_XREG, REG_ESI
 #define xDI TYPE_VAR_XREG, REG_EDI
 
-/* esp modifications in push/pop instrs operate on esp vs. sp
- * wrt addr16, not data16, so we have to special-case those esp operands
- */
-#define axSP TYPE_VAR_ADDR_XREG, REG_ESP
-#define axBP TYPE_VAR_ADDR_XREG, REG_EBP
-/* jecxz and loop* use addr16 */
+/* jecxz and loop* vary by addr16 */
 #define axCX TYPE_VAR_ADDR_XREG, REG_ECX
-/* string ops use addr16 */
+/* string ops also use addr16 */
 #define axSI TYPE_VAR_ADDR_XREG, REG_ESI
 #define axDI TYPE_VAR_ADDR_XREG, REG_EDI
 #define axAX TYPE_VAR_ADDR_XREG, REG_EAX
@@ -1570,6 +1577,7 @@ const instr_info_t * const op_instr[] =
 #define edi TYPE_REG, REG_EDI
 
 #define xsp TYPE_XREG, REG_ESP
+#define xbp TYPE_XREG, REG_EBP
 #define xcx TYPE_XREG, REG_ECX
 
 #define cs  TYPE_REG, SEG_CS
@@ -1644,7 +1652,7 @@ const instr_info_t * const op_instr[] =
 #define END_LIST  0
 #define tfb (ptr_int_t)&first_byte
 #define tsb (ptr_int_t)&second_byte
-#define tex (ptr_int_t)&extensions
+#define tex (ptr_int_t)&base_extensions
 #define t38 (ptr_int_t)&third_byte_38
 #define t3a (ptr_int_t)&third_byte_3a
 #define tpe (ptr_int_t)&prefix_extensions
@@ -1675,8 +1683,8 @@ const instr_info_t first_byte[] = {
     {OP_add,  0x030000, "add",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x02]},
     {OP_add,  0x040000, "add",  al, xx, Ib, al, xx, no,  fW6, tfb[0x03]},
     {OP_add,  0x050000, "add", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x04]},
-    {OP_push, 0x060000, "push", axSP, i_xSPo1, es, axSP, xx, i64, x, tfb[0x0e]},
-    {OP_pop,  0x070000, "pop", es, axSP, axSP, i_xSP, xx, i64, x, tsb[0xa1]},
+    {OP_push, 0x060000, "push", xsp, i_xSPo1, es, xsp, xx, i64, x, tfb[0x0e]},
+    {OP_pop,  0x070000, "pop", es, xsp, xsp, i_xSP, xx, i64, x, tsb[0xa1]},
     /* 08 */
     {OP_or,  0x080000, "or",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][1]},
     {OP_or,  0x090000, "or",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x08]},
@@ -1684,7 +1692,7 @@ const instr_info_t first_byte[] = {
     {OP_or,  0x0b0000, "or",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x0a]},
     {OP_or,  0x0c0000, "or",  al, xx, Ib, al, xx, no,  fW6, tfb[0x0b]},
     {OP_or,  0x0d0000, "or", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x0c]},
-    {OP_push,0x0e0000, "push", axSP, i_xSPo1, cs, axSP, xx, i64, x, tfb[0x16]},
+    {OP_push,0x0e0000, "push", xsp, i_xSPo1, cs, xsp, xx, i64, x, tfb[0x16]},
     {ESCAPE, 0x0f0000, "(escape)", xx, xx, xx, xx, xx, no, x, NA},
     /* 10 */
     {OP_adc,  0x100000, "adc",  Eb, xx, Gb, Eb, xx, mrm, (fW6|fRC), tex[1][2]},
@@ -1693,8 +1701,8 @@ const instr_info_t first_byte[] = {
     {OP_adc,  0x130000, "adc",  Gv, xx, Ev, Gv, xx, mrm, (fW6|fRC), tfb[0x12]},
     {OP_adc,  0x140000, "adc",  al, xx, Ib, al, xx, no,  (fW6|fRC), tfb[0x13]},
     {OP_adc,  0x150000, "adc", eAX, xx, Iz, eAX, xx, no,  (fW6|fRC), tfb[0x14]},
-    {OP_push, 0x160000, "push", axSP, i_xSPo1, ss, axSP, xx, i64, x, tfb[0x1e]},
-    {OP_pop,  0x170000, "pop", ss, axSP, axSP, i_xSP, xx, i64, x, tfb[0x1f]},
+    {OP_push, 0x160000, "push", xsp, i_xSPo1, ss, xsp, xx, i64, x, tfb[0x1e]},
+    {OP_pop,  0x170000, "pop", ss, xsp, xsp, i_xSP, xx, i64, x, tfb[0x1f]},
     /* 18 */
     {OP_sbb,  0x180000, "sbb",  Eb, xx, Gb, Eb, xx, mrm, (fW6|fRC), tex[1][3]},
     {OP_sbb,  0x190000, "sbb",  Ev, xx, Gv, Ev, xx, mrm, (fW6|fRC), tfb[0x18]},
@@ -1702,8 +1710,8 @@ const instr_info_t first_byte[] = {
     {OP_sbb,  0x1b0000, "sbb",  Gv, xx, Ev, Gv, xx, mrm, (fW6|fRC), tfb[0x1a]},
     {OP_sbb,  0x1c0000, "sbb",  al, xx, Ib, al, xx, no,  (fW6|fRC), tfb[0x1b]},
     {OP_sbb,  0x1d0000, "sbb", eAX, xx, Iz, eAX, xx, no,  (fW6|fRC), tfb[0x1c]},
-    {OP_push, 0x1e0000, "push", axSP, i_xSPo1, ds, axSP, xx, i64, x, tsb[0xa0]},
-    {OP_pop,  0x1f0000, "pop", ds, axSP, axSP, i_xSP, xx, i64, x, tfb[0x07]},
+    {OP_push, 0x1e0000, "push", xsp, i_xSPo1, ds, xsp, xx, i64, x, tsb[0xa0]},
+    {OP_pop,  0x1f0000, "pop", ds, xsp, xsp, i_xSP, xx, i64, x, tfb[0x07]},
     /* 20 */
     {OP_and,  0x200000, "and",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][4]},
     {OP_and,  0x210000, "and",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x20]},
@@ -1759,26 +1767,26 @@ const instr_info_t first_byte[] = {
     {X64_EXT, 0x4e0000, "(x64_ext 14)", xx, xx, xx, xx, xx, no, x, 14},
     {X64_EXT, 0x4f0000, "(x64_ext 15)", xx, xx, xx, xx, xx, no, x, 15},
     /* 50 */
-    {OP_push,  0x500000, "push", axSP, i_xSPo1, xAX_x, axSP, xx, no, x, tfb[0x51]},
-    {OP_push,  0x510000, "push", axSP, i_xSPo1, xCX_x, axSP, xx, no, x, tfb[0x52]},
-    {OP_push,  0x520000, "push", axSP, i_xSPo1, xDX_x, axSP, xx, no, x, tfb[0x53]},
-    {OP_push,  0x530000, "push", axSP, i_xSPo1, xBX_x, axSP, xx, no, x, tfb[0x54]},
-    {OP_push,  0x540000, "push", axSP, i_xSPo1, xSP_x, axSP, xx, no, x, tfb[0x55]},
-    {OP_push,  0x550000, "push", axSP, i_xSPo1, xBP_x, axSP, xx, no, x, tfb[0x56]},
-    {OP_push,  0x560000, "push", axSP, i_xSPo1, xSI_x, axSP, xx, no, x, tfb[0x57]},
-    {OP_push,  0x570000, "push", axSP, i_xSPo1, xDI_x, axSP, xx, no, x, tex[12][6]},
+    {OP_push,  0x500000, "push", xsp, i_xSPo1, xAX_x, xsp, xx, no, x, tfb[0x51]},
+    {OP_push,  0x510000, "push", xsp, i_xSPo1, xCX_x, xsp, xx, no, x, tfb[0x52]},
+    {OP_push,  0x520000, "push", xsp, i_xSPo1, xDX_x, xsp, xx, no, x, tfb[0x53]},
+    {OP_push,  0x530000, "push", xsp, i_xSPo1, xBX_x, xsp, xx, no, x, tfb[0x54]},
+    {OP_push,  0x540000, "push", xsp, i_xSPo1, xSP_x, xsp, xx, no, x, tfb[0x55]},
+    {OP_push,  0x550000, "push", xsp, i_xSPo1, xBP_x, xsp, xx, no, x, tfb[0x56]},
+    {OP_push,  0x560000, "push", xsp, i_xSPo1, xSI_x, xsp, xx, no, x, tfb[0x57]},
+    {OP_push,  0x570000, "push", xsp, i_xSPo1, xDI_x, xsp, xx, no, x, tex[12][6]},
     /* 58 */
-    {OP_pop,  0x580000, "pop", xAX_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x59]},
-    {OP_pop,  0x590000, "pop", xCX_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x5a]},
-    {OP_pop,  0x5a0000, "pop", xDX_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x5b]},
-    {OP_pop,  0x5b0000, "pop", xBX_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x5c]},
-    {OP_pop,  0x5c0000, "pop", xSP_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x5d]},
-    {OP_pop,  0x5d0000, "pop", xBP_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x5e]},
-    {OP_pop,  0x5e0000, "pop", xSI_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x5f]},
-    {OP_pop,  0x5f0000, "pop", xDI_x, axSP, axSP, i_xSP, xx, no, x, tex[26][0]},
+    {OP_pop,  0x580000, "pop", xAX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x59]},
+    {OP_pop,  0x590000, "pop", xCX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5a]},
+    {OP_pop,  0x5a0000, "pop", xDX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5b]},
+    {OP_pop,  0x5b0000, "pop", xBX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5c]},
+    {OP_pop,  0x5c0000, "pop", xSP_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5d]},
+    {OP_pop,  0x5d0000, "pop", xBP_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5e]},
+    {OP_pop,  0x5e0000, "pop", xSI_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5f]},
+    {OP_pop,  0x5f0000, "pop", xDI_x, xsp, xsp, i_xSP, xx, no, x, tex[26][0]},
     /* 60 */
-    {OP_pusha, 0x600000, "pusha", axSP, i_xSPo8, axSP, eAX, eBX, xop|i64, x, exop[0x00]},
-    {OP_popa,  0x610000, "popa", axSP, eAX, axSP, i_xSPs8, xx, xop|i64, x, exop[0x02]},
+    {OP_pusha, 0x600000, "pusha", xsp, i_xSPo8, xsp, eAX, eBX, xop|i64, x, exop[0x00]},
+    {OP_popa,  0x610000, "popa", xsp, eAX, xsp, i_xSPs8, xx, xop|i64, x, exop[0x02]},
     {OP_bound, 0x620000, "bound", xx, xx, Gv, Ma, xx, mrm|i64, x, END_LIST},
     {X64_EXT,  0x630000, "(x64_ext 16)", xx, xx, xx, xx, xx, no, x, 16},
     {PREFIX, 0x640000, "fs", xx, xx, xx, xx, xx, no, x, SEG_FS},
@@ -1786,9 +1794,9 @@ const instr_info_t first_byte[] = {
     {PREFIX, 0x660000, "data size", xx, xx, xx, xx, xx, no, x, PREFIX_DATA},
     {PREFIX, 0x670000, "addr size", xx, xx, xx, xx, xx, no, x, PREFIX_ADDR},
     /* 68 */
-    {OP_push_imm, 0x680000, "push", axSP, i_xSPo1, Iz, axSP, xx, no, x, tfb[0x6a]},
+    {OP_push_imm, 0x680000, "push", xsp, i_xSPo1, Iz, xsp, xx, no, x, tfb[0x6a]},
     {OP_imul,  0x690000, "imul", Gv, xx, Ev, Iz, xx, mrm, fW6, tfb[0x6b]},
-    {OP_push_imm, 0x6a0000, "push", axSP, i_xSPo1, Ib, axSP, xx, no, x, END_LIST},/* sign-extend to push 2/4/8 bytes */
+    {OP_push_imm, 0x6a0000, "push", xsp, i_xSPo1, Ib, xsp, xx, no, x, END_LIST},/* sign-extend to push 2/4/8 bytes */
     {OP_imul,  0x6b0000, "imul", Gv, xx, Ev, Ib, xx, mrm, fW6, END_LIST},
     {REP_EXT,  0x6c0000, "((rep) ins)", Yb, xx, i_dx, xx, xx, no, fRD, 0},
     {REP_EXT,  0x6d0000, "((rep) ins)", Yz, xx, i_dx, xx, xx, no, fRD, 1},
@@ -1843,10 +1851,10 @@ const instr_info_t first_byte[] = {
     {OP_cwde, 0x980000, "cwde", eAX, xx, ax, xx, xx, no, x, END_LIST},/*16-bit=="cbw", src is al not ax; FIXME: newer gdb calls it "cwtl"?!?*/
     /* PR 354096: does not write to ax/eax/rax: sign-extends into dx/edx/rdx */
     {OP_cdq,  0x990000, "cdq", eDX, xx, eAX, xx, xx, no, x, END_LIST},/*16-bit=="cwd";64-bit=="cqo"*/
-    {OP_call_far, 0x9a0000, "lcall",  axSP, i_vSPo2, Ap, axSP, xx, i64, x, END_LIST},
+    {OP_call_far, 0x9a0000, "lcall",  xsp, i_vSPo2, Ap, xsp, xx, i64, x, END_LIST},
     {OP_fwait, 0x9b0000, "fwait", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_pushf, 0x9c0000, "pushf", axSP, i_xSPo1, axSP, xx, xx, no, fRX, END_LIST},
-    {OP_popf,  0x9d0000, "popf", axSP, xx, axSP, i_xSP, xx, no, fWX, END_LIST},
+    {OP_pushf, 0x9c0000, "pushf", xsp, i_xSPo1, xsp, xx, xx, no, fRX, END_LIST},
+    {OP_popf,  0x9d0000, "popf", xsp, xx, xsp, i_xSP, xx, no, fWX, END_LIST},
     {OP_sahf,  0x9e0000, "sahf", xx, xx, ah, xx, xx, no, (fW6&(~fWO)), END_LIST},
     {OP_lahf,  0x9f0000, "lahf", ah, xx, xx, xx, xx, no, (fR6&(~fRO)), END_LIST},
     /* a0 */
@@ -1889,22 +1897,22 @@ const instr_info_t first_byte[] = {
     /* c0 */
     {EXTENSION, 0xc00000, "(group 2a)", Eb, xx, Ib, xx, xx, mrm, x, 3},
     {EXTENSION, 0xc10000, "(group 2b)", Ev, xx, Ib, xx, xx, mrm, x, 4},
-    {OP_ret,  0xc20000, "ret", axSP, xx, Iw, axSP, i_iSP, no, x, tfb[0xc3]},
-    {OP_ret,  0xc30000, "ret", axSP, xx, axSP, i_iSP, xx, no, x, END_LIST},
+    {OP_ret,  0xc20000, "ret", xsp, xx, Iw, xsp, i_iSP, no, x, tfb[0xc3]},
+    {OP_ret,  0xc30000, "ret", xsp, xx, xsp, i_iSP, xx, no, x, END_LIST},
     {VEX_PREFIX_EXT, 0xc40000, "(vex_prefix_ext 0)", xx, xx, xx, xx, xx, no, x, 0},
     {VEX_PREFIX_EXT, 0xc50000, "(vex_prefix_ext 1)", xx, xx, xx, xx, xx, no, x, 1},
     {EXTENSION, 0xc60000, "(group 11a)", Eb, xx, Ib, xx, xx, mrm, x, 17},
     {EXTENSION, 0xc70000, "(group 11b)", Ev, xx, Iz, xx, xx, mrm, x, 18},
     /* c8 */
-    {OP_enter,  0xc80000, "enter", axSP, i_xSPoN, Iw, Ib, axSP, xop, x, exop[0x05]},
-    {OP_leave,  0xc90000, "leave", axSP, axBP, axBP, axSP, i_xBP, no, x, END_LIST},
-    {OP_ret_far,  0xca0000, "lret", axSP, xx, Iw, axSP, i_vSPs2, no, x, tfb[0xcb]},
-    {OP_ret_far,  0xcb0000, "lret", axSP, xx, axSP, i_vSPs2, xx, no, x, END_LIST},
+    {OP_enter,  0xc80000, "enter", xsp, i_xSPoN, Iw, Ib, xsp, xop, x, exop[0x05]},
+    {OP_leave,  0xc90000, "leave", xsp, xbp, xbp, xsp, i_xBP, no, x, END_LIST},
+    {OP_ret_far,  0xca0000, "lret", xsp, xx, Iw, xsp, i_vSPs2, no, x, tfb[0xcb]},
+    {OP_ret_far,  0xcb0000, "lret", xsp, xx, xsp, i_vSPs2, xx, no, x, END_LIST},
     /* we ignore the operations on the kernel stack */
     {OP_int3, 0xcc0000, "int3", xx, xx, xx, xx, xx, no, fINT, END_LIST},
     {OP_int,  0xcd0000, "int",  xx, xx, Ib, xx, xx, no, fINT, END_LIST},
     {OP_into, 0xce0000, "into", xx, xx, xx, xx, xx, i64, fINT, END_LIST},
-    {OP_iret, 0xcf0000, "iret", axSP, xx, axSP, i_vSPs3, xx, no, fWX, END_LIST},
+    {OP_iret, 0xcf0000, "iret", xsp, xx, xsp, i_vSPs3, xx, no, fWX, END_LIST},
     /* d0 */
     {EXTENSION, 0xd00000, "(group 2c)", Eb, xx, c1,  xx, xx, mrm, x, 5},
     {EXTENSION, 0xd10000, "(group 2d)", Ev, xx, c1,  xx, xx, mrm, x, 6},
@@ -1936,7 +1944,7 @@ const instr_info_t first_byte[] = {
     {OP_out,  0xe60000, "out", xx, xx, Ib, al, xx, no, x, tfb[0xef]},
     {OP_out,  0xe70000, "out", xx, xx, Ib, zAX, xx, no, x, tfb[0xe6]},
     /* e8 */
-    {OP_call,     0xe80000, "call",  axSP, i_iSPo1, Jz, axSP, xx, no, x, END_LIST},
+    {OP_call,     0xe80000, "call",  xsp, i_iSPo1, Jz, xsp, xx, no, x, END_LIST},
     {OP_jmp,       0xe90000, "jmp", xx, xx, Jz, xx, xx, no, x, END_LIST},
     {OP_jmp_far,   0xea0000, "ljmp", xx, xx, Ap, xx, xx, i64, x, END_LIST},
     {OP_jmp_short, 0xeb0000, "jmp", xx, xx, Jb, xx, xx, no, x, END_LIST},
@@ -2164,8 +2172,8 @@ const instr_info_t second_byte[] = {
   {OP_setle, 0x0f9e10, "setle", Eb, xx, xx, xx, xx, mrm, (fRS|fRO|fRZ), END_LIST},
   {OP_setnle,0x0f9f10, "setnle",Eb, xx, xx, xx, xx, mrm, (fRS|fRO|fRZ), END_LIST},
   /* a0 */
-  {OP_push, 0x0fa010, "push", axSP, i_xSPo1, fs, axSP, xx, no, x, tsb[0xa8]},
-  {OP_pop,  0x0fa110, "pop", fs, axSP, axSP, i_xSP, xx, no, x, tsb[0xa9]},
+  {OP_push, 0x0fa010, "push", xsp, i_xSPo1, fs, xsp, xx, no, x, tsb[0xa8]},
+  {OP_pop,  0x0fa110, "pop", fs, xsp, xsp, i_xSP, xx, no, x, tsb[0xa9]},
   {OP_cpuid, 0x0fa210, "cpuid", eax, ebx, eax, ecx, xx, xop, x, exop[0x06]},
   {OP_bt,   0x0fa310, "bt",   xx, xx, Ev, Gv, xx, mrm, fW6, tex[15][4]},
   {OP_shld, 0x0fa410, "shld", Ev, xx, Gv, Ib, Ev, mrm, fW6, tsb[0xa5]},
@@ -2173,8 +2181,8 @@ const instr_info_t second_byte[] = {
   {INVALID, 0x0fa610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   {INVALID, 0x0fa710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   /* a8 */
-  {OP_push, 0x0fa810, "push", axSP, i_xSPo1, gs, axSP, xx, no, x, END_LIST},
-  {OP_pop,  0x0fa910, "pop", gs, axSP, axSP, i_xSP, xx, no, x, END_LIST},
+  {OP_push, 0x0fa810, "push", xsp, i_xSPo1, gs, xsp, xx, no, x, END_LIST},
+  {OP_pop,  0x0fa910, "pop", gs, xsp, xsp, i_xSP, xx, no, x, END_LIST},
   {OP_rsm,  0x0faa10, "rsm", xx, xx, xx, xx, xx, no, fWX, END_LIST},
   {OP_bts,  0x0fab10, "bts", Ev, xx, Gv, Ev, xx, mrm, fW6, tex[15][5]},
   {OP_shrd, 0x0fac10, "shrd", Ev, xx, Gv, Ib, Ev, mrm, fW6, tsb[0xad]},
@@ -2287,7 +2295,7 @@ const instr_info_t second_byte[] = {
  * Opcode extensions
  * This is from Table A-6
  */
-const instr_info_t extensions[][8] = {
+const instr_info_t base_extensions[][8] = {
   /* group 1a -- first opcode byte 80: all assumed to have Ib */
   { /* extensions[0] */
     {OP_add, 0x800020, "add", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][0]},
@@ -2433,12 +2441,12 @@ const instr_info_t extensions[][8] = {
   { /* extensions[12] */
     {OP_inc, 0xff0020, "inc", Ev, xx, Ev, xx, xx, mrm, (fW6&(~fWC)), tex[11][0]},
     {OP_dec, 0xff0021, "dec", Ev, xx, Ev, xx, xx, mrm, (fW6&(~fWC)), tex[11][1]},
-    {OP_call_ind,     0xff0022, "call",  axSP, i_iSPo1, i_Exi, axSP, xx, mrm, x, END_LIST},
+    {OP_call_ind,     0xff0022, "call",  xsp, i_iSPo1, i_Exi, xsp, xx, mrm, x, END_LIST},
     /* Note how a far call's stack operand size matches far ret rather than call */
-    {OP_call_far_ind, 0xff0023, "lcall",  axSP, i_vSPo2, i_Ep, axSP, xx, mrm, x, END_LIST},
+    {OP_call_far_ind, 0xff0023, "lcall",  xsp, i_vSPo2, i_Ep, xsp, xx, mrm, x, END_LIST},
     {OP_jmp_ind,      0xff0024, "jmp",  xx, xx, i_Exi, xx, xx, mrm, x, END_LIST},
     {OP_jmp_far_ind,  0xff0025, "ljmp",  xx, xx, i_Ep, xx, xx, mrm, x, END_LIST},
-    {OP_push, 0xff0026, "push", axSP, i_xSPo1, Esv, axSP, xx, mrm, x, tfb[0x06]},
+    {OP_push, 0xff0026, "push", xsp, i_xSPo1, Esv, xsp, xx, mrm, x, tfb[0x06]},
     {INVALID, 0xff0027, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
  },
   /* group 6 (first bytes 0f 00) */
@@ -2484,7 +2492,7 @@ const instr_info_t extensions[][8] = {
     {OP_cmpxchg8b, 0x0fc731, "cmpxchg8b", Mq_dq, eAX, Mq_dq, eAX, eDX, mrm_xop, fWZ, exop[0x07]},/*"cmpxchg16b" w/ rex.w*/
     {INVALID, 0x0fc732, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x0fc733, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x0fc734, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {REX_W_EXT, 0x0fc734, "(rex.w ext 5)", xx, xx, xx, xx, xx, mrm, x, 5},
     {INVALID, 0x0fc735, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {MOD_EXT, 0x0fc736, "(group 9 mod ext 12)", xx, xx, xx, xx, xx, mrm, x, 12},
     {MOD_EXT, 0x0fc737, "(mod ext 13)", xx, xx, xx, xx, xx, mrm, x, 13},
@@ -2566,10 +2574,10 @@ const instr_info_t extensions[][8] = {
     {OP_prefetcht0,  0x0f1831, "prefetcht0",  xx, xx, Mb, xx, xx, mrm, x, END_LIST},
     {OP_prefetcht1,  0x0f1832, "prefetcht1",  xx, xx, Mb, xx, xx, mrm, x, END_LIST},
     {OP_prefetcht2,  0x0f1833, "prefetcht2",  xx, xx, Mb, xx, xx, mrm, x, END_LIST},
-    {INVALID, 0x0f1834, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x0f1835, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x0f1836, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x0f1837, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_nop_modrm, 0x0f1834, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    {OP_nop_modrm, 0x0f1835, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    {OP_nop_modrm, 0x0f1836, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    {OP_nop_modrm, 0x0f1837, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
  },
   /* group AMD (first bytes 0f 0d) */
   { /* extensions[24] */
@@ -2600,7 +2608,7 @@ const instr_info_t extensions[][8] = {
   },
   /* group 1d (Intel now calling Group 1A) -- first opcode byte 8f */
   { /* extensions[26] */
-    {OP_pop,  0x8f0020, "pop", Esv, axSP, axSP, i_xSP, xx, mrm, x, tfb[0x17]},
+    {OP_pop,  0x8f0020, "pop", Esv, xsp, xsp, i_xSP, xx, mrm, x, tfb[0x17]},
     /* we shouldn't ever get here for these, as this becomes an XOP prefix */
     {INVALID, 0x8f0021, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x8f0022, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -2713,11 +2721,11 @@ const instr_info_t prefix_extensions[][8] = {
      * and has a separate pneumonic ("movhlps"), yet the reg-reg form of
      * the store version (0f13) is illegal
      */
-    {OP_movlps, 0x0f1210, "movlps", Vq_dq, xx, Wq, xx, xx, mrm, x, tpe[3][0]}, /*"movhlps" if reg-reg */
+    {OP_movlps, 0x0f1210, "movlps", Vq_dq, xx, Wq_dq, xx, xx, mrm, x, tpe[3][0]}, /*"movhlps" if reg-reg */
     {OP_movsldup, 0xf30f1210, "movsldup", Vps, xx, Wps, xx, xx, mrm, x, END_LIST},
     {OP_movlpd, 0x660f1210, "movlpd", Vq_dq, xx, Mq, xx, xx, mrm, x, tpe[3][2]},
     {OP_movddup, 0xf20f1210, "movddup", Vpd, xx, Wq_dq, xx, xx, mrm, x, END_LIST},
-    {OP_vmovlps,    0x0f1210, "vmovlps", Vq_dq, xx, Hq_dq, Wq, xx, mrm|vex|reqL0, x, tpe[3][4]}, /*"vmovhlps" if reg-reg */
+    {OP_vmovlps,    0x0f1210, "vmovlps", Vq_dq, xx, Hq_dq, Wq_dq, xx, mrm|vex|reqL0, x, tpe[3][4]}, /*"vmovhlps" if reg-reg */
     {OP_vmovsldup,0xf30f1210, "vmovsldup", Vvs, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
     {OP_vmovlpd,  0x660f1210, "vmovlpd", Vq_dq, xx, Hq_dq, Mq, xx, mrm|vex, x, tpe[3][6]},
     {OP_vmovddup, 0xf20f1210, "vmovddup", Vvd, xx, Wvq_dq, xx, xx, mrm|vex, x, END_LIST},
@@ -2761,11 +2769,11 @@ const instr_info_t prefix_extensions[][8] = {
      * and has a separate pneumonic ("movhlps"), yet the reg-reg form of
      * the store version (0f17) is illegal
      */
-    {OP_movhps, 0x0f1610, "movhps", Vq_dq, xx, Wq, xx, xx, mrm, x, tpe[7][0]}, /*"movlhps" if reg-reg */
+    {OP_movhps, 0x0f1610, "movhps", Vq_dq, xx, Wq_dq, xx, xx, mrm, x, tpe[7][0]}, /*"movlhps" if reg-reg */
     {OP_movshdup, 0xf30f1610, "movshdup", Vps, xx, Wps, xx, xx, mrm, x, END_LIST},
     {OP_movhpd, 0x660f1610, "movhpd", Vq_dq, xx, Mq, xx, xx, mrm, x, tpe[7][2]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovhps, 0x0f1610, "vmovhps", Vq_dq, xx, Hq_dq, Wq, xx, mrm|vex|reqL0, x, tpe[7][4]}, /*"vmovlhps" if reg-reg */
+    {OP_vmovhps, 0x0f1610, "vmovhps", Vq_dq, xx, Hq_dq, Wq_dq, xx, mrm|vex|reqL0, x, tpe[7][4]}, /*"vmovlhps" if reg-reg */
     {OP_vmovshdup, 0xf30f1610, "vmovshdup", Vvs, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
     {OP_vmovhpd, 0x660f1610, "vmovhpd", Vq_dq, xx, Hq_dq, Mq, xx, mrm|vex|reqL0, x, tpe[7][6]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -4283,8 +4291,8 @@ const instr_info_t prefix_extensions[][8] = {
   },
   { /* prefix extension 143 */
     {INVALID,        0x38f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,      0xf338f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,      0x6638f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {OP_adox,      0xf338f618, "adox",    Gy, xx, Ey, xx, xx, mrm, (fWO|fRO), END_LIST},
+    {OP_adcx,      0x6638f618, "adcx",    Gy, xx, Ey, xx, xx, mrm, (fWC|fRC), END_LIST},
     {INVALID,      0xf238f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x38f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf338f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -4836,6 +4844,10 @@ const instr_info_t rex_w_extensions[][2] = {
     {OP_xsaveopt32, 0x0fae36, "xsaveopt",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
     {OP_xsaveopt64, 0x0fae36, "xsaveopt64", Mxsave, xx, edx, eax, xx, mrm|rex, o64, END_LIST},
   },
+  { /* rex.w extension 5 */
+    {OP_xsavec32, 0x0fc734, "xsavec",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
+    {OP_xsavec64, 0x0fc734, "xsavec64", Mxsave, xx, edx, eax, xx, mrm|rex, o64, END_LIST},
+  },
 };
 
 /****************************************************************************
@@ -5112,9 +5124,9 @@ const instr_info_t third_byte_3a[] = {
   /* AVX2 */
   {OP_vinserti128,0x663a3818,"vinserti128",Vqq,xx,Hqq,Wqq,Ib,mrm|vex|reqp,x,END_LIST},/*57*/
   {OP_vextracti128,0x663a3918,"vextracti128",Wdq,xx,Vqq,Ib,xx,mrm|vex|reqp,x,END_LIST},/*58*/
-  {OP_vpermq, 0x663a0018, "vpermq", Vqq,xx,Wqq,Ib,xx,mrm|vex|reqp,x,END_LIST},/*59*/
+  {OP_vpermq, 0x663a0058, "vpermq", Vqq,xx,Wqq,Ib,xx,mrm|vex|reqp,x,END_LIST},/*59*/
   /* Following Intel and not marking as packed float vs ints: just "qq". */
-  {OP_vpermpd,0x663a0118, "vpermpd",Vqq,xx,Wqq,Ib,xx,mrm|vex|reqp,x,END_LIST},/*60*/
+  {OP_vpermpd,0x663a0158, "vpermpd",Vqq,xx,Wqq,Ib,xx,mrm|vex|reqp,x,END_LIST},/*60*/
   {OP_vpblendd,0x663a0218,"vpblendd",Vx,xx,Hx,Wx,Ib, mrm|vex|reqp,x,END_LIST},/*61*/
   {OP_vperm2i128,0x663a4618,"vperm2i128",Vqq,xx,Hqq,Wqq,Ib, mrm|vex|reqp,x,END_LIST},/*62*/
 };
@@ -5326,16 +5338,16 @@ const instr_info_t vex_W_extensions[][2] = {
     /* XXX: OP_v*gather* raise #UD if any pair of the index, mask, or destination
      * registers are identical.  We don't bother trying to detect that.
      */
-    {OP_vpgatherdd,0x66389018,"vpgatherdd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tvexw[66][1]},
+    {OP_vpgatherdd,0x66389018,"vpgatherdd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,END_LIST},
     {OP_vpgatherdq,0x66389058,"vpgatherdq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 67 */
-    {OP_vpgatherqd,0x66389118,"vpgatherdd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tvexw[67][1]},
-    {OP_vpgatherqq,0x66389158,"vpgatherdq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
+    {OP_vpgatherqd,0x66389118,"vpgatherqd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,END_LIST},
+    {OP_vpgatherqq,0x66389158,"vpgatherqq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 68 */
-    {OP_vgatherdps,0x66389218,"vgatherdps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tvexw[68][1]},
+    {OP_vgatherdps,0x66389218,"vgatherdps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,END_LIST},
     {OP_vgatherdpd,0x66389258,"vgatherdpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 69 */
-    {OP_vgatherqps,0x66389318,"vgatherqps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tvexw[69][1]},
+    {OP_vgatherqps,0x66389318,"vgatherqps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,END_LIST},
     {OP_vgatherqpd,0x66389358,"vgatherqpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 70 */
     {OP_vpmaskmovd,0x66388c18,"vpmaskmovd",Vx,xx,Hx,Mx,xx, mrm|vex|reqp|predcx,x,tvexw[71][0]},
@@ -6328,7 +6340,7 @@ const instr_info_t extra_operands[] =
     {OP_CONTD, 0x000000, "<popa cont'd>", eDX, eBP, xx, xx, xx, xop, x, exop[0x04]},
     {OP_CONTD, 0x000000, "<popa cont'd>", eSI, eDI, xx, xx, xx, no, x, END_LIST},
     /* 0x05 */
-    {OP_CONTD, 0x000000, "<enter cont'd>", axBP, xx, axBP, xx, xx, no, x, END_LIST},
+    {OP_CONTD, 0x000000, "<enter cont'd>", xbp, xx, xbp, xx, xx, no, x, END_LIST},
     /* 0x06 */
     {OP_CONTD, 0x000000, "<cpuid cont'd>", ecx, edx, xx, xx, xx, no, x, END_LIST},
     /* 0x07 */
@@ -6342,3 +6354,4 @@ const instr_info_t extra_operands[] =
     {OP_CONTD,0x0f3710, "<getsec cont'd", ecx, xx, xx, xx, xx, predcx, x, END_LIST},
 };
 
+/* clang-format on */

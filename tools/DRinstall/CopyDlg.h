@@ -38,7 +38,7 @@
 #define _COPY_DLG_H_
 
 #if _MSC_VER > 1000
-#pragma once
+#    pragma once
 #endif // _MSC_VER > 1000
 
 class CWizardSheet;
@@ -46,17 +46,17 @@ class CWizardSheet;
 /////////////////////////////////////////////////////////////////////////////
 // CCopyDlg dialog
 
-class CCopyDlg : public CPropertyPage
-{
+class CCopyDlg : public CPropertyPage {
     DECLARE_DYNCREATE(CCopyDlg)
 
-// Construction
+    // Construction
 public:
-    BOOL OnInitDialog();
+    BOOL
+    OnInitDialog();
     CCopyDlg();
     ~CCopyDlg();
 
-// Dialog Data
+    // Dialog Data
     //{{AFX_DATA(CCopyDlg)
     enum { IDD = IDD_COPY };
     CEdit m_TargetEdit;
@@ -65,26 +65,34 @@ public:
     CString m_Target;
     //}}AFX_DATA
 
-
-// Overrides
+    // Overrides
     // ClassWizard generate virtual function overrides
     //{{AFX_VIRTUAL(CCopyDlg)
 public:
-    virtual BOOL OnSetActive();
-    virtual LRESULT OnWizardNext();
+    virtual BOOL
+    OnSetActive();
+    virtual LRESULT
+    OnWizardNext();
+
 protected:
-    virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+    virtual void
+    DoDataExchange(CDataExchange *pDX); // DDX/DDV support
     //}}AFX_VIRTUAL
 
-// Implementation
+    // Implementation
 protected:
-    BOOL SetEnvironmentVars();
-    BOOL AddToStartMenu();
-    BOOL InitializeRegistry();
-    BOOL CopyFiles();
+    BOOL
+    SetEnvironmentVars();
+    BOOL
+    AddToStartMenu();
+    BOOL
+    InitializeRegistry();
+    BOOL
+    CopyFiles();
     // Generated message map functions
     //{{AFX_MSG(CCopyDlg)
-    afx_msg void OnBrowse();
+    afx_msg void
+    OnBrowse();
     //}}AFX_MSG
     DECLARE_MESSAGE_MAP()
 
@@ -94,6 +102,7 @@ protected:
 };
 
 //{{AFX_INSERT_LOCATION}}
-// Microsoft Developer Studio will insert additional declarations immediately before the previous line.
+// Microsoft Developer Studio will insert additional declarations immediately before the
+// previous line.
 
 #endif // _COPY_DLG_H_

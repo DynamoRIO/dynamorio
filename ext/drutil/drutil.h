@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drutil: DynamoRIO Instrumentation Utilities
@@ -62,7 +62,6 @@ DR_EXPORT
 void
 drutil_exit(void);
 
-
 /***************************************************************************
  * MEMORY TRACING
  */
@@ -78,8 +77,11 @@ DR_EXPORT
  * All registers used in \p memref must hold their original
  * application values in order for the proper address to be computed
  * into \p dst.  The \p dst register may overlap with the registers
- * used in \p memref, but \p scratch must be different from those used
+ * used in \p memref.  On ARM, \p scratch must be different from those used
  * in \p memref (as well as from \p dst).
+ * On x86, \p scratch will not be used unless \p memref is a far reference
+ * that either uses \p dst or is a base-disp with both a base and an index,
+ * or \p memref is a reference in the #OP_xlat instruction.
  *
  * To obtain each memory address referenced in a single-instruction
  * string loop, use drutil_expand_rep_string() to transform such loops
@@ -90,6 +92,16 @@ DR_EXPORT
 bool
 drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
                            opnd_t memref, reg_id_t dst, reg_id_t scratch);
+
+DR_EXPORT
+/**
+ * Identical to drutil_insert_get_mem_addr() except it returns in the optional
+ * OUT parameter \p scratch_used whether or not \p scratch was written to.
+ */
+bool
+drutil_insert_get_mem_addr_ex(void *drcontext, instrlist_t *bb, instr_t *where,
+                              opnd_t memref, reg_id_t dst, reg_id_t scratch,
+                              OUT bool *scratch_used);
 
 DR_EXPORT
 /**
@@ -152,7 +164,6 @@ DR_EXPORT
 bool
 drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, OUT bool *expanded,
                             OUT instr_t **stringop);
-
 
 /*@}*/ /* end doxygen group */
 

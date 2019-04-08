@@ -66,8 +66,8 @@ handle_make_mem_defined_if_addressable(dr_vg_client_request_t *request)
 
 /* This trivial bb event enables full decoding for all app instructions */
 dr_emit_flags_t
-empty_bb_event(void *drcontext, void *tag, instrlist_t *bb,
-               bool for_trace, bool translating)
+empty_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+               bool translating)
 {
     return DR_EMIT_DEFAULT;
 }
@@ -76,8 +76,8 @@ empty_bb_event(void *drcontext, void *tag, instrlist_t *bb,
  * issues caused by client instrumentation.
  */
 dr_emit_flags_t
-bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating)
 {
     bool truncated = false;
     uint app_instruction_count = 0;
@@ -104,7 +104,8 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
     return DR_EMIT_DEFAULT;
 }
 
-void exit_event(void)
+void
+exit_event(void)
 {
     if (bb_truncation_mode)
         ASSERT(test_stats.num_instructions_truncated > 0);

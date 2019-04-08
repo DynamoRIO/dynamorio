@@ -30,27 +30,33 @@
  * DAMAGE.
  */
 
-#ifndef ASM_CODE_ONLY /* C code */
-# include "tools.h" /* for print() */
+#ifndef ASM_CODE_ONLY  /* C code */
+#    include "tools.h" /* for print() */
 
-# include <stdio.h>
+#    include <stdio.h>
 
-# ifndef X64
-extern ptr_int_t test_fnstenv_intra(ptr_int_t *real_pc);
-extern ptr_int_t test_fnstenv_inter(ptr_int_t *real_pc);
-# else
-extern ptr_int_t test_fxsave64_intra(ptr_int_t *real_pc);
-extern ptr_int_t test_fxsave64_inter(ptr_int_t *real_pc);
-# endif
-extern ptr_int_t test_fxsave_intra(ptr_int_t *real_pc);
-extern ptr_int_t test_fxsave_inter(ptr_int_t *real_pc);
+#    ifndef X64
+extern ptr_int_t
+test_fnstenv_intra(ptr_int_t *real_pc);
+extern ptr_int_t
+test_fnstenv_inter(ptr_int_t *real_pc);
+#    else
+extern ptr_int_t
+test_fxsave64_intra(ptr_int_t *real_pc);
+extern ptr_int_t
+test_fxsave64_inter(ptr_int_t *real_pc);
+#    endif
+extern ptr_int_t
+test_fxsave_intra(ptr_int_t *real_pc);
+extern ptr_int_t
+test_fxsave_inter(ptr_int_t *real_pc);
 
 int
 main(void)
 {
     ptr_int_t rpc, fpc;
 
-# ifndef X64
+#    ifndef X64
     fpc = test_fnstenv_intra(&rpc);
     if (fpc == rpc)
         print("FNSTENV intra is correctly handled\n");
@@ -61,7 +67,7 @@ main(void)
         print("FNSTENV inter is correctly handled\n");
     else
         print("FNSTENV inter is **incorrectly** handled\n");
-# else
+#    else
     fpc = test_fxsave64_intra(&rpc);
     if (fpc == rpc)
         print("FXSAVE64 intra is correctly handled\n");
@@ -72,7 +78,7 @@ main(void)
         print("FXSAVE64 inter is correctly handled\n");
     else
         print("FXSAVE64 inter is **incorrectly** handled\n");
-# endif
+#    endif
 
     fpc = test_fxsave_intra(&rpc);
     if ((int)fpc == (int)rpc)
@@ -90,7 +96,8 @@ main(void)
 }
 
 #else /* asm code *************************************************************/
-# include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 # define FNSAVE_PC_OFFS  12
@@ -229,4 +236,5 @@ skip1:
 # undef FUNCNAME
 
 END_FILE
+/* clang-format on */
 #endif /* ASM_CODE_ONLY */

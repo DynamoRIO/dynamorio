@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -66,11 +66,13 @@ ksynch_free_var(KSYNCH_TYPE *var);
 
 #ifdef LINUX
 /* avoid de-ref */
-static inline int ksynch_get_value(volatile int *futex)
+static inline int
+ksynch_get_value(volatile int *futex)
 {
     return *futex;
 }
-static inline void ksynch_set_value(volatile int *futex, int new_val)
+static inline void
+ksynch_set_value(volatile int *futex, int new_val)
 {
     *futex = new_val;
 }
@@ -85,10 +87,12 @@ ksynch_set_value(mac_synch_t *synch, int new_val);
 KSYNCH_TYPE *
 mutex_get_contended_event(mutex_t *lock);
 
-/* These return 0 on success: */
+/* These return 0 on success and a negative value on failure. ksynch_wait
+ * returns -ETIMEDOUT if there was a timeout condition.
+ */
 
 ptr_int_t
-ksynch_wait(KSYNCH_TYPE *var, int mustbe);
+ksynch_wait(KSYNCH_TYPE *var, int mustbe, int timeout_ms);
 
 ptr_int_t
 ksynch_wake(KSYNCH_TYPE *var);

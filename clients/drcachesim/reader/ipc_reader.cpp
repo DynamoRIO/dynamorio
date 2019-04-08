@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,26 +37,43 @@
 #include "../common/utils.h"
 
 #ifdef VERBOSE
-# include <iostream>
+#    include <iostream>
 #endif
 
 ipc_reader_t::ipc_reader_t()
+    : creation_success(false)
 {
     /* Empty. */
 }
 
-ipc_reader_t::ipc_reader_t(const char *ipc_name) :
-    pipe(ipc_name)
+ipc_reader_t::ipc_reader_t(const char *ipc_name)
+    : pipe(ipc_name)
 {
-    /* Empty. */
+    // We create the pipe here so the user can set up a pipe writer
+    // *before* calling the blocking analyzer_t::run().
+    creation_success = pipe.create();
+}
+
+// Work around clang-format bug: no newline after return type for single-char operator.
+// clang-format off
+bool
+ipc_reader_t::operator!()
+// clang-format on
+{
+    return !creation_success;
+}
+
+std::string
+ipc_reader_t::get_pipe_name() const
+{
+    return pipe.get_name();
 }
 
 bool
 ipc_reader_t::init()
 {
     at_eof = false;
-    if (!pipe.create() ||
-        !pipe.open_for_read())
+    if (!creation_success || !pipe.open_for_read())
         return false;
     pipe.maximize_buffer();
     cur_buf = buf;
@@ -85,10 +102,13 @@ ipc_reader_t::read_next_entry()
             cur_buf->type = TRACE_TYPE_FOOTER;
             cur_buf->size = 0;
             cur_buf->addr = 0;
+            at_eof = true;
             return cur_buf;
         }
         cur_buf = buf;
         end_buf = buf + (sz / sizeof(*end_buf));
     }
+    if (cur_buf->type == TRACE_TYPE_FOOTER)
+        at_eof = true;
     return cur_buf;
 }

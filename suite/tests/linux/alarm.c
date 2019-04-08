@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,12 +34,14 @@
 #include <signal.h>
 #include <unistd.h>
 
-void handler()
+void
+handler()
 {
     print("wake up by alarm\n");
 }
 
-int main()
+int
+main()
 {
     signal(SIGALRM, handler);
     /* test alarm to wake up sleep */

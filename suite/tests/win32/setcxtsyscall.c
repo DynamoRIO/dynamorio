@@ -66,9 +66,8 @@ ThreadProc1(LPVOID parm)
     LARGE_INTEGER waittime;
     NTSTATUS res;
     HANDLE e;
-    GET_NTDLL(NtWaitForSingleObject, (IN HANDLE ObjectHandle,
-                                      IN BOOLEAN Alertable,
-                                      IN PLARGE_INTEGER TimeOut ));
+    GET_NTDLL(NtWaitForSingleObject,
+              (IN HANDLE ObjectHandle, IN BOOLEAN Alertable, IN PLARGE_INTEGER TimeOut));
     print("starting thread...\n");
 
     e = CreateEvent(NULL, FALSE, FALSE, "foo");
@@ -87,10 +86,11 @@ ThreadProc1(LPVOID parm)
         mov   reg_esp, esp
         mov   reg_ebp, ebp
     }
-    print("res is "PFMT" but shouldn't get here!!!\n", res);
+    print("res is " PFMT " but shouldn't get here!!!\n", res);
 #if VERBOSE
-    print("registers: "PFMT" "PFMT" "PFMT" "PFMT" "PFMT" "PFMT" "PFMT" "PFMT"\n",
-           reg_eax, reg_ebx, reg_ecx, reg_edx, reg_edi, reg_esi, reg_esp, reg_ebp);
+    print("registers: " PFMT " " PFMT " " PFMT " " PFMT " " PFMT " " PFMT " " PFMT
+          " " PFMT "\n",
+          reg_eax, reg_ebx, reg_ecx, reg_edx, reg_edi, reg_esi, reg_esp, reg_ebp);
 #endif
     CloseHandle(e);
 
@@ -114,7 +114,7 @@ transferProc()
     print("&next_instr recorded\n");
     return;
 
- transferout:
+transferout:
     __asm {
         mov   reg_eax, eax
         mov   reg_ebx, ebx
@@ -126,8 +126,9 @@ transferProc()
         mov   reg_ebp, ebp
     }
 #if VERBOSE
-    print("result:     "PFMT" "PFMT" "PFMT" "PFMT" "PFMT" "PFMT" "PFMT" "PFMT"\n",
-           reg_eax, reg_ebx, reg_ecx, reg_edx, reg_edi, reg_esi, reg_esp, reg_ebp);
+    print("result:     " PFMT " " PFMT " " PFMT " " PFMT " " PFMT " " PFMT " " PFMT
+          " " PFMT "\n",
+          reg_eax, reg_ebx, reg_ecx, reg_edx, reg_edi, reg_esi, reg_esp, reg_ebp);
 #endif
     print("control has been redirected.\n");
     /* don't try to restore stack across sysenter, etc. */
@@ -158,8 +159,10 @@ main(void)
     tc.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
     GetThreadContext(ht, &tc);
 #if VERBOSE
-    print("suspended@: "PFMT" "PFMT" "PFMT" "PFMT" "PFMT" "PFMT" "PFMT" "PFMT"\n",
-           tc.CXT_XAX, tc.CXT_XBX, tc.CXT_XCX, tc.CXT_XDX, tc.CXT_XDI, tc.CXT_XSI, tc.CXT_XSP, tc.CXT_XBP);
+    print("suspended@: " PFMT " " PFMT " " PFMT " " PFMT " " PFMT " " PFMT " " PFMT
+          " " PFMT "\n",
+          tc.CXT_XAX, tc.CXT_XBX, tc.CXT_XCX, tc.CXT_XDX, tc.CXT_XDI, tc.CXT_XSI,
+          tc.CXT_XSP, tc.CXT_XBP);
 #endif
     tc.CXT_XIP = transfer_addr;
     tc.CXT_XAX = 0xffffffff;
@@ -170,8 +173,10 @@ main(void)
     tc.CXT_XSI = 0xffffffff;
     tc.CXT_XBP = 0xffffffff;
 #if VERBOSE
-    print("setting to: "PFMT" "PFMT" "PFMT" "PFMT" "PFMT" "PFMT" "PFMT" "PFMT"\n",
-           tc.CXT_XAX, tc.CXT_XBX, tc.CXT_XCX, tc.CXT_XDX, tc.CXT_XDI, tc.CXT_XSI, tc.CXT_XSP, tc.CXT_XBP);
+    print("setting to: " PFMT " " PFMT " " PFMT " " PFMT " " PFMT " " PFMT " " PFMT
+          " " PFMT "\n",
+          tc.CXT_XAX, tc.CXT_XBX, tc.CXT_XCX, tc.CXT_XDX, tc.CXT_XDI, tc.CXT_XSI,
+          tc.CXT_XSP, tc.CXT_XBP);
 #endif
     SetThreadContext(ht, &tc);
 

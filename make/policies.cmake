@@ -34,35 +34,16 @@ if ("${CMAKE_VERSION}" VERSION_EQUAL "3.3" OR
   cmake_policy(SET CMP0058 OLD)
 endif ()
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "3.1" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "3.1")
-  # XXX i#1557: update our code to satisfy the changes in 3.x
-  cmake_policy(SET CMP0054 OLD)
-endif ()
+# XXX i#1718: update our code to satisfy the changes in 3.x
+cmake_policy(SET CMP0054 OLD)
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "3.0")
-  # XXX i#1557: update our code to satisfy the changes in 3.x
-  cmake_policy(SET CMP0026 OLD)
-  # XXX i#1375: if we make 2.8.12 the minimum we can remove the @rpath
-  # Mac stuff and this policy, right?
-  cmake_policy(SET CMP0042 OLD)
-endif ()
+# XXX i#1375: if we make 2.8.12 the minimum we can remove the @rpath
+# Mac stuff and this policy, right?
+cmake_policy(SET CMP0042 OLD)
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "2.8.12" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "2.8.12")
-  # XXX DrMem-i#1481: update to cmake 2.8.12's better handling of interface imports
-  cmake_policy(SET CMP0022 OLD)
-endif ()
+# XXX DrMem-i#1481: dynamorio is using EXPORT_LINK_INTERFACE_LIBRARIES flag for
+# compatibility.
+cmake_policy(SET CMP0022 NEW)
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "2.8.11" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "2.8.11")
-  # XXX i#1418: update to cmake 2.8.12's better handling of interface imports, for Qt
-  cmake_policy(SET CMP0020 OLD)
-endif ()
-
-if ("${CMAKE_VERSION}" VERSION_EQUAL "2.6.4" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "2.6.4")
-  # Recognize literals in if statements
-  cmake_policy(SET CMP0012 NEW)
-endif ()
+# Recognize literals in if statements
+cmake_policy(SET CMP0012 NEW)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -72,7 +72,17 @@ kernel32_redir_onload_proc(privmod_t *mod, strhash_table_t *kernel32_table)
          * return NULL if there is no underlying FlsAlloc.
          */
         IF_DEBUG(bool found =)
-            strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsAlloc");
+        strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsAlloc");
+        ASSERT(found);
+        /* i#2453: VS2013 checks other Fls routines as well so we clear them all. */
+        IF_DEBUG(found =)
+        strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsFree");
+        ASSERT(found);
+        IF_DEBUG(found =)
+        strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsGetValue");
+        ASSERT(found);
+        IF_DEBUG(found =)
+        strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsSetValue");
         ASSERT(found);
     }
 }
@@ -83,34 +93,27 @@ kernel32_redir_onload_proc(privmod_t *mod, strhash_table_t *kernel32_table)
 
 HANDLE
 WINAPI
-redirect_GetCurrentProcess(
-    VOID
-    )
+redirect_GetCurrentProcess(VOID)
 {
     return NT_CURRENT_PROCESS;
 }
 
 DWORD
 WINAPI
-redirect_GetCurrentProcessId(
-    VOID
-    )
+redirect_GetCurrentProcessId(VOID)
 {
-    return (DWORD) get_process_id();
+    return (DWORD)get_process_id();
 }
 
 DECLSPEC_NORETURN
-VOID
-WINAPI
-redirect_ExitProcess(
-    __in UINT uExitCode
-    )
+VOID WINAPI
+redirect_ExitProcess(__in UINT uExitCode)
 {
 #ifdef CLIENT_INTERFACE
     dr_exit_process(uExitCode);
 #else
     os_terminate_with_code(get_thread_private_dcontext(), /* dcontext is required */
-                           TERMINATE_CLEANUP|TERMINATE_PROCESS, uExitCode);
+                           TERMINATE_CLEANUP | TERMINATE_PROCESS, uExitCode);
 #endif
     ASSERT_NOT_REACHED();
 }
@@ -121,20 +124,16 @@ redirect_ExitProcess(
 
 HANDLE
 WINAPI
-redirect_GetCurrentThread(
-    VOID
-    )
+redirect_GetCurrentThread(VOID)
 {
     return NT_CURRENT_THREAD;
 }
 
 DWORD
 WINAPI
-redirect_GetCurrentThreadId(
-    VOID
-    )
+redirect_GetCurrentThreadId(VOID)
 {
-    return (DWORD) get_thread_id();
+    return (DWORD)d_r_get_thread_id();
 }
 
 /***************************************************************************

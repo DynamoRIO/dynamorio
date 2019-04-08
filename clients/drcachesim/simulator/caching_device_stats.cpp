@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,17 +30,49 @@
  * DAMAGE.
  */
 
+#include <assert.h>
 #include <iostream>
 #include <iomanip>
 #include "caching_device_stats.h"
 
-caching_device_stats_t::caching_device_stats_t() :
-    num_hits(0), num_misses(0), num_child_hits(0)
+caching_device_stats_t::caching_device_stats_t(const std::string &miss_file,
+                                               bool warmup_enabled)
+    : success(true)
+    , num_hits(0)
+    , num_misses(0)
+    , num_child_hits(0)
+    , num_inclusive_invalidates(0)
+    , num_hits_at_reset(0)
+    , num_misses_at_reset(0)
+    , num_child_hits_at_reset(0)
+    , warmup_enabled(warmup_enabled)
+    , file(nullptr)
 {
+    if (miss_file.empty()) {
+        dump_misses = false;
+    } else {
+#ifdef HAS_ZLIB
+        file = gzopen(miss_file.c_str(), "w");
+#else
+        file = fopen(miss_file.c_str(), "w");
+#endif
+        if (file == nullptr) {
+            dump_misses = false;
+            success = false;
+        } else
+            dump_misses = true;
+    }
 }
 
 caching_device_stats_t::~caching_device_stats_t()
 {
+    if (file != nullptr) {
+#ifdef HAS_ZLIB
+        gzclose(file);
+#else
+        fclose(file);
+#endif
+    }
 }
 
 void
@@ -50,8 +82,11 @@ caching_device_stats_t::access(const memref_t &memref, bool hit)
     // We're only computing miss rate so we just inc counters here.
     if (hit)
         num_hits++;
-    else
+    else {
         num_misses++;
+        if (dump_misses)
+            dump_miss(memref);
+    }
 }
 
 void
@@ -63,13 +98,43 @@ caching_device_stats_t::child_access(const memref_t &memref, bool hit)
 }
 
 void
+caching_device_stats_t::dump_miss(const memref_t &memref)
+{
+    addr_t pc, addr;
+    if (type_is_instr(memref.data.type))
+        pc = memref.instr.addr;
+    else { // data ref: others shouldn't get here
+        assert(type_is_prefetch(memref.data.type) ||
+               memref.data.type == TRACE_TYPE_READ ||
+               memref.data.type == TRACE_TYPE_WRITE);
+        pc = memref.data.pc;
+    }
+    addr = memref.data.addr;
+#ifdef HAS_ZLIB
+    gzprintf(file, "0x%zx,0x%zx\n", pc, addr);
+#else
+    fprintf(file, "0x%zx,0x%zx\n", pc, addr);
+#endif
+}
+
+void
+caching_device_stats_t::print_warmup(std::string prefix)
+{
+    std::cerr << prefix << std::setw(18) << std::left << "Warmup hits:" << std::setw(20)
+              << std::right << num_hits_at_reset << std::endl;
+    std::cerr << prefix << std::setw(18) << std::left << "Warmup misses:" << std::setw(20)
+              << std::right << num_misses_at_reset << std::endl;
+}
+
+void
 caching_device_stats_t::print_counts(std::string prefix)
 {
-    std::cerr.imbue(std::locale("")); // Add commas, at least for my locale
-    std::cerr << prefix << std::setw(18) << std::left << "Hits:" <<
-        std::setw(20) << std::right << num_hits << std::endl;
-    std::cerr << prefix << std::setw(18) << std::left << "Misses:" <<
-        std::setw(20) << std::right << num_misses << std::endl;
+    std::cerr << prefix << std::setw(18) << std::left << "Hits:" << std::setw(20)
+              << std::right << num_hits << std::endl;
+    std::cerr << prefix << std::setw(18) << std::left << "Misses:" << std::setw(20)
+              << std::right << num_misses << std::endl;
+    std::cerr << prefix << std::setw(18) << std::left << "Invalidations:" << std::setw(20)
+              << std::right << num_inclusive_invalidates << std::endl;
 }
 
 void
@@ -79,9 +144,10 @@ caching_device_stats_t::print_rates(std::string prefix)
         std::string miss_label = "Miss rate:";
         if (num_child_hits != 0)
             miss_label = "Local miss rate:";
-        std::cerr << prefix << std::setw(18) << std::left << miss_label <<
-            std::setw(20) << std::fixed << std::setprecision(2) << std::right <<
-            ((float)num_misses*100/(num_hits+num_misses)) << "%" << std::endl;
+        std::cerr << prefix << std::setw(18) << std::left << miss_label << std::setw(20)
+                  << std::fixed << std::setprecision(2) << std::right
+                  << ((float)num_misses * 100 / (num_hits + num_misses)) << "%"
+                  << std::endl;
     }
 }
 
@@ -89,27 +155,44 @@ void
 caching_device_stats_t::print_child_stats(std::string prefix)
 {
     if (num_child_hits != 0) {
-        std::cerr << prefix << std::setw(18) << std::left << "Child hits:" <<
-            std::setw(20) << std::right << num_child_hits << std::endl;
-        std::cerr << prefix << std::setw(18) << std::left << "Total miss rate:" <<
-            std::setw(20) << std::fixed << std::setprecision(2) << std::right <<
-            ((float)num_misses*100/(num_hits+num_child_hits+num_misses)) << "%" <<
-            std::endl;
+        std::cerr << prefix << std::setw(18) << std::left
+                  << "Child hits:" << std::setw(20) << std::right << num_child_hits
+                  << std::endl;
+        std::cerr << prefix << std::setw(18) << std::left
+                  << "Total miss rate:" << std::setw(20) << std::fixed
+                  << std::setprecision(2) << std::right
+                  << ((float)num_misses * 100 / (num_hits + num_child_hits + num_misses))
+                  << "%" << std::endl;
     }
 }
 
 void
 caching_device_stats_t::print_stats(std::string prefix)
 {
+    std::cerr.imbue(std::locale("")); // Add commas, at least for my locale
+    if (warmup_enabled) {
+        print_warmup(prefix);
+    }
     print_counts(prefix);
     print_rates(prefix);
     print_child_stats(prefix);
+    std::cerr.imbue(std::locale("C")); // Reset to avoid affecting later prints.
 }
 
 void
 caching_device_stats_t::reset()
 {
+    num_hits_at_reset = num_hits;
+    num_misses_at_reset = num_misses;
+    num_child_hits_at_reset = num_child_hits;
     num_hits = 0;
     num_misses = 0;
     num_child_hits = 0;
+    num_inclusive_invalidates = 0;
+}
+
+void
+caching_device_stats_t::invalidate()
+{
+    num_inclusive_invalidates++;
 }

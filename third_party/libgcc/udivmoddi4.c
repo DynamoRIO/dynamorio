@@ -24,8 +24,19 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 /* This is extracted from gcc's libgcc/libgcc2.c with these typedefs added: */
+typedef short Wtype;
+typedef int DWtype;
 typedef unsigned int UWtype;
 typedef unsigned long long UDWtype;
+#if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
+struct DWstruct {Wtype high, low;};
+#else
+struct DWstruct {Wtype low, high;};
+#endif
+typedef union {
+  struct DWstruct s;
+  DWtype ll;
+} DWunion;
 
 UDWtype
 __udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
@@ -87,4 +98,25 @@ __udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
   if (rp)
     *rp = r;
   return q;
+}
+
+DWtype
+__moddi3 (DWtype u, DWtype v)
+{
+  Wtype c = 0;
+  DWunion uu = {.ll = u};
+  DWunion vv = {.ll = v};
+  DWtype w;
+
+  if (uu.s.high < 0)
+    c = ~c,
+    uu.ll = -uu.ll;
+  if (vv.s.high < 0)
+    vv.ll = -vv.ll;
+
+  (void) __udivmoddi4 (uu.ll, vv.ll, (UDWtype*)&w);
+  if (c)
+    w = -w;
+
+  return w;
 }

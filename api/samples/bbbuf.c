@@ -67,6 +67,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     /* We need a 2nd scratch reg for several operations on AArch32 and AArch64 only. */
     reg_id_t reg2 = DR_REG_NULL;
 
+    /* By default drmgr enables auto-predication, which predicates all instructions with
+     * the predicate of the current instruction on ARM.
+     * We disable it here because we want to unconditionally execute the following
+     * instrumentation.
+     */
+    drmgr_disable_auto_predication(drcontext, bb);
+
     /* We do all our work at the start of the block prior to the first instr */
     if (!drmgr_is_first_instr(drcontext, inst))
         return DR_EMIT_DEFAULT;
@@ -90,10 +97,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     /* load buffer pointer from TLS field */
     drx_buf_insert_load_buf_ptr(drcontext, buf, bb, inst, reg);
 
-
     /* store bb's start pc into the buffer */
-    drx_buf_insert_buf_store(drcontext, buf, bb, inst, reg, reg2,
-                             OPND_CREATE_INTPTR(pc), OPSZ_PTR, 0);
+    drx_buf_insert_buf_store(drcontext, buf, bb, inst, reg, reg2, OPND_CREATE_INTPTR(pc),
+                             OPSZ_PTR, 0);
 
     /* Internally this will update the TLS buffer pointer by incrementing just the bottom
      * 16 bits of the pointer.
@@ -136,11 +142,9 @@ event_exit(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
-    dr_set_client_name("DynamoRIO Sample Client 'bbbuf'",
-                       "http://dynamorio.org/issues");
-    if (!drmgr_init() || !drx_init() ||
-        drreg_init(&ops) != DRREG_SUCCESS)
+    drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
+    dr_set_client_name("DynamoRIO Sample Client 'bbbuf'", "http://dynamorio.org/issues");
+    if (!drmgr_init() || !drx_init() || drreg_init(&ops) != DRREG_SUCCESS)
         DR_ASSERT(false);
 
     buf = drx_buf_create_circular_buffer(DRX_BUF_FAST_CIRCULAR_BUFSZ);
@@ -152,4 +156,3 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         !drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
         DR_ASSERT(false);
 }
-

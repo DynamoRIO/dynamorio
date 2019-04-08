@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -113,6 +113,12 @@ sections:
 
 - \subpage API_samples
   <br>Shows some sample use cases and reference implementations.
+
+- \ref page_tool
+  <br>A collection of powerful DynamoRIO-based tools are provided for
+  direct use, including our \ref page_drcachesim and memory access trace
+  collection and analysis platform, the \ref page_drmemory, our \ref
+  page_drcov, and more.
 
 - \subpage overview
   <br>A description of the implementation of the DynamoRIO system.
@@ -823,15 +829,13 @@ set of event callbacks.  These events include the following:
     (dr_register_fork_init_event())
   - Application library load and unload
     (dr_register_module_load_event(), dr_register_module_unload_event())
-\ifnot NYI_kernel_mediated_transfer_events
   - Application fault or exception (signal on Linux)
     (dr_register_exception_event(), dr_register_signal_event())
-\else
-  - Kernel-mediated control transfers:
-    - Application fault or exception
-    - Application APC (Asynchronous Procedure Call) or callback (Windows)
-    - Application signal (Linux)
-\endif
+  - Kernel-mediated control transfers (dr_register_kernel_xfer_event()):
+    - Application APC (Asynchronous Procedure Call), callback, or exception
+      dispatcher execution (Windows)
+    - Application signal delivery (Linux)
+    - System call that changes the context
   - System call interception: pre-system call, post-system call, and system
     call filtering by number
     (dr_register_pre_syscall_event(), dr_register_post_syscall_event(),
@@ -1065,7 +1069,10 @@ DynamoRIO loads client libraries and Extensions (but not copies of system
 libraries) within 32-bit reachability of its code caches.  Typically, the
 code cache region is located in the low 4GB of the address space; thus, to
 avoid relocations at client library load time, it is recommended to set a
-preferred client library base in the low 4GB.
+preferred client library base in the low 4GB.  The \ref op_reachable_client
+"-reachable_client runtime option" can be used to remove this guarantee,
+though this would normally not be done unless the client is statically
+linked with the application.
 
 The net result is that any static data or code in a client library, or any
 data allocated using DynamoRIO's API routines (except dr_raw_mem_alloc() or
@@ -1075,7 +1082,7 @@ malloc, operator new, and HeapAlloc), as well as DynamoRIO's own
 internally-used heap memory, is *not* guaranteed to be reachable: only
 memory directly allocated via DynamoRIO's API.  The \ref op_reachable_heap
 "-reachable_heap runtime option" can be used to guarantee that all memory
-is reachable, at the risk of running out memory due to the smaller space
+is reachable, at the risk of running out of memory due to the smaller space
 of available memory.
 
 To make more space available for the code caches when running larger
@@ -1576,19 +1583,29 @@ are specified via \c drconfig, \c drrun, or dr_register_process().  See
    is specified.
 
  - \b -stack_size \e \<number\>: \anchor op_stack_size
-   DynamoRIO's per-thread stack is limited to 56KB by default (this may
-   seem small, but this is much larger than its size when no client is
-   present).  This parameter can be used to increase the size; however,
-   larger stack sizes use significantly more memory when targeting
+   DynamoRIO's per-thread stack is limited to 56KB by default on systems
+   with a 4K page size (this may seem small, but this is much larger than its size
+   when no client is present). For systems with different page sizes, it defaults
+   to 2 * page size. This parameter can be used to increase the size;
+   however, larger stack sizes use significantly more memory when targeting
    applications with hundreds of threads.  The parameter can take a 'K'
-   suffix, and must be a multiple of the page size (4K).  This stack is
-   used \if vmsafe for probe callbacks and by the Code Manipulation
-   API \else by the \endif routines dr_insert_clean_call(),
+   suffix, and must be a multiple of the page size (4K, 16K, or 64K depending on
+   the system).  This stack is used \if vmsafe for probe callbacks and by
+   the Code Manipulation API \else by the \endif routines dr_insert_clean_call(),
    dr_swap_to_clean_stack(), dr_prepare_for_call(),
    dr_insert_call_instrumentation(), dr_insert_mbr_instrumentation(),
    dr_insert_cbr_instrumentation(), and dr_insert_ubr_instrumentation().
    The stack is started fresh for each use, so <em>no persistent state may be
    stored on it</em>.
+ - \b -signal_stack_size \e \<number\>:
+   DynamoRIO uses an alternate signal handling stack which is smaller than
+   the regular stack by default, as signal handlers are called in
+   relatively fragile contexts and cannot safely use arbitrary library
+   routines: it is 32K for systems with a 4K page size. For systems with
+   different page sizes, it defaults to 2 * page size. This parameter can
+   be used to change the size.  The parameter can take a 'K' suffix, and
+   must be a multiple of the page size (4K, 16K, or 64K depending on the
+   system).
 \if vmsafe
 Options available only in Code Manipulation mode and Memory Firewall mode
 (see \ref dr_modes):
@@ -1633,6 +1650,13 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    the heap memory such that it is all guaranteed to be reachable from the
    code cache, at the risk of running out memory due to the smaller space
    of available memory.
+
+ - \b -reachable_client: \anchor op_reachable_client
+   By default, DynamoRIO guarantees that client libraries are reachable
+   from its code caches by a 32-bit displacement.  Disabling this option
+   removes that guarantee and allows a client to be located elsewhere.
+   This would typically be used with client that is statically-linked
+   into the application.
 
  - \b -max_bb_instrs:
    DynamoRIO stops building a basic block if it hits this application
@@ -1834,8 +1858,8 @@ Options available only in the debug build of DynamoRIO:
 \anchor op_logmask
  - \b -logmask \e 0xN:
     Selects which DynamoRIO modules print out logging information, at the
-    -loglevel level.  The mask is a combination of the LOG_ bitfields
-    listed in dr_tools.h (#LOG_ALL selects all modules).
+    -loglevel level.  The mask is a combination of the DR_LOG_ bitfields
+    listed in dr_tools.h (#DR_LOG_ALL selects all modules).
 
 \anchor op_logdir
  - \b -logdir \e \<path\>:
@@ -1897,7 +1921,9 @@ DynamoRIO, rebooting in safe mode will allow recovery.
 
  - The DynamoRIO header files have typedefs that may conflict with other
    header files wrapped in ifndef DR_DO_NOT_DEFINE_<type> to make it
-   easier to work around such conflicts.
+   easier to work around such conflicts. Alternatively, use
+   DR_DEFINE_FOR_<type>, in which case you may need to also specify
+   "<type>_FORMAT", for printf formatting.
 
 \ifnot vmsafe
 \subsection sec_using_debugger Using Debuggers
@@ -2021,6 +2047,9 @@ Runtime options are ignored in standalone mode.  Disassembly style can be
 controlled via disassemble_set_syntax().  The processor to use will not be
 automatically set and will be assumed to be \p VENDOR_INTEL.  Use
 proc_set_vendor() to set to \p VENDOR_AMD instead.
+
+In standalone mode, there are no 32-bit-displacement reachability
+guarantees regarding DynamoRIO's heap.
 
 Some DynamoRIO API routines are not supported in standalone mode.  These
 include all event registration routines, module iteration,

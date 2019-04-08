@@ -34,7 +34,7 @@
 #include "tools.h"
 
 #define BUF_LEN 160 /* nice somewhat arbitrary length */
-#define BUF2_LEN 3*4096
+#define BUF2_LEN 3 * 4096
 
 static char buf[BUF_LEN];
 static char buf2[BUF2_LEN];
@@ -48,31 +48,33 @@ do_test(char *buf, size_t len, Copy_Mode mode)
     char *code;
     size_t copied_len;
     code = copy_to_buf(buf, len, &copied_len, CODE_INC, mode);
-    VERBOSE2("wrote code "PFX"-"PFX"\n", code, code+copied_len);
+    VERBOSE2("wrote code " PFX "-" PFX "\n", code, code + copied_len);
     NTFlush(code, copied_len);
-    VERBOSE3("flushed "PFX"-"PFX" (0x%x bytes)\n", code, code+copied_len, copied_len);
-    VERBOSE2("executing code "PFX"-"PFX"\n", code, code+copied_len);
-    test_print(code, 1); //2
-    VERBOSE2("executing code "PFX"-"PFX"\n", code, code+copied_len);
-    test_print(code, 2); //3
+    VERBOSE3("flushed " PFX "-" PFX " (0x%x bytes)\n", code, code + copied_len,
+             copied_len);
+    VERBOSE2("executing code " PFX "-" PFX "\n", code, code + copied_len);
+    test_print(code, 1); // 2
+    VERBOSE2("executing code " PFX "-" PFX "\n", code, code + copied_len);
+    test_print(code, 2); // 3
     code = copy_to_buf(buf, len, &copied_len, CODE_DEC, mode);
-    VERBOSE2("wrote code "PFX"-"PFX"\n", code, code+copied_len);
-    VERBOSE2("executing code "PFX"-"PFX"\n", code, code+copied_len);
-    test_print(code, 1); //0
+    VERBOSE2("wrote code " PFX "-" PFX "\n", code, code + copied_len);
+    VERBOSE2("executing code " PFX "-" PFX "\n", code, code + copied_len);
+    test_print(code, 1); // 0
     code = copy_to_buf(buf, len, &copied_len, CODE_INC, mode);
-    VERBOSE2("wrote code "PFX"-"PFX"\n", code, code+copied_len);
+    VERBOSE2("wrote code " PFX "-" PFX "\n", code, code + copied_len);
     /* do whole buf here so catch region of self mod below */
     NTFlush(buf, len);
-    VERBOSE3("flushed "PFX"-"PFX" (0x%x bytes)\n", buf, buf+len, len);
-    VERBOSE2("executing code "PFX"-"PFX"\n", code, code+copied_len);
-    test_print(code, 2); //3
+    VERBOSE3("flushed " PFX "-" PFX " (0x%x bytes)\n", buf, buf + len, len);
+    VERBOSE2("executing code " PFX "-" PFX "\n", code, code + copied_len);
+    test_print(code, 2); // 3
     code = copy_to_buf(buf, len, &copied_len, CODE_SELF_MOD, mode);
-    VERBOSE2("wrote code "PFX"-"PFX"\n", code, code+copied_len);
-    VERBOSE2("executing self-mod code "PFX"-"PFX"\n", code, code+copied_len);
+    VERBOSE2("wrote code " PFX "-" PFX "\n", code, code + copied_len);
+    VERBOSE2("executing self-mod code " PFX "-" PFX "\n", code, code + copied_len);
     test_print(code, 43981);
     NTFlush(code, copied_len);
-    VERBOSE3("flushed "PFX"-"PFX" (0x%x bytes)\n", code, code+copied_len, copied_len);
-    VERBOSE2("executing self-mod code "PFX"-"PFX"\n", code, code+copied_len);
+    VERBOSE3("flushed " PFX "-" PFX " (0x%x bytes)\n", code, code + copied_len,
+             copied_len);
+    VERBOSE2("executing self-mod code " PFX "-" PFX "\n", code, code + copied_len);
     test_print(code, 4660);
 }
 

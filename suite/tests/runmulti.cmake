@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2018 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -33,12 +33,15 @@
 # * cmd = command to run
 #     should have intra-arg space=@@ and inter-arg space=@ and ;=!
 # * postcmd = post processing command to run
+# * postcmdN (for N=2+) = additional post processing commands to run
 # * cmp = the file containing the expected output
 #
 # A "*" in any command line will be glob-expanded right before running.
 # If the command starts with "foreach@", instead of passing the glob-expansion
 # to the single command, the command will be repeated for each expansion entry,
 # and only one such expansion is supported (and it must be at the end).
+# If the command starts with "firstglob@", only the first item in the
+# glob-expansion is passed to the command.
 # If the expansion is empty for precmd, the precmd execution is skipped.
 
 # Intra-arg space=@@ and inter-arg space=@.
@@ -78,18 +81,23 @@ macro(process_cmdline line skip_empty err_and_out)
                 "*** ${${line}} failed (${cmd_result}): ${cmd_err}***\n")
             endif (cmd_result)
           endforeach ()
+        elseif (${line} MATCHES "^firstglob;")
+          list(GET expand 0 head)
+          set(newcmd ${newcmd} ${head})
         else ()
           set(newcmd ${newcmd} ${expand})
         endif ()
       else ()
-        set(newcmd ${newcmd} ${token})
+        if (NOT token STREQUAL "firstglob")
+          set(newcmd ${newcmd} ${token})
+        endif ()
       endif ()
     endforeach ()
     set(${line} ${newcmd})
   endif ()
   if (NOT ${line} MATCHES "^foreach;")
     if (NOT ${skip_empty} OR NOT ${line} STREQUAL "" AND NOT globempty)
-      message("Running |${${line}}|")
+      message("Running ${line} |${${line}}|")
       execute_process(COMMAND ${${line}}
         RESULT_VARIABLE cmd_result
         ERROR_VARIABLE cmd_err
@@ -106,7 +114,14 @@ process_cmdline(precmd ON ignore)
 
 process_cmdline(cmd OFF tomatch)
 
-process_cmdline(postcmd OFF tomatch)
+if (NOT "${postcmd}" STREQUAL "")
+  process_cmdline(postcmd OFF tomatch)
+  set(num 2)
+  while (NOT "${postcmd${num}}" STREQUAL "")
+    process_cmdline(postcmd${num} OFF tomatch)
+    math(EXPR num "${num} + 1")
+  endwhile ()
+endif()
 
 # get expected output (must already be processed w/ regex => literal, etc.)
 file(READ "${cmp}" str)

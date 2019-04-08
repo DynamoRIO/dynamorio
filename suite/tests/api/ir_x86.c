@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,7 +35,7 @@
  * versions of these routines.
  */
 #ifndef STANDALONE_DECODER
-# define DR_FAST_IR 1
+#    define DR_FAST_IR 1
 #endif
 
 /* Uses the DR CLIENT_INTERFACE API, using DR as a standalone library, rather than
@@ -46,7 +46,7 @@
  */
 
 #ifndef USE_DYNAMO
-#error NEED USE_DYNAMO
+#    error NEED USE_DYNAMO
 #endif
 
 #include "configure.h"
@@ -54,28 +54,30 @@
 #include "tools.h"
 
 #ifdef WINDOWS
-# define _USE_MATH_DEFINES 1
-# include <math.h> /* for M_PI, M_LN2, and M_LN10 for OP_fldpi, etc. */
+#    define _USE_MATH_DEFINES 1
+#    include <math.h> /* for M_PI, M_LN2, and M_LN10 for OP_fldpi, etc. */
 #endif
 
 #define VERBOSE 0
 
 #ifdef STANDALONE_DECODER
-# define ASSERT(x) \
-    ((void)((!(x)) ? \
-        (fprintf(stderr, "ASSERT FAILURE: %s:%d: %s\n", __FILE__,  __LINE__, #x),\
-         abort(), 0) : 0))
+#    define ASSERT(x)                                                              \
+        ((void)((!(x)) ? (fprintf(stderr, "ASSERT FAILURE: %s:%d: %s\n", __FILE__, \
+                                  __LINE__, #x),                                   \
+                          abort(), 0)                                              \
+                       : 0))
 #else
-# define ASSERT(x) \
-    ((void)((!(x)) ? \
-        (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s\n", __FILE__,  __LINE__, #x),\
-         dr_abort(), 0) : 0))
+#    define ASSERT(x)                                                                 \
+        ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s\n", __FILE__, \
+                                     __LINE__, #x),                                   \
+                          dr_abort(), 0)                                              \
+                       : 0))
 #endif
 
 #define BOOLS_MATCH(b1, b2) (!!(b1) == !!(b2))
 
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
+#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 
 static byte buf[8192];
 
@@ -100,33 +102,37 @@ static byte buf[8192];
 
 /* these are shared among all test_all_opcodes_*() routines: */
 #define MEMARG(sz) (opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0x37, sz))
-#define IMMARG(sz)  opnd_create_immed_int(37, sz)
-#define TGTARG      opnd_create_instr(instrlist_last(ilist))
+#define IMMARG(sz) opnd_create_immed_int(37, sz)
+#define TGTARG opnd_create_instr(instrlist_last(ilist))
 #define REGARG(reg) opnd_create_reg(REG_##reg)
 #define REGARG_PARTIAL(reg, sz) opnd_create_reg_partial(REG_##reg, sz)
-#define VSIBX(sz)  (opnd_create_base_disp(REG_XCX, REG_XMM6, 2, 0x42, sz))
-#define VSIBY(sz)  (opnd_create_base_disp(REG_XDX, REG_YMM6, 2, 0x17, sz))
-#define X86_ONLY    1
-#define X64_ONLY    2
+#define VSIBX(sz) (opnd_create_base_disp(REG_XCX, REG_XMM6, 2, 0x42, sz))
+#define VSIBY(sz) (opnd_create_base_disp(REG_XDX, REG_YMM6, 2, 0x17, sz))
+#define X86_ONLY 1
+#define X64_ONLY 2
 
 static void
 test_all_opcodes_0(void *dc)
 {
-#   define INCLUDE_NAME "ir_x86_0args.h"
-#   define OPCODE_FOR_CREATE(name, opc, icnm, flags) do { \
-    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
-        instrlist_append(ilist, INSTR_CREATE_##icnm(dc)); \
-        len_##name = instr_length(dc, instrlist_last(ilist)); \
-    } } while (0);
-#   define XOPCODE_FOR_CREATE(name, opc, icnm, flags) do { \
-    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
-        instrlist_append(ilist, XINST_CREATE_##icnm(dc)); \
-        len_##name = instr_length(dc, instrlist_last(ilist)); \
-    } } while (0);
-#   include "ir_x86_all_opc.h"
-#   undef OPCODE_FOR_CREATE
-#   undef XOPCODE_FOR_CREATE
-#   undef INCLUDE_NAME
+#define INCLUDE_NAME "ir_x86_0args.h"
+#define OPCODE_FOR_CREATE(name, opc, icnm, flags)                 \
+    do {                                                          \
+        if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {     \
+            instrlist_append(ilist, INSTR_CREATE_##icnm(dc));     \
+            len_##name = instr_length(dc, instrlist_last(ilist)); \
+        }                                                         \
+    } while (0);
+#define XOPCODE_FOR_CREATE(name, opc, icnm, flags)                \
+    do {                                                          \
+        if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {     \
+            instrlist_append(ilist, XINST_CREATE_##icnm(dc));     \
+            len_##name = instr_length(dc, instrlist_last(ilist)); \
+        }                                                         \
+    } while (0);
+#include "ir_x86_all_opc.h"
+#undef OPCODE_FOR_CREATE
+#undef XOPCODE_FOR_CREATE
+#undef INCLUDE_NAME
 }
 
 #ifndef STANDALONE_DECODER
@@ -137,103 +143,130 @@ test_all_opcodes_0(void *dc)
 static void
 test_all_opcodes_1(void *dc)
 {
-#   define INCLUDE_NAME "ir_x86_1args.h"
-#   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1) do { \
-    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
-        instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1)); \
-        len_##name = instr_length(dc, instrlist_last(ilist)); \
-    } } while (0);
-#   define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1) do { \
-    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
-        instrlist_append(ilist, XINST_CREATE_##icnm(dc, arg1)); \
-        len_##name = instr_length(dc, instrlist_last(ilist)); \
-    } } while (0);
-#   include "ir_x86_all_opc.h"
-#   undef OPCODE_FOR_CREATE
-#   undef XOPCODE_FOR_CREATE
-#   undef INCLUDE_NAME
+#    define INCLUDE_NAME "ir_x86_1args.h"
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1)             \
+        do {                                                            \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {       \
+                instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));   \
+            }                                                           \
+        } while (0);
+#    define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1)            \
+        do {                                                            \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {       \
+                instrlist_append(ilist, XINST_CREATE_##icnm(dc, arg1)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));   \
+            }                                                           \
+        } while (0);
+#    include "ir_x86_all_opc.h"
+#    undef OPCODE_FOR_CREATE
+#    undef XOPCODE_FOR_CREATE
+#    undef INCLUDE_NAME
 }
 
 static void
 test_all_opcodes_2(void *dc)
 {
-#   define INCLUDE_NAME "ir_x86_2args.h"
-#   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2) do { \
-    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
-        instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2)); \
-        len_##name = instr_length(dc, instrlist_last(ilist)); \
-    } } while (0);
-#   define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2) do { \
-    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
-        instrlist_append(ilist, XINST_CREATE_##icnm(dc, arg1, arg2)); \
-        len_##name = instr_length(dc, instrlist_last(ilist)); \
-    } } while (0);
-#   include "ir_x86_all_opc.h"
-#   undef OPCODE_FOR_CREATE
-#   undef XOPCODE_FOR_CREATE
-#   undef INCLUDE_NAME
+#    define INCLUDE_NAME "ir_x86_2args.h"
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2)             \
+        do {                                                                  \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {             \
+                instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));         \
+            }                                                                 \
+        } while (0);
+#    define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2)            \
+        do {                                                                  \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {             \
+                instrlist_append(ilist, XINST_CREATE_##icnm(dc, arg1, arg2)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));         \
+            }                                                                 \
+        } while (0);
+#    include "ir_x86_all_opc.h"
+#    undef OPCODE_FOR_CREATE
+#    undef XOPCODE_FOR_CREATE
+#    undef INCLUDE_NAME
 }
 
 static void
 test_all_opcodes_2_mm(void *dc)
 {
-#   define INCLUDE_NAME "ir_x86_2args_mm.h"
-#   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2) do { \
-    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
-        instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2)); \
-        len_##name = instr_length(dc, instrlist_last(ilist)); \
-    } } while (0);
-#   include "ir_x86_all_opc.h"
-#   undef OPCODE_FOR_CREATE
-#   undef INCLUDE_NAME
+#    define INCLUDE_NAME "ir_x86_2args_mm.h"
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2)             \
+        do {                                                                  \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {             \
+                instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));         \
+            }                                                                 \
+        } while (0);
+#    include "ir_x86_all_opc.h"
+#    undef OPCODE_FOR_CREATE
+#    undef INCLUDE_NAME
 }
 
 static void
 test_all_opcodes_3(void *dc)
 {
-#   define INCLUDE_NAME "ir_x86_3args.h"
-#   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3) do { \
-    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
-        instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
-        len_##name = instr_length(dc, instrlist_last(ilist)); \
-    } } while (0);
-#   define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3) do { \
-    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
-        instrlist_append(ilist, XINST_CREATE_##icnm(dc, arg1, arg2, arg3)); \
-        len_##name = instr_length(dc, instrlist_last(ilist)); \
-    } } while (0);
-#   include "ir_x86_all_opc.h"
-#   undef OPCODE_FOR_CREATE
-#   undef XOPCODE_FOR_CREATE
-#   undef INCLUDE_NAME
+#    define INCLUDE_NAME "ir_x86_3args.h"
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3)             \
+        do {                                                                        \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                   \
+                instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));               \
+            }                                                                       \
+        } while (0);
+#    define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3)            \
+        do {                                                                        \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                   \
+                instrlist_append(ilist, XINST_CREATE_##icnm(dc, arg1, arg2, arg3)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));               \
+            }                                                                       \
+        } while (0);
+#    include "ir_x86_all_opc.h"
+#    undef OPCODE_FOR_CREATE
+#    undef XOPCODE_FOR_CREATE
+#    undef INCLUDE_NAME
 }
 
 static void
 test_all_opcodes_3_avx(void *dc)
 {
-#   define INCLUDE_NAME "ir_x86_3args_avx.h"
-#   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3) do { \
-    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
-        instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
-        len_##name = instr_length(dc, instrlist_last(ilist)); \
-    } } while (0);
-#   include "ir_x86_all_opc.h"
-#   undef OPCODE_FOR_CREATE
-#   undef INCLUDE_NAME
+#    define INCLUDE_NAME "ir_x86_3args_avx.h"
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3)             \
+        do {                                                                        \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                   \
+                instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));               \
+            }                                                                       \
+        } while (0);
+#    include "ir_x86_all_opc.h"
+#    undef OPCODE_FOR_CREATE
+#    undef INCLUDE_NAME
 }
 
 static void
 test_all_opcodes_4(void *dc)
 {
-#   define INCLUDE_NAME "ir_x86_4args.h"
-#   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4) do { \
-    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
-        instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3, arg4)); \
-        len_##name = instr_length(dc, instrlist_last(ilist)); \
-    } } while (0);
-#   include "ir_x86_all_opc.h"
-#   undef OPCODE_FOR_CREATE
-#   undef INCLUDE_NAME
+#    define INCLUDE_NAME "ir_x86_4args.h"
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4)      \
+        do {                                                                       \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                  \
+                instrlist_append(ilist,                                            \
+                                 INSTR_CREATE_##icnm(dc, arg1, arg2, arg3, arg4)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));              \
+            }                                                                      \
+        } while (0);
+#    define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4)     \
+        do {                                                                       \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                  \
+                instrlist_append(ilist,                                            \
+                                 XINST_CREATE_##icnm(dc, arg1, arg2, arg3, arg4)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));              \
+            }                                                                      \
+        } while (0);
+#    include "ir_x86_all_opc.h"
+#    undef OPCODE_FOR_CREATE
+#    undef INCLUDE_NAME
 }
 #endif /* !STANDALONE_DECODER */
 
@@ -241,34 +274,30 @@ test_all_opcodes_4(void *dc)
  ***************************************************************************/
 
 static void
-test_disp_control_helper(void *dc, int disp,
-                         bool encode_zero_disp, bool force_full_disp, bool disp16,
-                         uint len_expect)
+test_disp_control_helper(void *dc, int disp, bool encode_zero_disp, bool force_full_disp,
+                         bool disp16, uint len_expect)
 {
     byte *pc;
     uint len;
-    instr_t *instr = INSTR_CREATE_mov_ld
-        (dc, opnd_create_reg(REG_ECX),
-         opnd_create_base_disp_ex(disp16 ? IF_X64_ELSE(REG_EBX, REG_BX) :
-                                  REG_XBX, REG_NULL, 0,
-                                  disp, OPSZ_4,
-                                  encode_zero_disp, force_full_disp, disp16));
+    instr_t *instr = INSTR_CREATE_mov_ld(
+        dc, opnd_create_reg(REG_ECX),
+        opnd_create_base_disp_ex(disp16 ? IF_X64_ELSE(REG_EBX, REG_BX) : REG_XBX,
+                                 REG_NULL, 0, disp, OPSZ_4, encode_zero_disp,
+                                 force_full_disp, disp16));
     pc = instr_encode(dc, instr, buf);
-    len = (int) (pc - (byte *)buf);
+    len = (int)(pc - (byte *)buf);
 #if VERBOSE
     pc = disassemble_with_info(dc, buf, STDOUT, true, true);
 #endif
     ASSERT(len == len_expect);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    ASSERT(instr_num_srcs(instr) == 1 &&
-           opnd_is_base_disp(instr_get_src(instr, 0)) &&
-           BOOLS_MATCH(encode_zero_disp,
-                       opnd_is_disp_encode_zero(instr_get_src(instr, 0))) &&
-           BOOLS_MATCH(force_full_disp,
-                       opnd_is_disp_force_full(instr_get_src(instr, 0))) &&
-           BOOLS_MATCH(disp16,
-                       opnd_is_disp_short_addr(instr_get_src(instr, 0))));
+    ASSERT(
+        instr_num_srcs(instr) == 1 && opnd_is_base_disp(instr_get_src(instr, 0)) &&
+        BOOLS_MATCH(encode_zero_disp,
+                    opnd_is_disp_encode_zero(instr_get_src(instr, 0))) &&
+        BOOLS_MATCH(force_full_disp, opnd_is_disp_force_full(instr_get_src(instr, 0))) &&
+        BOOLS_MATCH(disp16, opnd_is_disp_short_addr(instr_get_src(instr, 0))));
     instr_destroy(dc, instr);
 }
 
@@ -286,12 +315,12 @@ test_disp_control(void *dc)
     0x00430258   67 8b 8f 7f 00       addr16 mov    0x007f(%bx) -> %ecx
     */
     test_disp_control_helper(dc, 0, false, false, false, 2);
-    test_disp_control_helper(dc, 0, true,  false, false, 3);
-    test_disp_control_helper(dc, 0, true,  true,  false,  6);
+    test_disp_control_helper(dc, 0, true, false, false, 3);
+    test_disp_control_helper(dc, 0, true, true, false, 6);
     test_disp_control_helper(dc, 0x7f, false, false, false, 3);
-    test_disp_control_helper(dc, 0x7f, false, true,  false,  6);
-    test_disp_control_helper(dc, 0x7f, false, false, true,  4);
-    test_disp_control_helper(dc, 0x7f, false, true,  true,  IF_X64_ELSE(7,5));
+    test_disp_control_helper(dc, 0x7f, false, true, false, 6);
+    test_disp_control_helper(dc, 0x7f, false, false, true, 4);
+    test_disp_control_helper(dc, 0x7f, false, true, true, IF_X64_ELSE(7, 5));
 }
 
 /* emits the instruction to buf (for tests that wish to do additional checks on
@@ -302,13 +331,41 @@ test_instr_encode(void *dc, instr_t *instr, uint len_expect)
     instr_t *decin;
     uint len;
     byte *pc = instr_encode(dc, instr, buf);
-    len = (int) (pc - (byte *)buf);
+    len = (int)(pc - (byte *)buf);
 #if VERBOSE
     disassemble_with_info(dc, buf, STDOUT, true, true);
 #endif
     ASSERT(len == len_expect);
     decin = instr_create(dc);
     decode(dc, buf, decin);
+    ASSERT(instr_same(instr, decin));
+    instr_destroy(dc, instr);
+    instr_destroy(dc, decin);
+}
+
+static void
+test_instr_decode(void *dc, instr_t *instr, byte *bytes, uint bytes_len, bool size_match)
+{
+    instr_t *decin;
+    if (size_match) {
+        uint len;
+        byte *pc = instr_encode(dc, instr, buf);
+        len = (int)(pc - (byte *)buf);
+#if VERBOSE
+        disassemble_with_info(dc, buf, STDOUT, true, true);
+#endif
+        ASSERT(len == bytes_len);
+        ASSERT(memcmp(buf, bytes, bytes_len) == 0);
+    }
+    decin = instr_create(dc);
+    decode(dc, bytes, decin);
+#if VERBOSE
+    print("Comparing |");
+    instr_disassemble(dc, instr, STDOUT);
+    print("|\n       to |");
+    instr_disassemble(dc, decin, STDOUT);
+    print("|\n");
+#endif
     ASSERT(instr_same(instr, decin));
     instr_destroy(dc, instr);
     instr_destroy(dc, decin);
@@ -326,7 +383,7 @@ test_instr_encode_and_decode(void *dc, instr_t *instr, uint len_expect,
     instr_t *decin;
     uint len;
     byte *pc = instr_encode(dc, instr, buf);
-    len = (int) (pc - (byte *)buf);
+    len = (int)(pc - (byte *)buf);
 #if VERBOSE
     disassemble_with_info(dc, buf, STDOUT, true, true);
 #endif
@@ -353,48 +410,40 @@ test_indirect_cti(void *dc)
     /*
     0x004275f4   ff d1                call   %ecx %esp -> %esp (%esp)
     0x004275f4   66 ff d1             data16 call   %cx %esp -> %esp (%esp)
-    0x004275f4   67 ff d1             addr16 call   %ecx %sp -> %sp (%sp)
+    0x004275f4   67 ff d1             addr16 call   %ecx %esp -> %esp (%esp)
     0x00427794   ff 19                lcall  (%ecx) %esp -> %esp (%esp)
     0x00427794   66 ff 19             data16 lcall  (%ecx) %esp -> %esp (%esp)
-    0x00427794   67 ff 1f             addr16 lcall  (%bx) %sp -> %sp (%sp)
+    0x00427794   67 ff 1f             addr16 lcall  (%bx) %esp -> %esp (%esp)
     */
     instr_t *instr;
+    byte bytes_addr16_call[] = { 0x67, 0xff, 0xd1 };
     instr = INSTR_CREATE_call_ind(dc, opnd_create_reg(REG_XCX));
     test_instr_encode(dc, instr, 2);
 #ifndef X64 /* only on AMD can we shorten, so we don't test it */
-    instr = instr_create_2dst_2src(dc, OP_call_ind, opnd_create_reg(REG_XSP),
-                                   opnd_create_base_disp(REG_XSP, REG_NULL, 0, -2, OPSZ_2),
-                                   opnd_create_reg(REG_CX), opnd_create_reg(REG_XSP));
+    instr =
+        instr_create_2dst_2src(dc, OP_call_ind, opnd_create_reg(REG_XSP),
+                               opnd_create_base_disp(REG_XSP, REG_NULL, 0, -2, OPSZ_2),
+                               opnd_create_reg(REG_CX), opnd_create_reg(REG_XSP));
     test_instr_encode(dc, instr, 3);
 #endif
-    instr = instr_create_2dst_2src(dc, OP_call_ind,
-                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)),
-                                   opnd_create_base_disp(IF_X64_ELSE(REG_ESP, REG_SP),
-                                                         REG_NULL, 0, -(int)sizeof(void*),
-                                                         OPSZ_ret),
-                                   /* only on AMD can we shorten, so we don't test it */
-                                   opnd_create_reg(REG_XCX),
-                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)));
-    test_instr_encode(dc, instr, 3);
+    /* addr16 prefix does nothing here */
+    instr = INSTR_CREATE_call_ind(dc, opnd_create_reg(REG_XCX));
+    test_instr_decode(dc, instr, bytes_addr16_call, sizeof(bytes_addr16_call), false);
 
     /* invalid to have far call go through reg since needs 6 bytes */
-    instr = INSTR_CREATE_call_far_ind(dc, opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0,
-                                                                OPSZ_6));
+    instr = INSTR_CREATE_call_far_ind(
+        dc, opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0, OPSZ_6));
     test_instr_encode(dc, instr, 2);
-    instr = instr_create_2dst_2src(dc, OP_call_far_ind, opnd_create_reg(REG_XSP),
-                                   opnd_create_base_disp(REG_XSP, REG_NULL, 0, -4, OPSZ_4),
-                                   opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0,
-                                                         OPSZ_4),
-                                   opnd_create_reg(REG_XSP));
+    instr = instr_create_2dst_2src(
+        dc, OP_call_far_ind, opnd_create_reg(REG_XSP),
+        opnd_create_base_disp(REG_XSP, REG_NULL, 0, -4, OPSZ_4),
+        opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0, OPSZ_4), opnd_create_reg(REG_XSP));
     test_instr_encode(dc, instr, 3);
-    instr = instr_create_2dst_2src(dc, OP_call_far_ind,
-                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)),
-                                   opnd_create_base_disp(IF_X64_ELSE(REG_ESP, REG_SP),
-                                                         REG_NULL, 0, -8,
-                                                         OPSZ_8_rex16_short4),
-                                   opnd_create_base_disp(IF_X64_ELSE(REG_EBX, REG_BX),
-                                                         REG_NULL, 0, 0, OPSZ_6),
-                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)));
+    instr = instr_create_2dst_2src(
+        dc, OP_call_far_ind, opnd_create_reg(REG_XSP),
+        opnd_create_base_disp(REG_XSP, REG_NULL, 0, -8, OPSZ_8_rex16_short4),
+        opnd_create_base_disp(IF_X64_ELSE(REG_EBX, REG_BX), REG_NULL, 0, 0, OPSZ_6),
+        opnd_create_reg(REG_XSP));
     test_instr_encode(dc, instr, 3);
 
     /* case 10710: make sure we can encode these guys
@@ -442,16 +491,16 @@ test_cti_prefixes(void *dc)
     buf[5] = 0x12;
     /* data16 (0x66) == 4 bytes, while addr16 (0x67) == 6 bytes */
 #ifndef X64 /* no jmp16 for x64 */
-# if VERBOSE
+#    if VERBOSE
     disassemble_with_info(dc, buf, STDOUT, true, true);
-# endif
-    ASSERT(decode_next_pc(dc, buf) == (byte *) &buf[4]);
+#    endif
+    ASSERT(decode_next_pc(dc, buf) == (byte *)&buf[4]);
 #endif
     buf[0] = 0x67;
 #if VERBOSE
     disassemble_with_info(dc, buf, STDOUT, true, true);
 #endif
-    ASSERT(decode_next_pc(dc, buf) == (byte *) &buf[6]);
+    ASSERT(decode_next_pc(dc, buf) == (byte *)&buf[6]);
 }
 
 static void
@@ -468,14 +517,13 @@ test_modrm16_helper(void *dc, reg_id_t base, reg_id_t scale, uint disp, uint len
     if (base == REG_NULL && scale == REG_NULL) {
         /* Don't need _ex unless abs addr, in which case should get 32-bit
          * disp!  Test both sides. */
-        test_instr_encode(dc, instr, len + 1/*32-bit disp but no prefix*/);
-        instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(REG_EBX),
-                                    opnd_create_base_disp_ex(base, scale,
-                                                             (scale == REG_NULL ? 0 : 1),
-                                                             /* we need OPSZ_4_short2 to match
-                                                              * instr_same on decode! */
-                                                             disp, OPSZ_4_short2,
-                                                             false, false, true));
+        test_instr_encode(dc, instr, len + 1 /*32-bit disp but no prefix*/);
+        instr = INSTR_CREATE_mov_ld(
+            dc, opnd_create_reg(REG_EBX),
+            opnd_create_base_disp_ex(base, scale, (scale == REG_NULL ? 0 : 1),
+                                     /* we need OPSZ_4_short2 to match
+                                      * instr_same on decode! */
+                                     disp, OPSZ_4_short2, false, false, true));
         test_instr_encode(dc, instr, len);
     } else {
         test_instr_encode(dc, instr, len);
@@ -513,29 +561,29 @@ test_modrm16(void *dc)
      *   0x004289c4   67 8b 9e 80 00       addr16 mov    0x0080(%bp) -> %ebx
      *   0x004289c4   67 8b 9f 80 00       addr16 mov    0x0080(%bx) -> %ebx
      */
-    test_modrm16_helper(dc, REG_BX, REG_SI,      0, 3);
-    test_modrm16_helper(dc, REG_BX, REG_DI,      0, 3);
-    test_modrm16_helper(dc, REG_BP, REG_SI,      0, 3);
-    test_modrm16_helper(dc, REG_BP, REG_DI,      0, 3);
-    test_modrm16_helper(dc, REG_SI, REG_NULL,    0, 3);
-    test_modrm16_helper(dc, REG_DI, REG_NULL,    0, 3);
+    test_modrm16_helper(dc, REG_BX, REG_SI, 0, 3);
+    test_modrm16_helper(dc, REG_BX, REG_DI, 0, 3);
+    test_modrm16_helper(dc, REG_BP, REG_SI, 0, 3);
+    test_modrm16_helper(dc, REG_BP, REG_DI, 0, 3);
+    test_modrm16_helper(dc, REG_SI, REG_NULL, 0, 3);
+    test_modrm16_helper(dc, REG_DI, REG_NULL, 0, 3);
     test_modrm16_helper(dc, REG_NULL, REG_NULL, 0x7f, 5); /* must do disp16 */
-    test_modrm16_helper(dc, REG_BP, REG_NULL,    0, 4); /* must do disp8 */
-    test_modrm16_helper(dc, REG_BX, REG_NULL,    0, 3);
+    test_modrm16_helper(dc, REG_BP, REG_NULL, 0, 4);      /* must do disp8 */
+    test_modrm16_helper(dc, REG_BX, REG_NULL, 0, 3);
 
-    test_modrm16_helper(dc, REG_BX, REG_SI,   0x7f, 4);
-    test_modrm16_helper(dc, REG_BX, REG_DI,   0x7f, 4);
-    test_modrm16_helper(dc, REG_BP, REG_SI,   0x7f, 4);
-    test_modrm16_helper(dc, REG_BP, REG_DI,   0x7f, 4);
+    test_modrm16_helper(dc, REG_BX, REG_SI, 0x7f, 4);
+    test_modrm16_helper(dc, REG_BX, REG_DI, 0x7f, 4);
+    test_modrm16_helper(dc, REG_BP, REG_SI, 0x7f, 4);
+    test_modrm16_helper(dc, REG_BP, REG_DI, 0x7f, 4);
     test_modrm16_helper(dc, REG_SI, REG_NULL, 0x7f, 4);
     test_modrm16_helper(dc, REG_DI, REG_NULL, 0x7f, 4);
     test_modrm16_helper(dc, REG_BP, REG_NULL, 0x7f, 4);
     test_modrm16_helper(dc, REG_BX, REG_NULL, 0x7f, 4);
 
-    test_modrm16_helper(dc, REG_BX, REG_SI,   0x80, 5);
-    test_modrm16_helper(dc, REG_BX, REG_DI,   0x80, 5);
-    test_modrm16_helper(dc, REG_BP, REG_SI,   0x80, 5);
-    test_modrm16_helper(dc, REG_BP, REG_DI,   0x80, 5);
+    test_modrm16_helper(dc, REG_BX, REG_SI, 0x80, 5);
+    test_modrm16_helper(dc, REG_BX, REG_DI, 0x80, 5);
+    test_modrm16_helper(dc, REG_BP, REG_SI, 0x80, 5);
+    test_modrm16_helper(dc, REG_BP, REG_DI, 0x80, 5);
     test_modrm16_helper(dc, REG_SI, REG_NULL, 0x80, 5);
     test_modrm16_helper(dc, REG_DI, REG_NULL, 0x80, 5);
     test_modrm16_helper(dc, REG_BP, REG_NULL, 0x80, 5);
@@ -547,9 +595,7 @@ static void
 test_size_changes(void *dc)
 {
     /*
-     *   0x004299d4   67 51                addr16 push   %ecx %sp -> %sp (%sp)
      *   0x004299d4   66 51                data16 push   %cx %esp -> %esp (%esp)
-     *   0x004299d4   66 67 51             data16 addr16 push   %cx %sp -> %sp (%sp)
      *   0x004298a4   e3 fe                jecxz  $0x004298a4 %ecx
      *   0x004298a4   67 e3 fd             addr16 jecxz  $0x004298a4 %cx
      *   0x080a5260   67 e2 fd             addr16 loop   $0x080a5260 %cx -> %cx
@@ -557,52 +603,39 @@ test_size_changes(void *dc)
      *   0x080a5260   67 e0 fd             addr16 loopne $0x080a5260 %cx -> %cx
      */
     instr_t *instr;
-    /* push addr16 */
-    instr = instr_create_2dst_2src(dc, OP_push,
-                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)),
-                                   opnd_create_base_disp(IF_X64_ELSE(REG_ESP, REG_SP),
-                                                         REG_NULL, 0, -(int)sizeof(void*),
-                                                         OPSZ_ret),
-                                   opnd_create_reg(REG_XCX),
-                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)));
-    test_instr_encode(dc, instr, 2);
+    /* addr16 doesn't affect push so we only test data16 here */
 #ifndef X64 /* can only shorten on AMD */
     /* push data16 */
-    instr = instr_create_2dst_2src(dc, OP_push,
-                                   opnd_create_reg(REG_XSP),
-                                   opnd_create_base_disp(REG_XSP, REG_NULL, 0, -2, OPSZ_2),
-                                   opnd_create_reg(REG_CX), opnd_create_reg(REG_XSP));
+    instr =
+        instr_create_2dst_2src(dc, OP_push, opnd_create_reg(REG_XSP),
+                               opnd_create_base_disp(REG_XSP, REG_NULL, 0, -2, OPSZ_2),
+                               opnd_create_reg(REG_CX), opnd_create_reg(REG_XSP));
     test_instr_encode(dc, instr, 2);
-    /* push addr16 and data16 */
-    instr = instr_create_2dst_2src(dc, OP_push, opnd_create_reg(REG_SP),
-                                   opnd_create_base_disp(REG_SP, REG_NULL, 0, -2, OPSZ_2),
-                                   opnd_create_reg(REG_CX), opnd_create_reg(REG_SP));
-    test_instr_encode(dc, instr, 3);
 #endif
     /* jecxz and jcxz */
     test_instr_encode(dc, INSTR_CREATE_jecxz(dc, opnd_create_pc(buf)), 2);
     /* test non-default count register size (requires addr prefix) */
-    instr = instr_create_0dst_2src
-        (dc, OP_jecxz, opnd_create_pc(buf), opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
+    instr = instr_create_0dst_2src(dc, OP_jecxz, opnd_create_pc(buf),
+                                   opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
     test_instr_encode(dc, instr, 3);
-    instr = instr_create_1dst_2src
-        (dc, OP_loop, opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)), opnd_create_pc(buf),
-         opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
+    instr = instr_create_1dst_2src(
+        dc, OP_loop, opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)), opnd_create_pc(buf),
+        opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
     test_instr_encode(dc, instr, 3);
-    instr = instr_create_1dst_2src
-        (dc, OP_loope, opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)), opnd_create_pc(buf),
-         opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
+    instr = instr_create_1dst_2src(
+        dc, OP_loope, opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)), opnd_create_pc(buf),
+        opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
     test_instr_encode(dc, instr, 3);
-    instr = instr_create_1dst_2src
-        (dc, OP_loopne, opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)), opnd_create_pc(buf),
-         opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
+    instr = instr_create_1dst_2src(
+        dc, OP_loopne, opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)), opnd_create_pc(buf),
+        opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
     test_instr_encode(dc, instr, 3);
 
     /*
-     *   0x004ee0b8   a6                   cmps   %ds:(%esi) %es:(%edi) %esi %edi -> %esi %edi
-     *   0x004ee0b8   67 a6                addr16 cmps   %ds:(%si) %es:(%di) %si %di -> %si %di
-     *   0x004ee0b8   66 a7                data16 cmps   %ds:(%esi) %es:(%edi) %esi %edi -> %esi %edi
-     *   0x004ee0b8   d7                   xlat   %ds:(%ebx,%al,1) -> %al
+     *   0x004ee0b8   a6                   cmps   %ds:(%esi) %es:(%edi) %esi %edi -> %esi
+     * %edi 0x004ee0b8   67 a6                addr16 cmps   %ds:(%si) %es:(%di) %si %di ->
+     * %si %di 0x004ee0b8   66 a7                data16 cmps   %ds:(%esi) %es:(%edi) %esi
+     * %edi -> %esi %edi 0x004ee0b8   d7                   xlat   %ds:(%ebx,%al,1) -> %al
      *   0x004ee0b8   67 d7                addr16 xlat   %ds:(%bx,%al,1) -> %al
      *   0x004ee0b8   0f f7 c1             maskmovq %mm0 %mm1 -> %ds:(%edi)
      *   0x004ee0b8   67 0f f7 c1          addr16 maskmovq %mm0 %mm1 -> %ds:(%di)
@@ -610,49 +643,50 @@ test_size_changes(void *dc)
      *   0x004ee0b8   67 66 0f f7 c1       addr16 maskmovdqu %xmm0 %xmm1 -> %ds:(%di)
      */
     test_instr_encode(dc, INSTR_CREATE_cmps_1(dc), 1);
-    instr = instr_create_2dst_4src
-        (dc, OP_cmps, opnd_create_reg(IF_X64_ELSE(REG_ESI, REG_SI)),
-         opnd_create_reg(IF_X64_ELSE(REG_EDI, REG_DI)),
-         opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_ESI, REG_SI),
-                                   REG_NULL, 0, 0, OPSZ_1),
-         opnd_create_far_base_disp(SEG_ES, IF_X64_ELSE(REG_EDI, REG_DI),
-                                   REG_NULL, 0, 0, OPSZ_1),
-         opnd_create_reg(IF_X64_ELSE(REG_ESI, REG_SI)),
-         opnd_create_reg(IF_X64_ELSE(REG_EDI, REG_DI)));
+    instr = instr_create_2dst_4src(
+        dc, OP_cmps, opnd_create_reg(IF_X64_ELSE(REG_ESI, REG_SI)),
+        opnd_create_reg(IF_X64_ELSE(REG_EDI, REG_DI)),
+        opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_ESI, REG_SI), REG_NULL, 0, 0,
+                                  OPSZ_1),
+        opnd_create_far_base_disp(SEG_ES, IF_X64_ELSE(REG_EDI, REG_DI), REG_NULL, 0, 0,
+                                  OPSZ_1),
+        opnd_create_reg(IF_X64_ELSE(REG_ESI, REG_SI)),
+        opnd_create_reg(IF_X64_ELSE(REG_EDI, REG_DI)));
     test_instr_encode(dc, instr, 2);
 
-    instr = instr_create_2dst_4src
-        (dc, OP_cmps, opnd_create_reg(REG_XSI), opnd_create_reg(REG_XDI),
-         opnd_create_far_base_disp(SEG_DS, REG_XSI, REG_NULL, 0, 0, OPSZ_2),
-         opnd_create_far_base_disp(SEG_ES, REG_XDI, REG_NULL, 0, 0, OPSZ_2),
-         opnd_create_reg(REG_XSI), opnd_create_reg(REG_XDI));
-    test_instr_encode_and_decode(dc, instr, 2, true/*src*/, 0, OPSZ_2, 2);
+    instr = instr_create_2dst_4src(
+        dc, OP_cmps, opnd_create_reg(REG_XSI), opnd_create_reg(REG_XDI),
+        opnd_create_far_base_disp(SEG_DS, REG_XSI, REG_NULL, 0, 0, OPSZ_2),
+        opnd_create_far_base_disp(SEG_ES, REG_XDI, REG_NULL, 0, 0, OPSZ_2),
+        opnd_create_reg(REG_XSI), opnd_create_reg(REG_XDI));
+    test_instr_encode_and_decode(dc, instr, 2, true /*src*/, 0, OPSZ_2, 2);
 
     test_instr_encode(dc, INSTR_CREATE_xlat(dc), 1);
-    instr = instr_create_1dst_1src
-        (dc, OP_xlat, opnd_create_reg(REG_AL),
-         opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EBX, REG_BX),
-                                   REG_AL, 1, 0, OPSZ_1));
+    instr = instr_create_1dst_1src(dc, OP_xlat, opnd_create_reg(REG_AL),
+                                   opnd_create_far_base_disp(SEG_DS,
+                                                             IF_X64_ELSE(REG_EBX, REG_BX),
+                                                             REG_AL, 1, 0, OPSZ_1));
     test_instr_encode(dc, instr, 2);
 
-    instr = INSTR_CREATE_maskmovq(dc, opnd_create_reg(REG_MM0),
-                                  opnd_create_reg(REG_MM1));
+    instr = INSTR_CREATE_maskmovq(dc, opnd_create_reg(REG_MM0), opnd_create_reg(REG_MM1));
     test_instr_encode(dc, instr, 3);
-    instr = INSTR_PRED(instr_create_1dst_2src
-        (dc, OP_maskmovq,
-         opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EDI, REG_DI),
-                                   REG_NULL, 0, 0, OPSZ_8),
-         opnd_create_reg(REG_MM0), opnd_create_reg(REG_MM1)), DR_PRED_COMPLEX);
+    instr = INSTR_PRED(instr_create_1dst_2src(
+                           dc, OP_maskmovq,
+                           opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EDI, REG_DI),
+                                                     REG_NULL, 0, 0, OPSZ_8),
+                           opnd_create_reg(REG_MM0), opnd_create_reg(REG_MM1)),
+                       DR_PRED_COMPLEX);
     test_instr_encode(dc, instr, 4);
 
-    instr = INSTR_CREATE_maskmovdqu(dc, opnd_create_reg(REG_XMM0),
-                                    opnd_create_reg(REG_XMM1));
+    instr =
+        INSTR_CREATE_maskmovdqu(dc, opnd_create_reg(REG_XMM0), opnd_create_reg(REG_XMM1));
     test_instr_encode(dc, instr, 4);
-    instr = INSTR_PRED(instr_create_1dst_2src
-        (dc, OP_maskmovdqu,
-         opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EDI, REG_DI),
-                                   REG_NULL, 0, 0, OPSZ_16),
-         opnd_create_reg(REG_XMM0), opnd_create_reg(REG_XMM1)), DR_PRED_COMPLEX);
+    instr = INSTR_PRED(instr_create_1dst_2src(
+                           dc, OP_maskmovdqu,
+                           opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EDI, REG_DI),
+                                                     REG_NULL, 0, 0, OPSZ_16),
+                           opnd_create_reg(REG_XMM0), opnd_create_reg(REG_XMM1)),
+                       DR_PRED_COMPLEX);
     test_instr_encode(dc, instr, 5);
 
     /* Test iretw, iretd, iretq (unlike most stack operation iretd (and lretd on AMD)
@@ -666,13 +700,13 @@ test_size_changes(void *dc)
 #else
     test_instr_encode_and_decode(dc, instr, 1, true /*src*/, 1, OPSZ_12, 12);
 #endif
-    instr = instr_create_1dst_2src
-        (dc, OP_iret, opnd_create_reg(REG_XSP), opnd_create_reg(REG_XSP),
-         opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_12));
+    instr = instr_create_1dst_2src(
+        dc, OP_iret, opnd_create_reg(REG_XSP), opnd_create_reg(REG_XSP),
+        opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_12));
     test_instr_encode_and_decode(dc, instr, 1, true /*src*/, 1, OPSZ_12, 12);
-    instr = instr_create_1dst_2src
-        (dc, OP_iret, opnd_create_reg(REG_XSP), opnd_create_reg(REG_XSP),
-         opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_6));
+    instr = instr_create_1dst_2src(
+        dc, OP_iret, opnd_create_reg(REG_XSP), opnd_create_reg(REG_XSP),
+        opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_6));
     test_instr_encode_and_decode(dc, instr, 2, true /*src*/, 1, OPSZ_6, 6);
     ASSERT(buf[0] == 0x66); /* check for data prefix */
 }
@@ -702,31 +736,59 @@ test_nop_xchg(void *dc)
     buf[0] = 0x46;
     buf[1] = 0x90;
     instr = instr_create(dc);
-# if VERBOSE
+#    if VERBOSE
     disassemble_with_info(dc, buf, STDOUT, true, true);
-# endif
+#    endif
     decode(dc, buf, instr);
     ASSERT(instr_get_opcode(instr) == OP_nop);
     instr_destroy(dc, instr);
     buf[0] = 0x4e;
     buf[1] = 0x90;
     instr = instr_create(dc);
-# if VERBOSE
+#    if VERBOSE
     disassemble_with_info(dc, buf, STDOUT, true, true);
-# endif
+#    endif
     decode(dc, buf, instr);
     ASSERT(instr_get_opcode(instr) == OP_nop);
     instr_destroy(dc, instr);
     buf[0] = 0x41;
     buf[1] = 0x90;
     instr = instr_create(dc);
-# if VERBOSE
+#    if VERBOSE
     disassemble_with_info(dc, buf, STDOUT, true, true);
-# endif
+#    endif
     decode(dc, buf, instr);
     ASSERT(instr_get_opcode(instr) == OP_xchg);
     instr_destroy(dc, instr);
 #endif
+}
+
+static void
+test_hint_nops(void *dc)
+{
+    byte *pc;
+    instr_t *instr;
+    instr = instr_create(dc);
+
+    /* ensure we treat as nop. */
+    buf[0] = 0x0f;
+    buf[1] = 0x18;
+    /* nop [eax], and then ecx, edx, ebx */
+    for (buf[2] = 0x38; buf[2] <= 0x3b; buf[2]++) {
+        pc = decode(dc, buf, instr);
+        ASSERT(instr_get_opcode(instr) == OP_nop_modrm);
+        instr_reset(dc, instr);
+    }
+
+    /* other types of hintable nop [eax] */
+    buf[2] = 0x00;
+    for (buf[1] = 0x19; buf[1] <= 0x1f; buf[1]++) {
+        pc = decode(dc, buf, instr);
+        ASSERT(instr_get_opcode(instr) == OP_nop_modrm);
+        instr_reset(dc, instr);
+    }
+
+    instr_destroy(dc, instr);
 }
 
 #ifdef X64
@@ -742,21 +804,21 @@ test_x86_mode(void *dc)
     ASSERT(end - buf < BUFFER_SIZE_ELEMENTS(buf));
 
     /* read back in */
-    set_x86_mode(dc, false/*64-bit*/);
+    set_x86_mode(dc, false /*64-bit*/);
     instr_reset(dc, instr);
     pc = decode(dc, buf, instr);
     ASSERT(pc != NULL);
     ASSERT(instr_get_opcode(instr) == OP_add);
 
     /* now interpret as 32-bit where rex will be an inc */
-    set_x86_mode(dc, true/*32-bit*/);
+    set_x86_mode(dc, true /*32-bit*/);
     instr_reset(dc, instr);
     pc = decode(dc, buf, instr);
     ASSERT(pc != NULL);
     ASSERT(instr_get_opcode(instr) == OP_dec);
 
     /* test i#352: in x86 mode, sysexit should have esp as dest, not rsp */
-    set_x86_mode(dc, true/*32-bit*/);
+    set_x86_mode(dc, true /*32-bit*/);
     buf[0] = 0x0f;
     buf[1] = 0x35;
     instr_reset(dc, instr);
@@ -766,7 +828,7 @@ test_x86_mode(void *dc)
     ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_ESP);
 
     instr_free(dc, instr);
-    set_x86_mode(dc, false/*64-bit*/);
+    set_x86_mode(dc, false /*64-bit*/);
 }
 
 static void
@@ -776,15 +838,15 @@ test_x64_abs_addr(void *dc)
      * 48 a3 ef be ad de ef be ad de    mov    %rax -> 0xdeadbeefdeadbeef
      */
     instr_t *instr;
-    opnd_t abs_addr = opnd_create_abs_addr((void*)0xdeadbeefdeadbeef, OPSZ_8);
+    opnd_t abs_addr = opnd_create_abs_addr((void *)0xdeadbeefdeadbeef, OPSZ_8);
 
     /* movabs load */
     instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_RAX), abs_addr);
-    test_instr_encode(dc, instr, 10);  /* REX + op + 8 */
+    test_instr_encode(dc, instr, 10); /* REX + op + 8 */
 
     /* movabs store */
     instr = INSTR_CREATE_mov_st(dc, abs_addr, opnd_create_reg(DR_REG_RAX));
-    test_instr_encode(dc, instr, 10);  /* REX + op + 8 */
+    test_instr_encode(dc, instr, 10); /* REX + op + 8 */
 }
 
 static void
@@ -915,11 +977,11 @@ test_instr_opnds(void *dc)
     tgt = INSTR_CREATE_mov_imm(dc, opnd_create_reg(DR_REG_XAX),
                                opnd_create_immed_int(0xdeadbeef, OPSZ_PTR));
     /* skip rex+opcode */
-    disp = IF_X64_ELSE(2,1);
-    instrlist_append(ilist, INSTR_CREATE_jmp_ind
-                     (dc, opnd_create_mem_instr(tgt, disp, OPSZ_PTR)));
+    disp = IF_X64_ELSE(2, 1);
+    instrlist_append(
+        ilist, INSTR_CREATE_jmp_ind(dc, opnd_create_mem_instr(tgt, disp, OPSZ_PTR)));
     instrlist_append(ilist, tgt);
-    pc = instrlist_encode(dc, ilist, buf, true/*instr targets*/);
+    pc = instrlist_encode(dc, ilist, buf, true /*instr targets*/);
     ASSERT(pc != NULL);
     instrlist_clear(dc, ilist);
 #if VERBOSE
@@ -945,12 +1007,12 @@ test_instr_opnds(void *dc)
     tgt = INSTR_CREATE_mov_imm(dc, opnd_create_reg(DR_REG_XAX),
                                opnd_create_immed_int(0xdeadbeef, OPSZ_PTR));
     /* skip rex+opcode */
-    disp = IF_X64_ELSE(2,1);
-    instrlist_append(ilist, INSTR_CREATE_mov_ld
-                     (dc, opnd_create_reg(DR_REG_AL),
-                      opnd_create_mem_instr(tgt, disp, OPSZ_1)));
+    disp = IF_X64_ELSE(2, 1);
+    instrlist_append(ilist,
+                     INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_AL),
+                                         opnd_create_mem_instr(tgt, disp, OPSZ_1)));
     instrlist_append(ilist, tgt);
-    pc = instrlist_encode(dc, ilist, buf, true/*instr targets*/);
+    pc = instrlist_encode(dc, ilist, buf, true /*instr targets*/);
     ASSERT(pc != NULL);
     instrlist_clear(dc, ilist);
 #if VERBOSE
@@ -1009,60 +1071,60 @@ test_tsx(void *dc)
     char buf[512];
     int len;
 
-    pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1,
-                               false/*no pc*/, false/*no bytes*/,
-                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, IF_X64_ELSE("mov    %eax -> 0xa3ec8cfa02217a9a[4byte]\n",
-                                   "mov    %eax -> 0x02217a9a[4byte]\n")) == 0);
+    ASSERT(strcmp(buf,
+                  IF_X64_ELSE("mov    %eax -> 0xa3ec8cfa02217a9a[4byte]\n",
+                              "mov    %eax -> 0x02217a9a[4byte]\n")) == 0);
 
-    pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2,
-                               false/*no pc*/, false/*no bytes*/,
-                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf,  IF_X64_ELSE("mov    %edi -> (%rcx)[4byte]\n",
-                                    "mov    %edi -> (%ecx)[4byte]\n")) == 0);
+    ASSERT(strcmp(buf,
+                  IF_X64_ELSE("mov    %edi -> (%rcx)[4byte]\n",
+                              "mov    %edi -> (%ecx)[4byte]\n")) == 0);
 
-    pc = disassemble_to_buffer(dc, (byte *)b3, (byte *)b3,
-                               false/*no pc*/, false/*no bytes*/,
-                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc = disassemble_to_buffer(dc, (byte *)b3, (byte *)b3, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, IF_X64_ELSE("xacquire mov    %edi -> (%rcx)[4byte]\n",
-                                   "xacquire mov    %edi -> (%ecx)[4byte]\n")) == 0);
+    ASSERT(strcmp(buf,
+                  IF_X64_ELSE("xacquire mov    %edi -> (%rcx)[4byte]\n",
+                              "xacquire mov    %edi -> (%ecx)[4byte]\n")) == 0);
 
-    pc = disassemble_to_buffer(dc, (byte *)b4, (byte *)b4,
-                               false/*no pc*/, false/*no bytes*/,
-                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc = disassemble_to_buffer(dc, (byte *)b4, (byte *)b4, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, IF_X64_ELSE
-                  ("xacquire lock add    %al (%rax)[1byte] -> (%rax)[1byte]\n",
-                   "xacquire lock add    %al (%eax)[1byte] -> (%eax)[1byte]\n")) == 0);
+    ASSERT(strcmp(buf,
+                  IF_X64_ELSE(
+                      "xacquire lock add    %al (%rax)[1byte] -> (%rax)[1byte]\n",
+                      "xacquire lock add    %al (%eax)[1byte] -> (%eax)[1byte]\n")) == 0);
 }
 
 static void
-test_vsib_helper(void *dc, dr_mcontext_t *mc, instr_t *instr,
-                 reg_t base, int mask_idx, int index_idx, int scale, int disp,
-                 int count, opnd_size_t index_sz)
+test_vsib_helper(void *dc, dr_mcontext_t *mc, instr_t *instr, reg_t base, int mask_idx,
+                 int index_idx, int scale, int disp, int count, opnd_size_t index_sz)
 {
     uint memopidx, memoppos;
     app_pc addr;
     bool write;
     for (memopidx = 0;
-         instr_compute_address_ex_pos(instr, mc, memopidx,
-                                      &addr, &write, &memoppos);
+         instr_compute_address_ex_pos(instr, mc, memopidx, &addr, &write, &memoppos);
          memopidx++) {
         /* should be a read from 1st source */
         ptr_int_t index =
             ((index_sz == OPSZ_4) ?
-             /* this only works w/ the mask all enabled */
-             (mc->ymm[index_idx].u32[memopidx]) :
+                                  /* this only works w/ the mask all enabled */
+                 (mc->ymm[index_idx].u32[memopidx])
+                                  :
 #ifdef X64
-             (mc->ymm[index_idx].u64[memopidx])
+                                  (mc->ymm[index_idx].u64[memopidx])
 #else
-             ((((int64)mc->ymm[index_idx].u32[memopidx*2+1]) << 32) |
-              mc->ymm[index_idx].u32[memopidx*2])
+                                  ((((int64)mc->ymm[index_idx].u32[memopidx * 2 + 1])
+                                    << 32) |
+                                   mc->ymm[index_idx].u32[memopidx * 2])
 #endif
-             );
+            );
         ASSERT(!write);
         ASSERT(memoppos == 0);
         ASSERT((ptr_int_t)addr == base + disp + scale * index);
@@ -1084,17 +1146,16 @@ test_vsib(void *dc)
     char buf[512];
     int len;
 
-    pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1,
-                               false/*no pc*/, false/*no bytes*/,
-                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, IF_X64_ELSE
-                  ("vpgatherdq (%rdx,%xmm0,2)[8byte] %xmm2 -> %xmm4 %xmm2\n",
-                   "vpgatherdq (%edx,%xmm0,2)[8byte] %xmm2 -> %xmm4 %xmm2\n")) == 0);
+    ASSERT(strcmp(buf,
+                  IF_X64_ELSE(
+                      "vpgatherdq (%rdx,%xmm0,2)[8byte] %xmm2 -> %xmm4 %xmm2\n",
+                      "vpgatherdq (%edx,%xmm0,2)[8byte] %xmm2 -> %xmm4 %xmm2\n")) == 0);
 
-    pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2,
-                               false/*no pc*/, false/*no bytes*/,
-                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc == NULL);
 
     /* Test mem addr emulation */
@@ -1120,42 +1181,42 @@ test_vsib(void *dc)
     mc.ymm[2].u32[7] = 0xf8444444;
 
     /* test index size 4 and mem size 8 */
-    instr = INSTR_CREATE_vgatherdpd
-        (dc, opnd_create_reg(REG_XMM0),
-         opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_8),
-         opnd_create_reg(REG_XMM2));
+    instr =
+        INSTR_CREATE_vgatherdpd(dc, opnd_create_reg(REG_XMM0),
+                                opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_8),
+                                opnd_create_reg(REG_XMM2));
     test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 2, OPSZ_4);
     instr_destroy(dc, instr);
 
     /* test index size 8 and mem size 4 */
-    instr = INSTR_CREATE_vgatherqpd
-        (dc, opnd_create_reg(REG_XMM0),
-         opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_8),
-         opnd_create_reg(REG_XMM2));
+    instr =
+        INSTR_CREATE_vgatherqpd(dc, opnd_create_reg(REG_XMM0),
+                                opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_8),
+                                opnd_create_reg(REG_XMM2));
     test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 2, OPSZ_8);
     instr_destroy(dc, instr);
 
     /* test index size 4 and mem size 4 */
-    instr = INSTR_CREATE_vgatherdps
-        (dc, opnd_create_reg(REG_XMM0),
-         opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_4),
-         opnd_create_reg(REG_XMM2));
+    instr =
+        INSTR_CREATE_vgatherdps(dc, opnd_create_reg(REG_XMM0),
+                                opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_4),
+                                opnd_create_reg(REG_XMM2));
     test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 4, OPSZ_4);
     instr_destroy(dc, instr);
 
     /* test index size 8 and mem size 4 */
-    instr = INSTR_CREATE_vgatherqps
-        (dc, opnd_create_reg(REG_XMM0),
-         opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_4),
-         opnd_create_reg(REG_XMM2));
+    instr =
+        INSTR_CREATE_vgatherqps(dc, opnd_create_reg(REG_XMM0),
+                                opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_4),
+                                opnd_create_reg(REG_XMM2));
     test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 2, OPSZ_8);
     instr_destroy(dc, instr);
 
     /* test 256-byte */
-    instr = INSTR_CREATE_vgatherdps
-        (dc, opnd_create_reg(REG_YMM0),
-         opnd_create_base_disp(REG_XCX, REG_YMM1, 2, 0x12, OPSZ_4),
-         opnd_create_reg(REG_YMM2));
+    instr =
+        INSTR_CREATE_vgatherdps(dc, opnd_create_reg(REG_YMM0),
+                                opnd_create_base_disp(REG_XCX, REG_YMM1, 2, 0x12, OPSZ_4),
+                                opnd_create_reg(REG_YMM2));
     test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 8, OPSZ_4);
     instr_destroy(dc, instr);
 
@@ -1170,11 +1231,11 @@ test_vsib(void *dc)
     mc.ymm[2].u32[5] = 0x56444444;
     mc.ymm[2].u32[6] = 0x47444444;
     mc.ymm[2].u32[7] = 0x28444444;
-    instr = INSTR_CREATE_vgatherdps
-        (dc, opnd_create_reg(REG_YMM0),
-         opnd_create_base_disp(REG_XCX, REG_YMM1, 2, 0x12, OPSZ_4),
-         opnd_create_reg(REG_YMM2));
-    test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 0/*nothing*/, OPSZ_4);
+    instr =
+        INSTR_CREATE_vgatherdps(dc, opnd_create_reg(REG_YMM0),
+                                opnd_create_base_disp(REG_XCX, REG_YMM1, 2, 0x12, OPSZ_4),
+                                opnd_create_reg(REG_YMM2));
+    test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 0 /*nothing*/, OPSZ_4);
     instr_destroy(dc, instr);
 }
 
@@ -1188,24 +1249,24 @@ test_disasm_sizes(void *dc)
     {
         const byte b1[] = { 0xac };
         const byte b2[] = { 0xad };
-        pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false, false,
-                                   buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+        pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false, false, buf,
+                                   BUFFER_SIZE_ELEMENTS(buf), &len);
         ASSERT(pc != NULL);
-        ASSERT(strcmp(buf, IF_X64_ELSE("lods   %ds:(%rsi)[1byte] %rsi -> %al %rsi\n",
-                                       "lods   %ds:(%esi)[1byte] %esi -> %al %esi\n"))
-               == 0);
-        pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false, false,
-                                   buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+        ASSERT(strcmp(buf,
+                      IF_X64_ELSE("lods   %ds:(%rsi)[1byte] %rsi -> %al %rsi\n",
+                                  "lods   %ds:(%esi)[1byte] %esi -> %al %esi\n")) == 0);
+        pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false, false, buf,
+                                   BUFFER_SIZE_ELEMENTS(buf), &len);
         ASSERT(pc != NULL);
-        ASSERT(strcmp(buf, IF_X64_ELSE("lods   %ds:(%rsi)[4byte] %rsi -> %eax %rsi\n",
-                                       "lods   %ds:(%esi)[4byte] %esi -> %eax %esi\n"))
-               == 0);
+        ASSERT(strcmp(buf,
+                      IF_X64_ELSE("lods   %ds:(%rsi)[4byte] %rsi -> %eax %rsi\n",
+                                  "lods   %ds:(%esi)[4byte] %esi -> %eax %esi\n")) == 0);
     }
 #ifdef X64
     {
         const byte b3[] = { 0x48, 0xad };
-        pc = disassemble_to_buffer(dc, (byte *)b3, (byte *)b3, false, false,
-                                   buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+        pc = disassemble_to_buffer(dc, (byte *)b3, (byte *)b3, false, false, buf,
+                                   BUFFER_SIZE_ELEMENTS(buf), &len);
         ASSERT(pc != NULL);
         ASSERT(strcmp(buf, "lods   %ds:(%rsi)[8byte] %rsi -> %rax %rsi\n") == 0);
     }
@@ -1213,17 +1274,18 @@ test_disasm_sizes(void *dc)
 
 #ifdef X64
     {
-        const byte b1[] = { 0xc7,0x80,0x90,0xe4,0xff,0xff,0x00,0x00,0x00,0x00 };
-        const byte b2[] = { 0x48,0xc7,0x80,0x90,0xe4,0xff,0xff,0x00,0x00,0x00,0x00 };
-        pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false, false,
-                                   buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+        const byte b1[] = { 0xc7, 0x80, 0x90, 0xe4, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 };
+        const byte b2[] = { 0x48, 0xc7, 0x80, 0x90, 0xe4, 0xff,
+                            0xff, 0x00, 0x00, 0x00, 0x00 };
+        pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false, false, buf,
+                                   BUFFER_SIZE_ELEMENTS(buf), &len);
         ASSERT(pc != NULL);
         ASSERT(strcmp(buf, "mov    $0x00000000 -> 0xffffe490(%rax)[4byte]\n") == 0);
-        pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false, false,
-                                   buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+        pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false, false, buf,
+                                   BUFFER_SIZE_ELEMENTS(buf), &len);
         ASSERT(pc != NULL);
-        ASSERT(strcmp(buf, "mov    $0x0000000000000000 -> 0xffffe490(%rax)[8byte]\n")
-               == 0);
+        ASSERT(strcmp(buf, "mov    $0x0000000000000000 -> 0xffffe490(%rax)[8byte]\n") ==
+               0);
     }
 #endif
 }
@@ -1233,9 +1295,8 @@ test_predication(void *dc)
 {
     byte *pc;
     uint usage;
-    instr_t *instr =
-        INSTR_CREATE_vmaskmovps(dc, opnd_create_reg(REG_XMM0), opnd_create_reg(REG_XMM1),
-                                MEMARG(OPSZ_16));
+    instr_t *instr = INSTR_CREATE_vmaskmovps(dc, opnd_create_reg(REG_XMM0),
+                                             opnd_create_reg(REG_XMM1), MEMARG(OPSZ_16));
     ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_DEFAULT));
     ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_INCLUDE_ALL));
     ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_INCLUDE_COND_DSTS));
@@ -1315,8 +1376,8 @@ test_xinst_create(void *dc)
     reg_id_t reg = DR_REG_XDX;
     instr_t *ins1, *ins2;
     /* load 1 byte zextend */
-    ins1 = XINST_CREATE_load_1byte_zext4
-        (dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_4)), MEMARG(OPSZ_1));
+    ins1 = XINST_CREATE_load_1byte_zext4(
+        dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_4)), MEMARG(OPSZ_1));
     pc = instr_encode(dc, ins1, buf);
     ASSERT(pc != NULL);
     ins2 = instr_create(dc);
@@ -1325,8 +1386,8 @@ test_xinst_create(void *dc)
     instr_reset(dc, ins1);
     instr_reset(dc, ins2);
     /* load 1 byte */
-    ins1 = XINST_CREATE_load_1byte
-        (dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)), MEMARG(OPSZ_1));
+    ins1 = XINST_CREATE_load_1byte(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)),
+                                   MEMARG(OPSZ_1));
     pc = instr_encode(dc, ins1, buf);
     ASSERT(pc != NULL);
     ins2 = instr_create(dc);
@@ -1335,8 +1396,8 @@ test_xinst_create(void *dc)
     instr_reset(dc, ins1);
     instr_reset(dc, ins2);
     /* load 2 bytes */
-    ins1 = XINST_CREATE_load_2bytes
-        (dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)), MEMARG(OPSZ_2));
+    ins1 = XINST_CREATE_load_2bytes(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)),
+                                    MEMARG(OPSZ_2));
     pc = instr_encode(dc, ins1, buf);
     ASSERT(pc != NULL);
     ins2 = instr_create(dc);
@@ -1345,8 +1406,8 @@ test_xinst_create(void *dc)
     instr_reset(dc, ins1);
     instr_reset(dc, ins2);
     /* store 1 byte */
-    ins1 = XINST_CREATE_store_1byte
-        (dc, MEMARG(OPSZ_1), opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)));
+    ins1 = XINST_CREATE_store_1byte(dc, MEMARG(OPSZ_1),
+                                    opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)));
     pc = instr_encode(dc, ins1, buf);
     ASSERT(pc != NULL);
     ins2 = instr_create(dc);
@@ -1355,8 +1416,8 @@ test_xinst_create(void *dc)
     instr_reset(dc, ins1);
     instr_reset(dc, ins2);
     /* store 1 byte */
-    ins1 = XINST_CREATE_store_2bytes
-        (dc, MEMARG(OPSZ_2), opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)));
+    ins1 = XINST_CREATE_store_2bytes(dc, MEMARG(OPSZ_2),
+                                     opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)));
     pc = instr_encode(dc, ins1, buf);
     ASSERT(pc != NULL);
     ins2 = instr_create(dc);
@@ -1364,6 +1425,59 @@ test_xinst_create(void *dc)
     ASSERT(instr_same(ins1, ins2));
     instr_reset(dc, ins1);
     instr_reset(dc, ins2);
+}
+
+static void
+test_stack_pointer_size(void *dc)
+{
+    /* Test i#2281 where we had the stack pointer size incorrectly varying.
+     * We can't simply append these to dis-udis86-randtest.raw b/c our test
+     * there uses -syntax_intel.  We could make a new raw DR-style test.
+     */
+    byte *pc;
+    char buf[512];
+    int len;
+    const byte bytes_push[] = { 0x67, 0x51 };
+    const byte bytes_ret[] = { 0x67, 0xc3 };
+    const byte bytes_enter[] = { 0x67, 0xc8, 0xab, 0xcd, 0xef };
+    const byte bytes_leave[] = { 0x67, 0xc9 };
+
+    pc =
+        disassemble_to_buffer(dc, (byte *)bytes_push, (byte *)bytes_push, false /*no pc*/,
+                              false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL && pc - (byte *)bytes_push == sizeof(bytes_push));
+    ASSERT(strcmp(buf,
+                  IF_X64_ELSE(
+                      "addr32 push   %rcx %rsp -> %rsp 0xfffffff8(%rsp)[8byte]\n",
+                      "addr16 push   %ecx %esp -> %esp 0xfffffffc(%esp)[4byte]\n")) == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)bytes_ret, (byte *)bytes_ret, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL && pc - (byte *)bytes_ret == sizeof(bytes_ret));
+    ASSERT(strcmp(buf,
+                  IF_X64_ELSE("addr32 ret    %rsp (%rsp)[8byte] -> %rsp\n",
+                              "addr16 ret    %esp (%esp)[4byte] -> %esp\n")) == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)bytes_enter, (byte *)bytes_enter,
+                               false /*no pc*/, false /*no bytes*/, buf,
+                               BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL && pc - (byte *)bytes_enter == sizeof(bytes_enter));
+    ASSERT(
+        strcmp(buf,
+               IF_X64_ELSE(
+                   "addr32 enter  $0xcdab $0xef %rsp %rbp -> %rsp 0xfffffff8(%rsp)[8byte]"
+                   " %rbp\n",
+                   "addr16 enter  $0xcdab $0xef %esp %ebp -> %esp 0xfffffffc(%esp)[4byte]"
+                   " %ebp\n")) == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)bytes_leave, (byte *)bytes_leave,
+                               false /*no pc*/, false /*no bytes*/, buf,
+                               BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL && pc - (byte *)bytes_leave == sizeof(bytes_leave));
+    ASSERT(strcmp(buf,
+                  IF_X64_ELSE("addr32 leave  %rbp %rsp (%rbp)[8byte] -> %rsp %rbp\n",
+                              "addr16 leave  %ebp %esp (%ebp)[4byte] -> %esp %ebp\n")) ==
+           0);
 }
 
 int
@@ -1405,6 +1519,8 @@ main(int argc, char *argv[])
 
     test_nop_xchg(dcontext);
 
+    test_hint_nops(dcontext);
+
 #ifdef X64
     test_x86_mode(dcontext);
 
@@ -1428,6 +1544,8 @@ main(int argc, char *argv[])
     test_predication(dcontext);
 
     test_xinst_create(dcontext);
+
+    test_stack_pointer_size(dcontext);
 
     print("all done\n");
     return 0;

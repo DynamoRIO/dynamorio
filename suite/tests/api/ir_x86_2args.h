@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,7 +42,7 @@ XOPCODE(x_and, and, and_s, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(sub, sub, sub, 0, REGARG(EAX), MEMARG(OPSZ_4))
 XOPCODE(x_sub_s, sub, sub_s, 0, REGARG(EAX), MEMARG(OPSZ_4))
 XOPCODE(x_sub, lea, sub, 0, REGARG(XAX), IMMARG(OPSZ_4))
-OPCODE(xor, xor, xor, 0, REGARG(EAX), MEMARG(OPSZ_4))
+OPCODE (xor, xor, xor, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(arpl, arpl, arpl, X86_ONLY, MEMARG(OPSZ_2), REGARG(AX))
 OPCODE(lea, lea, lea, 0, REGARG(EAX), MEMARG(OPSZ_lea))
 OPCODE(mov_ld, mov_ld, mov_ld, 0, REGARG(EAX), MEMARG(OPSZ_4))
@@ -107,6 +107,7 @@ OPCODE(rcr, rcr, rcr, 0, MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 OPCODE(shl, shl, shl, 0, MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 OPCODE(shr, shr, shr, 0, MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 OPCODE(sar, sar, sar, 0, MEMARG(OPSZ_4), IMMARG(OPSZ_1))
+XOPCODE(slr, shr, slr_s, 0, MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 
 OPCODE(pmovmskb, pmovmskb, pmovmskb, 0, REGARG(EAX), REGARG(MM0))
 OPCODE(ptest, ptest, ptest, 0, REGARG(XMM0), MEMARG(OPSZ_16))
@@ -122,8 +123,12 @@ OPCODE(movsd_rr, movsd, movsd, 0, REGARG_PARTIAL(XMM1, OPSZ_8),
        REGARG_PARTIAL(XMM0, OPSZ_8))
 
 OPCODE(movlps, movlps, movlps, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(movlhps, movlps, movlps, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM4, OPSZ_8))
 OPCODE(movlpd, movlpd, movlpd, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
 OPCODE(movhps, movhps, movhps, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(movhlps, movhps, movhps, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM4, OPSZ_8))
 OPCODE(movhpd, movhpd, movhpd, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
 
 OPCODE(movaps, movaps, movaps, 0, REGARG(XMM0), MEMARG(OPSZ_16))
@@ -388,6 +393,12 @@ OPCODE(enter, enter, enter, 0, IMMARG(OPSZ_2), IMMARG(OPSZ_1))
 
 OPCODE(jnz, jnz, jcc, 0, OP_jnz, TGTARG)
 OPCODE(jno_short, jno_short, jcc_short, 0, OP_jno_short, TGTARG)
+XOPCODE(x_jz, jz, jump_cond, 0, DR_PRED_EQ, TGTARG)
+XOPCODE(x_jnz, jnz, jump_cond, 0, DR_PRED_NE, TGTARG)
+XOPCODE(x_jl, jl, jump_cond, 0, DR_PRED_LT, TGTARG)
+XOPCODE(x_jle, jle, jump_cond, 0, DR_PRED_LE, TGTARG)
+XOPCODE(x_jnle, jnle, jump_cond, 0, DR_PRED_GT, TGTARG)
+XOPCODE(x_jnl, jnl, jump_cond, 0, DR_PRED_GE, TGTARG)
 
 /****************************************************************************/
 /* XOP */
@@ -414,7 +425,8 @@ OPCODE(vphsubdq, vphsubdq, vphsubdq, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 /****************************************************************************/
 /* TBM */
 OPCODE(blcfill, blcfill, blcfill, 0, REGARG(EDX), MEMARG(OPSZ_4))
-OPCODE(blcfill_b, blcfill, blcfill, X64_ONLY, REGARG(R11), opnd_create_base_disp(REG_R9, REG_R10, 1, 0x42, OPSZ_8))
+OPCODE(blcfill_b, blcfill, blcfill, X64_ONLY, REGARG(R11),
+       opnd_create_base_disp(REG_R9, REG_R10, 1, 0x42, OPSZ_8))
 OPCODE(blci, blci, blci, 0, REGARG(EDX), MEMARG(OPSZ_4))
 OPCODE(blcic, blcic, blcic, 0, REGARG(EDX), MEMARG(OPSZ_4))
 OPCODE(blcmsk, blcmsk, blcmsk, 0, REGARG(EDX), MEMARG(OPSZ_4))
@@ -430,3 +442,10 @@ OPCODE(blsr, blsr, blsr, 0, REGARG(EDX), MEMARG(OPSZ_4))
 OPCODE(blsmsk, blsmsk, blsmsk, 0, REGARG(EDX), MEMARG(OPSZ_4))
 OPCODE(blsi, blsi, blsi, 0, REGARG(EDX), MEMARG(OPSZ_4))
 OPCODE(tzcnt, tzcnt, tzcnt, 0, REGARG(EDX), MEMARG(OPSZ_4))
+
+/****************************************************************************/
+/* ADX */
+OPCODE(adox_x64, adox, adox, X64_ONLY, REGARG(RAX), MEMARG(OPSZ_8))
+OPCODE(adox, adox, adox, 0, REGARG(EAX), MEMARG(OPSZ_4))
+OPCODE(adcx_x64, adcx, adcx, X64_ONLY, REGARG(RAX), MEMARG(OPSZ_8))
+OPCODE(adcx, adcx, adcx, 0, REGARG(EAX), MEMARG(OPSZ_4))

@@ -1,0 +1,15 @@
+.*
+Cache line histogram tool results:
+icache: [0-9]+ unique cache lines
+dcache: [0-9]+ unique cache lines
+icache top 10
+.*
+dcache top 10
+.*
+Cache line histogram tool results:
+icache: [0-9]+ unique cache lines
+dcache: [0-9]+ unique cache lines
+icache top 10
+.*
+dcache top 10
+.*

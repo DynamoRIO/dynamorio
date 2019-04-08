@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2018 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -57,12 +57,12 @@
 # Unfinished features in i#66 (now under i#121):
 # * have a list of known failures and label w/ " (known: i#XX)"
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.2)
 set(cmake_ver_string
   "${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}")
 if (COMMAND cmake_policy)
   # avoid warnings on include()
-  cmake_policy(VERSION 2.8)
+  cmake_policy(VERSION 3.2)
 endif()
 
 # arguments are a ;-separated list (must escape as \; from ctest_run_script())
@@ -160,6 +160,15 @@ if (arg_ssh)
     GENERATE_PDBS:BOOL=OFF")
 endif (arg_ssh)
 
+# Make it clear that single-bitwidth packages only contain that bitwidth
+# (and provide unique names for Travis deployment).
+if (arg_64_only)
+  set(base_cache "${base_cache}
+      PACKAGE_PLATFORM:STRING=x86_64-")
+elseif (arg_32_only)
+  set(base_cache "${base_cache}
+      PACKAGE_PLATFORM:STRING=i386-")
+endif ()
 if (arg_use_make)
   find_program(MAKE_COMMAND make DOC "make command")
   if (NOT MAKE_COMMAND)
@@ -380,12 +389,6 @@ else ()
       set(arg_use_msbuild OFF)
     endif (MSBUILD_PROGRAM)
   endif (arg_use_msbuild)
-  if ("${cmake_ver_string}" STREQUAL "2.8.4")
-    # 2.8.4 uses msbuild by default.
-    # XXX: any way to tell other than matching version #?
-    # Request parallel build (sequential by default: i#800)
-    set(extra_build_args "/m")
-  endif ()
 endif ()
 
 function(get_default_config config builddir)
@@ -400,7 +403,7 @@ endfunction(get_default_config)
 # + returns the build dir in "last_build_dir"
 # + for each build for which add_to_package is true:
 #   - returns the build dir in "last_package_build_dir"
-#   - prepends to "cpack_projects" for project "${cpack_project_name}"
+#   - adds to "cpack_projects" for project "${cpack_project_name}"
 #     (set by outer file)
 function(testbuild_ex name is64 initial_cache test_only_in_long
     add_to_package build_args)
@@ -616,6 +619,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         set(DO_SUBMIT OFF)
         message("Warning: optional cross-compilation \"${name}\" is not available"
           "--skipping")
+        set(add_to_package OFF)
         file(WRITE ${CTEST_BINARY_DIRECTORY}/Testing/missing-cross-compile "${name}")
       endif (optional_cross_compile)
     endif (config_success EQUAL 0)
@@ -628,21 +632,10 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
       # to run a subset of tests add an INCLUDE regexp to ctest_test.  e.g.:
       #   INCLUDE broadfun
       if (NOT "${arg_exclude}" STREQUAL "")
-        if ("${cmake_ver_string}" VERSION_LESS "2.6.3")
-          # EXCLUDE arg to ctest_test() is not available so we edit the list of tests
-          file(READ "${CTEST_BINARY_DIRECTORY}/tests/CTestTestfile.cmake" testlist)
-          string(REGEX REPLACE "ADD_TEST\\((${arg_exclude}) [^\\)]*\\)\n" ""
-            testlist "${testlist}")
-          file(WRITE "${CTEST_BINARY_DIRECTORY}/tests/CTestTestfile.cmake" "${testlist}")
-        else ("${cmake_ver_string}" VERSION_LESS "2.6.3")
-          set(ctest_test_args ${ctest_test_args} EXCLUDE ${arg_exclude})
-        endif ("${cmake_ver_string}" VERSION_LESS "2.6.3")
+        set(ctest_test_args ${ctest_test_args} EXCLUDE ${arg_exclude})
       endif (NOT "${arg_exclude}" STREQUAL "")
       set(ctest_test_args ${ctest_test_args} ${extra_ctest_args})
-      if ("${cmake_ver_string}" VERSION_LESS "2.8.")
-        # Parallel tests not supported
-        set(RUN_PARALLEL OFF)
-      elseif (WIN32 AND TEST_LONG)
+      if (WIN32 AND TEST_LONG)
         # FIXME i#265: on Windows we can't run multiple instances of
         # the same app b/c of global reg key conflicts: should support
         # env vars and not require registry
@@ -677,11 +670,17 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
     # w/ certain params, since they're pretty similar at this point?
     # communicate w/ caller
     set(last_package_build_dir "${CTEST_BINARY_DIRECTORY}" PARENT_SCOPE)
-    # prepend rather than append to get debug first, so we take release
-    # files preferentially in case of overlap
-    set(cpack_projects
-      "\"${CTEST_BINARY_DIRECTORY};${cpack_project_name};ALL;/\"\n  ${cpack_projects}"
-      PARENT_SCOPE)
+    if (CTEST_BINARY_DIRECTORY MATCHES "debug")
+      # prepend rather than append to get debug first, so we take release
+      # files preferentially in case of overlap
+      set(cpack_projects
+        "\"${CTEST_BINARY_DIRECTORY};${cpack_project_name};ALL;/\"\n  ${cpack_projects}"
+        PARENT_SCOPE)
+    else ()
+      set(cpack_projects
+        "${cpack_projects}\n  \"${CTEST_BINARY_DIRECTORY};${cpack_project_name};ALL;/\""
+        PARENT_SCOPE)
+    endif ()
 
     if ("${CTEST_CMAKE_GENERATOR}" MATCHES "Visual Studio")
       # i#390: workaround for cpack limitation where cpack is run w/

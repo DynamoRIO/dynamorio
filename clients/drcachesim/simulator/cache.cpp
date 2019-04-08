@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,13 +36,15 @@
 
 bool
 cache_t::init(int associativity_, int line_size_, int total_size,
-              caching_device_t *parent_, caching_device_stats_t *stats_)
+              caching_device_t *parent_, caching_device_stats_t *stats_,
+              prefetcher_t *prefetcher_, bool inclusive_,
+              const std::vector<caching_device_t *> &children_)
 {
     // convert total_size to num_blocks to fit for caching_device_t::init
     int num_lines = total_size / line_size_;
 
-    return caching_device_t::init(associativity_, line_size_, num_lines,
-                                  parent_, stats_);
+    return caching_device_t::init(associativity_, line_size_, num_lines, parent_, stats_,
+                                  prefetcher_, inclusive_, children_);
 }
 
 void
@@ -65,8 +67,8 @@ void
 cache_t::flush(const memref_t &memref)
 {
     addr_t tag = compute_tag(memref.flush.addr);
-    addr_t final_tag = compute_tag(memref.flush.addr +
-                                   memref.flush.size - 1/*no overflow*/);
+    addr_t final_tag =
+        compute_tag(memref.flush.addr + memref.flush.size - 1 /*no overflow*/);
     last_tag = TAG_INVALID;
     for (; tag <= final_tag; ++tag) {
         int block_idx = compute_block_idx(tag);

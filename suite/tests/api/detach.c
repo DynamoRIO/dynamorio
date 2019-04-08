@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,16 +36,9 @@
 #include <math.h>
 #include <stdint.h>
 #include "configure.h"
-#ifdef WINDOWS
-/* Ensure the ConditionVariable routines are pulled in when using >VS2010 */
-# undef _WIN32_WINNT
-# define _WIN32_WINNT 0x0600
-# include <windows.h>
-#else
-# include <pthread.h>
-#endif
 #include "dr_api.h"
 #include "tools.h"
+#include "thread.h"
 #include "condvar.h"
 
 #define VERBOSE 0
@@ -55,33 +48,62 @@
 #define COMPUTE_ITERS 150000
 
 #if VERBOSE
-# define VPRINT(...) print(__VA_ARGS__)
+#    define VPRINT(...) print(__VA_ARGS__)
 #else
-# define VPRINT(...) /* nothing */
+#    define VPRINT(...) /* nothing */
 #endif
 
 /* We have event bb look for this to make sure we're instrumenting the sideline
  * thread.
  */
 /* We could generate this via macros but that gets pretty obtuse */
-NOINLINE void func_0(void) { }
-NOINLINE void func_1(void) { }
-NOINLINE void func_2(void) { }
-NOINLINE void func_3(void) { }
-NOINLINE void func_4(void) { }
-NOINLINE void func_5(void) { }
-NOINLINE void func_6(void) { }
-NOINLINE void func_7(void) { }
-NOINLINE void func_8(void) { }
-NOINLINE void func_9(void) { }
+NOINLINE void
+func_0(void)
+{
+}
+NOINLINE void
+func_1(void)
+{
+}
+NOINLINE void
+func_2(void)
+{
+}
+NOINLINE void
+func_3(void)
+{
+}
+NOINLINE void
+func_4(void)
+{
+}
+NOINLINE void
+func_5(void)
+{
+}
+NOINLINE void
+func_6(void)
+{
+}
+NOINLINE void
+func_7(void)
+{
+}
+NOINLINE void
+func_8(void)
+{
+}
+NOINLINE void
+func_9(void)
+{
+}
 
 typedef void (*void_func_t)(void);
 static bool took_over_thread[NUM_THREADS];
 static void_func_t funcs[NUM_THREADS];
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-         bool translating)
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     int i;
     app_pc pc = instr_get_app_pc(instrlist_first(bb));
@@ -97,11 +119,7 @@ static void *sideline_continue;
 static void *go_native;
 static void *sideline_ready[NUM_THREADS];
 
-#ifdef WINDOWS
-int __stdcall
-#else
-void *
-#endif
+THREAD_FUNC_RETURN_TYPE
 sideline_spinner(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
@@ -119,9 +137,10 @@ sideline_spinner(void *arg)
     VPRINT("%d signaling sideline_ready\n", idx);
     signal_cond_var(sideline_ready[idx]);
 
-    /* XXX: ideally we'd have a better test that our state after the detach is
-     * not perturbed at all, though if the PC is correct that's generally half
-     * the battle.
+    /* Ideally we'd have a better test that our state after the detach is not
+     * perturbed at all (i#3160), though if the PC is correct that's generally
+     * half the battle.  The detach_state.c test adds such checks for us in a
+     * more controlled threading context.
      */
 
     VPRINT("%d waiting for native\n", idx);
@@ -132,28 +151,21 @@ sideline_spinner(void *arg)
     signal_cond_var(sideline_ready[idx]);
     VPRINT("%d exiting\n", idx);
 
-#ifdef WINDOWS
-    return 0;
-#else
-    return NULL;
-#endif
+    return THREAD_FUNC_RETURN_ZERO;
 }
 
-void foo(void)
+void
+foo(void)
 {
 }
 
-int main(void)
+int
+main(void)
 {
     double res = 0.;
     int i;
     void *stack = NULL;
-#ifdef UNIX
-    pthread_t pt[NUM_THREADS];  /* On Linux, the tid. */
-#else
-    uintptr_t thread[NUM_THREADS];  /* _beginthreadex doesn't return HANDLE? */
-    uint tid[NUM_THREADS];
-#endif
+    thread_t thread[NUM_THREADS]; /* On Linux, the tid. */
 
     /* We could generate this via macros but that gets pretty obtuse */
     funcs[0] = &func_0;
@@ -172,12 +184,7 @@ int main(void)
 
     for (i = 0; i < NUM_THREADS; i++) {
         sideline_ready[i] = create_cond_var();
-#ifdef UNIX
-        pthread_create(&pt[i], NULL, sideline_spinner, (void*)(uintptr_t)i);
-#else
-        thread[i] = _beginthreadex(NULL, 0, sideline_spinner, (void*)(uintptr_t)i,
-                                   0, &tid[i]);
-#endif
+        thread[i] = create_thread(sideline_spinner, (void *)(uintptr_t)i);
     }
 
     /* Initialized DR */
@@ -189,7 +196,7 @@ int main(void)
 
     /* Wait for all the threads to be scheduled */
     VPRINT("waiting for ready\n");
-    for (i=0; i<NUM_THREADS; i++) {
+    for (i = 0; i < NUM_THREADS; i++) {
         wait_cond_var(sideline_ready[i]);
         reset_cond_var(sideline_ready[i]);
     }
@@ -198,7 +205,7 @@ int main(void)
     VPRINT("signaling continue\n");
     signal_cond_var(sideline_continue);
     VPRINT("waiting for ready\n");
-    for (i=0; i<NUM_THREADS; i++) {
+    for (i = 0; i < NUM_THREADS; i++) {
         wait_cond_var(sideline_ready[i]);
         reset_cond_var(sideline_ready[i]);
     }
@@ -210,36 +217,31 @@ int main(void)
 
     VPRINT("signaling native\n");
     signal_cond_var(go_native);
-    for (i=0; i<NUM_THREADS; i++) {
+    for (i = 0; i < NUM_THREADS; i++) {
         wait_cond_var(sideline_ready[i]);
         reset_cond_var(sideline_ready[i]);
     }
 
-    for (i=0; i<COMPUTE_ITERS; i++) {
+    for (i = 0; i < COMPUTE_ITERS; i++) {
         if (i % 2 == 0) {
-            res += cos(1./(double)(i+1));
+            res += cos(1. / (double)(i + 1));
         } else {
-            res += sin(1./(double)(i+1));
+            res += sin(1. / (double)(i + 1));
         }
     }
     foo();
     print("all done: %d iters\n", i);
 
     for (i = 0; i < NUM_THREADS; i++) {
-#ifdef UNIX
-        pthread_join(pt[i], NULL);
-#else
-        WaitForSingleObject((HANDLE)thread[i], INFINITE);
-#endif
+        join_thread(thread[i]);
         if (!took_over_thread[i]) {
-            print("failed to take over thread %d==%d!\n", i,
-                  IF_WINDOWS_ELSE(tid[i],pt[i]));
+            print("failed to take over thread %d!\n", i);
         }
     }
 
     destroy_cond_var(sideline_continue);
     destroy_cond_var(go_native);
-    for (i=0; i<NUM_THREADS; i++)
+    for (i = 0; i < NUM_THREADS; i++)
         destroy_cond_var(sideline_ready[i]);
 
     return 0;

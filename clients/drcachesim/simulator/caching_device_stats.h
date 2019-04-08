@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,35 +38,79 @@
 
 #include <string>
 #include <stdint.h>
-#include "../common/memref.h"
+#ifdef HAS_ZLIB
+#    include <zlib.h>
+#endif
+#include "memref.h"
 
-class caching_device_stats_t
-{
- public:
-    caching_device_stats_t();
+class caching_device_stats_t {
+public:
+    explicit caching_device_stats_t(const std::string &miss_file,
+                                    bool warmup_enabled = false);
     virtual ~caching_device_stats_t();
 
     // Called on each access.
     // A multi-block memory reference invokes this routine
     // separately for each block touched.
-    virtual void access(const memref_t &memref, bool hit);
+    virtual void
+    access(const memref_t &memref, bool hit);
 
     // Called on each access by a child caching device.
-    virtual void child_access(const memref_t &memref, bool hit);
+    virtual void
+    child_access(const memref_t &memref, bool hit);
 
-    virtual void print_stats(std::string prefix);
+    virtual void
+    print_stats(std::string prefix);
 
-    virtual void reset();
+    virtual void
+    reset();
 
- protected:
+    virtual bool operator!()
+    {
+        return !success;
+    }
+
+    // Process invalidations due to cache inclusions.
+    virtual void
+    invalidate();
+
+protected:
+    bool success;
+
     // print different groups of information, beneficial for code reuse
-    virtual void print_counts(std::string prefix); // hit/miss numbers
-    virtual void print_rates(std::string prefix); // hit/miss rates
-    virtual void print_child_stats(std::string prefix); // child/total info
+    virtual void
+    print_warmup(std::string prefix);
+    virtual void
+    print_counts(std::string prefix); // hit/miss numbers
+    virtual void
+    print_rates(std::string prefix); // hit/miss rates
+    virtual void
+    print_child_stats(std::string prefix); // child/total info
+
+    virtual void
+    dump_miss(const memref_t &memref);
 
     int_least64_t num_hits;
     int_least64_t num_misses;
     int_least64_t num_child_hits;
+
+    int_least64_t num_inclusive_invalidates;
+
+    // Stats saved when the last reset was called. This helps us get insight
+    // into what the stats were when the cache was warmed up.
+    int_least64_t num_hits_at_reset;
+    int_least64_t num_misses_at_reset;
+    int_least64_t num_child_hits_at_reset;
+    // Enabled if options warmup_refs > 0 || warmup_fraction > 0
+    bool warmup_enabled;
+
+    // We provide a feature of dumping misses to a file.
+    bool dump_misses;
+#ifdef HAS_ZLIB
+    gzFile file;
+#else
+    FILE *file;
+#endif
 };
 
 #endif /* _CACHING_DEVICE_STATS_H_ */

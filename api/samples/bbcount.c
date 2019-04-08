@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,14 +43,15 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drreg.h"
+#include "drx.h"
 
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#    define DISPLAY_STRING(msg) dr_messagebox(msg)
 #else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
+#    define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
-#define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
+#define NULL_TERMINATE(buf) buf[(sizeof(buf) / sizeof(buf[0])) - 1] = '\0'
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
@@ -70,7 +71,7 @@ event_exit(void)
 #ifdef SHOW_RESULTS
     char msg[512];
     int len;
-    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
                       "Instrumentation results:\n"
                       "%10d basic block executions\n"
                       "%10d basic blocks needed flag saving\n"
@@ -80,6 +81,7 @@ event_exit(void)
     NULL_TERMINATE(msg);
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
+    drx_exit();
     drreg_exit();
     drmgr_exit();
 }
@@ -92,14 +94,20 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     bool aflags_dead;
 #endif
 
+    /* By default drmgr enables auto-predication, which predicates all instructions with
+     * the predicate of the current instruction on ARM.
+     * We disable it here because we want to unconditionally execute the following
+     * instrumentation.
+     */
+    drmgr_disable_auto_predication(drcontext, bb);
     if (!drmgr_is_first_instr(drcontext, inst))
         return DR_EMIT_DEFAULT;
 
 #ifdef VERBOSE
-    dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
-# ifdef VERBOSE_VERBOSE
+    dr_printf("in dynamorio_basic_block(tag=" PFX ")\n", tag);
+#    ifdef VERBOSE_VERBOSE
     instrlist_disassemble(drcontext, tag, bb, STDOUT);
-# endif
+#    endif
 #endif
 
 #ifdef SHOW_RESULTS
@@ -110,22 +118,16 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         bbs_no_eflags_saved++;
 #endif
 
-    /* We demonstrate how to use drreg for aflags save/restore here.
-     * We could use drx_insert_counter_update instead of drreg.
-     * Xref sample opcodes.c as an example of using drx_insert_counter_update.
-     */
-    if (drreg_reserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
-        DR_ASSERT(false && "fail to reserve aflags!");
     /* racy update on the counter for better performance */
-    instrlist_meta_preinsert
-        (bb, inst,
-         INSTR_CREATE_inc(drcontext, OPND_CREATE_ABSMEM
-                          ((byte *)&global_count, OPSZ_4)));
-    if (drreg_unreserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
-        DR_ASSERT(false && "fail to unreserve aflags!");
+    drx_insert_counter_update(drcontext, bb, inst,
+                              /* We're using drmgr, so these slots
+                               * here won't be used: drreg's slots will be.
+                               */
+                              SPILL_SLOT_MAX + 1,
+                              IF_AARCHXX_(SPILL_SLOT_MAX + 1) & global_count, 1, 0);
 
 #if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
-    dr_printf("Finished instrumenting dynamorio_basic_block(tag="PFX")\n", tag);
+    dr_printf("Finished instrumenting dynamorio_basic_block(tag=" PFX ")\n", tag);
     instrlist_disassemble(drcontext, tag, bb, STDOUT);
 #endif
     return DR_EMIT_DEFAULT;
@@ -134,10 +136,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drreg_options_t ops = {sizeof(ops), 1 /*max slots needed: aflags*/, false};
+    drreg_options_t ops = { sizeof(ops), 1 /*max slots needed: aflags*/, false };
     dr_set_client_name("DynamoRIO Sample Client 'bbcount'",
                        "http://dynamorio.org/issues");
-    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
+    if (!drmgr_init() || !drx_init() || drreg_init(&ops) != DRREG_SUCCESS)
         DR_ASSERT(false);
 
     /* register events */
@@ -146,14 +148,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
 
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'bbcount' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'bbcount' initializing\n");
 #ifdef SHOW_RESULTS
     /* also give notification to stderr */
     if (dr_is_notify_on()) {
-# ifdef WINDOWS
+#    ifdef WINDOWS
         /* ask for best-effort printing to cmd window.  must be called at init. */
         dr_enable_console_printing();
-# endif
+#    endif
         dr_fprintf(STDERR, "Client bbcount is running\n");
     }
 #endif

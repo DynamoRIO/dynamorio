@@ -40,7 +40,7 @@
 static bool
 enum_cb(const char *name, size_t modoffs, void *data)
 {
-    const char *match = (const char *) data;
+    const char *match = (const char *)data;
     if (match != NULL && strstr(name, match) != NULL)
         dr_printf("Found %s\n", name);
     return true; /* keep iterating */
@@ -66,8 +66,7 @@ main(int argc, char *argv[])
         } else
             match = NULL;
         /* XXX: add more tests */
-        symres = drsym_enumerate_symbols(argv[i], enum_cb, (void *)match,
-                                         DRSYM_DEMANGLE);
+        symres = drsym_enumerate_symbols(argv[i], enum_cb, (void *)match, DRSYM_DEMANGLE);
         assert(symres == DRSYM_SUCCESS);
     }
 

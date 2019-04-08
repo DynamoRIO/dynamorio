@@ -209,7 +209,7 @@ str_vregs:
 str_tpidr_el0:
         .ascii  "tpidrel0" // exactly 8 bytes
         .4byte  0x05400000 // FPCR
-        .4byte  0xa8000095 // FPSR
+        .4byte  0x08000095 // FPSR
         .4byte  0x90000000 // NZCV
 
         .align  2
@@ -886,7 +886,7 @@ check_regs_preserved:
         addch   ' '
         mov     x3, #0x07c00000 // AHP, DN, FZ; RMode
         msr     fpcr, x3
-        mov     x3, #0xf8000000 // N, Z, C, V; QC
+        mov     x3, #0x08000000 // QC
         movk    x3, #0x0000009f // IDC, IXC; UFC, OFC, DZC, IOC
         msr     fpsr, x3
         branch  x1, x2

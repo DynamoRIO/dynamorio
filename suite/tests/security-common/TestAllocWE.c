@@ -38,7 +38,7 @@ int
 main()
 {
     /* allocate buffer */
-    char *buf = allocate_mem(BUF_LEN, ALLOW_WRITE|ALLOW_EXEC);
+    char *buf = allocate_mem(BUF_LEN, ALLOW_WRITE | ALLOW_EXEC);
     INIT();
 
 #if USE_DYNAMO

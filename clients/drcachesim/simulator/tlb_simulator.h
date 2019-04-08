@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,22 +36,27 @@
 #ifndef _TLB_SIMULATOR_H_
 #define _TLB_SIMULATOR_H_ 1
 
-#include <map>
+#include <unordered_map>
 #include "simulator.h"
+#include "tlb_simulator_create.h"
 #include "tlb_stats.h"
 #include "tlb.h"
 
-class tlb_simulator_t : public simulator_t
-{
- public:
-    tlb_simulator_t();
+class tlb_simulator_t : public simulator_t {
+public:
+    tlb_simulator_t(const tlb_simulator_knobs_t &knobs);
     virtual ~tlb_simulator_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    virtual bool
+    process_memref(const memref_t &memref);
+    virtual bool
+    print_results();
 
- protected:
+protected:
     // Create a tlb_t object with a specific replacement policy.
-    virtual tlb_t *create_tlb(std::string policy);
+    virtual tlb_t *
+    create_tlb(std::string policy);
+
+    tlb_simulator_knobs_t knobs;
 
     // Each CPU core contains a L1 ITLB, L1 DTLB and L2 TLB.
     // All of them are private to the core.

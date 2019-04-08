@@ -1,0 +1,5 @@
+start of test, count = 0
+set debug register
+single step seen eax = 1
+single step seen eax = 2
+end of test, count = 2

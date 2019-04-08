@@ -1,0 +1,31 @@
+Reuse distance tool aggregated results:
+Total accesses: 229
+Unique accesses: 126
+Unique cache lines accessed: 5
+
+Reuse distance mean: 1.42
+Reuse distance median: 1
+Reuse distance standard deviation: 1.64
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+       0         103   45.98%   45.98%
+       1          42   18.75%   64.73%
+       2          13    5.80%   70.54%
+       3          13    5.80%   76.34%
+       4          53   23.66%  100.00%
+
+Reuse distance threshold = 100 cache lines
+Top 10 frequently referenced cache lines
+        cache line:     #references   #distant refs
+          0x400100:          114,            0
+          0x400140:           59,            0
+    0x7fff413f5bc0:           28,            0
+    0x7fff413f5c00:           14,            0
+    0x7fff413f5c40:           14,            0
+Top 10 distant repeatedly referenced cache lines
+        cache line:     #references   #distant refs
+          0x400100:          114,            0
+          0x400140:           59,            0
+    0x7fff413f5bc0:           28,            0
+    0x7fff413f5c00:           14,            0
+    0x7fff413f5c40:           14,            0

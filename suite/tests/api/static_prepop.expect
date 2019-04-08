@@ -1,0 +1,21 @@
+pre-DR init
+in dr_client_main
+bb asm_func
+bb asm_label1
+bb asm_label2
+bb asm_label3
+bb asm_return
+pre-DR start
+pre-DR detach
+Exit event
+pre-DR init
+in dr_client_main
+bb asm_func
+bb asm_label1
+bb asm_label2
+bb asm_label3
+bb asm_return
+pre-DR start
+pre-DR detach with stats
+Exit event
+all done

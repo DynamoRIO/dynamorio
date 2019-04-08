@@ -64,6 +64,4 @@ redirect_ignore_arg8(void *arg1, void *arg2);
 BOOL WINAPI
 redirect_ignore_arg12(void *arg1, void *arg2, void *arg3);
 
-
-
 #endif /* _DRWINAPI_PRIVATE_H_ */

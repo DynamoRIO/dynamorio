@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #include "../globals.h" /* need this to include decode.h (uint, etc.) */
-#include "arch.h"    /* need this to include decode.h (byte, etc. */
+#include "arch.h"       /* need this to include decode.h (byte, etc. */
 #include "decode.h"
 #include "decode_private.h"
 #include "table_private.h"
@@ -39,6 +39,9 @@
 /****************************************************************************
  * T32.16 table for outside IT block
  */
+
+// We skip auto-formatting for the entire file to keep our single-line table entries:
+/* clang-format off */
 
 /* top-level table */
 /* Indexed by bits 15:12*/
@@ -177,8 +180,8 @@ const instr_info_t T32_16_ext_bits_9_6[][16] = {
       {OP_lsls,    0x4080, "lsls",   RZw, xx, RZDw,  RYw, xx, no, fWNZC, xi126[2][0x01]},
       {OP_lsrs,    0x40c0, "lsrs",   RZw, xx, RZDw,  RYw, xx, no, fWNZC, y11[0][0x01]},
       {OP_asrs,    0x4100, "asrs",   RZw, xx, RZDw,  RYw, xx, no, fWNZC, y11[1][0x00]},
-      {OP_adcs,    0x4140, "adcs",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xfop8[0][0x15]},
-      {OP_sbcs,    0x4180, "sbcs",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xfop8[0][0x17]},
+      {OP_adcs,    0x4140, "adcs",   RZw, xx, RZDw,  RYw, xx, no, fRC|fWNZCV, xfop8[0][0x15]},
+      {OP_sbcs,    0x4180, "sbcs",   RZw, xx, RZDw,  RYw, xx, no, fRC|fWNZCV, xfop8[0][0x17]},
       {OP_rors,    0x41c0, "rors",   RZw, xx, RZDw,  RYw, xx, no, fWNZC, xi126[3][0x01]},
       {OP_tst,     0x4200, "tst",     xx, xx,  RZw,  RYw, xx, no, fWNZCV, xrcpc[4][0x01]},
       {OP_rsbs,    0x4240, "rsbs",   RZw, xx,  RYw,   k0, xx, no, fWNZCV, xfop8[0][0x1d]},
@@ -299,3 +302,5 @@ const instr_info_t T32_16_ext_bits_6_4[][8] = {
       {INVALID,    0xbf70, "(bad)",     xx, xx, xx, xx, xx, no, x,       NA},
     },
 };
+
+/* clang-format on */

@@ -114,8 +114,19 @@ that DynamoRIO performs on calls from the client, so it should typically be
 enabled only in a release build.  Furthermore, some of the macros evaluate their
 arguments twice, so clients should avoid passing arguments with side effects.
 
+When a new instruction is created using instr_create() or the
+INSTR_CREATE_* or XINST_CREATE_* macros, if the instruction is added to the
+\c instrlist_t that is passed to the basic block or trace events, the heap
+memory used by the instruction is automatically freed when that instruction
+list is freed by DynamoRIO.  If instead an instruction is created on the
+heap but used for other purposes and not added to a DynamoRIO-provided
+instruction list, it should be freed by calling instr_destroy() or by
+explicitly destroying a custom instruction list.
+
 See \ref sec_decode for further information on creating instructions from
-scratch, decoding, encoding, and disassembling instructions.
+scratch, decoding, encoding, and disassembling instructions.  Typically
+these instructions will be stored on the stack, using instr_init() and
+instr_free() or instr_reset(), as shown in that section.
 
 \if level_of_detail
 ********************
@@ -316,6 +327,21 @@ passes an \c instrlist_t of all Level 3 \c instr_t's, for simplicity.
   <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
   <tr><td></td></tr></table></td></tr></table></td></tr></table>
 \endhtmlonly
+
+********************
+\subsection sec_IR_AArch64 AArch64 IR Variations
+
+DynamoRIO's IR representation of AArch64 NEON instructions uses an additional
+immediate source operand to denote the width of the vector elements. The immediates
+take the values #VECTOR_ELEM_WIDTH_BYTE (8 bit), #VECTOR_ELEM_WIDTH_HALF (16 bit),
+#VECTOR_ELEM_WIDTH_SINGLE (32 bit) and #VECTOR_ELEM_WIDTH_DOUBLE (64 bit),
+for vector instructions that require arrangement specifiers for their operands.
+This is different from AArch64 assembly, where the element width is part of the
+vector register operand. For example, floating point vector addition of two vectors
+with 2 double elements is represented in assembly by
+\code fadd v9.2d, v30.2d, v9.2d \endcode and in IR by
+\code fadd %q30 %q9 $0x03 -> %q9 \endcode.
+
 \section sec_events_bt Events
 
 The core of a client's interaction with DynamoRIO occurs through <em>
@@ -401,8 +427,8 @@ DR_EMIT_PERSISTABLE flag in its return value.  See \ref sec_pcache for more
 information.
 
 To iterate over instructions in an \c instrlist_t, use the \ref
-instrlist_first(), \ref instrlist_last(), and \ref instr_get_next()
-routines.  For example:
+instrlist_first(), \ref instrlist_last() (if necessary), and \ref
+instr_get_next() routines. For example:
 
 \code
 dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb,
@@ -410,7 +436,7 @@ dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb,
 {
   instr_t *instr, *next;
   for (instr = instrlist_first(bb);
-       instr != instrlist_last(bb);
+       instr != NULL;
        instr = next) {
     next = instr_get_next(instr);
     /* do some processing on instr */
@@ -489,6 +515,8 @@ internal operation requires that we impose the following limitations:
    a basic block, and it must be the final application branch in the block.
  - The exit control-flow of a block ending in a system call cannot be
    changed.
+ - On AArch64, an ISB instruction (#OP_isb) must be the last instruction
+   in its block.
 
 Application instructions, or non-meta instructions, in addition to being
 processed (and followed if control flow), are also considered safe points
@@ -1187,6 +1215,37 @@ instr_num_dsts(), include all possible operands.  Clients should explicitly
 query instr_is_predicated() when using API routines that do not take in
 #dr_opnd_query_flags_t.
 
+As shorthand for emitting instrumentation that necessarily uses the same
+predicate as the current instruction, \p instrlist_set_auto_predicate() is
+provided which will predicate all instructions inserted into an instruction
+list. Although writing to aflags is strictly forbidden, as is meta control
+flow, internal DR components such as \p dr_insert_clean_call() will gracefully
+handle this auto-predication setting and are safe for use with it.
+
+\p instrlist_get_auto_predicate() similarly may be used to query the current
+predicate desired for auto predication.
+
+********************
+\subsection sec_it_blocks IT Blocks
+
+On ARM AArch32, the Thumb mode includes conditional groups of instructions
+called IT blocks.  The #OP_it header instruction indicates how many
+instructions are in the block and the direction of each instruction's
+conditional.  Thus, inserting instrumentation inside the block without
+updating the header results in an unencodable instruction list.  To solve
+this, we provide two API routines: dr_remove_it_instrs() and
+dr_insert_it_instrs().  The first simply removes the headers.  Since the
+individual instructions from the blocks are marked with their condition in
+our IR, the header is not necessary for tools to analyze the instructions.
+The second re-instates the headers, creating a legal instruction list.
+This re-creation of the proper IT block headers occurs as a final phase in
+drmgr, after the instru2instru event.  This means that the original #OP_it
+header instructions are present for clients to observe in the analysis
+phase.
+
+Clients not using drmgr can call dr_remove_it_instrs() and then
+dr_insert_it_instrs() on their own.
+
 ***************************************************************************
 \htmlonly
 <table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
@@ -1196,7 +1255,7 @@ query instr_is_predicated() when using API routines that do not take in
 \endhtmlonly
 \section sec_ldrex Exclusive Monitor Instrumentation Constraints
 
-On ARM and AArch64, a ldrex..strex pair of instructions has some
+On ARM and AArch64, a ldrex..strex (or ldxr..stxr) pair of instructions has some
 constraints that make inserting
 instrumentation in between the pair challenging.  ARM/AArch64 hardware requires
 that an application minimize memory operations in between the ldrex and
@@ -1205,9 +1264,9 @@ this can result in failure to acquire the desired exclusive monitor, which
 is always done in a loop and can result in a non-terminating loop when the
 application is run with instrumentation.
 
-Empirically, inserting a few memory references in between a ldrex..strex
-pair generally works fine, but inserting something heavyweight like a clean
-call is not recommended.
+Inserting a few memory references in between a ldrex..strex pair works
+on most but not all hardware. Inserting something heavyweight like a clean
+call is likely to result in a non-terminating loop.
 
 We recommend using inlined instrumentation with at most a few memory
 references in such regions, rather than clean calls.  In general, this is
@@ -1215,6 +1274,14 @@ the best performing strategy anyway for heavyweight tools that want to
 instrument every instruction.  Take a look at the memtrace_simple and
 instrace_simple samples, which check for instr_is_exclusive_store() to
 avoid a clean call in between.
+
+The runtime option "-unsafe_build_ldstex" may be useful on AArch64
+hardware that does not allow any loads or stores between an exclusive
+load and the corresponding exclusive store. With this option DynamoRIO
+tries to turn a sequence of instructions containing an exclusive
+load/store pair into a macro-instruction, which prevents any loads and
+stores from being inserted, but also prevents any of the instructions
+involved from being instrumented.
 
 \ifnot vmsafe
 ***************************************************************************

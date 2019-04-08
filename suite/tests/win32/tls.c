@@ -48,7 +48,7 @@ typedef struct _UNICODE_STRING {
     /* Length field is size in bytes not counting final 0 */
     USHORT Length;
     USHORT MaximumLength;
-    PWSTR  Buffer;
+    PWSTR Buffer;
 } UNICODE_STRING;
 typedef UNICODE_STRING *PUNICODE_STRING;
 
@@ -57,23 +57,24 @@ typedef struct _OBJECT_ATTRIBUTES {
     HANDLE RootDirectory;
     PUNICODE_STRING ObjectName;
     ULONG Attributes;
-    PVOID SecurityDescriptor;        // Points to type SECURITY_DESCRIPTOR
-    PVOID SecurityQualityOfService;  // Points to type SECURITY_QUALITY_OF_SERVICE
+    PVOID SecurityDescriptor;       // Points to type SECURITY_DESCRIPTOR
+    PVOID SecurityQualityOfService; // Points to type SECURITY_QUALITY_OF_SERVICE
 } OBJECT_ATTRIBUTES;
 typedef OBJECT_ATTRIBUTES *POBJECT_ATTRIBUTES;
 
-#define InitializeObjectAttributes( p, n, a, r, s ) { \
-    (p)->Length = sizeof( OBJECT_ATTRIBUTES );          \
-    (p)->RootDirectory = r;                             \
-    (p)->Attributes = a;                                \
-    (p)->ObjectName = n;                                \
-    (p)->SecurityDescriptor = s;                        \
-    (p)->SecurityQualityOfService = NULL;               \
+#define InitializeObjectAttributes(p, n, a, r, s) \
+    {                                             \
+        (p)->Length = sizeof(OBJECT_ATTRIBUTES);  \
+        (p)->RootDirectory = r;                   \
+        (p)->Attributes = a;                      \
+        (p)->ObjectName = n;                      \
+        (p)->SecurityDescriptor = s;              \
+        (p)->SecurityQualityOfService = NULL;     \
     }
 
-#define OBJ_CASE_INSENSITIVE    0x00000040L
+#define OBJ_CASE_INSENSITIVE 0x00000040L
 /* N.B.: this is an invalid parameter on NT4! */
-#define OBJ_KERNEL_HANDLE       0x00000200L
+#define OBJ_KERNEL_HANDLE 0x00000200L
 typedef ULONG ACCESS_MASK;
 
 typedef struct _CLIENT_ID {
@@ -109,27 +110,24 @@ typedef struct _USER_STACK {
  */
 static HANDLE
 nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
-                 uint stack_reserve, uint stack_commit, bool suspended,
-                 uint *tid, bool target_kernel32)
+                 uint stack_reserve, uint stack_commit, bool suspended, uint *tid,
+                 bool target_kernel32)
 {
     HANDLE hThread = NULL;
-    USER_STACK stack = {0};
+    USER_STACK stack = { 0 };
     OBJECT_ATTRIBUTES oa;
     CLIENT_ID cid;
-    CONTEXT context = {0};
+    CONTEXT context = { 0 };
     uint num_commit_bytes, code;
     unsigned long old_prot;
     void *p;
     SECURITY_DESCRIPTOR *sd = NULL;
 
-    GET_NTDLL(NtCreateThread, (OUT PHANDLE ThreadHandle,
-                               IN ACCESS_MASK DesiredAccess,
-                               IN POBJECT_ATTRIBUTES ObjectAttributes,
-                               IN HANDLE ProcessHandle,
-                               OUT PCLIENT_ID ClientId,
-                               IN PCONTEXT ThreadContext,
-                               IN PUSER_STACK UserStack,
-                               IN BOOLEAN CreateSuspended));
+    GET_NTDLL(NtCreateThread,
+              (OUT PHANDLE ThreadHandle, IN ACCESS_MASK DesiredAccess,
+               IN POBJECT_ATTRIBUTES ObjectAttributes, IN HANDLE ProcessHandle,
+               OUT PCLIENT_ID ClientId, IN PCONTEXT ThreadContext,
+               IN PUSER_STACK UserStack, IN BOOLEAN CreateSuspended));
 
     /* both stack size and stack reserve must be multiples of PAGE_SIZE */
     assert((stack_reserve & (PAGE_SIZE - 1)) == 0);
@@ -170,35 +168,31 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
      * CreateThread as closely as possible.  If we do anything post system
      * call should be sure to always create the thread suspended.
      */
-    code = GetSecurityInfo(hProcess, SE_KERNEL_OBJECT,
-                           DACL_SECURITY_INFORMATION,
-                           NULL, NULL, NULL, NULL, &sd);
+    code = GetSecurityInfo(hProcess, SE_KERNEL_OBJECT, DACL_SECURITY_INFORMATION, NULL,
+                           NULL, NULL, NULL, &sd);
     assert(code == ERROR_SUCCESS);
 
     InitializeObjectAttributes(&oa, NULL, OBJ_CASE_INSENSITIVE, NULL, sd);
 
-    stack.ExpandableStackBottom = VirtualAllocEx(hProcess, NULL,
-                                                 stack_reserve - PAGE_SIZE,
-                                                 MEM_RESERVE, PAGE_READWRITE);
+    stack.ExpandableStackBottom = VirtualAllocEx(
+        hProcess, NULL, stack_reserve - PAGE_SIZE, MEM_RESERVE, PAGE_READWRITE);
     if (stack.ExpandableStackBottom == NULL)
         goto error;
 
     /* We provide non-committed boundary page on each side of the stack just to
      * be safe (note we will get a stack overflow exception if stack grows to
      * 3rd to last page of this region (xpsp2)). */
-    stack.ExpandableStackBottom =
-        ((byte *)stack.ExpandableStackBottom) + PAGE_SIZE;
+    stack.ExpandableStackBottom = ((byte *)stack.ExpandableStackBottom) + PAGE_SIZE;
     stack.ExpandableStackBase =
-        ((byte *)stack.ExpandableStackBottom) + stack_reserve - (2*PAGE_SIZE);
+        ((byte *)stack.ExpandableStackBottom) + stack_reserve - (2 * PAGE_SIZE);
 
-    stack.ExpandableStackLimit =
-        ((byte *)stack.ExpandableStackBase) - stack_commit;
+    stack.ExpandableStackLimit = ((byte *)stack.ExpandableStackBase) - stack_commit;
     num_commit_bytes = stack_commit + PAGE_SIZE;
     p = ((byte *)stack.ExpandableStackBase) - num_commit_bytes;
     p = VirtualAllocEx(hProcess, p, num_commit_bytes, MEM_COMMIT, PAGE_READWRITE);
     if (p == NULL)
         goto error;
-    if (!VirtualProtectEx(hProcess, p, PAGE_SIZE, PAGE_READWRITE|PAGE_GUARD, &old_prot))
+    if (!VirtualProtectEx(hProcess, p, PAGE_SIZE, PAGE_READWRITE | PAGE_GUARD, &old_prot))
         goto error;
 
     /* set the context: initialize with our own */
@@ -225,8 +219,8 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
         /* set up arg on stack, give NULL return address */
         buf[1] = (ptr_uint_t)arg;
         buf[0] = 0;
-        res = WriteProcessMemory(hProcess, (void *)context.CXT_XSP, &buf,
-                                 sizeof(buf), &written);
+        res = WriteProcessMemory(hProcess, (void *)context.CXT_XSP, &buf, sizeof(buf),
+                                 &written);
         if (!res || written != sizeof(buf)) {
             goto error;
         }
@@ -238,16 +232,15 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
     /* NOTE - CreateThread passes NULL for object attributes so despite Nebbet
      * must be optional (checked NTsp6a, XPsp2). We don't pass NULL so we can
      * specify the security descriptor. */
-    if (!NT_SUCCESS(NtCreateThread(&hThread, THREAD_ALL_ACCESS, &oa,
-                                   hProcess, &cid, &context, &stack,
-                                   (byte)(suspended ? TRUE : FALSE)))) {
+    if (!NT_SUCCESS(NtCreateThread(&hThread, THREAD_ALL_ACCESS, &oa, hProcess, &cid,
+                                   &context, &stack, (byte)(suspended ? TRUE : FALSE)))) {
         goto error;
     }
 
     if (tid != NULL)
         *tid = (ptr_uint_t)cid.UniqueThread;
 
- exit:
+exit:
     if (sd != NULL) {
         /* Free the security descriptor. */
         LocalFree(sd);
@@ -255,7 +248,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
 
     return hThread;
 
- error:
+error:
     if (stack.ExpandableStackBottom != NULL) {
         /* Free remote stack on error. */
         VirtualFreeEx(hProcess, stack.ExpandableStackBottom, 0, MEM_RELEASE);
@@ -277,11 +270,11 @@ get_nudge_target()
     /* read DR marker
      * just hardcode the offsets for now
      */
-    static const uint DR_NUDGE_FUNC_OFFSET = IF_X64_ELSE(0x28,0x20);
+    static const uint DR_NUDGE_FUNC_OFFSET = IF_X64_ELSE(0x28, 0x20);
     return get_drmarker_field(DR_NUDGE_FUNC_OFFSET);
 }
 
-typedef unsigned int (__stdcall * threadfunc_t)(void *);
+typedef unsigned int(__stdcall *threadfunc_t)(void *);
 
 static bool test_tls = false;
 #define TLS_SLOTS 64
@@ -299,16 +292,15 @@ get_own_teb()
 }
 
 int WINAPI
-thread_func(void * arg)
+thread_func(void *arg)
 {
     int i;
     while (!test_tls)
         ; /* spin */
-    for (i=0; i<TLS_SLOTS; i++) {
+    for (i = 0; i < TLS_SLOTS; i++) {
         if (tls_own[i]) {
             if (TlsGetValue(i) != 0) {
-                print("TLS slot %d is "PFX" when it should be 0!\n",
-                      i, TlsGetValue(i));
+                print("TLS slot %d is " PFX " when it should be 0!\n", i, TlsGetValue(i));
             }
         }
     }
@@ -316,7 +308,8 @@ thread_func(void * arg)
     return 0;
 }
 
-int main()
+int
+main()
 {
     int tid;
     HANDLE detach_thread;
@@ -329,7 +322,7 @@ int main()
     dynamo_start();
 #endif
 
-    my_thread = (HANDLE) _beginthreadex(NULL, 0, thread_func, NULL, 0, &tid);
+    my_thread = (HANDLE)_beginthreadex(NULL, 0, thread_func, NULL, 0, &tid);
 
     nudge_target = get_nudge_target();
     if (nudge_target == NULL) {
@@ -349,16 +342,16 @@ int main()
         arg->flags = 0;
         arg->client_arg = 0;
         print("About to detach using underhanded methods\n");
-        detach_thread = (HANDLE)
-            nt_create_thread(GetCurrentProcess(), (threadfunc_t) nudge_target,
-                             arg, STACK_RESERVE, STACK_COMMIT, false, NULL, false);
+        detach_thread =
+            (HANDLE)nt_create_thread(GetCurrentProcess(), (threadfunc_t)nudge_target, arg,
+                                     STACK_RESERVE, STACK_COMMIT, false, NULL, false);
         WaitForSingleObject(detach_thread, INFINITE);
 
         assert(get_nudge_target() == NULL);
         print("Running natively now\n");
     }
 
-    for (i=0; i<TLS_SLOTS; i++) {
+    for (i = 0; i < TLS_SLOTS; i++) {
         /* case 8143: a runtime-loaded dll calling TlsAlloc needs to set
          * a value for already-existing threads.  The "official" method
          * is to directly TlsGetValue() and if not NULL assume that dll

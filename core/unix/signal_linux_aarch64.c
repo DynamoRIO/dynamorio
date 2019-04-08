@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -37,11 +38,11 @@
 #include "signal_private.h" /* pulls in globals.h for us, in right order */
 
 #ifndef LINUX
-# error Linux-only
+#    error Linux-only
 #endif
 
 #ifndef AARCH64
-# error AArch64-only
+#    error AArch64-only
 #endif
 
 #include "arch.h"
@@ -58,17 +59,17 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 {
     int i;
     for (i = 0; i <= DR_REG_X30 - DR_REG_X0; i++)
-        LOG(THREAD, LOG_ASYNCH, 1, "\tx%-2d    = "PFX"\n", i, sc->regs[i]);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tsp     = "PFX"\n", sc->sp);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tpc     = "PFX"\n", sc->pc);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tpstate = "PFX"\n", sc->pstate);
+        LOG(THREAD, LOG_ASYNCH, 1, "\tx%-2d    = " PFX "\n", i, sc->regs[i]);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tsp     = " PFX "\n", sc->sp);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tpc     = " PFX "\n", sc->pc);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tpstate = " PFX "\n", sc->pstate);
 }
 #endif /* DEBUG */
 
 void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
-    struct fpsimd_context *fpc = (struct fpsimd_context*)sc_full->fp_simd_state;
+    struct fpsimd_context *fpc = (struct fpsimd_context *)sc_full->fp_simd_state;
     ASSERT(fpc->head.magic == FPSIMD_MAGIC);
     ASSERT(fpc->head.size == sizeof(struct fpsimd_context));
     mc->fpsr = fpc->fpsr;
@@ -80,7 +81,7 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 void
 mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
-    struct fpsimd_context *fpc = (struct fpsimd_context*)sc_full->fp_simd_state;
+    struct fpsimd_context *fpc = (struct fpsimd_context *)sc_full->fp_simd_state;
     struct _aarch64_ctx *next = (void *)((char *)fpc + sizeof(struct fpsimd_context));
     fpc->head.magic = FPSIMD_MAGIC;
     fpc->head.size = sizeof(struct fpsimd_context);
@@ -90,4 +91,16 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
     memcpy(&fpc->vregs, &mc->simd, sizeof(fpc->vregs));
     next->magic = 0;
     next->size = 0;
+}
+
+size_t
+signal_frame_extra_size(bool include_alignment)
+{
+    return 0;
+}
+
+void
+signal_arch_init(void)
+{
+    /* Nothing. */
 }

@@ -38,35 +38,35 @@
 #define _WIZARD_H_
 
 #if _MSC_VER > 1000
-#pragma once
+#    pragma once
 #endif // _MSC_VER > 1000
 
 #ifndef __AFXWIN_H__
-        #error include 'stdafx.h' before including this file for PCH
+#    error include 'stdafx.h' before including this file for PCH
 #endif
 
-#include "resource.h"       // main symbols
+#include "resource.h" // main symbols
 
-#define MYMBFLAGS   MB_TOPMOST | MB_ICONEXCLAMATION
+#define MYMBFLAGS MB_TOPMOST | MB_ICONEXCLAMATION
 
 /////////////////////////////////////////////////////////////////////////////
 // CWizardApp:
 // See Wizard.cpp for the implementation of this class
 //
 
-class CWizardApp : public CWinApp
-{
+class CWizardApp : public CWinApp {
 public:
     CWizardApp();
 
-// Overrides
+    // Overrides
     // ClassWizard generated virtual function overrides
     //{{AFX_VIRTUAL(CWizardApp)
 public:
-    virtual BOOL InitInstance();
+    virtual BOOL
+    InitInstance();
     //}}AFX_VIRTUAL
 
-// Implementation
+    // Implementation
 
     //{{AFX_MSG(CWizardApp)
     // NOTE - the ClassWizard will add and remove member functions here.
@@ -75,10 +75,10 @@ public:
     DECLARE_MESSAGE_MAP()
 };
 
-
 /////////////////////////////////////////////////////////////////////////////
 
 //{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
+// Microsoft Visual C++ will insert additional declarations immediately before the
+// previous line.
 
 #endif // _WIZARD_H_

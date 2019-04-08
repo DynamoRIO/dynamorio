@@ -49,7 +49,7 @@ typedef struct _UNICODE_STRING {
     /* Length field is size in bytes not counting final 0 */
     USHORT Length;
     USHORT MaximumLength;
-    PWSTR  Buffer;
+    PWSTR Buffer;
 } UNICODE_STRING;
 typedef UNICODE_STRING *PUNICODE_STRING;
 
@@ -58,23 +58,24 @@ typedef struct _OBJECT_ATTRIBUTES {
     HANDLE RootDirectory;
     PUNICODE_STRING ObjectName;
     ULONG Attributes;
-    PVOID SecurityDescriptor;        // Points to type SECURITY_DESCRIPTOR
-    PVOID SecurityQualityOfService;  // Points to type SECURITY_QUALITY_OF_SERVICE
+    PVOID SecurityDescriptor;       // Points to type SECURITY_DESCRIPTOR
+    PVOID SecurityQualityOfService; // Points to type SECURITY_QUALITY_OF_SERVICE
 } OBJECT_ATTRIBUTES;
 typedef OBJECT_ATTRIBUTES *POBJECT_ATTRIBUTES;
 
-#define InitializeObjectAttributes( p, n, a, r, s ) { \
-    (p)->Length = sizeof( OBJECT_ATTRIBUTES );          \
-    (p)->RootDirectory = r;                             \
-    (p)->Attributes = a;                                \
-    (p)->ObjectName = n;                                \
-    (p)->SecurityDescriptor = s;                        \
-    (p)->SecurityQualityOfService = NULL;               \
+#define InitializeObjectAttributes(p, n, a, r, s) \
+    {                                             \
+        (p)->Length = sizeof(OBJECT_ATTRIBUTES);  \
+        (p)->RootDirectory = r;                   \
+        (p)->Attributes = a;                      \
+        (p)->ObjectName = n;                      \
+        (p)->SecurityDescriptor = s;              \
+        (p)->SecurityQualityOfService = NULL;     \
     }
 
-#define OBJ_CASE_INSENSITIVE    0x00000040L
+#define OBJ_CASE_INSENSITIVE 0x00000040L
 /* N.B.: this is an invalid parameter on NT4! */
-#define OBJ_KERNEL_HANDLE       0x00000200L
+#define OBJ_KERNEL_HANDLE 0x00000200L
 typedef ULONG ACCESS_MASK;
 
 typedef struct _CLIENT_ID {
@@ -97,7 +98,7 @@ typedef struct _USER_STACK {
  * STACK_RESERVE - (5 * PAGE_SIZE), i.e. 44kb */
 #define STACK_COMMIT 0x3000
 
-typedef unsigned int (__stdcall * threadfunc_t)(void *);
+typedef unsigned int(__stdcall *threadfunc_t)(void *);
 
 /* returns NULL on error */
 /* FIXME - is similar to core create_thread, but uses API routines where
@@ -112,27 +113,24 @@ typedef unsigned int (__stdcall * threadfunc_t)(void *);
  */
 static HANDLE
 nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
-                 uint stack_reserve, uint stack_commit, bool suspended,
-                 uint *tid, bool target_kernel32)
+                 uint stack_reserve, uint stack_commit, bool suspended, uint *tid,
+                 bool target_kernel32)
 {
     HANDLE hThread = NULL;
-    USER_STACK stack = {0};
+    USER_STACK stack = { 0 };
     OBJECT_ATTRIBUTES oa;
     CLIENT_ID cid;
-    CONTEXT context = {0};
+    CONTEXT context = { 0 };
     uint num_commit_bytes, code;
     unsigned long old_prot;
     void *p;
     SECURITY_DESCRIPTOR *sd = NULL;
 
-    GET_NTDLL(NtCreateThread, (OUT PHANDLE ThreadHandle,
-                               IN ACCESS_MASK DesiredAccess,
-                               IN POBJECT_ATTRIBUTES ObjectAttributes,
-                               IN HANDLE ProcessHandle,
-                               OUT PCLIENT_ID ClientId,
-                               IN PCONTEXT ThreadContext,
-                               IN PUSER_STACK UserStack,
-                               IN BOOLEAN CreateSuspended));
+    GET_NTDLL(NtCreateThread,
+              (OUT PHANDLE ThreadHandle, IN ACCESS_MASK DesiredAccess,
+               IN POBJECT_ATTRIBUTES ObjectAttributes, IN HANDLE ProcessHandle,
+               OUT PCLIENT_ID ClientId, IN PCONTEXT ThreadContext,
+               IN PUSER_STACK UserStack, IN BOOLEAN CreateSuspended));
 
     /* both stack size and stack reserve must be multiples of PAGE_SIZE */
     assert((stack_reserve & (PAGE_SIZE - 1)) == 0);
@@ -173,35 +171,31 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
      * CreateThread as closely as possible.  If we do anything post system
      * call should be sure to always create the thread suspended.
      */
-    code = GetSecurityInfo(hProcess, SE_KERNEL_OBJECT,
-                           DACL_SECURITY_INFORMATION,
-                           NULL, NULL, NULL, NULL, &sd);
+    code = GetSecurityInfo(hProcess, SE_KERNEL_OBJECT, DACL_SECURITY_INFORMATION, NULL,
+                           NULL, NULL, NULL, &sd);
     assert(code == ERROR_SUCCESS);
 
     InitializeObjectAttributes(&oa, NULL, OBJ_CASE_INSENSITIVE, NULL, sd);
 
-    stack.ExpandableStackBottom = VirtualAllocEx(hProcess, STACK_BASE,
-                                                 stack_reserve - PAGE_SIZE,
-                                                 MEM_RESERVE, PAGE_READWRITE);
+    stack.ExpandableStackBottom = VirtualAllocEx(
+        hProcess, STACK_BASE, stack_reserve - PAGE_SIZE, MEM_RESERVE, PAGE_READWRITE);
     if (stack.ExpandableStackBottom == NULL)
         goto error;
 
     /* We provide non-committed boundary page on each side of the stack just to
      * be safe (note we will get a stack overflow exception if stack grows to
      * 3rd to last page of this region (xpsp2)). */
-    stack.ExpandableStackBottom =
-        ((byte *)stack.ExpandableStackBottom) + PAGE_SIZE;
+    stack.ExpandableStackBottom = ((byte *)stack.ExpandableStackBottom) + PAGE_SIZE;
     stack.ExpandableStackBase =
-        ((byte *)stack.ExpandableStackBottom) + stack_reserve - (2*PAGE_SIZE);
+        ((byte *)stack.ExpandableStackBottom) + stack_reserve - (2 * PAGE_SIZE);
 
-    stack.ExpandableStackLimit =
-        ((byte *)stack.ExpandableStackBase) - stack_commit;
+    stack.ExpandableStackLimit = ((byte *)stack.ExpandableStackBase) - stack_commit;
     num_commit_bytes = stack_commit + PAGE_SIZE;
     p = ((byte *)stack.ExpandableStackBase) - num_commit_bytes;
     p = VirtualAllocEx(hProcess, p, num_commit_bytes, MEM_COMMIT, PAGE_READWRITE);
     if (p == NULL)
         goto error;
-    if (!VirtualProtectEx(hProcess, p, PAGE_SIZE, PAGE_READWRITE|PAGE_GUARD, &old_prot))
+    if (!VirtualProtectEx(hProcess, p, PAGE_SIZE, PAGE_READWRITE | PAGE_GUARD, &old_prot))
         goto error;
 
     /* set the context: initialize with our own */
@@ -227,8 +221,8 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
         /* set up arg on stack, give NULL return address */
         buf[0] = (ptr_uint_t)arg;
         buf[1] = 0;
-        res = WriteProcessMemory(hProcess, (void *)context.CXT_XSP, &buf,
-                                 sizeof(buf), &written);
+        res = WriteProcessMemory(hProcess, (void *)context.CXT_XSP, &buf, sizeof(buf),
+                                 &written);
         if (!res || written != sizeof(buf)) {
             goto error;
         }
@@ -240,16 +234,15 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
     /* NOTE - CreateThread passes NULL for object attributes so despite Nebbet
      * must be optional (checked NTsp6a, XPsp2). We don't pass NULL so we can
      * specify the security descriptor. */
-    if (!NT_SUCCESS(NtCreateThread(&hThread, THREAD_ALL_ACCESS, &oa,
-                                   hProcess, &cid, &context, &stack,
-                                   (byte)(suspended ? TRUE : FALSE)))) {
+    if (!NT_SUCCESS(NtCreateThread(&hThread, THREAD_ALL_ACCESS, &oa, hProcess, &cid,
+                                   &context, &stack, (byte)(suspended ? TRUE : FALSE)))) {
         goto error;
     }
 
     if (tid != NULL)
         *tid = (ptr_uint_t)cid.UniqueThread;
 
- exit:
+exit:
     if (sd != NULL) {
         /* Free the security descriptor. */
         LocalFree(sd);
@@ -257,7 +250,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
 
     return hThread;
 
- error:
+error:
     if (stack.ExpandableStackBottom != NULL) {
         /* Free remote stack on error. */
         VirtualFreeEx(hProcess, stack.ExpandableStackBottom, 0, MEM_RELEASE);
@@ -271,7 +264,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
 
 typedef void (*funcptr)();
 
-char* badfunc;
+char *badfunc;
 
 void
 run_test()
@@ -283,7 +276,7 @@ run_test()
      */
     char badfuncbuf[1000];
 
-    badfunc = (char *) ALIGN_FORWARD(badfuncbuf, 256);
+    badfunc = (char *)ALIGN_FORWARD(badfuncbuf, 256);
 
     /* FIXME: make this fancier */
     badfunc[0] = 0xc3; /* ret */
@@ -291,19 +284,16 @@ run_test()
     /* FIXME: move this to a general win32/ test */
     /* Verifying RaiseException, FIXME: maybe move to a separate unit test */
     __try {
-        ULONG arguments[] = {0, 0xabcd};
+        ULONG arguments[] = { 0, 0xabcd };
         initialize_registry_context();
         RaiseException(EXCEPTION_ACCESS_VIOLATION, 0, 2, arguments);
         print("Never after RaiseException\n");
-    }
-    __except (
-              print("In RaiseException filter\n"),
+    } __except (print("In RaiseException filter\n"),
 #ifdef RAISE_EXCEPTION_EIP_NOT_CONSTANT
-              dump_exception_info((GetExceptionInformation())->ExceptionRecord,
-                                  (GetExceptionInformation())->ContextRecord),
+                dump_exception_info((GetExceptionInformation())->ExceptionRecord,
+                                    (GetExceptionInformation())->ContextRecord),
 #endif
-              EXCEPTION_EXECUTE_HANDLER
-              ) {
+                EXCEPTION_EXECUTE_HANDLER) {
         print("In RaiseException handler\n");
     }
 
@@ -332,16 +322,13 @@ run_test()
                     call  dword ptr [eax]
                 }
                 print("At statement after exception\n");
-            }
-            __except (
-                      context = (GetExceptionInformation())->ContextRecord,
-                      print("Inside first filter eax=%x\n", context->CXT_XAX),
-                      dump_exception_info((GetExceptionInformation())->ExceptionRecord,
-                                          context),
-                      context->CXT_XAX = 0xcafebabe,
-                      /* FIXME: should get a CONTINUE to work  */
-                      EXCEPTION_CONTINUE_EXECUTION,
-                      EXCEPTION_EXECUTE_HANDLER) {
+            } __except (context = (GetExceptionInformation())->ContextRecord,
+                        print("Inside first filter eax=%x\n", context->CXT_XAX),
+                        dump_exception_info((GetExceptionInformation())->ExceptionRecord,
+                                            context),
+                        context->CXT_XAX = 0xcafebabe,
+                        /* FIXME: should get a CONTINUE to work  */
+                        EXCEPTION_CONTINUE_EXECUTION, EXCEPTION_EXECUTE_HANDLER) {
                 print("Inside first handler\n");
             }
             print("At statement after 1st try-except\n");
@@ -352,22 +339,20 @@ run_test()
                     call  edx
                 }
                 print("NEVER Inside 2nd try\n");
-            } __except (print("Inside 2nd filter\n"),
-                        EXCEPTION_CONTINUE_SEARCH) {
+            } __except (print("Inside 2nd filter\n"), EXCEPTION_CONTINUE_SEARCH) {
                 print("This should NOT be printed\n");
             }
-        }
-        __finally {
+        } __finally {
             print("Finally!\n");
         }
         print("NEVER At statement after 2nd try-finally\n");
-    }
-    __except (print("Inside 3rd filter\n"),
-              exception = *(GetExceptionInformation())->ExceptionRecord,
-              context = (GetExceptionInformation())->ContextRecord,
-              dump_exception_info(&exception, context),
-              (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION) ?
-              EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+    } __except (print("Inside 3rd filter\n"),
+                exception = *(GetExceptionInformation())->ExceptionRecord,
+                context = (GetExceptionInformation())->ContextRecord,
+                dump_exception_info(&exception, context),
+                (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION)
+                    ? EXCEPTION_EXECUTE_HANDLER
+                    : EXCEPTION_CONTINUE_SEARCH) {
         /* copy of exception can be used */
         print("Expected memory access violation, ignoring it!\n");
     }
@@ -392,14 +377,12 @@ run_test()
                 initialize_registry_context();
                 ((funcptr)badfunc)();
                 print("DATA: At statement after exception\n");
-            }
-            __except (
-                      context = (GetExceptionInformation())->ContextRecord,
-                      print("DATA VIOLATION: Inside first filter eax=%x\n",
-                            context->CXT_XAX),
-                      dump_exception_info((GetExceptionInformation())->ExceptionRecord,
-                                          context),
-                      EXCEPTION_EXECUTE_HANDLER) {
+            } __except (
+                context = (GetExceptionInformation())->ContextRecord,
+                print("DATA VIOLATION: Inside first filter eax=%x\n", context->CXT_XAX),
+                dump_exception_info((GetExceptionInformation())->ExceptionRecord,
+                                    context),
+                EXCEPTION_EXECUTE_HANDLER) {
                 print("DATA VIOLATION: Inside first handler\n");
             }
             print("DATA: At statement after 1st try-except\n");
@@ -410,17 +393,15 @@ run_test()
             } __except (EXCEPTION_CONTINUE_SEARCH) {
                 print("DATA: This should NOT be printed\n");
             }
-        }
-        __finally {
+        } __finally {
             print("DATA: Finally!\n");
         }
         print("DATA: At statement after 2nd try-finally\n");
-    }
-    __except (
-              exception = *(GetExceptionInformation())->ExceptionRecord,
-              context = (GetExceptionInformation())->ContextRecord,
-              (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION) ?
-              EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+    } __except (exception = *(GetExceptionInformation())->ExceptionRecord,
+                context = (GetExceptionInformation())->ContextRecord,
+                (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION)
+                    ? EXCEPTION_EXECUTE_HANDLER
+                    : EXCEPTION_CONTINUE_SEARCH) {
         print("DATA: Expected execution violation!\n");
         dump_exception_info(&exception, context);
     }
@@ -432,7 +413,7 @@ thread_func()
 {
     __try {
         run_test();
-    } __except(EXCEPTION_EXECUTE_HANDLER) {
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
         print("Should never have exception bubble up to thread function\n");
     }
     /* thread is hanging so just exit here */
@@ -449,9 +430,9 @@ main()
      * w/ exception unwinding walking off the stack even though I put 0
      * in fs:0.  In any case, making a raw thread does the trick.
      */
-    hThread = (HANDLE)
-        nt_create_thread(GetCurrentProcess(), (threadfunc_t) thread_func,
-                         NULL, STACK_RESERVE, STACK_COMMIT, false, NULL, false);
+    hThread =
+        (HANDLE)nt_create_thread(GetCurrentProcess(), (threadfunc_t)thread_func, NULL,
+                                 STACK_RESERVE, STACK_COMMIT, false, NULL, false);
     WaitForSingleObject(hThread, INFINITE);
 
     return 0;

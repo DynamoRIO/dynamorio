@@ -18,17 +18,17 @@ IA-32, AMD64, ARM, and AArch64 hardware.  Mac OSX support is in progress.
 
 ## Existing DynamoRIO-based tools
 
-Tools built on DynamoRIO include:
+Tools built on DynamoRIO and provided in our release package include:
 
 - The memory debugging tool [Dr. Memory](http://drmemory.org)
-- The multi-process online cache simulator
-  [drcachesim](http://dynamorio.org/docs/page_drcachesim.html)
+- The multi-process cache simulator and memory address trace collection and
+  analysis platform [drcachesim](http://dynamorio.org/docs/page_drcachesim.html)
 - The legacy processor emulator
   [drcpusim](http://dynamorio.org/docs/page_drcpusim.html)
 - The "strace for Windows" tool [drstrace](http://drmemory.org/strace_for_windows.html)
 - The code coverage tool [drcov](http://dynamorio.org/docs/page_drcov.html)
-- The library tracing tool [drltrace](http://drmemory.org/docs/page_drltrace.html)
-- The memory tracing tool [memtrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memtrace.c)
+- The library tracing tool [drltrace](https://github.com/DynamoRIO/drmemory/tree/master/drltrace)
+- The memory tracing tool [memtrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memtrace_simple.c)
 - The basic block tracing tool [bbbuf](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/bbbuf.c)
 - The instruction counting tool [inscount](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/inscount.cpp)
 

@@ -32,37 +32,35 @@
 
 #include "dr_api.h"
 
-static
-void thread_init_event(void *drcontext)
+static void
+thread_init_event(void *drcontext)
 {
     dr_set_tls_field(drcontext, NULL);
 }
 
-static
-void at_cbr(app_pc inst_addr, app_pc targ_addr, int taken)
+static void
+at_cbr(app_pc inst_addr, app_pc targ_addr, int taken)
 {
     void *drcontext = dr_get_current_drcontext();
 
     if (taken == 1) {
         dr_set_tls_field(drcontext, targ_addr);
-    }
-    else if (taken == 0) {
+    } else if (taken == 0) {
         app_pc fall_addr = decode_next_pc(drcontext, inst_addr);
         dr_set_tls_field(drcontext, fall_addr);
-    }
-    else {
+    } else {
         dr_fprintf(STDERR, "ERROR: expecting 'taken' to be 0 or 1\n");
     }
 }
 
-static
-void at_bb(void *drcontext, app_pc bb_addr)
+static void
+at_bb(void *drcontext, app_pc bb_addr)
 {
     app_pc cbr_addr = dr_get_tls_field(drcontext);
 
     if (cbr_addr != NULL && cbr_addr != bb_addr) {
-        dr_fprintf(STDERR, "ERROR: expected jmp to "PFX", but entered BB at "PFX"\n",
-                  cbr_addr, bb_addr);
+        dr_fprintf(STDERR, "ERROR: expected jmp to " PFX ", but entered BB at " PFX "\n",
+                   cbr_addr, bb_addr);
     }
 
     dr_set_tls_field(drcontext, NULL);
@@ -70,9 +68,8 @@ void at_bb(void *drcontext, app_pc bb_addr)
 
 #define MINSERT instrlist_meta_preinsert
 
-static
-dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
-                         bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr;
 
@@ -82,12 +79,11 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
 
     dr_prepare_for_call(drcontext, bb, instr);
 
-    MINSERT(bb, instr, INSTR_CREATE_push_imm
-            (drcontext, OPND_CREATE_INT32((ptr_uint_t)bb_addr)));
-    MINSERT(bb, instr, INSTR_CREATE_push_imm
-            (drcontext, OPND_CREATE_INT32((ptr_uint_t)drcontext)));
-    MINSERT(bb, instr, INSTR_CREATE_call
-            (drcontext, opnd_create_pc((void*)at_bb)));
+    MINSERT(bb, instr,
+            INSTR_CREATE_push_imm(drcontext, OPND_CREATE_INT32((ptr_uint_t)bb_addr)));
+    MINSERT(bb, instr,
+            INSTR_CREATE_push_imm(drcontext, OPND_CREATE_INT32((ptr_uint_t)drcontext)));
+    MINSERT(bb, instr, INSTR_CREATE_call(drcontext, opnd_create_pc((void *)at_bb)));
 
     dr_cleanup_after_call(drcontext, bb, instr, 8);
 
@@ -102,7 +98,8 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     dr_fprintf(STDERR, "thank you for testing the client interface\n");
     dr_register_bb_event(bb_event);

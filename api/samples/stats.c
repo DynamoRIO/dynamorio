@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,10 +54,10 @@
 #include "drx.h"
 #include "utils.h"
 #include <stddef.h> /* for offsetof */
-#include <wchar.h> /* _snwprintf */
+#include <wchar.h>  /* _snwprintf */
 
 #ifndef WINDOWS
-# error WINDOWS-only!
+#    error WINDOWS-only!
 #endif
 
 #define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
@@ -77,19 +77,19 @@ const char *stat_names[] = {
  * On NT these prefixes are not supported.
  */
 #define CLIENT_SHMEM_KEY_NT_L L"DynamoRIO_Client_Statistics"
-#define CLIENT_SHMEM_KEY_L    L"Local\\DynamoRIO_Client_Statistics"
+#define CLIENT_SHMEM_KEY_L L"Local\\DynamoRIO_Client_Statistics"
 #define CLIENTSTAT_NAME_MAX_LEN 47
-#define NUM_STATS (sizeof(stat_names)/sizeof(char*))
+#define NUM_STATS (sizeof(stat_names) / sizeof(char *))
 
 /* Statistics are all 64-bit for x64.  At some point we'll add per-stat
  * typing, but for now we have identical types dependent on the platform.
  */
 #ifdef X86_64
 typedef int64 stats_int_t;
-# define STAT_FORMAT_CODE UINT64_FORMAT_CODE
+#    define STAT_FORMAT_CODE UINT64_FORMAT_CODE
 #else
 typedef int stats_int_t;
-# define STAT_FORMAT_CODE "d"
+#    define STAT_FORMAT_CODE "d"
 #endif
 
 /* We allocate this struct in the shared memory: */
@@ -122,7 +122,7 @@ static client_stats_t *stats;
  */
 static HANDLE shared_map_count;
 static PVOID shared_view_count;
-static int * shared_count;
+static int *shared_count;
 static HANDLE shared_map;
 static PVOID shared_view;
 #define KEYNAME_MAXLEN 128
@@ -152,35 +152,32 @@ shared_memory_init(void)
      * Instead, a piece of shared memory with the key base name holds the
      * total number of stats instances.
      */
-    shared_map_count =
-        CreateFileMappingW(INVALID_HANDLE_VALUE, NULL,
-                           PAGE_READWRITE, 0, sizeof(client_stats_t),
-                           is_NT ? CLIENT_SHMEM_KEY_NT_L : CLIENT_SHMEM_KEY_L);
+    shared_map_count = CreateFileMappingW(
+        INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(client_stats_t),
+        is_NT ? CLIENT_SHMEM_KEY_NT_L : CLIENT_SHMEM_KEY_L);
     DR_ASSERT(shared_map_count != NULL);
     shared_view_count =
-        MapViewOfFile(shared_map_count, FILE_MAP_READ|FILE_MAP_WRITE, 0, 0, 0);
+        MapViewOfFile(shared_map_count, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, 0);
     DR_ASSERT(shared_view_count != NULL);
-    shared_count = (int *) shared_view_count;
+    shared_count = (int *)shared_view_count;
     /* ASSUMPTION: memory is initialized to 0!
      * otherwise our protocol won't work
      * it's hard to build a protocol to initialize it to 0 -- if you want
      * to add one, feel free, but make sure it's correct
      */
     do {
-        pos = (int) atomic_swap(shared_count, (uint) -1);
+        pos = (int)atomic_swap(shared_count, (uint)-1);
         /* if get -1 back, someone else is looking at it */
     } while (pos == -1);
     /* now increment it */
-    atomic_swap(shared_count, pos+1);
+    atomic_swap(shared_count, pos + 1);
 
     num = 0;
     while (1) {
         _snwprintf(shared_keyname, KEYNAME_MAXLEN, L"%s.%03d",
                    is_NT ? CLIENT_SHMEM_KEY_NT_L : CLIENT_SHMEM_KEY_L, num);
-        shared_map = CreateFileMappingW(INVALID_HANDLE_VALUE, NULL,
-                                        PAGE_READWRITE, 0,
-                                        sizeof(client_stats_t),
-                                        shared_keyname);
+        shared_map = CreateFileMappingW(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0,
+                                        sizeof(client_stats_t), shared_keyname);
         if (shared_map != NULL && GetLastError() == ERROR_ALREADY_EXISTS) {
             dr_close_file(shared_map);
             shared_map = NULL;
@@ -189,13 +186,13 @@ shared_memory_init(void)
             break;
         num++;
     }
-    dr_log(NULL, LOG_ALL, 1, "Shared memory key is: \"%S\"\n", shared_keyname);
+    dr_log(NULL, DR_LOG_ALL, 1, "Shared memory key is: \"%S\"\n", shared_keyname);
 #ifdef SHOW_RESULTS
     dr_fprintf(STDERR, "Shared memory key is: \"%S\"\n", shared_keyname);
 #endif
-    shared_view = MapViewOfFile(shared_map, FILE_MAP_READ|FILE_MAP_WRITE, 0, 0, 0);
+    shared_view = MapViewOfFile(shared_map, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, 0);
     DR_ASSERT(shared_view != NULL);
-    return (client_stats_t *) shared_view;
+    return (client_stats_t *)shared_view;
 }
 
 static void
@@ -208,11 +205,11 @@ shared_memory_exit(void)
     dr_close_file(shared_map);
     /* decrement count, then unmap */
     do {
-        pos = atomic_swap(shared_count, (uint) -1);
+        pos = atomic_swap(shared_count, (uint)-1);
         /* if get -1 back, someone else is looking at it */
     } while (pos == -1);
     /* now increment it */
-    atomic_swap(shared_count, pos-1);
+    atomic_swap(shared_count, pos - 1);
     UnmapViewOfFile(shared_view_count);
     CloseHandle(shared_map_count);
 }
@@ -222,14 +219,12 @@ static void
 event_exit(void);
 
 static dr_emit_flags_t
-event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
-                 bool for_trace, bool translating,
-                 void **user_data);
+event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating, void **user_data);
 
 static dr_emit_flags_t
-event_insert_instrumentation(void *drcontext, void *tag, instrlist_t *bb,
-                             instr_t *instr, bool for_trace, bool translating,
-                             void *user_data);
+event_insert_instrumentation(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                             bool for_trace, bool translating, void *user_data);
 
 static client_id_t my_id;
 
@@ -241,7 +236,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_set_client_name("DynamoRIO Sample Client 'stats'", "http://dynamorio.org/issues");
     my_id = id;
     /* Make it easy to tell by looking at the log which client executed. */
-    dr_log(NULL, LOG_ALL, 1, "Client 'stats' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'stats' initializing\n");
 
     if (!drmgr_init())
         DR_ASSERT(false);
@@ -251,9 +246,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     memset(stats, 0, sizeof(stats));
     stats->num_stats = NUM_STATS;
     stats->pid = dr_get_process_id();
-    for (i=0; i<NUM_STATS; i++) {
+    for (i = 0; i < NUM_STATS; i++) {
         strncpy(stats->names[i], stat_names[i], CLIENTSTAT_NAME_MAX_LEN);
-        stats->names[i][CLIENTSTAT_NAME_MAX_LEN-1] = '\0';
+        stats->names[i][CLIENTSTAT_NAME_MAX_LEN - 1] = '\0';
     }
     dr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(event_analyze_bb,
@@ -262,9 +257,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 }
 
 #ifdef WINDOWS
-# define IF_WINDOWS(x) x
+#    define IF_WINDOWS(x) x
 #else
-# define IF_WINDOWS(x) /* nothing */
+#    define IF_WINDOWS(x) /* nothing */
 #endif
 
 static void
@@ -274,11 +269,12 @@ event_exit(void)
     /* Display the results! */
     char msg[512];
     int len;
-    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
                       "Instrumentation results:\n"
-                      "  saw %" STAT_FORMAT_CODE " flops\n", stats->num_flops);
+                      "  saw %" STAT_FORMAT_CODE " flops\n",
+                      stats->num_flops);
     DR_ASSERT(len > 0);
-    msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
+    msg[sizeof(msg) / sizeof(msg[0]) - 1] = '\0';
 #ifdef SHOW_RESULTS
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
@@ -301,8 +297,8 @@ event_exit(void)
 
 /* This event is passed the instruction list for the whole bb. */
 static dr_emit_flags_t
-event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
-                 bool for_trace, bool translating, void **user_data)
+event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating, void **user_data)
 {
     /* Count the instructions and pass the result to event_insert_instrumentation. */
     per_bb_data_t *per_bb = dr_thread_alloc(drcontext, sizeof(*per_bb));
@@ -312,9 +308,8 @@ event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
     uint num_syscalls = 0;
     dr_fp_type_t fp_type;
 
-    for (instr  = instrlist_first_app(bb);
-         instr != NULL;
-         instr  = instr_get_next_app(instr)) {
+    for (instr = instrlist_first_app(bb); instr != NULL;
+         instr = instr_get_next_app(instr)) {
         num_instrs++;
         if (instr_is_floating_ex(instr, &fp_type) &&
             /* We exclude loads and stores (and reg-reg moves) and state preservation */
@@ -332,16 +327,15 @@ event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
     per_bb->num_instrs = num_instrs;
     per_bb->num_flops = num_flops;
     per_bb->num_syscalls = num_syscalls;
-    *(per_bb_data_t**)user_data = per_bb;
+    *(per_bb_data_t **)user_data = per_bb;
 
     return DR_EMIT_DEFAULT;
 }
 
 /* This event is called separately for each individual instruction in the bb. */
 static dr_emit_flags_t
-event_insert_instrumentation(void *drcontext, void *tag, instrlist_t *bb,
-                             instr_t *instr, bool for_trace, bool translating,
-                             void *user_data)
+event_insert_instrumentation(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                             bool for_trace, bool translating, void *user_data)
 {
     per_bb_data_t *per_bb = (per_bb_data_t *)user_data;
     /* We increment the per-bb counters just once, at the top of the bb. */
@@ -349,15 +343,15 @@ event_insert_instrumentation(void *drcontext, void *tag, instrlist_t *bb,
         /* drx will analyze whether to save the flags for us. */
         uint flags = DRX_COUNTER_LOCK;
         if (per_bb->num_instrs > 0) {
-            drx_insert_counter_update(drcontext, bb, instr, SPILL_SLOT_MAX+1,
+            drx_insert_counter_update(drcontext, bb, instr, SPILL_SLOT_MAX + 1,
                                       &stats->num_instrs, per_bb->num_instrs, flags);
         }
         if (per_bb->num_flops > 0) {
-            drx_insert_counter_update(drcontext, bb, instr, SPILL_SLOT_MAX+1,
+            drx_insert_counter_update(drcontext, bb, instr, SPILL_SLOT_MAX + 1,
                                       &stats->num_flops, per_bb->num_flops, flags);
         }
         if (per_bb->num_syscalls > 0) {
-            drx_insert_counter_update(drcontext, bb, instr, SPILL_SLOT_MAX+1,
+            drx_insert_counter_update(drcontext, bb, instr, SPILL_SLOT_MAX + 1,
                                       &stats->num_syscalls, per_bb->num_syscalls, flags);
         }
     }
