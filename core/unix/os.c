@@ -289,6 +289,7 @@ static char dynamorio_alt_arch_filepath[MAXIMUM_PATH]; /* just dir */
 static app_pc dynamo_dll_start = NULL;
 static app_pc dynamo_dll_end = NULL; /* open-ended */
 
+/* pc values delimiting the app, equal to the "dll" bounds for static DR */
 static app_pc executable_start = NULL;
 static app_pc executable_end = NULL;
 
@@ -8482,18 +8483,19 @@ extern int dynamorio_so_end WEAK
     __attribute__((alias("weak_dynamorio_so_bounds_filler")));
 static int weak_dynamorio_so_bounds_filler;
 
-#    else /* !STATIC_LIBRARY */
+#    else  /* !STATIC_LIBRARY */
 /* For non-static linux we always get our bounds from linker-provided symbols.
  * Note that referencing the value of these symbols will crash: always use the
  * address only.
  */
 extern int dynamorio_so_start, dynamorio_so_end;
 #    endif /* STATIC_LIBRARY */
-#endif /* LINUX */
+#endif     /* LINUX */
 
 /* get_dynamo_library_bounds initializes dynamorio library bounds, using a
  * release-time assert if there is a problem doing so. It does not use any
- * heap, and we assume it is called prior to find_executable_vm_areas.
+ * heap, and we assume it is called prior to find_executable_vm_areas in a
+ * single thread.
  */
 static void
 get_dynamo_library_bounds(void)
@@ -8507,67 +8509,84 @@ get_dynamo_library_bounds(void)
     app_pc check_start, check_end;
     char *libdir;
     const char *dynamorio_libname;
-#ifdef LINUX
-    bool have_linker_vars;
-#    ifdef STATIC_LIBRARY
-    have_linker_vars = &dynamorio_so_start != &weak_dynamorio_so_bounds_filler &&
-        &dynamorio_so_end != &weak_dynamorio_so_bounds_filler;
-    dynamorio_libname = NULL;
-#    else
-    have_linker_vars = true;
-#    endif
-    if (have_linker_vars) {
+    bool do_memquery = true;
+#ifdef STATIC_LIBRARY
+#    ifdef LINUX
+    /* For static+linux, we might have linker vars to help us and we definitely
+     * know our "library name" since we are in the app. When we have both we
+     * don't need to do a memquery.
+     */
+    if (&dynamorio_so_start != &weak_dynamorio_so_bounds_filler &&
+        &dynamorio_so_end != &weak_dynamorio_so_bounds_filler) {
+
+        do_memquery = false;
         dynamo_dll_start = (app_pc)&dynamorio_so_start;
         dynamo_dll_end = (app_pc)ALIGN_FORWARD(&dynamorio_so_end, PAGE_SIZE);
-        check_start = dynamo_dll_start;
         LOG(GLOBAL, LOG_VMAREAS, 2,
             "Using dynamorio_so_start and dynamorio_so_end for library bounds"
             "\n");
-    } else {
-        /* We don't know our image name nor bounds, so look up our bounds with
-         * an internal address.
-         */
-        check_start = (app_pc)&get_dynamo_library_bounds;
-        LOG(GLOBAL, LOG_VMAREAS, 2,
-            "dynamorio_so_start and dynamorio_so_end not set: using memquery"
-            "\n");
-    }
-#elif defined(MACOS)
-    dynamo_dll_start = module_dynamorio_lib_base();
-    check_start = dynamo_dll_start;
-#endif
+        const char *dr_path = get_application_name();
+        strncpy(dynamorio_library_filepath, dr_path,
+                BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath));
 
-    static char dynamorio_libname_buf[MAXIMUM_PATH];
-    res = memquery_library_bounds(NULL, &check_start, &check_end, dynamorio_library_path,
-                                  BUFFER_SIZE_ELEMENTS(dynamorio_library_path),
-                                  dynamorio_libname_buf,
-                                  BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
-#ifndef STATIC_LIBRARY
-    dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, dynamorio_libname_buf);
+        const char *slash = strrchr(dr_path, '/');
+        ASSERT(slash != NULL);
+        /* Include the slash in the library path */
+        size_t copy_chars = 1 + slash - dr_path;
+        ASSERT(copy_chars < BUFFER_SIZE_ELEMENTS(dynamorio_library_path));
+        strncpy(dynamorio_library_path, dr_path, copy_chars);
+        dynamorio_library_path[copy_chars] = '\0';
+    }
+#    endif
+    if (do_memquery) {
+        /* No linker vars, so we need to find bound using an internal PC */
+        dynamorio_libname = NULL;
+        check_start = (app_pc)&get_dynamo_library_bounds;
+    }
+#else /* !STATIC_LIBRARY */
+#    ifdef LINUX
+    /* PR 361594: we get our bounds from linker-provided symbols.
+     * Note that referencing the value of these symbols will crash:
+     * always use the address only.
+     */
+    extern int dynamorio_so_start, dynamorio_so_end;
+    dynamo_dll_start = (app_pc)&dynamorio_so_start;
+    dynamo_dll_end = (app_pc)ALIGN_FORWARD(&dynamorio_so_end, PAGE_SIZE);
+#    elif defined(MACOS)
+    dynamo_dll_start = module_dynamorio_lib_base();
+#    endif
+    check_start = dynamo_dll_start;
 #endif /* STATIC_LIBRARY */
 
-    LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library path: %s\n",
-        dynamorio_library_path);
-    snprintf(dynamorio_library_filepath, BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath),
-             "%s%s", dynamorio_library_path, dynamorio_libname);
-    NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
-    LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library file path: %s\n",
-        dynamorio_library_filepath);
-    NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
-#if defined(LINUX)
-    if (have_linker_vars) {
+    if (do_memquery) {
+        static char dynamorio_libname_buf[MAXIMUM_PATH];
+        res = memquery_library_bounds(
+                NULL, &check_start, &check_end, dynamorio_library_path,
+                BUFFER_SIZE_ELEMENTS(dynamorio_library_path), dynamorio_libname_buf,
+                BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
+#ifndef STATIC_LIBRARY
+        dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, dynamorio_libname_buf);
+#endif /* STATIC_LIBRARY */
+
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library path: %s\n",
+            dynamorio_library_path);
+        snprintf(dynamorio_library_filepath,
+                 BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath), "%s%s",
+                 dynamorio_library_path, dynamorio_libname);
+        NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library file path: %s\n",
+            dynamorio_library_filepath);
+        NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
+#if !defined(STATIC_LIBRARY) && defined(LINUX)
         ASSERT(check_start == dynamo_dll_start && check_end == dynamo_dll_end);
-    } else {
+#elif defined(MACOS)
+        ASSERT(check_start == dynamo_dll_start);
+        dynamo_dll_end = check_end;
+#else
         dynamo_dll_start = check_start;
         dynamo_dll_end = check_end;
-    }
-#elif defined(MACOS)
-    ASSERT(check_start == dynamo_dll_start);
-    dynamo_dll_end = check_end;
 #endif
-    LOG(GLOBAL, LOG_VMAREAS, 1, "DR library bounds: " PFX " to " PFX "\n",
-        dynamo_dll_start, dynamo_dll_end);
-    ASSERT(res > 0);
+    }
 
     /* Issue 20: we need the path to the alt arch */
     strncpy(dynamorio_alt_arch_path, dynamorio_library_path,
@@ -8650,7 +8669,11 @@ app_pc
 get_application_base(void)
 {
     if (executable_start == NULL) {
-#ifdef HAVE_MEMINFO
+#if defined(STATIC_LIBRARY)
+        /* When compiled statically, the app and the DR's "library" are the same. */
+        executable_start = get_dynamorio_dll_start();
+        executable_end = get_dynamorio_dll_end();
+#elif defined(HAVE_MEMINFO)
         /* Haven't done find_executable_vm_areas() yet so walk maps ourselves */
         const char *name = get_application_name();
         if (name != NULL && name[0] != '\0') {

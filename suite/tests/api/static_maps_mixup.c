@@ -29,33 +29,16 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  */
-//
-//#include "configure.h"
-//#include "dr_api.h"
+
 #define _GNU_SOURCE 1 /* for mremap */
 #include <sys/mman.h>
-//#include "tools.h"
-//#include <stdlib.h>
-//#include <unistd.h>
+#include <string.h>
+#include <assert.h>
+#include <unistd.h>
 
 #define LINUX
-#include <string.h>
-#include "dr_api.h"
-#include <assert.h>
-#include <math.h>
-#include <stdlib.h>
-
 #include "dr_api.h"
 #include "client_tools.h"
-//#include "utils.h"
-#include <assert.h>
-#include <math.h>
-#include <stdlib.h>
-#include <unistd.h>
-#define _GNU_SOURCE 1 /* for mremap */
-#include <sys/mman.h>
-#include <stdio.h>
-#include <string.h>
 
 #define print(...) dr_fprintf(2, __VA_ARGS__)
 
@@ -63,11 +46,11 @@
  * burst_maps.cpp? */
 #define MAPS_LINE_LENGTH 4096
 #define MAPS_LINE_FORMAT4 "%08lx-%08lx %s %*x %*s %*u %4096s"
-#define MAPS_LINE_MAX4 49 /* sum of 8  1  8  1 4 1 8 1 5 1 10 1 */
 #define MAPS_LINE_FORMAT8 "%016lx-%016lx %s %*x %*s %*u %4096s"
-#define MAPS_LINE_MAX8 73 /* sum of 16  1  16  1 4 1 16 1 5 1 10 1 */
-#define MAPS_LINE_MAX MAPS_LINE_MAX8
 
+/* Note: For debugging purposes, find_exe_bounds will print out the maps
+ * file as it is read if the macro PRINT_MAPS is defined.
+ */
 bool
 find_exe_bounds(app_pc *base, app_pc *end)
 {
@@ -81,23 +64,28 @@ find_exe_bounds(app_pc *base, app_pc *end)
         assert(0);
     NULL_TERMINATE_BUFFER(proc_pid_maps);
     maps = fopen(proc_pid_maps, "r");
+    bool found = false;
     while (!feof(maps)) {
         char perm[16];
         char comment_buffer[MAPS_LINE_LENGTH];
         if (fgets(line, sizeof(line), maps) == NULL)
             break;
+#ifdef PRINT_MAPS
+        print(line);
+#endif
+        unsigned long b1, e1;
         len = sscanf(line, sizeof(void *) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
-                     (unsigned long *)base, (unsigned long *)end, perm,
-                     comment_buffer);
+                     &b1, &e1, perm, comment_buffer);
         if (len < 4)
             comment_buffer[0] = '\0';
-        if (strstr(comment_buffer, "static_maps_mixup") != 0) {
-            fclose(maps);
-            return true;
+        if (!found && strstr(comment_buffer, "static_maps_mixup") != 0) {
+            found = true;
+            *(unsigned long *)base = b1;
+            *(unsigned long *)end = e1;
         }
     }
     fclose(maps);
-    return false;
+    return found;
 }
 
 // Confusing the current logic in get_dynamo_library_bounds is as simple as
@@ -105,7 +93,7 @@ find_exe_bounds(app_pc *base, app_pc *end)
 static void
 copy_and_remap(void *base, size_t offs, size_t size)
 {
-    print("remap base="PFX", offs=%zu, sz=%zu\n", base, offs, size);
+    print("remap base=" PFX ", offs=%zu, sz=%zu\n", base, offs, size);
     void *p =
         mmap(0, size, PROT_EXEC | PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
     assert(p != MAP_FAILED);
@@ -123,7 +111,8 @@ main(int argc, const char *argv[])
     app_pc base = 0, end = 0;
     assert(find_exe_bounds(&base, &end));
     print("mix up maps\n");
-    copy_and_remap(base, 0, end-base);
+    copy_and_remap(base, 0, end - base);
+    find_exe_bounds(&base, &end);
     print("pre-DR init\n");
     dr_app_setup();
     print("pre-DR start\n");
