@@ -1897,17 +1897,8 @@ reg_is_ymm(reg_id_t reg)
 bool
 reg_is_xmm(reg_id_t reg)
 {
-    return (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) ||
-        (reg >= DR_REG_START_EXT_XMM && reg <= DR_REG_STOP_EXT_XMM) || reg_is_ymm(reg) ||
+    return (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) || reg_is_ymm(reg) ||
         reg_is_zmm(reg);
-}
-
-bool
-reg_is_ext_xmm(reg_id_t reg)
-{
-    return (reg >= DR_REG_START_EXT_XMM && reg <= DR_REG_STOP_EXT_XMM) ||
-        (reg >= DR_REG_YMM16 && reg <= DR_REG_YMM31) ||
-        (reg >= DR_REG_ZMM16 && reg <= DR_REG_ZMM31);
 }
 
 bool

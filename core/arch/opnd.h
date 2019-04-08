@@ -926,14 +926,10 @@ extern const reg_id_t dr_reg_fixer[];
         DR_REG_SPL /**< Start of 8-bit x64-only register enum values*/
 #    define DR_REG_STOP_x64_8 \
         DR_REG_DIL /**< Stop of 8-bit x64-only register enum values */
-#    define DR_REG_START_MMX DR_REG_MM0  /**< Start of mmx register enum values */
-#    define DR_REG_STOP_MMX DR_REG_MM7   /**< End of mmx register enum values */
-#    define DR_REG_START_XMM DR_REG_XMM0 /**< Start of sse xmm register enum values */
-#    define DR_REG_STOP_XMM DR_REG_XMM15 /**< End of sse xmm register enum values */
-#    define DR_REG_START_EXT_XMM \
-        DR_REG_XMM16 /**< Start of AVX-512 xmm register enum values */
-#    define DR_REG_STOP_EXT_XMM \
-        DR_REG_XMM31                      /**< End of AVX-512 xmm register enum values */
+#    define DR_REG_START_MMX DR_REG_MM0   /**< Start of mmx register enum values */
+#    define DR_REG_STOP_MMX DR_REG_MM7    /**< End of mmx register enum values */
+#    define DR_REG_START_XMM DR_REG_XMM0  /**< Start of sse xmm register enum values */
+#    define DR_REG_STOP_XMM DR_REG_XMM31  /**< End of sse xmm register enum values */
 #    define DR_REG_START_YMM DR_REG_YMM0  /**< Start of ymm register enum values */
 #    define DR_REG_STOP_YMM DR_REG_YMM31  /**< End of ymm register enum values */
 #    define DR_REG_START_ZMM DR_REG_ZMM0  /**< Start of zmm register enum values */
@@ -2441,16 +2437,6 @@ DR_API
  */
 bool
 reg_is_xmm(reg_id_t reg);
-
-DR_API
-/**
- * Assumes that \p reg is a DR_REG_ constant.
- * Returns true iff it refers to an AVX-512 extended xmm16 - xmm31 (128-bit SSE/SSE2)
- * register or a ymm16 - ymm31 (256-bit multimedia) or a zmm16 - zmm31 (512-bit
- * multimedia) register.
- */
-bool
-reg_is_ext_xmm(reg_id_t reg);
 
 DR_API
 /**
