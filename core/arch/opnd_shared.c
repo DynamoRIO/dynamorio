@@ -1984,9 +1984,9 @@ reg_is_extended(reg_id_t reg)
             (reg >= REG_START_16 + 8 && reg <= REG_STOP_16) ||
             (reg >= REG_START_8 + 8 && reg <= REG_STOP_8) ||
             (reg >= REG_START_x64_8 && reg <= REG_STOP_x64_8) ||
-            (reg >= REG_START_XMM + 8 && reg <= REG_STOP_XMM) ||
-            (reg >= REG_START_YMM + 8 && reg <= REG_STOP_YMM) ||
-            (reg >= REG_START_ZMM + 8 && reg <= REG_STOP_ZMM) ||
+            (reg >= DR_REG_START_XMM + 8 && reg <= DR_REG_STOP_XMM) ||
+            (reg >= DR_REG_START_YMM + 8 && reg <= DR_REG_STOP_YMM) ||
+            (reg >= DR_REG_START_ZMM + 8 && reg <= DR_REG_STOP_ZMM) ||
             (reg >= REG_START_DR + 8 && reg <= REG_STOP_DR) ||
             (reg >= REG_START_CR + 8 && reg <= REG_STOP_CR));
 }
@@ -2079,12 +2079,12 @@ reg_get_bits(reg_id_t reg)
         return (byte)((reg - REG_START_16) % 8);
     if (reg >= REG_START_MMX && reg <= REG_STOP_MMX)
         return (byte)((reg - REG_START_MMX) % 8);
-    if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
-        return (byte)((reg - REG_START_XMM) % 8);
-    if (reg >= REG_START_YMM && reg <= REG_STOP_YMM)
-        return (byte)((reg - REG_START_YMM) % 8);
-    if (reg >= REG_START_ZMM && reg <= REG_STOP_ZMM)
-        return (byte)((reg - REG_START_ZMM) % 8);
+    if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM)
+        return (byte)((reg - DR_REG_START_XMM) % 8);
+    if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM)
+        return (byte)((reg - DR_REG_START_YMM) % 8);
+    if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM)
+        return (byte)((reg - DR_REG_START_ZMM) % 8);
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return (byte)((reg - REG_START_SEGMENT) % 8);
     if (reg >= REG_START_DR && reg <= REG_STOP_DR)
@@ -2121,13 +2121,13 @@ reg_get_size(reg_id_t reg)
         return OPSZ_2;
     if (reg >= REG_START_MMX && reg <= REG_STOP_MMX)
         return OPSZ_8;
-    if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
+    if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM)
         return OPSZ_16;
-    if (reg >= REG_START_YMM && reg <= REG_STOP_YMM)
+    if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM)
         return OPSZ_32;
-    if (reg >= REG_START_ZMM && reg <= REG_STOP_ZMM)
+    if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM)
         return OPSZ_64;
-    if (reg >= REG_START_OPMASK && reg <= REG_STOP_OPMASK) {
+    if (reg >= DR_REG_START_OPMASK && reg <= DR_REG_STOP_OPMASK) {
         /* The default is 16 bits wide. The register may be up to 64 bits wide with
          * the AVX-512BW extension, which depends on the processor. The number of
          * bits actually used depends on the vector type of the instruction.
