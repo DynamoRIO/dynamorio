@@ -1884,8 +1884,8 @@ reg_is_zmm(reg_id_t reg)
 bool
 reg_is_ymm(reg_id_t reg)
 {
-    return (reg >= REG_START_YMM && reg <= REG_STOP_YMM) || 
-           (reg >= REG_START_ZMM && reg <= REG_ZMM15);
+    return (reg >= REG_START_YMM && reg <= REG_STOP_YMM) ||
+            (reg >= REG_START_ZMM && reg <= REG_ZMM15);
 }
 
 bool
