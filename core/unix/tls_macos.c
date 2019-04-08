@@ -67,7 +67,7 @@ static uint tls_app_index;
 byte **
 get_app_tls_swap_slot_addr(void)
 {
-    byte **app_tls_base = (byte **) read_thread_register(TLS_REG_LIB);
+    byte **app_tls_base = (byte **)read_thread_register(TLS_REG_LIB);
     if (app_tls_base == NULL) {
         ASSERT_NOT_IMPLEMENTED(false);
     }

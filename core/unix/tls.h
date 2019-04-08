@@ -99,7 +99,7 @@ typedef struct _our_modify_ldt_t {
 #define GDT_SELECTOR(idx) ((idx) << 3 | ((GDT_NOT_LDT) << 2) | (USER_PRIVILEGE))
 #define SELECTOR_INDEX(sel) ((sel) >> 3)
 
-#if defined(MACOS) && defined(X64)
+#ifdef MACOS64
 #    define WRITE_DR_SEG(val) ASSERT_NOT_REACHED()
 #    define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
 #    define TLS_SLOT_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
@@ -291,7 +291,7 @@ byte **
 get_dr_tls_base_addr(void);
 #endif
 
-#if defined(MACOS) && defined(X64)
+#ifdef MACOS64
 byte **
 get_app_tls_swap_slot_addr(void);
 #endif

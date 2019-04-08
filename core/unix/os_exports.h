@@ -115,8 +115,8 @@
 #    error NYI
 #endif
 
-#if defined(MACOS) && defined(X64)
-/* FIXME: current pthread_t struct has the first TLS entry at offset 28. We should
+#ifdef MACOS64
+/* FIXME i#1568: current pthread_t struct has the first TLS entry at offset 28. We should
  * provide a dynamic method to determine the first entry for forward compatability.
  * Starting w/ libpthread-218.1.3 they now leave slots 6 and 11 unused to allow
  * limited interoperability w/ code targeting the Windows x64 ABI. We steal slot 6
