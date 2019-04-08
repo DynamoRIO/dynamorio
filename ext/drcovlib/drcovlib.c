@@ -94,8 +94,8 @@ log_file_create_helper(void *drcontext, const char *suffix, char *buf, size_t bu
 {
     file_t log = drx_open_unique_appid_file(
         options.logdir,
-        drcontext == NULL ? dr_get_process_id() : dr_get_thread_id(drcontext), "drcov",
-        suffix,
+        drcontext == NULL ? dr_get_process_id() : dr_get_thread_id(drcontext),
+        options.logprefix, suffix,
 #ifndef WINDOWS
         DR_FILE_CLOSE_ON_FORK |
 #endif
@@ -557,6 +557,8 @@ drcovlib_init(drcovlib_options_t *ops)
         dr_snprintf(logdir, BUFFER_SIZE_ELEMENTS(logdir), ".");
     NULL_TERMINATE_BUFFER(logdir);
     options.logdir = logdir;
+    if (options.logprefix == NULL)
+        options.logprefix = "drcov";
     if (options.native_until_thread > 0)
         go_native = true;
 
