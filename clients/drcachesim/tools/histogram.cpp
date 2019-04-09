@@ -56,6 +56,9 @@ histogram_t::histogram_t(unsigned int line_size, unsigned int report_top,
 
 histogram_t::~histogram_t()
 {
+    for (auto &iter : shard_map) {
+        delete iter.second;
+    }
 }
 
 bool
