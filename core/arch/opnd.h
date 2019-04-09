@@ -127,6 +127,8 @@ enum {
 /* The entire enum below overlaps with the OPSZ_ enum but all cases where the two are
  * used in the same field (instr_info_t operand sizes) have the type and distinguish
  * properly.
+ * XXX i#3528: Switch from guaranteed-contiguous exposed enum ranges, which are not
+ * possible to maintain long-term, to function interfaces.
  */
 #endif
     DR_REG_NULL, /**< Sentinel value indicating no register, for address modes. */
