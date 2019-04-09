@@ -1013,10 +1013,11 @@ DYNAMIC_OPTION(bool, pause_via_loop,
 
     OPTION_DEFAULT(uint, max_trace_bbs, 128, "maximum number of basic blocks in a trace")
 
-    /* FIXME: case 8023 covers re-enabling on linux */
+    /* FIXME i#3522: re-enable SELFPROT_DATA_RARE on linux */
     OPTION_DEFAULT(uint, protect_mask,
-        IF_STATIC_LIBRARY_ELSE(0,
-            IF_WINDOWS_ELSE(0x101/*SELFPROT_DATA_RARE|SELFPROT_GENCODE*/, 0/*NYI*/)),
+        IF_STATIC_LIBRARY_ELSE(0x100/*SELFPROT_GENCODE*/,
+            IF_WINDOWS_ELSE(0x101/*SELFPROT_DATA_RARE|SELFPROT_GENCODE*/,
+                            0x100/*SELFPROT_GENCODE*/)),
         "which memory regions to protect")
     OPTION_INTERNAL(bool, single_privileged_thread, "suspend all other threads when one is out of cache")
 
