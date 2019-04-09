@@ -155,7 +155,7 @@ compatibility changes:
    expression and code relying on this needs to be rewritten.
    DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY is set automatically if clients target
    version 7.1.0 or earlier.
- - Renamed mcontext's ymm structure into simd.
+ - Renamed mcontext's "ymm" structure to "simd".
 
 Further non-compatibility-affecting changes include:
 
