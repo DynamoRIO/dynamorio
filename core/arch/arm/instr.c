@@ -749,7 +749,19 @@ reg_is_ymm(reg_id_t reg)
 }
 
 bool
+reg_is_strictly_ymm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_xmm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_strictly_xmm(reg_id_t reg)
 {
     return false;
 }

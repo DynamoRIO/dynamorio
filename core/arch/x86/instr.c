@@ -1895,10 +1895,22 @@ reg_is_ymm(reg_id_t reg)
 }
 
 bool
+reg_is_strictly_ymm(reg_id_t reg)
+{
+    return (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM);
+}
+
+bool
 reg_is_xmm(reg_id_t reg)
 {
     return (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) || reg_is_ymm(reg) ||
         reg_is_zmm(reg);
+}
+
+bool
+reg_is_strictly_xmm(reg_id_t reg)
+{
+    return (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM);
 }
 
 bool

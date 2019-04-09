@@ -2441,11 +2441,27 @@ reg_is_xmm(reg_id_t reg);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to an xmm (128-bit SSE/SSE2) register.
+ */
+bool
+reg_is_strictly_xmm(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a ymm (256-bit multimedia) or a zmm
  * (512-bit multimedia) register.
  */
 bool
 reg_is_ymm(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to a ymm (256-bit multimedia) register.
+ */
+bool
+reg_is_strictly_ymm(reg_id_t reg);
 
 DR_API
 /**
