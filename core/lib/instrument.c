@@ -580,7 +580,7 @@ add_client_lib(const char *path, const char *id_str, const char *options)
             client_libs[idx].id = id;
             client_libs[idx].lib = client_lib;
             app_pc client_start, client_end;
-#    ifdef STATIC_LIBRARY
+#    if defined(STATIC_LIBRARY) && defined(LINUX)
             client_start = get_dynamorio_dll_start();
             client_end = get_dynamorio_dll_end();
             ASSERT(client_start <= (app_pc)uses_dr_version &&

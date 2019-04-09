@@ -8508,7 +8508,7 @@ get_dynamo_library_bounds(void)
     int res;
     app_pc check_start, check_end;
     char *libdir;
-    const char *dynamorio_libname;
+    const char *dynamorio_libname = NULL;
     bool do_memquery = true;
 #ifdef STATIC_LIBRARY
 #    ifdef LINUX
@@ -8540,7 +8540,6 @@ get_dynamo_library_bounds(void)
 #    endif
     if (do_memquery) {
         /* No linker vars, so we need to find bound using an internal PC */
-        dynamorio_libname = NULL;
         check_start = (app_pc)&get_dynamo_library_bounds;
     }
 #else /* !STATIC_LIBRARY */
@@ -8561,9 +8560,9 @@ get_dynamo_library_bounds(void)
     if (do_memquery) {
         static char dynamorio_libname_buf[MAXIMUM_PATH];
         res = memquery_library_bounds(
-                NULL, &check_start, &check_end, dynamorio_library_path,
-                BUFFER_SIZE_ELEMENTS(dynamorio_library_path), dynamorio_libname_buf,
-                BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
+            NULL, &check_start, &check_end, dynamorio_library_path,
+            BUFFER_SIZE_ELEMENTS(dynamorio_library_path), dynamorio_libname_buf,
+            BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
 #ifndef STATIC_LIBRARY
         dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, dynamorio_libname_buf);
 #endif /* STATIC_LIBRARY */
