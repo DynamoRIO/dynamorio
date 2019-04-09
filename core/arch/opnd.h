@@ -2356,7 +2356,7 @@ reg_64_to_32(reg_id_t reg);
 DR_API
 /**
  * Returns true iff \p reg refers to an extended register only available
- * in 64-bit mode and not in 32-bit mode (e.g., R8-R15, XMM8-XMM15, etc.)
+ * in 64-bit mode and not in 32-bit mode (e.g., R8-R15, XMM8-XMM31, etc.)
  *
  * \note For 64-bit DR builds only.
  */
