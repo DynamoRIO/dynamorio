@@ -792,8 +792,7 @@ enum {
     DR_REG_FP = DR_REG_R11,  /**< Alias for the r11 register. */
     DR_REG_IP = DR_REG_R12,  /**< Alias for the r12 register. */
 #    ifndef AARCH64
-    /** Alias for cpsr register (thus this is the full cpsr, not just the apsr bits).
-     */
+    /** Alias for cpsr register (thus this is the full cpsr, not just the apsr bits). */
     DR_REG_APSR = DR_REG_CPSR,
 #    endif
 
