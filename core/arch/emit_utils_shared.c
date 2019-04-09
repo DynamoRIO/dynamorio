@@ -4952,6 +4952,8 @@ void
 update_syscalls(dcontext_t *dcontext)
 {
     byte *pc;
+    generated_code_t *code = THREAD_GENCODE(dcontext);
+    protect_generated_code(code, WRITABLE);
     pc = get_do_syscall_entry(dcontext);
     update_syscall(dcontext, pc);
 #    ifdef X64
@@ -4962,6 +4964,7 @@ update_syscalls(dcontext_t *dcontext)
     pc = get_do_clone_syscall_entry(dcontext);
     update_syscall(dcontext, pc);
 #    endif
+    protect_generated_code(code, READONLY);
 }
 #endif /* !WINDOWS */
 

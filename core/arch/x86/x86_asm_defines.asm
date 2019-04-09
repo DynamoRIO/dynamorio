@@ -51,13 +51,13 @@
 # else
 #  define MCXT_NUM_SIMD_SLOTS 16 /* xmm0-15 */
 # endif
-# define PRE_XMM_PADDING 16
+# define PRE_XMM_PADDING 48
 #else
 # define MCXT_NUM_SIMD_SLOTS 8 /* xmm0-7 */
 # define PRE_XMM_PADDING 24
 #endif
-#define YMM_REG_SIZE 32
-#define MCXT_SIMD_SLOT_SIZE YMM_REG_SIZE
+#define ZMM_REG_SIZE 64
+#define MCXT_SIMD_SLOT_SIZE ZMM_REG_SIZE
 /* xmm0-5/7/15 for PR 264138/i#139/PR 302107 */
 #define MCXT_TOTAL_SIMD_SLOTS_SIZE ((MCXT_NUM_SIMD_SLOTS)*(MCXT_SIMD_SLOT_SIZE))
 

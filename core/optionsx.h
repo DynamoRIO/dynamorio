@@ -1013,10 +1013,11 @@ DYNAMIC_OPTION(bool, pause_via_loop,
 
     OPTION_DEFAULT(uint, max_trace_bbs, 128, "maximum number of basic blocks in a trace")
 
-    /* FIXME: case 8023 covers re-enabling on linux */
+    /* FIXME i#3522: re-enable SELFPROT_DATA_RARE on linux */
     OPTION_DEFAULT(uint, protect_mask,
-        IF_STATIC_LIBRARY_ELSE(0,
-            IF_WINDOWS_ELSE(0x101/*SELFPROT_DATA_RARE|SELFPROT_GENCODE*/, 0/*NYI*/)),
+        IF_STATIC_LIBRARY_ELSE(0x100/*SELFPROT_GENCODE*/,
+            IF_WINDOWS_ELSE(0x101/*SELFPROT_DATA_RARE|SELFPROT_GENCODE*/,
+                            0x100/*SELFPROT_GENCODE*/)),
         "which memory regions to protect")
     OPTION_INTERNAL(bool, single_privileged_thread, "suspend all other threads when one is out of cache")
 
@@ -1180,7 +1181,7 @@ DYNAMIC_OPTION(bool, pause_via_loop,
     /* heap_commit_increment may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT(uint_size, heap_commit_increment, 4*1024, "heap commit increment")
     /* cache_commit_increment may be adjusted by adjust_defaults_for_page_size(). */
-    OPTION_DEFAULT(uint, cache_commit_increment, 4*1024, "cache commit increment")
+    OPTION_DEFAULT(uint_size, cache_commit_increment, 4*1024, "cache commit increment")
 
     /* cache capacity control
      * FIXME: these are external for now while we study the right way to

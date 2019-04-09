@@ -4441,8 +4441,11 @@ set_protection(byte *pc, size_t length, uint prot /*MEMPROT_*/)
 bool
 change_protection(byte *pc, size_t length, bool writable)
 {
-    uint flags = (writable) ? (MEMPROT_READ | MEMPROT_WRITE) : (MEMPROT_READ);
-    return set_protection(pc, length, flags);
+    if (writable)
+        return make_writable(pc, length);
+    else
+        make_unwritable(pc, length);
+    return true;
 }
 
 /* make pc's page writable */

@@ -1477,6 +1477,17 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     # global reg keys and can thus run multiple instances of the same
     # app name simultaneously so we do not need to mark RUN_SERIAL
   endif (WIN32)
+
+  # A subset of release tests has been added and labeled with RUN_IN_RELEASE. It focuses
+  # on Google's use of the drcachesim client. We do not want to extend the Travis
+  # regression time by too much and keep the following list concise.
+  if (NOT DEBUG AND UNIX AND X64 AND NOT CMAKE_COMPILER_IS_CLANG)
+    if (${test} MATCHES "common" OR
+        ${test} MATCHES "drcachesim" OR
+        ${test} MATCHES "drcacheoff")
+      set_tests_properties(${test} PROPERTIES LABELS RUN_IN_RELEASE)
+    endif()
+  endif ()
   set(${added_out} ON PARENT_SCOPE)
 endfunction(torun)
 
@@ -2345,8 +2356,14 @@ if (CLIENT_INTERFACE)
         # FIXME i#2694: failing sometimes on 32-bit Linux.
         set(detach_spawn_name api.detach_spawn_FLAKY)
       endif ()
+      set(detach_spawn_stress_name api.detach_spawn_stress_FLAKY)
+      set(detach_spawn_quick_exit_name api.detach_spawn_quick_exit)
       tobuild_api(${detach_spawn_name} api/detach_spawn.c "" "" OFF OFF)
       link_with_pthread(${detach_spawn_name})
+      tobuild_api(${detach_spawn_stress_name} api/detach_spawn_stress.c "" "" OFF OFF)
+      link_with_pthread(${detach_spawn_stress_name})
+      tobuild_api(${detach_spawn_quick_exit_name} api/detach_spawn_quick_exit.c "" "" OFF OFF)
+      link_with_pthread(${detach_spawn_quick_exit_name})
     endif ()
   endif ()
   # test static decoder library
