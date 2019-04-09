@@ -47,10 +47,10 @@ class histogram_t : public analysis_tool_t {
 public:
     histogram_t(unsigned int line_size, unsigned int report_top, unsigned int verbose);
     virtual ~histogram_t();
-    virtual bool
-    process_memref(const memref_t &memref);
-    virtual bool
-    print_results();
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
     bool
     parallel_shard_supported() override;
     void *
