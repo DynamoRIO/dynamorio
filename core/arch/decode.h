@@ -180,8 +180,6 @@ enum {
      * instead of the size enum.
      * The reg_id_t type is now wider, but for x86 we ensure our values
      * all fit via an assert in d_r_arch_init().
-     * To maintain backward compatibility we keep the OPSZ_ constants
-     * starting at the same spot, now midway through the reg enum:
      */
     OPSZ_NA = 0, /**< Sentinel value: not a valid size. */
     OPSZ_FIRST = OPSZ_NA,
