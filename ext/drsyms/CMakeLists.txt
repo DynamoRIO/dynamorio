@@ -188,7 +188,9 @@ endif ()
 # i#693: CMake will try to export the path to the static libs we use via
 # IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG, but they won't exist on the
 # user's machine.  Clearing this property prevents that.
-set_target_properties(drsyms PROPERTIES LINK_INTERFACE_LIBRARIES "")
+# i#3474: LINK_INTERFACE_LIBRARIES is deprecated, which is overridden by
+# INTERFACE_LINK_LIBRARIES property if policy CMP0022 is NEW.
+set_target_properties(drsyms PROPERTIES INTERFACE_LINK_LIBRARIES "")
 
 # If drsyms is built static we need to include these with an exports path
 # in DynamoRIOTarget*.cmake and not with the source path here:
