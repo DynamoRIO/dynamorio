@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -56,20 +56,75 @@ histogram_t::histogram_t(unsigned int line_size, unsigned int report_top,
 
 histogram_t::~histogram_t()
 {
+    for (auto &iter : shard_map) {
+        delete iter.second;
+    }
 }
 
 bool
-histogram_t::process_memref(const memref_t &memref)
+histogram_t::parallel_shard_supported()
 {
+    return true;
+}
+
+void *
+histogram_t::parallel_worker_init(int worker_index)
+{
+    return nullptr;
+}
+
+std::string
+histogram_t::parallel_worker_exit(void *worker_data)
+{
+    return "";
+}
+
+void *
+histogram_t::parallel_shard_init(int shard_index, void *worker_data)
+{
+    auto shard = new shard_data_t;
+    std::lock_guard<std::mutex> guard(shard_map_mutex);
+    shard_map[shard_index] = shard;
+    return reinterpret_cast<void *>(shard);
+}
+
+bool
+histogram_t::parallel_shard_exit(void *shard_data)
+{
+    // Nothing (we read the shard data in print_results).
+    return true;
+}
+
+bool
+histogram_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
+{
+    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR)
-        ++icache_map[memref.instr.addr >> line_size_bits];
+        ++shard->icache_map[memref.instr.addr >> line_size_bits];
     else if (memref.data.type == TRACE_TYPE_READ ||
              memref.data.type == TRACE_TYPE_WRITE ||
              // We may potentially handle prefetches differently.
              // TRACE_TYPE_PREFETCH_INSTR is handled above.
              type_is_prefetch(memref.data.type))
-        ++dcache_map[memref.data.addr >> line_size_bits];
+        ++shard->dcache_map[memref.data.addr >> line_size_bits];
+    return true;
+}
+
+std::string
+histogram_t::parallel_shard_error(void *shard_data)
+{
+    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
+    return shard->error;
+}
+
+bool
+histogram_t::process_memref(const memref_t &memref)
+{
+    if (!parallel_shard_memref(reinterpret_cast<void *>(&serial_shard), memref)) {
+        error_string = serial_shard.error;
+        return false;
+    }
     return true;
 }
 
@@ -82,12 +137,25 @@ cmp(const std::pair<addr_t, uint64_t> &l, const std::pair<addr_t, uint64_t> &r)
 bool
 histogram_t::print_results()
 {
+    shard_data_t total;
+    if (shard_map.empty()) {
+        total = serial_shard;
+    } else {
+        for (const auto &shard : shard_map) {
+            for (const auto &keyvals : shard.second->icache_map) {
+                total.icache_map[keyvals.first] += keyvals.second;
+            }
+            for (const auto &keyvals : shard.second->dcache_map) {
+                total.dcache_map[keyvals.first] += keyvals.second;
+            }
+        }
+    }
     std::cerr << TOOL_NAME << " results:\n";
-    std::cerr << "icache: " << icache_map.size() << " unique cache lines\n";
-    std::cerr << "dcache: " << dcache_map.size() << " unique cache lines\n";
+    std::cerr << "icache: " << total.icache_map.size() << " unique cache lines\n";
+    std::cerr << "dcache: " << total.dcache_map.size() << " unique cache lines\n";
     std::vector<std::pair<addr_t, uint64_t>> top(knob_report_top);
-    std::partial_sort_copy(icache_map.begin(), icache_map.end(), top.begin(), top.end(),
-                           cmp);
+    std::partial_sort_copy(total.icache_map.begin(), total.icache_map.end(), top.begin(),
+                           top.end(), cmp);
     std::cerr << "icache top " << top.size() << "\n";
     for (std::vector<std::pair<addr_t, uint64_t>>::iterator it = top.begin();
          it != top.end(); ++it) {
@@ -96,8 +164,8 @@ histogram_t::print_results()
     }
     top.clear();
     top.resize(knob_report_top);
-    std::partial_sort_copy(dcache_map.begin(), dcache_map.end(), top.begin(), top.end(),
-                           cmp);
+    std::partial_sort_copy(total.dcache_map.begin(), total.dcache_map.end(), top.begin(),
+                           top.end(), cmp);
     std::cerr << "dcache top " << top.size() << "\n";
     for (std::vector<std::pair<addr_t, uint64_t>>::iterator it = top.begin();
          it != top.end(); ++it) {

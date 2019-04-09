@@ -309,7 +309,7 @@ OPCODE(vmpsadbw_256, vmpsadbw, vmpsadbw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(O
        IMMARG(OPSZ_1))
 
 OPCODE(vinserti128, vinserti128, vinserti128, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+       MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 OPCODE(vpblendd, vpblendd, vpblendd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16),
        IMMARG(OPSZ_1))
 OPCODE(vpblendd_256, vpblendd, vpblendd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32),

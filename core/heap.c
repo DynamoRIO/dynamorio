@@ -1031,8 +1031,10 @@ rel32_reachable_from_vmcode(byte *tgt)
     ptr_int_t new_offs = (tgt > heap_allowable_region_start)
         ? (tgt - heap_allowable_region_start)
         : (heap_allowable_region_end - tgt);
-    ASSERT(vmcode_get_start() >= heap_allowable_region_start);
-    ASSERT(vmcode_get_end() <= heap_allowable_region_end + 1 /*closed*/);
+    ASSERT(vmcode_get_start() >= heap_allowable_region_start ||
+           !DYNAMO_OPTION(vm_reserve));
+    ASSERT(vmcode_get_end() <= heap_allowable_region_end + 1 /*closed*/ ||
+           !DYNAMO_OPTION(vm_reserve));
     return REL32_REACHABLE_OFFS(new_offs);
 #else
     return true;
@@ -2885,7 +2887,11 @@ heap_create_unit(thread_units_t *tu, size_t size, bool must_be_new)
         size_t commit_size = DYNAMO_OPTION(heap_commit_increment);
         release_recursive_lock(&heap_unit_lock); /* do not hold while asking for memory */
         /* create new unit */
-        ASSERT(commit_size <= size);
+        /* Just cap the commit size to this unit's size, to support raising the
+         * commit size w/o setting a lot of different unit size parameters.
+         */
+        if (commit_size > size)
+            commit_size = size;
         u = (heap_unit_t *)get_guarded_real_memory(size, commit_size,
                                                    MEMPROT_READ | MEMPROT_WRITE, false,
                                                    true, NULL, VMM_HEAP _IF_DEBUG(""));
@@ -4178,7 +4184,9 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
     } else {
         ASSERT(ALIGNED(size, PAGE_SIZE));
         commit_size = DYNAMO_OPTION(heap_commit_increment);
-        ASSERT(commit_size <= size);
+        /* Allow the general commit size to be larger than a special unit. */
+        if (commit_size > size)
+            commit_size = size;
         /* create new unit */
         /* Since vmm lock, dynamo_vm_areas lock, all_memory_areas lock (on
          * linux), etc. will be acquired, and presumably !su->use_lock means

@@ -684,7 +684,7 @@ d_r_arch_init(void)
     /* Ensure we have no unexpected padding inside structs that include
      * priv_mcontext_t (app_state_at_intercept_t and dcontext_t) */
     IF_X86(ASSERT(offsetof(priv_mcontext_t, pc) + sizeof(byte *) + PRE_XMM_PADDING ==
-                  offsetof(priv_mcontext_t, ymm)));
+                  offsetof(priv_mcontext_t, simd)));
     ASSERT(offsetof(app_state_at_intercept_t, mc) ==
            offsetof(app_state_at_intercept_t, start_pc) + sizeof(void *));
     /* Try to catch errors in x86.asm offsets for dcontext_t */
@@ -3337,7 +3337,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
             dst->pc = src->pc;
         }
         if (TEST(DR_MC_MULTIMEDIA, src->flags)) {
-            IF_X86_ELSE({ memcpy(&dst->ymm, &src->ymm, sizeof(dst->ymm)); },
+            IF_X86_ELSE({ memcpy(&dst->simd, &src->simd, sizeof(dst->simd)); },
                         {
                             /* FIXME i#1551: NYI on ARM */
                             ASSERT_NOT_IMPLEMENTED(false);
@@ -3375,7 +3375,7 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
             dst->pc = src->pc;
         }
         if (TEST(DR_MC_MULTIMEDIA, dst->flags)) {
-            IF_X86_ELSE({ memcpy(&dst->ymm, &src->ymm, sizeof(dst->ymm)); },
+            IF_X86_ELSE({ memcpy(&dst->simd, &src->simd, sizeof(dst->simd)); },
                         {
                             /* FIXME i#1551: NYI on ARM */
                             ASSERT_NOT_IMPLEMENTED(false);
@@ -3494,14 +3494,14 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
             if (YMM_ENABLED()) {
                 print_file(f, dump_xml ? "\t\tymm%d= \"0x" : "\tymm%d= 0x", i);
                 for (j = 0; j < 8; j++) {
-                    print_file(f, "%08x", context->ymm[i].u32[j]);
+                    print_file(f, "%08x", context->simd[i].u32[j]);
                 }
             } else {
                 print_file(f, dump_xml ? "\t\txmm%d= \"0x" : "\txmm%d= 0x", i);
                 /* This would be simpler if we had uint64 fields in dr_xmm_t but
                  * that complicates our struct layouts */
                 for (j = 0; j < 4; j++) {
-                    print_file(f, "%08x", context->ymm[i].u32[j]);
+                    print_file(f, "%08x", context->simd[i].u32[j]);
                 }
             }
             print_file(f, dump_xml ? "\"\n" : "\n");
