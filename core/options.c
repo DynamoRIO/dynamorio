@@ -1237,13 +1237,6 @@ check_option_compatibility_helper(int recurse_count)
      * warn of unfinished and untested self-protection options
      * FIXME: update once these features are complete
      */
-#    ifdef UNIX
-    if (dynamo_options.protect_mask != 0) {
-        USAGE_ERROR("selfprot not supported on unix: case 8023");
-        dynamo_options.protect_mask = 0;
-        changed_options = true;
-    }
-#    endif
 #    if defined(WINDOWS) && !defined(NOLIBC)
     if (TEST(SELFPROT_ANY_DATA_SECTION, dynamo_options.protect_mask)) {
         /* since libc routines are embedded in our dll and we run
