@@ -40,7 +40,8 @@
 #include "dr_api.h"
 #include "client_tools.h"
 
-#define print(...) dr_fprintf(2, __VA_ARGS__)
+/* Avoid using tools.h because it causes weird compile errors in this file. */
+#define print(...) fprintf(stderr, __VA_ARGS__)
 
 /* XXX: share these helpers with suite/tests/tools.c, the core, and
  * burst_maps.cpp? */

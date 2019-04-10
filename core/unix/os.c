@@ -8471,7 +8471,7 @@ exit_post_system_call:
 
 #ifdef LINUX
 #    ifdef STATIC_LIBRARY
-/* static libraries may optionally define two linker variables
+/* Static libraries may optionally define two linker variables
  * (dynamorio_so_start and dynamorio_so_end) to help mitigate
  * edge cases in detecting DR's library bounds. They are optional.
  *
@@ -8531,6 +8531,7 @@ get_dynamo_library_bounds(void)
         const char *dr_path = get_application_name();
         strncpy(dynamorio_library_filepath, dr_path,
                 BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath));
+        NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
 
         const char *slash = strrchr(dr_path, '/');
         ASSERT(slash != NULL);
@@ -8566,18 +8567,14 @@ get_dynamo_library_bounds(void)
             NULL, &check_start, &check_end, dynamorio_library_path,
             BUFFER_SIZE_ELEMENTS(dynamorio_library_path), dynamorio_libname_buf,
             BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
+        ASSERT(res > 0);
 #ifndef STATIC_LIBRARY
         dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, dynamorio_libname_buf);
 #endif /* STATIC_LIBRARY */
 
-        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library path: %s\n",
-            dynamorio_library_path);
         snprintf(dynamorio_library_filepath,
                  BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath), "%s%s",
                  dynamorio_library_path, dynamorio_libname);
-        NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
-        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library file path: %s\n",
-            dynamorio_library_filepath);
         NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
 #if !defined(STATIC_LIBRARY) && defined(LINUX)
         ASSERT(check_start == dynamo_dll_start && check_end == dynamo_dll_end);
@@ -8589,6 +8586,13 @@ get_dynamo_library_bounds(void)
         dynamo_dll_end = check_end;
 #endif
     }
+
+    LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library path: %s\n",
+        dynamorio_library_path);
+    LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library file path: %s\n",
+        dynamorio_library_filepath);
+    LOG(GLOBAL, LOG_VMAREAS, 1, "DR library bounds: " PFX " to " PFX "\n",
+        dynamo_dll_start, dynamo_dll_end);
 
     /* Issue 20: we need the path to the alt arch */
     strncpy(dynamorio_alt_arch_path, dynamorio_library_path,

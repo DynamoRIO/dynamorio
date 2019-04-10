@@ -855,9 +855,9 @@ function(add_api_exe test source use_decoder use_static_DR)
   endif ()
 endfunction(add_api_exe)
 
-# tobuild_api builds an API test which uses the dynamorio_static as a base
-# library. It is a macro so the PARENT_SCOPE in torunonly_api will reach caller
-# of this.
+# tobuild_api builds an API test which uses the either DR as a dynamic or
+# static library, depending on use_static_DR. It is a macro so the
+# PARENT_SCOPE in torunonly_api will reach caller of this.
 macro(tobuild_api test source dr_ops exe_ops use_decoder use_static_DR)
   add_api_exe(${test} ${source} ${use_decoder} ${use_static_DR})
   torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder})
@@ -2462,7 +2462,8 @@ endif ()
       # the symbol hiding step.
       set(api.static_maps_mixup_yesvars_expectbase "static_maps_mixup_yesvars")
       tobuild_static_nohide_api(api.static_maps_mixup_yesvars api/static_maps_mixup.c "" "" OFF)
-      append_link_flags(api.static_maps_mixup_yesvars "-Wl,--defsym,dynamorio_so_start=__executable_start -Wl,--defsym,dynamorio_so_end=end")
+      append_link_flags(api.static_maps_mixup_yesvars
+          "-Wl,--defsym,dynamorio_so_start=__executable_start -Wl,--defsym,dynamorio_so_end=end")
       set(api.static_maps_mixup_novars_expectbase "static_maps_mixup_novars")
       tobuild_static_nohide_api(api.static_maps_mixup_novars api/static_maps_mixup.c "" "" OFF)
     endif ()

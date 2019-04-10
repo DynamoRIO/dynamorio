@@ -581,6 +581,10 @@ add_client_lib(const char *path, const char *id_str, const char *options)
             client_libs[idx].lib = client_lib;
             app_pc client_start, client_end;
 #    if defined(STATIC_LIBRARY) && defined(LINUX)
+            // For DR under static+linux we know that the client and DR core
+            // code are built into the app itself. To avoid various edge cases
+            // in finding the "library" bounds, delegate this boundary discovery
+            // to the dll bounds functions. xref i#3387.
             client_start = get_dynamorio_dll_start();
             client_end = get_dynamorio_dll_end();
             ASSERT(client_start <= (app_pc)uses_dr_version &&
