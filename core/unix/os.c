@@ -3707,22 +3707,6 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * signal_thread_inherit gets the right syscall info
      */
     set_clone_record_fields(crec, (reg_t)arg, (app_pc)func, SYS_clone, flags);
-#        if defined(X86) && !defined(X64)
-    /* For the TCB we simply share the parent's.  On Linux we could just inherit
-     * the same selector but not for VMX86_SERVER so we specify for both for
-     * 32-bit.  Most of the fields are pthreads-specific and we assume the ones
-     * that will be used (such as tcbhead_t.sysinfo @0x10) are read-only.
-     */
-    our_modify_ldt_t desc;
-    /* if get_segment_base() returned size too we could use it */
-    uint index = tls_priv_lib_index();
-    ASSERT(index != -1);
-    if (!tls_get_descriptor(index, &desc)) {
-        LOG(THREAD, LOG_ALL, 1, "%s: client thread tls get entry %d failed\n",
-            __FUNCTION__, index);
-        return false;
-    }
-#        endif
     LOG(THREAD, LOG_ALL, 1, "dr_create_client_thread xsp=" PFX " dstack=" PFX "\n", xsp,
         get_clone_record_dstack(crec));
     /* i#501 switch to app's tls before creating client thread.
@@ -3730,9 +3714,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * to the app's.
      */
     os_clone_pre(dcontext);
-    thread_id_t newpid =
-        dynamorio_clone(flags, xsp, NULL, IF_X86_ELSE(IF_X64_ELSE(NULL, &desc), NULL),
-                        NULL, client_thread_run);
+    thread_id_t newpid = dynamorio_clone(flags, xsp, NULL, NULL, NULL, client_thread_run);
     /* i#3526 switch DR's tls back to the original one before cloning. */
     os_clone_post(dcontext);
     /* i#501 the app's tls was switched in os_clone_pre. */
