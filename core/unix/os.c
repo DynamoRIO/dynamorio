@@ -2508,6 +2508,11 @@ os_new_thread_pre(void)
     ATOMIC_INC(int, uninit_thread_count);
 }
 
+/* This is called from pre_system_call() and before cloning a client thread in
+ * dr_create_client_thread. Hence os_clone_pre is used for app threads as well
+ * as client threads. Do not add anything that we do not want to happen while
+ * in DR mode.
+ */
 static void
 os_clone_pre(dcontext_t *dcontext)
 {
@@ -2520,7 +2525,11 @@ os_clone_pre(dcontext_t *dcontext)
     os_swap_dr_tls(dcontext, true /*to app*/);
 }
 
-/* This is called from d_r_dispatch prior to post_system_call() */
+/* This is called from d_r_dispatch prior to post_system_call() and after
+ * cloning a client thread in dr_create_client_thread. Hence os_clone_post is
+ * used for app threads as well as client threads. Do not add anything that
+ * we do not want to happen while in DR mode.
+ */
 void
 os_clone_post(dcontext_t *dcontext)
 {
@@ -3686,9 +3695,9 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * the thread list for the app, making it more invisible.
      */
     uint flags = CLONE_VM | CLONE_FS | CLONE_FILES |
-        CLONE_SIGHAND IF_NOT_X64(| CLONE_SETTLS)
-        /* CLONE_THREAD required.  Signals and itimers are private anyway. */
-        IF_VMX86(| (os_in_vmkernel_userworld() ? CLONE_THREAD : 0));
+        CLONE_SIGHAND
+            /* CLONE_THREAD required.  Signals and itimers are private anyway. */
+            IF_VMX86(| (os_in_vmkernel_userworld() ? CLONE_THREAD : 0));
     pre_second_thread();
     /* need to share signal handler table, prior to creating clone record */
     handle_clone(dcontext, flags);
@@ -3698,9 +3707,6 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * signal_thread_inherit gets the right syscall info
      */
     set_clone_record_fields(crec, (reg_t)arg, (app_pc)func, SYS_clone, flags);
-    /* i#501 switch to app's tls before creating client thread */
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
-        os_switch_lib_tls(dcontext, true /*to app*/);
 #        if defined(X86) && !defined(X64)
     /* For the TCB we simply share the parent's.  On Linux we could just inherit
      * the same selector but not for VMX86_SERVER so we specify for both for
@@ -3719,12 +3725,17 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
 #        endif
     LOG(THREAD, LOG_ALL, 1, "dr_create_client_thread xsp=" PFX " dstack=" PFX "\n", xsp,
         get_clone_record_dstack(crec));
+    /* i#501 switch to app's tls before creating client thread.
+     * i#3526 switch DR's tls to an invalid one before cloning, and switch lib_tls
+     * to the app's.
+     */
     os_clone_pre(dcontext);
     thread_id_t newpid =
         dynamorio_clone(flags, xsp, NULL, IF_X86_ELSE(IF_X64_ELSE(NULL, &desc), NULL),
                         NULL, client_thread_run);
+    /* i#3526 switch DR's tls back to the original one before cloning. */
     os_clone_post(dcontext);
-    /* i#501 switch to app's tls before creating client thread */
+    /* i#501 the app's tls was switched in os_clone_pre. */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         os_switch_lib_tls(dcontext, false /*to dr*/);
     if (newpid < 0) {
