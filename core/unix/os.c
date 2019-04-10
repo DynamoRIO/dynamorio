@@ -289,6 +289,7 @@ static char dynamorio_alt_arch_filepath[MAXIMUM_PATH]; /* just dir */
 static app_pc dynamo_dll_start = NULL;
 static app_pc dynamo_dll_end = NULL; /* open-ended */
 
+/* pc values delimiting the app, equal to the "dll" bounds for static DR */
 static app_pc executable_start = NULL;
 static app_pc executable_end = NULL;
 
@@ -2508,6 +2509,11 @@ os_new_thread_pre(void)
     ATOMIC_INC(int, uninit_thread_count);
 }
 
+/* This is called from pre_system_call() and before cloning a client thread in
+ * dr_create_client_thread. Hence os_clone_pre is used for app threads as well
+ * as client threads. Do not add anything that we do not want to happen while
+ * in DR mode.
+ */
 static void
 os_clone_pre(dcontext_t *dcontext)
 {
@@ -2520,7 +2526,11 @@ os_clone_pre(dcontext_t *dcontext)
     os_swap_dr_tls(dcontext, true /*to app*/);
 }
 
-/* This is called from d_r_dispatch prior to post_system_call() */
+/* This is called from d_r_dispatch prior to post_system_call() and after
+ * cloning a client thread in dr_create_client_thread. Hence os_clone_post is
+ * used for app threads as well as client threads. Do not add anything that
+ * we do not want to happen while in DR mode.
+ */
 void
 os_clone_post(dcontext_t *dcontext)
 {
@@ -3686,9 +3696,9 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * the thread list for the app, making it more invisible.
      */
     uint flags = CLONE_VM | CLONE_FS | CLONE_FILES |
-        CLONE_SIGHAND IF_NOT_X64(| CLONE_SETTLS)
-        /* CLONE_THREAD required.  Signals and itimers are private anyway. */
-        IF_VMX86(| (os_in_vmkernel_userworld() ? CLONE_THREAD : 0));
+        CLONE_SIGHAND
+            /* CLONE_THREAD required.  Signals and itimers are private anyway. */
+            IF_VMX86(| (os_in_vmkernel_userworld() ? CLONE_THREAD : 0));
     pre_second_thread();
     /* need to share signal handler table, prior to creating clone record */
     handle_clone(dcontext, flags);
@@ -3698,31 +3708,17 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * signal_thread_inherit gets the right syscall info
      */
     set_clone_record_fields(crec, (reg_t)arg, (app_pc)func, SYS_clone, flags);
-    /* i#501 switch to app's tls before creating client thread */
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
-        os_switch_lib_tls(dcontext, true /*to app*/);
-#        if defined(X86) && !defined(X64)
-    /* For the TCB we simply share the parent's.  On Linux we could just inherit
-     * the same selector but not for VMX86_SERVER so we specify for both for
-     * 32-bit.  Most of the fields are pthreads-specific and we assume the ones
-     * that will be used (such as tcbhead_t.sysinfo @0x10) are read-only.
-     */
-    our_modify_ldt_t desc;
-    /* if get_segment_base() returned size too we could use it */
-    uint index = tls_priv_lib_index();
-    ASSERT(index != -1);
-    if (!tls_get_descriptor(index, &desc)) {
-        LOG(THREAD, LOG_ALL, 1, "%s: client thread tls get entry %d failed\n",
-            __FUNCTION__, index);
-        return false;
-    }
-#        endif
     LOG(THREAD, LOG_ALL, 1, "dr_create_client_thread xsp=" PFX " dstack=" PFX "\n", xsp,
         get_clone_record_dstack(crec));
-    thread_id_t newpid =
-        dynamorio_clone(flags, xsp, NULL, IF_X86_ELSE(IF_X64_ELSE(NULL, &desc), NULL),
-                        NULL, client_thread_run);
-    /* i#501 switch to app's tls before creating client thread */
+    /* i#501 switch to app's tls before creating client thread.
+     * i#3526 switch DR's tls to an invalid one before cloning, and switch lib_tls
+     * to the app's.
+     */
+    os_clone_pre(dcontext);
+    thread_id_t newpid = dynamorio_clone(flags, xsp, NULL, NULL, NULL, client_thread_run);
+    /* i#3526 switch DR's tls back to the original one before cloning. */
+    os_clone_post(dcontext);
+    /* i#501 the app's tls was switched in os_clone_pre. */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         os_switch_lib_tls(dcontext, false /*to dr*/);
     if (newpid < 0) {
@@ -8468,9 +8464,36 @@ exit_post_system_call:
     dcontext->whereami = old_whereami;
 }
 
+#ifdef LINUX
+#    ifdef STATIC_LIBRARY
+/* Static libraries may optionally define two linker variables
+ * (dynamorio_so_start and dynamorio_so_end) to help mitigate
+ * edge cases in detecting DR's library bounds. They are optional.
+ *
+ * If not specified, the variables' location will default to
+ * weak_dynamorio_so_bounds_filler and they will not be used.
+ * Note that referencing the value of these symbols will crash:
+ * always use the address only.
+ */
+extern int dynamorio_so_start WEAK
+    __attribute__((alias("weak_dynamorio_so_bounds_filler")));
+extern int dynamorio_so_end WEAK
+    __attribute__((alias("weak_dynamorio_so_bounds_filler")));
+static int weak_dynamorio_so_bounds_filler;
+
+#    else  /* !STATIC_LIBRARY */
+/* For non-static linux we always get our bounds from linker-provided symbols.
+ * Note that referencing the value of these symbols will crash: always use the
+ * address only.
+ */
+extern int dynamorio_so_start, dynamorio_so_end;
+#    endif /* STATIC_LIBRARY */
+#endif     /* LINUX */
+
 /* get_dynamo_library_bounds initializes dynamorio library bounds, using a
  * release-time assert if there is a problem doing so. It does not use any
- * heap, and we assume it is called prior to find_executable_vm_areas.
+ * heap, and we assume it is called prior to find_executable_vm_areas in a
+ * single thread.
  */
 static void
 get_dynamo_library_bounds(void)
@@ -8483,13 +8506,41 @@ get_dynamo_library_bounds(void)
     int res;
     app_pc check_start, check_end;
     char *libdir;
-    const char *dynamorio_libname;
+    const char *dynamorio_libname = NULL;
+    bool do_memquery = true;
 #ifdef STATIC_LIBRARY
-    /* We don't know our image name, so look up our bounds with an internal
-     * address.
+#    ifdef LINUX
+    /* For static+linux, we might have linker vars to help us and we definitely
+     * know our "library name" since we are in the app. When we have both we
+     * don't need to do a memquery.
      */
-    dynamorio_libname = NULL;
-    check_start = (app_pc)&get_dynamo_library_bounds;
+    if (&dynamorio_so_start != &weak_dynamorio_so_bounds_filler &&
+        &dynamorio_so_end != &weak_dynamorio_so_bounds_filler) {
+
+        do_memquery = false;
+        dynamo_dll_start = (app_pc)&dynamorio_so_start;
+        dynamo_dll_end = (app_pc)ALIGN_FORWARD(&dynamorio_so_end, PAGE_SIZE);
+        LOG(GLOBAL, LOG_VMAREAS, 2,
+            "Using dynamorio_so_start and dynamorio_so_end for library bounds"
+            "\n");
+        const char *dr_path = get_application_name();
+        strncpy(dynamorio_library_filepath, dr_path,
+                BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath));
+        NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
+
+        const char *slash = strrchr(dr_path, '/');
+        ASSERT(slash != NULL);
+        /* Include the slash in the library path */
+        size_t copy_chars = 1 + slash - dr_path;
+        ASSERT(copy_chars < BUFFER_SIZE_ELEMENTS(dynamorio_library_path));
+        strncpy(dynamorio_library_path, dr_path, copy_chars);
+        dynamorio_library_path[copy_chars] = '\0';
+    }
+#    endif
+    if (do_memquery) {
+        /* No linker vars, so we need to find bound using an internal PC */
+        check_start = (app_pc)&get_dynamo_library_bounds;
+    }
 #else /* !STATIC_LIBRARY */
 #    ifdef LINUX
     /* PR 361594: we get our bounds from linker-provided symbols.
@@ -8505,35 +8556,38 @@ get_dynamo_library_bounds(void)
     check_start = dynamo_dll_start;
 #endif /* STATIC_LIBRARY */
 
-    static char dynamorio_libname_buf[MAXIMUM_PATH];
-    res = memquery_library_bounds(NULL, &check_start, &check_end, dynamorio_library_path,
-                                  BUFFER_SIZE_ELEMENTS(dynamorio_library_path),
-                                  dynamorio_libname_buf,
-                                  BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
+    if (do_memquery) {
+        static char dynamorio_libname_buf[MAXIMUM_PATH];
+        res = memquery_library_bounds(
+            NULL, &check_start, &check_end, dynamorio_library_path,
+            BUFFER_SIZE_ELEMENTS(dynamorio_library_path), dynamorio_libname_buf,
+            BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
+        ASSERT(res > 0);
 #ifndef STATIC_LIBRARY
-    dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, dynamorio_libname_buf);
+        dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, dynamorio_libname_buf);
 #endif /* STATIC_LIBRARY */
+
+        snprintf(dynamorio_library_filepath,
+                 BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath), "%s%s",
+                 dynamorio_library_path, dynamorio_libname);
+        NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
+#if !defined(STATIC_LIBRARY) && defined(LINUX)
+        ASSERT(check_start == dynamo_dll_start && check_end == dynamo_dll_end);
+#elif defined(MACOS)
+        ASSERT(check_start == dynamo_dll_start);
+        dynamo_dll_end = check_end;
+#else
+        dynamo_dll_start = check_start;
+        dynamo_dll_end = check_end;
+#endif
+    }
 
     LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library path: %s\n",
         dynamorio_library_path);
-    snprintf(dynamorio_library_filepath, BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath),
-             "%s%s", dynamorio_library_path, dynamorio_libname);
-    NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
     LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library file path: %s\n",
         dynamorio_library_filepath);
-    NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
-#if !defined(STATIC_LIBRARY) && defined(LINUX)
-    ASSERT(check_start == dynamo_dll_start && check_end == dynamo_dll_end);
-#elif defined(MACOS)
-    ASSERT(check_start == dynamo_dll_start);
-    dynamo_dll_end = check_end;
-#else
-    dynamo_dll_start = check_start;
-    dynamo_dll_end = check_end;
-#endif
     LOG(GLOBAL, LOG_VMAREAS, 1, "DR library bounds: " PFX " to " PFX "\n",
         dynamo_dll_start, dynamo_dll_end);
-    ASSERT(res > 0);
 
     /* Issue 20: we need the path to the alt arch */
     strncpy(dynamorio_alt_arch_path, dynamorio_library_path,
@@ -8616,7 +8670,11 @@ app_pc
 get_application_base(void)
 {
     if (executable_start == NULL) {
-#ifdef HAVE_MEMINFO
+#if defined(STATIC_LIBRARY)
+        /* When compiled statically, the app and the DR's "library" are the same. */
+        executable_start = get_dynamorio_dll_start();
+        executable_end = get_dynamorio_dll_end();
+#elif defined(HAVE_MEMINFO)
         /* Haven't done find_executable_vm_areas() yet so walk maps ourselves */
         const char *name = get_application_name();
         if (name != NULL && name[0] != '\0') {
