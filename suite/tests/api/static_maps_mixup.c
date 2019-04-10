@@ -41,7 +41,7 @@
 #include "client_tools.h"
 
 /* Avoid using tools.h because it causes weird compile errors in this file. */
-#define print(...) fprintf(stderr, __VA_ARGS__)
+#define print(...) dr_fprintf(STDERR, __VA_ARGS__)
 
 /* XXX: share these helpers with suite/tests/tools.c, the core, and
  * burst_maps.cpp? */
