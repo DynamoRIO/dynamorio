@@ -3719,9 +3719,11 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
 #        endif
     LOG(THREAD, LOG_ALL, 1, "dr_create_client_thread xsp=" PFX " dstack=" PFX "\n", xsp,
         get_clone_record_dstack(crec));
+    os_clone_pre(dcontext);
     thread_id_t newpid =
         dynamorio_clone(flags, xsp, NULL, IF_X86_ELSE(IF_X64_ELSE(NULL, &desc), NULL),
                         NULL, client_thread_run);
+    os_clone_post(dcontext);
     /* i#501 switch to app's tls before creating client thread */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         os_switch_lib_tls(dcontext, false /*to dr*/);
