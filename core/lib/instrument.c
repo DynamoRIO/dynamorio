@@ -577,13 +577,26 @@ add_client_lib(const char *path, const char *id_str, const char *options)
                    get_application_pid());
         } else {
             size_t idx = num_client_libs++;
-            DEBUG_DECLARE(bool ok;)
             client_libs[idx].id = id;
             client_libs[idx].lib = client_lib;
-            DEBUG_DECLARE(ok =)
+            app_pc client_start, client_end;
+#    if defined(STATIC_LIBRARY) && defined(LINUX)
+            // For DR under static+linux we know that the client and DR core
+            // code are built into the app itself. To avoid various edge cases
+            // in finding the "library" bounds, delegate this boundary discovery
+            // to the dll bounds functions. xref i#3387.
+            client_start = get_dynamorio_dll_start();
+            client_end = get_dynamorio_dll_end();
+            ASSERT(client_start <= (app_pc)uses_dr_version &&
+                   (app_pc)uses_dr_version < client_end);
+#    else
+            DEBUG_DECLARE(bool ok =)
             shared_library_bounds(client_lib, (byte *)uses_dr_version, NULL,
-                                  &client_libs[idx].start, &client_libs[idx].end);
+                                  &client_start, &client_end);
             ASSERT(ok);
+#    endif
+            client_libs[idx].start = client_start;
+            client_libs[idx].end = client_end;
 
             LOG(GLOBAL, LOG_INTERP, 1, "loaded %s at " PFX "-" PFX "\n", path,
                 client_libs[idx].start, client_libs[idx].end);
