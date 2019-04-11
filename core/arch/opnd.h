@@ -2433,9 +2433,9 @@ reg_is_simd(reg_id_t reg);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
- * Returns true iff it refers to an xmm (128-bit SSE/SSE2) register
+ * Returns true iff it refers to an xmm (128-bit SSE/SSE2) x86 register
  * or a ymm (256-bit multimedia) register.
- * \deprecated Prefer reg_is_strictly_xmm().
+ * \deprecated Prefer reg_is_strictly_xmm() || reg_is_strictly_ymm().
  */
 bool
 reg_is_xmm(reg_id_t reg);
@@ -2443,7 +2443,7 @@ reg_is_xmm(reg_id_t reg);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
- * Returns true iff it refers to an xmm (128-bit SSE/SSE2) register.
+ * Returns true iff it refers to an xmm (128-bit SSE/SSE2) x86 register.
  */
 bool
 reg_is_strictly_xmm(reg_id_t reg);
@@ -2451,7 +2451,7 @@ reg_is_strictly_xmm(reg_id_t reg);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
- * Returns true iff it refers to a ymm (256-bit multimedia) register.
+ * Returns true iff it refers to a ymm (256-bit multimedia) x86 register.
  * \deprecated Prefer reg_is_strictly_ymm().
  */
 bool
@@ -2460,7 +2460,7 @@ reg_is_ymm(reg_id_t reg);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
- * Returns true iff it refers to a ymm (256-bit multimedia) register.
+ * Returns true iff it refers to a ymm (256-bit multimedia) x86 register.
  */
 bool
 reg_is_strictly_ymm(reg_id_t reg);
@@ -2468,7 +2468,7 @@ reg_is_strictly_ymm(reg_id_t reg);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
- * Returns true iff it refers to a zmm (512-bit multimedia) register.
+ * Returns true iff it refers to a zmm (512-bit multimedia) x86 register.
  */
 bool
 reg_is_strictly_zmm(reg_id_t reg);
@@ -2476,7 +2476,7 @@ reg_is_strictly_zmm(reg_id_t reg);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
- * Returns true iff it refers to an opmask register.
+ * Returns true iff it refers to an opmask x86 register.
  */
 bool
 reg_is_opmask(reg_id_t reg);
