@@ -350,7 +350,9 @@ reg_is_strictly_zmm(reg_id_t reg)
 bool
 reg_is_ymm(reg_id_t reg)
 {
-    /* i#1312: check why this assertion is here.*/
+    /* i#1312: check why this assertion is here and not
+     * in the other x86 related reg_is_ functions.
+     */
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return false;
 }
