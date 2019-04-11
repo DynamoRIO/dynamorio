@@ -1586,8 +1586,6 @@ GLOBAL_LABEL(dynamorio_clone:)
 # endif
         cmp      REG_XAX, 0
         jne      dynamorio_clone_parent
-        /* avoid conflicts w/ parent's TLS by clearing our reg now */
-        mov      SEG_TLS, ax
         pop      REG_XCX
         call     REG_XCX
         /* shouldn't return */
