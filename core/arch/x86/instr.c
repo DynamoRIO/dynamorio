@@ -1891,7 +1891,7 @@ reg_is_strictly_zmm(reg_id_t reg)
 bool
 reg_is_ymm(reg_id_t reg)
 {
-    return reg_is_strictly_ymm();
+    return reg_is_strictly_ymm(reg);
 }
 
 bool
@@ -1906,7 +1906,7 @@ reg_is_xmm(reg_id_t reg)
     /* This function is deprecated and the only one out of the x86
      * reg_is_ set of functions that calls its wider sibling.
      */
-    return (reg_is_strictly_xmm() || reg_is_strictly_ymm());
+    return (reg_is_strictly_xmm(reg) || reg_is_strictly_ymm(reg));
 }
 
 bool
