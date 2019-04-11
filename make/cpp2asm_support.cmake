@@ -138,10 +138,15 @@ if (UNIX)
   # and doesn't produce any output, so we must use cpp for our .asm files.
   # we assume it's in the same dir.
   get_filename_component(compiler_path ${CMAKE_C_COMPILER} PATH)
-  find_program(CMAKE_CPP cpp HINTS "${compiler_path}" DOC "path to C preprocessor")
-  if (NOT CMAKE_CPP)
-    message(FATAL_ERROR "cpp is required to build")
-  endif (NOT CMAKE_CPP)
+  # Allow user to set C pre-processor from environment variable
+  if (DEFINED ENV{CPP})
+    set(CMAKE_CPP $ENV{CPP})
+  else ()
+    find_program(CMAKE_CPP cpp HINTS "${compiler_path}" DOC "path to C preprocessor")
+    if (NOT CMAKE_CPP)
+      message(FATAL_ERROR "cpp is required to build")
+    endif (NOT CMAKE_CPP)
+  endif ()
   mark_as_advanced(CMAKE_CPP)
 
   set(CPP_KEEP_COMMENTS -C)
