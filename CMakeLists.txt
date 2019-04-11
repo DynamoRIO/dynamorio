@@ -1195,6 +1195,7 @@ math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
 # Every release since has had minor compat breakages.
+# 7.90 broke backcompat in DR_REG_ enums and OPSZ_ enums.
 # 6.0 broke backcompat in Linux injection, mod load event, etc.
 # 5.0 broke backcompat in drsyms and xmm opnd sizes
 # 4.1 broke backcompat in drsyms + 64-bit core (opcodes + reachability)
