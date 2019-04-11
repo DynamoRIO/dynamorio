@@ -177,8 +177,11 @@
 #
 #  set(DynamoRIO_VISATT ON)
 #
-# To request the old REG_ enum symbols (which were changed to DR_REG_ to
-# avoid conflicts with system headers) set this variable:
+# To request the old REG_ enum symbols (which were changed to DR_REG_ to avoid
+# conflicts with system headers) set this variable. The newly added x86 AVX-512
+# registers DR_REG_ZMM0 - DR_REG_ZMM31 as well as DR_REG_K0 - DR_REG_K7 will not
+# be provided a deprecated REG_ name and are only available via DR_REG_ symbol.
+#
 #
 #  set(DynamoRIO_REG_COMPATIBILITY ON)
 #

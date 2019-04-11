@@ -100,6 +100,7 @@
 #  define MMWORD qword ptr
 #  define XMMWORD oword ptr
 #  define YMMWORD ymmword ptr
+#  define ZMMWORD zmmword ptr
 #  ifdef X64
 /* w/o the rip, gas won't use rip-rel and adds relocs that ld trips over */
 #   define SYMREF(sym) [rip + sym]
@@ -114,6 +115,7 @@
 #  define MMWORD /* nothing */
 #  define XMMWORD /* nothing */
 #  define YMMWORD /* nothing */
+#  define ZMMWORD /* nothing */
 /* XXX: this will NOT produce PIC code!  A multi-instr multi-local-data sequence
  * must be used.  See cleanup_and_terminate() for examples.
  */
@@ -178,6 +180,7 @@ ASSUME fs:_DATA @N@\
 # define MMWORD mmword ptr
 # define XMMWORD xmmword ptr
 # define YMMWORD ymmword ptr /* added in VS 2010 */
+# define ZMMWORD zmmword ptr /* XXX i#1312: supported by our supported version of VS? */
 /* ml64 uses rip-rel automatically */
 # define SYMREF(sym) [sym]
 # define HEX(n) 0##n##h
@@ -220,6 +223,7 @@ ASSUME fs:_DATA @N@\
 # define MMWORD qword
 # define XMMWORD oword
 # define YMMWORD yword
+# define ZMMWORD zword
 # ifdef X64
 #  define SYMREF(sym) [rel GLOBAL_REF(sym)]
 # else
