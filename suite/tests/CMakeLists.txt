@@ -2690,7 +2690,8 @@ endif ()
       if (UNIX)
         add_exe(stride_benchmark
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/stride_benchmark.cpp)
-        torunonly_drcachesim(miss_analyzer stride_benchmark "-simulator_type miss_analyzer" "")
+        torunonly_drcachesim(miss_analyzer stride_benchmark
+          "-simulator_type miss_analyzer -miss_count_threshold 5000 -miss_frac_threshold 0.25" "")
       endif ()
 
       # Test other analysis tools
