@@ -124,6 +124,12 @@ enum {
 #ifdef AVOID_API_EXPORT
 /* compiler gives weird errors for "REG_NONE" */
 /* PR 227381: genapi.pl auto-inserts doxygen comments for lines without any! */
+/* The entire enum below overlaps with the OPSZ_ enum but all cases where the two are
+ * used in the same field (instr_info_t operand sizes) have the type and distinguish
+ * properly.
+ * XXX i#3528: Switch from guaranteed-contiguous exposed enum ranges, which are not
+ * possible to maintain long-term, to function interfaces.
+ */
 #endif
     DR_REG_NULL, /**< Sentinel value indicating no register, for address modes. */
 #ifdef X86
@@ -225,6 +231,24 @@ enum {
     DR_REG_XMM13,
     DR_REG_XMM14,
     DR_REG_XMM15,
+    DR_REG_XMM16,
+    DR_REG_XMM17,
+    DR_REG_XMM18,
+    DR_REG_XMM19,
+    DR_REG_XMM20,
+    DR_REG_XMM21,
+    DR_REG_XMM22,
+    DR_REG_XMM23,
+    DR_REG_XMM24,
+    DR_REG_XMM25,
+    DR_REG_XMM26,
+    DR_REG_XMM27,
+    DR_REG_XMM28,
+    DR_REG_XMM29,
+    DR_REG_XMM30,
+    DR_REG_XMM31,
+    /* 32 enums are reserved for future Intel SIMD extensions. */
+    RESERVED_XMM = DR_REG_XMM31 + 32,
     /* floating point registers */
     DR_REG_ST0,
     DR_REG_ST1,
@@ -241,7 +265,8 @@ enum {
     DR_SEG_DS,
     DR_SEG_FS,
     DR_SEG_GS,
-    /* debug & control registers (privileged access only; 8-15 for future processors) */
+    /* debug & control registers (privileged access only; 8-15 for future processors)
+     */
     DR_REG_DR0,
     DR_REG_DR1,
     DR_REG_DR2,
@@ -276,13 +301,6 @@ enum {
     DR_REG_CR14,
     DR_REG_CR15,
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
-
-#    ifdef AVOID_API_EXPORT
-/* Below here overlaps with OPSZ_ enum but all cases where the two
- * are used in the same field (instr_info_t operand sizes) have the type
- * and distinguish properly.
- */
-#    endif
     /* 256-BIT YMM */
     DR_REG_YMM0,
     DR_REG_YMM1,
@@ -300,6 +318,68 @@ enum {
     DR_REG_YMM13,
     DR_REG_YMM14,
     DR_REG_YMM15,
+    DR_REG_YMM16,
+    DR_REG_YMM17,
+    DR_REG_YMM18,
+    DR_REG_YMM19,
+    DR_REG_YMM20,
+    DR_REG_YMM21,
+    DR_REG_YMM22,
+    DR_REG_YMM23,
+    DR_REG_YMM24,
+    DR_REG_YMM25,
+    DR_REG_YMM26,
+    DR_REG_YMM27,
+    DR_REG_YMM28,
+    DR_REG_YMM29,
+    DR_REG_YMM30,
+    DR_REG_YMM31,
+    /* 32 enums are reserved for future Intel SIMD extensions. */
+    RESERVED_YMM = DR_REG_YMM31 + 32,
+    /* 512-BIT ZMM */
+    DR_REG_ZMM0,
+    DR_REG_ZMM1,
+    DR_REG_ZMM2,
+    DR_REG_ZMM3,
+    DR_REG_ZMM4,
+    DR_REG_ZMM5,
+    DR_REG_ZMM6,
+    DR_REG_ZMM7,
+    DR_REG_ZMM8,
+    DR_REG_ZMM9,
+    DR_REG_ZMM10,
+    DR_REG_ZMM11,
+    DR_REG_ZMM12,
+    DR_REG_ZMM13,
+    DR_REG_ZMM14,
+    DR_REG_ZMM15,
+    DR_REG_ZMM16,
+    DR_REG_ZMM17,
+    DR_REG_ZMM18,
+    DR_REG_ZMM19,
+    DR_REG_ZMM20,
+    DR_REG_ZMM21,
+    DR_REG_ZMM22,
+    DR_REG_ZMM23,
+    DR_REG_ZMM24,
+    DR_REG_ZMM25,
+    DR_REG_ZMM26,
+    DR_REG_ZMM27,
+    DR_REG_ZMM28,
+    DR_REG_ZMM29,
+    DR_REG_ZMM30,
+    DR_REG_ZMM31,
+    /* 32 enums are reserved for future Intel SIMD extensions. */
+    RESERVED_ZMM = DR_REG_ZMM31 + 32,
+    /* opmask registers */
+    DR_REG_K0,
+    DR_REG_K1,
+    DR_REG_K2,
+    DR_REG_K3,
+    DR_REG_K4,
+    DR_REG_K5,
+    DR_REG_K6,
+    DR_REG_K7,
 
 /****************************************************************************/
 #elif defined(AARCHXX)
@@ -847,12 +927,16 @@ extern const reg_id_t dr_reg_fixer[];
         DR_REG_SPL /**< Start of 8-bit x64-only register enum values*/
 #    define DR_REG_STOP_x64_8 \
         DR_REG_DIL /**< Stop of 8-bit x64-only register enum values */
-#    define DR_REG_START_MMX DR_REG_MM0  /**< Start of mmx register enum values */
-#    define DR_REG_STOP_MMX DR_REG_MM7   /**< End of mmx register enum values */
-#    define DR_REG_START_XMM DR_REG_XMM0 /**< Start of xmm register enum values */
-#    define DR_REG_STOP_XMM DR_REG_XMM15 /**< End of xmm register enum values */
-#    define DR_REG_START_YMM DR_REG_YMM0 /**< Start of ymm register enum values */
-#    define DR_REG_STOP_YMM DR_REG_YMM15 /**< End of ymm register enum values */
+#    define DR_REG_START_MMX DR_REG_MM0   /**< Start of mmx register enum values */
+#    define DR_REG_STOP_MMX DR_REG_MM7    /**< End of mmx register enum values */
+#    define DR_REG_START_XMM DR_REG_XMM0  /**< Start of sse xmm register enum values */
+#    define DR_REG_STOP_XMM DR_REG_XMM31  /**< End of sse xmm register enum values */
+#    define DR_REG_START_YMM DR_REG_YMM0  /**< Start of ymm register enum values */
+#    define DR_REG_STOP_YMM DR_REG_YMM31  /**< End of ymm register enum values */
+#    define DR_REG_START_ZMM DR_REG_ZMM0  /**< Start of zmm register enum values */
+#    define DR_REG_STOP_ZMM DR_REG_ZMM31  /**< End of zmm register enum values */
+#    define DR_REG_START_OPMASK DR_REG_K0 /**< Start of opmask register enum values */
+#    define DR_REG_STOP_OPMASK DR_REG_K7  /**< End of opmask register enum values */
 #    define DR_REG_START_FLOAT \
         DR_REG_ST0 /**< Start of floating-point-register enum values*/
 #    define DR_REG_STOP_FLOAT \
@@ -867,9 +951,9 @@ extern const reg_id_t dr_reg_fixer[];
  * Last valid register enum value.  Note: DR_REG_INVALID is now smaller
  * than this value.
  */
-#    define DR_REG_LAST_VALID_ENUM DR_REG_YMM15
-#    define DR_REG_LAST_ENUM DR_REG_YMM15 /**< Last value of register enums */
-#endif                                    /* X86 */
+#    define DR_REG_LAST_VALID_ENUM DR_REG_K7
+#    define DR_REG_LAST_ENUM DR_REG_K7 /**< Last value of register enums */
+#endif                                 /* X86 */
 /* DR_API EXPORT END */
 
 #ifdef X86
@@ -1057,10 +1141,10 @@ extern const reg_id_t dr_reg_fixer[];
 #    define REG_STOP_x64_8 DR_REG_STOP_x64_8
 #    define REG_START_MMX DR_REG_START_MMX
 #    define REG_STOP_MMX DR_REG_STOP_MMX
-#    define REG_START_YMM DR_REG_START_YMM
-#    define REG_STOP_YMM DR_REG_STOP_YMM
 #    define REG_START_XMM DR_REG_START_XMM
 #    define REG_STOP_XMM DR_REG_STOP_XMM
+#    define REG_START_YMM DR_REG_START_YMM
+#    define REG_STOP_YMM DR_REG_STOP_YMM
 #    define REG_START_FLOAT DR_REG_START_FLOAT
 #    define REG_STOP_FLOAT DR_REG_STOP_FLOAT
 #    define REG_START_SEGMENT DR_REG_START_SEGMENT
@@ -1355,7 +1439,7 @@ INSTR_INLINE
  * Returns a register operand corresponding to a part of the
  * register represented by the DR_REG_ constant \p r.
  *
- * On x86, \p r must be a multimedia (mmx, xmm, or ymm) register.  For
+ * On x86, \p r must be a multimedia (mmx, xmm, ymm, zmm) register.  For
  * partial general-purpose registers on x86, use the appropriate
  * sub-register name with opnd_create_reg() instead.
  */
@@ -2273,7 +2357,7 @@ reg_64_to_32(reg_id_t reg);
 DR_API
 /**
  * Returns true iff \p reg refers to an extended register only available
- * in 64-bit mode and not in 32-bit mode (e.g., R8-R15, XMM8-XMM15, etc.)
+ * in 64-bit mode and not in 32-bit mode (e.g., R8-R15, XMM8-XMM31, etc.)
  *
  * \note For 64-bit DR builds only.
  */
@@ -2349,8 +2433,9 @@ reg_is_simd(reg_id_t reg);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
- * Returns true iff it refers to an xmm (128-bit SSE/SSE2) register
+ * Returns true iff it refers to an xmm (128-bit SSE/SSE2) x86 register
  * or a ymm (256-bit multimedia) register.
+ * \deprecated Prefer reg_is_strictly_xmm() || reg_is_strictly_ymm().
  */
 bool
 reg_is_xmm(reg_id_t reg);
@@ -2358,10 +2443,43 @@ reg_is_xmm(reg_id_t reg);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
- * Returns true iff it refers to a ymm (256-bit multimedia) register.
+ * Returns true iff it refers to an xmm (128-bit SSE/SSE2) x86 register.
+ */
+bool
+reg_is_strictly_xmm(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to a ymm (256-bit multimedia) x86 register.
+ * \deprecated Prefer reg_is_strictly_ymm().
  */
 bool
 reg_is_ymm(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to a ymm (256-bit multimedia) x86 register.
+ */
+bool
+reg_is_strictly_ymm(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to a zmm (512-bit multimedia) x86 register.
+ */
+bool
+reg_is_strictly_zmm(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to an opmask x86 register.
+ */
+bool
+reg_is_opmask(reg_id_t reg);
 
 DR_API
 /**
