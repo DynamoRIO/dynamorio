@@ -4801,7 +4801,15 @@ master_signal_handler_C(byte *xsp)
         return;
     }
 #endif
-    dcontext_t *dcontext = get_thread_private_dcontext();
+    /* We avoid using safe_read_tls_magic during detach. This thread may already have
+     * lost its TLS. A safe read may result into a race affecting asynchronous non-alarm
+     * signals (xref i#3535) between delivering the SIGSEGV and restoring the app's signal
+     * handlers. We don't need the thread's private dcontext anymore here at this point.
+     * Note that there is still a small race window if the signal gets delivered after the
+     * detach has finished, i.e. doing_detach is false. This is an issue in particular if
+     * the app has started re-attaching.
+     */
+    dcontext_t *dcontext = doing_detach ? NULL : get_thread_private_dcontext();
 
 #ifdef MACOS
 #    ifdef X64
@@ -4874,7 +4882,8 @@ master_signal_handler_C(byte *xsp)
               * calling thread (i#2921).
               * XXX: what is ARM doing, any special case w/ dcontext == NULL?
               */
-             safe_read_tls_magic() == TLS_MAGIC_INVALID)
+             /* Refer to comment above (xref i#3535). */
+             !doing_detach && safe_read_tls_magic() == TLS_MAGIC_INVALID)
 #endif
              )) {
         tr = thread_lookup(get_sys_thread_id());
