@@ -336,14 +336,41 @@ reg_is_gpr(reg_id_t reg)
 }
 
 bool
+reg_is_opmask(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_strictly_zmm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_ymm(reg_id_t reg)
 {
+    /* i#1312: check why this assertion is here and not
+     * in the other x86 related reg_is_ functions.
+     */
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return false;
 }
 
 bool
+reg_is_strictly_ymm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_xmm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_strictly_xmm(reg_id_t reg)
 {
     return false;
 }

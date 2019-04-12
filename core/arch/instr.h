@@ -1757,6 +1757,9 @@ DR_API
  * the top half while others zero it when writing to the bottom half).
  * This zeroing will occur even if \p instr is predicated (see instr_is_predicated()).
  */
+/* XXX i#1312: For AVX-512, we will want a instr_zeroes_zmmh function as well that also
+ * includes the vzeroupper instruction.
+ */
 bool
 instr_zeroes_ymmh(instr_t *instr);
 
