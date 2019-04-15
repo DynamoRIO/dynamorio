@@ -4807,6 +4807,28 @@ master_signal_handler_C(byte *xsp)
         return;
     }
 #endif
+
+    /* We are dropping asynchronous signals during detach. The thread may already have
+     * lost its TLS (xref i#3535). A safe read may result in a crash if DR's SIGSEGV
+     * handler is removed before the safe read's SIGSEGV is delivered.
+     *
+     * Note that besides dropping potentially important signals, there is still a small
+     * race window if the signal gets delivered after the detach has finished, i.e.
+     * doing detach is false. This is an issue in particular if the app has started
+     * re-attaching.
+     *
+     * Signals that are not clearly asynchronous may hit corner case(s) of i#3535.
+     * (xref i#26).
+     */
+    if (doing_detach && can_always_delay[sig]) {
+        DOLOG(1, LOG_ASYNCH, { dump_sigcontext(GLOBAL_DCONTEXT, sc); });
+        SYSLOG_INTERNAL_ERROR("ERROR: master_signal_handler with unreliable dcontext "
+                              "during detach. Signal will be dropped and we're continuing"
+                              " (i#3535?): tid=%d, sig=%d",
+                              get_sys_thread_id(), sig);
+        return;
+    }
+
     dcontext_t *dcontext = get_thread_private_dcontext();
 
 #ifdef MACOS
