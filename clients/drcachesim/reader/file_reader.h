@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -54,7 +54,7 @@
 #    ifdef WINDOWS
 #        define ZHEX64_FORMAT_STRING "%016I64x"
 #    else
-#        if defined(__i386__) || defined(__arm__)
+#        if defined(__i386__) || defined(__arm__) || defined(__APPLE__)
 #            define ZHEX64_FORMAT_STRING "%016llx"
 #        else
 #            define ZHEX64_FORMAT_STRING "%016lx"
