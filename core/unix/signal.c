@@ -4807,13 +4807,21 @@ master_signal_handler_C(byte *xsp)
         return;
     }
 #endif
-    /* We avoid using safe_read_tls_magic during detach. This thread may already have
-     * lost its TLS. A safe read may result into a race affecting asynchronous non-alarm
-     * signals (xref i#3535) between delivering the SIGSEGV and restoring the app's signal
-     * handlers. We don't need the thread's private dcontext anymore here at this point.
-     * Note that there is still a small race window if the signal gets delivered after the
-     * detach has finished, i.e. doing_detach is false. This is an issue in particular if
-     * the app has started re-attaching.
+    /* XXX i#26, i#3535: We avoid using safe_read_tls_magic during detach. This thread may
+     * already have lost its TLS. A safe read may result into a race affecting
+     * asynchronous non-alarm signals between delivering the SIGSEGV and restoring the
+     * app's signal handlers.
+     *
+     * Setting dcontext to NULL here causes:
+     *
+     * - A non-alarm signal be dropped in release during detach, i.e. "other" threads
+     *   have exited and resumed natively, main thread is detaching.
+     * - A fatal FAILED_TO_HANDLE_SIGNAL error in debug build.
+     *
+     * Note that even in release build, besides dropping potentially important signals,
+     * there is still a small race window if the signal gets delivered after the detach
+     * dhas finished, i.e. doing_detach is false. This is an issue in particular if the
+     * app has started re-attaching.
      */
     dcontext_t *dcontext = doing_detach ? NULL : get_thread_private_dcontext();
 
@@ -4888,7 +4896,7 @@ master_signal_handler_C(byte *xsp)
               * calling thread (i#2921).
               * XXX: what is ARM doing, any special case w/ dcontext == NULL?
               */
-             /* Refer to comment above (xref i#3535). */
+             /* Refer to comment above (xref i#26, i#3535). */
              !doing_detach && safe_read_tls_magic() == TLS_MAGIC_INVALID)
 #endif
              )) {
