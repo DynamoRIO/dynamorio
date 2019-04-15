@@ -99,7 +99,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
     cmd = (struct load_command *)(hdr + 1);
     cmd_stop = (struct load_command *)((byte *)cmd + hdr->sizeofcmds);
     while (cmd < cmd_stop) {
-        if (cmd->cmd == LC_SEGMENT) {
+        if (cmd->cmd == LC_SEGMENT || cmd->cmd == LC_SEGMENT_64) {
             segment_command_t *seg = (segment_command_t *)cmd;
             found_seg = true;
             LOG(GLOBAL, LOG_VMAREAS, 4, "%s: segment %s addr=0x%x sz=0x%x file=0x%x\n",
@@ -171,7 +171,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
             /* Now that we have the load delta, we can add the abs addr segments */
             cmd = (struct load_command *)(hdr + 1);
             while (cmd < cmd_stop) {
-                if (cmd->cmd == LC_SEGMENT) {
+                if (cmd->cmd == LC_SEGMENT || cmd->cmd == LC_SEGMENT_64) {
                     segment_command_t *seg = (segment_command_t *)cmd;
                     if (strcmp(seg->segname, "__PAGEZERO") == 0 && seg->initprot == 0) {
                         /* skip */
@@ -210,10 +210,10 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                     /* even if stripped, dynamic symbols are in this table */
                     struct symtab_command *symtab = (struct symtab_command *)cmd;
                     out_data->symtab =
-                        (app_pc)symtab->symoff + load_delta + linkedit_delta;
+                        (app_pc)(symtab->symoff + load_delta + linkedit_delta);
                     out_data->num_syms = symtab->nsyms;
                     out_data->strtab =
-                        (app_pc)symtab->stroff + load_delta + linkedit_delta;
+                        (app_pc)(symtab->stroff + load_delta + linkedit_delta);
                     out_data->strtab_sz = symtab->strsize;
                 } else if (cmd->cmd == LC_UUID) {
                     memcpy(out_data->uuid, ((struct uuid_command *)cmd)->uuid,
@@ -268,7 +268,7 @@ module_entry_point(app_pc base, ptr_int_t load_delta)
 #ifdef X64
             const x86_thread_state64_t *reg =
                 (const x86_thread_state64_t *)((char *)cmd + LC_UNIXTHREAD_REGS_OFFS);
-            return (app_pc)reg->__rip + load_delta
+            return (app_pc)reg->__rip + load_delta;
 #else
             const i386_thread_state_t *reg =
                 (const i386_thread_state_t *)((byte *)cmd + LC_UNIXTHREAD_REGS_OFFS);

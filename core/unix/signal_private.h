@@ -53,6 +53,9 @@
 #elif defined(MACOS)
 #    include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
 #    include <signal.h>     /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
+#    ifdef X64
+#        include <sys/_types/_ucontext64.h> /* for _STRUCT_UCONTEXT64 */
+#    endif
 #endif
 
 #include "os_private.h"
@@ -187,7 +190,7 @@ typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
 #    define SIGMASK_FROM_UCXT(ucxt) ((kernel_sigset_t *)&((ucxt)->uc_sigmask))
 #endif
 
-#ifdef LINUX
+#if defined(LINUX) || defined(X64)
 #    define SIGINFO_FROM_RT_FRAME(frame) (&(frame)->info)
 #elif defined(MACOS)
 /* Make sure to access through pinfo rather than info as on Mac the info

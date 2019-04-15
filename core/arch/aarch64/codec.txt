@@ -1193,4 +1193,3 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 01101110xx1xxxxx101000xxxxxxxxxx     umlsl2    q0 : q5 q16 bhs_sz
 00101110xx1xxxxx110000xxxxxxxxxx     umull     q0 : d5 d16 bhs_sz
 01101110xx1xxxxx110000xxxxxxxxxx     umull2    q0 : q5 q16 bhs_sz
-

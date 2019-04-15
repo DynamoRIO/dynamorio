@@ -42,6 +42,9 @@
 
 #include "../asm_defines.asm"
 #include "x86_asm_defines.asm" /* PUSHGPR, POPGPR, etc. */
+#ifdef MACOS
+# include "include/syscall_mach.h" /* SYSCALL_NUM_MARKER_MACH */
+#endif
 START_FILE
 
 DECL_EXTERN(unexpected_return)
@@ -214,6 +217,8 @@ GLOBAL_LABEL(dynamorio_mach_dep_syscall:)
         cmp      REG_XBX, 3
         je       mach_dep_syscall_ready
         mov      ARG4, ARG6
+mach_dep_syscall_ready:
+        syscall
 #  else
         push     REG_XBP
         push     REG_XSI
@@ -246,10 +251,8 @@ mach_dep_syscall_0args:
         push     0 /* extra slot */
         /* clear the top half so we can always consider the result 64-bit */
         mov      edx, 0
-#  endif
         /* mach dep syscalls use interrupt 0x82 */
         int      HEX(82)
-#  ifndef X64
         lea      esp, [7*ARG_SZ + esp] /* must not change flags */
         pop      REG_XDI
         pop      REG_XSI
@@ -279,6 +282,7 @@ GLOBAL_LABEL(dynamorio_mach_syscall:)
         /* reverse order so we don't clobber earlier args */
         mov      REG_XBX, ARG2 /* put num_args where we can reference it longer */
         mov      rax, ARG1 /* sysnum: only need eax, but need rax to use ARG1 (or movzx) */
+        or       eax, SYSCALL_NUM_MARKER_MACH
         cmp      REG_XBX, 0
         je       dynamorio_mach_syscall_ready
         mov      ARG1, ARG3
@@ -291,6 +295,8 @@ GLOBAL_LABEL(dynamorio_mach_syscall:)
         cmp      REG_XBX, 3
         je       dynamorio_mach_syscall_ready
         mov      ARG4, ARG6
+dynamorio_mach_syscall_ready:
+        syscall
 #  else
         push     REG_XBP
         push     REG_XSI
@@ -314,12 +320,8 @@ dynamorio_mach_syscall_1args:
         mov      ebx, [16+12 + esp] /* arg1 */
 dynamorio_mach_syscall_0args:
         mov      eax, [16+ 4 + esp] /* sysnum */
-#  ifdef X64
-        or       eax, SYSCALL_NUM_MARKER_MACH
-#  else
         /* The sysnum is passed as a negative number */
         neg      eax
-#  endif
         /* args are on stack, w/ an extra slot (retaddr of syscall wrapper) */
         lea      REG_XSP, [-2*ARG_SZ + REG_XSP] /* maintain align-16: retaddr-5th below */
         /* args are on stack, w/ an extra slot (retaddr of syscall wrapper) */
@@ -328,7 +330,6 @@ dynamorio_mach_syscall_0args:
         push     ecx
         push     ebx
         push     0 /* extra slot */
-#  endif
         /* If we use ADDRTAKEN_LABEL and GLOBAL_REF we get text relocation
          * complaints so we instead do this hack:
          */
@@ -341,7 +342,6 @@ dynamorio_mach_syscall_next:
          * This implies that we can't return 64-bit in 32-bit mode.
          */
         sysenter
-#  ifndef X64
         lea      esp, [7*ARG_SZ + esp] /* must not change flags */
         pop      REG_XDI
         pop      REG_XSI
