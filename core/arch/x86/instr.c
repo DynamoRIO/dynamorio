@@ -452,6 +452,19 @@ instr_is_return(instr_t *instr)
 /*** WARNING!  The following rely on ordering of opcodes! ***/
 
 bool
+opc_is_opmask_arch(int opc)
+{
+    return (opc >= OP_kmovw && opc <= OP_ktestd);
+}
+
+bool
+instr_is_opmask_arch(instr_t *instr) /* AVX-512 scalar opmask instruction */
+{
+    int opc = instr->opcode; /* caller ensures opcode is valid */
+    return opc_is_opmask_arch(opc);
+}
+
+bool
 opc_is_cbr_arch(int opc)
 {
     return ((opc >= OP_jo && opc <= OP_jnle) ||

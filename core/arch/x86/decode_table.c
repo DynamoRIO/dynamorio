@@ -200,17 +200,17 @@ const instr_info_t * const op_instr[] =
     /* OP_sysexit     */   &second_byte[0x35],
 
     /* OP_cmovo       */   &second_byte[0x40],
-    /* OP_cmovno      */   &second_byte[0x41],
-    /* OP_cmovb       */   &second_byte[0x42],
+    /* OP_cmovno      */   &prefix_extensions[148][0],
+    /* OP_cmovb       */   &prefix_extensions[149][0],
     /* OP_cmovnb      */   &second_byte[0x43],
-    /* OP_cmovz       */   &second_byte[0x44],
-    /* OP_cmovnz      */   &second_byte[0x45],
-    /* OP_cmovbe      */   &second_byte[0x46],
-    /* OP_cmovnbe     */   &second_byte[0x47],
+    /* OP_cmovz       */   &prefix_extensions[151][0],
+    /* OP_cmovnz      */   &prefix_extensions[152][0],
+    /* OP_cmovbe      */   &prefix_extensions[153][0],
+    /* OP_cmovnbe     */   &prefix_extensions[154][0],
     /* OP_cmovs       */   &second_byte[0x48],
     /* OP_cmovns      */   &second_byte[0x49],
-    /* OP_cmovp       */   &second_byte[0x4a],
-    /* OP_cmovnp      */   &second_byte[0x4b],
+    /* OP_cmovp       */   &prefix_extensions[155][0],
+    /* OP_cmovnp      */   &prefix_extensions[150][0],
     /* OP_cmovl       */   &second_byte[0x4c],
     /* OP_cmovnl      */   &second_byte[0x4d],
     /* OP_cmovle      */   &second_byte[0x4e],
@@ -260,16 +260,16 @@ const instr_info_t * const op_instr[] =
     /* OP_jle     */   &second_byte[0x8e],
     /* OP_jnle    */   &second_byte[0x8f],
 
-    /* OP_seto        */   &second_byte[0x90],
-    /* OP_setno       */   &second_byte[0x91],
-    /* OP_setb        */   &second_byte[0x92],
-    /* OP_setnb       */   &second_byte[0x93],
+    /* OP_seto        */   &prefix_extensions[144][0],
+    /* OP_setno       */   &prefix_extensions[145][0],
+    /* OP_setb        */   &prefix_extensions[146][0],
+    /* OP_setnb       */   &prefix_extensions[147][0],
     /* OP_setz        */   &second_byte[0x94],
     /* OP_setnz       */   &second_byte[0x95],
     /* OP_setbe       */   &second_byte[0x96],
-    /* OP_setnbe        */   &second_byte[0x97],
-    /* OP_sets        */   &second_byte[0x98],
-    /* OP_setns       */   &second_byte[0x99],
+    /* OP_setnbe      */   &second_byte[0x97],
+    /* OP_sets        */   &prefix_extensions[156][0],
+    /* OP_setns       */   &prefix_extensions[157][0],
     /* OP_setp        */   &second_byte[0x9a],
     /* OP_setnp       */   &second_byte[0x9b],
     /* OP_setl        */   &second_byte[0x9c],
@@ -1279,6 +1279,63 @@ const instr_info_t * const op_instr[] =
     /* OP_jmpe      */   &base_extensions[13][6],
     /* OP_jmpe_abs  */   &second_byte[0xb8],
 #endif
+
+    /* AVX-512 VEX encoded (scalar opmask instructions) */
+    /* OP_kmovw         */  &vex_W_extensions[74][0],
+    /* OP_kmovb         */  &vex_W_extensions[75][0],
+    /* OP_kmovq         */  &vex_W_extensions[74][1],
+    /* OP_kmovd         */  &vex_W_extensions[75][1],
+    /* OP_kandw         */  &vex_W_extensions[82][0],
+    /* OP_kandb         */  &vex_W_extensions[83][0],
+    /* OP_kandq         */  &vex_W_extensions[82][1],
+    /* OP_kandd         */  &vex_W_extensions[83][1],
+    /* OP_kandnw        */  &vex_W_extensions[84][0],
+    /* OP_kandnb        */  &vex_W_extensions[85][0],
+    /* OP_kandnq        */  &vex_W_extensions[84][1],
+    /* OP_kandnd        */  &vex_W_extensions[85][1],
+    /* OP_kunpckbw      */  &vex_W_extensions[87][0],
+    /* OP_kunpckwd      */  &vex_W_extensions[86][0],
+    /* OP_kunpckdq      */  &vex_W_extensions[86][1],
+    /* OP_knotw         */  &vex_W_extensions[88][0],
+    /* OP_knotb         */  &vex_W_extensions[89][0],
+    /* OP_knotq         */  &vex_W_extensions[88][1],
+    /* OP_knotd         */  &vex_W_extensions[89][1],
+    /* OP_korw          */  &vex_W_extensions[90][0],
+    /* OP_korb          */  &vex_W_extensions[91][0],
+    /* OP_korq          */  &vex_W_extensions[90][1],
+    /* OP_kord          */  &vex_W_extensions[91][1],
+    /* OP_kxnorw        */  &vex_W_extensions[92][0],
+    /* OP_kxnorb        */  &vex_W_extensions[93][0],
+    /* OP_kxnorq        */  &vex_W_extensions[92][1],
+    /* OP_kxnord        */  &vex_W_extensions[93][1],
+    /* OP_kxorw         */  &vex_W_extensions[94][0],
+    /* OP_kxorb         */  &vex_W_extensions[95][0],
+    /* OP_kxorq         */  &vex_W_extensions[94][1],
+    /* OP_kxord         */  &vex_W_extensions[95][1],
+    /* OP_kaddw         */  &vex_W_extensions[96][0],
+    /* OP_kaddb         */  &vex_W_extensions[97][0],
+    /* OP_kaddq         */  &vex_W_extensions[96][1],
+    /* OP_kaddd         */  &vex_W_extensions[97][1],
+    /* OP_kortestw      */  &vex_W_extensions[98][0],
+    /* OP_kortestb      */  &vex_W_extensions[99][0],
+    /* OP_kortestq      */  &vex_W_extensions[98][1],
+    /* OP_kortestd      */  &vex_W_extensions[99][1],
+    /* OP_kshiftlw      */  &vex_W_extensions[100][1],
+    /* OP_kshiftlb      */  &vex_W_extensions[100][0],
+    /* OP_kshiftlq      */  &vex_W_extensions[101][1],
+    /* OP_kshiftld      */  &vex_W_extensions[101][0],
+    /* OP_kshiftrw      */  &vex_W_extensions[102][1],
+    /* OP_kshiftrb      */  &vex_W_extensions[102][0],
+    /* OP_kshiftrq      */  &vex_W_extensions[103][1],
+    /* OP_kshiftrd      */  &vex_W_extensions[103][0],
+    /* OP_ktestw        */  &vex_W_extensions[104][0],
+    /* OP_ktestb        */  &vex_W_extensions[105][0],
+    /* OP_ktestq        */  &vex_W_extensions[104][1],
+    /* OP_ktestd        */  &vex_W_extensions[105][1],
+
+    /* AVX-512 EVEX encoded */
+    /* XXX i#1312: TODO. */
+
 };
 
 
@@ -1411,6 +1468,27 @@ const instr_info_t * const op_instr[] =
 #define Lvs TYPE_L, OPSZ_16_vex32 /* immed is 1 byte but reg is xmm/ymm */
 #define Lss TYPE_L, OPSZ_4_of_16 /* immed is 1 byte but reg is xmm/ymm */
 #define Lsd TYPE_L, OPSZ_8_of_16 /* immed is 1 byte but reg is xmm/ymm */
+
+/* AVX-512 additions */
+#define Krb TYPE_K_REG, OPSZ_1
+#define Krw TYPE_K_REG, OPSZ_2
+#define Krd TYPE_K_REG, OPSZ_4
+#define Krq TYPE_K_REG, OPSZ_8
+#define Krmb TYPE_K_MODRM_R, OPSZ_1
+#define Krmw TYPE_K_MODRM_R, OPSZ_2
+#define Krmd TYPE_K_MODRM_R, OPSZ_4
+#define Krmq TYPE_K_MODRM_R, OPSZ_8
+#define Kmrmb TYPE_K_MODRM, OPSZ_1
+#define Kmrmw TYPE_K_MODRM, OPSZ_2
+#define Kmrmd TYPE_K_MODRM, OPSZ_4
+#define Kmrmq TYPE_K_MODRM, OPSZ_8
+#define Kvb TYPE_K_VEX, OPSZ_1
+#define Kvw TYPE_K_VEX, OPSZ_2
+#define Kvd TYPE_K_VEX, OPSZ_4
+#define Kvq TYPE_K_VEX, OPSZ_8
+/* XXX i#1312: we need decoding table types for TYPE_K_EVEX. Do they
+ * need to be variable (Keb, Kew, Ked, Keq) or can be fixed?
+ */
 
 /* my own codes
  * size m = 32 or 16 bit depending on addr size attribute
@@ -1611,6 +1689,7 @@ const instr_info_t * const op_instr[] =
 #define rex      REQUIRES_REX
 #define reqL0    REQUIRES_VEX_L_0
 #define reqL1    REQUIRES_VEX_L_1
+#define reqW1    REQUIRES_VEX_W_1
 #define predcc   HAS_PRED_CC
 #define predcx   HAS_PRED_COMPLEX
 
@@ -1972,7 +2051,6 @@ const instr_info_t first_byte[] = {
     {EXTENSION, 0xfe0000, "(group 4)", xx, xx, xx, xx, xx, mrm, x, 11},
     {EXTENSION, 0xff0000, "(group 5)", xx, xx, xx, xx, xx, mrm, x, 12},
 };
-
 /****************************************************************************
  * Two-byte opcodes
  * This is from Tables A-4 & A-5
@@ -2064,19 +2142,19 @@ const instr_info_t second_byte[] = {
   {INVALID, 0x0f3e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   {INVALID, 0x0f3f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   /* 40 */
-  {OP_cmovo,  0x0f4010, "cmovo",  Gv, xx, Ev, xx, xx, mrm|predcc, fRO, END_LIST},
-  {OP_cmovno, 0x0f4110, "cmovno", Gv, xx, Ev, xx, xx, mrm|predcc, fRO, END_LIST},
-  {OP_cmovb,  0x0f4210, "cmovb",  Gv, xx, Ev, xx, xx, mrm|predcc, fRC, END_LIST},
-  {OP_cmovnb, 0x0f4310, "cmovnb", Gv, xx, Ev, xx, xx, mrm|predcc, fRC, END_LIST},
-  {OP_cmovz,  0x0f4410, "cmovz",  Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
-  {OP_cmovnz, 0x0f4510, "cmovnz", Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
-  {OP_cmovbe, 0x0f4610, "cmovbe", Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
-  {OP_cmovnbe,0x0f4710, "cmovnbe",Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
+  {OP_cmovo,   0x0f4010, "cmovo",  Gv, xx, Ev, xx, xx, mrm|predcc, fRO, END_LIST},
+  {PREFIX_EXT, 0x0f4110, "(prefix ext 148)", xx, xx, xx, xx, xx, mrm, x, 148},
+  {PREFIX_EXT, 0x0f4210, "(prefix ext 149)", xx, xx, xx, xx, xx, mrm, x, 149},
+  {OP_cmovnb,  0x0f4310, "cmovnb", Gv, xx, Ev, xx, xx, mrm|predcc, fRC, END_LIST},
+  {PREFIX_EXT, 0x0f4410, "(prefix ext 151)", xx, xx, xx, xx, xx, mrm, x, 151},
+  {PREFIX_EXT, 0x0f4510, "(prefix ext 152)", xx, xx, xx, xx, xx, mrm, x, 152},
+  {PREFIX_EXT, 0x0f4610, "(prefix ext 153)", xx, xx, xx, xx, xx, mrm, x, 153},
+  {PREFIX_EXT, 0x0f4710, "(prefix ext 154)", xx, xx, xx, xx, xx, mrm, x, 154},
   /* 48 */
   {OP_cmovs,  0x0f4810, "cmovs",  Gv, xx, Ev, xx, xx, mrm|predcc, fRS, END_LIST},
   {OP_cmovns, 0x0f4910, "cmovns", Gv, xx, Ev, xx, xx, mrm|predcc, fRS, END_LIST},
-  {OP_cmovp,  0x0f4a10, "cmovp",  Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
-  {OP_cmovnp, 0x0f4b10, "cmovnp", Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
+  {PREFIX_EXT, 0x0f4a10, "(prefix ext 155)", xx, xx, xx, xx, xx, mrm, x, 155},
+  {PREFIX_EXT, 0x0f4b10, "(prefix ext 150)", xx, xx, xx, xx, xx, mrm, x, 150},
   {OP_cmovl,  0x0f4c10, "cmovl",  Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO), END_LIST},
   {OP_cmovnl, 0x0f4d10, "cmovnl", Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO), END_LIST},
   {OP_cmovle, 0x0f4e10, "cmovle", Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO|fRZ), END_LIST},
@@ -2154,17 +2232,17 @@ const instr_info_t second_byte[] = {
   {OP_jle, 0x0f8e10, "jle", xx, xx, Jz, xx, xx, no, (fRS|fRO|fRZ), END_LIST},
   {OP_jnle,0x0f8f10, "jnle",xx, xx, Jz, xx, xx, no, (fRS|fRO|fRZ), END_LIST},
   /* 90 */
-  {OP_seto,  0x0f9010, "seto",  Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
-  {OP_setno, 0x0f9110, "setno", Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
-  {OP_setb,  0x0f9210, "setb",  Eb, xx, xx, xx, xx, mrm, fRC, END_LIST},
-  {OP_setnb, 0x0f9310, "setnb", Eb, xx, xx, xx, xx, mrm, fRC, END_LIST},
+  {PREFIX_EXT, 0x0f9010, "(prefix ext 144)", xx, xx, xx, xx, xx, mrm, x, 144},
+  {PREFIX_EXT, 0x0f9110, "(prefix ext 145)", xx, xx, xx, xx, xx, mrm, x, 145},
+  {PREFIX_EXT, 0x0f9210, "(prefix ext 146)", xx, xx, xx, xx, xx, mrm, x, 146},
+  {PREFIX_EXT, 0x0f9310, "(prefix ext 147)", xx, xx, xx, xx, xx, mrm, x, 147},
   {OP_setz,  0x0f9410, "setz",  Eb, xx, xx, xx, xx, mrm, fRZ, END_LIST},
   {OP_setnz, 0x0f9510, "setnz", Eb, xx, xx, xx, xx, mrm, fRZ, END_LIST},
   {OP_setbe, 0x0f9610, "setbe", Eb, xx, xx, xx, xx, mrm, (fRC|fRZ), END_LIST},
   {OP_setnbe,0x0f9710, "setnbe",Eb, xx, xx, xx, xx, mrm, (fRC|fRZ), END_LIST},
   /* 98 */
-  {OP_sets,  0x0f9810, "sets",  Eb, xx, xx, xx, xx, mrm, fRS, END_LIST},
-  {OP_setns, 0x0f9910, "setns", Eb, xx, xx, xx, xx, mrm, fRS, END_LIST},
+  {PREFIX_EXT, 0x0f9810, "(prefix ext 156)", xx, xx, xx, xx, xx, mrm, x, 156},
+  {PREFIX_EXT, 0x0f9910, "(prefix ext 157)", xx, xx, xx, xx, xx, mrm, x, 157},
   {OP_setp,  0x0f9a10, "setp",  Eb, xx, xx, xx, xx, mrm, fRP, END_LIST},
   {OP_setnp, 0x0f9b10, "setnp", Eb, xx, xx, xx, xx, mrm, fRP, END_LIST},
   {OP_setl,  0x0f9c10, "setl",  Eb, xx, xx, xx, xx, mrm, (fRS|fRO), END_LIST},
@@ -4299,8 +4377,147 @@ const instr_info_t prefix_extensions[][8] = {
     {INVALID,      0x6638f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_mulx,      0xf238f618, "mulx",    By, Gy, Ey, uDX, xx, mrm|vex, x, END_LIST},
   },
+  { /* prefix extension 144 */
+    {OP_seto,        0x0f9010, "seto",    Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
+    {INVALID,      0xf30f9010, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f9010, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f9010, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f9010, "(vex_W ext 74)", xx, xx, xx, xx, xx, mrm|vex, x, 74},
+    {INVALID,      0xf30f9010, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f9010, "(vex_W ext 75)", xx, xx, xx, xx, xx, mrm|vex, x, 75},
+    {INVALID,      0xf20f9010, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },
+  { /* prefix extension 145 */
+    {OP_setno,       0x0f9110, "setno",   Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
+    {INVALID,      0xf30f9110, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f9110, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f9110, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f9110, "(vex_W ext 76)", xx, xx, xx, xx, xx, mrm|vex, x, 76},
+    {INVALID,      0xf30f9110, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f9110, "(vex_W ext 77)", xx, xx, xx, xx, xx, mrm|vex, x, 77},
+    {INVALID,      0xf20f9110, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },
+  { /* prefix extension 146 */
+    {OP_setb,        0x0f9210, "setb",    Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
+    {INVALID,      0xf30f9210, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f9210, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f9210, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f9210, "(vex_W ext 78)", xx, xx, xx, xx, xx, mrm|vex, x, 78},
+    {INVALID,      0xf30f9210, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f9210, "(vex_W ext 79)", xx, xx, xx, xx, xx, mrm|vex, x, 79},
+    {VEX_W_EXT,    0xf20f9210, "(vex_W ext 106)",xx, xx, xx, xx, xx, mrm|vex, x, 106},
+  },
+  { /* prefix extension 147 */
+    {OP_setnb,        0x0f9310, "setnb",  Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
+    {INVALID,      0xf30f9310, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f9310, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f9310, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f9310, "(vex_W ext 80)", xx, xx, xx, xx, xx, mrm|vex, x, 80},
+    {INVALID,      0xf30f9310, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f9310, "(vex_W ext 81)", xx, xx, xx, xx, xx, mrm|vex, x, 81},
+    {VEX_W_EXT,    0xf20f9210, "(vex_W ext 107)",xx, xx, xx, xx, xx, mrm|vex, x, 107},
+  },
+  { /* prefix extension 148 */
+    {OP_cmovno,      0x0f4110, "cmovno",  Gv, xx, Ev, xx, xx, mrm|predcc, fRO, END_LIST},
+    {INVALID,      0xf30f4110, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f4110, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f4110, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f4110, "(vex_W ext 82)", xx, xx, xx, xx, xx, mrm|vex, x, 82},
+    {INVALID,      0xf30f4110, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f4110, "(vex_W ext 83)", xx, xx, xx, xx, xx, mrm|vex, x, 83},
+    {INVALID,      0xf20f4110, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },
+  { /* prefix extension 149 */
+    {OP_cmovb,       0x0f4210, "cmovb",  Gv, xx, Ev, xx, xx, mrm|predcc, fRC, END_LIST},
+    {INVALID,      0xf30f4210, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f4210, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f4210, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f4210, "(vex_W ext 84)", xx, xx, xx, xx, xx, mrm|vex, x, 84},
+    {INVALID,      0xf30f4210, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f4210, "(vex_W ext 85)", xx, xx, xx, xx, xx, mrm|vex, x, 85},
+    {INVALID,      0xf20f4210, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },
+  { /* prefix extension 150 */
+    {OP_cmovnp,       0x0f4b10, "cmovnp", Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
+    {INVALID,      0xf30f4b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f4b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f4b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f4b10, "(vex_W ext 86)", xx, xx, xx, xx, xx, mrm|vex, x, 86},
+    {INVALID,      0xf30f4b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f4b10, "(vex_W ext 87)", xx, xx, xx, xx, xx, mrm|vex, x, 87},
+    {INVALID,      0xf20f4b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },
+  { /* prefix extension 151 */
+    {OP_cmovz,       0x0f4410, "cmovz",  Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
+    {INVALID,      0xf30f4410, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f4410, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f4410, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f4410, "(vex_W ext 88)", xx, xx, xx, xx, xx, mrm|vex, x, 88},
+    {INVALID,      0xf30f4410, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f4410, "(vex_W ext 89)", xx, xx, xx, xx, xx, mrm|vex, x, 89},
+    {INVALID,      0xf20f4410, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },
+  { /* prefix extension 152 */
+    {OP_cmovnz,      0x0f4510, "cmovnz", Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
+    {INVALID,      0xf30f4510, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f4510, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f4510, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f4510, "(vex_W ext 90)", xx, xx, xx, xx, xx, mrm|vex, x, 90},
+    {INVALID,      0xf30f4510, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f4510, "(vex_W ext 91)", xx, xx, xx, xx, xx, mrm|vex, x, 91},
+    {INVALID,      0xf20f4510, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },
+  { /* prefix extension 153 */
+    {OP_cmovbe,      0x0f4610, "cmovbe", Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
+    {INVALID,      0xf30f4610, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f4610, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f4610, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f4610, "(vex_W ext 92)", xx, xx, xx, xx, xx, mrm|vex, x, 92},
+    {INVALID,      0xf30f4610, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f4610, "(vex_W ext 93)", xx, xx, xx, xx, xx, mrm|vex, x, 93},
+    {INVALID,      0xf20f4610, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },
+  { /* prefix extension 154 */
+    {OP_cmovnbe,     0x0f4710, "cmovnbe",Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
+    {INVALID,      0xf30f4710, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f4710, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f4710, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f4710, "(vex_W ext 94)", xx, xx, xx, xx, xx, mrm|vex, x, 94},
+    {INVALID,      0xf30f4710, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f4710, "(vex_W ext 95)", xx, xx, xx, xx, xx, mrm|vex, x, 95},
+    {INVALID,      0xf20f4710, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },
+  { /* prefix extension 155 */
+    {OP_cmovp,       0x0f4a10, "cmovp",  Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
+    {INVALID,      0xf30f4a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f4a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f4a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f4a10, "(vex_W ext 96)", xx, xx, xx, xx, xx, mrm|vex, x, 96},
+    {INVALID,      0xf30f4a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f4a10, "(vex_W ext 97)", xx, xx, xx, xx, xx, mrm|vex, x, 97},
+    {INVALID,      0xf20f4a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },
+  { /* prefix extension 156 */
+    {OP_sets,        0x0f9810, "sets",  Eb, xx, xx, xx, xx, mrm, fRS, END_LIST},
+    {INVALID,      0xf30f9810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f9810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f9810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f9810, "(vex_W ext 98)", xx, xx, xx, xx, xx, mrm|vex, x, 98},
+    {INVALID,      0xf30f9810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f9810, "(vex_W ext 99)", xx, xx, xx, xx, xx, mrm|vex, x, 99},
+    {INVALID,      0xf20f9810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },
+  { /* prefix extension 157 */
+    {OP_setns,       0x0f9910, "setns", Eb, xx, xx, xx, xx, mrm, fRS, END_LIST},
+    {INVALID,      0xf30f9910, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f9910, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f9910, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,      0x0f9910, "(vex_W ext 104)", xx, xx, xx, xx, xx, mrm|vex, x, 104},
+    {INVALID,      0xf30f9910, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT,    0x660f9910, "(vex_W ext 105)", xx, xx, xx, xx, xx, mrm|vex, x, 105},
+    {INVALID,      0xf20f9910, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },
 };
-
 /****************************************************************************
  * Instructions that differ based on whether vex-encoded or not.
  * Most of these require an 0x66 prefix but we use reqp for that
@@ -5040,7 +5257,7 @@ const byte third_byte_3a_index[256] = {
     59,60,61, 0, 28,29,30, 0,  6, 7, 8, 9, 10,11,12, 1,  /* 0 */
      0, 0, 0, 0,  2, 3, 4, 5, 31,32, 0, 0,  0,33, 0, 0,  /* 1 */
     13,14,15, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 2 */
-     0, 0, 0, 0,  0, 0, 0, 0, 57,58, 0, 0,  0, 0, 0, 0,  /* 3 */
+    63,64,65,66,  0, 0, 0, 0, 57,58, 0, 0,  0, 0, 0, 0,  /* 3 */
     16,17,18, 0, 23, 0,62, 0, 54,55,25,26, 27, 0, 0, 0,  /* 4 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 34,35,36,37,  /* 5 */
     19,20,21,22,  0, 0, 0, 0, 38,39,40,41, 42,43,44,45,  /* 6 */
@@ -5129,6 +5346,11 @@ const instr_info_t third_byte_3a[] = {
   {OP_vpermpd,0x663a0158, "vpermpd",Vqq,xx,Wqq,Ib,xx,mrm|vex|reqp,x,END_LIST},/*60*/
   {OP_vpblendd,0x663a0218,"vpblendd",Vx,xx,Hx,Wx,Ib, mrm|vex|reqp,x,END_LIST},/*61*/
   {OP_vperm2i128,0x663a4618,"vperm2i128",Vqq,xx,Hqq,Wqq,Ib, mrm|vex|reqp,x,END_LIST},/*62*/
+  /* AVX-512, VEX prefix. */
+  {VEX_W_EXT,0x660f3010, "(vex_W ext 102)", xx, xx, xx, xx, xx, mrm|vex|reqp, x, 102},/*63*/
+  {VEX_W_EXT,0x660f3110, "(vex_W ext 103)", xx, xx, xx, xx, xx, mrm|vex|reqp, x, 103},/*64*/
+  {VEX_W_EXT,0x660f3210, "(vex_W ext 100)", xx, xx, xx, xx, xx, mrm|vex|reqp, x, 100},/*65*/
+  {VEX_W_EXT,0x660f3310, "(vex_W ext 101)", xx, xx, xx, xx, xx, mrm|vex|reqp, x, 101},/*66*/
 };
 
 /****************************************************************************
@@ -5362,6 +5584,108 @@ const instr_info_t vex_W_extensions[][2] = {
   }, { /* vex_W_ext 73 */
     {OP_vpsllvd,0x66384718,"vpsllvd",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,END_LIST},
     {OP_vpsllvq,0x66384758,"vpsllvq",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,END_LIST},
+  }, { /* vex_W_ext 74 */
+    {OP_kmovw,0x0f9010,"kmovw",Krw,xx,Kmrmw,xx,xx, mrm|vex,x,tvexw[76][0]},
+    {OP_kmovq,0x0f9010,"kmovq",Krq,xx,Kmrmq,xx,xx, mrm|vex|reqW1,x,tvexw[76][1]},
+  }, { /* vex_W_ext 75 */
+    {OP_kmovb,0x660f9010,"kmovb",Krb,xx,Kmrmb,xx,xx, mrm|vex,x,tvexw[77][0]},
+    {OP_kmovd,0x660f9010,"kmovd",Krd,xx,Kmrmd,xx,xx, mrm|vex|reqW1,x,tvexw[77][1]},
+  }, { /* vex_W_ext 76 */
+    {OP_kmovw,0x0f9110,"kmovw",Kmrmw,xx,Krw,xx,xx, mrm|vex,x,tvexw[78][0]},
+    {OP_kmovq,0x0f9110,"kmovq",Kmrmq,xx,Krq,xx,xx, mrm|vex|reqW1,x,tvexw[106][1]},
+  }, { /* vex_W_ext 77 */
+    {OP_kmovb,0x660f9110,"kmovb",Kmrmb,xx,Krb,xx,xx, mrm|vex,x,tvexw[79][0]},
+    {OP_kmovd,0x660f9110,"kmovd",Kmrmd,xx,Krd,xx,xx, mrm|vex|reqW1,x,tvexw[106][0]},
+  }, { /* vex_W_ext 78 */
+    {OP_kmovw,0x0f9210,"kmovw",Krw,xx,Ry,xx,xx, mrm|vex,x,tvexw[80][0]},
+    {INVALID, 0x0f9210,"(bad)", xx,xx,xx,xx,xx,           no,x,NA},
+  }, { /* vex_W_ext 79 */
+    {OP_kmovb,0x660f9210,"kmovb",Krb,xx,Ry,xx,xx, mrm|vex,x,tvexw[81][0]},
+    {INVALID, 0x660f9210,"(bad)", xx,xx,xx,xx,xx,           no,x,NA},
+  }, { /* vex_W_ext 80 */
+    {OP_kmovw,0x0f9310,"kmovw",  Gd,xx,Krmw,xx,xx, mrm|vex,x,END_LIST},
+    {INVALID, 0x0f9410,"(bad)", xx,xx,xx,xx,xx,              no,x,NA},
+  }, { /* vex_W_ext 81 */
+    {OP_kmovb,0x660f9310,"kmovb",Gd,xx,Krmb,xx,xx, mrm|vex,x,END_LIST},
+    {INVALID, 0x660f9310,"(bad)",xx,xx,xx,xx,xx,             no,x,NA},
+  }, { /* vex_W_ext 82 */
+    {OP_kandw,0x0f4110,"kandw",Krw,xx,Kvw,Krmw,xx, mrm|vex,x,END_LIST},
+    {OP_kandq,0x0f4110,"kandq",Krq,xx,Kvq,Krmq,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 83 */
+    {OP_kandb,0x660f4110,"kandb",Krb,xx,Kvb,Krmb,xx, mrm|vex,x,END_LIST},
+    {OP_kandd,0x660f4110,"kandd",Krd,xx,Kvd,Krmd,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 84 */
+    {OP_kandnw,0x0f4210,"kandnw",Krw,xx,Kvw,Krmw,xx, mrm|vex,x,END_LIST},
+    {OP_kandnq,0x0f4210,"kandnq",Krq,xx,Kvq,Krmq,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 85 */
+    {OP_kandnb,0x660f4210,"kandnb",Krb,xx,Kvb,Krmb,xx, mrm|vex,x,END_LIST},
+    {OP_kandnd,0x660f4210,"kandnd",Krd,xx,Kvd,Krmd,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 86 */
+    {OP_kunpckwd,0x0f4b10,"kunpckwd",Krd,xx,Kvd,Krmd,xx, mrm|vex,x,END_LIST},
+    {OP_kunpckdq,0x0f4b10,"kunpckdq",Krq,xx,Kvq,Krmq,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 87 */
+    {OP_kunpckbw,0x660f4b10,"kunpckbw",Krw,xx,Kvw,Krmw,xx, mrm|vex,x,END_LIST},
+    {INVALID,    0x660f4b10,   "(bad)", xx,xx, xx,  xx,xx,           no,x,NA},
+  }, { /* vex_W_ext 88 */
+    {OP_knotw,0x0f4410,"knotw",Krw,xx,Krmw,xx,xx, mrm|vex,x,END_LIST},
+    {OP_knotq,0x0f4410,"knotq",Krq,xx,Krmq,xx,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 89 */
+    {OP_knotb,0x660f4410,"knotb",Krb,xx,Krmb,xx,xx, mrm|vex,x,END_LIST},
+    {OP_knotd,0x660f4410,"knotd",Krd,xx,Krmd,xx,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 90 */
+    {OP_korw,0x0f4510,"korw",Krw,xx,Kvw,Krmw,xx, mrm|vex,x,END_LIST},
+    {OP_korq,0x0f4510,"korq",Krq,xx,Kvq,Krmq,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 91 */
+    {OP_korb,0x660f4510,"korb",Krb,xx,Kvb,Krmb,xx, mrm|vex,x,END_LIST},
+    {OP_kord,0x660f4510,"kord",Krd,xx,Kvd,Krmd,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 92 */
+    {OP_kxnorw,0x0f4610,"kxnorw",Krw,xx,Kvw,Krmw,xx, mrm|vex,x,END_LIST},
+    {OP_kxnorq,0x0f4610,"kxnorq",Krq,xx,Kvq,Krmq,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 93 */
+    {OP_kxnorb,0x660f4610,"kxnorb",Krb,xx,Kvb,Krmb,xx, mrm|vex,x,END_LIST},
+    {OP_kxnord,0x660f4610,"kxnord",Krd,xx,Kvd,Krmd,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 94 */
+    {OP_kxorw,0x0f4710,"kxorw",Krw,xx,Kvw,Krmw,xx, mrm|vex,x,END_LIST},
+    {OP_kxorq,0x0f4710,"kxorq",Krq,xx,Kvq,Krmq,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 95 */
+    {OP_kxorb,0x660f4710,"kxorb",Krb,xx,Kvb,Krmb,xx, mrm|vex,x,END_LIST},
+    {OP_kxord,0x660f4710,"kxord",Krd,xx,Kvd,Krmd,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 96 */
+    {OP_kaddw,0x0f4a10,"kaddw",Krw,xx,Kvw,Krmw,xx, mrm|vex,x,END_LIST},
+    {OP_kaddq,0x0f4a10,"kaddq",Krq,xx,Kvq,Krmq,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 97 */
+    {OP_kaddb,0x660f4a10,"kaddb",Krb,xx,Kvb,Krmb,xx, mrm|vex,x,END_LIST},
+    {OP_kaddd,0x660f4a10,"kaddd",Krd,xx,Kvd,Krmd,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 98 */
+    {OP_kortestw,0x0f9810,"kortestw",Krw,xx,Krmw,xx,xx, mrm|vex,(fWC|fWZ),END_LIST},
+    {OP_kortestq,0x0f9810,"kortestq",Krq,xx,Krmq,xx,xx, mrm|vex|reqW1,(fWC|fWZ),END_LIST},
+  }, { /* vex_W_ext 99 */
+    {OP_kortestb,0x660f9810,"kortestb",Krb,xx,Krmb,xx,xx, mrm|vex,(fWC|fWZ),END_LIST},
+    {OP_kortestd,0x660f9810,"kortestd",Krd,xx,Krmd,xx,xx, mrm|vex|reqW1,(fWC|fWZ),END_LIST},
+  }, { /* vex_W_ext 100 */
+    {OP_kshiftlb,0x663a3208,"kshiftlb",Krb,xx,Krmb,Ib,xx, mrm|vex,x,END_LIST},
+    {OP_kshiftlw,0x663a3208,"kshiftlw",Krw,xx,Krmw,Ib,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 101 */
+    {OP_kshiftld,0x663a3308,"kshiftld",Krd,xx,Krmd,Ib,xx, mrm|vex,x,END_LIST},
+    {OP_kshiftlq,0x663a3308,"kshiftlq",Krq,xx,Krmq,Ib,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 102 */
+    {OP_kshiftrb,0x663a3008,"kshiftrb",Krb,xx,Krmb,Ib,xx, mrm|vex,x,END_LIST},
+    {OP_kshiftrw,0x663a3008,"kshiftrw",Krw,xx,Krmw,Ib,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 103 */
+    {OP_kshiftrd,0x663a3108,"kshiftrd",Krd,xx,Krmd,Ib,xx, mrm|vex,x,END_LIST},
+    {OP_kshiftrq,0x663a3108,"kshiftrq",Krq,xx,Krmq,Ib,xx, mrm|vex|reqW1,x,END_LIST},
+  }, { /* vex_W_ext 104 */
+    {OP_ktestw,0x0f9910,"ktestw",Krw,xx,Krmw,xx,xx, mrm|vex,fW6,END_LIST},
+    {OP_ktestq,0x0f9910,"ktestq",Krq,xx,Krmq,xx,xx, mrm|vex|reqW1,fW6,END_LIST},
+  }, { /* vex_W_ext 105 */
+    {OP_ktestb,0x660f9910,"ktestb",Krb,xx,Krmb,xx,xx, mrm|vex,fW6,END_LIST},
+    {OP_ktestd,0x660f9910,"ktestd",Krd,xx,Krmd,xx,xx, mrm|vex|reqW1,fW6,END_LIST},
+  }, { /* vex_W_ext 106 */
+    {OP_kmovd,0xf20f9210,"kmovd",Krd,xx,Ry,xx,xx, mrm|vex,x,tvexw[107][0]},
+    {OP_kmovq,0xf20f9210,"kmovq",Krq,xx,Ry,xx,xx, mrm|vex|reqW1,x,tvexw[107][1]},
+  }, { /* vex_W_ext 107 */
+    {OP_kmovd,0xf20f9310,"kmovd",Gd,xx,Krmd,xx,xx, mrm|vex,x,END_LIST},
+    {OP_kmovq,0xf20f9310,"kmovq",Gd_q,xx,Krmq,xx,xx, mrm|vex|reqW1,x,END_LIST},
   },
 };
 

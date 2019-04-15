@@ -105,6 +105,7 @@ static byte buf[8192];
 #define IMMARG(sz) opnd_create_immed_int(37, sz)
 #define TGTARG opnd_create_instr(instrlist_last(ilist))
 #define REGARG(reg) opnd_create_reg(REG_##reg)
+#define DR_REGARG(reg) opnd_create_reg(DR_REG_##reg)
 #define REGARG_PARTIAL(reg, sz) opnd_create_reg_partial(REG_##reg, sz)
 #define VSIBX(sz) (opnd_create_base_disp(REG_XCX, REG_XMM6, 2, 0x42, sz))
 #define VSIBY(sz) (opnd_create_base_disp(REG_XDX, REG_YMM6, 2, 0x17, sz))
@@ -232,6 +233,38 @@ static void
 test_all_opcodes_3_avx(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_3args_avx.h"
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3)             \
+        do {                                                                        \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                   \
+                instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));               \
+            }                                                                       \
+        } while (0);
+#    include "ir_x86_all_opc.h"
+#    undef OPCODE_FOR_CREATE
+#    undef INCLUDE_NAME
+}
+
+static void
+test_all_opcodes_2_avx512_vex(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_2args_avx512_vex.h"
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2)             \
+        do {                                                                  \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {             \
+                instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));         \
+            }                                                                 \
+        } while (0);
+#    include "ir_x86_all_opc.h"
+#    undef OPCODE_FOR_CREATE
+#    undef INCLUDE_NAME
+}
+
+static void
+test_all_opcodes_3_avx512_vex(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_3args_avx512_vex.h"
 #    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3)             \
         do {                                                                        \
             if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                   \
@@ -1502,6 +1535,8 @@ main(int argc, char *argv[])
     test_all_opcodes_2_mm(dcontext);
     test_all_opcodes_3(dcontext);
     test_all_opcodes_3_avx(dcontext);
+    test_all_opcodes_2_avx512_vex(dcontext);
+    test_all_opcodes_3_avx512_vex(dcontext);
     test_all_opcodes_4(dcontext);
 #endif
 

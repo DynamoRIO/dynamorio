@@ -252,6 +252,14 @@ enum {
 #define HAS_PRED_CC 0x0400
 /* Predicated via something complex */
 #define HAS_PRED_COMPLEX 0x0800
+/* Instr must be encoded with VEX.W=1.  If VEX.W=0 this is an invalid instr.
+ * While we still have vex_W_extensions entries, the encoder needs this flag.
+ * That's because for some VEX instructions this is an opcode extension. If
+ * this bit is badly needed (e.g. if we're running out of space in the flags
+ * field, then this also could get encoded as part of the opcode as a new
+ * leading byte).
+ */
+#define REQUIRES_VEX_W_1 0x1000
 
 struct _decode_info_t {
     uint opcode;
@@ -409,6 +417,11 @@ enum {
     TYPE_INDIR_VAR_REG_SIZEx3x5, /* TYPE_INDIR_VAR_REG but with a size of
                                   * 3 * regular size for 32-bit, 5 * regular
                                   * size for 64-bit */
+    TYPE_K_MODRM,                /* modr/m.rm selects k0-k7 or mem addr */
+    TYPE_K_MODRM_R,              /* modr/m.rm selects k0-k7 */
+    TYPE_K_REG,                  /* modr/m.reg selects k0-k7 */
+    TYPE_K_VEX,                  /* vex.vvvv field selects k0-k7 */
+    TYPE_K_EVEX,                 /* evex.aaa field selects k0-k7 */
     /* when adding new types, update type_names[] in encode.c */
     TYPE_BEYOND_LAST_ENUM,
 };
@@ -448,6 +461,8 @@ decode_predicate_from_instr_info(uint opcode, const instr_info_t *info);
 /* in instr.c, not exported to non-x86 files */
 bool
 opc_is_cbr_arch(int opc);
+bool
+opc_is_opmask_arch(int opc);
 
 /* exported tables */
 extern const instr_info_t first_byte[];

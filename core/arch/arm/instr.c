@@ -252,6 +252,12 @@ instr_is_return(instr_t *instr)
 }
 
 bool
+instr_is_opmask_arch(instr_t *instr)
+{
+    return false;
+}
+
+bool
 instr_is_cbr_arch(instr_t *instr)
 {
     int opc = instr->opcode; /* caller ensures opcode is valid */
