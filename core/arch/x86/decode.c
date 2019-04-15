@@ -725,12 +725,13 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
 
     CLIENT_ASSERT(info->type == EVEX_PREFIX_EXT, "internal evex decoding error");
 
-    /* If 64-bit mode or EVEX.R' bit is flipped, P[3:2] are 0
-     * and P[10] is 1 then this is evex
-     */
-    if ((X64_MODE(di) || TEST(0x10, *pc)) && !TEST(0xC, *pc) && TEST(0x04, *(pc + 1))) {
+    /* If 64-bit mode, P[3:2] are 0 and P[10] is 1 then this is evex */
+    if (X64_MODE(di) && !TEST(0xC, *pc) && TEST(0x04, *(pc + 1))) {
         info = &evex_prefix_extensions[0][1];
     } else {
+
+        CLIENT_ASSERT(!X64_MODE(di), "internal evex decoding error");
+
         /* not evex */
         *ret_info = &evex_prefix_extensions[0][0];
         return pc;
