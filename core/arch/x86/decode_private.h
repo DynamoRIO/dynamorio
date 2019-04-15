@@ -74,6 +74,9 @@
 #define PREFIX_EVEX 0x000100000
 #define PREFIX_EVEX_RR 0x000200000
 #define PREFIX_EVEX_LL 0x000400000
+#define PREFIX_EVEX_z 0x000800000
+#define PREFIX_EVEX_b 0x001000000
+#define PREFIX_EVEX_VV 0x002000000
 
 
 /* branch hints show up as segment modifiers */
@@ -314,6 +317,7 @@ struct _decode_info_t {
     bool repne_prefix;
     byte vex_vvvv; /* vvvv bits for extra operand */
     bool vex_encoded;
+    byte evex_aaa; /* aaa bits for opmask */
     /* for instr_t* target encoding */
     ptr_int_t cur_note;
     bool has_instr_opnds;
