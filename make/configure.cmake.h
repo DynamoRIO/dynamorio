@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,6 +57,10 @@
 #cmakedefine ANDROID
 #if defined(MACOS) || defined (LINUX) || defined(VMKERNEL) || defined(ANDROID)
 # define UNIX
+#endif
+#if defined(MACOS) && defined (X64)
+/* Used a lot due to the different TLS.  We thus provide a convenience define. */
+# define MACOS64
 #endif
 
 /* set by high-level VMAP/VMSAFE/VPS configurations */
