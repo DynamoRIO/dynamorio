@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2019 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -356,6 +356,10 @@ macro(add_win32_flags target)
     get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
     if (NOT cur MATCHES "-std=")
       append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+    endif ()
+    if (APPLE)
+      # Match the core/ flags.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "-mmacosx-version-min=10.9")
     endif ()
   endif ()
 endmacro ()
