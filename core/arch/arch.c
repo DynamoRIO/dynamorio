@@ -487,7 +487,8 @@ static void shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void
 #endif
 
     gencode =
-        heap_mmap_reserve(GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE, VMM_SPECIAL_MMAP);
+        heap_mmap_reserve(GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
+                          MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
     /* we would return gencode and let caller assign, but emit routines
      * that this routine calls query the shared vars so we set here
      */
@@ -1164,8 +1165,9 @@ arch_thread_init(dcontext_t *dcontext)
      */
     ASSERT(GENCODE_COMMIT_SIZE < GENCODE_RESERVE_SIZE);
     /* case 9474; share allocation unit w/ thread-private stack */
-    code = heap_mmap_reserve_post_stack(dcontext, GENCODE_RESERVE_SIZE,
-                                        GENCODE_COMMIT_SIZE, VMM_SPECIAL_MMAP);
+    code = heap_mmap_reserve_post_stack(
+        dcontext, GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
+        MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
     ASSERT(code != NULL);
     /* FIXME case 6493: if we split private from shared, remove this
      * memset since we will no longer have a bunch of fields we don't use
