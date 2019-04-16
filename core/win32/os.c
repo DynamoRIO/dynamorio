@@ -968,7 +968,7 @@ d_r_os_init(void)
                get_application_pid(), os_name);
     }
     if (peb->OSMajorVersion == 10 && peb->OSMinorVersion == 0 &&
-        os_release_id[0] != '\0') {
+        syscalls == windows_unknown_syscalls && !standalone_library && os_name != NULL) {
         /* Not a warning since we can rely on dynamically finding DR's
          * syscalls (in the absense of hooks, for which we might want
          * a solution like Dr. Memory's: i#2713).
