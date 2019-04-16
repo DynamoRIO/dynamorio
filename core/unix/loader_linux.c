@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -311,7 +311,8 @@ privload_tls_init(void *app_tp)
     /* FIXME: These should be a thread logs, but dcontext is not ready yet. */
     LOG(GLOBAL, LOG_LOADER, 2, "%s: app TLS segment base is " PFX "\n", __FUNCTION__,
         app_tp);
-    dr_tp = heap_mmap(client_tls_alloc_size, VMM_SPECIAL_MMAP);
+    dr_tp =
+        heap_mmap(client_tls_alloc_size, MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
     ASSERT(APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size <= client_tls_alloc_size);
 #ifdef AARCHXX
     /* GDB reads some pthread members (e.g., pid, tid), so we must make sure

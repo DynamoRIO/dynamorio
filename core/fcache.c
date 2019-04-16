@@ -1380,7 +1380,9 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
              */
             if (commit_size > size)
                 commit_size = size;
-            u->start_pc = (cache_pc)heap_mmap_reserve(size, commit_size, VMM_CACHE);
+            u->start_pc = (cache_pc)heap_mmap_reserve(
+                size, commit_size, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
+                VMM_CACHE);
         }
         ASSERT(u->start_pc != NULL);
         ASSERT(proc_is_cache_aligned((void *)u->start_pc));
@@ -2024,7 +2026,9 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         ASSERT(commit_size >= slot_size);
         commit_size += unit->size;
         ASSERT(commit_size <= new_size);
-        new_memory = (cache_pc)heap_mmap_reserve(new_size, commit_size, VMM_CACHE);
+        new_memory = (cache_pc)heap_mmap_reserve(
+            new_size, commit_size, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
+            VMM_CACHE);
         STATS_FCACHE_SUB(cache, capacity, unit->size);
         STATS_FCACHE_ADD(cache, capacity, commit_size);
         STATS_FCACHE_MAX(cache, capacity_peak, capacity);
