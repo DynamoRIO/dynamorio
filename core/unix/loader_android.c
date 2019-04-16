@@ -183,7 +183,7 @@ privload_tls_init(void *app_tls)
         }
     } else {
         res = heap_mmap(ALIGN_FORWARD(size_of_pthread_internal(), PAGE_SIZE),
-                        VMM_SPECIAL_MMAP);
+                        MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
         LOG(GLOBAL, LOG_LOADER, 2,
             "%s: allocated new TLS at " PFX "; copying from " PFX "\n", __FUNCTION__, res,
             app_tls);
