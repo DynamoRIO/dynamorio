@@ -49,31 +49,43 @@
 #endif
 
 /* From the (short) machdep syscall table */
+#define SYS_thread_set_tsd_base 3
 #define SYS_thread_set_user_ldt 4
 #define SYS_i386_set_ldt 5
 #define SYS_i386_get_ldt 6
 
-#ifdef X64
-#    error TLS NYI
-#else
 /* This is what thread_set_user_ldt and i386_set_ldt give us.
  * XXX: a 32-bit Mac kernel will return 0x3f?
  * If so, update GDT_NUM_TLS_SLOTS in tls.h.
  */
-#    define TLS_DR_SELECTOR 0x1f
-#    define TLS_DR_INDEX 0x3
-#endif
+#define TLS_DR_SELECTOR 0x1f
+#define TLS_DR_INDEX 0x3
 
 static uint tls_app_index;
+
+#ifdef X64
+byte **
+get_app_tls_swap_slot_addr(void)
+{
+    byte **app_tls_base = (byte **)read_thread_register(TLS_REG_LIB);
+    if (app_tls_base == NULL) {
+        ASSERT_NOT_IMPLEMENTED(false);
+    }
+    return (byte **)(app_tls_base + DR_TLS_BASE_OFFSET);
+}
+#endif
 
 void
 tls_thread_init(os_local_state_t *os_tls, byte *segment)
 {
 #ifdef X64
-    /* FIXME: for 64-bit, our only option is thread_fast_set_cthread_self64
-     * and sharing with the app.  No way to read current base?!?
-     */
-#    error NYI
+    byte **tls_swap_slot;
+    ASSERT((byte *)(os_tls->self) == segment);
+    tls_swap_slot = get_app_tls_swap_slot_addr();
+    /* we assume the swap slot is initialized as 0 */
+    ASSERT_NOT_IMPLEMENTED(*tls_swap_slot == NULL);
+    *tls_swap_slot = segment;
+    os_tls->tls_type = TLS_TYPE_SLOT;
 #else
     /* SYS_thread_set_user_ldt looks appealing, as it has built-in kernel
      * support which swaps it on thread switches.
@@ -137,10 +149,14 @@ void
 tls_thread_free(tls_type_t tls_type, int index)
 {
 #ifdef X64
-    /* FIXME: for 64-bit, our only option is thread_fast_set_cthread_self64
-     * and sharing with the app.  No way to read current base?!?
-     */
-#    error NYI
+    byte **tls_swap_slot;
+    os_local_state_t *os_tls;
+    ASSERT(tls_type == TLS_TYPE_SLOT);
+    tls_swap_slot = get_app_tls_swap_slot_addr();
+    ASSERT(tls_swap_slot != NULL);
+    os_tls = (os_local_state_t *)*tls_swap_slot;
+    ASSERT(os_tls->self == os_tls);
+    *tls_swap_slot = TLS_SLOT_VAL_EXITED;
 #else
     int res = dynamorio_mach_dep_syscall(SYS_thread_set_user_ldt, 3, NULL, 0, 0);
     if (res < 0) {
@@ -249,7 +265,12 @@ tls_clear_descriptor(int index)
 int
 tls_dr_index(void)
 {
+#ifdef X64
+    ASSERT_NOT_IMPLEMENTED(false);
+#else
     return TLS_DR_INDEX;
+#endif
+    return 0; /* not reached */
 }
 
 int
@@ -273,7 +294,7 @@ void
 tls_initialize_indices(os_local_state_t *os_tls)
 {
 #ifdef X64
-#    error NYI
+    ASSERT_NOT_IMPLEMENTED(false);
 #else
     uint selector = read_thread_register(SEG_GS);
     tls_app_index = SELECTOR_INDEX(selector);

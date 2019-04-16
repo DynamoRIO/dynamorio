@@ -1357,7 +1357,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_V_MODRM:
     case TYPE_VSIB:
         return ((TEST(PREFIX_EVEX_RR, di->prefixes))
-                   ? (extend ? (REG_START_ZMM + 16 + reg) : (REG_START_ZMM + reg))
+                   ? (extend ? (DR_REG_START_ZMM + 16 + reg) : (DR_REG_START_ZMM + reg))
                    : ((TEST(PREFIX_VEX_L, di->prefixes) &&
                      /* Not only do we use this for .LIG (where raw reg is either
                       * OPSZ_32 or OPSZ_16_vex32) but also for VSIB which currently

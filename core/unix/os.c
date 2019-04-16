@@ -289,6 +289,7 @@ static char dynamorio_alt_arch_filepath[MAXIMUM_PATH]; /* just dir */
 static app_pc dynamo_dll_start = NULL;
 static app_pc dynamo_dll_end = NULL; /* open-ended */
 
+/* pc values delimiting the app, equal to the "dll" bounds for static DR */
 static app_pc executable_start = NULL;
 static app_pc executable_end = NULL;
 
@@ -1387,7 +1388,49 @@ os_timeout(int time_in_milliseconds)
  * precise constraint, then the compiler would be able to optimize better.  See
  * glibc comments on THREAD_SELF.
  */
-#ifdef X86
+#ifdef MACOS64
+#    define WRITE_TLS_SLOT_IMM(imm, var)                                             \
+        IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                                       \
+        ASSERT(sizeof(var) == sizeof(void *));                                       \
+        __asm__ __volatile__(                                                        \
+            "mov %%gs:%1, %%" ASM_XAX " \n\t"                                        \
+            "movq %0, %c2(%%" ASM_XAX ") \n\t"                                       \
+            :                                                                        \
+            : "r"(var), "m"(*(void **)(DR_TLS_BASE_SLOT * sizeof(void *))), "i"(imm) \
+            : "memory", ASM_XAX);
+
+#    define READ_TLS_SLOT_IMM(imm, var)                                            \
+        IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                                     \
+        ASSERT(sizeof(var) == sizeof(void *));                                     \
+        __asm__ __volatile__("mov %%gs:%1, %%" ASM_XAX " \n\t"                     \
+                             "movq %c2(%%" ASM_XAX "), %0 \n\t"                    \
+                             : "=r"(var)                                           \
+                             : "m"(*(void **)(DR_TLS_BASE_SLOT * sizeof(void *))), \
+                               "i"(imm)                                            \
+                             : ASM_XAX);
+
+#    define WRITE_TLS_SLOT(offs, var)                                              \
+        IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                                     \
+        __asm__ __volatile__("mov %%gs:%0, %%" ASM_XAX " \n\t"                     \
+                             "movzwq %1, %%" ASM_XDX " \n\t"                       \
+                             "movq %2, (%%" ASM_XAX ", %%" ASM_XDX ") \n\t"        \
+                             :                                                     \
+                             : "m"(*(void **)(DR_TLS_BASE_SLOT * sizeof(void *))), \
+                               "m"(offs), "r"(var)                                 \
+                             : "memory", ASM_XAX, ASM_XDX);
+
+#    define READ_TLS_SLOT(offs, var)                                               \
+        IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                                     \
+        ASSERT(sizeof(var) == sizeof(void *));                                     \
+        __asm__ __volatile__("mov %%gs:%1, %%" ASM_XAX " \n\t"                     \
+                             "movzwq %2, %%" ASM_XDX " \n\t"                       \
+                             "movq (%%" ASM_XAX ", %%" ASM_XDX "), %0 \n\t"        \
+                             : "=r"(var)                                           \
+                             : "m"(*(void **)(DR_TLS_BASE_SLOT * sizeof(void *))), \
+                               "m"(offs)                                           \
+                             : "memory", ASM_XAX, ASM_XDX);
+
+#elif defined(X86)
 #    define WRITE_TLS_SLOT_IMM(imm, var)       \
         IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED()); \
         ASSERT(sizeof(var) == sizeof(void *)); \
@@ -1482,7 +1525,14 @@ static os_local_state_t uninit_tls; /* has .magic == 0 */
 static bool
 is_thread_tls_initialized(void)
 {
-#ifdef X86
+#ifdef MACOS64
+    byte **tls_swap_slot;
+    tls_swap_slot = (byte **)get_app_tls_swap_slot_addr();
+    if (tls_swap_slot == NULL || *tls_swap_slot == NULL ||
+        *tls_swap_slot == TLS_SLOT_VAL_EXITED)
+        return false;
+    return true;
+#elif defined(X86)
     if (INTERNAL_OPTION(safe_read_tls_init)) {
         /* Avoid faults during early init or during exit when we have no handler.
          * It's not worth extending the handler as the faults are a perf hit anyway.
@@ -1585,7 +1635,7 @@ is_DR_segment_reader_entry(app_pc pc)
 static bool
 is_thread_tls_allocated(void)
 {
-#    ifdef X86
+#    if defined(X86) && !defined(MACOS64)
     if (INTERNAL_OPTION(safe_read_tls_init)) {
         /* We use this routine to allow currently-native threads, for which
          * is_thread_tls_initialized() (and thus is_thread_initialized()) will
@@ -1770,7 +1820,9 @@ d_r_set_tls(ushort tls_offs, void *value)
 byte *
 get_segment_base(uint seg)
 {
-#ifdef X86
+#ifdef MACOS64
+    return (byte *)read_thread_register(seg);
+#elif defined(X86)
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
 #    ifdef HAVE_TLS
@@ -1901,7 +1953,7 @@ static void
 os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 {
     app_pc app_lib_tls_base, app_alt_tls_base;
-#ifdef X86
+#if defined(X86) && !defined(MACOS64)
     int i, index;
     our_modify_ldt_t *desc;
 
@@ -1919,7 +1971,7 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
     os_tls->app_alt_tls_base =
         is_dynamo_address(app_alt_tls_base) ? NULL : app_alt_tls_base;
 
-#ifdef X86
+#if defined(X86) && !defined(MACOS64)
     /* get all TLS thread area value */
     /* XXX: is get_thread_area supported in 64-bit kernel?
      * It has syscall number 211.
@@ -1933,7 +1985,6 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
         tls_get_descriptor(i + index, &desc[i]);
     }
 #endif /* X86 */
-
     os_tls->os_seg_info.dr_tls_base = segment;
     os_tls->os_seg_info.priv_alt_tls_base = IF_X86_ELSE(segment, NULL);
 
@@ -1942,8 +1993,7 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
         os_tls->os_seg_info.priv_lib_tls_base = IF_UNIT_TEST_ELSE(
             os_tls->app_lib_tls_base, privload_tls_init(os_tls->app_lib_tls_base));
     }
-
-#ifdef X86
+#if defined(X86) && !defined(MACOSX64)
     LOG(THREAD_GET, LOG_THREADS, 1,
         "thread " TIDFMT " app lib tls reg: 0x%x, alt tls reg: 0x%x\n",
         d_r_get_thread_id(), os_tls->app_lib_tls_reg, os_tls->app_alt_tls_reg);
@@ -2052,7 +2102,7 @@ os_tls_thread_exit(local_state_t *local_state)
     if (should_zero_tls_at_thread_exit()) {
         tls_thread_free(tls_type, index);
 
-#    if defined(X86) && defined(X64)
+#    if defined(X86) && defined(X64) && !defined(MACOS)
         if (tls_type == TLS_TYPE_ARCH_PRCTL) {
             /* syscall re-sets gs register so re-clear it */
             if (read_thread_register(SEG_TLS) != 0) {
@@ -2084,14 +2134,14 @@ void
 os_tls_exit(local_state_t *local_state, bool other_thread)
 {
 #ifdef HAVE_TLS
-#    ifdef X86
+#    if defined(X86) && !defined(MACOS64)
     static const ptr_uint_t zero = 0;
 #    endif /* X86 */
     /* We can't read from fs: as we can be called from other threads */
     /* ASSUMPTION: local_state_t is laid out at same start as local_state_extended_t */
     os_local_state_t *os_tls =
         (os_local_state_t *)(((byte *)local_state) - offsetof(os_local_state_t, state));
-#    ifdef X86
+#    if defined(X86) && !defined(MACOS64)
     /* If the MSR is in use, writing to the reg faults.  We rely on it being 0
      * to indicate that.
      */
@@ -2130,7 +2180,7 @@ os_tls_get_gdt_index(dcontext_t *dcontext)
 void
 os_tls_pre_init(int gdt_index)
 {
-#ifdef X86
+#if defined(X86) && !defined(MACOS64)
     /* Only set to above 0 for tls_type == TLS_TYPE_GDT */
     if (gdt_index > 0) {
         /* PR 458917: clear gdt slot to avoid leak across exec */
@@ -2508,6 +2558,11 @@ os_new_thread_pre(void)
     ATOMIC_INC(int, uninit_thread_count);
 }
 
+/* This is called from pre_system_call() and before cloning a client thread in
+ * dr_create_client_thread. Hence os_clone_pre is used for app threads as well
+ * as client threads. Do not add anything that we do not want to happen while
+ * in DR mode.
+ */
 static void
 os_clone_pre(dcontext_t *dcontext)
 {
@@ -2520,7 +2575,11 @@ os_clone_pre(dcontext_t *dcontext)
     os_swap_dr_tls(dcontext, true /*to app*/);
 }
 
-/* This is called from d_r_dispatch prior to post_system_call() */
+/* This is called from d_r_dispatch prior to post_system_call() and after
+ * cloning a client thread in dr_create_client_thread. Hence os_clone_post is
+ * used for app threads as well as client threads. Do not add anything that
+ * we do not want to happen while in DR mode.
+ */
 void
 os_clone_post(dcontext_t *dcontext)
 {
@@ -2848,10 +2907,12 @@ replace_thread_id(thread_id_t old, thread_id_t new)
     ASSERT(is_thread_tls_initialized());
     DOCHECK(1, {
         thread_id_t old_tid;
-        READ_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid);
+        IF_LINUX_ELSE(READ_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid),
+                      READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid));
         ASSERT(old_tid == old);
     });
-    WRITE_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid);
+    IF_LINUX_ELSE(WRITE_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid),
+                  WRITE_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid));
 #else
     int i;
     d_r_mutex_lock(&tls_lock);
@@ -3686,9 +3747,9 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * the thread list for the app, making it more invisible.
      */
     uint flags = CLONE_VM | CLONE_FS | CLONE_FILES |
-        CLONE_SIGHAND IF_NOT_X64(| CLONE_SETTLS)
-        /* CLONE_THREAD required.  Signals and itimers are private anyway. */
-        IF_VMX86(| (os_in_vmkernel_userworld() ? CLONE_THREAD : 0));
+        CLONE_SIGHAND
+            /* CLONE_THREAD required.  Signals and itimers are private anyway. */
+            IF_VMX86(| (os_in_vmkernel_userworld() ? CLONE_THREAD : 0));
     pre_second_thread();
     /* need to share signal handler table, prior to creating clone record */
     handle_clone(dcontext, flags);
@@ -3698,31 +3759,17 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * signal_thread_inherit gets the right syscall info
      */
     set_clone_record_fields(crec, (reg_t)arg, (app_pc)func, SYS_clone, flags);
-    /* i#501 switch to app's tls before creating client thread */
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
-        os_switch_lib_tls(dcontext, true /*to app*/);
-#        if defined(X86) && !defined(X64)
-    /* For the TCB we simply share the parent's.  On Linux we could just inherit
-     * the same selector but not for VMX86_SERVER so we specify for both for
-     * 32-bit.  Most of the fields are pthreads-specific and we assume the ones
-     * that will be used (such as tcbhead_t.sysinfo @0x10) are read-only.
-     */
-    our_modify_ldt_t desc;
-    /* if get_segment_base() returned size too we could use it */
-    uint index = tls_priv_lib_index();
-    ASSERT(index != -1);
-    if (!tls_get_descriptor(index, &desc)) {
-        LOG(THREAD, LOG_ALL, 1, "%s: client thread tls get entry %d failed\n",
-            __FUNCTION__, index);
-        return false;
-    }
-#        endif
     LOG(THREAD, LOG_ALL, 1, "dr_create_client_thread xsp=" PFX " dstack=" PFX "\n", xsp,
         get_clone_record_dstack(crec));
-    thread_id_t newpid =
-        dynamorio_clone(flags, xsp, NULL, IF_X86_ELSE(IF_X64_ELSE(NULL, &desc), NULL),
-                        NULL, client_thread_run);
-    /* i#501 switch to app's tls before creating client thread */
+    /* i#501 switch to app's tls before creating client thread.
+     * i#3526 switch DR's tls to an invalid one before cloning, and switch lib_tls
+     * to the app's.
+     */
+    os_clone_pre(dcontext);
+    thread_id_t newpid = dynamorio_clone(flags, xsp, NULL, NULL, NULL, client_thread_run);
+    /* i#3526 switch DR's tls back to the original one before cloning. */
+    os_clone_post(dcontext);
+    /* i#501 the app's tls was switched in os_clone_pre. */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         os_switch_lib_tls(dcontext, false /*to dr*/);
     if (newpid < 0) {
@@ -4440,8 +4487,11 @@ set_protection(byte *pc, size_t length, uint prot /*MEMPROT_*/)
 bool
 change_protection(byte *pc, size_t length, bool writable)
 {
-    uint flags = (writable) ? (MEMPROT_READ | MEMPROT_WRITE) : (MEMPROT_READ);
-    return set_protection(pc, length, flags);
+    if (writable)
+        return make_writable(pc, length);
+    else
+        make_unwritable(pc, length);
+    return true;
 }
 
 /* make pc's page writable */
@@ -4866,7 +4916,7 @@ syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
          */
         return ((ptr_int_t)MCXT_SYSCALL_RES(mc) >= 0);
     } else
-        return !TEST(EFLAGS_CF, mc->eflags);
+        return !TEST(EFLAGS_CF, mc->xflags);
 #else
     if (normalized_sysnum == IF_X64_ELSE(SYS_mmap, SYS_mmap2) ||
 #    if !defined(ARM) && !defined(X64)
@@ -4892,7 +4942,7 @@ set_success_return_val(dcontext_t *dcontext, reg_t val)
     /* On MacOS, success is determined by CF, except for Mach syscalls, but
      * there it doesn't hurt to set CF.
      */
-    mc->eflags &= ~(EFLAGS_CF);
+    mc->xflags &= ~(EFLAGS_CF);
 #endif
     MCXT_SYSCALL_RES(mc) = val;
 }
@@ -4904,7 +4954,7 @@ set_failure_return_val(dcontext_t *dcontext, uint errno_val)
     priv_mcontext_t *mc = get_mcontext(dcontext);
 #ifdef MACOS
     /* On MacOS, success is determined by CF, and errno is positive */
-    mc->eflags |= EFLAGS_CF;
+    mc->xflags |= EFLAGS_CF;
     MCXT_SYSCALL_RES(mc) = errno_val;
 #else
     MCXT_SYSCALL_RES(mc) = -(int)errno_val;
@@ -6072,7 +6122,7 @@ os_switch_seg_to_base(dcontext_t *dcontext, os_local_state_t *os_tls, reg_id_t s
     ASSERT(IF_X86_ELSE((seg == SEG_FS || seg == SEG_GS),
                        (seg == DR_REG_TPIDRURW || DR_REG_TPIDRURO)));
     switch (os_tls->tls_type) {
-#    ifdef X64
+#    if defined(X64) && !defined(MACOS)
     case TLS_TYPE_ARCH_PRCTL: {
         res = tls_set_fs_gs_segment_base(os_tls->tls_type, seg, base, NULL);
         ASSERT(res);
@@ -8465,9 +8515,36 @@ exit_post_system_call:
     dcontext->whereami = old_whereami;
 }
 
+#ifdef LINUX
+#    ifdef STATIC_LIBRARY
+/* Static libraries may optionally define two linker variables
+ * (dynamorio_so_start and dynamorio_so_end) to help mitigate
+ * edge cases in detecting DR's library bounds. They are optional.
+ *
+ * If not specified, the variables' location will default to
+ * weak_dynamorio_so_bounds_filler and they will not be used.
+ * Note that referencing the value of these symbols will crash:
+ * always use the address only.
+ */
+extern int dynamorio_so_start WEAK
+    __attribute__((alias("weak_dynamorio_so_bounds_filler")));
+extern int dynamorio_so_end WEAK
+    __attribute__((alias("weak_dynamorio_so_bounds_filler")));
+static int weak_dynamorio_so_bounds_filler;
+
+#    else  /* !STATIC_LIBRARY */
+/* For non-static linux we always get our bounds from linker-provided symbols.
+ * Note that referencing the value of these symbols will crash: always use the
+ * address only.
+ */
+extern int dynamorio_so_start, dynamorio_so_end;
+#    endif /* STATIC_LIBRARY */
+#endif     /* LINUX */
+
 /* get_dynamo_library_bounds initializes dynamorio library bounds, using a
  * release-time assert if there is a problem doing so. It does not use any
- * heap, and we assume it is called prior to find_executable_vm_areas.
+ * heap, and we assume it is called prior to find_executable_vm_areas in a
+ * single thread.
  */
 static void
 get_dynamo_library_bounds(void)
@@ -8480,13 +8557,41 @@ get_dynamo_library_bounds(void)
     int res;
     app_pc check_start, check_end;
     char *libdir;
-    const char *dynamorio_libname;
+    const char *dynamorio_libname = NULL;
+    bool do_memquery = true;
 #ifdef STATIC_LIBRARY
-    /* We don't know our image name, so look up our bounds with an internal
-     * address.
+#    ifdef LINUX
+    /* For static+linux, we might have linker vars to help us and we definitely
+     * know our "library name" since we are in the app. When we have both we
+     * don't need to do a memquery.
      */
-    dynamorio_libname = NULL;
-    check_start = (app_pc)&get_dynamo_library_bounds;
+    if (&dynamorio_so_start != &weak_dynamorio_so_bounds_filler &&
+        &dynamorio_so_end != &weak_dynamorio_so_bounds_filler) {
+
+        do_memquery = false;
+        dynamo_dll_start = (app_pc)&dynamorio_so_start;
+        dynamo_dll_end = (app_pc)ALIGN_FORWARD(&dynamorio_so_end, PAGE_SIZE);
+        LOG(GLOBAL, LOG_VMAREAS, 2,
+            "Using dynamorio_so_start and dynamorio_so_end for library bounds"
+            "\n");
+        const char *dr_path = get_application_name();
+        strncpy(dynamorio_library_filepath, dr_path,
+                BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath));
+        NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
+
+        const char *slash = strrchr(dr_path, '/');
+        ASSERT(slash != NULL);
+        /* Include the slash in the library path */
+        size_t copy_chars = 1 + slash - dr_path;
+        ASSERT(copy_chars < BUFFER_SIZE_ELEMENTS(dynamorio_library_path));
+        strncpy(dynamorio_library_path, dr_path, copy_chars);
+        dynamorio_library_path[copy_chars] = '\0';
+    }
+#    endif
+    if (do_memquery) {
+        /* No linker vars, so we need to find bound using an internal PC */
+        check_start = (app_pc)&get_dynamo_library_bounds;
+    }
 #else /* !STATIC_LIBRARY */
 #    ifdef LINUX
     /* PR 361594: we get our bounds from linker-provided symbols.
@@ -8502,35 +8607,38 @@ get_dynamo_library_bounds(void)
     check_start = dynamo_dll_start;
 #endif /* STATIC_LIBRARY */
 
-    static char dynamorio_libname_buf[MAXIMUM_PATH];
-    res = memquery_library_bounds(NULL, &check_start, &check_end, dynamorio_library_path,
-                                  BUFFER_SIZE_ELEMENTS(dynamorio_library_path),
-                                  dynamorio_libname_buf,
-                                  BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
+    if (do_memquery) {
+        static char dynamorio_libname_buf[MAXIMUM_PATH];
+        res = memquery_library_bounds(
+            NULL, &check_start, &check_end, dynamorio_library_path,
+            BUFFER_SIZE_ELEMENTS(dynamorio_library_path), dynamorio_libname_buf,
+            BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
+        ASSERT(res > 0);
 #ifndef STATIC_LIBRARY
-    dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, dynamorio_libname_buf);
+        dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, dynamorio_libname_buf);
 #endif /* STATIC_LIBRARY */
+
+        snprintf(dynamorio_library_filepath,
+                 BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath), "%s%s",
+                 dynamorio_library_path, dynamorio_libname);
+        NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
+#if !defined(STATIC_LIBRARY) && defined(LINUX)
+        ASSERT(check_start == dynamo_dll_start && check_end == dynamo_dll_end);
+#elif defined(MACOS)
+        ASSERT(check_start == dynamo_dll_start);
+        dynamo_dll_end = check_end;
+#else
+        dynamo_dll_start = check_start;
+        dynamo_dll_end = check_end;
+#endif
+    }
 
     LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library path: %s\n",
         dynamorio_library_path);
-    snprintf(dynamorio_library_filepath, BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath),
-             "%s%s", dynamorio_library_path, dynamorio_libname);
-    NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
     LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library file path: %s\n",
         dynamorio_library_filepath);
-    NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
-#if !defined(STATIC_LIBRARY) && defined(LINUX)
-    ASSERT(check_start == dynamo_dll_start && check_end == dynamo_dll_end);
-#elif defined(MACOS)
-    ASSERT(check_start == dynamo_dll_start);
-    dynamo_dll_end = check_end;
-#else
-    dynamo_dll_start = check_start;
-    dynamo_dll_end = check_end;
-#endif
     LOG(GLOBAL, LOG_VMAREAS, 1, "DR library bounds: " PFX " to " PFX "\n",
         dynamo_dll_start, dynamo_dll_end);
-    ASSERT(res > 0);
 
     /* Issue 20: we need the path to the alt arch */
     strncpy(dynamorio_alt_arch_path, dynamorio_library_path,
@@ -8613,7 +8721,11 @@ app_pc
 get_application_base(void)
 {
     if (executable_start == NULL) {
-#ifdef HAVE_MEMINFO
+#if defined(STATIC_LIBRARY)
+        /* When compiled statically, the app and the DR's "library" are the same. */
+        executable_start = get_dynamorio_dll_start();
+        executable_end = get_dynamorio_dll_end();
+#elif defined(HAVE_MEMINFO)
         /* Haven't done find_executable_vm_areas() yet so walk maps ourselves */
         const char *name = get_application_name();
         if (name != NULL && name[0] != '\0') {

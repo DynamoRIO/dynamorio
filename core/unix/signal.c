@@ -2603,14 +2603,14 @@ thread_set_self_context(void *cxt)
         buf.xsp = sc->SC_XSP - XSP_SZ; /* extra slot for retaddr */
         buf.xip = sc->SC_XIP;
 #    ifdef X64
-        buf.r8 = sc->r8;
-        buf.r9 = sc->r9;
-        buf.r10 = sc->r10;
-        buf.r11 = sc->r11;
-        buf.r12 = sc->r12;
-        buf.r13 = sc->r13;
-        buf.r14 = sc->r14;
-        buf.r15 = sc->r15;
+        buf.r8 = sc->SC_R8;
+        buf.r9 = sc->SC_R9;
+        buf.r10 = sc->SC_R10;
+        buf.r11 = sc->SC_R11;
+        buf.r12 = sc->SC_R12;
+        buf.r13 = sc->SC_R13;
+        buf.r14 = sc->SC_R14;
+        buf.r15 = sc->SC_R15;
 #    endif
         dr_longjmp(&buf, sc->SC_XAX);
         return;
@@ -3066,15 +3066,17 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
     /* 32-bit kernel copies to aligned buf first */
     IF_X64(ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate, 16)));
 #elif defined(MACOS)
-#    ifndef X64
+#    ifdef X64
+    ASSERT_NOT_IMPLEMENTED(false);
+#    else
     f_new->pinfo = &(f_new->info);
     f_new->puc = &(f_new->uc);
-#    endif
     f_new->puc->uc_mcontext =
         (IF_X64_ELSE(_STRUCT_MCONTEXT64, _STRUCT_MCONTEXT32) *)&f_new->mc;
     LOG(THREAD, LOG_ASYNCH, 3, "\tf_new=" PFX ", &handler=" PFX "\n", f_new,
         &f_new->handler);
     ASSERT(!for_app || ALIGNED(&f_new->handler, 16));
+#    endif
 #endif /* X86 && LINUX */
 }
 
@@ -3262,9 +3264,13 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     }
 
 #ifdef MACOS
+#    ifdef X64
+    ASSERT_NOT_IMPLEMENTED(false);
+#    else
     /* Update handler field, which is passed to the libc trampoline, to app */
     ASSERT(info->app_sigaction[sig] != NULL);
     ((sigframe_rt_t *)sp)->handler = (app_pc)info->app_sigaction[sig]->handler;
+#    endif
 #endif
 }
 
@@ -4741,7 +4747,7 @@ is_safe_read_ucxt(kernel_ucontext_t *ucxt)
 /* stub in x86.asm passes our xsp to us */
 #    ifdef MACOS
 void
-master_signal_handler_C(handler_t handler, int style, int sig, kernel_siginfo_t *info,
+master_signal_handler_C(handler_t handler, int style, int sig, kernel_siginfo_t *siginfo,
                         kernel_ucontext_t *ucxt, byte *xsp)
 #    else
 void
@@ -4801,6 +4807,28 @@ master_signal_handler_C(byte *xsp)
         return;
     }
 #endif
+
+    /* We are dropping asynchronous signals during detach. The thread may already have
+     * lost its TLS (xref i#3535). A safe read may result in a crash if DR's SIGSEGV
+     * handler is removed before the safe read's SIGSEGV is delivered.
+     *
+     * Note that besides dropping potentially important signals, there is still a small
+     * race window if the signal gets delivered after the detach has finished, i.e.
+     * doing detach is false. This is an issue in particular if the app has started
+     * re-attaching.
+     *
+     * Signals that are not clearly asynchronous may hit corner case(s) of i#3535.
+     * (xref i#26).
+     */
+    if (doing_detach && can_always_delay[sig]) {
+        DOLOG(1, LOG_ASYNCH, { dump_sigcontext(GLOBAL_DCONTEXT, sc); });
+        SYSLOG_INTERNAL_ERROR("ERROR: master_signal_handler with unreliable dcontext "
+                              "during detach. Signal will be dropped and we're continuing"
+                              " (i#3535?): tid=%d, sig=%d",
+                              get_sys_thread_id(), sig);
+        return;
+    }
+
     dcontext_t *dcontext = get_thread_private_dcontext();
 
 #ifdef MACOS

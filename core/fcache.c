@@ -721,11 +721,8 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
                 IF_X64_ELSE(FCACHE_OPTION(cache_##who##_unit_max), (uint)PAGE_SIZE),    \
                 FCACHE_OPTION(cache_##who##_unit_max), name " cache unit init size") || \
             ret;                                                                        \
-        ret =                                                                           \
-            check_param_bounds(&FCACHE_OPTION(cache_commit_increment), (uint)PAGE_SIZE, \
-                               FCACHE_OPTION(cache_##who##_unit_init),                  \
-                               name " cache_commit_increment") ||                       \
-            ret;                                                                        \
+        /* We let cache_commit_increment be any size to support raising it w/o */       \
+        /* setting a dozen unit sizes. */                                               \
     } while (0);
 
 #define CHECK_WSET_PARAM(param, ret)                                                   \
@@ -1374,9 +1371,15 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
             STATS_FCACHE_ADD(cache, claimed, size);
             STATS_ADD(fcache_combined_claimed, size);
         } else {
-            /* allocate new unit */
+            /* Allocate new unit. */
             commit_size = DYNAMO_OPTION(cache_commit_increment);
-            ASSERT(commit_size <= size);
+            /* Cap the commit size at this unit's size.  Since we
+             * have a single param for the commit size, this
+             * makes it much easier to set it without having to
+             * set a dozen unrelated unit sizes too.
+             */
+            if (commit_size > size)
+                commit_size = size;
             u->start_pc = (cache_pc)heap_mmap_reserve(size, commit_size, VMM_CACHE);
         }
         ASSERT(u->start_pc != NULL);

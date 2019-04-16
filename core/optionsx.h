@@ -687,7 +687,7 @@ DYNAMIC_OPTION(bool, pause_via_loop,
 
     /* For MacOS, set to 0 to disable the check */
     OPTION_DEFAULT(uint, max_supported_os_version,
-        IF_WINDOWS_ELSE(105, IF_MACOS_ELSE(17, 0)),
+        IF_WINDOWS_ELSE(105, IF_MACOS_ELSE(18, 0)),
         /* case 447, defaults to supporting NT, 2000, XP, 2003, and Vista.
          * Windows 7 added with i#218
          * Windows 8 added with i#565
@@ -1013,10 +1013,11 @@ DYNAMIC_OPTION(bool, pause_via_loop,
 
     OPTION_DEFAULT(uint, max_trace_bbs, 128, "maximum number of basic blocks in a trace")
 
-    /* FIXME: case 8023 covers re-enabling on linux */
+    /* FIXME i#3522: re-enable SELFPROT_DATA_RARE on linux */
     OPTION_DEFAULT(uint, protect_mask,
-        IF_STATIC_LIBRARY_ELSE(0,
-            IF_WINDOWS_ELSE(0x101/*SELFPROT_DATA_RARE|SELFPROT_GENCODE*/, 0/*NYI*/)),
+        IF_STATIC_LIBRARY_ELSE(0x100/*SELFPROT_GENCODE*/,
+            IF_WINDOWS_ELSE(0x101/*SELFPROT_DATA_RARE|SELFPROT_GENCODE*/,
+                            0x100/*SELFPROT_GENCODE*/)),
         "which memory regions to protect")
     OPTION_INTERNAL(bool, single_privileged_thread, "suspend all other threads when one is out of cache")
 
@@ -1429,11 +1430,13 @@ DYNAMIC_OPTION(bool, pause_via_loop,
      * new default -vm_size of 0x20000000 we want to stay below our various
      * preferred addresses of 0x7xxx0000 so we keep the base plus offset plus
      * size below that.
+     * For a 64-bit process on MacOS __PAGEZERO takes up the first 4GB by default.
      * We ignore this for x64 if -vm_base_near_app and the app is far away.
      */
     OPTION_DEFAULT(uint_addr, vm_base,
                    IF_VMX86_ELSE(IF_X64_ELSE(0x40000000,0x10800000),
-                                 IF_WINDOWS_ELSE(0x16000000, 0x3f000000)),
+                                 IF_WINDOWS_ELSE(0x16000000, IF_MACOS_ELSE(
+                                 IF_X64_ELSE(0x120000000,0x3f000000),0x3f000000))),
                    "preferred base address hint")
      /* FIXME: we need to find a good location with no conflict with DLLs or apps allocations */
     OPTION_DEFAULT(uint_addr, vm_max_offset,

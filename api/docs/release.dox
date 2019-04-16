@@ -133,6 +133,16 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
+The changes between version \DR_VERSION and 7.1.0 include the following compatibility
+changes:
+
+ - Changes the enumeration of the DR_REG_ enum by adding x86 AVX-512 registers as well
+   as reserved ranges for future extensions.
+   This is a binary compatibility change for the DR_REG_ enum.
+ - Changes the enumeration of the OPSZ_ enum by moving its start back to 0. The OPSZ_
+   enum now completely overlaps the DR_REG_ enum.
+   This is a binary compatibility change for the OPSZ_ enum.
+
 The changes between version \DR_VERSION and 7.1.0 include the following minor
 compatibility changes:
 
@@ -145,6 +155,8 @@ compatibility changes:
    expression and code relying on this needs to be rewritten.
    DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY is set automatically if clients target
    version 7.1.0 or earlier.
+ - Renamed mcontext's "ymm" structure to "simd".
+ - Deprecated reg_is_xmm() and reg_is_ymm().
 
 Further non-compatibility-affecting changes include:
 
@@ -157,6 +169,13 @@ Further non-compatibility-affecting changes include:
  - Added the type #dr_opmask_t.
  - Added the define #MCXT_NUM_OPMASK_SLOTS for the number of AVX-512 OpMask registers.
  - Renamed mcontext's ymm structure into simd.
+ - Added a new option -logprefix to drcov.
+ - Added the AVX-512 registers #DR_REG_XMM16 - #DR_REG_XMM31, #DR_REG_YMM16 -
+   #DR_REG_YMM31 and their #DR_REG_ZMM0 - #DR_REG_ZMM31 siblings as well as
+   #DR_REG_K0 - #DR_REG_K7.
+ - Added the function reg_is_opmask().
+ - Added the functions reg_is_strictly_xmm(), reg_is_strictly_ymm() and
+   reg_is_strictly_zmm().
 
 **************************************************
 <hr>

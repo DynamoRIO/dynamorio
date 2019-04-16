@@ -855,11 +855,29 @@ function(add_api_exe test source use_decoder use_static_DR)
   endif ()
 endfunction(add_api_exe)
 
-# macro so the PARENT_SCOPE in torunonly_api will reach caller of this
+# tobuild_api builds an API test which uses the either DR as a dynamic or
+# static library, depending on use_static_DR. It is a macro so the
+# PARENT_SCOPE in torunonly_api will reach caller of this.
 macro(tobuild_api test source dr_ops exe_ops use_decoder use_static_DR)
   add_api_exe(${test} ${source} ${use_decoder} ${use_static_DR})
   torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder})
 endmacro(tobuild_api)
+
+# tobuild_static_nohide_api builds a static API test which uses the
+# dynamorio_static_nohide as a base library. It is a macro so the PARENT_SCOPE
+# in torunonly_api will reach caller of this.
+# XXX: Do we want to support a nicer API for 'nohide' than assuming that
+# add_api_exe adds dynamorio_static and replacing it manually with
+# dynamorio_static_nohide? Punting until there are more uses: it's a lot of
+# plumbing for no clear gain.
+macro(tobuild_static_nohide_api test source dr_ops exe_ops use_decoder)
+  add_api_exe(${test} ${source} ${use_decoder} ON)
+  torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder})
+  get_target_property(lib_list ${test} LINK_LIBRARIES)
+  list(REMOVE_ITEM lib_list dynamorio_static)
+  set_property(TARGET ${test} PROPERTY LINK_LIBRARIES ${lib_list} )
+  target_link_libraries(${test} dynamorio_static_nohide)
+endmacro(tobuild_static_nohide_api)
 
 # run that uses a different build
 function(torunonly test realtest source dr_ops exe_ops)
@@ -964,7 +982,7 @@ function(template2expect outexpect template runops key)
     " " rundefs "${rundefs}")
   # We replace bad define-name chars in client_lib with _.
   string(REGEX REPLACE
-    "[;/\\.!]"
+    "[;/\\.!,]"
     "_" rundefs "${rundefs}")
   string(REGEX REPLACE
     "([^ ])-"
@@ -1459,6 +1477,17 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     # global reg keys and can thus run multiple instances of the same
     # app name simultaneously so we do not need to mark RUN_SERIAL
   endif (WIN32)
+
+  # A subset of release tests has been added and labeled with RUN_IN_RELEASE. It focuses
+  # on Google's use of the drcachesim client. We do not want to extend the Travis
+  # regression time by too much and keep the following list concise.
+  if (NOT DEBUG AND UNIX AND X64 AND NOT CMAKE_COMPILER_IS_CLANG)
+    if (${test} MATCHES "common" OR
+        ${test} MATCHES "drcachesim" OR
+        ${test} MATCHES "drcacheoff")
+      set_tests_properties(${test} PROPERTIES LABELS RUN_IN_RELEASE)
+    endif()
+  endif ()
   set(${added_out} ON PARENT_SCOPE)
 endfunction(torun)
 
@@ -2404,6 +2433,7 @@ endif ()
     target_link_libraries(api.static_detach ${libmath})
     tobuild_api(api.static_prepop api/static_prepop.c "" "" OFF ON)
     target_link_libraries(api.static_prepop ${libmath})
+
     if (NOT WIN32)
       tobuild_api(api.static_signal api/static_signal.c "" "" OFF ON)
       target_link_libraries(api.static_signal ${libmath})
@@ -2420,12 +2450,22 @@ endif ()
       # i#3348: Ensure that DR without local symbols hidden is linkable and
       # avoids conflicts (though CMake_symbol_check does most of the conflict
       # checking).
-      tobuild_api(api.static_symbols api/static_symbols.c "" "" OFF ON)
-      get_target_property(lib_list api.static_symbols LINK_LIBRARIES)
-      list(REMOVE_ITEM lib_list dynamorio_static)
-      set_property(TARGET api.static_symbols PROPERTY LINK_LIBRARIES ${lib_list})
-      target_link_libraries(api.static_symbols dynamorio_static_nohide)
+      tobuild_static_nohide_api(api.static_symbols api/static_symbols.c "" "" OFF)
       append_link_flags(api.static_symbols "-Wl,--warn-common -Wl,--fatal-warnings")
+
+      # To ensure that the dynamorio_so_start/_end linker variables are actually
+      # used in static binaries, we have two tests which run the same "map mixup"
+      # logic: one which exits successfully because we provide the linker
+      # variables and another which exits with an assertion because we don't.
+      # Both versions utilize the dynamorio_static_nohide as a base because
+      # the variables in dynamorio_static have already been resolved as a part of
+      # the symbol hiding step.
+      set(api.static_maps_mixup_yesvars_expectbase "static_maps_mixup_yesvars")
+      tobuild_static_nohide_api(api.static_maps_mixup_yesvars api/static_maps_mixup.c "" "" OFF)
+      append_link_flags(api.static_maps_mixup_yesvars
+          "-Wl,--defsym,dynamorio_so_start=__executable_start -Wl,--defsym,dynamorio_so_end=end")
+      set(api.static_maps_mixup_novars_expectbase "static_maps_mixup_novars")
+      tobuild_static_nohide_api(api.static_maps_mixup_novars api/static_maps_mixup.c "" "" OFF)
     endif ()
   endif ()
 
@@ -2650,7 +2690,8 @@ endif ()
       if (UNIX)
         add_exe(stride_benchmark
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/stride_benchmark.cpp)
-        torunonly_drcachesim(miss_analyzer stride_benchmark "-simulator_type miss_analyzer" "")
+        torunonly_drcachesim(miss_analyzer stride_benchmark
+          "-simulator_type miss_analyzer -miss_count_threshold 5000 -miss_frac_threshold 0.25" "")
       endif ()
 
       # Test other analysis tools
@@ -3748,55 +3789,6 @@ foreach (run ${run_list})
   endif (enabled)
 endforeach(run)
 
-# A subset of release tests has been added and labeled with RUN_IN_RELEASE. It focuses on
-# Google's use of the drcachesim client. We do not want to extend the Travis regression
-# time by too much and keep the following list concise.
-if (NOT DEBUG AND UNIX AND X64 AND NOT CMAKE_COMPILER_IS_CLANG)
-  # XXX i#3479: We might want to add the label to individual tests above instead.
-  if (X86)
-    set_tests_properties(
-      code_api|tool.drcachesim.threads
-      code_api|tool.drcachesim.threads-with-config-file
-      code_api|tool.drcachesim.TLB-threads
-      code_api|tool.drcacheoff.basic_counts
-      code_api|tool.drcacheoff.burst_static
-      code_api|tool.drcacheoff.burst_replace
-      code_api|tool.drcacheoff.burst_replaceall
-      code_api|tool.drcacheoff.burst_noreach
-      code_api|tool.drcacheoff.burst_maps
-      code_api|tool.drcacheoff.burst_threads
-      code_api|tool.drcacheoff.burst_malloc
-      code_api|tool.drcacheoff.burst_threadfilter
-      code_api|tool.drcacheoff.burst_threadL0filter
-      code_api|tool.drcacheoff.burst_client
-      code_api|tool.drcacheoff.legacy
-      PROPERTIES LABELS RUN_IN_RELEASE)
-  endif (X86)
-  set_tests_properties(
-    samples_proj
-    code_api|common.${control_flags}
-    code_api|tool.drcachesim.simple
-    code_api|tool.drcachesim.simple-config-file
-    code_api|tool.drcachesim.TLB-simple
-    code_api|tool.drcachesim.missfile
-    code_api|tool.drcachesim.missfile-config-file
-    code_api|tool.drcachesim.phys
-    code_api|tool.drcachesim.filter-simple
-    code_api|tool.drcachesim.filter-no-i
-    code_api|tool.drcachesim.filter-no-d
-    code_api|tool.drcachesim.delay-simple
-    code_api|tool.drcachesim.warmup-valid
-    code_api|tool.drcachesim.warmup-zeros
-    code_api|tool.drcachesim.multiproc
-    code_api|tool.drcachesim.miss_analyzer
-    code_api|tool.drcacheoff.simple
-    code_api|tool.drcacheoff.multiproc
-    code_api|tool.drcacheoff.filter
-    code_api|tool.drcacheoff.opcode_mix
-    code_api|tool.drcacheoff.view
-    PROPERTIES LABELS RUN_IN_RELEASE)
-endif ()
-
 if (APPLE)
   # Enable just the quarter of the tests that pass, to get our test suite started
   # on the bot without perturbing all the code above and without disabling tests
@@ -3839,11 +3831,9 @@ if (APPLE)
     code_api|client.null_instrument
     code_api|client.option_parse
     code_api|client.drcontainers-test
-    code_api|client.fcache_shift
     code_api|client.destructor
     code_api|sample.signal
     code_api|tool.drcpusim.simple
-    code_api|tool.drcpusim.cpuid-Banias
     code_api|tool.drcpusim.cpuid-Prescott
     code_api|tool.drcpusim.cpuid-Presler
     code_api|tool.drcpusim.cpuid-Merom
@@ -3857,5 +3847,11 @@ if (APPLE)
     PROPERTIES LABELS OSX)
   if (DEBUG) # FIXME i#1806: fails in release
     set_tests_properties(code_api|client.flush PROPERTIES LABELS OSX)
+  endif ()
+  if (NOT X64)
+    set_tests_properties(
+      code_api|client.fcache_shift
+    code_api|tool.drcpusim.cpuid-Banias
+      PROPERTIES LABELS OSX)
   endif ()
 endif ()

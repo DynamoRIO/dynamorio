@@ -5134,7 +5134,7 @@ const instr_info_t third_byte_3a[] = {
   /* BMI2 */
   {OP_rorx,  0xf23af018, "rorx",  Gy, xx, Ey, Ib, xx, mrm|vex|reqp, x, END_LIST},/*56*/
   /* AVX2 */
-  {OP_vinserti128,0x663a3818,"vinserti128",Vqq,xx,Hqq,Wqq,Ib,mrm|vex|reqp,x,END_LIST},/*57*/
+  {OP_vinserti128,0x663a3818,"vinserti128",Vqq,xx,Hqq,Wdq,Ib,mrm|vex|reqp,x,END_LIST},/*57*/
   {OP_vextracti128,0x663a3918,"vextracti128",Wdq,xx,Vqq,Ib,xx,mrm|vex|reqp,x,END_LIST},/*58*/
   {OP_vpermq, 0x663a0058, "vpermq", Vqq,xx,Wqq,Ib,xx,mrm|vex|reqp,x,END_LIST},/*59*/
   /* Following Intel and not marking as packed float vs ints: just "qq". */
