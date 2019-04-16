@@ -2021,8 +2021,7 @@ os_tls_init(void)
      * FIXME PR 205276: this whole scheme currently does not check if app is using
      * segments need to watch modify_ldt syscall
      */
-    /* FIXME: heap_mmap marks as exec, we just want RW */
-    byte *segment = heap_mmap(PAGE_SIZE, VMM_SPECIAL_MMAP);
+    byte *segment = heap_mmap(PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
     os_local_state_t *os_tls = (os_local_state_t *)segment;
 
     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread " TIDFMT "\n",
@@ -5666,9 +5665,6 @@ handle_execve(dcontext_t *dcontext)
 #endif
 
     /* Issue 20: handle cross-architecture execve */
-    /* Xref alternate solution i#145: use dual paths on
-     * LD_LIBRARY_PATH to solve cross-arch execve
-     */
     file = os_open(fname, OS_OPEN_READ);
     if (file != INVALID_FILE) {
         if (!module_file_is_module64(file, &x64,

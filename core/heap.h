@@ -175,13 +175,13 @@ global_heap_realloc(void *ptr, size_t old_num, size_t new_num,
 bool
 lockwise_safe_to_allocate_memory(void);
 
-/* use heap_mmap to allocate large chunks of executable memory */
+/* use heap_mmap* to allocate large chunks of memory */
 void *
-heap_mmap(size_t size, which_vmm_t which);
+heap_mmap(size_t size, uint prot, which_vmm_t which);
 void
 heap_munmap(void *p, size_t size, which_vmm_t which);
 void *
-heap_mmap_reserve(size_t reserve_size, size_t commit_size, which_vmm_t which);
+heap_mmap_reserve(size_t reserve_size, size_t commit_size, uint prot, which_vmm_t which);
 
 void *
 heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded,
@@ -201,7 +201,7 @@ d_r_unmap_file(byte *map, size_t size);
  */
 void *
 heap_mmap_reserve_post_stack(dcontext_t *dcontext, size_t reserve_size,
-                             size_t commit_size, which_vmm_t which);
+                             size_t commit_size, uint prot, which_vmm_t which);
 void
 heap_munmap_post_stack(dcontext_t *dcontext, void *p, size_t reserve_size,
                        which_vmm_t which);
