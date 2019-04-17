@@ -2234,15 +2234,11 @@ heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded,
     return p;
 }
 
-/* use heap_mmap to allocate large chunks of executable memory
- * it's mainly used to allocate our fcache units
- */
+/* Use heap_mmap to allocate large chunks of memory. */
 void *
-heap_mmap_reserve(size_t reserve_size, size_t commit_size, which_vmm_t which)
+heap_mmap_reserve(size_t reserve_size, size_t commit_size, uint prot, which_vmm_t which)
 {
-    /* heap_mmap always marks as executable */
-    return heap_mmap_ex(reserve_size, commit_size,
-                        MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, true, which);
+    return heap_mmap_ex(reserve_size, commit_size, prot, true, which);
 }
 
 /* It is up to the caller to ensure commit_size is a page size multiple,
@@ -2276,13 +2272,13 @@ heap_mmap_retract_commitment(void *retract_start, size_t decommit_size, which_vm
  */
 void *
 heap_mmap_reserve_post_stack(dcontext_t *dcontext, size_t reserve_size,
-                             size_t commit_size, which_vmm_t which)
+                             size_t commit_size, uint prot, which_vmm_t which)
 {
     void *p;
     byte *stack_reserve_end = NULL;
     heap_error_code_t error_code;
     size_t available = 0;
-    uint prot;
+    uint cur_prot = 0; /* avoid compiler warning */
     bool known_stack = false;
     ASSERT(reserve_size > 0 && commit_size < reserve_size);
     /* 1.5 * guard page adjustment since we'll share the middle one */
@@ -2294,7 +2290,7 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext, size_t reserve_size,
             "Not enough room to allocate 0x%08x bytes post stack "
             "of size 0x%08x\n",
             reserve_size, DYNAMO_OPTION(stack_size));
-        return heap_mmap_reserve(reserve_size, commit_size, which);
+        return heap_mmap_reserve(reserve_size, commit_size, prot, which);
     }
     if (DYNAMO_OPTION(stack_shares_gencode) &&
         /* FIXME: we could support this w/o vm_reserve, or when beyond
@@ -2302,7 +2298,6 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext, size_t reserve_size,
         DYNAMO_OPTION(vm_reserve) && dcontext != GLOBAL_DCONTEXT && dcontext != NULL) {
         stack_reserve_end = dcontext->dstack + GUARD_PAGE_ADJUSTMENT / 2;
 #if defined(UNIX) && !defined(HAVE_MEMINFO)
-        prot = 0; /* avoid compiler warning: should only need inside if */
         if (!dynamo_initialized) {
             /* memory info is not yet set up.  since so early we only support
              * post-stack if inside vmm (won't be true only for pathological
@@ -2316,14 +2311,15 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext, size_t reserve_size,
         } else
 #elif defined(UNIX)
         /* the all_memory_areas list doesn't keep details inside vmheap */
-        known_stack = get_memory_info_from_os(stack_reserve_end, NULL, &available, &prot);
+        known_stack =
+            get_memory_info_from_os(stack_reserve_end, NULL, &available, &cur_prot);
 #else
-        known_stack = get_memory_info(stack_reserve_end, NULL, &available, &prot);
+        known_stack = get_memory_info(stack_reserve_end, NULL, &available, &cur_prot);
 #endif
             /* If ever out of vmheap, then may have free space beyond stack,
              * which we could support but don't (see FIXME above) */
             ASSERT(out_of_vmheap_once ||
-                   (known_stack && available >= reserve_size && prot == 0));
+                   (known_stack && available >= reserve_size && cur_prot == 0));
     }
     if (!known_stack ||
         /* if -no_vm_reserve will short-circuit so no vmh deref danger */
@@ -2341,11 +2337,10 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext, size_t reserve_size,
             }
         });
         STATS_INC(mmap_no_share_stack_region);
-        return heap_mmap_reserve(reserve_size, commit_size, which);
+        return heap_mmap_reserve(reserve_size, commit_size, prot, which);
     }
     ASSERT(DYNAMO_OPTION(vm_reserve));
     ASSERT(stack_reserve_end != NULL);
-    prot = MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE;
     /* memory alloc/dealloc and updating DR list must be atomic */
     dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
     /* We share the stack's end guard page as our start guard page */
@@ -2366,7 +2361,7 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext, size_t reserve_size,
                 "heap_mmap_reserve_post_stack: reserve failed " PFX "\n", error_code);
             dynamo_vm_areas_unlock();
             STATS_INC(mmap_no_share_stack_region);
-            return heap_mmap_reserve(reserve_size, commit_size, which);
+            return heap_mmap_reserve(reserve_size, commit_size, prot, which);
         }
         ASSERT(error_code == HEAP_ERROR_SUCCESS);
     }
@@ -2380,7 +2375,7 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext, size_t reserve_size,
         }
         dynamo_vm_areas_unlock();
         STATS_INC(mmap_no_share_stack_region);
-        return heap_mmap_reserve(reserve_size, commit_size, which);
+        return heap_mmap_reserve(reserve_size, commit_size, prot, which);
     }
     account_for_memory(p, reserve_size, prot, true /*add now*/,
                        false _IF_DEBUG("heap_mmap_reserve_post_stack"));
@@ -2436,13 +2431,11 @@ heap_munmap_post_stack(dcontext_t *dcontext, void *p, size_t reserve_size,
     }
 }
 
-/* use heap_mmap to allocate large chunks of executable memory
- * it's mainly used to allocate our fcache units
- */
+/* Use heap_mmap to allocate large chunks of memory. */
 void *
-heap_mmap(size_t size, which_vmm_t which)
+heap_mmap(size_t size, uint prot, which_vmm_t which)
 {
-    return heap_mmap_reserve(size, size, which);
+    return heap_mmap_ex(size, size, prot, true, which);
 }
 
 /* free memory-mapped storage */

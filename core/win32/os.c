@@ -968,7 +968,7 @@ d_r_os_init(void)
                get_application_pid(), os_name);
     }
     if (peb->OSMajorVersion == 10 && peb->OSMinorVersion == 0 &&
-        os_release_id[0] != '\0') {
+        syscalls == windows_unknown_syscalls && !standalone_library && os_name != NULL) {
         /* Not a warning since we can rely on dynamically finding DR's
          * syscalls (in the absense of hooks, for which we might want
          * a solution like Dr. Memory's: i#2713).
@@ -8086,7 +8086,9 @@ detach_handle_callbacks(int num_threads, thread_record_t **threads,
         /* FIXME - this should (along with any do/shared syscall containing gencode) be
          * allocated outside of our vmmheap so that we can free the vmmheap reservation
          * on detach. */
-        byte *callback_buf = (byte *)heap_mmap(callback_buf_size, VMM_SPECIAL_MMAP);
+        byte *callback_buf = (byte *)heap_mmap(
+            callback_buf_size, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
+            VMM_SPECIAL_MMAP);
         detach_callback_stack_t *per_thread =
             (detach_callback_stack_t *)(callback_buf + DETACH_CALLBACK_CODE_SIZE);
         app_pc *callback_addrs = (app_pc *)(&per_thread[num_threads_with_callbacks]);
