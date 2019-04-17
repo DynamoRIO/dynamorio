@@ -1169,7 +1169,8 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     return SUCCESS;
 }
 
-int
+/* NOINLINE because dynamorio_app_exit is a stopping point. */
+NOINLINE int
 dynamorio_app_exit(void)
 {
     return dynamo_process_exit();
@@ -2654,7 +2655,8 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     return SUCCESS;
 }
 
-int
+/* NOINLINE because dynamo_thread_exit is a stopping point. */
+NOINLINE int
 dynamo_thread_exit(void)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -2763,21 +2765,24 @@ dr_app_start_helper(priv_mcontext_t *mc)
 }
 
 /* dummy routine that returns control to the app if it is currently
- * under dynamo control
+ * under dynamo control.
+ * NOINLINE because dr_app_stop is a stopping point.
  */
-DR_APP_API void
+DR_APP_API NOINLINE void
 dr_app_stop(void)
 {
     /* the application regains control in here */
 }
 
-DR_APP_API void
+/* NOINLINE because dr_app_stop_and_cleanup is a stopping point. */
+DR_APP_API NOINLINE void
 dr_app_stop_and_cleanup(void)
 {
     dr_app_stop_and_cleanup_with_stats(NULL);
 }
 
-DR_APP_API void
+/* NOINLINE because dr_app_stop_and_cleanup_with_stats is a stopping point. */
+DR_APP_API NOINLINE void
 dr_app_stop_and_cleanup_with_stats(dr_stats_t *drstats)
 {
     /* XXX i#95: today this is a full detach, while a separated dr_app_cleanup()
