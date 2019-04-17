@@ -225,6 +225,7 @@ file_reader_t<snappy_reader_t>::open_single_file(const std::string &path)
     std::ifstream *file = new std::ifstream(path, std::ifstream::binary);
     if (!*file)
         return false;
+    VPRINT(this, 1, "Opened snappy input file %s\n", path.c_str());
     input_files.emplace_back(file);
     return true;
 }

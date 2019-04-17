@@ -2790,8 +2790,14 @@ endif ()
 
       # Test reading a trace in sharded snappy-compressed files.
       if (libsnappy)
+        # with a parallel tool (basic_counts)
         torunonly_api(tool.drcacheoff.snappy "${drcachesim_path}" "offline-snappy.c" ""
           "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir;-simulator_type;basic_counts"
+          OFF)
+
+        # with a legacy serial tool (full simulator)
+        torunonly_api(tool.drcacheoff.snappy "${drcachesim_path}" "offline-snappy-serial.c" ""
+          "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir"
           OFF)
         set(tool.drcacheoff.snappy_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
