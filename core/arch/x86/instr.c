@@ -1883,12 +1883,6 @@ reg_is_opmask(reg_id_t reg)
 }
 
 bool
-reg_is_zmm(reg_id_t reg)
-{
-    return reg_is_strictly_zmm(reg);
-}
-
-bool
 reg_is_strictly_zmm(reg_id_t reg)
 {
     return (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM);

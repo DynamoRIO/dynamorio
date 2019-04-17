@@ -2082,9 +2082,9 @@ reg_get_bits(reg_id_t reg)
     if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM)
         return (byte)((reg - DR_REG_START_XMM) % 8);
     if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM)
-        return (byte)((reg - REG_START_YMM) % 8);
+        return (byte)((reg - DR_REG_START_YMM) % 8);
     if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM)
-        return (byte)((reg - DR_REG_START_ZMM) % 16);
+        return (byte)((reg - DR_REG_START_ZMM) % 8);
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return (byte)((reg - REG_START_SEGMENT) % 8);
     if (reg >= REG_START_DR && reg <= REG_STOP_DR)

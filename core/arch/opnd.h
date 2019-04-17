@@ -1169,38 +1169,6 @@ extern const reg_id_t dr_reg_fixer[];
 #    define REG_YMM13 DR_REG_YMM13
 #    define REG_YMM14 DR_REG_YMM14
 #    define REG_YMM15 DR_REG_YMM15
-#    define REG_ZMM0 DR_REG_ZMM0
-#    define REG_ZMM1 DR_REG_ZMM1
-#    define REG_ZMM2 DR_REG_ZMM2
-#    define REG_ZMM3 DR_REG_ZMM3
-#    define REG_ZMM4 DR_REG_ZMM4
-#    define REG_ZMM5 DR_REG_ZMM5
-#    define REG_ZMM6 DR_REG_ZMM6
-#    define REG_ZMM7 DR_REG_ZMM7
-#    define REG_ZMM8 DR_REG_ZMM8
-#    define REG_ZMM9 DR_REG_ZMM9
-#    define REG_ZMM10 DR_REG_ZMM10
-#    define REG_ZMM11 DR_REG_ZMM11
-#    define REG_ZMM12 DR_REG_ZMM12
-#    define REG_ZMM13 DR_REG_ZMM13
-#    define REG_ZMM14 DR_REG_ZMM14
-#    define REG_ZMM15 DR_REG_ZMM15
-#    define REG_ZMM16 DR_REG_ZMM16
-#    define REG_ZMM17 DR_REG_ZMM17
-#    define REG_ZMM18 DR_REG_ZMM18
-#    define REG_ZMM19 DR_REG_ZMM19
-#    define REG_ZMM20 DR_REG_ZMM20
-#    define REG_ZMM21 DR_REG_ZMM21
-#    define REG_ZMM22 DR_REG_ZMM22
-#    define REG_ZMM23 DR_REG_ZMM23
-#    define REG_ZMM24 DR_REG_ZMM24
-#    define REG_ZMM25 DR_REG_ZMM25
-#    define REG_ZMM26 DR_REG_ZMM26
-#    define REG_ZMM27 DR_REG_ZMM27
-#    define REG_ZMM28 DR_REG_ZMM28
-#    define REG_ZMM29 DR_REG_ZMM29
-#    define REG_ZMM30 DR_REG_ZMM30
-#    define REG_ZMM31 DR_REG_ZMM31
 #endif /* X86 && DR_REG_ENUM_COMPATIBILITY */
 /* DR_API EXPORT END */
 
@@ -2496,14 +2464,6 @@ DR_API
  */
 bool
 reg_is_strictly_ymm(reg_id_t reg);
-
-/**
-  * Assumes that \p reg is a DR_REG_ constant.
-  * Returns true if it refers to a zmm (512-bit multimedia) register.
-  * \deprecated Prefer reg_is_strictly_zmm().
-  */
-bool
-reg_is_zmm(reg_id_t reg);
 
 DR_API
 /**
