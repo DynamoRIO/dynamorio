@@ -329,7 +329,7 @@ ctest -D CMAKE_SYSTEM_PROCESSOR=arm -V -S /dynamorio_package/make/package.cmake,
 Android:
 \verbatim
 cd /work/dr/build_package/
-/extsw/pkgs/cmake/exports-3.2.0/bin/ctest -D CMAKE_SYSTEM_PROCESSOR=arm -V -S /dynamorio_package/make/package.cmake,build=7\;version=6.2.0\;no64\;cacheappend=OLDEST_COMPATIBLE_VERSION:STRING=600\;cacheappend=CMAKE_TOOLCHAIN_FILE=/work/dr/git/src/make/toolchain-android.cmake\;cacheappend=ANDROID_TOOLCHAIN=/work/toolchain/android-ndk-21\;cpackappend=set\(CPACK_PACKAGE_FILE_NAME\ DynamoRIO-ARM-Android-EABI-6.2.0-2\)\;invoke=/drmemory_package/package.cmake\;drmem_only\;tool_build=2\;cacheappend=TOOL_VERSION_NUMBER:STRING=1.11.0\;cacheappend=DRMF_VERSION:STRING=1.0.0
+/extsw/pkgs/cmake/exports-3.2.0/bin/ctest -D CMAKE_SYSTEM_PROCESSOR=arm -V -S /dynamorio_package/make/package.cmake,build=7\;version=6.2.0\;no64\;cacheappend=OLDEST_COMPATIBLE_VERSION:STRING=600\;cacheappend=CMAKE_TOOLCHAIN_FILE=/work/dr/git/src/make/toolchain-android-arm32.cmake\;cacheappend=ANDROID_TOOLCHAIN=/work/toolchain/android-ndk-21\;cpackappend=set\(CPACK_PACKAGE_FILE_NAME\ DynamoRIO-ARM-Android-EABI-6.2.0-2\)\;invoke=/drmemory_package/package.cmake\;drmem_only\;tool_build=2\;cacheappend=TOOL_VERSION_NUMBER:STRING=1.11.0\;cacheappend=DRMF_VERSION:STRING=1.0.0
 \endverbatim
 
 

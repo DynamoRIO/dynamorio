@@ -3400,7 +3400,7 @@ encode_opnd_imm16_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     value = opnd_get_immed_int(opnd);
 
     opnd = opnd_create_immed_uint(value, OPSZ_2);
-    uint enc_value;
+    uint enc_value = 0;
     encode_opnd_int(0, 16, false, false, 0, opnd, &enc_value);
     *enc_out = enc_value;
     return true;

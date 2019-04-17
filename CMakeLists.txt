@@ -1224,7 +1224,7 @@ else ()
 endif ()
 
 # Currently only AArch64 targets supported for half-precision FP.
-if (DR_HOST_AARCH64)
+if (DR_HOST_AARCH64 AND NOT ANDROID)
   set(HAVE_HALF_FLOAT ON)
 else ()
   set(HAVE_HALF_FLOAT OFF)

@@ -36,7 +36,7 @@
 #     --toolchain=arm-linux-androideabi-4.9 --platform=android-21 \
 #     --install-dir=/TOOLCHAIN/INSTALL/PATH
 # - cross-compiling config with ANDROID_TOOLCHAIN
-#   $cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-android.cmake \
+#   $cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-android-arm32.cmake \
 #     -DANDROID_TOOLCHAIN=/TOOLCHAIN/INSTALL/PATH ../dynamorio
 
 # Target system

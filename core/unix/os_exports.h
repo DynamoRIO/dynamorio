@@ -164,12 +164,8 @@
  * pthread_internal_t. However, its offset varies by Android version, requiring
  * indirection through a variable.
  */
-#        ifdef AARCH64
-#            error NYI
-#        else
 extern uint android_tls_base_offs;
-#            define DR_TLS_BASE_OFFSET android_tls_base_offs
-#        endif
+#        define DR_TLS_BASE_OFFSET android_tls_base_offs
 #    else
 /* The TLS slot for DR's TLS base.
  * On ARM, we use the 'private' field of the tcbhead_t to store DR TLS base,
@@ -439,18 +435,21 @@ is_DR_segment_reader_entry(app_pc pc);
 #define SIGARRAY_SIZE (MAX_SIGNUM + 1)
 
 /* size of long */
-#ifdef X64
-#    define _NSIG_BPW 64
-#else
-#    define _NSIG_BPW 32
+#ifndef _NSIG_BPW
+#    ifdef X64
+#        define _NSIG_BPW 64
+#    else
+#        define _NSIG_BPW 32
+#    endif
 #endif
 
-#ifdef LINUX
-#    define _NSIG_WORDS (MAX_SIGNUM / _NSIG_BPW)
-#else
-#    define _NSIG_WORDS 1 /* avoid 0 */
+#ifndef _NSIG_WORDS
+#    ifdef LINUX
+#        define _NSIG_WORDS (MAX_SIGNUM / _NSIG_BPW)
+#    else
+#        define _NSIG_WORDS 1 /* avoid 0 */
+#    endif
 #endif
-
 /* kernel's sigset_t packs info into bits, while glibc's uses a short for
  * each (-> 8 bytes vs. 128 bytes)
  */

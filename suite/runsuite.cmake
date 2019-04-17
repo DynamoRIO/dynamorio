@@ -524,14 +524,14 @@ if (UNIX AND ARCH_IS_X86)
   testbuild_ex("android-debug-internal-32" OFF "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android-arm32.cmake
     ${build_tests}
     ${android_extra_dbg}
     " OFF ${arg_package} "")
   testbuild_ex("android-release-external-32" OFF "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android-arm32.cmake
     ${android_extra_rel}
     " OFF ${arg_package} "")
   set(run_tests ${prev_run_tests})

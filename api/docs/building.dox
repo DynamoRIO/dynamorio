@@ -244,7 +244,7 @@ Now check out the sources as normal, and point at our toolchain CMake file.  If 
 $ git clone https://github.com/DynamoRIO/dynamorio.git
 $ mkdir build_android
 $ cd build_android
-$ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-android.cmake -DANDROID_TOOLCHAIN=/mytooldir/android-ndk-21 -DDR_COPY_TO_DEVICE=ON ../dynamorio
+$ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-android-arm32.cmake -DANDROID_TOOLCHAIN=/mytooldir/android-ndk-21 -DDR_COPY_TO_DEVICE=ON ../dynamorio
 $ make -j
 ```
 

@@ -1490,7 +1490,8 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
     sym = &((ELF_SYM_TYPE *)pd->os_data.dynsym)[r_sym];
     name = (char *)pd->os_data.dynstr + sym->st_name;
 
-    if (INTERNAL_OPTION(private_loader) && privload_redirect_sym(pd, r_addr, name))
+    if (INTERNAL_OPTION(private_loader) &&
+        privload_redirect_sym(pd, (ptr_uint_t *)r_addr, name))
         return;
 
     resolved = true;

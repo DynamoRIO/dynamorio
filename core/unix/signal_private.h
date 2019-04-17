@@ -137,7 +137,9 @@ struct _prev_sigaction_t {
 #endif
 
 #ifdef LINUX
+#    if !(defined(AARCH64) && defined(ANDROID))
 typedef unsigned int old_sigset_t;
+#    endif
 
 struct _old_sigaction_t {
     handler_t handler;
@@ -613,7 +615,7 @@ static inline bool
 libc_sigismember(const sigset_t *set, int _sig)
 {
     int sig = _sig - 1; /* go to 0-based */
-#if defined(MACOS) || defined(ANDROID)
+#if defined(MACOS) || (defined(ANDROID) && defined(ARM))
     /* sigset_t is just a uint32 */
     return TEST(1UL << sig, *set);
 #else

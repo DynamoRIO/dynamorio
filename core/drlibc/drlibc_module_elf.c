@@ -236,7 +236,7 @@ module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platfo
 /* Get the module text section from the mapped image file,
  * Note that it must be the image file, not the loaded module.
  */
-ELF_ADDR
+ptr_uint_t
 module_get_text_section(app_pc file_map, size_t file_size)
 {
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)file_map;

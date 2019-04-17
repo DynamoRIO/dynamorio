@@ -81,6 +81,11 @@ static const char *const system_lib_paths[] = {
     "/usr/local/lib", /* Ubuntu: /etc/ld.so.conf.d/libc.conf */
 #ifdef ANDROID
     "/system/lib",
+#    if defined(AARCH64)
+    "/system/lib64",
+#    elif defined(ARM)
+    "/system/lib32",
+#    endif
 #endif
 #ifndef X64
     "/usr/lib32",
@@ -2229,7 +2234,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         /* On Android, the system loader /system/bin/linker sets itself
          * as the interpreter in the ELF header .interp field.
          */
-        ASSERT_CURIOSITY_ONCE((strcmp(interp, "/system/bin/linker") == 0 ||
+        ASSERT_CURIOSITY_ONCE((strstr(interp, "/system/bin/linker") != NULL ||
                                elf_loader_find_pt_interp(&interp_ld) == NULL) &&
                               "The interpreter shouldn't have an interpreter");
         entry = (app_pc)interp_ld.ehdr->e_entry + interp_ld.load_delta;
