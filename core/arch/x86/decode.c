@@ -715,24 +715,28 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
 */
 static byte *
 read_evex(byte *pc, decode_info_t *di, byte instr_byte,
-          const instr_info_t **ret_info INOUT)
+          const instr_info_t **ret_info INOUT, bool *is_evex)
 {
 
     const instr_info_t *info;
     byte prefix_byte = 0, evex_pp = 0;
-    ASSERT(ret_info != NULL && *ret_info != NULL);
+    ASSERT(ret_info != NULL && *ret_info != NULL && is_evex != NULL);
     info = *ret_info;
 
     CLIENT_ASSERT(info->type == EVEX_PREFIX_EXT, "internal evex decoding error");
 
-    /* If 64-bit mode, P[3:2] are 0 and P[10] is 1 then this is evex */
-    if (X64_MODE(di) && !TEST(0xC, *pc) && TEST(0x04, *(pc + 1))) {
+    /* If 64-bit mode than it is evex */
+    if (X64_MODE(di)) {
+        /* P[3:2] must be 0 and P[10] must be 1, otherwise #UD */
+        if (TEST(0xC, *pc) || !TEST(0x04, *(pc + 1))) {
+            *ret_info = &invalid_instr;
+            return pc;
+        }
+
         info = &evex_prefix_extensions[0][1];
     } else {
-
-        CLIENT_ASSERT(!X64_MODE(di), "internal evex decoding error");
-
         /* not evex */
+        is_evex = false;
         *ret_info = &evex_prefix_extensions[0][0];
         return pc;
     }
@@ -754,21 +758,14 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
     byte evex_mm;
     CLIENT_ASSERT(info->type == PREFIX, "internal vex decoding error");
     /* fields are: R, X, B, R', 00, mm.  R, X, B and R' are inverted. */
-    if (!TEST(0x80, prefix_byte)) {
+    if (!TEST(0x80, prefix_byte))
         di->prefixes |= PREFIX_REX_R;
-    }
-
-    if (!TEST(0x40, prefix_byte)) {
+    if (!TEST(0x40, prefix_byte))
         di->prefixes |= PREFIX_REX_X;
-    }
-
-    if (!TEST(0x20, prefix_byte)) {
+    if (!TEST(0x20, prefix_byte))
         di->prefixes |= PREFIX_REX_B;
-    }
-
-    if (!TEST(0x10, prefix_byte)) {
+    if (!TEST(0x10, prefix_byte))
         di->prefixes |= PREFIX_EVEX_RR;
-    }
 
     evex_mm = instr_byte & 0x3;
 
@@ -796,45 +793,32 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
     evex_pp = prefix_byte & 0x03;
     di->vex_vvvv = (prefix_byte & 0x78) >> 3;
 
-    if (evex_pp == 0x1) {
+    if (evex_pp == 0x1)
         di->data_prefix = true;
-    } else if (evex_pp == 0x2) {
+    else if (evex_pp == 0x2)
         di->rep_prefix = true;
-    } else if (evex_pp == 0x3) {
+    else if (evex_pp == 0x3)
         di->repne_prefix = true;
-    }
 
     /* read 4th evex byte */
     prefix_byte = *pc;
     pc++;
 
     /* fields are: z, L', L, b, V' and aaa */
-    if (TEST(0x80, prefix_byte)) {
+    if (TEST(0x80, prefix_byte))
         di->prefixes |= PREFIX_EVEX_z;
-    }
-
-    if (TEST(0x40, prefix_byte)) {
+    if (TEST(0x40, prefix_byte))
         di->prefixes |= PREFIX_EVEX_LL;
-    }
-
-    if (TEST(0x20, prefix_byte)) {
+    if (TEST(0x20, prefix_byte))
         di->prefixes |= PREFIX_VEX_L;
-    }
-
-    if (TEST(0x10, prefix_byte)) {
+    if (TEST(0x10, prefix_byte))
         di->prefixes |= PREFIX_EVEX_b;
-    }
-
-    if (TEST(0x08, prefix_byte)) {
+    if (TEST(0x08, prefix_byte))
         di->prefixes |= PREFIX_EVEX_VV;
-    }
 
     di->evex_aaa = prefix_byte & 0x07;
-
     di->vex_encoded = true;
-
     return pc;
-
 }
 
 /* Given an instr_info_t PREFIX_EXT entry, reads the next entry based on the prefixes.
@@ -940,8 +924,16 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
                 continue;
             }
         } else if (info->type == EVEX_PREFIX_EXT) {
-            pc = read_evex(pc, di, instr_byte, &info);
-            break;
+            bool is_evex = false;
+            pc = read_evex(pc, di, instr_byte, &info, &is_evex);
+            /* if read_evex changes info, leave this loop */
+            if (info->type != EVEX_PREFIX_EXT)
+                break;
+            else {
+                if (is_evex)
+                    vex_noprefix = true; /* staying in loop, but ensure no prefixes */
+                continue;
+            }
         }
         if (info->type == PREFIX) {
             if (vex_noprefix) {
