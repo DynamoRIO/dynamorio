@@ -1315,8 +1315,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     switch (which_reg) {
     case DECODE_REG_REG:
         reg = di->reg;
-        extend = X64_MODE(di) && (TEST(PREFIX_REX_R, di->prefixes) ||
-                 TEST(PREFIX_EVEX_RR, di->prefixes)); /* for evex instructions */;
+        extend = X64_MODE(di) && TEST(PREFIX_REX_R, di->prefixes);
         break;
     case DECODE_REG_BASE:
         reg = di->base;
