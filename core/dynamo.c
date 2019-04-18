@@ -2764,7 +2764,7 @@ dr_app_start_helper(priv_mcontext_t *mc)
     }
 }
 
-/* dummy routine that returns control to the app if it is currently
+/* Dummy routine that returns control to the app if it is currently
  * under dynamo control.
  * NOINLINE because dr_app_stop is a stopping point.
  */
