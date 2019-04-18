@@ -1986,7 +1986,7 @@ reg_is_extended(reg_id_t reg)
             (reg >= REG_START_x64_8 && reg <= REG_STOP_x64_8) ||
             (reg >= DR_REG_START_XMM + 8 && reg <= DR_REG_STOP_XMM) ||
             (reg >= DR_REG_START_YMM + 8 && reg <= DR_REG_STOP_YMM) ||
-            (reg >= DR_REG_START_ZMM + 16 && reg <= DR_REG_STOP_ZMM) ||
+            (reg >= DR_REG_START_ZMM + 8 && reg <= DR_REG_STOP_ZMM) ||
             (reg >= REG_START_DR + 8 && reg <= REG_STOP_DR) ||
             (reg >= REG_START_CR + 8 && reg <= REG_STOP_CR));
 }
