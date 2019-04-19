@@ -52,7 +52,7 @@ OPCODE(kmovd_kr, kmovd, kmovd, 0, DR_REGARG(K3), DR_REGARG(EDX))
 OPCODE(kmovw_rk, kmovw, kmovw, 0, DR_REGARG(ESI), DR_REGARG(K4))
 OPCODE(kmovb_rk, kmovb, kmovb, 0, DR_REGARG(EDI), DR_REGARG(K5))
 #ifdef X64
-PCODE(kmovq_rk, kmovq, kmovq, 0, DR_REGARG(RAX), DR_REGARG(K6))
+OPCODE(kmovq_rk, kmovq, kmovq, 0, DR_REGARG(RAX), DR_REGARG(K6))
 #endif
 OPCODE(kmovd_rk, kmovd, kmovd, 0, DR_REGARG(EBX), DR_REGARG(K7))
 OPCODE(knotw_kk, knotw, knotw, 0, DR_REGARG(K0), DR_REGARG(K1))
