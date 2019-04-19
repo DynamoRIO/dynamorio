@@ -4155,6 +4155,26 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
         /* Loop to handle races */
         loop = true;
     }
+    if ((!TEST(MAP_32BIT, flags) && TEST(MAP_FILE_REACHABLE, map_flags) &&
+         (is_vmm_reserved_address(addr, *size, NULL, NULL) ||
+          /* Try to honor a library's preferred address.  This does open up a race
+           * window during attach where another thread could take this spot,
+           * and with this current code we'll never go back and try to get VMM
+           * memory.  We live with that as being rare rather than complicate the code.
+           */
+          !rel32_reachable_from_current_vmcode(addr))) ||
+        (TEST(MAP_FILE_FIXED, map_flags) &&
+         is_vmm_reserved_address(addr, *size, NULL, NULL))) {
+        if (DYNAMO_OPTION(vm_reserve)) {
+            /* Try to get space inside the vmcode reservation. */
+            map = heap_reserve_for_external_mapping(addr, *size,
+                                                    VMM_SPECIAL_MMAP | VMM_REACHABLE);
+            if (map != NULL) {
+                addr = map;
+                flags |= MAP_FIXED;
+            }
+        }
+    }
     while (!loop ||
            (addr != NULL && addr >= region_start && addr + *size <= region_end) ||
            find_free_memory_in_region(region_start, region_end, *size, &addr, NULL)) {
@@ -4187,6 +4207,25 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
     }
 #endif
     return map;
+}
+
+bool
+os_unmap_file(byte *map, size_t size)
+{
+    if (DYNAMO_OPTION(vm_reserve) && is_vmm_reserved_address(map, size, NULL, NULL)) {
+        /* XXX i#3570: We'd prefer to have the VMM perform this to ensure it matches
+         * how it originally reserved the memory.  To do that would we expose a way
+         * to ask for MAP_FIXED in os_heap_reserve*()?
+         */
+        byte *addr = mmap_syscall(map, size, PROT_NONE,
+                                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+        if (!mmap_syscall_succeeded(addr))
+            return false;
+        return heap_unreserve_for_external_mapping(map, size,
+                                                   VMM_SPECIAL_MMAP | VMM_REACHABLE);
+    }
+    long res = munmap_syscall(map, size);
+    return (res == 0);
 }
 
 bool

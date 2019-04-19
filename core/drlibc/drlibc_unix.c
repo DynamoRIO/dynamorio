@@ -482,7 +482,7 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
     return map;
 }
 
-bool
+WEAK bool
 os_unmap_file(byte *map, size_t size)
 {
     long res = munmap_syscall(map, size);

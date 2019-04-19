@@ -157,6 +157,8 @@ compatibility changes:
    version 7.1.0 or earlier.
  - Renamed mcontext's "ymm" structure to "simd".
  - Deprecated reg_is_xmm() and reg_is_ymm().
+ - Dropped support for clients used with statically linked DynamoRIO to reach
+   the code cache with 32-bit displacements.
 
 Further non-compatibility-affecting changes include:
 
