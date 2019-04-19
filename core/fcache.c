@@ -965,9 +965,10 @@ fcache_really_free_unit(fcache_unit_t *u, bool on_dead_list, bool dealloc_unit)
      * being re-used and not showing up in in_fcache
      */
     vmvector_remove(fcache_unit_areas, u->start_pc, u->reserved_end_pc);
-    if (dealloc_unit)
+    if (dealloc_unit) {
         heap_munmap((void *)u->start_pc, UNIT_RESERVED_SIZE(u),
                     VMM_CACHE | VMM_REACHABLE);
+    }
     /* always dealloc the metadata */
     nonpersistent_heap_free(GLOBAL_DCONTEXT, u,
                             sizeof(fcache_unit_t) HEAPACCT(ACCT_MEM_MGT));
