@@ -8867,12 +8867,14 @@ found_vsyscall_page(memquery_iter_t *iter _IF_DEBUG(OUT const char **map_type))
 #endif
 }
 
+#ifndef HAVE_MEMINFO_QUERY
 static void
 add_to_memcache(byte *region_start, byte *region_end, void *user_data)
 {
     memcache_update_locked(region_start, region_end, MEMPROT_NONE, DR_MEMTYPE_DATA,
                            false /*!exists*/);
 }
+#endif
 
 int
 os_walk_address_space(memquery_iter_t *iter, bool add_modules)
