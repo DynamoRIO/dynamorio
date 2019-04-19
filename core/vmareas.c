@@ -3610,7 +3610,7 @@ add_dynamo_vm_area(app_pc start, app_pc end, uint prot,
     uint vm_flags = (TEST(MEMPROT_WRITE, prot) ? VM_WRITABLE : 0) |
         (unmod_image ? VM_UNMOD_IMAGE : 0);
     /* case 3045: areas inside the vmheap reservation are not added to the list */
-    ASSERT(!is_vmm_reserved_address(start, end - start));
+    ASSERT(!is_vmm_reserved_address(start, end - start, NULL, NULL));
     LOG(GLOBAL, LOG_VMAREAS, 2, "new dynamo vm area: " PFX "-" PFX " %s\n", start, end,
         comment);
     ASSERT(dynamo_areas != NULL);
@@ -3660,7 +3660,7 @@ add_dynamo_heap_vm_area(app_pc start, app_pc end, bool writable,
         comment);
     ASSERT(!vm_area_overlap(dynamo_areas, start, end));
     /* case 3045: areas inside the vmheap reservation are not added to the list */
-    ASSERT(!is_vmm_reserved_address(start, end - start));
+    ASSERT(!is_vmm_reserved_address(start, end - start, NULL, NULL));
     /* add_vm_area will assert that write lock is held */
     add_vm_area(dynamo_areas, start, end,
                 VM_DR_HEAP | (writable ? VM_WRITABLE : 0) |
@@ -3712,7 +3712,7 @@ is_dynamo_address(app_pc addr)
 {
     bool found;
     /* case 3045: areas inside the vmheap reservation are not added to the list */
-    if (is_vmm_reserved_address(addr, 1))
+    if (is_vmm_reserved_address(addr, 1, NULL, NULL))
         return true;
     dynamo_vm_areas_start_reading();
     found = lookup_addr(dynamo_areas, addr, NULL);
@@ -3808,7 +3808,7 @@ dynamo_vm_area_overlap(app_pc start, app_pc end)
 {
     bool overlap;
     /* case 3045: areas inside the vmheap reservation are not added to the list */
-    if (is_vmm_reserved_address(start, end - start))
+    if (is_vmm_reserved_address(start, end - start, NULL, NULL))
         return true;
     dynamo_vm_areas_start_reading();
     overlap = vm_area_overlap(dynamo_areas, start, end);
