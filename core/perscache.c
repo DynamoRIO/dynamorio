@@ -729,7 +729,8 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
     /* we need the stubs to start on a new page since will be +rw vs cache +r */
     frozen_cache_size = ALIGN_FORWARD(frozen_cache_size, PAGE_SIZE);
     freeze_info->cache_start_pc =
-        (cache_pc)heap_mmap(frozen_stub_size + frozen_cache_size, VMM_CACHE);
+        (cache_pc)heap_mmap(frozen_stub_size + frozen_cache_size,
+                            MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, VMM_CACHE);
     /* FIXME: should show full non-frozen size as well */
     LOG(THREAD, LOG_CACHE, 2,
         "%d frozen stubs @ " SZFMT " bytes + %d fragments @ " SZFMT " bytes => " PFX "\n",
@@ -1894,7 +1895,8 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
     merged->mmap_size = merged_cache_size + stubs1_size + stubs2_size;
     /* Our relative jmps require that we do not exceed 32-bit reachability */
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(merged->mmap_size)));
-    merged->cache_start_pc = (cache_pc)heap_mmap(merged->mmap_size, VMM_CACHE);
+    merged->cache_start_pc = (cache_pc)heap_mmap(
+        merged->mmap_size, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, VMM_CACHE);
     merged->cache_end_pc = merged->cache_start_pc + cache1_size + cache2_size;
     merged->stubs_start_pc = coarse_stubs_create(
         merged, merged->cache_start_pc + merged_cache_size, stubs1_size + stubs2_size);
@@ -1989,7 +1991,8 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
         size_t stubsz = merged->stubs_end_pc - merged->fcache_return_prefix;
         size_t newsz = cachesz_aligned + stubsz;
         size_t old_mapsz = merged->mmap_size;
-        cache_pc newmap = (cache_pc)heap_mmap(newsz, VMM_CACHE);
+        cache_pc newmap = (cache_pc)heap_mmap(
+            newsz, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, VMM_CACHE);
         ssize_t cache_shift = merged->cache_start_pc - newmap;
         /* stubs have moved too, so a relative shift not absolute */
         ssize_t stubs_shift =
