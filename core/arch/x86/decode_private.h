@@ -417,9 +417,9 @@ enum {
     TYPE_INDIR_VAR_REG_SIZEx3x5, /* TYPE_INDIR_VAR_REG but with a size of
                                   * 3 * regular size for 32-bit, 5 * regular
                                   * size for 64-bit */
-    TYPE_K_MODRM,                /* modr/m.rm selects k0-k7 or mem addr */
-    TYPE_K_MODRM_R,              /* modr/m.rm selects k0-k7 */
-    TYPE_K_REG,                  /* modr/m.reg selects k0-k7 */
+    TYPE_K_MODRM,                /* modrm.rm selects k0-k7 or mem addr */
+    TYPE_K_MODRM_R,              /* modrm.rm selects k0-k7 */
+    TYPE_K_REG,                  /* modrm.reg selects k0-k7 */
     TYPE_K_VEX,                  /* vex.vvvv field selects k0-k7 */
     TYPE_K_EVEX,                 /* evex.aaa field selects k0-k7 */
     /* when adding new types, update type_names[] in encode.c */

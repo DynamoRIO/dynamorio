@@ -1838,14 +1838,14 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         return true;
     }
     case TYPE_K_MODRM: {
-        /* part of AVX-512: modr/m.rm selects opmask register or mem addr */
+        /* part of AVX-512: modrm.rm selects opmask register or mem addr */
         if (di->mod != 3) {
             return decode_modrm(di, optype, opsize, NULL, opnd);
         }
         /* fall through*/
     }
     case TYPE_K_MODRM_R: {
-        /* part of AVX-512: modr/m.rm selects opmask register */
+        /* part of AVX-512: modrm.rm selects opmask register */
         *opnd = opnd_create_reg(decode_reg(DECODE_REG_RM, di, optype, opsize));
         /* For VEX encoded scalar opmask instructions, the size is determined
          * by the opcode.
@@ -1853,7 +1853,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         return true;
     }
     case TYPE_K_REG: {
-        /* part of AVX-512: modr/m.reg selects opmask register */
+        /* part of AVX-512: modrm.reg selects opmask register */
         *opnd = opnd_create_reg(decode_reg(DECODE_REG_REG, di, optype, opsize));
         /* AVX-512 VEX encoded scalar opmask instructions, the size is determined
          * by the opcode.
