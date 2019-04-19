@@ -591,7 +591,8 @@ dr_module_import_iterator_stop(dr_module_import_iterator_t *iter)
 
 /* This routine allocates memory from DR's global memory pool.  Unlike
  * dr_global_alloc(), however, we store the size of the allocation in
- * the first few bytes so redirect_free() can retrieve it.
+ * the first few bytes so redirect_free() can retrieve it.  This memory
+ * is also not guaranteed-reachable.
  */
 void *
 redirect_malloc(size_t size)

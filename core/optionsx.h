@@ -1418,11 +1418,14 @@ DYNAMIC_OPTION(bool, pause_via_loop,
         "skip the assert curiosity on out of vm_reserve (for regression tests)")
     OPTION_DEFAULT(bool, vm_reserve, true, "reserve virtual memory")
     OPTION_DEFAULT(uint_size, vm_size, IF_X64_ELSE(512,128)*1024*1024,
+                   "capacity of virtual memory region reserved (maximum supported is "
+                   "512MB for 32-bit and 2GB for 64-bit) for code and reachable heap")
+    OPTION_DEFAULT(uint_size, vmheap_size, IF_X64_ELSE(512,128)*1024*1024,
                    /* XXX: default value is currently not good enough for sqlserver,
                     * for which we need more than 256MB.
                     */
                    "capacity of virtual memory region reserved (maximum supported is "
-                   "512MB for 32-bit and 2GB for 64-bit)")
+                   "512MB for 32-bit and 2GB for 64-bit) for unreachable heap")
 
     /* We hardcode an address in the mmap_text region here, but verify via
      * in vmk_init().
@@ -1437,7 +1440,7 @@ DYNAMIC_OPTION(bool, pause_via_loop,
                    IF_VMX86_ELSE(IF_X64_ELSE(0x40000000,0x10800000),
                                  IF_WINDOWS_ELSE(0x16000000, IF_MACOS_ELSE(
                                  IF_X64_ELSE(0x120000000,0x3f000000),0x3f000000))),
-                   "preferred base address hint")
+                   "preferred base address hint for reachable code+heap")
      /* FIXME: we need to find a good location with no conflict with DLLs or apps allocations */
     OPTION_DEFAULT(uint_addr, vm_max_offset,
                    IF_VMX86_ELSE(IF_X64_ELSE(0x18000000,0x05800000),0x10000000),
@@ -1458,8 +1461,8 @@ DYNAMIC_OPTION(bool, pause_via_loop,
                    "on 64bit request that the dr heap "
                    "be allocated entirely within the lower 4GB of address space so that "
                    "it can be accessed directly as a 32bit address. See PR 215395.")
-    /* XXX i#774: this will become false by default once we split vmheap and vmcode */
-    OPTION_DEFAULT(bool, reachable_heap, true,
+    /* By default we separate heap from code and do not require reachability for heap. */
+    OPTION_DEFAULT(bool, reachable_heap, false,
                    "guarantee that all heap memory is 32-bit-displacement "
                    "reachable from the code cache.")
     OPTION_DEFAULT(bool, reachable_client, true,

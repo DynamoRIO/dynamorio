@@ -2839,11 +2839,6 @@ dr_get_random_seed(void)
 
 /***************************************************************************
  * MEMORY ALLOCATION
- *
- * XXX i#774: once we split vmheap from vmcode, we need to make
- * dr_thread_alloc(), dr_global_alloc(), and dr_nonheap_alloc()
- * all allocate vmcode-reachable memory.  Library-redirected
- * allocations do not need to be reachable.
  */
 
 DR_API
@@ -2854,7 +2849,8 @@ void *
 dr_thread_alloc(void *drcontext, size_t size)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
-    return heap_alloc(dcontext, size HEAPACCT(ACCT_CLIENT));
+    /* For back-compat this is guaranteed-reachable. */
+    return heap_reachable_alloc(dcontext, size HEAPACCT(ACCT_CLIENT));
 }
 
 DR_API
@@ -2867,7 +2863,7 @@ dr_thread_free(void *drcontext, void *mem, size_t size)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     CLIENT_ASSERT(drcontext != NULL, "dr_thread_free: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT, "dr_thread_free: drcontext is invalid");
-    heap_free(dcontext, mem, size HEAPACCT(ACCT_CLIENT));
+    heap_reachable_free(dcontext, mem, size HEAPACCT(ACCT_CLIENT));
 }
 
 DR_API
@@ -2876,7 +2872,8 @@ DR_API
 void *
 dr_global_alloc(size_t size)
 {
-    return global_heap_alloc(size HEAPACCT(ACCT_CLIENT));
+    /* For back-compat this is guaranteed-reachable. */
+    return heap_reachable_alloc(GLOBAL_DCONTEXT, size HEAPACCT(ACCT_CLIENT));
 }
 
 DR_API
@@ -2886,7 +2883,7 @@ DR_API
 void
 dr_global_free(void *mem, size_t size)
 {
-    global_heap_free(mem, size HEAPACCT(ACCT_CLIENT));
+    heap_reachable_free(GLOBAL_DCONTEXT, mem, size HEAPACCT(ACCT_CLIENT));
 }
 
 DR_API
@@ -2894,14 +2891,16 @@ DR_API
 void *
 dr_nonheap_alloc(size_t size, uint prot)
 {
-    return heap_mmap_ex(size, size, prot, false /*no guard pages*/, VMM_SPECIAL_MMAP);
+    return heap_mmap_ex(size, size, prot, false /*no guard pages*/,
+                        /* For back-compat we preserve reachability. */
+                        VMM_SPECIAL_MMAP | VMM_REACHABLE);
 }
 
 DR_API
 void
 dr_nonheap_free(void *mem, size_t size)
 {
-    heap_munmap_ex(mem, size, false /*no guard pages*/, VMM_SPECIAL_MMAP);
+    heap_munmap_ex(mem, size, false /*no guard pages*/, VMM_SPECIAL_MMAP | VMM_REACHABLE);
 }
 
 static void *
@@ -3023,6 +3022,7 @@ static void *
 custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t size,
                      uint prot, void *addr, bool *free_res)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     CLIENT_ASSERT(alloc || free_res != NULL, "must ask for free_res on free");
     CLIENT_ASSERT(alloc || addr != NULL, "cannot free NULL");
     CLIENT_ASSERT(!TESTALL(DR_ALLOC_NON_DR | DR_ALLOC_CACHE_REACHABLE, flags),
@@ -3071,8 +3071,9 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                               addr == NULL,
                           "dr_custom_alloc: cannot ask for addr and cache-reachable");
             /* This flag is here solely so we know which version of free to call */
-            if (TEST(DR_ALLOC_FIXED_LOCATION, flags)) {
-                CLIENT_ASSERT(addr != NULL,
+            if (TEST(DR_ALLOC_FIXED_LOCATION, flags) ||
+                !TEST(DR_ALLOC_CACHE_REACHABLE, flags)) {
+                CLIENT_ASSERT(addr != NULL || !TEST(DR_ALLOC_FIXED_LOCATION, flags),
                               "dr_custom_alloc: fixed location requires an address");
                 if (alloc)
                     return raw_mem_alloc(size, prot, addr, 0);
@@ -3098,17 +3099,30 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                       "dr_custom_alloc: cannot ask for heap in low 2GB");
         CLIENT_ASSERT(!TEST(DR_ALLOC_NON_DR, flags),
                       "dr_custom_alloc: cannot ask for non-DR heap memory");
-        /* for now it's all cache-reachable so we ignore DR_ALLOC_CACHE_REACHABLE */
-        if (TEST(DR_ALLOC_THREAD_PRIVATE, flags)) {
-            if (alloc)
-                return dr_thread_alloc(drcontext, size);
-            else
-                dr_thread_free(drcontext, addr, size);
+        if (TEST(DR_ALLOC_CACHE_REACHABLE, flags)) {
+            if (TEST(DR_ALLOC_THREAD_PRIVATE, flags)) {
+                if (alloc)
+                    return dr_thread_alloc(drcontext, size);
+                else
+                    dr_thread_free(drcontext, addr, size);
+            } else {
+                if (alloc)
+                    return dr_global_alloc(size);
+                else
+                    dr_global_free(addr, size);
+            }
         } else {
-            if (alloc)
-                return dr_global_alloc(size);
-            else
-                dr_global_free(addr, size);
+            if (TEST(DR_ALLOC_THREAD_PRIVATE, flags)) {
+                if (alloc)
+                    return heap_alloc(dcontext, size HEAPACCT(ACCT_CLIENT));
+                else
+                    heap_free(dcontext, addr, size HEAPACCT(ACCT_CLIENT));
+            } else {
+                if (alloc)
+                    return global_heap_alloc(size HEAPACCT(ACCT_CLIENT));
+                else
+                    global_heap_free(addr, size HEAPACCT(ACCT_CLIENT));
+            }
         }
     }
     return NULL;

@@ -123,7 +123,8 @@ instr_clone(dcontext_t *dcontext, instr_t *orig)
 
     if ((orig->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
         /* instr length already set from memcpy */
-        instr->bytes = (byte *)heap_alloc(dcontext, instr->length HEAPACCT(ACCT_IR));
+        instr->bytes =
+            (byte *)heap_reachable_alloc(dcontext, instr->length HEAPACCT(ACCT_IR));
         memcpy((void *)instr->bytes, (void *)orig->bytes, instr->length);
     }
 #ifdef CUSTOM_EXIT_STUBS
@@ -168,10 +169,8 @@ instr_free(dcontext_t *dcontext, instr_t *instr)
 {
     if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
         (*instr->label_cb)(dcontext, instr);
-    if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
-        heap_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
-        instr->bytes = NULL;
-        instr->flags &= ~INSTR_RAW_BITS_ALLOCATED;
+    if (TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags)) {
+        instr_free_raw_bits(dcontext, instr);
     }
 #ifdef CUSTOM_EXIT_STUBS
     if ((instr->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
@@ -318,10 +317,10 @@ instr_build_bits(dcontext_t *dcontext, int opcode, uint num_bytes)
 static int
 private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
 {
-    /* we cannot use a stack buffer for encoding since our stack on x64 linux
-     * can be too far to reach from our heap
+    /* We cannot use a stack buffer for encoding since our stack on x64 linux
+     * can be too far to reach from our heap.  We need reachable heap.
      */
-    byte *buf = heap_alloc(dcontext, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+    byte *buf = heap_reachable_alloc(dcontext, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     uint len;
     /* Do not cache instr opnds as they are pc-relative to final encoding location.
      * Rather than us walking all of the operands separately here, we have
@@ -339,7 +338,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
                                                             instr_get_isa_mode(instr)
                                                                 _IF_ARM(false))
                                         ->name);
-            heap_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+            heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
             return 0;
         }
         /* if unreachable, we can't cache, since re-relativization won't work */
@@ -387,7 +386,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         instr->bytes = tmp;
         instr_set_operands_valid(instr, valid);
     }
-    heap_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+    heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     return len;
 }
 
@@ -1072,7 +1071,8 @@ instr_free_raw_bits(dcontext_t *dcontext, instr_t *instr)
 {
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0)
         return;
-    heap_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
+    heap_reachable_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
+    instr->bytes = NULL;
     instr->flags &= ~INSTR_RAW_BITS_VALID;
     instr->flags &= ~INSTR_RAW_BITS_ALLOCATED;
 }
@@ -1088,7 +1088,9 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
     if ((instr->flags & INSTR_RAW_BITS_VALID) != 0)
         original_bits = instr->bytes;
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0 || instr->length != num_bytes) {
-        byte *new_bits = (byte *)heap_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR));
+        /* We need reachable heap for rip-rel re-relativization. */
+        byte *new_bits =
+            (byte *)heap_reachable_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR));
         if (original_bits != NULL) {
             /* copy original bits into modified bits so can just modify
              * a few and still have all info in one place

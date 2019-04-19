@@ -108,13 +108,16 @@ void
 vmcode_get_reachable_region(byte **region_start OUT, byte **region_end OUT);
 #endif
 
-/* virtual heap manager */
+/* Virtual memory types.  These are bitmask values. */
 typedef enum {
-    VMM_HEAP = 0,
-    VMM_CACHE,
-    VMM_STACK,
-    VMM_SPECIAL_HEAP,
-    VMM_SPECIAL_MMAP,
+    /* Mutually-exclusive core types. */
+    VMM_HEAP = 0x0001,
+    VMM_CACHE = 0x0002,
+    VMM_STACK = 0x0004,
+    VMM_SPECIAL_HEAP = 0x0008,
+    VMM_SPECIAL_MMAP = 0x0010,
+    /* These modify the core types. */
+    VMM_REACHABLE = 0x0020,
 } which_vmm_t;
 
 void
@@ -123,12 +126,13 @@ void
 vmm_heap_exit(void);
 void
 print_vmm_heap_data(file_t outf);
-void
-get_vmm_heap_bounds(byte **heap_start /*OUT*/, byte **heap_end /*OUT*/);
 byte *
 vmcode_get_start();
 byte *
 vmcode_get_end();
+void
+iterate_vmm_regions(void (*cb)(byte *region_start, byte *region_end, void *user_data),
+                    void *user_data);
 byte *
 vmcode_unreachable_pc();
 
@@ -136,7 +140,8 @@ bool
 heap_check_option_compatibility(void);
 
 bool
-is_vmm_reserved_address(byte *pc, size_t size);
+is_vmm_reserved_address(byte *pc, size_t size, OUT byte **region_start,
+                        OUT byte **region_end);
 bool
 rel32_reachable_from_vmcode(byte *target);
 
@@ -248,6 +253,13 @@ nonpersistent_heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t
 void
 nonpersistent_heap_free(dcontext_t *dcontext, void *p,
                         size_t size HEAPACCT(which_heap_t which));
+
+/* Passing dcontext == GLOBAL_DCONTEXT allocates from a global pool. */
+void *
+heap_reachable_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which));
+void
+heap_reachable_free(dcontext_t *dcontext, void *p,
+                    size_t size HEAPACCT(which_heap_t which));
 
 bool
 local_heap_protected(dcontext_t *dcontext);
