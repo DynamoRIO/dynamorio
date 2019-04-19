@@ -868,12 +868,14 @@ void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
         heap_munmap(shared_code, GENCODE_RESERVE_SIZE, VMM_SPECIAL_MMAP | VMM_REACHABLE);
     }
 #if defined(X86) && defined(X64)
-    if (shared_code_x86 != NULL)
+    if (shared_code_x86 != NULL) {
         heap_munmap(shared_code_x86, GENCODE_RESERVE_SIZE,
                     VMM_SPECIAL_MMAP | VMM_REACHABLE);
-    if (shared_code_x86_to_x64 != NULL)
+    }
+    if (shared_code_x86_to_x64 != NULL) {
         heap_munmap(shared_code_x86_to_x64, GENCODE_RESERVE_SIZE,
                     VMM_SPECIAL_MMAP | VMM_REACHABLE);
+    }
 #endif
     interp_exit();
     mangle_exit();
