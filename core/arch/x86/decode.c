@@ -1855,7 +1855,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     case TYPE_K_REG: {
         /* part of AVX-512: modrm.reg selects opmask register */
         *opnd = opnd_create_reg(decode_reg(DECODE_REG_REG, di, optype, opsize));
-        /* AVX-512 VEX encoded scalar opmask instructions, the size is determined
+        /* for AVX-512 VEX encoded scalar opmask instructions, the size is determined
          * by the opcode.
          */
         return true;
@@ -1863,13 +1863,14 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     case TYPE_K_VEX: {
         /* part of AVX-512: vex.vvvv selects opmask register */
         *opnd = opnd_create_reg(decode_reg(DECODE_REG_VEX, di, optype, opsize));
-        /* AVX-512 VEX encoded scalar opmask instructions, the size is determined
+        /* For AVX-512 VEX encoded scalar opmask instructions, the size is determined
          * by the opcode.
          */
         return true;
     }
     case TYPE_K_EVEX: {
-        CLIENT_ASSERT(false, "decode error: unsupported.");
+        /* XXX i#1312: will be supported as part of the AVX-512 EVEX encodings. */
+        CLIENT_ASSERT(false, "XXX i#1312: decode error: unsupported yet.");
     }
     default:
         /* ok to assert, types coming only from instr_info_t */
