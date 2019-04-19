@@ -386,8 +386,10 @@ monitor_thread_exit(dcontext_t *dcontext)
      */
     trace_abort(dcontext);
 #ifdef DEBUG
-    if (md->trace_buf != NULL)
-        heap_free(dcontext, md->trace_buf, md->trace_buf_size HEAPACCT(ACCT_TRACE));
+    if (md->trace_buf != NULL) {
+        heap_reachable_free(dcontext, md->trace_buf,
+                            md->trace_buf_size HEAPACCT(ACCT_TRACE));
+    }
     if (md->blk_info != NULL) {
         heap_free(dcontext, md->blk_info,
                   md->blk_info_length * sizeof(trace_bb_build_t) HEAPACCT(ACCT_TRACE));
@@ -1011,15 +1013,16 @@ make_room_in_trace_buffer(dcontext_t *dcontext, uint add_size, fragment_t *f)
                 size);
             return false;
         }
-        /* re-allocate trace buf */
+        /* Re-allocate trace buf.  It must be reachable for rip-rel re-relativization. */
         LOG(THREAD, LOG_MONITOR, 3, "\nRe-allocating trace buffer from %d to %d bytes\n",
             md->trace_buf_size, size);
-        new_tbuf = heap_alloc(dcontext, size HEAPACCT(ACCT_TRACE));
+        new_tbuf = heap_reachable_alloc(dcontext, size HEAPACCT(ACCT_TRACE));
         if (md->trace_buf != NULL) {
             /* copy entire thing, just in case */
             IF_X64(ASSERT_NOT_REACHED()); /* can't copy w/o re-relativizing! */
             memcpy(new_tbuf, md->trace_buf, md->trace_buf_size);
-            heap_free(dcontext, md->trace_buf, md->trace_buf_size HEAPACCT(ACCT_TRACE));
+            heap_reachable_free(dcontext, md->trace_buf,
+                                md->trace_buf_size HEAPACCT(ACCT_TRACE));
             realloc_shift = new_tbuf - md->trace_buf;
             /* need to walk through trace instr_t list and update addresses */
             instr = instrlist_first(trace);

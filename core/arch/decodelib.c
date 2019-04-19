@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -100,8 +100,21 @@ heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
     return malloc(size);
 }
 
+void *
+heap_reachable_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
+{
+    return malloc(size);
+}
+
 void
 heap_free(dcontext_t *dcontext, void *p, size_t size HEAPACCT(which_heap_t which))
+{
+    free(p);
+}
+
+void
+heap_reachable_free(dcontext_t *dcontext, void *p,
+                    size_t size HEAPACCT(which_heap_t which))
 {
     free(p);
 }
