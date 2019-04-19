@@ -1854,7 +1854,14 @@ d_r_heap_exit()
 
     /* Now we need to go back to the static struct to clean up */
     ASSERT(heapmgt != &temp_heapmgt);
+    /* We need to maintain the lock process list which was using the temp_heapmgt
+     * lock structure.
+     */
+    mutex_t temp_vmcode = temp_heapmgt.vmcode.lock;
+    mutex_t temp_vmheap = temp_heapmgt.vmheap.lock;
     memcpy(&temp_heapmgt, heapmgt, sizeof(temp_heapmgt));
+    temp_heapmgt.vmcode.lock = temp_vmcode;
+    temp_heapmgt.vmheap.lock = temp_vmheap;
     temp = heapmgt;
     heapmgt = &temp_heapmgt;
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, temp, heap_management_t, ACCT_MEM_MGT, PROTECTED);
