@@ -1855,7 +1855,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     case TYPE_K_REG: {
         /* part of AVX-512: modrm.reg selects opmask register */
         *opnd = opnd_create_reg(decode_reg(DECODE_REG_REG, di, optype, opsize));
-        /* for AVX-512 VEX encoded scalar opmask instructions, the size is determined
+        /* For AVX-512 VEX encoded scalar opmask instructions, the size is determined
          * by the opcode.
          */
         return true;

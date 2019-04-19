@@ -2589,7 +2589,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
      * and some opcode bytes
      */
     if (TEST(REQUIRES_VEX, info->flags)) {
-        if (TEST(REQUIRES_VEX_W_1, info->flags)) {
+        if (TEST(OPCODE_MODRM, info->opcode)) {
             di.prefixes |= PREFIX_REX_W;
         }
         field_ptr = encode_vex_prefixes(field_ptr, &di, info, &output_initial_opcode);

@@ -252,14 +252,6 @@ enum {
 #define HAS_PRED_CC 0x0400
 /* Predicated via something complex */
 #define HAS_PRED_COMPLEX 0x0800
-/* Instr must be encoded with VEX.W=1.  If VEX.W=0 this is an invalid instr.
- * While we still have vex_W_extensions entries, the encoder needs this flag.
- * That's because for some VEX instructions this is an opcode extension. If
- * this bit is badly needed (e.g. if we're running out of space in the flags
- * field, then this also could get encoded as part of the opcode as a new
- * leading byte).
- */
-#define REQUIRES_VEX_W_1 0x1000
 
 struct _decode_info_t {
     uint opcode;
