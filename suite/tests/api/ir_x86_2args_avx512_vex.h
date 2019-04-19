@@ -45,11 +45,15 @@ OPCODE(kmovq_mk, kmovq, kmovq, 0, MEMARG(OPSZ_8), DR_REGARG(K6))
 OPCODE(kmovd_mk, kmovd, kmovd, 0, MEMARG(OPSZ_4), DR_REGARG(K7))
 OPCODE(kmovw_kr, kmovw, kmovw, 0, DR_REGARG(K0), DR_REGARG(EAX))
 OPCODE(kmovb_kr, kmovb, kmovb, 0, DR_REGARG(K1), DR_REGARG(EBX))
+#ifdef X64
 OPCODE(kmovq_kr, kmovq, kmovq, 0, DR_REGARG(K2), DR_REGARG(RCX))
+#endif
 OPCODE(kmovd_kr, kmovd, kmovd, 0, DR_REGARG(K3), DR_REGARG(EDX))
 OPCODE(kmovw_rk, kmovw, kmovw, 0, DR_REGARG(ESI), DR_REGARG(K4))
 OPCODE(kmovb_rk, kmovb, kmovb, 0, DR_REGARG(EDI), DR_REGARG(K5))
-OPCODE(kmovq_rk, kmovq, kmovq, 0, DR_REGARG(RAX), DR_REGARG(K6))
+#ifdef X64
+PCODE(kmovq_rk, kmovq, kmovq, 0, DR_REGARG(RAX), DR_REGARG(K6))
+#endif
 OPCODE(kmovd_rk, kmovd, kmovd, 0, DR_REGARG(EBX), DR_REGARG(K7))
 OPCODE(knotw_kk, knotw, knotw, 0, DR_REGARG(K0), DR_REGARG(K1))
 OPCODE(knotb_kk, knotb, knotb, 0, DR_REGARG(K2), DR_REGARG(K3))
