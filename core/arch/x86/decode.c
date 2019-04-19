@@ -1869,7 +1869,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         return true;
     }
     case TYPE_K_EVEX: {
-        /* XXX i#1312: will be supported as part of the AVX-512 EVEX encodings. */
+        /* TODO i#1312: will be supported as part of the AVX-512 EVEX encodings. */
         CLIENT_ASSERT(false, "XXX i#1312: decode error: unsupported yet.");
     }
     default:
