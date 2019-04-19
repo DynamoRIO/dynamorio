@@ -2099,12 +2099,12 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
     }
     case TYPE_K_REG: {
         reg_id_t reg = opnd_get_reg(opnd);
-        di->reg = reg - DR_REG_START_OPMASK;
+        di->reg = (byte)(reg - DR_REG_START_OPMASK);
         return;
     }
     case TYPE_K_VEX: {
         reg_id_t reg = opnd_get_reg(opnd);
-        di->vex_vvvv = reg - DR_REG_START_OPMASK;
+        di->vex_vvvv = (byte)(reg - DR_REG_START_OPMASK);
         di->vex_vvvv = (~di->vex_vvvv) & 0xf;
         return;
     }
