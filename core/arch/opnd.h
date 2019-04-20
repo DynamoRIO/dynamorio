@@ -2768,16 +2768,19 @@ reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value);
 
 DR_API
 /**
- * Sets the register \p reg in the passed in mcontext \p mc to \p value.
+ * Sets the register \p reg in the passed in mcontext \p mc to the value
+ * stored in the buffer \p val_buf.
+ * 
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
  *
- * Supports not only general purpose registers, but xmm, mmxm and ymm.
+ * Unlike \p reg_set_value, this function supports not only general purpose
+ * registers, but xmm, mmxm and ymm.
  *
- * Up to sizeof(dr_ymm_t) bytes will be read from \p val.
- *
+ * Up to sizeof(dr_ymm_t) bytes will be read from \p val_buf. The \p size
+ * paramter indicates the size of the input buffer.
  */
 void
-reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val);
+reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf);
 
 /* internal version */
 void
