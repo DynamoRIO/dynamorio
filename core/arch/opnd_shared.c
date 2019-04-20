@@ -1819,18 +1819,20 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t s
  
     if (opnd_size_in_bytes(reg_size) < size)
         return false;
-    
+
+    dr_zmm_t *simd = (dr_zmm_t *) ((byte *)mc + SIMD_OFFSET);
+
 #ifdef X86
-    if (reg_is_gpr(reg)){
-	byte *reg_val_addr = ((byte *)mc + opnd_get_reg_mcontext_offs(reg));
+    if (reg_is_gpr(reg)) {
+        byte *reg_val_addr = ((byte *)mc + opnd_get_reg_mcontext_offs(reg));
         memcpy(reg_val_addr, val_buf, size);
     } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
-        dr_ymm_t *simd = (dr_ymm_t *) ((byte *)mc + SIMD_OFFSET);
         memcpy(&(simd[reg - DR_REG_START_XMM]), val_buf, size);
     } else if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) {
-        dr_ymm_t *simd = (dr_ymm_t *) ((byte *)mc + SIMD_OFFSET);
         memcpy(&(simd[reg - DR_REG_START_YMM]), val_buf, size);
-    } 
+    } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
+        memcpy(&(simd[reg - DR_REG_START_ZMM]), val_buf, size);        
+    }
 #else
     /* Note, we can reach here for MMX register */
     CLIENT_ASSERT(false, "NYI i#1551");
