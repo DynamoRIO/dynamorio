@@ -1816,7 +1816,7 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t s
 
     if (reg_size == OPSZ_NA)
         return false;
- 
+
     if (opnd_size_in_bytes(reg_size) < size)
         return false;
 
@@ -1831,7 +1831,7 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t s
     } else if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) {
         memcpy(&(simd[reg - DR_REG_START_YMM]), val_buf, size);
     } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
-        memcpy(&(simd[reg - DR_REG_START_ZMM]), val_buf, size);        
+        memcpy(&(simd[reg - DR_REG_START_ZMM]), val_buf, size);
     }
 #else
     /* Note, we can reach here for MMX register */

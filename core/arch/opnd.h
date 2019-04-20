@@ -2771,7 +2771,7 @@ DR_API
 /**
  * Sets the register \p reg in the passed in mcontext \p mc to the value
  * stored in the buffer \p val_buf.
- * 
+ *
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
  *
  * Unlike \p reg_set_value, this function supports not only general purpose
