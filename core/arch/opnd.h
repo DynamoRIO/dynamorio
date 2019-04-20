@@ -2762,6 +2762,7 @@ DR_API
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
  * \note This function is limited to setting pointer-sized registers only
  * (no sub-registers, and no non-general-purpose registers).
+ * See \p reg_set_value_ex for setting other register values.
  */
 void
 reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value);
