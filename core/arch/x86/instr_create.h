@@ -1396,27 +1396,6 @@
     instr_create_1dst_1src((dc), OP_vphsubwd, (d), (s))
 #define INSTR_CREATE_vphsubdq(dc, d, s) \
     instr_create_1dst_1src((dc), OP_vphsubdq, (d), (s))
-/* AVX-512 VEX */
-#define INSTR_CREATE_kmovw(dc, d, s) instr_create_1dst_1src((dc), OP_kmovw, (d), (s))
-#define INSTR_CREATE_kmovb(dc, d, s) instr_create_1dst_1src((dc), OP_kmovb, (d), (s))
-#define INSTR_CREATE_kmovq(dc, d, s) instr_create_1dst_1src((dc), OP_kmovq, (d), (s))
-#define INSTR_CREATE_kmovd(dc, d, s) instr_create_1dst_1src((dc), OP_kmovd, (d), (s))
-#define INSTR_CREATE_knotw(dc, d, s) instr_create_1dst_1src((dc), OP_knotw, (d), (s))
-#define INSTR_CREATE_knotb(dc, d, s) instr_create_1dst_1src((dc), OP_knotb, (d), (s))
-#define INSTR_CREATE_knotq(dc, d, s) instr_create_1dst_1src((dc), OP_knotq, (d), (s))
-#define INSTR_CREATE_knotd(dc, d, s) instr_create_1dst_1src((dc), OP_knotd, (d), (s))
-#define INSTR_CREATE_kortestw(dc, d, s) \
-    instr_create_1dst_1src((dc), OP_kortestw, (d), (s))
-#define INSTR_CREATE_kortestb(dc, d, s) \
-    instr_create_1dst_1src((dc), OP_kortestb, (d), (s))
-#define INSTR_CREATE_kortestq(dc, d, s) \
-    instr_create_1dst_1src((dc), OP_kortestq, (d), (s))
-#define INSTR_CREATE_kortestd(dc, d, s) \
-    instr_create_1dst_1src((dc), OP_kortestd, (d), (s))
-#define INSTR_CREATE_ktestw(dc, d, s) instr_create_1dst_1src((dc), OP_ktestw, (d), (s))
-#define INSTR_CREATE_ktestb(dc, d, s) instr_create_1dst_1src((dc), OP_ktestb, (d), (s))
-#define INSTR_CREATE_ktestq(dc, d, s) instr_create_1dst_1src((dc), OP_ktestq, (d), (s))
-#define INSTR_CREATE_ktestd(dc, d, s) instr_create_1dst_1src((dc), OP_ktestd, (d), (s))
 /* TBM */
 #define INSTR_CREATE_blcfill(dc, d, s) instr_create_1dst_1src((dc), OP_blcfill, (d), (s))
 #define INSTR_CREATE_blci(dc, d, s) instr_create_1dst_1src((dc), OP_blci, (d), (s))
@@ -1446,6 +1425,27 @@
 /* ADX */
 #define INSTR_CREATE_adox(dc, d, s) instr_create_1dst_1src((dc), OP_adox, (d), (s))
 #define INSTR_CREATE_adcx(dc, d, s) instr_create_1dst_1src((dc), OP_adcx, (d), (s))
+/* AVX-512 VEX */
+#define INSTR_CREATE_kmovw(dc, d, s) instr_create_1dst_1src((dc), OP_kmovw, (d), (s))
+#define INSTR_CREATE_kmovb(dc, d, s) instr_create_1dst_1src((dc), OP_kmovb, (d), (s))
+#define INSTR_CREATE_kmovq(dc, d, s) instr_create_1dst_1src((dc), OP_kmovq, (d), (s))
+#define INSTR_CREATE_kmovd(dc, d, s) instr_create_1dst_1src((dc), OP_kmovd, (d), (s))
+#define INSTR_CREATE_knotw(dc, d, s) instr_create_1dst_1src((dc), OP_knotw, (d), (s))
+#define INSTR_CREATE_knotb(dc, d, s) instr_create_1dst_1src((dc), OP_knotb, (d), (s))
+#define INSTR_CREATE_knotq(dc, d, s) instr_create_1dst_1src((dc), OP_knotq, (d), (s))
+#define INSTR_CREATE_knotd(dc, d, s) instr_create_1dst_1src((dc), OP_knotd, (d), (s))
+#define INSTR_CREATE_kortestw(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_kortestw, (d), (s))
+#define INSTR_CREATE_kortestb(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_kortestb, (d), (s))
+#define INSTR_CREATE_kortestq(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_kortestq, (d), (s))
+#define INSTR_CREATE_kortestd(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_kortestd, (d), (s))
+#define INSTR_CREATE_ktestw(dc, d, s) instr_create_1dst_1src((dc), OP_ktestw, (d), (s))
+#define INSTR_CREATE_ktestb(dc, d, s) instr_create_1dst_1src((dc), OP_ktestb, (d), (s))
+#define INSTR_CREATE_ktestq(dc, d, s) instr_create_1dst_1src((dc), OP_ktestq, (d), (s))
+#define INSTR_CREATE_ktestd(dc, d, s) instr_create_1dst_1src((dc), OP_ktestd, (d), (s))
 
 /* @} */ /* end doxygen group */
 
