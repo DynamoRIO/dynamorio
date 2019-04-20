@@ -34,9 +34,15 @@
 #include "proc.h"
 #include "instr.h"
 
+static int num_simd_saved;
+static int num_simd_registers;
+
 void
 proc_init_arch(void)
 {
+    num_simd_saved = MCXT_NUM_SIMD_SLOTS;
+    num_simd_registers = MCXT_NUM_SIMD_SLOTS;
+
     /* FIXME i#1569: NYI */
 }
 
@@ -59,6 +65,20 @@ proc_fpstate_save_size(void)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return 0;
+}
+
+DR_API
+int
+proc_num_simd_saved(void)
+{
+    return num_simd_saved;
+}
+
+DR_API
+int
+proc_num_simd_registers(void)
+{
+    return num_simd_registers;
 }
 
 DR_API

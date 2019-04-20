@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Google, Inc. nor the names of its contributors may be
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,26 +30,13 @@
  * DAMAGE.
  */
 
-/*
- * cross-platform assembly and trampoline code
+/* Default implementation to avoid the user of drlibc having to supply one.
+ * We need to separate these as the MSVC linker will not complain about duplicate
+ * symbols if an .obj has just one symbol in it.
  */
 
-#include "asm_defines.asm"
-START_FILE
+#define DR_NO_FAST_IR /* Avoid pulling in deps from instr_inline.h from globals.h */
+#include "../globals.h"
 
-DECL_EXTERN(internal_error)
-
-/* For debugging: report an error if the function called by call_switch_stack()
- * unexpectedly returns.  Also used elsewhere.
- */
-        DECLARE_FUNC(unexpected_return)
-GLOBAL_LABEL(unexpected_return:)
-        CALLC3(GLOBAL_REF(internal_error), HEX(0), HEX(0), HEX(0))
-        /* internal_error normally never returns */
-        /* Infinite loop is intentional.  Can we do better in release build?
-         * XXX: why not a debug instr?
-         */
-        JUMP  GLOBAL_REF(unexpected_return)
-        END_FUNC(unexpected_return)
-
-END_FILE
+static dr_statistics_t libmodule_stats;
+WEAK dr_statistics_t *d_r_stats = &libmodule_stats;

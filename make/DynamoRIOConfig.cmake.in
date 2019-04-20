@@ -177,14 +177,21 @@
 #
 #  set(DynamoRIO_VISATT ON)
 #
-# To request the old REG_ enum symbols (which were changed to DR_REG_ to
-# avoid conflicts with system headers) set this variable:
+# To request the old REG_ enum symbols (which were changed to DR_REG_ to avoid
+# conflicts with system headers) set this variable. The newly added x86 AVX-512
+# registers DR_REG_ZMM0 - DR_REG_ZMM31 as well as DR_REG_K0 - DR_REG_K7 will not
+# be provided a deprecated REG_ name and are only available via DR_REG_ symbol.
+#
 #
 #  set(DynamoRIO_REG_COMPATIBILITY ON)
 #
 # To request that PAGE_SIZE and PAGE_START be defined set this variable:
 #
 #  set(DynamoRIO_PAGE_SIZE_COMPATIBILITY ON)
+#
+# To request that NUM_SIMD_SLOTS and NUM_XMM_SLOTS be defined set this variable:
+#
+#  set(DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY ON)
 #
 # To request a preferred base even when not targeting 64-bit:
 # (the actual base will use PREFERRED_BASE if set)
@@ -573,6 +580,10 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
   if (DynamoRIO_PAGE_SIZE_COMPATIBILITY)
     set(extra_cflags "${extra_cflags} -DDR_PAGE_SIZE_COMPATIBILITY")
   endif (DynamoRIO_PAGE_SIZE_COMPATIBILITY)
+
+  if (DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY)
+    set(extra_cflags "${extra_cflags} -DDR_NUM_SIMD_SLOTS_COMPATIBILITY")
+  endif (DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY)
 
   if (DynamoRIO_LOG_COMPATIBILITY)
     set(extra_cflags "${extra_cflags} -DDR_LOG_DEFINE_COMPATIBILITY")

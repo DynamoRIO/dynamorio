@@ -68,8 +68,6 @@
 #    include "synch.h" /* all_threads_synch_lock */
 #endif
 
-#include <string.h>
-
 enum {
     /* VM_ flags to distinguish region types
      * We also use some FRAG_ flags (but in a separate field so no value space overlap)
@@ -243,7 +241,7 @@ typedef struct thread_data_t {
     do {                                 \
         if (SHOULD_LOCK_VECTOR(v)) {     \
             (release_lock) = true;       \
-            RW##_lock(&(v)->lock);       \
+            d_r_##RW##_lock(&(v)->lock); \
         } else                           \
             (release_lock) = false;      \
     } while (0);
@@ -254,7 +252,7 @@ typedef struct thread_data_t {
             ASSERT(TEST(VECTOR_SHARED, (v)->flags));     \
             ASSERT(!TEST(VECTOR_NO_LOCK, (v)->flags));   \
             ASSERT_OWN_READWRITE_LOCK(true, &(v)->lock); \
-            RW##_unlock(&v->lock);                       \
+            d_r_##RW##_unlock(&v->lock);                 \
         }                                                \
     } while (0);
 
@@ -433,7 +431,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t lazy_delete_lock, INIT_LOCK_FREE(lazy_delet
     do {                                        \
         if (TEST(VECTOR_SHARED, (v)->flags)) {  \
             ASSERT(SHARED_FRAGMENTS_ENABLED()); \
-            rw##_##op(&(v)->lock);              \
+            d_r_##rw##_##op(&(v)->lock);        \
         }                                       \
     } while (0)
 #define ASSERT_VMAREA_DATA_PROTECTED(data, RW)                          \
@@ -699,7 +697,7 @@ revert_memory_regions()
     /* executable_areas doesn't exist in thin_client mode. */
     ASSERT(!DYNAMO_OPTION(thin_client));
 
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     for (i = 0; i < executable_areas->length; i++) {
         if (DR_MADE_READONLY(executable_areas->buf[i].vm_flags)) {
             /* this is a region that dynamorio has marked read only, fix */
@@ -712,7 +710,7 @@ revert_memory_regions()
                                  executable_areas->buf[i].start);
         }
     }
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
 }
 
 static void
@@ -2159,7 +2157,7 @@ vmvector_iterator_start(vm_area_vector_t *v, vmvector_iterator_t *vmvi)
     ASSERT(v != NULL);
     ASSERT(vmvi != NULL);
     if (SHOULD_LOCK_VECTOR(v))
-        read_lock(&v->lock);
+        d_r_read_lock(&v->lock);
     vmvi->vector = v;
     vmvi->index = -1;
 }
@@ -2223,7 +2221,7 @@ vmvector_iterator_stop(vmvector_iterator_t *vmvi)
 {
     ASSERT_VMAREA_VECTOR_PROTECTED(vmvi->vector, READWRITE);
     if (SHOULD_LOCK_VECTOR(vmvi->vector))
-        read_unlock(&vmvi->vector->lock);
+        d_r_read_unlock(&vmvi->vector->lock);
     DODEBUG({
         vmvi->vector = NULL; /* crash incorrect reuse */
         vmvi->index = -1;
@@ -2681,9 +2679,9 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
 #ifdef HOT_PATCHING_INTERFACE
         /* case 9970: need to check hotp vs perscache; rank order hotp < exec_areas */
         if (DYNAMO_OPTION(hot_patching))
-            read_lock(hotp_get_lock());
+            d_r_read_lock(hotp_get_lock());
 #endif
-        write_lock(&executable_areas->lock);
+        d_r_write_lock(&executable_areas->lock);
     }
     ASSERT_OWN_WRITE_LOCK(true, &executable_areas->lock);
     /* FIXME: rather than change all callers who already hold exec_areas lock
@@ -2736,10 +2734,10 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
     });
 
     if (!have_writelock) {
-        write_unlock(&executable_areas->lock);
+        d_r_write_unlock(&executable_areas->lock);
 #ifdef HOT_PATCHING_INTERFACE
         if (DYNAMO_OPTION(hot_patching))
-            read_unlock(hotp_get_lock());
+            d_r_read_unlock(hotp_get_lock());
 #endif
     }
     if (tofree != NULL) {
@@ -2778,10 +2776,10 @@ remove_executable_vm_area(app_pc start, app_pc end, bool have_writelock)
     LOG(GLOBAL, LOG_VMAREAS, 2, "removing executable vm area: " PFX "-" PFX "\n", start,
         end);
     if (!have_writelock)
-        write_lock(&executable_areas->lock);
+        d_r_write_lock(&executable_areas->lock);
     ok = remove_vm_area(executable_areas, start, end, true /*restore writability!*/);
     if (!have_writelock)
-        write_unlock(&executable_areas->lock);
+        d_r_write_unlock(&executable_areas->lock);
     return ok;
 }
 
@@ -2808,7 +2806,7 @@ vm_area_delay_load_coarse_units(void)
         /* we already loaded if there's no client */
         !CLIENTS_EXIST())
         return;
-    write_lock(&executable_areas->lock);
+    d_r_write_lock(&executable_areas->lock);
     for (i = 0; i < executable_areas->length; i++) {
         if (TEST(FRAG_COARSE_GRAIN, executable_areas->buf[i].frag_flags)) {
             vm_area_t *a = &executable_areas->buf[i];
@@ -2832,7 +2830,7 @@ vm_area_delay_load_coarse_units(void)
                 ASSERT_NOT_REACHED(); /* shouldn't have been loaded already */
         }
     }
-    write_unlock(&executable_areas->lock);
+    d_r_write_unlock(&executable_areas->lock);
 }
 #endif
 
@@ -2903,10 +2901,10 @@ add_futureexec_vm_area(app_pc start, app_pc end,
         mark_unload_future_added(start, end - start);
     }
 
-    write_lock(&futureexec_areas->lock);
+    d_r_write_lock(&futureexec_areas->lock);
     add_vm_area(futureexec_areas, start, end, (once_only ? VM_ONCE_ONLY : 0),
                 0 /* frag_flags */, NULL _IF_DEBUG(comment));
-    write_unlock(&futureexec_areas->lock);
+    d_r_write_unlock(&futureexec_areas->lock);
     return true;
 }
 
@@ -2917,9 +2915,9 @@ remove_futureexec_vm_area(app_pc start, app_pc end)
     bool ok;
     LOG(GLOBAL, LOG_VMAREAS, 2, "removing FUTURE executable vm area: " PFX "-" PFX "\n",
         start, end);
-    write_lock(&futureexec_areas->lock);
+    d_r_write_lock(&futureexec_areas->lock);
     ok = remove_vm_area(futureexec_areas, start, end, false);
-    write_unlock(&futureexec_areas->lock);
+    d_r_write_unlock(&futureexec_areas->lock);
     return ok;
 }
 
@@ -2928,9 +2926,9 @@ static bool
 futureexec_vm_area_overlap(app_pc start, app_pc end)
 {
     bool overlap;
-    read_lock(&futureexec_areas->lock);
+    d_r_read_lock(&futureexec_areas->lock);
     overlap = vm_area_overlap(futureexec_areas, start, end);
-    read_unlock(&futureexec_areas->lock);
+    d_r_read_unlock(&futureexec_areas->lock);
     return overlap;
 }
 #endif /* PROGRAM_SHEPHERDING */
@@ -2940,9 +2938,9 @@ bool
 is_executable_address(app_pc addr)
 {
     bool found;
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     found = lookup_addr(executable_areas, addr, NULL);
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
     return found;
 }
 
@@ -2955,12 +2953,12 @@ get_executable_area_vm_flags(app_pc addr, uint *vm_flags)
 {
     bool found = false;
     vm_area_t *area;
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     if (lookup_addr(executable_areas, addr, &area)) {
         *vm_flags = area->vm_flags;
         found = true;
     }
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
     return found;
 }
 
@@ -2975,12 +2973,12 @@ get_executable_area_flags(app_pc addr, uint *frag_flags)
 {
     bool found = false;
     vm_area_t *area;
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     if (lookup_addr(executable_areas, addr, &area)) {
         *frag_flags = area->frag_flags;
         found = true;
     }
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
     return found;
 }
 
@@ -3003,7 +3001,7 @@ get_coarse_info_internal(app_pc addr, bool init, bool have_shvm_lock)
     bool reset_unit = false;
     /* FIXME perf opt: have a last_area */
     /* FIXME: could use vmvector_lookup_data() but I need area->{vm,frag}_flags */
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     if (lookup_addr(executable_areas, addr, &area)) {
         ASSERT(area != NULL);
         /* The custom field is initialized to 0 in add_vm_area */
@@ -3036,7 +3034,7 @@ get_coarse_info_internal(app_pc addr, bool init, bool have_shvm_lock)
             DODEBUG({ area_copy = *area; }); /* for ASSERT below */
         }
     }
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
 
     if (coarse != NULL && init) {
         /* For 4.3, bounds check is done at post-rebind validation;
@@ -3085,8 +3083,8 @@ mark_executable_area_coarse_frozen(coarse_info_t *frozen)
 {
     vm_area_t *area = NULL;
     coarse_info_t *info;
-    ASSERT(frozen->frozen);              /* caller should mark */
-    write_lock(&executable_areas->lock); /* since writing flags */
+    ASSERT(frozen->frozen);                  /* caller should mark */
+    d_r_write_lock(&executable_areas->lock); /* since writing flags */
     if (lookup_addr(executable_areas, frozen->base_pc, &area)) {
         ASSERT(area != NULL);
         /* The custom field is initialized to 0 in add_vm_area */
@@ -3102,7 +3100,7 @@ mark_executable_area_coarse_frozen(coarse_info_t *frozen)
         } else
             ASSERT(!TEST(FRAG_COARSE_GRAIN, area->frag_flags));
     }
-    write_unlock(&executable_areas->lock);
+    d_r_write_unlock(&executable_areas->lock);
 }
 
 /* iterates through all executable areas overlapping the pages touched
@@ -3167,10 +3165,10 @@ bool
 is_executable_area_writable(app_pc addr)
 {
     bool writable;
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     writable = executable_areas_match_flags(addr, addr + 1 /* open ended */, NULL, NULL,
                                             false /* EXISTS */, VM_MADE_READONLY, 0);
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
     return writable;
 }
 
@@ -3179,10 +3177,10 @@ is_executable_area_writable_overlap(app_pc start, app_pc end)
 {
     app_pc match_start = NULL;
     bool writable;
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     writable = executable_areas_match_flags(start, end, NULL, &match_start,
                                             false /* EXISTS */, VM_MADE_READONLY, 0);
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
     return match_start;
 }
 
@@ -3201,10 +3199,10 @@ is_executable_area_overlap(app_pc start, app_pc end, bool are_all_matching,
                            uint match_vm_flags)
 {
     bool writable;
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     writable = executable_areas_match_flags(start, end, NULL, NULL, are_all_matching,
                                             match_vm_flags, 0);
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
     return writable;
 }
 #endif
@@ -3225,10 +3223,10 @@ bool
 executable_vm_area_coarse_overlap(app_pc start, app_pc end)
 {
     bool match;
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     match = executable_areas_match_flags(start, end, NULL, NULL,
                                          false /*exists, not all*/, 0, FRAG_COARSE_GRAIN);
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
     return match;
 }
 
@@ -3239,10 +3237,10 @@ bool
 executable_vm_area_persisted_overlap(app_pc start, app_pc end)
 {
     bool match;
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     match = executable_areas_match_flags(
         start, end, NULL, NULL, false /*exists, not all*/, VM_PERSISTED_CACHE, 0);
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
     return match;
 }
 
@@ -3251,10 +3249,10 @@ bool
 executable_vm_area_executed_from(app_pc start, app_pc end)
 {
     bool match;
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     match = executable_areas_match_flags(start, end, NULL, NULL,
                                          false /*exists, not all*/, VM_EXECUTED_FROM, 0);
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
     return match;
 }
 
@@ -3282,7 +3280,7 @@ executable_area_overlap_bounds(app_pc start, app_pc end, app_pc *overlap_start /
     int start_index, end_index; /* must be signed */
     int i;                      /* must be signed */
     ASSERT(overlap_start != NULL && overlap_end != NULL);
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
 
     /* Find first overlapping region */
     if (!binary_search(executable_areas, start, end, NULL, &start_index, true /*first*/))
@@ -3318,7 +3316,7 @@ executable_area_overlap_bounds(app_pc start, app_pc end, app_pc *overlap_start /
     } else /* no extension asked for, or nowhere to extend to */
         *overlap_end = executable_areas->buf[end_index].end;
 
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
     return true;
 }
 
@@ -3391,10 +3389,10 @@ is_executable_area_on_all_selfmod_pages(app_pc start, app_pc end)
 {
     bool all_selfmod;
     bool found;
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     all_selfmod = executable_areas_match_flags(start, end, &found, NULL, true /* ALL */,
                                                0, FRAG_SELFMOD_SANDBOXED);
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
     /* we require at least one area to be present */
     return all_selfmod && found;
 }
@@ -3410,7 +3408,7 @@ bool
 was_executable_area_writable(app_pc addr)
 {
     bool found_area = false, was_writable = false;
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     was_writable = executable_areas_match_flags(addr, addr + 1, &found_area, NULL,
                                                 false /* EXISTS */, VM_MADE_READONLY, 0);
     /* seg fault could have happened, then area was made writable before
@@ -3430,7 +3428,7 @@ was_executable_area_writable(app_pc addr)
         if (get_memory_info(addr, NULL, NULL, &prot))
             was_writable = TEST(MEMPROT_WRITE, prot) && !is_dynamo_address(addr);
     }
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
     return was_writable;
 }
 
@@ -3514,8 +3512,9 @@ void
 mark_dynamo_vm_areas_stale()
 {
     /* ok to ask for locks or mark stale before dynamo_areas is allocated */
-    ASSERT((dynamo_areas == NULL && get_num_threads() <= 1 /*must be only DR thread*/) ||
-           self_owns_write_lock(&dynamo_areas->lock));
+    ASSERT(
+        (dynamo_areas == NULL && d_r_get_num_threads() <= 1 /*must be only DR thread*/) ||
+        self_owns_write_lock(&dynamo_areas->lock));
     dynamo_areas_uptodate = false;
 }
 
@@ -3527,7 +3526,7 @@ dynamo_vm_areas_lock()
     /* ok to ask for locks or mark stale before dynamo_areas is allocated,
      * during heap init and before we can allocate it.  no lock needed then.
      */
-    ASSERT(dynamo_areas != NULL || get_num_threads() <= 1 /*must be only DR thread*/);
+    ASSERT(dynamo_areas != NULL || d_r_get_num_threads() <= 1 /*must be only DR thread*/);
     if (dynamo_areas == NULL)
         return;
     if (self_owns_write_lock(&dynamo_areas->lock)) {
@@ -3538,7 +3537,7 @@ dynamo_vm_areas_lock()
          */
         ASSERT_CURIOSITY(dynamo_areas_recursion <= 4);
     } else
-        write_lock(&dynamo_areas->lock);
+        d_r_write_lock(&dynamo_areas->lock);
 }
 
 void
@@ -3547,14 +3546,14 @@ dynamo_vm_areas_unlock()
     /* ok to ask for locks or mark stale before dynamo_areas is allocated,
      * during heap init and before we can allocate it.  no lock needed then.
      */
-    ASSERT(dynamo_areas != NULL || get_num_threads() <= 1 /*must be only DR thread*/);
+    ASSERT(dynamo_areas != NULL || d_r_get_num_threads() <= 1 /*must be only DR thread*/);
     if (dynamo_areas == NULL)
         return;
     if (dynamo_areas_recursion > 0) {
         ASSERT_OWN_WRITE_LOCK(true, &dynamo_areas->lock);
         dynamo_areas_recursion--;
     } else
-        write_unlock(&dynamo_areas->lock);
+        d_r_write_unlock(&dynamo_areas->lock);
     all_memory_areas_unlock();
 }
 
@@ -3564,7 +3563,7 @@ self_owns_dynamo_vm_area_lock()
     /* heap inits before dynamo_areas (which now needs heap to init) so
      * we ignore the lock prior to dynamo_areas init, assuming single-DR-thread.
      */
-    ASSERT(dynamo_areas != NULL || get_num_threads() <= 1 /*must be only DR thread*/);
+    ASSERT(dynamo_areas != NULL || d_r_get_num_threads() <= 1 /*must be only DR thread*/);
     return dynamo_areas == NULL || self_owns_write_lock(&dynamo_areas->lock);
 }
 
@@ -3574,14 +3573,14 @@ self_owns_dynamo_vm_area_lock()
 static void
 dynamo_vm_areas_start_reading()
 {
-    read_lock(&dynamo_areas->lock);
+    d_r_read_lock(&dynamo_areas->lock);
     while (!dynamo_areas_uptodate) {
         /* switch to write lock
          * cannot rely on uptodate value prior to a lock so must
          * grab read and then check it, and back out if necessary
          * as we have no reader->writer transition
          */
-        read_unlock(&dynamo_areas->lock);
+        d_r_read_unlock(&dynamo_areas->lock);
         dynamo_vm_areas_lock();
         update_dynamo_vm_areas(true);
         /* FIXME: more efficient if we could safely drop from write to read
@@ -3590,14 +3589,14 @@ dynamo_vm_areas_start_reading()
          * elsewhere
          */
         dynamo_vm_areas_unlock();
-        read_lock(&dynamo_areas->lock);
+        d_r_read_lock(&dynamo_areas->lock);
     }
 }
 
 static void
 dynamo_vm_areas_done_reading()
 {
-    read_unlock(&dynamo_areas->lock);
+    d_r_read_unlock(&dynamo_areas->lock);
 }
 
 /* add dynamo-internal area to the dynamo-internal area list
@@ -3611,7 +3610,7 @@ add_dynamo_vm_area(app_pc start, app_pc end, uint prot,
     uint vm_flags = (TEST(MEMPROT_WRITE, prot) ? VM_WRITABLE : 0) |
         (unmod_image ? VM_UNMOD_IMAGE : 0);
     /* case 3045: areas inside the vmheap reservation are not added to the list */
-    ASSERT(!is_vmm_reserved_address(start, end - start));
+    ASSERT(!is_vmm_reserved_address(start, end - start, NULL, NULL));
     LOG(GLOBAL, LOG_VMAREAS, 2, "new dynamo vm area: " PFX "-" PFX " %s\n", start, end,
         comment);
     ASSERT(dynamo_areas != NULL);
@@ -3661,7 +3660,7 @@ add_dynamo_heap_vm_area(app_pc start, app_pc end, bool writable,
         comment);
     ASSERT(!vm_area_overlap(dynamo_areas, start, end));
     /* case 3045: areas inside the vmheap reservation are not added to the list */
-    ASSERT(!is_vmm_reserved_address(start, end - start));
+    ASSERT(!is_vmm_reserved_address(start, end - start, NULL, NULL));
     /* add_vm_area will assert that write lock is held */
     add_vm_area(dynamo_areas, start, end,
                 VM_DR_HEAP | (writable ? VM_WRITABLE : 0) |
@@ -3713,7 +3712,7 @@ is_dynamo_address(app_pc addr)
 {
     bool found;
     /* case 3045: areas inside the vmheap reservation are not added to the list */
-    if (is_vmm_reserved_address(addr, 1))
+    if (is_vmm_reserved_address(addr, 1, NULL, NULL))
         return true;
     dynamo_vm_areas_start_reading();
     found = lookup_addr(dynamo_areas, addr, NULL);
@@ -3733,9 +3732,9 @@ is_pretend_writable_address(app_pc addr)
            DYNAMO_OPTION(handle_ntdll_modify) == DR_MODIFY_NOP ||
            !IS_STRING_OPTION_EMPTY(patch_proof_list) ||
            !IS_STRING_OPTION_EMPTY(patch_proof_default_list));
-    read_lock(&pretend_writable_areas->lock);
+    d_r_read_lock(&pretend_writable_areas->lock);
     found = lookup_addr(pretend_writable_areas, addr, NULL);
-    read_unlock(&pretend_writable_areas->lock);
+    d_r_read_unlock(&pretend_writable_areas->lock);
     return found;
 }
 
@@ -3744,9 +3743,9 @@ static bool
 pretend_writable_vm_area_overlap(app_pc start, app_pc end)
 {
     bool overlap;
-    read_lock(&pretend_writable_areas->lock);
+    d_r_read_lock(&pretend_writable_areas->lock);
     overlap = vm_area_overlap(pretend_writable_areas, start, end);
-    read_unlock(&pretend_writable_areas->lock);
+    d_r_read_unlock(&pretend_writable_areas->lock);
     return overlap;
 }
 
@@ -3759,17 +3758,17 @@ get_address_comment(app_pc addr)
     char *res = NULL;
     vm_area_t *area;
     bool ok;
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     ok = lookup_addr(executable_areas, addr, &area);
     if (ok)
         res = area->comment;
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
     if (!ok) {
-        read_lock(&dynamo_areas->lock);
+        d_r_read_lock(&dynamo_areas->lock);
         ok = lookup_addr(dynamo_areas, addr, &area);
         if (ok)
             res = area->comment;
-        read_unlock(&dynamo_areas->lock);
+        d_r_read_unlock(&dynamo_areas->lock);
     }
     return res;
 }
@@ -3783,24 +3782,24 @@ executable_vm_area_overlap(app_pc start, app_pc end, bool have_writelock)
 {
     bool overlap;
     if (!have_writelock)
-        read_lock(&executable_areas->lock);
+        d_r_read_lock(&executable_areas->lock);
     overlap = vm_area_overlap(executable_areas, start, end);
     if (!have_writelock)
-        read_unlock(&executable_areas->lock);
+        d_r_read_unlock(&executable_areas->lock);
     return overlap;
 }
 
 void
 executable_areas_lock()
 {
-    write_lock(&executable_areas->lock);
+    d_r_write_lock(&executable_areas->lock);
 }
 
 void
 executable_areas_unlock()
 {
     ASSERT_OWN_WRITE_LOCK(true, &executable_areas->lock);
-    write_unlock(&executable_areas->lock);
+    d_r_write_unlock(&executable_areas->lock);
 }
 
 /* returns true if the passed in area overlaps any dynamo areas */
@@ -3809,7 +3808,7 @@ dynamo_vm_area_overlap(app_pc start, app_pc end)
 {
     bool overlap;
     /* case 3045: areas inside the vmheap reservation are not added to the list */
-    if (is_vmm_reserved_address(start, end - start))
+    if (is_vmm_reserved_address(start, end - start, NULL, NULL))
         return true;
     dynamo_vm_areas_start_reading();
     overlap = vm_area_overlap(dynamo_areas, start, end);
@@ -3975,14 +3974,14 @@ get_security_violation_name(dcontext_t *dcontext, app_pc addr, char *name,
         /* Fifth character is a '.' */
         name[4] = '.';
 
-        unreadable_addr = !safe_read(addr, sizeof(target_contents), &target_contents);
+        unreadable_addr = !d_r_safe_read(addr, sizeof(target_contents), &target_contents);
 
         /* if at unreadable memory see if an ASLR preferred address can be used */
         if (unreadable_addr) {
             app_pc likely_target_pc = aslr_possible_preferred_address(addr);
             if (likely_target_pc != NULL) {
-                unreadable_addr = !safe_read(likely_target_pc, sizeof(target_contents),
-                                             &target_contents);
+                unreadable_addr = !d_r_safe_read(
+                    likely_target_pc, sizeof(target_contents), &target_contents);
             } else {
                 unreadable_addr = true;
             }
@@ -4213,9 +4212,9 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
         LOG(THREAD, LOG_VMAREAS, 2, "executable areas are:\n");
         print_executable_areas(THREAD);
         LOG(THREAD, LOG_VMAREAS, 2, "future executable areas are:\n");
-        read_lock(&futureexec_areas->lock);
+        d_r_read_lock(&futureexec_areas->lock);
         print_vm_areas(futureexec_areas, THREAD);
-        read_unlock(&futureexec_areas->lock);
+        d_r_read_unlock(&futureexec_areas->lock);
     });
 
     /* case 8075: we no longer unprot .data on the violation path */
@@ -4315,19 +4314,19 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
                                     "security_violation: allowing violation #%d "
                                     "[max %d], tid=" TIDFMT "\n",
                                     do_threshold_cur, DYNAMO_OPTION(detect_mode_max),
-                                    get_thread_id());
+                                    d_r_get_thread_id());
                               },
                               { /* >= max */
                                 allow = false;
                                 LOG(GLOBAL, LOG_ALL, 1,
                                     "security_violation: reached maximum allowed %d, "
                                     "tid=" TIDFMT "\n",
-                                    DYNAMO_OPTION(detect_mode_max), get_thread_id());
+                                    DYNAMO_OPTION(detect_mode_max), d_r_get_thread_id());
                               });
         } else {
             LOG(GLOBAL, LOG_ALL, 1,
                 "security_violation: allowing violation, no max, tid=%d\n",
-                get_thread_id());
+                d_r_get_thread_id());
         }
         if (allow) {
             /* we have priority over other handling options */
@@ -4407,8 +4406,9 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
                 { /* < max */
                   LOG(GLOBAL, LOG_ALL, 1,
                       "security_violation: \t killing thread #%d [max %d], tid=%d\n",
-                      do_threshold_cur, DYNAMO_OPTION(kill_thread_max), get_thread_id());
-                  /* FIXME: can't check if get_num_threads()==1 then say we're
+                      do_threshold_cur, DYNAMO_OPTION(kill_thread_max),
+                      d_r_get_thread_id());
+                  /* FIXME: can't check if d_r_get_num_threads()==1 then say we're
                    * killing process because it is possible that another
                    * thread has not been scheduled yet and we wouldn't have
                    * seen it.  Still, only our message will be wrong if we end
@@ -4506,7 +4506,7 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
                violation_type == HOT_PATCH_PROTECTOR_VIOLATION);
 #        endif
         ASSERT_OWN_READ_LOCK(true, lock);
-        read_unlock(lock);
+        d_r_read_unlock(lock);
     }
 #    endif
 
@@ -4642,9 +4642,9 @@ bool
 is_in_futureexec_area(app_pc addr)
 {
     bool future;
-    read_lock(&futureexec_areas->lock);
+    d_r_read_lock(&futureexec_areas->lock);
     future = lookup_addr(futureexec_areas, addr, NULL);
-    read_unlock(&futureexec_areas->lock);
+    d_r_read_unlock(&futureexec_areas->lock);
     return future;
 }
 
@@ -5046,10 +5046,10 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
     if (USING_FUTURE_EXEC_LIST) {
         bool ok;
         bool once_only;
-        read_lock(&futureexec_areas->lock);
+        d_r_read_lock(&futureexec_areas->lock);
         ok = lookup_addr(futureexec_areas, addr, &fut_area);
         if (!ok)
-            read_unlock(&futureexec_areas->lock);
+            d_r_read_unlock(&futureexec_areas->lock);
         else {
             LOG(THREAD, LOG_INTERP | LOG_VMAREAS, 2,
                 "WARNING: pc = " PFX " is future executable, allowing\n", addr);
@@ -5068,7 +5068,7 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
             }
             once_only = TEST(VM_ONCE_ONLY, fut_area->vm_flags);
             /* now done w/ fut_area */
-            read_unlock(&futureexec_areas->lock);
+            d_r_read_unlock(&futureexec_areas->lock);
             fut_area = NULL;
             if (is_on_stack(dcontext, addr, NULL)) {
                 /* normally futureexec regions are persistent, to allow app to
@@ -5585,13 +5585,13 @@ vm_area_fragment_self_write(dcontext_t *dcontext, app_pc tag)
         bool ok;
         vm_area_t *area = NULL;
         app_pc start, end;
-        read_lock(&executable_areas->lock);
+        d_r_read_lock(&executable_areas->lock);
         ok = lookup_addr(executable_areas, tag, &area);
         ASSERT(ok);
         /* grab fields since can't hold lock entire time */
         start = area->start;
         end = area->end;
-        read_unlock(&executable_areas->lock);
+        d_r_read_unlock(&executable_areas->lock);
         LOG(THREAD, LOG_INTERP | LOG_VMAREAS, 1,
             "WARNING: code on stack " PFX "-" PFX " @tag " PFX " written to\n", start,
             end, tag);
@@ -5720,7 +5720,7 @@ simulate_attack(dcontext_t *dcontext, app_pc pc)
 
     /* prepare for what to do next */
     if (attack || action == SIMULATE_INIT) {
-        mutex_lock(&simulate_lock);
+        d_r_mutex_lock(&simulate_lock);
         string_option_read_lock();
         tokpos = dynamo_options.simulate_at;
         if (action == SIMULATE_INIT) {
@@ -5732,7 +5732,7 @@ simulate_attack(dcontext_t *dcontext, app_pc pc)
         ASSERT(tokpos < strchr(dynamo_options.simulate_at, '\0'));
         string_option_read_unlock();
         /* FIXME: tokpos ptr is kept beyond release of lock! */
-        mutex_unlock(&simulate_lock);
+        d_r_mutex_unlock(&simulate_lock);
     }
 
     if (attack) {
@@ -5902,9 +5902,9 @@ dyngen_diagnostics(dcontext_t *dcontext, app_pc pc, app_pc base_pc, size_t size,
     char buf[MAXIMUM_SYMBOL_LENGTH];
     app_pc translated_pc;
 
-    read_lock(&futureexec_areas->lock);
+    d_r_read_lock(&futureexec_areas->lock);
     future = lookup_addr(futureexec_areas, pc, NULL);
-    read_unlock(&futureexec_areas->lock);
+    d_r_read_unlock(&futureexec_areas->lock);
     stack = is_on_stack(dcontext, pc, NULL);
 
     if (!future)
@@ -6286,7 +6286,7 @@ set_region_jit_managed(app_pc start, size_t len)
     vm_area_t *region;
 
     ASSERT(DYNAMO_OPTION(opt_jit));
-    write_lock(&executable_areas->lock);
+    d_r_write_lock(&executable_areas->lock);
     if (lookup_addr(executable_areas, start, &region)) {
         LOG(GLOBAL, LOG_VMAREAS, 1, "set_region_jit_managed(" PFX " +0x%x)\n", start,
             len);
@@ -6306,7 +6306,7 @@ set_region_jit_managed(app_pc start, size_t len)
         add_vm_area(executable_areas, start, start + len, VM_JIT_MANAGED, 0,
                     NULL _IF_DEBUG("jit-managed"));
     }
-    write_unlock(&executable_areas->lock);
+    d_r_write_unlock(&executable_areas->lock);
 }
 
 /* memory region base:base+size now has privileges prot
@@ -6467,7 +6467,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                 ASSERT_CURIOSITY(ALIGNED(size, PAGE_SIZE));
                 page_base = (app_pc)PAGE_START(base);
                 page_size = ALIGN_FORWARD(base + size, PAGE_SIZE) - (size_t)page_base;
-                write_lock(&pretend_writable_areas->lock);
+                d_r_write_lock(&pretend_writable_areas->lock);
                 if (TEST(MEMPROT_WRITE, prot)) {
                     LOG(THREAD, LOG_VMAREAS, 2,
                         "adding pretend-writable region " PFX "-" PFX "\n", page_base,
@@ -6481,7 +6481,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                     remove_vm_area(pretend_writable_areas, page_base,
                                    page_base + page_size, false);
                 }
-                write_unlock(&pretend_writable_areas->lock);
+                d_r_write_unlock(&pretend_writable_areas->lock);
                 LOG(THREAD, LOG_VMAREAS, 2, "turning system call into a nop\n");
 
                 if (old_memprot != NULL) {
@@ -6514,11 +6514,11 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
         /* FIXME: again we have the race -- if we could go from read to write
          * it would be a simple fix, else have to grab write up front, or check again
          */
-        write_lock(&pretend_writable_areas->lock);
+        d_r_write_lock(&pretend_writable_areas->lock);
         LOG(THREAD, LOG_VMAREAS, 2, "removing pretend-writable region " PFX "-" PFX "\n",
             base, base + size);
         remove_vm_area(pretend_writable_areas, base, base + size, false);
-        write_unlock(&pretend_writable_areas->lock);
+        d_r_write_unlock(&pretend_writable_areas->lock);
     }
 
 #ifdef PROGRAM_SHEPHERDING
@@ -7157,11 +7157,11 @@ check_thread_vm_area_cleanup(dcontext_t *dcontext, bool abort, bool clean_bb,
 {
     if (own_execareas_writelock && (!caller_execareas_writelock || abort)) {
         ASSERT(self_owns_write_lock(&executable_areas->lock));
-        write_unlock(&executable_areas->lock);
+        d_r_write_unlock(&executable_areas->lock);
 #ifdef HOT_PATCHING_INTERFACE
         if (DYNAMO_OPTION(hot_patching)) {
             ASSERT(self_owns_write_lock(hotp_get_lock()));
-            write_unlock(hotp_get_lock());
+            d_r_write_unlock(hotp_get_lock());
         }
 #endif
     }
@@ -7378,14 +7378,14 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         instrument_module_load_trigger(pc);
 #endif
         if (!own_execareas_writelock)
-            read_lock(&executable_areas->lock);
+            d_r_read_lock(&executable_areas->lock);
         ok = lookup_addr(executable_areas, pc, &area);
         if (ok && TEST(VM_DELAY_READONLY, area->vm_flags)) {
             /* need to mark region read only for consistency
              * need to upgrade to write lock, have to release lock first
              * then recheck conditions after grabbing hotp + write lock */
             if (!own_execareas_writelock) {
-                read_unlock(&executable_areas->lock);
+                d_r_read_unlock(&executable_areas->lock);
 #ifdef HOT_PATCHING_INTERFACE
                 /* Case 8780: due to lock rank issues we must grab the hotp lock
                  * prior to the exec areas lock, as the hotp lock may be needed
@@ -7393,9 +7393,9 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                  * not cause noticeable lock contention.
                  */
                 if (DYNAMO_OPTION(hot_patching))
-                    write_lock(hotp_get_lock());
+                    d_r_write_lock(hotp_get_lock());
 #endif
-                write_lock(&executable_areas->lock);
+                d_r_write_lock(&executable_areas->lock);
                 own_execareas_writelock = true;
                 ok = lookup_addr(executable_areas, pc, &area);
             }
@@ -7412,12 +7412,12 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
              * (if we didn't support thread-private, we would just grab write
              * lock up front and not bother with read lock).
              */
-            read_unlock(&executable_areas->lock);
+            d_r_read_unlock(&executable_areas->lock);
 #ifdef HOT_PATCHING_INTERFACE
             if (DYNAMO_OPTION(hot_patching))
-                write_lock(hotp_get_lock()); /* case 8780 -- see comments above */
+                d_r_write_lock(hotp_get_lock()); /* case 8780 -- see comments above */
 #endif
-            write_lock(&executable_areas->lock);
+            d_r_write_lock(&executable_areas->lock);
             own_execareas_writelock = true;
             ok = lookup_addr(executable_areas, pc, &area);
         }
@@ -7435,15 +7435,15 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
              */
             if (own_execareas_writelock) {
                 if (!caller_execareas_writelock) {
-                    write_unlock(&executable_areas->lock);
+                    d_r_write_unlock(&executable_areas->lock);
 #ifdef HOT_PATCHING_INTERFACE
                     if (DYNAMO_OPTION(hot_patching))
-                        write_unlock(hotp_get_lock()); /* case 8780 -- see above */
+                        d_r_write_unlock(hotp_get_lock()); /* case 8780 -- see above */
 #endif
                     own_execareas_writelock = false;
                 }
             } else
-                read_unlock(&executable_areas->lock);
+                d_r_read_unlock(&executable_areas->lock);
         }
         /* if ok we should not own the readlock but we can't assert on that */
         ASSERT(
@@ -7773,9 +7773,9 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
             if (!own_execareas_writelock) {
 #    ifdef HOT_PATCHING_INTERFACE
                 if (DYNAMO_OPTION(hot_patching))
-                    write_lock(hotp_get_lock()); /* case 8780 -- see comments above */
+                    d_r_write_lock(hotp_get_lock()); /* case 8780 -- see comments above */
 #    endif
-                write_lock(&executable_areas->lock);
+                d_r_write_lock(&executable_areas->lock);
                 own_execareas_writelock = true;
             }
         }
@@ -7807,7 +7807,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
             /* see whether this region has been cycling on and off the list due
              * to being written to -- if so, switch to sandboxing
              */
-            read_lock(&written_areas->lock);
+            d_r_read_lock(&written_areas->lock);
             ok = lookup_addr(written_areas, pc, &w_area);
             if (ok)
                 ro2s = (ro_vs_sandbox_data_t *)w_area->custom.client;
@@ -7850,7 +7850,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                     "\tsandboxing just the page " PFX "-" PFX "\n", base_pc,
                     base_pc + size);
             }
-            read_unlock(&written_areas->lock);
+            d_r_read_unlock(&written_areas->lock);
         } else
             STATS_INC(num_ro2sandbox_other_sub);
     }
@@ -8078,7 +8078,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         if (!TESTANY(VM_UNMOD_IMAGE | VM_WAS_FUTURE, area->vm_flags)) {
             LOG(GLOBAL, LOG_VMAREAS, 1,
                 "DYNGEN in %d: non-unmod-image exec area " PFX "-" PFX " %s\n",
-                get_thread_id(), area->start, area->end, area->comment);
+                d_r_get_thread_id(), area->start, area->end, area->comment);
         }
 #endif
 #ifdef PROGRAM_SHEPHERDING
@@ -8259,8 +8259,8 @@ check_in_last_thread_vm_area(dcontext_t *dcontext, app_pc pc)
      * a region and another thread decoding in that region (xref case 7103).
      */
     if (!in_last && data != NULL &&
-        safe_read(&data->last_decode_area_page_pc, sizeof(last_decode_area_page_pc),
-                  &last_decode_area_page_pc) &&
+        d_r_safe_read(&data->last_decode_area_page_pc, sizeof(last_decode_area_page_pc),
+                      &last_decode_area_page_pc) &&
         /* I think the above "safety" checks are ridiculous so not doing them here */
         data->last_decode_area_valid) {
         /* Check the last decoded pc's current page and the page after. */
@@ -8519,7 +8519,7 @@ exec_area_bounds_match(dcontext_t *dcontext, thread_data_t *data)
 {
     vm_area_vector_t *v = &data->areas;
     int i;
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     for (i = 0; i < v->length; i++) {
         vm_area_t *thread_area = &v->buf[i];
         vm_area_t *exec_area;
@@ -8542,7 +8542,7 @@ exec_area_bounds_match(dcontext_t *dcontext, thread_data_t *data)
             });
         }
     }
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
 }
 #endif /* DEBUG */
 
@@ -9004,7 +9004,7 @@ bool
 remove_from_lazy_deletion_list(dcontext_t *dcontext, fragment_t *remove)
 {
     fragment_t *f, *prev_f = NULL;
-    mutex_lock(&lazy_delete_lock);
+    d_r_mutex_lock(&lazy_delete_lock);
     /* FIXME: start using prev_vmarea?!? (case 7165) */
     for (f = todelete->lazy_delete_list; f != NULL; prev_f = f, f = f->next_vmarea) {
         if (f == remove) {
@@ -9015,11 +9015,11 @@ remove_from_lazy_deletion_list(dcontext_t *dcontext, fragment_t *remove)
             if (f == todelete->lazy_delete_tail)
                 todelete->lazy_delete_tail = prev_f;
             todelete->lazy_delete_count--;
-            mutex_unlock(&lazy_delete_lock);
+            d_r_mutex_unlock(&lazy_delete_lock);
             return true;
         }
     }
-    mutex_unlock(&lazy_delete_lock);
+    d_r_mutex_unlock(&lazy_delete_lock);
     return false;
 }
 
@@ -9037,15 +9037,15 @@ move_lazy_list_to_pending_delete(dcontext_t *dcontext)
      * never-occurring freeing), so we must grab thread_initexit_lock,
      * meaning we must be nolinking, meaning the caller must accept loss
      * of locals.
-     * FIXME: should switch to a flag-triggered addition in dispatch
+     * FIXME: should switch to a flag-triggered addition in d_r_dispatch
      * to avoid this nolinking trouble.
      */
     enter_nolinking(dcontext, NULL, false /*not a cache transition*/);
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     /* to ensure no deletion queue checks happen in the middle of our update */
-    mutex_lock(&shared_cache_flush_lock);
-    mutex_lock(&shared_delete_lock);
-    mutex_lock(&lazy_delete_lock);
+    d_r_mutex_lock(&shared_cache_flush_lock);
+    d_r_mutex_lock(&shared_delete_lock);
+    d_r_mutex_lock(&lazy_delete_lock);
     if (todelete->move_pending) {
         /* it's possible for remove_from_lazy_deletion_list to drop the count */
 #ifdef X86
@@ -9071,7 +9071,7 @@ move_lazy_list_to_pending_delete(dcontext_t *dcontext)
                             /* we do count this thread, as we aren't checking the
                              * pending list here or inc-ing our flushtime
                              */
-                            get_num_threads(),
+                            d_r_get_num_threads(),
                             flushtime_global _IF_DEBUG(NULL) _IF_DEBUG(NULL));
         todelete->lazy_delete_list = NULL;
         todelete->lazy_delete_tail = NULL;
@@ -9080,10 +9080,10 @@ move_lazy_list_to_pending_delete(dcontext_t *dcontext)
     } else /* should not happen */
         ASSERT(false && "race in move_lazy_list_to_pending_delete");
     DODEBUG({ check_lazy_deletion_list_consistency(); });
-    mutex_unlock(&lazy_delete_lock);
-    mutex_unlock(&shared_delete_lock);
-    mutex_unlock(&shared_cache_flush_lock);
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&lazy_delete_lock);
+    d_r_mutex_unlock(&shared_delete_lock);
+    d_r_mutex_unlock(&shared_cache_flush_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
     enter_couldbelinking(dcontext, NULL, false /*not a cache transition*/);
 }
 
@@ -9106,8 +9106,8 @@ add_to_lazy_deletion_list(dcontext_t *dcontext, fragment_t *f)
     bool perform_move = false;
     ASSERT_OWN_NO_LOCKS();
     ASSERT(is_self_couldbelinking());
-    mutex_lock(&shared_cache_flush_lock); /* for consistent flushtime */
-    mutex_lock(&lazy_delete_lock);
+    d_r_mutex_lock(&shared_cache_flush_lock); /* for consistent flushtime */
+    d_r_mutex_lock(&lazy_delete_lock);
     /* We need a flushtime as we are compared to shared deletion pending
      * entries, but we don't need to inc flushtime_global.  We need a value
      * larger than any thread has already signed off on, and thus larger than
@@ -9166,8 +9166,8 @@ add_to_lazy_deletion_list(dcontext_t *dcontext, fragment_t *f)
         perform_move = true;
         todelete->move_pending = true;
     }
-    mutex_unlock(&lazy_delete_lock);
-    mutex_unlock(&shared_cache_flush_lock);
+    d_r_mutex_unlock(&lazy_delete_lock);
+    d_r_mutex_unlock(&shared_cache_flush_lock);
     if (perform_move) {
         /* hit threshold -- move to real pending deletion entry */
         /* had to release lazy_delete_lock and re-grab for proper rank order */
@@ -9181,7 +9181,7 @@ static void
 check_lazy_deletion_list(dcontext_t *dcontext, uint flushtime)
 {
     fragment_t *f, *next_f;
-    mutex_lock(&lazy_delete_lock);
+    d_r_mutex_lock(&lazy_delete_lock);
     LOG(THREAD, LOG_VMAREAS, 3, "checking lazy list @ timestamp %u\n", flushtime);
     for (f = todelete->lazy_delete_list; f != NULL; f = next_f) {
         next_f = f->next_vmarea; /* may be freed so cache now */
@@ -9226,7 +9226,7 @@ check_lazy_deletion_list(dcontext_t *dcontext, uint flushtime)
                                  "Lazy deletion list after freeing fragments:\n");
     });
     DODEBUG({ check_lazy_deletion_list_consistency(); });
-    mutex_unlock(&lazy_delete_lock);
+    d_r_mutex_unlock(&lazy_delete_lock);
 }
 
 /* Prepares a list of shared fragments for deletion..
@@ -9266,11 +9266,11 @@ unlink_fragments_for_deletion(dcontext_t *dcontext, fragment_t *list,
     }
     release_recursive_lock(&change_linking_lock);
 
-    mutex_lock(&shared_delete_lock);
+    d_r_mutex_lock(&shared_delete_lock);
     /* add area's fragments as a new entry in the pending deletion list */
     add_to_pending_list(dcontext, list, pending_delete_threads,
                         flushtime_global _IF_DEBUG(NULL) _IF_DEBUG(NULL));
-    mutex_unlock(&shared_delete_lock);
+    d_r_mutex_unlock(&shared_delete_lock);
     STATS_ADD(list_entries_unlinked_for_deletion, num);
     return num;
 }
@@ -9289,7 +9289,7 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
     int num = 0, i;
     if (data == shared_data) {
         /* we also need to add to the deletion list */
-        mutex_lock(&shared_delete_lock);
+        d_r_mutex_lock(&shared_delete_lock);
 
         acquire_recursive_lock(&change_linking_lock);
 
@@ -9461,7 +9461,7 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
     if (data == shared_data) {
         SHARED_VECTOR_RWLOCK(&data->areas, write, unlock);
         release_recursive_lock(&change_linking_lock);
-        mutex_unlock(&shared_delete_lock);
+        d_r_mutex_unlock(&shared_delete_lock);
     }
 
     LOG(thread_log, LOG_FRAGMENT | LOG_VMAREAS, 2, "  Unlinked %d frags\n", num);
@@ -9528,7 +9528,7 @@ vm_area_check_shared_pending(dcontext_t *dcontext, fragment_t *was_I_flushed)
     LOG(THREAD, LOG_FRAGMENT | LOG_VMAREAS, 2,
         "thread " TIDFMT " (flushtime %d) walking pending deletion list "
         "(was_I_flushed==F%d)\n",
-        get_thread_id(),
+        d_r_get_thread_id(),
         dcontext == GLOBAL_DCONTEXT ? flushtime_global
                                     : get_flushtime_last_update(dcontext),
         (was_I_flushed == NULL) ? -1 : was_I_flushed->id);
@@ -9538,7 +9538,7 @@ vm_area_check_shared_pending(dcontext_t *dcontext, fragment_t *was_I_flushed)
      * value when adding to the shared deletion list (currently flushers
      * and lazy list transfers).
      */
-    mutex_lock(&shared_cache_flush_lock);
+    d_r_mutex_lock(&shared_cache_flush_lock);
 
     /* check if was_I_flushed has been flushed, prior to dec ref count and
      * allowing anyone to be fully freed
@@ -9559,7 +9559,7 @@ vm_area_check_shared_pending(dcontext_t *dcontext, fragment_t *was_I_flushed)
         last_exit_deleted(dcontext);
     }
 
-    mutex_lock(&shared_delete_lock);
+    d_r_mutex_lock(&shared_delete_lock);
     for (pend = todelete->shared_delete; pend != NULL; pend = pend_nxt) {
         bool delete_area = false;
         pend_nxt = pend->next;
@@ -9654,7 +9654,7 @@ vm_area_check_shared_pending(dcontext_t *dcontext, fragment_t *was_I_flushed)
                         flushtime_global - pend->flushtime_deleted);
         DOSTATS({
             /* metric: # times flushtime diff is > #threads */
-            if (flushtime_global - pend->flushtime_deleted > (uint)get_num_threads())
+            if (flushtime_global - pend->flushtime_deleted > (uint)d_r_get_num_threads())
                 STATS_INC(num_shared_flush_diffthreads);
         });
         LOG(THREAD, LOG_FRAGMENT | LOG_VMAREAS, 2,
@@ -9706,18 +9706,18 @@ vm_area_check_shared_pending(dcontext_t *dcontext, fragment_t *was_I_flushed)
         /* reset_every_nth_pending relies on this */
         ASSERT(todelete->shared_delete_count == 0);
     }
-    mutex_unlock(&shared_delete_lock);
+    d_r_mutex_unlock(&shared_delete_lock);
     STATS_TRACK_MAX(num_shared_flush_maxpending, i);
 
     /* last_area cleared in vm_area_unlink_fragments */
     LOG(THREAD, LOG_FRAGMENT | LOG_VMAREAS, 2,
-        "thread " TIDFMT " done walking pending list @flushtime %d\n", get_thread_id(),
-        flushtime_global);
+        "thread " TIDFMT " done walking pending list @flushtime %d\n",
+        d_r_get_thread_id(), flushtime_global);
     if (dcontext != GLOBAL_DCONTEXT) {
         /* update thread timestamp */
         set_flushtime_last_update(dcontext, flushtime_global);
     }
-    mutex_unlock(&shared_cache_flush_lock);
+    d_r_mutex_unlock(&shared_cache_flush_lock);
 
     LOG(THREAD, LOG_FRAGMENT | LOG_VMAREAS, 2, "  Flushed %d frags\n", num);
     return not_flushed;
@@ -9930,9 +9930,9 @@ vm_area_allsynch_flush_fragments(dcontext_t *dcontext, dcontext_t *del_dcontext,
          */
 #ifdef HOT_PATCHING_INTERFACE
         if (DYNAMO_OPTION(hot_patching))
-            read_lock(hotp_get_lock()); /* case 9970: rank hotp < exec_areas */
+            d_r_read_lock(hotp_get_lock()); /* case 9970: rank hotp < exec_areas */
 #endif
-        read_lock(&executable_areas->lock); /* no need to write */
+        d_r_read_lock(&executable_areas->lock); /* no need to write */
         for (i = 0; i < executable_areas->length; i++) {
             if (TEST(FRAG_COARSE_GRAIN, executable_areas->buf[i].frag_flags) &&
                 start < executable_areas->buf[i].end &&
@@ -9981,10 +9981,10 @@ vm_area_allsynch_flush_fragments(dcontext_t *dcontext, dcontext_t *del_dcontext,
                 }
             }
         }
-        read_unlock(&executable_areas->lock);
+        d_r_read_unlock(&executable_areas->lock);
 #ifdef HOT_PATCHING_INTERFACE
         if (DYNAMO_OPTION(hot_patching))
-            read_unlock(hotp_get_lock());
+            d_r_read_unlock(hotp_get_lock());
 #endif
     }
 
@@ -10126,14 +10126,14 @@ coarse_region_should_persist(dcontext_t *dcontext, coarse_info_t *info)
     /* Must hold lock to get size but ok for size to change afterward;
      * normal usage has all threads synched */
     if (!info->persisted) {
-        mutex_lock(&info->lock);
+        d_r_mutex_lock(&info->lock);
         cache_size += coarse_frozen_cache_size(dcontext, info);
-        mutex_unlock(&info->lock);
+        d_r_mutex_unlock(&info->lock);
     }
     if (info->non_frozen != NULL) {
-        mutex_lock(&info->non_frozen->lock);
+        d_r_mutex_lock(&info->non_frozen->lock);
         cache_size += coarse_frozen_cache_size(dcontext, info->non_frozen);
-        mutex_unlock(&info->non_frozen->lock);
+        d_r_mutex_unlock(&info->non_frozen->lock);
     }
     LOG(THREAD, LOG_FRAGMENT | LOG_VMAREAS, 2,
         "\tconsidering persisting coarse unit %s with cache size %d\n", info->module,
@@ -10315,7 +10315,7 @@ vm_area_coarse_units_freeze(bool in_place)
     acquire_recursive_lock(&change_linking_lock);
 #ifdef HOT_PATCHING_INTERFACE
     if (DYNAMO_OPTION(hot_patching))
-        read_lock(hotp_get_lock());
+        d_r_read_lock(hotp_get_lock());
 #endif
     /* We would grab executable_areas_lock but coarse_unit_freeze() grabs
      * change_linking_lock and coarse_info_lock, both of higher rank.  We could
@@ -10335,7 +10335,7 @@ vm_area_coarse_units_freeze(bool in_place)
     }
 #ifdef HOT_PATCHING_INTERFACE
     if (DYNAMO_OPTION(hot_patching))
-        read_unlock(hotp_get_lock());
+        d_r_read_unlock(hotp_get_lock());
 #endif
     release_recursive_lock(&change_linking_lock);
 }
@@ -10377,7 +10377,7 @@ thread_vm_area_overlap(dcontext_t *dcontext, app_pc start, app_pc end)
 
 /* Returns NULL if should re-execute the faulting write
  * Else returns the target pc for a new basic block -- caller should
- * return to dispatch rather than the code cache
+ * return to d_r_dispatch rather than the code cache
  * If instr_cache_pc==NULL, assumes the cache is unavailable (due to reset).
  */
 app_pc
@@ -10431,7 +10431,7 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, app_pc instr
     ASSERT(ok);
     SYSLOG_INTERNAL_WARNING_ONCE("writing to executable region.");
     STATS_INC(num_write_faults);
-    read_lock(&executable_areas->lock);
+    d_r_read_lock(&executable_areas->lock);
     lookup_addr(executable_areas, (app_pc)target, &a);
     if (a == NULL) {
         LOG(THREAD, LOG_VMAREAS, 1,
@@ -10458,7 +10458,7 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, app_pc instr
             ((prot & MEMPROT_EXEC) != 0) ? "E" : "", target, instr_cache_pc,
             instr_app_pc);
     }
-    read_unlock(&executable_areas->lock);
+    d_r_read_unlock(&executable_areas->lock);
 #ifdef DGC_DIAGNOSTICS
     DOLOG(1, LOG_VMAREAS, {
         /* it's hard to locate frag owning an app pc in the cache, so we wait until
@@ -10729,7 +10729,7 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, app_pc instr
          * at which point we'll just add the page
          */
         ro_vs_sandbox_data_t *ro2s;
-        write_lock(&written_areas->lock);
+        d_r_write_lock(&written_areas->lock);
         /* use the add routine to lookup if present, add if not */
         add_written_area(written_areas, target, (app_pc)PAGE_START(target),
                          (app_pc)PAGE_START(target + opnd_size) + PAGE_SIZE, &a);
@@ -10742,7 +10742,7 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, app_pc instr
             LOG(GLOBAL, LOG_VMAREAS, 2, "\nwritten areas:\n");
             print_vm_areas(written_areas, GLOBAL);
         });
-        write_unlock(&written_areas->lock);
+        d_r_write_unlock(&written_areas->lock);
     }
 
     if (
@@ -10803,9 +10803,9 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, app_pc instr
      * region even if the src bb didn't and anyways flushing can end up
      * flushing outside the requested region (entire vm_area_t). If we could tell
      * we could return NULL instead (which is a special flag that says redo the
-     * write instead of going to dispatch) if f wasn't flushed.
+     * write instead of going to d_r_dispatch) if f wasn't flushed.
      * FIXME - Redoing the write would be more efficient then going back to
-     * dispatch and should be the common case. */
+     * d_r_dispatch and should be the common case. */
     flush_fragments_in_region_finish(dcontext, false /*don't keep initexit_lock*/);
     if (DYNAMO_OPTION(opt_jit) && !TEST(MEMPROT_WRITE, prot) &&
         is_jit_managed_area(flush_start))
@@ -10821,12 +10821,12 @@ get_selfmod_exec_counter(app_pc tag)
     ro_vs_sandbox_data_t *ro2s;
     uint *counter;
     bool ok;
-    read_lock(&written_areas->lock);
+    d_r_read_lock(&written_areas->lock);
     ok = lookup_addr(written_areas, tag, &area);
     if (!ok) {
-        read_unlock(&written_areas->lock);
-        read_lock(&executable_areas->lock);
-        write_lock(&written_areas->lock);
+        d_r_read_unlock(&written_areas->lock);
+        d_r_read_lock(&executable_areas->lock);
+        d_r_write_lock(&written_areas->lock);
         ok = lookup_addr(executable_areas, tag, &area);
         ASSERT(ok && area != NULL);
         /* FIXME: do this addition whenever add new exec area marked as
@@ -10849,13 +10849,13 @@ get_selfmod_exec_counter(app_pc tag)
          * the heap.  add_written_area already asserts but we double-check here.
          */
         ASSERT(ALIGNED(counter, sizeof(uint)));
-        write_unlock(&written_areas->lock);
-        read_unlock(&executable_areas->lock);
+        d_r_write_unlock(&written_areas->lock);
+        d_r_read_unlock(&executable_areas->lock);
     } else {
         ASSERT(ok && area != NULL);
         ro2s = (ro_vs_sandbox_data_t *)area->custom.client;
         counter = &ro2s->selfmod_execs;
-        read_unlock(&written_areas->lock);
+        d_r_read_unlock(&written_areas->lock);
     }
     /* ref to counter will be accessed in-cache w/o read lock but
      * written_areas is never merged and counter won't be freed until
@@ -10881,14 +10881,14 @@ vm_area_selfmod_check_clear_exec_count(dcontext_t *dcontext, fragment_t *f)
      * lock since we read and write to it from the cache.  Should change to read lock
      * if contention ever becomes an issue.  Note that we would then have to later
      * grab the write lock if we need to write to ro2s->written_count below. */
-    write_lock(&written_areas->lock);
+    d_r_write_lock(&written_areas->lock);
 
     ok = lookup_addr(written_areas, f->tag, &written_area);
     if (ok) {
         ro2s = (ro_vs_sandbox_data_t *)written_area->custom.client;
     } else {
         /* never had instrumentation */
-        write_unlock(&written_areas->lock);
+        d_r_write_unlock(&written_areas->lock);
         return false;
     }
     if (ro2s->selfmod_execs < DYNAMO_OPTION(sandbox2ro_threshold)) {
@@ -10903,7 +10903,7 @@ vm_area_selfmod_check_clear_exec_count(dcontext_t *dcontext, fragment_t *f)
          * 4 byte write is atomic on the architectures we support. */
         ASSERT(sizeof(ro2s->selfmod_execs) == 4 && ALIGNED(&(ro2s->selfmod_execs), 4));
         ro2s->selfmod_execs = 0;
-        write_unlock(&written_areas->lock);
+        d_r_write_unlock(&written_areas->lock);
         return false;
     }
 
@@ -10949,7 +10949,7 @@ vm_area_selfmod_check_clear_exec_count(dcontext_t *dcontext, fragment_t *f)
         print_vm_areas(written_areas, THREAD);
     });
 
-    write_unlock(&written_areas->lock);
+    d_r_write_unlock(&written_areas->lock);
 
     /* Convert the selfmod region to a ro region.
      * FIXME case 8161: should we flush and make ro the executable area,
@@ -11039,11 +11039,11 @@ mark_unload_start(app_pc module_base, size_t module_size)
     /* we may have a race, or a thread killed during unload syscall,
      * either way we just mark our last region on top of the old one
      */
-    mutex_lock(&last_deallocated_lock);
+    d_r_mutex_lock(&last_deallocated_lock);
     last_deallocated->last_unload_base = module_base;
     last_deallocated->last_unload_size = module_size;
     last_deallocated->unload_in_progress = true;
-    mutex_unlock(&last_deallocated_lock);
+    d_r_mutex_unlock(&last_deallocated_lock);
 }
 
 void
@@ -11129,7 +11129,7 @@ mark_unload_end(app_pc module_base)
      * the flag is atomic even without it.
      * is_unreadable_or_currently_unloaded_region() when used in
      * proper order doesn't need to synchronize with this lock either */
-    mutex_lock(&last_deallocated_lock);
+    d_r_mutex_lock(&last_deallocated_lock);
 
     /* note, we mark_unload_start on MEM_IMAGE but mark_unload_end on
      * MEM_MAPPED as well.  Note base doesn't have to match as long as
@@ -11149,7 +11149,7 @@ mark_unload_end(app_pc module_base)
 
     /* multiple racy unmaps can't be handled simultaneously anyways */
     last_deallocated->unload_in_progress = false;
-    mutex_unlock(&last_deallocated_lock);
+    d_r_mutex_unlock(&last_deallocated_lock);
 }
 
 bool
@@ -11160,7 +11160,7 @@ is_in_last_unloaded_region(app_pc pc)
         return false;
     ASSERT(DYNAMO_OPTION(unloaded_target_exception));
 
-    mutex_lock(&last_deallocated_lock);
+    d_r_mutex_lock(&last_deallocated_lock);
     /* if we are in such a tight race that we're no longer
      * last_deallocated->unload_in_progress we can still use the
      * already unloaded module
@@ -11168,7 +11168,7 @@ is_in_last_unloaded_region(app_pc pc)
     if ((pc < last_deallocated->last_unload_base) ||
         (pc >= (last_deallocated->last_unload_base + last_deallocated->last_unload_size)))
         in_last = false;
-    mutex_unlock(&last_deallocated_lock);
+    d_r_mutex_unlock(&last_deallocated_lock);
     return in_last;
 }
 
@@ -11304,7 +11304,7 @@ apc_thread_policy_helper(app_pc *apc_target_location, /* IN/OUT */
         return; /* not a match */
     }
 
-    if (safe_read(injected_target, sizeof(injected_code), &injected_code)) {
+    if (d_r_safe_read(injected_target, sizeof(injected_code), &injected_code)) {
         LOG(GLOBAL, LOG_ASYNCH, 2,
             "ASYNCH intercepted APC: APC pc=" PFX ", APC code=" PFX " %s\n",
             injected_target, injected_code,
@@ -11371,7 +11371,7 @@ apc_thread_policy_helper(app_pc *apc_target_location, /* IN/OUT */
              * of this because a main thread may get affected very early.
              *
              * It is also hard to reuse security_violation() call here
-             * (since we are not under dispatch()).  If we want to see a
+             * (since we are not under d_r_dispatch()).  If we want to see a
              * code origins failure, we can just disable this policy.
              */
             ASSERT(!TEST(OPTION_HANDLING, target_policy) &&

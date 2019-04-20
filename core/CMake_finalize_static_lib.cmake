@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -35,6 +35,7 @@
 # + "CMAKE_C_COMPILER" to point to CC compiler
 # + "partial_link_flags" to linker flags incl. -m32/-m64
 # + "disable_pie_flag" to -no-pie or ""
+# + "localize_hidden" to ON or OFF
 # + "CMAKE_OBJCOPY" to point to objcopy
 # + "CMAKE_AR" to point to ar
 # + "CMAKE_RANLIB" to point to ranlib
@@ -59,10 +60,12 @@ if (cmd_error OR cmd_result)
   message(FATAL_ERROR "*** ${CMAKE_C_COMPILER} failed (${cmd_result}): ***\n${cmd_error}")
 endif ()
 
-execute_process(COMMAND
-  ${CMAKE_OBJCOPY} --localize-hidden "${dynamorio_dot_o}"
-  ERROR_VARIABLE cmd_error
-  )
+if (localize_hidden)
+  execute_process(COMMAND
+    ${CMAKE_OBJCOPY} --localize-hidden "${dynamorio_dot_o}"
+    ERROR_VARIABLE cmd_error
+    )
+endif ()
 
 if (cmd_error OR cmd_result)
   message(FATAL_ERROR "*** ${CMAKE_OBJCOPY} failed (${cmd_result}): ***\n${cmd_error}")

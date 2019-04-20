@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -125,7 +125,17 @@ instru_t::insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where
         drreg_get_app_value(drcontext, ilist, where, reg_addr, reg_addr);
     ok = drutil_insert_get_mem_addr_ex(drcontext, ilist, where, ref, reg_addr,
                                        reg_scratch, scratch_used);
-    DR_ASSERT(ok);
+    if (!ok) {
+        // Provide diagnostics to make it much easier to see what the problematic
+        // operand is.
+        // XXX: Should we honor user's op_verbose or anything?  We have no current
+        // precedent for printing from instru_t.
+        dr_fprintf(STDERR, "FATAL: %s: drutil_insert_get_mem_addr failed @ " PFX ": ",
+                   __FUNCTION__, instr_get_app_pc(where));
+        instr_disassemble(drcontext, where, STDERR);
+        dr_fprintf(STDERR, "\n");
+        DR_ASSERT(ok);
+    }
     if (scratch_used != NULL && we_used_scratch)
         *scratch_used = true;
 }

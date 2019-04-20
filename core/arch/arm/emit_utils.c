@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -884,7 +884,7 @@ insert_mode_change_handling(dcontext_t *dc, instrlist_t *ilist, instr_t *where,
     /* Get LSB from target address */
     PRE(ilist, where,
         INSTR_CREATE_and(dc, OPREG(scratch1), OPREG(addr_reg), OPND_CREATE_INT(1)));
-    /* Get right enum value. arch_init() ensures A32 + 1 == Thumb. */
+    /* Get right enum value. d_r_arch_init() ensures A32 + 1 == Thumb. */
     PRE(ilist, where,
         INSTR_CREATE_add(dc, OPREG(scratch1), OPREG(scratch1),
                          OPND_CREATE_INT(DR_ISA_ARM_A32)));

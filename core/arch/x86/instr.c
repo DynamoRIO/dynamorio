@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -195,6 +195,7 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, instr_t *instr,
                          int ordinal, priv_mcontext_t *mc, size_t mc_size,
                          dr_mcontext_flags_t mc_flags)
 {
+    /* XXX i#1312: Needs support for AVX-512. */
     int opc = instr_get_opcode(instr);
     opnd_size_t index_size = OPSZ_NA;
     opnd_size_t mem_size = OPSZ_NA;
@@ -264,29 +265,29 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, instr_t *instr,
                 return false;
         } else if ((ymm && ordinal > 3) || (!ymm && ordinal > 1))
             return false;
-        mask = (int)mc->ymm[mask_reg - reg_start].u32[ordinal];
+        mask = (int)mc->simd[mask_reg - reg_start].u32[ordinal];
         if (mask >= 0) { /* top bit not set */
             *selected = false;
             return true;
         }
         *selected = true;
-        index_addr = mc->ymm[index_reg - reg_start].u32[ordinal];
+        index_addr = mc->simd[index_reg - reg_start].u32[ordinal];
     } else if (index_size == OPSZ_8) {
         int mask; /* just top half */
         if ((ymm && ordinal > 3) || (!ymm && ordinal > 1))
             return false;
-        mask = (int)mc->ymm[mask_reg - reg_start].u32[ordinal * 2 + 1];
+        mask = (int)mc->simd[mask_reg - reg_start].u32[ordinal * 2 + 1];
         if (mask >= 0) { /* top bit not set */
             *selected = false;
             return true;
         }
         *selected = true;
 #ifdef X64
-        index_addr = mc->ymm[index_reg - reg_start].reg[ordinal];
+        index_addr = mc->simd[index_reg - reg_start].reg[ordinal];
 #else
         index_addr =
-            (((uint64)mc->ymm[index_reg - reg_start].u32[ordinal * 2 + 1]) << 32) |
-            mc->ymm[index_reg - reg_start].u32[ordinal * 2];
+            (((uint64)mc->simd[index_reg - reg_start].u32[ordinal * 2 + 1]) << 32) |
+            mc->simd[index_reg - reg_start].u32[ordinal * 2];
 #endif
     } else
         return false;
@@ -705,10 +706,10 @@ instr_is_wow64_syscall(instr_t *instr)
         if (xl8 == NULL)
             return false;
         if (/* Is the "call edx" followed by a "ret"? */
-            safe_read(xl8 + CTI_IND1_LENGTH, sizeof(opbyte), &opbyte) &&
+            d_r_safe_read(xl8 + CTI_IND1_LENGTH, sizeof(opbyte), &opbyte) &&
             (opbyte == RET_NOIMM_OPCODE || opbyte == RET_IMM_OPCODE) &&
             /* Is the "call edx" preceded by a "mov imm into edx"? */
-            safe_read(xl8 - sizeof(imm) - 1, sizeof(opbyte), &opbyte) &&
+            d_r_safe_read(xl8 - sizeof(imm) - 1, sizeof(opbyte), &opbyte) &&
             opbyte == MOV_IMM_EDX_OPCODE) {
             /* Slightly worried: let's at least have some kind of marker a user
              * could see to make it easier to diagnose problems.
@@ -718,11 +719,11 @@ instr_is_wow64_syscall(instr_t *instr)
              * cache the bounds of multiple libs.
              */
             ASSERT_CURIOSITY(
-                safe_read(xl8 - sizeof(imm), sizeof(imm), &imm) &&
-                    (safe_read((app_pc)(ptr_uint_t)imm, sizeof(tgt_code), tgt_code) &&
+                d_r_safe_read(xl8 - sizeof(imm), sizeof(imm), &imm) &&
+                    (d_r_safe_read((app_pc)(ptr_uint_t)imm, sizeof(tgt_code), tgt_code) &&
                      memcmp(tgt_code, WOW64_SYSSVC, sizeof(tgt_code)) == 0) ||
-                (safe_read((app_pc)(ptr_uint_t)imm, sizeof(WOW64_SYSSVC_1609),
-                           tgt_code) &&
+                (d_r_safe_read((app_pc)(ptr_uint_t)imm, sizeof(WOW64_SYSSVC_1609),
+                               tgt_code) &&
                  memcmp(tgt_code, WOW64_SYSSVC_1609, sizeof(WOW64_SYSSVC_1609)) == 0));
             return true;
         } else
@@ -1816,8 +1817,8 @@ instr_predicate_triggered(instr_t *instr, dr_mcontext_t *mc)
                     : DR_PRED_TRIGGER_MISMATCH;
             } else if (opnd_is_memory_reference(src)) {
                 ptr_int_t val;
-                if (!safe_read(opnd_compute_address(src, mc),
-                               MIN(opnd_get_size(src), sizeof(val)), &val))
+                if (!d_r_safe_read(opnd_compute_address(src, mc),
+                                   MIN(opnd_get_size(src), sizeof(val)), &val))
                     return false;
                 return (val != 0) ? DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
             } else
@@ -1876,27 +1877,54 @@ reg_is_simd(reg_id_t reg)
 }
 
 bool
+reg_is_opmask(reg_id_t reg)
+{
+    return (reg >= DR_REG_START_OPMASK && reg <= DR_REG_STOP_OPMASK);
+}
+
+bool
+reg_is_strictly_zmm(reg_id_t reg)
+{
+    return (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM);
+}
+
+bool
 reg_is_ymm(reg_id_t reg)
 {
-    return (reg >= REG_START_YMM && reg <= REG_STOP_YMM);
+    return reg_is_strictly_ymm(reg);
+}
+
+bool
+reg_is_strictly_ymm(reg_id_t reg)
+{
+    return (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM);
 }
 
 bool
 reg_is_xmm(reg_id_t reg)
 {
-    return (reg >= REG_START_XMM && reg <= REG_STOP_XMM) || reg_is_ymm(reg);
+    /* This function is deprecated and the only one out of the x86
+     * reg_is_ set of functions that calls its wider sibling.
+     */
+    return (reg_is_strictly_xmm(reg) || reg_is_strictly_ymm(reg));
+}
+
+bool
+reg_is_strictly_xmm(reg_id_t reg)
+{
+    return (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM);
 }
 
 bool
 reg_is_mmx(reg_id_t reg)
 {
-    return (reg >= REG_START_MMX && reg <= REG_STOP_MMX);
+    return (reg >= DR_REG_START_MMX && reg <= DR_REG_STOP_MMX);
 }
 
 bool
 reg_is_fp(reg_id_t reg)
 {
-    return (reg >= REG_START_FLOAT && reg <= REG_STOP_FLOAT);
+    return (reg >= DR_REG_START_FLOAT && reg <= DR_REG_STOP_FLOAT);
 }
 
 bool

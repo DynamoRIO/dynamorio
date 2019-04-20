@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -63,8 +63,6 @@
 #ifdef UNIX
 #    include <sys/syscall.h>
 #endif
-
-#include <string.h> /* for memset */
 
 #ifdef ANNOTATIONS
 #    include "../annotations.h"
@@ -341,8 +339,12 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     int offs_beyond_xmm = 0;
     if (cci == NULL)
         cci = &default_clean_call_info;
-    if (cci->preserve_mcontext || cci->num_simd_skip != NUM_SIMD_REGS) {
-        int offs = XMM_SLOTS_SIZE + PRE_XMM_PADDING;
+    /* XXX i#1312: This assumption will change and the code below will need
+     * to take this into account.
+     */
+    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+    if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers()) {
+        int offs = MCXT_TOTAL_SIMD_SLOTS_SIZE + PRE_XMM_PADDING;
         if (cci->preserve_mcontext && cci->skip_save_flags) {
             offs_beyond_xmm = 2 * XSP_SZ; /* pc and flags */
             offs += offs_beyond_xmm;
@@ -367,20 +369,23 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
          */
         uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 16), ALIGNED(alignment, 32));
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < NUM_SIMD_SAVED; i++) {
+        /* XXX i#1312: This assumption will change and the code below will need
+         * to take this into account.
+         */
+        ASSERT(proc_num_simd_saved() == proc_num_simd_registers());
+        for (i = 0; i < proc_num_simd_saved(); i++) {
             if (!cci->simd_skip[i]) {
                 PRE(ilist, instr,
                     instr_create_1dst_1src(
                         dcontext, opcode,
                         opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                              PRE_XMM_PADDING + i * XMM_SAVED_REG_SIZE +
+                                              PRE_XMM_PADDING + i * MCXT_SIMD_SLOT_SIZE +
                                                   offs_beyond_xmm,
                                               OPSZ_SAVED_XMM),
                         opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
             }
         }
-        ASSERT(i * XMM_SAVED_REG_SIZE == XMM_SAVED_SIZE);
-        ASSERT(XMM_SAVED_SIZE <= XMM_SLOTS_SIZE);
+        ASSERT(i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SLOTS_SIZE);
     }
     /* pc and aflags */
     if (!cci->skip_save_flags) {
@@ -509,26 +514,30 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
          * is better. */
         uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 32), ALIGNED(alignment, 16));
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < NUM_SIMD_SAVED; i++) {
+        /* XXX i#1312: This assumption will change and the code below will need
+         * to take this into account.
+         */
+        ASSERT(proc_num_simd_saved() == proc_num_simd_registers());
+        for (i = 0; i < proc_num_simd_saved(); i++) {
             if (!cci->simd_skip[i]) {
                 PRE(ilist, instr,
                     instr_create_1dst_1src(
                         dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
                         opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                              PRE_XMM_PADDING + i * XMM_SAVED_REG_SIZE +
+                                              PRE_XMM_PADDING + i * MCXT_SIMD_SLOT_SIZE +
                                                   offs_beyond_xmm,
                                               OPSZ_SAVED_XMM)));
             }
         }
-        ASSERT(i * XMM_SAVED_REG_SIZE == XMM_SAVED_SIZE);
-        ASSERT(XMM_SAVED_SIZE <= XMM_SLOTS_SIZE);
+        ASSERT(i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SLOTS_SIZE);
     }
 
     PRE(ilist, instr,
-        INSTR_CREATE_lea(
-            dcontext, opnd_create_reg(REG_XSP),
-            OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0,
-                                PRE_XMM_PADDING + XMM_SLOTS_SIZE + offs_beyond_xmm)));
+        INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
+                         OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0,
+                                             PRE_XMM_PADDING +
+                                                 MCXT_TOTAL_SIMD_SLOTS_SIZE +
+                                                 offs_beyond_xmm)));
 }
 
 reg_id_t
@@ -597,9 +606,9 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 
     /* For a clean call, xax is dead (clobbered by prepare_for_clean_call()).
      * Rather than use as scratch and restore prior to each param that uses it,
-     * we restore once up front if any use it, and use regparms[0] as scratch,
-     * which is symmetric with non-clean-calls: regparms[0] is dead since we're
-     * doing args in reverse order.  However, we then can't use regparms[0]
+     * we restore once up front if any use it, and use d_r_regparms[0] as scratch,
+     * which is symmetric with non-clean-calls: d_r_regparms[0] is dead since we're
+     * doing args in reverse order.  However, we then can't use d_r_regparms[0]
      * directly if referenced in earlier params, but similarly for xax, so
      * there's no clear better way. (prepare_for_clean_call also clobbers xsp,
      * but we just disallow args that use it).
@@ -722,12 +731,12 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                              INSTR_CREATE_mov_st(dcontext,
                                                  OPND_CREATE_MEMPTR(REG_XSP, disp), arg));
                     } else {
-                        reg_id_t xsp_scratch = regparms[0];
+                        reg_id_t xsp_scratch = d_r_regparms[0];
                         /* don't want to just change size since will read extra bytes.
                          * can't do mem-to-mem so go through scratch reg */
                         if (reg_overlap(used, REG_XSP)) {
                             /* Get original xsp into scratch[0] and replace in arg */
-                            if (opnd_uses_reg(arg, regparms[0])) {
+                            if (opnd_uses_reg(arg, d_r_regparms[0])) {
                                 xsp_scratch = REG_XAX;
                                 ASSERT(!opnd_uses_reg(arg, REG_XAX)); /* can't use 3 */
                                 /* FIXME: rather than putting xsp into mcontext
@@ -742,13 +751,13 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                         POST(ilist, prev,
                              INSTR_CREATE_mov_st(dcontext,
                                                  OPND_CREATE_MEMPTR(REG_XSP, disp),
-                                                 opnd_create_reg(regparms[0])));
+                                                 opnd_create_reg(d_r_regparms[0])));
                         /* If sub-ptr-size, zero-extend is what we want so no movsxd */
                         POST(ilist, prev,
-                             INSTR_CREATE_mov_ld(
-                                 dcontext,
-                                 opnd_create_reg(shrink_reg_for_param(regparms[0], arg)),
-                                 arg));
+                             INSTR_CREATE_mov_ld(dcontext,
+                                                 opnd_create_reg(shrink_reg_for_param(
+                                                     d_r_regparms[0], arg)),
+                                                 arg));
                         if (reg_overlap(used, REG_XSP)) {
                             int xsp_disp = opnd_get_reg_dcontext_offs(REG_XSP) +
                                 clean_call_beyond_mcontext() + total_stack;
@@ -762,13 +771,13 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                                                               TLS_XAX_SLOT));
                             }
                         }
-                        if (opnd_uses_reg(arg, regparms[0])) {
+                        if (opnd_uses_reg(arg, d_r_regparms[0])) {
                             /* must restore since earlier arg might have clobbered */
-                            int mc_disp = opnd_get_reg_dcontext_offs(regparms[0]) +
+                            int mc_disp = opnd_get_reg_dcontext_offs(d_r_regparms[0]) +
                                 clean_call_beyond_mcontext() + total_stack;
                             POST(ilist, prev,
                                  INSTR_CREATE_mov_ld(
-                                     dcontext, opnd_create_reg(regparms[0]),
+                                     dcontext, opnd_create_reg(d_r_regparms[0]),
                                      OPND_CREATE_MEMPTR(REG_XSP, mc_disp)));
                         }
                     }
@@ -782,7 +791,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 #    endif
 
         if (i < NUM_REGPARM) {
-            reg_id_t regparm = shrink_reg_for_param(regparms[i], arg);
+            reg_id_t regparm = shrink_reg_for_param(d_r_regparms[i], arg);
             if (opnd_is_immed_int(arg) || opnd_is_instr(arg)) {
                 POST(ilist, mark,
                      INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(regparm), arg));
@@ -830,9 +839,9 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                     ASSERT(NUM_REGPARM > 0);
                     POST(ilist, mark,
                          INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEMPTR(REG_XSP, offs),
-                                             opnd_create_reg(regparms[0])));
+                                             opnd_create_reg(d_r_regparms[0])));
                     POST(ilist, mark,
-                         INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(regparms[0]),
+                         INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(d_r_regparms[0]),
                                               arg));
                 } else {
 #    endif
@@ -840,11 +849,11 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                         /* can't do mem-to-mem so go through scratch */
                         reg_id_t scratch;
                         if (NUM_REGPARM > 0)
-                            scratch = regparms[0];
+                            scratch = d_r_regparms[0];
                         else {
                             /* This happens on Mac.
                              * FIXME i#1370: not safe if later arg uses xax:
-                             * local spill?  Review how regparms[0] is preserved.
+                             * local spill?  Review how d_r_regparms[0] is preserved.
                              */
                             scratch = REG_XAX;
                         }
@@ -2517,9 +2526,9 @@ float_pc_update(dcontext_t *dcontext)
         }
     }
     /* We must either grab thread_initexit_lock or be couldbelinking to translate */
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     xl8_pc = recreate_app_pc(dcontext, orig_pc, NULL);
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
     LOG(THREAD, LOG_INTERP, 2, "%s: translated " PFX " to " PFX "\n", __FUNCTION__,
         orig_pc, xl8_pc);
 
@@ -2535,7 +2544,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr, uint *flags INOUT)
 {
     /* If there is a prior non-control float instr, we can inline the pc update.
-     * Otherwise, we go back to dispatch.  In the latter case we do not support
+     * Otherwise, we go back to d_r_dispatch.  In the latter case we do not support
      * building traces across the float pc save: we assume it's rare.
      */
     app_pc prior_float = NULL;
@@ -2723,7 +2732,7 @@ mangle_cpuid(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_decode(dcontext, instr);
     if (!instr_valid(instr))
         goto cpuid_give_up;
-    loginst(dcontext, 2, prev, "prior to cpuid");
+    d_r_loginst(dcontext, 2, prev, "prior to cpuid");
 
     /* FIXME: maybe should insert code to dispatch on eax, rather than
      * this hack, which is based on photoshop, which either does
@@ -3176,7 +3185,7 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     STATS_INC(app_seg_refs_mangled);
 
     DOLOG(3, LOG_INTERP,
-          { loginst(dcontext, 3, instr, "reference with fs/gs segment"); });
+          { d_r_loginst(dcontext, 3, instr, "reference with fs/gs segment"); });
     /* 2. decide the scratch reg */
     /* Opt: if it's a load (OP_mov_ld, or OP_movzx, etc.), use dead reg */
     if (si >= 0 && instr_num_srcs(instr) == 1 && /* src is the seg ref opnd */
@@ -3221,7 +3230,8 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* we need the whole spill...restore region to all be marked mangle */
     instr_set_our_mangling(instr, true);
     /* FIXME: i#107 we should check the bound and raise signal if out of bound. */
-    DOLOG(3, LOG_INTERP, { loginst(dcontext, 3, instr, "re-wrote app tls reference"); });
+    DOLOG(3, LOG_INTERP,
+          { d_r_loginst(dcontext, 3, instr, "re-wrote app tls reference"); });
 
     if (spill) {
         PRE(ilist, next_instr,
@@ -3357,7 +3367,7 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
     bool use_tls = IF_X64_ELSE(true, false);
     IF_X64(bool x86_to_x64_ibl_opt = DYNAMO_OPTION(x86_to_x64_ibl_opt);)
     instr_t *next_app = next;
-    DOLOG(3, LOG_INTERP, { loginst(dcontext, 3, instr, "writes memory"); });
+    DOLOG(3, LOG_INTERP, { d_r_loginst(dcontext, 3, instr, "writes memory"); });
 
     ASSERT(!instr_is_call_indirect(instr)); /* FIXME: can you have REP on on CALL's */
 
@@ -3501,7 +3511,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     instr_t *next_app = next;
     instr_t *get_addr_at = next;
     int opcode = instr_get_opcode(instr);
-    DOLOG(3, LOG_INTERP, { loginst(dcontext, 3, instr, "writes memory"); });
+    DOLOG(3, LOG_INTERP, { d_r_loginst(dcontext, 3, instr, "writes memory"); });
 
     /* skip meta instrs to find next app instr (xref PR 472190) */
     while (next_app != NULL && instr_is_meta(next_app))
@@ -3524,7 +3534,8 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
              * CALL* already means that we're leaving the block and it cannot be a selfmod
              * instruction even though it writes to memory
              */
-            DOLOG(4, LOG_INTERP, { loginst(dcontext, 4, next_app, "next app instr"); });
+            DOLOG(4, LOG_INTERP,
+                  { d_r_loginst(dcontext, 4, next_app, "next app instr"); });
             after_write = opnd_get_pc(instr_get_target(next_app));
             LOG(THREAD, LOG_INTERP, 4, "after_write = " PFX " next should be final jmp\n",
                 after_write);

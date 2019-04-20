@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,6 +48,17 @@
 #include "dr_config.h" /* for dr_platform_t */
 #include "tls.h"
 #include "memquery.h"
+
+/* Cross arch syscall nums for use with struct stat64. */
+#ifdef X64
+#    ifdef SYS_stat
+#        define SYSNUM_STAT SYS_stat
+#    endif
+#    define SYSNUM_FSTAT SYS_fstat
+#else
+#    define SYSNUM_STAT SYS_stat64
+#    define SYSNUM_FSTAT SYS_fstat64
+#endif
 
 /* for inline asm */
 #ifdef X86
@@ -194,6 +205,13 @@ typedef struct ptrace_stack_args_t {
     char home_dir[MAXIMUM_PATH]; /* In case the user of the injectee is not us. */
 } ptrace_stack_args_t;
 
+/* in drlibc_os.c */
+byte *
+mmap_syscall(byte *addr, size_t len, ulong prot, ulong flags, ulong fd, ulong offs);
+
+long
+munmap_syscall(byte *addr, size_t len);
+
 /* in os.c */
 bool
 os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset);
@@ -264,9 +282,9 @@ typedef kernel_sigaction_t prev_sigaction_t;
 #endif
 
 void
-signal_init(void);
+d_r_signal_init(void);
 void
-signal_exit(void);
+d_r_signal_exit(void);
 void
 signal_thread_init(dcontext_t *dcontext, void *os_data);
 void

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,7 +48,6 @@
 #include "perscache.h"
 #include "native_exec.h"
 #include "translate.h"
-#include <string.h> /* for strstr */
 
 #ifdef CLIENT_INTERFACE
 #    include "emit.h"
@@ -133,7 +132,7 @@ exited_due_to_ni_syscall(dcontext_t *dcontext)
  * self-protection issues with the dstack.
  */
 void
-dispatch(dcontext_t *dcontext)
+d_r_dispatch(dcontext_t *dcontext)
 {
     fragment_t *targetf;
     fragment_t coarse_f;
@@ -163,7 +162,7 @@ dispatch(dcontext_t *dcontext)
 #endif
 
     dispatch_enter_dynamorio(dcontext);
-    LOG(THREAD, LOG_INTERP, 2, "\ndispatch: target = " PFX "\n", dcontext->next_tag);
+    LOG(THREAD, LOG_INTERP, 2, "\nd_r_dispatch: target = " PFX "\n", dcontext->next_tag);
 
     /* This is really a 1-iter loop most of the time: we only iterate
      * when we obtain a target fragment but then fail to enter the
@@ -238,7 +237,7 @@ dispatch(dcontext_t *dcontext)
 
         if (targetf != NULL) {
             if (dispatch_enter_fcache(dcontext, targetf)) {
-                /* won't reach here: will re-enter dispatch() with a clean stack */
+                /* won't reach here: will re-enter d_r_dispatch() with a clean stack */
                 ASSERT_NOT_REACHED();
             } else
                 targetf = NULL; /* targetf was flushed */
@@ -324,7 +323,7 @@ dispatch_enter_fcache_stats(dcontext_t *dcontext, fragment_t *targetf)
     }
 #    endif
 
-    if (stats->loglevel >= 2 && (stats->logmask & LOG_DISPATCH) != 0) {
+    if (d_r_stats->loglevel >= 2 && (d_r_stats->logmask & LOG_DISPATCH) != 0) {
         /* XXX: should use a different mask - and get printed at level 2 when turned on */
         DOLOG(4, LOG_DISPATCH,
               { dump_mcontext(get_mcontext(dcontext), THREAD, DUMP_NOT_XML); });
@@ -393,7 +392,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
 
     /* FIXME: for now we do this before the synch point to avoid complexity of
      * missing a KSTART(fcache_* for cases like NtSetContextThread where a thread
-     * appears back at dispatch() from the synch point w/o ever entering the cache.
+     * appears back at d_r_dispatch() from the synch point w/o ever entering the cache.
      * To truly fix we need to have the NtSetContextThread handler determine
      * whether its suspended target is at this synch point or in the cache.
      */
@@ -409,7 +408,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
          * fcache_enter/fcache_return for actual code cache times
          */
         /* FIXME: asynch events currently continue their current kstat
-         * until they get back to dispatch, so in-fcache kstats are counting
+         * until they get back to d_r_dispatch, so in-fcache kstats are counting
          * the in-DR trampoline execution time!
          */
     });
@@ -590,7 +589,7 @@ handle_special_tag(dcontext_t *dcontext)
         LOG(THREAD, LOG_INTERP, 1, "\n%s: thread " TIDFMT " returning to app @" PFX "\n",
             dcontext->go_native ? "Requested to go native"
                                 : "Found DynamoRIO stopping point",
-            get_thread_id(), dcontext->next_tag);
+            d_r_get_thread_id(), dcontext->next_tag);
 #ifdef DR_APP_EXPORTS
         if (dcontext->next_tag == (app_pc)dr_app_stop)
             send_all_other_threads_native();
@@ -726,7 +725,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
 {
     /* We're transitioning to DynamoRIO from somewhere: either the fcache,
      * the kernel (DR_WHERE_TRAMPOLINE), or the app itself via our start/stop API.
-     * N.B.: set whereami to DR_WHERE_APP iff this is the first dispatch() entry
+     * N.B.: set whereami to DR_WHERE_APP iff this is the first d_r_dispatch() entry
      * for this thread!
      */
     dr_where_am_i_t wherewasi = dcontext->whereami;
@@ -750,7 +749,12 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
     }
 #endif
     ASSERT(wherewasi == DR_WHERE_FCACHE || wherewasi == DR_WHERE_TRAMPOLINE ||
-           wherewasi == DR_WHERE_APP);
+           wherewasi == DR_WHERE_APP ||
+           /* If the thread was waiting at check_wait_at_safe_point when getting
+            * suspended, we were in dispatch (ref i#3427). We will be here after the
+            * thread's context is being reset before sending it native.
+            */
+           (dcontext->go_native && wherewasi == DR_WHERE_DISPATCH));
     dcontext->whereami = DR_WHERE_DISPATCH;
     ASSERT_LOCAL_HEAP_UNPROTECTED(dcontext);
     ASSERT(check_should_be_protected(DATASEC_RARELY_PROT));
@@ -769,7 +773,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
 
     DOLOG(2, LOG_INTERP, {
         if (wherewasi == DR_WHERE_APP) {
-            LOG(THREAD, LOG_INTERP, 2, "\ninitial dispatch: target = " PFX "\n",
+            LOG(THREAD, LOG_INTERP, 2, "\ninitial d_r_dispatch: target = " PFX "\n",
                 dcontext->next_tag);
             dump_mcontext_callstack(dcontext);
             dump_mcontext(get_mcontext(dcontext), THREAD, DUMP_NOT_XML);
@@ -883,7 +887,8 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
         if (exited_due_to_ni_syscall(dcontext)
                 IF_CLIENT_INTERFACE(|| instrument_invoke_another_syscall(dcontext))) {
             handle_system_call(dcontext);
-            /* will return here if decided to skip the syscall; else, back to dispatch */
+            /* will return here if decided to skip the syscall; else, back to d_r_dispatch
+             */
         }
 #ifdef WINDOWS
         else if (TEST(LINK_CALLBACK_RETURN, dcontext->last_exit->flags)) {
@@ -914,7 +919,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                 /* this fragment overwrote its original memory image */
                 fragment_self_write(dcontext);
                 /* FIXME: optimize this to stay writable if we're going to
-                 * be exiting dispatch as well -- no very quick check though
+                 * be exiting d_r_dispatch as well -- no very quick check though
                  */
                 SELF_PROTECT_LOCAL(dcontext, READONLY);
             } else if (dcontext->upcontext.upcontext.exit_reason >=
@@ -1016,13 +1021,13 @@ dispatch_exit_fcache(dcontext_t *dcontext)
         ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base - 1) ||
                IS_CLIENT_THREAD(dcontext));
         ASSERT((SWAP_TEB_STACKBASE() &&
-                is_dynamo_address((byte *)get_tls(TOP_STACK_TIB_OFFSET) - 1)) ||
+                is_dynamo_address((byte *)d_r_get_tls(TOP_STACK_TIB_OFFSET) - 1)) ||
                (!SWAP_TEB_STACKBASE() &&
-                !is_dynamo_address((byte *)get_tls(TOP_STACK_TIB_OFFSET) - 1)));
+                !is_dynamo_address((byte *)d_r_get_tls(TOP_STACK_TIB_OFFSET) - 1)));
         ASSERT((SWAP_TEB_STACKLIMIT() &&
-                is_dynamo_address(get_tls(BASE_STACK_TIB_OFFSET))) ||
+                is_dynamo_address(d_r_get_tls(BASE_STACK_TIB_OFFSET))) ||
                (!SWAP_TEB_STACKLIMIT() &&
-                !is_dynamo_address(get_tls(BASE_STACK_TIB_OFFSET))));
+                !is_dynamo_address(d_r_get_tls(BASE_STACK_TIB_OFFSET))));
         /* DrMi#1723: ensure client hitting app guard page updated TEB.StackLimit.
          * Unfortunately this does happen with fiber code that updates TEB before
          * swapping the stack in the next bb so we make it a curiosity.
@@ -1031,7 +1036,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
             (SWAP_TEB_STACKLIMIT() &&
              get_mcontext(dcontext)->xsp >= (reg_t)dcontext->app_stack_limit) ||
             (!SWAP_TEB_STACKLIMIT() &&
-             get_mcontext(dcontext)->xsp >= (reg_t)get_tls(BASE_STACK_TIB_OFFSET)));
+             get_mcontext(dcontext)->xsp >= (reg_t)d_r_get_tls(BASE_STACK_TIB_OFFSET)));
         ASSERT(dcontext->app_nls_cache == NULL ||
                dcontext->app_nls_cache != dcontext->priv_nls_cache);
     }
@@ -1123,21 +1128,21 @@ dispatch_exit_fcache(dcontext_t *dcontext)
 #ifdef SIDELINE
     /* sideline synchronization */
     if (dynamo_options.sideline) {
-        thread_id_t tid = get_thread_id();
+        thread_id_t tid = d_r_get_thread_id();
         if (pause_for_sideline == tid) {
-            mutex_lock(&sideline_lock);
+            d_r_mutex_lock(&sideline_lock);
             if (pause_for_sideline == tid) {
                 LOG(THREAD, LOG_DISPATCH | LOG_THREADS | LOG_SIDELINE, 2,
                     "Thread %d waiting for sideline thread\n", tid);
                 signal_event(paused_for_sideline_event);
                 STATS_INC(num_wait_sideline);
                 wait_for_event(resume_from_sideline_event, 0);
-                mutex_unlock(&sideline_lock);
+                d_r_mutex_unlock(&sideline_lock);
                 LOG(THREAD, LOG_DISPATCH | LOG_THREADS | LOG_SIDELINE, 2,
                     "Thread %d resuming after sideline thread\n", tid);
                 sideline_cleanup_replacement(dcontext);
             } else
-                mutex_unlock(&sideline_lock);
+                d_r_mutex_unlock(&sideline_lock);
         }
     }
 #endif
@@ -1167,7 +1172,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                         " at this time");
         }
 #    ifdef CLIENT_SIDELINE
-        mutex_lock(&(dcontext->client_data->sideline_mutex));
+        d_r_mutex_lock(&(dcontext->client_data->sideline_mutex));
 #    endif
         todo = dcontext->client_data->to_do;
         while (todo != NULL) {
@@ -1193,7 +1198,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                     vm_area_add_to_list(dcontext, f->tag, &vmlist, orig_flags, f,
                                         false /*no locks*/);
                     ASSERT(ok); /* should never fail for private fragments */
-                    mangle(dcontext, todo->ilist, &f->flags, true, true);
+                    d_r_mangle(dcontext, todo->ilist, &f->flags, true, true);
                     /* mangle shouldn't change the flags here */
                     ASSERT(f->flags == (orig_flags | FRAG_CANNOT_DELETE));
                     new_f = emit_invisible_fragment(dcontext, todo->tag, todo->ilist,
@@ -1206,7 +1211,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                     DOLOG(2, LOG_INTERP, {
                         LOG(THREAD, LOG_INTERP, 3,
                             "Finished emitting replacement fragment %d\n", new_f->id);
-                        disassemble_fragment(dcontext, new_f, stats->loglevel < 3);
+                        disassemble_fragment(dcontext, new_f, d_r_stats->loglevel < 3);
                     });
                 }
                 /* delete [old] fragment */
@@ -1240,7 +1245,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
         }
         dcontext->client_data->to_do = NULL;
 #    ifdef CLIENT_SIDELINE
-        mutex_unlock(&(dcontext->client_data->sideline_mutex));
+        d_r_mutex_unlock(&(dcontext->client_data->sideline_mutex));
 #    endif
     }
 #endif /* CLIENT_INTERFACE */
@@ -2006,7 +2011,7 @@ handle_system_call(dcontext_t *dcontext)
              * FIXME: but what if syscall fails?  need to unswap dcontexts!
              */
             fcache_enter = get_fcache_enter_indirect_routine(dcontext);
-            /* avoid synch errors with dispatch -- since enter_fcache will set
+            /* avoid synch errors with d_r_dispatch -- since enter_fcache will set
              * whereami for prev dcontext, not real one!
              */
             tmp_dcontext->whereami = DR_WHERE_FCACHE;
@@ -2023,8 +2028,8 @@ handle_system_call(dcontext_t *dcontext)
              * completely finished, so we cannot go and receive a signal before
              * executing the sigreturn syscall.
              * Similarly, we've already done some clone work.
-             * Sigreturn and clone will come back to dispatch so there's no worry about
-             * unbounded delay.
+             * Sigreturn and clone will come back to d_r_dispatch so there's no worry
+             * about unbounded delay.
              */
             if ((is_sigreturn_syscall(dcontext) || is_thread_create_syscall(dcontext)) &&
                 dcontext->signals_pending > 0)
@@ -2257,8 +2262,8 @@ issue_last_system_call_from_app(dcontext_t *dcontext)
     ASSERT_NOT_REACHED();
 }
 
-/* Stores the register parameters into the mcontext and calls dispatch.
- * Checks whether currently on initstack and if so clears the initstack_mutex.
+/* Stores the register parameters into the mcontext and calls d_r_dispatch.
+ * Checks whether currently on d_r_initstack and if so clears the initstack_mutex.
  * Does not return.
  */
 void
@@ -2276,16 +2281,16 @@ transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_sta
         swap_peb_pointer(dcontext, true /*to priv*/);
 #endif
     LOG(THREAD, LOG_ASYNCH, 2,
-        "transfer_to_dispatch: pc=0x%08x, xsp=" PFX ", initstack=%d\n",
+        "transfer_to_dispatch: pc=0x%08x, xsp=" PFX ", on-initstack=%d\n",
         dcontext->next_tag, mc->xsp, using_initstack);
 
-    /* next, want to switch to dstack, and if using initstack, free mutex.
-     * finally, call dispatch(dcontext).
+    /* next, want to switch to dstack, and if using d_r_initstack, free mutex.
+     * finally, call d_r_dispatch(dcontext).
      * note that we switch to the base of dstack, deliberately squashing
      * what may have been there before, for both new dcontext and reuse dcontext
      * options.
      */
-    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
                       using_initstack ? &initstack_mutex : NULL,
                       false /*do not return on error*/);
     ASSERT_NOT_REACHED();

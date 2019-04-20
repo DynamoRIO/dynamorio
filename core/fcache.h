@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -80,7 +80,8 @@ enum {
  * resets are not queued up -- one wins and the rest are canceled
  */
 extern mutex_t reset_pending_lock;
-/* indicates a call to fcache_reset_all_caches_proactively() is pending from dispatch */
+/* indicates a call to fcache_reset_all_caches_proactively() is pending from d_r_dispatch
+ */
 extern uint reset_pending;
 
 void

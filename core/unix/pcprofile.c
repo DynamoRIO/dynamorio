@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,7 +43,6 @@
 #include "../utils.h"
 #include "../fragment.h"
 #include "../fcache.h"
-#include <string.h> /* for memset */
 #ifdef CLIENT_INTERFACE
 #    include "instrument.h"
 #endif

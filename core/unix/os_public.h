@@ -105,7 +105,6 @@ typedef kernel_sigcontext_t sigcontext_t;
 #        define SC_R13 SC_FIELD(r13)
 #        define SC_R14 SC_FIELD(r14)
 #        define SC_R15 SC_FIELD(r15)
-
 #        ifdef MACOS
 #            define SC_XFLAGS SC_FIELD(rflags)
 #        else

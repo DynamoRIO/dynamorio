@@ -30,10 +30,10 @@ annotation_unmanage_code_area(void *start, size_t size)
         "Remove code area " PFX "-" PFX " from JIT managed regions\n", start,
         (app_pc)start + size);
 
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     flush_fragments_and_remove_region(dcontext, start, size, true /*own initexit_lock*/,
                                       false /*keep futures*/);
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
 
     jitopt_clear_span(start, (app_pc)start + size);
 }
@@ -713,7 +713,7 @@ unit_test_insert_random_node(bb_node_t **node_list, app_pc random_base, uint ran
         node_list[index] = fragment_tree_insert(fragment_tree, random_start, random_end);
         return true;
     } else {
-        set_random_seed((uint)query_time_millis());
+        d_r_set_random_seed((uint)query_time_millis());
         return false;
     }
 }
@@ -873,7 +873,7 @@ unit_test_jit_fragment_tree()
     dynamo_options.opt_jit = true;
 
     fragment_tree = fragment_tree_create();
-    set_random_seed((uint)query_time_millis());
+    d_r_set_random_seed((uint)query_time_millis());
 
     for (i = 0; i < 3; i++) {
         print_file(STDERR, "pass %d... ", i + 1);

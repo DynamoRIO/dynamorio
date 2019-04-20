@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2019 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -62,6 +62,13 @@ if (ZLIB_FOUND)
   set(zlib_reader reader/compressed_file_reader.cpp)
 else ()
   set(zlib_reader "")
+endif()
+
+if (libsnappy)
+  add_definitions(-DHAS_SNAPPY)
+  set(snappy_reader reader/snappy_file_reader.cpp reader/crc32c.cpp)
+else ()
+  set(snappy_reader "")
 endif()
 
 set(client_and_sim_srcs
@@ -128,6 +135,7 @@ set(drcachesim_srcs
   reader/config_reader.cpp
   reader/file_reader.cpp
   ${zlib_reader}
+  ${snappy_reader}
   reader/ipc_reader.cpp
   simulator/analyzer_interface.cpp
   tracer/instru.cpp
@@ -144,6 +152,9 @@ configure_DynamoRIO_standalone(drcachesim)
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
   drmemtrace_opcode_mix drmemtrace_view drmemtrace_raw2trace directory_iterator)
+if (libsnappy)
+  target_link_libraries(drcachesim snappy)
+endif ()
 # To avoid dup symbol errors between drinjectlib and drdecode on Windows we have
 # to explicitly list drdecode up front:
 target_link_libraries(drcachesim drdecode drinjectlib drconfiglib drfrontendlib)
@@ -166,8 +177,12 @@ add_exported_library(drmemtrace_analyzer STATIC
   reader/config_reader.cpp
   reader/file_reader.cpp
   ${zlib_reader}
+  ${snappy_reader}
   )
 target_link_libraries(drmemtrace_analyzer directory_iterator)
+if (libsnappy)
+  target_link_libraries(drmemtrace_analyzer snappy)
+endif ()
 link_with_pthread(drmemtrace_analyzer)
 # We get away w/ exporting the generically-named "utils.h" by putting into a
 # drmemtrace/ subdir.
@@ -341,6 +356,10 @@ macro(add_win32_flags target)
     get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
     if (NOT cur MATCHES "-std=")
       append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+    endif ()
+    if (APPLE)
+      # Match the core/ flags.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "-mmacosx-version-min=10.9")
     endif ()
   endif ()
 endmacro ()

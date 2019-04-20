@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -60,10 +60,13 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 {
     instrlist_t *ilist = ci->ilist;
     instr_t *instr;
-    uint i, num_regparm;
+    int i, num_regparm;
 
     ci->num_simd_used = 0;
-    memset(ci->simd_used, 0, sizeof(bool) * NUM_SIMD_REGS);
+    /* Part of the array might be left uninitialized if
+     * proc_num_simd_registers() < MCXT_NUM_SIMD_SLOTS.
+     */
+    memset(ci->simd_used, 0, sizeof(bool) * proc_num_simd_registers());
     memset(ci->reg_used, 0, sizeof(bool) * NUM_GP_REGS);
     ci->write_flags = false;
     for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
@@ -74,7 +77,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
          * impact unless there are a lot of different clean call callees.
          */
         /* XMM registers usage */
-        for (i = 0; i < NUM_SIMD_REGS; i++) {
+        for (i = 0; i < proc_num_simd_registers(); i++) {
             if (!ci->simd_used[i] && instr_uses_reg(instr, (DR_REG_XMM0 + (reg_id_t)i))) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: callee " PFX " uses XMM%d at " PFX "\n", ci->start, i,
@@ -151,7 +154,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     /* i#987, i#988: reg might be used for arg passing but not used in callee */
     num_regparm = MIN(ci->num_args, NUM_REGPARM);
     for (i = 0; i < num_regparm; i++) {
-        reg_id_t reg = regparms[i];
+        reg_id_t reg = d_r_regparms[i];
         if (!ci->reg_used[reg - DR_REG_XAX]) {
             LOG(THREAD, LOG_CLEANCALL, 2,
                 "CLEANCALL: callee " PFX " uses REG %s for arg passing\n", ci->start,
@@ -605,7 +608,7 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
     insert_get_mcontext_base(dcontext, ilist, where, ci->spill_reg);
 
     /* Save used registers. */
-    ASSERT(cci->num_simd_skip == NUM_SIMD_REGS);
+    ASSERT(cci->num_simd_skip == proc_num_simd_registers());
     for (i = 0; i < NUM_GP_REGS; i++) {
         if (!cci->reg_skip[i]) {
             reg_id_t reg_id = DR_REG_XAX + (reg_id_t)i;
@@ -688,7 +691,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
      * for correctness because we will not have spilled regparm[0] on x64 or
      * reserved SLOT_LOCAL for x86_32.
      */
-    if (IF_X64_ELSE(!ci->reg_used[regparms[0] - DR_REG_XAX], !ci->has_locals)) {
+    if (IF_X64_ELSE(!ci->reg_used[d_r_regparms[0] - DR_REG_XAX], !ci->has_locals)) {
         LOG(THREAD, LOG_CLEANCALL, 2,
             "CLEANCALL: callee " PFX " doesn't read arg, skipping arg setup.\n",
             ci->start);
@@ -697,7 +700,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
 
     ASSERT(cci->num_args == 1);
     arg = args[0];
-    regparm = shrink_reg_for_param(IF_X64_ELSE(regparms[0], DR_REG_XAX), arg);
+    regparm = shrink_reg_for_param(IF_X64_ELSE(d_r_regparms[0], DR_REG_XAX), arg);
 
     if (opnd_uses_reg(arg, ci->spill_reg)) {
         if (opnd_is_reg(arg)) {

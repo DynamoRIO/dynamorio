@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,8 +44,6 @@
 #ifndef AARCH64
 #    include "x86/decode_private.h"
 #endif
-
-#include <string.h> /* for memcpy */
 
 #if defined(DEBUG) && !defined(STANDALONE_DECODER)
 /* case 10450: give messages to clients */
@@ -1108,7 +1106,7 @@ opnd_get_reg_used(opnd_t opnd, int index)
 /***************************************************************************/
 /* utility routines */
 
-const reg_id_t regparms[] = {
+const reg_id_t d_r_regparms[] = {
 #ifdef X86
 #    ifdef X64
     REGPARM_0,  REGPARM_1, REGPARM_2, REGPARM_3,
@@ -1579,7 +1577,8 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_128: return 128;
     case OPSZ_512: return 512;
     case OPSZ_VAR_REGLIST: return 0; /* varies to match reglist operand */
-    case OPSZ_xsave: return 0;       /* > 512 bytes: use cpuid to determine */
+    case OPSZ_xsave:
+        return 0; /* > 512 bytes: client to use drutil_opnd_mem_size_in_bytes */
     default: CLIENT_ASSERT(false, "opnd_size_in_bytes: invalid opnd type"); return 0;
     }
 }
@@ -1743,8 +1742,8 @@ reg_get_value_priv(reg_id_t reg, priv_mcontext_t *mc)
     }
 #endif
     /* mmx and segment cannot be part of address.
-     * xmm/ymm can with VSIB, but we'd have to either return a larger type,
-     * or take in an offset within the xmm/ymm register -- so we leave this
+     * xmm/ymm/zmm can with VSIB, but we'd have to either return a larger type,
+     * or take in an offset within the xmm/ymm/zmm register -- so we leave this
      * routine supporting only GPR and have a separate routine for VSIB
      * (opnd_compute_VSIB_index()).
      * if want to use this routine for more than just effective address
@@ -1774,11 +1773,15 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val)
     } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
         if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
-        memcpy(val, &mc->ymm[reg - DR_REG_START_XMM], XMM_REG_SIZE);
+        memcpy(val, &mc->simd[reg - DR_REG_START_XMM], XMM_REG_SIZE);
     } else if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) {
         if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
-        memcpy(val, &mc->ymm[reg - DR_REG_START_YMM], YMM_REG_SIZE);
+        memcpy(val, &mc->simd[reg - DR_REG_START_YMM], YMM_REG_SIZE);
+    } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
+        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+            return false;
+        memcpy(val, &mc->simd[reg - DR_REG_START_ZMM], ZMM_REG_SIZE);
     } else {
         reg_t regval = reg_get_value(reg, mc);
         *(reg_t *)val = regval;
@@ -1840,7 +1843,7 @@ opnd_compute_address_helper(opnd_t opnd, priv_mcontext_t *mc, ptr_int_t scaled_i
     addr = seg_base;
     base = opnd_get_base(opnd);
     disp = opnd_get_disp(opnd);
-    logopnd(get_thread_private_dcontext(), 4, opnd, "opnd_compute_address for");
+    d_r_logopnd(get_thread_private_dcontext(), 4, opnd, "opnd_compute_address for");
     addr += reg_get_value_priv(base, mc);
     LOG(THREAD_GET, LOG_ALL, 4, "\tbase => " PFX "\n", addr);
     addr += scaled_index;
@@ -1885,7 +1888,7 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
                 (index_val >> amount) | (index_val << (sizeof(reg_t) * 8 - amount));
             break;
         case DR_SHIFT_RRX:
-            scaled_index = (index_val >> 1) ||
+            scaled_index = (index_val >> 1) |
                 (TEST(EFLAGS_C, mc->cpsr) ? (1 << (sizeof(reg_t) * 8 - 1)) : 0);
             break;
         default: scaled_index = index_val;
@@ -1981,8 +1984,9 @@ reg_is_extended(reg_id_t reg)
             (reg >= REG_START_16 + 8 && reg <= REG_STOP_16) ||
             (reg >= REG_START_8 + 8 && reg <= REG_STOP_8) ||
             (reg >= REG_START_x64_8 && reg <= REG_STOP_x64_8) ||
-            (reg >= REG_START_XMM + 8 && reg <= REG_STOP_XMM) ||
-            (reg >= REG_START_YMM + 8 && reg <= REG_STOP_YMM) ||
+            (reg >= DR_REG_START_XMM + 8 && reg <= DR_REG_STOP_XMM) ||
+            (reg >= DR_REG_START_YMM + 8 && reg <= DR_REG_STOP_YMM) ||
+            (reg >= DR_REG_START_ZMM + 8 && reg <= DR_REG_STOP_ZMM) ||
             (reg >= REG_START_DR + 8 && reg <= REG_STOP_DR) ||
             (reg >= REG_START_CR + 8 && reg <= REG_STOP_CR));
 }
@@ -2023,7 +2027,7 @@ reg_parameter_num(reg_id_t reg)
 {
     int r;
     for (r = 0; r < NUM_REGPARM; r++) {
-        if (reg == regparms[r])
+        if (reg == d_r_regparms[r])
             return r;
     }
     return -1;
@@ -2075,10 +2079,12 @@ reg_get_bits(reg_id_t reg)
         return (byte)((reg - REG_START_16) % 8);
     if (reg >= REG_START_MMX && reg <= REG_STOP_MMX)
         return (byte)((reg - REG_START_MMX) % 8);
-    if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
-        return (byte)((reg - REG_START_XMM) % 8);
-    if (reg >= REG_START_YMM && reg <= REG_STOP_YMM)
-        return (byte)((reg - REG_START_YMM) % 8);
+    if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM)
+        return (byte)((reg - DR_REG_START_XMM) % 8);
+    if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM)
+        return (byte)((reg - DR_REG_START_YMM) % 8);
+    if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM)
+        return (byte)((reg - DR_REG_START_ZMM) % 8);
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return (byte)((reg - REG_START_SEGMENT) % 8);
     if (reg >= REG_START_DR && reg <= REG_STOP_DR)
@@ -2115,10 +2121,22 @@ reg_get_size(reg_id_t reg)
         return OPSZ_2;
     if (reg >= REG_START_MMX && reg <= REG_STOP_MMX)
         return OPSZ_8;
-    if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
+    if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM)
         return OPSZ_16;
-    if (reg >= REG_START_YMM && reg <= REG_STOP_YMM)
+    if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM)
         return OPSZ_32;
+    if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM)
+        return OPSZ_64;
+    if (reg >= DR_REG_START_OPMASK && reg <= DR_REG_STOP_OPMASK) {
+        /* The default is 16 bits wide. The register may be up to 64 bits wide with
+         * the AVX-512BW extension, which depends on the processor. The number of
+         * bits actually used depends on the vector type of the instruction.
+         * XXX i#1312: return variable size dependent on processor feature. OPSZ_8
+         * is the most recent maximal physical register, but may not apply to every
+         * processor and OS we're running on.
+         */
+        return OPSZ_8;
+    }
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return OPSZ_2;
     if (reg >= REG_START_DR && reg <= REG_STOP_DR)
