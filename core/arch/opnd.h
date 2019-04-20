@@ -2760,7 +2760,7 @@ DR_API
 /**
  * Sets the register \p reg in the passed in mcontext \p mc to \p value.
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
- * \note Current release is limited to setting pointer-sized registers only
+ * \note This function is limited to setting pointer-sized registers only
  * (no sub-registers, and no non-general-purpose registers).
  */
 void
@@ -2778,9 +2778,12 @@ DR_API
  *
  * Up to sizeof(dr_ymm_t) bytes will be read from \p val_buf. The \p size
  * paramter indicates the size of the input buffer.
+ *
+ * Returns false if the size is invalid, e.g., the register is smaller
+ * than the size of the input buffer.
  */
-void
-reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf);
+bool
+reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf, IN size_t size);
 
 /* internal version */
 void
