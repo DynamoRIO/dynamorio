@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -68,8 +68,12 @@
 #define AMD_ECX /* cAMD */ 0x444d4163
 
 static bool avx_enabled;
+
+static int num_simd_saved;
+static int num_simd_registers;
+
 /* global writable variable for debug registers value */
-DECLARE_NEVERPROT_VAR(app_pc debugRegister[DEBUG_REGISTERS_NB], { 0 });
+DECLARE_NEVERPROT_VAR(app_pc d_r_debug_register[DEBUG_REGISTERS_NB], { 0 });
 
 static void
 get_cache_sizes_amd(uint max_ext_val)
@@ -323,7 +327,7 @@ proc_init_arch(void)
      * care enough to add more, it would probably be best to loop
      * through a const array of feature names.
      */
-    if (stats->loglevel > 0 && (stats->logmask & LOG_TOP) != 0) {
+    if (d_r_stats->loglevel > 0 && (d_r_stats->logmask & LOG_TOP) != 0) {
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n\tedx = 0x%08x\n\tecx = 0x%08x\n",
             cpu_info.features.flags_edx, cpu_info.features.flags_ecx);
         LOG(GLOBAL, LOG_TOP, 1, "\text_edx = 0x%08x\n\text_ecx = 0x%08x\n",
@@ -353,6 +357,9 @@ proc_init_arch(void)
                       (!proc_has_feature(FEATURE_FXSR) && !proc_has_feature(FEATURE_SSE)),
                   "Unsupported processor type: SSE and FXSR must match");
 
+    num_simd_saved = MCXT_NUM_SIMD_SLOTS;
+    num_simd_registers = MCXT_NUM_SIMD_SLOTS;
+
     if (proc_has_feature(FEATURE_AVX) && proc_has_feature(FEATURE_OSXSAVE)) {
         /* Even if the processor supports AVX, it will #UD on any AVX instruction
          * if the OS hasn't enabled YMM and XMM state saving.
@@ -372,7 +379,7 @@ proc_init_arch(void)
         }
     }
     for (i = 0; i < DEBUG_REGISTERS_NB; i++) {
-        debugRegister[i] = NULL;
+        d_r_debug_register[i] = NULL;
     }
 }
 
@@ -417,6 +424,20 @@ proc_fpstate_save_size(void)
                       opnd_size_in_bytes(OPSZ_108) == 108,
                   "internal sizing discrepancy");
     return (proc_has_feature(FEATURE_FXSR) ? 512 : 108);
+}
+
+DR_API
+int
+proc_num_simd_saved(void)
+{
+    return num_simd_saved;
+}
+
+DR_API
+int
+proc_num_simd_registers(void)
+{
+    return num_simd_registers;
 }
 
 DR_API

@@ -197,9 +197,9 @@ main()
 
 #endif
     /* Now test any floating-point printing at exit time in DR or a
-     * client by unmasking div-by-zero, which our_vsnprintf_float()
+     * client by unmasking div-by-zero, which d_r_vsnprintf_float()
      * relies on being masked (i#1213).
-     * On Linux the our_vsnprintf_float() code currently doesn't do a
+     * On Linux the d_r_vsnprintf_float() code currently doesn't do a
      * divide but we check there nonetheless.
      */
 #ifdef WINDOWS

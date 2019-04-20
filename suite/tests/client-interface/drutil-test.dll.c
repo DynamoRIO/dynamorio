@@ -204,6 +204,17 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                 dr_restore_reg(drcontext, bb, instr, reg1, SPILL_SLOT_1);
             }
         }
+#ifdef X86
+        if (instr_is_xsave(instr)) {
+            ushort size =
+                (ushort)drutil_opnd_mem_size_in_bytes(instr_get_dst(instr, 0), instr);
+            /* We're checking for a reasonable xsave area size which is at least 576
+             * bytes for the x87 + SSE user state components, or up to 2688 if AVX-512
+             * is enabled.
+             */
+            CHECK(size >= 576 && size <= 2688, "xsave area size unexpected");
+        }
+#endif
     }
     check_label_data(bb);
     return DR_EMIT_DEFAULT;

@@ -153,12 +153,16 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
      */
     sigcontext_t *sc = sc_full->sc;
     int i;
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-        memcpy(&mc->ymm[i], &sc->__fs.__fpu_xmm0 + i, XMM_REG_SIZE);
+    /* XXX i#1312: This assumption will change and the code below may need
+     * to take this into account.
+     */
+    ASSERT(MCXT_NUM_SIMD_SLOTS == proc_num_simd_registers());
+    for (i = 0; i < proc_num_simd_registers(); i++) {
+        memcpy(&mc->simd[i], &sc->__fs.__fpu_xmm0 + i, XMM_REG_SIZE);
     }
     if (YMM_ENABLED()) {
-        for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-            memcpy(&mc->ymm[i].u32[4], &sc->__fs.__fpu_ymmh0 + i, YMMH_REG_SIZE);
+        for (i = 0; i < proc_num_simd_registers(); i++) {
+            memcpy(&mc->simd[i].u32[4], &sc->__fs.__fpu_ymmh0 + i, YMMH_REG_SIZE);
         }
     }
 }
@@ -168,12 +172,16 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
     sigcontext_t *sc = sc_full->sc;
     int i;
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-        memcpy(&sc->__fs.__fpu_xmm0 + i, &mc->ymm[i], XMM_REG_SIZE);
+    /* XXX i#1312: This assumption will change and the code below may need
+     * to take this into account.
+     */
+    ASSERT(MCXT_NUM_SIMD_SLOTS == proc_num_simd_registers());
+    for (i = 0; i < proc_num_simd_registers(); i++) {
+        memcpy(&sc->__fs.__fpu_xmm0 + i, &mc->simd[i], XMM_REG_SIZE);
     }
     if (YMM_ENABLED()) {
-        for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-            memcpy(&sc->__fs.__fpu_ymmh0 + i, &mc->ymm[i].u32[4], YMMH_REG_SIZE);
+        for (i = 0; i < proc_num_simd_registers(); i++) {
+            memcpy(&sc->__fs.__fpu_ymmh0 + i, &mc->simd[i].u32[4], YMMH_REG_SIZE);
         }
     }
 }
@@ -200,7 +208,8 @@ dump_fpstate(dcontext_t *dcontext, sigcontext_t *sc)
         }
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+    /* XXX i#1312: this needs to get extended to AVX-512. */
+    for (i = 0; i < proc_num_simd_registers(); i++) {
         LOG(THREAD, LOG_ASYNCH, 1, "\txmm%d = ", i);
         for (j = 0; j < 4; j++) {
             LOG(THREAD, LOG_ASYNCH, 1, "%08x ",
@@ -209,7 +218,7 @@ dump_fpstate(dcontext_t *dcontext, sigcontext_t *sc)
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
     if (YMM_ENABLED()) {
-        for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+        for (i = 0; i < proc_num_simd_registers(); i++) {
             LOG(THREAD, LOG_ASYNCH, 1, "\tymmh%d = ", i);
             for (j = 0; j < 4; j++) {
                 LOG(THREAD, LOG_ASYNCH, 1, "%08x ",
@@ -232,14 +241,14 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\txcx=" PFX "\n", sc->SC_XCX);
     LOG(THREAD, LOG_ASYNCH, 1, "\txax=" PFX "\n", sc->SC_XAX);
 #ifdef X64
-    LOG(THREAD, LOG_ASYNCH, 1, "\t r8=" PFX "\n", sc->r8);
-    LOG(THREAD, LOG_ASYNCH, 1, "\t r9=" PFX "\n", sc->r8);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr10=" PFX "\n", sc->r10);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr11=" PFX "\n", sc->r11);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr12=" PFX "\n", sc->r12);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr13=" PFX "\n", sc->r13);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr14=" PFX "\n", sc->r14);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr15=" PFX "\n", sc->r15);
+    LOG(THREAD, LOG_ASYNCH, 1, "\t r8=" PFX "\n", sc->SC_R8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\t r9=" PFX "\n", sc->SC_R8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr10=" PFX "\n", sc->SC_R10);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr11=" PFX "\n", sc->SC_R11);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr12=" PFX "\n", sc->SC_R12);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr13=" PFX "\n", sc->SC_R13);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr14=" PFX "\n", sc->SC_R14);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr15=" PFX "\n", sc->SC_R15);
 #endif
 
     LOG(THREAD, LOG_ASYNCH, 1, "\txip=" PFX "\n", sc->SC_XIP);

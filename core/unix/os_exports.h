@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -70,7 +70,10 @@
  * PR 205276 covers transparently stealing our segment selector.
  */
 #ifdef X86
-#    ifdef X64
+#    if defined(MACOS64)
+#        define SEG_TLS SEG_FS     /* XXX: no way to set on MacOS 64-bit */
+#        define LIB_SEG_TLS SEG_GS /* libc+loader tls */
+#    elif defined(X64)
 #        define SEG_TLS SEG_GS
 #        define ASM_SEG "%gs"
 #        define LIB_SEG_TLS SEG_FS /* libc+loader tls */
@@ -112,6 +115,17 @@
 #    error NYI
 #endif
 
+#ifdef MACOS64
+/* FIXME i#1568: current pthread_t struct has the first TLS entry at offset 28. We should
+ * provide a dynamic method to determine the first entry for forward compatability.
+ * Starting w/ libpthread-218.1.3 they now leave slots 6 and 11 unused to allow
+ * limited interoperability w/ code targeting the Windows x64 ABI. We steal slot 6
+ * for our own use.
+ */
+#    define DR_TLS_BASE_OFFSET 34 /* offset from pthread_t struct to slot 6 */
+#    define DR_TLS_BASE_SLOT 6    /* the TLS slot for DR's TLS base */
+#endif
+
 #ifdef AARCHXX
 #    ifdef ANDROID
 /* We have our own slot at the end of our instance of Android's
@@ -147,9 +161,9 @@ extern uint android_tls_base_offs;
 #endif
 
 void *
-get_tls(ushort tls_offs);
+d_r_get_tls(ushort tls_offs);
 void
-set_tls(ushort tls_offs, void *value);
+d_r_set_tls(ushort tls_offs, void *value);
 byte *
 os_get_dr_tls_base(dcontext_t *dcontext);
 
@@ -230,6 +244,8 @@ extern char **environ;
 #else
 extern char **our_environ;
 #endif
+bool
+is_our_environ_followed_by_auxv(void);
 void
 dynamorio_set_envp(char **envp);
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
@@ -503,7 +519,7 @@ pcprofile_thread_exit(dcontext_t *dcontext);
 /* in stackdump.c */
 /* fork, dump core, and use gdb for complete stack trace */
 void
-stackdump(void);
+d_r_stackdump(void);
 /* use backtrace feature of glibc for quick but sometimes incomplete trace */
 void
 glibc_stackdump(int fd);

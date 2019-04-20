@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -752,7 +752,7 @@ STATS_DEF("Fcache exits, signal delivery", num_exits_dir_signal)
 STATS_DEF("Fcache exits needing cbr disambiguation", cbr_disambiguations)
 
 STATS_DEF("Float pc state updates intra-cache", float_pc_from_cache)
-STATS_DEF("Float pc state updates from dispatch", float_pc_from_dispatch)
+STATS_DEF("Float pc state updates from d_r_dispatch", float_pc_from_dispatch)
 
 STATS_DEF("Fragments with OF restore prefix", num_oflag_prefix_restore)
 STATS_DEF("Fcache free capacity (bytes)", fcache_free_capacity)

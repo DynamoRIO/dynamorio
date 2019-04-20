@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -108,13 +108,16 @@ void
 vmcode_get_reachable_region(byte **region_start OUT, byte **region_end OUT);
 #endif
 
-/* virtual heap manager */
+/* Virtual memory types.  These are bitmask values. */
 typedef enum {
-    VMM_HEAP = 0,
-    VMM_CACHE,
-    VMM_STACK,
-    VMM_SPECIAL_HEAP,
-    VMM_SPECIAL_MMAP,
+    /* Mutually-exclusive core types. */
+    VMM_HEAP = 0x0001,
+    VMM_CACHE = 0x0002,
+    VMM_STACK = 0x0004,
+    VMM_SPECIAL_HEAP = 0x0008,
+    VMM_SPECIAL_MMAP = 0x0010,
+    /* These modify the core types. */
+    VMM_REACHABLE = 0x0020,
 } which_vmm_t;
 
 void
@@ -123,12 +126,13 @@ void
 vmm_heap_exit(void);
 void
 print_vmm_heap_data(file_t outf);
-void
-get_vmm_heap_bounds(byte **heap_start /*OUT*/, byte **heap_end /*OUT*/);
 byte *
 vmcode_get_start();
 byte *
 vmcode_get_end();
+void
+iterate_vmm_regions(void (*cb)(byte *region_start, byte *region_end, void *user_data),
+                    void *user_data);
 byte *
 vmcode_unreachable_pc();
 
@@ -136,15 +140,16 @@ bool
 heap_check_option_compatibility(void);
 
 bool
-is_vmm_reserved_address(byte *pc, size_t size);
+is_vmm_reserved_address(byte *pc, size_t size, OUT byte **region_start,
+                        OUT byte **region_end);
 bool
 rel32_reachable_from_vmcode(byte *target);
 
 /* heap management */
 void
-heap_init(void);
+d_r_heap_init(void);
 void
-heap_exit(void);
+d_r_heap_exit(void);
 void
 heap_post_exit(void); /* post exit to support reattach */
 void
@@ -175,13 +180,13 @@ global_heap_realloc(void *ptr, size_t old_num, size_t new_num,
 bool
 lockwise_safe_to_allocate_memory(void);
 
-/* use heap_mmap to allocate large chunks of executable memory */
+/* use heap_mmap* to allocate large chunks of memory */
 void *
-heap_mmap(size_t size, which_vmm_t which);
+heap_mmap(size_t size, uint prot, which_vmm_t which);
 void
 heap_munmap(void *p, size_t size, which_vmm_t which);
 void *
-heap_mmap_reserve(size_t reserve_size, size_t commit_size, which_vmm_t which);
+heap_mmap_reserve(size_t reserve_size, size_t commit_size, uint prot, which_vmm_t which);
 
 void *
 heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded,
@@ -191,17 +196,17 @@ heap_munmap_ex(void *p, size_t size, bool guarded, which_vmm_t which);
 
 /* updates dynamo_areas and calls the os_ versions */
 byte *
-map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-         map_flags_t map_flags);
+d_r_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+             map_flags_t map_flags);
 bool
-unmap_file(byte *map, size_t size);
+d_r_unmap_file(byte *map, size_t size);
 
 /* Allocates executable memory in the same allocation region as this thread's
  * stack, to save address space (case 9474).
  */
 void *
 heap_mmap_reserve_post_stack(dcontext_t *dcontext, size_t reserve_size,
-                             size_t commit_size, which_vmm_t which);
+                             size_t commit_size, uint prot, which_vmm_t which);
 void
 heap_munmap_post_stack(dcontext_t *dcontext, void *p, size_t reserve_size,
                        which_vmm_t which);
@@ -248,6 +253,13 @@ nonpersistent_heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t
 void
 nonpersistent_heap_free(dcontext_t *dcontext, void *p,
                         size_t size HEAPACCT(which_heap_t which));
+
+/* Passing dcontext == GLOBAL_DCONTEXT allocates from a global pool. */
+void *
+heap_reachable_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which));
+void
+heap_reachable_free(dcontext_t *dcontext, void *p,
+                    size_t size HEAPACCT(which_heap_t which));
 
 bool
 local_heap_protected(dcontext_t *dcontext);
@@ -303,7 +315,7 @@ global_unprotected_heap_free(void *p, size_t size HEAPACCT(which_heap_t which));
 #define NONPERSISTENT_HEAP_TYPE_FREE(dc, p, type, which) \
     NONPERSISTENT_HEAP_ARRAY_FREE(dc, p, type, 1, which)
 
-#define MIN_VMM_BLOCK_SIZE IF_WINDOWS_ELSE(16 * 1024, 4 * 1024)
+#define MIN_VMM_BLOCK_SIZE IF_WINDOWS_ELSE(16U * 1024, 4U * 1024)
 
 /* special heap of same-sized blocks that avoids global locks */
 void *

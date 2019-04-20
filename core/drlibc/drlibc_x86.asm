@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -42,6 +42,9 @@
 
 #include "../asm_defines.asm"
 #include "x86_asm_defines.asm" /* PUSHGPR, POPGPR, etc. */
+#ifdef MACOS
+# include "include/syscall_mach.h" /* SYSCALL_NUM_MARKER_MACH */
+#endif
 START_FILE
 
 DECL_EXTERN(unexpected_return)
@@ -214,6 +217,8 @@ GLOBAL_LABEL(dynamorio_mach_dep_syscall:)
         cmp      REG_XBX, 3
         je       mach_dep_syscall_ready
         mov      ARG4, ARG6
+mach_dep_syscall_ready:
+        syscall
 #  else
         push     REG_XBP
         push     REG_XSI
@@ -246,10 +251,8 @@ mach_dep_syscall_0args:
         push     0 /* extra slot */
         /* clear the top half so we can always consider the result 64-bit */
         mov      edx, 0
-#  endif
         /* mach dep syscalls use interrupt 0x82 */
         int      HEX(82)
-#  ifndef X64
         lea      esp, [7*ARG_SZ + esp] /* must not change flags */
         pop      REG_XDI
         pop      REG_XSI
@@ -279,6 +282,7 @@ GLOBAL_LABEL(dynamorio_mach_syscall:)
         /* reverse order so we don't clobber earlier args */
         mov      REG_XBX, ARG2 /* put num_args where we can reference it longer */
         mov      rax, ARG1 /* sysnum: only need eax, but need rax to use ARG1 (or movzx) */
+        or       eax, SYSCALL_NUM_MARKER_MACH
         cmp      REG_XBX, 0
         je       dynamorio_mach_syscall_ready
         mov      ARG1, ARG3
@@ -291,6 +295,8 @@ GLOBAL_LABEL(dynamorio_mach_syscall:)
         cmp      REG_XBX, 3
         je       dynamorio_mach_syscall_ready
         mov      ARG4, ARG6
+dynamorio_mach_syscall_ready:
+        syscall
 #  else
         push     REG_XBP
         push     REG_XSI
@@ -314,12 +320,8 @@ dynamorio_mach_syscall_1args:
         mov      ebx, [16+12 + esp] /* arg1 */
 dynamorio_mach_syscall_0args:
         mov      eax, [16+ 4 + esp] /* sysnum */
-#  ifdef X64
-        or       eax, SYSCALL_NUM_MARKER_MACH
-#  else
         /* The sysnum is passed as a negative number */
         neg      eax
-#  endif
         /* args are on stack, w/ an extra slot (retaddr of syscall wrapper) */
         lea      REG_XSP, [-2*ARG_SZ + REG_XSP] /* maintain align-16: retaddr-5th below */
         /* args are on stack, w/ an extra slot (retaddr of syscall wrapper) */
@@ -328,7 +330,6 @@ dynamorio_mach_syscall_0args:
         push     ecx
         push     ebx
         push     0 /* extra slot */
-#  endif
         /* If we use ADDRTAKEN_LABEL and GLOBAL_REF we get text relocation
          * complaints so we instead do this hack:
          */
@@ -341,7 +342,6 @@ dynamorio_mach_syscall_next:
          * This implies that we can't return 64-bit in 32-bit mode.
          */
         sysenter
-#  ifndef X64
         lea      esp, [7*ARG_SZ + esp] /* must not change flags */
         pop      REG_XDI
         pop      REG_XSI
@@ -445,77 +445,6 @@ GLOBAL_LABEL(get_stack_ptr:)
         END_FUNC(get_stack_ptr)
 
 #endif /* WINDOWS */
-
-
-#ifdef UNIX
-/* i#46: Implement private memcpy and memset for libc isolation.  If we import
- * memcpy and memset from libc in the normal way, the application can override
- * those definitions and intercept them.  In particular, this occurs when
- * running an app that links in the Address Sanitizer runtime.  Since we already
- * need a reasonably efficient assembly memcpy implementation for safe_read, we
- * go ahead and reuse the code for private memcpy and memset.
- *
- * XXX: See comment on REP_STRING_OP about maybe using SSE instrs.  It's more
- * viable for memcpy and memset than for safe_read_asm.
- */
-
-/* Private memcpy.
- */
-        DECLARE_FUNC(memcpy)
-GLOBAL_LABEL(memcpy:)
-        ARGS_TO_XDI_XSI_XDX()           /* dst=xdi, src=xsi, n=xdx */
-        mov    REG_XAX, REG_XDI         /* Save dst for return. */
-        /* Copy xdx bytes, align on src. */
-        REP_STRING_OP(memcpy, REG_XSI, movs)
-        RESTORE_XDI_XSI()
-        ret                             /* Return original dst. */
-        END_FUNC(memcpy)
-
-/* Private memset.
- */
-        DECLARE_FUNC(memset)
-GLOBAL_LABEL(memset:)
-        ARGS_TO_XDI_XSI_XDX()           /* dst=xdi, val=xsi, n=xdx */
-        push    REG_XDI                 /* Save dst for return. */
-        test    esi, esi                /* Usually val is zero. */
-        jnz     make_val_word_size
-        xor     eax, eax
-do_memset:
-        /* Set xdx bytes, align on dst. */
-        REP_STRING_OP(memset, REG_XDI, stos)
-        pop     REG_XAX                 /* Return original dst. */
-        RESTORE_XDI_XSI()
-        ret
-
-        /* Create pointer-sized value in XAX using multiply. */
-make_val_word_size:
-        and     esi, HEX(ff)
-# ifdef X64
-        mov     rax, HEX(0101010101010101)
-# else
-        mov     eax, HEX(01010101)
-# endif
-        /* Use two-operand imul to avoid clobbering XDX. */
-        imul    REG_XAX, REG_XSI
-        jmp     do_memset
-        END_FUNC(memset)
-
-
-# ifndef MACOS /* XXX: attribute alias issue, plus using nasm */
-/* gcc emits calls to these *_chk variants in release builds when the size of
- * dst is known at compile time.  In C, the caller is responsible for cleaning
- * up arguments on the stack, so we alias these *_chk routines to the non-chk
- * routines and rely on the caller to clean up the extra dst_len arg.
- */
-.global __memcpy_chk
-.hidden __memcpy_chk
-.set __memcpy_chk,memcpy
-
-.global __memset_chk
-.hidden __memset_chk
-.set __memset_chk,memset
-# endif
-#endif /* UNIX */
 
 
 /***************************************************************************/
@@ -642,7 +571,7 @@ smc_return_to_32:
 
 /****************************************************************************
  * Injection code shared between core and drinjectlib.
- * XXX: since we are exporting this file in the "drhelper" lib we may want
+ * XXX: since we are exporting this file in the "drlibc" lib we may want
  * to should move this code to a new file inject_shared.asm or sthg.
  */
 #ifdef WINDOWS
@@ -687,6 +616,19 @@ GLOBAL_LABEL(load_dynamo:)
      */
         /* two byte NOP to satisfy third party braindead-ness documented in case 3821 */
         mov      edi, edi
+        /* Update priv_mcontext_t's xcx/xax in case the target start address was changed
+         * for .NET (i#3046).  LdrpInitializeProcess goes and changes the initial
+         * thread's CONTEXT.Xcx from what the kernel set (the executable image entry),
+         * and what inject_into_thread() cached here on the stack, to something like
+         * MSCOREE!CorExeMain_Exported.  We assume no other state was changed: just
+         * Xcx/Xax.  Long-term we'd like to make early injection the default, which
+         * avoids this problem.
+         */
+#ifdef X64
+        mov      PTRSZ [MCONTEXT_XCX_OFFS + 4*ARG_SZ + REG_XSP], REG_XCX
+#else
+        mov      PTRSZ [MCONTEXT_XAX_OFFS + 4*ARG_SZ + REG_XSP], REG_XAX
+#endif
 #ifdef LOAD_DYNAMO_DEBUGBREAK
         /* having this code in front may hide the problem addressed with the
          * above padding */

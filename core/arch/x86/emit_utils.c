@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1337,12 +1337,12 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         int i;
         uint opcode = move_mm_reg_opcode(true /*align32*/, true /*align16*/);
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < NUM_SIMD_SAVED; i++) {
+        for (i = 0; i < proc_num_simd_saved(); i++) {
             APP(ilist,
                 instr_create_1dst_1src(
                     dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
                     OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
-                                  XMM_OFFSET + i * XMM_SAVED_REG_SIZE)));
+                                  SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE)));
         }
     }
 }
@@ -1560,12 +1560,13 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         int i;
         uint opcode = move_mm_reg_opcode(true /*align32*/, true /*align16*/);
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < NUM_SIMD_SAVED; i++) {
+        for (i = 0; i < proc_num_simd_saved(); i++) {
             APP(ilist,
-                instr_create_1dst_1src(dcontext, opcode,
-                                       OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
-                                                     XMM_OFFSET + i * XMM_SAVED_REG_SIZE),
-                                       opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
+                instr_create_1dst_1src(
+                    dcontext, opcode,
+                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
+                                  SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE),
+                    opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
         }
     }
 }
@@ -2423,7 +2424,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
             OPND_CREATE_INT8((int)(ptr_int_t)HASHLOOKUP_SENTINEL_START_PC));
     } else {
         /* sentinel handled in C code
-         * just exit back to dispatch
+         * just exit back to d_r_dispatch
          */
         sentinel_check = fragment_not_found;
     }
@@ -2809,7 +2810,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
          */
         /* need to save xax (was never saved before) */
         /*>>>    SAVE_TO_UPCONTEXT %xax,xax_OFFSET                  */
-        /* put &linkstub where dispatch expects it */
+        /* put &linkstub where d_r_dispatch expects it */
         /*>>>    mov     %xbx,%xax                                       */
         if (linkstub == NULL) {
             APP(&ilist,

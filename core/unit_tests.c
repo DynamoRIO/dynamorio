@@ -34,6 +34,7 @@
  */
 
 #include "globals.h"
+#include "arch.h"
 
 void
 unit_test_io(void);
@@ -42,6 +43,8 @@ void
 unit_test_string(void);
 void
 unit_test_os(void);
+void
+unit_test_memquery(void);
 #endif
 void
 unit_test_options(void);
@@ -73,6 +76,7 @@ main(int argc, char **argv, char **envp)
 #ifdef UNIX
     unit_test_string();
     unit_test_os();
+    unit_test_memquery();
 #endif
     unit_test_utils();
     unit_test_options();

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -58,7 +58,6 @@
 #ifdef LINUX
 #    include <sys/prctl.h> /* PR_SET_NAME */
 #endif
-#include <string.h> /* strcmp */
 #include <stdlib.h> /* getenv */
 #include <dlfcn.h>  /* dlopen/dlsym */
 #include <unistd.h> /* __environ */
@@ -408,8 +407,8 @@ privload_unmap_file(privmod_t *privmod)
 
     /* unmap segments */
     for (i = 0; i < opd->os_data.num_segments; i++) {
-        unmap_file(opd->os_data.segments[i].start,
-                   opd->os_data.segments[i].end - opd->os_data.segments[i].start);
+        d_r_unmap_file(opd->os_data.segments[i].start,
+                       opd->os_data.segments[i].end - opd->os_data.segments[i].start);
     }
     /* free segments */
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, opd->os_data.segments, module_segment_t,
@@ -424,6 +423,33 @@ privload_unload_imports(privmod_t *privmod)
     /* FIXME: i#474 unload dependent libraries if necessary */
     return true;
 }
+
+#ifdef LINUX
+/* Core-specific functionality for elf_loader_map_phdrs(). */
+static modload_flags_t
+privload_map_flags(modload_flags_t init_flags)
+{
+    if (INTERNAL_OPTION(separate_private_bss) && !TEST(MODLOAD_NOT_PRIVLIB, init_flags)) {
+        /* place an extra no-access page after .bss */
+        /* XXX: update privload_early_inject call to init_emulated_brk if this changes */
+        /* XXX: should we avoid this for -early_inject's map of the app and ld.so? */
+        return init_flags | MODLOAD_SEPARATE_BSS;
+    }
+    return init_flags;
+}
+
+/* Core-specific functionality for elf_loader_map_phdrs(). */
+static void
+privload_check_new_map_bounds(elf_loader_t *elf, byte *map_base, byte *map_end)
+{
+    /* This is only called for MAP_FIXED. */
+    if (get_dynamorio_dll_start() < map_end && get_dynamorio_dll_end() > map_base) {
+        FATAL_USAGE_ERROR(FIXED_MAP_OVERLAPS_DR, 3, get_application_name(),
+                          get_application_pid(), elf->filename);
+        ASSERT_NOT_REACHED();
+    }
+}
+#endif
 
 /* This only maps, as relocation for ELF requires processing imports first,
  * which we have to delay at init time at least.
@@ -441,11 +467,11 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
     ASSERT_OWN_RECURSIVE_LOCK(!TEST(MODLOAD_NOT_PRIVLIB, flags), &privload_lock);
     /* get appropriate function */
     /* NOTE: all but the client lib will be added to DR areas list b/c using
-     * map_file()
+     * d_r_map_file()
      */
     if (dynamo_heap_initialized) {
-        map_func = map_file;
-        unmap_func = unmap_file;
+        map_func = d_r_map_file;
+        unmap_func = d_r_unmap_file;
         prot_func = set_protection;
     } else {
         map_func = os_map_file;
@@ -468,9 +494,9 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
         }
         return NULL;
     }
-
-    base = elf_loader_map_phdrs(&loader, false /* fixed */, map_func, unmap_func,
-                                prot_func, flags);
+    base =
+        elf_loader_map_phdrs(&loader, false /* fixed */, map_func, unmap_func, prot_func,
+                             privload_check_new_map_bounds, privload_map_flags(flags));
     if (base != NULL) {
         if (size != NULL)
             *size = loader.image_size;
@@ -1429,7 +1455,7 @@ reserve_brk(app_pc post_app)
         /* i#1004: we're going to emulate the brk via our own mmap.
          * Reserve the initial brk now before any of DR's mmaps to avoid overlap.
          * XXX: reserve larger APP_BRK_GAP here and then unmap back to 1 page
-         * in os_init() to ensure no DR mmap limits its size?
+         * in d_r_os_init() to ensure no DR mmap limits its size?
          */
         dynamo_options.emulate_brk = true; /* not parsed yet */
         init_emulated_brk(post_app);
@@ -1613,7 +1639,7 @@ relocate_dynamorio(byte *dr_map, size_t dr_size, byte *sp)
     const char **env = (const char **)sp + argc + 2;
     os_privmod_data_t opd = { { 0 } };
 
-    os_page_size_init(env);
+    os_page_size_init(env, true);
 
     if (dr_map == NULL) {
         /* we do not know where dynamorio is, so check backward page by page */
@@ -1698,7 +1724,8 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
 
     /* Now load the 2nd libdynamorio.so */
     dr_map = elf_loader_map_phdrs(&dr_ld, false /*!fixed*/, os_map_file, os_unmap_file,
-                                  os_set_protection, 0 /*!reachable*/);
+                                  os_set_protection, privload_check_new_map_bounds,
+                                  privload_map_flags(0 /*!reachable*/));
     ASSERT(dr_map != NULL);
     ASSERT(is_elf_so_header(dr_map, 0));
 
@@ -1843,7 +1870,8 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                                    true,
                                    /* ensure there's space for the brk */
                                    map_exe_file_and_brk, os_unmap_file, os_set_protection,
-                                   0 /*!reachable*/);
+                                   privload_check_new_map_bounds,
+                                   privload_map_flags(0 /*!reachable*/));
     apicheck(exe_map != NULL,
              "Failed to load application.  "
              "Check path and architecture.");
@@ -1887,9 +1915,9 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         elf_loader_t interp_ld;
         success = elf_loader_read_headers(&interp_ld, interp);
         apicheck(success, "Failed to read ELF interpreter headers.");
-        interp_map =
-            elf_loader_map_phdrs(&interp_ld, false /* fixed */, os_map_file,
-                                 os_unmap_file, os_set_protection, 0 /*!reachable*/);
+        interp_map = elf_loader_map_phdrs(
+            &interp_ld, false /* fixed */, os_map_file, os_unmap_file, os_set_protection,
+            privload_check_new_map_bounds, privload_map_flags(0 /*!reachable*/));
         apicheck(interp_map != NULL && is_elf_so_header(interp_map, 0),
                  "Failed to map ELF interpreter.");
         /* On Android, the system loader /system/bin/linker sets itself

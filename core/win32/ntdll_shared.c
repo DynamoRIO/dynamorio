@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -60,7 +60,7 @@
 #else
 /* we include globals.h mainly for ASSERT, even though we're
  * used by preinject.
- * preinject just defines its own internal_error!
+ * preinject just defines its own d_r_internal_error!
  */
 #    include "../globals.h"
 #    include "../module_shared.h"
@@ -95,7 +95,7 @@ nt_wow64_read_virtual_memory64(HANDLE process, uint64 base, void *buffer,
 #    ifdef NOT_DYNAMORIO_CORE
             GetProcAddress(GetModuleHandle("ntdll.dll"), "NtWow64ReadVirtualMemory64");
 #    else
-            get_proc_address(get_ntdll_base(), "NtWow64ReadVirtualMemory64");
+            d_r_get_proc_address(get_ntdll_base(), "NtWow64ReadVirtualMemory64");
 #    endif
 #    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
         if (dynamo_initialized)

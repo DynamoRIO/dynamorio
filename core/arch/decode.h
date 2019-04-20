@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -173,20 +173,15 @@ typedef struct _decode_info_t decode_info_t;
  * byte, so the largest value here needs to be <= 255.
  */
 enum {
-/* For x86, register enum values are used for TYPE_*REG but we only use them
- * as opnd_size_t when we have the type available, so we can overlap
- * the two enums by adding new registers consecutively to the reg enum.
- * The reg_id_t type is now wider, but for x86 we ensure our values
- * all fit via an assert in arch_init().
- * To maintain backward compatibility we keep the OPSZ_ constants
- * starting at the same spot, now midway through the reg enum:
- */
-#ifdef X86
-    OPSZ_NA = DR_REG_INVALID + 1,
-/**< Sentinel value: not a valid size. */ /* = 140 */
-#else
+    /* For x86, register enum values are used for TYPE_*REG but we only use them
+     * as opnd_size_t when we have the type available, so we can overlap
+     * the two enums. If needed, the function template_optype_is_reg can be used
+     * to check whether the operand type has an implicit size and stores the reg enum
+     * instead of the size enum.
+     * The reg_id_t type is now wider, but for x86 we ensure our values
+     * all fit via an assert in d_r_arch_init().
+     */
     OPSZ_NA = 0, /**< Sentinel value: not a valid size. */
-#endif
     OPSZ_FIRST = OPSZ_NA,
     OPSZ_0,   /**< 0 bytes, for "sizeless" operands (for Intel, code
                * 'm': used for both start addresses (lea, invlpg) and
@@ -302,7 +297,8 @@ enum {
     OPSZ_52,  /**< 52 bytes.  Needed for load/store of register lists. */
     OPSZ_56,  /**< 56 bytes.  Needed for load/store of register lists. */
     OPSZ_60,  /**< 60 bytes.  Needed for load/store of register lists. */
-    OPSZ_64,  /**< 64 bytes.  Needed for load/store of register lists. */
+    OPSZ_64,  /**< 64 bytes.  Needed for load/store of register lists.
+               * Also Intel: 64 bytes (512 bits) */
     OPSZ_68,  /**< 68 bytes.  Needed for load/store of register lists. */
     OPSZ_72,  /**< 72 bytes.  Needed for load/store of register lists. */
     OPSZ_76,  /**< 76 bytes.  Needed for load/store of register lists. */
@@ -389,10 +385,12 @@ enum {
     OPSZ_12_rex8_of_16,      /* 96 bits, or 64 with rex.w: 3/4 of XMM */
     OPSZ_14_of_16,           /* 112 bits; all but one word of XMM */
     OPSZ_15_of_16,           /* 120 bits: all but one byte of XMM */
-    OPSZ_8_of_16_vex32,      /* 64 bits, but can be half of XMM register; if
-                              * vex.L then is 256 bits (YMM or memory)
+    OPSZ_8_of_16_vex32,      /* 64 bits, but can be half of XMM register;
+                              * if vex.L then is 256 bits (YMM or memory);
+                              * if evex.L' then is 512 bits (ZMM or memory)
                               */
     OPSZ_16_of_32,           /* 128 bits: half of YMM */
+    /* XXX i#1312: Augment with new types specific to AVX-512. */
     OPSZ_SUBREG_START = OPSZ_1_of_4,
     OPSZ_SUBREG_END = OPSZ_16_of_32,
     OPSZ_LAST_ENUM, /* note last is NOT inclusive */

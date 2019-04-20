@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -242,7 +242,7 @@ endif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 
 if (APPLE AND X64)
   # XXX #1979: 64-bit OSX is not supported.
-  message(FATAL_ERROR "64-bit Mac OSX is not supported")
+  message(WARNING "64-bit Mac OSX is not supported")
 endif ()
 
 option(VMKERNEL "target VMkernel (not officially supported yet)")
@@ -308,6 +308,10 @@ endif()
 option(CALLPROF "internal caller profiling support")
 option(PROFILE "profiling build: disables FPO and tweaks other flags" OFF)
 
+if (UNIX)
+  option(RECORD_MEMQUERY "generate test cases for memquery_library_bounds_by_iterator")
+endif ()
+
 if (X86)
   set(ANNOTATIONS_DEFAULT ON)
 else ()
@@ -330,9 +334,12 @@ option(SET_PREFERRED_BASE "set a preferred library base address")
 if (WIN32 AND DEBUG)
   # apparently no numeric type so we use STRING
   set(preferred_base "0x15000000" CACHE STRING "Preferred library base address")
-else (WIN32 AND DEBUG)
+elseif (APPLE AND X64)
+  # Set to higher than _PAGEZERO which is [0..0x1'00000000).
+  set(preferred_base "0x171000000" CACHE STRING "Preferred library base address")
+else ()
   set(preferred_base "0x71000000" CACHE STRING "Preferred library base address")
-endif (WIN32 AND DEBUG)
+endif ()
 
 # for x64: PR 253624: we need our library to be next to our heap
 # for win32: not PIC so need a base
@@ -478,12 +485,9 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
-# N.B.: if VERSION_NUMBER's major number is incremented without also
-# incrementing OLDEST_COMPATIBLE_VERSION we'll need to add another
-# symlink loop in core/CMakeLists.txt
 # N.B.: when updating this, update the git tag in .travis.yml.
 # We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "7.0.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "7.90.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -729,9 +733,10 @@ if (UNIX)
   endif ()
   if (APPLE AND CMAKE_COMPILER_IS_CLANG)
     # Ensure our binaries can run on older OSX
-    # We're building our release package on 10.11, and that XCode does not
+    # We're building our release package on 10.14, and that XCode does not
     # supply C++ libraries for below 10.9, causing drcachesim to fail to build.
     # Thus we have abandoned support for below 10.9.
+    # If this is updated, update drcachesim's as well.
     set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=10.9")
   endif ()
   if (APPLE)
@@ -1193,11 +1198,13 @@ string(REGEX REPLACE
 math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
+# Every release since has had minor compat breakages.
+# 7.90 broke backcompat in DR_REG_ enums and OPSZ_ enums.
 # 6.0 broke backcompat in Linux injection, mod load event, etc.
 # 5.0 broke backcompat in drsyms and xmm opnd sizes
 # 4.1 broke backcompat in drsyms + 64-bit core (opcodes + reachability)
 # 4.0 broke backcompat in drmgr, drsyms, drinjectlib, and dr_get_milliseconds()
-set(OLDEST_COMPATIBLE_VERSION_DEFAULT "600")
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "790")
 set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
   "Oldest compatible version: leave empty for default")
 if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")
@@ -1424,6 +1431,14 @@ if (BUILD_TESTS)
   # Tests require tools
   set(BUILD_TOOLS ON)
   enable_testing()
+  set(proc_supports_avx 0FF)
+  set(proc_supports_avx512 0FF)
+  if (UNIX)
+    set(CFLAGS_AVX "-mavx")
+    set(CFLAGS_AVX512 "-mavx512f")
+    check_avx_processor_and_compiler_support(proc_supports_avx)
+    check_avx512_processor_and_compiler_support(proc_supports_avx512)
+  endif ()
   # add Dashboard support
   include(CTest)
 endif (BUILD_TESTS)
@@ -1632,13 +1647,17 @@ function (link_with_pthread target)
   endif ()
 endfunction ()
 
-# zlib is used for some clients/ and tests.
+# zlib and snappy are used for some clients/ and tests.
 if (CMAKE_CROSSCOMPILING)
   # find_package looks at the host system.
   # XXX i#2285: we should re-visit the CMAKE_FIND_ROOT_PATH settings!
   set(ZLIB_FOUND OFF)
 else ()
   find_package(ZLIB)
+  # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
+  if (UNIX AND X64)
+    find_library(libsnappy snappy)
+  endif ()
 endif ()
 
 if (BUILD_CLIENTS)

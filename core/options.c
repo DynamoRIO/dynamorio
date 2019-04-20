@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,12 +48,10 @@
 #    include "monitor.h"
 #    include "moduledb.h" /* for the process control defines */
 #    include "disassemble.h"
-#    include <string.h>
 
 #else /* NOT_DYNAMORIO_CORE */
 #    include "configure.h"
 #    include <stdio.h> /* snprintf, sscanf */
-#    include <string.h>
 
 #    ifdef WINDOWS
 #        define inline __inline
@@ -84,7 +82,7 @@ struct stats_type {
     int loglevel;
 } thestats;
 
-struct stats_type *stats = &thestats;
+struct stats_type *d_r_stats = &thestats;
 
 /* define away core only features, depending on use outside the core
  * may want to use some of these, NOTE build environments outside of the
@@ -381,7 +379,7 @@ getword(const char *str, const char **strpos, char *wordbuf, uint wordbuflen)
 
 /* exported version */
 char *
-parse_word(const char *str, const char **strpos, char *wordbuf, uint wordbuflen)
+d_r_parse_word(const char *str, const char **strpos, char *wordbuf, uint wordbuflen)
 {
     return getword_common(str, strpos, wordbuf, wordbuflen, true /*external*/);
 }
@@ -1239,13 +1237,6 @@ check_option_compatibility_helper(int recurse_count)
      * warn of unfinished and untested self-protection options
      * FIXME: update once these features are complete
      */
-#    ifdef UNIX
-    if (dynamo_options.protect_mask != 0) {
-        USAGE_ERROR("selfprot not supported on unix: case 8023");
-        dynamo_options.protect_mask = 0;
-        changed_options = true;
-    }
-#    endif
 #    if defined(WINDOWS) && !defined(NOLIBC)
     if (TEST(SELFPROT_ANY_DATA_SECTION, dynamo_options.protect_mask)) {
         /* since libc routines are embedded in our dll and we run
@@ -1409,6 +1400,14 @@ check_option_compatibility_helper(int recurse_count)
     }
 #        endif
 #    endif /* EXPOSE_INTERNAL_OPTIONS */
+#    ifdef X64
+    if (DYNAMO_OPTION(heap_in_lower_4GB) && !DYNAMO_OPTION(reachable_heap)) {
+        USAGE_ERROR("-heap_in_lower_4GB requires -reachable_heap: "
+                    "enabling.");
+        dynamo_options.reachable_heap = true;
+        changed_options = true;
+    }
+#    endif
     if (RUNNING_WITHOUT_CODE_CACHE() && DYNAMO_OPTION(enable_reset)) {
         /* No reset for hotp_only and thin_client modes; case 8389. */
         USAGE_ERROR("-enable_reset can't be used with -hotp_only or -thin_client");
@@ -2318,11 +2317,11 @@ check_option_compatibility_helper(int recurse_count)
 #    endif
 
 #    ifdef DEBUG
-    if (INTERNAL_OPTION(log_at_fragment_count) > 0 && stats->loglevel > 1) {
+    if (INTERNAL_OPTION(log_at_fragment_count) > 0 && d_r_stats->loglevel > 1) {
         /* start out at 1 */
         if (dynamo_options.stats_loglevel <= 1)
             USAGE_ERROR("-log_at_fragment_count expects >1 delayed loglevel");
-        stats->loglevel = 1;
+        d_r_stats->loglevel = 1;
         changed_options = true;
     }
 #    endif
@@ -2377,12 +2376,12 @@ options_init()
     int ret = 0, retval;
 
     /* .lspdata pages start out writable so no unprotect needed here */
-    write_lock(&options_lock);
+    d_r_write_lock(&options_lock);
     ASSERT(sizeof(dynamo_options) == sizeof(options_t));
     /* get dynamo options */
     adjust_defaults_for_page_size(&dynamo_options);
-    retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_OPTIONS), option_string,
-                           sizeof(option_string));
+    retval = d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_OPTIONS), option_string,
+                               sizeof(option_string));
     if (IS_GET_PARAMETER_SUCCESS(retval))
         ret = set_dynamo_options(&dynamo_options, option_string);
 #    if defined(STATIC_LIBRARY) && defined(CLIENT_INTERFACE)
@@ -2393,7 +2392,7 @@ options_init()
 #    endif
     check_option_compatibility();
     /* options will be protected when DR init is completed */
-    write_unlock(&options_lock);
+    d_r_write_unlock(&options_lock);
     return ret;
 }
 
@@ -2409,7 +2408,7 @@ void
 options_make_writable()
 {
     ASSERT_DO_NOT_OWN_WRITE_LOCK(true, &options_lock);
-    write_lock(&options_lock);
+    d_r_write_lock(&options_lock);
     SELF_UNPROTECT_OPTIONS();
 }
 
@@ -2421,7 +2420,7 @@ options_restore_readonly()
 {
     ASSERT_OWN_WRITE_LOCK(true, &options_lock);
     SELF_PROTECT_OPTIONS();
-    write_unlock(&options_lock);
+    d_r_write_unlock(&options_lock);
 }
 
 /* updates dynamic options and returns if any were changed */
@@ -2449,12 +2448,12 @@ synchronize_dynamic_options()
         return 0;
     }
 
-    write_lock(&options_lock);
+    d_r_write_lock(&options_lock);
 
     /* check again now that we hold write lock in case was modified */
     if (!dynamo_options.dynamic_options) {
         STATS_INC(option_synchronizations_nop);
-        write_unlock(&options_lock);
+        d_r_write_unlock(&options_lock);
         return 0;
     }
 
@@ -2463,13 +2462,13 @@ synchronize_dynamic_options()
                               sizeof(new_option_string), true /*ignore cache*/);
     if (IS_GET_PARAMETER_FAILURE(retval)) {
         STATS_INC(option_synchronizations_nop);
-        write_unlock(&options_lock);
+        d_r_write_unlock(&options_lock);
         return 0;
     }
 
     if (strcmp(option_string, new_option_string) == 0) {
         STATS_INC(option_synchronizations_nop);
-        write_unlock(&options_lock);
+        d_r_write_unlock(&options_lock);
         return 0;
     }
 
@@ -2493,10 +2492,10 @@ synchronize_dynamic_options()
         SYSLOG_INTERNAL_NO_OPTION_SYNCH(
             SYSLOG_INFORMATION, "Updated options = \"%s\"%s", new_option_string,
             compatibility_fixup ? " after required compatibility fixups!" : "");
-        write_unlock(&options_lock);
+        d_r_write_unlock(&options_lock);
     } else
 #    endif /* EXPOSE_INTERNAL_OPTIONS */
-        write_unlock(&options_lock);
+        d_r_write_unlock(&options_lock);
 
     return updated;
 }
@@ -2523,7 +2522,7 @@ get_process_options(HANDLE process_handle)
            process_handle != NULL);
     ASSERT(!READWRITE_LOCK_HELD(&options_lock));
 
-    write_lock(&options_lock);
+    d_r_write_lock(&options_lock);
     SELF_UNPROTECT_OPTIONS();
 
     /* Making an assumption that the core will be the same for the parent and
@@ -2646,7 +2645,7 @@ unit_test_options(void)
     options_t new_options;
     int updated;
 
-    write_lock(&options_lock); /* simplicity: just grab whole time */
+    d_r_write_lock(&options_lock); /* simplicity: just grab whole time */
     SELF_UNPROTECT_OPTIONS();
 
     /* FIXME: actually use asserts for automated testing that does not require
@@ -2690,7 +2689,7 @@ unit_test_options(void)
     get_dynamo_options_string(&dynamo_options, buf, MAXIMUM_PATH, 1);
     print_file(STDERR, "default ops string: %s\n", buf);
     SELF_PROTECT_OPTIONS();
-    write_unlock(&options_lock);
+    d_r_write_unlock(&options_lock);
 }
 
 #endif /* STANDALONE_UNIT_TEST */

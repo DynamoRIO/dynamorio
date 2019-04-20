@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -38,7 +38,6 @@
 #include "os_private.h"
 #include "../utils.h"
 #include "instrument.h"
-#include <string.h>
 #include <stddef.h> /* offsetof */
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
@@ -193,7 +192,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
     if (ma->os_data.checksum == 0 &&
         (DYNAMO_OPTION(coarse_enable_freeze) || DYNAMO_OPTION(use_persisted))) {
         /* Use something so we have usable pcache names */
-        ma->os_data.checksum = crc32((const char *)ma->start, PAGE_SIZE);
+        ma->os_data.checksum = d_r_crc32((const char *)ma->start, PAGE_SIZE);
     }
     /* Timestamp we just leave as 0 */
 }
@@ -592,7 +591,8 @@ dr_module_import_iterator_stop(dr_module_import_iterator_t *iter)
 
 /* This routine allocates memory from DR's global memory pool.  Unlike
  * dr_global_alloc(), however, we store the size of the allocation in
- * the first few bytes so redirect_free() can retrieve it.
+ * the first few bytes so redirect_free() can retrieve it.  This memory
+ * is also not guaranteed-reachable.
  */
 void *
 redirect_malloc(size_t size)
@@ -738,13 +738,13 @@ at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret
     byte buf[MAX(sizeof(DL_RUNTIME_RESOLVE_MAGIC_1),
                  sizeof(DL_RUNTIME_RESOLVE_MAGIC_2))] = { 0 };
 
-    if (safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1), buf) &&
+    if (d_r_safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1), buf) &&
         memcmp(buf, DL_RUNTIME_RESOLVE_MAGIC_1, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1)) ==
             0) {
         *ret_imm = 0x8;
         return true;
     }
-    if (safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2), buf) &&
+    if (d_r_safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2), buf) &&
         memcmp(buf, DL_RUNTIME_RESOLVE_MAGIC_2, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2)) ==
             0) {
         LOG(THREAD, LOG_INTERP, 1,

@@ -1,6 +1,6 @@
 /* **********************************************************
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2003-2007 Determina Corp.
@@ -60,7 +60,7 @@ static bool callee_info_table_exit = false;
 static void
 callee_info_init(callee_info_t *ci)
 {
-    uint i;
+    int i;
     memset(ci, 0, sizeof(*ci));
     ci->bailout = true;
     /* to be conservative */
@@ -73,8 +73,8 @@ callee_info_init(callee_info_t *ci)
      * but then later in analyze_callee_regs_usage, we have to use the loop.
      */
     /* assuming all xmm registers are used */
-    ci->num_simd_used = NUM_SIMD_REGS;
-    for (i = 0; i < NUM_SIMD_REGS; i++)
+    ci->num_simd_used = proc_num_simd_registers();
+    for (i = 0; i < proc_num_simd_registers(); i++)
         ci->simd_used[i] = true;
     for (i = 0; i < NUM_GP_REGS; i++)
         ci->reg_used[i] = true;
@@ -489,11 +489,11 @@ analyze_callee_ilist(dcontext_t *dcontext, callee_info_t *ci)
 static void
 analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
 {
-    uint i, num_regparm;
+    int i, num_regparm;
     callee_info_t *info = cci->callee_info;
 
     /* 1. xmm registers */
-    for (i = 0; i < NUM_SIMD_REGS; i++) {
+    for (i = 0; i < proc_num_simd_registers(); i++) {
         if (info->simd_used[i]) {
             cci->simd_skip[i] = false;
         } else {
@@ -504,7 +504,8 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
             cci->num_simd_skip++;
         }
     }
-    if (INTERNAL_OPTION(opt_cleancall) > 2 && cci->num_simd_skip != NUM_SIMD_REGS)
+    if (INTERNAL_OPTION(opt_cleancall) > 2 &&
+        cci->num_simd_skip != proc_num_simd_registers())
         cci->should_align = false;
     /* 2. general purpose registers */
     /* set regs not to be saved for clean call */
@@ -541,12 +542,12 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
      */
     num_regparm = cci->num_args < NUM_REGPARM ? cci->num_args : NUM_REGPARM;
     for (i = 0; i < num_regparm; i++) {
-        if (cci->reg_skip[regparms[i] - DR_REG_START_GPR]) {
+        if (cci->reg_skip[d_r_regparms[i] - DR_REG_START_GPR]) {
             LOG(THREAD, LOG_CLEANCALL, 3,
                 "CLEANCALL: if inserting clean call " PFX
                 ", cannot skip saving reg %s due to param passing.\n",
-                info->start, reg_names[regparms[i]]);
-            cci->reg_skip[regparms[i] - DR_REG_START_GPR] = false;
+                info->start, reg_names[d_r_regparms[i]]);
+            cci->reg_skip[d_r_regparms[i] - DR_REG_START_GPR] = false;
             cci->num_regs_skip--;
             /* We cannot call callee_info_reserve_slot for reserving slot
              * on inlining the callee here, because we are in clean call
@@ -576,7 +577,7 @@ analyze_clean_call_args(dcontext_t *dcontext, clean_call_info_t *cci, opnd_t *ar
         if (opnd_is_reg(args[i]))
             cci->save_all_regs = true;
         for (j = 0; j < num_regparm; j++) {
-            if (opnd_uses_reg(args[i], regparms[j]))
+            if (opnd_uses_reg(args[i], d_r_regparms[j]))
                 cci->save_all_regs = true;
         }
     }
@@ -646,7 +647,7 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
                 }
             }
         }
-        if (cci->num_simd_skip == NUM_SIMD_REGS) {
+        if (cci->num_simd_skip == proc_num_simd_registers()) {
             STATS_INC(cleancall_simd_skipped);
         }
         if (cci->skip_save_flags) {
@@ -735,7 +736,7 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
      * to be saved or if more than GPR_SAVE_TRESHOLD GP registers have to be saved.
      * XXX: This should probably be in arch-specific clean_call_opt.c.
      */
-    if ((NUM_SIMD_REGS - cci->num_simd_skip) > SIMD_SAVE_TRESHOLD ||
+    if ((proc_num_simd_registers() - cci->num_simd_skip) > SIMD_SAVE_TRESHOLD ||
         (NUM_GP_REGS - cci->num_regs_skip) > GPR_SAVE_TRESHOLD || always_out_of_line)
         cci->out_of_line_swap = true;
 #    endif

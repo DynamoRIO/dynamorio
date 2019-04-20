@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,7 +46,7 @@ struct _local_state_t; /* in arch_exports.h */
 
 /* in os.c */
 void
-os_init(void);
+d_r_os_init(void);
 /* called on detach and on process exit in debug builds */
 void
 os_slow_exit(void);
@@ -180,7 +180,7 @@ bool
 os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit);
 
 thread_id_t
-get_thread_id(void);
+d_r_get_thread_id(void);
 process_id_t
 get_process_id(void);
 void
@@ -602,7 +602,7 @@ size_t
 os_page_size(void);
 #ifdef UNIX
 void
-os_page_size_init(const char **env);
+os_page_size_init(const char **env, bool env_followed_by_auxv);
 #endif
 bool
 get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot);
@@ -633,7 +633,7 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top);
  */
 #define SAFE_READ_VAL(dst_var, src_ptr)           \
     (ASSERT(sizeof(dst_var) == sizeof(*src_ptr)), \
-     safe_read(src_ptr, sizeof(dst_var), &dst_var))
+     d_r_safe_read(src_ptr, sizeof(dst_var), &dst_var))
 
 bool
 is_readable_without_exception(const byte *pc, size_t size);
@@ -642,7 +642,7 @@ is_readable_without_exception_query_os(byte *pc, size_t size);
 bool
 is_readable_without_exception_query_os_noblock(byte *pc, size_t size);
 bool
-safe_read(const void *base, size_t size, void *out_buf);
+d_r_safe_read(const void *base, size_t size, void *out_buf);
 bool
 safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read);
 bool
@@ -725,7 +725,7 @@ enum {
                                 * no actual protection unless SELFPROT_GLOBAL */
     SELFPROT_LOCAL = 0x020,
     SELFPROT_CACHE = 0x040, /* FIXME: thread-safe NYI when doing all units */
-    SELFPROT_STACK = 0x080, /* essentially always on with clean-dstack dispatch()
+    SELFPROT_STACK = 0x080, /* essentially always on with clean-dstack d_r_dispatch()
                              * design, leaving as a bit in case we do more later */
     /* protect our generated thread-shared and thread-private code */
     SELFPROT_GENCODE = 0x100,
@@ -1158,7 +1158,7 @@ app_pc
 aslr_possible_preferred_address(app_pc target_addr);
 
 #ifdef WINDOWS
-/* dispatch places next pc in asynch_target and clears it after syscall handling
+/* d_r_dispatch places next pc in asynch_target and clears it after syscall handling
  * completes, so a zero value means shared syscall was used and the next pc
  * is in the esi slot. If asynch_target == BACK_TO_NATIVE_AFTER_SYSCALL then the
  * thread is native at an intercepted syscall and the real post syscall target is in

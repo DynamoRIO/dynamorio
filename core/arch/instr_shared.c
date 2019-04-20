@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -60,8 +60,6 @@
 #include "instr_create.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #include "x86/decode_private.h"
-
-#include <string.h> /* for memcpy */
 
 #ifdef DEBUG
 #    include "disassemble.h"
@@ -125,7 +123,8 @@ instr_clone(dcontext_t *dcontext, instr_t *orig)
 
     if ((orig->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
         /* instr length already set from memcpy */
-        instr->bytes = (byte *)heap_alloc(dcontext, instr->length HEAPACCT(ACCT_IR));
+        instr->bytes =
+            (byte *)heap_reachable_alloc(dcontext, instr->length HEAPACCT(ACCT_IR));
         memcpy((void *)instr->bytes, (void *)orig->bytes, instr->length);
     }
 #ifdef CUSTOM_EXIT_STUBS
@@ -170,10 +169,8 @@ instr_free(dcontext_t *dcontext, instr_t *instr)
 {
     if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
         (*instr->label_cb)(dcontext, instr);
-    if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
-        heap_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
-        instr->bytes = NULL;
-        instr->flags &= ~INSTR_RAW_BITS_ALLOCATED;
+    if (TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags)) {
+        instr_free_raw_bits(dcontext, instr);
     }
 #ifdef CUSTOM_EXIT_STUBS
     if ((instr->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
@@ -320,10 +317,10 @@ instr_build_bits(dcontext_t *dcontext, int opcode, uint num_bytes)
 static int
 private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
 {
-    /* we cannot use a stack buffer for encoding since our stack on x64 linux
-     * can be too far to reach from our heap
+    /* We cannot use a stack buffer for encoding since our stack on x64 linux
+     * can be too far to reach from our heap.  We need reachable heap.
      */
-    byte *buf = heap_alloc(dcontext, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+    byte *buf = heap_reachable_alloc(dcontext, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     uint len;
     /* Do not cache instr opnds as they are pc-relative to final encoding location.
      * Rather than us walking all of the operands separately here, we have
@@ -341,7 +338,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
                                                             instr_get_isa_mode(instr)
                                                                 _IF_ARM(false))
                                         ->name);
-            heap_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+            heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
             return 0;
         }
         /* if unreachable, we can't cache, since re-relativization won't work */
@@ -389,7 +386,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         instr->bytes = tmp;
         instr_set_operands_valid(instr, valid);
     }
-    heap_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+    heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     return len;
 }
 
@@ -1074,7 +1071,8 @@ instr_free_raw_bits(dcontext_t *dcontext, instr_t *instr)
 {
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0)
         return;
-    heap_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
+    heap_reachable_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
+    instr->bytes = NULL;
     instr->flags &= ~INSTR_RAW_BITS_VALID;
     instr->flags &= ~INSTR_RAW_BITS_ALLOCATED;
 }
@@ -1090,7 +1088,9 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
     if ((instr->flags & INSTR_RAW_BITS_VALID) != 0)
         original_bits = instr->bytes;
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0 || instr->length != num_bytes) {
-        byte *new_bits = (byte *)heap_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR));
+        /* We need reachable heap for rip-rel re-relativization. */
+        byte *new_bits =
+            (byte *)heap_reachable_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR));
         if (original_bits != NULL) {
             /* copy original bits into modified bits so can just modify
              * a few and still have all info in one place
@@ -1303,7 +1303,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
         /* disassembling might change the instruction object, we're cloning it
          * for the logger */
         instr_t *log_instr = instr_clone(dcontext, instr);
-        loginst(dcontext, 4, log_instr, "instr_expand");
+        d_r_loginst(dcontext, 4, log_instr, "instr_expand");
         instr_free(dcontext, log_instr);
     });
 
@@ -1338,7 +1338,8 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
             dr_set_isa_mode(dcontext, old_mode, NULL);
             return firstinstr;
         }
-        DOLOG(5, LOG_ALL, { loginst(dcontext, 4, newinstr, "\tjust expanded into"); });
+        DOLOG(5, LOG_ALL,
+              { d_r_loginst(dcontext, 4, newinstr, "\tjust expanded into"); });
 
         /* CAREFUL of what you call here -- don't call anything that
          * auto-upgrades instr to Level 2, it will fail on Level 0 bundles!
@@ -1609,10 +1610,10 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
         if (!instr_opcode_valid(instr) ||
             (instr_is_cti(instr) && !instr_operands_valid(instr))) {
             DOLOG(4, LOG_ALL, {
-                loginst(dcontext, 4, instr, "instrlist_decode_cti: about to decode");
+                d_r_loginst(dcontext, 4, instr, "instrlist_decode_cti: about to decode");
             });
             instr_decode_cti(dcontext, instr);
-            DOLOG(4, LOG_ALL, { loginst(dcontext, 4, instr, "\tjust decoded"); });
+            DOLOG(4, LOG_ALL, { d_r_loginst(dcontext, 4, instr, "\tjust decoded"); });
         }
     }
 
@@ -1631,11 +1632,11 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
             opnd_is_near_pc(instr_get_src(instr, 0))) {
             instr_t *tgt;
             DOLOG(4, LOG_ALL, {
-                loginst(dcontext, 4, instr,
-                        "instrlist_decode_cti: found cti w/ pc target");
+                d_r_loginst(dcontext, 4, instr,
+                            "instrlist_decode_cti: found cti w/ pc target");
             });
             for (tgt = instrlist_first(ilist); tgt != NULL; tgt = instr_get_next(tgt)) {
-                DOLOG(4, LOG_ALL, { loginst(dcontext, 4, tgt, "\tchecking"); });
+                DOLOG(4, LOG_ALL, { d_r_loginst(dcontext, 4, tgt, "\tchecking"); });
                 LOG(THREAD, LOG_INTERP | LOG_OPTS, 4, "\t\taddress is " PFX "\n",
                     instr_get_raw_bits(tgt));
                 if (opnd_get_pc(instr_get_target(instr)) == instr_get_raw_bits(tgt)) {
@@ -1650,7 +1651,7 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
                     if (bits != 0)
                         instr_set_raw_bits(instr, bits, len);
                     DOLOG(4, LOG_ALL,
-                          { loginst(dcontext, 4, tgt, "\tcti targets this"); });
+                          { d_r_loginst(dcontext, 4, tgt, "\tcti targets this"); });
                     break;
                 }
             }
@@ -1668,7 +1669,7 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
 /* utility routines */
 
 void
-loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string)
+d_r_loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         LOG(THREAD, LOG_ALL, level, "%s: ", string);
@@ -1678,7 +1679,7 @@ loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string)
 }
 
 void
-logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string)
+d_r_logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         LOG(THREAD, LOG_ALL, level, "%s: ", string);
@@ -1688,7 +1689,7 @@ logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string)
 }
 
 void
-logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string)
+d_r_logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         instr_t *inst;
@@ -1965,6 +1966,16 @@ instr_zeroes_ymmh(instr_t *instr)
             !reg_is_ymm(opnd_get_reg(opnd)))
             return true;
     }
+    return false;
+}
+
+bool
+instr_is_xsave(instr_t *instr)
+{
+    int opcode = instr_get_opcode(instr); /* force decode */
+    if (opcode == OP_xsave32 || opcode == OP_xsaveopt32 || opcode == OP_xsave64 ||
+        opcode == OP_xsaveopt64 || opcode == OP_xsavec32 || opcode == OP_xsavec64)
+        return true;
     return false;
 }
 #endif /* X86 */

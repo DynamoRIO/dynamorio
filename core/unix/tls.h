@@ -99,7 +99,11 @@ typedef struct _our_modify_ldt_t {
 #define GDT_SELECTOR(idx) ((idx) << 3 | ((GDT_NOT_LDT) << 2) | (USER_PRIVILEGE))
 #define SELECTOR_INDEX(sel) ((sel) >> 3)
 
-#ifdef X86
+#ifdef MACOS64
+#    define WRITE_DR_SEG(val) ASSERT_NOT_REACHED()
+#    define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
+#    define TLS_SLOT_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
+#elif defined(X86)
 #    define WRITE_DR_SEG(val)                                                     \
         do {                                                                      \
             ASSERT(sizeof(val) == sizeof(reg_t));                                 \
@@ -125,7 +129,17 @@ typedef struct _our_modify_ldt_t {
 static inline ptr_uint_t
 read_thread_register(reg_id_t reg)
 {
-#ifdef X86
+#if defined(MACOS64)
+    ptr_uint_t sel;
+    if (reg == SEG_GS) {
+        asm volatile("mov %%gs:%1, %0" : "=r"(sel) : "m"(*(void **)0));
+    } else if (reg == SEG_FS) {
+        return 0;
+    } else {
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
+#elif defined(X86)
     uint sel;
     if (reg == SEG_FS) {
         asm volatile("movl %%fs, %0" : "=r"(sel));
@@ -242,7 +256,6 @@ typedef struct _os_local_state_t {
     int ldt_index;
     /* tid needed to ensure children are set up properly */
     thread_id_t tid;
-
 #ifdef X86
     /* i#107 application's tls value and pointed-at base */
     ushort app_lib_tls_reg; /* for mangling seg update/query */
@@ -276,6 +289,11 @@ tls_thread_free(tls_type_t tls_type, int index);
 #ifdef AARCHXX
 byte **
 get_dr_tls_base_addr(void);
+#endif
+
+#ifdef MACOS64
+byte **
+get_app_tls_swap_slot_addr(void);
 #endif
 
 #ifdef X86

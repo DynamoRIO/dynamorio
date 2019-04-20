@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -63,7 +63,6 @@
 #include <imagehlp.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h> /* memset */
 #include <time.h>
 #include <tchar.h>
 
@@ -114,20 +113,20 @@ static double wallclock;            /* in seconds */
 /* avoid mistake of lower-case assert */
 #define assert assert_no_good_use_ASSERT_instead
 void
-internal_error(const char *file, int line, const char *msg);
+d_r_internal_error(const char *file, int line, const char *msg);
 #undef ASSERT
 #ifdef DEBUG
 void
 display_error(char *msg);
 #    ifdef INTERNAL
-#        define ASSERT(x)                               \
-            if (!(x)) {                                 \
-                internal_error(__FILE__, __LINE__, #x); \
+#        define ASSERT(x)                                   \
+            if (!(x)) {                                     \
+                d_r_internal_error(__FILE__, __LINE__, #x); \
             }
 #    else
-#        define ASSERT(x)                               \
-            if (!(x)) {                                 \
-                internal_error(__FILE__, __LINE__, ""); \
+#        define ASSERT(x)                                   \
+            if (!(x)) {                                     \
+                d_r_internal_error(__FILE__, __LINE__, ""); \
             }
 #    endif /* INTERNAL */
 #else
@@ -162,7 +161,7 @@ display_error_helper(wchar_t *msg)
 }
 
 void
-internal_error(const char *file, int line, const char *expr)
+d_r_internal_error(const char *file, int line, const char *expr)
 {
 #ifdef INTERNAL
 #    define FILENAME_LENGTH L""

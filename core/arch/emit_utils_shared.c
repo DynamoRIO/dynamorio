@@ -55,7 +55,6 @@
 #include "instrlist.h"
 #include "instrument.h" /* for dr_insert_call() */
 #include "proc.h"
-#include <string.h> /* for memcpy */
 #include "decode.h"
 #include "decode_fast.h"
 #include "x86/decode_private.h"
@@ -740,22 +739,42 @@ coarse_cti_is_intra_fragment(dcontext_t *dcontext, coarse_info_t *info, instr_t 
      * entrance stub or inlined indirect stub).
      */
     cache_pc tgt = opnd_get_pc(instr_get_target(inst));
-    if (tgt < start_pc || tgt >= start_pc + MAX_FRAGMENT_SIZE ||
-        /* if tgt is an entry, then it's a linked exit cti
-         * XXX: this may acquire info->lock if it's never been called before
-         */
-        fragment_coarse_entry_pclookup(dcontext, info, tgt) != NULL ||
-        /* these lookups can get expensive but should only hit them
-         * when have clients adding intra-fragment ctis.
-         * XXX: is there a min distance we could use to rule out
-         * being in stubs?  for frozen though prefixes are
-         * right after cache.
-         */
-        coarse_is_indirect_stub(tgt) || in_coarse_stubs(tgt) ||
-        in_coarse_stub_prefixes(tgt)) {
+    if (tgt < start_pc || tgt >= start_pc + MAX_FRAGMENT_SIZE)
         return false;
-    } else
-        return true;
+    /* If tgt is an entry, then it's a linked exit cti.
+     * XXX: This may acquire info->lock if it's never been called before.
+     */
+    if (fragment_coarse_entry_pclookup(dcontext, info, tgt) != NULL) {
+        /* i#1032: To handle an intra cti that targets the final instr in the bb which
+         * was a jmp and elided, we rely on the assumption that a coarse bb exit
+         * cti is either 1 indirect or 2 direct with no code past it.
+         * Thus, the instr after an exit cti must either be an entry point for
+         * an adjacent fragment, or the 2nd cti for a direct.
+         */
+        cache_pc post_inst_pc = instr_get_raw_bits(inst) + instr_length(dcontext, inst);
+        instr_t post_inst_instr;
+        bool intra = true;
+        instr_init(dcontext, &post_inst_instr);
+        if (post_inst_pc >= info->cache_end_pc ||
+            fragment_coarse_entry_pclookup(dcontext, info, post_inst_pc) != NULL ||
+            (decode_cti(dcontext, post_inst_pc, &post_inst_instr) != NULL &&
+             instr_is_cti(&post_inst_instr))) {
+            intra = false;
+        }
+        instr_free(dcontext, &post_inst_instr);
+        if (!intra)
+            return false;
+    }
+    /* These lookups can get expensive but should only hit them when have
+     * clients adding intra-fragment ctis.
+     * XXX: is there a min distance we could use to rule out being in stubs?
+     * For frozen though prefixes are right after cache.
+     */
+    if (coarse_is_indirect_stub(tgt) || in_coarse_stubs(tgt) ||
+        in_coarse_stub_prefixes(tgt))
+        return false;
+
+    return true;
 }
 
 cache_pc
@@ -1827,7 +1846,7 @@ append_setup_fcache_target(dcontext_t *dcontext, instrlist_t *ilist, bool absolu
  *    far jmp to next instr, stored w/ 32-bit cs selector in fs:xbx_OFFSET
  *  endif
  *
- *  # jump indirect through dcontext->next_tag, set by dispatch()
+ *  # jump indirect through dcontext->next_tag, set by d_r_dispatch()
  *  if (absolute)
  *    JUMP_VIA_DCONTEXT next_tag_OFFSET
  *  else
@@ -1925,7 +1944,7 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
  *
  * The code is split into several helper functions.
  *
- * # Used by dispatch to begin execution in fcache at dcontext->next_tag
+ * # Used by d_r_dispatch to begin execution in fcache at dcontext->next_tag
  * fcache_enter(dcontext_t *dcontext)
  *
  *  # append_fcache_enter_prologue
@@ -2035,7 +2054,7 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
  *    far jmp to next instr, stored w/ 32-bit cs selector in fs:xbx_OFFSET
  *  endif
  *
- *  # jump indirect through dcontext->next_tag, set by dispatch()
+ *  # jump indirect through dcontext->next_tag, set by d_r_dispatch()
  *  if (absolute)
  *    JUMP_VIA_DCONTEXT next_tag_OFFSET
  *  else
@@ -2264,14 +2283,14 @@ append_prepare_fcache_return(dcontext_t *dcontext, generated_code_t *code,
 static void
 append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    /* call central dispatch routine */
+    /* call central d_r_dispatch routine */
     /* for x64 linux we could optimize and avoid the "mov rdi, rdi" */
     /* for ARM we use _noreturn to avoid storing to %lr */
-    dr_insert_call_noreturn((void *)dcontext, ilist, NULL /*append*/, (void *)dispatch, 1,
-                            absolute ? OPND_CREATE_INTPTR((ptr_int_t)dcontext)
-                                     : opnd_create_reg(REG_DCTXT));
+    dr_insert_call_noreturn(
+        (void *)dcontext, ilist, NULL /*append*/, (void *)d_r_dispatch, 1,
+        absolute ? OPND_CREATE_INTPTR((ptr_int_t)dcontext) : opnd_create_reg(REG_DCTXT));
 
-    /* dispatch() shouldn't return! */
+    /* d_r_dispatch() shouldn't return! */
     insert_reachable_cti(dcontext, ilist, NULL, vmcode_get_start(),
                          (byte *)unexpected_return, true /*jmp*/, false /*!returns*/,
                          false /*!precise*/, DR_REG_R11 /*scratch*/, NULL);
@@ -2282,7 +2301,7 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  * # Invoked via
  * #     a) from the fcache via a fragment exit stub,
  * #     b) from indirect_branch_lookup().
- * # Invokes dispatch() with a clean dstack.
+ * # Invokes d_r_dispatch() with a clean dstack.
  * # Assumptions:
  * #     1) app's value in xax/r0 already saved in dcontext.
  * #     2) xax/r0 holds the linkstub ptr
@@ -2408,14 +2427,14 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *    movl    $0, _sideline_trace
  *  .endif
  *
- *  # call central dispatch routine w/ dcontext as an argument
+ *  # call central d_r_dispatch routine w/ dcontext as an argument
  *  if (absolute)
  *    push    <dcontext>
  *  else
  *    push     %xdi  # for x64, mov %xdi, ARG1
  *  endif
- *  call    dispatch # for x64 windows, reserve 32 bytes stack space for call
- *  # dispatch() shouldn't return!
+ *  call    d_r_dispatch # for x64 windows, reserve 32 bytes stack space for call
+ *  # d_r_dispatch() shouldn't return!
  *  jmp     unexpected_return
  */
 
@@ -2427,7 +2446,7 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  * If linkstub != NULL, used for coarse fragments, this routine assumes that:
  * - app xax is still in %xax
  * - next target pc is in DIRECT_STUB_SPILL_SLOT tls
- * - linkstub is the linkstub_t to pass back to dispatch
+ * - linkstub is the linkstub_t to pass back to d_r_dispatch
  * - if coarse_info:
  *   - app xcx is in MANGLE_XCX_SPILL_SLOT
  *   - source coarse info is in %xcx
@@ -2698,7 +2717,7 @@ emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info)
                      (ptr_uint_t *)&info->trace_head_return_prefix);
     if (DYNAMO_OPTION(disable_traces) ||
         /* i#670: the stub stored the abs addr at persist time.  we need
-         * to adjust to the use-time mod base which we do in dispatch
+         * to adjust to the use-time mod base which we do in d_r_dispatch
          * but we need to set the dcontext->coarse_exit so we go through
          * the fcache return
          */
@@ -3279,7 +3298,7 @@ emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
         APP(&ilist, change_mode);
         APP(&ilist,
             instr_create_restore_from_tls(dcontext, SCRATCH_REG2, TLS_DCONTEXT_SLOT));
-        /* FIXME: for SELFPROT_DCONTEXT we'll need to exit to dispatch every time
+        /* FIXME: for SELFPROT_DCONTEXT we'll need to exit to d_r_dispatch every time
          * and add logic there to set x86_mode based on LINK_FAR.
          * We do not want x86_mode sitting in unprotected_context_t.
          */
@@ -3556,7 +3575,7 @@ skip_linked:
         .endif
 
         # even if !DYNAMO_OPTION(syscalls_synch_flush) must clear for cbret
-        movl 0, at_syscall_OFFSET # indicate to flusher/dispatch we're done w/ syscall
+        movl 0, at_syscall_OFFSET # indicate to flusher/d_r_dispatch we're done w/ syscall
 
         # assume interrupt could have changed register values
         .if !inline_ibl_head # else, saved inside inlined ibl
@@ -4082,7 +4101,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
      * from a fragment exit stub through shared syscall, we could pass the
      * address of the IBL routine to jump to -- BB IBL for BBs and trace IBL
      * for traces. Shared syscall would do an indirect jump to reach the proper
-     * routine. On an IBL miss, the address is passed through to dispatch, which
+     * routine. On an IBL miss, the address is passed through to d_r_dispatch, which
      * can convert the address into the appropriate fake linkstub address (check
      * if the address is within emitted code and equals either BB or trace IBL.)
      * Since an address is being passed around and saved to the dcontext during
@@ -4108,7 +4127,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
     }
     /* When traversing the unlinked entry path, since IBL is bypassed
-     * control reaches dispatch, and the target is (usually) added to the IBT
+     * control reaches d_r_dispatch, and the target is (usually) added to the IBT
      * table. But since the unlinked path was used, the target may already be
      * present in the table so the add attempt is unnecessary and triggers an
      * ASSERT in fragment_add_ibl_target().
@@ -4267,7 +4286,7 @@ link_shared_syscall(dcontext_t *dcontext)
         link_shared_syscall_common(THREAD_GENCODE(dcontext));
 }
 
-/* Unlinks the shared_syscall routine so it goes back to dispatch after
+/* Unlinks the shared_syscall routine so it goes back to d_r_dispatch after
  * the system call itself.
  * If it is already unlinked, does nothing.
  * Assumes caller takes care of any synchronization if this is called
@@ -4643,7 +4662,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 
 #if defined(ARM)
     /* We have to save r0 in case the syscall is interrupted.  We can't
-     * easily do this from dispatch b/c fcache_enter clobbers some TLS slots.
+     * easily do this from d_r_dispatch b/c fcache_enter clobbers some TLS slots.
      */
     APP(&ilist, instr_create_save_to_tls(dcontext, DR_REG_R0, TLS_REG0_SLOT));
     /* XXX: should have a proper patch list entry */
@@ -4933,6 +4952,8 @@ void
 update_syscalls(dcontext_t *dcontext)
 {
     byte *pc;
+    generated_code_t *code = THREAD_GENCODE(dcontext);
+    protect_generated_code(code, WRITABLE);
     pc = get_do_syscall_entry(dcontext);
     update_syscall(dcontext, pc);
 #    ifdef X64
@@ -4943,6 +4964,7 @@ update_syscalls(dcontext_t *dcontext)
     pc = get_do_clone_syscall_entry(dcontext);
     update_syscall(dcontext, pc);
 #    endif
+    protect_generated_code(code, READONLY);
 }
 #endif /* !WINDOWS */
 

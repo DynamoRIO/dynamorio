@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -133,7 +133,58 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 7.0.0 include the following minor
+The changes between version \DR_VERSION and 7.1.0 include the following compatibility
+changes:
+
+ - Changes the enumeration of the DR_REG_ enum by adding x86 AVX-512 registers as well
+   as reserved ranges for future extensions.
+   This is a binary compatibility change for the DR_REG_ enum.
+ - Changes the enumeration of the OPSZ_ enum by moving its start back to 0. The OPSZ_
+   enum now completely overlaps the DR_REG_ enum.
+   This is a binary compatibility change for the OPSZ_ enum.
+
+The changes between version \DR_VERSION and 7.1.0 include the following minor
+compatibility changes:
+
+ - Added the define #MCXT_NUM_SIMD_SLOTS that was renamed from NUM_SIMD_SLOTS.
+   #MCXT_NUM_SIMD_SLOTS is now a constant that shall be used only to determine
+   the number of SIMD slots in DynamoRIO's mcontext.
+ - Replaced NUM_SIMD_SLOTS with proc_num_simd_saved().
+   Clients may set(DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY ON) in order to provide
+   the define NUM_SIMD_SLOTS using proc_num_simd_saved(). The macro is not a constant
+   expression and code relying on this needs to be rewritten.
+   DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY is set automatically if clients target
+   version 7.1.0 or earlier.
+ - Renamed mcontext's "ymm" structure to "simd".
+ - Deprecated reg_is_xmm() and reg_is_ymm().
+
+Further non-compatibility-affecting changes include:
+
+ - Added the function proc_num_simd_registers().
+ - Added drfront_set_verbose() to obtain diagnostics from drfrontendlib.
+ - Added new fields to #dr_os_version_info_t which contain the build number,
+   edition, and Windows 10 release identifier.
+ - Added the function instr_is_xsave().
+ - Added the type #dr_zmm_t.
+ - Added the type #dr_opmask_t.
+ - Added the define #MCXT_NUM_OPMASK_SLOTS for the number of AVX-512 OpMask registers.
+ - Renamed mcontext's ymm structure into simd.
+ - Added a new option -logprefix to drcov.
+ - Added the AVX-512 registers #DR_REG_XMM16 - #DR_REG_XMM31, #DR_REG_YMM16 -
+   #DR_REG_YMM31 and their #DR_REG_ZMM0 - #DR_REG_ZMM31 siblings as well as
+   #DR_REG_K0 - #DR_REG_K7.
+ - Added the function reg_is_opmask().
+ - Added the functions reg_is_strictly_xmm(), reg_is_strictly_ymm() and
+   reg_is_strictly_zmm().
+
+**************************************************
+<hr>
+
+Version 7.1.0 includes Dr. Memory and the Dr. Memory Framework (DRMF) in
+the same package as DynamoRIO.  DRMF provides the umbra, drsyscall, and
+drsymcache Extensions for use by clients.
+
+The changes between version 7.1.0 and 7.0.0 include the following minor
 compatibility changes:
 
  - The drltrace tool has been moved to the Dr.Memory Framework.

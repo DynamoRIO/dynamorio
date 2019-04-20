@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,8 +44,6 @@
 #include "disassemble.h"
 #include "decode_fast.h"
 #include "decode_private.h"
-
-#include <string.h> /* memcpy, memset */
 
 #ifdef DEBUG
 /* case 10450: give messages to clients */
@@ -119,61 +117,121 @@ const char *const type_names[] = {
 
 /* order corresponds to enum of REG_ and SEG_ constants */
 const char *const reg_names[] = {
-    "<NULL>", "rax",   "rcx",   "rdx",  "rbx",       "rsp",  "rbp",   "rsi",   "rdi",
-    "r8",     "r9",    "r10",   "r11",  "r12",       "r13",  "r14",   "r15",   "eax",
-    "ecx",    "edx",   "ebx",   "esp",  "ebp",       "esi",  "edi",   "r8d",   "r9d",
-    "r10d",   "r11d",  "r12d",  "r13d", "r14d",      "r15d", "ax",    "cx",    "dx",
-    "bx",     "sp",    "bp",    "si",   "di",        "r8w",  "r9w",   "r10w",  "r11w",
-    "r12w",   "r13w",  "r14w",  "r15w", "al",        "cl",   "dl",    "bl",    "ah",
-    "ch",     "dh",    "bh",    "r8l",  "r9l",       "r10l", "r11l",  "r12l",  "r13l",
-    "r14l",   "r15l",  "spl",   "bpl",  "sil",       "dil",  "mm0",   "mm1",   "mm2",
-    "mm3",    "mm4",   "mm5",   "mm6",  "mm7",       "xmm0", "xmm1",  "xmm2",  "xmm3",
-    "xmm4",   "xmm5",  "xmm6",  "xmm7", "xmm8",      "xmm9", "xmm10", "xmm11", "xmm12",
-    "xmm13",  "xmm14", "xmm15", "st0",  "st1",       "st2",  "st3",   "st4",   "st5",
-    "st6",    "st7",   "es",    "cs",   "ss",        "ds",   "fs",    "gs",    "dr0",
-    "dr1",    "dr2",   "dr3",   "dr4",  "dr5",       "dr6",  "dr7",   "dr8",   "dr9",
-    "dr10",   "dr11",  "dr12",  "dr13", "dr14",      "dr15", "cr0",   "cr1",   "cr2",
-    "cr3",    "cr4",   "cr5",   "cr6",  "cr7",       "cr8",  "cr9",   "cr10",  "cr11",
-    "cr12",   "cr13",  "cr14",  "cr15", "<invalid>", "ymm0", "ymm1",  "ymm2",  "ymm3",
-    "ymm4",   "ymm5",  "ymm6",  "ymm7", "ymm8",      "ymm9", "ymm10", "ymm11", "ymm12",
-    "ymm13",  "ymm14", "ymm15",
+    "<NULL>", "rax",   "rcx",   "rdx",   "rbx",   "rsp",   "rbp",   "rsi",       "rdi",
+    "r8",     "r9",    "r10",   "r11",   "r12",   "r13",   "r14",   "r15",       "eax",
+    "ecx",    "edx",   "ebx",   "esp",   "ebp",   "esi",   "edi",   "r8d",       "r9d",
+    "r10d",   "r11d",  "r12d",  "r13d",  "r14d",  "r15d",  "ax",    "cx",        "dx",
+    "bx",     "sp",    "bp",    "si",    "di",    "r8w",   "r9w",   "r10w",      "r11w",
+    "r12w",   "r13w",  "r14w",  "r15w",  "al",    "cl",    "dl",    "bl",        "ah",
+    "ch",     "dh",    "bh",    "r8l",   "r9l",   "r10l",  "r11l",  "r12l",      "r13l",
+    "r14l",   "r15l",  "spl",   "bpl",   "sil",   "dil",   "mm0",   "mm1",       "mm2",
+    "mm3",    "mm4",   "mm5",   "mm6",   "mm7",   "xmm0",  "xmm1",  "xmm2",      "xmm3",
+    "xmm4",   "xmm5",  "xmm6",  "xmm7",  "xmm8",  "xmm9",  "xmm10", "xmm11",     "xmm12",
+    "xmm13",  "xmm14", "xmm15", "xmm16", "xmm17", "xmm18", "xmm19", "xmm20",     "xmm21",
+    "xmm22",  "xmm23", "xmm24", "xmm25", "xmm26", "xmm27", "xmm28", "xmm29",     "xmm30",
+    "xmm31",  "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "st0",   "st1",       "st2",
+    "st3",    "st4",   "st5",   "st6",   "st7",   "es",    "cs",    "ss",        "ds",
+    "fs",     "gs",    "dr0",   "dr1",   "dr2",   "dr3",   "dr4",   "dr5",       "dr6",
+    "dr7",    "dr8",   "dr9",   "dr10",  "dr11",  "dr12",  "dr13",  "dr14",      "dr15",
+    "cr0",    "cr1",   "cr2",   "cr3",   "cr4",   "cr5",   "cr6",   "cr7",       "cr8",
+    "cr9",    "cr10",  "cr11",  "cr12",  "cr13",  "cr14",  "cr15",  "<invalid>", "ymm0",
+    "ymm1",   "ymm2",  "ymm3",  "ymm4",  "ymm5",  "ymm6",  "ymm7",  "ymm8",      "ymm9",
+    "ymm10",  "ymm11", "ymm12", "ymm13", "ymm14", "ymm15", "ymm16", "ymm17",     "ymm18",
+    "ymm19",  "ymm20", "ymm21", "ymm22", "ymm23", "ymm24", "ymm25", "ymm26",     "ymm27",
+    "ymm28",  "ymm29", "ymm30", "ymm31", "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "zmm0",   "zmm1",  "zmm2",  "zmm3",  "zmm4",  "zmm5",  "zmm6",  "zmm7",      "zmm8",
+    "zmm9",   "zmm10", "zmm11", "zmm12", "zmm13", "zmm14", "zmm15", "zmm16",     "zmm17",
+    "zmm18",  "zmm19", "zmm20", "zmm21", "zmm22", "zmm23", "zmm24", "zmm25",     "zmm26",
+    "zmm27",  "zmm28", "zmm29", "zmm30", "zmm31", "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "k0",    "k1",    "k2",    "k3",    "k4",    "k5",    "k6",        "k7",
     /* when you update here, update dr_reg_fixer[] too */
 };
 
 /* Maps sub-registers to their containing register. */
 const reg_id_t dr_reg_fixer[] = {
-    REG_NULL,    REG_XAX,   REG_XCX,   REG_XDX,  REG_XBX,   REG_XSP,   REG_XBP,
-    REG_XSI,     REG_XDI,   REG_R8,    REG_R9,   REG_R10,   REG_R11,   REG_R12,
-    REG_R13,     REG_R14,   REG_R15,   REG_XAX,  REG_XCX,   REG_XDX,   REG_XBX,
-    REG_XSP,     REG_XBP,   REG_XSI,   REG_XDI,  REG_R8,    REG_R9,    REG_R10,
-    REG_R11,     REG_R12,   REG_R13,   REG_R14,  REG_R15,   REG_XAX,   REG_XCX,
-    REG_XDX,     REG_XBX,   REG_XSP,   REG_XBP,  REG_XSI,   REG_XDI,   REG_R8,
-    REG_R9,      REG_R10,   REG_R11,   REG_R12,  REG_R13,   REG_R14,   REG_R15,
-    REG_XAX,     REG_XCX,   REG_XDX,   REG_XBX,  REG_XAX,   REG_XCX,   REG_XDX,
-    REG_XBX,     REG_R8,    REG_R9,    REG_R10,  REG_R11,   REG_R12,   REG_R13,
-    REG_R14,     REG_R15,   REG_XSP,   REG_XBP,  REG_XSI,   REG_XDI, /* i#201 */
-    REG_MM0,     REG_MM1,   REG_MM2,   REG_MM3,  REG_MM4,   REG_MM5,   REG_MM6,
-    REG_MM7,     REG_YMM0,  REG_YMM1,  REG_YMM2, REG_YMM3,  REG_YMM4,  REG_YMM5,
-    REG_YMM6,    REG_YMM7,  REG_YMM8,  REG_YMM9, REG_YMM10, REG_YMM11, REG_YMM12,
-    REG_YMM13,   REG_YMM14, REG_YMM15, REG_ST0,  REG_ST1,   REG_ST2,   REG_ST3,
-    REG_ST4,     REG_ST5,   REG_ST6,   REG_ST7,  SEG_ES,    SEG_CS,    SEG_SS,
-    SEG_DS,      SEG_FS,    SEG_GS,    REG_DR0,  REG_DR1,   REG_DR2,   REG_DR3,
-    REG_DR4,     REG_DR5,   REG_DR6,   REG_DR7,  REG_DR8,   REG_DR9,   REG_DR10,
-    REG_DR11,    REG_DR12,  REG_DR13,  REG_DR14, REG_DR15,  REG_CR0,   REG_CR1,
-    REG_CR2,     REG_CR3,   REG_CR4,   REG_CR5,  REG_CR6,   REG_CR7,   REG_CR8,
-    REG_CR9,     REG_CR10,  REG_CR11,  REG_CR12, REG_CR13,  REG_CR14,  REG_CR15,
-    REG_INVALID, REG_YMM0,  REG_YMM1,  REG_YMM2, REG_YMM3,  REG_YMM4,  REG_YMM5,
-    REG_YMM6,    REG_YMM7,  REG_YMM8,  REG_YMM9, REG_YMM10, REG_YMM11, REG_YMM12,
-    REG_YMM13,   REG_YMM14, REG_YMM15,
+    DR_REG_NULL,    DR_REG_XAX,     DR_REG_XCX,     DR_REG_XDX,     DR_REG_XBX,
+    DR_REG_XSP,     DR_REG_XBP,     DR_REG_XSI,     DR_REG_XDI,     DR_REG_R8,
+    DR_REG_R9,      DR_REG_R10,     DR_REG_R11,     DR_REG_R12,     DR_REG_R13,
+    DR_REG_R14,     DR_REG_R15,     DR_REG_XAX,     DR_REG_XCX,     DR_REG_XDX,
+    DR_REG_XBX,     DR_REG_XSP,     DR_REG_XBP,     DR_REG_XSI,     DR_REG_XDI,
+    DR_REG_R8,      DR_REG_R9,      DR_REG_R10,     DR_REG_R11,     DR_REG_R12,
+    DR_REG_R13,     DR_REG_R14,     DR_REG_R15,     DR_REG_XAX,     DR_REG_XCX,
+    DR_REG_XDX,     DR_REG_XBX,     DR_REG_XSP,     DR_REG_XBP,     DR_REG_XSI,
+    DR_REG_XDI,     DR_REG_R8,      DR_REG_R9,      DR_REG_R10,     DR_REG_R11,
+    DR_REG_R12,     DR_REG_R13,     DR_REG_R14,     DR_REG_R15,     DR_REG_XAX,
+    DR_REG_XCX,     DR_REG_XDX,     DR_REG_XBX,     DR_REG_XAX,     DR_REG_XCX,
+    DR_REG_XDX,     DR_REG_XBX,     DR_REG_R8,      DR_REG_R9,      DR_REG_R10,
+    DR_REG_R11,     DR_REG_R12,     DR_REG_R13,     DR_REG_R14,     DR_REG_R15,
+    DR_REG_XSP,     DR_REG_XBP,     DR_REG_XSI,     DR_REG_XDI, /* i#201 */
+    DR_REG_MM0,     DR_REG_MM1,     DR_REG_MM2,     DR_REG_MM3,     DR_REG_MM4,
+    DR_REG_MM5,     DR_REG_MM6,     DR_REG_MM7,     DR_REG_ZMM0,    DR_REG_ZMM1,
+    DR_REG_ZMM2,    DR_REG_ZMM3,    DR_REG_ZMM4,    DR_REG_ZMM5,    DR_REG_ZMM6,
+    DR_REG_ZMM7,    DR_REG_ZMM8,    DR_REG_ZMM9,    DR_REG_ZMM10,   DR_REG_ZMM11,
+    DR_REG_ZMM12,   DR_REG_ZMM13,   DR_REG_ZMM14,   DR_REG_ZMM15,   DR_REG_ZMM16,
+    DR_REG_ZMM17,   DR_REG_ZMM18,   DR_REG_ZMM19,   DR_REG_ZMM20,   DR_REG_ZMM21,
+    DR_REG_ZMM22,   DR_REG_ZMM23,   DR_REG_ZMM24,   DR_REG_ZMM25,   DR_REG_ZMM26,
+    DR_REG_ZMM27,   DR_REG_ZMM28,   DR_REG_ZMM29,   DR_REG_ZMM30,   DR_REG_ZMM31,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_ST0,     DR_REG_ST1,     DR_REG_ST2,
+    DR_REG_ST3,     DR_REG_ST4,     DR_REG_ST5,     DR_REG_ST6,     DR_REG_ST7,
+    DR_SEG_ES,      DR_SEG_CS,      DR_SEG_SS,      DR_SEG_DS,      DR_SEG_FS,
+    DR_SEG_GS,      DR_REG_DR0,     DR_REG_DR1,     DR_REG_DR2,     DR_REG_DR3,
+    DR_REG_DR4,     DR_REG_DR5,     DR_REG_DR6,     DR_REG_DR7,     DR_REG_DR8,
+    DR_REG_DR9,     DR_REG_DR10,    DR_REG_DR11,    DR_REG_DR12,    DR_REG_DR13,
+    DR_REG_DR14,    DR_REG_DR15,    DR_REG_CR0,     DR_REG_CR1,     DR_REG_CR2,
+    DR_REG_CR3,     DR_REG_CR4,     DR_REG_CR5,     DR_REG_CR6,     DR_REG_CR7,
+    DR_REG_CR8,     DR_REG_CR9,     DR_REG_CR10,    DR_REG_CR11,    DR_REG_CR12,
+    DR_REG_CR13,    DR_REG_CR14,    DR_REG_CR15,    DR_REG_INVALID, DR_REG_ZMM0,
+    DR_REG_ZMM1,    DR_REG_ZMM2,    DR_REG_ZMM3,    DR_REG_ZMM4,    DR_REG_ZMM5,
+    DR_REG_ZMM6,    DR_REG_ZMM7,    DR_REG_ZMM8,    DR_REG_ZMM9,    DR_REG_ZMM10,
+    DR_REG_ZMM11,   DR_REG_ZMM12,   DR_REG_ZMM13,   DR_REG_ZMM14,   DR_REG_ZMM15,
+    DR_REG_ZMM16,   DR_REG_ZMM17,   DR_REG_ZMM18,   DR_REG_ZMM19,   DR_REG_ZMM20,
+    DR_REG_ZMM21,   DR_REG_ZMM22,   DR_REG_ZMM23,   DR_REG_ZMM24,   DR_REG_ZMM25,
+    DR_REG_ZMM26,   DR_REG_ZMM27,   DR_REG_ZMM28,   DR_REG_ZMM29,   DR_REG_ZMM30,
+    DR_REG_ZMM31,   DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_ZMM0,    DR_REG_ZMM1,
+    DR_REG_ZMM2,    DR_REG_ZMM3,    DR_REG_ZMM4,    DR_REG_ZMM5,    DR_REG_ZMM6,
+    DR_REG_ZMM7,    DR_REG_ZMM8,    DR_REG_ZMM9,    DR_REG_ZMM10,   DR_REG_ZMM11,
+    DR_REG_ZMM12,   DR_REG_ZMM13,   DR_REG_ZMM14,   DR_REG_ZMM15,   DR_REG_ZMM16,
+    DR_REG_ZMM17,   DR_REG_ZMM18,   DR_REG_ZMM19,   DR_REG_ZMM20,   DR_REG_ZMM21,
+    DR_REG_ZMM22,   DR_REG_ZMM23,   DR_REG_ZMM24,   DR_REG_ZMM25,   DR_REG_ZMM26,
+    DR_REG_ZMM27,   DR_REG_ZMM28,   DR_REG_ZMM29,   DR_REG_ZMM30,   DR_REG_ZMM31,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_K0,      DR_REG_K1,      DR_REG_K2,
+    DR_REG_K3,      DR_REG_K4,      DR_REG_K5,      DR_REG_K6,      DR_REG_K7,
 };
 
 #ifdef DEBUG
 void
 encode_debug_checks(void)
 {
-    CLIENT_ASSERT(sizeof(dr_reg_fixer) / sizeof(dr_reg_fixer[0]) == REG_LAST_ENUM + 1,
+    CLIENT_ASSERT(sizeof(dr_reg_fixer) / sizeof(dr_reg_fixer[0]) == DR_REG_LAST_ENUM + 1,
                   "internal register enum error");
-    CLIENT_ASSERT(sizeof(reg_names) / sizeof(reg_names[0]) == REG_LAST_ENUM + 1,
+    CLIENT_ASSERT(sizeof(reg_names) / sizeof(reg_names[0]) == DR_REG_LAST_ENUM + 1,
                   "reg_names missing an entry");
     CLIENT_ASSERT(sizeof(type_names) / sizeof(type_names[0]) == TYPE_BEYOND_LAST_ENUM,
                   "type_names missing an entry");
@@ -181,7 +239,10 @@ encode_debug_checks(void)
 #endif
 
 #if defined(DEBUG) && defined(INTERNAL) && !defined(STANDALONE_DECODER)
-/* These operand types store a reg_id_t as their operand "size" */
+/* These operand types store a reg_id_t as their operand "size". Therefore, this function
+ * can be used to determine whether the operand stores a REG_ enum instead of an OPSZ_
+ * enum. The operand size is then implicit.
+ */
 static bool
 template_optype_is_reg(int optype)
 {
@@ -2341,7 +2402,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     /* first, walk through instr list to find format that matches
      * this instr's operands
      */
-    DOLOG(ENC_LEVEL, LOG_EMIT, { loginst(dcontext, 1, instr, "\n--- encoding"); });
+    DOLOG(ENC_LEVEL, LOG_EMIT, { d_r_loginst(dcontext, 1, instr, "\n--- encoding"); });
 
     memset(&di, 0, sizeof(decode_info_t));
     di.opcode = opc;
@@ -2632,7 +2693,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
 
 #if DEBUG_DISABLE /* turn back on if want to debug */
-    if (stats->loglevel >= 3) {
+    if (d_r_stats->loglevel >= 3) {
         byte *pc = cache_pc;
         LOG(THREAD, LOG_EMIT, 3, "instr_encode on: ");
         instr_disassemble(dcontext, instr, THREAD);

@@ -43,10 +43,16 @@
 #    error NYI
 #endif
 
+static int num_simd_saved;
+static int num_simd_registers;
+
 /* arch specific proc info */
 void
 proc_init_arch(void)
 {
+    num_simd_saved = MCXT_NUM_SIMD_SLOTS;
+    num_simd_registers = MCXT_NUM_SIMD_SLOTS;
+
     /* FIXME i#1551: NYI on ARM */
     /* all of the CPUID registers are only accessible in privileged modes
      * so we either need read /proc/cpuinfo or auxiliary vector provided by
@@ -84,6 +90,20 @@ proc_fpstate_save_size(void)
      * VFPv3: adding 16 double-precision registers, d16 to d31.
      */
     return DR_FPSTATE_BUF_SIZE;
+}
+
+DR_API
+int
+proc_num_simd_saved(void)
+{
+    return num_simd_saved;
+}
+
+DR_API
+int
+proc_num_simd_registers(void)
+{
+    return num_simd_registers;
 }
 
 DR_API

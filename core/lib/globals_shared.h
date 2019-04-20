@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -778,8 +778,12 @@ typedef enum {
     SYSLOG_WARNING = 0x2,
     SYSLOG_ERROR = 0x4,
     SYSLOG_CRITICAL = 0x8,
+    SYSLOG_VERBOSE = 0x10,
     SYSLOG_NONE = 0x0,
-    SYSLOG_ALL = (SYSLOG_INFORMATION | SYSLOG_WARNING | SYSLOG_ERROR | SYSLOG_CRITICAL),
+    SYSLOG_ALL_NOVERBOSE =
+        (SYSLOG_INFORMATION | SYSLOG_WARNING | SYSLOG_ERROR | SYSLOG_CRITICAL),
+    SYSLOG_ALL = (SYSLOG_VERBOSE | SYSLOG_INFORMATION | SYSLOG_WARNING | SYSLOG_ERROR |
+                  SYSLOG_CRITICAL),
 } syslog_event_type_t;
 
 #define DYNAMO_OPTION(opt) \
@@ -1731,7 +1735,7 @@ typedef struct {
 /* These constants & macros are used by core, share and preinject, so this is
  * the only place they will build for win32 and linux! */
 /* return codes for [gs]et_parameter style functions
- * failure == 0 for compatibility with get_parameter()
+ * failure == 0 for compatibility with d_r_get_parameter()
  * if GET_PARAMETER_NOAPPSPECIFIC is returned, that means the
  *  parameter returned is from the global options, because there
  *  was no app-specific key present.
@@ -1817,6 +1821,31 @@ typedef union _dr_ymm_t {
     reg_t reg[IF_X64_ELSE(4, 8)]; /**< Representation as 4 or 8 registers. */
 } dr_ymm_t;
 
+/** 512-bit ZMM register. */
+typedef union _dr_zmm_t {
+#ifdef AVOID_API_EXPORT
+    /* XXX i#1312: There may be alignment considerations that need to get
+     * worked out when adding this to dr_mcontext_t.
+     */
+#endif
+#ifdef API_EXPORT_ONLY
+#    ifdef X64
+    uint64 u64[8]; /**< Representation as 8 64-bit integers. */
+#    endif
+#endif
+    uint u32[16];                  /**< Representation as 16 32-bit integers. */
+    byte u8[64];                   /**< Representation as 64 8-bit integers. */
+    reg_t reg[IF_X64_ELSE(8, 16)]; /**< Representation as 8 or 16 registers. */
+} dr_zmm_t;
+
+/** AVX-512 OpMask (k-)register. */
+#ifdef AVOID_API_EXPORT
+/* The register may be only 16 bits wide on systems without AVX512BW, but can be up to
+ * MAX_KL = 64 bits.
+ */
+#endif
+typedef uint64 dr_opmask_t;
+
 #if defined(AARCHXX)
 /**
  * 128-bit ARM SIMD Vn register.
@@ -1841,16 +1870,20 @@ typedef union _dr_simd_t {
 } dr_simd_t;
 #    endif
 #    ifdef X64
-#        define NUM_SIMD_SLOTS                                       \
+#        define MCXT_NUM_SIMD_SLOTS                                  \
             32 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
                 */
 #    else
-#        define NUM_SIMD_SLOTS                                       \
+#        define MCXT_NUM_SIMD_SLOTS                                  \
             16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
                 */
 #    endif
 #    define PRE_SIMD_PADDING                                       \
         0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots \
+           */
+#    define MCXT_NUM_OPMASK_SLOTS                                    \
+        0 /**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, \
+           * if architecture supports.                               \
            */
 
 #elif defined(X86)
@@ -1858,7 +1891,7 @@ typedef union _dr_simd_t {
 #    ifdef AVOID_API_EXPORT
 /* If this is increased, you'll probably need to increase the size of
  * inject_into_thread's buf and INTERCEPTION_CODE_SIZE (for Windows).
- * Also, update NUM_SIMD_SLOTS in x86.asm and get_xmm_caller_saved.
+ * Also, update MCXT_NUM_SIMD_SLOTS in x86.asm and get_xmm_caller_saved.
  * i#437: YMM is an extension of XMM from 128-bit to 256-bit without
  * adding new ones, so code operating on XMM often also operates on YMM,
  * and thus some *XMM* macros also apply to *YMM*.
@@ -1867,27 +1900,43 @@ typedef union _dr_simd_t {
 #    ifdef X64
 #        ifdef WINDOWS
 /*xmm0-5*/
-#            define NUM_SIMD_SLOTS 6 /**< Number of [xy]mm reg slots in dr_mcontext_t */
+#            define MCXT_NUM_SIMD_SLOTS \
+                6 /**< Number of [xy]mm reg slots in dr_mcontext_t */
 #        else
 /*xmm0-15*/
-#            define NUM_SIMD_SLOTS                                  \
+#            define MCXT_NUM_SIMD_SLOTS                             \
                 16 /**< Number of [xy]mm reg slots in dr_mcontext_t \
                     */
 #        endif
 #        define PRE_XMM_PADDING \
-            16 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
+            48 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
 #    else
 /*xmm0-7*/
-#        define NUM_SIMD_SLOTS 8 /**< Number of [xy]mm reg slots in dr_mcontext_t */
+#        define MCXT_NUM_SIMD_SLOTS                            \
+            8 /**< Number of [xy]mm reg slots in dr_mcontext_t \
+               */
 #        define PRE_XMM_PADDING \
             24 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
 #    endif
-
-#    define NUM_XMM_SLOTS NUM_SIMD_SLOTS /* for backward compatibility */
-
+#    define MCXT_NUM_OPMASK_SLOTS                                    \
+        8 /**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, \
+           * if architecture supports.                               \
+           */
 #else
 #    error NYI
 #endif /* AARCHXX/X86 */
+
+#ifdef DR_NUM_SIMD_SLOTS_COMPATIBILITY
+
+#    undef NUM_SIMD_SLOTS
+/**
+ * Number of saved SIMD slots in dr_mcontext_t.
+ */
+#    define NUM_SIMD_SLOTS proc_num_simd_saved()
+
+#    define NUM_XMM_SLOTS NUM_SIMD_SLOTS /* for backward compatibility */
+
+#endif /* DR_NUM_SIMD_SLOTS_COMPATIBILITY */
 
 /** Values for the flags field of dr_mcontext_t */
 typedef enum {
@@ -1947,28 +1996,5 @@ typedef struct _dr_mcontext_t {
 typedef struct _priv_mcontext_t {
 #include "mcxtx.h"
 } priv_mcontext_t;
-
-/* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
- * libc routines invoked by DR in some Linux systems (xref i#139),
- * so they should be saved in 32-bit Linux.
- */
-/* Xref i#139:
- * XMM register preservation will cause extra runtime overhead.
- * We test it over 32-bit SPEC2006 on a 64-bit Debian Linux, which shows
- * that DR with xmm preservation adds negligible overhead over DR without
- * xmm preservation.
- * It means xmm preservation would have little performance impact over
- * DR base system. This is mainly because DR's own operations' overhead
- * is much higher than the context switch overhead.
- * However, if a program is running with a DR client which performs many
- * clean calls (one or more per basic block), xmm preservation may
- * have noticable impacts, i.e. pushing bbs over the max size limit,
- * and could have a noticeable performance hit.
- */
-/* We now save everything but we keep separate NUM_SIMD_SLOTS vs NUM_SIMD_SAVED
- * in case we go back to not saving some slots in the future: e.g., w/o
- * CLIENT_INTERFACE we could control our own libs enough to avoid some saves.
- */
-#define NUM_SIMD_SAVED NUM_SIMD_SLOTS
 
 #endif /* _GLOBALS_SHARED_H_ */

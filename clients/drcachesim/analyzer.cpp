@@ -38,15 +38,18 @@
 #ifdef HAS_ZLIB
 #    include "reader/compressed_file_reader.h"
 #endif
+#ifdef HAS_SNAPPY
+#    include "reader/snappy_file_reader.h"
+#endif
 #include "common/utils.h"
 
 #ifdef HAS_ZLIB
 // Even if the file is uncompressed, zlib's gzip interface is faster than
 // file_reader_t's fstream in our measurements, so we always use it when
 // available.
-typedef compressed_file_reader_t my_file_reader_t;
+typedef compressed_file_reader_t default_file_reader_t;
 #else
-typedef file_reader_t<std::ifstream *> my_file_reader_t;
+typedef file_reader_t<std::ifstream *> default_file_reader_t;
 #endif
 
 analyzer_t::analyzer_t()
@@ -57,6 +60,44 @@ analyzer_t::analyzer_t()
     , worker_count(0)
 {
     /* Nothing else: child class needs to initialize. */
+}
+
+#ifdef HAS_SNAPPY
+static bool
+ends_with(const std::string &str, const std::string &with)
+{
+    size_t pos = str.rfind(with);
+    if (pos == std::string::npos)
+        return false;
+    return (pos + with.size() == str.size());
+}
+#endif
+
+static std::unique_ptr<reader_t>
+get_reader(const std::string &path, int verbosity)
+{
+#ifdef HAS_SNAPPY
+    if (ends_with(path, ".sz"))
+        return std::unique_ptr<reader_t>(new snappy_file_reader_t(path, verbosity));
+    // If path is a directory, and any file in it ends in .sz, return a snappy reader.
+    if (directory_iterator_t::is_directory(path)) {
+        directory_iterator_t end;
+        directory_iterator_t iter(path);
+        if (!iter) {
+            ERRMSG("Failed to list directory %s: %s", path.c_str(),
+                   iter.error_string().c_str());
+            return nullptr;
+        }
+        for (; iter != end; ++iter) {
+            if (ends_with(*iter, ".sz")) {
+                return std::unique_ptr<reader_t>(
+                    new snappy_file_reader_t(path, verbosity));
+            }
+        }
+    }
+#endif
+    // No snappy support, or didn't find a .sz file, try the default reader.
+    return std::unique_ptr<reader_t>(new default_file_reader_t(path, verbosity));
 }
 
 bool
@@ -86,9 +127,13 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity_in)
             if (fname == "." || fname == "..")
                 continue;
             const std::string path = trace_path + DIRSEP + fname;
+            std::unique_ptr<reader_t> reader = get_reader(path, verbosity);
+            if (!reader) {
+                return false;
+            }
             thread_data.push_back(analyzer_shard_data_t(
-                static_cast<int>(thread_data.size()),
-                std::unique_ptr<reader_t>(new my_file_reader_t(path, verbosity)), path));
+                static_cast<int>(thread_data.size()), std::move(reader), path));
+            VPRINT(this, 2, "Opened reader for %s\n", path.c_str());
         }
         // Like raw2trace, we use a simple round-robin static work assigment.  This
         // could be improved later with dynamic work queue for better load balancing.
@@ -104,10 +149,15 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity_in)
         }
     } else {
         parallel = false;
-        serial_trace_iter = std::unique_ptr<reader_t>(
-            new my_file_reader_t(trace_path.c_str(), verbosity));
+        serial_trace_iter = get_reader(trace_path, verbosity);
+        if (!serial_trace_iter) {
+            return false;
+        }
+        VPRINT(this, 2, "Opened serial reader for %s\n", trace_path.c_str());
     }
-    trace_end = std::unique_ptr<my_file_reader_t>(new my_file_reader_t());
+    // It's ok if trace_end is a different type from serial_trace_iter, they
+    // will still compare true if both at EOF.
+    trace_end = std::unique_ptr<default_file_reader_t>(new default_file_reader_t());
     return true;
 }
 
