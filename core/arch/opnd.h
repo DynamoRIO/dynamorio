@@ -2775,9 +2775,9 @@ DR_API
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
  *
  * Unlike \p reg_set_value, this function supports not only general purpose
- * registers, but xmm, mmxm and ymm.
+ * registers, but SIMD registers too. Does not yet support MMX registers.
  *
- * Up to sizeof(dr_ymm_t) bytes will be read from \p val_buf. The \p size
+ * Up to sizeof(dr_zmm_t) bytes will be read from \p val_buf. The \p size
  * paramter indicates the size of the input buffer.
  *
  * Returns false if the size is invalid, e.g., the register is smaller

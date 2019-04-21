@@ -1809,6 +1809,7 @@ reg_set_value_priv(reg_id_t reg, priv_mcontext_t *mc, reg_t value)
 bool
 reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t size)
 {
+#ifdef X86
     if (reg == REG_NULL)
         return true;
 
@@ -1822,7 +1823,6 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t s
 
     dr_zmm_t *simd = (dr_zmm_t *) ((byte *)mc + SIMD_OFFSET);
 
-#ifdef X86
     if (reg_is_gpr(reg)) {
         byte *reg_val_addr = ((byte *)mc + opnd_get_reg_mcontext_offs(reg));
         memcpy(reg_val_addr, val_buf, size);
