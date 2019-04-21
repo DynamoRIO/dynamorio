@@ -1274,12 +1274,6 @@ const instr_info_t * const op_instr[] =
     /* OP_adox          */   &prefix_extensions[143][1],
     /* OP_adcx          */   &prefix_extensions[143][2],
 
-    /* Keep these at the end so that ifdefs don't change internal enum values */
-#ifdef IA32_ON_IA64
-    /* OP_jmpe      */   &base_extensions[13][6],
-    /* OP_jmpe_abs  */   &second_byte[0xb8],
-#endif
-
     /* AVX-512 VEX encoded (scalar opmask instructions) */
     /* OP_kmovw         */  &vex_W_extensions[74][0],
     /* OP_kmovb         */  &vex_W_extensions[75][0],
@@ -1336,6 +1330,11 @@ const instr_info_t * const op_instr[] =
     /* AVX-512 EVEX encoded */
     /* XXX i#1312: TODO. */
 
+    /* Keep these at the end so that ifdefs don't change internal enum values */
+#ifdef IA32_ON_IA64
+    /* OP_jmpe      */   &base_extensions[13][6],
+    /* OP_jmpe_abs  */   &second_byte[0xb8],
+#endif
 };
 
 
