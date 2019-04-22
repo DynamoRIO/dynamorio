@@ -283,15 +283,17 @@ static const byte variable_length[256] = {
 /* Data table for the additional fixed part of a two-byte opcode.
  * This table is indexed by the 2nd opcode byte.  Zero entries are
  * reserved/bad opcodes.
- * N.B.: none of these (except IA32_ON_IA64) need adjustment
- * for data16 or addr16.
+ * N.B.: none of these need adjustment for data16 or addr16.
+ *
+ * 0f0f has extra suffix opcode byte
+ * 0f78 has immeds depending on prefixes: handled in decode_sizeof()
  */
 static const byte escape_fixed_length[256] = {
-    1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 2,
-    /* 0 */ /* 0f0f has extra suffix opcode byte */
+    1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 2, /* 0 */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 1 */
     1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, /* 2 */
     1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, /* 3 */
+
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 4 */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 5 */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 6 */
@@ -300,20 +302,12 @@ static const byte escape_fixed_length[256] = {
     5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, /* 8 */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 9 */
     1, 1, 1, 1, 2, 1, 0, 0, 1, 1, 1, 1, 2, 1, 1, 1, /* A */
-#ifdef IA32_ON_IA64
-    /* change is the 5, could also be 3 depending on which mode we are */
-    /* FIXME : no modrm byte so the standard variable thing won't work */
-    /* (need a escape_disp_adjustment table) */
-    1, 1, 1, 1, 1, 1, 1, 1, 5, 1, 2, 1, 1, 1, 1, 1, /* B */
-#else
-    1,1,1,1, 1,1,1,1, 1,1,2,1, 1,1,1,1,  /* B */
-#endif
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, /* B */
 
     1, 1, 2, 1, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* C */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* D */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* E */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0  /* F */
-    /* 0f78 has immeds depending on prefixes: handled in decode_sizeof() */
 };
 
 /* Some macros to make the following table look better. */
@@ -338,11 +332,8 @@ static const byte escape_variable_length[256] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0,  0, 0,  0, 0, 0, 0, 0, /* 8 */
     m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 9 */
     0, 0, 0, m, m, m, 0, 0, 0,  0, 0,  m, m, m, m, m, /* A */
-#ifdef IA32_ON_IA64
-    m, m, m, m, m, m, m, m, 0,  0, m,  m, m, m, m, m, /* B */
-#else
     m, m, m, m, m, m, m, m, m,  0, m,  m, m, m, m, m, /* B */
-#endif
+
     m, m, m, m, m, m, m, m, 0,  0, 0,  0, 0, 0, 0, 0, /* C */
     m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* D */
     m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* E */

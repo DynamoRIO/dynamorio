@@ -94,10 +94,6 @@ static void
 identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
 static void
 unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
-#    ifdef IA32_ON_IA64
-static void
-test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
-#    endif
 
 /* utility routines */
 bool
@@ -218,12 +214,6 @@ optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         peephole_optimize(dcontext, tag, trace);
     }
 
-#    ifdef IA32_ON_IA64
-    if (dynamo_options.test_i64) {
-        test_i64(dcontext, tag, trace);
-    }
-#    endif
-
     if (dynamo_options.instr_counts) {
         instr_counts(dcontext, tag, trace, false);
     }
@@ -280,10 +270,6 @@ static struct {
     /* call return matching */
     int num_returns_removed;
     int num_return_instrs_removed;
-#        ifdef IA32_ON_IA64
-    bool i64_test;
-    int ia64_num_entries;
-#        endif
 } opt_stats_t;
 
 /*this function is called when dynamo exits. prints stats for any optimization
@@ -379,17 +365,6 @@ print_optimization_stats()
         LOG(GLOBAL, LOG_OPTS, 1, "     %d jmps (cbr) in traces\n",
             opt_stats_t.post_num_jmps_seen);
     }
-
-#        ifdef IA32_ON_IA64
-    if (dynamo_options.test_i64) {
-        if (opt_stats_t.i64_test)
-            LOG(GLOBAL, LOG_OPTS, 1, "IA64 test succeeded!\n");
-        else
-            LOG(GLOBAL, LOG_OPTS, 1, "IA64 test failed!\n");
-        LOG(GLOBAL, LOG_OPTS, 1, "%d entries into Itanium code\n",
-            opt_stats_t.ia64_num_entries);
-    }
-#        endif
 }
 #    endif
 
@@ -1106,173 +1081,6 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
 #    endif
 }
-
-#    ifdef IA32_ON_IA64
-/***************************************************************************/
-/* from Tim */
-/* tests the jmpe and jmpe extensions to IA32 for IA64 environments */
-static bool have_done = false;
-static bool checked = false;
-static int test1;
-static int test2;
-static int test3;
-
-static void
-test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
-{
-    uint *i64_code;
-    uint *i64_code_start;
-    int check = 0;
-    instr_t *inst;
-    if (!have_done) {
-#        ifdef DEBUG
-        opt_stats_t.i64_test = false;
-        LOG(THREAD, LOG_OPTS, 1, "\nadding ia64 test\n");
-        if (d_r_stats->loglevel >= 1 && (d_r_stats->logmask & LOG_OPTS) != 0)
-            instrlist_disassemble(dcontext, tag, trace, THREAD);
-#        endif
-        have_done = true;
-        test1 = 0;
-        test2 = 0;
-        test3 = 0;
-        /* get the mem, get extra for alignment considerations */
-        i64_code = (uint *)heap_alloc(dcontext, 16 * sizeof(uint) HEAPACCT(ACCT_OTHER));
-        /* ensure proper aligment, 16 byte */
-        while ((((ptr_uint_t)i64_code) & 0xf) != 0) {
-            i64_code++;
-            check++;
-        }
-        ASSERT(check <= 4);
-        i64_code_start = i64_code;
-        /* emit itanium instruction */
-        /* instruction byte order is */
-        /* little endian, IA-32 is also little endian so set there */
-        /* use reg 1 since jmpe will leave a return address there */
-        /* branch nop is easy, is just 001000000.. for 41 bits */
-
-        /* first instruction bundle */
-        /* just move */
-        /*
-         *i64_code = 0x00000002;
-         i64_code++;
-         *i64_code = 0x08100001;
-         i64_code++;
-         *i64_code = 0x00038004;
-         i64_code++;
-         *i64_code = 0x00040000;
-         i64_code++;
-        */
-
-        /* mov and inc reg9 (ecx) bundle */
-        *i64_code = 0x12044802;
-        i64_code++;
-        *i64_code = 0x08102100;
-        i64_code++;
-        *i64_code = 0x00038004;
-        i64_code++;
-        *i64_code = 0x00040000;
-        i64_code++;
-
-        /* br.ia instruction bundle */
-        *i64_code = 0x0000001d;
-        i64_code++;
-        *i64_code = 0x00000001;
-        i64_code++;
-        *i64_code = 0x20000200;
-        i64_code++;
-        *i64_code = 0x00800010;
-
-        /* add testing prefix to trace */
-        inst = instrlist_first(trace);
-
-        /* store state, and pref for tests */
-        instrlist_preinsert(trace, inst,
-                            instr_create_save_to_dcontext(dcontext, REG_ECX, XCX_OFFSET));
-        instrlist_preinsert(trace, inst,
-                            instr_create_save_to_dcontext(dcontext, REG_EBX, XBX_OFFSET));
-#        ifdef DEBUG
-        instrlist_preinsert(trace, inst,
-                            instr_create_save_to_dcontext(dcontext, REG_EAX, XAX_OFFSET));
-        instrlist_preinsert(trace, inst, INSTR_CREATE_lahf(dcontext));
-        instrlist_preinsert(
-            trace, inst,
-            INSTR_CREATE_inc(dcontext,
-                             opnd_create_base_disp(REG_NULL, REG_NULL, 1,
-                                                   (int)&(opt_stats_t.ia64_num_entries),
-                                                   OPSZ_4_short2)));
-#        endif
-        instrlist_preinsert(trace, inst,
-                            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_ECX),
-                                                 OPND_CREATE_INT32(1)));
-        instrlist_preinsert(
-            trace, inst,
-            INSTR_CREATE_mov_st(
-                dcontext,
-                opnd_create_base_disp(REG_NULL, REG_NULL, 1, (int)&test1, OPSZ_4_short2),
-                opnd_create_reg(REG_ECX)));
-
-        /* test jmpe */
-        instrlist_preinsert(trace, inst,
-                            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EBX),
-                                                 OPND_CREATE_INT32((int)i64_code_start)));
-        instrlist_preinsert(trace, inst,
-                            INSTR_CREATE_jmpe(dcontext, opnd_create_reg(REG_EBX)));
-        instrlist_preinsert(
-            trace, inst,
-            INSTR_CREATE_mov_st(
-                dcontext,
-                opnd_create_base_disp(REG_NULL, REG_NULL, 1, (int)&test2, OPSZ_4_short2),
-                opnd_create_reg(REG_ECX)));
-
-        /* test jmpe_abs */
-        instrlist_preinsert(
-            trace, inst,
-            INSTR_CREATE_jmpe_abs(dcontext, opnd_create_pc((app_pc)i64_code_start)));
-        instrlist_preinsert(
-            trace, inst,
-            INSTR_CREATE_mov_st(
-                dcontext,
-                opnd_create_base_disp(REG_NULL, REG_NULL, 1, (int)&test3, OPSZ_4_short2),
-                opnd_create_reg(REG_ECX)));
-
-        /* cleanup */
-#        ifdef DEBUG
-        instrlist_preinsert(trace, inst, INSTR_CREATE_sahf(dcontext));
-        instrlist_preinsert(
-            trace, inst,
-            instr_create_restore_from_dcontext(dcontext, REG_EAX, XAX_OFFSET));
-#        endif
-        instrlist_preinsert(
-            trace, inst,
-            instr_create_restore_from_dcontext(dcontext, REG_ECX, XCX_OFFSET));
-        instrlist_preinsert(
-            trace, inst,
-            instr_create_restore_from_dcontext(dcontext, REG_EBX, XBX_OFFSET));
-#        ifdef DEBUG
-        LOG(THREAD, LOG_OPTS, 1, "\ndone adding ia64 test\n");
-        if (d_r_stats->loglevel >= 1 && (d_r_stats->logmask & LOG_OPTS) != 0)
-            instrlist_disassemble(dcontext, tag, trace, THREAD);
-#        endif
-        LOG(THREAD, LOG_OPTS, 1,
-            "i64_test cur vals test1 : %d    test2 : %d   test3 : %d\n", test1, test2,
-            test3);
-    } else {
-        if (!(test1 == 1 && test2 == 2 && test3 == 3)) {
-            LOG(THREAD, LOG_OPTS, 1,
-                "i64_test cur vals test1 : %d    test2 : %d   test3 : %d\n", test1, test2,
-                test3);
-        } else if (!checked) {
-            LOG(THREAD, LOG_OPTS, 1,
-                "i64_test cur vals test1 : %d    test2 : %d   test3 : %d\n", test1, test2,
-                test3);
-#        ifdef DEBUG
-            opt_stats_t.i64_test = true;
-            checked = true;
-        }
-#        endif
-    }
-}
-#    endif
 
 /***************************************************************************/
 /* from Tim */
