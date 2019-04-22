@@ -1485,10 +1485,10 @@ const instr_info_t * const op_instr[] =
 #define KVw TYPE_K_VEX, OPSZ_2
 #define KVd TYPE_K_VEX, OPSZ_4
 #define KVq TYPE_K_VEX, OPSZ_8
-#define KEb TYPE_K_VEX, OPSZ_1
-#define KEw TYPE_K_VEX, OPSZ_2
-#define KEd TYPE_K_VEX, OPSZ_4
-#define KEq TYPE_K_VEX, OPSZ_8
+#define KEb TYPE_K_EVEX, OPSZ_1
+#define KEw TYPE_K_EVEX, OPSZ_2
+#define KEd TYPE_K_EVEX, OPSZ_4
+#define KEq TYPE_K_EVEX, OPSZ_8
 
 /* my own codes
  * size m = 32 or 16 bit depending on addr size attribute
