@@ -1821,7 +1821,7 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t s
     if (opnd_size_in_bytes(reg_size) < size)
         return false;
 
-    dr_zmm_t *simd = (dr_zmm_t *) ((byte *)mc + SIMD_OFFSET);
+    dr_zmm_t *simd = (dr_zmm_t *)((byte *)mc + SIMD_OFFSET);
 
     if (reg_is_gpr(reg)) {
         byte *reg_val_addr = ((byte *)mc + opnd_get_reg_mcontext_offs(reg));
