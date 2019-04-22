@@ -8867,6 +8867,15 @@ found_vsyscall_page(memquery_iter_t *iter _IF_DEBUG(OUT const char **map_type))
 #endif
 }
 
+#ifndef HAVE_MEMINFO_QUERY
+static void
+add_to_memcache(byte *region_start, byte *region_end, void *user_data)
+{
+    memcache_update_locked(region_start, region_end, MEMPROT_NONE, DR_MEMTYPE_DATA,
+                           false /*!exists*/);
+}
+#endif
+
 int
 os_walk_address_space(memquery_iter_t *iter, bool add_modules)
 {
@@ -8892,12 +8901,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
      * not yet used memory.  FIXME: we're not marking beyond-vmheap DR regions
      * as noaccess!
      */
-    byte *our_heap_start, *our_heap_end;
-    get_vmm_heap_bounds(&our_heap_start, &our_heap_end);
-    if (our_heap_end - our_heap_start > 0) {
-        memcache_update_locked(our_heap_start, our_heap_end, MEMPROT_NONE,
-                               DR_MEMTYPE_DATA, false /*!exists*/);
-    }
+    iterate_vmm_regions(add_to_memcache, NULL);
 #endif
 
 #ifndef HAVE_MEMINFO
@@ -9060,7 +9064,8 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
         /* add all regions (incl. dynamo_areas and stack) to all_memory_areas */
 #    ifndef HAVE_MEMINFO_QUERY
         /* Don't add if we're using one single vmheap entry. */
-        if (iter->vm_start < our_heap_start || iter->vm_end > our_heap_end) {
+        if (!is_vmm_reserved_address(iter->vm_start, iter->vm_end - iter->vm_start, NULL,
+                                     NULL)) {
             LOG(GLOBAL, LOG_VMAREAS, 4,
                 "os_walk_address_space: adding: " PFX "-" PFX " prot=%d\n",
                 iter->vm_start, iter->vm_end, iter->prot);
@@ -9236,7 +9241,7 @@ get_memory_info(const byte *pc, byte **base_pc, size_t *size,
                 uint *prot /* OUT optional, returns MEMPROT_* value */)
 {
     dr_mem_info_t info;
-    if (is_vmm_reserved_address((byte *)pc, 1)) {
+    if (is_vmm_reserved_address((byte *)pc, 1, NULL, NULL)) {
         if (!query_memory_ex_from_os(pc, &info) || info.type == DR_MEMTYPE_FREE)
             return false;
     } else {

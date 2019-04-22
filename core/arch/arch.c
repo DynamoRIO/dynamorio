@@ -271,7 +271,8 @@ check_size_and_cache_line(dr_isa_mode_t isa_mode, generated_code_t *code, byte *
     byte *next_pc = move_to_start_of_cache_line(isa_mode, pc);
     if ((byte *)ALIGN_FORWARD(pc, PAGE_SIZE) + PAGE_SIZE > code->commit_end_pc) {
         ASSERT(code->commit_end_pc + PAGE_SIZE <= ((byte *)code) + GENCODE_RESERVE_SIZE);
-        heap_mmap_extend_commitment(code->commit_end_pc, PAGE_SIZE, VMM_SPECIAL_MMAP);
+        heap_mmap_extend_commitment(code->commit_end_pc, PAGE_SIZE,
+                                    VMM_SPECIAL_MMAP | VMM_REACHABLE);
         code->commit_end_pc += PAGE_SIZE;
     }
     return next_pc;
@@ -290,7 +291,7 @@ release_final_page(generated_code_t *code)
     ASSERT(ALIGNED(leftover, PAGE_SIZE));
     if (leftover > 0) {
         heap_mmap_retract_commitment(code->commit_end_pc - leftover, leftover,
-                                     VMM_SPECIAL_MMAP);
+                                     VMM_SPECIAL_MMAP | VMM_REACHABLE);
         code->commit_end_pc -= leftover;
     }
     LOG(THREAD_GET, LOG_EMIT, 1,
@@ -486,9 +487,9 @@ static void shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void
     bool x86_to_x64_mode = false;
 #endif
 
-    gencode =
-        heap_mmap_reserve(GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
-                          MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
+    gencode = heap_mmap_reserve(GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
+                                MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
+                                VMM_SPECIAL_MMAP | VMM_REACHABLE);
     /* we would return gencode and let caller assign, but emit routines
      * that this routine calls query the shared vars so we set here
      */
@@ -864,13 +865,17 @@ void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 #endif
     /* on x64 we have syscall routines in the shared code so can't free if detaching */
     if (IF_WINDOWS(IF_X64(!detach_stacked_callbacks &&)) shared_code != NULL) {
-        heap_munmap(shared_code, GENCODE_RESERVE_SIZE, VMM_SPECIAL_MMAP);
+        heap_munmap(shared_code, GENCODE_RESERVE_SIZE, VMM_SPECIAL_MMAP | VMM_REACHABLE);
     }
 #if defined(X86) && defined(X64)
-    if (shared_code_x86 != NULL)
-        heap_munmap(shared_code_x86, GENCODE_RESERVE_SIZE, VMM_SPECIAL_MMAP);
-    if (shared_code_x86_to_x64 != NULL)
-        heap_munmap(shared_code_x86_to_x64, GENCODE_RESERVE_SIZE, VMM_SPECIAL_MMAP);
+    if (shared_code_x86 != NULL) {
+        heap_munmap(shared_code_x86, GENCODE_RESERVE_SIZE,
+                    VMM_SPECIAL_MMAP | VMM_REACHABLE);
+    }
+    if (shared_code_x86_to_x64 != NULL) {
+        heap_munmap(shared_code_x86_to_x64, GENCODE_RESERVE_SIZE,
+                    VMM_SPECIAL_MMAP | VMM_REACHABLE);
+    }
 #endif
     interp_exit();
     mangle_exit();
@@ -1167,7 +1172,7 @@ arch_thread_init(dcontext_t *dcontext)
     /* case 9474; share allocation unit w/ thread-private stack */
     code = heap_mmap_reserve_post_stack(
         dcontext, GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
-        MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
+        MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP | VMM_REACHABLE);
     ASSERT(code != NULL);
     /* FIXME case 6493: if we split private from shared, remove this
      * memset since we will no longer have a bunch of fields we don't use
@@ -1383,7 +1388,7 @@ arch_thread_exit(dcontext_t *dcontext _IF_WINDOWS(bool detach_stacked_callbacks)
     if (!detach_stacked_callbacks)
 #endif
         heap_munmap_post_stack(dcontext, dcontext->private_code, GENCODE_RESERVE_SIZE,
-                               VMM_SPECIAL_MMAP);
+                               VMM_SPECIAL_MMAP | VMM_REACHABLE);
 }
 
 #ifdef WINDOWS

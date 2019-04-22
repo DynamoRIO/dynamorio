@@ -470,8 +470,6 @@ static void
 add_process_lock(mutex_t *lock)
 {
     /* add to global locks circular double linked list */
-    LOG(THREAD_GET, LOG_THREADS, 5,
-        "add_process_lock" DUMP_LOCK_INFO_ARGS(0, lock, lock->prev_process_lock));
     d_r_mutex_lock(&innermost_lock);
     if (lock->prev_process_lock != NULL) {
         /* race: someone already added (can only happen for read locks) */
@@ -480,6 +478,8 @@ add_process_lock(mutex_t *lock)
         d_r_mutex_unlock(&innermost_lock);
         return;
     }
+    LOG(THREAD_GET, LOG_THREADS, 2,
+        "add_process_lock: " DUMP_LOCK_INFO_ARGS(0, lock, lock->prev_process_lock));
     ASSERT(lock->next_process_lock == NULL || lock == &innermost_lock);
     ASSERT(lock->prev_process_lock == NULL || lock == &innermost_lock);
     if (innermost_lock.prev_process_lock == NULL) {

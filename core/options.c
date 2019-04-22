@@ -1400,6 +1400,14 @@ check_option_compatibility_helper(int recurse_count)
     }
 #        endif
 #    endif /* EXPOSE_INTERNAL_OPTIONS */
+#    ifdef X64
+    if (DYNAMO_OPTION(heap_in_lower_4GB) && !DYNAMO_OPTION(reachable_heap)) {
+        USAGE_ERROR("-heap_in_lower_4GB requires -reachable_heap: "
+                    "enabling.");
+        dynamo_options.reachable_heap = true;
+        changed_options = true;
+    }
+#    endif
     if (RUNNING_WITHOUT_CODE_CACHE() && DYNAMO_OPTION(enable_reset)) {
         /* No reset for hotp_only and thin_client modes; case 8389. */
         USAGE_ERROR("-enable_reset can't be used with -hotp_only or -thin_client");

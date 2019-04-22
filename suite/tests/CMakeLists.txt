@@ -3573,12 +3573,12 @@ else (UNIX)
       torunonly(win32.mixedmode_late
         ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
         win32/mixedmode.c
-        "-early_inject -heap_in_lower_4GB"
+        "-early_inject -heap_in_lower_4GB -reachable_heap"
         "${TEST_32BIT_PATH}/win32.mixedmode.exe;mixedmode")
       torunonly(win32.mixedmode
         ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
         win32/mixedmode.c
-        "-early_inject_map -early_inject_location 5 -heap_in_lower_4GB"
+        "-early_inject_map -early_inject_location 5 -heap_in_lower_4GB -reachable_heap"
         "${TEST_32BIT_PATH}/win32.mixedmode.exe;mixedmode")
       # i#1494: Trace creation should be disabled for -x86_to_x64.
       # We did not use -disable_traces here to check if trace creation is
@@ -3586,12 +3586,12 @@ else (UNIX)
       torunonly(win32.x86_to_x64
         ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
         win32/mixedmode.c
-        "-early_inject_map -early_inject_location 5 -heap_in_lower_4GB -x86_to_x64"
+        "-early_inject_map -early_inject_location 5 -heap_in_lower_4GB -reachable_heap -x86_to_x64"
         "${TEST_32BIT_PATH}/win32.mixedmode.exe;x86_to_x64")
       torunonly(win32.x86_to_x64_ibl_opt
         ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
         win32/mixedmode.c
-        "-early_inject_map -early_inject_location 5 -heap_in_lower_4GB -x86_to_x64 -x86_to_x64_ibl_opt"
+        "-early_inject_map -early_inject_location 5 -heap_in_lower_4GB -reachable_heap -x86_to_x64 -x86_to_x64_ibl_opt"
         "${TEST_32BIT_PATH}/win32.mixedmode.exe;x86_to_x64")
     else (X64)
       add_exe(win32.mixedmode win32/mixedmode.c)
@@ -3675,7 +3675,7 @@ if (X64 AND NOT AARCH64) # FIXME i#1569: get working on AArch64
     endif (UNIX)
   endif (CLIENT_INTERFACE)
   torunonly(low4GB security-common.selfmod security-common/selfmod.c
-    "-heap_in_lower_4GB" "")
+    "-heap_in_lower_4GB -reachable_heap" "")
 endif (X64 AND NOT AARCH64)
 
 tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
