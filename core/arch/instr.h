@@ -2807,8 +2807,6 @@ bool
 instr_is_mbr_arch(instr_t *instr);
 bool
 instr_is_ubr_arch(instr_t *instr);
-bool
-instr_is_opmask_arch(instr_t *instr);
 
 /* private routines for spill code */
 instr_t *

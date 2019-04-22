@@ -2529,8 +2529,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         encode_operand(&di, info->src2_type, info->src2_size, instr_get_src(instr, 1));
     if (info->src3_type != TYPE_NONE)
         encode_operand(&di, info->src3_type, info->src3_size, instr_get_src(instr, 2));
-    if (!opc_is_opmask_arch(di.opcode) && di.mod == 5 &&
-        di.reg < 8) { /* mod may never be set (e.g., OP_extrq) */
+    if (di.mod == 5 && di.reg < 8) { /* mod may never be set (e.g., OP_extrq) */
         /* follow lead of below where we set to all 1's */
         di.mod = 3;
         CLIENT_ASSERT(di.rm == 0, "internal error: mod not set but rm was");

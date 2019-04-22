@@ -453,8 +453,6 @@ decode_predicate_from_instr_info(uint opcode, const instr_info_t *info);
 /* in instr.c, not exported to non-x86 files */
 bool
 opc_is_cbr_arch(int opc);
-bool
-opc_is_opmask_arch(int opc);
 
 /* exported tables */
 extern const instr_info_t first_byte[];
