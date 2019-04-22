@@ -965,6 +965,12 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         info = &vex_extensions[code][idx];
     }
 
+    /* can occur AFTER above checks (EXTENSION, in particular) */
+    if (info->type == PREFIX_EXT) {
+        /* discard old info, get new one */
+        info = read_prefix_ext(info, di);
+    }
+
     /* can occur AFTER above checks (MOD_EXT, in particular) */
     if (info->type == REX_W_EXT) {
         /* discard old info, get new one */
