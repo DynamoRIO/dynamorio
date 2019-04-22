@@ -78,7 +78,6 @@
 #define PREFIX_EVEX_b 0x001000000
 #define PREFIX_EVEX_VV 0x002000000
 
-
 /* branch hints show up as segment modifiers */
 #define SEG_JCC_NOT_TAKEN SEG_CS
 #define SEG_JCC_TAKEN SEG_DS

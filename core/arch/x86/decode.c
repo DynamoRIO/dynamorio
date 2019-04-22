@@ -709,10 +709,10 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
 }
 
 /* Given the potential first evex byte at pc, reads any subsequent evex
-* bytes (and any prefix bytes) and sets the appropriate prefix flags in di.
-* Sets info to the entry for the first opcode byte, and pc to point past
-* the first opcode byte.
-*/
+ * bytes (and any prefix bytes) and sets the appropriate prefix flags in di.
+ * Sets info to the entry for the first opcode byte, and pc to point past
+ * the first opcode byte.
+ */
 static byte *
 read_evex(byte *pc, decode_info_t *di, byte instr_byte,
           const instr_info_t **ret_info INOUT, bool *is_evex)
@@ -1347,16 +1347,21 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_W:
     case TYPE_V_MODRM:
     case TYPE_VSIB:
-        return ((TEST(PREFIX_EVEX_RR, di->prefixes))
-                   ? (extend ? (DR_REG_START_ZMM + 16 + reg) : (DR_REG_START_ZMM + reg))
-                   : ((TEST(PREFIX_VEX_L, di->prefixes) &&
-                     /* Not only do we use this for .LIG (where raw reg is either
-                      * OPSZ_32 or OPSZ_16_vex32) but also for VSIB which currently
-                      * does not get up to OPSZ_16 so we can use this negative check.
-                      */
-                      expand_subreg_size(opsize) != OPSZ_16)
-                        ? (extend ? (REG_START_YMM + 8 + reg) : (REG_START_YMM + reg))
-                        : (extend ? (REG_START_XMM + 8 + reg) : (REG_START_XMM + reg))));
+      return (
+          TEST(PREFIX_EVEX_RR, di->prefixes)
+              ? (extend ? (DR_REG_START_ZMM + 16 + reg)
+                        : (DR_REG_START_ZMM + reg))
+              : ((TEST(PREFIX_VEX_L, di->prefixes) &&
+                  /* Not only do we use this for .LIG (where raw reg is either
+                   * OPSZ_32 or OPSZ_16_vex32) but also for VSIB which currently
+                   * does not get up to OPSZ_16 so we can use this negative
+                   * check.
+                   */
+                  expand_subreg_size(opsize) != OPSZ_16)
+                     ? (extend ? (REG_START_YMM + 8 + reg)
+                               : (REG_START_YMM + reg))
+                     : (extend ? (REG_START_XMM + 8 + reg)
+                               : (REG_START_XMM + reg))));
     case TYPE_S:
         if (reg >= 6)
             return REG_NULL;
