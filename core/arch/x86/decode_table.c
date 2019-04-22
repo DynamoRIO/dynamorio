@@ -210,7 +210,7 @@ const instr_info_t * const op_instr[] =
     /* OP_cmovs       */   &second_byte[0x48],
     /* OP_cmovns      */   &second_byte[0x49],
     /* OP_cmovp       */   &vex_extensions[90][0],
-    /* OP_cmovnp      */   &prefix_extensions[150][0],
+    /* OP_cmovnp      */   &vex_extensions[85][0],
     /* OP_cmovl       */   &second_byte[0x4c],
     /* OP_cmovnl      */   &second_byte[0x4d],
     /* OP_cmovle      */   &second_byte[0x4e],
