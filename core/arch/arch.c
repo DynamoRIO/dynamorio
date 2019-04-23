@@ -654,7 +654,7 @@ d_r_arch_init(void)
      * Only DR_REG_ enums covered by types listed in template_optype_is_reg can fall
      * into this category.
      */
-    IF_X86(ASSERT(CHECK_TRUNCATE_TYPE_byte(DR_REG_INVALID)));
+    IF_X86(ASSERT(CHECK_TRUNCATE_TYPE_byte(DR_REG_MAX_AS_OPSZ)));
     /* ensure our flag sharing is done properly */
     ASSERT((uint)LINK_FINAL_INSTR_SHARED_FLAG < (uint)INSTR_FIRST_NON_LINK_SHARED_FLAG);
     ASSERT_TRUNCATE(byte, byte, OPSZ_LAST_ENUM);

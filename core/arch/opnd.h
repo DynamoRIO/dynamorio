@@ -300,6 +300,7 @@ enum {
     DR_REG_CR13,
     DR_REG_CR14,
     DR_REG_CR15,
+    DR_REG_MAX_AS_OPSZ = DR_REG_CR15,
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
     /* 256-BIT YMM */
     DR_REG_YMM0,
