@@ -290,12 +290,8 @@ main(int argc, char *argv[])
 #    endif
 
     /* AVX-512 VEX tests */
-    i = SIGSETJMP(mark);
-    if (i == 0) {
-        print("Testing AVX-512 VEX\n");
-        test_avx512_vex(buf);
-        print("Should not get here\n");
-    }
+    print("Testing AVX-512 VEX\n");
+    test_avx512_vex(buf);
 
     print("All done\n");
     return 0;
@@ -447,7 +443,6 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(c4) RAW(e3) RAW(79) RAW(30) RAW(da) RAW(65) /* kshiftrb $0x65,%k2,%k3 */
         RAW(c4) RAW(e3) RAW(f9) RAW(31) RAW(ec) RAW(05) /* kshiftrq $0x5,%k4,%k5 */
         RAW(c4) RAW(e3) RAW(79) RAW(31) RAW(fe) RAW(2f) /* kshiftrd $0x2f,%k6,%k7 */
-        RAW(c4) RAW(e1) RAW(79) RAW(31) RAW(fe) RAW(2f) /* bad */
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
