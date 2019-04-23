@@ -1305,13 +1305,6 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
 #    endif
-#    ifdef IA32_ON_IA64
-    if (dynamo_options.protect_mask != 0) {
-        USAGE_ERROR("IA32_ON_IA64 incompatible with self-protection at this time");
-        dynamo_options.protect_mask = 0;
-        changed_options = true;
-    }
-#    endif
     /****************************************************************************/
 
 #    if defined(PROFILE_RDTSC) && defined(SIDELINE)

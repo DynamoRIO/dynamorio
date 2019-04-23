@@ -1273,12 +1273,6 @@ const instr_info_t * const op_instr[] =
     /* Intel ADX */
     /* OP_adox          */   &prefix_extensions[143][1],
     /* OP_adcx          */   &prefix_extensions[143][2],
-
-    /* Keep these at the end so that ifdefs don't change internal enum values */
-#ifdef IA32_ON_IA64
-    /* OP_jmpe      */   &base_extensions[13][6],
-    /* OP_jmpe_abs  */   &second_byte[0xb8],
-#endif
 };
 
 
@@ -1462,10 +1456,6 @@ const instr_info_t * const op_instr[] =
 #define c1  TYPE_1, OPSZ_0
 /* we pick the right constant based on the opcode */
 #define cF  TYPE_FLOATCONST, OPSZ_0
-
-#ifdef IA32_ON_IA64
-# define Av TYPE_A, OPSZ_4_short2
-#endif
 
 /* registers that are base 32 but vary down or up */
 #define eAX TYPE_VAR_REG, REG_EAX
@@ -2199,16 +2189,7 @@ const instr_info_t second_byte[] = {
   {OP_movzx, 0x0fb610, "movzx", Gv, xx, Eb, xx, xx, mrm, x, END_LIST},
   {OP_movzx, 0x0fb710, "movzx", Gv, xx, Ew, xx, xx, mrm, x, tsb[0xb6]},
   /* b8 */
-#ifdef IA32_ON_IA64
-  /* FIXME : unsure about this encoding */
-  /* had to define type Av for this to work, see decode.c/above etc.  */
-  /* is jump to absolute pc address, not realitve like all other jumps */
-  /* is like the pointer type except no segement change, no modrm byte */
-  /* should be 0x0fb800? no! 01 signals to encoder is 2 byte instruction */
-  {OP_jmpe_abs,  0x0fb810, "jmpe", xx, xx, Av, xx, xx, no, x, END_LIST},
-#else
-  {OP_popcnt,0xf30fb810, "popcnt", Gv, xx, Ev, xx, xx, mrm|reqp, fW6, END_LIST},
-#endif
+  {OP_popcnt, 0xf30fb810, "popcnt", Gv, xx, Ev, xx, xx, mrm|reqp, fW6, END_LIST},
   /* This is Group 10, but all identical (ud2b) so no reason to split opcode by /reg */
   {OP_ud2b, 0x0fb910, "ud2b", xx, xx, xx, xx, xx, no, x, END_LIST},
   {EXTENSION, 0x0fba10, "(group 8)", xx, xx, xx, xx, xx, mrm, x, 15},
@@ -2457,11 +2438,7 @@ const instr_info_t base_extensions[][8] = {
     {OP_ltr,  0x0f0033, "ltr", xx, xx, Ew, xx, xx, mrm, x, END_LIST},
     {OP_verr, 0x0f0034, "verr", xx, xx, Ew, xx, xx, mrm, fWZ, END_LIST},
     {OP_verw, 0x0f0035, "verw", xx, xx, Ew, xx, xx, mrm, fWZ, END_LIST},
-#ifdef IA32_ON_IA64
-    {OP_jmpe, 0x0f0036, "jmpe", xx, xx, i_Ev, xx, xx, mrm, x, END_LIST},
-#else
     {INVALID, 0x0f0036, "(bad)",xx, xx, xx, xx, xx, no, x, NA},
-#endif
     {INVALID, 0x0f0037, "(bad)",xx, xx, xx, xx, xx, no, x, NA},
  },
   /* group 7 (first bytes 0f 01) */
