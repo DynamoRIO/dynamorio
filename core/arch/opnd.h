@@ -300,6 +300,10 @@ enum {
     DR_REG_CR13,
     DR_REG_CR14,
     DR_REG_CR15,
+    /* All registers above this point may be used as opnd_size_t and therefore
+     * need to fit into a byte (checked in d_r_arch_init()). Register enums
+     * below this point must not be used as opnd_size_t.
+     */
     DR_REG_MAX_AS_OPSZ = DR_REG_CR15,
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
     /* 256-BIT YMM */
@@ -843,7 +847,7 @@ enum {
 /* we avoid typedef-ing the enum, as its storage size is compiler-specific */
 typedef ushort reg_id_t; /**< The type of a DR_REG_ enum value. */
 /* For x86 we do store reg_id_t here, but the x86 DR_REG_ enum is small enough
- * (checked in d_r_arch_init().
+ * (checked in d_r_arch_init()).
  */
 typedef byte opnd_size_t; /**< The type of an OPSZ_ enum value. */
 
