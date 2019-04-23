@@ -1328,7 +1328,7 @@ const instr_info_t * const op_instr[] =
     /* OP_ktestd        */  &vex_W_extensions[105][1],
 
     /* AVX-512 EVEX encoded */
-    /* XXX i#1312: TODO. */
+    /* TODO i#1312. */
 };
 
 
