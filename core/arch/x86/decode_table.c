@@ -1436,12 +1436,12 @@ const instr_info_t * const op_instr[] =
 #define Zb  TYPE_XLAT, OPSZ_1
 #define Bq  TYPE_MASKMOVQ, OPSZ_8
 #define Bdq  TYPE_MASKMOVQ, OPSZ_16
-#define Kw  TYPE_FLOATMEM, OPSZ_2
-#define Kd  TYPE_FLOATMEM, OPSZ_4
-#define Kq  TYPE_FLOATMEM, OPSZ_8
-#define Kx  TYPE_FLOATMEM, OPSZ_10
-#define Ky  TYPE_FLOATMEM, OPSZ_28_short14 /* _14_ if data16 */
-#define Kz  TYPE_FLOATMEM, OPSZ_108_short94 /* _98_ if data16 */
+#define Fw  TYPE_FLOATMEM, OPSZ_2
+#define Fd  TYPE_FLOATMEM, OPSZ_4
+#define Fq  TYPE_FLOATMEM, OPSZ_8
+#define Fx  TYPE_FLOATMEM, OPSZ_10
+#define Fy  TYPE_FLOATMEM, OPSZ_28_short14 /* _14_ if data16 */
+#define Fz  TYPE_FLOATMEM, OPSZ_108_short94 /* _98_ if data16 */
 #define i_dx  TYPE_INDIR_REG, REG_DX
 #define i_Ev  TYPE_INDIR_E, OPSZ_4_rex8_short2
 #define i_Exi  TYPE_INDIR_E, OPSZ_4x8_short2xi8
@@ -5631,23 +5631,23 @@ const instr_info_t repne_extensions[][6] = {
 /* FIXME: I ignore fp stack changes, should we model that? */
 const instr_info_t float_low_modrm[] = {
   /* d8 */
-  {OP_fadd,  0xd80020, "fadd",  st0, xx, Kd, st0, xx, mrm, x, tfl[0x20]}, /* 00 */
-  {OP_fmul,  0xd80021, "fmul",  st0, xx, Kd, st0, xx, mrm, x, tfl[0x21]},
-  {OP_fcom,  0xd80022, "fcom",  xx, xx, Kd, st0, xx, mrm, x, tfl[0x22]},
-  {OP_fcomp, 0xd80023, "fcomp", xx, xx, Kd, st0, xx, mrm, x, tfl[0x23]},
-  {OP_fsub,  0xd80024, "fsub",  st0, xx, Kd, st0, xx, mrm, x, tfl[0x24]},
-  {OP_fsubr, 0xd80025, "fsubr", st0, xx, Kd, st0, xx, mrm, x, tfl[0x25]},
-  {OP_fdiv,  0xd80026, "fdiv",  st0, xx, Kd, st0, xx, mrm, x, tfl[0x26]},
-  {OP_fdivr, 0xd80027, "fdivr", st0, xx, Kd, st0, xx, mrm, x, tfl[0x27]},
+  {OP_fadd,  0xd80020, "fadd",  st0, xx, Fd, st0, xx, mrm, x, tfl[0x20]}, /* 00 */
+  {OP_fmul,  0xd80021, "fmul",  st0, xx, Fd, st0, xx, mrm, x, tfl[0x21]},
+  {OP_fcom,  0xd80022, "fcom",  xx, xx, Fd, st0, xx, mrm, x, tfl[0x22]},
+  {OP_fcomp, 0xd80023, "fcomp", xx, xx, Fd, st0, xx, mrm, x, tfl[0x23]},
+  {OP_fsub,  0xd80024, "fsub",  st0, xx, Fd, st0, xx, mrm, x, tfl[0x24]},
+  {OP_fsubr, 0xd80025, "fsubr", st0, xx, Fd, st0, xx, mrm, x, tfl[0x25]},
+  {OP_fdiv,  0xd80026, "fdiv",  st0, xx, Fd, st0, xx, mrm, x, tfl[0x26]},
+  {OP_fdivr, 0xd80027, "fdivr", st0, xx, Fd, st0, xx, mrm, x, tfl[0x27]},
   /*  d9 */
-  {OP_fld,    0xd90020, "fld",    st0, xx, Kd, xx, xx, mrm, x, tfl[0x1d]}, /* 08 */
+  {OP_fld,    0xd90020, "fld",    st0, xx, Fd, xx, xx, mrm, x, tfl[0x1d]}, /* 08 */
   {INVALID,   0xd90021, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-  {OP_fst,    0xd90022, "fst",    Kd, xx, st0, xx, xx, mrm, x, tfl[0x2a]},
-  {OP_fstp,   0xd90023, "fstp",   Kd, xx, st0, xx, xx, mrm, x, tfl[0x1f]},
-  {OP_fldenv, 0xd90024, "fldenv", xx, xx, Ky, xx, xx, mrm, x, END_LIST},
-  {OP_fldcw,  0xd90025, "fldcw",  xx, xx, Kw, xx, xx, mrm, x, END_LIST},
-  {OP_fnstenv, 0xd90026, "fnstenv", Ky, xx, xx, xx, xx, mrm, x, END_LIST},/*FIXME: w/ preceding fwait instr, this is "fstenv"*/
-  {OP_fnstcw,  0xd90027, "fnstcw",  Kw, xx, xx, xx, xx, mrm, x, END_LIST},/*FIXME: w/ preceding fwait instr, this is "fstcw"*/
+  {OP_fst,    0xd90022, "fst",    Fd, xx, st0, xx, xx, mrm, x, tfl[0x2a]},
+  {OP_fstp,   0xd90023, "fstp",   Fd, xx, st0, xx, xx, mrm, x, tfl[0x1f]},
+  {OP_fldenv, 0xd90024, "fldenv", xx, xx, Fy, xx, xx, mrm, x, END_LIST},
+  {OP_fldcw,  0xd90025, "fldcw",  xx, xx, Fw, xx, xx, mrm, x, END_LIST},
+  {OP_fnstenv, 0xd90026, "fnstenv", Fy, xx, xx, xx, xx, mrm, x, END_LIST},/*FIXME: w/ preceding fwait instr, this is "fstenv"*/
+  {OP_fnstcw,  0xd90027, "fnstcw",  Fw, xx, xx, xx, xx, mrm, x, END_LIST},/*FIXME: w/ preceding fwait instr, this is "fstcw"*/
   /* da */
   {OP_fiadd,  0xda0020, "fiadd",  st0, xx, Md, st0, xx, mrm, x, tfl[0x30]}, /* 10 */
   {OP_fimul,  0xda0021, "fimul",  st0, xx, Md, st0, xx, mrm, x, tfl[0x31]},
@@ -5663,45 +5663,45 @@ const instr_info_t float_low_modrm[] = {
   {OP_fist,  0xdb0022, "fist",  Md, xx, st0, xx, xx, mrm, x, tfl[0x3a]},
   {OP_fistp, 0xdb0023, "fistp", Md, xx, st0, xx, xx, mrm, x, tfl[0x3b]},
   {INVALID,  0xdb0024, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-  {OP_fld,   0xdb0025, "fld",   st0, xx, Kx, xx, xx, mrm, x, tfl[0x28]},
+  {OP_fld,   0xdb0025, "fld",   st0, xx, Fx, xx, xx, mrm, x, tfl[0x28]},
   {INVALID,  0xdb0026, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-  {OP_fstp,  0xdb0027, "fstp",  Kx, xx, st0, xx, xx, mrm, x, tfl[0x2b]},
+  {OP_fstp,  0xdb0027, "fstp",  Fx, xx, st0, xx, xx, mrm, x, tfl[0x2b]},
   /* dc */
-  {OP_fadd,  0xdc0020, "fadd",  st0, xx, Kq, st0, xx, mrm, x, tfh[0][0x00]}, /* 20 */
-  {OP_fmul,  0xdc0021, "fmul",  st0, xx, Kq, st0, xx, mrm, x, tfh[0][0x08]},
-  {OP_fcom,  0xdc0022, "fcom",  xx, xx, Kq, st0, xx, mrm, x, tfh[0][0x10]},
-  {OP_fcomp, 0xdc0023, "fcomp", xx, xx, Kq, st0, xx, mrm, x, tfh[0][0x18]},
-  {OP_fsub,  0xdc0024, "fsub",  st0, xx, Kq, st0, xx, mrm, x, tfh[0][0x20]},
-  {OP_fsubr, 0xdc0025, "fsubr", st0, xx, Kq, st0, xx, mrm, x, tfh[0][0x28]},
-  {OP_fdiv,  0xdc0026, "fdiv",  st0, xx, Kq, st0, xx, mrm, x, tfh[0][0x30]},
-  {OP_fdivr, 0xdc0027, "fdivr", st0, xx, Kq, st0, xx, mrm, x, tfh[0][0x38]},
+  {OP_fadd,  0xdc0020, "fadd",  st0, xx, Fq, st0, xx, mrm, x, tfh[0][0x00]}, /* 20 */
+  {OP_fmul,  0xdc0021, "fmul",  st0, xx, Fq, st0, xx, mrm, x, tfh[0][0x08]},
+  {OP_fcom,  0xdc0022, "fcom",  xx, xx, Fq, st0, xx, mrm, x, tfh[0][0x10]},
+  {OP_fcomp, 0xdc0023, "fcomp", xx, xx, Fq, st0, xx, mrm, x, tfh[0][0x18]},
+  {OP_fsub,  0xdc0024, "fsub",  st0, xx, Fq, st0, xx, mrm, x, tfh[0][0x20]},
+  {OP_fsubr, 0xdc0025, "fsubr", st0, xx, Fq, st0, xx, mrm, x, tfh[0][0x28]},
+  {OP_fdiv,  0xdc0026, "fdiv",  st0, xx, Fq, st0, xx, mrm, x, tfh[0][0x30]},
+  {OP_fdivr, 0xdc0027, "fdivr", st0, xx, Fq, st0, xx, mrm, x, tfh[0][0x38]},
   /* dd */
-  {OP_fld,   0xdd0020, "fld",    st0, xx, Kq, xx, xx, mrm, x, tfh[1][0x00]}, /* 28 */
+  {OP_fld,   0xdd0020, "fld",    st0, xx, Fq, xx, xx, mrm, x, tfh[1][0x00]}, /* 28 */
   {OP_fisttp, 0xdd0021, "fisttp",  Mq, xx, st0, xx, xx, no, x, tfl[0x19]},
-  {OP_fst,   0xdd0022, "fst",    Kq, xx, st0, xx, xx, mrm, x, tfh[5][0x10]},
-  {OP_fstp,  0xdd0023, "fstp",   Kq, xx, st0, xx, xx, mrm, x, tfh[5][0x18]},
-  {OP_frstor,0xdd0024, "frstor", xx, xx, Kz, xx, xx, mrm, x, END_LIST},
+  {OP_fst,   0xdd0022, "fst",    Fq, xx, st0, xx, xx, mrm, x, tfh[5][0x10]},
+  {OP_fstp,  0xdd0023, "fstp",   Fq, xx, st0, xx, xx, mrm, x, tfh[5][0x18]},
+  {OP_frstor,0xdd0024, "frstor", xx, xx, Fz, xx, xx, mrm, x, END_LIST},
   {INVALID,  0xdd0025, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-  {OP_fnsave, 0xdd0026, "fnsave",  Kz, xx, xx, xx, xx, mrm, x, END_LIST},/*FIXME:w/ preceding fwait instr, this is "fsave"*/
-  {OP_fnstsw, 0xdd0027, "fnstsw",  Kw, xx, xx, xx, xx, mrm, x, tfh[7][0x20]},/*FIXME:w/ preceding fwait instr, this is "fstsw"*/
+  {OP_fnsave, 0xdd0026, "fnsave",  Fz, xx, xx, xx, xx, mrm, x, END_LIST},/*FIXME:w/ preceding fwait instr, this is "fsave"*/
+  {OP_fnstsw, 0xdd0027, "fnstsw",  Fw, xx, xx, xx, xx, mrm, x, tfh[7][0x20]},/*FIXME:w/ preceding fwait instr, this is "fstsw"*/
   /* de */
-  {OP_fiadd,  0xde0020, "fiadd",  st0, xx, Kw, st0, xx, mrm, x, END_LIST}, /* 30 */
-  {OP_fimul,  0xde0021, "fimul",  st0, xx, Kw, st0, xx, mrm, x, END_LIST},
-  {OP_ficom,  0xde0022, "ficom",  xx, xx, Kw, st0, xx, mrm, x, END_LIST},
-  {OP_ficomp, 0xde0023, "ficomp", xx, xx, Kw, st0, xx, mrm, x, END_LIST},
-  {OP_fisub,  0xde0024, "fisub",  st0, xx, Kw, st0, xx, mrm, x, END_LIST},
-  {OP_fisubr, 0xde0025, "fisubr", st0, xx, Kw, st0, xx, mrm, x, END_LIST},
-  {OP_fidiv,  0xde0026, "fidiv",  st0, xx, Kw, st0, xx, mrm, x, END_LIST},
-  {OP_fidivr, 0xde0027, "fidivr", st0, xx, Kw, st0, xx, mrm, x, END_LIST},
+  {OP_fiadd,  0xde0020, "fiadd",  st0, xx, Fw, st0, xx, mrm, x, END_LIST}, /* 30 */
+  {OP_fimul,  0xde0021, "fimul",  st0, xx, Fw, st0, xx, mrm, x, END_LIST},
+  {OP_ficom,  0xde0022, "ficom",  xx, xx, Fw, st0, xx, mrm, x, END_LIST},
+  {OP_ficomp, 0xde0023, "ficomp", xx, xx, Fw, st0, xx, mrm, x, END_LIST},
+  {OP_fisub,  0xde0024, "fisub",  st0, xx, Fw, st0, xx, mrm, x, END_LIST},
+  {OP_fisubr, 0xde0025, "fisubr", st0, xx, Fw, st0, xx, mrm, x, END_LIST},
+  {OP_fidiv,  0xde0026, "fidiv",  st0, xx, Fw, st0, xx, mrm, x, END_LIST},
+  {OP_fidivr, 0xde0027, "fidivr", st0, xx, Fw, st0, xx, mrm, x, END_LIST},
   /* df */
-  {OP_fild,   0xdf0020, "fild",    st0, xx, Kw, xx, xx, mrm, x, tfl[0x3d]}, /* 38 */
+  {OP_fild,   0xdf0020, "fild",    st0, xx, Fw, xx, xx, mrm, x, tfl[0x3d]}, /* 38 */
   {OP_fisttp, 0xdf0021, "fisttp",  Mw, xx, st0, xx, xx, no, x, END_LIST},
-  {OP_fist,   0xdf0022, "fist",    Kw, xx, st0, xx, xx, mrm, x, END_LIST},
-  {OP_fistp,  0xdf0023, "fistp",   Kw, xx, st0, xx, xx, mrm, x, tfl[0x3f]},
-  {OP_fbld,   0xdf0024, "fbld",    st0, xx, Kx, xx, xx, mrm, x, END_LIST},
-  {OP_fild,   0xdf0025, "fild",    st0, xx, Kq, xx, xx, mrm, x, END_LIST},
-  {OP_fbstp,  0xdf0026, "fbstp",   Kx, xx, st0, xx, xx, mrm, x, END_LIST},
-  {OP_fistp,  0xdf0027, "fistp",   Kq, xx, st0, xx, xx, mrm, x, END_LIST},
+  {OP_fist,   0xdf0022, "fist",    Fw, xx, st0, xx, xx, mrm, x, END_LIST},
+  {OP_fistp,  0xdf0023, "fistp",   Fw, xx, st0, xx, xx, mrm, x, tfl[0x3f]},
+  {OP_fbld,   0xdf0024, "fbld",    st0, xx, Fx, xx, xx, mrm, x, END_LIST},
+  {OP_fild,   0xdf0025, "fild",    st0, xx, Fq, xx, xx, mrm, x, END_LIST},
+  {OP_fbstp,  0xdf0026, "fbstp",   Fx, xx, st0, xx, xx, mrm, x, END_LIST},
+  {OP_fistp,  0xdf0027, "fistp",   Fq, xx, st0, xx, xx, mrm, x, END_LIST},
 };
 
 /****************************************************************************
