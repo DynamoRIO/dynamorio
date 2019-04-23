@@ -650,6 +650,11 @@ d_r_arch_init(void)
 {
     ASSERT(sizeof(opnd_t) == EXPECTED_SIZEOF_OPND);
     IF_X86(ASSERT(CHECK_TRUNCATE_TYPE_byte(OPSZ_LAST)));
+    /* This ensures that DR_REG_ enums that may be used as opnd_size_t fit its size.
+     * Only DR_REG_ enums covered by types listed in template_optype_is_reg can fall
+     * into this category.
+     */
+    IF_X86(ASSERT(CHECK_TRUNCATE_TYPE_byte(DR_REG_INVALID)));
     /* ensure our flag sharing is done properly */
     ASSERT((uint)LINK_FINAL_INSTR_SHARED_FLAG < (uint)INSTR_FIRST_NON_LINK_SHARED_FLAG);
     ASSERT_TRUNCATE(byte, byte, OPSZ_LAST_ENUM);
