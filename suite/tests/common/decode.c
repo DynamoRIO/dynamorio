@@ -290,8 +290,10 @@ main(int argc, char *argv[])
 #    endif
 
     /* AVX-512 VEX tests */
+#    ifdef __AVX512F__
     print("Testing AVX-512 VEX\n");
     test_avx512_vex(buf);
+#    endif
 
     print("All done\n");
     return 0;
