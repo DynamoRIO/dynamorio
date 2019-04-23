@@ -312,6 +312,11 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
                 else if (!TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
                     print_to_buffer(buf, bufsz, sofar, "+");
             }
+        } else if (TEST(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask))) {
+            if (IF_X64_ELSE(disp < 0, (disp & 0xff000000) == 0xff000000)) {
+                disp = -disp;
+                print_to_buffer(buf, bufsz, sofar, "-");
+            }
         }
         if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
             print_to_buffer(buf, bufsz, sofar, "%d", disp);
