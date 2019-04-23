@@ -4745,10 +4745,10 @@ const instr_info_t vex_extensions[][2] = {
     {OP_setno,   0x0f9110,            "setno", Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
     {PREFIX_EXT, 0x0f9110, "(prefix ext 145)", xx, xx, xx, xx, xx, mrm,   x, 145},
   }, { /* vex ext 81 */
-    {OP_setb,    0x0f9210,             "setb", Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
+    {OP_setb,    0x0f9210,             "setb", Eb, xx, xx, xx, xx, mrm, fRC, END_LIST},
     {PREFIX_EXT, 0x0f9210, "(prefix ext 146)", xx, xx, xx, xx, xx, mrm,   x, 146},
   }, { /* vex ext 82 */
-    {OP_setnb,   0x0f9310,            "setnb", Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
+    {OP_setnb,   0x0f9310,            "setnb", Eb, xx, xx, xx, xx, mrm, fRC, END_LIST},
     {PREFIX_EXT, 0x0f9310, "(prefix ext 147)", xx, xx, xx, xx, xx, mrm,   x, 147},
   }, { /* vex ext 83 */
     {OP_cmovno,  0x0f4110,           "cmovno", Gv, xx, Ev, xx, xx, mrm|predcc, fRO, END_LIST},
@@ -4775,7 +4775,7 @@ const instr_info_t vex_extensions[][2] = {
     {OP_cmovp,   0x0f4a10,            "cmovp", Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
     {PREFIX_EXT, 0x0f4a10, "(prefix ext 155)", xx, xx, xx, xx, xx, mrm,          x, 155},
   }, { /* vex ext 91 */
-    {OP_sets,    0x0f9810,             "sets",  Eb, xx, xx, xx, xx, mrm, fRS, END_LIST},
+    {OP_sets,    0x0f9810,             "sets", Eb, xx, xx, xx, xx, mrm, fRS, END_LIST},
     {PREFIX_EXT, 0x0f9810, "(prefix ext 156)", xx, xx, xx, xx, xx, mrm,    x, 156},
   }, { /* vex ext 92 */
     {OP_setns,   0x0f9910,            "setns", Eb, xx, xx, xx, xx, mrm, fRS, END_LIST},
