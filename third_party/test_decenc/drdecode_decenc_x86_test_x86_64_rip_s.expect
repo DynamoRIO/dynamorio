@@ -1,0 +1,22 @@
+test_x86_64_rip_s:
+ 8d 05 00 00 00 00    lea    <rel> 0x0000000010000006, %eax
+ 8d 05 11 11 11 11    lea    <rel> 0x000000002111111d, %eax
+ 8d 05 01 00 00 00    lea    <rel> 0x0000000010000013, %eax
+ 8d 05 00 00 00 00    lea    <rel> 0x0000000010000018, %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

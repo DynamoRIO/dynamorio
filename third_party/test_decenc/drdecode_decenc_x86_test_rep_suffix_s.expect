@@ -1,0 +1,28 @@
+test_rep_suffix_s:
+ f3 ac                rep lodsb
+ f3 aa                rep stosb
+ 66 f3 ad             data16 rep lodsw
+ 66 f3 ab             data16 rep stosw
+ f3 ad                rep lodsd
+ f3 ab                rep stosd
+ f3 0f bc c1          tzcnt  %ecx, %eax
+ f3 0f bd c1          lzcnt  %ecx, %eax
+ f3 c3                ret
+ f3 90                pause
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

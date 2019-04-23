@@ -1,0 +1,60 @@
+test_notrack_s:
+ 3e ff d0             call   %eax
+ 3e 66 ff d0          data16 call   %ax
+ 3e ff e0             jmp    %eax
+ 3e 66 ff e0          data16 jmp    %ax
+ 3e ff 10             call   %ds:(%eax)
+ 3e 66 ff 10          data16 call   %ds:(%eax)
+ 3e ff 20             jmp    %ds:(%eax)
+ 3e 66 ff 20          data16 jmp    %ds:(%eax)
+ 3e f2 ff d0          call   %eax
+ 3e 66 f2 ff d0       data16 call   %ax
+ 3e f2 ff e0          jmp    %eax
+ 3e 66 f2 ff e0       data16 jmp    %ax
+ 3e f2 ff 10          call   %ds:(%eax)
+ 3e 66 f2 ff 10       data16 call   %ds:(%eax)
+ 3e f2 ff 20          jmp    %ds:(%eax)
+ 3e 66 f2 ff 20       data16 jmp    %ds:(%eax)
+ 3e f2 ff d0          call   %eax
+ 3e 66 f2 ff d0       data16 call   %ax
+ 3e f2 ff 10          call   %ds:(%eax)
+ 3e 66 f2 ff 10       data16 call   %ds:(%eax)
+ 3e ff d0             call   %eax
+ 3e 66 ff d0          data16 call   %ax
+ 3e ff e0             jmp    %eax
+ 3e 66 ff e0          data16 jmp    %ax
+ 3e ff 10             call   %ds:(%eax)
+ 3e 66 ff 10          data16 call   %ds:(%eax)
+ 3e ff 20             jmp    %ds:(%eax)
+ 3e 66 ff 20          data16 jmp    %ds:(%eax)
+ 3e f2 ff d0          call   %eax
+ 3e 66 f2 ff d0       data16 call   %ax
+ 3e f2 ff e0          jmp    %eax
+ 3e 66 f2 ff e0       data16 jmp    %ax
+ 3e f2 ff 10          call   %ds:(%eax)
+ 3e 66 f2 ff 10       data16 call   %ds:(%eax)
+ 3e f2 ff 20          jmp    %ds:(%eax)
+ 3e 66 f2 ff 20       data16 jmp    %ds:(%eax)
+ 3e f2 ff d0          call   %eax
+ 3e 66 f2 ff d0       data16 call   %ax
+ 3e f2 ff 10          call   %ds:(%eax)
+ 3e 66 f2 ff 10       data16 call   %ds:(%eax)
+ f2 3e ff d0          call   %eax
+ 66 3e ff d0          data16 call   %ax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

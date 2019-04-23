@@ -1,0 +1,19 @@
+test_localpic_s:
+ 8b 81 00 00 00 00    mov    0x00000000(%ecx), %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

@@ -1,0 +1,84 @@
+test_float_s:
+ de c1                faddp  %st0, %st1, %st1
+ d8 c3                fadd   %st3, %st0, %st0
+ d8 c3                fadd   %st3, %st0, %st0
+ dc c3                fadd   %st0, %st3, %st3
+ d8 03                fadd   (%ebx)
+ dc 03                fadd   (%ebx)
+ de 03                fiadd  (%ebx)
+ da 03                fiadd  (%ebx)
+ de c1                faddp  %st0, %st1, %st1
+ de c3                faddp  %st0, %st3, %st3
+ de c3                faddp  %st0, %st3, %st3
+ de e1                fsubrp %st0, %st1, %st1
+ d8 e3                fsub   %st3, %st0, %st0
+ d8 e3                fsub   %st3, %st0, %st0
+ dc e3                fsubr  %st0, %st3, %st3
+ d8 23                fsub   (%ebx)
+ dc 23                fsub   (%ebx)
+ de 23                fisub  (%ebx)
+ da 23                fisub  (%ebx)
+ de e1                fsubrp %st0, %st1, %st1
+ de e3                fsubrp %st0, %st3, %st3
+ de e3                fsubrp %st0, %st3, %st3
+ de e9                fsubp  %st0, %st1, %st1
+ d8 eb                fsubr  %st3, %st0, %st0
+ d8 eb                fsubr  %st3, %st0, %st0
+ dc eb                fsub   %st0, %st3, %st3
+ d8 2b                fsubr  (%ebx)
+ dc 2b                fsubr  (%ebx)
+ de 2b                fisubr (%ebx)
+ da 2b                fisubr (%ebx)
+ de e9                fsubp  %st0, %st1, %st1
+ de eb                fsubp  %st0, %st3, %st3
+ de eb                fsubp  %st0, %st3, %st3
+ de c9                fmulp  %st0, %st1, %st1
+ d8 cb                fmul   %st3, %st0, %st0
+ d8 cb                fmul   %st3, %st0, %st0
+ dc cb                fmul   %st0, %st3, %st3
+ d8 0b                fmul   (%ebx)
+ dc 0b                fmul   (%ebx)
+ de 0b                fimul  (%ebx)
+ da 0b                fimul  (%ebx)
+ de c9                fmulp  %st0, %st1, %st1
+ de cb                fmulp  %st0, %st3, %st3
+ de cb                fmulp  %st0, %st3, %st3
+ de f1                fdivrp %st0, %st1, %st1
+ d8 f3                fdiv   %st3, %st0, %st0
+ d8 f3                fdiv   %st3, %st0, %st0
+ dc f3                fdivr  %st0, %st3, %st3
+ d8 33                fdiv   (%ebx)
+ dc 33                fdiv   (%ebx)
+ de 33                fidiv  (%ebx)
+ da 33                fidiv  (%ebx)
+ de f1                fdivrp %st0, %st1, %st1
+ de f3                fdivrp %st0, %st3, %st3
+ de f3                fdivrp %st0, %st3, %st3
+ de f9                fdivp  %st0, %st1, %st1
+ d8 fb                fdivr  %st3, %st0, %st0
+ d8 fb                fdivr  %st3, %st0, %st0
+ dc fb                fdiv   %st0, %st3, %st3
+ d8 3b                fdivr  (%ebx)
+ dc 3b                fdivr  (%ebx)
+ de 3b                fidivr (%ebx)
+ da 3b                fidivr (%ebx)
+ de f9                fdivp  %st0, %st1, %st1
+ de fb                fdivp  %st0, %st3, %st3
+ de fb                fdivp  %st0, %st3, %st3
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

@@ -1,0 +1,22 @@
+test_rdseed_s:
+ 66 0f c7 f8          data16 rdseed %ax
+ 0f c7 f8             rdseed %eax
+ 66 0f c7 fb          data16 rdseed %bx
+ 0f c7 fb             rdseed %ebx
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

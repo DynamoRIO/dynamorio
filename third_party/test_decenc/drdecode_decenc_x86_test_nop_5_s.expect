@@ -1,0 +1,30 @@
+test_nop_5_s:
+ 31 c0                xor    %eax, %eax
+ 85 c0                test   %eax, %eax
+ 8d 74 26 00          lea    0x00(%esi), %esi
+ 8d 74 26 00          lea    0x00(%esi), %esi
+ 8d 76 00             lea    0x00(%esi), %esi
+ 31 c0                xor    %eax, %eax
+ 31 c0                xor    %eax, %eax
+ 89 c0                mov    %eax, %eax
+ 89 c0                mov    %eax, %eax
+ 89 c0                mov    %eax, %eax
+ 89 c0                mov    %eax, %eax
+ e9 fc ff ff ff       jmp    $0x1000001c
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

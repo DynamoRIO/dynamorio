@@ -1,0 +1,20 @@
+test_pr12589_1_s:
+ eb 02                jmp    $0x10000004
+ 89 c0                mov    %eax, %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

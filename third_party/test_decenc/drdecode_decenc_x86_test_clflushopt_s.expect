@@ -1,0 +1,24 @@
+test_clflushopt_s:
+ 66 0f ae 39          data16 clflush (%ecx)
+ 66 0f ae bc f4 c0 1d data16 clflush -0x0001e240(%esp,%esi,8)
+ fe ff
+ 66 0f ae 39          data16 clflush (%ecx)
+ 66 0f ae bc f4 c0 1d data16 clflush -0x0001e240(%esp,%esi,8)
+ fe ff
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

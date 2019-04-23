@@ -1,0 +1,170 @@
+test_nops_7_s:
+ 31 c0                xor    %eax, %eax
+ e9 f9 01 00 00       jmp    $0x10000200
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 90                   nop
+ 31 db                xor    %ebx, %ebx
+ e9 f9 00 00 00       jmp    $0x10000300
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d 74 26 00          lea    0x00(%esi), %esi
+ 31 db                xor    %ebx, %ebx
+ eb 7c                jmp    $0x10000380
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d 74 26 00          lea    0x00(%esi), %esi
+ 90                   nop
+ 31 c9                xor    %ecx, %ecx
+ eb 3c                jmp    $0x100003c0
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d 74 26 00          lea    0x00(%esi), %esi
+ 31 d2                xor    %edx, %edx
+ eb 1c                jmp    $0x100003e0
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
+ 31 ff                xor    %edi, %edi
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

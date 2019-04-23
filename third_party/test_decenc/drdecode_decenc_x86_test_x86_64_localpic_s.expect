@@ -1,0 +1,19 @@
+test_x86_64_localpic_s:
+ 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010000007, %rax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

@@ -1,0 +1,22 @@
+test_xop32reg_s:
+ 8f e9 78 e1 4d c2    vphsubbw -0x3e(%ebp), %xmm1
+ 8f c9 78 e1 4d c2    vphsubbw -0x3e(%ebp), %xmm1
+ 8f e8 40 cd 04 08 07 vpcomw %xmm7, (%eax,%ecx), $0x07, %xmm0
+ 8f c8 40 cd 04 08 07 vpcomw %xmm7, (%eax,%ecx), $0x07, %xmm0
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

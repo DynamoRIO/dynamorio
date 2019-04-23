@@ -1,0 +1,36 @@
+test_svme_s:
+ 0f 01 dd             clgi
+ 0f 01 df             invlpga
+ 0f 01 de             skinit
+ 0f 01 dc             stgi
+ 0f 01 da             vmload
+ 0f 01 d9             vmmcall
+ 0f 01 d8             vmrun
+ 0f 01 db             vmsave
+ 0f 01 de             skinit
+ 0f 01 df             invlpga
+ 0f 01 da             vmload
+ 0f 01 d8             vmrun
+ 0f 01 db             vmsave
+ 0f 01 de             skinit
+ 0f 01 df             invlpga
+ 0f 01 da             vmload
+ 0f 01 d8             vmrun
+ 0f 01 db             vmsave
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

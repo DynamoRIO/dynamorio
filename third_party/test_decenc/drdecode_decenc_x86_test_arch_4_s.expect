@@ -1,0 +1,24 @@
+test_arch_4_s:
+ 0f b9                ud2b
+ 07                   pop    %es
+ 0f 0b                ud2a
+ 0f 0b                ud2a
+ 0f b9                ud2b
+ 07                   pop    %es
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

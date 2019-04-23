@@ -1,0 +1,50 @@
+test_x86_64_fsgs_s:
+ f3 0f ae c3          rdfsbase %ebx
+ f3 48 0f ae c3       rdfsbase %rbx
+ f3 41 0f ae c0       rdfsbase %r8d
+ f3 49 0f ae c0       rdfsbase %r8
+ f3 0f ae cb          rdgsbase %ebx
+ f3 48 0f ae cb       rdgsbase %rbx
+ f3 41 0f ae c8       rdgsbase %r8d
+ f3 49 0f ae c8       rdgsbase %r8
+ f3 0f ae d3          wrfsbase %ebx
+ f3 48 0f ae d3       wrfsbase %rbx
+ f3 41 0f ae d0       wrfsbase %r8d
+ f3 49 0f ae d0       wrfsbase %r8
+ f3 0f ae db          wrgsbase %ebx
+ f3 48 0f ae db       wrgsbase %rbx
+ f3 41 0f ae d8       wrgsbase %r8d
+ f3 49 0f ae d8       wrgsbase %r8
+ f3 0f ae c3          rdfsbase %ebx
+ f3 48 0f ae c3       rdfsbase %rbx
+ f3 41 0f ae c0       rdfsbase %r8d
+ f3 49 0f ae c0       rdfsbase %r8
+ f3 0f ae cb          rdgsbase %ebx
+ f3 48 0f ae cb       rdgsbase %rbx
+ f3 41 0f ae c8       rdgsbase %r8d
+ f3 49 0f ae c8       rdgsbase %r8
+ f3 0f ae d3          wrfsbase %ebx
+ f3 48 0f ae d3       wrfsbase %rbx
+ f3 41 0f ae d0       wrfsbase %r8d
+ f3 49 0f ae d0       wrfsbase %r8
+ f3 0f ae db          wrgsbase %ebx
+ f3 48 0f ae db       wrgsbase %rbx
+ f3 41 0f ae d8       wrgsbase %r8d
+ f3 49 0f ae d8       wrgsbase %r8
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

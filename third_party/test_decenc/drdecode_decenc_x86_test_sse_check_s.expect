@@ -1,0 +1,26 @@
+test_sse_check_s:
+ 0f 58 ca             addps  %xmm2, %xmm1
+ 66 0f 58 ca          addpd  %xmm2, %xmm1
+ 66 0f d0 ca          addsubpd %xmm2, %xmm1
+ 66 0f 38 01 ca       phaddw %xmm2, %xmm1
+ 66 0f 38 15 c1       blendvpd %xmm1, %xmm0
+ 66 0f 38 37 c1       pcmpgtq %xmm1, %xmm0
+ 66 0f 3a 44 d1 ff    pclmulqdq %xmm1, $0xff, %xmm2
+ 66 0f 38 de d1       aesdec %xmm1, %xmm2
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

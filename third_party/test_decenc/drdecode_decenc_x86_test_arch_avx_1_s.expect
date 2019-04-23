@@ -1,0 +1,20 @@
+test_arch_avx_1_s:
+ c4 e2 79 dc 11       vaesenc %xmm0, (%ecx), %xmm2
+ c4 e3 49 44 d4 08    vpclmulqdq %xmm6, %xmm4, $0x08, %xmm2
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

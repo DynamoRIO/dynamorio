@@ -1,0 +1,30 @@
+test_x86_64_rdseed_s:
+ 66 0f c7 f8          data16 rdseed %ax
+ 0f c7 f8             rdseed %eax
+ 48 0f c7 f8          rdseed %rax
+ 66 41 0f c7 fb       data16 rdseed %r11w
+ 41 0f c7 fb          rdseed %r11d
+ 49 0f c7 fb          rdseed %r11
+ 66 0f c7 fb          data16 rdseed %bx
+ 0f c7 fb             rdseed %ebx
+ 48 0f c7 fb          rdseed %rbx
+ 66 41 0f c7 fb       data16 rdseed %r11w
+ 41 0f c7 fb          rdseed %r11d
+ 49 0f c7 fb          rdseed %r11
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

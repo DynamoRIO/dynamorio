@@ -1,0 +1,30 @@
+test_movz_s:
+ 66 0f b6 c0          data16 movzx  %al, %ax
+ 66 0f b6 00          data16 movzx  (%eax), %ax
+ 0f b6 c0             movzx  %al, %eax
+ 0f b6 00             movzx  (%eax), %eax
+ 66 0f b6 c0          data16 movzx  %al, %ax
+ 66 0f b6 00          data16 movzx  (%eax), %ax
+ 0f b6 c0             movzx  %al, %eax
+ 0f b6 00             movzx  (%eax), %eax
+ 0f b7 c0             movzx  %ax, %eax
+ 0f b7 00             movzx  (%eax), %eax
+ 0f b7 c0             movzx  %ax, %eax
+ 0f b7 00             movzx  (%eax), %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

@@ -1,0 +1,76 @@
+test_x86_64_sse_noavx_s:
+ 48 0f c7 08          cmpxchg8b (%rax)
+ f2 0f 38 f0 d9       crc32  %cl, %ebx
+ 66 0f 2d d3          cvtpd2pi %xmm3, %mm2
+ 66 0f 2a d3          cvtpi2pd %mm3, %xmm2
+ 0f 2a d3             cvtpi2ps %mm3, %xmm2
+ 0f 2d f7             cvtps2pi %xmm7, %mm6
+ 66 0f 2c dc          cvttpd2pi %xmm4, %mm3
+ 0f 2c dc             cvttps2pi %xmm4, %mm3
+ df 08                fisttp (%rax)
+ df 08                fisttp (%rax)
+ db 08                fisttp (%rax)
+ dd 08                fisttp (%rax)
+ 0f ae e8             lfence
+ 0f f7 c7             maskmovq %mm0, %mm7
+ 0f ae f0             mfence
+ 0f 01 c8             monitor
+ f2 0f d6 c8          movdq2q %xmm0, %mm1
+ 0f c3 00             movnti %eax, (%rax)
+ 0f e7 10             movntq %mm2, (%rax)
+ f3 0f d6 c8          movq2dq %mm0, %xmm1
+ 0f 01 c9             mwait
+ 0f 38 1c c1          pabsb  %mm1, %mm0
+ 0f 38 1e c1          pabsd  %mm1, %mm0
+ 0f 38 1d c1          pabsw  %mm1, %mm0
+ 0f d4 c1             paddq  %mm1, %mm0
+ 0f 3a 0f c1 02       palignr %mm1, $0x02, %mm0
+ 0f e0 c1             pavgb  %mm1, %mm0
+ 0f e3 d3             pavgw  %mm3, %mm2
+ 0f c5 c1 00          pextrw %mm1, $0x00, %eax
+ 0f 38 02 c1          phaddd %mm1, %mm0
+ 0f 38 03 c1          phaddsw %mm1, %mm0
+ 0f 38 01 c1          phaddw %mm1, %mm0
+ 0f 38 06 c1          phsubd %mm1, %mm0
+ 0f 38 07 c1          phsubsw %mm1, %mm0
+ 0f 38 05 c1          phsubw %mm1, %mm0
+ 0f c4 d2 02          pinsrw %edx, $0x02, %mm2
+ 0f 38 04 c1          pmaddubsw %mm1, %mm0
+ 0f ee c1             pmaxsw %mm1, %mm0
+ 0f de d2             pmaxub %mm2, %mm2
+ 0f ea e5             pminsw %mm5, %mm4
+ 0f da f7             pminub %mm7, %mm6
+ 0f d7 c5             pmovmskb %mm5, %eax
+ 0f 38 0b c1          pmulhrsw %mm1, %mm0
+ 0f e4 e5             pmulhuw %mm5, %mm4
+ 0f f4 c8             pmuludq %mm0, %mm1
+ f3 0f b8 cb          popcnt %ebx, %ecx
+ 0f 18 00             prefetchnta (%rax)
+ 0f 18 08             prefetcht0 (%rax)
+ 0f 18 10             prefetcht1 (%rax)
+ 0f 18 18             prefetcht2 (%rax)
+ 0f f6 f7             psadbw %mm7, %mm6
+ 0f 38 00 c1          pshufb %mm1, %mm0
+ 0f 70 da 01          pshufw %mm2, $0x01, %mm3
+ 0f 38 08 c1          psignb %mm1, %mm0
+ 0f 38 0a c1          psignd %mm1, %mm0
+ 0f 38 09 c1          psignw %mm1, %mm0
+ 0f fb c1             psubq  %mm1, %mm0
+ 0f ae f8             sfence
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

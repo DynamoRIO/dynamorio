@@ -1,0 +1,60 @@
+test_iamcu_1_s:
+ 66 0f be f0          data16 movsx  %al, %si
+ 0f be f0             movsx  %al, %esi
+ 0f bf f0             movsx  %ax, %esi
+ 0f be 10             movsx  (%eax), %edx
+ 66 0f be 10          data16 movsx  (%eax), %dx
+ 66 0f be 10          data16 movsx  (%eax), %dx
+ 0f be 10             movsx  (%eax), %edx
+ 0f bf 10             movsx  (%eax), %edx
+ 0f be 10             movsx  (%eax), %edx
+ 66 0f be 10          data16 movsx  (%eax), %dx
+ 0f bf 10             movsx  (%eax), %edx
+ 66 0f b6 f0          data16 movzx  %al, %si
+ 0f b6 f0             movzx  %al, %esi
+ 0f b7 f0             movzx  %ax, %esi
+ 0f b6 10             movzx  (%eax), %edx
+ 66 0f b6 10          data16 movzx  (%eax), %dx
+ 66 0f b6 10          data16 movzx  (%eax), %dx
+ 0f b6 10             movzx  (%eax), %edx
+ 0f b7 10             movzx  (%eax), %edx
+ 0f b6 10             movzx  (%eax), %edx
+ 66 0f b6 10          data16 movzx  (%eax), %dx
+ 0f b6 10             movzx  (%eax), %edx
+ 66 0f b6 10          data16 movzx  (%eax), %dx
+ 0f b7 10             movzx  (%eax), %edx
+ 66 0f be f0          data16 movsx  %al, %si
+ 0f be f0             movsx  %al, %esi
+ 0f bf f0             movsx  %ax, %esi
+ 0f be 10             movsx  (%eax), %edx
+ 66 0f be 10          data16 movsx  (%eax), %dx
+ 0f bf 10             movsx  (%eax), %edx
+ 66 0f b6 f0          data16 movzx  %al, %si
+ 0f b6 f0             movzx  %al, %esi
+ 0f b7 f0             movzx  %ax, %esi
+ 0f b6 10             movzx  (%eax), %edx
+ 66 0f b6 10          data16 movzx  (%eax), %dx
+ 0f b7 10             movzx  (%eax), %edx
+ 66 0f be 00          data16 movsx  (%eax), %ax
+ 0f be 00             movsx  (%eax), %eax
+ 0f bf 00             movsx  (%eax), %eax
+ 66 0f b6 00          data16 movzx  (%eax), %ax
+ 0f b6 00             movzx  (%eax), %eax
+ 0f b7 00             movzx  (%eax), %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

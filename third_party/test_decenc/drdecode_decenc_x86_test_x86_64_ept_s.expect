@@ -1,0 +1,26 @@
+test_x86_64_ept_s:
+ 66 0f 38 80 19       invept %rbx, (%rcx)
+ 66 44 0f 38 80 19    invept %r11, (%rcx)
+ 66 0f 38 81 19       invvpid %rbx, (%rcx)
+ 66 44 0f 38 81 19    invvpid %r11, (%rcx)
+ 66 0f 38 80 19       invept %rbx, (%rcx)
+ 66 44 0f 38 80 19    invept %r11, (%rcx)
+ 66 0f 38 81 19       invvpid %rbx, (%rcx)
+ 66 44 0f 38 81 19    invvpid %r11, (%rcx)
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

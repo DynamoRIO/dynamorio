@@ -1,0 +1,24 @@
+test_size_3_s:
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ b8 f8 ff ff ff       mov    $0xfffffff8, %eax
+ b8 08 00 00 00       mov    $0x00000008, %eax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ b8 f0 ff ff ff       mov    $0xfffffff0, %eax
+ b8 10 00 00 00       mov    $0x00000010, %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

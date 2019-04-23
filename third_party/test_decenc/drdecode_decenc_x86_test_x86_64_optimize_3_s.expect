@@ -1,0 +1,34 @@
+test_x86_64_optimize_3_s:
+ 48 a9 7f 00 00 00    test   %rax, $0x0000007f
+ a9 7f 00 00 00       test   %eax, $0x0000007f
+ 66 a9 7f 00          data16 test   %ax, $0x007f
+ a8 7f                test   %al, $0x7f
+ 48 f7 c3 7f 00 00 00 test   %rbx, $0x0000007f
+ f7 c3 7f 00 00 00    test   %ebx, $0x0000007f
+ 66 f7 c3 7f 00       data16 test   %bx, $0x007f
+ f6 c3 7f             test   %bl, $0x7f
+ 48 f7 c7 7f 00 00 00 test   %rdi, $0x0000007f
+ f7 c7 7f 00 00 00    test   %edi, $0x0000007f
+ 66 f7 c7 7f 00       data16 test   %di, $0x007f
+ 40 f6 c7 7f          test   %dil, $0x7f
+ 49 f7 c1 7f 00 00 00 test   %r9, $0x0000007f
+ 41 f7 c1 7f 00 00 00 test   %r9d, $0x0000007f
+ 66 41 f7 c1 7f 00    data16 test   %r9w, $0x007f
+ 41 f6 c1 7f          test   %r9l, $0x7f
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

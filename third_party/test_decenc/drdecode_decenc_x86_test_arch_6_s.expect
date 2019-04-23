@@ -1,0 +1,20 @@
+test_arch_6_s:
+ f3 0f b8 d9          popcnt %ecx, %ebx
+ f2 0f 38 f1 d9       crc32  %ecx, %ebx
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

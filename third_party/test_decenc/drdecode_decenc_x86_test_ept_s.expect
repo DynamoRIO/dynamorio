@@ -1,0 +1,22 @@
+test_ept_s:
+ 66 0f 38 80 19       invept %ebx, (%ecx)
+ 66 0f 38 81 19       invvpid %ebx, (%ecx)
+ 66 0f 38 80 19       invept %ebx, (%ecx)
+ 66 0f 38 81 19       invvpid %ebx, (%ecx)
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

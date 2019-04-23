@@ -1,0 +1,45 @@
+test_x86_64_branch_s:
+ ff d0                call   %rax
+ ff d0                call   %rax
+ 66 ff d0             data16 call   %rax
+ 66 ff d0             data16 call   %rax
+ 66 ff 10             data16 call   (%rax)
+ ff e0                jmp    %rax
+ ff e0                jmp    %rax
+ 66 ff e0             data16 jmp    %rax
+ 66 ff e0             data16 jmp    %rax
+ 66 ff 20             data16 jmp    (%rax)
+ e8 00 00 00 00       call   $0x000000001000001f
+ e9 00 00 00 00       jmp    $0x0000000010000024
+ 66 e8 00 00 00 00    data16 call   $0x000000001000002a
+ 66 e9 00 00 00 00    data16 jmp    $0x0000000010000030
+ 66 0f 82 00 00 00 00 data16 jb     $0x0000000010000037
+ ff d0                call   %rax
+ ff d0                call   %rax
+ 66 ff d0             data16 call   %rax
+ 66 ff d0             data16 call   %rax
+ 66 ff 10             data16 call   (%rax)
+ ff e0                jmp    %rax
+ ff e0                jmp    %rax
+ 66 ff e0             data16 jmp    %rax
+ 66 ff e0             data16 jmp    %rax
+ 66 ff 20             data16 jmp    (%rax)
+ e8 00 00 00 00       call   $0x0000000010000056
+ e9 00 00 00 00       jmp    $0x000000001000005b
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

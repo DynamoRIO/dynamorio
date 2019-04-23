@@ -1,0 +1,23 @@
+test_intel_got64_s:
+ a1 00 00 00 00       mov    0x00, %eax
+ 00 00                add    %al, (%eax)
+ 00 00                add    %al, (%eax)
+ ff 35 00 00 00 00    push   0x00
+ c3                   ret
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

@@ -1,0 +1,25 @@
+test_i387_s:
+ d9 ff                fcos
+ d9 f5                fprem1
+ d9 fe                fsin
+ d9 fb                fsincos
+ dd e1                fucom  %st1, %st0
+ dd e9                fucomp %st1, %st0
+ da e9                fucompp
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

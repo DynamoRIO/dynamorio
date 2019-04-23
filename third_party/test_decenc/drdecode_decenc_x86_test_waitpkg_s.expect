@@ -1,0 +1,22 @@
+test_waitpkg_s:
+ f3 0f ae f0          mfence
+ 67 f3 0f ae f1       addr16 mfence
+ f2 0f ae f1          mfence
+ 66 0f ae f1          data16 mfence
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

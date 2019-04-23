@@ -1,0 +1,42 @@
+test_naked_s:
+ 26 66 ff 23          data16 jmp    %es:(%ebx)
+ 8a 25 50 00 00 00    mov    0x50, %ah
+ b2 20                mov    $0x20, %dl
+ bb 00 00 00 00       mov    $0x00000000, %ebx
+ d9 c9                fxch   %st0, %st1, %st0
+ 36 8c a4 81 d2 04 00 mov    %fs, %ss:0x000004d2(%ecx,%eax,4)
+ 00
+ 8c 2c ed 00 00 00 00 mov    %gs, 0x00(,%ebp,8)
+ 26 88 25 00 00 00 00 mov    %ah, %es:0x00
+ 2e 8b 74 14 80       mov    %cs:-0x80(%esp,%edx), %esi
+ 65 f3 a5             rep movsd %gs
+ ec                   in     %dx
+ 66 ef                data16 out    %ax, %dx
+ 67 d2 14             addr16 rcl    %cl, (%si)
+ 0f 20 d0             mov    %cr2, %eax
+ 0f 72 d0 04          psrld  $0x04, %mm0
+ 66 47                data16 inc    %di
+ 66 51                data16 push   %cx
+ 66 58                data16 pop    %ax
+ 66 87 dd             data16 xchg   %bp, %bx
+ 6a 02                push   $0x02
+ 00 00                add    %al, (%eax)
+ 00 00                add    %al, (%eax)
+ 00 00                add    %al, (%eax)
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

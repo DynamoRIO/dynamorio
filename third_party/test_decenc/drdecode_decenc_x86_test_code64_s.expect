@@ -1,0 +1,24 @@
+test_code64_s:
+ a0 21 43 65 87       mov    -0x789abcdf, %al
+ 00 00                add    %al, (%eax)
+ 00 00                add    %al, (%eax)
+ 48                   dec    %eax
+ b8 21 43 65 87       mov    $0x87654321, %eax
+ 00 00                add    %al, (%eax)
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

@@ -1,0 +1,25 @@
+test_divide_s:
+ 01 00                add    %eax, (%eax)
+ 00 00                add    %al, (%eax)
+ 02 00                add    (%eax), %al
+ 00 00                add    %al, (%eax)
+ 03 00                add    (%eax), %eax
+ 00 00                add    %al, (%eax)
+ 04 00                add    $0x00, %al
+ 00 00                add    %al, (%eax)
+ 05 00 00 90 90       add    $0x90900000, %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

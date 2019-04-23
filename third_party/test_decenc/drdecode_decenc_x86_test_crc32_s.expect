@@ -1,0 +1,28 @@
+test_crc32_s:
+ f2 0f 38 f0 06       crc32  (%esi), %eax
+ f2 0f 38 f1 06       crc32  (%esi), %eax
+ f2 0f 38 f0 c0       crc32  %al, %eax
+ f2 0f 38 f0 c0       crc32  %al, %eax
+ f2 0f 38 f1 c0       crc32  %eax, %eax
+ f2 0f 38 f1 c0       crc32  %eax, %eax
+ f2 0f 38 f0 06       crc32  (%esi), %eax
+ f2 0f 38 f1 06       crc32  (%esi), %eax
+ f2 0f 38 f0 c0       crc32  %al, %eax
+ f2 0f 38 f1 c0       crc32  %eax, %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

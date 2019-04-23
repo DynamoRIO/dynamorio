@@ -1,0 +1,24 @@
+test_xsavec_s:
+ 0f c7 21             xsavec (%ecx)
+ 0f c7 a4 f4 c0 1d fe xsavec -0x0001e240(%esp,%esi,8)
+ ff
+ 0f c7 21             xsavec (%ecx)
+ 0f c7 a4 f4 c0 1d fe xsavec -0x0001e240(%esp,%esi,8)
+ ff
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

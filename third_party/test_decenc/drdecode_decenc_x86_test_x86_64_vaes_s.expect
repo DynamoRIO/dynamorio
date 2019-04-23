@@ -1,0 +1,38 @@
+test_x86_64_vaes_s:
+ c4 e2 4d dc d4       vaesenc %xmm6, %xmm4, %xmm2
+ c4 e2 4d dc 39       vaesenc %xmm6, (%rcx), %xmm7
+ c4 e2 4d dd d4       vaesenclast %xmm6, %xmm4, %xmm2
+ c4 e2 4d dd 39       vaesenclast %xmm6, (%rcx), %xmm7
+ c4 e2 4d de d4       vaesdec %xmm6, %xmm4, %xmm2
+ c4 e2 4d de 39       vaesdec %xmm6, (%rcx), %xmm7
+ c4 e2 4d df d4       vaesdeclast %xmm6, %xmm4, %xmm2
+ c4 e2 4d df 39       vaesdeclast %xmm6, (%rcx), %xmm7
+ c4 e2 4d dc d4       vaesenc %xmm6, %xmm4, %xmm2
+ c4 e2 4d dc 39       vaesenc %xmm6, (%rcx), %xmm7
+ c4 e2 4d dc 39       vaesenc %xmm6, (%rcx), %xmm7
+ c4 e2 4d dd d4       vaesenclast %xmm6, %xmm4, %xmm2
+ c4 e2 4d dd 39       vaesenclast %xmm6, (%rcx), %xmm7
+ c4 e2 4d dd 39       vaesenclast %xmm6, (%rcx), %xmm7
+ c4 e2 4d de d4       vaesdec %xmm6, %xmm4, %xmm2
+ c4 e2 4d de 39       vaesdec %xmm6, (%rcx), %xmm7
+ c4 e2 4d de 39       vaesdec %xmm6, (%rcx), %xmm7
+ c4 e2 4d df d4       vaesdeclast %xmm6, %xmm4, %xmm2
+ c4 e2 4d df 39       vaesdeclast %xmm6, (%rcx), %xmm7
+ c4 e2 4d df 39       vaesdeclast %xmm6, (%rcx), %xmm7
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

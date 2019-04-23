@@ -1,0 +1,22 @@
+test_segment_s:
+ 8c 18                mov    %ds, (%eax)
+ 8c 18                mov    %ds, (%eax)
+ 8e 18                mov    (%eax), %ds
+ 8e 18                mov    (%eax), %ds
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

@@ -1,0 +1,52 @@
+test_disp_s:
+ 8b 98 ff ff ff 7f    mov    0x7fffffff(%eax), %ebx
+ 8b 98 00 00 00 80    mov    -0x80000000(%eax), %ebx
+ 8b 98 00 00 00 80    mov    -0x80000000(%eax), %ebx
+ 8b 1d ff ff ff 7f    mov    0x7fffffff, %ebx
+ 8b 1d 00 00 00 80    mov    -0x80000000, %ebx
+ 8b 1d 00 00 00 80    mov    -0x80000000, %ebx
+ a1 ff ff ff 7f       mov    0x7fffffff, %eax
+ a1 00 00 00 80       mov    -0x80000000, %eax
+ a1 00 00 00 80       mov    -0x80000000, %eax
+ b8 f0 00 e0 0e       mov    $0x0ee000f0, %eax
+ 89 98 f0 00 e0 0e    mov    %ebx, 0x0ee000f0(%eax)
+ 89 98 f0 00 e0 0e    mov    %ebx, 0x0ee000f0(%eax)
+ 65 89 98 f0 00 e0 0e mov    %ebx, %gs:0x0ee000f0(%eax)
+ 65 89 98 f0 00 e0 0e mov    %ebx, %gs:0x0ee000f0(%eax)
+ 89 1d f0 00 e0 0e    mov    %ebx, 0x0ee000f0
+ 65 89 1d f0 00 e0 0e mov    %ebx, %gs:0x0ee000f0
+ 89 1d f0 00 e0 fe    mov    %ebx, -0x011fff10
+ 65 89 1d f0 00 e0 fe mov    %ebx, %gs:-0x011fff10
+ a3 f0 00 e0 0e       mov    %eax, 0x0ee000f0
+ 65 a3 f0 00 e0 0e    mov    %eax, %gs:0x0ee000f0
+ a3 f0 00 e0 fe       mov    %eax, -0x011fff10
+ 65 a3 f0 00 e0 fe    mov    %eax, %gs:-0x011fff10
+ 65 8b 1d f0 00 e0 0e mov    %gs:0x0ee000f0, %ebx
+ 8b 1d f0 00 e0 0e    mov    0x0ee000f0, %ebx
+ 8b 1d f0 00 e0 0e    mov    0x0ee000f0, %ebx
+ 65 8b 1d f0 00 e0 fe mov    %gs:-0x011fff10, %ebx
+ 8b 1d f0 00 e0 fe    mov    -0x011fff10, %ebx
+ 8b 1d f0 00 e0 fe    mov    -0x011fff10, %ebx
+ 65 a1 f0 00 e0 0e    mov    %gs:0x0ee000f0, %eax
+ a1 f0 00 e0 0e       mov    0x0ee000f0, %eax
+ a1 f0 00 e0 0e       mov    0x0ee000f0, %eax
+ 65 a1 f0 00 e0 fe    mov    %gs:-0x011fff10, %eax
+ a1 f0 00 e0 fe       mov    -0x011fff10, %eax
+ a1 f0 00 e0 fe       mov    -0x011fff10, %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

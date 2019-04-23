@@ -1,0 +1,28 @@
+test_prefetch_s:
+ 0f 0d 00             prefetch (%eax)
+ 0f 0d 08             prefetchw (%eax)
+ 0f 18 00             prefetchnta (%eax)
+ 0f 18 08             prefetcht0 (%eax)
+ 0f 18 10             prefetcht1 (%eax)
+ 0f 18 18             prefetcht2 (%eax)
+ 0f 18 20             nop    (%eax)
+ 0f 18 28             nop    (%eax)
+ 0f 18 30             nop    (%eax)
+ 0f 18 38             nop    (%eax)
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

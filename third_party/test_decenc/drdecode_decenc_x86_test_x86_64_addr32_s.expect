@@ -1,0 +1,42 @@
+test_x86_64_addr32_s:
+ 67 48 8d 80 00 00 00 addr32 lea    0x0000(%eax), %rax
+ 00
+ 67 49 8d 80 00 00 00 addr32 lea    0x0000(%r8d), %rax
+ 00
+ 67 48 8d 04 25 00 00 addr32 lea    0x00, %rax
+ 00 00
+ 67 a0 98 08 60 00    addr32 mov    0x00600898, %al
+ 67 66 a1 98 08 60 00 data16 addr32 mov    0x00600898, %ax
+ 67 a1 98 08 60 00    addr32 mov    0x00600898, %eax
+ 67 48 a1 98 08 60 00 addr32 mov    0x00600898, %rax
+ 67 48 a1 98 08 80 00 addr32 mov    0x00800898, %rax
+ 67 48 8b 1c 25 98 08 addr32 mov    0x00800898, %rbx
+ 80 00
+ 67 a2 98 08 60 00    addr32 mov    %al, 0x00600898
+ 67 66 a3 98 08 60 00 data16 addr32 mov    %ax, 0x00600898
+ 67 a3 98 08 60 00    addr32 mov    %eax, 0x00600898
+ 67 48 a3 98 08 60 00 addr32 mov    %rax, 0x00600898
+ 67 48 a3 98 08 80 00 addr32 mov    %rax, 0x00800898
+ 67 48 89 1c 25 98 08 addr32 mov    %rbx, 0x00800898
+ 80 00
+ 67 89 04 25 11 22 33 addr32 mov    %eax, -0x00ccddef
+ ff
+ 67 89 04 65 11 22 33 addr32 mov    %eax, -0x00ccddef
+ ff
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

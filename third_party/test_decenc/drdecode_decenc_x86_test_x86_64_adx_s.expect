@@ -1,0 +1,74 @@
+test_x86_64_adx_s:
+ 67 66 0f 38 f6 81 90 addr32 adcx   0x0190(%ecx), %eax
+ 01 00 00
+ 66 0f 38 f6 ca       adcx   %edx, %ecx
+ 67 66 0f 38 f6 94 f4 addr32 adcx   -0x0009fbf1(%esp,%esi,8), %edx
+ 0f 04 f6 ff
+ 67 66 0f 38 f6 00    addr32 adcx   (%eax), %eax
+ 66 0f 38 f6 ca       adcx   %edx, %ecx
+ 67 66 0f 38 f6 00    addr32 adcx   (%eax), %eax
+ 66 4c 0f 38 f6 99 90 adcx   0x00000190(%rcx), %r11
+ 01 00 00
+ 66 4d 0f 38 f6 e6    adcx   %r14, %r12
+ 67 66 48 0f 38 f6 94 addr32 adcx   -0x0009fbf1(%esp,%esi,8), %rdx
+ f4 0f 04 f6 ff
+ 66 49 0f 38 f6 00    adcx   (%r8), %rax
+ 66 48 0f 38 f6 ca    adcx   %rdx, %rcx
+ 66 48 0f 38 f6 00    adcx   (%rax), %rax
+ 67 f3 0f 38 f6 81 90 addr32 adox   0x0190(%ecx), %eax
+ 01 00 00
+ f3 0f 38 f6 ca       adox   %edx, %ecx
+ 67 f3 0f 38 f6 94 f4 addr32 adox   -0x0009fbf1(%esp,%esi,8), %edx
+ 0f 04 f6 ff
+ 67 f3 0f 38 f6 00    addr32 adox   (%eax), %eax
+ f3 0f 38 f6 ca       adox   %edx, %ecx
+ 67 f3 0f 38 f6 00    addr32 adox   (%eax), %eax
+ f3 4c 0f 38 f6 99 90 adox   0x00000190(%rcx), %r11
+ 01 00 00
+ f3 4d 0f 38 f6 e6    adox   %r14, %r12
+ 67 f3 48 0f 38 f6 94 addr32 adox   -0x0009fbf1(%esp,%esi,8), %rdx
+ f4 0f 04 f6 ff
+ f3 49 0f 38 f6 00    adox   (%r8), %rax
+ f3 48 0f 38 f6 ca    adox   %rdx, %rcx
+ f3 48 0f 38 f6 00    adox   (%rax), %rax
+ 67 66 0f 38 f6 82 8f addr32 adcx   0x018f(%edx), %eax
+ 01 00 00
+ 66 0f 38 f6 d1       adcx   %ecx, %edx
+ 67 66 0f 38 f6 94 f4 addr32 adcx   -0x0001e240(%esp,%esi,8), %edx
+ c0 1d fe ff
+ 67 66 0f 38 f6 00    addr32 adcx   (%eax), %eax
+ 66 49 0f 38 f6 83 8f adcx   0x0000018f(%r11), %rax
+ 01 00 00
+ 66 49 0f 38 f6 d1    adcx   %r9, %rdx
+ 66 48 0f 38 f6 94 f4 adcx   -0x0001e240(%rsp,%rsi,8), %rdx
+ c0 1d fe ff
+ 66 48 0f 38 f6 03    adcx   (%rbx), %rax
+ 67 f3 0f 38 f6 82 8f addr32 adox   0x018f(%edx), %eax
+ 01 00 00
+ f3 0f 38 f6 d1       adox   %ecx, %edx
+ 67 f3 0f 38 f6 94 f4 addr32 adox   -0x0001e240(%esp,%esi,8), %edx
+ c0 1d fe ff
+ 67 f3 0f 38 f6 00    addr32 adox   (%eax), %eax
+ f3 49 0f 38 f6 83 8f adox   0x0000018f(%r11), %rax
+ 01 00 00
+ f3 49 0f 38 f6 d1    adox   %r9, %rdx
+ f3 48 0f 38 f6 94 f4 adox   -0x0001e240(%rsp,%rsi,8), %rdx
+ c0 1d fe ff
+ f3 48 0f 38 f6 03    adox   (%rbx), %rax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

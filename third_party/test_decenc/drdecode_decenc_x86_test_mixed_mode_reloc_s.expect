@@ -1,0 +1,26 @@
+test_mixed_mode_reloc_s:
+ 67 66 8b 83 00 00    data16 addr16 mov    (%bp,%di), %ax
+ 00 00                add    %al, (%eax)
+ 66 e8 fc ff          data16 call   $0x00000008
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ e8 fc ff ff ff       call   $0x10000013
+ 48                   dec    %eax
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ e8 fc ff ff ff       call   $0x1000001f
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

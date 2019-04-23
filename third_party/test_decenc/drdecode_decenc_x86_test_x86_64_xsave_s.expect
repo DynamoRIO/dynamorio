@@ -1,0 +1,76 @@
+test_x86_64_xsave_s:
+ 0f 01 d0             xgetbv
+ 0f 01 d1             xsetbv
+ 0f ae 20             xsave  (%rax)
+ 41 0f ae 20          xsave  (%r8)
+ 41 0f ae 24 00       xsave  (%r8,%rax)
+ 42 0f ae 24 00       xsave  (%rax,%r8)
+ 43 0f ae 24 38       xsave  (%r8,%r15)
+ 48 0f ae 20          xsave64 (%rax)
+ 49 0f ae 20          xsave64 (%r8)
+ 49 0f ae 24 00       xsave64 (%r8,%rax)
+ 4a 0f ae 24 00       xsave64 (%rax,%r8)
+ 0f ae 28             xrstor (%rax)
+ 41 0f ae 28          xrstor (%r8)
+ 41 0f ae 2c 00       xrstor (%r8,%rax)
+ 42 0f ae 2c 00       xrstor (%rax,%r8)
+ 43 0f ae 2c 38       xrstor (%r8,%r15)
+ 48 0f ae 28          xrstor64 (%rax)
+ 49 0f ae 28          xrstor64 (%r8)
+ 49 0f ae 2c 00       xrstor64 (%r8,%rax)
+ 4a 0f ae 2c 00       xrstor64 (%rax,%r8)
+ 4b 0f ae 2c 38       xrstor64 (%r8,%r15)
+ 0f ae 30             xsaveopt (%rax)
+ 41 0f ae 30          xsaveopt (%r8)
+ 41 0f ae 34 00       xsaveopt (%r8,%rax)
+ 42 0f ae 34 00       xsaveopt (%rax,%r8)
+ 43 0f ae 34 38       xsaveopt (%r8,%r15)
+ 48 0f ae 30          xsaveopt64 (%rax)
+ 49 0f ae 30          xsaveopt64 (%r8)
+ 49 0f ae 34 00       xsaveopt64 (%r8,%rax)
+ 4a 0f ae 34 00       xsaveopt64 (%rax,%r8)
+ 0f ae 20             xsave  (%rax)
+ 41 0f ae 20          xsave  (%r8)
+ 41 0f ae 24 00       xsave  (%r8,%rax)
+ 42 0f ae 24 00       xsave  (%rax,%r8)
+ 43 0f ae 24 38       xsave  (%r8,%r15)
+ 48 0f ae 20          xsave64 (%rax)
+ 49 0f ae 20          xsave64 (%r8)
+ 49 0f ae 24 00       xsave64 (%r8,%rax)
+ 4a 0f ae 24 00       xsave64 (%rax,%r8)
+ 0f ae 28             xrstor (%rax)
+ 41 0f ae 28          xrstor (%r8)
+ 41 0f ae 2c 00       xrstor (%r8,%rax)
+ 42 0f ae 2c 00       xrstor (%rax,%r8)
+ 43 0f ae 2c 38       xrstor (%r8,%r15)
+ 48 0f ae 28          xrstor64 (%rax)
+ 49 0f ae 28          xrstor64 (%r8)
+ 49 0f ae 2c 00       xrstor64 (%r8,%rax)
+ 4a 0f ae 2c 00       xrstor64 (%rax,%r8)
+ 4b 0f ae 2c 38       xrstor64 (%r8,%r15)
+ 0f ae 30             xsaveopt (%rax)
+ 41 0f ae 30          xsaveopt (%r8)
+ 41 0f ae 34 00       xsaveopt (%r8,%rax)
+ 42 0f ae 34 00       xsaveopt (%rax,%r8)
+ 43 0f ae 34 38       xsaveopt (%r8,%r15)
+ 48 0f ae 30          xsaveopt64 (%rax)
+ 49 0f ae 30          xsaveopt64 (%r8)
+ 49 0f ae 34 00       xsaveopt64 (%r8,%rax)
+ 4a 0f ae 34 00       xsaveopt64 (%rax,%r8)
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

@@ -1,0 +1,20 @@
+test_intel_got32_s:
+ 8b 15 04 00 00 00    mov    0x04, %edx
+ c3                   ret
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

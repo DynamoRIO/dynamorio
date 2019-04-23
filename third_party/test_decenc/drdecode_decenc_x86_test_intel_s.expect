@@ -1,0 +1,755 @@
+test_intel_s:
+ 00 90 90 90 90 90    add    %dl, -0x6f6f6f70(%eax)
+ 01 90 90 90 90 90    add    %edx, -0x6f6f6f70(%eax)
+ 02 90 90 90 90 90    add    -0x6f6f6f70(%eax), %dl
+ 03 90 90 90 90 90    add    -0x6f6f6f70(%eax), %edx
+ 04 90                add    $0x90, %al
+ 05 90 90 90 90       add    $0x90909090, %eax
+ 06                   push   %es
+ 07                   pop    %es
+ 08 90 90 90 90 90    or     %dl, -0x6f6f6f70(%eax)
+ 09 90 90 90 90 90    or     %edx, -0x6f6f6f70(%eax)
+ 0a 90 90 90 90 90    or     -0x6f6f6f70(%eax), %dl
+ 0b 90 90 90 90 90    or     -0x6f6f6f70(%eax), %edx
+ 0c 90                or     $0x90, %al
+ 0d 90 90 90 90       or     $0x90909090, %eax
+ 0e                   push   %cs
+ 10 90 90 90 90 90    adc    %dl, -0x6f6f6f70(%eax)
+ 11 90 90 90 90 90    adc    %edx, -0x6f6f6f70(%eax)
+ 12 90 90 90 90 90    adc    -0x6f6f6f70(%eax), %dl
+ 13 90 90 90 90 90    adc    -0x6f6f6f70(%eax), %edx
+ 14 90                adc    $0x90, %al
+ 15 90 90 90 90       adc    $0x90909090, %eax
+ 16                   push   %ss
+ 17                   pop    %ss
+ 18 90 90 90 90 90    sbb    %dl, -0x6f6f6f70(%eax)
+ 19 90 90 90 90 90    sbb    %edx, -0x6f6f6f70(%eax)
+ 1a 90 90 90 90 90    sbb    -0x6f6f6f70(%eax), %dl
+ 1b 90 90 90 90 90    sbb    -0x6f6f6f70(%eax), %edx
+ 1c 90                sbb    $0x90, %al
+ 1d 90 90 90 90       sbb    $0x90909090, %eax
+ 1e                   push   %ds
+ 1f                   pop    %ds
+ 20 90 90 90 90 90    and    %dl, -0x6f6f6f70(%eax)
+ 21 90 90 90 90 90    and    %edx, -0x6f6f6f70(%eax)
+ 22 90 90 90 90 90    and    -0x6f6f6f70(%eax), %dl
+ 23 90 90 90 90 90    and    -0x6f6f6f70(%eax), %edx
+ 24 90                and    $0x90, %al
+ 25 90 90 90 90       and    $0x90909090, %eax
+ 27                   daa
+ 28 90 90 90 90 90    sub    %dl, -0x6f6f6f70(%eax)
+ 29 90 90 90 90 90    sub    %edx, -0x6f6f6f70(%eax)
+ 2a 90 90 90 90 90    sub    -0x6f6f6f70(%eax), %dl
+ 2b 90 90 90 90 90    sub    -0x6f6f6f70(%eax), %edx
+ 2c 90                sub    $0x90, %al
+ 2d 90 90 90 90       sub    $0x90909090, %eax
+ 2f                   das
+ 30 90 90 90 90 90    xor    %dl, -0x6f6f6f70(%eax)
+ 31 90 90 90 90 90    xor    %edx, -0x6f6f6f70(%eax)
+ 32 90 90 90 90 90    xor    -0x6f6f6f70(%eax), %dl
+ 33 90 90 90 90 90    xor    -0x6f6f6f70(%eax), %edx
+ 34 90                xor    $0x90, %al
+ 35 90 90 90 90       xor    $0x90909090, %eax
+ 37                   aaa
+ 38 90 90 90 90 90    cmp    -0x6f6f6f70(%eax), %dl
+ 39 90 90 90 90 90    cmp    -0x6f6f6f70(%eax), %edx
+ 3a 90 90 90 90 90    cmp    %dl, -0x6f6f6f70(%eax)
+ 3b 90 90 90 90 90    cmp    %edx, -0x6f6f6f70(%eax)
+ 3c 90                cmp    %al, $0x90
+ 3d 90 90 90 90       cmp    %eax, $0x90909090
+ 3f                   aas
+ 40                   inc    %eax
+ 41                   inc    %ecx
+ 42                   inc    %edx
+ 43                   inc    %ebx
+ 44                   inc    %esp
+ 45                   inc    %ebp
+ 46                   inc    %esi
+ 47                   inc    %edi
+ 48                   dec    %eax
+ 49                   dec    %ecx
+ 4a                   dec    %edx
+ 4b                   dec    %ebx
+ 4c                   dec    %esp
+ 4d                   dec    %ebp
+ 4e                   dec    %esi
+ 4f                   dec    %edi
+ 50                   push   %eax
+ 51                   push   %ecx
+ 52                   push   %edx
+ 53                   push   %ebx
+ 54                   push   %esp
+ 55                   push   %ebp
+ 56                   push   %esi
+ 57                   push   %edi
+ 58                   pop    %eax
+ 59                   pop    %ecx
+ 5a                   pop    %edx
+ 5b                   pop    %ebx
+ 5c                   pop    %esp
+ 5d                   pop    %ebp
+ 5e                   pop    %esi
+ 5f                   pop    %edi
+ 60                   pushad
+ 61                   popad
+ 62 90 90 90 90 90    bound  %edx, -0x6f6f6f70(%eax)
+ 63 90 90 90 90 90    arpl   %dx, -0x6f6f6f70(%eax)
+ 68 90 90 90 90       push   $0x90909090
+ 69 90 90 90 90 90 90 imul   -0x6f6f6f70(%eax), $0x90909090, %edx
+ 90 90 90
+ 6a 90                push   $0x90
+ 6b 90 90 90 90 90 90 imul   -0x6f6f6f70(%eax), $0x90, %edx
+ 6c                   insb
+ 6d                   insd
+ 6e                   outsb
+ 6f                   outsd
+ 70 90                jo     $0x100000df
+ 71 90                jno    $0x100000e1
+ 72 90                jb     $0x100000e3
+ 73 90                jnb    $0x100000e5
+ 74 90                jz     $0x100000e7
+ 75 90                jnz    $0x100000e9
+ 76 90                jbe    $0x100000eb
+ 77 90                jnbe   $0x100000ed
+ 78 90                js     $0x100000ef
+ 79 90                jns    $0x100000f1
+ 7a 90                jp     $0x100000f3
+ 7b 90                jnp    $0x100000f5
+ 7c 90                jl     $0x100000f7
+ 7d 90                jnl    $0x100000f9
+ 7e 90                jle    $0x100000fb
+ 7f 90                jnle   $0x100000fd
+ 80 90 90 90 90 90 90 adcb   $0x90, -0x6f6f6f70(%eax)
+ 81 90 90 90 90 90 90 adcl   $0x90909090, -0x6f6f6f70(%eax)
+ 90 90 90
+ 83 90 90 90 90 90 90 adcl   $0x90, -0x6f6f6f70(%eax)
+ 84 90 90 90 90 90    test   -0x6f6f6f70(%eax), %dl
+ 85 90 90 90 90 90    test   -0x6f6f6f70(%eax), %edx
+ 86 90 90 90 90 90    xchgb  -0x6f6f6f70(%eax), %dl
+ 87 90 90 90 90 90    xchgl  -0x6f6f6f70(%eax), %edx
+ 88 90 90 90 90 90    mov    %dl, -0x6f6f6f70(%eax)
+ 89 90 90 90 90 90    mov    %edx, -0x6f6f6f70(%eax)
+ 8a 90 90 90 90 90    mov    -0x6f6f6f70(%eax), %dl
+ 8b 90 90 90 90 90    mov    -0x6f6f6f70(%eax), %edx
+ 8c 90 90 90 90 90    mov    %ss, -0x6f6f6f70(%eax)
+ 8d 90 90 90 90 90    lea    -0x6f6f6f70(%eax), %edx
+ 8e 90 90 90 90 90    mov    -0x6f6f6f70(%eax), %ss
+ 8f 80 90 90 90 90    pop    -0x6f6f6f70(%eax)
+ 90                   nop
+ 91                   xchg   %ecx, %eax
+ 92                   xchg   %edx, %eax
+ 93                   xchg   %ebx, %eax
+ 94                   xchg   %esp, %eax
+ 95                   xchg   %ebp, %eax
+ 96                   xchg   %esi, %eax
+ 97                   xchg   %edi, %eax
+ 98                   cwde
+ 99                   cdq
+ 9a 90 90 90 90 90 90 lcall  0x9090:0x90909090
+ 9b                   fwait
+ 9c                   pushfd
+ 9d                   popfd
+ 9e                   sahf
+ 9f                   lahf
+ a0 90 90 90 90       mov    -0x6f6f6f70, %al
+ a1 90 90 90 90       mov    -0x6f6f6f70, %eax
+ a2 90 90 90 90       mov    %al, -0x6f6f6f70
+ a3 90 90 90 90       mov    %eax, -0x6f6f6f70
+ a4                   movsb
+ a5                   movsd
+ a6                   cmpsb
+ a7                   cmpsd
+ a8 90                test   %al, $0x90
+ a9 90 90 90 90       test   %eax, $0x90909090
+ aa                   stosb
+ ab                   stosd
+ ac                   lodsb
+ ad                   lodsd
+ ae                   scasb
+ af                   scasd
+ b0 90                mov    $0x90, %al
+ b1 90                mov    $0x90, %cl
+ b2 90                mov    $0x90, %dl
+ b3 90                mov    $0x90, %bl
+ b4 90                mov    $0x90, %ah
+ b5 90                mov    $0x90, %ch
+ b6 90                mov    $0x90, %dh
+ b7 90                mov    $0x90, %bh
+ b8 90 90 90 90       mov    $0x90909090, %eax
+ b9 90 90 90 90       mov    $0x90909090, %ecx
+ ba 90 90 90 90       mov    $0x90909090, %edx
+ bb 90 90 90 90       mov    $0x90909090, %ebx
+ bc 90 90 90 90       mov    $0x90909090, %esp
+ bd 90 90 90 90       mov    $0x90909090, %ebp
+ be 90 90 90 90       mov    $0x90909090, %esi
+ bf 90 90 90 90       mov    $0x90909090, %edi
+ c0 90 90 90 90 90 90 rclb   $0x90, -0x6f6f6f70(%eax)
+ c1 90 90 90 90 90 90 rcll   $0x90, -0x6f6f6f70(%eax)
+ c2 90 90             ret    $0x9090
+ c3                   ret
+ c4 90 90 90 90 90    les    -0x6f6f6f70(%eax), %edx
+ c5 90 90 90 90 90    lds    -0x6f6f6f70(%eax), %edx
+ c6 80 90 90 90 90 90 movb   $0x90, -0x6f6f6f70(%eax)
+ c7 80 90 90 90 90 90 movl   $0x90909090, -0x6f6f6f70(%eax)
+ 90 90 90
+ c8 90 90 90          enter  $0x9090, $0x90
+ c9                   leave
+ ca 90 90             lret   $0x9090
+ cb                   lret
+ ca 90 90             lret   $0x9090
+ cb                   lret
+ cc                   int3
+ cd 90                int    $0x90
+ ce                   into
+ cf                   iretd
+ d0 90 90 90 90 90    rclb   $0x01, -0x6f6f6f70(%eax)
+ d1 90 90 90 90 90    rcll   $0x01, -0x6f6f6f70(%eax)
+ d2 90 90 90 90 90    rcl    %cl, -0x6f6f6f70(%eax)
+ d3 90 90 90 90 90    rcl    %cl, -0x6f6f6f70(%eax)
+ d4 90                aam    $0x90
+ d5 90                aad    $0x90
+ d7                   xlatb
+ d8 90 90 90 90 90    fcom   -0x6f6f6f70(%eax)
+ d9 90 90 90 90 90    fst    -0x6f6f6f70(%eax)
+ da 90 90 90 90 90    ficom  -0x6f6f6f70(%eax)
+ db 90 90 90 90 90    fist   -0x6f6f6f70(%eax)
+ dc 90 90 90 90 90    fcom   -0x6f6f6f70(%eax)
+ dd 90 90 90 90 90    fst    -0x6f6f6f70(%eax)
+ de 90 90 90 90 90    ficom  -0x6f6f6f70(%eax)
+ df 90 90 90 90 90    fist   -0x6f6f6f70(%eax)
+ e0 90                loopne $0x10000260
+ e1 90                loope  $0x10000262
+ e2 90                loop   $0x10000264
+ e3 90                jecxz  $0x10000266
+ e4 90                in     $0x90, %al
+ e5 90                in     $0x90, %eax
+ e6 90                out    $0x90, %al
+ e7 90                out    $0x90, %eax
+ e8 90 90 90 90       call   $0xa0909373
+ e9 90 90 90 90       jmp    $0xa0909378
+ ea 90 90 90 90 90 90 ljmp   0x9090:0x90909090
+ eb 90                jmp    $0x10000281
+ ec                   in     %dx
+ ed                   in     %dx, %eax
+ ee                   out    %al, %dx
+ ef                   out    %eax, %dx
+ f4                   hlt
+ f5                   cmc
+ f6 90 90 90 90 90    notb   -0x6f6f6f70(%eax)
+ f7 90 90 90 90 90    notl   -0x6f6f6f70(%eax)
+ f8                   clc
+ f9                   stc
+ fa                   cli
+ fb                   sti
+ fc                   cld
+ fd                   std
+ ff 90 90 90 90 90    call   -0x6f6f6f70(%eax)
+ 0f 00 90 90 90 90 90 lldt   -0x6f6f6f70(%eax)
+ 0f 01 90 90 90 90 90 lgdt   -0x6f6f6f70(%eax)
+ 0f 02 90 90 90 90 90 lar    -0x6f6f6f70(%eax), %edx
+ 0f 03 90 90 90 90 90 lsl    -0x6f6f6f70(%eax), %edx
+ 0f 06                clts
+ 0f 08                invd
+ 0f 09                wbinvd
+ 0f 0b                ud2a
+ 0f 20 d0             mov    %cr2, %eax
+ 0f 21 d0             mov    %dr2, %eax
+ 0f 22 d0             mov    %eax, %cr2
+ 0f 23 d0             mov    %eax, %dr2
+ 0f 30                wrmsr
+ 0f 31                rdtsc
+ 0f 32                rdmsr
+ 0f 33                rdpmc
+ 0f 40 90 90 90 90 90 cmovo  -0x6f6f6f70(%eax), %edx
+ 0f 41 90 90 90 90 90 cmovno -0x6f6f6f70(%eax), %edx
+ 0f 42 90 90 90 90 90 cmovb  -0x6f6f6f70(%eax), %edx
+ 0f 43 90 90 90 90 90 cmovnb -0x6f6f6f70(%eax), %edx
+ 0f 44 90 90 90 90 90 cmovz  -0x6f6f6f70(%eax), %edx
+ 0f 45 90 90 90 90 90 cmovnz -0x6f6f6f70(%eax), %edx
+ 0f 46 90 90 90 90 90 cmovbe -0x6f6f6f70(%eax), %edx
+ 0f 47 90 90 90 90 90 cmovnbe -0x6f6f6f70(%eax), %edx
+ 0f 48 90 90 90 90 90 cmovs  -0x6f6f6f70(%eax), %edx
+ 0f 49 90 90 90 90 90 cmovns -0x6f6f6f70(%eax), %edx
+ 0f 4a 90 90 90 90 90 cmovp  -0x6f6f6f70(%eax), %edx
+ 0f 4b 90 90 90 90 90 cmovnp -0x6f6f6f70(%eax), %edx
+ 0f 4c 90 90 90 90 90 cmovl  -0x6f6f6f70(%eax), %edx
+ 0f 4d 90 90 90 90 90 cmovnl -0x6f6f6f70(%eax), %edx
+ 0f 4e 90 90 90 90 90 cmovle -0x6f6f6f70(%eax), %edx
+ 0f 4f 90 90 90 90 90 cmovnle -0x6f6f6f70(%eax), %edx
+ 0f 60 90 90 90 90 90 punpcklbw -0x6f6f6f70(%eax), %mm2
+ 0f 61 90 90 90 90 90 punpcklwd -0x6f6f6f70(%eax), %mm2
+ 0f 62 90 90 90 90 90 punpckldq -0x6f6f6f70(%eax), %mm2
+ 0f 63 90 90 90 90 90 packsswb -0x6f6f6f70(%eax), %mm2
+ 0f 64 90 90 90 90 90 pcmpgtb -0x6f6f6f70(%eax), %mm2
+ 0f 65 90 90 90 90 90 pcmpgtw -0x6f6f6f70(%eax), %mm2
+ 0f 66 90 90 90 90 90 pcmpgtd -0x6f6f6f70(%eax), %mm2
+ 0f 67 90 90 90 90 90 packuswb -0x6f6f6f70(%eax), %mm2
+ 0f 68 90 90 90 90 90 punpckhbw -0x6f6f6f70(%eax), %mm2
+ 0f 69 90 90 90 90 90 punpckhwd -0x6f6f6f70(%eax), %mm2
+ 0f 6a 90 90 90 90 90 punpckhdq -0x6f6f6f70(%eax), %mm2
+ 0f 6b 90 90 90 90 90 packssdw -0x6f6f6f70(%eax), %mm2
+ 0f 6e 90 90 90 90 90 movd   -0x6f6f6f70(%eax), %mm2
+ 0f 6f 90 90 90 90 90 movq   -0x6f6f6f70(%eax), %mm2
+ 0f 71 d0 90          psrlw  $0x90, %mm0
+ 0f 72 d0 90          psrld  $0x90, %mm0
+ 0f 73 d0 90          psrlq  $0x90, %mm0
+ 0f 74 90 90 90 90 90 pcmpeqb -0x6f6f6f70(%eax), %mm2
+ 0f 75 90 90 90 90 90 pcmpeqw -0x6f6f6f70(%eax), %mm2
+ 0f 76 90 90 90 90 90 pcmpeqd -0x6f6f6f70(%eax), %mm2
+ 0f 77                emms
+ 0f 7e 90 90 90 90 90 movd   %mm2, -0x6f6f6f70(%eax)
+ 0f 7f 90 90 90 90 90 movq   %mm2, -0x6f6f6f70(%eax)
+ 0f 80 90 90 90 90    jo     $0xa09094e0
+ 0f 81 90 90 90 90    jno    $0xa09094e6
+ 0f 82 90 90 90 90    jb     $0xa09094ec
+ 0f 83 90 90 90 90    jnb    $0xa09094f2
+ 0f 84 90 90 90 90    jz     $0xa09094f8
+ 0f 85 90 90 90 90    jnz    $0xa09094fe
+ 0f 86 90 90 90 90    jbe    $0xa0909504
+ 0f 87 90 90 90 90    jnbe   $0xa090950a
+ 0f 88 90 90 90 90    js     $0xa0909510
+ 0f 89 90 90 90 90    jns    $0xa0909516
+ 0f 8a 90 90 90 90    jp     $0xa090951c
+ 0f 8b 90 90 90 90    jnp    $0xa0909522
+ 0f 8c 90 90 90 90    jl     $0xa0909528
+ 0f 8d 90 90 90 90    jnl    $0xa090952e
+ 0f 8e 90 90 90 90    jle    $0xa0909534
+ 0f 8f 90 90 90 90    jnle   $0xa090953a
+ 0f 90 80 90 90 90 90 seto   -0x6f6f6f70(%eax)
+ 0f 91 80 90 90 90 90 setno  -0x6f6f6f70(%eax)
+ 0f 92 80 90 90 90 90 setb   -0x6f6f6f70(%eax)
+ 0f 93 80 90 90 90 90 setnb  -0x6f6f6f70(%eax)
+ 0f 94 80 90 90 90 90 setz   -0x6f6f6f70(%eax)
+ 0f 95 80 90 90 90 90 setnz  -0x6f6f6f70(%eax)
+ 0f 96 80 90 90 90 90 setbe  -0x6f6f6f70(%eax)
+ 0f 97 80 90 90 90 90 setnbe -0x6f6f6f70(%eax)
+ 0f 98 80 90 90 90 90 sets   -0x6f6f6f70(%eax)
+ 0f 99 80 90 90 90 90 setns  -0x6f6f6f70(%eax)
+ 0f 9a 80 90 90 90 90 setp   -0x6f6f6f70(%eax)
+ 0f 9b 80 90 90 90 90 setnp  -0x6f6f6f70(%eax)
+ 0f 9c 80 90 90 90 90 setl   -0x6f6f6f70(%eax)
+ 0f 9d 80 90 90 90 90 setnl  -0x6f6f6f70(%eax)
+ 0f 9e 80 90 90 90 90 setle  -0x6f6f6f70(%eax)
+ 0f 9f 80 90 90 90 90 setnle -0x6f6f6f70(%eax)
+ 0f a0                push   %fs
+ 0f a1                pop    %fs
+ 0f a2                cpuid
+ 0f a3 90 90 90 90 90 bt     -0x6f6f6f70(%eax), %edx
+ 0f a4 90 90 90 90 90 shld   %edx, $0x90, -0x6f6f6f70(%eax)
+ 90
+ 0f a5 90 90 90 90 90 shld   %edx, %cl, -0x6f6f6f70(%eax)
+ 0f a8                push   %gs
+ 0f a9                pop    %gs
+ 0f aa                rsm
+ 0f ab 90 90 90 90 90 bts    %edx, -0x6f6f6f70(%eax)
+ 0f ac 90 90 90 90 90 shrd   %edx, $0x90, -0x6f6f6f70(%eax)
+ 90
+ 0f ad 90 90 90 90 90 shrd   %edx, %cl, -0x6f6f6f70(%eax)
+ 0f af 90 90 90 90 90 imul   -0x6f6f6f70(%eax), %edx
+ 0f b0 90 90 90 90 90 cmpxchg %dl, -0x6f6f6f70(%eax), %al
+ 0f b1 90 90 90 90 90 cmpxchg %edx, -0x6f6f6f70(%eax), %eax
+ 0f b2 90 90 90 90 90 lss    -0x6f6f6f70(%eax), %edx
+ 0f b3 90 90 90 90 90 btr    %edx, -0x6f6f6f70(%eax)
+ 0f b4 90 90 90 90 90 lfs    -0x6f6f6f70(%eax), %edx
+ 0f b5 90 90 90 90 90 lgs    -0x6f6f6f70(%eax), %edx
+ 0f b6 90 90 90 90 90 movzx  -0x6f6f6f70(%eax), %edx
+ 0f b7 90 90 90 90 90 movzx  -0x6f6f6f70(%eax), %edx
+ 0f 0b                ud2a
+ 0f bb 90 90 90 90 90 btc    %edx, -0x6f6f6f70(%eax)
+ 0f bc 90 90 90 90 90 bsf    -0x6f6f6f70(%eax), %edx
+ 0f bd 90 90 90 90 90 bsr    -0x6f6f6f70(%eax), %edx
+ 0f be 90 90 90 90 90 movsx  -0x6f6f6f70(%eax), %edx
+ 0f bf 90 90 90 90 90 movsx  -0x6f6f6f70(%eax), %edx
+ 0f c0 90 90 90 90 90 xaddb  -0x6f6f6f70(%eax), %dl
+ 0f c1 90 90 90 90 90 xaddl  -0x6f6f6f70(%eax), %edx
+ 0f c8                bswap  %eax
+ 0f c9                bswap  %ecx
+ 0f ca                bswap  %edx
+ 0f cb                bswap  %ebx
+ 0f cc                bswap  %esp
+ 0f cd                bswap  %ebp
+ 0f ce                bswap  %esi
+ 0f cf                bswap  %edi
+ 0f d1 90 90 90 90 90 psrlw  -0x6f6f6f70(%eax), %mm2
+ 0f d2 90 90 90 90 90 psrld  -0x6f6f6f70(%eax), %mm2
+ 0f d3 90 90 90 90 90 psrlq  -0x6f6f6f70(%eax), %mm2
+ 0f d5 90 90 90 90 90 pmullw -0x6f6f6f70(%eax), %mm2
+ 0f d8 90 90 90 90 90 psubusb -0x6f6f6f70(%eax), %mm2
+ 0f d9 90 90 90 90 90 psubusw -0x6f6f6f70(%eax), %mm2
+ 0f db 90 90 90 90 90 pand   -0x6f6f6f70(%eax), %mm2
+ 0f dc 90 90 90 90 90 paddusb -0x6f6f6f70(%eax), %mm2
+ 0f dd 90 90 90 90 90 paddusw -0x6f6f6f70(%eax), %mm2
+ 0f df 90 90 90 90 90 pandn  -0x6f6f6f70(%eax), %mm2
+ 0f e1 90 90 90 90 90 psraw  -0x6f6f6f70(%eax), %mm2
+ 0f e2 90 90 90 90 90 psrad  -0x6f6f6f70(%eax), %mm2
+ 0f e5 90 90 90 90 90 pmulhw -0x6f6f6f70(%eax), %mm2
+ 0f e8 90 90 90 90 90 psubsb -0x6f6f6f70(%eax), %mm2
+ 0f e9 90 90 90 90 90 psubsw -0x6f6f6f70(%eax), %mm2
+ 0f eb 90 90 90 90 90 por    -0x6f6f6f70(%eax), %mm2
+ 0f ec 90 90 90 90 90 paddsb -0x6f6f6f70(%eax), %mm2
+ 0f ed 90 90 90 90 90 paddsw -0x6f6f6f70(%eax), %mm2
+ 0f ef 90 90 90 90 90 pxor   -0x6f6f6f70(%eax), %mm2
+ 0f f1 90 90 90 90 90 psllw  -0x6f6f6f70(%eax), %mm2
+ 0f f2 90 90 90 90 90 pslld  -0x6f6f6f70(%eax), %mm2
+ 0f f3 90 90 90 90 90 psllq  -0x6f6f6f70(%eax), %mm2
+ 0f f5 90 90 90 90 90 pmaddwd -0x6f6f6f70(%eax), %mm2
+ 0f f8 90 90 90 90 90 psubb  -0x6f6f6f70(%eax), %mm2
+ 0f f9 90 90 90 90 90 psubw  -0x6f6f6f70(%eax), %mm2
+ 0f fa 90 90 90 90 90 psubd  -0x6f6f6f70(%eax), %mm2
+ 0f fc 90 90 90 90 90 paddb  -0x6f6f6f70(%eax), %mm2
+ 0f fd 90 90 90 90 90 paddw  -0x6f6f6f70(%eax), %mm2
+ 0f fe 90 90 90 90 90 paddd  -0x6f6f6f70(%eax), %mm2
+ 66 01 90 90 90 90 90 data16 add    %dx, -0x6f6f6f70(%eax)
+ 66 03 90 90 90 90 90 data16 add    -0x6f6f6f70(%eax), %dx
+ 66 05 90 90          data16 add    $0x9090, %ax
+ 66 06                data16 push   %es
+ 66 07                data16 pop    %es
+ 66 09 90 90 90 90 90 data16 or     %dx, -0x6f6f6f70(%eax)
+ 66 0b 90 90 90 90 90 data16 or     -0x6f6f6f70(%eax), %dx
+ 66 0d 90 90          data16 or     $0x9090, %ax
+ 66 0e                data16 push   %cs
+ 66 11 90 90 90 90 90 data16 adc    %dx, -0x6f6f6f70(%eax)
+ 66 13 90 90 90 90 90 data16 adc    -0x6f6f6f70(%eax), %dx
+ 66 15 90 90          data16 adc    $0x9090, %ax
+ 66 16                data16 push   %ss
+ 66 17                data16 pop    %ss
+ 66 19 90 90 90 90 90 data16 sbb    %dx, -0x6f6f6f70(%eax)
+ 66 1b 90 90 90 90 90 data16 sbb    -0x6f6f6f70(%eax), %dx
+ 66 1d 90 90          data16 sbb    $0x9090, %ax
+ 66 1e                data16 push   %ds
+ 66 1f                data16 pop    %ds
+ 66 21 90 90 90 90 90 data16 and    %dx, -0x6f6f6f70(%eax)
+ 66 23 90 90 90 90 90 data16 and    -0x6f6f6f70(%eax), %dx
+ 66 25 90 90          data16 and    $0x9090, %ax
+ 66 29 90 90 90 90 90 data16 sub    %dx, -0x6f6f6f70(%eax)
+ 66 2b 90 90 90 90 90 data16 sub    -0x6f6f6f70(%eax), %dx
+ 66 2d 90 90          data16 sub    $0x9090, %ax
+ 66 31 90 90 90 90 90 data16 xor    %dx, -0x6f6f6f70(%eax)
+ 66 33 90 90 90 90 90 data16 xor    -0x6f6f6f70(%eax), %dx
+ 66 35 90 90          data16 xor    $0x9090, %ax
+ 66 39 90 90 90 90 90 data16 cmp    -0x6f6f6f70(%eax), %dx
+ 66 3b 90 90 90 90 90 data16 cmp    %dx, -0x6f6f6f70(%eax)
+ 66 3d 90 90          data16 cmp    %ax, $0x9090
+ 66 40                data16 inc    %ax
+ 66 41                data16 inc    %cx
+ 66 42                data16 inc    %dx
+ 66 43                data16 inc    %bx
+ 66 44                data16 inc    %sp
+ 66 45                data16 inc    %bp
+ 66 46                data16 inc    %si
+ 66 47                data16 inc    %di
+ 66 48                data16 dec    %ax
+ 66 49                data16 dec    %cx
+ 66 4a                data16 dec    %dx
+ 66 4b                data16 dec    %bx
+ 66 4c                data16 dec    %sp
+ 66 4d                data16 dec    %bp
+ 66 4e                data16 dec    %si
+ 66 4f                data16 dec    %di
+ 66 50                data16 push   %ax
+ 66 51                data16 push   %cx
+ 66 52                data16 push   %dx
+ 66 53                data16 push   %bx
+ 66 54                data16 push   %sp
+ 66 55                data16 push   %bp
+ 66 56                data16 push   %si
+ 66 57                data16 push   %di
+ 66 58                data16 pop    %ax
+ 66 59                data16 pop    %cx
+ 66 5a                data16 pop    %dx
+ 66 5b                data16 pop    %bx
+ 66 5c                data16 pop    %sp
+ 66 5d                data16 pop    %bp
+ 66 5e                data16 pop    %si
+ 66 5f                data16 pop    %di
+ 66 60                data16 pushaw
+ 66 61                data16 popaw
+ 66 62 90 90 90 90 90 data16 bound  %dx, -0x6f6f6f70(%eax)
+ 66 68 90 90          data16 push   $0x9090
+ 66 69 90 90 90 90 90 data16 imul   -0x6f6f6f70(%eax), $0x9090, %dx
+ 90 90
+ 66 6a 90             data16 push   $0x90
+ 66 6b 90 90 90 90 90 data16 imul   -0x6f6f6f70(%eax), $0x90, %dx
+ 90
+ 66 6d                data16 insw
+ 66 6f                data16 outsw
+ 66 81 90 90 90 90 90 data16 adcw   $0x9090, -0x6f6f6f70(%eax)
+ 90 90
+ 66 83 90 90 90 90 90 data16 adcw   $0x90, -0x6f6f6f70(%eax)
+ 90
+ 66 85 90 90 90 90 90 data16 test   -0x6f6f6f70(%eax), %dx
+ 66 87 90 90 90 90 90 data16 xchgw  -0x6f6f6f70(%eax), %dx
+ 66 89 90 90 90 90 90 data16 mov    %dx, -0x6f6f6f70(%eax)
+ 66 8b 90 90 90 90 90 data16 mov    -0x6f6f6f70(%eax), %dx
+ 8c 90 90 90 90 90    mov    %ss, -0x6f6f6f70(%eax)
+ 66 8d 90 90 90 90 90 data16 lea    -0x6f6f6f70(%eax), %dx
+ 66 8f 80 90 90 90 90 data16 pop    -0x6f6f6f70(%eax)
+ 66 91                data16 xchg   %cx, %ax
+ 66 92                data16 xchg   %dx, %ax
+ 66 93                data16 xchg   %bx, %ax
+ 66 94                data16 xchg   %sp, %ax
+ 66 95                data16 xchg   %bp, %ax
+ 66 96                data16 xchg   %si, %ax
+ 66 97                data16 xchg   %di, %ax
+ 66 98                data16 cwde
+ 66 99                data16 cdq
+ 66 9a 90 90 90 90    data16 lcall  0x9090:0x00009090
+ 66 9c                data16 pushfw
+ 66 9d                data16 popfw
+ 66 a1 90 90 90 90    data16 mov    -0x6f6f6f70, %ax
+ 66 a3 90 90 90 90    data16 mov    %ax, -0x6f6f6f70
+ 66 a5                data16 movsw
+ 66 a7                data16 cmpsw
+ 66 a9 90 90          data16 test   %ax, $0x9090
+ 66 ab                data16 stosw
+ 66 ad                data16 lodsw
+ 66 af                data16 scasw
+ 66 b8 90 90          data16 mov    $0x9090, %ax
+ 66 b9 90 90          data16 mov    $0x9090, %cx
+ 66 ba 90 90          data16 mov    $0x9090, %dx
+ 66 bb 90 90          data16 mov    $0x9090, %bx
+ 66 bc 90 90          data16 mov    $0x9090, %sp
+ 66 bd 90 90          data16 mov    $0x9090, %bp
+ 66 be 90 90          data16 mov    $0x9090, %si
+ 66 bf 90 90          data16 mov    $0x9090, %di
+ 66 c1 90 90 90 90 90 data16 rclw   $0x90, -0x6f6f6f70(%eax)
+ 90
+ 66 c2 90 90          data16 ret    $0x9090
+ 66 c3                data16 ret
+ 66 c4 90 90 90 90 90 data16 les    -0x6f6f6f70(%eax), %dx
+ 66 c5 90 90 90 90 90 data16 lds    -0x6f6f6f70(%eax), %dx
+ 66 c7 80 90 90 90 90 data16 movw   $0x9090, -0x6f6f6f70(%eax)
+ 90 90
+ 66 c8 90 90 90       data16 enter  $0x9090, $0x90
+ 66 c9                data16 leave
+ 66 ca 90 90          data16 lret   $0x9090
+ 66 cb                data16 lret
+ 66 ca 90 90          data16 lret   $0x9090
+ 66 cb                data16 lret
+ 66 cf                data16 iretw
+ 66 d1 90 90 90 90 90 data16 rclw   $0x01, -0x6f6f6f70(%eax)
+ 66 d3 90 90 90 90 90 data16 rcl    %cl, -0x6f6f6f70(%eax)
+ 66 e5 90             data16 in     $0x90, %ax
+ 66 e7 90             data16 out    $0x90, %ax
+ 66 e8 8f 90          data16 call   $0x0000991c
+ 66 ea 90 90 90 90    data16 ljmp   0x9090:0x00009090
+ 66 ed                data16 in     %dx, %ax
+ 66 ef                data16 out    %ax, %dx
+ 66 f7 90 90 90 90 90 data16 notw   -0x6f6f6f70(%eax)
+ 66 ff 90 90 90 90 90 data16 call   -0x6f6f6f70(%eax)
+ 66 0f 02 90 90 90 90 data16 lar    -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 03 90 90 90 90 data16 lsl    -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 40 90 90 90 90 data16 cmovo  -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 41 90 90 90 90 data16 cmovno -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 42 90 90 90 90 data16 cmovb  -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 43 90 90 90 90 data16 cmovnb -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 44 90 90 90 90 data16 cmovz  -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 45 90 90 90 90 data16 cmovnz -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 46 90 90 90 90 data16 cmovbe -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 47 90 90 90 90 data16 cmovnbe -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 48 90 90 90 90 data16 cmovs  -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 49 90 90 90 90 data16 cmovns -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 4a 90 90 90 90 data16 cmovp  -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 4b 90 90 90 90 data16 cmovnp -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 4c 90 90 90 90 data16 cmovl  -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 4d 90 90 90 90 data16 cmovnl -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 4e 90 90 90 90 data16 cmovle -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 4f 90 90 90 90 data16 cmovnle -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f a0             data16 push   %fs
+ 66 0f a1             data16 pop    %fs
+ 66 0f a3 90 90 90 90 data16 bt     -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f a4 90 90 90 90 data16 shld   %dx, $0x90, -0x6f6f6f70(%eax)
+ 90 90
+ 66 0f a5 90 90 90 90 data16 shld   %dx, %cl, -0x6f6f6f70(%eax)
+ 90
+ 66 0f a8             data16 push   %gs
+ 66 0f a9             data16 pop    %gs
+ 66 0f ab 90 90 90 90 data16 bts    %dx, -0x6f6f6f70(%eax)
+ 90
+ 66 0f ac 90 90 90 90 data16 shrd   %dx, $0x90, -0x6f6f6f70(%eax)
+ 90 90
+ 66 0f ad 90 90 90 90 data16 shrd   %dx, %cl, -0x6f6f6f70(%eax)
+ 90
+ 66 0f af 90 90 90 90 data16 imul   -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f b1 90 90 90 90 data16 cmpxchg %dx, -0x6f6f6f70(%eax), %ax
+ 90
+ 66 0f b2 90 90 90 90 data16 lss    -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f b3 90 90 90 90 data16 btr    %dx, -0x6f6f6f70(%eax)
+ 90
+ 66 0f b4 90 90 90 90 data16 lfs    -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f b5 90 90 90 90 data16 lgs    -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f b6 90 90 90 90 data16 movzx  -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f bb 90 90 90 90 data16 btc    %dx, -0x6f6f6f70(%eax)
+ 90
+ 66 0f bc 90 90 90 90 data16 bsf    -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f bd 90 90 90 90 data16 bsr    -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f be 90 90 90 90 data16 movsx  -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f c1 90 90 90 90 data16 xaddw  -0x6f6f6f70(%eax), %dx
+ 90
+ c3                   ret
+ c3                   ret
+ e8 f9 ff ff ff       call   $0x100009d3
+ e8 f5 ff ff ff       call   $0x100009d4
+ dd 1c d0             fstp   (%eax,%edx,8)
+ b9 00 00 00 00       mov    $0x00000000, %ecx
+ 88 04 16             mov    %al, (%esi,%edx)
+ 88 04 32             mov    %al, (%edx,%esi)
+ 88 04 56             mov    %al, (%esi,%edx,2)
+ 88 04 56             mov    %al, (%esi,%edx,2)
+ eb 0c                jmp    $0x10000a01
+ 6c                   insb
+ 66 0f c1 90 90 90 90 data16 xaddw  -0x6f6f6f70(%eax), %dx
+ 90
+ 83 e0 f8             and    $0xf8, %eax
+ 8b 44 ce 04          mov    0x04(%esi,%ecx,8), %eax
+ 6c                   insb
+ 0c 90                or     $0x90, %al
+ 0d 90 90 90 90       or     $0x90909090, %eax
+ 0e                   push   %cs
+ 8b 04 5d 00 00 00 00 mov    0x00(,%ebx,2), %eax
+ 10 14 85 90 90 90 90 adc    %dl, -0x6f6f6f70(,%eax,4)
+ 2f                   das
+ ea 90 90 90 90 90 90 ljmp   0x9090:0x90909090
+ 66 a5                data16 movsw
+ 70 90                jo     $0x100009b8
+ 75 fe                jnz    $0x10000a28
+ 0f 6f 35 28 00 00 00 movq   0x28, %mm6
+ 03 3c c3             add    (%ebx,%eax,8), %edi
+ 0f 6e 44 c3 04       movd   0x04(%ebx,%eax,8), %mm0
+ 03 bc cb 00 80 00 00 add    0x00008000(%ebx,%ecx,8), %edi
+ 0f 6e 8c cb 04 80 00 movd   0x00008004(%ebx,%ecx,8), %mm1
+ 00
+ 0f 6e 94 c3 04 00 01 movd   0x00010004(%ebx,%eax,8), %mm2
+ 00
+ 03 bc c3 00 00 01 00 add    0x00010000(%ebx,%eax,8), %edi
+ 66 8b 04 43          data16 mov    (%ebx,%eax,2), %ax
+ 66 8b 8c 4b 00 20 00 data16 mov    0x00002000(%ebx,%ecx,2), %cx
+ 00
+ 66 8b 84 43 00 40 00 data16 mov    0x00004000(%ebx,%eax,2), %ax
+ 00
+ ff e0                jmp    %eax
+ ff 20                jmp    (%eax)
+ ff 25 db 09 00 00    jmp    0x000009db
+ e9 5b ff ff ff       jmp    $0x100009d5
+ b8 12 00 00 00       mov    $0x00000012, %eax
+ 25 ff ff fb ff       and    $0xfffbffff, %eax
+ 25 ff ff fb ff       and    $0xfffbffff, %eax
+ b0 11                mov    $0x11, %al
+ b0 11                mov    $0x11, %al
+ b3 47                mov    $0x47, %bl
+ b3 47                mov    $0x47, %bl
+ 0f ad d0             shrd   %edx, %cl, %eax
+ 0f a5 d0             shld   %edx, %cl, %eax
+ de c1                faddp  %st0, %st1, %st1
+ d8 c3                fadd   %st3, %st0, %st0
+ d8 c3                fadd   %st3, %st0, %st0
+ dc c3                fadd   %st0, %st3, %st3
+ d8 03                fadd   (%ebx)
+ dc 03                fadd   (%ebx)
+ de c1                faddp  %st0, %st1, %st1
+ de c3                faddp  %st0, %st3, %st3
+ de c3                faddp  %st0, %st3, %st3
+ de f9                fdivp  %st0, %st1, %st1
+ d8 f3                fdiv   %st3, %st0, %st0
+ d8 f3                fdiv   %st3, %st0, %st0
+ dc fb                fdiv   %st0, %st3, %st3
+ d8 33                fdiv   (%ebx)
+ dc 33                fdiv   (%ebx)
+ de f9                fdivp  %st0, %st1, %st1
+ de fb                fdivp  %st0, %st3, %st3
+ de fb                fdivp  %st0, %st3, %st3
+ d8 f3                fdiv   %st3, %st0, %st0
+ de f1                fdivrp %st0, %st1, %st1
+ d8 fb                fdivr  %st3, %st0, %st0
+ d8 fb                fdivr  %st3, %st0, %st0
+ dc f3                fdivr  %st0, %st3, %st3
+ d8 3b                fdivr  (%ebx)
+ dc 3b                fdivr  (%ebx)
+ de f1                fdivrp %st0, %st1, %st1
+ de f3                fdivrp %st0, %st3, %st3
+ de f3                fdivrp %st0, %st3, %st3
+ d8 fb                fdivr  %st3, %st0, %st0
+ de c9                fmulp  %st0, %st1, %st1
+ d8 cb                fmul   %st3, %st0, %st0
+ d8 cb                fmul   %st3, %st0, %st0
+ dc cb                fmul   %st0, %st3, %st3
+ d8 0b                fmul   (%ebx)
+ dc 0b                fmul   (%ebx)
+ de c9                fmulp  %st0, %st1, %st1
+ de cb                fmulp  %st0, %st3, %st3
+ de cb                fmulp  %st0, %st3, %st3
+ de e9                fsubp  %st0, %st1, %st1
+ de e1                fsubrp %st0, %st1, %st1
+ d8 e3                fsub   %st3, %st0, %st0
+ d8 e3                fsub   %st3, %st0, %st0
+ dc eb                fsub   %st0, %st3, %st3
+ d8 23                fsub   (%ebx)
+ dc 23                fsub   (%ebx)
+ de e9                fsubp  %st0, %st1, %st1
+ de eb                fsubp  %st0, %st3, %st3
+ d8 e3                fsub   %st3, %st0, %st0
+ de eb                fsubp  %st0, %st3, %st3
+ d8 eb                fsubr  %st3, %st0, %st0
+ d8 eb                fsubr  %st3, %st0, %st0
+ dc e3                fsubr  %st0, %st3, %st3
+ d8 2b                fsubr  (%ebx)
+ dc 2b                fsubr  (%ebx)
+ de e1                fsubrp %st0, %st1, %st1
+ de e3                fsubrp %st0, %st3, %st3
+ de e3                fsubrp %st0, %st3, %st3
+ d8 eb                fsubr  %st3, %st0, %st0
+ de 3b                fidivr (%ebx)
+ da 3b                fidivr (%ebx)
+ 0f 4a 90 90 90 90 90 cmovp  -0x6f6f6f70(%eax), %edx
+ 0f 4b 90 90 90 90 90 cmovnp -0x6f6f6f70(%eax), %edx
+ 66 0f 4a 90 90 90 90 data16 cmovp  -0x6f6f6f70(%eax), %dx
+ 90
+ 66 0f 4b 90 90 90 90 data16 cmovnp -0x6f6f6f70(%eax), %dx
+ 90
+ 8b 04 04             mov    (%esp,%eax), %eax
+ 8b 04 20             mov    (%eax), %eax
+ c4 e2 69 92 04 08    vgatherdps (%eax,%xmm1), %xmm2, %xmm0
+ 24 2f                and    $0x2f, %al
+ 0f 0f ba e2 03 90 90 pfcmpge -0x6f6ffc1e(%edx), %mm7
+ 90
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

@@ -1,0 +1,24 @@
+test_x86_64_vpclmulqdq_s:
+ 24 01                and    $0x01, %al
+ 00 00                add    %al, (%rax)
+ 7b 62                jnp    $0x0000000010000068
+ 63 15 20 44 72 7f    movsxd <rel> 0x000000008f72442c, %edx
+ 7b 34                jnp    $0x0000000010000042
+ 12 00                adc    (%rax), %al
+ 00 7b 90             add    %bh, -0x70(%rbx)
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

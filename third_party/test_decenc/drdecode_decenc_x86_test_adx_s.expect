@@ -1,0 +1,46 @@
+test_adx_s:
+ 66 0f 38 f6 81 90 01 adcx   0x00000190(%ecx), %eax
+ 00 00
+ 66 0f 38 f6 ca       adcx   %edx, %ecx
+ 66 0f 38 f6 94 f4 0f adcx   -0x0009fbf1(%esp,%esi,8), %edx
+ 04 f6 ff
+ 66 0f 38 f6 00       adcx   (%eax), %eax
+ 66 0f 38 f6 ca       adcx   %edx, %ecx
+ 66 0f 38 f6 00       adcx   (%eax), %eax
+ f3 0f 38 f6 81 90 01 adox   0x00000190(%ecx), %eax
+ 00 00
+ f3 0f 38 f6 ca       adox   %edx, %ecx
+ f3 0f 38 f6 94 f4 0f adox   -0x0009fbf1(%esp,%esi,8), %edx
+ 04 f6 ff
+ f3 0f 38 f6 00       adox   (%eax), %eax
+ f3 0f 38 f6 ca       adox   %edx, %ecx
+ f3 0f 38 f6 00       adox   (%eax), %eax
+ 66 0f 38 f6 82 8f 01 adcx   0x0000018f(%edx), %eax
+ 00 00
+ 66 0f 38 f6 d1       adcx   %ecx, %edx
+ 66 0f 38 f6 94 f4 c0 adcx   -0x0001e240(%esp,%esi,8), %edx
+ 1d fe ff
+ 66 0f 38 f6 00       adcx   (%eax), %eax
+ f3 0f 38 f6 82 8f 01 adox   0x0000018f(%edx), %eax
+ 00 00
+ f3 0f 38 f6 d1       adox   %ecx, %edx
+ f3 0f 38 f6 94 f4 c0 adox   -0x0001e240(%esp,%esi,8), %edx
+ 1d fe ff
+ f3 0f 38 f6 00       adox   (%eax), %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

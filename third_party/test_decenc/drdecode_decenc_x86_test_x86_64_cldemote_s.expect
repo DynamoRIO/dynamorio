@@ -1,0 +1,24 @@
+test_x86_64_cldemote_s:
+ 0f 1c 01             nop    (%rcx)
+ 42 0f 1c 84 f0 23 01 nop    0x00000123(%rax,%r14,8)
+ 00 00
+ 0f 1c 01             nop    (%rcx)
+ 42 0f 1c 84 f0 34 12 nop    0x00001234(%rax,%r14,8)
+ 00 00
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

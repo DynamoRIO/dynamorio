@@ -1,0 +1,55 @@
+test_reloc32_s:
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 66 b8 00 00          data16 mov    $0x0000, %ax
+ b0 00                mov    $0x00, %al
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ 67 8b 87 00 00       addr16 mov    0x0000(%bx), %eax
+ b8 01 00 00 00       mov    $0x00000001, %eax
+ 66 b8 02 00          data16 mov    $0x0002, %ax
+ b0 01                mov    $0x01, %al
+ 8b 83 02 00 00 00    mov    0x00000002(%ebx), %eax
+ 67 8b 87 03 00       addr16 mov    0x0003(%bx), %eax
+ e8 fc ff ff ff       call   $0x1000002d
+ e3 ff                jecxz  $0x10000032
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ 05 01 00 00 00       add    $0x00000001, %eax
+ 05 01 00 00 00       add    $0x00000001, %eax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ e8 fc ff ff ff       call   $0x1000005f
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

@@ -1,0 +1,38 @@
+test_intel16_s:
+ 66 0f bf 06          data16 movsx  (%esi), %ax
+ 00 00                add    %al, (%eax)
+ 66 0f be 06          data16 movsx  (%esi), %ax
+ 00 00                add    %al, (%eax)
+ 0f be 06             movsx  (%esi), %eax
+ 00 00                add    %al, (%eax)
+ 66 0f b7 06          data16 movzx  (%esi), %ax
+ 00 00                add    %al, (%eax)
+ 66 0f b6 06          data16 movzx  (%esi), %ax
+ 00 00                add    %al, (%eax)
+ 0f b6 06             movzx  (%esi), %eax
+ 00 00                add    %al, (%eax)
+ 8d 00                lea    (%eax), %eax
+ 8d 02                lea    (%edx), %eax
+ 8d 01                lea    (%ecx), %eax
+ 8d 03                lea    (%ebx), %eax
+ 8d 00                lea    (%eax), %eax
+ 8d 02                lea    (%edx), %eax
+ 8d 01                lea    (%ecx), %eax
+ 8d 03                lea    (%ebx), %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

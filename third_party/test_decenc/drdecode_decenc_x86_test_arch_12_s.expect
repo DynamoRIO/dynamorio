@@ -1,0 +1,20 @@
+test_arch_12_s:
+ 0f 0f c1 bb          pswapd %mm1, %mm0
+ 0f da c1             pminub %mm1, %mm0
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

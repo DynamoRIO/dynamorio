@@ -1,0 +1,38 @@
+test_clmul_s:
+ 66 0f 3a 44 01 08    pclmulqdq (%ecx), $0x08, %xmm0
+ 66 0f 3a 44 c1 08    pclmulqdq %xmm1, $0x08, %xmm0
+ 66 0f 3a 44 01 00    pclmulqdq (%ecx), $0x00, %xmm0
+ 66 0f 3a 44 c1 00    pclmulqdq %xmm1, $0x00, %xmm0
+ 66 0f 3a 44 01 01    pclmulqdq (%ecx), $0x01, %xmm0
+ 66 0f 3a 44 c1 01    pclmulqdq %xmm1, $0x01, %xmm0
+ 66 0f 3a 44 01 10    pclmulqdq (%ecx), $0x10, %xmm0
+ 66 0f 3a 44 c1 10    pclmulqdq %xmm1, $0x10, %xmm0
+ 66 0f 3a 44 01 11    pclmulqdq (%ecx), $0x11, %xmm0
+ 66 0f 3a 44 c1 11    pclmulqdq %xmm1, $0x11, %xmm0
+ 66 0f 3a 44 01 08    pclmulqdq (%ecx), $0x08, %xmm0
+ 66 0f 3a 44 c1 08    pclmulqdq %xmm1, $0x08, %xmm0
+ 66 0f 3a 44 01 00    pclmulqdq (%ecx), $0x00, %xmm0
+ 66 0f 3a 44 c1 00    pclmulqdq %xmm1, $0x00, %xmm0
+ 66 0f 3a 44 01 01    pclmulqdq (%ecx), $0x01, %xmm0
+ 66 0f 3a 44 c1 01    pclmulqdq %xmm1, $0x01, %xmm0
+ 66 0f 3a 44 01 10    pclmulqdq (%ecx), $0x10, %xmm0
+ 66 0f 3a 44 c1 10    pclmulqdq %xmm1, $0x10, %xmm0
+ 66 0f 3a 44 01 11    pclmulqdq (%ecx), $0x11, %xmm0
+ 66 0f 3a 44 c1 11    pclmulqdq %xmm1, $0x11, %xmm0
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

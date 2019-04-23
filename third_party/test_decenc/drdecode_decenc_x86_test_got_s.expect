@@ -1,0 +1,38 @@
+test_got_s:
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 8b 05 00 00 00 00    mov    0x00, %eax
+ 8b 80 00 00 00 00    mov    0x00000000(%eax), %eax
+ 05 00 00 00 00       add    $0x00000000, %eax
+ 03 05 00 00 00 00    add    0x00, %eax
+ 03 80 00 00 00 00    add    0x00000000(%eax), %eax
+ ff 15 00 00 00 00    call   0x00
+ ff 90 00 00 00 00    call   0x00000000(%eax)
+ ff 25 00 00 00 00    jmp    0x00
+ ff a0 00 00 00 00    jmp    0x00000000(%eax)
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 8b 05 00 00 00 00    mov    0x00, %eax
+ 8b 80 00 00 00 00    mov    0x00000000(%eax), %eax
+ 05 00 00 00 00       add    $0x00000000, %eax
+ 03 05 00 00 00 00    add    0x00, %eax
+ 03 80 00 00 00 00    add    0x00000000(%eax), %eax
+ ff 90 00 00 00 00    call   0x00000000(%eax)
+ ff 15 00 00 00 00    call   0x00
+ ff a0 00 00 00 00    jmp    0x00000000(%eax)
+ ff 25 00 00 00 00    jmp    0x00
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

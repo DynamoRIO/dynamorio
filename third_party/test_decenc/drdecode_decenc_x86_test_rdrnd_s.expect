@@ -1,0 +1,22 @@
+test_rdrnd_s:
+ 66 0f c7 f3          data16 rdrand %bx
+ 0f c7 f3             rdrand %ebx
+ 66 0f c7 f3          data16 rdrand %bx
+ 0f c7 f3             rdrand %ebx
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

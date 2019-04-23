@@ -1,0 +1,28 @@
+test_vpclmulqdq_s:
+ c4 e3 55 44 f4 ab    vpclmulqdq %xmm5, %xmm4, $0xab, %xmm6
+ c4 e3 55 44 b4 f4 c0 vpclmulqdq %xmm5, -0x0001e240(%esp,%esi,8), $0x7b, %xmm6
+ 1d fe ff 7b
+ c4 e3 55 44 b2 e0 0f vpclmulqdq %xmm5, 0x00000fe0(%edx), $0x7b, %xmm6
+ 00 00 7b
+ c4 e3 55 44 f4 ab    vpclmulqdq %xmm5, %xmm4, $0xab, %xmm6
+ c4 e3 55 44 b4 f4 c0 vpclmulqdq %xmm5, -0x0001e240(%esp,%esi,8), $0x7b, %xmm6
+ 1d fe ff 7b
+ c4 e3 55 44 b2 e0 0f vpclmulqdq %xmm5, 0x00000fe0(%edx), $0x7b, %xmm6
+ 00 00 7b
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

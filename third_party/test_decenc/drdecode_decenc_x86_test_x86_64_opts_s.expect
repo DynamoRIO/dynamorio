@@ -1,0 +1,334 @@
+test_x86_64_opts_s:
+ 00 d1                add    %dl, %cl
+ 02 ca                add    %dl, %cl
+ 66 01 d1             data16 add    %dx, %cx
+ 66 03 ca             data16 add    %dx, %cx
+ 01 d1                add    %edx, %ecx
+ 03 ca                add    %edx, %ecx
+ 00 d1                add    %dl, %cl
+ 02 ca                add    %dl, %cl
+ 66 01 d1             data16 add    %dx, %cx
+ 66 03 ca             data16 add    %dx, %cx
+ 01 d1                add    %edx, %ecx
+ 03 ca                add    %edx, %ecx
+ 48 01 d1             add    %rdx, %rcx
+ 48 03 ca             add    %rdx, %rcx
+ 48 01 d1             add    %rdx, %rcx
+ 48 03 ca             add    %rdx, %rcx
+ 10 d1                adc    %dl, %cl
+ 12 ca                adc    %dl, %cl
+ 66 11 d1             data16 adc    %dx, %cx
+ 66 13 ca             data16 adc    %dx, %cx
+ 11 d1                adc    %edx, %ecx
+ 13 ca                adc    %edx, %ecx
+ 10 d1                adc    %dl, %cl
+ 12 ca                adc    %dl, %cl
+ 66 11 d1             data16 adc    %dx, %cx
+ 66 13 ca             data16 adc    %dx, %cx
+ 11 d1                adc    %edx, %ecx
+ 13 ca                adc    %edx, %ecx
+ 48 11 d1             adc    %rdx, %rcx
+ 48 13 ca             adc    %rdx, %rcx
+ 48 11 d1             adc    %rdx, %rcx
+ 48 13 ca             adc    %rdx, %rcx
+ 20 d1                and    %dl, %cl
+ 22 ca                and    %dl, %cl
+ 66 21 d1             data16 and    %dx, %cx
+ 66 23 ca             data16 and    %dx, %cx
+ 21 d1                and    %edx, %ecx
+ 23 ca                and    %edx, %ecx
+ 20 d1                and    %dl, %cl
+ 22 ca                and    %dl, %cl
+ 66 21 d1             data16 and    %dx, %cx
+ 66 23 ca             data16 and    %dx, %cx
+ 21 d1                and    %edx, %ecx
+ 23 ca                and    %edx, %ecx
+ 48 21 d1             and    %rdx, %rcx
+ 48 23 ca             and    %rdx, %rcx
+ 48 21 d1             and    %rdx, %rcx
+ 48 23 ca             and    %rdx, %rcx
+ 38 d1                cmp    %cl, %dl
+ 3a ca                cmp    %cl, %dl
+ 66 39 d1             data16 cmp    %cx, %dx
+ 66 3b ca             data16 cmp    %cx, %dx
+ 39 d1                cmp    %ecx, %edx
+ 3b ca                cmp    %ecx, %edx
+ 38 d1                cmp    %cl, %dl
+ 3a ca                cmp    %cl, %dl
+ 66 39 d1             data16 cmp    %cx, %dx
+ 66 3b ca             data16 cmp    %cx, %dx
+ 39 d1                cmp    %ecx, %edx
+ 3b ca                cmp    %ecx, %edx
+ 48 39 d1             cmp    %rcx, %rdx
+ 48 3b ca             cmp    %rcx, %rdx
+ 48 39 d1             cmp    %rcx, %rdx
+ 48 3b ca             cmp    %rcx, %rdx
+ 88 d1                mov    %dl, %cl
+ 8a ca                mov    %dl, %cl
+ 66 89 d1             data16 mov    %dx, %cx
+ 66 8b ca             data16 mov    %dx, %cx
+ 89 d1                mov    %edx, %ecx
+ 8b ca                mov    %edx, %ecx
+ 88 d1                mov    %dl, %cl
+ 8a ca                mov    %dl, %cl
+ 66 89 d1             data16 mov    %dx, %cx
+ 66 8b ca             data16 mov    %dx, %cx
+ 89 d1                mov    %edx, %ecx
+ 8b ca                mov    %edx, %ecx
+ 48 89 d1             mov    %rdx, %rcx
+ 48 8b ca             mov    %rdx, %rcx
+ 48 89 d1             mov    %rdx, %rcx
+ 48 8b ca             mov    %rdx, %rcx
+ 08 d1                or     %dl, %cl
+ 0a ca                or     %dl, %cl
+ 66 09 d1             data16 or     %dx, %cx
+ 66 0b ca             data16 or     %dx, %cx
+ 09 d1                or     %edx, %ecx
+ 0b ca                or     %edx, %ecx
+ 08 d1                or     %dl, %cl
+ 0a ca                or     %dl, %cl
+ 66 09 d1             data16 or     %dx, %cx
+ 66 0b ca             data16 or     %dx, %cx
+ 09 d1                or     %edx, %ecx
+ 0b ca                or     %edx, %ecx
+ 48 09 d1             or     %rdx, %rcx
+ 48 0b ca             or     %rdx, %rcx
+ 48 09 d1             or     %rdx, %rcx
+ 48 0b ca             or     %rdx, %rcx
+ 18 d1                sbb    %dl, %cl
+ 1a ca                sbb    %dl, %cl
+ 66 19 d1             data16 sbb    %dx, %cx
+ 66 1b ca             data16 sbb    %dx, %cx
+ 19 d1                sbb    %edx, %ecx
+ 1b ca                sbb    %edx, %ecx
+ 18 d1                sbb    %dl, %cl
+ 1a ca                sbb    %dl, %cl
+ 66 19 d1             data16 sbb    %dx, %cx
+ 66 1b ca             data16 sbb    %dx, %cx
+ 19 d1                sbb    %edx, %ecx
+ 1b ca                sbb    %edx, %ecx
+ 48 19 d1             sbb    %rdx, %rcx
+ 48 1b ca             sbb    %rdx, %rcx
+ 48 19 d1             sbb    %rdx, %rcx
+ 48 1b ca             sbb    %rdx, %rcx
+ 28 d1                sub    %dl, %cl
+ 2a ca                sub    %dl, %cl
+ 66 29 d1             data16 sub    %dx, %cx
+ 66 2b ca             data16 sub    %dx, %cx
+ 29 d1                sub    %edx, %ecx
+ 2b ca                sub    %edx, %ecx
+ 28 d1                sub    %dl, %cl
+ 2a ca                sub    %dl, %cl
+ 66 29 d1             data16 sub    %dx, %cx
+ 66 2b ca             data16 sub    %dx, %cx
+ 29 d1                sub    %edx, %ecx
+ 2b ca                sub    %edx, %ecx
+ 48 29 d1             sub    %rdx, %rcx
+ 48 2b ca             sub    %rdx, %rcx
+ 48 29 d1             sub    %rdx, %rcx
+ 48 2b ca             sub    %rdx, %rcx
+ 30 d1                xor    %dl, %cl
+ 32 ca                xor    %dl, %cl
+ 66 31 d1             data16 xor    %dx, %cx
+ 66 33 ca             data16 xor    %dx, %cx
+ 31 d1                xor    %edx, %ecx
+ 33 ca                xor    %edx, %ecx
+ 30 d1                xor    %dl, %cl
+ 32 ca                xor    %dl, %cl
+ 66 31 d1             data16 xor    %dx, %cx
+ 66 33 ca             data16 xor    %dx, %cx
+ 31 d1                xor    %edx, %ecx
+ 33 ca                xor    %edx, %ecx
+ 48 31 d1             xor    %rdx, %rcx
+ 48 33 ca             xor    %rdx, %rcx
+ 48 31 d1             xor    %rdx, %rcx
+ 48 33 ca             xor    %rdx, %rcx
+ c5 fd 28 f4          vmovapd %ymm4, %ymm6
+ c5 fd 29 e6          vmovapd %ymm4, %ymm6
+ c5 fc 28 f4          vmovaps %ymm4, %ymm6
+ c5 fc 29 e6          vmovaps %ymm4, %ymm6
+ c5 fd 6f f4          vmovdqa %ymm4, %ymm6
+ c5 fd 7f e6          vmovdqa %ymm4, %ymm6
+ c5 fe 6f f4          vmovdqu %ymm4, %ymm6
+ c5 fe 7f e6          vmovdqu %ymm4, %ymm6
+ c5 fd 10 f4          vmovupd %ymm4, %ymm6
+ c5 fd 11 e6          vmovupd %ymm4, %ymm6
+ c5 fc 10 f4          vmovups %ymm4, %ymm6
+ c5 fc 11 e6          vmovups %ymm4, %ymm6
+ 66 0f 28 f4          movapd %xmm4, %xmm6
+ 66 0f 29 e6          movapd %xmm4, %xmm6
+ 0f 28 f4             movaps %xmm4, %xmm6
+ 0f 29 e6             movaps %xmm4, %xmm6
+ 66 0f 6f f4          movdqa %xmm4, %xmm6
+ 66 0f 7f e6          movdqa %xmm4, %xmm6
+ f3 0f 6f f4          movdqu %xmm4, %xmm6
+ f3 0f 7f e6          movdqu %xmm4, %xmm6
+ f3 0f 7e f4          movq   %xmm4, %xmm6
+ 66 0f d6 e6          movq   %xmm4, %xmm6
+ f2 0f 10 f4          movsd  %xmm4, %xmm6
+ f2 0f 11 e6          movsd  %xmm4, %xmm6
+ f3 0f 10 f4          movss  %xmm4, %xmm6
+ f3 0f 11 e6          movss  %xmm4, %xmm6
+ 66 0f 10 f4          movupd %xmm4, %xmm6
+ 66 0f 11 e6          movupd %xmm4, %xmm6
+ 0f 10 f4             movups %xmm4, %xmm6
+ 0f 11 e6             movups %xmm4, %xmm6
+ c5 f9 28 f4          vmovapd %xmm4, %xmm6
+ c5 f9 29 e6          vmovapd %xmm4, %xmm6
+ c5 f8 28 f4          vmovaps %xmm4, %xmm6
+ c5 f8 29 e6          vmovaps %xmm4, %xmm6
+ c5 f9 6f f4          vmovdqa %xmm4, %xmm6
+ c5 f9 7f e6          vmovdqa %xmm4, %xmm6
+ c5 fa 6f f4          vmovdqu %xmm4, %xmm6
+ c5 fa 7f e6          vmovdqu %xmm4, %xmm6
+ c5 fa 7e f4          vmovq  %xmm4, %xmm6
+ c5 f9 d6 e6          vmovq  %xmm4, %xmm6
+ c5 f9 10 f4          vmovupd %xmm4, %xmm6
+ c5 f9 11 e6          vmovupd %xmm4, %xmm6
+ c5 f8 10 f4          vmovups %xmm4, %xmm6
+ c5 f8 11 e6          vmovups %xmm4, %xmm6
+ c5 cb 10 d4          vmovsd %xmm6, %xmm4, %xmm2
+ c5 cb 11 e2          vmovsd %xmm6, %xmm4, %xmm2
+ c5 ca 10 d4          vmovss %xmm6, %xmm4, %xmm2
+ c5 ca 11 e2          vmovss %xmm6, %xmm4, %xmm2
+ 0f 6f e0             movq   %mm0, %mm4
+ 0f 7f c4             movq   %mm0, %mm4
+ 00 d1                add    %dl, %cl
+ 02 ca                add    %dl, %cl
+ 66 01 d1             data16 add    %dx, %cx
+ 66 03 ca             data16 add    %dx, %cx
+ 01 d1                add    %edx, %ecx
+ 03 ca                add    %edx, %ecx
+ 48 01 d1             add    %rdx, %rcx
+ 48 03 ca             add    %rdx, %rcx
+ 10 d1                adc    %dl, %cl
+ 12 ca                adc    %dl, %cl
+ 66 11 d1             data16 adc    %dx, %cx
+ 66 13 ca             data16 adc    %dx, %cx
+ 11 d1                adc    %edx, %ecx
+ 13 ca                adc    %edx, %ecx
+ 48 11 d1             adc    %rdx, %rcx
+ 48 13 ca             adc    %rdx, %rcx
+ 20 d1                and    %dl, %cl
+ 22 ca                and    %dl, %cl
+ 66 21 d1             data16 and    %dx, %cx
+ 66 23 ca             data16 and    %dx, %cx
+ 21 d1                and    %edx, %ecx
+ 23 ca                and    %edx, %ecx
+ 48 21 d1             and    %rdx, %rcx
+ 48 23 ca             and    %rdx, %rcx
+ 38 d1                cmp    %cl, %dl
+ 3a ca                cmp    %cl, %dl
+ 66 39 d1             data16 cmp    %cx, %dx
+ 66 3b ca             data16 cmp    %cx, %dx
+ 39 d1                cmp    %ecx, %edx
+ 3b ca                cmp    %ecx, %edx
+ 48 39 d1             cmp    %rcx, %rdx
+ 48 3b ca             cmp    %rcx, %rdx
+ 88 d1                mov    %dl, %cl
+ 8a ca                mov    %dl, %cl
+ 66 89 d1             data16 mov    %dx, %cx
+ 66 8b ca             data16 mov    %dx, %cx
+ 89 d1                mov    %edx, %ecx
+ 8b ca                mov    %edx, %ecx
+ 48 89 d1             mov    %rdx, %rcx
+ 48 8b ca             mov    %rdx, %rcx
+ 08 d1                or     %dl, %cl
+ 0a ca                or     %dl, %cl
+ 66 09 d1             data16 or     %dx, %cx
+ 66 0b ca             data16 or     %dx, %cx
+ 09 d1                or     %edx, %ecx
+ 0b ca                or     %edx, %ecx
+ 48 09 d1             or     %rdx, %rcx
+ 48 0b ca             or     %rdx, %rcx
+ 18 d1                sbb    %dl, %cl
+ 1a ca                sbb    %dl, %cl
+ 66 19 d1             data16 sbb    %dx, %cx
+ 66 1b ca             data16 sbb    %dx, %cx
+ 19 d1                sbb    %edx, %ecx
+ 1b ca                sbb    %edx, %ecx
+ 48 19 d1             sbb    %rdx, %rcx
+ 48 1b ca             sbb    %rdx, %rcx
+ 28 d1                sub    %dl, %cl
+ 2a ca                sub    %dl, %cl
+ 66 29 d1             data16 sub    %dx, %cx
+ 66 2b ca             data16 sub    %dx, %cx
+ 29 d1                sub    %edx, %ecx
+ 2b ca                sub    %edx, %ecx
+ 48 29 d1             sub    %rdx, %rcx
+ 48 2b ca             sub    %rdx, %rcx
+ 30 d1                xor    %dl, %cl
+ 32 ca                xor    %dl, %cl
+ 66 31 d1             data16 xor    %dx, %cx
+ 66 33 ca             data16 xor    %dx, %cx
+ 31 d1                xor    %edx, %ecx
+ 33 ca                xor    %edx, %ecx
+ 48 31 d1             xor    %rdx, %rcx
+ 48 33 ca             xor    %rdx, %rcx
+ c5 fd 28 f4          vmovapd %ymm4, %ymm6
+ c5 fd 29 e6          vmovapd %ymm4, %ymm6
+ c5 fc 28 f4          vmovaps %ymm4, %ymm6
+ c5 fc 29 e6          vmovaps %ymm4, %ymm6
+ c5 fd 6f f4          vmovdqa %ymm4, %ymm6
+ c5 fd 7f e6          vmovdqa %ymm4, %ymm6
+ c5 fe 6f f4          vmovdqu %ymm4, %ymm6
+ c5 fe 7f e6          vmovdqu %ymm4, %ymm6
+ c5 fd 10 f4          vmovupd %ymm4, %ymm6
+ c5 fd 11 e6          vmovupd %ymm4, %ymm6
+ c5 fc 10 f4          vmovups %ymm4, %ymm6
+ c5 fc 11 e6          vmovups %ymm4, %ymm6
+ 66 0f 28 f4          movapd %xmm4, %xmm6
+ 66 0f 29 e6          movapd %xmm4, %xmm6
+ 0f 28 f4             movaps %xmm4, %xmm6
+ 0f 29 e6             movaps %xmm4, %xmm6
+ 66 0f 6f f4          movdqa %xmm4, %xmm6
+ 66 0f 7f e6          movdqa %xmm4, %xmm6
+ f3 0f 6f f4          movdqu %xmm4, %xmm6
+ f3 0f 7f e6          movdqu %xmm4, %xmm6
+ f3 0f 7e f4          movq   %xmm4, %xmm6
+ 66 0f d6 e6          movq   %xmm4, %xmm6
+ f2 0f 10 f4          movsd  %xmm4, %xmm6
+ f2 0f 11 e6          movsd  %xmm4, %xmm6
+ f3 0f 10 f4          movss  %xmm4, %xmm6
+ f3 0f 11 e6          movss  %xmm4, %xmm6
+ 66 0f 10 f4          movupd %xmm4, %xmm6
+ 66 0f 11 e6          movupd %xmm4, %xmm6
+ 0f 10 f4             movups %xmm4, %xmm6
+ 0f 11 e6             movups %xmm4, %xmm6
+ c5 f9 28 f4          vmovapd %xmm4, %xmm6
+ c5 f9 29 e6          vmovapd %xmm4, %xmm6
+ c5 f8 28 f4          vmovaps %xmm4, %xmm6
+ c5 f8 29 e6          vmovaps %xmm4, %xmm6
+ c5 f9 6f f4          vmovdqa %xmm4, %xmm6
+ c5 f9 7f e6          vmovdqa %xmm4, %xmm6
+ c5 fa 6f f4          vmovdqu %xmm4, %xmm6
+ c5 fa 7f e6          vmovdqu %xmm4, %xmm6
+ c5 fa 7e f4          vmovq  %xmm4, %xmm6
+ c5 f9 d6 e6          vmovq  %xmm4, %xmm6
+ c5 f9 10 f4          vmovupd %xmm4, %xmm6
+ c5 f9 11 e6          vmovupd %xmm4, %xmm6
+ c5 f8 10 f4          vmovups %xmm4, %xmm6
+ c5 f8 11 e6          vmovups %xmm4, %xmm6
+ c5 cb 10 d4          vmovsd %xmm6, %xmm4, %xmm2
+ c5 cb 11 e2          vmovsd %xmm6, %xmm4, %xmm2
+ c5 ca 10 d4          vmovss %xmm6, %xmm4, %xmm2
+ c5 ca 11 e2          vmovss %xmm6, %xmm4, %xmm2
+ 0f 6f e0             movq   %mm0, %mm4
+ 0f 7f c4             movq   %mm0, %mm4
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

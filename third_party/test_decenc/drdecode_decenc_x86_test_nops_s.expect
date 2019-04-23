@@ -1,0 +1,68 @@
+test_nops_s:
+ 0f 1f 00             nop    (%eax)
+ 0f 1f 40 00          nop    0x00(%eax)
+ 0f 1f 44 00 00       nop    0x00(%eax,%eax)
+ 66 0f 1f 44 00 00    data16 nop    0x00(%eax,%eax)
+ 0f 1f 80 00 00 00 00 nop    0x00000000(%eax)
+ 0f 1f 84 00 00 00 00 nop    0x00000000(%eax,%eax)
+ 00
+ 66 0f 1f 84 00 00 00 data16 nop    0x00000000(%eax,%eax)
+ 00 00
+ 66 2e 0f 1f 84 00 00 data16 nop    %cs:0x00000000(%eax,%eax)
+ 00 00 00
+ 0f 19 ff             nop    %edi
+ 0f 1a ff             nop    %edi
+ 0f 1b ff             nop    %edi
+ 0f 1c ff             nop    %edi
+ 0f 1d ff             nop    %edi
+ 0f 1e ff             nop    %edi
+ 0f 1f ff             nop    %edi
+ 0f 19 5a 22          nop    0x22(%edx)
+ 0f 1c 5a 22          nop    0x22(%edx)
+ 0f 1d 5a 22          nop    0x22(%edx)
+ 0f 1e 5a 22          nop    0x22(%edx)
+ 0f 1f 5a 22          nop    0x22(%edx)
+ 0f 19 9c 1d 11 22 33 nop    0x44332211(%ebp,%ebx)
+ 44
+ 0f 1c 9c 1d 11 22 33 nop    0x44332211(%ebp,%ebx)
+ 44
+ 0f 1d 9c 1d 11 22 33 nop    0x44332211(%ebp,%ebx)
+ 44
+ 0f 1e 9c 1d 11 22 33 nop    0x44332211(%ebp,%ebx)
+ 44
+ 0f 1f 9c 1d 11 22 33 nop    0x44332211(%ebp,%ebx)
+ 44
+ 0f 19 04 60          nop    (%eax)
+ 0f 1c 0c 60          nop    (%eax)
+ 0f 1d 04 60          nop    (%eax)
+ 0f 1e 04 60          nop    (%eax)
+ 0f 1f 04 60          nop    (%eax)
+ 0f 19 04 59          nop    (%ecx,%ebx,2)
+ 0f 1c 0c 59          nop    (%ecx,%ebx,2)
+ 0f 1d 04 59          nop    (%ecx,%ebx,2)
+ 0f 1e 04 59          nop    (%ecx,%ebx,2)
+ 0f 1f 04 59          nop    (%ecx,%ebx,2)
+ 0f 1f 00             nop    (%eax)
+ 0f 1f c0             nop    %eax
+ 66 0f 1f c0          data16 nop    %eax
+ 0f 1f 00             nop    (%eax)
+ 66 0f 1f 00          data16 nop    (%eax)
+ 0f 1f c0             nop    %eax
+ 66 0f 1f c0          data16 nop    %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

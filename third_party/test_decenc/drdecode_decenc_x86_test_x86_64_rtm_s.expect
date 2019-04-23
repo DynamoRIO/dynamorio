@@ -1,0 +1,27 @@
+test_x86_64_rtm_s:
+ c6 f8 08             xabort $0x08
+ c7 f8 fa ff ff ff    xbegin $0x0000000010000003
+ c7 f8 00 00 00 00    xbegin $0x000000001000000f
+ 0f 01 d5             xend
+ c6 f8 08             xabort $0x08
+ c7 f8 fa ff ff ff    xbegin $0x0000000010000015
+ c7 f8 00 00 00 00    xbegin $0x0000000010000021
+ 0f 01 d5             xend
+ 0f 01 d6             xtest
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

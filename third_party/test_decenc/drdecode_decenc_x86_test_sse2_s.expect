@@ -1,0 +1,174 @@
+test_sse2_s:
+ 0f c3 00             movnti %eax, (%eax)
+ 0f ae f8             sfence
+ 0f ae e8             lfence
+ 0f ae f0             mfence
+ 66 0f 58 01          addpd  (%ecx), %xmm0
+ 66 0f 58 ca          addpd  %xmm2, %xmm1
+ f2 0f 58 13          addsd  (%ebx), %xmm2
+ f2 0f 58 dc          addsd  %xmm4, %xmm3
+ 66 0f 55 65 00       andnpd 0x00(%ebp), %xmm4
+ 66 0f 55 ee          andnpd %xmm6, %xmm5
+ 66 0f 54 37          andpd  (%edi), %xmm6
+ 66 0f 54 f8          andpd  %xmm0, %xmm7
+ 66 0f c2 c1 02       cmppd  %xmm1, $0x02, %xmm0
+ 66 0f c2 0a 03       cmppd  (%edx), $0x03, %xmm1
+ f2 0f c2 d2 04       cmpsd  %xmm2, $0x04, %xmm2
+ f2 0f c2 1c 24 05    cmpsd  (%esp), $0x05, %xmm3
+ 66 0f c2 e5 06       cmppd  %xmm5, $0x06, %xmm4
+ 66 0f c2 2e 07       cmppd  (%esi), $0x07, %xmm5
+ f2 0f c2 f7 00       cmpsd  %xmm7, $0x00, %xmm6
+ f2 0f c2 38 01       cmpsd  (%eax), $0x01, %xmm7
+ 66 0f c2 c1 00       cmppd  %xmm1, $0x00, %xmm0
+ 66 0f c2 0a 00       cmppd  (%edx), $0x00, %xmm1
+ f2 0f c2 d2 00       cmpsd  %xmm2, $0x00, %xmm2
+ f2 0f c2 1c 24 00    cmpsd  (%esp), $0x00, %xmm3
+ 66 0f c2 e5 01       cmppd  %xmm5, $0x01, %xmm4
+ 66 0f c2 2e 01       cmppd  (%esi), $0x01, %xmm5
+ f2 0f c2 f7 01       cmpsd  %xmm7, $0x01, %xmm6
+ f2 0f c2 38 01       cmpsd  (%eax), $0x01, %xmm7
+ 66 0f c2 01 02       cmppd  (%ecx), $0x02, %xmm0
+ 66 0f c2 ca 02       cmppd  %xmm2, $0x02, %xmm1
+ f2 0f c2 13 02       cmpsd  (%ebx), $0x02, %xmm2
+ f2 0f c2 dc 02       cmpsd  %xmm4, $0x02, %xmm3
+ 66 0f c2 65 00 03    cmppd  0x00(%ebp), $0x03, %xmm4
+ 66 0f c2 ee 03       cmppd  %xmm6, $0x03, %xmm5
+ f2 0f c2 37 03       cmpsd  (%edi), $0x03, %xmm6
+ f2 0f c2 f8 03       cmpsd  %xmm0, $0x03, %xmm7
+ 66 0f c2 c1 04       cmppd  %xmm1, $0x04, %xmm0
+ 66 0f c2 0a 04       cmppd  (%edx), $0x04, %xmm1
+ f2 0f c2 d2 04       cmpsd  %xmm2, $0x04, %xmm2
+ f2 0f c2 1c 24 04    cmpsd  (%esp), $0x04, %xmm3
+ 66 0f c2 e5 05       cmppd  %xmm5, $0x05, %xmm4
+ 66 0f c2 2e 05       cmppd  (%esi), $0x05, %xmm5
+ f2 0f c2 f7 05       cmpsd  %xmm7, $0x05, %xmm6
+ f2 0f c2 38 05       cmpsd  (%eax), $0x05, %xmm7
+ 66 0f c2 01 06       cmppd  (%ecx), $0x06, %xmm0
+ 66 0f c2 ca 06       cmppd  %xmm2, $0x06, %xmm1
+ f2 0f c2 13 06       cmpsd  (%ebx), $0x06, %xmm2
+ f2 0f c2 dc 06       cmpsd  %xmm4, $0x06, %xmm3
+ 66 0f c2 65 00 07    cmppd  0x00(%ebp), $0x07, %xmm4
+ 66 0f c2 ee 07       cmppd  %xmm6, $0x07, %xmm5
+ f2 0f c2 37 07       cmpsd  (%edi), $0x07, %xmm6
+ f2 0f c2 f8 07       cmpsd  %xmm0, $0x07, %xmm7
+ 66 0f 2f c1          comisd %xmm0, %xmm1
+ 66 0f 2f 0a          comisd %xmm1, (%edx)
+ 66 0f 2a d3          cvtpi2pd %mm3, %xmm2
+ 66 0f 2a 1c 24       cvtpi2pd (%esp), %xmm3
+ f2 0f 2a e5          cvtsi2sd %ebp, %xmm4
+ f2 0f 2a 2e          cvtsi2sd (%esi), %xmm5
+ 66 0f 2d f7          cvtpd2pi %xmm7, %mm6
+ 66 0f 2d 38          cvtpd2pi (%eax), %mm7
+ f2 0f 2d 01          cvtsd2si (%ecx), %eax
+ f2 0f 2d ca          cvtsd2si %xmm2, %ecx
+ 66 0f 2c 13          cvttpd2pi (%ebx), %mm2
+ 66 0f 2c dc          cvttpd2pi %xmm4, %mm3
+ f2 0f 2c 65 00       cvttsd2si 0x00(%ebp), %esp
+ f2 0f 2c ee          cvttsd2si %xmm6, %ebp
+ 66 0f 5e c1          divpd  %xmm1, %xmm0
+ 66 0f 5e 0a          divpd  (%edx), %xmm1
+ f2 0f 5e d3          divsd  %xmm3, %xmm2
+ f2 0f 5e 1c 24       divsd  (%esp), %xmm3
+ 0f ae 55 00          ldmxcsr 0x00(%ebp)
+ 0f ae 1e             stmxcsr (%esi)
+ 0f ae f8             sfence
+ 66 0f 5f c1          maxpd  %xmm1, %xmm0
+ 66 0f 5f 0a          maxpd  (%edx), %xmm1
+ f2 0f 5f d3          maxsd  %xmm3, %xmm2
+ f2 0f 5f 1c 24       maxsd  (%esp), %xmm3
+ 66 0f 5d e5          minpd  %xmm5, %xmm4
+ 66 0f 5d 2e          minpd  (%esi), %xmm5
+ f2 0f 5d f7          minsd  %xmm7, %xmm6
+ f2 0f 5d 38          minsd  (%eax), %xmm7
+ 66 0f 28 c1          movapd %xmm1, %xmm0
+ 66 0f 29 11          movapd %xmm2, (%ecx)
+ 66 0f 28 12          movapd (%edx), %xmm2
+ 66 0f 17 2c 24       movhpd %xmm5, (%esp)
+ 66 0f 16 2e          movhpd (%esi), %xmm5
+ 66 0f 13 07          movlpd %xmm0, (%edi)
+ 66 0f 12 00          movlpd (%eax), %xmm0
+ 66 0f 50 ca          movmskpd %xmm2, %ecx
+ 66 0f 10 d3          movupd %xmm3, %xmm2
+ 66 0f 11 22          movupd %xmm4, (%edx)
+ 66 0f 10 65 00       movupd 0x00(%ebp), %xmm4
+ f2 0f 10 ee          movsd  %xmm6, %xmm5
+ f2 0f 11 3e          movsd  %xmm7, (%esi)
+ f2 0f 10 38          movsd  (%eax), %xmm7
+ 66 0f 59 c1          mulpd  %xmm1, %xmm0
+ 66 0f 59 0a          mulpd  (%edx), %xmm1
+ f2 0f 59 d2          mulsd  %xmm2, %xmm2
+ f2 0f 59 1c 24       mulsd  (%esp), %xmm3
+ 66 0f 56 e5          orpd   %xmm5, %xmm4
+ 66 0f 56 2e          orpd   (%esi), %xmm5
+ 66 0f c6 37 02       shufpd (%edi), $0x02, %xmm6
+ 66 0f c6 f8 03       shufpd %xmm0, $0x03, %xmm7
+ 66 0f 51 c1          sqrtpd %xmm1, %xmm0
+ 66 0f 51 0a          sqrtpd (%edx), %xmm1
+ f2 0f 51 d2          sqrtsd %xmm2, %xmm2
+ f2 0f 51 1c 24       sqrtsd (%esp), %xmm3
+ 66 0f 5c e5          subpd  %xmm5, %xmm4
+ 66 0f 5c 2e          subpd  (%esi), %xmm5
+ f2 0f 5c f7          subsd  %xmm7, %xmm6
+ f2 0f 5c 38          subsd  (%eax), %xmm7
+ 66 0f 2e 01          ucomisd %xmm0, (%ecx)
+ 66 0f 2e ca          ucomisd %xmm1, %xmm2
+ 66 0f 15 13          unpckhpd (%ebx), %xmm2
+ 66 0f 15 dc          unpckhpd %xmm4, %xmm3
+ 66 0f 14 65 00       unpcklpd 0x00(%ebp), %xmm4
+ 66 0f 14 ee          unpcklpd %xmm6, %xmm5
+ 66 0f 57 37          xorpd  (%edi), %xmm6
+ 66 0f 57 f8          xorpd  %xmm0, %xmm7
+ 66 0f 2b 33          movntpd %xmm6, (%ebx)
+ 66 0f 57 c8          xorpd  %xmm0, %xmm1
+ f3 0f e6 c8          cvtdq2pd %xmm0, %xmm1
+ f2 0f e6 c8          cvtpd2dq %xmm0, %xmm1
+ 0f 5b c8             cvtdq2ps %xmm0, %xmm1
+ 66 0f 5a c8          cvtpd2ps %xmm0, %xmm1
+ 0f 5a c8             cvtps2pd %xmm0, %xmm1
+ 66 0f 5b c8          cvtps2dq %xmm0, %xmm1
+ f2 0f 5a c8          cvtsd2ss %xmm0, %xmm1
+ f3 0f 5a c8          cvtss2sd %xmm0, %xmm1
+ 66 0f e6 c8          cvttpd2dq %xmm0, %xmm1
+ f3 0f 5b c8          cvttps2dq %xmm0, %xmm1
+ 66 0f f7 c8          maskmovdqu %xmm1, %xmm0
+ 66 0f 6f c8          movdqa %xmm0, %xmm1
+ 66 0f 7f 06          movdqa %xmm0, (%esi)
+ f3 0f 6f c8          movdqu %xmm0, %xmm1
+ f3 0f 7f 06          movdqu %xmm0, (%esi)
+ f2 0f d6 c8          movdq2q %xmm0, %mm1
+ f3 0f d6 c8          movq2dq %mm0, %xmm1
+ 0f f4 c8             pmuludq %mm0, %mm1
+ 0f f4 08             pmuludq (%eax), %mm1
+ 66 0f f4 c8          pmuludq %xmm0, %xmm1
+ 66 0f f4 08          pmuludq (%eax), %xmm1
+ 66 0f 70 c8 01       pshufd %xmm0, $0x01, %xmm1
+ f3 0f 70 c8 01       pshufhw %xmm0, $0x01, %xmm1
+ f2 0f 70 c8 01       pshuflw %xmm0, $0x01, %xmm1
+ 66 0f 73 f8 01       pslldq $0x01, %xmm0
+ 66 0f 73 d8 01       psrldq $0x01, %xmm0
+ 66 0f 6d c8          punpckhqdq %xmm0, %xmm1
+ 0f d4 c1             paddq  %mm1, %mm0
+ 0f d4 00             paddq  (%eax), %mm0
+ 66 0f d4 c1          paddq  %xmm1, %xmm0
+ 66 0f d4 00          paddq  (%eax), %xmm0
+ 0f fb c1             psubq  %mm1, %mm0
+ 0f fb 00             psubq  (%eax), %mm0
+ 66 0f fb c1          psubq  %xmm1, %xmm0
+ 66 0f fb 00          psubq  (%eax), %xmm0
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

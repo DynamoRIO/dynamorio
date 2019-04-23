@@ -1,0 +1,48 @@
+test_arch_10_s:
+ 0f 44 d8             cmovz  %eax, %ebx
+ 0f ae 38             clflush (%eax)
+ 0f 05                syscall
+ 0f fc dc             paddb  %mm4, %mm3
+ f3 0f 58 dc          addss  %xmm4, %xmm3
+ f2 0f 58 dc          addsd  %xmm4, %xmm3
+ 66 0f d0 dc          addsubpd %xmm4, %xmm3
+ 66 0f 38 01 dc       phaddw %xmm4, %xmm3
+ 66 0f 38 41 d9       phminposuw %xmm1, %xmm3
+ f2 0f 38 f1 d9       crc32  %ecx, %ebx
+ c5 fc 77             vzeroall
+ 0f 37                getsec
+ 0f 01 d0             xgetbv
+ 0f ae 31             xsaveopt (%ecx)
+ 66 0f 38 dc 01       aesenc (%ecx), %xmm0
+ 66 0f 3a 44 c1 08    pclmulqdq %xmm1, $0x08, %xmm0
+ c4 e2 79 dc 11       vaesenc %xmm0, (%ecx), %xmm2
+ c4 e3 49 44 d4 08    vpclmulqdq %xmm6, %xmm4, $0x08, %xmm2
+ c4 e2 c9 98 d4       vfmadd132pd %xmm6, %xmm4, %xmm2
+ 0f 38 f0 19          movbe  (%ecx), %ebx
+ 66 0f 38 80 19       invept %ebx, (%ecx)
+ 0f 01 f9             rdtscp
+ 0f 0d 0c 75 00 10 00 prefetchw 0x00001000(,%esi,2)
+ 00
+ f2 0f 79 ca          insertq %xmm2, %xmm1
+ 0f 01 da             vmload
+ f3 0f bd d9          lzcnt  %ecx, %ebx
+ 0f 1f 00             nop    (%eax)
+ c4 e2 60 f3 c9       blsr   %ecx, %ebx
+ 8f e9 60 01 c9       blcfill %ecx, %ebx
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

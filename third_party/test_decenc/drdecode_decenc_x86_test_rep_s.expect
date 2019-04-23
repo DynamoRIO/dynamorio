@@ -1,0 +1,60 @@
+test_rep_s:
+ f3 6c                rep insb
+ f3 6e                rep outsb
+ f3 a4                rep movsb
+ f3 ac                rep lodsb
+ f3 aa                rep stosb
+ f3 a6                rep cmpsb
+ f3 ae                rep scasb
+ 66 f3 6d             data16 rep insw
+ 66 f3 6f             data16 rep outsw
+ 66 f3 a5             data16 rep movsw
+ 66 f3 ad             data16 rep lodsw
+ 66 f3 ab             data16 rep stosw
+ 66 f3 a7             data16 rep cmpsw
+ 66 f3 af             data16 rep scasw
+ f3 6d                rep insd
+ f3 6f                rep outsd
+ f3 a5                rep movsd
+ f3 ad                rep lodsd
+ f3 ab                rep stosd
+ f3 a7                rep cmpsd
+ f3 af                rep scasd
+ 67 f3 6c             addr16 rep insb
+ 67 f3 6e             addr16 rep outsb
+ 67 f3 a4             addr16 rep movsb
+ 67 f3 ac             addr16 rep lodsb
+ 67 f3 aa             addr16 rep stosb
+ 67 f3 a6             addr16 rep cmpsb
+ 67 f3 ae             addr16 rep scasb
+ 67 66 f3 6d          data16 addr16 rep insw
+ 67 66 f3 6f          data16 addr16 rep outsw
+ 67 66 f3 a5          data16 addr16 rep movsw
+ 67 66 f3 ad          data16 addr16 rep lodsw
+ 67 66 f3 ab          data16 addr16 rep stosw
+ 67 66 f3 a7          data16 addr16 rep cmpsw
+ 67 66 f3 af          data16 addr16 rep scasw
+ 67 f3 6d             addr16 rep insd
+ 67 f3 6f             addr16 rep outsd
+ 67 f3 a5             addr16 rep movsd
+ 67 f3 ad             addr16 rep lodsd
+ 67 f3 ab             addr16 rep stosd
+ 67 f3 a7             addr16 rep cmpsd
+ 67 f3 af             addr16 rep scasd
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

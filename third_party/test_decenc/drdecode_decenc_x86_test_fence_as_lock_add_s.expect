@@ -1,0 +1,21 @@
+test_fence_as_lock_add_s:
+ 0f ae e8             lfence
+ 0f ae f0             mfence
+ 0f ae f8             sfence
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

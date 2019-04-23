@@ -1,0 +1,62 @@
+test_intel_regs_s:
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ 0f 20 c0             mov    %cr0, %eax
+ 0f 21 c0             mov    %dr0, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ dd c0                ffree  %st0
+ 0f ef c0             pxor   %mm0, %mm0
+ 0f 57 c0             xorps  %xmm0, %xmm0
+ c5 fc 57 c0          vxorps %ymm0, %ymm0, %ymm0
+ 44                   inc    %esp
+ 88 c0                mov    %al, %al
+ 66 44                data16 inc    %sp
+ 89 c0                mov    %eax, %eax
+ 44                   inc    %esp
+ 89 c0                mov    %eax, %eax
+ 4c                   dec    %esp
+ 89 c0                mov    %eax, %eax
+ eb fe                jmp    $0x100000b0
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

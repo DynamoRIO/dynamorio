@@ -1,0 +1,50 @@
+test_x86_64_mem_s:
+ 0f 01 06             sgdt   (%rsi)
+ 0f 01 0e             sidt   (%rsi)
+ 0f 01 16             lgdt   (%rsi)
+ 0f 01 1e             lidt   (%rsi)
+ 0f 01 3e             invlpg (%rsi)
+ 0f c7 0e             cmpxchg8bq (%rsi)
+ 48 0f c7 0e          cmpxchg8b (%rsi)
+ 0f c7 36             vmptrld (%rsi)
+ 66 0f c7 36          vmclear (%rsi)
+ f3 0f c7 36          vmxon  (%rsi)
+ 0f c7 3e             vmptrst (%rsi)
+ 0f ae 06             fxsave (%rsi)
+ 0f ae 0e             fxrstor (%rsi)
+ 0f ae 16             ldmxcsr (%rsi)
+ 0f ae 1e             stmxcsr (%rsi)
+ 0f ae 3e             clflush (%rsi)
+ 0f 01 06             sgdt   (%rsi)
+ 0f 01 0e             sidt   (%rsi)
+ 0f 01 16             lgdt   (%rsi)
+ 0f 01 1e             lidt   (%rsi)
+ 0f 01 3e             invlpg (%rsi)
+ 0f c7 0e             cmpxchg8bq (%rsi)
+ 48 0f c7 0e          cmpxchg8b (%rsi)
+ 0f c7 36             vmptrld (%rsi)
+ 66 0f c7 36          vmclear (%rsi)
+ f3 0f c7 36          vmxon  (%rsi)
+ 0f c7 3e             vmptrst (%rsi)
+ 0f ae 06             fxsave (%rsi)
+ 0f ae 0e             fxrstor (%rsi)
+ 0f ae 16             ldmxcsr (%rsi)
+ 0f ae 1e             stmxcsr (%rsi)
+ 0f ae 3e             clflush (%rsi)
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

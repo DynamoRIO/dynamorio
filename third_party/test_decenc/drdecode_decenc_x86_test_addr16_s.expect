@@ -1,0 +1,24 @@
+test_addr16_s:
+ 67 a0 98 08          addr16 mov    0x00000898, %al
+ 67 66 a1 98 08       data16 addr16 mov    0x00000898, %ax
+ 67 a1 98 08          addr16 mov    0x00000898, %eax
+ 67 a2 98 08          addr16 mov    %al, 0x00000898
+ 67 66 a3 98 08       data16 addr16 mov    %ax, 0x00000898
+ 67 a3 98 08          addr16 mov    %eax, 0x00000898
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

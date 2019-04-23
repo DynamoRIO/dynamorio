@@ -1,0 +1,30 @@
+test_suffix_s:
+ 0f 01 c8             monitor
+ 0f 01 c9             mwait
+ 66 cf                data16 iretw
+ cf                   iretd
+ cf                   iretd
+ 0f 07                sysret
+ 0f 07                sysret
+ 66 cf                data16 iretw
+ cf                   iretd
+ cf                   iretd
+ 0f 07                sysret
+ 0f 07                sysret
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

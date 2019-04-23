@@ -1,0 +1,30 @@
+test_x86_64_drx_s:
+ 44 0f 21 c0          mov    %dr8, %rax
+ 44 0f 21 c7          mov    %dr8, %rdi
+ 44 0f 23 c0          mov    %rax, %dr8
+ 44 0f 23 c7          mov    %rdi, %dr8
+ 44 0f 21 c0          mov    %dr8, %rax
+ 44 0f 21 c7          mov    %dr8, %rdi
+ 44 0f 23 c0          mov    %rax, %dr8
+ 44 0f 23 c7          mov    %rdi, %dr8
+ 44 0f 21 c0          mov    %dr8, %rax
+ 44 0f 21 c7          mov    %dr8, %rdi
+ 44 0f 23 c0          mov    %rax, %dr8
+ 44 0f 23 c7          mov    %rdi, %dr8
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

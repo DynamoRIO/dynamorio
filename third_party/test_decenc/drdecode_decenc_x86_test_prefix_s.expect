@@ -1,0 +1,75 @@
+test_prefix_s:
+ 9b                   fwait
+ 26 67 d9 3c          addr16 fnstcw %es:(%si)
+ 9b                   fwait
+ df e0                fnstsw %ax
+ 9b                   fwait
+ df e0                fnstsw %ax
+ 9b                   fwait
+ 67 df e0             addr16 fnstsw %ax
+ 36 67 66 f3 a7       data16 addr16 rep cmpsw %ss
+ 26 9b                fwait
+ 9b                   fwait
+ 65 c7 05 00 00 00 00 movl   $0x00000000, %gs:0x00
+ 00 00 00 00
+ 66 f2 0f 38 17 f2    ptest  %xmm6, %xmm2
+ 66 0f 54 f2          andpd  %xmm2, %xmm6
+ 0f 54 f2             andps  %xmm2, %xmm6
+ 66 0f 11 22          movupd %xmm4, (%edx)
+ f2 67 66 0f 11 22    addr16 movupd %xmm4, (%bp,%si)
+ f3 66 0f 11 22       data16 movss  %xmm4, (%edx)
+ f3 67 f2 66 0f 11 22 data16 addr16 movss  %xmm4, (%bp,%si)
+ f3 66 3e 0f 11 22    data16 movss  %xmm4, %ds:(%edx)
+ f2 66 36 0f 11 22    movupd %xmm4, %ss:(%edx)
+ 22 f2                and    %dl, %dh
+ 66 3e 36 0f 11 22    movupd %xmm4, %ss:(%edx)
+ f2 67 66 3e 36 0f 11 addr16 movupd %xmm4, %ss:(%bp,%si)
+ 22
+ 11 22                adc    %esp, (%edx)
+ f3 66 3e 36 0f 11 22 data16 movss  %xmm4, %ss:(%edx)
+ 22 f3                and    %bl, %dh
+ 67 f2 66 3e 36 0f 11 addr16 movupd %xmm4, %ss:(%bp,%si)
+ 22
+ f2 66 90             nop
+ f2 67 66 90          addr16 nop
+ f3 66 90             data16 pause
+ f2 3e 90             nop
+ f3 3e 90             pause
+ f3 f2 67 3e 90       addr16 pause
+ f2 36 90             nop
+ f3 36 90             pause
+ f3 67 36 90          addr16 pause
+ f3 f2 36 90          pause
+ f3 f2 67 36 90       addr16 pause
+ 66 3e 36 90          nop
+ 67 66 3e 36 90       addr16 nop
+ f3 66 3e 36 90       data16 pause
+ f3 f2 67 3e 36 90    addr16 pause
+ f3 67 f2 66 3e 36 90 data16 addr16 pause
+ f3 0f c7 f8          rdseed %eax
+ 90                   nop
+ f3 0f c7 f0          rdrand %eax
+ 90                   nop
+ f2 0f c7 f8          rdseed %eax
+ 90                   nop
+ f2 0f c7 f0          rdrand %eax
+ 90                   nop
+ c5 fb e6 40 20       vcvtpd2dq 0x20(%eax), %xmm0
+ c5 fb e6 40 20       vcvtpd2dq 0x20(%eax), %xmm0
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

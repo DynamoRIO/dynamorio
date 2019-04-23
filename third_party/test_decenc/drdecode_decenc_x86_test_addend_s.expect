@@ -1,0 +1,22 @@
+test_addend_s:
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ b8 04 00 00 00       mov    $0x00000004, %eax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ b8 04 00 00 00       mov    $0x00000004, %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

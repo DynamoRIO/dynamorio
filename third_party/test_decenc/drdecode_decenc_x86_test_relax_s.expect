@@ -1,0 +1,36 @@
+test_relax_s:
+ 90                   nop
+ 90                   nop
+ eb 14                jmp    $0x10000018
+ eb 12                jmp    $0x10000018
+ 41                   inc    %ecx
+ 42                   inc    %edx
+ 43                   inc    %ebx
+ 44                   inc    %esp
+ 45                   inc    %ebp
+ 46                   inc    %esi
+ 47                   inc    %edi
+ 48                   dec    %eax
+ 49                   dec    %ecx
+ 00 00                add    %al, (%eax)
+ 00 00                add    %al, (%eax)
+ 00 00                add    %al, (%eax)
+ 00 00                add    %al, (%eax)
+ eb 00                jmp    $0x10000019
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

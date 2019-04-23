@@ -1,0 +1,125 @@
+test_avx2_wig_s:
+ c4 e2 7d 2a 21       vmovntdqa %ymm4, (%ecx)
+ c4 e3 4d 42 d4 07    vmpsadbw %ymm6, %ymm4, $0x07, %ymm2
+ c4 e2 7d 1c f4       vpabsb %ymm0, %ymm4, %ymm6
+ c4 e2 7d 1e f4       vpabsd %ymm0, %ymm4, %ymm6
+ c4 e2 7d 1d f4       vpabsw %ymm0, %ymm4, %ymm6
+ c5 cd 6b d4          vpackssdw %ymm6, %ymm4, %ymm2
+ c5 cd 63 d4          vpacksswb %ymm6, %ymm4, %ymm2
+ c4 e2 4d 2b d4       vpackusdw %ymm6, %ymm4, %ymm2
+ c5 cd 67 d4          vpackuswb %ymm6, %ymm4, %ymm2
+ c5 cd fc d4          vpaddb %ymm6, %ymm4, %ymm2
+ c5 cd fe d4          vpaddd %ymm6, %ymm4, %ymm2
+ c5 cd d4 d4          vpaddq %ymm6, %ymm4, %ymm2
+ c5 cd ec d4          vpaddsb %ymm6, %ymm4, %ymm2
+ c5 cd ed d4          vpaddsw %ymm6, %ymm4, %ymm2
+ c5 cd dc d4          vpaddusb %ymm6, %ymm4, %ymm2
+ c5 cd dd d4          vpaddusw %ymm6, %ymm4, %ymm2
+ c5 cd fd d4          vpaddw %ymm6, %ymm4, %ymm2
+ c4 e3 4d 0f d4 07    vpalignr %ymm6, %ymm4, $0x07, %ymm2
+ c5 cd db d4          vpand  %ymm6, %ymm4, %ymm2
+ c5 cd df d4          vpandn %ymm6, %ymm4, %ymm2
+ c5 cd e0 d4          vpavgb %ymm6, %ymm4, %ymm2
+ c5 cd e3 d4          vpavgw %ymm6, %ymm4, %ymm2
+ c4 e3 4d 0e d4 07    vpblendw %ymm6, %ymm4, $0x07, %ymm2
+ c5 cd 74 d4          vpcmpeqb %ymm6, %ymm4, %ymm2
+ c5 cd 76 d4          vpcmpeqd %ymm6, %ymm4, %ymm2
+ c4 e2 4d 29 d4       vpcmpeqq %ymm6, %ymm4, %ymm2
+ c5 cd 75 d4          vpcmpeqw %ymm6, %ymm4, %ymm2
+ c5 cd 64 d4          vpcmpgtb %ymm6, %ymm4, %ymm2
+ c5 cd 66 d4          vpcmpgtd %ymm6, %ymm4, %ymm2
+ c4 e2 4d 37 d4       vpcmpgtq %ymm6, %ymm4, %ymm2
+ c5 cd 65 d4          vpcmpgtw %ymm6, %ymm4, %ymm2
+ c4 e2 4d 02 d4       vphaddd %ymm6, %ymm4, %ymm2
+ c4 e2 4d 03 d4       vphaddsw %ymm6, %ymm4, %ymm2
+ c4 e2 4d 01 d4       vphaddw %ymm6, %ymm4, %ymm2
+ c4 e2 4d 06 d4       vphsubd %ymm6, %ymm4, %ymm2
+ c4 e2 4d 07 d4       vphsubsw %ymm6, %ymm4, %ymm2
+ c4 e2 4d 05 d4       vphsubw %ymm6, %ymm4, %ymm2
+ c4 e2 4d 04 d4       vpmaddubsw %ymm6, %ymm4, %ymm2
+ c5 cd f5 d4          vpmaddwd %ymm6, %ymm4, %ymm2
+ c4 e2 4d 3c d4       vpmaxsb %ymm6, %ymm4, %ymm2
+ c4 e2 4d 3d d4       vpmaxsd %ymm6, %ymm4, %ymm2
+ c5 cd ee d4          vpmaxsw %ymm6, %ymm4, %ymm2
+ c5 cd de d4          vpmaxub %ymm6, %ymm4, %ymm2
+ c4 e2 4d 3f d4       vpmaxud %ymm6, %ymm4, %ymm2
+ c4 e2 4d 3e d4       vpmaxuw %ymm6, %ymm4, %ymm2
+ c4 e2 4d 38 d4       vpminsb %ymm6, %ymm4, %ymm2
+ c4 e2 4d 39 d4       vpminsd %ymm6, %ymm4, %ymm2
+ c5 cd ea d4          vpminsw %ymm6, %ymm4, %ymm2
+ c5 cd da d4          vpminub %ymm6, %ymm4, %ymm2
+ c4 e2 4d 3b d4       vpminud %ymm6, %ymm4, %ymm2
+ c4 e2 4d 3a d4       vpminuw %ymm6, %ymm4, %ymm2
+ c5 fd d7 cc          vpmovmskb %ymm4, %ecx
+ c4 e2 7d 21 f4       vpmovsxbd %ymm4, %ymm6
+ c4 e2 7d 22 e4       vpmovsxbq %ymm4, %ymm4
+ c4 e2 7d 20 e4       vpmovsxbw %ymm4, %ymm4
+ c4 e2 7d 25 e4       vpmovsxdq %ymm4, %ymm4
+ c4 e2 7d 23 e4       vpmovsxwd %ymm4, %ymm4
+ c4 e2 7d 24 f4       vpmovsxwq %ymm4, %ymm6
+ c4 e2 7d 31 f4       vpmovzxbd %ymm4, %ymm6
+ c4 e2 7d 32 e4       vpmovzxbq %ymm4, %ymm4
+ c4 e2 7d 30 e4       vpmovzxbw %ymm4, %ymm4
+ c4 e2 7d 35 e4       vpmovzxdq %ymm4, %ymm4
+ c4 e2 7d 33 e4       vpmovzxwd %ymm4, %ymm4
+ c4 e2 7d 34 f4       vpmovzxwq %ymm4, %ymm6
+ c4 e2 4d 28 d4       vpmuldq %ymm6, %ymm4, %ymm2
+ c4 e2 4d 0b d4       vpmulhrsw %ymm6, %ymm4, %ymm2
+ c5 cd e4 d4          vpmulhuw %ymm6, %ymm4, %ymm2
+ c5 cd e5 d4          vpmulhw %ymm6, %ymm4, %ymm2
+ c4 e2 4d 40 d4       vpmulld %ymm6, %ymm4, %ymm2
+ c5 cd d5 d4          vpmullw %ymm6, %ymm4, %ymm2
+ c5 cd f4 d4          vpmuludq %ymm6, %ymm4, %ymm2
+ c5 cd eb d4          vpor   %ymm6, %ymm4, %ymm2
+ c5 cd f6 d4          vpsadbw %ymm6, %ymm4, %ymm2
+ c4 e2 4d 00 d4       vpshufb %ymm6, %ymm4, %ymm2
+ c5 fd 70 d6 07       vpshufd %ymm6, $0x07, %ymm2
+ c5 fe 70 d6 07       vpshufhw %ymm6, $0x07, %ymm2
+ c5 ff 70 d6 07       vpshuflw %ymm6, $0x07, %ymm2
+ c4 e2 4d 08 d4       vpsignb %ymm6, %ymm4, %ymm2
+ c4 e2 4d 0a d4       vpsignd %ymm6, %ymm4, %ymm2
+ c4 e2 4d 09 d4       vpsignw %ymm6, %ymm4, %ymm2
+ c5 ed 72 f6 07       vpslld $0x07, %ymm6, %ymm2
+ c5 ed 73 fe 07       vpslldq $0x07, %ymm6, %ymm2
+ c5 ed 73 f6 07       vpsllq $0x07, %ymm6, %ymm2
+ c5 ed 71 f6 07       vpsllw $0x07, %ymm6, %ymm2
+ c5 ed 72 e6 07       vpsrad $0x07, %ymm6, %ymm2
+ c5 ed 71 e6 07       vpsraw $0x07, %ymm6, %ymm2
+ c5 ed 72 d6 07       vpsrld $0x07, %ymm6, %ymm2
+ c5 ed 73 de 07       vpsrldq $0x07, %ymm6, %ymm2
+ c5 ed 73 d6 07       vpsrlq $0x07, %ymm6, %ymm2
+ c5 ed 71 d6 07       vpsrlw $0x07, %ymm6, %ymm2
+ c5 cd f8 d4          vpsubb %ymm6, %ymm4, %ymm2
+ c5 cd fa d4          vpsubd %ymm6, %ymm4, %ymm2
+ c5 cd fb d4          vpsubq %ymm6, %ymm4, %ymm2
+ c5 cd e8 d4          vpsubsb %ymm6, %ymm4, %ymm2
+ c5 cd e9 d4          vpsubsw %ymm6, %ymm4, %ymm2
+ c5 cd d8 d4          vpsubusb %ymm6, %ymm4, %ymm2
+ c5 cd d9 d4          vpsubusw %ymm6, %ymm4, %ymm2
+ c5 cd f9 d4          vpsubw %ymm6, %ymm4, %ymm2
+ c5 cd 68 d4          vpunpckhbw %ymm6, %ymm4, %ymm2
+ c5 cd 6a d4          vpunpckhdq %ymm6, %ymm4, %ymm2
+ c5 cd 6d d4          vpunpckhqdq %ymm6, %ymm4, %ymm2
+ c5 cd 69 d4          vpunpckhwd %ymm6, %ymm4, %ymm2
+ c5 cd 60 d4          vpunpcklbw %ymm6, %ymm4, %ymm2
+ c5 cd 62 d4          vpunpckldq %ymm6, %ymm4, %ymm2
+ c5 cd 6c d4          vpunpcklqdq %ymm6, %ymm4, %ymm2
+ c5 cd 61 d4          vpunpcklwd %ymm6, %ymm4, %ymm2
+ c5 cd ef d4          vpxor  %ymm6, %ymm4, %ymm2
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

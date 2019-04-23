@@ -1,0 +1,66 @@
+test_nop_2_s:
+ 90                   nop
+ 90                   nop
+ 8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
+ 8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
+ eb 12                jmp    $0x10000024
+ 8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 66 90             add    %ah, -0x70(%esi)
+ eb 1c                jmp    $0x10000042
+ 8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 eb 7f    add    %cl, 0x7feb00b4(%ebp)
+ 8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ b4 00                mov    $0x00, %ah
+ 00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
+ 74 00                jz     $0x100000c2
+ 66 31 c0             data16 xor    %ax, %ax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

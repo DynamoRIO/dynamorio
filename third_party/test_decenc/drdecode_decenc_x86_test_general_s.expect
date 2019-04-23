@@ -1,0 +1,206 @@
+test_general_s:
+ eb fe                jmp    $0x10000000
+ e9 fc ff ff ff       jmp    $0x10000003
+ ff 25 00 00 00 00    jmp    0x00
+ ff 25 00 00 00 00    jmp    0x00
+ ff e7                jmp    %edi
+ ff e7                jmp    %edi
+ ff 27                jmp    (%edi)
+ ff 27                jmp    (%edi)
+ ff 2c bd 00 00 00 00 ljmp   0x00(,%edi,4)
+ ff 2c bd 00 00 00 00 ljmp   0x00(,%edi,4)
+ ff 2d 00 00 00 00    ljmp   0x00
+ ff 2d 00 00 00 00    ljmp   0x00
+ ea 00 00 00 00 34 12 ljmp   0x1234:0x00000000
+ e8 bf ff ff ff       call   $0x10000000
+ e8 fc ff ff ff       call   $0x10000042
+ ff 15 00 00 00 00    call   0x00
+ ff 15 00 00 00 00    call   0x00
+ ff d7                call   %edi
+ ff d7                call   %edi
+ ff 17                call   (%edi)
+ ff 17                call   (%edi)
+ ff 1c bd 00 00 00 00 lcall  0x00(,%edi,4)
+ ff 1c bd 00 00 00 00 lcall  0x00(,%edi,4)
+ ff 1d 00 00 00 00    lcall  0x00
+ ff 1d 00 00 00 00    lcall  0x00
+ 9a 00 00 00 00 34 12 lcall  0x1234:0x00000000
+ 1e                   push   %ds
+ 1e                   push   %ds
+ 1f                   pop    %ds
+ 1f                   pop    %ds
+ 8c d8                mov    %ds, %eax
+ 8c d8                mov    %ds, %eax
+ 8c d8                mov    %ds, %eax
+ 8e d8                mov    %eax, %ds
+ 8e d8                mov    %eax, %ds
+ 8e d8                mov    %eax, %ds
+ 66 1e                data16 push   %ds
+ 66 1f                data16 pop    %ds
+ 66 8c d8             data16 mov    %ds, %ax
+ 66 8c d8             data16 mov    %ds, %ax
+ 66 8c d8             data16 mov    %ds, %ax
+ 8e d8                mov    %eax, %ds
+ 8e d8                mov    %eax, %ds
+ 8e d8                mov    %eax, %ds
+ 6a 0a                push   $0x0a
+ 66 6a 0a             data16 push   $0x0a
+ 6a 0a                push   $0x0a
+ 68 e8 03 00 00       push   $0x000003e8
+ 66 68 e8 03          data16 push   $0x03e8
+ 68 e8 03 00 00       push   $0x000003e8
+ ff 35 d2 00 00 00    push   0xd2
+ 66 ff 35 d2 00 00 00 data16 push   0xd2
+ ff 35 d2 00 00 00    push   0xd2
+ ff b3 0c 00 00 00    push   0x0000000c(%ebx)
+ ff 35 06 00 00 00    push   0x06
+ 0f 00 d1             lldt   %cx
+ 0f 01 f0             lmsw   %ax
+ 66 0f be f8          data16 movsx  %al, %di
+ 0f be c8             movsx  %al, %ecx
+ 0f bf c8             movsx  %ax, %ecx
+ 66 0f b6 f8          data16 movzx  %al, %di
+ 0f b6 c8             movzx  %al, %ecx
+ 0f b7 c8             movzx  %ax, %ecx
+ ec                   in     %dx
+ 66 ed                data16 in     %dx, %ax
+ ed                   in     %dx, %eax
+ ec                   in     %dx
+ 66 ed                data16 in     %dx, %ax
+ ed                   in     %dx, %eax
+ ec                   in     %dx
+ 66 ed                data16 in     %dx, %ax
+ ed                   in     %dx, %eax
+ ec                   in     %dx
+ 66 ed                data16 in     %dx, %ax
+ ed                   in     %dx, %eax
+ e4 ff                in     $0xff, %al
+ 66 e5 02             data16 in     $0x02, %ax
+ e5 04                in     $0x04, %eax
+ 66 e5 0d             data16 in     $0x0d, %ax
+ ee                   out    %al, %dx
+ 66 ef                data16 out    %ax, %dx
+ ef                   out    %eax, %dx
+ ee                   out    %al, %dx
+ 66 ef                data16 out    %ax, %dx
+ ef                   out    %eax, %dx
+ ee                   out    %al, %dx
+ 66 ef                data16 out    %ax, %dx
+ ef                   out    %eax, %dx
+ ee                   out    %al, %dx
+ 66 ef                data16 out    %ax, %dx
+ ef                   out    %eax, %dx
+ e6 ff                out    $0xff, %al
+ 66 e7 02             data16 out    $0x02, %ax
+ e7 04                out    $0x04, %eax
+ 66 e7 0d             data16 out    $0x0d, %ax
+ 66 ed                data16 in     %dx, %ax
+ 66 ef                data16 out    %ax, %dx
+ a4                   movsb
+ 66 a7                data16 cmpsw
+ af                   scasd
+ d7                   xlatb
+ 2e a5                movsd  %cs
+ 0f 93 03             setnb  (%ebx)
+ 0f 93 03             setnb  (%ebx)
+ 0f 93 c0             setnb  %al
+ 0c 01                or     $0x01, %al
+ 0c 01                or     $0x01, %al
+ 80 cb 01             or     $0x01, %bl
+ 80 cb 01             or     $0x01, %bl
+ d9 c1                fld    %st1, %st0
+ dd d2                fst    %st0, %st2
+ dd db                fstp   %st0, %st3
+ d8 d4                fcom   %st0, %st4
+ d8 dd                fcomp  %st0, %st5
+ de c1                faddp  %st0, %st1, %st1
+ de ca                fmulp  %st0, %st2, %st2
+ d8 e3                fsub   %st3, %st0, %st0
+ d8 ec                fsubr  %st4, %st0, %st0
+ d8 f5                fdiv   %st5, %st0, %st0
+ d8 fe                fdivr  %st6, %st0, %st0
+ de c1                faddp  %st0, %st1, %st1
+ de e1                fsubrp %st0, %st1, %st1
+ de c9                fmulp  %st0, %st1, %st1
+ de f1                fdivrp %st0, %st1, %st1
+ de e9                fsubp  %st0, %st1, %st1
+ de f9                fdivp  %st0, %st1, %st1
+ 0f a3 15 56 34 12 00 bt     0x00123456, %edx
+ 0f a3 d0             bt     %eax, %edx
+ 0c 01                or     $0x01, %al
+ 80 cb 01             or     $0x01, %bl
+ a1 11 00 00 00       mov    0x11, %eax
+ a1 11 00 00 00       mov    0x11, %eax
+ 66 ed                data16 in     %dx, %ax
+ ed                   in     %dx, %eax
+ 66 ed                data16 in     %dx, %ax
+ ed                   in     %dx, %eax
+ ec                   in     %dx
+ 66 ed                data16 in     %dx, %ax
+ ed                   in     %dx, %eax
+ 0f b6 14 37          movzx  (%edi,%esi), %edx
+ 0f b6 45 1c          movzx  0x1c(%ebp), %eax
+ 0f b6 c0             movzx  %al, %eax
+ 0f b6 f1             movzx  %cl, %esi
+ 26 d7                xlatb  %es
+ d7                   xlatb
+ d7                   xlatb
+ dd d8                fstp   %st0, %st0
+ e2 fc                loop   $0x10000195
+ f6 f1                div    %cl, %ax
+ 66 f7 f1             data16 div    %cx, %dx, %ax
+ f7 f1                div    %ecx, %edx, %eax
+ f6 f1                div    %cl, %ax
+ 66 f7 f1             data16 div    %cx, %dx, %ax
+ f7 f1                div    %ecx, %edx, %eax
+ f6 f1                div    %cl, %ax
+ 66 f7 f1             data16 div    %cx, %dx, %ax
+ f7 f1                div    %ecx, %edx, %eax
+ 8e de                mov    %esi, %ds
+ 8e de                mov    %esi, %ds
+ 1e                   push   %ds
+ 1e                   push   %ds
+ a0 00 00 00 00       mov    0x00, %al
+ 66 a1 00 00 01 00    data16 mov    0x00010000, %ax
+ 89 c3                mov    %eax, %ebx
+ 9c                   pushfd
+ 9c                   pushfd
+ 66 9c                data16 pushfw
+ 9d                   popfd
+ 9d                   popfd
+ 66 9d                data16 popfw
+ 89 34 1d 00 00 00 00 mov    %esi, 0x00(,%ebx)
+ 80 25 00 00 00 00 7f andb   $0x7f, 0x00
+ 66 83 e0 fe          data16 and    $0xfe, %ax
+ 66 25 00 ff          data16 and    $0xff00, %ax
+ 25 fe ff 00 00       and    $0x0000fffe, %eax
+ 25 00 ff 00 00       and    $0x0000ff00, %eax
+ 83 e0 fe             and    $0xfe, %eax
+ 83 e0 fe             and    $0xfe, %eax
+ 25 00 ff 66 25       and    $0x2566ff00, %eax
+ ff 00                incl   (%eax)
+ 00 66 25             add    %ah, 0x25(%esi)
+ 00 ff                add    %bh, %bh
+ 00 00                add    %al, (%eax)
+ 66 83 e0 fe          data16 and    $0xfe, %ax
+ 67 88 65 80          addr16 mov    %ah, -0x80(%di)
+ 66 0f b6 f8          data16 movzx  %al, %di
+ 0f b6 c8             movzx  %al, %ecx
+ 00 00                add    %al, (%eax)
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

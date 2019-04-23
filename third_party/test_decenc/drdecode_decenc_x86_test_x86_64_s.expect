@@ -1,0 +1,305 @@
+test_x86_64_s:
+ 01 ca                add    %ecx, %edx
+ 44 01 ca             add    %r9d, %edx
+ 41 01 ca             add    %ecx, %r10d
+ 48 01 ca             add    %rcx, %rdx
+ 4d 01 ca             add    %r9, %r10
+ 41 01 c0             add    %eax, %r8d
+ 66 41 01 c0          data16 add    %ax, %r8w
+ 49 01 c0             add    %rax, %r8
+ 05 11 22 33 44       add    $0x44332211, %eax
+ 48 05 11 22 33 f4    add    $0xf4332211, %rax
+ 66 05 33 44          data16 add    $0x4433, %ax
+ 48 05 11 22 33 44    add    $0x44332211, %rax
+ 00 ca                add    %cl, %dl
+ 00 f7                add    %dh, %bh
+ 40 00 f7             add    %sil, %dil
+ 41 00 f7             add    %sil, %r15l
+ 44 00 f7             add    %r14l, %dil
+ 45 00 f7             add    %r14l, %r15l
+ 50                   push   %rax
+ 41 50                push   %r8
+ 41 59                pop    %r9
+ 04 11                add    $0x11, %al
+ 80 c4 11             add    $0x11, %ah
+ 40 80 c4 11          add    $0x11, %spl
+ 41 80 c0 11          add    $0x11, %r8l
+ 41 80 c4 11          add    $0x11, %r12l
+ 0f 20 c0             mov    %cr0, %rax
+ 41 0f 20 c0          mov    %cr0, %r8
+ 44 0f 20 c0          mov    %cr8, %rax
+ 44 0f 22 c0          mov    %rax, %cr8
+ f3 48 a5             rep movsq
+ 66 f3 a5             data16 rep movsw
+ f3 48 a5             rep movsq
+ b0 11                mov    $0x11, %al
+ b4 11                mov    $0x11, %ah
+ 40 b4 11             mov    $0x11, %spl
+ 41 b4 11             mov    $0x11, %r12l
+ b8 44 33 22 11       mov    $0x11223344, %eax
+ 41 b8 44 33 22 11    mov    $0x11223344, %r8d
+ 48 b8 88 77 66 55 44 mov    $0x1122334455667788, %rax
+ 33 22 11
+ 49 b8 88 77 66 55 44 mov    $0x1122334455667788, %r8
+ 33 22 11
+ 03 00                add    (%rax), %eax
+ 41 03 00             add    (%r8), %eax
+ 45 03 00             add    (%r8), %r8d
+ 49 03 00             add    (%r8), %rax
+ 03 05 22 22 22 22    add    <rel> 0x00000000322222c7, %eax
+ 03 45 00             add    0x00(%rbp), %eax
+ 03 04 25 22 22 22 22 add    0x22222222, %eax
+ 41 03 45 00          add    0x00(%r13), %eax
+ 03 04 80             add    (%rax,%rax,4), %eax
+ 41 03 04 80          add    (%r8,%rax,4), %eax
+ 45 03 04 80          add    (%r8,%rax,4), %r8d
+ 43 03 04 80          add    (%r8,%r8,4), %eax
+ 46 01 04 81          add    %r8d, (%rcx,%r8,4)
+ 03 14 c0             add    (%rax,%rax,8), %edx
+ 03 14 c8             add    (%rax,%rcx,8), %edx
+ 03 14 d0             add    (%rax,%rdx,8), %edx
+ 03 14 d8             add    (%rax,%rbx,8), %edx
+ 03 10                add    (%rax), %edx
+ 03 14 e8             add    (%rax,%rbp,8), %edx
+ 03 14 f0             add    (%rax,%rsi,8), %edx
+ 03 14 f8             add    (%rax,%rdi,8), %edx
+ 42 03 14 c0          add    (%rax,%r8,8), %edx
+ 42 03 14 c8          add    (%rax,%r9,8), %edx
+ 42 03 14 d0          add    (%rax,%r10,8), %edx
+ 42 03 14 d8          add    (%rax,%r11,8), %edx
+ 42 03 14 e0          add    (%rax,%r12,8), %edx
+ 42 03 14 e8          add    (%rax,%r13,8), %edx
+ 42 03 14 f0          add    (%rax,%r14,8), %edx
+ 42 03 14 f8          add    (%rax,%r15,8), %edx
+ 83 c1 11             add    $0x11, %ecx
+ 83 00 11             addl   $0x11, (%rax)
+ 48 83 00 11          addq   $0x11, (%rax)
+ 41 83 00 11          addl   $0x11, (%r8)
+ 83 04 81 11          addl   $0x11, (%rcx,%rax,4)
+ 41 83 04 81 11       addl   $0x11, (%r9,%rax,4)
+ 42 83 04 81 11       addl   $0x11, (%rcx,%r8,4)
+ 83 05 22 22 22 22 33 addl   $0x33, <rel> 0x0000000032222342
+ 48 83 05 22 22 22 22 addq   $0x33, <rel> 0x000000003222234a
+ 33
+ 81 05 22 22 22 22 33 addl   $0x33333333, <rel> 0x0000000032222354
+ 33 33 33
+ 48 81 05 22 22 22 22 addq   $0x33333333, <rel> 0x000000003222235f
+ 33 33 33 33
+ 83 04 c5 22 22 22 22 addl   $0x33, 0x22222222(,%rax,8)
+ 33
+ 83 80 22 22 22 22 33 addl   $0x33, 0x22222222(%rax)
+ 83 80 22 22 22 22 33 addl   $0x33, 0x22222222(%rax)
+ 41 83 04 e8 33       addl   $0x33, (%r8,%rbp,8)
+ 83 04 25 22 22 22 22 addl   $0x33, 0x22222222
+ 33
+ a0 11 22 33 44 55 66 mov    0x8877665544332211, %al
+ 77 88
+ a1 11 22 33 44 55 66 mov    0x8877665544332211, %eax
+ 77 88
+ a2 11 22 33 44 55 66 mov    %al, 0x8877665544332211
+ 77 88
+ a3 11 22 33 44 55 66 mov    %eax, 0x8877665544332211
+ 77 88
+ 48 a1 11 22 33 44 55 mov    0x8877665544332211, %rax
+ 66 77 88
+ 48 a3 11 22 33 44 55 mov    %rax, 0x8877665544332211
+ 66 77 88
+ 48 99                cdq
+ 48 98                cwde
+ 48 63 c0             movsxd %eax, %rax
+ 48 0f bf c0          movsx  %ax, %rax
+ 48 0f be c0          movsx  %al, %rax
+ b0 00                mov    $0x00, %al
+ 66 b8 00 00          data16 mov    $0x0000, %ax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 48 c7 c0 00 00 00 00 mov    $0x00000000, %rax
+ a1 00 00 00 00 00 00 mov    0x00, %eax
+ 00 00
+ 8b 04 25 00 00 00 00 mov    0x00, %eax
+ 8b 80 00 00 00 00    mov    0x00000000(%rax), %eax
+ 8b 05 00 00 00 00    mov    <rel> 0x00000000100001d5, %eax
+ b0 00                mov    $0x00, %al
+ 66 b8 00 00          data16 mov    $0x0000, %ax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ 48 c7 c0 00 00 00 00 mov    $0x00000000, %rax
+ a1 00 00 00 00 00 00 mov    0x00, %eax
+ 00 00
+ 8b 04 25 00 00 00 00 mov    0x00, %eax
+ 8b 80 00 00 00 00    mov    0x00000000(%rax), %eax
+ 8b 05 00 00 00 00    mov    <rel> 0x0000000010000203, %eax
+ a0 11 22 33 44 55 66 mov    0x8877665544332211, %al
+ 77 88
+ 66 a1 11 22 33 44 55 data16 mov    0x8877665544332211, %ax
+ 66 77 88
+ a1 11 22 33 44 55 66 mov    0x8877665544332211, %eax
+ 77 88
+ 48 a1 11 22 33 44 55 mov    0x8877665544332211, %rax
+ 66 77 88
+ a2 11 22 33 44 55 66 mov    %al, 0x8877665544332211
+ 77 88
+ 66 a3 11 22 33 44 55 data16 mov    %ax, 0x8877665544332211
+ 66 77 88
+ a3 11 22 33 44 55 66 mov    %eax, 0x8877665544332211
+ 77 88
+ 48 a3 11 22 33 44 55 mov    %rax, 0x8877665544332211
+ 66 77 88
+ a0 11 22 33 44 55 66 mov    0x8877665544332211, %al
+ 77 88
+ 66 a1 11 22 33 44 55 data16 mov    0x8877665544332211, %ax
+ 66 77 88
+ a1 11 22 33 44 55 66 mov    0x8877665544332211, %eax
+ 77 88
+ 48 a1 11 22 33 44 55 mov    0x8877665544332211, %rax
+ 66 77 88
+ a2 11 22 33 44 55 66 mov    %al, 0x8877665544332211
+ 77 88
+ 66 a3 11 22 33 44 55 data16 mov    %ax, 0x8877665544332211
+ 66 77 88
+ a3 11 22 33 44 55 66 mov    %eax, 0x8877665544332211
+ 77 88
+ 48 a3 11 22 33 44 55 mov    %rax, 0x8877665544332211
+ 66 77 88
+ 8a 04 25 11 22 33 ff mov    -0x00ccddef, %al
+ 66 8b 04 25 11 22 33 data16 mov    -0x00ccddef, %ax
+ ff
+ 8b 04 25 11 22 33 ff mov    -0x00ccddef, %eax
+ 48 8b 04 25 11 22 33 mov    -0x00ccddef, %rax
+ ff
+ 88 04 25 11 22 33 ff mov    %al, -0x00ccddef
+ 66 89 04 25 11 22 33 data16 mov    %ax, -0x00ccddef
+ ff
+ 89 04 25 11 22 33 ff mov    %eax, -0x00ccddef
+ 48 89 04 25 11 22 33 mov    %rax, -0x00ccddef
+ ff
+ 8a 04 25 11 22 33 ff mov    -0x00ccddef, %al
+ 66 8b 04 25 11 22 33 data16 mov    -0x00ccddef, %ax
+ ff
+ 8b 04 25 11 22 33 ff mov    -0x00ccddef, %eax
+ 48 8b 04 25 11 22 33 mov    -0x00ccddef, %rax
+ ff
+ 88 04 25 11 22 33 ff mov    %al, -0x00ccddef
+ 66 89 04 25 11 22 33 data16 mov    %ax, -0x00ccddef
+ ff
+ 89 04 25 11 22 33 ff mov    %eax, -0x00ccddef
+ 48 89 04 25 11 22 33 mov    %rax, -0x00ccddef
+ ff
+ 48 0f c7 08          cmpxchg8b (%rax)
+ 48 0f c7 08          cmpxchg8b (%rax)
+ 66 0f be f0          data16 movsx  %al, %si
+ 0f be f0             movsx  %al, %esi
+ 48 0f be f0          movsx  %al, %rsi
+ 0f bf f0             movsx  %ax, %esi
+ 48 0f bf f0          movsx  %ax, %rsi
+ 48 63 f0             movsxd %eax, %rsi
+ 0f be 10             movsx  (%rax), %edx
+ 48 0f be 10          movsx  (%rax), %rdx
+ 66 0f be 10          data16 movsx  (%rax), %dx
+ 0f be 10             movsx  (%rax), %edx
+ 48 0f be 10          movsx  (%rax), %rdx
+ 66 0f be 10          data16 movsx  (%rax), %dx
+ 0f bf 10             movsx  (%rax), %edx
+ 48 0f bf 10          movsx  (%rax), %rdx
+ 66 0f b6 f0          data16 movzx  %al, %si
+ 0f b6 f0             movzx  %al, %esi
+ 48 0f b6 f0          movzx  %al, %rsi
+ 0f b7 f0             movzx  %ax, %esi
+ 48 0f b7 f0          movzx  %ax, %rsi
+ 0f b6 10             movzx  (%rax), %edx
+ 48 0f b6 10          movzx  (%rax), %rdx
+ 66 0f b6 10          data16 movzx  (%rax), %dx
+ 0f b6 10             movzx  (%rax), %edx
+ 48 0f b6 10          movzx  (%rax), %rdx
+ 66 0f b6 10          data16 movzx  (%rax), %dx
+ 0f b6 10             movzx  (%rax), %edx
+ 48 0f b6 10          movzx  (%rax), %rdx
+ 66 0f b6 10          data16 movzx  (%rax), %dx
+ 0f b7 10             movzx  (%rax), %edx
+ 48 0f b7 10          movzx  (%rax), %rdx
+ 66 0f be f0          data16 movsx  %al, %si
+ 0f be f0             movsx  %al, %esi
+ 48 0f be f0          movsx  %al, %rsi
+ 0f bf f0             movsx  %ax, %esi
+ 48 0f bf f0          movsx  %ax, %rsi
+ 48 63 f0             movsxd %eax, %rsi
+ 0f be 10             movsx  (%rax), %edx
+ 48 0f be 10          movsx  (%rax), %rdx
+ 66 0f be 10          data16 movsx  (%rax), %dx
+ 0f bf 10             movsx  (%rax), %edx
+ 48 0f bf 10          movsx  (%rax), %rdx
+ 66 0f b6 f0          data16 movzx  %al, %si
+ 0f b6 f0             movzx  %al, %esi
+ 48 0f b6 f0          movzx  %al, %rsi
+ 0f b7 f0             movzx  %ax, %esi
+ 48 0f b7 f0          movzx  %ax, %rsi
+ 0f b6 10             movzx  (%rax), %edx
+ 48 0f b6 10          movzx  (%rax), %rdx
+ 66 0f b6 10          data16 movzx  (%rax), %dx
+ 0f b7 10             movzx  (%rax), %edx
+ 48 0f b7 10          movzx  (%rax), %rdx
+ f3 0f 7e 0c 24       movq   (%rsp), %xmm1
+ f3 0f 7e 0c 24       movq   (%rsp), %xmm1
+ 66 0f d6 0c 24       movq   %xmm1, (%rsp)
+ 66 0f d6 0c 24       movq   %xmm1, (%rsp)
+ df e0                fnstsw %ax
+ df e0                fnstsw %ax
+ 9b                   fwait
+ df e0                fnstsw %ax
+ 9b                   fwait
+ df e0                fnstsw %ax
+ df e0                fnstsw %ax
+ df e0                fnstsw %ax
+ 9b                   fwait
+ df e0                fnstsw %ax
+ 9b                   fwait
+ df e0                fnstsw %ax
+ 66 0f be 00          data16 movsx  (%rax), %ax
+ 0f be 00             movsx  (%rax), %eax
+ 48 0f be 00          movsx  (%rax), %rax
+ 66 0f be 10          data16 movsx  (%rax), %dx
+ 0f be 10             movsx  (%rax), %edx
+ 48 0f be 10          movsx  (%rax), %rdx
+ 0f bf 10             movsx  (%rax), %edx
+ 48 0f bf 10          movsx  (%rax), %rdx
+ 48 63 10             movsxd (%rax), %rdx
+ 48 63 00             movsxd (%rax), %rax
+ 66 0f b6 00          data16 movzx  (%rax), %ax
+ 0f b6 00             movzx  (%rax), %eax
+ 48 0f b6 00          movzx  (%rax), %rax
+ 66 0f b6 10          data16 movzx  (%rax), %dx
+ 0f b6 10             movzx  (%rax), %edx
+ 48 0f b6 10          movzx  (%rax), %rdx
+ 0f b7 10             movzx  (%rax), %edx
+ 48 0f b7 10          movzx  (%rax), %rdx
+ 0f c3 00             movnti %eax, (%rax)
+ 0f c3 00             movnti %eax, (%rax)
+ 48 0f c3 00          movnti %rax, (%rax)
+ 48 0f c3 00          movnti %rax, (%rax)
+ 66 0f be 00          data16 movsx  (%rax), %ax
+ 0f be 00             movsx  (%rax), %eax
+ 0f bf 00             movsx  (%rax), %eax
+ 48 0f bf 00          movsx  (%rax), %rax
+ 48 63 00             movsxd (%rax), %rax
+ 48 63 00             movsxd (%rax), %rax
+ 66 0f b6 00          data16 movzx  (%rax), %ax
+ 0f b6 00             movzx  (%rax), %eax
+ 0f b7 00             movzx  (%rax), %eax
+ 48 0f b7 00          movzx  (%rax), %rax
+ 0f c3 00             movnti %eax, (%rax)
+ 48 0f c3 00          movnti %rax, (%rax)
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

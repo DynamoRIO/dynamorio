@@ -1,0 +1,24 @@
+test_x86_64_clflushopt_s:
+ 66 0f ae 39          data16 clflush (%rcx)
+ 66 42 0f ae bc f0 23 data16 clflush 0x00000123(%rax,%r14,8)
+ 01 00 00
+ 66 0f ae 39          data16 clflush (%rcx)
+ 66 42 0f ae bc f0 34 data16 clflush 0x00001234(%rax,%r14,8)
+ 12 00 00
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

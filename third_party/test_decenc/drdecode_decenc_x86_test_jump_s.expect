@@ -1,0 +1,68 @@
+test_jump_s:
+ eb fe                jmp    $0x10000000
+ e9 fc ff ff ff       jmp    $0x10000003
+ ff 25 00 00 00 00    jmp    0x00
+ ff e7                jmp    %edi
+ ff 27                jmp    (%edi)
+ ff 2c bd 00 00 00 00 ljmp   0x00(,%edi,4)
+ 66 ff 2c bd 00 00 00 data16 ljmp   0x00(,%edi,4)
+ 00
+ ff 2d 00 00 00 00    ljmp   0x00
+ 66 ff 2d 00 00 00 00 data16 ljmp   0x00
+ ea 00 00 00 00 34 12 ljmp   0x1234:0x00000000
+ e8 c7 ff ff ff       call   $0x10000000
+ e8 fc ff ff ff       call   $0x1000003a
+ ff 15 00 00 00 00    call   0x00
+ ff d7                call   %edi
+ ff 17                call   (%edi)
+ ff 1c bd 00 00 00 00 lcall  0x00(,%edi,4)
+ 66 ff 1c bd 00 00 00 data16 lcall  0x00(,%edi,4)
+ 00
+ ff 1d 00 00 00 00    lcall  0x00
+ 66 ff 1d 00 00 00 00 data16 lcall  0x00
+ 9a 00 00 00 00 34 12 lcall  0x1234:0x00000000
+ 66 ff 13             data16 call   (%ebx)
+ ff 13                call   (%ebx)
+ ff 1b                lcall  (%ebx)
+ 66 ff 23             data16 jmp    (%ebx)
+ ff 23                jmp    (%ebx)
+ ff 2b                ljmp   (%ebx)
+ eb 00                jmp    $0x1000007b
+ 90                   nop
+ e3 00                jecxz  $0x1000007e
+ 90                   nop
+ eb 00                jmp    $0x10000081
+ 90                   nop
+ 9a 90 90 90 90 90 90 lcall  0x9090:0x90909090
+ 9a 90 90 90 90 90 90 lcall  0x9090:0x90909090
+ 9a 00 00 00 00 90 90 lcall  0x9090:0x00000000
+ 9a 00 00 00 00 90 90 lcall  0x9090:0x00000000
+ 9a 90 90 90 90 90 90 lcall  0x9090:0x90909090
+ 9a 90 90 90 90 90 90 lcall  0x9090:0x90909090
+ 9a 00 00 00 00 90 90 lcall  0x9090:0x00000000
+ 9a 00 00 00 00 90 90 lcall  0x9090:0x00000000
+ ea 90 90 90 90 90 90 ljmp   0x9090:0x90909090
+ ea 90 90 90 90 90 90 ljmp   0x9090:0x90909090
+ ea 00 00 00 00 90 90 ljmp   0x9090:0x00000000
+ ea 00 00 00 00 90 90 ljmp   0x9090:0x00000000
+ ea 90 90 90 90 90 90 ljmp   0x9090:0x90909090
+ ea 90 90 90 90 90 90 ljmp   0x9090:0x90909090
+ ea 00 00 00 00 90 90 ljmp   0x9090:0x00000000
+ ea 00 00 00 00 90 90 ljmp   0x9090:0x00000000
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

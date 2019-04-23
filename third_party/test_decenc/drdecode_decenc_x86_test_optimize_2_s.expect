@@ -1,0 +1,26 @@
+test_optimize_2_s:
+ a9 7f 00 00 00       test   %eax, $0x0000007f
+ 66 a9 7f 00          data16 test   %ax, $0x007f
+ a8 7f                test   %al, $0x7f
+ f7 c3 7f 00 00 00    test   %ebx, $0x0000007f
+ 66 f7 c3 7f 00       data16 test   %bx, $0x007f
+ f6 c3 7f             test   %bl, $0x7f
+ f7 c7 7f 00 00 00    test   %edi, $0x0000007f
+ 66 f7 c7 7f 00       data16 test   %di, $0x007f
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

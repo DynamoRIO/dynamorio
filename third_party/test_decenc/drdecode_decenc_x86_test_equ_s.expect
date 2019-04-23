@@ -1,0 +1,36 @@
+test_equ_s:
+ b8 ff ff ff ff       mov    $0xffffffff, %eax
+ a1 ff ff ff ff       mov    -0x01, %eax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ 85 c9                test   %ecx, %ecx
+ 64 8b 0c 89          mov    %fs:(%ecx,%ecx,4), %ecx
+ d8 c1                fadd   %st1, %st0, %st0
+ b8 fe ff ff ff       mov    $0xfffffffe, %eax
+ a1 fe ff ff ff       mov    -0x02, %eax
+ b8 00 00 00 00       mov    $0x00000000, %eax
+ a1 00 00 00 00       mov    0x00, %eax
+ 85 d2                test   %edx, %edx
+ 65 8b 14 d2          mov    %gs:(%edx,%edx,8), %edx
+ 65 8b 14 d2          mov    %gs:(%edx,%edx,8), %edx
+ d8 c1                fadd   %st1, %st0, %st0
+ d8 c7                fadd   %st7, %st0, %st0
+ 8b 42 04             mov    0x04(%edx), %eax
+ 8b 42 04             mov    0x04(%edx), %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

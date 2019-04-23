@@ -1,0 +1,50 @@
+test_x86_64_segovr_s:
+ 8b 00                mov    (%rax), %eax
+ 8b 01                mov    (%rcx), %eax
+ 8b 02                mov    (%rdx), %eax
+ 8b 03                mov    (%rbx), %eax
+ 3e 8b 04 24          mov    %ds:(%rsp), %eax
+ 3e 8b 45 00          mov    %ds:0x00(%rbp), %eax
+ 8b 06                mov    (%rsi), %eax
+ 8b 07                mov    (%rdi), %eax
+ 41 8b 00             mov    (%r8), %eax
+ 41 8b 01             mov    (%r9), %eax
+ 41 8b 02             mov    (%r10), %eax
+ 41 8b 03             mov    (%r11), %eax
+ 41 8b 04 24          mov    (%r12), %eax
+ 41 8b 45 00          mov    0x00(%r13), %eax
+ 41 8b 06             mov    (%r14), %eax
+ 41 8b 07             mov    (%r15), %eax
+ 36 8b 00             mov    %ss:(%rax), %eax
+ 36 8b 01             mov    %ss:(%rcx), %eax
+ 36 8b 02             mov    %ss:(%rdx), %eax
+ 36 8b 03             mov    %ss:(%rbx), %eax
+ 8b 04 24             mov    (%rsp), %eax
+ 8b 45 00             mov    0x00(%rbp), %eax
+ 36 8b 06             mov    %ss:(%rsi), %eax
+ 36 8b 07             mov    %ss:(%rdi), %eax
+ 36 41 8b 00          mov    %ss:(%r8), %eax
+ 36 41 8b 01          mov    %ss:(%r9), %eax
+ 36 41 8b 02          mov    %ss:(%r10), %eax
+ 36 41 8b 03          mov    %ss:(%r11), %eax
+ 36 41 8b 04 24       mov    %ss:(%r12), %eax
+ 36 41 8b 45 00       mov    %ss:0x00(%r13), %eax
+ 36 41 8b 06          mov    %ss:(%r14), %eax
+ 36 41 8b 07          mov    %ss:(%r15), %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

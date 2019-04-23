@@ -1,0 +1,300 @@
+test_x86_64_simd_s:
+ f2 0f d0 0d 78 56 34 addsubps <rel> 0x0000000022345680, %xmm1
+ 12
+ 66 0f 2f 0d 78 56 34 comisd %xmm1, <rel> 0x0000000022345688
+ 12
+ 0f 2f 0d 78 56 34 12 comiss %xmm1, <rel> 0x000000002234568f
+ f3 0f e6 0d 78 56 34 cvtdq2pd <rel> 0x0000000022345697, %xmm1
+ 12
+ f2 0f e6 0d 78 56 34 cvtpd2dq <rel> 0x000000002234569f, %xmm1
+ 12
+ 0f 5a 0d 78 56 34 12 cvtps2pd <rel> 0x00000000223456a6, %xmm1
+ f3 0f 5b 0d 78 56 34 cvttps2dq <rel> 0x00000000223456ae, %xmm1
+ 12
+ f3 0f 2a c8          cvtsi2ss %eax, %xmm1
+ f2 0f 2a c8          cvtsi2sd %eax, %xmm1
+ f3 0f 2a c8          cvtsi2ss %eax, %xmm1
+ f2 0f 2a c8          cvtsi2sd %eax, %xmm1
+ f3 48 0f 2a c8       cvtsi2ss %rax, %xmm1
+ f2 48 0f 2a c8       cvtsi2sd %rax, %xmm1
+ f3 48 0f 2a c8       cvtsi2ss %rax, %xmm1
+ f2 48 0f 2a c8       cvtsi2sd %rax, %xmm1
+ f3 0f 2a 08          cvtsi2ss (%rax), %xmm1
+ f2 0f 2a 08          cvtsi2sd (%rax), %xmm1
+ f3 0f 2a 08          cvtsi2ss (%rax), %xmm1
+ f2 0f 2a 08          cvtsi2sd (%rax), %xmm1
+ f3 48 0f 2a 08       cvtsi2ss (%rax), %xmm1
+ f2 48 0f 2a 08       cvtsi2sd (%rax), %xmm1
+ f2 0f 7c 0d 78 56 34 haddps <rel> 0x00000000223456f4, %xmm1
+ 12
+ f3 0f 7f 0d 78 56 34 movdqu %xmm1, <rel> 0x00000000223456fc
+ 12
+ f3 0f 6f 0d 78 56 34 movdqu <rel> 0x0000000022345704, %xmm1
+ 12
+ 66 0f 17 0d 78 56 34 movhpd %xmm1, <rel> 0x000000002234570c
+ 12
+ 66 0f 16 0d 78 56 34 movhpd <rel> 0x0000000022345714, %xmm1
+ 12
+ 0f 17 0d 78 56 34 12 movhps %xmm1, <rel> 0x000000002234571b
+ 0f 16 0d 78 56 34 12 movhps <rel> 0x0000000022345722, %xmm1
+ 66 0f 13 0d 78 56 34 movlpd %xmm1, <rel> 0x000000002234572a
+ 12
+ 66 0f 12 0d 78 56 34 movlpd <rel> 0x0000000022345732, %xmm1
+ 12
+ 0f 13 0d 78 56 34 12 movlps %xmm1, <rel> 0x0000000022345739
+ 0f 12 0d 78 56 34 12 movlps <rel> 0x0000000022345740, %xmm1
+ 66 0f d6 0d 78 56 34 movq   %xmm1, <rel> 0x0000000022345748
+ 12
+ f3 0f 7e 0d 78 56 34 movq   <rel> 0x0000000022345750, %xmm1
+ 12
+ f3 0f 16 0d 78 56 34 movshdup <rel> 0x0000000022345758, %xmm1
+ 12
+ f3 0f 12 0d 78 56 34 movsldup <rel> 0x0000000022345760, %xmm1
+ 12
+ f3 0f 70 0d 78 56 34 pshufhw <rel> 0x0000000022345769, $0x90, %xmm1
+ 12 90
+ f2 0f 70 0d 78 56 34 pshuflw <rel> 0x0000000022345772, $0x90, %xmm1
+ 12 90
+ 0f 60 0d 78 56 34 12 punpcklbw <rel> 0x0000000022345779, %mm1
+ 0f 62 0d 78 56 34 12 punpckldq <rel> 0x0000000022345780, %mm1
+ 0f 61 0d 78 56 34 12 punpcklwd <rel> 0x0000000022345787, %mm1
+ 66 0f 60 0d 78 56 34 punpcklbw <rel> 0x000000002234578f, %xmm1
+ 12
+ 66 0f 62 0d 78 56 34 punpckldq <rel> 0x0000000022345797, %xmm1
+ 12
+ 66 0f 61 0d 78 56 34 punpcklwd <rel> 0x000000002234579f, %xmm1
+ 12
+ 66 0f 6c 0d 78 56 34 punpcklqdq <rel> 0x00000000223457a7, %xmm1
+ 12
+ 66 0f 2e 0d 78 56 34 ucomisd %xmm1, <rel> 0x00000000223457af
+ 12
+ 0f 2e 0d 78 56 34 12 ucomiss %xmm1, <rel> 0x00000000223457b6
+ f2 0f c2 00 00       cmpsd  (%rax), $0x00, %xmm0
+ f3 0f c2 00 00       cmpss  (%rax), $0x00, %xmm0
+ 66 0f 2a 00          cvtpi2pd (%rax), %xmm0
+ 0f 2a 00             cvtpi2ps (%rax), %xmm0
+ 0f 2d 00             cvtps2pi (%rax), %mm0
+ f2 0f 2d 00          cvtsd2si (%rax), %eax
+ f2 48 0f 2d 00       cvtsd2si (%rax), %rax
+ f2 0f 2c 00          cvttsd2si (%rax), %eax
+ f2 48 0f 2c 00       cvttsd2si (%rax), %rax
+ f2 0f 5a 00          cvtsd2ss (%rax), %xmm0
+ f3 0f 5a 00          cvtss2sd (%rax), %xmm0
+ f3 0f 2d 00          cvtss2si (%rax), %eax
+ f3 48 0f 2d 00       cvtss2si (%rax), %rax
+ f3 0f 2c 00          cvttss2si (%rax), %eax
+ f3 48 0f 2c 00       cvttss2si (%rax), %rax
+ f2 0f 5e 00          divsd  (%rax), %xmm0
+ f3 0f 5e 00          divss  (%rax), %xmm0
+ f2 0f 5f 00          maxsd  (%rax), %xmm0
+ f3 0f 5f 00          maxss  (%rax), %xmm0
+ f3 0f 5d 00          minss  (%rax), %xmm0
+ f3 0f 5d 00          minss  (%rax), %xmm0
+ f2 0f 2b 00          movntsd %xmm0, (%rax)
+ f3 0f 2b 00          movntss %xmm0, (%rax)
+ f2 0f 10 00          movsd  (%rax), %xmm0
+ f2 0f 11 00          movsd  %xmm0, (%rax)
+ f3 0f 10 00          movss  (%rax), %xmm0
+ f3 0f 11 00          movss  %xmm0, (%rax)
+ f2 0f 59 00          mulsd  (%rax), %xmm0
+ f3 0f 59 00          mulss  (%rax), %xmm0
+ f3 0f 53 00          rcpss  (%rax), %xmm0
+ 66 0f 3a 0b 00 00    roundsd (%rax), $0x00, %xmm0
+ 66 0f 3a 0a 00 00    roundss (%rax), $0x00, %xmm0
+ f3 0f 52 00          rsqrtss (%rax), %xmm0
+ f2 0f 51 00          sqrtsd (%rax), %xmm0
+ f3 0f 51 00          sqrtss (%rax), %xmm0
+ f2 0f 5c 00          subsd  (%rax), %xmm0
+ f3 0f 5c 00          subss  (%rax), %xmm0
+ 66 0f 38 20 00       pmovsxbw (%rax), %xmm0
+ 66 0f 38 21 00       pmovsxbd (%rax), %xmm0
+ 66 0f 38 22 00       pmovsxbq (%rax), %xmm0
+ 66 0f 38 23 00       pmovsxwd (%rax), %xmm0
+ 66 0f 38 24 00       pmovsxwq (%rax), %xmm0
+ 66 0f 38 25 00       pmovsxdq (%rax), %xmm0
+ 66 0f 38 30 00       pmovzxbw (%rax), %xmm0
+ 66 0f 38 31 00       pmovzxbd (%rax), %xmm0
+ 66 0f 38 32 00       pmovzxbq (%rax), %xmm0
+ 66 0f 38 33 00       pmovzxwd (%rax), %xmm0
+ 66 0f 38 34 00       pmovzxwq (%rax), %xmm0
+ 66 0f 38 35 00       pmovzxdq (%rax), %xmm0
+ 66 0f 3a 21 00 00    insertps (%rax), $0x00, %xmm0
+ 66 0f 15 08          unpckhpd (%rax), %xmm1
+ 0f 15 08             unpckhps (%rax), %xmm1
+ 66 0f 14 08          unpcklpd (%rax), %xmm1
+ 0f 14 08             unpcklps (%rax), %xmm1
+ f3 0f c2 f7 10       cmpss  %xmm7, $0x10, %xmm6
+ f3 0f c2 38 10       cmpss  (%rax), $0x10, %xmm7
+ f2 0f c2 f7 10       cmpsd  %xmm7, $0x10, %xmm6
+ f2 0f c2 38 10       cmpsd  (%rax), $0x10, %xmm7
+ 0f d4 c1             paddq  %mm1, %mm0
+ 0f d4 00             paddq  (%rax), %mm0
+ 66 0f d4 c1          paddq  %xmm1, %xmm0
+ 66 0f d4 00          paddq  (%rax), %xmm0
+ 0f fb c1             psubq  %mm1, %mm0
+ 0f fb 00             psubq  (%rax), %mm0
+ 66 0f fb c1          psubq  %xmm1, %xmm0
+ 66 0f fb 00          psubq  (%rax), %xmm0
+ 0f f4 c1             pmuludq %mm1, %mm0
+ 0f f4 00             pmuludq (%rax), %mm0
+ 66 0f f4 c1          pmuludq %xmm1, %xmm0
+ 66 0f f4 00          pmuludq (%rax), %xmm0
+ f2 0f d0 0d 78 56 34 addsubps <rel> 0x00000000223458e8, %xmm1
+ 12
+ 66 0f 2f 0d 78 56 34 comisd %xmm1, <rel> 0x00000000223458f0
+ 12
+ 0f 2f 0d 78 56 34 12 comiss %xmm1, <rel> 0x00000000223458f7
+ f3 0f e6 0d 78 56 34 cvtdq2pd <rel> 0x00000000223458ff, %xmm1
+ 12
+ f2 0f e6 0d 78 56 34 cvtpd2dq <rel> 0x0000000022345907, %xmm1
+ 12
+ 0f 5a 0d 78 56 34 12 cvtps2pd <rel> 0x000000002234590e, %xmm1
+ f3 0f 5b 0d 78 56 34 cvttps2dq <rel> 0x0000000022345916, %xmm1
+ 12
+ f3 0f 2a c8          cvtsi2ss %eax, %xmm1
+ f2 0f 2a c8          cvtsi2sd %eax, %xmm1
+ f3 0f 2a c8          cvtsi2ss %eax, %xmm1
+ f2 0f 2a c8          cvtsi2sd %eax, %xmm1
+ f3 48 0f 2a c8       cvtsi2ss %rax, %xmm1
+ f2 48 0f 2a c8       cvtsi2sd %rax, %xmm1
+ f3 48 0f 2a c8       cvtsi2ss %rax, %xmm1
+ f2 48 0f 2a c8       cvtsi2sd %rax, %xmm1
+ f3 0f 2a 08          cvtsi2ss (%rax), %xmm1
+ f2 0f 2a 08          cvtsi2sd (%rax), %xmm1
+ f3 0f 2a 08          cvtsi2ss (%rax), %xmm1
+ f2 0f 2a 08          cvtsi2sd (%rax), %xmm1
+ f3 48 0f 2a 08       cvtsi2ss (%rax), %xmm1
+ f2 48 0f 2a 08       cvtsi2sd (%rax), %xmm1
+ f3 48 0f 2a 08       cvtsi2ss (%rax), %xmm1
+ f2 48 0f 2a 08       cvtsi2sd (%rax), %xmm1
+ f2 0f 7c 0d 78 56 34 haddps <rel> 0x0000000022345966, %xmm1
+ 12
+ f3 0f 7f 0d 78 56 34 movdqu %xmm1, <rel> 0x000000002234596e
+ 12
+ f3 0f 6f 0d 78 56 34 movdqu <rel> 0x0000000022345976, %xmm1
+ 12
+ 66 0f 17 0d 78 56 34 movhpd %xmm1, <rel> 0x000000002234597e
+ 12
+ 66 0f 16 0d 78 56 34 movhpd <rel> 0x0000000022345986, %xmm1
+ 12
+ 0f 17 0d 78 56 34 12 movhps %xmm1, <rel> 0x000000002234598d
+ 0f 16 0d 78 56 34 12 movhps <rel> 0x0000000022345994, %xmm1
+ 66 0f 13 0d 78 56 34 movlpd %xmm1, <rel> 0x000000002234599c
+ 12
+ 66 0f 12 0d 78 56 34 movlpd <rel> 0x00000000223459a4, %xmm1
+ 12
+ 0f 13 0d 78 56 34 12 movlps %xmm1, <rel> 0x00000000223459ab
+ 0f 12 0d 78 56 34 12 movlps <rel> 0x00000000223459b2, %xmm1
+ 66 0f d6 0d 78 56 34 movq   %xmm1, <rel> 0x00000000223459ba
+ 12
+ f3 0f 7e 0d 78 56 34 movq   <rel> 0x00000000223459c2, %xmm1
+ 12
+ f3 0f 16 0d 78 56 34 movshdup <rel> 0x00000000223459ca, %xmm1
+ 12
+ f3 0f 12 0d 78 56 34 movsldup <rel> 0x00000000223459d2, %xmm1
+ 12
+ f3 0f 70 0d 78 56 34 pshufhw <rel> 0x00000000223459db, $0x90, %xmm1
+ 12 90
+ f2 0f 70 0d 78 56 34 pshuflw <rel> 0x00000000223459e4, $0x90, %xmm1
+ 12 90
+ 0f 60 0d 78 56 34 12 punpcklbw <rel> 0x00000000223459eb, %mm1
+ 0f 62 0d 78 56 34 12 punpckldq <rel> 0x00000000223459f2, %mm1
+ 0f 61 0d 78 56 34 12 punpcklwd <rel> 0x00000000223459f9, %mm1
+ 66 0f 60 0d 78 56 34 punpcklbw <rel> 0x0000000022345a01, %xmm1
+ 12
+ 66 0f 62 0d 78 56 34 punpckldq <rel> 0x0000000022345a09, %xmm1
+ 12
+ 66 0f 61 0d 78 56 34 punpcklwd <rel> 0x0000000022345a11, %xmm1
+ 12
+ 66 0f 6c 0d 78 56 34 punpcklqdq <rel> 0x0000000022345a19, %xmm1
+ 12
+ 66 0f 2e 0d 78 56 34 ucomisd %xmm1, <rel> 0x0000000022345a21
+ 12
+ 0f 2e 0d 78 56 34 12 ucomiss %xmm1, <rel> 0x0000000022345a28
+ f2 0f c2 00 00       cmpsd  (%rax), $0x00, %xmm0
+ f3 0f c2 00 00       cmpss  (%rax), $0x00, %xmm0
+ 66 0f 2a 00          cvtpi2pd (%rax), %xmm0
+ 0f 2a 00             cvtpi2ps (%rax), %xmm0
+ 0f 2d 00             cvtps2pi (%rax), %mm0
+ f2 0f 2d 00          cvtsd2si (%rax), %eax
+ f2 48 0f 2d 00       cvtsd2si (%rax), %rax
+ f2 0f 2c 00          cvttsd2si (%rax), %eax
+ f2 48 0f 2c 00       cvttsd2si (%rax), %rax
+ f2 0f 5a 00          cvtsd2ss (%rax), %xmm0
+ f3 0f 5a 00          cvtss2sd (%rax), %xmm0
+ f3 0f 2d 00          cvtss2si (%rax), %eax
+ f3 48 0f 2d 00       cvtss2si (%rax), %rax
+ f3 0f 2c 00          cvttss2si (%rax), %eax
+ f3 48 0f 2c 00       cvttss2si (%rax), %rax
+ f2 0f 5e 00          divsd  (%rax), %xmm0
+ f3 0f 5e 00          divss  (%rax), %xmm0
+ f2 0f 5f 00          maxsd  (%rax), %xmm0
+ f3 0f 5f 00          maxss  (%rax), %xmm0
+ f3 0f 5d 00          minss  (%rax), %xmm0
+ f3 0f 5d 00          minss  (%rax), %xmm0
+ f2 0f 2b 00          movntsd %xmm0, (%rax)
+ f3 0f 2b 00          movntss %xmm0, (%rax)
+ f2 0f 10 00          movsd  (%rax), %xmm0
+ f2 0f 11 00          movsd  %xmm0, (%rax)
+ f3 0f 10 00          movss  (%rax), %xmm0
+ f3 0f 11 00          movss  %xmm0, (%rax)
+ f2 0f 59 00          mulsd  (%rax), %xmm0
+ f3 0f 59 00          mulss  (%rax), %xmm0
+ f3 0f 53 00          rcpss  (%rax), %xmm0
+ 66 0f 3a 0b 00 00    roundsd (%rax), $0x00, %xmm0
+ 66 0f 3a 0a 00 00    roundss (%rax), $0x00, %xmm0
+ f3 0f 52 00          rsqrtss (%rax), %xmm0
+ f2 0f 51 00          sqrtsd (%rax), %xmm0
+ f3 0f 51 00          sqrtss (%rax), %xmm0
+ f2 0f 5c 00          subsd  (%rax), %xmm0
+ f3 0f 5c 00          subss  (%rax), %xmm0
+ 66 0f 38 20 00       pmovsxbw (%rax), %xmm0
+ 66 0f 38 21 00       pmovsxbd (%rax), %xmm0
+ 66 0f 38 22 00       pmovsxbq (%rax), %xmm0
+ 66 0f 38 23 00       pmovsxwd (%rax), %xmm0
+ 66 0f 38 24 00       pmovsxwq (%rax), %xmm0
+ 66 0f 38 25 00       pmovsxdq (%rax), %xmm0
+ 66 0f 38 30 00       pmovzxbw (%rax), %xmm0
+ 66 0f 38 31 00       pmovzxbd (%rax), %xmm0
+ 66 0f 38 32 00       pmovzxbq (%rax), %xmm0
+ 66 0f 38 33 00       pmovzxwd (%rax), %xmm0
+ 66 0f 38 34 00       pmovzxwq (%rax), %xmm0
+ 66 0f 38 35 00       pmovzxdq (%rax), %xmm0
+ 66 0f 3a 21 00 00    insertps (%rax), $0x00, %xmm0
+ 66 0f 15 00          unpckhpd (%rax), %xmm0
+ 0f 15 00             unpckhps (%rax), %xmm0
+ 66 0f 14 00          unpcklpd (%rax), %xmm0
+ 0f 14 00             unpcklps (%rax), %xmm0
+ f3 0f c2 f7 10       cmpss  %xmm7, $0x10, %xmm6
+ f3 0f c2 38 10       cmpss  (%rax), $0x10, %xmm7
+ f2 0f c2 f7 10       cmpsd  %xmm7, $0x10, %xmm6
+ f2 0f c2 38 10       cmpsd  (%rax), $0x10, %xmm7
+ 0f d4 08             paddq  (%rax), %mm1
+ 0f d4 08             paddq  (%rax), %mm1
+ 66 0f d4 08          paddq  (%rax), %xmm1
+ 66 0f d4 08          paddq  (%rax), %xmm1
+ 0f fb 08             psubq  (%rax), %mm1
+ 0f fb 08             psubq  (%rax), %mm1
+ 66 0f fb 08          psubq  (%rax), %xmm1
+ 66 0f fb 08          psubq  (%rax), %xmm1
+ 0f f4 08             pmuludq (%rax), %mm1
+ 0f f4 08             pmuludq (%rax), %mm1
+ 66 0f f4 08          pmuludq (%rax), %xmm1
+ 66 0f f4 08          pmuludq (%rax), %xmm1
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

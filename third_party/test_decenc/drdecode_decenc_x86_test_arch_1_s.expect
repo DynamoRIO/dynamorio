@@ -1,0 +1,24 @@
+test_arch_1_s:
+ 66 0f 38 17 c1       ptest  %xmm0, %xmm1
+ 66 0f 3a 09 c1 00    roundpd %xmm1, $0x00, %xmm0
+ 66 0f 3a 08 c1 00    roundps %xmm1, $0x00, %xmm0
+ 66 0f 3a 0b c1 00    roundsd %xmm1, $0x00, %xmm0
+ 66 0f 3a 0a c1 00    roundss %xmm1, $0x00, %xmm0
+ 66 0f 38 41 d9       phminposuw %xmm1, %xmm3
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

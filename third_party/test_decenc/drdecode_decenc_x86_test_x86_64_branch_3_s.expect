@@ -1,0 +1,18 @@
+test_x86_64_branch_3_s:
+ 66 e9 00 00 89 c3    data16 jmp    $0xffffffffd3890006
+ 66 e8 00 00 90 90    data16 call   $0xffffffffa090000c
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done

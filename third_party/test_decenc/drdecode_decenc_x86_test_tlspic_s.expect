@@ -1,0 +1,36 @@
+test_tlspic_s:
+ 55                   push   %ebp
+ 89 e5                mov    %esp, %ebp
+ 53                   push   %ebx
+ 50                   push   %eax
+ e8 00 00 00 00       call   $0x1000000a
+ 5b                   pop    %ebx
+ 81 c3 03 00 00 00    add    $0x00000003, %ebx
+ 65 a1 00 00 00 00    mov    %gs:0x00, %eax
+ 83 c6 00             add    $0x00, %esi
+ 2b 83 00 00 00 00    sub    0x00000000(%ebx), %eax
+ 8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
+ 83 c6 00             add    $0x00, %esi
+ 65 8b 00             mov    %gs:(%eax), %eax
+ 65 8b 0d 00 00 00 00 mov    %gs:0x00, %ecx
+ 03 8b 00 00 00 00    add    0x00000000(%ebx), %ecx
+ 8b 5d fc             mov    -0x04(%ebp), %ebx
+ c9                   leave
+ c3                   ret
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+done
