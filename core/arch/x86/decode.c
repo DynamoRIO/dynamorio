@@ -405,13 +405,6 @@ read_operand(byte *pc, decode_info_t *di, byte optype, opnd_size_t opsize)
     switch (optype) {
     case TYPE_A: {
         CLIENT_ASSERT(!X64_MODE(di), "x64 has no type A instructions");
-#ifdef IA32_ON_IA64
-        /* somewhat hacked dispatch on size */
-        if (opsize == OPSZ_4_short2) {
-            pc = read_immed(pc, di, opsize, &val);
-            break;
-        }
-#endif
         /* ok b/c only instr_info_t fields passed */
         CLIENT_ASSERT(opsize == OPSZ_6_irex10_short4, "decode A operand error");
         if (TEST(PREFIX_DATA, di->prefixes)) {
@@ -1690,18 +1683,6 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         *opnd = opnd_create_pc((app_pc)get_immed(di, opsize));
         return true;
     case TYPE_A: {
-#ifdef IA32_ON_IA64
-        if (opsize == OPSZ_4_short2) {
-            if (di->seg_override == SEG_CS || di->seg_override == SEG_DS) {
-                /* branch hint! just delete it? FIXME! */
-                di->seg_override = REG_NULL;
-                ASSERT_CURIOSITY(false); /* see if this ever happens */
-            }
-            /* just ignore other segment prefixes -- don't assert */
-            *opnd = opnd_create_pc((app_pc)get_immed(di, opsize));
-            return true;
-        }
-#endif
         /* ok since instr_info_t fields */
         CLIENT_ASSERT(!X64_MODE(di), "x64 has no type A instructions");
         CLIENT_ASSERT(opsize == OPSZ_6_irex10_short4, "decode A operand error");

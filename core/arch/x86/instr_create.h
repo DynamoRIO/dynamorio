@@ -685,12 +685,6 @@
  */
 #define INSTR_CREATE_int(dc, i) instr_create_0dst_1src((dc), OP_int, (i))
 
-#ifdef IA32_ON_IA64
-/* DR_API EXPORT BEGIN */
-#    define INSTR_CREATE_jmpe(dc, t) instr_create_0dst_1src((dc), OP_jmpe, (t))
-#    define INSTR_CREATE_jmpe_abs(dc, t) instr_create_0dst_1src((dc), OP_jmpe_abs, (t))
-#endif
-
 /* floating-point */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and

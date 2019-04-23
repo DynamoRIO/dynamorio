@@ -4432,13 +4432,6 @@ os_set_protection(byte *pc, size_t length, uint prot /*MEMPROT_*/)
     uint num_bytes = ALIGN_FORWARD(length + (pc - start_page), PAGE_SIZE);
     long res = 0;
     uint flags = memprot_to_osprot(prot);
-#ifdef IA32_ON_IA64
-    LOG(THREAD_GET, LOG_VMAREAS, 1, "protection change not supported on IA64\n");
-    LOG(THREAD_GET, LOG_VMAREAS, 1,
-        " attempted change_prot(" PFX ", " PIFX ", %s) => "
-        "mprotect(" PFX ", " PIFX ")==%d pages\n",
-        pc, length, memprot_string(prot), start_page, num_bytes, num_bytes / PAGE_SIZE);
-#else
     DOSTATS({
         /* once on each side of prot, to get on right side of writability */
         if (!TEST(PROT_WRITE, flags)) {
@@ -4454,7 +4447,6 @@ os_set_protection(byte *pc, size_t length, uint prot /*MEMPROT_*/)
         "mprotect(" PFX ", " PIFX ", %d)==%d pages\n",
         pc, length, memprot_string(prot), start_page, num_bytes, flags,
         num_bytes / PAGE_SIZE);
-#endif
     DOSTATS({
         /* once on each side of prot, to get on right side of writability */
         if (TEST(PROT_WRITE, flags)) {
@@ -4516,19 +4508,12 @@ make_writable(byte *pc, size_t size)
         prot |= PROT_WRITE;
 
     ASSERT(start_page == pc && ALIGN_FORWARD(size, PAGE_SIZE) == size);
-#ifdef IA32_ON_IA64
-    LOG(THREAD_GET, LOG_VMAREAS, 1, "protection change not supported on IA64\n");
-    LOG(THREAD_GET, LOG_VMAREAS, 3,
-        "attempted make_writable: pc " PFX " -> " PFX "-" PFX "\n", pc, start_page,
-        start_page + prot_size);
-#else
     res = mprotect_syscall((void *)start_page, prot_size, prot);
     LOG(THREAD_GET, LOG_VMAREAS, 3, "make_writable: pc " PFX " -> " PFX "-" PFX " %d\n",
         pc, start_page, start_page + prot_size, res);
     ASSERT(res == 0);
     if (res != 0)
         return false;
-#endif
     STATS_INC(protection_change_calls);
     STATS_ADD(protection_change_pages, size / PAGE_SIZE);
 
@@ -4577,25 +4562,18 @@ make_unwritable(byte *pc, size_t size)
     /* inc stats before making unwritable, in case messing w/ data segment */
     STATS_INC(protection_change_calls);
     STATS_ADD(protection_change_pages, size / PAGE_SIZE);
-#ifdef IA32_ON_IA64
-    LOG(THREAD_GET, LOG_VMAREAS, 1, "protection change not supported on IA64\n");
-    LOG(THREAD_GET, LOG_VMAREAS, 3,
-        "attempted make_writable: pc " PFX " -> " PFX "-" PFX "\n", pc, start_page,
-        start_page + prot_size);
-#else
     res = mprotect_syscall((void *)start_page, prot_size, prot);
     LOG(THREAD_GET, LOG_VMAREAS, 3, "make_unwritable: pc " PFX " -> " PFX "-" PFX "\n",
         pc, start_page, start_page + prot_size);
     ASSERT(res == 0);
 
-#    ifndef HAVE_MEMINFO_QUERY
+#ifndef HAVE_MEMINFO_QUERY
     /* update all_memory_areas list with the protection change */
     if (memcache_initialized()) {
         memcache_update_locked(start_page, start_page + prot_size,
                                osprot_to_memprot(prot), -1 /*type unchanged*/,
                                false /*!exists*/);
     }
-#    endif
 #endif
 }
 
@@ -8867,12 +8845,14 @@ found_vsyscall_page(memquery_iter_t *iter _IF_DEBUG(OUT const char **map_type))
 #endif
 }
 
+#ifndef HAVE_MEMINFO_QUERY
 static void
 add_to_memcache(byte *region_start, byte *region_end, void *user_data)
 {
     memcache_update_locked(region_start, region_end, MEMPROT_NONE, DR_MEMTYPE_DATA,
                            false /*!exists*/);
 }
+#endif
 
 int
 os_walk_address_space(memquery_iter_t *iter, bool add_modules)

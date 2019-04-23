@@ -1319,21 +1319,10 @@ enum {
     /* 1156 */ OP_ktestq,   /**< IA-32/AMD64 AVX-512 ktestd opcode. */
     /* 1157 */ OP_ktestd,   /**< IA-32/AMD64 AVX-512 ktestd opcode. */
 
-/* Keep these at the end so that ifdefs don't change internal enum values */
-#ifdef IA32_ON_IA64
-    /* 1107 */ OP_jmpe,     /**< IA-32/AMD64 jmpe opcode. */
-    /* 1108 */ OP_jmpe_abs, /**< IA-32/AMD64 jmpe_abs opcode. */
-#endif
-
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
 };
-
-#ifdef IA32_ON_IA64
-/* redefine instead of if else so works with genapi.pl script */
-#    define OP_LAST OP_jmpe_abs
-#endif
 
 /* alternative names */
 /* we do not equate the fwait+op opcodes

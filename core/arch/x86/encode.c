@@ -1080,13 +1080,6 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         return (opnd_is_near_pc(opnd) || opnd_is_near_instr(opnd));
     case TYPE_A: {
         CLIENT_ASSERT(!X64_MODE(di), "x64 has no type A instructions");
-#ifdef IA32_ON_IA64
-        if (opsize != OPSZ_6_irex10_short4) {
-            return (opnd_is_near_instr(opnd) ||
-                    (opnd_is_near_pc(opnd) &&
-                     immed_size_ok(di, (uint)opnd_get_pc(opnd), opsize)));
-        }
-#endif
         return (opnd_is_far_pc(opnd) || opnd_is_far_instr(opnd));
     }
     case TYPE_O:
@@ -1958,27 +1951,6 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
     }
     case TYPE_A: {
         ptr_uint_t target;
-
-#ifdef IA32_ON_IA64
-        if (opsize == OPSZ_4_short2) {
-            if (opnd_is_near_instr(opnd)) {
-                /* assume the note fields have been set with relative offsets
-                 * from some start pc
-                 */
-                instr_t *target_instr = opnd_get_instr(opnd);
-                target = (ptr_uint_t)target_instr->note;
-                /* target is absolute address of instr ready to go */
-                set_immed(di, target, opsize);
-                di->has_instr_opnds = true;
-            } else {
-                CLIENT_ASSERT(opnd_is_near_pc(opnd), "encode error: opnd not pc");
-                target = (ptr_uint_t)opnd_get_pc(opnd);
-                set_immed(di, target, opsize);
-            }
-            return;
-        }
-#endif
-
         CLIENT_ASSERT(!X64_MODE(di), "x64 has no type A instructions");
         CLIENT_ASSERT(opsize == OPSZ_6_irex10_short4 || opsize == OPSZ_6 ||
                           opsize == OPSZ_4 ||

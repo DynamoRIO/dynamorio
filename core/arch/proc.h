@@ -102,12 +102,6 @@ enum {
  *   Intel IvyBridge           Family 6, Model 58 (0x3a)
  *   Intel Atom                Family 6, Model 28 (0x1c), 38 (0x26), 54 (0x36)
  */
-/* DR_API EXPORT END */
-#ifdef IA32_ON_IA64 /* don't export IA64 stuff! */
-/* IA-64 */
-#    define FAMILY_IA64 7
-#endif
-/* DR_API EXPORT BEGIN */
 /* Remember that we add extended family to family as Intel suggests */
 #define FAMILY_LLANO 18        /**< proc_get_family() processor family: AMD Llano */
 #define FAMILY_ITANIUM_2_DC 17 /**< proc_get_family() processor family: Itanium 2 DC */
