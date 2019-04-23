@@ -225,9 +225,6 @@
 #    $(D)X86
 #    $(D)X64
 
-# support for running in x86 emulator on IA-64
-#    $(D)IA32_ON_IA64
-
 # build script provides these
 #    $(D)BUILD_NUMBER (<64K == vmware's PRODUCT_BUILD_NUMBER)
 #    $(D)UNIQUE_BUILD_NUMBER (== vmware's BUILD_NUMBER)
