@@ -2881,9 +2881,6 @@ OPTION_DEFAULT(bool, pad_jmps_mark_no_trace, false,
     OPTION(uint, aggressiveness, "level of aggressiveness in optimizations")
 #    endif
 
-#    ifdef IA32_ON_IA64
-    OPTIMIZE_OPTION(bool, test_ia64)
-#    endif
     OPTIMIZE_OPTION(bool, prefetch)
     OPTIMIZE_OPTION(bool, rlr)
     OPTIMIZE_OPTION(bool, vectorize)

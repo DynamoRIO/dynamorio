@@ -113,6 +113,11 @@ const char *const type_names[] = {
     "TYPE_INDIR_VAR_XREG_SIZEx8",
     "TYPE_INDIR_VAR_REG_SIZEx2",
     "TYPE_INDIR_VAR_REG_SIZEx3x5",
+    "TYPE_K_MODRM",
+    "TYPE_K_MODRM_R",
+    "TYPE_K_REG",
+    "TYPE_K_VEX",
+    "TYPE_K_EVEX",
 };
 
 /* order corresponds to enum of REG_ and SEG_ constants */
@@ -288,7 +293,8 @@ type_instr_uses_reg_bits(int type)
     case TYPE_G:
     case TYPE_P:
     case TYPE_S:
-    case TYPE_V: return true;
+    case TYPE_V:
+    case TYPE_K_REG: return true;
     default: return false;
     }
 }
@@ -305,7 +311,9 @@ type_uses_modrm_bits(int type)
     case TYPE_INDIR_E:
     case TYPE_P_MODRM:
     case TYPE_V_MODRM:
-    case TYPE_VSIB: return true;
+    case TYPE_VSIB:
+    case TYPE_K_MODRM:
+    case TYPE_K_MODRM_R: return true;
     default: return false;
     }
 }
@@ -315,7 +323,8 @@ type_uses_vex_vvvv_bits(int type)
 {
     switch (type) {
     case TYPE_B:
-    case TYPE_H: return true;
+    case TYPE_H:
+    case TYPE_K_VEX: return true;
     default: return false;
     }
 }
@@ -844,6 +853,12 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
         }
         return true;
     }
+    if (optype == TYPE_K_REG || optype == TYPE_K_MODRM || optype == TYPE_K_MODRM_R ||
+        optype == TYPE_K_VEX) {
+        return (opsize == OPSZ_1 || opsize == OPSZ_2 || opsize == OPSZ_4 ||
+                opsize == OPSZ_8);
+    }
+    /* XXX i#1312: TYPE_K_EVEX will be of variable size. */
     return false;
 }
 
@@ -1065,13 +1080,6 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         return (opnd_is_near_pc(opnd) || opnd_is_near_instr(opnd));
     case TYPE_A: {
         CLIENT_ASSERT(!X64_MODE(di), "x64 has no type A instructions");
-#ifdef IA32_ON_IA64
-        if (opsize != OPSZ_6_irex10_short4) {
-            return (opnd_is_near_instr(opnd) ||
-                    (opnd_is_near_pc(opnd) &&
-                     immed_size_ok(di, (uint)opnd_get_pc(opnd), opsize)));
-        }
-#endif
         return (opnd_is_far_pc(opnd) || opnd_is_far_instr(opnd));
     }
     case TYPE_O:
@@ -1209,6 +1217,28 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         return (opnd_is_reg(opnd) &&
                 reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
                 reg_is_xmm(opnd_get_reg(opnd)));
+    case TYPE_K_REG:
+        /* TYPE_K_REG, TYPE_K_MODRM_R, TYPE_K_MODRM (can be mem addr) and TYPE_K_VEX
+         * are k registers used in AVX-512 VEX encoded instructions with implicit size
+         * given by the opcode.
+         */
+        return (opnd_is_reg(opnd) &&
+                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
+                reg_is_opmask(opnd_get_reg(opnd)));
+    case TYPE_K_MODRM:
+        if (mem_size_ok(di, opnd, optype, opsize))
+            return true;
+        /* fall through */
+    case TYPE_K_MODRM_R:
+        /* Same comment above. */
+        return (opnd_is_reg(opnd) &&
+                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
+                reg_is_opmask(opnd_get_reg(opnd)));
+    case TYPE_K_VEX:
+        /* Same comment above. */
+        return (opnd_is_reg(opnd) &&
+                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
+                reg_is_opmask(opnd_get_reg(opnd)));
     default:
         CLIENT_ASSERT(false, "encode error: type ok: unknown operand type");
         return false;
@@ -1788,9 +1818,11 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
     case TYPE_E:
     case TYPE_Q:
     case TYPE_W:
-    case TYPE_R:       /* we already ensured this is a reg, not memory */
-    case TYPE_P_MODRM: /* we already ensured this is a reg, not memory */
-    case TYPE_V_MODRM: /* we already ensured this is a reg, not memory */
+    case TYPE_K_MODRM:
+    case TYPE_R:         /* we already ensured this is a reg, not memory */
+    case TYPE_P_MODRM:   /* we already ensured this is a reg, not memory */
+    case TYPE_V_MODRM:   /* we already ensured this is a reg, not memory */
+    case TYPE_K_MODRM_R: /* we already ensured this is a reg, not memory */
         if (opnd_is_memory_reference(opnd)) {
             if (opnd_is_far_memory_reference(opnd)) {
                 di->seg_override = opnd_get_segment(opnd);
@@ -1919,27 +1951,6 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
     }
     case TYPE_A: {
         ptr_uint_t target;
-
-#ifdef IA32_ON_IA64
-        if (opsize == OPSZ_4_short2) {
-            if (opnd_is_near_instr(opnd)) {
-                /* assume the note fields have been set with relative offsets
-                 * from some start pc
-                 */
-                instr_t *target_instr = opnd_get_instr(opnd);
-                target = (ptr_uint_t)target_instr->note;
-                /* target is absolute address of instr ready to go */
-                set_immed(di, target, opsize);
-                di->has_instr_opnds = true;
-            } else {
-                CLIENT_ASSERT(opnd_is_near_pc(opnd), "encode error: opnd not pc");
-                target = (ptr_uint_t)opnd_get_pc(opnd);
-                set_immed(di, target, opsize);
-            }
-            return;
-        }
-#endif
-
         CLIENT_ASSERT(!X64_MODE(di), "x64 has no type A instructions");
         CLIENT_ASSERT(opsize == OPSZ_6_irex10_short4 || opsize == OPSZ_6 ||
                           opsize == OPSZ_4 ||
@@ -2055,6 +2066,17 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
         if (reg_is_extended(reg)) /* reg_get_bits does % 8 */
             di->vex_vvvv |= 0x8;
 #endif
+        di->vex_vvvv = (~di->vex_vvvv) & 0xf;
+        return;
+    }
+    case TYPE_K_REG: {
+        reg_id_t reg = opnd_get_reg(opnd);
+        di->reg = (byte)(reg - DR_REG_START_OPMASK);
+        return;
+    }
+    case TYPE_K_VEX: {
+        reg_id_t reg = opnd_get_reg(opnd);
+        di->vex_vvvv = (byte)(reg - DR_REG_START_OPMASK);
         di->vex_vvvv = (~di->vex_vvvv) & 0xf;
         return;
     }
@@ -2538,6 +2560,9 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
      * and some opcode bytes
      */
     if (TEST(REQUIRES_VEX, info->flags)) {
+        if (TEST(OPCODE_MODRM, info->opcode)) {
+            di.prefixes |= PREFIX_REX_W;
+        }
         field_ptr = encode_vex_prefixes(field_ptr, &di, info, &output_initial_opcode);
     } else {
         CLIENT_ASSERT(!TEST(PREFIX_VEX_L, di.prefixes), "internal encode vex error");
@@ -2589,10 +2614,11 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
 
     /* second opcode byte, if there is one */
-    if (TEST(OPCODE_TWOBYTES, info->opcode)) {
+    if (TEST(OPCODE_TWOBYTES, info->opcode) || TEST(OPCODE_THREEBYTES, info->opcode)) {
         *field_ptr = (byte)((info->opcode & 0x0000ff00) >> 8);
         field_ptr++;
     }
+
     /* /n: part of opcode is in reg of modrm byte */
     if (TEST(OPCODE_REG, info->opcode)) {
         CLIENT_ASSERT(di.reg == 8,

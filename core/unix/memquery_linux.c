@@ -251,12 +251,7 @@ memquery_iterator_next(memquery_iter_t *iter)
     *mi->newline = '\0';
     LOG(GLOBAL, LOG_VMAREAS, 6, "\nget_memory_info_from_os: line=[%s]\n", line);
     mi->comment_buffer[0] = '\0';
-    len = sscanf(line,
-#ifdef IA32_ON_IA64
-                 MAPS_LINE_FORMAT8, /* cross-compiling! */
-#else
-                 sizeof(void *) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
-#endif
+    len = sscanf(line, sizeof(void *) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
                  (unsigned long *)&iter->vm_start, (unsigned long *)&iter->vm_end, perm,
                  (unsigned long *)&iter->offset, &iter->inode, mi->comment_buffer);
     if (iter->vm_start == iter->vm_end) {

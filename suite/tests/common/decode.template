@@ -57,4 +57,7 @@ Bad instruction, instance 19
 #else
 Bad instruction, instance 9
 #endif
+#ifdef __AVX512F__
+Testing AVX-512 VEX
+#endif
 All done

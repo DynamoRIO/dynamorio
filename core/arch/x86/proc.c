@@ -277,11 +277,6 @@ get_processor_specific_info(void)
     } else if (cpu_info.vendor == VENDOR_AMD && cpu_info.family == FAMILY_ATHLON) {
         /* Athlon */
         cache_line_size = 64;
-#ifdef IA32_ON_IA64
-    } else if (cpu_info.vendor == VENDOR_INTEL && cpu_info.family == FAMILY_IA64) {
-        /* Itanium */
-        cache_line_size = 32;
-#endif
     } else {
         LOG(GLOBAL, LOG_TOP, 1, "Warning: running on unsupported processor family %d\n",
             cpu_info.family);
