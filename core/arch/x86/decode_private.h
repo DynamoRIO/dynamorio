@@ -316,6 +316,8 @@ struct _decode_info_t {
     bool repne_prefix;
     byte vex_vvvv; /* vvvv bits for extra operand */
     bool vex_encoded;
+    byte evex_vvvv; /* vvvv bits for extra operand */
+    bool evex_encoded;
     byte evex_aaa; /* aaa bits for opmask */
     /* for instr_t* target encoding */
     ptr_int_t cur_note;
@@ -463,7 +465,7 @@ opc_is_cbr_arch(int opc);
 extern const instr_info_t first_byte[];
 extern const instr_info_t second_byte[];
 extern const instr_info_t base_extensions[][8];
-extern const instr_info_t prefix_extensions[][8];
+extern const instr_info_t prefix_extensions[][12];
 extern const instr_info_t mod_extensions[][2];
 extern const instr_info_t rm_extensions[][8];
 extern const instr_info_t x64_extensions[][2];

@@ -756,7 +756,7 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
     }
 
     byte evex_mm;
-    CLIENT_ASSERT(info->type == PREFIX, "internal vex decoding error");
+    CLIENT_ASSERT(info->type == PREFIX, "internal evex decoding error");
     /* fields are: R, X, B, R', 00, mm.  R, X, B and R' are inverted. */
     if (!TEST(0x80, prefix_byte))
         di->prefixes |= PREFIX_REX_R;
@@ -791,7 +791,7 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
     }
 
     evex_pp = prefix_byte & 0x03;
-    di->vex_vvvv = (prefix_byte & 0x78) >> 3;
+    di->evex_vvvv = (prefix_byte & 0x78) >> 3;
 
     if (evex_pp == 0x1)
         di->data_prefix = true;
@@ -817,7 +817,7 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
         di->prefixes |= PREFIX_EVEX_VV;
 
     di->evex_aaa = prefix_byte & 0x07;
-    di->vex_encoded = true;
+    di->evex_encoded = true;
     return pc;
 }
 
@@ -831,8 +831,11 @@ read_prefix_ext(const instr_info_t *info, decode_info_t *di)
     /* discard old info, get new one */
     int code = (int)info->code;
     int idx = (di->rep_prefix ? 1 : (di->data_prefix ? 2 : (di->repne_prefix ? 3 : 0)));
-    if (di->vex_encoded)
+    if (di->vex_encoded || di->evex_encoded) {
         idx += 4;
+    } else if (di->evex_encoded)
+        idx += 8;
+
     info = &prefix_extensions[code][idx];
     if (info->type == INVALID && !DYNAMO_OPTION(decode_strict)) {
         /* i#1118: some of these seem to not be invalid with
@@ -883,6 +886,7 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
     byte instr_byte;
     const instr_info_t *info;
     bool vex_noprefix = false;
+    bool evex_noprefix = false;
 
     /* initialize di */
     /* though we only need di->start_pc for full decode rip-rel (and
@@ -900,6 +904,7 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
     di->rep_prefix = false;
     di->repne_prefix = false;
     di->vex_encoded = false;
+    di->evex_encoded = false;
     /* FIXME: set data and addr sizes to current mode
      * for now I assume always 32-bit mode (or 64 for X64_MODE(di))!
      */
@@ -931,13 +936,13 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
                 break;
             else {
                 if (is_evex)
-                    vex_noprefix = true; /* staying in loop, but ensure no prefixes */
+                    evex_noprefix = true; /* staying in loop, but ensure no prefixes */
                 continue;
             }
         }
         if (info->type == PREFIX) {
-            if (vex_noprefix) {
-                /* VEX prefix must be last */
+            if (vex_noprefix || evex_noprefix) {
+                /* VEX/EVEX prefix must be last */
                 info = &invalid_instr;
                 break;
             }
