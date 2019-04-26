@@ -717,9 +717,8 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
     info = *ret_info;
 
     CLIENT_ASSERT(info->type == EVEX_PREFIX_EXT, "internal evex decoding error");
-
-    /* If 64-bit mode than it is evex */
-    if (X64_MODE(di)) {
+    /* If 32-bit mode and mod selects for memory, this is not vex */
+    if (X64_MODE(di) || TESTALL(MODRM_BYTE(3, 0, 0), *pc)) {
         /* P[3:2] must be 0 and P[10] must be 1, otherwise #UD */
         if (TEST(0xC, *pc) || !TEST(0x04, *(pc + 1))) {
             *ret_info = &invalid_instr;
@@ -1355,11 +1354,11 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_V:
     case TYPE_W:
     case TYPE_V_MODRM:
-    case TYPE_VSIB:
+    case TYPE_VSIB: {
+      byte extend_reg = extend ? reg + 8 : reg;
       return (
-          TEST(PREFIX_EVEX_RR, di->prefixes)
-              ? (extend ? (DR_REG_START_ZMM + 16 + reg)
-                        : (DR_REG_START_ZMM + reg))
+          TEST(PREFIX_EVEX_LL, di->prefixes)
+              ? (DR_REG_START_ZMM + extend_reg)
               : ((TEST(PREFIX_VEX_L, di->prefixes) &&
                   /* Not only do we use this for .LIG (where raw reg is either
                    * OPSZ_32 or OPSZ_16_vex32) but also for VSIB which currently
@@ -1367,14 +1366,13 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
                    * check.
                    */
                   expand_subreg_size(opsize) != OPSZ_16)
-                     ? (extend ? (REG_START_YMM + 8 + reg)
-                               : (REG_START_YMM + reg))
-                     : (extend ? (REG_START_XMM + 8 + reg)
-                               : (REG_START_XMM + reg))));
+                     ? (REG_START_YMM + extend_reg)
+                     : (REG_START_XMM + extend_reg)));
     case TYPE_S:
         if (reg >= 6)
             return REG_NULL;
         return (REG_START_SEGMENT + reg);
+    }
     case TYPE_C: return (extend ? (REG_START_CR + 8 + reg) : (REG_START_CR + reg));
     case TYPE_D: return (extend ? (REG_START_DR + 8 + reg) : (REG_START_DR + reg));
     case TYPE_K_REG:
