@@ -118,6 +118,7 @@ const char *const type_names[] = {
     "TYPE_K_REG",
     "TYPE_K_VEX",
     "TYPE_K_EVEX",
+    "TYPE_K_EVEX_V",
 };
 
 /* order corresponds to enum of REG_ and SEG_ constants */

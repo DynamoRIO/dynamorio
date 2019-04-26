@@ -261,6 +261,10 @@ enum {
 #define HAS_PRED_CC 0x0400
 /* Predicated via something complex */
 #define HAS_PRED_COMPLEX 0x0800
+/* instr must be encoded using evex.  if this flag is not present, this instruction
+ * is invalid if encoded using evex.
+ */
+#define REQUIRES_EVEX 0x01000
 
 struct _decode_info_t {
     uint opcode;
@@ -426,6 +430,7 @@ enum {
     TYPE_K_REG,                  /* modrm.reg selects k0-k7 */
     TYPE_K_VEX,                  /* vex.vvvv field selects k0-k7 */
     TYPE_K_EVEX,                 /* evex.aaa field selects k0-k7 */
+    TYPE_K_EVEX_V,               /* reg of modrm selects xmm/ymm/zmm with opmask */
     /* when adding new types, update type_names[] in encode.c */
     TYPE_BEYOND_LAST_ENUM,
 };

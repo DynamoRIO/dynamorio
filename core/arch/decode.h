@@ -264,6 +264,7 @@ enum {
     OPSZ_8_rex16_short4,  /**< Intel 'v' * 2 (far call/ret) */
     OPSZ_12_rex40_short6, /**< unresolved iret */
     OPSZ_16_vex32,        /**< 16 or 32 bytes depending on VEX.L (AMD/Intel 'x'). */
+    OPSZ_16_32_evex64,    /**< 16, 32 or 64 bytes depending on EVEX.LL'. */
     OPSZ_15, /**< All but one byte of an xmm register (used by OP_vpinsrb). */
 
     /* Needed for ARM.  We share the same namespace for now */
