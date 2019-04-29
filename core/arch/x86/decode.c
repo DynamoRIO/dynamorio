@@ -725,10 +725,11 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
             return pc;
         }
 
+        *is_evex = true;
         info = &evex_prefix_extensions[0][1];
     } else {
         /* not evex */
-        is_evex = false;
+        *is_evex = false;
         *ret_info = &evex_prefix_extensions[0][0];
         return pc;
     }
@@ -1355,24 +1356,23 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_W:
     case TYPE_V_MODRM:
     case TYPE_VSIB: {
-      byte extend_reg = extend ? reg + 8 : reg;
-      return (
-          TEST(PREFIX_EVEX_LL, di->prefixes)
-              ? (DR_REG_START_ZMM + extend_reg)
-              : ((TEST(PREFIX_VEX_L, di->prefixes) &&
-                  /* Not only do we use this for .LIG (where raw reg is either
-                   * OPSZ_32 or OPSZ_16_vex32) but also for VSIB which currently
-                   * does not get up to OPSZ_16 so we can use this negative
-                   * check.
-                   */
-                  expand_subreg_size(opsize) != OPSZ_16)
-                     ? (REG_START_YMM + extend_reg)
-                     : (REG_START_XMM + extend_reg)));
+        bytde extend_reg = extend ? reg + 8 : reg;
+        return (TEST(PREFIX_EVEX_LL, di->prefixes)
+                    ? (DR_REG_START_ZMM + extend_reg)
+                    : ((TEST(PREFIX_VEX_L, di->prefixes) &&
+                        /* Not only do we use this for .LIG (where raw reg is either
+                         * OPSZ_32 or OPSZ_16_vex32) but also for VSIB which currently
+                         * does not get up to OPSZ_16 so we can use this negative
+                         * check.
+                         */
+                        expand_subreg_size(opsize) != OPSZ_16)
+                           ? (REG_START_YMM + extend_reg)
+                           : (REG_START_XMM + extend_reg)));
+    }
     case TYPE_S:
         if (reg >= 6)
             return REG_NULL;
         return (REG_START_SEGMENT + reg);
-    }
     case TYPE_C: return (extend ? (REG_START_CR + 8 + reg) : (REG_START_CR + reg));
     case TYPE_D: return (extend ? (REG_START_DR + 8 + reg) : (REG_START_DR + reg));
     case TYPE_K_REG:
