@@ -1356,7 +1356,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_W:
     case TYPE_V_MODRM:
     case TYPE_VSIB: {
-        bytde extend_reg = extend ? reg + 8 : reg;
+        byte extend_reg = extend ? reg + 8 : reg;
         return (TEST(PREFIX_EVEX_LL, di->prefixes)
                     ? (DR_REG_START_ZMM + extend_reg)
                     : ((TEST(PREFIX_VEX_L, di->prefixes) &&
