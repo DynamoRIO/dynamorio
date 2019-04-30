@@ -195,6 +195,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     case TYPE_FLOATMEM:
     case TYPE_VSIB:
     case TYPE_1:
+    case TYPE_K_REG:
     case TYPE_K_MODRM:
     case TYPE_K_MODRM_R:
     case TYPE_K_VEX:
