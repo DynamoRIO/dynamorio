@@ -2302,8 +2302,6 @@
 #define INSTR_CREATE_maxss(dc, d, s) instr_create_1dst_2src((dc), OP_maxss, (d), (s), (d))
 #define INSTR_CREATE_maxpd(dc, d, s) instr_create_1dst_2src((dc), OP_maxpd, (d), (s), (d))
 #define INSTR_CREATE_maxsd(dc, d, s) instr_create_1dst_2src((dc), OP_maxsd, (d), (s), (d))
-#define INSTR_CREATE_pshufb(dc, d, s) \
-    instr_create_1dst_2src((dc), OP_pshufb, (d), (s), (d))
 /* SSE3 */
 #define INSTR_CREATE_haddpd(dc, d, s) \
     instr_create_1dst_2src((dc), OP_haddpd, (d), (s), (d))
@@ -2381,6 +2379,8 @@
 #define INSTR_CREATE_pabsb(dc, d, s) instr_create_1dst_2src((dc), OP_pabsb, (d), (s), (d))
 #define INSTR_CREATE_pabsw(dc, d, s) instr_create_1dst_2src((dc), OP_pabsw, (d), (s), (d))
 #define INSTR_CREATE_pabsd(dc, d, s) instr_create_1dst_2src((dc), OP_pabsd, (d), (s), (d))
+#define INSTR_CREATE_pshufb(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_pshufb, (d), (s), (d))
 /* SSE4 */
 #define INSTR_CREATE_crc32(dc, d, s) instr_create_1dst_2src((dc), OP_crc32, (d), (s), (d))
 #define INSTR_CREATE_packusdw(dc, d, s) \
