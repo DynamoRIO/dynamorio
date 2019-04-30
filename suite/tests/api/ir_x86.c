@@ -245,6 +245,29 @@ test_all_opcodes_3_avx(void *dc)
 }
 
 static void
+test_opmask_disas_avx512(void *dc)
+{
+    /* Test AVX-512 k-registers. */
+    byte *pc;
+    const byte b1[] = { 0xc5, 0xf8, 0x90, 0xee };
+    const byte b2[] = { 0x67, 0xc5, 0xf8, 0x90, 0x29 };
+    char buf[512];
+    int len;
+
+    pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf, "kmovw  %k6 -> %k5\n") == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf,
+                  IF_X64_ELSE("addr32 kmovw  (%ecx)[2byte] -> %k5\n",
+                              "addr16 kmovw  (%bx,%di)[2byte] -> %k5\n")) == 0);
+}
+
+static void
 test_all_opcodes_2_avx512_vex(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_2args_avx512_vex.h"
@@ -1536,6 +1559,7 @@ main(int argc, char *argv[])
     test_all_opcodes_3_avx(dcontext);
     test_all_opcodes_2_avx512_vex(dcontext);
     test_all_opcodes_3_avx512_vex(dcontext);
+    test_opmask_disas_avx512(dcontext);
     test_all_opcodes_4(dcontext);
 #endif
 
