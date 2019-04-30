@@ -78,7 +78,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
         success = false;
         return;
     }
-    
+
     std::string cache_name = "LL";
     all_caches[cache_name] = llc;
     llcaches[cache_name] = llc;
