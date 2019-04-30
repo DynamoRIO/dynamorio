@@ -685,12 +685,6 @@
  */
 #define INSTR_CREATE_int(dc, i) instr_create_0dst_1src((dc), OP_int, (i))
 
-#ifdef IA32_ON_IA64
-/* DR_API EXPORT BEGIN */
-#    define INSTR_CREATE_jmpe(dc, t) instr_create_0dst_1src((dc), OP_jmpe, (t))
-#    define INSTR_CREATE_jmpe_abs(dc, t) instr_create_0dst_1src((dc), OP_jmpe_abs, (t))
-#endif
-
 /* floating-point */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -1424,6 +1418,27 @@
 /* ADX */
 #define INSTR_CREATE_adox(dc, d, s) instr_create_1dst_1src((dc), OP_adox, (d), (s))
 #define INSTR_CREATE_adcx(dc, d, s) instr_create_1dst_1src((dc), OP_adcx, (d), (s))
+/* AVX-512 VEX */
+#define INSTR_CREATE_kmovw(dc, d, s) instr_create_1dst_1src((dc), OP_kmovw, (d), (s))
+#define INSTR_CREATE_kmovb(dc, d, s) instr_create_1dst_1src((dc), OP_kmovb, (d), (s))
+#define INSTR_CREATE_kmovq(dc, d, s) instr_create_1dst_1src((dc), OP_kmovq, (d), (s))
+#define INSTR_CREATE_kmovd(dc, d, s) instr_create_1dst_1src((dc), OP_kmovd, (d), (s))
+#define INSTR_CREATE_knotw(dc, d, s) instr_create_1dst_1src((dc), OP_knotw, (d), (s))
+#define INSTR_CREATE_knotb(dc, d, s) instr_create_1dst_1src((dc), OP_knotb, (d), (s))
+#define INSTR_CREATE_knotq(dc, d, s) instr_create_1dst_1src((dc), OP_knotq, (d), (s))
+#define INSTR_CREATE_knotd(dc, d, s) instr_create_1dst_1src((dc), OP_knotd, (d), (s))
+#define INSTR_CREATE_kortestw(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_kortestw, (d), (s))
+#define INSTR_CREATE_kortestb(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_kortestb, (d), (s))
+#define INSTR_CREATE_kortestq(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_kortestq, (d), (s))
+#define INSTR_CREATE_kortestd(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_kortestd, (d), (s))
+#define INSTR_CREATE_ktestw(dc, d, s) instr_create_1dst_1src((dc), OP_ktestw, (d), (s))
+#define INSTR_CREATE_ktestb(dc, d, s) instr_create_1dst_1src((dc), OP_ktestb, (d), (s))
+#define INSTR_CREATE_ktestq(dc, d, s) instr_create_1dst_1src((dc), OP_ktestq, (d), (s))
+#define INSTR_CREATE_ktestd(dc, d, s) instr_create_1dst_1src((dc), OP_ktestd, (d), (s))
 
 /* @} */ /* end doxygen group */
 
@@ -2145,6 +2160,77 @@
     instr_create_1dst_2src((dc), OP_vpsrlvd, (d), (s1), (s2))
 #define INSTR_CREATE_vpsrlvq(dc, d, s1, s2) \
     instr_create_1dst_2src((dc), OP_vpsrlvq, (d), (s1), (s2))
+/* AVX-512 VEX */
+#define INSTR_CREATE_kandw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandw, (d), (s1), (s2))
+#define INSTR_CREATE_kandb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandb, (d), (s1), (s2))
+#define INSTR_CREATE_kandq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandq, (d), (s1), (s2))
+#define INSTR_CREATE_kandd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandd, (d), (s1), (s2))
+#define INSTR_CREATE_kandnw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandnw, (d), (s1), (s2))
+#define INSTR_CREATE_kandnb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandnb, (d), (s1), (s2))
+#define INSTR_CREATE_kandnq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandnq, (d), (s1), (s2))
+#define INSTR_CREATE_kandnd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandnd, (d), (s1), (s2))
+#define INSTR_CREATE_kunpckbw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kunpckbw, (d), (s1), (s2))
+#define INSTR_CREATE_kunpckwd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kunpckwd, (d), (s1), (s2))
+#define INSTR_CREATE_kunpckdq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kunpckdq, (d), (s1), (s2))
+#define INSTR_CREATE_korw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_korw, (d), (s1), (s2))
+#define INSTR_CREATE_korb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_korb, (d), (s1), (s2))
+#define INSTR_CREATE_korq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_korq, (d), (s1), (s2))
+#define INSTR_CREATE_kord(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kord, (d), (s1), (s2))
+#define INSTR_CREATE_kxnorw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxnorw, (d), (s1), (s2))
+#define INSTR_CREATE_kxnorb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxnorb, (d), (s1), (s2))
+#define INSTR_CREATE_kxnorq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxnorq, (d), (s1), (s2))
+#define INSTR_CREATE_kxnord(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxnord, (d), (s1), (s2))
+#define INSTR_CREATE_kxorw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxorw, (d), (s1), (s2))
+#define INSTR_CREATE_kxorb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxorb, (d), (s1), (s2))
+#define INSTR_CREATE_kxorq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxorq, (d), (s1), (s2))
+#define INSTR_CREATE_kxord(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxord, (d), (s1), (s2))
+#define INSTR_CREATE_kaddw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kaddw, (d), (s1), (s2))
+#define INSTR_CREATE_kaddb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kaddb, (d), (s1), (s2))
+#define INSTR_CREATE_kaddq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kaddq, (d), (s1), (s2))
+#define INSTR_CREATE_kaddd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kaddd, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftlw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftlw, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftlb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftlb, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftlq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftlq, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftld(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftld, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftrw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftrw, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftrb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftrb, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftrq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftrq, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftrd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftrd, (d), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
