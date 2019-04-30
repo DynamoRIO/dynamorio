@@ -1212,7 +1212,6 @@
 #define INSTR_CREATE_movshdup(dc, d, s) \
     instr_create_1dst_1src((dc), OP_movshdup, (d), (s))
 #define INSTR_CREATE_movddup(dc, d, s) instr_create_1dst_1src((dc), OP_movddup, (d), (s))
-#define INSTR_CREATE_pshufb(dc, d, s) instr_create_1dst_1src((dc), OP_pshufb, (d), (s))
 #define INSTR_CREATE_popcnt(dc, d, s) instr_create_1dst_1src((dc), OP_popcnt, (d), (s))
 #define INSTR_CREATE_movntss(dc, d, s) instr_create_1dst_1src((dc), OP_movntss, (d), (s))
 #define INSTR_CREATE_movntsd(dc, d, s) instr_create_1dst_1src((dc), OP_movntsd, (d), (s))
@@ -2466,6 +2465,8 @@
 #define INSTR_CREATE_pabsb(dc, d, s) instr_create_1dst_2src((dc), OP_pabsb, (d), (s), (d))
 #define INSTR_CREATE_pabsw(dc, d, s) instr_create_1dst_2src((dc), OP_pabsw, (d), (s), (d))
 #define INSTR_CREATE_pabsd(dc, d, s) instr_create_1dst_2src((dc), OP_pabsd, (d), (s), (d))
+#define INSTR_CREATE_pshufb(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_pshufb, (d), (s), (d))
 /* SSE4 */
 #define INSTR_CREATE_crc32(dc, d, s) instr_create_1dst_2src((dc), OP_crc32, (d), (s), (d))
 #define INSTR_CREATE_packusdw(dc, d, s) \
