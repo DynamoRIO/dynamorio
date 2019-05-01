@@ -849,7 +849,8 @@ test_s(byte *subtest_asm)
 {
     byte *orig_pc;
     instr_t *instr = instr_create(GD);
-    byte buf[16];
+    /* MAX_INSTR_LENGTH == 17. */
+    byte buf[17];
     byte *dec_pc = (byte *)subtest_asm;
     byte *start = dec_pc;
     int count = 0;
