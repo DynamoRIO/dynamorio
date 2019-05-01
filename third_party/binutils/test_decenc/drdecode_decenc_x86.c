@@ -851,7 +851,7 @@ test_s(byte *subtest_asm)
     instr_t *instr = instr_create(GD);
     /* MAX_INSTR_LENGTH == 17. */
     byte buf[17];
-    byte *dec_pc = (byte *)subtest_asm;
+    byte *dec_pc = subtest_asm;
     byte *start = dec_pc;
     int count = 0;
     disassemble_set_syntax(DR_DISASM_ATT);
@@ -864,6 +864,7 @@ test_s(byte *subtest_asm)
         instr_set_raw_bits_valid(instr, false);
         instr_encode_to_copy(GD, instr, buf, ORIG_PC + (dec_pc - start));
     }
+    instr_destroy(GD, instr);
 }
 
 int
