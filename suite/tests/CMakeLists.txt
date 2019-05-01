@@ -869,7 +869,7 @@ macro(tobuild_decenc test source source_ctest dr_ops exe_ops test_def use_decode
   torunonly_api(${test_name} OFF ${source_ctest} "${dr_ops}" "${exe_ops}" ${use_decoder})
   append_property_string(TARGET ${test_name} COMPILE_FLAGS "-D${test_def}")
   target_include_directories(${test_name} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/test_decenc/)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/binutils/test_decenc/)
 endmacro(tobuild_decenc)
 
 # tobuild_static_nohide_api builds a static API test which uses the
@@ -2797,9 +2797,11 @@ if (CLIENT_INTERFACE)
       )
     endif ()
     foreach (decenc_test ${decenc_test_list})
-      set(source_ctest "../../third_party/test_decenc/drdecode_decenc_x86_${decenc_test}.c")
+      set(source_ctest
+        "../../third_party/binutils/test_decenc/drdecode_decenc_x86_${decenc_test}.c")
       tobuild_decenc(decenc.drdecode_decenc
-        ../../third_party/test_decenc/drdecode_decenc_x86.c ${source_ctest} "" "" "${decenc_test}" OFF OFF)
+        ../../third_party/binutils/test_decenc/drdecode_decenc_x86.c ${source_ctest}
+        "" "" "${decenc_test}" OFF OFF)
     endforeach (decenc_test)
   endif ()
   if (X86) # Generated code is x86-specific.
