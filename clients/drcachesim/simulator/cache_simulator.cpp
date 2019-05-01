@@ -79,6 +79,10 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
         return;
     }
 
+    std::string cache_name = "LL";
+    all_caches[cache_name] = llc;
+    llcaches[cache_name] = llc;
+
     if (knobs.data_prefetcher != PREFETCH_POLICY_NEXTLINE &&
         knobs.data_prefetcher != PREFETCH_POLICY_NONE) {
         // Unknown value.
@@ -96,10 +100,6 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
         success = false;
         return;
     }
-
-    std::string cache_name = "LL";
-    all_caches[cache_name] = llc;
-    llcaches[cache_name] = llc;
 
     l1_icaches = new cache_t *[knobs.num_cores];
     l1_dcaches = new cache_t *[knobs.num_cores];
