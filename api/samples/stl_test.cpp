@@ -71,6 +71,7 @@ dr_init(client_id_t client_id)
 {
     int i;
     bool success = true;
+    /* *** TEMPORARY CHANGE *** */
     (void)success;
 
     dr_set_client_name("DynamoRIO Sample Client 'stl_test'",
