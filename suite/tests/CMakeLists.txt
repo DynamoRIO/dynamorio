@@ -2488,74 +2488,95 @@ if (CLIENT_INTERFACE)
         "test_x86_64_xsavec_s"
         "test_x86_64_s"
         "test_x86_64_reloc64_s"
-        # The following tests are disabled and have to get fixed or supported
-        # as described and referenced in drdecode_decenc_x86.c (xref i#1312,
-        # i#3577, i#3578, i#3581).
-        # "test_x86_64_mpx_add_bnd_prefix_s"
-        # "test_x86_64_mpx_addr32_s"
-        # "test_x86_64_mpx_branch_1_s"
-        # "test_x86_64_mpx_branch_2_s"
-        # "test_x86_64_mpx_s"
-        # "test_x86_64_prefetchwt1_s"
-        # "test_x86_64_ptwrite_s"
-        # "test_x86_64_sha_s"
-        # "test_x86_64_optimize_2_s"
-        # "test_x86_64_avx512_4fmaps_warn_s"
-        # "test_x86_64_avx512_4fmaps_s"
-        # "test_x86_64_avx512_4vnniw_s"
-        # "test_x86_64_avx512_vpopcntdq_s"
-        # "test_x86_64_avx512bitalg_s"
-        # "test_x86_64_avx512bitalg_vl_s"
-        # "test_x86_64_avx512bw_opts_s"
-        # "test_x86_64_avx512bw_wig_s"
-        # "test_x86_64_avx512bw_s"
-        # "test_x86_64_avx512bw_vl_opts_s"
-        # "test_x86_64_avx512bw_vl_wig_s"
-        # "test_x86_64_avx512bw_vl_s"
-        # "test_x86_64_avx512cd_s"
-        # "test_x86_64_avx512cd_vl_s"
-        # "test_x86_64_avx512dq_rcig_s"
-        # "test_x86_64_avx512dq_s"
-        # "test_x86_64_avx512dq_vl_s"
-        # "test_x86_64_avx512er_rcig_s"
-        # "test_x86_64_avx512er_s"
-        # "test_x86_64_avx512f_nondef_s"
-        # "test_x86_64_avx512f_opts_s"
-        # "test_x86_64_avx512f_rcig_s"
-        # "test_x86_64_avx512f_s"
-        # "test_x86_64_avx512f_gfni_s"
-        # "test_x86_64_avx512f_vaes_wig_s"
-        # "test_x86_64_avx512f_vaes_s"
-        # "test_x86_64_avx512f_vl_opts_s"
-        # "test_x86_64_avx512f_vl_wig_s"
-        # "test_x86_64_avx512f_vl_s"
-        # "test_x86_64_avx512f_vpclmulqdq_wig_s"
-        # "test_x86_64_avx512f_vpclmulqdq_s"
-        # "test_x86_64_avx512ifma_s"
-        # "test_x86_64_avx512ifma_vl_s"
-        # "test_x86_64_avx512pf_s"
-        # "test_x86_64_avx512vbmi_s"
-        # "test_x86_64_avx512vbmi2_s"
-        # "test_x86_64_avx512vbmi2_vl_s"
-        # "test_x86_64_avx512vbmi_vl_s"
-        # "test_x86_64_avx512vl_gfni_s"
-        # "test_x86_64_avx512vl_vaes_wig_s"
-        # "test_x86_64_avx512vl_vaes_s"
-        # "test_x86_64_avx512vl_vpclmulqdq_wig_s"
-        # "test_x86_64_avx512vl_vpclmulqdq_s"
-        # "test_x86_64_avx512vnni_s"
-        # "test_x86_64_avx512vnni_vl_s"
-        # "test_x86_64_avx_gfni_s"
-        # "test_x86_64_evex_lig_2_s"
-        # "test_x86_64_evex_lig_s"
-        # "test_x86_64_evex_wig_s"
-        # "test_x86_64_evex_wig2_s"
-        # "test_x86_64_gfni_s"
-        # "test_x86_64_optimize_1_s"
-        # "test_x86_64_pseudos_s"
-        # "test_x86_64_vgather_check_s"
-        # "test_evex_no_scale_64_s"
       )
+      if (DISABLED_UNTIL_BUG_1312_IS_FIXED)
+        # The following tests are disabled and have to get fixed or supported
+        # as described in drdecode_decenc_x86.c (xref i#1312).
+        list(APPEND decenc_test_list
+          "test_x86_64_optimize_2_s"
+          "test_x86_64_avx512_4fmaps_warn_s"
+          "test_x86_64_avx512_4fmaps_s"
+          "test_x86_64_avx512_4vnniw_s"
+          "test_x86_64_avx512_vpopcntdq_s"
+          "test_x86_64_avx512bitalg_s"
+          "test_x86_64_avx512bitalg_vl_s"
+          "test_x86_64_avx512bw_opts_s"
+          "test_x86_64_avx512bw_wig_s"
+          "test_x86_64_avx512bw_s"
+          "test_x86_64_avx512bw_vl_opts_s"
+          "test_x86_64_avx512bw_vl_wig_s"
+          "test_x86_64_avx512bw_vl_s"
+          "test_x86_64_avx512cd_s"
+          "test_x86_64_avx512cd_vl_s"
+          "test_x86_64_avx512dq_rcig_s"
+          "test_x86_64_avx512dq_s"
+          "test_x86_64_avx512dq_vl_s"
+          "test_x86_64_avx512er_rcig_s"
+          "test_x86_64_avx512er_s"
+          "test_x86_64_avx512f_nondef_s"
+          "test_x86_64_avx512f_opts_s"
+          "test_x86_64_avx512f_rcig_s"
+          "test_x86_64_avx512f_s"
+          "test_x86_64_avx512f_gfni_s"
+          "test_x86_64_avx512f_vaes_wig_s"
+          "test_x86_64_avx512f_vaes_s"
+          "test_x86_64_avx512f_vl_opts_s"
+          "test_x86_64_avx512f_vl_wig_s"
+          "test_x86_64_avx512f_vl_s"
+          "test_x86_64_avx512f_vpclmulqdq_wig_s"
+          "test_x86_64_avx512f_vpclmulqdq_s"
+          "test_x86_64_avx512ifma_s"
+          "test_x86_64_avx512ifma_vl_s"
+          "test_x86_64_avx512pf_s"
+          "test_x86_64_avx512vbmi_s"
+          "test_x86_64_avx512vbmi2_s"
+          "test_x86_64_avx512vbmi2_vl_s"
+          "test_x86_64_avx512vbmi_vl_s"
+          "test_x86_64_avx512vl_gfni_s"
+          "test_x86_64_avx512vl_vaes_wig_s"
+          "test_x86_64_avx512vl_vaes_s"
+          "test_x86_64_avx512vl_vpclmulqdq_wig_s"
+          "test_x86_64_avx512vl_vpclmulqdq_s"
+          "test_x86_64_avx512vnni_s"
+          "test_x86_64_avx512vnni_vl_s"
+          "test_x86_64_avx_gfni_s"
+          "test_x86_64_evex_lig_2_s"
+          "test_x86_64_evex_lig_s"
+          "test_x86_64_evex_wig_s"
+          "test_x86_64_evex_wig2_s"
+          "test_x86_64_gfni_s"
+          "test_x86_64_optimize_1_s"
+          "test_x86_64_pseudos_s"
+          "test_x86_64_vgather_check_s"
+          "test_evex_no_scale_64_s"
+        )
+      endif ()
+      if (DISABLED_UNTIL_BUG_3577_IS_FIXED)
+        # The following tests are disabled and have to get fixed or supported
+        # as described in drdecode_decenc_x86.c (xref i#3577).
+        list(APPEND decenc_test_list
+          "test_x86_64_prefetchwt1_s"
+        )
+      endif ()
+      if (DISABLED_UNTIL_BUG_3578_IS_FIXED)
+        # The following tests are disabled and have to get fixed or supported
+        # as described in drdecode_decenc_x86.c (xref i#3578).
+        list(APPEND decenc_test_list
+          "test_x86_64_ptwrite_s"
+        )
+      endif ()
+      if (DISABLED_UNTIL_BUG_3581_IS_FIXED)
+        # The following tests are disabled and have to get fixed or supported
+        # as described in drdecode_decenc_x86.c (xref i#3581).
+        list(APPEND decenc_test_list
+          "test_x86_64_mpx_add_bnd_prefix_s"
+          "test_x86_64_mpx_addr32_s"
+          "test_x86_64_mpx_branch_1_s"
+          "test_x86_64_mpx_branch_2_s"
+          "test_x86_64_mpx_s"
+          "test_x86_64_sha_s"
+        )
+      endif ()
     else ()
       set(decenc_test_list
         "test_i387_s"
@@ -2730,71 +2751,93 @@ if (CLIENT_INTERFACE)
         "test_xsave_s"
         "test_xsavec_s"
         "test_xmmhi32_s"
-        # The following tests are disabled and have to get fixed or supported
-        # as described and referenced in drdecode_decenc_x86.c (xref i#1312,
-        # i#3577, i#3578).
-        # "test_mpx_s"
-        # "test_clzero_s"
-        # "test_padlock_s"
-        # "test_prefetchwt1_s"
-        # "test_ptwrite_s"
-        # "test_sha_s"
-        # "test_avx512_4fmaps_warn_s"
-        # "test_avx512_4fmaps_s"
-        # "test_avx512_4vnniw_s"
-        # "test_avx512_vpopcntdq_s"
-        # "test_avx512bitalg_s"
-        # "test_avx512bitalg_vl_s"
-        # "test_avx512bw_opts_s"
-        # "test_avx512bw_wig_s"
-        # "test_avx512bw_s"
-        # "test_avx512bw_vl_opts_s"
-        # "test_avx512bw_vl_wig_s"
-        # "test_avx512bw_vl_s"
-        # "test_avx512cd_s"
-        # "test_avx512cd_vl_s"
-        # "test_avx512dq_rcig_s"
-        # "test_avx512dq_s"
-        # "test_avx512dq_vl_s"
-        # "test_avx512er_rcig_s"
-        # "test_avx512er_s"
-        # "test_avx512f_nondef_s"
-        # "test_avx512f_opts_s"
-        # "test_avx512f_rcig_s"
-        # "test_avx512f_ymm_s"
-        # "test_avx512f_s"
-        # "test_avx512f_gfni_s"
-        # "test_avx512f_vaes_wig_s"
-        # "test_avx512f_vaes_s"
-        # "test_avx512f_vl_opts_s"
-        # "test_avx512f_vl_wig_s"
-        # "test_avx512f_vl_s"
-        # "test_avx512f_vpclmulqdq_wig_s"
-        # "test_avx512f_vpclmulqdq_s"
-        # "test_avx512ifma_s"
-        # "test_avx512ifma_vl_s"
-        # "test_avx512pf_s"
-        # "test_avx512vbmi_s"
-        # "test_avx512vbmi2_s"
-        # "test_avx512vbmi2_vl_s"
-        # "test_avx512vbmi_vl_s"
-        # "test_avx512vl_gfni_s"
-        # "test_avx512vl_vaes_wig_s"
-        # "test_avx512vl_vaes_s"
-        # "test_avx512vl_vpclmulqdq_wig_s"
-        # "test_avx512vl_vpclmulqdq_s"
-        # "test_avx512vnni_s"
-        # "test_avx512vnni_vl_s"
-        # "test_evex_lig_2_s"
-        # "test_evex_lig_s"
-        # "test_evex_no_scale_32_s"
-        # "test_evex_wig_s"
-        # "test_evex_s"
-        # "test_gfni_s"
-        # "test_optimize_1_s"
-        # "test_pseudos_s"
-        # "test_vgather_check_s"
       )
+      if (DISABLED_UNTIL_BUG_1312_IS_FIXED)
+        # The following tests are disabled and have to get fixed or supported
+        # as described in drdecode_decenc_x86.c (xref i#1312).
+        list(APPEND decenc_test_list
+          "test_avx512_4fmaps_warn_s"
+          "test_avx512_4fmaps_s"
+          "test_avx512_4vnniw_s"
+          "test_avx512_vpopcntdq_s"
+          "test_avx512bitalg_s"
+          "test_avx512bitalg_vl_s"
+          "test_avx512bw_opts_s"
+          "test_avx512bw_wig_s"
+          "test_avx512bw_s"
+          "test_avx512bw_vl_opts_s"
+          "test_avx512bw_vl_wig_s"
+          "test_avx512bw_vl_s"
+          "test_avx512cd_s"
+          "test_avx512cd_vl_s"
+          "test_avx512dq_rcig_s"
+          "test_avx512dq_s"
+          "test_avx512dq_vl_s"
+          "test_avx512er_rcig_s"
+          "test_avx512er_s"
+          "test_avx512f_nondef_s"
+          "test_avx512f_opts_s"
+          "test_avx512f_rcig_s"
+          "test_avx512f_ymm_s"
+          "test_avx512f_s"
+          "test_avx512f_gfni_s"
+          "test_avx512f_vaes_wig_s"
+          "test_avx512f_vaes_s"
+          "test_avx512f_vl_opts_s"
+          "test_avx512f_vl_wig_s"
+          "test_avx512f_vl_s"
+          "test_avx512f_vpclmulqdq_wig_s"
+          "test_avx512f_vpclmulqdq_s"
+          "test_avx512ifma_s"
+          "test_avx512ifma_vl_s"
+          "test_avx512pf_s"
+          "test_avx512vbmi_s"
+          "test_avx512vbmi2_s"
+          "test_avx512vbmi2_vl_s"
+          "test_avx512vbmi_vl_s"
+          "test_avx512vl_gfni_s"
+          "test_avx512vl_vaes_wig_s"
+          "test_avx512vl_vaes_s"
+          "test_avx512vl_vpclmulqdq_wig_s"
+          "test_avx512vl_vpclmulqdq_s"
+          "test_avx512vnni_s"
+          "test_avx512vnni_vl_s"
+          "test_evex_lig_2_s"
+          "test_evex_lig_s"
+          "test_evex_no_scale_32_s"
+          "test_evex_wig_s"
+          "test_evex_s"
+          "test_gfni_s"
+          "test_optimize_1_s"
+          "test_pseudos_s"
+          "test_vgather_check_s"
+        )
+      endif ()
+      if (DISABLED_UNTIL_BUG_3577_IS_FIXED)
+        # The following tests are disabled and have to get fixed or supported
+        # as described in drdecode_decenc_x86.c (xref i#3577).
+        list(APPEND decenc_test_list
+          "test_clzero_s"
+          "test_prefetchwt1_s"
+        )
+      endif ()
+
+      if (DISABLED_UNTIL_BUG_3578_IS_FIXED)
+        # The following tests are disabled and have to get fixed or supported
+        # as described in drdecode_decenc_x86.c (xref i#3578).
+        list(APPEND decenc_test_list
+          "test_padlock_s"
+          "test_ptwrite_s"
+        )
+      endif ()
+      if (DISABLED_UNTIL_BUG_3581_IS_FIXED)
+        # The following tests are disabled and have to get fixed or supported
+        # as described in drdecode_decenc_x86.c (xref i#3581).
+        list(APPEND decenc_test_list
+          "test_mpx_s"
+          "test_sha_s"
+        )
+      endif ()
     endif ()
     foreach (decenc_test ${decenc_test_list})
       set(source_ctest
