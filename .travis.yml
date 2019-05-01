@@ -78,7 +78,7 @@ jobs:
     # install and require clang-format:
     - os: linux
       # *** TEMPORARY CHANGE ***
-      compiler: clang-7
+      compiler: clang-6.0
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="64_only require_format"
       addons:
         apt:
@@ -88,19 +88,19 @@ jobs:
           packages:
           - clang-format-6.0
           # *** TEMPORARY CHANGE ***
-          - clang-7
+          - clang-6.0
     # 32-bit OSX build with clang and run tests:
     - os: osx
       # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
       # *** TEMPORARY CHANGE ***
-      compiler: clang-7
+      compiler: clang-6.0
       # We do not have 64-bit support on OSX yet (i#1979).
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only
       # *** TEMPORARY CHANGE ***
       addons:
         apt:
           packages:
-          - clang-7
+          - clang-6.0
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
