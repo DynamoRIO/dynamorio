@@ -77,8 +77,7 @@ if ($child) {
     # that has to be manually downloaded.  We thus stick with -V for
     # Travis.  For Appveyor where many devs have no local Visual
     # Studio we do use -VV so build warning details are visible.
-    # NOCHECKIN: temporary debugging change
-    my $verbose = "-VV";
+    my $verbose = "-V";
     if ($^O eq 'cygwin') {
         $verbose = "-VV";
         # CMake is native Windows so pass it a Windows path.

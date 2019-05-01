@@ -881,7 +881,6 @@ lookup_glibc_syms(void *dc, const module_data_t *dll_data)
 {
     const char *libc_path;
     app_pc libc_base;
-    (void)libc_base;
     size_t malloc_offs;
     size_t gi_malloc_offs;
     drsym_error_t r;

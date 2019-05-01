@@ -84,8 +84,7 @@ set(arg_generator "") # specify precise cmake generator (minus any "Win64")
 set(arg_long OFF)     # whether to run the long suite
 set(arg_already_built OFF) # for testing w/ already-built suite
 set(arg_exclude "")   # regex of tests to exclude
-# NOCHECKIN: temporary debugging change
-set(arg_verbose ON)  # extra output
+set(arg_verbose OFF)  # extra output
 set(arg_32_only OFF)  # do not include 64-bit
 set(arg_64_only OFF)  # do not include 64-bit
 set(arg_build_only OFF) # do not run tests
@@ -348,11 +347,9 @@ elseif (arg_use_make)
   if (have_cygwin)
     # seeing errors building in parallel: pdb collision?
     # can't repro w/ VERBOSE=1
-    # NOCHECKIN: temporary debugging change
-    set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j2 VERBOSE=1")
+    set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j2")
   else (have_cygwin)
-    # NOCHECKIN: temporary debugging change
-    set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j${PARALLEL_COUNT_BUILD} VERBOSE=1")
+    set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j${PARALLEL_COUNT_BUILD}")
   endif (have_cygwin)
 elseif (arg_use_nmake)
   set(CTEST_CMAKE_GENERATOR "NMake Makefiles")

@@ -2388,7 +2388,6 @@ if (CLIENT_INTERFACE)
     tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
   endif ()
   if (X86 AND NOT APPLE)
-    # *** NOCHECKIN: temporary debugging change. ***
     if (X64)
       set(decenc_test_list
         "test_x86_64_addend_s"

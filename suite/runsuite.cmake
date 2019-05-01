@@ -241,8 +241,7 @@ endif ()
 string(REGEX MATCH "NOCHECKIN" match "${diff_contents}")
 if (NOT "${match}" STREQUAL "")
   string(REGEX MATCH "\n[^\n]*NOCHECKIN[^\n]*" match "${diff_contents}")
-  # TEMPORARILY DISABLED, NEED TO DEBUG.
-  #message(FATAL_ERROR "ERROR: diff contains NOCHECKIN: ${match}")
+  message(FATAL_ERROR "ERROR: diff contains NOCHECKIN: ${match}")
 endif ()
 
 # CMake seems to remove carriage returns for us so we can't easily
