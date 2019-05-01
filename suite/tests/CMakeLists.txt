@@ -865,6 +865,8 @@ endmacro(tobuild_api)
 
 macro(tobuild_decenc test source source_ctest dr_ops exe_ops test_def use_decoder use_static_DR)
   set(test_name "${test}_${test_def}")
+  set(test_name_runcmp "${test}_${test_def}_runcmp")
+  set(${test_name_runcmp} "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
   add_api_exe(${test_name} ${source} ${use_decoder} ${use_static_DR})
   torunonly_api(${test_name} OFF ${source_ctest} "${dr_ops}" "${exe_ops}" ${use_decoder})
   append_property_string(TARGET ${test_name} COMPILE_FLAGS "-D${test_def}")
