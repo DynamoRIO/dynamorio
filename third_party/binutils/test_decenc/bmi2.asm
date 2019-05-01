@@ -7,6 +7,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * supposed to be actually called. We are using the function like a label
          * for the decoder.
          */
+        END_PROLOG
         RAW(c4) RAW(e3) RAW(7b) RAW(f0) RAW(d8) RAW(07)
         RAW(c4) RAW(e3) RAW(7b) RAW(f0) RAW(19) RAW(07)
         /* FIXME i#3578: Support mulx. */

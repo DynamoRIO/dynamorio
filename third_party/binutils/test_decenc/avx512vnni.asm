@@ -7,6 +7,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * supposed to be actually called. We are using the function like a label
          * for the decoder.
          */
+        END_PROLOG
         RAW(62) RAW(f2) RAW(75) RAW(48) RAW(52) RAW(e3)
         RAW(62) RAW(f2) RAW(75) RAW(49) RAW(52) RAW(e3)
         RAW(62) RAW(f2) RAW(75) RAW(c9) RAW(52) RAW(e3)

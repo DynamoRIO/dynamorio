@@ -6,7 +6,8 @@ GLOBAL_LABEL(FUNCNAME:)
         /* There is intentionally no prologue and epilogue. This function is not
          * supposed to be actually called. We are using the function like a label
          * for the decoder.
-        */
+         */
+        END_PROLOG
         /* XXX i#3578, ud0 w/ modrm unsupported. */
         /* RAW(0f) RAW(ff) RAW(07) */
         RAW(0f) RAW(b9) RAW(07)

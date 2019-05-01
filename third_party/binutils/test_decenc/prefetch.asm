@@ -7,6 +7,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * supposed to be actually called. We are using the function like a label
          * for the decoder.
          */
+        END_PROLOG
         RAW(0f) RAW(0d) RAW(00)
         RAW(0f) RAW(0d) RAW(08)
         /* FIXME i#3577: AMD prefetchwt1 opcode (happens to match Xeon Phi prefetchwt1
