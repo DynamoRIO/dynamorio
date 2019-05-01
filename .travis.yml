@@ -77,7 +77,7 @@ jobs:
     # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests),
     # install and require clang-format:
     - os: linux
-      compiler: clang
+      compiler: clang-7.0
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="64_only require_format"
       addons:
         apt:
@@ -86,12 +86,17 @@ jobs:
           - llvm-toolchain-xenial-7
           packages:
           - clang-format-6.0
+          - clang-7.0
     # 32-bit OSX build with clang and run tests:
     - os: osx
       # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
-      compiler: clang
+      compiler: clang-7.0
       # We do not have 64-bit support on OSX yet (i#1979).
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only
+      addons:
+        apt:
+          packages:
+          - clang-7.0
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
