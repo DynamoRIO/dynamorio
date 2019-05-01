@@ -1572,7 +1572,7 @@ main()
     dr_printf("test_x86_64_vgather_check_s:\n");
     test_s((byte *)test_x86_64_vgather_check_s_asm);
 #        endif
-#    else
+#    else /* !X64 */
 #        ifdef test_i387_s
     dr_printf("test_i387_s:\n");
     test_s((byte *)test_i387_s_asm);
@@ -3780,6 +3780,7 @@ START_FILE
 #ifdef test_xsavec_s
 #    include "xsavec.asm"
 #endif
+
 END_FILE
 /* clang-format on */
 #endif /* ASM_CODE_ONLY */
