@@ -717,7 +717,7 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
     info = *ret_info;
 
     CLIENT_ASSERT(info->type == EVEX_PREFIX_EXT, "internal evex decoding error");
-    /* If 32-bit mode and mod selects for memory, this is not vex */
+    /* If 32-bit mode and mod selects for memory, this is not evex */
     if (X64_MODE(di) || TESTALL(MODRM_BYTE(3, 0, 0), *pc)) {
         /* P[3:2] must be 0 and P[10] must be 1, otherwise #UD */
         if (TEST(0xC, *pc) || !TEST(0x04, *(pc + 1))) {
@@ -750,7 +750,11 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
 
     byte evex_mm;
     CLIENT_ASSERT(info->type == PREFIX, "internal evex decoding error");
-    /* fields are: R, X, B, R', 00, mm.  R, X, B and R' are inverted. */
+    /* fields are: R, X, B, R', 00, mm.  R, X, B and R' are inverted.
+     * The patent WO2012134532A1 mentions that the bits are in fact inverted
+     * the same way as in the VEX prefix, in order to make it distinct
+     * from the bound instruction in 32-bit mode.
+     */
     if (!TEST(0x80, prefix_byte))
         di->prefixes |= PREFIX_REX_R;
     if (!TEST(0x40, prefix_byte))
