@@ -317,6 +317,7 @@ enum {
     OPSZ_128,           /**< 128 bytes. Needed for load/store of register lists. */
     OPSZ_SCALABLE,      /** Scalable size for SVE vector registers. */
     OPSZ_SCALABLE_PRED, /** Scalable size for SVE predicate registers. */
+    OPSZ_16_32_evex64,  /**< 16, 32 or 64 bytes depending on EVEX.LL'. */
 #ifdef AVOID_API_EXPORT
 /* Add new size here.  Also update size_names[] in decode_shared.c along with
  * the size routines in opnd_shared.c.

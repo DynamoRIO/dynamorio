@@ -75,7 +75,8 @@ static const char *const pred_names[] = {
 /* in disassemble_shared.c */
 void
 internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
-                          dcontext_t *dcontext, opnd_t opnd, bool use_size_sfx);
+                          dcontext_t *dcontext, opnd_t opnd, bool use_size_sfx,
+                          bool could_be_opmask);
 void
 reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, reg_id_t reg,
                 dr_opnd_flags_t flags, const char *prefix, const char *suffix);
@@ -398,7 +399,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
             adj = dst ? instr_get_dst(instr, *idx - 1) : instr_get_src(instr, *idx - 1);
         if (!opnd_is_reg(adj) || !TEST(DR_OPND_IN_LIST, opnd_get_flags(adj)))
             print_to_buffer(buf, bufsz, sofar, "{");
-        internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
+        internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false, false);
         adj = opnd_create_null();
         if (*idx + 1 < max)
             adj = dst ? instr_get_dst(instr, *idx + 1) : instr_get_src(instr, *idx + 1);
@@ -409,14 +410,14 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         return true;
     }
 
-    internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
+    internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false, false);
 
     /* Store to memory operand ordering: insert store in srcs */
     if (nonlist_store && !dst && *idx + 1 == tostore) {
         opnd_t memop = instr_get_dst(instr, 0);
         CLIENT_ASSERT(opnd_is_base_disp(memop), "internal disasm error");
         print_to_buffer(buf, bufsz, sofar, ", ");
-        internal_opnd_disassemble(buf, bufsz, sofar, dcontext, memop, false);
+        internal_opnd_disassemble(buf, bufsz, sofar, dcontext, memop, false, false);
         /* FIXME i#1683: we need to print "!" but how do we tell whether
          * the memop has a disp?
          */

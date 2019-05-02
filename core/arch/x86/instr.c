@@ -1150,6 +1150,8 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
     case OP_vtestps:
     case OP_vtestpd:
 
+    /* TODO i#1312: Add new opcodes. */
+
     /* FMA */
     case OP_vfmadd132ps:
     case OP_vfmadd132pd:
@@ -1293,6 +1295,65 @@ opcode_is_mmx(int op)
     case OP_punpcklbw:
     case OP_punpckldq:
     case OP_punpcklwd: return true;
+    default: return false;
+    }
+}
+
+static bool
+opcode_is_opmask(int op)
+{
+    switch (op) {
+    case OP_kmovw:
+    case OP_kmovb:
+    case OP_kmovq:
+    case OP_kmovd:
+    case OP_kandw:
+    case OP_kandb:
+    case OP_kandq:
+    case OP_kandd:
+    case OP_kandnw:
+    case OP_kandnb:
+    case OP_kandnq:
+    case OP_kandnd:
+    case OP_kunpckbw:
+    case OP_kunpckwd:
+    case OP_kunpckdq:
+    case OP_knotw:
+    case OP_knotb:
+    case OP_knotq:
+    case OP_knotd:
+    case OP_korw:
+    case OP_korb:
+    case OP_korq:
+    case OP_kord:
+    case OP_kxnorw:
+    case OP_kxnorb:
+    case OP_kxnorq:
+    case OP_kxnord:
+    case OP_kxorw:
+    case OP_kxorb:
+    case OP_kxorq:
+    case OP_kxord:
+    case OP_kaddw:
+    case OP_kaddb:
+    case OP_kaddq:
+    case OP_kaddd:
+    case OP_kortestw:
+    case OP_kortestb:
+    case OP_kortestq:
+    case OP_kortestd:
+    case OP_kshiftlw:
+    case OP_kshiftlb:
+    case OP_kshiftlq:
+    case OP_kshiftld:
+    case OP_kshiftrw:
+    case OP_kshiftrb:
+    case OP_kshiftrq:
+    case OP_kshiftrd:
+    case OP_ktestw:
+    case OP_ktestb:
+    case OP_ktestq:
+    case OP_ktestd: return true;
     default: return false;
     }
 }
@@ -1492,6 +1553,13 @@ instr_is_mmx(instr_t *instr)
         return true;
     }
     return false;
+}
+
+bool
+instr_is_opmask(instr_t *instr)
+{
+    int op = instr_get_opcode(instr);
+    return opcode_is_opmask(op);
 }
 
 bool
