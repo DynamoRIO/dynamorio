@@ -2474,12 +2474,17 @@ endif ()
       # Both versions utilize the dynamorio_static_nohide as a base because
       # the variables in dynamorio_static have already been resolved as a part of
       # the symbol hiding step.
-      set(api.static_maps_mixup_yesvars_expectbase "static_maps_mixup_yesvars")
-      tobuild_static_nohide_api(api.static_maps_mixup_yesvars api/static_maps_mixup.c "" "" OFF)
+      set(api.static_maps_mixup_yesvars_expectbase
+         "static_maps_mixup_yesvars")
+      tobuild_static_nohide_api(api.static_maps_mixup_yesvars
+         api/static_maps_mixup.c "" "" OFF)
       append_link_flags(api.static_maps_mixup_yesvars
           "-Wl,--defsym,dynamorio_so_start=__executable_start -Wl,--defsym,dynamorio_so_end=end")
-      set(api.static_maps_mixup_novars_expectbase "static_maps_mixup_novars")
-      tobuild_static_nohide_api(api.static_maps_mixup_novars api/static_maps_mixup.c "" "" OFF)
+
+      set(api.static_maps_mixup_novars_FLAKY_expectbase
+         "static_maps_mixup_novars")
+      tobuild_static_nohide_api(api.static_maps_mixup_novars_FLAKY
+         api/static_maps_mixup.c "" "" OFF)
     endif ()
   endif ()
 
