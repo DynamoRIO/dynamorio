@@ -749,8 +749,6 @@ test_x86_64_opts_s_asm(void);
 void
 test_x86_64_pcrel_s_asm(void);
 void
-test_x86_64_pr20141_s_asm(void);
-void
 test_x86_64_prefetchwt1_s_asm(void);
 void
 test_x86_64_pseudos_s_asm(void);
@@ -847,20 +845,17 @@ test_xsavec_s_asm(void);
 static void
 test_s(byte *subtest_asm)
 {
-    byte *orig_pc;
     instr_t *instr = instr_create(GD);
     /* MAX_INSTR_LENGTH == 17. */
     byte buf[17];
     byte *dec_pc = subtest_asm;
     byte *start = dec_pc;
-    int count = 0;
     disassemble_set_syntax(DR_DISASM_ATT);
     while (*(uint64 *)dec_pc != 0x0102030405060708) {
         instr_reset(GD, instr);
-        orig_pc = dec_pc;
-        decode_from_copy(GD, dec_pc, ORIG_PC + (dec_pc - start), instr);
-        dec_pc = disassemble_from_copy(GD, dec_pc, ORIG_PC + (dec_pc - start), STDOUT,
-                                       false, true);
+        disassemble_from_copy(GD, dec_pc, ORIG_PC + (dec_pc - start), STDOUT, false,
+                              true);
+        dec_pc = decode_from_copy(GD, dec_pc, ORIG_PC + (dec_pc - start), instr);
         instr_set_raw_bits_valid(instr, false);
         instr_encode_to_copy(GD, instr, buf, ORIG_PC + (dec_pc - start));
     }
