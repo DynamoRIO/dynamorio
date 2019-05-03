@@ -1061,7 +1061,7 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
         info = &vex_W_extensions[code][idx];
 
-        /* some instuctions have the same opcode in vex and evex */
+        /* some instructions have the same opcode in vex and evex */
         if (di->evex_encoded)
             info = &evex_W_extensions[code][idx];
     } else if (info->type == EVEX_W_EXT) {
@@ -1129,7 +1129,7 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
         info = &vex_W_extensions[code][idx];
 
-        /* some instuctions have the same opcode in vex and evex */
+        /* some instructions have the same opcode in vex and evex */
         if (di->evex_encoded)
             info = &evex_W_extensions[code][idx];
     } else if (info->type == EVEX_W_EXT) {
