@@ -718,7 +718,7 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
 
     CLIENT_ASSERT(info->type == EVEX_PREFIX_EXT, "internal evex decoding error");
     /* If 32-bit mode and mod selects for memory, this is not evex */
-    if (X64_MODE(di)) {
+    if (X64_MODE(di) || TESTALL(MODRM_BYTE(3, 0, 0), *pc)) {
         /* P[3:2] must be 0 and P[10] must be 1, otherwise #UD */
         if (TEST(0xC, *pc) || !TEST(0x04, *(pc + 1))) {
             *ret_info = &invalid_instr;
