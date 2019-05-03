@@ -2378,7 +2378,21 @@ if (CLIENT_INTERFACE)
   else ()
     tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
   endif ()
-
+  if (X86)
+    if (X64)
+      tobuild_api(decenc.drdecode_decenc_x86_64
+        ../../third_party/binutils/test_decenc/drdecode_decenc_x86_64.c "" "" OFF OFF)
+      target_include_directories(decenc.drdecode_decenc_x86_64 PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/binutils/test_decenc/)
+      set(decenc.drdecode_decenc_x86_64_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
+    else ()
+      tobuild_api(decenc.drdecode_decenc_x86
+        ../../third_party/binutils/test_decenc/drdecode_decenc_x86.c "" "" OFF OFF)
+      target_include_directories(decenc.drdecode_decenc_x86 PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/binutils/test_decenc/)
+      set(decenc.drdecode_decenc_x86_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
+    endif ()
+  endif ()
   if (X86) # Generated code is x86-specific.
     set(checklevel "")
     if (DEBUG)
