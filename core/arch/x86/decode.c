@@ -1060,6 +1060,15 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         int code = (int)info->code;
         int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
         info = &vex_W_extensions[code][idx];
+
+        /* some instuctions have the same opcode in vex and evex */
+        if (di->evex_encoded)
+            info = &evex_W_extensions[code][idx];
+    } else if (info->type == EVEX_W_EXT) {
+        /* discard old info, get new one */
+        int code = (int)info->code;
+        int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
+        info = &evex_W_extensions[code][idx];
     }
 
     /* can occur AFTER above checks (EXTENSION, in particular) */
@@ -1091,6 +1100,12 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         info = &vex_extensions[code][idx];
     }
 
+    if (info->type == EVEX_EXT) {
+        /* discard old info, get new one */
+        int code = (int)info->code;
+        info = &evex_extensions[code];
+    }
+
     /* can occur AFTER above checks (EXTENSION, in particular) */
     if (info->type == PREFIX_EXT) {
         /* discard old info, get new one */
@@ -1113,6 +1128,15 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         int code = (int)info->code;
         int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
         info = &vex_W_extensions[code][idx];
+
+        /* some instuctions have the same opcode in vex and evex */
+        if (di->evex_encoded)
+            info = &evex_W_extensions[code][idx];
+    } else if (info->type == EVEX_W_EXT) {
+        /* discard old info, get new one */
+        int code = (int)info->code;
+        int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
+        info = &evex_W_extensions[code][idx];
     }
 
     if (TEST(REQUIRES_PREFIX, info->flags)) {

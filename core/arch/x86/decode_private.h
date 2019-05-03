@@ -222,6 +222,12 @@ enum {
     XOP_A_EXT,
     /* instructions differing based on evex */
     EVEX_PREFIX_EXT,
+    /* instructions differing based on whether evex-encoded */
+    EVEX_EXT,
+    /* instructions differing based on whether vex-encoded and evex.L' */
+    EVEX_L_EXT,
+    /* instructions differing based on evex.W */
+    EVEX_W_EXT,
     /* else, from OP_ enum */
 };
 
@@ -502,6 +508,8 @@ extern const byte xop_a_index[256];
 extern const instr_info_t xop_prefix_extensions[][2];
 extern const instr_info_t xop_extensions[];
 extern const instr_info_t evex_prefix_extensions[][2];
+extern const instr_info_t evex_extensions[];
+extern const instr_info_t evex_W_extensions[][2];
 
 /* table that translates opcode enums into pointers into decoding tables */
 extern const instr_info_t *const op_instr[];

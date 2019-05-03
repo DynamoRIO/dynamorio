@@ -5683,11 +5683,37 @@ const instr_info_t rex_w_extensions[][2] = {
 */
 
 const instr_info_t evex_prefix_extensions[][2] = {
-    {   /* evex_prefix_ext */
-        { OP_bound, 0x620000, "bound", xx, xx, Gv, Ma, xx, mrm | i64, x, END_LIST },
-        { PREFIX,   0x620000, "(evex prefix)", xx, xx, xx, xx, xx, mrm, x, PREFIX_EVEX },
+    { /* evex_prefix_ext */
+      {OP_bound, 0x620000, "bound", xx, xx, Gv, Ma, xx, mrm | i64, x, END_LIST},
+      {PREFIX,   0x620000, "(evex prefix)", xx, xx, xx, xx, xx, mrm, x, PREFIX_EVEX},
     }
 };
+
+/****************************************************************************
+ * Instructions that differ based on whether evex-encoded or not.
+ * Most of these require an 0x66 prefix but we use reqp for that
+ * so there's nothing inherent here about prefixes.
+ */
+const instr_info_t evex_extensions[] = {
+    {INVALID,   0x000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+};
+
+
+/****************************************************************************
+ * Instructions that differ depending on evex.W
+ * Index is evex.W value
+ */
+const instr_info_t evex_W_extensions[][2] = {
+    {    /* evex_W_ext 0 */
+      {INVALID,   0x000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+      {INVALID,   0x000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    }, { /* evex_W_ext 1 */
+      {INVALID,   0x000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+      {INVALID,   0x000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    },
+};
+
+
 
 /****************************************************************************
  * 3-byte-opcode instructions: 0x0f 0x38 and 0x0f 0x3a.
