@@ -2455,7 +2455,6 @@ if (CLIENT_INTERFACE)
         "test_x86_64_optimize_4_s"
         "test_x86_64_opts_s"
         "test_x86_64_pcrel_s"
-        "test_x86_64_pr20141_s"
         "test_x86_64_rdpid_s"
         "test_x86_64_rdrnd_s"
         "test_x86_64_rdseed_s"
