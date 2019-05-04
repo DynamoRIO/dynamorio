@@ -1318,6 +1318,12 @@ enum {
     /* 1155 */ OP_ktestb,   /**< IA-32/AMD64 AVX-512 ktestd opcode. */
     /* 1156 */ OP_ktestq,   /**< IA-32/AMD64 AVX-512 ktestd opcode. */
     /* 1157 */ OP_ktestd,   /**< IA-32/AMD64 AVX-512 ktestd opcode. */
+    /* 1158 */ OP_vmovdqa32, /**< IA-32/AMD64 AVX-512 ktestd opcode. */
+    /* 1159 */ OP_vmovdqa64, /**< IA-32/AMD64 AVX-512 ktestd opcode. */
+    /* 1160 */ OP_vmovdqu8,  /**< IA-32/AMD64 AVX-512 ktestd opcode. */
+    /* 1161 */ OP_vmovdqu16, /**< IA-32/AMD64 AVX-512 ktestd opcode. */
+    /* 1162 */ OP_vmovdqu32, /**< IA-32/AMD64 AVX-512 ktestd opcode. */
+    /* 1163 */ OP_vmovdqu64, /**< IA-32/AMD64 AVX-512 ktestd opcode. */
 
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */

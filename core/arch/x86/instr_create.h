@@ -1439,6 +1439,18 @@
 #define INSTR_CREATE_ktestb(dc, d, s) instr_create_1dst_1src((dc), OP_ktestb, (d), (s))
 #define INSTR_CREATE_ktestq(dc, d, s) instr_create_1dst_1src((dc), OP_ktestq, (d), (s))
 #define INSTR_CREATE_ktestd(dc, d, s) instr_create_1dst_1src((dc), OP_ktestd, (d), (s))
+#define INSTR_CREATE_vmovdqa32(dc, d, k, s) \
+    instr_create_2dst_1src((dc), OP_vmovdqa32, (d), (k), (s))
+#define INSTR_CREATE_vmovdqa64(dc, d, k, s) \
+    instr_create_2dst_1src((dc), OP_vmovdqa64, (d), (k), (s))
+#define INSTR_CREATE_vmovdqu8(dc, d, k, s) \
+    instr_create_2dst_1src((dc), OP_vmovdqu8, (d), (k), (s))
+#define INSTR_CREATE_vmovdqu16(dc, d, k, s) \
+    instr_create_2dst_1src((dc), OP_vmovdqu16, (d), (k), (s))
+#define INSTR_CREATE_vmovdqu32(dc, d, k, s) \
+    instr_create_2dst_1src((dc), OP_vmovdqu32, (d), (k), (s))
+#define INSTR_CREATE_vmovdqu64(dc, d, k, s) \
+    instr_create_2dst_1src((dc), OP_vmovdqu64, (d), (k), (s))
 
 /* @} */ /* end doxygen group */
 
