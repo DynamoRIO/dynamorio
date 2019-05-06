@@ -757,7 +757,7 @@ raw2trace_t::thread_file_at_eof(void *tls)
     return tdata->pre_read.empty() && tdata->thread_file->eof();
 }
 
-virtual std::string
+std::string
 raw2trace_t::append_delayed_branch(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
@@ -777,7 +777,7 @@ raw2trace_t::get_write_buffer(void *tls)
     return tdata->out_buf.data();
 }
 
-virtual bool
+bool
 raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *end)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
