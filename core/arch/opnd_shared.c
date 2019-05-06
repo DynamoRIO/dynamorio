@@ -1835,7 +1835,7 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t s
     }
 #else
     /* Note, we can reach here for MMX register */
-    CLIENT_ASSERT(false, "NYI i#3504");
+    CLIENT_ASSERT(false, "NYI i#3504, i#3504");
 #endif
 
     return false;
