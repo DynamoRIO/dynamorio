@@ -1810,35 +1810,33 @@ bool
 reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t size)
 {
 #ifdef X86
-    if (reg == REG_NULL)
-        return true;
-
-    opnd_size_t reg_size = reg_get_size(reg);
-
-    if (reg_size == OPSZ_NA)
-        return false;
-
-    if (opnd_size_in_bytes(reg_size) < size)
-        return false;
+    CLIENT_ASSERT(reg != REG_NULL, "REG_NULL was passed.");
 
     dr_zmm_t *simd = (dr_zmm_t *)((byte *)mc + SIMD_OFFSET);
 
     if (reg_is_gpr(reg)) {
+        CLIENT_ASSERT(size == GPR_REG_SIZE, "size does not match GPR register.");
         byte *reg_val_addr = ((byte *)mc + opnd_get_reg_mcontext_offs(reg));
         memcpy(reg_val_addr, val_buf, size);
     } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
+        CLIENT_ASSERT(size == XMM_REG_SIZE, "size does not match SIMD register.");    
         memcpy(&(simd[reg - DR_REG_START_XMM]), val_buf, size);
     } else if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) {
+        CLIENT_ASSERT(size == YMM_REG_SIZE, "size does not match SIMD register.");    
         memcpy(&(simd[reg - DR_REG_START_YMM]), val_buf, size);
     } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
+        CLIENT_ASSERT(size == ZMM_REG_SIZE, "size does not match SIMD register.");
         memcpy(&(simd[reg - DR_REG_START_ZMM]), val_buf, size);
+    } else {
+        return false;
     }
+
+    return true;
 #else
     /* Note, we can reach here for MMX register */
     CLIENT_ASSERT(false, "NYI i#3504, i#3504");
-#endif
-
     return false;
+#endif
 }
 
 DR_API
