@@ -942,6 +942,10 @@ protected:
     on_thread_end(void *tls);
     virtual void
     log(uint level, const char *fmt, ...);
+    virtual std::string
+    append_delayed_branch(void *tls);
+    virtual bool
+    write(void *tls, const trace_entry_t *start, const trace_entry_t *end);
 
     // Per-traced-thread data is stored here and accessed without locks by having each
     // traced thread processed by only one processing thread.
@@ -1007,8 +1011,6 @@ private:
     // Non-overridable parts of the interface expected by trace_converter_t.
     trace_entry_t *
     get_write_buffer(void *tls);
-    virtual bool
-    write(void *tls, const trace_entry_t *start, const trace_entry_t *end);
     std::string
     write_delayed_branches(void *tls, const trace_entry_t *start,
                            const trace_entry_t *end);
@@ -1019,9 +1021,6 @@ private:
     set_prev_instr_rep_string(void *tls, bool value);
     bool
     was_prev_instr_rep_string(void *tls);
-
-    virtual std::string
-    append_delayed_branch(void *tls);
 
     bool
     thread_file_at_eof(void *tls);
