@@ -2125,6 +2125,8 @@ reg_get_bits(reg_id_t reg)
         return (byte)((reg - DR_REG_START_YMM) % 8);
     if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM)
         return (byte)((reg - DR_REG_START_ZMM) % 8);
+    if (reg >= DR_REG_START_OPMASK && reg <= DR_REG_STOP_OPMASK)
+        return (byte)((reg - DR_REG_START_OPMASK) % 8);
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return (byte)((reg - REG_START_SEGMENT) % 8);
     if (reg >= REG_START_DR && reg <= REG_STOP_DR)

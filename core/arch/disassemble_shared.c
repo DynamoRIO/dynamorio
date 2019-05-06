@@ -312,6 +312,16 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
                 else if (!TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
                     print_to_buffer(buf, bufsz, sofar, "+");
             }
+        } else if (TEST(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask))) {
+            /* There seems to be a discrepency between windbg and binutils. The latter
+             * prints a '-' displacement for negative displacements both for att and
+             * intel. We are doing the same for att syntax, while we're following windbg
+             * for intel's syntax. XXX i#3574: should we do the same for intel's syntax?
+             */
+            if (disp < 0) {
+                disp = -disp;
+                print_to_buffer(buf, bufsz, sofar, "-");
+            }
         }
         if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
             print_to_buffer(buf, bufsz, sofar, "%d", disp);
