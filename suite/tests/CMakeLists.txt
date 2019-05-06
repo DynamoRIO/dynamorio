@@ -2378,7 +2378,21 @@ if (CLIENT_INTERFACE)
   else ()
     tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
   endif ()
-
+  if (X86)
+    if (X64)
+      tobuild_api(decenc.drdecode_decenc_x86_64
+        ../../third_party/binutils/test_decenc/drdecode_decenc_x86_64.c "" "" OFF OFF)
+      target_include_directories(decenc.drdecode_decenc_x86_64 PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/binutils/test_decenc/)
+      set(decenc.drdecode_decenc_x86_64_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
+    else ()
+      tobuild_api(decenc.drdecode_decenc_x86
+        ../../third_party/binutils/test_decenc/drdecode_decenc_x86.c "" "" OFF OFF)
+      target_include_directories(decenc.drdecode_decenc_x86 PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/binutils/test_decenc/)
+      set(decenc.drdecode_decenc_x86_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
+    endif ()
+  endif ()
   if (X86) # Generated code is x86-specific.
     set(checklevel "")
     if (DEBUG)
@@ -2460,12 +2474,17 @@ endif ()
       # Both versions utilize the dynamorio_static_nohide as a base because
       # the variables in dynamorio_static have already been resolved as a part of
       # the symbol hiding step.
-      set(api.static_maps_mixup_yesvars_expectbase "static_maps_mixup_yesvars")
-      tobuild_static_nohide_api(api.static_maps_mixup_yesvars api/static_maps_mixup.c "" "" OFF)
+      set(api.static_maps_mixup_yesvars_expectbase
+         "static_maps_mixup_yesvars")
+      tobuild_static_nohide_api(api.static_maps_mixup_yesvars
+         api/static_maps_mixup.c "" "" OFF)
       append_link_flags(api.static_maps_mixup_yesvars
           "-Wl,--defsym,dynamorio_so_start=__executable_start -Wl,--defsym,dynamorio_so_end=end")
-      set(api.static_maps_mixup_novars_expectbase "static_maps_mixup_novars")
-      tobuild_static_nohide_api(api.static_maps_mixup_novars api/static_maps_mixup.c "" "" OFF)
+
+      set(api.static_maps_mixup_novars_FLAKY_expectbase
+         "static_maps_mixup_novars")
+      tobuild_static_nohide_api(api.static_maps_mixup_novars_FLAKY
+         api/static_maps_mixup.c "" "" OFF)
     endif ()
   endif ()
 

@@ -405,13 +405,6 @@ read_operand(byte *pc, decode_info_t *di, byte optype, opnd_size_t opsize)
     switch (optype) {
     case TYPE_A: {
         CLIENT_ASSERT(!X64_MODE(di), "x64 has no type A instructions");
-#ifdef IA32_ON_IA64
-        /* somewhat hacked dispatch on size */
-        if (opsize == OPSZ_4_short2) {
-            pc = read_immed(pc, di, opsize, &val);
-            break;
-        }
-#endif
         /* ok b/c only instr_info_t fields passed */
         CLIENT_ASSERT(opsize == OPSZ_6_irex10_short4, "decode A operand error");
         if (TEST(PREFIX_DATA, di->prefixes)) {
@@ -709,7 +702,7 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
 }
 
 /* Given an instr_info_t PREFIX_EXT entry, reads the next entry based on the prefixes.
- * Note that this function does not initialise the opcode field in \p di but is set in
+ * Note that this function does not initialize the opcode field in \p di but is set in
  * \p info->type.
  */
 static inline const instr_info_t *
@@ -936,7 +929,7 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         info = &vex_W_extensions[code][idx];
     }
 
-    /* can occur AFTER above checks (EXTENSION, in particular */
+    /* can occur AFTER above checks (EXTENSION, in particular) */
     if (info->type == PREFIX_EXT) {
         /* discard old info, get new one */
         info = read_prefix_ext(info, di);
@@ -965,6 +958,12 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         info = &vex_extensions[code][idx];
     }
 
+    /* can occur AFTER above checks (EXTENSION, in particular) */
+    if (info->type == PREFIX_EXT) {
+        /* discard old info, get new one */
+        info = read_prefix_ext(info, di);
+    }
+
     /* can occur AFTER above checks (MOD_EXT, in particular) */
     if (info->type == REX_W_EXT) {
         /* discard old info, get new one */
@@ -976,6 +975,11 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         int code = (int)info->code;
         int idx = (di->vex_encoded) ? (TEST(PREFIX_VEX_L, di->prefixes) ? 2 : 1) : 0;
         info = &vex_L_extensions[code][idx];
+    } else if (info->type == VEX_W_EXT) {
+        /* discard old info, get new one */
+        int code = (int)info->code;
+        int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
+        info = &vex_W_extensions[code][idx];
     }
 
     if (TEST(REQUIRES_PREFIX, info->flags)) {
@@ -1237,6 +1241,10 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
         return (REG_START_SEGMENT + reg);
     case TYPE_C: return (extend ? (REG_START_CR + 8 + reg) : (REG_START_CR + reg));
     case TYPE_D: return (extend ? (REG_START_DR + 8 + reg) : (REG_START_DR + reg));
+    case TYPE_K_REG:
+    case TYPE_K_MODRM:
+    case TYPE_K_MODRM_R:
+    case TYPE_K_VEX: return DR_REG_START_OPMASK + reg;
     case TYPE_E:
     case TYPE_G:
     case TYPE_R:
@@ -1675,18 +1683,6 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         *opnd = opnd_create_pc((app_pc)get_immed(di, opsize));
         return true;
     case TYPE_A: {
-#ifdef IA32_ON_IA64
-        if (opsize == OPSZ_4_short2) {
-            if (di->seg_override == SEG_CS || di->seg_override == SEG_DS) {
-                /* branch hint! just delete it? FIXME! */
-                di->seg_override = REG_NULL;
-                ASSERT_CURIOSITY(false); /* see if this ever happens */
-            }
-            /* just ignore other segment prefixes -- don't assert */
-            *opnd = opnd_create_pc((app_pc)get_immed(di, opsize));
-            return true;
-        }
-#endif
         /* ok since instr_info_t fields */
         CLIENT_ASSERT(!X64_MODE(di), "x64 has no type A instructions");
         CLIENT_ASSERT(opsize == OPSZ_6_irex10_short4, "decode A operand error");
@@ -1827,6 +1823,32 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         *opnd = opnd_create_reg(decode_reg(DECODE_REG_VEX, di, optype, opsize));
         /* no need to set size as it's a GPR */
         return true;
+    }
+    case TYPE_K_MODRM: {
+        /* part of AVX-512: modrm.rm selects opmask register or mem addr */
+        if (di->mod != 3) {
+            return decode_modrm(di, optype, opsize, NULL, opnd);
+        }
+        /* fall through*/
+    }
+    case TYPE_K_MODRM_R: {
+        /* part of AVX-512: modrm.rm selects opmask register */
+        *opnd = opnd_create_reg(decode_reg(DECODE_REG_RM, di, optype, opsize));
+        return true;
+    }
+    case TYPE_K_REG: {
+        /* part of AVX-512: modrm.reg selects opmask register */
+        *opnd = opnd_create_reg(decode_reg(DECODE_REG_REG, di, optype, opsize));
+        return true;
+    }
+    case TYPE_K_VEX: {
+        /* part of AVX-512: vex.vvvv selects opmask register */
+        *opnd = opnd_create_reg(decode_reg(DECODE_REG_VEX, di, optype, opsize));
+        return true;
+    }
+    case TYPE_K_EVEX: {
+        /* TODO i#1312: will be supported as part of the AVX-512 EVEX encodings. */
+        CLIENT_ASSERT(false, "TODO i#1312: decode error: unsupported yet.");
     }
     default:
         /* ok to assert, types coming only from instr_info_t */
