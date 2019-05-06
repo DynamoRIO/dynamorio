@@ -176,6 +176,7 @@ Further non-compatibility-affecting changes include:
  - Added the function reg_is_opmask().
  - Added the functions reg_is_strictly_xmm(), reg_is_strictly_ymm() and
    reg_is_strictly_zmm().
+ - Added reg_set_value_ex() to set XMM, YMM and ZMM values.
 
 **************************************************
 <hr>
