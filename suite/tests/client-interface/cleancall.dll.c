@@ -41,6 +41,39 @@
 static reg_t buf[] = { 0xcafebabe, 0xfeedadad, 0xeeeeeeee, 0xbadcabee };
 #endif
 
+#ifdef X86
+/* buffers for testing reg_set_value_ex */
+byte orig_reg_val_buf[64];
+byte new_reg_val_buf[64];
+
+static void set_xmm()
+{
+    void *drcontext = dr_get_current_drcontext();
+    dr_mcontext_t mcontext = { sizeof(mcontext), DR_MC_ALL, };
+    dr_get_mcontext(drcontext, &mcontext);
+    reg_get_value_ex(DR_REG_XMM0, &mcontext, orig_reg_val_buf);
+    reg_get_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf);
+    new_reg_val_buf[0] = 0x77;
+    new_reg_val_buf[2] = 0x89;
+    new_reg_val_buf[14] = 0x21;
+    reg_set_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf, 16);
+    dr_set_mcontext(drcontext, &mcontext);
+}
+
+static void check_xmm()
+{
+    void *drcontext = dr_get_current_drcontext();
+    dr_mcontext_t mcontext = { sizeof(mcontext), DR_MC_ALL, };
+    dr_get_mcontext(drcontext, &mcontext);
+    reg_get_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf);
+    ASSERT(new_reg_val_buf[0] == 0x77);
+    ASSERT(new_reg_val_buf[2] == 0x89);
+    ASSERT(new_reg_val_buf[14] == 0x21);
+    reg_set_value_ex(DR_REG_XMM0, &mcontext, orig_reg_val_buf, 16);
+    dr_set_mcontext(drcontext, &mcontext);
+}
+#endif
+
 static void
 ind_call(reg_t a1, reg_t a2)
 {
@@ -146,6 +179,16 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         dr_insert_clean_call(drcontext, bb, add, (void *)cleancall_no_aflags_save, false,
                              0);
         dr_insert_clean_call(drcontext, bb, cmp, (void *)cleancall_aflags_save, false, 0);
+
+#ifdef X86
+        /* Another unrelated test for setting register values.
+         * More specifically, this is a test for setting XMM value.
+         * cleancall to store original XMM value and set new value.
+         * cleancall to check new XMM value and restore to the original value.
+         */
+        dr_insert_clean_call(drcontext, bb, instr, set_xmm, false, 0);
+        dr_insert_clean_call(drcontext, bb, instr, check_xmm, false, 0);
+#endif
     }
 
     /* Look for 3 nops to indicate handler is set up */
