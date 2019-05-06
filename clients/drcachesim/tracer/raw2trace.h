@@ -1007,7 +1007,7 @@ private:
     // Non-overridable parts of the interface expected by trace_converter_t.
     trace_entry_t *
     get_write_buffer(void *tls);
-    bool
+    virtual bool
     write(void *tls, const trace_entry_t *start, const trace_entry_t *end);
     std::string
     write_delayed_branches(void *tls, const trace_entry_t *start,
@@ -1020,7 +1020,7 @@ private:
     bool
     was_prev_instr_rep_string(void *tls);
 
-    std::string
+    virtual std::string
     append_delayed_branch(void *tls);
 
     bool
