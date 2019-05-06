@@ -1819,21 +1819,22 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t s
         byte *reg_val_addr = ((byte *)mc + opnd_get_reg_mcontext_offs(reg));
         memcpy(reg_val_addr, val_buf, size);
     } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
-        CLIENT_ASSERT(size == XMM_REG_SIZE, "size does not match SIMD register.");    
+        CLIENT_ASSERT(size == XMM_REG_SIZE, "size does not match SIMD register.");
         memcpy(&(simd[reg - DR_REG_START_XMM]), val_buf, size);
     } else if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) {
-        CLIENT_ASSERT(size == YMM_REG_SIZE, "size does not match SIMD register.");    
+        CLIENT_ASSERT(size == YMM_REG_SIZE, "size does not match SIMD register.");
         memcpy(&(simd[reg - DR_REG_START_YMM]), val_buf, size);
     } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
         CLIENT_ASSERT(size == ZMM_REG_SIZE, "size does not match SIMD register.");
         memcpy(&(simd[reg - DR_REG_START_ZMM]), val_buf, size);
     } else {
+        /* Note, we can reach here for MMX register */
+        CLIENT_ASSERT(false, "NYI i#3504, i#3504");
         return false;
     }
 
     return true;
 #else
-    /* Note, we can reach here for MMX register */
     CLIENT_ASSERT(false, "NYI i#3504, i#3504");
     return false;
 #endif
