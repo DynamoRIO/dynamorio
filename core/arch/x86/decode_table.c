@@ -4786,6 +4786,7 @@ const instr_info_t vex_extensions[][2] = {
 /****************************************************************************
 * Instructions that differ depending on whether evex-encoded
 * Index 0 = no evex, 1 = evex
+* XXX i#1312: This is currently unused but will resolve with future patches.
 */
 const instr_info_t evex_prefix_extensions[][2] = {
     { /* evex_prefix_ext */
