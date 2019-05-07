@@ -712,7 +712,6 @@ static byte *
 read_evex(byte *pc, decode_info_t *di, byte instr_byte,
           const instr_info_t **ret_info INOUT, bool *is_evex)
 {
-
     const instr_info_t *info;
     byte prefix_byte = 0, evex_pp = 0;
     ASSERT(ret_info != NULL && *ret_info != NULL && is_evex != NULL);
@@ -726,7 +725,6 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
             *ret_info = &invalid_instr;
             return pc;
         }
-
         *is_evex = true;
         info = &evex_prefix_extensions[0][1];
     } else {
@@ -750,7 +748,6 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
         return pc;
     }
 
-    byte evex_mm;
     CLIENT_ASSERT(info->type == PREFIX, "internal evex decoding error");
     /* fields are: R, X, B, R', 00, mm.  R, X, B and R' are inverted.
      * The patent WO2012134532A1 mentions that the bits are in fact inverted
@@ -766,7 +763,7 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
     if (!TEST(0x10, prefix_byte))
         di->prefixes |= PREFIX_EVEX_RR;
 
-    evex_mm = instr_byte & 0x3;
+    byte evex_mm = instr_byte & 0x3;
 
     if (evex_mm == 1) {
         *ret_info = &escape_instr;
