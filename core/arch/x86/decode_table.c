@@ -4784,6 +4784,18 @@ const instr_info_t vex_extensions[][2] = {
 };
 
 /****************************************************************************
+* Instructions that differ depending on whether evex-encoded
+* Index 0 = no evex, 1 = evex
+* XXX i#1312: This is currently unused but will resolve with future patches.
+*/
+const instr_info_t evex_prefix_extensions[][2] = {
+    { /* evex_prefix_ext */
+      {OP_bound, 0x620000, "bound", xx, xx, Gv, Ma, xx, mrm | i64, x, END_LIST},
+      {PREFIX,   0x620000, "(evex prefix)", xx, xx, xx, xx, xx, mrm, x, PREFIX_EVEX},
+    }
+};
+
+/****************************************************************************
  * Instructions that differ depending on mod and rm bits in modrm byte
  * For mod, entry 0 is all mem ref mod values (0,1,2) while entry 1 is 3.
  * For the mem ref, we give just one of the 3 possible modrm bytes
