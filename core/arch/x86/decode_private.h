@@ -312,9 +312,12 @@ struct _decode_info_t {
     bool data_prefix;
     bool rep_prefix;
     bool repne_prefix;
-    byte vex_vvvv; /* vvvv bits for extra operand */
+    /* vvvv bits for extra operand */
+    union {
+        byte vex_vvvv;
+        byte evex_vvvv;
+    };
     bool vex_encoded;
-    byte evex_vvvv; /* vvvv bits for extra operand */
     bool evex_encoded;
     byte evex_aaa; /* aaa bits for opmask */
     /* for instr_t* target encoding */
