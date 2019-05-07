@@ -701,6 +701,124 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
     return pc;
 }
 
+#ifdef DISABLED_UNTIL_BUG_1312_IS_FIXED
+
+/* Given the potential first evex byte at pc, reads any subsequent evex
+ * bytes (and any prefix bytes) and sets the appropriate prefix flags in di.
+ * Sets info to the entry for the first opcode byte, and pc to point past
+ * the first opcode byte.
+ */
+static byte *
+read_evex(byte *pc, decode_info_t *di, byte instr_byte,
+          const instr_info_t **ret_info INOUT, bool *is_evex)
+{
+    const instr_info_t *info;
+    byte prefix_byte = 0, evex_pp = 0;
+    ASSERT(ret_info != NULL && *ret_info != NULL && is_evex != NULL);
+    info = *ret_info;
+
+    CLIENT_ASSERT(info->type == EVEX_PREFIX_EXT, "internal evex decoding error");
+    /* If 32-bit mode and mod selects for memory, this is not evex */
+    if (X64_MODE(di) || TESTALL(MODRM_BYTE(3, 0, 0), *pc)) {
+        /* P[3:2] must be 0 and P[10] must be 1, otherwise #UD */
+        if (TEST(0xC, *pc) || !TEST(0x04, *(pc + 1))) {
+            *ret_info = &invalid_instr;
+            return pc;
+        }
+        *is_evex = true;
+        info = &evex_prefix_extensions[0][1];
+    } else {
+        /* not evex */
+        *is_evex = false;
+        *ret_info = &evex_prefix_extensions[0][0];
+        return pc;
+    }
+
+    CLIENT_ASSERT(info->code == PREFIX_EVEX, "internal evex decoding error");
+
+    /* read 2nd evex byte */
+    instr_byte = *pc;
+    prefix_byte = instr_byte;
+    pc++;
+
+    if (TESTANY(PREFIX_REX_ALL | PREFIX_LOCK, di->prefixes) || di->data_prefix ||
+        di->rep_prefix || di->repne_prefix) {
+        /* #UD if combined w/ EVEX prefix */
+        *ret_info = &invalid_instr;
+        return pc;
+    }
+
+    CLIENT_ASSERT(info->type == PREFIX, "internal evex decoding error");
+    /* fields are: R, X, B, R', 00, mm.  R, X, B and R' are inverted.
+     * The patent WO2012134532A1 mentions that the bits are in fact inverted
+     * the same way as in the VEX prefix, in order to make it distinct
+     * from the bound instruction in 32-bit mode.
+     */
+    if (!TEST(0x80, prefix_byte))
+        di->prefixes |= PREFIX_REX_R;
+    if (!TEST(0x40, prefix_byte))
+        di->prefixes |= PREFIX_REX_X;
+    if (!TEST(0x20, prefix_byte))
+        di->prefixes |= PREFIX_REX_B;
+    if (!TEST(0x10, prefix_byte))
+        di->prefixes |= PREFIX_EVEX_RR;
+
+    byte evex_mm = instr_byte & 0x3;
+
+    if (evex_mm == 1) {
+        *ret_info = &escape_instr;
+    } else if (evex_mm == 2) {
+        *ret_info = &escape_38_instr;
+    } else if (evex_mm == 3) {
+        *ret_info = &escape_3a_instr;
+    } else {
+        /* #UD: reserved for future use */
+        *ret_info = &invalid_instr;
+        return pc;
+    }
+
+    /* read 3rd evex byte */
+    prefix_byte = *pc;
+    pc++;
+
+    /* fields are: W, vvvv, 1, PP */
+    if (TEST(0x80, prefix_byte)) {
+        di->prefixes |= PREFIX_REX_W;
+    }
+
+    evex_pp = prefix_byte & 0x03;
+    di->evex_vvvv = (prefix_byte & 0x78) >> 3;
+
+    if (evex_pp == 0x1)
+        di->data_prefix = true;
+    else if (evex_pp == 0x2)
+        di->rep_prefix = true;
+    else if (evex_pp == 0x3)
+        di->repne_prefix = true;
+
+    /* read 4th evex byte */
+    prefix_byte = *pc;
+    pc++;
+
+    /* fields are: z, L', L, b, V' and aaa */
+    if (TEST(0x80, prefix_byte))
+        di->prefixes |= PREFIX_EVEX_z;
+    if (TEST(0x40, prefix_byte))
+        di->prefixes |= PREFIX_EVEX_LL;
+    if (TEST(0x20, prefix_byte))
+        di->prefixes |= PREFIX_VEX_L;
+    if (TEST(0x10, prefix_byte))
+        di->prefixes |= PREFIX_EVEX_b;
+    if (TEST(0x08, prefix_byte))
+        di->prefixes |= PREFIX_EVEX_VV;
+
+    di->evex_aaa = prefix_byte & 0x07;
+    di->evex_encoded = true;
+    return pc;
+}
+
+#endif
+
 /* Given an instr_info_t PREFIX_EXT entry, reads the next entry based on the prefixes.
  * Note that this function does not initialize the opcode field in \p di but is set in
  * \p info->type.
