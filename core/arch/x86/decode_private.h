@@ -70,6 +70,13 @@
 #define PREFIX_VEX_L 0x000040000
 /* Also only used during initial decode */
 #define PREFIX_XOP 0x000080000
+/* Prefixes which used for AVX-512 */
+#define PREFIX_EVEX 0x000100000
+#define PREFIX_EVEX_RR 0x000200000
+#define PREFIX_EVEX_LL 0x000400000
+#define PREFIX_EVEX_z 0x000800000
+#define PREFIX_EVEX_b 0x001000000
+#define PREFIX_EVEX_VV 0x002000000
 
 /* branch hints show up as segment modifiers */
 #define SEG_JCC_NOT_TAKEN SEG_CS
@@ -305,8 +312,14 @@ struct _decode_info_t {
     bool data_prefix;
     bool rep_prefix;
     bool repne_prefix;
-    byte vex_vvvv; /* vvvv bits for extra operand */
+    /* vvvv bits for extra operand */
+    union {
+        byte vex_vvvv;
+        byte evex_vvvv;
+    };
     bool vex_encoded;
+    bool evex_encoded;
+    byte evex_aaa; /* aaa bits for opmask */
     /* for instr_t* target encoding */
     ptr_int_t cur_note;
     bool has_instr_opnds;
@@ -484,6 +497,7 @@ extern const byte xop_9_index[256];
 extern const byte xop_a_index[256];
 extern const instr_info_t xop_prefix_extensions[][2];
 extern const instr_info_t xop_extensions[];
+extern const instr_info_t evex_prefix_extensions[][2];
 
 /* table that translates opcode enums into pointers into decoding tables */
 extern const instr_info_t *const op_instr[];
