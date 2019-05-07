@@ -1415,9 +1415,6 @@
     instr_create_1dst_1src((dc), OP_vpbroadcastd, (d), (s))
 #define INSTR_CREATE_vpbroadcastq(dc, d, s) \
     instr_create_1dst_1src((dc), OP_vpbroadcastq, (d), (s))
-/* ADX */
-#define INSTR_CREATE_adox(dc, d, s) instr_create_1dst_1src((dc), OP_adox, (d), (s))
-#define INSTR_CREATE_adcx(dc, d, s) instr_create_1dst_1src((dc), OP_adcx, (d), (s))
 /* AVX-512 VEX */
 #define INSTR_CREATE_kmovw(dc, d, s) instr_create_1dst_1src((dc), OP_kmovw, (d), (s))
 #define INSTR_CREATE_kmovb(dc, d, s) instr_create_1dst_1src((dc), OP_kmovb, (d), (s))
@@ -2503,6 +2500,9 @@
     instr_create_1dst_2src((dc), OP_aesdec, (d), (s), (d))
 #define INSTR_CREATE_aesdeclast(dc, d, s) \
     instr_create_1dst_2src((dc), OP_aesdeclast, (d), (s), (d))
+/* ADX */
+#define INSTR_CREATE_adox(dc, d, s) instr_create_1dst_2src((dc), OP_adox, (d), (s), (d))
+#define INSTR_CREATE_adcx(dc, d, s) instr_create_1dst_2src((dc), OP_adcx, (d), (s), (d))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 1 explicit register-or-immediate source */
