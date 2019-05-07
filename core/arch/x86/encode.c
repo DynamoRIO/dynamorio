@@ -932,6 +932,22 @@ mem_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opnd
 }
 
 static bool
+opnd_needs_evex(opnd_t opnd)
+{
+    if (!opnd_is_reg(opnd))
+        return false;
+    reg_id_t reg = opnd_get_reg(opnd);
+    if (reg_is_strictly_xmm(reg)) {
+        return DR_REG_XMM16 <= reg && reg <= DR_REG_XMM31;
+    } else if (reg_is_strictly_ymm(reg)) {
+        return DR_REG_YMM16 <= reg && reg <= DR_REG_YMM31;
+    } else if (reg_is_strictly_zmm(reg)) {
+        return DR_REG_ZMM16 <= reg && reg <= DR_REG_ZMM31;
+    }
+    return false;
+}
+
+static bool
 opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opnd_t opnd,
              int optype, opnd_size_t opsize)
 {
@@ -1303,12 +1319,15 @@ instr_info_extra_opnds(const instr_info_t *info)
 }
 
 /* macro for speed so we don't have to pass opnds around */
-#define TEST_OPND(di, iitype, iisize, iinum, inst_num, get_op)                           \
+#define TEST_OPND(di, iitype, iisize, iinum, inst_num, get_op, requires_evex)            \
     if (iitype != TYPE_NONE) {                                                           \
         if (inst_num < iinum)                                                            \
             return false;                                                                \
         if (!opnd_type_ok(di, get_op, iitype, iisize))                                   \
             return false;                                                                \
+        if (opnd_needs_evex(get_op))                                                     \
+            if (!requires_evex)                                                          \
+                return false;                                                            \
         if (type_instr_uses_reg_bits(iitype)) {                                          \
             if (!opnd_is_null(using_reg_bits) && !opnd_same(using_reg_bits, get_op))     \
                 return false;                                                            \
@@ -1344,11 +1363,16 @@ encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t *ii)
     opnd_t using_aaa_bits = opnd_create_null();
 
     /* for efficiency we separately test 2 dsts, 3 srcs */
-    TEST_OPND(di, ii->dst1_type, ii->dst1_size, 1, in->num_dsts, instr_get_dst(in, 0));
-    TEST_OPND(di, ii->dst2_type, ii->dst2_size, 2, in->num_dsts, instr_get_dst(in, 1));
-    TEST_OPND(di, ii->src1_type, ii->src1_size, 1, in->num_srcs, instr_get_src(in, 0));
-    TEST_OPND(di, ii->src2_type, ii->src2_size, 2, in->num_srcs, instr_get_src(in, 1));
-    TEST_OPND(di, ii->src3_type, ii->src3_size, 3, in->num_srcs, instr_get_src(in, 2));
+    TEST_OPND(di, ii->dst1_type, ii->dst1_size, 1, in->num_dsts, instr_get_dst(in, 0),
+              TEST(REQUIRES_EVEX, ii->flags));
+    TEST_OPND(di, ii->dst2_type, ii->dst2_size, 2, in->num_dsts, instr_get_dst(in, 1),
+              TEST(REQUIRES_EVEX, ii->flags));
+    TEST_OPND(di, ii->src1_type, ii->src1_size, 1, in->num_srcs, instr_get_src(in, 0),
+              TEST(REQUIRES_EVEX, ii->flags));
+    TEST_OPND(di, ii->src2_type, ii->src2_size, 2, in->num_srcs, instr_get_src(in, 1),
+              TEST(REQUIRES_EVEX, ii->flags));
+    TEST_OPND(di, ii->src3_type, ii->src3_size, 3, in->num_srcs, instr_get_src(in, 2),
+              TEST(REQUIRES_EVEX, ii->flags));
 
     if ((ii->flags & HAS_EXTRA_OPERANDS) != 0) {
         /* extra operands to test! */
@@ -1362,15 +1386,15 @@ encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t *ii)
                           "encode error: extra operand template mismatch");
 
             TEST_OPND(di, ii->dst1_type, ii->dst1_size, (offs * 2 + 1), in->num_dsts,
-                      instr_get_dst(in, (offs * 2 + 0)));
+                      instr_get_dst(in, (offs * 2 + 0)), TEST(REQUIRES_EVEX, ii->flags));
             TEST_OPND(di, ii->dst2_type, ii->dst2_size, (offs * 2 + 2), in->num_dsts,
-                      instr_get_dst(in, (offs * 2 + 1)));
+                      instr_get_dst(in, (offs * 2 + 1)), TEST(REQUIRES_EVEX, ii->flags));
             TEST_OPND(di, ii->src1_type, ii->src1_size, (offs * 3 + 1), in->num_srcs,
-                      instr_get_src(in, (offs * 3 + 0)));
+                      instr_get_src(in, (offs * 3 + 0)), TEST(REQUIRES_EVEX, ii->flags));
             TEST_OPND(di, ii->src2_type, ii->src2_size, (offs * 3 + 2), in->num_srcs,
-                      instr_get_src(in, (offs * 3 + 1)));
+                      instr_get_src(in, (offs * 3 + 1)), TEST(REQUIRES_EVEX, ii->flags));
             TEST_OPND(di, ii->src3_type, ii->src3_size, (offs * 3 + 3), in->num_srcs,
-                      instr_get_src(in, (offs * 3 + 2)));
+                      instr_get_src(in, (offs * 3 + 2)), TEST(REQUIRES_EVEX, ii->flags));
             offs++;
             ii = instr_info_extra_opnds(ii);
         } while (ii != NULL);
@@ -2115,8 +2139,14 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
     case TYPE_H: {
         reg_id_t reg = opnd_get_reg(opnd);
         CLIENT_ASSERT(!reg_is_strictly_zmm(reg), "FIXME i#1312: unsupported.");
-        di->vex_vvvv = (byte)(reg_is_strictly_ymm(reg) ? (reg - REG_START_YMM)
-                                                       : (reg - REG_START_XMM));
+        encode_avx512_reg_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_EVEX_VV);
+        /* vex_vvvv abd evex_vvvv is a union. */
+        if (reg_is_strictly_zmm(reg))
+            di->vex_vvvv = reg - DR_REG_START_ZMM;
+        else if (reg_is_strictly_ymm(reg))
+            di->vex_vvvv = reg - DR_REG_START_YMM;
+        else
+            di->vex_vvvv = reg - DR_REG_START_XMM;
         di->vex_vvvv = (~di->vex_vvvv) & 0xf;
         return;
     }
@@ -2129,6 +2159,7 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
 #ifdef X64
         if (reg_is_extended(reg)) /* reg_get_bits does % 8 */
             di->vex_vvvv |= 0x8;
+        encode_avx512_reg_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_EVEX_VV);
 #endif
         di->vex_vvvv = (~di->vex_vvvv) & 0xf;
         return;
@@ -2596,7 +2627,8 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     di.start_pc = cache_pc;
     di.final_pc = final_pc;
 
-    while (!encoding_possible(&di, instr, info)) {
+    while (!encoding_possible(&di, instr, info) ||
+           (instr_is_enc_hint_evex(instr) && !TEST(REQUIRES_EVEX, info->flags))) {
         LOG(THREAD, LOG_EMIT, ENC_LEVEL, "\tencoding for 0x%x no good...\n",
             info->opcode);
         info = get_next_instr_info(info);

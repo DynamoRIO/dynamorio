@@ -1437,10 +1437,8 @@
 #define INSTR_CREATE_ktestq(dc, d, s) instr_create_1dst_1src((dc), OP_ktestq, (d), (s))
 #define INSTR_CREATE_ktestd(dc, d, s) instr_create_1dst_1src((dc), OP_ktestd, (d), (s))
 /* AVX-512 EVEX */
-/* TODO i#1312: AVX-512 promoted AVX opcodes with default mask k0 should be covered by
- * macros above, but encoder should assign default mask.
- */
-
+#define INSTR_CREATE_vmovlps_evex(dc, d, s) \
+    instr_create_1dst_1src_evex((dc), OP_vmovlps, (d), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
@@ -2232,6 +2230,9 @@
     instr_create_1dst_2src((dc), OP_kshiftrq, (d), (s1), (s2))
 #define INSTR_CREATE_kshiftrd(dc, d, s1, s2) \
     instr_create_1dst_2src((dc), OP_kshiftrd, (d), (s1), (s2))
+/* AVX-512 EVEX (no mask) */
+#define INSTR_CREATE_vmovlps_NDS_evex(dc, d, s1, s2) \
+    instr_create_1dst_2src_evex((dc), OP_vmovlps, (d), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 1 mask, and 1 non-immediate source */

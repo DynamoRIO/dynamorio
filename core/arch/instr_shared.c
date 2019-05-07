@@ -2623,6 +2623,21 @@ instr_create_1dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src)
 }
 
 instr_t *
+instr_create_1dst_1src_evex(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src)
+{
+#if X86
+    instr_t *in = instr_build(dcontext, opcode, 1, 1);
+    instr_set_enc_hint(in, DR_ENC_HINT_X86_EVEX);
+    instr_set_dst(in, 0, dst);
+    instr_set_src(in, 0, src);
+    return in;
+#else
+    CLIENT_ASSERT(false, "instr_create_1dst_1src_evex is only supported for x86.");
+    return NULL;
+#endif
+}
+
+instr_t *
 instr_create_1dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
                        opnd_t src2)
 {
@@ -2631,6 +2646,23 @@ instr_create_1dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1
     instr_set_src(in, 0, src1);
     instr_set_src(in, 1, src2);
     return in;
+}
+
+instr_t *
+instr_create_1dst_2src_evex(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
+                            opnd_t src2)
+{
+#if X86
+    instr_t *in = instr_build(dcontext, opcode, 1, 2);
+    instr_set_enc_hint(in, DR_ENC_HINT_X86_EVEX);
+    instr_set_dst(in, 0, dst);
+    instr_set_src(in, 0, src1);
+    instr_set_src(in, 1, src2);
+    return in;
+#else
+    CLIENT_ASSERT(false, "instr_create_1dst_2src_evex is only supported for x86.");
+    return NULL;
+#endif
 }
 
 instr_t *

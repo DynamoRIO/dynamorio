@@ -182,6 +182,9 @@ Further non-compatibility-affecting changes include:
    reg_is_strictly_zmm().
  - Added the function reg_is_avx512_extended().
  - Added the function instr_is_opmask().
+ - Added the functions instr_set_enc_hint(), instr_is_enc_hint().
+ - Added the type #dr_enc_hint_type_t.
+ - Added instr_create_1dst_1src_evex(), instr_create_1dst_2src_evex().
 
 **************************************************
 <hr>

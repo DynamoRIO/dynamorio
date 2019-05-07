@@ -313,6 +313,21 @@ typedef enum _dr_pred_type_t {
 #endif
 } dr_pred_type_t;
 
+/**
+ * Specifies hints for how an instruction should be encoded if redundant encodings are
+ * available. Currently, we provide a hint for x86 evex encoded instructions. It can be
+ * used to encode an instruction in its evex form instead of its vex format.
+ */
+typedef enum _dr_enc_hint_type_t {
+#ifdef AVOID_API_EXPORT
+/* Internally, we are using the prefixes field in instr_t in order to store the hint. */
+#endif
+    DR_ENC_HINT_NONE, /**< No encoding hint is present. */
+#ifdef X86
+    DR_ENC_HINT_X86_EVEX, /**< x86: Encode in EVEX form if available. */
+#endif
+} dr_enc_hint_type_t;
+
 /* DR_API EXPORT END */
 /* These aren't composable, so we store them in as few bits as possible.
  * The top 5 prefix bits hold the value (x86 needs 17 values).
@@ -1476,6 +1491,25 @@ DR_API
 dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr);
 
+DR_API
+/**
+ * Each instruction may store a hint for how the instruction should be encoded if
+ * redundant encodings are available. This presumes that the user knows that a
+ * redundant encoding is available. This routine sets the \p hint for \p instr.
+ */
+bool
+instr_set_enc_hint(instr_t *instr, dr_enc_hint_type_t hint);
+
+DR_API
+/**
+ * Each instruction may store a hint for how the instruction should be encoded if
+ * redundant encodings are available. This presumes that the user knows that a
+ * redundant encoding is available. This routine returns whether DR_ENC_HINT_X86_EVEX
+ * is set for \p instr.
+ */
+bool
+instr_is_enc_hint_evex(instr_t *instr);
+
 /***********************************************************************/
 /* decoding routines */
 
@@ -2492,12 +2526,33 @@ instr_create_1dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src)
 DR_API
 /**
  * Convenience routine that returns an initialized instr_t allocated on the
+ * thread-local heap with opcode \p opcode, one destination (\p dst), and
+ * one source (\p src). A hint is set to use the x86 evex form if available
+ * when encoding the instruction.
+ */
+instr_t *
+instr_create_1dst_1src_evex(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src);
+
+DR_API
+/**
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode, one destination (\p dst),
  * and two sources (\p src1, \p src2).
  */
 instr_t *
 instr_create_1dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
                        opnd_t src2);
+
+DR_API
+/**
+ * Convenience routine that returns an initialized instr_t allocated on the
+ * thread-local heap with opcode \p opcode, one destination (\p dst), and
+ * two sources (\p src1, \p src2). A hint is set to use the x86 evex form
+ * if available when encoding the instruction.
+ */
+instr_t *
+instr_create_1dst_2src_evex(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
+                            opnd_t src2);
 
 DR_API
 /**

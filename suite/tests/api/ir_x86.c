@@ -110,6 +110,8 @@ static byte buf[8192];
 #define VSIBY(sz) (opnd_create_base_disp(DR_REG_XDX, DR_REG_YMM6, 2, 0x17, sz))
 #define X86_ONLY 1
 #define X64_ONLY 2
+#define VERIFY_EVEX 4
+#define FIRST_EVEX_BYTE 0x62
 
 /****************************************************************************
  * OPCODE_FOR_CREATE 0 args
@@ -218,6 +220,14 @@ test_all_opcodes_2_avx512_vex(void *dc)
 #    undef INCLUDE_NAME
 }
 
+static void
+test_all_opcodes_2_avx512_evex(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_2args_avx512_evex.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
 
@@ -268,6 +278,14 @@ static void
 test_all_opcodes_3_avx512_evex_mask(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_3args_avx512_evex_mask.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+static void
+test_all_opcodes_3_avx512_evex(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_3args_avx512_evex.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
@@ -1703,6 +1721,8 @@ main(int argc, char *argv[])
     test_all_opcodes_3_avx512_evex_mask(dcontext);
     test_disas_3_avx512_evex_mask(dcontext);
     test_all_opcodes_4_avx512_evex_mask(dcontext);
+    test_all_opcodes_3_avx512_evex(dcontext);
+    test_all_opcodes_2_avx512_evex(dcontext);
 #endif
 
     print("all done\n");
