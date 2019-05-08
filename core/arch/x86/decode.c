@@ -1413,7 +1413,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_W:
     case TYPE_V_MODRM:
     case TYPE_VSIB: {
-        byte extend_reg = extend ? reg + 8 : reg;
+        reg_id_t extend_reg = extend ? reg + 8 : reg;
         extend_reg = avx512_extend ? extend_reg + 16 : extend_reg;
         return (TEST(PREFIX_EVEX_LL, di->prefixes)
                     ? (DR_REG_START_ZMM + extend_reg)
