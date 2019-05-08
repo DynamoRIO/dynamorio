@@ -2233,7 +2233,7 @@
     instr_create_1dst_2src((dc), OP_kshiftrd, (d), (s1), (s2))
 /* @} */ /* end doxygen group */
 
-/** @name 1 destination, 1 mask and 1 non-immediate source */
+/** @name 1 destination, 1 mask, and 1 non-immediate source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_mask_xxx macro creates an instr_t with opcode OP_xxx and the given
@@ -2246,13 +2246,13 @@
  * \param s The opnd_t explicit first source operand for the instruction
  */
 /* AVX-512 EVEX */
-#define INSTR_CREATE_mask_vmovups(dc, d, k, s) \
+#define INSTR_CREATE_vmovups_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vmovups, (d), (k), (s))
-#define INSTR_CREATE_mask_vmovupd(dc, d, k, s) \
+#define INSTR_CREATE_vmovupd_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vmovupd, (d), (k), (s))
-#define INSTR_CREATE_mask_vmovaps(dc, d, k, s) \
+#define INSTR_CREATE_vmovaps_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vmovaps, (d), (k), (s))
-#define INSTR_CREATE_mask_vmovapd(dc, d, k, s) \
+#define INSTR_CREATE_vmovapd_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vmovapd, (d), (k), (s))
 /* @} */ /* end doxygen group */
 
