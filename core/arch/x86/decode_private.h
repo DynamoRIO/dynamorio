@@ -206,8 +206,8 @@ enum {
     REX_W_EXT,
     /* instructions differing based on whether part of a vex prefix */
     VEX_PREFIX_EXT,
-    /* instructions differing based on whether vex-encoded */
-    VEX_EXT,
+    /* instructions differing based on whether (e)vex-encoded */
+    E_VEX_EXT,
     /* instructions differing based on whether vex-encoded and vex.L */
     VEX_L_EXT,
     /* instructions differing based on vex.W */
@@ -478,7 +478,7 @@ extern const instr_info_t x64_extensions[][2];
 extern const instr_info_t rex_b_extensions[][2];
 extern const instr_info_t rex_w_extensions[][2];
 extern const instr_info_t vex_prefix_extensions[][2];
-extern const instr_info_t vex_extensions[][2];
+extern const instr_info_t e_vex_extensions[][2];
 extern const instr_info_t vex_L_extensions[][3];
 extern const instr_info_t vex_W_extensions[][2];
 extern const byte third_byte_38_index[256];

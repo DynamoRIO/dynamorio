@@ -1069,11 +1069,11 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
     }
 
     /* can occur AFTER above checks (MOD_EXT, in particular) */
-    if (info->type == VEX_EXT) {
+    if (info->type == E_VEX_EXT) {
         /* discard old info, get new one */
         int code = (int)info->code;
         int idx = (di->vex_encoded ? 1 : 0);
-        info = &vex_extensions[code][idx];
+        info = &e_vex_extensions[code][idx];
     }
 
     /* can occur AFTER above checks (EXTENSION, in particular) */
