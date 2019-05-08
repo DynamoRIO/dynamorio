@@ -2246,7 +2246,7 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param k The opnd_t explicit mask source operand for the instruction.
- * \param s The opnd_t explicit second source operand for the instruction
+ * \param s The opnd_t explicit first source operand for the instruction
  */
 /* AVX-512 EVEX */
 #define INSTR_CREATE_mask_vmovups(dc, d, k, s) \
