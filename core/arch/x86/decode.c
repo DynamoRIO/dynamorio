@@ -2015,7 +2015,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         return true;
     }
     case TYPE_B: {
-        /* part of XOP/AVX/AVX-512: vex.vvvv or evex.vvvv selects general-purpose
+        /* Part of XOP/AVX/AVX-512: vex.vvvv or evex.vvvv selects general-purpose
          * register.
          */
         if (di->evex_encoded)
