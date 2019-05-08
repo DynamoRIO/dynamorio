@@ -1391,8 +1391,8 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
         /* Part of AVX-512: evex.vvvv selects general-purpose register.
          * It has 4 bits so no separate prefix bit is needed to extend.
          * Intel's Software Developer's Manual Vol-2A 2.6 AVX-512 ENCODING fails to
-         * mention the fact that the bits are inverted in the EVEX prefix. We confirmed
-         * with the GNU assembler that the bits are inverted.
+         * mention the fact that the bits are inverted in the EVEX prefix. Experimentally
+         * confirmed.
          */
         reg = (~di->evex_vvvv) & 0xf; /* bit-inverted */
         extend = false;
