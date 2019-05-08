@@ -1639,15 +1639,6 @@ main(int argc, char *argv[])
     test_all_opcodes_2_mm(dcontext);
     test_all_opcodes_3(dcontext);
     test_all_opcodes_3_avx(dcontext);
-    test_all_opcodes_2_avx512_vex(dcontext);
-    test_all_opcodes_3_avx512_vex(dcontext);
-    test_opmask_disas_avx512(dcontext);
-    /* XXX i#1312: Add support and tests for redundant EVEX encodings that encode
-     * the same operands and operand sizes as their correspondent VEX encodings.
-     * E.g. vpextrw, etc.
-     */
-    test_all_opcodes_mask_2_avx512_evex(dcontext);
-    test_disas_mask_2_avx512_evex(dcontext);
     test_all_opcodes_4(dcontext);
 #endif
 
@@ -1692,6 +1683,18 @@ main(int argc, char *argv[])
     test_xinst_create(dcontext);
 
     test_stack_pointer_size(dcontext);
+
+#ifndef STANDALONE_DECODER /* speed up compilation */
+    test_all_opcodes_2_avx512_vex(dcontext);
+    test_all_opcodes_3_avx512_vex(dcontext);
+    test_opmask_disas_avx512(dcontext);
+    /* XXX i#1312: Add support and tests for redundant EVEX encodings that encode
+     * the same operands and operand sizes as their correspondent VEX encodings.
+     * E.g. vpextrw, etc.
+     */
+    test_all_opcodes_mask_2_avx512_evex(dcontext);
+    test_disas_mask_2_avx512_evex(dcontext);
+#endif
 
     print("all done\n");
     return 0;
