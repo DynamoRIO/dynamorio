@@ -757,9 +757,9 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
     CLIENT_ASSERT(info->type == PREFIX, "internal evex decoding error");
     /* Fields are: R, X, B, R', 00, mm.  R, X, B and R' are inverted. Intel's
      * Software Developer's Manual Vol-2A 2.6 AVX-512 ENCODING fails to mention
-     * the fact that the bits are inverted. We confirmed with the GNU assembler
-     * that the bits are inverted in order to make the prefix distinct from
-     * the bound instruction in 32-bit mode.
+     * explicitly the fact that the bits are inverted in order to make the prefix
+     * distinct from the bound instruction in 32-bit mode. We experimentally
+     * confirmed.
      */
     if (!TEST(0x80, prefix_byte))
         di->prefixes |= PREFIX_REX_R;
