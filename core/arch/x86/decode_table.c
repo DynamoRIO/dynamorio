@@ -1483,10 +1483,10 @@ const instr_info_t * const op_instr[] =
 #define KEw TYPE_K_EVEX, OPSZ_2
 #define KEd TYPE_K_EVEX, OPSZ_4
 #define KEq TYPE_K_EVEX, OPSZ_8
-#define VEvs TYPE_V, OPSZ_16_vex32_evex64
-#define VEvd TYPE_V, OPSZ_16_vex32_evex64
-#define WEvs TYPE_W, OPSZ_16_vex32_evex64
-#define WEvd TYPE_W, OPSZ_16_vex32_evex64
+#define Ves TYPE_V, OPSZ_16_vex32_evex64
+#define Ved TYPE_V, OPSZ_16_vex32_evex64
+#define Wes TYPE_W, OPSZ_16_vex32_evex64
+#define Wed TYPE_W, OPSZ_16_vex32_evex64
 
 /* my own codes
  * size m = 32 or 16 bit depending on addr size attribute
@@ -6613,36 +6613,36 @@ const instr_info_t vex_W_extensions[][2] = {
  */
 const instr_info_t evex_W_extensions[][2] = {
   {    /* evex_W_ext 0 */
-    {OP_vmovups, 0x0f1010,"vmovups", VEvs,xx,KEd,WEvs,xx,mrm|evex,x,tevexw[1][0]},
+    {OP_vmovups, 0x0f1010,"vmovups", Ves,xx,KEd,Wes,xx,mrm|evex,x,tevexw[1][0]},
     {INVALID, 0x0f1050,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   },
   {    /* evex_W_ext 1 */
-    {OP_vmovups, 0x0f1110,"vmovups", WEvs,xx,KEd,VEvs,xx,mrm|evex,x,END_LIST},
+    {OP_vmovups, 0x0f1110,"vmovups", Wes,xx,KEd,Ves,xx,mrm|evex,x,END_LIST},
     {INVALID, 0x0f1150,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   },
   {    /* evex_W_ext 2 */
     {INVALID, 0x660f1010,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovupd, 0x660f1050,"vmovupd", VEvd,xx,KEd,WEvd,xx,mrm|evex,x,tevexw[3][1]},
+    {OP_vmovupd, 0x660f1050,"vmovupd", Ved,xx,KEd,Wed,xx,mrm|evex,x,tevexw[3][1]},
   },
   {    /* evex_W_ext 3 */
     {INVALID, 0x660f1110,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovupd, 0x660f1150,"vmovupd", WEvd,xx,KEd,VEvd,xx,mrm|evex,x,END_LIST},
+    {OP_vmovupd, 0x660f1150,"vmovupd", Wed,xx,KEd,Ved,xx,mrm|evex,x,END_LIST},
   },
   {    /* evex_W_ext 4 */
-    {OP_vmovaps, 0x0f2810,"vmovaps", VEvs,xx,KEd,WEvs,xx,mrm|evex,x,tevexw[5][0]},
+    {OP_vmovaps, 0x0f2810,"vmovaps", Ves,xx,KEd,Wes,xx,mrm|evex,x,tevexw[5][0]},
     {INVALID, 0x0f2850,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   },
   {    /* evex_W_ext 5 */
-    {OP_vmovaps, 0x0f2910,"vmovaps", WEvs,xx,KEd,VEvs,xx,mrm|evex,x,END_LIST},
+    {OP_vmovaps, 0x0f2910,"vmovaps", Wes,xx,KEd,Ves,xx,mrm|evex,x,END_LIST},
     {INVALID, 0x0f2950,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   },
   {    /* evex_W_ext 6 */
     {INVALID, 0x660f2810,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovapd, 0x660f2850,"vmovapd", VEvd,xx,KEd,WEvd,xx,mrm|evex,x,tevexw[7][1]},
+    {OP_vmovapd, 0x660f2850,"vmovapd", Ved,xx,KEd,Wed,xx,mrm|evex,x,tevexw[7][1]},
   },
   {    /* evex_W_ext 7 */
     {INVALID, 0x660f2910,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovapd, 0x660f2950,"vmovapd", WEvd,xx,KEd,VEvd,xx,mrm|evex,x,END_LIST},
+    {OP_vmovapd, 0x660f2950,"vmovapd", Wed,xx,KEd,Ved,xx,mrm|evex,x,END_LIST},
   },
 };
 
