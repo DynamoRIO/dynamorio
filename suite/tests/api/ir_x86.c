@@ -300,9 +300,9 @@ test_all_opcodes_3_avx512_vex(void *dc)
 }
 
 static void
-test_all_opcodes_mask_2_avx512_evex(void *dc)
+test_all_opcodes_mask_3_avx512_evex(void *dc)
 {
-#    define INCLUDE_NAME "ir_x86_mask_2args_avx512_evex.h"
+#    define INCLUDE_NAME "ir_x86_mask_3args_avx512_evex.h"
 #    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3)             \
         do {                                                                        \
             if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                   \
@@ -316,7 +316,7 @@ test_all_opcodes_mask_2_avx512_evex(void *dc)
 }
 
 static void
-test_disas_mask_2_avx512_evex(void *dc)
+test_disas_mask_3_avx512_evex(void *dc)
 {
     /* Test AVX-512 k-registers. */
     byte *pc;
@@ -1692,8 +1692,8 @@ main(int argc, char *argv[])
      * the same operands and operand sizes as their correspondent VEX encodings.
      * E.g. vpextrw, etc.
      */
-    test_all_opcodes_mask_2_avx512_evex(dcontext);
-    test_disas_mask_2_avx512_evex(dcontext);
+    test_all_opcodes_mask_3_avx512_evex(dcontext);
+    test_disas_mask_3_avx512_evex(dcontext);
 #endif
 
     print("all done\n");
