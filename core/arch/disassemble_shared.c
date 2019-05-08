@@ -528,8 +528,7 @@ print_known_pc_target(char *buf, size_t bufsz, size_t *sofar INOUT, dcontext_t *
 
 void
 internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
-                          dcontext_t *dcontext, opnd_t opnd, bool use_size_sfx,
-                          bool could_be_mask)
+                          dcontext_t *dcontext, opnd_t opnd, bool use_size_sfx)
 {
     if (opnd_disassemble_arch(buf, bufsz, sofar, opnd))
         return;
@@ -608,16 +607,10 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         print_to_buffer(buf, bufsz, sofar, IF_X64("<re> ") "@" PFX "+%d",
                         opnd_get_instr(opnd), opnd_get_mem_instr_disp(opnd));
         break;
-    case REG_kind: {
-        bool is_mask = could_be_mask && reg_is_opmask(opnd_get_reg(opnd));
-        /* XXX i#1312: we may want to more closely resemble ATT and Intel syntax w.r.t.
-         * EVEX mask operand. Tools tend to print the mask in conjunction with the
-         * destination in {} brackets.
-         */
-        reg_disassemble(buf, bufsz, sofar, opnd_get_reg(opnd), opnd_get_flags(opnd),
-                        is_mask ? "{" : "", is_mask ? "}" : "");
+    case REG_kind:
+        reg_disassemble(buf, bufsz, sofar, opnd_get_reg(opnd), opnd_get_flags(opnd), "",
+                        "");
         break;
-    }
     case BASE_DISP_kind: opnd_base_disp_disassemble(buf, bufsz, sofar, opnd); break;
 #    ifdef X64
     case REL_ADDR_kind:
@@ -662,7 +655,7 @@ opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
     char buf[MAX_OPND_DIS_SZ];
     size_t sofar = 0;
     internal_opnd_disassemble(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar, dcontext, opnd,
-                              false /*don't know*/, false /*don't know*/);
+                              false /*don't know*/);
     /* not propagating bool return vals of print_to_buffer but should be plenty big */
     CLIENT_ASSERT(sofar < BUFFER_SIZE_ELEMENTS(buf) - 1, "internal buffer too small");
     os_write(outfile, buf, sofar);
@@ -673,8 +666,7 @@ opnd_disassemble_to_buffer(dcontext_t *dcontext, opnd_t opnd, char *buf, size_t 
 
 {
     size_t sofar = 0;
-    internal_opnd_disassemble(buf, bufsz, &sofar, dcontext, opnd, false /*don't know*/,
-                              false /*don't know*/);
+    internal_opnd_disassemble(buf, bufsz, &sofar, dcontext, opnd, false /*don't know*/);
     return sofar;
 }
 
@@ -895,9 +887,13 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                          */
                         optype = 0;
                     });
+        bool is_mask = !dsts_first() && !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
+            reg_is_opmask(opnd_get_reg(opnd));
+        print_to_buffer(buf, bufsz, sofar, is_mask ? "{" : "");
         printing =
             opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype, opnd,
                                         prev, multiple_encodings, dsts_first(), &i);
+        print_to_buffer(buf, bufsz, sofar, is_mask ? "}" : "");
         /* w/o the "printing" check we suppress "push esp" => "push" */
         if (printing && i < 3)
             optype_already[i] = optype;
@@ -928,10 +924,14 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                      (i == 0 && opnd_is_reg(opnd) && reg_is_fp(opnd_get_reg(opnd))));
         });
         if (print) {
+            bool is_mask = dsts_first() && !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
+                reg_is_opmask(opnd_get_reg(opnd));
+            print_to_buffer(buf, bufsz, sofar, is_mask ? "{" : "");
             prev = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype,
                                                opnd, prev, multiple_encodings,
                                                !dsts_first(), &i) ||
                 prev;
+            print_to_buffer(buf, bufsz, sofar, is_mask ? "}" : "");
         }
     }
 }
@@ -1104,15 +1104,22 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         if (i > 0)
             print_to_buffer(buf, bufsz, sofar, " ");
         sign_extend_immed(instr, i, &src);
-        internal_opnd_disassemble(buf, bufsz, sofar, dcontext, src, use_size_sfx,
-                                  !instr_is_opmask(instr));
+        /* XXX i#1312: we may want to more closely resemble ATT and Intel syntax w.r.t.
+         * EVEX mask operand. Tools tend to print the mask in conjunction with the
+         * destination in {} brackets.
+         */
+        bool is_mask = !instr_is_opmask(instr) && opnd_is_reg(src) &&
+            reg_is_opmask(opnd_get_reg(src));
+        print_to_buffer(buf, bufsz, sofar, is_mask ? "{" : "");
+        internal_opnd_disassemble(buf, bufsz, sofar, dcontext, src, use_size_sfx);
+        print_to_buffer(buf, bufsz, sofar, is_mask ? "}" : "");
     }
     if (instr_num_dsts(instr) > 0) {
         print_to_buffer(buf, bufsz, sofar, " ->");
         for (i = 0; i < instr_num_dsts(instr); i++) {
             print_to_buffer(buf, bufsz, sofar, " ");
             internal_opnd_disassemble(buf, bufsz, sofar, dcontext,
-                                      instr_get_dst(instr, i), use_size_sfx, false);
+                                      instr_get_dst(instr, i), use_size_sfx);
         }
     }
     /* we avoid trailing spaces if no operands */

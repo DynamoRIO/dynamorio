@@ -60,8 +60,7 @@
 /* in disassemble_shared.c */
 void
 internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
-                          dcontext_t *dcontext, opnd_t opnd, bool use_size_sfx,
-                          bool could_be_mask);
+                          dcontext_t *dcontext, opnd_t opnd, bool use_size_sfx);
 void
 reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, reg_id_t reg,
                 dr_opnd_flags_t flags, const char *prefix, const char *suffix);
@@ -203,8 +202,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     case TYPE_K_EVEX:
         if (prev)
             print_to_buffer(buf, bufsz, sofar, ", ");
-        internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false,
-                                  !instr_is_opmask(instr));
+        internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
         return true;
     case TYPE_X:
     case TYPE_XLAT:
