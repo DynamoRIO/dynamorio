@@ -485,7 +485,7 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         if (size_template == OPSZ_108 || size_template == OPSZ_94)
             return true; /* will take prefix or no prefix */
         return false;
-    case OPSZ_16_32_evex64:
+    case OPSZ_16_vex32_evex64:
         if (size_template == OPSZ_16 || size_template == OPSZ_32 ||
             size_template == OPSZ_64)
             return true; /* will take prefix or no prefix */
@@ -678,7 +678,7 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             }
             if (size_template == OPSZ_16_vex32)
                 return !TEST(PREFIX_VEX_L, di->prefixes);
-            if (size_template == OPSZ_16_32_evex64) {
+            if (size_template == OPSZ_16_vex32_evex64) {
                 return !TEST(PREFIX_EVEX_LL, di->prefixes) &&
                     !TEST(PREFIX_VEX_L, di->prefixes);
             }
@@ -697,7 +697,7 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_32:
             if (size_template == OPSZ_32_short16)
                 return !TEST(prefix_data_addr, di->prefixes);
-            if (size_template == OPSZ_16_vex32 || size_template == OPSZ_16_32_evex64 ||
+            if (size_template == OPSZ_16_vex32 || size_template == OPSZ_16_vex32_evex64 ||
                 size_template == OPSZ_8_of_16_vex32) {
                 di->prefixes |= PREFIX_VEX_L;
                 return true;
@@ -705,7 +705,7 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             return false;
         case OPSZ_64:
             /* TODO i#1312: handle more AVX-512 register sizes. */
-            if (size_template == OPSZ_16_32_evex64) {
+            if (size_template == OPSZ_16_vex32_evex64) {
                 di->prefixes |= PREFIX_EVEX_LL;
                 return true;
             }
@@ -751,7 +751,7 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_16_vex32:
         case OPSZ_28_short14:
         case OPSZ_108_short94:
-        case OPSZ_16_32_evex64:
+        case OPSZ_16_vex32_evex64:
             return size_ok_varsz(di, size_op, size_template, prefix_data_addr);
         case OPSZ_1_reg4:
         case OPSZ_2_reg4:

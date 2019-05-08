@@ -162,7 +162,7 @@ is_variable_size(opnd_size_t sz)
     case OPSZ_8_rex16_short4:
     case OPSZ_12_rex40_short6:
     case OPSZ_16_vex32:
-    case OPSZ_16_32_evex64: return true;
+    case OPSZ_16_vex32_evex64: return true;
     default: return false;
     }
 }
@@ -251,7 +251,7 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
     case OPSZ_15_of_16: return OPSZ_15;
     case OPSZ_8_of_16_vex32: return (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_32 : OPSZ_8);
     case OPSZ_16_of_32: return OPSZ_16;
-    case OPSZ_16_32_evex64:
+    case OPSZ_16_vex32_evex64:
         /* XXX i#1312: There may be a conflict since LL' is also used for rounding
          * control in AVX-512 if used in combination.
          */
@@ -1424,7 +1424,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
                          * check.
                          * XXX i#1312: vgather/vscatter VSIB addressing may be OPSZ_16?
                          * For EVEX .LIG, raw reg will be able to be OPSZ_64 or
-                         * OPSZ_16_32_evex64.
+                         * OPSZ_16_vex32_evex64.
                          */
                         expand_subreg_size(opsize) != OPSZ_16)
                            ? (REG_START_YMM + extend_reg)
