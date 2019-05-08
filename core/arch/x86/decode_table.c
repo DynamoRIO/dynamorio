@@ -5290,7 +5290,7 @@ const instr_info_t prefix_extensions[][12] = {
  * Most of these require an 0x66 prefix but we use reqp for that
  * so there's nothing inherent here about prefixes.
  * TODO i#1312: A third row has been added for AVX-512 w/ EVEX prefix. Most or all
- * EVEX instructions seem to resemble their correspondent VEX version. If we add
+ * EVEX instructions seem to resemble their corresponding VEX version. If we add
  * a decode_table entry here, we currently can't test them throgh instr_create macros,
  * unless we force the creation of EVEX versions.
  */
@@ -5921,7 +5921,7 @@ const instr_info_t vex_L_extensions[][3] = {
 };
 
 /****************************************************************************
-* Instructions that differ depending on whether evex-encoded
+* Instructions that differ depending on whether evex-encoded.
 * Index 0 = no evex, 1 = evex
 */
 
@@ -6608,7 +6608,7 @@ const instr_info_t vex_W_extensions[][2] = {
 };
 
 /****************************************************************************
- * Instructions that differ depending on evex.W
+ * Instructions that differ depending on evex.W.
  * Index is evex.W value
  */
 const instr_info_t evex_W_extensions[][2] = {
