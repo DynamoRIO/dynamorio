@@ -678,10 +678,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             }
             if (size_template == OPSZ_16_vex32)
                 return !TEST(PREFIX_VEX_L, di->prefixes);
-            if (size_template == OPSZ_16_vex32_evex64) {
-                return !TEST(PREFIX_EVEX_LL, di->prefixes) &&
-                    !TEST(PREFIX_VEX_L, di->prefixes);
-            }
+            if (size_template == OPSZ_16_vex32_evex64)
+                return !TESTANY(PREFIX_EVEX_LL | PREFIX_VEX_L, di->prefixes);
             return false; /* no matching varsz, must be exact match */
         case OPSZ_14:
             if (size_template == OPSZ_28_short14) {
@@ -2211,13 +2209,13 @@ encode_evex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *inf
     field_ptr++;
     /* third evex byte */
     val = (TEST(PREFIX_REX_W, di->prefixes) ? 0x80 : 0x00);
-    /* we override OPCODE_MODRM for vex to mean "requires vex.W" */
+    /* we override OPCODE_MODRM for evex to mean "requires evex.W" */
     if (TEST(OPCODE_MODRM, info->opcode))
         val = 0x80;
     /* evex fixed bit always 1. */
     val |= 0x4;
     val |= di->evex_vvvv << 3;
-    /* OPCODE_{MODRM,SUFFIX} mean something else for vex */
+    /* OPCODE_{MODRM,SUFFIX} mean something else for evex */
     if (info->opcode > 0xffffff) {
         byte prefix = (byte)(info->opcode >> 24);
         if (prefix == 0x66)
@@ -2787,7 +2785,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         }
     }
     /* opcode depends on entire modrm byte */
-    if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags) &&
+    if (!TESTANY(REQUIRES_VEX | REQUIRES_EVEX, info->flags) &&
         TEST(OPCODE_MODRM, info->opcode)) {
         /* modrm is encoded in prefix byte */
         *field_ptr = (byte)(info->opcode >> 24);
@@ -2846,7 +2844,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         field_ptr = encode_immed(&di, field_ptr);
 
     /* suffix opcode */
-    if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags) &&
+    if (!TESTANY(REQUIRES_VEX | REQUIRES_EVEX, info->flags) &&
         TEST(OPCODE_SUFFIX, info->opcode)) {
         /* none of these have immeds, currently (and presumably never will have) */
         ASSERT_CURIOSITY(di.size_immed == OPSZ_NA && di.size_immed2 == OPSZ_NA);
