@@ -159,6 +159,8 @@ compatibility changes:
  - Deprecated reg_is_xmm() and reg_is_ymm().
  - The function reg_is_extended() now returns true for the upper 8 simd registers
    as part of AVX-512, e.g. xmm16 - xmm31.
+ - Dropped support for clients used with statically linked DynamoRIO to reach
+   the code cache with 32-bit displacements.
 
 Further non-compatibility-affecting changes include:
 
