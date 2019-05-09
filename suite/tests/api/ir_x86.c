@@ -111,10 +111,10 @@ static byte buf[8192];
 #define X86_ONLY 1
 #define X64_ONLY 2
 
-static void
-test_all_opcodes_0(void *dc)
-{
-#define INCLUDE_NAME "ir_x86_0args.h"
+/****************************************************************************
+ * OPCODE_FOR_CREATE 0 args
+ */
+
 #define OPCODE_FOR_CREATE(name, opc, icnm, flags)                 \
     do {                                                          \
         if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {     \
@@ -129,11 +129,36 @@ test_all_opcodes_0(void *dc)
             len_##name = instr_length(dc, instrlist_last(ilist)); \
         }                                                         \
     } while (0);
+
+static void
+test_all_opcodes_0(void *dc)
+{
+#define INCLUDE_NAME "ir_x86_0args.h"
 #include "ir_x86_all_opc.h"
-#undef OPCODE_FOR_CREATE
-#undef XOPCODE_FOR_CREATE
 #undef INCLUDE_NAME
 }
+
+#undef OPCODE_FOR_CREATE
+#undef XOPCODE_FOR_CREATE
+
+/****************************************************************************
+ * OPCODE_FOR_CREATE 1 arg
+ */
+
+#define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1)             \
+    do {                                                            \
+        if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {       \
+            instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1)); \
+            len_##name = instr_length(dc, instrlist_last(ilist));   \
+        }                                                           \
+    } while (0);
+#define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1)            \
+    do {                                                            \
+        if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {       \
+            instrlist_append(ilist, XINST_CREATE_##icnm(dc, arg1)); \
+            len_##name = instr_length(dc, instrlist_last(ilist));   \
+        }                                                           \
+    } while (0);
 
 #ifndef STANDALONE_DECODER
 /* vs2005 cl takes many minute to compile w/ static drdecode lib
@@ -144,30 +169,16 @@ static void
 test_all_opcodes_1(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_1args.h"
-#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1)             \
-        do {                                                            \
-            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {       \
-                instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1)); \
-                len_##name = instr_length(dc, instrlist_last(ilist));   \
-            }                                                           \
-        } while (0);
-#    define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1)            \
-        do {                                                            \
-            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {       \
-                instrlist_append(ilist, XINST_CREATE_##icnm(dc, arg1)); \
-                len_##name = instr_length(dc, instrlist_last(ilist));   \
-            }                                                           \
-        } while (0);
 #    include "ir_x86_all_opc.h"
-#    undef OPCODE_FOR_CREATE
-#    undef XOPCODE_FOR_CREATE
 #    undef INCLUDE_NAME
 }
 
-static void
-test_all_opcodes_2(void *dc)
-{
-#    define INCLUDE_NAME "ir_x86_2args.h"
+#    undef OPCODE_FOR_CREATE
+#    undef XOPCODE_FOR_CREATE
+/****************************************************************************
+ * OPCODE_FOR_CREATE 2 args
+ */
+
 #    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2)             \
         do {                                                                  \
             if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {             \
@@ -182,9 +193,12 @@ test_all_opcodes_2(void *dc)
                 len_##name = instr_length(dc, instrlist_last(ilist));         \
             }                                                                 \
         } while (0);
+
+static void
+test_all_opcodes_2(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_2args.h"
 #    include "ir_x86_all_opc.h"
-#    undef OPCODE_FOR_CREATE
-#    undef XOPCODE_FOR_CREATE
 #    undef INCLUDE_NAME
 }
 
@@ -192,22 +206,25 @@ static void
 test_all_opcodes_2_mm(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_2args_mm.h"
-#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2)             \
-        do {                                                                  \
-            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {             \
-                instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2)); \
-                len_##name = instr_length(dc, instrlist_last(ilist));         \
-            }                                                                 \
-        } while (0);
 #    include "ir_x86_all_opc.h"
-#    undef OPCODE_FOR_CREATE
 #    undef INCLUDE_NAME
 }
 
 static void
-test_all_opcodes_3(void *dc)
+test_all_opcodes_2_avx512_vex(void *dc)
 {
-#    define INCLUDE_NAME "ir_x86_3args.h"
+#    define INCLUDE_NAME "ir_x86_2args_avx512_vex.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+#    undef OPCODE_FOR_CREATE
+#    undef XOPCODE_FOR_CREATE
+
+/****************************************************************************
+ * OPCODE_FOR_CREATE 3 args
+ */
+
 #    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3)             \
         do {                                                                        \
             if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                   \
@@ -222,9 +239,12 @@ test_all_opcodes_3(void *dc)
                 len_##name = instr_length(dc, instrlist_last(ilist));               \
             }                                                                       \
         } while (0);
+
+static void
+test_all_opcodes_3(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_3args.h"
 #    include "ir_x86_all_opc.h"
-#    undef OPCODE_FOR_CREATE
-#    undef XOPCODE_FOR_CREATE
 #    undef INCLUDE_NAME
 }
 
@@ -232,17 +252,63 @@ static void
 test_all_opcodes_3_avx(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_3args_avx.h"
-#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3)             \
-        do {                                                                        \
-            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                   \
-                instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
-                len_##name = instr_length(dc, instrlist_last(ilist));               \
-            }                                                                       \
-        } while (0);
 #    include "ir_x86_all_opc.h"
-#    undef OPCODE_FOR_CREATE
 #    undef INCLUDE_NAME
 }
+
+static void
+test_all_opcodes_3_avx512_vex(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_3args_avx512_vex.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+static void
+test_all_opcodes_3_avx512_evex_mask(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_3args_avx512_evex_mask.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+#    undef OPCODE_FOR_CREATE
+#    undef XOPCODE_FOR_CREATE
+
+/****************************************************************************
+ * OPCODE_FOR_CREATE 4 args
+ */
+
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4)      \
+        do {                                                                       \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                  \
+                instrlist_append(ilist,                                            \
+                                 INSTR_CREATE_##icnm(dc, arg1, arg2, arg3, arg4)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));              \
+            }                                                                      \
+        } while (0);
+#    define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4)     \
+        do {                                                                       \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                  \
+                instrlist_append(ilist,                                            \
+                                 XINST_CREATE_##icnm(dc, arg1, arg2, arg3, arg4)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));              \
+            }                                                                      \
+        } while (0);
+
+static void
+test_all_opcodes_4(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_4args.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+#    undef OPCODE_FOR_CREATE
+#    undef XOPCODE_FOR_CREATE
+
+/*
+ ****************************************************************************/
 
 static void
 test_opmask_disas_avx512(void *dc)
@@ -268,55 +334,7 @@ test_opmask_disas_avx512(void *dc)
 }
 
 static void
-test_all_opcodes_2_avx512_vex(void *dc)
-{
-#    define INCLUDE_NAME "ir_x86_2args_avx512_vex.h"
-#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2)             \
-        do {                                                                  \
-            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {             \
-                instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2)); \
-                len_##name = instr_length(dc, instrlist_last(ilist));         \
-            }                                                                 \
-        } while (0);
-#    include "ir_x86_all_opc.h"
-#    undef OPCODE_FOR_CREATE
-#    undef INCLUDE_NAME
-}
-
-static void
-test_all_opcodes_3_avx512_vex(void *dc)
-{
-#    define INCLUDE_NAME "ir_x86_3args_avx512_vex.h"
-#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3)             \
-        do {                                                                        \
-            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                   \
-                instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
-                len_##name = instr_length(dc, instrlist_last(ilist));               \
-            }                                                                       \
-        } while (0);
-#    include "ir_x86_all_opc.h"
-#    undef OPCODE_FOR_CREATE
-#    undef INCLUDE_NAME
-}
-
-static void
-test_all_opcodes_mask_3_avx512_evex(void *dc)
-{
-#    define INCLUDE_NAME "ir_x86_mask_3args_avx512_evex.h"
-#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3)             \
-        do {                                                                        \
-            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                   \
-                instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
-                len_##name = instr_length(dc, instrlist_last(ilist));               \
-            }                                                                       \
-        } while (0);
-#    include "ir_x86_all_opc.h"
-#    undef OPCODE_FOR_CREATE
-#    undef INCLUDE_NAME
-}
-
-static void
-test_disas_mask_3_avx512_evex(void *dc)
+test_disas_3_avx512_evex_mask(void *dc)
 {
     /* Test AVX-512 k-registers. */
     byte *pc;
@@ -381,34 +399,7 @@ test_disas_mask_3_avx512_evex(void *dc)
                               "vmovups {%k1} %zmm1 -> (%esp)[64byte]\n")) == 0);
 }
 
-static void
-test_all_opcodes_4(void *dc)
-{
-#    define INCLUDE_NAME "ir_x86_4args.h"
-#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4)      \
-        do {                                                                       \
-            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                  \
-                instrlist_append(ilist,                                            \
-                                 INSTR_CREATE_##icnm(dc, arg1, arg2, arg3, arg4)); \
-                len_##name = instr_length(dc, instrlist_last(ilist));              \
-            }                                                                      \
-        } while (0);
-#    define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4)     \
-        do {                                                                       \
-            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                  \
-                instrlist_append(ilist,                                            \
-                                 XINST_CREATE_##icnm(dc, arg1, arg2, arg3, arg4)); \
-                len_##name = instr_length(dc, instrlist_last(ilist));              \
-            }                                                                      \
-        } while (0);
-#    include "ir_x86_all_opc.h"
-#    undef OPCODE_FOR_CREATE
-#    undef INCLUDE_NAME
-}
 #endif /* !STANDALONE_DECODER */
-
-/*
- ***************************************************************************/
 
 static void
 test_disp_control_helper(void *dc, int disp, bool encode_zero_disp, bool force_full_disp,
@@ -1692,8 +1683,8 @@ main(int argc, char *argv[])
      * the same operands and operand sizes as their correspondent VEX encodings.
      * E.g. vpextrw, etc.
      */
-    test_all_opcodes_mask_3_avx512_evex(dcontext);
-    test_disas_mask_3_avx512_evex(dcontext);
+    test_all_opcodes_3_avx512_evex_mask(dcontext);
+    test_disas_3_avx512_evex_mask(dcontext);
 #endif
 
     print("all done\n");
