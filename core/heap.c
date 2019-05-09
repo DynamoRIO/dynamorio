@@ -444,10 +444,26 @@ static byte *heap_allowable_region_end = (byte *)POINTER_MAX;
  */
 #    define HEAP_REACHABILITY_ENABLED() (!standalone_library)
 
-/* used only to protect read/write access to the must_reach_* static variables in
- * request_region_be_heap_reachable() */
+/* Used only to protect read/write access to the must_reach_* static variables
+ * used in request_region_be_heap_reachable().
+ */
 DECLARE_CXTSWPROT_VAR(static mutex_t request_region_be_heap_reachable_lock,
                       INIT_LOCK_FREE(request_region_be_heap_reachable_lock));
+
+/* Initialize so will be overridden on first call; protected by the
+ * request_region_be_heap_reachable_lock.
+ */
+static byte *must_reach_region_start = (byte *)POINTER_MAX;
+static byte *must_reach_region_end = (byte *)PTR_UINT_0; /* closed */
+
+static void
+reset_heap_reachable_bounds(void)
+{
+    heap_allowable_region_start = (byte *)PTR_UINT_0;
+    heap_allowable_region_end = (byte *)POINTER_MAX;
+    must_reach_region_start = (byte *)POINTER_MAX;
+    must_reach_region_end = (byte *)PTR_UINT_0; /* closed */
+}
 
 /* Request that the supplied region be 32bit offset reachable from the DR heap.  Should
  * be called before vmm_heap_init() so we can place the DR heap to meet these constraints.
@@ -460,11 +476,6 @@ DECLARE_CXTSWPROT_VAR(static mutex_t request_region_be_heap_reachable_lock,
 void
 request_region_be_heap_reachable(byte *start, size_t size)
 {
-    /* initialize so will be overridden on first call; protected by the
-     * request_region_be_heap_reachable_lock */
-    static byte *must_reach_region_start = (byte *)POINTER_MAX;
-    static byte *must_reach_region_end = (byte *)PTR_UINT_0; /* closed */
-
     if (!HEAP_REACHABILITY_ENABLED())
         return;
 
@@ -768,7 +779,7 @@ vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
     ptr_uint_t preferred = 0;
 #ifdef X64
     /* -heap_in_lower_4GB takes top priority and has already set heap_allowable_region_*.
-     * Next comes -vm_base_near_app.
+     * Next comes -vm_base_near_app.  It will fail for -vm_size=2G, which we document.
      */
     if (DYNAMO_OPTION(vm_base_near_app)) {
         /* Required for STATIC_LIBRARY: must be near app b/c clients are there.
@@ -790,14 +801,25 @@ vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
             byte *reach_end =
                 MIN(REACHABLE_32BIT_END(app_base, app_end), heap_allowable_region_end);
             if (reach_base < reach_end) {
+                size_t add_for_align = DYNAMO_OPTION(vmm_block_size);
+                if (DYNAMO_OPTION(vmm_block_size) == PAGE_SIZE) {
+                    /* No need for extra space for alignment. */
+                    add_for_align = 0;
+                }
                 vmh->alloc_start = os_heap_reserve_in_region(
                     (void *)ALIGN_FORWARD(reach_base, PAGE_SIZE),
-                    (void *)ALIGN_BACKWARD(reach_end, PAGE_SIZE),
-                    size + DYNAMO_OPTION(vmm_block_size), error_code, true /*+x*/);
+                    (void *)ALIGN_BACKWARD(reach_end, PAGE_SIZE), size + add_for_align,
+                    error_code, true /*+x*/);
                 if (vmh->alloc_start != NULL) {
                     vmh->start_addr = (heap_pc)ALIGN_FORWARD(
                         vmh->alloc_start, DYNAMO_OPTION(vmm_block_size));
+                    if (add_for_align == 0) {
+                        ASSERT(ALIGNED(vmh->alloc_start, DYNAMO_OPTION(vmm_block_size)));
+                        ASSERT(vmh->start_addr == vmh->alloc_start);
+                    }
                     request_region_be_heap_reachable(app_base, app_end - app_base);
+                    LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_init: placed %s near app\n",
+                        vmh->name);
                 }
             }
         }
@@ -825,6 +847,9 @@ vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
         if ((byte *)preferred < heap_allowable_region_start ||
             (byte *)preferred + size > heap_allowable_region_end) {
             *error_code = HEAP_ERROR_NOT_AT_PREFERRED;
+            LOG(GLOBAL, LOG_HEAP, 1,
+                "vmm_heap_unit_init preferred=" PFX " too far from " PFX "-" PFX "\n",
+                preferred, heap_allowable_region_start, heap_allowable_region_end);
         } else {
 #endif
             vmh->alloc_start =
@@ -879,6 +904,7 @@ vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
         request_region_be_heap_reachable(vmh->start_addr, size);
     }
 #endif
+    ASSERT(ALIGNED(vmh->start_addr, DYNAMO_OPTION(vmm_block_size)));
 }
 
 static void
@@ -920,7 +946,7 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size, bool is_vmcode, const char *name
     }
 
     if (vmh->start_addr == 0) {
-        LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_unit_init %s: failed to allocate memory!\n",
+        LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_init %s: failed to allocate memory!\n",
             name);
         vmm_heap_initialize_unusable(vmh);
         /* we couldn't even reserve initial virtual memory - we're out of luck */
@@ -935,7 +961,7 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size, bool is_vmcode, const char *name
     ASSERT_TRUNCATE(vmh->num_blocks, uint, size / DYNAMO_OPTION(vmm_block_size));
     vmh->num_blocks = (uint)(size / DYNAMO_OPTION(vmm_block_size));
     vmh->num_free_blocks = vmh->num_blocks;
-    LOG(GLOBAL, LOG_HEAP, 2,
+    LOG(GLOBAL, LOG_HEAP, 1,
         "vmm_heap_unit_init %s reservation: [" PFX "," PFX ") total=%d free=%d\n", name,
         vmh->start_addr, vmh->end_addr, vmh->num_blocks, vmh->num_free_blocks);
 
@@ -1133,6 +1159,18 @@ rel32_reachable_from_vmcode(byte *tgt)
 #endif
 }
 
+bool
+rel32_reachable_from_current_vmcode(byte *tgt)
+{
+#ifdef X64
+    ptr_int_t new_offs = (tgt > must_reach_region_start) ? (tgt - must_reach_region_start)
+                                                         : (must_reach_region_end - tgt);
+    return REL32_REACHABLE_OFFS(new_offs);
+#else
+    return true;
+#endif
+}
+
 static inline void
 vmm_update_block_stats(which_vmm_t which, uint num_blocks, bool add)
 {
@@ -1171,16 +1209,22 @@ vmm_update_block_stats(which_vmm_t which, uint num_blocks, bool add)
  * the request.
  */
 static vm_addr_t
-vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in, which_vmm_t which)
+vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in, byte *base, which_vmm_t which)
 {
     vm_addr_t p;
     uint request;
     uint first_block;
     size_t size;
+    uint must_start;
 
     size = ALIGN_FORWARD(size_in, DYNAMO_OPTION(vmm_block_size));
     ASSERT_TRUNCATE(request, uint, size / DYNAMO_OPTION(vmm_block_size));
     request = (uint)size / DYNAMO_OPTION(vmm_block_size);
+
+    if (base != NULL)
+        must_start = vmm_addr_to_block(vmh, base);
+    else
+        must_start = UINT_MAX;
 
     LOG(GLOBAL, LOG_HEAP, 2,
         "vmm_heap_reserve_blocks %s: size=%d => %d in blocks=%d free_blocks=%d\n",
@@ -1191,7 +1235,8 @@ vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in, which_vmm_t which)
         d_r_mutex_unlock(&vmh->lock);
         return NULL;
     }
-    first_block = bitmap_allocate_blocks(vmh->blocks, vmh->num_blocks, request);
+    first_block =
+        bitmap_allocate_blocks(vmh->blocks, vmh->num_blocks, request, must_start);
     if (first_block != BITMAP_NOT_FOUND) {
         vmh->num_free_blocks -= request;
     }
@@ -1212,8 +1257,9 @@ vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in, which_vmm_t which)
     } else {
         p = NULL;
     }
-    LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_reserve_blocks %s: size=%d blocks=%d p=" PFX "\n",
-        vmh->name, size, request, p);
+    LOG(GLOBAL, LOG_HEAP, 2,
+        "vmm_heap_reserve_blocks %s: size=%d blocks=%d p=" PFX " index=%u\n", vmh->name,
+        size, request, p, first_block);
     DOLOG(5, LOG_HEAP, { vmm_dump_map(vmh); });
     return p;
 }
@@ -1342,7 +1388,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             }
         }
 
-        p = vmm_heap_reserve_blocks(vmh, size, which);
+        p = vmm_heap_reserve_blocks(vmh, size, NULL, which);
         LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_reserve %s: size=%d p=" PFX "\n", vmh->name,
             size, p);
 
@@ -1900,8 +1946,10 @@ d_r_heap_exit()
     DELETE_LOCK(request_region_be_heap_reachable_lock);
 #endif
 
-    if (doing_detach)
+    if (doing_detach) {
         heapmgt = &temp_heapmgt;
+        IF_X64(reset_heap_reachable_bounds());
+    }
 }
 
 void
@@ -2104,6 +2152,62 @@ lockwise_safe_to_allocate_memory()
      * global_alloc_lock
      */
     return !self_owns_recursive_lock(&global_alloc_lock);
+}
+
+/* Reserves space inside the VMM region which can be used by the caller for mapping
+ * mapping a file.  First attempts to reserve at "preferred" but if that fails it
+ * attempts at any available location.
+ */
+byte *
+heap_reserve_for_external_mapping(byte *preferred, size_t size, which_vmm_t which)
+{
+#ifdef WINDOWS
+    /* TODO i#3570: Add Windows support, which is complex as we cannot map a file
+     * on top of an existing reservation; nor can we un-reserve a piece of a
+     * reservation.  See the issue for solution ideas.
+     */
+    ASSERT_NOT_IMPLEMENTED(false && "i#3570");
+    return NULL;
+#endif
+    vm_addr_t p = NULL;
+    vm_heap_t *vmh = vmheap_for_which(which);
+    ASSERT(size > 0);
+    size = ALIGN_FORWARD(size, PAGE_SIZE);
+    if (!DYNAMO_OPTION(vm_reserve))
+        return NULL;
+    if (preferred >= vmh->start_addr && preferred + size <= vmh->end_addr)
+        p = vmm_heap_reserve_blocks(vmh, size, preferred, which);
+    if (p == NULL)
+        p = vmm_heap_reserve_blocks(vmh, size, NULL, which);
+    LOG(GLOBAL, LOG_HEAP, 2, "%s %s: size=%d p=" PFX "\n", __FUNCTION__, vmh->name, size,
+        p);
+    return p;
+}
+
+/* Before calling this function, the caller must restore [p,p+size) to
+ * its state from before heap_reserve_for_external_mapping() was
+ * called: reserved but not committed.
+ */
+bool
+heap_unreserve_for_external_mapping(byte *p, size_t size, which_vmm_t which)
+{
+#ifdef WINDOWS
+    /* TODO i#3570: Add Windows support, which is complex as we cannot map a file
+     * on top of an existing reservation; nor can we un-reserve a piece of a
+     * reservation.  See the issue for solution ideas.
+     */
+    ASSERT_NOT_IMPLEMENTED(false && "i#3570");
+    return false;
+#endif
+    vm_heap_t *vmh = vmheap_for_which(which);
+    ASSERT(size > 0);
+    size = ALIGN_FORWARD(size, PAGE_SIZE);
+    if (!DYNAMO_OPTION(vm_reserve) || !is_vmm_reserved_address(p, size, NULL, NULL))
+        return false;
+    vmm_heap_free_blocks(vmh, p, size, which);
+    LOG(GLOBAL, LOG_HEAP, 2, "%s %s: size=%d p=" PFX "\n", __FUNCTION__, vmh->name, size,
+        p);
+    return true;
 }
 
 /* we indirect all os memory requests through here so we have a central place

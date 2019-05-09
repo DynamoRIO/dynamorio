@@ -406,9 +406,34 @@ privload_unmap_file(privmod_t *privmod)
     os_privmod_data_t *opd = (os_privmod_data_t *)privmod->os_privmod_data;
 
     /* unmap segments */
+    IF_DEBUG(size_t size_unmapped = 0);
     for (i = 0; i < opd->os_data.num_segments; i++) {
         d_r_unmap_file(opd->os_data.segments[i].start,
                        opd->os_data.segments[i].end - opd->os_data.segments[i].start);
+        DODEBUG({
+            size_unmapped +=
+                opd->os_data.segments[i].end - opd->os_data.segments[i].start;
+        });
+        if (i + 1 < opd->os_data.num_segments &&
+            opd->os_data.segments[i + 1].start > opd->os_data.segments[i].end) {
+            /* unmap the gap */
+            d_r_unmap_file(opd->os_data.segments[i].end,
+                           opd->os_data.segments[i + 1].start -
+                               opd->os_data.segments[i].end);
+            DODEBUG({
+                size_unmapped +=
+                    opd->os_data.segments[i + 1].start - opd->os_data.segments[i].end;
+            });
+        }
+    }
+    ASSERT(size_unmapped == privmod->size);
+    /* XXX i#3570: Better to store the MODLOAD_SEPARATE_BSS flag but there's no
+     * simple code path to do it so we check the option.
+     */
+    if (INTERNAL_OPTION(separate_private_bss)) {
+        /* unmap the extra .bss-separating page */
+        d_r_unmap_file(privmod->base + privmod->size, PAGE_SIZE);
+        DODEBUG({ size_unmapped += PAGE_SIZE; });
     }
     /* free segments */
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, opd->os_data.segments, module_segment_t,
@@ -429,6 +454,9 @@ privload_unload_imports(privmod_t *privmod)
 static modload_flags_t
 privload_map_flags(modload_flags_t init_flags)
 {
+    /* XXX: Keep this condition matching the check in privload_unmap_file()
+     * (minus MODLOAD_NOT_PRIVLIB since non-privlibs don't reach our unmap).
+     */
     if (INTERNAL_OPTION(separate_private_bss) && !TEST(MODLOAD_NOT_PRIVLIB, init_flags)) {
         /* place an extra no-access page after .bss */
         /* XXX: update privload_early_inject call to init_emulated_brk if this changes */

@@ -1532,18 +1532,29 @@ bitmap_initialize_free(bitmap_t b, uint bitmap_size)
 }
 
 uint
-bitmap_allocate_blocks(bitmap_t b, uint bitmap_size, uint request_blocks)
+bitmap_allocate_blocks(bitmap_t b, uint bitmap_size, uint request_blocks,
+                       uint start_block)
 {
     uint i, res;
-    if (request_blocks == 1) {
-        i = bitmap_find_set_block(b, bitmap_size);
+    if (start_block != UINT_MAX) {
+        if (start_block + request_blocks > bitmap_size)
+            return BITMAP_NOT_FOUND;
+        uint hole_size = 0;
+        while (hole_size < request_blocks && bitmap_test(b, start_block + hole_size)) {
+            hole_size++;
+        }
+        if (hole_size == request_blocks)
+            res = start_block;
+        else
+            return BITMAP_NOT_FOUND;
+    } else if (request_blocks == 1) {
+        res = bitmap_find_set_block(b, bitmap_size);
     } else {
-        i = bitmap_find_set_block_sequence(b, bitmap_size, request_blocks);
+        res = bitmap_find_set_block_sequence(b, bitmap_size, request_blocks);
     }
-    res = i;
     if (res == BITMAP_NOT_FOUND)
         return BITMAP_NOT_FOUND;
-
+    i = res;
     do {
         bitmap_clear(b, i++);
     } while (--request_blocks);

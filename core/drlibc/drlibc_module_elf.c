@@ -395,7 +395,8 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                                 */
                                ((fixed && map_base != NULL) ? MAP_FILE_FIXED : 0) |
                                (TEST(MODLOAD_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0));
-    ASSERT(lib_base != NULL);
+    if (lib_base == NULL)
+        return NULL;
     if (TEST(MODLOAD_SEPARATE_BSS, flags) && initial_map_size > elf->image_size)
         elf->image_size = initial_map_size - PAGE_SIZE;
     else
@@ -446,7 +447,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                 elf->image_size = last_end - lib_base;
             }
             /* XXX:
-             * This function can be called after dynamorio_heap_initialized,
+             * This function can be called after dynamo_heap_initialized,
              * and we will use map_file instead of os_map_file.
              * However, map_file does not allow mmap with overlapped memory,
              * so we have to unmap the old memory first.
@@ -456,8 +457,8 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
              * a racy condition.
              */
             if (seg_size > 0) { /* i#1872: handle empty segments */
-                (*unmap_func)(seg_base, seg_size);
                 if (do_mmap) {
+                    (*unmap_func)(seg_base, seg_size);
                     map = (*map_func)(
                         elf->fd, &seg_size, pg_offs, seg_base /* base */,
                         seg_prot | MEMPROT_WRITE /* prot */,
