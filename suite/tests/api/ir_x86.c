@@ -101,13 +101,13 @@ static byte buf[8192];
  */
 
 /* these are shared among all test_all_opcodes_*() routines: */
-#define MEMARG(sz) (opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0x37, sz))
+#define MEMARG(sz) (opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0x37, sz))
 #define IMMARG(sz) opnd_create_immed_int(37, sz)
 #define TGTARG opnd_create_instr(instrlist_last(ilist))
 #define REGARG(reg) opnd_create_reg(DR_REG_##reg)
-#define REGARG_PARTIAL(reg, sz) opnd_create_reg_partial(REG_##reg, sz)
-#define VSIBX(sz) (opnd_create_base_disp(REG_XCX, REG_XMM6, 2, 0x42, sz))
-#define VSIBY(sz) (opnd_create_base_disp(REG_XDX, REG_YMM6, 2, 0x17, sz))
+#define REGARG_PARTIAL(reg, sz) opnd_create_reg_partial(DR_REG_##reg, sz)
+#define VSIBX(sz) (opnd_create_base_disp(DR_REG_XCX, DR_REG_XMM6, 2, 0x42, sz))
+#define VSIBY(sz) (opnd_create_base_disp(DR_REG_XDX, DR_REG_YMM6, 2, 0x17, sz))
 #define X86_ONLY 1
 #define X64_ONLY 2
 
@@ -408,9 +408,9 @@ test_disp_control_helper(void *dc, int disp, bool encode_zero_disp, bool force_f
     byte *pc;
     uint len;
     instr_t *instr = INSTR_CREATE_mov_ld(
-        dc, opnd_create_reg(REG_ECX),
-        opnd_create_base_disp_ex(disp16 ? IF_X64_ELSE(REG_EBX, REG_BX) : REG_XBX,
-                                 REG_NULL, 0, disp, OPSZ_4, encode_zero_disp,
+        dc, opnd_create_reg(DR_REG_ECX),
+        opnd_create_base_disp_ex(disp16 ? IF_X64_ELSE(DR_REG_EBX, DR_REG_BX) : DR_REG_XBX,
+                                 DR_REG_NULL, 0, disp, OPSZ_4, encode_zero_disp,
                                  force_full_disp, disp16));
     pc = instr_encode(dc, instr, buf);
     len = (int)(pc - (byte *)buf);
@@ -545,33 +545,35 @@ test_indirect_cti(void *dc)
     */
     instr_t *instr;
     byte bytes_addr16_call[] = { 0x67, 0xff, 0xd1 };
-    instr = INSTR_CREATE_call_ind(dc, opnd_create_reg(REG_XCX));
+    instr = INSTR_CREATE_call_ind(dc, opnd_create_reg(DR_REG_XCX));
     test_instr_encode(dc, instr, 2);
 #ifndef X64 /* only on AMD can we shorten, so we don't test it */
-    instr =
-        instr_create_2dst_2src(dc, OP_call_ind, opnd_create_reg(REG_XSP),
-                               opnd_create_base_disp(REG_XSP, REG_NULL, 0, -2, OPSZ_2),
-                               opnd_create_reg(REG_CX), opnd_create_reg(REG_XSP));
+    instr = instr_create_2dst_2src(
+        dc, OP_call_ind, opnd_create_reg(DR_REG_XSP),
+        opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, -2, OPSZ_2),
+        opnd_create_reg(DR_REG_CX), opnd_create_reg(DR_REG_XSP));
     test_instr_encode(dc, instr, 3);
 #endif
     /* addr16 prefix does nothing here */
-    instr = INSTR_CREATE_call_ind(dc, opnd_create_reg(REG_XCX));
+    instr = INSTR_CREATE_call_ind(dc, opnd_create_reg(DR_REG_XCX));
     test_instr_decode(dc, instr, bytes_addr16_call, sizeof(bytes_addr16_call), false);
 
     /* invalid to have far call go through reg since needs 6 bytes */
     instr = INSTR_CREATE_call_far_ind(
-        dc, opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0, OPSZ_6));
+        dc, opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_6));
     test_instr_encode(dc, instr, 2);
     instr = instr_create_2dst_2src(
-        dc, OP_call_far_ind, opnd_create_reg(REG_XSP),
-        opnd_create_base_disp(REG_XSP, REG_NULL, 0, -4, OPSZ_4),
-        opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0, OPSZ_4), opnd_create_reg(REG_XSP));
+        dc, OP_call_far_ind, opnd_create_reg(DR_REG_XSP),
+        opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, -4, OPSZ_4),
+        opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_XSP));
     test_instr_encode(dc, instr, 3);
     instr = instr_create_2dst_2src(
-        dc, OP_call_far_ind, opnd_create_reg(REG_XSP),
-        opnd_create_base_disp(REG_XSP, REG_NULL, 0, -8, OPSZ_8_rex16_short4),
-        opnd_create_base_disp(IF_X64_ELSE(REG_EBX, REG_BX), REG_NULL, 0, 0, OPSZ_6),
-        opnd_create_reg(REG_XSP));
+        dc, OP_call_far_ind, opnd_create_reg(DR_REG_XSP),
+        opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, -8, OPSZ_8_rex16_short4),
+        opnd_create_base_disp(IF_X64_ELSE(DR_REG_EBX, DR_REG_BX), DR_REG_NULL, 0, 0,
+                              OPSZ_6),
+        opnd_create_reg(DR_REG_XSP));
     test_instr_encode(dc, instr, 3);
 
     /* case 10710: make sure we can encode these guys
@@ -635,20 +637,20 @@ static void
 test_modrm16_helper(void *dc, reg_id_t base, reg_id_t scale, uint disp, uint len)
 {
     instr_t *instr;
-    /* Avoid REG_EAX b/c of the special 0xa0-0xa3 opcodes */
-    instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(REG_EBX),
+    /* Avoid DR_REG_EAX b/c of the special 0xa0-0xa3 opcodes */
+    instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_EBX),
                                 opnd_create_base_disp(base, scale,
-                                                      (scale == REG_NULL ? 0 : 1),
+                                                      (scale == DR_REG_NULL ? 0 : 1),
                                                       /* we need OPSZ_4_short2 to match
                                                        * instr_same on decode! */
                                                       disp, OPSZ_4_short2));
-    if (base == REG_NULL && scale == REG_NULL) {
+    if (base == DR_REG_NULL && scale == DR_REG_NULL) {
         /* Don't need _ex unless abs addr, in which case should get 32-bit
          * disp!  Test both sides. */
         test_instr_encode(dc, instr, len + 1 /*32-bit disp but no prefix*/);
         instr = INSTR_CREATE_mov_ld(
-            dc, opnd_create_reg(REG_EBX),
-            opnd_create_base_disp_ex(base, scale, (scale == REG_NULL ? 0 : 1),
+            dc, opnd_create_reg(DR_REG_EBX),
+            opnd_create_base_disp_ex(base, scale, (scale == DR_REG_NULL ? 0 : 1),
                                      /* we need OPSZ_4_short2 to match
                                       * instr_same on decode! */
                                      disp, OPSZ_4_short2, false, false, true));
@@ -689,33 +691,33 @@ test_modrm16(void *dc)
      *   0x004289c4   67 8b 9e 80 00       addr16 mov    0x0080(%bp) -> %ebx
      *   0x004289c4   67 8b 9f 80 00       addr16 mov    0x0080(%bx) -> %ebx
      */
-    test_modrm16_helper(dc, REG_BX, REG_SI, 0, 3);
-    test_modrm16_helper(dc, REG_BX, REG_DI, 0, 3);
-    test_modrm16_helper(dc, REG_BP, REG_SI, 0, 3);
-    test_modrm16_helper(dc, REG_BP, REG_DI, 0, 3);
-    test_modrm16_helper(dc, REG_SI, REG_NULL, 0, 3);
-    test_modrm16_helper(dc, REG_DI, REG_NULL, 0, 3);
-    test_modrm16_helper(dc, REG_NULL, REG_NULL, 0x7f, 5); /* must do disp16 */
-    test_modrm16_helper(dc, REG_BP, REG_NULL, 0, 4);      /* must do disp8 */
-    test_modrm16_helper(dc, REG_BX, REG_NULL, 0, 3);
+    test_modrm16_helper(dc, DR_REG_BX, DR_REG_SI, 0, 3);
+    test_modrm16_helper(dc, DR_REG_BX, DR_REG_DI, 0, 3);
+    test_modrm16_helper(dc, DR_REG_BP, DR_REG_SI, 0, 3);
+    test_modrm16_helper(dc, DR_REG_BP, DR_REG_DI, 0, 3);
+    test_modrm16_helper(dc, DR_REG_SI, DR_REG_NULL, 0, 3);
+    test_modrm16_helper(dc, DR_REG_DI, DR_REG_NULL, 0, 3);
+    test_modrm16_helper(dc, DR_REG_NULL, DR_REG_NULL, 0x7f, 5); /* must do disp16 */
+    test_modrm16_helper(dc, DR_REG_BP, DR_REG_NULL, 0, 4);      /* must do disp8 */
+    test_modrm16_helper(dc, DR_REG_BX, DR_REG_NULL, 0, 3);
 
-    test_modrm16_helper(dc, REG_BX, REG_SI, 0x7f, 4);
-    test_modrm16_helper(dc, REG_BX, REG_DI, 0x7f, 4);
-    test_modrm16_helper(dc, REG_BP, REG_SI, 0x7f, 4);
-    test_modrm16_helper(dc, REG_BP, REG_DI, 0x7f, 4);
-    test_modrm16_helper(dc, REG_SI, REG_NULL, 0x7f, 4);
-    test_modrm16_helper(dc, REG_DI, REG_NULL, 0x7f, 4);
-    test_modrm16_helper(dc, REG_BP, REG_NULL, 0x7f, 4);
-    test_modrm16_helper(dc, REG_BX, REG_NULL, 0x7f, 4);
+    test_modrm16_helper(dc, DR_REG_BX, DR_REG_SI, 0x7f, 4);
+    test_modrm16_helper(dc, DR_REG_BX, DR_REG_DI, 0x7f, 4);
+    test_modrm16_helper(dc, DR_REG_BP, DR_REG_SI, 0x7f, 4);
+    test_modrm16_helper(dc, DR_REG_BP, DR_REG_DI, 0x7f, 4);
+    test_modrm16_helper(dc, DR_REG_SI, DR_REG_NULL, 0x7f, 4);
+    test_modrm16_helper(dc, DR_REG_DI, DR_REG_NULL, 0x7f, 4);
+    test_modrm16_helper(dc, DR_REG_BP, DR_REG_NULL, 0x7f, 4);
+    test_modrm16_helper(dc, DR_REG_BX, DR_REG_NULL, 0x7f, 4);
 
-    test_modrm16_helper(dc, REG_BX, REG_SI, 0x80, 5);
-    test_modrm16_helper(dc, REG_BX, REG_DI, 0x80, 5);
-    test_modrm16_helper(dc, REG_BP, REG_SI, 0x80, 5);
-    test_modrm16_helper(dc, REG_BP, REG_DI, 0x80, 5);
-    test_modrm16_helper(dc, REG_SI, REG_NULL, 0x80, 5);
-    test_modrm16_helper(dc, REG_DI, REG_NULL, 0x80, 5);
-    test_modrm16_helper(dc, REG_BP, REG_NULL, 0x80, 5);
-    test_modrm16_helper(dc, REG_BX, REG_NULL, 0x80, 5);
+    test_modrm16_helper(dc, DR_REG_BX, DR_REG_SI, 0x80, 5);
+    test_modrm16_helper(dc, DR_REG_BX, DR_REG_DI, 0x80, 5);
+    test_modrm16_helper(dc, DR_REG_BP, DR_REG_SI, 0x80, 5);
+    test_modrm16_helper(dc, DR_REG_BP, DR_REG_DI, 0x80, 5);
+    test_modrm16_helper(dc, DR_REG_SI, DR_REG_NULL, 0x80, 5);
+    test_modrm16_helper(dc, DR_REG_DI, DR_REG_NULL, 0x80, 5);
+    test_modrm16_helper(dc, DR_REG_BP, DR_REG_NULL, 0x80, 5);
+    test_modrm16_helper(dc, DR_REG_BX, DR_REG_NULL, 0x80, 5);
 }
 
 /* PR 215143: auto-magically add size prefixes */
@@ -734,29 +736,29 @@ test_size_changes(void *dc)
     /* addr16 doesn't affect push so we only test data16 here */
 #ifndef X64 /* can only shorten on AMD */
     /* push data16 */
-    instr =
-        instr_create_2dst_2src(dc, OP_push, opnd_create_reg(REG_XSP),
-                               opnd_create_base_disp(REG_XSP, REG_NULL, 0, -2, OPSZ_2),
-                               opnd_create_reg(REG_CX), opnd_create_reg(REG_XSP));
+    instr = instr_create_2dst_2src(
+        dc, OP_push, opnd_create_reg(DR_REG_XSP),
+        opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, -2, OPSZ_2),
+        opnd_create_reg(DR_REG_CX), opnd_create_reg(DR_REG_XSP));
     test_instr_encode(dc, instr, 2);
 #endif
     /* jecxz and jcxz */
     test_instr_encode(dc, INSTR_CREATE_jecxz(dc, opnd_create_pc(buf)), 2);
     /* test non-default count register size (requires addr prefix) */
     instr = instr_create_0dst_2src(dc, OP_jecxz, opnd_create_pc(buf),
-                                   opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
+                                   opnd_create_reg(IF_X64_ELSE(DR_REG_ECX, DR_REG_CX)));
     test_instr_encode(dc, instr, 3);
     instr = instr_create_1dst_2src(
-        dc, OP_loop, opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)), opnd_create_pc(buf),
-        opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
+        dc, OP_loop, opnd_create_reg(IF_X64_ELSE(DR_REG_ECX, DR_REG_CX)),
+        opnd_create_pc(buf), opnd_create_reg(IF_X64_ELSE(DR_REG_ECX, DR_REG_CX)));
     test_instr_encode(dc, instr, 3);
     instr = instr_create_1dst_2src(
-        dc, OP_loope, opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)), opnd_create_pc(buf),
-        opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
+        dc, OP_loope, opnd_create_reg(IF_X64_ELSE(DR_REG_ECX, DR_REG_CX)),
+        opnd_create_pc(buf), opnd_create_reg(IF_X64_ELSE(DR_REG_ECX, DR_REG_CX)));
     test_instr_encode(dc, instr, 3);
     instr = instr_create_1dst_2src(
-        dc, OP_loopne, opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)), opnd_create_pc(buf),
-        opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
+        dc, OP_loopne, opnd_create_reg(IF_X64_ELSE(DR_REG_ECX, DR_REG_CX)),
+        opnd_create_pc(buf), opnd_create_reg(IF_X64_ELSE(DR_REG_ECX, DR_REG_CX)));
     test_instr_encode(dc, instr, 3);
 
     /*
@@ -772,49 +774,52 @@ test_size_changes(void *dc)
      */
     test_instr_encode(dc, INSTR_CREATE_cmps_1(dc), 1);
     instr = instr_create_2dst_4src(
-        dc, OP_cmps, opnd_create_reg(IF_X64_ELSE(REG_ESI, REG_SI)),
-        opnd_create_reg(IF_X64_ELSE(REG_EDI, REG_DI)),
-        opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_ESI, REG_SI), REG_NULL, 0, 0,
-                                  OPSZ_1),
-        opnd_create_far_base_disp(SEG_ES, IF_X64_ELSE(REG_EDI, REG_DI), REG_NULL, 0, 0,
-                                  OPSZ_1),
-        opnd_create_reg(IF_X64_ELSE(REG_ESI, REG_SI)),
-        opnd_create_reg(IF_X64_ELSE(REG_EDI, REG_DI)));
+        dc, OP_cmps, opnd_create_reg(IF_X64_ELSE(DR_REG_ESI, DR_REG_SI)),
+        opnd_create_reg(IF_X64_ELSE(DR_REG_EDI, DR_REG_DI)),
+        opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(DR_REG_ESI, DR_REG_SI), DR_REG_NULL,
+                                  0, 0, OPSZ_1),
+        opnd_create_far_base_disp(SEG_ES, IF_X64_ELSE(DR_REG_EDI, DR_REG_DI), DR_REG_NULL,
+                                  0, 0, OPSZ_1),
+        opnd_create_reg(IF_X64_ELSE(DR_REG_ESI, DR_REG_SI)),
+        opnd_create_reg(IF_X64_ELSE(DR_REG_EDI, DR_REG_DI)));
     test_instr_encode(dc, instr, 2);
 
     instr = instr_create_2dst_4src(
-        dc, OP_cmps, opnd_create_reg(REG_XSI), opnd_create_reg(REG_XDI),
-        opnd_create_far_base_disp(SEG_DS, REG_XSI, REG_NULL, 0, 0, OPSZ_2),
-        opnd_create_far_base_disp(SEG_ES, REG_XDI, REG_NULL, 0, 0, OPSZ_2),
-        opnd_create_reg(REG_XSI), opnd_create_reg(REG_XDI));
+        dc, OP_cmps, opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI),
+        opnd_create_far_base_disp(SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, OPSZ_2),
+        opnd_create_far_base_disp(SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, OPSZ_2),
+        opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI));
     test_instr_encode_and_decode(dc, instr, 2, true /*src*/, 0, OPSZ_2, 2);
 
     test_instr_encode(dc, INSTR_CREATE_xlat(dc), 1);
-    instr = instr_create_1dst_1src(dc, OP_xlat, opnd_create_reg(REG_AL),
-                                   opnd_create_far_base_disp(SEG_DS,
-                                                             IF_X64_ELSE(REG_EBX, REG_BX),
-                                                             REG_AL, 1, 0, OPSZ_1));
+    instr = instr_create_1dst_1src(
+        dc, OP_xlat, opnd_create_reg(DR_REG_AL),
+        opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(DR_REG_EBX, DR_REG_BX), DR_REG_AL,
+                                  1, 0, OPSZ_1));
     test_instr_encode(dc, instr, 2);
 
-    instr = INSTR_CREATE_maskmovq(dc, opnd_create_reg(REG_MM0), opnd_create_reg(REG_MM1));
+    instr = INSTR_CREATE_maskmovq(dc, opnd_create_reg(DR_REG_MM0),
+                                  opnd_create_reg(DR_REG_MM1));
     test_instr_encode(dc, instr, 3);
-    instr = INSTR_PRED(instr_create_1dst_2src(
-                           dc, OP_maskmovq,
-                           opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EDI, REG_DI),
-                                                     REG_NULL, 0, 0, OPSZ_8),
-                           opnd_create_reg(REG_MM0), opnd_create_reg(REG_MM1)),
-                       DR_PRED_COMPLEX);
+    instr = INSTR_PRED(
+        instr_create_1dst_2src(
+            dc, OP_maskmovq,
+            opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(DR_REG_EDI, DR_REG_DI),
+                                      DR_REG_NULL, 0, 0, OPSZ_8),
+            opnd_create_reg(DR_REG_MM0), opnd_create_reg(DR_REG_MM1)),
+        DR_PRED_COMPLEX);
     test_instr_encode(dc, instr, 4);
 
-    instr =
-        INSTR_CREATE_maskmovdqu(dc, opnd_create_reg(REG_XMM0), opnd_create_reg(REG_XMM1));
+    instr = INSTR_CREATE_maskmovdqu(dc, opnd_create_reg(DR_REG_XMM0),
+                                    opnd_create_reg(DR_REG_XMM1));
     test_instr_encode(dc, instr, 4);
-    instr = INSTR_PRED(instr_create_1dst_2src(
-                           dc, OP_maskmovdqu,
-                           opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EDI, REG_DI),
-                                                     REG_NULL, 0, 0, OPSZ_16),
-                           opnd_create_reg(REG_XMM0), opnd_create_reg(REG_XMM1)),
-                       DR_PRED_COMPLEX);
+    instr = INSTR_PRED(
+        instr_create_1dst_2src(
+            dc, OP_maskmovdqu,
+            opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(DR_REG_EDI, DR_REG_DI),
+                                      DR_REG_NULL, 0, 0, OPSZ_16),
+            opnd_create_reg(DR_REG_XMM0), opnd_create_reg(DR_REG_XMM1)),
+        DR_PRED_COMPLEX);
     test_instr_encode(dc, instr, 5);
 
     /* Test iretw, iretd, iretq (unlike most stack operation iretd (and lretd on AMD)
@@ -829,12 +834,12 @@ test_size_changes(void *dc)
     test_instr_encode_and_decode(dc, instr, 1, true /*src*/, 1, OPSZ_12, 12);
 #endif
     instr = instr_create_1dst_2src(
-        dc, OP_iret, opnd_create_reg(REG_XSP), opnd_create_reg(REG_XSP),
-        opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_12));
+        dc, OP_iret, opnd_create_reg(DR_REG_XSP), opnd_create_reg(DR_REG_XSP),
+        opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_12));
     test_instr_encode_and_decode(dc, instr, 1, true /*src*/, 1, OPSZ_12, 12);
     instr = instr_create_1dst_2src(
-        dc, OP_iret, opnd_create_reg(REG_XSP), opnd_create_reg(REG_XSP),
-        opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_6));
+        dc, OP_iret, opnd_create_reg(DR_REG_XSP), opnd_create_reg(DR_REG_XSP),
+        opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_6));
     test_instr_encode_and_decode(dc, instr, 2, true /*src*/, 1, OPSZ_6, 6);
     ASSERT(buf[0] == 0x66); /* check for data prefix */
 }
@@ -851,14 +856,17 @@ test_nop_xchg(void *dc)
      *   0x0000000000671460  41 90                xchg   %r8d %eax -> %r8d %eax
      */
     instr_t *instr;
-    instr = INSTR_CREATE_xchg(dc, opnd_create_reg(REG_EAX), opnd_create_reg(REG_EAX));
+    instr =
+        INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_EAX));
     test_instr_encode(dc, instr, 2);
 #ifdef X64
     /* we don't do the optimal "48 90" instead of "48 87 c0" */
-    instr = INSTR_CREATE_xchg(dc, opnd_create_reg(REG_RAX), opnd_create_reg(REG_RAX));
+    instr =
+        INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_RAX), opnd_create_reg(DR_REG_RAX));
     test_instr_encode(dc, instr, 3);
     /* we don't do the optimal "41 90" instead of "41 87 c0" */
-    instr = INSTR_CREATE_xchg(dc, opnd_create_reg(REG_R8D), opnd_create_reg(REG_EAX));
+    instr =
+        INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_R8D), opnd_create_reg(DR_REG_EAX));
     test_instr_encode(dc, instr, 3);
     /* ensure we treat as nop and NOT xchg if doesn't have rex.b */
     buf[0] = 0x46;
@@ -927,7 +935,7 @@ test_x86_mode(void *dc)
     instr_t *instr;
 
     /* create instr that looks different in x86 vs x64 */
-    instr = INSTR_CREATE_add(dc, opnd_create_reg(REG_RAX), OPND_CREATE_INT32(42));
+    instr = INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_RAX), OPND_CREATE_INT32(42));
     end = instr_encode(dc, instr, buf);
     ASSERT(end - buf < BUFFER_SIZE_ELEMENTS(buf));
 
@@ -983,7 +991,7 @@ test_x64_inc(void *dc)
     /* i#842: inc/dec should not be encoded as 40-4f in x64 */
     instr_t *instr;
 
-    instr = INSTR_CREATE_inc(dc, opnd_create_reg(REG_EAX));
+    instr = INSTR_CREATE_inc(dc, opnd_create_reg(DR_REG_EAX));
     test_instr_encode(dc, instr, 2);
 }
 #endif
@@ -1126,8 +1134,8 @@ test_instr_opnds(void *dc)
     ASSERT(opnd_get_addr(instr_get_src(instr, 0)) == pc + disp);
 #else
     ASSERT(opnd_is_base_disp(instr_get_src(instr, 0)));
-    ASSERT(opnd_get_base(instr_get_src(instr, 0)) == REG_NULL);
-    ASSERT(opnd_get_index(instr_get_src(instr, 0)) == REG_NULL);
+    ASSERT(opnd_get_base(instr_get_src(instr, 0)) == DR_REG_NULL);
+    ASSERT(opnd_get_index(instr_get_src(instr, 0)) == DR_REG_NULL);
     ASSERT(opnd_get_disp(instr_get_src(instr, 0)) == (ptr_int_t)pc + disp);
 #endif
 
@@ -1157,8 +1165,8 @@ test_instr_opnds(void *dc)
     ASSERT(opnd_get_addr(instr_get_src(instr, 0)) == pc + disp);
 #else
     ASSERT(opnd_is_base_disp(instr_get_src(instr, 0)));
-    ASSERT(opnd_get_base(instr_get_src(instr, 0)) == REG_NULL);
-    ASSERT(opnd_get_index(instr_get_src(instr, 0)) == REG_NULL);
+    ASSERT(opnd_get_base(instr_get_src(instr, 0)) == DR_REG_NULL);
+    ASSERT(opnd_get_index(instr_get_src(instr, 0)) == DR_REG_NULL);
     ASSERT(opnd_get_disp(instr_get_src(instr, 0)) == (ptr_int_t)pc + disp);
 #endif
 
@@ -1309,42 +1317,42 @@ test_vsib(void *dc)
     mc.simd[2].u32[7] = 0xf8444444;
 
     /* test index size 4 and mem size 8 */
-    instr =
-        INSTR_CREATE_vgatherdpd(dc, opnd_create_reg(REG_XMM0),
-                                opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_8),
-                                opnd_create_reg(REG_XMM2));
+    instr = INSTR_CREATE_vgatherdpd(
+        dc, opnd_create_reg(DR_REG_XMM0),
+        opnd_create_base_disp(DR_REG_XCX, DR_REG_XMM1, 2, 0x12, OPSZ_8),
+        opnd_create_reg(DR_REG_XMM2));
     test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 2, OPSZ_4);
     instr_destroy(dc, instr);
 
     /* test index size 8 and mem size 4 */
-    instr =
-        INSTR_CREATE_vgatherqpd(dc, opnd_create_reg(REG_XMM0),
-                                opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_8),
-                                opnd_create_reg(REG_XMM2));
+    instr = INSTR_CREATE_vgatherqpd(
+        dc, opnd_create_reg(DR_REG_XMM0),
+        opnd_create_base_disp(DR_REG_XCX, DR_REG_XMM1, 2, 0x12, OPSZ_8),
+        opnd_create_reg(DR_REG_XMM2));
     test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 2, OPSZ_8);
     instr_destroy(dc, instr);
 
     /* test index size 4 and mem size 4 */
-    instr =
-        INSTR_CREATE_vgatherdps(dc, opnd_create_reg(REG_XMM0),
-                                opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_4),
-                                opnd_create_reg(REG_XMM2));
+    instr = INSTR_CREATE_vgatherdps(
+        dc, opnd_create_reg(DR_REG_XMM0),
+        opnd_create_base_disp(DR_REG_XCX, DR_REG_XMM1, 2, 0x12, OPSZ_4),
+        opnd_create_reg(DR_REG_XMM2));
     test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 4, OPSZ_4);
     instr_destroy(dc, instr);
 
     /* test index size 8 and mem size 4 */
-    instr =
-        INSTR_CREATE_vgatherqps(dc, opnd_create_reg(REG_XMM0),
-                                opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_4),
-                                opnd_create_reg(REG_XMM2));
+    instr = INSTR_CREATE_vgatherqps(
+        dc, opnd_create_reg(DR_REG_XMM0),
+        opnd_create_base_disp(DR_REG_XCX, DR_REG_XMM1, 2, 0x12, OPSZ_4),
+        opnd_create_reg(DR_REG_XMM2));
     test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 2, OPSZ_8);
     instr_destroy(dc, instr);
 
     /* test 256-byte */
-    instr =
-        INSTR_CREATE_vgatherdps(dc, opnd_create_reg(REG_YMM0),
-                                opnd_create_base_disp(REG_XCX, REG_YMM1, 2, 0x12, OPSZ_4),
-                                opnd_create_reg(REG_YMM2));
+    instr = INSTR_CREATE_vgatherdps(
+        dc, opnd_create_reg(DR_REG_YMM0),
+        opnd_create_base_disp(DR_REG_XCX, DR_REG_YMM1, 2, 0x12, OPSZ_4),
+        opnd_create_reg(DR_REG_YMM2));
     test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 8, OPSZ_4);
     instr_destroy(dc, instr);
 
@@ -1359,10 +1367,10 @@ test_vsib(void *dc)
     mc.simd[2].u32[5] = 0x56444444;
     mc.simd[2].u32[6] = 0x47444444;
     mc.simd[2].u32[7] = 0x28444444;
-    instr =
-        INSTR_CREATE_vgatherdps(dc, opnd_create_reg(REG_YMM0),
-                                opnd_create_base_disp(REG_XCX, REG_YMM1, 2, 0x12, OPSZ_4),
-                                opnd_create_reg(REG_YMM2));
+    instr = INSTR_CREATE_vgatherdps(
+        dc, opnd_create_reg(DR_REG_YMM0),
+        opnd_create_base_disp(DR_REG_XCX, DR_REG_YMM1, 2, 0x12, OPSZ_4),
+        opnd_create_reg(DR_REG_YMM2));
     test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 0 /*nothing*/, OPSZ_4);
     instr_destroy(dc, instr);
 }
@@ -1423,56 +1431,57 @@ test_predication(void *dc)
 {
     byte *pc;
     uint usage;
-    instr_t *instr = INSTR_CREATE_vmaskmovps(dc, opnd_create_reg(REG_XMM0),
-                                             opnd_create_reg(REG_XMM1), MEMARG(OPSZ_16));
-    ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_DEFAULT));
-    ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_INCLUDE_ALL));
-    ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_INCLUDE_COND_DSTS));
-    ASSERT(instr_reads_from_reg(instr, REG_XMM1, 0));
-    ASSERT(!instr_writes_to_reg(instr, REG_XMM0, DR_QUERY_DEFAULT));
-    ASSERT(instr_writes_to_reg(instr, REG_XMM0, DR_QUERY_INCLUDE_ALL));
-    ASSERT(instr_writes_to_reg(instr, REG_XMM0, DR_QUERY_INCLUDE_COND_DSTS));
-    ASSERT(!instr_writes_to_reg(instr, REG_XMM0, 0));
+    instr_t *instr = INSTR_CREATE_vmaskmovps(
+        dc, opnd_create_reg(DR_REG_XMM0), opnd_create_reg(DR_REG_XMM1), MEMARG(OPSZ_16));
+    ASSERT(instr_reads_from_reg(instr, DR_REG_XMM1, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_reg(instr, DR_REG_XMM1, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_reg(instr, DR_REG_XMM1, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_reg(instr, DR_REG_XMM1, 0));
+    ASSERT(!instr_writes_to_reg(instr, DR_REG_XMM0, DR_QUERY_DEFAULT));
+    ASSERT(instr_writes_to_reg(instr, DR_REG_XMM0, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_writes_to_reg(instr, DR_REG_XMM0, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_writes_to_reg(instr, DR_REG_XMM0, 0));
     pc = instr_encode(dc, instr, buf);
     ASSERT(pc != NULL);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_DEFAULT));
-    ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_INCLUDE_ALL));
-    ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_INCLUDE_COND_DSTS));
-    ASSERT(instr_reads_from_reg(instr, REG_XMM1, 0));
-    ASSERT(!instr_writes_to_reg(instr, REG_XMM0, DR_QUERY_DEFAULT));
-    ASSERT(instr_writes_to_reg(instr, REG_XMM0, DR_QUERY_INCLUDE_ALL));
-    ASSERT(instr_writes_to_reg(instr, REG_XMM0, DR_QUERY_INCLUDE_COND_DSTS));
-    ASSERT(!instr_writes_to_reg(instr, REG_XMM0, 0));
+    ASSERT(instr_reads_from_reg(instr, DR_REG_XMM1, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_reg(instr, DR_REG_XMM1, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_reg(instr, DR_REG_XMM1, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_reg(instr, DR_REG_XMM1, 0));
+    ASSERT(!instr_writes_to_reg(instr, DR_REG_XMM0, DR_QUERY_DEFAULT));
+    ASSERT(instr_writes_to_reg(instr, DR_REG_XMM0, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_writes_to_reg(instr, DR_REG_XMM0, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_writes_to_reg(instr, DR_REG_XMM0, 0));
 
     instr_reset(dc, instr);
-    instr = INSTR_CREATE_cmovcc(dc, OP_cmovnle, opnd_create_reg(REG_EAX),
-                                opnd_create_reg(REG_ECX));
-    ASSERT(instr_reads_from_reg(instr, REG_ECX, DR_QUERY_DEFAULT));
-    ASSERT(instr_reads_from_reg(instr, REG_ECX, DR_QUERY_INCLUDE_ALL));
-    ASSERT(!instr_reads_from_reg(instr, REG_ECX, DR_QUERY_INCLUDE_COND_DSTS));
-    ASSERT(!instr_reads_from_reg(instr, REG_ECX, 0));
-    ASSERT(!instr_writes_to_reg(instr, REG_EAX, DR_QUERY_DEFAULT));
-    ASSERT(instr_writes_to_reg(instr, REG_EAX, DR_QUERY_INCLUDE_ALL));
-    ASSERT(instr_writes_to_reg(instr, REG_EAX, DR_QUERY_INCLUDE_COND_DSTS));
-    ASSERT(!instr_writes_to_reg(instr, REG_EAX, 0));
+    instr = INSTR_CREATE_cmovcc(dc, OP_cmovnle, opnd_create_reg(DR_REG_EAX),
+                                opnd_create_reg(DR_REG_ECX));
+    ASSERT(instr_reads_from_reg(instr, DR_REG_ECX, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_reg(instr, DR_REG_ECX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_reg(instr, DR_REG_ECX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_reg(instr, DR_REG_ECX, 0));
+    ASSERT(!instr_writes_to_reg(instr, DR_REG_EAX, DR_QUERY_DEFAULT));
+    ASSERT(instr_writes_to_reg(instr, DR_REG_EAX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_writes_to_reg(instr, DR_REG_EAX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_writes_to_reg(instr, DR_REG_EAX, 0));
     pc = instr_encode(dc, instr, buf);
     ASSERT(pc != NULL);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    ASSERT(instr_reads_from_reg(instr, REG_ECX, DR_QUERY_DEFAULT));
-    ASSERT(instr_reads_from_reg(instr, REG_ECX, DR_QUERY_INCLUDE_ALL));
-    ASSERT(!instr_reads_from_reg(instr, REG_ECX, DR_QUERY_INCLUDE_COND_DSTS));
-    ASSERT(!instr_reads_from_reg(instr, REG_ECX, 0));
-    ASSERT(!instr_writes_to_reg(instr, REG_EAX, DR_QUERY_DEFAULT));
-    ASSERT(instr_writes_to_reg(instr, REG_EAX, DR_QUERY_INCLUDE_ALL));
-    ASSERT(instr_writes_to_reg(instr, REG_EAX, DR_QUERY_INCLUDE_COND_DSTS));
-    ASSERT(!instr_writes_to_reg(instr, REG_EAX, 0));
+    ASSERT(instr_reads_from_reg(instr, DR_REG_ECX, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_reg(instr, DR_REG_ECX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_reg(instr, DR_REG_ECX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_reg(instr, DR_REG_ECX, 0));
+    ASSERT(!instr_writes_to_reg(instr, DR_REG_EAX, DR_QUERY_DEFAULT));
+    ASSERT(instr_writes_to_reg(instr, DR_REG_EAX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_writes_to_reg(instr, DR_REG_EAX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_writes_to_reg(instr, DR_REG_EAX, 0));
 
     /* bsf always writes to eflags */
     instr_reset(dc, instr);
-    instr = INSTR_CREATE_bsf(dc, opnd_create_reg(REG_EAX), opnd_create_reg(REG_ECX));
+    instr =
+        INSTR_CREATE_bsf(dc, opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_ECX));
     ASSERT(TESTALL(EFLAGS_WRITE_6, instr_get_eflags(instr, DR_QUERY_DEFAULT)));
     ASSERT(TESTALL(EFLAGS_WRITE_6, instr_get_eflags(instr, DR_QUERY_INCLUDE_ALL)));
     ASSERT(TESTALL(EFLAGS_WRITE_6, instr_get_eflags(instr, DR_QUERY_INCLUDE_COND_DSTS)));
