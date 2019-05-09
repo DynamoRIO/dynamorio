@@ -142,8 +142,16 @@ heap_check_option_compatibility(void);
 bool
 is_vmm_reserved_address(byte *pc, size_t size, OUT byte **region_start,
                         OUT byte **region_end);
+/* Returns whether "target" is reachable from all future vmcode allocations. */
 bool
 rel32_reachable_from_vmcode(byte *target);
+/* Returns whether "target" is reachable from the current vmcode.  It may
+ * not be reachable in the future.  This should normally only be used when
+ * "target" is going to be added to the must-be-reachable region, ensuring
+ * future reachability.
+ */
+bool
+rel32_reachable_from_current_vmcode(byte *target);
 
 /* heap management */
 void
@@ -193,6 +201,12 @@ heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded,
              which_vmm_t which);
 void
 heap_munmap_ex(void *p, size_t size, bool guarded, which_vmm_t which);
+
+byte *
+heap_reserve_for_external_mapping(byte *preferred, size_t size, which_vmm_t which);
+
+bool
+heap_unreserve_for_external_mapping(byte *p, size_t size, which_vmm_t which);
 
 /* updates dynamo_areas and calls the os_ versions */
 byte *
