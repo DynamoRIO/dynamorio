@@ -4117,7 +4117,7 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
             map_flags_t map_flags)
 {
     int flags;
-    byte *map;
+    byte *map = NULL;
 #if defined(X64)
     bool loop = false;
     uint iters = 0;
