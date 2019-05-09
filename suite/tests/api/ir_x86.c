@@ -111,8 +111,9 @@ static byte buf[8192];
 #define X86_ONLY 1
 #define X64_ONLY 2
 
-/***************************************************************************/
-/*********************** OPCODE_FOR_CREATE 0 args **************************/
+/****************************************************************************
+/* OPCODE_FOR_CREATE 0 args
+ */
 
 #define OPCODE_FOR_CREATE(name, opc, icnm, flags)                 \
     do {                                                          \
@@ -140,8 +141,9 @@ test_all_opcodes_0(void *dc)
 #undef OPCODE_FOR_CREATE
 #undef XOPCODE_FOR_CREATE
 
-/***************************************************************************/
-/*********************** OPCODE_FOR_CREATE 1 arg *************************=*/
+/****************************************************************************
+/* OPCODE_FOR_CREATE 1 arg
+ */
 
 #define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1)             \
     do {                                                            \
@@ -173,9 +175,9 @@ test_all_opcodes_1(void *dc)
 
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
-
-/***************************************************************************/
-/*********************** OPCODE_FOR_CREATE 2 args **************************/
+/****************************************************************************
+/* OPCODE_FOR_CREATE 2 args
+ */
 
 #    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2)             \
         do {                                                                  \
@@ -219,8 +221,9 @@ test_all_opcodes_2_avx512_vex(void *dc)
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
 
-/***************************************************************************/
-/*********************** OPCODE_FOR_CREATE 3 args **************************/
+/****************************************************************************
+/* OPCODE_FOR_CREATE 3 args
+ */
 
 #    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3)             \
         do {                                                                        \
@@ -262,9 +265,9 @@ test_all_opcodes_3_avx512_vex(void *dc)
 }
 
 static void
-test_all_opcodes_mask_3_avx512_evex(void *dc)
+test_all_opcodes_3_avx512_evex_mask(void *dc)
 {
-#    define INCLUDE_NAME "ir_x86_mask_3args_avx512_evex.h"
+#    define INCLUDE_NAME "ir_x86_3args_avx512_evex_mask.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
@@ -272,8 +275,9 @@ test_all_opcodes_mask_3_avx512_evex(void *dc)
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
 
-/***************************************************************************/
-/*********************** OPCODE_FOR_CREATE 4 args **************************/
+/****************************************************************************
+/* OPCODE_FOR_CREATE 4 args
+ */
 
 #    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4)      \
         do {                                                                       \
@@ -303,7 +307,8 @@ test_all_opcodes_4(void *dc)
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
 
-/***************************************************************************/
+/*
+ ****************************************************************************/
 
 static void
 test_opmask_disas_avx512(void *dc)
@@ -329,7 +334,7 @@ test_opmask_disas_avx512(void *dc)
 }
 
 static void
-test_disas_mask_3_avx512_evex(void *dc)
+test_disas_3_avx512_evex_mask(void *dc)
 {
     /* Test AVX-512 k-registers. */
     byte *pc;
@@ -1678,8 +1683,8 @@ main(int argc, char *argv[])
      * the same operands and operand sizes as their correspondent VEX encodings.
      * E.g. vpextrw, etc.
      */
-    test_all_opcodes_mask_3_avx512_evex(dcontext);
-    test_disas_mask_3_avx512_evex(dcontext);
+    test_all_opcodes_3_avx512_evex_mask(dcontext);
+    test_disas_3_avx512_evex_mask(dcontext);
 #endif
 
     print("all done\n");
