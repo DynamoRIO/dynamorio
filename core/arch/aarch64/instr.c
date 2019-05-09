@@ -382,6 +382,12 @@ reg_is_mmx(reg_id_t reg)
 }
 
 bool
+instr_is_opmask(instr_t *instr)
+{
+    return false;
+}
+
+bool
 reg_is_fp(reg_id_t reg)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */

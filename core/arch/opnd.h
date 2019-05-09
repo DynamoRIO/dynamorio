@@ -2361,13 +2361,24 @@ reg_64_to_32(reg_id_t reg);
 
 DR_API
 /**
- * Returns true iff \p reg refers to an extended register only available
- * in 64-bit mode and not in 32-bit mode (e.g., R8-R15, XMM8-XMM31, etc.)
+ * Returns true iff \p reg refers to an extended register only available in 64-bit
+ * mode and not in 32-bit mode. For AVX-512, it also returns true for the upper 8
+ * SIMD registers (e.g., R8-R15, XMM8-XMM15, XMM24-XMM31, ZMM24-ZMM31 etc.)
  *
  * \note For 64-bit DR builds only.
  */
 bool
 reg_is_extended(reg_id_t reg);
+
+DR_API
+/**
+ * Returns true iff \p reg refers to an extended AVX-512 register only available
+ * in 64-bit mode and not in 32-bit mode (e.g., XMM16-XMM31, ZMM16-ZMM31 etc.)
+ *
+ * \note For 64-bit DR builds only.
+ */
+bool
+reg_is_avx512_extended(reg_id_t reg);
 /* DR_API EXPORT BEGIN */
 #endif
 /* DR_API EXPORT END */

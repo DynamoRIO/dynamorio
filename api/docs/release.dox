@@ -157,6 +157,8 @@ compatibility changes:
    version 7.1.0 or earlier.
  - Renamed mcontext's "ymm" structure to "simd".
  - Deprecated reg_is_xmm() and reg_is_ymm().
+ - The function reg_is_extended() now returns true for the upper 8 simd registers
+   as part of AVX-512, e.g. xmm16 - xmm31.
 
 Further non-compatibility-affecting changes include:
 
@@ -176,6 +178,8 @@ Further non-compatibility-affecting changes include:
  - Added the function reg_is_opmask().
  - Added the functions reg_is_strictly_xmm(), reg_is_strictly_ymm() and
    reg_is_strictly_zmm().
+ - Added the function reg_is_avx512_extended().
+ - Added the function instr_is_opmask().
 
 **************************************************
 <hr>
