@@ -112,7 +112,7 @@ static byte buf[8192];
 #define X64_ONLY 2
 
 /****************************************************************************
-/* OPCODE_FOR_CREATE 0 args
+ * OPCODE_FOR_CREATE 0 args
  */
 
 #define OPCODE_FOR_CREATE(name, opc, icnm, flags)                 \
@@ -142,7 +142,7 @@ test_all_opcodes_0(void *dc)
 #undef XOPCODE_FOR_CREATE
 
 /****************************************************************************
-/* OPCODE_FOR_CREATE 1 arg
+ * OPCODE_FOR_CREATE 1 arg
  */
 
 #define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1)             \
@@ -176,7 +176,7 @@ test_all_opcodes_1(void *dc)
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
 /****************************************************************************
-/* OPCODE_FOR_CREATE 2 args
+ * OPCODE_FOR_CREATE 2 args
  */
 
 #    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2)             \
@@ -222,7 +222,7 @@ test_all_opcodes_2_avx512_vex(void *dc)
 #    undef XOPCODE_FOR_CREATE
 
 /****************************************************************************
-/* OPCODE_FOR_CREATE 3 args
+ * OPCODE_FOR_CREATE 3 args
  */
 
 #    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3)             \
@@ -276,7 +276,7 @@ test_all_opcodes_3_avx512_evex_mask(void *dc)
 #    undef XOPCODE_FOR_CREATE
 
 /****************************************************************************
-/* OPCODE_FOR_CREATE 4 args
+ * OPCODE_FOR_CREATE 4 args
  */
 
 #    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4)      \
