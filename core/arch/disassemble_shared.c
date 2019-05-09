@@ -887,9 +887,13 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                          */
                         optype = 0;
                     });
+        bool is_mask = !dsts_first() && !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
+            reg_is_opmask(opnd_get_reg(opnd));
+        print_to_buffer(buf, bufsz, sofar, is_mask ? "{" : "");
         printing =
             opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype, opnd,
                                         prev, multiple_encodings, dsts_first(), &i);
+        print_to_buffer(buf, bufsz, sofar, is_mask ? "}" : "");
         /* w/o the "printing" check we suppress "push esp" => "push" */
         if (printing && i < 3)
             optype_already[i] = optype;
@@ -920,10 +924,14 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                      (i == 0 && opnd_is_reg(opnd) && reg_is_fp(opnd_get_reg(opnd))));
         });
         if (print) {
+            bool is_mask = dsts_first() && !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
+                reg_is_opmask(opnd_get_reg(opnd));
+            print_to_buffer(buf, bufsz, sofar, is_mask ? "{" : "");
             prev = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype,
                                                opnd, prev, multiple_encodings,
                                                !dsts_first(), &i) ||
                 prev;
+            print_to_buffer(buf, bufsz, sofar, is_mask ? "}" : "");
         }
     }
 }
@@ -1096,7 +1104,15 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         if (i > 0)
             print_to_buffer(buf, bufsz, sofar, " ");
         sign_extend_immed(instr, i, &src);
+        /* XXX i#1312: we may want to more closely resemble ATT and Intel syntax w.r.t.
+         * EVEX mask operand. Tools tend to print the mask in conjunction with the
+         * destination in {} brackets.
+         */
+        bool is_mask = !instr_is_opmask(instr) && opnd_is_reg(src) &&
+            reg_is_opmask(opnd_get_reg(src));
+        print_to_buffer(buf, bufsz, sofar, is_mask ? "{" : "");
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, src, use_size_sfx);
+        print_to_buffer(buf, bufsz, sofar, is_mask ? "}" : "");
     }
     if (instr_num_dsts(instr) > 0) {
         print_to_buffer(buf, bufsz, sofar, " ->");
