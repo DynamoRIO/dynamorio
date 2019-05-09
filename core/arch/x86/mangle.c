@@ -2859,35 +2859,41 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
 #        endif
     if (opc == OP_lea) {
-        /* segment overrides are ignored on lea */
-        opnd_t immed;
-        dst = instr_get_dst(instr, 0);
-        src = instr_get_src(instr, 0);
-        ASSERT(opnd_is_reg(dst));
-        ASSERT(opnd_is_rel_addr(src));
-        ASSERT(opnd_get_addr(src) == tgt);
-        /* Replace w/ an absolute immed of the target app address, following Intel
-         * Table 3-59 "64-bit Mode LEA Operation with Address and Operand Size
-         * Attributes" */
-        /* FIXME PR 253446: optimization: we could leave this as rip-rel if it
-         * still reaches from the code cache. */
-        if (reg_get_size(opnd_get_reg(dst)) == OPSZ_8) {
-            /* PR 253327: there is no explicit addr32 marker; we assume
-             * that decode or the user already zeroed out the top bits
-             * if there was an addr32 prefix byte or the user wants
-             * that effect */
-            immed = OPND_CREATE_INTPTR((ptr_int_t)tgt);
-        } else if (reg_get_size(opnd_get_reg(dst)) == OPSZ_4)
-            immed = OPND_CREATE_INT32((int)(ptr_int_t)tgt);
-        else {
-            ASSERT(reg_get_size(opnd_get_reg(dst)) == OPSZ_2);
-            immed = OPND_CREATE_INT16((short)(ptr_int_t)tgt);
+        /* We leave this as rip-rel if it still reaches from the code cache. */
+        if (!rel32_reachable_from_vmcode(tgt)) {
+            /* segment overrides are ignored on lea */
+            opnd_t immed;
+            dst = instr_get_dst(instr, 0);
+            src = instr_get_src(instr, 0);
+            ASSERT(opnd_is_reg(dst));
+            ASSERT(opnd_is_rel_addr(src));
+            ASSERT(opnd_get_addr(src) == tgt);
+            /* Replace w/ an absolute immed of the target app address, following Intel
+             * Table 3-59 "64-bit Mode LEA Operation with Address and Operand Size
+             * Attributes" */
+            if (reg_get_size(opnd_get_reg(dst)) == OPSZ_8) {
+                /* PR 253327: there is no explicit addr32 marker; we assume
+                 * that decode or the user already zeroed out the top bits
+                 * if there was an addr32 prefix byte or the user wants
+                 * that effect */
+                immed = OPND_CREATE_INTPTR((ptr_int_t)tgt);
+            } else if (reg_get_size(opnd_get_reg(dst)) == OPSZ_4)
+                immed = OPND_CREATE_INT32((int)(ptr_int_t)tgt);
+            else {
+                ASSERT(reg_get_size(opnd_get_reg(dst)) == OPSZ_2);
+                immed = OPND_CREATE_INT16((short)(ptr_int_t)tgt);
+            }
+            PRE(ilist, instr, INSTR_CREATE_mov_imm(dcontext, dst, immed));
+            instrlist_remove(ilist, instr);
+            instr_destroy(dcontext, instr);
+            STATS_INC(rip_rel_lea);
+            DOSTATS({
+                if (tgt >= get_application_base() && tgt < get_application_end())
+                    STATS_INC(rip_rel_app_lea);
+            });
+            return NULL; /* == destroyed instr */
         }
-        PRE(ilist, instr, INSTR_CREATE_mov_imm(dcontext, dst, immed));
-        instrlist_remove(ilist, instr);
-        instr_destroy(dcontext, instr);
-        STATS_INC(rip_rel_lea);
-        return NULL; /* == destroyed instr */
+        return next_instr;
     } else {
         /* PR 251479 will automatically re-relativize if it reaches,
          * but if it doesn't we need to handle that here (since that
@@ -2991,6 +2997,10 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                         : restore);
             }
             STATS_INC(rip_rel_unreachable);
+            DOSTATS({
+                if (tgt >= get_application_base() && tgt < get_application_end())
+                    STATS_INC(rip_rel_app_unreachable);
+            });
         }
     }
     return next_instr;
