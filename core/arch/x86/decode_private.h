@@ -148,12 +148,14 @@ enum {
  *                     if bit 2 (OPCODE_REG) set, opcode has /n
  *                     if bit 3 (OPCODE_MODRM) set, opcode based on entire modrm
  *                       that modrm is stored as the byte 0.
- *                       if REQUIRES_VEX then this bit instead means that
- *                       this instruction must have vex.W set.
+ *                       if REQUIRES_VEX or REQUIRES_EVEX then this bit instead means
+ *                       that this instruction must have vex.W set.
  *                     if bit 4 (OPCODE_SUFFIX) set, opcode based on suffix byte
  *                       that byte is stored as the byte 0
  *                       if REQUIRES_VEX then this bit instead means that
  *                       this instruction must have vex.L set.
+ *                     XXX i#1312: Possibly a case for EVEX_LL (L') needs to be
+ *                     supported at some point.
  *                     XXX: so we do not support an instr that has an opcode
  *                     dependent on both a prefix and the entire modrm or suffix!
  *   2nd nibble (ls) = bits 1-3 hold /n for OPCODE_REG
@@ -220,6 +222,13 @@ enum {
     XOP_9_EXT,
     /* xop opcode map 10 */
     XOP_A_EXT,
+    /* instructions differing based on evex */
+    EVEX_PREFIX_EXT,
+    /* instructions differing based on evex.W */
+    EVEX_W_EXT,
+    /* XXX i#1312: We probably do not need EVEX_LL_EXT. L' does not seem to be part
+     * of any instruction's opcode. Remove this comment when this has been finalized.
+     */
     /* else, from OP_ enum */
 };
 
@@ -237,7 +246,7 @@ enum {
  * when decoding.  This is never needed for encoding.
  */
 #define REQUIRES_PREFIX 0x20
-/* instr must be encoded using vex.  if this flag is not present, this instruction
+/* Instr must be encoded using vex. If this flag is not present, this instruction
  * is invalid if encoded using vex.
  */
 #define REQUIRES_VEX 0x40
@@ -259,6 +268,10 @@ enum {
 #define HAS_PRED_CC 0x0400
 /* Predicated via something complex */
 #define HAS_PRED_COMPLEX 0x0800
+/* Instr must be encoded using evex. If this flag is not present, this instruction
+ * is invalid if encoded using evex.
+ */
+#define REQUIRES_EVEX 0x01000
 
 struct _decode_info_t {
     uint opcode;
@@ -471,14 +484,14 @@ opc_is_cbr_arch(int opc);
 extern const instr_info_t first_byte[];
 extern const instr_info_t second_byte[];
 extern const instr_info_t base_extensions[][8];
-extern const instr_info_t prefix_extensions[][8];
+extern const instr_info_t prefix_extensions[][12];
 extern const instr_info_t mod_extensions[][2];
 extern const instr_info_t rm_extensions[][8];
 extern const instr_info_t x64_extensions[][2];
 extern const instr_info_t rex_b_extensions[][2];
 extern const instr_info_t rex_w_extensions[][2];
 extern const instr_info_t vex_prefix_extensions[][2];
-extern const instr_info_t e_vex_extensions[][2];
+extern const instr_info_t e_vex_extensions[][3];
 extern const instr_info_t vex_L_extensions[][3];
 extern const instr_info_t vex_W_extensions[][2];
 extern const byte third_byte_38_index[256];
@@ -498,6 +511,7 @@ extern const byte xop_a_index[256];
 extern const instr_info_t xop_prefix_extensions[][2];
 extern const instr_info_t xop_extensions[];
 extern const instr_info_t evex_prefix_extensions[][2];
+extern const instr_info_t evex_W_extensions[][2];
 
 /* table that translates opcode enums into pointers into decoding tables */
 extern const instr_info_t *const op_instr[];

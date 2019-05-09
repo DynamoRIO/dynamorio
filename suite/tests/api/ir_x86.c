@@ -261,6 +261,14 @@ test_all_opcodes_3_avx512_vex(void *dc)
 #    undef INCLUDE_NAME
 }
 
+static void
+test_all_opcodes_mask_3_avx512_evex(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_mask_3args_avx512_evex.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
 
@@ -318,6 +326,72 @@ test_opmask_disas_avx512(void *dc)
     ASSERT(strcmp(buf,
                   IF_X64_ELSE("addr32 kmovw  (%ecx)[2byte] -> %k5\n",
                               "addr16 kmovw  (%bx,%di)[2byte] -> %k5\n")) == 0);
+}
+
+static void
+test_disas_mask_3_avx512_evex(void *dc)
+{
+    /* Test AVX-512 k-registers. */
+    byte *pc;
+    const byte b1[] = { 0x62, 0xb1, 0x7c, 0x49, 0x10, 0xc8 };
+    const byte b2[] = { 0x62, 0x21, 0x7c, 0x49, 0x10, 0xf8 };
+    const byte b3[] = { 0x62, 0x61, 0x7c, 0x49, 0x11, 0x3c, 0x24 };
+    const byte b4[] = { 0x62, 0x61, 0x7c, 0x49, 0x10, 0x3c, 0x24 };
+    const byte b5[] = { 0x62, 0x61, 0x7c, 0x49, 0x10, 0xf9 };
+    const byte b6[] = { 0x62, 0xf1, 0x7c, 0x49, 0x10, 0x0c, 0x24 };
+    const byte b7[] = { 0x62, 0xf1, 0x7c, 0x49, 0x10, 0xc1 };
+    const byte b8[] = { 0x62, 0xf1, 0x7c, 0x49, 0x11, 0x0c, 0x24 };
+
+    char buf[512];
+    int len;
+
+#    ifdef X64
+    pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf, "vmovups {%k1} %zmm16 -> %zmm1\n") == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf, "vmovups {%k1} %zmm16 -> %zmm31\n") == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)b3, (byte *)b3, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf, "vmovups {%k1} %zmm31 -> (%rsp)[64byte]\n") == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)b4, (byte *)b4, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf,
+                  IF_X64_ELSE("vmovups {%k1} (%rsp)[64byte] -> %zmm31\n",
+                              "vmovups {%k1} (%esp)[64byte] -> %zmm31\n")) == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)b5, (byte *)b5, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf, "vmovups {%k1} %zmm1 -> %zmm31\n") == 0);
+#    endif
+
+    pc = disassemble_to_buffer(dc, (byte *)b6, (byte *)b6, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf,
+                  IF_X64_ELSE("vmovups {%k1} (%rsp)[64byte] -> %zmm1\n",
+                              "vmovups {%k1} (%esp)[64byte] -> %zmm1\n")) == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)b7, (byte *)b7, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf, "vmovups {%k1} %zmm1 -> %zmm0\n") == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)b8, (byte *)b8, false /*no pc*/,
+                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf,
+                  IF_X64_ELSE("vmovups {%k1} %zmm1 -> (%rsp)[64byte]\n",
+                              "vmovups {%k1} %zmm1 -> (%esp)[64byte]\n")) == 0);
 }
 
 #endif /* !STANDALONE_DECODER */
@@ -1551,9 +1625,6 @@ main(int argc, char *argv[])
     test_all_opcodes_2_mm(dcontext);
     test_all_opcodes_3(dcontext);
     test_all_opcodes_3_avx(dcontext);
-    test_all_opcodes_2_avx512_vex(dcontext);
-    test_all_opcodes_3_avx512_vex(dcontext);
-    test_opmask_disas_avx512(dcontext);
     test_all_opcodes_4(dcontext);
 #endif
 
@@ -1598,6 +1669,18 @@ main(int argc, char *argv[])
     test_xinst_create(dcontext);
 
     test_stack_pointer_size(dcontext);
+
+#ifndef STANDALONE_DECODER /* speed up compilation */
+    test_all_opcodes_2_avx512_vex(dcontext);
+    test_all_opcodes_3_avx512_vex(dcontext);
+    test_opmask_disas_avx512(dcontext);
+    /* XXX i#1312: Add support and tests for redundant EVEX encodings that encode
+     * the same operands and operand sizes as their correspondent VEX encodings.
+     * E.g. vpextrw, etc.
+     */
+    test_all_opcodes_mask_3_avx512_evex(dcontext);
+    test_disas_mask_3_avx512_evex(dcontext);
+#endif
 
     print("all done\n");
     return 0;
