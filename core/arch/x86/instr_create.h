@@ -2236,7 +2236,7 @@
 /** @name 1 destination, 1 mask, and 1 non-immediate source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_mask_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx_mask macro creates an instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands. The first source
  * operand is the instruction's mask.
  *
