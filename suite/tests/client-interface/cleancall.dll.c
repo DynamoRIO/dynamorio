@@ -56,7 +56,8 @@ static void set_xmm()
     new_reg_val_buf[0] = 0x77;
     new_reg_val_buf[2] = 0x89;
     new_reg_val_buf[14] = 0x21;
-    reg_set_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf, 16);
+    bool succ = reg_set_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf, 16);
+    ASSERT(succ == true);
     dr_set_mcontext(drcontext, &mcontext);
 }
 
@@ -69,7 +70,8 @@ static void check_xmm()
     ASSERT(new_reg_val_buf[0] == 0x77);
     ASSERT(new_reg_val_buf[2] == 0x89);
     ASSERT(new_reg_val_buf[14] == 0x21);
-    reg_set_value_ex(DR_REG_XMM0, &mcontext, orig_reg_val_buf, 16);
+    bool succ = reg_set_value_ex(DR_REG_XMM0, &mcontext, orig_reg_val_buf, 16);
+    ASSERT(succ == true);
     dr_set_mcontext(drcontext, &mcontext);
 }
 #endif
