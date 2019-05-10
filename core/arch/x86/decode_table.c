@@ -1266,7 +1266,7 @@ const instr_info_t * const op_instr[] =
     /* OP_vpbroadcastd  */   &third_byte_38[118],
     /* OP_vpbroadcastq  */   &third_byte_38[119],
 
-    /* Added in Intel Skylake */
+    /* added in Intel Skylake */
     /* OP_xsavec32      */   &rex_w_extensions[5][0],
     /* OP_xsavec64      */   &rex_w_extensions[5][1],
 
