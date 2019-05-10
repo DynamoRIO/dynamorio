@@ -1815,7 +1815,8 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t s
     dr_zmm_t *simd = (dr_zmm_t *)((byte *)mc + SIMD_OFFSET);
 
     if (reg_is_gpr(reg)) {
-        CLIENT_ASSERT(size == GPR_REG_SIZE, "size does not match GPR register.");
+        CLIENT_ASSERT(reg_is_pointer_sized(reg) == true,
+                      "size does not match GPR register.");
         byte *reg_val_addr = ((byte *)mc + opnd_get_reg_mcontext_offs(reg));
         memcpy(reg_val_addr, val_buf, size);
     } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
