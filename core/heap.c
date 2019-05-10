@@ -1193,6 +1193,7 @@ vmcode_get_executable_addr(byte *write_addr)
     return (write_addr - heapmgt->vmcode_writable_base) + heapmgt->vmcode.start_addr;
 }
 
+#ifdef DEBUG_MEMORY
 static inline byte *
 vmm_get_writable_addr(byte *exec_addr, which_vmm_t which)
 {
@@ -1201,6 +1202,7 @@ vmm_get_writable_addr(byte *exec_addr, which_vmm_t which)
         return vmcode_get_writable_addr(exec_addr);
     return exec_addr;
 }
+#endif
 
 /* The caller must first ensure this is a vmcode address.  Returns p_writable. */
 static inline vm_addr_t

@@ -4586,8 +4586,8 @@ emit_patch_syscall(dcontext_t *dcontext, byte *target _IF_X64(gencode_mode_t mod
          */
         instr_t *instr = XINST_CREATE_jump(dcontext, opnd_create_pc(pc));
         byte *tgt_pc = after_shared_syscall_code_ex(dcontext _IF_X64(mode));
-        DEBUG_DECLARE(byte *nxt_pc =)
-        instr_encode_to_copy(dcontext, instr, vmcode_get_writable_addr(tgt_pc), tgt_pc);
+        byte *nxt_pc = instr_encode_to_copy(dcontext, instr,
+                                            vmcode_get_writable_addr(tgt_pc), tgt_pc);
         ASSERT(nxt_pc != NULL);
         nxt_pc = vmcode_get_executable_addr(nxt_pc);
         /* check that there was room - shared_syscall should be before do_syscall

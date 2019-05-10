@@ -4228,12 +4228,14 @@ os_unmap_file(byte *map, size_t size)
     return (res == 0);
 }
 
+#ifdef LINUX
 static void
 os_get_memory_file_shm_path(const char *name, OUT char *buf, size_t bufsz)
 {
-    dr_snprintf(buf, bufsz, "/dev/shm/%s.%d", name, get_process_id());
+    snprintf(buf, bufsz, "/dev/shm/%s.%d", name, get_process_id());
     buf[bufsz - 1] = '\0';
 }
+#endif
 
 file_t
 os_create_memory_file(const char *name, size_t size)
@@ -4245,9 +4247,13 @@ os_create_memory_file(const char *name, size_t size)
      * has no name conflict issues, stale files left around on a crash, or
      * reliance on tmpfs).
      */
-    dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "/%s.%d", name, get_process_id());
+#    ifdef SYS_memfd_create
+    snprintf(path, BUFFER_SIZE_ELEMENTS(path), "/%s.%d", name, get_process_id());
     NULL_TERMINATE_BUFFER(path);
     fd = dynamorio_syscall(SYS_memfd_create, 2, path, 0);
+#    else
+    fd = -ENOSYS;
+#    endif
     if (fd == -ENOSYS) {
         /* Fall back on /dev/shm. */
         os_get_memory_file_shm_path(name, path, BUFFER_SIZE_ELEMENTS(path));
