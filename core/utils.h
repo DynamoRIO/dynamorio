@@ -1148,7 +1148,8 @@ bitmap_clear(bitmap_t b, uint i)
 void
 bitmap_initialize_free(bitmap_t b, uint bitmap_size);
 uint
-bitmap_allocate_blocks(bitmap_t b, uint bitmap_size, uint request_blocks);
+bitmap_allocate_blocks(bitmap_t b, uint bitmap_size, uint request_blocks,
+                       uint start_block);
 void
 bitmap_free_blocks(bitmap_t b, uint bitmap_size, uint first_block, uint num_free);
 
