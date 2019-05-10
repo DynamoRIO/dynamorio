@@ -74,6 +74,41 @@ static void check_xmm()
     ASSERT(succ == true);
     dr_set_mcontext(drcontext, &mcontext);
 }
+
+static void set_gpr()
+{
+    void *drcontext = dr_get_current_drcontext();
+    opnd_t reg_opnd = opnd_create_reg(DR_REG_XAX);
+    opnd_size_t size_opnd = opnd_get_size(reg_opnd);
+    size_t size = opnd_size_in_bytes(size_opnd);
+    dr_mcontext_t mcontext = { sizeof(mcontext), DR_MC_ALL, };
+    dr_get_mcontext(drcontext, &mcontext);
+    reg_get_value_ex(DR_REG_XAX, &mcontext, orig_reg_val_buf);
+    reg_get_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf);
+    new_reg_val_buf[0] = 0x75;
+    new_reg_val_buf[2] = 0x83;
+    new_reg_val_buf[3] = 0x23;
+    bool succ = reg_set_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf, size);
+    ASSERT(succ == true);
+    dr_set_mcontext(drcontext, &mcontext);
+}
+
+static void check_gpr()
+{
+    void *drcontext = dr_get_current_drcontext();
+    opnd_t reg_opnd = opnd_create_reg(DR_REG_XAX);
+    opnd_size_t size_opnd = opnd_get_size(reg_opnd);
+    size_t size = opnd_size_in_bytes(size_opnd);
+    dr_mcontext_t mcontext = { sizeof(mcontext), DR_MC_ALL, };
+    dr_get_mcontext(drcontext, &mcontext);
+    reg_get_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf);
+    ASSERT(new_reg_val_buf[0] == 0x75);
+    ASSERT(new_reg_val_buf[2] == 0x83);
+    ASSERT(new_reg_val_buf[3] == 0x23);
+    bool succ = reg_set_value_ex(DR_REG_XAX, &mcontext, orig_reg_val_buf, size);
+    ASSERT(succ == true);
+    dr_set_mcontext(drcontext, &mcontext);
+}
 #endif
 
 static void
@@ -190,6 +225,10 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
          */
         dr_insert_clean_call(drcontext, bb, instr, set_xmm, false, 0);
         dr_insert_clean_call(drcontext, bb, instr, check_xmm, false, 0);
+
+        /* Another test, setting a gpr. */
+        dr_insert_clean_call(drcontext, bb, instr, set_gpr, false, 0);
+        dr_insert_clean_call(drcontext, bb, instr, check_gpr, false, 0);
 #endif
     }
 
