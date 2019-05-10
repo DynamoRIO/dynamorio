@@ -1793,7 +1793,10 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.modules client-interface/modules.c "" "" "${modules_libname}")
   endif ()
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
-    tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
+    tobuild_ci(client.alloc client-interface/alloc.c ""
+      # For the subtest "targeting upper 2GB of low 4GB" we move -vm_base out of the
+      # way:
+      "-no_vm_base_near_app -vm_base 0x120000000" "")
     tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
     if (UNIX)
       torunonly_ci(client.cleancall.prof-pcs client.cleancall client.cleancall.dll

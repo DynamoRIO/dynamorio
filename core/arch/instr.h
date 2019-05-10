@@ -2238,6 +2238,11 @@ bool
 instr_is_mmx(instr_t *instr);
 
 DR_API
+/** Returns true iff \p instr is part of Intel's AVX-512 scalar opmask instructions. */
+bool
+instr_is_opmask(instr_t *instr);
+
+DR_API
 /** Returns true iff \p instr is part of Intel's SSE instructions. */
 bool
 instr_is_sse(instr_t *instr);

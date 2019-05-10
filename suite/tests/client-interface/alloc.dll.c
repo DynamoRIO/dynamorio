@@ -202,7 +202,9 @@ reachability_test(void)
 
     dr_raw_mem_free(highmem, PAGE_SIZE);
 
-    /* Test targeting upper 2GB of low 4GB */
+    /* Test targeting upper 2GB of low 4GB (this will fail with default options
+     * of -vm_size 2G and a low vm_base b/c there's no room there).
+     */
     highmem =
         dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE | DR_MEMPROT_EXEC,
                          (byte *)0xabcd0000);
