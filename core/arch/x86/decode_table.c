@@ -1328,12 +1328,12 @@ const instr_info_t * const op_instr[] =
     /* OP_ktestd        */  &vex_W_extensions[105][1],
 
     /* AVX-512 EVEX encoded */
+    /* OP_vmovdqa32     */  &evex_W_extensions[8][0],
+    /* OP_vmovdqa64     */  &evex_W_extensions[8][1],
     /* OP_vmovdqu8      */  &evex_W_extensions[10][0],
     /* OP_vmovdqu16     */  &evex_W_extensions[10][1],
     /* OP_vmovdqu32     */  &evex_W_extensions[11][0],
     /* OP_vmovdqu64     */  &evex_W_extensions[11][1],
-    /* OP_vmovdqa32     */  &evex_W_extensions[8][0],
-    /* OP_vmovdqa64     */  &evex_W_extensions[8][1],
 
     /* TODO i#1312. */
 };
