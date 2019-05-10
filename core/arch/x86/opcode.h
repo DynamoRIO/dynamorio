@@ -1320,6 +1320,10 @@ enum {
     /* 1157 */ OP_ktestd,   /**< IA-32/AMD64 AVX-512 ktestd opcode. */
 
     /* Intel AVX-512 EVEX */
+    /* XXX i#1312: The opcode enum numbers here are changing as long as
+     * AVX-512 instructions are being added to DynamoRIO. Users are advised
+     * not to rely on the numerical value until i#1312 has been completed.
+     */
     /* 1158 */ OP_vmovdqa32, /**< IA-32/AMD64 AVX-512 vmovdqa32 opcode. */
     /* 1159 */ OP_vmovdqa64, /**< IA-32/AMD64 AVX-512 vmovdqa64 opcode. */
     /* 1160 */ OP_vmovdqu8,  /**< IA-32/AMD64 AVX-512 vmovdqu8 opcode. */
