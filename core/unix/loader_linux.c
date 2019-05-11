@@ -330,12 +330,6 @@ privload_tls_init(void *app_tp)
     /* We copy the whole tcb to avoid initializing it by ourselves.
      * and update some fields accordingly.
      */
-    /* DynamoRIO shares the same libc with the application,
-     * so as the tls used by libc. Thus we need duplicate
-     * those tls with the same offset after switch the segment.
-     * This copy can be avoided if we remove the DR's dependency on
-     * libc.
-     */
     if (app_tp != NULL &&
         !safe_read_ex(app_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE,
                       APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size,
