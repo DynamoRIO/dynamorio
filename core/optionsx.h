@@ -1417,10 +1417,18 @@ DYNAMIC_OPTION(bool, pause_via_loop,
     OPTION_DEFAULT_INTERNAL(bool, skip_out_of_vm_reserve_curiosity, false,
         "skip the assert curiosity on out of vm_reserve (for regression tests)")
     OPTION_DEFAULT(bool, vm_reserve, true, "reserve virtual memory")
-    OPTION_DEFAULT(uint_size, vm_size, IF_X64_ELSE(512,128)*1024*1024,
+    OPTION_DEFAULT(uint_size, vm_size,
+                   /* The 64-bit default is 1G instead of the full 32-bit-reachable
+                    * 2G to allow for -vm_base_near_app to reduce overheads.
+                    * If this is set to 2G, -vm_base_near_app will always fail.
+                    */
+                   /* TODO i#3570: Add support for private loading inside the vm_size
+                    * region so Windows can support a 2G size.
+                    */
+                   IF_X64_ELSE(IF_WINDOWS_ELSE(512,1024UL),128)*1024*1024,
                    "capacity of virtual memory region reserved (maximum supported is "
                    "512MB for 32-bit and 2GB for 64-bit) for code and reachable heap")
-    OPTION_DEFAULT(uint_size, vmheap_size, IF_X64_ELSE(512,128)*1024*1024,
+    OPTION_DEFAULT(uint_size, vmheap_size, IF_X64_ELSE(2048UL,128)*1024*1024,
                    /* XXX: default value is currently not good enough for sqlserver,
                     * for which we need more than 256MB.
                     */
@@ -1458,14 +1466,15 @@ DYNAMIC_OPTION(bool, pause_via_loop,
      * an absolute requirement (XXX i#829: it is required for mixed-mode).
      */
     OPTION_DEFAULT(bool, heap_in_lower_4GB, false,
-                   "on 64bit request that the dr heap "
-                   "be allocated entirely within the lower 4GB of address space so that "
-                   "it can be accessed directly as a 32bit address. See PR 215395.")
+                   "on 64bit request that the dr heap be allocated entirely within the "
+                   "lower 4GB of address space so that it can be accessed directly as a "
+                   "32bit address. See PR 215395.  Requires -reachable_heap.")
     /* By default we separate heap from code and do not require reachability for heap. */
     OPTION_DEFAULT(bool, reachable_heap, false,
                    "guarantee that all heap memory is 32-bit-displacement "
                    "reachable from the code cache.")
-    OPTION_DEFAULT(bool, reachable_client, true,
+    /* i#3570: For static DR we do not guarantee reachability. */
+    OPTION_DEFAULT(bool, reachable_client, IF_STATIC_LIBRARY_ELSE(false, true),
                    "guarantee that clients are reachable from the code cache.")
 #endif
      /* FIXME: the lower 16 bits are ignored - so this here gives us

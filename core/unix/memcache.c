@@ -335,7 +335,7 @@ memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exist
                      /* we could synch up: instead we relax the assert if DR areas not
                       * in allmem
                       */
-                     are_dynamo_vm_areas_stale());
+                     are_dynamo_vm_areas_stale() || !dynamo_initialized);
     LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas " PFX "-" PFX " prot->%d\n",
         start, end, prot);
     memcache_update(start, end, prot, type);

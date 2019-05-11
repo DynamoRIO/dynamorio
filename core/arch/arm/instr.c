@@ -465,6 +465,12 @@ instr_is_mmx(instr_t *instr)
 }
 
 bool
+instr_is_opmask(instr_t *instr)
+{
+    return false;
+}
+
+bool
 instr_is_sse_or_sse2(instr_t *instr)
 {
     return false;

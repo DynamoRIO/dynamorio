@@ -1530,7 +1530,8 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_8_rex16_short4: /* default size */ return 8;
     case OPSZ_16:
     case OPSZ_16_vex32:
-    case OPSZ_16_of_32: return 16;
+    case OPSZ_16_of_32:
+    case OPSZ_16_vex32_evex64: return 16;
     case OPSZ_6x10:
         /* table base + limit; w/ addr16, different format, but same total footprint */
         return IF_X64_ELSE(6, 10);
@@ -2024,11 +2025,23 @@ reg_is_extended(reg_id_t reg)
             (reg >= REG_START_16 + 8 && reg <= REG_STOP_16) ||
             (reg >= REG_START_8 + 8 && reg <= REG_STOP_8) ||
             (reg >= REG_START_x64_8 && reg <= REG_STOP_x64_8) ||
-            (reg >= DR_REG_START_XMM + 8 && reg <= DR_REG_STOP_XMM) ||
-            (reg >= DR_REG_START_YMM + 8 && reg <= DR_REG_STOP_YMM) ||
-            (reg >= DR_REG_START_ZMM + 8 && reg <= DR_REG_STOP_ZMM) ||
+            ((reg >= DR_REG_START_XMM + 8 && reg <= DR_REG_START_XMM + 15) ||
+             (reg >= DR_REG_START_XMM + 24 && reg <= DR_REG_STOP_XMM)) ||
+            ((reg >= DR_REG_START_YMM + 8 && reg <= DR_REG_START_YMM + 15) ||
+             (reg >= DR_REG_START_YMM + 24 && reg <= DR_REG_STOP_YMM)) ||
+            ((reg >= DR_REG_START_ZMM + 8 && reg <= DR_REG_START_ZMM + 15) ||
+             (reg >= DR_REG_START_ZMM + 24 && reg <= DR_REG_STOP_ZMM)) ||
             (reg >= REG_START_DR + 8 && reg <= REG_STOP_DR) ||
             (reg >= REG_START_CR + 8 && reg <= REG_STOP_CR));
+}
+
+bool
+reg_is_avx512_extended(reg_id_t reg)
+{
+    /* Note that we do consider spl, bpl, sil, and dil to be "extended" */
+    return ((reg >= DR_REG_START_XMM + 16 && reg <= DR_REG_STOP_XMM) ||
+            (reg >= DR_REG_START_YMM + 16 && reg <= DR_REG_STOP_YMM) ||
+            (reg >= DR_REG_START_ZMM + 16 && reg <= DR_REG_STOP_ZMM));
 }
 #    endif
 #endif
