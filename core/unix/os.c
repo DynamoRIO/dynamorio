@@ -4163,7 +4163,7 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
            * memory.  We live with that as being rare rather than complicate the code.
            */
           !rel32_reachable_from_current_vmcode(addr))) ||
-        (TEST(MAP_FILE_FIXED, map_flags) &&
+        (TEST(MAP_FILE_FIXED, map_flags) && !TEST(MAP_FILE_VMM_COMMIT, map_flags) &&
          is_vmm_reserved_address(addr, *size, NULL, NULL))) {
         if (DYNAMO_OPTION(vm_reserve)) {
             /* Try to get space inside the vmcode reservation. */
@@ -4226,6 +4226,82 @@ os_unmap_file(byte *map, size_t size)
     }
     long res = munmap_syscall(map, size);
     return (res == 0);
+}
+
+#ifdef LINUX
+static void
+os_get_memory_file_shm_path(const char *name, OUT char *buf, size_t bufsz)
+{
+    snprintf(buf, bufsz, "/dev/shm/%s.%d", name, get_process_id());
+    buf[bufsz - 1] = '\0';
+}
+#endif
+
+file_t
+os_create_memory_file(const char *name, size_t size)
+{
+#ifdef LINUX
+    char path[MAXIMUM_PATH];
+    file_t fd;
+    /* We need an in-memory file. We prefer the new memfd_create over /dev/shm (it
+     * has no name conflict issues, stale files left around on a crash, or
+     * reliance on tmpfs).
+     */
+#    ifdef SYS_memfd_create
+    snprintf(path, BUFFER_SIZE_ELEMENTS(path), "/%s.%d", name, get_process_id());
+    NULL_TERMINATE_BUFFER(path);
+    fd = dynamorio_syscall(SYS_memfd_create, 2, path, 0);
+#    else
+    fd = -ENOSYS;
+#    endif
+    if (fd == -ENOSYS) {
+        /* Fall back on /dev/shm. */
+        os_get_memory_file_shm_path(name, path, BUFFER_SIZE_ELEMENTS(path));
+        NULL_TERMINATE_BUFFER(path);
+        fd = open_syscall(path, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
+        if (fd == -EEXIST) {
+            /* We assume a stale file from some prior crash. */
+            SYSLOG_INTERNAL_WARNING("Removing presumed-stale %s", path);
+            os_delete_file(path);
+            fd = open_syscall(path, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
+        }
+    }
+    if (fd < 0)
+        return INVALID_FILE;
+    if (dynamorio_syscall(SYS_ftruncate, 2, fd, size) < 0) {
+        close_syscall(fd);
+        return INVALID_FILE;
+    }
+    file_t priv_fd = fd_priv_dup(fd);
+    if (priv_fd < 0) {
+        close_syscall(fd);
+        return INVALID_FILE;
+    }
+    fd = priv_fd;
+    fd_mark_close_on_exec(fd); /* We could use MFD_CLOEXEC for memfd_create. */
+    return fd;
+#else
+    ASSERT_NOT_IMPLEMENTED(false && "i#3556 NYI for Mac");
+    return INVALID_FILE;
+#endif
+}
+
+void
+os_delete_memory_file(const char *name, file_t fd)
+{
+#ifdef LINUX
+    /* There is no need to delete a memfd_create path, but if we used shm we need
+     * to clean it up.  We blindly do this rather than trying to record whether
+     * we created this file.
+     */
+    char path[MAXIMUM_PATH];
+    os_get_memory_file_shm_path(name, path, BUFFER_SIZE_ELEMENTS(path));
+    NULL_TERMINATE_BUFFER(path);
+    os_delete_file(path);
+    close_syscall(fd);
+#else
+    ASSERT_NOT_IMPLEMENTED(false && "i#3556 NYI for Mac");
+#endif
 }
 
 bool

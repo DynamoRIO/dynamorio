@@ -1438,7 +1438,8 @@
 #define INSTR_CREATE_ktestd(dc, d, s) instr_create_1dst_1src((dc), OP_ktestd, (d), (s))
 /* AVX-512 EVEX */
 /* TODO i#1312: AVX-512 promoted AVX opcodes with default mask k0 should be covered by
- * macros above, but encoder should assign default mask. */
+ * macros above, but encoder should assign default mask.
+ */
 
 /* @} */ /* end doxygen group */
 
@@ -2254,6 +2255,22 @@
     instr_create_1dst_2src((dc), OP_vmovaps, (d), (k), (s))
 #define INSTR_CREATE_vmovapd_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vmovapd, (d), (k), (s))
+#define INSTR_CREATE_vmovdqa32_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovdqa32, (d), (k), (s))
+#define INSTR_CREATE_vmovdqa64_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovdqa64, (d), (k), (s))
+#define INSTR_CREATE_vmovdqu8_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovdqu8, (d), (k), (s))
+#define INSTR_CREATE_vmovdqu16_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovdqu16, (d), (k), (s))
+#define INSTR_CREATE_vmovdqu32_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovdqu32, (d), (k), (s))
+#define INSTR_CREATE_vmovdqu64_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovdqu64, (d), (k), (s))
+#define INSTR_CREATE_vmovss_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovss, (d), (k), (s))
+#define INSTR_CREATE_vmovsd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovsd, (d), (k), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -2930,6 +2947,26 @@
     instr_create_1dst_3src((dc), OP_vpblendd, (d), (s1), (s2), (s3))
 #define INSTR_CREATE_vperm2i128(dc, d, s1, s2, s3) \
     instr_create_1dst_3src((dc), OP_vperm2i128, (d), (s1), (s2), (s3))
+/* @} */ /* end doxygen group */
+
+/** @name 1 destination, 1 mask, and 2 non-immediate sources */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx_mask macro creates an instr_t with opcode OP_xxx and the given
+ * explicit operands, automatically supplying any implicit operands. The first source
+ * operand is the instruction's mask.
+ *
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param k The opnd_t explicit mask source operand for the instruction.
+ * \param s1 The opnd_t explicit first source operand for the instruction
+ * \param s2 The opnd_t explicit second source operand for the instruction
+ */
+/* AVX-512 EVEX */
+#define INSTR_CREATE_vmovss_NDS_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmovss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmovsd_NDS_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmovsd, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */

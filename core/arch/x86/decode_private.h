@@ -149,7 +149,7 @@ enum {
  *                     if bit 3 (OPCODE_MODRM) set, opcode based on entire modrm
  *                       that modrm is stored as the byte 0.
  *                       if REQUIRES_VEX or REQUIRES_EVEX then this bit instead means
- *                       that this instruction must have vex.W set.
+ *                       that this instruction must have vex.W or evex.W set.
  *                     if bit 4 (OPCODE_SUFFIX) set, opcode based on suffix byte
  *                       that byte is stored as the byte 0
  *                       if REQUIRES_VEX then this bit instead means that

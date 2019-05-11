@@ -1842,7 +1842,7 @@ fcache_shift_fragments(dcontext_t *dcontext, fcache_unit_t *unit, ssize_t shift,
         /* now that f->start_pc is updated, update the backpointer */
         new_pc = FRAG_HDR_START(f);
         LOG(THREAD, LOG_CACHE, 4, "resize: writing " PFX " to " PFX "\n", f, new_pc);
-        *((fragment_t **)new_pc) = f;
+        *((fragment_t **)vmcode_get_writable_addr(new_pc)) = f;
         /* move to contiguously-next fragment_t in cache */
         pc += FRAG_SIZE(f);
     }
@@ -2344,7 +2344,7 @@ fifo_prepend_empty(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         if (FRAG_HDR_START(cache->fifo) == start_pc + size) {
             LOG(THREAD, LOG_CACHE, 5, "prepend: just enlarging next empty\n");
             FRAG_START_ASSIGN(cache->fifo, start_pc + HEADER_SIZE_FROM_CACHE(cache));
-            *((fragment_t **)start_pc) = cache->fifo;
+            *((fragment_t **)vmcode_get_writable_addr(start_pc)) = cache->fifo;
             FRAG_SIZE_ASSIGN(cache->fifo, FRAG_SIZE(cache->fifo) + size);
             return;
         } else if (FRAG_HDR_START(cache->fifo) + FRAG_SIZE(cache->fifo) == start_pc) {
@@ -2358,7 +2358,7 @@ fifo_prepend_empty(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         ALLOC_DC(dcontext, cache), sizeof(empty_slot_t) HEAPACCT(ACCT_FCACHE_EMPTY));
     slot->flags = FRAG_FAKE | FRAG_IS_EMPTY_SLOT;
     LOG(THREAD, LOG_CACHE, 5, "prepend: writing " PFX " to " PFX "\n", slot, start_pc);
-    *((empty_slot_t **)start_pc) = slot;
+    *((empty_slot_t **)vmcode_get_writable_addr(start_pc)) = slot;
     slot->start_pc = start_pc + HEADER_SIZE_FROM_CACHE(cache);
     slot->fcache_size = size;
     /* stick on front */
@@ -2697,7 +2697,7 @@ place_fragment(dcontext_t *dcontext, fragment_t *f, fcache_unit_t *unit,
     if (HEADER_SIZE(f) > 0) {
         /* add header */
         LOG(THREAD, LOG_CACHE, 5, "place: writing " PFX " to " PFX "\n", f, header_pc);
-        *((fragment_t **)header_pc) = f;
+        *((fragment_t **)vmcode_get_writable_addr(header_pc)) = f;
     }
     /* we assume alignment padding was added at end of prev fragment, so this
      * guy needs no padding at start
@@ -2957,12 +2957,17 @@ remove_from_free_list(fcache_t *cache, uint bucket,
     ASSERT(DYNAMO_OPTION(cache_shared_free_list) && cache->is_shared);
     LOG(GLOBAL, LOG_CACHE, 4, "remove_from_free_list: %s bucket[%d] %d bytes @" PFX "\n",
         cache->name, bucket, header->size, header);
-    if (header->prev != NULL)
-        header->prev->next = header->next;
-    else
+    if (header->prev != NULL) {
+        free_list_header_t *prev_writable =
+            (free_list_header_t *)vmcode_get_writable_addr((byte *)header->prev);
+        prev_writable->next = header->next;
+    } else
         cache->free_list[bucket] = header->next;
-    if (header->next != NULL)
-        header->next->prev = header->prev;
+    if (header->next != NULL) {
+        free_list_header_t *next_writable =
+            (free_list_header_t *)vmcode_get_writable_addr((byte *)header->next);
+        next_writable->prev = header->prev;
+    }
     /* it's up to the caller to adjust FRAG_FOLLOWS_FREE_ENTRY if a fragment_t
      * follows header.
      * no reason to remove FRAG_FCACHE_FREE_LIST flag here.
@@ -2983,7 +2988,6 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
 {
     int bucket;
     free_list_header_t *header = (free_list_header_t *)start_pc;
-    free_list_footer_t *footer;
 
     ASSERT(CACHE_PROTECTED(cache));
     ASSERT(DYNAMO_OPTION(cache_shared_free_list) && cache->is_shared);
@@ -3111,17 +3115,22 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
 
     bucket = find_free_list_bucket(size);
 
-    header->next = cache->free_list[bucket];
-    header->prev = NULL;
+    free_list_header_t *header_writable =
+        (free_list_header_t *)vmcode_get_writable_addr((byte *)header);
+    header_writable->next = cache->free_list[bucket];
+    header_writable->prev = NULL;
     ASSERT_TRUNCATE(header->size, ushort, size);
-    header->size = (ushort)size;
-    header->flags = FRAG_FAKE | FRAG_FCACHE_FREE_LIST;
-    footer = free_list_footer_from_header(header);
-    ASSERT_TRUNCATE(footer->size, ushort, size);
-    footer->size = (ushort)size;
+    header_writable->size = (ushort)size;
+    header_writable->flags = FRAG_FAKE | FRAG_FCACHE_FREE_LIST;
+    free_list_footer_t *footer_writable = free_list_footer_from_header(header_writable);
+    ASSERT_TRUNCATE(footer_writable->size, ushort, size);
+    footer_writable->size = (ushort)size;
     if (cache->free_list[bucket] != NULL) {
         ASSERT(cache->free_list[bucket]->prev == NULL);
-        cache->free_list[bucket]->prev = header;
+        free_list_header_t *list_writable =
+            (free_list_header_t *)vmcode_get_writable_addr(
+                (byte *)cache->free_list[bucket]);
+        list_writable->prev = header;
     }
     cache->free_list[bucket] = header;
     /* FIXME: case 7318 we should keep sorted */
@@ -3404,7 +3413,7 @@ fcache_shift_start_pc(dcontext_t *dcontext, fragment_t *f, uint space)
 
     /* FIXME : no need to set this memory to anything, but is easier to debug
      * if it's valid instructions */
-    SET_TO_DEBUG(f->start_pc, space);
+    SET_TO_DEBUG(vmcode_get_writable_addr(f->start_pc), space);
 
     f->start_pc += space;
     ASSERT_TRUNCATE(f->size, ushort, (f->size - space));
@@ -3501,7 +3510,7 @@ fcache_return_extra_space(dcontext_t *dcontext, fragment_t *f, size_t space_in)
                 if (FRAG_EMPTY(next_f)) {
                     STATS_FCACHE_ADD(cache, empty, returnable_space);
                     FRAG_START_ASSIGN(next_f, returnable_start + HEADER_SIZE(f));
-                    *((fragment_t **)returnable_start) = next_f;
+                    *((fragment_t **)vmcode_get_writable_addr(returnable_start)) = next_f;
                     FRAG_SIZE_ASSIGN(next_f, FRAG_SIZE(next_f) + returnable_space);
                     released = true;
                 }
@@ -3705,7 +3714,7 @@ fcache_remove_fragment(dcontext_t *dcontext, fragment_t *f)
      * FIXME: put in the rest of the patterns and checks to make this
      * parallel to heap DEBUG_MEMORY (==case 5657)
      */
-    memset(f->start_pc, DEBUGGER_INTERRUPT_BYTE, f->size);
+    memset(vmcode_get_writable_addr(f->start_pc), DEBUGGER_INTERRUPT_BYTE, f->size);
 #endif
 
     /* if the entire unit is being freed, do not place individual fragments in
