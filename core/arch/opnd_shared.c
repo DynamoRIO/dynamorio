@@ -1807,7 +1807,7 @@ reg_set_value_priv(reg_id_t reg, priv_mcontext_t *mc, reg_t value)
 }
 
 bool
-reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t size)
+reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf)
 {
 #ifdef X86
     CLIENT_ASSERT(reg != REG_NULL, "REG_NULL was passed.");
@@ -1815,19 +1815,17 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t s
     dr_zmm_t *simd = (dr_zmm_t *)((byte *)mc + SIMD_OFFSET);
 
     if (reg_is_gpr(reg)) {
-        CLIENT_ASSERT(reg_is_pointer_sized(reg),
-                      "size does not match GPR register.");
+        opnd_t reg_opnd = opnd_create_reg(reg);
+        opnd_size_t size_opnd = opnd_get_size(reg_opnd);
+        size_t size = opnd_size_in_bytes(size_opnd);
         byte *reg_val_addr = ((byte *)mc + opnd_get_reg_mcontext_offs(reg));
         memcpy(reg_val_addr, val_buf, size);
     } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
-        CLIENT_ASSERT(size == XMM_REG_SIZE, "size does not match SIMD register.");
-        memcpy(&(simd[reg - DR_REG_START_XMM]), val_buf, size);
+        memcpy(&(simd[reg - DR_REG_START_XMM]), val_buf, XMM_REG_SIZE);
     } else if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) {
-        CLIENT_ASSERT(size == YMM_REG_SIZE, "size does not match SIMD register.");
-        memcpy(&(simd[reg - DR_REG_START_YMM]), val_buf, size);
+        memcpy(&(simd[reg - DR_REG_START_YMM]), val_buf, YMM_REG_SIZE);
     } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
-        CLIENT_ASSERT(size == ZMM_REG_SIZE, "size does not match SIMD register.");
-        memcpy(&(simd[reg - DR_REG_START_ZMM]), val_buf, size);
+        memcpy(&(simd[reg - DR_REG_START_ZMM]), val_buf, ZMM_REG_SIZE);
     } else {
         /* Note, we can reach here for MMX register */
         CLIENT_ASSERT(false, "NYI i#3504");
@@ -1851,9 +1849,9 @@ reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value)
 
 DR_API
 bool
-reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf, IN size_t size)
+reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf)
 {
-    return reg_set_value_ex_priv(reg, dr_mcontext_as_priv_mcontext(mc), val_buf, size);
+    return reg_set_value_ex_priv(reg, dr_mcontext_as_priv_mcontext(mc), val_buf);
 }
 
 /* helper for sharing w/ VSIB computations */

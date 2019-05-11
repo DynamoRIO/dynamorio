@@ -33,6 +33,7 @@
 
 #include "dr_api.h"
 #include "client_tools.h"
+#include "string.h"
 
 #define MINSERT instrlist_meta_preinsert
 
@@ -56,8 +57,6 @@ static void set_gpr()
 {
     void *drcontext = dr_get_current_drcontext();
     opnd_t reg_opnd = opnd_create_reg(DR_REG_XAX);
-    opnd_size_t size_opnd = opnd_get_size(reg_opnd);
-    size_t size = opnd_size_in_bytes(size_opnd); 
     dr_mcontext_t mcontext = { sizeof(mcontext), DR_MC_ALL, };
     dr_get_mcontext(drcontext, &mcontext);
     reg_get_value_ex(DR_REG_XAX, &mcontext, orig_reg_val_buf);
@@ -65,8 +64,9 @@ static void set_gpr()
     new_reg_val_buf[0] = 0x75;
     new_reg_val_buf[2] = 0x83;
     new_reg_val_buf[3] = 0x23;
-    bool succ = reg_set_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf, size);
+    bool succ = reg_set_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf);
     print_error_on_fail(succ == true);
+    memset(new_reg_val_buf, 0, 64);
     dr_set_mcontext(drcontext, &mcontext);
 }
 
@@ -74,15 +74,13 @@ static void check_gpr()
 {
     void *drcontext = dr_get_current_drcontext();
     opnd_t reg_opnd = opnd_create_reg(DR_REG_XAX);
-    opnd_size_t size_opnd = opnd_get_size(reg_opnd);
-    size_t size = opnd_size_in_bytes(size_opnd);
     dr_mcontext_t mcontext = { sizeof(mcontext), DR_MC_ALL, };
     dr_get_mcontext(drcontext, &mcontext);
     reg_get_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf);
     print_error_on_fail(new_reg_val_buf[0] == 0x75);
     print_error_on_fail(new_reg_val_buf[2] == 0x83);
     print_error_on_fail(new_reg_val_buf[3] == 0x23);
-    bool succ = reg_set_value_ex(DR_REG_XAX, &mcontext, orig_reg_val_buf, size);
+    bool succ = reg_set_value_ex(DR_REG_XAX, &mcontext, orig_reg_val_buf);
     print_error_on_fail(succ == true);
     dr_set_mcontext(drcontext, &mcontext);
 }
@@ -97,8 +95,9 @@ static void set_xmm()
     new_reg_val_buf[0] = 0x77;
     new_reg_val_buf[2] = 0x89;
     new_reg_val_buf[14] = 0x21;
-    bool succ = reg_set_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf, 16);
+    bool succ = reg_set_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf);
     print_error_on_fail(succ == true);
+    memset(new_reg_val_buf, 0, 64);
     dr_set_mcontext(drcontext, &mcontext);
 }
 
@@ -111,7 +110,7 @@ static void check_xmm()
     print_error_on_fail(new_reg_val_buf[0] == 0x77);
     print_error_on_fail(new_reg_val_buf[2] == 0x89);
     print_error_on_fail(new_reg_val_buf[14] == 0x21);
-    bool succ = reg_set_value_ex(DR_REG_XMM0, &mcontext, orig_reg_val_buf, 16);
+    bool succ = reg_set_value_ex(DR_REG_XMM0, &mcontext, orig_reg_val_buf);
     print_error_on_fail(succ == true);
     dr_set_mcontext(drcontext, &mcontext);
 }
@@ -128,8 +127,9 @@ static void set_ymm()
     new_reg_val_buf[14] = 0x25;
     new_reg_val_buf[20] = 0x09;
     new_reg_val_buf[25] = 0x06;
-    bool succ = reg_set_value_ex(DR_REG_YMM0, &mcontext, new_reg_val_buf, 32);
+    bool succ = reg_set_value_ex(DR_REG_YMM0, &mcontext, new_reg_val_buf);
     print_error_on_fail(succ == true);
+    memset(new_reg_val_buf, 0, 64);
     dr_set_mcontext(drcontext, &mcontext);
 }
 
@@ -138,13 +138,13 @@ static void check_ymm()
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mcontext = { sizeof(mcontext), DR_MC_ALL, };
     dr_get_mcontext(drcontext, &mcontext);
-    reg_get_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf);
+    reg_get_value_ex(DR_REG_YMM0, &mcontext, new_reg_val_buf);
     print_error_on_fail(new_reg_val_buf[0] == 0x77);
     print_error_on_fail(new_reg_val_buf[2] == 0x80);
     print_error_on_fail(new_reg_val_buf[14] == 0x25);
     print_error_on_fail(new_reg_val_buf[20] == 0x09);
     print_error_on_fail(new_reg_val_buf[25] == 0x06);
-    bool succ = reg_set_value_ex(DR_REG_YMM0, &mcontext, orig_reg_val_buf, 32);
+    bool succ = reg_set_value_ex(DR_REG_YMM0, &mcontext, orig_reg_val_buf);
     print_error_on_fail(succ == true);
     dr_set_mcontext(drcontext, &mcontext);
 }
@@ -155,8 +155,8 @@ static void set_zmm()
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mcontext = { sizeof(mcontext), DR_MC_ALL, };
     dr_get_mcontext(drcontext, &mcontext);
-    reg_get_value_ex(DR_REG_YMM0, &mcontext, orig_reg_val_buf);
-    reg_get_value_ex(DR_REG_YMM0, &mcontext, new_reg_val_buf);
+    reg_get_value_ex(DR_REG_ZMM0, &mcontext, orig_reg_val_buf);
+    reg_get_value_ex(DR_REG_ZMM0, &mcontext, new_reg_val_buf);
     new_reg_val_buf[0] = 0x77;
     new_reg_val_buf[2] = 0x80;
     new_reg_val_buf[14] = 0x25;
@@ -165,8 +165,9 @@ static void set_zmm()
     new_reg_val_buf[32] = 0x16;
     new_reg_val_buf[55] = 0x18;
     new_reg_val_buf[60] = 0x22;
-    bool succ = reg_set_value_ex(DR_REG_YMM0, &mcontext, new_reg_val_buf, 64);
+    bool succ = reg_set_value_ex(DR_REG_ZMM0, &mcontext, new_reg_val_buf);
     print_error_on_fail(succ == true);
+    memset(new_reg_val_buf, 0, 64);
     dr_set_mcontext(drcontext, &mcontext);
 }
 
@@ -175,7 +176,7 @@ static void check_zmm()
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mcontext = { sizeof(mcontext), DR_MC_ALL, };
     dr_get_mcontext(drcontext, &mcontext);
-    reg_get_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf);
+    reg_get_value_ex(DR_REG_ZMM0, &mcontext, new_reg_val_buf);
     print_error_on_fail(new_reg_val_buf[0] == 0x77);
     print_error_on_fail(new_reg_val_buf[2] == 0x80);
     print_error_on_fail(new_reg_val_buf[14] == 0x25);
@@ -184,7 +185,7 @@ static void check_zmm()
     print_error_on_fail(new_reg_val_buf[32] == 0x16);
     print_error_on_fail(new_reg_val_buf[55] == 0x18);
     print_error_on_fail(new_reg_val_buf[60] == 0x22);
-    bool succ = reg_set_value_ex(DR_REG_YMM0, &mcontext, orig_reg_val_buf, 64);
+    bool succ = reg_set_value_ex(DR_REG_ZMM0, &mcontext, orig_reg_val_buf);
     print_error_on_fail(succ == true);
     dr_set_mcontext(drcontext, &mcontext);
 }

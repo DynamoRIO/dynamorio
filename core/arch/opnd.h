@@ -2782,14 +2782,13 @@ DR_API
  * Unlike \p reg_set_value, this function supports not only general purpose
  * registers, but SIMD registers too. Does not yet support MMX registers.
  *
- * Up to sizeof(dr_zmm_t) bytes will be read from \p val_buf. The \p size
- * paramter indicates the size of the input buffer.
+ * Up to sizeof(dr_zmm_t) bytes will be read from \p val_buf. It is up
+ * to the user to ensure correct buffer size.
  *
- * Returns false if the size is invalid, e.g., the register is smaller
- * than the size of the input buffer.
+ * Returns false if the register is not supported.
  */
 bool
-reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf, IN size_t size);
+reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf);
 
 /* internal version */
 void
