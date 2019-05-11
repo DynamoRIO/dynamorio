@@ -1815,7 +1815,7 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t s
     dr_zmm_t *simd = (dr_zmm_t *)((byte *)mc + SIMD_OFFSET);
 
     if (reg_is_gpr(reg)) {
-        CLIENT_ASSERT(reg_is_pointer_sized(reg) == true,
+        CLIENT_ASSERT(reg_is_pointer_sized(reg),
                       "size does not match GPR register.");
         byte *reg_val_addr = ((byte *)mc + opnd_get_reg_mcontext_offs(reg));
         memcpy(reg_val_addr, val_buf, size);
@@ -1830,13 +1830,13 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf, size_t s
         memcpy(&(simd[reg - DR_REG_START_ZMM]), val_buf, size);
     } else {
         /* Note, we can reach here for MMX register */
-        CLIENT_ASSERT(false, "NYI i#3504, i#3504");
+        CLIENT_ASSERT(false, "NYI i#3504");
         return false;
     }
 
     return true;
 #else
-    CLIENT_ASSERT(false, "NYI i#3504, i#3504");
+    CLIENT_ASSERT(false, "NYI  i#1551, i#3504");
     return false;
 #endif
 }

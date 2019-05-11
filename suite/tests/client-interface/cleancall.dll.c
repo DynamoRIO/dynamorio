@@ -46,6 +46,12 @@ static reg_t buf[] = { 0xcafebabe, 0xfeedadad, 0xeeeeeeee, 0xbadcabee };
 byte orig_reg_val_buf[64];
 byte new_reg_val_buf[64];
 
+static void print_error_on_fail(bool check)
+{
+    if (!check)
+        dr_fprintf(STDERR, "error\n");
+}
+
 static void set_xmm()
 {
     void *drcontext = dr_get_current_drcontext();
@@ -57,7 +63,7 @@ static void set_xmm()
     new_reg_val_buf[2] = 0x89;
     new_reg_val_buf[14] = 0x21;
     bool succ = reg_set_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf, 16);
-    ASSERT(succ == true);
+    print_error_on_fail(succ == true);
     dr_set_mcontext(drcontext, &mcontext);
 }
 
@@ -67,11 +73,11 @@ static void check_xmm()
     dr_mcontext_t mcontext = { sizeof(mcontext), DR_MC_ALL, };
     dr_get_mcontext(drcontext, &mcontext);
     reg_get_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf);
-    ASSERT(new_reg_val_buf[0] == 0x77);
-    ASSERT(new_reg_val_buf[2] == 0x89);
-    ASSERT(new_reg_val_buf[14] == 0x21);
+    print_error_on_fail(new_reg_val_buf[0] == 0x77);
+    print_error_on_fail(new_reg_val_buf[2] == 0x89);
+    print_error_on_fail(new_reg_val_buf[14] == 0x21);
     bool succ = reg_set_value_ex(DR_REG_XMM0, &mcontext, orig_reg_val_buf, 16);
-    ASSERT(succ == true);
+    print_error_on_fail(succ == true);
     dr_set_mcontext(drcontext, &mcontext);
 }
 
@@ -89,7 +95,7 @@ static void set_gpr()
     new_reg_val_buf[2] = 0x83;
     new_reg_val_buf[3] = 0x23;
     bool succ = reg_set_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf, size);
-    ASSERT(succ == true);
+    print_error_on_fail(succ == true);
     dr_set_mcontext(drcontext, &mcontext);
 }
 
@@ -102,11 +108,11 @@ static void check_gpr()
     dr_mcontext_t mcontext = { sizeof(mcontext), DR_MC_ALL, };
     dr_get_mcontext(drcontext, &mcontext);
     reg_get_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf);
-    ASSERT(new_reg_val_buf[0] == 0x75);
-    ASSERT(new_reg_val_buf[2] == 0x83);
-    ASSERT(new_reg_val_buf[3] == 0x23);
+    print_error_on_fail(new_reg_val_buf[0] == 0x75);
+    print_error_on_fail(new_reg_val_buf[2] == 0x83);
+    print_error_on_fail(new_reg_val_buf[3] == 0x23);
     bool succ = reg_set_value_ex(DR_REG_XAX, &mcontext, orig_reg_val_buf, size);
-    ASSERT(succ == true);
+    print_error_on_fail(succ == true);
     dr_set_mcontext(drcontext, &mcontext);
 }
 #endif
