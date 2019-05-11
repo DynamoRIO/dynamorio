@@ -70,7 +70,7 @@ set_gpr()
     new_reg_val_buf[2] = 0x83;
     new_reg_val_buf[3] = 0x23;
     bool succ = reg_set_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf);
-    print_error_on_fail(succ == true);
+    print_error_on_fail(succ);
     memset(new_reg_val_buf, 0, 64);
     dr_set_mcontext(drcontext, &mcontext);
 }
@@ -90,7 +90,7 @@ check_gpr()
     print_error_on_fail(new_reg_val_buf[2] == 0x83);
     print_error_on_fail(new_reg_val_buf[3] == 0x23);
     bool succ = reg_set_value_ex(DR_REG_XAX, &mcontext, orig_reg_val_buf);
-    print_error_on_fail(succ == true);
+    print_error_on_fail(succ);
     dr_set_mcontext(drcontext, &mcontext);
 }
 
@@ -109,7 +109,7 @@ set_xmm()
     new_reg_val_buf[2] = 0x89;
     new_reg_val_buf[14] = 0x21;
     bool succ = reg_set_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf);
-    print_error_on_fail(succ == true);
+    print_error_on_fail(succ);
     memset(new_reg_val_buf, 0, 64);
     dr_set_mcontext(drcontext, &mcontext);
 }
@@ -128,7 +128,7 @@ check_xmm()
     print_error_on_fail(new_reg_val_buf[2] == 0x89);
     print_error_on_fail(new_reg_val_buf[14] == 0x21);
     bool succ = reg_set_value_ex(DR_REG_XMM0, &mcontext, orig_reg_val_buf);
-    print_error_on_fail(succ == true);
+    print_error_on_fail(succ);
     dr_set_mcontext(drcontext, &mcontext);
 }
 
@@ -149,7 +149,7 @@ set_ymm()
     new_reg_val_buf[20] = 0x09;
     new_reg_val_buf[25] = 0x06;
     bool succ = reg_set_value_ex(DR_REG_YMM0, &mcontext, new_reg_val_buf);
-    print_error_on_fail(succ == true);
+    print_error_on_fail(succ);
     memset(new_reg_val_buf, 0, 64);
     dr_set_mcontext(drcontext, &mcontext);
 }
@@ -170,7 +170,7 @@ check_ymm()
     print_error_on_fail(new_reg_val_buf[20] == 0x09);
     print_error_on_fail(new_reg_val_buf[25] == 0x06);
     bool succ = reg_set_value_ex(DR_REG_YMM0, &mcontext, orig_reg_val_buf);
-    print_error_on_fail(succ == true);
+    print_error_on_fail(succ);
     dr_set_mcontext(drcontext, &mcontext);
 }
 
@@ -195,7 +195,7 @@ set_zmm()
     new_reg_val_buf[55] = 0x18;
     new_reg_val_buf[60] = 0x22;
     bool succ = reg_set_value_ex(DR_REG_ZMM0, &mcontext, new_reg_val_buf);
-    print_error_on_fail(succ == true);
+    print_error_on_fail(succ);
     memset(new_reg_val_buf, 0, 64);
     dr_set_mcontext(drcontext, &mcontext);
 }
@@ -219,7 +219,7 @@ check_zmm()
     print_error_on_fail(new_reg_val_buf[55] == 0x18);
     print_error_on_fail(new_reg_val_buf[60] == 0x22);
     bool succ = reg_set_value_ex(DR_REG_ZMM0, &mcontext, orig_reg_val_buf);
-    print_error_on_fail(succ == true);
+    print_error_on_fail(succ);
     dr_set_mcontext(drcontext, &mcontext);
 }
 #    endif
@@ -343,6 +343,11 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 
         dr_insert_clean_call(drcontext, bb, instr, set_ymm, false, 0);
         dr_insert_clean_call(drcontext, bb, instr, check_ymm, false, 0);
+
+#    ifdef __AVX512F__
+        dr_insert_clean_call(drcontext, bb, instr, set_zmm, false, 0);
+        dr_insert_clean_call(drcontext, bb, instr, check_zmm, false, 0);
+#    endif
 #endif
     }
 
