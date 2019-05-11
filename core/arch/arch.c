@@ -242,7 +242,7 @@ static byte *
 code_align_forward(dr_isa_mode_t isa_mode, byte *pc, size_t alignment)
 {
     byte *new_pc = (byte *)ALIGN_FORWARD(pc, alignment);
-    DOCHECK(1, { SET_TO_NOPS(isa_mode, pc, new_pc - pc); });
+    DOCHECK(1, { SET_TO_NOPS(isa_mode, vmcode_get_writable_addr(pc), new_pc - pc); });
     return new_pc;
 }
 
@@ -270,7 +270,8 @@ check_size_and_cache_line(dr_isa_mode_t isa_mode, generated_code_t *code, byte *
      */
     byte *next_pc = move_to_start_of_cache_line(isa_mode, pc);
     if ((byte *)ALIGN_FORWARD(pc, PAGE_SIZE) + PAGE_SIZE > code->commit_end_pc) {
-        ASSERT(code->commit_end_pc + PAGE_SIZE <= ((byte *)code) + GENCODE_RESERVE_SIZE);
+        ASSERT(code->commit_end_pc + PAGE_SIZE <=
+               vmcode_get_executable_addr((byte *)code) + GENCODE_RESERVE_SIZE);
         heap_mmap_extend_commitment(code->commit_end_pc, PAGE_SIZE,
                                     VMM_SPECIAL_MMAP | VMM_REACHABLE);
         code->commit_end_pc += PAGE_SIZE;
@@ -512,13 +513,19 @@ static void shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void
 #else
     shared_code = gencode;
 #endif
-    memset(gencode, 0, sizeof(*gencode));
+    generated_code_t *gencode_writable =
+        (generated_code_t *)vmcode_get_writable_addr((byte *)gencode);
+    memset(gencode_writable, 0, sizeof(*gencode));
+    /* Generated code immediately follows struct */
+    gencode_writable->gen_start_pc = ((byte *)gencode) + sizeof(*gencode);
+    gencode_writable->commit_end_pc = ((byte *)gencode) + GENCODE_COMMIT_SIZE;
+    /* Now switch to the writable one.  We assume no further code examines the address
+     * of the struct.
+     */
+    gencode = gencode_writable;
 
     gencode->thread_shared = true;
     IF_X86_64(gencode->gencode_mode = gencode_mode);
-    /* Generated code immediately follows struct */
-    gencode->gen_start_pc = ((byte *)gencode) + sizeof(*gencode);
-    gencode->commit_end_pc = ((byte *)gencode) + GENCODE_COMMIT_SIZE;
     for (branch_type = IBL_BRANCH_TYPE_START; branch_type < IBL_BRANCH_TYPE_END;
          branch_type++) {
         gencode->trace_ibl[branch_type].initialized = false;
@@ -1179,22 +1186,29 @@ arch_thread_init(dcontext_t *dcontext)
         dcontext, GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
         MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP | VMM_REACHABLE);
     ASSERT(code != NULL);
+    dcontext->private_code = (void *)code;
+
+    generated_code_t *code_writable =
+        (generated_code_t *)vmcode_get_writable_addr((byte *)code);
     /* FIXME case 6493: if we split private from shared, remove this
      * memset since we will no longer have a bunch of fields we don't use
      */
-    memset(code, 0, sizeof(*code));
-    code->thread_shared = false;
+    memset(code_writable, 0, sizeof(*code));
     /* Generated code immediately follows struct */
-    code->gen_start_pc = ((byte *)code) + sizeof(*code);
-    code->commit_end_pc = ((byte *)code) + GENCODE_COMMIT_SIZE;
+    code_writable->gen_start_pc = ((byte *)code) + sizeof(*code);
+    code_writable->commit_end_pc = ((byte *)code) + GENCODE_COMMIT_SIZE;
+    /* Now switch to the writable one.  We assume no further code examines the address
+     * of the struct.
+     */
+    code = code_writable;
+
+    code->thread_shared = false;
     for (branch_type = IBL_BRANCH_TYPE_START; branch_type < IBL_BRANCH_TYPE_END;
          branch_type++) {
         code->trace_ibl[branch_type].initialized = false;
         code->bb_ibl[branch_type].initialized = false;
         code->coarse_ibl[branch_type].initialized = false;
     }
-
-    dcontext->private_code = (void *)code;
 
     pc = code->gen_start_pc;
     pc = check_size_and_cache_line(isa_mode, code, pc);
@@ -1203,7 +1217,7 @@ arch_thread_init(dcontext_t *dcontext)
     pc = check_size_and_cache_line(isa_mode, code, pc);
     code->fcache_return = pc;
     pc = emit_fcache_return(dcontext, code, pc);
-    ;
+
     code->fcache_return_end = pc;
 #ifdef WINDOWS_PC_SAMPLE
     code->fcache_enter_return_end = pc;
@@ -1435,7 +1449,8 @@ protect_generated_code(generated_code_t *code_in, bool writable)
      * changing the conditionally-executed stores into always-executed
      * stores of conditionally-determined values.
      */
-    volatile generated_code_t *code = code_in;
+    volatile generated_code_t *code =
+        (generated_code_t *)vmcode_get_writable_addr((byte *)code_in);
     if (TEST(SELFPROT_GENCODE, DYNAMO_OPTION(protect_mask)) &&
         code->writable != writable) {
         byte *genstart = (byte *)PAGE_START(code->gen_start_pc);
@@ -1444,7 +1459,8 @@ protect_generated_code(generated_code_t *code_in, bool writable)
             code->writable = writable;
         }
         STATS_INC(gencode_prot_changes);
-        change_protection(genstart, code->commit_end_pc - genstart, writable);
+        change_protection(vmcode_get_writable_addr(genstart),
+                          code->commit_end_pc - genstart, writable);
         if (writable) {
             ASSERT(!code->writable);
             code->writable = writable;
@@ -2977,7 +2993,8 @@ hook_vsyscall(dcontext_t *dcontext, bool method_changing)
     ASSERT(pc + 1 /*nop*/ - vsyscall_sysenter_return_pc == JMP_LONG_LENGTH);
     if (num_nops >= VSYS_DISPLACED_LEN) {
         CHECK(num_nops >= pc - vsyscall_sysenter_return_pc);
-        memcpy(vsyscall_syscall_end_pc, vsyscall_sysenter_return_pc,
+        memcpy(vmcode_get_writable_addr(vsyscall_syscall_end_pc),
+               vsyscall_sysenter_return_pc,
                /* we don't copy the 5th byte to preserve nop for nice disassembly */
                pc - vsyscall_sysenter_return_pc);
         vsyscall_sysenter_displaced_pc = vsyscall_syscall_end_pc;
@@ -2993,7 +3010,8 @@ hook_vsyscall(dcontext_t *dcontext, bool method_changing)
          */
         pc += 1; /* skip 5th byte of to-be-inserted jmp */
         CHECK(PAGE_START(pc) == PAGE_START(pc + VSYS_DISPLACED_LEN));
-        memcpy(pc, vsyscall_sysenter_return_pc, VSYS_DISPLACED_LEN);
+        memcpy(vmcode_get_writable_addr(pc), vsyscall_sysenter_return_pc,
+               VSYS_DISPLACED_LEN);
         vsyscall_sysenter_displaced_pc = pc;
     }
     insert_relative_jump(vsyscall_sysenter_return_pc,
@@ -3042,7 +3060,7 @@ unhook_vsyscall(void)
     memcpy(vsyscall_sysenter_return_pc, vsyscall_sysenter_displaced_pc, len);
     /* we do not restore the 5th (junk/nop) byte (we never copied it) */
     if (vsyscall_sysenter_displaced_pc == vsyscall_syscall_end_pc) /* <4.4.8 */
-        memset(vsyscall_syscall_end_pc, RAW_OPCODE_nop, len);
+        memset(vmcode_get_writable_addr(vsyscall_syscall_end_pc), RAW_OPCODE_nop, len);
     if (!TEST(MEMPROT_WRITE, prot)) {
         res = set_protection(vsyscall_page_start, PAGE_SIZE, prot);
         ASSERT(res);

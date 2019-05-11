@@ -1477,6 +1477,8 @@ DYNAMIC_OPTION(bool, pause_via_loop,
     OPTION_DEFAULT(bool, reachable_client, IF_STATIC_LIBRARY_ELSE(false, true),
                    "guarantee that clients are reachable from the code cache.")
 #endif
+    OPTION_DEFAULT(bool, satisfy_w_xor_x, false,
+                   "avoids ever allocating memory that is both writable and executable.")
      /* FIXME: the lower 16 bits are ignored - so this here gives us
       * 12bits of randomness.  Could make it larger if we verify as
       * collision free the whole range [vm_base, * vm_base+vm_size+vm_max_offset)

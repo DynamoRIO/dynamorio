@@ -1266,7 +1266,7 @@ enum {
     /* 1105 */ OP_adox, /**< IA-32/AMD64 adox opcode. */
     /* 1106 */ OP_adcx, /**< IA-32/AMD64 adox opcode. */
 
-    /* Intel AVX-512 */
+    /* Intel AVX-512 VEX */
     /* 1107 */ OP_kmovw,    /**< IA-32/AMD64 AVX-512 kmovw opcode. */
     /* 1108 */ OP_kmovb,    /**< IA-32/AMD64 AVX-512 kmovb opcode. */
     /* 1109 */ OP_kmovq,    /**< IA-32/AMD64 AVX-512 kmovq opcode. */
@@ -1324,6 +1324,18 @@ enum {
     /* 1161 */ OP_vmovdqu16, /**< IA-32/AMD64 AVX-512 ktestd opcode. */
     /* 1162 */ OP_vmovdqu32, /**< IA-32/AMD64 AVX-512 ktestd opcode. */
     /* 1163 */ OP_vmovdqu64, /**< IA-32/AMD64 AVX-512 ktestd opcode. */
+
+    /* Intel AVX-512 EVEX */
+    /* XXX i#1312: The opcode enum numbers here are changing as long as
+     * AVX-512 instructions are being added to DynamoRIO. Users are advised
+     * not to rely on the numerical value until i#1312 has been completed.
+     */
+    /* 1158 */ OP_vmovdqa32, /**< IA-32/AMD64 AVX-512 vmovdqa32 opcode. */
+    /* 1159 */ OP_vmovdqa64, /**< IA-32/AMD64 AVX-512 vmovdqa64 opcode. */
+    /* 1160 */ OP_vmovdqu8,  /**< IA-32/AMD64 AVX-512 vmovdqu8 opcode. */
+    /* 1161 */ OP_vmovdqu16, /**< IA-32/AMD64 AVX-512 vmovdqu16 opcode. */
+    /* 1162 */ OP_vmovdqu32, /**< IA-32/AMD64 AVX-512 vmovdqu32 opcode. */
+    /* 1163 */ OP_vmovdqu64, /**< IA-32/AMD64 AVX-512 vmovdqu64 opcode. */
 
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */

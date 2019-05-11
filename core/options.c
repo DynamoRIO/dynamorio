@@ -1779,7 +1779,29 @@ check_option_compatibility_helper(int recurse_count)
     }
 #        endif /* PROGRAM_SHEPHERDING */
 #    endif     /* WINDOWS */
-
+#    ifdef X64
+    if (DYNAMO_OPTION(satisfy_w_xor_x) &&
+        (DYNAMO_OPTION(coarse_enable_freeze) || DYNAMO_OPTION(use_persisted))) {
+        /* FIXME i#1566: Just not implemented yet. */
+        USAGE_ERROR("-satisfy_w_xor_x does not support persistent caches");
+        dynamo_options.satisfy_w_xor_x = false;
+        changed_options = true;
+    }
+#    else
+    if (DYNAMO_OPTION(satisfy_w_xor_x)) {
+        USAGE_ERROR("-satisfy_w_xor_x is not supported on 32-bit");
+        dynamo_options.satisfy_w_xor_x = false;
+        changed_options = true;
+    }
+#    endif
+#    ifdef WINDOWS
+    if (DYNAMO_OPTION(satisfy_w_xor_x)) {
+        /* FIXME i#1566: Just not implemented yet. */
+        USAGE_ERROR("-satisfy_w_xor_x is not supported on Windows");
+        dynamo_options.satisfy_w_xor_x = false;
+        changed_options = true;
+    }
+#    endif
 #    ifdef WINDOWS
     /* In theory ignore syscalls should work for int system calls, and also for
      * sysenter system calls when Sygate SPA is not installed [though haven't
