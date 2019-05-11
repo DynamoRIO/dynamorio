@@ -9052,7 +9052,7 @@ move_lazy_list_to_pending_delete(dcontext_t *dcontext)
         DODEBUG({
             fragment_t *f; /* Raise SIGILL if a deleted fragment gets executed again */
             for (f = todelete->lazy_delete_list; f != NULL; f = f->next_vmarea) {
-                *(ushort *)f->start_pc = RAW_OPCODE_SIGILL;
+                *(ushort *)vmcode_get_writable_addr(f->start_pc) = RAW_OPCODE_SIGILL;
             }
         });
 #endif
@@ -9208,7 +9208,8 @@ check_lazy_deletion_list(dcontext_t *dcontext, uint flushtime)
             }
 #ifdef X86
             DODEBUG({ /* Raise SIGILL if a deleted fragment gets executed again */
-                      *(ushort *)f->start_pc = RAW_OPCODE_SIGILL;
+                      *(ushort *)vmcode_get_writable_addr(f->start_pc) =
+                          RAW_OPCODE_SIGILL;
             });
 #endif
             fragment_delete(dcontext, f,

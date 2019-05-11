@@ -7417,6 +7417,19 @@ os_unmap_file(byte *map, size_t size /*unused*/)
     return NT_SUCCESS(res);
 }
 
+file_t
+os_create_memory_file(const char *name, size_t size)
+{
+    ASSERT_NOT_IMPLEMENTED(false && "i#3556 NYI for Windows");
+    return INVALID_FILE;
+}
+
+void
+os_delete_memory_file(const char *name, file_t fd)
+{
+    ASSERT_NOT_IMPLEMENTED(false && "i#3556 NYI for Windows");
+}
+
 /* FIXME : should check context flags, what if only integer or only control! */
 /* Translates the context cxt for the given thread trec
  * Like any instance where a thread_record_t is used by a thread other than its

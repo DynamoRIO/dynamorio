@@ -100,7 +100,7 @@ insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
      */
     int value = (int)(ptr_int_t)(target - pc - 4);
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(target - pc - 4)));
-    ATOMIC_4BYTE_WRITE(pc, value, hot_patch);
+    ATOMIC_4BYTE_WRITE(vmcode_get_writable_addr(pc), value, hot_patch);
     pc += 4;
     return pc;
 }
@@ -110,7 +110,7 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
 {
     int value;
     ASSERT(pc != NULL);
-    *pc = JMP_OPCODE;
+    *(vmcode_get_writable_addr(pc)) = JMP_OPCODE;
     pc++;
 
     /* test that we aren't crossing a cache line boundary */
@@ -118,7 +118,7 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
     /* We don't need to be atomic, so don't use insert_relative_target. */
     value = (int)(ptr_int_t)(target - pc - 4);
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(target - pc - 4)));
-    *(int *)pc = value;
+    *(int *)(vmcode_get_writable_addr(pc)) = value;
     pc += 4;
     return pc;
 }
@@ -191,7 +191,9 @@ insert_spill_or_restore(dcontext_t *dcontext, cache_pc pc, uint flags, bool spil
                         bool shared, reg_id_t reg, ushort tls_offs, uint dc_offs,
                         bool require_addr16)
 {
-    DEBUG_DECLARE(cache_pc start_pc = pc;)
+    DEBUG_DECLARE(cache_pc start_pc;)
+    pc = vmcode_get_writable_addr(pc);
+    IF_DEBUG(start_pc = pc);
     byte opcode = ((reg == REG_XAX) ? (spill ? MOV_XAX2MEM_OPCODE : MOV_MEM2XAX_OPCODE)
                                     : (spill ? MOV_REG2MEM_OPCODE : MOV_MEM2REG_OPCODE));
 #ifdef X64
@@ -271,7 +273,7 @@ insert_spill_or_restore(dcontext_t *dcontext, cache_pc pc, uint flags, bool spil
                                : SIZE_MOV_XBX_TO_TLS(flags, require_addr16)));
     ASSERT(IF_X64_ELSE(false, !shared) || !spill || reg == REG_XAX ||
            instr_raw_is_tls_spill(start_pc, reg, tls_offs));
-    return pc;
+    return vmcode_get_executable_addr(pc);
 }
 
 /* instr_raw_is_tls_spill() matches the exact sequence of bytes inserted here */
@@ -301,7 +303,9 @@ insert_jmp_to_ibl(byte *pc, fragment_t *f, linkstub_t *l, cache_pc exit_target,
                                      spill_xbx_to_fs, REG_XBX, INDIRECT_STUB_SPILL_SLOT,
                                      XBX_OFFSET, true);
 
-        /* mov $linkstub_ptr,%xbx */
+    /* Switch to the writable view for the raw stores below. */
+    pc = vmcode_get_writable_addr(pc);
+    /* mov $linkstub_ptr,%xbx */
 #ifdef X64
     if (!FRAG_IS_32(f->flags)) {
         *pc = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
@@ -340,6 +344,8 @@ insert_jmp_to_ibl(byte *pc, fragment_t *f, linkstub_t *l, cache_pc exit_target,
         *((ptr_uint_t *)pc) = (ptr_uint_t)l;
         pc += sizeof(l);
     }
+    pc = vmcode_get_executable_addr(pc);
+
     /* jmp <exit_target> */
     pc = insert_relative_jump(pc, exit_target, NOT_HOT_PATCHABLE);
     return pc;
@@ -516,11 +522,11 @@ insert_inlined_ibl(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, byte *pc,
         /* set the linkstub ptr */
         pc = start_pc + ibl_code->inline_linkstub_first_offs;
         IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-        *((uint *)pc) = (uint)(ptr_uint_t)l;
+        *((uint *)vmcode_get_writable_addr(pc)) = (uint)(ptr_uint_t)l;
         if (DYNAMO_OPTION(atomic_inlined_linking)) {
             pc = start_pc + ibl_code->inline_linkstub_second_offs;
             IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-            *((uint *)pc) = (uint)(ptr_uint_t)l;
+            *((uint *)vmcode_get_writable_addr(pc)) = (uint)(ptr_uint_t)l;
         }
     } else {
         insert_relative_target(start_pc + ibl_code->inline_linkedjmp_offs,
@@ -603,6 +609,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
             /* Both entrance_stub_target_tag() and coarse_indirect_stub_jmp_target()
              * assume that the addr prefix is present for 32-bit but not 64-bit.
              */
+            pc = vmcode_get_writable_addr(pc);
             /* since we have no 8-byte-immed-to-memory, we split into two pieces */
             *pc = TLS_SEG_OPCODE;
             pc++;
@@ -631,12 +638,14 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
             pc += 4;
             *((uint *)pc) = (uint)(((ptr_uint_t)tgt) >> 32);
             pc += 4;
+            pc = vmcode_get_executable_addr(pc);
         } else {
 #endif /* X64 */
             /* We must be at or below 15 bytes so we require addr16.
              * Both entrance_stub_target_tag() and coarse_indirect_stub_jmp_target()
              * assume that the addr prefix is present for 32-bit but not 64-bit.
              */
+            pc = vmcode_get_writable_addr(pc);
             /* addr16 mov <target>, fs:<dir-stub-spill> */
             /* FIXME: PR 209709: test perf and remove if outweighs space */
             *pc = ADDR_PREFIX_OPCODE;
@@ -651,6 +660,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
             pc += 2;
             *((uint *)pc) = (uint)(ptr_uint_t)EXIT_TARGET_TAG(dcontext, f, l);
             pc += 4;
+            pc = vmcode_get_executable_addr(pc);
 #ifdef X64
         }
 #endif /* X64 */
@@ -674,19 +684,21 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
             uint l_uint;
             ASSERT_TRUNCATE(l_uint, uint, (ptr_uint_t)l);
             l_uint = (uint)(ptr_uint_t)l;
-            *pc = MOV_IMM2XAX_OPCODE;
+            *(vmcode_get_writable_addr(pc)) = MOV_IMM2XAX_OPCODE;
             pc++;
-            *((uint *)pc) = l_uint;
+            *((uint *)vmcode_get_writable_addr(pc)) = l_uint;
             pc += sizeof(l_uint);
         } else {
-            *pc = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
+            *(vmcode_get_writable_addr(pc)) =
+                REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
             pc++;
 #endif
             /* shared w/ 32-bit and 64-bit !FRAG_IS_32 */
-            *pc = MOV_IMM2XAX_OPCODE;
+            *(vmcode_get_writable_addr(pc)) = MOV_IMM2XAX_OPCODE;
             pc++;
-            *((ptr_uint_t *)pc) = (ptr_uint_t)l;
+            *((ptr_uint_t *)vmcode_get_writable_addr(pc)) = (ptr_uint_t)l;
             pc += sizeof(l);
+
 #ifdef X64
         }
 #endif
@@ -1093,6 +1105,7 @@ insert_restore_register(dcontext_t *dcontext, fragment_t *f, cache_pc pc, reg_id
          * to restore rax:  49 8b c0   mov %r8 -> %rax
          * to restore rcx:  49 8b c9   mov %r9 -> %rcx
          */
+        pc = vmcode_get_writable_addr(pc);
         *pc = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG | REX_PREFIX_B_OPFLAG;
         pc++;
         *pc = MOV_MEM2REG_OPCODE;
@@ -1100,6 +1113,7 @@ insert_restore_register(dcontext_t *dcontext, fragment_t *f, cache_pc pc, reg_id
         *pc = MODRM_BYTE(3 /*mod*/, reg_get_bits(reg),
                          reg_get_bits((reg == REG_XAX) ? REG_R8 : REG_R9));
         pc++;
+        pc = vmcode_get_executable_addr(pc);
     } else {
 #endif
         pc = (reg == REG_XAX)
@@ -1120,6 +1134,7 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
         ? !DYNAMO_OPTION(trace_single_restore_prefix)
         : !DYNAMO_OPTION(bb_single_restore_prefix);
     ASSERT(f->prefix_size == 0); /* shouldn't be any prefixes yet */
+
     if (use_ibt_prefix(f->flags)) {
         if ((!INTERNAL_OPTION(unsafe_ignore_eflags_prefix) ||
              !INTERNAL_OPTION(unsafe_ignore_eflags_ibl)) &&
@@ -1136,17 +1151,19 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
                      */
                     STATS_INC(num_oflag_prefix_restore);
 
+                    pc = vmcode_get_writable_addr(pc);
                     /* 04 7f   add $0x7f,%al */
                     *pc = ADD_AL_OPCODE;
                     pc++;
                     *pc = 0x7f;
                     pc++;
+                    pc = vmcode_get_executable_addr(pc);
 
                     ASSERT(pc - restore_of_prefix_pc == PREFIX_SIZE_RESTORE_OF);
                 }
 
                 /* restore other 5 flags w/ sahf */
-                *pc = SAHF_OPCODE;
+                *vmcode_get_writable_addr(pc) = SAHF_OPCODE;
                 pc++;
                 ASSERT(PREFIX_SIZE_FIVE_EFLAGS == 1);
             }

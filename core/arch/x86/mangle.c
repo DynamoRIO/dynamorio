@@ -4183,14 +4183,15 @@ finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f)
              : (TEST(FRAG_WRITES_EFLAGS_OF, f->flags) ? 1 : 2));
     pc = FCACHE_ENTRY_PC(f) + selfmod_copy_start_offs[i][j] IF_X64([k]);
     /* The copy start gets updated after sandbox_top_of_bb. */
-    *((cache_pc *)pc) = copy_pc;
+    *((cache_pc *)vmcode_get_writable_addr(pc)) = copy_pc;
     if (FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) > 1) {
         pc = FCACHE_ENTRY_PC(f) + selfmod_copy_end_offs[i][j] IF_X64([k]);
         /* i#2155: The copy end gets updated.
          * This value will be used in the case where the direction flag is set.
          * It will then be the starting point for the backward repe cmps.
          */
-        *((cache_pc *)pc) = (copy_pc + FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) - 1);
+        *((cache_pc *)vmcode_get_writable_addr(pc)) =
+            (copy_pc + FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) - 1);
     } /* else, no 2nd patch point */
 }
 

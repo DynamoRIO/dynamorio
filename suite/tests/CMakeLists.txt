@@ -3698,6 +3698,11 @@ if (X64 AND NOT AARCH64) # FIXME i#1569: get working on AArch64
   endif (CLIENT_INTERFACE)
   torunonly(low4GB security-common.selfmod security-common/selfmod.c
     "-heap_in_lower_4GB -reachable_heap" "")
+  if (UNIX AND NOT APPLE)
+    # XXX i#3556: NYI on Windows and Mac.
+    torunonly(w_xor_x security-common.selfmod security-common/selfmod.c
+      "-satisfy_w_xor_x" "")
+  endif ()
 endif (X64 AND NOT AARCH64)
 
 tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)

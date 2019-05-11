@@ -1083,7 +1083,9 @@ encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch, instrlist_t *i
     /* after instruction list is assembled we collect the offsets */
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
         short offset_in_instr = patch->entry[cur].instr_offset;
-        byte *nxt_pc = instr_encode(dcontext, inst, pc);
+        byte *nxt_writable_pc =
+            instr_encode_to_copy(dcontext, inst, vmcode_get_writable_addr(pc), pc);
+        byte *nxt_pc = vmcode_get_executable_addr(nxt_writable_pc);
         ASSERT(nxt_pc != NULL);
         len = (int)(nxt_pc - pc);
         pc = nxt_pc;
@@ -1120,7 +1122,7 @@ encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch, instrlist_t *i
                 ptr_uint_t output_offset = patch->entry[cur].where.offset;
                 if (TEST(PATCH_ASSEMBLE_ABSOLUTE, patch->entry[cur].patch_flags)) {
                     ASSERT(!TEST(PATCH_UINT_SIZED, patch->entry[cur].patch_flags));
-                    output_offset += (ptr_uint_t)start_pc;
+                    output_offset += (ptr_uint_t)vmcode_get_executable_addr(start_pc);
                 }
                 if (TEST(PATCH_UINT_SIZED, patch->entry[cur].patch_flags)) {
                     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(output_offset)));
@@ -2525,8 +2527,10 @@ emit_fcache_return(dcontext_t *dcontext, generated_code_t *code, byte *pc)
         dcontext, code, &ilist, false /*!ibl_end*/, true /*absolute*/, false /*!shared*/,
         NULL, false /*not coarse*/);
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc, instr_targets);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, instr_targets);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
     return pc;
@@ -2549,8 +2553,10 @@ emit_fcache_return_shared(dcontext_t *dcontext, generated_code_t *code, byte *pc
         dcontext, code, &ilist, false /*!ibl_end*/, false /*through xdi*/,
         true /*shared*/, NULL, false /*not coarse*/);
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc, instr_targets);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, instr_targets);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
     return pc;
@@ -2567,8 +2573,10 @@ emit_fcache_return_coarse(dcontext_t *dcontext, generated_code_t *code, byte *pc
         dcontext, code, &ilist, false /*!ibl_end*/, false /*through xdi*/,
         true /*shared*/, linkstub, true /*coarse info in xcx*/);
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc, instr_targets);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, instr_targets);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
     return pc;
@@ -2586,8 +2594,10 @@ emit_trace_head_return_coarse(dcontext_t *dcontext, generated_code_t *code, byte
         dcontext, code, &ilist, false /*!ibl_end*/, false /*through xdi*/,
         true /*shared*/, linkstub, false /*no coarse info*/);
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc, instr_targets);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, instr_targets);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
     return pc;
@@ -3377,8 +3387,10 @@ emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
     }
 #endif
 
-    pc = instrlist_encode(dcontext, &ilist, pc, true /*instr targets*/);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, true /*instr targets*/);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
 
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
@@ -4224,8 +4236,10 @@ emit_dispatch_template(dcontext_t *dcontext, byte *pc, uint offset)
     /* jump thru the address in the offset */
     APP(&ilist, XINST_CREATE_jump_mem(dcontext, OPND_CREATE_MEM32(REG_EDI, offset)));
 
-    pc = instrlist_encode(dcontext, &ilist, pc, false /* no instr targets */);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, false /* no instr targets */);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
 
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
@@ -4516,8 +4530,10 @@ emit_detach_callback_code(dcontext_t *dcontext, byte *buf,
     APP(&ilist, INSTR_CREATE_jmp_ind(dcontext, opnd_create_reg(SCRATCH_REG0)));
 
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc, true /* instr targets */);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, true /* instr targets */);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
     ASSERT(pc - buf < DETACH_CALLBACK_CODE_SIZE);
 
     /* free the instrlist_t elements */
@@ -4545,8 +4561,10 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
                              OPND_CREATE_ABSMEM(&(callback_state->target), OPSZ_PTR)));
 
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc, true /* instr targets */);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, true /* instr targets */);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
     ASSERT(pc - callback_state->code_buf < DETACH_CALLBACK_FINAL_JMP_SIZE);
 
     /* free the instrlist_t elements */
@@ -4567,10 +4585,11 @@ emit_patch_syscall(dcontext_t *dcontext, byte *target _IF_X64(gencode_mode_t mod
          * callback stack copy. It "just works".
          */
         instr_t *instr = XINST_CREATE_jump(dcontext, opnd_create_pc(pc));
-        DEBUG_DECLARE(byte *nxt_pc =)
-        instr_encode(dcontext, instr,
-                     after_shared_syscall_code_ex(dcontext _IF_X64(mode)));
+        byte *tgt_pc = after_shared_syscall_code_ex(dcontext _IF_X64(mode));
+        byte *nxt_pc = instr_encode_to_copy(dcontext, instr,
+                                            vmcode_get_writable_addr(tgt_pc), tgt_pc);
         ASSERT(nxt_pc != NULL);
+        nxt_pc = vmcode_get_executable_addr(nxt_pc);
         /* check that there was room - shared_syscall should be before do_syscall
          * anything between them is dead at this point */
         ASSERT(after_shared_syscall_code_ex(dcontext _IF_X64(mode)) < pc && nxt_pc < pc);
@@ -4597,8 +4616,10 @@ emit_patch_syscall(dcontext_t *dcontext, byte *target _IF_X64(gencode_mode_t mod
     APP(&ilist, INSTR_CREATE_jmp_ind(dcontext, opnd_create_reg(SCRATCH_REG0)));
 
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc, true /* instr targets */);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, true /* instr targets */);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
     /* ASSERT that there was enough space after the system call (everything after
      * do_syscall should be dead at this point). */
     ASSERT(pc <= get_emitted_routines_code(dcontext _IF_X64(mode))->commit_end_pc);
@@ -4708,9 +4729,10 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     /* in case it returns: go to fcache return -- use 0 as &linkstub */
     if (thread_shared)
         APP(&ilist, instr_create_save_to_tls(dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
-    else
+    else {
         APP(&ilist,
             instr_create_save_to_dcontext(dcontext, SCRATCH_REG0, SCRATCH_REG0_OFFS));
+    }
 
 #ifdef AARCH64
     /* Save X1 as this is used for the indirect branch in the exit stub. */
@@ -4732,14 +4754,16 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 #endif
 
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc,
+    pc =
+        instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc, NULL,
 #ifdef UNIX
-                          handle_clone /* instr targets */
+                                 handle_clone /* instr targets */
 #else
-                          false /* no instr targets */
+                                 false /* no instr targets */
 #endif
-    );
+        );
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
 
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
@@ -4845,8 +4869,10 @@ emit_do_callback_return(dcontext_t *dcontext, byte *pc, byte *fcache_return_pc,
     APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(fcache_return_pc)));
 
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc, false /* no instr targets */);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, false /* no instr targets */);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
 
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
@@ -4908,9 +4934,11 @@ update_syscall(dcontext_t *dcontext, byte *pc)
         ASSERT(pc != NULL); /* this our own code we're decoding, should be valid */
         if (instr_is_syscall(&instr)) {
             instr_t *newinst = create_syscall_instr(dcontext);
-            byte *nxt_pc = instr_encode(dcontext, newinst, prev_pc);
+            byte *nxt_pc = instr_encode_to_copy(
+                dcontext, newinst, vmcode_get_writable_addr(prev_pc), prev_pc);
             /* instruction must not change size! */
             ASSERT(nxt_pc != NULL);
+            nxt_pc = vmcode_get_executable_addr(nxt_pc);
             if (nxt_pc != pc) {
                 pc = nxt_pc;
                 byte *stop_pc = prev_pc + SYSCALL_METHOD_LONGEST_INSTR;
@@ -4919,8 +4947,10 @@ update_syscall(dcontext_t *dcontext, byte *pc)
                     /* we could add >3-byte nop support but I'm too lazy */
                     int noplen = MIN(stop_pc - pc, 3);
                     instr_t *nop = instr_create_nbyte_nop(dcontext, noplen, true);
-                    pc = instr_encode(dcontext, nop, pc);
+                    pc = instr_encode_to_copy(dcontext, nop, vmcode_get_writable_addr(pc),
+                                              pc);
                     ASSERT(pc != NULL);
+                    pc = vmcode_get_executable_addr(pc);
                     instr_destroy(dcontext, nop);
                 }
             }
@@ -5103,8 +5133,10 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
                          false /*!precise*/, DR_REG_R11 /*scratch*/, NULL);
 
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc, true /* instr targets */);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, true /* instr targets */);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
 
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
@@ -5207,8 +5239,10 @@ emit_trace_head_incr(dcontext_t *dcontext, byte *pc, byte *fcache_return_pc)
     APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(fcache_return_pc)));
 
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc, true /* instr targets */);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, true /* instr targets */);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
 
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
@@ -5532,8 +5566,10 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 #endif
 
     /* emti code */
-    pc = instrlist_encode(dcontext, &ilist, pc, false);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, false);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
     instrlist_clear(dcontext, &ilist);
     return pc;
 }
@@ -5593,8 +5629,10 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 #endif
 
     /* emit code */
-    pc = instrlist_encode(dcontext, &ilist, pc, false);
+    pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
+                                  NULL, false);
     ASSERT(pc != NULL);
+    pc = vmcode_get_executable_addr(pc);
     instrlist_clear(dcontext, &ilist);
     return pc;
 }
