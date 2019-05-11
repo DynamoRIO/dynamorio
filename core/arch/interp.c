@@ -7075,6 +7075,15 @@ forward_eflags_analysis(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
  *   will want to emit that jmp.  See decode_fragment_exact().
  */
 
+static void
+instr_set_raw_bits_trace_buf(instr_t *instr, byte *buf_writable_addr, uint length)
+{
+    /* The trace buffer is a writable address, so we need to translate to an
+     * executable address for pointing at bits.
+     */
+    instr_set_raw_bits(instr, vmcode_get_executable_addr(buf_writable_addr), length);
+}
+
 /* We want to avoid low-loglevel disassembly when we're in the middle of disassembly */
 #define DF_LOGLEVEL(dc) (((dc) != GLOBAL_DCONTEXT && (dc)->in_opnd_disassemble) ? 6U : 4U)
 
@@ -7288,7 +7297,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                     ASSERT(offset > 0);
                     raw_instr = instr_create(dcontext);
                     /* point to buffer bits */
-                    instr_set_raw_bits(raw_instr, cur_buf, offset);
+                    instr_set_raw_bits_trace_buf(raw_instr, cur_buf, offset);
                     instrlist_append(ilist, raw_instr);
                     cur_buf += offset;
 
@@ -7303,7 +7312,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                     cur_buf += instr_length(dcontext, sysenter_prev);
 
                     /* Append the sysenter. */
-                    instr_set_raw_bits(instr, cur_buf, (int)(pc - prev_pc));
+                    instr_set_raw_bits_trace_buf(instr, cur_buf, (int)(pc - prev_pc));
                     instrlist_append(ilist, instr);
                     instr_set_meta(instr);
 
@@ -7448,7 +7457,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                         if (offset > 0) {
                             raw_instr = instr_create(dcontext);
                             /* point to buffer bits */
-                            instr_set_raw_bits(raw_instr, cur_buf, offset);
+                            instr_set_raw_bits_trace_buf(raw_instr, cur_buf, offset);
                             instrlist_append(ilist, raw_instr);
                             cur_buf += offset;
                             raw_start_pc = prev_pc;
@@ -7459,8 +7468,10 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                         instr_set_meta(instr);
                         if (re_relativize)
                             instr_set_raw_bits_valid(instr, false);
-                        else if (!instr_is_cti_short_rewrite(instr, NULL))
-                            instr_set_raw_bits(instr, cur_buf, (int)(pc - prev_pc));
+                        else if (!instr_is_cti_short_rewrite(instr, NULL)) {
+                            instr_set_raw_bits_trace_buf(instr, cur_buf,
+                                                         (int)(pc - prev_pc));
+                        }
                         instrlist_append(ilist, instr);
                         /* include buf for off-fragment cti, to simplify assert below */
                         cur_buf += (int)(pc - prev_pc);
@@ -7480,7 +7491,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                     if (offset > 0) {
                         raw_instr = instr_create(dcontext);
                         /* point to buffer bits */
-                        instr_set_raw_bits(raw_instr, cur_buf, offset);
+                        instr_set_raw_bits_trace_buf(raw_instr, cur_buf, offset);
                         instrlist_append(ilist, raw_instr);
                         cur_buf += offset;
                         raw_start_pc = prev_pc;
@@ -7507,7 +7518,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                     if (offset > 0) {
                         raw_instr = instr_create(dcontext);
                         /* point to buffer bits */
-                        instr_set_raw_bits(raw_instr, cur_buf, offset);
+                        instr_set_raw_bits_trace_buf(raw_instr, cur_buf, offset);
                         instrlist_append(ilist, raw_instr);
                         cur_buf += offset;
                         raw_start_pc = prev_pc;
@@ -7517,8 +7528,11 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                     if (buf != NULL) {
                         /* re-relativize into the new buffer */
                         DEBUG_DECLARE(byte *nxt =)
-                        instr_encode(dcontext, instr, cur_buf);
-                        instr_set_raw_bits(instr, cur_buf, (int)(pc - prev_pc));
+                        instr_encode_to_copy(dcontext, instr, cur_buf,
+                                             vmcode_get_executable_addr(cur_buf));
+                        instr_set_raw_bits_trace_buf(instr,
+                                                     vmcode_get_executable_addr(cur_buf),
+                                                     (int)(pc - prev_pc));
                         instr_set_rip_rel_valid(instr, true);
                         ASSERT(nxt != NULL);
                     }
@@ -7544,7 +7558,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                 /* point to buffer bits */
                 offset = (int)(pc - raw_start_pc);
                 if (offset > 0) {
-                    instr_set_raw_bits(instr, cur_buf, offset);
+                    instr_set_raw_bits_trace_buf(instr, cur_buf, offset);
                     instrlist_append(ilist, instr);
                     cur_buf += offset;
                 }

@@ -975,6 +975,10 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
             map_flags_t map_flags);
 bool
 os_unmap_file(byte *map, size_t size);
+file_t
+os_create_memory_file(const char *name, size_t size);
+void
+os_delete_memory_file(const char *name, file_t fd);
 /* unlike set_protection, os_set_protection does not update
  * the allmem info in Linux. */
 bool

@@ -87,9 +87,10 @@ typedef enum {
 
 typedef enum {
     MAP_FILE_COPY_ON_WRITE = 0x0001,
-    MAP_FILE_IMAGE = 0x0002,     /* Windows-only */
-    MAP_FILE_FIXED = 0x0004,     /* Linux-only */
-    MAP_FILE_REACHABLE = 0x0008, /* Map at location reachable from vmcode */
+    MAP_FILE_IMAGE = 0x0002,      /* Windows-only */
+    MAP_FILE_FIXED = 0x0004,      /* Linux-only */
+    MAP_FILE_REACHABLE = 0x0008,  /* Map at location reachable from vmcode */
+    MAP_FILE_VMM_COMMIT = 0x0010, /* Map address is pre-reserved inside VMM. */
 } map_flags_t;
 
 typedef byte *heap_pc;
@@ -135,6 +136,10 @@ iterate_vmm_regions(void (*cb)(byte *region_start, byte *region_end, void *user_
                     void *user_data);
 byte *
 vmcode_unreachable_pc();
+byte *
+vmcode_get_writable_addr(byte *exec_addr);
+byte *
+vmcode_get_executable_addr(byte *write_addr);
 
 bool
 heap_check_option_compatibility(void);

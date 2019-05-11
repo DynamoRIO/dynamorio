@@ -1,5 +1,5 @@
 ;// **********************************************************
-;// Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+;// Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
 ;// Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
 ;// **********************************************************
 
@@ -645,5 +645,21 @@ Language=English
 Application %1!s! (%2!s!). Failed to find DynamoRIO library bounds.
 .
 ;#endif
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_FAILED_TO_SATISFY_W_XOR_X
+Language=English
+Application %1!s! (%2!s!). Failed to satisfy W^X policies.
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_OUT_OF_VMM_CANNOT_USE_OS
+Language=English
+Application %1!s! (%2!s!). Out of contiguous memory. %3!s!
+.
 
 ;// ADD NEW MESSAGES HERE
