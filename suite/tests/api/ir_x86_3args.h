@@ -117,7 +117,6 @@ OPCODE(vmovlps_NDS_reg, vmovlps, vmovlps_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
        REGARG_PARTIAL(XMM1, OPSZ_8), REGARG_PARTIAL(XMM2, OPSZ_8))
 OPCODE(vmovlpd_NDS, vmovlpd, vmovlpd_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
        REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
-/* NOCHECKIN */
 OPCODE(vunpcklps, vunpcklps, vunpcklps, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
        MEMARG(OPSZ_8))
 OPCODE(vunpcklpd, vunpcklpd, vunpcklpd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
