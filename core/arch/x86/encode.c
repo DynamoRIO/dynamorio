@@ -2142,11 +2142,11 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
         encode_avx512_reg_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_EVEX_VV);
         /* vex_vvvv abd evex_vvvv is a union. */
         if (reg_is_strictly_zmm(reg))
-            di->vex_vvvv = reg - DR_REG_START_ZMM;
+            di->vex_vvvv = (byte)(reg - DR_REG_START_ZMM);
         else if (reg_is_strictly_ymm(reg))
-            di->vex_vvvv = reg - DR_REG_START_YMM;
+            di->vex_vvvv = (byte)(reg - DR_REG_START_YMM);
         else
-            di->vex_vvvv = reg - DR_REG_START_XMM;
+            di->vex_vvvv = (byte)(reg - DR_REG_START_XMM);
         di->vex_vvvv = (~di->vex_vvvv) & 0xf;
         return;
     }
@@ -2448,6 +2448,12 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc,
     return pc;
 }
 
+static bool
+encoding_meets_hints(instr_t *instr, const instr_info_t *info)
+{
+    return !instr_is_enc_hint_evex(instr) || TEST(REQUIRES_EVEX, info->flags);
+}
+
 /* PR 251479: support general re-relativization.
  * Takes in a level 0-3 instruction and encodes it by copying its
  * raw bytes to dst_pc. For x64, if it is marked as having a rip-relative
@@ -2627,8 +2633,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     di.start_pc = cache_pc;
     di.final_pc = final_pc;
 
-    while (!encoding_possible(&di, instr, info) ||
-           (instr_is_enc_hint_evex(instr) && !TEST(REQUIRES_EVEX, info->flags))) {
+    while (!encoding_possible(&di, instr, info) || !encoding_meets_hints(instr, info)) {
         LOG(THREAD, LOG_EMIT, ENC_LEVEL, "\tencoding for 0x%x no good...\n",
             info->opcode);
         info = get_next_instr_info(info);
