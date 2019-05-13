@@ -6691,11 +6691,11 @@ const instr_info_t evex_W_extensions[][2] = {
   },
   {    /* evex_W_ext 14 */
     {OP_vmovlps, 0x0f1210, "vmovlps", Vq_dq, xx, Hq_dq, Wq_dq, xx, mrm|evex|reqL0, x, tevexw[15][0]}, /*"vmovhlps" if reg-reg */
-    {INVALID, 0x0f1210,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x0f1250,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   },
   {    /* evex_W_ext 15 */
     {OP_vmovlps, 0x0f1310, "vmovlps", Mq, xx, Vq_dq, xx, xx, mrm|evex, x, END_LIST},
-    {INVALID, 0x0f1310,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x0f1350,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   },
 };
 
