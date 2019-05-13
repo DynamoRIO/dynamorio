@@ -1436,7 +1436,7 @@
 #define INSTR_CREATE_ktestb(dc, d, s) instr_create_1dst_1src((dc), OP_ktestb, (d), (s))
 #define INSTR_CREATE_ktestq(dc, d, s) instr_create_1dst_1src((dc), OP_ktestq, (d), (s))
 #define INSTR_CREATE_ktestd(dc, d, s) instr_create_1dst_1src((dc), OP_ktestd, (d), (s))
-/* AVX-512 EVEX */
+/* AVX-512 EVEX (no mask) */
 #define INSTR_CREATE_vmovlps_evex(dc, d, s) \
     instr_create_1dst_1src_evex((dc), OP_vmovlps, (d), (s))
 /* @} */ /* end doxygen group */
