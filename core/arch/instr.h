@@ -316,7 +316,7 @@ typedef enum _dr_pred_type_t {
 /**
  * Specifies hints for how an instruction should be encoded if redundant encodings are
  * available. Currently, we provide a hint for x86 evex encoded instructions. It can be
- * used to encode an instruction in its evex form instead of its vex format.
+ * used to encode an instruction in its evex form instead of its vex format (xref #3339).
  */
 typedef enum _dr_encoding_hint_type_t {
 #ifdef AVOID_API_EXPORT
