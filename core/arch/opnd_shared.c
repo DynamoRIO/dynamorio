@@ -1816,11 +1816,8 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf)
     dr_zmm_t *simd = (dr_zmm_t *)((byte *)mc + SIMD_OFFSET);
 
     if (reg_is_gpr(reg)) {
-        opnd_t reg_opnd = opnd_create_reg(reg);
-        opnd_size_t size_opnd = opnd_get_size(reg_opnd);
-        size_t size = opnd_size_in_bytes(size_opnd);
-        byte *reg_val_addr = ((byte *)mc + opnd_get_reg_mcontext_offs(reg));
-        memcpy(reg_val_addr, val_buf, size);
+        reg_t *value = (reg_t *)val_buf;
+        reg_set_value_priv(reg, mc, *value);
     } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
         memcpy(&(simd[reg - DR_REG_START_XMM]), val_buf, XMM_REG_SIZE);
     } else if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) {

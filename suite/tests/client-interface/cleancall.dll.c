@@ -58,7 +58,6 @@ static void
 set_gpr()
 {
     void *drcontext = dr_get_current_drcontext();
-    opnd_t reg_opnd = opnd_create_reg(DR_REG_XAX);
     dr_mcontext_t mcontext = {
         sizeof(mcontext),
         DR_MC_ALL,
@@ -79,7 +78,6 @@ static void
 check_gpr()
 {
     void *drcontext = dr_get_current_drcontext();
-    opnd_t reg_opnd = opnd_create_reg(DR_REG_XAX);
     dr_mcontext_t mcontext = {
         sizeof(mcontext),
         DR_MC_ALL,
