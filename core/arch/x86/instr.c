@@ -94,19 +94,16 @@ instr_get_isa_mode(instr_t *instr)
 #endif
 }
 
-bool
+void
 instr_set_enc_hint(instr_t *instr, dr_enc_hint_type_t hint)
 {
-    switch (hint) {
-    case DR_ENC_HINT_X86_EVEX: instr_set_prefixes(instr, PREFIX_EVEX); return true;
-    default: return false;
-    }
+    instr->enc_hints |= hint;
 }
 
 bool
-instr_is_enc_hint_evex(instr_t *instr)
+instr_is_enc_hint(instr_t *instr, dr_enc_hint_type_t hint)
 {
-    return TEST(PREFIX_EVEX, instr->prefixes);
+    return TEST(hint, instr->enc_hints);
 }
 
 int

@@ -2451,7 +2451,8 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc,
 static bool
 encoding_meets_hints(instr_t *instr, const instr_info_t *info)
 {
-    return !instr_is_enc_hint_evex(instr) || TEST(REQUIRES_EVEX, info->flags);
+    return !instr_is_enc_hint(instr, DR_ENC_HINT_X86_EVEX) ||
+        TEST(REQUIRES_EVEX, info->flags);
 }
 
 /* PR 251479: support general re-relativization.

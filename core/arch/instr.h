@@ -322,9 +322,9 @@ typedef enum _dr_enc_hint_type_t {
 #ifdef AVOID_API_EXPORT
 /* Internally, we are using the prefixes field in instr_t in order to store the hint. */
 #endif
-    DR_ENC_HINT_NONE, /**< No encoding hint is present. */
+    DR_ENC_HINT_NONE = 0x0, /**< No encoding hint is present. */
 #ifdef X86
-    DR_ENC_HINT_X86_EVEX, /**< x86: Encode in EVEX form if available. */
+    DR_ENC_HINT_X86_EVEX = 0x1, /**< x86: Encode in EVEX form if available. */
 #endif
 } dr_enc_hint_type_t;
 
@@ -413,6 +413,9 @@ typedef enum _dr_opnd_query_flags_t {
 struct _instr_t {
     /* flags contains the constants defined above */
     uint flags;
+
+    /* hints for encoding this instr in a specific way */
+    uint enc_hints;
 
     /* Raw bits of length length are pointed to by the bytes field.
      * label_cb stores a callback function pointer used by label instructions
@@ -1497,18 +1500,18 @@ DR_API
  * redundant encodings are available. This presumes that the user knows that a
  * redundant encoding is available. This routine sets the \p hint for \p instr.
  */
-bool
+void
 instr_set_enc_hint(instr_t *instr, dr_enc_hint_type_t hint);
 
 DR_API
 /**
  * Each instruction may store a hint for how the instruction should be encoded if
  * redundant encodings are available. This presumes that the user knows that a
- * redundant encoding is available. This routine returns whether DR_ENC_HINT_X86_EVEX
- * is set for \p instr.
+ * redundant encoding is available. This routine returns whether the \p hint is set
+ * for \p instr.
  */
 bool
-instr_is_enc_hint_evex(instr_t *instr);
+instr_is_enc_hint(instr_t *instr, dr_enc_hint_type_t hint);
 
 /***********************************************************************/
 /* decoding routines */
