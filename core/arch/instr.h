@@ -411,7 +411,7 @@ struct _instr_t {
     /* flags contains the constants defined above */
     uint flags;
 
-    /* hints for encoding this instr in a specific way */
+    /* hints for encoding this instr in a specific way, holds dr_encoding_hint_type_t */
     uint encoding_hints;
 
     /* Raw bits of length length are pointed to by the bytes field.
