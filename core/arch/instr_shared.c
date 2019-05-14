@@ -2627,7 +2627,6 @@ instr_create_1dst_1src_evex(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t
 {
 #ifdef X86
     instr_t *in = instr_build(dcontext, opcode, 1, 1);
-    instr_set_encoding_hint(in, DR_ENCODING_HINT_X86_EVEX);
     instr_set_dst(in, 0, dst);
     instr_set_src(in, 0, src);
     return in;
@@ -2654,7 +2653,6 @@ instr_create_1dst_2src_evex(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t
 {
 #ifdef X86
     instr_t *in = instr_build(dcontext, opcode, 1, 2);
-    instr_set_encoding_hint(in, DR_ENCODING_HINT_X86_EVEX);
     instr_set_dst(in, 0, dst);
     instr_set_src(in, 0, src1);
     instr_set_src(in, 1, src2);

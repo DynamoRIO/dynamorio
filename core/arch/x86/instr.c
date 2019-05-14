@@ -94,10 +94,11 @@ instr_get_isa_mode(instr_t *instr)
 #endif
 }
 
-void
+instr_t *
 instr_set_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
 {
     instr->encoding_hints |= hint;
+    return instr;
 }
 
 bool

@@ -1500,7 +1500,7 @@ DR_API
  * redundant encodings are available. This presumes that the user knows that a
  * redundant encoding is available. This routine sets the \p hint for \p instr.
  */
-void
+instr_t *
 instr_set_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint);
 
 DR_API
