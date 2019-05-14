@@ -4268,6 +4268,18 @@ os_create_memory_file(const char *name, size_t size)
     }
     if (fd < 0)
         return INVALID_FILE;
+
+    /* Work around an IMA (kernel optional feature "Integrity Measurement
+     * Architecture") slowdown where the first executable mmap causes a hash
+     * to be computed of the entire file size, which can take 5 or 10
+     * *seconds* for gigabyte files.  This is only done once, so if we
+     * trigger it while the file is tiny, we can avoid the delay later.
+     */
+    byte *temp_map = mmap_syscall(0, PAGE_SIZE, PROT_READ | PROT_EXEC, MAP_SHARED, fd, 0);
+    if (mmap_syscall_succeeded(temp_map))
+        munmap_syscall(temp_map, PAGE_SIZE);
+    /* Else, not fatal: this may not be destined for a later executable mapping anyway. */
+
     if (dynamorio_syscall(SYS_ftruncate, 2, fd, size) < 0) {
         close_syscall(fd);
         return INVALID_FILE;

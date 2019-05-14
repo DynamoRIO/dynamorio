@@ -1605,8 +1605,8 @@ vmm_heap_commit(vm_addr_t p, size_t size, uint prot, heap_error_code_t *error_co
              * execution from regions allocated executable, not changed to executable.
              * There is a downside: IMA policies can cause a significant (~5s) delay
              * while a hash is computed of our vmcode region on the first +x mmap.
-             * TODO i#3566: Find a workaround for this IMA slowdown for kernels where
-             * IMA is enabled.
+             * Today os_create_memory_file() does a temporary +x mmap for us, avoiding
+             * any cost here.
              */
             size_t map_size = size;
             size_t map_offs = p - vmh->start_addr;
