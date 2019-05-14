@@ -177,6 +177,7 @@ test_all_opcodes_1(void *dc)
 
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
+
 /****************************************************************************
  * OPCODE_FOR_CREATE 2 args
  */
@@ -219,6 +220,24 @@ test_all_opcodes_2_avx512_vex(void *dc)
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
+
+#    undef OPCODE_FOR_CREATE
+#    undef XOPCODE_FOR_CREATE
+
+/****************************************************************************
+ * OPCODE_FOR_CREATE 2 args, evex encoding hint
+ */
+
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2)            \
+        do {                                                                 \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {            \
+                instrlist_append(                                            \
+                    ilist,                                                   \
+                    INSTR_ENCODING_HINT(INSTR_CREATE_##icnm(dc, arg1, arg2), \
+                                        DR_ENCODING_HINT_X86_EVEX));         \
+                len_##name = instr_length(dc, instrlist_last(ilist));        \
+            }                                                                \
+        } while (0);
 
 static void
 test_all_opcodes_2_avx512_evex(void *dc)
@@ -281,6 +300,24 @@ test_all_opcodes_3_avx512_evex_mask(void *dc)
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
+
+#    undef OPCODE_FOR_CREATE
+#    undef XOPCODE_FOR_CREATE
+
+/****************************************************************************
+ * OPCODE_FOR_CREATE 3 args, evex encoding hint
+ */
+
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3)            \
+        do {                                                                       \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                  \
+                instrlist_append(                                                  \
+                    ilist,                                                         \
+                    INSTR_ENCODING_HINT(INSTR_CREATE_##icnm(dc, arg1, arg2, arg3), \
+                                        DR_ENCODING_HINT_X86_EVEX));               \
+                len_##name = instr_length(dc, instrlist_last(ilist));              \
+            }                                                                      \
+        } while (0);
 
 static void
 test_all_opcodes_3_avx512_evex(void *dc)

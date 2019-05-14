@@ -31,9 +31,9 @@
  */
 
 /* AVX-512 EVEX instructions with 1 destination, and 1 source, no mask. */
-OPCODE(vmovlps_mxlo_evex, vmovlps, vmovlps_evex, VERIFY_EVEX, MEMARG(OPSZ_8),
+OPCODE(vmovlps_mxlo_evex, vmovlps, vmovlps, VERIFY_EVEX, MEMARG(OPSZ_8),
        REGARG_PARTIAL(XMM0, OPSZ_8))
-OPCODE(vmovlps_mxhi_evex, vmovlps, vmovlps_evex, X64_ONLY, MEMARG(OPSZ_8),
+OPCODE(vmovlps_mxhi_evex, vmovlps, vmovlps, X64_ONLY, MEMARG(OPSZ_8),
        REGARG_PARTIAL(XMM16, OPSZ_8))
 OPCODE(vmovlps_mxhi, vmovlps, vmovlps, X64_ONLY, MEMARG(OPSZ_8),
        REGARG_PARTIAL(XMM16, OPSZ_8))

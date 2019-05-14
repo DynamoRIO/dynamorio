@@ -185,7 +185,6 @@ Further non-compatibility-affecting changes include:
  - Added reg_set_value_ex() to set XMM, YMM and ZMM values.
  - Added the functions instr_set_encoding_hint(), instr_is_encoding_hint().
  - Added the type #dr_encoding_hint_type_t.
- - Added instr_create_1dst_1src_evex(), instr_create_1dst_2src_evex().
  - Added #INSTR_ENCODING_HINT macro.
 
 **************************************************

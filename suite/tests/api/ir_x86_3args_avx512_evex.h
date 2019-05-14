@@ -31,13 +31,12 @@
  */
 
 /* AVX-512 EVEX instructions with 1 destination, and 2 sources, no mask. */
-OPCODE(vmovlps_xloxlom, vmovlps, vmovlps_NDS_evex, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+OPCODE(vmovlps_xloxlom, vmovlps, vmovlps_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
        REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
-OPCODE(vmovlps_xloxloxlo, vmovlps, vmovlps_NDS_evex, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+OPCODE(vmovlps_xloxloxlo, vmovlps, vmovlps_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
        REGARG_PARTIAL(XMM1, OPSZ_8), REGARG_PARTIAL(XMM2, OPSZ_8))
-OPCODE(vmovlps_xhixhim, vmovlps, vmovlps_NDS_evex, X64_ONLY,
-       REGARG_PARTIAL(XMM16, OPSZ_8), REGARG_PARTIAL(XMM17, OPSZ_8), MEMARG(OPSZ_8))
-OPCODE(vmovlps_xhixhixhi, vmovlps, vmovlps_NDS_evex, X64_ONLY,
-       REGARG_PARTIAL(XMM16, OPSZ_8), REGARG_PARTIAL(XMM17, OPSZ_8),
-       REGARG_PARTIAL(XMM31, OPSZ_8))
+OPCODE(vmovlps_xhixhim, vmovlps, vmovlps_NDS, X64_ONLY, REGARG_PARTIAL(XMM16, OPSZ_8),
+       REGARG_PARTIAL(XMM17, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(vmovlps_xhixhixhi, vmovlps, vmovlps_NDS, X64_ONLY, REGARG_PARTIAL(XMM16, OPSZ_8),
+       REGARG_PARTIAL(XMM17, OPSZ_8), REGARG_PARTIAL(XMM31, OPSZ_8))
 /* TODO i#1312: Add missing instructions. */
