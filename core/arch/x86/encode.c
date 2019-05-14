@@ -1349,6 +1349,13 @@ instr_info_extra_opnds(const instr_info_t *info)
     } else if (inst_num >= iinum)                                                        \
         return false;
 
+static bool
+encoding_meets_hints(instr_t *instr, const instr_info_t *info)
+{
+    return !instr_has_encoding_hint(instr, DR_ENCODING_HINT_X86_EVEX) ||
+        TEST(REQUIRES_EVEX, info->flags);
+}
+
 /* May be called a 2nd time to check size prefix consistency.
  * FIXME optimization: in 2nd pass we only need to call opnd_type_ok()
  * and don't need to check reg, modrm, numbers, etc.
@@ -1357,6 +1364,10 @@ static bool
 encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t *ii)
 {
     DEBUG_DECLARE(dcontext_t *dcontext = get_thread_private_dcontext();)
+
+    if (!encoding_meets_hints(in, ii))
+        return false;
+
     /* make sure multiple operands aren't using same modrm bits */
     opnd_t using_reg_bits = opnd_create_null();
     opnd_t using_modrm_bits = opnd_create_null();
@@ -2449,13 +2460,6 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc,
     return pc;
 }
 
-static bool
-encoding_meets_hints(instr_t *instr, const instr_info_t *info)
-{
-    return !instr_has_encoding_hint(instr, DR_ENCODING_HINT_X86_EVEX) ||
-        TEST(REQUIRES_EVEX, info->flags);
-}
-
 /* PR 251479: support general re-relativization.
  * Takes in a level 0-3 instruction and encodes it by copying its
  * raw bytes to dst_pc. For x64, if it is marked as having a rip-relative
@@ -2635,7 +2639,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     di.start_pc = cache_pc;
     di.final_pc = final_pc;
 
-    while (!encoding_possible(&di, instr, info) || !encoding_meets_hints(instr, info)) {
+    while (!encoding_possible(&di, instr, info)) {
         LOG(THREAD, LOG_EMIT, ENC_LEVEL, "\tencoding for 0x%x no good...\n",
             info->opcode);
         info = get_next_instr_info(info);
