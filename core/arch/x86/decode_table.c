@@ -1458,7 +1458,9 @@ const instr_info_t * const op_instr[] =
 #define H15_dq TYPE_H, OPSZ_15_of_16
 #define Hqq TYPE_H, OPSZ_32
 #define Hx TYPE_H, OPSZ_16_vex32
+#define Hh_x TYPE_H, OPSZ_half_16_vex32
 #define Wvq_dq TYPE_W, OPSZ_8_of_16_vex32
+#define Wh_x TYPE_W, OPSZ_half_16_vex32
 #define Wqq TYPE_W, OPSZ_32
 #define Mvs TYPE_M, OPSZ_16_vex32
 #define Mvd TYPE_M, OPSZ_16_vex32
@@ -2809,7 +2811,7 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vmovlps,    0x0f1210, "vmovlps", Vq_dq, xx, Hq_dq, Wq_dq, xx, mrm|vex|reqL0, x, tpe[3][4]}, /*"vmovhlps" if reg-reg */
     {OP_vmovsldup,0xf30f1210, "vmovsldup", Vvs, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
     {OP_vmovlpd,  0x660f1210, "vmovlpd", Vq_dq, xx, Hq_dq, Mq, xx, mrm|vex, x, tpe[3][6]},
-    {OP_vmovddup, 0xf20f1210, "vmovddup", Vvd, xx, Wvq_dq, xx, xx, mrm|vex, x, END_LIST},
+    {OP_vmovddup, 0xf20f1210, "vmovddup", Vvd, xx, Wh_x, xx, xx, mrm|vex, x, END_LIST},
     /* TODO i#1312: Support AVX-512. */
     {INVALID,   0x0f1210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f1210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -2838,9 +2840,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_unpcklpd, 0x660f1410, "unpcklpd", Vpd, xx, Wq_dq, Vpd, xx, mrm, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vunpcklps, 0x0f1410, "vunpcklps", Vvs, xx, Hvs, Wvq_dq, xx, mrm|vex, x, END_LIST},
+    {OP_vunpcklps, 0x0f1410, "vunpcklps", Vvs, xx, Hh_x, Wh_x, xx, mrm|vex, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vunpcklpd, 0x660f1410, "vunpcklpd", Vvd, xx, Hvd, Wvq_dq, xx, mrm|vex, x, END_LIST},
+    {OP_vunpcklpd, 0x660f1410, "vunpcklpd", Vvd, xx, Hh_x, Wh_x, xx, mrm|vex, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     /* TODO i#1312: Support AVX-512. */
     {INVALID,   0x0f1410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -2854,9 +2856,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_unpckhpd, 0x660f1510, "unpckhpd", Vpd, xx, Wq_dq, Vpd, xx, mrm, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vunpckhps, 0x0f1510, "vunpckhps", Vvs, xx, Hvs, Wvq_dq, xx, mrm|vex, x, END_LIST},
+    {OP_vunpckhps, 0x0f1510, "vunpckhps", Vvs, xx, Hh_x, Wh_x, xx, mrm|vex, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vunpckhpd, 0x660f1510, "vunpckhpd", Vvd, xx, Hvd, Wvq_dq, xx, mrm|vex, x, END_LIST},
+    {OP_vunpckhpd, 0x660f1510, "vunpckhpd", Vvd, xx, Hh_x, Wh_x, xx, mrm|vex, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     /* TODO i#1312: Support AVX-512. */
     {INVALID,   0x0f1510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
