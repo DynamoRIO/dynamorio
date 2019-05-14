@@ -1794,7 +1794,7 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val)
 }
 
 /* Sets the register reg in the passed in mcontext to value.  Currently only works
- * with ptr sized registers. FIXME - handle other sized registers. */
+ * with ptr sized registers. See reg_set_value_ex to handle other sized registers. */
 void
 reg_set_value_priv(reg_id_t reg, priv_mcontext_t *mc, reg_t value)
 {
@@ -1807,12 +1807,49 @@ reg_set_value_priv(reg_id_t reg, priv_mcontext_t *mc, reg_t value)
     *(reg_t *)((byte *)mc + opnd_get_reg_mcontext_offs(reg)) = value;
 }
 
+bool
+reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf)
+{
+#ifdef X86
+    CLIENT_ASSERT(reg != REG_NULL, "REG_NULL was passed.");
+
+    dr_zmm_t *simd = (dr_zmm_t *)((byte *)mc + SIMD_OFFSET);
+
+    if (reg_is_gpr(reg)) {
+        reg_t *value = (reg_t *)val_buf;
+        reg_set_value_priv(reg, mc, *value);
+    } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
+        memcpy(&(simd[reg - DR_REG_START_XMM]), val_buf, XMM_REG_SIZE);
+    } else if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) {
+        memcpy(&(simd[reg - DR_REG_START_YMM]), val_buf, YMM_REG_SIZE);
+    } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
+        memcpy(&(simd[reg - DR_REG_START_ZMM]), val_buf, ZMM_REG_SIZE);
+    } else {
+        /* Note, we can reach here for MMX register */
+        CLIENT_ASSERT(false, "NYI i#3504");
+        return false;
+    }
+
+    return true;
+#else
+    CLIENT_ASSERT(false, "NYI  i#1551, i#3504");
+    return false;
+#endif
+}
+
 DR_API
 void
 reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value)
 {
     /* only supports GPRs so we ignore mc.size */
     reg_set_value_priv(reg, dr_mcontext_as_priv_mcontext(mc), value);
+}
+
+DR_API
+bool
+reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf)
+{
+    return reg_set_value_ex_priv(reg, dr_mcontext_as_priv_mcontext(mc), val_buf);
 }
 
 /* helper for sharing w/ VSIB computations */

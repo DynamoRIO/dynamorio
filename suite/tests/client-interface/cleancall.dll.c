@@ -33,12 +33,195 @@
 
 #include "dr_api.h"
 #include "client_tools.h"
+#include "string.h"
 
 #define MINSERT instrlist_meta_preinsert
 
 #ifdef X64
 /* we use this for clean call base-disp refs */
 static reg_t buf[] = { 0xcafebabe, 0xfeedadad, 0xeeeeeeee, 0xbadcabee };
+#endif
+
+#ifdef X86
+/* buffers for testing reg_set_value_ex */
+byte orig_reg_val_buf[64];
+byte new_reg_val_buf[64];
+
+static void
+print_error_on_fail(bool check)
+{
+    if (!check)
+        dr_fprintf(STDERR, "error\n");
+}
+
+static void
+set_gpr()
+{
+    void *drcontext = dr_get_current_drcontext();
+    dr_mcontext_t mcontext = {
+        sizeof(mcontext),
+        DR_MC_ALL,
+    };
+    dr_get_mcontext(drcontext, &mcontext);
+    reg_get_value_ex(DR_REG_XAX, &mcontext, orig_reg_val_buf);
+    reg_get_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf);
+    new_reg_val_buf[0] = 0x75;
+    new_reg_val_buf[2] = 0x83;
+    new_reg_val_buf[3] = 0x23;
+    bool succ = reg_set_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf);
+    print_error_on_fail(succ);
+    memset(new_reg_val_buf, 0, 64);
+    dr_set_mcontext(drcontext, &mcontext);
+}
+
+static void
+check_gpr()
+{
+    void *drcontext = dr_get_current_drcontext();
+    dr_mcontext_t mcontext = {
+        sizeof(mcontext),
+        DR_MC_ALL,
+    };
+    dr_get_mcontext(drcontext, &mcontext);
+    reg_get_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf);
+    print_error_on_fail(new_reg_val_buf[0] == 0x75);
+    print_error_on_fail(new_reg_val_buf[2] == 0x83);
+    print_error_on_fail(new_reg_val_buf[3] == 0x23);
+    bool succ = reg_set_value_ex(DR_REG_XAX, &mcontext, orig_reg_val_buf);
+    print_error_on_fail(succ);
+    dr_set_mcontext(drcontext, &mcontext);
+}
+
+static void
+set_xmm()
+{
+    void *drcontext = dr_get_current_drcontext();
+    dr_mcontext_t mcontext = {
+        sizeof(mcontext),
+        DR_MC_ALL,
+    };
+    dr_get_mcontext(drcontext, &mcontext);
+    reg_get_value_ex(DR_REG_XMM0, &mcontext, orig_reg_val_buf);
+    reg_get_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf);
+    new_reg_val_buf[0] = 0x77;
+    new_reg_val_buf[2] = 0x89;
+    new_reg_val_buf[14] = 0x21;
+    bool succ = reg_set_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf);
+    print_error_on_fail(succ);
+    memset(new_reg_val_buf, 0, 64);
+    dr_set_mcontext(drcontext, &mcontext);
+}
+
+static void
+check_xmm()
+{
+    void *drcontext = dr_get_current_drcontext();
+    dr_mcontext_t mcontext = {
+        sizeof(mcontext),
+        DR_MC_ALL,
+    };
+    dr_get_mcontext(drcontext, &mcontext);
+    reg_get_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf);
+    print_error_on_fail(new_reg_val_buf[0] == 0x77);
+    print_error_on_fail(new_reg_val_buf[2] == 0x89);
+    print_error_on_fail(new_reg_val_buf[14] == 0x21);
+    bool succ = reg_set_value_ex(DR_REG_XMM0, &mcontext, orig_reg_val_buf);
+    print_error_on_fail(succ);
+    dr_set_mcontext(drcontext, &mcontext);
+}
+
+static void
+set_ymm()
+{
+    void *drcontext = dr_get_current_drcontext();
+    dr_mcontext_t mcontext = {
+        sizeof(mcontext),
+        DR_MC_ALL,
+    };
+    dr_get_mcontext(drcontext, &mcontext);
+    reg_get_value_ex(DR_REG_YMM0, &mcontext, orig_reg_val_buf);
+    reg_get_value_ex(DR_REG_YMM0, &mcontext, new_reg_val_buf);
+    new_reg_val_buf[0] = 0x77;
+    new_reg_val_buf[2] = 0x80;
+    new_reg_val_buf[14] = 0x25;
+    new_reg_val_buf[20] = 0x09;
+    new_reg_val_buf[25] = 0x06;
+    bool succ = reg_set_value_ex(DR_REG_YMM0, &mcontext, new_reg_val_buf);
+    print_error_on_fail(succ);
+    memset(new_reg_val_buf, 0, 64);
+    dr_set_mcontext(drcontext, &mcontext);
+}
+
+static void
+check_ymm()
+{
+    void *drcontext = dr_get_current_drcontext();
+    dr_mcontext_t mcontext = {
+        sizeof(mcontext),
+        DR_MC_ALL,
+    };
+    dr_get_mcontext(drcontext, &mcontext);
+    reg_get_value_ex(DR_REG_YMM0, &mcontext, new_reg_val_buf);
+    print_error_on_fail(new_reg_val_buf[0] == 0x77);
+    print_error_on_fail(new_reg_val_buf[2] == 0x80);
+    print_error_on_fail(new_reg_val_buf[14] == 0x25);
+    print_error_on_fail(new_reg_val_buf[20] == 0x09);
+    print_error_on_fail(new_reg_val_buf[25] == 0x06);
+    bool succ = reg_set_value_ex(DR_REG_YMM0, &mcontext, orig_reg_val_buf);
+    print_error_on_fail(succ);
+    dr_set_mcontext(drcontext, &mcontext);
+}
+
+#    ifdef __AVX512F__
+static void
+set_zmm()
+{
+    void *drcontext = dr_get_current_drcontext();
+    dr_mcontext_t mcontext = {
+        sizeof(mcontext),
+        DR_MC_ALL,
+    };
+    dr_get_mcontext(drcontext, &mcontext);
+    reg_get_value_ex(DR_REG_ZMM0, &mcontext, orig_reg_val_buf);
+    reg_get_value_ex(DR_REG_ZMM0, &mcontext, new_reg_val_buf);
+    new_reg_val_buf[0] = 0x77;
+    new_reg_val_buf[2] = 0x80;
+    new_reg_val_buf[14] = 0x25;
+    new_reg_val_buf[20] = 0x09;
+    new_reg_val_buf[25] = 0x02;
+    new_reg_val_buf[32] = 0x16;
+    new_reg_val_buf[55] = 0x18;
+    new_reg_val_buf[60] = 0x22;
+    bool succ = reg_set_value_ex(DR_REG_ZMM0, &mcontext, new_reg_val_buf);
+    print_error_on_fail(succ);
+    memset(new_reg_val_buf, 0, 64);
+    dr_set_mcontext(drcontext, &mcontext);
+}
+
+static void
+check_zmm()
+{
+    void *drcontext = dr_get_current_drcontext();
+    dr_mcontext_t mcontext = {
+        sizeof(mcontext),
+        DR_MC_ALL,
+    };
+    dr_get_mcontext(drcontext, &mcontext);
+    reg_get_value_ex(DR_REG_ZMM0, &mcontext, new_reg_val_buf);
+    print_error_on_fail(new_reg_val_buf[0] == 0x77);
+    print_error_on_fail(new_reg_val_buf[2] == 0x80);
+    print_error_on_fail(new_reg_val_buf[14] == 0x25);
+    print_error_on_fail(new_reg_val_buf[20] == 0x09);
+    print_error_on_fail(new_reg_val_buf[25] == 0x02);
+    print_error_on_fail(new_reg_val_buf[32] == 0x16);
+    print_error_on_fail(new_reg_val_buf[55] == 0x18);
+    print_error_on_fail(new_reg_val_buf[60] == 0x22);
+    bool succ = reg_set_value_ex(DR_REG_ZMM0, &mcontext, orig_reg_val_buf);
+    print_error_on_fail(succ);
+    dr_set_mcontext(drcontext, &mcontext);
+}
+#    endif
+
 #endif
 
 static void
@@ -146,6 +329,24 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         dr_insert_clean_call(drcontext, bb, add, (void *)cleancall_no_aflags_save, false,
                              0);
         dr_insert_clean_call(drcontext, bb, cmp, (void *)cleancall_aflags_save, false, 0);
+
+#ifdef X86
+        /* Other unrelated tests for setting register values. */
+
+        dr_insert_clean_call(drcontext, bb, instr, set_gpr, false, 0);
+        dr_insert_clean_call(drcontext, bb, instr, check_gpr, false, 0);
+
+        dr_insert_clean_call(drcontext, bb, instr, set_xmm, false, 0);
+        dr_insert_clean_call(drcontext, bb, instr, check_xmm, false, 0);
+
+        dr_insert_clean_call(drcontext, bb, instr, set_ymm, false, 0);
+        dr_insert_clean_call(drcontext, bb, instr, check_ymm, false, 0);
+
+#    ifdef __AVX512F__
+        dr_insert_clean_call(drcontext, bb, instr, set_zmm, false, 0);
+        dr_insert_clean_call(drcontext, bb, instr, check_zmm, false, 0);
+#    endif
+#endif
     }
 
     /* Look for 3 nops to indicate handler is set up */
