@@ -319,9 +319,6 @@ typedef enum _dr_pred_type_t {
  * used to encode an instruction in its evex form instead of its vex format (xref #3339).
  */
 typedef enum _dr_encoding_hint_type_t {
-#ifdef AVOID_API_EXPORT
-/* Internally, we are using the prefixes field in instr_t in order to store the hint. */
-#endif
     DR_ENCODING_HINT_NONE = 0x0, /**< No encoding hint is present. */
 #ifdef X86
     DR_ENCODING_HINT_X86_EVEX = 0x1, /**< x86: Encode in EVEX form if available. */
