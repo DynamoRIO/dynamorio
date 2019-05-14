@@ -1325,9 +1325,10 @@ instr_info_extra_opnds(const instr_info_t *info)
             return false;                                                                \
         if (!opnd_type_ok(di, get_op, iitype, iisize))                                   \
             return false;                                                                \
-        if (opnd_needs_evex(get_op))                                                     \
+        if (opnd_needs_evex(get_op)) {                                                   \
             if (!requires_evex)                                                          \
                 return false;                                                            \
+        }                                                                                \
         if (type_instr_uses_reg_bits(iitype)) {                                          \
             if (!opnd_is_null(using_reg_bits) && !opnd_same(using_reg_bits, get_op))     \
                 return false;                                                            \
