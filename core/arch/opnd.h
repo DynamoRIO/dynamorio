@@ -2776,11 +2776,30 @@ DR_API
 /**
  * Sets the register \p reg in the passed in mcontext \p mc to \p value.
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
- * \note Current release is limited to setting pointer-sized registers only
+ * \note This function is limited to setting pointer-sized registers only
  * (no sub-registers, and no non-general-purpose registers).
+ * See \p reg_set_value_ex for setting other register values.
  */
 void
 reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value);
+
+DR_API
+/**
+ * Sets the register \p reg in the passed in mcontext \p mc to the value
+ * stored in the buffer \p val_buf.
+ *
+ * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
+ *
+ * Unlike \p reg_set_value, this function supports not only general purpose
+ * registers, but SIMD registers too. Does not yet support MMX registers.
+ *
+ * Up to sizeof(dr_zmm_t) bytes will be read from \p val_buf. It is up
+ * to the user to ensure correct buffer size.
+ *
+ * Returns false if the register is not supported.
+ */
+bool
+reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf);
 
 /* internal version */
 void

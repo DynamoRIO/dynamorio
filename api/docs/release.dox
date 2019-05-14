@@ -182,6 +182,7 @@ Further non-compatibility-affecting changes include:
    reg_is_strictly_zmm().
  - Added the function reg_is_avx512_extended().
  - Added the function instr_is_opmask().
+ - Added reg_set_value_ex() to set XMM, YMM and ZMM values.
 
 **************************************************
 <hr>
