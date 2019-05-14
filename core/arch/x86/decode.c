@@ -258,6 +258,7 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
         return (TEST(PREFIX_EVEX_LL, di->prefixes)
                     ? OPSZ_64
                     : (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_32 : OPSZ_16));
+    case OPSZ_half_16_vex32: return (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_16 : OPSZ_8);
     }
     return sz;
 }
@@ -279,7 +280,8 @@ expand_subreg_size(opnd_size_t sz)
     case OPSZ_15_of_16:
     case OPSZ_4_reg16: return OPSZ_16;
     case OPSZ_16_of_32: return OPSZ_32;
-    case OPSZ_8_of_16_vex32: return OPSZ_16_vex32;
+    case OPSZ_8_of_16_vex32:
+    case OPSZ_half_16_vex32: return OPSZ_16_vex32;
     }
     return sz;
 }
