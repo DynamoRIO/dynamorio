@@ -95,15 +95,15 @@ instr_get_isa_mode(instr_t *instr)
 }
 
 void
-instr_set_enc_hint(instr_t *instr, dr_enc_hint_type_t hint)
+instr_set_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
 {
-    instr->enc_hints |= hint;
+    instr->encoding_hints |= hint;
 }
 
 bool
-instr_is_enc_hint(instr_t *instr, dr_enc_hint_type_t hint)
+instr_is_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
 {
-    return TEST(hint, instr->enc_hints);
+    return TEST(hint, instr->encoding_hints);
 }
 
 int

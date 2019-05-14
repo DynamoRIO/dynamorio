@@ -318,15 +318,15 @@ typedef enum _dr_pred_type_t {
  * available. Currently, we provide a hint for x86 evex encoded instructions. It can be
  * used to encode an instruction in its evex form instead of its vex format.
  */
-typedef enum _dr_enc_hint_type_t {
+typedef enum _dr_encoding_hint_type_t {
 #ifdef AVOID_API_EXPORT
 /* Internally, we are using the prefixes field in instr_t in order to store the hint. */
 #endif
-    DR_ENC_HINT_NONE = 0x0, /**< No encoding hint is present. */
+    DR_ENCODING_HINT_NONE = 0x0, /**< No encoding hint is present. */
 #ifdef X86
-    DR_ENC_HINT_X86_EVEX = 0x1, /**< x86: Encode in EVEX form if available. */
+    DR_ENCODING_HINT_X86_EVEX = 0x1, /**< x86: Encode in EVEX form if available. */
 #endif
-} dr_enc_hint_type_t;
+} dr_encoding_hint_type_t;
 
 /* DR_API EXPORT END */
 /* These aren't composable, so we store them in as few bits as possible.
@@ -415,7 +415,7 @@ struct _instr_t {
     uint flags;
 
     /* hints for encoding this instr in a specific way */
-    uint enc_hints;
+    uint encoding_hints;
 
     /* Raw bits of length length are pointed to by the bytes field.
      * label_cb stores a callback function pointer used by label instructions
@@ -1501,7 +1501,7 @@ DR_API
  * redundant encoding is available. This routine sets the \p hint for \p instr.
  */
 void
-instr_set_enc_hint(instr_t *instr, dr_enc_hint_type_t hint);
+instr_set_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint);
 
 DR_API
 /**
@@ -1511,7 +1511,7 @@ DR_API
  * for \p instr.
  */
 bool
-instr_is_enc_hint(instr_t *instr, dr_enc_hint_type_t hint);
+instr_is_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint);
 
 /***********************************************************************/
 /* decoding routines */
