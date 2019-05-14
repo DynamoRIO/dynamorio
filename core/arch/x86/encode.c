@@ -1319,14 +1319,14 @@ instr_info_extra_opnds(const instr_info_t *info)
 }
 
 /* macro for speed so we don't have to pass opnds around */
-#define TEST_OPND(di, iitype, iisize, iinum, inst_num, get_op, requires_evex)            \
+#define TEST_OPND(di, iitype, iisize, iinum, inst_num, get_op, flags)                    \
     if (iitype != TYPE_NONE) {                                                           \
         if (inst_num < iinum)                                                            \
             return false;                                                                \
         if (!opnd_type_ok(di, get_op, iitype, iisize))                                   \
             return false;                                                                \
         if (opnd_needs_evex(get_op)) {                                                   \
-            if (!requires_evex)                                                          \
+            if (!TEST(REQUIRES_EVEX, flags))                                             \
                 return false;                                                            \
         }                                                                                \
         if (type_instr_uses_reg_bits(iitype)) {                                          \
@@ -1365,15 +1365,15 @@ encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t *ii)
 
     /* for efficiency we separately test 2 dsts, 3 srcs */
     TEST_OPND(di, ii->dst1_type, ii->dst1_size, 1, in->num_dsts, instr_get_dst(in, 0),
-              TEST(REQUIRES_EVEX, ii->flags));
+              ii->flags);
     TEST_OPND(di, ii->dst2_type, ii->dst2_size, 2, in->num_dsts, instr_get_dst(in, 1),
-              TEST(REQUIRES_EVEX, ii->flags));
+              ii->flags);
     TEST_OPND(di, ii->src1_type, ii->src1_size, 1, in->num_srcs, instr_get_src(in, 0),
-              TEST(REQUIRES_EVEX, ii->flags));
+              ii->flags);
     TEST_OPND(di, ii->src2_type, ii->src2_size, 2, in->num_srcs, instr_get_src(in, 1),
-              TEST(REQUIRES_EVEX, ii->flags));
+              ii->flags);
     TEST_OPND(di, ii->src3_type, ii->src3_size, 3, in->num_srcs, instr_get_src(in, 2),
-              TEST(REQUIRES_EVEX, ii->flags));
+              ii->flags);
 
     if ((ii->flags & HAS_EXTRA_OPERANDS) != 0) {
         /* extra operands to test! */
@@ -1387,15 +1387,15 @@ encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t *ii)
                           "encode error: extra operand template mismatch");
 
             TEST_OPND(di, ii->dst1_type, ii->dst1_size, (offs * 2 + 1), in->num_dsts,
-                      instr_get_dst(in, (offs * 2 + 0)), TEST(REQUIRES_EVEX, ii->flags));
+                      instr_get_dst(in, (offs * 2 + 0)), ii->flags);
             TEST_OPND(di, ii->dst2_type, ii->dst2_size, (offs * 2 + 2), in->num_dsts,
-                      instr_get_dst(in, (offs * 2 + 1)), TEST(REQUIRES_EVEX, ii->flags));
+                      instr_get_dst(in, (offs * 2 + 1)), ii->flags);
             TEST_OPND(di, ii->src1_type, ii->src1_size, (offs * 3 + 1), in->num_srcs,
-                      instr_get_src(in, (offs * 3 + 0)), TEST(REQUIRES_EVEX, ii->flags));
+                      instr_get_src(in, (offs * 3 + 0)), ii->flags);
             TEST_OPND(di, ii->src2_type, ii->src2_size, (offs * 3 + 2), in->num_srcs,
-                      instr_get_src(in, (offs * 3 + 1)), TEST(REQUIRES_EVEX, ii->flags));
+                      instr_get_src(in, (offs * 3 + 1)), ii->flags);
             TEST_OPND(di, ii->src3_type, ii->src3_size, (offs * 3 + 3), in->num_srcs,
-                      instr_get_src(in, (offs * 3 + 2)), TEST(REQUIRES_EVEX, ii->flags));
+                      instr_get_src(in, (offs * 3 + 2)), ii->flags);
             offs++;
             ii = instr_info_extra_opnds(ii);
         } while (ii != NULL);
