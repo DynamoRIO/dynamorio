@@ -1509,7 +1509,7 @@ DR_API
  * for \p instr.
  */
 bool
-instr_is_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint);
+instr_has_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint);
 
 /***********************************************************************/
 /* decoding routines */

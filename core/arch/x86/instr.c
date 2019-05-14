@@ -102,7 +102,7 @@ instr_set_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
 }
 
 bool
-instr_is_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
+instr_has_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
 {
     return TEST(hint, instr->encoding_hints);
 }
