@@ -1496,6 +1496,7 @@ DR_API
  * Each instruction may store a hint for how the instruction should be encoded if
  * redundant encodings are available. This presumes that the user knows that a
  * redundant encoding is available. This routine sets the \p hint for \p instr.
+ * Returns \p instr (for easy chaining).
  */
 instr_t *
 instr_set_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint);
