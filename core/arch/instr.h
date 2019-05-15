@@ -2527,33 +2527,12 @@ instr_create_1dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src)
 DR_API
 /**
  * Convenience routine that returns an initialized instr_t allocated on the
- * thread-local heap with opcode \p opcode, one destination (\p dst), and
- * one source (\p src). A hint is set to use the x86 evex form if available
- * when encoding the instruction.
- */
-instr_t *
-instr_create_1dst_1src_evex(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src);
-
-DR_API
-/**
- * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode, one destination (\p dst),
  * and two sources (\p src1, \p src2).
  */
 instr_t *
 instr_create_1dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
                        opnd_t src2);
-
-DR_API
-/**
- * Convenience routine that returns an initialized instr_t allocated on the
- * thread-local heap with opcode \p opcode, one destination (\p dst), and
- * two sources (\p src1, \p src2). A hint is set to use the x86 evex form
- * if available when encoding the instruction.
- */
-instr_t *
-instr_create_1dst_2src_evex(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
-                            opnd_t src2);
 
 DR_API
 /**
