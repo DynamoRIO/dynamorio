@@ -2112,6 +2112,8 @@ if (CLIENT_INTERFACE)
       "" "")
   endif (NOT ARM)
 
+  tobuild_ci(client.blackbox client-interface/blackbox.c "" "" "")
+
   tobuild_ci(client.option_parse client-interface/option_parse.cpp
     "-x;4;-y;quoted string;-z;first;-z;single quotes -dash --dashes;-front;value;-y;accum;-front2;value2;-no_flag;-takes2;1_of_4;2_of_4;-takes2;3_of_4;4_of_4;-val_sep;v1.1 v1.2;-val_sep;v2.1 v2.2;-val_sep2;v1;v2;-val_sep2;v3;v4"
     "" "")
