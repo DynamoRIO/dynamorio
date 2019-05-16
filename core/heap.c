@@ -110,19 +110,26 @@ static const uint BLOCK_SIZES[] = {
     24, /* fcache empties and vm_area_t are now 20, vm area extras still 24 */
     /* 40 dbg / 36 rel: */
     ALIGN_FORWARD(sizeof(fragment_t) + sizeof(indirect_linkstub_t), HEAP_ALIGNMENT),
-#if defined(X64) || defined(CUSTOM_EXIT_STUBS)
-    sizeof(instr_t), /* 64 (96 x64) */
+#if defined(X64)
+    sizeof(instr_t), /* 104 x64 */
+#    ifdef DEBUG
     sizeof(fragment_t) + sizeof(direct_linkstub_t) +
-        sizeof(cbr_fallthrough_linkstub_t), /* 68 dbg / 64 rel, 112 x64 */
+        sizeof(cbr_fallthrough_linkstub_t), /* 112 dbg x64 / 104 rel x64 */
+#    else
+/* release == instr_t */
+#    endif
+#elif defined(CUSTOM_EXIT_STUBS)
+#    error "FIXME i#3611: Fix build and check the heap buckets for the correct order."
 /* all other bb/trace buckets are 8 larger but in same order */
 #else
     sizeof(fragment_t) + sizeof(direct_linkstub_t) +
         sizeof(cbr_fallthrough_linkstub_t), /* 60 dbg / 56 rel */
-    sizeof(instr_t),                        /* 64 */
+#    ifndef DEBUG
+    sizeof(instr_t),                        /* 68 */
+#    endif
 #endif
     /* we keep this bucket even though only 10% or so of normal bbs
      * hit this.
-     * FIXME: release == instr_t here so a small waste when walking buckets
      */
     ALIGN_FORWARD(sizeof(fragment_t) + 2 * sizeof(direct_linkstub_t),
                   HEAP_ALIGNMENT), /* 68 dbg / 64 rel (128 x64) */

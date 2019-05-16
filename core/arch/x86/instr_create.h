@@ -1436,11 +1436,6 @@
 #define INSTR_CREATE_ktestb(dc, d, s) instr_create_1dst_1src((dc), OP_ktestb, (d), (s))
 #define INSTR_CREATE_ktestq(dc, d, s) instr_create_1dst_1src((dc), OP_ktestq, (d), (s))
 #define INSTR_CREATE_ktestd(dc, d, s) instr_create_1dst_1src((dc), OP_ktestd, (d), (s))
-/* AVX-512 EVEX */
-/* TODO i#1312: AVX-512 promoted AVX opcodes with default mask k0 should be covered by
- * macros above, but encoder should assign default mask.
- */
-
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */

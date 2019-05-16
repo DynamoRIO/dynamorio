@@ -2005,8 +2005,16 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         return true;
     }
     case TYPE_H: {
-        /* part of AVX: vex.vvvv selects xmm/ymm register */
+        /* As part of AVX and AVX-512, vex.vvvv selects xmm/ymm/zmm register. Note that
+         * vex.vvvv and evex.vvvv are a union.
+         */
         reg_id_t reg = (~di->vex_vvvv) & 0xf; /* bit-inverted */
+        if (TEST(PREFIX_EVEX_VV, di->prefixes)) {
+            /* This assumes that the register ranges of DR_REG_XMM, DR_REG_YMM, and
+             * DR_REG_ZMM are contiguous.
+             */
+            reg += 16;
+        }
         *opnd = opnd_create_reg(((TEST(PREFIX_VEX_L, di->prefixes) &&
                                   /* see .LIG notes above */
                                   expand_subreg_size(opsize) != OPSZ_16)
