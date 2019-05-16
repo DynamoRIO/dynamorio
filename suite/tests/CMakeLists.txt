@@ -3701,9 +3701,11 @@ if (X64 AND NOT AARCH64) # FIXME i#1569: get working on AArch64
   torunonly(low4GB security-common.selfmod security-common/selfmod.c
     "-heap_in_lower_4GB -reachable_heap" "")
   if (UNIX AND NOT APPLE)
-    # XXX i#3556: NYI on Windows and Mac.
-    torunonly(w_xor_x security-common.selfmod security-common/selfmod.c
+    # XXX i#3556: NYI on Windows, Mac, and non-x86 (and not supported on 32-bit).
+    torunonly(w-x.selfmod security-common.selfmod security-common/selfmod.c
       "-satisfy_w_xor_x" "")
+    torunonly_ci(w-x.reachability ${ci_shared_app} client.reachability.dll
+      client-interface/reachability.c "" "-satisfy_w_xor_x" "")
   endif ()
 endif (X64 AND NOT AARCH64)
 

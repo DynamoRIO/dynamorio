@@ -1516,8 +1516,8 @@ encode_immed(decode_info_t *di, byte *pc)
              */
             val = di->immed - (len + di->modrm);
         } else if (di->immed_pc_rel_offs) {
-            /* this code means that the immed holds not the absolute pc but
-             * the offset
+            /* This code means that the immed currently holds not the absolute pc but
+             * the offset, but wants to hold the absolute pc.
              */
             size = di->size_immed; /* TYPE_I put real size there */
             CLIENT_ASSERT((size == OPSZ_4_short2 && !TEST(PREFIX_DATA, di->prefixes)) ||
@@ -1528,7 +1528,7 @@ encode_immed(decode_info_t *di, byte *pc)
              * HACK: di->modrm was set with the number of instruction bytes
              * prior to this immed
              */
-            val = di->immed + (ptr_int_t)pc - di->modrm;
+            val = di->immed + (ptr_int_t)(pc - di->start_pc + di->final_pc) - di->modrm;
             if (di->immed_shift > 0)
                 val >>= di->immed_shift;
 #ifdef X64
