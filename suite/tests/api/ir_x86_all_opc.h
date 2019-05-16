@@ -69,9 +69,11 @@ orig = instrlist_first(ilist);
 #define XOPCODE OPCODE
 #define OPCODE(name, opc, icnm, flags, ...)                                            \
     do {                                                                               \
-        if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0 && len_##name != 0) {       \
+        if (!TEST(IF_X64_ELSE(X86_ONLY, X64_ONLY), flags) && len_##name != 0) {        \
             instr_reset(dc, instr);                                                    \
             next_pc = decode(dc, pc, instr);                                           \
+            if (TEST(VERIFY_EVEX, flags))                                              \
+                ASSERT(*pc == FIRST_EVEX_BYTE);                                        \
             ASSERT((next_pc - pc) == decode_sizeof(dc, pc, NULL _IF_X64(NULL)));       \
             ASSERT((next_pc - pc) == len_##name);                                      \
             ASSERT(instr_get_opcode(instr) == OP_##opc);                               \

@@ -2812,8 +2812,7 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vmovsldup,0xf30f1210, "vmovsldup", Vvs, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
     {OP_vmovlpd,  0x660f1210, "vmovlpd", Vq_dq, xx, Hq_dq, Mq, xx, mrm|vex, x, tpe[3][6]},
     {OP_vmovddup, 0xf20f1210, "vmovddup", Vvd, xx, Wh_x, xx, xx, mrm|vex, x, END_LIST},
-    /* TODO i#1312: Support AVX-512. */
-    {INVALID,   0x0f1210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_W_EXT, 0x0f1210, "(evex_W ext 14)", xx, xx, xx, xx, xx, mrm|evex, x, 14},
     {INVALID, 0xf30f1210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x660f1210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf20f1210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -2824,12 +2823,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_movlpd, 0x660f1310, "movlpd", Mq, xx, Vq_dq, xx, xx, mrm, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovlps, 0x0f1310, "vmovlps", Mq, xx, Vq_dq, xx, xx, mrm|vex, x, END_LIST},
+    {OP_vmovlps, 0x0f1310, "vmovlps", Mq, xx, Vq_dq, xx, xx, mrm|vex, x, tevexw[14][0]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vmovlpd, 0x660f1310, "vmovlpd", Mq, xx, Vq_dq, xx, xx, mrm|vex, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    /* TODO i#1312: Support AVX-512. */
-    {INVALID,   0x0f1310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_W_EXT, 0x0f1310, "(evex_W ext 15)", xx, xx, xx, xx, xx, mrm|evex, x, 15},
     {INVALID, 0xf30f1310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x660f1310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf20f1310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -6692,6 +6690,14 @@ const instr_info_t evex_W_extensions[][2] = {
   {    /* evex_W_ext 13 */
     {OP_vmovdqu32, 0xf30f7f10,"vmovdqu32",Wex,xx,KEw,Vex,xx,mrm|evex,x,END_LIST},
     {OP_vmovdqu64, 0xf30f7f50,"vmovdqu64",Wex,xx,KEw,Vex,xx,mrm|evex,x,END_LIST},
+  },
+  {    /* evex_W_ext 14 */
+    {OP_vmovlps, 0x0f1210, "vmovlps", Vq_dq, xx, Hq_dq, Wq_dq, xx, mrm|evex|reqL0, x, tevexw[15][0]}, /*"vmovhlps" if reg-reg */
+    {INVALID, 0x0f1250,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+  },
+  {    /* evex_W_ext 15 */
+    {OP_vmovlps, 0x0f1310, "vmovlps", Mq, xx, Vq_dq, xx, xx, mrm|evex, x, END_LIST},
+    {INVALID, 0x0f1350,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   },
 };
 

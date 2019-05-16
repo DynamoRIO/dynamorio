@@ -385,7 +385,7 @@ typedef struct {
 #        ifdef X64
     uint black_box_uint[26];
 #        else
-    uint black_box_uint[16];
+    uint black_box_uint[17];
 #        endif
 } instr_t;
 #    else

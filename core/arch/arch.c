@@ -666,6 +666,12 @@ d_r_arch_init(void)
     ASSERT((uint)LINK_FINAL_INSTR_SHARED_FLAG < (uint)INSTR_FIRST_NON_LINK_SHARED_FLAG);
     ASSERT_TRUNCATE(byte, byte, OPSZ_LAST_ENUM);
     ASSERT(DR_ISA_ARM_A32 + 1 == DR_ISA_ARM_THUMB); /* ibl relies on this */
+#ifdef X86_64
+    /* We rely on contiguous ranges when computing AVX-512 registers. */
+    ASSERT(DR_REG_XMM16 == DR_REG_XMM15 + 1);
+    ASSERT(DR_REG_YMM16 == DR_REG_YMM15 + 1);
+    ASSERT(DR_REG_ZMM16 == DR_REG_ZMM15 + 1);
+#endif
 
     /* Verify that the structures used for a register spill area and to hold IBT
      * table addresses & masks for IBL code are laid out as expected. We expect

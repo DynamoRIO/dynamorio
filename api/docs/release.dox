@@ -183,6 +183,9 @@ Further non-compatibility-affecting changes include:
  - Added the function reg_is_avx512_extended().
  - Added the function instr_is_opmask().
  - Added reg_set_value_ex() to set XMM, YMM and ZMM values.
+ - Added the functions instr_set_encoding_hint(), instr_has_encoding_hint().
+ - Added the type #dr_encoding_hint_type_t.
+ - Added #INSTR_ENCODING_HINT macro.
 
 **************************************************
 <hr>

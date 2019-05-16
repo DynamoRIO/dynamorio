@@ -313,6 +313,18 @@ typedef enum _dr_pred_type_t {
 #endif
 } dr_pred_type_t;
 
+/**
+ * Specifies hints for how an instruction should be encoded if redundant encodings are
+ * available. Currently, we provide a hint for x86 evex encoded instructions. It can be
+ * used to encode an instruction in its evex form instead of its vex format (xref #3339).
+ */
+typedef enum _dr_encoding_hint_type_t {
+    DR_ENCODING_HINT_NONE = 0x0, /**< No encoding hint is present. */
+#ifdef X86
+    DR_ENCODING_HINT_X86_EVEX = 0x1, /**< x86: Encode in EVEX form if available. */
+#endif
+} dr_encoding_hint_type_t;
+
 /* DR_API EXPORT END */
 /* These aren't composable, so we store them in as few bits as possible.
  * The top 5 prefix bits hold the value (x86 needs 17 values).
@@ -398,6 +410,9 @@ typedef enum _dr_opnd_query_flags_t {
 struct _instr_t {
     /* flags contains the constants defined above */
     uint flags;
+
+    /* hints for encoding this instr in a specific way, holds dr_encoding_hint_type_t */
+    uint encoding_hints;
 
     /* Raw bits of length length are pointed to by the bytes field.
      * label_cb stores a callback function pointer used by label instructions
@@ -1475,6 +1490,26 @@ DR_API
  */
 dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr);
+
+DR_API
+/**
+ * Each instruction may store a hint for how the instruction should be encoded if
+ * redundant encodings are available. This presumes that the user knows that a
+ * redundant encoding is available. This routine sets the \p hint for \p instr.
+ * Returns \p instr (for easy chaining).
+ */
+instr_t *
+instr_set_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint);
+
+DR_API
+/**
+ * Each instruction may store a hint for how the instruction should be encoded if
+ * redundant encodings are available. This presumes that the user knows that a
+ * redundant encoding is available. This routine returns whether the \p hint is set
+ * for \p instr.
+ */
+bool
+instr_has_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint);
 
 /***********************************************************************/
 /* decoding routines */
