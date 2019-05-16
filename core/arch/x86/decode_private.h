@@ -303,7 +303,7 @@ struct _decode_info_t {
     ushort immed_shift;
     ptr_int_t immed;
     ptr_int_t immed2; /* this additional field could be 32-bit on all platforms */
-    /* These fields are only used when decoding rip-relative data refs */
+    /* These fields are used for decoding/encoding rip-relative data refs. */
     byte *start_pc;
     byte *final_pc;
     uint len;
