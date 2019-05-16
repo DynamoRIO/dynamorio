@@ -46,6 +46,7 @@
 #include "link.h"     /* for struct sizes */
 #include "instr.h"    /* for struct sizes */
 #include "fcache.h"   /* fcache_low_on_memory */
+#include "memquery.h"
 #ifdef DEBUG
 #    include "hotpatch.h" /* To handle leak for case 9593. */
 #endif
@@ -918,8 +919,9 @@ vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
         /* Ensure os_map_file ignores vmcode: */
         ASSERT(!is_vmm_reserved_address(vmh->start_addr, size, NULL, NULL));
         size_t map_size = vmh->alloc_size;
-        byte *map_base = os_map_file(heapmgt->dual_map_file, &map_size, 0,
-                                     vmh->alloc_start, MEMPROT_NONE, MAP_FILE_FIXED);
+        byte *map_base =
+            os_map_file(heapmgt->dual_map_file, &map_size, 0, vmh->alloc_start,
+                        MEMPROT_NONE, MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
         if (map_base != vmh->alloc_start || map_size != vmh->alloc_size) {
             REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_SATISFY_W_XOR_X, 2,
                                         get_application_name(), get_application_pid());
@@ -1067,9 +1069,11 @@ vmm_heap_unit_exit(vm_heap_t *vmh)
         os_heap_free(vmh->alloc_start, vmh->alloc_size, &error_code);
         ASSERT(error_code == HEAP_ERROR_SUCCESS);
         if (DYNAMO_OPTION(satisfy_w_xor_x) && vmh == &heapmgt->vmcode) {
+            heap_error_code_t error_code;
             os_heap_free(heapmgt->vmcode_writable_alloc, vmh->alloc_size, &error_code);
             ASSERT(error_code == HEAP_ERROR_SUCCESS);
             os_delete_memory_file(MEMORY_FILE_NAME, heapmgt->dual_map_file);
+            heapmgt->dual_map_file = INVALID_FILE;
         }
     } else {
         /* FIXME: doing nothing for now - we only care about this in
@@ -1594,6 +1598,8 @@ vmm_heap_commit(vm_addr_t p, size_t size, uint prot, heap_error_code_t *error_co
 {
     bool res = true;
     vm_heap_t *vmh = vmheap_for_which(which);
+    LOG(GLOBAL, LOG_HEAP, 3, "vmm_heap_commit %s: size=%d p=" PFX " prot=%x\n", vmh->name,
+        size, p, prot);
     if (DYNAMO_OPTION(satisfy_w_xor_x) && vmh == &heapmgt->vmcode) {
         vm_addr_t p_writable = vmm_normalize_addr(vmh, &p);
         /* We blindly shadow even if prot is -w to simplify de-alloc.  -w is rare. */
@@ -1674,7 +1680,8 @@ vmm_heap_commit(vm_addr_t p, size_t size, uint prot, heap_error_code_t *error_co
             }
         }
     }
-    if (!res && DYNAMO_OPTION(oom_timeout) != 0) {
+    if (!res && DYNAMO_OPTION(oom_timeout) != 0 &&
+        !(DYNAMO_OPTION(satisfy_w_xor_x) && vmh == &heapmgt->vmcode)) {
         DEBUG_DECLARE(heap_error_code_t old_error_code = *error_code;)
         ASSERT(old_error_code != HEAP_ERROR_SUCCESS);
 
@@ -1891,6 +1898,109 @@ vmm_heap_exit()
         vmm_heap_exited = true;
     }
 }
+
+#ifdef UNIX
+void
+vmm_heap_fork_init(dcontext_t *dcontext)
+{
+    if (!DYNAMO_OPTION(satisfy_w_xor_x))
+        return;
+    /* We want a private copy of our dual mapping setup, rather than sharing the
+     * parent's.  Unfortunately that requires copying the entire vmcode contents
+     * into new mappings.  Fortunately with two copies we don't need a temporary.
+     *
+     * XXX i#3556: There is a race here where the parent changes vmcode while we're
+     * setting up our private version.  The only solution may be to force the parent to
+     * wait: do we want to do that?
+     */
+
+    /* First, make a new file. */
+    int old_fd = heapmgt->dual_map_file;
+    heapmgt->dual_map_file =
+        os_create_memory_file(MEMORY_FILE_NAME, heapmgt->vmcode.alloc_size);
+    if (heapmgt->dual_map_file == INVALID_FILE)
+        goto vmm_heap_fork_init_failed;
+    LOG(GLOBAL, LOG_HEAP, 2, "%s: new dual_map_file is %d\n", __FUNCTION__,
+        heapmgt->dual_map_file);
+
+    /* Second, make a new +w region and copy the old +x protections and contents.
+     * Record the old +x protections (because some are +rw (ELF data segments), some
+     * are +rx, and some are +r (reachable (non-exec) heap)).
+     */
+    vm_area_vector_t x_regions;
+    vmvector_init_vector(&x_regions, VECTOR_NEVER_MERGE | VECTOR_NO_LOCK);
+    /* XXX i#3556: For -reachable_heap we'll have problems here where the heap
+     * for x_regions will modify vmcode!
+     */
+    ASSERT_NOT_IMPLEMENTED(!REACHABLE_HEAP(),
+                           "'-reachable_heap -satisfy_w_xor_x' does not support fork");
+
+    size_t map_size = heapmgt->vmcode.alloc_size;
+    byte *map_base =
+        os_map_file(heapmgt->dual_map_file, &map_size, 0, heapmgt->vmcode_writable_alloc,
+                    MEMPROT_NONE, MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
+    if (map_base != heapmgt->vmcode_writable_alloc ||
+        map_size != heapmgt->vmcode.alloc_size)
+        goto vmm_heap_fork_init_failed;
+    memquery_iter_t iter;
+    if (!memquery_iterator_start(&iter, heapmgt->vmcode.start_addr, true /*using heap*/))
+        goto vmm_heap_fork_init_failed;
+    while (memquery_iterator_next(&iter) && iter.vm_start < heapmgt->vmcode.end_addr) {
+        if (iter.vm_start < heapmgt->vmcode.start_addr || iter.prot == MEMPROT_NONE)
+            continue;
+        vmvector_add(&x_regions, iter.vm_start, iter.vm_end,
+                     (void *)(ptr_uint_t)iter.prot);
+        heap_error_code_t error_code;
+        byte *new_start =
+            iter.vm_start - heapmgt->vmcode.start_addr + heapmgt->vmcode_writable_base;
+        uint new_prot = (iter.prot & ~(MEMPROT_EXEC)) | MEMPROT_WRITE;
+        if (!os_heap_commit(new_start, iter.vm_end - iter.vm_start, new_prot,
+                            &error_code))
+            goto vmm_heap_fork_init_failed;
+        memcpy(new_start, iter.vm_start, iter.vm_end - iter.vm_start);
+        LOG(GLOBAL, LOG_HEAP, 2, "%s: re-mapped %p-%p %x; copied from %p-%p %x\n",
+            __FUNCTION__, new_start, new_start + (iter.vm_end - iter.vm_start), new_prot,
+            iter.vm_start, iter.vm_end, iter.prot);
+    }
+    memquery_iterator_stop(&iter);
+
+    /* Third, make a new +x region and set up the right protections and mappings. */
+    map_size = heapmgt->vmcode.alloc_size;
+    map_base =
+        os_map_file(heapmgt->dual_map_file, &map_size, 0, heapmgt->vmcode.alloc_start,
+                    MEMPROT_NONE, MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
+    if (map_base != heapmgt->vmcode.alloc_start || map_size != heapmgt->vmcode.alloc_size)
+        goto vmm_heap_fork_init_failed;
+    vmvector_iterator_t vmvi;
+    vmvector_iterator_start(&x_regions, &vmvi);
+    while (vmvector_iterator_hasnext(&vmvi)) {
+        byte *start, *end;
+        uint prot = (uint)(ptr_uint_t)vmvector_iterator_next(&vmvi, &start, &end);
+        map_size = end - start;
+        map_base = os_map_file(heapmgt->dual_map_file, &map_size,
+                               start - heapmgt->vmcode.start_addr, start, prot,
+                               MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
+        if (map_base != start || map_size != end - start)
+            goto vmm_heap_fork_init_failed;
+        LOG(GLOBAL, LOG_HEAP, 2, "%s: re-mapped %p-%p %x\n", __FUNCTION__, start, end,
+            prot);
+    }
+    vmvector_iterator_stop(&vmvi);
+    vmvector_reset_vector(GLOBAL_DCONTEXT, &x_regions);
+
+    /* XXX: We don't want to unlink any tmpfs file so we don't use
+     * os_delete_memory_file(). This may not work on Windows if that function needs to do
+     * more.
+     */
+    os_close(old_fd);
+    return;
+
+vmm_heap_fork_init_failed:
+    REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_SATISFY_W_XOR_X, 2, get_application_name(),
+                                get_application_pid());
+    ASSERT_NOT_REACHED();
+}
+#endif
 
 /* checks for compatibility among heap options, returns true if
  * modified the value of any options to make them compatible
@@ -3839,7 +3949,7 @@ static void
 heap_unit_extend_commitment(heap_unit_t *u, size_t size_need, uint prot)
 {
     u->end_pc += common_heap_extend_commitment(u->cur_pc, u->end_pc, u->reserved_end_pc,
-                                               size_need, prot, VMM_HEAP);
+                                               size_need, prot, u->which);
 }
 
 /* allocate storage on the DR heap

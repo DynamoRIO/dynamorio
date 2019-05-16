@@ -756,8 +756,11 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
         LOG(THREAD, LOG_SYSCALLS, 3, "\tmodifying target of syscall jmp to " PFX "\n",
             target);
         instr_set_target(&instr, opnd_create_pc(target));
-        nxt_pc = instr_encode(dcontext, &instr, skip_pc);
-        ASSERT(nxt_pc != NULL && nxt_pc == cti_pc);
+        nxt_pc = instr_encode_to_copy(dcontext, &instr, vmcode_get_writable_addr(skip_pc),
+                                      skip_pc);
+        ASSERT(nxt_pc != NULL);
+        nxt_pc = vmcode_get_executable_addr(nxt_pc);
+        ASSERT(nxt_pc == cti_pc);
         machine_cache_sync(skip_pc, nxt_pc, true);
     } else {
         LOG(THREAD, LOG_SYSCALLS, 3, "\ttarget of syscall jmp is already " PFX "\n",
