@@ -272,6 +272,9 @@ enum {
  * is invalid if encoded using evex.
  */
 #define REQUIRES_EVEX 0x01000
+/* Instr must be encoded with EVEX.LL=0.  If EVEX.LL=1 this is an invalid instr.
+ */
+#define REQUIRES_EVEX_LL_0 0x02000
 
 struct _decode_info_t {
     uint opcode;

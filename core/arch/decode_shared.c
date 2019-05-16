@@ -162,6 +162,7 @@ const char *const size_names[] = {
     "OPSZ_8_of_16_vex32",
     "OPSZ_16_of_32",
     "OPSZ_half_16_vex32",
+    "OPSZ_half_16_vex32_evex64",
 };
 
 /* point at this when you need a canonical invalid instr

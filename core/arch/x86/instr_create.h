@@ -2266,6 +2266,12 @@
     instr_create_1dst_2src((dc), OP_vmovss, (d), (k), (s))
 #define INSTR_CREATE_vmovsd_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vmovsd, (d), (k), (s))
+#define INSTR_CREATE_vmovsldup_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovsldup, (d), (k), (s))
+#define INSTR_CREATE_vmovddup_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovddup, (d), (k), (s))
+#define INSTR_CREATE_vmovshdup_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovshdup, (d), (k), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */

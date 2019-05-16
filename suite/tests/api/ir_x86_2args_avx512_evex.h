@@ -31,10 +31,12 @@
  */
 
 /* AVX-512 EVEX instructions with 1 destination, and 1 source, no mask. */
-OPCODE(vmovlps_mxlo_evex, vmovlps, vmovlps, VERIFY_EVEX, MEMARG(OPSZ_8),
+OPCODE(vmovlps_mxlo, vmovlps, vmovlps, VERIFY_EVEX, MEMARG(OPSZ_8),
        REGARG_PARTIAL(XMM0, OPSZ_8))
-OPCODE(vmovlps_mxhi_evex, vmovlps, vmovlps, X64_ONLY, MEMARG(OPSZ_8),
-       REGARG_PARTIAL(XMM16, OPSZ_8))
 OPCODE(vmovlps_mxhi, vmovlps, vmovlps, X64_ONLY, MEMARG(OPSZ_8),
+       REGARG_PARTIAL(XMM16, OPSZ_8))
+OPCODE(vmovlpd_mxlo, vmovlpd, vmovlpd, VERIFY_EVEX, MEMARG(OPSZ_8),
+       REGARG_PARTIAL(XMM0, OPSZ_8))
+OPCODE(vmovlpd_mxhi, vmovlpd, vmovlpd, X64_ONLY, MEMARG(OPSZ_8),
        REGARG_PARTIAL(XMM16, OPSZ_8))
 /* TODO i#1312: Add missing instructions. */
