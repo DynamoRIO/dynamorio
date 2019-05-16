@@ -2112,7 +2112,7 @@ if (CLIENT_INTERFACE)
       "" "")
   endif (NOT ARM)
 
-  if (NOT ARM) # FIXME i#1551: fix ARM
+  if (NOT ARM AND NOT AARCH64) # FIXME i#1551: fix ARM
     tobuild_ci(client.blackbox client-interface/blackbox.c "" "" "")
   endif (NOT ARM)
 
