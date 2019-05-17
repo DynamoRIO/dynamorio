@@ -1180,17 +1180,17 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         if (!TEST(REQUIRES_VEX, info->flags))
             info = NULL; /* invalid encoding */
         else if (TEST(REQUIRES_VEX_L_0, info->flags) && TEST(PREFIX_VEX_L, di->prefixes))
-            info = NULL;
+            info = NULL; /* invalid encoding */
     } else if (info != NULL && !di->vex_encoded && TEST(REQUIRES_VEX, info->flags)) {
         info = NULL; /* invalid encoding */
     } else if (info != NULL && di->evex_encoded) {
         if (!TEST(REQUIRES_EVEX, info->flags))
             info = NULL; /* invalid encoding */
         else if (TEST(REQUIRES_VEX_L_0, info->flags) && TEST(PREFIX_VEX_L, di->prefixes))
-            info = NULL;
+            info = NULL; /* invalid encoding */
         else if (TEST(REQUIRES_EVEX_LL_0, info->flags) &&
                  TEST(PREFIX_EVEX_LL, di->prefixes))
-            info = NULL;
+            info = NULL; /* invalid encoding */
     } else if (info != NULL && !di->evex_encoded && TEST(REQUIRES_EVEX, info->flags))
         info = NULL; /* invalid encoding */
     /* XXX: not currently marking these cases as invalid instructions:
