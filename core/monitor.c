@@ -1014,8 +1014,6 @@ make_room_in_trace_buffer(dcontext_t *dcontext, uint add_size, fragment_t *f)
             return false;
         }
         /* Re-allocate trace buf.  It must be reachable for rip-rel re-relativization. */
-        LOG(THREAD, LOG_MONITOR, 3, "\nRe-allocating trace buffer from %d to %d bytes\n",
-            md->trace_buf_size, size);
         new_tbuf = heap_reachable_alloc(dcontext, size HEAPACCT(ACCT_TRACE));
         if (md->trace_buf != NULL) {
             /* copy entire thing, just in case */
@@ -1033,6 +1031,9 @@ make_room_in_trace_buffer(dcontext_t *dcontext, uint add_size, fragment_t *f)
                 instr = instr_get_next(instr);
             }
         }
+        LOG(THREAD, LOG_MONITOR, 3,
+            "\nRe-allocated trace buffer from %d @" PFX " to %d bytes @" PFX "\n",
+            md->trace_buf_size, md->trace_buf, size, new_tbuf);
         md->trace_buf = new_tbuf;
         md->trace_buf_size = size;
     }

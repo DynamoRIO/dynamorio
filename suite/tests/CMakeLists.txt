@@ -107,6 +107,8 @@ set(vmap_run_list
   "SHORT::ONLY::client.events$::-code_api -disable_traces"
   "SHORT::X86::ONLY::client.events$::-code_api -thread_private -disable_traces"
   "SHORT::X86::LIN::ONLY::client.events$::-code_api -no_early_inject" # only early on ARM
+  # XXX i#3556: NYI on Windows, Mac, and non-x86 (and not supported on 32-bit).
+  "SHORT::X86::X64::LIN::ONLY::drcache.*\\.simple$|selfmod2|racesys|reachability::-code_api -satisfy_w_xor_x"
   # maybe this should be SHORT as -coarse_units will eventually be the default?
   "X86::-code_api -opt_memory"       # i#1575: ARM -coarse_units NYI
   "X86::-code_api -opt_speed"        # i#1551: ARM indcall2direct NYI
@@ -1509,21 +1511,35 @@ macro(strings2lists test ops_var)
   endif ()
 endmacro()
 
+function(set_properties name test myprefix)
+  if (DEFINED ${test}_depends)
+    set_property(TEST ${name} APPEND PROPERTY DEPENDS "${myprefix}${${test}_depends}")
+  endif (DEFINED ${test}_depends)
+  if (DEFINED ${test}_self_serial)
+    # We blindly add a dep to every possible cross-cutting same test w/ diff ops.
+    # CTest seems ok with a dep on a non-existent test.
+    foreach (prefix ${prior_prefixes})
+      if (NOT "${prefix}" STREQUAL "${myprefix}")
+        message("For ${name} |${myprefix}|, not equal: |${prefix}|,|${myprefix}|")
+        set_property(TEST ${name} APPEND PROPERTY DEPENDS "${prefix}${test}")
+      endif ()
+    endforeach ()
+  endif ()
+  if (DEFINED ${test}_env)
+    set_property(TEST ${name} APPEND PROPERTY ENVIRONMENT "${myprefix}${${test}_env}")
+  endif ()
+endfunction ()
+
 function(torun_normal name test ops)
   strings2lists(${test} ops)
   torun("${name}" ${test} ${${test}_source} OFF OFF "${${test}_dr_ops};${ops}"
     "${${test}_exe_ops}" added)
-  if (DEFINED ${test}_depends)
-    ops2testprefix(prefix "${ops}")
-    set_property(TEST ${name} APPEND PROPERTY DEPENDS "${prefix}${${test}_depends}")
-  endif (DEFINED ${test}_depends)
-  if (DEFINED ${test}_env)
-    ops2testprefix(prefix "${ops}")
-    set_property(TEST ${name} APPEND PROPERTY ENVIRONMENT "${prefix}${${test}_env}")
-  endif ()
+  ops2testprefix(myprefix "${ops}")
+  set_properties(${name} ${test} ${myprefix})
 endfunction(torun_normal)
 
 function(torun_ci name test ops)
+  ops2testprefix(myprefix "${ops}")
   strings2lists(${test} ops)
   set(cli_ops "${${test}_client_ops}")
   if ("${test}" MATCHES "client\\.flush")
@@ -1549,14 +1565,7 @@ function(torun_ci name test ops)
       "${${test}_exe_ops}" added)
   endif ()
   if (added)
-    if (DEFINED ${test}_depends)
-      ops2testprefix(prefix "${ops}")
-      set_property(TEST ${name} APPEND PROPERTY DEPENDS "${prefix}${${test}_depends}")
-    endif (DEFINED ${test}_depends)
-    if (DEFINED ${test}_env)
-      ops2testprefix(prefix "${ops}")
-      set_property(TEST ${name} APPEND PROPERTY ENVIRONMENT "${prefix}${${test}_env}")
-    endif ()
+    set_properties(${name} ${test} ${myprefix})
   endif (added)
 endfunction(torun_ci)
 
@@ -2616,6 +2625,7 @@ endif ()
         set(tool.drcachesim.${testname}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcachesim.${testname}_rawtemp ON) # no preprocessor
+        set(tool.drcachesim.${testname}_self_serial ON)
       endmacro (torunonly_drcachesim)
 
       set(config_files_dir ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
@@ -2794,6 +2804,7 @@ endif ()
           "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${exetgt}.*.dir")
         set(tool.drcacheoff.${testname}_postcmd
           "firstglob@${drcachesim_path}@-indir@drmemtrace.${exetgt}.*.dir${sim_atops}")
+        set(tool.drcacheoff.${testname}_self_serial ON)
       endmacro()
 
       # We could share drcachesim-simple.templatex if we had the launcher fork
@@ -3698,13 +3709,6 @@ if (X64 AND NOT AARCH64) # FIXME i#1569: get working on AArch64
   endif (CLIENT_INTERFACE)
   torunonly(low4GB security-common.selfmod security-common/selfmod.c
     "-heap_in_lower_4GB -reachable_heap" "")
-  if (UNIX AND NOT APPLE)
-    # XXX i#3556: NYI on Windows, Mac, and non-x86 (and not supported on 32-bit).
-    torunonly(w-x.selfmod security-common.selfmod security-common/selfmod.c
-      "-satisfy_w_xor_x" "")
-    torunonly_ci(w-x.reachability ${ci_shared_app} client.reachability.dll
-      client-interface/reachability.c "" "-satisfy_w_xor_x" "")
-  endif ()
 endif (X64 AND NOT AARCH64)
 
 tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
@@ -3770,6 +3774,12 @@ foreach (run ${run_list})
     set(enabled OFF)
   endif ()
 
+  string(REGEX MATCHALL "^X64::" is_x64 "${run}")
+  string(REGEX REPLACE "^X64::" "" run "${run}")
+  if (is_x64 AND NOT X64)
+    set(enabled OFF)
+  endif ()
+
   string(REGEX MATCHALL "^WIN::" is_win "${run}")
   string(REGEX REPLACE "^WIN::" "" run "${run}")
   if (is_win AND UNIX)
@@ -3796,6 +3806,11 @@ foreach (run ${run_list})
       set(regex "^common")
     endif ()
 
+    ops2testprefix(prefix "${run}")
+    list(FIND prior_prefixes "${prefix}" index)
+    if (${index} EQUAL -1)
+      list(APPEND prior_prefixes "${prefix}")
+    endif ()
     foreach (test ${testlist_normal})
       if (NOT regex OR "${test}" MATCHES "${regex}")
         run2testname(test_name "${run}" ${test})

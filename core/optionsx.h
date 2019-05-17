@@ -1477,6 +1477,14 @@ DYNAMIC_OPTION(bool, pause_via_loop,
     OPTION_DEFAULT(bool, reachable_client, IF_STATIC_LIBRARY_ELSE(false, true),
                    "guarantee that clients are reachable from the code cache.")
 #endif
+    /* XXX i#3566: Support for W^X has some current limitations:
+     * + It is not implemented for Windows or Mac.
+     * + Fork is not perfectly supported: there is overhead and a race.
+     * + Pcaches are not supported.
+     * + -native_exec_list is not supported.
+     * + dr_nonheap_alloc(rwx) is not supported.
+     *   Clients using other non-vmcode sources of +wx memory will also not comply.
+     */
     OPTION_DEFAULT(bool, satisfy_w_xor_x, false,
                    "avoids ever allocating memory that is both writable and executable.")
      /* FIXME: the lower 16 bits are ignored - so this here gives us
