@@ -39,4 +39,20 @@ OPCODE(vmovlps_xhixhim, vmovlps, vmovlps_NDS, X64_ONLY, REGARG_PARTIAL(XMM16, OP
        REGARG_PARTIAL(XMM17, OPSZ_8), MEMARG(OPSZ_8))
 OPCODE(vmovlps_xhixhixhi, vmovlps, vmovlps_NDS, X64_ONLY, REGARG_PARTIAL(XMM16, OPSZ_8),
        REGARG_PARTIAL(XMM17, OPSZ_8), REGARG_PARTIAL(XMM31, OPSZ_8))
+OPCODE(vmovlpd_xloxlom, vmovlpd, vmovlpd_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(vmovlpd_xhixhim, vmovlpd, vmovlpd_NDS, X64_ONLY, REGARG_PARTIAL(XMM16, OPSZ_8),
+       REGARG_PARTIAL(XMM17, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(vmovhps_xloxlom, vmovhps, vmovhps_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(vmovhps_xloxloxlo, vmovhps, vmovhps_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM1, OPSZ_8), REGARG_PARTIAL(XMM2, OPSZ_8))
+OPCODE(vmovhps_xhixhim, vmovhps, vmovhps_NDS, X64_ONLY, REGARG_PARTIAL(XMM16, OPSZ_8),
+       REGARG_PARTIAL(XMM17, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(vmovhps_xhixhixhi, vmovhps, vmovhps_NDS, X64_ONLY, REGARG_PARTIAL(XMM16, OPSZ_8),
+       REGARG_PARTIAL(XMM17, OPSZ_8), REGARG_PARTIAL(XMM31, OPSZ_8))
+OPCODE(vmovhpd_xloxlom, vmovhpd, vmovhpd_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(vmovhpd_xhixhim, vmovhpd, vmovhpd_NDS, X64_ONLY, REGARG_PARTIAL(XMM16, OPSZ_8),
+       REGARG_PARTIAL(XMM17, OPSZ_8), MEMARG(OPSZ_8))
 /* TODO i#1312: Add missing instructions. */
