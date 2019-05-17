@@ -46,7 +46,9 @@
 #include "link.h"     /* for struct sizes */
 #include "instr.h"    /* for struct sizes */
 #include "fcache.h"   /* fcache_low_on_memory */
-#include "memquery.h"
+#ifdef UNIX
+#    include "memquery.h"
+#endif
 #ifdef DEBUG
 #    include "hotpatch.h" /* To handle leak for case 9593. */
 #endif
@@ -1932,7 +1934,7 @@ vmm_heap_fork_init(dcontext_t *dcontext)
     /* XXX i#3556: For -reachable_heap we'll have problems here where the heap
      * for x_regions will modify vmcode!
      */
-    ASSERT_NOT_IMPLEMENTED(!REACHABLE_HEAP(),
+    ASSERT_NOT_IMPLEMENTED(!REACHABLE_HEAP() &&
                            "'-reachable_heap -satisfy_w_xor_x' does not support fork");
 
     size_t map_size = heapmgt->vmcode.alloc_size;
