@@ -393,9 +393,12 @@ enum {
     OPSZ_half_16_vex32,      /* half of 128 bits (XMM or memory);
                               * if vex.L then is half of 256 bits (YMM or memory).
                               */
-    /* XXX i#1312: Augment with new types specific to AVX-512. */
+    OPSZ_half_16_vex32_evex64, /* 64 bits, but can be half of XMM register;
+                                * if evex.L then is 256 bits (YMM or memory);
+                                * if evex.L' then is 512 bits (ZMM or memory).
+                                */
     OPSZ_SUBREG_START = OPSZ_1_of_4,
-    OPSZ_SUBREG_END = OPSZ_half_16_vex32,
+    OPSZ_SUBREG_END = OPSZ_half_16_vex32_evex64,
     OPSZ_LAST_ENUM, /* note last is NOT inclusive */
 };
 

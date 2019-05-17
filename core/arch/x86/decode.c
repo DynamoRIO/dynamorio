@@ -258,8 +258,14 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
         return (TEST(PREFIX_EVEX_LL, di->prefixes)
                     ? OPSZ_64
                     : (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_32 : OPSZ_16));
+
     case OPSZ_half_16_vex32: return (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_16 : OPSZ_8);
+    case OPSZ_half_16_vex32_evex64:
+        return (TEST(PREFIX_EVEX_LL, di->prefixes)
+                    ? OPSZ_32
+                    : (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_16 : OPSZ_8));
     }
+
     return sz;
 }
 
@@ -282,6 +288,7 @@ expand_subreg_size(opnd_size_t sz)
     case OPSZ_16_of_32: return OPSZ_32;
     case OPSZ_8_of_16_vex32:
     case OPSZ_half_16_vex32: return OPSZ_16_vex32;
+    case OPSZ_half_16_vex32_evex64: return OPSZ_16_vex32_evex64;
     }
     return sz;
 }
@@ -1173,15 +1180,17 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         if (!TEST(REQUIRES_VEX, info->flags))
             info = NULL; /* invalid encoding */
         else if (TEST(REQUIRES_VEX_L_0, info->flags) && TEST(PREFIX_VEX_L, di->prefixes))
-            info = NULL;
+            info = NULL; /* invalid encoding */
     } else if (info != NULL && !di->vex_encoded && TEST(REQUIRES_VEX, info->flags)) {
         info = NULL; /* invalid encoding */
     } else if (info != NULL && di->evex_encoded) {
         if (!TEST(REQUIRES_EVEX, info->flags))
             info = NULL; /* invalid encoding */
-        /* XXX i#1312: This might need checks for REQUIRES_EVEX_L_0 and
-         * REQUIRES_EVEX_LL_0.
-         */
+        else if (TEST(REQUIRES_VEX_L_0, info->flags) && TEST(PREFIX_VEX_L, di->prefixes))
+            info = NULL; /* invalid encoding */
+        else if (TEST(REQUIRES_EVEX_LL_0, info->flags) &&
+                 TEST(PREFIX_EVEX_LL, di->prefixes))
+            info = NULL; /* invalid encoding */
     } else if (info != NULL && !di->evex_encoded && TEST(REQUIRES_EVEX, info->flags))
         info = NULL; /* invalid encoding */
     /* XXX: not currently marking these cases as invalid instructions:
