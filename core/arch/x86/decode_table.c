@@ -1496,8 +1496,8 @@ const instr_info_t * const op_instr[] =
 #define Ved TYPE_V, OPSZ_16_vex32_evex64
 #define Wes TYPE_W, OPSZ_16_vex32_evex64
 #define Wed TYPE_W, OPSZ_16_vex32_evex64
-#define Vex TYPE_V, OPSZ_16_vex32_evex64
-#define Wex TYPE_W, OPSZ_16_vex32_evex64
+#define Ve TYPE_V, OPSZ_16_vex32_evex64
+#define We TYPE_W, OPSZ_16_vex32_evex64
 #define Wh_e TYPE_W, OPSZ_half_16_vex32_evex64
 
 /* my own codes
@@ -6667,28 +6667,28 @@ const instr_info_t evex_W_extensions[][2] = {
     {OP_vmovapd, 0x660f2950,"vmovapd", Wed,xx,KEd,Ved,xx,mrm|evex,x,END_LIST},
   },
   {    /* evex_W_ext 8 */
-    {OP_vmovdqa32, 0x660f6f10,"vmovdqa32",Vex,xx,KEw,Wex,xx,mrm|evex,x,tevexw[9][0]},
-    {OP_vmovdqa64, 0x660f6f50,"vmovdqa64",Vex,xx,KEw,Wex,xx,mrm|evex,x,tevexw[9][1]},
+    {OP_vmovdqa32, 0x660f6f10,"vmovdqa32",Ve,xx,KEw,We,xx,mrm|evex,x,tevexw[9][0]},
+    {OP_vmovdqa64, 0x660f6f50,"vmovdqa64",Ve,xx,KEw,We,xx,mrm|evex,x,tevexw[9][1]},
   },
   {    /* evex_W_ext 9 */
-    {OP_vmovdqa32, 0x660f7f10,"vmovdqa32",Wex,xx,KEw,Vex,xx,mrm|evex,x,END_LIST},
-    {OP_vmovdqa64, 0x660f7f50,"vmovdqa64",Wex,xx,KEw,Vex,xx,mrm|evex,x,END_LIST},
+    {OP_vmovdqa32, 0x660f7f10,"vmovdqa32",We,xx,KEw,Ve,xx,mrm|evex,x,END_LIST},
+    {OP_vmovdqa64, 0x660f7f50,"vmovdqa64",We,xx,KEw,Ve,xx,mrm|evex,x,END_LIST},
   },
   {    /* evex_W_ext 10 */
-    {OP_vmovdqu8, 0xf20f6f10,"vmovdqu8",Vex,xx,KEw,Wex,xx,mrm|evex,x,tevexw[12][0]},
-    {OP_vmovdqu16, 0xf20f6f50,"vmovdqu16",Vex,xx,KEw,Wex,xx,mrm|evex,x,tevexw[12][1]},
+    {OP_vmovdqu8, 0xf20f6f10,"vmovdqu8",Ve,xx,KEw,We,xx,mrm|evex,x,tevexw[12][0]},
+    {OP_vmovdqu16, 0xf20f6f50,"vmovdqu16",Ve,xx,KEw,We,xx,mrm|evex,x,tevexw[12][1]},
   },
   {    /* evex_W_ext 11 */
-    {OP_vmovdqu32, 0xf30f6f10,"vmovdqu32",Vex,xx,KEw,Wex,xx,mrm|evex,x,tevexw[13][0]},
-    {OP_vmovdqu64, 0xf30f6f50,"vmovdqu64",Vex,xx,KEw,Wex,xx,mrm|evex,x,tevexw[13][1]},
+    {OP_vmovdqu32, 0xf30f6f10,"vmovdqu32",Ve,xx,KEw,We,xx,mrm|evex,x,tevexw[13][0]},
+    {OP_vmovdqu64, 0xf30f6f50,"vmovdqu64",Ve,xx,KEw,We,xx,mrm|evex,x,tevexw[13][1]},
   },
   {    /* evex_W_ext 12 */
-    {OP_vmovdqu8, 0xf20f7f10,"vmovdqu8",Wex,xx,KEw,Vex,xx,mrm|evex,x,END_LIST},
-    {OP_vmovdqu16, 0xf20f7f50,"vmovdqu16",Wex,xx,KEw,Vex,xx,mrm|evex,x,END_LIST},
+    {OP_vmovdqu8, 0xf20f7f10,"vmovdqu8",We,xx,KEw,Ve,xx,mrm|evex,x,END_LIST},
+    {OP_vmovdqu16, 0xf20f7f50,"vmovdqu16",We,xx,KEw,Ve,xx,mrm|evex,x,END_LIST},
   },
   {    /* evex_W_ext 13 */
-    {OP_vmovdqu32, 0xf30f7f10,"vmovdqu32",Wex,xx,KEw,Vex,xx,mrm|evex,x,END_LIST},
-    {OP_vmovdqu64, 0xf30f7f50,"vmovdqu64",Wex,xx,KEw,Vex,xx,mrm|evex,x,END_LIST},
+    {OP_vmovdqu32, 0xf30f7f10,"vmovdqu32",We,xx,KEw,Ve,xx,mrm|evex,x,END_LIST},
+    {OP_vmovdqu64, 0xf30f7f50,"vmovdqu64",We,xx,KEw,Ve,xx,mrm|evex,x,END_LIST},
   },
   {    /* evex_W_ext 14 */
     {OP_vmovlps, 0x0f1210, "vmovlps", Vq_dq, xx, Hq_dq, Wq_dq, xx, mrm|evex|reqL0|reqLL0, x, tevexw[15][0]}, /*"vmovhlps" if reg-reg */
