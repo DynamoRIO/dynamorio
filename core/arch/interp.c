@@ -7985,9 +7985,13 @@ shift_ctis_in_fragment(dcontext_t *dcontext, fragment_t *f, ssize_t shift,
             ASSERT(old_target + shift == target);
             LOG(THREAD, LOG_MONITOR, 4,
                 "shift_ctis_in_fragment: pre-sysenter mov now pts to @" PFX "\n", target);
-            DEBUG_DECLARE(encode_nxt =) instr_encode(dcontext, &instr, prev_decode_pc);
+            DEBUG_DECLARE(encode_nxt =)
+            instr_encode_to_copy(dcontext, &instr,
+                                 vmcode_get_writable_addr(prev_decode_pc),
+                                 prev_decode_pc);
             /* must not change size! */
-            ASSERT(encode_nxt != NULL && encode_nxt == next_pc);
+            ASSERT(encode_nxt != NULL &&
+                   vmcode_get_executable_addr(encode_nxt) == next_pc);
         }
         /* The following 'if' won't get executed since a sysenter isn't
          * a CTI instr, so we don't need an else. We do need to take care
@@ -8011,9 +8015,11 @@ shift_ctis_in_fragment(dcontext_t *dcontext, fragment_t *f, ssize_t shift,
                 /* re-encode instr w/ new pc-relative target */
                 instr_set_raw_bits_valid(&instr, false);
                 instr_set_target(&instr, opnd_create_pc(target - shift));
-                DEBUG_DECLARE(nxt_pc =) instr_encode(dcontext, &instr, prev_pc);
+                DEBUG_DECLARE(nxt_pc =)
+                instr_encode_to_copy(dcontext, &instr, vmcode_get_writable_addr(prev_pc),
+                                     prev_pc);
                 /* must not change size! */
-                ASSERT(nxt_pc != NULL && nxt_pc == pc);
+                ASSERT(nxt_pc != NULL && vmcode_get_executable_addr(nxt_pc) == pc);
 #ifdef DEBUG
                 if ((d_r_stats->logmask & LOG_CACHE) != 0) {
                     d_r_loginst(
