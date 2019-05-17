@@ -2009,6 +2009,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
          */
         return decode_operand(di, TYPE_E, opsize, opnd);
     case TYPE_L: {
+        CLIENT_ASSERT(!TEST(PREFIX_EVEX_LL, di->prefixes), "XXX i#1312: unsupported.");
         /* part of AVX: top 4 bits of 8-bit immed select xmm/ymm register */
         ptr_int_t immed = get_immed(di, OPSZ_1);
         reg_id_t reg = (reg_id_t)(immed & 0xf0) >> 4;
@@ -2032,12 +2033,16 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
              */
             reg += 16;
         }
-        *opnd = opnd_create_reg(((TEST(PREFIX_VEX_L, di->prefixes) &&
-                                  /* see .LIG notes above */
-                                  expand_subreg_size(opsize) != OPSZ_16)
-                                     ? REG_START_YMM
-                                     : REG_START_XMM) +
-                                reg);
+        if (TEST(PREFIX_EVEX_LL, di->prefixes)) {
+            reg += DR_REG_START_ZMM;
+        } else if (TEST(PREFIX_VEX_L, di->prefixes) &&
+                   /* see .LIG notes above */
+                   expand_subreg_size(opsize) != OPSZ_16) {
+            reg += DR_REG_START_YMM;
+        } else {
+            reg += DR_REG_START_XMM;
+        }
+        *opnd = opnd_create_reg(reg);
         opnd_set_size(opnd, resolve_variable_size(di, opsize, true /*is reg*/));
         return true;
     }
