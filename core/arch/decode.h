@@ -395,7 +395,7 @@ enum {
                               */
     OPSZ_half_16_vex32_evex64, /* 64 bits, but can be half of XMM register;
                                 * if evex.L then is 256 bits (YMM or memory);
-                                * if evex.L' then is 512 bits (ZMM or memory)
+                                * if evex.L' then is 512 bits (ZMM or memory).
                                 */
     OPSZ_SUBREG_START = OPSZ_1_of_4,
     OPSZ_SUBREG_END = OPSZ_half_16_vex32_evex64,
