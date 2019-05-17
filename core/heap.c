@@ -293,6 +293,11 @@ typedef struct _thread_heap_t {
     thread_units_t *local_heap;
     thread_units_t *nonpersistent_heap;
     thread_units_t *reachable_heap; /* Only used if !REACHABLE_HEAP() */
+#ifdef UNIX
+    /* Used for -satisfy_w_xor_x. */
+    heap_pc fork_copy_start;
+    size_t fork_copy_size;
+#endif
 } thread_heap_t;
 
 /* global, unique thread-shared structure:
@@ -790,6 +795,14 @@ vmm_heap_initialize_unusable(vm_heap_t *vmh)
 }
 
 static void
+report_w_xor_x_fatal_error_and_exit(void)
+{
+    REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_SATISFY_W_XOR_X, 2, get_application_name(),
+                                get_application_pid());
+    ASSERT_NOT_REACHED();
+}
+
+static void
 vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
 {
     ptr_uint_t preferred = 0;
@@ -925,8 +938,7 @@ vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
             os_map_file(heapmgt->dual_map_file, &map_size, 0, vmh->alloc_start,
                         MEMPROT_NONE, MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
         if (map_base != vmh->alloc_start || map_size != vmh->alloc_size) {
-            REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_SATISFY_W_XOR_X, 2,
-                                        get_application_name(), get_application_pid());
+            report_w_xor_x_fatal_error_and_exit();
             ASSERT_NOT_REACHED();
         }
     }
@@ -970,9 +982,7 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size, bool is_vmcode, const char *name
         if (DYNAMO_OPTION(satisfy_w_xor_x)) {
             heapmgt->dual_map_file = os_create_memory_file(MEMORY_FILE_NAME, size);
             if (heapmgt->dual_map_file == INVALID_FILE) {
-                REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_SATISFY_W_XOR_X, 2,
-                                            get_application_name(),
-                                            get_application_pid());
+                report_w_xor_x_fatal_error_and_exit();
                 ASSERT_NOT_REACHED();
             }
         }
@@ -1903,17 +1913,83 @@ vmm_heap_exit()
 
 #ifdef UNIX
 void
+vmm_heap_fork_pre(dcontext_t *dcontext)
+{
+    if (!DYNAMO_OPTION(satisfy_w_xor_x))
+        return;
+    /* The child wants a private copy of our dual mapping setup, rather than
+     * sharing the parent's.  Unfortunately that requires copying the entire
+     * vmcode contents into new mappings.  To avoid a race while the child makes
+     * this copy from our live mappings, we create a temp copy now.  The
+     * disadvantage is that we need a bunch of free memory (and address space:
+     * but this is 64-bit-only).  The alternative is to have the parent wait for
+     * the child but that seems too disruptive to scheduling.
+     */
+    thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
+    heap_error_code_t error_code;
+    /* We store in a dcontext field to avoid races with other threads doing forks. */
+    th->fork_copy_size = heapmgt->vmcode.alloc_size;
+    th->fork_copy_start =
+        os_heap_reserve(NULL, th->fork_copy_size, &error_code, true /*+x*/);
+    if (th->fork_copy_start == NULL) {
+        report_w_xor_x_fatal_error_and_exit();
+        ASSERT_NOT_REACHED();
+    }
+
+    /* Copy each mapping. */
+    memquery_iter_t iter;
+    if (!memquery_iterator_start(&iter, heapmgt->vmcode.alloc_start,
+                                 false /*!using heap*/)) {
+        report_w_xor_x_fatal_error_and_exit();
+        ASSERT_NOT_REACHED();
+    }
+    while (memquery_iterator_next(&iter) && iter.vm_start < heapmgt->vmcode.end_addr) {
+        if (iter.vm_start < heapmgt->vmcode.alloc_start || iter.prot == MEMPROT_NONE)
+            continue;
+        byte *new_start =
+            iter.vm_start - heapmgt->vmcode.alloc_start + th->fork_copy_start;
+        if (!os_heap_commit(new_start, iter.vm_end - iter.vm_start,
+                            iter.prot | MEMPROT_WRITE, &error_code)) {
+            report_w_xor_x_fatal_error_and_exit();
+            ASSERT_NOT_REACHED();
+        }
+        memcpy(new_start, iter.vm_start, iter.vm_end - iter.vm_start);
+        LOG(GLOBAL, LOG_HEAP, 2, "%s: copied %p-%p %x to %p-%p\n", __FUNCTION__,
+            iter.vm_start, iter.vm_end, iter.prot, new_start,
+            new_start + (iter.vm_end - iter.vm_start));
+        /* Record the old +x protections (because some are +rw (ELF data segments), some
+         * are +rx, and some are +r (reachable (non-exec) heap)).
+         */
+        os_set_protection(new_start, iter.vm_end - iter.vm_start, iter.prot);
+    }
+    memquery_iterator_stop(&iter);
+}
+
+void
+vmm_heap_fork_post(dcontext_t *dcontext, bool parent)
+{
+    if (!DYNAMO_OPTION(satisfy_w_xor_x) || !parent)
+        return;
+    thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
+    heap_error_code_t error_code;
+    os_heap_free(th->fork_copy_start, th->fork_copy_size, &error_code);
+    if (error_code != HEAP_ERROR_SUCCESS) {
+        report_w_xor_x_fatal_error_and_exit();
+        ASSERT_NOT_REACHED();
+    }
+    th->fork_copy_start = NULL;
+    th->fork_copy_size = 0;
+}
+
+void
 vmm_heap_fork_init(dcontext_t *dcontext)
 {
     if (!DYNAMO_OPTION(satisfy_w_xor_x))
         return;
     /* We want a private copy of our dual mapping setup, rather than sharing the
      * parent's.  Unfortunately that requires copying the entire vmcode contents
-     * into new mappings.  Fortunately with two copies we don't need a temporary.
-     *
-     * XXX i#3556: There is a race here where the parent changes vmcode while we're
-     * setting up our private version.  The only solution may be to force the parent to
-     * wait: do we want to do that?
+     * into new mappings.  The parent has made a temp copy for us to avoid races
+     * if we tried to copy its live memory.
      */
 
     /* First, make a new file. */
@@ -1925,18 +2001,7 @@ vmm_heap_fork_init(dcontext_t *dcontext)
     LOG(GLOBAL, LOG_HEAP, 2, "%s: new dual_map_file is %d\n", __FUNCTION__,
         heapmgt->dual_map_file);
 
-    /* Second, make a new +w region and copy the old +x protections and contents.
-     * Record the old +x protections (because some are +rw (ELF data segments), some
-     * are +rx, and some are +r (reachable (non-exec) heap)).
-     */
-    vm_area_vector_t x_regions;
-    vmvector_init_vector(&x_regions, VECTOR_NEVER_MERGE | VECTOR_NO_LOCK);
-    /* XXX i#3556: For -reachable_heap we'll have problems here where the heap
-     * for x_regions will modify vmcode!
-     */
-    ASSERT_NOT_IMPLEMENTED(!REACHABLE_HEAP() &&
-                           "'-reachable_heap -satisfy_w_xor_x' does not support fork");
-
+    /* Second, make a new +w region and copy the old protections and contents. */
     size_t map_size = heapmgt->vmcode.alloc_size;
     byte *map_base =
         os_map_file(heapmgt->dual_map_file, &map_size, 0, heapmgt->vmcode_writable_alloc,
@@ -1944,17 +2009,17 @@ vmm_heap_fork_init(dcontext_t *dcontext)
     if (map_base != heapmgt->vmcode_writable_alloc ||
         map_size != heapmgt->vmcode.alloc_size)
         goto vmm_heap_fork_init_failed;
+    thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
     memquery_iter_t iter;
-    if (!memquery_iterator_start(&iter, heapmgt->vmcode.start_addr, true /*using heap*/))
+    heap_pc iter_stop = th->fork_copy_start + th->fork_copy_size;
+    heap_error_code_t error_code;
+    if (!memquery_iterator_start(&iter, th->fork_copy_start, false /*no heap*/))
         goto vmm_heap_fork_init_failed;
-    while (memquery_iterator_next(&iter) && iter.vm_start < heapmgt->vmcode.end_addr) {
-        if (iter.vm_start < heapmgt->vmcode.start_addr || iter.prot == MEMPROT_NONE)
+    while (memquery_iterator_next(&iter) && iter.vm_start < iter_stop) {
+        if (iter.vm_start < th->fork_copy_start || iter.prot == MEMPROT_NONE)
             continue;
-        vmvector_add(&x_regions, iter.vm_start, iter.vm_end,
-                     (void *)(ptr_uint_t)iter.prot);
-        heap_error_code_t error_code;
         byte *new_start =
-            iter.vm_start - heapmgt->vmcode.start_addr + heapmgt->vmcode_writable_base;
+            iter.vm_start - th->fork_copy_start + heapmgt->vmcode_writable_alloc;
         uint new_prot = (iter.prot & ~(MEMPROT_EXEC)) | MEMPROT_WRITE;
         if (!os_heap_commit(new_start, iter.vm_end - iter.vm_start, new_prot,
                             &error_code))
@@ -1973,22 +2038,29 @@ vmm_heap_fork_init(dcontext_t *dcontext)
                     MEMPROT_NONE, MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
     if (map_base != heapmgt->vmcode.alloc_start || map_size != heapmgt->vmcode.alloc_size)
         goto vmm_heap_fork_init_failed;
-    vmvector_iterator_t vmvi;
-    vmvector_iterator_start(&x_regions, &vmvi);
-    while (vmvector_iterator_hasnext(&vmvi)) {
-        byte *start, *end;
-        uint prot = (uint)(ptr_uint_t)vmvector_iterator_next(&vmvi, &start, &end);
-        map_size = end - start;
+    if (!memquery_iterator_start(&iter, th->fork_copy_start, false /*no heap*/))
+        goto vmm_heap_fork_init_failed;
+    while (memquery_iterator_next(&iter) && iter.vm_start < iter_stop) {
+        if (iter.vm_start < th->fork_copy_start || iter.prot == MEMPROT_NONE)
+            continue;
+        byte *new_start =
+            iter.vm_start - th->fork_copy_start + heapmgt->vmcode.alloc_start;
+        map_size = iter.vm_end - iter.vm_start;
         map_base = os_map_file(heapmgt->dual_map_file, &map_size,
-                               start - heapmgt->vmcode.start_addr, start, prot,
+                               iter.vm_start - th->fork_copy_start, new_start, iter.prot,
                                MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
-        if (map_base != start || map_size != end - start)
+        if (map_base != new_start || map_size != iter.vm_end - iter.vm_start)
             goto vmm_heap_fork_init_failed;
-        LOG(GLOBAL, LOG_HEAP, 2, "%s: re-mapped %p-%p %x\n", __FUNCTION__, start, end,
-            prot);
+        LOG(GLOBAL, LOG_HEAP, 2, "%s: re-mapped %p-%p %x\n", __FUNCTION__, new_start,
+            new_start + map_size, iter.prot);
     }
-    vmvector_iterator_stop(&vmvi);
-    vmvector_reset_vector(GLOBAL_DCONTEXT, &x_regions);
+    memquery_iterator_stop(&iter);
+
+    os_heap_free(th->fork_copy_start, th->fork_copy_size, &error_code);
+    if (error_code != HEAP_ERROR_SUCCESS)
+        goto vmm_heap_fork_init_failed;
+    th->fork_copy_start = NULL;
+    th->fork_copy_size = 0;
 
     /* XXX: We don't want to unlink any tmpfs file so we don't use
      * os_delete_memory_file(). This may not work on Windows if that function needs to do
@@ -1998,8 +2070,7 @@ vmm_heap_fork_init(dcontext_t *dcontext)
     return;
 
 vmm_heap_fork_init_failed:
-    REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_SATISFY_W_XOR_X, 2, get_application_name(),
-                                get_application_pid());
+    report_w_xor_x_fatal_error_and_exit();
     ASSERT_NOT_REACHED();
 }
 #endif
@@ -3847,6 +3918,10 @@ heap_thread_init(dcontext_t *dcontext)
     } else
         th->reachable_heap = NULL;
     heap_thread_reset_init(dcontext);
+#ifdef UNIX
+    th->fork_copy_start = NULL;
+    th->fork_copy_size = 0;
+#endif
 }
 
 void
