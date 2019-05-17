@@ -7,22 +7,22 @@ Core #0 \([0-9] traced CPU\(s\): #.*\)
     Warmup misses:                *[0-9,\.]*..
     Hits:                         *[0-9,\.]*....
     Misses:                       *[0-9,\.]*..
-    Invalidations:                *[0-9,\.]*[\s\S]*
-  L1D stats:
+    Invalidations:                *[0-9,\.]*..
+.*L1D stats:
     Warmup hits:                  *[0-9,\.]*....
     Warmup misses:                *[0-9,\.]*..
     Hits:                         *[0-9,\.]*....
     Misses:                       *[0-9,\.]*..
-    Invalidations:                *[0-9,\.]*[\s\S]*
-L2 stats:
+    Invalidations:                *[0-9,\.]*..
+.*L2 stats:
     Warmup hits:                  *[0-9,\.]*....
     Warmup misses:                *[0-9,\.]*..
     Hits:                         *[0-9,\.]*....
     Misses:                       *[0-9,\.]*...
-    Invalidations:                *[0-9,\.]*[\s\S]*
-LLC stats:
+    Invalidations:                *[0-9,\.]*..
+.*LLC stats:
     Warmup hits:                  *[0-9,\.]*....
     Warmup misses:                *[0-9,\.]*..
     Hits:                         *[0-9,\.]*....
     Misses:                       *[0-9,\.]*...
-    Invalidations:                *0[\s\S]*
+    Invalidations:                *0.*
