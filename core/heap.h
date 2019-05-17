@@ -125,6 +125,10 @@ void
 vmm_heap_init(void);
 void
 vmm_heap_exit(void);
+#ifdef UNIX
+void
+vmm_heap_fork_init(dcontext_t *dcontext);
+#endif
 void
 print_vmm_heap_data(file_t outf);
 byte *

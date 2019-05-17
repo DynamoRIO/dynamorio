@@ -2891,6 +2891,10 @@ DR_API
 void *
 dr_nonheap_alloc(size_t size, uint prot)
 {
+    CLIENT_ASSERT(
+        !TESTALL(DR_MEMPROT_WRITE | DR_MEMPROT_EXEC, prot) ||
+            !DYNAMO_OPTION(satisfy_w_xor_x),
+        "reachable executable client memory is not supported with -satisfy_w_xor_x");
     return heap_mmap_ex(size, size, prot, false /*no guard pages*/,
                         /* For back-compat we preserve reachability. */
                         VMM_SPECIAL_MMAP | VMM_REACHABLE);

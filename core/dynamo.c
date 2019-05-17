@@ -805,6 +805,8 @@ dynamorio_fork_init(dcontext_t *dcontext)
     }
 #    endif /* DEBUG */
 
+    vmm_heap_fork_init(dcontext);
+
     /* must re-hash parent entry in threads table, plus no longer have any
      * other threads (fork -> we're alone in address space), so clear
      * out entire thread table, then add child

@@ -1382,6 +1382,11 @@ build_profile_call_buffer(void);
 uint
 profile_call_size()
 {
+    /* XXX i#1566: For -satisfy_w_xor_x we'd need to change the
+     * instr_encode calls and possibly more.  Punting for now.
+     */
+    ASSERT_NOT_IMPLEMENTED(!DYNAMO_OPTION(satisfy_w_xor_x),
+                           "PROFILE_RDTSC is not supported with -satisfy_w_xor_x");
     if (profile_call_length == 0)
         build_profile_call_buffer();
     return profile_call_length;
