@@ -1498,7 +1498,7 @@ const instr_info_t * const op_instr[] =
 #define Wed TYPE_W, OPSZ_16_vex32_evex64
 #define Vex TYPE_V, OPSZ_16_vex32_evex64
 #define Wex TYPE_W, OPSZ_16_vex32_evex64
-#define Weh_x TYPE_W, OPSZ_half_16_vex32_evex64
+#define Wh_e TYPE_W, OPSZ_half_16_vex32_evex64
 
 /* my own codes
  * size m = 32 or 16 bit depending on addr size attribute
@@ -6712,7 +6712,7 @@ const instr_info_t evex_W_extensions[][2] = {
   },
   {    /* evex_W_ext 19 */
     {INVALID, 0xf20f1210,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovddup, 0xf20f1250, "vmovddup", Ved, xx, KEb, Weh_x, xx, mrm|evex, x, END_LIST},
+    {OP_vmovddup, 0xf20f1250, "vmovddup", Ved, xx, KEb, Wh_e, xx, mrm|evex, x, END_LIST},
   },
   {    /* evex_W_ext 20 */
     {OP_vmovhps, 0x0f1610, "vmovhps", Vq_dq, xx, Hq_dq, Wq_dq, xx, mrm|evex|reqL0|reqLL0, x, tevexw[21][0]}, /*"vmovlhps" if reg-reg */
