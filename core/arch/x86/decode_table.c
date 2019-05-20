@@ -2936,9 +2936,9 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_cvtpi2pd, 0x660f2a10, "cvtpi2pd", Vpd, xx, Qq, xx, xx, mrm, x, END_LIST},
     {OP_cvtsi2sd, 0xf20f2a10, "cvtsi2sd", Vsd, xx, Ed_q, xx, xx, mrm, x, END_LIST},
     {INVALID,  0x0f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtsi2ss, 0xf30f2a10, "vcvtsi2ss", Vss, xx, H12_dq, Ed_q, xx, mrm|vex, x, END_LIST},
+    {OP_vcvtsi2ss, 0xf30f2a10, "vcvtsi2ss", Vdq, xx, H12_dq, Ed_q, xx, mrm|vex, x, END_LIST},
     {INVALID, 0x660f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtsi2sd, 0xf20f2a10, "vcvtsi2sd", Vsd, xx, Hsd, Ed_q, xx, mrm|vex, x, END_LIST},
+    {OP_vcvtsi2sd, 0xf20f2a10, "vcvtsi2sd", Vdq, xx, Hsd, Ed_q, xx, mrm|vex, x, END_LIST},
     /* TODO i#1312: Support AVX-512. */
     {INVALID,   0x0f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
