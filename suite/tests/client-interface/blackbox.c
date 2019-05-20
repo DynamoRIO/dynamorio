@@ -1,8 +1,6 @@
 /* *******************************************************************************
- * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
- * Copyright (c) 2018 ARM Limited. All rights reserved.
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * *******************************************************************************/
-
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
