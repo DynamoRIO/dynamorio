@@ -2936,9 +2936,9 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_cvtpi2pd, 0x660f2a10, "cvtpi2pd", Vpd, xx, Qq, xx, xx, mrm, x, END_LIST},
     {OP_cvtsi2sd, 0xf20f2a10, "cvtsi2sd", Vsd, xx, Ed_q, xx, xx, mrm, x, END_LIST},
     {INVALID,  0x0f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtsi2ss, 0xf30f2a10, "vcvtsi2ss", Vss, xx, H12_dq, Ed_q, xx, mrm|vex, x, END_LIST},
+    {OP_vcvtsi2ss, 0xf30f2a10, "vcvtsi2ss", Vdq, xx, H12_dq, Ed_q, xx, mrm|vex, x, END_LIST},
     {INVALID, 0x660f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtsi2sd, 0xf20f2a10, "vcvtsi2sd", Vsd, xx, Hsd, Ed_q, xx, mrm|vex, x, END_LIST},
+    {OP_vcvtsi2sd, 0xf20f2a10, "vcvtsi2sd", Vdq, xx, Hsd, Ed_q, xx, mrm|vex, x, END_LIST},
     /* TODO i#1312: Support AVX-512. */
     {INVALID,   0x0f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -5718,11 +5718,11 @@ const instr_info_t mod_extensions[][2] = {
     {OP_mfence,   0xf00fae76, "mfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 8 */
-    {OP_vmovss,  0xf30f1010, "vmovss",  Vss, xx, Wss,  xx, xx, mrm|vex, x, modx[10][0]},
+    {OP_vmovss,  0xf30f1010, "vmovss",  Vdq, xx, Wss,  xx, xx, mrm|vex, x, modx[10][0]},
     {OP_vmovss,  0xf30f1010, "vmovss",  Vdq, xx, H12_dq, Uss, xx, mrm|vex, x, modx[10][1]},
   },
   { /* mod extension 9 */
-    {OP_vmovsd,  0xf20f1010, "vmovsd",  Vsd, xx, Wsd,  xx, xx, mrm|vex, x, modx[11][0]},
+    {OP_vmovsd,  0xf20f1010, "vmovsd",  Vdq, xx, Wsd,  xx, xx, mrm|vex, x, modx[11][0]},
     {OP_vmovsd,  0xf20f1010, "vmovsd",  Vdq, xx, Hsd, Usd, xx, mrm|vex, x, modx[11][1]},
   },
   { /* mod extension 10 */
@@ -5774,11 +5774,11 @@ const instr_info_t mod_extensions[][2] = {
     {OP_movsd,  0xf20f1010, "movsd",  Vsd, xx, Usd, xx, xx, mrm, x, tpe[1][3]},
   },
   { /* mod extension 20 */
-    {OP_vmovss,  0xf30f1010, "vmovss",  Vss, xx, KEb, Wss,  xx, mrm|evex, x, modx[22][0]},
+    {OP_vmovss,  0xf30f1010, "vmovss",  Vdq, xx, KEb, Wss,  xx, mrm|evex, x, modx[22][0]},
     {OP_vmovss,  0xf30f1010, "vmovss",  Vdq, xx, KEb, H12_dq, Uss, mrm|evex, x, modx[22][1]},
   },
   { /* mod extension 21 */
-    {OP_vmovsd,  0xf20f1010, "vmovsd",  Vsd, xx, KEb, Wsd,  xx, mrm|evex, x, modx[23][0]},
+    {OP_vmovsd,  0xf20f1010, "vmovsd",  Vdq, xx, KEb, Wsd,  xx, mrm|evex, x, modx[23][0]},
     {OP_vmovsd,  0xf20f1010, "vmovsd",  Vdq, xx, KEb, Hsd, Usd, mrm|evex, x, modx[23][1]},
   },
   { /* mod extension 22 */

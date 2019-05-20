@@ -463,26 +463,22 @@ OPCODE(vmovdqu64_xlokm, vmovdqu64, vmovdqu64_mask, 0, REGARG(XMM0), REGARG(K7),
        MEMARG(OPSZ_16))
 OPCODE(vmovdqu64_mkxlo, vmovdqu64, vmovdqu64_mask, 0, MEMARG(OPSZ_16), REGARG(K7),
        REGARG(XMM0))
-OPCODE(vmovss_xlok0ld, vmovss, vmovss_mask, 0, REGARG_PARTIAL(XMM0, OPSZ_4), REGARG(K0),
-       MEMARG(OPSZ_4))
-OPCODE(vmovsd_xlok0ld, vmovsd, vmovsd_mask, 0, REGARG_PARTIAL(XMM0, OPSZ_8), REGARG(K0),
-       MEMARG(OPSZ_8))
+OPCODE(vmovss_xlok0ld, vmovss, vmovss_mask, 0, REGARG(XMM0), REGARG(K0), MEMARG(OPSZ_4))
+OPCODE(vmovsd_xlok0ld, vmovsd, vmovsd_mask, 0, REGARG(XMM0), REGARG(K0), MEMARG(OPSZ_8))
 OPCODE(vmovss_k0stxlo, vmovss, vmovss_mask, 0, MEMARG(OPSZ_4), REGARG(K0),
        REGARG_PARTIAL(XMM0, OPSZ_4))
 OPCODE(vmovsd_k0stxlo, vmovsd, vmovsd_mask, 0, MEMARG(OPSZ_8), REGARG(K0),
        REGARG_PARTIAL(XMM0, OPSZ_8))
-OPCODE(vmovss_xlok7ld, vmovss, vmovss_mask, 0, REGARG_PARTIAL(XMM0, OPSZ_4), REGARG(K7),
-       MEMARG(OPSZ_4))
-OPCODE(vmovsd_xlok7ld, vmovsd, vmovsd_mask, 0, REGARG_PARTIAL(XMM0, OPSZ_8), REGARG(K7),
-       MEMARG(OPSZ_8))
+OPCODE(vmovss_xlok7ld, vmovss, vmovss_mask, 0, REGARG(XMM0), REGARG(K7), MEMARG(OPSZ_4))
+OPCODE(vmovsd_xlok7ld, vmovsd, vmovsd_mask, 0, REGARG(XMM0), REGARG(K7), MEMARG(OPSZ_8))
 OPCODE(vmovss_k7stxlo, vmovss, vmovss_mask, 0, MEMARG(OPSZ_4), REGARG(K7),
        REGARG_PARTIAL(XMM0, OPSZ_4))
 OPCODE(vmovsd_k7stxlo, vmovsd, vmovsd_mask, 0, MEMARG(OPSZ_8), REGARG(K7),
        REGARG_PARTIAL(XMM0, OPSZ_8))
-OPCODE(vmovss_xhik7ld, vmovss, vmovss_mask, X64_ONLY, REGARG_PARTIAL(XMM16, OPSZ_4),
-       REGARG(K7), MEMARG(OPSZ_4))
-OPCODE(vmovsd_xhik7ld, vmovsd, vmovsd_mask, X64_ONLY, REGARG_PARTIAL(XMM16, OPSZ_8),
-       REGARG(K7), MEMARG(OPSZ_8))
+OPCODE(vmovss_xhik7ld, vmovss, vmovss_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
+       MEMARG(OPSZ_4))
+OPCODE(vmovsd_xhik7ld, vmovsd, vmovsd_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
+       MEMARG(OPSZ_8))
 OPCODE(vmovss_k7stxhi, vmovss, vmovss_mask, X64_ONLY, MEMARG(OPSZ_4), REGARG(K7),
        REGARG_PARTIAL(XMM16, OPSZ_4))
 OPCODE(vmovsd_k7stxhi, vmovsd, vmovsd_mask, X64_ONLY, MEMARG(OPSZ_8), REGARG(K7),
