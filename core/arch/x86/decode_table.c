@@ -5718,11 +5718,11 @@ const instr_info_t mod_extensions[][2] = {
     {OP_mfence,   0xf00fae76, "mfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 8 */
-    {OP_vmovss,  0xf30f1010, "vmovss",  Vss, xx, Wss,  xx, xx, mrm|vex, x, modx[10][0]},
+    {OP_vmovss,  0xf30f1010, "vmovss",  Vdq, xx, Wss,  xx, xx, mrm|vex, x, modx[10][0]},
     {OP_vmovss,  0xf30f1010, "vmovss",  Vdq, xx, H12_dq, Uss, xx, mrm|vex, x, modx[10][1]},
   },
   { /* mod extension 9 */
-    {OP_vmovsd,  0xf20f1010, "vmovsd",  Vsd, xx, Wsd,  xx, xx, mrm|vex, x, modx[11][0]},
+    {OP_vmovsd,  0xf20f1010, "vmovsd",  Vdq, xx, Wsd,  xx, xx, mrm|vex, x, modx[11][0]},
     {OP_vmovsd,  0xf20f1010, "vmovsd",  Vdq, xx, Hsd, Usd, xx, mrm|vex, x, modx[11][1]},
   },
   { /* mod extension 10 */
@@ -5774,11 +5774,11 @@ const instr_info_t mod_extensions[][2] = {
     {OP_movsd,  0xf20f1010, "movsd",  Vsd, xx, Usd, xx, xx, mrm, x, tpe[1][3]},
   },
   { /* mod extension 20 */
-    {OP_vmovss,  0xf30f1010, "vmovss",  Vss, xx, KEb, Wss,  xx, mrm|evex, x, modx[22][0]},
+    {OP_vmovss,  0xf30f1010, "vmovss",  Vdq, xx, KEb, Wss,  xx, mrm|evex, x, modx[22][0]},
     {OP_vmovss,  0xf30f1010, "vmovss",  Vdq, xx, KEb, H12_dq, Uss, mrm|evex, x, modx[22][1]},
   },
   { /* mod extension 21 */
-    {OP_vmovsd,  0xf20f1010, "vmovsd",  Vsd, xx, KEb, Wsd,  xx, mrm|evex, x, modx[23][0]},
+    {OP_vmovsd,  0xf20f1010, "vmovsd",  Vdq, xx, KEb, Wsd,  xx, mrm|evex, x, modx[23][0]},
     {OP_vmovsd,  0xf20f1010, "vmovsd",  Vdq, xx, KEb, Hsd, Usd, mrm|evex, x, modx[23][1]},
   },
   { /* mod extension 22 */
