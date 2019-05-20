@@ -57,34 +57,34 @@ OPCODE(vmovhpd_xhixhim, vmovhpd, vmovhpd_NDS, X64_ONLY, REGARG_PARTIAL(XMM16, OP
        REGARG_PARTIAL(XMM17, OPSZ_8), MEMARG(OPSZ_8))
 OPCODE(vcvtsi2ss_xloxlom32, vcvtsi2ss, vcvtsi2ss, 0, REGARG(XMM0),
        REGARG_PARTIAL(XMM1, OPSZ_12), MEMARG(OPSZ_4))
-OPCODE(vcvtsi2ss_xloxlom64, vcvtsi2ss, vcvtsi2ss, 0, REGARG(XMM0),
+OPCODE(vcvtsi2ss_xloxlom64, vcvtsi2ss, vcvtsi2ss, X64_ONLY, REGARG(XMM0),
        REGARG_PARTIAL(XMM1, OPSZ_12), MEMARG(OPSZ_8))
 OPCODE(vcvtsi2ss_xloxlor32, vcvtsi2ss, vcvtsi2ss, 0, REGARG(XMM0),
        REGARG_PARTIAL(XMM1, OPSZ_12), REGARG(EAX))
-OPCODE(vcvtsi2ss_xloxlor64, vcvtsi2ss, vcvtsi2ss, 0, REGARG(XMM0),
+OPCODE(vcvtsi2ss_xloxlor64, vcvtsi2ss, vcvtsi2ss, X64_ONLY, REGARG(XMM0),
        REGARG_PARTIAL(XMM1, OPSZ_12), REGARG(RAX))
-OPCODE(vcvtsi2ss_xhixhim32, vcvtsi2ss, vcvtsi2ss, 0, REGARG(XMM16),
+OPCODE(vcvtsi2ss_xhixhim32, vcvtsi2ss, vcvtsi2ss, X64_ONLY, REGARG(XMM16),
        REGARG_PARTIAL(XMM31, OPSZ_12), MEMARG(OPSZ_4))
-OPCODE(vcvtsi2ss_xhixhim64, vcvtsi2ss, vcvtsi2ss, 0, REGARG(XMM16),
+OPCODE(vcvtsi2ss_xhixhim64, vcvtsi2ss, vcvtsi2ss, X64_ONLY, REGARG(XMM16),
        REGARG_PARTIAL(XMM31, OPSZ_12), MEMARG(OPSZ_8))
-OPCODE(vcvtsi2ss_xhixhir32, vcvtsi2ss, vcvtsi2ss, 0, REGARG(XMM16),
+OPCODE(vcvtsi2ss_xhixhir32, vcvtsi2ss, vcvtsi2ss, X64_ONLY, REGARG(XMM16),
        REGARG_PARTIAL(XMM31, OPSZ_12), REGARG(EAX))
-OPCODE(vcvtsi2ss_xhixhir64, vcvtsi2ss, vcvtsi2ss, 0, REGARG(XMM16),
+OPCODE(vcvtsi2ss_xhixhir64, vcvtsi2ss, vcvtsi2ss, X64_ONLY, REGARG(XMM16),
        REGARG_PARTIAL(XMM31, OPSZ_12), REGARG(RAX))
 OPCODE(vcvtsi2sd_xloxlom32, vcvtsi2sd, vcvtsi2sd, 0, REGARG(XMM0),
        REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_4))
-OPCODE(vcvtsi2sd_xloxlom64, vcvtsi2sd, vcvtsi2sd, 0, REGARG(XMM0),
+OPCODE(vcvtsi2sd_xloxlom64, vcvtsi2sd, vcvtsi2sd, X64_ONLY, REGARG(XMM0),
        REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
 OPCODE(vcvtsi2sd_xloxlor32, vcvtsi2sd, vcvtsi2sd, 0, REGARG(XMM0),
        REGARG_PARTIAL(XMM1, OPSZ_8), REGARG(EAX))
-OPCODE(vcvtsi2sd_xloxlor64, vcvtsi2sd, vcvtsi2sd, 0, REGARG(XMM0),
+OPCODE(vcvtsi2sd_xloxlor64, vcvtsi2sd, vcvtsi2sd, X64_ONLY, REGARG(XMM0),
        REGARG_PARTIAL(XMM1, OPSZ_8), REGARG(RAX))
-OPCODE(vcvtsi2sd_xhixhim32, vcvtsi2sd, vcvtsi2sd, 0, REGARG(XMM16),
+OPCODE(vcvtsi2sd_xhixhim32, vcvtsi2sd, vcvtsi2sd, X64_ONLY, REGARG(XMM16),
        REGARG_PARTIAL(XMM31, OPSZ_8), MEMARG(OPSZ_4))
-OPCODE(vcvtsi2sd_xhixhim64, vcvtsi2sd, vcvtsi2sd, 0, REGARG(XMM16),
+OPCODE(vcvtsi2sd_xhixhim64, vcvtsi2sd, vcvtsi2sd, X64_ONLY, REGARG(XMM16),
        REGARG_PARTIAL(XMM31, OPSZ_8), MEMARG(OPSZ_8))
-OPCODE(vcvtsi2sd_xhixhir32, vcvtsi2sd, vcvtsi2sd, 0, REGARG(XMM16),
+OPCODE(vcvtsi2sd_xhixhir32, vcvtsi2sd, vcvtsi2sd, X64_ONLY, REGARG(XMM16),
        REGARG_PARTIAL(XMM31, OPSZ_8), REGARG(EAX))
-OPCODE(vcvtsi2sd_xhixhir64, vcvtsi2sd, vcvtsi2sd, 0, REGARG(XMM16),
+OPCODE(vcvtsi2sd_xhixhir64, vcvtsi2sd, vcvtsi2sd, X64_ONLY, REGARG(XMM16),
        REGARG_PARTIAL(XMM31, OPSZ_8), REGARG(RAX))
 /* TODO i#1312: Add missing instructions. */
