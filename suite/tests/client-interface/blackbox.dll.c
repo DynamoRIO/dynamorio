@@ -30,8 +30,7 @@
  * DAMAGE.
  */
 
-/* Test exposed instr_t size to be identical to internal size by initializing an stack
- * object with DynamoRIO and checking its bounds. TODO: Add test for opnd_t.
+/* Test exposed instr_t size to be identical to internal size.
  */
 
 #include "dr_api.h"
