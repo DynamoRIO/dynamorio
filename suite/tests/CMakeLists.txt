@@ -636,6 +636,13 @@ set(ci_shared_app simple_app)
 set(ci_shared_app_src client-interface/${ci_shared_app}.c)
 add_exe(${ci_shared_app} ${ci_shared_app_src})
 
+function(setup_test_client_dll_basics test)
+  configure_DynamoRIO_client(${test})
+  append_property_string(TARGET ${test} LINK_FLAGS "${ARCH_DEBUG}")
+  add_dependencies(${test} api_headers)
+  copy_target_to_device(${test} "${location_suffix}")
+endfunction (setup_test_client_dll_basics)
+
 # A client interface app with client.
 # If ${source} does not exist, ${ci_shared_app} is used as the target app.
 # Note that we can't easily have a routine that takes no ops
@@ -673,10 +680,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
     # to avoid changing all the REG_ constants we ask for compatibility
     set(DynamoRIO_REG_COMPATIBILITY ON)
   endif (NOT "${source}" MATCHES "cpp\\.cpp")
-  configure_DynamoRIO_client(${test}.dll)
-  append_property_string(TARGET ${test}.dll LINK_FLAGS "${ARCH_DEBUG}")
-  add_dependencies(${test}.dll api_headers)
-  copy_target_to_device(${test}.dll "${location_suffix}")
+  setup_test_client_dll_basics(${test}.dll)
   get_client_path(client_path ${test}.dll ${test})
 
   set(testlist_ci ${testlist_ci} ${test} PARENT_SCOPE)
@@ -2122,9 +2126,9 @@ if (CLIENT_INTERFACE)
   endif (NOT ARM)
 
   add_library(client.blackbox.dll.A SHARED client-interface/blackbox.dll.A.c)
-  configure_DynamoRIO_client(client.blackbox.dll.A)
+  setup_test_client_dll_basics(client.blackbox.dll.A)
   add_library(client.blackbox.dll.B SHARED client-interface/blackbox.dll.B.c)
-  configure_DynamoRIO_client(client.blackbox.dll.B)
+  setup_test_client_dll_basics(client.blackbox.dll.B)
   target_link_libraries(client.blackbox.dll.A client.blackbox.dll.B)
   torunonly_ci(client.blackbox ${ci_shared_app} client.blackbox.dll.A
     client-interface/${ci_shared_app} # for .expect
