@@ -1239,36 +1239,44 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
     }
 
 #ifdef INTERNAL
-    DODEBUG(
-        { /* rep & repne should have been completely handled by now */
-          /* processor will typically ignore extra prefixes, but we log this internally
-           * in case it's our decode messing up instead of weird app instrs
-           */
-          if (report_invalid &&
-              ((di->rep_prefix &&
-                /* case 6861: AMD64 opt: "rep ret" used if br tgt or after cbr */
-                (pc != di->start_pc + 2 || *(di->start_pc + 1) != RAW_OPCODE_ret)) ||
-               (di->repne_prefix &&
-                /* i#1899: MPX puts repne prior to branches.  We ignore here until we have
-                 * full MPX decoding support (i#1312).
-                 */
-                info->type != OP_call && info->type != OP_call_ind &&
-                info->type != OP_ret && info->type != OP_jmp &&
-                info->type != OP_jmp_short && !opc_is_cbr_arch(info->type)))) {
-              char bytes[17 * 3];
-              int i;
-              dcontext_t *dcontext = get_thread_private_dcontext();
-              IF_X64(bool old_mode = set_x86_mode(dcontext, di->x86_mode);)
-              int sz = decode_sizeof(dcontext, di->start_pc, NULL _IF_X64(NULL));
-              IF_X64(set_x86_mode(dcontext, old_mode));
-              CLIENT_ASSERT(sz <= 17, "decode rep/repne error: unsupported opcode?");
-              for (i = 0; i < sz; i++)
-                  snprintf(&bytes[i * 3], 3, "%02x ", *(di->start_pc + i));
-              bytes[sz * 3 - 1] = '\0'; /* -1 to kill trailing space */
-              SYSLOG_INTERNAL_WARNING_ONCE(
-                  "spurious rep/repne prefix @" PFX " (%s): ", di->start_pc, bytes);
-          }
-        });
+    DODEBUG({ /* rep & repne should have been completely handled by now */
+              /* processor will typically ignore extra prefixes, but we log this
+               * internally in case it's our decode messing up instead of weird app instrs
+               */
+              bool spurious = report_invalid && (di->rep_prefix || di->repne_prefix);
+              if (spurious) {
+                  if (di->rep_prefix &&
+                      /* case 6861: AMD64 opt: "rep ret" used if br tgt or after cbr */
+                      pc == di->start_pc + 2 && *(di->start_pc + 1) == RAW_OPCODE_ret)
+                      spurious = false;
+                  if (di->repne_prefix) {
+                      /* i#1899: MPX puts repne prior to branches.  We ignore here until
+                       * we have full MPX decoding support (i#1312).
+                       */
+                      /* XXX: We assume the x86 instr_is_* routines only need the opcode.
+                       * That is not true for ARM.
+                       */
+                      instr_t inst;
+                      inst.opcode = info->type;
+                      if (instr_is_cti(&inst))
+                          spurious = false;
+                  }
+              }
+              if (spurious) {
+                  char bytes[17 * 3];
+                  int i;
+                  dcontext_t *dcontext = get_thread_private_dcontext();
+                  IF_X64(bool old_mode = set_x86_mode(dcontext, di->x86_mode);)
+                  int sz = decode_sizeof(dcontext, di->start_pc, NULL _IF_X64(NULL));
+                  IF_X64(set_x86_mode(dcontext, old_mode));
+                  CLIENT_ASSERT(sz <= 17, "decode rep/repne error: unsupported opcode?");
+                  for (i = 0; i < sz; i++)
+                      snprintf(&bytes[i * 3], 3, "%02x ", *(di->start_pc + i));
+                  bytes[sz * 3 - 1] = '\0'; /* -1 to kill trailing space */
+                  SYSLOG_INTERNAL_WARNING_ONCE(
+                      "spurious rep/repne prefix @" PFX " (%s): ", di->start_pc, bytes);
+              }
+    });
 #endif
 
     /* if just want opcode, stop here!  faster for caller to
@@ -2001,6 +2009,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
          */
         return decode_operand(di, TYPE_E, opsize, opnd);
     case TYPE_L: {
+        CLIENT_ASSERT(!TEST(PREFIX_EVEX_LL, di->prefixes), "XXX i#1312: unsupported.");
         /* part of AVX: top 4 bits of 8-bit immed select xmm/ymm register */
         ptr_int_t immed = get_immed(di, OPSZ_1);
         reg_id_t reg = (reg_id_t)(immed & 0xf0) >> 4;
@@ -2024,12 +2033,16 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
              */
             reg += 16;
         }
-        *opnd = opnd_create_reg(((TEST(PREFIX_VEX_L, di->prefixes) &&
-                                  /* see .LIG notes above */
-                                  expand_subreg_size(opsize) != OPSZ_16)
-                                     ? REG_START_YMM
-                                     : REG_START_XMM) +
-                                reg);
+        if (TEST(PREFIX_EVEX_LL, di->prefixes)) {
+            reg += DR_REG_START_ZMM;
+        } else if (TEST(PREFIX_VEX_L, di->prefixes) &&
+                   /* see .LIG notes above */
+                   expand_subreg_size(opsize) != OPSZ_16) {
+            reg += DR_REG_START_YMM;
+        } else {
+            reg += DR_REG_START_XMM;
+        }
+        *opnd = opnd_create_reg(reg);
         opnd_set_size(opnd, resolve_variable_size(di, opsize, true /*is reg*/));
         return true;
     }

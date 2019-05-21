@@ -2968,6 +2968,14 @@
     instr_create_1dst_3src((dc), OP_vmovss, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vmovsd_NDS_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vmovsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vunpcklps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vunpcklps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vunpcklpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vunpcklpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vunpckhps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vunpckhps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vunpckhpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vunpckhpd, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
