@@ -3008,6 +3008,58 @@
     instr_create_1dst_3src((dc), OP_vpxord, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vpxorq_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vpxorq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vaddps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vaddps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vaddpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vaddpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vsubps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vsubps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vsubpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vsubpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vaddss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vaddss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vaddsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vaddsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vsubss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vsubss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vsubsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vsubsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddusb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddusb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddusw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddusw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddsb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddsb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddsw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddsw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubusb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubusb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubusw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubusw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubsb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubsb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubsw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubsw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaddwd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaddwd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaddubsw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaddubsw, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
