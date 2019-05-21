@@ -825,7 +825,7 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
         di->prefixes |= PREFIX_VEX_L;
     if (TEST(0x10, prefix_byte))
         di->prefixes |= PREFIX_EVEX_b;
-    if (TEST(0x08, prefix_byte))
+    if (!TEST(0x08, prefix_byte))
         di->prefixes |= PREFIX_EVEX_VV;
 
     di->evex_aaa = prefix_byte & 0x07;
@@ -1415,7 +1415,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
          */
         reg = (~di->evex_vvvv) & 0xf; /* bit-inverted */
         extend = false;
-        avx512_extend = !TEST(PREFIX_EVEX_VV, di->prefixes); /* bit-inverted */
+        avx512_extend = TEST(PREFIX_EVEX_VV, di->prefixes); /* bit-inverted */
         break;
     case DECODE_REG_OPMASK:
         /* Part of AVX-512: evex.aaa selects opmask register. */
