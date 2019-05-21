@@ -2121,11 +2121,15 @@ if (CLIENT_INTERFACE)
       "" "")
   endif (NOT ARM)
 
-  tobuild_appdll(client.blackbox client-interface/blackbox.c)
-  configure_DynamoRIO_client(client.blackbox.appdll)
-  tobuild_ci(client.blackbox client-interface/blackbox.c "" "" "")
-  target_link_libraries(client.blackbox.dll client.blackbox.appdll)
+  add_library(client.blackbox.privdll SHARED client-interface/blackbox.privdll.c)
+  configure_DynamoRIO_client(client.blackbox.privdll)
+  add_library(client.blackbox.dll SHARED client-interface/blackbox.dll.c)
+  configure_DynamoRIO_client(client.blackbox.dll)
+  target_link_libraries(client.blackbox.dll client.blackbox.privdll)
   set_target_properties(client.blackbox.dll PROPERTIES SKIP_BUILD_RPATH OFF)
+  torunonly_ci(client.blackbox ${ci_shared_app} client.blackbox.dll
+    client-interface/${ci_shared_app} # for .expect
+    "" "" "")
 
   tobuild_ci(client.option_parse client-interface/option_parse.cpp
     "-x;4;-y;quoted string;-z;first;-z;single quotes -dash --dashes;-front;value;-y;accum;-front2;value2;-no_flag;-takes2;1_of_4;2_of_4;-takes2;3_of_4;4_of_4;-val_sep;v1.1 v1.2;-val_sep;v2.1 v2.2;-val_sep2;v1;v2;-val_sep2;v3;v4"
