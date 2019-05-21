@@ -2121,13 +2121,12 @@ if (CLIENT_INTERFACE)
       "" "")
   endif (NOT ARM)
 
-  add_library(client.blackbox.privdll SHARED client-interface/blackbox.privdll.c)
-  configure_DynamoRIO_client(client.blackbox.privdll)
-  add_library(client.blackbox.dll SHARED client-interface/blackbox.dll.c)
-  configure_DynamoRIO_client(client.blackbox.dll)
-  target_link_libraries(client.blackbox.dll client.blackbox.privdll)
-  set_target_properties(client.blackbox.dll PROPERTIES SKIP_BUILD_RPATH OFF)
-  torunonly_ci(client.blackbox ${ci_shared_app} client.blackbox.dll
+  add_library(client.blackbox.dll.A SHARED client-interface/blackbox.dll.A.c)
+  configure_DynamoRIO_client(client.blackbox.dll.A)
+  add_library(client.blackbox.dll.B SHARED client-interface/blackbox.dll.B.c)
+  configure_DynamoRIO_client(client.blackbox.dll.B)
+  target_link_libraries(client.blackbox.dll.A client.blackbox.dll.B)
+  torunonly_ci(client.blackbox ${ci_shared_app} client.blackbox.dll.A
     client-interface/${ci_shared_app} # for .expect
     "" "" "")
 
