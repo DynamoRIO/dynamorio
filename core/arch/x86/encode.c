@@ -2310,7 +2310,7 @@ encode_evex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *inf
         (TEST(PREFIX_EVEX_LL, di->prefixes) ? 0x40 : 0x00) |
         (TEST(PREFIX_VEX_L, di->prefixes) ? 0x20 : 0x00) |
         (TEST(PREFIX_EVEX_b, di->prefixes) ? 0x10 : 0x00) |
-        (TEST(PREFIX_EVEX_VV, di->prefixes) ? 0x08 : 0x00);
+        (TEST(PREFIX_EVEX_VV, di->prefixes) ? 0x00 : 0x08);
     /* we override OPCODE_SUFFIX for evex to mean "requires evex.L" */
     /* XXX i#1312: what about evex.L'? */
     if (TEST(OPCODE_SUFFIX, info->opcode))
