@@ -2976,6 +2976,38 @@
     instr_create_1dst_3src((dc), OP_vunpckhps, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vunpckhpd_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vunpckhpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vandps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vandps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vandpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vandpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vorps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vorps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vorpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vorpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vxorps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vxorps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vxorpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vxorpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vandnps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vandnps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vandnpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vandnpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpandd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpandd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpandq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpandq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpandnd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpandnd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpandnq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpandnq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpord_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpord, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vporq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vporq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpxord_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpxord, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpxorq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpxorq, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
