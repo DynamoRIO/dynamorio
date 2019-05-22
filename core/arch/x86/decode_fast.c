@@ -574,7 +574,9 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                     if (num_prefixes != NULL)
                         *num_prefixes = sz;
                     /* no prefixes after vex + already did full size, so goto end */
-                    if (!vex3 || (vex3 && (vex_mm == 1))) {
+                    bool implied_escape = (!vex3 && !evex_prefix) ||
+                        ((vex3 || evex_prefix) && (vex_mm == 1));
+                    if (implied_escape) {
                         sz += sizeof_escape(dcontext, pc, addr16 _IF_X64(&rip_rel_pc));
                         goto decode_sizeof_done;
                     } else if (vex_mm == 2) {
