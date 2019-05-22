@@ -3188,9 +3188,9 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_cvtpd2ps, 0x660f5a10, "cvtpd2ps", Vps, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_cvtsd2ss, 0xf20f5a10, "cvtsd2ss", Vss, xx, Wsd, xx, xx, mrm, x, END_LIST},
     {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Vvd, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vcvtss2sd, 0xf30f5a10, "vcvtss2sd", Vsd, xx, Hsd, Wss, xx, mrm|vex, x, END_LIST},
+    {OP_vcvtss2sd, 0xf30f5a10, "vcvtss2sd", Vdq, xx, Hsd, Wss, xx, mrm|vex, x, END_LIST},
     {OP_vcvtpd2ps, 0x660f5a10, "vcvtpd2ps", Vvs, xx, Wvd, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vcvtsd2ss, 0xf20f5a10, "vcvtsd2ss", Vss, xx, H12_dq, Wsd, xx, mrm|vex, x, END_LIST},
+    {OP_vcvtsd2ss, 0xf20f5a10, "vcvtsd2ss", Vdq, xx, H12_dq, Wsd, xx, mrm|vex, x, END_LIST},
     /* TODO i#1312: Support AVX-512. */
     {INVALID,   0x0f5a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f5a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
