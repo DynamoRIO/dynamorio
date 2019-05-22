@@ -36,6 +36,7 @@
 #ifndef _CACHING_DEVICE_STATS_H_
 #define _CACHING_DEVICE_STATS_H_ 1
 
+#include "caching_device_block.h"
 #include <string>
 #include <stdint.h>
 #ifdef HAS_ZLIB
@@ -53,11 +54,11 @@ public:
     // A multi-block memory reference invokes this routine
     // separately for each block touched.
     virtual void
-    access(const memref_t &memref, bool hit);
+    access(const memref_t &memref, bool hit, addr_t replaced_block = TAG_INVALID);
 
     // Called on each access by a child caching device.
     virtual void
-    child_access(const memref_t &memref, bool hit);
+    child_access(const memref_t &memref, bool hit, addr_t replaced_block = TAG_INVALID);
 
     virtual void
     print_stats(std::string prefix);

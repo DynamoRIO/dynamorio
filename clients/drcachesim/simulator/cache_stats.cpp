@@ -43,7 +43,7 @@ cache_stats_t::cache_stats_t(const std::string &miss_file, bool warmup_enabled)
 }
 
 void
-cache_stats_t::access(const memref_t &memref, bool hit)
+cache_stats_t::access(const memref_t &memref, bool hit, addr_t replaced_block)
 {
     // handle prefetching requests
     if (type_is_prefetch(memref.data.type)) {
