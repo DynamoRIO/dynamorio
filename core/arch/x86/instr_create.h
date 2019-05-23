@@ -3060,6 +3060,30 @@
     instr_create_1dst_3src((dc), OP_vpmaddwd, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vpmaddubsw_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vpmaddubsw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmulps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmulps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmulpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmulpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmulss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmulss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmulsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmulsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmullw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmullw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmulld_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmulld, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmullq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmullq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmuldq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmuldq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmulhw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmulhw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmulhuw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmulhuw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmuludq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmuludq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmulhrsw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmulhrsw, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
