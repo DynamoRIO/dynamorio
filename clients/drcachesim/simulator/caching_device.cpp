@@ -138,20 +138,22 @@ caching_device_t::request(const memref_t &memref_in)
         }
 
         if (way == associativity) {
-            stats->access(memref, false /*miss*/);
+            way = replace_which_way(block_idx);
+            addr_t replaced_block = get_caching_device_block(block_idx, way).tag;
+
+            stats->access(memref, false /*miss*/, replaced_block);
             missed = true;
             // If no parent we assume we get the data from main memory
             if (parent != NULL) {
-                parent->stats->child_access(memref, false);
+                parent->stats->child_access(memref, false, replaced_block);
                 parent->request(memref);
             }
 
             // FIXME i#1726: coherence policy
 
-            way = replace_which_way(block_idx);
             // Check if we are inserting a new block, if we are then increment
             // the block loaded count.
-            if (get_caching_device_block(block_idx, way).tag == TAG_INVALID) {
+            if (replaced_block == TAG_INVALID) {
                 loaded_blocks++;
             } else if (inclusive && !children.empty()) {
                 for (auto &child : children) {
