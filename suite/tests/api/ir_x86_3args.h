@@ -159,10 +159,10 @@ OPCODE(vmulps, vmulps, vmulps, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
 OPCODE(vmulss, vmulss, vmulss, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_4))
 OPCODE(vmulpd, vmulpd, vmulpd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
 OPCODE(vmulsd, vmulsd, vmulsd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
-OPCODE(vcvtss2sd, vcvtss2sd, vcvtss2sd, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
-       REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_4))
-OPCODE(vcvtsd2ss, vcvtsd2ss, vcvtsd2ss, 0, REGARG_PARTIAL(XMM0, OPSZ_4),
-       REGARG_PARTIAL(XMM1, OPSZ_12), MEMARG(OPSZ_8))
+OPCODE(vcvtss2sd, vcvtss2sd, vcvtss2sd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
+       MEMARG(OPSZ_4))
+OPCODE(vcvtsd2ss, vcvtsd2ss, vcvtsd2ss, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_12),
+       MEMARG(OPSZ_8))
 OPCODE(vsubps, vsubps, vsubps, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
 OPCODE(vsubss, vsubss, vsubss, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_4))
 OPCODE(vsubpd, vsubpd, vsubpd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
