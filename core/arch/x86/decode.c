@@ -741,7 +741,10 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
             return pc;
         }
         *is_evex = true;
-        SYSLOG_INTERNAL_WARNING_ONCE(MSG_AVX_512_SUPPORT_INCOMPLETE_STRING " @" PFX, pc);
+#if !defined(STANDALONE_DECODER)
+        SYSLOG(SYSLOG_WARNING, AVX_512_SUPPORT_INCOMPLETE, 2, get_application_name(),
+               get_application_pid(), pc);
+#endif
         info = &evex_prefix_extensions[0][1];
     } else {
         /* not evex */
