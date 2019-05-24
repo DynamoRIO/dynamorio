@@ -742,7 +742,7 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
         }
         *is_evex = true;
 #if !defined(STANDALONE_DECODER)
-        SYSLOG(SYSLOG_WARNING, AVX_512_SUPPORT_INCOMPLETE, 2, get_application_name(),
+        SYSLOG(SYSLOG_ERROR, AVX_512_SUPPORT_INCOMPLETE, 2, get_application_name(),
                get_application_pid(), pc);
 #endif
         info = &evex_prefix_extensions[0][1];
