@@ -66,8 +66,7 @@ tlb_t::request(const memref_t &memref_in)
         // Make sure last_tag and pid are properly in sync.
         caching_device_block_t *tlb_entry =
             &get_caching_device_block(last_block_idx, last_way);
-        assert(tag != TAG_INVALID &&
-               tag == get_caching_device_block(last_block_idx, last_way)->tag &&
+        assert(tag != TAG_INVALID && tag == tlb_entry->tag &&
                pid == ((tlb_entry_t *)tlb_entry)->pid);
         stats->access(memref_in, true /*hit*/, tlb_entry);
         if (parent != NULL)
