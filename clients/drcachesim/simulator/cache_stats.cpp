@@ -55,7 +55,7 @@ cache_stats_t::access(const memref_t &memref, bool hit, addr_t replaced_block)
                 dump_miss(memref);
         }
     } else { // handle regular memory accesses
-        caching_device_stats_t::access(memref, hit);
+        caching_device_stats_t::access(memref, hit, replaced_block);
     }
 }
 

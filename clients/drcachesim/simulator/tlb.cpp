@@ -69,9 +69,9 @@ tlb_t::request(const memref_t &memref_in)
             tag == get_caching_device_block(last_block_idx, last_way).tag &&
             pid ==
                 ((tlb_entry_t &)get_caching_device_block(last_block_idx, last_way)).pid);
-        stats->access(memref_in, true /*hit*/);
+        stats->access(memref_in, true /*hit*/, TAG_INVALID);
         if (parent != NULL)
-            parent->get_stats()->child_access(memref_in, true);
+            parent->get_stats()->child_access(memref_in, true, TAG_INVALID);
         access_update(last_block_idx, last_way);
         return;
     }
@@ -87,18 +87,18 @@ tlb_t::request(const memref_t &memref_in)
         for (way = 0; way < associativity; ++way) {
             if (get_caching_device_block(block_idx, way).tag == tag &&
                 ((tlb_entry_t &)get_caching_device_block(block_idx, way)).pid == pid) {
-                stats->access(memref, true /*hit*/);
+                stats->access(memref, true /*hit*/, TAG_INVALID);
                 if (parent != NULL)
-                    parent->get_stats()->child_access(memref, true);
+                    parent->get_stats()->child_access(memref, true, TAG_INVALID);
                 break;
             }
         }
 
         if (way == associativity) {
-            stats->access(memref, false /*miss*/);
+            stats->access(memref, false /*miss*/, TAG_INVALID);
             // If no parent we assume we get the data from main memory
             if (parent != NULL) {
-                parent->get_stats()->child_access(memref, false);
+                parent->get_stats()->child_access(memref, false, TAG_INVALID);
                 parent->request(memref);
             }
 

@@ -112,9 +112,9 @@ caching_device_t::request(const memref_t &memref_in)
         // Make sure last_tag is properly in sync.
         assert(tag != TAG_INVALID &&
                tag == get_caching_device_block(last_block_idx, last_way).tag);
-        stats->access(memref_in, true /*hit*/);
+        stats->access(memref_in, true /*hit*/, TAG_INVALID);
         if (parent != NULL)
-            parent->stats->child_access(memref_in, true);
+            parent->stats->child_access(memref_in, true, TAG_INVALID);
         access_update(last_block_idx, last_way);
         return;
     }
@@ -130,9 +130,9 @@ caching_device_t::request(const memref_t &memref_in)
 
         for (way = 0; way < associativity; ++way) {
             if (get_caching_device_block(block_idx, way).tag == tag) {
-                stats->access(memref, true /*hit*/);
+                stats->access(memref, true /*hit*/, TAG_INVALID);
                 if (parent != NULL)
-                    parent->stats->child_access(memref, true);
+                    parent->stats->child_access(memref, true, TAG_INVALID);
                 break;
             }
         }
