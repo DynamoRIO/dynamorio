@@ -163,6 +163,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     case TYPE_VAR_REG_EX:
     case TYPE_VAR_XREG_EX:
     case TYPE_VAR_REGX_EX:
+    case TYPE_VAR_REGX:
         /* we do want to print implicit operands for opcode-decides-register
          * instrs like inc-reg and pop-reg, but not for say lahf, aaa, or cdq.
          */
