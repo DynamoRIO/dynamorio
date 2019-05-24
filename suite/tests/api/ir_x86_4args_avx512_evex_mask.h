@@ -1003,4 +1003,32 @@ OPCODE(vpmulhrsw_zhik7zhizhi, vpmulhrsw, vpmulhrsw_mask, X64_ONLY, REGARG(ZMM16)
        REGARG(K7), REGARG(ZMM17), REGARG(ZMM31))
 OPCODE(vpmulhrsw_zhik7zhild, vpmulhrsw, vpmulhrsw_mask, X64_ONLY, REGARG(ZMM16),
        REGARG(K7), REGARG(ZMM17), MEMARG(OPSZ_64))
+OPCODE(vcvtss2sd_xlok0ld, vcvtss2sd, vcvtss2sd_mask, 0, REGARG(XMM0), REGARG(K0),
+       REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_4))
+OPCODE(vcvtss2sd_xhik7ld, vcvtss2sd, vcvtss2sd_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
+       REGARG_PARTIAL(XMM31, OPSZ_8), MEMARG(OPSZ_4))
+OPCODE(vcvtss2sd_xlok0xlo, vcvtss2sd, vcvtss2sd_mask, 0, REGARG(XMM0), REGARG(K0),
+       REGARG_PARTIAL(XMM1, OPSZ_8), REGARG_PARTIAL(XMM2, OPSZ_4))
+OPCODE(vcvtss2sd_xhik7xhi, vcvtss2sd, vcvtss2sd_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
+       REGARG_PARTIAL(XMM16, OPSZ_8), REGARG_PARTIAL(XMM31, OPSZ_4))
+OPCODE(vcvtsd2ss_xlok0ld, vcvtsd2ss, vcvtsd2ss_mask, 0, REGARG(XMM0), REGARG(K0),
+       REGARG_PARTIAL(XMM1, OPSZ_12), MEMARG(OPSZ_8))
+OPCODE(vcvtsd2ss_xhik7ld, vcvtsd2ss, vcvtsd2ss_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
+       REGARG_PARTIAL(XMM31, OPSZ_12), MEMARG(OPSZ_8))
+OPCODE(vcvtsd2ss_xlok0xlo, vcvtsd2ss, vcvtsd2ss_mask, 0, REGARG(XMM0), REGARG(K0),
+       REGARG_PARTIAL(XMM1, OPSZ_12), REGARG_PARTIAL(XMM2, OPSZ_8))
+OPCODE(vcvtsd2ss_xhik7xhi, vcvtsd2ss, vcvtsd2ss_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
+       REGARG_PARTIAL(XMM16, OPSZ_12), REGARG_PARTIAL(XMM31, OPSZ_8))
+OPCODE(vcvtps2ph_xlok0ld, vcvtps2ph, vcvtps2ph_mask, 0, MEMARG(OPSZ_16), REGARG(K0),
+       REGARG(XMM0), IMMARG(OPSZ_1))
+OPCODE(vcvtps2ph_xlok0xlo, vcvtps2ph, vcvtps2ph_mask, 0, REGARG(XMM0), REGARG(K0),
+       REGARG(XMM1), IMMARG(OPSZ_1))
+OPCODE(vcvtps2ph_xhik7xhi, vcvtps2ph, vcvtps2ph_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
+       REGARG(XMM31), IMMARG(OPSZ_1))
+OPCODE(vcvtps2ph_ylok0ld, vcvtps2ph, vcvtps2ph_mask, 0, MEMARG(OPSZ_32), REGARG(K0),
+       REGARG(YMM0), IMMARG(OPSZ_1))
+OPCODE(vcvtps2ph_ylok0ylo, vcvtps2ph, vcvtps2ph_mask, 0, REGARG(YMM0), REGARG(K0),
+       REGARG(YMM1), IMMARG(OPSZ_1))
+OPCODE(vcvtps2ph_yhik7yhi, vcvtps2ph, vcvtps2ph_mask, X64_ONLY, REGARG(YMM16), REGARG(K7),
+       REGARG(YMM31), IMMARG(OPSZ_1))
 /* TODO i#1312: Add missing instructions. */
