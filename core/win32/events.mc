@@ -667,7 +667,7 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_AVX_512_SUPPORT_INCOMPLETE
 Language=English
-Application %1!s! (%2!s!): AVX-512 was detected at PC 0x%3!lx!
+Application %1!s! (%2!s!): AVX-512 was detected at PC %3!s!
 .
 
 ;// ADD NEW MESSAGES HERE
