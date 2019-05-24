@@ -1098,6 +1098,8 @@ fcache_exit()
 
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, allunits, fcache_list_t, ACCT_OTHER, PROTECTED);
 
+    reset_pending = 0; /* For reattach. */
+
     DELETE_LOCK(allunits_lock);
     DELETE_LOCK(reset_pending_lock);
     DELETE_LOCK(unit_flush_lock);
@@ -4153,6 +4155,13 @@ fcache_reset_all_caches_proactively(uint target)
         d_r_mutex_unlock(&reset_pending_lock);
         return;
     }
+    /* Extra layer of checking to avoid a reset when the user does not want it
+     * (xref i#3645).
+     */
+    if (!DYNAMO_OPTION(enable_reset)) {
+        d_r_mutex_unlock(&reset_pending_lock);
+        return;
+    }
     /* N.B.: we relax various synch checks if dynamo_resetting is true, since
      * we will not be holding some locks we normally would need when
      * deleting shared fragments, etc., assuming that we suspend all
@@ -4381,6 +4390,8 @@ schedule_reset(uint target)
 {
     bool added_target;
     ASSERT(target != 0);
+    if (!DYNAMO_OPTION(enable_reset))
+        return false;
     d_r_mutex_lock(&reset_pending_lock);
     added_target = !TESTALL(target, reset_pending);
     reset_pending |= target;
