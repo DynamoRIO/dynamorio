@@ -65,6 +65,10 @@ The following are part of the DynamoRIO release distribution:
   PR 225255: list profile library too
 \endif
 
+ - An additional parameter in the accessors to the cache stats that passes
+   a pointer to the cache block being accessed (on a hit) or being replaced
+   (on a miss). This allows users to extend the cache block and stats classes
+   in order to collect more stats.
  - Four different DynamoRIO libraries: debug and release for each of
    32-bit and 64-bit (for ARM or AArch64 builds, only a single bitwidth
    matching the ISA is provided).

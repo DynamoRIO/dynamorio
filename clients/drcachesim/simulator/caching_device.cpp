@@ -110,11 +110,12 @@ caching_device_t::request(const memref_t &memref_in)
     // Optimization: check last tag if single-block
     if (tag == final_tag && tag == last_tag) {
         // Make sure last_tag is properly in sync.
-        assert(tag != TAG_INVALID &&
-               tag == get_caching_device_block(last_block_idx, last_way).tag);
-        stats->access(memref_in, true /*hit*/, TAG_INVALID);
+        caching_device_block_t *cache_block =
+            &get_caching_device_block(last_block_idx, last_way);
+        assert(tag != TAG_INVALID && tag == cache_block->tag);
+        stats->access(memref_in, true /*hit*/, cache_block);
         if (parent != NULL)
-            parent->stats->child_access(memref_in, true, TAG_INVALID);
+            parent->stats->child_access(memref_in, true, cache_block);
         access_update(last_block_idx, last_way);
         return;
     }
@@ -129,23 +130,26 @@ caching_device_t::request(const memref_t &memref_in)
             memref.data.size = ((tag + 1) << block_size_bits) - memref.data.addr;
 
         for (way = 0; way < associativity; ++way) {
-            if (get_caching_device_block(block_idx, way).tag == tag) {
-                stats->access(memref, true /*hit*/, TAG_INVALID);
+            caching_device_block_t *cache_block =
+                &get_caching_device_block(block_idx, way);
+            if (cache_block->tag == tag) {
+                stats->access(memref, true /*hit*/, cache_block);
                 if (parent != NULL)
-                    parent->stats->child_access(memref, true, TAG_INVALID);
+                    parent->stats->child_access(memref, true, cache_block);
                 break;
             }
         }
 
         if (way == associativity) {
             way = replace_which_way(block_idx);
-            addr_t replaced_block = get_caching_device_block(block_idx, way).tag;
+            caching_device_block_t *cache_block =
+                &get_caching_device_block(block_idx, way);
 
-            stats->access(memref, false /*miss*/, replaced_block);
+            stats->access(memref, false /*miss*/, cache_block);
             missed = true;
             // If no parent we assume we get the data from main memory
             if (parent != NULL) {
-                parent->stats->child_access(memref, false, replaced_block);
+                parent->stats->child_access(memref, false, cache_block);
                 parent->request(memref);
             }
 
@@ -153,14 +157,14 @@ caching_device_t::request(const memref_t &memref_in)
 
             // Check if we are inserting a new block, if we are then increment
             // the block loaded count.
-            if (replaced_block == TAG_INVALID) {
+            if (cache_block->tag == TAG_INVALID) {
                 loaded_blocks++;
             } else if (inclusive && !children.empty()) {
                 for (auto &child : children) {
-                    child->invalidate(get_caching_device_block(block_idx, way).tag);
+                    child->invalidate(cache_block->tag);
                 }
             }
-            get_caching_device_block(block_idx, way).tag = tag;
+            cache_block->tag = tag;
         }
 
         access_update(block_idx, way);

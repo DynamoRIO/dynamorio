@@ -47,7 +47,7 @@ public:
     // In addition to caching_device_stats_t::access,
     // cache_stats_t::access processes prefetching requests.
     virtual void
-    access(const memref_t &memref, bool hit, addr_t replaced_block);
+    access(const memref_t &memref, bool hit, caching_device_block_t *cache_block);
 
     // process CPU cache flushes
     virtual void
