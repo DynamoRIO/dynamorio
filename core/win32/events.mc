@@ -662,4 +662,12 @@ Language=English
 Application %1!s! (%2!s!). Out of contiguous memory. %3!s!
 .
 
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_AVX_512_SUPPORT_INCOMPLETE
+Language=English
+Application %1!s! (%2!s!): AVX-512 was detected at PC %3!s!. AVX-512 is not fully supported yet.
+.
+
 ;// ADD NEW MESSAGES HERE
