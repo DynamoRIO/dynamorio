@@ -417,49 +417,49 @@ test_disas_3_avx512_evex_mask(void *dc)
     pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
                                false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, "vmovups {%k1} %zmm16 -> %zmm1\n") == 0);
+    ASSERT(strcmp(buf, "vmovups %k1 %zmm16 -> %zmm1\n") == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
                                false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, "vmovups {%k1} %zmm16 -> %zmm31\n") == 0);
+    ASSERT(strcmp(buf, "vmovups %k1 %zmm16 -> %zmm31\n") == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)b3, (byte *)b3, false /*no pc*/,
                                false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, "vmovups {%k1} %zmm31 -> (%rsp)[64byte]\n") == 0);
+    ASSERT(strcmp(buf, "vmovups %k1 %zmm31 -> (%rsp)[64byte]\n") == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)b4, (byte *)b4, false /*no pc*/,
                                false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
     ASSERT(strcmp(buf,
-                  IF_X64_ELSE("vmovups {%k1} (%rsp)[64byte] -> %zmm31\n",
-                              "vmovups {%k1} (%esp)[64byte] -> %zmm31\n")) == 0);
+                  IF_X64_ELSE("vmovups %k1 (%rsp)[64byte] -> %zmm31\n",
+                              "vmovups %k1 (%esp)[64byte] -> %zmm31\n")) == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)b5, (byte *)b5, false /*no pc*/,
                                false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, "vmovups {%k1} %zmm1 -> %zmm31\n") == 0);
+    ASSERT(strcmp(buf, "vmovups %k1 %zmm1 -> %zmm31\n") == 0);
 #    endif
 
     pc = disassemble_to_buffer(dc, (byte *)b6, (byte *)b6, false /*no pc*/,
                                false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
     ASSERT(strcmp(buf,
-                  IF_X64_ELSE("vmovups {%k1} (%rsp)[64byte] -> %zmm1\n",
-                              "vmovups {%k1} (%esp)[64byte] -> %zmm1\n")) == 0);
+                  IF_X64_ELSE("vmovups %k1 (%rsp)[64byte] -> %zmm1\n",
+                              "vmovups %k1 (%esp)[64byte] -> %zmm1\n")) == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)b7, (byte *)b7, false /*no pc*/,
                                false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, "vmovups {%k1} %zmm1 -> %zmm0\n") == 0);
+    ASSERT(strcmp(buf, "vmovups %k1 %zmm1 -> %zmm0\n") == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)b8, (byte *)b8, false /*no pc*/,
                                false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
     ASSERT(strcmp(buf,
-                  IF_X64_ELSE("vmovups {%k1} %zmm1 -> (%rsp)[64byte]\n",
-                              "vmovups {%k1} %zmm1 -> (%esp)[64byte]\n")) == 0);
+                  IF_X64_ELSE("vmovups %k1 %zmm1 -> (%rsp)[64byte]\n",
+                              "vmovups %k1 %zmm1 -> (%esp)[64byte]\n")) == 0);
 }
 
 #endif /* !STANDALONE_DECODER */
