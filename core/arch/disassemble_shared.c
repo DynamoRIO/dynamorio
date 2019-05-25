@@ -903,7 +903,7 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                                                    multiple_encodings, dsts_first(), &i);
             print_to_buffer(buf, bufsz, sofar, is_evex_mask ? "}" : "");
         } else if (is_evex_mask) {
-            CLIENT_ASSERT(!dsts_first(), "evex mask can only be a source.");
+            CLIENT_ASSERT(!dsts_first(), "Evex mask can only be a source.");
             CLIENT_ASSERT(!is_evex_mask_pending, "There can only be one evex mask.");
             is_evex_mask_pending = true;
         }
