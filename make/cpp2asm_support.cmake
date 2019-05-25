@@ -334,6 +334,19 @@ elseif (UNIX)
 else ()
   # Even if we didn't preprocess we'd need our own rule since cmake doesn't
   # support ml.
+  # UDPDATE: it does via enable_language(ASM_MASM) but as asm files have C/C++ commens in
+  #          preprocessing is required, all asm files are renamed to <name>.obj.s for later
+  #          compiling, which will make default CMAKE_ASM_COMPILER to fail with unknown extension
+  #          when using nmake, solution is to replace it with proper ml/ml64 before, or properly use
+  #          find_program in case of NMake Makefiles
+  if ("${CMAKE_GENERATOR}" MATCHES "NMake Makefiles")
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+      set(CMAKE_ASM_COMPILER "ml64.exe")
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+      set(CMAKE_ASM_COMPILER "ml.exe")
+    endif()
+  endif()
+  
   set(CMAKE_ASM_COMPILE_OBJECT
     # There's no way to specify a non-default name with /P: writes to
     # cwd/sourcebase.i.  Could copy with "cmake -E copy" but no way to
@@ -347,6 +360,9 @@ else ()
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
     "<CMAKE_ASM_COMPILER> ${ASM_FLAGS} /c /Fo<OBJECT> <OBJECT>.s"
     )
+    
+    #enable_language(ASM_MASM)
+    #string(REPLACE "/c" "/nologo /c" CMAKE_ASM_MASM_COMPILE_OBJECT ${CMAKE_ASM_MASM_COMPILE_OBJECT})
 endif ()
 
 ##################################################
