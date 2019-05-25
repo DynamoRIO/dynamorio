@@ -884,7 +884,7 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     });
     num = dsts_first() ? instr_num_dsts(instr) : instr_num_srcs(instr);
     for (i = 0; i < num; i++) {
-        bool printing;
+        bool printing = false;
         opnd = dsts_first() ? instr_get_dst(instr, i) : instr_get_src(instr, i);
         IF_X86_ELSE({ optype = instr_info_opnd_type(info, !dsts_first(), i); },
                     {
@@ -951,9 +951,9 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         opnd = instr_get_src(instr, 0);
         CLIENT_ASSERT(IF_X86_ELSE(true, false), "evex mask can only exist for x86.");
         optype = instr_info_opnd_type(info, !dsts_first(), i);
-        bool is_evex_mask = !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
-            reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts();
-        CLIENT_ASSERT(is_evex_mask, "evex mask must always be the first source.");
+        CLIENT_ASSERT(!instr_is_opmask(instr) && opnd_is_reg(opnd) &&
+                          reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts(),
+                      "evex mask must always be the first source.");
         print_to_buffer(buf, bufsz, sofar, " {");
         opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype, opnd,
                                     false, multiple_encodings, dsts_first(), &i);
