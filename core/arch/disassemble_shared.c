@@ -159,6 +159,12 @@ dsts_first(void)
     return TESTANY(DR_DISASM_INTEL | DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask));
 }
 
+static inline bool
+opmask_with_dsts(void)
+{
+    return TESTANY(DR_DISASM_INTEL | DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask));
+}
+
 static void
 internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                            dcontext_t *dcontext, instr_t *instr);
@@ -861,6 +867,7 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     byte optype_already[3] = { 0, 0, 0 /*0 == TYPE_NONE*/ };
     opnd_t opnd;
     bool prev = false, multiple_encodings = false;
+    bool is_evex_mask_pending = false;
 
     info = instr_get_instr_info(instr);
     if (info != NULL && get_next_instr_info(info) != NULL &&
@@ -877,7 +884,7 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     });
     num = dsts_first() ? instr_num_dsts(instr) : instr_num_srcs(instr);
     for (i = 0; i < num; i++) {
-        bool printing;
+        bool printing = false;
         opnd = dsts_first() ? instr_get_dst(instr, i) : instr_get_src(instr, i);
         IF_X86_ELSE({ optype = instr_info_opnd_type(info, !dsts_first(), i); },
                     {
@@ -887,13 +894,19 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                          */
                         optype = 0;
                     });
-        bool is_mask = !dsts_first() && !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
-            reg_is_opmask(opnd_get_reg(opnd));
-        print_to_buffer(buf, bufsz, sofar, is_mask ? "{" : "");
-        printing =
-            opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype, opnd,
-                                        prev, multiple_encodings, dsts_first(), &i);
-        print_to_buffer(buf, bufsz, sofar, is_mask ? "}" : "");
+        bool is_evex_mask = !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
+            reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts();
+        if (!is_evex_mask) {
+            print_to_buffer(buf, bufsz, sofar, "");
+            printing = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr,
+                                                   optype, opnd, prev, multiple_encodings,
+                                                   dsts_first(), &i);
+            print_to_buffer(buf, bufsz, sofar, "");
+        } else {
+            CLIENT_ASSERT(!dsts_first(), "Evex mask can only be a source.");
+            CLIENT_ASSERT(!is_evex_mask_pending, "There can only be one evex mask.");
+            is_evex_mask_pending = true;
+        }
         /* w/o the "printing" check we suppress "push esp" => "push" */
         if (printing && i < 3)
             optype_already[i] = optype;
@@ -924,15 +937,27 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                      (i == 0 && opnd_is_reg(opnd) && reg_is_fp(opnd_get_reg(opnd))));
         });
         if (print) {
-            bool is_mask = dsts_first() && !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
-                reg_is_opmask(opnd_get_reg(opnd));
-            print_to_buffer(buf, bufsz, sofar, is_mask ? "{" : "");
+            bool is_evex_mask = !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
+                reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts();
+            print_to_buffer(buf, bufsz, sofar, is_evex_mask ? " {" : "");
             prev = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype,
-                                               opnd, prev, multiple_encodings,
-                                               !dsts_first(), &i) ||
+                                               opnd, prev && !is_evex_mask,
+                                               multiple_encodings, !dsts_first(), &i) ||
                 prev;
-            print_to_buffer(buf, bufsz, sofar, is_mask ? "}" : "");
+            print_to_buffer(buf, bufsz, sofar, is_evex_mask ? "}" : "");
         }
+    }
+    if (is_evex_mask_pending) {
+        opnd = instr_get_src(instr, 0);
+        CLIENT_ASSERT(IF_X86_ELSE(true, false), "evex mask can only exist for x86.");
+        optype = instr_info_opnd_type(info, !dsts_first(), i);
+        CLIENT_ASSERT(!instr_is_opmask(instr) && opnd_is_reg(opnd) &&
+                          reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts(),
+                      "evex mask must always be the first source.");
+        print_to_buffer(buf, bufsz, sofar, " {");
+        opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype, opnd,
+                                    false, multiple_encodings, dsts_first(), &i);
+        print_to_buffer(buf, bufsz, sofar, "}");
     }
 }
 
@@ -1108,11 +1133,11 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
          * EVEX mask operand. Tools tend to print the mask in conjunction with the
          * destination in {} brackets.
          */
-        bool is_mask = !instr_is_opmask(instr) && opnd_is_reg(src) &&
+        bool is_evex_mask = !instr_is_opmask(instr) && opnd_is_reg(src) &&
             reg_is_opmask(opnd_get_reg(src));
-        print_to_buffer(buf, bufsz, sofar, is_mask ? "{" : "");
+        print_to_buffer(buf, bufsz, sofar, is_evex_mask ? "{" : "");
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, src, use_size_sfx);
-        print_to_buffer(buf, bufsz, sofar, is_mask ? "}" : "");
+        print_to_buffer(buf, bufsz, sofar, is_evex_mask ? "}" : "");
     }
     if (instr_num_dsts(instr) > 0) {
         print_to_buffer(buf, bufsz, sofar, " ->");
