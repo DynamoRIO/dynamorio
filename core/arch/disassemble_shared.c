@@ -1133,7 +1133,11 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
          * EVEX mask operand. Tools tend to print the mask in conjunction with the
          * destination in {} brackets.
          */
+        bool is_evex_mask = !instr_is_opmask(instr) && opnd_is_reg(src) &&
+            reg_is_opmask(opnd_get_reg(src));
+        print_to_buffer(buf, bufsz, sofar, is_evex_mask ? "{" : "");
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, src, use_size_sfx);
+        print_to_buffer(buf, bufsz, sofar, is_evex_mask ? "}" : "");
     }
     if (instr_num_dsts(instr) > 0) {
         print_to_buffer(buf, bufsz, sofar, " ->");
