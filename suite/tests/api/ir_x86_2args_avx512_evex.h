@@ -103,4 +103,16 @@ OPCODE(vcomiss_xhim, vcomiss, vcomiss, X64_ONLY, REGARG_PARTIAL(XMM16, OPSZ_4),
 OPCODE(vcomisd_xlom, vcomisd, vcomisd, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
 OPCODE(vcomisd_xhim, vcomisd, vcomisd, X64_ONLY, REGARG_PARTIAL(XMM16, OPSZ_8),
        MEMARG(OPSZ_8))
+OPCODE(vmovntdq_mxlo, vmovntdq, vmovntdq, 0, MEMARG(OPSZ_16), REGARG(XMM0))
+OPCODE(vmovntdq_mxhi, vmovntdq, vmovntdq, X64_ONLY, MEMARG(OPSZ_16), REGARG(XMM16))
+OPCODE(vmovntdq_mylo, vmovntdq, vmovntdq, 0, MEMARG(OPSZ_32), REGARG(YMM0))
+OPCODE(vmovntdq_myhi, vmovntdq, vmovntdq, X64_ONLY, MEMARG(OPSZ_32), REGARG(YMM16))
+OPCODE(vmovntdq_mzlo, vmovntdq, vmovntdq, 0, MEMARG(OPSZ_64), REGARG(ZMM0))
+OPCODE(vmovntdq_mzhi, vmovntdq, vmovntdq, X64_ONLY, MEMARG(OPSZ_64), REGARG(ZMM16))
+OPCODE(vmovntdqa_mxlo, vmovntdqa, vmovntdqa, 0, MEMARG(OPSZ_16), REGARG(XMM0))
+OPCODE(vmovntdqa_mxhi, vmovntdqa, vmovntdqa, X64_ONLY, MEMARG(OPSZ_16), REGARG(XMM16))
+OPCODE(vmovntdqa_mylo, vmovntdqa, vmovntdqa, 0, MEMARG(OPSZ_32), REGARG(YMM0))
+OPCODE(vmovntdqa_myhi, vmovntdqa, vmovntdqa, X64_ONLY, MEMARG(OPSZ_32), REGARG(YMM16))
+OPCODE(vmovntdqa_mzlo, vmovntdqa, vmovntdqa, 0, MEMARG(OPSZ_64), REGARG(ZMM0))
+OPCODE(vmovntdqa_mzhi, vmovntdqa, vmovntdqa, X64_ONLY, MEMARG(OPSZ_64), REGARG(ZMM16))
 /* TODO i#1312: Add missing instructions. */
