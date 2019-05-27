@@ -3263,7 +3263,7 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vdivps, 0x0f5e10, "vdivps", Ves, xx, KEw, Hes, Wes, mrm|evex, x, END_LIST},
     {OP_vdivss, 0xf30f5e10, "vdivss", Vdq, xx, KEw, Hdq, Wss, mrm|evex, x, END_LIST},
     {OP_vdivpd, 0x660f5e10, "vdivpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
-    {OP_vdivsd, 0xf20f5e10, "vminsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
+    {OP_vdivsd, 0xf20f5e10, "vdivsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
   },
   /* prefix extension 31 */
   {
