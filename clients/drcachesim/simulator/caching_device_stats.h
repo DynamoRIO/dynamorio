@@ -54,11 +54,11 @@ public:
     // A multi-block memory reference invokes this routine
     // separately for each block touched.
     virtual void
-    access(const memref_t &memref, bool hit, addr_t replaced_block = TAG_INVALID);
+    access(const memref_t &memref, bool hit, caching_device_block_t *cache_block);
 
     // Called on each access by a child caching device.
     virtual void
-    child_access(const memref_t &memref, bool hit, addr_t replaced_block = TAG_INVALID);
+    child_access(const memref_t &memref, bool hit, caching_device_block_t *cache_block);
 
     virtual void
     print_stats(std::string prefix);
