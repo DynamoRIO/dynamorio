@@ -43,7 +43,8 @@ cache_stats_t::cache_stats_t(const std::string &miss_file, bool warmup_enabled)
 }
 
 void
-cache_stats_t::access(const memref_t &memref, bool hit, addr_t replaced_block)
+cache_stats_t::access(const memref_t &memref, bool hit,
+                      caching_device_block_t *cache_block)
 {
     // handle prefetching requests
     if (type_is_prefetch(memref.data.type)) {
@@ -55,7 +56,7 @@ cache_stats_t::access(const memref_t &memref, bool hit, addr_t replaced_block)
                 dump_miss(memref);
         }
     } else { // handle regular memory accesses
-        caching_device_stats_t::access(memref, hit);
+        caching_device_stats_t::access(memref, hit, cache_block);
     }
 }
 
