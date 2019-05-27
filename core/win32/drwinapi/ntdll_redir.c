@@ -838,6 +838,10 @@ redirect_RtlPcToFileHeader(__in PVOID PcValue, __out PVOID *BaseOfImage)
  * i#875: FLS isolation
  */
 
+#ifndef FLS_MAX_COUNT
+#define FLS_MAX_COUNT 128
+#endif
+
 void
 ntdll_redir_fls_init(PEB *app_peb, PEB *private_peb)
 {
@@ -846,7 +850,10 @@ ntdll_redir_fls_init(PEB *app_peb, PEB *private_peb)
     /* We need a deep copy of FLS structures */
     private_peb->FlsBitmap =
         HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, RTL_BITMAP, ACCT_LIBDUP, UNPROTECTED);
-    private_peb->FlsBitmap->SizeOfBitMap = app_peb->FlsBitmap->SizeOfBitMap;
+    if (app_peb->FlsBitmap == NULL)
+        private_peb->FlsBitmap->SizeOfBitMap = FLS_MAX_COUNT;
+    else
+        private_peb->FlsBitmap->SizeOfBitMap = app_peb->FlsBitmap->SizeOfBitMap;
     private_peb->FlsBitmap->BitMapBuffer = (LPBYTE)&private_peb->FlsBitmapBits;
     memset(private_peb->FlsBitmapBits, 0, sizeof(private_peb->FlsBitmapBits));
 
@@ -931,7 +938,7 @@ redirect_RtlFlsFree(IN DWORD index)
     if (!NT_SUCCESS(res))
         return res;
 
-    bitmap_mark_freed_sequence(peb->TlsBitmap->BitMapBuffer, peb->TlsBitmap->SizeOfBitMap,
+    bitmap_mark_freed_sequence(peb->FlsBitmap->BitMapBuffer, peb->FlsBitmap->SizeOfBitMap,
                                index, 1);
     /* Call the cb, if the slot value is non-NULL */
     if (peb->FlsCallback[index] != NULL &&
