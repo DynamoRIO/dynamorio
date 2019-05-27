@@ -1338,7 +1338,7 @@ const instr_info_t * const op_instr[] =
     /* OP_vpandq        */  &evex_W_extensions[41][1],
     /* OP_vpandnd       */  &evex_W_extensions[42][0],
     /* OP_vpandnq       */  &evex_W_extensions[42][1],
-    /* OP_vpmullq        */  &evex_W_extensions[45][1],
+    /* OP_vpmullq       */  &evex_W_extensions[45][1],
     /* OP_vpord         */  &evex_W_extensions[43][0],
     /* OP_vporq         */  &evex_W_extensions[43][1],
     /* OP_vpxord        */  &evex_W_extensions[44][0],
@@ -1506,6 +1506,7 @@ const instr_info_t * const op_instr[] =
 #define Wed TYPE_W, OPSZ_16_vex32_evex64
 #define We TYPE_W, OPSZ_16_vex32_evex64
 #define Ve TYPE_V, OPSZ_16_vex32_evex64
+#define Vex TYPE_V, OPSZ_16_vex32_evex64
 #define We TYPE_W, OPSZ_16_vex32_evex64
 #define Wh_e TYPE_W, OPSZ_half_16_vex32_evex64
 #define Hes TYPE_H, OPSZ_16_vex32_evex64
@@ -1514,6 +1515,7 @@ const instr_info_t * const op_instr[] =
 #define Hh_e TYPE_H, OPSZ_half_16_vex32_evex64
 #define Mes TYPE_M, OPSZ_16_vex32_evex64
 #define Med TYPE_M, OPSZ_16_vex32_evex64
+#define Mex TYPE_M, OPSZ_16_vex32_evex64
 
 /* my own codes
  * size m = 32 or 16 bit depending on addr size attribute
@@ -3239,15 +3241,14 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_minss, 0xf30f5d10, "minss", Vss, xx, Wss, Vss, xx, mrm, x, END_LIST},
     {OP_minpd, 0x660f5d10, "minpd", Vpd, xx, Wpd, Vpd, xx, mrm, x, END_LIST},
     {OP_minsd, 0xf20f5d10, "minsd", Vsd, xx, Wsd, Vsd, xx, mrm, x, END_LIST},
-    {OP_vminps, 0x0f5d10, "vminps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, END_LIST},
-    {OP_vminss, 0xf30f5d10, "vminss", Vdq, xx, Hdq, Wss, xx, mrm|vex, x, END_LIST},
-    {OP_vminpd, 0x660f5d10, "vminpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, END_LIST},
-    {OP_vminsd, 0xf20f5d10, "vminsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, END_LIST},
-    /* TODO i#1312: Support AVX-512. */
-    {INVALID,   0x0f5d10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf30f5d10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x660f5d10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf20f5d10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vminps, 0x0f5d10, "vminps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tpe[29][8]},
+    {OP_vminss, 0xf30f5d10, "vminss", Vdq, xx, Hdq, Wss, xx, mrm|vex, x, tpe[29][9]},
+    {OP_vminpd, 0x660f5d10, "vminpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tpe[29][10]},
+    {OP_vminsd, 0xf20f5d10, "vminsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[29][11]},
+    {OP_vminps, 0x0f5d10, "vminps", Ves, xx, KEw, Hes, Wes, mrm|evex, x, END_LIST},
+    {OP_vminss, 0xf30f5d10, "vminss", Vdq, xx, KEw, Hdq, Wss, mrm|evex, x, END_LIST},
+    {OP_vminpd, 0x660f5d10, "vminpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
+    {OP_vminsd, 0xf20f5d10, "vminsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
   },
   /* prefix extension 30 */
   {
@@ -3255,15 +3256,14 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_divss, 0xf30f5e10, "divss", Vss, xx, Wss, Vss, xx, mrm, x, END_LIST},
     {OP_divpd, 0x660f5e10, "divpd", Vpd, xx, Wpd, Vpd, xx, mrm, x, END_LIST},
     {OP_divsd, 0xf20f5e10, "divsd", Vsd, xx, Wsd, Vsd, xx, mrm, x, END_LIST},
-    {OP_vdivps, 0x0f5e10, "vdivps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, END_LIST},
-    {OP_vdivss, 0xf30f5e10, "vdivss", Vdq, xx, Hdq, Wss, xx, mrm|vex, x, END_LIST},
-    {OP_vdivpd, 0x660f5e10, "vdivpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, END_LIST},
-    {OP_vdivsd, 0xf20f5e10, "vdivsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, END_LIST},
-    /* TODO i#1312: Support AVX-512. */
-    {INVALID,   0x0f5e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf30f5e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x660f5e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf20f5e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vdivps, 0x0f5e10, "vdivps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tpe[30][8]},
+    {OP_vdivss, 0xf30f5e10, "vdivss", Vdq, xx, Hdq, Wss, xx, mrm|vex, x, tpe[30][9]},
+    {OP_vdivpd, 0x660f5e10, "vdivpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tpe[30][10]},
+    {OP_vdivsd, 0xf20f5e10, "vdivsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[30][11]},
+    {OP_vdivps, 0x0f5e10, "vdivps", Ves, xx, KEw, Hes, Wes, mrm|evex, x, END_LIST},
+    {OP_vdivss, 0xf30f5e10, "vdivss", Vdq, xx, KEw, Hdq, Wss, mrm|evex, x, END_LIST},
+    {OP_vdivpd, 0x660f5e10, "vdivpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
+    {OP_vdivsd, 0xf20f5e10, "vminsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
   },
   /* prefix extension 31 */
   {
@@ -3271,15 +3271,14 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_maxss, 0xf30f5f10, "maxss", Vss, xx, Wss, Vss, xx, mrm, x, END_LIST},
     {OP_maxpd, 0x660f5f10, "maxpd", Vpd, xx, Wpd, Vpd, xx, mrm, x, END_LIST},
     {OP_maxsd, 0xf20f5f10, "maxsd", Vsd, xx, Wsd, Vsd, xx, mrm, x, END_LIST},
-    {OP_vmaxps, 0x0f5f10, "vmaxps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, END_LIST},
-    {OP_vmaxss, 0xf30f5f10, "vmaxss", Vdq, xx, Hdq, Wss, xx, mrm|vex, x, END_LIST},
-    {OP_vmaxpd, 0x660f5f10, "vmaxpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, END_LIST},
-    {OP_vmaxsd, 0xf20f5f10, "vmaxsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, END_LIST},
-    /* TODO i#1312: Support AVX-512. */
-    {INVALID,   0x0f5f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf30f5f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x660f5f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf20f5f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmaxps, 0x0f5f10, "vmaxps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tpe[31][8]},
+    {OP_vmaxss, 0xf30f5f10, "vmaxss", Vdq, xx, Hdq, Wss, xx, mrm|vex, x, tpe[31][9]},
+    {OP_vmaxpd, 0x660f5f10, "vmaxpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tpe[31][10]},
+    {OP_vmaxsd, 0xf20f5f10, "vmaxsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[31][11]},
+    {OP_vmaxps,   0x0f5f10, "vmaxps", Ves, xx, KEw, Hes, Wes, mrm|evex, x, END_LIST},
+    {OP_vmaxss, 0xf30f5f10, "vmaxss", Vdq, xx, KEw, Hdq, Wss, mrm|evex, x, END_LIST},
+    {OP_vmaxpd, 0x660f5f10, "vmaxpd", Ved, xx, KEb, Wed, Wed, mrm|evex, x, END_LIST},
+    {OP_vmaxsd, 0xf20f5f10, "vmaxsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
   },
   /* prefix extension 32 */
   {
@@ -4018,13 +4017,12 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fe710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0fe710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,    0xf30fe710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vmovntdq, 0x660fe710, "vmovntdq", Mx, xx, Vx, xx, xx, mrm|vex, x, END_LIST},
+    {OP_vmovntdq, 0x660fe710, "vmovntdq", Mx, xx, Vx, xx, xx, mrm|vex, x, tpe[78][10]},
     {INVALID,    0xf20fe710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    /* TODO i#1312: Support AVX-512. */
-    {INVALID,   0x0fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf30fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x660fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf20fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x0fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf30fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmovntdq, 0x660fe710, "vmovntdq", Mex, xx, Vex, xx, xx, mrm|evex, x, END_LIST},
+    {INVALID,     0xf20fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
   /* prefix extension 79 */
   {
@@ -5322,8 +5320,8 @@ const instr_info_t e_vex_extensions[][3] = {
     {INVALID, 0x66382918, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 12 */
     {OP_movntdqa,  0x66382a18, "movntdqa", Mdq, xx, Vdq, xx, xx, mrm|reqp, x, END_LIST},
-    {OP_vmovntdqa, 0x66382a18, "vmovntdqa", Mx, xx, Vx, xx, xx, mrm|vex|reqp, x, END_LIST},
-    {INVALID, 0x66382a18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmovntdqa, 0x66382a18, "vmovntdqa", Mx, xx, Vx, xx, xx, mrm|vex|reqp, x, tvex[12][2]},
+    {OP_vmovntdqa, 0x66382a18, "vmovntdqa", Mex, xx, Vex, xx, xx, mrm|evex|reqp, x, END_LIST},
   }, { /* e_vex ext 13 */
     {OP_packusdw,  0x66382b18, "packusdw", Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},
     {OP_vpackusdw, 0x66382b18, "vpackusdw", Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, END_LIST},
