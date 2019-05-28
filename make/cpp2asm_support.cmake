@@ -227,9 +227,17 @@ elseif (UNIX)
   endif (DEBUG)
 else ()
   if (X64)
+    # In case of NMake Makefiles CMAKE_ASM_COMPILER will find cl.exe, thus we need
+    # to do it manually for both ml.exe and ml64.exe
     find_program(CMAKE_ASM_COMPILER ml64.exe HINTS "${cl_path}" DOC "path to assembler")
+    if ("${CMAKE_GENERATOR}" MATCHES "NMake Makefiles")
+      set(CMAKE_ASM_COMPILER "ml64.exe")
+    endif()
   else (X64)
     find_program(CMAKE_ASM_COMPILER ml.exe HINTS "${cl_path}" DOC "path to assembler")
+    if ("${CMAKE_GENERATOR}" MATCHES "NMake Makefiles")
+      set(CMAKE_ASM_COMPILER "ml.exe")
+    endif()
   endif (X64)
   if (NOT CMAKE_ASM_COMPILER)
     message(FATAL_ERROR "assembler not found: required to build")
@@ -334,19 +342,6 @@ elseif (UNIX)
 else ()
   # Even if we didn't preprocess we'd need our own rule since cmake doesn't
   # support ml.
-  # UDPDATE: it does via enable_language(ASM_MASM) but as asm files have C/C++ commens in
-  #          preprocessing is required, all asm files are renamed to <name>.obj.s for later
-  #          compiling, which will make default CMAKE_ASM_COMPILER to fail with unknown extension
-  #          when using nmake, solution is to replace it with proper ml/ml64 before, or properly use
-  #          find_program in case of NMake Makefiles
-  if ("${CMAKE_GENERATOR}" MATCHES "NMake Makefiles")
-    if (X64)
-      set(CMAKE_ASM_COMPILER "ml64.exe")
-    elseif(X86)
-      set(CMAKE_ASM_COMPILER "ml.exe")
-    endif()
-  endif()
-  
   set(CMAKE_ASM_COMPILE_OBJECT
     # There's no way to specify a non-default name with /P: writes to
     # cwd/sourcebase.i.  Could copy with "cmake -E copy" but no way to
