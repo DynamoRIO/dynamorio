@@ -847,6 +847,11 @@ ntdll_redir_fls_init(PEB *app_peb, PEB *private_peb)
 {
     /* FLS is supported in WinXP-64 or later */
     ASSERT(get_os_version() >= WINDOWS_VERSION_2003);
+
+    /* FIXME i#3633: Implement FLS isolation in Win10 1903+ where FLS data is no longer
+     * in the PEB.
+     */
+
     /* We need a deep copy of FLS structures */
     private_peb->FlsBitmap =
         HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, RTL_BITMAP, ACCT_LIBDUP, UNPROTECTED);

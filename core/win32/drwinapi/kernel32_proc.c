@@ -48,6 +48,9 @@ void
 kernel32_redir_init_proc(void)
 {
     PEB *peb = get_own_peb();
+    /* FIXME i#3633: Implement FLS isolation in Win10 1903+ where FLS data is no longer
+     * in the PEB.
+     */
     ASSERT(get_os_version() < WINDOWS_VERSION_2003 ||
            (peb->FlsBitmap == NULL || peb->FlsBitmap->SizeOfBitMap == FLS_MAX_COUNT));
 #ifdef CLIENT_INTERFACE
