@@ -34,7 +34,7 @@
  * cross-platform assembly and trampoline code
  */
 
-#include "asm_defines.asm"
+#include "../arch/asm_defines.asm"
 START_FILE
 
 DECL_EXTERN(d_r_internal_error)
