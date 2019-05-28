@@ -3183,8 +3183,8 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vmulsd, 0xf20f5910, "vmulsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[25][11]},
     {OP_vmulps, 0x0f5910, "vmulps", Ves, xx, KEw, Hes, Wes, mrm|evex, x, END_LIST},
     {OP_vmulss, 0xf30f5910, "vmulss", Vdq, xx, KEw, Hdq, Wss, mrm|evex, x, END_LIST},
-    {OP_vmulpd, 0x660f5910, "vmulpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
-    {OP_vmulsd, 0xf20f5910, "vmulsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
+    {OP_vmulpd, 0x660f5950, "vmulpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
+    {OP_vmulsd, 0xf20f5950, "vmulsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
   },
   /* prefix extension 26 */
   {
@@ -3230,8 +3230,8 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vsubsd, 0xf20f5c10, "vsubsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[28][11]},
     {OP_vsubps, 0x0f5c10, "vsubps", Ves, xx, KEw, Hes, Wes, mrm|evex, x, END_LIST},
     {OP_vsubss, 0xf30f5c10, "vsubss", Vdq, xx, KEw, Hdq, Wss, mrm|evex, x, END_LIST},
-    {OP_vsubpd, 0x660f5c10, "vsubpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
-    {OP_vsubsd, 0xf20f5c10, "vsubsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
+    {OP_vsubpd, 0x660f5c50, "vsubpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
+    {OP_vsubsd, 0xf20f5c50, "vsubsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
   },
   /* prefix extension 29 */
   {
@@ -5749,16 +5749,16 @@ const instr_info_t mod_extensions[][2] = {
     {OP_vmovss,  0xf30f1010, "vmovss",  Vdq, xx, KEb, H12_dq, Uss, mrm|evex, x, modx[22][1]},
   },
   { /* mod extension 21 */
-    {OP_vmovsd,  0xf20f1010, "vmovsd",  Vdq, xx, KEb, Wsd,  xx, mrm|evex, x, modx[23][0]},
-    {OP_vmovsd,  0xf20f1010, "vmovsd",  Vdq, xx, KEb, Hsd, Usd, mrm|evex, x, modx[23][1]},
+    {OP_vmovsd,  0xf20f1050, "vmovsd",  Vdq, xx, KEb, Wsd,  xx, mrm|evex, x, modx[23][0]},
+    {OP_vmovsd,  0xf20f1050, "vmovsd",  Vdq, xx, KEb, Hsd, Usd, mrm|evex, x, modx[23][1]},
   },
   { /* mod extension 22 */
     {OP_vmovss,  0xf30f1110, "vmovss",  Wss, xx, KEb, Vss,  xx, mrm|evex, x, modx[20][1]},
     {OP_vmovss,  0xf30f1110, "vmovss",  Udq, xx, KEb, H12_dq, Vss, mrm|evex, x, END_LIST},
   },
   { /* mod extension 23 */
-    {OP_vmovsd,  0xf20f1110, "vmovsd",  Wsd, xx, KEb, Vsd,  xx, mrm|evex, x, modx[21][1]},
-    {OP_vmovsd,  0xf20f1110, "vmovsd",  Udq, xx, KEb, Hsd, Vsd, mrm|evex, x, END_LIST},
+    {OP_vmovsd,  0xf20f1150, "vmovsd",  Wsd, xx, KEb, Vsd,  xx, mrm|evex, x, modx[21][1]},
+    {OP_vmovsd,  0xf20f1150, "vmovsd",  Udq, xx, KEb, Hsd, Vsd, mrm|evex, x, END_LIST},
   },
 };
 
