@@ -340,9 +340,9 @@ else ()
   #          when using nmake, solution is to replace it with proper ml/ml64 before, or properly use
   #          find_program in case of NMake Makefiles
   if ("${CMAKE_GENERATOR}" MATCHES "NMake Makefiles")
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    if (X64)
       set(CMAKE_ASM_COMPILER "ml64.exe")
-    elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    elseif(X86)
       set(CMAKE_ASM_COMPILER "ml.exe")
     endif()
   endif()
@@ -360,9 +360,6 @@ else ()
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
     "<CMAKE_ASM_COMPILER> ${ASM_FLAGS} /c /Fo<OBJECT> <OBJECT>.s"
     )
-    
-    #enable_language(ASM_MASM)
-    #string(REPLACE "/c" "/nologo /c" CMAKE_ASM_MASM_COMPILE_OBJECT ${CMAKE_ASM_MASM_COMPILE_OBJECT})
 endif ()
 
 ##################################################
