@@ -76,7 +76,8 @@ caching_device_stats_t::~caching_device_stats_t()
 }
 
 void
-caching_device_stats_t::access(const memref_t &memref, bool hit, addr_t replaced_block)
+caching_device_stats_t::access(const memref_t &memref, bool hit,
+                               caching_device_block_t *cache_block)
 {
     // We assume we're single-threaded.
     // We're only computing miss rate so we just inc counters here.
@@ -91,7 +92,7 @@ caching_device_stats_t::access(const memref_t &memref, bool hit, addr_t replaced
 
 void
 caching_device_stats_t::child_access(const memref_t &memref, bool hit,
-                                     addr_t replaced_block)
+                                     caching_device_block_t *cache_block)
 {
     if (hit)
         num_child_hits++;
