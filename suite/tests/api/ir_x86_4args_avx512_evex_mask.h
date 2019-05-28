@@ -1031,4 +1031,10 @@ OPCODE(vcvtps2ph_ylok0ylo, vcvtps2ph, vcvtps2ph_mask, 0, REGARG(YMM0), REGARG(K0
        REGARG(YMM1), IMMARG(OPSZ_1))
 OPCODE(vcvtps2ph_yhik7yhi, vcvtps2ph, vcvtps2ph_mask, X64_ONLY, REGARG(YMM16), REGARG(K7),
        REGARG(YMM31), IMMARG(OPSZ_1))
+OPCODE(vcvtps2ph_zlok0ld, vcvtps2ph, vcvtps2ph_mask, 0, MEMARG(OPSZ_64), REGARG(K0),
+       REGARG(ZMM0), IMMARG(OPSZ_1))
+OPCODE(vcvtps2ph_zlok0zlo, vcvtps2ph, vcvtps2ph_mask, 0, REGARG(ZMM0), REGARG(K0),
+       REGARG(ZMM1), IMMARG(OPSZ_1))
+OPCODE(vcvtps2ph_zhik7zhi, vcvtps2ph, vcvtps2ph_mask, X64_ONLY, REGARG(ZMM16), REGARG(K7),
+       REGARG(ZMM31), IMMARG(OPSZ_1))
 /* TODO i#1312: Add missing instructions. */
