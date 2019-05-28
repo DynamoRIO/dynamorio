@@ -839,7 +839,7 @@ redirect_RtlPcToFileHeader(__in PVOID PcValue, __out PVOID *BaseOfImage)
  */
 
 #ifndef FLS_MAX_COUNT
-#define FLS_MAX_COUNT 128
+#    define FLS_MAX_COUNT 128
 #endif
 
 void
