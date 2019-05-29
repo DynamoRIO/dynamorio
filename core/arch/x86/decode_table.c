@@ -1328,6 +1328,30 @@ const instr_info_t * const op_instr[] =
     /* OP_ktestd        */  &vex_W_extensions[105][1],
 
     /* AVX-512 EVEX encoded */
+    /* OP_vcvtpd2qq     */  &evex_W_extensions[46][1],
+    /* OP_vcvtpd2udq    */  &evex_W_extensions[47][1],
+    /* OP_vcvtpd2uqq    */  &evex_W_extensions[48][1],
+    /* OP_vcvtps2qq     */  &evex_W_extensions[46][0],
+    /* OP_vcvtps2udq    */  &evex_W_extensions[47][0],
+    /* OP_vcvtps2uqq    */  &evex_W_extensions[48][0],
+    /* OP_vcvtqq2pd     */  &evex_W_extensions[57][1],
+    /* OP_vcvtqq2ps     */  &evex_W_extensions[56][1],
+    /* OP_vcvtsd2usi    */  &evex_W_extensions[53][0],
+    /* OP_vcvtss2usi    */  &evex_W_extensions[52][0],
+    /* OP_vcvttpd2qq    */  &evex_W_extensions[50][1],
+    /* OP_vcvttpd2udq   */  &evex_W_extensions[49][1],
+    /* OP_vcvttpd2uqq   */  &evex_W_extensions[51][1],
+    /* OP_vcvttps2qq    */  &evex_W_extensions[50][0],
+    /* OP_vcvttps2udq   */  &evex_W_extensions[49][0],
+    /* OP_vcvttps2uqq   */  &evex_W_extensions[51][0],
+    /* OP_vcvttsd2usi   */  &evex_W_extensions[55][0],
+    /* OP_vcvttss2usi   */  &evex_W_extensions[54][0],
+    /* OP_vcvtudq2pd    */  &evex_W_extensions[61][0],
+    /* OP_vcvtudq2ps    */  &evex_W_extensions[60][0],
+    /* OP_vcvtuqq2pd    */  &evex_W_extensions[61][1],
+    /* OP_vcvtuqq2ps    */  &evex_W_extensions[60][1],
+    /* OP_vcvtusi2sd    */  &evex_W_extensions[59][0],
+    /* OP_vcvtusi2ss    */  &evex_W_extensions[58][0],
     /* OP_vmovdqa32     */  &evex_W_extensions[8][0],
     /* OP_vmovdqa64     */  &evex_W_extensions[8][1],
     /* OP_vmovdqu8      */  &evex_W_extensions[10][0],
@@ -1338,7 +1362,7 @@ const instr_info_t * const op_instr[] =
     /* OP_vpandq        */  &evex_W_extensions[41][1],
     /* OP_vpandnd       */  &evex_W_extensions[42][0],
     /* OP_vpandnq       */  &evex_W_extensions[42][1],
-    /* OP_vpmullq        */  &evex_W_extensions[45][1],
+    /* OP_vpmullq       */  &evex_W_extensions[45][1],
     /* OP_vpord         */  &evex_W_extensions[43][0],
     /* OP_vporq         */  &evex_W_extensions[43][1],
     /* OP_vpxord        */  &evex_W_extensions[44][0],
@@ -2231,8 +2255,8 @@ const instr_info_t second_byte[] = {
   /* 78 */
   {PREFIX_EXT, 0x0f7810, "(prefix ext 134)", xx, xx, xx, xx, xx, mrm, x, 134},
   {PREFIX_EXT, 0x0f7910, "(prefix ext 135)", xx, xx, xx, xx, xx, mrm, x, 135},
-  {INVALID, 0x0f7a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-  {INVALID, 0x0f7b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  {PREFIX_EXT, 0x0f7a10, "(prefix ext 159)", xx, xx, xx, xx, xx, mrm, x, 159},
+  {PREFIX_EXT, 0x0f7b10, "(prefix ext 158)", xx, xx, xx, xx, xx, mrm, x, 158},
   {PREFIX_EXT, 0x0f7c10, "(prefix ext 114)", xx, xx, xx, xx, xx, mrm, x, 114},
   {PREFIX_EXT, 0x0f7d10, "(prefix ext 115)", xx, xx, xx, xx, xx, mrm, x, 115},
   {PREFIX_EXT, 0x0f7e10, "(prefix ext 51)", xx, xx, xx, xx, xx, mrm, x, 51},
@@ -3192,15 +3216,26 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_cvtss2sd, 0xf30f5a10, "cvtss2sd", Vsd, xx, Wss, xx, xx, mrm, x, END_LIST},
     {OP_cvtpd2ps, 0x660f5a10, "cvtpd2ps", Vps, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_cvtsd2ss, 0xf20f5a10, "cvtsd2ss", Vss, xx, Wsd, xx, xx, mrm, x, END_LIST},
-    {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Vvd, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vcvtss2sd, 0xf30f5a10, "vcvtss2sd", Vdq, xx, Hsd, Wss, xx, mrm|vex, x, END_LIST},
-    {OP_vcvtpd2ps, 0x660f5a10, "vcvtpd2ps", Vvs, xx, Wvd, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vcvtsd2ss, 0xf20f5a10, "vcvtsd2ss", Vdq, xx, H12_dq, Wsd, xx, mrm|vex, x, END_LIST},
-    /* TODO i#1312: Support AVX-512. */
-    {INVALID,   0x0f5a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf30f5a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x660f5a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf20f5a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Vvd, xx, Wvs, xx, xx, mrm|vex, x, tpe[26][8]},
+    {OP_vcvtss2sd, 0xf30f5a10, "vcvtss2sd", Vdq, xx, Hsd, Wss, xx, mrm|vex, x, tpe[26][9]},
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtpd2ps, 0x660f5a10, "vcvtpd2ps", Vvs, xx, Wvd, xx, xx, mrm|vex, x, tpe[26][10]},
+    {OP_vcvtsd2ss, 0xf20f5a10, "vcvtsd2ss", Vdq, xx, H12_dq, Wsd, xx, mrm|vex, x, tpe[26][11]},
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Ved, xx, KEb, Wes, xx, mrm|evex, x, END_LIST},
+    {OP_vcvtss2sd, 0xf30f5a10, "vcvtss2sd", Vdq, xx, KEb, Hsd, Wss, mrm|evex, x, END_LIST},
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtpd2ps, 0x660f5a50, "vcvtpd2ps", Ves, xx, KEw, Wed, xx, mrm|evex, x, END_LIST},
+    {OP_vcvtsd2ss, 0xf20f5a50, "vcvtsd2ss", Vdq, xx, KEb, H12_dq, Wsd, mrm|evex, x, END_LIST},
   },
   /* prefix extension 27 */
   {
@@ -3208,14 +3243,13 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_cvttps2dq, 0xf30f5b10, "cvttps2dq", Vdq, xx, Wps, xx, xx, mrm, x, END_LIST},
     {OP_cvtps2dq, 0x660f5b10, "cvtps2dq", Vdq, xx, Wps, xx, xx, mrm, x, END_LIST},
     {INVALID, 0xf20f5b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtdq2ps, 0x0f5b10, "vcvtdq2ps", Vvs, xx, Wx, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vcvttps2dq, 0xf30f5b10, "vcvttps2dq", Vx, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vcvtps2dq, 0x660f5b10, "vcvtps2dq", Vx, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
+    {OP_vcvtdq2ps, 0x0f5b10, "vcvtdq2ps", Vvs, xx, Wx, xx, xx, mrm|vex, x, tevexw[56][0]},
+    {OP_vcvttps2dq, 0xf30f5b10, "vcvttps2dq", Vx, xx, Wvs, xx, xx, mrm|vex, x, tpe[27][9]},
+    {OP_vcvtps2dq, 0x660f5b10, "vcvtps2dq", Vx, xx, Wvs, xx, xx, mrm|vex, x, tpe[27][10]},
     {INVALID, 0xf20f5b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    /* TODO i#1312: Support AVX-512. */
-    {INVALID,   0x0f5b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf30f5b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x660f5b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_W_EXT, 0x0f5b10, "(evex_W ext 56)", xx, xx, xx, xx, xx, mrm|evex, x, 56},
+    {OP_vcvttps2dq, 0xf30f5b10, "vcvttps2dq", Ve, xx, KEw, Wes, xx, mrm|evex, x, END_LIST},
+    {OP_vcvtps2dq, 0x660f5b10, "vcvtps2dq", Ve, xx, KEw, Wes, xx, mrm|evex, x, END_LIST},
     {INVALID, 0xf20f5b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
   /* prefix extension 28 */
@@ -4001,14 +4035,19 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_cvttpd2dq,0x660fe610, "cvttpd2dq", Vdq, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_cvtpd2dq, 0xf20fe610, "cvtpd2dq",  Vdq, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {INVALID,        0x0fe610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vcvtdq2pd, 0xf30fe610, "vcvtdq2pd",  Vvd, xx, Wvq_dq, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vcvttpd2dq,0x660fe610, "vcvttpd2dq", Vx, xx, Wvd, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vcvtpd2dq, 0xf20fe610, "vcvtpd2dq",  Vx, xx, Wvd, xx, xx, mrm|vex, x, END_LIST},
-    /* TODO i#1312: Support AVX-512. */
+    {OP_vcvtdq2pd, 0xf30fe610, "vcvtdq2pd",  Vvd, xx, Wvq_dq, xx, xx, mrm|vex, x, tevexw[57][0]},
+    {OP_vcvttpd2dq,0x660fe610, "vcvttpd2dq", Vx, xx, Wvd, xx, xx, mrm|vex, x, tpe[77][10]},
+    {OP_vcvtpd2dq, 0xf20fe610, "vcvtpd2dq",  Vx, xx, Wvd, xx, xx, mrm|vex, x, tpe[77][11]},
     {INVALID,   0x0fe610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf30fe610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x660fe610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf20fe610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_W_EXT, 0xf30fe610, "(evex_W ext 57)", xx, xx, xx, xx, xx, mrm|evex, x, 57},
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvttpd2dq,0x660fe650, "vcvttpd2dq", Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtpd2dq, 0xf20fe650, "vcvtpd2dq",  Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
   },
   /* prefix extension 78 */
   {
@@ -4894,11 +4933,10 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf30f7810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x660f7810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf20f7810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* TODO i#1312: Support AVX-512. */
-    {INVALID,   0x0f7810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf30f7810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x660f7810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf20f7810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_W_EXT, 0x0f7810, "(evex_W ext 49)", xx, xx, xx, xx, xx, mrm|evex, x, 49},
+    {EVEX_W_EXT, 0xf30f7810, "(evex_W ext 54)", xx, xx, xx, xx, xx, mrm|evex, x, 54},
+    {EVEX_W_EXT, 0x660f7810, "(evex_W ext 51)", xx, xx, xx, xx, xx, mrm|evex, x, 51},
+    {EVEX_W_EXT, 0xf20f7810, "(evex_W ext 55)", xx, xx, xx, xx, xx, mrm|evex, x, 55},
   },
   { /* prefix extension 135 */
     {OP_vmwrite,     0x0f7910, "vmwrite", Gd_q, xx, Ed_q, xx, xx, mrm|o64, x, END_LIST},
@@ -4910,11 +4948,10 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf30f7910, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x660f7910, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf20f7910, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* TODO i#1312: Support AVX-512. */
-    {INVALID,   0x0f7910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf30f7910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x660f7910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf20f7910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_W_EXT, 0x0f7910, "(evex_W ext 47)", xx, xx, xx, xx, xx, mrm|evex, x, 47},
+    {EVEX_W_EXT, 0xf30f7910, "(evex_W ext 52)", xx, xx, xx, xx, xx, mrm|evex, x, 52},
+    {EVEX_W_EXT, 0x660f7910, "(evex_W ext 48)", xx, xx, xx, xx, xx, mrm|evex, x, 48},
+    {EVEX_W_EXT, 0xf20f7910, "(evex_W ext 53)", xx, xx, xx, xx, xx, mrm|evex, x, 53},
   },
   { /* prefix extension 136 */
     {OP_bsr,         0x0fbd10, "bsr",     Gv, xx, Ev, xx, xx, mrm|predcx, fW6, END_LIST},
@@ -5261,6 +5298,34 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0x660f9910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf20f9910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
+  { /* prefix extension 158 */
+    {INVALID,        0x0f7b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf30f7b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f7b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f7b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x0f7b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf30f7b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f7b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f7b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x0f7b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_W_EXT,   0xf30f7b10, "(evex_W ext 58)", xx, xx, xx, xx, xx, mrm|evex, x, 58},
+    {EVEX_W_EXT,   0x660f7b10, "(evex_W ext 46)", xx, xx, xx, xx, xx, mrm|evex, x, 46},
+    {EVEX_W_EXT,   0xf20f7b10, "(evex_W ext 59)", xx, xx, xx, xx, xx, mrm|evex, x, 59},
+  },
+  { /* prefix extension 159 */
+    {INVALID,        0x0f7a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf30f7a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f7a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f7a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x0f7a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf30f7a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660f7a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20f7a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x0f7a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_W_EXT,   0xf30f7a10, "(evex_W ext 61)", xx, xx, xx, xx, xx, mrm|evex, x, 61},
+    {EVEX_W_EXT,   0x660f7a10, "(evex_W ext 50)", xx, xx, xx, xx, xx, mrm|evex, x, 50},
+    {EVEX_W_EXT,   0xf20f7a10, "(evex_W ext 60)", xx, xx, xx, xx, xx, mrm|evex, x, 60},
+  },
 };
 /****************************************************************************
  * Instructions that differ based on whether vex-encoded or not.
@@ -5527,8 +5592,11 @@ const instr_info_t e_vex_extensions[][3] = {
     {INVALID, 0x0fae33, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 63 */
     {INVALID,   0x66381318, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtph2ps, 0x66381318, "vcvtph2ps", Vx, xx, Wx, xx, xx, mrm|vex|reqp, x, END_LIST},
-    {INVALID, 0x66381318, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vcvtph2ps, 0x66381318, "vcvtph2ps", Vx, xx, Wx, xx, xx, mrm|vex|reqp, x, tvex[63][2]},
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtph2ps, 0x66381318, "vcvtph2ps", Ve, xx, KEw, We, xx, mrm|evex|reqp, x, END_LIST},
   }, { /* e_vex ext 64 */
     {INVALID,   0x66381818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vbroadcastss, 0x66381818, "vbroadcastss", Vx, xx, Wd_dq, xx, xx, mrm|vex|reqp, x, END_LIST},
@@ -5579,8 +5647,11 @@ const instr_info_t e_vex_extensions[][3] = {
     {INVALID, 0x663a1918, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 76 */
     {INVALID,   0x663a1d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtps2ph, 0x663a1d18, "vcvtps2ph", Wx, xx, Vx, Ib, xx, mrm|vex|reqp, x, END_LIST},
-    {INVALID, 0x663a1d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vcvtps2ph, 0x663a1d18, "vcvtps2ph", Wx, xx, Vx, Ib, xx, mrm|vex|reqp, x, tvex[76][2]},
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtps2ph, 0x663a1d18, "vcvtps2ph", We, xx, KEw, Ve, Ib, mrm|evex|reqp, x, END_LIST},
   }, { /* e_vex ext 77 */
     {INVALID,   0x66380c18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vpermilps, 0x66380c18, "vpermilps", Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, END_LIST},
@@ -6722,19 +6793,19 @@ const instr_info_t evex_W_extensions[][2] = {
     {OP_vunpckhpd, 0x660f1550, "vunpckhpd", Ved, xx, KEb, Hh_e, Wh_e, mrm|evex, x, END_LIST},
   },
   {    /* evex_W_ext 29 */
-    {OP_vcvtss2si, 0xf30f2d10, "vcvtss2si", Gd_q, xx, Wss, xx, xx, mrm|evex, x, tevexw[29][1]},
+    {OP_vcvtss2si, 0xf30f2d10, "vcvtss2si",   Gd, xx, Wss, xx, xx, mrm|evex, x, tevexw[29][1]},
     {OP_vcvtss2si, 0xf30f2d50, "vcvtss2si", Gd_q, xx, Wss, xx, xx, mrm|evex, x, END_LIST},
   },
   {    /* evex_W_ext 30 */
-    {OP_vcvtsd2si, 0xf20f2d10, "vcvtsd2si", Gd_q, xx, Wsd, xx, xx, mrm|evex, x, tevexw[30][1]},
+    {OP_vcvtsd2si, 0xf20f2d10, "vcvtsd2si",   Gd, xx, Wsd, xx, xx, mrm|evex, x, tevexw[30][1]},
     {OP_vcvtsd2si, 0xf20f2d50, "vcvtsd2si", Gd_q, xx, Wsd, xx, xx, mrm|evex, x, END_LIST},
   },
   {    /* evex_W_ext 31 */
-    {OP_vcvtsi2ss, 0xf30f2a10, "vcvtsi2ss", Vdq, xx, H12_dq, Ed_q, xx, mrm|evex, x, tevexw[31][1]},
+    {OP_vcvtsi2ss, 0xf30f2a10, "vcvtsi2ss", Vdq, xx, H12_dq,   Ed, xx, mrm|evex, x, tevexw[31][1]},
     {OP_vcvtsi2ss, 0xf30f2a50, "vcvtsi2ss", Vdq, xx, H12_dq, Ed_q, xx, mrm|evex, x, END_LIST},
   },
   {    /* evex_W_ext 32 */
-    {OP_vcvtsi2sd, 0xf20f2a10, "vcvtsi2sd", Vdq, xx, Hsd, Ed_q, xx, mrm|evex, x, tevexw[32][1]},
+    {OP_vcvtsi2sd, 0xf20f2a10, "vcvtsi2sd", Vdq, xx, Hsd,   Ed, xx, mrm|evex, x, tevexw[32][1]},
     {OP_vcvtsi2sd, 0xf20f2a50, "vcvtsi2sd", Vdq, xx, Hsd, Ed_q, xx, mrm|evex, x, END_LIST},
   },
   {    /* evex_W_ext 33 */
@@ -6746,11 +6817,11 @@ const instr_info_t evex_W_extensions[][2] = {
     {OP_vmovntpd, 0x660f2b50, "vmovntpd", Med, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
   },
   {    /* evex_W_ext 35 */
-    {OP_vcvttss2si, 0xf30f2c10, "vcvttss2si", Gd_q, xx, Wss, xx, xx, mrm|evex, x, tevexw[35][1]},
+    {OP_vcvttss2si, 0xf30f2c10, "vcvttss2si",   Gd, xx, Wss, xx, xx, mrm|evex, x, tevexw[35][1]},
     {OP_vcvttss2si, 0xf30f2c50, "vcvttss2si", Gd_q, xx, Wss, xx, xx, mrm|evex, x, END_LIST},
   },
   {    /* evex_W_ext 36 */
-    {OP_vcvttsd2si, 0xf20f2c10, "vcvttsd2si", Gd_q, xx, Wsd, xx, xx, mrm|evex, x, tevexw[36][1]},
+    {OP_vcvttsd2si, 0xf20f2c10, "vcvttsd2si",   Gd, xx, Wsd, xx, xx, mrm|evex, x, tevexw[36][1]},
     {OP_vcvttsd2si, 0xf20f2c50, "vcvttsd2si", Gd_q, xx, Wsd, xx, xx, mrm|evex, x, END_LIST},
   },
   {    /* evex_W_ext 37 */
@@ -6788,6 +6859,91 @@ const instr_info_t evex_W_extensions[][2] = {
   {    /* evex_W_ext 45 */
     {OP_vpmulld,  0x66384018, "vpmulld",   Ve, xx, KEw,He,We, mrm|evex|reqp, x, END_LIST},
     {OP_vpmullq,  0x66384058, "vpmullq",   Ve, xx, KEb,He,We, mrm|evex|reqp, x, END_LIST},
+  },
+  {    /* evex_W_ext 46 */
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtps2qq, 0x660f7b10, "vcvtps2qq", Ve, xx, KEb, Wes, xx, mrm|evex, x, END_LIST},
+    {OP_vcvtpd2qq, 0x660f7b50, "vcvtpd2qq", Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 47 */
+    {OP_vcvtps2udq, 0x0f7910, "vcvtps2udq", Ve, xx, KEw, Wes, xx, mrm|evex, x, END_LIST},
+    {OP_vcvtpd2udq, 0x0f7950, "vcvtpd2udq", Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 48 */
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtps2uqq, 0x660f7910, "vcvtps2uqq", Ve, xx, KEw, Wes, xx, mrm|evex, x, END_LIST},
+    {OP_vcvtpd2uqq, 0x660f7950, "vcvtpd2uqq", Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 49 */
+    {OP_vcvttps2udq, 0x0f7810, "vcvttps2udq", Ve, xx, KEw, Wes, xx, mrm|evex, x, END_LIST},
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvttpd2udq, 0x0f7850, "vcvttpd2udq", Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 50 */
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvttps2qq,0x660f7a10, "vcvttps2qq", Ve, xx, KEb, Wes, xx, mrm|evex, x, END_LIST},
+    {OP_vcvttpd2qq,0x660f7a50, "vcvttpd2qq", Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 51 */
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvttps2uqq, 0x660f7810, "vcvttps2uqq", Ve, xx, KEb, Wes, xx, mrm|evex, x, END_LIST},
+    {OP_vcvttpd2uqq, 0x660f7850, "vcvttpd2uqq", Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 52 */
+   {OP_vcvtss2usi, 0xf30f7910, "vcvtss2usi",   Gd, xx, Wss, xx, xx, mrm|evex, x, tevexw[52][1]},
+   {OP_vcvtss2usi, 0xf30f7950, "vcvtss2usi", Gd_q, xx, Wss, xx, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 53 */
+   {OP_vcvtsd2usi, 0xf20f7910, "vcvtsd2usi",   Gd, xx, Wsd, xx, xx, mrm|evex, x, tevexw[53][1]},
+   {OP_vcvtsd2usi, 0xf20f7950, "vcvtsd2usi", Gd_q, xx, Wsd, xx, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 54 */
+   {OP_vcvttss2usi, 0xf30f7810, "vcvttss2usi",   Gd, xx, Wss, xx, xx, mrm|evex, x, tevexw[54][1]},
+   {OP_vcvttss2usi, 0xf30f7850, "vcvttss2usi", Gd_q, xx, Wss, xx, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 55 */
+   {OP_vcvttsd2usi, 0xf20f7810, "vcvttsd2usi",   Gd, xx, Wsd, xx, xx, mrm|evex, x, tevexw[55][1]},
+   {OP_vcvttsd2usi, 0xf20f7850, "vcvttsd2usi", Gd_q, xx, Wsd, xx, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 56 */
+    {OP_vcvtdq2ps, 0x0f5b10, "vcvtdq2ps", Ves, xx, KEw, We, xx, mrm|evex, x, END_LIST},
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtqq2ps, 0x0f5b50, "vcvtqq2ps", Ves, xx, KEb, We, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 57 */
+    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtdq2pd, 0xf30fe610, "vcvtdq2pd",  Ved, xx, KEb, We, xx, mrm|evex, x, END_LIST},
+    {OP_vcvtqq2pd, 0xf30fe650, "vcvtqq2pd",  Ved, xx, KEb, We, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 58 */
+    {OP_vcvtusi2ss, 0xf30f7b10, "vcvtusi2ss", Vdq, xx, H12_dq,   Ed, xx, mrm|evex, x, tevexw[58][1]},
+    {OP_vcvtusi2ss, 0xf30f7b50, "vcvtusi2ss", Vdq, xx, H12_dq, Ed_q, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 59 */
+    {OP_vcvtusi2sd, 0xf20f7b10, "vcvtusi2sd", Vdq, xx, Hsd,   Ed, xx, mrm|evex, x, tevexw[59][1]},
+    {OP_vcvtusi2sd, 0xf20f7b50, "vcvtusi2sd", Vdq, xx, Hsd, Ed_q, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 60 */
+    {OP_vcvtudq2ps, 0xf20f7a10, "vcvtudq2ps", Ve, xx, KEw, We, xx, mrm|evex, x, END_LIST},
+    {OP_vcvtuqq2ps, 0xf20f7a50, "vcvtuqq2ps", Ve, xx, KEb, We, xx, mrm|evex, x, END_LIST},
+  },
+  {    /* evex_W_ext 61 */
+    {OP_vcvtudq2pd, 0xf30f7a10, "vcvtudq2pd", Ve, xx, KEb, We, xx, mrm|evex, x, END_LIST},
+    {OP_vcvtuqq2pd, 0xf30f7a50, "vcvtuqq2pd", Ve, xx, KEb, We, xx, mrm|evex, x, END_LIST},
   },
 };
 

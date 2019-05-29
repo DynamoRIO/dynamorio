@@ -297,7 +297,7 @@ static const byte escape_fixed_length[256] = {
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 4 */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 5 */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 6 */
-    2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, /* 7 */
+    2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 7 */
 
     5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, /* 8 */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 9 */
@@ -327,7 +327,7 @@ static const byte escape_variable_length[256] = {
     m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 4 */
     m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 5 */
     m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 6 */
-    m, m, m, m, m, m, m, 0, m,  m, 0,  0, m, m, m, m, /* 7 */
+    m, m, m, m, m, m, m, 0, m,  m, m,  m, m, m, m, m, /* 7 */
 
     0, 0, 0, 0, 0, 0, 0, 0, 0,  0, 0,  0, 0, 0, 0, 0, /* 8 */
     m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 9 */
@@ -549,7 +549,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                      */
                     bool vex3 = (opc == VEX_3BYTE_PREFIX_OPCODE);
                     byte vex_mm = 0;
-                    opc = (uint) * (++pc); /* 2nd vex prefix byte */
+                    opc = (uint) * (++pc); /* 2nd (e)vex prefix byte */
                     sz += 1;
                     if (vex3) {
                         vex_mm = (byte)(opc & 0x1f);
