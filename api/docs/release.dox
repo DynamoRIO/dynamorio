@@ -142,6 +142,7 @@ changes:
  - Changes the enumeration of the OPSZ_ enum by moving its start back to 0. The OPSZ_
    enum now completely overlaps the DR_REG_ enum.
    This is a binary compatibility change for the OPSZ_ enum.
+ - Adds a new encoding hint field to #instr_t.
 
 The changes between version \DR_VERSION and 7.1.0 include the following minor
 compatibility changes:
@@ -161,6 +162,11 @@ compatibility changes:
    as part of AVX-512, e.g. xmm16 - xmm31.
  - Dropped support for clients used with statically linked DynamoRIO to reach
    the code cache with 32-bit displacements.
+ - An additional parameter in the accessors to the drcachesim cache stats
+   (namely cache_stats_t and caching_device_stats_t) that passes a pointer to
+   the cache block being accessed (on a hit) or being replaced (on a miss).
+   This allows users to extend the cache block and stats classes in order to
+   collect more stats.
 
 Further non-compatibility-affecting changes include:
 

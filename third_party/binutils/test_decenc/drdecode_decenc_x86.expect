@@ -1577,9 +1577,9 @@ test_s:
  c5 ca 59 d4          vmulss %xmm6, %xmm4, %xmm2
  c5 cd 56 d4          vorpd  %ymm6, %ymm4, %ymm2
  c5 cc 56 d4          vorps  %ymm6, %ymm4, %ymm2
- c4 e2 79 1c f4       vpabsb %xmm0, %xmm4, %xmm6
- c4 e2 79 1e f4       vpabsd %xmm0, %xmm4, %xmm6
- c4 e2 79 1d f4       vpabsw %xmm0, %xmm4, %xmm6
+ c4 e2 79 1c f4       vpabsb %xmm4, %xmm6
+ c4 e2 79 1e f4       vpabsd %xmm4, %xmm6
+ c4 e2 79 1d f4       vpabsw %xmm4, %xmm6
  c5 c9 6b d4          vpackssdw %xmm6, %xmm4, %xmm2
  c5 c9 63 d4          vpacksswb %xmm6, %xmm4, %xmm2
  c4 e2 49 2b d4       vpackusdw %xmm6, %xmm4, %xmm2
@@ -2039,7 +2039,7 @@ test_s:
  c4 e3 6d 4b 39 40    vblendvpd %ymm2, (%ecx), %ymm4, %ymm7
  c4 e3 6d 4a fe 40    vblendvps %ymm2, %ymm6, %ymm4, %ymm7
  c4 e3 6d 4a 39 40    vblendvps %ymm2, (%ecx), %ymm4, %ymm7
- c4 e3 5d 18 f4 07    vinsertf128 %ymm4, %ymm4, $0x07, %ymm6
+ c4 e3 5d 18 f4 07    vinsertf128 %ymm4, %xmm4, $0x07, %ymm6
  c4 e3 5d 18 31 07    vinsertf128 %ymm4, (%ecx), $0x07, %ymm6
  c4 e3 7d 19 e4 07    vextractf128 %ymm4, $0x07, %xmm4
  c4 e3 7d 19 21 07    vextractf128 %ymm4, $0x07, (%ecx)
@@ -2072,12 +2072,12 @@ test_s:
  c5 f9 10 21          vmovupd (%ecx), %xmm4
  c5 f8 10 f4          vmovups %xmm4, %xmm6
  c5 f8 10 21          vmovups (%ecx), %xmm4
- c4 e2 79 1c f4       vpabsb %xmm0, %xmm4, %xmm6
- c4 e2 79 1c 21       vpabsb %xmm0, (%ecx), %xmm4
- c4 e2 79 1d f4       vpabsw %xmm0, %xmm4, %xmm6
- c4 e2 79 1d 21       vpabsw %xmm0, (%ecx), %xmm4
- c4 e2 79 1e f4       vpabsd %xmm0, %xmm4, %xmm6
- c4 e2 79 1e 21       vpabsd %xmm0, (%ecx), %xmm4
+ c4 e2 79 1c f4       vpabsb %xmm4, %xmm6
+ c4 e2 79 1c 21       vpabsb (%ecx), %xmm4
+ c4 e2 79 1d f4       vpabsw %xmm4, %xmm6
+ c4 e2 79 1d 21       vpabsw (%ecx), %xmm4
+ c4 e2 79 1e f4       vpabsd %xmm4, %xmm6
+ c4 e2 79 1e 21       vpabsd (%ecx), %xmm4
  c4 e2 79 41 f4       vphminposuw %xmm4, %xmm6
  c4 e2 79 41 21       vphminposuw (%ecx), %xmm4
  c4 e2 79 17 f4       vptest %xmm6, %xmm4
@@ -3693,7 +3693,7 @@ test_s:
  c4 e3 6d 4a fe 40    vblendvps %ymm2, %ymm6, %ymm4, %ymm7
  c4 e3 6d 4a 39 40    vblendvps %ymm2, (%ecx), %ymm4, %ymm7
  c4 e3 6d 4a 39 40    vblendvps %ymm2, (%ecx), %ymm4, %ymm7
- c4 e3 5d 18 f4 07    vinsertf128 %ymm4, %ymm4, $0x07, %ymm6
+ c4 e3 5d 18 f4 07    vinsertf128 %ymm4, %xmm4, $0x07, %ymm6
  c4 e3 5d 18 31 07    vinsertf128 %ymm4, (%ecx), $0x07, %ymm6
  c4 e3 5d 18 31 07    vinsertf128 %ymm4, (%ecx), $0x07, %ymm6
  c4 e3 7d 19 e4 07    vextractf128 %ymm4, $0x07, %xmm4
@@ -3740,15 +3740,15 @@ test_s:
  c5 f8 10 f4          vmovups %xmm4, %xmm6
  c5 f8 10 21          vmovups (%ecx), %xmm4
  c5 f8 10 21          vmovups (%ecx), %xmm4
- c4 e2 79 1c f4       vpabsb %xmm0, %xmm4, %xmm6
- c4 e2 79 1c 21       vpabsb %xmm0, (%ecx), %xmm4
- c4 e2 79 1c 21       vpabsb %xmm0, (%ecx), %xmm4
- c4 e2 79 1d f4       vpabsw %xmm0, %xmm4, %xmm6
- c4 e2 79 1d 21       vpabsw %xmm0, (%ecx), %xmm4
- c4 e2 79 1d 21       vpabsw %xmm0, (%ecx), %xmm4
- c4 e2 79 1e f4       vpabsd %xmm0, %xmm4, %xmm6
- c4 e2 79 1e 21       vpabsd %xmm0, (%ecx), %xmm4
- c4 e2 79 1e 21       vpabsd %xmm0, (%ecx), %xmm4
+ c4 e2 79 1c f4       vpabsb %xmm4, %xmm6
+ c4 e2 79 1c 21       vpabsb (%ecx), %xmm4
+ c4 e2 79 1c 21       vpabsb (%ecx), %xmm4
+ c4 e2 79 1d f4       vpabsw %xmm4, %xmm6
+ c4 e2 79 1d 21       vpabsw (%ecx), %xmm4
+ c4 e2 79 1d 21       vpabsw (%ecx), %xmm4
+ c4 e2 79 1e f4       vpabsd %xmm4, %xmm6
+ c4 e2 79 1e 21       vpabsd (%ecx), %xmm4
+ c4 e2 79 1e 21       vpabsd (%ecx), %xmm4
  c4 e2 79 41 f4       vphminposuw %xmm4, %xmm6
  c4 e2 79 41 21       vphminposuw (%ecx), %xmm4
  c4 e2 79 41 21       vphminposuw (%ecx), %xmm4
@@ -5312,9 +5312,9 @@ test_s:
  90                   nop
  c4 e2 7d 2a 21       vmovntdqa %ymm4, (%ecx)
  c4 e3 4d 42 d4 07    vmpsadbw %ymm6, %ymm4, $0x07, %ymm2
- c4 e2 7d 1c f4       vpabsb %ymm0, %ymm4, %ymm6
- c4 e2 7d 1e f4       vpabsd %ymm0, %ymm4, %ymm6
- c4 e2 7d 1d f4       vpabsw %ymm0, %ymm4, %ymm6
+ c4 e2 7d 1c f4       vpabsb %ymm4, %ymm6
+ c4 e2 7d 1e f4       vpabsd %ymm4, %ymm6
+ c4 e2 7d 1d f4       vpabsw %ymm4, %ymm6
  c5 cd 6b d4          vpackssdw %ymm6, %ymm4, %ymm2
  c5 cd 63 d4          vpacksswb %ymm6, %ymm4, %ymm2
  c4 e2 4d 2b d4       vpackusdw %ymm6, %ymm4, %ymm2
@@ -5785,12 +5785,12 @@ test_s:
  c5 cd 6c 11          vpunpcklqdq %ymm6, (%ecx), %ymm2
  c5 cd ef d4          vpxor  %ymm6, %ymm4, %ymm2
  c5 cd ef 11          vpxor  %ymm6, (%ecx), %ymm2
- c4 e2 7d 1c f4       vpabsb %ymm0, %ymm4, %ymm6
- c4 e2 7d 1c 21       vpabsb %ymm0, (%ecx), %ymm4
- c4 e2 7d 1d f4       vpabsw %ymm0, %ymm4, %ymm6
- c4 e2 7d 1d 21       vpabsw %ymm0, (%ecx), %ymm4
- c4 e2 7d 1e f4       vpabsd %ymm0, %ymm4, %ymm6
- c4 e2 7d 1e 21       vpabsd %ymm0, (%ecx), %ymm4
+ c4 e2 7d 1c f4       vpabsb %ymm4, %ymm6
+ c4 e2 7d 1c 21       vpabsb (%ecx), %ymm4
+ c4 e2 7d 1d f4       vpabsw %ymm4, %ymm6
+ c4 e2 7d 1d 21       vpabsw (%ecx), %ymm4
+ c4 e2 7d 1e f4       vpabsd %ymm4, %ymm6
+ c4 e2 7d 1e 21       vpabsd (%ecx), %ymm4
  c4 e3 4d 42 d4 07    vmpsadbw %ymm6, %ymm4, $0x07, %ymm2
  c4 e3 4d 42 11 07    vmpsadbw %ymm6, (%ecx), $0x07, %ymm2
  c4 e3 4d 0f d4 07    vpalignr %ymm6, %ymm4, $0x07, %ymm2
@@ -6081,15 +6081,15 @@ test_s:
  c5 cd ef d4          vpxor  %ymm6, %ymm4, %ymm2
  c5 cd ef 11          vpxor  %ymm6, (%ecx), %ymm2
  c5 cd ef 11          vpxor  %ymm6, (%ecx), %ymm2
- c4 e2 7d 1c f4       vpabsb %ymm0, %ymm4, %ymm6
- c4 e2 7d 1c 21       vpabsb %ymm0, (%ecx), %ymm4
- c4 e2 7d 1c 21       vpabsb %ymm0, (%ecx), %ymm4
- c4 e2 7d 1d f4       vpabsw %ymm0, %ymm4, %ymm6
- c4 e2 7d 1d 21       vpabsw %ymm0, (%ecx), %ymm4
- c4 e2 7d 1d 21       vpabsw %ymm0, (%ecx), %ymm4
- c4 e2 7d 1e f4       vpabsd %ymm0, %ymm4, %ymm6
- c4 e2 7d 1e 21       vpabsd %ymm0, (%ecx), %ymm4
- c4 e2 7d 1e 21       vpabsd %ymm0, (%ecx), %ymm4
+ c4 e2 7d 1c f4       vpabsb %ymm4, %ymm6
+ c4 e2 7d 1c 21       vpabsb (%ecx), %ymm4
+ c4 e2 7d 1c 21       vpabsb (%ecx), %ymm4
+ c4 e2 7d 1d f4       vpabsw %ymm4, %ymm6
+ c4 e2 7d 1d 21       vpabsw (%ecx), %ymm4
+ c4 e2 7d 1d 21       vpabsw (%ecx), %ymm4
+ c4 e2 7d 1e f4       vpabsd %ymm4, %ymm6
+ c4 e2 7d 1e 21       vpabsd (%ecx), %ymm4
+ c4 e2 7d 1e 21       vpabsd (%ecx), %ymm4
  c4 e3 4d 42 d4 07    vmpsadbw %ymm6, %ymm4, $0x07, %ymm2
  c4 e3 4d 42 11 07    vmpsadbw %ymm6, (%ecx), $0x07, %ymm2
  c4 e3 4d 42 11 07    vmpsadbw %ymm6, (%ecx), $0x07, %ymm2
