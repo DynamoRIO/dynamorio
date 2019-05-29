@@ -181,9 +181,6 @@ OPCODE(vpsignw_256, vpsignw, vpsignw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ
 OPCODE(vpsignd_256, vpsignd, vpsignd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vpmulhrsw_256, vpmulhrsw, vpmulhrsw, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
-OPCODE(vpabsb_256, vpabsb, vpabsb, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
-OPCODE(vpabsw_256, vpabsw, vpabsw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
-OPCODE(vpabsd_256, vpabsd, vpabsd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vpmuldq_256, vpmuldq, vpmuldq, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vpcmpeqq_256, vpcmpeqq, vpcmpeqq, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vpackusdw_256, vpackusdw, vpackusdw, 0, REGARG(YMM0), REGARG(YMM1),
