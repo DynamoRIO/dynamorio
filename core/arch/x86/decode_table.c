@@ -1506,7 +1506,6 @@ const instr_info_t * const op_instr[] =
 #define Wed TYPE_W, OPSZ_16_vex32_evex64
 #define We TYPE_W, OPSZ_16_vex32_evex64
 #define Ve TYPE_V, OPSZ_16_vex32_evex64
-#define Vex TYPE_V, OPSZ_16_vex32_evex64
 #define We TYPE_W, OPSZ_16_vex32_evex64
 #define Wh_e TYPE_W, OPSZ_half_16_vex32_evex64
 #define Hes TYPE_H, OPSZ_16_vex32_evex64
@@ -3277,7 +3276,7 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vmaxsd, 0xf20f5f10, "vmaxsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[31][11]},
     {OP_vmaxps,   0x0f5f10, "vmaxps", Ves, xx, KEw, Hes, Wes, mrm|evex, x, END_LIST},
     {OP_vmaxss, 0xf30f5f10, "vmaxss", Vdq, xx, KEw, Hdq, Wss, mrm|evex, x, END_LIST},
-    {OP_vmaxpd, 0x660f5f10, "vmaxpd", Ved, xx, KEb, Wed, Wed, mrm|evex, x, END_LIST},
+    {OP_vmaxpd, 0x660f5f10, "vmaxpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
     {OP_vmaxsd, 0xf20f5f10, "vmaxsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
   },
   /* prefix extension 32 */
@@ -4021,7 +4020,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fe710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf30fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovntdq, 0x660fe710, "vmovntdq", Mex, xx, Vex, xx, xx, mrm|evex, x, END_LIST},
+    {OP_vmovntdq, 0x660fe710, "vmovntdq", Mex, xx, Ve, xx, xx, mrm|evex, x, END_LIST},
     {INVALID,     0xf20fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
   /* prefix extension 79 */
@@ -5321,7 +5320,7 @@ const instr_info_t e_vex_extensions[][3] = {
   }, { /* e_vex ext 12 */
     {OP_movntdqa,  0x66382a18, "movntdqa", Mdq, xx, Vdq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vmovntdqa, 0x66382a18, "vmovntdqa", Mx, xx, Vx, xx, xx, mrm|vex|reqp, x, tvex[12][2]},
-    {OP_vmovntdqa, 0x66382a18, "vmovntdqa", Mex, xx, Vex, xx, xx, mrm|evex|reqp, x, END_LIST},
+    {OP_vmovntdqa, 0x66382a18, "vmovntdqa", Mex, xx, Ve, xx, xx, mrm|evex|reqp, x, END_LIST},
   }, { /* e_vex ext 13 */
     {OP_packusdw,  0x66382b18, "packusdw", Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},
     {OP_vpackusdw, 0x66382b18, "vpackusdw", Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, END_LIST},
