@@ -1362,6 +1362,9 @@
     instr_create_1dst_1src((dc), OP_vbroadcastf128, (d), (s))
 #define INSTR_CREATE_movq2dq(dc, d, s) instr_create_1dst_1src((dc), OP_movq2dq, (d), (s))
 #define INSTR_CREATE_movdq2q(dc, d, s) instr_create_1dst_1src((dc), OP_movdq2q, (d), (s))
+#define INSTR_CREATE_vpabsb(dc, d, s) instr_create_1dst_1src((dc), OP_vpabsb, (d), (s))
+#define INSTR_CREATE_vpabsw(dc, d, s) instr_create_1dst_1src((dc), OP_vpabsw, (d), (s))
+#define INSTR_CREATE_vpabsd(dc, d, s) instr_create_1dst_1src((dc), OP_vpabsd, (d), (s))
 /* XOP */
 #define INSTR_CREATE_vfrczps(dc, d, s) instr_create_1dst_1src((dc), OP_vfrczps, (d), (s))
 #define INSTR_CREATE_vfrczpd(dc, d, s) instr_create_1dst_1src((dc), OP_vfrczpd, (d), (s))
@@ -2018,12 +2021,6 @@
     instr_create_1dst_2src((dc), OP_vpsignd, (d), (s1), (s2))
 #define INSTR_CREATE_vpmulhrsw(dc, d, s1, s2) \
     instr_create_1dst_2src((dc), OP_vpmulhrsw, (d), (s1), (s2))
-#define INSTR_CREATE_vpabsb(dc, d, s1, s2) \
-    instr_create_1dst_2src((dc), OP_vpabsb, (d), (s1), (s2))
-#define INSTR_CREATE_vpabsw(dc, d, s1, s2) \
-    instr_create_1dst_2src((dc), OP_vpabsw, (d), (s1), (s2))
-#define INSTR_CREATE_vpabsd(dc, d, s1, s2) \
-    instr_create_1dst_2src((dc), OP_vpabsd, (d), (s1), (s2))
 #define INSTR_CREATE_vpmuldq(dc, d, s1, s2) \
     instr_create_1dst_2src((dc), OP_vpmuldq, (d), (s1), (s2))
 #define INSTR_CREATE_vpcmpeqq(dc, d, s1, s2) \
