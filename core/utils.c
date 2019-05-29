@@ -2862,10 +2862,8 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
     uint flags = OS_OPEN_WRITE | OS_OPEN_ALLOW_LARGE | OS_OPEN_CLOSE_ON_FORK;
     name[0] = '\0';
 
-    DODEBUG({
-        if (INTERNAL_OPTION(log_to_stderr))
-            return STDERR;
-    });
+    if (DYNAMO_OPTION(log_to_stderr))
+        return STDERR;
 
     if (!get_log_dir(PROCESS_DIR, name, &name_size)) {
         create_log_dir(PROCESS_DIR);
@@ -2914,6 +2912,8 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
 void
 close_log_file(file_t f)
 {
+    if (f == STDERR)
+        return;
     os_close_protected(f);
 }
 
