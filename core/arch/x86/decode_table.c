@@ -5571,7 +5571,7 @@ const instr_info_t e_vex_extensions[][3] = {
     {INVALID, 0x663a0618, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 74 */
     {INVALID,   0x663a1818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vinsertf128, 0x663a1818, "vinsertf128", Vqq, xx, Hqq, Wqq, Ib, mrm|vex|reqp, x, END_LIST},
+    {OP_vinsertf128, 0x663a1818, "vinsertf128", Vqq, xx, Hqq, Wdq, Ib, mrm|vex|reqp, x, END_LIST},
     {INVALID, 0x663a1818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 75 */
     {INVALID,   0x663a1918, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
