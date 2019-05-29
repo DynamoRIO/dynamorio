@@ -2912,6 +2912,8 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
 void
 close_log_file(file_t f)
 {
+    if (f == STDERR)
+        return;
     os_close_protected(f);
 }
 
