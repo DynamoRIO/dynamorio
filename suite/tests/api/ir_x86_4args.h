@@ -108,8 +108,10 @@ OPCODE(vdpps_256, vdpps, vdpps, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32),
        IMMARG(OPSZ_1))
 OPCODE(vperm2f128_256, vperm2f128, vperm2f128, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32), IMMARG(OPSZ_1))
-OPCODE(vinsertf128_256, vinsertf128, vinsertf128, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+OPCODE(vinsertf128_m128, vinsertf128, vinsertf128, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vinsertf128_r128, vinsertf128, vinsertf128, 0, REGARG(YMM0), REGARG(YMM1),
+       REGARG(XMM2), IMMARG(OPSZ_1))
 
 /****************************************************************************/
 /* FMA4 128 and 256*/
