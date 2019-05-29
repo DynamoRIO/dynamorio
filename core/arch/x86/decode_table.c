@@ -1514,7 +1514,7 @@ const instr_info_t * const op_instr[] =
 #define Hh_e TYPE_H, OPSZ_half_16_vex32_evex64
 #define Mes TYPE_M, OPSZ_16_vex32_evex64
 #define Med TYPE_M, OPSZ_16_vex32_evex64
-#define Mex TYPE_M, OPSZ_16_vex32_evex64
+#define Me TYPE_M, OPSZ_16_vex32_evex64
 
 /* my own codes
  * size m = 32 or 16 bit depending on addr size attribute
@@ -1525,7 +1525,7 @@ const instr_info_t * const op_instr[] =
 #define Md_q  TYPE_M, OPSZ_4_rex8
 #define Mw  TYPE_M, OPSZ_2
 #define Mm  TYPE_M, OPSZ_lea
-#define Me  TYPE_M, OPSZ_512
+#define Moq  TYPE_M, OPSZ_512
 #define Mxsave TYPE_M, OPSZ_xsave
 #define Mps  TYPE_M, OPSZ_16
 #define Mpd  TYPE_M, OPSZ_16
@@ -4020,7 +4020,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fe710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf30fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovntdq, 0x660fe710, "vmovntdq", Mex, xx, Ve, xx, xx, mrm|evex, x, END_LIST},
+    {OP_vmovntdq, 0x660fe710, "vmovntdq", Me, xx, Ve, xx, xx, mrm|evex, x, END_LIST},
     {INVALID,     0xf20fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
   /* prefix extension 79 */
@@ -5320,7 +5320,7 @@ const instr_info_t e_vex_extensions[][3] = {
   }, { /* e_vex ext 12 */
     {OP_movntdqa,  0x66382a18, "movntdqa", Mdq, xx, Vdq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vmovntdqa, 0x66382a18, "vmovntdqa", Mx, xx, Vx, xx, xx, mrm|vex|reqp, x, tvex[12][2]},
-    {OP_vmovntdqa, 0x66382a18, "vmovntdqa", Mex, xx, Ve, xx, xx, mrm|evex|reqp, x, END_LIST},
+    {OP_vmovntdqa, 0x66382a18, "vmovntdqa", Me, xx, Ve, xx, xx, mrm|evex|reqp, x, END_LIST},
   }, { /* e_vex ext 13 */
     {OP_packusdw,  0x66382b18, "packusdw", Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},
     {OP_vpackusdw, 0x66382b18, "vpackusdw", Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, END_LIST},
@@ -5950,12 +5950,12 @@ const instr_info_t rex_b_extensions[][2] = {
  */
 const instr_info_t rex_w_extensions[][2] = {
   { /* rex.w extension 0 */
-    {OP_fxsave32, 0x0fae30, "fxsave",   Me, xx, xx, xx, xx, mrm, x, END_LIST},
-    {OP_fxsave64, 0x0fae30, "fxsave64", Me, xx, xx, xx, xx, mrm|rex, x, END_LIST},
+    {OP_fxsave32, 0x0fae30, "fxsave",   Moq, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_fxsave64, 0x0fae30, "fxsave64", Moq, xx, xx, xx, xx, mrm|rex, x, END_LIST},
   },
   { /* rex.w extension 1 */
-    {OP_fxrstor32, 0x0fae31, "fxrstor",   xx, xx, Me, xx, xx, mrm, x, END_LIST},
-    {OP_fxrstor64, 0x0fae31, "fxrstor64", xx, xx, Me, xx, xx, mrm|rex, o64, END_LIST},
+    {OP_fxrstor32, 0x0fae31, "fxrstor",   xx, xx, Moq, xx, xx, mrm, x, END_LIST},
+    {OP_fxrstor64, 0x0fae31, "fxrstor64", xx, xx, Moq, xx, xx, mrm|rex, o64, END_LIST},
   },
   { /* rex.w extension 2 */
     {OP_xsave32,   0x0fae34, "xsave",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
