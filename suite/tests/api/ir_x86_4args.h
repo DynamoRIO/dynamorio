@@ -86,10 +86,6 @@ OPCODE(vroundss, vroundss, vroundss, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_
        MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 OPCODE(vroundsd, vroundsd, vroundsd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
        MEMARG(OPSZ_8), IMMARG(OPSZ_1))
-OPCODE(vperm2f128, vperm2f128, vperm2f128, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16),
-       IMMARG(OPSZ_1))
-OPCODE(vinsertf128, vinsertf128, vinsertf128, 0, REGARG(XMM0), REGARG(XMM1),
-       MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 
 /* AVX 256-bit */
 OPCODE(vcmpps_256, vcmpps, vcmpps, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32),
