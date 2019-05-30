@@ -108,7 +108,7 @@ set(vmap_run_list
   "SHORT::X86::ONLY::client.events$::-code_api -thread_private -disable_traces"
   "SHORT::X86::LIN::ONLY::client.events$::-code_api -no_early_inject" # only early on ARM
   # XXX i#3556: NYI on Windows, Mac, and non-x86 (and not supported on 32-bit).
-  "SHORT::X86::X64::LIN::ONLY::drcache.*\\.simple$|selfmod2|racesys|reachability::-code_api -satisfy_w_xor_x"
+  "SHORT::X86::X64::LIN::ONLY::drcache.*\\.simple$|selfmod2|racesys|reachability|fork$::-code_api -satisfy_w_xor_x"
   # maybe this should be SHORT as -coarse_units will eventually be the default?
   "X86::-code_api -opt_memory"       # i#1575: ARM -coarse_units NYI
   "X86::-code_api -opt_speed"        # i#1551: ARM indcall2direct NYI
@@ -1524,7 +1524,6 @@ function(set_properties name test myprefix)
     # CTest seems ok with a dep on a non-existent test.
     foreach (prefix ${prior_prefixes})
       if (NOT "${prefix}" STREQUAL "${myprefix}")
-        message("For ${name} |${myprefix}|, not equal: |${prefix}|,|${myprefix}|")
         set_property(TEST ${name} APPEND PROPERTY DEPENDS "${prefix}${test}")
       endif ()
     endforeach ()
