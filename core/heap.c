@@ -297,6 +297,7 @@ typedef struct _thread_heap_t {
     /* Used for -satisfy_w_xor_x. */
     heap_pc fork_copy_start;
     size_t fork_copy_size;
+    vm_area_vector_t *fork_copy_areas;
 #endif
 } thread_heap_t;
 
@@ -1936,10 +1937,18 @@ vmm_heap_fork_pre(dcontext_t *dcontext)
         ASSERT_NOT_REACHED();
     }
 
-    /* Copy each mapping. */
+    /* Copy each mapping.  We also need to record the +*x protections (because some
+     * are +rw (ELF data segments), some are +rx, and some are +r (reachable
+     * (non-exec) heap)).  We can't use the actual page prot of the copy to store
+     * what the vmcode prot should be, because some W^X implementations remove +x
+     * from a +wx region, and we require +w to make our copy.  Thus we store the
+     * mapping prots in a vmvector.
+     */
+    VMVECTOR_ALLOC_VECTOR(th->fork_copy_areas, dcontext,
+                          VECTOR_NEVER_MERGE | VECTOR_NO_LOCK, innermost_lock);
     memquery_iter_t iter;
     if (!memquery_iterator_start(&iter, heapmgt->vmcode.alloc_start,
-                                 false /*!using heap*/)) {
+                                 true /*using heap*/)) {
         report_w_xor_x_fatal_error_and_exit();
         ASSERT_NOT_REACHED();
     }
@@ -1948,8 +1957,11 @@ vmm_heap_fork_pre(dcontext_t *dcontext)
             continue;
         byte *new_start =
             iter.vm_start - heapmgt->vmcode.alloc_start + th->fork_copy_start;
+        vmvector_add(th->fork_copy_areas, new_start,
+                     new_start + (iter.vm_end - iter.vm_start),
+                     (void *)(ptr_uint_t)iter.prot);
         if (!os_heap_commit(new_start, iter.vm_end - iter.vm_start,
-                            iter.prot | MEMPROT_WRITE, &error_code)) {
+                            MEMPROT_READ | MEMPROT_WRITE, &error_code)) {
             report_w_xor_x_fatal_error_and_exit();
             ASSERT_NOT_REACHED();
         }
@@ -1957,10 +1969,6 @@ vmm_heap_fork_pre(dcontext_t *dcontext)
         LOG(GLOBAL, LOG_HEAP, 2, "%s: copied %p-%p %x to %p-%p\n", __FUNCTION__,
             iter.vm_start, iter.vm_end, iter.prot, new_start,
             new_start + (iter.vm_end - iter.vm_start));
-        /* Record the old +x protections (because some are +rw (ELF data segments), some
-         * are +rx, and some are +r (reachable (non-exec) heap)).
-         */
-        os_set_protection(new_start, iter.vm_end - iter.vm_start, iter.prot);
     }
     memquery_iterator_stop(&iter);
 }
@@ -1979,6 +1987,9 @@ vmm_heap_fork_post(dcontext_t *dcontext, bool parent)
     }
     th->fork_copy_start = NULL;
     th->fork_copy_size = 0;
+    vmvector_reset_vector(dcontext, th->fork_copy_areas);
+    vmvector_delete_vector(dcontext, th->fork_copy_areas);
+    th->fork_copy_areas = NULL;
 }
 
 void
@@ -2009,27 +2020,23 @@ vmm_heap_fork_init(dcontext_t *dcontext)
     if (map_base != heapmgt->vmcode_writable_alloc ||
         map_size != heapmgt->vmcode.alloc_size)
         goto vmm_heap_fork_init_failed;
-    thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
-    memquery_iter_t iter;
-    heap_pc iter_stop = th->fork_copy_start + th->fork_copy_size;
     heap_error_code_t error_code;
-    if (!memquery_iterator_start(&iter, th->fork_copy_start, false /*no heap*/))
-        goto vmm_heap_fork_init_failed;
-    while (memquery_iterator_next(&iter) && iter.vm_start < iter_stop) {
-        if (iter.vm_start < th->fork_copy_start || iter.prot == MEMPROT_NONE)
-            continue;
-        byte *new_start =
-            iter.vm_start - th->fork_copy_start + heapmgt->vmcode_writable_alloc;
-        uint new_prot = (iter.prot & ~(MEMPROT_EXEC)) | MEMPROT_WRITE;
-        if (!os_heap_commit(new_start, iter.vm_end - iter.vm_start, new_prot,
-                            &error_code))
+    thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
+    vmvector_iterator_t vmvi;
+    vmvector_iterator_start(th->fork_copy_areas, &vmvi);
+    while (vmvector_iterator_hasnext(&vmvi)) {
+        byte *start, *end;
+        uint prot = (uint)(ptr_uint_t)vmvector_iterator_next(&vmvi, &start, &end);
+        byte *new_start = start - th->fork_copy_start + heapmgt->vmcode_writable_alloc;
+        uint new_prot = (prot & ~(MEMPROT_EXEC)) | MEMPROT_WRITE;
+        if (!os_heap_commit(new_start, end - start, new_prot, &error_code))
             goto vmm_heap_fork_init_failed;
-        memcpy(new_start, iter.vm_start, iter.vm_end - iter.vm_start);
+        memcpy(new_start, start, end - start);
         LOG(GLOBAL, LOG_HEAP, 2, "%s: re-mapped %p-%p %x; copied from %p-%p %x\n",
-            __FUNCTION__, new_start, new_start + (iter.vm_end - iter.vm_start), new_prot,
-            iter.vm_start, iter.vm_end, iter.prot);
+            __FUNCTION__, new_start, new_start + (end - start), new_prot, start, end,
+            prot);
     }
-    memquery_iterator_stop(&iter);
+    vmvector_iterator_stop(&vmvi);
 
     /* Third, make a new +x region and set up the right protections and mappings. */
     map_size = heapmgt->vmcode.alloc_size;
@@ -2038,29 +2045,30 @@ vmm_heap_fork_init(dcontext_t *dcontext)
                     MEMPROT_NONE, MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
     if (map_base != heapmgt->vmcode.alloc_start || map_size != heapmgt->vmcode.alloc_size)
         goto vmm_heap_fork_init_failed;
-    if (!memquery_iterator_start(&iter, th->fork_copy_start, false /*no heap*/))
-        goto vmm_heap_fork_init_failed;
-    while (memquery_iterator_next(&iter) && iter.vm_start < iter_stop) {
-        if (iter.vm_start < th->fork_copy_start || iter.prot == MEMPROT_NONE)
-            continue;
-        byte *new_start =
-            iter.vm_start - th->fork_copy_start + heapmgt->vmcode.alloc_start;
-        map_size = iter.vm_end - iter.vm_start;
-        map_base = os_map_file(heapmgt->dual_map_file, &map_size,
-                               iter.vm_start - th->fork_copy_start, new_start, iter.prot,
-                               MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
-        if (map_base != new_start || map_size != iter.vm_end - iter.vm_start)
+    vmvector_iterator_start(th->fork_copy_areas, &vmvi);
+    while (vmvector_iterator_hasnext(&vmvi)) {
+        byte *start, *end;
+        uint prot = (uint)(ptr_uint_t)vmvector_iterator_next(&vmvi, &start, &end);
+        byte *new_start = start - th->fork_copy_start + heapmgt->vmcode.alloc_start;
+        map_size = end - start;
+        map_base =
+            os_map_file(heapmgt->dual_map_file, &map_size, start - th->fork_copy_start,
+                        new_start, prot, MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
+        if (map_base != new_start || map_size != end - start)
             goto vmm_heap_fork_init_failed;
         LOG(GLOBAL, LOG_HEAP, 2, "%s: re-mapped %p-%p %x\n", __FUNCTION__, new_start,
-            new_start + map_size, iter.prot);
+            new_start + map_size, prot);
     }
-    memquery_iterator_stop(&iter);
+    vmvector_iterator_stop(&vmvi);
 
     os_heap_free(th->fork_copy_start, th->fork_copy_size, &error_code);
     if (error_code != HEAP_ERROR_SUCCESS)
         goto vmm_heap_fork_init_failed;
     th->fork_copy_start = NULL;
     th->fork_copy_size = 0;
+    vmvector_reset_vector(dcontext, th->fork_copy_areas);
+    vmvector_delete_vector(dcontext, th->fork_copy_areas);
+    th->fork_copy_areas = NULL;
 
     /* XXX: We don't want to unlink any tmpfs file so we don't use
      * os_delete_memory_file(). This may not work on Windows if that function needs to do
