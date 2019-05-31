@@ -1360,15 +1360,15 @@ enum {
     /* 1191 */ OP_vpandnq,     /**< IA-32/AMD64 AVX-512 vpandnq opcode. */
     /* 1192 */ OP_vpermi2b,    /**< IA-32/AMD64 AVX-512 vpermi2b opcode. */
     /* 1193 */ OP_vpermi2d,    /**< IA-32/AMD64 AVX-512 vpermi2d opcode. */
-    /* 1194 */ OP_vpermi2ps,   /**< IA-32/AMD64 AVX-512 vpermi2ps opcode. */
-    /* 1195 */ OP_vpermi2pd,   /**< IA-32/AMD64 AVX-512 vpermi2pd opcode. */
+    /* 1194 */ OP_vpermi2pd,   /**< IA-32/AMD64 AVX-512 vpermi2pd opcode. */
+    /* 1195 */ OP_vpermi2ps,   /**< IA-32/AMD64 AVX-512 vpermi2ps opcode. */
     /* 1196 */ OP_vpermi2q,    /**< IA-32/AMD64 AVX-512 vpermi2q opcode. */
     /* 1197 */ OP_vpermi2w,    /**< IA-32/AMD64 AVX-512 vpermi2w opcode. */
     /* 1198 */ OP_vpermt2b,    /**< IA-32/AMD64 AVX-512 vpermi2b opcode. */
-    /* 1199 */ OP_vpermt2ps,   /**< IA-32/AMD64 AVX-512 vpermi2ps opcode. */
+    /* 1199 */ OP_vpermt2d,    /**< IA-32/AMD64 AVX-512 vpermi2d opcode. */
     /* 1200 */ OP_vpermt2pd,   /**< IA-32/AMD64 AVX-512 vpermi2pd opcode. */
-    /* 1201 */ OP_vpermt2w,    /**< IA-32/AMD64 AVX-512 vpermi2w opcode. */
-    /* 1202 */ OP_vpermt2d,    /**< IA-32/AMD64 AVX-512 vpermi2d opcode. */
+    /* 1201 */ OP_vpermt2ps,   /**< IA-32/AMD64 AVX-512 vpermi2ps opcode. */
+    /* 1202 */ OP_vpermt2w,    /**< IA-32/AMD64 AVX-512 vpermi2w opcode. */
     /* 1203 */ OP_vpermt2q,    /**< IA-32/AMD64 AVX-512 vpermi2q opcode. */
     /* 1204 */ OP_vpermw,      /**< IA-32/AMD64 AVX-512 vpermw opcode. */
     /* 1205 */ OP_vpmullq,     /**< IA-32/AMD64 AVX-512 vpmullq opcode. */
