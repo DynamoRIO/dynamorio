@@ -3178,6 +3178,44 @@
     instr_create_1dst_3src((dc), OP_vcvtsd2ss, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vcvtps2ph_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vcvtps2ph, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermilps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermilps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermilpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermilpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermi2ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermi2ps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermi2pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermi2pd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermi2d_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermi2d, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermi2q_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermi2q, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermi2b_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermi2b, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermi2w_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermi2w, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermt2d_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermt2d, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermt2q_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermt2q, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermt2b_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermt2b, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermt2w_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermt2w, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermt2ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermt2ps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermt2pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermt2pd, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
