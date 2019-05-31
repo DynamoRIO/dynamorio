@@ -3281,8 +3281,8 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vminsd, 0xf20f5d10, "vminsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[29][11]},
     {OP_vminps, 0x0f5d10, "vminps", Ves, xx, KEw, Hes, Wes, mrm|evex, x, END_LIST},
     {OP_vminss, 0xf30f5d10, "vminss", Vdq, xx, KEw, Hdq, Wss, mrm|evex, x, END_LIST},
-    {OP_vminpd, 0x660f5d10, "vminpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
-    {OP_vminsd, 0xf20f5d10, "vminsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
+    {OP_vminpd, 0x660f5d50, "vminpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
+    {OP_vminsd, 0xf20f5d50, "vminsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
   },
   /* prefix extension 30 */
   {
@@ -3296,8 +3296,8 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vdivsd, 0xf20f5e10, "vdivsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[30][11]},
     {OP_vdivps, 0x0f5e10, "vdivps", Ves, xx, KEw, Hes, Wes, mrm|evex, x, END_LIST},
     {OP_vdivss, 0xf30f5e10, "vdivss", Vdq, xx, KEw, Hdq, Wss, mrm|evex, x, END_LIST},
-    {OP_vdivpd, 0x660f5e10, "vdivpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
-    {OP_vdivsd, 0xf20f5e10, "vdivsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
+    {OP_vdivpd, 0x660f5e50, "vdivpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
+    {OP_vdivsd, 0xf20f5e50, "vdivsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
   },
   /* prefix extension 31 */
   {
@@ -3311,8 +3311,8 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vmaxsd, 0xf20f5f10, "vmaxsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[31][11]},
     {OP_vmaxps,   0x0f5f10, "vmaxps", Ves, xx, KEw, Hes, Wes, mrm|evex, x, END_LIST},
     {OP_vmaxss, 0xf30f5f10, "vmaxss", Vdq, xx, KEw, Hdq, Wss, mrm|evex, x, END_LIST},
-    {OP_vmaxpd, 0x660f5f10, "vmaxpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
-    {OP_vmaxsd, 0xf20f5f10, "vmaxsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
+    {OP_vmaxpd, 0x660f5f50, "vmaxpd", Ved, xx, KEb, Hed, Wed, mrm|evex, x, END_LIST},
+    {OP_vmaxsd, 0xf20f5f50, "vmaxsd", Vdq, xx, KEb, Hdq, Wsd, mrm|evex, x, END_LIST},
   },
   /* prefix extension 32 */
   {
