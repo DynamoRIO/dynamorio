@@ -2413,6 +2413,8 @@ os_fork_pre(dcontext_t *dcontext)
         ASSERT_CURIOSITY(false);
     }
 
+    vmm_heap_fork_pre(dcontext);
+
     /* We go back to the code cache to execute the syscall, so we can't hold
      * locks.  If the synch succeeded, no one else is running, so it should be
      * safe to release these locks.  However, if there are any rogue threads,
@@ -2442,6 +2444,7 @@ os_fork_post(dcontext_t *dcontext, bool parent)
                                parent /*resume in parent, not in child*/);
     ostd->fork_threads = NULL; /* Freed by end_synch_with_all_threads. */
     ostd->fork_num_threads = 0;
+    vmm_heap_fork_post(dcontext, parent);
 }
 
 /* this one is called before child's new logfiles are set up */
