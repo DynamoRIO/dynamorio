@@ -499,6 +499,10 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             size_template == OPSZ_32)
             return true; /* will take prefix or no prefix */
         return false;
+    case OPSZ_vex32_evex64:
+        if (size_template == OPSZ_32 || size_template == OPSZ_64)
+            return true; /* will take prefix or no prefix */
+        return false;
     default:
         CLIENT_ASSERT(false, "size_ok_varsz() internal decoding error (invalid size)");
         break;
@@ -717,7 +721,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             if (size_template == OPSZ_32_short16)
                 return !TEST(prefix_data_addr, di->prefixes);
             if (size_template == OPSZ_16_vex32 || size_template == OPSZ_16_vex32_evex64 ||
-                size_template == OPSZ_8_of_16_vex32) {
+                size_template == OPSZ_8_of_16_vex32 ||
+                size_template == OPSZ_vex32_evex64) {
                 di->prefixes |= PREFIX_VEX_L;
                 return true;
             }
@@ -727,7 +732,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             }
             return false;
         case OPSZ_64:
-            if (size_template == OPSZ_16_vex32_evex64) {
+            if (size_template == OPSZ_16_vex32_evex64 ||
+                size_template == OPSZ_vex32_evex64) {
                 di->prefixes |= PREFIX_EVEX_LL;
                 return true;
             }
@@ -774,6 +780,7 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_28_short14:
         case OPSZ_108_short94:
         case OPSZ_16_vex32_evex64:
+        case OPSZ_vex32_evex64:
             return size_ok_varsz(di, size_op, size_template, prefix_data_addr);
         case OPSZ_1_reg4:
         case OPSZ_2_reg4:
