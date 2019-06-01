@@ -2714,13 +2714,14 @@ OPCODE(vpermt2w_ylok0yloylo, vpermt2w, vpermt2w_mask, 0, REGARG(YMM0), REGARG(K0
        REGARG(YMM1), REGARG(YMM2))
 OPCODE(vpermt2w_ylok0ylold, vpermt2w, vpermt2w_mask, 0, REGARG(YMM0), REGARG(K0),
        REGARG(YMM1), MEMARG(OPSZ_32))
+#if 0
 OPCODE(vpermt2w_zlok0zlozlo, vpermt2w, vpermt2w_mask, 0, REGARG(ZMM0), REGARG(K0),
        REGARG(ZMM1), REGARG(ZMM2))
 OPCODE(vpermt2w_zlok0zlold, vpermt2w, vpermt2w_mask, 0, REGARG(ZMM0), REGARG(K0),
        REGARG(ZMM1), MEMARG(OPSZ_64))
 OPCODE(vpermt2w_xhik7xhixhi, vpermt2w, vpermt2w_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
        REGARG(XMM17), REGARG(XMM31))
-#if 0
+/* Failed */
 OPCODE(vpermt2w_xhik7xhild, vpermt2w, vpermt2w_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
        REGARG(XMM31), MEMARG(OPSZ_16))
 OPCODE(vpermt2w_yhik7yhiyhi, vpermt2w, vpermt2w_mask, X64_ONLY, REGARG(YMM16), REGARG(K7),
