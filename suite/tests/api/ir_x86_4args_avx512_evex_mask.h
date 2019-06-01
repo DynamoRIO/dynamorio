@@ -2704,9 +2704,10 @@ OPCODE(vpermt2b_zhik7zhizhi, vpermt2b, vpermt2b_mask, X64_ONLY, REGARG(ZMM16), R
        REGARG(ZMM17), REGARG(ZMM31))
 OPCODE(vpermt2b_zhik7zhild, vpermt2b, vpermt2b_mask, X64_ONLY, REGARG(ZMM16), REGARG(K7),
        REGARG(ZMM31), MEMARG(OPSZ_64))
-#if 0
+/* Good */
 OPCODE(vpermt2w_xlok0xloxlo, vpermt2w, vpermt2w_mask, 0, REGARG(XMM0), REGARG(K0),
        REGARG(XMM1), REGARG(XMM2))
+#if 0
 OPCODE(vpermt2w_xlok0xlold, vpermt2w, vpermt2w_mask, 0, REGARG(XMM0), REGARG(K0),
        REGARG(XMM1), MEMARG(OPSZ_16))
 OPCODE(vpermt2w_ylok0yloylo, vpermt2w, vpermt2w_mask, 0, REGARG(YMM0), REGARG(K0),
