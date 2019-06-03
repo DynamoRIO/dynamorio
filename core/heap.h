@@ -127,6 +127,10 @@ void
 vmm_heap_exit(void);
 #ifdef UNIX
 void
+vmm_heap_fork_pre(dcontext_t *dcontext);
+void
+vmm_heap_fork_post(dcontext_t *dcontext, bool parent);
+void
 vmm_heap_fork_init(dcontext_t *dcontext);
 #endif
 void
