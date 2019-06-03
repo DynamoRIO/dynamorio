@@ -933,9 +933,12 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
         return true;
     }
     if (optype == TYPE_K_REG || optype == TYPE_K_MODRM || optype == TYPE_K_MODRM_R ||
-        optype == TYPE_K_VEX || optype == TYPE_K_EVEX) {
+        optype == TYPE_K_VEX) {
         return (opsize == OPSZ_1 || opsize == OPSZ_2 || opsize == OPSZ_4 ||
                 opsize == OPSZ_8);
+    } else if (optype == TYPE_K_EVEX) {
+        return (opsize == OPSZ_1b || opsize == OPSZ_1 || opsize == OPSZ_2 ||
+                opsize == OPSZ_4 || opsize == OPSZ_8);
     }
     return false;
 }
