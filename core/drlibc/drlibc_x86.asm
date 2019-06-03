@@ -40,8 +40,8 @@
  * See comments in x86.asm on the format here.
  */
 
-#include "../asm_defines.asm"
-#include "x86_asm_defines.asm" /* PUSHGPR, POPGPR, etc. */
+#include "../arch/asm_defines.asm"
+#include "../arch/x86/x86_asm_defines.asm" /* PUSHGPR, POPGPR, etc. */
 #ifdef MACOS
 # include "include/syscall_mach.h" /* SYSCALL_NUM_MARKER_MACH */
 #endif
