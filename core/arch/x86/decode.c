@@ -251,7 +251,9 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
     case OPSZ_14_of_16: return OPSZ_14;
     case OPSZ_15_of_16: return OPSZ_15;
     case OPSZ_8_of_16_vex32: return (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_32 : OPSZ_8);
-    case OPSZ_16_of_32: return OPSZ_16;
+    case OPSZ_16_of_32:
+    case OPSZ_16_of_vex32_evex64: return OPSZ_16;
+    case OPSZ_32_of_evex64: return OPSZ_32;
     case OPSZ_16_vex32_evex64:
         /* XXX i#1312: There may be a conflict since LL' is also used for rounding
          * control in AVX-512 if used in combination.
@@ -291,6 +293,7 @@ expand_subreg_size(opnd_size_t sz)
     case OPSZ_15_of_16:
     case OPSZ_4_reg16: return OPSZ_16;
     case OPSZ_16_of_32: return OPSZ_32;
+    case OPSZ_32_of_evex64: return OPSZ_64;
     case OPSZ_8_of_16_vex32:
     case OPSZ_half_16_vex32: return OPSZ_16_vex32;
     case OPSZ_half_16_vex32_evex64: return OPSZ_16_vex32_evex64;
@@ -1330,16 +1333,23 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
     }
 
     /* read any trailing immediate bytes */
-    if (info->dst1_type != TYPE_NONE)
-        pc = read_operand(pc, di, info->dst1_type, info->dst1_size);
-    if (info->dst2_type != TYPE_NONE)
-        pc = read_operand(pc, di, info->dst2_type, info->dst2_size);
-    if (info->src1_type != TYPE_NONE)
-        pc = read_operand(pc, di, info->src1_type, info->src1_size);
-    if (info->src2_type != TYPE_NONE)
-        pc = read_operand(pc, di, info->src2_type, info->src2_size);
-    if (info->src3_type != TYPE_NONE)
-        pc = read_operand(pc, di, info->src3_type, info->src3_size);
+    const instr_info_t *ii = info;
+    do {
+        if (ii->dst1_type != TYPE_NONE)
+            pc = read_operand(pc, di, ii->dst1_type, ii->dst1_size);
+        if (ii->dst2_type != TYPE_NONE)
+            pc = read_operand(pc, di, ii->dst2_type, ii->dst2_size);
+        if (ii->src1_type != TYPE_NONE)
+            pc = read_operand(pc, di, ii->src1_type, ii->src1_size);
+        if (ii->src2_type != TYPE_NONE)
+            pc = read_operand(pc, di, ii->src2_type, ii->src2_size);
+        if (ii->src3_type != TYPE_NONE)
+            pc = read_operand(pc, di, ii->src3_type, ii->src3_size);
+        if ((ii->flags & HAS_EXTRA_OPERANDS) != 0)
+            ii = instr_info_extra_opnds(ii);
+        else
+            ii = NULL;
+    } while (ii != NULL);
 
     if (info->type == SUFFIX_EXT) {
         /* Shouldn't be any more bytes (immed bytes) read after the modrm+suffix! */
@@ -1446,20 +1456,24 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_VSIB: {
         reg_id_t extend_reg = extend ? reg + 8 : reg;
         extend_reg = avx512_extend ? extend_reg + 16 : extend_reg;
-        return (TEST(PREFIX_EVEX_LL, di->prefixes)
-                    ? (DR_REG_START_ZMM + extend_reg)
-                    : ((TEST(PREFIX_VEX_L, di->prefixes) &&
-                        /* Not only do we use this for VEX .LIG (where raw reg is either
-                         * OPSZ_32 or OPSZ_16_vex32) but also for VSIB which currently
-                         * does not get up to OPSZ_16 so we can use this negative
-                         * check.
-                         * XXX i#1312: vgather/vscatter VSIB addressing may be OPSZ_16?
-                         * For EVEX .LIG, raw reg will be able to be OPSZ_64 or
-                         * OPSZ_16_vex32_evex64.
-                         */
-                        expand_subreg_size(opsize) != OPSZ_16)
-                           ? (REG_START_YMM + extend_reg)
-                           : (REG_START_XMM + extend_reg)));
+        bool operand_is_zmm = TEST(PREFIX_EVEX_LL, di->prefixes) &&
+            expand_subreg_size(opsize) != OPSZ_16 &&
+            expand_subreg_size(opsize) != OPSZ_32;
+        /* Not only do we use this for VEX .LIG and EVEX .LIG (where raw reg is
+         * either OPSZ_32 or OPSZ_16_vex32 or OPSZ_vex32_evex64) but also
+         * for VSIB which currently does not get up to OPSZ_16 so we can
+         * use this negative check.
+         * XXX i#1312: vgather/vscatter VSIB addressing may be OPSZ_16?
+         * For EVEX .LIG, raw reg will be able to be OPSZ_64 or
+         * OPSZ_16_vex32_evex64.
+         */
+        bool operand_is_ymm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
+                               expand_subreg_size(opsize) == OPSZ_32) ||
+            (TEST(PREFIX_VEX_L, di->prefixes) && expand_subreg_size(opsize) != OPSZ_16);
+        CLIENT_ASSERT(!operand_is_ymm || !operand_is_zmm, "Internal reg size error.");
+        return (operand_is_zmm ? (DR_REG_START_ZMM + extend_reg)
+                               : (operand_is_ymm ? (REG_START_YMM + extend_reg)
+                                                 : (REG_START_XMM + extend_reg)));
     }
     case TYPE_S:
         if (reg >= 6)

@@ -551,11 +551,12 @@ collapse_subreg_size(opnd_size_t sz)
     case OPSZ_14_of_16: return OPSZ_14;
     case OPSZ_15_of_16: return OPSZ_15;
     case OPSZ_16_of_32:
-        return OPSZ_16;
-        /* OPSZ_8_of_16_vex32, OPSZ_4_rex8_of_16, and OPSZ_12_rex8_of_16,
-         * OPSZ_half_16_vex32, and OPSZ_half_16_vex32_evex64 are kept.
-         */
+    case OPSZ_16_of_vex32_evex64: return OPSZ_16;
+    case OPSZ_32_of_evex64: return OPSZ_32;
     }
+    /* OPSZ_8_of_16_vex32, OPSZ_4_rex8_of_16, and OPSZ_12_rex8_of_16,
+     * OPSZ_half_16_vex32, and OPSZ_half_16_vex32_evex64 are kept.
+     */
     return sz;
 }
 
@@ -702,7 +703,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 return !TESTANY(PREFIX_EVEX_LL | PREFIX_VEX_L, di->prefixes);
             if (size_template == OPSZ_half_16_vex32 ||
                 size_template == OPSZ_half_16_vex32_evex64) {
-                di->prefixes |= PREFIX_VEX_L;
+                if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                    di->prefixes |= PREFIX_VEX_L;
                 return true;
             }
             return false; /* no matching varsz, must be exact match */
@@ -723,11 +725,13 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             if (size_template == OPSZ_16_vex32 || size_template == OPSZ_16_vex32_evex64 ||
                 size_template == OPSZ_8_of_16_vex32 ||
                 size_template == OPSZ_vex32_evex64) {
-                di->prefixes |= PREFIX_VEX_L;
+                if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                    di->prefixes |= PREFIX_VEX_L;
                 return true;
             }
             if (size_template == OPSZ_half_16_vex32_evex64) {
                 di->prefixes |= PREFIX_EVEX_LL;
+                di->prefixes &= ~PREFIX_VEX_L;
                 return true;
             }
             return false;
@@ -735,6 +739,7 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             if (size_template == OPSZ_16_vex32_evex64 ||
                 size_template == OPSZ_vex32_evex64) {
                 di->prefixes |= PREFIX_EVEX_LL;
+                di->prefixes &= ~PREFIX_VEX_L;
                 return true;
             }
             return false;
@@ -802,6 +807,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_16_of_32:
         case OPSZ_half_16_vex32:
         case OPSZ_half_16_vex32_evex64:
+        case OPSZ_16_of_vex32_evex64:
+        case OPSZ_32_of_evex64:
         case OPSZ_0:
             /* handled below */
             break;
@@ -895,17 +902,18 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
              optype == TYPE_H || optype == TYPE_L))
             return (reg >= REG_START_XMM && reg <= REG_STOP_XMM);
     }
-
     if (opsize == OPSZ_8_of_16_vex32 || opsize == OPSZ_half_16_vex32 ||
         opsize == OPSZ_half_16_vex32_evex64 || optype == TYPE_VSIB) {
         if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
             return !TEST(PREFIX_VEX_L, di->prefixes);
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
-            di->prefixes |= PREFIX_VEX_L;
+            if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                di->prefixes |= PREFIX_VEX_L;
             return true;
         }
         if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
             di->prefixes |= PREFIX_EVEX_LL;
+            di->prefixes &= ~PREFIX_VEX_L;
             return true;
         }
         return false;
@@ -913,10 +921,31 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
     if (opsize == OPSZ_16_of_32) {
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
             /* Set VEX.L since required for some opcodes and the rest don't care */
-            di->prefixes |= PREFIX_VEX_L;
+            if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                di->prefixes |= PREFIX_VEX_L;
             return true;
         } else
             return false;
+    }
+    if (opsize == OPSZ_16_of_vex32_evex64) {
+        if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
+            if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                di->prefixes |= PREFIX_VEX_L;
+            return true;
+        } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
+            di->prefixes |= PREFIX_EVEX_LL;
+            di->prefixes &= ~PREFIX_VEX_L;
+            return true;
+        } else
+            return false;
+    }
+    if (opsize == OPSZ_32_of_evex64) {
+        if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
+            di->prefixes |= PREFIX_EVEX_LL;
+            di->prefixes &= ~PREFIX_VEX_L;
+            return true;
+        }
+        return false;
     }
     /* We assume that only type p uses OPSZ_6_irex10_short4: w/ data16, even though it's
      * 4 bytes and would fit in a register, this is invalid.
@@ -926,9 +955,15 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
     if (size_ok(di, reg_get_size(reg), resolve_var_reg_size(opsize, true), addr)) {
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
             /* Set VEX.L since required for some opcodes and the rest don't care */
-            di->prefixes |= PREFIX_VEX_L;
+            if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                di->prefixes |= PREFIX_VEX_L;
         } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
             di->prefixes |= PREFIX_EVEX_LL;
+            /* Some instructions encode different simd operand register classes. It seems
+             * that the largest register class prevails. If this doesn't hold, we need
+             * another register type, e.g. TYPE_W_256 or alike.
+             */
+            di->prefixes &= ~PREFIX_VEX_L;
         }
         return true;
     }
@@ -937,8 +972,9 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
         return (opsize == OPSZ_1 || opsize == OPSZ_2 || opsize == OPSZ_4 ||
                 opsize == OPSZ_8);
     } else if (optype == TYPE_K_EVEX) {
-        return (opsize == OPSZ_1b || opsize == OPSZ_1 || opsize == OPSZ_2 ||
-                opsize == OPSZ_4 || opsize == OPSZ_8);
+        return (opsize == OPSZ_1b || opsize == OPSZ_2b || opsize == OPSZ_4b ||
+                opsize == OPSZ_1 || opsize == OPSZ_2 || opsize == OPSZ_4 ||
+                opsize == OPSZ_8);
     }
     return false;
 }
@@ -2719,26 +2755,36 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     CLIENT_ASSERT(!di.vex_encoded || !di.evex_encoded,
                   "instr_encode error: flags can't be both vex and evex.");
 
-    /* operands
-     * we can ignore extra operands here, since all extra operands
-     * are hardcoded
-     */
-    if (info->dst1_type != TYPE_NONE)
-        encode_operand(&di, info->dst1_type, info->dst1_size, instr_get_dst(instr, 0));
-    if (info->dst2_type != TYPE_NONE)
-        encode_operand(&di, info->dst2_type, info->dst2_size, instr_get_dst(instr, 1));
-    if (info->src1_type != TYPE_NONE)
-        encode_operand(&di, info->src1_type, info->src1_size, instr_get_src(instr, 0));
-    if (info->src2_type != TYPE_NONE)
-        encode_operand(&di, info->src2_type, info->src2_size, instr_get_src(instr, 1));
-    if (info->src3_type != TYPE_NONE)
-        encode_operand(&di, info->src3_type, info->src3_size, instr_get_src(instr, 2));
-    if (di.mod == 5 && di.reg < 8) { /* mod may never be set (e.g., OP_extrq) */
-        /* follow lead of below where we set to all 1's */
-        di.mod = 3;
-        CLIENT_ASSERT(di.rm == 0, "internal error: mod not set but rm was");
-        di.rm = 7;
-    }
+    const instr_info_t *ii = info;
+    int offs = 0;
+    do {
+        if (ii->dst1_type != TYPE_NONE)
+            encode_operand(&di, ii->dst1_type, ii->dst1_size,
+                           instr_get_dst(instr, offs * 2 + 0));
+        if (ii->dst2_type != TYPE_NONE)
+            encode_operand(&di, ii->dst2_type, ii->dst2_size,
+                           instr_get_dst(instr, offs * 2 + 1));
+        if (ii->src1_type != TYPE_NONE)
+            encode_operand(&di, ii->src1_type, ii->src1_size,
+                           instr_get_src(instr, offs * 3 + 0));
+        if (ii->src2_type != TYPE_NONE)
+            encode_operand(&di, ii->src2_type, ii->src2_size,
+                           instr_get_src(instr, offs * 3 + 1));
+        if (ii->src3_type != TYPE_NONE)
+            encode_operand(&di, ii->src3_type, ii->src3_size,
+                           instr_get_src(instr, offs * 3 + 2));
+        if (di.mod == 5 && di.reg < 8) { /* mod may never be set (e.g., OP_extrq) */
+            /* follow lead of below where we set to all 1's */
+            di.mod = 3;
+            CLIENT_ASSERT(di.rm == 0, "internal error: mod not set but rm was");
+            di.rm = 7;
+        }
+        offs++;
+        if ((ii->flags & HAS_EXTRA_OPERANDS) != 0)
+            ii = instr_info_extra_opnds(ii);
+        else
+            ii = NULL;
+    } while (ii != NULL);
 
     /* finally, do the actual bit writing */
 

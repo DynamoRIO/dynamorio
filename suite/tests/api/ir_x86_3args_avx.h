@@ -96,7 +96,9 @@ OPCODE(vpermilps_noimm_256, vpermilps, vpermilps, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
 OPCODE(vpermilpd_noimm_256, vpermilpd, vpermilpd, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
-OPCODE(vextractf128_256, vextractf128, vextractf128, 0, MEMARG(OPSZ_16),
+OPCODE(vextractf128_m256, vextractf128, vextractf128, 0, MEMARG(OPSZ_16),
+       REGARG_PARTIAL(YMM0, OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vextractf128_r256, vextractf128, vextractf128, 0, REGARG(XMM0),
        REGARG_PARTIAL(YMM0, OPSZ_16), IMMARG(OPSZ_1))
 
 /* AVX2 256-bit */

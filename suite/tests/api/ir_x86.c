@@ -331,6 +331,32 @@ test_all_opcodes_3_avx512_evex(void *dc)
 #    undef XOPCODE_FOR_CREATE
 
 /****************************************************************************
+ * OPCODE_FOR_CREATE 4 args, evex encoding hint
+ */
+
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4)            \
+        do {                                                                             \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                        \
+                instrlist_append(                                                        \
+                    ilist,                                                               \
+                    INSTR_ENCODING_HINT(INSTR_CREATE_##icnm(dc, arg1, arg2, arg3, arg4), \
+                                        DR_ENCODING_HINT_X86_EVEX));                     \
+                len_##name = instr_length(dc, instrlist_last(ilist));                    \
+            }                                                                            \
+        } while (0);
+
+static void
+test_all_opcodes_4_avx512_evex(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+#    undef OPCODE_FOR_CREATE
+#    undef XOPCODE_FOR_CREATE
+
+/****************************************************************************
  * OPCODE_FOR_CREATE 4 args
  */
 
@@ -369,6 +395,29 @@ test_all_opcodes_4_avx512_evex_mask(void *dc)
 
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
+
+/****************************************************************************
+ * OPCODE_FOR_CREATE 5 args
+ */
+
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4, arg5)      \
+        do {                                                                             \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                        \
+                instrlist_append(ilist,                                                  \
+                                 INSTR_CREATE_##icnm(dc, arg1, arg2, arg3, arg4, arg5)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));                    \
+            }                                                                            \
+        } while (0);
+
+static void
+test_all_opcodes_5_avx512_evex_mask(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_5args_avx512_evex_mask.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+#    undef OPCODE_FOR_CREATE
 
 /*
  ****************************************************************************/
@@ -1770,7 +1819,9 @@ main(int argc, char *argv[])
      */
     test_all_opcodes_3_avx512_evex_mask(dcontext);
     test_disas_3_avx512_evex_mask(dcontext);
+    test_all_opcodes_5_avx512_evex_mask(dcontext);
     test_all_opcodes_4_avx512_evex_mask(dcontext);
+    test_all_opcodes_4_avx512_evex(dcontext);
     test_all_opcodes_3_avx512_evex(dcontext);
     test_all_opcodes_2_avx512_evex(dcontext);
 #endif

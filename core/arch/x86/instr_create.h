@@ -3216,6 +3216,22 @@
     instr_create_1dst_3src((dc), OP_vpermt2ps, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vpermt2pd_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vpermt2pd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextractf32x4_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextractf32x4, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextractf64x2_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextractf64x2, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextractf32x8_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextractf32x8, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextractf64x4_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextractf64x4, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextracti32x4_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextracti32x4, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextracti64x2_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextracti64x2, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextracti32x8_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextracti32x8, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextracti64x4_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextracti64x4, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
@@ -3730,6 +3746,38 @@
     instr_create_1dst_3src((dc), OP_vpcomud, (d), (s1), (s2), (i))
 #define INSTR_CREATE_vpcomuq(dc, d, s1, s2, i) \
     instr_create_1dst_3src((dc), OP_vpcomuq, (d), (s1), (s2), (i))
+/* @} */ /* end doxygen group */
+
+/** @name 1 explicit destination, 1 mask, 3 sources where the final is an immediate */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param k The opnd_t explicit mask source operand for the instruction.
+ * \param s1 The opnd_t explicit first source operand for the instruction.
+ * \param s2 The opnd_t explicit second source operand for the instruction.
+ * \param i The opnd_t explicit third source operand for the instruction, which
+ * must be an immediate integer (opnd_create_immed_int()).
+ */
+/* AVX-512 */
+#define INSTR_CREATE_vinsertf32x4_mask(dc, d, k, s1, s2, i) \
+    instr_create_1dst_4src((dc), OP_vinsertf32x4, (d), (k), (s1), (s2), (i))
+#define INSTR_CREATE_vinsertf64x2_mask(dc, d, k, s1, s2, i) \
+    instr_create_1dst_4src((dc), OP_vinsertf64x2, (d), (k), (s1), (s2), (i))
+#define INSTR_CREATE_vinsertf32x8_mask(dc, d, k, s1, s2, i) \
+    instr_create_1dst_4src((dc), OP_vinsertf32x8, (d), (k), (s1), (s2), (i))
+#define INSTR_CREATE_vinsertf64x4_mask(dc, d, k, s1, s2, i) \
+    instr_create_1dst_4src((dc), OP_vinsertf64x4, (d), (k), (s1), (s2), (i))
+#define INSTR_CREATE_vinserti32x4_mask(dc, d, k, s1, s2, i) \
+    instr_create_1dst_4src((dc), OP_vinserti32x4, (d), (k), (s1), (s2), (i))
+#define INSTR_CREATE_vinserti64x2_mask(dc, d, k, s1, s2, i) \
+    instr_create_1dst_4src((dc), OP_vinserti64x2, (d), (k), (s1), (s2), (i))
+#define INSTR_CREATE_vinserti32x8_mask(dc, d, k, s1, s2, i) \
+    instr_create_1dst_4src((dc), OP_vinserti32x8, (d), (k), (s1), (s2), (i))
+#define INSTR_CREATE_vinserti64x4_mask(dc, d, k, s1, s2, i) \
+    instr_create_1dst_4src((dc), OP_vinserti64x4, (d), (k), (s1), (s2), (i))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources where 2 are implicit */
