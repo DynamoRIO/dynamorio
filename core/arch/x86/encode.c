@@ -2758,21 +2758,26 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     const instr_info_t *ii = info;
     int offs = 0;
     do {
-        if (ii->dst1_type != TYPE_NONE)
+        if (ii->dst1_type != TYPE_NONE) {
             encode_operand(&di, ii->dst1_type, ii->dst1_size,
                            instr_get_dst(instr, offs * 2 + 0));
-        if (ii->dst2_type != TYPE_NONE)
+        }
+        if (ii->dst2_type != TYPE_NONE) {
             encode_operand(&di, ii->dst2_type, ii->dst2_size,
                            instr_get_dst(instr, offs * 2 + 1));
-        if (ii->src1_type != TYPE_NONE)
+        }
+        if (ii->src1_type != TYPE_NONE) {
             encode_operand(&di, ii->src1_type, ii->src1_size,
                            instr_get_src(instr, offs * 3 + 0));
-        if (ii->src2_type != TYPE_NONE)
+        }
+        if (ii->src2_type != TYPE_NONE) {
             encode_operand(&di, ii->src2_type, ii->src2_size,
                            instr_get_src(instr, offs * 3 + 1));
-        if (ii->src3_type != TYPE_NONE)
+        }
+        if (ii->src3_type != TYPE_NONE) {
             encode_operand(&di, ii->src3_type, ii->src3_size,
                            instr_get_src(instr, offs * 3 + 2));
+        }
         if (di.mod == 5 && di.reg < 8) { /* mod may never be set (e.g., OP_extrq) */
             /* follow lead of below where we set to all 1's */
             di.mod = 3;
