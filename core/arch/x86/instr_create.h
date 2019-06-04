@@ -3216,6 +3216,30 @@
     instr_create_1dst_3src((dc), OP_vpermt2ps, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vpermt2pd_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vpermt2pd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpcklbw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpcklbw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpcklwd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpcklwd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpckldq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpckldq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpcklqdq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpcklqdq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpckhbw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpckhbw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpckhwd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpckhwd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpckhdq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpckhdq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpckhqdq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpckhqdq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpacksswb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpacksswb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpackssdw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpackssdw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpackuswb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpackuswb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpackusdw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpackusdw, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
