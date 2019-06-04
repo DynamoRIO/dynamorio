@@ -1560,8 +1560,8 @@ const instr_info_t * const op_instr[] =
 #define Ves TYPE_V, OPSZ_16_vex32_evex64
 #define Ved TYPE_V, OPSZ_16_vex32_evex64
 #define Vqq_oq TYPE_V, OPSZ_vex32_evex64
-#define Vdq_e TYPE_V, OPSZ_16_of_vex32_evex64
-#define Vqq_e TYPE_V, OPSZ_32_of_evex64
+#define Vdq_e TYPE_V, OPSZ_16_of_32_evex64
+#define Vqq_e TYPE_V, OPSZ_32_of_64
 #define Voq TYPE_V, OPSZ_64
 #define Wes TYPE_W, OPSZ_16_vex32_evex64
 #define Wed TYPE_W, OPSZ_16_vex32_evex64
@@ -1575,7 +1575,7 @@ const instr_info_t * const op_instr[] =
 #define He TYPE_H, OPSZ_16_vex32_evex64
 #define Hh_e TYPE_H, OPSZ_half_16_vex32_evex64
 #define Hqq_oq TYPE_H, OPSZ_vex32_evex64
-#define Hdq_e TYPE_H, OPSZ_16_of_vex32_evex64
+#define Hdq_e TYPE_H, OPSZ_16_of_32_evex64
 #define Mes TYPE_M, OPSZ_16_vex32_evex64
 #define Med TYPE_M, OPSZ_16_vex32_evex64
 #define Me TYPE_M, OPSZ_16_vex32_evex64

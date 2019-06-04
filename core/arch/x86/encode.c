@@ -551,8 +551,8 @@ collapse_subreg_size(opnd_size_t sz)
     case OPSZ_14_of_16: return OPSZ_14;
     case OPSZ_15_of_16: return OPSZ_15;
     case OPSZ_16_of_32:
-    case OPSZ_16_of_vex32_evex64: return OPSZ_16;
-    case OPSZ_32_of_evex64: return OPSZ_32;
+    case OPSZ_16_of_32_evex64: return OPSZ_16;
+    case OPSZ_32_of_64: return OPSZ_32;
     }
     /* OPSZ_8_of_16_vex32, OPSZ_4_rex8_of_16, and OPSZ_12_rex8_of_16,
      * OPSZ_half_16_vex32, and OPSZ_half_16_vex32_evex64 are kept.
@@ -807,8 +807,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_16_of_32:
         case OPSZ_half_16_vex32:
         case OPSZ_half_16_vex32_evex64:
-        case OPSZ_16_of_vex32_evex64:
-        case OPSZ_32_of_evex64:
+        case OPSZ_16_of_32_evex64:
+        case OPSZ_32_of_64:
         case OPSZ_0:
             /* handled below */
             break;
@@ -927,7 +927,7 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
         } else
             return false;
     }
-    if (opsize == OPSZ_16_of_vex32_evex64) {
+    if (opsize == OPSZ_16_of_32_evex64) {
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
             if (!TEST(di->prefixes, PREFIX_EVEX_LL))
                 di->prefixes |= PREFIX_VEX_L;
@@ -939,7 +939,7 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
         } else
             return false;
     }
-    if (opsize == OPSZ_32_of_evex64) {
+    if (opsize == OPSZ_32_of_64) {
         if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
             di->prefixes |= PREFIX_EVEX_LL;
             di->prefixes &= ~PREFIX_VEX_L;
@@ -1466,7 +1466,7 @@ encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t *ii)
     TEST_OPND(di, ii->src3_type, ii->src3_size, 3, in->num_srcs, instr_get_src(in, 2),
               ii->flags);
 
-    if ((ii->flags & HAS_EXTRA_OPERANDS) != 0) {
+    if (TEST(HAS_EXTRA_OPERANDS, ii->flags)) {
         /* extra operands to test! */
         int offs = 1;
         ii = instr_info_extra_opnds(ii);
@@ -2779,7 +2779,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                            instr_get_src(instr, offs * 3 + 2));
         }
         offs++;
-        if ((ii->flags & HAS_EXTRA_OPERANDS) != 0)
+        if (TEST(HAS_EXTRA_OPERANDS, ii->flags))
             ii = instr_info_extra_opnds(ii);
         else
             ii = NULL;
