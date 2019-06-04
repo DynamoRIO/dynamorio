@@ -1345,7 +1345,7 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
             pc = read_operand(pc, di, ii->src2_type, ii->src2_size);
         if (ii->src3_type != TYPE_NONE)
             pc = read_operand(pc, di, ii->src3_type, ii->src3_size);
-        if ((ii->flags & HAS_EXTRA_OPERANDS) != 0)
+        if (TEST(HAS_EXTRA_OPERANDS, ii->flags))
             ii = instr_info_extra_opnds(ii);
         else
             ii = NULL;
