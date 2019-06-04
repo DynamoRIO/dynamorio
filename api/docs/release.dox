@@ -167,6 +167,8 @@ compatibility changes:
    the cache block being accessed (on a hit) or being replaced (on a miss).
    This allows users to extend the cache block and stats classes in order to
    collect more stats.
+ - Moves the immediate operand of the VEX encoded version of vextractps and vinsertps
+   to be the first source.
 
 Further non-compatibility-affecting changes include:
 

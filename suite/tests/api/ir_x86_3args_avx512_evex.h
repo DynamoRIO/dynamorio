@@ -119,7 +119,7 @@ OPCODE(vcvtusi2sd_xhixhir32, vcvtusi2sd, vcvtusi2sd, X64_ONLY, REGARG(XMM16),
        REGARG_PARTIAL(XMM31, OPSZ_8), REGARG(EAX))
 OPCODE(vcvtusi2sd_xhixhir64, vcvtusi2sd, vcvtusi2sd, X64_ONLY, REGARG(XMM16),
        REGARG_PARTIAL(XMM31, OPSZ_8), REGARG(RAX))
-OPCODE(vextractps_rxloi, vextractps, vextractps, 0, REGARG(EAX),
-       REGARG_PARTIAL(XMM1, OPSZ_4), IMMARG(OPSZ_1))
-OPCODE(vextractps_rxhii, vextractps, vextractps, X64_ONLY, REGARG(EAX),
-       REGARG_PARTIAL(XMM31, OPSZ_4), IMMARG(OPSZ_1))
+OPCODE(vextractps_rxloi, vextractps, vextractps, 0, REGARG(EAX), IMMARG(OPSZ_1),
+       REGARG_PARTIAL(XMM1, OPSZ_4))
+OPCODE(vextractps_rxhii, vextractps, vextractps, X64_ONLY, REGARG(EAX), IMMARG(OPSZ_1),
+       REGARG_PARTIAL(XMM31, OPSZ_4))

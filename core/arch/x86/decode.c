@@ -1333,23 +1333,16 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
     }
 
     /* read any trailing immediate bytes */
-    const instr_info_t *ii = info;
-    do {
-        if (ii->dst1_type != TYPE_NONE)
-            pc = read_operand(pc, di, ii->dst1_type, ii->dst1_size);
-        if (ii->dst2_type != TYPE_NONE)
-            pc = read_operand(pc, di, ii->dst2_type, ii->dst2_size);
-        if (ii->src1_type != TYPE_NONE)
-            pc = read_operand(pc, di, ii->src1_type, ii->src1_size);
-        if (ii->src2_type != TYPE_NONE)
-            pc = read_operand(pc, di, ii->src2_type, ii->src2_size);
-        if (ii->src3_type != TYPE_NONE)
-            pc = read_operand(pc, di, ii->src3_type, ii->src3_size);
-        if (TEST(HAS_EXTRA_OPERANDS, ii->flags))
-            ii = instr_info_extra_opnds(ii);
-        else
-            ii = NULL;
-    } while (ii != NULL);
+    if (info->dst1_type != TYPE_NONE)
+        pc = read_operand(pc, di, info->dst1_type, info->dst1_size);
+    if (info->dst2_type != TYPE_NONE)
+        pc = read_operand(pc, di, info->dst2_type, info->dst2_size);
+    if (info->src1_type != TYPE_NONE)
+        pc = read_operand(pc, di, info->src1_type, info->src1_size);
+    if (info->src2_type != TYPE_NONE)
+        pc = read_operand(pc, di, info->src2_type, info->src2_size);
+    if (info->src3_type != TYPE_NONE)
+        pc = read_operand(pc, di, info->src3_type, info->src3_size);
 
     if (info->type == SUFFIX_EXT) {
         /* Shouldn't be any more bytes (immed bytes) read after the modrm+suffix! */

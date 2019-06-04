@@ -3780,28 +3780,28 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param k The opnd_t explicit mask source operand for the instruction.
+ * \param i The opnd_t explicit third source operand for the instruction, which
  * \param s1 The opnd_t explicit first source operand for the instruction.
  * \param s2 The opnd_t explicit second source operand for the instruction.
- * \param i The opnd_t explicit third source operand for the instruction, which
  * must be an immediate integer (opnd_create_immed_int()).
  */
 /* AVX-512 */
-#define INSTR_CREATE_vinsertf32x4_mask(dc, d, k, s1, s2, i) \
-    instr_create_1dst_4src((dc), OP_vinsertf32x4, (d), (k), (s1), (s2), (i))
-#define INSTR_CREATE_vinsertf64x2_mask(dc, d, k, s1, s2, i) \
-    instr_create_1dst_4src((dc), OP_vinsertf64x2, (d), (k), (s1), (s2), (i))
-#define INSTR_CREATE_vinsertf32x8_mask(dc, d, k, s1, s2, i) \
-    instr_create_1dst_4src((dc), OP_vinsertf32x8, (d), (k), (s1), (s2), (i))
-#define INSTR_CREATE_vinsertf64x4_mask(dc, d, k, s1, s2, i) \
-    instr_create_1dst_4src((dc), OP_vinsertf64x4, (d), (k), (s1), (s2), (i))
-#define INSTR_CREATE_vinserti32x4_mask(dc, d, k, s1, s2, i) \
-    instr_create_1dst_4src((dc), OP_vinserti32x4, (d), (k), (s1), (s2), (i))
-#define INSTR_CREATE_vinserti64x2_mask(dc, d, k, s1, s2, i) \
-    instr_create_1dst_4src((dc), OP_vinserti64x2, (d), (k), (s1), (s2), (i))
-#define INSTR_CREATE_vinserti32x8_mask(dc, d, k, s1, s2, i) \
-    instr_create_1dst_4src((dc), OP_vinserti32x8, (d), (k), (s1), (s2), (i))
-#define INSTR_CREATE_vinserti64x4_mask(dc, d, k, s1, s2, i) \
-    instr_create_1dst_4src((dc), OP_vinserti64x4, (d), (k), (s1), (s2), (i))
+#define INSTR_CREATE_vinsertf32x4_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinsertf32x4, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinsertf64x2_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinsertf64x2, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinsertf32x8_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinsertf32x8, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinsertf64x4_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinsertf64x4, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinserti32x4_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinserti32x4, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinserti64x2_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinserti64x2, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinserti32x8_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinserti32x8, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinserti64x4_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinserti64x4, (d), (k), (i), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources where 2 are implicit */

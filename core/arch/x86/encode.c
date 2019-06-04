@@ -2778,18 +2778,19 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
             encode_operand(&di, ii->src3_type, ii->src3_size,
                            instr_get_src(instr, offs * 3 + 2));
         }
-        if (di.mod == 5 && di.reg < 8) { /* mod may never be set (e.g., OP_extrq) */
-            /* follow lead of below where we set to all 1's */
-            di.mod = 3;
-            CLIENT_ASSERT(di.rm == 0, "internal error: mod not set but rm was");
-            di.rm = 7;
-        }
         offs++;
         if ((ii->flags & HAS_EXTRA_OPERANDS) != 0)
             ii = instr_info_extra_opnds(ii);
         else
             ii = NULL;
     } while (ii != NULL);
+
+    if (di.mod == 5 && di.reg < 8) { /* mod may never be set (e.g., OP_extrq) */
+        /* follow lead of below where we set to all 1's */
+        di.mod = 3;
+        CLIENT_ASSERT(di.rm == 0, "internal error: mod not set but rm was");
+        di.rm = 7;
+    }
 
     /* finally, do the actual bit writing */
 

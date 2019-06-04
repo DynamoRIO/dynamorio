@@ -31,7 +31,7 @@
  */
 
 /* AVX-512 EVEX instructions with 1 destination and 3 sources. */
-OPCODE(vinsertps_xloxloxloi, vinsertps, vinsertps, 0, REGARG(XMM0), REGARG(XMM1),
-       REGARG_PARTIAL(XMM2, OPSZ_4), IMMARG(OPSZ_1))
-OPCODE(vinsertps_xhixhixhii, vinsertps, vinsertps, X64_ONLY, REGARG(XMM16), REGARG(XMM17),
-       REGARG_PARTIAL(XMM31, OPSZ_4), IMMARG(OPSZ_1))
+OPCODE(vinsertps_xloxloxloi, vinsertps, vinsertps, 0, REGARG(XMM0), IMMARG(OPSZ_1),
+       REGARG(XMM1), REGARG_PARTIAL(XMM2, OPSZ_4))
+OPCODE(vinsertps_xhixhixhii, vinsertps, vinsertps, X64_ONLY, REGARG(XMM16),
+       IMMARG(OPSZ_1), REGARG(XMM17), REGARG_PARTIAL(XMM31, OPSZ_4))
