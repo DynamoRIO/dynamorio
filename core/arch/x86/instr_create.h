@@ -3256,6 +3256,22 @@
     instr_create_1dst_3src((dc), OP_vextracti32x8, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vextracti64x4_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vextracti64x4, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpgtb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpgtb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpgtw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpgtw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpgtd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpgtd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpgtq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpgtq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpeqb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpeqb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpeqw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpeqw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpeqd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpeqd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpeqq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpeqq, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
@@ -3802,6 +3818,30 @@
     instr_create_1dst_4src((dc), OP_vinserti32x8, (d), (k), (i), (s1), (s2))
 #define INSTR_CREATE_vinserti64x4_mask(dc, d, k, i, s1, s2) \
     instr_create_1dst_4src((dc), OP_vinserti64x4, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpb_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpb, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpw_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpw, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpq_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpq, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpub_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpub, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpuw_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpuw, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpud_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpud, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpuq_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpuq, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vcmpps_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vcmpps, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vcmpss_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vcmpss, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vcmppd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vcmppd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vcmpsd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vcmpsd, (d), (k), (i), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources where 2 are implicit */
