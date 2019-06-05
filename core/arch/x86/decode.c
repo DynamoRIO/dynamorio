@@ -279,6 +279,10 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
 opnd_size_t
 expand_subreg_size(opnd_size_t sz)
 {
+    /* XXX i#1312: please note the comment in decode_reg. For mixed vector register sizes
+     * within the instruction, this is fragile and relies on the fact that we return
+     * OPSZ_16 or OPSZ_32 here. This should be handled in a better way.
+     */
     switch (sz) {
     case OPSZ_2_of_8:
     case OPSZ_4_of_8: return OPSZ_8;
@@ -1459,7 +1463,9 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
          * XXX i#1312: vgather/vscatter VSIB addressing may be OPSZ_16?
          * For EVEX .LIG, raw reg will be able to be OPSZ_64 or
          * OPSZ_16_vex32_evex64.
-         * XXX i#1312: improve this code here, it is not very robust.
+         * XXX i#1312: improve this code here, it is not very robust. For AVX-512, this
+         * relies on the fact that cases where EVEX.LL' == 1 and register is not zmm, the
+         * expand_subreg_size is OPSZ_16 or OPSZ_32. The VEX OPSZ_16 case is also fragile.
          */
         bool operand_is_ymm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
                                expand_subreg_size(opsize) == OPSZ_32) ||
