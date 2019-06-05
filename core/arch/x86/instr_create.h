@@ -3272,6 +3272,38 @@
     instr_create_1dst_3src((dc), OP_vpcmpeqd, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vpcmpeqq_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vpcmpeqq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminsb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminsb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminsw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminsw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminsq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminsq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxsb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxsb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxsw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxsw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxsq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxsq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminub_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminub, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminuw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminuw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminud_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminud, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminuq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminuq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxub_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxub, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxuw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxuw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxud_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxud, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxuq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxuq, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
