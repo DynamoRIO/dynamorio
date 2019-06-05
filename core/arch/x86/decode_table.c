@@ -3683,8 +3683,8 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vcmpsd, 0xf20fc210, "vcmpsd", Vdq, xx, Hdq, Wsd, Ib, mrm|vex, x, tpe[52][11]},
     {OP_vcmpps, 0x0fc210, "vcmpps", KPw, xx, KEw, Ib, Hes, xop|mrm|evex, x, exop[90]},
     {OP_vcmpss, 0xf30fc210, "vcmpss", KP1b, xx, KE1b, Ib, Hdq, xop|mrm|evex, x, exop[91]},
-    {OP_vcmppd, 0x660fc210, "vcmppd", KPb, xx, KEb, Ib, Hed, xop|mrm|evex, x, exop[92]},
-    {OP_vcmpsd, 0xf20fc210, "vcmpsd", KP1b, xx, KE1b, Ib, Hdq, xop|mrm|evex, x, exop[93]},
+    {OP_vcmppd, 0x660fc250, "vcmppd", KPb, xx, KEb, Ib, Hed, xop|mrm|evex, x, exop[92]},
+    {OP_vcmpsd, 0xf20fc250, "vcmpsd", KP1b, xx, KE1b, Ib, Hdq, xop|mrm|evex, x, exop[93]},
   },
   /* prefix extension 53: all assumed to have Ib */
   { /* note that gnu tools print immed first: pinsrw $0x0,(%esp),%xmm0 */
