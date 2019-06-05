@@ -292,8 +292,8 @@ OPCODE(vpextrd, vpextrd, vpextrd, 0, REGARG(EAX), REGARG_PARTIAL(XMM0, OPSZ_4),
        IMMARG(OPSZ_1))
 OPCODE(vpextrq, vpextrd, vpextrd, X64_ONLY, REGARG(RAX), REGARG_PARTIAL(XMM0, OPSZ_8),
        IMMARG(OPSZ_1))
-OPCODE(vextractps, vextractps, vextractps, 0, REGARG(EAX), REGARG_PARTIAL(XMM1, OPSZ_4),
-       IMMARG(OPSZ_1))
+OPCODE(vextractps, vextractps, vextractps, 0, REGARG(EAX), IMMARG(OPSZ_1),
+       REGARG_PARTIAL(XMM1, OPSZ_4))
 OPCODE(vroundps, vroundps, vroundps, 0, REGARG(XMM0), REGARG(XMM1), IMMARG(OPSZ_1))
 OPCODE(vroundpd, vroundpd, vroundpd, 0, REGARG(XMM0), REGARG(XMM1), IMMARG(OPSZ_1))
 OPCODE(vaeskeygenassist, vaeskeygenassist, vaeskeygenassist, 0, REGARG(XMM0),
