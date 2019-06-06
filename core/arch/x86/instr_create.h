@@ -2336,6 +2336,14 @@
     instr_create_1dst_2src((dc), OP_vcvtuqq2ps, (d), (k), (s))
 #define INSTR_CREATE_vcvtuqq2pd_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vcvtuqq2pd, (d), (k), (s))
+#define INSTR_CREATE_vrcp14ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrcp14ps, (d), (k), (s))
+#define INSTR_CREATE_vrcp14pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrcp14pd, (d), (k), (s))
+#define INSTR_CREATE_vrcp28ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrcp28ps, (d), (k), (s))
+#define INSTR_CREATE_vrcp28pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrcp28pd, (d), (k), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -3350,6 +3358,14 @@
     instr_create_1dst_3src((dc), OP_vpslld, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vpsllq_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vpsllq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrcp14ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrcp14ss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrcp14sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrcp14sd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrcp28ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrcp28ss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrcp28sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrcp28sd, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
