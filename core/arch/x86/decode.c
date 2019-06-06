@@ -162,7 +162,8 @@ is_variable_size(opnd_size_t sz)
     case OPSZ_8_rex16_short4:
     case OPSZ_12_rex40_short6:
     case OPSZ_16_vex32:
-    case OPSZ_16_vex32_evex64: return true;
+    case OPSZ_16_vex32_evex64:
+    case OPSZ_vex32_evex64: return true;
     default: return false;
     }
 }
@@ -250,7 +251,9 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
     case OPSZ_14_of_16: return OPSZ_14;
     case OPSZ_15_of_16: return OPSZ_15;
     case OPSZ_8_of_16_vex32: return (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_32 : OPSZ_8);
-    case OPSZ_16_of_32: return OPSZ_16;
+    case OPSZ_16_of_32:
+    case OPSZ_16_of_32_evex64: return OPSZ_16;
+    case OPSZ_32_of_64: return OPSZ_32;
     case OPSZ_16_vex32_evex64:
         /* XXX i#1312: There may be a conflict since LL' is also used for rounding
          * control in AVX-512 if used in combination.
@@ -258,7 +261,11 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
         return (TEST(PREFIX_EVEX_LL, di->prefixes)
                     ? OPSZ_64
                     : (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_32 : OPSZ_16));
-
+    case OPSZ_vex32_evex64:
+        /* XXX i#1312: There may be a conflict since LL' is also used for rounding
+         * control in AVX-512 if used in combination.
+         */
+        return (TEST(PREFIX_EVEX_LL, di->prefixes) ? OPSZ_64 : OPSZ_32);
     case OPSZ_half_16_vex32: return (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_16 : OPSZ_8);
     case OPSZ_half_16_vex32_evex64:
         return (TEST(PREFIX_EVEX_LL, di->prefixes)
@@ -272,6 +279,10 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
 opnd_size_t
 expand_subreg_size(opnd_size_t sz)
 {
+    /* XXX i#1312: please note the comment in decode_reg. For mixed vector register sizes
+     * within the instruction, this is fragile and relies on the fact that we return
+     * OPSZ_16 or OPSZ_32 here. This should be handled in a better way.
+     */
     switch (sz) {
     case OPSZ_2_of_8:
     case OPSZ_4_of_8: return OPSZ_8;
@@ -286,6 +297,7 @@ expand_subreg_size(opnd_size_t sz)
     case OPSZ_15_of_16:
     case OPSZ_4_reg16: return OPSZ_16;
     case OPSZ_16_of_32: return OPSZ_32;
+    case OPSZ_32_of_64: return OPSZ_64;
     case OPSZ_8_of_16_vex32:
     case OPSZ_half_16_vex32: return OPSZ_16_vex32;
     case OPSZ_half_16_vex32_evex64: return OPSZ_16_vex32_evex64;
@@ -1441,20 +1453,27 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_VSIB: {
         reg_id_t extend_reg = extend ? reg + 8 : reg;
         extend_reg = avx512_extend ? extend_reg + 16 : extend_reg;
-        return (TEST(PREFIX_EVEX_LL, di->prefixes)
-                    ? (DR_REG_START_ZMM + extend_reg)
-                    : ((TEST(PREFIX_VEX_L, di->prefixes) &&
-                        /* Not only do we use this for VEX .LIG (where raw reg is either
-                         * OPSZ_32 or OPSZ_16_vex32) but also for VSIB which currently
-                         * does not get up to OPSZ_16 so we can use this negative
-                         * check.
-                         * XXX i#1312: vgather/vscatter VSIB addressing may be OPSZ_16?
-                         * For EVEX .LIG, raw reg will be able to be OPSZ_64 or
-                         * OPSZ_16_vex32_evex64.
-                         */
-                        expand_subreg_size(opsize) != OPSZ_16)
-                           ? (REG_START_YMM + extend_reg)
-                           : (REG_START_XMM + extend_reg)));
+        bool operand_is_zmm = TEST(PREFIX_EVEX_LL, di->prefixes) &&
+            expand_subreg_size(opsize) != OPSZ_16 &&
+            expand_subreg_size(opsize) != OPSZ_32;
+        /* Not only do we use this for VEX .LIG and EVEX .LIG (where raw reg is
+         * either OPSZ_16 or OPSZ_16_vex32 or OPSZ_32 or OPSZ_vex32_evex64) but
+         * also for VSIB which currently does not get up to OPSZ_16 so we can
+         * use this negative check.
+         * XXX i#1312: vgather/vscatter VSIB addressing may be OPSZ_16?
+         * For EVEX .LIG, raw reg will be able to be OPSZ_64 or
+         * OPSZ_16_vex32_evex64.
+         * XXX i#1312: improve this code here, it is not very robust. For AVX-512, this
+         * relies on the fact that cases where EVEX.LL' == 1 and register is not zmm, the
+         * expand_subreg_size is OPSZ_16 or OPSZ_32. The VEX OPSZ_16 case is also fragile.
+         */
+        bool operand_is_ymm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
+                               expand_subreg_size(opsize) == OPSZ_32) ||
+            (TEST(PREFIX_VEX_L, di->prefixes) && expand_subreg_size(opsize) != OPSZ_16);
+        CLIENT_ASSERT(!operand_is_ymm || !operand_is_zmm, "Internal reg size error.");
+        return (operand_is_zmm ? (DR_REG_START_ZMM + extend_reg)
+                               : (operand_is_ymm ? (REG_START_YMM + extend_reg)
+                                                 : (REG_START_XMM + extend_reg)));
     }
     case TYPE_S:
         if (reg >= 6)

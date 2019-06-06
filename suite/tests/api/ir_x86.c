@@ -79,7 +79,7 @@
 #define BUFFER_SIZE_BYTES(buf) sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 
-static byte buf[8192];
+static byte buf[16384];
 
 /***************************************************************************
  * make sure the following are consistent (though they could still all be wrong :))
@@ -331,6 +331,32 @@ test_all_opcodes_3_avx512_evex(void *dc)
 #    undef XOPCODE_FOR_CREATE
 
 /****************************************************************************
+ * OPCODE_FOR_CREATE 4 args, evex encoding hint
+ */
+
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4)            \
+        do {                                                                             \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                        \
+                instrlist_append(                                                        \
+                    ilist,                                                               \
+                    INSTR_ENCODING_HINT(INSTR_CREATE_##icnm(dc, arg1, arg2, arg3, arg4), \
+                                        DR_ENCODING_HINT_X86_EVEX));                     \
+                len_##name = instr_length(dc, instrlist_last(ilist));                    \
+            }                                                                            \
+        } while (0);
+
+static void
+test_all_opcodes_4_avx512_evex(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+#    undef OPCODE_FOR_CREATE
+#    undef XOPCODE_FOR_CREATE
+
+/****************************************************************************
  * OPCODE_FOR_CREATE 4 args
  */
 
@@ -370,6 +396,29 @@ test_all_opcodes_4_avx512_evex_mask(void *dc)
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
 
+/****************************************************************************
+ * OPCODE_FOR_CREATE 5 args
+ */
+
+#    define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4, arg5)      \
+        do {                                                                             \
+            if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) {                        \
+                instrlist_append(ilist,                                                  \
+                                 INSTR_CREATE_##icnm(dc, arg1, arg2, arg3, arg4, arg5)); \
+                len_##name = instr_length(dc, instrlist_last(ilist));                    \
+            }                                                                            \
+        } while (0);
+
+static void
+test_all_opcodes_5_avx512_evex_mask(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_5args_avx512_evex_mask.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+#    undef OPCODE_FOR_CREATE
+
 /*
  ****************************************************************************/
 
@@ -380,18 +429,20 @@ test_opmask_disas_avx512(void *dc)
     byte *pc;
     const byte b1[] = { 0xc5, 0xf8, 0x90, 0xee };
     const byte b2[] = { 0x67, 0xc5, 0xf8, 0x90, 0x29 };
-    char buf[512];
+    char dbuf[512];
     int len;
 
-    pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
-                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, "kmovw  %k6 -> %k5\n") == 0);
+    ASSERT(strcmp(dbuf, "kmovw  %k6 -> %k5\n") == 0);
 
-    pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
-                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf,
+    ASSERT(strcmp(dbuf,
                   IF_X64_ELSE("addr32 kmovw  (%ecx)[2byte] -> %k5\n",
                               "addr16 kmovw  (%bx,%di)[2byte] -> %k5\n")) == 0);
 }
@@ -410,54 +461,62 @@ test_disas_3_avx512_evex_mask(void *dc)
     const byte b7[] = { 0x62, 0xf1, 0x7c, 0x49, 0x10, 0xc1 };
     const byte b8[] = { 0x62, 0xf1, 0x7c, 0x49, 0x11, 0x0c, 0x24 };
 
-    char buf[512];
+    char dbuf[512];
     int len;
 
 #    ifdef X64
-    pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
-                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, "vmovups {%k1} %zmm16 -> %zmm1\n") == 0);
+    ASSERT(strcmp(dbuf, "vmovups {%k1} %zmm16 -> %zmm1\n") == 0);
 
-    pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
-                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, "vmovups {%k1} %zmm16 -> %zmm31\n") == 0);
+    ASSERT(strcmp(dbuf, "vmovups {%k1} %zmm16 -> %zmm31\n") == 0);
 
-    pc = disassemble_to_buffer(dc, (byte *)b3, (byte *)b3, false /*no pc*/,
-                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b3, (byte *)b3, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, "vmovups {%k1} %zmm31 -> (%rsp)[64byte]\n") == 0);
+    ASSERT(strcmp(dbuf, "vmovups {%k1} %zmm31 -> (%rsp)[64byte]\n") == 0);
 
-    pc = disassemble_to_buffer(dc, (byte *)b4, (byte *)b4, false /*no pc*/,
-                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b4, (byte *)b4, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf,
+    ASSERT(strcmp(dbuf,
                   IF_X64_ELSE("vmovups {%k1} (%rsp)[64byte] -> %zmm31\n",
                               "vmovups {%k1} (%esp)[64byte] -> %zmm31\n")) == 0);
 
-    pc = disassemble_to_buffer(dc, (byte *)b5, (byte *)b5, false /*no pc*/,
-                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b5, (byte *)b5, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, "vmovups {%k1} %zmm1 -> %zmm31\n") == 0);
+    ASSERT(strcmp(dbuf, "vmovups {%k1} %zmm1 -> %zmm31\n") == 0);
 #    endif
 
-    pc = disassemble_to_buffer(dc, (byte *)b6, (byte *)b6, false /*no pc*/,
-                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b6, (byte *)b6, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf,
+    ASSERT(strcmp(dbuf,
                   IF_X64_ELSE("vmovups {%k1} (%rsp)[64byte] -> %zmm1\n",
                               "vmovups {%k1} (%esp)[64byte] -> %zmm1\n")) == 0);
 
-    pc = disassemble_to_buffer(dc, (byte *)b7, (byte *)b7, false /*no pc*/,
-                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b7, (byte *)b7, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, "vmovups {%k1} %zmm1 -> %zmm0\n") == 0);
+    ASSERT(strcmp(dbuf, "vmovups {%k1} %zmm1 -> %zmm0\n") == 0);
 
-    pc = disassemble_to_buffer(dc, (byte *)b8, (byte *)b8, false /*no pc*/,
-                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b8, (byte *)b8, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf,
+    ASSERT(strcmp(dbuf,
                   IF_X64_ELSE("vmovups {%k1} %zmm1 -> (%rsp)[64byte]\n",
                               "vmovups {%k1} %zmm1 -> (%esp)[64byte]\n")) == 0);
 }
@@ -1342,19 +1401,21 @@ test_vsib(void *dc)
     const byte b1[] = { 0xc4, 0xe2, 0xe9, 0x90, 0x24, 0x42 };
     /* Invalid b/c modrm doesn't ask for SIB */
     const byte b2[] = { 0xc4, 0xe2, 0xe9, 0x90, 0x00 };
-    char buf[512];
+    char dbuf[512];
     int len;
 
-    pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
-                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf,
+    ASSERT(strcmp(dbuf,
                   IF_X64_ELSE(
                       "vpgatherdq (%rdx,%xmm0,2)[8byte] %xmm2 -> %xmm4 %xmm2\n",
                       "vpgatherdq (%edx,%xmm0,2)[8byte] %xmm2 -> %xmm4 %xmm2\n")) == 0);
 
-    pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
-                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc == NULL);
 
     /* Test mem addr emulation */
@@ -1442,32 +1503,32 @@ static void
 test_disasm_sizes(void *dc)
 {
     byte *pc;
-    char buf[512];
+    char dbuf[512];
     int len;
 
     {
         const byte b1[] = { 0xac };
         const byte b2[] = { 0xad };
-        pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false, false, buf,
-                                   BUFFER_SIZE_ELEMENTS(buf), &len);
+        pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false, false, dbuf,
+                                   BUFFER_SIZE_ELEMENTS(dbuf), &len);
         ASSERT(pc != NULL);
-        ASSERT(strcmp(buf,
+        ASSERT(strcmp(dbuf,
                       IF_X64_ELSE("lods   %ds:(%rsi)[1byte] %rsi -> %al %rsi\n",
                                   "lods   %ds:(%esi)[1byte] %esi -> %al %esi\n")) == 0);
-        pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false, false, buf,
-                                   BUFFER_SIZE_ELEMENTS(buf), &len);
+        pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false, false, dbuf,
+                                   BUFFER_SIZE_ELEMENTS(dbuf), &len);
         ASSERT(pc != NULL);
-        ASSERT(strcmp(buf,
+        ASSERT(strcmp(dbuf,
                       IF_X64_ELSE("lods   %ds:(%rsi)[4byte] %rsi -> %eax %rsi\n",
                                   "lods   %ds:(%esi)[4byte] %esi -> %eax %esi\n")) == 0);
     }
 #ifdef X64
     {
         const byte b3[] = { 0x48, 0xad };
-        pc = disassemble_to_buffer(dc, (byte *)b3, (byte *)b3, false, false, buf,
-                                   BUFFER_SIZE_ELEMENTS(buf), &len);
+        pc = disassemble_to_buffer(dc, (byte *)b3, (byte *)b3, false, false, dbuf,
+                                   BUFFER_SIZE_ELEMENTS(dbuf), &len);
         ASSERT(pc != NULL);
-        ASSERT(strcmp(buf, "lods   %ds:(%rsi)[8byte] %rsi -> %rax %rsi\n") == 0);
+        ASSERT(strcmp(dbuf, "lods   %ds:(%rsi)[8byte] %rsi -> %rax %rsi\n") == 0);
     }
 #endif
 
@@ -1476,14 +1537,14 @@ test_disasm_sizes(void *dc)
         const byte b1[] = { 0xc7, 0x80, 0x90, 0xe4, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 };
         const byte b2[] = { 0x48, 0xc7, 0x80, 0x90, 0xe4, 0xff,
                             0xff, 0x00, 0x00, 0x00, 0x00 };
-        pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false, false, buf,
-                                   BUFFER_SIZE_ELEMENTS(buf), &len);
+        pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false, false, dbuf,
+                                   BUFFER_SIZE_ELEMENTS(dbuf), &len);
         ASSERT(pc != NULL);
-        ASSERT(strcmp(buf, "mov    $0x00000000 -> 0xffffe490(%rax)[4byte]\n") == 0);
-        pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false, false, buf,
-                                   BUFFER_SIZE_ELEMENTS(buf), &len);
+        ASSERT(strcmp(dbuf, "mov    $0x00000000 -> 0xffffe490(%rax)[4byte]\n") == 0);
+        pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false, false, dbuf,
+                                   BUFFER_SIZE_ELEMENTS(dbuf), &len);
         ASSERT(pc != NULL);
-        ASSERT(strcmp(buf, "mov    $0x0000000000000000 -> 0xffffe490(%rax)[8byte]\n") ==
+        ASSERT(strcmp(dbuf, "mov    $0x0000000000000000 -> 0xffffe490(%rax)[8byte]\n") ==
                0);
     }
 #endif
@@ -1635,7 +1696,7 @@ test_stack_pointer_size(void *dc)
      * there uses -syntax_intel.  We could make a new raw DR-style test.
      */
     byte *pc;
-    char buf[512];
+    char dbuf[512];
     int len;
     const byte bytes_push[] = { 0x67, 0x51 };
     const byte bytes_ret[] = { 0x67, 0xc3 };
@@ -1644,26 +1705,27 @@ test_stack_pointer_size(void *dc)
 
     pc =
         disassemble_to_buffer(dc, (byte *)bytes_push, (byte *)bytes_push, false /*no pc*/,
-                              false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL && pc - (byte *)bytes_push == sizeof(bytes_push));
-    ASSERT(strcmp(buf,
+    ASSERT(strcmp(dbuf,
                   IF_X64_ELSE(
                       "addr32 push   %rcx %rsp -> %rsp 0xfffffff8(%rsp)[8byte]\n",
                       "addr16 push   %ecx %esp -> %esp 0xfffffffc(%esp)[4byte]\n")) == 0);
 
-    pc = disassemble_to_buffer(dc, (byte *)bytes_ret, (byte *)bytes_ret, false /*no pc*/,
-                               false /*no bytes*/, buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    pc =
+        disassemble_to_buffer(dc, (byte *)bytes_ret, (byte *)bytes_ret, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL && pc - (byte *)bytes_ret == sizeof(bytes_ret));
-    ASSERT(strcmp(buf,
+    ASSERT(strcmp(dbuf,
                   IF_X64_ELSE("addr32 ret    %rsp (%rsp)[8byte] -> %rsp\n",
                               "addr16 ret    %esp (%esp)[4byte] -> %esp\n")) == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)bytes_enter, (byte *)bytes_enter,
-                               false /*no pc*/, false /*no bytes*/, buf,
-                               BUFFER_SIZE_ELEMENTS(buf), &len);
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL && pc - (byte *)bytes_enter == sizeof(bytes_enter));
     ASSERT(
-        strcmp(buf,
+        strcmp(dbuf,
                IF_X64_ELSE(
                    "addr32 enter  $0xcdab $0xef %rsp %rbp -> %rsp 0xfffffff8(%rsp)[8byte]"
                    " %rbp\n",
@@ -1671,10 +1733,10 @@ test_stack_pointer_size(void *dc)
                    " %ebp\n")) == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)bytes_leave, (byte *)bytes_leave,
-                               false /*no pc*/, false /*no bytes*/, buf,
-                               BUFFER_SIZE_ELEMENTS(buf), &len);
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL && pc - (byte *)bytes_leave == sizeof(bytes_leave));
-    ASSERT(strcmp(buf,
+    ASSERT(strcmp(dbuf,
                   IF_X64_ELSE("addr32 leave  %rbp %rsp (%rbp)[8byte] -> %rsp %rbp\n",
                               "addr16 leave  %ebp %esp (%ebp)[4byte] -> %esp %ebp\n")) ==
            0);
@@ -1757,7 +1819,9 @@ main(int argc, char *argv[])
      */
     test_all_opcodes_3_avx512_evex_mask(dcontext);
     test_disas_3_avx512_evex_mask(dcontext);
+    test_all_opcodes_5_avx512_evex_mask(dcontext);
     test_all_opcodes_4_avx512_evex_mask(dcontext);
+    test_all_opcodes_4_avx512_evex(dcontext);
     test_all_opcodes_3_avx512_evex(dcontext);
     test_all_opcodes_2_avx512_evex(dcontext);
 #endif

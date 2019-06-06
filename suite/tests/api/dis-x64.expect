@@ -145,7 +145,7 @@
 +0x014e   9b                   fwait
 +0x014f   16...??              <INVALID>
 +0x0150   c5 c5 a8...??        <INVALID>
-+0x0151   c5 a8...??           <INVALID>
++0x0151   c5 a8 7b cc...??     <INVALID>
 +0x0152   a8 7b                test   al, 0x7b
 +0x0154   cc                   int3
 +0x0155   a7                   cmpsd

@@ -2134,7 +2134,8 @@ static void
 vmvector_free_vector(dcontext_t *dcontext, vm_area_vector_t *v)
 {
     vmvector_reset_vector(dcontext, v);
-    DELETE_READWRITE_LOCK(v->lock);
+    if (!TEST(VECTOR_NO_LOCK, v->flags))
+        DELETE_READWRITE_LOCK(v->lock);
 }
 
 /* frees the vm_area_vector_t v and its associated memory */

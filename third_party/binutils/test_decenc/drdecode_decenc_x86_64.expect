@@ -1221,12 +1221,12 @@ test_x86_64_s:
  c5 ca 5e d4          vdivss %xmm6, %xmm4, %xmm2
  c4 e3 49 41 d4 07    vdppd  %xmm6, %xmm4, $0x07, %xmm2
  c4 e3 4d 40 d4 07    vdpps  %ymm6, %ymm4, $0x07, %ymm2
- c4 e3 79 17 e1 07    vextractps %xmm4, $0x07, %ecx
+ c4 e3 79 17 e1 07    vextractps $0x07, %xmm4, %ecx
  c5 cd 7c d4          vhaddpd %ymm6, %ymm4, %ymm2
  c5 cf 7c d4          vhaddps %ymm6, %ymm4, %ymm2
  c5 cd 7d d4          vhsubpd %ymm6, %ymm4, %ymm2
  c5 cf 7d d4          vhsubps %ymm6, %ymm4, %ymm2
- c4 e3 49 21 d4 07    vinsertps %xmm6, %xmm4, $0x07, %xmm2
+ c4 e3 49 21 d4 07    vinsertps $0x07, %xmm6, %xmm4, %xmm2
  c5 ff f0 21          vlddqu (%rcx), %ymm4
  c5 f8 ae 11          vldmxcsr (%rcx)
  c5 f9 f7 f4          vmaskmovdqu %xmm6, %xmm4
@@ -1284,9 +1284,9 @@ test_x86_64_s:
  c5 ca 59 d4          vmulss %xmm6, %xmm4, %xmm2
  c5 cd 56 d4          vorpd  %ymm6, %ymm4, %ymm2
  c5 cc 56 d4          vorps  %ymm6, %ymm4, %ymm2
- c4 e2 79 1c f4       vpabsb %xmm0, %xmm4, %xmm6
- c4 e2 79 1e f4       vpabsd %xmm0, %xmm4, %xmm6
- c4 e2 79 1d f4       vpabsw %xmm0, %xmm4, %xmm6
+ c4 e2 79 1c f4       vpabsb %xmm4, %xmm6
+ c4 e2 79 1e f4       vpabsd %xmm4, %xmm6
+ c4 e2 79 1d f4       vpabsw %xmm4, %xmm6
  c5 c9 6b d4          vpackssdw %xmm6, %xmm4, %xmm2
  c5 c9 63 d4          vpacksswb %xmm6, %xmm4, %xmm2
  c4 e2 49 2b d4       vpackusdw %xmm6, %xmm4, %xmm2
@@ -1724,7 +1724,7 @@ test_x86_64_s:
  c4 e3 6d 4b 39 40    vblendvpd %ymm2, (%rcx), %ymm4, %ymm7
  c4 e3 6d 4a fe 40    vblendvps %ymm2, %ymm6, %ymm4, %ymm7
  c4 e3 6d 4a 39 40    vblendvps %ymm2, (%rcx), %ymm4, %ymm7
- c4 e3 5d 18 f4 07    vinsertf128 %ymm4, %ymm4, $0x07, %ymm6
+ c4 e3 5d 18 f4 07    vinsertf128 %ymm4, %xmm4, $0x07, %ymm6
  c4 e3 5d 18 31 07    vinsertf128 %ymm4, (%rcx), $0x07, %ymm6
  c4 e3 7d 19 e4 07    vextractf128 %ymm4, $0x07, %xmm4
  c4 e3 7d 19 21 07    vextractf128 %ymm4, $0x07, (%rcx)
@@ -1757,12 +1757,12 @@ test_x86_64_s:
  c5 f9 10 21          vmovupd (%rcx), %xmm4
  c5 f8 10 f4          vmovups %xmm4, %xmm6
  c5 f8 10 21          vmovups (%rcx), %xmm4
- c4 e2 79 1c f4       vpabsb %xmm0, %xmm4, %xmm6
- c4 e2 79 1c 21       vpabsb %xmm0, (%rcx), %xmm4
- c4 e2 79 1d f4       vpabsw %xmm0, %xmm4, %xmm6
- c4 e2 79 1d 21       vpabsw %xmm0, (%rcx), %xmm4
- c4 e2 79 1e f4       vpabsd %xmm0, %xmm4, %xmm6
- c4 e2 79 1e 21       vpabsd %xmm0, (%rcx), %xmm4
+ c4 e2 79 1c f4       vpabsb %xmm4, %xmm6
+ c4 e2 79 1c 21       vpabsb (%rcx), %xmm4
+ c4 e2 79 1d f4       vpabsw %xmm4, %xmm6
+ c4 e2 79 1d 21       vpabsw (%rcx), %xmm4
+ c4 e2 79 1e f4       vpabsd %xmm4, %xmm6
+ c4 e2 79 1e 21       vpabsd (%rcx), %xmm4
  c4 e2 79 41 f4       vphminposuw %xmm4, %xmm6
  c4 e2 79 41 21       vphminposuw (%rcx), %xmm4
  c4 e2 79 17 f4       vptest %xmm6, %xmm4
@@ -2492,12 +2492,12 @@ test_x86_64_s:
  c5 f9 50 cc          vmovmskpd %xmm4, %rcx
  c5 f8 50 cc          vmovmskps %xmm4, %rcx
  c5 f9 d7 cc          vpmovmskb %xmm4, %ecx
- c4 e3 79 17 e1 07    vextractps %xmm4, $0x07, %ecx
- c4 e3 79 17 21 07    vextractps %xmm4, $0x07, (%rcx)
+ c4 e3 79 17 e1 07    vextractps $0x07, %xmm4, %ecx
+ c4 e3 79 17 21 07    vextractpsl $0x07, %xmm4, (%rcx)
  c4 e3 79 16 e1 07    vpextrd %xmm4, $0x07, %ecx
  c4 e3 79 16 21 07    vpextrd %xmm4, $0x07, (%rcx)
- c4 e3 79 17 e1 07    vextractps %xmm4, $0x07, %ecx
- c4 e3 79 17 21 07    vextractps %xmm4, $0x07, (%rcx)
+ c4 e3 79 17 e1 07    vextractps $0x07, %xmm4, %ecx
+ c4 e3 79 17 21 07    vextractpsl $0x07, %xmm4, (%rcx)
  c4 e3 59 22 f1 07    vpinsrd %xmm4, %ecx, $0x07, %xmm6
  c4 e3 59 22 31 07    vpinsrd %xmm4, (%rcx), $0x07, %xmm6
  c5 db 2a f1          vcvtsi2sd %xmm4, %ecx, %xmm6
@@ -2506,8 +2506,8 @@ test_x86_64_s:
  c5 da 2a 31          vcvtsi2ss %xmm4, (%rcx), %xmm6
  c5 ca c2 d4 07       vcmpss %xmm6, %xmm4, $0x07, %xmm2
  c5 ca c2 11 07       vcmpss %xmm6, (%rcx), $0x07, %xmm2
- c4 e3 49 21 d4 07    vinsertps %xmm6, %xmm4, $0x07, %xmm2
- c4 e3 49 21 11 07    vinsertps %xmm6, (%rcx), $0x07, %xmm2
+ c4 e3 49 21 d4 07    vinsertps $0x07, %xmm6, %xmm4, %xmm2
+ c4 e3 49 21 11 07    vinsertps $0x07, %xmm6, (%rcx), %xmm2
  c4 e3 49 0a d4 07    vroundss %xmm6, %xmm4, $0x07, %xmm2
  c4 e3 49 0a 11 07    vroundss %xmm6, (%rcx), $0x07, %xmm2
  c4 e2 79 22 f4       vpmovsxbq %xmm4, %xmm6
@@ -3209,9 +3209,9 @@ test_x86_64_s:
  c4 43 7d 19 c0 07    vextractf128 %ymm8, $0x07, %xmm8
  c4 43 05 06 e0 07    vperm2f128 %ymm15, %ymm8, $0x07, %ymm12
  c4 43 1d 4b f7 80    vblendvpd %ymm12, %ymm15, %ymm8, %ymm14
- c4 43 3d 18 f8 07    vinsertf128 %ymm8, %ymm8, $0x07, %ymm15
+ c4 43 3d 18 f8 07    vinsertf128 %ymm8, %xmm8, $0x07, %ymm15
  c4 61 fb 2d 01       vcvtsd2si (%rcx), %r8
- c4 43 79 17 c0 0a    vextractps %xmm8, $0x0a, %r8d
+ c4 43 79 17 c0 0a    vextractps $0x0a, %xmm8, %r8d
  c4 61 fa 2d 01       vcvtss2si (%rcx), %r8
  c4 41 01 c4 c0 07    vpinsrw %xmm15, %r8d, $0x07, %xmm8
  c5 f8 ae 11          vldmxcsr (%rcx)
@@ -3645,7 +3645,7 @@ test_x86_64_s:
  c4 e3 6d 4a fe 40    vblendvps %ymm2, %ymm6, %ymm4, %ymm7
  c4 e3 6d 4a 39 40    vblendvps %ymm2, (%rcx), %ymm4, %ymm7
  c4 e3 6d 4a 39 40    vblendvps %ymm2, (%rcx), %ymm4, %ymm7
- c4 e3 5d 18 f4 07    vinsertf128 %ymm4, %ymm4, $0x07, %ymm6
+ c4 e3 5d 18 f4 07    vinsertf128 %ymm4, %xmm4, $0x07, %ymm6
  c4 e3 5d 18 31 07    vinsertf128 %ymm4, (%rcx), $0x07, %ymm6
  c4 e3 5d 18 31 07    vinsertf128 %ymm4, (%rcx), $0x07, %ymm6
  c4 e3 7d 19 e4 07    vextractf128 %ymm4, $0x07, %xmm4
@@ -3692,15 +3692,15 @@ test_x86_64_s:
  c5 f8 10 f4          vmovups %xmm4, %xmm6
  c5 f8 10 21          vmovups (%rcx), %xmm4
  c5 f8 10 21          vmovups (%rcx), %xmm4
- c4 e2 79 1c f4       vpabsb %xmm0, %xmm4, %xmm6
- c4 e2 79 1c 21       vpabsb %xmm0, (%rcx), %xmm4
- c4 e2 79 1c 21       vpabsb %xmm0, (%rcx), %xmm4
- c4 e2 79 1d f4       vpabsw %xmm0, %xmm4, %xmm6
- c4 e2 79 1d 21       vpabsw %xmm0, (%rcx), %xmm4
- c4 e2 79 1d 21       vpabsw %xmm0, (%rcx), %xmm4
- c4 e2 79 1e f4       vpabsd %xmm0, %xmm4, %xmm6
- c4 e2 79 1e 21       vpabsd %xmm0, (%rcx), %xmm4
- c4 e2 79 1e 21       vpabsd %xmm0, (%rcx), %xmm4
+ c4 e2 79 1c f4       vpabsb %xmm4, %xmm6
+ c4 e2 79 1c 21       vpabsb (%rcx), %xmm4
+ c4 e2 79 1c 21       vpabsb (%rcx), %xmm4
+ c4 e2 79 1d f4       vpabsw %xmm4, %xmm6
+ c4 e2 79 1d 21       vpabsw (%rcx), %xmm4
+ c4 e2 79 1d 21       vpabsw (%rcx), %xmm4
+ c4 e2 79 1e f4       vpabsd %xmm4, %xmm6
+ c4 e2 79 1e 21       vpabsd (%rcx), %xmm4
+ c4 e2 79 1e 21       vpabsd (%rcx), %xmm4
  c4 e2 79 41 f4       vphminposuw %xmm4, %xmm6
  c4 e2 79 41 21       vphminposuw (%rcx), %xmm4
  c4 e2 79 41 21       vphminposuw (%rcx), %xmm4
@@ -4801,15 +4801,15 @@ test_x86_64_s:
  c5 f9 50 cc          vmovmskpd %xmm4, %rcx
  c5 f8 50 cc          vmovmskps %xmm4, %rcx
  c5 f9 d7 cc          vpmovmskb %xmm4, %ecx
- c4 e3 79 17 e1 07    vextractps %xmm4, $0x07, %ecx
- c4 e3 79 17 21 07    vextractps %xmm4, $0x07, (%rcx)
- c4 e3 79 17 21 07    vextractps %xmm4, $0x07, (%rcx)
+ c4 e3 79 17 e1 07    vextractps $0x07, %xmm4, %ecx
+ c4 e3 79 17 21 07    vextractpsl $0x07, %xmm4, (%rcx)
+ c4 e3 79 17 21 07    vextractpsl $0x07, %xmm4, (%rcx)
  c4 e3 79 16 e1 07    vpextrd %xmm4, $0x07, %ecx
  c4 e3 79 16 21 07    vpextrd %xmm4, $0x07, (%rcx)
  c4 e3 79 16 21 07    vpextrd %xmm4, $0x07, (%rcx)
- c4 e3 79 17 e1 07    vextractps %xmm4, $0x07, %ecx
- c4 e3 79 17 21 07    vextractps %xmm4, $0x07, (%rcx)
- c4 e3 79 17 21 07    vextractps %xmm4, $0x07, (%rcx)
+ c4 e3 79 17 e1 07    vextractps $0x07, %xmm4, %ecx
+ c4 e3 79 17 21 07    vextractpsl $0x07, %xmm4, (%rcx)
+ c4 e3 79 17 21 07    vextractpsl $0x07, %xmm4, (%rcx)
  c4 e3 59 22 f1 07    vpinsrd %xmm4, %ecx, $0x07, %xmm6
  c4 e3 59 22 31 07    vpinsrd %xmm4, (%rcx), $0x07, %xmm6
  c4 e3 59 22 31 07    vpinsrd %xmm4, (%rcx), $0x07, %xmm6
@@ -4820,9 +4820,9 @@ test_x86_64_s:
  c5 ca c2 d4 07       vcmpss %xmm6, %xmm4, $0x07, %xmm2
  c5 ca c2 11 07       vcmpss %xmm6, (%rcx), $0x07, %xmm2
  c5 ca c2 11 07       vcmpss %xmm6, (%rcx), $0x07, %xmm2
- c4 e3 49 21 d4 07    vinsertps %xmm6, %xmm4, $0x07, %xmm2
- c4 e3 49 21 11 07    vinsertps %xmm6, (%rcx), $0x07, %xmm2
- c4 e3 49 21 11 07    vinsertps %xmm6, (%rcx), $0x07, %xmm2
+ c4 e3 49 21 d4 07    vinsertps $0x07, %xmm6, %xmm4, %xmm2
+ c4 e3 49 21 11 07    vinsertps $0x07, %xmm6, (%rcx), %xmm2
+ c4 e3 49 21 11 07    vinsertps $0x07, %xmm6, (%rcx), %xmm2
  c4 e3 49 0a d4 07    vroundss %xmm6, %xmm4, $0x07, %xmm2
  c4 e3 49 0a 11 07    vroundss %xmm6, (%rcx), $0x07, %xmm2
  c4 e3 49 0a 11 07    vroundss %xmm6, (%rcx), $0x07, %xmm2
@@ -5513,16 +5513,16 @@ test_x86_64_s:
  c4 43 7d 19 c0 07    vextractf128 %ymm8, $0x07, %xmm8
  c4 43 05 06 e0 07    vperm2f128 %ymm15, %ymm8, $0x07, %ymm12
  c4 43 1d 4b f7 80    vblendvpd %ymm12, %ymm15, %ymm8, %ymm14
- c4 43 3d 18 f8 07    vinsertf128 %ymm8, %ymm8, $0x07, %ymm15
+ c4 43 3d 18 f8 07    vinsertf128 %ymm8, %xmm8, $0x07, %ymm15
  c4 61 fb 2d 01       vcvtsd2si (%rcx), %r8
- c4 43 79 17 c0 0a    vextractps %xmm8, $0x0a, %r8d
+ c4 43 79 17 c0 0a    vextractps $0x0a, %xmm8, %r8d
  c4 61 fa 2d 01       vcvtss2si (%rcx), %r8
  c4 41 01 c4 c0 07    vpinsrw %xmm15, %r8d, $0x07, %xmm8
  c4 e2 7d 2a 21       vmovntdqa %ymm4, (%rcx)
  c4 e3 4d 42 d4 07    vmpsadbw %ymm6, %ymm4, $0x07, %ymm2
- c4 e2 7d 1c f4       vpabsb %ymm0, %ymm4, %ymm6
- c4 e2 7d 1e f4       vpabsd %ymm0, %ymm4, %ymm6
- c4 e2 7d 1d f4       vpabsw %ymm0, %ymm4, %ymm6
+ c4 e2 7d 1c f4       vpabsb %ymm4, %ymm6
+ c4 e2 7d 1e f4       vpabsd %ymm4, %ymm6
+ c4 e2 7d 1d f4       vpabsw %ymm4, %ymm6
  c5 cd 6b d4          vpackssdw %ymm6, %ymm4, %ymm2
  c5 cd 63 d4          vpacksswb %ymm6, %ymm4, %ymm2
  c4 e2 4d 2b d4       vpackusdw %ymm6, %ymm4, %ymm2
@@ -5962,12 +5962,12 @@ test_x86_64_s:
  c5 cd 6c 11          vpunpcklqdq %ymm6, (%rcx), %ymm2
  c5 cd ef d4          vpxor  %ymm6, %ymm4, %ymm2
  c5 cd ef 11          vpxor  %ymm6, (%rcx), %ymm2
- c4 e2 7d 1c f4       vpabsb %ymm0, %ymm4, %ymm6
- c4 e2 7d 1c 21       vpabsb %ymm0, (%rcx), %ymm4
- c4 e2 7d 1d f4       vpabsw %ymm0, %ymm4, %ymm6
- c4 e2 7d 1d 21       vpabsw %ymm0, (%rcx), %ymm4
- c4 e2 7d 1e f4       vpabsd %ymm0, %ymm4, %ymm6
- c4 e2 7d 1e 21       vpabsd %ymm0, (%rcx), %ymm4
+ c4 e2 7d 1c f4       vpabsb %ymm4, %ymm6
+ c4 e2 7d 1c 21       vpabsb (%rcx), %ymm4
+ c4 e2 7d 1d f4       vpabsw %ymm4, %ymm6
+ c4 e2 7d 1d 21       vpabsw (%rcx), %ymm4
+ c4 e2 7d 1e f4       vpabsd %ymm4, %ymm6
+ c4 e2 7d 1e 21       vpabsd (%rcx), %ymm4
  c4 e3 4d 42 d4 07    vmpsadbw %ymm6, %ymm4, $0x07, %ymm2
  c4 e3 4d 42 11 07    vmpsadbw %ymm6, (%rcx), $0x07, %ymm2
  c4 e3 4d 0f d4 07    vpalignr %ymm6, %ymm4, $0x07, %ymm2
@@ -6259,15 +6259,15 @@ test_x86_64_s:
  c5 cd ef d4          vpxor  %ymm6, %ymm4, %ymm2
  c5 cd ef 11          vpxor  %ymm6, (%rcx), %ymm2
  c5 cd ef 11          vpxor  %ymm6, (%rcx), %ymm2
- c4 e2 7d 1c f4       vpabsb %ymm0, %ymm4, %ymm6
- c4 e2 7d 1c 21       vpabsb %ymm0, (%rcx), %ymm4
- c4 e2 7d 1c 21       vpabsb %ymm0, (%rcx), %ymm4
- c4 e2 7d 1d f4       vpabsw %ymm0, %ymm4, %ymm6
- c4 e2 7d 1d 21       vpabsw %ymm0, (%rcx), %ymm4
- c4 e2 7d 1d 21       vpabsw %ymm0, (%rcx), %ymm4
- c4 e2 7d 1e f4       vpabsd %ymm0, %ymm4, %ymm6
- c4 e2 7d 1e 21       vpabsd %ymm0, (%rcx), %ymm4
- c4 e2 7d 1e 21       vpabsd %ymm0, (%rcx), %ymm4
+ c4 e2 7d 1c f4       vpabsb %ymm4, %ymm6
+ c4 e2 7d 1c 21       vpabsb (%rcx), %ymm4
+ c4 e2 7d 1c 21       vpabsb (%rcx), %ymm4
+ c4 e2 7d 1d f4       vpabsw %ymm4, %ymm6
+ c4 e2 7d 1d 21       vpabsw (%rcx), %ymm4
+ c4 e2 7d 1d 21       vpabsw (%rcx), %ymm4
+ c4 e2 7d 1e f4       vpabsd %ymm4, %ymm6
+ c4 e2 7d 1e 21       vpabsd (%rcx), %ymm4
+ c4 e2 7d 1e 21       vpabsd (%rcx), %ymm4
  c4 e3 4d 42 d4 07    vmpsadbw %ymm6, %ymm4, $0x07, %ymm2
  c4 e3 4d 42 11 07    vmpsadbw %ymm6, (%rcx), $0x07, %ymm2
  c4 e3 4d 42 11 07    vmpsadbw %ymm6, (%rcx), $0x07, %ymm2
@@ -38937,8 +38937,8 @@ test_x86_64_s:
  c5 f9 d6 00          vmovq  %xmm0, (%rax)
  c4 e1 79 d6 c0       vmovq  %xmm0, %xmm0
  c4 e1 79 d6 00       vmovq  %xmm0, (%rax)
- c4 e3 79 17 c0 00    vextractps %xmm0, $0x00, %eax
- c4 e3 79 17 00 00    vextractps %xmm0, $0x00, (%rax)
+ c4 e3 79 17 c0 00    vextractps $0x00, %xmm0, %eax
+ c4 e3 79 17 00 00    vextractpsl $0x00, %xmm0, (%rax)
  c4 e3 79 14 c0 00    vpextrb %xmm0, $0x00, %eax
  c4 e3 79 14 00 00    vpextrb %xmm0, $0x00, (%rax)
  c5 f9 c5 c0 00       vpextrw %xmm0, $0x00, %eax
@@ -38949,8 +38949,8 @@ test_x86_64_s:
  c4 e3 79 16 00 00    vpextrd %xmm0, $0x00, (%rax)
  c4 e3 f9 16 c0 00    vpextrq %xmm0, $0x00, %rax
  c4 e3 f9 16 00 00    vpextrq %xmm0, $0x00, (%rax)
- c4 e3 79 21 c0 00    vinsertps %xmm0, %xmm0, $0x00, %xmm0
- c4 e3 79 21 00 00    vinsertps %xmm0, (%rax), $0x00, %xmm0
+ c4 e3 79 21 c0 00    vinsertps $0x00, %xmm0, %xmm0, %xmm0
+ c4 e3 79 21 00 00    vinsertps $0x00, %xmm0, (%rax), %xmm0
  c4 e3 79 20 c0 00    vpinsrb %xmm0, %eax, $0x00, %xmm0
  c4 e3 79 20 00 00    vpinsrb %xmm0, (%rax), $0x00, %xmm0
  c5 f9 c4 c0 00       vpinsrw %xmm0, %eax, $0x00, %xmm0
