@@ -848,7 +848,7 @@ ntdll_redir_fls_init(PEB *app_peb, PEB *private_peb)
     /* FLS is supported in WinXP-64 or later */
     ASSERT(get_os_version() >= WINDOWS_VERSION_2003);
 
-    /* FIXME i#3633: Implement FLS isolation in Win10 1903+ where FLS data is no longer
+    /* i#3633: Implement FLS isolation for Win10 1903+ where FLS data is no longer
      * in the PEB. It is now SparePointers/Ulongs. We will use them as PEB->Fls*.
      */
 
@@ -890,10 +890,10 @@ ntdll_redir_fls_exit(PEB *private_peb)
                    UNPROTECTED);
 }
 
-/* XXX i#3633: Fix Windows 1903 issue. FLS is not held inside of PEB but in private
- * variables inside of ntdll.dll. In case that FLS slips, and and priv_fls_data endsup
- * in ntdll.dll internal struct. We will perform unlinking to allow program to run
- * properly.
+/* i#3633: Fix Windows 1903 issue. FLS is not held inside of PEB but in private
+ * variables inside of ntdll.dll. In case that FLS slips, and priv_fls_data ends up
+ * in ntdll.dll internal struct, we will perform unlinking to prevent crashes which
+ * can happen if priv_fls_data remains inside of ntdll.dll.
  */
 void
 ntdll_redir_fls_thread_exit(PPVOID fls_data_ptr)

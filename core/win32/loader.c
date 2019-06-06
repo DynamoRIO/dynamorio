@@ -412,8 +412,9 @@ os_loader_thread_init_epilogue(dcontext_t *dcontext)
 void
 os_loader_thread_exit(dcontext_t *dcontext)
 {
-    /* XXX i#3633: In case of windows 1903 if priv_fls_data endsup in internal lists of
-     * ntdll.dll for FLS, we have to unlink them manually. We do unlinking always.
+    /* i#3633: In case of windows 1903 if priv_fls_data ends up in internal list of
+     * ntdll.dll, we have to unlink it manually. We do unlinking always on thread
+     * exit.
      */
     ntdll_redir_fls_thread_exit(dcontext->priv_fls_data);
 }
