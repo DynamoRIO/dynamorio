@@ -1496,7 +1496,9 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_9b:     /* round up */
     case OPSZ_10b:
     case OPSZ_11b:
-    case OPSZ_12b: return 2;
+    case OPSZ_12b:
+    case OPSZ_eighth_16_vex32:
+    case OPSZ_eighth_16_vex32_evex64: return 2;
     case OPSZ_20b: /* round up */
     case OPSZ_3: return 3;
     case OPSZ_4_of_8:
@@ -1513,7 +1515,9 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_4_rex8:
     case OPSZ_4:
     case OPSZ_4_reg16: /* mem size */
-    case OPSZ_25b: /* round up */ return 4;
+    case OPSZ_25b:     /* round up */
+    case OPSZ_quarter_16_vex32:
+    case OPSZ_quarter_16_vex32_evex64: return 4;
     case OPSZ_6_irex10_short4: /* default size */
     case OPSZ_6: return 6;
     case OPSZ_8_of_16:

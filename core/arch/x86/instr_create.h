@@ -1447,6 +1447,16 @@
 #define INSTR_CREATE_ktestb(dc, d, s) instr_create_1dst_1src((dc), OP_ktestb, (d), (s))
 #define INSTR_CREATE_ktestq(dc, d, s) instr_create_1dst_1src((dc), OP_ktestq, (d), (s))
 #define INSTR_CREATE_ktestd(dc, d, s) instr_create_1dst_1src((dc), OP_ktestd, (d), (s))
+/* AVX-512 EVEX */
+#define INSTR_CREATE_vmovd_mask(dc, d, s) instr_create_1dst_1src((dc), OP_vmovd, (d), (s))
+#define INSTR_CREATE_vpmovm2b(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovm2b, (d), (s))
+#define INSTR_CREATE_vpmovm2w(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovm2w, (d), (s))
+#define INSTR_CREATE_vpmovm2d(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovm2d, (d), (s))
+#define INSTR_CREATE_vpmovm2q(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovm2q, (d), (s))
+#define INSTR_CREATE_vpmovb2m(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovb2m, (d), (s))
+#define INSTR_CREATE_vpmovw2m(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovw2m, (d), (s))
+#define INSTR_CREATE_vpmovd2m(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovd2m, (d), (s))
+#define INSTR_CREATE_vpmovq2m(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovq2m, (d), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
@@ -1749,6 +1759,28 @@
     instr_create_1dst_2src((dc), OP_pinsrd, (d), (s), (i))
 #define INSTR_CREATE_aeskeygenassist(dc, d, s, i) \
     instr_create_1dst_2src((dc), OP_aeskeygenassist, (d), (s), (i))
+/* @} */ /* end doxygen group */
+
+/* 1 destination, 2 sources */
+/** @name 1 destination, 1 mask, and 2 sources */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param k The opnd_t explicit mask source operand for the instruction.
+ * \param i The opnd_t explicit second source operand for the instruction, which
+ * \param s The opnd_t explicit source operand for the instruction.
+ * must be an immediate integer (opnd_create_immed_int()).
+ */
+/* AVX-512 EVEX */
+#define INSTR_CREATE_vpshufhw_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vpshufhw, (d), (k), (i), (s))
+#define INSTR_CREATE_vpshufd_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vpshufd, (d), (k), (i), (s))
+#define INSTR_CREATE_vpshuflw_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vpshuflw, (d), (k), (i), (s))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 2 non-immediate sources */
@@ -2344,6 +2376,74 @@
     instr_create_1dst_2src((dc), OP_vrcp28ps, (d), (k), (s))
 #define INSTR_CREATE_vrcp28pd_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vrcp28pd, (d), (k), (s))
+#define INSTR_CREATE_vpmovsxbw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsxbw, (d), (k), (s))
+#define INSTR_CREATE_vpmovsxbd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsxbd, (d), (k), (s))
+#define INSTR_CREATE_vpmovsxbq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsxbq, (d), (k), (s))
+#define INSTR_CREATE_vpmovsxwd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsxwd, (d), (k), (s))
+#define INSTR_CREATE_vpmovsxwq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsxwq, (d), (k), (s))
+#define INSTR_CREATE_vpmovsxdq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsxdq, (d), (k), (s))
+#define INSTR_CREATE_vpmovzxbw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovzxbw, (d), (k), (s))
+#define INSTR_CREATE_vpmovzxbd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovzxbd, (d), (k), (s))
+#define INSTR_CREATE_vpmovzxbq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovzxbq, (d), (k), (s))
+#define INSTR_CREATE_vpmovzxwd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovzxwd, (d), (k), (s))
+#define INSTR_CREATE_vpmovzxwq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovzxwq, (d), (k), (s))
+#define INSTR_CREATE_vpmovzxdq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovzxdq, (d), (k), (s))
+#define INSTR_CREATE_vpmovqb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovqb, (d), (k), (s))
+#define INSTR_CREATE_vpmovsqb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsqb, (d), (k), (s))
+#define INSTR_CREATE_vpmovusqb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovusqb, (d), (k), (s))
+#define INSTR_CREATE_vpmovqw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovqw, (d), (k), (s))
+#define INSTR_CREATE_vpmovsqw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsqw, (d), (k), (s))
+#define INSTR_CREATE_vpmovusqw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovusqw, (d), (k), (s))
+#define INSTR_CREATE_vpmovqd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovqd, (d), (k), (s))
+#define INSTR_CREATE_vpmovsqd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsqd, (d), (k), (s))
+#define INSTR_CREATE_vpmovusqd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovusqd, (d), (k), (s))
+#define INSTR_CREATE_vpmovdb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovdb, (d), (k), (s))
+#define INSTR_CREATE_vpmovsdb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsdb, (d), (k), (s))
+#define INSTR_CREATE_vpmovusdb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovusdb, (d), (k), (s))
+#define INSTR_CREATE_vpmovdw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovdw, (d), (k), (s))
+#define INSTR_CREATE_vpmovsdw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsdw, (d), (k), (s))
+#define INSTR_CREATE_vpmovusdw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovusdw, (d), (k), (s))
+#define INSTR_CREATE_vpmovwb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovwb, (d), (k), (s))
+#define INSTR_CREATE_vpmovswb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovswb, (d), (k), (s))
+#define INSTR_CREATE_vpmovuswb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovuswb, (d), (k), (s))
+#define INSTR_CREATE_vpmovm2b_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovm2b, (d), (k), (s))
+#define INSTR_CREATE_vpmovm2w_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovm2w, (d), (k), (s))
+#define INSTR_CREATE_vpmovm2d_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovm2d, (d), (k), (s))
+#define INSTR_CREATE_vpmovm2q_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovm2q, (d), (k), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -3366,6 +3466,8 @@
     instr_create_1dst_3src((dc), OP_vrcp28ss, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vrcp28sd_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vrcp28sd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpshufb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpshufb, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
@@ -3895,7 +3997,7 @@
  * \param s2 The opnd_t explicit second source operand for the instruction.
  * must be an immediate integer (opnd_create_immed_int()).
  */
-/* AVX-512 */
+/* AVX-512 EVEX */
 #define INSTR_CREATE_vinsertf32x4_mask(dc, d, k, i, s1, s2) \
     instr_create_1dst_4src((dc), OP_vinsertf32x4, (d), (k), (i), (s1), (s2))
 #define INSTR_CREATE_vinsertf64x2_mask(dc, d, k, i, s1, s2) \
