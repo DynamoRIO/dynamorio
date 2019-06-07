@@ -198,8 +198,8 @@ ASSUME fs:_DATA @N@\
 #  define PUSH_SEH(reg) push reg @N@ .pushreg reg
 /* Push a volatile register or an immed in prolog: */
 #  define PUSH_NONCALLEE_SEH(reg) push reg @N@ .allocstack 8
-# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGMMENT - ARG_SZ @N@ .allocstack 16
-# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGMMENT - ARG_SZ @N@ .allocstack 16
+# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGMMENT - ARG_SZ @N@ .allocstack 8
+# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGMMENT - ARG_SZ @N@
 #  define END_PROLOG .endprolog
 # else
 #  define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
@@ -403,6 +403,9 @@ ASSUME fs:_DATA @N@\
 #  define SAVE_PRESERVED_REGS    stp REG_PRESERVED_1, LR, [sp, #-16]!
 #  define RESTORE_PRESERVED_REGS ldp REG_PRESERVED_1, LR, [sp], #16
 # endif
+
+# define ADD_STACK_ALIGNMENT
+# define RESTORE_STACK_ALIGNMENT
 
 #else /* Intel X86 */
 # ifdef X64
