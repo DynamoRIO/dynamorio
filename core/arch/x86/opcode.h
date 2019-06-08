@@ -1417,6 +1417,14 @@ enum {
     /* 1247 */ OP_vpsrlvw,       /**< IA-32/AMD64 vpsrlvw opcode. */
     /* 1248 */ OP_vpxord,        /**< IA-32/AMD64 AVX-512 OP_vpxord opcode. */
     /* 1249 */ OP_vpxorq,        /**< IA-32/AMD64 AVX-512 OP_vpxorq opcode. */
+    /* 1250 */ OP_vrcp14ps,      /**< IA-32/AMD64 AVX-512 OP_vrcp14ps opcode. */
+    /* 1251 */ OP_vrcp14pd,      /**< IA-32/AMD64 AVX-512 OP_vrcp14pd opcode. */
+    /* 1252 */ OP_vrcp14ss,      /**< IA-32/AMD64 AVX-512 OP_vrcp14ss opcode. */
+    /* 1253 */ OP_vrcp14sd,      /**< IA-32/AMD64 AVX-512 OP_vrcp14sd opcode. */
+    /* 1254 */ OP_vrcp28ps,      /**< IA-32/AMD64 AVX-512 OP_vrcp28ps opcode. */
+    /* 1255 */ OP_vrcp28pd,      /**< IA-32/AMD64 AVX-512 OP_vrcp28pd opcode. */
+    /* 1256 */ OP_vrcp28ss,      /**< IA-32/AMD64 AVX-512 OP_vrcp28ss opcode. */
+    /* 1257 */ OP_vrcp28sd,      /**< IA-32/AMD64 AVX-512 OP_vrcp28sd opcode. */
 
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
