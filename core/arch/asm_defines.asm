@@ -404,9 +404,6 @@ ASSUME fs:_DATA @N@\
 #  define RESTORE_PRESERVED_REGS ldp REG_PRESERVED_1, LR, [sp], #16
 # endif
 
-# define ADD_STACK_ALIGNMENT
-# define RESTORE_STACK_ALIGNMENT
-
 #else /* Intel X86 */
 # ifdef X64
 #  ifdef WINDOWS
