@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -77,6 +77,11 @@ struct kernel_sigaction_t {
     kernel_sigset_t mask;
 };
 
+#ifdef X86
+#    define SA_IA32_ABI 0x02000000U
+#    define SA_X32_ABI 0x01000000U
+#endif
+
 #define SIGACTSZ sizeof(struct kernel_sigaction_t)
 
 /* This is a margin used by the test program to detect writes outside
@@ -133,6 +138,9 @@ sim_sigaction(int signum, unsigned char *act, unsigned char *oldact, size_t sigs
         memcpy(&tmp_act, act, SIGACTSZ);
         kernel_sigdelset(&tmp_act.mask, SIGKILL);
         kernel_sigdelset(&tmp_act.mask, SIGSTOP);
+#ifdef X86
+        tmp_act.flags &= ~(SA_IA32_ABI | SA_X32_ABI);
+#endif
         memcpy(sigactions[signum - 1], &tmp_act, SIGACTSZ);
     }
 
