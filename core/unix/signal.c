@@ -109,6 +109,11 @@
 #ifndef SS_FLAG_BITS
 #    define SS_FLAG_BITS SS_AUTODISARM
 #endif
+#ifdef X86
+/* Kernel-only flags. */
+#    define SA_IA32_ABI 0x02000000U
+#    define SA_X32_ABI 0x01000000U
+#endif
 
 /**** data structures ***************************************************/
 
@@ -1769,6 +1774,12 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
         /* Remove the unblockable sigs */
         kernel_sigdelset(&save->mask, SIGKILL);
         kernel_sigdelset(&save->mask, SIGSTOP);
+#ifdef X86
+        /* Remove flags not allowed to be passed to the kernel (this also zeroes
+         * the top 32 bits, like the kernel does: i#3681).
+         */
+        save->flags &= ~(SA_IA32_ABI | SA_X32_ABI);
+#endif
         if (info->app_sigaction[sig] != NULL) {
             /* go ahead and toss the old one, it's up to the app to store
              * and then restore later if it wants to
