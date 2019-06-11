@@ -138,13 +138,6 @@ START_FILE
         POPF                                            @N@\
         lea      REG_XSP, [REG_XSP - PUSH_PRIV_MCXT_PRE_PC_SHIFT + ARG_SZ/*pc*/]
 
-/* This is really the alignment needed by x64 code.  For now, when we bother to
- * align the stack pointer, we just go for 16 byte alignment.  We do *not*
- * assume 16-byte alignment across the code base.
- * i#847: Investigate using aligned SSE ops (see get_xmm_caller_saved).
- */
-#define FRAME_ALIGNMENT 16
-
 /****************************************************************************/
 /****************************************************************************/
 

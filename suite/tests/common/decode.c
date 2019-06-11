@@ -708,9 +708,15 @@ DECL_EXTERN(func_ptr)
 #define FUNCNAME test_rip_rel_ind
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ADD_STACK_ALIGNMENT  /* Maintain alignment. Some system's
+                              * libc may decide to callee-save xmm
+                              * registers which requires alignment.
+                              * (xref i#3674).
+                              */
         END_PROLOG
         CALL_SETJMP
         call     PTRSZ SYMREF(func_ptr)
+        RESTORE_STACK_ALIGNMENT
         ret
         END_FUNC(FUNCNAME)
 

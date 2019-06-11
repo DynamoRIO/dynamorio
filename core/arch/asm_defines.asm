@@ -71,6 +71,13 @@
 
 #undef WEAK /* avoid conflict with C define */
 
+/* This is really the alignment needed by x64 code.  For now, when we bother to
+ * align the stack pointer, we just go for 16 byte alignment.  We do *not*
+ * assume 16-byte alignment across the code base.
+ * i#847: Investigate using aligned SSE ops (see get_xmm_caller_saved).
+ */
+#define FRAME_ALIGNMENT 16
+
 /****************************************************/
 #if defined(ASSEMBLE_WITH_GAS)
 # define START_FILE .text
@@ -134,6 +141,8 @@
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
+# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
+# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # define END_PROLOG /* nothing */
 /* PR 212290: avoid text relocations.
  * @GOT returns the address and is for extern vars; @GOTOFF gets the value.
@@ -196,11 +205,15 @@ ASSUME fs:_DATA @N@\
 #  define PUSH_SEH(reg) push reg @N@ .pushreg reg
 /* Push a volatile register or an immed in prolog: */
 #  define PUSH_NONCALLEE_SEH(reg) push reg @N@ .allocstack 8
+# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ @N@ .allocstack 8
+# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ @N@
 #  define END_PROLOG .endprolog
 # else
 #  define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 #  define PUSH_SEH(reg) push reg @N@ /* add a line to match x64 line count */
 #  define PUSH_NONCALLEE_SEH(reg) push reg @N@ /* add a line to match x64 line count */
+# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ @N@
+# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ @N@
 #  define END_PROLOG /* nothing */
 # endif
 /****************************************************/
@@ -236,6 +249,8 @@ ASSUME fs:_DATA @N@\
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
+# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
+# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # define END_PROLOG /* nothing */
 /****************************************************/
 #else
@@ -526,9 +541,6 @@ ASSUME fs:_DATA @N@\
 #  endif /* WINDOWS/UNIX */
 # endif /* 64/32-bit */
 #endif /* ARM/X86 */
-
-/* Keep in sync with arch_exports.h. */
-#define FRAME_ALIGNMENT 16
 
 /* From globals_shared.h, but we can't include that into asm code. */
 #ifdef X64
