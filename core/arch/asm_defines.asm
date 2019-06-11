@@ -71,6 +71,13 @@
 
 #undef WEAK /* avoid conflict with C define */
 
+/* This is really the alignment needed by x64 code.  For now, when we bother to
+ * align the stack pointer, we just go for 16 byte alignment.  We do *not*
+ * assume 16-byte alignment across the code base.
+ * i#847: Investigate using aligned SSE ops (see get_xmm_caller_saved).
+ */
+#define FRAME_ALIGNMENT 16
+
 /****************************************************/
 #if defined(ASSEMBLE_WITH_GAS)
 # define START_FILE .text
@@ -534,9 +541,6 @@ ASSUME fs:_DATA @N@\
 #  endif /* WINDOWS/UNIX */
 # endif /* 64/32-bit */
 #endif /* ARM/X86 */
-
-/* Keep in sync with arch_exports.h. */
-#define FRAME_ALIGNMENT 16
 
 /* From globals_shared.h, but we can't include that into asm code. */
 #ifdef X64
