@@ -1449,14 +1449,22 @@
 #define INSTR_CREATE_ktestd(dc, d, s) instr_create_1dst_1src((dc), OP_ktestd, (d), (s))
 /* AVX-512 EVEX */
 #define INSTR_CREATE_vmovd_mask(dc, d, s) instr_create_1dst_1src((dc), OP_vmovd, (d), (s))
-#define INSTR_CREATE_vpmovm2b(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovm2b, (d), (s))
-#define INSTR_CREATE_vpmovm2w(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovm2w, (d), (s))
-#define INSTR_CREATE_vpmovm2d(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovm2d, (d), (s))
-#define INSTR_CREATE_vpmovm2q(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovm2q, (d), (s))
-#define INSTR_CREATE_vpmovb2m(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovb2m, (d), (s))
-#define INSTR_CREATE_vpmovw2m(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovw2m, (d), (s))
-#define INSTR_CREATE_vpmovd2m(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovd2m, (d), (s))
-#define INSTR_CREATE_vpmovq2m(dc, d, s) instr_create_1dst_1src((dc), OP_vpmovq2m, (d), (s))
+#define INSTR_CREATE_vpmovm2b(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovm2b, (d), (s))
+#define INSTR_CREATE_vpmovm2w(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovm2w, (d), (s))
+#define INSTR_CREATE_vpmovm2d(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovm2d, (d), (s))
+#define INSTR_CREATE_vpmovm2q(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovm2q, (d), (s))
+#define INSTR_CREATE_vpmovb2m(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovb2m, (d), (s))
+#define INSTR_CREATE_vpmovw2m(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovw2m, (d), (s))
+#define INSTR_CREATE_vpmovd2m(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovd2m, (d), (s))
+#define INSTR_CREATE_vpmovq2m(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovq2m, (d), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
