@@ -643,9 +643,10 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             }
             if (size_template == OPSZ_eighth_16_vex32)
                 return !TEST(PREFIX_VEX_L, di->prefixes);
-            if (size_template == OPSZ_eighth_16_vex32_evex64)
+            if (size_template == OPSZ_eighth_16_vex32_evex64) {
                 return !TEST(PREFIX_VEX_L, di->prefixes) &&
                     !TEST(PREFIX_EVEX_LL, di->prefixes);
+            }
             return false;
         case OPSZ_4:
             if (size_template == OPSZ_4_short2)

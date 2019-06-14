@@ -271,12 +271,14 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
         return (TEST(PREFIX_EVEX_LL, di->prefixes)
                     ? OPSZ_32
                     : (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_16 : OPSZ_8));
-    case OPSZ_quarter_16_vex32: return (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_8 : OPSZ_4);
+    case OPSZ_quarter_16_vex32:
+        return (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_8 : OPSZ_4);
     case OPSZ_quarter_16_vex32_evex64:
         return (TEST(PREFIX_EVEX_LL, di->prefixes)
                     ? OPSZ_16
                     : (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_8 : OPSZ_4));
-    case OPSZ_eighth_16_vex32: return (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_4 : OPSZ_2);
+    case OPSZ_eighth_16_vex32:
+        return (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_4 : OPSZ_2);
     case OPSZ_eighth_16_vex32_evex64:
         return (TEST(PREFIX_EVEX_LL, di->prefixes)
                     ? OPSZ_8
