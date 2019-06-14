@@ -3632,7 +3632,8 @@ const instr_info_t prefix_extensions[][12] = {
     /* movd zeroes the top bits when the destination is an mmx or xmm reg */
     {OP_movd,   0x0f6e10, "movd", Pq, xx, Ed_q, xx, xx, mrm, x, tpe[46][2]},
     {INVALID, 0xf30f6e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_movd, 0x660f6e10, "movd", Vdq, xx, Ed, xx, xx, mrm, x, tpe[51][0]},
+    /* XXX: the opcode is called movq with rex.w + 0f. */
+    {OP_movd, 0x660f6e10, "movd", Vdq, xx, Ed_q, xx, xx, mrm, x, tpe[51][0]},
     {INVALID, 0xf20f6e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f6e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
