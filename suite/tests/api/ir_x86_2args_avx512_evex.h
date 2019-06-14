@@ -162,7 +162,8 @@ OPCODE(vmovd_m32xlo, vmovd, vmovd, 0, MEMARG(OPSZ_4), REGARG_PARTIAL(XMM0, OPSZ_
 OPCODE(vmovd_xhir32, vmovd, vmovd, X64_ONLY, REGARG(XMM31), REGARG(EAX))
 OPCODE(vmovd_xhim32, vmovd, vmovd, X64_ONLY, REGARG(XMM31), MEMARG(OPSZ_4))
 OPCODE(vmovd_r32xhi, vmovd, vmovd, X64_ONLY, REGARG(EAX), REGARG_PARTIAL(XMM31, OPSZ_4))
-OPCODE(vmovd_m32xhi, vmovd, vmovd, X64_ONLY, MEMARG(OPSZ_4), REGARG_PARTIAL(XMM31, OPSZ_4))
+OPCODE(vmovd_m32xhi, vmovd, vmovd, X64_ONLY, MEMARG(OPSZ_4),
+       REGARG_PARTIAL(XMM31, OPSZ_4))
 OPCODE(vmovq_xlor64, vmovq, vmovq, X64_ONLY, REGARG(XMM0), REGARG(RAX))
 OPCODE(vmovq_xlom64, vmovq, vmovq, X64_ONLY, REGARG(XMM0), MEMARG(OPSZ_8))
 OPCODE(vmovq_r64xlo, vmovq, vmovq, X64_ONLY, REGARG(RAX), REGARG_PARTIAL(XMM0, OPSZ_8))
@@ -170,7 +171,8 @@ OPCODE(vmovq_m64xlo, vmovq, vmovq, X64_ONLY, MEMARG(OPSZ_8), REGARG_PARTIAL(XMM0
 OPCODE(vmovq_xhir64, vmovq, vmovq, X64_ONLY, REGARG(XMM31), REGARG(RAX))
 OPCODE(vmovq_xhim64, vmovq, vmovq, X64_ONLY, REGARG(XMM31), MEMARG(OPSZ_8))
 OPCODE(vmovq_r64xhi, vmovq, vmovq, X64_ONLY, REGARG(RAX), REGARG_PARTIAL(XMM31, OPSZ_8))
-OPCODE(vmovq_m64xhi, vmovq, vmovq, X64_ONLY, MEMARG(OPSZ_8), REGARG_PARTIAL(XMM31, OPSZ_8))
+OPCODE(vmovq_m64xhi, vmovq, vmovq, X64_ONLY, MEMARG(OPSZ_8),
+       REGARG_PARTIAL(XMM31, OPSZ_8))
 OPCODE(vpmovm2b_xlok0, vpmovm2b, vpmovm2b, 0, REGARG(XMM0), REGARG(K0))
 OPCODE(vpmovm2b_xhik7, vpmovm2b, vpmovm2b, X64_ONLY, REGARG(XMM31), REGARG(K7))
 OPCODE(vpmovm2b_ylok0, vpmovm2b, vpmovm2b, 0, REGARG(YMM0), REGARG(K0))

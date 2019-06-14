@@ -4557,26 +4557,26 @@ OPCODE(vpshuflw_zhik7zhi, vpshuflw, vpshuflw_mask, X64_ONLY, REGARG(ZMM16), REGA
        IMMARG(OPSZ_1), REGARG(ZMM31))
 OPCODE(vpshuflw_zhik7ld, vpshuflw, vpshuflw_mask, X64_ONLY, REGARG(ZMM16), REGARG(K7),
        IMMARG(OPSZ_1), MEMARG(OPSZ_64))
-OPCODE(vpshufb_xlok0xlo, vpshufb, vpshufb_mask, 0, REGARG(XMM0), REGARG(K0),
-       REGARG(XMM1), REGARG(XMM2))
-OPCODE(vpshufb_xlok0ld, vpshufb, vpshufb_mask, 0, REGARG(XMM0), REGARG(K0),
-       REGARG(XMM1), MEMARG(OPSZ_16))
+OPCODE(vpshufb_xlok0xlo, vpshufb, vpshufb_mask, 0, REGARG(XMM0), REGARG(K0), REGARG(XMM1),
+       REGARG(XMM2))
+OPCODE(vpshufb_xlok0ld, vpshufb, vpshufb_mask, 0, REGARG(XMM0), REGARG(K0), REGARG(XMM1),
+       MEMARG(OPSZ_16))
 OPCODE(vpshufb_xhik7xhi, vpshufb, vpshufb_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
        REGARG(XMM17), REGARG(XMM31))
 OPCODE(vpshufb_xhik7ld, vpshufb, vpshufb_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
        REGARG(XMM17), MEMARG(OPSZ_16))
-OPCODE(vpshufb_ylok0ylo, vpshufb, vpshufb_mask, 0, REGARG(YMM0), REGARG(K0),
-       REGARG(YMM1), REGARG(YMM2))
-OPCODE(vpshufb_ylok0ld, vpshufb, vpshufb_mask, 0, REGARG(YMM0), REGARG(K0),
-       REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpshufb_ylok0ylo, vpshufb, vpshufb_mask, 0, REGARG(YMM0), REGARG(K0), REGARG(YMM1),
+       REGARG(YMM2))
+OPCODE(vpshufb_ylok0ld, vpshufb, vpshufb_mask, 0, REGARG(YMM0), REGARG(K0), REGARG(YMM1),
+       MEMARG(OPSZ_32))
 OPCODE(vpshufb_yhik7yhi, vpshufb, vpshufb_mask, X64_ONLY, REGARG(YMM16), REGARG(K7),
        REGARG(YMM17), REGARG(YMM31))
 OPCODE(vpshufb_yhik7ld, vpshufb, vpshufb_mask, X64_ONLY, REGARG(YMM16), REGARG(K7),
        REGARG(YMM17), MEMARG(OPSZ_32))
-OPCODE(vpshufb_zlok0zlo, vpshufb, vpshufb_mask, 0, REGARG(ZMM0), REGARG(K0),
-       REGARG(ZMM1), REGARG(ZMM2))
-OPCODE(vpshufb_zlok0ld, vpshufb, vpshufb_mask, 0, REGARG(ZMM0), REGARG(K0),
-       REGARG(ZMM1), MEMARG(OPSZ_64))
+OPCODE(vpshufb_zlok0zlo, vpshufb, vpshufb_mask, 0, REGARG(ZMM0), REGARG(K0), REGARG(ZMM1),
+       REGARG(ZMM2))
+OPCODE(vpshufb_zlok0ld, vpshufb, vpshufb_mask, 0, REGARG(ZMM0), REGARG(K0), REGARG(ZMM1),
+       MEMARG(OPSZ_64))
 OPCODE(vpshufb_zhik7zhi, vpshufb, vpshufb_mask, X64_ONLY, REGARG(ZMM16), REGARG(K7),
        REGARG(ZMM17), REGARG(ZMM31))
 OPCODE(vpshufb_zhik7ld, vpshufb, vpshufb_mask, X64_ONLY, REGARG(ZMM16), REGARG(K7),

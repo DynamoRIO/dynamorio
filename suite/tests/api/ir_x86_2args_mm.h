@@ -201,30 +201,42 @@ OPCODE(vbroadcastf128, vbroadcastf128, vbroadcastf128, 0, REGARG(YMM0), MEMARG(O
 /* AVX2 256-bit */
 OPCODE(vpmovmskb_256, vpmovmskb, vpmovmskb, 0, REGARG(EAX), REGARG(YMM0))
 OPCODE(vpmovsxbw_256m, vpmovsxbw, vpmovsxbw, 0, REGARG(YMM0), MEMARG(OPSZ_16))
-OPCODE(vpmovsxbw_256r, vpmovsxbw, vpmovsxbw, 0, REGARG(YMM0), REGARG_PARTIAL(YMM1, OPSZ_16))
+OPCODE(vpmovsxbw_256r, vpmovsxbw, vpmovsxbw, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_16))
 OPCODE(vpmovsxbd_256m, vpmovsxbd, vpmovsxbd, 0, REGARG(YMM0), MEMARG(OPSZ_8))
-OPCODE(vpmovsxbd_256r, vpmovsxbd, vpmovsxbd, 0, REGARG(YMM0), REGARG_PARTIAL(YMM1, OPSZ_8))
+OPCODE(vpmovsxbd_256r, vpmovsxbd, vpmovsxbd, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_8))
 OPCODE(vpmovsxbq_256m, vpmovsxbq, vpmovsxbq, 0, REGARG(YMM0), MEMARG(OPSZ_4))
-OPCODE(vpmovsxbq_256r, vpmovsxbq, vpmovsxbq, 0, REGARG(YMM0), REGARG_PARTIAL(YMM1, OPSZ_4))
+OPCODE(vpmovsxbq_256r, vpmovsxbq, vpmovsxbq, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_4))
 OPCODE(vpmovsxwd_256m, vpmovsxwd, vpmovsxwd, 0, REGARG(YMM0), MEMARG(OPSZ_16))
-OPCODE(vpmovsxwd_256r, vpmovsxwd, vpmovsxwd, 0, REGARG(YMM0), REGARG_PARTIAL(YMM1, OPSZ_16))
+OPCODE(vpmovsxwd_256r, vpmovsxwd, vpmovsxwd, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_16))
 OPCODE(vpmovsxwq_256m, vpmovsxwq, vpmovsxwq, 0, REGARG(YMM0), MEMARG(OPSZ_8))
-OPCODE(vpmovsxwq_256r, vpmovsxwq, vpmovsxwq, 0, REGARG(YMM0), REGARG_PARTIAL(YMM1, OPSZ_8))
+OPCODE(vpmovsxwq_256r, vpmovsxwq, vpmovsxwq, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_8))
 OPCODE(vpmovsxdq_256m, vpmovsxdq, vpmovsxdq, 0, REGARG(YMM0), MEMARG(OPSZ_16))
-OPCODE(vpmovsxdq_256r, vpmovsxdq, vpmovsxdq, 0, REGARG(YMM0), REGARG_PARTIAL(YMM1, OPSZ_16))
+OPCODE(vpmovsxdq_256r, vpmovsxdq, vpmovsxdq, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_16))
 OPCODE(vmovntdqa_256, vmovntdqa, vmovntdqa, 0, MEMARG(OPSZ_32), REGARG(YMM0))
 OPCODE(vpmovzxbw_256m, vpmovzxbw, vpmovzxbw, 0, REGARG(YMM0), MEMARG(OPSZ_16))
-OPCODE(vpmovzxbw_256r, vpmovzxbw, vpmovzxbw, 0, REGARG(YMM0), REGARG_PARTIAL(YMM1, OPSZ_16))
+OPCODE(vpmovzxbw_256r, vpmovzxbw, vpmovzxbw, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_16))
 OPCODE(vpmovzxbd_256m, vpmovzxbd, vpmovzxbd, 0, REGARG(YMM0), MEMARG(OPSZ_8))
-OPCODE(vpmovzxbd_256r, vpmovzxbd, vpmovzxbd, 0, REGARG(YMM0), REGARG_PARTIAL(YMM1, OPSZ_8))
+OPCODE(vpmovzxbd_256r, vpmovzxbd, vpmovzxbd, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_8))
 OPCODE(vpmovzxbq_256m, vpmovzxbq, vpmovzxbq, 0, REGARG(YMM0), MEMARG(OPSZ_4))
-OPCODE(vpmovzxbq_256r, vpmovzxbq, vpmovzxbq, 0, REGARG(YMM0), REGARG_PARTIAL(YMM1, OPSZ_4))
+OPCODE(vpmovzxbq_256r, vpmovzxbq, vpmovzxbq, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_4))
 OPCODE(vpmovzxwd_256m, vpmovzxwd, vpmovzxwd, 0, REGARG(YMM0), MEMARG(OPSZ_16))
-OPCODE(vpmovzxwd_256r, vpmovzxwd, vpmovzxwd, 0, REGARG(YMM0), REGARG_PARTIAL(YMM1, OPSZ_16))
+OPCODE(vpmovzxwd_256r, vpmovzxwd, vpmovzxwd, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_16))
 OPCODE(vpmovzxwq_256m, vpmovzxwq, vpmovzxwq, 0, REGARG(YMM0), MEMARG(OPSZ_8))
-OPCODE(vpmovzxwq_256r, vpmovzxwq, vpmovzxwq, 0, REGARG(YMM0), REGARG_PARTIAL(YMM1, OPSZ_8))
+OPCODE(vpmovzxwq_256r, vpmovzxwq, vpmovzxwq, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_8))
 OPCODE(vpmovzxdq_256m, vpmovzxdq, vpmovzxdq, 0, REGARG(YMM0), MEMARG(OPSZ_16))
-OPCODE(vpmovzxdq_256r, vpmovzxdq, vpmovzxdq, 0, REGARG(YMM0), REGARG_PARTIAL(YMM1, OPSZ_16))
+OPCODE(vpmovzxdq_256r, vpmovzxdq, vpmovzxdq, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_16))
 
 /* random extended reg tests */
 OPCODE(vmovdqu_256_ext, vmovdqu, vmovdqu, X64_ONLY, REGARG(YMM11), MEMARG(OPSZ_32))
