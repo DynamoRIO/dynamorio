@@ -165,3 +165,53 @@ OPCODE(vpslldq_zhizhiimm, vpslldq, vpslldq, X64_ONLY, REGARG(ZMM16), IMMARG(OPSZ
        REGARG(ZMM17))
 OPCODE(vpslldq_zhiimmld, vpslldq, vpslldq, X64_ONLY, REGARG(ZMM16), IMMARG(OPSZ_1),
        MEMARG(OPSZ_64))
+OPCODE(vpextrw_rxlo, vpextrw, vpextrw, 0, REGARG(EAX), REGARG_PARTIAL(XMM1, OPSZ_2),
+       IMMARG(OPSZ_1))
+OPCODE(vpextrw_mxlo, vpextrw, vpextrw, 0, MEMARG(OPSZ_2), REGARG_PARTIAL(XMM1, OPSZ_2),
+       IMMARG(OPSZ_1))
+OPCODE(vpextrw_rxhi, vpextrw, vpextrw, X64_ONLY, REGARG(EAX),
+       REGARG_PARTIAL(XMM31, OPSZ_2), IMMARG(OPSZ_1))
+OPCODE(vpextrw_mxhi, vpextrw, vpextrw, X64_ONLY, MEMARG(OPSZ_2),
+       REGARG_PARTIAL(XMM31, OPSZ_2), IMMARG(OPSZ_1))
+OPCODE(vpextrb_rxlo, vpextrb, vpextrb, 0, REGARG(EAX), REGARG_PARTIAL(XMM0, OPSZ_1),
+       IMMARG(OPSZ_1))
+OPCODE(vpextrb_mxlo, vpextrb, vpextrb, 0, MEMARG(OPSZ_1), REGARG_PARTIAL(XMM0, OPSZ_1),
+       IMMARG(OPSZ_1))
+OPCODE(vpextrb_rxhi, vpextrb, vpextrb, X64_ONLY, REGARG(EAX),
+       REGARG_PARTIAL(XMM31, OPSZ_1), IMMARG(OPSZ_1))
+OPCODE(vpextrb_mxhi, vpextrb, vpextrb, X64_ONLY, MEMARG(OPSZ_1),
+       REGARG_PARTIAL(XMM31, OPSZ_1), IMMARG(OPSZ_1))
+OPCODE(vpextrd_rxlo, vpextrd, vpextrd, 0, REGARG(EAX), REGARG_PARTIAL(XMM0, OPSZ_4),
+       IMMARG(OPSZ_1))
+OPCODE(vpextrd_mxlo, vpextrd, vpextrd, 0, MEMARG(OPSZ_4), REGARG_PARTIAL(XMM0, OPSZ_4),
+       IMMARG(OPSZ_1))
+OPCODE(vpextrd_rxhi, vpextrd, vpextrq, X64_ONLY, REGARG(EAX),
+       REGARG_PARTIAL(XMM31, OPSZ_4), IMMARG(OPSZ_1))
+OPCODE(vpextrd_mxhi, vpextrd, vpextrq, X64_ONLY, MEMARG(OPSZ_4),
+       REGARG_PARTIAL(XMM31, OPSZ_4), IMMARG(OPSZ_1))
+OPCODE(vpextrq_rxlo, vpextrq, vpextrq, X64_ONLY, REGARG(RAX),
+       REGARG_PARTIAL(XMM0, OPSZ_8), IMMARG(OPSZ_1))
+OPCODE(vpextrq_mxlo, vpextrq, vpextrq, X64_ONLY, MEMARG(OPSZ_8),
+       REGARG_PARTIAL(XMM0, OPSZ_8), IMMARG(OPSZ_1))
+OPCODE(vpextrq_rxhi, vpextrq, vpextrq, X64_ONLY, REGARG(RAX),
+       REGARG_PARTIAL(XMM31, OPSZ_8), IMMARG(OPSZ_1))
+OPCODE(vpextrq_mxhi, vpextrq, vpextrq, X64_ONLY, MEMARG(OPSZ_8),
+       REGARG_PARTIAL(XMM31, OPSZ_8), IMMARG(OPSZ_1))
+OPCODE(vpsadbw_xloxloxlo, vpsadbw, vpsadbw, 0, REGARG(XMM0), REGARG(XMM1), REGARG(XMM2))
+OPCODE(vpsadbw_xloxlold, vpsadbw, vpsadbw, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
+OPCODE(vpsadbw_xhixhixhi, vpsadbw, vpsadbw, X64_ONLY, REGARG(XMM16), REGARG(XMM17),
+       REGARG(XMM31))
+OPCODE(vpsadbw_xhixhild, vpsadbw, vpsadbw, X64_ONLY, REGARG(XMM16), REGARG(XMM31),
+       MEMARG(OPSZ_16))
+OPCODE(vpsadbw_yloyloylo, vpsadbw, vpsadbw, 0, REGARG(YMM0), REGARG(YMM1), REGARG(YMM2))
+OPCODE(vpsadbw_yloylold, vpsadbw, vpsadbw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsadbw_yhiyhiyhi, vpsadbw, vpsadbw, X64_ONLY, REGARG(YMM16), REGARG(YMM17),
+       REGARG(YMM31))
+OPCODE(vpsadbw_yhiyhild, vpsadbw, vpsadbw, X64_ONLY, REGARG(YMM16), REGARG(YMM31),
+       MEMARG(OPSZ_32))
+OPCODE(vpsadbw_zlozlozlo, vpsadbw, vpsadbw, 0, REGARG(ZMM0), REGARG(ZMM1), REGARG(ZMM2))
+OPCODE(vpsadbw_zlozlold, vpsadbw, vpsadbw, 0, REGARG(ZMM0), REGARG(ZMM1), MEMARG(OPSZ_64))
+OPCODE(vpsadbw_zhizhizhi, vpsadbw, vpsadbw, X64_ONLY, REGARG(ZMM16), REGARG(ZMM17),
+       REGARG(ZMM31))
+OPCODE(vpsadbw_zhizhild, vpsadbw, vpsadbw, X64_ONLY, REGARG(ZMM16), REGARG(ZMM31),
+       MEMARG(OPSZ_64))

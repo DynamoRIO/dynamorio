@@ -323,6 +323,8 @@ enum {
                            * EVEX.LL'.
                            */
     OPSZ_32_of_64,        /**< 256 bits: half of ZMM. */
+    OPSZ_4_of_32_evex64,  /**< 32 bits: can be part of YMM or ZMM register. */
+    OPSZ_8_of_32_evex64,  /**< 64 bits: can be part of YMM or ZMM register. */
 #ifdef AVOID_API_EXPORT
 /* Add new size here.  Also update size_names[] in decode_shared.c along with
  * the size routines in opnd_shared.c.

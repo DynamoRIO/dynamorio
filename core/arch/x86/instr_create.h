@@ -2277,6 +2277,8 @@
     instr_create_1dst_2src((dc), OP_vcvtusi2ss, (d), (s1), (s2))
 #define INSTR_CREATE_vcvtusi2sd(dc, d, s1, s2) \
     instr_create_1dst_2src((dc), OP_vcvtusi2sd, (d), (s1), (s2))
+#define INSTR_CREATE_vpextrq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_vpextrq, (d), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 1 mask, and 1 non-immediate source */
@@ -2452,6 +2454,46 @@
     instr_create_1dst_2src((dc), OP_vpmovm2d, (d), (k), (s))
 #define INSTR_CREATE_vpmovm2q_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vpmovm2q, (d), (k), (s))
+#define INSTR_CREATE_vpabsb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpabsb, (d), (k), (s))
+#define INSTR_CREATE_vpabsw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpabsw, (d), (k), (s))
+#define INSTR_CREATE_vpabsd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpabsd, (d), (k), (s))
+#define INSTR_CREATE_vpabsq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpabsq, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastss_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastss, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastsd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastsd, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastf32x2_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastf32x2, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastf32x4_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastf32x4, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastf64x2_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastf64x2, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastf32x8_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastf32x8, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastf64x4_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastf64x4, (d), (k), (s))
+#define INSTR_CREATE_vpbroadcastb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpbroadcastb, (d), (k), (s))
+#define INSTR_CREATE_vpbroadcastw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpbroadcastw, (d), (k), (s))
+#define INSTR_CREATE_vpbroadcastd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpbroadcastd, (d), (k), (s))
+#define INSTR_CREATE_vpbroadcastq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpbroadcastq, (d), (k), (s))
+#define INSTR_CREATE_vbroadcasti32x2_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcasti32x2, (d), (k), (s))
+#define INSTR_CREATE_vbroadcasti32x4_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcasti32x4, (d), (k), (s))
+#define INSTR_CREATE_vbroadcasti64x2_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcasti64x2, (d), (k), (s))
+#define INSTR_CREATE_vbroadcasti32x8_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcasti32x8, (d), (k), (s))
+#define INSTR_CREATE_vbroadcasti64x4_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcasti64x4, (d), (k), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -3476,6 +3518,10 @@
     instr_create_1dst_3src((dc), OP_vrcp28sd, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vpshufb_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vpshufb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpavgb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpavgb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpavgw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpavgw, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
@@ -4046,6 +4092,20 @@
     instr_create_1dst_4src((dc), OP_vcmppd, (d), (k), (i), (s1), (s2))
 #define INSTR_CREATE_vcmpsd_mask(dc, d, k, i, s1, s2) \
     instr_create_1dst_4src((dc), OP_vcmpsd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vshufps_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vshufps, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vshufpd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vshufpd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vshuff32x4_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vshuff32x4, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vshuff64x2_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vshuff64x2, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vshufi32x4_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vshufi32x4, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vshufi64x2_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vshufi64x2, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpalignr_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpalignr, (d), (k), (i), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources where 2 are implicit */

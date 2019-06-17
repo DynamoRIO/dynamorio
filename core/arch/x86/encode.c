@@ -570,6 +570,8 @@ collapse_subreg_size(opnd_size_t sz)
     case OPSZ_16_of_32:
     case OPSZ_16_of_32_evex64: return OPSZ_16;
     case OPSZ_32_of_64: return OPSZ_32;
+    case OPSZ_4_of_32_evex64: return OPSZ_4;
+    case OPSZ_8_of_32_evex64: return OPSZ_8;
     }
     /* OPSZ_8_of_16_vex32, OPSZ_4_rex8_of_16, and OPSZ_12_rex8_of_16,
      * OPSZ_half_16_vex32, OPSZ_quarter_16_vex32, OPSZ_eighth_16_vex32,
@@ -869,6 +871,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_half_16_vex32_evex64:
         case OPSZ_16_of_32_evex64:
         case OPSZ_32_of_64:
+        case OPSZ_4_of_32_evex64:
+        case OPSZ_8_of_32_evex64:
         case OPSZ_0:
             /* handled below */
             break;
@@ -989,7 +993,8 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
         } else
             return false;
     }
-    if (opsize == OPSZ_16_of_32_evex64) {
+    if (opsize == OPSZ_16_of_32_evex64 || opsize == OPSZ_4_of_32_evex64 ||
+        opsize == OPSZ_8_of_32_evex64) {
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
             if (!TEST(di->prefixes, PREFIX_EVEX_LL))
                 di->prefixes |= PREFIX_VEX_L;

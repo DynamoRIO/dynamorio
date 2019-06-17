@@ -1324,133 +1324,150 @@ enum {
      * AVX-512 instructions are being added to DynamoRIO. Users are advised
      * not to rely on the numerical value until i#1312 has been completed.
      */
-    /* 1158 */ OP_vcvtpd2qq,     /**< IA-32/AMD64 AVX-512 OP_vcvtpd2qq opcode. */
-    /* 1159 */ OP_vcvtpd2udq,    /**< IA-32/AMD64 AVX-512 OP_vcvtpd2udq opcode. */
-    /* 1160 */ OP_vcvtpd2uqq,    /**< IA-32/AMD64 AVX-512 OP_vcvtpd2uqq opcode. */
-    /* 1161 */ OP_vcvtps2qq,     /**< IA-32/AMD64 AVX-512 OP_vcvtps2qq opcode. */
-    /* 1162 */ OP_vcvtps2udq,    /**< IA-32/AMD64 AVX-512 OP_vcvtps2udq opcode. */
-    /* 1163 */ OP_vcvtps2uqq,    /**< IA-32/AMD64 AVX-512 OP_vcvtps2uqq opcode. */
-    /* 1164 */ OP_vcvtqq2pd,     /**< IA-32/AMD64 AVX-512 OP_vcvtqq2pd opcode. */
-    /* 1165 */ OP_vcvtqq2ps,     /**< IA-32/AMD64 AVX-512 OP_vcvtqq2ps opcode. */
-    /* 1166 */ OP_vcvtsd2usi,    /**< IA-32/AMD64 AVX-512 OP_vcvtsd2usi opcode. */
-    /* 1167 */ OP_vcvtss2usi,    /**< IA-32/AMD64 AVX-512 OP_vcvtss2usi opcode. */
-    /* 1168 */ OP_vcvttpd2qq,    /**< IA-32/AMD64 AVX-512 OP_vcvttpd2qq opcode. */
-    /* 1169 */ OP_vcvttpd2udq,   /**< IA-32/AMD64 AVX-512 OP_vcvttpd2udq opcode. */
-    /* 1170 */ OP_vcvttpd2uqq,   /**< IA-32/AMD64 AVX-512 OP_vcvttpd2uqq opcode. */
-    /* 1171 */ OP_vcvttps2qq,    /**< IA-32/AMD64 AVX-512 OP_vcvttps2qq opcode. */
-    /* 1172 */ OP_vcvttps2udq,   /**< IA-32/AMD64 AVX-512 OP_vcvttps2udq opcode. */
-    /* 1173 */ OP_vcvttps2uqq,   /**< IA-32/AMD64 AVX-512 OP_vcvttps2uqq opcode. */
-    /* 1174 */ OP_vcvttsd2usi,   /**< IA-32/AMD64 AVX-512 OP_vcvttsd2usi opcode. */
-    /* 1175 */ OP_vcvttss2usi,   /**< IA-32/AMD64 AVX-512 OP_vcvttss2usi opcode. */
-    /* 1176 */ OP_vcvtudq2pd,    /**< IA-32/AMD64 AVX-512 OP_vcvtudq2pd opcode. */
-    /* 1177 */ OP_vcvtudq2ps,    /**< IA-32/AMD64 AVX-512 OP_vcvtudq2ps opcode. */
-    /* 1178 */ OP_vcvtuqq2pd,    /**< IA-32/AMD64 AVX-512 OP_vcvtuqq2pd opcode. */
-    /* 1179 */ OP_vcvtuqq2ps,    /**< IA-32/AMD64 AVX-512 OP_vcvtuqq2ps opcode. */
-    /* 1180 */ OP_vcvtusi2sd,    /**< IA-32/AMD64 AVX-512 OP_vcvtusi2sd opcode. */
-    /* 1181 */ OP_vcvtusi2ss,    /**< IA-32/AMD64 AVX-512 OP_vcvtusi2ss opcode. */
-    /* 1182 */ OP_vextractf32x4, /**< IA-32/AMD64 AVX-512 OP_vextractf32x4 opcode. */
-    /* 1183 */ OP_vextractf32x8, /**< IA-32/AMD64 AVX-512 OP_vextractf32x8 opcode. */
-    /* 1184 */ OP_vextractf64x2, /**< IA-32/AMD64 AVX-512 OP_vextractf64x2 opcode. */
-    /* 1185 */ OP_vextractf64x4, /**< IA-32/AMD64 AVX-512 OP_vextractf64x4 opcode. */
-    /* 1186 */ OP_vextracti32x4, /**< IA-32/AMD64 AVX-512 OP_vextracti32x4 opcode. */
-    /* 1187 */ OP_vextracti32x8, /**< IA-32/AMD64 AVX-512 OP_vextracti32x8 opcode. */
-    /* 1188 */ OP_vextracti64x2, /**< IA-32/AMD64 AVX-512 OP_vextracti64x2 opcode. */
-    /* 1189 */ OP_vextracti64x4, /**< IA-32/AMD64 AVX-512 OP_vextracti64x4 opcode. */
-    /* 1190 */ OP_vinsertf32x4,  /**< IA-32/AMD64 AVX-512 OP_vinsertf32x4 opcode. */
-    /* 1191 */ OP_vinsertf32x8,  /**< IA-32/AMD64 AVX-512 OP_vinsertf32x8 opcode. */
-    /* 1192 */ OP_vinsertf64x2,  /**< IA-32/AMD64 AVX-512 OP_vinsertf64x2 opcode. */
-    /* 1193 */ OP_vinsertf64x4,  /**< IA-32/AMD64 AVX-512 OP_vinsertf64x4 opcode. */
-    /* 1194 */ OP_vinserti32x4,  /**< IA-32/AMD64 AVX-512 OP_vinserti32x4 opcode. */
-    /* 1195 */ OP_vinserti32x8,  /**< IA-32/AMD64 AVX-512 OP_vinserti32x8 opcode. */
-    /* 1196 */ OP_vinserti64x2,  /**< IA-32/AMD64 AVX-512 OP_vinserti64x2 opcode. */
-    /* 1197 */ OP_vinserti64x4,  /**< IA-32/AMD64 AVX-512 OP_vinserti64x4 opcode. */
-    /* 1198 */ OP_vmovdqa32,     /**< IA-32/AMD64 AVX-512 OP_vmovdqa32 opcode. */
-    /* 1199 */ OP_vmovdqa64,     /**< IA-32/AMD64 AVX-512 OP_vmovdqa64 opcode. */
-    /* 1200 */ OP_vmovdqu16,     /**< IA-32/AMD64 AVX-512 OP_vmovdqu16 opcode. */
-    /* 1201 */ OP_vmovdqu32,     /**< IA-32/AMD64 AVX-512 OP_vmovdqu32 opcode. */
-    /* 1202 */ OP_vmovdqu64,     /**< IA-32/AMD64 AVX-512 OP_vmovdqu64 opcode. */
-    /* 1203 */ OP_vmovdqu8,      /**< IA-32/AMD64 AVX-512 OP_vmovdqu8 opcode. */
-    /* 1204 */ OP_vpandd,        /**< IA-32/AMD64 AVX-512 OP_vpandd opcode. */
-    /* 1205 */ OP_vpandnd,       /**< IA-32/AMD64 AVX-512 OP_vpandnd opcode. */
-    /* 1206 */ OP_vpandnq,       /**< IA-32/AMD64 AVX-512 OP_vpandnq opcode. */
-    /* 1207 */ OP_vpandq,        /**< IA-32/AMD64 AVX-512 OP_vpandq opcode. */
-    /* 1208 */ OP_vpcmpb,        /**< IA-32/AMD64 AVX-512 OP_vpcmpb opcode. */
-    /* 1209 */ OP_vpcmpd,        /**< IA-32/AMD64 AVX-512 OP_vpcmpd opcode. */
-    /* 1210 */ OP_vpcmpq,        /**< IA-32/AMD64 AVX-512 OP_vpcmpq opcode. */
-    /* 1211 */ OP_vpcmpw,        /**< IA-32/AMD64 AVX-512 OP_vpcmpw opcode. */
-    /* 1212 */ OP_vpcmpub,       /**< IA-32/AMD64 AVX-512 OP_vpcmpub opcode. */
-    /* 1213 */ OP_vpcmpud,       /**< IA-32/AMD64 AVX-512 OP_vpcmpud opcode. */
-    /* 1214 */ OP_vpcmpuq,       /**< IA-32/AMD64 AVX-512 OP_vpcmpuq opcode. */
-    /* 1215 */ OP_vpcmpuw,       /**< IA-32/AMD64 AVX-512 OP_vpcmpuw opcode. */
-    /* 1216 */ OP_vpermi2b,      /**< IA-32/AMD64 AVX-512 OP_vpermi2b opcode. */
-    /* 1217 */ OP_vpermi2d,      /**< IA-32/AMD64 AVX-512 OP_vpermi2d opcode. */
-    /* 1218 */ OP_vpermi2pd,     /**< IA-32/AMD64 AVX-512 OP_vpermi2pd opcode. */
-    /* 1219 */ OP_vpermi2ps,     /**< IA-32/AMD64 AVX-512 OP_vpermi2ps opcode. */
-    /* 1220 */ OP_vpermi2q,      /**< IA-32/AMD64 AVX-512 OP_vpermi2q opcode. */
-    /* 1221 */ OP_vpermi2w,      /**< IA-32/AMD64 AVX-512 OP_vpermi2w opcode. */
-    /* 1222 */ OP_vpermt2b,      /**< IA-32/AMD64 AVX-512 OP_vpermt2b opcode. */
-    /* 1223 */ OP_vpermt2d,      /**< IA-32/AMD64 AVX-512 OP_vpermt2d opcode. */
-    /* 1224 */ OP_vpermt2pd,     /**< IA-32/AMD64 AVX-512 OP_vpermt2pd opcode. */
-    /* 1225 */ OP_vpermt2ps,     /**< IA-32/AMD64 AVX-512 OP_vpermt2ps opcode. */
-    /* 1226 */ OP_vpermt2q,      /**< IA-32/AMD64 AVX-512 OP_vpermt2q opcode. */
-    /* 1227 */ OP_vpermt2w,      /**< IA-32/AMD64 AVX-512 OP_vpermt2w opcode. */
-    /* 1228 */ OP_vpermw,        /**< IA-32/AMD64 AVX-512 OP_vpermw opcode. */
-    /* 1229 */ OP_vpmaxsq,       /**< IA-32/AMD64 vpmaxsq opcode. */
-    /* 1230 */ OP_vpmaxuq,       /**< IA-32/AMD64 vpmaxuq opcode. */
-    /* 1231 */ OP_vpminsq,       /**< IA-32/AMD64 vpminsq opcode. */
-    /* 1232 */ OP_vpminuq,       /**< IA-32/AMD64 vpminuq opcode. */
-    /* 1233 */ OP_vpmovb2m,      /**< IA-32/AMD64 vpmovb2m opcode. */
-    /* 1234 */ OP_vpmovd2m,      /**< IA-32/AMD64 vpmovd2m opcode. */
-    /* 1235 */ OP_vpmovdb,       /**< IA-32/AMD64 vpmovdb opcode. */
-    /* 1236 */ OP_vpmovdw,       /**< IA-32/AMD64 vpmovdw opcode. */
-    /* 1237 */ OP_vpmovm2b,      /**< IA-32/AMD64 vpmovm2b opcode. */
-    /* 1238 */ OP_vpmovm2w,      /**< IA-32/AMD64 vpmovm2w opcode. */
-    /* 1239 */ OP_vpmovm2d,      /**< IA-32/AMD64 vpmovm2d opcode. */
-    /* 1240 */ OP_vpmovm2q,      /**< IA-32/AMD64 vpmovm2q opcode. */
-    /* 1241 */ OP_vpmovq2m,      /**< IA-32/AMD64 vpmovq2m opcode. */
-    /* 1242 */ OP_vpmovqb,       /**< IA-32/AMD64 vpmovqb opcode. */
-    /* 1243 */ OP_vpmovqd,       /**< IA-32/AMD64 vpmovqd opcode. */
-    /* 1244 */ OP_vpmovqw,       /**< IA-32/AMD64 vpmovqw opcode. */
-    /* 1245 */ OP_vpmovsdb,      /**< IA-32/AMD64 vpmovsdb opcode. */
-    /* 1246 */ OP_vpmovsdw,      /**< IA-32/AMD64 vpmovsdw opcode. */
-    /* 1247 */ OP_vpmovsqb,      /**< IA-32/AMD64 vpmovsqb opcode. */
-    /* 1248 */ OP_vpmovsqd,      /**< IA-32/AMD64 vpmovsqd opcode. */
-    /* 1249 */ OP_vpmovsqw,      /**< IA-32/AMD64 vpmovsqw opcode. */
-    /* 1250 */ OP_vpmovswb,      /**< IA-32/AMD64 vpmovswb opcode. */
-    /* 1251 */ OP_vpmovusdb,     /**< IA-32/AMD64 vpmovusdb opcode. */
-    /* 1252 */ OP_vpmovusdw,     /**< IA-32/AMD64 vpmovusdw opcode. */
-    /* 1253 */ OP_vpmovusqb,     /**< IA-32/AMD64 vpmovusqb opcode. */
-    /* 1254 */ OP_vpmovusqd,     /**< IA-32/AMD64 vpmovusqd opcode. */
-    /* 1255 */ OP_vpmovusqw,     /**< IA-32/AMD64 vpmovusqw opcode. */
-    /* 1256 */ OP_vpmovuswb,     /**< IA-32/AMD64 vpmovuswb opcode. */
-    /* 1257 */ OP_vpmovw2m,      /**< IA-32/AMD64 vpmovw2m opcode. */
-    /* 1258 */ OP_vpmovwb,       /**< IA-32/AMD64 vpmovwb opcode. */
-    /* 1259 */ OP_vpmullq,       /**< IA-32/AMD64 AVX-512 OP_vpmullq opcode. */
-    /* 1260 */ OP_vpord,         /**< IA-32/AMD64 AVX-512 OP_vpord opcode. */
-    /* 1261 */ OP_vporq,         /**< IA-32/AMD64 AVX-512 OP_vporq opcode. */
-    /* 1262 */ OP_vprold,        /**< IA-32/AMD64 AVX-512 OP_vprold opcode. */
-    /* 1263 */ OP_vprolq,        /**< IA-32/AMD64 AVX-512 OP_vprolq opcode. */
-    /* 1264 */ OP_vprolvd,       /**< IA-32/AMD64 AVX-512 OP_vprolvd opcode. */
-    /* 1265 */ OP_vprolvq,       /**< IA-32/AMD64 AVX-512 OP_vprolvq opcode. */
-    /* 1266 */ OP_vprord,        /**< IA-32/AMD64 AVX-512 OP_vprord opcode. */
-    /* 1267 */ OP_vprorq,        /**< IA-32/AMD64 AVX-512 OP_vprorq opcode. */
-    /* 1268 */ OP_vprorvd,       /**< IA-32/AMD64 AVX-512 OP_vprorvd opcode. */
-    /* 1269 */ OP_vprorvq,       /**< IA-32/AMD64 AVX-512 OP_vprorvq opcode. */
-    /* 1270 */ OP_vpsllvw,       /**< IA-32/AMD64 AVX-512 OP_vpsllvw opcode. */
-    /* 1271 */ OP_vpsraq,        /**< IA-32/AMD64 AVX-512 OP_vpsraq opcode. */
-    /* 1272 */ OP_vpsravw,       /**< IA-32/AMD64 vpsravw opcode. */
-    /* 1273 */ OP_vpsravq,       /**< IA-32/AMD64 vpsravq opcode. */
-    /* 1274 */ OP_vpsrlvw,       /**< IA-32/AMD64 vpsrlvw opcode. */
-    /* 1275 */ OP_vpxord,        /**< IA-32/AMD64 AVX-512 OP_vpxord opcode. */
-    /* 1276 */ OP_vpxorq,        /**< IA-32/AMD64 AVX-512 OP_vpxorq opcode. */
-    /* 1277 */ OP_vrcp14ps,      /**< IA-32/AMD64 AVX-512 OP_vrcp14ps opcode. */
-    /* 1278 */ OP_vrcp14pd,      /**< IA-32/AMD64 AVX-512 OP_vrcp14pd opcode. */
-    /* 1279 */ OP_vrcp14ss,      /**< IA-32/AMD64 AVX-512 OP_vrcp14ss opcode. */
-    /* 1280 */ OP_vrcp14sd,      /**< IA-32/AMD64 AVX-512 OP_vrcp14sd opcode. */
-    /* 1281 */ OP_vrcp28ps,      /**< IA-32/AMD64 AVX-512 OP_vrcp28ps opcode. */
-    /* 1282 */ OP_vrcp28pd,      /**< IA-32/AMD64 AVX-512 OP_vrcp28pd opcode. */
-    /* 1283 */ OP_vrcp28ss,      /**< IA-32/AMD64 AVX-512 OP_vrcp28ss opcode. */
-    /* 1284 */ OP_vrcp28sd,      /**< IA-32/AMD64 AVX-512 OP_vrcp28sd opcode. */
+    /* 1158 */ OP_vbroadcastf32x2, /**< IA-32/AMD64 AVX-512 OP_vbroadcastf32x2 opcode. */
+    /* 1159 */ OP_vbroadcastf32x4, /**< IA-32/AMD64 AVX-512 OP_vbroadcastf32x4 opcode. */
+    /* 1160 */ OP_vbroadcastf64x2, /**< IA-32/AMD64 AVX-512 OP_vbroadcastf64x2 opcode. */
+    /* 1161 */ OP_vbroadcastf32x8, /**< IA-32/AMD64 AVX-512 OP_vbroadcastf32x8 opcode. */
+    /* 1162 */ OP_vbroadcastf64x4, /**< IA-32/AMD64 AVX-512 OP_vbroadcastf64x4 opcode. */
+    /* 1163 */ OP_vbroadcasti32x2, /**< IA-32/AMD64 AVX-512 OP_vbroadcasti32x2 opcode. */
+    /* 1164 */ OP_vbroadcasti32x4, /**< IA-32/AMD64 AVX-512 OP_vbroadcasti32x4 opcode. */
+    /* 1165 */ OP_vbroadcasti64x2, /**< IA-32/AMD64 AVX-512 OP_vbroadcasti64x2 opcode. */
+    /* 1166 */ OP_vbroadcasti32x8, /**< IA-32/AMD64 AVX-512 OP_vbroadcasti32x8 opcode. */
+    /* 1167 */ OP_vbroadcasti64x4, /**< IA-32/AMD64 AVX-512 OP_vbroadcasti64x4 opcode. */
+    /* 1168 */ OP_vcvtpd2qq,       /**< IA-32/AMD64 AVX-512 OP_vcvtpd2qq opcode. */
+    /* 1169 */ OP_vcvtpd2udq,      /**< IA-32/AMD64 AVX-512 OP_vcvtpd2udq opcode. */
+    /* 1170 */ OP_vcvtpd2uqq,      /**< IA-32/AMD64 AVX-512 OP_vcvtpd2uqq opcode. */
+    /* 1171 */ OP_vcvtps2qq,       /**< IA-32/AMD64 AVX-512 OP_vcvtps2qq opcode. */
+    /* 1172 */ OP_vcvtps2udq,      /**< IA-32/AMD64 AVX-512 OP_vcvtps2udq opcode. */
+    /* 1173 */ OP_vcvtps2uqq,      /**< IA-32/AMD64 AVX-512 OP_vcvtps2uqq opcode. */
+    /* 1174 */ OP_vcvtqq2pd,       /**< IA-32/AMD64 AVX-512 OP_vcvtqq2pd opcode. */
+    /* 1175 */ OP_vcvtqq2ps,       /**< IA-32/AMD64 AVX-512 OP_vcvtqq2ps opcode. */
+    /* 1176 */ OP_vcvtsd2usi,      /**< IA-32/AMD64 AVX-512 OP_vcvtsd2usi opcode. */
+    /* 1177 */ OP_vcvtss2usi,      /**< IA-32/AMD64 AVX-512 OP_vcvtss2usi opcode. */
+    /* 1178 */ OP_vcvttpd2qq,      /**< IA-32/AMD64 AVX-512 OP_vcvttpd2qq opcode. */
+    /* 1179 */ OP_vcvttpd2udq,     /**< IA-32/AMD64 AVX-512 OP_vcvttpd2udq opcode. */
+    /* 1180 */ OP_vcvttpd2uqq,     /**< IA-32/AMD64 AVX-512 OP_vcvttpd2uqq opcode. */
+    /* 1181 */ OP_vcvttps2qq,      /**< IA-32/AMD64 AVX-512 OP_vcvttps2qq opcode. */
+    /* 1182 */ OP_vcvttps2udq,     /**< IA-32/AMD64 AVX-512 OP_vcvttps2udq opcode. */
+    /* 1183 */ OP_vcvttps2uqq,     /**< IA-32/AMD64 AVX-512 OP_vcvttps2uqq opcode. */
+    /* 1184 */ OP_vcvttsd2usi,     /**< IA-32/AMD64 AVX-512 OP_vcvttsd2usi opcode. */
+    /* 1185 */ OP_vcvttss2usi,     /**< IA-32/AMD64 AVX-512 OP_vcvttss2usi opcode. */
+    /* 1186 */ OP_vcvtudq2pd,      /**< IA-32/AMD64 AVX-512 OP_vcvtudq2pd opcode. */
+    /* 1187 */ OP_vcvtudq2ps,      /**< IA-32/AMD64 AVX-512 OP_vcvtudq2ps opcode. */
+    /* 1188 */ OP_vcvtuqq2pd,      /**< IA-32/AMD64 AVX-512 OP_vcvtuqq2pd opcode. */
+    /* 1189 */ OP_vcvtuqq2ps,      /**< IA-32/AMD64 AVX-512 OP_vcvtuqq2ps opcode. */
+    /* 1190 */ OP_vcvtusi2sd,      /**< IA-32/AMD64 AVX-512 OP_vcvtusi2sd opcode. */
+    /* 1191 */ OP_vcvtusi2ss,      /**< IA-32/AMD64 AVX-512 OP_vcvtusi2ss opcode. */
+    /* 1192 */ OP_vextractf32x4,   /**< IA-32/AMD64 AVX-512 OP_vextractf32x4 opcode. */
+    /* 1193 */ OP_vextractf32x8,   /**< IA-32/AMD64 AVX-512 OP_vextractf32x8 opcode. */
+    /* 1194 */ OP_vextractf64x2,   /**< IA-32/AMD64 AVX-512 OP_vextractf64x2 opcode. */
+    /* 1195 */ OP_vextractf64x4,   /**< IA-32/AMD64 AVX-512 OP_vextractf64x4 opcode. */
+    /* 1196 */ OP_vextracti32x4,   /**< IA-32/AMD64 AVX-512 OP_vextracti32x4 opcode. */
+    /* 1197 */ OP_vextracti32x8,   /**< IA-32/AMD64 AVX-512 OP_vextracti32x8 opcode. */
+    /* 1198 */ OP_vextracti64x2,   /**< IA-32/AMD64 AVX-512 OP_vextracti64x2 opcode. */
+    /* 1199 */ OP_vextracti64x4,   /**< IA-32/AMD64 AVX-512 OP_vextracti64x4 opcode. */
+    /* 1200 */ OP_vinsertf32x4,    /**< IA-32/AMD64 AVX-512 OP_vinsertf32x4 opcode. */
+    /* 1201 */ OP_vinsertf32x8,    /**< IA-32/AMD64 AVX-512 OP_vinsertf32x8 opcode. */
+    /* 1202 */ OP_vinsertf64x2,    /**< IA-32/AMD64 AVX-512 OP_vinsertf64x2 opcode. */
+    /* 1203 */ OP_vinsertf64x4,    /**< IA-32/AMD64 AVX-512 OP_vinsertf64x4 opcode. */
+    /* 1204 */ OP_vinserti32x4,    /**< IA-32/AMD64 AVX-512 OP_vinserti32x4 opcode. */
+    /* 1205 */ OP_vinserti32x8,    /**< IA-32/AMD64 AVX-512 OP_vinserti32x8 opcode. */
+    /* 1206 */ OP_vinserti64x2,    /**< IA-32/AMD64 AVX-512 OP_vinserti64x2 opcode. */
+    /* 1207 */ OP_vinserti64x4,    /**< IA-32/AMD64 AVX-512 OP_vinserti64x4 opcode. */
+    /* 1208 */ OP_vmovdqa32,       /**< IA-32/AMD64 AVX-512 OP_vmovdqa32 opcode. */
+    /* 1209 */ OP_vmovdqa64,       /**< IA-32/AMD64 AVX-512 OP_vmovdqa64 opcode. */
+    /* 1210 */ OP_vmovdqu16,       /**< IA-32/AMD64 AVX-512 OP_vmovdqu16 opcode. */
+    /* 1211 */ OP_vmovdqu32,       /**< IA-32/AMD64 AVX-512 OP_vmovdqu32 opcode. */
+    /* 1212 */ OP_vmovdqu64,       /**< IA-32/AMD64 AVX-512 OP_vmovdqu64 opcode. */
+    /* 1213 */ OP_vmovdqu8,        /**< IA-32/AMD64 AVX-512 OP_vmovdqu8 opcode. */
+    /* 1214 */ OP_vpabsq,          /**< IA-32/AMD64 AVX-512 OP_vpabsq opcode. */
+    /* 1215 */ OP_vpandd,          /**< IA-32/AMD64 AVX-512 OP_vpandd opcode. */
+    /* 1216 */ OP_vpandnd,         /**< IA-32/AMD64 AVX-512 OP_vpandnd opcode. */
+    /* 1217 */ OP_vpandnq,         /**< IA-32/AMD64 AVX-512 OP_vpandnq opcode. */
+    /* 1218 */ OP_vpandq,          /**< IA-32/AMD64 AVX-512 OP_vpandq opcode. */
+    /* 1219 */ OP_vpcmpb,          /**< IA-32/AMD64 AVX-512 OP_vpcmpb opcode. */
+    /* 1220 */ OP_vpcmpd,          /**< IA-32/AMD64 AVX-512 OP_vpcmpd opcode. */
+    /* 1221 */ OP_vpcmpq,          /**< IA-32/AMD64 AVX-512 OP_vpcmpq opcode. */
+    /* 1222 */ OP_vpcmpw,          /**< IA-32/AMD64 AVX-512 OP_vpcmpw opcode. */
+    /* 1223 */ OP_vpcmpub,         /**< IA-32/AMD64 AVX-512 OP_vpcmpub opcode. */
+    /* 1224 */ OP_vpcmpud,         /**< IA-32/AMD64 AVX-512 OP_vpcmpud opcode. */
+    /* 1225 */ OP_vpcmpuq,         /**< IA-32/AMD64 AVX-512 OP_vpcmpuq opcode. */
+    /* 1226 */ OP_vpcmpuw,         /**< IA-32/AMD64 AVX-512 OP_vpcmpuw opcode. */
+    /* 1227 */ OP_vpermi2b,        /**< IA-32/AMD64 AVX-512 OP_vpermi2b opcode. */
+    /* 1228 */ OP_vpermi2d,        /**< IA-32/AMD64 AVX-512 OP_vpermi2d opcode. */
+    /* 1229 */ OP_vpermi2pd,       /**< IA-32/AMD64 AVX-512 OP_vpermi2pd opcode. */
+    /* 1230 */ OP_vpermi2ps,       /**< IA-32/AMD64 AVX-512 OP_vpermi2ps opcode. */
+    /* 1231 */ OP_vpermi2q,        /**< IA-32/AMD64 AVX-512 OP_vpermi2q opcode. */
+    /* 1232 */ OP_vpermi2w,        /**< IA-32/AMD64 AVX-512 OP_vpermi2w opcode. */
+    /* 1233 */ OP_vpermt2b,        /**< IA-32/AMD64 AVX-512 OP_vpermt2b opcode. */
+    /* 1234 */ OP_vpermt2d,        /**< IA-32/AMD64 AVX-512 OP_vpermt2d opcode. */
+    /* 1235 */ OP_vpermt2pd,       /**< IA-32/AMD64 AVX-512 OP_vpermt2pd opcode. */
+    /* 1236 */ OP_vpermt2ps,       /**< IA-32/AMD64 AVX-512 OP_vpermt2ps opcode. */
+    /* 1237 */ OP_vpermt2q,        /**< IA-32/AMD64 AVX-512 OP_vpermt2q opcode. */
+    /* 1238 */ OP_vpermt2w,        /**< IA-32/AMD64 AVX-512 OP_vpermt2w opcode. */
+    /* 1239 */ OP_vpermw,          /**< IA-32/AMD64 AVX-512 OP_vpermw opcode. */
+    /* 1240 */ OP_vpextrq,         /**< IA-32/AMD64 AVX-512 OP_vpextrq opcode. */
+    /* 1241 */ OP_vpinsrq,         /**< IA-32/AMD64 AVX-512 OP_vpinsrq opcode. */
+    /* 1242 */ OP_vpmaxsq,         /**< IA-32/AMD64 vpmaxsq opcode. */
+    /* 1243 */ OP_vpmaxuq,         /**< IA-32/AMD64 vpmaxuq opcode. */
+    /* 1244 */ OP_vpminsq,         /**< IA-32/AMD64 vpminsq opcode. */
+    /* 1245 */ OP_vpminuq,         /**< IA-32/AMD64 vpminuq opcode. */
+    /* 1246 */ OP_vpmovb2m,        /**< IA-32/AMD64 vpmovb2m opcode. */
+    /* 1247 */ OP_vpmovd2m,        /**< IA-32/AMD64 vpmovd2m opcode. */
+    /* 1248 */ OP_vpmovdb,         /**< IA-32/AMD64 vpmovdb opcode. */
+    /* 1249 */ OP_vpmovdw,         /**< IA-32/AMD64 vpmovdw opcode. */
+    /* 1250 */ OP_vpmovm2b,        /**< IA-32/AMD64 vpmovm2b opcode. */
+    /* 1251 */ OP_vpmovm2w,        /**< IA-32/AMD64 vpmovm2w opcode. */
+    /* 1252 */ OP_vpmovm2d,        /**< IA-32/AMD64 vpmovm2d opcode. */
+    /* 1253 */ OP_vpmovm2q,        /**< IA-32/AMD64 vpmovm2q opcode. */
+    /* 1254 */ OP_vpmovq2m,        /**< IA-32/AMD64 vpmovq2m opcode. */
+    /* 1255 */ OP_vpmovqb,         /**< IA-32/AMD64 vpmovqb opcode. */
+    /* 1256 */ OP_vpmovqd,         /**< IA-32/AMD64 vpmovqd opcode. */
+    /* 1257 */ OP_vpmovqw,         /**< IA-32/AMD64 vpmovqw opcode. */
+    /* 1258 */ OP_vpmovsdb,        /**< IA-32/AMD64 vpmovsdb opcode. */
+    /* 1259 */ OP_vpmovsdw,        /**< IA-32/AMD64 vpmovsdw opcode. */
+    /* 1260 */ OP_vpmovsqb,        /**< IA-32/AMD64 vpmovsqb opcode. */
+    /* 1261 */ OP_vpmovsqd,        /**< IA-32/AMD64 vpmovsqd opcode. */
+    /* 1262 */ OP_vpmovsqw,        /**< IA-32/AMD64 vpmovsqw opcode. */
+    /* 1263 */ OP_vpmovswb,        /**< IA-32/AMD64 vpmovswb opcode. */
+    /* 1264 */ OP_vpmovusdb,       /**< IA-32/AMD64 vpmovusdb opcode. */
+    /* 1265 */ OP_vpmovusdw,       /**< IA-32/AMD64 vpmovusdw opcode. */
+    /* 1266 */ OP_vpmovusqb,       /**< IA-32/AMD64 vpmovusqb opcode. */
+    /* 1267 */ OP_vpmovusqd,       /**< IA-32/AMD64 vpmovusqd opcode. */
+    /* 1268 */ OP_vpmovusqw,       /**< IA-32/AMD64 vpmovusqw opcode. */
+    /* 1269 */ OP_vpmovuswb,       /**< IA-32/AMD64 vpmovuswb opcode. */
+    /* 1270 */ OP_vpmovw2m,        /**< IA-32/AMD64 vpmovw2m opcode. */
+    /* 1271 */ OP_vpmovwb,         /**< IA-32/AMD64 vpmovwb opcode. */
+    /* 1272 */ OP_vpmullq,         /**< IA-32/AMD64 AVX-512 OP_vpmullq opcode. */
+    /* 1273 */ OP_vpord,           /**< IA-32/AMD64 AVX-512 OP_vpord opcode. */
+    /* 1274 */ OP_vporq,           /**< IA-32/AMD64 AVX-512 OP_vporq opcode. */
+    /* 1275 */ OP_vprold,          /**< IA-32/AMD64 AVX-512 OP_vprold opcode. */
+    /* 1276 */ OP_vprolq,          /**< IA-32/AMD64 AVX-512 OP_vprolq opcode. */
+    /* 1277 */ OP_vprolvd,         /**< IA-32/AMD64 AVX-512 OP_vprolvd opcode. */
+    /* 1278 */ OP_vprolvq,         /**< IA-32/AMD64 AVX-512 OP_vprolvq opcode. */
+    /* 1279 */ OP_vprord,          /**< IA-32/AMD64 AVX-512 OP_vprord opcode. */
+    /* 1280 */ OP_vprorq,          /**< IA-32/AMD64 AVX-512 OP_vprorq opcode. */
+    /* 1281 */ OP_vprorvd,         /**< IA-32/AMD64 AVX-512 OP_vprorvd opcode. */
+    /* 1282 */ OP_vprorvq,         /**< IA-32/AMD64 AVX-512 OP_vprorvq opcode. */
+    /* 1283 */ OP_vpsllvw,         /**< IA-32/AMD64 AVX-512 OP_vpsllvw opcode. */
+    /* 1284 */ OP_vpsraq,          /**< IA-32/AMD64 AVX-512 OP_vpsraq opcode. */
+    /* 1285 */ OP_vpsravw,         /**< IA-32/AMD64 vpsravw opcode. */
+    /* 1286 */ OP_vpsravq,         /**< IA-32/AMD64 vpsravq opcode. */
+    /* 1287 */ OP_vpsrlvw,         /**< IA-32/AMD64 vpsrlvw opcode. */
+    /* 1288 */ OP_vpxord,          /**< IA-32/AMD64 AVX-512 OP_vpxord opcode. */
+    /* 1289 */ OP_vpxorq,          /**< IA-32/AMD64 AVX-512 OP_vpxorq opcode. */
+    /* 1290 */ OP_vrcp14ps,        /**< IA-32/AMD64 AVX-512 OP_vrcp14ps opcode. */
+    /* 1291 */ OP_vrcp14pd,        /**< IA-32/AMD64 AVX-512 OP_vrcp14pd opcode. */
+    /* 1292 */ OP_vrcp14ss,        /**< IA-32/AMD64 AVX-512 OP_vrcp14ss opcode. */
+    /* 1293 */ OP_vrcp14sd,        /**< IA-32/AMD64 AVX-512 OP_vrcp14sd opcode. */
+    /* 1294 */ OP_vrcp28ps,        /**< IA-32/AMD64 AVX-512 OP_vrcp28ps opcode. */
+    /* 1295 */ OP_vrcp28pd,        /**< IA-32/AMD64 AVX-512 OP_vrcp28pd opcode. */
+    /* 1296 */ OP_vrcp28ss,        /**< IA-32/AMD64 AVX-512 OP_vrcp28ss opcode. */
+    /* 1297 */ OP_vrcp28sd,        /**< IA-32/AMD64 AVX-512 OP_vrcp28sd opcode. */
+    /* 1298 */ OP_vshuff32x4,      /**< IA-32/AMD64 AVX-512 OP_vshuff32x4 opcode. */
+    /* 1299 */ OP_vshuff64x2,      /**< IA-32/AMD64 AVX-512 OP_vshuff64x2 opcode. */
+    /* 1301 */ OP_vshufi32x4,      /**< IA-32/AMD64 AVX-512 OP_vshufi32x4 opcode. */
+    /* 1302 */ OP_vshufi64x2,      /**< IA-32/AMD64 AVX-512 OP_vshufi64x2 opcode. */
 
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
