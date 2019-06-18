@@ -525,12 +525,12 @@ test_x86_64_s:
  c5 f9 7e e1          vmovd  %xmm4, %ecx
  c5 f9 6e 21          vmovd  (%rcx), %xmm4
  c5 f9 6e e1          vmovd  %ecx, %xmm4
- c4 e1 f9 7e e1       vmovd  %xmm4, %rcx
- c4 e1 f9 6e e1       vmovd  %rcx, %xmm4
+ c4 e1 f9 7e e1       vmovq  %xmm4, %rcx
+ c4 e1 f9 6e e1       vmovq  %rcx, %xmm4
  c5 f9 d6 21          vmovq  %xmm4, (%rcx)
- c4 e1 f9 7e e1       vmovd  %xmm4, %rcx
+ c4 e1 f9 7e e1       vmovq  %xmm4, %rcx
  c5 fa 7e 21          vmovq  (%rcx), %xmm4
- c4 e1 f9 6e e1       vmovd  %rcx, %xmm4
+ c4 e1 f9 6e e1       vmovq  %rcx, %xmm4
  c5 fa 7e f4          vmovq  %xmm4, %xmm6
  c5 f9 2f f4          vcomisd %xmm6, %xmm4
  c5 f9 2f 21          vcomisd %xmm4, (%rcx)
@@ -1265,8 +1265,8 @@ test_x86_64_s:
  c5 fc 2b 21          vmovntps %ymm4, (%rcx)
  c5 fa 7e f4          vmovq  %xmm4, %xmm6
  c5 f9 d6 21          vmovq  %xmm4, (%rcx)
- c4 e1 f9 7e e1       vmovd  %xmm4, %rcx
- c4 e1 f9 6e e1       vmovd  %rcx, %xmm4
+ c4 e1 f9 7e e1       vmovq  %xmm4, %rcx
+ c4 e1 f9 6e e1       vmovq  %rcx, %xmm4
  c5 fb 10 21          vmovsd (%rcx), %xmm4
  c5 fb 11 21          vmovsd %xmm4, (%rcx)
  c5 fe 16 f4          vmovshdup %ymm4, %ymm6
@@ -2265,10 +2265,10 @@ test_x86_64_s:
  c5 f9 17 21          vmovhpd %xmm4, (%rcx)
  c5 f8 17 21          vmovhps %xmm4, (%rcx)
  c5 fb 11 21          vmovsd %xmm4, (%rcx)
- c4 e1 f9 7e e1       vmovd  %xmm4, %rcx
- c4 e1 f9 6e e1       vmovd  %rcx, %xmm4
- c4 e1 f9 7e e1       vmovd  %xmm4, %rcx
- c4 e1 f9 6e e1       vmovd  %rcx, %xmm4
+ c4 e1 f9 7e e1       vmovq  %xmm4, %rcx
+ c4 e1 f9 6e e1       vmovq  %rcx, %xmm4
+ c4 e1 f9 7e e1       vmovq  %xmm4, %rcx
+ c4 e1 f9 6e e1       vmovq  %rcx, %xmm4
  c5 f9 d6 21          vmovq  %xmm4, (%rcx)
  c5 fa 7e 21          vmovq  (%rcx), %xmm4
  c5 fb 2d cc          vcvtsd2si %xmm4, %ecx
@@ -4456,12 +4456,12 @@ test_x86_64_s:
  c5 f8 17 21          vmovhps %xmm4, (%rcx)
  c5 fb 11 21          vmovsd %xmm4, (%rcx)
  c5 fb 11 21          vmovsd %xmm4, (%rcx)
- c4 e1 f9 7e e1       vmovd  %xmm4, %rcx
- c4 e1 f9 6e e1       vmovd  %rcx, %xmm4
+ c4 e1 f9 7e e1       vmovq  %xmm4, %rcx
+ c4 e1 f9 6e e1       vmovq  %rcx, %xmm4
  c5 f9 7e 21          vmovd  %xmm4, (%rcx)
  c5 f9 6e 21          vmovd  (%rcx), %xmm4
- c4 e1 f9 7e e1       vmovd  %xmm4, %rcx
- c4 e1 f9 6e e1       vmovd  %rcx, %xmm4
+ c4 e1 f9 7e e1       vmovq  %xmm4, %rcx
+ c4 e1 f9 6e e1       vmovq  %rcx, %xmm4
  c5 f9 d6 21          vmovq  %xmm4, (%rcx)
  c5 fa 7e 21          vmovq  (%rcx), %xmm4
  c5 f9 d6 21          vmovq  %xmm4, (%rcx)
@@ -34692,10 +34692,10 @@ test_x86_64_s:
  66 48 0f 7e c8       movd   %xmm1, %rax
  c5 f9 6e 88 80 00 00 vmovd  0x80(%rax), %xmm1
  00
- c4 e1 f9 6e c8       vmovd  %rax, %xmm1
+ c4 e1 f9 6e c8       vmovq  %rax, %xmm1
  c5 f9 7e 88 80 00 00 vmovd  %xmm1, 0x80(%rax)
  00
- c4 e1 f9 7e c8       vmovd  %xmm1, %rax
+ c4 e1 f9 7e c8       vmovq  %xmm1, %rax
  66 0f 6e 88 80 00 00 movd   0x80(%rax), %xmm1
  00
  66 0f 6e 88 80 00 00 movd   0x80(%rax), %xmm1
@@ -34722,8 +34722,8 @@ test_x86_64_s:
  c5 f9 7e 88 80 00 00 vmovd  %xmm1, 0x80(%rax)
  00
  c5 f9 7e c8          vmovd  %xmm1, %eax
- c4 e1 f9 6e c8       vmovd  %rax, %xmm1
- c4 e1 f9 7e c8       vmovd  %xmm1, %rax
+ c4 e1 f9 6e c8       vmovq  %rax, %xmm1
+ c4 e1 f9 7e c8       vmovq  %xmm1, %rax
  0f 1f 00             nop    (%rax)
  0f 1f 40 00          nop    0x00(%rax)
  0f 1f 44 00 00       nop    0x00(%rax,%rax)
