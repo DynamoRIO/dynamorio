@@ -169,6 +169,8 @@ compatibility changes:
    collect more stats.
  - Moves the immediate operand of the VEX encoded version of vextractps and vinsertps
    to be the first source.
+ - The GPR versions of the vmovd and vmovq AVX opcodes are no longer combined into a
+   single vmovd.
 
 Further non-compatibility-affecting changes include:
 

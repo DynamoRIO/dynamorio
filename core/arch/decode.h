@@ -398,12 +398,30 @@ enum {
     OPSZ_half_16_vex32,      /* half of 128 bits (XMM or memory);
                               * if vex.L then is half of 256 bits (YMM or memory).
                               */
-    OPSZ_half_16_vex32_evex64, /* 64 bits, but can be half of XMM register;
-                                * if evex.L then is 256 bits (YMM or memory);
-                                * if evex.L' then is 512 bits (ZMM or memory).
-                                */
+    OPSZ_half_16_vex32_evex64,    /* 64 bits, but can be half of XMM register;
+                                   * if evex.L then is 256 bits (YMM or memory);
+                                   * if evex.L' then is 512 bits (ZMM or memory).
+                                   */
+    OPSZ_quarter_16_vex32,        /* quarter of 128 bits (XMM or memory);
+                                   * if vex.L then is quarter of 256 bits (YMM or memory).
+                                   */
+    OPSZ_quarter_16_vex32_evex64, /* quarter of 128 bits (XMM or memory);
+                                   * if evex.L then is quarter of 256 bits (YMM or
+                                   * memory);
+                                   * if evex.L' then is quarter of 512 bits (ZMM
+                                   * or memory).
+                                   */
+    OPSZ_eighth_16_vex32,         /* eighth of 128 bits (XMM or memory);
+                                   * if vex.L then is eighth of 256 bits (YMM or memory).
+                                   */
+    OPSZ_eighth_16_vex32_evex64,  /* eighth of 128 bits (XMM or memory);
+                                   * if evex.L then is eighth of 256 bits (YMM or
+                                   * memory);
+                                   * if evex.L' then is eighth of 512 bits (ZMM
+                                   * or memory).
+                                   */
     OPSZ_SUBREG_START = OPSZ_1_of_4,
-    OPSZ_SUBREG_END = OPSZ_half_16_vex32_evex64,
+    OPSZ_SUBREG_END = OPSZ_eighth_16_vex32_evex64,
     OPSZ_LAST_ENUM, /* note last is NOT inclusive */
 };
 
