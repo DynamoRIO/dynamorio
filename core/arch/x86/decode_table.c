@@ -3321,22 +3321,22 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_cvtss2sd, 0xf30f5a10, "cvtss2sd", Vsd, xx, Wss, xx, xx, mrm, x, END_LIST},
     {OP_cvtpd2ps, 0x660f5a10, "cvtpd2ps", Vps, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_cvtsd2ss, 0xf20f5a10, "cvtsd2ss", Vss, xx, Wsd, xx, xx, mrm, x, END_LIST},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Vvd, xx, Wvs, xx, xx, mrm|vex, x, tpe[26][8]},
     {OP_vcvtss2sd, 0xf30f5a10, "vcvtss2sd", Vdq, xx, Hsd, Wss, xx, mrm|vex, x, tpe[26][9]},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvtpd2ps, 0x660f5a10, "vcvtpd2ps", Vvs, xx, Wvd, xx, xx, mrm|vex, x, tpe[26][10]},
     {OP_vcvtsd2ss, 0xf20f5a10, "vcvtsd2ss", Vdq, xx, H12_dq, Wsd, xx, mrm|vex, x, tpe[26][11]},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Ved, xx, KEb, Wes, xx, mrm|evex, x, END_LIST},
     {OP_vcvtss2sd, 0xf30f5a10, "vcvtss2sd", Vdq, xx, KE1b, Hsd, Wss, mrm|evex, x, END_LIST},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvtpd2ps, 0x660f5a50, "vcvtpd2ps", Ves, xx, KEw, Wed, xx, mrm|evex, x, END_LIST},
@@ -4115,11 +4115,11 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vcvtpd2dq, 0xf20fe610, "vcvtpd2dq",  Vx, xx, Wvd, xx, xx, mrm|vex, x, tpe[77][11]},
     {INVALID,   0x0fe610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {EVEX_W_EXT, 0xf30fe610, "(evex_W ext 57)", xx, xx, xx, xx, xx, mrm|evex, x, 57},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvttpd2dq,0x660fe650, "vcvttpd2dq", Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvtpd2dq, 0xf20fe650, "vcvtpd2dq",  Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
@@ -5395,7 +5395,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf2383218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x383218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_vpmovqb,   0xf3383218, "vpmovqb", Wj_e, xx, KEb, Ve, xx, mrm|evex, x, END_LIST},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovzxbq, 0x66383218, "vpmovzxbq", Ve, xx, KEb, Wj_e, xx, mrm|evex, x, END_LIST},
@@ -5412,7 +5412,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf2382218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x382218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_vpmovsqb,  0xf3382218, "vpmovsqb", Wj_e, xx, KEb, Ve, xx, mrm|evex, x, END_LIST},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovsxbq, 0x66382218, "vpmovsxbq", Ve, xx, KEb, Wj_e, xx, mrm|evex, x, END_LIST},
@@ -5443,7 +5443,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf2383418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x383418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_vpmovqw,   0xf3383418, "vpmovqw", Wi_e, xx, KEb, Ve, xx, mrm|evex, x, END_LIST},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovzxwq, 0x66383418, "vpmovzxwq", Ve, xx, KEb, Wi_e, xx, mrm|evex, x, END_LIST},
@@ -5460,7 +5460,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf2382418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x382418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_vpmovsqw,  0xf3382418, "vpmovsqw", Wi_e, xx, KEb, Ve, xx, mrm|evex, x, END_LIST},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovsxwq, 0x66382418, "vpmovsxwq", Ve, xx, KEb, Wi_e, xx, mrm|evex, x, END_LIST},
@@ -5490,7 +5490,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66383518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2383518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x383518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovqd,   0xf3383518, "vpmovqd", Wh_e, xx, KEb, Ve, xx, mrm|evex, x, END_LIST},
@@ -5507,7 +5507,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66382518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2382518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x382518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovsqd,  0xf3382518, "vpmovsqd", Wh_e, xx, KEb, Ve, xx, mrm|evex, x, END_LIST},
@@ -5524,7 +5524,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66381518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2381518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x381518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovusqd, 0xf3381518, "vpmovusqd", Wh_e, xx, KEb, Ve, xx, mrm|evex, x, END_LIST},
@@ -5541,7 +5541,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66383118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2383118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x383118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovdb,   0xf3383118, "vpmovdb", Wi_e, xx, KEw, Ve, xx, mrm|evex, x, END_LIST},
@@ -5558,7 +5558,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66382118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2382118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x382118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovsdb,  0xf3382118, "vpmovsdb", Wi_e, xx, KEw, Ve, xx, mrm|evex, x, END_LIST},
@@ -5575,7 +5575,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66381118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2381118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x381118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovusdb, 0xf3381118, "vpmovusdb", Wi_e, xx, KEw, Ve, xx, mrm|evex, x, END_LIST},
@@ -5592,7 +5592,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66383318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2383318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x383318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovdw,   0xf3383318, "vpmovdw", Wh_e, xx, KEw, Ve, xx, mrm|evex, x, END_LIST},
@@ -5609,7 +5609,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66382318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2382318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x382318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovsdw,  0xf3382318, "vpmovsdw", Wh_e, xx, KEw, Ve, xx, mrm|evex, x, END_LIST},
@@ -5626,7 +5626,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66381318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2381318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x381318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovusdw, 0xf3381318, "vpmovusdw", Wh_e, xx, KEw, Ve, xx, mrm|evex, x, END_LIST},
@@ -5643,7 +5643,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66383018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2383018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x383018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovwb,   0xf3383018, "vpmovwb", Wh_e, xx, KEd, Ve, xx, mrm|evex, x, END_LIST},
@@ -5660,7 +5660,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66382018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2382018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x382018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovswb,  0xf3382018, "vpmovswb", Wh_e, xx, KEd, Ve, xx, mrm|evex, x, END_LIST},
@@ -5677,7 +5677,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66381018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2381018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x381018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovuswb, 0xf3381018, "vpmovuswb", Wh_e, xx, KEd, Ve, xx, mrm|evex, x, END_LIST},
@@ -6065,7 +6065,7 @@ const instr_info_t e_vex_extensions[][3] = {
   }, { /* e_vex ext 76 */
     {INVALID,   0x663a1d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vcvtps2ph, 0x663a1d18, "vcvtps2ph", Wx, xx, Vx, Ib, xx, mrm|vex|reqp, x, tvex[76][2]},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvtps2ph, 0x663a1d18, "vcvtps2ph", We, xx, KEw, Ve, Ib, mrm|evex|reqp, x, END_LIST},
@@ -7428,7 +7428,7 @@ const instr_info_t evex_W_extensions[][2] = {
     {OP_vpmulld,  0x66384018, "vpmulld",   Ve, xx, KEw,He,We, mrm|evex|reqp, x, END_LIST},
     {OP_vpmullq,  0x66384058, "vpmullq",   Ve, xx, KEb,He,We, mrm|evex|reqp, x, END_LIST},
   }, { /* evex_W_ext 46 */
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvtps2qq, 0x660f7b10, "vcvtps2qq", Ve, xx, KEb, Wes, xx, mrm|evex, x, END_LIST},
@@ -7437,25 +7437,25 @@ const instr_info_t evex_W_extensions[][2] = {
     {OP_vcvtps2udq, 0x0f7910, "vcvtps2udq", Ve, xx, KEw, Wes, xx, mrm|evex, x, END_LIST},
     {OP_vcvtpd2udq, 0x0f7950, "vcvtpd2udq", Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
   }, { /* evex_W_ext 48 */
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvtps2uqq, 0x660f7910, "vcvtps2uqq", Ve, xx, KEw, Wes, xx, mrm|evex, x, END_LIST},
     {OP_vcvtpd2uqq, 0x660f7950, "vcvtpd2uqq", Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
   }, { /* evex_W_ext 49 */
     {OP_vcvttps2udq, 0x0f7810, "vcvttps2udq", Ve, xx, KEw, Wes, xx, mrm|evex, x, END_LIST},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvttpd2udq, 0x0f7850, "vcvttpd2udq", Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
   }, { /* evex_W_ext 50 */
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvttps2qq,0x660f7a10, "vcvttps2qq", Ve, xx, KEb, Wes, xx, mrm|evex, x, END_LIST},
     {OP_vcvttpd2qq,0x660f7a50, "vcvttpd2qq", Ve, xx, KEb, Wed, xx, mrm|evex, x, END_LIST},
   }, { /* evex_W_ext 51 */
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvttps2uqq, 0x660f7810, "vcvttps2uqq", Ve, xx, KEb, Wes, xx, mrm|evex, x, END_LIST},
@@ -7474,12 +7474,12 @@ const instr_info_t evex_W_extensions[][2] = {
    {OP_vcvttsd2usi, 0xf20f7850, "vcvttsd2usi", Gd_q, xx, Wsd, xx, xx, mrm|evex, x, END_LIST},
   }, { /* evex_W_ext 56 */
     {OP_vcvtdq2ps, 0x0f5b10, "vcvtdq2ps", Ves, xx, KEw, We, xx, mrm|evex, x, END_LIST},
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvtqq2ps, 0x0f5b50, "vcvtqq2ps", Ves, xx, KEb, We, xx, mrm|evex, x, END_LIST},
   }, { /* evex_W_ext 57 */
-    /* XXX i#3639, tools tend to give source/destination different register size mnemonic.
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
     {OP_vcvtdq2pd, 0xf30fe610, "vcvtdq2pd",  Ved, xx, KEb, We, xx, mrm|evex, x, END_LIST},
