@@ -3709,7 +3709,7 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_movd,   0x0f7e10, "movd", Ed_q, xx, Pd_q, xx, xx, mrm, x, tpe[51][2]},
     /* movq zeroes the top bits when the destination is an mmx or xmm reg */
     {OP_movq, 0xf30f7e10, "movq", Vdq, xx, Wq_dq, xx, xx, mrm, x, tpe[61][2]},
-    {OP_movd, 0x660f7e10, "movd", Ed, xx, Vd_dq, xx, xx, mrm, x, END_LIST},
+    {OP_movd, 0x660f7e10, "movd", Ed_q, xx, Vd_dq, xx, xx, mrm, x, END_LIST},
     {INVALID, 0xf20f7e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vmovq, 0xf30f7e10, "vmovq", Vdq, xx, Wq_dq, xx, xx, mrm|vex, x, tpe[61][6]},
