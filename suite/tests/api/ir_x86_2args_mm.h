@@ -244,11 +244,27 @@ OPCODE(vtestpd_256_ext, vtestpd, vtestpd, X64_ONLY, REGARG(YMM15), MEMARG(OPSZ_3
 
 /* AVX2 */
 OPCODE(vbroadcasti128, vbroadcasti128, vbroadcasti128, 0, REGARG(YMM0), MEMARG(OPSZ_16))
-OPCODE(vpbroadcastb, vpbroadcastb, vpbroadcastb, 0, REGARG(XMM0), MEMARG(OPSZ_1))
-OPCODE(vpbroadcastw, vpbroadcastw, vpbroadcastw, 0, REGARG(XMM0), MEMARG(OPSZ_2))
-OPCODE(vpbroadcastd, vpbroadcastd, vpbroadcastd, 0, REGARG(XMM0), MEMARG(OPSZ_4))
-OPCODE(vpbroadcastq, vpbroadcastq, vpbroadcastq, 0, REGARG(XMM0), MEMARG(OPSZ_8))
-OPCODE(vpbroadcastb_256, vpbroadcastb, vpbroadcastb, 0, REGARG(YMM0), MEMARG(OPSZ_1))
-OPCODE(vpbroadcastw_256, vpbroadcastw, vpbroadcastw, 0, REGARG(YMM0), MEMARG(OPSZ_2))
-OPCODE(vpbroadcastd_256, vpbroadcastd, vpbroadcastd, 0, REGARG(YMM0), MEMARG(OPSZ_4))
-OPCODE(vpbroadcastq_256, vpbroadcastq, vpbroadcastq, 0, REGARG(YMM0), MEMARG(OPSZ_8))
+OPCODE(vpbroadcastb_m, vpbroadcastb, vpbroadcastb, 0, REGARG(XMM0), MEMARG(OPSZ_1))
+OPCODE(vpbroadcastw_m, vpbroadcastw, vpbroadcastw, 0, REGARG(XMM0), MEMARG(OPSZ_2))
+OPCODE(vpbroadcastd_m, vpbroadcastd, vpbroadcastd, 0, REGARG(XMM0), MEMARG(OPSZ_4))
+OPCODE(vpbroadcastq_m, vpbroadcastq, vpbroadcastq, 0, REGARG(XMM0), MEMARG(OPSZ_8))
+OPCODE(vpbroadcastb_r, vpbroadcastb, vpbroadcastb, 0, REGARG(XMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_1))
+OPCODE(vpbroadcastw_r, vpbroadcastw, vpbroadcastw, 0, REGARG(XMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_2))
+OPCODE(vpbroadcastd_r, vpbroadcastd, vpbroadcastd, 0, REGARG(XMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_4))
+OPCODE(vpbroadcastq_r, vpbroadcastq, vpbroadcastq, 0, REGARG(XMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_8))
+OPCODE(vpbroadcastb_256m, vpbroadcastb, vpbroadcastb, 0, REGARG(YMM0), MEMARG(OPSZ_1))
+OPCODE(vpbroadcastw_256m, vpbroadcastw, vpbroadcastw, 0, REGARG(YMM0), MEMARG(OPSZ_2))
+OPCODE(vpbroadcastd_256m, vpbroadcastd, vpbroadcastd, 0, REGARG(YMM0), MEMARG(OPSZ_4))
+OPCODE(vpbroadcastq_256m, vpbroadcastq, vpbroadcastq, 0, REGARG(YMM0), MEMARG(OPSZ_8))
+OPCODE(vpbroadcastb_256r, vpbroadcastb, vpbroadcastb, 0, REGARG(YMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_1))
+OPCODE(vpbroadcastw_256r, vpbroadcastw, vpbroadcastw, 0, REGARG(YMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_2))
+OPCODE(vpbroadcastd_256r, vpbroadcastd, vpbroadcastd, 0, REGARG(YMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_4))
+OPCODE(vpbroadcastq_256r, vpbroadcastq, vpbroadcastq, 0, REGARG(YMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_8))

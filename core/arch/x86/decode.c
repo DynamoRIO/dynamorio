@@ -254,6 +254,8 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
     case OPSZ_16_of_32:
     case OPSZ_16_of_32_evex64: return OPSZ_16;
     case OPSZ_32_of_64: return OPSZ_32;
+    case OPSZ_4_of_32_evex64: return OPSZ_4;
+    case OPSZ_8_of_32_evex64: return OPSZ_8;
     case OPSZ_16_vex32_evex64:
         /* XXX i#1312: There may be a conflict since LL' is also used for rounding
          * control in AVX-512 if used in combination.
