@@ -1779,8 +1779,8 @@
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param k The opnd_t explicit mask source operand for the instruction.
  * \param i The opnd_t explicit second source operand for the instruction, which
- * \param s The opnd_t explicit source operand for the instruction.
  * must be an immediate integer (opnd_create_immed_int()).
+ * \param s The opnd_t explicit source operand for the instruction.
  */
 /* AVX-512 EVEX */
 #define INSTR_CREATE_vpshufhw_mask(dc, d, k, i, s) \
@@ -4001,9 +4001,9 @@
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param k The opnd_t explicit mask source operand for the instruction.
  * \param i The opnd_t explicit third source operand for the instruction, which
+ * must be an immediate integer (opnd_create_immed_int()).
  * \param s1 The opnd_t explicit first source operand for the instruction.
  * \param s2 The opnd_t explicit second source operand for the instruction.
- * must be an immediate integer (opnd_create_immed_int()).
  */
 /* AVX-512 EVEX */
 #define INSTR_CREATE_vinsertf32x4_mask(dc, d, k, i, s1, s2) \
