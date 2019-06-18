@@ -35,3 +35,27 @@ OPCODE(vinsertps_xloxloxloi, vinsertps, vinsertps, 0, REGARG(XMM0), IMMARG(OPSZ_
        REGARG(XMM1), REGARG_PARTIAL(XMM2, OPSZ_4))
 OPCODE(vinsertps_xhixhixhii, vinsertps, vinsertps, X64_ONLY, REGARG(XMM16),
        IMMARG(OPSZ_1), REGARG(XMM17), REGARG_PARTIAL(XMM31, OPSZ_4))
+OPCODE(vpinsrw_xloxlor, vpinsrw, vpinsrw, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_14),
+       REGARG(EAX), IMMARG(OPSZ_1))
+OPCODE(vpinsrw_xloxlom, vpinsrw, vpinsrw, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_14),
+       MEMARG(OPSZ_2), IMMARG(OPSZ_1))
+OPCODE(vpinsrw_xhixhir, vpinsrw, vpinsrw, X64_ONLY, REGARG(XMM16),
+       REGARG_PARTIAL(XMM31, OPSZ_14), REGARG(EAX), IMMARG(OPSZ_1))
+OPCODE(vpinsrw_xhixhim, vpinsrw, vpinsrw, X64_ONLY, REGARG(XMM16),
+       REGARG_PARTIAL(XMM31, OPSZ_14), MEMARG(OPSZ_2), IMMARG(OPSZ_1))
+OPCODE(vpinsrb_xloxlor, vpinsrb, vpinsrb, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_15),
+       REGARG(EAX), IMMARG(OPSZ_1))
+OPCODE(vpinsrb_xloxlom, vpinsrb, vpinsrb, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_15),
+       MEMARG(OPSZ_1), IMMARG(OPSZ_1))
+OPCODE(vpinsrb_xhixhir, vpinsrb, vpinsrb, X64_ONLY, REGARG(XMM16),
+       REGARG_PARTIAL(XMM31, OPSZ_15), REGARG(EAX), IMMARG(OPSZ_1))
+OPCODE(vpinsrb_xhixhim, vpinsrb, vpinsrb, X64_ONLY, REGARG(XMM16),
+       REGARG_PARTIAL(XMM31, OPSZ_15), MEMARG(OPSZ_1), IMMARG(OPSZ_1))
+OPCODE(vpinsrd_xloxlor, vpinsrd, vpinsrd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_12),
+       REGARG(EAX), IMMARG(OPSZ_1))
+OPCODE(vpinsrd_xloxlom, vpinsrd, vpinsrd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_12),
+       MEMARG(OPSZ_4), IMMARG(OPSZ_1))
+OPCODE(vpinsrd_xhixhir, vpinsrd, vpinsrd, X64_ONLY, REGARG(XMM16),
+       REGARG_PARTIAL(XMM31, OPSZ_12), REGARG(EAX), IMMARG(OPSZ_1))
+OPCODE(vpinsrd_xhixhim, vpinsrd, vpinsrd, X64_ONLY, REGARG(XMM16),
+       REGARG_PARTIAL(XMM31, OPSZ_12), MEMARG(OPSZ_4), IMMARG(OPSZ_1))
