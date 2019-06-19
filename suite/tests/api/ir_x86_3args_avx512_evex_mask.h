@@ -2247,7 +2247,6 @@ OPCODE(vpcompressq_zlok0zlo, vpcompressq, vpcompressq_mask, 0, REGARG(ZMM1), REG
        REGARG(ZMM0))
 OPCODE(vpcompressq_zhik7zhi, vpcompressq, vpcompressq_mask, X64_ONLY, REGARG(ZMM31),
        REGARG(K7), REGARG(ZMM16))
-/* NOCHECKIN */
 OPCODE(vpexpandd_xlok0st, vpexpandd, vpexpandd_mask, 0, MEMARG(OPSZ_16), REGARG(K0),
        REGARG(XMM0))
 OPCODE(vpexpandd_xlok0xlo, vpexpandd, vpexpandd_mask, 0, REGARG(XMM1), REGARG(K0),
