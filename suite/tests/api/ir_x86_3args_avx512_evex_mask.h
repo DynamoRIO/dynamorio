@@ -1847,6 +1847,14 @@ OPCODE(vbroadcastsd_zhik7xhi, vbroadcastsd, vbroadcastsd_mask, X64_ONLY, REGARG(
        REGARG(K7), REGARG_PARTIAL(XMM31, OPSZ_8))
 OPCODE(vbroadcastsd_zhik7ld, vbroadcastsd, vbroadcastsd_mask, X64_ONLY, REGARG(ZMM16),
        REGARG(K7), MEMARG(OPSZ_8))
+OPCODE(vbroadcastss_xlok0xlo, vbroadcastss, vbroadcastss_mask, 0, REGARG(XMM0),
+       REGARG(K0), REGARG_PARTIAL(XMM1, OPSZ_4))
+OPCODE(vbroadcastss_xlok0ld, vbroadcastss, vbroadcastss_mask, 0, REGARG(XMM0), REGARG(K0),
+       MEMARG(OPSZ_4))
+OPCODE(vbroadcastss_xhik7xhi, vbroadcastss, vbroadcastss_mask, X64_ONLY, REGARG(XMM16),
+       REGARG(K7), REGARG_PARTIAL(XMM31, OPSZ_4))
+OPCODE(vbroadcastss_xhik7ld, vbroadcastss, vbroadcastss_mask, X64_ONLY, REGARG(XMM16),
+       REGARG(K7), MEMARG(OPSZ_4))
 OPCODE(vbroadcastss_ylok0xlo, vbroadcastss, vbroadcastss_mask, 0, REGARG(YMM0),
        REGARG(K0), REGARG_PARTIAL(XMM1, OPSZ_4))
 OPCODE(vbroadcastss_ylok0ld, vbroadcastss, vbroadcastss_mask, 0, REGARG(YMM0), REGARG(K0),

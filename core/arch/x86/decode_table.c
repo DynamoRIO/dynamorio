@@ -6031,7 +6031,7 @@ const instr_info_t e_vex_extensions[][3] = {
   }, { /* e_vex ext 64 */
     {INVALID,   0x66381818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vbroadcastss, 0x66381818, "vbroadcastss", Vx, xx, Wd_dq, xx, xx, mrm|vex|reqp, x, tvex[64][2]},
-    {OP_vbroadcastss, 0x66381818, "vbroadcastss", Vf, xx, KEw, Wd_dq, xx, mrm|evex|reqp, x, END_LIST},
+    {OP_vbroadcastss, 0x66381818, "vbroadcastss", Ve, xx, KEw, Wd_dq, xx, mrm|evex|reqp, x, END_LIST},
   }, { /* e_vex ext 65 */
     {INVALID,   0x66381918, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vbroadcastsd, 0x66381918, "vbroadcastsd", Vqq, xx, Wq_dq, xx, xx, mrm|vex|reqp|reqL1, x, tevexw[147][1]},
