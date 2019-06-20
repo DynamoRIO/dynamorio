@@ -221,3 +221,27 @@ OPCODE(vpmovq2m_ylok0, vpmovq2m, vpmovq2m, 0, REGARG(K0), REGARG(YMM0))
 OPCODE(vpmovq2m_yhik7, vpmovq2m, vpmovq2m, X64_ONLY, REGARG(K7), REGARG(YMM31))
 OPCODE(vpmovq2m_zlok0, vpmovq2m, vpmovq2m, 0, REGARG(K0), REGARG(ZMM0))
 OPCODE(vpmovq2m_zhik7, vpmovq2m, vpmovq2m, X64_ONLY, REGARG(K7), REGARG(ZMM31))
+OPCODE(vpbroadcastmb2q_xlok0, vpbroadcastmb2q, vpbroadcastmb2q, 0, REGARG(XMM0),
+       REGARG(K0))
+OPCODE(vpbroadcastmb2q_xhik7, vpbroadcastmb2q, vpbroadcastmb2q, X64_ONLY, REGARG(XMM31),
+       REGARG(K7))
+OPCODE(vpbroadcastmb2q_ylok0, vpbroadcastmb2q, vpbroadcastmb2q, 0, REGARG(YMM0),
+       REGARG(K0))
+OPCODE(vpbroadcastmb2q_yhik7, vpbroadcastmb2q, vpbroadcastmb2q, X64_ONLY, REGARG(YMM31),
+       REGARG(K7))
+OPCODE(vpbroadcastmb2q_zlok0, vpbroadcastmb2q, vpbroadcastmb2q, 0, REGARG(ZMM0),
+       REGARG(K0))
+OPCODE(vpbroadcastmb2q_zhik7, vpbroadcastmb2q, vpbroadcastmb2q, X64_ONLY, REGARG(ZMM31),
+       REGARG(K7))
+OPCODE(vpbroadcastmw2d_xlok0, vpbroadcastmw2d, vpbroadcastmw2d, 0, REGARG(XMM0),
+       REGARG(K0))
+OPCODE(vpbroadcastmw2d_xhik7, vpbroadcastmw2d, vpbroadcastmw2d, X64_ONLY, REGARG(XMM31),
+       REGARG(K7))
+OPCODE(vpbroadcastmw2d_ylok0, vpbroadcastmw2d, vpbroadcastmw2d, 0, REGARG(YMM0),
+       REGARG(K0))
+OPCODE(vpbroadcastmw2d_yhik7, vpbroadcastmw2d, vpbroadcastmw2d, X64_ONLY, REGARG(YMM31),
+       REGARG(K7))
+OPCODE(vpbroadcastmw2d_zlok0, vpbroadcastmw2d, vpbroadcastmw2d, 0, REGARG(ZMM0),
+       REGARG(K0))
+OPCODE(vpbroadcastmw2d_zhik7, vpbroadcastmw2d, vpbroadcastmw2d, X64_ONLY, REGARG(ZMM31),
+       REGARG(K7))

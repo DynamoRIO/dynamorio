@@ -79,7 +79,7 @@
 #define BUFFER_SIZE_BYTES(buf) sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 
-static byte buf[16384];
+static byte buf[32768];
 
 /***************************************************************************
  * make sure the following are consistent (though they could still all be wrong :))

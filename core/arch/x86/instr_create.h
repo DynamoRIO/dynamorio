@@ -1465,6 +1465,10 @@
     instr_create_1dst_1src((dc), OP_vpmovd2m, (d), (s))
 #define INSTR_CREATE_vpmovq2m(dc, d, s) \
     instr_create_1dst_1src((dc), OP_vpmovq2m, (d), (s))
+#define INSTR_CREATE_vpbroadcastmb2q(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpbroadcastmb2q, (d), (s))
+#define INSTR_CREATE_vpbroadcastmw2d(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpbroadcastmw2d, (d), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
@@ -1793,6 +1797,22 @@
     instr_create_1dst_3src((dc), OP_vgetmantps, (d), (k), (i), (s))
 #define INSTR_CREATE_vgetmantpd_mask(dc, d, k, i, s) \
     instr_create_1dst_3src((dc), OP_vgetmantpd, (d), (k), (i), (s))
+#define INSTR_CREATE_vreduceps_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vreduceps, (d), (k), (i), (s))
+#define INSTR_CREATE_vreducepd_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vreducepd, (d), (k), (i), (s))
+#define INSTR_CREATE_vrndscaleps_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vrndscaleps, (d), (k), (i), (s))
+#define INSTR_CREATE_vrndscalepd_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vrndscalepd, (d), (k), (i), (s))
+#define INSTR_CREATE_vfpclassps_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vfpclassps, (d), (k), (i), (s))
+#define INSTR_CREATE_vfpclasspd_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vfpclasspd, (d), (k), (i), (s))
+#define INSTR_CREATE_vfpclassss_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vfpclassss, (d), (k), (i), (s))
+#define INSTR_CREATE_vfpclasssd_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vfpclasssd, (d), (k), (i), (s))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 2 non-immediate sources */
@@ -2518,6 +2538,26 @@
     instr_create_1dst_2src((dc), OP_vpexpandd, (d), (k), (s))
 #define INSTR_CREATE_vpexpandq_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vpexpandq, (d), (k), (s))
+#define INSTR_CREATE_vrsqrt14ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrsqrt14ps, (d), (k), (s))
+#define INSTR_CREATE_vrsqrt14pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrsqrt14pd, (d), (k), (s))
+#define INSTR_CREATE_vrsqrt28ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrsqrt28ps, (d), (k), (s))
+#define INSTR_CREATE_vrsqrt28pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrsqrt28pd, (d), (k), (s))
+#define INSTR_CREATE_vexp2ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vexp2ps, (d), (k), (s))
+#define INSTR_CREATE_vexp2pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vexp2pd, (d), (k), (s))
+#define INSTR_CREATE_vpconflictd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpconflictd, (d), (k), (s))
+#define INSTR_CREATE_vpconflictq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpconflictq, (d), (k), (s))
+#define INSTR_CREATE_vplzcntd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vplzcntd, (d), (k), (s))
+#define INSTR_CREATE_vplzcntq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vplzcntq, (d), (k), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -3578,6 +3618,26 @@
     instr_create_1dst_3src((dc), OP_vptestnmd, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vptestnmq_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vptestnmq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrsqrt14ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrsqrt14ss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrsqrt14sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrsqrt14sd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrsqrt28ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrsqrt28ss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrsqrt28sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrsqrt28sd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vscalefps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vscalefps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vscalefpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vscalefpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vscalefss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vscalefss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vscalefsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vscalefsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmadd52huq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmadd52huq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmadd52luq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmadd52luq, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
@@ -4178,6 +4238,24 @@
     instr_create_1dst_4src((dc), OP_vgetmantss, (d), (k), (i), (s1), (s2))
 #define INSTR_CREATE_vgetmantsd_mask(dc, d, k, i, s1, s2) \
     instr_create_1dst_4src((dc), OP_vgetmantsd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vrangeps_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vrangeps, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vrangepd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vrangepd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vrangess_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vrangess, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vrangesd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vrangesd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vreducess_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vreducess, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vreducesd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vreducesd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vdbpsadbw_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vdbpsadbw, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpternlogd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpternlogd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpternlogq_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpternlogq, (d), (k), (i), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources where 2 are implicit */
