@@ -1215,7 +1215,7 @@ const instr_info_t * const op_instr[] =
 
     /* Intel BMI2 */
     /* OP_bzhi          */   &prefix_extensions[142][4],
-    /* OP_pext          */   &prefix_extensions[142][6],
+    /* OP_pext          */   &prefix_extensions[142][5],
     /* OP_pdep          */   &prefix_extensions[142][7],
     /* OP_sarx          */   &prefix_extensions[141][5],
     /* OP_shlx          */   &prefix_extensions[141][6],
@@ -5071,8 +5071,8 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x6638f518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf238f518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_bzhi,        0x38f518, "bzhi",    Gy, xx, Ey, By, xx, mrm|vex, fW6, END_LIST},
-    {INVALID,      0xf338f518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {OP_pext,      0x6638f518, "pext",    Gy, xx, Ey, By, xx, mrm|vex, x, END_LIST},
+    {OP_pext,      0xf338f518, "pext",    Gy, xx, Ey, By, xx, mrm|vex, x, END_LIST},
+    {INVALID,      0x6638f518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_pdep,      0xf238f518, "pdep",    Gy, xx, Ey, By, xx, mrm|vex, x, END_LIST},
     /* TODO i#1312: Support AVX-512. */
     {INVALID,   0x38f518, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
