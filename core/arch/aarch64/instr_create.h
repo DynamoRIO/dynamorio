@@ -223,7 +223,7 @@
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define XINST_CREATE_load_simd(dc, r, m) INSTR_CREATE_ldr((dc), (r), (m))
+#define XINST_CREATE_load_simd(dc, r, m) INSTR_CREATE_ld1((dc), (r), (m))
 
 /**
  * This platform-independent macro creates an instr_t for a multimedia
@@ -232,7 +232,7 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store_simd(dc, m, r) INSTR_CREATE_str((dc), (m), (r))
+#define XINST_CREATE_store_simd(dc, m, r) INSTR_CREATE_st1((dc), (m), (r))
 
 /**
  * This platform-independent macro creates an instr_t for an indirect
