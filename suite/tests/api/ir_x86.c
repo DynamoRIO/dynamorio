@@ -106,8 +106,13 @@ static byte buf[32768];
 #define TGTARG opnd_create_instr(instrlist_last(ilist))
 #define REGARG(reg) opnd_create_reg(DR_REG_##reg)
 #define REGARG_PARTIAL(reg, sz) opnd_create_reg_partial(DR_REG_##reg, sz)
-#define VSIBX(sz) (opnd_create_base_disp(DR_REG_XCX, DR_REG_XMM6, 2, 0x42, sz))
-#define VSIBY(sz) (opnd_create_base_disp(DR_REG_XDX, DR_REG_YMM6, 2, 0x17, sz))
+#define VSIBX6(sz) (opnd_create_base_disp(DR_REG_XCX, DR_REG_XMM6, 2, 0x42, sz))
+#define VSIBY6(sz) (opnd_create_base_disp(DR_REG_XDX, DR_REG_YMM6, 2, 0x17, sz))
+#define VSIBZ6(sz) (opnd_create_base_disp(DR_REG_XDX, DR_REG_ZMM6, 2, 0x35, sz))
+#define VSIBX15(sz) (opnd_create_base_disp(DR_REG_XCX, DR_REG_XMM15, 2, 0x42, sz))
+#define VSIBY15(sz) (opnd_create_base_disp(DR_REG_XDX, DR_REG_YMM15, 2, 0x17, sz))
+#define VSIBZ31(sz) (opnd_create_base_disp(DR_REG_XDX, DR_REG_ZMM31, 2, 0x35, sz))
+
 #define X86_ONLY 1
 #define X64_ONLY 2
 #define VERIFY_EVEX 4
@@ -217,6 +222,14 @@ static void
 test_all_opcodes_2_avx512_vex(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_2args_avx512_vex.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+static void
+test_all_opcodes_2_avx512_evex_mask(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_2args_avx512_evex_mask.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
@@ -1824,6 +1837,7 @@ main(int argc, char *argv[])
     test_all_opcodes_4_avx512_evex(dcontext);
     test_all_opcodes_3_avx512_evex(dcontext);
     test_all_opcodes_2_avx512_evex(dcontext);
+    test_all_opcodes_2_avx512_evex_mask(dcontext);
 #endif
 
     print("all done\n");

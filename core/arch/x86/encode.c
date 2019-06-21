@@ -30,7 +30,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  */
-
 /* Copyright (c) 2003-2007 Determina Corp. */
 /* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
 /* Copyright (c) 2001 Hewlett-Packard Company */
@@ -1096,7 +1095,7 @@ opnd_needs_evex(opnd_t opnd)
 
 static bool
 opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opnd_t opnd,
-             int optype, opnd_size_t opsize)
+             int optype, opnd_size_t opsize, ushort flags)
 {
     DOLOG(ENC_LEVEL, LOG_EMIT, {
         dcontext_t *dcontext = get_thread_private_dcontext();
@@ -1205,6 +1204,13 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         if (TEST(PREFIX_ADDR, di->prefixes))
             return false; /* VSIB invalid w/ 16-bit addressing */
 #endif
+        if (TEST(REQUIRES_VSIBY, flags)) {
+            if (!reg_is_strictly_ymm(opnd_get_index(opnd)))
+                return false;
+        } else if (TEST(REQUIRES_VSIBZ, flags)) {
+            if (!reg_is_strictly_zmm(opnd_get_index(opnd)))
+                return false;
+        }
         /* fall through */
     case TYPE_FLOATMEM:
     case TYPE_M: return mem_size_ok(di, opnd, optype, opsize);
@@ -1472,7 +1478,7 @@ instr_info_extra_opnds(const instr_info_t *info)
     if (iitype != TYPE_NONE) {                                                           \
         if (inst_num < iinum)                                                            \
             return false;                                                                \
-        if (!opnd_type_ok(di, get_op, iitype, iisize))                                   \
+        if (!opnd_type_ok(di, get_op, iitype, iisize, flags))                            \
             return false;                                                                \
         if (opnd_needs_evex(get_op)) {                                                   \
             if (!TEST(REQUIRES_EVEX, flags))                                             \
@@ -1952,11 +1958,13 @@ encode_base_disp(decode_info_t *di, opnd_t opnd)
                 /* note that r13 can be an index register */
                 CLIENT_ASSERT(index != REG_ESP IF_X64(&&index != REG_RSP),
                               "encode error: xsp cannot be an index register");
-                CLIENT_ASSERT(reg_is_32bit(index) ||
-                                  (X64_MODE(di) && reg_is_64bit(index)) ||
-                                  reg_is_xmm(index) /* VSIB */,
-                              "encode error: index must be general-purpose register");
+                CLIENT_ASSERT(
+                    reg_is_32bit(index) || (X64_MODE(di) && reg_is_64bit(index)) ||
+                        reg_is_strictly_xmm(index) || reg_is_strictly_ymm(index) ||
+                        reg_is_strictly_zmm(index) /* VSIB */,
+                    "encode error: index must be general-purpose register");
                 encode_reg_ext_prefixes(di, index, PREFIX_REX_X);
+                encode_avx512_reg_ext_prefixes(di, index, PREFIX_EVEX_VV);
                 if (X64_MODE(di) && reg_is_32bit(index))
                     di->prefixes |= PREFIX_ADDR;
                 di->index = reg_get_bits(index);

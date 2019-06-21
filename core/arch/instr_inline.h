@@ -275,7 +275,10 @@ opnd_create_pc(app_pc pc)
 
 #    define OPND_GET_BASE(opnd) (GET_BASE_DISP(opnd).base_reg)
 #    define OPND_GET_DISP(opnd) (GET_BASE_DISP(opnd).disp)
-#    define OPND_GET_INDEX(opnd) (GET_BASE_DISP(opnd).index_reg)
+#    define OPND_GET_INDEX(opnd)                                \
+        (GET_BASE_DISP(opnd).index_reg_is_zmm                   \
+             ? DR_REG_START_ZMM + GET_BASE_DISP(opnd).index_reg \
+             : GET_BASE_DISP(opnd).index_reg)
 #    ifdef X86
 #        define OPND_GET_SCALE(opnd) (GET_BASE_DISP(opnd).scale)
 #    else
