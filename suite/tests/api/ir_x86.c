@@ -1410,8 +1410,8 @@ test_vsib(void *dc)
     ASSERT(pc != NULL);
     ASSERT(strcmp(dbuf,
                   IF_X64_ELSE(
-                      "vpgatherdq (%rdx,%xmm0,2)[8byte] %xmm2 -> %xmm4 %xmm2\n",
-                      "vpgatherdq (%edx,%xmm0,2)[8byte] %xmm2 -> %xmm4 %xmm2\n")) == 0);
+                      "vpgatherdq (%rdx,%xmm0,2)[4byte] %xmm2 -> %xmm4 %xmm2\n",
+                      "vpgatherdq (%edx,%xmm0,2)[4byte] %xmm2 -> %xmm4 %xmm2\n")) == 0);
 
     pc =
         disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,

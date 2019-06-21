@@ -1768,8 +1768,8 @@ const instr_info_t * const op_instr[] =
 #define Mqq  TYPE_M, OPSZ_32
 #define Mq_dq TYPE_M, OPSZ_8_rex16
 #define Mv  TYPE_M, OPSZ_4_rex8_short2
-#define MVd TYPE_VSIB, OPSZ_4
-#define MVq TYPE_VSIB, OPSZ_8
+#define MVxd TYPE_VSIB, OPSZ_4
+#define MVxq TYPE_VSIB, OPSZ_8
 #define Zb  TYPE_XLAT, OPSZ_1
 #define Bq  TYPE_MASKMOVQ, OPSZ_8
 #define Bdq  TYPE_MASKMOVQ, OPSZ_16
@@ -7170,17 +7170,17 @@ const instr_info_t vex_W_extensions[][2] = {
     /* XXX: OP_v*gather* raise #UD if any pair of the index, mask, or destination
      * registers are identical.  We don't bother trying to detect that.
      */
-    {OP_vpgatherdd,0x66389018,"vpgatherdd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,END_LIST},
-    {OP_vpgatherdq,0x66389058,"vpgatherdq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
+    {OP_vpgatherdd,0x66389018,"vpgatherdd",Vx,Hx,MVxd,Hx,xx, mrm|vex|reqp,x,END_LIST},
+    {OP_vpgatherdq,0x66389058,"vpgatherdq",Vx,Hx,MVxd,Hx,xx, mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 67 */
-    {OP_vpgatherqd,0x66389118,"vpgatherqd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,END_LIST},
-    {OP_vpgatherqq,0x66389158,"vpgatherqq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
+    {OP_vpgatherqd,0x66389118,"vpgatherqd",Vx,Hx,MVxq,Hx,xx, mrm|vex|reqp,x,END_LIST},
+    {OP_vpgatherqq,0x66389158,"vpgatherqq",Vx,Hx,MVxq,Hx,xx, mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 68 */
-    {OP_vgatherdps,0x66389218,"vgatherdps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,END_LIST},
-    {OP_vgatherdpd,0x66389258,"vgatherdpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
+    {OP_vgatherdps,0x66389218,"vgatherdps",Vvs,Hx,MVxd,Hx,xx, mrm|vex|reqp,x,END_LIST},
+    {OP_vgatherdpd,0x66389258,"vgatherdpd",Vvd,Hx,MVxd,Hx,xx, mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 69 */
-    {OP_vgatherqps,0x66389318,"vgatherqps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,END_LIST},
-    {OP_vgatherqpd,0x66389358,"vgatherqpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
+    {OP_vgatherqps,0x66389318,"vgatherqps",Vvs,Hx,MVxq,Hx,xx, mrm|vex|reqp,x,END_LIST},
+    {OP_vgatherqpd,0x66389358,"vgatherqpd",Vvd,Hx,MVxq,Hx,xx, mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 70 */
     {OP_vpmaskmovd,0x66388c18,"vpmaskmovd",Vx,xx,Hx,Mx,xx, mrm|vex|reqp|predcx,x,tvexw[71][0]},
     {OP_vpmaskmovq,0x66388c58,"vpmaskmovq",Vx,xx,Hx,Mx,xx, mrm|vex|reqp|predcx,x,tvexw[71][1]},
