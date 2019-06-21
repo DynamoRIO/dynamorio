@@ -530,6 +530,14 @@
 #define INSTR_CREATE_ldp(dc, rt1, rt2, mem) \
     instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
 #define INSTR_CREATE_ldr(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
+#define INSTR_CREATE_ld1(dc, Rd1, mem) \
+    instr_create_1dst_1src((dc), OP_ld1, (Rd1), (mem))
+#define INSTR_CREATE_ld2(dc, Rd1, Rd2, mem) \
+    instr_create_1dst_2src((dc), OP_ld2, (Rd1), (Rd2), (mem))
+#define INSTR_CREATE_ld3(dc, Rd1, Rd2, Rd3, mem) \
+    instr_create_1dst_3src((dc), OP_ld3, (Rd1), (Rd2), (Rd3), (mem))
+#define INSTR_CREATE_ld4(dc, Rd1, Rd2, Rd3, Rd4, mem) \
+    instr_create_1dst_4src((dc), OP_ld4, (Rd1), (Rd2), (Rd3), (Rd4), (mem))
 #define INSTR_CREATE_ldrb(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrb, Rd, mem)
 #define INSTR_CREATE_ldrh(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrh, Rd, mem)
 #define INSTR_CREATE_ldar(dc, Rt, mem) instr_create_1dst_1src((dc), OP_ldar, (Rt), (mem))
@@ -552,6 +560,14 @@
 #define INSTR_CREATE_stp(dc, mem, rt1, rt2) \
     instr_create_1dst_2src(dc, OP_stp, mem, rt1, rt2)
 #define INSTR_CREATE_str(dc, mem, rt) instr_create_1dst_1src(dc, OP_str, mem, rt)
+#define INSTR_CREATE_st1(dc, mem, rt1) \
+    instr_create_1dst_1src(dc, OP_st1, mem, rt1)
+#define INSTR_CREATE_st2(dc, mem, rt1, rt2) \
+    instr_create_1dst_2src(dc, OP_st2, mem, rt1, rt2)
+#define INSTR_CREATE_st3(dc, mem, rt1, rt2, rt3) \
+    instr_create_1dst_3src(dc, OP_st3, mem, rt1, rt2, rt3)
+#define INSTR_CREATE_st4(dc, mem, rt1, rt2, rt3, rt4) \
+    instr_create_1dst_4src(dc, OP_st4, mem, rt1, rt2, rt3, rt4)
 #define INSTR_CREATE_strb(dc, mem, rt) instr_create_1dst_1src(dc, OP_strb, mem, rt)
 #define INSTR_CREATE_strh(dc, mem, rt) instr_create_1dst_1src(dc, OP_strh, mem, rt)
 #define INSTR_CREATE_stur(dc, mem, rt) instr_create_1dst_1src(dc, OP_stur, mem, rt)
