@@ -1446,7 +1446,7 @@ test_s:
  8f ea 78 12 08 00 00 lwpval %eax, (%eax), $0x00000000
  00 00
  c4 e2 7b f5 00       pdep   (%eax), %eax, %eax
- c4 e2 7a f5 00       bzhi   (%eax), %eax, %eax
+ c4 e2 7a f5 00       pext   (%eax), %eax, %eax
  c4 e3 7b f0 00 00    rorx   (%eax), $0x00, %eax
  c4 e2 7a f7 00       sarx   (%eax), %eax, %eax
  c4 e2 79 f7 00       shlx   (%eax), %eax, %eax
@@ -6233,8 +6233,8 @@ test_s:
  c4 e3 7b f0 19 07    rorx   (%ecx), $0x07, %ebx
  c4 e2 63 f5 f0       pdep   %eax, %ebx, %esi
  c4 e2 63 f5 31       pdep   (%ecx), %ebx, %esi
- c4 e2 62 f5 f0       bzhi   %eax, %ebx, %esi
- c4 e2 62 f5 31       bzhi   (%ecx), %ebx, %esi
+ c4 e2 62 f5 f0       pext   %eax, %ebx, %esi
+ c4 e2 62 f5 31       pext   (%ecx), %ebx, %esi
  c4 e2 78 f5 f3       bzhi   %ebx, %eax, %esi
  c4 e2 60 f5 31       bzhi   (%ecx), %ebx, %esi
  c4 e2 7a f7 f3       sarx   %ebx, %eax, %esi
@@ -6249,9 +6249,9 @@ test_s:
  c4 e2 63 f5 f0       pdep   %eax, %ebx, %esi
  c4 e2 63 f5 31       pdep   (%ecx), %ebx, %esi
  c4 e2 63 f5 31       pdep   (%ecx), %ebx, %esi
- c4 e2 62 f5 f0       bzhi   %eax, %ebx, %esi
- c4 e2 62 f5 31       bzhi   (%ecx), %ebx, %esi
- c4 e2 62 f5 31       bzhi   (%ecx), %ebx, %esi
+ c4 e2 62 f5 f0       pext   %eax, %ebx, %esi
+ c4 e2 62 f5 31       pext   (%ecx), %ebx, %esi
+ c4 e2 62 f5 31       pext   (%ecx), %ebx, %esi
  c4 e2 78 f5 f3       bzhi   %ebx, %eax, %esi
  c4 e2 60 f5 31       bzhi   (%ecx), %ebx, %esi
  c4 e2 60 f5 31       bzhi   (%ecx), %ebx, %esi
@@ -79673,7 +79673,7 @@ test_s:
  c4 e2 78 f3 08       blsr   (%eax), %eax
  c4 e2 78 f5 00       bzhi   (%eax), %eax, %eax
  c4 e2 7b f5 00       pdep   (%eax), %eax, %eax
- c4 e2 7a f5 00       bzhi   (%eax), %eax, %eax
+ c4 e2 7a f5 00       pext   (%eax), %eax, %eax
  c4 e3 7b f0 00 00    rorx   (%eax), $0x00, %eax
  c4 e2 7a f7 00       sarx   (%eax), %eax, %eax
  c4 e2 79 f7 00       shlx   (%eax), %eax, %eax

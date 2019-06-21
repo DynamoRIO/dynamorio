@@ -6455,8 +6455,8 @@ test_x86_64_s:
  c4 e2 63 f5 31       pdep   (%rcx), %ebx, %esi
  c4 42 03 f5 d1       pdep   %r9d, %r15d, %r10d
  c4 62 03 f5 11       pdep   (%rcx), %r15d, %r10d
- c4 e2 62 f5 f0       bzhi   %eax, %ebx, %esi
- c4 e2 62 f5 31       bzhi   (%rcx), %ebx, %esi
+ c4 e2 62 f5 f0       pext   %eax, %ebx, %esi
+ c4 e2 62 f5 31       pext   (%rcx), %ebx, %esi
  c4 42 02 f5 d1       bzhi   %r9d, %r15d, %r10d
  c4 62 02 f5 11       bzhi   (%rcx), %r15d, %r10d
  c4 e2 78 f5 f3       bzhi   %ebx, %eax, %esi
@@ -6514,7 +6514,7 @@ test_x86_64_s:
  c4 62 2b f5 39       pdep   (%rcx), %r10d, %r15d
  c4 e2 63 f5 31       pdep   (%rcx), %ebx, %esi
  c4 e2 62 f5 f0       bzhi   %eax, %ebx, %esi
- c4 e2 62 f5 31       bzhi   (%rcx), %ebx, %esi
+ c4 e2 62 f5 31       pext   (%rcx), %ebx, %esi
  c4 42 2a f5 f9       bzhi   %r9d, %r10d, %r15d
  c4 62 2a f5 39       bzhi   (%rcx), %r10d, %r15d
  c4 e2 62 f5 31       bzhi   (%rcx), %ebx, %esi
@@ -38972,7 +38972,7 @@ test_x86_64_s:
  c4 e2 78 f3 08       blsr   (%rax), %eax
  c4 e2 78 f5 00       bzhi   (%rax), %eax, %eax
  c4 e2 7b f5 00       pdep   (%rax), %eax, %eax
- c4 e2 7a f5 00       bzhi   (%rax), %eax, %eax
+ c4 e2 7a f5 00       pext   (%rax), %eax, %eax
  c4 e3 7b f0 00 00    rorx   (%rax), $0x00, %eax
  c4 e2 7a f7 00       sarx   (%rax), %eax, %eax
  c4 e2 79 f7 00       shlx   (%rax), %eax, %eax
