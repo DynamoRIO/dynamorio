@@ -994,6 +994,15 @@ enum {
     /* 924 */ OP_wfe,            /**< ARM wfe opcode. */
     /* 925 */ OP_wfi,            /**< ARM wfi opcode. */
     /* 926 */ OP_yield,          /**< ARM yield opcode. */
+        
+    /* 927 */ OP_ld1,            /**< ARM ld1 opcode. */
+    /* 928 */ OP_ld2,            /**< ARM ld2 opcode. */
+    /* 929 */ OP_ld3,            /**< ARM ld3 opcode. */
+    /* 930 */ OP_ld4,            /**< ARM ld4 opcode. */
+    /* 931 */ OP_st1,            /**< ARM st1 opcode. */
+    /* 932 */ OP_st2,            /**< ARM st2 opcode. */
+    /* 933 */ OP_st3,            /**< ARM st3 opcode. */
+    /* 934 */ OP_st4,            /**< ARM st4 opcode. */
 
     OP_AFTER_LAST,
     OP_FIRST = OP_adc,           /**< First real opcode. */
