@@ -975,6 +975,7 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 1001111001100111000000xxxxxxxxxx     fmov d0 : x5
 1001111010101111000000xxxxxxxxxx     fmov q0 : x5 # only sets the bit top half of q0
 
+
 # Advanced SIMD three same (FP16)
 0x001110010xxxxx000001xxxxxxxxxx     fmaxnm    dq0 : dq5 dq16 h_sz
 0x001110010xxxxx000011xxxxxxxxxx     fmla      dq0 : dq0 dq5 dq16 h_sz
@@ -1026,6 +1027,7 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0x001110xx1xxxxx101111xxxxxxxxxx     addp      dq0 : dq5 dq16 bhsd_sz
 0x0011100x1xxxxx110001xxxxxxxxxx     fmaxnm    dq0 : dq5 dq16 sd_sz
 0x0011100x1xxxxx110011xxxxxxxxxx     fmla      dq0 : dq0 dq5 dq16 sd_sz
+0x0011111xxxxxxx0001x0xxxxxxxxxx     fmla      dq0 : dq0 dq5 dq16 vindex_SD sd_sz
 0x0011100x1xxxxx110101xxxxxxxxxx     fadd      dq0 : dq5 dq16 sd_sz
 0x0011100x1xxxxx110111xxxxxxxxxx     fmulx     dq0 : dq5 dq16 sd_sz
 0x0011100x1xxxxx111001xxxxxxxxxx     fcmeq     dq0 : dq5 dq16 sd_sz
