@@ -278,9 +278,9 @@ enum {
 /* Instruction's VSIB's index reg must be ymm. We are using this and the next flag
  * to constrain the VSIB's index register's size.
  */
-#define REQUIRES_VSIBY 0x04000
+#define REQUIRES_VSIB_YMM 0x04000
 /* Instruction's VSIB's index reg must be zmm. */
-#define REQUIRES_VSIBZ 0x08000
+#define REQUIRES_VSIB_ZMM 0x08000
 
 struct _decode_info_t {
     uint opcode;

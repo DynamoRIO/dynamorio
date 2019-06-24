@@ -1973,8 +1973,8 @@ const instr_info_t * const op_instr[] =
 #define evex     REQUIRES_EVEX
 #define reqLL0   REQUIRES_EVEX_LL_0
 #define reqLL1   REQUIRES_EVEX_LL_1
-#define vsiby    REQUIRES_VSIBY
-#define vsibz    REQUIRES_VSIBZ
+#define vsiby    REQUIRES_VSIB_YMM
+#define vsibz    REQUIRES_VSIB_ZMM
 
 /* eflags */
 #define x     0
