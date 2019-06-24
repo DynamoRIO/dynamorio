@@ -7996,6 +7996,14 @@ const instr_info_t evex_W_extensions[][2] = {
     {OP_vscatterqps, 0x6638a318, "vscatterqps", MVd, KEb, KEb, Ve, xx, mrm|evex|reqp, x, END_LIST},
     {OP_vscatterqpd, 0x6638a358, "vscatterqpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp, x, END_LIST},
   }, { /* evex_W_ext 196 */
+       /* XXX i#1312: The encoding of this and the following gather prefetch instructions
+        * is not clear. Our current encoding works with binutils but fails llvm-mc.
+        * Open-source XED at the time of this writing doesn't support AVX-512PF. Neither
+        * do I have hardware available that supports AVX-512PF. Looks like llvm-mc expects
+        * EVEX.L', even though the index vector lengths are not ZMM. Before we implement
+        * an exception using reqLL1 and fix the lengths in decoder/encoderor or file a bug
+        * on LLVM, this needs to be clarified.
+        */
     {OP_vgatherpf0dps, 0x6638c639, "vgatherpf0dps", xx, xx, KEw, MVd, xx, mrm|evex|reqp|vsibz, x, END_LIST},
     {OP_vgatherpf0dpd, 0x6638c679, "vgatherpf0dpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsiby, x, END_LIST},
   }, { /* evex_W_ext 197 */
