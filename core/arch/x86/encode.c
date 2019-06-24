@@ -1095,7 +1095,7 @@ opnd_needs_evex(opnd_t opnd)
 
 static bool
 opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opnd_t opnd,
-             int optype, opnd_size_t opsize, ushort flags)
+             int optype, opnd_size_t opsize)
 {
     DOLOG(ENC_LEVEL, LOG_EMIT, {
         dcontext_t *dcontext = get_thread_private_dcontext();
@@ -1204,10 +1204,10 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         if (TEST(PREFIX_ADDR, di->prefixes))
             return false; /* VSIB invalid w/ 16-bit addressing */
 #endif
-        if (TEST(REQUIRES_VSIB_YMM, flags)) {
+        if (di->requires_vsib_ymm) {
             if (!reg_is_strictly_ymm(opnd_get_index(opnd)))
                 return false;
-        } else if (TEST(REQUIRES_VSIB_ZMM, flags)) {
+        } else if (di->requires_vsib_zmm) {
             if (!reg_is_strictly_zmm(opnd_get_index(opnd)))
                 return false;
         }
@@ -1478,7 +1478,7 @@ instr_info_extra_opnds(const instr_info_t *info)
     if (iitype != TYPE_NONE) {                                                           \
         if (inst_num < iinum)                                                            \
             return false;                                                                \
-        if (!opnd_type_ok(di, get_op, iitype, iisize, flags))                            \
+        if (!opnd_type_ok(di, get_op, iitype, iisize))                                   \
             return false;                                                                \
         if (opnd_needs_evex(get_op)) {                                                   \
             if (!TEST(REQUIRES_EVEX, flags))                                             \
@@ -1528,6 +1528,9 @@ encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t *ii)
     opnd_t using_modrm_bits = opnd_create_null();
     opnd_t using_vvvv_bits = opnd_create_null();
     opnd_t using_aaa_bits = opnd_create_null();
+
+    di->requires_vsib_ymm = TEST(REQUIRES_VSIB_YMM, ii->flags);
+    di->requires_vsib_zmm = TEST(REQUIRES_VSIB_ZMM, ii->flags);
 
     /* for efficiency we separately test 2 dsts, 3 srcs */
     TEST_OPND(di, ii->dst1_type, ii->dst1_size, 1, in->num_dsts, instr_get_dst(in, 0),
