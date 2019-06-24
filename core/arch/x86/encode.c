@@ -1204,10 +1204,10 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         if (TEST(PREFIX_ADDR, di->prefixes))
             return false; /* VSIB invalid w/ 16-bit addressing */
 #endif
-        if (TEST(REQUIRES_VSIBY, flags)) {
+        if (TEST(REQUIRES_VSIB_YMM, flags)) {
             if (!reg_is_strictly_ymm(opnd_get_index(opnd)))
                 return false;
-        } else if (TEST(REQUIRES_VSIBZ, flags)) {
+        } else if (TEST(REQUIRES_VSIB_ZMM, flags)) {
             if (!reg_is_strictly_zmm(opnd_get_index(opnd)))
                 return false;
         }
@@ -1962,7 +1962,8 @@ encode_base_disp(decode_info_t *di, opnd_t opnd)
                     reg_is_32bit(index) || (X64_MODE(di) && reg_is_64bit(index)) ||
                         reg_is_strictly_xmm(index) || reg_is_strictly_ymm(index) ||
                         reg_is_strictly_zmm(index) /* VSIB */,
-                    "encode error: index must be general-purpose register");
+                    "encode error: index must be general-purpose register or VSIB index "
+                    "vector register");
                 encode_reg_ext_prefixes(di, index, PREFIX_REX_X);
                 encode_avx512_reg_ext_prefixes(di, index, PREFIX_EVEX_VV);
                 if (X64_MODE(di) && reg_is_32bit(index))
