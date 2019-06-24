@@ -8001,7 +8001,7 @@ const instr_info_t evex_W_extensions[][2] = {
         * Open-source XED at the time of this writing doesn't support AVX-512PF. Neither
         * do I have hardware available that supports AVX-512PF. Looks like llvm-mc expects
         * EVEX.L', even though the index vector lengths are not ZMM. Before we implement
-        * an exception using reqLL1 and fix the lengths in decoder/encoderor or file a bug
+        * an exception using reqLL1 and fix the lengths in decoder/encoder or file a bug
         * on LLVM, this needs to be clarified.
         */
     {OP_vgatherpf0dps, 0x6638c639, "vgatherpf0dps", xx, xx, KEw, MVd, xx, mrm|evex|reqp|vsibz, x, END_LIST},
