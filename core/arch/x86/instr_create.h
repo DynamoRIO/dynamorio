@@ -4502,7 +4502,7 @@
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
- * supplying the mask as an implicit operands.
+ * supplying the mask as an implicit operand.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param k The opnd_t first source operand for the instruction.
@@ -4511,7 +4511,7 @@
 /* AVX-512 EVEX */
 /* Technically we wouldn't have to provide a separate macro for the AVX-512 version
  * of the instruction since the number of operands are the same. But the AVX-512
- * derivative of vgather is distinct in taking an EVEX mask instead of a xmm mask The
+ * derivative of vgather is distinct in taking an EVEX mask instead of an xmm mask. The
  * EVEX mask derivatives of all opcodes have a _mask macro version, so we provide one
  * here as well.
  */
