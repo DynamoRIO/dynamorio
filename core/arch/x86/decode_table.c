@@ -7997,7 +7997,8 @@ const instr_info_t evex_W_extensions[][2] = {
     {OP_vscatterqpd, 0x6638a358, "vscatterqpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp, x, END_LIST},
   }, { /* evex_W_ext 196 */
        /* XXX i#1312: The encoding of this and the following gather prefetch instructions
-        * is not clear. Our current encoding works with binutils but fails llvm-mc.
+        * is not clear. AVX-512PF seems to be specific to the Knights Landing architecture
+        * (Xeon Phi). Our current encoding works with binutils but fails llvm-mc.
         * Open-source XED at the time of this writing doesn't support AVX-512PF. Neither
         * do I have hardware available that supports AVX-512PF. Looks like llvm-mc expects
         * EVEX.L', even though the index vector lengths are not ZMM. Before we implement
