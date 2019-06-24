@@ -399,21 +399,21 @@ OPCODE(vgatherqpsidxlo, vgatherqps, vgatherqps, 0, REGARG(XMM0), VSIBX6(OPSZ_4),
 OPCODE(vgatherqpdidxlo, vgatherqpd, vgatherqpd, 0, REGARG(XMM0), VSIBX6(OPSZ_8),
        REGARG(XMM1))
 
-OPCODE(vpgatherdd_256idxlo, vpgatherdd, vpgatherdd, 0, REGARG(YMM0), VSIBY6(OPSZ_4),
+OPCODE(vpgatherdd_256idylo, vpgatherdd, vpgatherdd, 0, REGARG(YMM0), VSIBY6(OPSZ_4),
        REGARG(YMM1))
-OPCODE(vpgatherdq_256idxlo, vpgatherdq, vpgatherdq, 0, REGARG(YMM0), VSIBY6(OPSZ_8),
+OPCODE(vpgatherdq_256idylo, vpgatherdq, vpgatherdq, 0, REGARG(YMM0), VSIBY6(OPSZ_8),
        REGARG(YMM1))
-OPCODE(vpgatherqd_256idxlo, vpgatherqd, vpgatherqd, 0, REGARG(YMM0), VSIBY6(OPSZ_4),
+OPCODE(vpgatherqd_256idylo, vpgatherqd, vpgatherqd, 0, REGARG(YMM0), VSIBY6(OPSZ_4),
        REGARG(YMM1))
-OPCODE(vpgatherqq_256idxlo, vpgatherqq, vpgatherqq, 0, REGARG(YMM0), VSIBY6(OPSZ_8),
+OPCODE(vpgatherqq_256idylo, vpgatherqq, vpgatherqq, 0, REGARG(YMM0), VSIBY6(OPSZ_8),
        REGARG(YMM1))
-OPCODE(vgatherdps_256idxlo, vgatherdps, vgatherdps, 0, REGARG(YMM0), VSIBY6(OPSZ_4),
+OPCODE(vgatherdps_256idylo, vgatherdps, vgatherdps, 0, REGARG(YMM0), VSIBY6(OPSZ_4),
        REGARG(YMM1))
-OPCODE(vgatherdpd_256idxlo, vgatherdpd, vgatherdpd, 0, REGARG(YMM0), VSIBY6(OPSZ_8),
+OPCODE(vgatherdpd_256idylo, vgatherdpd, vgatherdpd, 0, REGARG(YMM0), VSIBY6(OPSZ_8),
        REGARG(YMM1))
-OPCODE(vgatherqps_256idxlo, vgatherqps, vgatherqps, 0, REGARG(YMM0), VSIBY6(OPSZ_4),
+OPCODE(vgatherqps_256idylo, vgatherqps, vgatherqps, 0, REGARG(YMM0), VSIBY6(OPSZ_4),
        REGARG(YMM1))
-OPCODE(vgatherqpd_256idxlo, vgatherqpd, vgatherqpd, 0, REGARG(YMM0), VSIBY6(OPSZ_8),
+OPCODE(vgatherqpd_256idylo, vgatherqpd, vgatherqpd, 0, REGARG(YMM0), VSIBY6(OPSZ_8),
        REGARG(YMM1))
 
 OPCODE(vpgatherddidxhi, vpgatherdd, vpgatherdd, X64_ONLY, REGARG(XMM0), VSIBX15(OPSZ_4),
@@ -433,21 +433,21 @@ OPCODE(vgatherqpsidxhi, vgatherqps, vgatherqps, X64_ONLY, REGARG(XMM0), VSIBX15(
 OPCODE(vgatherqpdidxhi, vgatherqpd, vgatherqpd, X64_ONLY, REGARG(XMM0), VSIBX15(OPSZ_8),
        REGARG(XMM1))
 
-OPCODE(vpgatherdd_256idxhi, vpgatherdd, vpgatherdd, X64_ONLY, REGARG(YMM0),
+OPCODE(vpgatherdd_256idyhi, vpgatherdd, vpgatherdd, X64_ONLY, REGARG(YMM0),
        VSIBY15(OPSZ_4), REGARG(YMM1))
-OPCODE(vpgatherdq_256idxhi, vpgatherdq, vpgatherdq, X64_ONLY, REGARG(YMM0),
+OPCODE(vpgatherdq_256idyhi, vpgatherdq, vpgatherdq, X64_ONLY, REGARG(YMM0),
        VSIBY15(OPSZ_8), REGARG(YMM1))
-OPCODE(vpgatherqd_256idxhi, vpgatherqd, vpgatherqd, X64_ONLY, REGARG(YMM0),
+OPCODE(vpgatherqd_256idyhi, vpgatherqd, vpgatherqd, X64_ONLY, REGARG(YMM0),
        VSIBY15(OPSZ_4), REGARG(YMM1))
-OPCODE(vpgatherqq_256idxhi, vpgatherqq, vpgatherqq, X64_ONLY, REGARG(YMM0),
+OPCODE(vpgatherqq_256idyhi, vpgatherqq, vpgatherqq, X64_ONLY, REGARG(YMM0),
        VSIBY15(OPSZ_8), REGARG(YMM1))
-OPCODE(vgatherdps_256idxhi, vgatherdps, vgatherdps, X64_ONLY, REGARG(YMM0),
+OPCODE(vgatherdps_256idyhi, vgatherdps, vgatherdps, X64_ONLY, REGARG(YMM0),
        VSIBY15(OPSZ_4), REGARG(YMM1))
-OPCODE(vgatherdpd_256idxhi, vgatherdpd, vgatherdpd, X64_ONLY, REGARG(YMM0),
+OPCODE(vgatherdpd_256idyhi, vgatherdpd, vgatherdpd, X64_ONLY, REGARG(YMM0),
        VSIBY15(OPSZ_8), REGARG(YMM1))
-OPCODE(vgatherqps_256idxhi, vgatherqps, vgatherqps, X64_ONLY, REGARG(YMM0),
+OPCODE(vgatherqps_256idyhi, vgatherqps, vgatherqps, X64_ONLY, REGARG(YMM0),
        VSIBY15(OPSZ_4), REGARG(YMM1))
-OPCODE(vgatherqpd_256idxhi, vgatherqpd, vgatherqpd, X64_ONLY, REGARG(YMM0),
+OPCODE(vgatherqpd_256idyhi, vgatherqpd, vgatherqpd, X64_ONLY, REGARG(YMM0),
        VSIBY15(OPSZ_8), REGARG(YMM1))
 
 OPCODE(vpermps, vpermps, vpermps, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
