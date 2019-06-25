@@ -2469,6 +2469,14 @@ OPCODE(vpermq_zhik7zhiimm, vpermq, vpermq_mask, X64_ONLY, REGARG(ZMM16), REGARG(
        REGARG(ZMM31), IMMARG(OPSZ_1))
 OPCODE(vpermq_zhik7ldimm, vpermq, vpermq_mask, X64_ONLY, REGARG(ZMM16), REGARG(K7),
        MEMARG(OPSZ_64), IMMARG(OPSZ_1))
+OPCODE(vpermpd_ylok0yloimm, vpermpd, vpermpd_mask, 0, REGARG(YMM0), REGARG(K0),
+       REGARG(YMM1), IMMARG(OPSZ_1))
+OPCODE(vpermpd_yhik0yhiimm, vpermpd, vpermpd_mask, X64_ONLY, REGARG(YMM16), REGARG(K7),
+       REGARG(YMM31), IMMARG(OPSZ_1))
+OPCODE(vpermpd_zlok0zloimm, vpermpd, vpermpd_mask, 0, REGARG(ZMM0), REGARG(K0),
+       REGARG(ZMM1), IMMARG(OPSZ_1))
+OPCODE(vpermpd_zhik0zhiimm, vpermpd, vpermpd_mask, X64_ONLY, REGARG(ZMM16), REGARG(K7),
+       REGARG(ZMM31), IMMARG(OPSZ_1))
 OPCODE(vpermpd_ylok0yloylo, vpermpd, vpermpd_mask, 0, REGARG(YMM0), REGARG(K0),
        REGARG(YMM1), REGARG(YMM2))
 OPCODE(vpermpd_ylok0ylold, vpermpd, vpermpd_mask, 0, REGARG(YMM0), REGARG(K0),
