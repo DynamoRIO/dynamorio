@@ -1428,6 +1428,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case DECODE_REG_INDEX:
         reg = di->index;
         extend = X64_MODE(di) && TEST(PREFIX_REX_X, di->prefixes);
+        avx512_extend = TEST(PREFIX_EVEX_VV, di->prefixes);
         break;
     case DECODE_REG_RM:
         reg = di->rm;
