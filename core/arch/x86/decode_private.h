@@ -345,8 +345,6 @@ struct _decode_info_t {
     /* for instr_t* target encoding */
     ptr_int_t cur_note;
     bool has_instr_opnds;
-    bool requires_vsib_ymm;
-    bool requires_vsib_zmm;
 };
 
 /* N.B.: if you change the type enum, change the string names for

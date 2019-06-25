@@ -1095,7 +1095,7 @@ opnd_needs_evex(opnd_t opnd)
 
 static bool
 opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opnd_t opnd,
-             int optype, opnd_size_t opsize)
+             int optype, opnd_size_t opsize, ushort flags)
 {
     DOLOG(ENC_LEVEL, LOG_EMIT, {
         dcontext_t *dcontext = get_thread_private_dcontext();
@@ -1204,10 +1204,10 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         if (TEST(PREFIX_ADDR, di->prefixes))
             return false; /* VSIB invalid w/ 16-bit addressing */
 #endif
-        if (di->requires_vsib_ymm) {
+        if (TEST(REQUIRES_VSIB_YMM, flags)) {
             if (!reg_is_strictly_ymm(opnd_get_index(opnd)))
                 return false;
-        } else if (di->requires_vsib_zmm) {
+        } else if (TEST(REQUIRES_VSIB_ZMM, flags)) {
             if (!reg_is_strictly_zmm(opnd_get_index(opnd)))
                 return false;
         }
@@ -1478,7 +1478,7 @@ instr_info_extra_opnds(const instr_info_t *info)
     if (iitype != TYPE_NONE) {                                                           \
         if (inst_num < iinum)                                                            \
             return false;                                                                \
-        if (!opnd_type_ok(di, get_op, iitype, iisize))                                   \
+        if (!opnd_type_ok(di, get_op, iitype, iisize, flags))                            \
             return false;                                                                \
         if (opnd_needs_evex(get_op)) {                                                   \
             if (!TEST(REQUIRES_EVEX, flags))                                             \
@@ -1528,9 +1528,6 @@ encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t *ii)
     opnd_t using_modrm_bits = opnd_create_null();
     opnd_t using_vvvv_bits = opnd_create_null();
     opnd_t using_aaa_bits = opnd_create_null();
-
-    di->requires_vsib_ymm = TEST(REQUIRES_VSIB_YMM, ii->flags);
-    di->requires_vsib_zmm = TEST(REQUIRES_VSIB_ZMM, ii->flags);
 
     /* for efficiency we separately test 2 dsts, 3 srcs */
     TEST_OPND(di, ii->dst1_type, ii->dst1_size, 1, in->num_dsts, instr_get_dst(in, 0),
@@ -1713,7 +1710,8 @@ encode_immed(decode_info_t *di, byte *pc)
             if (di->immed_shift > 0)
                 val >>= di->immed_shift;
 #ifdef X64
-                /* we auto-truncate below to the proper size rather than complaining */
+                /* we auto-truncate below to the proper size rather than complaining
+                 */
 #endif
         } else {
             val = di->immed;
@@ -1965,7 +1963,8 @@ encode_base_disp(decode_info_t *di, opnd_t opnd)
                     reg_is_32bit(index) || (X64_MODE(di) && reg_is_64bit(index)) ||
                         reg_is_strictly_xmm(index) || reg_is_strictly_ymm(index) ||
                         reg_is_strictly_zmm(index) /* VSIB */,
-                    "encode error: index must be general-purpose register or VSIB index "
+                    "encode error: index must be general-purpose register or VSIB "
+                    "index "
                     "vector register");
                 encode_reg_ext_prefixes(di, index, PREFIX_REX_X);
                 encode_avx512_reg_ext_prefixes(di, index, PREFIX_EVEX_VV);
@@ -2710,12 +2709,11 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
  * N.B: if instr is a jump with an instr_t target, the caller MUST set the note
  * field in the target instr_t prior to calling instr_encode on the jump instr.
  *
- * Returns the pc after the encoded instr, or NULL if the instruction cannot be encoded.
- * Note that if instr_is_label(instr) it will be  encoded as a 0-byte instruction.
- * If a pc-relative operand cannot reach its target:
- *   If reachable == NULL, we assert and encoding fails (returning NULL);
- *   Else, encoding continues, and *reachable is set to false.
- * Else, if reachable != NULL, *reachable is set to true.
+ * Returns the pc after the encoded instr, or NULL if the instruction cannot be
+ * encoded. Note that if instr_is_label(instr) it will be  encoded as a 0-byte
+ * instruction. If a pc-relative operand cannot reach its target: If reachable ==
+ * NULL, we assert and encoding fails (returning NULL); Else, encoding continues, and
+ * *reachable is set to false. Else, if reachable != NULL, *reachable is set to true.
  */
 byte *
 instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc,
@@ -2921,8 +2919,8 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         field_ptr++;
     }
 
-    /* vex and evex prefix must be last and if present includes prefix bytes, rex flags,
-     * and some opcode bytes.
+    /* vex and evex prefix must be last and if present includes prefix bytes, rex
+     * flags, and some opcode bytes.
      */
     if (di.vex_encoded) {
         if (TEST(OPCODE_MODRM, info->opcode)) {
