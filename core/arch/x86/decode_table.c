@@ -1979,20 +1979,20 @@ const instr_info_t * const op_instr[] =
 /* AVX-512 tupletype attributes. They are moved into the upper half
  * of the instr_info_t flags.
  */
-#define ttnone (TUPLE_TYPE_NONE * 65536)
-#define ttfv   (TUPLE_TYPE_FV * 65536)
-#define tthv   (TUPLE_TYPE_HV * 65536)
-#define ttfvm  (TUPLE_TYPE_FVM * 65536)
-#define ttt1s  (TUPLE_TYPE_T1S * 65536)
-#define ttt1f  (TUPLE_TYPE_T1F * 65536)
-#define ttt2   (TUPLE_TYPE_T2 * 65536)
-#define ttt4   (TUPLE_TYPE_T4 * 65536)
-#define ttt8   (TUPLE_TYPE_T8 * 65536)
-#define tthvm  (TUPLE_TYPE_HVM * 65536)
-#define ttqvm  (TUPLE_TYPE_QVM * 65536)
-#define ttovm  (TUPLE_TYPE_OVM * 65536)
-#define ttm128 (TUPLE_TYPE_M128 * 65536)
-#define ttdup  (TUPLE_TYPE_DUP * 65536)
+#define ttnone (TUPLE_TYPE_NONE << 16)
+#define ttfv   (TUPLE_TYPE_FV << 16)
+#define tthv   (TUPLE_TYPE_HV << 16)
+#define ttfvm  (TUPLE_TYPE_FVM << 16)
+#define ttt1s  (TUPLE_TYPE_T1S << 16)
+#define ttt1f  (TUPLE_TYPE_T1F << 16)
+#define ttt2   (TUPLE_TYPE_T2 << 16)
+#define ttt4   (TUPLE_TYPE_T4 << 16)
+#define ttt8   (TUPLE_TYPE_T8 << 16)
+#define tthvm  (TUPLE_TYPE_HVM << 16)
+#define ttqvm  (TUPLE_TYPE_QVM << 16)
+#define ttovm  (TUPLE_TYPE_OVM << 16)
+#define ttm128 (TUPLE_TYPE_M128 << 16)
+#define ttdup  (TUPLE_TYPE_DUP << 16)
 
 /* eflags */
 #define x     0
