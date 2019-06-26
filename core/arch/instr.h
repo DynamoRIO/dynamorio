@@ -327,8 +327,8 @@ typedef enum _dr_encoding_hint_type_t {
 
 /** AVX-512 tuple type attributes as specified in Intel's tables. */
 typedef enum dr_tuple_type_t {
-#ifdef X86
     TUPLE_TYPE_NONE = 0,
+#ifdef X86
     TUPLE_TYPE_FV = 1,
     TUPLE_TYPE_HV = 2,
     TUPLE_TYPE_FVM = 3,
