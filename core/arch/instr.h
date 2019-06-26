@@ -324,8 +324,33 @@ typedef enum _dr_encoding_hint_type_t {
     DR_ENCODING_HINT_X86_EVEX = 0x1, /**< x86: Encode in EVEX form if available. */
 #endif
 } dr_encoding_hint_type_t;
-
 /* DR_API EXPORT END */
+
+#define DR_TUPLE_TYPE_BITS 16
+#define DR_TUPLE_TYPE_BITPOS (32 - DR_TUPLE_TYPE_BITS)
+#define DR_TUPLE_TYPE_MASK \
+    (((1 << DR_TUPLE_TYPE_BITS) - 1) << DR_TUPLE_TYPE_BITPOS) /*0xffff0000 */
+
+/* AVX-512 tuple type attributes as specified in Intel's tables. */
+typedef enum _dr_tuple_type_t {
+    DR_TUPLE_TYPE_NONE = 0,
+#ifdef X86
+    DR_TUPLE_TYPE_FV = 1,
+    DR_TUPLE_TYPE_HV = 2,
+    DR_TUPLE_TYPE_FVM = 3,
+    DR_TUPLE_TYPE_T1S = 4,
+    DR_TUPLE_TYPE_T1F = 5,
+    DR_TUPLE_TYPE_T2 = 6,
+    DR_TUPLE_TYPE_T4 = 7,
+    DR_TUPLE_TYPE_T8 = 8,
+    DR_TUPLE_TYPE_HVM = 9,
+    DR_TUPLE_TYPE_QVM = 10,
+    DR_TUPLE_TYPE_OVM = 11,
+    DR_TUPLE_TYPE_M128 = 12,
+    DR_TUPLE_TYPE_DUP = 13,
+#endif
+} dr_tuple_type_t;
+
 /* These aren't composable, so we store them in as few bits as possible.
  * The top 5 prefix bits hold the value (x86 needs 17 values).
  * XXX: if we need more space we could compress the x86 values: they're
