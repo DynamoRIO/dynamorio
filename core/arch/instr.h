@@ -326,22 +326,22 @@ typedef enum _dr_encoding_hint_type_t {
 } dr_encoding_hint_type_t;
 
 /** AVX-512 tuple type attributes as specified in Intel's tables. */
-typedef enum dr_tuple_type_t {
-    TUPLE_TYPE_NONE = 0,
+typedef enum _dr_tuple_type_t {
+    DR_TUPLE_TYPE_NONE = 0,
 #ifdef X86
-    TUPLE_TYPE_FV = 1,
-    TUPLE_TYPE_HV = 2,
-    TUPLE_TYPE_FVM = 3,
-    TUPLE_TYPE_T1S = 4,
-    TUPLE_TYPE_T1F = 5,
-    TUPLE_TYPE_T2 = 6,
-    TUPLE_TYPE_T4 = 7,
-    TUPLE_TYPE_T8 = 8,
-    TUPLE_TYPE_HVM = 9,
-    TUPLE_TYPE_QVM = 10,
-    TUPLE_TYPE_OVM = 11,
-    TUPLE_TYPE_M128 = 12,
-    TUPLE_TYPE_DUP = 13,
+    DR_TUPLE_TYPE_FV = 1,
+    DR_TUPLE_TYPE_HV = 2,
+    DR_TUPLE_TYPE_FVM = 3,
+    DR_TUPLE_TYPE_T1S = 4,
+    DR_TUPLE_TYPE_T1F = 5,
+    DR_TUPLE_TYPE_T2 = 6,
+    DR_TUPLE_TYPE_T4 = 7,
+    DR_TUPLE_TYPE_T8 = 8,
+    DR_TUPLE_TYPE_HVM = 9,
+    DR_TUPLE_TYPE_QVM = 10,
+    DR_TUPLE_TYPE_OVM = 11,
+    DR_TUPLE_TYPE_M128 = 12,
+    DR_TUPLE_TYPE_DUP = 13,
 #endif
 } dr_tuple_type_t;
 
