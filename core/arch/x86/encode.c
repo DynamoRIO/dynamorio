@@ -1095,7 +1095,7 @@ opnd_needs_evex(opnd_t opnd)
 
 static bool
 opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opnd_t opnd,
-             int optype, opnd_size_t opsize, ushort flags)
+             int optype, opnd_size_t opsize, uint flags)
 {
     DOLOG(ENC_LEVEL, LOG_EMIT, {
         dcontext_t *dcontext = get_thread_private_dcontext();
