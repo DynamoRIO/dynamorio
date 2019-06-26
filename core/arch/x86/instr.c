@@ -2027,6 +2027,184 @@ opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
     return (s1_default == s2_default);
 }
 
+opnd_size_t
+instr_get_input_size_from_opcode(int opcode, bool evexw)
+{
+    /* See Intel Vol.2A 2.6.5 Compressed Displacement (disp8*N) Support in EVEX. When it's
+     * not possible determine the input size based on evex.W, we use the opcode. */
+    switch (opcode) {
+    case OP_vpextrb:
+    case OP_vpinsrb:
+    case OP_vpbroadcastb: return OPSZ_1;
+    case OP_vpinsrw:
+    case OP_vpextrw:
+    case OP_vpbroadcastw: return OPSZ_2;
+    case OP_vcvtss2si:
+    case OP_vcvttss2si:
+    case OP_vcomiss:
+    case OP_vcvtss2usi:
+    case OP_vcvttss2usi: return OPSZ_4;
+    case OP_vcvtsd2si:
+    case OP_vcvttsd2si:
+    case OP_vcomisd:
+    case OP_vcvtsd2usi:
+    case OP_vcvttsd2usi: return OPSZ_8;
+    }
+    if (evexw)
+        return OPSZ_8;
+    return OPSZ_4;
+}
+
+opnd_size_t
+instr_get_vector_length(bool vex_l, bool evex_ll)
+{
+    if (!vex_l && !evex_ll)
+        return OPSZ_16;
+    else if (vex_l && !evex_ll)
+        return OPSZ_32;
+    else if (!vex_l && evex_ll)
+        return OPSZ_64;
+    else
+        CLIENT_ASSERT(false, "invalid vector length.");
+    return OPSZ_NA;
+}
+
+int
+instr_get_compressed_disp_scale(int tuple_type, bool broadcast, opnd_size_t size,
+                                opnd_size_t vl)
+{
+    switch (tuple_type) {
+    case DR_TUPLE_TYPE_FV:
+        CLIENT_ASSERT(size == OPSZ_4 || size == OPSZ_8, "invalid input size.");
+        if (broadcast) {
+            switch (vl) {
+            case OPSZ_16: return size == OPSZ_4 ? 4 : 8;
+            case OPSZ_32: return size == OPSZ_4 ? 4 : 8;
+            case OPSZ_64: return size == OPSZ_4 ? 4 : 8;
+            default: CLIENT_ASSERT(false, "invalid vector length.");
+            }
+        } else {
+            switch (vl) {
+            case OPSZ_16: return 16;
+            case OPSZ_32: return 32;
+            case OPSZ_64: return 64;
+            default: CLIENT_ASSERT(false, "invalid vector length.");
+            }
+        }
+    case DR_TUPLE_TYPE_HV:
+        CLIENT_ASSERT(size == OPSZ_4, "invalid input size.");
+        if (broadcast) {
+            switch (vl) {
+            case OPSZ_16: return 4;
+            case OPSZ_32: return 4;
+            case OPSZ_64: return 4;
+            default: CLIENT_ASSERT(false, "invalid vector length.");
+            }
+        } else {
+            switch (vl) {
+            case OPSZ_16: return 8;
+            case OPSZ_32: return 16;
+            case OPSZ_64: return 32;
+            default: CLIENT_ASSERT(false, "invalid vector length.");
+            }
+        }
+    case DR_TUPLE_TYPE_FVM:
+        switch (vl) {
+        case OPSZ_16: return 16;
+        case OPSZ_32: return 32;
+        case OPSZ_64: return 64;
+        default: CLIENT_ASSERT(false, "invalid vector length.");
+        }
+    case DR_TUPLE_TYPE_T1S:
+        CLIENT_ASSERT(vl == OPSZ_16 || vl == OPSZ_32 || vl == OPSZ_64,
+                      "invalid vector length.");
+        if (size == OPSZ_1) {
+            return 1;
+        } else if (size == OPSZ_2) {
+            return 2;
+        } else if (size == OPSZ_4) {
+            return 4;
+        } else if (size == OPSZ_8) {
+            return 8;
+        } else {
+            CLIENT_ASSERT(false, "invalid input size.");
+        }
+    case DR_TUPLE_TYPE_T1F:
+        CLIENT_ASSERT(vl == OPSZ_16 || vl == OPSZ_32 || vl == OPSZ_64,
+                      "invalid vector length.");
+        if (size == OPSZ_4) {
+            return 4;
+        } else if (size == OPSZ_8) {
+            return 8;
+        } else {
+            CLIENT_ASSERT(false, "invalid input size.");
+        }
+    case DR_TUPLE_TYPE_T2:
+        if (size == OPSZ_4) {
+            CLIENT_ASSERT(vl == OPSZ_16 || vl == OPSZ_32 || vl == OPSZ_64,
+                          "invalid vector length.");
+            return 8;
+        } else if (size == OPSZ_8) {
+            CLIENT_ASSERT(vl == OPSZ_32 || vl == OPSZ_64, "invalid vector length.");
+            return 16;
+        } else {
+            CLIENT_ASSERT(false, "invalid input size.");
+        }
+    case DR_TUPLE_TYPE_T4:
+        if (size == OPSZ_4) {
+            CLIENT_ASSERT(vl == OPSZ_32 || vl == OPSZ_64, "invalid vector length.");
+            return 16;
+        } else if (size == OPSZ_8) {
+            CLIENT_ASSERT(vl == OPSZ_64, "invalid vector length.");
+            return 32;
+        } else {
+            CLIENT_ASSERT(false, "invalid input size.");
+        }
+    case DR_TUPLE_TYPE_T8:
+        CLIENT_ASSERT(size == OPSZ_4, "invalid input size.");
+        CLIENT_ASSERT(vl == OPSZ_64, "invalid vector length.");
+        return 32;
+    case DR_TUPLE_TYPE_HVM:
+        switch (vl) {
+        case OPSZ_16: return 8;
+        case OPSZ_32: return 16;
+        case OPSZ_64: return 32;
+        default: CLIENT_ASSERT(false, "invalid vector length.");
+        }
+    case DR_TUPLE_TYPE_QVM:
+        switch (vl) {
+        case OPSZ_16: return 4;
+        case OPSZ_32: return 8;
+        case OPSZ_64: return 16;
+        default: CLIENT_ASSERT(false, "invalid vector length.");
+        }
+    case DR_TUPLE_TYPE_OVM:
+        switch (vl) {
+        case OPSZ_16: return 2;
+        case OPSZ_32: return 4;
+        case OPSZ_64: return 8;
+        default: CLIENT_ASSERT(false, "invalid vector length.");
+        }
+    case DR_TUPLE_TYPE_M128:
+        switch (vl) {
+        case OPSZ_16: return 16;
+        case OPSZ_32: return 16;
+        case OPSZ_64: return 16;
+        default: CLIENT_ASSERT(false, "invalid vector length.");
+        }
+    case DR_TUPLE_TYPE_DUP:
+        switch (vl) {
+        case OPSZ_16: return 8;
+        case OPSZ_32: return 32;
+        case OPSZ_64: return 64;
+        default: CLIENT_ASSERT(false, "invalid vector length.");
+        }
+    case DR_TUPLE_TYPE_NONE: return 1;
+    default: CLIENT_ASSERT(false, "unknown tuple type."); return -1;
+    }
+    return -1;
+}
+
 instr_t *
 instr_create_popa(dcontext_t *dcontext)
 {

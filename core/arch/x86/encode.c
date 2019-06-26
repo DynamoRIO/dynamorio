@@ -1893,6 +1893,15 @@ encode_base_disp(decode_info_t *di, opnd_t opnd)
             di->disp = disp;
         }
     } else {
+        int compressed_disp_scale = 0;
+        if (di->evex_encoded) {
+            compressed_disp_scale = instr_get_compressed_disp_scale(
+                di->tuple_type, TEST(PREFIX_EVEX_b, di->prefixes),
+                instr_get_input_size_from_opcode(di->opcode,
+                                                 TEST(di->prefixes, PREFIX_REX_W)),
+                instr_get_vector_length(TEST(di->prefixes, PREFIX_VEX_L),
+                                        TEST(di->prefixes, PREFIX_EVEX_LL)));
+        }
         if (disp == 0 &&
             /* must use 8-bit disp for 0x0(%ebp) or 0x0(%r13) */
             ((!addr16 &&
@@ -1905,7 +1914,15 @@ encode_base_disp(decode_info_t *di, opnd_t opnd)
             /* no disp */
             di->mod = 0;
             di->has_disp = false;
-        } else if (disp >= INT8_MIN && disp <= INT8_MAX &&
+        } else if (di->evex_encoded && disp % compressed_disp_scale == 0 &&
+                   disp / compressed_disp_scale >= INT8_MIN &&
+                   disp / compressed_disp_scale <= INT8_MAX &&
+                   !opnd_is_disp_force_full(opnd)) {
+            /* 8-bit compressed disp */
+            di->mod = 1;
+            di->has_disp = true;
+            di->disp = disp / compressed_disp_scale;
+        } else if (!di->evex_encoded && disp >= INT8_MIN && disp <= INT8_MAX &&
                    !opnd_is_disp_force_full(opnd)) {
             /* 8-bit disp */
             di->mod = 1;
@@ -2834,6 +2851,19 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     CLIENT_ASSERT(!di.vex_encoded || !di.evex_encoded,
                   "instr_encode error: flags can't be both vex and evex.");
 
+    if (di.evex_encoded) {
+        /* The upper half of the flags field is the evex tuple type. */
+        di.tuple_type = (byte)(info->flags >> 16);
+    }
+    if (di.vex_encoded || di.evex_encoded) {
+        if (TEST(OPCODE_MODRM, info->opcode)) {
+            /* The prefix is needed for evex when encoding displacements, in order
+             * to determine the compressed scale factor.
+             */
+            di.prefixes |= PREFIX_REX_W;
+        }
+    }
+
     const instr_info_t *ii = info;
     int offs = 0;
     do {
@@ -2923,14 +2953,8 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
      * flags, and some opcode bytes.
      */
     if (di.vex_encoded) {
-        if (TEST(OPCODE_MODRM, info->opcode)) {
-            di.prefixes |= PREFIX_REX_W;
-        }
         field_ptr = encode_vex_prefixes(field_ptr, &di, info, &output_initial_opcode);
     } else if (di.evex_encoded) {
-        if (TEST(OPCODE_MODRM, info->opcode)) {
-            di.prefixes |= PREFIX_REX_W;
-        }
         field_ptr = encode_evex_prefixes(field_ptr, &di, info, &output_initial_opcode);
     } else {
         CLIENT_ASSERT(!TEST(PREFIX_VEX_L, di.prefixes), "internal encode vex error");

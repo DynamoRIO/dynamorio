@@ -2843,7 +2843,31 @@ DR_API
 bool
 reg_is_stolen(reg_id_t reg);
 
-/* internal version */
+/* Internal version */
+
+#ifdef X86
+
+/* Helper function to retrieve the "input size" as meant in Intel's Spec. Vol.2A "2.6.5
+ * Compressed Displacement (disp8*N) Support in EVEX". This is not a general function
+ * to determine the input size, and shall only be used for the purpose of table mentioned
+ * above.
+ */
+opnd_size_t
+instr_get_input_size_from_opcode(int opcode, bool evexw);
+
+/* Helper function to determine the vector length based on EVEX.L, EVEX.L'. */
+opnd_size_t
+instr_get_vector_length(bool vex_l, bool evex_ll);
+
+/* Helper function to determine the compressed displacement factor, as specified in
+ * Intel's table mentioned above.
+ */
+int
+instr_get_compressed_disp_scale(int tuple_type, bool broadcast, opnd_size_t size,
+                                opnd_size_t vl);
+
+#endif
+
 app_pc
 opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc);
 
