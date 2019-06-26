@@ -324,8 +324,12 @@ typedef enum _dr_encoding_hint_type_t {
     DR_ENCODING_HINT_X86_EVEX = 0x1, /**< x86: Encode in EVEX form if available. */
 #endif
 } dr_encoding_hint_type_t;
-
 /* DR_API EXPORT END */
+
+#define DR_TUPLE_TYPE_BITS 16
+#define DR_TUPLE_TYPE_BITPOS (32 - DR_TUPLE_TYPE_BITS)
+#define DR_TUPLE_TYPE_MASK \
+    (((1 << DR_TUPLE_TYPE_BITS) - 1) << DR_TUPLE_TYPE_BITPOS) /*0xffff0000 */
 
 /* AVX-512 tuple type attributes as specified in Intel's tables. */
 typedef enum _dr_tuple_type_t {

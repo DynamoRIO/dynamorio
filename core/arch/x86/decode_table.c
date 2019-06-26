@@ -1979,20 +1979,20 @@ const instr_info_t * const op_instr[] =
 /* AVX-512 tupletype attributes. They are moved into the upper half
  * of the instr_info_t flags.
  */
-#define ttnone (DR_TUPLE_TYPE_NONE << 16)
-#define ttfv   (DR_TUPLE_TYPE_FV << 16)
-#define tthv   (DR_TUPLE_TYPE_HV << 16)
-#define ttfvm  (DR_TUPLE_TYPE_FVM << 16)
-#define ttt1s  (DR_TUPLE_TYPE_T1S << 16)
-#define ttt1f  (DR_TUPLE_TYPE_T1F << 16)
-#define ttt2   (DR_TUPLE_TYPE_T2 << 16)
-#define ttt4   (DR_TUPLE_TYPE_T4 << 16)
-#define ttt8   (DR_TUPLE_TYPE_T8 << 16)
-#define tthvm  (DR_TUPLE_TYPE_HVM << 16)
-#define ttqvm  (DR_TUPLE_TYPE_QVM << 16)
-#define ttovm  (DR_TUPLE_TYPE_OVM << 16)
-#define ttm128 (DR_TUPLE_TYPE_M128 << 16)
-#define ttdup  (DR_TUPLE_TYPE_DUP << 16)
+#define ttnone (DR_TUPLE_TYPE_NONE << DR_TUPLE_TYPE_BITPOS)
+#define ttfv   (DR_TUPLE_TYPE_FV << DR_TUPLE_TYPE_BITPOS)
+#define tthv   (DR_TUPLE_TYPE_HV << DR_TUPLE_TYPE_BITPOS)
+#define ttfvm  (DR_TUPLE_TYPE_FVM << DR_TUPLE_TYPE_BITPOS)
+#define ttt1s  (DR_TUPLE_TYPE_T1S << DR_TUPLE_TYPE_BITPOS)
+#define ttt1f  (DR_TUPLE_TYPE_T1F << DR_TUPLE_TYPE_BITPOS)
+#define ttt2   (DR_TUPLE_TYPE_T2 << DR_TUPLE_TYPE_BITPOS)
+#define ttt4   (DR_TUPLE_TYPE_T4 << DR_TUPLE_TYPE_BITPOS)
+#define ttt8   (DR_TUPLE_TYPE_T8 << DR_TUPLE_TYPE_BITPOS)
+#define tthvm  (DR_TUPLE_TYPE_HVM << DR_TUPLE_TYPE_BITPOS)
+#define ttqvm  (DR_TUPLE_TYPE_QVM << DR_TUPLE_TYPE_BITPOS)
+#define ttovm  (DR_TUPLE_TYPE_OVM << DR_TUPLE_TYPE_BITPOS)
+#define ttm128 (DR_TUPLE_TYPE_M128 << DR_TUPLE_TYPE_BITPOS)
+#define ttdup  (DR_TUPLE_TYPE_DUP << DR_TUPLE_TYPE_BITPOS)
 
 /* eflags */
 #define x     0
