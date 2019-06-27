@@ -2207,7 +2207,7 @@ decode_get_vector_length(bool vex_l, bool evex_ll)
 int
 decode_get_compressed_disp_scale(decode_info_t *di)
 {
-    int tuple_type = di->tuple_type;
+    dr_tuple_type_t tuple_type = di->tuple_type;
     bool broadcast = TEST(PREFIX_EVEX_b, di->prefixes);
     opnd_size_t size =
         decode_get_input_size_from_opcode(di->opcode, TEST(di->prefixes, PREFIX_REX_W));
@@ -2496,7 +2496,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     di.opcode = info->type; /* used for opnd_create_immed_float_for_opcode */
 
     /* The upper half of the flags field is the evex tuple type. */
-    di.tuple_type = (byte)(info->flags >> DR_TUPLE_TYPE_BITPOS);
+    di.tuple_type = (dr_tuple_type_t)(info->flags >> DR_TUPLE_TYPE_BITPOS);
     instr->prefixes |= di.prefixes;
 
     /* operands */

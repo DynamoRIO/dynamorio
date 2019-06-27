@@ -345,7 +345,7 @@ struct _decode_info_t {
     /* for instr_t* target encoding */
     ptr_int_t cur_note;
     bool has_instr_opnds;
-    byte tuple_type;
+    dr_tuple_type_t tuple_type;
 };
 
 /* N.B.: if you change the type enum, change the string names for

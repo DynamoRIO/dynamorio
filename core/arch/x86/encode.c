@@ -2847,15 +2847,11 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
 
     if (di.evex_encoded) {
         /* The upper half of the flags field is the evex tuple type. */
-        di.tuple_type = (byte)(info->flags >> DR_TUPLE_TYPE_BITPOS);
+        di.tuple_type = (dr_tuple_type_t)(info->flags >> DR_TUPLE_TYPE_BITPOS);
     }
     if (di.vex_encoded || di.evex_encoded) {
-        if (TEST(OPCODE_MODRM, info->opcode)) {
-            /* The prefix is needed for evex when encoding displacements, in order
-             * to determine the compressed scale factor.
-             */
+        if (TEST(OPCODE_MODRM, info->opcode))
             di.prefixes |= PREFIX_REX_W;
-        }
     }
 
     const instr_info_t *ii = info;
