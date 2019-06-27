@@ -2166,7 +2166,8 @@ opnd_size_t
 decode_get_input_size_from_opcode(int opcode, bool evexw)
 {
     /* See Intel Vol.2A 2.6.5 Compressed Displacement (disp8*N) Support in EVEX. When it's
-     * not possible determine the input size based on evex.W, we use the opcode. */
+     * not possible determine the input size based on evex.W, we use the opcode.
+     */
     switch (opcode) {
     case OP_vpextrb:
     case OP_vpinsrb:
@@ -2231,6 +2232,7 @@ decode_get_compressed_disp_scale(decode_info_t *di)
             default: CLIENT_ASSERT(false, "invalid vector length.");
             }
         }
+        break;
     case DR_TUPLE_TYPE_HV:
         CLIENT_ASSERT(size == OPSZ_4, "invalid input size.");
         if (broadcast) {
@@ -2248,6 +2250,7 @@ decode_get_compressed_disp_scale(decode_info_t *di)
             default: CLIENT_ASSERT(false, "invalid vector length.");
             }
         }
+        break;
     case DR_TUPLE_TYPE_FVM:
         switch (vl) {
         case OPSZ_16: return 16;
@@ -2255,6 +2258,7 @@ decode_get_compressed_disp_scale(decode_info_t *di)
         case OPSZ_64: return 64;
         default: CLIENT_ASSERT(false, "invalid vector length.");
         }
+        break;
     case DR_TUPLE_TYPE_T1S:
         CLIENT_ASSERT(vl == OPSZ_16 || vl == OPSZ_32 || vl == OPSZ_64,
                       "invalid vector length.");
@@ -2269,6 +2273,7 @@ decode_get_compressed_disp_scale(decode_info_t *di)
         } else {
             CLIENT_ASSERT(false, "invalid input size.");
         }
+        break;
     case DR_TUPLE_TYPE_T1F:
         CLIENT_ASSERT(vl == OPSZ_16 || vl == OPSZ_32 || vl == OPSZ_64,
                       "invalid vector length.");
@@ -2279,6 +2284,7 @@ decode_get_compressed_disp_scale(decode_info_t *di)
         } else {
             CLIENT_ASSERT(false, "invalid input size.");
         }
+        break;
     case DR_TUPLE_TYPE_T2:
         if (size == OPSZ_4) {
             CLIENT_ASSERT(vl == OPSZ_16 || vl == OPSZ_32 || vl == OPSZ_64,
@@ -2290,6 +2296,7 @@ decode_get_compressed_disp_scale(decode_info_t *di)
         } else {
             CLIENT_ASSERT(false, "invalid input size.");
         }
+        break;
     case DR_TUPLE_TYPE_T4:
         if (size == OPSZ_4) {
             CLIENT_ASSERT(vl == OPSZ_32 || vl == OPSZ_64, "invalid vector length.");
@@ -2300,6 +2307,7 @@ decode_get_compressed_disp_scale(decode_info_t *di)
         } else {
             CLIENT_ASSERT(false, "invalid input size.");
         }
+        break;
     case DR_TUPLE_TYPE_T8:
         CLIENT_ASSERT(size == OPSZ_4, "invalid input size.");
         CLIENT_ASSERT(vl == OPSZ_64, "invalid vector length.");
@@ -2311,6 +2319,7 @@ decode_get_compressed_disp_scale(decode_info_t *di)
         case OPSZ_64: return 32;
         default: CLIENT_ASSERT(false, "invalid vector length.");
         }
+        break;
     case DR_TUPLE_TYPE_QVM:
         switch (vl) {
         case OPSZ_16: return 4;
@@ -2318,6 +2327,7 @@ decode_get_compressed_disp_scale(decode_info_t *di)
         case OPSZ_64: return 16;
         default: CLIENT_ASSERT(false, "invalid vector length.");
         }
+        break;
     case DR_TUPLE_TYPE_OVM:
         switch (vl) {
         case OPSZ_16: return 2;
@@ -2325,6 +2335,7 @@ decode_get_compressed_disp_scale(decode_info_t *di)
         case OPSZ_64: return 8;
         default: CLIENT_ASSERT(false, "invalid vector length.");
         }
+        break;
     case DR_TUPLE_TYPE_M128:
         switch (vl) {
         case OPSZ_16: return 16;
@@ -2332,6 +2343,7 @@ decode_get_compressed_disp_scale(decode_info_t *di)
         case OPSZ_64: return 16;
         default: CLIENT_ASSERT(false, "invalid vector length.");
         }
+        break;
     case DR_TUPLE_TYPE_DUP:
         switch (vl) {
         case OPSZ_16: return 8;
@@ -2339,6 +2351,7 @@ decode_get_compressed_disp_scale(decode_info_t *di)
         case OPSZ_64: return 64;
         default: CLIENT_ASSERT(false, "invalid vector length.");
         }
+        break;
     case DR_TUPLE_TYPE_NONE: return 1;
     default: CLIENT_ASSERT(false, "unknown tuple type."); return -1;
     }
