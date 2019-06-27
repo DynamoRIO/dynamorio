@@ -942,8 +942,19 @@ standalone_init(void)
 void
 standalone_exit(void)
 {
-    /* should clean up here */
+    /* We support re-attach by setting doing_detach. */
+    doing_detach = true;
+    config_heap_exit();
+    os_fast_exit();
+    os_slow_exit();
+    dynamo_vm_areas_exit();
+    d_r_heap_exit();
+    vmm_heap_exit();
+    options_exit();
     d_r_config_exit();
+    doing_detach = false;
+    standalone_library = false;
+    dynamo_initialized = false;
 }
 #endif
 
@@ -2708,7 +2719,7 @@ dr_app_setup(void)
     dcontext_t *dcontext;
     dr_api_entry = true;
     res = dynamorio_app_init();
-    /* For dr_api_entry, we do not install signal handlers during init (to avoid
+    /* For dr_api_entry, we do not install all our signal handlers during init (to avoid
      * races: i#2335): we delay until dr_app_start().  Plus the vsyscall hook is
      * not set up until we find out the syscall method.  Thus we're already
      * "os_process_not_under_dynamorio".
