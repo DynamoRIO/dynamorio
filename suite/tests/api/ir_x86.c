@@ -267,7 +267,7 @@ test_all_opcodes_2_avx512_evex(void *dc)
 }
 
 static void
-test_all_opcodes_2_avx512_evex_disp8(void *dc)
+test_all_opcodes_2_avx512_evex_comprdisp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_2args_avx512_evex.h"
     memarg_disp = SCALABLE_DISP;
@@ -331,7 +331,7 @@ test_all_opcodes_3_avx512_evex_mask(void *dc)
 }
 
 static void
-test_all_opcodes_3_avx512_evex_mask_disp8(void *dc)
+test_all_opcodes_3_avx512_evex_mask_comprdisp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_3args_avx512_evex_mask.h"
     memarg_disp = SCALABLE_DISP;
@@ -367,7 +367,7 @@ test_all_opcodes_3_avx512_evex(void *dc)
 }
 
 static void
-test_all_opcodes_3_avx512_evex_disp8(void *dc)
+test_all_opcodes_3_avx512_evex_comprdisp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_3args_avx512_evex.h"
     memarg_disp = SCALABLE_DISP;
@@ -403,7 +403,7 @@ test_all_opcodes_4_avx512_evex(void *dc)
 }
 
 static void
-test_all_opcodes_4_avx512_evex_disp8(void *dc)
+test_all_opcodes_4_avx512_evex_comprdisp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex.h"
     memarg_disp = SCALABLE_DISP;
@@ -453,7 +453,7 @@ test_all_opcodes_4_avx512_evex_mask(void *dc)
 }
 
 static void
-test_all_opcodes_4_avx512_evex_mask_disp8(void *dc)
+test_all_opcodes_4_avx512_evex_mask_comprdisp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask.h"
     memarg_disp = SCALABLE_DISP;
@@ -487,7 +487,7 @@ test_all_opcodes_5_avx512_evex_mask(void *dc)
 }
 
 static void
-test_all_opcodes_5_avx512_evex_mask_disp8(void *dc)
+test_all_opcodes_5_avx512_evex_mask_comprdisp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_5args_avx512_evex_mask.h"
     memarg_disp = SCALABLE_DISP;
@@ -1900,12 +1900,16 @@ main(int argc, char *argv[])
     test_all_opcodes_3_avx512_evex(dcontext);
     test_all_opcodes_2_avx512_evex(dcontext);
     test_all_opcodes_2_avx512_evex_mask(dcontext);
-    test_all_opcodes_3_avx512_evex_mask_disp8(dcontext);
-    test_all_opcodes_5_avx512_evex_mask_disp8(dcontext);
-    test_all_opcodes_4_avx512_evex_mask_disp8(dcontext);
-    test_all_opcodes_4_avx512_evex_disp8(dcontext);
-    test_all_opcodes_3_avx512_evex_disp8(dcontext);
-    test_all_opcodes_2_avx512_evex_disp8(dcontext);
+    /* We're testing a scalable displacement for evex instructions in addition to the
+     * default displacement. The default displacement will become a full 32-bit
+     * displacement, while the scalable displacement will get compressed to 8-bit.
+     */
+    test_all_opcodes_3_avx512_evex_mask_comprdisp8(dcontext);
+    test_all_opcodes_5_avx512_evex_mask_comprdisp8(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_comprdisp8(dcontext);
+    test_all_opcodes_4_avx512_evex_comprdisp8(dcontext);
+    test_all_opcodes_3_avx512_evex_comprdisp8(dcontext);
+    test_all_opcodes_2_avx512_evex_comprdisp8(dcontext);
 #endif
 
     print("all done\n");
