@@ -281,6 +281,14 @@ enum {
 #define REQUIRES_VSIB_YMM 0x04000
 /* Instruction's VSIB's index reg must be zmm. */
 #define REQUIRES_VSIB_ZMM 0x08000
+/* 8-bit input size in the context of Intel's AVX-512 compressed disp8. */
+#define DR_EVEX_INPUT_OPSZ_1 0x10000
+/* 16-bit input size in the context of Intel's AVX-512 compressed disp8. */
+#define DR_EVEX_INPUT_OPSZ_2 0x20000
+/* 32-bit input size in the context of Intel's AVX-512 compressed disp8. */
+#define DR_EVEX_INPUT_OPSZ_4 0x40000
+/* 64-bit input size in the context of Intel's AVX-512 compressed disp8. */
+#define DR_EVEX_INPUT_OPSZ_8 0x80000
 
 struct _decode_info_t {
     uint opcode;
@@ -346,6 +354,7 @@ struct _decode_info_t {
     ptr_int_t cur_note;
     bool has_instr_opnds;
     dr_tuple_type_t tuple_type;
+    opnd_size_t input_size;
 };
 
 /* N.B.: if you change the type enum, change the string names for
@@ -487,7 +496,7 @@ dr_pred_type_t
 decode_predicate_from_instr_info(uint opcode, const instr_info_t *info);
 
 /* Helper function to determine the compressed displacement factor, as specified in
- * Intel's table mentioned above.
+ * Intel's Vol.2A 2.6.5 "Compressed Displacement (disp8*N) Support in EVEX".
  */
 int
 decode_get_compressed_disp_scale(decode_info_t *di);

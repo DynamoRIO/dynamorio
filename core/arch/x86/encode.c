@@ -2846,8 +2846,18 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                   "instr_encode error: flags can't be both vex and evex.");
 
     if (di.evex_encoded) {
-        /* The upper half of the flags field is the evex tuple type. */
+        /* The upper DR_TUPLE_TYPE_BITS of the flags field is the evex tuple type. */
         di.tuple_type = (dr_tuple_type_t)(info->flags >> DR_TUPLE_TYPE_BITPOS);
+        if (TEST(DR_EVEX_INPUT_OPSZ_1, info->flags))
+            di.input_size = OPSZ_1;
+        else if (TEST(DR_EVEX_INPUT_OPSZ_2, info->flags))
+            di.input_size = OPSZ_2;
+        else if (TEST(DR_EVEX_INPUT_OPSZ_4, info->flags))
+            di.input_size = OPSZ_4;
+        else if (TEST(DR_EVEX_INPUT_OPSZ_8, info->flags))
+            di.input_size = OPSZ_8;
+        else
+            di.input_size = OPSZ_NA;
     }
     if (di.vex_encoded || di.evex_encoded) {
         if (TEST(OPCODE_MODRM, info->opcode))
