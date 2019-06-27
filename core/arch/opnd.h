@@ -2844,7 +2844,6 @@ bool
 reg_is_stolen(reg_id_t reg);
 
 /* internal version */
-
 app_pc
 opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc);
 
