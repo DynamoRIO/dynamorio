@@ -68,6 +68,7 @@
 #define AMD_ECX /* cAMD */ 0x444d4163
 
 static bool avx_enabled;
+static bool avx512_enabled;
 
 static int num_simd_saved;
 static int num_simd_registers;
@@ -343,6 +344,8 @@ proc_init_arch(void)
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has SSE3\n");
         if (proc_has_feature(FEATURE_AVX))
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX\n");
+        if (proc_has_feature(FEATURE_AVX512))
+            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX-512\n");
         if (proc_has_feature(FEATURE_OSXSAVE))
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has OSXSAVE\n");
     }
@@ -355,6 +358,7 @@ proc_init_arch(void)
     num_simd_saved = MCXT_NUM_SIMD_SLOTS;
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;
 
+    avx_enabled = false;
     if (proc_has_feature(FEATURE_AVX) && proc_has_feature(FEATURE_OSXSAVE)) {
         /* Even if the processor supports AVX, it will #UD on any AVX instruction
          * if the OS hasn't enabled YMM and XMM state saving.
@@ -371,6 +375,26 @@ proc_init_arch(void)
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX\n");
         } else {
             LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX\n");
+        }
+    }
+    avx512_enabled = false;
+    if (proc_has_feature(FEATURE_AVX512) && proc_has_feature(FEATURE_OSXSAVE)) {
+        uint bv_high = 0, bv_low = 0;
+        dr_xgetbv(&bv_high, &bv_low);
+        LOG(GLOBAL, LOG_TOP, 2, "\txgetbv => 0x%08x%08x\n", bv_high, bv_low);
+        if (TESTALL(XCR0_HI16_ZMM | XCR0_ZMM_HI256 | XCR0_OPMASK, bv_low)) {
+            /* XXX i#1312: It is unclear whether the kernel uses CR0 bits to disable
+             * AVX-512 for its own lazy context switching optimization. Experimental
+             * testing hasn't observed this so far. But if it does, then our lazy context
+             * switch would interfere with the kernel's and more support needs to be
+             * added. A possible solution could be to run small dedicated AVX-512
+             * instructions in decode itself if the processor and OS supports it. But how
+             * would we know if support by the OS is supposed to be there?
+             */
+            avx512_enabled = true;
+            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX-512\n");
+        } else {
+            LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX-512\n");
         }
     }
     for (i = 0; i < DEBUG_REGISTERS_NB; i++) {
@@ -543,4 +567,10 @@ bool
 proc_avx_enabled(void)
 {
     return avx_enabled;
+}
+
+bool
+proc_avx512_enabled(void)
+{
+    return avx512_enabled;
 }

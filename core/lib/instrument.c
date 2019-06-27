@@ -6452,6 +6452,12 @@ dr_mcontext_xmm_fields_valid(void)
     return preserve_xmm_caller_saved();
 }
 
+DR_API bool
+dr_mcontext_zmm_fields_valid(void)
+{
+    return preserve_zmm_caller_saved();
+}
+
 #endif /* CLIENT_INTERFACE */
 /* dr_get_mcontext() needed for translating clean call arg errors */
 

@@ -533,6 +533,10 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                 /* If 64-bit mode or EVEX.R' bit is flipped, this is evex */
                 if (X64_MODE_DC(dcontext) || TEST(0x10, *(pc + 1))) {
                     evex_prefix = true;
+#if !defined(STANDALONE_DECODER)
+                    if (ZMM_ENABLED())
+                        dynamo_preserve_zmm_caller_saved = true;
+#endif
                 }
                 /* Fall-through is deliberate, EVEX is handled through VEX below */
             }

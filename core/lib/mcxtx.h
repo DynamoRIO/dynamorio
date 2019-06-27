@@ -229,7 +229,8 @@
          * Windows system calls.  These fields are ignored for 32-bit processes
          * that are not WOW64, or if the underlying processor does not support
          * SSE.  Use dr_mcontext_xmm_fields_valid() to determine whether the
-         * fields are valid.
+         * fields are valid. Use dr_mcontext_zmm_fields_valid() to determine
+         * whether zmm registers are preserved.
          *
          * When the fields are valid, on processors with AVX enabled (i.e.,
          * proc_has_feature(FEATURE_AVX) returns true), these fields will

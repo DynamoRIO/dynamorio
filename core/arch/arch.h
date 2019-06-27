@@ -226,6 +226,13 @@ preserve_xmm_caller_saved(void)
     return proc_has_feature(FEATURE_SSE) /* do xmm registers exist? */;
 }
 
+/* This routine determines whether zmm registers should be saved */
+static inline bool
+preserve_zmm_caller_saved()
+{
+    return dynamo_preserve_zmm_caller_saved;
+}
+
 typedef enum {
     IBL_UNLINKED,
     IBL_DELETE,
