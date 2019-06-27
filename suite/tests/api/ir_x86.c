@@ -81,7 +81,6 @@
 
 static byte buf[32768];
 
-static bool force_full_disp = false;
 static int memarg_disp = 0x37;
 
 /***************************************************************************
