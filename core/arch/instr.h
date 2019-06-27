@@ -328,8 +328,6 @@ typedef enum _dr_encoding_hint_type_t {
 
 #define DR_TUPLE_TYPE_BITS 4
 #define DR_TUPLE_TYPE_BITPOS (32 - DR_TUPLE_TYPE_BITS)
-#define DR_TUPLE_TYPE_MASK \
-    (((1 << DR_TUPLE_TYPE_BITS) - 1) << DR_TUPLE_TYPE_BITPOS) /*0xf0000000 */
 
 /* AVX-512 tuple type attributes as specified in Intel's tables. */
 typedef enum _dr_tuple_type_t {
