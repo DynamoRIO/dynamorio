@@ -1894,14 +1894,8 @@ encode_base_disp(decode_info_t *di, opnd_t opnd)
         }
     } else {
         int compressed_disp_scale = 0;
-        if (di->evex_encoded) {
-            compressed_disp_scale = decode_get_compressed_disp_scale(
-                di->tuple_type, TEST(PREFIX_EVEX_b, di->prefixes),
-                decode_get_input_size_from_opcode(di->opcode,
-                                                  TEST(di->prefixes, PREFIX_REX_W)),
-                decode_get_vector_length(TEST(di->prefixes, PREFIX_VEX_L),
-                                         TEST(di->prefixes, PREFIX_EVEX_LL)));
-        }
+        if (di->evex_encoded)
+            compressed_disp_scale = decode_get_compressed_disp_scale(di);
         if (disp == 0 &&
             /* must use 8-bit disp for 0x0(%ebp) or 0x0(%r13) */
             ((!addr16 &&

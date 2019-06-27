@@ -1714,12 +1714,7 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
         bool needs_full_disp = false;
         int compressed_disp_scale = 0;
         if (di->evex_encoded) {
-            compressed_disp_scale = decode_get_compressed_disp_scale(
-                di->tuple_type, TEST(PREFIX_EVEX_b, di->prefixes),
-                decode_get_input_size_from_opcode(di->opcode,
-                                                  TEST(di->prefixes, PREFIX_REX_W)),
-                decode_get_vector_length(TEST(di->prefixes, PREFIX_VEX_L),
-                                         TEST(di->prefixes, PREFIX_EVEX_LL)));
+            compressed_disp_scale = decode_get_compressed_disp_scale(di);
             needs_full_disp = disp % compressed_disp_scale != 0;
         }
         force_full_disp = !needs_full_disp && di->has_disp && disp >= INT8_MIN &&
@@ -2210,9 +2205,14 @@ decode_get_vector_length(bool vex_l, bool evex_ll)
 }
 
 int
-decode_get_compressed_disp_scale(int tuple_type, bool broadcast, opnd_size_t size,
-                                 opnd_size_t vl)
+decode_get_compressed_disp_scale(decode_info_t *di)
 {
+    int tuple_type = di->tuple_type;
+    bool broadcast = TEST(PREFIX_EVEX_b, di->prefixes);
+    opnd_size_t size =
+        decode_get_input_size_from_opcode(di->opcode, TEST(di->prefixes, PREFIX_REX_W));
+    opnd_size_t vl = decode_get_vector_length(TEST(di->prefixes, PREFIX_VEX_L),
+                                              TEST(di->prefixes, PREFIX_EVEX_LL));
     switch (tuple_type) {
     case DR_TUPLE_TYPE_FV:
         CLIENT_ASSERT(size == OPSZ_4 || size == OPSZ_8, "invalid input size.");

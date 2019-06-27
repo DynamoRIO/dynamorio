@@ -502,8 +502,7 @@ decode_get_vector_length(bool vex_l, bool evex_ll);
  * Intel's table mentioned above.
  */
 int
-decode_get_compressed_disp_scale(int tuple_type, bool broadcast, opnd_size_t size,
-                                 opnd_size_t vl);
+decode_get_compressed_disp_scale(decode_info_t *di);
 
 /* in instr.c, not exported to non-x86 files */
 bool
