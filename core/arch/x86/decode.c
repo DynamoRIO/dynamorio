@@ -2168,6 +2168,9 @@ decode_get_input_size_from_opcode(int opcode, bool evexw)
     /* See Intel Vol.2A 2.6.5 Compressed Displacement (disp8*N) Support in EVEX. When it's
      * not possible determine the input size based on evex.W, we use the opcode.
      */
+    /* XXX: The information of this static lookup could get pulled into the decode tables
+     * instead of doing the lookup here based on the opcode.
+     */
     switch (opcode) {
     case OP_vpextrb:
     case OP_vpinsrb:
