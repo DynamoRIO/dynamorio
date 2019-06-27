@@ -81,7 +81,9 @@
 
 static byte buf[32768];
 
-static int memarg_disp = 0x37;
+#define DEFAULT_DISP 0x37
+#define SCALABLE_DISP 0x80
+static int memarg_disp = DEFAULT_DISP;
 
 /***************************************************************************
  * make sure the following are consistent (though they could still all be wrong :))
@@ -236,7 +238,7 @@ test_all_opcodes_2_avx512_evex_mask(void *dc)
 #    undef INCLUDE_NAME
 }
 
-/* No separate memarg_disp = 0x80 compressed displacement test needed. */
+/* No separate memarg_disp = SCALABLE_DISP compressed displacement test needed. */
 
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
@@ -268,9 +270,9 @@ static void
 test_all_opcodes_2_avx512_evex_disp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_2args_avx512_evex.h"
-    memarg_disp = 0x80;
+    memarg_disp = SCALABLE_DISP;
 #    include "ir_x86_all_opc.h"
-    memarg_disp = 0x37;
+    memarg_disp = DEFAULT_DISP;
 #    undef INCLUDE_NAME
 }
 
@@ -332,9 +334,9 @@ static void
 test_all_opcodes_3_avx512_evex_mask_disp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_3args_avx512_evex_mask.h"
-    memarg_disp = 0x80;
+    memarg_disp = SCALABLE_DISP;
 #    include "ir_x86_all_opc.h"
-    memarg_disp = 0x37;
+    memarg_disp = DEFAULT_DISP;
 #    undef INCLUDE_NAME
 }
 
@@ -368,9 +370,9 @@ static void
 test_all_opcodes_3_avx512_evex_disp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_3args_avx512_evex.h"
-    memarg_disp = 0x80;
+    memarg_disp = SCALABLE_DISP;
 #    include "ir_x86_all_opc.h"
-    memarg_disp = 0x37;
+    memarg_disp = DEFAULT_DISP;
 #    undef INCLUDE_NAME
 }
 
@@ -404,9 +406,9 @@ static void
 test_all_opcodes_4_avx512_evex_disp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex.h"
-    memarg_disp = 0x80;
+    memarg_disp = SCALABLE_DISP;
 #    include "ir_x86_all_opc.h"
-    memarg_disp = 0x37;
+    memarg_disp = DEFAULT_DISP;
 #    undef INCLUDE_NAME
 }
 
@@ -454,9 +456,9 @@ static void
 test_all_opcodes_4_avx512_evex_mask_disp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask.h"
-    memarg_disp = 0x80;
+    memarg_disp = SCALABLE_DISP;
 #    include "ir_x86_all_opc.h"
-    memarg_disp = 0x37;
+    memarg_disp = DEFAULT_DISP;
 #    undef INCLUDE_NAME
 }
 
@@ -488,9 +490,9 @@ static void
 test_all_opcodes_5_avx512_evex_mask_disp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_5args_avx512_evex_mask.h"
-    memarg_disp = 0x80;
+    memarg_disp = SCALABLE_DISP;
 #    include "ir_x86_all_opc.h"
-    memarg_disp = 0x37;
+    memarg_disp = DEFAULT_DISP;
 #    undef INCLUDE_NAME
 }
 
