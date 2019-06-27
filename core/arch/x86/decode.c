@@ -2337,6 +2337,23 @@ decode_get_compressed_disp_scale(decode_info_t *di)
     return -1;
 }
 
+void
+decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di)
+{
+    /* The upper DR_TUPLE_TYPE_BITS bits of the flags field are the evex tuple type. */
+    di->tuple_type = (dr_tuple_type_t)(info->flags >> DR_TUPLE_TYPE_BITPOS);
+    if (TEST(DR_EVEX_INPUT_OPSZ_1, info->flags))
+        di->input_size = OPSZ_1;
+    else if (TEST(DR_EVEX_INPUT_OPSZ_2, info->flags))
+        di->input_size = OPSZ_2;
+    else if (TEST(DR_EVEX_INPUT_OPSZ_4, info->flags))
+        di->input_size = OPSZ_4;
+    else if (TEST(DR_EVEX_INPUT_OPSZ_8, info->flags))
+        di->input_size = OPSZ_8;
+    else
+        di->input_size = OPSZ_NA;
+}
+
 /****************************************************************************
  * Exported routines
  */
@@ -2487,18 +2504,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     di.len = (int)(next_pc - pc);
     di.opcode = info->type; /* used for opnd_create_immed_float_for_opcode */
 
-    /* The upper DR_TUPLE_TYPE_BITS bits of the flags field are the evex tuple type. */
-    di.tuple_type = (dr_tuple_type_t)(info->flags >> DR_TUPLE_TYPE_BITPOS);
-    if (TEST(DR_EVEX_INPUT_OPSZ_1, info->flags))
-        di.input_size = OPSZ_1;
-    else if (TEST(DR_EVEX_INPUT_OPSZ_2, info->flags))
-        di.input_size = OPSZ_2;
-    else if (TEST(DR_EVEX_INPUT_OPSZ_4, info->flags))
-        di.input_size = OPSZ_4;
-    else if (TEST(DR_EVEX_INPUT_OPSZ_8, info->flags))
-        di.input_size = OPSZ_8;
-    else
-        di.input_size = OPSZ_NA;
+    decode_get_tuple_type_input_size(info, &di);
     instr->prefixes |= di.prefixes;
 
     /* operands */

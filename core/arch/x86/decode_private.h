@@ -501,6 +501,10 @@ decode_predicate_from_instr_info(uint opcode, const instr_info_t *info);
 int
 decode_get_compressed_disp_scale(decode_info_t *di);
 
+/* Retrieves the tuple_type and input_size from info and saves it in di. */
+void
+decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di);
+
 /* in instr.c, not exported to non-x86 files */
 bool
 opc_is_cbr_arch(int opc);
