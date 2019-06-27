@@ -2496,7 +2496,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     di.opcode = info->type; /* used for opnd_create_immed_float_for_opcode */
 
     /* The upper half of the flags field is the evex tuple type. */
-    di.tuple_type = (byte)(info->flags >> 16);
+    di.tuple_type = (byte)(info->flags >> DR_TUPLE_TYPE_BITPOS);
     instr->prefixes |= di.prefixes;
 
     /* operands */

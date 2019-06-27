@@ -326,7 +326,7 @@ typedef enum _dr_encoding_hint_type_t {
 } dr_encoding_hint_type_t;
 /* DR_API EXPORT END */
 
-#define DR_TUPLE_TYPE_BITS 16
+#define DR_TUPLE_TYPE_BITS 13
 #define DR_TUPLE_TYPE_BITPOS (32 - DR_TUPLE_TYPE_BITS)
 #define DR_TUPLE_TYPE_MASK \
     (((1 << DR_TUPLE_TYPE_BITS) - 1) << DR_TUPLE_TYPE_BITPOS) /*0xffff0000 */
