@@ -82,7 +82,7 @@
 static byte buf[32768];
 
 #define DEFAULT_DISP 0x37
-#define EVEX_SCALABLE_DISP 0x80
+#define EVEX_SCALABLE_DISP 0x100
 static int memarg_disp = DEFAULT_DISP;
 
 /***************************************************************************
