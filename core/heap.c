@@ -1839,8 +1839,8 @@ vmm_heap_init()
 static void
 vmh_exit(vm_heap_t *vmh, bool contains_stacks)
 {
-    /* FIXME: we have three regions that are not explicitly
-     * deallocated current stack, init stack, global_do_syscall
+    /* We have three regions that are not explicitly deallocated: current stack, init
+     * stack, global_do_syscall.
      */
     DOCHECK(1, {
         uint perstack =
@@ -1852,16 +1852,17 @@ vmh_exit(vm_heap_t *vmh, bool contains_stacks)
                 DYNAMO_OPTION(vmm_block_size)) /
             DYNAMO_OPTION(vmm_block_size);
         uint unfreed_blocks;
-        if (!contains_stacks)
+        if (!contains_stacks IF_CLIENT_INTERFACE(|| standalone_library))
             unfreed_blocks = 0;
-        else
+        else {
             unfreed_blocks = perstack * 1 /* d_r_initstack */ +
                 /* current stack */
                 perstack * ((doing_detach IF_APP_EXPORTS(|| dr_api_exit)) ? 0 : 1);
-        /* FIXME: on detach arch_thread_exit should explicitly mark as
-           left behind all TPCs needed so then we can assert even for
-           detach
-        */
+        }
+        /* XXX: On detach, arch_thread_exit should explicitly mark as
+         * left behind all TPCs needed so then we can assert even for
+         * detach.
+         */
         ASSERT(IF_WINDOWS(doing_detach ||) /* not deterministic when detaching */
                    vmh->num_free_blocks == vmh->num_blocks - unfreed_blocks ||
                /* >=, not ==, b/c if we hit the vmm limit the cur dstack
@@ -1872,10 +1873,10 @@ vmh_exit(vm_heap_t *vmh, bool contains_stacks)
                      IF_WINDOWS(|| get_os_version() >= WINDOWS_VERSION_8_1)) &&
                 vmh->num_free_blocks >= vmh->num_blocks - unfreed_blocks));
     });
-    /* FIXME: On process exit we are currently executing off a
-     *  stack in this region so we cannot free the whole allocation.
+    /* On process exit we are currently executing off a
+     * stack in this region so we cannot free the whole allocation.
 
-     * FIXME: Any tombstone allocations will have to use a
+     * XXX: Any tombstone allocations will have to use a
      * different interface than the generic heap_mmap() which is
      * sometimes used to leave things behind.  FIXME: Currently
      * we'll leave behind the whole vm unit if any tombstones are

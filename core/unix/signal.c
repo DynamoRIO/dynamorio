@@ -503,6 +503,10 @@ void
 d_r_signal_exit()
 {
     IF_LINUX(signalfd_exit());
+    if (init_info.app_sigaction != NULL) {
+        /* We never took over the app (e.g., standalone mode).  Restore its state. */
+        unset_initial_crash_handlers(GLOBAL_DCONTEXT);
+    }
 #ifdef DEBUG
     if (d_r_stats->loglevel > 0 && (d_r_stats->logmask & (LOG_ASYNCH | LOG_STATS)) != 0) {
         LOG(GLOBAL, LOG_ASYNCH | LOG_STATS, 1, "Total signals delivered: %d\n",
@@ -848,7 +852,8 @@ signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
     kernel_sigemptyset(&act.mask); /* does mask matter for SIG_DFL? */
     for (i = 1; i <= MAX_SIGNUM; i++) {
         if (sig_is_alarm_signal(i) && doing_detach &&
-            alarm_signal_has_DR_only_itimer(dcontext, i)) {
+            IF_CLIENT_INTERFACE(!standalone_library &&)
+                alarm_signal_has_DR_only_itimer(dcontext, i)) {
             /* We ignore alarms *during* detach in signal_remove_alarm_handlers(),
              * but to avoid crashing on an alarm arriving post-detach we set to
              * SIG_IGN if we have an itimer and the app does not (a slight

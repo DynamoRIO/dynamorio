@@ -1572,6 +1572,13 @@ dynamo_vm_areas_init()
     VMVECTOR_ALLOC_VECTOR(dynamo_areas, GLOBAL_DCONTEXT, VECTOR_SHARED, dynamo_areas);
 }
 
+void
+dynamo_vm_areas_exit()
+{
+    vmvector_delete_vector(GLOBAL_DCONTEXT, dynamo_areas);
+    dynamo_areas = NULL;
+}
+
 /* calls find_executable_vm_areas to get per-process map
  * N.B.: add_dynamo_vm_area can be called before this init routine!
  * N.B.: this is called after vm_areas_thread_init()
@@ -1754,8 +1761,7 @@ vm_areas_exit()
             LOG(GLOBAL, LOG_VMAREAS, 1, "\n");
         }
     });
-    vmvector_delete_vector(GLOBAL_DCONTEXT, dynamo_areas);
-    dynamo_areas = NULL;
+    dynamo_vm_areas_exit();
     DOLOG(1, LOG_VMAREAS, {
         if (written_areas->buf != NULL) {
             LOG(GLOBAL, LOG_VMAREAS, 1, "Code write and selfmod exec counts:\n");

@@ -196,6 +196,7 @@ Further non-compatibility-affecting changes include:
  - Added the functions instr_set_encoding_hint(), instr_has_encoding_hint().
  - Added the type #dr_encoding_hint_type_t.
  - Added #INSTR_ENCODING_HINT macro.
+ - Added dr_standalone_exit() with support for re-attaching afterward.
 
 **************************************************
 <hr>
