@@ -2162,7 +2162,12 @@ decode_predicate_from_instr_info(uint opcode, const instr_info_t *info)
     return DR_PRED_NONE;
 }
 
-opnd_size_t
+/* Helper function to retrieve the "input size" as meant in Intel's Spec. Vol.2A "2.6.5
+ * Compressed Displacement (disp8*N) Support in EVEX". This is not a general function
+ * to determine the input size, and shall only be used for the purpose of table mentioned
+ * above.
+ */
+static opnd_size_t
 decode_get_input_size_from_opcode(int opcode, bool evexw)
 {
     /* See Intel Vol.2A 2.6.5 Compressed Displacement (disp8*N) Support in EVEX. When it's
@@ -2194,7 +2199,8 @@ decode_get_input_size_from_opcode(int opcode, bool evexw)
     return OPSZ_4;
 }
 
-opnd_size_t
+/* Helper function to determine the vector length based on EVEX.L, EVEX.L'. */
+static opnd_size_t
 decode_get_vector_length(bool vex_l, bool evex_ll)
 {
     if (!vex_l && !evex_ll)

@@ -486,18 +486,6 @@ expand_subreg_size(opnd_size_t sz);
 dr_pred_type_t
 decode_predicate_from_instr_info(uint opcode, const instr_info_t *info);
 
-/* Helper function to retrieve the "input size" as meant in Intel's Spec. Vol.2A "2.6.5
- * Compressed Displacement (disp8*N) Support in EVEX". This is not a general function
- * to determine the input size, and shall only be used for the purpose of table mentioned
- * above.
- */
-opnd_size_t
-decode_get_input_size_from_opcode(int opcode, bool evexw);
-
-/* Helper function to determine the vector length based on EVEX.L, EVEX.L'. */
-opnd_size_t
-decode_get_vector_length(bool vex_l, bool evex_ll);
-
 /* Helper function to determine the compressed displacement factor, as specified in
  * Intel's table mentioned above.
  */
