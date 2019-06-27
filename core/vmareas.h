@@ -240,6 +240,9 @@ vmvector_iterator_stop(vmvector_iterator_t *vmvi);
 void
 dynamo_vm_areas_init(void);
 
+void
+dynamo_vm_areas_exit(void);
+
 /* initialize per process */
 int
 vm_areas_init(void);
