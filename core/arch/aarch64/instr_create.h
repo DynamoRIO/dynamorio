@@ -1806,8 +1806,7 @@
  * \param r       The source memory operand.
  * \param s       The size of the vector element.
  */
-#define INSTR_CREATE_ld1_multi_1(dc, q, r, s) \
-    instr_create_1dst_2src(dc, OP_ld1, q, r, s)
+#define INSTR_CREATE_ld1_multi_1(dc, q, r, s) instr_create_1dst_2src(dc, OP_ld1, q, r, s)
 
 /**
  * Creates an Advanced SIMD (NEON) ST1 instruction to store multiple
@@ -1817,8 +1816,7 @@
  * \param q       The source vector register operand.
  * \param s       The size of the vector element.
  */
-#define INSTR_CREATE_st1_multi_1(dc, r, q, s) \
-    instr_create_1dst_2src(dc, OP_st1, r, q, s)
+#define INSTR_CREATE_st1_multi_1(dc, r, q, s) instr_create_1dst_2src(dc, OP_st1, r, q, s)
 
 /* TODO: Remaining advanced SIMD (NEON) memory instructions:
 #define INSTR_CREATE_ld2/3/4_multi_2/3/4()
