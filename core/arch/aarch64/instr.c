@@ -336,6 +336,12 @@ reg_is_gpr(reg_id_t reg)
 }
 
 bool
+reg_is_simd(reg_id_t reg)
+{
+    return (DR_REG_Q0 <= reg && reg <= DR_REG_B31);
+}
+
+bool
 reg_is_opmask(reg_id_t reg)
 {
     return false;

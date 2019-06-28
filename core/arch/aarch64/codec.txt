@@ -756,7 +756,7 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 0x001100000000000010xxxxxxxxxxxx  st1    memvm : vmsz vt0 vt1 vt2 vt3
 0x001100000000000100xxxxxxxxxxxx  st3    memvm : vmsz vt0 vt1 vt2
 0x001100000000000110xxxxxxxxxxxx  st1    memvm : vmsz vt0 vt1 vt2
-0x001100000000000111xxxxxxxxxxxx  st1    memvm : vmsz vt0
+0x001100000000000111xxxxxxxxxxxx  st1    memvm : vt0 vmsz
 0x001100000000001000xxxxxxxxxxxx  st2    memvm : vmsz vt0 vt1
 0x001100000000001010xxxxxxxxxxxx  st1    memvm : vmsz vt0 vt1
 
