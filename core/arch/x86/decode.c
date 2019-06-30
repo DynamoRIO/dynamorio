@@ -898,7 +898,12 @@ read_prefix_ext(const instr_info_t *info, decode_info_t *di)
          * -decode_strict option.
          */
         /* Take the base entry w/o prefixes and keep the prefixes */
-        CLIENT_ASSERT(!di->evex_encoded, "TODO i#1312: decode error: unsupported yet.");
+        if (di->evex_encoded) {
+            /* TODO i#1312: Raise an error for investigation, but don't assert b/c
+             * we need to support decoding non-code for drdecode, etc.
+             */
+            SYSLOG_INTERNAL_ERROR_ONCE("Possible unsupported evex encoding.");
+        }
         info = &prefix_extensions[code][0 + (di->vex_encoded ? 4 : 0)];
     } else if (di->rep_prefix)
         di->rep_prefix = false;
