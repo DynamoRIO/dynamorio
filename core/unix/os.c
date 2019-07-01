@@ -9072,7 +9072,8 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                  * to force into the module list.
                  */
                 if (module_is_header(iter->vm_start, iter->vm_end - iter->vm_start)) {
-                    module_list_add(iter->vm_start, iter->vm_end - iter->vm_start, false,
+                    module_list_add(iter->vm_start, iter->vm_end - iter->vm_start,
+                                    false, /* at_map */
                                     iter->comment, iter->inode);
                 }
             }
@@ -9156,7 +9157,8 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                 /* We don't yet know whether contiguous so we have to settle for the
                  * first segment's size.  We'll update it in module_list_add().
                  */
-                module_list_add(iter->vm_start, mod_first_end - mod_base, false,
+                module_list_add(iter->vm_start, mod_first_end - mod_base,
+                                false, /* at_map */
                                 iter->comment, iter->inode);
 
 #    ifdef MACOS

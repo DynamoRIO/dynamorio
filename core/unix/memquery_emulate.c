@@ -260,7 +260,7 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
     if (modsize == PAGE_SIZE && info->dlpi_name[0] == '\0') {
         /* Candidate for VDSO.  Xref PR 289138 on using AT_SYSINFO to locate. */
         /* Xref VSYSCALL_PAGE_START_HARDCODED but later linuxes randomize */
-        char *soname;
+        char *soname = NULL;
         if (module_walk_program_headers(modbase, modsize, false,
                                         true, /* i#1589: ld.so relocated .dynamic */
                                         NULL, NULL, NULL, &soname, NULL) &&
@@ -271,10 +271,14 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
             LOG(GLOBAL, LOG_VMAREAS, 1, "found vsyscall page @ " PFX "\n",
                 vsyscall_page_start);
         }
+        if (soname != NULL)
+            dr_strfree(soname HEAPACCT(ACCT_VMAREAS));
     }
 #endif
-    if (modbase != vsyscall_page_start)
-        module_list_add(modbase, modsize, false, info->dlpi_name, 0 /*don't have inode*/);
+    if (modbase != vsyscall_page_start) {
+        module_list_add(modbase, modsize, /* at_map */ false, info->dlpi_name,
+                        0 /*don't have inode*/);
+    }
 
     for (i = 0; i < info->dlpi_phnum; i++) {
         app_pc start, end;

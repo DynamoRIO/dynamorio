@@ -127,6 +127,10 @@ loader_init(void)
             os_terminate(NULL, TERMINATE_PROCESS);
             ASSERT_NOT_REACHED();
         }
+        if (mod->name != NULL) {
+            dr_strfree(mod->name HEAPACCT(ACCT_VMAREAS));
+            mod->name = NULL;
+        }
     }
     /* os specific loader initialization epilogue after finalize the load */
     os_loader_init_epilogue();
@@ -590,6 +594,10 @@ privload_unload(privmod_t *privmod)
     if (privmod->ref_count == 0) {
         LOG(GLOBAL, LOG_LOADER, 1, "%s: unloading %s @ " PFX "\n", __FUNCTION__,
             privmod->name, privmod->base);
+        if (privmod->name != NULL) {
+            dr_strfree(privmod->name HEAPACCT(ACCT_VMAREAS));
+            privmod->name = NULL;
+        }
 #ifdef CLIENT_INTERFACE
         if (privmod->is_client)
             instrument_client_lib_unloaded(privmod->base, privmod->base + privmod->size);

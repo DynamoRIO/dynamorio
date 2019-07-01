@@ -492,6 +492,7 @@ dynamorio_app_init(void)
 
         /* initialize components (CAUTION: order is important here) */
         vmm_heap_init(); /* must be called even if not using vmm heap */
+        d_r_heap_init();
 #ifdef CLIENT_INTERFACE
         /* PR 200207: load the client lib before callback_interception_init
          * since the client library load would hit our own hooks (xref hotpatch
@@ -499,7 +500,6 @@ dynamorio_app_init(void)
          */
         instrument_load_client_libs();
 #endif
-        d_r_heap_init();
         dynamo_heap_initialized = true;
 
         /* The process start event should be done after d_r_os_init() but before

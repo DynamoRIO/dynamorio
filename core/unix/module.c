@@ -72,6 +72,36 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
     char *soname = NULL;
     ASSERT(module_is_header(base, view_size));
 
+    /* names - note os.c callers don't distinguish between no filename and an empty
+     * filename, we treat both as NULL, but leave the distinction for SONAME. */
+    if (filepath == NULL || filepath[0] == '\0') {
+        ma->names.file_name = NULL;
+#    ifdef VMX86_SERVER
+        /* XXX: provide a targeted query to avoid full walk */
+        void *iter = vmk_mmaps_iter_start();
+        if (iter != NULL) { /* backward compatibility: support lack of iter */
+            byte *start;
+            size_t length;
+            char name[MAXIMUM_PATH];
+            while (vmk_mmaps_iter_next(iter, &start, &length, NULL, name,
+                                       BUFFER_SIZE_ELEMENTS(name))) {
+                if (base == start) {
+                    ma->names.file_name = dr_strdup(name HEAPACCT(which));
+                    break;
+                }
+            }
+            vmk_mmaps_iter_stop(iter);
+        }
+#    endif
+        ma->full_path = NULL;
+    } else {
+        ma->names.file_name = dr_strdup(get_short_name(filepath) HEAPACCT(which));
+        /* We could share alloc w/ names.file_name but simpler to separate */
+        ma->full_path = dr_strdup(filepath HEAPACCT(which));
+    }
+
+    ma->os_data.source_file_path = ma->full_path;
+
     /* i#1589: use privload data if it exists (for client lib) */
     if (!privload_fill_os_module_info(base, &mod_base, &mod_end, &soname, &ma->os_data)) {
         /* XXX i#1860: on Android we'll fail to fill in info from .dynamic, so
@@ -152,38 +182,11 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
 
     ma->entry_point = module_entry_point(base, load_delta);
 
-    /* names - note os.c callers don't distinguish between no filename and an empty
-     * filename, we treat both as NULL, but leave the distinction for SONAME. */
-    if (filepath == NULL || filepath[0] == '\0') {
-        ma->names.file_name = NULL;
-#    ifdef VMX86_SERVER
-        /* XXX: provide a targeted query to avoid full walk */
-        void *iter = vmk_mmaps_iter_start();
-        if (iter != NULL) { /* backward compatibility: support lack of iter */
-            byte *start;
-            size_t length;
-            char name[MAXIMUM_PATH];
-            while (vmk_mmaps_iter_next(iter, &start, &length, NULL, name,
-                                       BUFFER_SIZE_ELEMENTS(name))) {
-                if (base == start) {
-                    ma->names.file_name = dr_strdup(name HEAPACCT(which));
-                    break;
-                }
-            }
-            vmk_mmaps_iter_stop(iter);
-        }
-#    endif
-        ma->full_path = NULL;
-    } else {
-        ma->names.file_name = dr_strdup(get_short_name(filepath) HEAPACCT(which));
-        /* We could share alloc w/ names.file_name but simpler to separate */
-        ma->full_path = dr_strdup(filepath HEAPACCT(which));
-    }
     ma->names.inode = inode;
     if (soname == NULL)
         ma->names.module_name = NULL;
     else
-        ma->names.module_name = dr_strdup(soname HEAPACCT(which));
+        ma->names.module_name = soname;
 
     /* Fields for pcaches (PR 295534).  These entries are not present in
      * all libs: I see DT_CHECKSUM and the prelink field on FC12 but not
