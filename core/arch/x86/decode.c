@@ -898,7 +898,12 @@ read_prefix_ext(const instr_info_t *info, decode_info_t *di)
          * -decode_strict option.
          */
         /* Take the base entry w/o prefixes and keep the prefixes */
-        CLIENT_ASSERT(!di->evex_encoded, "TODO i#1312: decode error: unsupported yet.");
+        if (di->evex_encoded) {
+            /* i#3713/i#1312: Raise an error for investigation, but don't assert b/c
+             * we need to support decoding non-code for drdecode, etc.
+             */
+            SYSLOG_INTERNAL_ERROR_ONCE("Possible unsupported evex encoding.");
+        }
         info = &prefix_extensions[code][0 + (di->vex_encoded ? 4 : 0)];
     } else if (di->rep_prefix)
         di->rep_prefix = false;
@@ -1489,7 +1494,12 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
         bool operand_is_ymm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
                                expand_subreg_size(opsize) == OPSZ_32) ||
             (TEST(PREFIX_VEX_L, di->prefixes) && expand_subreg_size(opsize) != OPSZ_16);
-        CLIENT_ASSERT(!operand_is_ymm || !operand_is_zmm, "Internal reg size error.");
+        if (operand_is_ymm && operand_is_zmm) {
+            /* i#3713/i#1312: Raise an error for investigation, but don't assert b/c
+             * we need to support decoding non-code for drdecode, etc.
+             */
+            SYSLOG_INTERNAL_ERROR_ONCE("Invalid VSIB register encoding encountered");
+        }
         return (operand_is_zmm ? (DR_REG_START_ZMM + extend_reg)
                                : (operand_is_ymm ? (REG_START_YMM + extend_reg)
                                                  : (REG_START_XMM + extend_reg)));
@@ -2172,8 +2182,13 @@ decode_get_vector_length(bool vex_l, bool evex_ll)
         return OPSZ_32;
     else if (!vex_l && evex_ll)
         return OPSZ_64;
-    else
-        CLIENT_ASSERT(false, "invalid vector length.");
+    else {
+        /* i#3713/i#1312: Raise an error for investigation while we're still solidifying
+         * our AVX-512 decoder, but don't assert b/c we need to support decoding non-code
+         * for drdecode, etc.
+         */
+        SYSLOG_INTERNAL_ERROR_ONCE("Invalid AVX-512 vector length encountered.");
+    }
     return OPSZ_NA;
 }
 
@@ -2192,6 +2207,8 @@ decode_get_compressed_disp_scale(decode_info_t *di)
 
     opnd_size_t vl = decode_get_vector_length(TEST(di->prefixes, PREFIX_VEX_L),
                                               TEST(di->prefixes, PREFIX_EVEX_LL));
+    if (vl == OPSZ_NA)
+        return -1;
     switch (tuple_type) {
     case DR_TUPLE_TYPE_FV:
         CLIENT_ASSERT(input_size == OPSZ_4 || input_size == OPSZ_8,
