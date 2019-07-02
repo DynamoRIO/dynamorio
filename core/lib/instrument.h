@@ -123,6 +123,8 @@ void
 instrument_post_syscall(dcontext_t *dcontext, int sysnum);
 bool
 instrument_invoke_another_syscall(dcontext_t *dcontext);
+void
+instrument_low_on_memory();
 /* returns whether a client event was called which might have changed the context */
 bool
 instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,

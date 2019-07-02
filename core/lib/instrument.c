@@ -207,6 +207,9 @@ static callback_list_t fork_init_callbacks = {
     0,
 };
 #    endif
+static callback_list_t low_on_memory_callbacks = {
+    0,
+};
 static callback_list_t bb_callbacks = {
     0,
 };
@@ -1100,6 +1103,19 @@ dr_unregister_fork_init_event(void (*func)(void *drcontext))
 #    endif
 
 void
+dr_register_low_on_memory_event(void (*func)(void *drcontext))
+{
+    add_callback(&low_on_memory_callbacks, (void (*)(void))func, true);
+}
+
+
+bool
+dr_unregister_low_on_memory_event(void (*func)(void *drcontext))
+{
+    return remove_callback(&low_on_memory_callbacks, (void (*)(void))func, true);
+}
+
+void
 dr_register_module_load_event(void (*func)(void *drcontext, const module_data_t *info,
                                            bool loaded))
 {
@@ -1378,6 +1394,13 @@ instrument_fork_init(dcontext_t *dcontext)
     call_all(fork_init_callbacks, int (*)(void *), (void *)dcontext);
 }
 #    endif
+
+void
+instrument_low_on_memory()
+{
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    call_all(low_on_memory_callbacks, int (*)(void *), (void *)dcontext);
+}
 
 /* PR 536058: split the exit event from thread cleanup, to provide a
  * dcontext in the process exit event

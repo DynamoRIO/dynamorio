@@ -1528,6 +1528,9 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
         if (at_reset_at_vmm_limit(vmh)) {
             /* We're running low on our reservation, trigger a reset */
             if (schedule_reset(RESET_ALL)) {
+#ifdef CLIENT_INTERFACE
+                instrument_low_on_memory();
+#endif
                 STATS_INC(reset_low_vmm_count);
                 DO_THRESHOLD_SAFE(
                     DYNAMO_OPTION(report_reset_vmm_threshold), FREQ_PROTECTED_SECTION,
