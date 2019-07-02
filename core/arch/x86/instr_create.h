@@ -795,6 +795,51 @@
     instr_create_0dst_2src((dc), OP_invpcid, (s1), (s2))
 /* @} */ /* end doxygen group */
 
+/* no destination, 1 mask, and 1 explicit source */
+/** @name No destination, 1 mask, and 1 explicit source */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param k The opnd_t first source operand for the instruction.
+ * \param s The opnd_t second source operand for the instruction.
+ */
+/* AVX-512 EVEX */
+#define INSTR_CREATE_vgatherpf0dps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf0dps, (k), (s))
+#define INSTR_CREATE_vgatherpf0dpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf0dpd, (k), (s))
+#define INSTR_CREATE_vgatherpf0qps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf0qps, (k), (s))
+#define INSTR_CREATE_vgatherpf0qpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf0qpd, (k), (s))
+#define INSTR_CREATE_vgatherpf1dps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf1dps, (k), (s))
+#define INSTR_CREATE_vgatherpf1dpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf1dpd, (k), (s))
+#define INSTR_CREATE_vgatherpf1qps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf1qps, (k), (s))
+#define INSTR_CREATE_vgatherpf1qpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf1qpd, (k), (s))
+#define INSTR_CREATE_vscatterpf0dps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf0dps, (k), (s))
+#define INSTR_CREATE_vscatterpf0dpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf0dpd, (k), (s))
+#define INSTR_CREATE_vscatterpf0qps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf0qps, (k), (s))
+#define INSTR_CREATE_vscatterpf0qpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf0qpd, (k), (s))
+#define INSTR_CREATE_vscatterpf1dps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf1dps, (k), (s))
+#define INSTR_CREATE_vscatterpf1dpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf1dpd, (k), (s))
+#define INSTR_CREATE_vscatterpf1qps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf1qps, (k), (s))
+#define INSTR_CREATE_vscatterpf1qpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf1qpd, (k), (s))
+/* @} */ /* end doxygen group */
+
 /* no destination, 2 sources: 1 implicit */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -4451,6 +4496,57 @@
     instr_create_2dst_2src((dc), OP_vgatherqps, (d), (s2), (s1), (s2))
 #define INSTR_CREATE_vgatherqpd(dc, d, s1, s2) \
     instr_create_2dst_2src((dc), OP_vgatherqpd, (d), (s2), (s1), (s2))
+/* @} */ /* end doxygen group */
+
+/** @name 2 implicit destinations, 1 mask, andd 3 sources: The mask is implicit */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * supplying the mask as an implicit operand.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param k The opnd_t first source operand for the instruction.
+ * \param s The opnd_t second source operand for the instruction.
+ */
+/* AVX-512 EVEX */
+/* Technically we wouldn't have to provide a separate macro for the AVX-512 version
+ * of the instruction since the number of operands are the same. But the AVX-512
+ * derivative of vgather is distinct in taking an EVEX mask instead of an xmm mask. The
+ * EVEX mask derivatives of all opcodes have a _mask macro version, so we provide one
+ * here as well.
+ */
+#define INSTR_CREATE_vpgatherdd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpgatherdd, (d), (k), (k), (s))
+#define INSTR_CREATE_vpgatherdq_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpgatherdq, (d), (k), (k), (s))
+#define INSTR_CREATE_vpgatherqd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpgatherqd, (d), (k), (k), (s))
+#define INSTR_CREATE_vpgatherqq_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpgatherqq, (d), (k), (k), (s))
+#define INSTR_CREATE_vgatherdps_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vgatherdps, (d), (k), (k), (s))
+#define INSTR_CREATE_vgatherdpd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vgatherdpd, (d), (k), (k), (s))
+#define INSTR_CREATE_vgatherqps_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vgatherqps, (d), (k), (k), (s))
+#define INSTR_CREATE_vgatherqpd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vgatherqpd, (d), (k), (k), (s))
+#define INSTR_CREATE_vpscatterdd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpscatterdd, (d), (k), (k), (s))
+#define INSTR_CREATE_vpscatterdq_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpscatterdq, (d), (k), (k), (s))
+#define INSTR_CREATE_vpscatterqd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpscatterqd, (d), (k), (k), (s))
+#define INSTR_CREATE_vpscatterqq_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpscatterqq, (d), (k), (k), (s))
+#define INSTR_CREATE_vscatterdps_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vscatterdps, (d), (k), (k), (s))
+#define INSTR_CREATE_vscatterdpd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vscatterdpd, (d), (k), (k), (s))
+#define INSTR_CREATE_vscatterqps_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vscatterqps, (d), (k), (k), (s))
+#define INSTR_CREATE_vscatterqpd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vscatterqpd, (d), (k), (k), (s))
 /* @} */ /* end doxygen group */
 
 /* 2 destinations: 1 implicit, 2 sources: 1 implicit */

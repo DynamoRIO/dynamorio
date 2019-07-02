@@ -1632,6 +1632,14 @@ DR_API
 void *
 dr_standalone_init(void);
 
+DR_API
+/**
+ * Restores application state modified by dr_standalone_init(), which can
+ * include some signal handlers.
+ */
+void
+dr_standalone_exit(void);
+
 /* DR_API EXPORT BEGIN */
 
 #    ifdef API_EXPORT_ONLY

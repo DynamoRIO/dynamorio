@@ -1368,8 +1368,15 @@ struct _opnd_t {
 #    elif defined(X86)
             byte scale : SCALE_SPECIFIER_BITS;
             byte /*bool*/ encode_zero_disp : 1;
-            byte /*bool*/ force_full_disp : 1; /* don't use 8-bit even w/ 8-bit value */
-            byte /*bool*/ disp_short_addr : 1; /* 16-bit (32 in x64) addr (disp-only) */
+            byte /*bool*/ force_full_disp : 1;  /* don't use 8-bit even w/ 8-bit value */
+            byte /*bool*/ disp_short_addr : 1;  /* 16-bit (32 in x64) addr (disp-only) */
+            byte /*bool*/ index_reg_is_zmm : 1; /* Indicates that the index_reg of the
+                                                 * VSIB address is of length ZMM. This
+                                                 * flag is not exposed and serves as an
+                                                 * internal AVX-512 extension of
+                                                 * index_reg, leaving index_reg binary
+                                                 * compatible at 8 bits.
+                                                 */
 #    endif
         } base_disp; /* BASE_DISP_kind */
         void *addr;  /* REL_ADDR_kind and ABS_ADDR_kind */

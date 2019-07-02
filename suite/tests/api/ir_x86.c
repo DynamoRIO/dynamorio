@@ -81,6 +81,10 @@
 
 static byte buf[32768];
 
+#define DEFAULT_DISP 0x37
+#define EVEX_SCALABLE_DISP 0x100
+static int memarg_disp = DEFAULT_DISP;
+
 /***************************************************************************
  * make sure the following are consistent (though they could still all be wrong :))
  * with respect to instr length and opcode:
@@ -101,13 +105,18 @@ static byte buf[32768];
  */
 
 /* these are shared among all test_all_opcodes_*() routines: */
-#define MEMARG(sz) (opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0x37, sz))
+#define MEMARG(sz) (opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, memarg_disp, sz))
 #define IMMARG(sz) opnd_create_immed_int(37, sz)
 #define TGTARG opnd_create_instr(instrlist_last(ilist))
 #define REGARG(reg) opnd_create_reg(DR_REG_##reg)
 #define REGARG_PARTIAL(reg, sz) opnd_create_reg_partial(DR_REG_##reg, sz)
-#define VSIBX(sz) (opnd_create_base_disp(DR_REG_XCX, DR_REG_XMM6, 2, 0x42, sz))
-#define VSIBY(sz) (opnd_create_base_disp(DR_REG_XDX, DR_REG_YMM6, 2, 0x17, sz))
+#define VSIBX6(sz) (opnd_create_base_disp(DR_REG_XCX, DR_REG_XMM6, 2, 0x42, sz))
+#define VSIBY6(sz) (opnd_create_base_disp(DR_REG_XDX, DR_REG_YMM6, 2, 0x17, sz))
+#define VSIBZ6(sz) (opnd_create_base_disp(DR_REG_XDX, DR_REG_ZMM6, 2, 0x35, sz))
+#define VSIBX15(sz) (opnd_create_base_disp(DR_REG_XCX, DR_REG_XMM15, 2, 0x42, sz))
+#define VSIBY15(sz) (opnd_create_base_disp(DR_REG_XDX, DR_REG_YMM15, 2, 0x17, sz))
+#define VSIBZ31(sz) (opnd_create_base_disp(DR_REG_XDX, DR_REG_ZMM31, 2, 0x35, sz))
+
 #define X86_ONLY 1
 #define X64_ONLY 2
 #define VERIFY_EVEX 4
@@ -221,6 +230,16 @@ test_all_opcodes_2_avx512_vex(void *dc)
 #    undef INCLUDE_NAME
 }
 
+static void
+test_all_opcodes_2_avx512_evex_mask(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_2args_avx512_evex_mask.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+/* No separate memarg_disp = EVEX_SCALABLE_DISP compressed displacement test needed. */
+
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
 
@@ -244,6 +263,16 @@ test_all_opcodes_2_avx512_evex(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_2args_avx512_evex.h"
 #    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+static void
+test_all_opcodes_2_avx512_evex_scaled_disp8(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_2args_avx512_evex.h"
+    memarg_disp = EVEX_SCALABLE_DISP;
+#    include "ir_x86_all_opc.h"
+    memarg_disp = DEFAULT_DISP;
 #    undef INCLUDE_NAME
 }
 
@@ -301,6 +330,16 @@ test_all_opcodes_3_avx512_evex_mask(void *dc)
 #    undef INCLUDE_NAME
 }
 
+static void
+test_all_opcodes_3_avx512_evex_mask_scaled_disp8(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_3args_avx512_evex_mask.h"
+    memarg_disp = EVEX_SCALABLE_DISP;
+#    include "ir_x86_all_opc.h"
+    memarg_disp = DEFAULT_DISP;
+#    undef INCLUDE_NAME
+}
+
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
 
@@ -327,6 +366,16 @@ test_all_opcodes_3_avx512_evex(void *dc)
 #    undef INCLUDE_NAME
 }
 
+static void
+test_all_opcodes_3_avx512_evex_scaled_disp8(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_3args_avx512_evex.h"
+    memarg_disp = EVEX_SCALABLE_DISP;
+#    include "ir_x86_all_opc.h"
+    memarg_disp = DEFAULT_DISP;
+#    undef INCLUDE_NAME
+}
+
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
 
@@ -350,6 +399,16 @@ test_all_opcodes_4_avx512_evex(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex.h"
 #    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+static void
+test_all_opcodes_4_avx512_evex_scaled_disp8(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex.h"
+    memarg_disp = EVEX_SCALABLE_DISP;
+#    include "ir_x86_all_opc.h"
+    memarg_disp = DEFAULT_DISP;
 #    undef INCLUDE_NAME
 }
 
@@ -393,6 +452,16 @@ test_all_opcodes_4_avx512_evex_mask(void *dc)
 #    undef INCLUDE_NAME
 }
 
+static void
+test_all_opcodes_4_avx512_evex_mask_scaled_disp8(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask.h"
+    memarg_disp = EVEX_SCALABLE_DISP;
+#    include "ir_x86_all_opc.h"
+    memarg_disp = DEFAULT_DISP;
+#    undef INCLUDE_NAME
+}
+
 #    undef OPCODE_FOR_CREATE
 #    undef XOPCODE_FOR_CREATE
 
@@ -414,6 +483,16 @@ test_all_opcodes_5_avx512_evex_mask(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_5args_avx512_evex_mask.h"
 #    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+static void
+test_all_opcodes_5_avx512_evex_mask_scaled_disp8(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_5args_avx512_evex_mask.h"
+    memarg_disp = EVEX_SCALABLE_DISP;
+#    include "ir_x86_all_opc.h"
+    memarg_disp = DEFAULT_DISP;
 #    undef INCLUDE_NAME
 }
 
@@ -1813,10 +1892,6 @@ main(int argc, char *argv[])
     test_all_opcodes_2_avx512_vex(dcontext);
     test_all_opcodes_3_avx512_vex(dcontext);
     test_opmask_disas_avx512(dcontext);
-    /* XXX i#1312: Add support and tests for redundant EVEX encodings that encode
-     * the same operands and operand sizes as their correspondent VEX encodings.
-     * E.g. vpextrw, etc.
-     */
     test_all_opcodes_3_avx512_evex_mask(dcontext);
     test_disas_3_avx512_evex_mask(dcontext);
     test_all_opcodes_5_avx512_evex_mask(dcontext);
@@ -1824,6 +1899,17 @@ main(int argc, char *argv[])
     test_all_opcodes_4_avx512_evex(dcontext);
     test_all_opcodes_3_avx512_evex(dcontext);
     test_all_opcodes_2_avx512_evex(dcontext);
+    test_all_opcodes_2_avx512_evex_mask(dcontext);
+    /* We're testing a scalable displacement for evex instructions in addition to the
+     * default displacement. The default displacement will become a full 32-bit
+     * displacement, while the scalable displacement will get compressed to 8-bit.
+     */
+    test_all_opcodes_3_avx512_evex_mask_scaled_disp8(dcontext);
+    test_all_opcodes_5_avx512_evex_mask_scaled_disp8(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_scaled_disp8(dcontext);
+    test_all_opcodes_4_avx512_evex_scaled_disp8(dcontext);
+    test_all_opcodes_3_avx512_evex_scaled_disp8(dcontext);
+    test_all_opcodes_2_avx512_evex_scaled_disp8(dcontext);
 #endif
 
     print("all done\n");

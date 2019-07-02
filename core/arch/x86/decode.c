@@ -898,7 +898,12 @@ read_prefix_ext(const instr_info_t *info, decode_info_t *di)
          * -decode_strict option.
          */
         /* Take the base entry w/o prefixes and keep the prefixes */
-        CLIENT_ASSERT(!di->evex_encoded, "TODO i#1312: decode error: unsupported yet.");
+        if (di->evex_encoded) {
+            /* i#3713/i#1312: Raise an error for investigation, but don't assert b/c
+             * we need to support decoding non-code for drdecode, etc.
+             */
+            SYSLOG_INTERNAL_ERROR_ONCE("Possible unsupported evex encoding.");
+        }
         info = &prefix_extensions[code][0 + (di->vex_encoded ? 4 : 0)];
     } else if (di->rep_prefix)
         di->rep_prefix = false;
@@ -1428,6 +1433,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case DECODE_REG_INDEX:
         reg = di->index;
         extend = X64_MODE(di) && TEST(PREFIX_REX_X, di->prefixes);
+        avx512_extend = TEST(PREFIX_EVEX_VV, di->prefixes);
         break;
     case DECODE_REG_RM:
         reg = di->rm;
@@ -1488,7 +1494,12 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
         bool operand_is_ymm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
                                expand_subreg_size(opsize) == OPSZ_32) ||
             (TEST(PREFIX_VEX_L, di->prefixes) && expand_subreg_size(opsize) != OPSZ_16);
-        CLIENT_ASSERT(!operand_is_ymm || !operand_is_zmm, "Internal reg size error.");
+        if (operand_is_ymm && operand_is_zmm) {
+            /* i#3713/i#1312: Raise an error for investigation, but don't assert b/c
+             * we need to support decoding non-code for drdecode, etc.
+             */
+            SYSLOG_INTERNAL_ERROR_ONCE("Invalid VSIB register encoding encountered");
+        }
         return (operand_is_zmm ? (DR_REG_START_ZMM + extend_reg)
                                : (operand_is_ymm ? (REG_START_YMM + extend_reg)
                                                  : (REG_START_XMM + extend_reg)));
@@ -1706,8 +1717,18 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
         encode_zero_disp = di->has_disp && disp == 0 &&
             /* there is no bp base without a disp */
             (!addr16 || base_reg != REG_BP);
-        force_full_disp =
-            di->has_disp && disp >= INT8_MIN && disp <= INT8_MAX && di->mod == 2;
+        /* With evex encoding, disp8 is subject to compression and a scale factor.
+         * Hence, displacments not divisible by the scale factor need to be encoded
+         * with full displacement, no need (and actually incorrect) to "force" it.
+         */
+        bool needs_full_disp = false;
+        int compressed_disp_scale = 0;
+        if (di->evex_encoded) {
+            compressed_disp_scale = decode_get_compressed_disp_scale(di);
+            needs_full_disp = disp % compressed_disp_scale != 0;
+        }
+        force_full_disp = !needs_full_disp && di->has_disp && disp >= INT8_MIN &&
+            disp <= INT8_MAX && di->mod == 2;
         if (di->seg_override != REG_NULL) {
             *rm_opnd = opnd_create_far_base_disp_ex(
                 di->seg_override, base_reg, index_reg, scale, disp,
@@ -1719,6 +1740,10 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
              * specify a segment selector and address.  The opcode must be
              * examined to know how to interpret those 6 bytes.
              */
+            if (di->evex_encoded) {
+                if (di->mod == 1)
+                    disp *= compressed_disp_scale;
+            }
             *rm_opnd = opnd_create_base_disp_ex(base_reg, index_reg, scale, disp,
                                                 resolve_variable_size(di, opsize, false),
                                                 encode_zero_disp, force_full_disp,
@@ -2147,6 +2172,205 @@ decode_predicate_from_instr_info(uint opcode, const instr_info_t *info)
     return DR_PRED_NONE;
 }
 
+/* Helper function to determine the vector length based on EVEX.L, EVEX.L'. */
+static opnd_size_t
+decode_get_vector_length(bool vex_l, bool evex_ll)
+{
+    if (!vex_l && !evex_ll)
+        return OPSZ_16;
+    else if (vex_l && !evex_ll)
+        return OPSZ_32;
+    else if (!vex_l && evex_ll)
+        return OPSZ_64;
+    else {
+        /* i#3713/i#1312: Raise an error for investigation while we're still solidifying
+         * our AVX-512 decoder, but don't assert b/c we need to support decoding non-code
+         * for drdecode, etc.
+         */
+        SYSLOG_INTERNAL_ERROR_ONCE("Invalid AVX-512 vector length encountered.");
+    }
+    return OPSZ_NA;
+}
+
+int
+decode_get_compressed_disp_scale(decode_info_t *di)
+{
+    dr_tuple_type_t tuple_type = di->tuple_type;
+    bool broadcast = TEST(PREFIX_EVEX_b, di->prefixes);
+    opnd_size_t input_size = di->input_size;
+    if (input_size == OPSZ_NA) {
+        if (TEST(PREFIX_REX_W, di->prefixes))
+            input_size = OPSZ_8;
+        else
+            input_size = OPSZ_4;
+    }
+
+    opnd_size_t vl = decode_get_vector_length(TEST(di->prefixes, PREFIX_VEX_L),
+                                              TEST(di->prefixes, PREFIX_EVEX_LL));
+    if (vl == OPSZ_NA)
+        return -1;
+    switch (tuple_type) {
+    case DR_TUPLE_TYPE_FV:
+        CLIENT_ASSERT(input_size == OPSZ_4 || input_size == OPSZ_8,
+                      "invalid input size.");
+        if (broadcast) {
+            switch (vl) {
+            case OPSZ_16: return input_size == OPSZ_4 ? 4 : 8;
+            case OPSZ_32: return input_size == OPSZ_4 ? 4 : 8;
+            case OPSZ_64: return input_size == OPSZ_4 ? 4 : 8;
+            default: CLIENT_ASSERT(false, "invalid vector length.");
+            }
+        } else {
+            switch (vl) {
+            case OPSZ_16: return 16;
+            case OPSZ_32: return 32;
+            case OPSZ_64: return 64;
+            default: CLIENT_ASSERT(false, "invalid vector length.");
+            }
+        }
+        break;
+    case DR_TUPLE_TYPE_HV:
+        CLIENT_ASSERT(input_size == OPSZ_4, "invalid input size.");
+        if (broadcast) {
+            switch (vl) {
+            case OPSZ_16: return 4;
+            case OPSZ_32: return 4;
+            case OPSZ_64: return 4;
+            default: CLIENT_ASSERT(false, "invalid vector length.");
+            }
+        } else {
+            switch (vl) {
+            case OPSZ_16: return 8;
+            case OPSZ_32: return 16;
+            case OPSZ_64: return 32;
+            default: CLIENT_ASSERT(false, "invalid vector length.");
+            }
+        }
+        break;
+    case DR_TUPLE_TYPE_FVM:
+        switch (vl) {
+        case OPSZ_16: return 16;
+        case OPSZ_32: return 32;
+        case OPSZ_64: return 64;
+        default: CLIENT_ASSERT(false, "invalid vector length.");
+        }
+        break;
+    case DR_TUPLE_TYPE_T1S:
+        CLIENT_ASSERT(vl == OPSZ_16 || vl == OPSZ_32 || vl == OPSZ_64,
+                      "invalid vector length.");
+        if (input_size == OPSZ_1) {
+            return 1;
+        } else if (input_size == OPSZ_2) {
+            return 2;
+        } else if (input_size == OPSZ_4) {
+            return 4;
+        } else if (input_size == OPSZ_8) {
+            return 8;
+        } else {
+            CLIENT_ASSERT(false, "invalid input size.");
+        }
+        break;
+    case DR_TUPLE_TYPE_T1F:
+        CLIENT_ASSERT(vl == OPSZ_16 || vl == OPSZ_32 || vl == OPSZ_64,
+                      "invalid vector length.");
+        if (input_size == OPSZ_4) {
+            return 4;
+        } else if (input_size == OPSZ_8) {
+            return 8;
+        } else {
+            CLIENT_ASSERT(false, "invalid input size.");
+        }
+        break;
+    case DR_TUPLE_TYPE_T2:
+        if (input_size == OPSZ_4) {
+            CLIENT_ASSERT(vl == OPSZ_16 || vl == OPSZ_32 || vl == OPSZ_64,
+                          "invalid vector length.");
+            return 8;
+        } else if (input_size == OPSZ_8) {
+            CLIENT_ASSERT(vl == OPSZ_32 || vl == OPSZ_64, "invalid vector length.");
+            return 16;
+        } else {
+            CLIENT_ASSERT(false, "invalid input size.");
+        }
+        break;
+    case DR_TUPLE_TYPE_T4:
+        if (input_size == OPSZ_4) {
+            CLIENT_ASSERT(vl == OPSZ_32 || vl == OPSZ_64, "invalid vector length.");
+            return 16;
+        } else if (input_size == OPSZ_8) {
+            CLIENT_ASSERT(vl == OPSZ_64, "invalid vector length.");
+            return 32;
+        } else {
+            CLIENT_ASSERT(false, "invalid input size.");
+        }
+        break;
+    case DR_TUPLE_TYPE_T8:
+        CLIENT_ASSERT(input_size == OPSZ_4, "invalid input size.");
+        CLIENT_ASSERT(vl == OPSZ_64, "invalid vector length.");
+        return 32;
+    case DR_TUPLE_TYPE_HVM:
+        switch (vl) {
+        case OPSZ_16: return 8;
+        case OPSZ_32: return 16;
+        case OPSZ_64: return 32;
+        default: CLIENT_ASSERT(false, "invalid vector length.");
+        }
+        break;
+    case DR_TUPLE_TYPE_QVM:
+        switch (vl) {
+        case OPSZ_16: return 4;
+        case OPSZ_32: return 8;
+        case OPSZ_64: return 16;
+        default: CLIENT_ASSERT(false, "invalid vector length.");
+        }
+        break;
+    case DR_TUPLE_TYPE_OVM:
+        switch (vl) {
+        case OPSZ_16: return 2;
+        case OPSZ_32: return 4;
+        case OPSZ_64: return 8;
+        default: CLIENT_ASSERT(false, "invalid vector length.");
+        }
+        break;
+    case DR_TUPLE_TYPE_M128:
+        switch (vl) {
+        case OPSZ_16: return 16;
+        case OPSZ_32: return 16;
+        case OPSZ_64: return 16;
+        default: CLIENT_ASSERT(false, "invalid vector length.");
+        }
+        break;
+    case DR_TUPLE_TYPE_DUP:
+        switch (vl) {
+        case OPSZ_16: return 8;
+        case OPSZ_32: return 32;
+        case OPSZ_64: return 64;
+        default: CLIENT_ASSERT(false, "invalid vector length.");
+        }
+        break;
+    case DR_TUPLE_TYPE_NONE: return 1;
+    default: CLIENT_ASSERT(false, "unknown tuple type."); return -1;
+    }
+    return -1;
+}
+
+void
+decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di)
+{
+    /* The upper DR_TUPLE_TYPE_BITS bits of the flags field are the evex tuple type. */
+    di->tuple_type = (dr_tuple_type_t)(info->flags >> DR_TUPLE_TYPE_BITPOS);
+    if (TEST(DR_EVEX_INPUT_OPSZ_1, info->flags))
+        di->input_size = OPSZ_1;
+    else if (TEST(DR_EVEX_INPUT_OPSZ_2, info->flags))
+        di->input_size = OPSZ_2;
+    else if (TEST(DR_EVEX_INPUT_OPSZ_4, info->flags))
+        di->input_size = OPSZ_4;
+    else if (TEST(DR_EVEX_INPUT_OPSZ_8, info->flags))
+        di->input_size = OPSZ_8;
+    else
+        di->input_size = OPSZ_NA;
+}
+
 /****************************************************************************
  * Exported routines
  */
@@ -2297,6 +2521,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     di.len = (int)(next_pc - pc);
     di.opcode = info->type; /* used for opnd_create_immed_float_for_opcode */
 
+    decode_get_tuple_type_input_size(info, &di);
     instr->prefixes |= di.prefixes;
 
     /* operands */

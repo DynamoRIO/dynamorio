@@ -90,9 +90,13 @@ endif()
 
 if (TEST_LONG)
   set(DO_ALL_BUILDS ON)
+  # i#2974: We skip tests marked _FLAKY since we have no other mechanism to
+  # have CDash ignore them and avoid going red and sending emails.
+  # We rely on our CI for a history of _FLAKY results.
   set(base_cache "${base_cache}
     BUILD_TESTS:BOOL=ON
-    TEST_LONG:BOOL=ON")
+    TEST_LONG:BOOL=ON
+    SKIP_FLAKY_TESTS:BOOL=ON")
 else (TEST_LONG)
   set(DO_ALL_BUILDS OFF)
 endif (TEST_LONG)

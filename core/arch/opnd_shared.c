@@ -595,7 +595,17 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
                 });
     opnd_set_disp_helper(&opnd, disp);
     opnd.value.base_disp.base_reg = base_reg;
+#ifdef X86
+    if (reg_is_strictly_zmm(index_reg)) {
+        opnd.value.base_disp.index_reg = index_reg - DR_REG_START_ZMM;
+        opnd.value.base_disp.index_reg_is_zmm = 1;
+    } else {
+        opnd.value.base_disp.index_reg = index_reg;
+        opnd.value.base_disp.index_reg_is_zmm = 0;
+    }
+#else
     opnd.value.base_disp.index_reg = index_reg;
+#endif
 #if defined(ARM)
     if (scale > 1) {
         opnd.value.base_disp.shift_type = DR_SHIFT_LSL;
@@ -1321,6 +1331,10 @@ opnd_same(opnd_t op1, opnd_t op2)
         return (IF_X86(op1.aux.segment == op2.aux.segment &&)
                         op1.value.base_disp.base_reg == op2.value.base_disp.base_reg &&
                 op1.value.base_disp.index_reg == op2.value.base_disp.index_reg &&
+#ifdef X86
+                op1.value.base_disp.index_reg_is_zmm ==
+                    op2.value.base_disp.index_reg_is_zmm &&
+#endif
                 IF_X86(op1.value.base_disp.scale == op2.value.base_disp.scale &&) IF_ARM(
                     op1.value.base_disp.shift_type == op2.value.base_disp.shift_type &&
                     op1.value.base_disp.shift_amount_minus_1 ==

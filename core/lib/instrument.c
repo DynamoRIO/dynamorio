@@ -2479,6 +2479,13 @@ dr_standalone_init(void)
 }
 
 DR_API
+void
+dr_standalone_exit(void)
+{
+    standalone_exit();
+}
+
+DR_API
 /* Aborts the process immediately */
 void
 dr_abort(void)
