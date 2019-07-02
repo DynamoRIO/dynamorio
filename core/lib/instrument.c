@@ -1108,7 +1108,6 @@ dr_register_low_on_memory_event(void (*func)(void *drcontext))
     add_callback(&low_on_memory_callbacks, (void (*)(void))func, true);
 }
 
-
 bool
 dr_unregister_low_on_memory_event(void (*func)(void *drcontext))
 {
