@@ -74,7 +74,7 @@
 0b9f13ff : add    wzr, wzr, wzr, asr #4   : add    %wzr %wzr asr $0x04 -> %wzr
 0c0007ff : st4    {v31.4h, v0.4h, v1.4h, v2.4h}, [sp]: st4    $0x01 %d31 %d0 %d1 %d2 -> (%sp)[32byte]
 0c0067ff : st1    {v31.4h, v0.4h, v1.4h}, [sp]: st1    $0x01 %d31 %d0 %d1 -> (%sp)[24byte]
-0c0077ff : st1    {v31.4h}, [sp]          : st1    $0x01 %d31 -> (%sp)[8byte]
+0c0077ff : st1    {v31.4h}, [sp]          : st1    %d31 $0x01 -> (%sp)[8byte]
 0c00a7ff : st1    {v31.4h, v0.4h}, [sp]   : st1    $0x01 %d31 %d0 -> (%sp)[16byte]
 0c4027ff : ld1    {v31.4h, v0.4h, v1.4h, v2.4h}, [sp]: ld1    (%sp)[32byte] $0x01 -> %d31 %d0 %d1 %d2
 0c4047ff : ld3    {v31.4h, v0.4h, v1.4h}, [sp]: ld3    (%sp)[24byte] $0x01 -> %d31 %d0 %d1
