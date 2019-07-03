@@ -1796,6 +1796,34 @@
 #define INSTR_CREATE_fnmsub_scalar(dc, Rd, Rm, Rn, Ra) \
     instr_create_1dst_3src(dc, OP_fnmsub, Rd, Rm, Rn, Ra)
 
+/* Advanced SIMD (NEON) memory instructions */
+
+/**
+ * Creates an Advanced SIMD (NEON) LD1 instruction to load multiple
+ * single element structures to one vector register, e.g. LD1 {V0.4H},[X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param q       The destination vector register operand.
+ * \param r       The source memory operand.
+ * \param s       The size of the vector element.
+ */
+#define INSTR_CREATE_ld1_multi_1(dc, q, r, s) instr_create_1dst_2src(dc, OP_ld1, q, r, s)
+
+/**
+ * Creates an Advanced SIMD (NEON) ST1 instruction to store multiple
+ * single element structures from one vector register, e.g. ST1 {V1.2S},[X1].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param r       The destination memory operand.
+ * \param q       The source vector register operand.
+ * \param s       The size of the vector element.
+ */
+#define INSTR_CREATE_st1_multi_1(dc, r, q, s) instr_create_1dst_2src(dc, OP_st1, r, q, s)
+
+/* TODO i#2626: Remaining advanced SIMD (NEON) memory instructions:
+ * #define INSTR_CREATE_ld2/3/4_multi_2/3/4()
+ * #define INSTR_CREATE_ld1/2/3/4_single()
+ * and st1 equivalents including post-index variants.
+ */
+
 /* -------- SVE bitwise logical operations (predicated) ---------------- */
 
 /**

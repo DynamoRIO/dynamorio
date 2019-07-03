@@ -2481,6 +2481,142 @@ test_asimdsame(void *dc)
 }
 
 static void
+test_asimd_mem(void *dc)
+{
+    byte *pc;
+    instr_t *instr;
+
+    /* Advanced SIMD memory (multiple structures) */
+
+    /* Load multiple 1-element structures (to 1, 2, 3 or 4 registers)
+       Naming convention based on official mnemonics:
+       INSTR_CREATE_ld1_multi_<n>() where <n> is 1, 2, 3 or 4
+
+       LD1 { <Vt>.<T> }, [<Xn|SP>]
+       LD1 { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+       LD1 { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+       LD1 { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+
+       <T> is one of 8B, 16B, 4H, 8H, 2S, 4S, 1D, 2D */
+
+    /* LD1 { <Vt>.8B }, [<Xn|SP>] */
+    instr = INSTR_CREATE_ld1_multi_1(
+        dc, opnd_create_reg(DR_REG_Q0),
+        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_8),
+        OPND_CREATE_BYTE());
+    test_instr_encoding(dc, OP_ld1, instr);
+
+    /* LD1 { <Vt>.16B }, [<Xn|SP>] */
+    instr = INSTR_CREATE_ld1_multi_1(
+        dc, opnd_create_reg(DR_REG_Q0),
+        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_16),
+        OPND_CREATE_BYTE());
+    test_instr_encoding(dc, OP_ld1, instr);
+
+    /* LD1 { <Vt>.4H }, [<Xn|SP>] */
+    instr = INSTR_CREATE_ld1_multi_1(
+        dc, opnd_create_reg(DR_REG_Q0),
+        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_4),
+        OPND_CREATE_HALF());
+    test_instr_encoding(dc, OP_ld1, instr);
+
+    /* LD1 { <Vt>.8H }, [<Xn|SP>] */
+    instr = INSTR_CREATE_ld1_multi_1(
+        dc, opnd_create_reg(DR_REG_Q0),
+        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_8),
+        OPND_CREATE_HALF());
+    test_instr_encoding(dc, OP_ld1, instr);
+
+    /* LD1 { <Vt>.2S }, [<Xn|SP>] */
+    instr = INSTR_CREATE_ld1_multi_1(
+        dc, opnd_create_reg(DR_REG_Q0),
+        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_2),
+        OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_ld1, instr);
+
+    /* LD1 { <Vt>.4S }, [<Xn|SP>] */
+    instr = INSTR_CREATE_ld1_multi_1(
+        dc, opnd_create_reg(DR_REG_Q0),
+        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_4),
+        OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_ld1, instr);
+
+    /* LD1 { <Vt>.1D }, [<Xn|SP>] */
+    instr = INSTR_CREATE_ld1_multi_1(
+        dc, opnd_create_reg(DR_REG_Q0),
+        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_1),
+        OPND_CREATE_DOUBLE());
+    test_instr_encoding(dc, OP_ld1, instr);
+
+    /* LD1 { <Vt>.2D }, [<Xn|SP>] */
+    instr = INSTR_CREATE_ld1_multi_1(
+        dc, opnd_create_reg(DR_REG_Q0),
+        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_2),
+        OPND_CREATE_DOUBLE());
+    test_instr_encoding(dc, OP_ld1, instr);
+
+    /* Store multiple 1-element structures (to 1, 2, 3 or 4 registers)
+       Naming convention based on official mnemonics:
+       INSTR_CREATE_st1_multi_<n>() where <n> is 1, 2, 3 or 4
+
+       ST1 { <Vt>.<T> }, [<Xn|SP>]
+       ST1 { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+       ST1 { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+       ST1 { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+
+       <T> is one of 8B, 16B, 4H, 8H, 2S, 4S, 1D, 2D */
+
+    /* ST1 { <Vt>.8B }, [<Xn|SP>] */
+    instr = INSTR_CREATE_st1_multi_1(
+        dc, opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_Q0), OPND_CREATE_BYTE());
+    test_instr_encoding(dc, OP_st1, instr);
+
+    /* ST1 { <Vt>.16B }, [<Xn|SP>] */
+    instr = INSTR_CREATE_st1_multi_1(
+        dc,
+        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_16),
+        opnd_create_reg(DR_REG_Q0), OPND_CREATE_BYTE());
+    test_instr_encoding(dc, OP_st1, instr);
+
+    /* ST1 { <Vt>.4H }, [<Xn|SP>] */
+    instr = INSTR_CREATE_st1_multi_1(
+        dc, opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_Q0), OPND_CREATE_HALF());
+    test_instr_encoding(dc, OP_st1, instr);
+
+    /* ST1 { <Vt>.8H }, [<Xn|SP>] */
+    instr = INSTR_CREATE_st1_multi_1(
+        dc, opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_Q0), OPND_CREATE_HALF());
+    test_instr_encoding(dc, OP_st1, instr);
+
+    /* ST1 { <Vt>.2S }, [<Xn|SP>] */
+    instr = INSTR_CREATE_st1_multi_1(
+        dc, opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_2),
+        opnd_create_reg(DR_REG_Q0), OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_st1, instr);
+
+    /* ST1 { <Vt>.4S }, [<Xn|SP>] */
+    instr = INSTR_CREATE_st1_multi_1(
+        dc, opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_Q0), OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_st1, instr);
+
+    /* ST1 { <Vt>.1D }, [<Xn|SP>] */
+    instr = INSTR_CREATE_st1_multi_1(
+        dc, opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_1),
+        opnd_create_reg(DR_REG_Q0), OPND_CREATE_DOUBLE());
+    test_instr_encoding(dc, OP_st1, instr);
+
+    /* ST1 { <Vt>.2D }, [<Xn|SP>] */
+    instr = INSTR_CREATE_st1_multi_1(
+        dc, opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_2),
+        opnd_create_reg(DR_REG_Q0), OPND_CREATE_DOUBLE());
+    test_instr_encoding(dc, OP_st1, instr);
+}
+
+static void
 test_floatdp1(void *dc)
 {
     byte *pc;
@@ -3853,6 +3989,9 @@ main(int argc, char *argv[])
 
     test_asimdsame(dcontext);
     print("test_asimdsame complete\n");
+
+    test_asimd_mem(dcontext);
+    print("test_asimd_mem complete\n");
 
     test_floatdp1(dcontext);
     print("test_floatdp1 complete\n");
