@@ -1514,7 +1514,11 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_K_MODRM:
     case TYPE_K_MODRM_R:
     case TYPE_K_VEX:
-    case TYPE_K_EVEX: return DR_REG_START_OPMASK + reg;
+    case TYPE_K_EVEX:
+        /* XXX i#3719: DECODE_REG_{,E}VEX above produce a number up to 15, but
+         * there are only 8 K registers!  For now truncating at 7.
+         */
+        return DR_REG_START_OPMASK + (reg & 7);
     case TYPE_E:
     case TYPE_G:
     case TYPE_R:
