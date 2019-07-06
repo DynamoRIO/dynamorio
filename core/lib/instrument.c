@@ -1103,13 +1103,13 @@ dr_unregister_fork_init_event(void (*func)(void *drcontext))
 #    endif
 
 void
-dr_register_low_on_memory_event(void (*func)(void *drcontext))
+dr_register_low_on_memory_event(void (*func)())
 {
     add_callback(&low_on_memory_callbacks, (void (*)(void))func, true);
 }
 
 bool
-dr_unregister_low_on_memory_event(void (*func)(void *drcontext))
+dr_unregister_low_on_memory_event(void (*func)())
 {
     return remove_callback(&low_on_memory_callbacks, (void (*)(void))func, true);
 }
@@ -1397,8 +1397,7 @@ instrument_fork_init(dcontext_t *dcontext)
 void
 instrument_low_on_memory()
 {
-    dcontext_t *dcontext = get_thread_private_dcontext();
-    call_all(low_on_memory_callbacks, int (*)(void *), (void *)dcontext);
+    call_all(low_on_memory_callbacks, int (*)());
 }
 
 /* PR 536058: split the exit event from thread cleanup, to provide a
