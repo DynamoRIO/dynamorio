@@ -804,6 +804,7 @@ free_all_callback_lists()
 #    ifdef UNIX
     free_callback_list(&fork_init_callbacks);
 #    endif
+    free_callback_list(&low_on_memory_callbacks);
     free_callback_list(&bb_callbacks);
     free_callback_list(&trace_callbacks);
 #    ifdef CUSTOM_TRACES
