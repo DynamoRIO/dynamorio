@@ -1515,10 +1515,12 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_K_MODRM_R:
     case TYPE_K_VEX:
     case TYPE_K_EVEX:
-        /* XXX i#3719: DECODE_REG_{,E}VEX above produce a number up to 15, but
-         * there are only 8 K registers!  For now truncating at 7.
+        /* This can happen if the fourth inverted evex.vvvv bit is not 0 and needs to
+         * be treated as an illegal encoding (xref i#3719).
          */
-        return DR_REG_START_OPMASK + (reg & 7);
+        if (reg > DR_REG_STOP_OPMASK - DR_REG_START_OPMASK)
+            return REG_NULL;
+        return DR_REG_START_OPMASK + reg;
     case TYPE_E:
     case TYPE_G:
     case TYPE_R:
@@ -2149,7 +2151,10 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     }
     case TYPE_K_VEX: {
         /* part of AVX-512: vex.vvvv selects opmask register */
-        *opnd = opnd_create_reg(decode_reg(DECODE_REG_VEX, di, optype, opsize));
+        reg_id_t reg = decode_reg(DECODE_REG_VEX, di, optype, opsize);
+        if (reg == REG_NULL)
+            return false;
+        *opnd = opnd_create_reg(reg);
         return true;
     }
     case TYPE_K_EVEX: {
