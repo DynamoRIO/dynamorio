@@ -1394,10 +1394,15 @@ test_strict_invalid(void *dc)
     pc = decode(dc, (byte *)buf1, &instr);
     ASSERT(pc == NULL);
 
-    /* The instruction should always be invalid. */
+#ifdef X64
+    /* The instruction should always be invalid. In 32-bit mode, the instruction will
+     * decode as lds, because the very bits[7:6] of the second byte of the 2-byte VEX
+     * form are used to differentiate lds from the VEX prefix 0xc5.
+     */
     instr_reset(dc, &instr);
     pc = decode(dc, (byte *)buf2, &instr);
     ASSERT(pc == NULL);
+#endif
 
     instr_free(dc, &instr);
 }
