@@ -1884,8 +1884,8 @@ GLOBAL_LABEL(cpuid_supported:)
         DECLARE_FUNC(our_cpuid)
 GLOBAL_LABEL(our_cpuid:)
         mov      REG_XAX, ARG1
-        mov      REG_XDX, ARG2
         mov      REG_XCX, ARG3
+        mov      REG_XDX, ARG2
         push     REG_XBX /* callee-saved */
         push     REG_XDI /* callee-saved */
         /* not making a call so don't bother w/ 16-byte stack alignment */
