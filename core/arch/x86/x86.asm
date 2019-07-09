@@ -56,7 +56,9 @@
  * hold other arguments.  Typically, use this order:
  *   REG_XAX, REG_XBX, REG_XDI, REG_XSI, REG_XDX, REG_XCX
  * The suggested order for 3 parameters is:
- *   REG_XAX, REG_XCX, REG_XDX
+ *   REG_XAX = ARG1, REG_XCX = ARG3, REG_XDX = ARG2
+ * The suggested order for 2 parameters is:
+ *   REG_XAX = ARG2, REG_XDX = ARG1
  * Note that REG_XBX is by convention used on linux for PIC base: if we want
  * to try and avoid relocations (case 7852) we should avoid using it
  * to avoid confusion (though we can always pick a different register,
@@ -1815,8 +1817,8 @@ GLOBAL_LABEL(dr_setjmp:)
  */
         DECLARE_FUNC(dr_longjmp)
 GLOBAL_LABEL(dr_longjmp:)
-        mov      REG_XDX, ARG1
         mov      REG_XAX, ARG2
+        mov      REG_XDX, ARG1
 
         mov      REG_XBX, [       0 + REG_XDX]
         mov      REG_XDI, [2*ARG_SZ + REG_XDX]
