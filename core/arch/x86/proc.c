@@ -358,7 +358,6 @@ proc_init_arch(void)
     num_simd_saved = MCXT_NUM_SIMD_SLOTS;
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;
 
-    avx_enabled = false;
     if (proc_has_feature(FEATURE_AVX) && proc_has_feature(FEATURE_OSXSAVE)) {
         /* Even if the processor supports AVX, it will #UD on any AVX instruction
          * if the OS hasn't enabled YMM and XMM state saving.
@@ -377,7 +376,6 @@ proc_init_arch(void)
             LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX\n");
         }
     }
-    avx512_enabled = false;
     if (proc_has_feature(FEATURE_AVX512) && proc_has_feature(FEATURE_OSXSAVE)) {
         uint bv_high = 0, bv_low = 0;
         dr_xgetbv(&bv_high, &bv_low);
