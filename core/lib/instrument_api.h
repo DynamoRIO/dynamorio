@@ -5565,12 +5565,11 @@ dr_clobber_retaddr_after_read(void *drcontext, instrlist_t *ilist, instr_t *inst
 
 DR_API
 /**
- * Returns true if the xmm, ymm or zmm fields in dr_mcontext_t are valid
+ * Returns true if the xmm, ymm, or zmm fields in dr_mcontext_t are valid
  * (i.e., whether the underlying processor supports SSE).
  * \note If #DR_MC_MULTIMEDIA is not specified when calling dr_get_mcontext(),
  * the xmm fields will not be filled in regardless of the return value
- * of this routine. The fields are filled in either with xmm, ymm, or zmm
- * register values.
+ * of this routine.
  */
 bool
 dr_mcontext_xmm_fields_valid(void);
@@ -5582,7 +5581,7 @@ DR_API
  * is present).
  * \note If #DR_MC_MULTIMEDIA is not specified when calling dr_get_mcontext(),
  * the zmm fields will not be filled in regardless of the return value
- * of this routine. If true, the fields are filled in with zmm register values.
+ * of this routine.
  */
 bool
 dr_mcontext_zmm_fields_valid(void);
