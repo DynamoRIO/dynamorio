@@ -358,6 +358,7 @@ proc_init_arch(void)
     num_simd_saved = MCXT_NUM_SIMD_SLOTS;
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;
 
+    uint bv_high = 0, bv_low = 0;
     if (proc_has_feature(FEATURE_AVX) && proc_has_feature(FEATURE_OSXSAVE)) {
         /* Even if the processor supports AVX, it will #UD on any AVX instruction
          * if the OS hasn't enabled YMM and XMM state saving.
@@ -366,7 +367,6 @@ proc_init_arch(void)
          * Fig 13-1: 1) cpuid OSXSAVE; 2) xgetbv 0x6; 3) cpuid AVX.
          * Xref i#1278, i#1030, i#437.
          */
-        uint bv_high = 0, bv_low = 0;
         dr_xgetbv(&bv_high, &bv_low);
         LOG(GLOBAL, LOG_TOP, 2, "\txgetbv => 0x%08x%08x\n", bv_high, bv_low);
         if (TESTALL(XCR0_AVX | XCR0_SSE, bv_low)) {
@@ -377,9 +377,7 @@ proc_init_arch(void)
         }
     }
     if (proc_has_feature(FEATURE_AVX512) && proc_has_feature(FEATURE_OSXSAVE)) {
-        uint bv_high = 0, bv_low = 0;
-        dr_xgetbv(&bv_high, &bv_low);
-        LOG(GLOBAL, LOG_TOP, 2, "\txgetbv => 0x%08x%08x\n", bv_high, bv_low);
+        CLIENT_ASSERT(proc_has_feature(FEATURE_AVX), "Processor has AVX512 but no AVX?");
         if (TESTALL(XCR0_HI16_ZMM | XCR0_ZMM_HI256 | XCR0_OPMASK, bv_low)) {
             /* XXX i#1312: It is unclear whether the kernel uses CR0 bits to disable
              * AVX-512 for its own lazy context switching optimization. Experimental
