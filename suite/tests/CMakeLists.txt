@@ -1810,8 +1810,8 @@ if (CLIENT_INTERFACE)
       # For the subtest "targeting upper 2GB of low 4GB" we move -vm_base out of the
       # way:
       "-no_vm_base_near_app -vm_base 0x120000000" "")
-    # XXX i#1312, #3504: The test doesn't currently compile with CFLAGS_AVX512 but
-    # attempts to test features based on it. The compile flags needs to be added.
+    # XXX i#1312, i#3504: The test doesn't currently compile with CFLAGS_AVX512 but
+    # attempts to test features based on it. The compile flag needs to be added.
     tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
     if (UNIX)
       torunonly_ci(client.cleancall.prof-pcs client.cleancall client.cleancall.dll
