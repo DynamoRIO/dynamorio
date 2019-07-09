@@ -55,6 +55,8 @@
  * it is passed in memory, but we have to pick registers that don't already
  * hold other arguments.  Typically, use this order:
  *   REG_XAX, REG_XBX, REG_XDI, REG_XSI, REG_XDX, REG_XCX
+ * The suggested order for 3 parameters is:
+ *   REG_XAX, REG_XCX, REG_XDX
  * Note that REG_XBX is by convention used on linux for PIC base: if we want
  * to try and avoid relocations (case 7852) we should avoid using it
  * to avoid confusion (though we can always pick a different register,
@@ -1884,8 +1886,11 @@ GLOBAL_LABEL(cpuid_supported:)
         DECLARE_FUNC(our_cpuid)
 GLOBAL_LABEL(our_cpuid:)
         mov      REG_XAX, ARG1
-        mov      REG_XDX, ARG2
+        /* We're clobbering REG_XCX before REG_XDX, because ARG3 is REG_XDX in
+         * UNIX 64-bit mode.
+         */
         mov      REG_XCX, ARG3
+        mov      REG_XDX, ARG2
         push     REG_XBX /* callee-saved */
         push     REG_XDI /* callee-saved */
         /* not making a call so don't bother w/ 16-byte stack alignment */
