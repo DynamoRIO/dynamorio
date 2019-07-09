@@ -5565,10 +5565,10 @@ dr_clobber_retaddr_after_read(void *drcontext, instrlist_t *ilist, instr_t *inst
 
 DR_API
 /**
- * Returns true if the xmm, ymm, or zmm fields in dr_mcontext_t are valid
+ * Returns true if the simd fields in dr_mcontext_t are valid xmm, ymm, or zmm values
  * (i.e., whether the underlying processor supports SSE).
  * \note If #DR_MC_MULTIMEDIA is not specified when calling dr_get_mcontext(),
- * the xmm fields will not be filled in regardless of the return value
+ * the simd fields will not be filled in regardless of the return value
  * of this routine.
  */
 bool
@@ -5576,11 +5576,11 @@ dr_mcontext_xmm_fields_valid(void);
 
 DR_API
 /**
- * Returns true if the simd zmm fields in dr_mcontext_t are valid
+ * Returns true if the simd fields in dr_mcontext_t are valid zmm values
  * (i.e., whether the underlying processor and OS support AVX-512 and AVX-512 code
  * is present).
  * \note If #DR_MC_MULTIMEDIA is not specified when calling dr_get_mcontext(),
- * the zmm fields will not be filled in regardless of the return value
+ * the simd fields will not be filled in regardless of the return value
  * of this routine.
  */
 bool
