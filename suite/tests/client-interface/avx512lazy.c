@@ -29,33 +29,29 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  */
-#include "tools.h"
+
+#ifndef ASM_CODE_ONLY /* C code */
+#    include "tools.h"
 
 NOINLINE void
-rexnop1()
-{
-    asm volatile(".byte 0x40\n\t"
-                 ".byte 0x90\n");
-}
+before_marker();
 NOINLINE void
-rexnop2()
-{
-    asm volatile(".byte 0x40\n\t"
-                 ".byte 0x90\n");
-}
+after_marker();
+NOINLINE void
+avx512_instr();
 
 void
 run_avx512()
 {
-#ifndef __AVX512F__
-#    error "Build error, should only be added with AVX-512 support."
-#endif
-    rexnop1();
+#    ifndef __AVX512F__
+#        error "Build error, should only be added with AVX-512 support."
+#    endif
+    before_marker();
     /* DynamoRIO will detect AVX-512 during decode. We're making sure that the AVX-512
-     * instruction is not in the same basic block as the rex nop markers.
+     * instruction is not in the same basic block as the markers.
      */
-    asm volatile("vmovups %zmm0, %zmm1\n");
-    rexnop2();
+    avx512_instr();
+    after_marker();
     print("Ok\n");
 }
 
@@ -65,3 +61,59 @@ main()
     run_avx512();
     return 0;
 }
+
+#else /* asm code *************************************************************/
+#    include "asm_defines.asm"
+/* clang-format off */
+START_FILE
+
+#ifdef X64
+# define FRAME_PADDING 0
+#else
+# define FRAME_PADDING 0
+#endif
+
+#define FUNCNAME before_marker
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        sub      REG_XSP, FRAME_PADDING
+        END_PROLOG
+
+        mov      REG_XAX, 0x12345678
+        mov      REG_XAX, 0x12345678
+
+        add      REG_XSP, FRAME_PADDING
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+#define FUNCNAME after_marker
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        sub      REG_XSP, FRAME_PADDING
+        END_PROLOG
+
+        mov      REG_XAX, 0x12345678
+        mov      REG_XAX, 0x12345678
+
+        add      REG_XSP, FRAME_PADDING
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+#define FUNCNAME avx512_instr
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        sub      REG_XSP, FRAME_PADDING
+        END_PROLOG
+
+        vmovups  REG_ZMM0, REG_ZMM1
+
+        add      REG_XSP, FRAME_PADDING
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+END_FILE
+/* clang-format on */
+#endif

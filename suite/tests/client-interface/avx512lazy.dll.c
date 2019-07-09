@@ -42,11 +42,7 @@
         }                                                                            \
     } while (0);
 
-/* This flag is not exposed, but we're a smart client and know that the rex flag will be
- * set. We are using rex nop as a marker.
- */
-#define PREFIX_REX_GENERAL 0x2000
-bool rex_nop_seen = false;
+static bool before_seen;
 
 static dr_emit_flags_t
 bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
@@ -54,10 +50,15 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     if (translating || for_trace)
         return DR_EMIT_DEFAULT;
     instr_t *instr;
+    bool prev_was_mov_const = false;
+    ptr_int_t val1, val2;
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
-        if (instr_get_opcode(instr) == OP_nop) {
-            if (instr_get_prefix_flag(instr, PREFIX_REX_GENERAL)) {
-                if (rex_nop_seen) {
+        if (instr_is_mov_constant(instr, prev_was_mov_const ? &val2 : &val1)) {
+            if (prev_was_mov_const && val1 == val2 &&
+                val1 != 0 && /* rule out xor w/ self */
+                opnd_is_reg(instr_get_dst(instr, 0)) &&
+                opnd_get_reg(instr_get_dst(instr, 0)) == REG_XAX) {
+                if (before_seen) {
                     CHECK(dr_mcontext_zmm_fields_valid(),
                           "Error: dr_mcontext_zmm_fields_valid() should return true.");
                     dr_fprintf(STDERR, "After\n");
@@ -66,9 +67,11 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                           "Error: dr_mcontext_zmm_fields_valid() should return false.");
                     dr_fprintf(STDERR, "Before\n");
                 }
-                rex_nop_seen = true;
-            }
-        }
+                before_seen = true;
+            } else
+                prev_was_mov_const = true;
+        } else
+            prev_was_mov_const = false;
     }
     return DR_EMIT_DEFAULT;
 }
