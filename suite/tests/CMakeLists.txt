@@ -2551,12 +2551,11 @@ endif ()
     tobuild_ci(client.destructor client-interface/destructor.cpp "" "" "")
   endif ()
 
-  if (UNIX)
-      if (proc_supports_avx512)
-        tobuild_ci(client.avx512lazy client-interface/avx512lazy.c "" "" "")
-        set_target_properties(client.avx512lazy PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
-      endif (proc_supports_avx512)
-  endif (UNIX)
+  if (${proc_supports_avx512})
+    # XXX i#1312: This is untested on Windows.
+    tobuild_ci(client.avx512lazy client-interface/avx512lazy.c "" "" "")
+    set_target_properties(client.avx512lazy PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
+  endif ()
 
   if (BUILD_SAMPLES)
     # Sanity tests: we run the samples without SHOW_RESULTS (turned off
