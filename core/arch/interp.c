@@ -3528,6 +3528,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 break;
             }
 #endif
+
 #ifdef X64
             if (instr_has_rel_addr_reference(bb->instr)) {
                 /* PR 215397: we need to split these out for re-relativization */
