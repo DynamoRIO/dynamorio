@@ -70,7 +70,7 @@
 #define PREFIX_VEX_L 0x000040000
 /* Also only used during initial decode */
 #define PREFIX_XOP 0x000080000
-/* Prefixes which used for AVX-512 */
+/* Prefixes which are used for AVX-512 */
 #define PREFIX_EVEX_RR 0x000200000
 #define PREFIX_EVEX_LL 0x000400000
 #define PREFIX_EVEX_z 0x000800000
