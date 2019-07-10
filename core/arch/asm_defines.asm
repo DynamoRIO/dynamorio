@@ -310,8 +310,6 @@ ASSUME fs:_DATA @N@\
 #  define REG_R13 r13
 #  define REG_R14 r14
 #  define REG_R15 r15
-#  define REG_ZMM0 zmm0
-#  define REG_ZMM1 zmm1
 #  define SEG_TLS gs /* keep in sync w/ {unix,win32}/os_exports.h defines */
 #  ifdef UNIX
 #   define LIB_SEG_TLS fs /* keep in sync w/ unix/os_exports.h defines */
@@ -325,13 +323,13 @@ ASSUME fs:_DATA @N@\
 #  define REG_XDI edi
 #  define REG_XBP ebp
 #  define REG_XSP esp
-#  define REG_ZMM0 zmm0
-#  define REG_ZMM1 zmm1
 #  define SEG_TLS fs /* keep in sync w/ {unix,win32}/os_exports.h defines */
 #  ifdef UNIX
 #   define LIB_SEG_TLS gs /* keep in sync w/ unix/os_exports.h defines */
 #  endif
 # endif /* 64/32-bit */
+#  define REG_ZMM0 zmm0
+#  define REG_ZMM1 zmm1
 #endif /* ARM/X86 */
 
 /* calling convention */
