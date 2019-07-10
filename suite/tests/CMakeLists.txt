@@ -2551,7 +2551,7 @@ endif ()
     tobuild_ci(client.destructor client-interface/destructor.cpp "" "" "")
   endif ()
 
-  if (${proc_supports_avx512})
+  if (proc_supports_avx512)
     # XXX i#1312: This is untested on Windows.
     tobuild_ci(client.avx512lazy client-interface/avx512lazy.c "" "" "")
     set_target_properties(client.avx512lazy PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
