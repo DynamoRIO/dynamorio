@@ -211,7 +211,7 @@ reg_spill_tls_offs(reg_id_t reg);
 #define REG_SAVED_XMM0 (YMM_ENABLED() ? REG_YMM0 : REG_XMM0)
 
 /* Xref the partially overlapping CONTEXT_PRESERVE_XMM */
-/* This routine also determines whether ymm registers should be saved */
+/* This routine also determines whether ymm registers should be saved. */
 static inline bool
 preserve_xmm_caller_saved(void)
 {
@@ -226,7 +226,7 @@ preserve_xmm_caller_saved(void)
     return proc_has_feature(FEATURE_SSE) /* do xmm registers exist? */;
 }
 
-/* This routine determines whether zmm registers should be saved */
+/* This routine determines whether zmm registers should be saved. */
 static inline bool
 d_r_avx512_code_in_use()
 {
