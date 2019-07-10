@@ -2834,10 +2834,10 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             continue;
 
 #    ifdef X86
-        if (!dynamo_preserve_zmm_caller_saved) {
+        if (!dynamo_avx512_code_in_use) {
             if (instr_may_write_zmm_register(inst)) {
                 if (ZMM_ENABLED())
-                    dynamo_preserve_zmm_caller_saved = true;
+                    dynamo_avx512_code_in_use = true;
             }
         }
 #    endif
@@ -3505,7 +3505,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                  * included in the check.
                  */
                 if (ZMM_ENABLED())
-                    dynamo_preserve_zmm_caller_saved = true;
+                    dynamo_avx512_code_in_use = true;
             }
 #endif
             /* Eflags analysis:

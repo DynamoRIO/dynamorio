@@ -6455,7 +6455,7 @@ dr_mcontext_xmm_fields_valid(void)
 DR_API bool
 dr_mcontext_zmm_fields_valid(void)
 {
-    return preserve_zmm_caller_saved();
+    return avx512_code_in_use();
 }
 
 #endif /* CLIENT_INTERFACE */

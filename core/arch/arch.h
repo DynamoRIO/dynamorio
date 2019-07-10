@@ -228,9 +228,9 @@ preserve_xmm_caller_saved(void)
 
 /* This routine determines whether zmm registers should be saved */
 static inline bool
-preserve_zmm_caller_saved()
+avx512_code_in_use()
 {
-    return dynamo_preserve_zmm_caller_saved;
+    return dynamo_avx512_code_in_use;
 }
 
 typedef enum {
