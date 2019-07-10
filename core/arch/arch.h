@@ -226,12 +226,25 @@ preserve_xmm_caller_saved(void)
     return proc_has_feature(FEATURE_SSE) /* do xmm registers exist? */;
 }
 
+#ifdef X86
+/* This is used for AVX-512 context switching and indicates whether AVX-512 has been seen
+ * during decode.
+ */
+extern bool d_r_avx512_code_in_use;
+
 /* This routine determines whether zmm registers should be saved. */
 static inline bool
-d_r_avx512_code_in_use()
+d_r_is_avx512_code_in_use()
 {
-    return dynamo_avx512_code_in_use;
+    return d_r_avx512_code_in_use;
 }
+
+static inline void
+d_r_set_avx512_code_in_use(bool in_use)
+{
+    d_r_avx512_code_in_use = in_use;
+}
+#endif
 
 typedef enum {
     IBL_UNLINKED,

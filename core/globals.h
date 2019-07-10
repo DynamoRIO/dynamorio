@@ -479,11 +479,6 @@ extern bool doing_detach;
 extern event_t dr_app_started;
 extern event_t dr_attach_finished;
 
-/* This is used for AVX-512 context switching and indicates whether AVX-512 has been seen
- * during decode.
- */
-extern bool dynamo_avx512_code_in_use;
-
 #if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
 extern bool standalone_library; /* used as standalone library */
 #else

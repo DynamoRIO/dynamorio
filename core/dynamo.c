@@ -100,7 +100,6 @@ bool dynamo_heap_initialized = false;
 bool dynamo_started = false;
 bool automatic_startup = false;
 bool control_all_threads = false;
-bool dynamo_avx512_code_in_use = false;
 #ifdef WINDOWS
 bool dr_early_injected = false;
 int dr_early_injected_location = INJECT_LOCATION_Invalid;
