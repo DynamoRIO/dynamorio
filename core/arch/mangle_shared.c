@@ -871,6 +871,10 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
 #endif
 
 #ifdef X86
+        if (instr_may_write_zmm_register(instr)) {
+            if (ZMM_ENABLED())
+                dynamo_preserve_zmm_caller_saved = true;
+        }
         if (instr_saves_float_pc(instr) && instr_is_app(instr)) {
             mangle_float_pc(dcontext, ilist, instr, next_instr, flags);
         }

@@ -377,7 +377,7 @@ proc_init_arch(void)
         }
     }
     if (proc_has_feature(FEATURE_AVX512) && proc_has_feature(FEATURE_OSXSAVE)) {
-        CLIENT_ASSERT(proc_has_feature(FEATURE_AVX), "Processor has AVX512 but no AVX?");
+        CLIENT_ASSERT(proc_has_feature(FEATURE_AVX), "Processor has AVX-512 but no AVX?");
         if (TESTALL(XCR0_HI16_ZMM | XCR0_ZMM_HI256 | XCR0_OPMASK, bv_low)) {
             /* XXX i#1312: It is unclear whether the kernel uses CR0 bits to disable
              * AVX-512 for its own lazy context switching optimization. Experimental

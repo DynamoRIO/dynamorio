@@ -2383,6 +2383,16 @@ instr_writes_reg_list(instr_t *instr);
 #ifdef X86
 bool
 instr_can_set_single_step(instr_t *instr);
+
+/* Returns true if \p instr is part of Intel's AVX-512 instructions that may write to a
+ * zmm register. It approximates this by checking whether PREFIX_EVEX is set. If not set,
+ * it is looking at whether the instructions bytes are valid, and if they are, whether the
+ * instruction is evex-encoded. The function assumes that the instruction's isa mode is
+ * set correctly. If the instruction's raw bytes are not valid, it checks the destinations
+ * of \p instr.
+ */
+bool
+instr_may_write_zmm_register(instr_t *instr);
 #endif
 
 DR_API

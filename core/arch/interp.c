@@ -3488,6 +3488,16 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 stop_bb_on_fallthrough = true;
                 break;
             }
+            if (instr_get_prefix_flag(bb->instr, PREFIX_EVEX)) {
+                /* For AVX-512 detection in bb builder, we're checking only for the prefix
+                 * flag, which for example can be set by decode_cti. In that case, we're
+                 * not breaking the bundler. In mangle, instructions are checked with
+                 * instr_is_avx512, which makes sure that all post-client instructions are
+                 * included in the check.
+                 */
+                if (ZMM_ENABLED())
+                    dynamo_preserve_zmm_caller_saved = true;
+            }
 #endif
             /* Eflags analysis:
              * We do this even if -unsafe_ignore_eflags_prefix b/c it doesn't cost that
@@ -3507,7 +3517,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 break;
             }
 #endif
-
 #ifdef X64
             if (instr_has_rel_addr_reference(bb->instr)) {
                 /* PR 215397: we need to split these out for re-relativization */

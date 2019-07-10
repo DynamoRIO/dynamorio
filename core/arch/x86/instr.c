@@ -1242,6 +1242,35 @@ instr_can_set_single_step(instr_t *instr)
 }
 
 bool
+instr_may_write_zmm_register(instr_t *instr)
+{
+    if (instr_get_prefix_flag(instr, PREFIX_EVEX))
+        return true;
+    if (instr_raw_bits_valid(instr)) {
+        if (instr_length(NULL, instr) >= 5) {
+            if (instr_get_raw_byte(instr, 0) == EVEX_PREFIX_OPCODE) {
+                if (instr_get_isa_mode(instr) == DR_ISA_AMD64 ||
+                    TESTALL(MODRM_BYTE(3, 0, 0), instr_get_raw_byte(instr, 1))) {
+                    if (!TEST(0xC, instr_get_raw_byte(instr, 1)) &&
+                        TEST(0x04, instr_get_raw_byte(instr, 2))) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    for (int i = 0; i < instr_num_dsts(instr); ++i) {
+        opnd_t dst = instr_get_dst(instr, i);
+        if (opnd_is_reg(dst)) {
+            if (reg_is_strictly_zmm(opnd_get_reg(dst)))
+                return true;
+        }
+    }
+    return false;
+}
+
+bool
 instr_is_floating(instr_t *instr)
 {
     return instr_is_floating_ex(instr, NULL);

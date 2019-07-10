@@ -772,13 +772,11 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
         }
         *is_evex = true;
 #if !defined(STANDALONE_DECODER)
-        char pc_addr[IF_X64_ELSE(20, 12)];
-        snprintf(pc_addr, BUFFER_SIZE_ELEMENTS(pc_addr), PFX, pc);
-        NULL_TERMINATE_BUFFER(pc_addr);
-        DO_ONCE(SYSLOG(SYSLOG_ERROR, AVX_512_SUPPORT_INCOMPLETE, 2,
+        DO_ONCE(char pc_addr[IF_X64_ELSE(20, 12)];
+                snprintf(pc_addr, BUFFER_SIZE_ELEMENTS(pc_addr), PFX, pc);
+                NULL_TERMINATE_BUFFER(pc_addr);
+                SYSLOG(SYSLOG_ERROR, AVX_512_SUPPORT_INCOMPLETE, 2,
                        get_application_name(), get_application_pid(), pc_addr));
-        if (ZMM_ENABLED())
-            dynamo_preserve_zmm_caller_saved = true;
 #endif
         info = &evex_prefix_extensions[0][1];
     } else {
