@@ -2834,7 +2834,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             continue;
 
 #    ifdef X86
-        if (!dynamo_avx512_code_in_use) {
+        if (!d_r_avx512_code_in_use()) {
             if (instr_may_write_zmm_register(inst)) {
                 if (ZMM_ENABLED())
                     dynamo_avx512_code_in_use = true;
@@ -3497,7 +3497,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 stop_bb_on_fallthrough = true;
                 break;
             }
-            if (!dynamo_avx512_code_in_use) {
+            if (!d_r_avx512_code_in_use()) {
                 if (instr_get_prefix_flag(bb->instr, PREFIX_EVEX)) {
                     /* For AVX-512 detection in bb builder, we're checking only for the
                      * prefix flag, which for example can be set by decode_cti. In

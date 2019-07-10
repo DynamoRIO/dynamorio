@@ -228,7 +228,7 @@ preserve_xmm_caller_saved(void)
 
 /* This routine determines whether zmm registers should be saved */
 static inline bool
-avx512_code_in_use()
+d_r_avx512_code_in_use()
 {
     return dynamo_avx512_code_in_use;
 }
