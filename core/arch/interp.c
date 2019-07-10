@@ -3497,15 +3497,16 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 stop_bb_on_fallthrough = true;
                 break;
             }
-            if (instr_get_prefix_flag(bb->instr, PREFIX_EVEX)) {
-                /* For AVX-512 detection in bb builder, we're checking only for the prefix
-                 * flag, which for example can be set by decode_cti. In that case, we're
-                 * not breaking the bundler. In mangle, instructions are checked with
-                 * instr_is_avx512, which makes sure that all post-client instructions are
-                 * included in the check.
-                 */
-                if (ZMM_ENABLED())
-                    dynamo_avx512_code_in_use = true;
+            if (!dynamo_avx512_code_in_use) {
+                if (instr_get_prefix_flag(bb->instr, PREFIX_EVEX)) {
+                    /* For AVX-512 detection in bb builder, we're checking only for the
+                     * prefix flag, which for example can be set by decode_cti. In
+                     * client_process_bb, post-client instructions are checked with
+                     * instr_may_write_zmm_register.
+                     */
+                    if (ZMM_ENABLED())
+                        dynamo_avx512_code_in_use = true;
+                }
             }
 #endif
             /* Eflags analysis:
