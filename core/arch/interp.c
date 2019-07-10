@@ -2833,6 +2833,15 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         if (!instr_opcode_valid(inst))
             continue;
 
+#    ifdef X86
+        if (!dynamo_preserve_zmm_caller_saved) {
+            if (instr_may_write_zmm_register(inst)) {
+                if (ZMM_ENABLED())
+                    dynamo_preserve_zmm_caller_saved = true;
+            }
+        }
+#    endif
+
         if (instr_is_cti(inst) && inst != instrlist_last(bb->ilist)) {
             /* PR 213005: coarse_units can't handle added ctis (meta or not)
              * since decode_fragment(), used for state recreation, can't
