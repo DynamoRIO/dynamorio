@@ -6455,7 +6455,11 @@ dr_mcontext_xmm_fields_valid(void)
 DR_API bool
 dr_mcontext_zmm_fields_valid(void)
 {
+#    ifdef X86
     return d_r_is_avx512_code_in_use();
+#    else
+    return false;
+#    endif
 }
 
 #endif /* CLIENT_INTERFACE */
