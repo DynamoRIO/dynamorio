@@ -42,6 +42,7 @@
         }                                                                            \
     } while (0);
 
+/* This library assumes a single-threaded test. */
 static bool before_seen;
 
 static dr_emit_flags_t
