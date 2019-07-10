@@ -94,19 +94,6 @@ instr_get_isa_mode(instr_t *instr)
 #endif
 }
 
-instr_t *
-instr_set_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
-{
-    instr->encoding_hints |= hint;
-    return instr;
-}
-
-bool
-instr_has_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
-{
-    return TEST(hint, instr->encoding_hints);
-}
-
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {

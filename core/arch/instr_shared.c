@@ -1266,6 +1266,19 @@ instr_length(dcontext_t *dcontext, instr_t *instr)
     return private_instr_encode(dcontext, instr, false /*don't need to cache*/);
 }
 
+instr_t *
+instr_set_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
+{
+    instr->encoding_hints |= hint;
+    return instr;
+}
+
+bool
+instr_has_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
+{
+    return TEST(hint, instr->encoding_hints);
+}
+
 /***********************************************************************/
 /* decoding routines */
 
