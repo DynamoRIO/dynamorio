@@ -259,6 +259,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_pa
             /* skip xmm slots */
             bufptr += MCXT_TOTAL_SIMD_SLOTS_SIZE / sizeof(*bufptr);
         }
+        bufptr += MCXT_TOTAL_OPMASK_SLOTS_SIZE / sizeof(*bufptr);
         ASSERT((char *)bufptr - (char *)buf == sizeof(priv_mcontext_t));
         *bufptr++ = (ptr_uint_t)load_dynamo_code;
         *bufptr++ = SIZE_OF_LOAD_DYNAMO;
