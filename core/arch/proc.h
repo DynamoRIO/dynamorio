@@ -262,6 +262,7 @@ typedef enum {
     FEATURE_ERMSB = 9 + 128,    /**< Enhanced rep movsb/stosb supported */
     FEATURE_INVPCID = 10 + 128, /**< #OP_invpcid supported */
     FEATURE_RTM = 11 + 128,     /**< Restricted Transactional Memory supported */
+    FEATURE_AVX512 = 16 + 128,  /**< AVX-512 instructions supported */
 } feature_bit_t;
 
 /**
@@ -294,6 +295,9 @@ extern size_t cache_line_size;
 
 /* xcr0 and xstate_bv feature bits */
 enum {
+    XCR0_HI16_ZMM = 7,
+    XCR0_ZMM_HI256 = 6,
+    XCR0_OPMASK = 5,
     XCR0_AVX = 4,
     XCR0_SSE = 2,
     XCR0_FP = 1,
@@ -550,5 +554,14 @@ DR_API
  */
 bool
 proc_avx_enabled(void);
+
+DR_API
+/**
+ * Returns whether AVX-512 is enabled by both the processor and the OS.
+ * Even if the processor supports AVX-512, if the OS does not enable AVX-512,
+ * then AVX-512 instructions will fault.
+ */
+bool
+proc_avx512_enabled(void);
 
 #endif /* _PROC_H_ */

@@ -85,6 +85,10 @@ byte *app_sysenter_instr_addr = NULL;
 static bool sysenter_hook_failed = false;
 #endif
 
+#ifdef X86
+bool d_r_avx512_code_in_use = false;
+#endif
+
 /* static functions forward references */
 static byte *
 emit_ibl_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,

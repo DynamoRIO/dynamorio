@@ -560,8 +560,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                          * and as such, while this will return the instruction's length,
                          * will still not be supported e.g. in decode_cti, because neither
                          * are there sizeof tables supporting prefix + > 1 opcode
-                         * instructions, nor do we support full decode of EVEX
-                         * instructions yet.
+                         * instructions.
                          */
                         vex_mm = (byte)(opc & 0x3);
                         opc = (uint) * (++pc); /* 3rd evex prefix byte */
@@ -1261,8 +1260,8 @@ intercept_fip_save(byte *pc, byte byte0, byte byte1)
 }
 
 static void
-get_implied_mm_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byte0,
-                                byte *byte1)
+get_implied_mm_e_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byte0,
+                                  byte *byte1)
 {
     switch (vex_mm) {
     case 1:
@@ -1278,7 +1277,7 @@ get_implied_mm_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byte0
         *byte1 = 0x3a;
         break;
     default:
-        CLIENT_ASSERT(false, "get_implied_mm_vex_opcode_bytes: internal prefix error");
+        CLIENT_ASSERT(false, "get_implied_mm_e_vex_opcode_bytes: internal prefix error");
     }
 }
 
@@ -1353,13 +1352,15 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
                 byte1 = *(pc + prefixes);
                 break;
             case EVEX_PREFIX_OPCODE:
+                instr_set_prefix_flag(instr, PREFIX_EVEX);
+                /* fall-through */
             case VEX_3BYTE_PREFIX_OPCODE: {
                 /* EVEX and VEX 3-byte prefixes imply instruction opcodes by encoding mm
                  * bits in the second prefix byte. In theory, there are 5 VEX mm bits, but
                  * only 2 of them are used.
                  */
                 byte vex_mm = (byte)(*(pc + 1) & 0x3);
-                get_implied_mm_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0, &byte1);
+                get_implied_mm_e_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0, &byte1);
                 break;
             }
             default: break;
