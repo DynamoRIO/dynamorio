@@ -388,6 +388,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         }
         ASSERT(i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SLOTS_SIZE);
     }
+    /* TODO i#1312: the zmm and mask fields need to be copied. */
     /* pc and aflags */
     if (!cci->skip_save_flags) {
         ASSERT(offs_beyond_xmm == 0);
@@ -532,6 +533,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         }
         ASSERT(i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SLOTS_SIZE);
     }
+    /* TODO i#1312: the mask fields need to be copied. */
 
     PRE(ilist, instr,
         INSTR_CREATE_lea(
