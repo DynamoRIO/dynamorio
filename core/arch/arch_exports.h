@@ -64,6 +64,7 @@
 #    define MCXT_TOTAL_SIMD_SLOTS_SIZE (MCXT_NUM_SIMD_SLOTS * MCXT_SIMD_SLOT_SIZE)
 /* Indicates OS support, not just processor support (xref i#1278) */
 #    define YMM_ENABLED() (proc_avx_enabled())
+#    define ZMM_ENABLED() (proc_avx512_enabled())
 #    define YMMH_REG_SIZE (YMM_REG_SIZE / 2) /* upper half */
 #    define MCXT_YMMH_SLOTS_SIZE (MCXT_NUM_SIMD_SLOTS * YMMH_REG_SIZE)
 #endif /* X86 */

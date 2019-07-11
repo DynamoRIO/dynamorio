@@ -6452,6 +6452,16 @@ dr_mcontext_xmm_fields_valid(void)
     return preserve_xmm_caller_saved();
 }
 
+DR_API bool
+dr_mcontext_zmm_fields_valid(void)
+{
+#    ifdef X86
+    return d_r_is_avx512_code_in_use();
+#    else
+    return false;
+#    endif
+}
+
 #endif /* CLIENT_INTERFACE */
 /* dr_get_mcontext() needed for translating clean call arg errors */
 

@@ -2833,6 +2833,15 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         if (!instr_opcode_valid(inst))
             continue;
 
+#    ifdef X86
+        if (!d_r_is_avx512_code_in_use()) {
+            if (ZMM_ENABLED()) {
+                if (instr_may_write_zmm_register(inst))
+                    d_r_set_avx512_code_in_use(true);
+            }
+        }
+#    endif
+
         if (instr_is_cti(inst) && inst != instrlist_last(bb->ilist)) {
             /* PR 213005: coarse_units can't handle added ctis (meta or not)
              * since decode_fragment(), used for state recreation, can't
@@ -3487,6 +3496,18 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (my_dcontext != NULL && debug_register_fire_on_addr(bb->instr_start)) {
                 stop_bb_on_fallthrough = true;
                 break;
+            }
+            if (!d_r_is_avx512_code_in_use()) {
+                if (ZMM_ENABLED()) {
+                    if (instr_get_prefix_flag(bb->instr, PREFIX_EVEX)) {
+                        /* For AVX-512 detection in bb builder, we're checking only for
+                         * the prefix flag, which for example can be set by decode_cti. In
+                         * client_process_bb, post-client instructions are checked with
+                         * instr_may_write_zmm_register.
+                         */
+                        d_r_set_avx512_code_in_use(true);
+                    }
+                }
             }
 #endif
             /* Eflags analysis:

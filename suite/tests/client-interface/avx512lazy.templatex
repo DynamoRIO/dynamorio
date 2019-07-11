@@ -1,0 +1,4 @@
+Before
+(<Application .*client\.avx512lazy.*AVX-512 was detected at PC 0x[0-9a-f]+. AVX-512 is not fully supported yet.>
+)?After
+Ok
