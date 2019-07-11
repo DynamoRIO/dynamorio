@@ -379,13 +379,12 @@ proc_init_arch(void)
         }
         if (proc_has_feature(FEATURE_AVX512)) {
             if (TESTALL(XCR0_HI16_ZMM | XCR0_ZMM_HI256 | XCR0_OPMASK, bv_low)) {
-                /* XXX i#1312: It is unclear whether the kernel uses CR0 bits to disable
-                 * AVX-512 for its own lazy context switching optimization. Experimental
-                 * testing hasn't observed this so far. But if it does, then our lazy
-                 * context switch would interfere with the kernel's and more support needs
-                 * to be added. A possible solution could be to run small dedicated
-                 * AVX-512 instructions in decode itself if the processor and OS supports
-                 * it. But how would we know if support by the OS is supposed to be there?
+                /* XXX i#1312: It had been unclear whether the kernel uses CR0 bits to
+                 * disable AVX-512 for its own lazy context switching optimization. If it
+                 * did, then our lazy context switch would interfere with the kernel's and
+                 * more support would be needed. We have concluded that the Linux kernel
+                 * at does not do its own lazy context switch optimization for AVX-512 at
+                 * this time.
                  */
                 avx512_enabled = true;
                 LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX-512\n");
