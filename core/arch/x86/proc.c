@@ -72,7 +72,6 @@ static bool avx512_enabled;
 
 static int num_simd_saved;
 static int num_simd_registers;
-static int num_simd_registers_no_avx512;
 
 /* global writable variable for debug registers value */
 DECLARE_NEVERPROT_VAR(app_pc d_r_debug_register[DEBUG_REGISTERS_NB], { 0 });
@@ -358,7 +357,6 @@ proc_init_arch(void)
 
     num_simd_saved = MCXT_NUM_SIMD_SLOTS;
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;
-    num_simd_registers_no_avx512 = MCXT_NUM_SIMD_SLOTS;
 
     if (proc_has_feature(FEATURE_OSXSAVE)) {
         uint bv_high = 0, bv_low = 0;
@@ -455,12 +453,6 @@ int
 proc_num_simd_registers(void)
 {
     return num_simd_registers;
-}
-
-int
-proc_num_simd_registers_no_avx512(void)
-{
-    return num_simd_registers_no_avx512;
 }
 
 DR_API
