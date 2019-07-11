@@ -219,7 +219,6 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
         asm volatile("xsave %0" : "=m"(*xstate));
 #endif
     }
-    /* XXX i#1312: this needs to get extended to AVX-512. */
     if (YMM_ENABLED()) {
         /* all ymm regs are in our mcontext.  the only other thing
          * in xstate is the xgetbv.
@@ -228,7 +227,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
         dr_xgetbv(&bv_high, &bv_low);
         xstate->xstate_hdr.xstate_bv = (((uint64)bv_high) << 32) | bv_low;
     }
-    for (i = 0; i < proc_num_simd_saved(); i++) {
+    for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
         /* we assume no padding */
 #ifdef X64
         /* __u32 xmm_space[64] */
@@ -250,6 +249,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
         }
 #endif
     }
+    /* XXX i#1312: AVX-512 extended register copies missing yet. */
 }
 
 /* We can't tell whether the app has used fpstate yet so we preserve every time
@@ -369,7 +369,6 @@ dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
 #    endif
-    /* XXX i#1312: this needs to get extended to AVX-512. */
     /* Ignore padding. */
     if (YMM_ENABLED()) {
         kernel_xstate_t *xstate = (kernel_xstate_t *)fp;
@@ -381,7 +380,7 @@ dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
             ASSERT(TEST(XCR0_AVX, fp->sw_reserved.xstate_bv));
             LOG(THREAD, LOG_ASYNCH, 1, "\txstate_bv = 0x" HEX64_FORMAT_STRING "\n",
                 xstate->xstate_hdr.xstate_bv);
-            for (i = 0; i < proc_num_simd_registers(); i++) {
+            for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                 LOG(THREAD, LOG_ASYNCH, 1, "\tymmh%d = ", i);
                 for (j = 0; j < 4; j++) {
                     LOG(THREAD, LOG_ASYNCH, 1, "%04x ",
@@ -391,6 +390,7 @@ dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
             }
         }
     }
+    /* XXX i#1312: Dumping AVX-512 extended registers missing yet.  */
 }
 
 void
@@ -444,11 +444,10 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
-    /* XXX i#1312: this needs to get extended to AVX-512. */
     sigcontext_t *sc = sc_full->sc;
     if (sc->fpstate != NULL) {
         int i;
-        for (i = 0; i < proc_num_simd_registers(); i++) {
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
             memcpy(&mc->simd[i], &sc->fpstate->IF_X64_ELSE(xmm_space[i * 4], _xmm[i]),
                    XMM_REG_SIZE);
         }
@@ -460,23 +459,23 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
                  */
                 ASSERT(sc->fpstate->sw_reserved.extended_size >= sizeof(*xstate));
                 ASSERT(TEST(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
-                for (i = 0; i < proc_num_simd_registers(); i++) {
+                for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                     memcpy(&mc->simd[i].u32[4], &xstate->ymmh.ymmh_space[i * 4],
                            YMMH_REG_SIZE);
                 }
             }
         }
     }
+    /* XXX i#1312: AVX-512 extended register copies missing yet. */
 }
 
 void
 mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
-    /* XXX i#1312: this needs to get extended to AVX-512. */
     sigcontext_t *sc = sc_full->sc;
     if (sc->fpstate != NULL) {
         int i;
-        for (i = 0; i < proc_num_simd_registers(); i++) {
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
             memcpy(&sc->fpstate->IF_X64_ELSE(xmm_space[i * 4], _xmm[i]), &mc->simd[i],
                    XMM_REG_SIZE);
         }
@@ -488,13 +487,14 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                  */
                 ASSERT(sc->fpstate->sw_reserved.extended_size >= sizeof(*xstate));
                 ASSERT(TEST(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
-                for (i = 0; i < proc_num_simd_registers(); i++) {
+                for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                     memcpy(&xstate->ymmh.ymmh_space[i * 4], &mc->simd[i].u32[4],
                            YMMH_REG_SIZE);
                 }
             }
         }
     }
+    /* XXX i#1312: AVX-512 extended register copies missing yet. */
 }
 
 size_t
