@@ -66,6 +66,8 @@
  * Actually filling the structure will be added along with a future patch.
  */
 #    define MCXT_TOTAL_OPMASK_SLOTS_SIZE (MCXT_NUM_OPMASK_SLOTS * OPMASK_REG_SIZE)
+#    define MCXT_TOTAL_SIMD_SSE_AVX_SLOTS_SIZE \
+        (MCXT_NUM_SIMD_SSE_AVX_SLOTS * MCXT_SIMD_SLOT_SIZE)
 /* Indicates OS support, not just processor support (xref i#1278) */
 #    define YMM_ENABLED() (proc_avx_enabled())
 #    define ZMM_ENABLED() (proc_avx512_enabled())

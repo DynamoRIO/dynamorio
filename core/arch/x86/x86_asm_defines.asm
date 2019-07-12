@@ -49,7 +49,7 @@
 # ifdef WINDOWS
 #  define MCXT_NUM_SIMD_SLOTS 6 /* xmm0-5 */
 # else
-#  define MCXT_NUM_SIMD_SLOTS 16 /* xmm0-15 */
+#  define MCXT_NUM_SIMD_SLOTS 32 /* xmm0-15 */
 # endif
 # define PRE_XMM_PADDING 48
 #else

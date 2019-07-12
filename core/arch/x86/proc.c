@@ -357,12 +357,14 @@ proc_init_arch(void)
                       (!proc_has_feature(FEATURE_FXSR) && !proc_has_feature(FEATURE_SSE)),
                   "Unsupported processor type: SSE and FXSR must match");
 
-    /* TODO i#1312: this will default to MCXT_NUM_SIMD_SSE_AVX_SLOTS and then be switched
-     * to MCXT_NUM_SIMD_SLOTS based on feature support in processor and OS in a future
-     * patch.
+    /* As part of lazy context switching of AVX-512 state, the number of saved registers
+     * is initialized excluding extended AVX-512 registers.
      */
-    num_simd_saved = MCXT_NUM_SIMD_SLOTS;
-    num_simd_registers = MCXT_NUM_SIMD_SLOTS;
+    num_simd_saved = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
+    /* The number of total registers may be switched to include extended AVX-512
+     * registers if OS and processor support will be detected further below.
+     */
+    num_simd_registers = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
     /* Please note that this constant is not assigned based on feature support. It
      * represents the xstate/fpstate/sigcontext structure sizes for non-AVX-512 state.
      */
@@ -398,6 +400,7 @@ proc_init_arch(void)
                  * this time.
                  */
                 avx512_enabled = true;
+                num_simd_registers = MCXT_NUM_SIMD_SLOTS;
                 LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX-512\n");
             } else {
                 LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX-512\n");
