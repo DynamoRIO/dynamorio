@@ -328,6 +328,8 @@ ASSUME fs:_DATA @N@\
 #   define LIB_SEG_TLS gs /* keep in sync w/ unix/os_exports.h defines */
 #  endif
 # endif /* 64/32-bit */
+#  define REG_ZMM0 zmm0
+#  define REG_ZMM1 zmm1
 #endif /* ARM/X86 */
 
 /* calling convention */

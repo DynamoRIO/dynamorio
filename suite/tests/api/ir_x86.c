@@ -1380,18 +1380,29 @@ test_strict_invalid(void *dc)
 {
     instr_t instr;
     byte *pc;
-    const byte buf[] = { 0xf2, 0x0f, 0xd8, 0xe9 }; /* psubusb w/ invalid prefix */
+    const byte buf1[] = { 0xf2, 0x0f, 0xd8, 0xe9 }; /* psubusb w/ invalid prefix */
+    const byte buf2[] = { 0xc5, 0x84, 0x41, 0xd0 }; /* kandw k0, (invalid), k2 */
 
     instr_init(dc, &instr);
 
     /* The instr should be valid by default and invalid if decode_strict */
-    pc = decode(dc, (byte *)buf, &instr);
+    pc = decode(dc, (byte *)buf1, &instr);
     ASSERT(pc != NULL);
 
     disassemble_set_syntax(DR_DISASM_STRICT_INVALID);
     instr_reset(dc, &instr);
-    pc = decode(dc, (byte *)buf, &instr);
+    pc = decode(dc, (byte *)buf1, &instr);
     ASSERT(pc == NULL);
+
+#ifdef X64
+    /* The instruction should always be invalid. In 32-bit mode, the instruction will
+     * decode as lds, because the very bits[7:6] of the second byte of the 2-byte VEX
+     * form are used to differentiate lds from the VEX prefix 0xc5.
+     */
+    instr_reset(dc, &instr);
+    pc = decode(dc, (byte *)buf2, &instr);
+    ASSERT(pc == NULL);
+#endif
 
     instr_free(dc, &instr);
 }

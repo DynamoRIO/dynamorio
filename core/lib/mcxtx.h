@@ -229,12 +229,18 @@
          * Windows system calls.  These fields are ignored for 32-bit processes
          * that are not WOW64, or if the underlying processor does not support
          * SSE.  Use dr_mcontext_xmm_fields_valid() to determine whether the
-         * fields are valid.
+         * fields are valid. Use dr_mcontext_zmm_fields_valid() to determine
+         * whether zmm registers are preserved.
          *
-         * When the fields are valid, on processors with AVX enabled (i.e.,
-         * proc_has_feature(FEATURE_AVX) returns true), these fields will
+         * When the xmm fields are valid, on processors with AVX enabled (i.e.,
+         * proc_has_feature() with #FEATURE_AVX returns true), these fields will
          * contain the full ymm register values; otherwise, the top 128
          * bits of each slot will be undefined.
+         *
+         * When the zmm fields are valid, it implies that
+         * proc_has_feature() with #FEATURE_AVX512 is true. This is because DynamoRIO will
+         * not attempt to fill zmm fields w/o support by the processor and OS. The fields
+         * then will contain the full zmm register values.
          */
 #    ifdef AVOID_API_EXPORT
         /* PR 264138: we must preserve xmm0-5 if on a 64-bit Windows kernel,
