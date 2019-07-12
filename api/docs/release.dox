@@ -143,6 +143,9 @@ changes:
    enum now completely overlaps the DR_REG_ enum.
    This is a binary compatibility change for the OPSZ_ enum.
  - Adds a new encoding hint field to #instr_t.
+ - The dr_mcontext_t struct and all structs that contain it have changed extending the
+   size of its simd structure and appending a new field opmask, and are not backward
+   compatible with releases prior to \DR_VERSION.
 
 The changes between version \DR_VERSION and 7.1.0 include the following minor
 compatibility changes:

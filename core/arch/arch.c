@@ -3382,6 +3382,11 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
                             /* FIXME i#1551: NYI on ARM */
                             ASSERT_NOT_IMPLEMENTED(false);
                         });
+            IF_X86_ELSE({ memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask)); },
+                        {
+                            /* FIXME i#1551: NYI on ARM */
+                            ASSERT_NOT_IMPLEMENTED(false);
+                        });
         }
     }
     return true;
@@ -3416,6 +3421,11 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
         }
         if (TEST(DR_MC_MULTIMEDIA, dst->flags)) {
             IF_X86_ELSE({ memcpy(&dst->simd, &src->simd, sizeof(dst->simd)); },
+                        {
+                            /* FIXME i#1551: NYI on ARM */
+                            ASSERT_NOT_IMPLEMENTED(false);
+                        });
+            IF_X86_ELSE({ memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask)); },
                         {
                             /* FIXME i#1551: NYI on ARM */
                             ASSERT_NOT_IMPLEMENTED(false);
