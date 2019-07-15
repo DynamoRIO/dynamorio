@@ -1870,16 +1870,10 @@ typedef union _dr_simd_t {
 } dr_simd_t;
 #    endif
 #    ifdef X64
-#        define MCXT_NUM_SIMD_SSE_AVX_SLOTS \
-            32 /**< Unused in ARM/AArch64   \
-                */
 #        define MCXT_NUM_SIMD_SLOTS                                  \
             32 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
                 */
 #    else
-#        define MCXT_NUM_SIMD_SSE_AVX_SLOTS \
-            16 /**< Unused in ARM/AArch64   \
-                */
 #        define MCXT_NUM_SIMD_SLOTS                                  \
             16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
                 */
@@ -1905,44 +1899,28 @@ typedef union _dr_simd_t {
 #    endif
 #    ifdef X64
 #        ifdef WINDOWS
-/*[xy]mm0-5*/
-#            define MCXT_NUM_SIMD_SSE_AVX_SLOTS                                 \
-                6 /**< Number of [xyz]mm reg slots in dr_mcontext_t pre AVX-512 \
-                   * in-use.                                                    \
-                   */
-/*[xyz]mm0-5*/
-#            define MCXT_NUM_SIMD_SLOTS \
-                6 /**< Number of [xyz]mm reg slots in dr_mcontext_t */
+/**< Number of [xyz]mm0-5 reg slots in dr_mcontext_t pre AVX-512 in-use. */
+#            define MCXT_NUM_SIMD_SSE_AVX_SLOTS 6
+/**< Number of [xyz]mm0-5 reg slots in dr_mcontext_t */
+#            define MCXT_NUM_SIMD_SLOTS 6
 #        else
-/*[xy]mm0-15*/
-#            define MCXT_NUM_SIMD_SSE_AVX_SLOTS                                  \
-                16 /**< Number of [xyz]mm reg slots in dr_mcontext_t pre AVX-512 \
-                    * in-use.                                                    \
-                    */
-/*[xyz]mm0-31*/
-#            define MCXT_NUM_SIMD_SLOTS                              \
-                16 /**< Number of [xyz]mm reg slots in dr_mcontext_t \
-                    */
+/**< Number of [xyz]mm-15 reg slots in dr_mcontext_t pre AVX-512 in-use. */
+#            define MCXT_NUM_SIMD_SSE_AVX_SLOTS 16
+/**< Number of [xyz]mm0-31 reg slots in dr_mcontext_t */
+#            define MCXT_NUM_SIMD_SLOTS 16
 #        endif
-#        define PRE_XMM_PADDING \
-            48 /**< Bytes of padding before simd dr_mcontext_t slots */
+/**< Bytes of padding before simd dr_mcontext_t slots */
+#        define PRE_XMM_PADDING 48
 #    else
-/*[xy]mm0-7*/
-#        define MCXT_NUM_SIMD_SSE_AVX_SLOTS                                 \
-            8 /**< Number of [xyz]mm reg slots in dr_mcontext_t pre AVX-512 \
-               * in-use.                                                    \
-               */
-/*[xyz]mm0-7*/
-#        define MCXT_NUM_SIMD_SLOTS                             \
-            8 /**< Number of [xyz]mm reg slots in dr_mcontext_t \
-               */
-#        define PRE_XMM_PADDING \
-            24 /**< Bytes of padding before simd dr_mcontext_t slots */
+/**< Number of [xyz]mm0-7 reg slots in dr_mcontext_t pre AVX-512 in-use. */
+#        define MCXT_NUM_SIMD_SSE_AVX_SLOTS 8
+/**< Number of [xyz]mm0-7 reg slots in dr_mcontext_t */
+#        define MCXT_NUM_SIMD_SLOTS 8
+/**< Bytes of padding before simd dr_mcontext_t slots */
+#        define PRE_XMM_PADDING 24
 #    endif
-#    define MCXT_NUM_OPMASK_SLOTS                                    \
-        8 /**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, \
-           * if architecture supports.                               \
-           */
+/**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, if architecture supports. */
+#    define MCXT_NUM_OPMASK_SLOTS 8
 #else
 #    error NYI
 #endif /* AARCHXX/X86 */
