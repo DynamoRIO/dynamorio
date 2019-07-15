@@ -3355,7 +3355,9 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
      * if we append to dr_mcontext_t in the future we'll need
      * to check src->size here.
      */
-    if (src->size != sizeof(dr_mcontext_t))
+    NOCHECKIN individual size checks ? ;
+    if (src->size != sizeof(dr_mcontext_t) &&
+        src->size != sizeof(dr_mcontext_t) - sizeof(dr_opmask_t))
         return false;
     if (TESTALL(DR_MC_ALL, src->flags))
         *dst = *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(src));
@@ -3395,11 +3397,11 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
 bool
 priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
 {
-    /* we assume fields from xdi onward are identical.
-     * if we append to dr_mcontext_t in the future we'll need
-     * to check dst->size here.
+    /* We assume fields from xdi onward are identical. DynamoIRO's mcontext's size has
+     * been appended for AVX-512, and the additional structure's size is checked here.
      */
-    if (dst->size != sizeof(dr_mcontext_t))
+    if (dst->size != sizeof(dr_mcontext_t) ||
+        dst->size != sizeof(dr_mcontext_t) - sizeof(dr_opmask_t))
         return false;
     if (TESTALL(DR_MC_ALL, dst->flags))
         *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(dst)) = *src;
@@ -3420,6 +3422,9 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
             dst->pc = src->pc;
         }
         if (TEST(DR_MC_MULTIMEDIA, dst->flags)) {
+            // NOCHECKIN
+            if ()
+                return false;
             IF_X86_ELSE({ memcpy(&dst->simd, &src->simd, sizeof(dst->simd)); },
                         {
                             /* FIXME i#1551: NYI on ARM */

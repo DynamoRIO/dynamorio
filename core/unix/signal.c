@@ -2343,6 +2343,7 @@ void
 sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full,
                        dr_mcontext_flags_t flags)
 {
+    // NOCHECKIN
     sigcontext_t *sc = sc_full->sc;
     ASSERT(mc != NULL && sc != NULL);
 #ifdef X86

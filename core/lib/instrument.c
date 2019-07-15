@@ -6478,8 +6478,13 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
          * when most old clients have been converted, remove this (we'll
          * still return false)
          */
-        CLIENT_ASSERT(dmc->size == sizeof(dr_mcontext_t),
-                      "dr_mcontext_t.size field not set properly");
+        CLIENT_ASSERT(
+            dmc->size == sizeof(dr_mcontext_t) ||
+                /* Opmask storage has been added for AVX-512 (xref i#1312).
+                 * An older client's mcontext may be filled in w/o the new structure.
+                 */
+                dmc->size == sizeof(dr_mcontext_t) - sizeof(dr_opmask_t),
+            "dr_mcontext_t.size field not set properly");
         CLIENT_ASSERT(dmc->flags != 0 && (dmc->flags & ~(DR_MC_ALL)) == 0,
                       "dr_mcontext_t.flags field not set properly");
     } else
@@ -6606,8 +6611,13 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
     CLIENT_ASSERT(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
                   "DR context protection NYI");
     CLIENT_ASSERT(context != NULL, "invalid context");
-    CLIENT_ASSERT(context->size == sizeof(dr_mcontext_t),
-                  "dr_mcontext_t.size field not set properly");
+    CLIENT_ASSERT(
+        context->size == sizeof(dr_mcontext_t) ||
+            /* Opmask storage has been added for AVX-512 (xref i#1312).
+             * An older client's mcontext may be filled in w/o the new structure.
+             */
+            context->size == sizeof(dr_mcontext_t) - sizeof(dr_opmask_t),
+        "dr_mcontext_t.size field not set properly");
     CLIENT_ASSERT(context->flags != 0 && (context->flags & ~(DR_MC_ALL)) == 0,
                   "dr_mcontext_t.flags field not set properly");
 
