@@ -3357,7 +3357,8 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
      */
     if (src->size > sizeof(dr_mcontext_t))
         return false;
-    if (TEST(DR_MC_ALL, src->flags) && src->size > offsetof(priv_mcontext_t, opmask)) {
+    if (TEST(DR_MC_ALL, src->flags) &&
+        IF_X86_ELSE(src->size > offsetof(priv_mcontext_t, opmask), true)) {
         *dst = *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(src));
     } else {
         if (TESTANY(DR_MC_INTEGER | DR_MC_ALL, src->flags)) {
@@ -3385,29 +3386,28 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
              * Windows) builds. A corresponding size check will be added with a
              * future patch.
              */
-            if (src->size > offsetof(priv_mcontext_t, simd)) {
-                if (src->size > offsetof(priv_mcontext_t, simd) +
-                        MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
-                    IF_X86_ELSE({ memcpy(&dst->simd, &src->simd, sizeof(dst->simd)); },
-                                {
-                                    /* FIXME i#1551: NYI on ARM */
-                                    ASSERT_NOT_IMPLEMENTED(false);
-                                });
-                } else {
-                    /* Backwards compatibility copy from old format w/o AVX-512. */
-                    dr_ymm_t *src_simd_compat = (dr_ymm_t *)src->simd;
-                    for (int i = 0; i < MCXT_NUM_SIMD_SSE_AVX_SLOTS; ++i) {
-                        dst->simd[i] = *(dr_zmm_t *)&src_simd_compat[i];
+            IF_X86_ELSE(
+                {
+                    if (src->size > offsetof(priv_mcontext_t, simd)) {
+                        if (src->size > offsetof(priv_mcontext_t, simd) +
+                                MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
+                            memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
+                        } else {
+                            /* Backwards compatibility copy from old format w/o AVX-512.
+                             */
+                            dr_ymm_t *src_simd_compat = (dr_ymm_t *)src->simd;
+                            for (int i = 0; i < MCXT_NUM_SIMD_SSE_AVX_SLOTS; ++i) {
+                                dst->simd[i] = *(dr_zmm_t *)&src_simd_compat[i];
+                            }
+                        }
                     }
-                }
-            }
-            if (src->size > offsetof(priv_mcontext_t, opmask)) {
-                IF_X86_ELSE({ memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask)); },
-                            {
-                                /* FIXME i#1551: NYI on ARM */
-                                ASSERT_NOT_IMPLEMENTED(false);
-                            });
-            }
+                    if (src->size > offsetof(priv_mcontext_t, opmask))
+                        memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask));
+                },
+                {
+                    /* FIXME i#1551: NYI on ARM */
+                    ASSERT_NOT_IMPLEMENTED(false);
+                });
         }
     }
     return true;
@@ -3421,7 +3421,8 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
      */
     if (dst->size > sizeof(dr_mcontext_t))
         return false;
-    if (TEST(DR_MC_ALL, dst->flags) && dst->size > offsetof(priv_mcontext_t, opmask)) {
+    if (TEST(DR_MC_ALL, dst->flags) &&
+        IF_X86_ELSE(dst->size > offsetof(priv_mcontext_t, opmask), true)) {
         *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(dst)) = *src;
     } else {
         if (TESTANY(DR_MC_INTEGER | DR_MC_ALL, dst->flags)) {
@@ -3448,29 +3449,28 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
              * Windows) builds. A corresponding size check be will added with a
              * future patch.
              */
-            if (dst->size > offsetof(priv_mcontext_t, simd)) {
-                if (dst->size > offsetof(priv_mcontext_t, simd) +
-                        MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
-                    IF_X86_ELSE({ memcpy(&dst->simd, &src->simd, sizeof(dst->simd)); },
-                                {
-                                    /* FIXME i#1551: NYI on ARM */
-                                    ASSERT_NOT_IMPLEMENTED(false);
-                                });
-                } else {
-                    /* Backwards compatibility copy to old format w/o AVX-512. */
-                    dr_ymm_t *dst_simd_compat = (dr_ymm_t *)dst->simd;
-                    for (int i = 0; i < MCXT_NUM_SIMD_SSE_AVX_SLOTS; ++i) {
-                        dst_simd_compat[i] = *(dr_ymm_t *)&src->simd[i];
+            IF_X86_ELSE(
+                {
+                    if (dst->size > offsetof(priv_mcontext_t, simd)) {
+                        if (dst->size > offsetof(priv_mcontext_t, simd) +
+                                MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
+                            memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
+
+                        } else {
+                            /* Backwards compatibility copy to old format w/o AVX-512. */
+                            dr_ymm_t *dst_simd_compat = (dr_ymm_t *)dst->simd;
+                            for (int i = 0; i < MCXT_NUM_SIMD_SSE_AVX_SLOTS; ++i) {
+                                dst_simd_compat[i] = *(dr_ymm_t *)&src->simd[i];
+                            }
+                        }
                     }
-                }
-            }
-            if (dst->size > offsetof(priv_mcontext_t, opmask)) {
-                IF_X86_ELSE({ memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask)); },
-                            {
-                                /* FIXME i#1551: NYI on ARM */
-                                ASSERT_NOT_IMPLEMENTED(false);
-                            });
-            }
+                    if (dst->size > offsetof(priv_mcontext_t, opmask))
+                        memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask));
+                },
+                {
+                    /* FIXME i#1551: NYI on ARM */
+                    ASSERT_NOT_IMPLEMENTED(false);
+                });
         }
     }
     return true;
