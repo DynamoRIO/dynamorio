@@ -357,8 +357,9 @@ proc_init_arch(void)
                       (!proc_has_feature(FEATURE_FXSR) && !proc_has_feature(FEATURE_SSE)),
                   "Unsupported processor type: SSE and FXSR must match");
 
-    /* TODO i#1312: this will MCXT_NUM_SIMD_SSE_AVX_SLOTS by default and then switched to
-     * MCXT_NUM_SIMD_SLOTS based on feature support in processor and OS in a future patch.
+    /* TODO i#1312: this will default to MCXT_NUM_SIMD_SSE_AVX_SLOTS and then be switched
+     * to MCXT_NUM_SIMD_SLOTS based on feature support in processor and OS in a future
+     * patch.
      */
     num_simd_saved = MCXT_NUM_SIMD_SLOTS;
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;

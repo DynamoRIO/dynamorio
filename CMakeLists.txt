@@ -1766,7 +1766,7 @@ endif (CLIENT_INTERFACE OR APP_EXPORTS)
 # Style checks:
 
 find_package(vera++ QUIET)
-if (vera++_FOUND)
+if (0 AND vera++_FOUND)
   message(STATUS "Using vera++ for code style checks")
   include(${VERA++_USE_FILE})
   # We use our own modified copy in order to pass --error and for
