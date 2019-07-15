@@ -516,7 +516,7 @@ proc_num_simd_sse_avx_registers(void);
  *
  * Returns the number of SIMD registers preserved for a context switch, but excluding
  * AVX-512 extended registers. Its usage model is the same as
- * proc_num_simd_sse_avx_registers(), but reflects the actually number of saved registers,
+ * proc_num_simd_sse_avx_registers(), but reflects the actual number of saved registers,
  * the same way as proc_num_simd_saved() does.
  */
 int
