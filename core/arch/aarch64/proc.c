@@ -81,6 +81,20 @@ proc_num_simd_registers(void)
     return num_simd_registers;
 }
 
+int
+proc_num_simd_sse_avx_registers(void)
+{
+    CLIENT_ASSERT(false, "Incorrect usage for ARM/AArch64.");
+    return 0;
+}
+
+int
+proc_num_simd_sse_avx_saved(void)
+{
+    CLIENT_ASSERT(false, "Incorrect usage for ARM/AArch64.");
+    return 0;
+}
+
 DR_API
 size_t
 proc_save_fpstate(byte *buf)

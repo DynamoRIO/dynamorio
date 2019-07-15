@@ -70,7 +70,8 @@
 #    define YMM_ENABLED() (proc_avx_enabled())
 #    define ZMM_ENABLED() (proc_avx512_enabled())
 #    define YMMH_REG_SIZE (YMM_REG_SIZE / 2) /* upper half */
-#    define MCXT_YMMH_SLOTS_SIZE (MCXT_NUM_SIMD_SLOTS * YMMH_REG_SIZE)
+#    define MCXT_YMMH_SLOTS_SIZE (MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMMH_REG_SIZE)
+/* XXX i#1312: needs support for ZMM_HI256 and HI16_ZMM. */
 #endif /* X86 */
 
 /* Number of slots for spills from inlined clean calls. */

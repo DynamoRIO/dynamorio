@@ -1130,7 +1130,7 @@ context_to_mcontext_internal(priv_mcontext_t *mcontext, CONTEXT *cxt)
         /* no harm done if no sse support */
         /* CONTEXT_FLOATING_POINT or CONTEXT_EXTENDED_REGISTERS */
         int i;
-        for (i = 0; i < proc_num_simd_registers(); i++)
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++)
             memcpy(&mcontext->simd[i], CXT_XMM(cxt, i), XMM_REG_SIZE);
     }
     /* if XSTATE is NOT set, the app has NOT used any ymm state and
@@ -1140,12 +1140,13 @@ context_to_mcontext_internal(priv_mcontext_t *mcontext, CONTEXT *cxt)
         byte *ymmh_area = context_ymmh_saved_area(cxt);
         if (ymmh_area != NULL) {
             int i;
-            for (i = 0; i < proc_num_simd_registers(); i++) {
+            for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                 memcpy(&mcontext->simd[i].u32[4], &YMMH_AREA(ymmh_area, i).u32[0],
                        YMMH_REG_SIZE);
             }
         }
     }
+    /* XXX i#1312: AVX-512 extended register copies missing yet. */
 
     /* CONTEXT_CONTROL without the segments */
     mcontext->xbp = cxt->CXT_XBP;
@@ -1231,11 +1232,11 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
         memcpy(&cxt->ExtendedRegisters, fpstate, written);
 #        endif
         /* Now update w/ the xmm values from mcontext */
-        for (i = 0; i < proc_num_simd_registers(); i++)
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++)
             memcpy(CXT_XMM(cxt, i), &mcontext->simd[i], XMM_REG_SIZE);
     }
-    /* XXX i#1312: This will need attention for AVX-512, specifically the different
-     * xstate formats supported by the processor, compacted and standard, as well as
+    /* XXX i#1312: This may need attention for AVX-512, specifically the different
+     * xstate formats supported by the kernel, compacted and standard, as well as
      * MPX.
      */
     if (CONTEXT_PRESERVE_YMM && TESTALL(CONTEXT_XSTATE, cxt->ContextFlags)) {
@@ -1265,10 +1266,11 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
             memcpy(&YMMH_AREA(ymmh_area, 6).u32[0], &ymms[0].u32[4], YMMH_REG_SIZE);
             memcpy(&YMMH_AREA(ymmh_area, 7).u32[0], &ymms[1].u32[4], YMMH_REG_SIZE);
 #        endif
-            for (i = 0; i < proc_num_simd_registers(); i++) {
+            for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                 memcpy(&YMMH_AREA(ymmh_area, i).u32[0], &mcontext->simd[i].u32[4],
                        YMMH_REG_SIZE);
             }
+            /* XXX i#1312: AVX-512 extended register copies missing yet. */
             /* The only un-reserved part of the AVX header saved by OP_xsave is
              * the XSTATE_BV byte.
              */
@@ -1276,6 +1278,7 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
             *header_bv = (((uint64)bv_high) << 32) | bv_low;
         }
     }
+    /* XXX i#1312: AVX-512 extended register copies missing yet. */
     /* CONTEXT_CONTROL without the segments */
     cxt->CXT_XBP = mcontext->xbp;
     cxt->CXT_XSP = mcontext->xsp;
