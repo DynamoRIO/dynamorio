@@ -72,6 +72,8 @@ static bool avx512_enabled;
 
 static int num_simd_saved;
 static int num_simd_registers;
+static int num_simd_sse_avx_registers;
+static int num_simd_sse_avx_saved;
 
 /* global writable variable for debug registers value */
 DECLARE_NEVERPROT_VAR(app_pc d_r_debug_register[DEBUG_REGISTERS_NB], { 0 });
@@ -355,8 +357,17 @@ proc_init_arch(void)
                       (!proc_has_feature(FEATURE_FXSR) && !proc_has_feature(FEATURE_SSE)),
                   "Unsupported processor type: SSE and FXSR must match");
 
+    /* TODO i#1312: this will default to MCXT_NUM_SIMD_SSE_AVX_SLOTS and then be switched
+     * to MCXT_NUM_SIMD_SLOTS based on feature support in processor and OS in a future
+     * patch.
+     */
     num_simd_saved = MCXT_NUM_SIMD_SLOTS;
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;
+    /* Please note that this constant is not assigned based on feature support. It
+     * represents the xstate/fpstate/sigcontext structure sizes for non-AVX-512 state.
+     */
+    num_simd_sse_avx_registers = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
+    num_simd_sse_avx_saved = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
 
     if (proc_has_feature(FEATURE_OSXSAVE)) {
         uint bv_high = 0, bv_low = 0;
@@ -453,6 +464,18 @@ int
 proc_num_simd_registers(void)
 {
     return num_simd_registers;
+}
+
+int
+proc_num_simd_sse_avx_registers(void)
+{
+    return num_simd_sse_avx_registers;
+}
+
+int
+proc_num_simd_sse_avx_saved(void)
+{
+    return num_simd_sse_avx_saved;
 }
 
 DR_API
