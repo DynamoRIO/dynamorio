@@ -127,6 +127,11 @@ function(add_vera_targets_for_dynamorio)
           set(currentDir ".")
         endif()
         set(xmlreport ${CMAKE_CURRENT_BINARY_DIR}/vera_report_${reportNb}.xml)
+        if (VERA_ERROR)
+          set(error_or_warning --error)
+        else ()
+          set(error_or_warning --warning)
+        endif (VERA_ERROR)
         add_custom_command(
           OUTPUT ${xmlreport}
           COMMAND ${vera_program}
@@ -134,7 +139,7 @@ function(add_vera_targets_for_dynamorio)
             --profile ${profile}
             --${style}-report=-
             --show-rule
-            --error
+            ${error_or_warning}
             --xml-report=${xmlreport}
             ${exclusions}
             ${reportsrcs}
@@ -149,7 +154,7 @@ function(add_vera_targets_for_dynamorio)
             --profile ${profile}
             --${style}-report=-
             --show-rule
-            --error
+            ${error_or_warning}
             # --xml-report=${noreport}
             ${exclusions}
             ${reportsrcs}
