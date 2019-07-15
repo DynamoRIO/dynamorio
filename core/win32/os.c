@@ -1185,12 +1185,6 @@ d_r_os_init(void)
     os_get_current_dir(cwd, BUFFER_SIZE_ELEMENTS(cwd));
 }
 
-void
-native_exec_os_init(void)
-{
-    /* Nothing yet. */
-}
-
 static void
 print_mem_stats()
 {
