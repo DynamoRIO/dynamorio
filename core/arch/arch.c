@@ -3379,7 +3379,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
         }
         if (TEST(DR_MC_MULTIMEDIA, src->flags)) {
             /* XXX i#1312: The structure size will double on 64-bit UNIX (possibly
-             * Windows) builds. A corresponding size check be will added with a
+             * Windows) builds. A corresponding size check will be added with a
              * future patch.
              */
             IF_X86_ELSE({ memcpy(&dst->simd, &src->simd, sizeof(dst->simd)); },
@@ -3402,7 +3402,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
 bool
 priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
 {
-    /* We assume fields from xdi onward are identical. DynamoIRO's mcontext's size has
+    /* We assume fields from xdi onward are identical. DynamoRIO's mcontext's size has
      * been appended for AVX-512, and the additional structure's size is checked here.
      */
     if (dst->size != sizeof(dr_mcontext_t) &&
