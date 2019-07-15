@@ -1765,6 +1765,8 @@ endif (CLIENT_INTERFACE OR APP_EXPORTS)
 ###########################################################################
 # Style checks:
 
+option(VERA_ERROR "Turn vera++ checks into error (default)" ON)
+
 find_package(vera++ QUIET)
 if (vera++_FOUND)
   message(STATUS "Using vera++ for code style checks")
