@@ -62,6 +62,10 @@
 #    define OPMASK_REG_SIZE 8
 #    define MCXT_SIMD_SLOT_SIZE ZMM_REG_SIZE
 #    define MCXT_TOTAL_SIMD_SLOTS_SIZE (MCXT_NUM_SIMD_SLOTS * MCXT_SIMD_SLOT_SIZE)
+/* TODO i#1312: This is currently used to maintain an empty opmask context structure.
+ * Actually filling the structure will be added along with a future patch.
+ */
+#    define MCXT_TOTAL_OPMASK_SLOTS_SIZE (MCXT_NUM_OPMASK_SLOTS * OPMASK_REG_SIZE)
 /* Indicates OS support, not just processor support (xref i#1278) */
 #    define YMM_ENABLED() (proc_avx_enabled())
 #    define ZMM_ENABLED() (proc_avx512_enabled())
