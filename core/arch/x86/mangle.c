@@ -342,7 +342,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     /* XXX i#1312: This assumption will change and the code below will need
      * to take this into account.
      */
-    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS ||
+           proc_num_simd_registers() == MCXT_NUM_SIMD_SSE_AVX_SLOTS);
     if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers()) {
         int offs =
             MCXT_TOTAL_SIMD_SLOTS_SIZE + MCXT_TOTAL_OPMASK_SLOTS_SIZE + PRE_XMM_PADDING;
@@ -373,7 +374,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         /* XXX i#1312: This assumption will change and the code below will need
          * to take this into account.
          */
-        ASSERT(proc_num_simd_saved() == proc_num_simd_registers());
+        ASSERT(proc_num_simd_saved() == proc_num_simd_registers() ||
+               proc_num_simd_saved() == proc_num_simd_sse_avx_registers());
         for (i = 0; i < proc_num_simd_saved(); i++) {
             if (!cci->simd_skip[i]) {
                 PRE(ilist, instr,
@@ -386,7 +388,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                         opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
             }
         }
-        ASSERT(i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SLOTS_SIZE);
+        ASSERT(i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SLOTS_SIZE ||
+               i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SSE_AVX_SLOTS_SIZE);
     }
     /* TODO i#1312: the zmm and mask fields need to be copied. */
     /* pc and aflags */
@@ -519,7 +522,8 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         /* XXX i#1312: This assumption will change and the code below will need
          * to take this into account.
          */
-        ASSERT(proc_num_simd_saved() == proc_num_simd_registers());
+        ASSERT(proc_num_simd_saved() == proc_num_simd_registers() ||
+               proc_num_simd_saved() == proc_num_simd_sse_avx_registers());
         for (i = 0; i < proc_num_simd_saved(); i++) {
             if (!cci->simd_skip[i]) {
                 PRE(ilist, instr,
@@ -531,7 +535,8 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
                                               OPSZ_SAVED_XMM)));
             }
         }
-        ASSERT(i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SLOTS_SIZE);
+        ASSERT(i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SLOTS_SIZE ||
+               i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SSE_AVX_SLOTS_SIZE);
     }
     /* TODO i#1312: the mask fields need to be copied. */
 

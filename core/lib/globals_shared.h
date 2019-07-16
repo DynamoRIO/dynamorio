@@ -1899,6 +1899,7 @@ typedef union _dr_simd_t {
 #    endif
 #    ifdef X64
 #        ifdef WINDOWS
+/* TODO i#1312: support AVX-512 extended registers. */
 /**< Number of [xyz]mm0-5 reg slots in dr_mcontext_t pre AVX-512 in-use. */
 #            define MCXT_NUM_SIMD_SSE_AVX_SLOTS 6
 /**< Number of [xyz]mm0-5 reg slots in dr_mcontext_t */
@@ -1907,7 +1908,7 @@ typedef union _dr_simd_t {
 /**< Number of [xyz]mm-15 reg slots in dr_mcontext_t pre AVX-512 in-use. */
 #            define MCXT_NUM_SIMD_SSE_AVX_SLOTS 16
 /**< Number of [xyz]mm0-31 reg slots in dr_mcontext_t */
-#            define MCXT_NUM_SIMD_SLOTS 16
+#            define MCXT_NUM_SIMD_SLOTS 32
 #        endif
 /**< Bytes of padding before simd dr_mcontext_t slots */
 #        define PRE_XMM_PADDING 48
