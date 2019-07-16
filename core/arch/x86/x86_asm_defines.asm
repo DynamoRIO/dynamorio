@@ -47,13 +47,13 @@
  */
 #ifdef X64
 # ifdef WINDOWS
-#  define MCXT_NUM_SIMD_SLOTS 6 /* xmm0-5 */
+#  define MCXT_NUM_SIMD_SLOTS 6 /* [xy]mm0-5 */
 # else
-#  define MCXT_NUM_SIMD_SLOTS 32 /* xmm0-15 */
+#  define MCXT_NUM_SIMD_SLOTS 32 /* [xyz]mm0-31 */
 # endif
 # define PRE_XMM_PADDING 48
 #else
-# define MCXT_NUM_SIMD_SLOTS 8 /* xmm0-7 */
+# define MCXT_NUM_SIMD_SLOTS 8 /* [xyz]mm0-7 */
 # define PRE_XMM_PADDING 24
 #endif
 #define MCXT_NUM_OPMASK_SLOTS 8
