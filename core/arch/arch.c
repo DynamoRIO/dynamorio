@@ -3390,8 +3390,8 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
                             MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE) {
                     if (src->size < offsetof(dr_mcontext_t, simd) + sizeof(dst->simd))
                         return false;
-                    /* Full copy, UNIX 64-bit. XXX i#1312: We don't support AVX-512
-                     * extended number of registers in 64-bit Windows yet.
+                    /* UNIX 64-bit case, up-to-date copy. XXX i#1312: We don't support
+                     * AVX-512 extended number of registers in 64-bit Windows yet.
                      */
                     memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
                 } else if (MCXT_NUM_SIMD_SLOTS > MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
@@ -3400,9 +3400,9 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
                     if (src->size < offsetof(dr_mcontext_t, simd) +
                             MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE)
                         return false;
-                    /* Backwards compatibility copy from old ZMM_REG_SIZE format w/o
-                     * AVX-512, UNIX 64-bit. XXX i#1312: We don't support AVX-512
-                     * extended number of registers in 64-bit Windows yet.
+                    /* UNIX 64-bit case, backwards compatibility copy from old
+                     * ZMM_REG_SIZE format w/o AVX-512. XXX i#1312: We don't support
+                     * AVX-512 extended number of registers in 64-bit Windows yet.
                      */
                     memcpy(&dst->simd, &src->simd,
                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE);
@@ -3411,14 +3411,14 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
                                    MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
                     if (src->size < offsetof(dr_mcontext_t, simd) + sizeof(dst->simd))
                         return false;
-                    /* Full copy if build is not UNIX 64-bit. */
+                    /* Every other build other than UNIX 64-bit case, up-to-date copy. */
                     memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
                 } else {
                     if (src->size < offsetof(dr_mcontext_t, simd) +
                             MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE)
                         return false;
-                    /* Backwards compatibility copy from old YMM_REG_SIZE format w/o
-                     * AVX-512, all builds.
+                    /* Any build, backwards compatibility copy from old YMM_REG_SIZE
+                     * format w/o AVX-512, all builds.
                      */
                     dr_ymm_t *src_simd_compat = (dr_ymm_t *)src->simd;
                     for (int i = 0; i < MCXT_NUM_SIMD_SSE_AVX_SLOTS; ++i) {
@@ -3484,8 +3484,8 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
                             MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE) {
                     if (dst->size < offsetof(dr_mcontext_t, simd) + sizeof(dst->simd))
                         return false;
-                    /* Full copy, UNIX 64-bit. XXX i#1312: We don't support AVX-512
-                     * extended number of registers in 64-bit Windows yet.
+                    /* UNIX 64-bit case, up-to-date copy. XXX i#1312: We don't support
+                     * AVX-512 extended number of registers in 64-bit Windows yet.
                      */
                     memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
                 } else if (MCXT_NUM_SIMD_SLOTS > MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
@@ -3494,9 +3494,9 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
                     if (dst->size < offsetof(dr_mcontext_t, simd) +
                             MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE)
                         return false;
-                    /* Backwards compatibility copy from old ZMM_REG_SIZE format w/o
-                     * AVX-512, UNIX 64-bit. XXX i#1312: We don't support AVX-512
-                     * extended number of registers in 64-bit Windows yet.
+                    /* UNIX 64-bit case, backwards compatibility copy from old
+                     * ZMM_REG_SIZE format w/o AVX-512. XXX i#1312: We don't support
+                     * AVX-512 extended number of registers in 64-bit Windows yet.
                      */
                     memcpy(&dst->simd, &src->simd,
                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE);
@@ -3505,14 +3505,14 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
                                    MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
                     if (dst->size < offsetof(dr_mcontext_t, simd) + sizeof(dst->simd))
                         return false;
-                    /* Full copy if build is not UNIX 64-bit. */
+                    /* Every other build other than UNIX 64-bit case, up-to-date copy. */
                     memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
                 } else {
                     if (dst->size < offsetof(dr_mcontext_t, simd) +
                             MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE)
                         return false;
-                    /* Backwards compatibility copy from old YMM_REG_SIZE format w/o
-                     * AVX-512, all builds.
+                    /* Any build, backwards compatibility copy from old YMM_REG_SIZE
+                     * format w/o AVX-512, all builds.
                      */
                     dr_ymm_t *dst_simd_compat = (dr_ymm_t *)dst->simd;
                     for (int i = 0; i < MCXT_NUM_SIMD_SSE_AVX_SLOTS; ++i) {
