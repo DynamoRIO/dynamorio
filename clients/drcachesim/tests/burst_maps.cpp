@@ -141,6 +141,10 @@ clobber_mapping()
     copy_and_remap(exe, 8 * clobber_size, clobber_size);
 }
 
+extern "C" {
+extern DR_EXPORT void
+drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
+
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
@@ -150,6 +154,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     assert(exe->full_path != nullptr);
     assert(strcmp(exe->full_path, exe_path) == 0);
     dr_free_module_data(exe);
+    drmemtrace_client_main(id, argc, argv);
+}
 }
 
 int
