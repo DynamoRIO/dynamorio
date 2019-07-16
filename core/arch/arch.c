@@ -3366,7 +3366,8 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
                 memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
                        /* end of the mcxt integer gpr */
                        offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
-            }
+            } else
+                return false;
             dst->xsp = save_xsp;
         }
         if (TEST(DR_MC_CONTROL, src->flags)) {
@@ -3374,8 +3375,12 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
             dst->xsp = src->xsp;
             if (src->size > offsetof(dr_mcontext_t, xflags))
                 dst->xflags = src->xflags;
+            else
+                return false;
             if (src->size > offsetof(dr_mcontext_t, pc))
                 dst->pc = src->pc;
+            else
+                return false;
         }
         if (TEST(DR_MC_MULTIMEDIA, src->flags)) {
             /* XXX i#1312: The structure size will double on 64-bit UNIX (possibly
@@ -3395,7 +3400,8 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
                         dst->simd[i] = *(dr_zmm_t *)&src_simd_compat[i];
                     }
                 }
-            }
+            } else
+                return false;
             if (src->size > offsetof(dr_mcontext_t, opmask))
                 memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask));
 #else
@@ -3427,15 +3433,20 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
                 memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
                        /* end of the mcxt integer gpr */
                        offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
-            }
+            } else
+                return false;
             dst->xsp = save_xsp;
         }
         if (TEST(DR_MC_CONTROL, dst->flags)) {
             dst->xsp = src->xsp;
             if (dst->size > offsetof(dr_mcontext_t, xflags))
                 dst->xflags = src->xflags;
+            else
+                return false;
             if (dst->size > offsetof(dr_mcontext_t, pc))
                 dst->pc = src->pc;
+            else
+                return false;
         }
         if (TEST(DR_MC_MULTIMEDIA, dst->flags)) {
             /* XXX i#1312: The structure size will double on 64-bit UNIX (possibly
@@ -3455,7 +3466,8 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
                         dst_simd_compat[i] = *(dr_ymm_t *)&src->simd[i];
                     }
                 }
-            }
+            } else
+                return false;
             if (dst->size > offsetof(dr_mcontext_t, opmask))
                 memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask));
 #else
