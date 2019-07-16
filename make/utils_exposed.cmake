@@ -195,7 +195,7 @@ function (DynamoRIO_get_full_path out target loc_suffix)
     endif ()
     # XXX i#3278: DR's win loader can't handle a path like that until full support has
     # been implemented in convert_to_NT_file_path.
-    string(REPLACE "/./" "/" output_dir ${output_dir})
+    string(REPLACE "/./" "/" output_dir "${output_dir}")
     if (output_name)
       set(${out} "${output_dir}/${prefix}${output_name}${suffix}" PARENT_SCOPE)
     else ()

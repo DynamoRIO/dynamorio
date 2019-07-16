@@ -1082,6 +1082,12 @@ if (NOT DISABLE_WARNINGS)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARN}")
 endif (NOT DISABLE_WARNINGS)
 
+if (LINUX)
+  CHECK_INCLUDE_FILE("linux/rseq.h" HAVE_RSEQ)
+else ()
+  set(HAVE_RSEQ OFF)
+endif ()
+
 ###########################################################################
 
 # Issue 20: cross-arch execve depends on these being distinct and not

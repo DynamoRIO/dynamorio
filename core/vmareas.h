@@ -195,14 +195,14 @@ bool
 vmvector_lookup_data(vm_area_vector_t *v, app_pc pc, app_pc *start, app_pc *end,
                      void **data);
 
-/* Returns false if pc is in a vmarea in v.
- * Otherwise, returns the start pc of the vmarea prior to pc in prev (NULL
- * if none) and the start pc of the vmarea after pc in next (POINTER_MAX
- * if none).
+/* Returns false if pc is in a vmarea in v.  Otherwise, returns the bounds of the
+ * vmarea prior to pc in [prev_start,prev_end) (both NULL if none) and the bounds of
+ * the vmarea after pc in [next_start,next_end) (both POINTER_MAX if none).
  */
 bool
-vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev,
-                          OUT app_pc *next);
+vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev_start,
+                          OUT app_pc *prev_end, OUT app_pc *next_start,
+                          OUT app_pc *next_end);
 
 bool
 vmvector_modify_data(vm_area_vector_t *v, app_pc start, app_pc end, void *data);

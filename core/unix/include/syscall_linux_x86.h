@@ -3044,4 +3044,8 @@
 #    define SYS_writev __NR_writev
 #endif
 
+#ifdef __NR_rseq
+#    define SYS_rseq __NR_rseq
+#endif
+
 #endif /* _SYSCALL_LINUX_X86_H_ */

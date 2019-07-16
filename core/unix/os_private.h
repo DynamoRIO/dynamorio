@@ -466,4 +466,12 @@ void
 safe_read_tls_app_self_recover(void);
 #endif
 
+/* In module.c */
+#ifdef LINUX
+void
+module_locate_rseq_regions(void);
+bool
+rseq_is_registered_for_current_thread(void);
+#endif
+
 #endif /* _OS_PRIVATE_H_ */
