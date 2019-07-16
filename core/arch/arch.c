@@ -3354,8 +3354,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
     /* We assume fields from xdi onward are identical. */
     if (src->size > sizeof(dr_mcontext_t))
         return false;
-    if (TEST(DR_MC_ALL, src->flags) &&
-        IF_X86_ELSE(src->size > offsetof(priv_mcontext_t, opmask), true)) {
+    if (TEST(DR_MC_ALL, src->flags) && src->size == sizeof(dr_mcontext_t)) {
         *dst = *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(src));
     } else {
         if (TEST(DR_MC_INTEGER, src->flags)) {
@@ -3363,7 +3362,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
              * restore it later so we can use one memcpy for DR_MC_INTEGER.
              */
             reg_t save_xsp = dst->xsp;
-            if (src->size >= offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc))) {
+            if (src->size >= offsetof(dr_mcontext_t, IF_X86_ELSE(xflags, pc))) {
                 memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
                        /* end of the mcxt integer gpr */
                        offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
@@ -3373,9 +3372,9 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
         if (TEST(DR_MC_CONTROL, src->flags)) {
             /* XXX i#2710: mc->lr should be under DR_MC_CONTROL */
             dst->xsp = src->xsp;
-            if (src->size > offsetof(priv_mcontext_t, xflags))
+            if (src->size > offsetof(dr_mcontext_t, xflags))
                 dst->xflags = src->xflags;
-            if (src->size > offsetof(priv_mcontext_t, pc))
+            if (src->size > offsetof(dr_mcontext_t, pc))
                 dst->pc = src->pc;
         }
         if (TEST(DR_MC_MULTIMEDIA, src->flags)) {
@@ -3385,8 +3384,8 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
              */
             IF_X86_ELSE(
                 {
-                    if (src->size > offsetof(priv_mcontext_t, simd)) {
-                        if (src->size > offsetof(priv_mcontext_t, simd) +
+                    if (src->size > offsetof(dr_mcontext_t, simd)) {
+                        if (src->size > offsetof(dr_mcontext_t, simd) +
                                 MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
                             memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
                         } else {
@@ -3398,7 +3397,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
                             }
                         }
                     }
-                    if (src->size > offsetof(priv_mcontext_t, opmask))
+                    if (src->size > offsetof(dr_mcontext_t, opmask))
                         memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask));
                 },
                 {
@@ -3418,8 +3417,7 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
      */
     if (dst->size > sizeof(dr_mcontext_t))
         return false;
-    if (TEST(DR_MC_ALL, dst->flags) &&
-        IF_X86_ELSE(dst->size > offsetof(priv_mcontext_t, opmask), true)) {
+    if (TEST(DR_MC_ALL, dst->flags) && dst->size == sizeof(dr_mcontext_t)) {
         *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(dst)) = *src;
     } else {
         if (TEST(DR_MC_INTEGER, dst->flags)) {
@@ -3427,7 +3425,7 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
              * restore it later so we can use one memcpy for DR_MC_INTEGER.
              */
             reg_t save_xsp = dst->xsp;
-            if (dst->size >= offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc))) {
+            if (dst->size >= offsetof(dr_mcontext_t, IF_X86_ELSE(xflags, pc))) {
                 memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
                        /* end of the mcxt integer gpr */
                        offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
@@ -3436,9 +3434,9 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
         }
         if (TEST(DR_MC_CONTROL, dst->flags)) {
             dst->xsp = src->xsp;
-            if (dst->size > offsetof(priv_mcontext_t, xflags))
+            if (dst->size > offsetof(dr_mcontext_t, xflags))
                 dst->xflags = src->xflags;
-            if (dst->size > offsetof(priv_mcontext_t, pc))
+            if (dst->size > offsetof(dr_mcontext_t, pc))
                 dst->pc = src->pc;
         }
         if (TEST(DR_MC_MULTIMEDIA, dst->flags)) {
@@ -3448,8 +3446,8 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
              */
             IF_X86_ELSE(
                 {
-                    if (dst->size > offsetof(priv_mcontext_t, simd)) {
-                        if (dst->size > offsetof(priv_mcontext_t, simd) +
+                    if (dst->size > offsetof(dr_mcontext_t, simd)) {
+                        if (dst->size > offsetof(dr_mcontext_t, simd) +
                                 MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
                             memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
 
@@ -3461,7 +3459,7 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
                             }
                         }
                     }
-                    if (dst->size > offsetof(priv_mcontext_t, opmask))
+                    if (dst->size > offsetof(dr_mcontext_t, opmask))
                         memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask));
                 },
                 {
