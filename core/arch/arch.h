@@ -102,6 +102,7 @@ mixed_mode_enabled(void)
 #        define R15_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r15)))
 #    endif /* X64 */
 #    define SIMD_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, simd)))
+#    define OPMASK_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, opmask)))
 #    define SCRATCH_REG0 DR_REG_XAX
 #    define SCRATCH_REG1 DR_REG_XBX
 #    define SCRATCH_REG2 DR_REG_XCX
@@ -1368,9 +1369,15 @@ void
 encode_track_it_block(dcontext_t *dcontext, instr_t *instr);
 #endif
 
-/* in instr_shared.c */
+/* In instr_shared.c. */
 uint
 move_mm_reg_opcode(bool aligned16, bool aligned32);
+
+/* In instr_shared.c. We have a separate function for AVX-512, because we do not want to
+ * introduce AVX-512 code if not explicitly requested, due to DynamoRIO's lazy AVX-512
+ * context switching. */
+uint
+move_mm_avx512_reg_opcode(bool aligned64);
 
 /* clean call optimization */
 /* Describes usage of a scratch slot. */

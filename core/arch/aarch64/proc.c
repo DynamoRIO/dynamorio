@@ -74,6 +74,12 @@ proc_num_simd_saved(void)
     return num_simd_saved;
 }
 
+void
+proc_set_num_simd_saved(int num)
+{
+    num_simd_saved = num;
+}
+
 DR_API
 int
 proc_num_simd_registers(void)

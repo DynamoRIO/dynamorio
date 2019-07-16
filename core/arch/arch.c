@@ -676,6 +676,10 @@ d_r_arch_init(void)
     ASSERT(DR_REG_YMM16 == DR_REG_YMM15 + 1);
     ASSERT(DR_REG_ZMM16 == DR_REG_ZMM15 + 1);
 #endif
+    /* We rely on the dr_opmask_t register type to be able to store AVX512BW wide 64-bit
+     * masks. Also priv_mcontext_t.opmask slots are AVX512BW wide.
+     */
+    ASSERT(sizeof(dr_opmask_t) == OPMASK_AVX512BW_REG_SIZE);
 
     /* Verify that the structures used for a register spill area and to hold IBT
      * table addresses & masks for IBL code are laid out as expected. We expect

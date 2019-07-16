@@ -327,7 +327,7 @@ unit_test_get_opmask_caller_saved()
      */
     dr_opmask_t ref_buffer[MCXT_NUM_OPMASK_SLOTS];
     dr_opmask_t get_buffer[MCXT_NUM_OPMASK_SLOTS];
-    ASSERT(sizeof(dr_opmask_t) == OPMASK_REG_SIZE);
+    ASSERT(sizeof(dr_opmask_t) == OPMASK_AVX512BW_REG_SIZE);
     uint base = 0x0000348e;
 
 #        ifdef __AVX512BW__

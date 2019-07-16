@@ -1354,12 +1354,58 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         int i;
         uint opcode = move_mm_reg_opcode(true /*align16*/, true /*align32*/);
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < proc_num_simd_saved(); i++) {
+        instr_t *post_restore = NULL;
+        instr_t *pre_avx512_restore = NULL;
+        if (ZMM_ENABLED()) {
+            post_restore = INSTR_CREATE_label(dcontext);
+            pre_avx512_restore = INSTR_CREATE_label(dcontext);
+            APP(ilist,
+                INSTR_CREATE_mov_imm(
+                    dcontext, opnd_create_reg(SCRATCH_REG1),
+                    OPND_CREATE_INTPTR((ptr_int_t)&d_r_avx512_code_in_use)));
+            APP(ilist,
+                XINST_CREATE_load_1byte_zext4(dcontext, opnd_create_reg(SCRATCH_REG1),
+                                              OPND_CREATE_MEM8(SCRATCH_REG1, 0)));
+            APP(ilist,
+                INSTR_CREATE_test(dcontext, opnd_create_reg(SCRATCH_REG1),
+                                  opnd_create_reg(SCRATCH_REG1)));
+            APP(ilist,
+                INSTR_CREATE_jcc(dcontext, OP_jnz,
+                                 opnd_create_instr(pre_avx512_restore)));
+        }
+        for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
             APP(ilist,
                 instr_create_1dst_1src(
                     dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
                     OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
                                   SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE)));
+        }
+        if (ZMM_ENABLED()) {
+            APP(ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(post_restore)));
+            APP(ilist, pre_avx512_restore /*label*/);
+            uint opcode_avx512 = move_mm_avx512_reg_opcode(true /*align64*/);
+            for (i = 0; i < proc_num_simd_registers(); i++) {
+                APP(ilist,
+                    instr_create_1dst_2src(
+                        dcontext, opcode_avx512,
+                        opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i),
+                        opnd_create_reg(DR_REG_K0),
+                        OPND_DC_FIELD(absolute, dcontext, ZMM_REG_SIZE,
+                                      SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE)));
+            }
+            /* Moving 64-bit masks is not supported in 32-bit mode. */
+            bool has_avx512bw = IF_X64_ELSE(proc_has_feature(FEATURE_AVX512BW), false);
+            for (i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
+                APP(ilist,
+                    RESTORE_FROM_DC(dcontext, SCRATCH_REG1,
+                                    OPMASK_OFFSET + i * OPMASK_AVX512BW_REG_SIZE));
+                APP(ilist,
+                    instr_create_1dst_1src(
+                        dcontext, has_avx512bw ? OP_kmovq : OP_kmovw,
+                        opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i),
+                        opnd_create_reg(SCRATCH_REG1)));
+            }
+            APP(ilist, post_restore /*label*/);
         }
     }
 }
@@ -1577,13 +1623,58 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         int i;
         uint opcode = move_mm_reg_opcode(true /*align16*/, true /*align32*/);
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < proc_num_simd_saved(); i++) {
+        instr_t *post_save = NULL;
+        instr_t *pre_avx512_save = NULL;
+        if (ZMM_ENABLED()) {
+            post_save = INSTR_CREATE_label(dcontext);
+            pre_avx512_save = INSTR_CREATE_label(dcontext);
+            APP(ilist,
+                INSTR_CREATE_mov_imm(
+                    dcontext, opnd_create_reg(SCRATCH_REG1),
+                    OPND_CREATE_INTPTR((ptr_int_t)&d_r_avx512_code_in_use)));
+            APP(ilist,
+                XINST_CREATE_load_1byte_zext4(dcontext, opnd_create_reg(SCRATCH_REG1),
+                                              OPND_CREATE_MEM8(SCRATCH_REG1, 0)));
+            APP(ilist,
+                INSTR_CREATE_test(dcontext, opnd_create_reg(SCRATCH_REG1),
+                                  opnd_create_reg(SCRATCH_REG1)));
+            APP(ilist,
+                INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(pre_avx512_save)));
+        }
+        for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
             APP(ilist,
                 instr_create_1dst_1src(
                     dcontext, opcode,
                     OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
                                   SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE),
                     opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
+        }
+        if (ZMM_ENABLED()) {
+            APP(ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(post_save)));
+            APP(ilist, pre_avx512_save /*label*/);
+            uint opcode_avx512 = move_mm_avx512_reg_opcode(true /*align64*/);
+            for (i = 0; i < proc_num_simd_registers(); i++) {
+                APP(ilist,
+                    instr_create_1dst_2src(
+                        dcontext, opcode_avx512,
+                        OPND_DC_FIELD(absolute, dcontext, ZMM_REG_SIZE,
+                                      SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE),
+                        opnd_create_reg(DR_REG_K0),
+                        opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i)));
+            }
+            /* Moving 64-bit masks is not supported in 32-bit mode. */
+            bool has_avx512bw = IF_X64_ELSE(proc_has_feature(FEATURE_AVX512BW), false);
+            for (i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
+                APP(ilist,
+                    instr_create_1dst_1src(
+                        dcontext, has_avx512bw ? OP_kmovq : OP_kmovw,
+                        opnd_create_reg(SCRATCH_REG1),
+                        opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i)));
+                APP(ilist,
+                    SAVE_TO_DC(dcontext, SCRATCH_REG1,
+                               OPMASK_OFFSET + i * OPMASK_AVX512BW_REG_SIZE));
+            }
+            APP(ilist, post_save /*label*/);
         }
     }
 }

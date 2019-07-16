@@ -2116,8 +2116,8 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 #endif
 
     /* restore the original register state */
-    append_restore_xflags(dcontext, &ilist, absolute);
     append_restore_simd_reg(dcontext, &ilist, absolute);
+    append_restore_xflags(dcontext, &ilist, absolute);
     append_restore_gpr(dcontext, &ilist, absolute);
     append_jmp_to_fcache_target(dcontext, &ilist, code, absolute, shared,
                                 &patch _IF_X86_64(&jmp86_store_addr)
@@ -2475,7 +2475,6 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
 
     instr_targets = append_prepare_fcache_return(dcontext, code, ilist, absolute, shared);
     append_save_gpr(dcontext, ilist, ibl_end, absolute, code, linkstub, coarse_info);
-    append_save_simd_reg(dcontext, ilist, absolute);
 
     /* Switch to a clean dstack as part of our scheme to avoid state kept
      * unprotected across cache executions.
@@ -2494,6 +2493,9 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
 #endif
 
     append_save_clear_xflags(dcontext, ilist, absolute);
+    append_save_simd_reg(dcontext, ilist, absolute);
+    instr_targets |= ZMM_ENABLED();
+
     instr_targets =
         append_call_enter_dr_hook(dcontext, ilist, ibl_end, absolute) || instr_targets;
 
