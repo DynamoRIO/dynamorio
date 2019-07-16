@@ -135,7 +135,7 @@ unit_test_get_ymm_caller_saved()
 #        endif
 
     /* The function get_ymm_caller_saved is intended to be used for AVX (no AVX-512). It
-     * currently doesn't cover extended AVX-512 registers.
+     * doesn't cover extended AVX-512 registers.
      */
     for (int regno = 0; regno < proc_num_simd_sse_avx_registers(); ++regno) {
         for (int dword = 0; dword < sizeof(dr_ymm_t) / sizeof(uint); ++dword) {
