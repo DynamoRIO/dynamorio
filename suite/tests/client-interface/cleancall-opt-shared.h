@@ -269,9 +269,14 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
 
 #ifdef X86
     /* Only look at the initialized bits of the SSE regs. */
-    /* XXX i#1312: check if test can get extended to AVX-512. */
+    /* XXX i#1312: fix and extend test for AVX-512. */
     ymm_bytes_used = (proc_has_feature(FEATURE_AVX) ? 32 : 16);
-    for (i = 0; i < proc_num_simd_registers(); i++) {
+    /* FIXME i#1312: this needs to be proc_num_simd_registers() once we fully support
+     * saving AVX-512 state for clean calls. The clean call test is already clobbering
+     * AVX-512 extended registers, but we can't compare and test them here until we
+     * support saving and restoring them.
+     */
+    for (i = 0; i < proc_num_simd_saved(); i++) {
         if (memcmp(&mc_a->simd[i], &mc_b->simd[i], ymm_bytes_used) != 0)
             return false;
     }
