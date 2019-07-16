@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -57,6 +57,8 @@
 #define MAPS_LINE_MAX8 73 /* sum of 16  1  16  1 4 1 16 1 5 1 10 1 */
 #define MAPS_LINE_MAX MAPS_LINE_MAX8
 
+char exe_path[MAPS_LINE_LENGTH];
+
 void *
 find_exe_base()
 {
@@ -82,6 +84,8 @@ find_exe_base()
         if (len < 4)
             comment_buffer[0] = '\0';
         if (strstr(comment_buffer, "burst_maps") != 0) {
+            strncpy(exe_path, comment_buffer, BUFFER_SIZE_ELEMENTS(exe_path));
+            NULL_TERMINATE_BUFFER(exe_path);
             fclose(maps);
             return vm_start;
         }
@@ -135,6 +139,23 @@ clobber_mapping()
     copy_and_remap(exe, 0, clobber_size);
     copy_and_remap(exe, 4 * clobber_size, clobber_size);
     copy_and_remap(exe, 8 * clobber_size, clobber_size);
+}
+
+extern "C" {
+extern DR_EXPORT void
+drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
+
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    /* Test the full_path used by DR when the maps file comments can't be used. */
+    module_data_t *exe = dr_get_main_module();
+    assert(exe != nullptr);
+    assert(exe->full_path != nullptr);
+    assert(strcmp(exe->full_path, exe_path) == 0);
+    dr_free_module_data(exe);
+    drmemtrace_client_main(id, argc, argv);
+}
 }
 
 int

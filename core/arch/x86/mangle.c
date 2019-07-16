@@ -517,7 +517,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         int i;
         /* See discussion in emit_fcache_enter_shared on which opcode
          * is better. */
-        uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 32), ALIGNED(alignment, 16));
+        uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 16), ALIGNED(alignment, 32));
         ASSERT(proc_has_feature(FEATURE_SSE));
         /* XXX i#1312: This assumption will change and the code below will need
          * to take this into account.

@@ -9118,6 +9118,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                 iter->vm_start, iter->vm_start + image_size, iter->inode, iter->comment);
 
             if (add_modules) {
+                const char *modpath = iter->comment;
                 /* look for executable */
 #    ifdef LINUX
                 exec_match = get_application_name();
@@ -9125,8 +9126,17 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                     found_exec = (strcmp(iter->comment, exec_match) == 0);
                 /* Handle an anon region for the header (i#2566) */
                 if (!found_exec && executable_start != NULL &&
-                    executable_start == iter->vm_start)
+                    executable_start == iter->vm_start) {
                     found_exec = true;
+                    /* The maps file's first entry may not have the path, in the
+                     * presence of mremapping for hugepages (i#2566; i#3387) (this
+                     * could happen for libraries too, but we don't have alternatives
+                     * there).  Or, it may have an incorrect path.  Prefer the path
+                     * we recorded in early injection or obtained from
+                     * /proc/self/exe.
+                     */
+                    modpath = get_application_name();
+                }
 #    else
                 /* We don't have a nice normalized name: it can have ./ or ../ inside
                  * it.  But, we can distinguish an exe from a lib here, even for PIE,
@@ -9156,8 +9166,8 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                 /* We don't yet know whether contiguous so we have to settle for the
                  * first segment's size.  We'll update it in module_list_add().
                  */
-                module_list_add(iter->vm_start, mod_first_end - mod_base, false,
-                                iter->comment, iter->inode);
+                module_list_add(iter->vm_start, mod_first_end - mod_base, false, modpath,
+                                iter->inode);
 
 #    ifdef MACOS
                 /* look for dyld */
