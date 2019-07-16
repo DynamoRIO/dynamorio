@@ -65,7 +65,7 @@ evil_copy(void *start, int count, ptr_int_t value);
 #    ifdef UNIX
 /* this used to be 44 prior to 1/24/06 commit, and 20 prior to Mar 11 2006 */
 #        define DCONTEXT_TLS_OFFSET IF_X64_ELSE(32, 16)
-#        define DSTACK_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x508, 0x268)
+#        define DSTACK_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x548, 0x2a8)
 #        ifdef X64
 #            define GET_DCONTEXT(var)                                                   \
                 asm("mov  %%gs:" STRINGIFY(DCONTEXT_TLS_OFFSET) ", %%rax" : : : "rax"); \
@@ -78,14 +78,14 @@ evil_copy(void *start, int count, ptr_int_t value);
 #    else
 unsigned int dcontext_tls_offset;
 
-#        define DSTACK_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x288, 0x264)
+#        define DSTACK_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x2c8, 0x2a4)
 #        define GET_DCONTEXT(var) \
             var = (void *)IF_X64_ELSE(__readgsqword, __readfsdword)(dcontext_tls_offset);
 
 /*     0:001> dt getdc owning_thread
  *        +0x05c owning_thread
  */
-#        define OWNING_THREAD_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x300, 0x2a8)
+#        define OWNING_THREAD_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x340, 0x2e8)
 /* offset varies based on release/debug build (# of slots we need)
  * and cache line size (must be aligned) and the -ibl_table_in_tls
  * option being set to true

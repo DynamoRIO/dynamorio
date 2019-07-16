@@ -344,7 +344,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
      */
     ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
     if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers()) {
-        int offs = MCXT_TOTAL_SIMD_SLOTS_SIZE + PRE_XMM_PADDING;
+        int offs =
+            MCXT_TOTAL_SIMD_SLOTS_SIZE + MCXT_TOTAL_OPMASK_SLOTS_SIZE + PRE_XMM_PADDING;
         if (cci->preserve_mcontext && cci->skip_save_flags) {
             offs_beyond_xmm = 2 * XSP_SZ; /* pc and flags */
             offs += offs_beyond_xmm;
@@ -387,6 +388,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         }
         ASSERT(i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SLOTS_SIZE);
     }
+    /* TODO i#1312: the zmm and mask fields need to be copied. */
     /* pc and aflags */
     if (!cci->skip_save_flags) {
         ASSERT(offs_beyond_xmm == 0);
@@ -531,13 +533,14 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         }
         ASSERT(i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SLOTS_SIZE);
     }
+    /* TODO i#1312: the mask fields need to be copied. */
 
     PRE(ilist, instr,
-        INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
-                         OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0,
-                                             PRE_XMM_PADDING +
-                                                 MCXT_TOTAL_SIMD_SLOTS_SIZE +
-                                                 offs_beyond_xmm)));
+        INSTR_CREATE_lea(
+            dcontext, opnd_create_reg(REG_XSP),
+            OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0,
+                                PRE_XMM_PADDING + MCXT_TOTAL_SIMD_SLOTS_SIZE +
+                                    MCXT_TOTAL_OPMASK_SLOTS_SIZE + offs_beyond_xmm)));
 }
 
 reg_id_t

@@ -275,4 +275,6 @@
          */
         dr_zmm_t ymm[MCXT_NUM_SIMD_SLOTS];
     };
+    /** Storage for #MCXT_NUM_OPMASK_SLOTS mask registers as part of AVX-512. */
+    dr_opmask_t opmask[MCXT_NUM_OPMASK_SLOTS];
 #endif /* ARM/X86 */

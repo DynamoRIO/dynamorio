@@ -1620,7 +1620,7 @@ create_new_dynamo_context(bool initial, byte *dstack_in, priv_mcontext_t *mc)
     /* also ensure we don't have extra padding beyond x86.asm defines */
     ASSERT(sizeof(priv_mcontext_t) ==
            IF_X64_ELSE(18, 10) * sizeof(reg_t) + PRE_XMM_PADDING +
-               MCXT_TOTAL_SIMD_SLOTS_SIZE);
+               MCXT_TOTAL_SIMD_SLOTS_SIZE + MCXT_TOTAL_OPMASK_SLOTS_SIZE);
 #elif defined(ARM)
     /* FIXME i#1551: add arm alignment check if any */
 #endif /* X86/ARM */
