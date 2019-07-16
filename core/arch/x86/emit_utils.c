@@ -1352,7 +1352,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
          * cost of vmovdqu and whether worth arranging 32-byte alignment
          */
         int i;
-        uint opcode = move_mm_reg_opcode(true /*align32*/, true /*align16*/);
+        uint opcode = move_mm_reg_opcode(true /*align16*/, true /*align32*/);
         ASSERT(proc_has_feature(FEATURE_SSE));
         for (i = 0; i < proc_num_simd_saved(); i++) {
             APP(ilist,
@@ -1575,7 +1575,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
          * cost of vmovdqu and whether worth arranging 32-byte alignment
          */
         int i;
-        uint opcode = move_mm_reg_opcode(true /*align32*/, true /*align16*/);
+        uint opcode = move_mm_reg_opcode(true /*align16*/, true /*align32*/);
         ASSERT(proc_has_feature(FEATURE_SSE));
         for (i = 0; i < proc_num_simd_saved(); i++) {
             APP(ilist,
