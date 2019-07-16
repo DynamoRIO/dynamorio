@@ -3351,10 +3351,7 @@ copy_mcontext(priv_mcontext_t *src, priv_mcontext_t *dst)
 bool
 dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
 {
-    /* we assume fields from xdi onward are identical.
-     * if we append to dr_mcontext_t in the future we'll need
-     * to check src->size here.
-     */
+    /* We assume fields from xdi onward are identical. */
     if (src->size > sizeof(dr_mcontext_t))
         return false;
     if (TEST(DR_MC_ALL, src->flags) &&
