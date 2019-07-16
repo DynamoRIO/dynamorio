@@ -3358,7 +3358,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
         IF_X86_ELSE(src->size > offsetof(priv_mcontext_t, opmask), true)) {
         *dst = *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(src));
     } else {
-        if (TESTANY(DR_MC_INTEGER | DR_MC_ALL, src->flags)) {
+        if (TEST(DR_MC_INTEGER, src->flags)) {
             /* xsp is in the middle of the mcxt, so we save dst->xsp here and
              * restore it later so we can use one memcpy for DR_MC_INTEGER.
              */
@@ -3370,7 +3370,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
             }
             dst->xsp = save_xsp;
         }
-        if (TESTANY(DR_MC_CONTROL | DR_MC_ALL, src->flags)) {
+        if (TEST(DR_MC_CONTROL, src->flags)) {
             /* XXX i#2710: mc->lr should be under DR_MC_CONTROL */
             dst->xsp = src->xsp;
             if (src->size > offsetof(priv_mcontext_t, xflags))
@@ -3378,7 +3378,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
             if (src->size > offsetof(priv_mcontext_t, pc))
                 dst->pc = src->pc;
         }
-        if (TESTANY(DR_MC_MULTIMEDIA | DR_MC_ALL, src->flags)) {
+        if (TEST(DR_MC_MULTIMEDIA, src->flags)) {
             /* XXX i#1312: The structure size will double on 64-bit UNIX (possibly
              * Windows) builds. A corresponding size check will be added with a
              * future patch.
@@ -3422,7 +3422,7 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
         IF_X86_ELSE(dst->size > offsetof(priv_mcontext_t, opmask), true)) {
         *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(dst)) = *src;
     } else {
-        if (TESTANY(DR_MC_INTEGER | DR_MC_ALL, dst->flags)) {
+        if (TEST(DR_MC_INTEGER, dst->flags)) {
             /* xsp is in the middle of the mcxt, so we save dst->xsp here and
              * restore it later so we can use one memcpy for DR_MC_INTEGER.
              */
@@ -3434,14 +3434,14 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
             }
             dst->xsp = save_xsp;
         }
-        if (TESTANY(DR_MC_CONTROL | DR_MC_ALL, dst->flags)) {
+        if (TEST(DR_MC_CONTROL, dst->flags)) {
             dst->xsp = src->xsp;
             if (dst->size > offsetof(priv_mcontext_t, xflags))
                 dst->xflags = src->xflags;
             if (dst->size > offsetof(priv_mcontext_t, pc))
                 dst->pc = src->pc;
         }
-        if (TESTANY(DR_MC_MULTIMEDIA | DR_MC_ALL, dst->flags)) {
+        if (TEST(DR_MC_MULTIMEDIA, dst->flags)) {
             /* XXX i#1312: The structure size will double on 64-bit UNIX (possibly
              * Windows) builds. A corresponding size check be will added with a
              * future patch.
