@@ -3354,7 +3354,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
     /* We assume fields from xdi onward are identical. */
     if (src->size > sizeof(dr_mcontext_t))
         return false;
-    if (TEST(DR_MC_ALL, src->flags) && src->size == sizeof(dr_mcontext_t)) {
+    if (TESTALL(DR_MC_ALL, src->flags) && src->size == sizeof(dr_mcontext_t)) {
         *dst = *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(src));
     } else {
         if (TEST(DR_MC_INTEGER, src->flags)) {
@@ -3415,7 +3415,7 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
      */
     if (dst->size > sizeof(dr_mcontext_t))
         return false;
-    if (TEST(DR_MC_ALL, dst->flags) && dst->size == sizeof(dr_mcontext_t)) {
+    if (TESTALL(DR_MC_ALL, dst->flags) && dst->size == sizeof(dr_mcontext_t)) {
         *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(dst)) = *src;
     } else {
         if (TEST(DR_MC_INTEGER, dst->flags)) {
