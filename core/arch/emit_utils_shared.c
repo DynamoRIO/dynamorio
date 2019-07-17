@@ -2494,7 +2494,9 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
 
     append_save_clear_xflags(dcontext, ilist, absolute);
     append_save_simd_reg(dcontext, ilist, absolute);
+#ifdef X86
     instr_targets |= ZMM_ENABLED();
+#endif
 
     instr_targets =
         append_call_enter_dr_hook(dcontext, ilist, ibl_end, absolute) || instr_targets;
