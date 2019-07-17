@@ -2566,6 +2566,8 @@ endif ()
       # XXX i#1312: we do not yet support AVX-512 Windows context switching.
       tobuild_ci(client.avx512ctx client-interface/avx512ctx.c "" "" "")
       set_target_properties(client.avx512ctx PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
+      target_include_directories(client.avx512ctx PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
     endif (UNIX)
   endif ()
 

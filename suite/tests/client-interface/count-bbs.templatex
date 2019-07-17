@@ -1,0 +1,5 @@
+(<Application .*simple_app.*AVX-512 was detected at PC 0x[0-9a-f]+. AVX-512 is not fully supported yet.>
+)?Hello, world!
+bbcount0_fp... yes
+bbcount1... yes
+bbcount4... yes

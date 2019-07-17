@@ -32,6 +32,7 @@
 
 #include "dr_api.h"
 #include "client_tools.h"
+#include "avx512ctx-shared.h"
 #include <string.h>
 
 #define CHECK(x, msg)                                                                \
@@ -41,6 +42,57 @@
             dr_abort();                                                              \
         }                                                                            \
     } while (0);
+
+static void
+clobber_avx512_state()
+{
+    byte buf[64];
+    memset(buf, 0, sizeof(buf));
+    dr_fprintf(STDERR, "Clobbering all zmm registers\n");
+    __asm__ __volatile__("vmovups %0, %%zmm0" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm1" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm2" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm3" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm4" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm5" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm6" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm7" : : "m"(buf));
+#ifdef X64
+    __asm__ __volatile__("vmovups %0, %%zmm8" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm9" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm10" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm11" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm12" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm13" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm14" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm15" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm16" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm17" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm18" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm19" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm20" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm21" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm22" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm23" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm24" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm25" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm26" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm27" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm28" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm29" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm30" : : "m"(buf));
+    __asm__ __volatile__("vmovups %0, %%zmm31" : : "m"(buf));
+#endif
+    dr_fprintf(STDERR, "Clobbering all mask registers\n");
+    __asm__ __volatile__("kmovw %0, %%k0" : : "m"(buf));
+    __asm__ __volatile__("kmovw %0, %%k1" : : "m"(buf));
+    __asm__ __volatile__("kmovw %0, %%k2" : : "m"(buf));
+    __asm__ __volatile__("kmovw %0, %%k3" : : "m"(buf));
+    __asm__ __volatile__("kmovw %0, %%k4" : : "m"(buf));
+    __asm__ __volatile__("kmovw %0, %%k5" : : "m"(buf));
+    __asm__ __volatile__("kmovw %0, %%k6" : : "m"(buf));
+    __asm__ __volatile__("kmovw %0, %%k7" : : "m"(buf));
+}
 
 static dr_emit_flags_t
 bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
@@ -55,53 +107,13 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
             if (prev_was_mov_const && val1 == val2 &&
                 val1 != 0 && /* rule out xor w/ self */
                 opnd_is_reg(instr_get_dst(instr, 0)) &&
-                opnd_get_reg(instr_get_dst(instr, 0)) == REG_XAX) {
-                byte buf[64];
-                memset(buf, 0, sizeof(buf));
-                dr_fprintf(STDERR, "Clobbering all zmm registers\n");
-                __asm__ __volatile__("vmovups %0, %%zmm0" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm1" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm2" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm3" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm4" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm5" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm6" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm7" : : "m"(buf));
-#ifdef X64
-                __asm__ __volatile__("vmovups %0, %%zmm8" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm9" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm10" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm11" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm12" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm13" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm14" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm15" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm16" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm17" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm18" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm19" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm20" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm21" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm22" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm23" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm24" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm25" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm26" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm27" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm28" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm29" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm30" : : "m"(buf));
-                __asm__ __volatile__("vmovups %0, %%zmm31" : : "m"(buf));
-#endif
-                dr_fprintf(STDERR, "Clobbering all mask registers\n");
-                __asm__ __volatile__("kmovw %0, %%k0" : : "m"(buf));
-                __asm__ __volatile__("kmovw %0, %%k1" : : "m"(buf));
-                __asm__ __volatile__("kmovw %0, %%k2" : : "m"(buf));
-                __asm__ __volatile__("kmovw %0, %%k3" : : "m"(buf));
-                __asm__ __volatile__("kmovw %0, %%k4" : : "m"(buf));
-                __asm__ __volatile__("kmovw %0, %%k5" : : "m"(buf));
-                __asm__ __volatile__("kmovw %0, %%k6" : : "m"(buf));
-                __asm__ __volatile__("kmovw %0, %%k7" : : "m"(buf));
+                opnd_get_reg(instr_get_dst(instr, 0)) == MARKER_REG) {
+                if (val1 == TEST1_MARKER) {
+                    clobber_avx512_state();
+                } else if (val1 == TEST2_MARKER) {
+                    dr_insert_clean_call(drcontext, bb, instr,
+                                         (void *)clobber_avx512_state, false, 0);
+                }
             } else
                 prev_was_mov_const = true;
         } else

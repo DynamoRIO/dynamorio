@@ -194,6 +194,14 @@ enum {
     INSTR_HAS_CUSTOM_STUB = 0x00400000,
     /* used to indicate that an indirect call can be treated as a direct call */
     INSTR_IND_CALL_DIRECT = 0x00800000,
+#    ifdef CLIENT_INTERFACE
+    /* Used to indicate whether the instruction is a mov instruction generated for saving
+     * and restoring SIMD context for clean calls. It is used to distinguish application
+     * AVX-512 code from DynamoRIO's context switching code. This flag is set only for
+     * SIMD mov instructions, and has the same value as INSTR_IND_CALL_DIRECT.
+     */
+    INSTR_CLEANCALL_SIMD_CONTEXT = 0x00800000,
+#    endif
 #    ifdef WINDOWS
     /* used to indicate that a syscall should be executed via shared syscall */
     INSTR_SHARED_SYSCALL = 0x01000000,
@@ -2385,14 +2393,14 @@ bool
 instr_can_set_single_step(instr_t *instr);
 
 /* Returns true if \p instr is part of Intel's AVX-512 instructions that may write to a
- * zmm register. It approximates this by checking whether PREFIX_EVEX is set. If not set,
- * it is looking at whether the instruction's raw bytes are valid, and if they are,
- * whether the instruction is evex-encoded. The function assumes that the instruction's
- * isa mode is set correctly. If the instruction's raw bytes are not valid, it checks the
- * destinations of \p instr.
+ * zmm or opmask register. It approximates this by checking whether PREFIX_EVEX is set. If
+ * not set, it is looking at whether the instruction's raw bytes are valid, and if they
+ * are, whether the instruction is evex-encoded. The function assumes that the
+ * instruction's isa mode is set correctly. If the instruction's raw bytes are not valid,
+ * it checks the destinations of \p instr.
  */
 bool
-instr_may_write_zmm_register(instr_t *instr);
+instr_may_write_zmm_or_opmask_register(instr_t *instr);
 #endif
 
 DR_API

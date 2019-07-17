@@ -1,0 +1,8 @@
+thank you for testing the client interface
+(<Application .*client\.retaddr.*AVX-512 was detected at PC 0x[0-9a-f]+. AVX-512 is not fully supported yet.>
+)?in callee
+retaddr 0x0
+retaddr 0x0
+retaddr 0x0
+All done
+instrumentation for return ok
