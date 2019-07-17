@@ -1628,6 +1628,9 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # FIXME i#105: get this working for 32-bit linux
   if (X64 OR WIN32)
     tobuild(common.decode common/decode.c)
+    if (proc_supports_avx512)
+      set_target_properties(common.decode PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
+    endif ()
   endif (X64 OR WIN32)
 endif (X86)
 # FIXME i#1025: get working on Linux
@@ -1813,6 +1816,9 @@ if (CLIENT_INTERFACE)
     # XXX i#1312, i#3504: The test doesn't currently compile with CFLAGS_AVX512 but
     # attempts to test features based on it. The compile flag needs to be added.
     tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
+    if (proc_supports_avx512)
+      append_property_string(TARGET client.cleancall.dll COMPILE_FLAGS "${CFLAGS_AVX512}")
+    endif ()
     if (UNIX)
       torunonly_ci(client.cleancall.prof-pcs client.cleancall client.cleancall.dll
         client-interface/cleancall.c "" "-prof_pcs -opt_cleancall 0" "")
