@@ -1335,6 +1335,8 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 void
 append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
+    /* No processor will support AVX-512 but no SSE/AVX. */
+    ASSERT(preserve_xmm_caller_saved() || !ZMM_ENABLED());
     if (preserve_xmm_caller_saved()) {
         /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
          * Rather than try and optimize we save/restore on every cxt
@@ -1604,6 +1606,8 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
 void
 append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
+    /* No processor will support AVX-512 but no SSE/AVX. */
+    ASSERT(preserve_xmm_caller_saved() || !ZMM_ENABLED());
     if (preserve_xmm_caller_saved()) {
         /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
          * Rather than try and optimize we save/restore on every cxt
