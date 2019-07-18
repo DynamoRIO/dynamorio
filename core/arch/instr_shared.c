@@ -3485,10 +3485,12 @@ uint
 move_mm_avx512_reg_opcode(bool aligned64)
 {
 #    ifdef X86
-    CLIENT_ASSERT(ZMM_ENABLED(), "move_mm_avx512_reg_opcode on unsupported processor");
+    /* move_mm_avx512_reg_opcode on unsupported processor. */
+    ASSERT(ZMM_ENABLED());
     return (aligned64 ? OP_vmovdqa64 : OP_vmovdqu64);
 #    else
-    CLIENT_ASSERT(false, "move_mm_avx512_reg_opcode not supported on ARM/AArch64");
+    /* move_mm_avx512_reg_opcode not supported on ARM/AArch64. */
+    ASSERT_NOT_REACHED();
     return 0;
 #    endif /* X86 */
 }
