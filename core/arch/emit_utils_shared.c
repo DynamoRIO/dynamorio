@@ -2117,6 +2117,9 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 
     /* restore the original register state */
     append_restore_simd_reg(dcontext, &ilist, absolute);
+    /* Please note that append_restore_simd_reg may change the flags. Thefore, the
+     * order matters.
+     */
     append_restore_xflags(dcontext, &ilist, absolute);
     append_restore_gpr(dcontext, &ilist, absolute);
     append_jmp_to_fcache_target(dcontext, &ilist, code, absolute, shared,
@@ -2493,6 +2496,9 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
 #endif
 
     append_save_clear_xflags(dcontext, ilist, absolute);
+    /* Please note that append_save_simd_reg may change the flags. Thefore, the
+     * order matters.
+     */
     append_save_simd_reg(dcontext, ilist, absolute);
 #ifdef X86
     instr_targets = ZMM_ENABLED() || instr_targets;
