@@ -1389,16 +1389,13 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                     OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_ZMM,
                                   SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE)));
         }
-        /* Moving 64-bit masks is not supported in 32-bit mode. */
-        bool has_avx512bw = IF_X64_ELSE(proc_has_feature(FEATURE_AVX512BW), false);
         for (i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
             APP(ilist,
-                RESTORE_FROM_DC(dcontext, SCRATCH_REG1,
-                                OPMASK_OFFSET + i * OPMASK_AVX512BW_REG_SIZE));
-            APP(ilist,
-                instr_create_1dst_1src(dcontext, has_avx512bw ? OP_kmovq : OP_kmovw,
-                                       opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i),
-                                       opnd_create_reg(SCRATCH_REG1)));
+                instr_create_1dst_1src(
+                    dcontext, proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,
+                    opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i),
+                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_OPMASK,
+                                  OPMASK_OFFSET + i * OPMASK_AVX512BW_REG_SIZE)));
         }
         APP(ilist, post_restore /*label*/);
     }
@@ -1652,17 +1649,13 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                     opnd_create_reg(DR_REG_K0),
                     opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i)));
         }
-        /* Moving 64-bit masks is not supported in 32-bit mode. */
-        bool has_avx512bw = IF_X64_ELSE(proc_has_feature(FEATURE_AVX512BW), false);
         for (i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
             APP(ilist,
                 instr_create_1dst_1src(
-                    dcontext, has_avx512bw ? OP_kmovq : OP_kmovw,
-                    opnd_create_reg(SCRATCH_REG1),
+                    dcontext, proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,
+                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_OPMASK,
+                                  OPMASK_OFFSET + i * OPMASK_AVX512BW_REG_SIZE),
                     opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i)));
-            APP(ilist,
-                SAVE_TO_DC(dcontext, SCRATCH_REG1,
-                           OPMASK_OFFSET + i * OPMASK_AVX512BW_REG_SIZE));
         }
         APP(ilist, post_save /*label*/);
     }
