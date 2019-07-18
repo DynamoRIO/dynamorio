@@ -33,6 +33,16 @@
 #ifndef ASM_CODE_ONLY /* C code */
 #    include "tools.h"
 
+#    ifndef __AVX512F__
+#        error "Build error, should only be added with AVX-512 support."
+#    endif
+#    ifdef X64
+#        define NUM_SIMD_REGS 32
+#    else
+#        define NUM_SIMD_REGS 8
+#    endif
+#    define NUM_OPMASK_REGS 8
+
 #    define VERBOSE 0
 
 NOINLINE void
@@ -50,15 +60,6 @@ get_opmask(byte *buf);
 void
 run_avx512()
 {
-#    ifndef __AVX512F__
-#        error "Build error, should only be added with AVX-512 support."
-#    endif
-#    ifdef X64
-#        define NUM_SIMD_REGS 32
-#    else
-#        define NUM_SIMD_REGS 8
-#    endif
-#    define NUM_OPMASK_REGS 8
     byte zmm_buf[NUM_SIMD_REGS * 64];
     byte zmm_ref[NUM_SIMD_REGS * 64];
     byte opmask_buf[NUM_OPMASK_REGS * 2];
@@ -74,7 +75,9 @@ run_avx512()
 
     init_zmm(zmm_ref);
     init_opmask(opmask_ref);
+
     marker();
+
     get_zmm(zmm_buf);
     get_opmask(opmask_buf);
 
