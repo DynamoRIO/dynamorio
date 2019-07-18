@@ -231,22 +231,22 @@ preserve_xmm_caller_saved(void)
 
 #ifdef X86
 /* This is used for AVX-512 context switching and indicates whether AVX-512 has been seen
- * during decode.
+ * during decode. The variable is allocated on reachable heap during initialization.
  */
-extern bool d_r_avx512_code_in_use;
+extern bool *d_r_avx512_code_in_use;
 
 /* This routine determines whether zmm registers should be saved. */
 static inline bool
 d_r_is_avx512_code_in_use()
 {
-    return d_r_avx512_code_in_use;
+    return *d_r_avx512_code_in_use;
 }
 
 /* Assumes .data is unprotected before calling. */
 static inline void
 d_r_set_avx512_code_in_use(bool in_use)
 {
-    ATOMIC_1BYTE_WRITE(&d_r_avx512_code_in_use, in_use, false);
+    ATOMIC_1BYTE_WRITE(d_r_avx512_code_in_use, in_use, false);
 }
 #endif
 

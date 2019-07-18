@@ -86,7 +86,7 @@ static bool sysenter_hook_failed = false;
 #endif
 
 #ifdef X86
-bool d_r_avx512_code_in_use = false;
+bool *d_r_avx512_code_in_use = NULL;
 #endif
 
 /* static functions forward references */
@@ -724,6 +724,15 @@ d_r_arch_init(void)
 
     interp_init();
 
+#ifdef X86
+    /* We're allocating a reachable heap variable in order to be able to use a more
+     * compact rip-rel load in SIMD restore/save gencode.
+     */
+    d_r_avx512_code_in_use =
+        heap_reachable_alloc(GLOBAL_DCONTEXT, 1 HEAPACCT(ACCT_OTHER));
+    *d_r_avx512_code_in_use = false;
+#endif
+
 #ifdef CHECK_RETURNS_SSE2
     if (proc_has_feature(FEATURE_SSE2)) {
         FATAL_USAGE_ERROR(CHECK_RETURNS_SSE2_REQUIRES_SSE2, 2, get_application_name(),
@@ -905,6 +914,11 @@ void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
                     VMM_SPECIAL_MMAP | VMM_REACHABLE);
     }
 #endif
+
+#ifdef X86
+    heap_reachable_free(GLOBAL_DCONTEXT, d_r_avx512_code_in_use, 1 HEAPACCT(ACCT_OTHER));
+#endif
+
     interp_exit();
     mangle_exit();
 
