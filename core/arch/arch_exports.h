@@ -320,6 +320,14 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
 /* note that the microsoft compiler will not enregister variables across asm
  * blocks that touch those registers, so don't need to worry about clobbering
  * eax and ebx */
+#    define ATOMIC_1BYTE_WRITE(target, value, hot_patch)                      \
+        do {                                                                  \
+            ASSERT(sizeof(value) == 1);                                       \
+            /* No alignment check necessary, hot_patch parameter provided for \
+             * consistency.                                                   \
+             */                                                               \
+            _InterlockedExchange8((volatile CHAR *)target, (CHAR)value);      \
+        } while (0)
 #    define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                    \
         do {                                                                \
             ASSERT(sizeof(value) == 4);                                     \
@@ -443,6 +451,18 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 /* IA-32 vol 3 7.1.4: processor will internally suppress the bus lock
  * if target is within cache line.
  */
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)                       \
+            do {                                                                   \
+                /* allow a constant to be passed in by supplying our own lvalue */ \
+                char _myval = value;                                               \
+                ASSERT(sizeof(value) == 1);                                        \
+                /* No alignment check necessary, hot_patch parameter provided for  \
+                 * consistency.                                                    \
+                 */                                                                \
+                __asm__ __volatile__("xchgb %0, %1"                                \
+                                     : "+m"(*(char *)(target)), "+r"(_myval)       \
+                                     :);                                           \
+            } while (0)
 #        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                       \
             do {                                                                   \
                 /* allow a constant to be passed in by supplying our own lvalue */ \

@@ -241,10 +241,11 @@ d_r_is_avx512_code_in_use()
     return d_r_avx512_code_in_use;
 }
 
+/* Assumes .data is unprotected before calling. */
 static inline void
 d_r_set_avx512_code_in_use(bool in_use)
 {
-    d_r_avx512_code_in_use = in_use;
+    ATOMIC_1BYTE_WRITE(&d_r_avx512_code_in_use, in_use, false);
 }
 #endif
 

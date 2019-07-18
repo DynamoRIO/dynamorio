@@ -474,7 +474,7 @@ proc_num_simd_registers(void)
 void
 proc_set_num_simd_saved(int num)
 {
-    num_simd_saved = num;
+    ATOMIC_4BYTE_WRITE(&num_simd_saved, num, false);
 }
 
 int
