@@ -3490,7 +3490,7 @@ move_mm_avx512_reg_opcode(bool aligned64)
     return (aligned64 ? OP_vmovdqa64 : OP_vmovdqu64);
 #    else
     /* move_mm_avx512_reg_opcode not supported on ARM/AArch64. */
-    ASSERT_NOT_REACHED();
+    ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 #    endif /* X86 */
 }
