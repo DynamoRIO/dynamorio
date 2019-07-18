@@ -1376,7 +1376,8 @@ move_mm_reg_opcode(bool aligned16, bool aligned32);
 
 /* In instr_shared.c. We have a separate function for AVX-512, because we do not want to
  * introduce AVX-512 code if not explicitly requested, due to DynamoRIO's lazy AVX-512
- * context switching. */
+ * context switching.
+ */
 uint
 move_mm_avx512_reg_opcode(bool aligned64);
 
