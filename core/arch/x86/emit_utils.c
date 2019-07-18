@@ -1390,7 +1390,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                         dcontext, opcode_avx512,
                         opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i),
                         opnd_create_reg(DR_REG_K0),
-                        OPND_DC_FIELD(absolute, dcontext, ZMM_REG_SIZE,
+                        OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_ZMM,
                                       SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE)));
             }
             /* Moving 64-bit masks is not supported in 32-bit mode. */
@@ -1657,7 +1657,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                 APP(ilist,
                     instr_create_1dst_2src(
                         dcontext, opcode_avx512,
-                        OPND_DC_FIELD(absolute, dcontext, ZMM_REG_SIZE,
+                        OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_ZMM,
                                       SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE),
                         opnd_create_reg(DR_REG_K0),
                         opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i)));

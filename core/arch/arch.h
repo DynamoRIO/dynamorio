@@ -209,6 +209,7 @@ int
 reg_spill_tls_offs(reg_id_t reg);
 
 #define OPSZ_SAVED_XMM (YMM_ENABLED() ? OPSZ_32 : OPSZ_16)
+#define OPSZ_SAVED_ZMM OPSZ_64
 #define REG_SAVED_XMM0 (YMM_ENABLED() ? REG_YMM0 : REG_XMM0)
 
 /* Xref the partially overlapping CONTEXT_PRESERVE_XMM */
