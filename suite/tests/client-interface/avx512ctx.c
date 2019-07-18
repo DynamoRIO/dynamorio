@@ -104,9 +104,9 @@ run_avx512()
     }
 #    endif
 
-    if (memcmp(zmm_buf, zmm_ref, sizeof(zmm_buf)))
+    if (memcmp(zmm_buf, zmm_ref, sizeof(zmm_buf)) != 0)
         print("ERROR: wrong zmm value\n");
-    if (memcmp(opmask_buf, opmask_ref, sizeof(opmask_buf)))
+    if (memcmp(opmask_buf, opmask_ref, sizeof(opmask_buf)) != 0)
         print("ERROR: wrong mask value\n");
 
     print("Ok\n");
@@ -125,9 +125,9 @@ main()
 START_FILE
 
 #ifdef X64
-# define FRAME_PADDING 0
+#    define FRAME_PADDING 0
 #else
-# define FRAME_PADDING 0
+#    define FRAME_PADDING 0
 #endif
 
 #define FUNCNAME marker
@@ -153,38 +153,38 @@ GLOBAL_LABEL(FUNCNAME:)
         END_PROLOG
 
         vmovups  zmm0,  [REG_XCX]
-        vmovups  zmm1,  [REG_XCX + 0x40]
-        vmovups  zmm2,  [REG_XCX + 0x80]
-        vmovups  zmm3,  [REG_XCX + 0xc0]
-        vmovups  zmm4,  [REG_XCX + 0x100]
-        vmovups  zmm5,  [REG_XCX + 0x140]
-        vmovups  zmm6,  [REG_XCX + 0x180]
-        vmovups  zmm7,  [REG_XCX + 0x1c0]
+        vmovups  zmm1,  [REG_XCX + 64]
+        vmovups  zmm2,  [REG_XCX + 64*2]
+        vmovups  zmm3,  [REG_XCX + 64*3]
+        vmovups  zmm4,  [REG_XCX + 64*4]
+        vmovups  zmm5,  [REG_XCX + 64*5]
+        vmovups  zmm6,  [REG_XCX + 64*6]
+        vmovups  zmm7,  [REG_XCX + 64*7]
 #ifdef X64
-        vmovups  zmm8,  [REG_XCX + 0x200]
-        vmovups  zmm9,  [REG_XCX + 0x240]
-        vmovups  zmm10, [REG_XCX + 0x280]
-        vmovups  zmm11, [REG_XCX + 0x2c0]
-        vmovups  zmm12, [REG_XCX + 0x300]
-        vmovups  zmm13, [REG_XCX + 0x340]
-        vmovups  zmm14, [REG_XCX + 0x380]
-        vmovups  zmm15, [REG_XCX + 0x3c0]
-        vmovups  zmm16, [REG_XCX + 0x400]
-        vmovups  zmm17, [REG_XCX + 0x440]
-        vmovups  zmm18, [REG_XCX + 0x480]
-        vmovups  zmm19, [REG_XCX + 0x4c0]
-        vmovups  zmm20, [REG_XCX + 0x500]
-        vmovups  zmm21, [REG_XCX + 0x540]
-        vmovups  zmm22, [REG_XCX + 0x580]
-        vmovups  zmm23, [REG_XCX + 0x5c0]
-        vmovups  zmm24, [REG_XCX + 0x600]
-        vmovups  zmm25, [REG_XCX + 0x640]
-        vmovups  zmm26, [REG_XCX + 0x680]
-        vmovups  zmm27, [REG_XCX + 0x6c0]
-        vmovups  zmm28, [REG_XCX + 0x700]
-        vmovups  zmm29, [REG_XCX + 0x740]
-        vmovups  zmm30, [REG_XCX + 0x780]
-        vmovups  zmm31, [REG_XCX + 0x7c0]
+        vmovups  zmm8,  [REG_XCX + 64*8]
+        vmovups  zmm9,  [REG_XCX + 64*9]
+        vmovups  zmm10, [REG_XCX + 64*10]
+        vmovups  zmm11, [REG_XCX + 64*11]
+        vmovups  zmm12, [REG_XCX + 64*12]
+        vmovups  zmm13, [REG_XCX + 64*13]
+        vmovups  zmm14, [REG_XCX + 64*14]
+        vmovups  zmm15, [REG_XCX + 64*15]
+        vmovups  zmm16, [REG_XCX + 64*16]
+        vmovups  zmm17, [REG_XCX + 64*17]
+        vmovups  zmm18, [REG_XCX + 64*18]
+        vmovups  zmm19, [REG_XCX + 64*19]
+        vmovups  zmm20, [REG_XCX + 64*20]
+        vmovups  zmm21, [REG_XCX + 64*21]
+        vmovups  zmm22, [REG_XCX + 64*22]
+        vmovups  zmm23, [REG_XCX + 64*23]
+        vmovups  zmm24, [REG_XCX + 64*24]
+        vmovups  zmm25, [REG_XCX + 64*25]
+        vmovups  zmm26, [REG_XCX + 64*26]
+        vmovups  zmm27, [REG_XCX + 64*27]
+        vmovups  zmm28, [REG_XCX + 64*28]
+        vmovups  zmm29, [REG_XCX + 64*29]
+        vmovups  zmm30, [REG_XCX + 64*30]
+        vmovups  zmm31, [REG_XCX + 64*31]
 #endif
 
         add      REG_XSP, FRAME_PADDING
@@ -202,38 +202,38 @@ GLOBAL_LABEL(FUNCNAME:)
         END_PROLOG
 
        vmovups  [REG_XCX],         zmm0
-       vmovups  [REG_XCX + 0x40],  zmm1
-       vmovups  [REG_XCX + 0x80],  zmm2
-       vmovups  [REG_XCX + 0xc0],  zmm3
-       vmovups  [REG_XCX + 0x100], zmm4
-       vmovups  [REG_XCX + 0x140], zmm5
-       vmovups  [REG_XCX + 0x180], zmm6
-       vmovups  [REG_XCX + 0x1c0], zmm7
+       vmovups  [REG_XCX + 64*1],  zmm1
+       vmovups  [REG_XCX + 64*2],  zmm2
+       vmovups  [REG_XCX + 64*3],  zmm3
+       vmovups  [REG_XCX + 64*4], zmm4
+       vmovups  [REG_XCX + 64*5], zmm5
+       vmovups  [REG_XCX + 64*6], zmm6
+       vmovups  [REG_XCX + 64*7], zmm7
 #ifdef X64
-       vmovups  [REG_XCX + 0x200], zmm8
-       vmovups  [REG_XCX + 0x240], zmm9
-       vmovups  [REG_XCX + 0x280], zmm10
-       vmovups  [REG_XCX + 0x2c0], zmm11
-       vmovups  [REG_XCX + 0x300], zmm12
-       vmovups  [REG_XCX + 0x340], zmm13
-       vmovups  [REG_XCX + 0x380], zmm14
-       vmovups  [REG_XCX + 0x3c0], zmm15
-       vmovups  [REG_XCX + 0x400], zmm16
-       vmovups  [REG_XCX + 0x440], zmm17
-       vmovups  [REG_XCX + 0x480], zmm18
-       vmovups  [REG_XCX + 0x4c0], zmm19
-       vmovups  [REG_XCX + 0x500], zmm20
-       vmovups  [REG_XCX + 0x540], zmm12
-       vmovups  [REG_XCX + 0x580], zmm22
-       vmovups  [REG_XCX + 0x5c0], zmm23
-       vmovups  [REG_XCX + 0x600], zmm24
-       vmovups  [REG_XCX + 0x640], zmm25
-       vmovups  [REG_XCX + 0x680], zmm26
-       vmovups  [REG_XCX + 0x6c0], zmm27
-       vmovups  [REG_XCX + 0x700], zmm28
-       vmovups  [REG_XCX + 0x740], zmm29
-       vmovups  [REG_XCX + 0x780], zmm30
-       vmovups  [REG_XCX + 0x7c0], zmm31
+       vmovups  [REG_XCX + 64*8], zmm8
+       vmovups  [REG_XCX + 64*9], zmm9
+       vmovups  [REG_XCX + 64*10], zmm10
+       vmovups  [REG_XCX + 64*11], zmm11
+       vmovups  [REG_XCX + 64*12], zmm12
+       vmovups  [REG_XCX + 64*13], zmm13
+       vmovups  [REG_XCX + 64*14], zmm14
+       vmovups  [REG_XCX + 64*15], zmm15
+       vmovups  [REG_XCX + 64*16], zmm16
+       vmovups  [REG_XCX + 64*17], zmm17
+       vmovups  [REG_XCX + 64*18], zmm18
+       vmovups  [REG_XCX + 64*19], zmm19
+       vmovups  [REG_XCX + 64*20], zmm20
+       vmovups  [REG_XCX + 64*21], zmm12
+       vmovups  [REG_XCX + 64*22], zmm22
+       vmovups  [REG_XCX + 64*23], zmm23
+       vmovups  [REG_XCX + 64*24], zmm24
+       vmovups  [REG_XCX + 64*25], zmm25
+       vmovups  [REG_XCX + 64*26], zmm26
+       vmovups  [REG_XCX + 64*27], zmm27
+       vmovups  [REG_XCX + 64*28], zmm28
+       vmovups  [REG_XCX + 64*29], zmm29
+       vmovups  [REG_XCX + 64*30], zmm30
+       vmovups  [REG_XCX + 64*31], zmm31
 #endif
 
         add      REG_XSP, FRAME_PADDING
