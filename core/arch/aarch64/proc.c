@@ -71,7 +71,9 @@ DR_API
 int
 proc_num_simd_saved(void)
 {
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     return num_simd_saved;
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 }
 
 void
