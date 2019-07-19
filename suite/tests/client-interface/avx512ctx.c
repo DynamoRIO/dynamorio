@@ -252,19 +252,19 @@ GLOBAL_LABEL(FUNCNAME:)
 
         mov      ax, WORD [REG_XCX]
         kmovw    k0, eax
-        mov      ax, WORD [REG_XCX + 0x2]
+        mov      ax, WORD [REG_XCX + 2*1]
         kmovw    k1, eax
-        mov      ax, WORD [REG_XCX + 0x4]
+        mov      ax, WORD [REG_XCX + 2*2]
         kmovw    k2, eax
-        mov      ax, WORD [REG_XCX + 0x6]
+        mov      ax, WORD [REG_XCX + 2*3]
         kmovw    k3, eax
-        mov      ax, WORD [REG_XCX + 0x8]
+        mov      ax, WORD [REG_XCX + 2*4]
         kmovw    k4, eax
-        mov      ax, WORD [REG_XCX + 0xa]
+        mov      ax, WORD [REG_XCX + 2*5]
         kmovw    k5, eax
-        mov      ax, WORD [REG_XCX + 0xc]
+        mov      ax, WORD [REG_XCX + 2*6]
         kmovw    k6, eax
-        mov      ax, WORD [REG_XCX + 0xe]
+        mov      ax, WORD [REG_XCX + 2*7]
         kmovw    k7, eax
 
         add      REG_XSP, FRAME_PADDING
@@ -284,19 +284,19 @@ GLOBAL_LABEL(FUNCNAME:)
         kmovw    eax, k0
         mov      WORD [REG_XCX], ax
         kmovw    eax, k1
-        mov      WORD [REG_XCX + 0x2], ax
+        mov      WORD [REG_XCX + 2*1], ax
         kmovw    eax, k2
-        mov      WORD [REG_XCX + 0x4], ax
+        mov      WORD [REG_XCX + 2*2], ax
         kmovw    eax, k3
-        mov      WORD [REG_XCX + 0x6], ax
+        mov      WORD [REG_XCX + 2*3], ax
         kmovw    eax, k4
-        mov      WORD [REG_XCX + 0x8], ax
+        mov      WORD [REG_XCX + 2*4], ax
         kmovw    eax, k5
-        mov      WORD [REG_XCX + 0xa], ax
+        mov      WORD [REG_XCX + 2*5], ax
         kmovw    eax, k6
-        mov      WORD [REG_XCX + 0xc], ax
+        mov      WORD [REG_XCX + 2*6], ax
         kmovw    eax, k7
-        mov      WORD [REG_XCX + 0xe], ax
+        mov      WORD [REG_XCX + 2*7], ax
 
         add      REG_XSP, FRAME_PADDING
         POP_CALLEE_SAVED_REGS()
