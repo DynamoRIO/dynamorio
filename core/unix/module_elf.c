@@ -40,6 +40,28 @@
 #include "instrument.h"
 #include <stddef.h> /* offsetof */
 #include <link.h>   /* Elf_Symndx */
+#ifdef LINUX
+#    ifdef HAVE_RSEQ
+#        include <linux/rseq.h>
+#    else
+struct rseq_cs {
+    uint version;
+    uint flags;
+    uint64 start_ip;
+    uint64 post_commit_offset;
+    uint64 abort_ip;
+} __attribute__((aligned(4 * sizeof(uint64))));
+struct rseq {
+    uint cpu_id_start;
+    uint cpu_id;
+    uint64 ptr64;
+    uint flags;
+} __attribute__((aligned(4 * sizeof(uint64))));
+#        define RSEQ_FLAG_UNREGISTER 1
+#    endif
+#    include "include/syscall.h"
+#    include <errno.h>
+#endif
 
 #ifndef ANDROID
 struct tlsdesc_t {
@@ -847,7 +869,7 @@ module_get_section_with_name(app_pc image, size_t img_size, const char *sec_name
     sec_hdr = (ELF_SECTION_HEADER_TYPE *)(image + elf_hdr->e_shoff);
     ASSERT(sec_hdr[elf_hdr->e_shstrndx].sh_offset < img_size);
     strtab = (char *)(image + sec_hdr[elf_hdr->e_shstrndx].sh_offset);
-    /* walk the section table to check if a section name is ".text" */
+    /* walk the section table to check if a section name is sec_name */
     for (i = 0; i < elf_hdr->e_shnum; i++) {
         if (strcmp(sec_name, strtab + sec_hdr->sh_name) == 0)
             return sec_hdr->sh_addr;
@@ -1553,3 +1575,189 @@ module_relocate_rela(app_pc modbase, os_privmod_data_t *pd, ELF_RELA_TYPE *start
     for (rela = start; rela < end; rela++)
         module_relocate_symbol((ELF_REL_TYPE *)rela, pd, true);
 }
+
+#ifdef LINUX
+/**************************************************************************************
+ * Restartable sequence ("rseq") support (i#2350).
+ * This is a kernel feature which provides cpu-atomic regions: if a thread
+ * is pre-empted within an rseq region, an abort handler is invoked.
+ * The feature is difficult to handle under binary instrumentation.
+ * We rely on the app following certain conventions, including containing a
+ * section holding a table of all rseq sequences.
+ */
+
+static void
+rseq_process_entry(struct rseq_cs *entry, ssize_t load_offs)
+{
+    LOG(GLOBAL, LOG_LOADER, 2,
+        "Found rseq region: ver=%u; flags=%u; start=" PFX "; end=" PFX "; abort=" PFX
+        "\n",
+        entry->version, entry->flags, entry->start_ip + load_offs,
+        entry->start_ip + entry->post_commit_offset + load_offs,
+        entry->abort_ip + load_offs);
+    app_pc start_pc = (app_pc)(ptr_uint_t)entry->start_ip + load_offs;
+    vmvector_add(d_r_rseq_areas, start_pc, start_pc + entry->post_commit_offset,
+                 (void *)((ptr_uint_t)entry->abort_ip + load_offs));
+    RSTATS_INC(num_rseq_regions);
+    /* Check the start pc.  We don't take the effort to check for non-tags or
+     * interior pc's.
+     */
+    if (fragment_lookup(GLOBAL_DCONTEXT, start_pc) != NULL) {
+        /* We rely on the app not running rseq code for non-rseq purposes (since we
+         * can't easily tell the difference; plus we avoid a flush for lazy rseq
+         * activation).
+         */
+        REPORT_FATAL_ERROR_AND_EXIT(
+            RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(), get_application_pid(),
+            "Rseq sequences must not be used for non-rseq purposes");
+        ASSERT_NOT_REACHED();
+    }
+}
+
+/* Returns whether successfully searched for rseq data (not whether found rseq data). */
+bool
+module_init_rseq(module_area_t *ma, bool at_map)
+{
+    bool res = false;
+    ASSERT(is_elf_so_header(ma->start, ma->end - ma->start));
+    ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)ma->start;
+    ASSERT(elf_hdr->e_shentsize == sizeof(ELF_SECTION_HEADER_TYPE));
+    int fd = INVALID_FILE;
+    byte *sec_map = NULL, *str_map = NULL;
+    size_t sec_size = 0, str_size = 0;
+    ELF_SECTION_HEADER_TYPE *sec_hdr = NULL;
+    char *strtab;
+    ssize_t load_offs = ma->start - ma->os_data.base_address;
+    if (at_map && elf_hdr->e_shoff + ma->start < ma->end) {
+        sec_map = elf_hdr->e_shoff + ma->start;
+        sec_hdr = (ELF_SECTION_HEADER_TYPE *)sec_map;
+        /* We assume strtab is there too. */
+        strtab = (char *)(ma->start + sec_hdr[elf_hdr->e_shstrndx].sh_offset);
+        if (strtab > (char *)ma->end)
+            goto module_init_rseq_cleanup;
+    } else {
+        /* The section headers are not mapped in.  Unfortunately this is the common
+         * case: they are typically at the end of the file.  For this reason, we delay
+         * calling this function until we see the app use rseq.
+         */
+        if (ma->full_path == NULL)
+            goto module_init_rseq_cleanup;
+        fd = os_open(ma->full_path, OS_OPEN_READ);
+        if (fd == INVALID_FILE)
+            goto module_init_rseq_cleanup;
+        off_t offs = ALIGN_BACKWARD(elf_hdr->e_shoff, PAGE_SIZE);
+        sec_size =
+            ALIGN_FORWARD(elf_hdr->e_shoff + elf_hdr->e_shnum * elf_hdr->e_shentsize,
+                          PAGE_SIZE) -
+            offs;
+        sec_map =
+            os_map_file(fd, &sec_size, offs, NULL, MEMPROT_READ, MAP_FILE_COPY_ON_WRITE);
+        if (sec_map == NULL)
+            goto module_init_rseq_cleanup;
+        sec_hdr = (ELF_SECTION_HEADER_TYPE *)(sec_map + elf_hdr->e_shoff - offs);
+        /* We also need the section header string table. */
+        offs = ALIGN_BACKWARD(sec_hdr[elf_hdr->e_shstrndx].sh_offset, PAGE_SIZE);
+        str_size = ALIGN_FORWARD(sec_hdr[elf_hdr->e_shstrndx].sh_offset +
+                                     sec_hdr[elf_hdr->e_shstrndx].sh_size,
+                                 PAGE_SIZE) -
+            offs;
+        str_map =
+            os_map_file(fd, &str_size, offs, NULL, MEMPROT_READ, MAP_FILE_COPY_ON_WRITE);
+        if (str_map == NULL)
+            goto module_init_rseq_cleanup;
+        strtab = (char *)(str_map + sec_hdr[elf_hdr->e_shstrndx].sh_offset - offs);
+    }
+    bool found_array = false;
+    uint i;
+    ELF_SECTION_HEADER_TYPE *sec_hdr_start = sec_hdr;
+    /* The section entries on disk need load_offs.  The rseq entries in memory are
+     * relocated and only need the offset if relocations have not yet been applied.
+     */
+    ssize_t entry_offs = 0;
+    if (at_map || (DYNAMO_OPTION(early_inject) && !dr_api_entry && !dynamo_started))
+        entry_offs = load_offs;
+    for (i = 0; i < elf_hdr->e_shnum; i++) {
+#    define RSEQ_PTR_ARRAY_SEC_NAME "__rseq_cs_ptr_array"
+        if (strcmp(strtab + sec_hdr->sh_name, RSEQ_PTR_ARRAY_SEC_NAME) == 0) {
+            found_array = true;
+            byte **ptrs = (byte **)(sec_hdr->sh_addr + load_offs);
+            int j;
+            for (j = 0; j < sec_hdr->sh_size / sizeof(ptrs); ++j) {
+                /* We require that the table is loaded.  If not, bail. */
+                if (ptrs > (byte **)ma->end)
+                    goto module_init_rseq_cleanup;
+                /* We assume this is a full mapping and it's safe to read the data
+                 * (a partial map shouldn't make it to module list processing).
+                 */
+                rseq_process_entry((struct rseq_cs *)(*ptrs + load_offs), entry_offs);
+                ++ptrs;
+            }
+            break;
+        }
+        ++sec_hdr;
+    }
+    if (!found_array) {
+        sec_hdr = sec_hdr_start;
+        for (i = 0; i < elf_hdr->e_shnum; i++) {
+#    define RSEQ_SEC_NAME "__rseq_cs"
+#    define RSEQ_OLD_SEC_NAME "__rseq_table"
+            if (strcmp(strtab + sec_hdr->sh_name, RSEQ_SEC_NAME) == 0 ||
+                strcmp(strtab + sec_hdr->sh_name, RSEQ_OLD_SEC_NAME) == 0) {
+                /* There may be padding at the start of the section, so ensure we skip
+                 * over it.  We're reading the loaded data, not the file, so it will
+                 * always be aligned.
+                 */
+#    define RSEQ_CS_ALIGNMENT 4 * sizeof(__u64)
+                struct rseq_cs *array = (struct rseq_cs *)ALIGN_FORWARD(
+                    sec_hdr->sh_addr + load_offs, RSEQ_CS_ALIGNMENT);
+                int j;
+                for (j = 0; j < sec_hdr->sh_size / sizeof(*array); ++j) {
+                    /* We require that the table is loaded.  If not, bail. */
+                    if (array > (struct rseq_cs *)ma->end)
+                        goto module_init_rseq_cleanup;
+                    rseq_process_entry(array, entry_offs);
+                    ++array;
+                }
+                break;
+            }
+            ++sec_hdr;
+        }
+    }
+    res = true;
+module_init_rseq_cleanup:
+    if (str_size != 0)
+        os_unmap_file(str_map, str_size);
+    if (sec_size != 0)
+        os_unmap_file(sec_map, sec_size);
+    if (fd != INVALID_FILE)
+        os_close(fd);
+    return res;
+}
+
+/* Perhaps this belongs in a non-module file, but we currently have the rseq.h
+ * structs private to this file so this is living here for now.
+ */
+bool
+rseq_is_registered_for_current_thread(void)
+{
+    /* Unfortunately there's no way to query the current rseq struct.
+     * For 64-bit we can pass a kernel address and look for EFAULT
+     * vs EINVAL, but there is no kernel address for 32-bit.
+     * So we try to perform a legitimate registration.
+     */
+    struct rseq test_rseq = {};
+    int res = dynamorio_syscall(SYS_rseq, 4, &test_rseq, sizeof(test_rseq), 0, 0);
+    if (res == -EINVAL) /* Our struct != registered struct. */
+        return true;
+    if (res == -ENOSYS)
+        return false;
+    ASSERT(res == 0); /* If not, the struct size or sthg changed! */
+    if (dynamorio_syscall(SYS_rseq, 4, &test_rseq, sizeof(test_rseq),
+                          RSEQ_FLAG_UNREGISTER, 0) != 0) {
+        ASSERT_NOT_REACHED();
+    }
+    return false;
+}
+
+/**************************************************************************************/
+#endif /* LINUX */

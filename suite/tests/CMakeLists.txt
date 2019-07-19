@@ -3445,6 +3445,15 @@ if (UNIX)
   endif (NOT X64 AND NOT ARM)
   # when running tests in parallel: have to generate pcaches first
   set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
+
+  if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
+    # The rseq feature is Linux-only.
+    # TODO i#2350: Port the assembly in the test to 32-bit, ARM, AArch64.
+    tobuild(linux.rseq linux/rseq.c)
+    # Test attaching, which has a separate lazy rseq check.
+    tobuild_api(api.rseq linux/rseq.c "" "" OFF OFF)
+    append_property_string(TARGET api.rseq COMPILE_FLAGS "-DRSEQ_TEST_ATTACH")
+  endif ()
 else (UNIX)
   add_exe(win32.infloop win32/infloop.c)
   if (VPS)

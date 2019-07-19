@@ -2021,8 +2021,9 @@ vmvector_lookup_data(vm_area_vector_t *v, app_pc pc, app_pc *start /* OUT */,
  * should this routine do both to avoid an extra binary search?
  */
 bool
-vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev,
-                          OUT app_pc *next)
+vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev_start,
+                          OUT app_pc *prev_end, OUT app_pc *next_start,
+                          OUT app_pc *next_end)
 {
     bool success;
     int index;
@@ -2032,17 +2033,27 @@ vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev,
     ASSERT_OWN_READWRITE_LOCK(SHOULD_LOCK_VECTOR(v), &v->lock);
     success = !binary_search(v, pc, pc + 1, NULL, &index, false);
     if (success) {
-        if (prev != NULL) {
-            if (index == -1)
-                *prev = NULL;
-            else
-                *prev = v->buf[index].start;
+        if (index == -1) {
+            if (prev_start != NULL)
+                *prev_start = NULL;
+            if (prev_end != NULL)
+                *prev_end = NULL;
+        } else {
+            if (prev_start != NULL)
+                *prev_start = v->buf[index].start;
+            if (prev_end != NULL)
+                *prev_end = v->buf[index].end;
         }
-        if (next != NULL) {
-            if (index >= v->length - 1)
-                *next = (app_pc)POINTER_MAX;
-            else
-                *next = v->buf[index + 1].start;
+        if (index >= v->length - 1) {
+            if (next_start != NULL)
+                *next_start = (app_pc)POINTER_MAX;
+            if (next_end != NULL)
+                *next_end = (app_pc)POINTER_MAX;
+        } else {
+            if (next_start != NULL)
+                *next_start = v->buf[index + 1].start;
+            if (next_end != NULL)
+                *next_end = v->buf[index + 1].end;
         }
     }
     UNLOCK_VECTOR(v, release_lock, read);
@@ -2295,7 +2306,7 @@ add_written_area(vm_area_vector_t *v, app_pc tag, app_pc start, app_pc end,
     /* re-adding fails for written_areas since no merging, so lookup first */
     already = lookup_addr(v, tag, &a);
     if (!already) {
-        app_pc prev_start = NULL, next_start = NULL;
+        app_pc prev_start = NULL, prev_end = NULL, next_start = NULL;
         LOG(GLOBAL, LOG_VMAREAS, 2, "new written executable vm area: " PFX "-" PFX "\n",
             start, end);
         /* case 9179: With no flags, any overlap (in non-tag portion of [start,
@@ -2307,14 +2318,12 @@ add_written_area(vm_area_vector_t *v, app_pc tag, app_pc start, app_pc end,
         /* we can't merge b/c we have hardcoded counter pointers in code
          * in the cache, so we make sure to only add the non-overlap
          */
-        DEBUG_DECLARE(ok =) vmvector_lookup_prev_next(v, tag, &prev_start, &next_start);
+        DEBUG_DECLARE(ok =)
+        vmvector_lookup_prev_next(v, tag, &prev_start, &prev_end, &next_start, NULL);
         ASSERT(ok); /* else already should be true */
         if (prev_start != NULL) {
-            vm_area_t *prev_area = NULL;
-            DEBUG_DECLARE(ok =) lookup_addr(v, prev_start, &prev_area);
-            ASSERT(ok); /* we hold the lock after all */
-            if (prev_area->end > start)
-                start = prev_area->end;
+            if (prev_end > start)
+                start = prev_end;
         }
         if (next_start < (app_pc)POINTER_MAX && end > next_start)
             end = next_start;
@@ -8120,7 +8129,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
               { print_vm_area(&data->areas, local_area, THREAD, new_area_prefix); });
         DOLOG(5, LOG_VMAREAS, { print_vm_areas(&data->areas, THREAD); });
         DOCHECK(CHKLVL_ASSERTS, {
-            LOG(THREAD, 1, LOG_VMAREAS,
+            LOG(THREAD, LOG_VMAREAS, 1,
                 "checking thread vmareas against executable_areas\n");
             exec_area_bounds_match(dcontext, data);
         });
@@ -8163,12 +8172,52 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         DOLOG(7, LOG_VMAREAS, { print_fraglists(dcontext); });
     }
 
+    result = true;
     *flags |= frag_flags;
     if (stop != NULL) {
         *stop = area->end;
         ASSERT(*stop != NULL);
+#ifdef LINUX
+        if (!vmvector_empty(d_r_rseq_areas)) {
+            /* While for core operation we do not need to end a block at an rseq
+             * endpoint, we need clients to treat the endpoint as a barrier and
+             * restore app state.  drreg today treats a block end as a barrier.  If
+             * drreg adds optimizations that cross blocks (such as in traces), we may
+             * need to add some other feature here: a fake app cti?  That affects
+             * clients measuring app behavior, though with rseq fidelity is already
+             * not 100%.
+             * Similarly, we don't really need to not have a block span the start of
+             * an rseq region.  But, that makes it easier to turn on full_decode for
+             * simpler mangling.
+             */
+            bool entered_rseq = false;
+            app_pc rseq_start, next_boundary = NULL;
+            if (vmvector_lookup_data(d_r_rseq_areas, pc, &rseq_start, &next_boundary,
+                                     NULL)) {
+                if (rseq_start > tag)
+                    entered_rseq = true;
+            } else {
+                app_pc prev_end;
+                if (vmvector_lookup_prev_next(d_r_rseq_areas, pc, NULL, &prev_end,
+                                              &next_boundary, NULL)) {
+                    if (prev_end == pc)
+                        next_boundary = prev_end;
+                }
+            }
+            if (next_boundary != NULL && next_boundary < *stop) {
+                /* Ensure we check again before we hit a boundary. */
+                *stop = next_boundary;
+                if (xfer && (entered_rseq || pc == next_boundary)) {
+                    LOG(THREAD, LOG_VMAREAS | LOG_INTERP, 3,
+                        "Stopping bb at rseq boundary " PFX "\n", pc);
+                    result = false;
+                }
+            }
+        }
+#endif
+        LOG(THREAD, LOG_INTERP | LOG_VMAREAS, 4,
+            "check_thread_vm_area: check_stop = " PFX "\n", *stop);
     }
-    result = true;
 
     /* we are building a real bb, assert consistency checks */
     DOCHECK(1, {
