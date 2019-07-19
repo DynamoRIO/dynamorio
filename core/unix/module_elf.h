@@ -309,4 +309,9 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
 const char *
 elf_loader_find_pt_interp(elf_loader_t *elf);
 
+#ifdef LINUX
+bool
+module_init_rseq(module_area_t *ma, bool at_map);
+#endif
+
 #endif /* MODULE_ELF_H */

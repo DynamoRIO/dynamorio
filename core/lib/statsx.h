@@ -1237,3 +1237,8 @@ STATS_DEF("App access FS/GS seg being mangled", app_mov_seg_mangled)
 STATS_DEF("Reg spills for non-mbr mangling", non_mbr_spills)
 STATS_DEF("Reg respill for non-mbr mangling avoided", non_mbr_respill_avoided)
 #endif
+#ifdef LINUX
+RSTATS_DEF("Rseq regions identified", num_rseq_regions)
+RSTATS_DEF("Rseq instrumented stores elided", num_rseq_stores_elided)
+RSTATS_DEF("Rseq native calls inserted", num_rseq_native_calls_inserted)
+#endif

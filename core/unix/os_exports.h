@@ -160,6 +160,10 @@ extern uint android_tls_base_offs;
 #    define USR_TLS_COPROC_15 15
 #endif
 
+#ifdef LINUX
+extern vm_area_vector_t *d_r_rseq_areas;
+#endif
+
 void *
 d_r_get_tls(ushort tls_offs);
 void

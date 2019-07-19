@@ -670,4 +670,12 @@ Language=English
 Application %1!s! (%2!s!): AVX-512 was detected at PC %3!s!. AVX-512 is not fully supported yet.
 .
 
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_RSEQ_BEHAVIOR_UNSUPPORTED
+Language=English
+Application %1!s! (%2!s!). Restartable sequence behavior is not supported: %3!s!.
+.
+
 ;// ADD NEW MESSAGES HERE
