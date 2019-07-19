@@ -1747,9 +1747,10 @@ rseq_is_registered_for_current_thread(void)
      */
     struct rseq test_rseq = {};
     int res = dynamorio_syscall(SYS_rseq, 4, &test_rseq, sizeof(test_rseq), 0, 0);
-    if (res == -EINVAL) { /* Our struct != registered struct. */
+    if (res == -EINVAL) /* Our struct != registered struct. */
         return true;
-    }
+    if (res == -ENOSYS)
+        return false;
     ASSERT(res == 0); /* If not, the struct size or sthg changed! */
     if (dynamorio_syscall(SYS_rseq, 4, &test_rseq, sizeof(test_rseq),
                           RSEQ_FLAG_UNREGISTER, 0) != 0) {

@@ -831,9 +831,8 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
          * do we live with a fake app jump or sthg?
          */
         /* A direct call may not reach so we clobber a scratch register. */
-        instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)handler,
-                                         opnd_create_reg(DR_REG_RAX), ilist, next_instr,
-                                         NULL, NULL);
+        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)handler, opnd_create_reg(DR_REG_RAX),
+                               ilist, next_instr, NULL, NULL);
         /* Set up the frame and stack alignment.  We assume the rseq code was a leaf
          * function and that rsp is 16-aligned now.
          */
