@@ -418,7 +418,8 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
 #endif
     } else {
         app_pc prev, next;
-        found = vmvector_lookup_prev_next(all_memory_areas, (app_pc)pc, &prev, &next);
+        found = vmvector_lookup_prev_next(all_memory_areas, (app_pc)pc, &prev, NULL,
+                                          &next, NULL);
         ASSERT(found);
         if (prev != NULL) {
             found = vmvector_lookup_data(all_memory_areas, prev, NULL, &out_info->base_pc,

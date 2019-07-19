@@ -4908,6 +4908,8 @@ ignorable_system_call_normalized(int num)
     case SYS_pselect6:
     case SYS_ppoll:
     case SYS_epoll_pwait:
+    /* Used as a lazy trigger. */
+    case SYS_rseq:
 #endif
         return false;
 #ifdef LINUX
@@ -7543,6 +7545,13 @@ pre_system_call(dcontext_t *dcontext)
 #    endif
 #endif
 
+#ifdef LINUX
+    case SYS_rseq:
+        /* Lazy rseq handling. */
+        module_locate_rseq_regions();
+        break;
+#endif
+
     default: {
 #ifdef LINUX
         execute_syscall = handle_restartable_region_syscall_pre(dcontext);
@@ -10001,6 +10010,13 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     d_r_mutex_unlock(&thread_initexit_lock);
     HEAP_ARRAY_FREE(dcontext, tids, thread_id_t, num_threads, ACCT_THREAD_MGT, PROTECTED);
 
+#ifdef LINUX
+    /* Check this thread for rseq as well.
+     */
+    if (rseq_is_registered_for_current_thread())
+        module_locate_rseq_regions();
+#endif
+
     return threads_to_signal > 0;
 }
 
@@ -10101,6 +10117,13 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
             "%s: next_tag=" PFX ", cur xsp=" PFX ", mc->xsp=" PFX "\n", __FUNCTION__,
             dcontext->next_tag, cur_esp, mc->xsp);
     });
+#ifdef LINUX
+    /* See whether we should initiate lazy rseq handling, and avoid treating
+     * regions as rseq when the rseq syscall is never set up.
+     */
+    if (rseq_is_registered_for_current_thread())
+        module_locate_rseq_regions();
+#endif
 
     /* Start interpreting from the signal context. */
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,

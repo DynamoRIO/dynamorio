@@ -3303,7 +3303,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
              /* to split riprel, need to decode every instr */
              /* in x86_to_x64, need to translate every x86 instr */
              IF_X64(|| DYNAMO_OPTION(coarse_split_riprel) || DYNAMO_OPTION(x86_to_x64))
-                 IF_CLIENT_INTERFACE(|| INTERNAL_OPTION(full_decode)))
+                 IF_CLIENT_INTERFACE(|| INTERNAL_OPTION(full_decode))
+         /* We separate rseq regions into their own blocks to make this check easier. */
+         IF_LINUX(||
+                  (!vmvector_empty(d_r_rseq_areas) &&
+                   vmvector_overlap(d_r_rseq_areas, bb->start_pc, bb->start_pc + 1))))
         bb->full_decode = true;
     else {
 #if defined(STEAL_REGISTER) || defined(CHECK_RETURNS_SSE2)

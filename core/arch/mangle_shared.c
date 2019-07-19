@@ -771,6 +771,122 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
 }
 #endif /* UNIX */
 
+#ifdef LINUX
+/* Returns whether it destroyed "instr". */
+static bool
+mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next_instr)
+{
+    app_pc pc = get_app_instr_xl8(instr);
+    app_pc start, end, handler;
+    if (!vmvector_lookup_data(d_r_rseq_areas, pc, &start, &end, (void **)&handler)) {
+        ASSERT_NOT_REACHED(); /* Caller was supposed to check for overlap */
+        return false;
+    }
+    int len = instr_length(dcontext, instr);
+    if (pc + len >= end) {
+        if (pc + len != end) {
+            REPORT_FATAL_ERROR_AND_EXIT(
+                RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                get_application_pid(),
+                "Malformed rseq endpoint: not on instruction boundary");
+            ASSERT_NOT_REACHED();
+        }
+#    ifdef X86
+        /* We just ran the instrumented version of the rseq code, with the stores
+         * removed.  Now we need to invoke it again natively for real.  We have to
+         * invoke the abort handler, not the rseq start, as it may perform some setup.
+         *
+         * XXX i#2350: We assume the code can handle "aborting" once every time and
+         * still make forward progress.  We document this in our Limitations section.
+         * We also ignore the flags for when to restart.  It's possible the app
+         * disabled restarts on preempts and migrations and can't handle our restart
+         * here.
+         */
+        LOG(THREAD, LOG_INTERP, 4, "mangle: inserting call to native rseq " PFX "\n",
+            handler);
+        RSTATS_INC(num_rseq_native_calls_inserted);
+        /* For simplicity in this first version of the code, we assume call-return
+         * semantics for the abort handler + rseq region.  We create an extra frame
+         * and assume that causes no problems.  We assume the native invocation will
+         * come back to us.
+         * TODO i#2350: Make a copy of the rseq code and append a "return" as a jmp*
+         * through TLS.  Make a copy of the abort handler too.  Decode it and ensure
+         * it transitions directly to the rseq code (if not, bail).  "Call" the
+         * copied abort handler+rseq by setting the retaddr in TLS and jumping.  Then
+         * we have a guaranteed return and no extra frame, with verified assumptions.
+         */
+        instr_t check;
+        instr_init(dcontext, &check);
+        if (decode_cti(dcontext, end, &check) == NULL || !instr_is_return(&check)) {
+            REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
+                                        get_application_name(), get_application_pid(),
+                                        "Rseq sequences must end with a return");
+            ASSERT_NOT_REACHED();
+        }
+        instr_free(dcontext, &check);
+        /* We assume that by making this a block end, clients will restore app state
+         * before this native invocation.
+         * TODO i#2350: Take some further action to better guarantee this in the face
+         * of future drreg optimizations, etc.  Do we need new interface features, or
+         * do we live with a fake app jump or sthg?
+         */
+        /* A direct call may not reach so we clobber a scratch register. */
+        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)handler, opnd_create_reg(DR_REG_RAX),
+                               ilist, next_instr, NULL, NULL);
+        /* Set up the frame and stack alignment.  We assume the rseq code was a leaf
+         * function and that rsp is 16-aligned now.
+         */
+        instrlist_meta_preinsert(ilist, next_instr,
+                                 XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_RSP),
+                                                  OPND_CREATE_INT32(8)));
+        instrlist_meta_preinsert(
+            ilist, next_instr,
+            INSTR_CREATE_call_ind(dcontext, opnd_create_reg(DR_REG_RAX)));
+        instrlist_meta_preinsert(ilist, next_instr,
+                                 XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_RSP),
+                                                  OPND_CREATE_INT32(8)));
+#    else
+        /* TODO i#2350: Add non-x86 support. */
+        REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Rseq is not yet supported for non-x86");
+        ASSERT_NOT_REACHED();
+
+#    endif
+    }
+
+    /* If we're inside a restartable sequence, this is the first run which is
+     * instrumented and will be aborted/restarted.  We need to avoid *all* stores,
+     * not just the final commit point, because the sequence could be using the wrong cpu
+     * and could be editing a per-cpu data structure that another thread is touching
+     * at the same time.
+     */
+    if (!instr_writes_memory(instr))
+        return false;
+    /* We allow a call to a helper function, since this happens in some apps we target.
+     * The helper is assumed to have no side effects.
+     */
+    if (instr_is_call(instr))
+        return false;
+    /* XXX i#2350: We want to turn just the store portion of the instr into a nop
+     * and keep any register side effects.  That is complex, however.  For now we
+     * only support simple stores.
+     */
+    if (instr_num_dsts(instr) > 1) {
+        REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Store inside rseq region has multiple destinations");
+        ASSERT_NOT_REACHED();
+    }
+    LOG(THREAD, LOG_INTERP, 4, "mangle: removing store inside rseq region @" PFX "\n",
+        pc);
+    RSTATS_INC(num_rseq_stores_elided);
+    instrlist_remove(ilist, instr);
+    instr_destroy(dcontext, instr);
+    return true; /* destroyed instr */
+}
+#endif /* LINUX */
+
 /* TOP-LEVEL MANGLE
  * This routine is responsible for mangling a fragment into the form
  * we'd like prior to placing it in the code cache
@@ -856,6 +972,22 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
             IF_WINDOWS_ELSE(is_wow64_process(NT_CURRENT_PROCESS), false) &&
             instr_get_x86_mode(instr))
             translate_x86_to_x64(dcontext, ilist, &instr);
+#endif
+
+#ifdef LINUX
+        /* Mangle stores inside restartable sequences ("rseq").  We could avoid the
+         * per-instr check if we disallowed rseq blocks in traces and prevented
+         * fall-through in a bb, but that would lead to more problems than it would
+         * solve.  We expect the vmvector_empty check to be fast enough for the common
+         * case.
+         */
+        if (instr_is_app(instr) && !vmvector_empty(d_r_rseq_areas)) {
+            app_pc pc = get_app_instr_xl8(instr);
+            if (vmvector_overlap(d_r_rseq_areas, pc, pc + 1)) {
+                if (mangle_rseq(dcontext, ilist, instr, next_instr))
+                    continue; /* instr was destroyed */
+            }
+        }
 #endif
 
 #if defined(UNIX) && defined(X86)

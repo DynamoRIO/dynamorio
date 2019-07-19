@@ -444,8 +444,12 @@ enum {
                                  * > coarse_info_lock, > executable_areas,
                                  * < module_data_lock */
 #    endif
-    LOCK_RANK(written_areas),             /* > executable_areas, < module_data_lock,
-                                           * < dynamo_areas < global_alloc_lock */
+    LOCK_RANK(written_areas), /* > executable_areas, < module_data_lock,
+                               * < dynamo_areas < global_alloc_lock */
+#    ifdef LINUX
+    LOCK_RANK(rseq_trigger_lock), /* < rseq_areas, < module_data_lock */
+    LOCK_RANK(rseq_areas),        /* < dynamo_areas < global_alloc_lock */
+#    endif
     LOCK_RANK(module_data_lock),          /* < loaded_module_areas, < special_heap_lock,
                                            * > executable_areas */
     LOCK_RANK(special_units_list_lock),   /* < special_heap_lock */
