@@ -727,7 +727,7 @@ d_r_arch_init(void)
      * compact rip-rel load in SIMD restore/save gencode.
      */
     d_r_avx512_code_in_use = heap_reachable_alloc(
-        GLOBAL_DCONTEXT, sizeof(d_r_avx512_code_in_use) HEAPACCT(ACCT_OTHER));
+        GLOBAL_DCONTEXT, sizeof(*d_r_avx512_code_in_use) HEAPACCT(ACCT_OTHER));
     *d_r_avx512_code_in_use = false;
 #endif
 
@@ -915,7 +915,7 @@ void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 
 #ifdef X86
     heap_reachable_free(GLOBAL_DCONTEXT, d_r_avx512_code_in_use,
-                        sizeof(d_r_avx512_code_in_use) HEAPACCT(ACCT_OTHER));
+                        sizeof(*d_r_avx512_code_in_use) HEAPACCT(ACCT_OTHER));
 #endif
 
     interp_exit();
