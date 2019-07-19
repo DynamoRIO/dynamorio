@@ -504,7 +504,7 @@ proc_num_simd_registers(void);
  *
  * Setter function for proc_num_simd_saved(). It should be used in order to change the
  * number of saved SIMD registers, which currently happens once AVX-512 code has been
- * detected. Assumes .data is unprotected before calling.
+ * detected.
  */
 void
 proc_set_num_simd_saved(int num);
