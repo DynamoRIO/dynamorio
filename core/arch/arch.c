@@ -679,9 +679,7 @@ d_r_arch_init(void)
     /* We rely on the dr_opmask_t register type to be able to store AVX512BW wide 64-bit
      * masks. Also priv_mcontext_t.opmask slots are AVX512BW wide.
      */
-#ifdef X86
-    ASSERT(sizeof(dr_opmask_t) == OPMASK_AVX512BW_REG_SIZE);
-#endif
+    IF_X86(ASSERT(sizeof(dr_opmask_t) == OPMASK_AVX512BW_REG_SIZE));
 
     /* Verify that the structures used for a register spill area and to hold IBT
      * table addresses & masks for IBL code are laid out as expected. We expect
@@ -728,8 +726,8 @@ d_r_arch_init(void)
     /* We're allocating a reachable heap variable in order to be able to use a more
      * compact rip-rel load in SIMD restore/save gencode.
      */
-    d_r_avx512_code_in_use =
-        heap_reachable_alloc(GLOBAL_DCONTEXT, 1 HEAPACCT(ACCT_OTHER));
+    d_r_avx512_code_in_use = heap_reachable_alloc(
+        GLOBAL_DCONTEXT, sizeof(d_r_avx512_code_in_use) HEAPACCT(ACCT_OTHER));
     *d_r_avx512_code_in_use = false;
 #endif
 
@@ -916,7 +914,8 @@ void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 #endif
 
 #ifdef X86
-    heap_reachable_free(GLOBAL_DCONTEXT, d_r_avx512_code_in_use, 1 HEAPACCT(ACCT_OTHER));
+    heap_reachable_free(GLOBAL_DCONTEXT, d_r_avx512_code_in_use,
+                        sizeof(d_r_avx512_code_in_use) HEAPACCT(ACCT_OTHER));
 #endif
 
     interp_exit();
