@@ -2005,11 +2005,6 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
  *
  *  # restore the original register state
  *
- *  # append_restore_xflags
- *  RESTORE_FROM_UPCONTEXT xflags_OFFSET,%xax
- *  push    %xax
- *  popf            # restore eflags temporarily using dstack
- *
  *  # append_restore_simd_reg
  *  if preserve_xmm_caller_saved
  *    if (ZMM_ENABLED())       # this is evaluated at *generation time*
@@ -2078,6 +2073,11 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
  *      endif
  *    endif
  *  endif
+ *
+ *  # append_restore_xflags
+ *  RESTORE_FROM_UPCONTEXT xflags_OFFSET,%xax
+ *  push    %xax
+ *  popf            # restore eflags temporarily using dstack
  *
  *  # append_restore_gpr
  *  ifdef X64
@@ -2174,7 +2174,7 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 
     /* restore the original register state */
     append_restore_simd_reg(dcontext, &ilist, absolute);
-    /* Please note that append_restore_simd_reg may change the flags. Thefore, the
+    /* Please note that append_restore_simd_reg may change the flags. Therefore, the
      * order matters.
      */
     append_restore_xflags(dcontext, &ilist, absolute);
@@ -2610,7 +2610,7 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
 #endif
 
     append_save_clear_xflags(dcontext, ilist, absolute);
-    /* Please note that append_save_simd_reg may change the flags. Thefore, the
+    /* Please note that append_save_simd_reg may change the flags. Therefore, the
      * order matters.
      */
     append_save_simd_reg(dcontext, ilist, absolute);
