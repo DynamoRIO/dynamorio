@@ -44,6 +44,11 @@
 #endif
 #include "memref.h"
 
+enum invalidation_type_t {
+    INVALIDATION_INCLUSIVE,
+    INVALIDATION_COHERENCE,
+};
+
 class caching_device_stats_t {
 public:
     explicit caching_device_stats_t(const std::string &miss_file,
@@ -73,7 +78,7 @@ public:
 
     // Process invalidations due to cache inclusions.
     virtual void
-    invalidate();
+    invalidate(invalidation_type_t invalidation_type_);
 
 protected:
     bool success;
@@ -96,6 +101,7 @@ protected:
     int_least64_t num_child_hits;
 
     int_least64_t num_inclusive_invalidates;
+    int_least64_t num_coherence_invalidates;
 
     // Stats saved when the last reset was called. This helps us get insight
     // into what the stats were when the cache was warmed up.

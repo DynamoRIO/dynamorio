@@ -42,6 +42,7 @@ caching_device_stats_t::caching_device_stats_t(const std::string &miss_file,
     , num_misses(0)
     , num_child_hits(0)
     , num_inclusive_invalidates(0)
+    , num_coherence_invalidates(0)
     , num_hits_at_reset(0)
     , num_misses_at_reset(0)
     , num_child_hits_at_reset(0)
@@ -135,8 +136,12 @@ caching_device_stats_t::print_counts(std::string prefix)
               << std::right << num_hits << std::endl;
     std::cerr << prefix << std::setw(18) << std::left << "Misses:" << std::setw(20)
               << std::right << num_misses << std::endl;
-    std::cerr << prefix << std::setw(18) << std::left << "Invalidations:" << std::setw(20)
-              << std::right << num_inclusive_invalidates << std::endl;
+    std::cerr << prefix << std::setw(21) << std::left
+              << "Parent invalidations:" << std::setw(17) << std::right
+              << num_inclusive_invalidates << std::endl;
+    std::cerr << prefix << std::setw(20) << std::left
+              << "Write invalidations:" << std::setw(18) << std::right
+              << num_coherence_invalidates << std::endl;
 }
 
 void
@@ -191,10 +196,15 @@ caching_device_stats_t::reset()
     num_misses = 0;
     num_child_hits = 0;
     num_inclusive_invalidates = 0;
+    num_coherence_invalidates = 0;
 }
 
 void
-caching_device_stats_t::invalidate()
+caching_device_stats_t::invalidate(invalidation_type_t invalidation_type_)
 {
-    num_inclusive_invalidates++;
+    if (invalidation_type_ == INVALIDATION_INCLUSIVE) {
+        num_inclusive_invalidates++;
+    } else if (invalidation_type_ == INVALIDATION_COHERENCE) {
+        num_coherence_invalidates++;
+    }
 }
