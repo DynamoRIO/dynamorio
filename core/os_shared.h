@@ -620,9 +620,6 @@ void
 os_check_new_app_module(dcontext_t *dcontext, app_pc pc);
 #endif
 
-void
-native_exec_os_init(void);
-
 bool
 get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top);
 
