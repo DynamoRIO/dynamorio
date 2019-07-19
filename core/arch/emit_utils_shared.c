@@ -2428,6 +2428,15 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *    SAVE_TO_UPCONTEXT %r15,r15_OFFSET
  *  endif
  *
+ *  # switch to clean dstack
+ *  RESTORE_FROM_DCONTEXT dstack_OFFSET,%xsp
+ *
+ *  # append_save_clear_xflags
+ *  # now save eflags -- too hard to do without a stack!
+ *  pushf           # push eflags on stack
+ *  pop     %xbx    # grab eflags value
+ *  SAVE_TO_UPCONTEXT %xbx,xflags_OFFSET # save eflags value
+ *
  *  # append_save_simd_reg
  *  if preserve_xmm_caller_saved
  *    if (ZMM_ENABLED())       # this is evaluated at *generation time*
@@ -2496,15 +2505,6 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *      endif
  *    endif
  *  endif
- *
- *  # switch to clean dstack
- *  RESTORE_FROM_DCONTEXT dstack_OFFSET,%xsp
- *
- *  # append_save_clear_xflags
- *  # now save eflags -- too hard to do without a stack!
- *  pushf           # push eflags on stack
- *  pop     %xbx    # grab eflags value
- *  SAVE_TO_UPCONTEXT %xbx,xflags_OFFSET # save eflags value
  *
  *  # clear eflags now to avoid app's eflags messing up our ENTER_DR_HOOK
  *  # FIXME: this won't work at CPL0 if we ever run there!
