@@ -1731,6 +1731,19 @@ module_init_rseq_cleanup:
         os_unmap_file(sec_map, sec_size);
     if (fd != INVALID_FILE)
         os_close(fd);
+    DODEBUG({
+        if (!res) {
+            const char *name = GET_MODULE_NAME(&ma->names);
+            if (name == NULL)
+                name = "(null)";
+            LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
+                "%s: error looking for rseq table in %s\n", __FUNCTION__, name);
+            if (strstr(name, "linux-vdso.so") == NULL) {
+                SYSLOG_INTERNAL_WARNING_ONCE(
+                    "Failed to identify whether a module has an rseq table");
+            }
+        }
+    });
     return res;
 }
 
