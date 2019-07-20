@@ -2005,22 +2005,79 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
  *
  *  # restore the original register state
  *
+ *  # append_restore_simd_reg
+ *  if preserve_xmm_caller_saved
+ *    if (ZMM_ENABLED())       # this is evaluated at *generation time*
+ *      if (!d_r_is_avx512_code_in_use())       # this is evaluated at *runtime*
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+0*64,%ymm0
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+1*64,%ymm1
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+2*64,%ymm2
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+3*64,%ymm3
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+4*64,%ymm4
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+5*64,%ymm5
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+6*64,%ymm6
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+7*64,%ymm7 # 32-bit Linux
+ *        ifdef X64
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+8*64,%ymm8
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+9*64,%ymm9
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+10*64,%ymm10
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+11*64,%ymm11
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+12*64,%ymm12
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+13*64,%ymm13
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+14*64,%ymm14
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+15*64,%ymm15 # 64-bit Linux
+ *        endif
+ *      else # d_r_is_avx512_code_in_use()
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+0*64,%zmm0
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+1*64,%zmm1
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+2*64,%zmm2
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+3*64,%zmm3
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+4*64,%zmm4
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+5*64,%zmm5
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+6*64,%zmm6
+ *        RESTORE_FROM_UPCONTEXT simd_OFFSET+7*64,%zmm7 # 32-bit Linux
+ *        ifdef X64
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+8*64,%zmm8
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+9*64,%zmm9
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+10*64,%zmm10
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+11*64,%zmm11
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+12*64,%zmm12
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+13*64,%zmm13
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+14*64,%zmm14
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+15*64,%zmm15
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+16*64,%zmm16
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+17*64,%zmm17
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+18*64,%zmm18
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+19*64,%zmm19
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+20*64,%zmm20
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+21*64,%zmm21
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+22*64,%zmm22
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+23*64,%zmm23
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+24*64,%zmm24
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+25*64,%zmm25
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+26*64,%zmm26
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+27*64,%zmm27
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+28*64,%zmm28
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+29*64,%zmm29
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+30*64,%zmm30
+ *          RESTORE_FROM_UPCONTEXT simd_OFFSET+31*64,%zmm31 # 64-bit Linux
+ *        endif
+ *        RESTORE_FROM_UPCONTEXT opmask_OFFSET+0*8,%k0
+ *        RESTORE_FROM_UPCONTEXT opmask_OFFSET+1*8,%k1
+ *        RESTORE_FROM_UPCONTEXT opmask_OFFSET+2*8,%k2
+ *        RESTORE_FROM_UPCONTEXT opmask_OFFSET+3*8,%k3
+ *        RESTORE_FROM_UPCONTEXT opmask_OFFSET+4*8,%k4
+ *        RESTORE_FROM_UPCONTEXT opmask_OFFSET+5*8,%k5
+ *        RESTORE_FROM_UPCONTEXT opmask_OFFSET+6*8,%k6
+ *        RESTORE_FROM_UPCONTEXT opmask_OFFSET+7*8,%k7
+ *      endif
+ *    endif
+ *  endif
+ *
  *  # append_restore_xflags
  *  RESTORE_FROM_UPCONTEXT xflags_OFFSET,%xax
  *  push    %xax
  *  popf            # restore eflags temporarily using dstack
- *
- *  # append_restore_simd_reg
- *  if preserve_xmm_caller_saved
- *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+0*16,%xmm0
- *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+1*16,%xmm1
- *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+2*16,%xmm2
- *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+3*16,%xmm3
- *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+4*16,%xmm4
- *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+5*16,%xmm5
- *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+6*16,%xmm6  # 32-bit Linux
- *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+7*16,%xmm7  # 32-bit Linux
- *  endif
  *
  *  # append_restore_gpr
  *  ifdef X64
@@ -2116,8 +2173,11 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 #endif
 
     /* restore the original register state */
-    append_restore_xflags(dcontext, &ilist, absolute);
     append_restore_simd_reg(dcontext, &ilist, absolute);
+    /* Please note that append_restore_simd_reg may change the flags. Therefore, the
+     * order matters.
+     */
+    append_restore_xflags(dcontext, &ilist, absolute);
     append_restore_gpr(dcontext, &ilist, absolute);
     append_jmp_to_fcache_target(dcontext, &ilist, code, absolute, shared,
                                 &patch _IF_X86_64(&jmp86_store_addr)
@@ -2368,18 +2428,6 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *    SAVE_TO_UPCONTEXT %r15,r15_OFFSET
  *  endif
  *
- *  # append_save_simd_reg
- *  if preserve_xmm_caller_saved
- *    SAVE_TO_UPCONTEXT %xmm0,xmm_OFFSET+0*16
- *    SAVE_TO_UPCONTEXT %xmm1,xmm_OFFSET+1*16
- *    SAVE_TO_UPCONTEXT %xmm2,xmm_OFFSET+2*16
- *    SAVE_TO_UPCONTEXT %xmm3,xmm_OFFSET+3*16
- *    SAVE_TO_UPCONTEXT %xmm4,xmm_OFFSET+4*16
- *    SAVE_TO_UPCONTEXT %xmm5,xmm_OFFSET+5*16
- *    SAVE_TO_UPCONTEXT %xmm6,xmm_OFFSET+6*16  # 32-bit Linux
- *    SAVE_TO_UPCONTEXT %xmm7,xmm_OFFSET+7*16  # 32-bit Linux
- *  endif
- *
  *  # switch to clean dstack
  *  RESTORE_FROM_DCONTEXT dstack_OFFSET,%xsp
  *
@@ -2388,6 +2436,75 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *  pushf           # push eflags on stack
  *  pop     %xbx    # grab eflags value
  *  SAVE_TO_UPCONTEXT %xbx,xflags_OFFSET # save eflags value
+ *
+ *  # append_save_simd_reg
+ *  if preserve_xmm_caller_saved
+ *    if (ZMM_ENABLED())       # this is evaluated at *generation time*
+ *      if (!d_r_is_avx512_code_in_use())       # this is evaluated at *runtime*
+ *        SAVE_TO_UPCONTEXT %ymm0,simd_OFFSET+0*64
+ *        SAVE_TO_UPCONTEXT %ymm1,simd_OFFSET+1*64
+ *        SAVE_TO_UPCONTEXT %ymm2,simd_OFFSET+2*64
+ *        SAVE_TO_UPCONTEXT %ymm3,simd_OFFSET+3*64
+ *        SAVE_TO_UPCONTEXT %ymm4,simd_OFFSET+4*64
+ *        SAVE_TO_UPCONTEXT %ymm5,simd_OFFSET+5*64
+ *        SAVE_TO_UPCONTEXT %ymm6,simd_OFFSET+6*64
+ *        SAVE_TO_UPCONTEXT %ymm7,simd_OFFSET+7*64 # 32-bit Linux
+ *        ifdef X64
+ *          SAVE_TO_UPCONTEXT %ymm8,simd_OFFSET+8*64
+ *          SAVE_TO_UPCONTEXT %ymm9,simd_OFFSET+9*64
+ *          SAVE_TO_UPCONTEXT %ymm10,simd_OFFSET+10*64
+ *          SAVE_TO_UPCONTEXT %ymm11,simd_OFFSET+11*64
+ *          SAVE_TO_UPCONTEXT %ymm12,simd_OFFSET+12*64
+ *          SAVE_TO_UPCONTEXT %ymm13,simd_OFFSET+13*64
+ *          SAVE_TO_UPCONTEXT %ymm14,simd_OFFSET+14*64
+ *          SAVE_TO_UPCONTEXT %ymm15,simd_OFFSET+15*64
+ *        endif
+ *      else # d_r_is_avx512_code_in_use()
+ *        SAVE_TO_UPCONTEXT %zmm0,simd_OFFSET+0*64
+ *        SAVE_TO_UPCONTEXT %zmm1,simd_OFFSET+1*64
+ *        SAVE_TO_UPCONTEXT %zmm2,simd_OFFSET+2*64
+ *        SAVE_TO_UPCONTEXT %zmm3,simd_OFFSET+3*64
+ *        SAVE_TO_UPCONTEXT %zmm4,simd_OFFSET+4*64
+ *        SAVE_TO_UPCONTEXT %zmm5,simd_OFFSET+5*64
+ *        SAVE_TO_UPCONTEXT %zmm6,simd_OFFSET+6*64
+ *        SAVE_TO_UPCONTEXT %zmm7,simd_OFFSET+7*64
+ *        ifdef X64
+ *          SAVE_TO_UPCONTEXT %zmm8,simd_OFFSET+8*64
+ *          SAVE_TO_UPCONTEXT %zmm9,simd_OFFSET+9*64
+ *          SAVE_TO_UPCONTEXT %zmm10,simd_OFFSET+10*64
+ *          SAVE_TO_UPCONTEXT %zmm11,simd_OFFSET+11*64
+ *          SAVE_TO_UPCONTEXT %zmm12,simd_OFFSET+12*64
+ *          SAVE_TO_UPCONTEXT %zmm13,simd_OFFSET+13*64
+ *          SAVE_TO_UPCONTEXT %zmm14,simd_OFFSET+14*64
+ *          SAVE_TO_UPCONTEXT %zmm15,simd_OFFSET+15*64
+ *          SAVE_TO_UPCONTEXT %zmm16,simd_OFFSET+16*64
+ *          SAVE_TO_UPCONTEXT %zmm17,simd_OFFSET+17*64
+ *          SAVE_TO_UPCONTEXT %zmm18,simd_OFFSET+18*64
+ *          SAVE_TO_UPCONTEXT %zmm19,simd_OFFSET+19*64
+ *          SAVE_TO_UPCONTEXT %zmm20,simd_OFFSET+20*64
+ *          SAVE_TO_UPCONTEXT %zmm21,simd_OFFSET+21*64
+ *          SAVE_TO_UPCONTEXT %zmm22,simd_OFFSET+22*64
+ *          SAVE_TO_UPCONTEXT %zmm23,simd_OFFSET+23*64
+ *          SAVE_TO_UPCONTEXT %zmm24,simd_OFFSET+24*64
+ *          SAVE_TO_UPCONTEXT %zmm25,simd_OFFSET+25*64
+ *          SAVE_TO_UPCONTEXT %zmm26,simd_OFFSET+26*64
+ *          SAVE_TO_UPCONTEXT %zmm27,simd_OFFSET+27*64
+ *          SAVE_TO_UPCONTEXT %zmm28,simd_OFFSET+28*64
+ *          SAVE_TO_UPCONTEXT %zmm29,simd_OFFSET+29*64
+ *          SAVE_TO_UPCONTEXT %zmm30,simd_OFFSET+30*64
+ *          SAVE_TO_UPCONTEXT %zmm31,simd_OFFSET+31*64
+ *        endif
+ *        SAVE_TO_UPCONTEXT %k0,opmask_OFFSET+0*8
+ *        SAVE_TO_UPCONTEXT %k1,opmask_OFFSET+1*8
+ *        SAVE_TO_UPCONTEXT %k2,opmask_OFFSET+2*8
+ *        SAVE_TO_UPCONTEXT %k3,opmask_OFFSET+3*8
+ *        SAVE_TO_UPCONTEXT %k4,opmask_OFFSET+4*8
+ *        SAVE_TO_UPCONTEXT %k5,opmask_OFFSET+5*8
+ *        SAVE_TO_UPCONTEXT %k6,opmask_OFFSET+6*8
+ *        SAVE_TO_UPCONTEXT %k7,opmask_OFFSET+7*8
+ *      endif
+ *    endif
+ *  endif
  *
  *  # clear eflags now to avoid app's eflags messing up our ENTER_DR_HOOK
  *  # FIXME: this won't work at CPL0 if we ever run there!
@@ -2475,7 +2592,6 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
 
     instr_targets = append_prepare_fcache_return(dcontext, code, ilist, absolute, shared);
     append_save_gpr(dcontext, ilist, ibl_end, absolute, code, linkstub, coarse_info);
-    append_save_simd_reg(dcontext, ilist, absolute);
 
     /* Switch to a clean dstack as part of our scheme to avoid state kept
      * unprotected across cache executions.
@@ -2494,6 +2610,14 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
 #endif
 
     append_save_clear_xflags(dcontext, ilist, absolute);
+    /* Please note that append_save_simd_reg may change the flags. Therefore, the
+     * order matters.
+     */
+    append_save_simd_reg(dcontext, ilist, absolute);
+#ifdef X86
+    instr_targets = ZMM_ENABLED() || instr_targets;
+#endif
+
     instr_targets =
         append_call_enter_dr_hook(dcontext, ilist, ibl_end, absolute) || instr_targets;
 
