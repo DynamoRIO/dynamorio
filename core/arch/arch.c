@@ -86,7 +86,7 @@ static bool sysenter_hook_failed = false;
 #endif
 
 #ifdef X86
-bool d_r_avx512_code_in_use = false;
+bool *d_r_avx512_code_in_use = NULL;
 #endif
 
 /* static functions forward references */
@@ -676,6 +676,10 @@ d_r_arch_init(void)
     ASSERT(DR_REG_YMM16 == DR_REG_YMM15 + 1);
     ASSERT(DR_REG_ZMM16 == DR_REG_ZMM15 + 1);
 #endif
+    /* We rely on the dr_opmask_t register type to be able to store AVX512BW wide 64-bit
+     * masks. Also priv_mcontext_t.opmask slots are AVX512BW wide.
+     */
+    IF_X86(ASSERT(sizeof(dr_opmask_t) == OPMASK_AVX512BW_REG_SIZE));
 
     /* Verify that the structures used for a register spill area and to hold IBT
      * table addresses & masks for IBL code are laid out as expected. We expect
@@ -717,6 +721,15 @@ d_r_arch_init(void)
                IF_CLIENT_INTERFACE_ELSE(5 * sizeof(reg_t), 0));
 
     interp_init();
+
+#ifdef X86
+    /* We're allocating a reachable heap variable in order to be able to use a more
+     * compact rip-rel load in SIMD restore/save gencode.
+     */
+    d_r_avx512_code_in_use = heap_reachable_alloc(
+        GLOBAL_DCONTEXT, sizeof(*d_r_avx512_code_in_use) HEAPACCT(ACCT_OTHER));
+    *d_r_avx512_code_in_use = false;
+#endif
 
 #ifdef CHECK_RETURNS_SSE2
     if (proc_has_feature(FEATURE_SSE2)) {
@@ -899,6 +912,12 @@ void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
                     VMM_SPECIAL_MMAP | VMM_REACHABLE);
     }
 #endif
+
+#ifdef X86
+    heap_reachable_free(GLOBAL_DCONTEXT, d_r_avx512_code_in_use,
+                        sizeof(*d_r_avx512_code_in_use) HEAPACCT(ACCT_OTHER));
+#endif
+
     interp_exit();
     mangle_exit();
 

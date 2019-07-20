@@ -2561,6 +2561,12 @@ endif ()
     # XXX i#1312: This is untested on Windows.
     tobuild_ci(client.avx512lazy client-interface/avx512lazy.c "" "" "")
     set_target_properties(client.avx512lazy PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
+
+    if (UNIX)
+      # XXX i#1312: we do not yet support AVX-512 Windows context switching.
+      tobuild_ci(client.avx512ctx client-interface/avx512ctx.c "" "" "")
+      set_target_properties(client.avx512ctx PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
+    endif (UNIX)
   endif ()
 
   if (BUILD_SAMPLES)

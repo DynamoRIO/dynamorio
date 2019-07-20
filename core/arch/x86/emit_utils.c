@@ -1335,32 +1335,68 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 void
 append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    if (preserve_xmm_caller_saved()) {
-        /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
-         * Rather than try and optimize we save/restore on every cxt
-         * sw.  The xmm field is aligned, so we can use movdqa/movaps,
-         * though movdqu is stated to be as fast as movdqa when aligned:
-         * but if so, why have two versions?  Is it only loads and not stores
-         * for which that is true?  => PR 266305.
-         * It's not clear that movdqa is any faster (and its opcode is longer):
-         * movdqa and movaps are listed as the same latency and throughput in
-         * the AMD optimization guide.  Yet examples of fast memcpy online seem
-         * to use movdqa when sse2 is available.
-         * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
-         */
-        /* FIXME i#438: once have SandyBridge processor need to measure
-         * cost of vmovdqu and whether worth arranging 32-byte alignment
-         */
-        int i;
-        uint opcode = move_mm_reg_opcode(true /*align16*/, true /*align32*/);
-        ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < proc_num_simd_saved(); i++) {
+    /* No processor will support AVX-512 but no SSE/AVX. */
+    ASSERT(preserve_xmm_caller_saved() || !ZMM_ENABLED());
+    if (!preserve_xmm_caller_saved())
+        return;
+    /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
+     * Rather than try and optimize we save/restore on every cxt
+     * sw.  The xmm field is aligned, so we can use movdqa/movaps,
+     * though movdqu is stated to be as fast as movdqa when aligned:
+     * but if so, why have two versions?  Is it only loads and not stores
+     * for which that is true?  => PR 266305.
+     * It's not clear that movdqa is any faster (and its opcode is longer):
+     * movdqa and movaps are listed as the same latency and throughput in
+     * the AMD optimization guide.  Yet examples of fast memcpy online seem
+     * to use movdqa when sse2 is available.
+     * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
+     */
+    /* FIXME i#438: once have SandyBridge processor need to measure
+     * cost of vmovdqu and whether worth arranging 32-byte alignment
+     */
+    int i;
+    uint opcode = move_mm_reg_opcode(true /*align16*/, true /*align32*/);
+    ASSERT(proc_has_feature(FEATURE_SSE));
+    instr_t *post_restore = NULL;
+    instr_t *pre_avx512_restore = NULL;
+    if (ZMM_ENABLED()) {
+        post_restore = INSTR_CREATE_label(dcontext);
+        pre_avx512_restore = INSTR_CREATE_label(dcontext);
+        APP(ilist,
+            INSTR_CREATE_cmp(dcontext, OPND_CREATE_ABSMEM(d_r_avx512_code_in_use, OPSZ_1),
+                             OPND_CREATE_INT8(0)));
+        APP(ilist,
+            INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(pre_avx512_restore)));
+    }
+    for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
+        APP(ilist,
+            instr_create_1dst_1src(dcontext, opcode,
+                                   opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
+                                   OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
+                                                 SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE)));
+    }
+    if (ZMM_ENABLED()) {
+        APP(ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(post_restore)));
+        APP(ilist, pre_avx512_restore /*label*/);
+        uint opcode_avx512 = move_mm_avx512_reg_opcode(true /*align64*/);
+        for (i = 0; i < proc_num_simd_registers(); i++) {
             APP(ilist,
-                instr_create_1dst_1src(
-                    dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
-                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
+                instr_create_1dst_2src(
+                    dcontext, opcode_avx512,
+                    opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i),
+                    opnd_create_reg(DR_REG_K0),
+                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_ZMM,
                                   SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE)));
         }
+        for (i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
+            APP(ilist,
+                instr_create_1dst_1src(
+                    dcontext, proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,
+                    opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i),
+                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_OPMASK,
+                                  OPMASK_OFFSET + i * OPMASK_AVX512BW_REG_SIZE)));
+        }
+        APP(ilist, post_restore /*label*/);
     }
 }
 
@@ -1558,33 +1594,68 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
 void
 append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    if (preserve_xmm_caller_saved()) {
-        /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
-         * Rather than try and optimize we save/restore on every cxt
-         * sw.  The xmm field is aligned, so we can use movdqa/movaps,
-         * though movdqu is stated to be as fast as movdqa when aligned:
-         * but if so, why have two versions?  Is it only loads and not stores
-         * for which that is true?  => PR 266305.
-         * It's not clear that movdqa is any faster (and its opcode is longer):
-         * movdqa and movaps are listed as the same latency and throughput in
-         * the AMD optimization guide.  Yet examples of fast memcpy online seem
-         * to use movdqa when sse2 is available.
-         * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
-         */
-        /* FIXME i#438: once have SandyBridge processor need to measure
-         * cost of vmovdqu and whether worth arranging 32-byte alignment
-         */
-        int i;
-        uint opcode = move_mm_reg_opcode(true /*align16*/, true /*align32*/);
-        ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < proc_num_simd_saved(); i++) {
+    /* No processor will support AVX-512 but no SSE/AVX. */
+    ASSERT(preserve_xmm_caller_saved() || !ZMM_ENABLED());
+    if (!preserve_xmm_caller_saved())
+        return;
+    /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
+     * Rather than try and optimize we save/restore on every cxt
+     * sw.  The xmm field is aligned, so we can use movdqa/movaps,
+     * though movdqu is stated to be as fast as movdqa when aligned:
+     * but if so, why have two versions?  Is it only loads and not stores
+     * for which that is true?  => PR 266305.
+     * It's not clear that movdqa is any faster (and its opcode is longer):
+     * movdqa and movaps are listed as the same latency and throughput in
+     * the AMD optimization guide.  Yet examples of fast memcpy online seem
+     * to use movdqa when sse2 is available.
+     * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
+     */
+    /* FIXME i#438: once have SandyBridge processor need to measure
+     * cost of vmovdqu and whether worth arranging 32-byte alignment
+     */
+    int i;
+    uint opcode = move_mm_reg_opcode(true /*align16*/, true /*align32*/);
+    ASSERT(proc_has_feature(FEATURE_SSE));
+    instr_t *post_save = NULL;
+    instr_t *pre_avx512_save = NULL;
+    if (ZMM_ENABLED()) {
+        post_save = INSTR_CREATE_label(dcontext);
+        pre_avx512_save = INSTR_CREATE_label(dcontext);
+        APP(ilist,
+            INSTR_CREATE_cmp(dcontext, OPND_CREATE_ABSMEM(d_r_avx512_code_in_use, OPSZ_1),
+                             OPND_CREATE_INT8(0)));
+        APP(ilist,
+            INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(pre_avx512_save)));
+    }
+    for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
+        APP(ilist,
+            instr_create_1dst_1src(dcontext, opcode,
+                                   OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
+                                                 SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE),
+                                   opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
+    }
+    if (ZMM_ENABLED()) {
+        APP(ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(post_save)));
+        APP(ilist, pre_avx512_save /*label*/);
+        uint opcode_avx512 = move_mm_avx512_reg_opcode(true /*align64*/);
+        for (i = 0; i < proc_num_simd_registers(); i++) {
+            APP(ilist,
+                instr_create_1dst_2src(
+                    dcontext, opcode_avx512,
+                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_ZMM,
+                                  SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE),
+                    opnd_create_reg(DR_REG_K0),
+                    opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i)));
+        }
+        for (i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
             APP(ilist,
                 instr_create_1dst_1src(
-                    dcontext, opcode,
-                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
-                                  SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE),
-                    opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
+                    dcontext, proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,
+                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_OPMASK,
+                                  OPMASK_OFFSET + i * OPMASK_AVX512BW_REG_SIZE),
+                    opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i)));
         }
+        APP(ilist, post_save /*label*/);
     }
 }
 
