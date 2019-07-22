@@ -95,7 +95,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
     bool warmup_enabled = ((knobs.warmup_refs > 0) || (knobs.warmup_fraction > 0.0));
 
     if (!llc->init(knobs.LL_assoc, (int)knobs.line_size, (int)knobs.LL_size, NULL,
-                   new cache_stats_t(knobs.LL_miss_file, warmup_enabled), nullptr, false,
+                   new cache_stats_t(knobs.LL_miss_file, warmup_enabled, false), nullptr, false,
                    false, -1, nullptr)) {
         error_string = "Usage error: failed to initialize LL cache.  Ensure sizes and "
                        "associativity are powers of 2, that the total size is a multiple "
@@ -110,8 +110,8 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
     coherence_caches = new cache_t *[total_snooped_caches];
     if (knobs.model_coherence) {
         snoop_filter = new snoop_filter_t;
-        if(!snoop_filter->init((int)knobs.line_size, coherence_caches,
-                               total_snooped_caches)) {
+        if (!snoop_filter->init((int)knobs.line_size, coherence_caches,
+                                total_snooped_caches)) {
             ERRMSG("Usage error: failed to initialize snoop filter.\n");
             success = false;
             return;
@@ -134,16 +134,19 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
 
         if (!l1_icaches[i]->init(knobs.L1I_assoc, (int)knobs.line_size,
                                  (int)knobs.L1I_size, llc,
-                                 new cache_stats_t("", warmup_enabled), nullptr, false,
-                                 knobs.model_coherence, 2 * i, snoop_filter) ||
+                                 new cache_stats_t("", warmup_enabled,
+                                                   knobs.model_coherence),
+                                 nullptr, false, knobs.model_coherence, 2 * i,
+                                 snoop_filter) ||
             !l1_dcaches[i]->init(knobs.L1D_assoc, (int)knobs.line_size,
                                  (int)knobs.L1D_size, llc,
-                                 new cache_stats_t("", warmup_enabled),
+                                 new cache_stats_t("", warmup_enabled,
+                                                   knobs.model_coherence),
                                  knobs.data_prefetcher == PREFETCH_POLICY_NEXTLINE
                                      ? new prefetcher_t((int)knobs.line_size)
                                      : nullptr,
                                  false, knobs.model_coherence,
-                                 (2*i)+1, snoop_filter)) {
+                                 (2 * i) + 1, snoop_filter)) {
             error_string = "Usage error: failed to initialize L1 caches.  Ensure sizes "
                            "and associativity are powers of 2 "
                            "and that the total sizes are multiples of the line size.";
@@ -297,7 +300,8 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
 
         if (!cache->init((int)cache_config.assoc, (int)knobs.line_size,
                          (int)cache_config.size, parent,
-                         new cache_stats_t(cache_config.miss_file, warmup_enabled),
+                         new cache_stats_t(cache_config.miss_file, warmup_enabled,
+                                           is_coherent),
                          cache_config.prefetcher == PREFETCH_POLICY_NEXTLINE
                              ? new prefetcher_t((int)knobs.line_size)
                              : nullptr,

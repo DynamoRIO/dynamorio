@@ -52,7 +52,8 @@ enum invalidation_type_t {
 class caching_device_stats_t {
 public:
     explicit caching_device_stats_t(const std::string &miss_file,
-                                    bool warmup_enabled = false);
+                                    bool warmup_enabled = false,
+                                    bool is_coherent = false);
     virtual ~caching_device_stats_t();
 
     // Called on each access.
@@ -110,6 +111,9 @@ protected:
     int_least64_t num_child_hits_at_reset;
     // Enabled if options warmup_refs > 0 || warmup_fraction > 0
     bool warmup_enabled;
+
+    // Print out write invalidatiosn if cache is coherent.
+    bool is_coherent;
 
     // We provide a feature of dumping misses to a file.
     bool dump_misses;

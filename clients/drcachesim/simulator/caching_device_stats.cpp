@@ -36,7 +36,7 @@
 #include "caching_device_stats.h"
 
 caching_device_stats_t::caching_device_stats_t(const std::string &miss_file,
-                                               bool warmup_enabled)
+                                               bool warmup_enabled, bool is_coherent)
     : success(true)
     , num_hits(0)
     , num_misses(0)
@@ -47,6 +47,7 @@ caching_device_stats_t::caching_device_stats_t(const std::string &miss_file,
     , num_misses_at_reset(0)
     , num_child_hits_at_reset(0)
     , warmup_enabled(warmup_enabled)
+    , is_coherent(is_coherent)
     , file(nullptr)
 {
     if (miss_file.empty()) {
@@ -136,12 +137,18 @@ caching_device_stats_t::print_counts(std::string prefix)
               << std::right << num_hits << std::endl;
     std::cerr << prefix << std::setw(18) << std::left << "Misses:" << std::setw(20)
               << std::right << num_misses << std::endl;
-    std::cerr << prefix << std::setw(21) << std::left
-              << "Parent invalidations:" << std::setw(17) << std::right
-              << num_inclusive_invalidates << std::endl;
-    std::cerr << prefix << std::setw(20) << std::left
-              << "Write invalidations:" << std::setw(18) << std::right
-              << num_coherence_invalidates << std::endl;
+    if (is_coherent) {
+        std::cerr << prefix << std::setw(21) << std::left
+                  << "Parent invalidations:" << std::setw(17) << std::right
+                  << num_inclusive_invalidates << std::endl;
+        std::cerr << prefix << std::setw(20) << std::left
+                  << "Write invalidations:" << std::setw(18) << std::right
+                  << num_coherence_invalidates << std::endl;
+    } else {
+        std::cerr << prefix << std::setw(18) << std::left
+                  << "Invalidations:" << std::setw(20) << std::right
+                  << num_inclusive_invalidates << std::endl;
+    }
 }
 
 void
