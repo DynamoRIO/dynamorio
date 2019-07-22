@@ -339,8 +339,7 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
             other_caches[cache_name] = cache;
         }
     }
-    if (knobs.model_coherence &&
-        !snoop_filter->init(coherence_caches, snoop_id)) {
+    if (knobs.model_coherence && !snoop_filter->init(coherence_caches, snoop_id)) {
         ERRMSG("Usage error: failed to initialize snoop filter.\n");
         success = false;
         return;
