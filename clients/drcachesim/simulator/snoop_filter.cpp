@@ -9,9 +9,8 @@ snoop_filter_t::snoop_filter_t(void)
 }
 
 bool
-snoop_filter_t::init(int block_size_, cache_t **caches_, int num_coherent_caches_)
+snoop_filter_t::init(cache_t **caches_, int num_coherent_caches_)
 {
-    block_size_bits = compute_log2(block_size);
     caches = caches_;
     num_coherent_caches = num_coherent_caches_;
     num_writes = 0;
@@ -19,12 +18,6 @@ snoop_filter_t::init(int block_size_, cache_t **caches_, int num_coherent_caches
     num_invalidates = 0;
 
     return true;
-}
-
-void
-snoop_filter_t::init_blocks(void)
-{
-    return;
 }
 
 /*  This function should be called for all misses in snooped caches as well as

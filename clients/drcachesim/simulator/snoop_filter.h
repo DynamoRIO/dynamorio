@@ -13,13 +13,11 @@ typedef struct _coherence_table_entry_t {
     bool dirty;
 } coherence_table_entry_t;
 
-class snoop_filter_t : public caching_device_t {
+class snoop_filter_t {
 public:
     snoop_filter_t(void);
     virtual bool
-    init(int block_size_, cache_t **caches_, int num_coherent_caches_);
-    virtual void
-    init_blocks(void);
+    init(cache_t **caches_, int num_coherent_caches_);
     virtual void
     snoop(addr_t tag_in, int id_in, bool is_write);
     virtual void
