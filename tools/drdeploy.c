@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -707,7 +707,7 @@ write_pid_to_file(const char *pidfile, process_id_t pid)
     } else {
         char pidbuf[16];
         ssize_t written;
-        _snprintf(pidbuf, BUFFER_SIZE_ELEMENTS(pidbuf), "%d\n", pid);
+        _snprintf(pidbuf, BUFFER_SIZE_ELEMENTS(pidbuf), PIDFMT "\n", pid);
         NULL_TERMINATE_BUFFER(pidbuf);
         written = fwrite(pidbuf, 1, strlen(pidbuf), f);
         assert(written == strlen(pidbuf));
@@ -1550,7 +1550,7 @@ done_with_options:
         else if (nudge_pid != 0) {
             res = dr_nudge_pid(nudge_pid, nudge_id, nudge_arg, nudge_timeout);
             if (res == DR_NUDGE_PID_NOT_INJECTED)
-                printf("process %d is not running under DR\n", nudge_pid);
+                printf("process " PIDFMT " is not running under DR\n", nudge_pid);
             if (res != DR_SUCCESS && res != DR_NUDGE_TIMEOUT) {
                 count = 0;
             }
@@ -1648,8 +1648,8 @@ done_with_options:
 #    endif /* UNIX */
     {
         errcode = dr_inject_process_create(app_name, app_argv, &inject_data);
-        info("created child with pid %d for %s", dr_inject_get_process_id(inject_data),
-             app_name);
+        info("created child with pid " PIDFMT " for %s",
+             dr_inject_get_process_id(inject_data), app_name);
     }
 #    ifdef UNIX
     if (limit != 0 && kill_group) {

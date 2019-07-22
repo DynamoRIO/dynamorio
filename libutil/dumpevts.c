@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -85,7 +85,7 @@ main(int argc, char **argv)
 
     if (argc > 1) {
         if (0 == strcmp(argv[1], "-clear")) {
-            DWORD res = clear_eventlog();
+            res = clear_eventlog();
             if (res != ERROR_SUCCESS)
                 fprintf(stderr, "Error %d clearing Event Log!\n", res);
             else

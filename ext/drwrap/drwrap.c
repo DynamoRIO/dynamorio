@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -701,10 +701,10 @@ drwrap_get_arg(void *wrapcxt_opaque, int arg)
     if (addr == NULL)
         return NULL;
     else if (TEST(DRWRAP_SAFE_READ_ARGS, global_flags)) {
-        void *arg;
-        if (!fast_safe_read(addr, sizeof(arg), &arg))
+        void *value;
+        if (!fast_safe_read(addr, sizeof(value), &value))
             return NULL;
-        return arg;
+        return value;
     } else
         return (void *)*addr;
 }
@@ -2051,7 +2051,7 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
         for (i = 0; i < HASHTABLE_SIZE(wrap_table.table_bits); i++) {
             hash_entry_t *he, *next_he;
             for (he = wrap_table.table[i]; he != NULL; he = next_he) {
-                wrap_entry_t *prev = NULL, *next;
+                wrap_entry_t *prev = NULL;
                 next_he = he->next; /* allow removal */
                 for (wrap = (wrap_entry_t *)he->payload; wrap != NULL; wrap = next) {
                     next = wrap->next;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -206,7 +206,7 @@ main(int argc, char *argv[])
             arg_offs += 1;
             if (argc - (arg_offs + 1) < 1)
                 return usage(argv[0]);
-            len = sscanf(argv[arg_offs + 1], "%08x", &addr);
+            len = sscanf(argv[arg_offs + 1], "%p", &addr);
             if (len != 1 || addr == NULL)
                 return usage(argv[0]);
             map_file(argv[arg_offs], addr, 0 /* mapped */);
@@ -216,7 +216,7 @@ main(int argc, char *argv[])
             arg_offs += 1;
             if (argc - (arg_offs) < 1)
                 return usage(argv[0]);
-            len = sscanf(argv[arg_offs], "%08x", &force_base);
+            len = sscanf(argv[arg_offs], "%p", &force_base);
             if (len != 1 || force_base == NULL)
                 return usage(argv[0]);
             arg_offs += 1;
@@ -225,7 +225,7 @@ main(int argc, char *argv[])
             arg_offs += 1;
             if (argc - (arg_offs) < 1)
                 return usage(argv[0]);
-            len = sscanf(argv[arg_offs], "%08x", &preferred_base);
+            len = sscanf(argv[arg_offs], "%p", &preferred_base);
             if (len != 1 || preferred_base == NULL)
                 return usage(argv[0]);
             arg_offs += 1;
@@ -288,7 +288,7 @@ main(int argc, char *argv[])
             base = force_base;
             /* to ensure we fill all cavities we loop through */
             while (base > (void *)0x10000) {
-                base = (void *)((int)base - 0x10000);
+                base = (void *)((intptr_t)base - 0x10000);
                 VirtualAllocEx(GetCurrentProcess(), base, 0x1000, MEM_RESERVE,
                                PAGE_NOACCESS);
             }

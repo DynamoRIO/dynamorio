@@ -76,6 +76,12 @@
 #    include "../../core/win32/os_public.h"
 #    define NTSTATUS DWORD
 #    define NT_SUCCESS(status) (status >= 0)
+/* Ensure we get 0x and lower-case when not using DR's printf.  This is a tradeoff:
+ * we get consistent style for golden output matching, but we have reduced error
+ * detection from format string type checks by the compiler.
+ */
+#    undef PFX
+#    define PFX "0x" PFMT
 #endif
 
 #if defined(AARCH64) && SIGSTKSZ < 16384

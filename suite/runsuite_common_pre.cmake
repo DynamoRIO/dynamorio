@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -482,21 +482,25 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
       set(ENV{CXX} "cl")
       # Convert env vars to run proper compiler.
       # Note that this is fragile and won't work with non-standard
-      # directory layouts: we assume standard VS2005 or SDK.
-      # FIXME: would be nice to have case-insensitive regex flag!
+      # directory layouts: we assume standard VS or SDK.
+      # XXX: would be nice to have case-insensitive regex flag!
       # For now hardcoding VC, Bin, amd64
       if (is64)
         set(ENV{ASM} "ml64")
-        if (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
+        if (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64" AND
+            NOT "$ENV{LIB}" MATCHES "[Xx]64")
           # Note that we can't set ENV{PATH} as the output var of the replace:
           # it has to be its own set().
           #
+          # VS2017 has bin/HostX{86,64}/x{86,64}/
+          string(REGEX REPLACE "((^|;)[^;]*)HostX86([/\\\\])x86" "\\1HostX64\\3x64"
+            newpath "$ENV{PATH}")
           # i#1421: VS2013 needs base VC/bin on the path (for cross-compiler
           # used by cmake) so we duplicate and put amd64 first.  Older VS needs
           # Common7/IDE instead which should already be elsewhere on path.
           string(REGEX REPLACE "((^|;)[^;]*)VC([/\\\\])([Bb][Ii][Nn])"
             "\\1VC\\3\\4\\3amd64;\\1VC\\3\\4"
-            newpath "$ENV{PATH}")
+            newpath "${newpath}")
           # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64"
           string(REGEX REPLACE "(v[^/\\\\]*)([/\\\\])([Bb][Ii][Nn])" "\\1\\2\\3\\2x64"
             newpath "${newpath}")
@@ -527,10 +531,14 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         endif (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
       else (is64)
         set(ENV{ASM} "ml")
-        if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
+        if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64" OR
+            "$ENV{LIB}" MATCHES "[Xx]64")
+          # VS2017 has bin/HostX{86,64}/x{86,64}/
+          string(REGEX REPLACE "((^|;)[^;]*)HostX64([/\\\\])x64" "\\1HostX86\\3x86"
+            newpath "$ENV{PATH}")
           # Remove the duplicate we added (see i#1421 comment above).
           string(REGEX REPLACE "((^|;)[^;]*)VC[/\\\\][Bb][Ii][Nn][/\\\\][Aa][Mm][Dd]64"
-            "" newpath "$ENV{PATH}")
+            "" newpath "{newpath}")
           if (arg_verbose)
             message("Env setup: setting PATH to ${newpath}")
           endif ()

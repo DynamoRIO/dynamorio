@@ -211,7 +211,7 @@ const options_t default_options = {
 /* Holds a copy of the last read option string from the registry, NOT a
  * canonical option string.
  */
-char option_string[MAX_OPTIONS_STRING] = {
+char d_r_option_string[MAX_OPTIONS_STRING] = {
     0,
 };
 #    define ASSERT_OWN_OPTIONS_LOCK(b, l) ASSERT_OWN_WRITE_LOCK(b, l)
@@ -742,7 +742,7 @@ static void
 PRINT_STRING_uint_addr(char *optionbuff, const void *val_ptr, const char *option)
 {
     ptr_uint_t value = *(const ptr_uint_t *)val_ptr;
-    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s " PFX " ", option, value);
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s " PIFX " ", option, value);
 }
 static void
 PRINT_STRING_pathstring_t(char *optionbuff, const void *val_ptr, const char *option)
@@ -2395,10 +2395,10 @@ options_init()
     ASSERT(sizeof(dynamo_options) == sizeof(options_t));
     /* get dynamo options */
     adjust_defaults_for_page_size(&dynamo_options);
-    retval = d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_OPTIONS), option_string,
-                               sizeof(option_string));
+    retval = d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_OPTIONS), d_r_option_string,
+                               sizeof(d_r_option_string));
     if (IS_GET_PARAMETER_SUCCESS(retval))
-        ret = set_dynamo_options(&dynamo_options, option_string);
+        ret = set_dynamo_options(&dynamo_options, d_r_option_string);
 #    if defined(STATIC_LIBRARY) && defined(CLIENT_INTERFACE)
     /* For dynamorio_static, we always enable code_api as it's a pain to set
      * DR runtime options -- unless otherwise requested.
@@ -2481,7 +2481,7 @@ synchronize_dynamic_options()
         return 0;
     }
 
-    if (strcmp(option_string, new_option_string) == 0) {
+    if (strcmp(d_r_option_string, new_option_string) == 0) {
         STATS_INC(option_synchronizations_nop);
         d_r_write_unlock(&options_lock);
         return 0;
@@ -2492,9 +2492,10 @@ synchronize_dynamic_options()
     set_dynamo_options(&temp_options, new_option_string);
     updated = update_dynamic_options(&dynamo_options, &temp_options);
     compatibility_fixup = check_dynamic_option_compatibility();
-    /* option_string holds a copy of the last read registry value */
-    strncpy(option_string, new_option_string, BUFFER_SIZE_ELEMENTS(option_string));
-    NULL_TERMINATE_BUFFER(option_string);
+    /* d_r_option_string holds a copy of the last read registry value */
+    strncpy(d_r_option_string, new_option_string,
+            BUFFER_SIZE_ELEMENTS(d_r_option_string));
+    NULL_TERMINATE_BUFFER(d_r_option_string);
     SELF_PROTECT_OPTIONS();
 
     LOG(GLOBAL, LOG_ALL, 2, "synchronize_dynamic_options: %s, updated = %d\n",

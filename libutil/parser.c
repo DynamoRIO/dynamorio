@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2006 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -94,7 +95,7 @@ get_message_block_size(char *start, WCHAR *end_delimiter_w, SIZE_T *size)
         return NULL;
     } else {
         DO_DEBUG(DL_VERB,
-                 printf("Block size %d for %s:\n", endptr - start, end_delimiter););
+                 printf("Block size %zd for %s:\n", endptr - start, end_delimiter););
         *size = endptr - start;
         return endptr + strlen(end_delimiter);
     }
@@ -122,7 +123,7 @@ parse_line_sep(char *start, char sep, BOOL *done, WCHAR *param, WCHAR *value,
 
     curtok = next_token_sep(start, &toklen, sep);
 
-    DO_DEBUG(DL_FINEST, printf("curtok (tl=%d):\n%s", toklen, curtok););
+    DO_DEBUG(DL_FINEST, printf("curtok (tl=%zu):\n%s", toklen, curtok););
 
     if (toklen == 0 && curtok[0] == '\0') {
         *done = TRUE;
@@ -147,7 +148,7 @@ parse_line_sep(char *start, char sep, BOOL *done, WCHAR *param, WCHAR *value,
             goto parse_line_out;
         }
 
-        DO_DEBUG(DL_FINEST, printf("vt(%d): %s\n", toklen, curtok););
+        DO_DEBUG(DL_FINEST, printf("vt(%zu): %s\n", toklen, curtok););
 
         /* all values that start with \\ have DR_HOME prepended */
         if ('\\' == curtok[0])
@@ -162,7 +163,7 @@ parse_line_sep(char *start, char sep, BOOL *done, WCHAR *param, WCHAR *value,
 
 parse_line_out:
 
-    DO_DEBUG(DL_FINEST, printf("parsed line: %S(%d)=%S\n", param, toklen, value););
+    DO_DEBUG(DL_FINEST, printf("parsed line: %S(%zu)=%S\n", param, toklen, value););
 
     return curtok + toklen;
 }
@@ -188,7 +189,7 @@ msg_append(char *msg_buffer, SIZE_T maxchars, WCHAR *data, SIZE_T *accumlen)
     if (msg_buffer != NULL && strlen(msg_buffer) + wcslen(data) < maxchars) {
         SIZE_T oldsz = strlen(msg_buffer);
         DO_DEBUG(DL_FINEST,
-                 printf("msg_buffer: %s, os=%d, data=%S\n", msg_buffer, oldsz, data););
+                 printf("msg_buffer: %s, os=%zu, data=%S\n", msg_buffer, oldsz, data););
         _snprintf(msg_buffer + oldsz, maxchars - oldsz, "%S", data);
         msg_buffer[oldsz + wcslen(data)] = '\0';
         DO_DEBUG(DL_FINEST, printf("msg_buffer: %s\n", msg_buffer););

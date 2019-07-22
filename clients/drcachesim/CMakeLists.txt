@@ -28,7 +28,8 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required(VERSION 3.2)
+# 3.7 is DR's min as well, for VS2017, GREATER_EQUAL, etc.
+cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
@@ -231,13 +232,7 @@ if (NOT AARCH64 AND NOT APPLE)
     tools/opcode_mix_launcher.cpp
     )
   # We hit dup symbol errors on Windows so we need libc earlier before DR:
-  if (WIN32)
-    if (DEBUG)
-      set(static_libc libcmtd)
-    else ()
-      set(static_libc libcmt)
-    endif ()
-  endif ()
+  _DR_get_static_libc_list(static_libc)
   target_link_libraries(opcode_mix_launcher drmemtrace_analyzer drmemtrace_opcode_mix
     drmemtrace_raw2trace drcovlib_static drfrontendlib ${static_libc})
   use_DynamoRIO_extension(opcode_mix_launcher droption)
@@ -368,6 +363,7 @@ endmacro ()
 add_win32_flags(drcachesim)
 add_win32_flags(drraw2trace)
 add_win32_flags(histogram_launcher)
+add_win32_flags(drmemtrace_raw2trace)
 if (NOT AARCH64 AND NOT APPLE)
   add_win32_flags(opcode_mix_launcher)
 endif ()
@@ -506,11 +502,7 @@ if (BUILD_TESTS)
     if (WIN32)
       # burst_replace is unusual in cramming the tracer and post-processor into the
       # same binary and we need some massaging to avoid duplicate symbol link errors.
-      if (DEBUG)
-        target_link_libraries(tool.drcacheoff.burst_replace libcmtd)
-      else ()
-        target_link_libraries(tool.drcacheoff.burst_replace libcmt)
-      endif ()
+      target_link_libraries(tool.drcacheoff.burst_replace ${static_libc})
     endif ()
     add_win32_flags(tool.drcacheoff.burst_replace)
     use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_replace)

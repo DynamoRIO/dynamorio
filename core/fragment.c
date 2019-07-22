@@ -2446,12 +2446,12 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
         }
         if (INTERNAL_OPTION(thread_stats_interval) && INTERNAL_OPTION(thread_stats)) {
             /* FIXME: why do we need a new dcontext? */
-            dcontext_t *dcontext = get_thread_private_dcontext();
-            if (THREAD_STATS_ON(dcontext) &&
-                THREAD_STAT(dcontext, num_fragments) %
+            dcontext_t *cur_dcontext = get_thread_private_dcontext();
+            if (THREAD_STATS_ON(cur_dcontext) &&
+                THREAD_STAT(cur_dcontext, num_fragments) %
                         INTERNAL_OPTION(thread_stats_interval) ==
                     0) {
-                dump_thread_stats(dcontext, false);
+                dump_thread_stats(cur_dcontext, false);
             }
         }
     });

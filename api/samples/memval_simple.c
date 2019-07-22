@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -140,7 +140,7 @@ trace_fault(void *drcontext, void *buf_base, size_t size)
          * repeated printing that dominates performance, as the printing does here. Note
          * that a binary dump is *much* faster than fprintf still.
          */
-        fprintf(data->logf, "" PFX ": %s %2d %s\n", (ptr_uint_t)mem_ref->addr,
+        fprintf(data->logf, "" PFX ": %s %2d %s\n", mem_ref->addr,
                 decode_opcode_name(mem_ref->type), mem_ref->size,
                 write_hexdump(hex_buf, write_base, mem_ref));
         write_base += mem_ref->size;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -97,7 +97,7 @@ typedef struct _list_t {
 
 /* We'll use one global hash table */
 typedef list_t **hash_table_t;
-hash_table_t table = NULL;
+hash_table_t global_table = NULL;
 
 static elem_t *
 new_elem(app_pc addr, cbr_state_t state)
@@ -241,7 +241,7 @@ at_taken(app_pc src, app_pc targ)
     /*
      * Record the fact that we've seen the taken case.
      */
-    elem_t *elem = lookup(table, src);
+    elem_t *elem = lookup(global_table, src);
     ASSERT(elem != NULL);
     elem->state |= CBR_TAKEN;
 
@@ -270,7 +270,7 @@ at_not_taken(app_pc src, app_pc fall)
     /*
      * Record the fact that we've seen the not_taken case.
      */
-    elem_t *elem = lookup(table, src);
+    elem_t *elem = lookup(global_table, src);
     ASSERT(elem != NULL);
     elem->state |= CBR_NOT_TAKEN;
 
@@ -310,11 +310,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
      * know what instrumentation to insert, if any.
      */
     src = instr_get_app_pc(instr);
-    elem = lookup(table, src);
+    elem = lookup(global_table, src);
 
     if (elem == NULL) {
         state = CBR_NEITHER;
-        insert(table, src, CBR_NEITHER);
+        insert(global_table, src, CBR_NEITHER);
     } else {
         state = elem->state;
     }
@@ -399,9 +399,9 @@ dr_exit(void)
      */
     int i;
     for (i = 0; i < HASH_TABLE_SIZE; i++) {
-        if (table[i] != NULL) {
+        if (global_table[i] != NULL) {
             elem_t *iter;
-            for (iter = table[i]->head; iter != NULL; iter = iter->next) {
+            for (iter = global_table[i]->head; iter != NULL; iter = iter->next) {
                 cbr_state_t state = iter->state;
 
                 if (state == CBR_TAKEN) {
@@ -417,7 +417,7 @@ dr_exit(void)
     }
 #endif
 
-    delete_table(table);
+    delete_table(global_table);
     drmgr_exit();
 }
 
@@ -429,7 +429,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!drmgr_init())
         DR_ASSERT_MSG(false, "drmgr_init failed!");
 
-    table = new_table();
+    global_table = new_table();
     if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
         DR_ASSERT_MSG(false, "fail to register event_app_instruction!");
     dr_register_exit_event(dr_exit);
