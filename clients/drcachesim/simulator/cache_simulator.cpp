@@ -150,12 +150,11 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
         all_caches[cache_name] = l1_dcaches[i];
     }
 
-    if (knobs.model_coherence) {
-        if (!snoop_filter->init(coherent_caches, total_snooped_caches)) {
-            ERRMSG("Usage error: failed to initialize snoop filter.\n");
-            success = false;
-            return;
-        }
+    if (knobs.model_coherence &&
+        !snoop_filter->init(coherent_caches, total_snooped_caches)) {
+        ERRMSG("Usage error: failed to initialize snoop filter.\n");
+        success = false;
+        return;
     }
 }
 
