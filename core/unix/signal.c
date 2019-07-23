@@ -537,16 +537,7 @@ signal_thread_init(dcontext_t *dcontext, void *os_data)
         signal_frame_extra_size(true)
         /* sigpending_t has xstate inside it already */
         IF_LINUX(IF_X86(-sizeof(kernel_xstate_t)));
-/* Above does not guarantee alignment, it only guarantees sufficient space including
- * aligmment of the extended state. The following is needed in order to guarantee
- * alignment of our pending unit's size, which is used as the block size in the
- * special allocator.
- */
-#ifdef X86
-    pend_unit_size =
-        ALIGN_FORWARD(pend_unit_size, YMM_ENABLED() ? AVX_ALIGNMENT : FPSTATE_ALIGNMENT);
-    IF_LINUX(ASSERT(!YMM_ENABLED() || ALIGNED(pend_unit_size, AVX_ALIGNMENT)));
-#endif
+    IF_LINUX(IF_X86(ASSERT(!YMM_ENABLED() || ALIGNED(pend_unit_size, AVX_ALIGNMENT))));
 
     /* all fields want to be initialized to 0 */
     memset(info, 0, sizeof(thread_sig_info_t));
@@ -4406,10 +4397,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                     SYSLOG_INTERNAL_WARNING_ONCE("dropping 3rd pending alarm signal");
                 }
             }
-            /* special heap alloc is based on pend_unit_size blocks, as computed in
-             * signal_thread_init(). Alignment is only guaranteed based on that
-             * size.
-             */
+            /* special heap alloc always uses sizeof(sigpending_t) blocks */
             pend = special_heap_alloc(info->sigheap);
             ASSERT(sig > 0 && sig <= MAX_SIGNUM);
             info->num_pending++;

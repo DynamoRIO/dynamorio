@@ -352,9 +352,6 @@ special_heap_init_aligned(uint block_size, uint alignment, bool use_lock, bool e
                           bool persistent, size_t initial_unit_size);
 void
 special_heap_exit(void *special);
-/* special_heap_alloc makes no alignment guarantees beyond the block size given
- * at special_heap_init.
- */
 void *
 special_heap_alloc(void *special);
 void *
