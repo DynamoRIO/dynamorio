@@ -129,6 +129,7 @@ protected:
     int block_size;
     int num_blocks;
     bool coherent_cache;
+    // This is an index into snoop filter's array of caches.
     int id;
 
     // Current valid blocks in the cache

@@ -78,7 +78,8 @@ protected:
     cache_t **l1_icaches;
     cache_t **l1_dcaches;
     // This is an array of coherent caches for the snoop filter.
-    cache_t **coherence_caches;
+    // Cache IDs index into this array.
+    cache_t **coherent_caches;
 
     // The following unordered maps map a cache's name to a pointer to it.
     std::unordered_map<std::string, cache_t *> llcaches;     // LLC(s)
@@ -88,7 +89,7 @@ protected:
     std::unordered_map<std::string, cache_t *> non_coherent_caches;
 
     // Snoop filter tracks ownership of cache lines across private caches.
-    snoop_filter_t *snoop_filter;
+    snoop_filter_t *snoop_filter = nullptr;
 
 private:
     bool is_warmed_up;

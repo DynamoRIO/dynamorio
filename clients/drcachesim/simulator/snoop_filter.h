@@ -17,7 +17,7 @@ class snoop_filter_t {
 public:
     snoop_filter_t(void);
     virtual bool
-    init(cache_t **caches_, int num_coherent_caches_);
+    init(cache_t **caches_, int num_snooped_caches_);
     virtual void
     snoop(addr_t tag_in, int id_in, bool is_write);
     virtual void
@@ -29,7 +29,7 @@ protected:
     // XXX: This initial coherence implementation uses a perfect snoop filter.
     std::unordered_map<addr_t, coherence_table_entry_t> coherence_table;
     cache_t **caches;
-    int num_coherent_caches;
+    int num_snooped_caches;
     int_least64_t num_writes;
     int_least64_t num_writebacks;
     int_least64_t num_invalidates;

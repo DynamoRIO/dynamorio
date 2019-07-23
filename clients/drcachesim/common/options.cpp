@@ -162,7 +162,7 @@ droption_t<bytesize_t> op_L0D_size(
 
 droption_t<bool> op_coherence(
     DROPTION_SCOPE_FRONTEND, "coherence", false, "Model coherence for private caches",
-    "Writes to cache lines will invalidate other private caches that hold that line");
+    "Writes to cache lines will invalidate other private caches that hold that line.");
 
 droption_t<bool> op_use_physical(
     DROPTION_SCOPE_CLIENT, "use_physical", false, "Use physical addresses if possible",

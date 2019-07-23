@@ -95,8 +95,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
     bool warmup_enabled = ((knobs.warmup_refs > 0) || (knobs.warmup_fraction > 0.0));
 
     if (!llc->init(knobs.LL_assoc, (int)knobs.line_size, (int)knobs.LL_size, NULL,
-                   new cache_stats_t(knobs.LL_miss_file, warmup_enabled, false), nullptr,
-                   false, false, -1, nullptr)) {
+                   new cache_stats_t(knobs.LL_miss_file, warmup_enabled))) {
         error_string = "Usage error: failed to initialize LL cache.  Ensure sizes and "
                        "associativity are powers of 2, that the total size is a multiple "
                        "of the line size, and that any miss file path is writable.";
@@ -107,14 +106,9 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
     l1_icaches = new cache_t *[knobs.num_cores];
     l1_dcaches = new cache_t *[knobs.num_cores];
     int total_snooped_caches = 2 * knobs.num_cores;
-    coherence_caches = new cache_t *[total_snooped_caches];
+    coherent_caches = new cache_t *[total_snooped_caches];
     if (knobs.model_coherence) {
         snoop_filter = new snoop_filter_t;
-        if (!snoop_filter->init(coherence_caches, total_snooped_caches)) {
-            ERRMSG("Usage error: failed to initialize snoop filter.\n");
-            success = false;
-            return;
-        }
     }
 
     for (unsigned int i = 0; i < knobs.num_cores; i++) {
@@ -123,25 +117,26 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
             success = false;
             return;
         }
-        coherence_caches[2 * i] = l1_icaches[i];
+        coherent_caches[2 * i] = l1_icaches[i];
         l1_dcaches[i] = create_cache(knobs.replace_policy);
         if (l1_dcaches[i] == NULL) {
             success = false;
             return;
         }
-        coherence_caches[(2 * i) + 1] = l1_dcaches[i];
+        coherent_caches[(2 * i) + 1] = l1_dcaches[i];
 
         if (!l1_icaches[i]->init(
                 knobs.L1I_assoc, (int)knobs.line_size, (int)knobs.L1I_size, llc,
-                new cache_stats_t("", warmup_enabled, knobs.model_coherence), nullptr,
-                false, knobs.model_coherence, 2 * i, snoop_filter) ||
+                new cache_stats_t("", warmup_enabled, knobs.model_coherence),
+                nullptr /*prefetcher*/, false /*inclusive*/, knobs.model_coherence, 2 * i,
+                snoop_filter) ||
             !l1_dcaches[i]->init(
                 knobs.L1D_assoc, (int)knobs.line_size, (int)knobs.L1D_size, llc,
                 new cache_stats_t("", warmup_enabled, knobs.model_coherence),
                 knobs.data_prefetcher == PREFETCH_POLICY_NEXTLINE
                     ? new prefetcher_t((int)knobs.line_size)
                     : nullptr,
-                false, knobs.model_coherence, (2 * i) + 1, snoop_filter)) {
+                false /*inclusive*/, knobs.model_coherence, (2 * i) + 1, snoop_filter)) {
             error_string = "Usage error: failed to initialize L1 caches.  Ensure sizes "
                            "and associativity are powers of 2 "
                            "and that the total sizes are multiples of the line size.";
@@ -153,6 +148,14 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
         all_caches[cache_name] = l1_icaches[i];
         cache_name = "L1_D_Cache_" + std::to_string(i);
         all_caches[cache_name] = l1_dcaches[i];
+    }
+
+    if (knobs.model_coherence) {
+        if (!snoop_filter->init(coherent_caches, total_snooped_caches)) {
+            ERRMSG("Usage error: failed to initialize snoop filter.\n");
+            success = false;
+            return;
+        }
     }
 }
 
@@ -187,9 +190,9 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
     l1_dcaches = new cache_t *[knobs.num_cores];
 
     // Create all the caches in the hierarchy.
-    for (auto &cache_params_it : cache_params) {
+    for (const auto &cache_params_it : cache_params) {
         std::string cache_name = cache_params_it.first;
-        auto &cache_config = cache_params_it.second;
+        const auto &cache_config = cache_params_it.second;
 
         cache_t *cache = create_cache(cache_config.replace_policy);
         if (cache == NULL) {
@@ -209,9 +212,9 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
         /* This block determines where in the cache hierarchy to place the snoop filter.
          * If there is more than one LLC, the snoop filter is above those.
          */
-        for (auto &cache_it : all_caches) {
+        for (const auto &cache_it : all_caches) {
             std::string cache_name = cache_it.first;
-            auto &cache_config = cache_params.find(cache_name)->second;
+            const auto &cache_config = cache_params.find(cache_name)->second;
             if (cache_config.parent == CACHE_PARENT_MEMORY) {
                 num_LL++;
                 LL_name = cache_config.name;
@@ -236,13 +239,13 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
         } else {
             total_snooped_caches = num_LL;
         }
-        coherence_caches = new cache_t *[total_snooped_caches];
+        coherent_caches = new cache_t *[total_snooped_caches];
     }
 
     // Initialize all the caches in the hierarchy and identify both
     // the L1 caches and LLC(s).
     int snoop_id = 0;
-    for (auto &cache_it : all_caches) {
+    for (const auto &cache_it : all_caches) {
         std::string cache_name = cache_it.first;
         cache_t *cache = cache_it.second;
 
@@ -309,7 +312,7 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
 
         // Next snooped cache should have a different ID.
         if (is_snooped) {
-            coherence_caches[snoop_id] = cache;
+            coherent_caches[snoop_id] = cache;
             snoop_id++;
         }
 
@@ -339,7 +342,7 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
             other_caches[cache_name] = cache;
         }
     }
-    if (knobs.model_coherence && !snoop_filter->init(coherence_caches, snoop_id)) {
+    if (knobs.model_coherence && !snoop_filter->init(coherent_caches, snoop_id)) {
         ERRMSG("Usage error: failed to initialize snoop filter.\n");
         success = false;
         return;
