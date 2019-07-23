@@ -53,7 +53,9 @@ get_xmm_vals(priv_mcontext_t *mc)
 #ifdef X86
     if (preserve_xmm_caller_saved()) {
         ASSERT(proc_has_feature(FEATURE_SSE));
-        if (YMM_ENABLED())
+        if (ZMM_ENABLED())
+            get_zmm_caller_saved(&mc->simd[0]);
+        else if (YMM_ENABLED())
             get_ymm_caller_saved(&mc->simd[0]);
         else
             get_xmm_caller_saved(&mc->simd[0]);
