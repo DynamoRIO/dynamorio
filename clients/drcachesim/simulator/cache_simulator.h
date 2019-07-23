@@ -79,7 +79,7 @@ protected:
     cache_t **l1_dcaches;
     // This is an array of coherent caches for the snoop filter.
     // Cache IDs index into this array.
-    cache_t **coherent_caches;
+    cache_t **snooped_caches;
 
     // The following unordered maps map a cache's name to a pointer to it.
     std::unordered_map<std::string, cache_t *> llcaches;     // LLC(s)

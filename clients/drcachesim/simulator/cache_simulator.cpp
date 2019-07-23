@@ -106,7 +106,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
     l1_icaches = new cache_t *[knobs.num_cores];
     l1_dcaches = new cache_t *[knobs.num_cores];
     int total_snooped_caches = 2 * knobs.num_cores;
-    coherent_caches = new cache_t *[total_snooped_caches];
+    snooped_caches = new cache_t *[total_snooped_caches];
     if (knobs.model_coherence) {
         snoop_filter = new snoop_filter_t;
     }
@@ -117,13 +117,13 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
             success = false;
             return;
         }
-        coherent_caches[2 * i] = l1_icaches[i];
+        snooped_caches[2 * i] = l1_icaches[i];
         l1_dcaches[i] = create_cache(knobs.replace_policy);
         if (l1_dcaches[i] == NULL) {
             success = false;
             return;
         }
-        coherent_caches[(2 * i) + 1] = l1_dcaches[i];
+        snooped_caches[(2 * i) + 1] = l1_dcaches[i];
 
         if (!l1_icaches[i]->init(
                 knobs.L1I_assoc, (int)knobs.line_size, (int)knobs.L1I_size, llc,
@@ -151,7 +151,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
     }
 
     if (knobs.model_coherence &&
-        !snoop_filter->init(coherent_caches, total_snooped_caches)) {
+        !snoop_filter->init(snooped_caches, total_snooped_caches)) {
         ERRMSG("Usage error: failed to initialize snoop filter.\n");
         success = false;
         return;
@@ -238,7 +238,7 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
         } else {
             total_snooped_caches = num_LL;
         }
-        coherent_caches = new cache_t *[total_snooped_caches];
+        snooped_caches = new cache_t *[total_snooped_caches];
     }
 
     // Initialize all the caches in the hierarchy and identify both
@@ -311,7 +311,7 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
 
         // Next snooped cache should have a different ID.
         if (is_snooped) {
-            coherent_caches[snoop_id] = cache;
+            snooped_caches[snoop_id] = cache;
             snoop_id++;
         }
 
@@ -341,7 +341,7 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
             other_caches[cache_name] = cache;
         }
     }
-    if (knobs.model_coherence && !snoop_filter->init(coherent_caches, snoop_id)) {
+    if (knobs.model_coherence && !snoop_filter->init(snooped_caches, snoop_id)) {
         ERRMSG("Usage error: failed to initialize snoop filter.\n");
         success = false;
         return;
