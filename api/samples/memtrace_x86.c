@@ -353,8 +353,9 @@ code_cache_init(void)
     code_cache =
         dr_nonheap_alloc(page_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE | DR_MEMPROT_EXEC);
     ilist = instrlist_create(drcontext);
-    /* The lean procecure simply performs a clean call, and then jump back */
-    /* jump back to the DR's code cache */
+    /* The lean procedure simply performs a clean call, and then jumps back
+     * to the DR code cache.
+     */
     where = INSTR_CREATE_jmp_ind(drcontext, opnd_create_reg(DR_REG_XCX));
     instrlist_meta_append(ilist, where);
     /* clean call */

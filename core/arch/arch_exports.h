@@ -59,13 +59,15 @@
 #    define XMM_REG_SIZE 16
 #    define YMM_REG_SIZE 32
 #    define ZMM_REG_SIZE 64
-#    define OPMASK_REG_SIZE 8
+#    define OPMASK_AVX512F_REG_SIZE 8
+#    define OPMASK_AVX512BW_REG_SIZE 8
 #    define MCXT_SIMD_SLOT_SIZE ZMM_REG_SIZE
 #    define MCXT_TOTAL_SIMD_SLOTS_SIZE (MCXT_NUM_SIMD_SLOTS * MCXT_SIMD_SLOT_SIZE)
 /* TODO i#1312: This is currently used to maintain an empty opmask context structure.
  * Actually filling the structure will be added along with a future patch.
  */
-#    define MCXT_TOTAL_OPMASK_SLOTS_SIZE (MCXT_NUM_OPMASK_SLOTS * OPMASK_REG_SIZE)
+#    define MCXT_TOTAL_OPMASK_SLOTS_SIZE \
+        (MCXT_NUM_OPMASK_SLOTS * OPMASK_AVX512BW_REG_SIZE)
 #    define MCXT_TOTAL_SIMD_SSE_AVX_SLOTS_SIZE \
         (MCXT_NUM_SIMD_SSE_AVX_SLOTS * MCXT_SIMD_SLOT_SIZE)
 /* Indicates OS support, not just processor support (xref i#1278) */
@@ -318,6 +320,14 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
 /* note that the microsoft compiler will not enregister variables across asm
  * blocks that touch those registers, so don't need to worry about clobbering
  * eax and ebx */
+#    define ATOMIC_1BYTE_WRITE(target, value, hot_patch)                      \
+        do {                                                                  \
+            ASSERT(sizeof(value) == 1);                                       \
+            /* No alignment check necessary, hot_patch parameter provided for \
+             * consistency.                                                   \
+             */                                                               \
+            _InterlockedExchange8((volatile CHAR *)target, (CHAR)value);      \
+        } while (0)
 #    define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                    \
         do {                                                                \
             ASSERT(sizeof(value) == 4);                                     \
@@ -441,6 +451,18 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 /* IA-32 vol 3 7.1.4: processor will internally suppress the bus lock
  * if target is within cache line.
  */
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)                       \
+            do {                                                                   \
+                /* allow a constant to be passed in by supplying our own lvalue */ \
+                char _myval = value;                                               \
+                ASSERT(sizeof(value) == 1);                                        \
+                /* No alignment check necessary, hot_patch parameter provided for  \
+                 * consistency.                                                    \
+                 */                                                                \
+                __asm__ __volatile__("xchgb %0, %1"                                \
+                                     : "+m"(*(char *)(target)), "+r"(_myval)       \
+                                     :);                                           \
+            } while (0)
 #        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                       \
             do {                                                                   \
                 /* allow a constant to be passed in by supplying our own lvalue */ \

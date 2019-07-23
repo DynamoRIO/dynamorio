@@ -99,6 +99,14 @@ proc_num_simd_saved(void)
     return num_simd_saved;
 }
 
+void
+proc_set_num_simd_saved(int num)
+{
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    ATOMIC_4BYTE_WRITE(&num_simd_saved, num, false);
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+}
+
 DR_API
 int
 proc_num_simd_registers(void)

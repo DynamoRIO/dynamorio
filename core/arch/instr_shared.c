@@ -3481,5 +3481,19 @@ move_mm_reg_opcode(bool aligned16, bool aligned32)
 #    endif /* X86/ARM */
 }
 
+uint
+move_mm_avx512_reg_opcode(bool aligned64)
+{
+#    ifdef X86
+    /* move_mm_avx512_reg_opcode on unsupported processor. */
+    ASSERT(ZMM_ENABLED());
+    return (aligned64 ? OP_vmovdqa64 : OP_vmovdqu64);
+#    else
+    /* move_mm_avx512_reg_opcode not supported on ARM/AArch64. */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return 0;
+#    endif /* X86 */
+}
+
 #endif /* !STANDALONE_DECODER */
 /****************************************************************************/

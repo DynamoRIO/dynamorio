@@ -9901,6 +9901,12 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     CLIENT_ASSERT(thread_takeover_records == NULL,
                   "Only one thread should attempt app take over!");
 
+#ifdef LINUX
+    /* Check this thread for rseq in between setup and start. */
+    if (rseq_is_registered_for_current_thread())
+        module_locate_rseq_regions();
+#endif
+
     /* Find tids for which we have no thread record, meaning they are not under
      * our control.  Shift them to the beginning of the tids array.
      */
@@ -9997,13 +10003,6 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
 
     d_r_mutex_unlock(&thread_initexit_lock);
     HEAP_ARRAY_FREE(dcontext, tids, thread_id_t, num_threads, ACCT_THREAD_MGT, PROTECTED);
-
-#ifdef LINUX
-    /* Check this thread for rseq as well.
-     */
-    if (rseq_is_registered_for_current_thread())
-        module_locate_rseq_regions();
-#endif
 
     return threads_to_signal > 0;
 }

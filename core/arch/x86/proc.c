@@ -346,8 +346,10 @@ proc_init_arch(void)
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has SSE3\n");
         if (proc_has_feature(FEATURE_AVX))
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX\n");
-        if (proc_has_feature(FEATURE_AVX512))
-            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX-512\n");
+        if (proc_has_feature(FEATURE_AVX512F))
+            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX-512F\n");
+        if (proc_has_feature(FEATURE_AVX512BW))
+            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX-512BW\n");
         if (proc_has_feature(FEATURE_OSXSAVE))
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has OSXSAVE\n");
     }
@@ -390,13 +392,13 @@ proc_init_arch(void)
                 LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX\n");
             }
         }
-        if (proc_has_feature(FEATURE_AVX512)) {
+        if (proc_has_feature(FEATURE_AVX512F)) {
             if (TESTALL(XCR0_HI16_ZMM | XCR0_ZMM_HI256 | XCR0_OPMASK, bv_low)) {
                 /* XXX i#1312: It had been unclear whether the kernel uses CR0 bits to
                  * disable AVX-512 for its own lazy context switching optimization. If it
                  * did, then our lazy context switch would interfere with the kernel's and
                  * more support would be needed. We have concluded that the Linux kernel
-                 * at does not do its own lazy context switch optimization for AVX-512 at
+                 * does not do its own lazy context switch optimization for AVX-512 at
                  * this time.
                  */
                 avx512_enabled = true;
@@ -467,6 +469,14 @@ int
 proc_num_simd_registers(void)
 {
     return num_simd_registers;
+}
+
+void
+proc_set_num_simd_saved(int num)
+{
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    ATOMIC_4BYTE_WRITE(&num_simd_saved, num, false);
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 }
 
 int

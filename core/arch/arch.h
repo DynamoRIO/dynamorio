@@ -102,6 +102,7 @@ mixed_mode_enabled(void)
 #        define R15_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r15)))
 #    endif /* X64 */
 #    define SIMD_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, simd)))
+#    define OPMASK_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, opmask)))
 #    define SCRATCH_REG0 DR_REG_XAX
 #    define SCRATCH_REG1 DR_REG_XBX
 #    define SCRATCH_REG2 DR_REG_XCX
@@ -208,7 +209,9 @@ int
 reg_spill_tls_offs(reg_id_t reg);
 
 #define OPSZ_SAVED_XMM (YMM_ENABLED() ? OPSZ_32 : OPSZ_16)
+#define OPSZ_SAVED_ZMM OPSZ_64
 #define REG_SAVED_XMM0 (YMM_ENABLED() ? REG_YMM0 : REG_XMM0)
+#define OPSZ_SAVED_OPMASK OPSZ_8
 
 /* Xref the partially overlapping CONTEXT_PRESERVE_XMM */
 /* This routine also determines whether ymm registers should be saved. */
@@ -228,22 +231,25 @@ preserve_xmm_caller_saved(void)
 
 #ifdef X86
 /* This is used for AVX-512 context switching and indicates whether AVX-512 has been seen
- * during decode.
+ * during decode. The variable is allocated on reachable heap during initialization.
  */
-extern bool d_r_avx512_code_in_use;
+extern bool *d_r_avx512_code_in_use;
 
 /* This routine determines whether zmm registers should be saved. */
 static inline bool
 d_r_is_avx512_code_in_use()
 {
-    return d_r_avx512_code_in_use;
+    return *d_r_avx512_code_in_use;
 }
 
 static inline void
 d_r_set_avx512_code_in_use(bool in_use)
 {
-    d_r_avx512_code_in_use = in_use;
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    ATOMIC_1BYTE_WRITE(d_r_avx512_code_in_use, in_use, false);
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 }
+
 #endif
 
 typedef enum {
@@ -1368,9 +1374,16 @@ void
 encode_track_it_block(dcontext_t *dcontext, instr_t *instr);
 #endif
 
-/* in instr_shared.c */
+/* In instr_shared.c. */
 uint
 move_mm_reg_opcode(bool aligned16, bool aligned32);
+
+/* In instr_shared.c. We have a separate function for AVX-512, because we do not want to
+ * introduce AVX-512 code if not explicitly requested, due to DynamoRIO's lazy AVX-512
+ * context switching.
+ */
+uint
+move_mm_avx512_reg_opcode(bool aligned64);
 
 /* clean call optimization */
 /* Describes usage of a scratch slot. */
