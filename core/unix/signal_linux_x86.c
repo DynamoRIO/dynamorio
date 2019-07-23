@@ -196,6 +196,10 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
     int i;
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
     kernel_xstate_t *xstate = (kernel_xstate_t *)sc->fpstate;
+    /* For pending signals, the alignment of xstate ultimately depends on the alignment of
+     * the special allocator's blocks. Ths is fragile, and assertions here and at
+     * initialization are providing some coverage for this.
+     */
     if (!preserve_xmm_caller_saved())
         return;
     if (xstate_has_extra_fields) {
