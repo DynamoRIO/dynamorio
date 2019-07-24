@@ -4373,7 +4373,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #endif
     }
 
-/* set flags */
+    /* set flags */
 #ifdef DGC_DIAGNOSTICS
     /* no traces in dyngen code, that would mess up our exit tracking */
     if (TEST(FRAG_DYNGEN, bb->flags))
