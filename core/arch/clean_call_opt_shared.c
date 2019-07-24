@@ -425,7 +425,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
     }
     if (ci->num_simd_used != 0) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee " PFX " cannot be inlined: uses XMM.\n", ci->start);
+            "CLEANCALL: callee " PFX " cannot be inlined: uses SIMD.\n", ci->start);
         opt_inline = false;
     }
     if (ci->num_opmask_used != 0) {
