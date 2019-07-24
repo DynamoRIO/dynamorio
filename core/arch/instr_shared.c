@@ -3485,7 +3485,7 @@ uint
 move_mm_avx512_reg_opcode(bool aligned64)
 {
 #    ifdef X86
-    /* move_mm_avx512_reg_opcode on unsupported processor. */
+    /* move_mm_avx512_reg_opcode can only be called on processors that support AVX-512. */
     ASSERT(ZMM_ENABLED());
     return (aligned64 ? OP_vmovaps : OP_vmovups);
 #    else
