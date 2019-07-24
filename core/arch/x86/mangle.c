@@ -434,9 +434,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                               OPSZ_SAVED_ZMM),
                         opnd_create_reg(DR_REG_K0),
                         opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i));
-#    ifdef CLIENT_INTERFACE
-                    simdmov->flags |= INSTR_CLEANCALL_SIMD_CONTEXT;
-#    endif
                     PRE(ilist, instr, simdmov);
                 }
             }
@@ -451,9 +448,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                                   offs_beyond_xmm,
                                               OPSZ_SAVED_OPMASK),
                         opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i));
-#    ifdef CLIENT_INTERFACE
-                    maskmov->flags |= INSTR_CLEANCALL_SIMD_CONTEXT;
-#    endif
                     PRE(ilist, instr, maskmov);
                 }
             }
@@ -614,9 +608,6 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
                                               PRE_XMM_PADDING + i * MCXT_SIMD_SLOT_SIZE +
                                                   offs_beyond_xmm,
                                               OPSZ_SAVED_ZMM));
-#    ifdef CLIENT_INTERFACE
-                    simdmov->flags |= INSTR_CLEANCALL_SIMD_CONTEXT;
-#    endif
                     PRE(ilist, instr, simdmov);
                 }
             }
@@ -631,9 +622,6 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
                                                   MCXT_TOTAL_SIMD_SLOTS_SIZE +
                                                   offs_beyond_xmm,
                                               OPSZ_SAVED_OPMASK));
-#    ifdef CLIENT_INTERFACE
-                    maskmov->flags |= INSTR_CLEANCALL_SIMD_CONTEXT;
-#    endif
                     PRE(ilist, instr, maskmov);
                 }
             }

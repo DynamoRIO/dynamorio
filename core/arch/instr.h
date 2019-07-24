@@ -194,14 +194,6 @@ enum {
     INSTR_HAS_CUSTOM_STUB = 0x00400000,
     /* used to indicate that an indirect call can be treated as a direct call */
     INSTR_IND_CALL_DIRECT = 0x00800000,
-#    ifdef CLIENT_INTERFACE
-    /* Used to indicate whether the instruction is a mov instruction generated for saving
-     * and restoring SIMD context for clean calls. It is used to distinguish application
-     * AVX-512 code from DynamoRIO's context switching code. This flag is set only for
-     * SIMD mov instructions, and has the same value as INSTR_IND_CALL_DIRECT.
-     */
-    INSTR_CLEANCALL_SIMD_CONTEXT = 0x00800000,
-#    endif
 #    ifdef WINDOWS
     /* used to indicate that a syscall should be executed via shared syscall */
     INSTR_SHARED_SYSCALL = 0x01000000,

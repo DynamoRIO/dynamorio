@@ -2836,17 +2836,13 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
 #    ifdef X86
         if (!d_r_is_avx512_code_in_use()) {
             if (ZMM_ENABLED()) {
-#        ifdef CLIENT_INTERFACE
-                if (!TEST(INSTR_CLEANCALL_SIMD_CONTEXT, inst->flags)) {
-#        endif
+                if (!instr_is_meta(inst)) {
                     if (instr_may_write_zmm_or_opmask_register(inst)) {
                         LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
                         d_r_set_avx512_code_in_use(true);
                         proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
                     }
-#        ifdef CLIENT_INTERFACE
                 }
-#        endif
             }
         }
 #    endif
@@ -3512,9 +3508,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             }
             if (!d_r_is_avx512_code_in_use()) {
                 if (ZMM_ENABLED()) {
-#    ifdef CLIENT_INTERFACE
-                    if (!TEST(INSTR_CLEANCALL_SIMD_CONTEXT, bb->instr->flags)) {
-#    endif
+                    if (!instr_is_meta(bb->instr)) {
                         if (instr_get_prefix_flag(bb->instr, PREFIX_EVEX)) {
                             /* For AVX-512 detection in bb builder, we're checking only
                              * for the prefix flag, which for example can be set by
@@ -3525,9 +3519,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                             d_r_set_avx512_code_in_use(true);
                             proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
                         }
-#    ifdef CLIENT_INTERFACE
                     }
-#    endif
                 }
             }
 #endif
