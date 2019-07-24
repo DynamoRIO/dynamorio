@@ -33,7 +33,7 @@ snoop_filter_t::snoop(addr_t tag, int id_in, bool is_write)
         coherence_entry->sharers.resize(num_snooped_caches, false);
     }
 
-    unsigned int num_sharers = std::count(coherence_entry->sharers.begin(),
+    int num_sharers = std::count(coherence_entry->sharers.begin(),
                                           coherence_entry->sharers.end(), true);
 
     // Check that cache id is valid.

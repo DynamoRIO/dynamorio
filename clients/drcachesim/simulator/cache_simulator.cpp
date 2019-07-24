@@ -105,7 +105,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
 
     l1_icaches = new cache_t *[knobs.num_cores];
     l1_dcaches = new cache_t *[knobs.num_cores];
-    int total_snooped_caches = 2 * knobs.num_cores;
+    unsigned int total_snooped_caches = 2 * knobs.num_cores;
     snooped_caches = new cache_t *[total_snooped_caches];
     if (knobs.model_coherence) {
         snoop_filter = new snoop_filter_t;
@@ -203,7 +203,7 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
     }
 
     int num_LL = 0;
-    int total_snooped_caches = 0;
+    unsigned int total_snooped_caches = 0;
     std::string lowest_shared_cache = "";
     if (knobs.model_coherence) {
         snoop_filter = new snoop_filter_t;
