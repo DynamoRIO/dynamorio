@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,42 +30,37 @@
  * DAMAGE.
  */
 
+#include <assert.h>
+#include <stdio.h>
+#include <math.h>
+#include <stdint.h>
+#include "configure.h"
+#include "dr_api.h"
 #include "tools.h"
 
-#define BUF_LEN 160
-
 int
-main()
+main(void)
 {
-    /* allocate buffer */
-    char *buf = allocate_mem(BUF_LEN, ALLOW_WRITE | ALLOW_EXEC);
-    INIT();
+    print("Initializing DynamoRIO\n");
 
-#if USE_DYNAMO
-    dynamorio_app_init(false);
-    dynamorio_app_start();
-#endif
+    /* Initialize DR */
+    dr_app_setup();
 
-    print("starting up\n");
+    print("Starting DynamoRIO\n");
 
-    copy_to_buf(buf, BUF_LEN, NULL, CODE_INC, COPY_NORMAL);
+    dr_app_start();
 
-    test_print(buf, 1);
+    if (!dr_app_running_under_dynamorio())
+        print("ERROR: should be under DynamoRIO after dr_app_start!\n");
 
-    copy_to_buf(buf, BUF_LEN, NULL, CODE_DEC, COPY_NORMAL);
+    dr_app_stop();
 
-    test_print(buf, 1);
-    test_print(buf, 2);
+    if (dr_app_running_under_dynamorio())
+        print("ERROR: should not be under DynamoRIO after dr_app_stop!\n");
 
-    copy_to_buf(buf, BUF_LEN, NULL, CODE_SELF_MOD, COPY_NORMAL);
+    dr_app_cleanup();
 
-    test_print(buf, 4660);
-    test_print(buf, 43981);
+    print("Ok\n");
 
-    print("about to exit\n");
-
-#if USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
+    return 0;
 }

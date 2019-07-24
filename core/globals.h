@@ -552,7 +552,7 @@ extern bool dr_api_exit;
 extern thread_record_t **all_threads;
 extern mutex_t all_threads_lock;
 DYNAMORIO_EXPORT int
-dynamorio_app_init(void);
+dynamorio_app_init(bool attach_case);
 int
 dynamorio_app_exit(void);
 #if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)

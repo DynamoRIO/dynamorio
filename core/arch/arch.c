@@ -87,6 +87,7 @@ static bool sysenter_hook_failed = false;
 
 #ifdef X86
 bool *d_r_avx512_code_in_use = NULL;
+bool d_r_initial_attach_avx512_code_in_use = false;
 #endif
 
 /* static functions forward references */

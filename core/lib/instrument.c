@@ -112,6 +112,9 @@ do_file_write(file_t f, const char *fmt, va_list ap);
  */
 DR_API const char *unique_build_number = STRINGIFY(UNIQUE_BUILD_NUMBER);
 
+/* The flag this name is referring to is described in arch.h. */
+#    define INITIAL_ATTACH_AVX512_CODE_IN_USE_NAME "_INITIAL_ATTACH_AVX512_CODE_IN_USE_"
+
 /* Acquire when registering or unregistering event callbacks
  * Also held when invoking events, which happens much more often
  * than registration changes, so we use rwlock
@@ -576,6 +579,14 @@ add_client_lib(const char *path, const char *id_str, const char *options)
             SYSLOG(SYSLOG_ERROR, CLIENT_VERSION_INCOMPATIBLE, 2, get_application_name(),
                    get_application_pid());
         } else {
+#    ifdef X86
+            bool *initial_attach_avx512_code_in_use = (bool *)lookup_library_routine(
+                client_lib, INITIAL_ATTACH_AVX512_CODE_IN_USE_NAME);
+            if (initial_attach_avx512_code_in_use != NULL) {
+                if (*initial_attach_avx512_code_in_use)
+                    d_r_set_initial_attach_avx512_code_in_use();
+            }
+#    endif
             size_t idx = num_client_libs++;
             client_libs[idx].id = id;
             client_libs[idx].lib = client_lib;

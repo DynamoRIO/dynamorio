@@ -130,7 +130,7 @@ main()
     INIT();
 
 #if USE_DYNAMO
-    dynamorio_app_init();
+    dynamorio_app_init(false);
     dynamorio_app_start();
 #endif
 

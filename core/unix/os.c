@@ -723,7 +723,7 @@ our_init(int argc, char **argv, char **envp)
     }
 #endif
     if (takeover) {
-        if (dynamorio_app_init() == 0 /* success */) {
+        if (dynamorio_app_init(false) == 0 /* success */) {
             dynamorio_app_take_over();
         }
     }
