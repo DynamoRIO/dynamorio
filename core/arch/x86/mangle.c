@@ -390,7 +390,9 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
             pre_avx512_push = INSTR_CREATE_label(dcontext);
             PRE(ilist, instr,
                 INSTR_CREATE_cmp(dcontext,
-                                 OPND_CREATE_ABSMEM(d_r_avx512_code_in_use, OPSZ_1),
+                                 OPND_CREATE_ABSMEM(vmcode_get_executable_addr(
+                                                        (byte *)d_r_avx512_code_in_use),
+                                                    OPSZ_1),
                                  OPND_CREATE_INT8(0)));
             PRE(ilist, instr,
                 INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(pre_avx512_push)));
@@ -580,7 +582,9 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
             pre_avx512_pop = INSTR_CREATE_label(dcontext);
             PRE(ilist, instr,
                 INSTR_CREATE_cmp(dcontext,
-                                 OPND_CREATE_ABSMEM(d_r_avx512_code_in_use, OPSZ_1),
+                                 OPND_CREATE_ABSMEM(vmcode_get_executable_addr(
+                                                        (byte *)d_r_avx512_code_in_use),
+                                                    OPSZ_1),
                                  OPND_CREATE_INT8(0)));
             PRE(ilist, instr,
                 INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(pre_avx512_pop)));
