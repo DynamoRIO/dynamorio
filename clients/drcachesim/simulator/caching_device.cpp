@@ -138,15 +138,17 @@ caching_device_t::request(const memref_t &memref_in)
             caching_device_block_t *cache_block =
                 &get_caching_device_block(block_idx, way);
             if (cache_block->tag == tag) {
-                stats->access(memref, true /*hit*/, cache_block);
-                if (parent != NULL)
-                    parent->stats->child_access(memref, true, cache_block);
                 break;
             }
         }
 
         if (way != associativity) {
             // Access is a hit.
+            caching_device_block_t *cache_block =
+                &get_caching_device_block(block_idx, way);
+            stats->access(memref, true /*hit*/, cache_block);
+            if (parent != NULL)
+                parent->stats->child_access(memref, true, cache_block);
             if (coherent_cache && memref.data.type == TRACE_TYPE_WRITE) {
                 // On a hit, we must notify the snoop filter of the write or propagate
                 // the write to a snooped cache.
