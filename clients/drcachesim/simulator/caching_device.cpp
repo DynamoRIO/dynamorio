@@ -191,8 +191,8 @@ caching_device_t::request(const memref_t &memref_in)
                     if (!children.empty()) {
                         /* We must check child caches to find out if the snoop filter
                          * should clear the ownership bit for this evicted tag.
-                         * If any children contain this line, the snoop filter should
-                         * still consider this cache an owner.
+                         * If any of this cache's children contain the evicted tag the
+                         * snoop filter should still consider this cache an owner.
                          */
                         for (auto &child : children) {
                             if (child->contains_tag(victim_tag)) {
