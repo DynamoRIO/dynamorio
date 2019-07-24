@@ -3045,9 +3045,15 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                       TESTALL(DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR, flags),
                   "dr_custom_alloc: reserve/commit-only are only for non-DR non-heap");
     CLIENT_ASSERT(!TEST(DR_ALLOC_RESERVE_ONLY, flags) ||
+
                       !TEST(DR_ALLOC_COMMIT_ONLY, flags),
                   "dr_custom_alloc: cannot combine reserve-only + commit-only");
 #    endif
+    CLIENT_ASSERT(!TEST(DR_ALLOC_CACHE_REACHABLE, flags) ||
+                      !TESTALL(DR_MEMPROT_WRITE | DR_MEMPROT_EXEC, prot) ||
+                      !DYNAMO_OPTION(satisfy_w_xor_x),
+                  "dr_custom_alloc: DR_ALLOC_CACHE_REACHABLE memory is not "
+                  "supported with -satisfy_w_xor_x");
     if (TEST(DR_ALLOC_NON_HEAP, flags)) {
         CLIENT_ASSERT(drcontext == NULL,
                       "dr_custom_alloc: drcontext must be NULL for non-heap");
