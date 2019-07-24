@@ -66,13 +66,13 @@ public:
     virtual void
     request(const memref_t &memref);
     virtual void
-    invalidate(const addr_t tag, invalidation_type_t invalidation_type_);
+    invalidate(addr_t tag, invalidation_type_t invalidation_type_);
     bool
-    check_tags(const addr_t &tag_in);
+    contains_tag(addr_t tag);
     void
-    child_eviction(const addr_t &tag_in, const caching_device_t *requester);
+    propagate_eviction(addr_t tag, const caching_device_t *requester);
     void
-    propagate_write(const addr_t &tag_in, const caching_device_t *requester);
+    propagate_write(addr_t tag, const caching_device_t *requester);
 
     caching_device_stats_t *
     get_stats() const

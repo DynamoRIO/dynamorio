@@ -77,7 +77,7 @@ public:
         return !success;
     }
 
-    // Process invalidations due to cache inclusions.
+    // Process invalidations due to cache inclusions or external writes.
     virtual void
     invalidate(invalidation_type_t invalidation_type_);
 
@@ -112,7 +112,7 @@ protected:
     // Enabled if options warmup_refs > 0 || warmup_fraction > 0
     bool warmup_enabled;
 
-    // Print out write invalidatiosn if cache is coherent.
+    // Print out write invalidations if cache is coherent.
     bool is_coherent;
 
     // We provide a feature of dumping misses to a file.

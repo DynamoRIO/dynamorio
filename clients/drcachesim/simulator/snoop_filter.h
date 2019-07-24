@@ -4,14 +4,12 @@
 
 #include "cache.h"
 #include <unordered_map>
-#include <bitset>
 #include <vector>
-#include <algorithm>
 
-typedef struct _coherence_table_entry_t {
+struct coherence_table_entry_t {
     std::vector<bool> sharers;
     bool dirty;
-} coherence_table_entry_t;
+};
 
 class snoop_filter_t {
 public:
@@ -19,9 +17,9 @@ public:
     virtual bool
     init(cache_t **caches_, int num_snooped_caches_);
     virtual void
-    snoop(addr_t tag_in, int id_in, bool is_write);
+    snoop(addr_t tag, int id_in, bool is_write);
     virtual void
-    eviction_notification(addr_t tag_in, int id_in);
+    snoop_eviction(addr_t tag, int id_in);
     void
     print_stats(void);
 

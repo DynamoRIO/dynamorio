@@ -145,7 +145,20 @@ caching_device_t::request(const memref_t &memref_in)
             }
         }
 
-        if (way == associativity) {
+        if (way != associativity) {
+            // Access is a hit.
+            if (coherent_cache && memref.data.type == TRACE_TYPE_WRITE) {
+                // On a hit, we must notify the snoop filter of the write or propagate
+                // the write to a snooped cache.
+                if (snoop_filter != NULL) {
+                    snoop_filter->snoop(tag, id, (memref.data.type == TRACE_TYPE_WRITE));
+                } else if (parent != NULL) {
+                    // On a miss, the parent access will inherently propagate the write.
+                    parent->propagate_write(tag, this);
+                }
+            }
+        } else {
+            // Access is a miss.
             way = replace_which_way(block_idx);
             caching_device_block_t *cache_block =
                 &get_caching_device_block(block_idx, way);
@@ -176,10 +189,13 @@ caching_device_t::request(const memref_t &memref_in)
                 if (coherent_cache) {
                     bool child_holds_tag = false;
                     if (!children.empty()) {
-                        // We must check child caches to
-                        // find out if snoop filter may clear our bit.
+                        /* We must check child caches to find out if the snoop filter
+                         * should clear the ownership bit for this evicted tag.
+                         * If any children contain this line, the snoop filter should
+                         * still consider this cache an owner.
+                         */
                         for (auto &child : children) {
-                            if (child->check_tags(victim_tag)) {
+                            if (child->contains_tag(victim_tag)) {
                                 child_holds_tag = true;
                                 break;
                             }
@@ -188,23 +204,15 @@ caching_device_t::request(const memref_t &memref_in)
                     if (!child_holds_tag) {
                         if (snoop_filter != NULL) {
                             // Inform snoop filter of evicted line.
-                            snoop_filter->eviction_notification(victim_tag, id);
+                            snoop_filter->snoop_eviction(victim_tag, id);
                         } else if (parent != NULL) {
                             // Inform parent of evicted line.
-                            parent->child_eviction(victim_tag, this);
+                            parent->propagate_eviction(victim_tag, this);
                         }
                     }
                 }
             }
             cache_block->tag = tag;
-        } else if (coherent_cache && memref.data.type == TRACE_TYPE_WRITE) {
-            // On a hit, we must notify the snoop filter of the write or propagate
-            // the write to a snooped cache.
-            if (snoop_filter != NULL) {
-                snoop_filter->snoop(tag, id, (memref.data.type == TRACE_TYPE_WRITE));
-            } else if (parent != NULL) {
-                parent->propagate_write(tag, this);
-            }
         }
 
         access_update(block_idx, way);
@@ -258,7 +266,7 @@ caching_device_t::replace_which_way(int block_idx)
 }
 
 void
-caching_device_t::invalidate(const addr_t tag, invalidation_type_t invalidation_type_)
+caching_device_t::invalidate(addr_t tag, invalidation_type_t invalidation_type_)
 {
     int block_idx = compute_block_idx(tag);
 
@@ -292,35 +300,34 @@ caching_device_t::invalidate(const addr_t tag, invalidation_type_t invalidation_
 
 // This function checks if this cache or any child caches hold a tag.
 bool
-caching_device_t::check_tags(const addr_t &tag_in)
+caching_device_t::contains_tag(addr_t tag)
 {
-    int block_idx = compute_block_idx(tag_in);
+    int block_idx = compute_block_idx(tag);
     for (int way = 0; way < associativity; way++) {
-        if (get_caching_device_block(block_idx, way).tag == tag_in) {
+        if (get_caching_device_block(block_idx, way).tag == tag) {
             return true;
         }
     }
     if (children.empty()) {
         return false;
-    } else {
-        for (auto &child : children) {
-            if (child->check_tags(tag_in)) {
-                return true;
-            }
-        }
-        return false;
     }
+    for (auto &child : children) {
+        if (child->contains_tag(tag)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // A child has evicted this tag, we propagate this notification to the snoop filter,
 // unless this cache or one of its other children holds this line.
 void
-caching_device_t::child_eviction(const addr_t &tag_in, const caching_device_t *requester)
+caching_device_t::propagate_eviction(addr_t tag, const caching_device_t *requester)
 {
     // Check our own cache for this line.
-    int block_idx = compute_block_idx(tag_in);
+    int block_idx = compute_block_idx(tag);
     for (int way = 0; way < associativity; way++) {
-        if (get_caching_device_block(block_idx, way).tag == tag_in) {
+        if (get_caching_device_block(block_idx, way).tag == tag) {
             return;
         }
     }
@@ -329,7 +336,7 @@ caching_device_t::child_eviction(const addr_t &tag_in, const caching_device_t *r
     if (children.size() != 1) {
         // If another child contains the line, we don't need to do anything.
         for (auto &child : children) {
-            if (child != requester && child->check_tags(tag_in)) {
+            if (child != requester && child->contains_tag(tag)) {
                 return;
             }
         }
@@ -338,9 +345,9 @@ caching_device_t::child_eviction(const addr_t &tag_in, const caching_device_t *r
     // Neither this cache nor its children hold line,
     // inform snoop filter or propagate eviction.
     if (snoop_filter != NULL) {
-        snoop_filter->eviction_notification(tag_in, id);
+        snoop_filter->snoop_eviction(tag, id);
     } else if (parent != NULL) {
-        parent->child_eviction(tag_in, this);
+        parent->propagate_eviction(tag, this);
     }
 }
 
@@ -349,19 +356,19 @@ caching_device_t::child_eviction(const addr_t &tag_in, const caching_device_t *r
  * in any other children.
  */
 void
-caching_device_t::propagate_write(const addr_t &tag_in, const caching_device_t *requester)
+caching_device_t::propagate_write(addr_t tag, const caching_device_t *requester)
 {
     // Invalidate other children.
     for (auto &child : children) {
         if (child != requester) {
-            child->invalidate(tag_in, INVALIDATION_COHERENCE);
+            child->invalidate(tag, INVALIDATION_COHERENCE);
         }
     }
 
     // Propagate write to snoop filter or to parent.
     if (snoop_filter != NULL) {
-        snoop_filter->snoop(tag_in, id, true);
+        snoop_filter->snoop(tag, id, true);
     } else if (parent != NULL) {
-        parent->propagate_write(tag_in, this);
+        parent->propagate_write(tag, this);
     }
 }

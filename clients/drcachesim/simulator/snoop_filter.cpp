@@ -3,6 +3,7 @@
 #include <iostream>
 #include <iomanip>
 #include <assert.h>
+#include <algorithm>
 
 snoop_filter_t::snoop_filter_t(void)
 {
@@ -24,14 +25,12 @@ snoop_filter_t::init(cache_t **caches_, int num_snooped_caches_)
  *  all writes to coherent caches.
  */
 void
-snoop_filter_t::snoop(addr_t tag_in, int id_in, bool is_write)
+snoop_filter_t::snoop(addr_t tag, int id_in, bool is_write)
 {
-    coherence_table_entry_t *coherence_entry = &coherence_table[tag_in];
+    coherence_table_entry_t *coherence_entry = &coherence_table[tag];
     // Initialize new snoop filter entry.
-    if (coherence_entry->sharers.size() == 0) {
-        for (int i = 0; i < num_snooped_caches; i++) {
-            coherence_entry->sharers.push_back(false);
-        }
+    if (coherence_entry->sharers.empty()) {
+        coherence_entry->sharers.resize(num_snooped_caches, false);
     }
 
     unsigned int num_sharers = std::count(coherence_entry->sharers.begin(),
@@ -40,7 +39,7 @@ snoop_filter_t::snoop(addr_t tag_in, int id_in, bool is_write)
     // Check that cache id is valid.
     assert(id_in >= 0 && id_in < num_snooped_caches);
     // Check that tag is valid.
-    assert(tag_in != TAG_INVALID);
+    assert(tag != TAG_INVALID);
     // Check that any dirty line is only held in one snooped cache.
     assert(!coherence_entry->dirty || num_sharers == 1);
 
@@ -67,7 +66,7 @@ snoop_filter_t::snoop(addr_t tag_in, int id_in, bool is_write)
             // Writes will invalidate other caches.
             for (int i = 0; i < num_snooped_caches; i++) {
                 if (coherence_entry->sharers[i] && id_in != i) {
-                    caches[i]->invalidate(tag_in, INVALIDATION_COHERENCE);
+                    caches[i]->invalidate(tag, INVALIDATION_COHERENCE);
                     num_invalidates++;
                 }
             }
@@ -81,16 +80,16 @@ snoop_filter_t::snoop(addr_t tag_in, int id_in, bool is_write)
 
 /* This function is called whenever a coherent cache evicts a line. */
 void
-snoop_filter_t::eviction_notification(addr_t tag_in, int id_in)
+snoop_filter_t::snoop_eviction(addr_t tag, int id_in)
 {
-    coherence_table_entry_t *coherence_entry = &coherence_table[tag_in];
+    coherence_table_entry_t *coherence_entry = &coherence_table[tag];
 
     // Check if sharer list is initialized.
     assert(coherence_entry->sharers.size() == (uint64_t)num_snooped_caches);
     // Check that cache id is valid.
     assert(id_in >= 0 && id_in < num_snooped_caches);
     // Check that tag is valid.
-    assert(tag_in != TAG_INVALID);
+    assert(tag != TAG_INVALID);
     // Check that we currently have this cache marked as a sharer.
     assert(coherence_entry->sharers[id_in]);
 
