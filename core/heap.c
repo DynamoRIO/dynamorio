@@ -5011,6 +5011,8 @@ special_heap_init_internal(uint block_size, uint block_alignment, bool use_lock,
 {
     special_units_t *su;
     size_t unit_size = heap_size;
+    if (block_alignment != 0)
+        block_size = ALIGN_FORWARD(block_size, block_alignment);
     if (unit_size == 0) {
         unit_size = (block_size * 16 > HEAP_UNIT_MIN_SIZE) ? (block_size * 16)
                                                            : HEAP_UNIT_MIN_SIZE;
