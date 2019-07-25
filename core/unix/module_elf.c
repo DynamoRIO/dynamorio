@@ -1691,12 +1691,13 @@ module_init_rseq(module_area_t *ma, bool at_map)
                  * We do perform a sanity check to handle unusual non-relocated
                  * cases (it's possible this array is not in a loaded segment?).
                  */
-                if (*ptrs < ma->start || *ptrs > ma->end) {
+                byte *entry = *ptrs + entry_offs;
+                if (entry < ma->start || entry > ma->end) {
                     SYSLOG_INTERNAL_WARNING(RSEQ_PTR_ARRAY_SEC_NAME
                                             " is not in memory. Aborting rseq parsing.");
                     goto module_init_rseq_cleanup;
                 }
-                rseq_process_entry((struct rseq_cs *)(*ptrs), entry_offs);
+                rseq_process_entry((struct rseq_cs *)entry, entry_offs);
                 ++ptrs;
             }
             break;
