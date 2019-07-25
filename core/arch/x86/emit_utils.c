@@ -1363,8 +1363,11 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         post_restore = INSTR_CREATE_label(dcontext);
         pre_avx512_restore = INSTR_CREATE_label(dcontext);
         APP(ilist,
-            INSTR_CREATE_cmp(dcontext, OPND_CREATE_ABSMEM(d_r_avx512_code_in_use, OPSZ_1),
-                             OPND_CREATE_INT8(0)));
+            INSTR_CREATE_cmp(
+                dcontext,
+                OPND_CREATE_ABSMEM(
+                    vmcode_get_executable_addr((byte *)d_r_avx512_code_in_use), OPSZ_1),
+                OPND_CREATE_INT8(0)));
         APP(ilist,
             INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(pre_avx512_restore)));
     }
@@ -1622,8 +1625,11 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         post_save = INSTR_CREATE_label(dcontext);
         pre_avx512_save = INSTR_CREATE_label(dcontext);
         APP(ilist,
-            INSTR_CREATE_cmp(dcontext, OPND_CREATE_ABSMEM(d_r_avx512_code_in_use, OPSZ_1),
-                             OPND_CREATE_INT8(0)));
+            INSTR_CREATE_cmp(
+                dcontext,
+                OPND_CREATE_ABSMEM(
+                    vmcode_get_executable_addr((byte *)d_r_avx512_code_in_use), OPSZ_1),
+                OPND_CREATE_INT8(0)));
         APP(ilist,
             INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(pre_avx512_save)));
     }

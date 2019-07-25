@@ -1479,10 +1479,10 @@ DYNAMIC_OPTION(bool, pause_via_loop,
 #endif
     /* XXX i#3566: Support for W^X has some current limitations:
      * + It is not implemented for Windows or Mac.
-     * + Fork is not perfectly supported: there is overhead and a race.
      * + Pcaches are not supported.
      * + -native_exec_list is not supported.
      * + dr_nonheap_alloc(rwx) is not supported.
+     * + DR_ALLOC_CACHE_REACHABLE is not supported.
      *   Clients using other non-vmcode sources of +wx memory will also not comply.
      */
     OPTION_DEFAULT(bool, satisfy_w_xor_x, false,
