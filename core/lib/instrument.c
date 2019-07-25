@@ -3049,7 +3049,6 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                   "dr_custom_alloc: cannot combine reserve-only + commit-only");
 #    endif
     CLIENT_ASSERT(!TEST(DR_ALLOC_CACHE_REACHABLE, flags) ||
-                      !TESTALL(DR_MEMPROT_WRITE | DR_MEMPROT_EXEC, prot) ||
                       !DYNAMO_OPTION(satisfy_w_xor_x),
                   "dr_custom_alloc: DR_ALLOC_CACHE_REACHABLE memory is not "
                   "supported with -satisfy_w_xor_x");
