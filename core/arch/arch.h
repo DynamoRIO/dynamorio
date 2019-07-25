@@ -1329,7 +1329,7 @@ new_bsdthread_setup(priv_mcontext_t *mc);
 #endif
 
 void
-get_xmm_vals(priv_mcontext_t *mc);
+get_simd_vals(priv_mcontext_t *mc);
 
 /* i#350: Fast safe_read without dcontext.  On success or failure, returns the
  * current source pointer.  Requires fault handling to be set up.

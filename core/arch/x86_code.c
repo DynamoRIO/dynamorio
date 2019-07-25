@@ -48,7 +48,7 @@
  * (or all for linux) (or ymm) only if necessary.
  */
 void
-get_xmm_vals(priv_mcontext_t *mc)
+get_simd_vals(priv_mcontext_t *mc)
 {
 #ifdef X86
     if (preserve_xmm_caller_saved()) {
