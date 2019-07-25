@@ -70,13 +70,23 @@ test_rseq(void)
     static __u32 id = RSEQ_CPU_ID_UNINITIALIZED;
     static int restarts = 0;
     __asm__ __volatile__(
+#ifdef RSEQ_TEST_USE_OLD_SECTION_NAME
         /* Add a table entry. */
         ".pushsection __rseq_table, \"aw\"\n\t"
+#else
+        ".pushsection __rseq_cs, \"aw\"\n\t"
+#endif
         ".balign 32\n\t"
         "1:\n\t"
         ".long 0, 0\n\t"          /* version, flags */
         ".quad 2f, 3f-2f, 4f\n\t" /* start_ip, post_commit_offset, abort_ip */
         ".popsection\n\t"
+#if !defined(RSEQ_TEST_USE_OLD_SECTION_NAME) && !defined(RSEQ_TEST_USE_NO_ARRAY)
+        /* Add an array section. */
+        ".pushsection __rseq_cs_ptr_array, \"aw\"\n\t"
+        ".quad 1b\n\t"
+        ".popsection\n\t"
+#endif
 
         /* Although our abort handler has to handle being called (that's all DR
          * supports), we structure the code to allow directly calling past it, to
