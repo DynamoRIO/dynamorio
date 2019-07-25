@@ -3045,7 +3045,6 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                       TESTALL(DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR, flags),
                   "dr_custom_alloc: reserve/commit-only are only for non-DR non-heap");
     CLIENT_ASSERT(!TEST(DR_ALLOC_RESERVE_ONLY, flags) ||
-
                       !TEST(DR_ALLOC_COMMIT_ONLY, flags),
                   "dr_custom_alloc: cannot combine reserve-only + commit-only");
 #    endif
