@@ -3478,6 +3478,13 @@ if (UNIX)
     # The rseq feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit, ARM, AArch64.
     tobuild(linux.rseq linux/rseq.c)
+    # Test the other sections.  Unfortunately we need a separate binary for each.
+    tobuild(linux.rseq_table linux/rseq.c)
+    append_property_string(TARGET linux.rseq_table
+      COMPILE_FLAGS "-DRSEQ_TEST_USE_OLD_SECTION_NAME")
+    tobuild(linux.rseq_noarray linux/rseq.c)
+    append_property_string(TARGET linux.rseq_noarray
+      COMPILE_FLAGS "-DRSEQ_TEST_USE_NO_ARRAY")
     # Test attaching, which has a separate lazy rseq check.
     tobuild_api(api.rseq linux/rseq.c "" "" OFF OFF)
     append_property_string(TARGET api.rseq COMPILE_FLAGS "-DRSEQ_TEST_ATTACH")
