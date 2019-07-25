@@ -667,8 +667,8 @@ dynamorio_app_init(bool attach_case)
          * that before initializing clients.
          */
         dr_app_started = create_broadcast_event();
-#ifdef X86
-#    ifdef CLIENT_INTERFACE
+#ifdef CLIENT_INTERFACE
+#    ifdef X86
         if (attach_case) {
             if (d_r_is_initial_attach_avx512_code_in_use())
                 d_r_set_avx512_code_in_use(true);
