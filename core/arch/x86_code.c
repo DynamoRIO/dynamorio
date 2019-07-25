@@ -53,7 +53,8 @@ get_xmm_vals(priv_mcontext_t *mc)
 #ifdef X86
     if (preserve_xmm_caller_saved()) {
         ASSERT(proc_has_feature(FEATURE_SSE));
-        if (ZMM_ENABLED())
+        /* NOCHECKIN add comment */
+        if (d_r_is_avx512_code_in_use())
             get_zmm_caller_saved(&mc->simd[0]);
         else if (YMM_ENABLED())
             get_ymm_caller_saved(&mc->simd[0]);
