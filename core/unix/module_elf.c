@@ -1688,8 +1688,15 @@ module_init_rseq(module_area_t *ma, bool at_map)
                     goto module_init_rseq_cleanup;
                 /* We assume this is a full mapping and it's safe to read the data
                  * (a partial map shouldn't make it to module list processing).
+                 * We do perform a sanity check to handle unusual non-relocated
+                 * cases (it's possible this array is not in a loaded segment?).
                  */
-                rseq_process_entry((struct rseq_cs *)(*ptrs + load_offs), entry_offs);
+                if (*ptrs < ma->start || *ptrs > ma->end) {
+                    SYSLOG_INTERNAL_WARNING(RSEQ_PTR_ARRAY_SEC_NAME
+                                            " is not in memory. Aborting rseq parsing.");
+                    goto module_init_rseq_cleanup;
+                }
+                rseq_process_entry((struct rseq_cs *)(*ptrs), entry_offs);
                 ++ptrs;
             }
             break;
@@ -1713,8 +1720,12 @@ module_init_rseq(module_area_t *ma, bool at_map)
                 int j;
                 for (j = 0; j < sec_hdr->sh_size / sizeof(*array); ++j) {
                     /* We require that the table is loaded.  If not, bail. */
-                    if (array > (struct rseq_cs *)ma->end)
+                    if (array < (struct rseq_cs *)ma->start ||
+                        array > (struct rseq_cs *)ma->end) {
+                        SYSLOG_INTERNAL_WARNING(RSEQ_SEC_NAME " is not in memory."
+                                                              " Aborting rseq parsing.");
                         goto module_init_rseq_cleanup;
+                    }
                     rseq_process_entry(array, entry_offs);
                     ++array;
                 }
