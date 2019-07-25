@@ -737,7 +737,8 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
      */
 #    ifdef X86
     /* Use out-of-line calls if more than 3 SIMD registers or 3 mask registers need to be
-     * saved. */
+     * saved.
+     */
 #        define SIMD_SAVE_THRESHOLD 3
 #        define OPMASK_SAVE_THRESHOLD 3
 #        ifdef X64
