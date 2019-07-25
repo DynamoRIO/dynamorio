@@ -159,7 +159,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
      * We may or may not use the slot at the call site, but it needs to be
      * reserved just in case.
      */
-    if (ci->read_flags || ci->write_flags | ZMM_ENABLED()) {
+    if (ci->read_flags || ci->write_flags || ZMM_ENABLED()) {
         /* XXX: We can optimize away the flags spill to memory if the callee
          * does not use xax.
          */
