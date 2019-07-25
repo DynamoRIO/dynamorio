@@ -2536,13 +2536,15 @@ endif ()
       "" "-thread_private -cache_bb_unit_init 4K" "")
   endif ()
 
-  if (X64) # Tests x86 reachability.
-    tobuild_ci(client.reachability client-interface/reachability.c ""
-      # The vm_base options were added in order to expose bugs that fail to xl8 reachable
-      # addresses to the executable view within the scheme of satisfy_w_xor_x.
-      "-no_vm_base_near_app -vm_base 0x100000000" "")
-  elseif (X86)
-    tobuild_ci(client.reachability client-interface/reachability.c "" "" "")
+  if (X86)
+    if (X64) # Tests x86 reachability.
+      tobuild_ci(client.reachability client-interface/reachability.c ""
+        # The vm_base options were added in order to expose bugs that fail to xl8 reachable
+        # addresses to the executable view within the scheme of satisfy_w_xor_x.
+        "-no_vm_base_near_app -vm_base 0x100000000" "")
+    else ()
+      tobuild_ci(client.reachability client-interface/reachability.c "" "" "")
+    endif ()
   endif ()
 
   if (X86) # FIXME i#1551, i#1569: fix bugs on ARM and AArch64
