@@ -1683,9 +1683,17 @@ module_init_rseq(module_area_t *ma, bool at_map)
             byte **ptrs = (byte **)(sec_hdr->sh_addr + load_offs);
             int j;
             for (j = 0; j < sec_hdr->sh_size / sizeof(ptrs); ++j) {
-                /* We require that the table is loaded.  If not, bail. */
-                if (ptrs > (byte **)ma->end)
-                    goto module_init_rseq_cleanup;
+                /* We require that the table is loaded.  If not, bail, but unlike
+                 * failing to find section headers, make this a fatal error: better
+                 * to notify the user than try to run the rseq w/o proper handling.
+                 */
+                if (ptrs < (byte **)ma->start || ptrs > (byte **)ma->end) {
+                    REPORT_FATAL_ERROR_AND_EXIT(
+                        RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                        get_application_pid(),
+                        RSEQ_PTR_ARRAY_SEC_NAME " is not in a loaded segment");
+                    ASSERT_NOT_REACHED();
+                }
                 /* We assume this is a full mapping and it's safe to read the data
                  * (a partial map shouldn't make it to module list processing).
                  * We do perform a sanity check to handle unusual non-relocated
@@ -1693,9 +1701,11 @@ module_init_rseq(module_area_t *ma, bool at_map)
                  */
                 byte *entry = *ptrs + entry_offs;
                 if (entry < ma->start || entry > ma->end) {
-                    SYSLOG_INTERNAL_WARNING(RSEQ_PTR_ARRAY_SEC_NAME
-                                            " is not in memory. Aborting rseq parsing.");
-                    goto module_init_rseq_cleanup;
+                    REPORT_FATAL_ERROR_AND_EXIT(
+                        RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                        get_application_pid(),
+                        RSEQ_PTR_ARRAY_SEC_NAME "'s entries are not in a loaded segment");
+                    ASSERT_NOT_REACHED();
                 }
                 rseq_process_entry((struct rseq_cs *)entry, entry_offs);
                 ++ptrs;
@@ -1723,9 +1733,11 @@ module_init_rseq(module_area_t *ma, bool at_map)
                     /* We require that the table is loaded.  If not, bail. */
                     if (array < (struct rseq_cs *)ma->start ||
                         array > (struct rseq_cs *)ma->end) {
-                        SYSLOG_INTERNAL_WARNING(RSEQ_SEC_NAME " is not in memory."
-                                                              " Aborting rseq parsing.");
-                        goto module_init_rseq_cleanup;
+                        REPORT_FATAL_ERROR_AND_EXIT(
+                            RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                            get_application_pid(),
+                            RSEQ_SEC_NAME " is not in a loaded segment");
+                        ASSERT_NOT_REACHED();
                     }
                     rseq_process_entry(array, entry_offs);
                     ++array;
