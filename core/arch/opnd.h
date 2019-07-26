@@ -2767,7 +2767,11 @@ DR_API
  * for an mmx register as stored in the physical register.
  * Up to sizeof(dr_zmm_t) bytes will be written to \p val.
  *
+ * This routine also supports reading AVX-512 mask registers. In this
+ * case, sizeof(dr_opmask_t) bytes will be written to \p val.
+ *
  * This routine does not support floating-point registers.
+ *
  *
  * \note \p mc->flags must include the appropriate flag for the
  * requested register.

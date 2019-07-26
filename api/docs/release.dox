@@ -203,6 +203,7 @@ Further non-compatibility-affecting changes include:
  - Added support for applications using the Linux kernel's restartable sequence
    ("rseq") feature, subject to the limitations listed in \ref sec_limit_platforms.
  - Added the function proc_num_opmask_registers();
+ - reg_get_value_ex() now supports reading AVX-512 mask registers.
 
 **************************************************
 <hr>
