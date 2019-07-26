@@ -233,7 +233,7 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
             }
             if (current_cache.children.size() > 0) {
                 lowest_shared_cache = current_cache.name;
-                total_snooped_caches = current_cache.children.size();
+                total_snooped_caches = (unsigned int)current_cache.children.size();
             }
         } else {
             total_snooped_caches = num_LL;
