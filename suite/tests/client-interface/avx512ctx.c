@@ -37,14 +37,6 @@
 #    ifndef __AVX512F__
 #        error "Build error, should only be added with AVX-512 support."
 #    endif
-#    ifdef X64
-#        define NUM_SIMD_REGS 32
-#    else
-#        define NUM_SIMD_REGS 8
-#    endif
-#    define NUM_OPMASK_REGS 8
-
-#    define VERBOSE 0
 
 NOINLINE void
 marker();
@@ -57,8 +49,6 @@ void
 init_opmask(byte *buf);
 void
 get_opmask(byte *buf);
-
-#    define VERBOSE 0
 
 NOINLINE void
 test1_marker();
@@ -128,15 +118,18 @@ run_avx512_ctx_test(void (*marker)())
     get_zmm(zmm_buf);
     get_opmask(opmask_buf);
 
+    if (memcmp(zmm_buf, zmm_ref, sizeof(zmm_buf)) != 0) {
 #    if VERBOSE
-    print_zmm(zmm_buf, zmm_ref);
-    print_opmask(opmask_buf, opmask_ref);
+        print_zmm(zmm_buf, zmm_ref);
 #    endif
-
-    if (memcmp(zmm_buf, zmm_ref, sizeof(zmm_buf)) != 0)
         print("ERROR: wrong zmm value\n");
-    if (memcmp(opmask_buf, opmask_ref, sizeof(opmask_buf)) != 0)
+    }
+    if (memcmp(opmask_buf, opmask_ref, sizeof(opmask_buf)) != 0) {
+#    if VERBOSE
+        print_opmask(opmask_buf, opmask_ref);
+#    endif
         print("ERROR: wrong mask value\n");
+    }
 }
 
 static void

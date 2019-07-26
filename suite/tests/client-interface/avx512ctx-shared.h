@@ -33,3 +33,12 @@
 #define MARKER_REG REG_XAX
 #define TEST1_MARKER 0xabc6534f
 #define TEST2_MARKER 0x16dfc5a5
+
+#ifdef X64
+#    define NUM_SIMD_REGS 32
+#else
+#    define NUM_SIMD_REGS 8
+#endif
+#define NUM_OPMASK_REGS 8
+
+#define VERBOSE 0
