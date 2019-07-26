@@ -358,6 +358,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         dstack_offs += offs;
     }
 
+    /* pc and aflags */
     if (!cci->skip_save_flags) {
         ASSERT(offs_beyond_xmm == 0);
         if (opnd_is_immed_int(push_pc))
