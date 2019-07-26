@@ -633,7 +633,6 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     if (!cci->skip_save_flags) {
         PRE(ilist, instr, INSTR_CREATE_popf(dcontext));
         offs_beyond_xmm = XSP_SZ; /* pc */
-        ;
     } else if (cci->preserve_mcontext) {
         offs_beyond_xmm = 2 * XSP_SZ; /* aflags + pc */
     }
