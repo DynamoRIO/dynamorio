@@ -791,6 +791,13 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
                 "Malformed rseq endpoint: not on instruction boundary");
             ASSERT_NOT_REACHED();
         }
+        if (instr_is_cti(instr)) {
+            REPORT_FATAL_ERROR_AND_EXIT(
+                RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                get_application_pid(),
+                "Rseq sequences must fall through their endpoints");
+            ASSERT_NOT_REACHED();
+        }
 #    ifdef X86
         /* We just ran the instrumented version of the rseq code, with the stores
          * removed.  Now we need to invoke it again natively for real.  We have to
@@ -835,6 +842,9 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
                                ilist, next_instr, NULL, NULL);
         /* Set up the frame and stack alignment.  We assume the rseq code was a leaf
          * function and that rsp is 16-aligned now.
+         * TODO i#2350: If we stick with an extra call frame, it would be better to
+         * spill rsp and hard-align it using a bitmask to ensure alignment; however,
+         * see above where we hope to eliminate the call-return assumption altogether.
          */
         instrlist_meta_preinsert(ilist, next_instr,
                                  XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_RSP),
@@ -851,7 +861,6 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
                                     get_application_pid(),
                                     "Rseq is not yet supported for non-x86");
         ASSERT_NOT_REACHED();
-
 #    endif
     }
 
@@ -871,6 +880,10 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
     /* XXX i#2350: We want to turn just the store portion of the instr into a nop
      * and keep any register side effects.  That is complex, however.  For now we
      * only support simple stores.
+     */
+    /* We perform this mangling of earlier instructions in the region out of logical
+     * order (*after* the mangling above of the end of the region) to avoid issues
+     * with accessing "instr" after we delete it.
      */
     if (instr_num_dsts(instr) > 1) {
         REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
@@ -981,7 +994,9 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
          * solve.  We expect the vmvector_empty check to be fast enough for the common
          * case.
          */
-        if (instr_is_app(instr) && !vmvector_empty(d_r_rseq_areas)) {
+        if (instr_is_app(instr) &&
+            !instr_is_our_mangling(instr) /* avoid synthetic exit jump*/ &&
+            !vmvector_empty(d_r_rseq_areas)) {
             app_pc pc = get_app_instr_xl8(instr);
             if (vmvector_overlap(d_r_rseq_areas, pc, pc + 1)) {
                 if (mangle_rseq(dcontext, ilist, instr, next_instr))

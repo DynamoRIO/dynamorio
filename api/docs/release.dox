@@ -1647,7 +1647,14 @@ not supported.
     - Each rseq region must end with a return instruction, and each abort handler
       plus rseq code must combine into a callee following normal call-return
       semantics.
+    - Each rseq region's code must end with a fall-through (non-control-flow)
+      instruction.
     - Any helper function called from within an rseq region must have no side effects.
+    - The instrumented execution of the rseq region may not perfectly reflect
+      the native behavior of the application.  The instrumentation will never see
+      the abort handler called, and memory addresses may be wrong if they are based on
+      the underlying cpuid and a migration occurred mid-region.  These are minor and
+      acceptable for most tools (especially given that there is no better alternative).
 
 \subsection sec_limit_perf Performance Limitations
 
