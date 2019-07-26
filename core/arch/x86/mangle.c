@@ -443,11 +443,11 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                     instr_t *maskmov = instr_create_1dst_1src(
                         dcontext,
                         proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,
-                        opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                              PRE_XMM_PADDING +
-                                                  MCXT_TOTAL_SIMD_SLOTS_SIZE +
-                                                  offs_beyond_xmm,
-                                              OPSZ_SAVED_OPMASK),
+                        opnd_create_base_disp(
+                            REG_XSP, REG_NULL, 0,
+                            PRE_XMM_PADDING + MCXT_TOTAL_SIMD_SLOTS_SIZE +
+                                i * OPMASK_AVX512BW_REG_SIZE + offs_beyond_xmm,
+                            OPSZ_SAVED_OPMASK),
                         opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i));
                     PRE(ilist, instr, maskmov);
                 }
@@ -618,11 +618,11 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
                         dcontext,
                         proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,
                         opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i),
-                        opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                              PRE_XMM_PADDING +
-                                                  MCXT_TOTAL_SIMD_SLOTS_SIZE +
-                                                  offs_beyond_xmm,
-                                              OPSZ_SAVED_OPMASK));
+                        opnd_create_base_disp(
+                            REG_XSP, REG_NULL, 0,
+                            PRE_XMM_PADDING + MCXT_TOTAL_SIMD_SLOTS_SIZE +
+                                i * OPMASK_AVX512BW_REG_SIZE + offs_beyond_xmm,
+                            OPSZ_SAVED_OPMASK));
                     PRE(ilist, instr, maskmov);
                 }
             }
