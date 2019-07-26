@@ -2112,7 +2112,18 @@ if (CLIENT_INTERFACE)
   endif (NOT ARM)
   tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
   if (NOT ARM) # FIXME i#2094: implement cleancall optimizations on ARM
-    tobuild_ci(client.cleancall-opt-1 client-interface/cleancall-opt-1.c "" "-opt_cleancall 1" "")
+    tobuild_ci(client.cleancall-opt-1 client-interface/cleancall-opt-1.c ""
+      "-opt_cleancall 1" "")
+    if (proc_supports_avx512)
+      # XXX i#1312: This is untested on Windows.
+      tobuild_ci(client.avx512cleancall-opt-1 client-interface/cleancall-opt-1.c ""
+        "-opt_cleancall 1" "")
+      append_property_string(TARGET client.avx512cleancall-opt-1 COMPILE_FLAGS
+        "${CFLAGS_AVX512}")
+      append_property_string(TARGET client.avx512cleancall-opt-1.dll COMPILE_FLAGS
+        "${CFLAGS_AVX512}")
+    endif ()
+
     tobuild_ci(client.inline client-interface/inline.c "" "-opt_cleancall 3" "")
     if (CMAKE_COMPILER_IS_CLANG)
       optimize(client.inline.dll)
