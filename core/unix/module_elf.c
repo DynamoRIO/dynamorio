@@ -1725,7 +1725,7 @@ module_init_rseq(module_area_t *ma, bool at_map)
                  * over it.  We're reading the loaded data, not the file, so it will
                  * always be aligned.
                  */
-#    define RSEQ_CS_ALIGNMENT 4 * sizeof(__u64)
+#    define RSEQ_CS_ALIGNMENT (4 * sizeof(__u64))
                 struct rseq_cs *array = (struct rseq_cs *)ALIGN_FORWARD(
                     sec_hdr->sh_addr + load_offs, RSEQ_CS_ALIGNMENT);
                 int j;

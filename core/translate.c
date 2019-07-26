@@ -569,6 +569,21 @@ translate_restore_clean_call(dcontext_t *tdcontext, translate_walk_t *walk)
      */
 }
 
+static app_pc
+translate_restore_special_cases(app_pc pc)
+{
+#ifdef LINUX
+    app_pc handler;
+    if (vmvector_lookup_data(d_r_rseq_areas, pc, NULL, NULL, (void **)&handler)) {
+        LOG(THREAD_GET, LOG_INTERP, 2,
+            "recreate_app: moving " PFX " inside rseq region to handler " PFX "\n", pc,
+            handler);
+        return handler;
+    }
+#endif
+    return pc;
+}
+
 /* Returns a success code, but makes a best effort regardless.
  * If just_pc is true, only recreates pc.
  * Modifies mc with the recreated state.
@@ -699,6 +714,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
 
     if (!just_pc)
         translate_walk_restore(tdcontext, &walk, &instr, answer);
+    answer = translate_restore_special_cases(answer);
     LOG(THREAD_GET, LOG_INTERP, 2, "recreate_app -- found ok pc " PFX "\n", answer);
     mc->pc = answer;
     return res;
@@ -891,6 +907,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
             }
             if (!just_pc)
                 translate_walk_restore(tdcontext, &walk, inst, answer);
+            answer = translate_restore_special_cases(answer);
             LOG(THREAD_GET, LOG_INTERP, 2, "recreate_app -- found ok pc " PFX "\n",
                 answer);
             mc->pc = answer;
@@ -931,6 +948,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
     ASSERT_NOT_REACHED();
     if (just_pc) {
         /* just guess */
+        answer = translate_restore_special_cases(answer);
         mc->pc = answer;
     }
     return RECREATE_FAILURE;
