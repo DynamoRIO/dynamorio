@@ -2860,14 +2860,12 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             continue;
         }
 #    ifdef X86
-        else {
-            if (!d_r_is_avx512_code_in_use()) {
-                if (ZMM_ENABLED()) {
-                    if (instr_may_write_zmm_or_opmask_register(inst)) {
-                        LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
-                        d_r_set_avx512_code_in_use(true);
-                        proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
-                    }
+        if (!d_r_is_avx512_code_in_use()) {
+            if (ZMM_ENABLED()) {
+                if (instr_may_write_zmm_or_opmask_register(inst)) {
+                    LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
+                    d_r_set_avx512_code_in_use(true);
+                    proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
                 }
             }
         }
@@ -3506,7 +3504,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 stop_bb_on_fallthrough = true;
                 break;
             }
-            ASSERT(!instr_is_meta(bb->instr));
             if (!d_r_is_avx512_code_in_use()) {
                 if (ZMM_ENABLED()) {
                     if (instr_get_prefix_flag(bb->instr, PREFIX_EVEX)) {
