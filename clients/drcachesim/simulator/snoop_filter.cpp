@@ -62,6 +62,7 @@ snoop_filter_t::snoop(addr_t tag, int id_in, bool is_write)
     // Initialize new snoop filter entry.
     if (coherence_entry->sharers.empty()) {
         coherence_entry->sharers.resize(num_snooped_caches, false);
+        coherence_entry->dirty = false;
     }
 
     auto num_sharers = std::count(coherence_entry->sharers.begin(),
@@ -74,39 +75,27 @@ snoop_filter_t::snoop(addr_t tag, int id_in, bool is_write)
     // Check that any dirty line is only held in one snooped cache.
     assert(!coherence_entry->dirty || num_sharers == 1);
 
-    if (is_write) {
-        num_writes++;
-    }
-
+    // Check if this request causes a writeback.
     if (!coherence_entry->sharers[id_in] && coherence_entry->dirty) {
         num_writebacks++;
         coherence_entry->dirty = false;
     }
-    if (is_write) {
-        coherence_entry->dirty = true;
-    }
 
-    if (num_sharers == 0) {
-        std::fill(coherence_entry->sharers.begin(), coherence_entry->sharers.end(),
-                  false);
-        coherence_entry->sharers[id_in] = true;
-    } else if (num_sharers > 0) {
-        if (!is_write) {
-            coherence_entry->sharers[id_in] = true;
-        } else { /*is_write*/
+    if (is_write) {
+        num_writes++;
+        coherence_entry->dirty = true;
+        if (num_sharers > 0) {
             // Writes will invalidate other caches.
             for (int i = 0; i < num_snooped_caches; i++) {
                 if (coherence_entry->sharers[i] && id_in != i) {
                     caches[i]->invalidate(tag, INVALIDATION_COHERENCE);
                     num_invalidates++;
+                    coherence_entry->sharers[i] = false;
                 }
             }
-            std::fill(coherence_entry->sharers.begin(), coherence_entry->sharers.end(),
-                      false);
-            coherence_entry->sharers[id_in] = true;
         }
     }
-    return;
+    coherence_entry->sharers[id_in] = true;
 }
 
 /* This function is called whenever a coherent cache evicts a line. */
