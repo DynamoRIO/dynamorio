@@ -96,11 +96,6 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
              */
             kernel_xstate_t *xstate = (kernel_xstate_t *)ucxt->uc_mcontext.fpregs;
             if (xstate->fpstate.sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
-                print("was here: xstate->fpstate.sw_reserved.xstate_size:%d\n",
-                      xstate->fpstate.sw_reserved.xstate_size);
-                print("was here: xstate->fpstate.sw_reserved.extended_size:%d\n",
-                      xstate->fpstate.sw_reserved.extended_size);
-                print("was here: sizeof(*xstate):%d\n", sizeof(*xstate));
                 assert(xstate->fpstate.sw_reserved.extended_size >= sizeof(*xstate));
                 for (i = 0; i < NUM_SIMD_REGS; i++) {
 #ifdef __AVX__
