@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,28 +30,38 @@
  * DAMAGE.
  */
 
-/* cache_fifo: represents a single hardware cache with FIFO algo.
- */
-
-#ifndef _CACHE_FIFO_H_
-#define _CACHE_FIFO_H_ 1
+#ifndef _SNOOP_FILTER_H_
+#define _SNOOP_FILTER_H_ 1
 
 #include "cache.h"
+#include <unordered_map>
+#include <vector>
 
-class cache_fifo_t : public cache_t {
-public:
-    virtual bool
-    init(int associativity, int line_size, int total_size, caching_device_t *parent,
-         caching_device_stats_t *stats, prefetcher_t *prefetcher, bool inclusive = false,
-         bool coherent_cache = false, int id_ = -1,
-         snoop_filter_t *snoop_filter_ = nullptr,
-         const std::vector<caching_device_t *> &children = {});
-
-protected:
-    virtual void
-    access_update(int line_idx, int way);
-    virtual int
-    replace_which_way(int line_idx);
+struct coherence_table_entry_t {
+    std::vector<bool> sharers;
+    bool dirty;
 };
 
-#endif /* _CACHE_FIFO_H_ */
+class snoop_filter_t {
+public:
+    snoop_filter_t(void);
+    virtual bool
+    init(cache_t **caches_, int num_snooped_caches_);
+    virtual void
+    snoop(addr_t tag, int id_in, bool is_write);
+    virtual void
+    snoop_eviction(addr_t tag, int id_in);
+    void
+    print_stats(void);
+
+protected:
+    // XXX: This initial coherence implementation uses a perfect snoop filter.
+    std::unordered_map<addr_t, coherence_table_entry_t> coherence_table;
+    cache_t **caches;
+    int num_snooped_caches;
+    int_least64_t num_writes;
+    int_least64_t num_writebacks;
+    int_least64_t num_invalidates;
+};
+
+#endif /* _SNOOP_FILTER_H_ */

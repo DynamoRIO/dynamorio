@@ -1031,6 +1031,11 @@ function(template2expect outexpect template runops key)
     # so currently this is unused.
     set(rundefs "${rundefs} -DCYGWIN")
   endif ()
+  if (DEFINED ${key}_runavx512)
+    set(rundefs "${rundefs} -D__AVX__ -D__AVX512F__")
+  elseif (DEFINED ${key}_runavx)
+    set(rundefs "${rundefs} -D__AVX__")
+  endif ()
 
   string(STRIP "${rundefs}" rundefs)
 
@@ -2749,6 +2754,10 @@ endif ()
           "${annotation_test_args}")
         set(tool.drcachesim.threads_timeout 150) # This test is long.
 
+        torunonly_drcachesim(coherence client.annotation-concurrency "-coherence"
+          "${annotation_test_args}")
+        set(tool.drcachesim.coherence_timeout 150) # This test is long.
+
         # TLB simulator's multi-thread sanity check
         torunonly_drcachesim(TLB-threads client.annotation-concurrency
           "-simulator_type TLB -cpu_scheduling" "${annotation_test_args}")
@@ -3332,6 +3341,13 @@ if (UNIX)
   # FIXME i#58: port test to MacOS
   if (NOT ARM AND NOT AARCH64 AND NOT APPLE)
     tobuild(linux.sigcontext linux/sigcontext.c)
+    if (proc_supports_avx512)
+      append_property_string(TARGET linux.sigcontext COMPILE_FLAGS "${CFLAGS_AVX512}")
+      set(linux.sigcontext_runavx512 1)
+    elseif (proc_supports_avx)
+      append_property_string(TARGET linux.sigcontext COMPILE_FLAGS "${CFLAGS_AVX}")
+      set(linux.sigcontext_runavx 1)
+    endif ()
   endif ()
   if (NOT APPLE)
     tobuild(linux.thread linux/thread.c)
@@ -3467,7 +3483,7 @@ if (UNIX)
   set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
 
   if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
-    # The rseq feature is Linux-only.
+    # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit, ARM, AArch64.
     tobuild(linux.rseq linux/rseq.c)
     # Test the other sections.  Unfortunately we need a separate binary for each.
@@ -3479,6 +3495,7 @@ if (UNIX)
       COMPILE_FLAGS "-DRSEQ_TEST_USE_NO_ARRAY")
     # Test attaching, which has a separate lazy rseq check.
     tobuild_api(api.rseq linux/rseq.c "" "" OFF OFF)
+    link_with_pthread(api.rseq)
     append_property_string(TARGET api.rseq COMPILE_FLAGS "-DRSEQ_TEST_ATTACH")
   endif ()
 else (UNIX)
