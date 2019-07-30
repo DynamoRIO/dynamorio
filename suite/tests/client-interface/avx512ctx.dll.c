@@ -93,39 +93,71 @@ read_avx512_state()
     dr_get_mcontext(drcontext, &mcontext);
 
     bool get_reg_value_ok = true;
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM0, &mcontext, &zmm_buf[0 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM1, &mcontext, &zmm_buf[1 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM2, &mcontext, &zmm_buf[2 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM3, &mcontext, &zmm_buf[3 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM4, &mcontext, &zmm_buf[4 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM5, &mcontext, &zmm_buf[5 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM6, &mcontext, &zmm_buf[6 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM7, &mcontext, &zmm_buf[7 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM0, &mcontext, &zmm_buf[0 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM1, &mcontext, &zmm_buf[1 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM2, &mcontext, &zmm_buf[2 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM3, &mcontext, &zmm_buf[3 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM4, &mcontext, &zmm_buf[4 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM5, &mcontext, &zmm_buf[5 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM6, &mcontext, &zmm_buf[6 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM7, &mcontext, &zmm_buf[7 * 64]);
 #ifdef X64
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM8, &mcontext, &zmm_buf[8 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM9, &mcontext, &zmm_buf[9 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM10, &mcontext, &zmm_buf[10 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM11, &mcontext, &zmm_buf[11 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM12, &mcontext, &zmm_buf[12 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM13, &mcontext, &zmm_buf[13 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM14, &mcontext, &zmm_buf[14 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM15, &mcontext, &zmm_buf[15 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM16, &mcontext, &zmm_buf[16 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM17, &mcontext, &zmm_buf[17 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM18, &mcontext, &zmm_buf[18 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM19, &mcontext, &zmm_buf[19 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM20, &mcontext, &zmm_buf[20 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM21, &mcontext, &zmm_buf[21 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM22, &mcontext, &zmm_buf[22 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM23, &mcontext, &zmm_buf[23 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM24, &mcontext, &zmm_buf[24 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM25, &mcontext, &zmm_buf[25 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM26, &mcontext, &zmm_buf[26 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM27, &mcontext, &zmm_buf[27 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM28, &mcontext, &zmm_buf[28 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM29, &mcontext, &zmm_buf[29 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM30, &mcontext, &zmm_buf[30 * 64]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_ZMM31, &mcontext, &zmm_buf[31 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM8, &mcontext, &zmm_buf[8 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM9, &mcontext, &zmm_buf[9 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM10, &mcontext, &zmm_buf[10 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM11, &mcontext, &zmm_buf[11 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM12, &mcontext, &zmm_buf[12 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM13, &mcontext, &zmm_buf[13 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM14, &mcontext, &zmm_buf[14 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM15, &mcontext, &zmm_buf[15 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM16, &mcontext, &zmm_buf[16 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM17, &mcontext, &zmm_buf[17 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM18, &mcontext, &zmm_buf[18 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM19, &mcontext, &zmm_buf[19 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM20, &mcontext, &zmm_buf[20 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM21, &mcontext, &zmm_buf[21 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM22, &mcontext, &zmm_buf[22 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM23, &mcontext, &zmm_buf[23 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM24, &mcontext, &zmm_buf[24 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM25, &mcontext, &zmm_buf[25 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM26, &mcontext, &zmm_buf[26 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM27, &mcontext, &zmm_buf[27 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM28, &mcontext, &zmm_buf[28 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM29, &mcontext, &zmm_buf[29 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM30, &mcontext, &zmm_buf[30 * 64]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_ZMM31, &mcontext, &zmm_buf[31 * 64]);
     if (!get_reg_value_ok)
         dr_fprintf(STDERR, "ERROR: problem reading zmm value\n");
 #endif
@@ -135,14 +167,22 @@ read_avx512_state()
 #endif
         dr_fprintf(STDERR, "ERROR: wrong zmm value\n");
     }
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_K0, &mcontext, &opmask_buf[0 * 8]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_K1, &mcontext, &opmask_buf[1 * 8]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_K2, &mcontext, &opmask_buf[2 * 8]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_K3, &mcontext, &opmask_buf[3 * 8]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_K4, &mcontext, &opmask_buf[4 * 8]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_K5, &mcontext, &opmask_buf[5 * 8]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_K6, &mcontext, &opmask_buf[6 * 8]);
-    get_reg_value_ok &= reg_get_value_ex(DR_REG_K7, &mcontext, &opmask_buf[7 * 8]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_K0, &mcontext, &opmask_buf[0 * 8]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_K1, &mcontext, &opmask_buf[1 * 8]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_K2, &mcontext, &opmask_buf[2 * 8]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_K3, &mcontext, &opmask_buf[3 * 8]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_K4, &mcontext, &opmask_buf[4 * 8]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_K5, &mcontext, &opmask_buf[5 * 8]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_K6, &mcontext, &opmask_buf[6 * 8]);
+    get_reg_value_ok =
+        get_reg_value_ok && reg_get_value_ex(DR_REG_K7, &mcontext, &opmask_buf[7 * 8]);
     if (!get_reg_value_ok)
         dr_fprintf(STDERR, "ERROR: problem reading mask value\n");
     if (memcmp(opmask_buf, opmask_ref, sizeof(opmask_buf)) != 0) {
