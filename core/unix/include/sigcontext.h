@@ -25,16 +25,22 @@
  * are used to extended the fpstate pointer in the sigcontext, which now
  * includes the extended state information along with fpstate information.
  *
- * Presence of FP_XSTATE_MAGIC1 at the beginning of this SW reserved
- * area and FP_XSTATE_MAGIC2 at the end of memory layout
- * (extended_size - FP_XSTATE_MAGIC2_SIZE) indicates the presence of the
- * extended state information in the memory layout pointed by the fpstate
- * pointer in sigcontext.
+ * If sw_reserved.magic1 == FP_XSTATE_MAGIC1 then there's a
+ * sw_reserved.extended_size bytes large extended context area present. (The
+ * last 32-bit word of this extended area (at the
+ * fpstate+extended_size-FP_XSTATE_MAGIC2_SIZE address) is set to
+ * FP_XSTATE_MAGIC2 so that you can sanity check your size calculations.)
+ *
+ * This extended area typically grows with newer CPUs that have larger and
+ * larger XSAVE areas.
  */
 typedef struct _kernel_fpx_sw_bytes_t {
     __u32 magic1;        /* FP_XSTATE_MAGIC1 */
-    __u32 extended_size; /* total size of the layout referred by
-                          * fpstate pointer in the sigcontext.
+    __u32 extended_size; /* Total size of the fpstate area:
+                          *
+                          * - if magic1 == 0 then it's sizeof(struct _fpstate)
+                          * - if magic1 == FP_XSTATE_MAGIC1 then it's sizeof(struct
+                          *   _xstate) plus extensions (if any)
                           */
     __u64 xstate_bv;
     /* feature bit mask (including fp/sse/extended
