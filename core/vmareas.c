@@ -5963,12 +5963,23 @@ dyngen_diagnostics(dcontext_t *dcontext, app_pc pc, app_pc base_pc, size_t size,
  * APPLICATION MEMORY STATE TRACKING
  */
 
+/* Internal version with a flag for whether to only check or also update vmareas. */
+static uint
+app_memory_protection_change_internal(dcontext_t *dcontext, bool update_areas,
+                                      app_pc base, size_t size,
+                                      uint prot, /* platform independent MEMPROT_ */
+                                      uint *new_memprot, /* OUT */
+                                      uint *old_memprot /* OPTIONAL OUT*/, bool image);
+
 /* Checks whether a requested allocation at a particular base will change
  * the protection bits of any code.  Returns whether or not to allow
- * the operation to go through.
+ * the operation to go through.  The change_executable parameter is passed
+ * through to app_memory_protection_change() on existing areas inside
+ * [base, base+size).
  */
 bool
-app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, bool hint)
+app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, bool hint,
+                     bool update_areas, bool image)
 {
     byte *pb = base;
     dr_mem_info_t info;
@@ -5978,7 +5989,8 @@ app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, b
             * but in large-region cases it saves huge number of syscalls.
             */
            query_memory_cur_base(pb, &info)) {
-        if (info.type != DR_MEMTYPE_FREE && info.type != DR_MEMTYPE_RESERVED) {
+        if (info.type != DR_MEMTYPE_FREE && info.type != DR_MEMTYPE_RESERVED &&
+            info.prot != prot) {
             size_t change_sz;
             uint subset_memprot;
             uint res;
@@ -5992,8 +6004,9 @@ app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, b
                  */
                 return false;
             }
-            res = app_memory_protection_change(dcontext, pb, change_sz, prot,
-                                               &subset_memprot, NULL);
+            res = app_memory_protection_change_internal(dcontext, update_areas, pb,
+                                                        change_sz, prot, &subset_memprot,
+                                                        NULL, image);
             if (res != DO_APP_MEM_PROT_CHANGE) {
                 if (res == FAIL_APP_MEM_PROT_CHANGE) {
                     return false;
@@ -6018,27 +6031,29 @@ app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, b
     return true;
 }
 
-/* newly allocated or mapped in memory region, returns true if added to exec list
- * ok to pass in NULL for dcontext -- in fact, assumes dcontext is NULL at initialization
- *
- * It's up to the caller to handle any changes in protection in a new alloc that
- * overlaps an existing alloc, by calling app_memory_protection_change().
+/* Newly allocated or mapped in memory region. Returns true if added to exec list.
+ * OK to pass in NULL for dcontext -- in fact, assumes dcontext is NULL at initialization.
  */
 bool
 app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
                       bool image _IF_DEBUG(const char *comment))
 {
-    /* FIXME (case 68): to guard against external agents freeing memory, we
-     * could remove this region from the executable list here -- is it worth the
-     * performance hit?  DR itself could allocate memory that was freed
-     * externally -- but our DR overlap checks would catch that.
+    /* First handle overlap with existing areas.  Callers try to additionally do this
+     * pre-syscall to catch cases we want to block, but we can't do everything there
+     * b/c we don't know all "image" cases.
+     * We skip this until the app is doing sthg, to avoid the extra memory queries
+     * during os_walk_address_space().
      */
-    ASSERT_CURIOSITY(
-        !executable_vm_area_overlap(base, base + size, false /*have no lock*/) ||
-        /* This happens during module loading if we don't flush on mprot */
-        (!INTERNAL_OPTION(hw_cache_consistency) &&
-         /* .bss has !image so we just check for existing module overlap */
-         pc_is_in_module(base)));
+    if (dynamo_initialized &&
+        !app_memory_pre_alloc(dcontext, base, size, prot, false /*!hint*/,
+                              true /*update*/, image)) {
+        /* XXX: We should do better by telling app_memory_protection_change() we
+         * can't fail so it should try to handle.  We do not expect this to happen
+         * except with a pathological race.
+         */
+        SYSLOG_INTERNAL_WARNING_ONCE(
+            "Protection change already happened but should have been blocked");
+    }
 #ifdef PROGRAM_SHEPHERDING
     DODEBUG({
         /* case 4175 - reallocations will overlap with no easy way to
@@ -6325,9 +6340,11 @@ set_region_jit_managed(app_pc start, size_t len)
     d_r_write_unlock(&executable_areas->lock);
 }
 
-/* memory region base:base+size now has privileges prot
- * returns a value from the enum in vmareas->h about whether to perform the
- * system call or not and if not what the return code to the app should be
+/* Called when memory region base:base+size is about to have privileges prot.
+ * Returns a value from the enum in vmareas->h about whether to perform the
+ * system call or not and if not what the return code to the app should be.
+ * If update_areas is true and the syscall should go through, updates
+ * the executable areas; else it is up to the caller to change executable areas.
  */
 /* FIXME : This is called before the system call that will change
  * the memory permission which could be race condition prone! If another
@@ -6346,11 +6363,12 @@ set_region_jit_managed(app_pc start, size_t len)
 /* Note: hotp_only_mem_prot_change() relies on executable_areas to find out
  * previous state, so eliminating it should be carefully; see case 6669.
  */
-uint
-app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
-                             uint prot,         /* platform independent MEMPROT_ */
-                             uint *new_memprot, /* OUT */
-                             uint *old_memprot /* OPTIONAL OUT*/)
+static uint
+app_memory_protection_change_internal(dcontext_t *dcontext, bool update_areas,
+                                      app_pc base, size_t size,
+                                      uint prot, /* platform independent MEMPROT_ */
+                                      uint *new_memprot, /* OUT */
+                                      uint *old_memprot /* OPTIONAL OUT*/, bool image)
 {
     /* FIXME: look up whether image, etc. here?
      * but could overlap multiple regions!
@@ -6595,6 +6613,8 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
     if (!INTERNAL_OPTION(hw_cache_consistency))
         return DO_APP_MEM_PROT_CHANGE; /* let syscall go through */
 #endif
+    if (!update_areas)
+        return DO_APP_MEM_PROT_CHANGE; /* let syscall go through */
 
     /* look for calls making code writable!
      * cache is_executable here w/o holding lock -- if decide to perform state
@@ -6770,7 +6790,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
          * change from rw to r.  thus this should be like the change-to-selfmod case
          * in handle_modified_code => add new vector routine?  (case 3570)
          */
-        add_executable_vm_area(base, base + size, 0 /* not image? FIXME */, 0,
+        add_executable_vm_area(base, base + size, image ? VM_UNMOD_IMAGE : 0, 0,
                                should_finish_flushing /* own lock if flushed */
                                    _IF_DEBUG("protection change"));
     }
@@ -6878,7 +6898,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
             if (add_to_exec_list) {
                 /* FIXME : see note at top of function about bug 2833 */
                 ASSERT(!TEST(MEMPROT_WRITE, prot)); /* sanity check */
-                add_executable_vm_area(base, base + size, 0 /* not an unmodified image */,
+                add_executable_vm_area(base, base + size, image ? VM_UNMOD_IMAGE : 0,
                                        frag_flags_pfx,
                                        false /*no lock*/ _IF_DEBUG(comment));
             }
@@ -7042,6 +7062,16 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
             jitopt_clear_span(base, base + size);
     }
     return DO_APP_MEM_PROT_CHANGE; /* let syscall go through */
+}
+
+uint
+app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
+                             uint prot,         /* platform independent MEMPROT_ */
+                             uint *new_memprot, /* OUT */
+                             uint *old_memprot /* OPTIONAL OUT*/, bool image)
+{
+    return app_memory_protection_change_internal(dcontext, true /*update*/, base, size,
+                                                 prot, new_memprot, old_memprot, image);
 }
 
 #ifdef WINDOWS

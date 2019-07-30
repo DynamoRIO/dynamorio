@@ -624,13 +624,14 @@ enum {
 };
 
 bool
-app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, bool hint);
+app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, bool hint,
+                     bool update_areas, bool image);
 
 uint
 app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                              uint prot,         /* platform independent MEMPROT_ */
                              uint *new_memprot, /* OUT */
-                             uint *old_memprot /* OPTIONAL OUT*/);
+                             uint *old_memprot /* OPTIONAL OUT*/, bool image);
 
 #ifdef WINDOWS
 /* memory region base:base+size was flushed from hardware icache by app */
