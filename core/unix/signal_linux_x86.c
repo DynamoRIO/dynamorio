@@ -180,7 +180,7 @@ convert_fxsave_to_fpstate(kernel_fpstate_t *fpstate, struct i387_fxsave_struct *
     fpstate->magic = X86_FXSR_MAGIC;
 
     memcpy(&fpstate->_fxsr_env[0], fxsave,
-           sizeof(struct i387_fxsave_struct) - sizeof(fpstate->sw_reserved));
+           offsetof(struct i387_fxsave_struct, xmm_space));
 }
 #endif /* !X64 */
 
@@ -288,7 +288,7 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
         /* now convert into kernel_fpstate_t form */
         ASSERT(sizeof(kernel_fpstate_t) == sizeof(struct i387_fxsave_struct));
         memcpy(sc->fpstate, &temp->fxsave,
-               sizeof(struct i387_fxsave_struct) - sizeof(sc->fpstate->sw_reserved));
+               offsetof(struct i387_fxsave_struct, xmm_space));
 #else
         /* this is "unlazy_fpu" */
         asm volatile("fxsave %0 ; fnclex" : "=m"(temp->fxsave));
@@ -302,8 +302,7 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
         asm volatile("fnsave %0 ; fwait" : "=m"(temp->fsave));
         /* now convert into kernel_fpstate_t form */
         temp->fsave.status = temp->fsave.swd;
-        memcpy(sc->fpstate, &temp->fsave,
-               sizeof(struct i387_fsave_struct) - sizeof(sc->fpstate->sw_reserved));
+        memcpy(sc->fpstate, &temp->fsave, sizeof(struct i387_fsave_struct));
     }
 
     save_xmm(dcontext, frame);
