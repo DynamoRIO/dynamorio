@@ -238,9 +238,9 @@
          * bits of each slot will be undefined.
          *
          * When the zmm fields are valid, it implies that
-         * proc_has_feature() with #FEATURE_AVX512 is true. This is because DynamoRIO will
-         * not attempt to fill zmm fields w/o support by the processor and OS. The fields
-         * then will contain the full zmm register values.
+         * proc_has_feature() with #FEATURE_AVX512F is true. This is because DynamoRIO
+         * will not attempt to fill zmm fields w/o support by the processor and OS. The
+         * fields then will contain the full zmm register values.
          */
 #    ifdef AVOID_API_EXPORT
         /* PR 264138: we must preserve xmm0-5 if on a 64-bit Windows kernel,

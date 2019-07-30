@@ -35,6 +35,10 @@
 #    include "dr_api.h"
 #endif
 #include "tools.h"
+#ifdef RSEQ_TEST_ATTACH
+#    include "thread.h"
+#    include "condvar.h"
+#endif
 #ifndef LINUX
 #    error Only Linux is supported.
 #endif
@@ -58,9 +62,14 @@
 #define RSEQ_SIG 0x90909090 /* nops to disasm nicely */
 
 /* This cannot be a stack-local variable, as the kernel will force SIGSEGV on a syscall
- * if it can't read this struct.
+ * if it can't read this struct.  And for multiple threads it should be in TLS.
  */
-static struct rseq rseq_tls;
+static __thread volatile struct rseq rseq_tls;
+
+#ifdef RSEQ_TEST_ATTACH
+static volatile int exit_requested;
+static void *thread_ready;
+#endif
 
 int
 test_rseq(void)
@@ -70,13 +79,23 @@ test_rseq(void)
     static __u32 id = RSEQ_CPU_ID_UNINITIALIZED;
     static int restarts = 0;
     __asm__ __volatile__(
+#ifdef RSEQ_TEST_USE_OLD_SECTION_NAME
         /* Add a table entry. */
         ".pushsection __rseq_table, \"aw\"\n\t"
+#else
+        ".pushsection __rseq_cs, \"aw\"\n\t"
+#endif
         ".balign 32\n\t"
         "1:\n\t"
         ".long 0, 0\n\t"          /* version, flags */
         ".quad 2f, 3f-2f, 4f\n\t" /* start_ip, post_commit_offset, abort_ip */
         ".popsection\n\t"
+#if !defined(RSEQ_TEST_USE_OLD_SECTION_NAME) && !defined(RSEQ_TEST_USE_NO_ARRAY)
+        /* Add an array entry. */
+        ".pushsection __rseq_cs_ptr_array, \"aw\"\n\t"
+        ".quad 1b\n\t"
+        ".popsection\n\t"
+#endif
 
         /* Although our abort handler has to handle being called (that's all DR
          * supports), we structure the code to allow directly calling past it, to
@@ -123,6 +142,88 @@ test_rseq(void)
     return restarts;
 }
 
+#ifdef RSEQ_TEST_ATTACH
+void *
+rseq_thread_loop(void *arg)
+{
+    /* We don't try to signal inside the rseq code.  Just having the thread scheduled
+     * in this function is close enough: the test already has non-determinism.
+     */
+    signal_cond_var(thread_ready);
+    rseq_tls.cpu_id = RSEQ_CPU_ID_UNINITIALIZED;
+    int res = syscall(SYS_rseq, &rseq_tls, sizeof(rseq_tls), 0, RSEQ_SIG);
+    if (res != 0)
+        return NULL;
+    static int zero;
+    __asm__ __volatile__(
+        /* Add a table entry. */
+        ".pushsection __rseq_cs, \"aw\"\n\t"
+        ".balign 32\n\t"
+        "1:\n\t"
+        ".long 0, 0\n\t"          /* version, flags */
+        ".quad 2f, 3f-2f, 4f\n\t" /* start_ip, post_commit_offset, abort_ip */
+        ".popsection\n\t"
+        /* Add an array entry. */
+        ".pushsection __rseq_cs_ptr_array, \"aw\"\n\t"
+        ".quad 1b\n\t"
+        ".popsection\n\t"
+
+        /* Although our abort handler has to handle being called (that's all DR
+         * supports), we structure the code to allow directly calling past it, to
+         * count restart_count.
+         */
+        "call 6f\n\t"
+        "jmp 5f\n\t"
+
+        "6:\n\t"
+        /* Store the entry into the ptr. */
+        "leaq 1b(%%rip), %%rax\n\t"
+        "movq %%rax, %0\n\t"
+        /* Test "falling into" the rseq region. */
+
+        /* Restartable sequence.  We loop to ensure we're in the region on
+         * detach.  If DR fails to translate this thread to the abort handler
+         * on detach, it will loop forever and the test will timeout and fail.
+         * Note that this breaks DR's assumptions: the instrumented run
+         * never exits the loop, and thus never reaches the "commit point" of the
+         * nop, and thus never invokes the handler natively.  However, we don't
+         * care: we just want to test detach.
+         */
+        "2:\n\t"
+        /* I was going to assert that zero==0 at the end, but that requires more
+         * synch to not reach here natively before DR attaches.  Decided against it.
+         */
+        "movl $1, %1\n\t"
+        "jmp 2b\n\t"
+        /* We can't end the sequence in a branch (DR can't handle it). */
+        "nop\n\t"
+
+        /* Post-commit. */
+        "3:\n\t"
+        "ret\n\t"
+
+        /* Abort handler: if we're done, exit; else, re-enter. */
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        ".long " STRINGIFY(RSEQ_SIG) "\n\t"
+        "4:\n\t"
+        "mov %2, %%rax\n\t"
+        "cmp $0, %%rax\n\t"
+        "jne 3b\n\t"
+        "jmp 6b\n\t"
+
+        /* Clear the ptr. */
+        "5:\n\t"
+        "leaq 1b(%%rip), %%rax\n\t"
+        "movq $0, %0\n\t"
+        /* clang-format on */
+
+        : "=m"(rseq_tls.rseq_cs), "=m"(zero)
+        : "m"(exit_requested)
+        : "rax", "memory");
+    return NULL;
+}
+#endif /* RSEQ_TEST_ATTACH */
+
 int
 main()
 {
@@ -131,11 +232,21 @@ main()
     int res = syscall(SYS_rseq, &rseq_tls, sizeof(rseq_tls), 0, RSEQ_SIG);
     if (res == 0) {
 #ifdef RSEQ_TEST_ATTACH
+        /* Create a thread that sits in the rseq region, to test attaching and detaching
+         * from inside the region.
+         */
+        thread_ready = create_cond_var();
+        thread_t mythread = create_thread(rseq_thread_loop, NULL);
+        wait_cond_var(thread_ready);
         dr_app_setup_and_start();
 #endif
         restart_count = test_rseq();
 #ifdef RSEQ_TEST_ATTACH
+        /* Detach while the thread is in its rseq region loop. */
+        exit_requested = 1; /* atomic on x86; ARM will need more. */
         dr_app_stop_and_cleanup();
+        join_thread(mythread);
+        destroy_cond_var(thread_ready);
 #endif
     } else {
         /* Linux kernel 4.18+ is required. */

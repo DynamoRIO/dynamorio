@@ -2536,8 +2536,15 @@ endif ()
       "" "-thread_private -cache_bb_unit_init 4K" "")
   endif ()
 
-  if (X86) # Tests x86 reachability.
-    tobuild_ci(client.reachability client-interface/reachability.c "" "" "")
+  if (X86)
+    if (X64) # Tests x86 reachability.
+      tobuild_ci(client.reachability client-interface/reachability.c ""
+        # The vm_base options were added in order to expose bugs that fail to xl8 reachable
+        # addresses to the executable view within the scheme of satisfy_w_xor_x.
+        "-no_vm_base_near_app -vm_base 0x100000000" "")
+    else ()
+      tobuild_ci(client.reachability client-interface/reachability.c "" "" "")
+    endif ()
   endif ()
 
   if (X86) # FIXME i#1551, i#1569: fix bugs on ARM and AArch64
@@ -2561,6 +2568,12 @@ endif ()
     # XXX i#1312: This is untested on Windows.
     tobuild_ci(client.avx512lazy client-interface/avx512lazy.c "" "" "")
     set_target_properties(client.avx512lazy PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
+
+    if (UNIX)
+      # XXX i#1312: we do not yet support AVX-512 Windows context switching.
+      tobuild_ci(client.avx512ctx client-interface/avx512ctx.c "" "" "")
+      set_target_properties(client.avx512ctx PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
+    endif (UNIX)
   endif ()
 
   if (BUILD_SAMPLES)
@@ -3445,11 +3458,19 @@ if (UNIX)
   set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
 
   if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
-    # The rseq feature is Linux-only.
+    # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit, ARM, AArch64.
     tobuild(linux.rseq linux/rseq.c)
+    # Test the other sections.  Unfortunately we need a separate binary for each.
+    tobuild(linux.rseq_table linux/rseq.c)
+    append_property_string(TARGET linux.rseq_table
+      COMPILE_FLAGS "-DRSEQ_TEST_USE_OLD_SECTION_NAME")
+    tobuild(linux.rseq_noarray linux/rseq.c)
+    append_property_string(TARGET linux.rseq_noarray
+      COMPILE_FLAGS "-DRSEQ_TEST_USE_NO_ARRAY")
     # Test attaching, which has a separate lazy rseq check.
     tobuild_api(api.rseq linux/rseq.c "" "" OFF OFF)
+    link_with_pthread(api.rseq)
     append_property_string(TARGET api.rseq COMPILE_FLAGS "-DRSEQ_TEST_ATTACH")
   endif ()
 else (UNIX)

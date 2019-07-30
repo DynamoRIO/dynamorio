@@ -1639,6 +1639,7 @@ not supported.
     - The application must store an rseq_cs struct for each rseq region in a
       section of its binary named "__rseq_cs", optionally with an "__rseq_cs_ptr_array"
       section of pointers into the __rseq_cs section, per established conventions.
+      These sections must be located in loaded segments.
     - Each rseq region's code must never be also executed as a non-restartable sequence.
     - Each rseq region must make forward progress if its abort handler is always
       called the first time it is executed.
@@ -1647,7 +1648,14 @@ not supported.
     - Each rseq region must end with a return instruction, and each abort handler
       plus rseq code must combine into a callee following normal call-return
       semantics.
+    - Each rseq region's code must end with a fall-through (non-control-flow)
+      instruction.
     - Any helper function called from within an rseq region must have no side effects.
+    - The instrumented execution of the rseq region may not perfectly reflect
+      the native behavior of the application.  The instrumentation will never see
+      the abort handler called, and memory addresses may be wrong if they are based on
+      the underlying cpuid and a migration occurred mid-region.  These are minor and
+      acceptable for most tools (especially given that there is no better alternative).
 
 \subsection sec_limit_perf Performance Limitations
 

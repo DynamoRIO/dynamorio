@@ -2836,8 +2836,11 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
 #    ifdef X86
         if (!d_r_is_avx512_code_in_use()) {
             if (ZMM_ENABLED()) {
-                if (instr_may_write_zmm_register(inst))
+                if (instr_may_write_zmm_register(inst)) {
+                    LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
                     d_r_set_avx512_code_in_use(true);
+                    proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
+                }
             }
         }
 #    endif
@@ -3509,7 +3512,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                          * client_process_bb, post-client instructions are checked with
                          * instr_may_write_zmm_register.
                          */
+                        LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
                         d_r_set_avx512_code_in_use(true);
+                        proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
                     }
                 }
             }

@@ -1683,13 +1683,31 @@ module_init_rseq(module_area_t *ma, bool at_map)
             byte **ptrs = (byte **)(sec_hdr->sh_addr + load_offs);
             int j;
             for (j = 0; j < sec_hdr->sh_size / sizeof(ptrs); ++j) {
-                /* We require that the table is loaded.  If not, bail. */
-                if (ptrs > (byte **)ma->end)
-                    goto module_init_rseq_cleanup;
+                /* We require that the table is loaded.  If not, bail, but unlike
+                 * failing to find section headers, make this a fatal error: better
+                 * to notify the user than try to run the rseq w/o proper handling.
+                 */
+                if (ptrs < (byte **)ma->start || ptrs > (byte **)ma->end) {
+                    REPORT_FATAL_ERROR_AND_EXIT(
+                        RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                        get_application_pid(),
+                        RSEQ_PTR_ARRAY_SEC_NAME " is not in a loaded segment");
+                    ASSERT_NOT_REACHED();
+                }
                 /* We assume this is a full mapping and it's safe to read the data
                  * (a partial map shouldn't make it to module list processing).
+                 * We do perform a sanity check to handle unusual non-relocated
+                 * cases (it's possible this array is not in a loaded segment?).
                  */
-                rseq_process_entry((struct rseq_cs *)(*ptrs + load_offs), entry_offs);
+                byte *entry = *ptrs + entry_offs;
+                if (entry < ma->start || entry > ma->end) {
+                    REPORT_FATAL_ERROR_AND_EXIT(
+                        RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                        get_application_pid(),
+                        RSEQ_PTR_ARRAY_SEC_NAME "'s entries are not in a loaded segment");
+                    ASSERT_NOT_REACHED();
+                }
+                rseq_process_entry((struct rseq_cs *)entry, entry_offs);
                 ++ptrs;
             }
             break;
@@ -1707,14 +1725,20 @@ module_init_rseq(module_area_t *ma, bool at_map)
                  * over it.  We're reading the loaded data, not the file, so it will
                  * always be aligned.
                  */
-#    define RSEQ_CS_ALIGNMENT 4 * sizeof(__u64)
+#    define RSEQ_CS_ALIGNMENT (4 * sizeof(__u64))
                 struct rseq_cs *array = (struct rseq_cs *)ALIGN_FORWARD(
                     sec_hdr->sh_addr + load_offs, RSEQ_CS_ALIGNMENT);
                 int j;
                 for (j = 0; j < sec_hdr->sh_size / sizeof(*array); ++j) {
                     /* We require that the table is loaded.  If not, bail. */
-                    if (array > (struct rseq_cs *)ma->end)
-                        goto module_init_rseq_cleanup;
+                    if (array < (struct rseq_cs *)ma->start ||
+                        array > (struct rseq_cs *)ma->end) {
+                        REPORT_FATAL_ERROR_AND_EXIT(
+                            RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                            get_application_pid(),
+                            RSEQ_SEC_NAME " is not in a loaded segment");
+                        ASSERT_NOT_REACHED();
+                    }
                     rseq_process_entry(array, entry_offs);
                     ++array;
                 }
@@ -1731,6 +1755,19 @@ module_init_rseq_cleanup:
         os_unmap_file(sec_map, sec_size);
     if (fd != INVALID_FILE)
         os_close(fd);
+    DODEBUG({
+        if (!res) {
+            const char *name = GET_MODULE_NAME(&ma->names);
+            if (name == NULL)
+                name = "(null)";
+            LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
+                "%s: error looking for rseq table in %s\n", __FUNCTION__, name);
+            if (strstr(name, "linux-vdso.so") == NULL) {
+                SYSLOG_INTERNAL_WARNING_ONCE(
+                    "Failed to identify whether a module has an rseq table");
+            }
+        }
+    });
     return res;
 }
 

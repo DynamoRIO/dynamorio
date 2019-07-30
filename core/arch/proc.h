@@ -254,15 +254,16 @@ typedef enum {
     FEATURE_FMA4 = 16 + 96,   /**< AMD FMA4 supported */
     FEATURE_TBM = 21 + 96,    /**< AMD Trailing Bit Manipulation supported */
     /* structured extended features returned in ebx */
-    FEATURE_FSGSBASE = 0 + 128, /**< #OP_rdfsbase, etc. supported */
-    FEATURE_BMI1 = 3 + 128,     /**< BMI1 instructions supported */
-    FEATURE_HLE = 4 + 128,      /**< Hardware Lock Elision supported */
-    FEATURE_AVX2 = 5 + 128,     /**< AVX2 instructions supported */
-    FEATURE_BMI2 = 8 + 128,     /**< BMI2 instructions supported */
-    FEATURE_ERMSB = 9 + 128,    /**< Enhanced rep movsb/stosb supported */
-    FEATURE_INVPCID = 10 + 128, /**< #OP_invpcid supported */
-    FEATURE_RTM = 11 + 128,     /**< Restricted Transactional Memory supported */
-    FEATURE_AVX512 = 16 + 128,  /**< AVX-512 instructions supported */
+    FEATURE_FSGSBASE = 0 + 128,  /**< #OP_rdfsbase, etc. supported */
+    FEATURE_BMI1 = 3 + 128,      /**< BMI1 instructions supported */
+    FEATURE_HLE = 4 + 128,       /**< Hardware Lock Elision supported */
+    FEATURE_AVX2 = 5 + 128,      /**< AVX2 instructions supported */
+    FEATURE_BMI2 = 8 + 128,      /**< BMI2 instructions supported */
+    FEATURE_ERMSB = 9 + 128,     /**< Enhanced rep movsb/stosb supported */
+    FEATURE_INVPCID = 10 + 128,  /**< #OP_invpcid supported */
+    FEATURE_RTM = 11 + 128,      /**< Restricted Transactional Memory supported */
+    FEATURE_AVX512F = 16 + 128,  /**< AVX-512F instructions supported */
+    FEATURE_AVX512BW = 30 + 128, /**< AVX-512BW instructions supported */
 } feature_bit_t;
 
 /**
@@ -497,6 +498,16 @@ DR_API
  */
 int
 proc_num_simd_registers(void);
+
+/*
+ * This function is internal only.
+ *
+ * Setter function for proc_num_simd_saved(). It should be used in order to change the
+ * number of saved SIMD registers, which currently happens once AVX-512 code has been
+ * detected.
+ */
+void
+proc_set_num_simd_saved(int num);
 
 /*
  * This function is internal only.
