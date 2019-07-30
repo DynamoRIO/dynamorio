@@ -96,10 +96,9 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
              */
             kernel_xstate_t *xstate = (kernel_xstate_t *)ucxt->uc_mcontext.fpregs;
             if (xstate->fpstate.sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
-                assert(xstate->fpstate.sw_reserved.xstate_size >= sizeof(*xstate));
-                /* we can't print b/c not all processors have avx */
+                assert(xstate->fpstate.sw_reserved.extended_size >= sizeof(*xstate));
                 for (i = 0; i < NUM_SIMD_REGS; i++) {
-#if VERBOSE
+#ifdef __AVX__
                     print("ymmh[%d] = 0x%x 0x%x 0x%x 0x%x\n", i,
                           xstate->ymmh.ymmh_space[i * 4],
                           xstate->ymmh.ymmh_space[i * 4 + 1],
@@ -115,28 +114,6 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     }
     default: assert(0);
     }
-}
-
-/* looks for "avx" flag in /proc/cpuinfo */
-static int
-determine_avx(void)
-{
-    FILE *cpuinfo;
-    char line[1024];
-    ulong cpu_mhz = 1, cpu_khz = 0;
-
-    cpuinfo = fopen("/proc/cpuinfo", "r");
-    assert(cpuinfo != NULL);
-
-    while (!feof(cpuinfo)) {
-        if (fgets(line, sizeof(line), cpuinfo) == NULL)
-            break;
-        if (strstr(line, "flags") == line && strstr(line, "avx") != NULL) {
-            return 1;
-        }
-    }
-    fclose(cpuinfo);
-    return 0;
 }
 
 int
@@ -177,12 +154,15 @@ main(int argc, char *argv[])
     /* we assume xmm* won't be overwritten by this library call before the signal */
     kill(getpid(), SIGUSR1);
 
-    if (determine_avx()) {
+#ifdef __AVX__
+    {
         /* put known values in ymm regs */
         int buf[INTS_PER_YMM * NUM_SIMD_REGS];
         char *ptr = (char *)buf;
         int i, j;
         intercept_signal(SIGUSR2, signal_handler, false);
+        print("Sending SIGUSR2\n");
+
         /* put known values in xmm regs (we assume processor has xmm) */
         for (i = 0; i < NUM_SIMD_REGS; i++) {
             for (j = 0; j < INTS_PER_YMM; j++)
@@ -197,7 +177,7 @@ main(int argc, char *argv[])
         __asm("mov %0, %%" XAX "; vmovdqu 0xa0(%%" XAX "),%%ymm5" : : "m"(ptr) : "%" XAX);
         __asm("mov %0, %%" XAX "; vmovdqu 0xc0(%%" XAX "),%%ymm6" : : "m"(ptr) : "%" XAX);
         __asm("mov %0, %%" XAX "; vmovdqu 0xe0(%%" XAX "),%%ymm7" : : "m"(ptr) : "%" XAX);
-#ifdef X64
+#    ifdef X64
         __asm("mov %0, %%" XAX "; vmovdqu 0x100(%%" XAX "),%%ymm8"
               :
               : "m"(ptr)
@@ -230,10 +210,11 @@ main(int argc, char *argv[])
               :
               : "m"(ptr)
               : "%" XAX);
-#endif
+#    endif
         /* now make sure they show up in signal context */
         kill(getpid(), SIGUSR2);
     }
+#endif
 
     print("All done\n");
     return 0;
