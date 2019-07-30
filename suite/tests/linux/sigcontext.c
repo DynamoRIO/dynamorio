@@ -42,6 +42,7 @@
 #include <signal.h>
 #include <ucontext.h>
 #include <errno.h>
+#include <stddef.h>
 
 /* TODO i#1312: This test has been prepared for - and executes AVX-512 code, but doesn't
  * test any AVX-512 state yet.
@@ -50,12 +51,14 @@
 #ifdef X64
 #    if defined(__AVX512F__)
 #        define NUM_SIMD_AVX512_REGS 32
+#        define NUM_OPMASK_REGS 8
 #    endif
 #    define NUM_SIMD_SSE_AVX_REGS 16
 #    define XAX "rax"
 #else
 #    if defined(__AVX512F__)
 #        define NUM_SIMD_AVX512_REGS 8
+#        define NUM_OPMASK_REGS 8
 #    endif
 #    define NUM_SIMD_SSE_AVX_REGS 8
 #    define XAX "eax"
@@ -63,6 +66,17 @@
 #define INTS_PER_XMM 4
 #define INTS_PER_YMM 8
 #define INTS_PER_ZMM 16
+#define CPUID_KMASK_COMP 5
+#define CPUID_ZMM_HI256_COMP 6
+#define CPUID_HI16_ZMM_COMP 7
+
+static int
+get_xstate_area_offs(int comp)
+{
+    int offs;
+    __asm__ __volatile__("cpuid" : "=b"(offs) : "a"(0xd), "c"(comp));
+    return offs;
+}
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
@@ -105,20 +119,64 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
             /* SIGUSR2 is delayable so we're testing propagation of the
              * xstate with ymm inside on delayed signals on AVX processors
              */
+            kernel_fpstate_t *fp = (kernel_fpstate_t *)ucxt->uc_mcontext.fpregs;
+            for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
+                print("xmm[%d] = 0x%x 0x%x 0x%x 0x%x\n", i,
+#ifdef X64
+                      fp->xmm_space[i * 4], fp->xmm_space[i * 4 + 1],
+                      fp->xmm_space[i * 4 + 2], fp->xmm_space[i * 4 + 3]
+#else
+                      fp->_xmm[i].element[0], fp->_xmm[i].element[1],
+                      fp->_xmm[i].element[2], fp->_xmm[i].element[3]
+#endif
+                );
+            }
             kernel_xstate_t *xstate = (kernel_xstate_t *)ucxt->uc_mcontext.fpregs;
             if (xstate->fpstate.sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
                 assert(xstate->fpstate.sw_reserved.extended_size >= sizeof(*xstate));
-                for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
 #ifdef __AVX__
+                for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
                     print("ymmh[%d] = 0x%x 0x%x 0x%x 0x%x\n", i,
                           xstate->ymmh.ymmh_space[i * 4],
                           xstate->ymmh.ymmh_space[i * 4 + 1],
                           xstate->ymmh.ymmh_space[i * 4 + 2],
                           xstate->ymmh.ymmh_space[i * 4 + 3]);
-#endif
-                    for (j = 0; j < 4; j++)
-                        assert(xstate->ymmh.ymmh_space[i * 4 + j] == 0xdeadbeef << i);
                 }
+#endif
+#ifdef __AVX512F__
+#    ifdef X64
+                __u32 *xstate_kmask_offs =
+                    (__u32 *)((byte *)xstate + get_xstate_area_offs(CPUID_KMASK_COMP));
+                for (i = 0; i < NUM_OPMASK_REGS; i++) {
+                    print("kmask[%d] = 0x%x\n", i, xstate_kmask_offs[i * 2]);
+                }
+                __u32 *xstate_zmm_hi256_offs =
+                    (__u32 *)((byte *)xstate +
+                              get_xstate_area_offs(CPUID_ZMM_HI256_COMP));
+                for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
+                    print("zmm_hi256[%d] = 0x%x 0x%x 0x%x 0x%x\n", i,
+                          xstate_zmm_hi256_offs[i * 8], xstate_zmm_hi256_offs[i * 8 + 1],
+                          xstate_zmm_hi256_offs[i * 8 + 2],
+                          xstate_zmm_hi256_offs[i * 8 + 3]);
+                }
+                __u32 *xstate_hi16_zmm_offs =
+                    (__u32 *)((byte *)xstate + get_xstate_area_offs(CPUID_HI16_ZMM_COMP));
+                for (i = 0; i < NUM_SIMD_AVX512_REGS - NUM_SIMD_SSE_AVX_REGS; i++) {
+                    print("hi16_zmm[%d] = 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", i,
+                          xstate_hi16_zmm_offs[i * 16], xstate_hi16_zmm_offs[i * 16 + 1],
+                          xstate_hi16_zmm_offs[i * 16 + 2],
+                          xstate_hi16_zmm_offs[i * 16 + 3],
+                          xstate_hi16_zmm_offs[i * 16 + 4],
+                          xstate_hi16_zmm_offs[i * 16 + 5],
+                          xstate_hi16_zmm_offs[i * 16 + 6],
+                          xstate_hi16_zmm_offs[i * 16 + 7]);
+                }
+#    else
+                /* XXX i#1312: it is unclear if and how the components are arranged in
+                 * 32-bit mode by the kernel.
+                 */
+#    endif
+#endif
             }
         }
         break;
@@ -183,12 +241,12 @@ main(int argc, char *argv[])
 #    ifdef __AVX512F__
         for (i = 0; i < NUM_SIMD_AVX512_REGS; i++) {
             for (j = 0; j < INTS_PER_ZMM; j++)
-                buf[i * INTS_PER_ZMM + j] = 0xdeadbeef << i;
+                buf[i * INTS_PER_ZMM + j] = 0xdeadbeef + i * INTS_PER_ZMM + j;
         }
 #    else
         for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
             for (j = 0; j < INTS_PER_YMM; j++)
-                buf[i * INTS_PER_YMM + j] = 0xdeadbeef << i;
+                buf[i * INTS_PER_YMM + j] = 0xdeadbeef + i * INTS_PER_ZMM + j;
         }
 #    endif
 #    ifdef __AVX512F__
@@ -231,9 +289,10 @@ main(int argc, char *argv[])
         MOVE_TO_ZMM(buf, 30)
         MOVE_TO_ZMM(buf, 31)
 #        endif
+        __u32 kmaskbuf = 0x12345678;
         /* Re-using INTS_PER_ZMM here to get same data patterns as above. */
 #        define MOVE_TO_OPMASK(buf, num) \
-            __asm__ __volatile__("kmovw %0, %%k" #num : : "m"(buf[num * INTS_PER_ZMM]) :);
+            __asm__ __volatile__("kmovw %0, %%k" #num : : "m"(kmaskbuf) :);
         MOVE_TO_OPMASK(buf, 0)
         MOVE_TO_OPMASK(buf, 1)
         MOVE_TO_OPMASK(buf, 2)

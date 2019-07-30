@@ -63,9 +63,6 @@
 #    define OPMASK_AVX512BW_REG_SIZE 8
 #    define MCXT_SIMD_SLOT_SIZE ZMM_REG_SIZE
 #    define MCXT_TOTAL_SIMD_SLOTS_SIZE (MCXT_NUM_SIMD_SLOTS * MCXT_SIMD_SLOT_SIZE)
-/* TODO i#1312: This is currently used to maintain an empty opmask context structure.
- * Actually filling the structure will be added along with a future patch.
- */
 #    define MCXT_TOTAL_OPMASK_SLOTS_SIZE \
         (MCXT_NUM_OPMASK_SLOTS * OPMASK_AVX512BW_REG_SIZE)
 #    define MCXT_TOTAL_SIMD_SSE_AVX_SLOTS_SIZE \
@@ -74,8 +71,8 @@
 #    define YMM_ENABLED() (proc_avx_enabled())
 #    define ZMM_ENABLED() (proc_avx512_enabled())
 #    define YMMH_REG_SIZE (YMM_REG_SIZE / 2) /* upper half */
+#    define ZMMH_REG_SIZE (ZMM_REG_SIZE / 2) /* upper half */
 #    define MCXT_YMMH_SLOTS_SIZE (MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMMH_REG_SIZE)
-/* XXX i#1312: needs support for ZMM_HI256 and HI16_ZMM. */
 #endif /* X86 */
 
 /* Number of slots for spills from inlined clean calls. */
