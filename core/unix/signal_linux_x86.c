@@ -179,7 +179,8 @@ convert_fxsave_to_fpstate(kernel_fpstate_t *fpstate, struct i387_fxsave_struct *
     fpstate->status = fxsave->swd;
     fpstate->magic = X86_FXSR_MAGIC;
 
-    memcpy(&fpstate->_fxsr_env[0], fxsave, sizeof(struct i387_fxsave_struct));
+    memcpy(&fpstate->_fxsr_env[0], fxsave,
+           offsetof(struct i387_fxsave_struct, xmm_space));
 }
 #endif /* !X64 */
 
@@ -258,13 +259,14 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
 void
 save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 {
-    /* FIXME: is there a better way to align this thing?
-     * the __attribute__ on the struct above doesn't do it
+    /* The compiler may not be able to properly align stack variables even with
+     * __attribute__((aligned()). We maintain this array to enforce alignment.
      */
-    char align[sizeof(union i387_union) + 16];
+    char align[sizeof(union i387_union) + 16] __attribute__((aligned(16)));
     union i387_union *temp =
         (union i387_union *)((((ptr_uint_t)align) + 16) & ((ptr_uint_t)-16));
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
+
     LOG(THREAD, LOG_ASYNCH, 3, "save_fpstate\n");
     if (sc->fpstate == NULL) {
         /* Nothing to do: there was no fpstate to save at the time the kernel
@@ -285,7 +287,8 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
         asm volatile("fxsaveq %0 ; fnclex" : "=m"(temp->fxsave));
         /* now convert into kernel_fpstate_t form */
         ASSERT(sizeof(kernel_fpstate_t) == sizeof(struct i387_fxsave_struct));
-        memcpy(sc->fpstate, &temp->fxsave, sizeof(struct i387_fxsave_struct));
+        memcpy(sc->fpstate, &temp->fxsave,
+               offsetof(struct i387_fxsave_struct, xmm_space));
 #else
         /* this is "unlazy_fpu" */
         asm volatile("fxsave %0 ; fnclex" : "=m"(temp->fxsave));
