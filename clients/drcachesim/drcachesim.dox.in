@@ -525,6 +525,7 @@ sets the corresponding option with the same name described in \ref sec_drcachesi
 - sim_refs \<unsigned int\>
 - cpu_scheduling \<bool\>
 - verbose \<unsigned int\>
+- coherence \<bool\>
 
 Supported cache parameters and their value types:
 - type \<string, one of "instruction", "data", or "unified"\>
@@ -968,7 +969,6 @@ REPLACEME_WITH_OPTION_LIST
 The \p drcachesim tool is a work in progress.  We welcome contributions in
 these areas of missing functionality:
 
-- Cache coherence (https://github.com/DynamoRIO/dynamorio/issues/1726)
 - Multi-process online application simulation on Windows
   (https://github.com/DynamoRIO/dynamorio/issues/1727)
 - Arbitrary cache hierarchy support via an input config file
