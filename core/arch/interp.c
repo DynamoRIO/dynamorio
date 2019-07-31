@@ -2833,18 +2833,6 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         if (!instr_opcode_valid(inst))
             continue;
 
-#    ifdef X86
-        if (!d_r_is_avx512_code_in_use()) {
-            if (ZMM_ENABLED()) {
-                if (instr_may_write_zmm_register(inst)) {
-                    LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
-                    d_r_set_avx512_code_in_use(true);
-                    proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
-                }
-            }
-        }
-#    endif
-
         if (instr_is_cti(inst) && inst != instrlist_last(bb->ilist)) {
             /* PR 213005: coarse_units can't handle added ctis (meta or not)
              * since decode_fragment(), used for state recreation, can't
@@ -2868,8 +2856,20 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 annotation_label = inst;
             }
 #    endif
+
             continue;
         }
+#    ifdef X86
+        if (!d_r_is_avx512_code_in_use()) {
+            if (ZMM_ENABLED()) {
+                if (instr_may_write_zmm_or_opmask_register(inst)) {
+                    LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
+                    d_r_set_avx512_code_in_use(true);
+                    proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
+                }
+            }
+        }
+#    endif
 
 #    ifdef ANNOTATIONS
         if (instrumentation_pc != NULL && !found_instrumentation_pc &&
@@ -3507,10 +3507,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!d_r_is_avx512_code_in_use()) {
                 if (ZMM_ENABLED()) {
                     if (instr_get_prefix_flag(bb->instr, PREFIX_EVEX)) {
-                        /* For AVX-512 detection in bb builder, we're checking only for
-                         * the prefix flag, which for example can be set by decode_cti. In
-                         * client_process_bb, post-client instructions are checked with
-                         * instr_may_write_zmm_register.
+                        /* For AVX-512 detection in bb builder, we're checking only
+                         * for the prefix flag, which for example can be set by
+                         * decode_cti. In client_process_bb, post-client instructions
+                         * are checked with instr_may_write_zmm_register.
                          */
                         LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
                         d_r_set_avx512_code_in_use(true);

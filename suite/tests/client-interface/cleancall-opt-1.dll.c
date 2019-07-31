@@ -35,10 +35,18 @@
 
 #include "dr_api.h"
 
-#ifdef WINDOWS
-#    define BINARY_NAME "client.cleancall-opt-1.exe"
+#ifdef __AVX512F__
+#    ifdef WINDOWS
+#        define BINARY_NAME "client.avx512cleancall-opt-1.exe"
+#    else
+#        define BINARY_NAME "client.avx512cleancall-opt-1"
+#    endif
 #else
-#    define BINARY_NAME "client.cleancall-opt-1"
+#    ifdef WINDOWS
+#        define BINARY_NAME "client.cleancall-opt-1.exe"
+#    else
+#        define BINARY_NAME "client.cleancall-opt-1"
+#    endif
 #endif
 
 /* List of instrumentation functions. */
@@ -140,9 +148,21 @@ codegen_out_of_line(void *dc)
 #ifdef X86
     for (i = 0; i < proc_num_simd_registers(); i++) {
         reg_id_t reg = DR_REG_XMM0 + (reg_id_t)i;
+#    ifdef __AVX512F__
+        /* For the AVX-512 version, we're still using vmovq to a XMM register, but it
+         * zeroes out [MAX_VL:64] (32 for 32-bit), so the test is still working as
+         * we want.
+         */
+        APP(ilist,
+            INSTR_ENCODING_HINT(
+                IF_X64_ELSE(INSTR_CREATE_vmovq, INSTR_CREATE_vmovd)(
+                    dc, opnd_create_reg(reg), opnd_create_reg(DR_REG_START_GPR)),
+                DR_ENCODING_HINT_X86_EVEX));
+#    else
         APP(ilist,
             IF_X64_ELSE(INSTR_CREATE_vmovq, INSTR_CREATE_vmovd)(
                 dc, opnd_create_reg(reg), opnd_create_reg(DR_REG_START_GPR)));
+#    endif
     }
 
     /* Modify flags */
