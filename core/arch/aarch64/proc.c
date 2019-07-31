@@ -36,12 +36,14 @@
 
 static int num_simd_saved;
 static int num_simd_registers;
+static int num_opmask_registers;
 
 void
 proc_init_arch(void)
 {
     num_simd_saved = MCXT_NUM_SIMD_SLOTS;
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;
+    num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;
 
     /* FIXME i#1569: NYI */
 }
@@ -87,6 +89,13 @@ int
 proc_num_simd_registers(void)
 {
     return num_simd_registers;
+}
+
+DR_API
+int
+proc_num_opmask_registers(void)
+{
+    return num_opmask_registers;
 }
 
 int

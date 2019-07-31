@@ -62,6 +62,10 @@ FUNCTIONS()
 int
 main(void)
 {
+#ifdef __AVX512F__
+    /* For the AVX-512 version, make sure the lazy AVX-512 detection actually kicks in. */
+    __asm__ __volatile__("vmovups %zmm0, %zmm0");
+#endif
     /* Calls to every function. */
 #define FUNCTION(FUNCNAME) FUNCNAME();
 #define LAST_FUNCTION()

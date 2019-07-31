@@ -499,6 +499,15 @@ DR_API
 int
 proc_num_simd_registers(void);
 
+DR_API
+/**
+ * Returns the number of AVX-512 mask registers. The number returned here depends on the
+ * processor and OS feature bits on a given machine.
+ *
+ */
+int
+proc_num_opmask_registers(void);
+
 /*
  * This function is internal only.
  *
