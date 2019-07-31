@@ -45,6 +45,7 @@ struct coherence_table_entry_t {
 class snoop_filter_t {
 public:
     snoop_filter_t(void);
+    virtual ~snoop_filter_t() {}
     virtual bool
     init(cache_t **caches_, int num_snooped_caches_);
     virtual void

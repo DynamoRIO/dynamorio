@@ -162,6 +162,8 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
     : simulator_t()
     , l1_icaches(NULL)
     , l1_dcaches(NULL)
+    , snooped_caches(NULL)
+    , snoop_filter(NULL)
     , is_warmed_up(false)
 {
     std::map<std::string, cache_params_t> cache_params;
@@ -362,6 +364,12 @@ cache_simulator_t::~cache_simulator_t()
     }
     if (l1_dcaches != NULL) {
         delete[] l1_dcaches;
+    }
+    if (snooped_caches != NULL) {
+        delete[] snooped_caches;
+    }
+    if (snoop_filter != NULL) {
+        delete snoop_filter;
     }
 }
 
