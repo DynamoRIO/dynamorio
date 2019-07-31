@@ -113,7 +113,7 @@ do_file_write(file_t f, const char *fmt, va_list ap);
 DR_API const char *unique_build_number = STRINGIFY(UNIQUE_BUILD_NUMBER);
 
 /* The flag d_r_client_avx512_code_in_use is described in arch.h. */
-#    define CLIENT_AVX512_CODE_IN_USE_NAME "_CLIENT_AVX512_CODE_IN_USE_"
+#    define DR_CLIENT_AVX512_CODE_IN_USE_NAME "_DR_CLIENT_AVX512_CODE_IN_USE_"
 
 /* Acquire when registering or unregistering event callbacks
  * Also held when invoking events, which happens much more often
@@ -581,7 +581,7 @@ add_client_lib(const char *path, const char *id_str, const char *options)
         } else {
 #    ifdef X86
             bool *client_avx512_code_in_use = (bool *)lookup_library_routine(
-                client_lib, CLIENT_AVX512_CODE_IN_USE_NAME);
+                client_lib, DR_CLIENT_AVX512_CODE_IN_USE_NAME);
             if (client_avx512_code_in_use != NULL) {
                 if (*client_avx512_code_in_use)
                     d_r_set_client_avx512_code_in_use();
@@ -704,6 +704,16 @@ instrument_init(void)
     size_t i;
 
     init_client_aux_libs();
+
+#    ifdef X86
+    if (IF_WINDOWS_ELSE(!dr_earliest_injected, !DYNAMO_OPTION(early_inject))) {
+        /* A client that had been compiled with AVX-512 may clobber an application's
+         * state. AVX-512 context switching will not be lazy in this case.
+         */
+        if (d_r_is_client_avx512_code_in_use())
+            d_r_set_avx512_code_in_use(true);
+    }
+#    endif
 
     if (num_client_libs > 0) {
         /* We no longer distinguish in-DR vs in-client crashes, as many crashes in
