@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,15 +43,26 @@
 #include <ucontext.h>
 #include <errno.h>
 
+/* TODO i#1312: This test has been prepared for - and executes AVX-512 code, but doesn't
+ * test any AVX-512 state yet.
+ */
+
 #ifdef X64
-#    define NUM_SIMD_REGS 16
+#    if defined(__AVX512F__)
+#        define NUM_SIMD_AVX512_REGS 32
+#    endif
+#    define NUM_SIMD_SSE_AVX_REGS 16
 #    define XAX "rax"
 #else
-#    define NUM_SIMD_REGS 8
+#    if defined(__AVX512F__)
+#        define NUM_SIMD_AVX512_REGS 8
+#    endif
+#    define NUM_SIMD_SSE_AVX_REGS 8
 #    define XAX "eax"
 #endif
 #define INTS_PER_XMM 4
 #define INTS_PER_YMM 8
+#define INTS_PER_ZMM 16
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
@@ -66,7 +77,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
              * fpstate with xmm inside on delayed signals
              */
             kernel_fpstate_t *fp = (kernel_fpstate_t *)ucxt->uc_mcontext.fpregs;
-            for (i = 0; i < NUM_SIMD_REGS; i++) {
+            for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
                 print("xmm[%d] = 0x%x 0x%x 0x%x 0x%x\n", i,
 #ifdef X64
                       fp->xmm_space[i * 4], fp->xmm_space[i * 4 + 1],
@@ -97,7 +108,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
             kernel_xstate_t *xstate = (kernel_xstate_t *)ucxt->uc_mcontext.fpregs;
             if (xstate->fpstate.sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
                 assert(xstate->fpstate.sw_reserved.extended_size >= sizeof(*xstate));
-                for (i = 0; i < NUM_SIMD_REGS; i++) {
+                for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
 #ifdef __AVX__
                     print("ymmh[%d] = 0x%x 0x%x 0x%x 0x%x\n", i,
                           xstate->ymmh.ymmh_space[i * 4],
@@ -119,7 +130,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 int
 main(int argc, char *argv[])
 {
-    int buf[INTS_PER_XMM * NUM_SIMD_REGS];
+    int buf[INTS_PER_XMM * NUM_SIMD_SSE_AVX_REGS];
     char *ptr = (char *)buf;
     int i, j;
 
@@ -128,88 +139,133 @@ main(int argc, char *argv[])
     print("Sending SIGUSR1\n");
 
     /* put known values in xmm regs (we assume processor has xmm) */
-    for (i = 0; i < NUM_SIMD_REGS; i++) {
+    for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
         for (j = 0; j < INTS_PER_XMM; j++)
             buf[i * INTS_PER_XMM + j] = 0xdeadbeef << i;
     }
-    /* XXX: unfortunately there's no way to do this w/o unrolling it */
-    __asm("mov %0, %%" XAX "; movdqu     (%%" XAX "),%%xmm0" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0x10(%%" XAX "),%%xmm1" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0x20(%%" XAX "),%%xmm2" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0x30(%%" XAX "),%%xmm3" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0x40(%%" XAX "),%%xmm4" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0x50(%%" XAX "),%%xmm5" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0x60(%%" XAX "),%%xmm6" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0x70(%%" XAX "),%%xmm7" : : "m"(ptr) : "%" XAX);
+#define MOVE_TO_XMM(buf, num) \
+    __asm__ __volatile__("movdqu %0, %%xmm" #num : : "m"(buf[num * INTS_PER_XMM]) :);
+    MOVE_TO_XMM(buf, 0)
+    MOVE_TO_XMM(buf, 1)
+    MOVE_TO_XMM(buf, 2)
+    MOVE_TO_XMM(buf, 3)
+    MOVE_TO_XMM(buf, 4)
+    MOVE_TO_XMM(buf, 5)
+    MOVE_TO_XMM(buf, 6)
+    MOVE_TO_XMM(buf, 7)
 #ifdef X64
-    __asm("mov %0, %%" XAX "; movdqu 0x80(%%" XAX "),%%xmm8" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0x90(%%" XAX "),%%xmm9" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0xa0(%%" XAX "),%%xmm10" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0xb0(%%" XAX "),%%xmm11" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0xc0(%%" XAX "),%%xmm12" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0xd0(%%" XAX "),%%xmm13" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0xe0(%%" XAX "),%%xmm14" : : "m"(ptr) : "%" XAX);
-    __asm("mov %0, %%" XAX "; movdqu 0xf0(%%" XAX "),%%xmm15" : : "m"(ptr) : "%" XAX);
+    MOVE_TO_XMM(buf, 8)
+    MOVE_TO_XMM(buf, 9)
+    MOVE_TO_XMM(buf, 10)
+    MOVE_TO_XMM(buf, 11)
+    MOVE_TO_XMM(buf, 12)
+    MOVE_TO_XMM(buf, 13)
+    MOVE_TO_XMM(buf, 14)
+    MOVE_TO_XMM(buf, 15)
 #endif
     /* we assume xmm* won't be overwritten by this library call before the signal */
     kill(getpid(), SIGUSR1);
 
-#ifdef __AVX__
+#if defined(__AVX__) || defined(__AVX512F__)
     {
         /* put known values in ymm regs */
-        int buf[INTS_PER_YMM * NUM_SIMD_REGS];
+#    ifdef __AVX512F__
+        int buf[INTS_PER_ZMM * NUM_SIMD_AVX512_REGS];
+#    else
+        int buf[INTS_PER_YMM * NUM_SIMD_SSE_AVX_REGS];
+#    endif
         char *ptr = (char *)buf;
         int i, j;
         intercept_signal(SIGUSR2, signal_handler, false);
         print("Sending SIGUSR2\n");
 
         /* put known values in xmm regs (we assume processor has xmm) */
-        for (i = 0; i < NUM_SIMD_REGS; i++) {
+#    ifdef __AVX512F__
+        for (i = 0; i < NUM_SIMD_AVX512_REGS; i++) {
+            for (j = 0; j < INTS_PER_ZMM; j++)
+                buf[i * INTS_PER_ZMM + j] = 0xdeadbeef << i;
+        }
+#    else
+        for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
             for (j = 0; j < INTS_PER_YMM; j++)
                 buf[i * INTS_PER_YMM + j] = 0xdeadbeef << i;
         }
-        /* XXX: unfortunately there's no way to do this w/o unrolling it */
-        __asm("mov %0, %%" XAX "; vmovdqu     (%%" XAX "),%%ymm0" : : "m"(ptr) : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0x20(%%" XAX "),%%ymm1" : : "m"(ptr) : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0x40(%%" XAX "),%%ymm2" : : "m"(ptr) : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0x60(%%" XAX "),%%ymm3" : : "m"(ptr) : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0x80(%%" XAX "),%%ymm4" : : "m"(ptr) : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0xa0(%%" XAX "),%%ymm5" : : "m"(ptr) : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0xc0(%%" XAX "),%%ymm6" : : "m"(ptr) : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0xe0(%%" XAX "),%%ymm7" : : "m"(ptr) : "%" XAX);
-#    ifdef X64
-        __asm("mov %0, %%" XAX "; vmovdqu 0x100(%%" XAX "),%%ymm8"
-              :
-              : "m"(ptr)
-              : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0x120(%%" XAX "),%%ymm9"
-              :
-              : "m"(ptr)
-              : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0x140(%%" XAX "),%%ymm10"
-              :
-              : "m"(ptr)
-              : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0x160(%%" XAX "),%%ymm11"
-              :
-              : "m"(ptr)
-              : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0x180(%%" XAX "),%%ymm12"
-              :
-              : "m"(ptr)
-              : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0x1a0(%%" XAX "),%%ymm13"
-              :
-              : "m"(ptr)
-              : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0x1c0(%%" XAX "),%%ymm14"
-              :
-              : "m"(ptr)
-              : "%" XAX);
-        __asm("mov %0, %%" XAX "; vmovdqu 0x1e0(%%" XAX "),%%ymm15"
-              :
-              : "m"(ptr)
-              : "%" XAX);
+#    endif
+#    ifdef __AVX512F__
+#        define MOVE_TO_ZMM(buf, num)                           \
+            __asm__ __volatile__("vmovdqu64 %0, %%zmm" #num     \
+                                 :                              \
+                                 : "m"(buf[num * INTS_PER_ZMM]) \
+                                 :);
+        MOVE_TO_ZMM(buf, 0)
+        MOVE_TO_ZMM(buf, 1)
+        MOVE_TO_ZMM(buf, 2)
+        MOVE_TO_ZMM(buf, 3)
+        MOVE_TO_ZMM(buf, 4)
+        MOVE_TO_ZMM(buf, 5)
+        MOVE_TO_ZMM(buf, 6)
+        MOVE_TO_ZMM(buf, 7)
+#        ifdef X64
+        MOVE_TO_ZMM(buf, 8)
+        MOVE_TO_ZMM(buf, 9)
+        MOVE_TO_ZMM(buf, 10)
+        MOVE_TO_ZMM(buf, 11)
+        MOVE_TO_ZMM(buf, 12)
+        MOVE_TO_ZMM(buf, 13)
+        MOVE_TO_ZMM(buf, 14)
+        MOVE_TO_ZMM(buf, 15)
+        MOVE_TO_ZMM(buf, 16)
+        MOVE_TO_ZMM(buf, 17)
+        MOVE_TO_ZMM(buf, 18)
+        MOVE_TO_ZMM(buf, 19)
+        MOVE_TO_ZMM(buf, 20)
+        MOVE_TO_ZMM(buf, 21)
+        MOVE_TO_ZMM(buf, 22)
+        MOVE_TO_ZMM(buf, 23)
+        MOVE_TO_ZMM(buf, 24)
+        MOVE_TO_ZMM(buf, 25)
+        MOVE_TO_ZMM(buf, 26)
+        MOVE_TO_ZMM(buf, 27)
+        MOVE_TO_ZMM(buf, 28)
+        MOVE_TO_ZMM(buf, 29)
+        MOVE_TO_ZMM(buf, 30)
+        MOVE_TO_ZMM(buf, 31)
+#        endif
+        /* Re-using INTS_PER_ZMM here to get same data patterns as above. */
+#        define MOVE_TO_OPMASK(buf, num) \
+            __asm__ __volatile__("kmovw %0, %%k" #num : : "m"(buf[num * INTS_PER_ZMM]) :);
+        MOVE_TO_OPMASK(buf, 0)
+        MOVE_TO_OPMASK(buf, 1)
+        MOVE_TO_OPMASK(buf, 2)
+        MOVE_TO_OPMASK(buf, 3)
+        MOVE_TO_OPMASK(buf, 4)
+        MOVE_TO_OPMASK(buf, 5)
+        MOVE_TO_OPMASK(buf, 6)
+        MOVE_TO_OPMASK(buf, 7)
+#    else
+#        define MOVE_TO_YMM(buf, num)                           \
+            __asm__ __volatile__("vmovdqu %0, %%ymm" #num       \
+                                 :                              \
+                                 : "m"(buf[num * INTS_PER_YMM]) \
+                                 :);
+        MOVE_TO_YMM(buf, 0)
+        MOVE_TO_YMM(buf, 1)
+        MOVE_TO_YMM(buf, 2)
+        MOVE_TO_YMM(buf, 3)
+        MOVE_TO_YMM(buf, 4)
+        MOVE_TO_YMM(buf, 5)
+        MOVE_TO_YMM(buf, 6)
+        MOVE_TO_YMM(buf, 7)
+#        ifdef X64
+        MOVE_TO_YMM(buf, 8)
+        MOVE_TO_YMM(buf, 9)
+        MOVE_TO_YMM(buf, 10)
+        MOVE_TO_YMM(buf, 11)
+        MOVE_TO_YMM(buf, 12)
+        MOVE_TO_YMM(buf, 13)
+        MOVE_TO_YMM(buf, 14)
+        MOVE_TO_YMM(buf, 15)
+#        endif
 #    endif
         /* now make sure they show up in signal context */
         kill(getpid(), SIGUSR2);
