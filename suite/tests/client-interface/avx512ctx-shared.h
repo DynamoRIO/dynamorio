@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -20,7 +20,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,28 +30,15 @@
  * DAMAGE.
  */
 
-/* cache_fifo: represents a single hardware cache with FIFO algo.
- */
+#define MARKER_REG REG_XAX
+#define TEST1_MARKER 0xabc6534f
+#define TEST2_MARKER 0x16dfc5a5
 
-#ifndef _CACHE_FIFO_H_
-#define _CACHE_FIFO_H_ 1
+#ifdef X64
+#    define NUM_SIMD_REGS 32
+#else
+#    define NUM_SIMD_REGS 8
+#endif
+#define NUM_OPMASK_REGS 8
 
-#include "cache.h"
-
-class cache_fifo_t : public cache_t {
-public:
-    virtual bool
-    init(int associativity, int line_size, int total_size, caching_device_t *parent,
-         caching_device_stats_t *stats, prefetcher_t *prefetcher, bool inclusive = false,
-         bool coherent_cache = false, int id_ = -1,
-         snoop_filter_t *snoop_filter_ = nullptr,
-         const std::vector<caching_device_t *> &children = {});
-
-protected:
-    virtual void
-    access_update(int line_idx, int way);
-    virtual int
-    replace_which_way(int line_idx);
-};
-
-#endif /* _CACHE_FIFO_H_ */
+#define VERBOSE 0

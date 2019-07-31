@@ -344,7 +344,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
      */
     ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS ||
            proc_num_simd_registers() == MCXT_NUM_SIMD_SSE_AVX_SLOTS);
-    if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers()) {
+    if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers() ||
+        cci->num_opmask_skip != proc_num_opmask_registers()) {
         int offs =
             MCXT_TOTAL_SIMD_SLOTS_SIZE + MCXT_TOTAL_OPMASK_SLOTS_SIZE + PRE_XMM_PADDING;
         if (cci->preserve_mcontext && cci->skip_save_flags) {
@@ -356,27 +357,59 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                              OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, -offs)));
         dstack_offs += offs;
     }
+
+    /* pc and aflags */
+    if (!cci->skip_save_flags) {
+        ASSERT(offs_beyond_xmm == 0);
+        if (opnd_is_immed_int(push_pc))
+            PRE(ilist, instr, INSTR_CREATE_push_imm(dcontext, push_pc));
+        else
+            PRE(ilist, instr, INSTR_CREATE_push(dcontext, push_pc));
+        dstack_offs += XSP_SZ;
+        offs_beyond_xmm += XSP_SZ;
+        PRE(ilist, instr, INSTR_CREATE_pushf(dcontext));
+        dstack_offs += XSP_SZ;
+        offs_beyond_xmm += XSP_SZ;
+    } else {
+        ASSERT(offs_beyond_xmm == 2 * XSP_SZ || !cci->preserve_mcontext);
+        /* for cci->preserve_mcontext we added to the lea above so we ignore push_pc */
+    }
+
+    /* No processor will support AVX-512 but no SSE/AVX. */
+    ASSERT(preserve_xmm_caller_saved() || !ZMM_ENABLED());
+
     if (preserve_xmm_caller_saved()) {
         /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel */
         int i;
-        /* PR 266305: see discussion in emit_fcache_enter_shared on
-         * which opcode is better.  Note that the AMD optimization
-         * guide says to use movlps+movhps for unaligned stores, but
-         * for simplicity and smaller code I'm using movups anyway.
-         */
-        /* XXX i#438: once have SandyBridge processor need to measure
-         * cost of vmovdqu and whether worth arranging 32-byte alignment
-         * for all callers.  B/c we put ymm at end of priv_mcontext_t, we do
-         * currently have 32-byte alignment for clean calls.
-         */
-        uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 16), ALIGNED(alignment, 32));
         ASSERT(proc_has_feature(FEATURE_SSE));
-        /* XXX i#1312: This assumption will change and the code below will need
-         * to take this into account.
-         */
         ASSERT(proc_num_simd_saved() == proc_num_simd_registers() ||
                proc_num_simd_saved() == proc_num_simd_sse_avx_registers());
-        for (i = 0; i < proc_num_simd_saved(); i++) {
+        instr_t *post_push = NULL;
+        instr_t *pre_avx512_push = NULL;
+        if (ZMM_ENABLED()) {
+            post_push = INSTR_CREATE_label(dcontext);
+            pre_avx512_push = INSTR_CREATE_label(dcontext);
+            PRE(ilist, instr,
+                INSTR_CREATE_cmp(dcontext,
+                                 OPND_CREATE_ABSMEM(vmcode_get_executable_addr(
+                                                        (byte *)d_r_avx512_code_in_use),
+                                                    OPSZ_1),
+                                 OPND_CREATE_INT8(0)));
+            PRE(ilist, instr,
+                INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(pre_avx512_push)));
+        }
+        uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 16), ALIGNED(alignment, 32));
+        for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
+            /* PR 266305: see discussion in emit_fcache_enter_shared on
+             * which opcode is better.  Note that the AMD optimization
+             * guide says to use movlps+movhps for unaligned stores, but
+             * for simplicity and smaller code I'm using movups anyway.
+             */
+            /* XXX i#438: once have SandyBridge processor need to measure
+             * cost of vmovdqu and whether worth arranging 32-byte alignment
+             * for all callers.  B/c we put ymm at end of priv_mcontext_t, we do
+             * currently have 32-byte alignment for clean calls.
+             */
             if (!cci->simd_skip[i]) {
                 PRE(ilist, instr,
                     instr_create_1dst_1src(
@@ -388,23 +421,39 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                         opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
             }
         }
-        ASSERT(i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SLOTS_SIZE ||
-               i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SSE_AVX_SLOTS_SIZE);
-    }
-    /* TODO i#1312: the zmm and mask fields need to be copied. */
-    /* pc and aflags */
-    if (!cci->skip_save_flags) {
-        ASSERT(offs_beyond_xmm == 0);
-        if (opnd_is_immed_int(push_pc))
-            PRE(ilist, instr, INSTR_CREATE_push_imm(dcontext, push_pc));
-        else
-            PRE(ilist, instr, INSTR_CREATE_push(dcontext, push_pc));
-        dstack_offs += XSP_SZ;
-        PRE(ilist, instr, INSTR_CREATE_pushf(dcontext));
-        dstack_offs += XSP_SZ;
-    } else {
-        ASSERT(offs_beyond_xmm == 2 * XSP_SZ || !cci->preserve_mcontext);
-        /* for cci->preserve_mcontext we added to the lea above so we ignore push_pc */
+        if (ZMM_ENABLED()) {
+            PRE(ilist, instr, INSTR_CREATE_jmp(dcontext, opnd_create_instr(post_push)));
+            PRE(ilist, instr, pre_avx512_push /*label*/);
+            uint opcode_avx512 = move_mm_avx512_reg_opcode(ALIGNED(alignment, 64));
+            for (i = 0; i < proc_num_simd_registers(); i++) {
+                if (!cci->simd_skip[i]) {
+                    instr_t *simdmov = instr_create_1dst_2src(
+                        dcontext, opcode_avx512,
+                        opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                              PRE_XMM_PADDING + i * MCXT_SIMD_SLOT_SIZE +
+                                                  offs_beyond_xmm,
+                                              OPSZ_SAVED_ZMM),
+                        opnd_create_reg(DR_REG_K0),
+                        opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i));
+                    PRE(ilist, instr, simdmov);
+                }
+            }
+            for (i = 0; i < proc_num_opmask_registers(); i++) {
+                if (!cci->opmask_skip[i]) {
+                    instr_t *maskmov = instr_create_1dst_1src(
+                        dcontext,
+                        proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,
+                        opnd_create_base_disp(
+                            REG_XSP, REG_NULL, 0,
+                            PRE_XMM_PADDING + MCXT_TOTAL_SIMD_SLOTS_SIZE +
+                                i * OPMASK_AVX512BW_REG_SIZE + offs_beyond_xmm,
+                            OPSZ_SAVED_OPMASK),
+                        opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i));
+                    PRE(ilist, instr, maskmov);
+                }
+            }
+            PRE(ilist, instr, post_push /*label*/);
+        }
     }
 
 #    ifdef X64
@@ -447,7 +496,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr, INSTR_CREATE_pusha(dcontext));
     dstack_offs += 8 * XSP_SZ;
 #    endif
-    ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 || cci->num_regs_skip != 0 ||
+    ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 || cci->num_opmask_skip != 0 ||
+           cci->num_regs_skip != 0 ||
            dstack_offs == (uint)get_clean_call_switch_stack_size());
     return dstack_offs;
 }
@@ -504,13 +554,12 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
 #    else
     PRE(ilist, instr, INSTR_CREATE_popa(dcontext));
 #    endif
-    if (!cci->skip_save_flags) {
-        PRE(ilist, instr, INSTR_CREATE_popf(dcontext));
-        offs_beyond_xmm = XSP_SZ; /* pc */
-        ;
-    } else if (cci->preserve_mcontext) {
-        offs_beyond_xmm = 2 * XSP_SZ; /* aflags + pc */
-    }
+
+    /* aflags + pc */
+    offs_beyond_xmm = 2 * XSP_SZ;
+
+    /* No processor will support AVX-512 but no SSE/AVX. */
+    ASSERT(preserve_xmm_caller_saved() || !ZMM_ENABLED());
 
     if (preserve_xmm_caller_saved()) {
         /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel */
@@ -519,12 +568,23 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
          * is better. */
         uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 16), ALIGNED(alignment, 32));
         ASSERT(proc_has_feature(FEATURE_SSE));
-        /* XXX i#1312: This assumption will change and the code below will need
-         * to take this into account.
-         */
         ASSERT(proc_num_simd_saved() == proc_num_simd_registers() ||
                proc_num_simd_saved() == proc_num_simd_sse_avx_registers());
-        for (i = 0; i < proc_num_simd_saved(); i++) {
+        instr_t *post_pop = NULL;
+        instr_t *pre_avx512_pop = NULL;
+        if (ZMM_ENABLED()) {
+            post_pop = INSTR_CREATE_label(dcontext);
+            pre_avx512_pop = INSTR_CREATE_label(dcontext);
+            PRE(ilist, instr,
+                INSTR_CREATE_cmp(dcontext,
+                                 OPND_CREATE_ABSMEM(vmcode_get_executable_addr(
+                                                        (byte *)d_r_avx512_code_in_use),
+                                                    OPSZ_1),
+                                 OPND_CREATE_INT8(0)));
+            PRE(ilist, instr,
+                INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(pre_avx512_pop)));
+        }
+        for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
             if (!cci->simd_skip[i]) {
                 PRE(ilist, instr,
                     instr_create_1dst_1src(
@@ -535,10 +595,45 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
                                               OPSZ_SAVED_XMM)));
             }
         }
-        ASSERT(i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SLOTS_SIZE ||
-               i * MCXT_SIMD_SLOT_SIZE == MCXT_TOTAL_SIMD_SSE_AVX_SLOTS_SIZE);
+        if (ZMM_ENABLED()) {
+            PRE(ilist, instr, INSTR_CREATE_jmp(dcontext, opnd_create_instr(post_pop)));
+            PRE(ilist, instr, pre_avx512_pop /*label*/);
+            uint opcode_avx512 = move_mm_avx512_reg_opcode(ALIGNED(alignment, 64));
+            for (i = 0; i < proc_num_simd_registers(); i++) {
+                if (!cci->simd_skip[i]) {
+                    instr_t *simdmov = instr_create_1dst_2src(
+                        dcontext, opcode_avx512,
+                        opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i),
+                        opnd_create_reg(DR_REG_K0),
+                        opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                              PRE_XMM_PADDING + i * MCXT_SIMD_SLOT_SIZE +
+                                                  offs_beyond_xmm,
+                                              OPSZ_SAVED_ZMM));
+                    PRE(ilist, instr, simdmov);
+                }
+            }
+            for (i = 0; i < proc_num_opmask_registers(); i++) {
+                if (!cci->opmask_skip[i]) {
+                    instr_t *maskmov = instr_create_1dst_1src(
+                        dcontext,
+                        proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,
+                        opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i),
+                        opnd_create_base_disp(
+                            REG_XSP, REG_NULL, 0,
+                            PRE_XMM_PADDING + MCXT_TOTAL_SIMD_SLOTS_SIZE +
+                                i * OPMASK_AVX512BW_REG_SIZE + offs_beyond_xmm,
+                            OPSZ_SAVED_OPMASK));
+                    PRE(ilist, instr, maskmov);
+                }
+            }
+            PRE(ilist, instr, post_pop /*label*/);
+        }
     }
-    /* TODO i#1312: the mask fields need to be copied. */
+
+    if (!cci->skip_save_flags) {
+        PRE(ilist, instr, INSTR_CREATE_popf(dcontext));
+        offs_beyond_xmm = XSP_SZ; /* pc */
+    }
 
     PRE(ilist, instr,
         INSTR_CREATE_lea(

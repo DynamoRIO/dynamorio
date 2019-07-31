@@ -1391,7 +1391,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                     OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_ZMM,
                                   SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE)));
         }
-        for (i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
+        for (i = 0; i < proc_num_opmask_registers(); i++) {
             APP(ilist,
                 instr_create_1dst_1src(
                     dcontext, proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,
@@ -1653,7 +1653,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                     opnd_create_reg(DR_REG_K0),
                     opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i)));
         }
-        for (i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
+        for (i = 0; i < proc_num_opmask_registers(); i++) {
             APP(ilist,
                 instr_create_1dst_1src(
                     dcontext, proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,

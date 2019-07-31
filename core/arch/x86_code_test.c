@@ -349,7 +349,7 @@ unit_test_get_opmask_caller_saved()
     register __mmask16 k7 asm("k7");
 #        endif
 
-    for (int regno = 0; regno < MCXT_NUM_OPMASK_SLOTS; ++regno) {
+    for (int regno = 0; regno < proc_num_opmask_registers(); ++regno) {
         get_buffer[regno] = 0;
         ref_buffer[regno] = base++;
     }
@@ -372,7 +372,7 @@ unit_test_get_opmask_caller_saved()
     /* Barrier, as described in unit_test_get_zmm_caller_saved. */
     asm volatile("" ::: "k0", "k1", "k2", "k3", "k4", "k5", "k6", "k7");
 
-    for (int regno = 0; regno < MCXT_NUM_OPMASK_SLOTS; ++regno) {
+    for (int regno = 0; regno < proc_num_opmask_registers(); ++regno) {
         print_file(STDERR, "K%d ref\n:", regno);
         dump_buffer_as_bytes(STDERR, &ref_buffer[regno], sizeof(ref_buffer[regno]),
                              DUMP_RAW | DUMP_DWORD);
