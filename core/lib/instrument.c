@@ -112,7 +112,7 @@ do_file_write(file_t f, const char *fmt, va_list ap);
  */
 DR_API const char *unique_build_number = STRINGIFY(UNIQUE_BUILD_NUMBER);
 
-/* The flag this name is referring to is described in arch.h. */
+/* The flag d_r_client_avx512_code_in_use is described in arch.h. */
 #    define CLIENT_AVX512_CODE_IN_USE_NAME "_CLIENT_AVX512_CODE_IN_USE_"
 
 /* Acquire when registering or unregistering event callbacks
