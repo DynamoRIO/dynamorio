@@ -669,11 +669,7 @@ dynamorio_app_init(void)
         dr_app_started = create_broadcast_event();
 #ifdef CLIENT_INTERFACE
 #    ifdef X86
-#        ifdef WINDOWS
-        if (!dr_earliest_injected) {
-#        else
-        if (!dynamo_options.early_inject) {
-#        endif
+        if (IF_WINDOWS_ELSE(!dr_earliest_injected, !DYNAMO_OPTION(early_inject))) {
             /* A client that had been compiled with AVX-512 may clobber an application's
              * state. AVX-512 context switching will not be lazy in this case.
              */
