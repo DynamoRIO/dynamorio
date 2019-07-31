@@ -235,12 +235,11 @@ preserve_xmm_caller_saved(void)
  */
 extern bool *d_r_avx512_code_in_use;
 
-/* This flag is used at attach, and covers a client that had been compiled with AVX-512.
- * In the attach case, when calling dr_app_setup(), the initial value of
- * d_r_is_avx512_code_in_use() will be set to true, to prevent a client from clobbering
- * potential application AVX-512 state.
+/* This flag indicates a client that had been compiled with AVX-512. In all other than
+ * "earliest" inject methods, the initial value of d_r_is_avx512_code_in_use() will be
+ * set to true, to prevent a client from clobbering potential application state.
  */
-extern bool d_r_initial_attach_avx512_code_in_use;
+extern bool d_r_client_avx512_code_in_use;
 
 /* This routine determines whether zmm registers should be saved. */
 static inline bool
@@ -258,16 +257,16 @@ d_r_set_avx512_code_in_use(bool in_use)
 }
 
 static inline bool
-d_r_is_initial_attach_avx512_code_in_use()
+d_r_is_client_avx512_code_in_use()
 {
-    return d_r_initial_attach_avx512_code_in_use;
+    return d_r_client_avx512_code_in_use;
 }
 
 static inline void
-d_r_set_initial_attach_avx512_code_in_use()
+d_r_set_client_avx512_code_in_use()
 {
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-    ATOMIC_1BYTE_WRITE(&d_r_initial_attach_avx512_code_in_use, (bool)true, false);
+    ATOMIC_1BYTE_WRITE(&d_r_client_avx512_code_in_use, (bool)true, false);
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 }
 #endif

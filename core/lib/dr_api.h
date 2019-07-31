@@ -129,12 +129,12 @@ DR_EXPORT LINK_ONCE int _USES_DR_VERSION_ = ${VERSION_NUMBER_INTEGER};
  */
 #ifndef DYNAMORIO_STANDALONE
 #    ifdef __AVX512F__
-DR_EXPORT LINK_ONCE bool _INITIAL_ATTACH_AVX512_CODE_IN_USE_ = true;
+DR_EXPORT LINK_ONCE bool _CLIENT_AVX512_CODE_IN_USE_ = true;
 #    else
-DR_EXPORT LINK_ONCE bool _INITIAL_ATTACH_AVX512_CODE_IN_USE_ = false;
+DR_EXPORT LINK_ONCE bool _CLIENT_AVX512_CODE_IN_USE_ = false;
 #    endif
 #else
-#    define _INITIAL_ATTACH_AVX512_CODE_IN_USE_ false
+#    define _CLIENT_AVX512_CODE_IN_USE_ false
 #endif
 
 /* A flag that can be used to identify whether this file was included */

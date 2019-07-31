@@ -165,7 +165,7 @@ auto_setup(ptr_uint_t appstack)
     automatic_startup = true;
     /* we should control all threads */
     control_all_threads = true;
-    dynamorio_app_init(false);
+    dynamorio_app_init();
     if (INTERNAL_OPTION(nullcalls)) {
         dynamorio_app_exit();
         return;

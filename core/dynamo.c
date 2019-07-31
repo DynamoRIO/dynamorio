@@ -383,7 +383,7 @@ get_dr_stats(void)
  * returns zero on success, non-zero on failure
  */
 DYNAMORIO_EXPORT int
-dynamorio_app_init(bool attach_case)
+dynamorio_app_init(void)
 {
     int size;
 
@@ -669,8 +669,15 @@ dynamorio_app_init(bool attach_case)
         dr_app_started = create_broadcast_event();
 #ifdef CLIENT_INTERFACE
 #    ifdef X86
-        if (attach_case) {
-            if (d_r_is_initial_attach_avx512_code_in_use())
+#        ifdef WINDOWS
+        if (!dr_earliest_injected) {
+#        else
+        if (!dynamo_options.early_inject) {
+#        endif
+            /* A client that had been compiled with AVX-512 may clobber an application's
+             * state. AVX-512 context switching will not be lazy in this case.
+             */
+            if (d_r_is_client_avx512_code_in_use())
                 d_r_set_avx512_code_in_use(true);
         }
 #    endif
@@ -2724,7 +2731,7 @@ dr_app_setup(void)
     int res;
     dcontext_t *dcontext;
     dr_api_entry = true;
-    res = dynamorio_app_init(true);
+    res = dynamorio_app_init();
     /* For dr_api_entry, we do not install all our signal handlers during init (to avoid
      * races: i#2335): we delay until dr_app_start().  Plus the vsyscall hook is
      * not set up until we find out the syscall method.  Thus we're already
@@ -2997,7 +3004,7 @@ dynamorio_app_init_and_early_takeover(uint inject_location, void *restore_code)
     }
     dr_early_injected = true;
     dr_early_injected_location = inject_location;
-    res = dynamorio_app_init(false);
+    res = dynamorio_app_init();
     ASSERT(res == SUCCESS);
     ASSERT(dynamo_initialized && !dynamo_exited);
     LOG(GLOBAL, LOG_TOP, 1, "taking over via early injection in %s\n", __FUNCTION__);
@@ -3025,7 +3032,7 @@ dynamorio_earliest_init_takeover_C(byte *arg_ptr)
         dr_earliest_inject_args = arg_ptr;
     } else
         dr_early_injected = true;
-    res = dynamorio_app_init(false);
+    res = dynamorio_app_init();
     ASSERT(res == SUCCESS);
     ASSERT(dynamo_initialized && !dynamo_exited);
     LOG(GLOBAL, LOG_TOP, 1, "taking over via earliest injection in %s\n", __FUNCTION__);

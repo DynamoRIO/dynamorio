@@ -169,7 +169,7 @@ display_error(char *msg)
 }
 #endif /* DEBUG */
 
-typedef int (*int_func_t)(bool);
+typedef int (*int_func_t)();
 typedef void (*void_func_t)();
 
 /* in arch/x86.asm */
@@ -336,7 +336,7 @@ static bool load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
             res = switch_modes_and_call(init_func, NULL, NULL, NULL);
         else
 #endif
-            res = (*init_func)(false);
+            res = (*init_func)();
         VERBOSE_MESSAGE("dynamorio_app_init() returned %d\n", res);
 #ifndef X64
         if (x64_in_wow64)

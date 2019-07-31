@@ -51,7 +51,7 @@
  * ntdll!RtlpAllocateHeapUsageEntry
  */
 
-typedef int (*int_func_t)(bool);
+typedef int (*int_func_t)();
 typedef void (*void_func_t)();
 
 #define BUFFER_SIZE_BYTES(buf) sizeof(buf)
@@ -320,7 +320,7 @@ main(int argc, char *argv[])
                 res = 1;
                 goto done;
             }
-            res = (*init_func)(FALSE);
+            res = (*init_func)();
             /* FIXME: ASSERT(res) */
             (*take_over_func)();
             res = 0;

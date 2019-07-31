@@ -1460,7 +1460,7 @@ takeover_ptrace(ptrace_stack_args_t *args)
     NULL_TERMINATE_BUFFER(home_var);
     dynamorio_set_envp(fake_envp);
 
-    dynamorio_app_init(false);
+    dynamorio_app_init();
 
     /* FIXME i#37: takeover other threads */
 
@@ -1972,7 +1972,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
      * find_executable_vm_areas re-discover the mappings we made for the app and
      * interp images.
      */
-    dynamorio_app_init(false);
+    dynamorio_app_init();
 
     LOG(GLOBAL, LOG_TOP, 1, "early injected into app with this cmdline:\n");
     DOLOG(1, LOG_TOP, {

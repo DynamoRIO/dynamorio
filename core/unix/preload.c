@@ -79,7 +79,7 @@ get_application_short_name(void);
 void
 dynamorio_set_envp(char **envp);
 int
-dynamorio_app_init(bool attach_case);
+dynamorio_app_init(void);
 void
 dynamorio_app_take_over(void);
 #endif /* START_DYNAMO */
@@ -177,7 +177,7 @@ _init(int argc, char **argv, char **envp)
     /* FIXME i#287/PR 546544: now load DYNAMORIO_AUTOINJECT DR .so
      * and only LD_PRELOAD the preload lib itself
      */
-    init = dynamorio_app_init(false);
+    init = dynamorio_app_init();
     pf("dynamorio_app_init() returned %d\n", init);
     dynamorio_app_take_over();
     pf("dynamo started\n");
