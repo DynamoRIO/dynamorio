@@ -579,14 +579,6 @@ add_client_lib(const char *path, const char *id_str, const char *options)
             SYSLOG(SYSLOG_ERROR, CLIENT_VERSION_INCOMPATIBLE, 2, get_application_name(),
                    get_application_pid());
         } else {
-#    ifdef X86
-            bool *client_avx512_code_in_use = (bool *)lookup_library_routine(
-                client_lib, DR_CLIENT_AVX512_CODE_IN_USE_NAME);
-            if (client_avx512_code_in_use != NULL) {
-                if (*client_avx512_code_in_use)
-                    d_r_set_client_avx512_code_in_use();
-            }
-#    endif
             size_t idx = num_client_libs++;
             client_libs[idx].id = id;
             client_libs[idx].lib = client_lib;
@@ -630,6 +622,14 @@ add_client_lib(const char *path, const char *id_str, const char *options)
                         BUFFER_SIZE_ELEMENTS(client_libs[idx].options));
                 NULL_TERMINATE_BUFFER(client_libs[idx].options);
             }
+#    ifdef X86
+            bool *client_avx512_code_in_use = (bool *)lookup_library_routine(
+                client_lib, DR_CLIENT_AVX512_CODE_IN_USE_NAME);
+            if (client_avx512_code_in_use != NULL) {
+                if (*client_avx512_code_in_use)
+                    d_r_set_client_avx512_code_in_use();
+            }
+#    endif
 
             /* We'll look up dr_client_main and call it in instrument_init */
         }
