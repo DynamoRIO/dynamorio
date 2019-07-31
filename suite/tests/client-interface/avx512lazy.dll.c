@@ -77,7 +77,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                      * AVX-512. Even in this case, the initial value of
                      * dr_mcontext_zmm_fields_valid() is expected to be false. The only
                      * time it should be true before application AVX-512 code has actually
-                     * been seen is the "attach' case. This is tested by another test
+                     * been seen is the "attach" case. This is tested by another test
                      * case.
                      */
                     CHECK(!dr_mcontext_zmm_fields_valid(),
