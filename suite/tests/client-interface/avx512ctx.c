@@ -32,18 +32,11 @@
 
 #ifndef ASM_CODE_ONLY /* C code */
 #    include "tools.h"
+#    include "avx512ctx-shared.h"
 
 #    ifndef __AVX512F__
 #        error "Build error, should only be added with AVX-512 support."
 #    endif
-#    ifdef X64
-#        define NUM_SIMD_REGS 32
-#    else
-#        define NUM_SIMD_REGS 8
-#    endif
-#    define NUM_OPMASK_REGS 8
-
-#    define VERBOSE 0
 
 NOINLINE void
 marker();
@@ -57,8 +50,52 @@ init_opmask(byte *buf);
 void
 get_opmask(byte *buf);
 
-void
-run_avx512()
+NOINLINE void
+test1_marker();
+NOINLINE void
+test2_marker();
+/* asm routines */
+NOINLINE void
+init_zmm(byte *buf);
+NOINLINE void
+get_zmm(byte *buf);
+NOINLINE void
+init_opmask(byte *buf);
+NOINLINE void
+get_opmask(byte *buf);
+
+static void
+print_zmm(byte zmm_buf[], byte zmm_ref[])
+{
+    int zmm_off = 0;
+    for (int i = 0; i < NUM_SIMD_REGS; ++i, zmm_off += 64) {
+        print("got zmm[%d]:\n", i);
+        for (int b = zmm_off; b < zmm_off + 64; ++b)
+            print("%x", zmm_buf[b]);
+        print("\nref zmm[%d]:\n", i);
+        for (int b = zmm_off; b < zmm_off + 64; ++b)
+            print("%x", zmm_ref[b]);
+        print("\n");
+    }
+}
+
+static void
+print_opmask(byte opmask_buf[], byte opmask_ref[])
+{
+    int opmask_off = 0;
+    for (int i = 0; i < NUM_OPMASK_REGS; ++i, opmask_off += 2) {
+        print("got k[%i]:\n", i);
+        for (int b = opmask_off; b < opmask_off + 2; ++b)
+            print("%x", opmask_buf[b]);
+        print("\nref k[%d]:\n", i);
+        for (int b = opmask_off; b < opmask_off + 2; ++b)
+            print("%x", opmask_ref[b]);
+        print("\n");
+    }
+}
+
+static void
+run_avx512_ctx_test(void (*marker)())
 {
     byte zmm_buf[NUM_SIMD_REGS * 64];
     byte zmm_ref[NUM_SIMD_REGS * 64];
@@ -76,38 +113,33 @@ run_avx512()
     init_zmm(zmm_ref);
     init_opmask(opmask_ref);
 
-    marker();
+    (*marker)();
 
     get_zmm(zmm_buf);
     get_opmask(opmask_buf);
 
+    if (memcmp(zmm_buf, zmm_ref, sizeof(zmm_buf)) != 0) {
 #    if VERBOSE
-    int zmm_off = 0;
-    for (int i = 0; i < NUM_SIMD_REGS; ++i, zmm_off += 64) {
-        print("got zmm[%d]:\n", i);
-        for (int b = zmm_off; b < zmm_off + 64; ++b)
-            print("%x", zmm_buf[b]);
-        print("\nref zmm[%d]:\n", i);
-        for (int b = zmm_off; b < zmm_off + 64; ++b)
-            print("%x", zmm_ref[b]);
-        print("\n");
-    }
-    int opmask_off = 0;
-    for (int i = 0; i < NUM_OPMASK_REGS; ++i, opmask_off += 2) {
-        print("got k[%i]:\n", i);
-        for (int b = opmask_off; b < opmask_off + 2; ++b)
-            print("%x", opmask_buf[b]);
-        print("\nref k[%d]:\n", i);
-        for (int b = opmask_off; b < opmask_off + 2; ++b)
-            print("%x", opmask_ref[b]);
-        print("\n");
-    }
+        print_zmm(zmm_buf, zmm_ref);
 #    endif
-
-    if (memcmp(zmm_buf, zmm_ref, sizeof(zmm_buf)) != 0)
         print("ERROR: wrong zmm value\n");
-    if (memcmp(opmask_buf, opmask_ref, sizeof(opmask_buf)) != 0)
+    }
+    if (memcmp(opmask_buf, opmask_ref, sizeof(opmask_buf)) != 0) {
+#    if VERBOSE
+        print_opmask(opmask_buf, opmask_ref);
+#    endif
         print("ERROR: wrong mask value\n");
+    }
+}
+
+static void
+run_avx512_all_tests()
+{
+    print("Testing code cache context switch\n");
+    run_avx512_ctx_test(test1_marker);
+
+    print("Testing clean call context switch\n");
+    run_avx512_ctx_test(test2_marker);
 
     print("Ok\n");
 }
@@ -115,12 +147,13 @@ run_avx512()
 int
 main()
 {
-    run_avx512();
+    run_avx512_all_tests();
     return 0;
 }
 
 #else /* asm code *************************************************************/
 #    include "asm_defines.asm"
+#    include "avx512ctx-shared.h"
 /* clang-format off */
 START_FILE
 
@@ -130,14 +163,28 @@ START_FILE
 #    define FRAME_PADDING 0
 #endif
 
-#define FUNCNAME marker
+#define FUNCNAME test1_marker
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         sub      REG_XSP, FRAME_PADDING
         END_PROLOG
 
-        mov      REG_XAX, 0x12345678
-        mov      REG_XAX, 0x12345678
+        mov      MARKER_REG, TEST1_MARKER
+        mov      MARKER_REG, TEST1_MARKER
+
+        add      REG_XSP, FRAME_PADDING
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+#define FUNCNAME test2_marker
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        sub      REG_XSP, FRAME_PADDING
+        END_PROLOG
+
+        mov      MARKER_REG, TEST2_MARKER
+        mov      MARKER_REG, TEST2_MARKER
 
         add      REG_XSP, FRAME_PADDING
         ret

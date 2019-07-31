@@ -5432,11 +5432,14 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
 #if defined(X64) && defined(WINDOWS)
         cci.num_simd_skip = 6;
 #else
-        /* all 8 (or 16) are scratch */
+        /* all 8, 16 or 32 are scratch */
         cci.num_simd_skip = proc_num_simd_registers();
+        cci.num_opmask_skip = proc_num_opmask_registers();
 #endif
         for (i = 0; i < cci.num_simd_skip; i++)
             cci.simd_skip[i] = true;
+        for (i = 0; i < cci.num_opmask_skip; i++)
+            cci.opmask_skip[i] = true;
             /* now remove those used for param/retval */
 #ifdef X64
         if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONPARAM, save_flags)) {

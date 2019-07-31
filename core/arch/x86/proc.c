@@ -74,6 +74,7 @@ static int num_simd_saved;
 static int num_simd_registers;
 static int num_simd_sse_avx_registers;
 static int num_simd_sse_avx_saved;
+static int num_opmask_registers;
 
 /* global writable variable for debug registers value */
 DECLARE_NEVERPROT_VAR(app_pc d_r_debug_register[DEBUG_REGISTERS_NB], { 0 });
@@ -372,6 +373,7 @@ proc_init_arch(void)
      */
     num_simd_sse_avx_registers = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
     num_simd_sse_avx_saved = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
+    num_opmask_registers = 0;
 
     if (proc_has_feature(FEATURE_OSXSAVE)) {
         uint bv_high = 0, bv_low = 0;
@@ -403,6 +405,7 @@ proc_init_arch(void)
                  */
                 avx512_enabled = true;
                 num_simd_registers = MCXT_NUM_SIMD_SLOTS;
+                num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;
                 LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX-512\n");
             } else {
                 LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX-512\n");
@@ -469,6 +472,13 @@ int
 proc_num_simd_registers(void)
 {
     return num_simd_registers;
+}
+
+DR_API
+int
+proc_num_opmask_registers(void)
+{
+    return num_opmask_registers;
 }
 
 void

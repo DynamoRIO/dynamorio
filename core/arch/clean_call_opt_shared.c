@@ -72,10 +72,13 @@ callee_info_init(callee_info_t *ci)
      * We could reverse the logic and use memset to set the value below,
      * but then later in analyze_callee_regs_usage, we have to use the loop.
      */
-    /* assuming all xmm registers are used */
+    /* assuming all [xyz]mm registers are used */
     ci->num_simd_used = proc_num_simd_registers();
+    ci->num_opmask_used = proc_num_opmask_registers();
     for (i = 0; i < proc_num_simd_registers(); i++)
         ci->simd_used[i] = true;
+    for (i = 0; i < proc_num_opmask_registers(); i++)
+        ci->opmask_used[i] = true;
     for (i = 0; i < NUM_GP_REGS; i++)
         ci->reg_used[i] = true;
     ci->spill_reg = DR_REG_INVALID;
@@ -422,7 +425,13 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
     }
     if (ci->num_simd_used != 0) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee " PFX " cannot be inlined: uses XMM.\n", ci->start);
+            "CLEANCALL: callee " PFX " cannot be inlined: uses SIMD.\n", ci->start);
+        opt_inline = false;
+    }
+    if (ci->num_opmask_used != 0) {
+        LOG(THREAD, LOG_CLEANCALL, 1,
+            "CLEANCALL: callee " PFX " cannot be inlined: uses mask register.\n",
+            ci->start);
         opt_inline = false;
     }
     if (ci->tls_used) {
@@ -498,10 +507,21 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
             cci->simd_skip[i] = false;
         } else {
             LOG(THREAD, LOG_CLEANCALL, 3,
-                "CLEANCALL: if inserting clean call " PFX ", skip saving XMM%d.\n",
+                "CLEANCALL: if inserting clean call " PFX ", skip saving [XYZ]MM%d.\n",
                 info->start, i);
             cci->simd_skip[i] = true;
             cci->num_simd_skip++;
+        }
+    }
+    for (i = 0; i < proc_num_opmask_registers(); i++) {
+        if (info->opmask_used[i]) {
+            cci->opmask_skip[i] = false;
+        } else {
+            LOG(THREAD, LOG_CLEANCALL, 3,
+                "CLEANCALL: if inserting clean call " PFX ", skip saving k%d.\n",
+                info->start, i);
+            cci->opmask_skip[i] = true;
+            cci->num_opmask_skip++;
         }
     }
     if (INTERNAL_OPTION(opt_cleancall) > 2 &&
@@ -528,7 +548,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
             "CLEANCALL: if inserting clean call " PFX ", cannot skip saving reg xax.\n",
             info->start);
         cci->reg_skip[0] = false;
-        cci->num_regs_skip++;
+        cci->num_regs_skip--;
     }
 #    endif
 
@@ -650,6 +670,10 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
         if (cci->num_simd_skip == proc_num_simd_registers()) {
             STATS_INC(cleancall_simd_skipped);
         }
+        if (proc_num_opmask_registers() > 0 &&
+            cci->num_opmask_skip == proc_num_opmask_registers()) {
+            STATS_INC(cleancall_opmask_skipped);
+        }
         if (cci->skip_save_flags) {
             STATS_INC(cleancall_aflags_save_skipped);
         }
@@ -712,32 +736,38 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
      * for generating out-of-line calls is quite low, so the code size is kept low.
      */
 #    ifdef X86
-    /* Use out-of-line calls if more than 3 SIMD registers need to be saved. */
-#        define SIMD_SAVE_TRESHOLD 3
+    /* Use out-of-line calls if more than 3 SIMD registers or 3 mask registers need to be
+     * saved.
+     */
+#        define SIMD_SAVE_THRESHOLD 3
+#        define OPMASK_SAVE_THRESHOLD 3
 #        ifdef X64
     /* Use out-of-line calls if more than 3 GP registers need to be saved. */
-#            define GPR_SAVE_TRESHOLD 3
+#            define GPR_SAVE_THRESHOLD 3
 #        else
     /* On X86, a single pusha instruction is used to save the GPRs, so we do not take
      * the number of GPRs that need saving into account.
      */
-#            define GPR_SAVE_TRESHOLD NUM_GP_REGS
+#            define GPR_SAVE_THRESHOLD NUM_GP_REGS
 #        endif
 #    elif defined(AARCH64)
     /* Use out-of-line calls if more than 6 SIMD registers need to be saved. */
-#        define SIMD_SAVE_TRESHOLD 6
+#        define SIMD_SAVE_THRESHOLD 6
     /* Use out-of-line calls if more than 6 GP registers need to be saved. */
-#        define GPR_SAVE_TRESHOLD 6
+#        define GPR_SAVE_THRESHOLD 6
+#        define OPMASK_SAVE_THRESHOLD 0
 #    endif
 
 #    if defined(X86) || defined(AARCH64)
     /* 9. derived fields */
-    /* Use out-of-line calls if more than SIMD_SAVE_TRESHOLD SIMD registers have
-     * to be saved or if more than GPR_SAVE_TRESHOLD GP registers have to be saved.
+    /* Use out-of-line calls if more than SIMD_SAVE_THRESHOLD SIMD registers have
+     * to be saved or if more than GPR_SAVE_THRESHOLD GP registers have to be saved.
+     * For AVX-512, a threshold of 3 mask registers has been added.
      * XXX: This should probably be in arch-specific clean_call_opt.c.
      */
-    if ((proc_num_simd_registers() - cci->num_simd_skip) > SIMD_SAVE_TRESHOLD ||
-        (NUM_GP_REGS - cci->num_regs_skip) > GPR_SAVE_TRESHOLD || always_out_of_line)
+    if ((proc_num_simd_registers() - cci->num_simd_skip) > SIMD_SAVE_THRESHOLD ||
+        (proc_num_opmask_registers() - cci->num_opmask_skip) > OPMASK_SAVE_THRESHOLD ||
+        (NUM_GP_REGS - cci->num_regs_skip) > GPR_SAVE_THRESHOLD || always_out_of_line)
         cci->out_of_line_swap = true;
 #    endif
 

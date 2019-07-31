@@ -248,7 +248,7 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
 {
     int i;
 #ifdef X86
-    int ymm_bytes_used;
+    int simd_bytes_used;
 #endif
     /* Check GPRs. */
     for (i = 0; i < DR_NUM_GPR_REGS; i++) {
@@ -270,14 +270,18 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
 #ifdef X86
     /* Only look at the initialized bits of the SSE regs. */
     /* XXX i#1312: fix and extend test for AVX-512. */
-    ymm_bytes_used = (proc_has_feature(FEATURE_AVX) ? 32 : 16);
+    simd_bytes_used = (proc_has_feature(FEATURE_AVX) ? 32 : 16);
+#    ifdef __AVX512F__
+    /* If the test was compiled with AVX-512, it implies that the machine supported it. */
+    simd_bytes_used = 64;
+#    endif
     /* FIXME i#1312: this needs to be proc_num_simd_registers() once we fully support
      * saving AVX-512 state for clean calls. The clean call test is already clobbering
      * AVX-512 extended registers, but we can't compare and test them here until we
      * support saving and restoring them.
      */
     for (i = 0; i < proc_num_simd_saved(); i++) {
-        if (memcmp(&mc_a->simd[i], &mc_b->simd[i], ymm_bytes_used) != 0)
+        if (memcmp(&mc_a->simd[i], &mc_b->simd[i], simd_bytes_used) != 0)
             return false;
     }
 #elif defined(AARCH64)
@@ -314,6 +318,12 @@ dump_diff_mcontexts(void)
         dr_zmm_t before_reg = before_mcontext.simd[i];
         dr_zmm_t after_reg = after_mcontext.simd[i];
         size_t mmsz = proc_has_feature(FEATURE_AVX) ? sizeof(dr_ymm_t) : sizeof(dr_xmm_t);
+#    ifdef __AVX512F__
+        /* If the test was compiled with AVX-512, it implies that the machine supported
+         * it.
+         */
+        mmsz = sizeof(dr_zmm_t);
+#    endif
         const char *diff_str =
             (memcmp(&before_reg, &after_reg, mmsz) == 0 ? "" : " <- DIFFERS");
         dr_fprintf(STDERR, "xmm%2d before: %08x%08x%08x%08x", i, before_reg.u32[0],
