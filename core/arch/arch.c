@@ -87,6 +87,7 @@ static bool sysenter_hook_failed = false;
 
 #ifdef X86
 bool *d_r_avx512_code_in_use = NULL;
+bool d_r_client_avx512_code_in_use = false;
 #endif
 
 /* static functions forward references */
@@ -3660,7 +3661,12 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
     if (preserve_xmm_caller_saved()) {
         int i, j;
         for (i = 0; i < proc_num_simd_saved(); i++) {
-            if (YMM_ENABLED()) {
+            if (ZMM_ENABLED()) {
+                print_file(f, dump_xml ? "\t\tzmm%d= \"0x" : "\tzmm%d= 0x", i);
+                for (j = 0; j < 16; j++) {
+                    print_file(f, "%08x", context->simd[i].u32[j]);
+                }
+            } else if (YMM_ENABLED()) {
                 print_file(f, dump_xml ? "\t\tymm%d= \"0x" : "\tymm%d= 0x", i);
                 for (j = 0; j < 8; j++) {
                     print_file(f, "%08x", context->simd[i].u32[j]);

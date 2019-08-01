@@ -2585,12 +2585,33 @@ endif ()
     tobuild_ci(client.avx512lazy client-interface/avx512lazy.c "" "" "")
     set_target_properties(client.avx512lazy PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
 
+    # XXX i#1312: This is untested on Windows.
+    tobuild_ci(client.avx512lazy-initial client-interface/avx512lazy.c "" "" "")
+    set_target_properties(client.avx512lazy-initial PROPERTIES COMPILE_FLAGS
+      "${CFLAGS_AVX512}")
+    append_property_string(TARGET client.avx512lazy-initial.dll COMPILE_FLAGS
+      "${CFLAGS_AVX512} -DCLIENT_COMPILED_WITH_AVX512")
+
     if (UNIX)
       # XXX i#1312: we do not yet support AVX-512 Windows context switching.
       tobuild_ci(client.avx512ctx client-interface/avx512ctx.c "" "" "")
       set_target_properties(client.avx512ctx PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
       target_include_directories(client.avx512ctx PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+
+      # This could be generalized in a new function. Currently this is the only api-style
+      # test that also has a client library.
+      add_library(api.startstop_avx512lazy.dll SHARED api/startstop_avx512lazy.dll.c)
+      setup_test_client_dll_basics(api.startstop_avx512lazy.dll)
+      append_property_string(TARGET api.startstop_avx512lazy.dll COMPILE_FLAGS
+        "${CFLAGS_AVX512}")
+      get_client_path(client_path api.startstop_avx512lazy.dll api.startstop_avx512lazy)
+      tobuild_api(api.startstop_avx512lazy api/startstop_avx512lazy.c
+        "-client_lib ${client_path}" "" OFF OFF)
+      append_property_string(TARGET api.startstop_avx512lazy COMPILE_FLAGS
+        "${CFLAGS_AVX512}")
+      append_property_string(TARGET api.startstop_avx512lazy.dll COMPILE_FLAGS
+        "${CFLAGS_AVX512}")
     endif (UNIX)
   endif ()
 
