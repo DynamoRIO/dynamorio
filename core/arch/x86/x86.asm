@@ -121,7 +121,7 @@ START_FILE
 /* Pushes a priv_mcontext_t on the stack, with an xsp value equal to the
  * xsp before the pushing.  Clobbers xax!
  * Does fill in xmm0-5, if necessary, for PR 264138.
- * Assumes that DR has been initialized (get_xmm_vals() checks proc feature bits).
+ * Assumes that DR has been initialized (get_simd_vals() checks proc feature bits).
  * Caller should ensure 16-byte stack alignment prior to the push (PR 306421).
  */
 #define PUSH_PRIV_MCXT(pc)                              \
@@ -130,7 +130,7 @@ START_FILE
         PUSHF                                          @N@\
         PUSHGPR                                        @N@\
         lea      REG_XAX, [REG_XSP]                    @N@\
-        CALLC1(GLOBAL_REF(get_xmm_vals), REG_XAX)      @N@\
+        CALLC1(GLOBAL_REF(get_simd_vals), REG_XAX)      @N@\
         lea      REG_XAX, [PRIV_MCXT_SIZE + REG_XSP]   @N@\
         mov      [PUSHGPR_XSP_OFFS + REG_XSP], REG_XAX
 
@@ -148,7 +148,7 @@ START_FILE
 DECL_EXTERN(unexpected_return)
 
 DECL_EXTERN(get_own_context_integer_control)
-DECL_EXTERN(get_xmm_vals)
+DECL_EXTERN(get_simd_vals)
 DECL_EXTERN(auto_setup)
 DECL_EXTERN(return_from_native)
 DECL_EXTERN(native_module_callout)

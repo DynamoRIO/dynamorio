@@ -123,6 +123,20 @@ DR_EXPORT LINK_ONCE int _USES_DR_VERSION_ = ${VERSION_NUMBER_INTEGER};
 /* clang-format on */
 #endif
 
+/* AVX-512 client code detection. Compiling the client with AVX-512 will cause
+ * DynamoRIO to assume that AVX-512 code is in use when deploying DynamoRIO after
+ * the application has started.
+ */
+#ifndef DYNAMORIO_STANDALONE
+#    ifdef __AVX512F__
+DR_EXPORT LINK_ONCE bool _DR_CLIENT_AVX512_CODE_IN_USE_ = true;
+#    else
+DR_EXPORT LINK_ONCE bool _DR_CLIENT_AVX512_CODE_IN_USE_ = false;
+#    endif
+#else
+#    define _DR_CLIENT_AVX512_CODE_IN_USE_ false
+#endif
+
 /* A flag that can be used to identify whether this file was included */
 #define DYNAMORIO_API
 

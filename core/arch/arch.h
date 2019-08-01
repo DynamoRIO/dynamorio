@@ -235,6 +235,12 @@ preserve_xmm_caller_saved(void)
  */
 extern bool *d_r_avx512_code_in_use;
 
+/* This flag indicates a client that had been compiled with AVX-512. In all other than
+ * "earliest" inject methods, the initial value of d_r_is_avx512_code_in_use() will be
+ * set to true, to prevent a client from clobbering potential application state.
+ */
+extern bool d_r_client_avx512_code_in_use;
+
 /* This routine determines whether zmm registers should be saved. */
 static inline bool
 d_r_is_avx512_code_in_use()
@@ -250,6 +256,19 @@ d_r_set_avx512_code_in_use(bool in_use)
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 }
 
+static inline bool
+d_r_is_client_avx512_code_in_use()
+{
+    return d_r_client_avx512_code_in_use;
+}
+
+static inline void
+d_r_set_client_avx512_code_in_use()
+{
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    ATOMIC_1BYTE_WRITE(&d_r_client_avx512_code_in_use, (bool)true, false);
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+}
 #endif
 
 typedef enum {
@@ -1311,7 +1330,7 @@ new_bsdthread_setup(priv_mcontext_t *mc);
 #endif
 
 void
-get_xmm_vals(priv_mcontext_t *mc);
+get_simd_vals(priv_mcontext_t *mc);
 
 /* i#350: Fast safe_read without dcontext.  On success or failure, returns the
  * current source pointer.  Requires fault handling to be set up.
