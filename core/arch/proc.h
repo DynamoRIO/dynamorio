@@ -294,7 +294,7 @@ extern size_t cache_line_size;
 
 #define CACHE_LINE_SIZE() cache_line_size
 
-/* xcr0 and xstate_bv feature bits */
+/* xcr0 and xstate_bv feature bits, as actually used by the processor. */
 enum {
     XCR0_HI16_ZMM = 0x80,
     XCR0_ZMM_HI256 = 0x40,
