@@ -170,7 +170,10 @@ opnd_is_far_abs_addr(opnd_t opnd)
 bool
 opnd_is_vsib(opnd_t op)
 {
-    return (opnd_is_base_disp(op) && reg_is_xmm(opnd_get_index(op)));
+    return (opnd_is_base_disp(op) &&
+            (reg_is_strictly_xmm(opnd_get_index(op)) ||
+             reg_is_strictly_ymm(opnd_get_index(op)) ||
+             reg_is_strictly_zmm(opnd_get_index(op))));
 }
 
 bool

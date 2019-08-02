@@ -178,116 +178,206 @@ opc_is_not_a_real_memory_load(int opc)
     return false;
 }
 
-/* Returns whether ordinal is within the count of memory references
- * (i.e., the caller should iterate, incrementing ordinal by one,
- * until it returns false).
- * If it returns true, sets *selected to whether this memory
- * reference actually goes through (i.e., whether it is enabled in
- * the mask).
- * If *selected is true, returns the scaled index in *result.
- *
- * On a fault, any completed memory loads have their corresponding
- * mask bits cleared, so we shouldn't have to do anything special
- * to support faults of VSIB accesses.
- */
 static bool
-instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, instr_t *instr,
-                         int ordinal, priv_mcontext_t *mc, size_t mc_size,
-                         dr_mcontext_flags_t mc_flags)
+instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
+                                  bool *is_write OUT, instr_t *instr, int ordinal,
+                                  priv_mcontext_t *mc, size_t mc_size,
+                                  dr_mcontext_flags_t mc_flags, bool is_evex)
 {
-    /* XXX i#1312: Needs support for AVX-512. */
     int opc = instr_get_opcode(instr);
     opnd_size_t index_size = OPSZ_NA;
     opnd_size_t mem_size = OPSZ_NA;
-    /* We assume that all VSIB-using instrs have the VSIB memop as the 1st
-     * source and the mask register as the 2nd source.
-     */
-    opnd_t memop = instr_get_src(instr, 0);
-    int scale = opnd_get_scale(memop);
-    reg_id_t index_reg = opnd_get_index(memop);
-    reg_id_t mask_reg = opnd_get_reg(instr_get_src(instr, 1));
-    bool ymm = (opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_32);
-    int reg_start = (ymm ? REG_START_YMM : REG_START_XMM);
-    uint64 index_addr;
-
-    /* Once we add zmm we'll need to do size checks */
-    CLIENT_ASSERT(selected != NULL && result != NULL && mc != NULL, "invalid args");
-    CLIENT_ASSERT(mc_size >= sizeof(dr_mcontext_t), "dr_mcontext_t.size is invalid");
-    CLIENT_ASSERT(TEST(DR_MC_MULTIMEDIA, mc_flags),
-                  "dr_mcontext_t.flags must include DR_MC_MULTIMEDIA");
-    CLIENT_ASSERT((!ymm && index_reg >= REG_START_XMM && index_reg <= REG_STOP_XMM) ||
-                      (ymm && index_reg >= REG_START_YMM && index_reg <= REG_STOP_YMM),
-                  "invalid index register for VSIB");
-
     switch (opc) {
     case OP_vgatherdpd:
         index_size = OPSZ_4;
         mem_size = OPSZ_8;
+        *is_write = false;
         break;
     case OP_vgatherqpd:
         index_size = OPSZ_8;
         mem_size = OPSZ_8;
+        *is_write = false;
         break;
     case OP_vgatherdps:
         index_size = OPSZ_4;
         mem_size = OPSZ_4;
+        *is_write = false;
         break;
     case OP_vgatherqps:
         index_size = OPSZ_8;
         mem_size = OPSZ_4;
+        *is_write = false;
         break;
     case OP_vpgatherdd:
         index_size = OPSZ_4;
         mem_size = OPSZ_4;
+        *is_write = false;
         break;
     case OP_vpgatherqd:
         index_size = OPSZ_8;
         mem_size = OPSZ_4;
+        *is_write = false;
         break;
     case OP_vpgatherdq:
         index_size = OPSZ_4;
         mem_size = OPSZ_8;
+        *is_write = false;
         break;
     case OP_vpgatherqq:
         index_size = OPSZ_8;
         mem_size = OPSZ_8;
+        *is_write = false;
+        break;
+    case OP_vscatterdpd:
+        index_size = OPSZ_4;
+        mem_size = OPSZ_8;
+        *is_write = true;
+        break;
+    case OP_vscatterqpd:
+        index_size = OPSZ_8;
+        mem_size = OPSZ_8;
+        *is_write = true;
+        break;
+    case OP_vscatterdps:
+        index_size = OPSZ_4;
+        mem_size = OPSZ_4;
+        *is_write = true;
+        break;
+    case OP_vscatterqps:
+        index_size = OPSZ_8;
+        mem_size = OPSZ_4;
+        *is_write = true;
+        break;
+    case OP_vpscatterdd:
+        index_size = OPSZ_4;
+        mem_size = OPSZ_4;
+        *is_write = true;
+        break;
+    case OP_vpscatterqd:
+        index_size = OPSZ_8;
+        mem_size = OPSZ_4;
+        *is_write = true;
+        break;
+    case OP_vpscatterdq:
+        index_size = OPSZ_4;
+        mem_size = OPSZ_8;
+        *is_write = true;
+        break;
+    case OP_vpscatterqq:
+        index_size = OPSZ_8;
+        mem_size = OPSZ_8;
+        *is_write = true;
         break;
     default: CLIENT_ASSERT(false, "non-VSIB opcode passed in"); return false;
     }
+    opnd_t memop;
+    bool is_ymm_out = false;
+    bool is_zmm_out = false;
+    if (is_evex) {
+        /* We assume that all EVEX VSIB-using instructions have the VSIB memop as the 2nd
+         * source and the (EVEX-)mask register as the 1st source for gather reads, and the
+         * VSIB memop as the first destination for scatter writes.
+         */
+        if (*is_write) {
+            memop = instr_get_dst(instr, 0);
+            is_ymm_out = (opnd_get_size(instr_get_src(instr, 1)) == OPSZ_32);
+            is_zmm_out = (opnd_get_size(instr_get_src(instr, 1)) == OPSZ_64);
+        } else {
+            memop = instr_get_src(instr, 1);
+            is_ymm_out = (opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_32);
+            is_zmm_out = (opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_64);
+        }
+    } else {
+        /* We assume that all VEX VSIB-using instructions have the VSIB memop as the 1st
+         * source and the mask register as the 2nd source. There are no VEX encoded AVX
+         * scatter instructions.
+         */
+        memop = instr_get_src(instr, 0);
+        is_ymm_out = (opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_32);
+    }
+    bool is_xmm_out = !is_ymm_out && !is_zmm_out;
+    int scale = opnd_get_scale(memop);
+    reg_id_t index_reg = opnd_get_index(memop);
+    int index_reg_start;
+    int mask_reg_start;
+    reg_id_t mask_reg;
+    uint64 index_addr;
+    if (is_zmm_out)
+        index_reg_start = DR_REG_START_ZMM;
+    else if (is_ymm_out)
+        index_reg_start = DR_REG_START_YMM;
+    else
+        index_reg_start = DR_REG_START_XMM;
+    if (is_evex) {
+        mask_reg_start = DR_REG_START_OPMASK;
+        mask_reg = opnd_get_reg(instr_get_src(instr, 0));
+    } else {
+        mask_reg_start = index_reg_start;
+        mask_reg = opnd_get_reg(instr_get_src(instr, 1));
+    }
 
-    LOG(THREAD_GET, LOG_ALL, 4, "%s: ordinal=%d: index=%s, mem=%s, ymm=%d\n",
-        __FUNCTION__, ordinal, size_names[index_size], size_names[mem_size], ymm);
+    CLIENT_ASSERT(
+        (is_xmm_out && index_reg >= DR_REG_START_XMM && index_reg <= DR_REG_STOP_XMM) ||
+            (is_ymm_out && index_reg >= DR_REG_START_YMM &&
+             index_reg <= DR_REG_STOP_YMM) ||
+            (is_zmm_out && index_reg >= DR_REG_START_ZMM && index_reg <= DR_REG_STOP_ZMM),
+        "invalid index register for VSIB");
+    CLIENT_ASSERT(!is_zmm_out || is_evex, "invalid destination size");
+
+    LOG(THREAD_GET, LOG_ALL, 4,
+        "%s: ordinal=%d: index=%s, mem=%s, xmm=%d, ymm=%d, zmm=%d\n", __FUNCTION__,
+        ordinal, size_names[index_size], size_names[mem_size], is_xmm_out, is_ymm_out,
+        is_zmm_out);
 
     if (index_size == OPSZ_4) {
         int mask;
         if (mem_size == OPSZ_4) {
-            if ((ymm && ordinal > 7) || (!ymm && ordinal > 3))
+            if ((is_zmm_out && ordinal > 15) || (is_ymm_out && ordinal > 7) ||
+                (is_xmm_out && ordinal > 3))
                 return false;
-        } else if ((ymm && ordinal > 3) || (!ymm && ordinal > 1))
+        } else if ((is_zmm_out && ordinal > 7) || (is_ymm_out && ordinal > 3) ||
+                   (is_xmm_out && ordinal > 1))
             return false;
-        mask = (int)mc->simd[mask_reg - reg_start].u32[ordinal];
-        if (mask >= 0) { /* top bit not set */
-            *selected = false;
-            return true;
+        if (is_evex) {
+            mask = (mc->opmask[mask_reg - mask_reg_start] >> ordinal) & 0x1;
+            if (mask == 0) { /* mask bit not set */
+                *selected = false;
+                return true;
+            }
+        } else {
+            mask = (int)mc->simd[mask_reg - mask_reg_start].u32[ordinal];
+            if (mask >= 0) { /* top bit not set */
+                *selected = false;
+                return true;
+            }
         }
         *selected = true;
-        index_addr = mc->simd[index_reg - reg_start].u32[ordinal];
+        index_addr = mc->simd[index_reg - index_reg_start].u32[ordinal];
     } else if (index_size == OPSZ_8) {
         int mask; /* just top half */
-        if ((ymm && ordinal > 3) || (!ymm && ordinal > 1))
+        if ((is_zmm_out && ordinal > 7) || (is_ymm_out && ordinal > 3) ||
+            (is_xmm_out && ordinal > 1))
             return false;
-        mask = (int)mc->simd[mask_reg - reg_start].u32[ordinal * 2 + 1];
-        if (mask >= 0) { /* top bit not set */
-            *selected = false;
-            return true;
+        if (is_evex) {
+            mask = (mc->opmask[mask_reg - mask_reg_start] >> ordinal) & 0x1;
+            if (mask == 0) { /* mask bit not set */
+                *selected = false;
+                return true;
+            }
+        } else {
+            mask = (int)mc->simd[mask_reg - mask_reg_start].u32[ordinal * 2 + 1];
+            if (mask >= 0) { /* top bit not set */
+                *selected = false;
+                return true;
+            }
         }
         *selected = true;
 #ifdef X64
-        index_addr = mc->simd[index_reg - reg_start].reg[ordinal];
+        index_addr = mc->simd[index_reg - index_reg_start].reg[ordinal];
 #else
         index_addr =
-            (((uint64)mc->simd[index_reg - reg_start].u32[ordinal * 2 + 1]) << 32) |
-            mc->simd[index_reg - reg_start].u32[ordinal * 2];
+            (((uint64)mc->simd[index_reg - index_reg_start].u32[ordinal * 2 + 1]) << 32) |
+            mc->simd[index_reg - index_reg_start].u32[ordinal * 2];
 #endif
     } else
         return false;
@@ -302,6 +392,35 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, instr_t *instr,
     *result = (app_pc)(uint)index_addr; /* truncated */
 #endif
     return true;
+}
+
+/* Returns whether ordinal is within the count of memory references
+ * (i.e., the caller should iterate, incrementing ordinal by one,
+ * until it returns false).
+ * If it returns true, sets *selected to whether this memory
+ * reference actually goes through (i.e., whether it is enabled in
+ * the mask).
+ * If *selected is true, returns the scaled index in *result.
+ *
+ * On a fault, any completed memory loads have their corresponding
+ * mask bits cleared, so we shouldn't have to do anything special
+ * to support faults of VSIB accesses.
+ */
+static bool
+instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write OUT,
+                         instr_t *instr, int ordinal, priv_mcontext_t *mc, size_t mc_size,
+                         dr_mcontext_flags_t mc_flags)
+{
+    CLIENT_ASSERT(selected != NULL && result != NULL && mc != NULL, "invalid args");
+    CLIENT_ASSERT(mc_size >= sizeof(dr_mcontext_t), "dr_mcontext_t.size is invalid");
+    CLIENT_ASSERT(TEST(DR_MC_MULTIMEDIA, mc_flags),
+                  "dr_mcontext_t.flags must include DR_MC_MULTIMEDIA");
+    opnd_t memop = instr_get_src(instr, 0);
+    /* We detect whether the instruction is EVEX by looking at its potential mask operand.
+     */
+    bool is_evex = opnd_is_reg(memop) && reg_is_opmask(opnd_get_reg(memop));
+    return instr_compute_VSIB_index_internal(selected, result, is_write, instr, ordinal,
+                                             mc, mc_size, mc_flags, is_evex);
 }
 
 bool
@@ -319,15 +438,16 @@ instr_compute_address_VSIB(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
      * full iteration on each call
      */
     uint vsib_idx = 0;
+    bool is_scatter = false;
     *have_addr = true;
-    while (instr_compute_VSIB_index(&selected, addr, instr, vsib_idx, mc, mc_size,
-                                    mc_flags) &&
+    while (instr_compute_VSIB_index(&selected, addr, &is_scatter, instr, vsib_idx, mc,
+                                    mc_size, mc_flags) &&
            (!selected || vsib_idx < index)) {
         vsib_idx++;
         selected = false;
     }
     if (selected && vsib_idx == index) {
-        *write = false;
+        *write = is_scatter;
         if (addr != NULL) {
             /* Add in seg, base, and disp */
             *addr = opnd_compute_address_helper(curop, mc, (ptr_int_t)*addr);
