@@ -553,7 +553,7 @@ proc_xstate_area_kmask_offs(void);
  * This function is internal only.
  *
  * Returns the AVX-512 zmm_hi256 xstate component's offset in bytes, as reported by CPUID
- * reported on the system.
+ * on the system.
  */
 int
 proc_xstate_area_zmm_hi256_offs(void);
@@ -562,7 +562,7 @@ proc_xstate_area_zmm_hi256_offs(void);
  * This function is internal only.
  *
  * Returns the AVX-512 hi16_zmm xstate component's offset in bytes, as reported by CPUID
- * reported on the system.
+ * on the system.
  */
 int
 proc_xstate_area_hi16_zmm_offs(void);
