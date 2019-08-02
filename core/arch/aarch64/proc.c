@@ -115,21 +115,24 @@ proc_num_simd_sse_avx_saved(void)
 int
 proc_xstate_area_kmask_offs(void)
 {
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* Does not apply to AArch64. */
+    ASSERT_NOT_REACHED();
     return 0;
 }
 
 int
 proc_xstate_area_zmm_hi256_offs(void)
 {
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* Does not apply to AArch64. */
+    ASSERT_NOT_REACHED();
     return 0;
 }
 
 int
 proc_xstate_area_hi16_zmm_offs(void)
 {
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* Does not apply to AArch64. */
+    ASSERT_NOT_REACHED();
     return 0;
 }
 
