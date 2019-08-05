@@ -537,7 +537,9 @@ signal_thread_init(dcontext_t *dcontext, void *os_data)
         signal_frame_extra_size(true)
         /* sigpending_t has xstate inside it already */
         IF_LINUX(IF_X86(-sizeof(kernel_xstate_t)));
-    IF_LINUX(IF_X86(ASSERT(!YMM_ENABLED() || ALIGNED(pend_unit_size, AVX_ALIGNMENT))));
+    /* pend_unit_size may not be aligned, even for AVX. We request alignment from the
+     * allocator for all pending units (xref i#3749, i#3380).
+     */
 
     /* all fields want to be initialized to 0 */
     memset(info, 0, sizeof(thread_sig_info_t));
