@@ -170,10 +170,12 @@ static void
 get_xstate_area_offsets(bool has_kmask, bool has_zmm_hi256, bool has_hi16_zmm)
 {
     int cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
-    if (has_kmask || has_zmm_hi256 || has_hi16_zmm) {
-        LOG(GLOBAL, LOG_TOP, 1, "\tExtended xstate area offsets:\n",
-            xstate_area_kmask_offs);
-    }
+    DOLOG(1, LOG_TOP, {
+        if (has_kmask || has_zmm_hi256 || has_hi16_zmm) {
+            LOG(GLOBAL, LOG_TOP, 1, "\tExtended xstate area offsets:\n",
+                xstate_area_kmask_offs);
+        }
+    });
     if (has_kmask) {
         our_cpuid(cpuid_res_local, 0xd, 5);
         xstate_area_kmask_offs = cpuid_res_local[1];
