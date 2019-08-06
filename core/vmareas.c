@@ -1225,6 +1225,26 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, uint vm_flags, uint f
                 /* if a merge exists we assume it will free if necessary */
                 v->free_payload_func(v->buf[i].custom.client);
             }
+            /* See the XXX comment in remove_vm_area about using a free_payload_func.
+             * Here we have to handle ld.so using an initial +rx map which triggers
+             * loading a persisted unit for the true-x segment and a new coarse unit
+             * for the temp-x-later-data segment.  But we then add the full +rx for
+             * the whole region, which comes here where we need to remove the
+             * just-created data segment coarse unit.  (Yes, better to avoid the temp
+             * creation, but that is likely more complex: delay coarse loading until
+             * first-execution or something.)
+             */
+            if (v == executable_areas) {
+                coarse_info_t *info = (coarse_info_t *)v->buf[i].custom.client;
+                if (info != NULL) {
+                    /* Should be un-executed from, and thus requires no reset and
+                     * thus no complex delayed deletion via coarse_to_delete.
+                     */
+                    ASSERT(info->cache == NULL && info->stubs == NULL &&
+                           info->non_frozen == NULL);
+                    coarse_unit_free(GLOBAL_DCONTEXT, info);
+                }
+            }
             /* merge frags lists */
             /* FIXME: switch this to a merge_payload_func.  It won't be able
              * to print out the bounds, and it will have to do the work of
@@ -1379,7 +1399,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
             if (restore_prot && DR_MADE_READONLY(v->buf[i].vm_flags)) {
                 vm_make_writable(v->buf[i].start, v->buf[i].end - v->buf[i].start);
             }
-            /* FIXME: use a free_payload_func instead of this custom
+            /* XXX: Better to use a free_payload_func instead of this custom
              * code.  But then we couldn't assert on the bounds and on
              * VM_EXECUTED_FROM.  Could add bounds to callback params, but
              * vm_flags are not exposed to vmvector interface...
@@ -1393,9 +1413,9 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
                     ASSERT(info->base_pc >= v->buf[i].start &&
                            info->end_pc <= v->buf[i].end);
                     ASSERT(info->frozen || info->non_frozen == NULL);
-                    /* Should have already freed fields, unless we flushed a region
-                     * that has not been executed from (case 10995): in which case
-                     * we must delay as we cannot grab change_linking_lock or
+                    /* Should have already freed fields (unless we flushed a region
+                     * that has not been executed from (case 10995)).
+                     * We must delay as we cannot grab change_linking_lock or
                      * special_heap_lock or info->lock while holding exec_areas lock.
                      */
                     if (info->cache != NULL) {
@@ -2577,8 +2597,12 @@ add_executable_vm_area_helper(app_pc start, app_pc end, uint vm_flags, uint frag
         DEBUG_DECLARE(bool found =)
         lookup_addr(executable_areas, start, &area);
         ASSERT(found && area != NULL);
+        if (info == NULL) {
+            /* May have been created already, by app_memory_pre_alloc(). */
+            info = (coarse_info_t *)area->custom.client;
+        }
         /* case 9521: always have one non-frozen coarse unit per coarse region */
-        if (info == NULL || info->frozen) {
+        if (info == NULL || (info->frozen && info->non_frozen == NULL)) {
             coarse_info_t *new_info =
                 coarse_unit_create(start, end, (info == NULL) ? NULL : &info->module_md5,
                                    true /*for execution*/);
@@ -2720,8 +2744,13 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
                     /* if clients are present, don't load until after they're initialized
                      */
                     IF_CLIENT_INTERFACE(&&(dynamo_initialized || !CLIENTS_EXIST()))) {
-            info = vm_area_load_coarse_unit(&start, &end, vm_flags, frag_flags,
-                                            false _IF_DEBUG(comment));
+            vm_area_t *area;
+            if (lookup_addr(executable_areas, start, &area))
+                info = (coarse_info_t *)area->custom.client;
+            if (info == NULL) {
+                info = vm_area_load_coarse_unit(&start, &end, vm_flags, frag_flags,
+                                                false _IF_DEBUG(comment));
+            }
         }
     }
 
@@ -5989,8 +6018,11 @@ app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, b
             * but in large-region cases it saves huge number of syscalls.
             */
            query_memory_cur_base(pb, &info)) {
+        /* We can't also check for "info.prot != prot" for update_areas, b/c this is
+         * delayed to post-syscall and we have to process changes after the fact.
+         */
         if (info.type != DR_MEMTYPE_FREE && info.type != DR_MEMTYPE_RESERVED &&
-            info.prot != prot) {
+            (update_areas || prot != info.prot)) {
             size_t change_sz;
             uint subset_memprot;
             uint res;
@@ -6004,6 +6036,9 @@ app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, b
                  */
                 return false;
             }
+            LOG(GLOBAL, LOG_VMAREAS, 3,
+                "%s: app alloc may be changing " PFX "-" PFX " %x\n", __FUNCTION__,
+                info.base_pc, info.base_pc + info.size, info.prot);
             res = app_memory_protection_change_internal(dcontext, update_areas, pb,
                                                         change_sz, prot, &subset_memprot,
                                                         NULL, image);
@@ -6896,6 +6931,11 @@ app_memory_protection_change_internal(dcontext_t *dcontext, bool update_areas,
             }
 #endif
             if (add_to_exec_list) {
+                if (DYNAMO_OPTION(coarse_units) && image &&
+                    !RUNNING_WITHOUT_CODE_CACHE()) {
+                    /* all images start out with coarse-grain management */
+                    frag_flags_pfx |= FRAG_COARSE_GRAIN;
+                }
                 /* FIXME : see note at top of function about bug 2833 */
                 ASSERT(!TEST(MEMPROT_WRITE, prot)); /* sanity check */
                 add_executable_vm_area(base, base + size, image ? VM_UNMOD_IMAGE : 0,
