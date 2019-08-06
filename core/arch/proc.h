@@ -296,7 +296,9 @@ extern size_t cache_line_size;
 
 /* xcr0 and xstate_bv feature bits, as actually used by the processor. */
 enum {
+    /* Component for entire zmm16-zmm31 registers. */
     XCR0_HI16_ZMM = 0x80,
+    /* Component for upper half of each of zmm0-zmm15 registers. */
     XCR0_ZMM_HI256 = 0x40,
     XCR0_OPMASK = 0x20,
     /* TODO i#3581: mpx state */
