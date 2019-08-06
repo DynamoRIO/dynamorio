@@ -212,7 +212,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
          * have to use raw bytes for:
          *    48 0f ae 21  xsave64 (%rcx)
          * We only enable the x87 state component. The rest of the user state components
-         * gets copied below from priv_mcontext_t.
+         * get copied below from priv_mcontext_t.
          */
         asm volatile("mov $0x0, %%edx\n\t"
                      "mov $0x1, %%eax\n\t"
