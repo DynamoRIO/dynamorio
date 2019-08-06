@@ -277,6 +277,8 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
             memcpy((byte *)xstate + proc_xstate_area_zmm_hi256_offs() + i * ZMMH_REG_SIZE,
                    ((void *)&get_mcontext(dcontext)->simd[i]) + ZMMH_REG_SIZE,
                    ZMMH_REG_SIZE);
+            ASSERT(proc_num_simd_sse_avx_saved() ==
+                   proc_num_simd_registers() - proc_num_simd_sse_avx_saved());
             memcpy((byte *)xstate + proc_xstate_area_hi16_zmm_offs() + i * ZMM_REG_SIZE,
                    ((void *)&get_mcontext(dcontext)
                         ->simd[i + proc_num_simd_sse_avx_saved()]),
@@ -526,6 +528,8 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
                            (byte *)xstate + proc_xstate_area_zmm_hi256_offs() +
                                i * ZMMH_REG_SIZE,
                            ZMMH_REG_SIZE);
+                    ASSERT(proc_num_simd_sse_avx_saved() ==
+                           proc_num_simd_registers() - proc_num_simd_sse_avx_saved());
                     memcpy(&mc->simd[i + proc_num_simd_sse_avx_saved()],
                            (byte *)xstate + proc_xstate_area_hi16_zmm_offs() +
                                i * ZMM_REG_SIZE,
@@ -582,6 +586,8 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                     memcpy((byte *)xstate + proc_xstate_area_zmm_hi256_offs() +
                                i * ZMMH_REG_SIZE,
                            &mc->simd[i].u32[8], ZMMH_REG_SIZE);
+                    ASSERT(proc_num_simd_sse_avx_registers() ==
+                           proc_num_simd_registers() - proc_num_simd_sse_avx_registers());
                     memcpy((byte *)xstate + proc_xstate_area_hi16_zmm_offs() +
                                i * ZMM_REG_SIZE,
                            &mc->simd[i + proc_num_simd_sse_avx_registers()],
