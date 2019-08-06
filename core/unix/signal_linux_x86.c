@@ -210,7 +210,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
 #ifdef X64
         /* Some assemblers, including on Travis, don't know "xsave64", so we
          * have to use raw bytes for:
-         * 48 0f ae 21  xsave64 (%rcx)
+         *    48 0f ae 21  xsave64 (%rcx)
          * We only enable the x87 state component. The rest of the user state components
          * gets copied below from priv_mcontext_t.
          */
