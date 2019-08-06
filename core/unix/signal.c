@@ -3078,7 +3078,8 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
                    proc_num_simd_sse_avx_registers() * ZMMH_REG_SIZE);
             memcpy((byte *)xstate_new + proc_xstate_area_hi16_zmm_offs(),
                    (byte *)xstate_old + proc_xstate_area_hi16_zmm_offs(),
-                   proc_num_simd_sse_avx_registers() * ZMM_REG_SIZE);
+                   (proc_num_simd_registers() - proc_num_simd_sse_avx_registers()) *
+                       ZMM_REG_SIZE);
             memcpy((byte *)xstate_new + proc_xstate_area_kmask_offs(),
                    (byte *)xstate_old + proc_xstate_area_kmask_offs(),
                    proc_num_opmask_registers() * OPMASK_AVX512BW_REG_SIZE);
