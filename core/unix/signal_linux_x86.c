@@ -521,8 +521,12 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
         if (ZMM_ENABLED()) {
             kernel_xstate_t *xstate = (kernel_xstate_t *)sc->fpstate;
             if (sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
+                /* The following three XCR0 bits should have been checked already
+                 * ZMM_ENABLED().
+                 */
                 ASSERT(TEST(XCR0_ZMM_HI256, sc->fpstate->sw_reserved.xstate_bv));
                 ASSERT(TEST(XCR0_HI16_ZMM, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TEST(XCR0_KMASK, sc->fpstate->sw_reserved.xstate_bv));
                 for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                     memcpy(&mc->simd[i].u32[8],
                            (byte *)xstate + proc_xstate_area_zmm_hi256_offs() +
@@ -580,8 +584,12 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
         if (ZMM_ENABLED()) {
             kernel_xstate_t *xstate = (kernel_xstate_t *)sc->fpstate;
             if (sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
+                /* The following three XCR0 bits should have been checked already
+                 * ZMM_ENABLED().
+                 */
                 ASSERT(TEST(XCR0_ZMM_HI256, sc->fpstate->sw_reserved.xstate_bv));
                 ASSERT(TEST(XCR0_HI16_ZMM, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TEST(XCR0_HI16_OPMASK, sc->fpstate->sw_reserved.xstate_bv));
                 for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                     memcpy((byte *)xstate + proc_xstate_area_zmm_hi256_offs() +
                                i * ZMMH_REG_SIZE,
