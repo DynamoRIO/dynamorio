@@ -227,7 +227,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
 #else
         /* We only enable the x87 state component. The rest of the user state components
          * gets copied below from priv_mcontext_t.
-         * XXX i#1312: it is unclear if and how the components are arranged in
+         * FIXME i#1312: it is unclear if and how the components are arranged in
          * 32-bit mode by the kernel. In fact, if we enable more state components here
          * than this, we get a crash in linux.sigcontext. This needs clarification about
          * what the kernel does for 32-bit with the extended xsave area.
@@ -285,7 +285,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
                    ZMM_REG_SIZE);
         }
 #else
-        /* XXX i#1312: it is unclear if and how the components are arranged in
+        /* FIXME i#1312: it is unclear if and how the components are arranged in
          * 32-bit mode by the kernel.
          */
 #endif
@@ -545,7 +545,7 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
             }
         }
 #else
-        /* XXX i#1312: it is unclear if and how the components are arranged in
+        /* FIXME i#1312: it is unclear if and how the components are arranged in
          * 32-bit mode by the kernel.
          */
 #endif
@@ -602,7 +602,7 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
             }
         }
 #else
-        /* XXX i#1312: it is unclear if and how the components are arranged in
+        /* FIXME i#1312: it is unclear if and how the components are arranged in
          * 32-bit mode by the kernel.
          */
 #endif

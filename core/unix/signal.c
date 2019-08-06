@@ -3085,7 +3085,7 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
                    proc_num_opmask_registers() * OPMASK_AVX512BW_REG_SIZE);
         }
 #    else
-        /* XXX i#1312: it is unclear if and how the components are arranged in
+        /* FIXME i#1312: it is unclear if and how the components are arranged in
          * 32-bit mode by the kernel.
          */
 #    endif
