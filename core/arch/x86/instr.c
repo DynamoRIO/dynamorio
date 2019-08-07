@@ -324,9 +324,8 @@ instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
     CLIENT_ASSERT(!index_is_zmm || is_evex, "invalid index size");
 
     LOG(THREAD_GET, LOG_ALL, 4,
-        "%s: ordinal=%d: index=%s, mem=%s, xmm=%d, ymm=%d, zmm=%d\n", __FUNCTION__,
-        ordinal, size_names[index_size], size_names[mem_size], index_is_xmm, index_is_ymm,
-        index_is_zmm);
+        "%s: ordinal=%d: index size=%s, mem size=%s, index reg=%s\n", __FUNCTION__,
+        ordinal, size_names[index_size], size_names[mem_size], reg_names[index_reg]);
 
     if (index_size == OPSZ_4) {
         int mask;
