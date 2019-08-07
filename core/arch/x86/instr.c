@@ -393,10 +393,10 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write 
     CLIENT_ASSERT(mc_size >= sizeof(dr_mcontext_t), "dr_mcontext_t.size is invalid");
     CLIENT_ASSERT(TEST(DR_MC_MULTIMEDIA, mc_flags),
                   "dr_mcontext_t.flags must include DR_MC_MULTIMEDIA");
-    opnd_t memop = instr_get_src(instr, 0);
+    opnd_t src0 = instr_get_src(instr, 0);
     /* We detect whether the instruction is EVEX by looking at its potential mask operand.
      */
-    bool is_evex = opnd_is_reg(memop) && reg_is_opmask(opnd_get_reg(memop));
+    bool is_evex = opnd_is_reg(src0) && reg_is_opmask(opnd_get_reg(src0));
     return instr_compute_VSIB_index_internal(selected, result, is_write, instr, ordinal,
                                              mc, mc_size, mc_flags, is_evex);
 }
