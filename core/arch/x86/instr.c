@@ -1150,8 +1150,6 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
     case OP_vtestps:
     case OP_vtestpd:
 
-    /* TODO i#1312: Add new opcodes. */
-
     /* FMA */
     case OP_vfmadd132ps:
     case OP_vfmadd132pd:

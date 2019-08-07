@@ -1823,11 +1823,6 @@ typedef union _dr_ymm_t {
 
 /** 512-bit ZMM register. */
 typedef union _dr_zmm_t {
-#ifdef AVOID_API_EXPORT
-    /* XXX i#1312: There may be alignment considerations that need to get
-     * worked out when adding this to dr_mcontext_t.
-     */
-#endif
 #ifdef API_EXPORT_ONLY
 #    ifdef X64
     uint64 u64[8]; /**< Representation as 8 64-bit integers. */
