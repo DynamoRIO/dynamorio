@@ -416,16 +416,16 @@ instr_compute_address_VSIB(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
      * full iteration on each call
      */
     uint vsib_idx = 0;
-    bool is_scatter = false;
+    bool is_write = false;
     *have_addr = true;
-    while (instr_compute_VSIB_index(&selected, addr, &is_scatter, instr, vsib_idx, mc,
+    while (instr_compute_VSIB_index(&selected, addr, &is_write, instr, vsib_idx, mc,
                                     mc_size, mc_flags) &&
            (!selected || vsib_idx < index)) {
         vsib_idx++;
         selected = false;
     }
     if (selected && vsib_idx == index) {
-        *write = is_scatter;
+        *write = is_write;
         if (addr != NULL) {
             /* Add in seg, base, and disp */
             *addr = opnd_compute_address_helper(curop, mc, (ptr_int_t)*addr);
