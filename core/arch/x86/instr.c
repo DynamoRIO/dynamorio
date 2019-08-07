@@ -366,7 +366,7 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write 
         *selected = true;
         index_addr = mc->simd[index_reg - index_reg_start].u32[ordinal];
     } else if (index_size == OPSZ_8) {
-        int mask; /* just top half */
+        int mask;
         if (ordinal >=
             opnd_size_in_bytes(reg_get_size(index_reg)) / opnd_size_in_bytes(index_size))
             return false;
@@ -377,6 +377,7 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write 
                 return true;
             }
         } else {
+            /* just top half */
             mask = (int)mc->simd[mask_reg - mask_reg_start].u32[ordinal * 2 + 1];
             if (mask >= 0) { /* top bit not set */
                 *selected = false;
