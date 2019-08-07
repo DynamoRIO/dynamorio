@@ -272,8 +272,6 @@ instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
     }
     opnd_t memop;
     reg_id_t mask_reg;
-    bool is_ymm_out = false;
-    bool is_zmm_out = false;
     if (is_evex) {
         /* We assume that all EVEX VSIB-using instructions have the VSIB memop as the 2nd
          * source and the (EVEX-)mask register as the 1st source for gather reads, and the
@@ -281,12 +279,8 @@ instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
          */
         if (*is_write) {
             memop = instr_get_dst(instr, 0);
-            is_ymm_out = (opnd_get_size(instr_get_src(instr, 1)) == OPSZ_32);
-            is_zmm_out = (opnd_get_size(instr_get_src(instr, 1)) == OPSZ_64);
         } else {
             memop = instr_get_src(instr, 1);
-            is_ymm_out = (opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_32);
-            is_zmm_out = (opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_64);
         }
         mask_reg = opnd_get_reg(instr_get_src(instr, 0));
     } else {
@@ -296,17 +290,22 @@ instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
          */
         memop = instr_get_src(instr, 0);
         mask_reg = opnd_get_reg(instr_get_src(instr, 1));
-        is_ymm_out = (opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_32);
     }
-    bool is_xmm_out = !is_ymm_out && !is_zmm_out;
     int scale = opnd_get_scale(memop);
-    reg_id_t index_reg = opnd_get_index(memop);
     int index_reg_start;
     int mask_reg_start;
     uint64 index_addr;
-    if (is_zmm_out)
+    reg_id_t index_reg = opnd_get_index(memop);
+    bool index_is_xmm = false, index_is_ymm = false, index_is_zmm = false;
+    if (reg_get_size(index_reg) == OPSZ_64)
+        index_is_zmm = true;
+    else if (reg_get_size(index_reg) == OPSZ_32)
+        index_is_ymm = true;
+    else
+        index_is_xmm = true;
+    if (index_is_zmm)
         index_reg_start = DR_REG_START_ZMM;
-    else if (is_ymm_out)
+    else if (index_is_ymm)
         index_reg_start = DR_REG_START_YMM;
     else
         index_reg_start = DR_REG_START_XMM;
@@ -316,26 +315,27 @@ instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
         mask_reg_start = index_reg_start;
 
     CLIENT_ASSERT(
-        (is_xmm_out && index_reg >= DR_REG_START_XMM && index_reg <= DR_REG_STOP_XMM) ||
-            (is_ymm_out && index_reg >= DR_REG_START_YMM &&
+        (index_is_xmm && index_reg >= DR_REG_START_XMM && index_reg <= DR_REG_STOP_XMM) ||
+            (index_is_ymm && index_reg >= DR_REG_START_YMM &&
              index_reg <= DR_REG_STOP_YMM) ||
-            (is_zmm_out && index_reg >= DR_REG_START_ZMM && index_reg <= DR_REG_STOP_ZMM),
+            (index_is_zmm && index_reg >= DR_REG_START_ZMM &&
+             index_reg <= DR_REG_STOP_ZMM),
         "invalid index register for VSIB");
-    CLIENT_ASSERT(!is_zmm_out || is_evex, "invalid destination size");
+    CLIENT_ASSERT(!index_is_zmm || is_evex, "invalid index size");
 
     LOG(THREAD_GET, LOG_ALL, 4,
         "%s: ordinal=%d: index=%s, mem=%s, xmm=%d, ymm=%d, zmm=%d\n", __FUNCTION__,
-        ordinal, size_names[index_size], size_names[mem_size], is_xmm_out, is_ymm_out,
-        is_zmm_out);
+        ordinal, size_names[index_size], size_names[mem_size], index_is_xmm, index_is_ymm,
+        index_is_zmm);
 
     if (index_size == OPSZ_4) {
         int mask;
         if (mem_size == OPSZ_4) {
-            if ((is_zmm_out && ordinal > 15) || (is_ymm_out && ordinal > 7) ||
-                (is_xmm_out && ordinal > 3))
+            if ((index_is_zmm && ordinal > 15) || (index_is_ymm && ordinal > 7) ||
+                (index_is_xmm && ordinal > 3))
                 return false;
-        } else if ((is_zmm_out && ordinal > 7) || (is_ymm_out && ordinal > 3) ||
-                   (is_xmm_out && ordinal > 1))
+        } else if ((index_is_zmm && ordinal > 7) || (index_is_ymm && ordinal > 3) ||
+                   (index_is_xmm && ordinal > 1))
             return false;
         if (is_evex) {
             mask = (mc->opmask[mask_reg - mask_reg_start] >> ordinal) & 0x1;
@@ -354,8 +354,8 @@ instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
         index_addr = mc->simd[index_reg - index_reg_start].u32[ordinal];
     } else if (index_size == OPSZ_8) {
         int mask; /* just top half */
-        if ((is_zmm_out && ordinal > 7) || (is_ymm_out && ordinal > 3) ||
-            (is_xmm_out && ordinal > 1))
+        if ((index_is_zmm && ordinal > 7) || (index_is_ymm && ordinal > 3) ||
+            (index_is_xmm && ordinal > 1))
             return false;
         if (is_evex) {
             mask = (mc->opmask[mask_reg - mask_reg_start] >> ordinal) & 0x1;
