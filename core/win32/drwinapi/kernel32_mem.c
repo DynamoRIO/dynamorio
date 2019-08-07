@@ -470,7 +470,8 @@ __bcount(dwSize) LPVOID WINAPI
         !TEST(MEM_RESERVE, flAllocationType) && lpAddress != NULL) {
         /* i#1175: NtAllocateVirtualMemory can modify prot on existing pages */
         if (!app_memory_pre_alloc(get_thread_private_dcontext(), lpAddress, dwSize,
-                                  osprot_to_memprot(flProtect), false)) {
+                                  osprot_to_memprot(flProtect), false, true /*update*/,
+                                  false /*!image*/)) {
             set_last_error(ERROR_INVALID_ADDRESS);
             return NULL;
         }
@@ -517,7 +518,8 @@ redirect_VirtualProtect(__in LPVOID lpAddress, __in SIZE_T dwSize,
         uint mod_prot = osprot_to_memprot(new_prot);
         uint old_prot;
         uint res = app_memory_protection_change(get_thread_private_dcontext(), lpAddress,
-                                                dwSize, new_prot, &mod_prot, &old_prot);
+                                                dwSize, new_prot, &mod_prot, &old_prot,
+                                                false /*!image*/);
         if (res == PRETEND_APP_MEM_PROT_CHANGE) {
             if (lpflOldProtect != NULL)
                 *lpflOldProtect = memprot_to_osprot(old_prot);

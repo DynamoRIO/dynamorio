@@ -74,6 +74,7 @@ typedef struct _allmem_info_t {
     dr_mem_type_t type;
     bool shareable;
     bool vdso;
+    bool dr_vmm;
 } allmem_info_t;
 
 static void
@@ -188,7 +189,9 @@ allmem_should_merge(bool adjacent, void *data1, void *data2)
     return (i1->prot == i2->prot && i1->type == i2->type &&
             i1->shareable == i2->shareable &&
             /* i#1583: kernel doesn't merge 2-page vdso after we hook vsyscall */
-            !i1->vdso && !i2->vdso);
+            !i1->vdso && !i2->vdso &&
+            /* kernel doesn't merge app anon region with vmheap */
+            !i1->dr_vmm && !i2->dr_vmm);
 }
 
 static void *
@@ -232,6 +235,7 @@ add_all_memory_area(app_pc start, app_pc end, uint prot, int type, bool shareabl
     info->type = type;
     info->shareable = shareable;
     info->vdso = (start == vsyscall_page_start);
+    info->dr_vmm = is_vmm_reserved_address(start, 1, NULL, NULL);
     vmvector_add(all_memory_areas, start, end, (void *)info);
 }
 
@@ -518,7 +522,7 @@ memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint mempro
              */
             DEBUG_DECLARE(uint res =)
             app_memory_protection_change(dcontext, base, size, memprot, &new_memprot,
-                                         NULL);
+                                         NULL, image);
             ASSERT_NOT_IMPLEMENTED(res != PRETEND_APP_MEM_PROT_CHANGE &&
                                    res != SUBSET_APP_MEM_PROT_CHANGE);
         }
