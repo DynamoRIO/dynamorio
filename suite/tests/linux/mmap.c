@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -67,5 +67,33 @@ main()
 #    endif
 #endif
     munmap(p, newsize);
+
+    /* Test some transition sequences that have been problematic in the past
+     * b/c they look like ld.so's ELF loading.
+     */
+    p = mmap(0, newsize, PROT_READ, MAP_ANON | MAP_PRIVATE, -1, 0);
+    if (p == MAP_FAILED) {
+        print("mmap ERROR " PFX "\n", p);
+        return 1;
+    }
+    p = mmap(p, size, PROT_READ | PROT_EXEC, MAP_ANON | MAP_PRIVATE | MAP_FIXED, -1, 0);
+    if (p == MAP_FAILED) {
+        print("mmap ERROR " PFX "\n", p);
+        return 1;
+    }
+    munmap(p, newsize);
+
+    p = mmap(0, newsize, PROT_READ | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0);
+    if (p == MAP_FAILED) {
+        print("mmap ERROR " PFX "\n", p);
+        return 1;
+    }
+    p = mmap(p, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE | MAP_FIXED, -1, 0);
+    if (p == MAP_FAILED) {
+        print("mmap ERROR " PFX "\n", p);
+        return 1;
+    }
+    munmap(p, newsize);
+
     return 0;
 }

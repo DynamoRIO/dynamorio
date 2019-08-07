@@ -2974,10 +2974,12 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
             : (TEST(DR_ALLOC_COMMIT_ONLY, flags) ? RAW_ALLOC_COMMIT_ONLY : 0);
 #    endif
         if (IF_WINDOWS(TEST(DR_ALLOC_COMMIT_ONLY, flags) &&) addr != NULL &&
-            !app_memory_pre_alloc(get_thread_private_dcontext(), addr, size, prot, false))
+            !app_memory_pre_alloc(get_thread_private_dcontext(), addr, size, prot, false,
+                                  true /*update*/, false /*!image*/)) {
             p = NULL;
-        else
+        } else {
             p = os_raw_mem_alloc(addr, size, prot, os_flags, &error_code);
+        }
     }
 
     if (p != NULL) {
@@ -3245,8 +3247,9 @@ dr_memory_protect(void *base, size_t size, uint new_prot)
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     if (!dynamo_vm_area_overlap(base, ((byte *)base) + size)) {
         uint mod_prot = new_prot;
-        uint res = app_memory_protection_change(get_thread_private_dcontext(), base, size,
-                                                new_prot, &mod_prot, NULL);
+        uint res =
+            app_memory_protection_change(get_thread_private_dcontext(), base, size,
+                                         new_prot, &mod_prot, NULL, false /*!image*/);
         if (res != DO_APP_MEM_PROT_CHANGE) {
             if (res == FAIL_APP_MEM_PROT_CHANGE || res == PRETEND_APP_MEM_PROT_CHANGE) {
                 return false;
