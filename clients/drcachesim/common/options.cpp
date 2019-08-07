@@ -57,6 +57,14 @@ droption_t<std::string> op_outdir(
     "For the offline analysis mode (when -offline is requested), specifies the path "
     "to a directory where per-thread trace files will be written.");
 
+droption_t<std::string> op_subdir_prefix(
+    DROPTION_SCOPE_ALL, "subdir_prefix", "drmemtrace",
+    "Prefix for output subdir for offline traces",
+    "For the offline analysis mode (when -offline is requested), specifies the prefix "
+    "for the name of the sub-directory where per-thread trace files will be written. "
+    "The sub-directory is created inside -outdir and has the form "
+    "'prefix.app-name.pid.id.dir'.");
+
 droption_t<std::string> op_indir(
     DROPTION_SCOPE_ALL, "indir", "", "Input directory of offline trace files",
     "After a trace file is produced via -offline into -outdir, it can be passed to the "
