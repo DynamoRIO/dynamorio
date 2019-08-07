@@ -347,8 +347,8 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write 
 
     if (index_size == OPSZ_4) {
         int mask;
-        if (ordinal >=
-            opnd_size_in_bytes(reg_get_size(index_reg)) / opnd_size_in_bytes(mem_size))
+        if (ordinal >= (int)opnd_size_in_bytes(reg_get_size(index_reg)) /
+                (int)opnd_size_in_bytes(mem_size))
             return false;
         if (is_evex) {
             mask = (mc->opmask[mask_reg - mask_reg_start] >> ordinal) & 0x1;
@@ -367,8 +367,8 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write 
         index_addr = mc->simd[index_reg - index_reg_start].u32[ordinal];
     } else if (index_size == OPSZ_8) {
         int mask;
-        if (ordinal >=
-            opnd_size_in_bytes(reg_get_size(index_reg)) / opnd_size_in_bytes(index_size))
+        if (ordinal >= (int)opnd_size_in_bytes(reg_get_size(index_reg)) /
+                (int)opnd_size_in_bytes(index_size))
             return false;
         if (is_evex) {
             mask = (mc->opmask[mask_reg - mask_reg_start] >> ordinal) & 0x1;
