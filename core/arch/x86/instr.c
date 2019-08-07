@@ -178,12 +178,30 @@ opc_is_not_a_real_memory_load(int opc)
     return false;
 }
 
+/* Returns whether ordinal is within the count of memory references
+ * (i.e., the caller should iterate, incrementing ordinal by one,
+ * until it returns false).
+ * If it returns true, sets *selected to whether this memory
+ * reference actually goes through (i.e., whether it is enabled in
+ * the mask).
+ * If *selected is true, returns the scaled index in *result.
+ *
+ * On a fault, any completed memory loads have their corresponding
+ * mask bits cleared, so we shouldn't have to do anything special
+ * to support faults of VSIB accesses.
+ */
 static bool
-instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
-                                  bool *is_write OUT, instr_t *instr, int ordinal,
-                                  priv_mcontext_t *mc, size_t mc_size,
-                                  dr_mcontext_flags_t mc_flags, bool is_evex)
+instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write OUT,
+                         instr_t *instr, int ordinal, priv_mcontext_t *mc, size_t mc_size,
+                         dr_mcontext_flags_t mc_flags)
 {
+    CLIENT_ASSERT(selected != NULL && result != NULL && mc != NULL, "invalid args");
+    CLIENT_ASSERT(TEST(DR_MC_MULTIMEDIA, mc_flags),
+                  "dr_mcontext_t.flags must include DR_MC_MULTIMEDIA");
+    opnd_t src0 = instr_get_src(instr, 0);
+    /* We detect whether the instruction is EVEX by looking at its potential mask operand.
+     */
+    bool is_evex = opnd_is_reg(src0) && reg_is_opmask(opnd_get_reg(src0));
     int opc = instr_get_opcode(instr);
     opnd_size_t index_size = OPSZ_NA;
     opnd_size_t mem_size = OPSZ_NA;
@@ -277,11 +295,10 @@ instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
          * source and the (EVEX-)mask register as the 1st source for gather reads, and the
          * VSIB memop as the first destination for scatter writes.
          */
-        if (*is_write) {
+        if (*is_write)
             memop = instr_get_dst(instr, 0);
-        } else {
+        else
             memop = instr_get_src(instr, 1);
-        }
         mask_reg = opnd_get_reg(instr_get_src(instr, 0));
     } else {
         /* We assume that all VEX VSIB-using instructions have the VSIB memop as the 1st
@@ -296,12 +313,29 @@ instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
     int mask_reg_start;
     uint64 index_addr;
     reg_id_t index_reg = opnd_get_index(memop);
-    if (reg_get_size(index_reg) == OPSZ_64)
+    if (reg_get_size(index_reg) == OPSZ_64) {
+        CLIENT_ASSERT(mc_size >= offsetof(dr_mcontext_t, simd) +
+                              MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE,
+                      "Incompatible client, invalid size.");
         index_reg_start = DR_REG_START_ZMM;
-    else if (reg_get_size(index_reg) == OPSZ_32)
+    } else if (reg_get_size(index_reg) == OPSZ_32) {
+        CLIENT_ASSERT(mc_size >= offsetof(dr_mcontext_t, simd) +
+                              MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE,
+                      "Incompatible client, invalid size.");
         index_reg_start = DR_REG_START_YMM;
-    else
+    } else {
+        CLIENT_ASSERT(mc_size >= offsetof(dr_mcontext_t, simd) +
+                              MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE,
+                      "Incompatible client, invalid size.");
         index_reg_start = DR_REG_START_XMM;
+    }
+    /* Size check for upper 16 AVX-512 registers, requiring updated dr_mcontext_t simd
+     * size.
+     */
+    CLIENT_ASSERT(index_reg - index_reg_start < MCXT_NUM_SIMD_SSE_AVX_SLOTS ||
+                      mc_size >= offsetof(dr_mcontext_t, simd) +
+                              MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE,
+                  "Incompatible client, invalid size.");
     if (is_evex)
         mask_reg_start = DR_REG_START_OPMASK;
     else
@@ -370,35 +404,6 @@ instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
     *result = (app_pc)(uint)index_addr; /* truncated */
 #endif
     return true;
-}
-
-/* Returns whether ordinal is within the count of memory references
- * (i.e., the caller should iterate, incrementing ordinal by one,
- * until it returns false).
- * If it returns true, sets *selected to whether this memory
- * reference actually goes through (i.e., whether it is enabled in
- * the mask).
- * If *selected is true, returns the scaled index in *result.
- *
- * On a fault, any completed memory loads have their corresponding
- * mask bits cleared, so we shouldn't have to do anything special
- * to support faults of VSIB accesses.
- */
-static bool
-instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write OUT,
-                         instr_t *instr, int ordinal, priv_mcontext_t *mc, size_t mc_size,
-                         dr_mcontext_flags_t mc_flags)
-{
-    CLIENT_ASSERT(selected != NULL && result != NULL && mc != NULL, "invalid args");
-    CLIENT_ASSERT(mc_size >= sizeof(dr_mcontext_t), "dr_mcontext_t.size is invalid");
-    CLIENT_ASSERT(TEST(DR_MC_MULTIMEDIA, mc_flags),
-                  "dr_mcontext_t.flags must include DR_MC_MULTIMEDIA");
-    opnd_t src0 = instr_get_src(instr, 0);
-    /* We detect whether the instruction is EVEX by looking at its potential mask operand.
-     */
-    bool is_evex = opnd_is_reg(src0) && reg_is_opmask(opnd_get_reg(src0));
-    return instr_compute_VSIB_index_internal(selected, result, is_write, instr, ordinal,
-                                             mc, mc_size, mc_flags, is_evex);
 }
 
 bool
