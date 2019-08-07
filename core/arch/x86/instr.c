@@ -271,6 +271,7 @@ instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
     default: CLIENT_ASSERT(false, "non-VSIB opcode passed in"); return false;
     }
     opnd_t memop;
+    reg_id_t mask_reg;
     bool is_ymm_out = false;
     bool is_zmm_out = false;
     if (is_evex) {
@@ -287,12 +288,14 @@ instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
             is_ymm_out = (opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_32);
             is_zmm_out = (opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_64);
         }
+        mask_reg = opnd_get_reg(instr_get_src(instr, 0));
     } else {
         /* We assume that all VEX VSIB-using instructions have the VSIB memop as the 1st
          * source and the mask register as the 2nd source. There are no VEX encoded AVX
          * scatter instructions.
          */
         memop = instr_get_src(instr, 0);
+        mask_reg = opnd_get_reg(instr_get_src(instr, 1));
         is_ymm_out = (opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_32);
     }
     bool is_xmm_out = !is_ymm_out && !is_zmm_out;
@@ -300,7 +303,6 @@ instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
     reg_id_t index_reg = opnd_get_index(memop);
     int index_reg_start;
     int mask_reg_start;
-    reg_id_t mask_reg;
     uint64 index_addr;
     if (is_zmm_out)
         index_reg_start = DR_REG_START_ZMM;
@@ -308,13 +310,10 @@ instr_compute_VSIB_index_internal(bool *selected OUT, app_pc *result OUT,
         index_reg_start = DR_REG_START_YMM;
     else
         index_reg_start = DR_REG_START_XMM;
-    if (is_evex) {
+    if (is_evex)
         mask_reg_start = DR_REG_START_OPMASK;
-        mask_reg = opnd_get_reg(instr_get_src(instr, 0));
-    } else {
+    else
         mask_reg_start = index_reg_start;
-        mask_reg = opnd_get_reg(instr_get_src(instr, 1));
-    }
 
     CLIENT_ASSERT(
         (is_xmm_out && index_reg >= DR_REG_START_XMM && index_reg <= DR_REG_STOP_XMM) ||
