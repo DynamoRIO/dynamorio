@@ -345,9 +345,9 @@ static int macos_version;
 static bool
 is_readable_without_exception_internal(const byte *pc, size_t size, bool query_os);
 
-static void
-process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-             uint flags _IF_DEBUG(const char *map_type));
+static bool
+mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 inode,
+                              bool at_map);
 
 #ifdef LINUX
 static char *
@@ -6499,7 +6499,9 @@ pre_system_call(dcontext_t *dcontext)
             /* Check for overlap with existing code or patch-proof regions */
             if (addr != NULL &&
                 !app_memory_pre_alloc(dcontext, addr, len, osprot_to_memprot(prot),
-                                      !TEST(MAP_FIXED, arg->flags))) {
+                                      !TEST(MAP_FIXED, arg->flags),
+                                      false /*we'll update in post*/,
+                                      false /*unknown*/)) {
                 /* Rather than failing or skipping the syscall we'd like to just
                  * remove the hint -- but we don't want to write to app memory, so
                  * we do fail.  We could set up our own mmap_arg_struct_t but
@@ -6531,9 +6533,15 @@ pre_system_call(dcontext_t *dcontext)
             " flags=" PIFX " offset=" PIFX " fd=%d\n",
             addr, len, prot, flags, sys_param(dcontext, 5), sys_param(dcontext, 4));
         /* Check for overlap with existing code or patch-proof regions */
+        /* Try to see whether it's an image, though we can't tell for addr==NULL
+         * (typical for 1st mmap).
+         */
+        bool image = addr != NULL && !TEST(MAP_ANONYMOUS, flags) &&
+            mmap_check_for_module_overlap(addr, len, TEST(PROT_READ, prot), 0, true);
         if (addr != NULL &&
             !app_memory_pre_alloc(dcontext, addr, len, osprot_to_memprot(prot),
-                                  !TEST(MAP_FIXED, flags))) {
+                                  !TEST(MAP_FIXED, flags), false /*we'll update in post*/,
+                                  image /*best estimate*/)) {
             if (!TEST(MAP_FIXED, flags)) {
                 /* Rather than failing or skipping the syscall we just remove
                  * the hint which should eliminate any overlap.
@@ -6687,7 +6695,7 @@ pre_system_call(dcontext_t *dcontext)
             /* mprotect won't change meta flags */
             (old_memprot & MEMPROT_META_FLAGS);
         res = app_memory_protection_change(dcontext, addr, len, new_memprot, &new_memprot,
-                                           NULL);
+                                           NULL, false /*!image*/);
         if (res != DO_APP_MEM_PROT_CHANGE) {
             if (res == FAIL_APP_MEM_PROT_CHANGE) {
                 ASSERT_NOT_IMPLEMENTED(false); /* return code? */
@@ -7873,13 +7881,8 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
         }
     }
 
-    IF_NO_MEMQUERY(memcache_handle_mmap(dcontext, base, size, memprot, image));
-
-    /* app_memory_allocation() expects to not see an overlap -- exec areas
-     * doesn't expect one.  We have yet to see a +x mmap into a previously
-     * mapped +x region, but we do check and handle in pre-syscall (i#1175).
-     */
     LOG(THREAD, LOG_SYSCALLS, 4, "\t try app_mem_alloc\n");
+    IF_NO_MEMQUERY(memcache_handle_mmap(dcontext, base, size, memprot, image));
     if (app_memory_allocation(dcontext, base, size, memprot, image _IF_DEBUG(map_type)))
         STATS_INC(num_app_code_modules);
     LOG(THREAD, LOG_SYSCALLS, 4, "\t app_mem_alloc -- DONE\n");
@@ -8210,7 +8213,8 @@ post_system_call(dcontext_t *dcontext)
                 uint new_memprot;
                 DEBUG_DECLARE(uint res =)
                 app_memory_protection_change(dcontext, base, size,
-                                             osprot_to_memprot(prot), &new_memprot, NULL);
+                                             osprot_to_memprot(prot), &new_memprot, NULL,
+                                             false /*!image*/);
                 ASSERT_NOT_IMPLEMENTED(res != SUBSET_APP_MEM_PROT_CHANGE);
                 ASSERT(res == DO_APP_MEM_PROT_CHANGE ||
                        res == PRETEND_APP_MEM_PROT_CHANGE);
