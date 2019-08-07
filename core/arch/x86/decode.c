@@ -1110,9 +1110,6 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         pc++;
         DEBUG_DECLARE(post_suffix_pc = pc;)
     } else if (info->type == VEX_L_EXT) {
-        /* TODO i#1312: We probably need to extend this table for EVEX. In this case,
-         * rename to e_vex_L_extensions or set up a new table?
-         */
         /* discard old info, get new one */
         int code = (int)info->code;
         int idx = (di->vex_encoded) ? (TEST(PREFIX_VEX_L, di->prefixes) ? 2 : 1) : 0;
@@ -1295,7 +1292,7 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
                       spurious = false;
                   if (di->repne_prefix) {
                       /* i#1899: MPX puts repne prior to branches.  We ignore here until
-                       * we have full MPX decoding support (i#1312).
+                       * we have full MPX decoding support (i#3581).
                        */
                       /* XXX: We assume the x86 instr_is_* routines only need the opcode.
                        * That is not true for ARM.

@@ -339,9 +339,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     int offs_beyond_xmm = 0;
     if (cci == NULL)
         cci = &default_clean_call_info;
-    /* XXX i#1312: This assumption will change and the code below will need
-     * to take this into account.
-     */
     ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS ||
            proc_num_simd_registers() == MCXT_NUM_SIMD_SSE_AVX_SLOTS);
     if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers() ||

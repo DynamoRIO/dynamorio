@@ -75,6 +75,10 @@ static int num_simd_registers;
 static int num_simd_sse_avx_registers;
 static int num_simd_sse_avx_saved;
 static int num_opmask_registers;
+static int xstate_area_kmask_offs;
+static int xstate_area_zmm_hi256_offs;
+static int xstate_area_hi16_zmm_offs;
+/* TODO i#3581: mpx state offsets. */
 
 /* global writable variable for debug registers value */
 DECLARE_NEVERPROT_VAR(app_pc d_r_debug_register[DEBUG_REGISTERS_NB], { 0 });
@@ -159,6 +163,33 @@ get_cache_sizes_intel(uint max_val)
         case 0x87: cpu_info.L2_cache_size = CACHE_SIZE_1_MB; break;
         default: break;
         }
+    }
+}
+
+static void
+get_xstate_area_offsets(bool has_kmask, bool has_zmm_hi256, bool has_hi16_zmm)
+{
+    int cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
+    DOLOG(1, LOG_TOP, {
+        if (has_kmask || has_zmm_hi256 || has_hi16_zmm) {
+            LOG(GLOBAL, LOG_TOP, 1, "\tExtended xstate area offsets:\n",
+                xstate_area_kmask_offs);
+        }
+    });
+    if (has_kmask) {
+        our_cpuid(cpuid_res_local, 0xd, 5);
+        xstate_area_kmask_offs = cpuid_res_local[1];
+        LOG(GLOBAL, LOG_TOP, 1, "\t\tkmask: %d\n", xstate_area_kmask_offs);
+    }
+    if (has_zmm_hi256) {
+        our_cpuid(cpuid_res_local, 0xd, 6);
+        xstate_area_zmm_hi256_offs = cpuid_res_local[1];
+        LOG(GLOBAL, LOG_TOP, 1, "\t\tzmm_hi256: %d\n", xstate_area_zmm_hi256_offs);
+    }
+    if (has_hi16_zmm) {
+        our_cpuid(cpuid_res_local, 0xd, 7);
+        xstate_area_hi16_zmm_offs = cpuid_res_local[1];
+        LOG(GLOBAL, LOG_TOP, 1, "\t\thi16_zmm: %d\n", xstate_area_hi16_zmm_offs);
     }
 }
 
@@ -410,6 +441,9 @@ proc_init_arch(void)
             } else {
                 LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX-512\n");
             }
+            get_xstate_area_offsets(TEST(XCR0_OPMASK, bv_low),
+                                    TEST(XCR0_ZMM_HI256, bv_low),
+                                    TEST(XCR0_HI16_ZMM, bv_low));
         }
     }
     for (i = 0; i < DEBUG_REGISTERS_NB; i++) {
@@ -499,6 +533,24 @@ int
 proc_num_simd_sse_avx_saved(void)
 {
     return num_simd_sse_avx_saved;
+}
+
+int
+proc_xstate_area_kmask_offs(void)
+{
+    return xstate_area_kmask_offs;
+}
+
+int
+proc_xstate_area_zmm_hi256_offs(void)
+{
+    return xstate_area_zmm_hi256_offs;
+}
+
+int
+proc_xstate_area_hi16_zmm_offs(void)
+{
+    return xstate_area_hi16_zmm_offs;
 }
 
 DR_API

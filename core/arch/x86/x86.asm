@@ -2372,10 +2372,7 @@ GLOBAL_LABEL(get_zmm_caller_saved:)
 /* void get_opmask_caller_saved(byte *opmask_caller_saved_buf)
  *   stores the values of k0 through k7 consecutively in 8 byte slots each into
  *   opmask_caller_saved_buf. opmask_caller_saved_buf need not be 8-byte aligned.
- *   The caller must ensure that the underlying processor supports AVX-512!
- *   XXX i#1312: Eventually this routine must dynamically switch the instructions
- *   used dependent on whether AVX512BW is enabled or not (2 bytes vs. 8 bytes
- *   OpMask registers).
+ *   The caller must ensure that the underlying processor supports AVX-512.
  */
         DECLARE_FUNC(get_opmask_caller_saved)
 GLOBAL_LABEL(get_opmask_caller_saved:)

@@ -3657,7 +3657,6 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
     );
 
 #ifdef X86
-    /* XXX i#1312: this needs to get extended to AVX-512. */
     if (preserve_xmm_caller_saved()) {
         int i, j;
         for (i = 0; i < proc_num_simd_saved(); i++) {

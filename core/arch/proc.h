@@ -294,14 +294,17 @@ extern size_t cache_line_size;
 
 #define CACHE_LINE_SIZE() cache_line_size
 
-/* xcr0 and xstate_bv feature bits */
+/* xcr0 and xstate_bv feature bits, as actually used by the processor. */
 enum {
-    XCR0_HI16_ZMM = 7,
-    XCR0_ZMM_HI256 = 6,
-    XCR0_OPMASK = 5,
-    XCR0_AVX = 4,
-    XCR0_SSE = 2,
-    XCR0_FP = 1,
+    /* Component for entire zmm16-zmm31 registers. */
+    XCR0_HI16_ZMM = 0x80,
+    /* Component for upper half of each of zmm0-zmm15 registers. */
+    XCR0_ZMM_HI256 = 0x40,
+    XCR0_OPMASK = 0x20,
+    /* TODO i#3581: mpx state */
+    XCR0_AVX = 0x4,
+    XCR0_SSE = 0x2,
+    XCR0_FP = 0x1,
 };
 
 /* information about a processor */
@@ -466,10 +469,7 @@ DR_API
  * to optimize the number of saved registers in a context switch to avoid frequency
  * scaling (https://github.com/DynamoRIO/dynamorio/issues/3169).
  */
-/* XXX i#1312: Implement lazy update mechanism and add a callback so clients
- * can adjust for changes mid-run.
- *
- * PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
+/* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
  * libc routines invoked by DR in some Linux systems (xref i#139),
  * so they should be saved in 32-bit Linux.
  *
@@ -541,6 +541,33 @@ proc_num_simd_sse_avx_registers(void);
  */
 int
 proc_num_simd_sse_avx_saved(void);
+
+/*
+ * This function is internal only.
+ *
+ * Returns the AVX-512 kmask xstate component's offset in bytes, as reported by CPUID
+ * on the system.
+ */
+int
+proc_xstate_area_kmask_offs(void);
+
+/*
+ * This function is internal only.
+ *
+ * Returns the AVX-512 zmm_hi256 xstate component's offset in bytes, as reported by CPUID
+ * on the system.
+ */
+int
+proc_xstate_area_zmm_hi256_offs(void);
+
+/*
+ * This function is internal only.
+ *
+ * Returns the AVX-512 hi16_zmm xstate component's offset in bytes, as reported by CPUID
+ * on the system.
+ */
+int
+proc_xstate_area_hi16_zmm_offs(void);
 
 DR_API
 /**

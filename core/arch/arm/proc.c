@@ -137,6 +137,30 @@ proc_num_simd_sse_avx_saved(void)
     return 0;
 }
 
+int
+proc_xstate_area_kmask_offs(void)
+{
+    /* Does no apply to ARM. */
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+int
+proc_xstate_area_zmm_hi256_offs(void)
+{
+    /* Does no apply to ARM. */
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+int
+proc_xstate_area_hi16_zmm_offs(void)
+{
+    /* Does no apply to ARM. */
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
 DR_API
 size_t
 proc_save_fpstate(byte *buf)

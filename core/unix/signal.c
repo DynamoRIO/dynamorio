@@ -537,6 +537,7 @@ signal_thread_init(dcontext_t *dcontext, void *os_data)
         signal_frame_extra_size(true)
         /* sigpending_t has xstate inside it already */
         IF_LINUX(IF_X86(-sizeof(kernel_xstate_t)));
+    IF_X86(ASSERT(YMM_ENABLED() || !ZMM_ENABLED()));
     /* pend_unit_size may not be aligned, even for AVX. We request alignment from the
      * allocator for all pending units (xref i#3749, i#3380).
      */
@@ -2930,6 +2931,7 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
              */
             sp -= signal_frame_extra_size(true);
             DOCHECK(1, {
+                ASSERT(YMM_ENABLED() || !ZMM_ENABLED());
                 if (YMM_ENABLED()) {
                     ASSERT_CURIOSITY(sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1);
                     ASSERT(sc->fpstate->sw_reserved.extended_size <=
@@ -3066,6 +3068,27 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
                    sizeof(xstate_new->xstate_hdr));
             memcpy(&xstate_new->ymmh, &xstate_old->ymmh, sizeof(xstate_new->ymmh));
         }
+#    ifdef X64
+        if (ZMM_ENABLED()) {
+            kernel_xstate_t *xstate_new = (kernel_xstate_t *)tgt;
+            kernel_xstate_t *xstate_old =
+                (kernel_xstate_t *)f_old->uc.uc_mcontext.fpstate;
+            memcpy((byte *)xstate_new + proc_xstate_area_zmm_hi256_offs(),
+                   (byte *)xstate_old + proc_xstate_area_zmm_hi256_offs(),
+                   proc_num_simd_sse_avx_registers() * ZMMH_REG_SIZE);
+            memcpy((byte *)xstate_new + proc_xstate_area_hi16_zmm_offs(),
+                   (byte *)xstate_old + proc_xstate_area_hi16_zmm_offs(),
+                   (proc_num_simd_registers() - proc_num_simd_sse_avx_registers()) *
+                       ZMM_REG_SIZE);
+            memcpy((byte *)xstate_new + proc_xstate_area_kmask_offs(),
+                   (byte *)xstate_old + proc_xstate_area_kmask_offs(),
+                   proc_num_opmask_registers() * OPMASK_AVX512BW_REG_SIZE);
+        }
+#    else
+        /* FIXME i#1312: it is unclear if and how the components are arranged in
+         * 32-bit mode by the kernel.
+         */
+#    endif
         LOG(THREAD, LOG_ASYNCH, level + 1, "\tfpstate old=" PFX " new=" PFX "\n",
             f_old->uc.uc_mcontext.fpstate, f_new->uc.uc_mcontext.fpstate);
     } else {
