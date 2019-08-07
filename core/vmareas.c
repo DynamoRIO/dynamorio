@@ -2753,6 +2753,8 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
             }
         }
     }
+    if (!DYNAMO_OPTION(coarse_units))
+        frag_flags &= ~FRAG_COARSE_GRAIN;
 
     if (existing_area == NULL) {
         add_executable_vm_area_helper(start, end, vm_flags, frag_flags,
