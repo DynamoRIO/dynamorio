@@ -2879,22 +2879,32 @@ endif ()
       get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
       prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
 
-      # The sim_atops should start with @ and be in @-as-space format (hence "atops")
+      # The sim_atops should start with @ and be in @-as-space format (hence "atops").
+      # If the exetgt has drcachesim statically linked in, the _nodr property must be
+      # set *before* invoking this macro.
       macro (torunonly_drcacheoff testname exetgt tracer_ops sim_atops app_args)
+        set(testname_full "tool.drcacheoff.${testname}")
+        if (${testname_full}_nodr)
+          # Static apps do not receive our -subdir_prefix param, but they have unique
+          # executable names so we're ok.
+          set(dir_prefix "drmemtrace.${testname_full}")
+        else ()
+          set(dir_prefix "${testname_full}")
+        endif ()
         torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
           "offline-${testname}.c" # for templatex basename
-          "-offline ${tracer_ops}" "" "${app_args}")
-        set(tool.drcacheoff.${testname}_toolname "drcachesim")
-        set(tool.drcacheoff.${testname}_basedir
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-        set(tool.drcacheoff.${testname}_rawtemp ON) # no preprocessor
-        set(tool.drcacheoff.${testname}_runcmp
-          "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
-        set(tool.drcacheoff.${testname}_precmd
-          "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${exetgt}.*.dir")
-        set(tool.drcacheoff.${testname}_postcmd
-          "firstglob@${drcachesim_path}@-indir@drmemtrace.${exetgt}.*.dir${sim_atops}")
-        set(tool.drcacheoff.${testname}_self_serial ON)
+          # Set a test-unique prefix to avoid races removing/finding output.
+          "-offline -subdir_prefix ${testname_full} ${tracer_ops}"
+          "" "${app_args}")
+        set(${testname_full}_toolname "drcachesim")
+        set(${testname_full}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(${testname_full}_rawtemp ON) # no preprocessor
+        set(${testname_full}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        set(${testname_full}_precmd
+          "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir")
+        set(${testname_full}_postcmd
+          "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir${sim_atops}")
+        set(${testname_full}_self_serial ON)
       endmacro()
 
       # We could share drcachesim-simple.templatex if we had the launcher fork
@@ -2935,8 +2945,6 @@ endif ()
       endif ()
 
       torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter" "" "")
-      # We're using the same app so we serialize to avoid racing trace dirs:
-      set(tool.drcacheoff.filter_depends tool.drcacheoff.simple)
 
       # We run common.decode-bad to test markers for faults
       if (X86) # decode-bad is x86-only
@@ -2947,93 +2955,88 @@ endif ()
 
       torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
         "@-simulator_type@opcode_mix" "")
-      # We're using the same app so we serialize to avoid racing trace dirs:
-      set(tool.drcacheoff.opcode_mix_depends tool.drcacheoff.simple)
-      set(tool.drcacheoff.opcode_mix_depends tool.drcacheoff.filter)
 
-      # We use the same shared app again so here we depend on the opcode mix test
-      # to complete before running the view tool test.
       torunonly_drcacheoff(view ${ci_shared_app} ""
         "@-simulator_type@view" "")
-      set(tool.drcacheoff.view_depends tool.drcacheoff.opcode_mix)
 
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
       # XXX i#1997: dynamorio_static is not supported on Mac yet
       # FIXME i#2949: gcc 7.3 fails to link certain configs
       if (NOT AARCH64 AND NOT ARM AND NOT APPLE AND NOT DISABLE_FOR_BUG_2949)
-        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static "" "" "")
         set(tool.drcacheoff.burst_static_nodr ON)
+        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static "" "" "")
 
-        torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace "" "" "")
         set(tool.drcacheoff.burst_replace_nodr ON)
+        torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace "" "" "")
 
-        torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall "" "" "")
         set(tool.drcacheoff.burst_replaceall_nodr ON)
+        torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall "" "" "")
 
         if (X64 AND UNIX)
-          torunonly_drcacheoff(burst_noreach tool.drcacheoff.burst_noreach "" "" "")
           set(tool.drcacheoff.burst_noreach_nodr ON)
+          torunonly_drcacheoff(burst_noreach tool.drcacheoff.burst_noreach "" "" "")
         endif ()
         if (LINUX)
-          torunonly_drcacheoff(burst_maps tool.drcacheoff.burst_maps "" "" "")
           set(tool.drcacheoff.burst_maps_nodr ON)
+          torunonly_drcacheoff(burst_maps tool.drcacheoff.burst_maps "" "" "")
         endif ()
 
         if (UNIX)
           # FIXME i#2040: this hits static client issues on Windows
+          set(tool.drcacheoff.burst_threads_nodr ON)
           torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads
             # We test cpu_scheduling for offline traces here.
             "" "@-cpu_scheduling" "")
-          set(tool.drcacheoff.burst_threads_nodr ON)
 
+          set(tool.drcacheoff.burst_malloc_nodr ON)
           torunonly_drcacheoff(burst_malloc tool.drcacheoff.burst_malloc
             "" "@-simulator_type@basic_counts" "")
-          set(tool.drcacheoff.burst_malloc_nodr ON)
 
+          set(tool.drcacheoff.burst_threadfilter_nodr ON)
           torunonly_drcacheoff(burst_threadfilter tool.drcacheoff.burst_threadfilter
             "" "@-simulator_type@basic_counts" "")
-          set(tool.drcacheoff.burst_threadfilter_nodr ON)
+          # This test uses the same app as the one above, so we do not set _nodr
+          # so we'll get a custom -subdir_prefix.  We have to pass that in as an
+          # app arg here.
           torunonly_drcacheoff(burst_threadL0filter tool.drcacheoff.burst_threadfilter
-            "" "@-simulator_type@basic_counts" "-L0_filter -L0I_size 0")
+            "" "@-simulator_type@basic_counts"
+            "-L0_filter -L0I_size 0 -subdir_prefix tool.drcacheoff.burst_threadL0filter")
           set(tool.drcacheoff.burst_threadL0filter_nodr ON)
-          # We're using the same app so we serialize to avoid racing trace dirs:
-          set(tool.drcacheoff.burst_threadL0filter_depends
-            tool.drcacheoff.burst_threadfilter)
 
           if (X86 AND NOT APPPLE) # This test is x86-specific.
             # Test that raw2trace doesn't do more IO than it should.
-            get_target_path_for_execution(raw2trace_io_path tool.drcacheoff.raw2trace_io "${location_suffix}")
+            get_target_path_for_execution(raw2trace_io_path tool.drcacheoff.raw2trace_io
+              "${location_suffix}")
             prefix_cmd_if_necessary(raw2trace_io_path ON ${raw2trace_io_path})
             macro (torunonly_raw2trace testname exetgt extra_ops app_args)
+              set(testname_full "tool.raw2trace.${testname}")
               torunonly_ci(tool.raw2trace.${testname} ${exetgt} drcachesim
                 "raw2trace-${testname}.c" # for templatex basename
-                "-offline ${extra_ops}" "" "${app_args}")
-              set(tool.raw2trace.${testname}_toolname "drcachesim")
-              set(tool.raw2trace.${testname}_basedir
+                "-offline -subdir_prefix ${testname_full} ${extra_ops}" "" "${app_args}")
+              set(${testname_full}_toolname "drcachesim")
+              set(${testname_full}_basedir
                 "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-              set(tool.raw2trace.${testname}_rawtemp ON) # no preprocessor
-              set(tool.raw2trace.${testname}_runcmp
-                "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
-              set(tool.raw2trace.${testname}_precmd
-                "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${exetgt}.*.dir")
-              set(tool.raw2trace.${testname}_postcmd
-                "${raw2trace_io_path}@-indir@drmemtrace.${exetgt}.*.dir")
+              set(${testname_full}_rawtemp ON) # no preprocessor
+              set(${testname_full}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+              set(${testname_full}_precmd
+                "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
+              set(${testname_full}_postcmd
+                "${raw2trace_io_path}@-indir@${testname_full}.*.dir")
             endmacro()
             # actual trace processing not important -- set a very small limit for speed
             torunonly_raw2trace(simple ${ci_shared_app} "-max_trace_size 8K" "")
           endif()
 
           # FIXME i#2099: the weak symbol is not supported not work on Windows
-          torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "" "")
           set(tool.drcacheoff.burst_client_nodr ON)
+          torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "" "")
         endif ()
       endif ()
 
       # Test the standalone histogram tool.
-      # ${ci_shared_app} is already used for an offline test, and we're deleting a
-      # dir with that name, so we run other apps to avoid having to serialize.
-      # We also want threads and signals for trace_invariants.
+      # ${ci_shared_app} is already used for an offline test, so we run other apps
+      # for variety and to include threads and signals for trace_invariants.
       set(histo_app ${kernel_xfer_app})
       if (WIN32)
         # winxfer produces a 500M+ trace and test taking >3mins so we narrow
@@ -3048,48 +3051,49 @@ endif ()
       else ()
         set(histo_ops "")
       endif ()
-      torunonly_ci(tool.histogram.offline ${histo_app} drcachesim
-        "histogram-offline.c" "-offline ${histo_ops}" "" "")
-      set(tool.histogram.offline_toolname "drcachesim")
-      set(tool.histogram.offline_basedir
+      set(testname_full "tool.histogram.offline")
+      torunonly_ci(${testname_full} ${histo_app} drcachesim
+        "histogram-offline.c"
+        "-offline -subdir_prefix ${testname_full} ${histo_ops}" "" "")
+      set(${testname_full}_toolname "drcachesim")
+      set(${testname_full}_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-      set(tool.histogram.offline_rawtemp ON) # no preprocessor
+      set(${testname_full}_rawtemp ON) # no preprocessor
       get_target_path_for_execution(histo_path histogram_launcher "${location_suffix}")
       prefix_cmd_if_necessary(histo_path ON ${histo_path})
-      set(tool.histogram.offline_runcmp
+      set(${testname_full}_runcmp
         "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
-      set(tool.histogram.offline_precmd
-        "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${histo_app}.*.dir")
-      set(tool.histogram.offline_postcmd
-        "${drcachesim_path}@-indir@drmemtrace.${histo_app}.*.dir")
-      set(tool.histogram.offline_postcmd2
-        "${histo_path}@-test_mode@-trace_dir@drmemtrace.${histo_app}.*.dir/trace")
+      set(${testname_full}_precmd
+        "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
+      set(${testname_full}_postcmd
+        "${drcachesim_path}@-indir@${testname_full}.*.dir")
+      set(${testname_full}_postcmd2
+        "${histo_path}@-test_mode@-trace_dir@${testname_full}.*.dir/trace")
 
       find_program(GZIP gzip "gzip compression utility")
       if (UNIX AND ZLIB_FOUND AND GZIP)
         # Test the gzip file reader.  It does not work with -indir.
-        # We're using the same app name, so we serialize to avoid file conflicts:
-        set(tool.histogram.gzip_depends tool.histogram.offline)
-        torunonly_ci(tool.histogram.gzip ${histo_app} drcachesim
-          "histogram-offline.c" "-offline" "" "")
-        set(tool.histogram.gzip_toolname "drcachesim")
-        set(tool.histogram.gzip_basedir
+      set(testname_full "tool.histogram.gzip")
+        torunonly_ci(${testname_full} ${histo_app} drcachesim
+          "histogram-offline.c" "-offline -subdir_prefix ${testname_full}" "" "")
+        set(${testname_full}_toolname "drcachesim")
+        set(${testname_full}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-        set(tool.histogram.gzip_rawtemp ON) # no preprocessor
+        set(${testname_full}_rawtemp ON) # no preprocessor
         get_target_path_for_execution(histo_path histogram_launcher "${location_suffix}")
         prefix_cmd_if_necessary(histo_path ON ${histo_path})
-        set(tool.histogram.gzip_runcmp
+        set(${testname_full}_runcmp
           "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
-        set(tool.histogram.gzip_precmd
-          "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${histo_app}.*.dir")
-        set(tool.histogram.gzip_postcmd
-          "${drcachesim_path}@-indir@drmemtrace.${histo_app}.*.dir")
-        set(tool.histogram.gzip_postcmd2
-          "${GZIP}@drmemtrace.${histo_app}.*.dir/trace/*")
-        set(tool.histogram.gzip_postcmd3
-          "${histo_path}@-test_mode@-trace_dir@drmemtrace.${histo_app}.*.dir/trace")
+        set(${testname_full}_precmd
+          "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
+        set(${testname_full}_postcmd
+          "${drcachesim_path}@-indir@${testname_full}.*.dir")
+        set(${testname_full}_postcmd2
+          "${GZIP}@${testname_full}.*.dir/trace/*")
+        set(${testname_full}_postcmd3
+          "${histo_path}@-test_mode@-trace_dir@${testname_full}.*.dir/trace")
       elseif (UNIX)
-        message(STATUS "gzip or zlib not found: disabling tool.histogram.gzip test")
+        message(STATUS "gzip or zlib not found: disabling ${testname_full} test")
       endif ()
     endif (NOT ANDROID)
 

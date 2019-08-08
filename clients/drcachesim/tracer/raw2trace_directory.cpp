@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -216,7 +216,8 @@ raw2trace_directory_t::initialize(const std::string &indir_in,
     if (!directory_iterator_t::is_directory(indir))
         return "Directory does not exist: " + indir;
     // Support passing both base dir and raw/ subdir.
-    if (indir.find(OUTFILE_SUBDIR) == std::string::npos) {
+    if (indir.rfind(OUTFILE_SUBDIR) == std::string::npos ||
+        indir.rfind(OUTFILE_SUBDIR) < indir.size() - strlen(OUTFILE_SUBDIR)) {
         indir += std::string(DIRSEP) + OUTFILE_SUBDIR;
     }
     // Support a default outdir.
