@@ -196,7 +196,7 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write 
                          dr_mcontext_flags_t mc_flags)
 {
     CLIENT_ASSERT(selected != NULL && result != NULL && mc != NULL,
-                  "instr_compute_address_ex[_pos]: invalid args");
+                  "vsib address computation: invalid args");
     CLIENT_ASSERT(TEST(DR_MC_MULTIMEDIA, mc_flags),
                   "dr_mcontext_t.flags must include DR_MC_MULTIMEDIA");
     opnd_t src0 = instr_get_src(instr, 0);
