@@ -316,7 +316,7 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write 
     if (reg_get_size(index_reg) == OPSZ_64) {
         CLIENT_ASSERT(mc_size >= offsetof(dr_mcontext_t, simd) +
                               MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE,
-                      "Incompatible client, invalid size.");
+                      "Incompatible client, invalid dr_mcontext_t.size.");
         index_reg_start = DR_REG_START_ZMM;
     } else if (reg_get_size(index_reg) == OPSZ_32) {
         CLIENT_ASSERT(
@@ -325,12 +325,12 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write 
                      * there, and this is what we need to make the version check for.
                      */
                     MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE,
-            "Incompatible client, invalid size.");
+            "Incompatible client, invalid dr_mcontext_t.size.");
         index_reg_start = DR_REG_START_YMM;
     } else {
         CLIENT_ASSERT(mc_size >= offsetof(dr_mcontext_t, simd) +
                               MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE,
-                      "Incompatible client, invalid size.");
+                      "Incompatible client, invalid dr_mcontext_t.size.");
         index_reg_start = DR_REG_START_XMM;
     }
     /* Size check for upper 16 AVX-512 registers, requiring updated dr_mcontext_t simd
@@ -339,7 +339,7 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write 
     CLIENT_ASSERT(index_reg - index_reg_start < MCXT_NUM_SIMD_SSE_AVX_SLOTS ||
                       mc_size >= offsetof(dr_mcontext_t, simd) +
                               MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE,
-                  "Incompatible client, invalid size.");
+                  "Incompatible client, invalid dr_mcontext_t.size.");
     if (is_evex)
         mask_reg_start = DR_REG_START_OPMASK;
     else
