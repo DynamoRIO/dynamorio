@@ -471,3 +471,13 @@ OPCODE(vpsllvd, vpsllvd, vpsllvd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16)
 OPCODE(vpsllvq, vpsllvq, vpsllvq, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
 OPCODE(vpsrlvd, vpsrlvd, vpsrlvd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
 OPCODE(vpsrlvq, vpsrlvq, vpsrlvq, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
+
+/* SHA */
+OPCODE(sha1rnds4_xloxlo, sha1rnds4, sha1rnds4, 0, REGARG(XMM0), REGARG(XMM1),
+       IMMARG(OPSZ_1))
+OPCODE(sha1rnds4_xloxhi, sha1rnds4, sha1rnds4, X64_ONLY, REGARG(XMM7), REGARG(XMM15),
+       IMMARG(OPSZ_1))
+OPCODE(sha1rnds4_xlom, sha1rnds4, sha1rnds4, X64_ONLY, REGARG(XMM0), MEMARG(OPSZ_16),
+       IMMARG(OPSZ_1))
+OPCODE(sha1rnds4_xhim, sha1rnds4, sha1rnds4, X64_ONLY, REGARG(XMM15), MEMARG(OPSZ_16),
+       IMMARG(OPSZ_1))
