@@ -5992,14 +5992,14 @@ DR_API
  *
  * As a parameter, \p tag denotes the ID of the fragment requested for deletion.
  *
- * Only the deletion of shared fragments is supported. 
+ * Only the deletion of shared fragments is supported.
  *
  * No locks can be held by the caller.
  *
  * \return false if the function fails to schedule the deletion.
  *
- * \note Unlike \p dr_delete_fragment(), this function does not require the -thread_private
- * runtime option to be set.
+ * \note Unlike \p dr_delete_fragment(), this function does not require the
+ * -thread_private runtime option to be set.
  */
 bool
 dr_delete_shared_fragment(void *tag);

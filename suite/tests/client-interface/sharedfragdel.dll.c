@@ -35,14 +35,18 @@
 static app_pc step1_pc = NULL;
 static app_pc step2_pc = NULL;
 
-void delete_fragment(app_pc tag, app_pc pc)
+void
+delete_fragment(app_pc tag, app_pc pc)
 {
     if (step1_pc == NULL) {
 
         bool succ = dr_delete_shared_fragment(tag);
-        if (succ){
+        if (succ) {
 
-            dr_mcontext_t mcontext = { sizeof(mcontext), DR_MC_ALL, };
+            dr_mcontext_t mcontext = {
+                sizeof(mcontext),
+                DR_MC_ALL,
+            };
             dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
 
             mcontext.pc = pc;
@@ -74,7 +78,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     }
 
     dr_insert_clean_call(drcontext, bb, instr, delete_fragment, false, 2,
-            OPND_CREATE_INTPTR(tag), OPND_CREATE_INTPTR(pc));
+                         OPND_CREATE_INTPTR(tag), OPND_CREATE_INTPTR(pc));
 
     return DR_EMIT_DEFAULT;
 }
