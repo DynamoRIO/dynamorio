@@ -2097,6 +2097,7 @@ if (CLIENT_INTERFACE)
   endif (X86)
   # FIXME: PR 199115 to re-enable fragdel, get some more of the UNIX tests working
   #tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")
+  tobuild_ci(client.sharedfregdel client-interface/sharedfragdel.c "" "-disable_traces" "")
   if (PROGRAM_SHEPHERDING)
     tobuild_ci(client.security client-interface/security.c "" "-security_api" "")
   endif (PROGRAM_SHEPHERDING)
