@@ -7549,8 +7549,14 @@ pre_system_call(dcontext_t *dcontext)
 
 #ifdef LINUX
     case SYS_rseq:
-        /* Lazy rseq handling. */
-        module_locate_rseq_regions();
+        if (DYNAMO_OPTION(disable_rseq)) {
+            set_failure_return_val(dcontext, ENOSYS);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            execute_syscall = false;
+        } else {
+            /* Lazy rseq handling. */
+            module_locate_rseq_regions();
+        }
         break;
 #endif
 
