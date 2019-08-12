@@ -290,6 +290,19 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
         jmp      test11_done
      test11_done:
+        jmp     test12
+        /* Test 12: drreg_statelessly_restore_app_value  */
+     test12:
+        mov      TEST_REG_ASM, DRREG_TEST_12_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_12_ASM
+        mov      REG_XAX, TEST_CONST_2
+        cmp      REG_XAX, TEST_CONST_2
+        je       test12_done
+        /* Null deref if we have incorrect eflags */
+        xor      TEST_REG_ASM, TEST_REG_ASM
+        mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
+        jmp      test12_done
+     test12_done:
         jmp     epilog
 
      epilog:
