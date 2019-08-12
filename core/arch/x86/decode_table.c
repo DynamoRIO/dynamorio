@@ -1573,6 +1573,15 @@ const instr_info_t * const op_instr[] =
     /* OP_vshuff64x2      */  &evex_W_extensions[141][1],
     /* OP_vshufi32x4      */  &evex_W_extensions[142][0],
     /* OP_vshufi64x2      */  &evex_W_extensions[142][1],
+
+    /* Intel SHA extensions */
+    /* OP_sha1msg1        */  &third_byte_38[165],
+    /* OP_sha1msg2        */  &e_vex_extensions[144][0],
+    /* OP_sha1nexte       */  &e_vex_extensions[145][0],
+    /* OP_sha1rnds4       */  &third_byte_3a[89],
+    /* OP_sha256msg1      */  &e_vex_extensions[147][0],
+    /* OP_sha256msg2      */  &e_vex_extensions[148][0],
+    /* OP_sha256rnds2     */  &e_vex_extensions[146][0],
 };
 
 
@@ -6335,6 +6344,26 @@ const instr_info_t e_vex_extensions[][3] = {
     {INVALID, 0x389318, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT, 0x66389318, "(vex_W ext 69)", xx, xx, xx, xx, xx, mrm|vex, x, 69},
     {EVEX_W_EXT, 0x66389318, "(evex_W ext 191)", xx, xx, xx, xx, xx, mrm|evex, x, 191},
+  }, { /* e_vex ext 144 */
+    {OP_sha1msg2, 0x38ca18, "sha1msg2", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
+    {INVALID, 0x38ca18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_W_EXT, 0x6638ca18, "(evex_W ext 133)", xx, xx, xx, xx, xx, mrm|reqp, x, 133},
+  }, { /* e_vex ext 145 */
+    {OP_sha1nexte, 0x38c818, "sha1nexte", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
+    {INVALID, 0x38c818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_W_EXT, 0x6638c818, "(evex_W ext 184)", xx, xx, xx, xx, xx, mrm|reqp, x, 184},
+  }, { /* e_vex ext 146 */
+    {OP_sha256rnds2, 0x38cb18, "sha256rnds2", Vdq, xx, Wdq, xmm0, Vdq, mrm|reqp, x, END_LIST},
+    {INVALID, 0x38cb18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_W_EXT, 0x6638cb18, "(evex_W ext 134)", xx, xx, xx, xx, xx, mrm|reqp, x, 134},
+  }, { /* e_vex ext 147 */
+    {OP_sha256msg1, 0x38cc18, "sha256msg1", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
+    {INVALID, 0x38cc18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_W_EXT, 0x6638cc18, "(evex_W ext 178)", xx, xx, xx, xx, xx, mrm|reqp, x, 178},
+  }, { /* e_vex ext 148 */
+    {OP_sha256msg2, 0x38cd18, "sha256msg2", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
+    {INVALID, 0x38cd18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_W_EXT, 0x6638cd18, "(evex_W ext 179)", xx, xx, xx, xx, xx, mrm|reqp, x, 179},
   },
 };
 
@@ -6702,7 +6731,7 @@ const byte third_byte_38_index[256] = {
    104,105,106,107,   0,  0, 58, 59,  60, 61, 62, 63,  64, 65, 66, 67,  /* 9 */
    159,160,161,162,   0,  0, 68, 69,  70, 71, 72, 73,  74, 75, 76, 77,  /* A */
      0,  0,  0,  0, 157,158, 78, 79,  80, 81, 82, 83,  84, 85, 86, 87,  /* B */
-     0,  0,  0,  0, 155,  0,163,164, 154,  0,131,132, 152,153,  0,  0,  /* C */
+     0,  0,  0,  0, 155,  0,163,164, 154,165,131,132, 152,153,  0,  0,  /* C */
      0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0, 51,  52, 53, 54, 55,  /* D */
      0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* E */
     47, 48,100, 99,   0,101,102, 98,   0,  0,  0,  0,   0,  0,  0,  0   /* F */
@@ -6859,8 +6888,8 @@ const instr_info_t third_byte_38[] = {
   {PREFIX_EXT, 0x381218, "(prefix ext 162)", xx, xx, xx, xx, xx, mrm, x, 162},  /*128*/
   {EVEX_W_EXT, 0x66384c18, "(evex_W ext 131)", xx, xx, xx, xx, xx, mrm|reqp, x, 131},/*129*/
   {EVEX_W_EXT, 0x66384d18, "(evex_W ext 132)", xx, xx, xx, xx, xx, mrm|reqp, x, 132},/*130*/
-  {EVEX_W_EXT, 0x6638ca18, "(evex_W ext 133)", xx, xx, xx, xx, xx, mrm|reqp, x, 133},/*131*/
-  {EVEX_W_EXT, 0x6638cb18, "(evex_W ext 134)", xx, xx, xx, xx, xx, mrm|reqp, x, 134},/*132*/
+  {E_VEX_EXT, 0x38ca18, "(e_vex ext 144)", xx, xx, xx, xx, xx, mrm|reqp, x, 144},/*131*/
+  {E_VEX_EXT, 0x38cb18, "(e_vex ext 146)", xx, xx, xx, xx, xx, mrm|reqp, x, 146},/*132*/
   {EVEX_W_EXT, 0x66381f58, "(evex_W ext 146)", xx, xx, xx, xx, xx, mrm|reqp, x, 146},/*133*/
   {EVEX_W_EXT, 0x66381b18, "(evex_W ext 149)", xx, xx, xx, xx, xx, mrm|reqp, x, 149},/*134*/
   {OP_vpbroadcastb, 0x66387a18, "vpbroadcastb", Ve, xx, KEq, Ed, xx, mrm|evex|reqp|ttt1s, x, END_LIST},/*135*/
@@ -6880,9 +6909,9 @@ const instr_info_t third_byte_38[] = {
   {PREFIX_EXT, 0x382718, "(prefix ext 183)", xx, xx, xx, xx, xx, mrm, x, 183},/*149*/
   {EVEX_W_EXT, 0x66384e18, "(evex_W ext 176)", xx, xx, xx, xx, xx, mrm|reqp, x, 176},/*150*/
   {EVEX_W_EXT, 0x66384f18, "(evex_W ext 177)", xx, xx, xx, xx, xx, mrm|reqp, x, 177},/*151*/
-  {EVEX_W_EXT, 0x6638cc18, "(evex_W ext 178)", xx, xx, xx, xx, xx, mrm|reqp, x, 178},/*152*/
-  {EVEX_W_EXT, 0x6638cd18, "(evex_W ext 179)", xx, xx, xx, xx, xx, mrm|reqp, x, 179},/*153*/
-  {EVEX_W_EXT, 0x6638c818, "(evex_W ext 184)", xx, xx, xx, xx, xx, mrm|reqp, x, 184},/*154*/
+  {E_VEX_EXT, 0x38cc18, "(e_vex ext 147)", xx, xx, xx, xx, xx, mrm|reqp, x, 147},/*152*/
+  {E_VEX_EXT, 0x38cd18, "(e_vex ext 148)", xx, xx, xx, xx, xx, mrm|reqp, x, 148},/*153*/
+  {E_VEX_EXT, 0x38c818, "(e_vex ext 145)", xx, xx, xx, xx, xx, mrm|reqp, x, 145},/*154*/
   {EVEX_W_EXT, 0x6638c418, "(evex_W ext 185)", xx, xx, xx, xx, xx, mrm|reqp, x, 185},/*155*/
   {EVEX_W_EXT, 0x66384418, "(evex_W ext 186)", xx, xx, xx, xx, xx, mrm|reqp, x, 186},/*156*/
   {OP_vpmadd52luq, 0x6638b458, "vpmadd52luq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, END_LIST},/*157*/
@@ -6893,6 +6922,7 @@ const instr_info_t third_byte_38[] = {
   {EVEX_W_EXT, 0x6638a318, "(evex_W ext 195)", xx, xx, xx, xx, xx, mrm|reqp, x, 195},/*162*/
   {EXTENSION, 0x6638c618, "group 18", xx, xx, xx, xx, xx, mrm, x, 32},/*163*/
   {EXTENSION, 0x6638c718, "group 19", xx, xx, xx, xx, xx, mrm, x, 33},/*164*/
+  {OP_sha1msg1, 0x38c918, "sha1msg1", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},/*165*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed
@@ -6912,7 +6942,7 @@ const byte third_byte_3a_index[256] = {
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 9 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* A */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* B */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
+     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 89, 0, 0, 0,  /* C */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0,24,  /* D */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* E */
     56, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
@@ -7019,6 +7049,8 @@ const instr_info_t third_byte_3a[] = {
   {EVEX_W_EXT, 0x663a6618, "(evex_W ext 182)", xx, xx, xx, xx, xx, mrm, x, 182},/*86*/
   {EVEX_W_EXT, 0x663a6718, "(evex_W ext 183)", xx, xx, xx, xx, xx, mrm, x, 183},/*87*/
   {EVEX_W_EXT, 0x663a2518, "(evex_W ext 187)", xx, xx, xx, xx, xx, mrm, x, 187},/*88*/
+  /* SHA */
+  {OP_sha1rnds4, 0x3acc18, "sha1rnds4", Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},/*89*/
 };
 
 /****************************************************************************

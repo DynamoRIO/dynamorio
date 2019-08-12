@@ -1570,6 +1570,15 @@ enum {
     /* 1401 */ OP_vshufi32x4,      /**< IA-32/AMD64 AVX-512 OP_vshufi32x4 opcode. */
     /* 1402 */ OP_vshufi64x2,      /**< IA-32/AMD64 AVX-512 OP_vshufi64x2 opcode. */
 
+    /* Intel SHA extensions */
+    /* 1403 */ OP_sha1msg1,    /**< IA-32/AMD64 SHA OP_sha1msg1 opcode. */
+    /* 1404 */ OP_sha1msg2,    /**< IA-32/AMD64 SHA OP_sha1msg2 opcode. */
+    /* 1405 */ OP_sha1nexte,   /**< IA-32/AMD64 SHA OP_sha1nexte opcode. */
+    /* 1406 */ OP_sha1rnds4,   /**< IA-32/AMD64 SHA OP_sha1rnds4 opcode. */
+    /* 1407 */ OP_sha256msg1,  /**< IA-32/AMD64 SHA OP_sha2msg1 opcode. */
+    /* 1408 */ OP_sha256msg2,  /**< IA-32/AMD64 SHA OP_sha2msg2 opcode. */
+    /* 1409 */ OP_sha256rnds2, /**< IA-32/AMD64 SHA OP_sha2rnds2 opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
