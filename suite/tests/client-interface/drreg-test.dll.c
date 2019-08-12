@@ -294,9 +294,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #12\n");
         res = drreg_reserve_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
-        if (instr_get_opcode(inst) == OP_cmp){
-          drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_NULL,
-                  inst, inst, NULL, NULL);
+        if (instr_get_opcode(inst) == OP_cmp) {
+            drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_NULL, inst, inst,
+                                                NULL, NULL);
         }
         res = drreg_unreserve_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "unreserve of aflags");
