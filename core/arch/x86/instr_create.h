@@ -2878,6 +2878,17 @@
 /* ADX */
 #define INSTR_CREATE_adox(dc, d, s) instr_create_1dst_2src((dc), OP_adox, (d), (s), (d))
 #define INSTR_CREATE_adcx(dc, d, s) instr_create_1dst_2src((dc), OP_adcx, (d), (s), (d))
+/* SHA */
+#define INSTR_CREATE_sha1msg1(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha1msg1, (d), (s), (d))
+#define INSTR_CREATE_sha1msg2(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha1msg2, (d), (s), (d))
+#define INSTR_CREATE_sha1nexte(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha1nexte, (d), (s), (d))
+#define INSTR_CREATE_sha256msg1(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha256msg1, (d), (s), (d))
+#define INSTR_CREATE_sha256msg2(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha256msg2, (d), (s), (d))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 1 explicit register-or-immediate source */
@@ -3814,6 +3825,9 @@
     instr_create_1dst_3src((dc), OP_dppd, (d), (s), (i), (d))
 #define INSTR_CREATE_mpsadbw(dc, d, s, i) \
     instr_create_1dst_3src((dc), OP_mpsadbw, (d), (s), (i), (d))
+/* SHA */
+#define INSTR_CREATE_sha1rnds4(dc, d, s, i) \
+    instr_create_1dst_3src((dc), OP_sha1rnds4, (d), (s), (i), (d))
 /* @} */ /* end doxygen group */
 
 /** @name 1 explicit destination, 2 explicit sources, dest is implicit source */
@@ -4319,6 +4333,10 @@
     instr_create_1dst_3src((dc), OP_blendvps, (d), (s), opnd_create_reg(DR_REG_XMM0), (d))
 #define INSTR_CREATE_blendvpd(dc, d, s) \
     instr_create_1dst_3src((dc), OP_blendvpd, (d), (s), opnd_create_reg(DR_REG_XMM0), (d))
+/* SHA */
+#define INSTR_CREATE_sha256rnds2(dc, d, s)                                               \
+    instr_create_1dst_3src((dc), OP_sha256rnds2, (d), (s), opnd_create_reg(DR_REG_XMM0), \
+                           (d))
 /* @} */ /* end doxygen group */
 
 /* 1 implicit destination, 3 sources */

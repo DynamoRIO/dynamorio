@@ -268,3 +268,32 @@ OPCODE(vpbroadcastd_256r, vpbroadcastd, vpbroadcastd, 0, REGARG(YMM0),
        REGARG_PARTIAL(XMM1, OPSZ_4))
 OPCODE(vpbroadcastq_256r, vpbroadcastq, vpbroadcastq, 0, REGARG(YMM0),
        REGARG_PARTIAL(XMM1, OPSZ_8))
+
+/* SHA */
+OPCODE(sha1msg1_xloxlo, sha1msg1, sha1msg1, 0, REGARG(XMM0), REGARG(XMM1))
+OPCODE(sha1msg1_xloxhi, sha1msg1, sha1msg1, X64_ONLY, REGARG(XMM7), REGARG(XMM15))
+OPCODE(sha1msg1_xlom, sha1msg1, sha1msg1, X64_ONLY, REGARG(XMM0), MEMARG(OPSZ_16))
+OPCODE(sha1msg1_xhim, sha1msg1, sha1msg1, X64_ONLY, REGARG(XMM15), MEMARG(OPSZ_16))
+OPCODE(sha1msg2_xloxlo, sha1msg2, sha1msg2, 0, REGARG(XMM0), REGARG(XMM1))
+OPCODE(sha1msg2_xloxhi, sha1msg2, sha1msg2, X64_ONLY, REGARG(XMM7), REGARG(XMM15))
+OPCODE(sha1msg2_xlom, sha1msg2, sha1msg2, X64_ONLY, REGARG(XMM0), MEMARG(OPSZ_16))
+OPCODE(sha1msg2_xhim, sha1msg2, sha1msg2, X64_ONLY, REGARG(XMM15), MEMARG(OPSZ_16))
+OPCODE(sha1nexte_xloxlo, sha1nexte, sha1nexte, 0, REGARG(XMM0), REGARG(XMM1))
+OPCODE(sha1nexte_xloxhi, sha1nexte, sha1nexte, X64_ONLY, REGARG(XMM7), REGARG(XMM15))
+OPCODE(sha1nexte_xlom, sha1nexte, sha1nexte, X64_ONLY, REGARG(XMM0), MEMARG(OPSZ_16))
+OPCODE(sha1nexte_xhim, sha1nexte, sha1nexte, X64_ONLY, REGARG(XMM15), MEMARG(OPSZ_16))
+OPCODE(sha256rnds2_xloxlo, sha256rnds2, sha256rnds2, 0, REGARG(XMM0), REGARG(XMM1))
+OPCODE(sha256rnds2_xloxhi, sha256rnds2, sha256rnds2, X64_ONLY, REGARG(XMM7),
+       REGARG(XMM15))
+OPCODE(sha256rnds2_xlom, sha256rnds2, sha256rnds2, X64_ONLY, REGARG(XMM0),
+       MEMARG(OPSZ_16))
+OPCODE(sha256rnds2_xhim, sha256rnds2, sha256rnds2, X64_ONLY, REGARG(XMM15),
+       MEMARG(OPSZ_16))
+OPCODE(sha256msg1_xloxlo, sha256msg1, sha256msg1, 0, REGARG(XMM0), REGARG(XMM1))
+OPCODE(sha256msg1_xloxhi, sha256msg1, sha256msg1, X64_ONLY, REGARG(XMM7), REGARG(XMM15))
+OPCODE(sha256msg1_xlom, sha256msg1, sha256msg1, X64_ONLY, REGARG(XMM0), MEMARG(OPSZ_16))
+OPCODE(sha256msg1_xhim, sha256msg1, sha256msg1, X64_ONLY, REGARG(XMM15), MEMARG(OPSZ_16))
+OPCODE(sha256msg2_xloxlo, sha256msg2, sha256msg2, 0, REGARG(XMM0), REGARG(XMM1))
+OPCODE(sha256msg2_xloxhi, sha256msg2, sha256msg2, X64_ONLY, REGARG(XMM7), REGARG(XMM15))
+OPCODE(sha256msg2_xlom, sha256msg2, sha256msg2, X64_ONLY, REGARG(XMM0), MEMARG(OPSZ_16))
+OPCODE(sha256msg2_xhim, sha256msg2, sha256msg2, X64_ONLY, REGARG(XMM15), MEMARG(OPSZ_16))
