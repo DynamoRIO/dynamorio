@@ -743,6 +743,12 @@ reg_is_opmask(reg_id_t reg)
 }
 
 bool
+reg_is_bnd(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_strictly_zmm(reg_id_t reg)
 {
     return false;

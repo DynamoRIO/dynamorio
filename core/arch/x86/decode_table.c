@@ -1582,6 +1582,15 @@ const instr_info_t * const op_instr[] =
     /* OP_sha256msg1      */  &e_vex_extensions[147][0],
     /* OP_sha256msg2      */  &e_vex_extensions[148][0],
     /* OP_sha256rnds2     */  &e_vex_extensions[146][0],
+
+    /* Intel MPX extensions */
+    /* OP_bndcl           */ &prefix_extensions[186][1],
+    /* OP_bndcn           */ &prefix_extensions[187][3],
+    /* OP_bndcu           */ &prefix_extensions[186][3],
+    /* OP_bndldx          */ &prefix_extensions[186][0],
+    /* OP_bndmk           */ &prefix_extensions[187][1],
+    /* OP_bndmov          */ &prefix_extensions[186][2],
+    /* OP_bndstx          */ &prefix_extensions[187][0],
 };
 
 
@@ -1780,6 +1789,13 @@ const instr_info_t * const op_instr[] =
 #define Med TYPE_M, OPSZ_16_vex32_evex64
 #define Me TYPE_M, OPSZ_16_vex32_evex64
 #define Ue TYPE_V_MODRM, OPSZ_16_vex32_evex64
+
+/* MPX additions, own codes */
+/* XXX i#3581: we might want to optimize and add a special size that does not cause the
+ * encoder to add a rex prefix for the MPX instructions.
+ */
+#define TRq_dq TYPE_T_REG, OPSZ_8_rex16
+#define TMq_dq TYPE_T_MODRM, OPSZ_8_rex16
 
 /* my own codes
  * size m = 32 or 16 bit depending on addr size attribute
@@ -2409,8 +2425,8 @@ const instr_info_t second_byte[] = {
    * The operand is ignored but to support encoding it we must list it.
    * i453: analysis routines now special case nop_modrm to ignore src opnd */
   {OP_nop_modrm, 0x0f1910, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-  {OP_nop_modrm, 0x0f1a10, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-  {OP_nop_modrm, 0x0f1b10, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+  {PREFIX_EXT, 0x0f1a10, "(prefix ext 186)", xx, xx, xx, xx, xx, mrm, x, 186},
+  {PREFIX_EXT, 0x0f1b10, "(prefix ext 187)", xx, xx, xx, xx, xx, mrm, x, 187},
   {OP_nop_modrm, 0x0f1c10, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
   {OP_nop_modrm, 0x0f1d10, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
   {OP_nop_modrm, 0x0f1e10, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
@@ -5750,6 +5766,32 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vpbroadcastmw2d, 0xf3383a18, "vpbroadcastmw2d", Ve, xx, KQw, xx, xx, mrm|evex|ttnone, x, NA},
     {OP_vpminuw, 0x66383a18, "vpminuw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID,    0xf2383a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* prefix extension 186 */
+    {OP_bndldx,    0x0f1a10, "bndldx", TRq_dq, xx, Mm, xx, xx, mrm, x, END_LIST},
+    {OP_bndcl,   0xf30f1a10, "bndcl", TRq_dq, xx, Ey, xx, xx, mrm, x, END_LIST},
+    {OP_bndmov,  0x660f1a10, "bndmov", TRq_dq, xx, TMq_dq, xx, xx, mrm, x, tpe[187][2]},
+    {OP_bndcu,   0xf20f1a10, "bndcu", TRq_dq, xx, Ey, xx, xx, mrm, x, END_LIST},
+    {INVALID,      0x0f1a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf30f1a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0x660f1a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf20f1a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x0f1a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf30f1a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0x660f1a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf20f1a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* prefix extension 187 */
+    {OP_bndstx,    0x0f1b10, "bndstx", Mm, xx, TRq_dq, xx, xx, mrm, x, END_LIST},
+    {OP_bndmk,   0xf30f1b10, "bndmk", TRq_dq, xx, Md_q, xx, xx, mrm, x, END_LIST},
+    {OP_bndmov,  0x660f1b10, "bndmov", TMq_dq, xx, TRq_dq, xx, xx, mrm, x, END_LIST},
+    {OP_bndcn,   0xf20f1b10, "bndcn", TRq_dq, xx, Ey, xx, xx, mrm, x, END_LIST},
+    {INVALID,      0x0f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf30f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0x660f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf20f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x0f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf30f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0x660f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf20f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },
 };
 /****************************************************************************

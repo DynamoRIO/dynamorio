@@ -359,18 +359,19 @@ enum {
 #define OPSZ_call OPSZ_ret          /**< Operand size for push portion of call. */
 
 /* Convenience defines for specific opcodes */
-#define OPSZ_lea OPSZ_0              /**< Operand size for lea memory reference. */
-#define OPSZ_invlpg OPSZ_0           /**< Operand size for invlpg memory reference. */
-#define OPSZ_xlat OPSZ_1             /**< Operand size for xlat memory reference. */
-#define OPSZ_clflush OPSZ_1          /**< Operand size for clflush memory reference. */
-#define OPSZ_prefetch OPSZ_1         /**< Operand size for prefetch memory references. */
-#define OPSZ_lgdt OPSZ_6x10          /**< Operand size for lgdt memory reference. */
-#define OPSZ_sgdt OPSZ_6x10          /**< Operand size for sgdt memory reference. */
-#define OPSZ_lidt OPSZ_6x10          /**< Operand size for lidt memory reference. */
-#define OPSZ_sidt OPSZ_6x10          /**< Operand size for sidt memory reference. */
-#define OPSZ_bound OPSZ_8_short4     /**< Operand size for bound memory reference. */
-#define OPSZ_maskmovq OPSZ_8         /**< Operand size for maskmovq memory reference. */
-#define OPSZ_maskmovdqu OPSZ_16      /**< Operand size for maskmovdqu memory reference. */
+#define OPSZ_lea OPSZ_0          /**< Operand size for lea memory reference. */
+#define OPSZ_invlpg OPSZ_0       /**< Operand size for invlpg memory reference. */
+#define OPSZ_bnd OPSZ_0          /**< Operand size for bndldx, bndstx memory reference. */
+#define OPSZ_xlat OPSZ_1         /**< Operand size for xlat memory reference. */
+#define OPSZ_clflush OPSZ_1      /**< Operand size for clflush memory reference. */
+#define OPSZ_prefetch OPSZ_1     /**< Operand size for prefetch memory references. */
+#define OPSZ_lgdt OPSZ_6x10      /**< Operand size for lgdt memory reference. */
+#define OPSZ_sgdt OPSZ_6x10      /**< Operand size for sgdt memory reference. */
+#define OPSZ_lidt OPSZ_6x10      /**< Operand size for lidt memory reference. */
+#define OPSZ_sidt OPSZ_6x10      /**< Operand size for sidt memory reference. */
+#define OPSZ_bound OPSZ_8_short4 /**< Operand size for bound memory reference. */
+#define OPSZ_maskmovq OPSZ_8     /**< Operand size for maskmovq memory reference. */
+#define OPSZ_maskmovdqu OPSZ_16  /**< Operand size for maskmovdqu memory reference. */
 #define OPSZ_fldenv OPSZ_28_short14  /**< Operand size for fldenv memory reference. */
 #define OPSZ_fnstenv OPSZ_28_short14 /**< Operand size for fnstenv memory reference. */
 #define OPSZ_fnsave OPSZ_108_short94 /**< Operand size for fnsave memory reference. */

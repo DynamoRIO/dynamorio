@@ -117,6 +117,8 @@ const char *const type_names[] = {
     "TYPE_K_REG",
     "TYPE_K_VEX",
     "TYPE_K_EVEX",
+    "TYPE_T_REG",
+    "TYPE_T_MODRM",
 };
 
 /* order corresponds to enum of REG_ and SEG_ constants */
@@ -157,6 +159,8 @@ const char *const reg_names[] = {
     "",       "",      "",      "",      "",      "",      "",      "",          "",
     "",       "",      "",      "",      "",      "",      "",      "",          "",
     "",       "k0",    "k1",    "k2",    "k3",    "k4",    "k5",    "k6",        "k7",
+    "",       "",      "",      "",      "",      "",      "",      "",          "bnd0",
+    "bnd1",   "bnd2",  "bnd3",
     /* when you update here, update dr_reg_fixer[] too */
 };
 
@@ -227,6 +231,9 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
     DR_REG_INVALID, DR_REG_INVALID, DR_REG_K0,      DR_REG_K1,      DR_REG_K2,
     DR_REG_K3,      DR_REG_K4,      DR_REG_K5,      DR_REG_K6,      DR_REG_K7,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_BND0,    DR_REG_BND1,
+    DR_REG_BND2,    DR_REG_BND3,
 };
 
 #ifdef DEBUG
@@ -746,6 +753,11 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_16:
             if (X64_MODE(di) &&
                 (size_template == OPSZ_8_rex16 || size_template == OPSZ_8_rex16_short4)) {
+                /* XXX #3581: when encoding and the operand is a TYPE_T_REG or
+                 * TYPE_T_MODRM register, this causes a rex prefix. The rex prefix is
+                 * ignored for the MPX instruction that are affected, but it is not
+                 * necessary.
+                 */
                 di->prefixes |= PREFIX_REX_W; /* rex.w trumps data prefix */
                 return true;
             }
@@ -1044,6 +1056,9 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
                 opsize == OPSZ_1 || opsize == OPSZ_2 || opsize == OPSZ_4 ||
                 opsize == OPSZ_8);
     }
+    if (optype == TYPE_T_REG) {
+        return opsize == OPSZ_8_rex16;
+    }
     return false;
 }
 
@@ -1053,7 +1068,8 @@ reg_rm_selectable(reg_id_t reg)
     /* assumption: GPR registers (of all sizes) and mmx and xmm are all in a row */
     return (reg >= REG_START_64 && reg <= REG_STOP_XMM) ||
         (reg >= REG_START_YMM && reg <= REG_STOP_YMM) ||
-        (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM);
+        (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) ||
+        (reg >= DR_REG_START_BND && reg <= DR_REG_STOP_BND);
 }
 
 static bool
@@ -1455,6 +1471,18 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         return (opnd_is_reg(opnd) &&
                 reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
                 reg_is_opmask(opnd_get_reg(opnd)));
+    case TYPE_T_MODRM:
+        return (mem_size_ok(di, opnd, optype, opsize) ||
+                (opnd_is_reg(opnd) &&
+                 reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
+                 /* implies reg_rm_selectable() */
+                 reg_is_bnd(opnd_get_reg(opnd))));
+        CLIENT_ASSERT(false, "TODO");
+        return false;
+    case TYPE_T_REG:
+        return (opnd_is_reg(opnd) &&
+                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
+                reg_is_bnd(opnd_get_reg(opnd)));
     default:
         CLIENT_ASSERT(false, "encode error: type ok: unknown operand type");
         return false;
@@ -2088,6 +2116,7 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
     case TYPE_P_MODRM:   /* we already ensured this is a reg, not memory */
     case TYPE_V_MODRM:   /* we already ensured this is a reg, not memory */
     case TYPE_K_MODRM_R: /* we already ensured this is a reg, not memory */
+    case TYPE_T_MODRM:
         if (opnd_is_memory_reference(opnd)) {
             if (opnd_is_far_memory_reference(opnd)) {
                 di->seg_override = opnd_get_segment(opnd);
@@ -2149,6 +2178,17 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
         }
         encode_reg_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_REX_R);
         encode_avx512_reg_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_EVEX_RR);
+        di->reg = reg_get_bits(opnd_get_reg(opnd));
+        return;
+    }
+    case TYPE_T_REG: {
+        CLIENT_ASSERT(opnd_is_reg(opnd), "encode error: operand must be a register");
+        if (di->reg < 8) {
+            /* already set (by a dst equal to src, probably) */
+            CLIENT_ASSERT(di->reg == reg_get_bits(opnd_get_reg(opnd)),
+                          "encode error: modrm mismatch");
+            return;
+        }
         di->reg = reg_get_bits(opnd_get_reg(opnd));
         return;
     }

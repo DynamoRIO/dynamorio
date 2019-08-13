@@ -1520,6 +1520,11 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
         if (reg > DR_REG_STOP_OPMASK - DR_REG_START_OPMASK)
             return REG_NULL;
         return DR_REG_START_OPMASK + reg;
+    case TYPE_T_MODRM:
+    case TYPE_T_REG:
+        if (reg > DR_REG_STOP_BND - DR_REG_START_BND)
+            return REG_NULL;
+        return DR_REG_START_BND + reg;
     case TYPE_E:
     case TYPE_G:
     case TYPE_R:
@@ -2161,6 +2166,12 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         *opnd = opnd_create_reg(decode_reg(DECODE_REG_OPMASK, di, optype, opsize));
         return true;
     }
+    case TYPE_T_REG: {
+        /* MPX: modrm.reg selects bnd register */
+        *opnd = opnd_create_reg(decode_reg(DECODE_REG_REG, di, optype, opsize));
+        return true;
+    }
+    case TYPE_T_MODRM: return decode_modrm(di, optype, opsize, NULL, opnd);
     default:
         /* ok to assert, types coming only from instr_info_t */
         CLIENT_ASSERT(false, "decode error: unknown operand type");
