@@ -45,6 +45,7 @@
 #include "os_private.h"
 #include "rseq_linux.h"
 #include "../fragment.h"
+#include "decode.h"
 #ifdef HAVE_RSEQ
 #    include <linux/rseq.h>
 #else
@@ -75,9 +76,15 @@ typedef struct _rseq_region_t {
     app_pc start;
     app_pc end;
     app_pc handler;
-    /* XXX i#2350: Additional information will be added here for eliminating
-     * some existing limitations.
+    /* We need to preserve input registers for targeting "start" instead of "handler"
+     * for our 2nd invocation.  We only support GPR inputs.
      */
+    bool reg_used[DR_NUM_GPR_REGS];
+    /* A register we can clobber for use either during native execution setup (as an
+     * indirect jump target, though that will go away once we have a local copy) or
+     * to hold the stolen register.
+     */
+    reg_id_t scratch_reg;
 } rseq_region_t;
 
 /* vmvector callbacks */
@@ -116,13 +123,21 @@ d_r_rseq_exit(void)
 }
 
 bool
-rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT)
+rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT,
+                     bool **reg_used OUT, int *reg_used_size OUT,
+                     ushort /*reg_id_t*/ *scratch OUT)
 {
     rseq_region_t *info;
     if (!vmvector_lookup_data(d_r_rseq_areas, pc, start, end, (void **)&info))
         return false;
     if (handler != NULL)
         *handler = info->handler;
+    if (reg_used != NULL)
+        *reg_used = info->reg_used;
+    if (reg_used_size != NULL)
+        *reg_used_size = sizeof(info->reg_used) / sizeof(info->reg_used[0]);
+    if (scratch != NULL)
+        *scratch = (ushort)info->scratch_reg;
     return true;
 }
 
@@ -149,6 +164,118 @@ rseq_is_registered_for_current_thread(void)
 }
 
 static void
+rseq_analyze_instructions(rseq_region_t *info)
+{
+    /* We analyze the instructions inside [start,end) looking for register state used
+     * as inputs that we need to preserve for our restart.  We do not want to blindly
+     * spill and restore 16+ registers for every sequence (too much overhead), and we
+     * want a dead scratch register.
+     */
+    instr_t instr;
+    instr_init(GLOBAL_DCONTEXT, &instr);
+    app_pc pc = info->start;
+    int i;
+    bool reached_cti = false;
+    bool reg_written[DR_NUM_GPR_REGS];
+    memset(reg_written, 0, sizeof(reg_written));
+    memset(info->reg_used, 0, sizeof(info->reg_used));
+    info->scratch_reg = DR_REG_INVALID;
+    while (pc < info->end) {
+        instr_reset(GLOBAL_DCONTEXT, &instr);
+        app_pc next_pc = decode(GLOBAL_DCONTEXT, pc, &instr);
+        if (next_pc == NULL) {
+            REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
+                                        get_application_name(), get_application_pid(),
+                                        "Rseq sequence contains invalid instructions");
+            ASSERT_NOT_REACHED();
+        }
+        if (instr_is_syscall(&instr)) {
+            REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
+                                        get_application_name(), get_application_pid(),
+                                        "Rseq sequence contains a system call");
+            ASSERT_NOT_REACHED();
+        }
+        if (instr_is_call(&instr)) {
+            REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
+                                        get_application_name(), get_application_pid(),
+                                        "Rseq sequence contains a call");
+            ASSERT_NOT_REACHED();
+        }
+        if (instr_is_cti(&instr))
+            reached_cti = true;
+        /* We only support GPR's as inputs.  We'd like to verify this, but it does
+         * not seem worth the effort (we would want to add new interfaces like
+         * DR_REG_START_SIMD or register iterators because we do not want to rule out all
+         * non-GPR use: only reads before writes).
+         */
+        for (i = 0; i < DR_NUM_GPR_REGS; i++) {
+            if (reg_written[i])
+                continue;
+            reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
+            /* We do a quick and naive analysis.  We do not try to build a CFG, partly
+             * because core DR does not use such functionality *anywhere* (everything is
+             * deliberately linear), and partly because all bets are off with rseq
+             * anyway and it is not worth extra effort for corner cases.  We look for
+             * any read of a register prior to a write, completely ignoring control flow
+             * and treating the sequence as linear.  This is a search for inputs which
+             * should be read relatively early.  We document this limitation of only
+             * preserving clearly read-before-written register state.  We do not try to
+             * rule out inputs that are never written, in case of callouts -- though we
+             * now disallow callouts.
+             */
+            if (!info->reg_used[i] &&
+                instr_reads_from_reg(&instr, reg, DR_QUERY_INCLUDE_ALL)) {
+                LOG(GLOBAL, LOG_LOADER, 3,
+                    "Rseq region @" PFX " reads register %s at " PFX "\n", info->start,
+                    reg_names[reg], pc);
+                info->reg_used[i] = true;
+            }
+            if (instr_writes_to_reg(&instr, reg, DR_QUERY_DEFAULT)) {
+                reg_written[i] = true;
+                if (info->scratch_reg == DR_REG_INVALID && !reached_cti &&
+                    !info->reg_used[i])
+                    info->scratch_reg = reg;
+            }
+        }
+        pc = next_pc;
+    }
+    instr_free(GLOBAL_DCONTEXT, &instr);
+    if (info->scratch_reg == DR_REG_INVALID) {
+        /* Today we need this for our indirect call, but that will go away
+         * once we have a local copy.  For non-x86 we need this for the stolen
+         * register (though an alternative is to mangle the sequence, once we
+         * make a copy).
+         */
+        /* Go backward to pick less-used regs in case of control flow complexity.
+         * (No, picking caller-saved regs doesn't help: we could be in the middle of
+         * a function that continues after the rseq region.).
+         * TODO i#2350: Yes, this is fragile and will go away with a local copy.
+         */
+        for (i = DR_NUM_GPR_REGS - 1; i >= 0; i--) {
+            if (!info->reg_used[i] && reg_written[i]) {
+                info->scratch_reg = DR_REG_START_GPR + (reg_id_t)i;
+                break;
+            }
+        }
+    }
+    if (info->scratch_reg == DR_REG_INVALID) {
+#ifdef X86_64
+        /* Blindly pick a scratch reg that works with our call-return assumptions.
+         * TODO i#2350: This should all go away once we run a local copy.
+         */
+        info->scratch_reg = DR_REG_R11;
+#else
+        REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Rseq sequence reads every general-purpose register");
+        ASSERT_NOT_REACHED();
+#endif
+    }
+    LOG(GLOBAL, LOG_LOADER, 3, "Rseq region @" PFX ": using %s as a scratch register\n",
+        info->start, reg_names[info->scratch_reg]);
+}
+
+static void
 rseq_process_entry(struct rseq_cs *entry, ssize_t load_offs)
 {
     LOG(GLOBAL, LOG_LOADER, 2,
@@ -162,6 +289,7 @@ rseq_process_entry(struct rseq_cs *entry, ssize_t load_offs)
     info->start = (app_pc)(ptr_uint_t)entry->start_ip + load_offs;
     info->end = info->start + entry->post_commit_offset;
     info->handler = (app_pc)(ptr_uint_t)entry->abort_ip + load_offs;
+    rseq_analyze_instructions(info);
     vmvector_add(d_r_rseq_areas, info->start, info->end, (void *)info);
     RSTATS_INC(num_rseq_regions);
     /* Check the start pc.  We don't take the effort to check for non-tags or

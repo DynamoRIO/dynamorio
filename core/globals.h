@@ -751,7 +751,7 @@ typedef struct {
     /* WARNING: if you change the offsets of any of these fields,
      * you must also change the offsets in <arch>/<arch.s>
      */
-    priv_mcontext_t mcontext; /* real machine context (in arch_exports.h) */
+    priv_mcontext_t mcontext; /* real machine context (in globals_shared.h + mcxtx.h) */
 #ifdef UNIX
     int dr_errno; /* errno used for DR (no longer used for app) */
 #endif
@@ -1103,6 +1103,10 @@ struct _dcontext_t {
     bool currently_stopped;
     /* This is a flag requesting that this thread go native. */
     bool go_native;
+#ifdef LINUX
+    /* State for handling restartable sequences ("rseq"). */
+    rseq_entry_state_t rseq_entry_state;
+#endif
 };
 
 /* sentinel value for dcontext_t* used to indicate

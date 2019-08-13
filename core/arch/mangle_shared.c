@@ -777,11 +777,55 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
 static bool
 mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next_instr)
 {
+    int i;
     app_pc pc = get_app_instr_xl8(instr);
     app_pc start, end, handler;
-    if (!rseq_get_region_info(pc, &start, &end, &handler)) {
+    bool *reg_used;
+    int reg_used_size;
+    reg_id_t scratch_reg;
+    if (!rseq_get_region_info(pc, &start, &end, &handler, &reg_used, &reg_used_size,
+                              (ushort *)&scratch_reg)) {
         ASSERT_NOT_REACHED(); /* Caller was supposed to check for overlap */
         return false;
+    }
+    /* We need to know the type of register so we can't completely abstract this. */
+    ASSERT(reg_used_size == DR_NUM_GPR_REGS);
+    int reg_used_count = 0;
+    for (i = 0; i < DR_NUM_GPR_REGS; i++) {
+        if (reg_used[i])
+            reg_used_count++;
+    }
+    if (pc == start && reg_used_count > 0) {
+        /* Preserve any input register state that will be re-set-up by the abort
+         * handler on a restart.  We directly invoke start on a restart to make it
+         * easier to use a copy of the code, and to support non-restarting handlers.
+         */
+        if (SCRATCH_ALWAYS_TLS()) {
+            PRE(ilist, instr,
+                instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG0_SLOT));
+            insert_get_mcontext_base(dcontext, ilist, instr, scratch_reg);
+        } else {
+            PRE(ilist, instr,
+                instr_create_save_to_dcontext(dcontext, scratch_reg, XAX_OFFSET));
+            insert_mov_immed_ptrsz(dcontext, (ptr_int_t)dcontext,
+                                   opnd_create_reg(scratch_reg), ilist, instr, NULL,
+                                   NULL);
+        }
+        for (i = 0; i < DR_NUM_GPR_REGS; i++) {
+            if (reg_used[i]) {
+                size_t offs = offsetof(dcontext_t, rseq_entry_state) + sizeof(reg_t) * i;
+                PRE(ilist, instr,
+                    XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(scratch_reg, offs),
+                                       opnd_create_reg(DR_REG_START_GPR + (reg_id_t)i)));
+            }
+        }
+        if (SCRATCH_ALWAYS_TLS()) {
+            PRE(ilist, instr,
+                instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG0_SLOT));
+        } else {
+            PRE(ilist, instr,
+                instr_create_restore_from_dcontext(dcontext, scratch_reg, XAX_OFFSET));
+        }
     }
     int len = instr_length(dcontext, instr);
     if (pc + len >= end) {
@@ -801,27 +845,59 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
         }
 #    ifdef X86
         /* We just ran the instrumented version of the rseq code, with the stores
-         * removed.  Now we need to invoke it again natively for real.  We have to
-         * invoke the abort handler, not the rseq start, as it may perform some setup.
+         * removed.  Now we need to invoke it again natively for real.  We would prefer
+         * to invoke the abort handler, as it may perform some setup, but in too many
+         * cases it is truly an "abort" handler that just exits rather than a "restart
+         * handler".  Furthermore, to support executing a copy of the code natively in
+         * order to provide guarantees on regaining control and not rely on call-return
+         * semantics, it is simpler to execute only the limited-scope rseq region.
+         * Thus, we target the start point.
          *
-         * XXX i#2350: We assume the code can handle "aborting" once every time and
-         * still make forward progress.  We document this in our Limitations section.
-         * We also ignore the flags for when to restart.  It's possible the app
+         * In case the abort handler does perform setup, we checkpoint and restore GPR
+         * register values.  Memory should remain as it was, due to nop-ing of stores.
+         *
+         * XXX i#2350: We ignore the flags for when to restart.  It's possible the app
          * disabled restarts on preempts and migrations and can't handle our restart
-         * here.
+         * here, but that seems pathological: we expect the rseq feature to be used
+         * for restarts rather than just a detection mechanism of preemption.
          */
         LOG(THREAD, LOG_INTERP, 4, "mangle: inserting call to native rseq " PFX "\n",
-            handler);
+            start);
         RSTATS_INC(num_rseq_native_calls_inserted);
+
+        /* Restore the entry state we preserved earlier.
+         * Normally we'd preserve scratch_reg but we're considering it dead currently
+         * (see below).
+         */
+        if (reg_used_count > 0) {
+            if (SCRATCH_ALWAYS_TLS())
+                insert_get_mcontext_base(dcontext, ilist, instr, scratch_reg);
+            else {
+                insert_mov_immed_ptrsz(dcontext, (ptr_int_t)dcontext,
+                                       opnd_create_reg(scratch_reg), ilist, instr, NULL,
+                                       NULL);
+            }
+            for (i = 0; i < DR_NUM_GPR_REGS; i++) {
+                if (reg_used[i]) {
+                    size_t offs =
+                        offsetof(dcontext_t, rseq_entry_state) + sizeof(reg_t) * i;
+                    PRE(ilist, instr,
+                        XINST_CREATE_load(dcontext,
+                                          opnd_create_reg(DR_REG_START_GPR + (reg_id_t)i),
+                                          OPND_CREATE_MEMPTR(scratch_reg, offs)));
+                }
+            }
+        }
+
         /* For simplicity in this first version of the code, we assume call-return
-         * semantics for the abort handler + rseq region.  We create an extra frame
+         * semantics for the rseq region.  We create an extra frame
          * and assume that causes no problems.  We assume the native invocation will
          * come back to us.
-         * TODO i#2350: Make a copy of the rseq code and append a "return" as a jmp*
-         * through TLS.  Make a copy of the abort handler too.  Decode it and ensure
-         * it transitions directly to the rseq code (if not, bail).  "Call" the
-         * copied abort handler+rseq by setting the retaddr in TLS and jumping.  Then
-         * we have a guaranteed return and no extra frame, with verified assumptions.
+         * TODO i#2350: Make a local copy of the rseq code so we can arrange for a
+         * guaranteed return on (any) exit from the region, and use relative jumps to
+         * avoid needing a scratch register (though on x86 we could call through TLS).
+         * We would transform all mid-point exits into capture points.  This gets rid
+         * of the call-return assumptions and the extra frame.
          */
         instr_t check;
         instr_init(dcontext, &check);
@@ -838,8 +914,14 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
          * of future drreg optimizations, etc.  Do we need new interface features, or
          * do we live with a fake app jump or sthg?
          */
-        /* A direct call may not reach so we clobber a scratch register. */
-        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)handler, opnd_create_reg(DR_REG_RAX),
+        /* A direct call may not reach so we clobber a scratch register.
+         * This is *not* an input to the sequence, according to our analysis.
+         * We try to pick a register written in the sequence to avoid messing up a
+         * live value post-sequence but this is not perfect.  Once we switch to a
+         * local copy this should go away (if we can mangle the stolen register in
+         * the copy).
+         */
+        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)start, opnd_create_reg(scratch_reg),
                                ilist, next_instr, NULL, NULL);
         /* Set up the frame and stack alignment.  We assume the rseq code was a leaf
          * function and that rsp is 16-aligned now.
@@ -852,12 +934,15 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
                                                   OPND_CREATE_INT32(8)));
         instrlist_meta_preinsert(
             ilist, next_instr,
-            INSTR_CREATE_call_ind(dcontext, opnd_create_reg(DR_REG_RAX)));
+            INSTR_CREATE_call_ind(dcontext, opnd_create_reg(scratch_reg)));
         instrlist_meta_preinsert(ilist, next_instr,
                                  XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_RSP),
                                                   OPND_CREATE_INT32(8)));
 #    else
-        /* TODO i#2350: Add non-x86 support. */
+        /* TODO i#2350: Add non-x86 support.  We need to pay particular attention
+         * to the stolen register.  If we do a local copy (with no callouts) we could
+         * mangle it.
+         */
         REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
                                     get_application_pid(),
                                     "Rseq is not yet supported for non-x86");
@@ -872,11 +957,6 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
      * at the same time.
      */
     if (!instr_writes_memory(instr))
-        return false;
-    /* We allow a call to a helper function, since this happens in some apps we target.
-     * The helper is assumed to have no side effects.
-     */
-    if (instr_is_call(instr))
         return false;
     /* XXX i#2350: We want to turn just the store portion of the instr into a nop
      * and keep any register side effects.  That is complex, however.  For now we

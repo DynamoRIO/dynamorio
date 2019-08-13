@@ -368,8 +368,6 @@ typedef enum {
 #    define SHARED_GENCODE_MATCH_THREAD(dc) get_shared_gencode(dc)
 #endif
 
-#define NUM_GP_REGS DR_NUM_GPR_REGS
-
 /* Information about each individual clean call invocation site.
  * The whole struct is set to 0 at init time.
  */

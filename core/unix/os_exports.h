@@ -539,7 +539,9 @@ at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret
 extern vm_area_vector_t *d_r_rseq_areas;
 
 bool
-rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT);
+rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT,
+                     bool **reg_used OUT, int *reg_used_size OUT,
+                     ushort /*reg_id_t*/ *scratch OUT);
 #endif
 
 #endif /* _OS_EXPORTS_H_ */
