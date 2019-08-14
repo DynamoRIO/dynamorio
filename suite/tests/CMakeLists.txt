@@ -3523,7 +3523,7 @@ if (UNIX)
     link_with_pthread(api.rseq)
     append_property_string(TARGET api.rseq COMPILE_FLAGS "-DRSEQ_TEST_ATTACH")
     # Test non-compliant code with our workaround flag.
-    tobuild_ops(linux.rseq_noncompliant linux/rseq_noncompliant.c "-disable_rseq" "")
+    tobuild_ops(linux.rseq_disable linux/rseq_disable.c "-disable_rseq" "")
   endif ()
 else (UNIX)
   add_exe(win32.infloop win32/infloop.c)

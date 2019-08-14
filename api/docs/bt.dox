@@ -1315,6 +1315,8 @@ This run-twice approach is subject to the following limitations:
   called the first time it is executed.
 - Each memory store instruction inside an rseq region must have no other side
   effects: it must only write to memory and not to any registers.
+  For example, a push instruction which both writes to memory and the
+  stack pointer register is not supported.
 - Each rseq region must end with a return instruction, and each abort handler
   plus rseq code must combine into a callee following normal call-return
   semantics.
