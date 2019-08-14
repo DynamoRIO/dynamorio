@@ -1618,6 +1618,9 @@ OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
     OPTION_DEFAULT(bool, hook_vsyscall, true, "hook vdso vsyscall if possible")
     /* PR 356503: workaround to allow clients to make syscalls */
     OPTION_ALIAS(sysenter_is_int80, hook_vsyscall, false, STATIC, OP_PCACHE_GLOBAL)
+    OPTION_DEFAULT(bool, disable_rseq, false, "cause the restartable sequence SYS_rseq "
+                   "system call to return -ENOSYS as a workaround for rseq features not "
+                   "supportable by DR")
 #endif
 #ifdef UNIX
     OPTION_DEFAULT(bool, restart_syscalls, true,

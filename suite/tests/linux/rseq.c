@@ -61,7 +61,7 @@
 
 #define RSEQ_SIG 0x90909090 /* nops to disasm nicely */
 
-/* This cannot be a stack-local variable, as the kernel will force SIGSEGV on a syscall
+/* This cannot be a stack-local variable, as the kernel will force SIGSEGV
  * if it can't read this struct.  And for multiple threads it should be in TLS.
  */
 static __thread volatile struct rseq rseq_tls;
