@@ -329,6 +329,12 @@ enum {
     OPSZ_32_of_64,        /**< 256 bits: half of ZMM. */
     OPSZ_4_of_32_evex64,  /**< 32 bits: can be part of YMM or ZMM register. */
     OPSZ_8_of_32_evex64,  /**< 64 bits: can be part of YMM or ZMM register. */
+    OPSZ_4_dimode8,  /**< 4 or 8 bytes, but not based on rex prefix, instead dependent
+                      * on 32-bit/64-bit mode.
+                      */
+    OPSZ_8_dimode16, /**< 8 or 16 bytes, but not based on rex prefix, instead dependent
+                      * on 32-bit/64-bit mode.
+                      */
 #ifdef AVOID_API_EXPORT
 /* Add new size here.  Also update size_names[] in decode_shared.c along with
  * the size routines in opnd_shared.c.

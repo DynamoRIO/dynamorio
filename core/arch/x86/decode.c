@@ -285,6 +285,8 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
         return (TEST(PREFIX_EVEX_LL, di->prefixes)
                     ? OPSZ_8
                     : (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_4 : OPSZ_2));
+    case OPSZ_4_dimode8: return IF_X64_ELSE(OPSZ_8, OPSZ_4);
+    case OPSZ_8_dimode16: return IF_X64_ELSE(OPSZ_16, OPSZ_8);
     }
 
     return sz;
@@ -2168,7 +2170,10 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     }
     case TYPE_T_REG: {
         /* MPX: modrm.reg selects bnd register */
-        *opnd = opnd_create_reg(decode_reg(DECODE_REG_REG, di, optype, opsize));
+        reg_id_t reg = decode_reg(DECODE_REG_REG, di, optype, opsize);
+        if (reg == REG_NULL)
+            return false;
+        *opnd = opnd_create_reg(reg);
         return true;
     }
     case TYPE_T_MODRM: return decode_modrm(di, optype, opsize, NULL, opnd);
