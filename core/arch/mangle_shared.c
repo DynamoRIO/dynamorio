@@ -779,7 +779,7 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
 {
     app_pc pc = get_app_instr_xl8(instr);
     app_pc start, end, handler;
-    if (!vmvector_lookup_data(d_r_rseq_areas, pc, &start, &end, (void **)&handler)) {
+    if (!rseq_get_region_info(pc, &start, &end, &handler)) {
         ASSERT_NOT_REACHED(); /* Caller was supposed to check for overlap */
         return false;
     }

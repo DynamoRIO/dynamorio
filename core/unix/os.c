@@ -198,6 +198,10 @@ char **our_environ;
 #    include "instrument.h"
 #endif
 
+#ifdef LINUX
+#    include "rseq_linux.h"
+#endif
+
 #ifdef MACOS
 #    define SYSNUM_EXIT_PROCESS SYS_exit
 #    define SYSNUM_EXIT_THREAD SYS_bsdthread_terminate
@@ -917,6 +921,9 @@ d_r_os_init(void)
      */
     init_android_version();
 #endif
+#ifdef LINUX
+    d_r_rseq_init();
+#endif
 }
 
 /* called before any logfiles are opened */
@@ -1259,6 +1266,9 @@ find_stack_bottom()
 void
 os_slow_exit(void)
 {
+#ifdef LINUX
+    d_r_rseq_exit();
+#endif
     d_r_signal_exit();
     memquery_exit();
     ksynch_exit();
@@ -7555,7 +7565,7 @@ pre_system_call(dcontext_t *dcontext)
             execute_syscall = false;
         } else {
             /* Lazy rseq handling. */
-            module_locate_rseq_regions();
+            rseq_locate_rseq_regions();
         }
         break;
 #endif
@@ -9914,7 +9924,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
 #ifdef LINUX
     /* Check this thread for rseq in between setup and start. */
     if (rseq_is_registered_for_current_thread())
-        module_locate_rseq_regions();
+        rseq_locate_rseq_regions();
 #endif
 
     /* Find tids for which we have no thread record, meaning they are not under
@@ -10119,7 +10129,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
      * regions as rseq when the rseq syscall is never set up.
      */
     if (rseq_is_registered_for_current_thread())
-        module_locate_rseq_regions();
+        rseq_locate_rseq_regions();
 #endif
 
     /* Start interpreting from the signal context. */

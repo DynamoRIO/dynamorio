@@ -344,6 +344,7 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/native_elf.c)
     # XXX i#1286: should be split into nudge_linux.c and nudge_macos.c
     set(OS_SRCS ${OS_SRCS} unix/nudgesig.c)
+    set(OS_SRCS ${OS_SRCS} unix/rseq_linux.c)
   elseif (APPLE)
     set(OS_SRCS ${OS_SRCS} unix/loader_macos.c)
     set(OS_SRCS ${OS_SRCS} unix/memquery_macos.c)
