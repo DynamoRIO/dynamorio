@@ -1431,8 +1431,8 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         /* TYPE_K_REG, TYPE_K_MODRM_R, TYPE_K_MODRM (can be mem addr) and TYPE_K_VEX
          * are k registers used in AVX-512 VEX encoded instructions with implicit size
          * given by the opcode.
-         * TODO i#1312: reg_size_ok() should consume the opnd, and validate its size. At
-         * the same time, the INSTR_CREATE_ macros should consume a size in addition to
+         * TODO i#1312: reg_size_ok() should consume the reg opnd, and validate its size.
+         * At the same time, the INSTR_CREATE_ macros should consume a size in addition to
          * the mask register. Currently, mask register sizes are not checked properly and
          * default to OPSZ_64.
          */
