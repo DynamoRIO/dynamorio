@@ -117,7 +117,6 @@ test_rseq(void)
         "2:\n\t"
         "mov %3, %%rax\n\t"
         "mov %%rax, %1\n\t"
-        "addl $1, %2\n\t"
 
         /* Post-commit. */
         "3:\n\t"
@@ -127,6 +126,7 @@ test_rseq(void)
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
+        "addl $1, %2\n\t"
         "jmp 6b\n\t"
 
         /* Clear the ptr. */

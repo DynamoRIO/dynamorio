@@ -162,9 +162,6 @@ rseq_process_entry(struct rseq_cs *entry, ssize_t load_offs)
     info->start = (app_pc)(ptr_uint_t)entry->start_ip + load_offs;
     info->end = info->start + entry->post_commit_offset;
     info->handler = (app_pc)(ptr_uint_t)entry->abort_ip + load_offs;
-#if 0 // NOCHECK
-    analyze_gpr_inputs(&info->reg_used);
-#endif
     vmvector_add(d_r_rseq_areas, info->start, info->end, (void *)info);
     RSTATS_INC(num_rseq_regions);
     /* Check the start pc.  We don't take the effort to check for non-tags or
@@ -182,62 +179,15 @@ rseq_process_entry(struct rseq_cs *entry, ssize_t load_offs)
     }
 }
 
-/* Returns whether successfully searched for rseq data (not whether found rseq data). */
-static bool
-rseq_process_module(module_area_t *ma, bool at_map)
+static void
+rseq_process_elf_sections(module_area_t *ma, bool at_map,
+                          ELF_SECTION_HEADER_TYPE *sec_hdr_start, const char *strtab,
+                          ssize_t load_offs)
 {
-    bool res = false;
-    ASSERT(is_elf_so_header(ma->start, ma->end - ma->start));
-    ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)ma->start;
-    ASSERT(elf_hdr->e_shentsize == sizeof(ELF_SECTION_HEADER_TYPE));
-    int fd = INVALID_FILE;
-    byte *sec_map = NULL, *str_map = NULL;
-    size_t sec_size = 0, str_size = 0;
-    ELF_SECTION_HEADER_TYPE *sec_hdr = NULL;
-    char *strtab;
-    ssize_t load_offs = ma->start - ma->os_data.base_address;
-    if (at_map && elf_hdr->e_shoff + ma->start < ma->end) {
-        sec_map = elf_hdr->e_shoff + ma->start;
-        sec_hdr = (ELF_SECTION_HEADER_TYPE *)sec_map;
-        /* We assume strtab is there too. */
-        strtab = (char *)(ma->start + sec_hdr[elf_hdr->e_shstrndx].sh_offset);
-        if (strtab > (char *)ma->end)
-            goto rseq_process_module_cleanup;
-    } else {
-        /* The section headers are not mapped in.  Unfortunately this is the common
-         * case: they are typically at the end of the file.  For this reason, we delay
-         * calling this function until we see the app use rseq.
-         */
-        if (ma->full_path == NULL)
-            goto rseq_process_module_cleanup;
-        fd = os_open(ma->full_path, OS_OPEN_READ);
-        if (fd == INVALID_FILE)
-            goto rseq_process_module_cleanup;
-        off_t offs = ALIGN_BACKWARD(elf_hdr->e_shoff, PAGE_SIZE);
-        sec_size =
-            ALIGN_FORWARD(elf_hdr->e_shoff + elf_hdr->e_shnum * elf_hdr->e_shentsize,
-                          PAGE_SIZE) -
-            offs;
-        sec_map =
-            os_map_file(fd, &sec_size, offs, NULL, MEMPROT_READ, MAP_FILE_COPY_ON_WRITE);
-        if (sec_map == NULL)
-            goto rseq_process_module_cleanup;
-        sec_hdr = (ELF_SECTION_HEADER_TYPE *)(sec_map + elf_hdr->e_shoff - offs);
-        /* We also need the section header string table. */
-        offs = ALIGN_BACKWARD(sec_hdr[elf_hdr->e_shstrndx].sh_offset, PAGE_SIZE);
-        str_size = ALIGN_FORWARD(sec_hdr[elf_hdr->e_shstrndx].sh_offset +
-                                     sec_hdr[elf_hdr->e_shstrndx].sh_size,
-                                 PAGE_SIZE) -
-            offs;
-        str_map =
-            os_map_file(fd, &str_size, offs, NULL, MEMPROT_READ, MAP_FILE_COPY_ON_WRITE);
-        if (str_map == NULL)
-            goto rseq_process_module_cleanup;
-        strtab = (char *)(str_map + sec_hdr[elf_hdr->e_shstrndx].sh_offset - offs);
-    }
     bool found_array = false;
     uint i;
-    ELF_SECTION_HEADER_TYPE *sec_hdr_start = sec_hdr;
+    ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)ma->start;
+    ELF_SECTION_HEADER_TYPE *sec_hdr = sec_hdr_start;
     /* The section entries on disk need load_offs.  The rseq entries in memory are
      * relocated and only need the offset if relocations have not yet been applied.
      */
@@ -315,6 +265,62 @@ rseq_process_module(module_area_t *ma, bool at_map)
             ++sec_hdr;
         }
     }
+}
+
+/* Returns whether successfully searched for rseq data (not whether found rseq data). */
+static bool
+rseq_process_module(module_area_t *ma, bool at_map)
+{
+    bool res = false;
+    ASSERT(is_elf_so_header(ma->start, ma->end - ma->start));
+    ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)ma->start;
+    ASSERT(elf_hdr->e_shentsize == sizeof(ELF_SECTION_HEADER_TYPE));
+    int fd = INVALID_FILE;
+    byte *sec_map = NULL, *str_map = NULL;
+    size_t sec_size = 0, str_size = 0;
+    ELF_SECTION_HEADER_TYPE *sec_hdr = NULL;
+    char *strtab;
+    ssize_t load_offs = ma->start - ma->os_data.base_address;
+    if (at_map && elf_hdr->e_shoff + ma->start < ma->end) {
+        sec_map = elf_hdr->e_shoff + ma->start;
+        sec_hdr = (ELF_SECTION_HEADER_TYPE *)sec_map;
+        /* We assume strtab is there too. */
+        strtab = (char *)(ma->start + sec_hdr[elf_hdr->e_shstrndx].sh_offset);
+        if (strtab > (char *)ma->end)
+            goto rseq_process_module_cleanup;
+    } else {
+        /* The section headers are not mapped in.  Unfortunately this is the common
+         * case: they are typically at the end of the file.  For this reason, we delay
+         * calling this function until we see the app use rseq.
+         */
+        if (ma->full_path == NULL)
+            goto rseq_process_module_cleanup;
+        fd = os_open(ma->full_path, OS_OPEN_READ);
+        if (fd == INVALID_FILE)
+            goto rseq_process_module_cleanup;
+        off_t offs = ALIGN_BACKWARD(elf_hdr->e_shoff, PAGE_SIZE);
+        sec_size =
+            ALIGN_FORWARD(elf_hdr->e_shoff + elf_hdr->e_shnum * elf_hdr->e_shentsize,
+                          PAGE_SIZE) -
+            offs;
+        sec_map =
+            os_map_file(fd, &sec_size, offs, NULL, MEMPROT_READ, MAP_FILE_COPY_ON_WRITE);
+        if (sec_map == NULL)
+            goto rseq_process_module_cleanup;
+        sec_hdr = (ELF_SECTION_HEADER_TYPE *)(sec_map + elf_hdr->e_shoff - offs);
+        /* We also need the section header string table. */
+        offs = ALIGN_BACKWARD(sec_hdr[elf_hdr->e_shstrndx].sh_offset, PAGE_SIZE);
+        str_size = ALIGN_FORWARD(sec_hdr[elf_hdr->e_shstrndx].sh_offset +
+                                     sec_hdr[elf_hdr->e_shstrndx].sh_size,
+                                 PAGE_SIZE) -
+            offs;
+        str_map =
+            os_map_file(fd, &str_size, offs, NULL, MEMPROT_READ, MAP_FILE_COPY_ON_WRITE);
+        if (str_map == NULL)
+            goto rseq_process_module_cleanup;
+        strtab = (char *)(str_map + sec_hdr[elf_hdr->e_shstrndx].sh_offset - offs);
+    }
+    rseq_process_elf_sections(ma, at_map, sec_hdr, strtab, load_offs);
     res = true;
 rseq_process_module_cleanup:
     if (str_size != 0)
@@ -351,6 +357,9 @@ rseq_locate_rseq_regions(void)
 {
     if (rseq_enabled)
         return;
+    /* This is a global operation, but the trigger could be hit by two threads at once,
+     * thus requiring synchronization.
+     */
     d_r_mutex_lock(&rseq_trigger_lock);
     if (rseq_enabled) {
         d_r_mutex_unlock(&rseq_trigger_lock);
