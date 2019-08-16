@@ -1042,17 +1042,6 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
         }
         return true;
     }
-    if (optype == TYPE_K_MODRM || optype == TYPE_K_MODRM_R || optype == TYPE_K_VEX) {
-        return (opsize == OPSZ_1 || opsize == OPSZ_2 || opsize == OPSZ_4 ||
-                opsize == OPSZ_8);
-    } else if (optype == TYPE_K_REG) {
-        return (opsize == OPSZ_1b || opsize == OPSZ_1 || opsize == OPSZ_2 ||
-                opsize == OPSZ_4 || opsize == OPSZ_8);
-    } else if (optype == TYPE_K_EVEX) {
-        return (opsize == OPSZ_1b || opsize == OPSZ_2b || opsize == OPSZ_4b ||
-                opsize == OPSZ_1 || opsize == OPSZ_2 || opsize == OPSZ_4 ||
-                opsize == OPSZ_8);
-    }
     return false;
 }
 
@@ -1442,29 +1431,25 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         /* TYPE_K_REG, TYPE_K_MODRM_R, TYPE_K_MODRM (can be mem addr) and TYPE_K_VEX
          * are k registers used in AVX-512 VEX encoded instructions with implicit size
          * given by the opcode.
+         * TODO i#1312: reg_size_ok() should consume the opnd, and validate its size. At
+         * the same time, the INSTR_CREATE_ macros should consume a size in addition to
+         * the mask register. Currently, mask register sizes are not checked properly and
+         * default to OPSZ_64.
          */
-        return (opnd_is_reg(opnd) &&
-                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
-                reg_is_opmask(opnd_get_reg(opnd)));
+        return (opnd_is_reg(opnd) && reg_is_opmask(opnd_get_reg(opnd)));
     case TYPE_K_MODRM:
         if (mem_size_ok(di, opnd, optype, opsize))
             return true;
         /* fall through */
     case TYPE_K_MODRM_R:
         /* Same comment above. */
-        return (opnd_is_reg(opnd) &&
-                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
-                reg_is_opmask(opnd_get_reg(opnd)));
+        return (opnd_is_reg(opnd) && reg_is_opmask(opnd_get_reg(opnd)));
     case TYPE_K_VEX:
         /* Same comment above. */
-        return (opnd_is_reg(opnd) &&
-                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
-                reg_is_opmask(opnd_get_reg(opnd)));
+        return (opnd_is_reg(opnd) && reg_is_opmask(opnd_get_reg(opnd)));
     case TYPE_K_EVEX:
         /* Same comment above. */
-        return (opnd_is_reg(opnd) &&
-                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
-                reg_is_opmask(opnd_get_reg(opnd)));
+        return (opnd_is_reg(opnd) && reg_is_opmask(opnd_get_reg(opnd)));
     case TYPE_T_MODRM:
         return (mem_size_ok(di, opnd, optype, opsize) ||
                 (opnd_is_reg(opnd) &&
