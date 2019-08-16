@@ -754,11 +754,6 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_16:
             if (X64_MODE(di) &&
                 (size_template == OPSZ_8_rex16 || size_template == OPSZ_8_rex16_short4)) {
-                /* XXX #3581: when encoding and the operand is a TYPE_T_REG or
-                 * TYPE_T_MODRM register, this causes a rex prefix. The rex prefix is
-                 * ignored for the MPX instruction that are affected, but it is not
-                 * necessary.
-                 */
                 di->prefixes |= PREFIX_REX_W; /* rex.w trumps data prefix */
                 return true;
             }
