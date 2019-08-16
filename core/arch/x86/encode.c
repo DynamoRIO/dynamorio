@@ -1473,7 +1473,6 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
                  reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
                  /* implies reg_rm_selectable() */
                  reg_is_bnd(opnd_get_reg(opnd))));
-        CLIENT_ASSERT(false, "TODO");
         return false;
     case TYPE_T_REG:
         return (opnd_is_reg(opnd) &&
