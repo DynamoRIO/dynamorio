@@ -1791,10 +1791,10 @@ const instr_info_t * const op_instr[] =
 #define Ue TYPE_V_MODRM, OPSZ_16_vex32_evex64
 
 /* MPX additions, own codes */
-#define TRq_dq TYPE_T_REG, OPSZ_8_dimode16
-#define TMq_dq TYPE_T_MODRM, OPSZ_8_dimode16
-#define ETy  TYPE_E, OPSZ_4_dimode8
-#define MTd_q  TYPE_M, OPSZ_4_dimode8
+#define TRq_dq TYPE_T_REG, OPSZ_8x16
+#define TMq_dq TYPE_T_MODRM, OPSZ_8x16
+#define ETy  TYPE_E, OPSZ_4x8
+#define MTd_q  TYPE_M, OPSZ_4x8
 
 /* my own codes
  * size m = 32 or 16 bit depending on addr size attribute

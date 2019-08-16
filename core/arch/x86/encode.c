@@ -556,6 +556,7 @@ resolve_var_x64_size(decode_info_t *di /*x86_mode is IN*/, opnd_size_t sz,
                     ? (proc_get_vendor() == VENDOR_INTEL ? OPSZ_8 : OPSZ_8_short2)
                     : OPSZ_4_short2);
     case OPSZ_6x10: return (X64_MODE(di) ? OPSZ_10 : OPSZ_6);
+    case OPSZ_8x16: return (X64_MODE(di) ? OPSZ_16 : OPSZ_8);
     }
     return sz;
 }
@@ -690,8 +691,6 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                     di->prefixes |= PREFIX_VEX_L;
                 return true;
             }
-            if (!X64_MODE(di) && (size_template == OPSZ_4_dimode8))
-                return true;
             return false;
         case OPSZ_6:
             if (size_template == OPSZ_6_irex10_short4) {
@@ -738,10 +737,6 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 di->prefixes &= ~PREFIX_VEX_L;
                 return true;
             }
-            if (!X64_MODE(di) && (size_template == OPSZ_8_dimode16))
-                return true;
-            if (X64_MODE(di) && (size_template == OPSZ_4_dimode8))
-                return true;
             return false;
         case OPSZ_10:
             if (X64_MODE(di) && size_template == OPSZ_6_irex10_short4 &&
@@ -786,8 +781,6 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 di->prefixes &= ~PREFIX_VEX_L;
                 return true;
             }
-            if (X64_MODE(di) && (size_template == OPSZ_8_dimode16))
-                return true;
             return false; /* no matching varsz, must be exact match */
         case OPSZ_14:
             if (size_template == OPSZ_28_short14) {
@@ -1065,7 +1058,7 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
                 opsize == OPSZ_8);
     }
     if (optype == TYPE_T_REG || optype == TYPE_T_MODRM) {
-        return opsize == OPSZ_8_dimode16;
+        return opsize == OPSZ_8x16;
     }
     return false;
 }

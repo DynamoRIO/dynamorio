@@ -160,10 +160,6 @@ extern uint android_tls_base_offs;
 #    define USR_TLS_COPROC_15 15
 #endif
 
-#ifdef LINUX
-extern vm_area_vector_t *d_r_rseq_areas;
-#endif
-
 void *
 d_r_get_tls(ushort tls_offs);
 void
@@ -537,4 +533,13 @@ send_nudge_signal(process_id_t pid, uint action_mask, client_id_t client_id,
 /* source_fragment is the start pc of the fragment to be run under DR */
 bool
 at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret_imm);
+
+/* rseq.c */
+#ifdef LINUX
+extern vm_area_vector_t *d_r_rseq_areas;
+
+bool
+rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT);
+#endif
+
 #endif /* _OS_EXPORTS_H_ */

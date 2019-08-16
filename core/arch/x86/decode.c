@@ -285,8 +285,7 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
         return (TEST(PREFIX_EVEX_LL, di->prefixes)
                     ? OPSZ_8
                     : (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_4 : OPSZ_2));
-    case OPSZ_4_dimode8: return IF_X64_ELSE(OPSZ_8, OPSZ_4);
-    case OPSZ_8_dimode16: return IF_X64_ELSE(OPSZ_16, OPSZ_8);
+    case OPSZ_8x16: return IF_X64_ELSE(OPSZ_16, OPSZ_8);
     }
 
     return sz;
