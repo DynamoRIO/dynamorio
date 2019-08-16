@@ -1044,7 +1044,7 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
     }
     /* XXX i#1312: we haven't really resolved the register's size. The mask register
      * size is dependent on the machine's support for certain AVX-512 derivatives. We may
-     * want to look at XCR0 bits and resolve the size in a new function similar to
+     * want to look at cpuid bits and resolve the size in a new function similar to
      * resolve_var_x64_size(). At the same time, we would want to change the mask register
      * sizes in the decode table reflecting a simple variable size for all instructions.
      */
