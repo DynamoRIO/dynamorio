@@ -1793,8 +1793,8 @@ const instr_info_t * const op_instr[] =
 /* MPX additions, own codes */
 #define TRq_dq TYPE_T_REG, OPSZ_8x16
 #define TMq_dq TYPE_T_MODRM, OPSZ_8x16
-#define ETy  TYPE_E, OPSZ_4x8
-#define MTd_q  TYPE_M, OPSZ_4x8
+#define Er  TYPE_E, OPSZ_4x8
+#define Mr  TYPE_M, OPSZ_4x8
 
 /* my own codes
  * size m = 32 or 16 bit depending on addr size attribute
@@ -5767,9 +5767,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf2383a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 186 */
     {OP_bndldx,    0x0f1a10, "bndldx", TRq_dq, xx, Mm, xx, xx, mrm, x, END_LIST},
-    {OP_bndcl,   0xf30f1a10, "bndcl", TRq_dq, xx, ETy, xx, xx, mrm, x, END_LIST},
+    {OP_bndcl,   0xf30f1a10, "bndcl", TRq_dq, xx, Er, xx, xx, mrm, x, END_LIST},
     {OP_bndmov,  0x660f1a10, "bndmov", TRq_dq, xx, TMq_dq, xx, xx, mrm, x, tpe[187][2]},
-    {OP_bndcu,   0xf20f1a10, "bndcu", TRq_dq, xx, ETy, xx, xx, mrm, x, END_LIST},
+    {OP_bndcu,   0xf20f1a10, "bndcu", TRq_dq, xx, Er, xx, xx, mrm, x, END_LIST},
     {INVALID,      0x0f1a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf30f1a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x660f1a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5780,9 +5780,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20f1a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 187 */
     {OP_bndstx,    0x0f1b10, "bndstx", Mm, xx, TRq_dq, xx, xx, mrm, x, END_LIST},
-    {OP_bndmk,   0xf30f1b10, "bndmk", TRq_dq, xx, MTd_q, xx, xx, mrm, x, END_LIST},
+    {OP_bndmk,   0xf30f1b10, "bndmk", TRq_dq, xx, Mr, xx, xx, mrm, x, END_LIST},
     {OP_bndmov,  0x660f1b10, "bndmov", TMq_dq, xx, TRq_dq, xx, xx, mrm, x, END_LIST},
-    {OP_bndcn,   0xf20f1b10, "bndcn", TRq_dq, xx, ETy, xx, xx, mrm, x, END_LIST},
+    {OP_bndcn,   0xf20f1b10, "bndcn", TRq_dq, xx, Er, xx, xx, mrm, x, END_LIST},
     {INVALID,      0x0f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf30f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x660f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
