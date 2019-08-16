@@ -618,7 +618,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
      * these values will hit the default assert) */
     CLIENT_ASSERT(size_template != OPSZ_6x10 && size_template != OPSZ_4x8_short2 &&
                       size_template != OPSZ_4x8_short2xi8 &&
-                      size_template != OPSZ_4_short2xi4 && size_template != OPSZ_4x8,
+                      size_template != OPSZ_4_short2xi4 && size_template != OPSZ_4x8 &&
+                      size_template != OPSZ_8x16,
                   "internal encoding error in size_ok()");
 
     /* register size checks go through reg_size_ok, so collapse sub-reg

@@ -163,7 +163,8 @@ is_variable_size(opnd_size_t sz)
     case OPSZ_12_rex40_short6:
     case OPSZ_16_vex32:
     case OPSZ_16_vex32_evex64:
-    case OPSZ_vex32_evex64: return true;
+    case OPSZ_vex32_evex64:
+    case OPSZ_8x16: return true;
     default: return false;
     }
 }
