@@ -461,7 +461,8 @@ enum {
     TYPE_T_REG,                  /* modrm.reg selects bnd0-bnd3 */
     TYPE_T_MODRM,                /* modrm.rm selects bnd0-bnd3 register or 8 bytes
                                   * memory in 32-bit mode, or 16 bytes memory in 64-bit
-                                  * mode. */
+                                  * mode.
+                                  */
     /* when adding new types, update type_names[] in encode.c */
     TYPE_BEYOND_LAST_ENUM,
 };
