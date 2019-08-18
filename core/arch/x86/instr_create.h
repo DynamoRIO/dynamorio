@@ -1514,6 +1514,14 @@
     instr_create_1dst_1src((dc), OP_vpbroadcastmb2q, (d), (s))
 #define INSTR_CREATE_vpbroadcastmw2d(dc, d, s) \
     instr_create_1dst_1src((dc), OP_vpbroadcastmw2d, (d), (s))
+/* MPX */
+#define INSTR_CREATE_bndmov(dc, d, s) instr_create_1dst_1src((dc), OP_bndmov, (d), (s))
+#define INSTR_CREATE_bndcl(dc, d, s) instr_create_1dst_1src((dc), OP_bndcl, (d), (s))
+#define INSTR_CREATE_bndcu(dc, d, s) instr_create_1dst_1src((dc), OP_bndcu, (d), (s))
+#define INSTR_CREATE_bndcn(dc, d, s) instr_create_1dst_1src((dc), OP_bndcn, (d), (s))
+#define INSTR_CREATE_bndmk(dc, d, s) instr_create_1dst_1src((dc), OP_bndmk, (d), (s))
+#define INSTR_CREATE_bndldx(dc, d, s) instr_create_1dst_1src((dc), OP_bndldx, (d), (s))
+#define INSTR_CREATE_bndstx(dc, d, s) instr_create_1dst_1src((dc), OP_bndstx, (d), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
