@@ -1579,6 +1579,15 @@ enum {
     /* 1408 */ OP_sha256msg2,  /**< IA-32/AMD64 SHA OP_sha2msg2 opcode. */
     /* 1409 */ OP_sha256rnds2, /**< IA-32/AMD64 SHA OP_sha2rnds2 opcode. */
 
+    /* Intel MPX extensions */
+    /* 1410 */ OP_bndcl,  /**< IA-32/AMD64 MPX OP_bndcl opcode. */
+    /* 1411 */ OP_bndcn,  /**< IA-32/AMD64 MPX OP_bndcn opcode. */
+    /* 1412 */ OP_bndcu,  /**< IA-32/AMD64 MPX OP_bndcu opcode. */
+    /* 1413 */ OP_bndldx, /**< IA-32/AMD64 MPX OP_bndldx opcode. */
+    /* 1414 */ OP_bndmk,  /**< IA-32/AMD64 MPX OP_bndmk opcode. */
+    /* 1415 */ OP_bndmov, /**< IA-32/AMD64 MPX OP_bndmov opcode. */
+    /* 1416 */ OP_bndstx, /**< IA-32/AMD64 MPX OP_bndstx opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
