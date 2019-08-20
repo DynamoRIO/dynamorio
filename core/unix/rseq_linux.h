@@ -63,4 +63,7 @@ rseq_locate_rseq_regions(void);
 void
 rseq_module_init(module_area_t *ma, bool at_map);
 
+void
+rseq_process_syscall(dcontext_t *dcontext);
+
 #endif /* _RSEQ_H_ */

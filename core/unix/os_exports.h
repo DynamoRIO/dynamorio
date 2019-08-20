@@ -541,6 +541,29 @@ extern vm_area_vector_t *d_r_rseq_areas;
 bool
 rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT,
                      bool **reg_written OUT, int *reg_written_size OUT);
+
+int
+rseq_get_tls_ptr_offset(void);
+
+int
+rseq_get_signature(void);
+
+int
+rseq_get_rseq_cs_alignment(void);
+
+byte *
+rseq_get_rseq_cs_alloc(byte **rseq_cs_aligned OUT);
+
+/* The first parameter is the value returned by rseq_get_rseq_cs_alloc(). */
+void
+rseq_record_rseq_cs(byte *rseq_cs_alloc, fragment_t *f, cache_pc start, cache_pc end,
+                    cache_pc abort);
+void
+rseq_remove_fragment(dcontext_t *dcontext, fragment_t *f);
+
+void
+rseq_shared_fragment_flushtime_update(dcontext_t *dcontext);
+
 #endif
 
 #endif /* _OS_EXPORTS_H_ */

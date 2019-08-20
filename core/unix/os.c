@@ -922,7 +922,8 @@ d_r_os_init(void)
     init_android_version();
 #endif
 #ifdef LINUX
-    d_r_rseq_init();
+    if (!standalone_library)
+        d_r_rseq_init();
 #endif
 }
 
@@ -1267,7 +1268,8 @@ void
 os_slow_exit(void)
 {
 #ifdef LINUX
-    d_r_rseq_exit();
+    if (!standalone_library)
+        d_r_rseq_exit();
 #endif
     d_r_signal_exit();
     memquery_exit();
@@ -1850,7 +1852,8 @@ get_app_segment_base(uint seg)
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
 #endif /* X86 */
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false) &&
+        first_thread_tls_initialized && !last_thread_tls_exited) {
         return d_r_get_tls(os_get_app_tls_base_offset(seg));
     }
     return get_segment_base(seg);
@@ -7559,13 +7562,15 @@ pre_system_call(dcontext_t *dcontext)
 
 #ifdef LINUX
     case SYS_rseq:
+        LOG(THREAD, LOG_VMAREAS | LOG_SYSCALLS, 2, "syscall: rseq " PFX " %d %d %d\n",
+            sys_param(dcontext, 0), sys_param(dcontext, 1), sys_param(dcontext, 2),
+            sys_param(dcontext, 3));
         if (DYNAMO_OPTION(disable_rseq)) {
             set_failure_return_val(dcontext, ENOSYS);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
             execute_syscall = false;
         } else {
-            /* Lazy rseq handling. */
-            rseq_locate_rseq_regions();
+            dcontext->sys_param0 = sys_param(dcontext, 0);
         }
         break;
 #endif
@@ -8588,6 +8593,14 @@ post_system_call(dcontext_t *dcontext)
                     DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
                 }
             }
+        }
+        break;
+
+    case SYS_rseq:
+        /* Lazy rseq handling. */
+        if (success) {
+            rseq_process_syscall(dcontext);
+            rseq_locate_rseq_regions();
         }
         break;
 #endif

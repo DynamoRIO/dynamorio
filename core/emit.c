@@ -903,11 +903,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
     } else {
         /* bb-only finalization */
     }
-#ifdef X86
-    if ((flags & FRAG_SELFMOD_SANDBOXED) != 0) {
-        finalize_selfmod_sandbox(dcontext, f);
-    }
-#endif
+    mangle_finalize(dcontext, ilist, f);
+
     /* add fragment to vm area lists */
     vm_area_add_fragment(dcontext, f, vmlist);
 

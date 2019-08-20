@@ -46,6 +46,7 @@
 #include "rseq_linux.h"
 #include "../fragment.h"
 #include "decode.h"
+#include <stddef.h>
 #ifdef HAVE_RSEQ
 #    include <linux/rseq.h>
 #else
@@ -59,7 +60,9 @@ struct rseq_cs {
 struct rseq {
     uint cpu_id_start;
     uint cpu_id;
-    uint64 ptr64;
+    union {
+        uint64 ptr64;
+    } rseq_cs;
     uint flags;
 } __attribute__((aligned(4 * sizeof(uint64))));
 #    define RSEQ_FLAG_UNREGISTER 1
@@ -72,6 +75,14 @@ DECLARE_CXTSWPROT_VAR(static mutex_t rseq_trigger_lock,
                       INIT_LOCK_FREE(rseq_trigger_lock));
 static volatile bool rseq_enabled;
 
+/* We require all threads to use the same TLS offset to point at struct rseq. */
+static int rseq_tls_offset;
+
+/* The signature is registered per thread, but we require all registrations
+ * to be the same.
+ */
+static int rseq_signature;
+
 typedef struct _rseq_region_t {
     app_pc start;
     app_pc end;
@@ -83,6 +94,14 @@ typedef struct _rseq_region_t {
      */
     bool reg_written[DR_NUM_GPR_REGS];
 } rseq_region_t;
+
+/* We need to store a struct rseq_cs per fragment_t.  To avoid the cost of adding a
+ * pointer field to every fragment_t, and the complexity of another subclass like
+ * trace_t, we store them externally in a hashtable.  The FRAG_HAS_RSEQ_ENDPOINT flag
+ * avoids the hashtable lookup on every fragment.
+ */
+static generic_table_t *rseq_cs_table;
+#define INIT_RSEQ_CS_TABLE_SIZE 5
 
 /* vmvector callbacks */
 static void
@@ -102,19 +121,37 @@ rseq_area_dup(void *data)
     return dst;
 }
 
+static inline size_t
+rseq_cs_alloc_size(void)
+{
+    return sizeof(struct rseq) + __alignof(struct rseq_cs);
+}
+
+static void
+rseq_cs_free(dcontext_t *dcontext, void *data)
+{
+    global_heap_free(data, rseq_cs_alloc_size() HEAPACCT(ACCT_OTHER));
+}
+
 void
 d_r_rseq_init(void)
 {
     VMVECTOR_ALLOC_VECTOR(d_r_rseq_areas, GLOBAL_DCONTEXT,
                           VECTOR_SHARED | VECTOR_NEVER_MERGE, rseq_areas);
     vmvector_set_callbacks(d_r_rseq_areas, rseq_area_free, rseq_area_dup, NULL, NULL);
+
+    rseq_cs_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_RSEQ_CS_TABLE_SIZE, 80,
+                                        HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
+                                        rseq_cs_free _IF_DEBUG("rseq_cs table"));
+    /* Enable rseq pre-attach for things like dr_prepopulate_cache(). */
     if (rseq_is_registered_for_current_thread())
-        rseq_enabled = true;
+        rseq_locate_rseq_regions();
 }
 
 void
 d_r_rseq_exit(void)
 {
+    generic_hash_destroy(GLOBAL_DCONTEXT, rseq_cs_table);
     vmvector_delete_vector(GLOBAL_DCONTEXT, d_r_rseq_areas);
     DELETE_LOCK(rseq_trigger_lock);
 }
@@ -148,6 +185,79 @@ rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *hand
     if (reg_written_size != NULL)
         *reg_written_size = sizeof(info->reg_written) / sizeof(info->reg_written[0]);
     return true;
+}
+
+int
+rseq_get_tls_ptr_offset(void)
+{
+    /* This read is assumed to be atomic. */
+    ASSERT(rseq_tls_offset != 0);
+    return rseq_tls_offset + offsetof(struct rseq, rseq_cs);
+}
+
+static void
+rseq_clear_tls_ptr(dcontext_t *dcontext)
+{
+    byte *base = get_segment_base(LIB_SEG_TLS);
+    struct rseq *app_rseq = (struct rseq *)(base + rseq_tls_offset);
+    /* We're directly writing this in the cache, so we do not bother with safe_read
+     * or safe_write here either.  We already cannot handle rseq adversarial cases.
+     */
+    if (is_dynamo_address((byte *)(ptr_uint_t)app_rseq->rseq_cs.ptr64))
+        app_rseq->rseq_cs.ptr64 = 0;
+}
+
+int
+rseq_get_signature(void)
+{
+    /* This read is assumed to be atomic. */
+    return rseq_signature;
+}
+
+byte *
+rseq_get_rseq_cs_alloc(byte **rseq_cs_aligned OUT)
+{
+    byte *rseq_cs_alloc = global_heap_alloc(rseq_cs_alloc_size() HEAPACCT(ACCT_OTHER));
+    *rseq_cs_aligned = (byte *)ALIGN_FORWARD(rseq_cs_alloc, __alignof(struct rseq_cs));
+    return rseq_cs_alloc;
+}
+
+void
+rseq_record_rseq_cs(byte *rseq_cs_alloc, fragment_t *f, cache_pc start, cache_pc end,
+                    cache_pc abort)
+{
+    struct rseq_cs *target =
+        (struct rseq_cs *)ALIGN_FORWARD(rseq_cs_alloc, __alignof(struct rseq_cs));
+    target->version = 0;
+    target->flags = 0;
+    target->start_ip = (ptr_uint_t)start;
+    target->post_commit_offset = (ptr_uint_t)(end - start);
+    target->abort_ip = (ptr_uint_t)abort;
+    TABLE_RWLOCK(rseq_cs_table, write, lock);
+    generic_hash_add(GLOBAL_DCONTEXT, rseq_cs_table, (ptr_uint_t)f, rseq_cs_alloc);
+    TABLE_RWLOCK(rseq_cs_table, write, unlock);
+}
+
+void
+rseq_remove_fragment(dcontext_t *dcontext, fragment_t *f)
+{
+    /* Avoid freeing a live rseq_cs for a thread-private fragment deletion. */
+    rseq_clear_tls_ptr(dcontext);
+    TABLE_RWLOCK(rseq_cs_table, write, lock);
+    generic_hash_remove(GLOBAL_DCONTEXT, rseq_cs_table, (ptr_uint_t)f);
+    TABLE_RWLOCK(rseq_cs_table, write, unlock);
+}
+
+void
+rseq_shared_fragment_flushtime_update(dcontext_t *dcontext)
+{
+    /* Avoid freeing a live rseq_cs for thread-shared fragment deletion.
+     * We clear the pointer on completion of the native rseq execution, but it's
+     * not easy to clear it on midpoint exits.  We instead clear prior to
+     * rseq_cs being freed: for thread-private in rseq_remove_fragment() and for
+     * thread-shared each thread should come here prior to deletion.
+     */
+    rseq_clear_tls_ptr(dcontext);
 }
 
 bool
@@ -251,6 +361,27 @@ rseq_process_entry(struct rseq_cs *entry, ssize_t load_offs)
     info->start = (app_pc)(ptr_uint_t)entry->start_ip + load_offs;
     info->end = info->start + entry->post_commit_offset;
     info->handler = (app_pc)(ptr_uint_t)entry->abort_ip + load_offs;
+    int signature;
+    if (!d_r_safe_read(info->handler - sizeof(signature), sizeof(signature),
+                       &signature)) {
+        REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Rseq signature is unreadable");
+        ASSERT_NOT_REACHED();
+    }
+    if (signature != rseq_signature) {
+        if (rseq_signature == 0) {
+            SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+            ATOMIC_4BYTE_WRITE(&rseq_signature, signature, false);
+            SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+            LOG(GLOBAL, LOG_LOADER, 2, "Rseq signature is 0x%08x\n", rseq_signature);
+        } else {
+            REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
+                                        get_application_name(), get_application_pid(),
+                                        "Rseq signatures are not all identical");
+            ASSERT_NOT_REACHED();
+        }
+    }
     rseq_analyze_instructions(info);
     vmvector_add(d_r_rseq_areas, info->start, info->end, (void *)info);
     RSTATS_INC(num_rseq_regions);
@@ -435,12 +566,91 @@ rseq_process_module_cleanup:
     return res;
 }
 
+static int
+rseq_locate_tls_offset(void)
+{
+    /* We assume (and document) that the loader's static TLS is used, so every thread
+     * has a consistent %fs:-offs address.  Unfortunately, using a local copy of the
+     * rseq code for our non-instrumented execution requires us to locate the app's
+     * struct using heuristics, because the system call was poorly designed and will not
+     * let us replace the app's. Alternatives of no local copy have worse problems.
+     */
+    /* Static TLS is at a negative offset from the app library segment base.  We simply
+     * search all possible aligned slots.  Typically there are <64 possible slots.
+     */
+    int offset = 0;
+    byte *addr = get_app_segment_base(LIB_SEG_TLS);
+    byte *seg_bottom;
+    if (addr > 0 && get_memory_info(addr, &seg_bottom, NULL, NULL)) {
+        LOG(GLOBAL, LOG_LOADER, 3, "rseq within static TLS " PFX " - " PFX "\n",
+            seg_bottom, addr);
+        /* struct rseq_cs is aligned to 32. */
+        int alignment = __alignof(struct rseq_cs);
+        int i;
+        for (i = 0; addr - i * alignment >= seg_bottom; i++) {
+            byte *try_addr = addr - i * alignment;
+            ASSERT(try_addr >= seg_bottom); /* For loop guarantees this. */
+            /* Our strategy is to check all of the aligned static TLS addresses to
+             * find the registered one.  Our caller is not supposed to call here
+             * until the app has registered the current thread.
+             */
+            static const int RSEQ_RARE_SIGNATURE = 42;
+            int res = dynamorio_syscall(SYS_rseq, 4, try_addr, sizeof(struct rseq),
+                                        RSEQ_FLAG_UNREGISTER, RSEQ_RARE_SIGNATURE);
+            LOG(GLOBAL, LOG_LOADER, 3, "Tried rseq @ " PFX " => %d\n", try_addr, res);
+            if (res == -EINVAL) /* Our struct != registered struct. */
+                continue;
+            /* We expect -EPERM on a signature mismatch.  On the small chance the app
+             * actually used 42 for its signature we'll have to re-register it.
+             */
+            if (res == 0) {
+                int res = dynamorio_syscall(SYS_rseq, 4, try_addr, sizeof(struct rseq), 0,
+                                            RSEQ_RARE_SIGNATURE);
+                ASSERT(res == 0);
+                res = -EPERM;
+            }
+            if (res == -EPERM) {
+                /* Found it! */
+                LOG(GLOBAL, LOG_LOADER, 2,
+                    "Found struct rseq @ " PFX " for thread => %s:-0x%x\n", try_addr,
+                    get_register_name(LIB_SEG_TLS), i * alignment);
+                offset = -i * alignment;
+            }
+            break;
+        }
+    }
+    return offset;
+}
+
+void
+rseq_process_syscall(dcontext_t *dcontext)
+{
+    byte *seg_base = get_app_segment_base(LIB_SEG_TLS);
+    byte *app_addr = (byte *)dcontext->sys_param0;
+    if (rseq_tls_offset == 0) {
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+        int offset = app_addr - seg_base;
+        ATOMIC_4BYTE_WRITE(&rseq_tls_offset, offset, false);
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+        LOG(GLOBAL, LOG_LOADER, 2,
+            "Observed struct rseq @ " PFX " for thread => %s:-0x%x\n", app_addr,
+            get_register_name(LIB_SEG_TLS), -rseq_tls_offset);
+    } else if (seg_base + rseq_tls_offset != app_addr) {
+        REPORT_FATAL_ERROR_AND_EXIT(
+            RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(), get_application_pid(),
+            "struct rseq is not always in static thread-local storage");
+        ASSERT_NOT_REACHED();
+    }
+}
+
 /* Restartable sequence region identification.
  *
  * To avoid extra overhead going to disk to read section headers, we delay looking
  * for rseq data until the app invokes an rseq syscall (or on attach we see a thread
  * that has rseq set up).  We document that we do not handle the app using rseq
  * regions for non-rseq purposes, so we do not need to flush the cache here.
+ * Since we also identify the rseq_cs address here, this should be called *after*
+ * the app has registered the current thread for rseq.
  */
 void
 rseq_locate_rseq_regions(void)
@@ -455,8 +665,25 @@ rseq_locate_rseq_regions(void)
         d_r_mutex_unlock(&rseq_trigger_lock);
         return;
     }
+
+    int offset = 0;
+    if (rseq_tls_offset == 0) {
+        /* Identify the TLS offset of this thread's struct rseq. */
+        offset = rseq_locate_tls_offset();
+        if (offset == 0) {
+            REPORT_FATAL_ERROR_AND_EXIT(
+                RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                get_application_pid(),
+                "struct rseq is not in static thread-local storage");
+            ASSERT_NOT_REACHED();
+        }
+    }
+
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-    rseq_enabled = true;
+    bool new_value = true;
+    ATOMIC_1BYTE_WRITE(&rseq_enabled, new_value, false);
+    if (rseq_tls_offset == 0)
+        ATOMIC_4BYTE_WRITE(&rseq_tls_offset, offset, false);
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
     module_iterator_t *iter = module_iterator_start();
@@ -471,6 +698,7 @@ rseq_locate_rseq_regions(void)
 void
 rseq_module_init(module_area_t *ma, bool at_map)
 {
-    if (rseq_enabled)
+    if (rseq_enabled) {
         rseq_process_module(ma, at_map);
+    }
 }
