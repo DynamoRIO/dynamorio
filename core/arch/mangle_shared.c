@@ -806,7 +806,8 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
             insert_get_mcontext_base(dcontext, ilist, instr, scratch_reg);
         } else {
             PRE(ilist, instr,
-                instr_create_save_to_dcontext(dcontext, scratch_reg, XAX_OFFSET));
+                instr_create_save_to_dcontext(dcontext, scratch_reg,
+                                              IF_X86_ELSE(XAX_OFFSET, R0_OFFSET)));
             insert_mov_immed_ptrsz(dcontext, (ptr_int_t)dcontext,
                                    opnd_create_reg(scratch_reg), ilist, instr, NULL,
                                    NULL);
@@ -824,7 +825,8 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
                 instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG0_SLOT));
         } else {
             PRE(ilist, instr,
-                instr_create_restore_from_dcontext(dcontext, scratch_reg, XAX_OFFSET));
+                instr_create_restore_from_dcontext(dcontext, scratch_reg,
+                                                   IF_X86_ELSE(XAX_OFFSET, R0_OFFSET)));
         }
     }
     int len = instr_length(dcontext, instr);
