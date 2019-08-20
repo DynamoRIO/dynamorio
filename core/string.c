@@ -126,11 +126,11 @@ d_r_strrchr(const char *str, int c)
         for (; i < n; i++)                        \
             dst[i] = '\0';                        \
         return dst;                               \
-    } while (0);
+    } while (0)
 char *
 d_r_strncpy(char *dst, const char *src, size_t n)
 {
-    D_R_STRNCPY_BODY()
+    D_R_STRNCPY_BODY();
 }
 
 /* Private strncat. */
@@ -142,11 +142,11 @@ d_r_strncpy(char *dst, const char *src, size_t n)
             dest[dest_len + i] = src[i];          \
         dest[dest_len + i] = '\0';                \
         return dest;                              \
-    } while (0);
+    } while (0)
 char *
 d_r_strncat(char *dest, const char *src, size_t n)
 {
-    D_R_STRNCAT_BODY()
+    D_R_STRNCAT_BODY();
 }
 
 /* Private memcpy is in arch/<arch>/<arch>.asm or memfuncs.asm */
@@ -172,11 +172,11 @@ d_r_strncat(char *dest, const char *src, size_t n)
             dst_b[i] = src_b[i];                        \
         }                                               \
         return dst;                                     \
-    } while (0);
+    } while (0)
 void *
 d_r_memmove(void *dst, const void *src, size_t n)
 {
-    D_R_MEMMOVE_BODY()
+    D_R_MEMMOVE_BODY();
 }
 
 #ifdef UNIX
@@ -190,17 +190,17 @@ d_r_memmove(void *dst, const void *src, size_t n)
 void *
 __memmove_chk(void *dst, const void *src, size_t n, size_t dst_len)
 {
-    D_R_MEMMOVE_BODY()
+    D_R_MEMMOVE_BODY();
 }
 void *
 __strncpy_chk(char *dst, const char *src, size_t n, size_t dst_len)
 {
-    D_R_STRNCPY_BODY()
+    D_R_STRNCPY_BODY();
 }
 void *
 __strncat_chk(char *dest, const char *src, size_t n, size_t dst_len)
 {
-    D_R_STRNCAT_BODY()
+    D_R_STRNCAT_BODY();
 }
 #endif
 
