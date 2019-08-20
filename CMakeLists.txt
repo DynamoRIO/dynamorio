@@ -754,19 +754,19 @@ if (UNIX)
     if (nounused_avail)
       set(WARN "${WARN} -Wno-unused-but-set-variable")
     endif (nounused_avail)
-    # XXX i#3793: DynamoRIO manages '\0' termination and error states itself in
+    # XXX i#3792: DynamoRIO manages '\0' termination and error states itself in
     # too many places. In order to activate this warning, this code needs to get
     # re-factored for no good reason.
     CHECK_C_COMPILER_FLAG("-Wstringop-truncation" stringop_truncation_avail)
     if (stringop_truncation_avail)
       set(WARN "${WARN} -Wno-stringop-truncation")
     endif (stringop_truncation_avail)
-    # XXX i#3793: see comment above.
+    # XXX i#3792: see comment above.
     CHECK_C_COMPILER_FLAG("-Wformat-truncation" format_truncation_avail)
     if (format_truncation_avail)
       set(WARN "${WARN} -Wno-format-truncation")
     endif (format_truncation_avail)
-    # XXX i#3793: see comment above.
+    # XXX i#3792: see comment above.
     CHECK_C_COMPILER_FLAG("-Wstringop-overflow" stringop_overflow_avail)
     if (stringop_overflow_avail)
       set(WARN "${WARN} -Wno-stringop-overflow")
