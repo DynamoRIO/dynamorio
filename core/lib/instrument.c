@@ -711,7 +711,7 @@ instrument_init(void)
          * state. AVX-512 context switching will not be lazy in this case.
          */
         if (d_r_is_client_avx512_code_in_use())
-            d_r_set_avx512_code_in_use(true);
+            d_r_set_avx512_code_in_use(true, NULL);
     }
 #    endif
 
