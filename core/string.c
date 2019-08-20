@@ -176,8 +176,10 @@ d_r_memmove(void *dst, const void *src, size_t n)
 #ifdef UNIX
 /* gcc emits calls to these *_chk variants in release builds when the size of
  * dst is known at compile time.  In C, the caller is responsible for cleaning
- * up arguments on the stack, so we alias these *_chk routines to the non-chk
- * routines and rely on the caller to clean up the extra dst_len arg.
+ * up arguments on the stack. We used to alias these *_chk routines to the non-chk
+ * routines. Current gcc versions don't accept aliases with a different function
+ * signature. Instead, we are now manually inlining the function body. We rely
+ * on the caller to clean up the extra dst_len arg.
  */
 void *
 __memmove_chk(void *dst, const void *src, size_t n, size_t dst_len)
