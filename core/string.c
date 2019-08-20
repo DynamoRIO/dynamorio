@@ -117,28 +117,32 @@ d_r_strrchr(const char *str, int c)
 /* Private strncpy.  Standard caveat about not copying trailing null byte on
  * truncation applies.
  */
+#define D_R_STRNCPY_BODY                      \
+    size_t i;                                 \
+    for (i = 0; i < n && src[i] != '\0'; i++) \
+        dst[i] = src[i];                      \
+    /* Pad the rest with nulls. */            \
+    for (; i < n; i++)                        \
+        dst[i] = '\0';                        \
+    return dst;
 char *
 d_r_strncpy(char *dst, const char *src, size_t n)
 {
-    size_t i;
-    for (i = 0; i < n && src[i] != '\0'; i++)
-        dst[i] = src[i];
-    /* Pad the rest with nulls. */
-    for (; i < n; i++)
-        dst[i] = '\0';
-    return dst;
+    D_R_STRNCPY_BODY
 }
 
 /* Private strncat. */
+#define D_R_STRNCAT_BODY                      \
+    size_t dest_len = strlen(dest);           \
+    size_t i;                                 \
+    for (i = 0; i < n && src[i] != '\0'; i++) \
+        dest[dest_len + i] = src[i];          \
+    dest[dest_len + i] = '\0';                \
+    return dest;
 char *
 d_r_strncat(char *dest, const char *src, size_t n)
 {
-    size_t dest_len = strlen(dest);
-    size_t i;
-    for (i = 0; i < n && src[i] != '\0'; i++)
-        dest[dest_len + i] = src[i];
-    dest[dest_len + i] = '\0';
-    return dest;
+    D_R_STRNCAT_BODY
 }
 
 /* Private memcpy is in arch/<arch>/<arch>.asm or memfuncs.asm */
@@ -151,19 +155,22 @@ d_r_strncat(char *dest, const char *src, size_t n)
  * We also have a version named "memmove" in lib/memmove.c for shared
  * DR libc isolation.
  */
+
+#define D_R_MEMMOVE_BODY                            \
+    ssize_t i;                                      \
+    byte *dst_b = (byte *)dst;                      \
+    const byte *src_b = (const byte *)src;          \
+    if (dst < src)                                  \
+        return memcpy(dst, src, n);                 \
+    /* FIXME: Could use reverse DF and rep movs. */ \
+    for (i = n - 1; i >= 0; i--) {                  \
+        dst_b[i] = src_b[i];                        \
+    }                                               \
+    return dst;
 void *
 d_r_memmove(void *dst, const void *src, size_t n)
 {
-    ssize_t i;
-    byte *dst_b = (byte *)dst;
-    const byte *src_b = (const byte *)src;
-    if (dst < src)
-        return memcpy(dst, src, n);
-    /* FIXME: Could use reverse DF and rep movs. */
-    for (i = n - 1; i >= 0; i--) {
-        dst_b[i] = src_b[i];
-    }
-    return dst;
+    D_R_MEMMOVE_BODY
 }
 
 #ifdef UNIX
@@ -174,40 +181,19 @@ d_r_memmove(void *dst, const void *src, size_t n)
  */
 void *
 __memmove_chk(void *dst, const void *src, size_t n, size_t dst_len)
-#    ifdef MACOS
-/* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
- * XXX: better to test for support at config time: for now assuming none on Mac.
- */
 {
-    return memmove(dst, src, n);
+    D_R_MEMMOVE_BODY
 }
-#    else
-    __attribute__((alias("d_r_memmove")));
-#    endif
 void *
 __strncpy_chk(char *dst, const char *src, size_t n, size_t dst_len)
-#    ifdef MACOS
-/* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
- * XXX: better to test for support at config time: for now assuming none on Mac.
- */
 {
-    return strncpy(dst, src, n);
+    D_R_STRNCPY_BODY
 }
-#    else
-    __attribute__((alias("d_r_strncpy")));
-#    endif
 void *
-__strncat_chk(char *dst, const char *src, size_t n, size_t dst_len)
-#    ifdef MACOS
-/* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
- * XXX: better to test for support at config time: for now assuming none on Mac.
- */
+__strncat_chk(char *dest, const char *src, size_t n, size_t dst_len)
 {
-    return strncat(dst, src, n);
+    D_R_STRNCAT_BODY
 }
-#    else
-    __attribute__((alias("d_r_strncat")));
-#    endif
 #endif
 
 /* Private strcmp. */
