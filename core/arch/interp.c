@@ -2864,7 +2864,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             if (ZMM_ENABLED()) {
                 if (instr_may_write_zmm_or_opmask_register(inst)) {
                     LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
-                    d_r_set_avx512_code_in_use(true);
+                    d_r_set_avx512_code_in_use(true, NULL);
                     proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
                 }
             }
@@ -3513,7 +3513,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                          * are checked with instr_may_write_zmm_register.
                          */
                         LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
-                        d_r_set_avx512_code_in_use(true);
+                        d_r_set_avx512_code_in_use(true, instr_get_app_pc(bb->instr));
                         proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
                     }
                 }

@@ -249,17 +249,18 @@ d_r_is_avx512_code_in_use()
 }
 
 static inline void
-d_r_set_avx512_code_in_use(bool in_use)
+d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
 {
 #    if !defined(UNIX) || !defined(X64)
     /* We warn about unsupported AVX-512 present in the app. */
     DO_ONCE({
-        char pc_addr[IF_X64_ELSE(20, 12)];
-        snprintf(pc_addr, BUFFER_SIZE_ELEMENTS(pc_addr), PFX,
-                 instr_get_app_pc(bb->instr));
-        NULL_TERMINATE_BUFFER(pc_addr);
-        SYSLOG(SYSLOG_ERROR, AVX_512_SUPPORT_INCOMPLETE, 2, get_application_name(),
-               get_application_pid(), pc_addr);
+        if (pc != NULL) {
+            char pc_addr[IF_X64_ELSE(20, 12)];
+            snprintf(pc_addr, BUFFER_SIZE_ELEMENTS(pc_addr), PFX, pc);
+            NULL_TERMINATE_BUFFER(pc_addr);
+            SYSLOG(SYSLOG_ERROR, AVX_512_SUPPORT_INCOMPLETE, 2, get_application_name(),
+                   get_application_pid(), pc_addr);
+        }
     });
 #    endif
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
