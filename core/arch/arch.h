@@ -85,7 +85,9 @@ mixed_mode_enabled(void)
 
 #ifdef X86
 #    define XAX_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xax)))
+#    define REG0_OFFSET XAX_OFFSET
 #    define XBX_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xbx)))
+#    define REG1_OFFSET XBX_OFFSET
 #    define XCX_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xcx)))
 #    define XDX_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xdx)))
 #    define XSI_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xsi)))
@@ -117,7 +119,9 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG5_OFFS XDI_OFFSET
 #elif defined(AARCHXX)
 #    define R0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r0)))
+#    define REG0_OFFSET R0_OFFSET
 #    define R1_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r1)))
+#    define REG1_OFFSET R1_OFFSET
 #    define R2_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r2)))
 #    define R3_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r3)))
 #    define R4_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r4)))

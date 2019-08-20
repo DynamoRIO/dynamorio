@@ -118,6 +118,8 @@ test_rseq(void)
          */
         "2:\n\t"
         "mov %%rax, %1\n\t"
+        /* Test clobbering an input register. */
+        "mov %4, %%rax\n\t"
         "addl $1, %2\n\t"
 
         /* Post-commit. */
@@ -136,7 +138,7 @@ test_rseq(void)
         /* clang-format on */
 
         : "=m"(rseq_tls.rseq_cs), "=m"(id), "=m"(restarts)
-        : "m"(rseq_tls.cpu_id)
+        : "m"(rseq_tls.cpu_id), "i"(RSEQ_CPU_ID_UNINITIALIZED)
         : "rax", "memory");
     assert(id != RSEQ_CPU_ID_UNINITIALIZED);
     return restarts;

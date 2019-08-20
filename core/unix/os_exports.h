@@ -540,8 +540,7 @@ extern vm_area_vector_t *d_r_rseq_areas;
 
 bool
 rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT,
-                     bool **reg_used OUT, int *reg_used_size OUT,
-                     ushort /*reg_id_t*/ *scratch OUT);
+                     bool **reg_written OUT, int *reg_written_size OUT);
 #endif
 
 #endif /* _OS_EXPORTS_H_ */

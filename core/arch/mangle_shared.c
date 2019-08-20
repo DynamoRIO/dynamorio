@@ -780,53 +780,71 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
     int i;
     app_pc pc = get_app_instr_xl8(instr);
     app_pc start, end, handler;
-    bool *reg_used;
-    int reg_used_size;
-    reg_id_t scratch_reg;
-    if (!rseq_get_region_info(pc, &start, &end, &handler, &reg_used, &reg_used_size,
-                              (ushort *)&scratch_reg)) {
+    bool *reg_written;
+    int reg_written_size;
+    reg_id_t scratch_reg = DR_REG_START_GPR;
+    if (!rseq_get_region_info(pc, &start, &end, &handler, &reg_written,
+                              &reg_written_size)) {
         ASSERT_NOT_REACHED(); /* Caller was supposed to check for overlap */
         return false;
     }
     /* We need to know the type of register so we can't completely abstract this. */
-    ASSERT(reg_used_size == DR_NUM_GPR_REGS);
-    int reg_used_count = 0;
+    ASSERT(reg_written_size == DR_NUM_GPR_REGS);
+    int reg_written_count = 0;
     for (i = 0; i < DR_NUM_GPR_REGS; i++) {
-        if (reg_used[i])
-            reg_used_count++;
+        if (reg_written[i]) {
+            /* For simplicity we avoid our scratch being a register we're preserving. */
+            if (DR_REG_START_GPR + (reg_id_t)i == scratch_reg)
+                scratch_reg++;
+            reg_written_count++;
+        }
     }
-    if (pc == start && reg_used_count > 0) {
+    if (scratch_reg == DR_NUM_GPR_REGS) {
+        /* We could handle this by an xchg or sthg but it seems so rare, and given
+         * that we already have so many rseq limitations, I'm bailing on it.
+         */
+        REPORT_FATAL_ERROR_AND_EXIT(
+            RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(), get_application_pid(),
+            "Rseq sequence writes every general-purpose register");
+        ASSERT_NOT_REACHED();
+    }
+    if (pc == start && reg_written_count > 0) {
         /* Preserve any input register state that will be re-set-up by the abort
          * handler on a restart.  We directly invoke start on a restart to make it
          * easier to use a copy of the code, and to support non-restarting handlers.
          */
+        /* XXX i#3798: Be sure to insert these register saves prior to any client
+         * instrumentation, which may move app register values elsewhere.  We've
+         * arranged the rseq start to always be a block start, and with current drreg
+         * implementation, all values are native (i.e., in registers) at block start, so
+         * we're ok for now, but we may want some kind of barrier API in the future.
+         */
+        instr_t *first = instrlist_first(ilist);
         if (SCRATCH_ALWAYS_TLS()) {
-            PRE(ilist, instr,
+            PRE(ilist, first,
                 instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG0_SLOT));
-            insert_get_mcontext_base(dcontext, ilist, instr, scratch_reg);
+            insert_get_mcontext_base(dcontext, ilist, first, scratch_reg);
         } else {
-            PRE(ilist, instr,
-                instr_create_save_to_dcontext(dcontext, scratch_reg,
-                                              IF_X86_ELSE(XAX_OFFSET, R0_OFFSET)));
+            PRE(ilist, first,
+                instr_create_save_to_dcontext(dcontext, scratch_reg, REG0_OFFSET));
             insert_mov_immed_ptrsz(dcontext, (ptr_int_t)dcontext,
-                                   opnd_create_reg(scratch_reg), ilist, instr, NULL,
+                                   opnd_create_reg(scratch_reg), ilist, first, NULL,
                                    NULL);
         }
         for (i = 0; i < DR_NUM_GPR_REGS; i++) {
-            if (reg_used[i]) {
+            if (reg_written[i]) {
                 size_t offs = offsetof(dcontext_t, rseq_entry_state) + sizeof(reg_t) * i;
-                PRE(ilist, instr,
+                PRE(ilist, first,
                     XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(scratch_reg, offs),
                                        opnd_create_reg(DR_REG_START_GPR + (reg_id_t)i)));
             }
         }
         if (SCRATCH_ALWAYS_TLS()) {
-            PRE(ilist, instr,
+            PRE(ilist, first,
                 instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG0_SLOT));
         } else {
-            PRE(ilist, instr,
-                instr_create_restore_from_dcontext(dcontext, scratch_reg,
-                                                   IF_X86_ELSE(XAX_OFFSET, R0_OFFSET)));
+            PRE(ilist, first,
+                instr_create_restore_from_dcontext(dcontext, scratch_reg, REG0_OFFSET));
         }
     }
     int len = instr_length(dcontext, instr);
@@ -858,32 +876,35 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
          * In case the abort handler does perform setup, we checkpoint and restore GPR
          * register values.  Memory should remain as it was, due to nop-ing of stores.
          *
-         * XXX i#2350: We ignore the flags for when to restart.  It's possible the app
-         * disabled restarts on preempts and migrations and can't handle our restart
-         * here, but that seems pathological: we expect the rseq feature to be used
-         * for restarts rather than just a detection mechanism of preemption.
+         * XXX i#2350: We ignore the app's rseq flags for when to restart.  It's
+         * possible the app disabled restarts on preempts and migrations and can't
+         * handle our restart here, but that seems pathological: we expect the rseq
+         * feature to be used for restarts rather than just a detection mechanism of
+         * preemption.
          */
         LOG(THREAD, LOG_INTERP, 4, "mangle: inserting call to native rseq " PFX "\n",
             start);
         RSTATS_INC(num_rseq_native_calls_inserted);
 
-        /* Restore the entry state we preserved earlier.
-         * Normally we'd preserve scratch_reg but we're considering it dead currently
-         * (see below).
-         */
-        if (reg_used_count > 0) {
-            if (SCRATCH_ALWAYS_TLS())
-                insert_get_mcontext_base(dcontext, ilist, instr, scratch_reg);
-            else {
-                insert_mov_immed_ptrsz(dcontext, (ptr_int_t)dcontext,
-                                       opnd_create_reg(scratch_reg), ilist, instr, NULL,
-                                       NULL);
-            }
+        /* Create a scratch register. */
+        if (SCRATCH_ALWAYS_TLS()) {
+            PRE(ilist, next_instr,
+                instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG0_SLOT));
+            insert_get_mcontext_base(dcontext, ilist, next_instr, scratch_reg);
+        } else {
+            PRE(ilist, next_instr,
+                instr_create_save_to_dcontext(dcontext, scratch_reg, REG0_OFFSET));
+            insert_mov_immed_ptrsz(dcontext, (ptr_int_t)dcontext,
+                                   opnd_create_reg(scratch_reg), ilist, next_instr, NULL,
+                                   NULL);
+        }
+        if (reg_written_count > 0) {
+            /* Restore the entry state we preserved earlier. */
             for (i = 0; i < DR_NUM_GPR_REGS; i++) {
-                if (reg_used[i]) {
+                if (reg_written[i]) {
                     size_t offs =
                         offsetof(dcontext_t, rseq_entry_state) + sizeof(reg_t) * i;
-                    PRE(ilist, instr,
+                    PRE(ilist, next_instr,
                         XINST_CREATE_load(dcontext,
                                           opnd_create_reg(DR_REG_START_GPR + (reg_id_t)i),
                                           OPND_CREATE_MEMPTR(scratch_reg, offs)));
@@ -916,15 +937,26 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
          * of future drreg optimizations, etc.  Do we need new interface features, or
          * do we live with a fake app jump or sthg?
          */
-        /* A direct call may not reach so we clobber a scratch register.
-         * This is *not* an input to the sequence, according to our analysis.
-         * We try to pick a register written in the sequence to avoid messing up a
-         * live value post-sequence but this is not perfect.  Once we switch to a
-         * local copy this should go away (if we can mangle the stolen register in
-         * the copy).
+        /* A direct call may not reach, so we need an indirect call.  We use a TLS slot
+         * to avoid needing a dead register.
          */
         insert_mov_immed_ptrsz(dcontext, (ptr_int_t)start, opnd_create_reg(scratch_reg),
                                ilist, next_instr, NULL, NULL);
+        if (SCRATCH_ALWAYS_TLS()) {
+            PRE(ilist, next_instr,
+                instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
+        } else {
+            PRE(ilist, next_instr,
+                instr_create_save_to_dcontext(dcontext, scratch_reg, REG1_OFFSET));
+        }
+        /* Restore the scratch register. */
+        if (SCRATCH_ALWAYS_TLS()) {
+            PRE(ilist, next_instr,
+                instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG0_SLOT));
+        } else {
+            PRE(ilist, next_instr,
+                instr_create_restore_from_dcontext(dcontext, scratch_reg, REG0_OFFSET));
+        }
         /* Set up the frame and stack alignment.  We assume the rseq code was a leaf
          * function and that rsp is 16-aligned now.
          * TODO i#2350: If we stick with an extra call frame, it would be better to
@@ -936,14 +968,20 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
                                                   OPND_CREATE_INT32(8)));
         instrlist_meta_preinsert(
             ilist, next_instr,
-            INSTR_CREATE_call_ind(dcontext, opnd_create_reg(scratch_reg)));
+            INSTR_CREATE_call_ind(
+                dcontext,
+                SCRATCH_ALWAYS_TLS()
+                    ? opnd_create_tls_slot(os_tls_offset(TLS_REG1_SLOT))
+                    : opnd_create_dcontext_field(dcontext, REG1_OFFSET)));
         instrlist_meta_preinsert(ilist, next_instr,
                                  XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_RSP),
                                                   OPND_CREATE_INT32(8)));
 #    else
         /* TODO i#2350: Add non-x86 support.  We need to pay particular attention
          * to the stolen register.  If we do a local copy (with no callouts) we could
-         * mangle it.
+         * mangle it.  We also cannot do an indirect call through anything but a
+         * register and thus need a dead register for the call-return approach, but
+         * that disappears once DR uses a local copy.
          */
         REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
                                     get_application_pid(),
