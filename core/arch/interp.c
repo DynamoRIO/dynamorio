@@ -3515,6 +3515,15 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                         LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
                         d_r_set_avx512_code_in_use(true);
                         proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
+#    if !defined(UNIX) || !defined(X64)
+                        /* We warn about unsupported AVX-512 present in the app. */
+                        char pc_addr[IF_X64_ELSE(20, 12)];
+                        snprintf(pc_addr, BUFFER_SIZE_ELEMENTS(pc_addr), PFX,
+                                 instr_get_app_pc(bb->instr));
+                        NULL_TERMINATE_BUFFER(pc_addr);
+                        SYSLOG(SYSLOG_ERROR, AVX_512_SUPPORT_INCOMPLETE, 2,
+                               get_application_name(), get_application_pid(), pc_addr);
+#    endif
                     }
                 }
             }
