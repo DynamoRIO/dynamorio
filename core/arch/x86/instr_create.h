@@ -120,6 +120,9 @@
 /** Create a memory reference operand appropriately sized for OP_fxrstor32/OP_fxrstor64.*/
 #define OPND_CREATE_MEM_fxrstor(base, index, scale, disp) \
     opnd_create_base_disp(base, index, scale, disp, OPSZ_fxrstor)
+/** Create a memory reference operand appropriately sized for OP_ptwrite.*/
+#define OPND_CREATE_MEM_ptwrite(base, index, scale, disp) \
+    opnd_create_base_disp(base, index, scale, disp, OPSZ_ptwrite)
 /**
  * Create a memory reference operand appropriately sized for OP_xsave32,
  * OP_xsave64, OP_xsaveopt32, OP_xsaveopt64, OP_xsavec32, OP_xsavec64,
@@ -651,6 +654,15 @@
 #define INSTR_CREATE_ldmxcsr(dc, s) instr_create_0dst_1src((dc), OP_ldmxcsr, (s))
 #define INSTR_CREATE_vldmxcsr(dc, s) instr_create_0dst_1src((dc), OP_vldmxcsr, (s))
 #define INSTR_CREATE_nop_modrm(dc, s) instr_create_0dst_1src((dc), OP_nop_modrm, (s))
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param s The opnd_t explicit source operand for the instruction, which can be
+ * a general-purpose registers or a memory reference. The latter can be created with
+ * OPND_CREATE_MEM_ptwrite() to get the appropriate operand size.
+ */
+#define INSTR_CREATE_ptwrite(dc, s) instr_create_0dst_1src((dc), OP_ptwrite, (s))
 /* @} */ /* end doxygen group */
 /** @name Prefetch */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */

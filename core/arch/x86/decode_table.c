@@ -1591,6 +1591,9 @@ const instr_info_t * const op_instr[] =
     /* OP_bndmk           */ &prefix_extensions[187][1],
     /* OP_bndmov          */ &prefix_extensions[186][2],
     /* OP_bndstx          */ &prefix_extensions[187][0],
+
+    /* Intel PT extensions */
+    /* OP_ptwrite         */ &prefix_extensions[188][1],
 };
 
 
@@ -2959,7 +2962,7 @@ const instr_info_t base_extensions[][8] = {
     {MOD_EXT,    0x0fae31, "(group 15 mod ext 15)", xx, xx, xx, xx, xx, mrm, x, 15},
     {MOD_EXT,    0x0fae32, "(group 15 mod ext 16)", xx, xx, xx, xx, xx, mrm, x, 16},
     {MOD_EXT,    0x0fae33, "(group 15 mod ext 17)", xx, xx, xx, xx, xx, mrm, x, 17},
-    {REX_W_EXT,  0x0fae34, "(rex.w ext 2)", xx, xx, xx, xx, xx, mrm, x, 2},
+    {PREFIX_EXT, 0x0fae34, "(prefix ext 188)", xx, xx, xx, xx, xx, no, x, 188},
     {MOD_EXT,    0x0fae35, "(group 15 mod ext 6)", xx, xx, xx, xx, xx, no, x, 6},
     {MOD_EXT,    0x0fae36, "(group 15 mod ext 7)", xx, xx, xx, xx, xx, no, x, 7},
     {MOD_EXT,    0x0fae37, "(group 15 mod ext 3)", xx, xx, xx, xx, xx, no, x, 3},
@@ -5791,7 +5794,20 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf30f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x660f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf20f1b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-  },
+  }, { /* prefix extension 188 */
+    {REX_W_EXT,    0x0fae34, "(rex.w ext 2)", xx, xx, xx, xx, xx, mrm, x, 2},
+    {OP_ptwrite, 0xf30fae34, "ptwrite",   xx, xx, Ed_q, xx, xx, mrm, x, END_LIST},
+    {INVALID,    0x660fae34, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf20fae34, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x0fae34, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf30fae34, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0x660fae34, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf20fae34, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x0fae34, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf30fae34, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0x660fae34, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0xf20fae34, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  }
 };
 /****************************************************************************
  * Instructions that differ based on whether vex-encoded or not.
