@@ -1588,6 +1588,9 @@ enum {
     /* 1415 */ OP_bndmov, /**< IA-32/AMD64 MPX OP_bndmov opcode. */
     /* 1416 */ OP_bndstx, /**< IA-32/AMD64 MPX OP_bndstx opcode. */
 
+    /* Intel PT extensions */
+    /* 1417 */ OP_ptwrite, /**< IA-32/AMD64 PT OP_ptwrite opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
