@@ -108,6 +108,8 @@ test_rseq(void)
         /* Store the entry into the ptr. */
         "leaq 1b(%%rip), %%rax\n\t"
         "movq %%rax, %0\n\t"
+        /* Test a register input to the sequence. */
+        "mov %3, %%rax\n\t"
         /* Test "falling into" the rseq region. */
 
         /* Restartable sequence.
@@ -115,8 +117,10 @@ test_rseq(void)
          * handler invoked: a simple way to test a restart natively.
          */
         "2:\n\t"
-        "mov %3, %%rax\n\t"
         "mov %%rax, %1\n\t"
+        /* Test clobbering an input register. */
+        "mov %4, %%rax\n\t"
+        "addl $1, %2\n\t"
 
         /* Post-commit. */
         "3:\n\t"
@@ -126,17 +130,15 @@ test_rseq(void)
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
-        "addl $1, %2\n\t"
         "jmp 6b\n\t"
 
         /* Clear the ptr. */
         "5:\n\t"
-        "leaq 1b(%%rip), %%rax\n\t"
         "movq $0, %0\n\t"
         /* clang-format on */
 
         : "=m"(rseq_tls.rseq_cs), "=m"(id), "=m"(restarts)
-        : "m"(rseq_tls.cpu_id)
+        : "m"(rseq_tls.cpu_id), "i"(RSEQ_CPU_ID_UNINITIALIZED)
         : "rax", "memory");
     assert(id != RSEQ_CPU_ID_UNINITIALIZED);
     return restarts;

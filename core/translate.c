@@ -574,7 +574,7 @@ translate_restore_special_cases(app_pc pc)
 {
 #ifdef LINUX
     app_pc handler;
-    if (rseq_get_region_info(pc, NULL, NULL, &handler)) {
+    if (rseq_get_region_info(pc, NULL, NULL, &handler, NULL, NULL)) {
         LOG(THREAD_GET, LOG_INTERP, 2,
             "recreate_app: moving " PFX " inside rseq region to handler " PFX "\n", pc,
             handler);
