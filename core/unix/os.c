@@ -10128,8 +10128,10 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     /* See whether we should initiate lazy rseq handling, and avoid treating
      * regions as rseq when the rseq syscall is never set up.
      */
-    if (rseq_is_registered_for_current_thread())
+    if (rseq_is_registered_for_current_thread()) {
         rseq_locate_rseq_regions();
+        rseq_thread_attach(dcontext);
+    }
 #endif
 
     /* Start interpreting from the signal context. */

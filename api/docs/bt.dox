@@ -1311,8 +1311,8 @@ This run-twice approach is subject to the following limitations:
   section of pointers into the __rseq_cs section, per established conventions.
   These sections must be located in loaded segments.
 - Each rseq region's code must never be also executed as a non-restartable sequence.
-- Each rseq region must make forward progress if its abort handler is always
-  called the first time it is executed.
+- Each rseq region must handle being directly restarted without its
+  abort handler being called (with the machine state restored).
 - Each memory store instruction inside an rseq region must have no other side
   effects: it must only write to memory and not to any registers.
   For example, a push instruction which both writes to memory and the
@@ -1322,13 +1322,21 @@ This run-twice approach is subject to the following limitations:
   semantics.
 - Each rseq region's code must end with a fall-through (non-control-flow)
   instruction.
-- Any helper function called from within an rseq region must have no side effects.
+- Each rseq region must be entered only from the top, with no branches from outside
+  the region targeting a point inside the region.
+- No system calls are allowed inside rseq regions.
+- No call instructions are allowed inside rseq regions.
+- The only register inputs to an rseq region must be general-purpose registers read
+  prior to any write to that register when the sequence is considered linearly without
+  regard to control flow.
 - The instrumented execution of the rseq region may not perfectly reflect
   the native behavior of the application.  The instrumentation will never see
   the abort handler called, and memory addresses may be wrong if they are based on
   the underlying cpuid and a migration occurred mid-region.  These are minor and
   acceptable for most tools (especially given that there is no better alternative).
 
+Some of these limitations are explicitly checked, and DR will exit with an error
+message if they are not met.  However, not all are efficiently verifiable.
 If an application does not satisfy these limitations, the \ref
 op_disable_rseq "disable_rseq" runtime option may be used to return ENOSYS,
 which can provide a workaround for applications which have fallback code

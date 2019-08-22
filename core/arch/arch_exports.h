@@ -566,7 +566,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
                                  : "=qm"(flag)           \
                                  :                       \
                                  : "cc", "memory")
-/* clang-flag on */
+/* clang-format on */
 #        define SET_IF_NOT_ZERO(flag) SET_FLAG(nz, flag)
 #        define SET_IF_NOT_LESS(flag) SET_FLAG(nl, flag)
 
@@ -2521,6 +2521,26 @@ get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
 /* reset the encode state stored in dcontext used by A32 Thumb mode */
 void
 encode_reset_it_block(dcontext_t *dcontext);
+#endif
+
+/* DR_NUM_GPR_REGS is not exported.  We use our own defines here.
+ * These are checked vs DR_NUM_GPR_REGS in d_r_arch_init().
+ */
+#ifdef X86_32
+#    define NUM_GP_REGS 8
+#elif defined(X86_64)
+#    define NUM_GP_REGS 16
+#elif defined(ARM)
+#    define NUM_GP_REGS 16
+#elif defined(AARCH64)
+#    define NUM_GP_REGS 32
+#endif
+
+#ifdef LINUX
+/* Register state preserved on input to restartable sequences ("rseq"). */
+typedef struct _rseq_entry_state_t {
+    reg_t gpr[NUM_GP_REGS];
+} rseq_entry_state_t;
 #endif
 
 #endif /* _ARCH_EXPORTS_H_ */

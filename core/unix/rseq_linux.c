@@ -45,6 +45,7 @@
 #include "os_private.h"
 #include "rseq_linux.h"
 #include "../fragment.h"
+#include "decode.h"
 #ifdef HAVE_RSEQ
 #    include <linux/rseq.h>
 #else
@@ -75,9 +76,12 @@ typedef struct _rseq_region_t {
     app_pc start;
     app_pc end;
     app_pc handler;
-    /* XXX i#2350: Additional information will be added here for eliminating
-     * some existing limitations.
+    /* We need to preserve input registers for targeting "start" instead of "handler"
+     * for our 2nd invocation, if they're written in the rseq region.  We only support
+     * GPR inputs.  We document that we do not support any other inputs (no flags, no
+     * SIMD registers).
      */
+    bool reg_written[DR_NUM_GPR_REGS];
 } rseq_region_t;
 
 /* vmvector callbacks */
@@ -115,14 +119,34 @@ d_r_rseq_exit(void)
     DELETE_LOCK(rseq_trigger_lock);
 }
 
+void
+rseq_thread_attach(dcontext_t *dcontext)
+{
+    rseq_region_t *info;
+    if (!vmvector_lookup_data(d_r_rseq_areas, dcontext->next_tag, NULL, NULL,
+                              (void **)&info))
+        return;
+    /* The thread missed the save of its state on rseq entry.  We could try to save here
+     * so the restore on rseq exit won't read incorrect values, but it's simpler and
+     * less error-prone to send it to the abort handler, like we do on detach or other
+     * translation points.
+     */
+    dcontext->next_tag = info->handler;
+}
+
 bool
-rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT)
+rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT,
+                     bool **reg_written OUT, int *reg_written_size OUT)
 {
     rseq_region_t *info;
     if (!vmvector_lookup_data(d_r_rseq_areas, pc, start, end, (void **)&info))
         return false;
     if (handler != NULL)
         *handler = info->handler;
+    if (reg_written != NULL)
+        *reg_written = info->reg_written;
+    if (reg_written_size != NULL)
+        *reg_written_size = sizeof(info->reg_written) / sizeof(info->reg_written[0]);
     return true;
 }
 
@@ -149,6 +173,71 @@ rseq_is_registered_for_current_thread(void)
 }
 
 static void
+rseq_analyze_instructions(rseq_region_t *info)
+{
+    /* We analyze the instructions inside [start,end) looking for register state that we
+     * need to preserve for our restart.  We do not want to blindly spill and restore
+     * 16+ registers for every sequence (too much overhead).
+     */
+    instr_t instr;
+    instr_init(GLOBAL_DCONTEXT, &instr);
+    app_pc pc = info->start;
+    int i;
+    bool reached_cti = false;
+    memset(info->reg_written, 0, sizeof(info->reg_written));
+    while (pc < info->end) {
+        instr_reset(GLOBAL_DCONTEXT, &instr);
+        app_pc next_pc = decode(GLOBAL_DCONTEXT, pc, &instr);
+        if (next_pc == NULL) {
+            REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
+                                        get_application_name(), get_application_pid(),
+                                        "Rseq sequence contains invalid instructions");
+            ASSERT_NOT_REACHED();
+        }
+        if (instr_is_syscall(&instr)) {
+            REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
+                                        get_application_name(), get_application_pid(),
+                                        "Rseq sequence contains a system call");
+            ASSERT_NOT_REACHED();
+        }
+        if (instr_is_call(&instr)) {
+            REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
+                                        get_application_name(), get_application_pid(),
+                                        "Rseq sequence contains a call");
+            ASSERT_NOT_REACHED();
+        }
+        if (instr_is_cti(&instr))
+            reached_cti = true;
+        /* We potentially need to preserve any register written anywhere inside
+         * the sequence.  We can't limit ourselves to registers clearly live on
+         * input, since code *after* the sequence could read them.  We do disallow
+         * callouts to helper functions to simplify our lives.
+         *
+         * We only preserve GPR's, for simplicity, and because they are far more likely
+         * as inputs than flags or SIMD registers.  We'd like to verify that only GPR's
+         * are used, but A) we can't easily check values read *after* the sequence (the
+         * handler could set up state read afterward and sometimes clobbered inside), B)
+         * we do want to support SIMD and flags writes in the sequence, and C) even
+         * checking for values read in the sequence would want new interfaces like
+         * DR_REG_START_SIMD or register iterators for reasonable code.
+         */
+        for (i = 0; i < DR_NUM_GPR_REGS; i++) {
+            if (info->reg_written[i])
+                continue;
+            reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
+            if (instr_writes_to_reg(&instr, reg, DR_QUERY_DEFAULT)) {
+                LOG(GLOBAL, LOG_LOADER, 3,
+                    "Rseq region @" PFX " writes register %s at " PFX "\n", info->start,
+                    reg_names[reg], pc);
+                info->reg_written[i] = true;
+            }
+        }
+        pc = next_pc;
+    }
+    instr_free(GLOBAL_DCONTEXT, &instr);
+}
+
+static void
 rseq_process_entry(struct rseq_cs *entry, ssize_t load_offs)
 {
     LOG(GLOBAL, LOG_LOADER, 2,
@@ -162,6 +251,7 @@ rseq_process_entry(struct rseq_cs *entry, ssize_t load_offs)
     info->start = (app_pc)(ptr_uint_t)entry->start_ip + load_offs;
     info->end = info->start + entry->post_commit_offset;
     info->handler = (app_pc)(ptr_uint_t)entry->abort_ip + load_offs;
+    rseq_analyze_instructions(info);
     vmvector_add(d_r_rseq_areas, info->start, info->end, (void *)info);
     RSTATS_INC(num_rseq_regions);
     /* Check the start pc.  We don't take the effort to check for non-tags or

@@ -51,6 +51,9 @@ d_r_rseq_init(void);
 void
 d_r_rseq_exit(void);
 
+void
+rseq_thread_attach(dcontext_t *dcontext);
+
 bool
 rseq_is_registered_for_current_thread(void);
 
