@@ -123,8 +123,8 @@ typedef struct instr_info_t {
     opnd_size_t src2_size;
     byte src3_type;
     opnd_size_t src3_size;
-    uint flags;  /* encoding and extra operand flags in lower half,
-                  * AVX-512 tupletype attribute in upper half.
+    uint flags;  /* encoding and extra operand flags starting at lsb,
+                  * AVX-512 tupletype attribute starting at msb.
                   */
     uint eflags; /* combination of read & write flags from instr.h */
     /* For normal entries, this points to the next entry in the encoding chain

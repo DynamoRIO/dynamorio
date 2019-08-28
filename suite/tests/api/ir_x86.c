@@ -1715,6 +1715,105 @@ test_vsib(void *dc)
     test_vsib_helper(dc, &mc, instr, mc.xcx, 1, 2, 0x12, 0 /*nothing*/, OPSZ_4,
                      true /* evex */, true /* expect_write */);
     instr_destroy(dc, instr);
+
+    /* Test invalid k0 mask with scatter/gather opcodes. */
+
+    /* vpscatterdd %xmm0,(%rax,%xmm1,2){%k1} */
+    const byte b_vpscatterdd[] = { 0x62, 0xf2, 0x7d, 0x08, 0xa0, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vpscatterdd, (byte *)b_vpscatterdd,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vpscatterdq %xmm0,(%rax,%xmm1,2){%k1} */
+    const byte b_vpscatterdq[] = { 0x62, 0xf2, 0xfd, 0x08, 0xa0, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vpscatterdq, (byte *)b_vpscatterdq,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vpscatterqd %xmm0,(%rax,%xmm1,2){%k1} */
+    const byte b_vpscatterqd[] = { 0x62, 0xf2, 0x7d, 0x08, 0xa1, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vpscatterqd, (byte *)b_vpscatterqd,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vpscatterqq %xmm0,(%rax,%xmm1,2){%k1} */
+    const byte b_vpscatterqq[] = { 0x62, 0xf2, 0xfd, 0x08, 0xa1, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vpscatterqq, (byte *)b_vpscatterqq,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vscatterdps %xmm0,(%rax,%xmm1,2){%k1} */
+    const byte b_vscatterdps[] = { 0x62, 0xf2, 0x7d, 0x08, 0xa2, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vscatterdps, (byte *)b_vscatterdps,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vscatterdpd %xmm0,(%rax,%xmm1,2){%k1} */
+    const byte b_vscatterdpd[] = { 0x62, 0xf2, 0xfd, 0x08, 0xa2, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vscatterdpd, (byte *)b_vscatterdpd,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vscatterqps %xmm0,(%rax,%xmm1,2){%k1} */
+    const byte b_vscatterqps[] = { 0x62, 0xf2, 0x7d, 0x08, 0xa3, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vscatterqps, (byte *)b_vscatterqps,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vscatterqpd %xmm0,(%rax,%xmm1,2){%k1} */
+    const byte b_vscatterqpd[] = { 0x62, 0xf2, 0xfd, 0x08, 0xa3, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vscatterqpd, (byte *)b_vscatterqpd,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vpgatherdd (%rax,%xmm1,2),%xmm0{%k0} */
+    const byte b_vpgatherdd[] = { 0x62, 0xf2, 0x7d, 0x08, 0x90, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vpgatherdd, (byte *)b_vpgatherdd,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vpgatherdq (%rax,%xmm1,2),%xmm0{%k0} */
+    const byte b_vpgatherdq[] = { 0x62, 0xf2, 0xfd, 0x08, 0x90, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vpgatherdq, (byte *)b_vpgatherdq,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vpgatherqd (%rax,%xmm1,2),%xmm0{%k0} */
+    const byte b_vpgatherqd[] = { 0x62, 0xf2, 0x7d, 0x08, 0x91, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vpgatherqd, (byte *)b_vpgatherqd,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vpgatherqq (%rax,%xmm1,2),%xmm0{%k0} */
+    const byte b_vpgatherqq[] = { 0x62, 0xf2, 0xfd, 0x08, 0x91, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vpgatherqq, (byte *)b_vpgatherqq,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vgatherdps (%rax,%xmm1,2),%xmm0{%k0} */
+    const byte b_vgatherdps[] = { 0x62, 0xf2, 0x7d, 0x08, 0x92, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vgatherdps, (byte *)b_vgatherdps,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vgatherdpd (%rax,%xmm1,2),%xmm0{%k0} */
+    const byte b_vgatherdpd[] = { 0x62, 0xf2, 0xfd, 0x08, 0x92, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vgatherdpd, (byte *)b_vgatherdpd,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vgatherqps (%rax,%xmm1,2),%xmm0{%k0} */
+    const byte b_vgatherqps[] = { 0x62, 0xf2, 0x7d, 0x08, 0x93, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vgatherqps, (byte *)b_vgatherqps,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
+    /* vgatherqpd (%rax,%xmm1,2),%xmm0{%k0} */
+    const byte b_vgatherqpd[] = { 0x62, 0xf2, 0xfd, 0x08, 0x93, 0x04, 0x48 };
+    pc = disassemble_to_buffer(dc, (byte *)b_vgatherqpd, (byte *)b_vgatherqpd,
+                               false /*no pc*/, false /*no bytes*/, dbuf,
+                               BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == NULL);
 }
 
 static void

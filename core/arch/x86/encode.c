@@ -1505,6 +1505,8 @@ instr_info_extra_opnds(const instr_info_t *info)
         } else if (type_uses_evex_aaa_bits(iitype)) {                                    \
             if (!opnd_is_null(using_aaa_bits) && !opnd_same(using_aaa_bits, get_op))     \
                 return false;                                                            \
+            if (TEST(REQUIRES_NOT_K0, flags) && opnd_get_reg(get_op) == DR_REG_K0)       \
+                return false;                                                            \
             using_aaa_bits = get_op;                                                     \
         }                                                                                \
     } else if (inst_num >= iinum)                                                        \
