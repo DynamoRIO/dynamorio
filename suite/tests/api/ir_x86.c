@@ -1715,6 +1715,47 @@ test_vsib(void *dc)
     test_vsib_helper(dc, &mc, instr, mc.xcx, 1, 2, 0x12, 0 /*nothing*/, OPSZ_4,
                      true /* evex */, true /* expect_write */);
     instr_destroy(dc, instr);
+
+    /* Test invalid k0 mask with scatter/gather opcodes. */
+    const byte b_scattergatherinv[] = { /* vpscatterdd %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0xa0, 0x04, 0x48,
+                                        /* vpscatterdq %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0xa0, 0x04, 0x48,
+                                        /* vpscatterqd %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0xa1, 0x04, 0x48,
+                                        /* vpscatterqq %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0xa1, 0x04, 0x48,
+                                        /* vscatterdps %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0xa2, 0x04, 0x48,
+                                        /* vscatterdpd %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0xa2, 0x04, 0x48,
+                                        /* vscatterqps %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0xa3, 0x04, 0x48,
+                                        /* vscatterqpd %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0xa3, 0x04, 0x48,
+                                        /* vpgatherdd (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0x90, 0x04, 0x48,
+                                        /* vpgatherdq (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0x90, 0x04, 0x48,
+                                        /* vpgatherqd (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0x91, 0x04, 0x48,
+                                        /* vpgatherqq (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0x91, 0x04, 0x48,
+                                        /* vgatherdps (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0x92, 0x04, 0x48,
+                                        /* vgatherdpd (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0x92, 0x04, 0x48,
+                                        /* vgatherqps (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0x93, 0x04, 0x48,
+                                        /* vgatherqpd (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0x93, 0x04, 0x48
+    };
+    instr_t invinstr;
+    instr_init(dc, &invinstr);
+    for (int i = 0; i < sizeof(b_scattergatherinv); i += 7) {
+        pc = decode(dc, (byte *)&b_scattergatherinv[i], &invinstr);
+        ASSERT(pc == NULL);
+    }
 }
 
 static void
