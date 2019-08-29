@@ -2002,6 +2002,7 @@ const instr_info_t * const op_instr[] =
 #define reqLL1   REQUIRES_EVEX_LL_1
 #define vsiby    REQUIRES_VSIB_YMM
 #define vsibz    REQUIRES_VSIB_ZMM
+#define nok0     REQUIRES_NOT_K0
 
 /* flags used for AVX-512 compressed disp8 */
 #define inopsz1  DR_EVEX_INPUT_OPSZ_1
@@ -8046,32 +8047,32 @@ const instr_info_t evex_W_extensions[][2] = {
     /* XXX: OP_v*gather* raise #UD if any pair of the index, mask, or destination
      * registers are identical.  We don't bother trying to detect that.
      */
-    {OP_vpgatherdd, 0x66389018, "vpgatherdd", Ve, KEw, KEw, MVd, xx, mrm|evex|reqp|ttnone, x, END_LIST},
-    {OP_vpgatherdq, 0x66389058, "vpgatherdq", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone, x, END_LIST},
+    {OP_vpgatherdd, 0x66389018, "vpgatherdd", Ve, KEw, KEw, MVd, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vpgatherdq, 0x66389058, "vpgatherdq", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
   }, { /* evex_W_ext 189 */
-    {OP_vpgatherqd, 0x66389118, "vpgatherqd", Ve, KEb, KEb, MVd, xx, mrm|evex|reqp|ttnone, x, END_LIST},
-    {OP_vpgatherqq, 0x66389158, "vpgatherqq", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone, x, END_LIST},
+    {OP_vpgatherqd, 0x66389118, "vpgatherqd", Ve, KEb, KEb, MVd, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vpgatherqq, 0x66389158, "vpgatherqq", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
   }, { /* evex_W_ext 190 */
-    {OP_vgatherdps, 0x66389218, "vgatherdps", Ve, KEw, KEw, MVd, xx, mrm|evex|reqp|ttnone, x, END_LIST},
-    {OP_vgatherdpd, 0x66389258, "vgatherdpd", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone, x, END_LIST},
+    {OP_vgatherdps, 0x66389218, "vgatherdps", Ve, KEw, KEw, MVd, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vgatherdpd, 0x66389258, "vgatherdpd", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
   }, { /* evex_W_ext 191 */
-    {OP_vgatherqps, 0x66389318, "vgatherqps", Ve, KEb, KEb, MVd, xx, mrm|evex|reqp|ttnone, x, END_LIST},
-    {OP_vgatherqpd, 0x66389358, "vgatherqpd", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone, x, END_LIST},
+    {OP_vgatherqps, 0x66389318, "vgatherqps", Ve, KEb, KEb, MVd, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vgatherqpd, 0x66389358, "vgatherqpd", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
   }, { /* evex_W_ext 192 */
     /* XXX: OP_v*scatter* raise #UD if any pair of the index, mask, or destination
      * registers are identical.  We don't bother trying to detect that.
      */
-    {OP_vpscatterdd, 0x6638a018, "vpscatterdd", MVd, KEw, KEw, Ve, xx, mrm|evex|reqp|ttnone, x, END_LIST},
-    {OP_vpscatterdq, 0x6638a058, "vpscatterdq", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone, x, END_LIST},
+    {OP_vpscatterdd, 0x6638a018, "vpscatterdd", MVd, KEw, KEw, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vpscatterdq, 0x6638a058, "vpscatterdq", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
   }, { /* evex_W_ext 193 */
-    {OP_vpscatterqd, 0x6638a118, "vpscatterqd", MVd, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone, x, END_LIST},
-    {OP_vpscatterqq, 0x6638a158, "vpscatterqq", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone, x, END_LIST},
+    {OP_vpscatterqd, 0x6638a118, "vpscatterqd", MVd, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vpscatterqq, 0x6638a158, "vpscatterqq", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
   }, { /* evex_W_ext 194 */
-    {OP_vscatterdps, 0x6638a218, "vscatterdps", MVd, KEw, KEw, Ve, xx, mrm|evex|reqp|ttnone, x, END_LIST},
-    {OP_vscatterdpd, 0x6638a258, "vscatterdpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone, x, END_LIST},
+    {OP_vscatterdps, 0x6638a218, "vscatterdps", MVd, KEw, KEw, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vscatterdpd, 0x6638a258, "vscatterdpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
   }, { /* evex_W_ext 195 */
-    {OP_vscatterqps, 0x6638a318, "vscatterqps", MVd, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone, x, END_LIST},
-    {OP_vscatterqpd, 0x6638a358, "vscatterqpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone, x, END_LIST},
+    {OP_vscatterqps, 0x6638a318, "vscatterqps", MVd, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vscatterqpd, 0x6638a358, "vscatterqpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
   }, { /* evex_W_ext 196 */
        /* XXX i#1312: The encoding of this and the following gather prefetch instructions
         * is not clear. AVX-512PF seems to be specific to the Knights Landing architecture
