@@ -419,7 +419,7 @@ TEST_AVX512_GATHER_IDX32_VAL32(FUNCNAME(OPCODE), OPCODE)
 
 #define TEST_AVX512_GATHER_IDX32_VAL64(funcname, opcode)        @N@\
 DECLARE_FUNC_SEH(funcname)                                      @N@\
-  GLOBAL_LABEL(funcname:)		                        @N@\
+  GLOBAL_LABEL(funcname:)                                       @N@\
         mov        REG_XAX, ARG1                                @N@\
         mov        REG_XCX, ARG3                                @N@\
         mov        REG_XDX, ARG2                                @N@\
