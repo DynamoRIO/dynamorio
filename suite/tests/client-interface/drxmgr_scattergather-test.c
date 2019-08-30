@@ -661,11 +661,10 @@ DECLARE_FUNC_SEH(funcname)                                          @N@\
         sub           REG_XSP, FRAME_PADDING                        @N@\
         END_PROLOG                                                  @N@\
         vmovdqu       REG_YMM1, [REG_XDX]                           @N@\
-        mov           edx, 0x80000000                               @N@\
-        vpbroadcastd  REG_YMM2, edx                                 @N@\
+        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
         opcode        REG_XMM0, [REG_XAX + REG_XMM1 * 4], REG_XMM2  @N@\
         vmovdqu       [REG_XCX], REG_XMM0                           @N@\
-        vpbroadcastd  REG_YMM2, edx                                 @N@\
+        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
         opcode        REG_YMM0, [REG_XAX + REG_YMM1 * 4], REG_YMM2  @N@\
         vmovdqu       [REG_XCX + 16], REG_YMM0                      @N@\
         add           REG_XSP, FRAME_PADDING                        @N@\
@@ -690,11 +689,10 @@ DECLARE_FUNC_SEH(funcname)                                          @N@\
         sub           REG_XSP, FRAME_PADDING                        @N@\
         END_PROLOG                                                  @N@\
         vmovdqu       REG_YMM1, [REG_XDX]                           @N@\
-        mov           edx, 0x80000000                               @N@\
-        vpbroadcastd  REG_YMM2, edx                                 @N@\
+        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
         opcode        REG_XMM0, [REG_XAX + REG_XMM1 * 4], REG_XMM2  @N@\
         vmovdqu       [REG_XCX], REG_XMM0                           @N@\
-        vpbroadcastd  REG_YMM2, edx                                 @N@\
+        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
         opcode        REG_YMM0, [REG_XAX + REG_XMM1 * 4], REG_YMM2  @N@\
         vmovdqu       [REG_XCX + 16], REG_YMM0                      @N@\
         add           REG_XSP, FRAME_PADDING                        @N@\
@@ -719,11 +717,10 @@ DECLARE_FUNC_SEH(funcname)                                          @N@\
         sub           REG_XSP, FRAME_PADDING                        @N@\
         END_PROLOG                                                  @N@\
         vmovdqu       REG_YMM1, [REG_XDX]                           @N@\
-        mov           edx, 0x80000000                               @N@\
-        vpbroadcastd  REG_YMM2, edx                                 @N@\
+        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
         opcode        REG_XMM0, [REG_XAX + REG_XMM1 * 4], REG_XMM2  @N@\
         vmovdqu       [REG_XCX], REG_XMM0                           @N@\
-        vpbroadcastd  REG_YMM2, edx                                 @N@\
+        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
         opcode        REG_XMM0, [REG_XAX + REG_YMM1 * 4], REG_XMM2  @N@\
         vmovdqu       [REG_XCX + 16], REG_YMM0                      @N@\
         add           REG_XSP, FRAME_PADDING                        @N@\
@@ -748,11 +745,10 @@ DECLARE_FUNC_SEH(funcname)                                          @N@\
         sub           REG_XSP, FRAME_PADDING                        @N@\
         END_PROLOG                                                  @N@\
         vmovdqu       REG_YMM1, [REG_XDX]                           @N@\
-        mov           edx, 0x80000000                               @N@\
-        vpbroadcastd  REG_YMM2, edx                                 @N@\
+        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
         opcode        REG_XMM0, [REG_XAX + REG_XMM1 * 4], REG_XMM2  @N@\
         vmovdqu       [REG_XCX], REG_XMM0                           @N@\
-        vpbroadcastd  REG_YMM2, edx                                 @N@\
+        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
         opcode        REG_YMM0, [REG_XAX + REG_YMM1 * 4], REG_YMM2  @N@\
         vmovdqu       [REG_XCX + 16], REG_YMM0                      @N@\
         add           REG_XSP, FRAME_PADDING                        @N@\
