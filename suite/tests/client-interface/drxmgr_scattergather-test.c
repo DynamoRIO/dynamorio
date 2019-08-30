@@ -36,6 +36,7 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
+#    include <stdint.h>
 #    include "tools.h"
 
 #    ifndef X86
@@ -43,114 +44,114 @@
 #    endif
 
 void
-test_avx512_vpscatterdd(__u32 *xmm_ymm_zmm, __u32 *test_idx32_vec,
-                        __u32 *output_sparse_test_buf OUT);
+test_avx512_vpscatterdd(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
+                        uint32_t *output_sparse_test_buf OUT);
 void
-test_avx512_vpscatterdq(__u32 *xmm_ymm_zmm, __u32 *test_idx32_vec,
-                        __u32 *output_sparse_test_buf OUT);
+test_avx512_vpscatterdq(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
+                        uint32_t *output_sparse_test_buf OUT);
 void
-test_avx512_vpscatterqd(__u32 *xmm_ymm_zmm, __u32 *test_idx32_vec,
-                        __u32 *output_sparse_test_buf OUT);
+test_avx512_vpscatterqd(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
+                        uint32_t *output_sparse_test_buf OUT);
 void
-test_avx512_vpscatterqq(__u32 *xmm_ymm_zmm, __u32 *test_idx32_vec,
-                        __u32 *output_sparse_test_buf OUT);
+test_avx512_vpscatterqq(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
+                        uint32_t *output_sparse_test_buf OUT);
 /* Even though this is a floating point instruction, we implictly cast and treat the
  * result vector as a vector of integers and compare the results this way.
  */
 void
-test_avx512_vscatterdps(__u32 *xmm_ymm_zmm, __u32 *test_idx32_vec,
-                        __u32 *output_sparse_test_buf OUT);
+test_avx512_vscatterdps(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
+                        uint32_t *output_sparse_test_buf OUT);
 /* See comment above. */
 void
-test_avx512_vscatterdpd(__u32 *xmm_ymm_zmm, __u32 *test_idx32_vec,
-                        __u32 *output_sparse_test_buf OUT);
+test_avx512_vscatterdpd(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
+                        uint32_t *output_sparse_test_buf OUT);
 /* See comment above. */
 void
-test_avx512_vscatterqpd(__u32 *xmm_ymm_zmm, __u32 *test_idx32_vec,
-                        __u32 *output_sparse_test_buf OUT);
+test_avx512_vscatterqpd(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
+                        uint32_t *output_sparse_test_buf OUT);
 /* See comment above. */
 void
-test_avx512_vscatterqps(__u32 *xmm_ymm_zmm, __u32 *test_idx32_vec,
-                        __u32 *output_sparse_test_buf OUT);
+test_avx512_vscatterqps(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
+                        uint32_t *output_sparse_test_buf OUT);
 void
-test_avx512_vpgatherdd(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                       __u32 *output_xmm_ymm_zmm OUT);
+test_avx512_vpgatherdd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                       uint32_t *output_xmm_ymm_zmm OUT);
 void
-test_avx512_vpgatherdq(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                       __u32 *output_xmm_ymm_zmm OUT);
+test_avx512_vpgatherdq(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                       uint32_t *output_xmm_ymm_zmm OUT);
 void
-test_avx512_vpgatherqd(__u32 *ref_sparse_test_buf, __u32 *test_idx64_vec,
-                       __u32 *output_xmm_ymm_zmm OUT);
+test_avx512_vpgatherqd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx64_vec,
+                       uint32_t *output_xmm_ymm_zmm OUT);
 void
-test_avx512_vpgatherqq(__u32 *ref_sparse_test_buf, __u32 *test_idx64_vec,
-                       __u32 *output_xmm_ymm_zmm OUT);
+test_avx512_vpgatherqq(uint32_t *ref_sparse_test_buf, uint32_t *test_idx64_vec,
+                       uint32_t *output_xmm_ymm_zmm OUT);
 void
 /* Even though this is a floating point instruction, we implictly cast and treat the
  * result vector as a vector of integers and compare the results this way.
  */
-test_avx512_vgatherdps(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                       __u32 *output_xmm_ymm_zmm OUT);
+test_avx512_vgatherdps(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                       uint32_t *output_xmm_ymm_zmm OUT);
 /* See comment above. */
 void
-test_avx512_vgatherdpd(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                       __u32 *output_xmm_ymm_zmm OUT);
+test_avx512_vgatherdpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                       uint32_t *output_xmm_ymm_zmm OUT);
 /* See comment above. */
 void
-test_avx512_vgatherqps(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                       __u32 *output_xmm_ymm_zmm OUT);
+test_avx512_vgatherqps(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                       uint32_t *output_xmm_ymm_zmm OUT);
 /* See comment above. */
 void
-test_avx512_vgatherqpd(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                       __u32 *output_xmm_ymm_zmm OUT);
+test_avx512_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                       uint32_t *output_xmm_ymm_zmm OUT);
 void
-test_avx2_vpgatherdd(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                     __u32 *output_xmm_ymm_zmm OUT);
+test_avx2_vpgatherdd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                     uint32_t *output_xmm_ymm_zmm OUT);
 void
-test_avx2_vpgatherdq(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                     __u32 *output_xmm_ymm_zmm OUT);
+test_avx2_vpgatherdq(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                     uint32_t *output_xmm_ymm_zmm OUT);
 void
-test_avx2_vpgatherqd(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                     __u32 *output_xmm_ymm_zmm OUT);
+test_avx2_vpgatherqd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                     uint32_t *output_xmm_ymm_zmm OUT);
 void
-test_avx2_vpgatherqq(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                     __u32 *output_xmm_ymm_zmm OUT);
+test_avx2_vpgatherqq(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                     uint32_t *output_xmm_ymm_zmm OUT);
 /* Even though this is a floating point instruction, we implictly cast and treat the
  * result vector as a vector of integers and compare the results this way.
  */
 void
-test_avx2_vgatherdps(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                     __u32 *output_xmm_ymm_zmm OUT);
+test_avx2_vgatherdps(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                     uint32_t *output_xmm_ymm_zmm OUT);
 /* See comment above. */
 void
-test_avx2_vgatherdpd(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                     __u32 *output_xmm_ymm_zmm OUT);
+test_avx2_vgatherdpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                     uint32_t *output_xmm_ymm_zmm OUT);
 /* See comment above. */
 void
-test_avx2_vgatherqps(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                     __u32 *output_xmm_ymm_zmm OUT);
+test_avx2_vgatherqps(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                     uint32_t *output_xmm_ymm_zmm OUT);
 /* See comment above. */
 void
-test_avx2_vgatherqpd(__u32 *ref_sparse_test_buf, __u32 *test_idx32_vec,
-                     __u32 *output_xmm_ymm_zmm OUT);
+test_avx2_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
+                     uint32_t *output_xmm_ymm_zmm OUT);
 
 #    define SPARSE_FACTOR 4
 #    define XMM_REG_SIZE 16
 #    define YMM_REG_SIZE 32
 #    define ZMM_REG_SIZE 64
 #    define CONCAT_XMM_YMM_ZMM_U32 \
-        (XMM_REG_SIZE + YMM_REG_SIZE + ZMM_REG_SIZE) / sizeof(__u32)
-#    define CONCAT_XMM_YMM_U32 (XMM_REG_SIZE + YMM_REG_SIZE) / sizeof(__u32)
-#    define SPARSE_TEST_BUF_SIZE_U32 SPARSE_FACTOR *ZMM_REG_SIZE / sizeof(__u32)
+        (XMM_REG_SIZE + YMM_REG_SIZE + ZMM_REG_SIZE) / sizeof(uint32_t)
+#    define CONCAT_XMM_YMM_U32 (XMM_REG_SIZE + YMM_REG_SIZE) / sizeof(uint32_t)
+#    define SPARSE_TEST_BUF_SIZE_U32 SPARSE_FACTOR *ZMM_REG_SIZE / sizeof(uint32_t)
 
 static bool
-test_avx512_gather(void (*test_func)(__u32 *, __u32 *, __u32 *),
-                   __u32 *ref_sparse_test_buf, __u32 *ref_xmm_ymm_zmm,
-                   __u32 *test_idx_vec, __u32 *output_xmm_ymm_zmm OUT)
+test_avx512_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
+                   uint32_t *ref_sparse_test_buf, uint32_t *ref_xmm_ymm_zmm,
+                   uint32_t *test_idx_vec, uint32_t *output_xmm_ymm_zmm OUT)
 {
-    memset(output_xmm_ymm_zmm, 0, CONCAT_XMM_YMM_ZMM_U32 * sizeof(__u32));
+    memset(output_xmm_ymm_zmm, 0, CONCAT_XMM_YMM_ZMM_U32 * sizeof(uint32_t));
     test_func(ref_sparse_test_buf, test_idx_vec, output_xmm_ymm_zmm);
     if (memcmp(output_xmm_ymm_zmm, ref_xmm_ymm_zmm,
-               CONCAT_XMM_YMM_ZMM_U32 * sizeof(__u32)) != 0) {
+               CONCAT_XMM_YMM_ZMM_U32 * sizeof(uint32_t)) != 0) {
         print("ERROR: gather result does not match\n");
         return false;
     }
@@ -158,12 +159,13 @@ test_avx512_gather(void (*test_func)(__u32 *, __u32 *, __u32 *),
 }
 
 static bool
-test_avx2_gather(void (*test_func)(__u32 *, __u32 *, __u32 *), __u32 *ref_sparse_test_buf,
-                 __u32 *ref_xmm_ymm, __u32 *test_idx_vec, __u32 *output_xmm_ymm OUT)
+test_avx2_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
+                 uint32_t *ref_sparse_test_buf, uint32_t *ref_xmm_ymm,
+                 uint32_t *test_idx_vec, uint32_t *output_xmm_ymm OUT)
 {
-    memset(output_xmm_ymm, 0, CONCAT_XMM_YMM_U32 * sizeof(__u32));
+    memset(output_xmm_ymm, 0, CONCAT_XMM_YMM_U32 * sizeof(uint32_t));
     test_func(ref_sparse_test_buf, test_idx_vec, output_xmm_ymm);
-    if (memcmp(output_xmm_ymm, ref_xmm_ymm, CONCAT_XMM_YMM_U32 * sizeof(__u32)) != 0) {
+    if (memcmp(output_xmm_ymm, ref_xmm_ymm, CONCAT_XMM_YMM_U32 * sizeof(uint32_t)) != 0) {
         print("ERROR: gather result does not match\n");
         return false;
     }
@@ -171,25 +173,25 @@ test_avx2_gather(void (*test_func)(__u32 *, __u32 *, __u32 *), __u32 *ref_sparse
 }
 
 static bool
-test_avx512_scatter(void (*test_func)(__u32 *, __u32 *, __u32 *),
-                    __u32 *ref_sparse_test_buf, __u32 *ref_xmm_ymm_zmm,
-                    __u32 *test_idx_vec, bool check_half, bool check_64bit_values,
-                    __u32 *output_sparse_test_buf OUT)
+test_avx512_scatter(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
+                    uint32_t *ref_sparse_test_buf, uint32_t *ref_xmm_ymm_zmm,
+                    uint32_t *test_idx_vec, bool check_half, bool check_64bit_values,
+                    uint32_t *output_sparse_test_buf OUT)
 {
     /* For scatters with maximal 8 indices, only half the sparse array is scattered. */
     int check_size = check_half ? SPARSE_TEST_BUF_SIZE_U32 / 2 : SPARSE_TEST_BUF_SIZE_U32;
-    memset(output_sparse_test_buf, 0, SPARSE_TEST_BUF_SIZE_U32 * sizeof(__u32));
+    memset(output_sparse_test_buf, 0, SPARSE_TEST_BUF_SIZE_U32 * sizeof(uint32_t));
     test_func(ref_xmm_ymm_zmm, test_idx_vec, output_sparse_test_buf);
     for (int i = 0; i < check_size; i += SPARSE_FACTOR) {
         if (check_64bit_values) {
-            if (*(__u64 *)&output_sparse_test_buf[i] !=
-                *(__u64 *)&ref_sparse_test_buf[i]) {
+            if (*(uint64_t *)&output_sparse_test_buf[i] !=
+                *(uint64_t *)&ref_sparse_test_buf[i]) {
                 print("ERROR: scatter result does not match\n");
                 return false;
             }
         } else {
-            if (*(__u32 *)&output_sparse_test_buf[i] !=
-                *(__u32 *)&ref_sparse_test_buf[i]) {
+            if (*(uint32_t *)&output_sparse_test_buf[i] !=
+                *(uint32_t *)&ref_sparse_test_buf[i]) {
                 print("ERROR: scatter result does not match\n");
                 return false;
             }
@@ -201,52 +203,52 @@ test_avx512_scatter(void (*test_func)(__u32 *, __u32 *, __u32 *),
 static bool
 test_avx2_avx512_scatter_gather(void)
 {
-    __u32 ref_sparse_test_buf[] = { 0x0, 0x1, 0xf, 0xf, 0x1, 0x2, 0xf, 0xf, 0x2, 0x3, 0xf,
-                                    0xf, 0x3, 0x4, 0xf, 0xf, 0x4, 0x5, 0xf, 0xf, 0x5, 0x6,
-                                    0xf, 0xf, 0x6, 0x7, 0xf, 0xf, 0x7, 0x8, 0xf, 0xf, 0x8,
-                                    0x9, 0xf, 0xf, 0x9, 0xa, 0xf, 0xf, 0xa, 0xb, 0xf, 0xf,
-                                    0xb, 0xc, 0xf, 0xf, 0xc, 0xd, 0xf, 0xf, 0xd, 0xe, 0xf,
-                                    0xf, 0xe, 0xf, 0xf, 0xf, 0xf, 0x0, 0xf, 0xf };
-    __u32 ref_idx32_val32_xmm_ymm_zmm[] = { /* xmm */
-                                            0x0, 0x1, 0x2, 0x3,
-                                            /* ymm */
-                                            0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
-                                            /* zmm */
-                                            0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8,
-                                            0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf
+    uint32_t ref_sparse_test_buf[] = {
+        0x0, 0x1, 0xf, 0xf, 0x1, 0x2, 0xf, 0xf, 0x2, 0x3, 0xf, 0xf, 0x3, 0x4, 0xf, 0xf,
+        0x4, 0x5, 0xf, 0xf, 0x5, 0x6, 0xf, 0xf, 0x6, 0x7, 0xf, 0xf, 0x7, 0x8, 0xf, 0xf,
+        0x8, 0x9, 0xf, 0xf, 0x9, 0xa, 0xf, 0xf, 0xa, 0xb, 0xf, 0xf, 0xb, 0xc, 0xf, 0xf,
+        0xc, 0xd, 0xf, 0xf, 0xd, 0xe, 0xf, 0xf, 0xe, 0xf, 0xf, 0xf, 0xf, 0x0, 0xf, 0xf
     };
-    __u32 ref_idx32_val64_xmm_ymm_zmm[] = { /* xmm */
-                                            0x0, 0x1, 0x1, 0x2,
-                                            /* ymm */
-                                            0x0, 0x1, 0x1, 0x2, 0x2, 0x3, 0x3, 0x4,
-                                            /* zmm */
-                                            0x0, 0x1, 0x1, 0x2, 0x2, 0x3, 0x3, 0x4, 0x4,
-                                            0x5, 0x5, 0x6, 0x6, 0x7, 0x7, 0x8
+    uint32_t ref_idx32_val32_xmm_ymm_zmm[] = { /* xmm */
+                                               0x0, 0x1, 0x2, 0x3,
+                                               /* ymm */
+                                               0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+                                               /* zmm */
+                                               0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+                                               0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf
     };
-    __u32 ref_idx64_val32_xmm_ymm_zmm[] = { /* xmm */
-                                            0x0, 0x1, 0x0, 0x0,
-                                            /* ymm */
-                                            0x0, 0x1, 0x2, 0x3, 0x0, 0x0, 0x0, 0x0,
-                                            /* zmm */
-                                            0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x0,
-                                            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0
+    uint32_t ref_idx32_val64_xmm_ymm_zmm[] = { /* xmm */
+                                               0x0, 0x1, 0x1, 0x2,
+                                               /* ymm */
+                                               0x0, 0x1, 0x1, 0x2, 0x2, 0x3, 0x3, 0x4,
+                                               /* zmm */
+                                               0x0, 0x1, 0x1, 0x2, 0x2, 0x3, 0x3, 0x4,
+                                               0x4, 0x5, 0x5, 0x6, 0x6, 0x7, 0x7, 0x8
     };
-    __u32 ref_idx64_val64_xmm_ymm_zmm[] = { /* xmm */
-                                            0x0, 0x1, 0x1, 0x2,
-                                            /* ymm */
-                                            0x0, 0x1, 0x1, 0x2, 0x2, 0x3, 0x3, 0x4,
-                                            /* zmm */
-                                            0x0, 0x1, 0x1, 0x2, 0x2, 0x3, 0x3, 0x4, 0x4,
-                                            0x5, 0x5, 0x6, 0x6, 0x7, 0x7, 0x8
+    uint32_t ref_idx64_val32_xmm_ymm_zmm[] = { /* xmm */
+                                               0x0, 0x1, 0x0, 0x0,
+                                               /* ymm */
+                                               0x0, 0x1, 0x2, 0x3, 0x0, 0x0, 0x0, 0x0,
+                                               /* zmm */
+                                               0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+                                               0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0
     };
-    __u32 test_idx32_vec[] = { 0x0,  0x4,  0x8,  0xc,  0x10, 0x14, 0x18, 0x1c,
-                               0x20, 0x24, 0x28, 0x2c, 0x30, 0x34, 0x38, 0x3c };
-    __u32 test_idx64_vec[] = { 0x0,  0x0, 0x4,  0x0, 0x8,  0x0, 0xc,  0x0,
-                               0x10, 0x0, 0x14, 0x0, 0x18, 0x0, 0x1c, 0x0,
-                               0x20, 0x0, 0x24, 0x0, 0x28, 0x0, 0x2c, 0x0,
-                               0x30, 0x0, 0x34, 0x0, 0x38, 0x0, 0x3c, 0x0 };
-    __u32 output_xmm_ymm_zmm[CONCAT_XMM_YMM_ZMM_U32];
-    __u32 output_sparse_test_buf[SPARSE_TEST_BUF_SIZE_U32];
+    uint32_t ref_idx64_val64_xmm_ymm_zmm[] = { /* xmm */
+                                               0x0, 0x1, 0x1, 0x2,
+                                               /* ymm */
+                                               0x0, 0x1, 0x1, 0x2, 0x2, 0x3, 0x3, 0x4,
+                                               /* zmm */
+                                               0x0, 0x1, 0x1, 0x2, 0x2, 0x3, 0x3, 0x4,
+                                               0x4, 0x5, 0x5, 0x6, 0x6, 0x7, 0x7, 0x8
+    };
+    uint32_t test_idx32_vec[] = { 0x0,  0x4,  0x8,  0xc,  0x10, 0x14, 0x18, 0x1c,
+                                  0x20, 0x24, 0x28, 0x2c, 0x30, 0x34, 0x38, 0x3c };
+    uint32_t test_idx64_vec[] = { 0x0,  0x0, 0x4,  0x0, 0x8,  0x0, 0xc,  0x0,
+                                  0x10, 0x0, 0x14, 0x0, 0x18, 0x0, 0x1c, 0x0,
+                                  0x20, 0x0, 0x24, 0x0, 0x28, 0x0, 0x2c, 0x0,
+                                  0x30, 0x0, 0x34, 0x0, 0x38, 0x0, 0x3c, 0x0 };
+    uint32_t output_xmm_ymm_zmm[CONCAT_XMM_YMM_ZMM_U32];
+    uint32_t output_sparse_test_buf[SPARSE_TEST_BUF_SIZE_U32];
 #    ifdef __AVX512F__
     if (!test_avx512_gather(test_avx512_vpgatherdd, ref_sparse_test_buf,
                             ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec,
