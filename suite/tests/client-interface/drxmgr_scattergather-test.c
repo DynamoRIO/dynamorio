@@ -203,6 +203,7 @@ test_avx512_scatter(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
 static bool
 test_avx2_avx512_scatter_gather(void)
 {
+#    if defined(__AVX512F__) || defined(__AVX__)
     uint32_t ref_sparse_test_buf[] = {
         0x0, 0x1, 0xf, 0xf, 0x1, 0x2, 0xf, 0xf, 0x2, 0x3, 0xf, 0xf, 0x3, 0x4, 0xf, 0xf,
         0x4, 0x5, 0xf, 0xf, 0x5, 0x6, 0xf, 0xf, 0x6, 0x7, 0xf, 0xf, 0x7, 0x8, 0xf, 0xf,
@@ -249,6 +250,7 @@ test_avx2_avx512_scatter_gather(void)
                                   0x30, 0x0, 0x34, 0x0, 0x38, 0x0, 0x3c, 0x0 };
     uint32_t output_xmm_ymm_zmm[CONCAT_XMM_YMM_ZMM_U32];
     uint32_t output_sparse_test_buf[SPARSE_TEST_BUF_SIZE_U32];
+#    endif
 #    ifdef __AVX512F__
     if (!test_avx512_gather(test_avx512_vpgatherdd, ref_sparse_test_buf,
                             ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec,
