@@ -417,7 +417,7 @@ dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
     for (i = 0; i < 8; i++) {
         LOG(THREAD, LOG_ASYNCH, 1, "\txmm%d = ", i);
         for (j = 0; j < 4; j++)
-            LOG(THREAD, LOG_ASYNCH, 1, "%04x ", fp->_xmm[i].element[j]);
+            LOG(THREAD, LOG_ASYNCH, 1, "%08x ", fp->_xmm[i].element[j]);
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
 #    endif
@@ -435,7 +435,7 @@ dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
             for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                 LOG(THREAD, LOG_ASYNCH, 1, "\tymmh%d = ", i);
                 for (j = 0; j < 4; j++) {
-                    LOG(THREAD, LOG_ASYNCH, 1, "%04x ",
+                    LOG(THREAD, LOG_ASYNCH, 1, "%08x",
                         xstate->ymmh.ymmh_space[i * 4 + j]);
                 }
                 LOG(THREAD, LOG_ASYNCH, 1, "\n");
@@ -466,7 +466,7 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\txax=" PFX "\n", sc->SC_XAX);
 #    ifdef X64
     LOG(THREAD, LOG_ASYNCH, 1, "\t r8=" PFX "\n", sc->r8);
-    LOG(THREAD, LOG_ASYNCH, 1, "\t r9=" PFX "\n", sc->r8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\t r9=" PFX "\n", sc->r9);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr10=" PFX "\n", sc->r10);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr11=" PFX "\n", sc->r11);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr12=" PFX "\n", sc->r12);
