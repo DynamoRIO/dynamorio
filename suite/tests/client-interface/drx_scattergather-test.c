@@ -453,29 +453,29 @@ TEST_AVX512_GATHER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
 #define OPCODE vgatherdpd
 TEST_AVX512_GATHER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
 
-e#define TEST_AVX512_GATHER_IDX64_VAL32(funcname, opcode)  @N@\
-DECLARE_FUNC_SEH(funcname)                                 @N@\
-  GLOBAL_LABEL(funcname:)                                  @N@\
-        mov        REG_XAX, ARG1                           @N@\
-        mov        REG_XCX, ARG3                           @N@\
-        mov        REG_XDX, ARG2                           @N@\
-        PUSH_CALLEE_SAVED_REGS()                           @N@\
-        sub        REG_XSP, FRAME_PADDING                  @N@\
-        END_PROLOG                                         @N@\
-        vmovdqu32  zmm1, [REG_XDX]                         @N@\
-        movw       dx, 0xffff                              @N@\
-        kmovw      k1, edx                                 @N@\
-        opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]         @N@\
-        vmovdqu32  [REG_XCX], xmm0                         @N@\
-        kmovw      k1, edx                                 @N@\
-        opcode     xmm0 {k1}, [REG_XAX + ymm1 * 4]         @N@\
-        vmovdqu32  [REG_XCX + 16], ymm0                    @N@\
-        kmovw      k1, edx                                 @N@\
-        opcode     ymm0 {k1}, [REG_XAX + zmm1 * 4]         @N@\
-        vmovdqu32  [REG_XCX + 48], zmm0                    @N@\
-        add        REG_XSP, FRAME_PADDING                  @N@\
-        POP_CALLEE_SAVED_REGS()                            @N@\
-        ret                                                @N@\
+#define TEST_AVX512_GATHER_IDX64_VAL32(funcname, opcode)  @N@\
+DECLARE_FUNC_SEH(funcname)                                @N@\
+  GLOBAL_LABEL(funcname:)                                 @N@\
+        mov        REG_XAX, ARG1                          @N@\
+        mov        REG_XCX, ARG3                          @N@\
+        mov        REG_XDX, ARG2                          @N@\
+        PUSH_CALLEE_SAVED_REGS()                          @N@\
+        sub        REG_XSP, FRAME_PADDING                 @N@\
+        END_PROLOG                                        @N@\
+        vmovdqu32  zmm1, [REG_XDX]                        @N@\
+        movw       dx, 0xffff                             @N@\
+        kmovw      k1, edx                                @N@\
+        opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]        @N@\
+        vmovdqu32  [REG_XCX], xmm0                        @N@\
+        kmovw      k1, edx                                @N@\
+        opcode     xmm0 {k1}, [REG_XAX + ymm1 * 4]        @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                   @N@\
+        kmovw      k1, edx                                @N@\
+        opcode     ymm0 {k1}, [REG_XAX + zmm1 * 4]        @N@\
+        vmovdqu32  [REG_XCX + 48], zmm0                   @N@\
+        add        REG_XSP, FRAME_PADDING                 @N@\
+        POP_CALLEE_SAVED_REGS()                           @N@\
+        ret                                               @N@\
         END_FUNC(funcname)
 
 #undef OPCODE
