@@ -139,9 +139,9 @@ test_avx2_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
 #    define YMM_REG_SIZE 32
 #    define ZMM_REG_SIZE 64
 #    define CONCAT_XMM_YMM_ZMM_U32 \
-        (XMM_REG_SIZE + YMM_REG_SIZE + ZMM_REG_SIZE) / sizeof(uint32_t)
-#    define CONCAT_XMM_YMM_U32 (XMM_REG_SIZE + YMM_REG_SIZE) / sizeof(uint32_t)
-#    define SPARSE_TEST_BUF_SIZE_U32 SPARSE_FACTOR *ZMM_REG_SIZE / sizeof(uint32_t)
+        ((XMM_REG_SIZE + YMM_REG_SIZE + ZMM_REG_SIZE) / sizeof(uint32_t))
+#    define CONCAT_XMM_YMM_U32 ((XMM_REG_SIZE + YMM_REG_SIZE) / sizeof(uint32_t))
+#    define SPARSE_TEST_BUF_SIZE_U32 (SPARSE_FACTOR * ZMM_REG_SIZE / sizeof(uint32_t))
 
 static bool
 test_avx512_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
@@ -392,8 +392,11 @@ START_FILE
 #define TEST_AVX512_GATHER_IDX32_VAL32(opcode)            @N@\
 DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
   GLOBAL_LABEL(FUNCNAME(opcode):)                         @N@\
+        /* uint32_t *ref_sparse_test_buf */               @N@\
         mov        REG_XAX, ARG1                          @N@\
+        /* uint32_t *output_xmm_ymm_zmm OUT */            @N@\
         mov        REG_XCX, ARG3                          @N@\
+        /* uint32_t *test_idx32_vec */                    @N@\
         mov        REG_XDX, ARG2                          @N@\
         PUSH_CALLEE_SAVED_REGS()                          @N@\
         sub        REG_XSP, FRAME_PADDING                 @N@\
@@ -420,8 +423,11 @@ TEST_AVX512_GATHER_IDX32_VAL32(vgatherdps)
 #define TEST_AVX512_GATHER_IDX32_VAL64(opcode)            @N@\
 DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
   GLOBAL_LABEL(FUNCNAME(opcode):)                         @N@\
+        /* uint32_t *ref_sparse_test_buf */               @N@\
         mov        REG_XAX, ARG1                          @N@\
+        /* uint32_t *output_xmm_ymm_zmm OUT */            @N@\
         mov        REG_XCX, ARG3                          @N@\
+        /* uint32_t *test_idx32_vec */                    @N@\
         mov        REG_XDX, ARG2                          @N@\
         PUSH_CALLEE_SAVED_REGS()                          @N@\
         sub        REG_XSP, FRAME_PADDING                 @N@\
@@ -448,8 +454,11 @@ TEST_AVX512_GATHER_IDX32_VAL64(vgatherdpd)
 #define TEST_AVX512_GATHER_IDX64_VAL32(opcode)            @N@\
 DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
   GLOBAL_LABEL(FUNCNAME(opcode):)                         @N@\
+        /* uint32_t *ref_sparse_test_buf */               @N@\
         mov        REG_XAX, ARG1                          @N@\
+        /* uint32_t *output_xmm_ymm_zmm OUT */            @N@\
         mov        REG_XCX, ARG3                          @N@\
+        /* uint32_t *test_idx32_vec */                    @N@\
         mov        REG_XDX, ARG2                          @N@\
         PUSH_CALLEE_SAVED_REGS()                          @N@\
         sub        REG_XSP, FRAME_PADDING                 @N@\
@@ -476,8 +485,11 @@ TEST_AVX512_GATHER_IDX64_VAL32(vgatherqps)
 #define TEST_AVX512_GATHER_IDX64_VAL64(opcode)            @N@\
 DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
   GLOBAL_LABEL(FUNCNAME(opcode):)                         @N@\
+        /* uint32_t *ref_sparse_test_buf */               @N@\
         mov        REG_XAX, ARG1                          @N@\
+        /* uint32_t *output_xmm_ymm_zmm OUT */            @N@\
         mov        REG_XCX, ARG3                          @N@\
+        /* uint32_t *test_idx32_vec */                    @N@\
         mov        REG_XDX, ARG2                          @N@\
         PUSH_CALLEE_SAVED_REGS()                          @N@\
         sub        REG_XSP, FRAME_PADDING                 @N@\
@@ -504,8 +516,11 @@ TEST_AVX512_GATHER_IDX64_VAL64(vgatherqpd)
 #define TEST_AVX512_SCATTER_IDX32_VAL32(opcode)            @N@\
 DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
   GLOBAL_LABEL(FUNCNAME(opcode):)                          @N@\
+        /* uint32_t *xmm_ymm_zmm */                        @N@\
         mov        REG_XAX, ARG1                           @N@\
+        /* uint32_t *output_sparse_test_buf OUT */         @N@\
         mov        REG_XCX, ARG3                           @N@\
+        /* uint32_t *test_idx32_vec */                     @N@\
         mov        REG_XDX, ARG2                           @N@\
         PUSH_CALLEE_SAVED_REGS()                           @N@\
         sub        REG_XSP, FRAME_PADDING                  @N@\
@@ -533,8 +548,11 @@ TEST_AVX512_SCATTER_IDX32_VAL32(vscatterdps)
 #define TEST_AVX512_SCATTER_IDX32_VAL64(opcode)            @N@\
 DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
   GLOBAL_LABEL(FUNCNAME(opcode):)                          @N@\
+        /* uint32_t *xmm_ymm_zmm */                        @N@\
         mov        REG_XAX, ARG1                           @N@\
+        /* uint32_t *output_sparse_test_buf OUT */         @N@\
         mov        REG_XCX, ARG3                           @N@\
+        /* uint32_t *test_idx32_vec */                     @N@\
         mov        REG_XDX, ARG2                           @N@\
         PUSH_CALLEE_SAVED_REGS()                           @N@\
         sub        REG_XSP, FRAME_PADDING                  @N@\
@@ -562,8 +580,11 @@ TEST_AVX512_SCATTER_IDX32_VAL64(vscatterdpd)
 #define TEST_AVX512_SCATTER_IDX64_VAL32(opcode)            @N@\
 DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
   GLOBAL_LABEL(FUNCNAME(opcode):)                          @N@\
+        /* uint32_t *xmm_ymm_zmm */                        @N@\
         mov        REG_XAX, ARG1                           @N@\
+        /* uint32_t *output_sparse_test_buf OUT */         @N@\
         mov        REG_XCX, ARG3                           @N@\
+        /* uint32_t *test_idx32_vec */                     @N@\
         mov        REG_XDX, ARG2                           @N@\
         PUSH_CALLEE_SAVED_REGS()                           @N@\
         sub        REG_XSP, FRAME_PADDING                  @N@\
@@ -591,8 +612,11 @@ TEST_AVX512_SCATTER_IDX64_VAL32(vscatterqps)
 #define TEST_AVX512_SCATTER_IDX64_VAL64(opcode)            @N@\
 DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
   GLOBAL_LABEL(FUNCNAME(opcode):)                          @N@\
+        /* uint32_t *xmm_ymm_zmm */                        @N@\
         mov        REG_XAX, ARG1                           @N@\
+        /* uint32_t *output_sparse_test_buf OUT */         @N@\
         mov        REG_XCX, ARG3                           @N@\
+        /* uint32_t *test_idx32_vec */                     @N@\
         mov        REG_XDX, ARG2                           @N@\
         PUSH_CALLEE_SAVED_REGS()                           @N@\
         sub        REG_XSP, FRAME_PADDING                  @N@\
@@ -625,8 +649,11 @@ TEST_AVX512_SCATTER_IDX64_VAL64(vscatterqpd)
 #define TEST_AVX2_GATHER_IDX32_VAL32(opcode)            @N@\
 DECLARE_FUNC_SEH(FUNCNAME(opcode))                      @N@\
   GLOBAL_LABEL(FUNCNAME(opcode):)                       @N@\
+        /* uint32_t *ref_sparse_test_buf */             @N@\
         mov           REG_XAX, ARG1                     @N@\
+        /* uint32_t *output_xmm_ymm_zmm OUT */          @N@\
         mov           REG_XCX, ARG3                     @N@\
+        /* uint32_t *test_idx32_vec */                  @N@\
         mov           REG_XDX, ARG2                     @N@\
         PUSH_CALLEE_SAVED_REGS()                        @N@\
         sub           REG_XSP, FRAME_PADDING            @N@\
@@ -649,8 +676,11 @@ TEST_AVX2_GATHER_IDX32_VAL32(vgatherdps)
 #define TEST_AVX2_GATHER_IDX32_VAL64(opcode)            @N@\
 DECLARE_FUNC_SEH(FUNCNAME(opcode))                      @N@\
   GLOBAL_LABEL(FUNCNAME(opcode):)                       @N@\
+        /* uint32_t *ref_sparse_test_buf */             @N@\
         mov           REG_XAX, ARG1                     @N@\
+        /* uint32_t *output_xmm_ymm_zmm OUT */          @N@\
         mov           REG_XCX, ARG3                     @N@\
+        /* uint32_t *test_idx32_vec */                  @N@\
         mov           REG_XDX, ARG2                     @N@\
         PUSH_CALLEE_SAVED_REGS()                        @N@\
         sub           REG_XSP, FRAME_PADDING            @N@\
@@ -673,8 +703,11 @@ TEST_AVX2_GATHER_IDX32_VAL64(vgatherdpd)
 #define TEST_AVX2_GATHER_IDX64_VAL32(opcode)            @N@\
 DECLARE_FUNC_SEH(FUNCNAME(opcode))                      @N@\
   GLOBAL_LABEL(FUNCNAME(opcode):)                       @N@\
+        /* uint32_t *ref_sparse_test_buf */             @N@\
         mov           REG_XAX, ARG1                     @N@\
+        /* uint32_t *output_xmm_ymm_zmm OUT */          @N@\
         mov           REG_XCX, ARG3                     @N@\
+        /* uint32_t *test_idx32_vec */                  @N@\
         mov           REG_XDX, ARG2                     @N@\
         PUSH_CALLEE_SAVED_REGS()                        @N@\
         sub           REG_XSP, FRAME_PADDING            @N@\
@@ -697,8 +730,11 @@ TEST_AVX2_GATHER_IDX64_VAL32(vgatherqps)
 #define TEST_AVX2_GATHER_IDX64_VAL64(opcode)            @N@\
 DECLARE_FUNC_SEH(FUNCNAME(opcode))                      @N@\
   GLOBAL_LABEL(FUNCNAME(opcode):)                       @N@\
+        /* uint32_t *ref_sparse_test_buf */             @N@\
         mov           REG_XAX, ARG1                     @N@\
+        /* uint32_t *output_xmm_ymm_zmm OUT */          @N@\
         mov           REG_XCX, ARG3                     @N@\
+        /* uint32_t *test_idx32_vec */                  @N@\
         mov           REG_XDX, ARG2                     @N@\
         PUSH_CALLEE_SAVED_REGS()                        @N@\
         sub           REG_XSP, FRAME_PADDING            @N@\
