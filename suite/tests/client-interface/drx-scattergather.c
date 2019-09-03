@@ -30,9 +30,9 @@
  * DAMAGE.
  */
 
-/* TODO i#2985: Currently, this test doesn't do anything but running scatter/gather
- * sequences in AVX-512 and AVX2 and checking for correctness. This test will get extended
- * to include the future drx_expand_scatter_gather() extension.
+/* TODO i#2985: Currently, this test doesn't do anything but run scatter/gather sequences
+ * in AVX-512 and AVX2 and check for correctness. This test will get extended to include
+ * the future drx_expand_scatter_gather() extension.
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
