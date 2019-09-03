@@ -388,6 +388,10 @@ START_FILE
 #define JOIN(x, y) x ## y
 #define FUNCNAME(opcode) JOIN(test_avx512_, opcode)
 
+/****************************************************************************
+ * AVX-512 test functions.
+ */
+
 #ifdef __AVX512F__
 #define TEST_AVX512_GATHER_IDX32_VAL32(opcode)            @N@\
 DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
@@ -641,6 +645,10 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
 TEST_AVX512_SCATTER_IDX64_VAL64(vpscatterqq)
 TEST_AVX512_SCATTER_IDX64_VAL64(vscatterqpd)
 #endif /* __AVX512F__ */
+
+/****************************************************************************
+ * AVX2 test functions.
+ */
 
 #undef FUNCNAME
 #define FUNCNAME(opcode) JOIN(test_avx2_, opcode)
