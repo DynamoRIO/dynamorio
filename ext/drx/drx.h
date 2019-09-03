@@ -459,6 +459,49 @@ void
 drx_buf_insert_buf_memcpy(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
                           instr_t *where, reg_id_t dst, reg_id_t src, ushort len);
 
+DR_EXPORT
+/**
+ * Expands AVX2 gather and AVX-512 gather and scatter instructions to a sequence of
+ * equivalent scalar load and stores, mask register bit tests, and mask register bit
+ * updates.
+ *
+ * WARNING: This function is not fully supported yet. Do not use.
+ *
+ * WARNING: The added multi-instruction loop contains several control-transfer
+ * instructions and is not straight-line code, which can complicate subsequent analysis
+ * routines.
+ *
+ * WARNING: This function makes a call to drreg_init() and drreg_exit(), extending the
+ * number of slots while setting do_not_sum_slots set to false.
+ *
+ * The client must use the \p drmgr Extension to order its instrumentation in order to
+ * use this function.  This function must be called from the application-to-application
+ * ("app2app") stage (see drmgr_register_bb_app2app_event()).
+ *
+ * This transformation is deterministic, so the caller can return
+ * DR_EMIT_DEFAULT from its event.
+ *
+ * The *dq, *qd, *qq, *dpd, *qps, and *qpd opcodes are not supported in 32-bit mode. In
+ * this case, the function will return true, but no expansion will occur.
+ *
+ * \return whether successful.
+ */
+bool
+drx_expand_scatter_gather(void *drcontext, instrlist_t *bb);
+
+DR_EXPORT
+/**
+ * Identical to drutil_expand_scatter_gather() but returns additional information.
+ *
+ * @param[in]  drcontext   The opaque context
+ * @param[in]  bb          Instruction list passed to the app2app event
+ * @param[out] expanded    Whether any expansion occurred
+ *
+ * \return whether successful.
+ */
+bool
+drx_expand_scatter_gather_ex(void *drcontext, instrlist_t *bb, OUT bool *expanded);
+
 /*@}*/ /* end doxygen group */
 
 #ifdef __cplusplus

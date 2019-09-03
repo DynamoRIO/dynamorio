@@ -457,3 +457,17 @@ instr_is_exclusive_store(instr_t *instr)
     }
     return false;
 }
+
+DR_API
+bool
+instr_is_scatter(instr_t *instr)
+{
+    return false;
+}
+
+DR_API
+bool
+instr_is_gather(instr_t *instr)
+{
+    return false;
+}

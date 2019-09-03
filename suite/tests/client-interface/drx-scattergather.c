@@ -155,6 +155,19 @@ test_avx2_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
 #    define POISON 0xf
 
 static bool
+test_avx512_mask()
+{
+    uint32_t k_buf[2];
+    memset(k_buf, 0, sizeof(k_buf));
+    uint32_t ref_buf[2];
+    memset(ref_buf, 0, sizeof(ref_buf));
+    __asm__ __volatile__("kmovw %%k1, %0" : : "m"(k_buf));
+    if (memcmp(k_buf, ref_buf, 2) != 0)
+        return false;
+    return true;
+}
+
+static bool
 test_avx512_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
                    uint32_t *ref_sparse_test_buf, uint32_t *ref_xmm_ymm_zmm,
                    uint32_t *test_idx_vec, uint32_t *output_xmm_ymm_zmm OUT)
@@ -164,6 +177,10 @@ test_avx512_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
     if (memcmp(output_xmm_ymm_zmm, ref_xmm_ymm_zmm,
                CONCAT_XMM_YMM_ZMM_U32 * sizeof(uint32_t)) != 0) {
         print("ERROR: gather result does not match\n");
+        return false;
+    }
+    if (!test_avx512_mask()) {
+        print("ERROR: mask is not zero\n");
         return false;
     }
     print("AVX-512 gather ok\n");
@@ -176,7 +193,16 @@ test_avx2_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
                  uint32_t *test_idx_vec, uint32_t *output_xmm_ymm OUT)
 {
     memset(output_xmm_ymm, 0, CONCAT_XMM_YMM_U32 * sizeof(uint32_t));
+    byte ymm_buf[32];
+    memset(ymm_buf, 0, sizeof(ymm_buf));
+    byte ref_buf[32];
+    memset(ref_buf, 0, sizeof(ref_buf));
     test_func(ref_sparse_test_buf, test_idx_vec, output_xmm_ymm);
+    __asm__ __volatile__("vmovdqu %%ymm2, %0" : : "m"(ymm_buf) : "ymm2");
+    if (memcmp(ymm_buf, ref_buf, sizeof(ymm_buf)) != 0) {
+        print("ERROR: mask is not zero\n");
+        return false;
+    }
     if (memcmp(output_xmm_ymm, ref_xmm_ymm, CONCAT_XMM_YMM_U32 * sizeof(uint32_t)) != 0) {
         print("ERROR: gather result does not match\n");
         return false;
@@ -209,6 +235,10 @@ test_avx512_scatter(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
                 return false;
             }
         }
+    }
+    if (!test_avx512_mask()) {
+        print("ERROR: mask is not zero\n");
+        return false;
     }
     print("AVX-512 scatter ok\n");
     return true;
@@ -537,13 +567,13 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
         vmovdqu32  zmm1, [REG_XDX]                        @N@\
         movw       dx, 0xffff                             @N@\
         kmovw      k1, edx                                @N@\
-        vpgatherqq xmm0 {k1}, [REG_XAX + xmm1 * 4]        @N@\
+        opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]        @N@\
         vmovdqu32  [REG_XCX], xmm0                        @N@\
         kmovw      k1, edx                                @N@\
-        vpgatherqq ymm0 {k1}, [REG_XAX + ymm1 * 4]        @N@\
+        opcode     ymm0 {k1}, [REG_XAX + ymm1 * 4]        @N@\
         vmovdqu32  [REG_XCX + 16], ymm0                   @N@\
         kmovw      k1, edx                                @N@\
-        vpgatherqq zmm0 {k1}, [REG_XAX + zmm1 * 4]        @N@\
+        opcode     zmm0 {k1}, [REG_XAX + zmm1 * 4]        @N@\
         vmovdqu32  [REG_XCX + 48], zmm0                   @N@\
         add        REG_XSP, FRAME_PADDING                 @N@\
         POP_CALLEE_SAVED_REGS()                           @N@\
