@@ -398,17 +398,17 @@ DECLARE_FUNC_SEH(funcname)                                      @N@\
         PUSH_CALLEE_SAVED_REGS()                                @N@\
         sub        REG_XSP, FRAME_PADDING                       @N@\
         END_PROLOG                                              @N@\
-        vmovdqu32  REG_ZMM1, [REG_XDX]                          @N@\
+        vmovdqu32  zmm1, [REG_XDX]                          @N@\
         movw       dx, 0xffff                                   @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        opcode     REG_XMM0 {REG_K1}, [REG_XAX + REG_XMM1 * 4]  @N@\
-        vmovdqu32  [REG_XCX], REG_XMM0                          @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        opcode     REG_YMM0 {REG_K1}, [REG_XAX + REG_YMM1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 16], REG_YMM0                     @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        opcode     REG_ZMM0 {REG_K1}, [REG_XAX + REG_ZMM1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 48], REG_ZMM0                     @N@\
+        kmovw      k1, edx                                  @N@\
+        opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]          @N@\
+        vmovdqu32  [REG_XCX], xmm0                          @N@\
+        kmovw      k1, edx                                  @N@\
+        opcode     ymm0 {k1}, [REG_XAX + ymm1 * 4]      @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
+        kmovw      k1, edx                                  @N@\
+        opcode     zmm0 {k1}, [REG_XAX + zmm1 * 4]  @N@\
+        vmovdqu32  [REG_XCX + 48], zmm0                     @N@\
         add        REG_XSP, FRAME_PADDING                       @N@\
         POP_CALLEE_SAVED_REGS()                                 @N@\
         ret                                                     @N@\
@@ -430,17 +430,17 @@ DECLARE_FUNC_SEH(funcname)                                      @N@\
         PUSH_CALLEE_SAVED_REGS()                                @N@\
         sub        REG_XSP, FRAME_PADDING                       @N@\
         END_PROLOG                                              @N@\
-        vmovdqu32  REG_ZMM1, [REG_XDX]                          @N@\
+        vmovdqu32  zmm1, [REG_XDX]                          @N@\
         movw       dx, 0xffff                                   @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        opcode     REG_XMM0 {REG_K1}, [REG_XAX + REG_XMM1 * 4]  @N@\
-        vmovdqu32  [REG_XCX], REG_XMM0                          @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        opcode     REG_YMM0 {REG_K1}, [REG_XAX + REG_XMM1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 16], REG_YMM0                     @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        opcode     REG_ZMM0 {REG_K1}, [REG_XAX + REG_YMM1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 48], REG_ZMM0                     @N@\
+        kmovw      k1, edx                                  @N@\
+        opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]  @N@\
+        vmovdqu32  [REG_XCX], xmm0                          @N@\
+        kmovw      k1, edx                                  @N@\
+        opcode     ymm0 {k1}, [REG_XAX + xmm1 * 4]  @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
+        kmovw      k1, edx                                  @N@\
+        opcode     zmm0 {k1}, [REG_XAX + ymm1 * 4]  @N@\
+        vmovdqu32  [REG_XCX + 48], zmm0                     @N@\
         add        REG_XSP, FRAME_PADDING                       @N@\
         POP_CALLEE_SAVED_REGS()                                 @N@\
         ret                                                     @N@\
@@ -462,17 +462,17 @@ DECLARE_FUNC_SEH(funcname)                                      @N@\
         PUSH_CALLEE_SAVED_REGS()                                @N@\
         sub        REG_XSP, FRAME_PADDING                       @N@\
         END_PROLOG                                              @N@\
-        vmovdqu32  REG_ZMM1, [REG_XDX]                          @N@\
+        vmovdqu32  zmm1, [REG_XDX]                          @N@\
         movw       dx, 0xffff                                   @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        opcode     REG_XMM0 {REG_K1}, [REG_XAX + REG_XMM1 * 4]  @N@\
-        vmovdqu32  [REG_XCX], REG_XMM0                          @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        opcode     REG_XMM0 {REG_K1}, [REG_XAX + REG_YMM1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 16], REG_YMM0                     @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        opcode     REG_YMM0 {REG_K1}, [REG_XAX + REG_ZMM1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 48], REG_ZMM0                     @N@\
+        kmovw      k1, edx                                  @N@\
+        opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]  @N@\
+        vmovdqu32  [REG_XCX], xmm0                          @N@\
+        kmovw      k1, edx                                  @N@\
+        opcode     xmm0 {k1}, [REG_XAX + ymm1 * 4]  @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
+        kmovw      k1, edx                                  @N@\
+        opcode     ymm0 {k1}, [REG_XAX + zmm1 * 4]  @N@\
+        vmovdqu32  [REG_XCX + 48], zmm0                     @N@\
         add        REG_XSP, FRAME_PADDING                       @N@\
         POP_CALLEE_SAVED_REGS()                                 @N@\
         ret                                                     @N@\
@@ -494,18 +494,18 @@ DECLARE_FUNC_SEH(funcname)                                      @N@\
         PUSH_CALLEE_SAVED_REGS()                                @N@\
         sub        REG_XSP, FRAME_PADDING                       @N@\
         END_PROLOG                                              @N@\
-        vmovdqu32  REG_ZMM1, [REG_XDX]                          @N@\
+        vmovdqu32  zmm1, [REG_XDX]                          @N@\
         movw       dx, 0xffff                                   @N@\
-        kmovw      REG_K1, edx                                  @N@\
+        kmovw      k1, edx                                  @N@\
         /* The index vector indexes dwords, scaling by 4. */    @N@\
-        vpgatherqq REG_XMM0 {REG_K1}, [REG_XAX + REG_XMM1 * 4]  @N@\
-        vmovdqu32  [REG_XCX], REG_XMM0                          @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vpgatherqq REG_YMM0 {REG_K1}, [REG_XAX + REG_YMM1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 16], REG_YMM0                     @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vpgatherqq REG_ZMM0 {REG_K1}, [REG_XAX + REG_ZMM1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 48], REG_ZMM0                     @N@\
+        vpgatherqq xmm0 {k1}, [REG_XAX + xmm1 * 4]  @N@\
+        vmovdqu32  [REG_XCX], xmm0                          @N@\
+        kmovw      k1, edx                                  @N@\
+        vpgatherqq ymm0 {k1}, [REG_XAX + ymm1 * 4]  @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
+        kmovw      k1, edx                                  @N@\
+        vpgatherqq zmm0 {k1}, [REG_XAX + zmm1 * 4]  @N@\
+        vmovdqu32  [REG_XCX + 48], zmm0                     @N@\
         add        REG_XSP, FRAME_PADDING                       @N@\
         POP_CALLEE_SAVED_REGS()                                 @N@\
         ret                                                     @N@\
@@ -527,18 +527,18 @@ DECLARE_FUNC_SEH(funcname)                                      @N@\
         PUSH_CALLEE_SAVED_REGS()                                @N@\
         sub        REG_XSP, FRAME_PADDING                       @N@\
         END_PROLOG                                              @N@\
-        vmovdqu32  REG_ZMM1, [REG_XDX]                          @N@\
+        vmovdqu32  zmm1, [REG_XDX]                          @N@\
         movw       dx, 0xffff                                   @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vmovdqu32  REG_XMM0, [REG_XAX]                          @N@\
-        opcode     [REG_XCX + REG_XMM1 * 4] {REG_K1}, REG_XMM0  @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vmovdqu32  REG_YMM0, [REG_XAX + 16]                     @N@\
-        opcode     [REG_XCX + REG_YMM1 * 4] {REG_K1}, REG_YMM0  @N@\
-        vmovdqu32  [REG_XCX + 16], REG_YMM0                     @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vmovdqu32  REG_ZMM0, [REG_XAX + 48]                     @N@\
-        opcode     [REG_XCX + REG_ZMM1 * 4] {REG_K1}, REG_ZMM0  @N@\
+        kmovw      k1, edx                                  @N@\
+        vmovdqu32  xmm0, [REG_XAX]                          @N@\
+        opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0  @N@\
+        kmovw      k1, edx                                  @N@\
+        vmovdqu32  ymm0, [REG_XAX + 16]                     @N@\
+        opcode     [REG_XCX + ymm1 * 4] {k1}, ymm0  @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
+        kmovw      k1, edx                                  @N@\
+        vmovdqu32  zmm0, [REG_XAX + 48]                     @N@\
+        opcode     [REG_XCX + zmm1 * 4] {k1}, zmm0  @N@\
         add        REG_XSP, FRAME_PADDING                       @N@\
         POP_CALLEE_SAVED_REGS()                                 @N@\
         ret                                                     @N@\
@@ -560,18 +560,18 @@ DECLARE_FUNC_SEH(funcname)                                      @N@\
         PUSH_CALLEE_SAVED_REGS()                                @N@\
         sub        REG_XSP, FRAME_PADDING                       @N@\
         END_PROLOG                                              @N@\
-        vmovdqu32  REG_ZMM1, [REG_XDX]                          @N@\
+        vmovdqu32  zmm1, [REG_XDX]                          @N@\
         movw       dx, 0xffff                                   @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vmovdqu32  REG_XMM0, [REG_XAX]                          @N@\
-        opcode     [REG_XCX + REG_XMM1 * 4] {REG_K1}, REG_XMM0  @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vmovdqu32  REG_YMM0, [REG_XAX + 16]                     @N@\
-        opcode     [REG_XCX + REG_XMM1 * 4] {REG_K1}, REG_YMM0  @N@\
-        vmovdqu32  [REG_XCX + 16], REG_YMM0                     @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vmovdqu32  REG_ZMM0, [REG_XAX + 48]                     @N@\
-        opcode     [REG_XCX + REG_YMM1 * 4] {REG_K1}, REG_ZMM0  @N@\
+        kmovw      k1, edx                                  @N@\
+        vmovdqu32  xmm0, [REG_XAX]                          @N@\
+        opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0  @N@\
+        kmovw      k1, edx                                  @N@\
+        vmovdqu32  ymm0, [REG_XAX + 16]                     @N@\
+        opcode     [REG_XCX + xmm1 * 4] {k1}, ymm0  @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
+        kmovw      k1, edx                                  @N@\
+        vmovdqu32  zmm0, [REG_XAX + 48]                     @N@\
+        opcode     [REG_XCX + ymm1 * 4] {k1}, zmm0  @N@\
         add        REG_XSP, FRAME_PADDING                       @N@\
         POP_CALLEE_SAVED_REGS()                                 @N@\
         ret                                                     @N@\
@@ -593,18 +593,18 @@ DECLARE_FUNC_SEH(funcname)                                      @N@\
         PUSH_CALLEE_SAVED_REGS()                                @N@\
         sub        REG_XSP, FRAME_PADDING                       @N@\
         END_PROLOG                                              @N@\
-        vmovdqu32  REG_ZMM1, [REG_XDX]                          @N@\
+        vmovdqu32  zmm1, [REG_XDX]                          @N@\
         movw       dx, 0xffff                                   @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vmovdqu32  REG_XMM0, [REG_XAX]                          @N@\
-        opcode     [REG_XCX + REG_XMM1 * 4] {REG_K1}, REG_XMM0  @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vmovdqu32  REG_YMM0, [REG_XAX + 16]                     @N@\
-        opcode     [REG_XCX + REG_YMM1 * 4] {REG_K1}, REG_XMM0  @N@\
-        vmovdqu32  [REG_XCX + 16], REG_YMM0                     @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vmovdqu32  REG_ZMM0, [REG_XAX + 48]                     @N@\
-        opcode     [REG_XCX + REG_ZMM1 * 4] {REG_K1}, REG_YMM0  @N@\
+        kmovw      k1, edx                                  @N@\
+        vmovdqu32  xmm0, [REG_XAX]                          @N@\
+        opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0  @N@\
+        kmovw      k1, edx                                  @N@\
+        vmovdqu32  ymm0, [REG_XAX + 16]                     @N@\
+        opcode     [REG_XCX + ymm1 * 4] {k1}, xmm0  @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
+        kmovw      k1, edx                                  @N@\
+        vmovdqu32  zmm0, [REG_XAX + 48]                     @N@\
+        opcode     [REG_XCX + zmm1 * 4] {k1}, ymm0  @N@\
         add        REG_XSP, FRAME_PADDING                       @N@\
         POP_CALLEE_SAVED_REGS()                                 @N@\
         ret                                                     @N@\
@@ -626,18 +626,18 @@ DECLARE_FUNC_SEH(funcname)                                      @N@\
         PUSH_CALLEE_SAVED_REGS()                                @N@\
         sub        REG_XSP, FRAME_PADDING                       @N@\
         END_PROLOG                                              @N@\
-        vmovdqu32  REG_ZMM1, [REG_XDX]                          @N@\
+        vmovdqu32  zmm1, [REG_XDX]                          @N@\
         movw       dx, 0xffff                                   @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vmovdqu32  REG_XMM0, [REG_XAX]                          @N@\
-        opcode     [REG_XCX + REG_XMM1 * 4] {REG_K1}, REG_XMM0  @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vmovdqu32  REG_YMM0, [REG_XAX + 16]                     @N@\
-        opcode     [REG_XCX + REG_YMM1 * 4] {REG_K1}, REG_YMM0  @N@\
-        vmovdqu32  [REG_XCX + 16], REG_YMM0                     @N@\
-        kmovw      REG_K1, edx                                  @N@\
-        vmovdqu32  REG_ZMM0, [REG_XAX + 48]                     @N@\
-        opcode     [REG_XCX + REG_ZMM1 * 4] {REG_K1}, REG_ZMM0  @N@\
+        kmovw      k1, edx                                  @N@\
+        vmovdqu32  xmm0, [REG_XAX]                          @N@\
+        opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0  @N@\
+        kmovw      k1, edx                                  @N@\
+        vmovdqu32  ymm0, [REG_XAX + 16]                     @N@\
+        opcode     [REG_XCX + ymm1 * 4] {k1}, ymm0  @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
+        kmovw      k1, edx                                  @N@\
+        vmovdqu32  zmm0, [REG_XAX + 48]                     @N@\
+        opcode     [REG_XCX + zmm1 * 4] {k1}, zmm0  @N@\
         add        REG_XSP, FRAME_PADDING                       @N@\
         POP_CALLEE_SAVED_REGS()                                 @N@\
         ret                                                     @N@\
@@ -664,13 +664,13 @@ DECLARE_FUNC_SEH(funcname)                                          @N@\
         PUSH_CALLEE_SAVED_REGS()                                    @N@\
         sub           REG_XSP, FRAME_PADDING                        @N@\
         END_PROLOG                                                  @N@\
-        vmovdqu       REG_YMM1, [REG_XDX]                           @N@\
+        vmovdqu       ymm1, [REG_XDX]                           @N@\
         vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
-        opcode        REG_XMM0, [REG_XAX + REG_XMM1 * 4], REG_XMM2  @N@\
-        vmovdqu       [REG_XCX], REG_XMM0                           @N@\
+        opcode        xmm0, [REG_XAX + xmm1 * 4], xmm2  @N@\
+        vmovdqu       [REG_XCX], xmm0                           @N@\
         vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
-        opcode        REG_YMM0, [REG_XAX + REG_YMM1 * 4], REG_YMM2  @N@\
-        vmovdqu       [REG_XCX + 16], REG_YMM0                      @N@\
+        opcode        ymm0, [REG_XAX + ymm1 * 4], REG_YMM2  @N@\
+        vmovdqu       [REG_XCX + 16], ymm0                      @N@\
         add           REG_XSP, FRAME_PADDING                        @N@\
         POP_CALLEE_SAVED_REGS()                                     @N@\
         ret                                                         @N@\
@@ -692,13 +692,13 @@ DECLARE_FUNC_SEH(funcname)                                          @N@\
         PUSH_CALLEE_SAVED_REGS()                                    @N@\
         sub           REG_XSP, FRAME_PADDING                        @N@\
         END_PROLOG                                                  @N@\
-        vmovdqu       REG_YMM1, [REG_XDX]                           @N@\
+        vmovdqu       ymm1, [REG_XDX]                           @N@\
         vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
-        opcode        REG_XMM0, [REG_XAX + REG_XMM1 * 4], REG_XMM2  @N@\
-        vmovdqu       [REG_XCX], REG_XMM0                           @N@\
+        opcode        xmm0, [REG_XAX + xmm1 * 4], xmm2  @N@\
+        vmovdqu       [REG_XCX], xmm0                           @N@\
         vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
-        opcode        REG_YMM0, [REG_XAX + REG_XMM1 * 4], REG_YMM2  @N@\
-        vmovdqu       [REG_XCX + 16], REG_YMM0                      @N@\
+        opcode        ymm0, [REG_XAX + xmm1 * 4], REG_YMM2  @N@\
+        vmovdqu       [REG_XCX + 16], ymm0                      @N@\
         add           REG_XSP, FRAME_PADDING                        @N@\
         POP_CALLEE_SAVED_REGS()                                     @N@\
         ret                                                         @N@\
@@ -720,13 +720,13 @@ DECLARE_FUNC_SEH(funcname)                                          @N@\
         PUSH_CALLEE_SAVED_REGS()                                    @N@\
         sub           REG_XSP, FRAME_PADDING                        @N@\
         END_PROLOG                                                  @N@\
-        vmovdqu       REG_YMM1, [REG_XDX]                           @N@\
+        vmovdqu       ymm1, [REG_XDX]                           @N@\
         vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
-        opcode        REG_XMM0, [REG_XAX + REG_XMM1 * 4], REG_XMM2  @N@\
-        vmovdqu       [REG_XCX], REG_XMM0                           @N@\
+        opcode        xmm0, [REG_XAX + xmm1 * 4], xmm2  @N@\
+        vmovdqu       [REG_XCX], xmm0                           @N@\
         vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
-        opcode        REG_XMM0, [REG_XAX + REG_YMM1 * 4], REG_XMM2  @N@\
-        vmovdqu       [REG_XCX + 16], REG_YMM0                      @N@\
+        opcode        xmm0, [REG_XAX + ymm1 * 4], xmm2  @N@\
+        vmovdqu       [REG_XCX + 16], ymm0                      @N@\
         add           REG_XSP, FRAME_PADDING                        @N@\
         POP_CALLEE_SAVED_REGS()                                     @N@\
         ret                                                         @N@\
@@ -748,13 +748,13 @@ DECLARE_FUNC_SEH(funcname)                                          @N@\
         PUSH_CALLEE_SAVED_REGS()                                    @N@\
         sub           REG_XSP, FRAME_PADDING                        @N@\
         END_PROLOG                                                  @N@\
-        vmovdqu       REG_YMM1, [REG_XDX]                           @N@\
+        vmovdqu       ymm1, [REG_XDX]                           @N@\
         vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
-        opcode        REG_XMM0, [REG_XAX + REG_XMM1 * 4], REG_XMM2  @N@\
-        vmovdqu       [REG_XCX], REG_XMM0                           @N@\
+        opcode        xmm0, [REG_XAX + xmm1 * 4], xmm2  @N@\
+        vmovdqu       [REG_XCX], xmm0                           @N@\
         vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
-        opcode        REG_YMM0, [REG_XAX + REG_YMM1 * 4], REG_YMM2  @N@\
-        vmovdqu       [REG_XCX + 16], REG_YMM0                      @N@\
+        opcode        ymm0, [REG_XAX + ymm1 * 4], REG_YMM2  @N@\
+        vmovdqu       [REG_XCX + 16], ymm0                      @N@\
         add           REG_XSP, FRAME_PADDING                        @N@\
         POP_CALLEE_SAVED_REGS()                                     @N@\
         ret                                                         @N@\
