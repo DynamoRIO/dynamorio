@@ -389,29 +389,29 @@ START_FILE
 #define FUNCNAME(opcode) JOIN(test_avx512_, opcode)
 
 #ifdef __AVX512F__
-#define TEST_AVX512_GATHER_IDX32_VAL32(funcname, opcode)        @N@\
-DECLARE_FUNC_SEH(funcname)                                      @N@\
-  GLOBAL_LABEL(funcname:)                                       @N@\
-        mov        REG_XAX, ARG1                                @N@\
-        mov        REG_XCX, ARG3                                @N@\
-        mov        REG_XDX, ARG2                                @N@\
-        PUSH_CALLEE_SAVED_REGS()                                @N@\
-        sub        REG_XSP, FRAME_PADDING                       @N@\
-        END_PROLOG                                              @N@\
-        vmovdqu32  zmm1, [REG_XDX]                          @N@\
-        movw       dx, 0xffff                                   @N@\
-        kmovw      k1, edx                                  @N@\
-        opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]          @N@\
-        vmovdqu32  [REG_XCX], xmm0                          @N@\
-        kmovw      k1, edx                                  @N@\
-        opcode     ymm0 {k1}, [REG_XAX + ymm1 * 4]      @N@\
-        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
-        kmovw      k1, edx                                  @N@\
-        opcode     zmm0 {k1}, [REG_XAX + zmm1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 48], zmm0                     @N@\
-        add        REG_XSP, FRAME_PADDING                       @N@\
-        POP_CALLEE_SAVED_REGS()                                 @N@\
-        ret                                                     @N@\
+#define TEST_AVX512_GATHER_IDX32_VAL32(funcname, opcode)  @N@\
+DECLARE_FUNC_SEH(funcname)                                @N@\
+  GLOBAL_LABEL(funcname:)                                 @N@\
+        mov        REG_XAX, ARG1                          @N@\
+        mov        REG_XCX, ARG3                          @N@\
+        mov        REG_XDX, ARG2                          @N@\
+        PUSH_CALLEE_SAVED_REGS()                          @N@\
+        sub        REG_XSP, FRAME_PADDING                 @N@\
+        END_PROLOG                                        @N@\
+        vmovdqu32  zmm1, [REG_XDX]                        @N@\
+        movw       dx, 0xffff                             @N@\
+        kmovw      k1, edx                                @N@\
+        opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]        @N@\
+        vmovdqu32  [REG_XCX], xmm0                        @N@\
+        kmovw      k1, edx                                @N@\
+        opcode     ymm0 {k1}, [REG_XAX + ymm1 * 4]        @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                   @N@\
+        kmovw      k1, edx                                @N@\
+        opcode     zmm0 {k1}, [REG_XAX + zmm1 * 4]        @N@\
+        vmovdqu32  [REG_XCX + 48], zmm0                   @N@\
+        add        REG_XSP, FRAME_PADDING                 @N@\
+        POP_CALLEE_SAVED_REGS()                           @N@\
+        ret                                               @N@\
         END_FUNC(funcname)
 
 #undef OPCODE
@@ -421,29 +421,29 @@ TEST_AVX512_GATHER_IDX32_VAL32(FUNCNAME(OPCODE), OPCODE)
 #define OPCODE vgatherdps
 TEST_AVX512_GATHER_IDX32_VAL32(FUNCNAME(OPCODE), OPCODE)
 
-#define TEST_AVX512_GATHER_IDX32_VAL64(funcname, opcode)        @N@\
-DECLARE_FUNC_SEH(funcname)                                      @N@\
-  GLOBAL_LABEL(funcname:)                                       @N@\
-        mov        REG_XAX, ARG1                                @N@\
-        mov        REG_XCX, ARG3                                @N@\
-        mov        REG_XDX, ARG2                                @N@\
-        PUSH_CALLEE_SAVED_REGS()                                @N@\
-        sub        REG_XSP, FRAME_PADDING                       @N@\
-        END_PROLOG                                              @N@\
-        vmovdqu32  zmm1, [REG_XDX]                          @N@\
-        movw       dx, 0xffff                                   @N@\
-        kmovw      k1, edx                                  @N@\
-        opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]  @N@\
-        vmovdqu32  [REG_XCX], xmm0                          @N@\
-        kmovw      k1, edx                                  @N@\
-        opcode     ymm0 {k1}, [REG_XAX + xmm1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
-        kmovw      k1, edx                                  @N@\
-        opcode     zmm0 {k1}, [REG_XAX + ymm1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 48], zmm0                     @N@\
-        add        REG_XSP, FRAME_PADDING                       @N@\
-        POP_CALLEE_SAVED_REGS()                                 @N@\
-        ret                                                     @N@\
+#define TEST_AVX512_GATHER_IDX32_VAL64(funcname, opcode)  @N@\
+DECLARE_FUNC_SEH(funcname)                                @N@\
+  GLOBAL_LABEL(funcname:)                                 @N@\
+        mov        REG_XAX, ARG1                          @N@\
+        mov        REG_XCX, ARG3                          @N@\
+        mov        REG_XDX, ARG2                          @N@\
+        PUSH_CALLEE_SAVED_REGS()                          @N@\
+        sub        REG_XSP, FRAME_PADDING                 @N@\
+        END_PROLOG                                        @N@\
+        vmovdqu32  zmm1, [REG_XDX]                        @N@\
+        movw       dx, 0xffff                             @N@\
+        kmovw      k1, edx                                @N@\
+        opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]        @N@\
+        vmovdqu32  [REG_XCX], xmm0                        @N@\
+        kmovw      k1, edx                                @N@\
+        opcode     ymm0 {k1}, [REG_XAX + xmm1 * 4]        @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                   @N@\
+        kmovw      k1, edx                                @N@\
+        opcode     zmm0 {k1}, [REG_XAX + ymm1 * 4]        @N@\
+        vmovdqu32  [REG_XCX + 48], zmm0                   @N@\
+        add        REG_XSP, FRAME_PADDING                 @N@\
+        POP_CALLEE_SAVED_REGS()                           @N@\
+        ret                                               @N@\
         END_FUNC(funcname)
 
 #undef OPCODE
@@ -453,29 +453,29 @@ TEST_AVX512_GATHER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
 #define OPCODE vgatherdpd
 TEST_AVX512_GATHER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
 
-#define TEST_AVX512_GATHER_IDX64_VAL32(funcname, opcode)        @N@\
-DECLARE_FUNC_SEH(funcname)                                      @N@\
-  GLOBAL_LABEL(funcname:)                                       @N@\
-        mov        REG_XAX, ARG1                                @N@\
-        mov        REG_XCX, ARG3                                @N@\
-        mov        REG_XDX, ARG2                                @N@\
-        PUSH_CALLEE_SAVED_REGS()                                @N@\
-        sub        REG_XSP, FRAME_PADDING                       @N@\
-        END_PROLOG                                              @N@\
-        vmovdqu32  zmm1, [REG_XDX]                          @N@\
-        movw       dx, 0xffff                                   @N@\
-        kmovw      k1, edx                                  @N@\
-        opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]  @N@\
-        vmovdqu32  [REG_XCX], xmm0                          @N@\
-        kmovw      k1, edx                                  @N@\
-        opcode     xmm0 {k1}, [REG_XAX + ymm1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
-        kmovw      k1, edx                                  @N@\
-        opcode     ymm0 {k1}, [REG_XAX + zmm1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 48], zmm0                     @N@\
-        add        REG_XSP, FRAME_PADDING                       @N@\
-        POP_CALLEE_SAVED_REGS()                                 @N@\
-        ret                                                     @N@\
+e#define TEST_AVX512_GATHER_IDX64_VAL32(funcname, opcode)  @N@\
+DECLARE_FUNC_SEH(funcname)                                 @N@\
+  GLOBAL_LABEL(funcname:)                                  @N@\
+        mov        REG_XAX, ARG1                           @N@\
+        mov        REG_XCX, ARG3                           @N@\
+        mov        REG_XDX, ARG2                           @N@\
+        PUSH_CALLEE_SAVED_REGS()                           @N@\
+        sub        REG_XSP, FRAME_PADDING                  @N@\
+        END_PROLOG                                         @N@\
+        vmovdqu32  zmm1, [REG_XDX]                         @N@\
+        movw       dx, 0xffff                              @N@\
+        kmovw      k1, edx                                 @N@\
+        opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]         @N@\
+        vmovdqu32  [REG_XCX], xmm0                         @N@\
+        kmovw      k1, edx                                 @N@\
+        opcode     xmm0 {k1}, [REG_XAX + ymm1 * 4]         @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                    @N@\
+        kmovw      k1, edx                                 @N@\
+        opcode     ymm0 {k1}, [REG_XAX + zmm1 * 4]         @N@\
+        vmovdqu32  [REG_XCX + 48], zmm0                    @N@\
+        add        REG_XSP, FRAME_PADDING                  @N@\
+        POP_CALLEE_SAVED_REGS()                            @N@\
+        ret                                                @N@\
         END_FUNC(funcname)
 
 #undef OPCODE
@@ -485,30 +485,29 @@ TEST_AVX512_GATHER_IDX64_VAL32(FUNCNAME(OPCODE), OPCODE)
 #define OPCODE vgatherqps
 TEST_AVX512_GATHER_IDX64_VAL32(FUNCNAME(OPCODE), OPCODE)
 
-#define TEST_AVX512_GATHER_IDX64_VAL64(funcname, opcode)        @N@\
-DECLARE_FUNC_SEH(funcname)                                      @N@\
-  GLOBAL_LABEL(funcname:)                                       @N@\
-        mov        REG_XAX, ARG1                                @N@\
-        mov        REG_XCX, ARG3                                @N@\
-        mov        REG_XDX, ARG2                                @N@\
-        PUSH_CALLEE_SAVED_REGS()                                @N@\
-        sub        REG_XSP, FRAME_PADDING                       @N@\
-        END_PROLOG                                              @N@\
-        vmovdqu32  zmm1, [REG_XDX]                          @N@\
-        movw       dx, 0xffff                                   @N@\
-        kmovw      k1, edx                                  @N@\
-        /* The index vector indexes dwords, scaling by 4. */    @N@\
-        vpgatherqq xmm0 {k1}, [REG_XAX + xmm1 * 4]  @N@\
-        vmovdqu32  [REG_XCX], xmm0                          @N@\
-        kmovw      k1, edx                                  @N@\
-        vpgatherqq ymm0 {k1}, [REG_XAX + ymm1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
-        kmovw      k1, edx                                  @N@\
-        vpgatherqq zmm0 {k1}, [REG_XAX + zmm1 * 4]  @N@\
-        vmovdqu32  [REG_XCX + 48], zmm0                     @N@\
-        add        REG_XSP, FRAME_PADDING                       @N@\
-        POP_CALLEE_SAVED_REGS()                                 @N@\
-        ret                                                     @N@\
+#define TEST_AVX512_GATHER_IDX64_VAL64(funcname, opcode)  @N@\
+DECLARE_FUNC_SEH(funcname)                                @N@\
+  GLOBAL_LABEL(funcname:)                                 @N@\
+        mov        REG_XAX, ARG1                          @N@\
+        mov        REG_XCX, ARG3                          @N@\
+        mov        REG_XDX, ARG2                          @N@\
+        PUSH_CALLEE_SAVED_REGS()                          @N@\
+        sub        REG_XSP, FRAME_PADDING                 @N@\
+        END_PROLOG                                        @N@\
+        vmovdqu32  zmm1, [REG_XDX]                        @N@\
+        movw       dx, 0xffff                             @N@\
+        kmovw      k1, edx                                @N@\
+        vpgatherqq xmm0 {k1}, [REG_XAX + xmm1 * 4]        @N@\
+        vmovdqu32  [REG_XCX], xmm0                        @N@\
+        kmovw      k1, edx                                @N@\
+        vpgatherqq ymm0 {k1}, [REG_XAX + ymm1 * 4]        @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                   @N@\
+        kmovw      k1, edx                                @N@\
+        vpgatherqq zmm0 {k1}, [REG_XAX + zmm1 * 4]        @N@\
+        vmovdqu32  [REG_XCX + 48], zmm0                   @N@\
+        add        REG_XSP, FRAME_PADDING                 @N@\
+        POP_CALLEE_SAVED_REGS()                           @N@\
+        ret                                               @N@\
         END_FUNC(funcname)
 
 #undef OPCODE
@@ -518,30 +517,30 @@ TEST_AVX512_GATHER_IDX64_VAL64(FUNCNAME(OPCODE), OPCODE)
 #define OPCODE vgatherqpd
 TEST_AVX512_GATHER_IDX64_VAL64(FUNCNAME(OPCODE), OPCODE)
 
-#define TEST_AVX512_SCATTER_IDX32_VAL32(funcname, opcode)       @N@\
-DECLARE_FUNC_SEH(funcname)                                      @N@\
-  GLOBAL_LABEL(funcname:)                                       @N@\
-        mov        REG_XAX, ARG1                                @N@\
-        mov        REG_XCX, ARG3                                @N@\
-        mov        REG_XDX, ARG2                                @N@\
-        PUSH_CALLEE_SAVED_REGS()                                @N@\
-        sub        REG_XSP, FRAME_PADDING                       @N@\
-        END_PROLOG                                              @N@\
-        vmovdqu32  zmm1, [REG_XDX]                          @N@\
-        movw       dx, 0xffff                                   @N@\
-        kmovw      k1, edx                                  @N@\
-        vmovdqu32  xmm0, [REG_XAX]                          @N@\
-        opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0  @N@\
-        kmovw      k1, edx                                  @N@\
-        vmovdqu32  ymm0, [REG_XAX + 16]                     @N@\
-        opcode     [REG_XCX + ymm1 * 4] {k1}, ymm0  @N@\
-        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
-        kmovw      k1, edx                                  @N@\
-        vmovdqu32  zmm0, [REG_XAX + 48]                     @N@\
-        opcode     [REG_XCX + zmm1 * 4] {k1}, zmm0  @N@\
-        add        REG_XSP, FRAME_PADDING                       @N@\
-        POP_CALLEE_SAVED_REGS()                                 @N@\
-        ret                                                     @N@\
+#define TEST_AVX512_SCATTER_IDX32_VAL32(funcname, opcode)  @N@\
+DECLARE_FUNC_SEH(funcname)                                 @N@\
+  GLOBAL_LABEL(funcname:)                                  @N@\
+        mov        REG_XAX, ARG1                           @N@\
+        mov        REG_XCX, ARG3                           @N@\
+        mov        REG_XDX, ARG2                           @N@\
+        PUSH_CALLEE_SAVED_REGS()                           @N@\
+        sub        REG_XSP, FRAME_PADDING                  @N@\
+        END_PROLOG                                         @N@\
+        vmovdqu32  zmm1, [REG_XDX]                         @N@\
+        movw       dx, 0xffff                              @N@\
+        kmovw      k1, edx                                 @N@\
+        vmovdqu32  xmm0, [REG_XAX]                         @N@\
+        opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0         @N@\
+        kmovw      k1, edx                                 @N@\
+        vmovdqu32  ymm0, [REG_XAX + 16]                    @N@\
+        opcode     [REG_XCX + ymm1 * 4] {k1}, ymm0         @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                    @N@\
+        kmovw      k1, edx                                 @N@\
+        vmovdqu32  zmm0, [REG_XAX + 48]                    @N@\
+        opcode     [REG_XCX + zmm1 * 4] {k1}, zmm0         @N@\
+        add        REG_XSP, FRAME_PADDING                  @N@\
+        POP_CALLEE_SAVED_REGS()                            @N@\
+        ret                                                @N@\
         END_FUNC(funcname)
 
 #undef OPCODE
@@ -551,30 +550,30 @@ TEST_AVX512_SCATTER_IDX32_VAL32(FUNCNAME(OPCODE), OPCODE)
 #define OPCODE vscatterdps
 TEST_AVX512_SCATTER_IDX32_VAL32(FUNCNAME(OPCODE), OPCODE)
 
-#define TEST_AVX512_SCATTER_IDX32_VAL64(funcname, opcode)       @N@\
-DECLARE_FUNC_SEH(funcname)                                      @N@\
-  GLOBAL_LABEL(funcname:)                                       @N@\
-        mov        REG_XAX, ARG1                                @N@\
-        mov        REG_XCX, ARG3                                @N@\
-        mov        REG_XDX, ARG2                                @N@\
-        PUSH_CALLEE_SAVED_REGS()                                @N@\
-        sub        REG_XSP, FRAME_PADDING                       @N@\
-        END_PROLOG                                              @N@\
-        vmovdqu32  zmm1, [REG_XDX]                          @N@\
-        movw       dx, 0xffff                                   @N@\
-        kmovw      k1, edx                                  @N@\
-        vmovdqu32  xmm0, [REG_XAX]                          @N@\
-        opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0  @N@\
-        kmovw      k1, edx                                  @N@\
-        vmovdqu32  ymm0, [REG_XAX + 16]                     @N@\
-        opcode     [REG_XCX + xmm1 * 4] {k1}, ymm0  @N@\
-        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
-        kmovw      k1, edx                                  @N@\
-        vmovdqu32  zmm0, [REG_XAX + 48]                     @N@\
-        opcode     [REG_XCX + ymm1 * 4] {k1}, zmm0  @N@\
-        add        REG_XSP, FRAME_PADDING                       @N@\
-        POP_CALLEE_SAVED_REGS()                                 @N@\
-        ret                                                     @N@\
+#define TEST_AVX512_SCATTER_IDX32_VAL64(funcname, opcode)  @N@\
+DECLARE_FUNC_SEH(funcname)                                 @N@\
+  GLOBAL_LABEL(funcname:)                                  @N@\
+        mov        REG_XAX, ARG1                           @N@\
+        mov        REG_XCX, ARG3                           @N@\
+        mov        REG_XDX, ARG2                           @N@\
+        PUSH_CALLEE_SAVED_REGS()                           @N@\
+        sub        REG_XSP, FRAME_PADDING                  @N@\
+        END_PROLOG                                         @N@\
+        vmovdqu32  zmm1, [REG_XDX]                         @N@\
+        movw       dx, 0xffff                              @N@\
+        kmovw      k1, edx                                 @N@\
+        vmovdqu32  xmm0, [REG_XAX]                         @N@\
+        opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0         @N@\
+        kmovw      k1, edx                                 @N@\
+        vmovdqu32  ymm0, [REG_XAX + 16]                    @N@\
+        opcode     [REG_XCX + xmm1 * 4] {k1}, ymm0         @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                    @N@\
+        kmovw      k1, edx                                 @N@\
+        vmovdqu32  zmm0, [REG_XAX + 48]                    @N@\
+        opcode     [REG_XCX + ymm1 * 4] {k1}, zmm0         @N@\
+        add        REG_XSP, FRAME_PADDING                  @N@\
+        POP_CALLEE_SAVED_REGS()                            @N@\
+        ret                                                @N@\
         END_FUNC(funcname)
 
 #undef OPCODE
@@ -584,30 +583,30 @@ TEST_AVX512_SCATTER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
 #define OPCODE vscatterdpd
 TEST_AVX512_SCATTER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
 
-#define TEST_AVX512_SCATTER_IDX64_VAL32(funcname, opcode)       @N@\
-DECLARE_FUNC_SEH(funcname)                                      @N@\
-  GLOBAL_LABEL(funcname:)                                       @N@\
-        mov        REG_XAX, ARG1                                @N@\
-        mov        REG_XCX, ARG3                                @N@\
-        mov        REG_XDX, ARG2                                @N@\
-        PUSH_CALLEE_SAVED_REGS()                                @N@\
-        sub        REG_XSP, FRAME_PADDING                       @N@\
-        END_PROLOG                                              @N@\
-        vmovdqu32  zmm1, [REG_XDX]                          @N@\
-        movw       dx, 0xffff                                   @N@\
-        kmovw      k1, edx                                  @N@\
-        vmovdqu32  xmm0, [REG_XAX]                          @N@\
-        opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0  @N@\
-        kmovw      k1, edx                                  @N@\
-        vmovdqu32  ymm0, [REG_XAX + 16]                     @N@\
-        opcode     [REG_XCX + ymm1 * 4] {k1}, xmm0  @N@\
-        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
-        kmovw      k1, edx                                  @N@\
-        vmovdqu32  zmm0, [REG_XAX + 48]                     @N@\
-        opcode     [REG_XCX + zmm1 * 4] {k1}, ymm0  @N@\
-        add        REG_XSP, FRAME_PADDING                       @N@\
-        POP_CALLEE_SAVED_REGS()                                 @N@\
-        ret                                                     @N@\
+#define TEST_AVX512_SCATTER_IDX64_VAL32(funcname, opcode)  @N@\
+DECLARE_FUNC_SEH(funcname)                                 @N@\
+  GLOBAL_LABEL(funcname:)                                  @N@\
+        mov        REG_XAX, ARG1                           @N@\
+        mov        REG_XCX, ARG3                           @N@\
+        mov        REG_XDX, ARG2                           @N@\
+        PUSH_CALLEE_SAVED_REGS()                           @N@\
+        sub        REG_XSP, FRAME_PADDING                  @N@\
+        END_PROLOG                                         @N@\
+        vmovdqu32  zmm1, [REG_XDX]                         @N@\
+        movw       dx, 0xffff                              @N@\
+        kmovw      k1, edx                                 @N@\
+        vmovdqu32  xmm0, [REG_XAX]                         @N@\
+        opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0         @N@\
+        kmovw      k1, edx                                 @N@\
+        vmovdqu32  ymm0, [REG_XAX + 16]                    @N@\
+        opcode     [REG_XCX + ymm1 * 4] {k1}, xmm0         @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                    @N@\
+        kmovw      k1, edx                                 @N@\
+        vmovdqu32  zmm0, [REG_XAX + 48]                    @N@\
+        opcode     [REG_XCX + zmm1 * 4] {k1}, ymm0         @N@\
+        add        REG_XSP, FRAME_PADDING                  @N@\
+        POP_CALLEE_SAVED_REGS()                            @N@\
+        ret                                                @N@\
         END_FUNC(funcname)
 
 #undef OPCODE
@@ -617,30 +616,30 @@ TEST_AVX512_SCATTER_IDX64_VAL32(FUNCNAME(OPCODE), OPCODE)
 #define OPCODE vscatterqps
 TEST_AVX512_SCATTER_IDX64_VAL32(FUNCNAME(OPCODE), OPCODE)
 
-#define TEST_AVX512_SCATTER_IDX64_VAL64(funcname, opcode)       @N@\
-DECLARE_FUNC_SEH(funcname)                                      @N@\
-  GLOBAL_LABEL(funcname:)                                       @N@\
-        mov        REG_XAX, ARG1                                @N@\
-        mov        REG_XCX, ARG3                                @N@\
-        mov        REG_XDX, ARG2                                @N@\
-        PUSH_CALLEE_SAVED_REGS()                                @N@\
-        sub        REG_XSP, FRAME_PADDING                       @N@\
-        END_PROLOG                                              @N@\
-        vmovdqu32  zmm1, [REG_XDX]                          @N@\
-        movw       dx, 0xffff                                   @N@\
-        kmovw      k1, edx                                  @N@\
-        vmovdqu32  xmm0, [REG_XAX]                          @N@\
-        opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0  @N@\
-        kmovw      k1, edx                                  @N@\
-        vmovdqu32  ymm0, [REG_XAX + 16]                     @N@\
-        opcode     [REG_XCX + ymm1 * 4] {k1}, ymm0  @N@\
-        vmovdqu32  [REG_XCX + 16], ymm0                     @N@\
-        kmovw      k1, edx                                  @N@\
-        vmovdqu32  zmm0, [REG_XAX + 48]                     @N@\
-        opcode     [REG_XCX + zmm1 * 4] {k1}, zmm0  @N@\
-        add        REG_XSP, FRAME_PADDING                       @N@\
-        POP_CALLEE_SAVED_REGS()                                 @N@\
-        ret                                                     @N@\
+#define TEST_AVX512_SCATTER_IDX64_VAL64(funcname, opcode)  @N@\
+DECLARE_FUNC_SEH(funcname)                                 @N@\
+  GLOBAL_LABEL(funcname:)                                  @N@\
+        mov        REG_XAX, ARG1                           @N@\
+        mov        REG_XCX, ARG3                           @N@\
+        mov        REG_XDX, ARG2                           @N@\
+        PUSH_CALLEE_SAVED_REGS()                           @N@\
+        sub        REG_XSP, FRAME_PADDING                  @N@\
+        END_PROLOG                                         @N@\
+        vmovdqu32  zmm1, [REG_XDX]                         @N@\
+        movw       dx, 0xffff                              @N@\
+        kmovw      k1, edx                                 @N@\
+        vmovdqu32  xmm0, [REG_XAX]                         @N@\
+        opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0         @N@\
+        kmovw      k1, edx                                 @N@\
+        vmovdqu32  ymm0, [REG_XAX + 16]                    @N@\
+        opcode     [REG_XCX + ymm1 * 4] {k1}, ymm0         @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                    @N@\
+        kmovw      k1, edx                                 @N@\
+        vmovdqu32  zmm0, [REG_XAX + 48]                    @N@\
+        opcode     [REG_XCX + zmm1 * 4] {k1}, zmm0         @N@\
+        add        REG_XSP, FRAME_PADDING                  @N@\
+        POP_CALLEE_SAVED_REGS()                            @N@\
+        ret                                                @N@\
         END_FUNC(funcname)
 
 #undef OPCODE
@@ -655,25 +654,25 @@ TEST_AVX512_SCATTER_IDX64_VAL64(FUNCNAME(OPCODE), OPCODE)
 #define FUNCNAME(opcode) JOIN(test_avx2_, opcode)
 
 #ifdef __AVX__
-#define TEST_AVX2_GATHER_IDX32_VAL32(funcname, opcode)              @N@\
-DECLARE_FUNC_SEH(funcname)                                          @N@\
-  GLOBAL_LABEL(funcname:)                                           @N@\
-        mov           REG_XAX, ARG1                                 @N@\
-        mov           REG_XCX, ARG3                                 @N@\
-        mov           REG_XDX, ARG2                                 @N@\
-        PUSH_CALLEE_SAVED_REGS()                                    @N@\
-        sub           REG_XSP, FRAME_PADDING                        @N@\
-        END_PROLOG                                                  @N@\
-        vmovdqu       ymm1, [REG_XDX]                           @N@\
-        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
+#define TEST_AVX2_GATHER_IDX32_VAL32(funcname, opcode)  @N@\
+DECLARE_FUNC_SEH(funcname)                              @N@\
+  GLOBAL_LABEL(funcname:)                               @N@\
+        mov           REG_XAX, ARG1                     @N@\
+        mov           REG_XCX, ARG3                     @N@\
+        mov           REG_XDX, ARG2                     @N@\
+        PUSH_CALLEE_SAVED_REGS()                        @N@\
+        sub           REG_XSP, FRAME_PADDING            @N@\
+        END_PROLOG                                      @N@\
+        vmovdqu       ymm1, [REG_XDX]                   @N@\
+        vpcmpeqd      ymm2, ymm2, ymm2                  @N@\
         opcode        xmm0, [REG_XAX + xmm1 * 4], xmm2  @N@\
-        vmovdqu       [REG_XCX], xmm0                           @N@\
-        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
-        opcode        ymm0, [REG_XAX + ymm1 * 4], REG_YMM2  @N@\
-        vmovdqu       [REG_XCX + 16], ymm0                      @N@\
-        add           REG_XSP, FRAME_PADDING                        @N@\
-        POP_CALLEE_SAVED_REGS()                                     @N@\
-        ret                                                         @N@\
+        vmovdqu       [REG_XCX], xmm0                   @N@\
+        vpcmpeqd      ymm2, ymm2, ymm2                  @N@\
+        opcode        ymm0, [REG_XAX + ymm1 * 4], ymm2  @N@\
+        vmovdqu       [REG_XCX + 16], ymm0              @N@\
+        add           REG_XSP, FRAME_PADDING            @N@\
+        POP_CALLEE_SAVED_REGS()                         @N@\
+        ret                                             @N@\
         END_FUNC(funcname)
 
 #undef OPCODE
@@ -683,25 +682,25 @@ TEST_AVX2_GATHER_IDX32_VAL32(FUNCNAME(OPCODE), OPCODE)
 #define OPCODE vgatherdps
 TEST_AVX2_GATHER_IDX32_VAL32(FUNCNAME(OPCODE), OPCODE)
 
-#define TEST_AVX2_GATHER_IDX32_VAL64(funcname, opcode)              @N@\
-DECLARE_FUNC_SEH(funcname)                                          @N@\
-  GLOBAL_LABEL(funcname:)                                           @N@\
-        mov           REG_XAX, ARG1                                 @N@\
-        mov           REG_XCX, ARG3                                 @N@\
-        mov           REG_XDX, ARG2                                 @N@\
-        PUSH_CALLEE_SAVED_REGS()                                    @N@\
-        sub           REG_XSP, FRAME_PADDING                        @N@\
-        END_PROLOG                                                  @N@\
-        vmovdqu       ymm1, [REG_XDX]                           @N@\
-        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
+#define TEST_AVX2_GATHER_IDX32_VAL64(funcname, opcode)  @N@\
+DECLARE_FUNC_SEH(funcname)                              @N@\
+  GLOBAL_LABEL(funcname:)                               @N@\
+        mov           REG_XAX, ARG1                     @N@\
+        mov           REG_XCX, ARG3                     @N@\
+        mov           REG_XDX, ARG2                     @N@\
+        PUSH_CALLEE_SAVED_REGS()                        @N@\
+        sub           REG_XSP, FRAME_PADDING            @N@\
+        END_PROLOG                                      @N@\
+        vmovdqu       ymm1, [REG_XDX]                   @N@\
+        vpcmpeqd      ymm2, ymm2, ymm2                  @N@\
         opcode        xmm0, [REG_XAX + xmm1 * 4], xmm2  @N@\
-        vmovdqu       [REG_XCX], xmm0                           @N@\
-        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
-        opcode        ymm0, [REG_XAX + xmm1 * 4], REG_YMM2  @N@\
-        vmovdqu       [REG_XCX + 16], ymm0                      @N@\
-        add           REG_XSP, FRAME_PADDING                        @N@\
-        POP_CALLEE_SAVED_REGS()                                     @N@\
-        ret                                                         @N@\
+        vmovdqu       [REG_XCX], xmm0                   @N@\
+        vpcmpeqd      ymm2, ymm2, ymm2                  @N@\
+        opcode        ymm0, [REG_XAX + xmm1 * 4], ymm2  @N@\
+        vmovdqu       [REG_XCX + 16], ymm0              @N@\
+        add           REG_XSP, FRAME_PADDING            @N@\
+        POP_CALLEE_SAVED_REGS()                         @N@\
+        ret                                             @N@\
         END_FUNC(funcname)
 
 #undef OPCODE
@@ -711,25 +710,25 @@ TEST_AVX2_GATHER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
 #define OPCODE vgatherdpd
 TEST_AVX2_GATHER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
 
-#define TEST_AVX2_GATHER_IDX64_VAL32(funcname, opcode)              @N@\
-DECLARE_FUNC_SEH(funcname)                                          @N@\
-  GLOBAL_LABEL(funcname:)                                           @N@\
-        mov           REG_XAX, ARG1                                 @N@\
-        mov           REG_XCX, ARG3                                 @N@\
-        mov           REG_XDX, ARG2                                 @N@\
-        PUSH_CALLEE_SAVED_REGS()                                    @N@\
-        sub           REG_XSP, FRAME_PADDING                        @N@\
-        END_PROLOG                                                  @N@\
-        vmovdqu       ymm1, [REG_XDX]                           @N@\
-        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
+#define TEST_AVX2_GATHER_IDX64_VAL32(funcname, opcode)  @N@\
+DECLARE_FUNC_SEH(funcname)                              @N@\
+  GLOBAL_LABEL(funcname:)                               @N@\
+        mov           REG_XAX, ARG1                     @N@\
+        mov           REG_XCX, ARG3                     @N@\
+        mov           REG_XDX, ARG2                     @N@\
+        PUSH_CALLEE_SAVED_REGS()                        @N@\
+        sub           REG_XSP, FRAME_PADDING            @N@\
+        END_PROLOG                                      @N@\
+        vmovdqu       ymm1, [REG_XDX]                   @N@\
+        vpcmpeqd      ymm2, ymm2, ymm2                  @N@\
         opcode        xmm0, [REG_XAX + xmm1 * 4], xmm2  @N@\
-        vmovdqu       [REG_XCX], xmm0                           @N@\
-        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
+        vmovdqu       [REG_XCX], xmm0                   @N@\
+        vpcmpeqd      ymm2, ymm2, ymm2                  @N@\
         opcode        xmm0, [REG_XAX + ymm1 * 4], xmm2  @N@\
-        vmovdqu       [REG_XCX + 16], ymm0                      @N@\
-        add           REG_XSP, FRAME_PADDING                        @N@\
-        POP_CALLEE_SAVED_REGS()                                     @N@\
-        ret                                                         @N@\
+        vmovdqu       [REG_XCX + 16], ymm0              @N@\
+        add           REG_XSP, FRAME_PADDING            @N@\
+        POP_CALLEE_SAVED_REGS()                         @N@\
+        ret                                             @N@\
         END_FUNC(funcname)
 
 #undef OPCODE
@@ -739,25 +738,25 @@ TEST_AVX2_GATHER_IDX64_VAL32(FUNCNAME(OPCODE), OPCODE)
 #define OPCODE vgatherqps
 TEST_AVX2_GATHER_IDX64_VAL32(FUNCNAME(OPCODE), OPCODE)
 
-#define TEST_AVX2_GATHER_IDX64_VAL64(funcname, opcode)              @N@\
-DECLARE_FUNC_SEH(funcname)                                          @N@\
-  GLOBAL_LABEL(funcname:)                                           @N@\
-        mov           REG_XAX, ARG1                                 @N@\
-        mov           REG_XCX, ARG3                                 @N@\
-        mov           REG_XDX, ARG2                                 @N@\
-        PUSH_CALLEE_SAVED_REGS()                                    @N@\
-        sub           REG_XSP, FRAME_PADDING                        @N@\
-        END_PROLOG                                                  @N@\
-        vmovdqu       ymm1, [REG_XDX]                           @N@\
-        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
+#define TEST_AVX2_GATHER_IDX64_VAL64(funcname, opcode)  @N@\
+DECLARE_FUNC_SEH(funcname)                              @N@\
+  GLOBAL_LABEL(funcname:)                               @N@\
+        mov           REG_XAX, ARG1                     @N@\
+        mov           REG_XCX, ARG3                     @N@\
+        mov           REG_XDX, ARG2                     @N@\
+        PUSH_CALLEE_SAVED_REGS()                        @N@\
+        sub           REG_XSP, FRAME_PADDING            @N@\
+        END_PROLOG                                      @N@\
+        vmovdqu       ymm1, [REG_XDX]                   @N@\
+        vpcmpeqd      ymm2, ymm2, ymm2                  @N@\
         opcode        xmm0, [REG_XAX + xmm1 * 4], xmm2  @N@\
-        vmovdqu       [REG_XCX], xmm0                           @N@\
-        vpcmpeqd      REG_YMM2, REG_YMM2, REG_YMM2                  @N@\
-        opcode        ymm0, [REG_XAX + ymm1 * 4], REG_YMM2  @N@\
-        vmovdqu       [REG_XCX + 16], ymm0                      @N@\
-        add           REG_XSP, FRAME_PADDING                        @N@\
-        POP_CALLEE_SAVED_REGS()                                     @N@\
-        ret                                                         @N@\
+        vmovdqu       [REG_XCX], xmm0                   @N@\
+        vpcmpeqd      ymm2, ymm2, ymm2                  @N@\
+        opcode        ymm0, [REG_XAX + ymm1 * 4], ymm2  @N@\
+        vmovdqu       [REG_XCX + 16], ymm0              @N@\
+        add           REG_XSP, FRAME_PADDING            @N@\
+        POP_CALLEE_SAVED_REGS()                         @N@\
+        ret                                             @N@\
         END_FUNC(funcname)
 
 #undef OPCODE
