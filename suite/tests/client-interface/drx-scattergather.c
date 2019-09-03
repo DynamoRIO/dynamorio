@@ -389,9 +389,9 @@ START_FILE
 #define FUNCNAME(opcode) JOIN(test_avx512_, opcode)
 
 #ifdef __AVX512F__
-#define TEST_AVX512_GATHER_IDX32_VAL32(funcname, opcode)  @N@\
-DECLARE_FUNC_SEH(funcname)                                @N@\
-  GLOBAL_LABEL(funcname:)                                 @N@\
+#define TEST_AVX512_GATHER_IDX32_VAL32(opcode)            @N@\
+DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
+  GLOBAL_LABEL(FUNCNAME(opcode):)                         @N@\
         mov        REG_XAX, ARG1                          @N@\
         mov        REG_XCX, ARG3                          @N@\
         mov        REG_XDX, ARG2                          @N@\
@@ -412,18 +412,14 @@ DECLARE_FUNC_SEH(funcname)                                @N@\
         add        REG_XSP, FRAME_PADDING                 @N@\
         POP_CALLEE_SAVED_REGS()                           @N@\
         ret                                               @N@\
-        END_FUNC(funcname)
+        END_FUNC(FUNCNAME(opcode))
 
-#undef OPCODE
-#define OPCODE vpgatherdd
-TEST_AVX512_GATHER_IDX32_VAL32(FUNCNAME(OPCODE), OPCODE)
-#undef OPCODE
-#define OPCODE vgatherdps
-TEST_AVX512_GATHER_IDX32_VAL32(FUNCNAME(OPCODE), OPCODE)
+TEST_AVX512_GATHER_IDX32_VAL32(vpgatherdd)
+TEST_AVX512_GATHER_IDX32_VAL32(vgatherdps)
 
-#define TEST_AVX512_GATHER_IDX32_VAL64(funcname, opcode)  @N@\
-DECLARE_FUNC_SEH(funcname)                                @N@\
-  GLOBAL_LABEL(funcname:)                                 @N@\
+#define TEST_AVX512_GATHER_IDX32_VAL64(opcode)            @N@\
+DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
+  GLOBAL_LABEL(FUNCNAME(opcode):)                         @N@\
         mov        REG_XAX, ARG1                          @N@\
         mov        REG_XCX, ARG3                          @N@\
         mov        REG_XDX, ARG2                          @N@\
@@ -444,18 +440,14 @@ DECLARE_FUNC_SEH(funcname)                                @N@\
         add        REG_XSP, FRAME_PADDING                 @N@\
         POP_CALLEE_SAVED_REGS()                           @N@\
         ret                                               @N@\
-        END_FUNC(funcname)
+        END_FUNC(FUNCNAME(opcode))
 
-#undef OPCODE
-#define OPCODE vpgatherdq
-TEST_AVX512_GATHER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
-#undef OPCODE
-#define OPCODE vgatherdpd
-TEST_AVX512_GATHER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
+TEST_AVX512_GATHER_IDX32_VAL64(vpgatherdq)
+TEST_AVX512_GATHER_IDX32_VAL64(vgatherdpd)
 
-#define TEST_AVX512_GATHER_IDX64_VAL32(funcname, opcode)  @N@\
-DECLARE_FUNC_SEH(funcname)                                @N@\
-  GLOBAL_LABEL(funcname:)                                 @N@\
+#define TEST_AVX512_GATHER_IDX64_VAL32(opcode)            @N@\
+DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
+  GLOBAL_LABEL(FUNCNAME(opcode):)                         @N@\
         mov        REG_XAX, ARG1                          @N@\
         mov        REG_XCX, ARG3                          @N@\
         mov        REG_XDX, ARG2                          @N@\
@@ -476,18 +468,14 @@ DECLARE_FUNC_SEH(funcname)                                @N@\
         add        REG_XSP, FRAME_PADDING                 @N@\
         POP_CALLEE_SAVED_REGS()                           @N@\
         ret                                               @N@\
-        END_FUNC(funcname)
+        END_FUNC(FUNCNAME(opcode))
 
-#undef OPCODE
-#define OPCODE vpgatherqd
-TEST_AVX512_GATHER_IDX64_VAL32(FUNCNAME(OPCODE), OPCODE)
-#undef OPCODE
-#define OPCODE vgatherqps
-TEST_AVX512_GATHER_IDX64_VAL32(FUNCNAME(OPCODE), OPCODE)
+TEST_AVX512_GATHER_IDX64_VAL32(vpgatherqd)
+TEST_AVX512_GATHER_IDX64_VAL32(vgatherqps)
 
-#define TEST_AVX512_GATHER_IDX64_VAL64(funcname, opcode)  @N@\
-DECLARE_FUNC_SEH(funcname)                                @N@\
-  GLOBAL_LABEL(funcname:)                                 @N@\
+#define TEST_AVX512_GATHER_IDX64_VAL64(opcode)            @N@\
+DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
+  GLOBAL_LABEL(FUNCNAME(opcode):)                         @N@\
         mov        REG_XAX, ARG1                          @N@\
         mov        REG_XCX, ARG3                          @N@\
         mov        REG_XDX, ARG2                          @N@\
@@ -508,18 +496,14 @@ DECLARE_FUNC_SEH(funcname)                                @N@\
         add        REG_XSP, FRAME_PADDING                 @N@\
         POP_CALLEE_SAVED_REGS()                           @N@\
         ret                                               @N@\
-        END_FUNC(funcname)
+        END_FUNC(FUNCNAME(opcode))
 
-#undef OPCODE
-#define OPCODE vpgatherqq
-TEST_AVX512_GATHER_IDX64_VAL64(FUNCNAME(OPCODE), OPCODE)
-#undef OPCODE
-#define OPCODE vgatherqpd
-TEST_AVX512_GATHER_IDX64_VAL64(FUNCNAME(OPCODE), OPCODE)
+TEST_AVX512_GATHER_IDX64_VAL64(vpgatherqq)
+TEST_AVX512_GATHER_IDX64_VAL64(vgatherqpd)
 
-#define TEST_AVX512_SCATTER_IDX32_VAL32(funcname, opcode)  @N@\
-DECLARE_FUNC_SEH(funcname)                                 @N@\
-  GLOBAL_LABEL(funcname:)                                  @N@\
+#define TEST_AVX512_SCATTER_IDX32_VAL32(opcode)            @N@\
+DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
+  GLOBAL_LABEL(FUNCNAME(opcode):)                          @N@\
         mov        REG_XAX, ARG1                           @N@\
         mov        REG_XCX, ARG3                           @N@\
         mov        REG_XDX, ARG2                           @N@\
@@ -541,18 +525,14 @@ DECLARE_FUNC_SEH(funcname)                                 @N@\
         add        REG_XSP, FRAME_PADDING                  @N@\
         POP_CALLEE_SAVED_REGS()                            @N@\
         ret                                                @N@\
-        END_FUNC(funcname)
+        END_FUNC(FUNCNAME(opcode))
 
-#undef OPCODE
-#define OPCODE vpscatterdd
-TEST_AVX512_SCATTER_IDX32_VAL32(FUNCNAME(OPCODE), OPCODE)
-#undef OPCODE
-#define OPCODE vscatterdps
-TEST_AVX512_SCATTER_IDX32_VAL32(FUNCNAME(OPCODE), OPCODE)
+TEST_AVX512_SCATTER_IDX32_VAL32(vpscatterdd)
+TEST_AVX512_SCATTER_IDX32_VAL32(vscatterdps)
 
-#define TEST_AVX512_SCATTER_IDX32_VAL64(funcname, opcode)  @N@\
-DECLARE_FUNC_SEH(funcname)                                 @N@\
-  GLOBAL_LABEL(funcname:)                                  @N@\
+#define TEST_AVX512_SCATTER_IDX32_VAL64(opcode)            @N@\
+DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
+  GLOBAL_LABEL(FUNCNAME(opcode):)                          @N@\
         mov        REG_XAX, ARG1                           @N@\
         mov        REG_XCX, ARG3                           @N@\
         mov        REG_XDX, ARG2                           @N@\
@@ -574,18 +554,14 @@ DECLARE_FUNC_SEH(funcname)                                 @N@\
         add        REG_XSP, FRAME_PADDING                  @N@\
         POP_CALLEE_SAVED_REGS()                            @N@\
         ret                                                @N@\
-        END_FUNC(funcname)
+        END_FUNC(FUNCNAME(opcode))
 
-#undef OPCODE
-#define OPCODE vpscatterdq
-TEST_AVX512_SCATTER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
-#undef OPCODE
-#define OPCODE vscatterdpd
-TEST_AVX512_SCATTER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
+TEST_AVX512_SCATTER_IDX32_VAL64(vpscatterdq)
+TEST_AVX512_SCATTER_IDX32_VAL64(vscatterdpd)
 
-#define TEST_AVX512_SCATTER_IDX64_VAL32(funcname, opcode)  @N@\
-DECLARE_FUNC_SEH(funcname)                                 @N@\
-  GLOBAL_LABEL(funcname:)                                  @N@\
+#define TEST_AVX512_SCATTER_IDX64_VAL32(opcode)            @N@\
+DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
+  GLOBAL_LABEL(FUNCNAME(opcode):)                          @N@\
         mov        REG_XAX, ARG1                           @N@\
         mov        REG_XCX, ARG3                           @N@\
         mov        REG_XDX, ARG2                           @N@\
@@ -607,18 +583,14 @@ DECLARE_FUNC_SEH(funcname)                                 @N@\
         add        REG_XSP, FRAME_PADDING                  @N@\
         POP_CALLEE_SAVED_REGS()                            @N@\
         ret                                                @N@\
-        END_FUNC(funcname)
+        END_FUNC(FUNCNAME(opcode))
 
-#undef OPCODE
-#define OPCODE vpscatterqd
-TEST_AVX512_SCATTER_IDX64_VAL32(FUNCNAME(OPCODE), OPCODE)
-#undef OPCODE
-#define OPCODE vscatterqps
-TEST_AVX512_SCATTER_IDX64_VAL32(FUNCNAME(OPCODE), OPCODE)
+TEST_AVX512_SCATTER_IDX64_VAL32(vpscatterqd)
+TEST_AVX512_SCATTER_IDX64_VAL32(vscatterqps)
 
-#define TEST_AVX512_SCATTER_IDX64_VAL64(funcname, opcode)  @N@\
-DECLARE_FUNC_SEH(funcname)                                 @N@\
-  GLOBAL_LABEL(funcname:)                                  @N@\
+#define TEST_AVX512_SCATTER_IDX64_VAL64(opcode)            @N@\
+DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
+  GLOBAL_LABEL(FUNCNAME(opcode):)                          @N@\
         mov        REG_XAX, ARG1                           @N@\
         mov        REG_XCX, ARG3                           @N@\
         mov        REG_XDX, ARG2                           @N@\
@@ -640,23 +612,19 @@ DECLARE_FUNC_SEH(funcname)                                 @N@\
         add        REG_XSP, FRAME_PADDING                  @N@\
         POP_CALLEE_SAVED_REGS()                            @N@\
         ret                                                @N@\
-        END_FUNC(funcname)
+        END_FUNC(FUNCNAME(opcode))
 
-#undef OPCODE
-#define OPCODE vpscatterqq
-TEST_AVX512_SCATTER_IDX64_VAL64(FUNCNAME(OPCODE), OPCODE)
-#undef OPCODE
-#define OPCODE vscatterqpd
-TEST_AVX512_SCATTER_IDX64_VAL64(FUNCNAME(OPCODE), OPCODE)
+TEST_AVX512_SCATTER_IDX64_VAL64(vpscatterqq)
+TEST_AVX512_SCATTER_IDX64_VAL64(vscatterqpd)
 #endif /* __AVX512F__ */
 
 #undef FUNCNAME
 #define FUNCNAME(opcode) JOIN(test_avx2_, opcode)
 
 #ifdef __AVX__
-#define TEST_AVX2_GATHER_IDX32_VAL32(funcname, opcode)  @N@\
-DECLARE_FUNC_SEH(funcname)                              @N@\
-  GLOBAL_LABEL(funcname:)                               @N@\
+#define TEST_AVX2_GATHER_IDX32_VAL32(opcode)            @N@\
+DECLARE_FUNC_SEH(FUNCNAME(opcode))                      @N@\
+  GLOBAL_LABEL(FUNCNAME(opcode):)                       @N@\
         mov           REG_XAX, ARG1                     @N@\
         mov           REG_XCX, ARG3                     @N@\
         mov           REG_XDX, ARG2                     @N@\
@@ -673,18 +641,14 @@ DECLARE_FUNC_SEH(funcname)                              @N@\
         add           REG_XSP, FRAME_PADDING            @N@\
         POP_CALLEE_SAVED_REGS()                         @N@\
         ret                                             @N@\
-        END_FUNC(funcname)
+        END_FUNC(FUNCNAME(opcode))
 
-#undef OPCODE
-#define OPCODE vpgatherdd
-TEST_AVX2_GATHER_IDX32_VAL32(FUNCNAME(OPCODE), OPCODE)
-#undef OPCODE
-#define OPCODE vgatherdps
-TEST_AVX2_GATHER_IDX32_VAL32(FUNCNAME(OPCODE), OPCODE)
+TEST_AVX2_GATHER_IDX32_VAL32(vpgatherdd)
+TEST_AVX2_GATHER_IDX32_VAL32(vgatherdps)
 
-#define TEST_AVX2_GATHER_IDX32_VAL64(funcname, opcode)  @N@\
-DECLARE_FUNC_SEH(funcname)                              @N@\
-  GLOBAL_LABEL(funcname:)                               @N@\
+#define TEST_AVX2_GATHER_IDX32_VAL64(opcode)            @N@\
+DECLARE_FUNC_SEH(FUNCNAME(opcode))                      @N@\
+  GLOBAL_LABEL(FUNCNAME(opcode):)                       @N@\
         mov           REG_XAX, ARG1                     @N@\
         mov           REG_XCX, ARG3                     @N@\
         mov           REG_XDX, ARG2                     @N@\
@@ -701,18 +665,14 @@ DECLARE_FUNC_SEH(funcname)                              @N@\
         add           REG_XSP, FRAME_PADDING            @N@\
         POP_CALLEE_SAVED_REGS()                         @N@\
         ret                                             @N@\
-        END_FUNC(funcname)
+        END_FUNC(FUNCNAME(opcode))
 
-#undef OPCODE
-#define OPCODE vpgatherdq
-TEST_AVX2_GATHER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
-#undef OPCODE
-#define OPCODE vgatherdpd
-TEST_AVX2_GATHER_IDX32_VAL64(FUNCNAME(OPCODE), OPCODE)
+TEST_AVX2_GATHER_IDX32_VAL64(vpgatherdq)
+TEST_AVX2_GATHER_IDX32_VAL64(vgatherdpd)
 
-#define TEST_AVX2_GATHER_IDX64_VAL32(funcname, opcode)  @N@\
-DECLARE_FUNC_SEH(funcname)                              @N@\
-  GLOBAL_LABEL(funcname:)                               @N@\
+#define TEST_AVX2_GATHER_IDX64_VAL32(opcode)            @N@\
+DECLARE_FUNC_SEH(FUNCNAME(opcode))                      @N@\
+  GLOBAL_LABEL(FUNCNAME(opcode):)                       @N@\
         mov           REG_XAX, ARG1                     @N@\
         mov           REG_XCX, ARG3                     @N@\
         mov           REG_XDX, ARG2                     @N@\
@@ -729,18 +689,14 @@ DECLARE_FUNC_SEH(funcname)                              @N@\
         add           REG_XSP, FRAME_PADDING            @N@\
         POP_CALLEE_SAVED_REGS()                         @N@\
         ret                                             @N@\
-        END_FUNC(funcname)
+        END_FUNC(FUNCNAME(opcode))
 
-#undef OPCODE
-#define OPCODE vpgatherqd
-TEST_AVX2_GATHER_IDX64_VAL32(FUNCNAME(OPCODE), OPCODE)
-#undef OPCODE
-#define OPCODE vgatherqps
-TEST_AVX2_GATHER_IDX64_VAL32(FUNCNAME(OPCODE), OPCODE)
+TEST_AVX2_GATHER_IDX64_VAL32(vpgatherqd)
+TEST_AVX2_GATHER_IDX64_VAL32(vgatherqps)
 
-#define TEST_AVX2_GATHER_IDX64_VAL64(funcname, opcode)  @N@\
-DECLARE_FUNC_SEH(funcname)                              @N@\
-  GLOBAL_LABEL(funcname:)                               @N@\
+#define TEST_AVX2_GATHER_IDX64_VAL64(opcode)            @N@\
+DECLARE_FUNC_SEH(FUNCNAME(opcode))                      @N@\
+  GLOBAL_LABEL(FUNCNAME(opcode):)                       @N@\
         mov           REG_XAX, ARG1                     @N@\
         mov           REG_XCX, ARG3                     @N@\
         mov           REG_XDX, ARG2                     @N@\
@@ -757,14 +713,10 @@ DECLARE_FUNC_SEH(funcname)                              @N@\
         add           REG_XSP, FRAME_PADDING            @N@\
         POP_CALLEE_SAVED_REGS()                         @N@\
         ret                                             @N@\
-        END_FUNC(funcname)
+        END_FUNC(FUNCNAME(opcode))
 
-#undef OPCODE
-#define OPCODE vpgatherqq
-TEST_AVX2_GATHER_IDX64_VAL64(FUNCNAME(OPCODE), OPCODE)
-#undef OPCODE
-#define OPCODE vgatherqpd
-TEST_AVX2_GATHER_IDX64_VAL64(FUNCNAME(OPCODE), OPCODE)
+TEST_AVX2_GATHER_IDX64_VAL64(vpgatherqq)
+TEST_AVX2_GATHER_IDX64_VAL64(vgatherqpd)
 #endif /* __AVX__ */
 
 END_FILE
