@@ -3057,40 +3057,31 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
         uint frame_size = get_app_frame_size(info, sig);
         byte *frame_end = ((byte *)f_new) + frame_size;
         byte *tgt = (byte *)ALIGN_FORWARD(frame_end, XSTATE_ALIGNMENT);
-        ASSERT(tgt - frame_end <= signal_frame_extra_size(true));
-        memcpy(tgt, f_old->uc.uc_mcontext.fpstate, sizeof(kernel_fpstate_t));
-        f_new->uc.uc_mcontext.fpstate = (kernel_fpstate_t *)tgt;
-        if (YMM_ENABLED()) {
-            kernel_xstate_t *xstate_new = (kernel_xstate_t *)tgt;
-            kernel_xstate_t *xstate_old =
-                (kernel_xstate_t *)f_old->uc.uc_mcontext.fpstate;
-            memcpy(&xstate_new->xstate_hdr, &xstate_old->xstate_hdr,
-                   sizeof(xstate_new->xstate_hdr));
-            memcpy(&xstate_new->ymmh, &xstate_old->ymmh, sizeof(xstate_new->ymmh));
-        }
-#    ifdef X64
-        if (ZMM_ENABLED()) {
-            kernel_xstate_t *xstate_new = (kernel_xstate_t *)tgt;
-            kernel_xstate_t *xstate_old =
-                (kernel_xstate_t *)f_old->uc.uc_mcontext.fpstate;
-            memcpy((byte *)xstate_new + proc_xstate_area_zmm_hi256_offs(),
-                   (byte *)xstate_old + proc_xstate_area_zmm_hi256_offs(),
-                   proc_num_simd_sse_avx_registers() * ZMMH_REG_SIZE);
-            memcpy((byte *)xstate_new + proc_xstate_area_hi16_zmm_offs(),
-                   (byte *)xstate_old + proc_xstate_area_hi16_zmm_offs(),
-                   (proc_num_simd_registers() - proc_num_simd_sse_avx_registers()) *
-                       ZMM_REG_SIZE);
-            memcpy((byte *)xstate_new + proc_xstate_area_kmask_offs(),
-                   (byte *)xstate_old + proc_xstate_area_kmask_offs(),
-                   proc_num_opmask_registers() * OPMASK_AVX512BW_REG_SIZE);
-        }
-#    else
-        /* FIXME i#1312: it is unclear if and how the components are arranged in
-         * 32-bit mode by the kernel.
+        size_t extra_size = signal_frame_extra_size(false);
+        ASSERT(extra_size == f_new->uc.uc_mcontext.fpstate->sw_reserved.extended_size);
+        /* XXX: It may be better to move this into memcpy_rt_frame (or another
+         * routine, since copy_frame_to_pending() wants them separate), since
+         * fixup_rtframe_pointers() was originally meant to just update a few
+         * pointers and not do a big memcpy.  Compare to MACOS which calls it in
+         * copy_frame_to_pending(): if Linux did that we'd have memory clobbering.
          */
-#    endif
+        memcpy(tgt, f_new->uc.uc_mcontext.fpstate, extra_size);
+        f_new->uc.uc_mcontext.fpstate = (kernel_fpstate_t *)tgt;
         LOG(THREAD, LOG_ASYNCH, level + 1, "\tfpstate old=" PFX " new=" PFX "\n",
             f_old->uc.uc_mcontext.fpstate, f_new->uc.uc_mcontext.fpstate);
+        /* Be sure we're keeping both magic words.  Failure to do so causes the
+         * kernel to only restore x87 and SSE state and zero out all AVX+ state
+         * (i#3812).
+         */
+        ASSERT(f_new->uc.uc_mcontext.fpstate->sw_reserved.magic1 ==
+               f_old->uc.uc_mcontext.fpstate->sw_reserved.magic1);
+        ASSERT((f_new->uc.uc_mcontext.fpstate->sw_reserved.magic1 == 0 &&
+                f_new->uc.uc_mcontext.fpstate->sw_reserved.extended_size ==
+                    sizeof(kernel_fpstate_t)) ||
+               (f_new->uc.uc_mcontext.fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1 &&
+                *(int *)((byte *)f_new->uc.uc_mcontext.fpstate +
+                         f_new->uc.uc_mcontext.fpstate->sw_reserved.extended_size -
+                         FP_XSTATE_MAGIC2_SIZE) == FP_XSTATE_MAGIC2));
     } else {
         /* if fpstate is not set up, we're delivering signal immediately,
          * and we shouldn't need an fpstate since DR code won't modify it;
@@ -3339,9 +3330,9 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig,
      * copy now in case our own retrieval somehow misses some fields
      */
     if (frame->uc.uc_mcontext.fpstate != NULL) {
-        memcpy(&info->sigpending[sig]->xstate, frame->uc.uc_mcontext.fpstate,
-               /* XXX: assuming full xstate if avx is enabled */
-               signal_frame_extra_size(false));
+        size_t extra_size = signal_frame_extra_size(false);
+        ASSERT(extra_size == frame->uc.uc_mcontext.fpstate->sw_reserved.extended_size);
+        memcpy(&info->sigpending[sig]->xstate, frame->uc.uc_mcontext.fpstate, extra_size);
     }
     /* we must set the pointer now so that later save_fpstate, etc. work */
     dst->uc.uc_mcontext.fpstate = (kernel_fpstate_t *)&info->sigpending[sig]->xstate;
@@ -6123,6 +6114,12 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 #    endif
         sc = get_sigcontext_from_app_frame(info, sig, (void *)frame);
         ucxt = &frame->uc;
+        /* Check again for the magic words. See the i#3812 comment above. */
+        ASSERT((sc->fpstate->sw_reserved.magic1 == 0 &&
+                sc->fpstate->sw_reserved.extended_size == sizeof(kernel_fpstate_t)) ||
+               (sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1 &&
+                *(int *)((byte *)sc->fpstate + sc->fpstate->sw_reserved.extended_size -
+                         FP_XSTATE_MAGIC2_SIZE) == FP_XSTATE_MAGIC2));
 #elif defined(MACOS)
         /* The initial frame fields on the stack are messed up due to
          * params to handler from tramp, so use params to syscall.
@@ -6414,6 +6411,20 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
 #if defined(LINUX) && defined(X86)
     /* We use a TLS buffer to avoid too much stack space here. */
     sc->fpstate = (kernel_fpstate_t *)get_xstate_buffer(dcontext);
+    sc->fpstate->sw_reserved.extended_size = signal_frame_extra_size(false);
+    if (YMM_ENABLED()) {
+        sc->fpstate->sw_reserved.magic1 = FP_XSTATE_MAGIC1;
+        sc->fpstate->sw_reserved.xstate_size = sizeof(kernel_xstate_t);
+        uint bv_high, bv_low;
+        dr_xgetbv(&bv_high, &bv_low);
+        sc->fpstate->sw_reserved.xstate_bv = (((uint64)bv_high) << 32) | bv_low;
+        *(int *)((byte *)sc->fpstate + sc->fpstate->sw_reserved.extended_size -
+                 FP_XSTATE_MAGIC2_SIZE) = FP_XSTATE_MAGIC2;
+    } else {
+        sc->fpstate->sw_reserved.magic1 = 0;
+        sc->fpstate->sw_reserved.xstate_size = sizeof(kernel_fpstate_t);
+        sc->fpstate->sw_reserved.xstate_bv = 0;
+    }
 #endif
     mcontext_to_ucontext(uc, get_mcontext(dcontext));
     sc->SC_XIP = (reg_t)target_pc;

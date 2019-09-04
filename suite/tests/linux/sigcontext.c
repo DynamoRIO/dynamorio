@@ -44,23 +44,16 @@
 #include <errno.h>
 #include <stddef.h>
 
+/* For sharing NUM_*_REGS constants. */
+#include "../api/detach_state_shared.h"
+
 /* TODO i#1312: This test has been prepared for - and executes AVX-512 code, but doesn't
  * test any AVX-512 state yet.
  */
 
 #ifdef X64
-#    if defined(__AVX512F__)
-#        define NUM_SIMD_AVX512_REGS 32
-#        define NUM_OPMASK_REGS 8
-#    endif
-#    define NUM_SIMD_SSE_AVX_REGS 16
 #    define XAX "rax"
 #else
-#    if defined(__AVX512F__)
-#        define NUM_SIMD_AVX512_REGS 8
-#        define NUM_OPMASK_REGS 8
-#    endif
-#    define NUM_SIMD_SSE_AVX_REGS 8
 #    define XAX "eax"
 #endif
 #define INTS_PER_XMM 4
@@ -289,10 +282,9 @@ main(int argc, char *argv[])
         MOVE_TO_ZMM(buf, 30)
         MOVE_TO_ZMM(buf, 31)
 #        endif
-        __u32 kmaskbuf = 0x12345678;
         /* Re-using INTS_PER_ZMM here to get same data patterns as above. */
 #        define MOVE_TO_OPMASK(buf, num) \
-            __asm__ __volatile__("kmovw %0, %%k" #num : : "m"(kmaskbuf) :);
+            __asm__ __volatile__("kmovw %0, %%k" #num : : "m"(buf[num * INTS_PER_ZMM]) :);
         MOVE_TO_OPMASK(buf, 0)
         MOVE_TO_OPMASK(buf, 1)
         MOVE_TO_OPMASK(buf, 2)
@@ -328,6 +320,107 @@ main(int argc, char *argv[])
 #    endif
         /* now make sure they show up in signal context */
         kill(getpid(), SIGUSR2);
+
+        /* Ensure they are preserved across the sigreturn (xref i#3812). */
+#    ifdef __AVX512F__
+        /* Use a new buffer to avoid the old values.  We could do a custom memset
+         * with rep movs in asm instead (regular memset may clobber SIMD regs).
+         */
+        int buf2[INTS_PER_XMM * NUM_SIMD_SSE_AVX_REGS];
+#        define MOVE_FROM_ZMM(buf, num)                          \
+            __asm__ __volatile__("vmovdqu64 %%zmm" #num ", %0"   \
+                                 : "=m"(buf[num * INTS_PER_ZMM]) \
+                                 :                               \
+                                 :);
+        MOVE_FROM_ZMM(buf2, 0)
+        MOVE_FROM_ZMM(buf2, 1)
+        MOVE_FROM_ZMM(buf2, 2)
+        MOVE_FROM_ZMM(buf2, 3)
+        MOVE_FROM_ZMM(buf2, 4)
+        MOVE_FROM_ZMM(buf2, 5)
+        MOVE_FROM_ZMM(buf2, 6)
+        MOVE_FROM_ZMM(buf2, 7)
+#        ifdef X64
+        MOVE_FROM_ZMM(buf2, 8)
+        MOVE_FROM_ZMM(buf2, 9)
+        MOVE_FROM_ZMM(buf2, 10)
+        MOVE_FROM_ZMM(buf2, 11)
+        MOVE_FROM_ZMM(buf2, 12)
+        MOVE_FROM_ZMM(buf2, 13)
+        MOVE_FROM_ZMM(buf2, 14)
+        MOVE_FROM_ZMM(buf2, 15)
+        MOVE_FROM_ZMM(buf2, 16)
+        MOVE_FROM_ZMM(buf2, 17)
+        MOVE_FROM_ZMM(buf2, 18)
+        MOVE_FROM_ZMM(buf2, 19)
+        MOVE_FROM_ZMM(buf2, 20)
+        MOVE_FROM_ZMM(buf2, 21)
+        MOVE_FROM_ZMM(buf2, 22)
+        MOVE_FROM_ZMM(buf2, 23)
+        MOVE_FROM_ZMM(buf2, 24)
+        MOVE_FROM_ZMM(buf2, 25)
+        MOVE_FROM_ZMM(buf2, 26)
+        MOVE_FROM_ZMM(buf2, 27)
+        MOVE_FROM_ZMM(buf2, 28)
+        MOVE_FROM_ZMM(buf2, 29)
+        MOVE_FROM_ZMM(buf2, 30)
+        MOVE_FROM_ZMM(buf2, 31)
+#        endif
+        for (i = 0; i < NUM_SIMD_AVX512_REGS; i++) {
+            for (j = 0; j < INTS_PER_ZMM; j++) {
+                assert(buf2[i * INTS_PER_ZMM + j] == 0xdeadbeef + i * INTS_PER_ZMM + j);
+            }
+        }
+        /* Re-using INTS_PER_ZMM here to get same data patterns as above. */
+        int buf3[INTS_PER_XMM * NUM_SIMD_SSE_AVX_REGS];
+#        define MOVE_FROM_OPMASK(buf, num)                       \
+            __asm__ __volatile__("kmovw %%k" #num ", %0"         \
+                                 : "=m"(buf[num * INTS_PER_ZMM]) \
+                                 :                               \
+                                 :);
+        MOVE_FROM_OPMASK(buf3, 0)
+        MOVE_FROM_OPMASK(buf3, 1)
+        MOVE_FROM_OPMASK(buf3, 2)
+        MOVE_FROM_OPMASK(buf3, 3)
+        MOVE_FROM_OPMASK(buf3, 4)
+        MOVE_FROM_OPMASK(buf3, 5)
+        MOVE_FROM_OPMASK(buf3, 6)
+        MOVE_FROM_OPMASK(buf3, 7)
+        for (i = 0; i < NUM_OPMASK_REGS; i++) {
+            short bufval = (short)buf3[i * INTS_PER_ZMM];
+            short expect = (short)(0xdeadbeef + i * INTS_PER_ZMM);
+            assert(bufval == expect);
+        }
+#    else
+        int buf2[INTS_PER_XMM * NUM_SIMD_SSE_AVX_REGS];
+#        define MOVE_FROM_YMM(buf, num)                          \
+            __asm__ __volatile__("vmovdqu %%ymm" #num ", %0"     \
+                                 : "=m"(buf[num * INTS_PER_YMM]) \
+                                 :                               \
+                                 :);
+        MOVE_FROM_YMM(buf2, 0)
+        MOVE_FROM_YMM(buf2, 1)
+        MOVE_FROM_YMM(buf2, 2)
+        MOVE_FROM_YMM(buf2, 3)
+        MOVE_FROM_YMM(buf2, 4)
+        MOVE_FROM_YMM(buf2, 5)
+        MOVE_FROM_YMM(buf2, 6)
+        MOVE_FROM_YMM(buf2, 7)
+#        ifdef X64
+        MOVE_FROM_YMM(buf2, 8)
+        MOVE_FROM_YMM(buf2, 9)
+        MOVE_FROM_YMM(buf2, 10)
+        MOVE_FROM_YMM(buf2, 11)
+        MOVE_FROM_YMM(buf2, 12)
+        MOVE_FROM_YMM(buf2, 13)
+        MOVE_FROM_YMM(buf2, 14)
+        MOVE_FROM_YMM(buf2, 15)
+#        endif
+        for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
+            for (j = 0; j < INTS_PER_YMM; j++)
+                assert(buf2[i * INTS_PER_YMM + j] == 0xdeadbeef + i * INTS_PER_ZMM + j);
+        }
+#    endif
     }
 #endif
 

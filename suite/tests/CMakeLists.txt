@@ -2421,6 +2421,13 @@ if (CLIENT_INTERFACE)
       target_include_directories(api.detach_state PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/api)
       link_with_pthread(api.detach_state)
+      if (proc_supports_avx512)
+        append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX512}")
+        set(api.detach_state_runavx512 1)
+      elseif (proc_supports_avx)
+        append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX}")
+        set(api.detach_state_runavx 1)
+      endif ()
     endif ()
     if (NOT WIN32) # XXX i#2611: fix for Windows
       if (X64)
@@ -2613,6 +2620,8 @@ endif ()
       # XXX i#1312: we do not yet support AVX-512 Windows context switching.
       tobuild_ci(client.avx512ctx client-interface/avx512ctx.c "" "" "")
       set_target_properties(client.avx512ctx PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
+      append_property_string(TARGET client.avx512ctx.dll COMPILE_FLAGS
+        "${CFLAGS_AVX512}")
       target_include_directories(client.avx512ctx PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
