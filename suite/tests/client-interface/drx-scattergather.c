@@ -35,11 +35,11 @@
  * the future drx_expand_scatter_gather() extension.
  */
 
-/* The test gathers data from a buffer called sparse_test_buf, runs the xmm, ymm, and zmm
- * version of the gather instruction, and concatenates the results of each version into a
- * new buffer called xmm_ymm_zmm.
+/* Each gather test gathers data from a buffer called sparse_test_buf, runs the xmm, ymm,
+ * and zmm versions of the gather instruction, and concatenates the results of each
+ * version into a new buffer called xmm_ymm_zmm.
  *
- * Similarly, the scatter tests do the inverse and scatters the xmm, ymm, and zmm data
+ * Similarly, the scatter tests do the inverse and scatter the xmm, ymm, and zmm data
  * of each instruction from xmm_ymm_zmm into a sparse buffer.
  *
  * The results are compared for correctness.
@@ -152,6 +152,7 @@ test_avx2_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
         ((XMM_REG_SIZE + YMM_REG_SIZE + ZMM_REG_SIZE) / sizeof(uint32_t))
 #    define CONCAT_XMM_YMM_U32 ((XMM_REG_SIZE + YMM_REG_SIZE) / sizeof(uint32_t))
 #    define SPARSE_TEST_BUF_SIZE_U32 (SPARSE_FACTOR * ZMM_REG_SIZE / sizeof(uint32_t))
+#    define POISON 0xf
 
 static bool
 test_avx512_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
@@ -214,32 +215,22 @@ static bool
 test_avx2_avx512_scatter_gather(void)
 {
 #    if defined(__AVX512F__) || defined(__AVX__)
-    /* The data in the uint32_t sparse array is layed out in 2 uint32_t, followed by 2
-     * poisen 0xf. The values are randomly chosen to be N = 0, N+1, 0xf, 0xf, N+1, N+2,
+    /* The data in the uint32_t sparse array is laid out in 2 uint32_t, followed by 2
+     * poison 0xf. The values are randomly chosen to be N = 0, N+1, 0xf, 0xf, N+1, N+2,
      * ... The dword value scatter/gather instructions write/read 1 uint32_t, while the
-     * qword scatter/gather tests write/read both uint32_t. The are maximal 16 values
+     * qword scatter/gather tests write/read both uint32_t. There are maximal 16 values
      * being scattered/gathered. So the array is 16x4 uint32_t long.
      */
     uint32_t ref_sparse_test_buf[] = {
-        0x0, 0x1, 0xf /* poison */, 0xf /* poison */,
-        0x1, 0x2, 0xf /* poison */, 0xf /* poison */,
-        0x2, 0x3, 0xf /* poison */, 0xf /* poison */,
-        0x3, 0x4, 0xf /* poison */, 0xf /* poison */,
-        0x4, 0x5, 0xf /* poison */, 0xf /* poison */,
-        0x5, 0x6, 0xf /* poison */, 0xf /* poison */,
-        0x6, 0x7, 0xf /* poison */, 0xf /* poison */,
-        0x7, 0x8, 0xf /* poison */, 0xf /* poison */,
-        0x8, 0x9, 0xf /* poison */, 0xf /* poison */,
-        0x9, 0xa, 0xf /* poison */, 0xf /* poison */,
-        0xa, 0xb, 0xf /* poison */, 0xf /* poison */,
-        0xb, 0xc, 0xf /* poison */, 0xf /* poison */,
-        0xc, 0xd, 0xf /* poison */, 0xf /* poison */,
-        0xd, 0xe, 0xf /* poison */, 0xf /* poison */,
-        0xe, 0xf, 0xf /* poison */, 0xf /* poison */,
-        0xf, 0x0, 0xf /* poison */, 0xf /* poison */
+        0x0, 0x1, POISON, POISON, 0x1, 0x2, POISON, POISON, 0x2, 0x3, POISON, POISON,
+        0x3, 0x4, POISON, POISON, 0x4, 0x5, POISON, POISON, 0x5, 0x6, POISON, POISON,
+        0x6, 0x7, POISON, POISON, 0x7, 0x8, POISON, POISON, 0x8, 0x9, POISON, POISON,
+        0x9, 0xa, POISON, POISON, 0xa, 0xb, POISON, POISON, 0xb, 0xc, POISON, POISON,
+        0xc, 0xd, POISON, POISON, 0xd, 0xe, POISON, POISON, 0xe, 0xf, POISON, POISON,
+        0xf, 0x0, POISON, POISON
     };
     /* As pointed out above, the ref_xmm_ymm_zmm are the concatenated results (gather
-     * tests) or sources (scatter tests) for the xmm, ymm, and zmm version of the gather
+     * tests) or sources (scatter tests) for the xmm, ymm, and zmm versions of the gather
      * or scatter instructions. idx32/64 means a dword/qword index, while val32/64 is a
      * dword/qword value.
      */
@@ -287,7 +278,7 @@ test_avx2_avx512_scatter_gather(void)
 #    ifdef __AVX512F__
     /* As pointed out above, the gather tests gather data from ref_sparse_test_buf, and
      * concatenate the results of each xmm, ymm and zmm version of the gather instruction
-     * in output_xmm_ymm_zmm. The output is expected to be the ref_xmm_ymm_zmm buffer
+     * in output_xmm_ymm_zmm. The output is expected to be the ref_xmm_ymm_zmm buffer.
      */
     if (!test_avx512_gather(test_avx512_vpgatherdd, ref_sparse_test_buf,
                             ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec,
@@ -322,8 +313,8 @@ test_avx2_avx512_scatter_gather(void)
                             output_xmm_ymm_zmm))
         return false;
     /* As pointed out above, the scatter tests scatter data from ref_xmm_ymm_zmm into the
-     * array output_sparse_test_buf. Its the inverse of the gather test, so the source
-     * data for the xmm, ymm, and zmm scatter instruction is concatenated in
+     * array output_sparse_test_buf. It's the inverse of the gather test, so the source
+     * data for each xmm, ymm, and zmm scatter instruction is concatenated in
      * ref_xmm_ymm_zmm.
      */
     if (!test_avx512_scatter(test_avx512_vpscatterdd, ref_sparse_test_buf,
