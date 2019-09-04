@@ -1,0 +1,2 @@
+AVX2/AVX-512 scatter/gather checks ok
+event_exit
