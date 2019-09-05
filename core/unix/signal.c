@@ -1209,7 +1209,7 @@ sigsegv_handler_is_ours(void)
 
 #if defined(X86) && defined(LINUX)
 static byte *
-get_xstate_buffer(dcontext_t *dcontext)
+get_and_initialize_xstate_buffer(dcontext_t *dcontext)
 {
     /* See thread_sig_info_t.xstate_buf comments for why this is in TLS. */
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
@@ -1219,6 +1219,23 @@ get_xstate_buffer(dcontext_t *dcontext)
         info->xstate_buf = (byte *)ALIGN_FORWARD(info->xstate_alloc, XSTATE_ALIGNMENT);
         ASSERT(info->xstate_alloc + signal_frame_extra_size(true) >=
                info->xstate_buf + signal_frame_extra_size(false));
+    }
+    kernel_fpstate_t *fpstate = (kernel_fpstate_t *)info->xstate_buf;
+    memset(fpstate, 0, signal_frame_extra_size(false));
+    fpstate->sw_reserved.extended_size = signal_frame_extra_size(false);
+    if (YMM_ENABLED()) {
+        fpstate->sw_reserved.magic1 = FP_XSTATE_MAGIC1;
+        fpstate->sw_reserved.xstate_size = signal_frame_extra_size(false) -
+            FP_XSTATE_MAGIC2_SIZE IF_X86_32(-FSAVE_FPSTATE_PREFIX_SIZE);
+        uint bv_high, bv_low;
+        dr_xgetbv(&bv_high, &bv_low);
+        fpstate->sw_reserved.xstate_bv = (((uint64)bv_high) << 32) | bv_low;
+        *(int *)((byte *)fpstate + fpstate->sw_reserved.extended_size -
+                 FP_XSTATE_MAGIC2_SIZE) = FP_XSTATE_MAGIC2;
+    } else {
+        fpstate->sw_reserved.magic1 = 0;
+        fpstate->sw_reserved.xstate_size = sizeof(kernel_fpstate_t);
+        fpstate->sw_reserved.xstate_bv = 0;
     }
     return info->xstate_buf;
 }
@@ -2651,7 +2668,7 @@ thread_set_self_context(void *cxt)
     memset(&frame, 0, sizeof(frame));
 #ifdef LINUX
 #    ifdef X86
-    byte *xstate = get_xstate_buffer(dcontext);
+    byte *xstate = get_and_initialize_xstate_buffer(dcontext);
     frame.uc.uc_mcontext.fpstate = &((kernel_xstate_t *)xstate)->fpstate;
 #    endif /* X86 */
     frame.uc.uc_mcontext = *sc;
@@ -3008,7 +3025,7 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
  */
 void
 fixup_rtframe_pointers(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
-                       sigframe_rt_t *f_new, bool for_app)
+                       sigframe_rt_t *f_new, bool for_app, size_t f_new_alloc_size)
 {
     if (dcontext == NULL)
         dcontext = get_thread_private_dcontext();
@@ -3065,6 +3082,7 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
          * pointers and not do a big memcpy.  Compare to MACOS which calls it in
          * copy_frame_to_pending(): if Linux did that we'd have memory clobbering.
          */
+        ASSERT(tgt + extra_size <= (byte *)f_new + f_new_alloc_size);
         memcpy(tgt, f_new->uc.uc_mcontext.fpstate, extra_size);
         f_new->uc.uc_mcontext.fpstate = (kernel_fpstate_t *)tgt;
         LOG(THREAD, LOG_ASYNCH, level + 1, "\tfpstate old=" PFX " new=" PFX "\n",
@@ -3237,7 +3255,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     /* fix up pretcode, pinfo, puc, fpstate */
     if (rtframe) {
         sigframe_rt_t *f_new = (sigframe_rt_t *)sp;
-        fixup_rtframe_pointers(dcontext, sig, frame, f_new, true /*for app*/);
+        fixup_rtframe_pointers(dcontext, sig, frame, f_new, true /*for app*/, size);
 #ifdef HAVE_SIGALTSTACK
         /* Make sure the frame's sigstack reflects the app stack, both for transparency
          * of the app examining it and for correctness if we detach mid-handler.
@@ -3345,7 +3363,7 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig,
 
 #ifdef MACOS
     /* We rely on puc to find sc to we have to fix it up */
-    fixup_rtframe_pointers(dcontext, sig, frame, dst, false /*!for app*/);
+    fixup_rtframe_pointers(dcontext, sig, frame, dst, false /*!for app*/, sizeof(*dst));
 #endif
 
     LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_pending from " PFX "\n", frame);
@@ -6115,11 +6133,12 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
         sc = get_sigcontext_from_app_frame(info, sig, (void *)frame);
         ucxt = &frame->uc;
         /* Check again for the magic words. See the i#3812 comment above. */
-        ASSERT((sc->fpstate->sw_reserved.magic1 == 0 &&
-                sc->fpstate->sw_reserved.extended_size == sizeof(kernel_fpstate_t)) ||
-               (sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1 &&
-                *(int *)((byte *)sc->fpstate + sc->fpstate->sw_reserved.extended_size -
-                         FP_XSTATE_MAGIC2_SIZE) == FP_XSTATE_MAGIC2));
+        IF_X86(ASSERT(
+            (sc->fpstate->sw_reserved.magic1 == 0 &&
+             sc->fpstate->sw_reserved.extended_size == sizeof(kernel_fpstate_t)) ||
+            (sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1 &&
+             *(int *)((byte *)sc->fpstate + sc->fpstate->sw_reserved.extended_size -
+                      FP_XSTATE_MAGIC2_SIZE) == FP_XSTATE_MAGIC2)));
 #elif defined(MACOS)
         /* The initial frame fields on the stack are messed up due to
          * params to handler from tramp, so use params to syscall.
@@ -6410,21 +6429,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
 #endif
 #if defined(LINUX) && defined(X86)
     /* We use a TLS buffer to avoid too much stack space here. */
-    sc->fpstate = (kernel_fpstate_t *)get_xstate_buffer(dcontext);
-    sc->fpstate->sw_reserved.extended_size = signal_frame_extra_size(false);
-    if (YMM_ENABLED()) {
-        sc->fpstate->sw_reserved.magic1 = FP_XSTATE_MAGIC1;
-        sc->fpstate->sw_reserved.xstate_size = sizeof(kernel_xstate_t);
-        uint bv_high, bv_low;
-        dr_xgetbv(&bv_high, &bv_low);
-        sc->fpstate->sw_reserved.xstate_bv = (((uint64)bv_high) << 32) | bv_low;
-        *(int *)((byte *)sc->fpstate + sc->fpstate->sw_reserved.extended_size -
-                 FP_XSTATE_MAGIC2_SIZE) = FP_XSTATE_MAGIC2;
-    } else {
-        sc->fpstate->sw_reserved.magic1 = 0;
-        sc->fpstate->sw_reserved.xstate_size = sizeof(kernel_fpstate_t);
-        sc->fpstate->sw_reserved.xstate_bv = 0;
-    }
+    sc->fpstate = (kernel_fpstate_t *)get_and_initialize_xstate_buffer(dcontext);
 #endif
     mcontext_to_ucontext(uc, get_mcontext(dcontext));
     sc->SC_XIP = (reg_t)target_pc;

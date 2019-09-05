@@ -126,6 +126,10 @@ typedef struct _kernel_fpstate_t {
 } kernel_fpstate_t;
 
 #    define X86_FXSR_MAGIC 0x0000
+/* This is the size of the FSAVE fields the kernel prepends to fpstate.
+ * We have them in our kernel_fpstate_t struct.
+ */
+#    define FSAVE_FPSTATE_PREFIX_SIZE offsetof(kernel_fpstate_t, _fxsr_env)
 
 /*
  * User-space might still rely on the old definition:
