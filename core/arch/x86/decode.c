@@ -1215,6 +1215,8 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
             info = NULL; /* invalid encoding */
         else if (TEST(REQUIRES_VEX_L_0, info->flags) && TEST(PREFIX_VEX_L, di->prefixes))
             info = NULL; /* invalid encoding */
+        else if (TEST(REQUIRES_VEX_L_1, info->flags) && !TEST(PREFIX_VEX_L, di->prefixes))
+            info = NULL; /* invalid encoding */
     } else if (info != NULL && !di->vex_encoded && TEST(REQUIRES_VEX, info->flags)) {
         info = NULL; /* invalid encoding */
     } else if (info != NULL && di->evex_encoded) {

@@ -2961,6 +2961,9 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
      * flags, and some opcode bytes.
      */
     if (di.vex_encoded) {
+        if (TEST(REQUIRES_VEX_L_1, info->flags)) {
+            di.prefixes |= PREFIX_VEX_L;
+        }
         field_ptr = encode_vex_prefixes(field_ptr, &di, info, &output_initial_opcode);
     } else if (di.evex_encoded) {
         field_ptr = encode_evex_prefixes(field_ptr, &di, info, &output_initial_opcode);
