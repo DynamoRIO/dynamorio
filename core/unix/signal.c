@@ -1221,9 +1221,13 @@ get_and_initialize_xstate_buffer(dcontext_t *dcontext)
                info->xstate_buf + signal_frame_extra_size(false));
     }
     kernel_fpstate_t *fpstate = (kernel_fpstate_t *)info->xstate_buf;
+    /* If we pass uninitialized values for kernel_xsave_hdr_t.reserved1 through
+     * sigreturn, the kernel seems to change segment bases, leading to a crash
+     * in fcache_return post-sigreturn.  Best to zero it all out.
+     */
     memset(fpstate, 0, signal_frame_extra_size(false));
     fpstate->sw_reserved.extended_size = signal_frame_extra_size(false);
-    if (YMM_ENABLED()) {
+    if (YMM_ENABLED()) { /* ZMM_ENABLED() always implies YMM_ENABLED() too. */
         fpstate->sw_reserved.magic1 = FP_XSTATE_MAGIC1;
         fpstate->sw_reserved.xstate_size = signal_frame_extra_size(false) -
             FP_XSTATE_MAGIC2_SIZE IF_X86_32(-FSAVE_FPSTATE_PREFIX_SIZE);

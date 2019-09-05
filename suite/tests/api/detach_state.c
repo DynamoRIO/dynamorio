@@ -296,6 +296,8 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
     check_gpr_value("r10", *(xsp + 10), MAKE_HEX_C(R10_BASE()));
     check_gpr_value("r9", *(xsp + 9), MAKE_HEX_C(R9_BASE()));
     check_gpr_value("r8", *(xsp + 8), MAKE_HEX_C(R8_BASE()));
+#    else
+#        error NYI /* TODO i#3160: Add 32-bit support. */
 #    endif
     if (!selfmod)
         check_gpr_value("xax", *(xsp + 7), MAKE_HEX_C(XAX_BASE()));
@@ -389,8 +391,8 @@ main(void)
 /* clang-format off */
 START_FILE
 
-#    ifdef X64
-#        define PUSH_GPRS \
+#ifdef X64
+#    define PUSH_GPRS \
         push     r15 @N@\
         push     r14 @N@\
         push     r13 @N@\
@@ -409,8 +411,8 @@ START_FILE
         push     rsi @N@\
         push     rdi
 /* This does NOT make xsp have its pre-push value. */
-#        ifdef __AVX512F__
-#            define PUSHALL                 \
+#    ifdef __AVX512F__
+#        define PUSHALL                 \
         lea      rsp, [rsp - NUM_SIMD_REGS*SIMD_REG_SIZE - \
                        NUM_OPMASK_REGS*OPMASK_REG_SIZE] @N@     \
         vmovups  [rsp +  0*SIMD_REG_SIZE], zmm0 @N@ \
@@ -454,8 +456,8 @@ START_FILE
         kmovw    [rsp + NUM_SIMD_REGS*SIMD_REG_SIZE + 6*OPMASK_REG_SIZE], k6 @N@ \
         kmovw    [rsp + NUM_SIMD_REGS*SIMD_REG_SIZE + 7*OPMASK_REG_SIZE], k7 @N@ \
         PUSH_GPRS
-#        elif defined(__AVX__)
-#            define PUSHALL                 \
+#    elif defined(__AVX__)
+#        define PUSHALL                 \
         lea      rsp, [rsp - NUM_SIMD_REGS*SIMD_REG_SIZE] @N@ \
         vmovdqu  [rsp +  0*SIMD_REG_SIZE], ymm0 @N@ \
         vmovdqu  [rsp +  1*SIMD_REG_SIZE], ymm1 @N@ \
@@ -474,8 +476,8 @@ START_FILE
         vmovdqu  [rsp + 14*SIMD_REG_SIZE], ymm14 @N@ \
         vmovdqu  [rsp + 15*SIMD_REG_SIZE], ymm15 @N@ \
         PUSH_GPRS
-#        else
-#            define PUSHALL                 \
+#    else
+#        define PUSHALL                 \
         lea      rsp, [rsp - NUM_SIMD_REGS*SIMD_REG_SIZE] @N@ \
         movups   [rsp +  0*SIMD_REG_SIZE], xmm0 @N@ \
         movups   [rsp +  1*SIMD_REG_SIZE], xmm1 @N@ \
@@ -494,7 +496,7 @@ START_FILE
         movups   [rsp + 14*SIMD_REG_SIZE], xmm14 @N@ \
         movups   [rsp + 15*SIMD_REG_SIZE], xmm15 @N@ \
         PUSH_GPRS
-#        endif
+#    endif
 #    define POPALL        \
         pop      rdi @N@\
         pop      rsi @N@\
@@ -566,12 +568,12 @@ START_FILE
         pop      r12 @N@ \
         pop      REG_XBX @N@ \
         pop      REG_XBP @N@
-#    else
-#        define PUSHALL \
+#else /* X64 */
+#    define PUSHALL \
         pusha
-#        define POPALL  \
+#    define POPALL  \
         popa
-#    error NYI
+#    error NYI /* TODO i#3160: Add 32-bit support. */
 #endif
 
 DECL_EXTERN(sideline_exit)
@@ -600,6 +602,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_ZMM_IMMED(5, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(6, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(7, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+#    ifdef X64
         SET_ZMM_IMMED(8, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(9, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(10, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
@@ -624,6 +627,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_ZMM_IMMED(29, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(30, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(31, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+#    endif
 #    undef Z0
 #    undef Z1
 #    undef Z2
@@ -653,6 +657,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_YMM_IMMED(5, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(6, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(7, Y0, Y1, Y2, Y3)
+#    ifdef X64
         SET_YMM_IMMED(8, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(9, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(10, Y0, Y1, Y2, Y3)
@@ -661,6 +666,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_YMM_IMMED(13, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(14, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(15, Y0, Y1, Y2, Y3)
+#    endif
 #    undef Y0
 #    undef Y1
 #    undef Y2

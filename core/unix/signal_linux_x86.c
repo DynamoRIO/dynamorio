@@ -226,7 +226,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
                      : "eax", "edx", "rcx", "memory");
 #else
 #    if DISABLED_ISSUE_3256
-        /* FIXME i#3256: DR's kernel_fpstate_t includes the fsave 0x70 bytes at the
+        /* FIXME i#3256: DR's kernel_fpstate_t includes the fsave 112 bytes at the
          * top.  We need to skip them to reach the xsave area at the _fxsr_env field.
          * However, that requires aligning that instead of the kernel_fpstate_t start
          * itself in sigpending_t and the frame we make on the app stack.  An
