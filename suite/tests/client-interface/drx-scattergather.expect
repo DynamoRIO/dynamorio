@@ -1,2 +1,26 @@
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
 AVX2/AVX-512 scatter/gather checks ok
 event_exit
