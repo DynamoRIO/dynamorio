@@ -3757,6 +3757,8 @@
     instr_create_1dst_3src((dc), OP_vinsertps, (d), (s1), (s2), (i))
 #define INSTR_CREATE_vpinsrd(dc, d, s1, s2, i) \
     instr_create_1dst_3src((dc), OP_vpinsrd, (d), (s1), (s2), (i))
+#define INSTR_CREATE_vpinsrq(dc, d, s1, s2, i) \
+    instr_create_1dst_3src((dc), OP_vpinsrq, (d), (s1), (s2), (i))
 #define INSTR_CREATE_vdpps(dc, d, s1, s2, i) \
     instr_create_1dst_3src((dc), OP_vdpps, (d), (s1), (s2), (i))
 #define INSTR_CREATE_vdppd(dc, d, s1, s2, i) \
