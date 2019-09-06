@@ -61,10 +61,12 @@
 #    if defined(__AVX512F__)
 #        define NUM_SIMD_AVX512_REGS 8
 #        define NUM_OPMASK_REGS 8
+#        define OPMASK_REG_SIZE 2
+#    else
+#        define NUM_OPMASK_REGS 0
+#        define OPMASK_REG_SIZE 0
 #    endif
 #    define NUM_SIMD_REGS 8
-#    define NUM_OPMASK_REGS 0
-#    define OPMASK_REG_SIZE 0
 #endif
 
 #ifdef X64
