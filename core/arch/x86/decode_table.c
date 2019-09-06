@@ -1999,7 +1999,6 @@ const instr_info_t * const op_instr[] =
 #define predcx   HAS_PRED_COMPLEX
 #define evex     REQUIRES_EVEX
 #define reqLL0   REQUIRES_EVEX_LL_0
-#define reqLL1   REQUIRES_EVEX_LL_1
 #define vsiby    REQUIRES_VSIB_YMM
 #define vsibz    REQUIRES_VSIB_ZMM
 #define nok0     REQUIRES_NOT_K0
@@ -7343,107 +7342,107 @@ const instr_info_t vex_W_extensions[][2] = {
     {OP_vpsllvd,0x66384718,"vpsllvd",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,tevexw[130][0]},
     {OP_vpsllvq,0x66384758,"vpsllvq",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,tevexw[130][1]},
   }, { /* vex_W_ext 74 */
-    {OP_kmovw,0x0f9010,"kmovw",KPw,xx,KQw,xx,xx, mrm|vex,x,tvexw[76][0]},
-    {OP_kmovq,0x0f9050,"kmovq",KPq,xx,KQq,xx,xx, mrm|vex,x,tvexw[76][1]},
+    {OP_kmovw,0x0f9010,"kmovw",KPw,xx,KQw,xx,xx, mrm|vex|reqL0,x,tvexw[76][0]},
+    {OP_kmovq,0x0f9050,"kmovq",KPq,xx,KQq,xx,xx, mrm|vex|reqL0,x,tvexw[76][1]},
   }, { /* vex_W_ext 75 */
-    {OP_kmovb,0x660f9010,"kmovb",KPb,xx,KQb,xx,xx, mrm|vex,x,tvexw[77][0]},
-    {OP_kmovd,0x660f9050,"kmovd",KPd,xx,KQd,xx,xx, mrm|vex,x,tvexw[77][1]},
+    {OP_kmovb,0x660f9010,"kmovb",KPb,xx,KQb,xx,xx, mrm|vex|reqL0,x,tvexw[77][0]},
+    {OP_kmovd,0x660f9050,"kmovd",KPd,xx,KQd,xx,xx, mrm|vex|reqL0,x,tvexw[77][1]},
   }, { /* vex_W_ext 76 */
-    {OP_kmovw,0x0f9110,"kmovw",KQw,xx,KPw,xx,xx, mrm|vex,x,tvexw[78][0]},
-    {OP_kmovq,0x0f9150,"kmovq",KQq,xx,KPq,xx,xx, mrm|vex,x,tvexw[106][1]},
+    {OP_kmovw,0x0f9110,"kmovw",KQw,xx,KPw,xx,xx, mrm|vex|reqL0,x,tvexw[78][0]},
+    {OP_kmovq,0x0f9150,"kmovq",KQq,xx,KPq,xx,xx, mrm|vex|reqL0,x,tvexw[106][1]},
   }, { /* vex_W_ext 77 */
-    {OP_kmovb,0x660f9110,"kmovb",KQb,xx,KPb,xx,xx, mrm|vex,x,tvexw[79][0]},
-    {OP_kmovd,0x660f9150,"kmovd",KQd,xx,KPd,xx,xx, mrm|vex,x,tvexw[106][0]},
+    {OP_kmovb,0x660f9110,"kmovb",KQb,xx,KPb,xx,xx, mrm|vex|reqL0,x,tvexw[79][0]},
+    {OP_kmovd,0x660f9150,"kmovd",KQd,xx,KPd,xx,xx, mrm|vex|reqL0,x,tvexw[106][0]},
   }, { /* vex_W_ext 78 */
-    {OP_kmovw,0x0f9210,"kmovw",KPw,xx,Ry,xx,xx, mrm|vex,x,tvexw[80][0]},
+    {OP_kmovw,0x0f9210,"kmovw",KPw,xx,Ry,xx,xx, mrm|vex|reqL0,x,tvexw[80][0]},
     {INVALID, 0x0f9250,"(bad)", xx,xx,xx,xx,xx,      no,x,NA},
   }, { /* vex_W_ext 79 */
-    {OP_kmovb,0x660f9210,"kmovb",KPb,xx,Ry,xx,xx, mrm|vex,x,tvexw[81][0]},
+    {OP_kmovb,0x660f9210,"kmovb",KPb,xx,Ry,xx,xx, mrm|vex|reqL0,x,tvexw[81][0]},
     {INVALID, 0x660f9250,"(bad)", xx,xx,xx,xx,xx,      no,x,NA},
   }, { /* vex_W_ext 80 */
-    {OP_kmovw,0x0f9310,"kmovw",  Gd,xx,KRw,xx,xx, mrm|vex,x,END_LIST},
+    {OP_kmovw,0x0f9310,"kmovw",  Gd,xx,KRw,xx,xx, mrm|vex|reqL0,x,END_LIST},
     {INVALID, 0x0f9450,"(bad)", xx,xx,xx,xx,xx,        no,x,NA},
   }, { /* vex_W_ext 81 */
-    {OP_kmovb,0x660f9310,"kmovb",Gd,xx,KRb,xx,xx, mrm|vex,x,END_LIST},
+    {OP_kmovb,0x660f9310,"kmovb",Gd,xx,KRb,xx,xx, mrm|vex|reqL0,x,END_LIST},
     {INVALID, 0x660f9350,"(bad)",xx,xx,xx,xx,xx,       no,x,NA},
   }, { /* vex_W_ext 82 */
-    {OP_kandw,0x0f4110,"kandw",KPw,xx,KVw,KRw,xx, mrm|vex,x,END_LIST},
-    {OP_kandq,0x0f4150,"kandq",KPq,xx,KVq,KRq,xx, mrm|vex,x,END_LIST},
+    {OP_kandw,0x0f4110,"kandw",KPw,xx,KVw,KRw,xx, mrm|vex|reqL1,x,END_LIST},
+    {OP_kandq,0x0f4150,"kandq",KPq,xx,KVq,KRq,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 83 */
-    {OP_kandb,0x660f4110,"kandb",KPb,xx,KVb,KRb,xx, mrm|vex,x,END_LIST},
-    {OP_kandd,0x660f4150,"kandd",KPd,xx,KVd,KRd,xx, mrm|vex,x,END_LIST},
+    {OP_kandb,0x660f4110,"kandb",KPb,xx,KVb,KRb,xx, mrm|vex|reqL1,x,END_LIST},
+    {OP_kandd,0x660f4150,"kandd",KPd,xx,KVd,KRd,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 84 */
-    {OP_kandnw,0x0f4210,"kandnw",KPw,xx,KVw,KRw,xx, mrm|vex,x,END_LIST},
-    {OP_kandnq,0x0f4250,"kandnq",KPq,xx,KVq,KRq,xx, mrm|vex,x,END_LIST},
+    {OP_kandnw,0x0f4210,"kandnw",KPw,xx,KVw,KRw,xx, mrm|vex|reqL1|reqL1,x,END_LIST},
+    {OP_kandnq,0x0f4250,"kandnq",KPq,xx,KVq,KRq,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 85 */
-    {OP_kandnb,0x660f4210,"kandnb",KPb,xx,KVb,KRb,xx, mrm|vex,x,END_LIST},
-    {OP_kandnd,0x660f4250,"kandnd",KPd,xx,KVd,KRd,xx, mrm|vex,x,END_LIST},
+    {OP_kandnb,0x660f4210,"kandnb",KPb,xx,KVb,KRb,xx, mrm|vex|reqL1,x,END_LIST},
+    {OP_kandnd,0x660f4250,"kandnd",KPd,xx,KVd,KRd,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 86 */
-    {OP_kunpckwd,0x0f4b10,"kunpckwd",KPd,xx,KVd,KRd,xx, mrm|vex,x,END_LIST},
-    {OP_kunpckdq,0x0f4b50,"kunpckdq",KPq,xx,KVq,KRq,xx, mrm|vex,x,END_LIST},
+    {OP_kunpckwd,0x0f4b10,"kunpckwd",KPd,xx,KVd,KRd,xx, mrm|vex|reqL1,x,END_LIST},
+    {OP_kunpckdq,0x0f4b50,"kunpckdq",KPq,xx,KVq,KRq,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 87 */
-    {OP_kunpckbw,0x660f4b10,"kunpckbw",KPw,xx,KVw,KRw,xx, mrm|vex,x,END_LIST},
+    {OP_kunpckbw,0x660f4b10,"kunpckbw",KPw,xx,KVw,KRw,xx, mrm|vex|reqL1,x,END_LIST},
     {INVALID,    0x660f4b50,   "(bad)", xx,xx, xx,  xx,xx,     no,x,NA},
   }, { /* vex_W_ext 88 */
-    {OP_knotw,0x0f4410,"knotw",KPw,xx,KRw,xx,xx, mrm|vex,x,END_LIST},
-    {OP_knotq,0x0f4450,"knotq",KPq,xx,KRq,xx,xx, mrm|vex,x,END_LIST},
+    {OP_knotw,0x0f4410,"knotw",KPw,xx,KRw,xx,xx, mrm|vex|reqL0,x,END_LIST},
+    {OP_knotq,0x0f4450,"knotq",KPq,xx,KRq,xx,xx, mrm|vex|reqL0,x,END_LIST},
   }, { /* vex_W_ext 89 */
-    {OP_knotb,0x660f4410,"knotb",KPb,xx,KRb,xx,xx, mrm|vex,x,END_LIST},
-    {OP_knotd,0x660f4450,"knotd",KPd,xx,KRd,xx,xx, mrm|vex,x,END_LIST},
+    {OP_knotb,0x660f4410,"knotb",KPb,xx,KRb,xx,xx, mrm|vex|reqL0,x,END_LIST},
+    {OP_knotd,0x660f4450,"knotd",KPd,xx,KRd,xx,xx, mrm|vex|reqL0,x,END_LIST},
   }, { /* vex_W_ext 90 */
-    {OP_korw,0x0f4510,"korw",KPw,xx,KVw,KRw,xx, mrm|vex,x,END_LIST},
-    {OP_korq,0x0f4550,"korq",KPq,xx,KVq,KRq,xx, mrm|vex,x,END_LIST},
+    {OP_korw,0x0f4510,"korw",KPw,xx,KVw,KRw,xx, mrm|vex|reqL1,x,END_LIST},
+    {OP_korq,0x0f4550,"korq",KPq,xx,KVq,KRq,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 91 */
-    {OP_korb,0x660f4510,"korb",KPb,xx,KVb,KRb,xx, mrm|vex,x,END_LIST},
-    {OP_kord,0x660f4550,"kord",KPd,xx,KVd,KRd,xx, mrm|vex,x,END_LIST},
+    {OP_korb,0x660f4510,"korb",KPb,xx,KVb,KRb,xx, mrm|vex|reqL1,x,END_LIST},
+    {OP_kord,0x660f4550,"kord",KPd,xx,KVd,KRd,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 92 */
-    {OP_kxnorw,0x0f4610,"kxnorw",KPw,xx,KVw,KRw,xx, mrm|vex,x,END_LIST},
-    {OP_kxnorq,0x0f4650,"kxnorq",KPq,xx,KVq,KRq,xx, mrm|vex,x,END_LIST},
+    {OP_kxnorw,0x0f4610,"kxnorw",KPw,xx,KVw,KRw,xx, mrm|vex|reqL1,x,END_LIST},
+    {OP_kxnorq,0x0f4650,"kxnorq",KPq,xx,KVq,KRq,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 93 */
-    {OP_kxnorb,0x660f4610,"kxnorb",KPb,xx,KVb,KRb,xx, mrm|vex,x,END_LIST},
-    {OP_kxnord,0x660f4650,"kxnord",KPd,xx,KVd,KRd,xx, mrm|vex,x,END_LIST},
+    {OP_kxnorb,0x660f4610,"kxnorb",KPb,xx,KVb,KRb,xx, mrm|vex|reqL1,x,END_LIST},
+    {OP_kxnord,0x660f4650,"kxnord",KPd,xx,KVd,KRd,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 94 */
-    {OP_kxorw,0x0f4710,"kxorw",KPw,xx,KVw,KRw,xx, mrm|vex,x,END_LIST},
-    {OP_kxorq,0x0f4750,"kxorq",KPq,xx,KVq,KRq,xx, mrm|vex,x,END_LIST},
+    {OP_kxorw,0x0f4710,"kxorw",KPw,xx,KVw,KRw,xx, mrm|vex|reqL1,x,END_LIST},
+    {OP_kxorq,0x0f4750,"kxorq",KPq,xx,KVq,KRq,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 95 */
-    {OP_kxorb,0x660f4710,"kxorb",KPb,xx,KVb,KRb,xx, mrm|vex,x,END_LIST},
-    {OP_kxord,0x660f4750,"kxord",KPd,xx,KVd,KRd,xx, mrm|vex,x,END_LIST},
+    {OP_kxorb,0x660f4710,"kxorb",KPb,xx,KVb,KRb,xx, mrm|vex|reqL1,x,END_LIST},
+    {OP_kxord,0x660f4750,"kxord",KPd,xx,KVd,KRd,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 96 */
-    {OP_kaddw,0x0f4a10,"kaddw",KPw,xx,KVw,KRw,xx, mrm|vex,x,END_LIST},
-    {OP_kaddq,0x0f4a50,"kaddq",KPq,xx,KVq,KRq,xx, mrm|vex,x,END_LIST},
+    {OP_kaddw,0x0f4a10,"kaddw",KPw,xx,KVw,KRw,xx, mrm|vex|reqL1,x,END_LIST},
+    {OP_kaddq,0x0f4a50,"kaddq",KPq,xx,KVq,KRq,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 97 */
-    {OP_kaddb,0x660f4a10,"kaddb",KPb,xx,KVb,KRb,xx, mrm|vex,x,END_LIST},
-    {OP_kaddd,0x660f4a50,"kaddd",KPd,xx,KVd,KRd,xx, mrm|vex,x,END_LIST},
+    {OP_kaddb,0x660f4a10,"kaddb",KPb,xx,KVb,KRb,xx, mrm|vex|reqL1,x,END_LIST},
+    {OP_kaddd,0x660f4a50,"kaddd",KPd,xx,KVd,KRd,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 98 */
-    {OP_kortestw,0x0f9810,"kortestw",KPw,xx,KRw,xx,xx, mrm|vex,(fWC|fWZ),END_LIST},
-    {OP_kortestq,0x0f9850,"kortestq",KPq,xx,KRq,xx,xx, mrm|vex,(fWC|fWZ),END_LIST},
+    {OP_kortestw,0x0f9810,"kortestw",KPw,xx,KRw,xx,xx, mrm|vex|reqL0,(fWC|fWZ),END_LIST},
+    {OP_kortestq,0x0f9850,"kortestq",KPq,xx,KRq,xx,xx, mrm|vex|reqL0,(fWC|fWZ),END_LIST},
   }, { /* vex_W_ext 99 */
-    {OP_kortestb,0x660f9810,"kortestb",KPb,xx,KRb,xx,xx, mrm|vex,(fWC|fWZ),END_LIST},
-    {OP_kortestd,0x660f9850,"kortestd",KPd,xx,KRd,xx,xx, mrm|vex,(fWC|fWZ),END_LIST},
+    {OP_kortestb,0x660f9810,"kortestb",KPb,xx,KRb,xx,xx, mrm|vex|reqL0,(fWC|fWZ),END_LIST},
+    {OP_kortestd,0x660f9850,"kortestd",KPd,xx,KRd,xx,xx, mrm|vex|reqL0,(fWC|fWZ),END_LIST},
   }, { /* vex_W_ext 100 */
-    {OP_kshiftlb,0x663a3208,"kshiftlb",KPb,xx,KRb,Ib,xx, mrm|vex,x,END_LIST},
-    {OP_kshiftlw,0x663a3248,"kshiftlw",KPw,xx,KRw,Ib,xx, mrm|vex,x,END_LIST},
+    {OP_kshiftlb,0x663a3208,"kshiftlb",KPb,xx,KRb,Ib,xx, mrm|vex|reqL0,x,END_LIST},
+    {OP_kshiftlw,0x663a3248,"kshiftlw",KPw,xx,KRw,Ib,xx, mrm|vex|reqL0,x,END_LIST},
   }, { /* vex_W_ext 101 */
-    {OP_kshiftld,0x663a3308,"kshiftld",KPd,xx,KRd,Ib,xx, mrm|vex,x,END_LIST},
-    {OP_kshiftlq,0x663a3348,"kshiftlq",KPq,xx,KRq,Ib,xx, mrm|vex,x,END_LIST},
+    {OP_kshiftld,0x663a3308,"kshiftld",KPd,xx,KRd,Ib,xx, mrm|vex|reqL0,x,END_LIST},
+    {OP_kshiftlq,0x663a3348,"kshiftlq",KPq,xx,KRq,Ib,xx, mrm|vex|reqL0,x,END_LIST},
   }, { /* vex_W_ext 102 */
-    {OP_kshiftrb,0x663a3008,"kshiftrb",KPb,xx,KRb,Ib,xx, mrm|vex,x,END_LIST},
-    {OP_kshiftrw,0x663a3048,"kshiftrw",KPw,xx,KRw,Ib,xx, mrm|vex,x,END_LIST},
+    {OP_kshiftrb,0x663a3008,"kshiftrb",KPb,xx,KRb,Ib,xx, mrm|vex|reqL0,x,END_LIST},
+    {OP_kshiftrw,0x663a3048,"kshiftrw",KPw,xx,KRw,Ib,xx, mrm|vex|reqL0,x,END_LIST},
   }, { /* vex_W_ext 103 */
-    {OP_kshiftrd,0x663a3108,"kshiftrd",KPd,xx,KRd,Ib,xx, mrm|vex,x,END_LIST},
-    {OP_kshiftrq,0x663a3148,"kshiftrq",KPq,xx,KRq,Ib,xx, mrm|vex,x,END_LIST},
+    {OP_kshiftrd,0x663a3108,"kshiftrd",KPd,xx,KRd,Ib,xx, mrm|vex|reqL0,x,END_LIST},
+    {OP_kshiftrq,0x663a3148,"kshiftrq",KPq,xx,KRq,Ib,xx, mrm|vex|reqL0,x,END_LIST},
   }, { /* vex_W_ext 104 */
-    {OP_ktestw,0x0f9910,"ktestw",KPw,xx,KRw,xx,xx, mrm|vex,fW6,END_LIST},
-    {OP_ktestq,0x0f9950,"ktestq",KPq,xx,KRq,xx,xx, mrm|vex,fW6,END_LIST},
+    {OP_ktestw,0x0f9910,"ktestw",KPw,xx,KRw,xx,xx, mrm|vex|reqL0,fW6,END_LIST},
+    {OP_ktestq,0x0f9950,"ktestq",KPq,xx,KRq,xx,xx, mrm|vex|reqL0,fW6,END_LIST},
   }, { /* vex_W_ext 105 */
-    {OP_ktestb,0x660f9910,"ktestb",KPb,xx,KRb,xx,xx, mrm|vex,fW6,END_LIST},
-    {OP_ktestd,0x660f9950,"ktestd",KPd,xx,KRd,xx,xx, mrm|vex,fW6,END_LIST},
+    {OP_ktestb,0x660f9910,"ktestb",KPb,xx,KRb,xx,xx, mrm|vex|reqL0,fW6,END_LIST},
+    {OP_ktestd,0x660f9950,"ktestd",KPd,xx,KRd,xx,xx, mrm|vex|reqL0,fW6,END_LIST},
   }, { /* vex_W_ext 106 */
-    {OP_kmovd,0xf20f9210,"kmovd",KPd,xx,Ry,xx,xx, mrm|vex,x,tvexw[107][0]},
-    {OP_kmovq,0xf20f9250,"kmovq",KPq,xx,Ry,xx,xx, mrm|vex,x,tvexw[107][1]},
+    {OP_kmovd,0xf20f9210,"kmovd",KPd,xx,Ry,xx,xx, mrm|vex|reqL0,x,tvexw[107][0]},
+    {OP_kmovq,0xf20f9250,"kmovq",KPq,xx,Ry,xx,xx, mrm|vex|reqL0,x,tvexw[107][1]},
   }, { /* vex_W_ext 107 */
-    {OP_kmovd,0xf20f9310,"kmovd",  Gd,xx,KRd,xx,xx, mrm|vex,x,END_LIST},
-    {OP_kmovq,0xf20f9350,"kmovq",Gd_q,xx,KRq,xx,xx, mrm|vex,x,END_LIST},
+    {OP_kmovd,0xf20f9310,"kmovd",  Gd,xx,KRd,xx,xx, mrm|vex|reqL0,x,END_LIST},
+    {OP_kmovq,0xf20f9350,"kmovq",Gd_q,xx,KRq,xx,xx, mrm|vex|reqL0,x,END_LIST},
   }, { /* vex_W_ext 108 */
     {OP_vmovd, 0x660f6e10, "vmovd", Vdq, xx, Ed, xx, xx, mrm|vex, x, tvexw[109][0]},
     {OP_vmovq, 0x660f6e50, "vmovq", Vdq, xx, Ed_q, xx, xx, mrm|vex, x, tvexw[109][1]},
