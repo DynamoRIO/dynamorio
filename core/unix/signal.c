@@ -1222,8 +1222,7 @@ get_and_initialize_xstate_buffer(dcontext_t *dcontext)
     }
     kernel_fpstate_t *fpstate = (kernel_fpstate_t *)info->xstate_buf;
     /* If we pass uninitialized values for kernel_xsave_hdr_t.reserved1 through
-     * sigreturn, the kernel seems to change segment bases, leading to a crash
-     * in fcache_return post-sigreturn.  Best to zero it all out.
+     * sigreturn, we'll get a SIGSEGV.  Best to zero it all out.
      */
     memset(fpstate, 0, signal_frame_extra_size(false));
     fpstate->sw_reserved.extended_size = signal_frame_extra_size(false);
