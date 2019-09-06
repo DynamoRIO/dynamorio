@@ -80,8 +80,10 @@ OPCODE(vpinsrd_r, vpinsrd, vpinsrd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_1
        REGARG(EAX), IMMARG(OPSZ_1))
 OPCODE(vpinsrd_m, vpinsrd, vpinsrd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_12),
        MEMARG(OPSZ_4), IMMARG(OPSZ_1))
-OPCODE(vpinsrq, vpinsrd, vpinsrd, X64_ONLY, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
+OPCODE(vpinsrq_r, vpinsrq, vpinsrq, X64_ONLY, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
        REGARG(RAX), IMMARG(OPSZ_1))
+OPCODE(vpinsrq_m, vpinsrq, vpinsrq, X64_ONLY, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
+       MEMARG(OPSZ_8), IMMARG(OPSZ_1))
 OPCODE(vdpps, vdpps, vdpps, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16),
        IMMARG(OPSZ_1))
 OPCODE(vdppd, vdppd, vdppd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16),
