@@ -320,20 +320,28 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     instr_t *inst = instrlist_first(bb);
     drreg_status_t res;
     drvector_t allowed;
-    reg_id_t reg;
+    reg_id_t reg0, reg1;
 
     drreg_init_and_fill_vector(&allowed, false);
     drreg_set_vector_entry(&allowed, TEST_REG, true);
 
-    res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg);
+    res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg0);
     CHECK(res == DRREG_SUCCESS, "default reserve should always work");
-    res = drreg_unreserve_register(drcontext, bb, inst, reg);
+    /* We are checking whether the first register gets properly restored (xref i#3821). */
+    res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg1);
+    CHECK(res == DRREG_SUCCESS, "default reserve should always work");
+    instrlist_meta_preinsert(bb, inst,
+                             XINST_CREATE_load_int(drcontext, opnd_create_reg(reg0),
+                                                   OPND_CREATE_INT32(MAGIC_VAL)));
+    res = drreg_unreserve_register(drcontext, bb, inst, reg1);
+    CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
+    res = drreg_unreserve_register(drcontext, bb, inst, reg0);
     CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
 
     /* XXX: construct better tests with and without a dead reg available */
-    res = drreg_reserve_dead_register(drcontext, bb, inst, NULL, &reg);
+    res = drreg_reserve_dead_register(drcontext, bb, inst, NULL, &reg0);
     if (res == DRREG_SUCCESS) {
-        res = drreg_unreserve_register(drcontext, bb, inst, reg);
+        res = drreg_unreserve_register(drcontext, bb, inst, reg0);
         CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
     }
 
