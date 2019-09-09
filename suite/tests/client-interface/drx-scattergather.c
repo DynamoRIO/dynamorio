@@ -166,6 +166,7 @@ test_avx512_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
         print("ERROR: gather result does not match\n");
         return false;
     }
+    print("AVX-512 gather ok\n");
     return true;
 }
 
@@ -180,6 +181,7 @@ test_avx2_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
         print("ERROR: gather result does not match\n");
         return false;
     }
+    print("AVX2 gather ok\n");
     return true;
 }
 
@@ -208,6 +210,7 @@ test_avx512_scatter(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
             }
         }
     }
+    print("AVX-512 scatter ok\n");
     return true;
 }
 

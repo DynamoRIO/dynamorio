@@ -1,0 +1,30 @@
+#ifdef __AVX512F__
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+#endif
+#ifdef __AVX__
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+#endif
+AVX2/AVX-512 scatter/gather checks ok
+event_exit
