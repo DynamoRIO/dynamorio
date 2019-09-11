@@ -211,7 +211,8 @@ rseq_clear_tls_ptr(dcontext_t *dcontext)
 int
 rseq_get_signature(void)
 {
-    /* This read is assumed to be atomic. */
+    /* This is only called after rseq is initialized and the signature determined. */
+    ASSERT(rseq_enabled);
     return rseq_signature;
 }
 
@@ -632,15 +633,20 @@ rseq_process_syscall(dcontext_t *dcontext)
 {
     byte *seg_base = get_app_segment_base(LIB_SEG_TLS);
     byte *app_addr = (byte *)dcontext->sys_param0;
+    bool constant_offset = false;
     if (rseq_tls_offset == 0) {
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         int offset = app_addr - seg_base;
-        ATOMIC_4BYTE_WRITE(&rseq_tls_offset, offset, false);
+        /* To handle races here, we use an atomic_exchange. */
+        int prior = atomic_exchange_int(&rseq_tls_offset, offset);
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+        constant_offset = (prior == offset);
         LOG(GLOBAL, LOG_LOADER, 2,
             "Observed struct rseq @ " PFX " for thread => %s:-0x%x\n", app_addr,
             get_register_name(LIB_SEG_TLS), -rseq_tls_offset);
-    } else if (seg_base + rseq_tls_offset != app_addr) {
+    } else
+        constant_offset = (seg_base + rseq_tls_offset == app_addr);
+    if (!constant_offset) {
         REPORT_FATAL_ERROR_AND_EXIT(
             RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(), get_application_pid(),
             "struct rseq is not always in static thread-local storage");

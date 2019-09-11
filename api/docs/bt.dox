@@ -1322,7 +1322,7 @@ This run-twice approach is subject to the following limitations:
   stack pointer register is not supported.
 - Each rseq region's code must end with a fall-through (non-control-flow)
   instruction.
-- No indirect branches that do not exit the rseq region are allowed inside.
+- Indirect branches that do not exit the rseq region are not allowed.
 - Each rseq region must be entered only from the top, with no branches from outside
   the region targeting a point inside the region.
 - No system calls are allowed inside rseq regions.

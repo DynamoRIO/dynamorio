@@ -1128,7 +1128,7 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
  *   M A N G L I N G   R O U T I N E S
  */
 
-/* Updates the immediates used by insert_mov_immed_arch() to used the value "val".
+/* Updates the immediates used by insert_mov_immed_arch() to use the value "val".
  * The "first" and "last" from insert_mov_immed_arch() should be passed here,
  * along with the encoded start pc of "first" as "pc".
  * Keep this in sync with insert_mov_immed_arch().
