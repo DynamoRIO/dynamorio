@@ -872,6 +872,7 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
         if (res != DRREG_SUCCESS)
             return res;
     }
+    /* FIXME i#3827: ever_spilled is not being reset. */
     /* XXX i#2585: drreg should predicate spills and restores as appropriate */
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     res =
