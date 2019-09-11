@@ -640,7 +640,7 @@ rseq_process_syscall(dcontext_t *dcontext)
         /* To handle races here, we use an atomic_exchange. */
         int prior = atomic_exchange_int(&rseq_tls_offset, offset);
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-        constant_offset = (prior == offset);
+        constant_offset = (prior == 0 || prior == offset);
         LOG(GLOBAL, LOG_LOADER, 2,
             "Observed struct rseq @ " PFX " for thread => %s:-0x%x\n", app_addr,
             get_register_name(LIB_SEG_TLS), -rseq_tls_offset);
