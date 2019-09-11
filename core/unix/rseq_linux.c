@@ -198,6 +198,7 @@ rseq_get_tls_ptr_offset(void)
 static void
 rseq_clear_tls_ptr(dcontext_t *dcontext)
 {
+    ASSERT(rseq_tls_offset != 0);
     byte *base = get_segment_base(LIB_SEG_TLS);
     struct rseq *app_rseq = (struct rseq *)(base + rseq_tls_offset);
     /* We're directly writing this in the cache, so we do not bother with safe_read
@@ -241,6 +242,8 @@ rseq_record_rseq_cs(byte *rseq_cs_alloc, fragment_t *f, cache_pc start, cache_pc
 void
 rseq_remove_fragment(dcontext_t *dcontext, fragment_t *f)
 {
+    if (!rseq_enabled)
+        return;
     /* Avoid freeing a live rseq_cs for a thread-private fragment deletion. */
     rseq_clear_tls_ptr(dcontext);
     TABLE_RWLOCK(rseq_cs_table, write, lock);
@@ -251,6 +254,8 @@ rseq_remove_fragment(dcontext_t *dcontext, fragment_t *f)
 void
 rseq_shared_fragment_flushtime_update(dcontext_t *dcontext)
 {
+    if (!rseq_enabled)
+        return;
     /* Avoid freeing a live rseq_cs for thread-shared fragment deletion.
      * We clear the pointer on completion of the native rseq execution, but it's
      * not easy to clear it on midpoint exits.  We instead clear prior to
