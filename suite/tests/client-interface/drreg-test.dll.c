@@ -327,9 +327,8 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 
     res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg0);
     CHECK(res == DRREG_SUCCESS, "default reserve should always work");
-    /* We are reserving a register again, regardless of the fact that the allowed vector
-     * only allows for one. This is a targeted call to expose a possible bug (xref
-     * i#3821).
+    /* We are reserving a register again. This call is made to expose a possible bug
+     * (xref i#3821).
      */
     res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg1);
     CHECK(res == DRREG_SUCCESS, "default reserve should always work");
