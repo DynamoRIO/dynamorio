@@ -52,17 +52,17 @@
 static ptr_int_t
 find_subtest(instrlist_t *bb, OUT instr_t **inst_out)
 {
+    instr_t *inst;
     bool prev_was_mov_const = false;
     ptr_int_t val1, val2;
     /* Look for duplicate mov immediates telling us which subtest we're in */
-    for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
-         inst = instr_get_next_app(inst)) {
+    for (inst = instrlist_first_app(bb); inst != NULL; inst = instr_get_next_app(inst)) {
         if (instr_is_mov_constant(inst, prev_was_mov_const ? &val2 : &val1)) {
             if (prev_was_mov_const && val1 == val2 &&
                 val1 != 0 && /* rule out xor w/ self */
                 opnd_is_reg(instr_get_dst(inst, 0)) &&
                 opnd_get_reg(instr_get_dst(inst, 0)) == TEST_REG) {
-                if (inst_out)
+                if (inst_out != NULL)
                     *inst_out = inst;
                 return val1;
             } else
@@ -78,8 +78,8 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                    bool translating, OUT void **user_data)
 {
     instr_t *inst;
-    ptr_int_t val;
-    if ((val = find_subtest(bb, &inst)) != 0) {
+    ptr_int_t val = find_subtest(bb, &inst);
+    if (val != 0) {
         *user_data = (void *)val;
         instrlist_meta_postinsert(bb, inst, INSTR_CREATE_label(drcontext));
     }
@@ -374,10 +374,10 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     CHECK(res == DRREG_SUCCESS, "query of liveness should work");
 
     if (subtest == DRREG_TEST_2_C) {
-        /* We are runing one more subtest on top of DRREG_TEST_2. Any subtest where
+        /* We are running one more subtest on top of DRREG_TEST_2. Any subtest where
          * TEST_REG2 is not dead at the test's entry will do. We are reserving TEST_REG2
          * and store MAGIC_VAL to it, followed by another reservation and a restore, which
-         * exposes a possible bug in register liveness forward analysis (xref i #3821).
+         * exposes a possible bug in register liveness forward analysis (xref i#3821).
          */
         drreg_set_vector_entry(&allowed, TEST_REG, false);
         drreg_set_vector_entry(&allowed, TEST_REG2, true);
