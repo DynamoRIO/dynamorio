@@ -49,35 +49,53 @@
 
 #define MAGIC_VAL 0xabcd
 
-static dr_emit_flags_t
-event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                   bool translating, OUT void **user_data)
+static ptr_int_t
+find_subtest(instrlist_t *bb, OUT instr_t **inst_out)
 {
-    instr_t *inst;
     bool prev_was_mov_const = false;
     ptr_int_t val1, val2;
-    *user_data = NULL;
     /* Look for duplicate mov immediates telling us which subtest we're in */
-    for (inst = instrlist_first_app(bb); inst != NULL; inst = instr_get_next_app(inst)) {
+    for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
+         inst = instr_get_next_app(inst)) {
         if (instr_is_mov_constant(inst, prev_was_mov_const ? &val2 : &val1)) {
             if (prev_was_mov_const && val1 == val2 &&
                 val1 != 0 && /* rule out xor w/ self */
                 opnd_is_reg(instr_get_dst(inst, 0)) &&
                 opnd_get_reg(instr_get_dst(inst, 0)) == TEST_REG) {
-                *user_data = (void *)val1;
-                instrlist_meta_postinsert(bb, inst, INSTR_CREATE_label(drcontext));
+                if (inst_out)
+                    *inst_out = inst;
+                return val1;
             } else
                 prev_was_mov_const = true;
         } else
             prev_was_mov_const = false;
     }
+    return 0;
+}
+
+static dr_emit_flags_t
+event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                   bool translating, OUT void **user_data)
+{
+    instr_t *inst;
+    ptr_int_t val;
+    if ((val = find_subtest(bb, &inst)) != 0) {
+        *user_data = (void *)val;
+        instrlist_meta_postinsert(bb, inst, INSTR_CREATE_label(drcontext));
+    }
     return DR_EMIT_DEFAULT;
 }
 
 static void
-check_const(ptr_int_t reg, ptr_int_t val)
+check_const_eq(ptr_int_t reg, ptr_int_t val)
 {
     CHECK(reg == val, "register value not preserved");
+}
+
+static void
+check_const_ne(ptr_int_t reg, ptr_int_t val)
+{
+    CHECK(reg != val, "register value not preserved");
 }
 
 static dr_emit_flags_t
@@ -240,7 +258,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                                                            opnd_create_reg(reg),
                                                            OPND_CREATE_INT32(MAGIC_VAL)));
         } else if (drmgr_is_last_instr(drcontext, inst)) {
-            dr_insert_clean_call(drcontext, bb, inst, check_const, false, 2,
+            dr_insert_clean_call(drcontext, bb, inst, check_const_eq, false, 2,
                                  opnd_create_reg(TEST_REG), OPND_CREATE_INT32(MAGIC_VAL));
             res = drreg_unreserve_register(drcontext, bb, inst, TEST_REG);
             CHECK(res == DRREG_SUCCESS, "unreserve should work");
@@ -321,27 +339,18 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     drreg_status_t res;
     drvector_t allowed;
     reg_id_t reg0, reg1;
+    ptr_int_t subtest = find_subtest(bb, NULL);
 
     drreg_init_and_fill_vector(&allowed, false);
     drreg_set_vector_entry(&allowed, TEST_REG, true);
 
-    res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg0);
-    CHECK(res == DRREG_SUCCESS, "default reserve should always work");
-    /* We are reserving a register again. This call is made to expose a possible bug
-     * (xref i#3821).
-     */
-    res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg1);
-    CHECK(res == DRREG_SUCCESS, "default reserve should always work");
-    instrlist_meta_preinsert(bb, inst,
-                             XINST_CREATE_load_int(drcontext, opnd_create_reg(reg0),
-                                                   OPND_CREATE_INT32(MAGIC_VAL)));
-    res = drreg_unreserve_register(drcontext, bb, inst, reg1);
-    CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
+    res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg0);
+    CHECK(res == DRREG_SUCCESS && reg0 == TEST_REG, "only 1 choice");
     res = drreg_unreserve_register(drcontext, bb, inst, reg0);
     CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
 
     /* XXX: construct better tests with and without a dead reg available */
-    res = drreg_reserve_dead_register(drcontext, bb, inst, NULL, &reg0);
+    res = drreg_reserve_dead_register(drcontext, bb, inst, &allowed, &reg0);
     if (res == DRREG_SUCCESS) {
         res = drreg_unreserve_register(drcontext, bb, inst, reg0);
         CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
@@ -363,6 +372,29 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
           "aflags liveness inconsistency");
     res = drreg_is_register_dead(drcontext, DR_REG_START_GPR, inst, &dead);
     CHECK(res == DRREG_SUCCESS, "query of liveness should work");
+
+    if (subtest == DRREG_TEST_2_C) {
+        /* We are runing one more subtest on top of DRREG_TEST_2. Any subtest where
+         * TEST_REG2 is not dead at the test's entry will do. We are reserving TEST_REG2
+         * and store MAGIC_VAL to it, followed by another reservation and a restore, which
+         * exposes a possible bug in register liveness forward analysis (xref i #3821).
+         */
+        drreg_set_vector_entry(&allowed, TEST_REG, false);
+        drreg_set_vector_entry(&allowed, TEST_REG2, true);
+        res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg0);
+        CHECK(res == DRREG_SUCCESS && reg0 == TEST_REG2, "only 1 choice");
+        res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg1);
+        instrlist_meta_preinsert(bb, inst,
+                                 XINST_CREATE_load_int(drcontext,
+                                                       opnd_create_reg(TEST_REG2),
+                                                       OPND_CREATE_INT32(MAGIC_VAL)));
+        res = drreg_unreserve_register(drcontext, bb, inst, reg1);
+        CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
+        res = drreg_unreserve_register(drcontext, bb, inst, reg0);
+        CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
+        dr_insert_clean_call(drcontext, bb, inst, check_const_ne, false, 2,
+                             opnd_create_reg(TEST_REG2), OPND_CREATE_INT32(MAGIC_VAL));
+    }
 
     drvector_delete(&allowed);
 

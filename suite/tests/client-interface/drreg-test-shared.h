@@ -32,6 +32,7 @@
 
 #ifdef X86
 #    define TEST_REG DR_REG_XDX
+#    define TEST_REG2 DR_REG_XBX
 #    define TEST_REG_ASM REG_XDX
 #    define TEST_REG_ASM_LSB dl
 #    define TEST_REG_CXT IF_X64_ELSE(Rdx, Edx)
@@ -41,12 +42,14 @@
 
 #ifdef ARM
 #    define TEST_REG DR_REG_R12
+#    define TEST_REG2 DR_REG_R13
 #    define TEST_REG_ASM r12
 #    define TEST_REG_SIG arm_ip
 #endif
 
 #ifdef AARCH64
 #    define TEST_REG DR_REG_X4
+#    define TEST_REG2 DR_REG_X5
 #    define TEST_REG_ASM x4
 #    define TEST_REG_SIG regs[4]
 #endif
