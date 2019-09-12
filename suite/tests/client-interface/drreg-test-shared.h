@@ -34,6 +34,7 @@
 #    define TEST_REG DR_REG_XDX
 #    define TEST_REG2 DR_REG_XBX
 #    define TEST_REG_ASM REG_XDX
+#    define TEST_REG2_ASM REG_XBX
 #    define TEST_REG_ASM_LSB dl
 #    define TEST_REG_CXT IF_X64_ELSE(Rdx, Edx)
 #    define TEST_XAX_CXT IF_X64_ELSE(Rax, Eax)
@@ -44,6 +45,7 @@
 #    define TEST_REG DR_REG_R12
 #    define TEST_REG2 DR_REG_R13
 #    define TEST_REG_ASM r12
+#    define TEST_REG2_ASM r13
 #    define TEST_REG_SIG arm_ip
 #endif
 
@@ -51,6 +53,7 @@
 #    define TEST_REG DR_REG_X4
 #    define TEST_REG2 DR_REG_X5
 #    define TEST_REG_ASM x4
+#    define TEST_REG2_ASM x5
 #    define TEST_REG_SIG regs[4]
 #endif
 

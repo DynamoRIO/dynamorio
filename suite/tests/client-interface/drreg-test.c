@@ -258,6 +258,10 @@ GLOBAL_LABEL(FUNCNAME:)
      test2:
         mov      TEST_REG_ASM, DRREG_TEST_2_ASM
         mov      TEST_REG_ASM, DRREG_TEST_2_ASM
+        /* Initializing register for additional test on top of this one, see
+         * instru2instru.
+         */
+        mov      TEST_REG2_ASM, MAKE_HEX_ASM(0)
         mov      TEST_REG_ASM, REG_XSP
         mov      PTRSZ [TEST_REG_ASM - 8], TEST_REG_ASM
         mov      TEST_REG_ASM, PTRSZ [TEST_REG_ASM - 8]
