@@ -253,15 +253,17 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, REG_XSP
         mov      REG_XBX, PTRSZ [TEST_REG_ASM]
 
-        jmp      test2
-        /* Test 2: same instr writes and reads reserved reg */
-     test2:
-        mov      TEST_REG_ASM, DRREG_TEST_2_ASM
-        mov      TEST_REG_ASM, DRREG_TEST_2_ASM
+        jmp      test2_init
+     test2_init:
         /* Initializing register for additional test on top of this one, see
          * instru2instru.
          */
         mov      TEST_REG2_ASM, MAKE_HEX_ASM(0)
+        jmp      test2
+     test2:
+        /* Test 2: same instr writes and reads reserved reg */
+        mov      TEST_REG_ASM, DRREG_TEST_2_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_2_ASM
         mov      TEST_REG_ASM, REG_XSP
         mov      PTRSZ [TEST_REG_ASM - 8], TEST_REG_ASM
         mov      TEST_REG_ASM, PTRSZ [TEST_REG_ASM - 8]
