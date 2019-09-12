@@ -49,12 +49,14 @@
 
 #define MAGIC_VAL 0xabcd
 
-static ptr_int_t
-find_subtest(instrlist_t *bb, OUT instr_t **inst_out)
+static dr_emit_flags_t
+event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+              bool translating, OUT void **user_data)
 {
     instr_t *inst;
     bool prev_was_mov_const = false;
     ptr_int_t val1, val2;
+    *user_data = NULL;
     /* Look for duplicate mov immediates telling us which subtest we're in */
     for (inst = instrlist_first_app(bb); inst != NULL; inst = instr_get_next_app(inst)) {
         if (instr_is_mov_constant(inst, prev_was_mov_const ? &val2 : &val1)) {
@@ -62,27 +64,20 @@ find_subtest(instrlist_t *bb, OUT instr_t **inst_out)
                 val1 != 0 && /* rule out xor w/ self */
                 opnd_is_reg(instr_get_dst(inst, 0)) &&
                 opnd_get_reg(instr_get_dst(inst, 0)) == TEST_REG) {
-                if (inst_out != NULL)
-                    *inst_out = inst;
-                return val1;
+                *user_data = (void *)val1;
+                instrlist_meta_postinsert(bb, inst, INSTR_CREATE_label(drcontext));
             } else
                 prev_was_mov_const = true;
         } else
             prev_was_mov_const = false;
     }
-    return 0;
+    return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
 event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                   bool translating, OUT void **user_data)
+                   bool translating, OUT void *user_data)
 {
-    instr_t *inst;
-    ptr_int_t val = find_subtest(bb, &inst);
-    if (val != 0) {
-        *user_data = (void *)val;
-        instrlist_meta_postinsert(bb, inst, INSTR_CREATE_label(drcontext));
-    }
     return DR_EMIT_DEFAULT;
 }
 
@@ -330,7 +325,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
 dr_emit_flags_t
 event_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                    bool translating)
+                    bool translating, void *user_data)
 {
     /* Test using outside of insert event */
     uint flags;
@@ -339,7 +334,7 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     drreg_status_t res;
     drvector_t allowed;
     reg_id_t reg0, reg1;
-    ptr_int_t subtest = find_subtest(bb, NULL);
+    ptr_int_t subtest = (ptr_int_t)user_data;
 
     drreg_init_and_fill_vector(&allowed, false);
     drreg_set_vector_entry(&allowed, TEST_REG, true);
@@ -423,11 +418,10 @@ dr_init(client_id_t id)
 
     /* register events */
     dr_register_exit_event(event_exit);
-    if (!drmgr_register_bb_instrumentation_event(event_app_analysis,
-                                                 event_app_instruction, NULL) ||
-        !drmgr_register_bb_instru2instru_event(event_instru2instru, NULL))
+    if (!drmgr_register_bb_instrumentation_ex_event(event_app2app, event_app_analysis,
+                                                    event_app_instruction,
+                                                    event_instru2instru, NULL))
         CHECK(false, "init failed");
-
     /* i#2910: test use during process init. */
     void *drcontext = dr_get_current_drcontext();
     instrlist_t *ilist = instrlist_create(drcontext);
