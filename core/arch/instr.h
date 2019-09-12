@@ -197,6 +197,14 @@ enum {
 #    ifdef WINDOWS
     /* used to indicate that a syscall should be executed via shared syscall */
     INSTR_SHARED_SYSCALL = 0x01000000,
+#    else
+    /* Indicates an instruction that's part of the rseq endpoint.  We use this in
+     * instrlist_t.flags (sort of the same namespace: INSTR_OUR_MANGLING is used there,
+     * but also EDI_VAL_*) and as a version of DR_NOTE_RSEQ that survives encoding
+     * (seems like we could store notes for labels in another field so they do
+     * in fact survive: a union with instr_t.translation?).
+     */
+    INSTR_RSEQ_ENDPOINT = 0x01000000,
 #    endif
 
 #    ifdef CLIENT_INTERFACE
