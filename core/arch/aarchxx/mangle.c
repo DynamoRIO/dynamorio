@@ -1412,6 +1412,13 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
 }
 
 void
+patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
+                     instr_t *last)
+{
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
+}
+
+void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
                        OUT instr_t **first, OUT instr_t **last)

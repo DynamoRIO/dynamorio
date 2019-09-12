@@ -504,6 +504,9 @@ insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
                        instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
                        OUT instr_t **last);
 void
+patch_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
+                      instr_t *last);
+void
 insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, instrlist_t *ilist,
                         instr_t *instr, OUT instr_t **first, OUT instr_t **last);
 void
@@ -534,6 +537,9 @@ void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
                       OUT instr_t **first, OUT instr_t **last);
+void
+patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
+                     instr_t *last);
 void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,

@@ -572,6 +572,16 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 
 #    elif defined(AARCH64)
 
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                ASSERT(sizeof(value) == 1);                    \
+                /* Not currently used to write code */         \
+                ASSERT_CURIOSITY(!hot_patch);                  \
+                __asm__ __volatile__("strb %w0, [%1]"          \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
 #        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                 \
             do {                                                             \
                 ASSERT(sizeof(value) == 4);                                  \
@@ -726,6 +736,14 @@ atomic_dec_becomes_zero(volatile int *var)
 
 #    elif defined(ARM)
 
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                ASSERT(sizeof(value) == 1);                    \
+                __asm__ __volatile__("strb %0, [%1]"           \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
 #        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                     \
             do {                                                                 \
                 ASSERT(sizeof(value) == 4);                                      \
@@ -1645,7 +1663,9 @@ d_r_decode_init(void);
 #    define STUB_COARSE_DIRECT_SIZE(flags) \
         (FRAG_IS_32(flags) ? STUB_COARSE_DIRECT_SIZE32 : STUB_COARSE_DIRECT_SIZE64)
 
-/* writes nops into the address range */
+/* Writes nops into the address range.
+ * XXX i#3828: Better to use the newer multi-byte nops.
+ */
 #    define SET_TO_NOPS(isa_mode, addr, size) memset(addr, 0x90, size)
 /* writes debugbreaks into the address range */
 #    define SET_TO_DEBUG(addr, size) memset(addr, 0xcc, size)
@@ -2254,6 +2274,9 @@ instr_supports_simple_mangling_epilogue(dcontext_t *dcontext, instr_t *inst);
 
 void
 float_pc_update(dcontext_t *dcontext);
+
+void
+mangle_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f);
 
 /* in retcheck.c */
 #ifdef CHECK_RETURNS_SSE2

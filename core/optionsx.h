@@ -1621,6 +1621,9 @@ OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
     OPTION_DEFAULT(bool, disable_rseq, false, "cause the restartable sequence SYS_rseq "
                    "system call to return -ENOSYS as a workaround for rseq features not "
                    "supportable by DR")
+    /* TODO i#2350: Remove this once we are sure of the stability of local copies. */
+    OPTION_DEFAULT(bool, rseq_assume_call, false, "assume rseq sequences are always "
+                   "structured with function call interfaces")
 #endif
 #ifdef UNIX
     OPTION_DEFAULT(bool, restart_syscalls, true,
