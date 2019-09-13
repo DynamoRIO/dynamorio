@@ -2506,11 +2506,12 @@ drx_expand_scatter_gather_exit:
     drvector_delete(&allowed);
     drreg_exit();
     return res;
-#endif
 
+#else /* !X86 */
     if (expanded != NULL)
         *expanded = false;
     return true;
+#endif
 }
 
 bool
