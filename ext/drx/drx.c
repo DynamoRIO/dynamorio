@@ -1549,6 +1549,10 @@ get_scatter_gather_info(instr_t *instr, scatter_gather_info_t *sg_info)
         sg_info->scatter_src_reg = opnd_get_reg(src1);
         memopnd = dst0;
         break;
+    default:
+        ASSERT(false, "Incorrect opcode.");
+        memopnd = opnd_create_null();
+        break;
     }
     sg_info->index_reg = opnd_get_index(memopnd);
     sg_info->base_reg = opnd_get_base(memopnd);
