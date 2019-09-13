@@ -2366,7 +2366,7 @@ drx_expand_scatter_gather_ex(void *drcontext, instrlist_t *bb, OUT bool *expande
     /* FIXME i#2985: add emulation labels. */
     if (sg_info.is_evex) {
         if (/* AVX-512 */ instr_is_gather(sg_instr)) {
-            for (int el = 0; el < no_of_elements; ++el) {
+            for (uint el = 0; el < no_of_elements; ++el) {
                 instr_t *skip_label = INSTR_CREATE_label(drcontext);
                 if (!expand_avx512_scatter_gather_make_test(drcontext, bb, sg_instr, el,
                                                             &sg_info, scratch_reg0,
@@ -2391,7 +2391,7 @@ drx_expand_scatter_gather_ex(void *drcontext, instrlist_t *bb, OUT bool *expande
                 MINSERT(bb, sg_instr, skip_label);
             }
         } else /* AVX-512 instr_is_scatter(sg_instr) */ {
-            for (int el = 0; el < no_of_elements; ++el) {
+            for (uint el = 0; el < no_of_elements; ++el) {
                 instr_t *skip_label = INSTR_CREATE_label(drcontext);
                 expand_avx512_scatter_gather_make_test(drcontext, bb, sg_instr, el,
                                                        &sg_info, scratch_reg0, skip_label,
@@ -2434,7 +2434,7 @@ drx_expand_scatter_gather_ex(void *drcontext, instrlist_t *bb, OUT bool *expande
         }
     } else {
         /* AVX2 instr_is_gather(sg_instr) */
-        for (int el = 0; el < no_of_elements; ++el) {
+        for (uint el = 0; el < no_of_elements; ++el) {
             instr_t *skip_label = INSTR_CREATE_label(drcontext);
             if (!expand_avx2_gather_make_test(drcontext, bb, sg_instr, el, &sg_info,
                                               scratch_xmm, scratch_reg0, skip_label,
