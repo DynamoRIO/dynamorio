@@ -157,6 +157,8 @@ test_avx2_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
 static bool
 test_avx512_mask()
 {
+#    ifdef UNIX
+    /* XXX i#2985: add check to non-UNIX systems. */
     uint32_t k_buf[2];
     memset(k_buf, 0, sizeof(k_buf));
     uint32_t ref_buf[2];
@@ -164,6 +166,7 @@ test_avx512_mask()
     __asm__ __volatile__("kmovw %%k1, %0" : : "m"(k_buf));
     if (memcmp(k_buf, ref_buf, 2) != 0)
         return false;
+#    endif
     return true;
 }
 
@@ -193,16 +196,19 @@ test_avx2_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
                  uint32_t *test_idx_vec, uint32_t *output_xmm_ymm OUT)
 {
     memset(output_xmm_ymm, 0, CONCAT_XMM_YMM_U32 * sizeof(uint32_t));
+#    ifdef UNIX
     byte ymm_buf[32];
     memset(ymm_buf, 0, sizeof(ymm_buf));
     byte ref_buf[32];
     memset(ref_buf, 0, sizeof(ref_buf));
     test_func(ref_sparse_test_buf, test_idx_vec, output_xmm_ymm);
+    /* XXX i#2985: add check to non-UNIX systems. */
     __asm__ __volatile__("vmovdqu %%ymm2, %0" : : "m"(ymm_buf) : "ymm2");
     if (memcmp(ymm_buf, ref_buf, sizeof(ymm_buf)) != 0) {
         print("ERROR: mask is not zero\n");
         return false;
     }
+#    endif
     if (memcmp(output_xmm_ymm, ref_xmm_ymm, CONCAT_XMM_YMM_U32 * sizeof(uint32_t)) != 0) {
         print("ERROR: gather result does not match\n");
         return false;
