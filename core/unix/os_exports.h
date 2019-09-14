@@ -71,7 +71,7 @@
  */
 #ifdef X86
 #    if defined(MACOS64)
-#        define SEG_TLS SEG_FS     /* XXX: no way to set on MacOS 64-bit */
+#        define SEG_TLS SEG_GS     /* DR is sharing the app's segment. */
 #        define LIB_SEG_TLS SEG_GS /* libc+loader tls */
 #    elif defined(X64)
 #        define SEG_TLS SEG_GS
@@ -122,8 +122,10 @@
  * limited interoperability w/ code targeting the Windows x64 ABI. We steal slot 6
  * for our own use.
  */
-#    define DR_TLS_BASE_OFFSET 34 /* offset from pthread_t struct to slot 6 */
-#    define DR_TLS_BASE_SLOT 6    /* the TLS slot for DR's TLS base */
+#    define SEG_TLS_BASE_OFFSET 28 /* offset from pthread_t struct to segment base */
+#    define DR_TLS_BASE_SLOT 6     /* the TLS slot for DR's TLS base */
+/* offset from pthread_t struct to slot 6 */
+#    define DR_TLS_BASE_OFFSET (SEG_TLS_BASE_OFFSET + DR_TLS_BASE_SLOT)
 #endif
 
 #ifdef AARCHXX
