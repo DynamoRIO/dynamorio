@@ -520,7 +520,7 @@ OPTION_DEFAULT(bool, opt_jit, false, "optimize translation of dynamically genera
      * It cannot be used with DGC_DIAGNOSTICS.
      */
     OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg,
-                            IF_WINDOWS_ELSE(false, true),
+                            IF_WINDOWS_ELSE(false, IF_LINUX_ELSE(true, false)),
                             "mangle application's segment usage.")
 #endif /* X86 */
 #ifdef X64
@@ -1631,6 +1631,20 @@ OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
 #endif
 
     /* These should be made internal when sufficiently tested */
+#if defined(WINDOWS) || defined(MACOS64)
+    /* We mark as pcache-affecting though we have other explicit checks */
+    PC_OPTION_DEFAULT(uint, tls_align,
+        IF_WINDOWS_ELSE(1 /* case 6770: for disabling alignment */, 0),
+        /* 0 - use processor cache line */
+        /* 1, 2, 4 - no alignment
+         * 32 - Pentium III, Pentium M cache line
+         * 64 - Pentium 4 cache line
+         */
+        /* XXX: if we ever change our -tls_align default from 1 we should
+         * consider implications on platform-independence of persisted caches
+         */
+        "TLS slots preferred alignment")
+#endif
 #ifdef WINDOWS
     /* FIXME There's gotta be a better name for this. */
     OPTION_DEFAULT(bool, ignore_syscalls_follow_sysenter, true,
@@ -1657,17 +1671,6 @@ OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
         "use ignorable syscall classification for shared_syscalls")
 
     /* We mark as pcache-affecting though we have other explicit checks */
-    PC_OPTION_DEFAULT(uint, tls_align, 1, /* case 6770: for disabling alignment */
-        /* 0 - use processor cache line */
-        /* 1, 2, 4 - no alignment
-         * 32 - Pentium III, Pentium M cache line
-         * 64 - Pentium 4 cache line
-         */
-        /* FIXME: if we ever change our -tls_align default from 1 we should
-         * consider implications on platform-independence of persisted caches
-         */
-        "TLS slots preferred alignment")
-    /* We mark as pcache-affecting though we have other explicit checks */
     PC_OPTION_DEFAULT(uint, tls_flags, 1|2 /* TLS_FLAG_BITMAP_TOP_DOWN |
                                           * TLS_FLAG_CACHE_LINE_START */,
         "TLS allocation choices")
@@ -1679,7 +1682,7 @@ OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
      * whether a thread's TLS is initialized yet, on x86.
      * XXX: we plan to remove this once we're sure it's stable.
      */
-    OPTION_DEFAULT_INTERNAL(bool, safe_read_tls_init, true,
+    OPTION_DEFAULT_INTERNAL(bool, safe_read_tls_init, IF_LINUX_ELSE(true, false),
                             "use a safe read to identify uninit TLS")
 
     OPTION_DEFAULT(bool, guard_pages, true, "add guard pages to our heap units")
