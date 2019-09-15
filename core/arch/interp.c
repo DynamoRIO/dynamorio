@@ -3721,17 +3721,15 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             }
         }
 #else
-#    ifdef X86
+#    if defined(X86) && defined(LINUX)
         if (instr_get_prefix_flag(bb->instr,
                                   (SEG_TLS == SEG_GS) ? PREFIX_SEG_GS : PREFIX_SEG_FS)
             /* __errno_location is interpreted when global, though it's hidden in TOT */
             IF_UNIX(&&!is_in_dynamo_dll(bb->instr_start)) &&
             /* i#107 allows DR/APP using the same segment register. */
             !INTERNAL_OPTION(mangle_app_seg)) {
-            /* On linux we use a segment register and do not yet
-             * support the application using the same register!
-             */
-            CLIENT_ASSERT(false, "no support yet for application using non-NPTL segment");
+            CLIENT_ASSERT(false,
+                          "no support for app using DR's segment w/o -mangle_app_seg");
             ASSERT_BUG_NUM(205276, false);
         }
 #    endif /* X86 */
