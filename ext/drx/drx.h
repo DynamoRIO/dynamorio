@@ -465,14 +465,11 @@ DR_EXPORT
  * equivalent scalar load and stores, mask register bit tests, and mask register bit
  * updates.
  *
- * WARNING: This function is not fully supported yet. Do not use.
+ * \warning This function is not fully supported yet. Do not use.
  *
- * WARNING: The added multi-instruction loop contains several control-transfer
+ * \warning The added multi-instruction loop contains several control-transfer
  * instructions and is not straight-line code, which can complicate subsequent analysis
  * routines.
- *
- * WARNING: This function makes a call to drreg_init() and drreg_exit(), extending the
- * number of slots while setting do_not_sum_slots to false.
  *
  * The client must use the \p drmgr Extension to order its instrumentation in order to
  * use this function.  This function must be called from the application-to-application
