@@ -155,16 +155,16 @@ test_avx2_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
 #    define POISON 0xf
 
 static bool
-test_avx512_mask()
+test_avx512_mask_all_zero()
 {
 #    ifdef UNIX
     /* XXX i#2985: add check to non-UNIX systems. */
     byte k_buf[2];
     memset(k_buf, 0, sizeof(k_buf));
-    byte ref_buf[2];
-    memset(ref_buf, 0, sizeof(ref_buf));
+    byte all_zero_buf[2];
+    memset(all_zero_buf, 0, sizeof(all_zero_buf));
     __asm__ __volatile__("kmovw %%k1, %0" : : "m"(k_buf));
-    if (memcmp(k_buf, ref_buf, sizeof(k_buf)) != 0)
+    if (memcmp(k_buf, all_zero_buf, sizeof(k_buf)) != 0)
         return false;
 #    endif
     return true;
@@ -182,7 +182,7 @@ test_avx512_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
         print("ERROR: gather result does not match\n");
         return false;
     }
-    if (!test_avx512_mask()) {
+    if (!test_avx512_mask_all_zero()) {
         print("ERROR: mask is not zero\n");
         return false;
     }
@@ -242,7 +242,7 @@ test_avx512_scatter(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
             }
         }
     }
-    if (!test_avx512_mask()) {
+    if (!test_avx512_mask_all_zero()) {
         print("ERROR: mask is not zero\n");
         return false;
     }
