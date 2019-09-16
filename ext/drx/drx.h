@@ -467,7 +467,7 @@ DR_EXPORT
  *
  * \warning This function is not fully supported yet. Do not use.
  *
- * \warning The added multi-instruction loop contains several control-transfer
+ * \warning The added multi-instruction sequence contains several control-transfer
  * instructions and is not straight-line code, which can complicate subsequent analysis
  * routines.
  *
