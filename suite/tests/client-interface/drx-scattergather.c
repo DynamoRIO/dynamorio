@@ -159,12 +159,12 @@ test_avx512_mask()
 {
 #    ifdef UNIX
     /* XXX i#2985: add check to non-UNIX systems. */
-    uint32_t k_buf[2];
+    byte k_buf[2];
     memset(k_buf, 0, sizeof(k_buf));
-    uint32_t ref_buf[2];
+    byte ref_buf[2];
     memset(ref_buf, 0, sizeof(ref_buf));
     __asm__ __volatile__("kmovw %%k1, %0" : : "m"(k_buf));
-    if (memcmp(k_buf, ref_buf, 2) != 0)
+    if (memcmp(k_buf, ref_buf, sizeof(k_buf)) != 0)
         return false;
 #    endif
     return true;
