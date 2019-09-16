@@ -478,12 +478,12 @@ DR_EXPORT
  * This transformation is deterministic, so the caller can return
  * DR_EMIT_DEFAULT from its event.
  *
- * The *dq, *qd, *qq, *dpd, *qps, and *qpd opcodes are not supported in 32-bit mode. In
- * this case, the function will return true, but no expansion will occur.
+ * The *dq, *qd, *qq, *dpd, *qps, and *qpd opcodes are not yet supported in 32-bit mode.
+ * In this case, the function will return false and no expansion will occur.
  *
- * @param[in]  drcontext   The opaque context
- * @param[in]  bb          Instruction list passed to the app2app event
- * @param[out] expanded    Whether any expansion occurred
+ * @param[in]  drcontext   The opaque context.
+ * @param[in]  bb          Instruction list passed to the app2app event.
+ * @param[out] expanded    Whether any expansion occurred.
  *
  * \return whether successful.
  */
