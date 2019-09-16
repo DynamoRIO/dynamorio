@@ -203,7 +203,7 @@ find_load_base(byte *map_base, size_t *load_size)
     cmd = (struct load_command *)(hdr + 1);
     cmd_stop = (struct load_command *)((byte *)cmd + hdr->sizeofcmds);
     while (cmd < cmd_stop) {
-        if (cmd->cmd == LC_SEGMENT) {
+        if (cmd->cmd == LC_SEGMENT || cmd->cmd == LC_SEGMENT_64) {
             segment_command_t *seg = (segment_command_t *)cmd;
             if (!found_seg) {
                 found_seg = true;
@@ -371,7 +371,7 @@ drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
     cmd = (struct load_command *)(hdr + 1);
     cmd_stop = (struct load_command *)((char *)cmd + hdr->sizeofcmds);
     while (cmd < cmd_stop) {
-        if (cmd->cmd == LC_SEGMENT) {
+        if (cmd->cmd == LC_SEGMENT || cmd->cmd == LC_SEGMENT_64) {
             segment_command_t *seg = (segment_command_t *)cmd;
             section_t *sec, *sec_stop;
             sec_stop = (section_t *)((char *)seg + seg->cmdsize);
