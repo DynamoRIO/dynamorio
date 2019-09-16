@@ -59,7 +59,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                  bool translating)
 {
     instr_t *instr;
-    bool expanded;
+    bool expanded = false;
     bool scatter_gather_present = false;
 
     for (instr = instrlist_first_app(bb); instr != NULL;
@@ -71,14 +71,15 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             scatter_gather_present = true;
         }
     }
-    if (!drx_expand_scatter_gather(drcontext, bb, &expanded)) {
+    bool expansion_ok = drx_expand_scatter_gather(drcontext, bb, &expanded);
+    if (!expansion_ok) {
         /* XXX i#2985: The qword versions of scatter/gather are unsupported
          * in 32-bit mode.
          */
         IF_X64(CHECK(false, "drx_expand_scatter_gather() failed"));
     }
-    CHECK(scatter_gather_present || (!expanded && instr == NULL),
-          "drutil_expand_rep_string_ex bad OUT values");
+    CHECK(scatter_gather_present || (expansion_ok && !expanded),
+          "drx_expand_scatter_gather() bad OUT values");
     if (expanded)
         dr_fprintf(STDERR, "Expansion ok\n");
     return DR_EMIT_DEFAULT;
