@@ -96,6 +96,8 @@ enum {
 static ptr_uint_t note_base;
 #define NOTE_VAL(enum_val) ((void *)(ptr_int_t)(note_base + (enum_val)))
 
+static bool expand_scatter_gather_drreg_initialized;
+
 static bool soft_kills_enabled;
 
 static void
@@ -170,6 +172,8 @@ drx_exit()
 
     drx_buf_exit_library();
     drreg_exit();
+    if (expand_scatter_gather_drreg_initialized)
+        drreg_exit();
     drmgr_exit();
 }
 
@@ -2269,7 +2273,7 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
  * kxorq %k1 %k1 -> %k1
  */
 bool
-drx_expand_scatter_gather_ex(void *drcontext, instrlist_t *bb, OUT bool *expanded)
+drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 {
 #ifdef X86
     instr_t *instr, *next_instr, *first_app = NULL;
@@ -2324,9 +2328,12 @@ drx_expand_scatter_gather_ex(void *drcontext, instrlist_t *bb, OUT bool *expande
      * FIXME i#2985: we potentially need more slots or use other means to spill a temp
      * mask register as well as a temp xmm register.
      */
-    drreg_options_t ops = { sizeof(ops), 3, false, NULL, true };
-    if (drreg_init(&ops) != DRREG_SUCCESS)
-        return false;
+    if (!expand_scatter_gather_drreg_initialized) {
+        drreg_options_t ops = { sizeof(ops), 3, false, NULL, true };
+        if (drreg_init(&ops) != DRREG_SUCCESS)
+            return false;
+        expand_scatter_gather_drreg_initialized = true;
+    }
     uint no_of_elements = opnd_size_in_bytes(sg_info.scatter_gather_size) /
         MAX(opnd_size_in_bytes(sg_info.scalar_index_size),
             opnd_size_in_bytes(sg_info.scalar_value_size));
@@ -2504,7 +2511,6 @@ drx_expand_scatter_gather_ex(void *drcontext, instrlist_t *bb, OUT bool *expande
 
 drx_expand_scatter_gather_exit:
     drvector_delete(&allowed);
-    drreg_exit();
     return res;
 
 #else /* !X86 */
@@ -2512,11 +2518,4 @@ drx_expand_scatter_gather_exit:
         *expanded = false;
     return true;
 #endif
-}
-
-bool
-drx_expand_scatter_gather(void *drcontext, instrlist_t *bb)
-{
-    bool expanded;
-    return drx_expand_scatter_gather_ex(drcontext, bb, &expanded);
 }

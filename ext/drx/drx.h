@@ -472,7 +472,7 @@ DR_EXPORT
  * routines.
  *
  * WARNING: This function makes a call to drreg_init() and drreg_exit(), extending the
- * number of slots while setting do_not_sum_slots set to false.
+ * number of slots while setting do_not_sum_slots to false.
  *
  * The client must use the \p drmgr Extension to order its instrumentation in order to
  * use this function.  This function must be called from the application-to-application
@@ -484,15 +484,6 @@ DR_EXPORT
  * The *dq, *qd, *qq, *dpd, *qps, and *qpd opcodes are not supported in 32-bit mode. In
  * this case, the function will return true, but no expansion will occur.
  *
- * \return whether successful.
- */
-bool
-drx_expand_scatter_gather(void *drcontext, instrlist_t *bb);
-
-DR_EXPORT
-/**
- * Identical to drutil_expand_scatter_gather() but returns additional information.
- *
  * @param[in]  drcontext   The opaque context
  * @param[in]  bb          Instruction list passed to the app2app event
  * @param[out] expanded    Whether any expansion occurred
@@ -500,7 +491,7 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drx_expand_scatter_gather_ex(void *drcontext, instrlist_t *bb, OUT bool *expanded);
+drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded);
 
 /*@}*/ /* end doxygen group */
 

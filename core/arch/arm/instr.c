@@ -888,6 +888,7 @@ DR_API
 bool
 instr_is_scatter(instr_t *instr)
 {
+    /* XXX i#3837: no scatter-store on ARM? */
     return false;
 }
 
@@ -895,5 +896,6 @@ DR_API
 bool
 instr_is_gather(instr_t *instr)
 {
+    /* XXX i#3837: no gather-load on ARM? */
     return false;
 }

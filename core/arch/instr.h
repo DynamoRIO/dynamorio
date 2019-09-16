@@ -1422,14 +1422,14 @@ instr_is_exclusive_store(instr_t *instr);
 
 DR_API
 /**
- * Returns true iff \p instr is an AVX-512 scatter instruction.
+ * Returns true iff \p instr is a scatter-store instruction.
  */
 bool
 instr_is_scatter(instr_t *instr);
 
 DR_API
 /**
- * Returns true iff \p instr is an AVX2 or AVX-512 gather instruction.
+ * Returns true iff \p instr is a gather-load instruction.
  */
 bool
 instr_is_gather(instr_t *instr);

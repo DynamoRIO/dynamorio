@@ -462,6 +462,8 @@ DR_API
 bool
 instr_is_scatter(instr_t *instr)
 {
+    /* FIXME i#3837: add support. */
+    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
@@ -469,5 +471,7 @@ DR_API
 bool
 instr_is_gather(instr_t *instr)
 {
+    /* FIXME i#3837: add support. */
+    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
