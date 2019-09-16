@@ -611,14 +611,16 @@ else (UNIX)
       set(sdk_bindir "${sdk_dir}/bin")
     endif (X64)
   endif ()
-  find_program(CMAKE_MC_COMPILER mc.exe HINTS "${sdk_bindir}"
-    DOC "path to message compiler")
-  if (NOT CMAKE_MC_COMPILER)
-    message(FATAL_ERROR "message compiler not found: required to build")
-  endif (NOT CMAKE_MC_COMPILER)
-  message(STATUS "Found message compiler: ${CMAKE_MC_COMPILER}")
-  mark_as_advanced(CMAKE_MC_COMPILER)
-
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # For other generators it completely useless
+    find_program(CMAKE_MC_COMPILER mc.exe HINTS "${sdk_bindir}"
+      DOC "path to message compiler")
+    if (NOT CMAKE_MC_COMPILER)
+      message(FATAL_ERROR "message compiler not found: required to build")
+    endif (NOT CMAKE_MC_COMPILER)
+    message(STATUS "Found message compiler: ${CMAKE_MC_COMPILER}")
+    mark_as_advanced(CMAKE_MC_COMPILER)
+  endif ()
 endif (UNIX)
 
 find_package(Perl)
