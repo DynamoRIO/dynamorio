@@ -2316,10 +2316,10 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     get_scatter_gather_info(sg_instr, &sg_info);
 #    ifndef X64
     if (sg_info.scalar_index_size == OPSZ_8 || sg_info.scalar_value_size == OPSZ_8) {
-        /* XXX i#2985: we do not support expansion of the qword indices and value
+        /* FIXME i#2985: we do not support expansion of the qword indices and value
          * scatter/gather in 32-bit mode.
          */
-        return true;
+        return false;
     }
 #    endif
     /* The expansion potentially needs more slots than the drx default. We need up to 2
