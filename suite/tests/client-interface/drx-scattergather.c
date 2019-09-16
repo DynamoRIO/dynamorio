@@ -196,11 +196,11 @@ test_avx2_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
     memset(output_xmm_ymm, 0, CONCAT_XMM_YMM_U32 * sizeof(uint32_t));
 #    ifdef UNIX
     byte ymm_buf[32] = { 0 };
-    byte ref_buf[32] = { 0 };
+    byte zero_buf[32] = { 0 };
     test_func(ref_sparse_test_buf, test_idx_vec, output_xmm_ymm);
     /* XXX i#2985: add check to non-UNIX systems. */
     __asm__ __volatile__("vmovdqu %%ymm2, %0" : : "m"(ymm_buf) : "ymm2");
-    if (memcmp(ymm_buf, ref_buf, sizeof(ymm_buf)) != 0) {
+    if (memcmp(ymm_buf, zero_buf, sizeof(ymm_buf)) != 0) {
         print("ERROR: mask is not zero\n");
         return false;
     }
