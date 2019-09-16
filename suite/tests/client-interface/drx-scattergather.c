@@ -155,7 +155,7 @@ test_avx2_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
 #    define POISON 0xf
 
 static bool
-test_avx512_mask_all_zero()
+test_avx512_mask_all_zero(void)
 {
 #    ifdef UNIX
     /* XXX i#2985: add check to non-UNIX systems. */
