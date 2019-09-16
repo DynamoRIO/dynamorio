@@ -1214,7 +1214,11 @@ GLOBAL_LABEL(xfer_to_new_libdr:)
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
 #ifdef X64
+# ifdef MACOS
+        mov      eax, HEX(20000b8)
+# else
         mov      eax, HEX(f)
+# endif
         mov      r10, rcx
         syscall
 #else
@@ -1434,11 +1438,23 @@ GLOBAL_LABEL(master_signal_handler:)
 #ifdef X64
 # ifdef LINUX
         mov      ARG4, REG_XSP /* pass as extra arg */
-# else
-        mov      ARG6, REG_XSP /* pass as extra arg */
-# endif
         jmp      GLOBAL_REF(master_signal_handler_C)
         /* master_signal_handler_C will do the ret */
+# else /* MACOS */
+        mov      rax, REG_XSP /* save for extra arg */
+        push     ARG2 /* infostyle */
+        push     ARG5 /* ucxt */
+        push     ARG6 /* token */
+        /* rsp is now aligned again */
+        mov      ARG6, rax /* pass as extra arg */
+        CALLC0(GLOBAL_REF(master_signal_handler_C))
+        /* Set up args to SYS_sigreturn */
+        pop      ARG3 /* token */
+        pop      ARG1 /* ucxt */
+        pop      ARG2 /* infostyle */
+        CALLC0(GLOBAL_REF(dynamorio_sigreturn))
+        jmp      GLOBAL_REF(unexpected_return)
+# endif
 #else
         /* We need to pass in xsp.  The easiest way is to create an
          * intermediate frame.

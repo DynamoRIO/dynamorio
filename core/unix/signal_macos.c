@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -149,15 +149,11 @@ void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
     /* We assume that _STRUCT_X86_FLOAT_STATE* matches exactly the first
-     * half of _STRUCT_X86_AVX_STATE*.
+     * half of _STRUCT_X86_AVX_STATE*, and similarly for AVX and AVX512.
      */
     sigcontext_t *sc = sc_full->sc;
     int i;
-    /* XXX i#1312: This assumption will change and the code below may need
-     * to take this into account.
-     */
-    ASSERT(MCXT_NUM_SIMD_SLOTS == proc_num_simd_sse_avx_registers());
-    for (i = 0; i < proc_num_simd_registers(); i++) {
+    for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
         memcpy(&mc->simd[i], &sc->__fs.__fpu_xmm0 + i, XMM_REG_SIZE);
     }
     if (YMM_ENABLED()) {
@@ -165,7 +161,21 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
             memcpy(&mc->simd[i].u32[4], &sc->__fs.__fpu_ymmh0 + i, YMMH_REG_SIZE);
         }
     }
-    /* XXX i#1312: AVX-512 extended register copies missing yet. */
+#if DISABLED_UNTIL_AVX512_SUPPORT_ADDED
+    /* TODO i#1979/i#1312: See the comments in os_public.h: once we've resolved how
+     * to expose __darwin_mcontext_avx512_64 we'd enable the code here.
+     */
+    if (ZMM_ENABLED()) {
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+            memcpy(&mc->simd[i].u32[8], &sc->__fs.__fpu_zmmh0 + i, ZMMH_REG_SIZE);
+        }
+#    ifdef X64
+        for (i = proc_num_simd_sse_avx_registers(); i < proc_num_simd_registers(); i++) {
+            memcpy(&mc->simd[i], &sc->__fs.__fpu_zmm16 + i, ZMM_REG_SIZE);
+        }
+#    endif
+    }
+#endif
 }
 
 void
@@ -173,10 +183,6 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
     sigcontext_t *sc = sc_full->sc;
     int i;
-    /* XXX i#1312: This assumption will change and the code below may need
-     * to take this into account.
-     */
-    ASSERT(MCXT_NUM_SIMD_SLOTS == proc_num_simd_sse_avx_registers());
     for (i = 0; i < proc_num_simd_registers(); i++) {
         memcpy(&sc->__fs.__fpu_xmm0 + i, &mc->simd[i], XMM_REG_SIZE);
     }
@@ -185,7 +191,21 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
             memcpy(&sc->__fs.__fpu_ymmh0 + i, &mc->simd[i].u32[4], YMMH_REG_SIZE);
         }
     }
-    /* XXX i#1312: AVX-512 extended register copies missing yet. */
+#if DISABLED_UNTIL_AVX512_SUPPORT_ADDED
+    /* TODO i#1979/i#1312: See the comments in os_public.h: once we've resolved how
+     * to expose __darwin_mcontext_avx512_64 we'd enable the code here.
+     */
+    if (ZMM_ENABLED()) {
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+            memcpy(&sc->__fs.__fpu_zmmh0 + i, &mc->simd[i].u32[8], ZMMH_REG_SIZE);
+        }
+#    ifdef X64
+        for (i = proc_num_simd_sse_avx_registers(); i < proc_num_simd_registers(); i++) {
+            memcpy(&sc->__fs.__fpu_zmm16 + i, &mc->simd[i], ZMM_REG_SIZE);
+        }
+#    endif
+    }
+#endif
 }
 
 static void

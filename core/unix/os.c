@@ -335,15 +335,7 @@ static byte *app_brk_end;
 #endif
 
 #ifdef MACOS
-/* xref i#1404: we should expose these via the dr_get_os_version() API */
 static int macos_version;
-#    define MACOS_VERSION_HIGH_SIERRA 17
-#    define MACOS_VERSION_SIERRA 16
-#    define MACOS_VERSION_EL_CAPITAN 15
-#    define MACOS_VERSION_YOSEMITE 14
-#    define MACOS_VERSION_MAVERICKS 13
-#    define MACOS_VERSION_MOUNTAIN_LION 12
-#    define MACOS_VERSION_LION 11
 #endif
 
 static bool
@@ -788,6 +780,12 @@ sysctl_query(int level0, int level1, void *buf, size_t bufsz)
     name[1] = level1;
     res = dynamorio_syscall(SYS___sysctl, 6, &name, 2, buf, &len, NULL, 0);
     return (res >= 0);
+}
+
+int
+os_get_version(void)
+{
+    return macos_version;
 }
 #endif
 
