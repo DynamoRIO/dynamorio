@@ -207,7 +207,7 @@ Further non-compatibility-affecting changes include:
  - reg_get_value_ex() now supports reading AVX-512 mask registers.
  - Added the function reg_is_bnd().
  - Added the functions instr_is_gather() and instr_is_scatter().
- - Added the functions drx_expand_scatter_gather() and drx_expand_scatter_gather_ex().
+ - Added the function drx_expand_scatter_gather().
 
 **************************************************
 <hr>
