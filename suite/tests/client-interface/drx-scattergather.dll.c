@@ -62,7 +62,8 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     bool expanded;
     bool scatter_gather_present = false;
 
-    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+    for (instr = instrlist_first_app(bb); instr != NULL;
+         instr = instr_get_next_app(instr)) {
         if (instr_is_gather(instr)) {
             scatter_gather_present = true;
         }
@@ -70,8 +71,6 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             scatter_gather_present = true;
         }
     }
-    /* Insert a meta instr to test drutil_expand_rep_string() handling it (i#1055) */
-    instrlist_meta_preinsert(bb, instrlist_first(bb), INSTR_CREATE_label(drcontext));
     if (!drx_expand_scatter_gather(drcontext, bb, &expanded)) {
         /* XXX i#2985: The qword versions of scatter/gather are unsupported
          * in 32-bit mode.
