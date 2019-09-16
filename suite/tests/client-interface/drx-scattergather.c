@@ -159,10 +159,8 @@ test_avx512_mask_all_zero(void)
 {
 #    ifdef UNIX
     /* XXX i#2985: add check to non-UNIX systems. */
-    byte k_buf[2];
-    memset(k_buf, 0, sizeof(k_buf));
-    byte all_zero_buf[2];
-    memset(all_zero_buf, 0, sizeof(all_zero_buf));
+    byte k_buf[2] = { 0 };
+    byte all_zero_buf[2] = { 0 };
     __asm__ __volatile__("kmovw %%k1, %0" : : "m"(k_buf));
     if (memcmp(k_buf, all_zero_buf, sizeof(k_buf)) != 0)
         return false;
@@ -197,10 +195,8 @@ test_avx2_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
 {
     memset(output_xmm_ymm, 0, CONCAT_XMM_YMM_U32 * sizeof(uint32_t));
 #    ifdef UNIX
-    byte ymm_buf[32];
-    memset(ymm_buf, 0, sizeof(ymm_buf));
-    byte ref_buf[32];
-    memset(ref_buf, 0, sizeof(ref_buf));
+    byte ymm_buf[32] = { 0 };
+    byte ref_buf[32] = { 0 };
     test_func(ref_sparse_test_buf, test_idx_vec, output_xmm_ymm);
     /* XXX i#2985: add check to non-UNIX systems. */
     __asm__ __volatile__("vmovdqu %%ymm2, %0" : : "m"(ymm_buf) : "ymm2");
