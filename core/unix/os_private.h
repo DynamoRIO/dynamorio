@@ -308,7 +308,7 @@ void
 signal_thread_exit(dcontext_t *dcontext, bool other_thread);
 /* In addition to the list, does not block SIGSEGV or SIGBUS. */
 void
-block_all_signals_except(kernel_sigset_t *oset, int num_signals, ...);
+block_all_noncrash_signals_except(kernel_sigset_t *oset, int num_signals, ...);
 void
 block_cleanup_and_terminate(dcontext_t *dcontext, int sysnum, ptr_uint_t sys_arg1,
                             ptr_uint_t sys_arg2, bool exitproc,

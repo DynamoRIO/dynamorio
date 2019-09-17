@@ -348,8 +348,8 @@ sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
 }
 
 void
-block_all_signals_except(kernel_sigset_t *oset, int num_signals,
-                         ... /* list of signals */)
+block_all_noncrash_signals_except(kernel_sigset_t *oset, int num_signals,
+                                  ... /* list of signals */)
 {
     kernel_sigset_t set;
     kernel_sigfillset(&set);
