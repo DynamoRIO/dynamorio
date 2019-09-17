@@ -2200,7 +2200,10 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
         return false;
     }
 #ifdef X86
-    /* Make each scatter or gather instruction be in their own basic block. */
+    /* Make each scatter or gather instruction be in their own basic block.
+     * TODO i#3837: cross-platform code like the following bb splitting can be shared
+     * with other architectures in the future.
+     */
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
         if (delete_rest) {
