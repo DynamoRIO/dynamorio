@@ -1398,7 +1398,7 @@ drx_tail_pad_block(void *drcontext, instrlist_t *ilist)
 
 #ifdef X86
 
-typedef struct scatter_gather_info_s {
+typedef struct _scatter_gather_info_t {
     bool is_evex;
     opnd_size_t scalar_index_size;
     opnd_size_t scalar_value_size;
