@@ -1983,263 +1983,208 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
 
 #endif
 
-/* The function expands scatter and gather instructions to a sequence of equivalent scalar
+/*****************************************************************************************
+ * The function expands scatter and gather instructions to a sequence of equivalent scalar
  * operations. Gather instructions are expanded into a sequence of mask register bit
  * tests, extracting the index value, a scalar load, inserting the scalar value into the
  * destination simd register, and mask register bit updates. Scatter instructions are
  * similarly expanded into a sequence, but using a scalar store.
  *
- * AVX2 vpgatherdd, vgatherdps, vpgatherdq, vgatherdpd, vpgatherqd, vgatherqps,
- * vpgatherqq, vgatherqpd:
+ *
+ * ------------------------------------------------------------------------------
+ * AVX2 vpgatherdd, vgatherdps, vpgatherdq, vgatherdpd, vpgatherqd, vgatherqps, |
+ * vpgatherqq, vgatherqpd:                                                      |
+ * ------------------------------------------------------------------------------
  *
  * vpgatherdd (%rax,%ymm1,4)[4byte] %ymm2 -> %ymm0 %ymm2 sequence laid out here, others
  * are similar:
  *
  * Extract mask dword. qword versions use vpextrq:
- *
- * vextracti128 %ymm2 $0x00 -> %xmm3
- * vpextrd %xmm3 $0x00 -> %ecx
- *
+ *   vextracti128   %ymm2 $0x00 -> %xmm3
+ *   vpextrd        %xmm3 $0x00 -> %ecx
  * Test mask bit:
- *
- * shr $0x0000001f %ecx -> %ecx
- * and $0x00000001 %ecx -> %ecx
- *
+ *   shr            $0x0000001f %ecx -> %ecx
+ *   and            $0x00000001 %ecx -> %ecx
  * Skip element if mask not set:
- *
- * jz <skip0>
- *
+ *   jz             <skip0>
  * Extract index dword. qword versions use vpextrq:
- *
- * vextracti128 %ymm1 $0x00 -> %xmm3
- * vpextrd %xmm3 $0x00 -> %ecx
- *
+ *   vextracti128   %ymm1 $0x00 -> %xmm3
+ *   vpextrd        %xmm3 $0x00 -> %ecx
  * Restore app's base register value (may not be present):
- *
- * mov %rax -> %gs:0x00000090[8byte]
- * mov %gs:0x00000098[8byte] -> %rax
- *
+ *   mov            %rax -> %gs:0x00000090[8byte]
+ *   mov            %gs:0x00000098[8byte] -> %rax
  * Load scalar value:
- *
- * mov (%rax,%rcx,4)[4byte] -> %ecx
- *
+ *   mov            (%rax,%rcx,4)[4byte] -> %ecx
  * Insert scalar value in destination register:
- *
- * vextracti128 %ymm0 $0x00 -> %xmm3
- * vpinsrd %xmm3 %ecx $0x00 -> %xmm3
- * vinserti128 %ymm0 %xmm3 $0x00 -> %ymm0
- *
+ *   vextracti128   %ymm0 $0x00 -> %xmm3
+ *   vpinsrd        %xmm3 %ecx $0x00 -> %xmm3
+ *   vinserti128    %ymm0 %xmm3 $0x00 -> %ymm0
  * Set mask dword to zero:
- *
- * xor %ecx %ecx -> %ecx
- * vextracti128 %ymm2 $0x00 -> %xmm3
- * vpinsrd %xmm3 %ecx $0x00 -> %xmm3
- * vinserti128 %ymm2 %xmm3 $0x00 -> %ymm2
- * skip0:
- *
+ *   xor            %ecx %ecx -> %ecx
+ *   vextracti128   %ymm2 $0x00 -> %xmm3
+ *   vpinsrd        %xmm3 %ecx $0x00 -> %xmm3
+ *   vinserti128    %ymm2 %xmm3 $0x00 -> %ymm2
+ *   skip0:
  * Do the same as above for the next element:
- *
- * vextracti128 %ymm2 $0x00 -> %xmm3
- * vpextrd %xmm3 $0x01 -> %ecx
- * shr $0x0000001f %ecx -> %ecx
- * and $0x00000001 %ecx -> %ecx
- * jz <skip1>
- * vextracti128 %ymm1 $0x00 -> %xmm3
- * vpextrd %xmm3 $0x01 -> %ecx
- * mov (%rax,%rcx,4)[4byte] -> %ecx
- * vextracti128 %ymm0 $0x00 -> %xmm3
- * vpinsrd %xmm3 %ecx $0x01 -> %xmm3
- * vinserti128 %ymm0 %xmm3 $0x00 -> %ymm0
- * xor %ecx %ecx -> %ecx
- * vextracti128 %ymm2 $0x00 -> %xmm3
- * vpinsrd %xmm3 %ecx $0x01 -> %xmm3
- * vinserti128 %ymm2 %xmm3 $0x00 -> %ymm2
- * skip1:
- *
- * [..]
- *
+ *   vextracti128   %ymm2 $0x00 -> %xmm3
+ *   vpextrd        %xmm3 $0x01 -> %ecx
+ *   shr            $0x0000001f %ecx -> %ecx
+ *   and            $0x00000001 %ecx -> %ecx
+ *   jz             <skip1>
+ *   vextracti128   %ymm1 $0x00 -> %xmm3
+ *   vpextrd        %xmm3 $0x01 -> %ecx
+ *   mov            (%rax,%rcx,4)[4byte] -> %ecx
+ *   vextracti128   %ymm0 $0x00 -> %xmm3
+ *   vpinsrd        %xmm3 %ecx $0x01 -> %xmm3
+ *   vinserti128    %ymm0 %xmm3 $0x00 -> %ymm0
+ *   xor            %ecx %ecx -> %ecx
+ *   vextracti128   %ymm2 $0x00 -> %xmm3
+ *   vpinsrd        %xmm3 %ecx $0x01 -> %xmm3
+ *   vinserti128    %ymm2 %xmm3 $0x00 -> %ymm2
+ *   skip1:
+ *   [..]
  * Do the same as above for the last element:
- *
- * vextracti128 %ymm2 $0x01 -> %xmm3
- * vpextrd %xmm3 $0x03 -> %ecx
- * shr $0x0000001f %ecx -> %ecx
- * and $0x00000001 %ecx -> %ecx
- * jz <skip7>
- * vextracti128 %ymm1 $0x01 -> %xmm3
- * vpextrd %xmm3 $0x03 -> %ecx
- * mov (%rax,%rcx,4)[4byte] -> %ecx
- * vextracti128 %ymm0 $0x01 -> %xmm3
- * vpinsrd %xmm3 %ecx $0x03 -> %xmm3
- * vinserti128 %ymm0 %xmm3 $0x01 -> %ymm0
- * xor %ecx %ecx -> %ecx
- * vextracti128 %ymm2 $0x01 -> %xmm3
- * vpinsrd %xmm3 %ecx $0x03 -> %xmm3
- * vinserti128 %ymm2 %xmm3 $0x01 -> %ymm2
- * skip7:
- *
+ *   vextracti128   %ymm2 $0x01 -> %xmm3
+ *   vpextrd        %xmm3 $0x03 -> %ecx
+ *   shr            $0x0000001f %ecx -> %ecx
+ *   and            $0x00000001 %ecx -> %ecx
+ *   jz             <skip7>
+ *   vextracti128   %ymm1 $0x01 -> %xmm3
+ *   vpextrd        %xmm3 $0x03 -> %ecx
+ *   mov            (%rax,%rcx,4)[4byte] -> %ecx
+ *   vextracti128   %ymm0 $0x01 -> %xmm3
+ *   vpinsrd        %xmm3 %ecx $0x03 -> %xmm3
+ *   vinserti128    %ymm0 %xmm3 $0x01 -> %ymm0
+ *   xor            %ecx %ecx -> %ecx
+ *   vextracti128   %ymm2 $0x01 -> %xmm3
+ *   vpinsrd        %xmm3 %ecx $0x03 -> %xmm3
+ *   vinserti128    %ymm2 %xmm3 $0x01 -> %ymm2
+ *   skip7:
  * Finally, clear the entire mask register, even
  * the parts that are not used as a mask:
+ *   vpxor          %ymm2 %ymm2 -> %ymm2
  *
- * vpxor %ymm2 %ymm2 -> %ymm2
- *
- * AVX-512 vpgatherdd, vgatherdps, vpgatherdq, vgatherdpd, vpgatherqd, vgatherqps,
- * vpgatherqq, vgatherqpd:
+ * ---------------------------------------------------------------------------------
+ * AVX-512 vpgatherdd, vgatherdps, vpgatherdq, vgatherdpd, vpgatherqd, vgatherqps, |
+ * vpgatherqq, vgatherqpd:                                                         |
+ * ---------------------------------------------------------------------------------
  *
  * vpgatherdd {%k1} (%rax,%zmm1,4)[4byte] -> %zmm0 %k1 sequence laid out here, others
  * are similar:
  *
  * Extract mask bit:
- *
- * kmovw %k1 -> %ecx
- *
+ *   kmovw           %k1 -> %ecx
  * Test mask bit:
- *
- * test %ecx $0x00000001
- *
+ *   test            %ecx $0x00000001
  * Skip element if mask not set:
- *
- * jz <skip0>
- *
+ *   jz              <skip0>
  * Extract index dword. qword versions use vpextrq:
- *
- * vextracti32x4 {%k0} $0x00 %zmm1 -> %xmm2
- * vpextrd %xmm2 $0x00 -> %ecx
- *
+ *   vextracti32x4   {%k0} $0x00 %zmm1 -> %xmm2
+ *   vpextrd         %xmm2 $0x00 -> %ecx
  * Restore app's base register value (may not be present):
- *
- * mov %rax -> %gs:0x00000090[8byte]
- * mov %gs:0x00000098[8byte] -> %rax
- *
+ *   mov             %rax -> %gs:0x00000090[8byte]
+ *   mov             %gs:0x00000098[8byte] -> %rax
  * Load scalar value:
- *
- * mov (%rax,%rcx,4)[4byte] -> %ecx
- *
+ *   mov             (%rax,%rcx,4)[4byte] -> %ecx
  * Insert scalar value in destination register:
- *
- * vextracti32x4 {%k0} $0x00 %zmm0 -> %xmm2
- * vpinsrd %xmm2 %ecx $0x00 -> %xmm2
- * vinserti32x4 {%k0} $0x00 %zmm0 %xmm2 -> %zmm0
- *
+ *   vextracti32x4   {%k0} $0x00 %zmm0 -> %xmm2
+ *   vpinsrd         %xmm2 %ecx $0x00 -> %xmm2
+ *   vinserti32x4    {%k0} $0x00 %zmm0 %xmm2 -> %zmm0
  * Set mask bit to zero:
- *
- * mov $0x00000001 -> %ecx
- * kmovw %ecx -> %k0
- * kandnw %k0 %k1 -> %k1
- * skip0:
- *
+ *   mov             $0x00000001 -> %ecx
+ *   kmovw           %ecx -> %k0
+ *   kandnw          %k0 %k1 -> %k1
+ *   skip0:
  * Do the same as above for the next element:
- *
- * kmovw %k1 -> %ecx
- * test %ecx $0x00000002
- * jz <skip1>
- * vextracti32x4 {%k0} $0x00 %zmm1 -> %xmm2
- * vpextrd %xmm2 $0x01 -> %ecx
- * mov (%rax,%rcx,4)[4byte] -> %ecx
- * vextracti32x4 {%k0} $0x00 %zmm0 -> %xmm2
- * vpinsrd %xmm2 %ecx $0x01 -> %xmm2
- * vinserti32x4 {%k0} $0x00 %zmm0 %xmm2 -> %zmm0
- * mov $0x00000002 -> %ecx
- * kmovw %ecx -> %k0
- * kandnw %k0 %k1 -> %k1
- * skip1:
- *
- * [..]
- *
+ *   kmovw           %k1 -> %ecx
+ *   test            %ecx $0x00000002
+ *   jz              <skip1>
+ *   vextracti32x4   {%k0} $0x00 %zmm1 -> %xmm2
+ *   vpextrd         %xmm2 $0x01 -> %ecx
+ *   mov             (%rax,%rcx,4)[4byte] -> %ecx
+ *   vextracti32x4   {%k0} $0x00 %zmm0 -> %xmm2
+ *   vpinsrd         %xmm2 %ecx $0x01 -> %xmm2
+ *   vinserti32x4    {%k0} $0x00 %zmm0 %xmm2 -> %zmm0
+ *   mov             $0x00000002 -> %ecx
+ *   kmovw           %ecx -> %k0
+ *   kandnw          %k0 %k1 -> %k1
+ *   skip1:
+ *   [..]
  * Do the same as above for the last element:
- *
- * kmovw %k1 -> %ecx
- * test %ecx $0x00008000
- * jz <skip15>
- * vextracti32x4 {%k0} $0x03 %zmm1 -> %xmm2
- * vpextrd %xmm2 $0x03 -> %ecx
- * mov (%rax,%rcx,4)[4byte] -> %ecx
- * vextracti32x4 {%k0} $0x03 %zmm0 -> %xmm2
- * vpinsrd %xmm2 %ecx $0x03 -> %xmm2
- * vinserti32x4 {%k0} $0x03 %zmm0 %xmm2 -> %zmm0
- * mov $0x00008000 -> %ecx
- * kmovw %ecx -> %k0
- * kandnw %k0 %k1 -> %k1
- * skip15:
- *
+ *   kmovw           %k1 -> %ecx
+ *   test            %ecx $0x00008000
+ *   jz              <skip15>
+ *   vextracti32x4   {%k0} $0x03 %zmm1 -> %xmm2
+ *   vpextrd         %xmm2 $0x03 -> %ecx
+ *   mov             (%rax,%rcx,4)[4byte] -> %ecx
+ *   vextracti32x4   {%k0} $0x03 %zmm0 -> %xmm2
+ *   vpinsrd         %xmm2 %ecx $0x03 -> %xmm2
+ *   vinserti32x4    {%k0} $0x03 %zmm0 %xmm2 -> %zmm0
+ *   mov             $0x00008000 -> %ecx
+ *   kmovw           %ecx -> %k0
+ *   kandnw          %k0 %k1 -> %k1
+ *   skip15:
  * Finally, clear the entire mask register, even
  * the parts that are not used as a mask:
+ *   kxorq           %k1 %k1 -> %k1
  *
- * kxorq %k1 %k1 -> %k1
- *
- * AVX-512 vpscatterdd, vscatterdps, vpscatterdq, vscatterdpd,
- * vpscatterqd, vscatterqps, vpscatterqq, vscatterqpd:
+ * --------------------------------------------------------------------------
+ * AVX-512 vpscatterdd, vscatterdps, vpscatterdq, vscatterdpd, vpscatterqd, |
+ * vscatterqps, vpscatterqq, vscatterqpd:                                   |
+ * --------------------------------------------------------------------------
  *
  * vpscatterdd {%k1} %zmm0 -> (%rcx,%zmm1,4)[4byte] %k1 sequence laid out here, others
  * are similar:
  *
  * Extract mask bit:
- *
- * kmovw %k1 -> %edx
+ *   kmovw           %k1 -> %edx
  * Test mask bit:
- * test %edx $0x00000001
- *
+ *   test            %edx $0x00000001
  * Skip element if mask not set:
- *
- * jz <skip0>
- *
+ *   jz              <skip0>
  * Extract index dword. qword versions use vpextrq:
- *
- * vextracti32x4 {%k0} $0x00 %zmm1 -> %xmm2
- * vpextrd %xmm2 $0x00 -> %edx
- *
+ *   vextracti32x4   {%k0} $0x00 %zmm1 -> %xmm2
+ *   vpextrd         %xmm2 $0x00 -> %edx
  * Extract scalar value dword. qword versions use vpextrq:
- *
- * vextracti32x4 {%k0} $0x00 %zmm0 -> %xmm2
- * vpextrd %xmm2 $0x00 -> %ebx
- *
+ *   vextracti32x4   {%k0} $0x00 %zmm0 -> %xmm2
+ *   vpextrd         %xmm2 $0x00 -> %ebx
  * Store scalar value:
- *
- * mov %ebx -> (%rcx,%rdx,4)[4byte]
- *
+ *   mov             %ebx -> (%rcx,%rdx,4)[4byte]
  * Set mask bit to zero:
- *
- * mov $0x00000001 -> %edx
- * kmovw %edx -> %k0
- * kandnw %k0 %k1 -> %k1
- * skip0:
- *
+ *   mov             $0x00000001 -> %edx
+ *   kmovw           %edx -> %k0
+ *   kandnw          %k0 %k1 -> %k1
+ *   skip0:
  * Do the same as above for the next element:
- *
- * kmovw %k1 -> %edx
- * test %edx $0x00000002
- * jz <skip1>
- * vextracti32x4 {%k0} $0x00 %zmm1 -> %xmm2
- * vpextrd %xmm2 $0x01 -> %edx
- * vextracti32x4 {%k0} $0x00 %zmm0 -> %xmm2
- * vpextrd %xmm2 $0x01 -> %ebx
- * mov %ebx -> (%rcx,%rdx,4)[4byte]
- * mov $0x00000002 -> %edx
- * kmovw %edx -> %k0
- * kandnw %k0 %k1 -> %k1
- * skip1:
- *
- * [..]
- *
- *
+ *   kmovw           %k1 -> %edx
+ *   test            %edx $0x00000002
+ *   jz              <skip1>
+ *   vextracti32x4   {%k0} $0x00 %zmm1 -> %xmm2
+ *   vpextrd         %xmm2 $0x01 -> %edx
+ *   vextracti32x4   {%k0} $0x00 %zmm0 -> %xmm2
+ *   vpextrd         %xmm2 $0x01 -> %ebx
+ *   mov             %ebx -> (%rcx,%rdx,4)[4byte]
+ *   mov             $0x00000002 -> %edx
+ *   kmovw           %edx -> %k0
+ *   kandnw          %k0 %k1 -> %k1
+ *   skip1:
+ *   [..]
  * Do the same as above for the last element:
- *
- * kmovw %k1 -> %edx
- * test %edx $0x00008000
- * jz <skip15>
- * vextracti32x4 {%k0} $0x03 %zmm1 -> %xmm2
- * vpextrd %xmm2 $0x03 -> %edx
- * vextracti32x4 {%k0} $0x03 %zmm0 -> %xmm2
- * vpextrd %xmm2 $0x03 -> %ebx
- * mov %ebx -> (%rcx,%rdx,4)[4byte]
- * mov $0x00008000 -> %edx
- * kmovw %edx -> %k0
- * kandnw %k0 %k1 -> %k1
- * skip15:
- *
+ *   kmovw           %k1 -> %edx
+ *   test            %edx $0x00008000
+ *   jz              <skip15>
+ *   vextracti32x4   {%k0} $0x03 %zmm1 -> %xmm2
+ *   vpextrd         %xmm2 $0x03 -> %edx
+ *   vextracti32x4   {%k0} $0x03 %zmm0 -> %xmm2
+ *   vpextrd         %xmm2 $0x03 -> %ebx
+ *   mov             %ebx -> (%rcx,%rdx,4)[4byte]
+ *   mov             $0x00008000 -> %edx
+ *   kmovw           %edx -> %k0
+ *   kandnw          %k0 %k1 -> %k1
+ *   skip15:
  * Finally, clear the entire mask register, even
  * the parts that are not used as a mask:
- *
- * kxorq %k1 %k1 -> %k1
+ *   kxorq           %k1 %k1 -> %k1
  */
 bool
 drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
@@ -2487,6 +2432,3 @@ drx_expand_scatter_gather_exit:
     return true;
 #endif
 }
-
-/*
- ****************************************************************************/
