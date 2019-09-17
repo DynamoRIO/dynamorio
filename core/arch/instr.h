@@ -1420,6 +1420,20 @@ DR_API
 bool
 instr_is_exclusive_store(instr_t *instr);
 
+DR_API
+/**
+ * Returns true iff \p instr is a scatter-store instruction.
+ */
+bool
+instr_is_scatter(instr_t *instr);
+
+DR_API
+/**
+ * Returns true iff \p instr is a gather-load instruction.
+ */
+bool
+instr_is_gather(instr_t *instr);
+
 bool
 instr_predicate_reads_srcs(dr_pred_type_t pred);
 
