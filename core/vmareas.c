@@ -8292,7 +8292,10 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
     }
 
     /* we are building a real bb, assert consistency checks */
-    DOCHECK(1, {
+    /* XXX i#1979: These memqueries are surprisingly slow on Mac64.
+     * Investigation is needed.
+     */
+    DOCHECK(IF_MACOS64_ELSE(3, 1), {
         uint prot2;
         ok = get_memory_info(pc, NULL, NULL, &prot2);
         ASSERT(!ok || !TEST(MEMPROT_WRITE, prot2) ||

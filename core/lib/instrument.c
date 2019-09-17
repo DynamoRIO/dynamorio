@@ -7476,9 +7476,9 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr, reg_
     CLIENT_ASSERT(reg_is_segment(seg),
                   "dr_insert_get_seg_base: seg is not a segment register");
 #        ifdef UNIX
+#            ifndef MACOS64
     CLIENT_ASSERT(INTERNAL_OPTION(mangle_app_seg),
-                  "dr_insert_get_seg_base is supported"
-                  "with -mangle_app_seg only");
+                  "dr_insert_get_seg_base is supported with -mangle_app_seg only");
     /* FIXME: we should remove the constraint below by always mangling SEG_TLS,
      * 1. Getting TLS base could be a common request by clients.
      * 2. The TLS descriptor setup and selector setup can be separated,
@@ -7486,11 +7486,11 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr, reg_
      * runtime overhead for keeping track of the app's TLS segment base.
      */
     CLIENT_ASSERT(INTERNAL_OPTION(private_loader) || seg != SEG_TLS,
-                  "dr_insert_get_seg_base supports TLS seg"
-                  "only with -private_loader");
+                  "dr_insert_get_seg_base supports TLS seg only with -private_loader");
     if (!INTERNAL_OPTION(mangle_app_seg) ||
         !(INTERNAL_OPTION(private_loader) || seg != SEG_TLS))
         return false;
+#            endif
     if (seg == SEG_FS || seg == SEG_GS) {
         instrlist_meta_preinsert(ilist, instr,
                                  instr_create_restore_from_tls(

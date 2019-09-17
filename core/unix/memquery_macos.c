@@ -172,6 +172,7 @@ memquery_iterator_next(memquery_iter_t *iter)
     internal_iter_t *ii = (internal_iter_t *)&iter->internal;
     kern_return_t kr = KERN_SUCCESS;
     vm_size_t size = 0;
+    vm_address_t query_addr = ii->address;
     /* 64-bit versions seem to work fine for 32-bit */
     mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
     do {
@@ -189,6 +190,7 @@ memquery_iterator_next(memquery_iter_t *iter)
         if (ii->info.is_submap) {
             /* Query again w/ greater depth */
             ii->depth++;
+            ii->address = query_addr;
         } else {
             /* Keep depth for next iter.  Kernel will reset to 0. */
             break;
@@ -217,6 +219,15 @@ memquery_iterator_next(memquery_iter_t *iter)
     return true;
 }
 
+/* Not exported.  More efficient than stop+start. */
+static void
+memquery_reset_internal_iterator(memquery_iter_t *iter, const byte *new_pc)
+{
+    internal_iter_t *ii = (internal_iter_t *)&iter->internal;
+    ii->address = (vm_address_t)new_pc;
+    ii->depth = 0;
+}
+
 bool
 memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
 {
@@ -224,7 +235,8 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
     bool res = false;
     bool free = true;
     memquery_iterator_start(&iter, (app_pc)pc, false /*won't alloc*/);
-    if (memquery_iterator_next(&iter) && iter.vm_start <= pc) {
+    bool ok = memquery_iterator_next(&iter);
+    if (ok && iter.vm_start <= pc) {
         /* There may be some inner regions we have to wade through */
         while (iter.vm_end <= pc) {
             if (!memquery_iterator_next(&iter))
@@ -247,13 +259,27 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
     }
     if (free) {
         /* Unlike Windows, the Mach queries skip free regions, so we have to
-         * find the prior allocated region.  We could try just a few pages back,
-         * but querying a free region is rare so we go with simple.
+         * find the prior allocated region.  While starting at 0 seems fine on 32-bit
+         * its overhead shows up on 64-bit so we try to be more efficient.
          */
-        internal_iter_t *ii = (internal_iter_t *)&iter.internal;
         app_pc last_end = NULL;
+        size_t step = 8 * 1024;
+        byte *try_pc = (byte *)pc;
+        while (try_pc > (byte *)step) {
+            try_pc -= step;
+            memquery_reset_internal_iterator(&iter, try_pc);
+            if (memquery_iterator_next(&iter) && iter.vm_start <= pc)
+                break;
+            if (step * 2 < step)
+                break;
+            step *= 2;
+        }
+        if (iter.vm_start > pc)
+            last_end = 0;
+        else
+            last_end = iter.vm_end;
         app_pc next_start = (app_pc)POINTER_MAX;
-        ii->address = 0;
+        memquery_reset_internal_iterator(&iter, last_end);
         while (memquery_iterator_next(&iter)) {
             if (iter.vm_start > pc) {
                 next_start = iter.vm_start;

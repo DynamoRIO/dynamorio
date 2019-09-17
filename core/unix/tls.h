@@ -292,6 +292,18 @@ get_dr_tls_base_addr(void);
 #endif
 
 #ifdef MACOS64
+void
+tls_process_init(void);
+
+void
+tls_process_exit(void);
+
+int
+tls_get_dr_offs(void);
+
+byte *
+tls_get_dr_addr(void);
+
 byte **
 get_app_tls_swap_slot_addr(void);
 #endif

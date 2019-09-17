@@ -348,8 +348,8 @@ sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
 }
 
 void
-block_all_signals_except(kernel_sigset_t *oset, int num_signals,
-                         ... /* list of signals */)
+block_all_noncrash_signals_except(kernel_sigset_t *oset, int num_signals,
+                                  ... /* list of signals */)
 {
     kernel_sigset_t set;
     kernel_sigfillset(&set);
@@ -359,6 +359,11 @@ block_all_signals_except(kernel_sigset_t *oset, int num_signals,
         kernel_sigdelset(&set, va_arg(ap, int));
     }
     va_end(ap);
+    /* We never block SIGSEGV or SIGBUS: we need them for various safe reads and to
+     * properly report crashes.
+     */
+    kernel_sigdelset(&set, SIGSEGV);
+    kernel_sigdelset(&set, SIGBUS);
     sigprocmask_syscall(SIG_SETMASK, &set, oset, sizeof(set));
 }
 
@@ -3120,7 +3125,7 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
     IF_X64(ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate, 16)));
 #elif defined(MACOS)
 #    ifdef X64
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* Nothing to do. */
 #    else
     f_new->pinfo = &(f_new->info);
     f_new->puc = &(f_new->uc);
@@ -3316,14 +3321,10 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
 #endif /* LINUX && !X64 */
     }
 
-#ifdef MACOS
-#    ifdef X64
-    ASSERT_NOT_IMPLEMENTED(false);
-#    else
+#if defined(MACOS) && !defined(X64)
     /* Update handler field, which is passed to the libc trampoline, to app */
     ASSERT(info->app_sigaction[sig] != NULL);
     ((sigframe_rt_t *)sp)->handler = (app_pc)info->app_sigaction[sig]->handler;
-#    endif
 #endif
 }
 
@@ -4815,7 +4816,20 @@ void
 master_signal_handler_C(byte *xsp)
 #endif
 {
+#ifdef MACOS64
+    /* The kernel aligns to 16 after setting up the frame, so we instead compute
+     * from the siginfo pointer.
+     * XXX: 32-bit does the same thing: how was it working?!?
+     */
+    sigframe_rt_t *frame = (sigframe_rt_t *)((byte *)siginfo - sizeof(frame->mc));
+    /* The kernel's method of aligning overshoots. */
+#    define KERNEL_ALIGN_BACK(val, align) (((val)-align) & -(align))
+    /* If this assert fails, we may be seeing an AVX512 frame. */
+    ASSERT(KERNEL_ALIGN_BACK((ptr_uint_t)frame, 16) - 8 == (ptr_uint_t)xsp &&
+           "AVX512 frames not yet supported");
+#else
     sigframe_rt_t *frame = (sigframe_rt_t *)xsp;
+#endif
 #ifdef X86_32
     /* Read the normal arguments from the frame. */
     int sig = frame->sig;
@@ -5645,7 +5659,16 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     /* Set up args to handler: int sig, kernel_siginfo_t *siginfo,
      * kernel_ucontext_t *ucxt.
      */
-#ifdef X86_64
+#ifdef MACOS64
+    mcontext->xdi = (reg_t)info->app_sigaction[sig]->handler;
+    int infostyle = TEST(SA_SIGINFO, info->app_sigaction[sig]->flags)
+        ? SIGHAND_STYLE_UC_FLAVOR
+        : SIGHAND_STYLE_UC_TRAD;
+    mcontext->xsi = infostyle;
+    mcontext->xdx = sig;
+    mcontext->xcx = (reg_t) & ((sigframe_rt_t *)xsp)->info;
+    mcontext->r8 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+#elif defined(X86_64)
     mcontext->xdi = sig;
     mcontext->xsi = (reg_t) & ((sigframe_rt_t *)xsp)->info;
     mcontext->xdx = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
@@ -6091,8 +6114,10 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     kernel_ucontext_t *ucxt = NULL;
     int sig = 0;
     app_pc next_pc;
+#if defined(DEBUG) || !defined(MACOS64)
     /* xsp was put in mcontext prior to pre_system_call() */
     reg_t xsp = get_mcontext(dcontext)->xsp;
+#endif
 #ifdef MACOS
     bool rt = true;
 #endif
@@ -6143,13 +6168,6 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
              *(int *)((byte *)sc->fpstate + sc->fpstate->sw_reserved.extended_size -
                       FP_XSTATE_MAGIC2_SIZE) == FP_XSTATE_MAGIC2)));
 #elif defined(MACOS)
-        /* The initial frame fields on the stack are messed up due to
-         * params to handler from tramp, so use params to syscall.
-         * XXX: we don't have signal # though: so we have to rely on app
-         * not clobbering the sig param field.
-         */
-        sig = *(int *)xsp;
-        LOG(THREAD, LOG_ASYNCH, 3, "\tsignal was %d\n", sig);
         ucxt = (kernel_ucontext_t *)ucxt_param;
         if (ucxt == NULL) {
             /* On Mac the kernel seems to store state on whether the process is
@@ -6160,6 +6178,18 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
             LOG(THREAD, LOG_ASYNCH, 3, "\tsigunalstack sigreturn: no context\n");
             return true;
         }
+#    ifdef X64
+        kernel_siginfo_t *siginfo = (kernel_siginfo_t *)ucxt - 1;
+        sig = siginfo->si_signo;
+#    else
+        /* The initial frame fields on the stack are messed up due to
+         * params to handler from tramp, so use params to syscall.
+         * XXX: we don't have signal # though: so we have to rely on app
+         * not clobbering the sig param field.
+         */
+        sig = *(int *)xsp;
+#    endif
+        LOG(THREAD, LOG_ASYNCH, 3, "\tsignal was %d\n", sig);
         sc = SIGCXT_FROM_UCXT(ucxt);
 #endif
         ASSERT(sig > 0 && sig <= MAX_SIGNUM && IS_RT_FOR_APP(info, sig));
