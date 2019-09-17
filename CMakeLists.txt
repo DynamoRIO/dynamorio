@@ -611,7 +611,7 @@ else (UNIX)
       set(sdk_bindir "${sdk_dir}/bin")
     endif (X64)
   endif ()
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  if (NOT ("${CMAKE_GENERATOR}" MATCHES "MSYS Makefiles"))
     # For other generators it completely useless
     find_program(CMAKE_MC_COMPILER mc.exe HINTS "${sdk_bindir}"
       DOC "path to message compiler")
