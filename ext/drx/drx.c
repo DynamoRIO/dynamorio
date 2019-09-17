@@ -1392,6 +1392,10 @@ drx_tail_pad_block(void *drcontext, instrlist_t *ilist)
     return true;
 }
 
+/****************************************************************************
+ * drx_expand_scatter_gather() related auxiliary functions and structures.
+ */
+
 #ifdef X86
 
 typedef struct scatter_gather_info_s {
@@ -2503,3 +2507,6 @@ drx_expand_scatter_gather_exit:
     return true;
 #endif
 }
+
+/*
+ ****************************************************************************/
