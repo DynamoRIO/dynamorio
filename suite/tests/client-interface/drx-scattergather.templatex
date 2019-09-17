@@ -1,129 +1,29 @@
 #ifdef __AVX512F__
-Expansion ok
-Expansion ok
-Expansion ok
 AVX-512 gather ok
-Expansion ok
-Expansion ok
-Expansion ok
 AVX-512 gather ok
-#ifdef X64
-Expansion ok
-Expansion ok
-Expansion ok
-#endif
 AVX-512 gather ok
-#ifdef X64
-Expansion ok
-Expansion ok
-Expansion ok
-#endif
 AVX-512 gather ok
-#ifdef X64
-Expansion ok
-Expansion ok
-Expansion ok
-#endif
 AVX-512 gather ok
-#ifdef X64
-Expansion ok
-Expansion ok
-Expansion ok
-#endif
 AVX-512 gather ok
-#ifdef X64
-Expansion ok
-Expansion ok
-Expansion ok
-#endif
 AVX-512 gather ok
-#ifdef X64
-Expansion ok
-Expansion ok
-Expansion ok
-#endif
 AVX-512 gather ok
-Expansion ok
-Expansion ok
-Expansion ok
 AVX-512 scatter ok
-Expansion ok
-Expansion ok
-Expansion ok
 AVX-512 scatter ok
-#ifdef X64
-Expansion ok
-Expansion ok
-Expansion ok
-#endif
 AVX-512 scatter ok
-#ifdef X64
-Expansion ok
-Expansion ok
-Expansion ok
-#endif
 AVX-512 scatter ok
-#ifdef X64
-Expansion ok
-Expansion ok
-Expansion ok
-#endif
 AVX-512 scatter ok
-#ifdef X64
-Expansion ok
-Expansion ok
-Expansion ok
-#endif
 AVX-512 scatter ok
-#ifdef X64
-Expansion ok
-Expansion ok
-Expansion ok
-#endif
 AVX-512 scatter ok
-#ifdef X64
-Expansion ok
-Expansion ok
-Expansion ok
-#endif
 AVX-512 scatter ok
 #endif
 #ifdef __AVX__
-Expansion ok
-Expansion ok
 AVX2 gather ok
-Expansion ok
-Expansion ok
 AVX2 gather ok
-#ifdef X64
-Expansion ok
-Expansion ok
-#endif
 AVX2 gather ok
-#ifdef X64
-Expansion ok
-Expansion ok
-#endif
 AVX2 gather ok
-#ifdef X64
-Expansion ok
-Expansion ok
-#endif
 AVX2 gather ok
-#ifdef X64
-Expansion ok
-Expansion ok
-#endif
 AVX2 gather ok
-#ifdef X64
-Expansion ok
-Expansion ok
-#endif
 AVX2 gather ok
-#ifdef X64
-Expansion ok
-Expansion ok
-#endif
 AVX2 gather ok
 #endif
 AVX2/AVX-512 scatter/gather checks ok

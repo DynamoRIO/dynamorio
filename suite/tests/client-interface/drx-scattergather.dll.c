@@ -78,10 +78,8 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
          */
         IF_X64(CHECK(false, "drx_expand_scatter_gather() failed"));
     }
-    CHECK(scatter_gather_present || (expansion_ok && !expanded),
+    CHECK((scatter_gather_present IF_X64(&&expanded)) || (expansion_ok && !expanded),
           "drx_expand_scatter_gather() bad OUT values");
-    if (expanded)
-        dr_fprintf(STDERR, "Expansion ok\n");
     return DR_EMIT_DEFAULT;
 }
 
