@@ -1392,7 +1392,7 @@ drx_tail_pad_block(void *drcontext, instrlist_t *ilist)
     return true;
 }
 
-/****************************************************************************
+/***************************************************************************
  * drx_expand_scatter_gather() related auxiliary functions and structures.
  */
 
@@ -1984,20 +1984,21 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
 #endif
 
 /*****************************************************************************************
- * The function expands scatter and gather instructions to a sequence of equivalent scalar
- * operations. Gather instructions are expanded into a sequence of mask register bit
- * tests, extracting the index value, a scalar load, inserting the scalar value into the
- * destination simd register, and mask register bit updates. Scatter instructions are
- * similarly expanded into a sequence, but using a scalar store.
+ * drx_expand_scatter_gather()
  *
+ * The function expands scatter and gather instructions to a sequence of equivalent
+ * scalar operations. Gather instructions are expanded into a sequence of mask register
+ * bit tests, extracting the index value, a scalar load, inserting the scalar value into
+ * the destination simd register, and mask register bit updates. Scatter instructions
+ * are similarly expanded into a sequence, but deploy a scalar store.
  *
  * ------------------------------------------------------------------------------
  * AVX2 vpgatherdd, vgatherdps, vpgatherdq, vgatherdpd, vpgatherqd, vgatherqps, |
  * vpgatherqq, vgatherqpd:                                                      |
  * ------------------------------------------------------------------------------
  *
- * vpgatherdd (%rax,%ymm1,4)[4byte] %ymm2 -> %ymm0 %ymm2 sequence laid out here, others
- * are similar:
+ * vpgatherdd (%rax,%ymm1,4)[4byte] %ymm2 -> %ymm0 %ymm2 sequence laid out here,
+ * others are similar:
  *
  * Extract mask dword. qword versions use vpextrq:
  *   vextracti128   %ymm2 $0x00 -> %xmm3
@@ -2069,8 +2070,8 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
  * vpgatherqq, vgatherqpd:                                                         |
  * ---------------------------------------------------------------------------------
  *
- * vpgatherdd {%k1} (%rax,%zmm1,4)[4byte] -> %zmm0 %k1 sequence laid out here, others
- * are similar:
+ * vpgatherdd {%k1} (%rax,%zmm1,4)[4byte] -> %zmm0 %k1 sequence laid out here,
+ * others are similar:
  *
  * Extract mask bit:
  *   kmovw           %k1 -> %ecx
@@ -2133,8 +2134,8 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
  * vscatterqps, vpscatterqq, vscatterqpd:                                   |
  * --------------------------------------------------------------------------
  *
- * vpscatterdd {%k1} %zmm0 -> (%rcx,%zmm1,4)[4byte] %k1 sequence laid out here, others
- * are similar:
+ * vpscatterdd {%k1} %zmm0 -> (%rcx,%zmm1,4)[4byte] %k1 sequence laid out here,
+ * others are similar:
  *
  * Extract mask bit:
  *   kmovw           %k1 -> %edx
