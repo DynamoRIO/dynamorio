@@ -306,6 +306,7 @@ void
 signal_thread_init(dcontext_t *dcontext, void *os_data);
 void
 signal_thread_exit(dcontext_t *dcontext, bool other_thread);
+/* In addition to the list, does not block SIGSEGV or SIGBUS. */
 void
 block_all_signals_except(kernel_sigset_t *oset, int num_signals, ...);
 void
