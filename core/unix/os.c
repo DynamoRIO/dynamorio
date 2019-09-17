@@ -1309,9 +1309,9 @@ block_cleanup_and_terminate(dcontext_t *dcontext, int sysnum, ptr_uint_t sys_arg
      * to reply to (i#2921).
      */
     if (sysnum == SYS_kill)
-        block_all_signals_except(NULL, 2, dcontext->sys_param0, SUSPEND_SIGNAL);
+        block_all_noncrash_signals_except(NULL, 2, dcontext->sys_param0, SUSPEND_SIGNAL);
     else
-        block_all_signals_except(NULL, 1, SUSPEND_SIGNAL);
+        block_all_noncrash_signals_except(NULL, 1, SUSPEND_SIGNAL);
     cleanup_and_terminate(dcontext, sysnum, sys_arg1, sys_arg2, exitproc, sys_arg3,
                           sys_arg4);
 }
