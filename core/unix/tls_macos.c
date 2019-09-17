@@ -133,7 +133,8 @@ tls_process_init(void)
     }
     if (delete_start > 0) {
         for (pthread_key_t key = delete_start; key <= delete_end; key++) {
-            int res = pthread_key_delete(key);
+            DEBUG_DECLARE(int res =)
+            pthread_key_delete(key);
             ASSERT(res == 0); /* Can only fail with an invalid key. */
         }
     }
@@ -157,7 +158,8 @@ tls_process_exit(void)
 {
     int num_slots_needed = sizeof(os_local_state_t) / sizeof(void *);
     for (int i = 0; i < num_slots_needed; i++) {
-        int res = pthread_key_delete(keys_start + i);
+        DEBUG_DECLARE(int res =)
+        pthread_key_delete(keys_start + i);
         ASSERT(res == 0); /* Can only fail with an invalid key. */
     }
 }
