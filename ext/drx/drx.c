@@ -2502,6 +2502,7 @@ drx_expand_scatter_gather_exit:
     return res;
 
 #else /* !X86 */
+    /* TODO i#3837: add support for AArch64. */
     if (expanded != NULL)
         *expanded = false;
     return true;
