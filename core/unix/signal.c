@@ -6114,8 +6114,10 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     kernel_ucontext_t *ucxt = NULL;
     int sig = 0;
     app_pc next_pc;
+#if defined(DEBUG) || !defined(MACOS64)
     /* xsp was put in mcontext prior to pre_system_call() */
     reg_t xsp = get_mcontext(dcontext)->xsp;
+#endif
 #ifdef MACOS
     bool rt = true;
 #endif
