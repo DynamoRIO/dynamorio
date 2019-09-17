@@ -63,20 +63,6 @@
 #    define IF_DEBUG(x)    /* nothing */
 #endif                     /* DEBUG */
 
-#ifdef WINDOWS
-#    define USAGE_ERROR(msg)                             \
-        do {                                             \
-            dr_messagebox("FATAL USAGE ERROR: %s", msg); \
-            dr_abort();                                  \
-        } while (0);
-#else
-#    define USAGE_ERROR(msg)                                    \
-        do {                                                    \
-            dr_fprintf(STDERR, "FATAL USAGE ERROR: %s\n", msg); \
-            dr_abort();                                         \
-        } while (0);
-#endif
-
 #define XMM_REG_SIZE 16
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
 
@@ -2282,8 +2268,6 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     if (expanded != NULL)
         *expanded = false;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_APP2APP) {
-        USAGE_ERROR("drutil_expand_rep_string* must be called from "
-                    "drmgr's app2app phase");
         return false;
     }
 #ifdef X86
