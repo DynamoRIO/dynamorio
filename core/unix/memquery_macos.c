@@ -172,6 +172,7 @@ memquery_iterator_next(memquery_iter_t *iter)
     internal_iter_t *ii = (internal_iter_t *)&iter->internal;
     kern_return_t kr = KERN_SUCCESS;
     vm_size_t size = 0;
+    vm_address_t query_addr = ii->address;
     /* 64-bit versions seem to work fine for 32-bit */
     mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
     do {
@@ -189,6 +190,7 @@ memquery_iterator_next(memquery_iter_t *iter)
         if (ii->info.is_submap) {
             /* Query again w/ greater depth */
             ii->depth++;
+            ii->address = query_addr;
         } else {
             /* Keep depth for next iter.  Kernel will reset to 0. */
             break;
@@ -261,7 +263,7 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
          * its overhead shows up on 64-bit so we try to be more efficient.
          */
         app_pc last_end = NULL;
-        size_t step = 16 * 1024 * 1024;
+        size_t step = 8 * 1024;
         byte *try_pc = (byte *)pc;
         while (try_pc > (byte *)step) {
             try_pc -= step;
