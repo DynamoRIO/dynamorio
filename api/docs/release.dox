@@ -206,6 +206,8 @@ Further non-compatibility-affecting changes include:
  - Added the function proc_num_opmask_registers();
  - reg_get_value_ex() now supports reading AVX-512 mask registers.
  - Added the function reg_is_bnd().
+ - Added the functions instr_is_gather() and instr_is_scatter().
+ - Added the function drx_expand_scatter_gather().
 
 **************************************************
 <hr>

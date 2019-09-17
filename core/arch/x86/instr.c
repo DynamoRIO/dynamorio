@@ -2265,3 +2265,37 @@ instr_is_exclusive_store(instr_t *instr)
 {
     return false;
 }
+
+DR_API
+bool
+instr_is_scatter(instr_t *instr)
+{
+    switch (instr_get_opcode(instr)) {
+    case OP_vpscatterdd:
+    case OP_vscatterdpd:
+    case OP_vscatterdps:
+    case OP_vpscatterdq:
+    case OP_vpscatterqd:
+    case OP_vscatterqpd:
+    case OP_vscatterqps:
+    case OP_vpscatterqq: return true;
+    default: return false;
+    }
+}
+
+DR_API
+bool
+instr_is_gather(instr_t *instr)
+{
+    switch (instr_get_opcode(instr)) {
+    case OP_vpgatherdd:
+    case OP_vgatherdpd:
+    case OP_vgatherdps:
+    case OP_vpgatherdq:
+    case OP_vpgatherqd:
+    case OP_vgatherqpd:
+    case OP_vgatherqps:
+    case OP_vpgatherqq: return true;
+    default: return false;
+    }
+}

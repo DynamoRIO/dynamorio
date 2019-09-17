@@ -54,9 +54,39 @@ event_exit(void)
     dr_fprintf(STDERR, "event_exit\n");
 }
 
+static dr_emit_flags_t
+event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating)
+{
+    instr_t *instr;
+    bool expanded = false;
+    bool scatter_gather_present = false;
+
+    for (instr = instrlist_first_app(bb); instr != NULL;
+         instr = instr_get_next_app(instr)) {
+        if (instr_is_gather(instr)) {
+            scatter_gather_present = true;
+        }
+        if (instr_is_scatter(instr)) {
+            scatter_gather_present = true;
+        }
+    }
+    bool expansion_ok = drx_expand_scatter_gather(drcontext, bb, &expanded);
+    if (!expansion_ok) {
+        /* XXX i#2985: The qword versions of scatter/gather are unsupported
+         * in 32-bit mode.
+         */
+        IF_X64(CHECK(false, "drx_expand_scatter_gather() failed"));
+    }
+    CHECK((scatter_gather_present IF_X64(&&expanded)) || (expansion_ok && !expanded),
+          "drx_expand_scatter_gather() bad OUT values");
+    return DR_EMIT_DEFAULT;
+}
+
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    drmgr_priority_t priority = { sizeof(priority), "drx-scattergather", NULL, NULL, 0 };
     drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
     drreg_status_t res;
     bool ok = drmgr_init();
@@ -66,4 +96,7 @@ dr_init(client_id_t id)
     res = drreg_init(&ops);
     CHECK(res == DRREG_SUCCESS, "drreg_init failed");
     dr_register_exit_event(event_exit);
+
+    ok = drmgr_register_bb_app2app_event(event_bb_app2app, &priority);
+    CHECK(ok, "drmgr register bb failed");
 }
