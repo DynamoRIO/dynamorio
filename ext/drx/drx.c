@@ -1400,6 +1400,7 @@ drx_tail_pad_block(void *drcontext, instrlist_t *ilist)
 
 typedef struct _scatter_gather_info_t {
     bool is_evex;
+    bool is_load;
     opnd_size_t scalar_index_size;
     opnd_size_t scalar_value_size;
     opnd_size_t scatter_gather_size;
@@ -1434,119 +1435,96 @@ get_scatter_gather_info(instr_t *instr, scatter_gather_info_t *sg_info)
     case OP_vgatherdpd:
         sg_info->scalar_index_size = OPSZ_4;
         sg_info->scalar_value_size = OPSZ_8;
-        sg_info->scatter_gather_size = opnd_get_size(dst0);
-        sg_info->gather_dst_reg = opnd_get_reg(dst0);
-        memopnd = sg_info->is_evex ? src1 : src0;
+        sg_info->is_load = true;
         break;
     case OP_vgatherqpd:
         sg_info->scalar_index_size = OPSZ_8;
         sg_info->scalar_value_size = OPSZ_8;
-        sg_info->scatter_gather_size = opnd_get_size(dst0);
-        sg_info->gather_dst_reg = opnd_get_reg(dst0);
-        memopnd = sg_info->is_evex ? src1 : src0;
+        sg_info->is_load = true;
         break;
     case OP_vgatherdps:
         sg_info->scalar_index_size = OPSZ_4;
         sg_info->scalar_value_size = OPSZ_4;
-        sg_info->scatter_gather_size = opnd_get_size(dst0);
-        sg_info->gather_dst_reg = opnd_get_reg(dst0);
-        memopnd = sg_info->is_evex ? src1 : src0;
+        sg_info->is_load = true;
         break;
     case OP_vgatherqps:
         sg_info->scalar_index_size = OPSZ_8;
         sg_info->scalar_value_size = OPSZ_4;
-        sg_info->scatter_gather_size = opnd_get_size(dst0);
-        sg_info->gather_dst_reg = opnd_get_reg(dst0);
-        memopnd = sg_info->is_evex ? src1 : src0;
+        sg_info->is_load = true;
         break;
     case OP_vpgatherdd:
         sg_info->scalar_index_size = OPSZ_4;
         sg_info->scalar_value_size = OPSZ_4;
-        sg_info->scatter_gather_size = opnd_get_size(dst0);
-        sg_info->gather_dst_reg = opnd_get_reg(dst0);
-        memopnd = sg_info->is_evex ? src1 : src0;
+        sg_info->is_load = true;
         break;
     case OP_vpgatherqd:
         sg_info->scalar_index_size = OPSZ_8;
         sg_info->scalar_value_size = OPSZ_4;
-        sg_info->scatter_gather_size = opnd_get_size(dst0);
-        sg_info->gather_dst_reg = opnd_get_reg(dst0);
-        memopnd = sg_info->is_evex ? src1 : src0;
+        sg_info->is_load = true;
         break;
     case OP_vpgatherdq:
         sg_info->scalar_index_size = OPSZ_4;
         sg_info->scalar_value_size = OPSZ_8;
-        sg_info->scatter_gather_size = opnd_get_size(dst0);
-        sg_info->gather_dst_reg = opnd_get_reg(dst0);
-        memopnd = sg_info->is_evex ? src1 : src0;
+        sg_info->is_load = true;
         break;
     case OP_vpgatherqq:
         sg_info->scalar_index_size = OPSZ_8;
         sg_info->scalar_value_size = OPSZ_8;
-        sg_info->scatter_gather_size = opnd_get_size(dst0);
-        sg_info->gather_dst_reg = opnd_get_reg(dst0);
-        memopnd = sg_info->is_evex ? src1 : src0;
+        sg_info->is_load = true;
         break;
     case OP_vscatterdpd:
         sg_info->scalar_index_size = OPSZ_4;
         sg_info->scalar_value_size = OPSZ_8;
-        sg_info->scatter_gather_size = opnd_get_size(src1);
-        sg_info->scatter_src_reg = opnd_get_reg(src1);
-        memopnd = dst0;
+        sg_info->is_load = false;
         break;
     case OP_vscatterqpd:
         sg_info->scalar_index_size = OPSZ_8;
         sg_info->scalar_value_size = OPSZ_8;
-        sg_info->scatter_gather_size = opnd_get_size(src1);
-        sg_info->scatter_src_reg = opnd_get_reg(src1);
-        memopnd = dst0;
+        sg_info->is_load = false;
         break;
     case OP_vscatterdps:
         sg_info->scalar_index_size = OPSZ_4;
         sg_info->scalar_value_size = OPSZ_4;
-        sg_info->scatter_gather_size = opnd_get_size(src1);
-        sg_info->scatter_src_reg = opnd_get_reg(src1);
-        memopnd = dst0;
+        sg_info->is_load = false;
         break;
     case OP_vscatterqps:
         sg_info->scalar_index_size = OPSZ_8;
         sg_info->scalar_value_size = OPSZ_4;
-        sg_info->scatter_gather_size = opnd_get_size(src1);
-        sg_info->scatter_src_reg = opnd_get_reg(src1);
-        memopnd = dst0;
+        sg_info->is_load = false;
         break;
     case OP_vpscatterdd:
         sg_info->scalar_index_size = OPSZ_4;
         sg_info->scalar_value_size = OPSZ_4;
-        sg_info->scatter_gather_size = opnd_get_size(src1);
-        sg_info->scatter_src_reg = opnd_get_reg(src1);
-        memopnd = dst0;
+        sg_info->is_load = false;
         break;
     case OP_vpscatterqd:
         sg_info->scalar_index_size = OPSZ_8;
         sg_info->scalar_value_size = OPSZ_4;
-        sg_info->scatter_gather_size = opnd_get_size(src1);
-        sg_info->scatter_src_reg = opnd_get_reg(src1);
-        memopnd = dst0;
+        sg_info->is_load = false;
         break;
     case OP_vpscatterdq:
         sg_info->scalar_index_size = OPSZ_4;
         sg_info->scalar_value_size = OPSZ_8;
-        sg_info->scatter_gather_size = opnd_get_size(src1);
-        sg_info->scatter_src_reg = opnd_get_reg(src1);
-        memopnd = dst0;
+        sg_info->is_load = false;
         break;
     case OP_vpscatterqq:
         sg_info->scalar_index_size = OPSZ_8;
         sg_info->scalar_value_size = OPSZ_8;
-        sg_info->scatter_gather_size = opnd_get_size(src1);
-        sg_info->scatter_src_reg = opnd_get_reg(src1);
-        memopnd = dst0;
+        sg_info->is_load = false;
         break;
     default:
         ASSERT(false, "Incorrect opcode.");
         memopnd = opnd_create_null();
         break;
+    }
+    if (sg_info->is_load) {
+        sg_info->scatter_gather_size = opnd_get_size(dst0);
+        sg_info->gather_dst_reg = opnd_get_reg(dst0);
+        memopnd = sg_info->is_evex ? src1 : src0;
+    } else {
+        sg_info->scatter_gather_size = opnd_get_size(src1);
+        sg_info->scatter_src_reg = opnd_get_reg(src1);
+        memopnd = dst0;
     }
     sg_info->index_reg = opnd_get_index(memopnd);
     sg_info->base_reg = opnd_get_base(memopnd);
