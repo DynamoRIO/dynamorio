@@ -348,8 +348,8 @@ sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
 }
 
 void
-block_all_signals_except(kernel_sigset_t *oset, int num_signals,
-                         ... /* list of signals */)
+block_all_noncrash_signals_except(kernel_sigset_t *oset, int num_signals,
+                                  ... /* list of signals */)
 {
     kernel_sigset_t set;
     kernel_sigfillset(&set);
@@ -359,6 +359,11 @@ block_all_signals_except(kernel_sigset_t *oset, int num_signals,
         kernel_sigdelset(&set, va_arg(ap, int));
     }
     va_end(ap);
+    /* We never block SIGSEGV or SIGBUS: we need them for various safe reads and to
+     * properly report crashes.
+     */
+    kernel_sigdelset(&set, SIGSEGV);
+    kernel_sigdelset(&set, SIGBUS);
     sigprocmask_syscall(SIG_SETMASK, &set, oset, sizeof(set));
 }
 
