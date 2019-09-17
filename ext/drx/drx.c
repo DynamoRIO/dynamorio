@@ -1863,7 +1863,8 @@ expand_avx2_gather_make_test(void *drcontext, instrlist_t *bb, instr_t *sg_instr
                              app_pc orig_app_pc)
 {
     /* The width of the mask element and data element is identical per definition of the
-     * instruction. */
+     * instruction.
+     */
     expand_scatter_gather_extract_scalar(
         drcontext, bb, sg_instr, el, sg_info, sg_info->scalar_value_size,
         opnd_size_in_bytes(sg_info->scalar_value_size), sg_info->mask_reg, scratch_xmm,
@@ -2004,7 +2005,7 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
 
 #endif
 
-/* The function expand scatter and gather instructions to a sequence of equivalent scalar
+/* The function expands scatter and gather instructions to a sequence of equivalent scalar
  * operations. Gather instructions are expanded into a sequence of mask register bit
  * tests, extracting the index value, a scalar load, inserting the scalar value into the
  * destination simd register, and mask register bit updates. Scatter instructions are
@@ -2304,7 +2305,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     get_scatter_gather_info(sg_instr, &sg_info);
 #    ifndef X64
     if (sg_info.scalar_index_size == OPSZ_8 || sg_info.scalar_value_size == OPSZ_8) {
-        /* FIXME i#2985: we do not support expansion of the qword index and value
+        /* FIXME i#2985: we do not yet support expansion of the qword index and value
          * scatter/gather versions in 32-bit mode.
          */
         return false;
@@ -2360,7 +2361,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
             break;
     }
     /* FIXME i#2985: spill kTmp and xmmTmp. kTmp will always be k0, because it is never
-     * used for scatter/gather and is both writeable as well acts as the default mask.
+     * used for scatter/gather and is both writeable and acts as the default mask.
      */
     /* FIXME i#2985: add emulation labels. */
     if (sg_info.is_evex) {
