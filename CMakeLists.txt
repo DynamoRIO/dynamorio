@@ -612,8 +612,8 @@ else (UNIX)
     endif (X64)
   endif ()
   if (NOT ("${CMAKE_GENERATOR}" MATCHES "MSYS Makefiles"))
-    # For MinGW it completely useless
-    # but now we can't use Windows event log.
+    # For MinGW (MSYS Makefiles) we do not have a message compiler.
+    # We build without it (which means we can't use the Windows event log).
     find_program(CMAKE_MC_COMPILER mc.exe HINTS "${sdk_bindir}"
       DOC "path to message compiler")
     if (NOT CMAKE_MC_COMPILER)
