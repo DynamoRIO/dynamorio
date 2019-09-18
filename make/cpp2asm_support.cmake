@@ -132,7 +132,7 @@ endif ()
 ##################################################
 # Preprocessor location and flags
 
-if (UNIX)
+if (UNIX OR (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "MSYS Makefiles"))
   # "gcc -E" on a non-.c-extension file gives message:
   #   "linker input file unused because linking not done"
   # and doesn't produce any output, so we must use cpp for our .asm files.
@@ -160,7 +160,7 @@ else (UNIX)
   set(CPP_NO_LINENUM /EP)
   set(CPP_KEEP_WHITESPACE "")
   set(CMAKE_CPP_FLAGS "/nologo")
-endif (UNIX)
+endif ()
 
 ##################################################
 # Assembler location and flags
