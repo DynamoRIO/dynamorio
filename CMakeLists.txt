@@ -611,14 +611,17 @@ else (UNIX)
       set(sdk_bindir "${sdk_dir}/bin")
     endif (X64)
   endif ()
-  find_program(CMAKE_MC_COMPILER mc.exe HINTS "${sdk_bindir}"
-    DOC "path to message compiler")
-  if (NOT CMAKE_MC_COMPILER)
-    message(FATAL_ERROR "message compiler not found: required to build")
-  endif (NOT CMAKE_MC_COMPILER)
-  message(STATUS "Found message compiler: ${CMAKE_MC_COMPILER}")
-  mark_as_advanced(CMAKE_MC_COMPILER)
-
+  if (NOT ("${CMAKE_GENERATOR}" MATCHES "MSYS Makefiles"))
+    # For MinGW (MSYS Makefiles) we do not have a message compiler.
+    # We build without it (which means we can't use the Windows event log).
+    find_program(CMAKE_MC_COMPILER mc.exe HINTS "${sdk_bindir}"
+      DOC "path to message compiler")
+    if (NOT CMAKE_MC_COMPILER)
+      message(FATAL_ERROR "message compiler not found: required to build")
+    endif (NOT CMAKE_MC_COMPILER)
+    message(STATUS "Found message compiler: ${CMAKE_MC_COMPILER}")
+    mark_as_advanced(CMAKE_MC_COMPILER)
+  endif ()
 endif (UNIX)
 
 find_package(Perl)
