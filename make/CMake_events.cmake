@@ -47,7 +47,7 @@ add_custom_command(
   VERBATIM # recommended: p260
   )
 if (WIN32 AND NOT ("${CMAKE_GENERATOR}" MATCHES "MSYS Makefiles"))
-  # In MSYS2 we not define CMAKE_GENERATOR
+  # In MSYS2 we do not define CMAKE_MC_COMPILER
   # so we can't use Windows event log.
   set(EVENTS_SRCS ${PROJECT_BINARY_DIR}/events.h)
   set_source_files_properties(${EVENTS_SRCS} PROPERTIES GENERATED true)
