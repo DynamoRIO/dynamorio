@@ -132,7 +132,7 @@ endif ()
 ##################################################
 # Preprocessor location and flags
 
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+if (MSVC)
   set(CMAKE_CPP ${CMAKE_C_COMPILER})
 
   set(CPP_KEEP_COMMENTS /C)
