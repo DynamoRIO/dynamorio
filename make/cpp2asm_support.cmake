@@ -139,7 +139,7 @@ if (MSVC)
   set(CPP_NO_LINENUM /EP)
   set(CPP_KEEP_WHITESPACE "")
   set(CMAKE_CPP_FLAGS "/nologo")
-else()
+else ()
   # "gcc -E" on a non-.c-extension file gives message:
   #   "linker input file unused because linking not done"
   # and doesn't produce any output, so we must use cpp for our .asm files.
@@ -160,7 +160,7 @@ else()
   set(CPP_NO_LINENUM -P)
   set(CPP_KEEP_WHITESPACE -traditional-cpp)
   set(CMAKE_CPP_FLAGS "")
-endif ()
+endif (MSVC)
 
 ##################################################
 # Assembler location and flags
