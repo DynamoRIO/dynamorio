@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -74,6 +74,11 @@ static void *child_continue;
 static void *child_dead;
 static bool nops_matched;
 
+static int counter32;
+#ifdef X64
+static int64 counter64;
+#endif
+
 #ifdef UNIX
 /* test PR 368737: add client timer support */
 static void
@@ -94,6 +99,17 @@ thread_func(void *arg)
     ASSERT(arg == THREAD_ARG);
     dr_fprintf(STDERR, "client thread is alive\n");
     dr_event_signal(child_alive);
+
+    /* Just a sanity check that these functions operate.  We do not take the
+     * time to set up racing threads or sthg.
+     */
+    int count = dr_atomic_add32_return_sum(&counter32, 1);
+    ASSERT(count > 0 && count <= counter32);
+#ifdef X64
+    int64 count64 = dr_atomic_add64_return_sum(&counter64, 1);
+    ASSERT(count64 > 0 && count64 <= counter64);
+#endif
+
 #ifdef UNIX
     if (!dr_set_itimer(ITIMER_REAL, 10, event_timer))
         dr_fprintf(STDERR, "unable to set timer callback\n");
@@ -206,6 +222,10 @@ exit_event(void)
     dr_event_destroy(child_alive);
     dr_event_destroy(child_continue);
     dr_event_destroy(child_dead);
+    ASSERT(counter32 == 2);
+#ifdef X64
+    ASSERT(counter64 == 2);
+#endif
 }
 
 static bool

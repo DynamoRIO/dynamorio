@@ -208,6 +208,7 @@ Further non-compatibility-affecting changes include:
  - Added the function reg_is_bnd().
  - Added the functions instr_is_gather() and instr_is_scatter().
  - Added the function drx_expand_scatter_gather().
+ - Added the function dr_atomic_add64_return_sum().
 
 **************************************************
 <hr>
