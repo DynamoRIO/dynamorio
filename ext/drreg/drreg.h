@@ -76,6 +76,14 @@ typedef enum {
  */
 
 /**
+ * Classes of register spills used to initialize allowed vectors.
+ */
+typedef enum {
+    DRREG_GPR_SPILL_CLASS,
+    DRREG_SIMD_SPILL_CLASS,
+} drreg_spill_class_t;
+
+/**
  * Priorities of drmgr instrumentation passes used by drreg.  Users
  * of drreg can use the name DRMGR_PRIORITY_NAME_DRREG in the
  * drmgr_priority_t.before field or can use these numeric priorities
@@ -357,7 +365,7 @@ drreg_status_t
  * @return whether successful or an error code on failure.
  */
 drreg_reserve_xmm_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                       drvector_t *reg_allowed, OUT reg_id_t *reg_out);
+                           drvector_t *reg_allowed, OUT reg_id_t *reg_out);
 
 DR_EXPORT
 /**
@@ -378,7 +386,7 @@ DR_EXPORT
  */
 drreg_status_t
 drreg_reserve_dead_xmm_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                            drvector_t *reg_allowed, OUT reg_id_t *reg_out);
+                                drvector_t *reg_allowed, OUT reg_id_t *reg_out);
 
 DR_EXPORT
 /**
@@ -395,12 +403,16 @@ drreg_init_and_fill_vector(drvector_t *vec, bool allowed);
 
 DR_EXPORT
 /**
- * Similar to \p drreg_init_and_fill_vector but for XMM registers.
+ * Similar to \p drreg_init_and_fill_vector but for a specific
+ * register class.
+ *
+ * This function is used to init and fill an XMM vector.
  *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
-drreg_init_and_fill_xmm_vector(drvector_t *vec, bool allowed);
+drreg_init_and_fill_vector_ex(drvector_t *vec, drreg_spill_class_t spill_class,
+                              bool allowed);
 
 DR_EXPORT
 /**
@@ -416,12 +428,16 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed);
 
 DR_EXPORT
 /**
- * Similar to \p drreg_set_vector_entry but for XMM registers.
+ * Similar to \p drreg_init_and_fill_vector but for a specific
+ * register class.
+ *
+ * This function is used to set an entry in an XMM vector.
  *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
-drreg_set_vector_xmm_entry(drvector_t *vec, reg_id_t reg, bool allowed);
+drreg_set_vector_entry_ex(drvector_t *vec, drreg_spill_class_t spill_class, reg_id_t reg,
+                          bool allowed);
 
 DR_EXPORT
 /**
@@ -609,8 +625,9 @@ DR_EXPORT
  *
  * @return whether successful or an error code on failure.
  */
-drreg_status_t drreg_unreserve_xmm_register(void *drcontext, instrlist_t *ilist,
-        instr_t *where, reg_id_t reg);
+drreg_status_t
+drreg_unreserve_xmm_register(void *drcontext, instrlist_t *ilist, instr_t *where,
+                             reg_id_t reg);
 
 DR_EXPORT
 /**
@@ -622,18 +639,6 @@ DR_EXPORT
  */
 drreg_status_t
 drreg_is_register_dead(void *drcontext, reg_id_t reg, instr_t *inst, bool *dead);
-
-DR_EXPORT
-/**
- * Returns in \p dead whether the XMM register \p reg is dead at the
- * point of \p inst.  If called during drmgr's insertion phase, \p
- * inst must be the current application instruction.
- *
- * @return whether successful or an error code on failure.
- */
-drreg_status_t
-drreg_is_xmm_register_dead(void *drcontext, reg_id_t reg,
-        instr_t *inst, bool *dead);
 
 DR_EXPORT
 /**
@@ -659,7 +664,7 @@ DR_EXPORT
  */
 drreg_status_t
 drreg_is_instr_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
-                                bool *restore OUT, reg_id_t *reg_spilled OUT, bool *is_xmm OUT);
+                                bool *restore OUT, reg_id_t *reg_spilled OUT);
 
 /*@}*/ /* end doxygen group */
 

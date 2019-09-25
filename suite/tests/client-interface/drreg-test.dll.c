@@ -190,12 +190,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         for (prev = instr_get_prev(inst); prev != NULL; prev = instr_get_prev(prev)) {
             bool spill, restore;
             reg_id_t which_reg;
-            bool is_xmm;
             res = drreg_is_instr_spill_or_restore(drcontext, prev, &spill, &restore,
-                                                  &which_reg, &is_xmm);
+                                                  &which_reg);
             CHECK(res == DRREG_SUCCESS, "spill query should work");
             CHECK(!(spill && restore), "can't be both a spill and a restore");
-            CHECK(!is_xmm, "not an xmm spill");
             if (restore) {
                 found_restore = true;
                 CHECK(which_reg == reg || is_dead, "expected restore of given reg");

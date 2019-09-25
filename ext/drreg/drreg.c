@@ -541,7 +541,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     /* Before each app read, or at end of bb, restore aflags to app value */
     uint aflags = (uint)(ptr_uint_t)drvector_get_entry(&pt->aflags.live, pt->live_idx);
     if (!pt->aflags.native &&
-         (drmgr_is_last_instr(drcontext, inst) ||
+        (drmgr_is_last_instr(drcontext, inst) ||
          TESTANY(EFLAGS_READ_ARITH, instr_get_eflags(inst, DR_QUERY_DEFAULT)) ||
          /* Writing just a subset needs to combine with the original unwritten */
          (TESTANY(EFLAGS_WRITE_ARITH, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)) &&
@@ -564,7 +564,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     for (reg = DR_REG_START_XMM; reg <= DR_REG_APPLICABLE_STOP_XMM; reg++) {
         restored_for_xmm_read[XMM_IDX(reg)] = false;
         if (!pt->xmm_reg[XMM_IDX(reg)].native) {
-            if (drmgr_is_last_instr(drcontext, inst)  ||
+            if (drmgr_is_last_instr(drcontext, inst) ||
                 instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_ALL) ||
                 /* Treat a partial write as a read, to restore rest of reg */
                 (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
@@ -999,47 +999,63 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
  */
 
 drreg_status_t
-drreg_init_and_fill_vector(drvector_t *vec, bool allowed)
+drreg_init_and_fill_vector_ex(drvector_t *vec, drreg_spill_class_t spill_class,
+                              bool allowed)
 {
     reg_id_t reg;
+    size_t size;
     if (vec == NULL)
         return DRREG_ERROR_INVALID_PARAMETER;
-    drvector_init(vec, DR_NUM_GPR_REGS, false /*!synch*/, NULL);
-    for (reg = 0; reg < DR_NUM_GPR_REGS; reg++)
+
+    switch (spill_class) {
+    case DRREG_GPR_SPILL_CLASS: size = DR_NUM_GPR_REGS; break;
+    case DRREG_SIMD_SPILL_CLASS:
+        size = MCXT_NUM_SIMD_SLOTS;
+        break;
+        return DRREG_ERROR;
+    }
+
+    drvector_init(vec, size, false /*!synch*/, NULL);
+    for (reg = 0; reg < size; reg++)
         drvector_set_entry(vec, reg, allowed ? (void *)(ptr_uint_t)1 : NULL);
     return DRREG_SUCCESS;
 }
 
 drreg_status_t
-drreg_init_and_fill_xmm_vector(drvector_t *vec, bool allowed)
+drreg_init_and_fill_vector(drvector_t *vec, bool allowed)
 {
-    reg_id_t reg;
-    if (vec == NULL)
-        return DRREG_ERROR_INVALID_PARAMETER;
-    drvector_init(vec, MCXT_NUM_SIMD_SLOTS, false /*!synch*/, NULL);
-    for (reg = 0; reg < MCXT_NUM_SIMD_SLOTS; reg++)
-        drvector_set_entry(vec, reg, allowed ? (void *)(ptr_uint_t)1 : NULL);
+    return drreg_init_and_fill_vector_ex(vec, DRREG_GPR_SPILL_CLASS, allowed);
+}
+
+drreg_status_t
+drreg_set_vector_entry_ex(drvector_t *vec, drreg_spill_class_t spill_class, reg_id_t reg,
+                          bool allowed)
+{
+    reg_id_t start_reg;
+
+    switch (spill_class) {
+
+    case DRREG_GPR_SPILL_CLASS:
+        if (vec == NULL || reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR)
+            return DRREG_ERROR_INVALID_PARAMETER;
+        start_reg = DR_REG_START_GPR;
+        break;
+    case DRREG_SIMD_SPILL_CLASS:
+        if (vec == NULL || reg < DR_REG_START_XMM || reg > DR_REG_APPLICABLE_STOP_XMM)
+            return DRREG_ERROR_INVALID_PARAMETER;
+        start_reg = DR_REG_START_XMM;
+        break;
+        return DRREG_ERROR;
+    }
+
+    drvector_set_entry(vec, reg - start_reg, allowed ? (void *)(ptr_uint_t)1 : NULL);
     return DRREG_SUCCESS;
 }
 
 drreg_status_t
 drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
 {
-    if (vec == NULL || reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR)
-        return DRREG_ERROR_INVALID_PARAMETER;
-    drvector_set_entry(vec, reg - DR_REG_START_GPR,
-                       allowed ? (void *)(ptr_uint_t)1 : NULL);
-    return DRREG_SUCCESS;
-}
-
-drreg_status_t
-drreg_set_vector_xmm_entry(drvector_t *vec, reg_id_t reg, bool allowed)
-{
-    if (vec == NULL || reg < DR_REG_START_XMM || reg > DR_REG_APPLICABLE_STOP_XMM)
-        return DRREG_ERROR_INVALID_PARAMETER;
-    drvector_set_entry(vec, reg - DR_REG_START_XMM,
-                       allowed ? (void *)(ptr_uint_t)1 : NULL);
-    return DRREG_SUCCESS;
+    return drreg_set_vector_entry_ex(vec, DRREG_GPR_SPILL_CLASS, reg, allowed);
 }
 
 /* Assumes liveness info is already set up in per_thread_t */
@@ -1831,23 +1847,16 @@ drreg_is_register_dead(void *drcontext, reg_id_t reg, instr_t *inst, bool *dead)
             return res;
         ASSERT(pt->live_idx == 0, "non-drmgr-insert always uses 0 index");
     }
-    *dead = drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx) == REG_DEAD;
-    return DRREG_SUCCESS;
-}
 
-drreg_status_t
-drreg_is_xmm_register_dead(void *drcontext, reg_id_t reg, instr_t *inst, bool *dead)
-{
-    per_thread_t *pt = get_tls_data(drcontext);
-    if (dead == NULL)
-        return DRREG_ERROR_INVALID_PARAMETER;
-    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
-        drreg_status_t res = drreg_forward_analysis(drcontext, inst);
-        if (res != DRREG_SUCCESS)
-            return res;
-        ASSERT(pt->live_idx == 0, "non-drmgr-insert always uses 0 index");
+    if (reg_is_gpr(reg)) {
+        *dead = drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx) == REG_DEAD;
+    } else if (reg_is_strictly_xmm(reg)) {
+        *dead =
+            drvector_get_entry(&pt->xmm_reg[XMM_IDX(reg)].live, pt->live_idx) == REG_DEAD;
+    } else {
+        return DRREG_ERROR;
     }
-    *dead = drvector_get_entry(&pt->xmm_reg[XMM_IDX(reg)].live, pt->live_idx) == REG_DEAD;
+
     return DRREG_SUCCESS;
 }
 
@@ -2057,7 +2066,7 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
         if (release) {
             pt->aflags.xchg = DR_REG_NULL;
             pt->reg[DR_REG_XAX - DR_REG_START_GPR].in_use = false;
-	}
+        }
     } else {
         if (ops.conservative ||
             drvector_get_entry(&pt->reg[DR_REG_XAX - DR_REG_START_GPR].live,
@@ -2336,12 +2345,11 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
 
 drreg_status_t
 drreg_is_instr_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
-                                bool *restore OUT, reg_id_t *reg_spilled OUT,
-                                bool *is_xmm OUT)
+                                bool *restore OUT, reg_id_t *reg_spilled OUT)
 {
     bool is_spill;
     if (!is_our_spill_or_restore(drcontext, instr, instr_get_next(instr), &is_spill,
-                                 reg_spilled, NULL, NULL, is_xmm)) {
+                                 reg_spilled, NULL, NULL, NULL)) {
         if (spill != NULL)
             *spill = false;
         if (restore != NULL)
@@ -2560,7 +2568,7 @@ tls_data_init(per_thread_t *pt)
     drvector_init(&pt->aflags.live, 20, false /*!synch*/, NULL);
 
     pt->xmm_spill_start = dr_global_alloc((REG_XMM_SIZE * MAX_XMM_SPILLS) + 15);
-     pt->xmm_spills = (byte *) ALIGN_FORWARD(pt->xmm_spill_start, 16);
+    pt->xmm_spills = (byte *)ALIGN_FORWARD(pt->xmm_spill_start, 16);
 }
 
 static void
