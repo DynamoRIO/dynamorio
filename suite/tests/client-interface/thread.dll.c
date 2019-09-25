@@ -74,6 +74,7 @@ static void *child_continue;
 static void *child_dead;
 static bool nops_matched;
 
+static int client_thread_count;
 static int counter32;
 #ifdef X64
 static int64 counter64;
@@ -153,6 +154,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         /* PR 222812: start up and shut down a client thread */
         success = dr_create_client_thread(thread_func, THREAD_ARG);
         ASSERT(success);
+        client_thread_count++; /* app is single-threaded so no races */
         dr_event_wait(child_alive);
         dr_event_signal(child_continue);
         dr_event_wait(child_dead);
@@ -198,6 +200,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         dr_fprintf(STDERR, "PR 210591: testing client transparency\n");
         success = dr_create_client_thread(thread_func, THREAD_ARG);
         ASSERT(success);
+        client_thread_count++; /* app is single-threaded so no races */
         dr_event_wait(child_alive);
         /* We leave the client thread alive until the app exits, to test i#1489 */
 #ifdef UNIX
@@ -222,9 +225,9 @@ exit_event(void)
     dr_event_destroy(child_alive);
     dr_event_destroy(child_continue);
     dr_event_destroy(child_dead);
-    ASSERT(counter32 == 2);
+    ASSERT(counter32 == client_thread_count);
 #ifdef X64
-    ASSERT(counter64 == 2);
+    ASSERT(counter64 == client_thread_count);
 #endif
 }
 
