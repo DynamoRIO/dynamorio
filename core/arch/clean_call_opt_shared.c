@@ -79,7 +79,7 @@ callee_info_init(callee_info_t *ci)
         ci->simd_used[i] = true;
     for (i = 0; i < proc_num_opmask_registers(); i++)
         ci->opmask_used[i] = true;
-    for (i = 0; i < NUM_GP_REGS; i++)
+    for (i = 0; i < DR_NUM_GPR_REGS; i++)
         ci->reg_used[i] = true;
     ci->spill_reg = DR_REG_INVALID;
 }
@@ -376,7 +376,7 @@ static void
 analyze_callee_pick_spill_reg(dcontext_t *dcontext, callee_info_t *ci)
 {
     uint i;
-    for (i = 0; i < NUM_GP_REGS; i++) {
+    for (i = 0; i < DR_NUM_GPR_REGS; i++) {
         reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
         if (reg == DR_REG_XSP IF_X86(|| reg == DR_REG_XAX) IF_X86_64(|| reg == REGPARM_0))
             continue;
@@ -529,7 +529,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
         cci->should_align = false;
     /* 2. general purpose registers */
     /* set regs not to be saved for clean call */
-    for (i = 0; i < NUM_GP_REGS; i++) {
+    for (i = 0; i < DR_NUM_GPR_REGS; i++) {
         if (info->reg_used[i]) {
             cci->reg_skip[i] = false;
         } else {
@@ -656,11 +656,11 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
                 ", save all regs in priv_mcontext_t layout.\n",
                 info->start);
             cci->num_regs_skip = 0;
-            memset(cci->reg_skip, 0, sizeof(bool) * NUM_GP_REGS);
+            memset(cci->reg_skip, 0, sizeof(bool) * DR_NUM_GPR_REGS);
             cci->should_align = true;
         } else {
             uint i;
-            for (i = 0; i < NUM_GP_REGS; i++) {
+            for (i = 0; i < DR_NUM_GPR_REGS; i++) {
                 if (!cci->reg_skip[i] && info->callee_save_regs[i]) {
                     cci->reg_skip[i] = true;
                     cci->num_regs_skip++;
@@ -748,7 +748,7 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
     /* On X86, a single pusha instruction is used to save the GPRs, so we do not take
      * the number of GPRs that need saving into account.
      */
-#            define GPR_SAVE_THRESHOLD NUM_GP_REGS
+#            define GPR_SAVE_THRESHOLD DR_NUM_GPR_REGS
 #        endif
 #    elif defined(AARCH64)
     /* Use out-of-line calls if more than 6 SIMD registers need to be saved. */
@@ -767,7 +767,7 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
      */
     if ((proc_num_simd_registers() - cci->num_simd_skip) > SIMD_SAVE_THRESHOLD ||
         (proc_num_opmask_registers() - cci->num_opmask_skip) > OPMASK_SAVE_THRESHOLD ||
-        (NUM_GP_REGS - cci->num_regs_skip) > GPR_SAVE_THRESHOLD || always_out_of_line)
+        (DR_NUM_GPR_REGS - cci->num_regs_skip) > GPR_SAVE_THRESHOLD || always_out_of_line)
         cci->out_of_line_swap = true;
 #    endif
 
