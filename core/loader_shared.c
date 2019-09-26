@@ -112,6 +112,7 @@ loader_init(void)
         char name_copy[MAXIMUM_PATH];
         mod = privload_insert(NULL, privmod_static[i].base, privmod_static[i].size,
                               privmod_static[i].name, privmod_static[i].path);
+        mod->is_client = true;
         LOG(GLOBAL, LOG_LOADER, 1, "%s: processing imports for %s\n", __FUNCTION__,
             mod->name);
         /* save a copy for error msg, b/c mod will be unloaded (i#643) */
@@ -412,6 +413,9 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
         mod->name = double_strrchr(mod->path, DIRSEP, ALT_DIRSEP);
         if (mod->name == NULL)
             mod->name = mod->path;
+        /* XXX: mod->name contains the leading '/'. We probably don't want that,
+         * but it doesn't seem to break anything, leaving it for now.
+         */
     }
     mod->ref_count = 1;
     mod->externally_loaded = false;
@@ -443,7 +447,7 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
     return (void *)mod;
 }
 
-static bool
+bool
 privload_search_path_exists(const char *path, size_t len)
 {
     uint i;

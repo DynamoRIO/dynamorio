@@ -741,17 +741,47 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                     len = sep - list;
                 /* support $ORIGIN expansion to lib's current directory */
                 origin = strstr(list, RPATH_ORIGIN);
+                char path[MAXIMUM_PATH];
                 if (origin != NULL && origin < list + len) {
                     size_t pre_len = origin - list;
+                    snprintf(path, MAXIMUM_PATH, "%.*s%.*s%.*s", pre_len, list,
+                             moddir_len, mod->path,
+                             /* the '/' should already be here */
+                             len - strlen(RPATH_ORIGIN) - pre_len,
+                             origin + strlen(RPATH_ORIGIN));
                     snprintf(filename, MAXIMUM_PATH, "%.*s%.*s%.*s/%s", pre_len, list,
                              moddir_len, mod->path,
                              /* the '/' should already be here */
                              len - strlen(RPATH_ORIGIN) - pre_len,
                              origin + strlen(RPATH_ORIGIN), name);
                 } else {
+                    snprintf(path, MAXIMUM_PATH, "%.*s", len, list);
                     snprintf(filename, MAXIMUM_PATH, "%.*s/%s", len, list, name);
                 }
+                NULL_TERMINATE_BUFFER(path);
                 filename[MAXIMUM_PATH - 1] = 0;
+                if (mod->is_client) {
+                    /* We are adding a client's lib rpath to the general search path. This
+                     * is not bullet proof compliant with what the loader should really
+                     * do. The real problem is that the loader is walking library
+                     * dependencies depth-first, while it should really search
+                     * breadth-first (xref i#3850). This can lead to libraries being
+                     * unlocatable, if the original client library had the proper rpath of
+                     * the library, but a dependency later in the chain did not. In order
+                     * to avoid this, we consider adding the rpath here relatively safe.
+                     * It only affects dependent libraries of the same name in different
+                     * locations.
+                     */
+                    if (!privload_search_path_exists(path, strlen(path))) {
+                        snprintf(search_paths[search_paths_idx],
+                                 BUFFER_SIZE_ELEMENTS(search_paths[search_paths_idx]),
+                                 "%.*s", strlen(path), path);
+                        NULL_TERMINATE_BUFFER(search_paths[search_paths_idx]);
+                        LOG(GLOBAL, LOG_LOADER, 1, "%s: added search dir \"%s\"\n",
+                            __FUNCTION__, search_paths[search_paths_idx]);
+                        search_paths_idx++;
+                    }
+                }
                 LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__,
                     filename);
                 if (os_file_exists(filename, false /*!is_dir*/) &&
