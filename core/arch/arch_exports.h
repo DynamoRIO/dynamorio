@@ -45,9 +45,6 @@
 #ifndef _ARCH_EXPORTS_H_
 #define _ARCH_EXPORTS_H_ 1
 
-/* stack slot width */
-#define XSP_SZ (sizeof(reg_t))
-
 /* We export all of opnd.h for reg_id_t, DR_NUM_GPR_REGS, etc. */
 #include "opnd.h"
 
