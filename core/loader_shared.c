@@ -112,7 +112,9 @@ loader_init(void)
         char name_copy[MAXIMUM_PATH];
         mod = privload_insert(NULL, privmod_static[i].base, privmod_static[i].size,
                               privmod_static[i].name, privmod_static[i].path);
+#ifdef CLIENT_INTERFACE
         mod->is_client = true;
+#endif
         LOG(GLOBAL, LOG_LOADER, 1, "%s: processing imports for %s\n", __FUNCTION__,
             mod->name);
         /* save a copy for error msg, b/c mod will be unloaded (i#643) */
