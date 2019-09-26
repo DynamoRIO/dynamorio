@@ -741,25 +741,32 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                     len = sep - list;
                 /* support $ORIGIN expansion to lib's current directory */
                 origin = strstr(list, RPATH_ORIGIN);
+#    ifdef CLIENT_INTERFACE
                 char path[MAXIMUM_PATH];
+#    endif
                 if (origin != NULL && origin < list + len) {
                     size_t pre_len = origin - list;
+#    ifdef CLIENT_INTERFACE
                     snprintf(path, MAXIMUM_PATH, "%.*s%.*s%.*s", pre_len, list,
                              moddir_len, mod->path,
                              /* the '/' should already be here */
                              len - strlen(RPATH_ORIGIN) - pre_len,
                              origin + strlen(RPATH_ORIGIN));
+#    endif
                     snprintf(filename, MAXIMUM_PATH, "%.*s%.*s%.*s/%s", pre_len, list,
                              moddir_len, mod->path,
                              /* the '/' should already be here */
                              len - strlen(RPATH_ORIGIN) - pre_len,
                              origin + strlen(RPATH_ORIGIN), name);
                 } else {
+#    ifdef CLIENT_INTERFACE
                     snprintf(path, MAXIMUM_PATH, "%.*s", len, list);
+#    endif
                     snprintf(filename, MAXIMUM_PATH, "%.*s/%s", len, list, name);
                 }
-                NULL_TERMINATE_BUFFER(path);
                 filename[MAXIMUM_PATH - 1] = 0;
+#    ifdef CLIENT_INTERFACE
+                NULL_TERMINATE_BUFFER(path);
                 if (mod->is_client) {
                     /* We are adding a client's lib rpath to the general search path. This
                      * is not bullet proof compliant with what the loader should really
@@ -782,6 +789,7 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                         search_paths_idx++;
                     }
                 }
+#    endif
                 LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__,
                     filename);
                 if (os_file_exists(filename, false /*!is_dir*/) &&
