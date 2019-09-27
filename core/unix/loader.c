@@ -794,7 +794,9 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                     module_file_has_module_header(filename)) {
                     return true;
                 }
-                list += len + 1;
+                list += len;
+                if (sep != NULL)
+                    list += 1;
             }
         }
         ++dyn;
