@@ -1592,6 +1592,9 @@ DR_API
  * On ARM, a negative value for \p disp will be converted into a positive
  * value with #DR_OPND_NEGATED set in opnd_get_flags().
  * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ * Also use this function to create VSIB operands, passing a SIMD register as
+ * the index register.
  */
 opnd_t
 opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
