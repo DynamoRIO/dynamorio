@@ -712,6 +712,7 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
     os_privmod_data_t *opd;
     ELF_DYNAMIC_ENTRY_TYPE *dyn;
     ASSERT(mod != NULL && "can't look for rpath without a dependent module");
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     /* get the loading module's dir for RPATH_ORIGIN */
     opd = (os_privmod_data_t *)mod->os_privmod_data;
     /* i#460: if DT_RUNPATH exists we must ignore ignore DT_RPATH and
