@@ -276,7 +276,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
         /* PR 218790: maintain 16-byte rsp alignment.
          * insert_parameter_preparation() currently assumes we leave rsp aligned.
          */
-        uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;
+        uint num_slots = DR_NUM_GPR_REGS + NUM_EXTRA_SLOTS;
         if (cci->skip_save_flags)
             num_slots -= 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
@@ -312,7 +312,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
 #if (defined(X86) && defined(X64)) || defined(MACOS)
     /* PR 218790: remove the padding we added for 16-byte rsp alignment */
     if (cci->should_align) {
-        uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;
+        uint num_slots = DR_NUM_GPR_REGS + NUM_EXTRA_SLOTS;
         if (cci->skip_save_flags)
             num_slots += 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
