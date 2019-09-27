@@ -1593,7 +1593,7 @@ DR_API
  * value with #DR_OPND_NEGATED set in opnd_get_flags().
  * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
  *
- * Use this function to create VSIB operands, passing a SIMD register as
+ * Also use this function to create VSIB operands, passing a SIMD register as
  * the index register.
  */
 opnd_t
