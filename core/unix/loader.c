@@ -733,11 +733,6 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
             const char *list = strtab + dyn->d_un.d_val;
             const char *sep, *origin;
             size_t len;
-            /* XXX: The list is already split into its elements. Currently, at least on
-             * the systems observed when writing this comment, this loops spills over
-             * across the actual rpath or runpath list, enclosed by '[' ']', and iterates
-             * over unrelated DT_NEEDED strings.
-             */
             while (*list != '\0') {
                 /* really we want strchrnul() */
                 sep = strchr(list, ':');
