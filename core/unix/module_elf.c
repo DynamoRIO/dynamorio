@@ -1085,8 +1085,8 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
      */
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     mod = privload_first_module();
-    /* Symbols are currently looked up following the dependency chain depth-first instead
-     * of breadth-first as reflected in the global list 'modlist' (xref i#3850).
+    /* FIXME i#3850: Symbols are currently looked up following the dependency chain
+     * depth-first instead of breadth-first as reflected in the global list 'modlist'.
      */
     while (mod != NULL) {
         pd = mod->os_privmod_data;
