@@ -2897,6 +2897,9 @@ opnd_t
 opnd_create_sized_tls_slot(int offs, opnd_size_t size);
 #endif /* !STANDALONE_DECODER */
 
+/* stack slot width */
+#define XSP_SZ (sizeof(reg_t))
+
 /* This should be kept in sync w/ the defines in x86/x86.asm */
 enum {
 #ifdef X86
