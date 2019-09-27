@@ -764,7 +764,6 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                 }
                 filename[MAXIMUM_PATH - 1] = 0;
 #    ifdef CLIENT_INTERFACE
-                NULL_TERMINATE_BUFFER(path);
                 if (mod->is_client) {
                     /* We are adding a client's lib rpath to the general search path. This
                      * is not bullet proof compliant with what the loader should really
