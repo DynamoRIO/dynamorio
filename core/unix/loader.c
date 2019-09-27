@@ -750,15 +750,15 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                 char path[MAXIMUM_PATH];
                 if (origin != NULL && origin < list + len) {
                     size_t pre_len = origin - list;
-                    snprintf(path, BUFFER_SIZE_BYTES(path), "%.*s%.*s%.*s", pre_len, list,
-                             moddir_len, mod->path,
+                    snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%.*s%.*s%.*s", pre_len,
+                             list, moddir_len, mod->path,
                              /* the '/' should already be here */
                              len - strlen(RPATH_ORIGIN) - pre_len,
                              origin + strlen(RPATH_ORIGIN));
                     NULL_TERMINATE_BUFFER(path);
                     snprintf(filename, MAXIMUM_PATH, "%s/%s", path, name);
                 } else {
-                    snprintf(path, BUFFER_SIZE_BYTES(path), "%.*s", len, list);
+                    snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%.*s", len, list);
                     NULL_TERMINATE_BUFFER(path);
                     snprintf(filename, MAXIMUM_PATH, "%s/%s", path, name);
                 }
