@@ -733,6 +733,11 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
             const char *list = strtab + dyn->d_un.d_val;
             const char *sep, *origin;
             size_t len;
+            /* XXX: The list is already split into it's elements. Currently, at least on
+             * the systems observed when writing this comment, this loops spills over
+             * across the actual rpath or runpath list, enclosed by '[' ']', and iterates
+             * over unrelated DT_NEEDED strings.
+             */
             while (*list != '\0') {
                 /* really we want strchrnul() */
                 sep = strchr(list, ':');
@@ -742,28 +747,20 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                     len = sep - list;
                 /* support $ORIGIN expansion to lib's current directory */
                 origin = strstr(list, RPATH_ORIGIN);
-#    ifdef CLIENT_INTERFACE
                 char path[MAXIMUM_PATH];
-#    endif
                 if (origin != NULL && origin < list + len) {
                     size_t pre_len = origin - list;
-#    ifdef CLIENT_INTERFACE
-                    snprintf(path, MAXIMUM_PATH, "%.*s%.*s%.*s", pre_len, list,
+                    snprintf(path, BUFFER_SIZE_BYTES(path), "%.*s%.*s%.*s", pre_len, list,
                              moddir_len, mod->path,
                              /* the '/' should already be here */
                              len - strlen(RPATH_ORIGIN) - pre_len,
                              origin + strlen(RPATH_ORIGIN));
-#    endif
-                    snprintf(filename, MAXIMUM_PATH, "%.*s%.*s%.*s/%s", pre_len, list,
-                             moddir_len, mod->path,
-                             /* the '/' should already be here */
-                             len - strlen(RPATH_ORIGIN) - pre_len,
-                             origin + strlen(RPATH_ORIGIN), name);
+                    NULL_TERMINATE_BUFFER(path);
+                    snprintf(filename, MAXIMUM_PATH, "%s/%s", path, name);
                 } else {
-#    ifdef CLIENT_INTERFACE
-                    snprintf(path, MAXIMUM_PATH, "%.*s", len, list);
-#    endif
-                    snprintf(filename, MAXIMUM_PATH, "%.*s/%s", len, list, name);
+                    snprintf(path, BUFFER_SIZE_BYTES(path), "%.*s", len, list);
+                    NULL_TERMINATE_BUFFER(path);
+                    snprintf(filename, MAXIMUM_PATH, "%s/%s", path, name);
                 }
                 filename[MAXIMUM_PATH - 1] = 0;
 #    ifdef CLIENT_INTERFACE
@@ -778,7 +775,8 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                      * the library, but a dependency later in the chain did not. In order
                      * to avoid this, we consider adding the rpath here relatively safe.
                      * It only affects dependent libraries of the same name in different
-                     * locations.
+                     * locations. We are only doing this for client libraries, so we are
+                     * not at risk to search for the wrong system libraries.
                      */
                     if (!privload_search_path_exists(path, strlen(path))) {
                         snprintf(search_paths[search_paths_idx],
