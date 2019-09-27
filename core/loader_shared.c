@@ -413,9 +413,8 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
      */
     if (IF_UNIX_ELSE(mod->name == NULL, false)) {
         mod->name = double_strrchr(mod->path, DIRSEP, ALT_DIRSEP);
-        /* XXX: mod->name contains the leading '/'. We probably don't want that,
-         * but it doesn't seem to break anything, leaving it for now. Other call
-         * sites of double_strrchr() do increment the '/' off the library name.
+        /* XXX: double_strrchr() returns mod->name containing the leading '/'. We probably
+         * don't want that, but it doesn't seem to break anything, leaving it for now.
          */
         if (mod->name == NULL)
             mod->name = mod->path;
