@@ -569,7 +569,10 @@ privload_process_imports(privmod_t *mod)
                 if (impmod == NULL)
                     return false;
 #    ifdef CLIENT_INTERFACE
-                /* i#852: identify all libs that import from DR as client libs */
+                /* i#852: identify all libs that import from DR as client libs.
+                 * XXX: this code seems stale as libdynamorio.so is already loaded
+                 * (xref #3850).
+                 */
                 if (impmod->base == get_dynamorio_dll_start())
                     mod->is_client = true;
 #    endif
