@@ -577,6 +577,9 @@ privmod_t *
 privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
                 const char *path);
 
+bool
+privload_search_path_exists(const char *path, size_t len);
+
 /* ************************************************************************* *
  * os specific functions in loader.c, can be called from loader_shared.c     *
  * ************************************************************************* */
