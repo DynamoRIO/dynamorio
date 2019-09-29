@@ -655,7 +655,7 @@ module_table_bb_add(module_table_t *table, bb_entry_t *entry)
         return false;
     if (table->size <= entry->start + entry->size) {
         WARN(3, "Wrong range 0x%x-0x%x or table size " PIFX " for table " PFX "\n",
-             entry->start, entry->start + entry->size, table->size, table);
+             entry->start, entry->start + entry->size, (unsigned long)table->size, table);
         return false;
     }
     if (op_test_pattern.specified())
@@ -673,8 +673,8 @@ search_cb(drsym_info_t *info, drsym_error_t status, void *data)
         char *name = (char *)malloc(strlen(info->name) + 1);
         /* strdup is deprecated on Windows */
         strncpy(name, info->name, strlen(info->name) + 1);
-        PRINT(5, "function %s: " PIFX "-" PIFX "\n", name, info->start_offs,
-              info->end_offs);
+        PRINT(5, "function %s: " PIFX "-" PIFX "\n", name,
+              (unsigned long)info->start_offs, (unsigned long)info->end_offs);
         ASSERT(info->start_offs <= table->size, "wrong offset");
         hashtable_add(&table->test_htable, (void *)info->start_offs, name);
     }
@@ -767,7 +767,7 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
 
         if (drmodtrack_offline_lookup(handle, i, &info) != DRCOVLIB_SUCCESS)
             ASSERT(false, "Failed to read module table");
-        PRINT(5, "Module: %u, " PIFX ", %s\n", i, info.size, info.path);
+        PRINT(5, "Module: %u, " PIFX ", %s\n", i, (unsigned long)info.size, info.path);
         mod_table = (module_table_t *)hashtable_lookup(&module_htable, (void *)info.path);
         if (mod_table == NULL) {
             modpath = info.path;
@@ -1137,7 +1137,7 @@ enum_line_cb(drsym_line_info_t *info, void *data)
              IF_NOT_X64((uint)) info->line);
     }
     PRINT(5, "%s, %s, %llu, " PIFX "\n", info->cu_name, info->file,
-          (unsigned long long)info->line, info->line_addr);
+          (unsigned long long)info->line, (unsigned long)info->line_addr);
     return true;
 }
 
