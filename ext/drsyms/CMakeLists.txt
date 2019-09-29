@@ -56,7 +56,7 @@ if (ARM)
       set(BITS "${BITS}-eabihf")
     endif ()
   endif ()
-endif()
+endif ()
 
 if (AARCH64)
   set(ARCH "-aarch64")
@@ -84,14 +84,14 @@ if (WIN32 AND MSVC)
   # We don't need a stamp file b/c the .lib is not a source; plus a stamp
   # file causes Ninja to fail to build.
   add_custom_command(OUTPUT "${dbghelp_lib}"
-          DEPENDS "${dbghelp_src}" "${dbghelp_def}"
-          COMMAND "${CMAKE_C_COMPILER}" ARGS /nologo /c /Ob0 ${dbghelp_src}
-          COMMAND "${LIB_EXECUTABLE}" ARGS
-          /nologo /name:dbghelp.dll /def:${dbghelp_def}
-          ${CMAKE_CURRENT_BINARY_DIR}/dbghelp_imports.obj
-          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-          VERBATIM # recommended: p260 of cmake book
-          )
+    DEPENDS "${dbghelp_src}" "${dbghelp_def}"
+    COMMAND "${CMAKE_C_COMPILER}" ARGS /nologo /c /Ob0 ${dbghelp_src}
+    COMMAND "${LIB_EXECUTABLE}" ARGS
+    /nologo /name:dbghelp.dll /def:${dbghelp_def}
+    ${CMAKE_CURRENT_BINARY_DIR}/dbghelp_imports.obj
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    VERBATIM # recommended: p260 of cmake book
+    )
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     set(dbghelp_dep "")
     # for correct parallel builds we need a target to avoid
@@ -103,9 +103,9 @@ if (WIN32 AND MSVC)
   set(dbghelp_flags "${dbghelp_lib}")
 
   set(srcs
-          drsyms_windows.c drsyms_unix_common.c drsyms_pecoff.c
-          drsyms_dwarf.c demangle.cc drsyms_common.c
-          ${dbghelp_dep})
+    drsyms_windows.c drsyms_unix_common.c drsyms_pecoff.c
+    drsyms_dwarf.c demangle.cc drsyms_common.c
+    ${dbghelp_dep})
 
   # i#1491#2: VS generators fail if static lib has resources
   set(srcs_static ${srcs})
@@ -115,9 +115,9 @@ if (WIN32 AND MSVC)
   set(dwarf_libpath "${dwarf_dir}/dwarf.lib")
   set(elftc_libpath "${dwarf_dir}/elftc.lib")
   configure_file("${dwarf_dir}/dwarf.pdb"
-          "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/dwarf.pdb" COPYONLY)
+    "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/dwarf.pdb" COPYONLY)
   configure_file("${dwarf_dir}/elftc.pdb"
-          "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/elftc.pdb" COPYONLY)
+    "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/elftc.pdb" COPYONLY)
   # while private loader means preferred base is not required, more efficient
   # to avoid rebase so we avoid conflict w/ client and other exts
   set(PREFERRED_BASE 0x76000000)
@@ -125,22 +125,22 @@ if (WIN32 AND MSVC)
 else ()
   # Unix or Windows MSYS2/MinGW toolchain
   set(srcs
-          drsyms_unix_frontend.c drsyms_unix_common.c
-          drsyms_dwarf.c demangle.cc drsyms_common.c)
+    drsyms_unix_frontend.c drsyms_unix_common.c
+    drsyms_dwarf.c demangle.cc drsyms_common.c)
   if (APPLE)
     set(srcs ${srcs} drsyms_macho.c)
     set(dwarf_libpath
-            "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho/lib${BITS}/libdwarf.a")
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho/lib${BITS}/libdwarf.a")
     set(elftc_libpath
-            "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho/lib${BITS}/libelftc.a")
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho/lib${BITS}/libelftc.a")
   else (APPLE)
     set(srcs ${srcs} drsyms_elf.c)
     set(dwarf_libpath
-            "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libdwarf.a")
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libdwarf.a")
     set(elftc_libpath
-            "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelftc.a")
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelftc.a")
     set(elf_libpath
-            "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelf.a")
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelf.a")
   endif (APPLE)
   set(srcs_static ${srcs})
 endif ()
@@ -219,12 +219,12 @@ if (WIN32)
   append_property_string(TARGET drsyms_static COMPILE_FLAGS "/DSTATIC_LIB")
 endif (WIN32)
 DR_install(FILES "${dwarf_libpath}" "${elf_libpath}" "${elftc_libpath}"
-        DESTINATION ${INSTALL_EXT_LIB})
+  DESTINATION ${INSTALL_EXT_LIB})
 if (WIN32 AND MSVC)
   DR_install(FILES "${dwarf_dir}/dwarf.pdb" "${dwarf_dir}/elftc.pdb"
-          DESTINATION ${INSTALL_EXT_LIB}
-          PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
-          WORLD_READ WORLD_EXECUTE)
+    DESTINATION ${INSTALL_EXT_LIB}
+    PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
+    WORLD_READ WORLD_EXECUTE)
 endif ()
 
 add_executable(drsyms_bench drsyms_bench.c)
@@ -232,7 +232,7 @@ configure_DynamoRIO_standalone(drsyms_bench)
 use_DynamoRIO_extension(drsyms_bench drsyms)
 # we don't want drsyms_bench installed so we avoid the standard location
 set_target_properties(drsyms_bench PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/ext")
+  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/ext")
 
 # documentation is put into main DR docs/ dir
 install_ext_header(drsyms.h)
