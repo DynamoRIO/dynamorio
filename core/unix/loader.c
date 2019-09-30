@@ -794,7 +794,11 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                 if (!lib_found) {
                     if (os_file_exists(filename, false /*!is_dir*/) &&
                         module_file_has_module_header(filename)) {
+#    ifdef CLIENT_INTERFACE
                         lib_found = true;
+#    else
+                        return true;
+#    endif
                     }
                 }
                 list += len;
