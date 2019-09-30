@@ -1603,6 +1603,16 @@ function(disable_optimizations_for_file source_file)
     COMPILE_FLAGS "${cflags}")
 endfunction(disable_optimizations_for_file)
 
+# Some of our tests were created for /MT which was the top-level flag even
+# in debug build until recently, so we go back to it to avoid breaking them.
+function(use_MT_not_MTd source_file)
+  if (WIN32)
+    # Appending to the target flags goes in too early: we need source to
+    # override the /MTd from the top level.
+    append_property_string(SOURCE ${source_file} COMPILE_FLAGS "/MT")
+  endif ()
+endfunction()
+
 # optimize the target
 function(optimize target)
   if (UNIX)
@@ -2271,13 +2281,8 @@ if (CLIENT_INTERFACE)
     # Disable optimizations for the exe and appdll to allow stack tracing.
     disable_optimizations_for_file(client-interface/drsyms-test.cpp)
     disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
-    if (WIN32)
-      # Debug libc seems to mess up the symbols.
-      # Appending to the target flags goes in too early: we need source to
-      # override the /MTd from the top level.
-      append_property_string(SOURCE client-interface/drsyms-test.appdll.cpp
-        COMPILE_FLAGS "/MT")
-    endif ()
+    # Debug libc seems to mess up the test.
+    use_MT_not_MTd(client-interface/drsyms-test.appdll.cpp)
     use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
     use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
   endif ()
@@ -2601,12 +2606,8 @@ endif ()
 
   if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
-    if (WIN32)
-      # Debug libc seems to mess up the retaddrs.
-      # Appending to the target flags goes in too early: we need source to
-      # override the /MTd from the top level.
-      append_property_string(SOURCE client-interface/retaddr.c COMPILE_FLAGS "/MT")
-    endif ()
+    # Debug libc seems to mess up the test.
+    use_MT_not_MTd(client-interface/retaddr.c)
   endif (X86)
 
   if (X86 AND WIN32) # FIXME port test application to other systems
@@ -3191,19 +3192,13 @@ endif ()
       endif ()
 
       add_exe(tool.cpuid ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
+      # Debug libc seems to run newer instructions, messing up the test.
+      use_MT_not_MTd(${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
       macro (add_cpusim_cpuid_test model)
         torunonly_ci(tool.drcpusim.cpuid-${model} tool.cpuid drcpusim
           ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid-${model}.c
           # Ignore libs to reduce risk of violations (e.g., i#2720)
           "-cpu ${model} -ignore_all_libs" "" "")
-        if (WIN32)
-          # Avoid recent instructions in debug libc.
-          # Appending to the target flags goes in too early: we need source to
-          # override the /MTd from the top level.
-          append_property_string(SOURCE
-            ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid-${model}.c
-            COMPILE_FLAGS "/MT")
-        endif ()
         set(tool.drcpusim.cpuid-${model}_toolname "drcpusim")
         set(tool.drcpusim.cpuid-${model}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcpusim/tests")
@@ -3667,7 +3662,7 @@ else (UNIX)
 
     tobuild(win32.except win32/except.c)
     # Debug libc seems to mess up the test.
-    append_property_string(SOURCE win32/except.c COMPILE_FLAGS "/MT")
+    use_MT_not_MTd(win32/except.c)
     tobuild(win32.getthreadcontext win32/getthreadcontext.c)
     tobuild_dll(win32.hookerfirst win32/hookerfirst.c
       "-handle_ntdll_modify 1 -native_exec_hook_conflict 1")
