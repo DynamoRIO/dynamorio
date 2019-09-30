@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2006 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -150,12 +150,12 @@ main(int argc, char *argv[])
             int alloc = vsize * allocation_unit;
             int flags = MEM_RESERVE | topdown;
             pv = VirtualAllocEx(phandle, NULL, alloc, flags, protection);
-            printf("%s 0x%08x virtual bytes == %d%s flags=0x%08x prot=0x%08x\n"
-                   "  res = %08x %s %d\n",
+            printf("%s %08x virtual bytes == %d%s flags=0x%08x prot=0x%08x\n"
+                   "  res = " PIFX " %s %d\n",
                    pv ? "Just reserved" : "Failed to reserve", alloc, vsize,
                    allocation_unit == 1024 ? "KB" : "MB", flags, protection,
-                   pv ? (int)pv : get_last_status(), pc ? "success:" : "GLE",
-                   GetLastError());
+                   pv ? (ptr_int_t)pv : (ptr_int_t)get_last_status(),
+                   pc ? "success:" : "GLE", GetLastError());
             if (pv == NULL)
                 fail = 1;
         }
@@ -165,11 +165,11 @@ main(int argc, char *argv[])
             int flags = MEM_RESERVE | MEM_COMMIT | topdown;
             pc = VirtualAllocEx(phandle, NULL, alloc, flags, protection);
             printf("%s 0x%08x bytes == %d%s flags=0x%08x prot=0x%08x\n"
-                   "  res = %08x, %s %x\n",
+                   "  res = : " PIFX ", %s %x\n",
                    pc ? "Just committed" : "Failed to commit", alloc, csize,
                    allocation_unit == 1024 ? "KB" : "MB", flags, protection,
-                   pc ? (int)pc : get_last_status(), pc ? "success:" : "GLE",
-                   GetLastError());
+                   pc ? (ptr_int_t)pc : (ptr_int_t)get_last_status(),
+                   pc ? "success:" : "GLE", GetLastError());
             if (pc == NULL)
                 fail = 1;
         }
