@@ -1082,7 +1082,6 @@ vmm_heap_unit_exit(vm_heap_t *vmh)
         os_heap_free(vmh->alloc_start, vmh->alloc_size, &error_code);
         ASSERT(error_code == HEAP_ERROR_SUCCESS);
         if (DYNAMO_OPTION(satisfy_w_xor_x) && vmh == &heapmgt->vmcode) {
-            heap_error_code_t error_code;
             os_heap_free(heapmgt->vmcode_writable_alloc, vmh->alloc_size, &error_code);
             ASSERT(error_code == HEAP_ERROR_SUCCESS);
             os_delete_memory_file(MEMORY_FILE_NAME, heapmgt->dual_map_file);

@@ -907,7 +907,7 @@ typedef uint64 timestamp_t;
  * that ignored defines are outermost */
 /* DR_API EXPORT BEGIN */
 #ifdef API_EXPORT_ONLY
-#    define PFX "0x" PFMT   /**< printf format code for pointers */
+#    define PFX "%p"        /**< printf format code for pointers */
 #    define PIFX "0x" PIFMT /**< printf format code for pointer-sized integers */
 #endif
 
@@ -929,6 +929,8 @@ typedef int stats_int_t;
 /* For printing pointers: we do not use %p as gcc prepends 0x and uses
  * lowercase while cl does not prepend, puts leading 0's, and uses uppercase.
  * Also, the C standard does not allow min width for %p.
+ * However, with our own d_r_vsnprintf, we are able to use %p and thus satisfy
+ * format string compiler warnings.
  * Two macros:
  * - PFMT == Pointer Format == with leading zeros
  * - PIFMT == Pointer Integer Format == no leading zeros
@@ -959,7 +961,7 @@ typedef int stats_int_t;
 #    define SSZFC "d"
 #endif
 #define L_PFMT L"%016" L_EXPAND_LEVEL(INT64_FORMAT) L"x"
-#define PFX "0x" PFMT
+#define PFX "%p"
 #define PIFX "0x" PIFMT
 
 /* DR_API EXPORT BEGIN */

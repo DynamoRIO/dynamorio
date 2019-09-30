@@ -180,7 +180,6 @@ bool
 print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, ...)
 {
     /* in io.c */
-#    undef vsnprintf
     extern int vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
     ssize_t len;
     va_list ap;

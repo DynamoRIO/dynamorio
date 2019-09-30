@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -58,7 +58,11 @@ foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
     string(REGEX REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS${config_upper}
       "${CMAKE_CXX_FLAGS${config_upper}}")
   else ()
-    set(CMAKE_CXX_FLAGS${config_upper} "${CMAKE_CXX_FLAGS${config_upper}} /MT")
+    if (DEBUG)
+      set(CMAKE_CXX_FLAGS${config_upper} "${CMAKE_CXX_FLAGS${config_upper}} /MTd")
+    else ()
+      set(CMAKE_CXX_FLAGS${config_upper} "${CMAKE_CXX_FLAGS${config_upper}} /MT")
+    endif ()
   endif ()
 endforeach (config)
 
