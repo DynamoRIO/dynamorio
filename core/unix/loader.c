@@ -72,6 +72,8 @@ wcslen(const wchar_t *str); /* in string.c */
  */
 #define SYSTEM_LIBRARY_PATH_VAR "LD_LIBRARY_PATH"
 static char *ld_library_path = NULL;
+#define DR_CUSTOM_SYSTEM_PATH_VAR "DR_CUSTOM_SYSTEM_PATH"
+static char *dr_custom_system_path = NULL;
 static const char *const system_lib_paths[] = {
 #ifdef X86
     "/lib/tls/i686/cmov",
@@ -672,6 +674,7 @@ privload_init_search_paths(void)
 {
     privload_add_drext_path();
     ld_library_path = getenv(SYSTEM_LIBRARY_PATH_VAR);
+    dr_custom_system_path = getenv(DR_CUSTOM_SYSTEM_PATH_VAR);
 }
 
 static privmod_t *
@@ -806,12 +809,34 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
 }
 
 static bool
+privload_search_env_path(char *env_path, const char *name, char *filename OUT)
+{
+    while (env_path != NULL) {
+        char *end = strstr(env_path, ":");
+        if (end != NULL)
+            *end = '\0';
+        snprintf(filename, MAXIMUM_PATH, "%s/%s", env_path, name);
+        if (end != NULL) {
+            *end = ':';
+            end++;
+        }
+        /* NULL_TERMINATE_BUFFER(filename) */
+        filename[MAXIMUM_PATH - 1] = 0;
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, filename);
+        if (os_file_exists(filename, false /*!is_dir*/) &&
+            module_file_has_module_header(filename))
+            return true;
+        env_path = end;
+    }
+    return false;
+}
+
+static bool
 privload_locate(const char *name, privmod_t *dep,
                 char *filename OUT /* buffer size is MAXIMUM_PATH */,
                 bool *reachable INOUT)
 {
     uint i;
-    char *lib_paths;
 
     /* We may be passed a full path. */
     if (name[0] == '/' && os_file_exists(name, false /*!is_dir*/)) {
@@ -852,24 +877,8 @@ privload_locate(const char *name, privmod_t *dep,
         return true;
 
     /* 3) LD_LIBRARY_PATH */
-    lib_paths = ld_library_path;
-    while (lib_paths != NULL) {
-        char *end = strstr(lib_paths, ":");
-        if (end != NULL)
-            *end = '\0';
-        snprintf(filename, MAXIMUM_PATH, "%s/%s", lib_paths, name);
-        if (end != NULL) {
-            *end = ':';
-            end++;
-        }
-        /* NULL_TERMINATE_BUFFER(filename) */
-        filename[MAXIMUM_PATH - 1] = 0;
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, filename);
-        if (os_file_exists(filename, false /*!is_dir*/) &&
-            module_file_has_module_header(filename))
-            return true;
-        lib_paths = end;
-    }
+    if (privload_search_env_path(ld_library_path, name, filename))
+        return true;
 
     /* 4) DT_RUNPATH */
     if (dep != NULL && privload_search_rpath(dep, true /*runpath*/, name, filename))
@@ -885,6 +894,10 @@ privload_locate(const char *name, privmod_t *dep,
             module_file_has_module_header(filename))
             return true;
     }
+
+    /* 6) DR_CUSTOM_SYSTEM_PATH */
+    if (privload_search_env_path(dr_custom_system_path, name, filename))
+        return true;
 
     /* Cannot find the library */
     /* There's a syslog in loader_init() but we want to provide the lib name */
