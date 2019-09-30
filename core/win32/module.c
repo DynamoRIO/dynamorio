@@ -1340,13 +1340,13 @@ check_for_unsupported_modules()
         ASSERT(dos->e_magic == IMAGE_DOS_SIGNATURE);             \
     }
 
-#define VERIFY_NT_HEADER(base)                                                        \
-    {                                                                                 \
-        DEBUG_DECLARE(IMAGE_NT_HEADERS *nt = NT_HEADER(base));                        \
-        VERIFY_DOS_HEADER(base);                                                      \
-        ASSERT(nt != NULL && nt->Signature == IMAGE_NT_SIGNATURE);                    \
-        ASSERT_CURIOSITY(nt->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC || \
-                         nt->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);  \
+#define VERIFY_NT_HEADER(base)                                                         \
+    {                                                                                  \
+        DEBUG_DECLARE(IMAGE_NT_HEADERS *nth = NT_HEADER(base));                        \
+        VERIFY_DOS_HEADER(base);                                                       \
+        ASSERT(nth != NULL && nth->Signature == IMAGE_NT_SIGNATURE);                   \
+        ASSERT_CURIOSITY(nth->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC || \
+                         nth->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);  \
     }
 
 /* returns true iff [start2, start2+size2] covers the same or a subset of the pages

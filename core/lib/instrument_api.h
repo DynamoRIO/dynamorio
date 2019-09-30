@@ -4310,9 +4310,6 @@ DR_API
  * or S format specifiers.  On Windows, they are assumed to be UTF-16,
  * and are converted to UTF-8.  On Linux, they are converted by simply
  * dropping the high-order bytes.
- * \note On Windows, you can use _snprintf() instead (though _snprintf() does
- * not support printing floating point values and does not convert
- * between UTF-16 and UTF-8).
  * \note When printing floating-point values, the caller's code should
  * use proc_save_fpstate() or be inside a clean call that
  * has requested to preserve the floating-point state.

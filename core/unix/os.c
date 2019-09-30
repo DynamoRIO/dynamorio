@@ -5527,7 +5527,7 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app
             break;
         case ENV_PROP_OPTIONS:
             ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_OPTIONS) == 0);
-            val = option_string;
+            val = d_r_option_string;
             break;
         case ENV_PROP_EXECVE_LOGDIR:
             /* we use PROCESS_DIR for DYNAMORIO_VAR_EXECVE_LOGDIR */

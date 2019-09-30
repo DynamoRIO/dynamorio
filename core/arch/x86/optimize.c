@@ -972,8 +972,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         /* common loop type: ends with "dec var, jns" */
         if (instr_get_opcode(decision) == OP_inc ||
             instr_get_opcode(decision) == OP_dec) {
-            /* FIXME: shadowing cmp_const */
-            opnd_t cmp_var, cmp_const;
+            opnd_t cmp_var;
             int opcode;
             cmp_var = instr_get_dst(decision, 0);
             if (instr_get_opcode(branch) == OP_jns) {
@@ -3892,8 +3891,7 @@ replace_inc_with_add(dcontext_t *dcontext, instr_t *inst, instrlist_t *trace)
              * non-cti that we normally stop at?
              */
             byte *target;
-            /* FIXME: shadowing eflags */
-            int eflags;
+            int noncti_eflags;
             instr_t tinst;
             if (!opnd_is_near_pc(instr_get_target(in)))
                 break;
@@ -3904,14 +3902,14 @@ replace_inc_with_add(dcontext_t *dcontext, instr_t *inst, instrlist_t *trace)
                 instr_reset(dcontext, &tinst);
                 target = decode_cti(dcontext, target, &tinst);
                 ASSERT(instr_valid(&tinst));
-                eflags = instr_get_eflags(&tinst, DR_QUERY_DEFAULT);
-                if ((eflags & EFLAGS_READ_CF) != 0) {
+                noncti_eflags = instr_get_eflags(&tinst, DR_QUERY_DEFAULT);
+                if ((noncti_eflags & EFLAGS_READ_CF) != 0) {
                     d_r_loginst(dcontext, 3, in,
                                 "reads CF => cannot replace inc with add");
                     return false;
                 }
                 /* if writes but doesn't read, ok */
-                if ((eflags & EFLAGS_WRITE_CF) != 0) {
+                if ((noncti_eflags & EFLAGS_WRITE_CF) != 0) {
                     ok_to_replace = true;
                     break;
                 }

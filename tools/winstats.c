@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -98,7 +99,7 @@ print_mem_stats(HANDLE h)
                 secs / 60, secs % 60, 0 /* for now */);
     }
     fprintf(FP, "%d%%CPU \n", cpu);
-    fprintf(FP, "(%lu tot, %lu RSS, %lu paged, %lu non, %lu swap)k\n",
+    fprintf(FP, "(%zu tot, %zu RSS, %zu paged, %zu non, %zu swap)k\n",
             mem.PeakVirtualSize / 1024, mem.PeakWorkingSetSize / 1024,
             mem.QuotaPeakPagedPoolUsage / 1024, mem.QuotaPeakNonPagedPoolUsage / 1024,
             mem.PeakPagefileUsage / 1024);
@@ -156,7 +157,6 @@ int __cdecl main(int argc, char *argv[], char *envp[])
     PROCESS_INFORMATION pi;
     HANDLE phandle;
     BOOL success;
-    DWORD app_entry;
     DWORD wait_result;
     int arg_offs = 1;
     time_t start_time, end_time;
@@ -250,8 +250,6 @@ int __cdecl main(int argc, char *argv[], char *envp[])
 #endif
 
     if (li = ImageLoad(app_name, NULL)) {
-        app_entry = (DWORD)(li->MappedAddress +
-                            li->FileHeader->OptionalHeader.AddressOfEntryPoint);
         ImageUnload(li);
     } else {
         _snprintf(app_cmdline, MAX_CMDLINE, "Failed to load executable image \"%s\"",
