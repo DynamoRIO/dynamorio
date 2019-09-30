@@ -62,8 +62,8 @@ handle_sigsegv(int signal, siginfo_t *siginfo, void *context)
         snprintf(app_handler_message, BUFFER_SIZE_ELEMENTS(app_handler_message),
                  "app handler got signal %d with addr " PFX
                  ", but expected signal %d with addr " PFX,
-                 signal, IF_WINDOWS((ptr_uint_t)) fault_address, SIGSEGV,
-                 IF_WINDOWS((ptr_uint_t)) expected_fault_address);
+                 signal, (ptr_uint_t)fault_address, SIGSEGV,
+                 (ptr_uint_t)expected_fault_address);
         NULL_TERMINATE_BUFFER(app_handler_message);
     }
     SIGLONGJMP(mark, 1);

@@ -63,7 +63,7 @@ handle_sigsegv(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     /* Unfortunately the kernel does not fill in siginfo->si_addr for exec faults! */
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
     snprintf(app_handler_message, BUFFER_SIZE_ELEMENTS(app_handler_message),
-             "app handler got signal %d with addr " PFX, signal, (void *)sc->SC_XIP);
+             "app handler got signal %d with addr " PFX, signal, sc->SC_XIP);
     NULL_TERMINATE_BUFFER(app_handler_message);
     SIGLONGJMP(mark, 1);
 }
