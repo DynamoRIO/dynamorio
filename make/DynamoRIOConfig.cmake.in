@@ -606,6 +606,7 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
   set(${flags_out} "${extra_cflags}" PARENT_SCOPE)
 endfunction (DynamoRIO_extra_cflags)
 
+
 function (_DR_set_compile_flags target is_client extra_flags)
   # i#850: we do not want the C flags being used for asm objects so we only set
   # on C/C++ files and not on the target.
@@ -1086,6 +1087,8 @@ function (configure_DynamoRIO_static target)
     # i#2070: avoid pulling libdynamorio.so
     # Assuming LINK_FLAGS goes before target_link_libraries.
     _DR_append_property_string(TARGET ${target} LINK_FLAGS "-Wl,--as-needed")
+    # Ensure client symbols are visible to DR via dlsym.
+    _DR_append_property_string(TARGET ${target} LINK_FLAGS "-rdynamic")
   endif ()
 endfunction (configure_DynamoRIO_static)
 
