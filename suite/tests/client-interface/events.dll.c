@@ -79,8 +79,6 @@ enum event_seq {
     EVENT_POST_SYSCALL_2,
     EVENT_KERNEL_XFER_1,
     EVENT_KERNEL_XFER_2,
-    EVENT_LOW_ON_MEMORY_1,
-    EVENT_LOW_ON_MEMORY_2,
     EVENT_MODULE_UNLOAD_1,
     EVENT_MODULE_UNLOAD_2,
     EVENT_THREAD_EXIT_1,
@@ -119,8 +117,6 @@ const char *const name[EVENT_last] = {
     "post syscall event 2",
     "kernel xfer event 1",
     "kernel xfer event 2",
-    "low on memory event 1",
-    "low on memory event 2",
     "module unload event 1",
     "module unload event 2",
     "thread exit event 1",
@@ -173,26 +169,17 @@ check_result(void)
 }
 
 static void
-low_on_memory_event1()
+low_on_memory_event()
 {
-    inc_count_first(EVENT_LOW_ON_MEMORY_1, EVENT_LOW_ON_MEMORY_2);
-}
-
-static void
-low_on_memory_event2()
-{
-    inc_count_second(EVENT_LOW_ON_MEMORY_2);
+    /** Do nothing. Testing only register and unregister functions **/
 }
 
 static void
 exit_event1(void)
 {
 
-    if (!dr_unregister_low_on_memory_event(low_on_memory_event1))
+    if (!dr_unregister_low_on_memory_event(low_on_memory_event))
         dr_fprintf(STDERR, "unregister failed!\n");
-    if (!dr_unregister_low_on_memory_event(low_on_memory_event2))
-        dr_fprintf(STDERR, "unregister failed!\n");
-
     dr_fprintf(STDERR, "exit event 1\n");
     dr_flush_file(STDOUT);
 
@@ -727,8 +714,7 @@ dr_init(client_id_t id)
     dr_register_filter_syscall_event(filter_syscall_event2);
     dr_register_kernel_xfer_event(kernel_xfer_event1);
     dr_register_kernel_xfer_event(kernel_xfer_event2);
-    dr_register_low_on_memory_event(low_on_memory_event1);
-    dr_register_low_on_memory_event(low_on_memory_event2);
+    dr_register_low_on_memory_event(low_on_memory_event);
 #ifdef WINDOWS
     dr_register_exception_event(exception_event1);
     dr_register_exception_event(exception_event2);
