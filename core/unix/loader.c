@@ -729,6 +729,7 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
     ASSERT(opd != NULL);
     dyn = (ELF_DYNAMIC_ENTRY_TYPE *)opd->dyn;
     strtab = (char *)opd->os_data.dynstr;
+    bool lib_found = false;
     /* support $ORIGIN expansion to lib's current directory */
     while (dyn->d_tag != DT_NULL) {
         if (dyn->d_tag == (runpath ? DT_RUNPATH : DT_RPATH)) {
@@ -754,13 +755,10 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                              len - strlen(RPATH_ORIGIN) - pre_len,
                              origin + strlen(RPATH_ORIGIN));
                     NULL_TERMINATE_BUFFER(path);
-                    snprintf(filename, MAXIMUM_PATH, "%s/%s", path, name);
                 } else {
                     snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%.*s", len, list);
                     NULL_TERMINATE_BUFFER(path);
-                    snprintf(filename, MAXIMUM_PATH, "%s/%s", path, name);
                 }
-                filename[MAXIMUM_PATH - 1] = 0;
 #    ifdef CLIENT_INTERFACE
                 if (mod->is_client) {
                     /* We are adding a client's lib rpath to the general search path. This
@@ -786,11 +784,19 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                     }
                 }
 #    endif
-                LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__,
-                    filename);
-                if (os_file_exists(filename, false /*!is_dir*/) &&
-                    module_file_has_module_header(filename)) {
-                    return true;
+                if (!lib_found) {
+                    snprintf(filename, MAXIMUM_PATH, "%s/%s", path, name);
+                    filename[MAXIMUM_PATH - 1] = 0;
+                    LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__,
+                        filename);
+                    if (os_file_exists(filename, false /*!is_dir*/) &&
+                        module_file_has_module_header(filename)) {
+#    ifdef CLIENT_INTERFACE
+                        lib_found = true;
+#    else
+                        return true;
+#    endif
+                    }
                 }
                 list += len;
                 if (sep != NULL)
@@ -799,6 +805,7 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
         }
         ++dyn;
     }
+    return lib_found;
 #else
     /* XXX i#1285: implement MacOS private loader */
 #endif
