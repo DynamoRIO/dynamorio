@@ -36,7 +36,7 @@
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
 /*
- * utils.h - miscellenaous utilities
+ * utils.h - miscellaneous utilities
  */
 
 #ifndef _UTILS_H_
