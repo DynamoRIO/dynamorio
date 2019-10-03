@@ -1535,43 +1535,19 @@ get_scatter_gather_info(instr_t *instr, scatter_gather_info_t *sg_info)
 static reg_id_t
 simd_reg_to_zmm(reg_id_t simd_reg)
 {
-    if (reg_is_strictly_xmm(simd_reg)) {
-        return simd_reg - DR_REG_START_XMM + DR_REG_START_ZMM;
-    } else if (reg_is_strictly_ymm(simd_reg)) {
-        return simd_reg - DR_REG_START_YMM + DR_REG_START_ZMM;
-    } else if (reg_is_strictly_zmm(simd_reg)) {
-        return simd_reg;
-    }
-    ASSERT(false, "Not a simd register.");
-    return DR_REG_INVALID;
+    return reg_resize_to_opsz(simd_reg, OPSZ_64);
 }
 
 static reg_id_t
 simd_reg_to_ymm(reg_id_t simd_reg)
 {
-    if (reg_is_strictly_xmm(simd_reg)) {
-        return simd_reg - DR_REG_START_XMM + DR_REG_START_YMM;
-    } else if (reg_is_strictly_ymm(simd_reg)) {
-        return simd_reg;
-    } else if (reg_is_strictly_zmm(simd_reg)) {
-        return simd_reg - DR_REG_START_ZMM + DR_REG_START_YMM;
-    }
-    ASSERT(false, "Not a simd register.");
-    return DR_REG_INVALID;
+    return reg_resize_to_opsz(simd_reg, OPSZ_32);
 }
 
 static reg_id_t
 simd_reg_to_xmm(reg_id_t simd_reg)
 {
-    if (reg_is_strictly_xmm(simd_reg)) {
-        return simd_reg;
-    } else if (reg_is_strictly_ymm(simd_reg)) {
-        return simd_reg - DR_REG_START_YMM + DR_REG_START_XMM;
-    } else if (reg_is_strictly_zmm(simd_reg)) {
-        return simd_reg - DR_REG_START_ZMM + DR_REG_START_XMM;
-    }
-    ASSERT(false, "Not a simd register.");
-    return DR_REG_INVALID;
+    return reg_resize_to_opsz(simd_reg, OPSZ_16);
 }
 
 static bool
