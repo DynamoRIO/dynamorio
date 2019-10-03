@@ -1319,7 +1319,6 @@ test_regs(void *dc)
 
     /* SIMD only ZMM, OPSZ 64. */
     reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_64);
-    dr_fprintf(STDERR, "%d\n", reg);
     ASSERT(reg == DR_REG_ZMM0);
     reg = reg_resize_to_opsz(DR_REG_XMM1, OPSZ_64);
     ASSERT(reg == DR_REG_ZMM1);
