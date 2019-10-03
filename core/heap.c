@@ -1496,8 +1496,12 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             (DYNAMO_OPTION(switch_to_os_at_vmm_reset_limit) &&
              at_reset_at_vmm_limit(vmh))) {
             DO_ONCE({
-                if (DYNAMO_OPTION(reset_at_switch_to_os_at_vmm_limit))
+                if (DYNAMO_OPTION(reset_at_switch_to_os_at_vmm_limit)){
                     schedule_reset(RESET_ALL);
+#ifdef CLIENT_INTERFACE
+                instrument_low_on_memory();
+#endif
+                }
                 DOCHECK(1, {
                     if (!INTERNAL_OPTION(vm_use_last)) {
                         ASSERT_CURIOSITY(false && "running low on vm reserve");
