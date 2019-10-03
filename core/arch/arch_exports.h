@@ -1663,10 +1663,10 @@ d_r_decode_init(void);
 #    define STUB_COARSE_DIRECT_SIZE(flags) \
         (FRAG_IS_32(flags) ? STUB_COARSE_DIRECT_SIZE32 : STUB_COARSE_DIRECT_SIZE64)
 
-/* Writes nops into the address range.
- * XXX i#3828: Better to use the newer multi-byte nops.
- */
-#    define SET_TO_NOPS(isa_mode, addr, size) memset(addr, 0x90, size)
+/* Writes nops into the address range. */
+bool
+fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
+#    define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
 /* writes debugbreaks into the address range */
 #    define SET_TO_DEBUG(addr, size) memset(addr, 0xcc, size)
 /* check if region is SET_TO_NOP */
