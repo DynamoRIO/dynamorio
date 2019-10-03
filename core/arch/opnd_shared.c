@@ -2154,7 +2154,7 @@ reg_resize_to_opsz(reg_id_t reg, opnd_size_t sz)
         } else if (sz == OPSZ_32) {
             return reg_resize_to_ymm(reg);
         } else if (sz == OPSZ_64) {
-            reg_resize_to_zmm(reg);
+            return reg_resize_to_zmm(reg);
         } else {
             CLIENT_ASSERT(false, "invalid size for simd register");
         }
