@@ -39,17 +39,23 @@
 #    include <windows.h>
 #    include <stdio.h>
 #else
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#    include <stdio.h>
+#    include <stdlib.h>
+#    include <string.h>
 #endif
 
-int main(int argc, char **argv) {
+int
+main(int argc, char **argv)
+{
 
-	for (int i = 0; i < 200; i++){
+    int total = 0;
+    for (int i = 0; i < 200; i++) {
 
-		int *my_integer = (int *) malloc(sizeof(int));
-		*my_integer = 9;
-		free(my_integer);
-	}
+        int *my_integer = (int *)malloc(sizeof(int));
+        *my_integer = 9;
+        total += *my_integer;
+        free(my_integer);
+    }
+
+    printf("My total is %d\n", total);
 }

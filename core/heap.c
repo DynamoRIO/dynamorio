@@ -342,6 +342,15 @@ DECLARE_CXTSWPROT_VAR(static recursive_lock_t heap_unit_lock,
 DECLARE_CXTSWPROT_VAR(static recursive_lock_t global_alloc_lock,
                       INIT_RECURSIVE_LOCK(global_alloc_lock));
 
+#    ifdef CLIENT_INTERFACE
+/* Used to sync low on memory event */
+DECLARE_CXTSWPROT_VAR(static recursive_lock_t low_on_memory_pending_lock,
+                      INIT_RECURSIVE_LOCK(low_on_memory_pending_lock));
+#endif
+
+/* Denotes whether or not low on memory event requires triggering. */
+bool low_on_memory_pending = false;
+
 #if defined(DEBUG) && defined(HEAP_ACCOUNTING) && defined(HOT_PATCHING_INTERFACE)
 static int
 get_special_heap_header_size(void);
@@ -1479,6 +1488,27 @@ reached_beyond_vmm(void)
     }
 }
 
+#ifdef CLIENT_INTERFACE
+void
+vmm_heap_handle_pending_low_on_memory_event_trigger()
+{
+    ASSERT(!OWN_MUTEX(&low_on_memory_pending_lock));
+
+    if (low_on_memory_pending) {
+        acquire_recursive_lock(&low_on_memory_pending_lock);
+        instrument_low_on_memory();
+        low_on_memory_pending = false;
+        release_recursive_lock(&low_on_memory_pending_lock);
+    }
+}
+
+static void
+schedule_low_on_memory_event_trigger()
+{
+    ASSERT(OWN_MUTEX(&low_on_memory_pending_lock));
+    low_on_memory_pending = true;
+}
+#endif
 /* Reserve virtual address space without committing swap space for it */
 static vm_addr_t
 vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
@@ -1496,10 +1526,10 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             (DYNAMO_OPTION(switch_to_os_at_vmm_reset_limit) &&
              at_reset_at_vmm_limit(vmh))) {
             DO_ONCE({
-                if (DYNAMO_OPTION(reset_at_switch_to_os_at_vmm_limit)){
+                if (DYNAMO_OPTION(reset_at_switch_to_os_at_vmm_limit)) {
                     schedule_reset(RESET_ALL);
 #ifdef CLIENT_INTERFACE
-                instrument_low_on_memory();
+                    schedule_low_on_memory_event_trigger();
 #endif
                 }
                 DOCHECK(1, {
@@ -1533,7 +1563,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             /* We're running low on our reservation, trigger a reset */
             if (schedule_reset(RESET_ALL)) {
 #ifdef CLIENT_INTERFACE
-                instrument_low_on_memory();
+                schedule_low_on_memory_event_trigger();
 #endif
                 STATS_INC(reset_low_vmm_count);
                 DO_THRESHOLD_SAFE(
@@ -2151,6 +2181,8 @@ d_r_heap_init()
     int i;
     uint prev_sz = 0;
 
+
+
     LOG(GLOBAL, LOG_TOP | LOG_HEAP, 2, "Heap bucket sizes are:\n");
     /* make sure we'll preserve alignment */
     ASSERT(ALIGNED(HEADER_SIZE, HEAP_ALIGNMENT));
@@ -2240,7 +2272,7 @@ heap_reset_free()
     /* for combining stats into global_units we need this lock
      * FIXME: remove if we go to separate stats sum location
      */
-    DODEBUG({ acquire_recursive_lock(&global_alloc_lock); });
+    DODEBUG({ acquire_recursive_lock(&low_on_memory_pending_lock); acquire_recursive_lock(&global_alloc_lock); });
 
     acquire_recursive_lock(&heap_unit_lock);
 
@@ -2261,7 +2293,7 @@ heap_reset_free()
     heapmgt->heap.dead = NULL;
     heapmgt->heap.num_dead = 0;
     release_recursive_lock(&heap_unit_lock);
-    DODEBUG({ release_recursive_lock(&global_alloc_lock); });
+    DODEBUG({ release_recursive_lock(&global_alloc_lock); release_recursive_lock(&low_on_memory_pending_lock);});
     dynamo_vm_areas_unlock();
 }
 
@@ -2336,6 +2368,8 @@ d_r_heap_exit()
 
     DELETE_RECURSIVE_LOCK(heap_unit_lock);
     DELETE_RECURSIVE_LOCK(global_alloc_lock);
+    DELETE_RECURSIVE_LOCK(low_on_memory_pending_lock);
+
 #ifdef X64
     DELETE_LOCK(request_region_be_heap_reachable_lock);
 #endif
@@ -3270,6 +3304,7 @@ heap_vmareas_synch_units()
     /* if chance could own both locks, must grab both now
      * always grab global_alloc first, then we won't have deadlocks
      */
+    acquire_recursive_lock(&low_on_memory_pending_lock);
     acquire_recursive_lock(&global_alloc_lock);
     acquire_recursive_lock(&heap_unit_lock);
     if (dynamo_areas_pending_remove) {
@@ -3372,6 +3407,7 @@ heap_vmareas_synch_units()
     }
     release_recursive_lock(&heap_unit_lock);
     release_recursive_lock(&global_alloc_lock);
+    release_recursive_lock(&low_on_memory_pending_lock);
 }
 
 /* shared between global and global_unprotected */
@@ -3379,17 +3415,22 @@ static void *
 common_global_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
 {
     void *p;
+    acquire_recursive_lock(&low_on_memory_pending_lock);
     acquire_recursive_lock(&global_alloc_lock);
     p = common_heap_alloc(tu, size HEAPACCT(which));
     release_recursive_lock(&global_alloc_lock);
+    release_recursive_lock(&low_on_memory_pending_lock);
+
     if (p == NULL) {
         /* circular dependence solution: we need to hold DR lock before
          * global alloc lock -- so we back out, grab it, and retry
          */
         dynamo_vm_areas_lock();
+        acquire_recursive_lock(&low_on_memory_pending_lock);
         acquire_recursive_lock(&global_alloc_lock);
         p = common_heap_alloc(tu, size HEAPACCT(which));
         release_recursive_lock(&global_alloc_lock);
+        release_recursive_lock(&low_on_memory_pending_lock);
         dynamo_vm_areas_unlock();
     }
     ASSERT(p != NULL);
@@ -3407,17 +3448,22 @@ common_global_heap_free(thread_units_t *tu, void *p,
         return;
     }
 
+    acquire_recursive_lock(&low_on_memory_pending_lock);
     acquire_recursive_lock(&global_alloc_lock);
     ok = common_heap_free(tu, p, size HEAPACCT(which));
     release_recursive_lock(&global_alloc_lock);
+    release_recursive_lock(&low_on_memory_pending_lock);
+
     if (!ok) {
         /* circular dependence solution: we need to hold DR lock before
          * global alloc lock -- so we back out, grab it, and retry
          */
         dynamo_vm_areas_lock();
+        acquire_recursive_lock(&low_on_memory_pending_lock);
         acquire_recursive_lock(&global_alloc_lock);
         ok = common_heap_free(tu, p, size HEAPACCT(which));
         release_recursive_lock(&global_alloc_lock);
+        release_recursive_lock(&low_on_memory_pending_lock);
         dynamo_vm_areas_unlock();
     }
     ASSERT(ok);
@@ -3790,6 +3836,7 @@ add_heapacct_to_global_stats(heap_acct_t *acct)
      * to capture total and leave global alone here?
      */
     uint i;
+    acquire_recursive_lock(&low_on_memory_pending_lock);
     acquire_recursive_lock(&global_alloc_lock);
     for (i = 0; i < ACCT_LAST; i++) {
         heapmgt->global_units.acct.alloc_reuse[i] += acct->alloc_reuse[i];
@@ -3801,6 +3848,7 @@ add_heapacct_to_global_stats(heap_acct_t *acct)
         heapmgt->global_units.acct.num_alloc[i] += acct->num_alloc[i];
     }
     release_recursive_lock(&global_alloc_lock);
+    release_recursive_lock(&low_on_memory_pending_lock);
 }
 #endif
 
@@ -4604,10 +4652,12 @@ protect_global_heap(bool writable)
 {
     ASSERT(TEST(SELFPROT_GLOBAL, dynamo_options.protect_mask));
 
+    acquire_recursive_lock(&low_on_memory_pending_lock);
     acquire_recursive_lock(&global_alloc_lock);
 
     if (heapmgt->global_heap_writable == writable) {
         release_recursive_lock(&global_alloc_lock);
+        release_recursive_lock(&low_on_memory_pending_lock);
         return;
     }
     /* win32 does not allow single protection change call on units that
@@ -4637,6 +4687,7 @@ protect_global_heap(bool writable)
     }
 
     release_recursive_lock(&global_alloc_lock);
+    release_recursive_lock(&low_on_memory_pending_lock);
 }
 
 /* FIXME: share some code...right now these are identical to protected
