@@ -584,9 +584,7 @@ droption_t<bytesize_t>::convert_from_string(const std::string s)
     std::string toparse = s;
     if (scale > 1)
         toparse = s.substr(0, s.size() - 1); // s.pop_back() only in C++11
-    // While the overall size is likely too large to be represented
-    // by a 32-bit integer, the prefix number is usually not.
-    int input = atoi(toparse.c_str());
+    long long input = atoll(toparse.c_str());
     if (input >= 0)
         value = (uint64_t)input * scale;
     else {
