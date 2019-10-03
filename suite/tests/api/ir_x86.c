@@ -1343,7 +1343,7 @@ test_regs(void *dc)
     reg = reg_resize_to_opsz(DR_REG_ZMM0, OPSZ_64);
     ASSERT(reg != DR_REG_XMM0);
     reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_64);
-    ASSERT(reg == DR_REG_XMM1);
+    ASSERT(reg != DR_REG_XMM1);
 }
 
 static void
