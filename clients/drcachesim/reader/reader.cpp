@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -129,7 +129,8 @@ reader_t::operator++()
             have_memref = true;
             // The trace stream always has the instr fetch first, which we
             // use to compute the starting PC for the subsequent instructions.
-            assert(type_is_instr(cur_ref.instr.type));
+            assert(type_is_instr(cur_ref.instr.type) ||
+                   cur_ref.instr.type == TRACE_TYPE_INSTR_NO_FETCH);
             cur_ref.instr.size = input_entry->length[bundle_idx++];
             cur_pc = next_pc;
             cur_ref.instr.addr = cur_pc;

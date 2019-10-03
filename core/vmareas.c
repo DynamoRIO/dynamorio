@@ -1225,6 +1225,26 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, uint vm_flags, uint f
                 /* if a merge exists we assume it will free if necessary */
                 v->free_payload_func(v->buf[i].custom.client);
             }
+            /* See the XXX comment in remove_vm_area about using a free_payload_func.
+             * Here we have to handle ld.so using an initial +rx map which triggers
+             * loading a persisted unit for the true-x segment and a new coarse unit
+             * for the temp-x-later-data segment.  But we then add the full +rx for
+             * the whole region, which comes here where we need to remove the
+             * just-created data segment coarse unit.  (Yes, better to avoid the temp
+             * creation, but that is likely more complex: delay coarse loading until
+             * first-execution or something.)
+             */
+            if (v == executable_areas) {
+                coarse_info_t *info = (coarse_info_t *)v->buf[i].custom.client;
+                if (info != NULL) {
+                    /* Should be un-executed from, and thus requires no reset and
+                     * thus no complex delayed deletion via coarse_to_delete.
+                     */
+                    ASSERT(info->cache == NULL && info->stubs == NULL &&
+                           info->non_frozen == NULL);
+                    coarse_unit_free(GLOBAL_DCONTEXT, info);
+                }
+            }
             /* merge frags lists */
             /* FIXME: switch this to a merge_payload_func.  It won't be able
              * to print out the bounds, and it will have to do the work of
@@ -1379,7 +1399,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
             if (restore_prot && DR_MADE_READONLY(v->buf[i].vm_flags)) {
                 vm_make_writable(v->buf[i].start, v->buf[i].end - v->buf[i].start);
             }
-            /* FIXME: use a free_payload_func instead of this custom
+            /* XXX: Better to use a free_payload_func instead of this custom
              * code.  But then we couldn't assert on the bounds and on
              * VM_EXECUTED_FROM.  Could add bounds to callback params, but
              * vm_flags are not exposed to vmvector interface...
@@ -1393,9 +1413,9 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
                     ASSERT(info->base_pc >= v->buf[i].start &&
                            info->end_pc <= v->buf[i].end);
                     ASSERT(info->frozen || info->non_frozen == NULL);
-                    /* Should have already freed fields, unless we flushed a region
-                     * that has not been executed from (case 10995): in which case
-                     * we must delay as we cannot grab change_linking_lock or
+                    /* Should have already freed fields (unless we flushed a region
+                     * that has not been executed from (case 10995)).
+                     * We must delay as we cannot grab change_linking_lock or
                      * special_heap_lock or info->lock while holding exec_areas lock.
                      */
                     if (info->cache != NULL) {
@@ -2021,8 +2041,9 @@ vmvector_lookup_data(vm_area_vector_t *v, app_pc pc, app_pc *start /* OUT */,
  * should this routine do both to avoid an extra binary search?
  */
 bool
-vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev,
-                          OUT app_pc *next)
+vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev_start,
+                          OUT app_pc *prev_end, OUT app_pc *next_start,
+                          OUT app_pc *next_end)
 {
     bool success;
     int index;
@@ -2032,17 +2053,27 @@ vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev,
     ASSERT_OWN_READWRITE_LOCK(SHOULD_LOCK_VECTOR(v), &v->lock);
     success = !binary_search(v, pc, pc + 1, NULL, &index, false);
     if (success) {
-        if (prev != NULL) {
-            if (index == -1)
-                *prev = NULL;
-            else
-                *prev = v->buf[index].start;
+        if (index == -1) {
+            if (prev_start != NULL)
+                *prev_start = NULL;
+            if (prev_end != NULL)
+                *prev_end = NULL;
+        } else {
+            if (prev_start != NULL)
+                *prev_start = v->buf[index].start;
+            if (prev_end != NULL)
+                *prev_end = v->buf[index].end;
         }
-        if (next != NULL) {
-            if (index >= v->length - 1)
-                *next = (app_pc)POINTER_MAX;
-            else
-                *next = v->buf[index + 1].start;
+        if (index >= v->length - 1) {
+            if (next_start != NULL)
+                *next_start = (app_pc)POINTER_MAX;
+            if (next_end != NULL)
+                *next_end = (app_pc)POINTER_MAX;
+        } else {
+            if (next_start != NULL)
+                *next_start = v->buf[index + 1].start;
+            if (next_end != NULL)
+                *next_end = v->buf[index + 1].end;
         }
     }
     UNLOCK_VECTOR(v, release_lock, read);
@@ -2295,7 +2326,7 @@ add_written_area(vm_area_vector_t *v, app_pc tag, app_pc start, app_pc end,
     /* re-adding fails for written_areas since no merging, so lookup first */
     already = lookup_addr(v, tag, &a);
     if (!already) {
-        app_pc prev_start = NULL, next_start = NULL;
+        app_pc prev_start = NULL, prev_end = NULL, next_start = NULL;
         LOG(GLOBAL, LOG_VMAREAS, 2, "new written executable vm area: " PFX "-" PFX "\n",
             start, end);
         /* case 9179: With no flags, any overlap (in non-tag portion of [start,
@@ -2307,14 +2338,12 @@ add_written_area(vm_area_vector_t *v, app_pc tag, app_pc start, app_pc end,
         /* we can't merge b/c we have hardcoded counter pointers in code
          * in the cache, so we make sure to only add the non-overlap
          */
-        DEBUG_DECLARE(ok =) vmvector_lookup_prev_next(v, tag, &prev_start, &next_start);
+        DEBUG_DECLARE(ok =)
+        vmvector_lookup_prev_next(v, tag, &prev_start, &prev_end, &next_start, NULL);
         ASSERT(ok); /* else already should be true */
         if (prev_start != NULL) {
-            vm_area_t *prev_area = NULL;
-            DEBUG_DECLARE(ok =) lookup_addr(v, prev_start, &prev_area);
-            ASSERT(ok); /* we hold the lock after all */
-            if (prev_area->end > start)
-                start = prev_area->end;
+            if (prev_end > start)
+                start = prev_end;
         }
         if (next_start < (app_pc)POINTER_MAX && end > next_start)
             end = next_start;
@@ -2568,8 +2597,12 @@ add_executable_vm_area_helper(app_pc start, app_pc end, uint vm_flags, uint frag
         DEBUG_DECLARE(bool found =)
         lookup_addr(executable_areas, start, &area);
         ASSERT(found && area != NULL);
+        if (info == NULL) {
+            /* May have been created already, by app_memory_pre_alloc(). */
+            info = (coarse_info_t *)area->custom.client;
+        }
         /* case 9521: always have one non-frozen coarse unit per coarse region */
-        if (info == NULL || info->frozen) {
+        if (info == NULL || (info->frozen && info->non_frozen == NULL)) {
             coarse_info_t *new_info =
                 coarse_unit_create(start, end, (info == NULL) ? NULL : &info->module_md5,
                                    true /*for execution*/);
@@ -2711,10 +2744,17 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
                     /* if clients are present, don't load until after they're initialized
                      */
                     IF_CLIENT_INTERFACE(&&(dynamo_initialized || !CLIENTS_EXIST()))) {
-            info = vm_area_load_coarse_unit(&start, &end, vm_flags, frag_flags,
-                                            false _IF_DEBUG(comment));
+            vm_area_t *area;
+            if (lookup_addr(executable_areas, start, &area))
+                info = (coarse_info_t *)area->custom.client;
+            if (info == NULL) {
+                info = vm_area_load_coarse_unit(&start, &end, vm_flags, frag_flags,
+                                                false _IF_DEBUG(comment));
+            }
         }
     }
+    if (!DYNAMO_OPTION(coarse_units))
+        frag_flags &= ~FRAG_COARSE_GRAIN;
 
     if (existing_area == NULL) {
         add_executable_vm_area_helper(start, end, vm_flags, frag_flags,
@@ -5954,12 +5994,23 @@ dyngen_diagnostics(dcontext_t *dcontext, app_pc pc, app_pc base_pc, size_t size,
  * APPLICATION MEMORY STATE TRACKING
  */
 
+/* Internal version with a flag for whether to only check or also update vmareas. */
+static uint
+app_memory_protection_change_internal(dcontext_t *dcontext, bool update_areas,
+                                      app_pc base, size_t size,
+                                      uint prot, /* platform independent MEMPROT_ */
+                                      uint *new_memprot, /* OUT */
+                                      uint *old_memprot /* OPTIONAL OUT*/, bool image);
+
 /* Checks whether a requested allocation at a particular base will change
  * the protection bits of any code.  Returns whether or not to allow
- * the operation to go through.
+ * the operation to go through.  The change_executable parameter is passed
+ * through to app_memory_protection_change() on existing areas inside
+ * [base, base+size).
  */
 bool
-app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, bool hint)
+app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, bool hint,
+                     bool update_areas, bool image)
 {
     byte *pb = base;
     dr_mem_info_t info;
@@ -5969,7 +6020,11 @@ app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, b
             * but in large-region cases it saves huge number of syscalls.
             */
            query_memory_cur_base(pb, &info)) {
-        if (info.type != DR_MEMTYPE_FREE && info.type != DR_MEMTYPE_RESERVED) {
+        /* We can't also check for "info.prot != prot" for update_areas, b/c this is
+         * delayed to post-syscall and we have to process changes after the fact.
+         */
+        if (info.type != DR_MEMTYPE_FREE && info.type != DR_MEMTYPE_RESERVED &&
+            (update_areas || prot != info.prot)) {
             size_t change_sz;
             uint subset_memprot;
             uint res;
@@ -5983,8 +6038,12 @@ app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, b
                  */
                 return false;
             }
-            res = app_memory_protection_change(dcontext, pb, change_sz, prot,
-                                               &subset_memprot, NULL);
+            LOG(GLOBAL, LOG_VMAREAS, 3,
+                "%s: app alloc may be changing " PFX "-" PFX " %x\n", __FUNCTION__,
+                info.base_pc, info.base_pc + info.size, info.prot);
+            res = app_memory_protection_change_internal(dcontext, update_areas, pb,
+                                                        change_sz, prot, &subset_memprot,
+                                                        NULL, image);
             if (res != DO_APP_MEM_PROT_CHANGE) {
                 if (res == FAIL_APP_MEM_PROT_CHANGE) {
                     return false;
@@ -6009,27 +6068,29 @@ app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, b
     return true;
 }
 
-/* newly allocated or mapped in memory region, returns true if added to exec list
- * ok to pass in NULL for dcontext -- in fact, assumes dcontext is NULL at initialization
- *
- * It's up to the caller to handle any changes in protection in a new alloc that
- * overlaps an existing alloc, by calling app_memory_protection_change().
+/* Newly allocated or mapped in memory region. Returns true if added to exec list.
+ * OK to pass in NULL for dcontext -- in fact, assumes dcontext is NULL at initialization.
  */
 bool
 app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
                       bool image _IF_DEBUG(const char *comment))
 {
-    /* FIXME (case 68): to guard against external agents freeing memory, we
-     * could remove this region from the executable list here -- is it worth the
-     * performance hit?  DR itself could allocate memory that was freed
-     * externally -- but our DR overlap checks would catch that.
+    /* First handle overlap with existing areas.  Callers try to additionally do this
+     * pre-syscall to catch cases we want to block, but we can't do everything there
+     * b/c we don't know all "image" cases.
+     * We skip this until the app is doing sthg, to avoid the extra memory queries
+     * during os_walk_address_space().
      */
-    ASSERT_CURIOSITY(
-        !executable_vm_area_overlap(base, base + size, false /*have no lock*/) ||
-        /* This happens during module loading if we don't flush on mprot */
-        (!INTERNAL_OPTION(hw_cache_consistency) &&
-         /* .bss has !image so we just check for existing module overlap */
-         pc_is_in_module(base)));
+    if (dynamo_initialized &&
+        !app_memory_pre_alloc(dcontext, base, size, prot, false /*!hint*/,
+                              true /*update*/, image)) {
+        /* XXX: We should do better by telling app_memory_protection_change() we
+         * can't fail so it should try to handle.  We do not expect this to happen
+         * except with a pathological race.
+         */
+        SYSLOG_INTERNAL_WARNING_ONCE(
+            "Protection change already happened but should have been blocked");
+    }
 #ifdef PROGRAM_SHEPHERDING
     DODEBUG({
         /* case 4175 - reallocations will overlap with no easy way to
@@ -6316,9 +6377,11 @@ set_region_jit_managed(app_pc start, size_t len)
     d_r_write_unlock(&executable_areas->lock);
 }
 
-/* memory region base:base+size now has privileges prot
- * returns a value from the enum in vmareas->h about whether to perform the
- * system call or not and if not what the return code to the app should be
+/* Called when memory region base:base+size is about to have privileges prot.
+ * Returns a value from the enum in vmareas->h about whether to perform the
+ * system call or not and if not what the return code to the app should be.
+ * If update_areas is true and the syscall should go through, updates
+ * the executable areas; else it is up to the caller to change executable areas.
  */
 /* FIXME : This is called before the system call that will change
  * the memory permission which could be race condition prone! If another
@@ -6337,11 +6400,12 @@ set_region_jit_managed(app_pc start, size_t len)
 /* Note: hotp_only_mem_prot_change() relies on executable_areas to find out
  * previous state, so eliminating it should be carefully; see case 6669.
  */
-uint
-app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
-                             uint prot,         /* platform independent MEMPROT_ */
-                             uint *new_memprot, /* OUT */
-                             uint *old_memprot /* OPTIONAL OUT*/)
+static uint
+app_memory_protection_change_internal(dcontext_t *dcontext, bool update_areas,
+                                      app_pc base, size_t size,
+                                      uint prot, /* platform independent MEMPROT_ */
+                                      uint *new_memprot, /* OUT */
+                                      uint *old_memprot /* OPTIONAL OUT*/, bool image)
 {
     /* FIXME: look up whether image, etc. here?
      * but could overlap multiple regions!
@@ -6586,6 +6650,8 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
     if (!INTERNAL_OPTION(hw_cache_consistency))
         return DO_APP_MEM_PROT_CHANGE; /* let syscall go through */
 #endif
+    if (!update_areas)
+        return DO_APP_MEM_PROT_CHANGE; /* let syscall go through */
 
     /* look for calls making code writable!
      * cache is_executable here w/o holding lock -- if decide to perform state
@@ -6761,7 +6827,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
          * change from rw to r.  thus this should be like the change-to-selfmod case
          * in handle_modified_code => add new vector routine?  (case 3570)
          */
-        add_executable_vm_area(base, base + size, 0 /* not image? FIXME */, 0,
+        add_executable_vm_area(base, base + size, image ? VM_UNMOD_IMAGE : 0, 0,
                                should_finish_flushing /* own lock if flushed */
                                    _IF_DEBUG("protection change"));
     }
@@ -6867,9 +6933,14 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
             }
 #endif
             if (add_to_exec_list) {
+                if (DYNAMO_OPTION(coarse_units) && image &&
+                    !RUNNING_WITHOUT_CODE_CACHE()) {
+                    /* all images start out with coarse-grain management */
+                    frag_flags_pfx |= FRAG_COARSE_GRAIN;
+                }
                 /* FIXME : see note at top of function about bug 2833 */
                 ASSERT(!TEST(MEMPROT_WRITE, prot)); /* sanity check */
-                add_executable_vm_area(base, base + size, 0 /* not an unmodified image */,
+                add_executable_vm_area(base, base + size, image ? VM_UNMOD_IMAGE : 0,
                                        frag_flags_pfx,
                                        false /*no lock*/ _IF_DEBUG(comment));
             }
@@ -7033,6 +7104,16 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
             jitopt_clear_span(base, base + size);
     }
     return DO_APP_MEM_PROT_CHANGE; /* let syscall go through */
+}
+
+uint
+app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
+                             uint prot,         /* platform independent MEMPROT_ */
+                             uint *new_memprot, /* OUT */
+                             uint *old_memprot /* OPTIONAL OUT*/, bool image)
+{
+    return app_memory_protection_change_internal(dcontext, true /*update*/, base, size,
+                                                 prot, new_memprot, old_memprot, image);
 }
 
 #ifdef WINDOWS
@@ -8120,7 +8201,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
               { print_vm_area(&data->areas, local_area, THREAD, new_area_prefix); });
         DOLOG(5, LOG_VMAREAS, { print_vm_areas(&data->areas, THREAD); });
         DOCHECK(CHKLVL_ASSERTS, {
-            LOG(THREAD, 1, LOG_VMAREAS,
+            LOG(THREAD, LOG_VMAREAS, 1,
                 "checking thread vmareas against executable_areas\n");
             exec_area_bounds_match(dcontext, data);
         });
@@ -8163,15 +8244,58 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         DOLOG(7, LOG_VMAREAS, { print_fraglists(dcontext); });
     }
 
+    result = true;
     *flags |= frag_flags;
     if (stop != NULL) {
         *stop = area->end;
         ASSERT(*stop != NULL);
+#ifdef LINUX
+        if (!vmvector_empty(d_r_rseq_areas)) {
+            /* XXX i#3798: While for core operation we do not need to end a block at
+             * an rseq endpoint, we need clients to treat the endpoint as a barrier and
+             * restore app state.  drreg today treats a block end as a barrier.  If
+             * drreg adds optimizations that cross blocks (such as in traces), we may
+             * need to add some other feature here: a fake app cti?  That affects
+             * clients measuring app behavior, though with rseq fidelity is already not
+             * 100%.  Similarly, we don't really need to not have a block span the start
+             * of an rseq region.  But, we need to save app values at the start, which
+             * is best done prior to drreg storing them elsewhere; plus, it makes it
+             * easier to turn on full_decode for simpler mangling.
+             */
+            bool entered_rseq = false;
+            app_pc rseq_start, next_boundary = NULL;
+            if (vmvector_lookup_data(d_r_rseq_areas, pc, &rseq_start, &next_boundary,
+                                     NULL)) {
+                if (rseq_start > tag)
+                    entered_rseq = true;
+            } else {
+                app_pc prev_end;
+                if (vmvector_lookup_prev_next(d_r_rseq_areas, pc, NULL, &prev_end,
+                                              &next_boundary, NULL)) {
+                    if (prev_end == pc)
+                        next_boundary = prev_end;
+                }
+            }
+            if (next_boundary != NULL && next_boundary < *stop) {
+                /* Ensure we check again before we hit a boundary. */
+                *stop = next_boundary;
+                if (xfer && (entered_rseq || pc == next_boundary)) {
+                    LOG(THREAD, LOG_VMAREAS | LOG_INTERP, 3,
+                        "Stopping bb at rseq boundary " PFX "\n", pc);
+                    result = false;
+                }
+            }
+        }
+#endif
+        LOG(THREAD, LOG_INTERP | LOG_VMAREAS, 4,
+            "check_thread_vm_area: check_stop = " PFX "\n", *stop);
     }
-    result = true;
 
     /* we are building a real bb, assert consistency checks */
-    DOCHECK(1, {
+    /* XXX i#1979: These memqueries are surprisingly slow on Mac64.
+     * Investigation is needed.
+     */
+    DOCHECK(IF_MACOS64_ELSE(3, 1), {
         uint prot2;
         ok = get_memory_info(pc, NULL, NULL, &prot2);
         ASSERT(!ok || !TEST(MEMPROT_WRITE, prot2) ||

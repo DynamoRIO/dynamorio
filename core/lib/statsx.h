@@ -1227,7 +1227,8 @@ STATS_DEF("Doubled-up nudges", num_pending_nudges)
 STATS_DEF("Clean Call analyzed", cleancall_analyzed)
 STATS_DEF("Clean Call inserted", cleancall_inserted)
 STATS_DEF("Clean Call inlined", cleancall_inlined)
-STATS_DEF("Clean Call xmm skipped", cleancall_simd_skipped)
+STATS_DEF("Clean Call [xyz]mm skipped", cleancall_simd_skipped)
+STATS_DEF("Clean Call mask skipped", cleancall_opmask_skipped)
 STATS_DEF("Clean Call aflags save skipped", cleancall_aflags_save_skipped)
 STATS_DEF("Clean Call aflags clear skipped", cleancall_aflags_clear_skipped)
 /* i#107 handle application using same segment register */
@@ -1236,4 +1237,9 @@ STATS_DEF("App access FS/GS seg being mangled", app_mov_seg_mangled)
 #ifdef ARM
 STATS_DEF("Reg spills for non-mbr mangling", non_mbr_spills)
 STATS_DEF("Reg respill for non-mbr mangling avoided", non_mbr_respill_avoided)
+#endif
+#ifdef LINUX
+RSTATS_DEF("Rseq regions identified", num_rseq_regions)
+RSTATS_DEF("Rseq instrumented stores elided", num_rseq_stores_elided)
+RSTATS_DEF("Rseq native calls inserted", num_rseq_native_calls_inserted)
 #endif

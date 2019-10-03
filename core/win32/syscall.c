@@ -2202,7 +2202,8 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
         size_t size;
         if (d_r_safe_read(pbase, sizeof(base), &base) &&
             d_r_safe_read(psize, sizeof(size), &size) && base != NULL &&
-            !app_memory_pre_alloc(dcontext, base, size, osprot_to_memprot(prot), false)) {
+            !app_memory_pre_alloc(dcontext, base, size, osprot_to_memprot(prot),
+                                  false /*!hint*/, true /*update*/, false /*!image*/)) {
             SET_RETURN_VAL(dcontext, STATUS_CONFLICTING_ADDRESSES);
             return false; /* do not execute system call */
         }
@@ -2454,8 +2455,9 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
                            DUMP_NOT_XML);
         });
 #endif
-        res = app_memory_protection_change(dcontext, base, size, osprot_to_memprot(prot),
-                                           &subset_memprot, &old_memprot);
+        res =
+            app_memory_protection_change(dcontext, base, size, osprot_to_memprot(prot),
+                                         &subset_memprot, &old_memprot, false /*!image*/);
         if (res != DO_APP_MEM_PROT_CHANGE) {
             /* from experimentation it seems to return
              * STATUS_CONFLICTING_ADDRESSES

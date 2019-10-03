@@ -34,6 +34,15 @@
 #include "client_tools.h"
 #include <string.h>
 
+#ifdef CLIENT_COMPILED_WITH_AVX512
+/* This just double-checks the implicit __AVX512__ flag if the client was compiled
+ * with AVX-512.
+ */
+#    ifndef __AVX512F__
+#        error "Compiler provided __AVX512F__ define not set"
+#    endif
+#endif
+
 #define CHECK(x, msg)                                                                \
     do {                                                                             \
         if (!(x)) {                                                                  \
@@ -43,7 +52,7 @@
     } while (0);
 
 /* This library assumes a single-threaded test. */
-static bool before_seen;
+static bool seen_before;
 
 static dr_emit_flags_t
 bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
@@ -59,16 +68,23 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                 val1 != 0 && /* rule out xor w/ self */
                 opnd_is_reg(instr_get_dst(instr, 0)) &&
                 opnd_get_reg(instr_get_dst(instr, 0)) == REG_XAX) {
-                if (before_seen) {
+                if (seen_before) {
                     CHECK(dr_mcontext_zmm_fields_valid(),
                           "Error: dr_mcontext_zmm_fields_valid() should return true.");
                     dr_fprintf(STDERR, "After\n");
                 } else {
+                    /* The *-initial version of this test runs the client compiled with
+                     * AVX-512. Even in this case, the initial value of
+                     * dr_mcontext_zmm_fields_valid() is expected to be false. The only
+                     * time it should be true before application AVX-512 code has actually
+                     * been seen is the "attach" case. This is tested by
+                     * api.startstop_avx512lazy.
+                     */
                     CHECK(!dr_mcontext_zmm_fields_valid(),
                           "Error: dr_mcontext_zmm_fields_valid() should return false.");
                     dr_fprintf(STDERR, "Before\n");
                 }
-                before_seen = true;
+                seen_before = true;
             } else
                 prev_was_mov_const = true;
         } else

@@ -57,6 +57,14 @@ droption_t<std::string> op_outdir(
     "For the offline analysis mode (when -offline is requested), specifies the path "
     "to a directory where per-thread trace files will be written.");
 
+droption_t<std::string> op_subdir_prefix(
+    DROPTION_SCOPE_ALL, "subdir_prefix", "drmemtrace",
+    "Prefix for output subdir for offline traces",
+    "For the offline analysis mode (when -offline is requested), specifies the prefix "
+    "for the name of the sub-directory where per-thread trace files will be written. "
+    "The sub-directory is created inside -outdir and has the form "
+    "'prefix.app-name.pid.id.dir'.");
+
 droption_t<std::string> op_indir(
     DROPTION_SCOPE_ALL, "indir", "", "Input directory of offline trace files",
     "After a trace file is produced via -offline into -outdir, it can be passed to the "
@@ -159,6 +167,10 @@ droption_t<bytesize_t> op_L0D_size(
     "Specifies the size of the 'zero-level' data cache for -L0_filter.  "
     "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
     "which disables data entries from appearing in the trace.");
+
+droption_t<bool> op_coherence(
+    DROPTION_SCOPE_FRONTEND, "coherence", false, "Model coherence for private caches",
+    "Writes to cache lines will invalidate other private caches that hold that line.");
 
 droption_t<bool> op_use_physical(
     DROPTION_SCOPE_CLIENT, "use_physical", false, "Use physical addresses if possible",

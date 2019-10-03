@@ -306,13 +306,13 @@ if (WIN32)
   install_exported_target(ntdll_imports ${INSTALL_LIB_BASE})
 endif (WIN32)
 
+_DR_get_static_libc_list(static_libc_list)
 if (WIN32)
   if (DEBUG)
     set(WIN32_C_LIB libcmtd)
   else (DEBUG)
     set(WIN32_C_LIB libcmt)
   endif (DEBUG)
-
   set(NOLIBC_DLL_ENTRY /entry:DllMain)
 endif ()
 
@@ -344,6 +344,7 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/native_elf.c)
     # XXX i#1286: should be split into nudge_linux.c and nudge_macos.c
     set(OS_SRCS ${OS_SRCS} unix/nudgesig.c)
+    set(OS_SRCS ${OS_SRCS} unix/rseq_linux.c)
   elseif (APPLE)
     set(OS_SRCS ${OS_SRCS} unix/loader_macos.c)
     set(OS_SRCS ${OS_SRCS} unix/memquery_macos.c)
@@ -950,7 +951,8 @@ else (UNIX)
     "${LD_FLAGS} /dll /incremental:no /base:0x14000000 /NODEFAULTLIB ${NOLIBC_DLL_ENTRY}")
   set_target_properties(${PRELOAD_NAME} PROPERTIES LINK_FLAGS "${pre_link_flags}")
   # case 4125: we link with msvcrt.lib for vc8 /O2's use of _alldvrm
-  target_link_libraries(${PRELOAD_NAME} ntdll_imports kernel32 msvcrt dynamorio)
+  target_link_libraries(${PRELOAD_NAME} ${static_libc_list} ntdll_imports
+    kernel32 dynamorio)
 endif (UNIX)
 
 ###########################################################################
@@ -1014,8 +1016,8 @@ if (WIN32)
   # ok w/ libc syms so we re-order and take the static syms first.
   set_target_properties(drinjectlib PROPERTIES LINK_FLAGS "${drinjectlib_link_flags}")
   # I'm adding libcmt to attempt to make sure we have multithreaded C lib:
-  target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB}.lib ntdll_imports
-    kernel32 advapi32 imagehlp)
+  target_link_libraries(drinjectlib drdecode ${static_libc_list}
+    ntdll_imports kernel32 advapi32 imagehlp)
   # drinject.exe needs a copy in the bin dir (i#1737 would eliminate this)
   add_custom_command(TARGET drinjectlib POST_BUILD COMMAND ${CMAKE_COMMAND}
     ARGS -E copy "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/drinjectlib.dll"
@@ -1110,7 +1112,7 @@ if (BUILD_TESTS)
     set_preferred_base_start_and_end(unit_tests ${preferred_base} ON)
   else (UNIX)
     # Just like drinjectlib (see above) we need libc before ntdll
-    target_link_libraries(unit_tests ${WIN32_C_LIB} ntdll_imports)
+    target_link_libraries(unit_tests ${static_libc_list} ntdll_imports)
     set_target_properties(unit_tests PROPERTIES
       LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
   endif (UNIX)

@@ -121,7 +121,7 @@ START_FILE
 /* Pushes a priv_mcontext_t on the stack, with an xsp value equal to the
  * xsp before the pushing.  Clobbers xax!
  * Does fill in xmm0-5, if necessary, for PR 264138.
- * Assumes that DR has been initialized (get_xmm_vals() checks proc feature bits).
+ * Assumes that DR has been initialized (get_simd_vals() checks proc feature bits).
  * Caller should ensure 16-byte stack alignment prior to the push (PR 306421).
  */
 #define PUSH_PRIV_MCXT(pc)                              \
@@ -130,7 +130,7 @@ START_FILE
         PUSHF                                          @N@\
         PUSHGPR                                        @N@\
         lea      REG_XAX, [REG_XSP]                    @N@\
-        CALLC1(GLOBAL_REF(get_xmm_vals), REG_XAX)      @N@\
+        CALLC1(GLOBAL_REF(get_simd_vals), REG_XAX)      @N@\
         lea      REG_XAX, [PRIV_MCXT_SIZE + REG_XSP]   @N@\
         mov      [PUSHGPR_XSP_OFFS + REG_XSP], REG_XAX
 
@@ -148,7 +148,7 @@ START_FILE
 DECL_EXTERN(unexpected_return)
 
 DECL_EXTERN(get_own_context_integer_control)
-DECL_EXTERN(get_xmm_vals)
+DECL_EXTERN(get_simd_vals)
 DECL_EXTERN(auto_setup)
 DECL_EXTERN(return_from_native)
 DECL_EXTERN(native_module_callout)
@@ -1214,7 +1214,11 @@ GLOBAL_LABEL(xfer_to_new_libdr:)
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
 #ifdef X64
+# ifdef MACOS
+        mov      eax, HEX(20000b8)
+# else
         mov      eax, HEX(f)
+# endif
         mov      r10, rcx
         syscall
 #else
@@ -1434,11 +1438,23 @@ GLOBAL_LABEL(master_signal_handler:)
 #ifdef X64
 # ifdef LINUX
         mov      ARG4, REG_XSP /* pass as extra arg */
-# else
-        mov      ARG6, REG_XSP /* pass as extra arg */
-# endif
         jmp      GLOBAL_REF(master_signal_handler_C)
         /* master_signal_handler_C will do the ret */
+# else /* MACOS */
+        mov      rax, REG_XSP /* save for extra arg */
+        push     ARG2 /* infostyle */
+        push     ARG5 /* ucxt */
+        push     ARG6 /* token */
+        /* rsp is now aligned again */
+        mov      ARG6, rax /* pass as extra arg */
+        CALLC0(GLOBAL_REF(master_signal_handler_C))
+        /* Set up args to SYS_sigreturn */
+        pop      ARG3 /* token */
+        pop      ARG1 /* ucxt */
+        pop      ARG2 /* infostyle */
+        CALLC0(GLOBAL_REF(dynamorio_sigreturn))
+        jmp      GLOBAL_REF(unexpected_return)
+# endif
 #else
         /* We need to pass in xsp.  The easiest way is to create an
          * intermediate frame.
@@ -2372,10 +2388,7 @@ GLOBAL_LABEL(get_zmm_caller_saved:)
 /* void get_opmask_caller_saved(byte *opmask_caller_saved_buf)
  *   stores the values of k0 through k7 consecutively in 8 byte slots each into
  *   opmask_caller_saved_buf. opmask_caller_saved_buf need not be 8-byte aligned.
- *   The caller must ensure that the underlying processor supports AVX-512!
- *   XXX i#1312: Eventually this routine must dynamically switch the instructions
- *   used dependent on whether AVX512BW is enabled or not (2 bytes vs. 8 bytes
- *   OpMask registers).
+ *   The caller must ensure that the underlying processor supports AVX-512.
  */
         DECLARE_FUNC(get_opmask_caller_saved)
 GLOBAL_LABEL(get_opmask_caller_saved:)

@@ -385,6 +385,13 @@ enum {
     DR_REG_K5,
     DR_REG_K6,
     DR_REG_K7,
+    /* 8 enums are reserved for future Intel SIMD mask extensions. */
+    RESERVED_OPMASK = DR_REG_K7 + 8,
+    /* Bounds registers for MPX. */
+    DR_REG_BND0,
+    DR_REG_BND1,
+    DR_REG_BND2,
+    DR_REG_BND3,
 
 /****************************************************************************/
 #elif defined(AARCHXX)
@@ -942,6 +949,8 @@ extern const reg_id_t dr_reg_fixer[];
 #    define DR_REG_STOP_ZMM DR_REG_ZMM31  /**< End of zmm register enum values */
 #    define DR_REG_START_OPMASK DR_REG_K0 /**< Start of opmask register enum values */
 #    define DR_REG_STOP_OPMASK DR_REG_K7  /**< End of opmask register enum values */
+#    define DR_REG_START_BND DR_REG_BND0  /**< Start of bounds register enum values */
+#    define DR_REG_STOP_BND DR_REG_BND3   /**< End of bounds register enum values */
 #    define DR_REG_START_FLOAT \
         DR_REG_ST0 /**< Start of floating-point-register enum values*/
 #    define DR_REG_STOP_FLOAT \
@@ -957,8 +966,8 @@ extern const reg_id_t dr_reg_fixer[];
  * than this value.
  */
 #    define DR_REG_LAST_VALID_ENUM DR_REG_K7
-#    define DR_REG_LAST_ENUM DR_REG_K7 /**< Last value of register enums */
-#endif                                 /* X86 */
+#    define DR_REG_LAST_ENUM DR_REG_BND3 /**< Last value of register enums */
+#endif                                   /* X86 */
 /* DR_API EXPORT END */
 
 #ifdef X86
@@ -1583,6 +1592,9 @@ DR_API
  * On ARM, a negative value for \p disp will be converted into a positive
  * value with #DR_OPND_NEGATED set in opnd_get_flags().
  * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ * Also use this function to create VSIB operands, passing a SIMD register as
+ * the index register.
  */
 opnd_t
 opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
@@ -2507,6 +2519,14 @@ reg_is_opmask(reg_id_t reg);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to an x86 MPX bounds register.
+ */
+bool
+reg_is_bnd(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to an mmx (64-bit) register.
  */
 bool
@@ -2767,7 +2787,11 @@ DR_API
  * for an mmx register as stored in the physical register.
  * Up to sizeof(dr_zmm_t) bytes will be written to \p val.
  *
+ * This routine also supports reading AVX-512 mask registers. In this
+ * case, sizeof(dr_opmask_t) bytes will be written to \p val.
+ *
  * This routine does not support floating-point registers.
+ *
  *
  * \note \p mc->flags must include the appropriate flag for the
  * requested register.
@@ -2875,6 +2899,9 @@ opnd_create_tls_slot(int offs);
 opnd_t
 opnd_create_sized_tls_slot(int offs, opnd_size_t size);
 #endif /* !STANDALONE_DECODER */
+
+/* stack slot width */
+#define XSP_SZ (sizeof(reg_t))
 
 /* This should be kept in sync w/ the defines in x86/x86.asm */
 enum {

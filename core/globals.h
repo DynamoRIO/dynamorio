@@ -270,6 +270,7 @@ typedef struct _module_data_t module_data_t;
 #    define DR_NOTE_FIRST_RESERVED 0xfffffff0UL
 #endif
 #define DR_NOTE_ANNOTATION (DR_NOTE_FIRST_RESERVED + 1)
+#define DR_NOTE_RSEQ (DR_NOTE_FIRST_RESERVED + 2)
 
 /**
  * Structure written by dr_get_time() to specify the current time.
@@ -751,7 +752,7 @@ typedef struct {
     /* WARNING: if you change the offsets of any of these fields,
      * you must also change the offsets in <arch>/<arch.s>
      */
-    priv_mcontext_t mcontext; /* real machine context (in arch_exports.h) */
+    priv_mcontext_t mcontext; /* real machine context (in globals_shared.h + mcxtx.h) */
 #ifdef UNIX
     int dr_errno; /* errno used for DR (no longer used for app) */
 #endif
@@ -1103,6 +1104,10 @@ struct _dcontext_t {
     bool currently_stopped;
     /* This is a flag requesting that this thread go native. */
     bool go_native;
+#ifdef LINUX
+    /* State for handling restartable sequences ("rseq"). */
+    rseq_entry_state_t rseq_entry_state;
+#endif
 };
 
 /* sentinel value for dcontext_t* used to indicate

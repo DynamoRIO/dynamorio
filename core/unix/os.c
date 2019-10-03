@@ -198,6 +198,10 @@ char **our_environ;
 #    include "instrument.h"
 #endif
 
+#ifdef LINUX
+#    include "rseq_linux.h"
+#endif
+
 #ifdef MACOS
 #    define SYSNUM_EXIT_PROCESS SYS_exit
 #    define SYSNUM_EXIT_THREAD SYS_bsdthread_terminate
@@ -267,12 +271,6 @@ handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
 static void
 handle_app_brk(dcontext_t *dcontext, byte *lowest_brk /*if known*/, byte *old_brk,
                byte *new_brk);
-static void
-restartable_region_init(void);
-static bool
-handle_restartable_region_syscall_pre(dcontext_t *dcontext);
-static void
-handle_restartable_region_syscall_post(dcontext_t *dcontext, bool success);
 #endif
 
 /* full path to our own library, used for execve */
@@ -337,23 +335,15 @@ static byte *app_brk_end;
 #endif
 
 #ifdef MACOS
-/* xref i#1404: we should expose these via the dr_get_os_version() API */
 static int macos_version;
-#    define MACOS_VERSION_HIGH_SIERRA 17
-#    define MACOS_VERSION_SIERRA 16
-#    define MACOS_VERSION_EL_CAPITAN 15
-#    define MACOS_VERSION_YOSEMITE 14
-#    define MACOS_VERSION_MAVERICKS 13
-#    define MACOS_VERSION_MOUNTAIN_LION 12
-#    define MACOS_VERSION_LION 11
 #endif
 
 static bool
 is_readable_without_exception_internal(const byte *pc, size_t size, bool query_os);
 
-static void
-process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-             uint flags _IF_DEBUG(const char *map_type));
+static bool
+mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 inode,
+                              bool at_map);
 
 #ifdef LINUX
 static char *
@@ -791,6 +781,12 @@ sysctl_query(int level0, int level1, void *buf, size_t bufsz)
     res = dynamorio_syscall(SYS___sysctl, 6, &name, 2, buf, &len, NULL, 0);
     return (res >= 0);
 }
+
+int
+os_get_version(void)
+{
+    return macos_version;
+}
 #endif
 
 static void
@@ -922,6 +918,13 @@ d_r_os_init(void)
      * (i#1931).
      */
     init_android_version();
+#endif
+#ifdef LINUX
+    if (!standalone_library)
+        d_r_rseq_init();
+#endif
+#ifdef MACOS64
+    tls_process_init();
 #endif
 }
 
@@ -1265,6 +1268,13 @@ find_stack_bottom()
 void
 os_slow_exit(void)
 {
+#ifdef MACOS64
+    tls_process_exit();
+#endif
+#ifdef LINUX
+    if (!standalone_library)
+        d_r_rseq_exit();
+#endif
     d_r_signal_exit();
     memquery_exit();
     ksynch_exit();
@@ -1299,9 +1309,9 @@ block_cleanup_and_terminate(dcontext_t *dcontext, int sysnum, ptr_uint_t sys_arg
      * to reply to (i#2921).
      */
     if (sysnum == SYS_kill)
-        block_all_signals_except(NULL, 2, dcontext->sys_param0, SUSPEND_SIGNAL);
+        block_all_noncrash_signals_except(NULL, 2, dcontext->sys_param0, SUSPEND_SIGNAL);
     else
-        block_all_signals_except(NULL, 1, SUSPEND_SIGNAL);
+        block_all_noncrash_signals_except(NULL, 1, SUSPEND_SIGNAL);
     cleanup_and_terminate(dcontext, sysnum, sys_arg1, sys_arg2, exitproc, sys_arg3,
                           sys_arg4);
 }
@@ -1389,6 +1399,10 @@ os_timeout(int time_in_milliseconds)
  * glibc comments on THREAD_SELF.
  */
 #ifdef MACOS64
+/* For now we have both a directly-addressable os_local_state_t and a pointer to
+ * it in slot 6.  If we settle on always doing the full os_local_state_t in slots,
+ * we would probably get rid of the indirection here and directly access slot fields.
+ */
 #    define WRITE_TLS_SLOT_IMM(imm, var)                                             \
         IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                                       \
         ASSERT(sizeof(var) == sizeof(void *));                                       \
@@ -1526,6 +1540,11 @@ static bool
 is_thread_tls_initialized(void)
 {
 #ifdef MACOS64
+    /* For now we have both a directly-addressable os_local_state_t and a pointer to
+     * it in slot 6.  If we settle on always doing the full os_local_state_t in slots,
+     * we would probably get rid of the indirection here and directly read the magic
+     * field from its slot.
+     */
     byte **tls_swap_slot;
     tls_swap_slot = (byte **)get_app_tls_swap_slot_addr();
     if (tls_swap_slot == NULL || *tls_swap_slot == NULL ||
@@ -1660,7 +1679,7 @@ os_tls_offset(ushort tls_offs)
     /* no ushort truncation issues b/c TLS_LOCAL_STATE_OFFSET is 0 */
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
     ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
-    return (TLS_LOCAL_STATE_OFFSET + tls_offs);
+    return (TLS_LOCAL_STATE_OFFSET + tls_offs IF_MACOS64(+tls_get_dr_offs()));
 }
 
 /* converts a segment offset to a local_state_t offset */
@@ -1670,7 +1689,7 @@ os_local_state_offset(ushort seg_offs)
     /* no ushort truncation issues b/c TLS_LOCAL_STATE_OFFSET is 0 */
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
     ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
-    return (seg_offs - TLS_LOCAL_STATE_OFFSET);
+    return (seg_offs - TLS_LOCAL_STATE_OFFSET IF_MACOS64(-tls_get_dr_offs()));
 }
 
 /* XXX: Will return NULL if called before os_thread_init(), which sets
@@ -1821,7 +1840,8 @@ byte *
 get_segment_base(uint seg)
 {
 #ifdef MACOS64
-    return (byte *)read_thread_register(seg);
+    ptr_uint_t *pthread_self = (ptr_uint_t *)read_thread_register(seg);
+    return (byte *)&pthread_self[SEG_TLS_BASE_OFFSET];
 #elif defined(X86)
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
@@ -1846,7 +1866,8 @@ get_app_segment_base(uint seg)
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
 #endif /* X86 */
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false) &&
+        first_thread_tls_initialized && !last_thread_tls_exited) {
         return d_r_get_tls(os_get_app_tls_base_offset(seg));
     }
     return get_segment_base(seg);
@@ -2021,7 +2042,14 @@ os_tls_init(void)
      * FIXME PR 205276: this whole scheme currently does not check if app is using
      * segments need to watch modify_ldt syscall
      */
+#    ifdef MACOS64
+    /* Today we're allocating enough contiguous TLS slots to hold os_local_state_t.
+     * We also store a pointer to it in TLS slot 6.
+     */
+    byte *segment = tls_get_dr_addr();
+#    else
     byte *segment = heap_mmap(PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
+#    endif
     os_local_state_t *os_tls = (os_local_state_t *)segment;
 
     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread " TIDFMT "\n",
@@ -2137,9 +2165,6 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     static const ptr_uint_t zero = 0;
 #    endif /* X86 */
     /* We can't read from fs: as we can be called from other threads */
-    /* ASSUMPTION: local_state_t is laid out at same start as local_state_extended_t */
-    os_local_state_t *os_tls =
-        (os_local_state_t *)(((byte *)local_state) - offsetof(os_local_state_t, state));
 #    if defined(X86) && !defined(MACOS64)
     /* If the MSR is in use, writing to the reg faults.  We rely on it being 0
      * to indicate that.
@@ -2157,8 +2182,13 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     if (!other_thread)
         os_tls_thread_exit(local_state);
 
+#    ifndef MACOS64
     /* We can't free prior to tls_thread_free() in case that routine refs os_tls */
+    /* ASSUMPTION: local_state_t is laid out at same start as local_state_extended_t */
+    os_local_state_t *os_tls =
+        (os_local_state_t *)(((byte *)local_state) - offsetof(os_local_state_t, state));
     heap_munmap(os_tls->self, PAGE_SIZE, VMM_SPECIAL_MMAP);
+#    endif
 #else
     global_heap_free(tls_table, MAX_THREADS * sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
     DELETE_LOCK(tls_lock);
@@ -4908,6 +4938,8 @@ ignorable_system_call_normalized(int num)
     case SYS_pselect6:
     case SYS_ppoll:
     case SYS_epoll_pwait:
+    /* Used as a lazy trigger. */
+    case SYS_rseq:
 #endif
         return false;
 #ifdef LINUX
@@ -5495,7 +5527,7 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app
             break;
         case ENV_PROP_OPTIONS:
             ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_OPTIONS) == 0);
-            val = option_string;
+            val = d_r_option_string;
             break;
         case ENV_PROP_EXECVE_LOGDIR:
             /* we use PROCESS_DIR for DYNAMORIO_VAR_EXECVE_LOGDIR */
@@ -6503,7 +6535,9 @@ pre_system_call(dcontext_t *dcontext)
             /* Check for overlap with existing code or patch-proof regions */
             if (addr != NULL &&
                 !app_memory_pre_alloc(dcontext, addr, len, osprot_to_memprot(prot),
-                                      !TEST(MAP_FIXED, arg->flags))) {
+                                      !TEST(MAP_FIXED, arg->flags),
+                                      false /*we'll update in post*/,
+                                      false /*unknown*/)) {
                 /* Rather than failing or skipping the syscall we'd like to just
                  * remove the hint -- but we don't want to write to app memory, so
                  * we do fail.  We could set up our own mmap_arg_struct_t but
@@ -6535,9 +6569,15 @@ pre_system_call(dcontext_t *dcontext)
             " flags=" PIFX " offset=" PIFX " fd=%d\n",
             addr, len, prot, flags, sys_param(dcontext, 5), sys_param(dcontext, 4));
         /* Check for overlap with existing code or patch-proof regions */
+        /* Try to see whether it's an image, though we can't tell for addr==NULL
+         * (typical for 1st mmap).
+         */
+        bool image = addr != NULL && !TEST(MAP_ANONYMOUS, flags) &&
+            mmap_check_for_module_overlap(addr, len, TEST(PROT_READ, prot), 0, true);
         if (addr != NULL &&
             !app_memory_pre_alloc(dcontext, addr, len, osprot_to_memprot(prot),
-                                  !TEST(MAP_FIXED, flags))) {
+                                  !TEST(MAP_FIXED, flags), false /*we'll update in post*/,
+                                  image /*best estimate*/)) {
             if (!TEST(MAP_FIXED, flags)) {
                 /* Rather than failing or skipping the syscall we just remove
                  * the hint which should eliminate any overlap.
@@ -6691,7 +6731,7 @@ pre_system_call(dcontext_t *dcontext)
             /* mprotect won't change meta flags */
             (old_memprot & MEMPROT_META_FLAGS);
         res = app_memory_protection_change(dcontext, addr, len, new_memprot, &new_memprot,
-                                           NULL);
+                                           NULL, false /*!image*/);
         if (res != DO_APP_MEM_PROT_CHANGE) {
             if (res == FAIL_APP_MEM_PROT_CHANGE) {
                 ASSERT_NOT_IMPLEMENTED(false); /* return code? */
@@ -7543,10 +7583,22 @@ pre_system_call(dcontext_t *dcontext)
 #    endif
 #endif
 
-    default: {
 #ifdef LINUX
-        execute_syscall = handle_restartable_region_syscall_pre(dcontext);
+    case SYS_rseq:
+        LOG(THREAD, LOG_VMAREAS | LOG_SYSCALLS, 2, "syscall: rseq " PFX " %d %d %d\n",
+            sys_param(dcontext, 0), sys_param(dcontext, 1), sys_param(dcontext, 2),
+            sys_param(dcontext, 3));
+        if (DYNAMO_OPTION(disable_rseq)) {
+            set_failure_return_val(dcontext, ENOSYS);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            execute_syscall = false;
+        } else {
+            dcontext->sys_param0 = sys_param(dcontext, 0);
+        }
+        break;
 #endif
+
+    default: {
 #ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(dcontext->sys_num)) {
             execute_syscall = vmkuw_pre_system_call(dcontext);
@@ -7873,13 +7925,8 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
         }
     }
 
-    IF_NO_MEMQUERY(memcache_handle_mmap(dcontext, base, size, memprot, image));
-
-    /* app_memory_allocation() expects to not see an overlap -- exec areas
-     * doesn't expect one.  We have yet to see a +x mmap into a previously
-     * mapped +x region, but we do check and handle in pre-syscall (i#1175).
-     */
     LOG(THREAD, LOG_SYSCALLS, 4, "\t try app_mem_alloc\n");
+    IF_NO_MEMQUERY(memcache_handle_mmap(dcontext, base, size, memprot, image));
     if (app_memory_allocation(dcontext, base, size, memprot, image _IF_DEBUG(map_type)))
         STATS_INC(num_app_code_modules);
     LOG(THREAD, LOG_SYSCALLS, 4, "\t app_mem_alloc -- DONE\n");
@@ -8210,7 +8257,8 @@ post_system_call(dcontext_t *dcontext)
                 uint new_memprot;
                 DEBUG_DECLARE(uint res =)
                 app_memory_protection_change(dcontext, base, size,
-                                             osprot_to_memprot(prot), &new_memprot, NULL);
+                                             osprot_to_memprot(prot), &new_memprot, NULL,
+                                             false /*!image*/);
                 ASSERT_NOT_IMPLEMENTED(res != SUBSET_APP_MEM_PROT_CHANGE);
                 ASSERT(res == DO_APP_MEM_PROT_CHANGE ||
                        res == PRETEND_APP_MEM_PROT_CHANGE);
@@ -8570,12 +8618,17 @@ post_system_call(dcontext_t *dcontext)
             }
         }
         break;
+
+    case SYS_rseq:
+        /* Lazy rseq handling. */
+        if (success) {
+            rseq_process_syscall(dcontext);
+            rseq_locate_rseq_regions();
+        }
+        break;
 #endif
 
     default:
-#ifdef LINUX
-        handle_restartable_region_syscall_post(dcontext, success);
-#endif
 #ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(sysnum)) {
             vmkuw_post_system_call(dcontext);
@@ -9118,6 +9171,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                 iter->vm_start, iter->vm_start + image_size, iter->inode, iter->comment);
 
             if (add_modules) {
+                const char *modpath = iter->comment;
                 /* look for executable */
 #    ifdef LINUX
                 exec_match = get_application_name();
@@ -9125,8 +9179,17 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                     found_exec = (strcmp(iter->comment, exec_match) == 0);
                 /* Handle an anon region for the header (i#2566) */
                 if (!found_exec && executable_start != NULL &&
-                    executable_start == iter->vm_start)
+                    executable_start == iter->vm_start) {
                     found_exec = true;
+                    /* The maps file's first entry may not have the path, in the
+                     * presence of mremapping for hugepages (i#2566; i#3387) (this
+                     * could happen for libraries too, but we don't have alternatives
+                     * there).  Or, it may have an incorrect path.  Prefer the path
+                     * we recorded in early injection or obtained from
+                     * /proc/self/exe.
+                     */
+                    modpath = get_application_name();
+                }
 #    else
                 /* We don't have a nice normalized name: it can have ./ or ../ inside
                  * it.  But, we can distinguish an exe from a lib here, even for PIE,
@@ -9156,8 +9219,8 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                 /* We don't yet know whether contiguous so we have to settle for the
                  * first segment's size.  We'll update it in module_list_add().
                  */
-                module_list_add(iter->vm_start, mod_first_end - mod_base, false,
-                                iter->comment, iter->inode);
+                module_list_add(iter->vm_start, mod_first_end - mod_base, false, modpath,
+                                iter->inode);
 
 #    ifdef MACOS
                 /* look for dyld */
@@ -9894,6 +9957,12 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     CLIENT_ASSERT(thread_takeover_records == NULL,
                   "Only one thread should attempt app take over!");
 
+#ifdef LINUX
+    /* Check this thread for rseq in between setup and start. */
+    if (rseq_is_registered_for_current_thread())
+        rseq_locate_rseq_regions();
+#endif
+
     /* Find tids for which we have no thread record, meaning they are not under
      * our control.  Shift them to the beginning of the tids array.
      */
@@ -10091,6 +10160,15 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
             "%s: next_tag=" PFX ", cur xsp=" PFX ", mc->xsp=" PFX "\n", __FUNCTION__,
             dcontext->next_tag, cur_esp, mc->xsp);
     });
+#ifdef LINUX
+    /* See whether we should initiate lazy rseq handling, and avoid treating
+     * regions as rseq when the rseq syscall is never set up.
+     */
+    if (rseq_is_registered_for_current_thread()) {
+        rseq_locate_rseq_regions();
+        rseq_thread_attach(dcontext);
+    }
+#endif
 
     /* Start interpreting from the signal context. */
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
@@ -10431,133 +10509,6 @@ __divdi3(int64 dividend, int64 divisor)
  * We link with __aeabi routines from libgcc via third_party/libgcc.
  */
 #endif /* X86_32 */
-
-/****************************************************************************
- * Kernel-restartable sequences
- */
-
-#ifdef LINUX
-/* Support for Linux kernel extensions for per-cpu critical regions.
- * Xref https://lwn.net/Articles/649288/
- * Some of this may vary on different kernels.
- * The way it works is that the app tells the kernel the bounds of a
- * code region within which a context switch should restart the code.
- *
- * As these sequences are complex to handle (it would be much simpler
- * if they used existing mechanisms like signals!), we start out by
- * running their code natively.  We assume it is "well-behaved" and
- * we'll get control back.  These code sequences will be invisible to
- * tools: we'll live with the lack of instrumentation for now as a
- * tradeoff for getting correct app execution.
- *
- * Unfortunately we can't easily have a regression test in the main
- * repository as mainstream kernels do not have this feature.
- */
-
-/* We support a syscall of this form, with number DYNAMO_OPTION(rseq_sysnum):
- *   SYSCALL_DEFINE4(rseq, int, op, long, val1, long, val2, long, val3)
- */
-/* Set operation: app_pc start, app_pc end, app_pc restart */
-#    define RSEQ_SET_CRITICAL 1
-/* Get operation: app_pc *start, app_pc *end, app_pc *restart */
-#    define RSEQ_GET_CRITICAL 3
-
-static app_pc app_restart_region_start;
-static app_pc app_restart_region_end;
-
-static void
-restartable_region_init(void)
-{
-    int res;
-    app_pc restart_handler;
-    if (DYNAMO_OPTION(rseq_sysnum) == 0)
-        return;
-    res = dynamorio_syscall(DYNAMO_OPTION(rseq_sysnum), 4, RSEQ_GET_CRITICAL,
-                            &app_restart_region_start, &app_restart_region_end,
-                            &restart_handler);
-    if (res != 0) {
-        ASSERT(res == -ENOSYS);
-        LOG(GLOBAL, LOG_TOP, 1, "No restartable region at init\n");
-        app_restart_region_start = NULL;
-        app_restart_region_end = NULL;
-    } else {
-        LOG(GLOBAL, LOG_TOP, 1, "Restartable region at init: " PFX "-" PFX " @" PFX "\n",
-            app_restart_region_start, app_restart_region_end, restart_handler);
-        if (app_restart_region_start != NULL &&
-            app_restart_region_end > app_restart_region_start) {
-            vmvector_add(native_exec_areas, app_restart_region_start,
-                         app_restart_region_end, NULL);
-        }
-    }
-}
-
-static bool
-handle_restartable_region_syscall_pre(dcontext_t *dcontext)
-{
-    if (DYNAMO_OPTION(rseq_sysnum) == 0 ||
-        dcontext->sys_num != DYNAMO_OPTION(rseq_sysnum))
-        return true;
-    /* We do the work in post */
-    dcontext->sys_param0 = sys_param(dcontext, 0);
-    dcontext->sys_param1 = sys_param(dcontext, 1);
-    dcontext->sys_param2 = sys_param(dcontext, 2);
-    return true;
-}
-
-/* Though there is a race, it is hard to imagine the app executing correctly
- * without first checking the return value of the syscall.  Thus we handle
- * rseq in post and avoid having to emulate the kernel's argument checking.
- */
-static void
-handle_restartable_region_syscall_post(dcontext_t *dcontext, bool success)
-{
-    int op;
-    if (DYNAMO_OPTION(rseq_sysnum) == 0 ||
-        dcontext->sys_num != DYNAMO_OPTION(rseq_sysnum) || !success)
-        return;
-    op = (int)dcontext->sys_param0;
-    if (op == RSEQ_SET_CRITICAL) {
-        app_pc start = (app_pc)dcontext->sys_param1;
-        app_pc end = (app_pc)dcontext->sys_param2;
-        LOG(THREAD, LOG_VMAREAS | LOG_SYSCALLS, 2,
-            "syscall: set rseq region to " PFX "-" PFX "\n", start, end);
-        /* An unlink flush should be good enough: we simply don't support
-         * suddenly setting an rseq region for some fallthrough code after the
-         * syscall.
-         */
-        if (app_restart_region_start != NULL &&
-            app_restart_region_end > app_restart_region_start) {
-            vmvector_remove(native_exec_areas, app_restart_region_start,
-                            app_restart_region_end);
-            /* Flush existing code so it no longer goes native. */
-            flush_fragments_from_region(dcontext, app_restart_region_start,
-                                        app_restart_region_end - app_restart_region_start,
-                                        false /*don't force synchall*/);
-        }
-        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-        app_restart_region_start = start;
-        app_restart_region_end = end;
-        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-        if (app_restart_region_start != NULL &&
-            app_restart_region_end > app_restart_region_start) {
-            vmvector_add(native_exec_areas, app_restart_region_start,
-                         app_restart_region_end, NULL);
-            /* We have to flush any existing code in the region. */
-            flush_fragments_from_region(dcontext, app_restart_region_start,
-                                        app_restart_region_end - app_restart_region_start,
-                                        false /*don't force synchall*/);
-        }
-    }
-}
-#endif /* LINUX */
-
-void
-native_exec_os_init(void)
-{
-#ifdef LINUX
-    restartable_region_init();
-#endif
-}
 
 /****************************************************************************
  * Tests

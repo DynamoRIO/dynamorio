@@ -743,6 +743,12 @@ reg_is_opmask(reg_id_t reg)
 }
 
 bool
+reg_is_bnd(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_strictly_zmm(reg_id_t reg)
 {
     return false;
@@ -876,4 +882,20 @@ instr_is_exclusive_store(instr_t *instr)
     int opcode = instr_get_opcode(instr);
     return (opcode == OP_strex || opcode == OP_strexb || opcode == OP_strexd ||
             opcode == OP_strexh);
+}
+
+DR_API
+bool
+instr_is_scatter(instr_t *instr)
+{
+    /* XXX i#3837: no scatter-store on ARM? */
+    return false;
+}
+
+DR_API
+bool
+instr_is_gather(instr_t *instr)
+{
+    /* XXX i#3837: no gather-load on ARM? */
+    return false;
 }

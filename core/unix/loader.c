@@ -569,7 +569,10 @@ privload_process_imports(privmod_t *mod)
                 if (impmod == NULL)
                     return false;
 #    ifdef CLIENT_INTERFACE
-                /* i#852: identify all libs that import from DR as client libs */
+                /* i#852: identify all libs that import from DR as client libs.
+                 * XXX: this code seems stale as libdynamorio.so is already loaded
+                 * (xref #3850).
+                 */
                 if (impmod->base == get_dynamorio_dll_start())
                     mod->is_client = true;
 #    endif
@@ -712,6 +715,7 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
     os_privmod_data_t *opd;
     ELF_DYNAMIC_ENTRY_TYPE *dyn;
     ASSERT(mod != NULL && "can't look for rpath without a dependent module");
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     /* get the loading module's dir for RPATH_ORIGIN */
     opd = (os_privmod_data_t *)mod->os_privmod_data;
     /* i#460: if DT_RUNPATH exists we must ignore ignore DT_RPATH and
@@ -725,6 +729,7 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
     ASSERT(opd != NULL);
     dyn = (ELF_DYNAMIC_ENTRY_TYPE *)opd->dyn;
     strtab = (char *)opd->os_data.dynstr;
+    bool lib_found = false;
     /* support $ORIGIN expansion to lib's current directory */
     while (dyn->d_tag != DT_NULL) {
         if (dyn->d_tag == (runpath ? DT_RUNPATH : DT_RPATH)) {
@@ -741,28 +746,66 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                     len = sep - list;
                 /* support $ORIGIN expansion to lib's current directory */
                 origin = strstr(list, RPATH_ORIGIN);
+                char path[MAXIMUM_PATH];
                 if (origin != NULL && origin < list + len) {
                     size_t pre_len = origin - list;
-                    snprintf(filename, MAXIMUM_PATH, "%.*s%.*s%.*s/%s", pre_len, list,
-                             moddir_len, mod->path,
+                    snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%.*s%.*s%.*s", pre_len,
+                             list, moddir_len, mod->path,
                              /* the '/' should already be here */
                              len - strlen(RPATH_ORIGIN) - pre_len,
-                             origin + strlen(RPATH_ORIGIN), name);
+                             origin + strlen(RPATH_ORIGIN));
+                    NULL_TERMINATE_BUFFER(path);
                 } else {
-                    snprintf(filename, MAXIMUM_PATH, "%.*s/%s", len, list, name);
+                    snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%.*s", len, list);
+                    NULL_TERMINATE_BUFFER(path);
                 }
-                filename[MAXIMUM_PATH - 1] = 0;
-                LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__,
-                    filename);
-                if (os_file_exists(filename, false /*!is_dir*/) &&
-                    module_file_has_module_header(filename)) {
-                    return true;
+#    ifdef CLIENT_INTERFACE
+                if (mod->is_client) {
+                    /* We are adding a client's lib rpath to the general search path. This
+                     * is not bullet proof compliant with what the loader should really
+                     * do. The real problem is that the loader is walking library
+                     * dependencies depth-first, while it should really search
+                     * breadth-first (xref i#3850). This can lead to libraries being
+                     * unlocatable, if the original client library had the proper rpath of
+                     * the library, but a dependency later in the chain did not. In order
+                     * to avoid this, we consider adding the rpath here relatively safe.
+                     * It only affects dependent libraries of the same name in different
+                     * locations. We are only doing this for client libraries, so we are
+                     * not at risk to search for the wrong system libraries.
+                     */
+                    if (!privload_search_path_exists(path, strlen(path))) {
+                        snprintf(search_paths[search_paths_idx],
+                                 BUFFER_SIZE_ELEMENTS(search_paths[search_paths_idx]),
+                                 "%.*s", strlen(path), path);
+                        NULL_TERMINATE_BUFFER(search_paths[search_paths_idx]);
+                        LOG(GLOBAL, LOG_LOADER, 1, "%s: added search dir \"%s\"\n",
+                            __FUNCTION__, search_paths[search_paths_idx]);
+                        search_paths_idx++;
+                    }
                 }
-                list += len + 1;
+#    endif
+                if (!lib_found) {
+                    snprintf(filename, MAXIMUM_PATH, "%s/%s", path, name);
+                    filename[MAXIMUM_PATH - 1] = 0;
+                    LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__,
+                        filename);
+                    if (os_file_exists(filename, false /*!is_dir*/) &&
+                        module_file_has_module_header(filename)) {
+#    ifdef CLIENT_INTERFACE
+                        lib_found = true;
+#    else
+                        return true;
+#    endif
+                    }
+                }
+                list += len;
+                if (sep != NULL)
+                    list += 1;
             }
         }
         ++dyn;
     }
+    return lib_found;
 #else
     /* XXX i#1285: implement MacOS private loader */
 #endif
@@ -1629,6 +1672,8 @@ dynamorio_lib_gap_empty(void)
         while (memquery_iterator_next(&iter) && iter.vm_start < dr_end) {
             if (iter.vm_start >= dr_start && iter.vm_end <= dr_end &&
                 iter.comment[0] != '\0' &&
+                /* i#3799: ignore the kernel labeling DR's .bss as "[heap]". */
+                strcmp(iter.comment, "[heap]") != 0 &&
                 strcmp(iter.comment, dynamorio_library_path) != 0) {
                 /* There's a non-anon mapping inside: probably vvar and/or vdso. */
                 res = false;
@@ -1877,6 +1922,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     /* i#1227: on a conflict with the app (+ room for the brk): reload ourselves */
     if (get_dynamorio_dll_start() < exe_end + APP_BRK_GAP &&
         get_dynamorio_dll_end() > exe_map) {
+        elf_loader_destroy(&exe_ld);
         reload_dynamorio(sp, exe_map, exe_end + APP_BRK_GAP);
         ASSERT_NOT_REACHED();
     }
@@ -1887,6 +1933,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
      * very often.
      */
     if (!dynamorio_lib_gap_empty()) {
+        elf_loader_destroy(&exe_ld);
         reload_dynamorio(sp, get_dynamorio_dll_start(), get_dynamorio_dll_end());
         ASSERT_NOT_REACHED();
     }

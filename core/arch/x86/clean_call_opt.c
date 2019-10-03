@@ -63,11 +63,13 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     int i, num_regparm;
 
     ci->num_simd_used = 0;
+    ci->num_opmask_used = 0;
     /* Part of the array might be left uninitialized if
      * proc_num_simd_registers() < MCXT_NUM_SIMD_SLOTS.
      */
     memset(ci->simd_used, 0, sizeof(bool) * proc_num_simd_registers());
-    memset(ci->reg_used, 0, sizeof(bool) * NUM_GP_REGS);
+    memset(ci->opmask_used, 0, sizeof(bool) * MCXT_NUM_OPMASK_SLOTS);
+    memset(ci->reg_used, 0, sizeof(bool) * DR_NUM_GPR_REGS);
     ci->write_flags = false;
     for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
         /* XXX: this is not efficient as instr_uses_reg will iterate over
@@ -78,7 +80,10 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
          */
         /* XMM registers usage */
         for (i = 0; i < proc_num_simd_registers(); i++) {
-            if (!ci->simd_used[i] && instr_uses_reg(instr, (DR_REG_XMM0 + (reg_id_t)i))) {
+            if (!ci->simd_used[i] &&
+                (instr_uses_reg(instr, (DR_REG_START_XMM + (reg_id_t)i)) ||
+                 instr_uses_reg(instr, (DR_REG_START_YMM + (reg_id_t)i)) ||
+                 instr_uses_reg(instr, (DR_REG_START_ZMM + (reg_id_t)i)))) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: callee " PFX " uses XMM%d at " PFX "\n", ci->start, i,
                     instr_get_app_pc(instr));
@@ -86,8 +91,18 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
                 ci->num_simd_used++;
             }
         }
+        for (i = 0; i < proc_num_opmask_registers(); i++) {
+            if (!ci->opmask_used[i] &&
+                instr_uses_reg(instr, (DR_REG_START_OPMASK + (reg_id_t)i))) {
+                LOG(THREAD, LOG_CLEANCALL, 2,
+                    "CLEANCALL: callee " PFX " uses k%d at " PFX "\n", ci->start, i,
+                    instr_get_app_pc(instr));
+                ci->opmask_used[i] = true;
+                ci->num_opmask_used++;
+            }
+        }
         /* General purpose registers */
-        for (i = 0; i < NUM_GP_REGS; i++) {
+        for (i = 0; i < DR_NUM_GPR_REGS; i++) {
             reg_id_t reg = DR_REG_XAX + (reg_id_t)i;
             if (!ci->reg_used[i] &&
                 /* Later we'll rewrite stack accesses to not use XSP or XBP. */
@@ -113,32 +128,38 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 
     /* check if callee read aflags from caller */
     /* set it false for the case of empty callee. */
-    ci->read_flags = false;
-    for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
-        uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
-        if (TESTANY(EFLAGS_READ_6, flags)) {
-            ci->read_flags = true;
-            break;
-        }
-        if (TESTALL(EFLAGS_WRITE_6, flags))
-            break;
-        if (instr_is_return(instr))
-            break;
-        if (instr_is_cti(instr)) {
-            ci->read_flags = true;
-            break;
-        }
-    }
-    if (ci->read_flags) {
+    if (ZMM_ENABLED()) {
         LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: callee " PFX " reads aflags from caller\n", ci->start);
+            "CLEANCALL: AVX-512 enabled, forced to save aflags\n", ci->start);
+    } else {
+        ci->read_flags = false;
+        for (instr = instrlist_first(ilist); instr != NULL;
+             instr = instr_get_next(instr)) {
+            uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
+            if (TESTANY(EFLAGS_READ_6, flags)) {
+                ci->read_flags = true;
+                break;
+            }
+            if (TESTALL(EFLAGS_WRITE_6, flags))
+                break;
+            if (instr_is_return(instr))
+                break;
+            if (instr_is_cti(instr)) {
+                ci->read_flags = true;
+                break;
+            }
+        }
+        if (ci->read_flags) {
+            LOG(THREAD, LOG_CLEANCALL, 2,
+                "CLEANCALL: callee " PFX " reads aflags from caller\n", ci->start);
+        }
     }
 
     /* If we read or write aflags, we need to reserve a slot to save them.
      * We may or may not use the slot at the call site, but it needs to be
      * reserved just in case.
      */
-    if (ci->read_flags || ci->write_flags) {
+    if (ci->read_flags || ci->write_flags || ZMM_ENABLED()) {
         /* XXX: We can optimize away the flags spill to memory if the callee
          * does not use xax.
          */
@@ -567,7 +588,7 @@ analyze_clean_call_aflags(dcontext_t *dcontext, clean_call_info_t *cci, instr_t 
     /* If there's a flags read, we clear the flags.  If there's a write or read,
      * we save them, because a read creates a clear which is a write. */
     cci->skip_clear_flags = !ci->read_flags;
-    cci->skip_save_flags = !(ci->write_flags || ci->read_flags);
+    cci->skip_save_flags = !(ci->write_flags || ci->read_flags || ZMM_ENABLED());
     /* XXX: this is a more aggressive optimization by analyzing the ilist
      * to be instrumented. The client may change the ilist, which violate
      * the analysis result. For example,
@@ -599,7 +620,8 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
     int i;
 
     /* Don't spill anything if we don't have to. */
-    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags && !ci->has_locals) {
+    if (cci->num_regs_skip == DR_NUM_GPR_REGS && cci->skip_save_flags &&
+        !ci->has_locals) {
         return;
     }
 
@@ -609,7 +631,8 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
 
     /* Save used registers. */
     ASSERT(cci->num_simd_skip == proc_num_simd_registers());
-    for (i = 0; i < NUM_GP_REGS; i++) {
+    ASSERT(cci->num_opmask_skip == proc_num_opmask_registers());
+    for (i = 0; i < DR_NUM_GPR_REGS; i++) {
         if (!cci->reg_skip[i]) {
             reg_id_t reg_id = DR_REG_XAX + (reg_id_t)i;
             LOG(THREAD, LOG_CLEANCALL, 2,
@@ -645,7 +668,8 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
     callee_info_t *ci = cci->callee_info;
 
     /* Don't restore regs if we don't have to. */
-    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags && !ci->has_locals) {
+    if (cci->num_regs_skip == DR_NUM_GPR_REGS && cci->skip_save_flags &&
+        !ci->has_locals) {
         return;
     }
 
@@ -658,7 +682,7 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 
     /* Now restore all registers. */
-    for (i = NUM_GP_REGS - 1; i >= 0; i--) {
+    for (i = DR_NUM_GPR_REGS - 1; i >= 0; i--) {
         if (!cci->reg_skip[i]) {
             reg_id_t reg_id = DR_REG_XAX + (reg_id_t)i;
             LOG(THREAD, LOG_CLEANCALL, 2,

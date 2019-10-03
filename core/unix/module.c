@@ -39,6 +39,9 @@
 #include "../utils.h"
 #include "instrument.h"
 #include <stddef.h> /* offsetof */
+#ifdef LINUX
+#    include "rseq_linux.h"
+#endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
 #    undef LOG
@@ -51,13 +54,13 @@ extern vm_area_vector_t *loaded_module_areas;
 void
 os_modules_init(void)
 {
-    /* nothing */
+    /* Nothing. */
 }
 
 void
 os_modules_exit(void)
 {
-    /* nothing */
+    /* Nothing. */
 }
 
 /* view_size can be the size of the first mapping, to handle non-contiguous
@@ -195,6 +198,10 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
         ma->os_data.checksum = d_r_crc32((const char *)ma->start, PAGE_SIZE);
     }
     /* Timestamp we just leave as 0 */
+
+#    ifdef LINUX
+    rseq_module_init(ma, at_map);
+#    endif
 }
 
 void

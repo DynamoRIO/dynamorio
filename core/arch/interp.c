@@ -2833,15 +2833,6 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         if (!instr_opcode_valid(inst))
             continue;
 
-#    ifdef X86
-        if (!d_r_is_avx512_code_in_use()) {
-            if (ZMM_ENABLED()) {
-                if (instr_may_write_zmm_register(inst))
-                    d_r_set_avx512_code_in_use(true);
-            }
-        }
-#    endif
-
         if (instr_is_cti(inst) && inst != instrlist_last(bb->ilist)) {
             /* PR 213005: coarse_units can't handle added ctis (meta or not)
              * since decode_fragment(), used for state recreation, can't
@@ -2865,8 +2856,20 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 annotation_label = inst;
             }
 #    endif
+
             continue;
         }
+#    ifdef X86
+        if (!d_r_is_avx512_code_in_use()) {
+            if (ZMM_ENABLED()) {
+                if (instr_may_write_zmm_or_opmask_register(inst)) {
+                    LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
+                    d_r_set_avx512_code_in_use(true, NULL);
+                    proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
+                }
+            }
+        }
+#    endif
 
 #    ifdef ANNOTATIONS
         if (instrumentation_pc != NULL && !found_instrumentation_pc &&
@@ -3303,7 +3306,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
              /* to split riprel, need to decode every instr */
              /* in x86_to_x64, need to translate every x86 instr */
              IF_X64(|| DYNAMO_OPTION(coarse_split_riprel) || DYNAMO_OPTION(x86_to_x64))
-                 IF_CLIENT_INTERFACE(|| INTERNAL_OPTION(full_decode)))
+                 IF_CLIENT_INTERFACE(|| INTERNAL_OPTION(full_decode))
+         /* We separate rseq regions into their own blocks to make this check easier. */
+         IF_LINUX(||
+                  (!vmvector_empty(d_r_rseq_areas) &&
+                   vmvector_overlap(d_r_rseq_areas, bb->start_pc, bb->start_pc + 1))))
         bb->full_decode = true;
     else {
 #if defined(STEAL_REGISTER) || defined(CHECK_RETURNS_SSE2)
@@ -3500,12 +3507,14 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!d_r_is_avx512_code_in_use()) {
                 if (ZMM_ENABLED()) {
                     if (instr_get_prefix_flag(bb->instr, PREFIX_EVEX)) {
-                        /* For AVX-512 detection in bb builder, we're checking only for
-                         * the prefix flag, which for example can be set by decode_cti. In
-                         * client_process_bb, post-client instructions are checked with
-                         * instr_may_write_zmm_register.
+                        /* For AVX-512 detection in bb builder, we're checking only
+                         * for the prefix flag, which for example can be set by
+                         * decode_cti. In client_process_bb, post-client instructions
+                         * are checked with instr_may_write_zmm_register.
                          */
-                        d_r_set_avx512_code_in_use(true);
+                        LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
+                        d_r_set_avx512_code_in_use(true, instr_get_app_pc(bb->instr));
+                        proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
                     }
                 }
             }
@@ -3712,17 +3721,15 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             }
         }
 #else
-#    ifdef X86
+#    if defined(X86) && defined(LINUX)
         if (instr_get_prefix_flag(bb->instr,
                                   (SEG_TLS == SEG_GS) ? PREFIX_SEG_GS : PREFIX_SEG_FS)
             /* __errno_location is interpreted when global, though it's hidden in TOT */
             IF_UNIX(&&!is_in_dynamo_dll(bb->instr_start)) &&
             /* i#107 allows DR/APP using the same segment register. */
             !INTERNAL_OPTION(mangle_app_seg)) {
-            /* On linux we use a segment register and do not yet
-             * support the application using the same register!
-             */
-            CLIENT_ASSERT(false, "no support yet for application using non-NPTL segment");
+            CLIENT_ASSERT(false,
+                          "no support for app using DR's segment w/o -mangle_app_seg");
             ASSERT_BUG_NUM(205276, false);
         }
 #    endif /* X86 */
@@ -6570,7 +6577,6 @@ append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
 
     if (speculate_next_tag != NULL) {
         instr_t *next = instr_get_next(inst);
-        reg_id_t reg = IF_X86_ELSE(REG_ECX, DR_REG_R2);
         /* preinsert comparison before exit CTI, but increment goes after it */
 
         /* we need to compare to speculate_next_tag now - just like

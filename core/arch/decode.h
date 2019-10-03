@@ -123,8 +123,8 @@ typedef struct instr_info_t {
     opnd_size_t src2_size;
     byte src3_type;
     opnd_size_t src3_size;
-    uint flags;  /* encoding and extra operand flags in lower half,
-                  * AVX-512 tupletype attribute in upper half.
+    uint flags;  /* encoding and extra operand flags starting at lsb,
+                  * AVX-512 tupletype attribute starting at msb.
                   */
     uint eflags; /* combination of read & write flags from instr.h */
     /* For normal entries, this points to the next entry in the encoding chain
@@ -231,7 +231,7 @@ enum {
     OPSZ_108_short94,     /**< FPU state with variable data size (fnsave, frstor) */
     /** Varies by 32-bit versus 64-bit processor mode. */
     OPSZ_4x8,  /**< Full register size with no variation by prefix.
-                *   Used for control and debug register moves. */
+                *   Used for control and debug register moves and for Intel MPX. */
     OPSZ_6x10, /**< Intel 's': 6-byte (10-byte for 64-bit mode) table base + limit */
     /**
      * Stack operands not only vary by operand size specifications but also
@@ -329,6 +329,9 @@ enum {
     OPSZ_32_of_64,        /**< 256 bits: half of ZMM. */
     OPSZ_4_of_32_evex64,  /**< 32 bits: can be part of YMM or ZMM register. */
     OPSZ_8_of_32_evex64,  /**< 64 bits: can be part of YMM or ZMM register. */
+    OPSZ_8x16, /**< 8 or 16 bytes, but not based on rex prefix, instead dependent
+                * on 32-bit/64-bit mode.
+                */
 #ifdef AVOID_API_EXPORT
 /* Add new size here.  Also update size_names[] in decode_shared.c along with
  * the size routines in opnd_shared.c.
@@ -359,24 +362,26 @@ enum {
 #define OPSZ_call OPSZ_ret          /**< Operand size for push portion of call. */
 
 /* Convenience defines for specific opcodes */
-#define OPSZ_lea OPSZ_0              /**< Operand size for lea memory reference. */
-#define OPSZ_invlpg OPSZ_0           /**< Operand size for invlpg memory reference. */
-#define OPSZ_xlat OPSZ_1             /**< Operand size for xlat memory reference. */
-#define OPSZ_clflush OPSZ_1          /**< Operand size for clflush memory reference. */
-#define OPSZ_prefetch OPSZ_1         /**< Operand size for prefetch memory references. */
-#define OPSZ_lgdt OPSZ_6x10          /**< Operand size for lgdt memory reference. */
-#define OPSZ_sgdt OPSZ_6x10          /**< Operand size for sgdt memory reference. */
-#define OPSZ_lidt OPSZ_6x10          /**< Operand size for lidt memory reference. */
-#define OPSZ_sidt OPSZ_6x10          /**< Operand size for sidt memory reference. */
-#define OPSZ_bound OPSZ_8_short4     /**< Operand size for bound memory reference. */
-#define OPSZ_maskmovq OPSZ_8         /**< Operand size for maskmovq memory reference. */
-#define OPSZ_maskmovdqu OPSZ_16      /**< Operand size for maskmovdqu memory reference. */
+#define OPSZ_lea OPSZ_0          /**< Operand size for lea memory reference. */
+#define OPSZ_invlpg OPSZ_0       /**< Operand size for invlpg memory reference. */
+#define OPSZ_bnd OPSZ_0          /**< Operand size for bndldx, bndstx memory reference. */
+#define OPSZ_xlat OPSZ_1         /**< Operand size for xlat memory reference. */
+#define OPSZ_clflush OPSZ_1      /**< Operand size for clflush memory reference. */
+#define OPSZ_prefetch OPSZ_1     /**< Operand size for prefetch memory references. */
+#define OPSZ_lgdt OPSZ_6x10      /**< Operand size for lgdt memory reference. */
+#define OPSZ_sgdt OPSZ_6x10      /**< Operand size for sgdt memory reference. */
+#define OPSZ_lidt OPSZ_6x10      /**< Operand size for lidt memory reference. */
+#define OPSZ_sidt OPSZ_6x10      /**< Operand size for sidt memory reference. */
+#define OPSZ_bound OPSZ_8_short4 /**< Operand size for bound memory reference. */
+#define OPSZ_maskmovq OPSZ_8     /**< Operand size for maskmovq memory reference. */
+#define OPSZ_maskmovdqu OPSZ_16  /**< Operand size for maskmovdqu memory reference. */
 #define OPSZ_fldenv OPSZ_28_short14  /**< Operand size for fldenv memory reference. */
 #define OPSZ_fnstenv OPSZ_28_short14 /**< Operand size for fnstenv memory reference. */
 #define OPSZ_fnsave OPSZ_108_short94 /**< Operand size for fnsave memory reference. */
 #define OPSZ_frstor OPSZ_108_short94 /**< Operand size for frstor memory reference. */
 #define OPSZ_fxsave OPSZ_512         /**< Operand size for fxsave memory reference. */
 #define OPSZ_fxrstor OPSZ_512        /**< Operand size for fxrstor memory reference. */
+#define OPSZ_ptwrite OPSZ_4_rex8     /**< Operand size for ptwrite memory reference. */
 /* DR_API EXPORT END */
 
 enum {

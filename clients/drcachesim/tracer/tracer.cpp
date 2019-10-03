@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -93,6 +93,7 @@ DR_DISALLOW_UNSAFE_STATIC
     } while (0)
 
 static char logsubdir[MAXIMUM_PATH];
+static char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 static file_t module_file;
 
 /* Max number of entries a buffer can have. It should be big enough
@@ -1432,7 +1433,7 @@ init_thread_in_process(void *drcontext)
          */
         for (i = 0; i < NUM_OF_TRIES; i++) {
             drx_open_unique_appid_file(logsubdir, dr_get_thread_id(drcontext),
-                                       OUTFILE_PREFIX, OUTFILE_SUFFIX, DRX_FILE_SKIP_OPEN,
+                                       subdir_prefix, OUTFILE_SUFFIX, DRX_FILE_SKIP_OPEN,
                                        buf, BUFFER_SIZE_ELEMENTS(buf));
             NULL_TERMINATE_BUFFER(buf);
             data->file = file_ops_func.open_file(buf, flags);
@@ -1619,6 +1620,12 @@ init_offline_dir(void)
     int i;
     const int NUM_OF_TRIES = 10000;
     /* open unique dir */
+    /* We cannot use malloc mid-run (to support static client use).  We thus need
+     * to move all std::strings into plain buffers at init time.
+     */
+    dr_snprintf(subdir_prefix, BUFFER_SIZE_ELEMENTS(subdir_prefix), "%s",
+                op_subdir_prefix.get_value().c_str());
+    NULL_TERMINATE_BUFFER(subdir_prefix);
     /* We do not need to call drx_init before using drx_open_unique_appid_file. */
     for (i = 0; i < NUM_OF_TRIES; i++) {
         /* We use drx_open_unique_appid_file with DRX_FILE_SKIP_OPEN to get a
@@ -1626,7 +1633,7 @@ init_offline_dir(void)
          * exists.  Abort if we fail too many times.
          */
         drx_open_unique_appid_file(op_outdir.get_value().c_str(), dr_get_process_id(),
-                                   OUTFILE_PREFIX, "dir", DRX_FILE_SKIP_OPEN, buf,
+                                   subdir_prefix, "dir", DRX_FILE_SKIP_OPEN, buf,
                                    BUFFER_SIZE_ELEMENTS(buf));
         NULL_TERMINATE_BUFFER(buf);
         /* open the dir */
@@ -1724,23 +1731,23 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #endif
 
     if (op_offline.get_value()) {
-        void *buf;
+        void *placement;
         if (!init_offline_dir()) {
             FATAL("Failed to create a subdir in %s\n", op_outdir.get_value().c_str());
         }
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
-        buf = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (buf)
+        placement = dr_global_alloc(MAX_INSTRU_SIZE);
+        instru = new (placement)
             offline_instru_t(insert_load_buf_ptr, op_L0_filter.get_value(),
                              &scratch_reserve_vec, file_ops_func.write_file, module_file);
     } else {
-        void *buf;
+        void *placement;
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(online_instru_t));
-        buf = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (buf) online_instru_t(insert_load_buf_ptr, op_L0_filter.get_value(),
-                                           &scratch_reserve_vec);
+        placement = dr_global_alloc(MAX_INSTRU_SIZE);
+        instru = new (placement) online_instru_t(
+            insert_load_buf_ptr, op_L0_filter.get_value(), &scratch_reserve_vec);
         if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
             DR_ASSERT(false);
 #ifdef UNIX

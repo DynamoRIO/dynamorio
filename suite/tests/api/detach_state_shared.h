@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,38 @@
 #define MAKE_HEX(n) 0x##n
 #define MAKE_HEX_C(n) MAKE_HEX(n)
 
+#if defined(__AVX512F__)
+#    define SIMD_REG_SIZE 64
+#elif defined(__AVX__)
+#    define SIMD_REG_SIZE 32
+#else
+#    define SIMD_REG_SIZE 16
+#endif
+#ifdef X64
+#    define NUM_SIMD_SSE_AVX_REGS 16
+#    if defined(__AVX512F__)
+#        define NUM_SIMD_AVX512_REGS 32
+#        define NUM_SIMD_REGS NUM_SIMD_AVX512_REGS
+#        define NUM_OPMASK_REGS 8
+#        define OPMASK_REG_SIZE 2
+#    else
+#        define NUM_SIMD_REGS NUM_SIMD_SSE_AVX_REGS
+#        define NUM_OPMASK_REGS 0
+#        define OPMASK_REG_SIZE 0
+#    endif
+#else
+#    define NUM_SIMD_SSE_AVX_REGS 8
+#    if defined(__AVX512F__)
+#        define NUM_SIMD_AVX512_REGS 8
+#        define NUM_OPMASK_REGS 8
+#        define OPMASK_REG_SIZE 2
+#    else
+#        define NUM_OPMASK_REGS 0
+#        define OPMASK_REG_SIZE 0
+#    endif
+#    define NUM_SIMD_REGS 8
+#endif
+
 #ifdef X64
 #    define XAX_BASE() 12345678abcdef01
 #    define XCX_BASE() 2345678abcdef012
@@ -53,40 +85,17 @@
 #    define R13_BASE() bcdef1234567890a
 #    define R14_BASE() abcdef1234567890
 #    define R15_BASE() 0abcdef123456789
+/* ?MMN is formed via ?MM0 << N. */
 #    define XMM0_LOW_BASE() 2384626433832795
 #    define XMM0_HIGH_BASE() 3141592653589793
-#    define XMM1_LOW_BASE() 1384626433832795
-#    define XMM1_HIGH_BASE() 1141592653589793
-#    define XMM2_LOW_BASE() 2384626433832795
-#    define XMM2_HIGH_BASE() 2141592653589793
-#    define XMM3_LOW_BASE() 3384626433832795
-#    define XMM3_HIGH_BASE() 3141592653589793
-#    define XMM4_LOW_BASE() 4384626433832795
-#    define XMM4_HIGH_BASE() 4141592653589793
-#    define XMM5_LOW_BASE() 5384626433832795
-#    define XMM5_HIGH_BASE() 5141592653589793
-#    define XMM6_LOW_BASE() 6384626433832795
-#    define XMM6_HIGH_BASE() 6141592653589793
-#    define XMM7_LOW_BASE() 7384626433832795
-#    define XMM7_HIGH_BASE() 7141592653589793
-#    define XMM8_LOW_BASE() 8384626433832795
-#    define XMM8_HIGH_BASE() 8141592653589793
-#    define XMM9_LOW_BASE() 9384626433832795
-#    define XMM9_HIGH_BASE() 9141592653589793
-#    define XMM10_LOW_BASE() a384626433832795
-#    define XMM10_HIGH_BASE() a141592653589793
-#    define XMM11_LOW_BASE() b384626433832795
-#    define XMM11_HIGH_BASE() b141592653589793
-#    define XMM12_LOW_BASE() c384626433832795
-#    define XMM12_HIGH_BASE() c141592653589793
-#    define XMM13_LOW_BASE() d384626433832795
-#    define XMM13_HIGH_BASE() d141592653589793
-#    define XMM14_LOW_BASE() e384626433832795
-#    define XMM14_HIGH_BASE() e141592653589793
-#    define XMM15_LOW_BASE() f384626433832795
-#    define XMM15_HIGH_BASE() f141592653589793
+#    define YMMH0_LOW_BASE() 0011223344556677
+#    define YMMH0_HIGH_BASE() 1122334455667788
+#    define ZMMH0_0_BASE() 1112223334445556
+#    define ZMMH0_1_BASE() 66777888999aaabb
+#    define ZMMH0_2_BASE() bcccdddeeefff121
+#    define ZMMH0_3_BASE() 23434565678789a9
+#    define OPMASK0_BASE() abcbcdedef0f0424
 #else
-#    error NYI
 #    define XAX_BASE() 12345678
 #    define XCX_BASE() 23456780
 #    define XDX_BASE() 34567801
@@ -94,6 +103,9 @@
 #    define XBP_BASE() 56780123
 #    define XSI_BASE() 67801234
 #    define XDI_BASE() 78012345
+/* TODO i#3160: It will take work to finish porting the detach_state test
+ * to 32-bit.
+ */
 #endif
 #define XFLAGS_BASE() 00000ed7
 

@@ -197,6 +197,14 @@ enum {
 #    ifdef WINDOWS
     /* used to indicate that a syscall should be executed via shared syscall */
     INSTR_SHARED_SYSCALL = 0x01000000,
+#    else
+    /* Indicates an instruction that's part of the rseq endpoint.  We use this in
+     * instrlist_t.flags (sort of the same namespace: INSTR_OUR_MANGLING is used there,
+     * but also EDI_VAL_*) and as a version of DR_NOTE_RSEQ that survives encoding
+     * (seems like we could store notes for labels in another field so they do
+     * in fact survive: a union with instr_t.translation?).
+     */
+    INSTR_RSEQ_ENDPOINT = 0x01000000,
 #    endif
 
 #    ifdef CLIENT_INTERFACE
@@ -1412,6 +1420,20 @@ DR_API
 bool
 instr_is_exclusive_store(instr_t *instr);
 
+DR_API
+/**
+ * Returns true iff \p instr is a scatter-store instruction.
+ */
+bool
+instr_is_scatter(instr_t *instr);
+
+DR_API
+/**
+ * Returns true iff \p instr is a gather-load instruction.
+ */
+bool
+instr_is_gather(instr_t *instr);
+
 bool
 instr_predicate_reads_srcs(dr_pred_type_t pred);
 
@@ -2385,14 +2407,14 @@ bool
 instr_can_set_single_step(instr_t *instr);
 
 /* Returns true if \p instr is part of Intel's AVX-512 instructions that may write to a
- * zmm register. It approximates this by checking whether PREFIX_EVEX is set. If not set,
- * it is looking at whether the instruction's raw bytes are valid, and if they are,
- * whether the instruction is evex-encoded. The function assumes that the instruction's
- * isa mode is set correctly. If the instruction's raw bytes are not valid, it checks the
- * destinations of \p instr.
+ * zmm or opmask register. It approximates this by checking whether PREFIX_EVEX is set. If
+ * not set, it is looking at whether the instruction's raw bytes are valid, and if they
+ * are, whether the instruction is evex-encoded. The function assumes that the
+ * instruction's isa mode is set correctly. If the instruction's raw bytes are not valid,
+ * it checks the destinations of \p instr.
  */
 bool
-instr_may_write_zmm_register(instr_t *instr);
+instr_may_write_zmm_or_opmask_register(instr_t *instr);
 #endif
 
 DR_API

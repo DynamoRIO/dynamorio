@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -280,7 +280,6 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
 
     if (platform >= PLATFORM_WIN_8) {
         create_thread_info_t info = { 0 };
-        CLIENT_ID cid;
         TEB *teb;
         if (arg_buf != NULL) {
             SIZE_T written;

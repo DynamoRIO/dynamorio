@@ -847,7 +847,7 @@ module_get_section_with_name(app_pc image, size_t img_size, const char *sec_name
     sec_hdr = (ELF_SECTION_HEADER_TYPE *)(image + elf_hdr->e_shoff);
     ASSERT(sec_hdr[elf_hdr->e_shstrndx].sh_offset < img_size);
     strtab = (char *)(image + sec_hdr[elf_hdr->e_shstrndx].sh_offset);
-    /* walk the section table to check if a section name is ".text" */
+    /* walk the section table to check if a section name is sec_name */
     for (i = 0; i < elf_hdr->e_shnum; i++) {
         if (strcmp(sec_name, strtab + sec_hdr->sh_name) == 0)
             return sec_hdr->sh_addr;
@@ -1085,6 +1085,9 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
      */
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     mod = privload_first_module();
+    /* FIXME i#3850: Symbols are currently looked up following the dependency chain
+     * depth-first instead of breadth-first.
+     */
     while (mod != NULL) {
         pd = mod->os_privmod_data;
         ASSERT(pd != NULL && name != NULL);

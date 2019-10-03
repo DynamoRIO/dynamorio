@@ -177,6 +177,7 @@ main(int argc, char *argv[])
 
     buf = allocate_mem(7 * 256 + 1, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     assert(buf != NULL);
+    print("Start\n");
 
 #    ifndef X64
     print("Jumping to a sequence of every addr16 modrm byte\n");

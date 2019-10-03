@@ -49,6 +49,8 @@
 #include "cache_simulator.h"
 #include "droption.h"
 
+#include "snoop_filter.h"
+
 analysis_tool_t *
 cache_simulator_create(const cache_simulator_knobs_t &knobs)
 {
@@ -103,27 +105,38 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
 
     l1_icaches = new cache_t *[knobs.num_cores];
     l1_dcaches = new cache_t *[knobs.num_cores];
+    unsigned int total_snooped_caches = 2 * knobs.num_cores;
+    snooped_caches = new cache_t *[total_snooped_caches];
+    if (knobs.model_coherence) {
+        snoop_filter = new snoop_filter_t;
+    }
+
     for (unsigned int i = 0; i < knobs.num_cores; i++) {
         l1_icaches[i] = create_cache(knobs.replace_policy);
         if (l1_icaches[i] == NULL) {
             success = false;
             return;
         }
+        snooped_caches[2 * i] = l1_icaches[i];
         l1_dcaches[i] = create_cache(knobs.replace_policy);
         if (l1_dcaches[i] == NULL) {
             success = false;
             return;
         }
+        snooped_caches[(2 * i) + 1] = l1_dcaches[i];
 
-        if (!l1_icaches[i]->init(knobs.L1I_assoc, (int)knobs.line_size,
-                                 (int)knobs.L1I_size, llc,
-                                 new cache_stats_t("", warmup_enabled)) ||
-            !l1_dcaches[i]->init(knobs.L1D_assoc, (int)knobs.line_size,
-                                 (int)knobs.L1D_size, llc,
-                                 new cache_stats_t("", warmup_enabled),
-                                 knobs.data_prefetcher == PREFETCH_POLICY_NEXTLINE
-                                     ? new prefetcher_t((int)knobs.line_size)
-                                     : nullptr)) {
+        if (!l1_icaches[i]->init(
+                knobs.L1I_assoc, (int)knobs.line_size, (int)knobs.L1I_size, llc,
+                new cache_stats_t("", warmup_enabled, knobs.model_coherence),
+                nullptr /*prefetcher*/, false /*inclusive*/, knobs.model_coherence, 2 * i,
+                snoop_filter) ||
+            !l1_dcaches[i]->init(
+                knobs.L1D_assoc, (int)knobs.line_size, (int)knobs.L1D_size, llc,
+                new cache_stats_t("", warmup_enabled, knobs.model_coherence),
+                knobs.data_prefetcher == PREFETCH_POLICY_NEXTLINE
+                    ? new prefetcher_t((int)knobs.line_size)
+                    : nullptr,
+                false /*inclusive*/, knobs.model_coherence, (2 * i) + 1, snoop_filter)) {
             error_string = "Usage error: failed to initialize L1 caches.  Ensure sizes "
                            "and associativity are powers of 2 "
                            "and that the total sizes are multiples of the line size.";
@@ -136,12 +149,21 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
         cache_name = "L1_D_Cache_" + std::to_string(i);
         all_caches[cache_name] = l1_dcaches[i];
     }
+
+    if (knobs.model_coherence &&
+        !snoop_filter->init(snooped_caches, total_snooped_caches)) {
+        ERRMSG("Usage error: failed to initialize snoop filter.\n");
+        success = false;
+        return;
+    }
 }
 
 cache_simulator_t::cache_simulator_t(const std::string &config_file)
     : simulator_t()
     , l1_icaches(NULL)
     , l1_dcaches(NULL)
+    , snooped_caches(NULL)
+    , snoop_filter(NULL)
     , is_warmed_up(false)
 {
     std::map<std::string, cache_params_t> cache_params;
@@ -169,9 +191,9 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
     l1_dcaches = new cache_t *[knobs.num_cores];
 
     // Create all the caches in the hierarchy.
-    for (auto &cache_params_it : cache_params) {
+    for (const auto &cache_params_it : cache_params) {
         std::string cache_name = cache_params_it.first;
-        auto &cache_config = cache_params_it.second;
+        const auto &cache_config = cache_params_it.second;
 
         cache_t *cache = create_cache(cache_config.replace_policy);
         if (cache == NULL) {
@@ -182,9 +204,49 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
         all_caches[cache_name] = cache;
     }
 
+    int num_LL = 0;
+    unsigned int total_snooped_caches = 0;
+    std::string lowest_shared_cache = "";
+    if (knobs.model_coherence) {
+        snoop_filter = new snoop_filter_t;
+        std::string LL_name;
+        /* This block determines where in the cache hierarchy to place the snoop filter.
+         * If there is more than one LLC, the snoop filter is above those.
+         */
+        for (const auto &cache_it : all_caches) {
+            std::string cache_name = cache_it.first;
+            const auto &cache_config = cache_params.find(cache_name)->second;
+            if (cache_config.parent == CACHE_PARENT_MEMORY) {
+                num_LL++;
+                LL_name = cache_config.name;
+            }
+        }
+        if (num_LL == 1) {
+            /* There is one LLC, so we find highest cache with
+             * multiple children to place the snoop filter.
+             * Fully shared caches are marked as non-coherent.
+             */
+            cache_params_t current_cache = cache_params.find(LL_name)->second;
+            non_coherent_caches[LL_name] = all_caches[LL_name];
+            while (current_cache.children.size() == 1) {
+                std::string child_name = current_cache.children[0];
+                non_coherent_caches[child_name] = all_caches[child_name];
+                current_cache = cache_params.find(child_name)->second;
+            }
+            if (current_cache.children.size() > 0) {
+                lowest_shared_cache = current_cache.name;
+                total_snooped_caches = (unsigned int)current_cache.children.size();
+            }
+        } else {
+            total_snooped_caches = num_LL;
+        }
+        snooped_caches = new cache_t *[total_snooped_caches];
+    }
+
     // Initialize all the caches in the hierarchy and identify both
     // the L1 caches and LLC(s).
-    for (auto &cache_it : all_caches) {
+    int snoop_id = 0;
+    for (const auto &cache_it : all_caches) {
         std::string cache_name = cache_it.first;
         cache_t *cache = cache_it.second;
 
@@ -213,29 +275,46 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
         // Locate the cache's children.
         std::vector<caching_device_t *> children;
         children.clear();
-        if (cache_config.inclusive) {
-            for (std::string &child_name : cache_config.children) {
-                const auto &child_it = all_caches.find(child_name);
-                if (child_it == all_caches.end()) {
-                    error_string =
-                        "Error locating the configuration of the cache: " + child_name;
-                    success = false;
-                    return;
-                }
-                children.push_back(child_it->second);
+        for (std::string &child_name : cache_config.children) {
+            const auto &child_it = all_caches.find(child_name);
+            if (child_it == all_caches.end()) {
+                error_string =
+                    "Error locating the configuration of the cache: " + child_name;
+                success = false;
+                return;
             }
+            children.push_back(child_it->second);
         }
 
-        if (!cache->init((int)cache_config.assoc, (int)knobs.line_size,
-                         (int)cache_config.size, parent,
-                         new cache_stats_t(cache_config.miss_file, warmup_enabled),
-                         cache_config.prefetcher == PREFETCH_POLICY_NEXTLINE
-                             ? new prefetcher_t((int)knobs.line_size)
-                             : nullptr,
-                         cache_config.inclusive, children)) {
+        // Determine if this cache should be connected to the snoop filter.
+        bool LL_snooped = num_LL > 1 && cache_config.parent == CACHE_PARENT_MEMORY;
+        bool mid_snooped = total_snooped_caches > 1 &&
+            cache_config.parent.compare(lowest_shared_cache) == 0;
+
+        bool is_snooped = knobs.model_coherence && (LL_snooped || mid_snooped);
+
+        // If cache is below a snoop filter, it should be marked as coherent.
+        bool is_coherent = knobs.model_coherence &&
+            (non_coherent_caches.find(cache_name) == non_coherent_caches.end());
+
+        if (!cache->init(
+                (int)cache_config.assoc, (int)knobs.line_size, (int)cache_config.size,
+                parent,
+                new cache_stats_t(cache_config.miss_file, warmup_enabled, is_coherent),
+                cache_config.prefetcher == PREFETCH_POLICY_NEXTLINE
+                    ? new prefetcher_t((int)knobs.line_size)
+                    : nullptr,
+                cache_config.inclusive, is_coherent, is_snooped ? snoop_id : -1,
+                is_snooped ? snoop_filter : nullptr, children)) {
             error_string = "Usage error: failed to initialize the cache " + cache_name;
             success = false;
             return;
+        }
+
+        // Next snooped cache should have a different ID.
+        if (is_snooped) {
+            snooped_caches[snoop_id] = cache;
+            snoop_id++;
         }
 
         bool is_l1_or_llc = false;
@@ -264,6 +343,11 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
             other_caches[cache_name] = cache;
         }
     }
+    if (knobs.model_coherence && !snoop_filter->init(snooped_caches, snoop_id)) {
+        ERRMSG("Usage error: failed to initialize snoop filter.\n");
+        success = false;
+        return;
+    }
 }
 
 cache_simulator_t::~cache_simulator_t()
@@ -280,6 +364,12 @@ cache_simulator_t::~cache_simulator_t()
     }
     if (l1_dcaches != NULL) {
         delete[] l1_dcaches;
+    }
+    if (snooped_caches != NULL) {
+        delete[] snooped_caches;
+    }
+    if (snoop_filter != NULL) {
+        delete snoop_filter;
     }
 }
 
@@ -470,6 +560,10 @@ cache_simulator_t::print_results()
     for (auto &caches_it : llcaches) {
         std::cerr << caches_it.first << " stats:" << std::endl;
         caches_it.second->get_stats()->print_stats("    ");
+    }
+
+    if (knobs.model_coherence) {
+        snoop_filter->print_stats();
     }
 
     return true;

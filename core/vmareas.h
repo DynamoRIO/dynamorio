@@ -195,14 +195,14 @@ bool
 vmvector_lookup_data(vm_area_vector_t *v, app_pc pc, app_pc *start, app_pc *end,
                      void **data);
 
-/* Returns false if pc is in a vmarea in v.
- * Otherwise, returns the start pc of the vmarea prior to pc in prev (NULL
- * if none) and the start pc of the vmarea after pc in next (POINTER_MAX
- * if none).
+/* Returns false if pc is in a vmarea in v.  Otherwise, returns the bounds of the
+ * vmarea prior to pc in [prev_start,prev_end) (both NULL if none) and the bounds of
+ * the vmarea after pc in [next_start,next_end) (both POINTER_MAX if none).
  */
 bool
-vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev,
-                          OUT app_pc *next);
+vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev_start,
+                          OUT app_pc *prev_end, OUT app_pc *next_start,
+                          OUT app_pc *next_end);
 
 bool
 vmvector_modify_data(vm_area_vector_t *v, app_pc start, app_pc end, void *data);
@@ -624,13 +624,14 @@ enum {
 };
 
 bool
-app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, bool hint);
+app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, bool hint,
+                     bool update_areas, bool image);
 
 uint
 app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                              uint prot,         /* platform independent MEMPROT_ */
                              uint *new_memprot, /* OUT */
-                             uint *old_memprot /* OPTIONAL OUT*/);
+                             uint *old_memprot /* OPTIONAL OUT*/, bool image);
 
 #ifdef WINDOWS
 /* memory region base:base+size was flushed from hardware icache by app */

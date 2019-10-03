@@ -185,3 +185,9 @@ OPCODE(xbegin, xbegin, xbegin, 0, TGTARG)
 /* LWP */
 OPCODE(llwpcb, llwpcb, llwpcb, 0, REGARG(EAX))
 OPCODE(slwpcb, slwpcb, slwpcb, 0, REGARG(EAX))
+
+/****************************************************************************/
+/* PT */
+OPCODE(ptwrite_r32, ptwrite, ptwrite, X86_ONLY, REGARG(EAX))
+OPCODE(ptwrite_r64, ptwrite, ptwrite, X64_ONLY, REGARG(RAX))
+OPCODE(ptwrite_mem, ptwrite, ptwrite, 0, MEMARG(OPSZ_ptwrite))

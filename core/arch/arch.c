@@ -86,7 +86,8 @@ static bool sysenter_hook_failed = false;
 #endif
 
 #ifdef X86
-bool d_r_avx512_code_in_use = false;
+bool *d_r_avx512_code_in_use = NULL;
+bool d_r_client_avx512_code_in_use = false;
 #endif
 
 /* static functions forward references */
@@ -676,6 +677,10 @@ d_r_arch_init(void)
     ASSERT(DR_REG_YMM16 == DR_REG_YMM15 + 1);
     ASSERT(DR_REG_ZMM16 == DR_REG_ZMM15 + 1);
 #endif
+    /* We rely on the dr_opmask_t register type to be able to store AVX512BW wide 64-bit
+     * masks. Also priv_mcontext_t.opmask slots are AVX512BW wide.
+     */
+    IF_X86(ASSERT(sizeof(dr_opmask_t) == OPMASK_AVX512BW_REG_SIZE));
 
     /* Verify that the structures used for a register spill area and to hold IBT
      * table addresses & masks for IBL code are laid out as expected. We expect
@@ -717,6 +722,15 @@ d_r_arch_init(void)
                IF_CLIENT_INTERFACE_ELSE(5 * sizeof(reg_t), 0));
 
     interp_init();
+
+#ifdef X86
+    /* We're allocating a reachable heap variable in order to be able to use a more
+     * compact rip-rel load in SIMD restore/save gencode.
+     */
+    d_r_avx512_code_in_use = heap_reachable_alloc(
+        GLOBAL_DCONTEXT, sizeof(*d_r_avx512_code_in_use) HEAPACCT(ACCT_OTHER));
+    *d_r_avx512_code_in_use = false;
+#endif
 
 #ifdef CHECK_RETURNS_SSE2
     if (proc_has_feature(FEATURE_SSE2)) {
@@ -899,6 +913,12 @@ void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
                     VMM_SPECIAL_MMAP | VMM_REACHABLE);
     }
 #endif
+
+#ifdef X86
+    heap_reachable_free(GLOBAL_DCONTEXT, d_r_avx512_code_in_use,
+                        sizeof(*d_r_avx512_code_in_use) HEAPACCT(ACCT_OTHER));
+#endif
+
     interp_exit();
     mangle_exit();
 
@@ -3351,37 +3371,91 @@ copy_mcontext(priv_mcontext_t *src, priv_mcontext_t *dst)
 bool
 dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
 {
-    /* we assume fields from xdi onward are identical.
-     * if we append to dr_mcontext_t in the future we'll need
-     * to check src->size here.
-     */
-    if (src->size != sizeof(dr_mcontext_t))
+    /* We assume fields from xdi onward are identical. */
+    if (src->size > sizeof(dr_mcontext_t))
         return false;
-    if (TESTALL(DR_MC_ALL, src->flags))
+    if (TESTALL(DR_MC_ALL, src->flags) && src->size == sizeof(dr_mcontext_t)) {
         *dst = *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(src));
-    else {
+    } else {
         if (TEST(DR_MC_INTEGER, src->flags)) {
             /* xsp is in the middle of the mcxt, so we save dst->xsp here and
              * restore it later so we can use one memcpy for DR_MC_INTEGER.
              */
             reg_t save_xsp = dst->xsp;
-            memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
-                   /* end of the mcxt integer gpr */
-                   offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
+            if (src->size >= offsetof(dr_mcontext_t, IF_X86_ELSE(xflags, pc))) {
+                memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
+                       /* end of the mcxt integer gpr */
+                       offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
+            } else
+                return false;
             dst->xsp = save_xsp;
         }
         if (TEST(DR_MC_CONTROL, src->flags)) {
             /* XXX i#2710: mc->lr should be under DR_MC_CONTROL */
             dst->xsp = src->xsp;
-            dst->xflags = src->xflags;
-            dst->pc = src->pc;
+            if (src->size > offsetof(dr_mcontext_t, xflags))
+                dst->xflags = src->xflags;
+            else
+                return false;
+            if (src->size > offsetof(dr_mcontext_t, pc))
+                dst->pc = src->pc;
+            else
+                return false;
         }
         if (TEST(DR_MC_MULTIMEDIA, src->flags)) {
-            IF_X86_ELSE({ memcpy(&dst->simd, &src->simd, sizeof(dst->simd)); },
-                        {
-                            /* FIXME i#1551: NYI on ARM */
-                            ASSERT_NOT_IMPLEMENTED(false);
-                        });
+#ifdef X86
+            if (src->size > offsetof(dr_mcontext_t, simd)) {
+                if (MCXT_NUM_SIMD_SLOTS > MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
+                    src->size > offsetof(dr_mcontext_t, simd) +
+                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE) {
+                    if (src->size < offsetof(dr_mcontext_t, simd) + sizeof(dst->simd))
+                        return false;
+                    /* UNIX 64-bit case, up-to-date copy. XXX i#1312: We don't support
+                     * AVX-512 extended number of registers in 64-bit Windows yet.
+                     */
+                    memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
+                } else if (MCXT_NUM_SIMD_SLOTS > MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
+                           src->size > offsetof(dr_mcontext_t, simd) +
+                                   MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
+                    if (src->size < offsetof(dr_mcontext_t, simd) +
+                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE)
+                        return false;
+                    /* UNIX 64-bit case, backwards compatibility copy from old
+                     * ZMM_REG_SIZE format w/o AVX-512. XXX i#1312: We don't support
+                     * AVX-512 extended number of registers in 64-bit Windows yet.
+                     */
+                    memcpy(&dst->simd, &src->simd,
+                           MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE);
+                } else if (MCXT_NUM_SIMD_SLOTS == MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
+                           src->size > offsetof(dr_mcontext_t, simd) +
+                                   MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
+                    if (src->size < offsetof(dr_mcontext_t, simd) + sizeof(dst->simd))
+                        return false;
+                    /* Every other build other than UNIX 64-bit case, up-to-date copy. */
+                    memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
+                } else {
+                    if (src->size < offsetof(dr_mcontext_t, simd) +
+                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE)
+                        return false;
+                    /* Any build, backwards compatibility copy from old YMM_REG_SIZE
+                     * format w/o AVX-512, all builds.
+                     */
+                    dr_ymm_t *src_simd_compat = (dr_ymm_t *)src->simd;
+                    for (int i = 0; i < MCXT_NUM_SIMD_SSE_AVX_SLOTS; ++i) {
+                        dst->simd[i] = *(dr_zmm_t *)&src_simd_compat[i];
+                    }
+                }
+            } else
+                return false;
+            if (src->size > offsetof(dr_mcontext_t, opmask)) {
+                if (src->size < offsetof(dr_mcontext_t, opmask) + sizeof(dst->opmask))
+                    return false;
+                memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask));
+            }
+#else
+            /* FIXME i#1551: NYI on ARM */
+            ASSERT_NOT_IMPLEMENTED(false);
+#endif
         }
     }
     return true;
@@ -3390,36 +3464,92 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
 bool
 priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
 {
-    /* we assume fields from xdi onward are identical.
-     * if we append to dr_mcontext_t in the future we'll need
-     * to check dst->size here.
+    /* We assume fields from xdi onward are identical. DynamoRIO's mcontext's size has
+     * been appended for AVX-512, and the additional structure's size is checked here.
      */
-    if (dst->size != sizeof(dr_mcontext_t))
+    if (dst->size > sizeof(dr_mcontext_t))
         return false;
-    if (TESTALL(DR_MC_ALL, dst->flags))
+    if (TESTALL(DR_MC_ALL, dst->flags) && dst->size == sizeof(dr_mcontext_t)) {
         *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(dst)) = *src;
-    else {
+    } else {
         if (TEST(DR_MC_INTEGER, dst->flags)) {
             /* xsp is in the middle of the mcxt, so we save dst->xsp here and
              * restore it later so we can use one memcpy for DR_MC_INTEGER.
              */
             reg_t save_xsp = dst->xsp;
-            memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
-                   /* end of the mcxt integer gpr */
-                   offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
+            if (dst->size >= offsetof(dr_mcontext_t, IF_X86_ELSE(xflags, pc))) {
+                memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
+                       /* end of the mcxt integer gpr */
+                       offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
+            } else
+                return false;
             dst->xsp = save_xsp;
         }
         if (TEST(DR_MC_CONTROL, dst->flags)) {
             dst->xsp = src->xsp;
-            dst->xflags = src->xflags;
-            dst->pc = src->pc;
+            if (dst->size > offsetof(dr_mcontext_t, xflags))
+                dst->xflags = src->xflags;
+            else
+                return false;
+            if (dst->size > offsetof(dr_mcontext_t, pc))
+                dst->pc = src->pc;
+            else
+                return false;
         }
         if (TEST(DR_MC_MULTIMEDIA, dst->flags)) {
-            IF_X86_ELSE({ memcpy(&dst->simd, &src->simd, sizeof(dst->simd)); },
-                        {
-                            /* FIXME i#1551: NYI on ARM */
-                            ASSERT_NOT_IMPLEMENTED(false);
-                        });
+#ifdef X86
+            if (dst->size > offsetof(dr_mcontext_t, simd)) {
+                if (MCXT_NUM_SIMD_SLOTS > MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
+                    dst->size > offsetof(dr_mcontext_t, simd) +
+                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE) {
+                    if (dst->size < offsetof(dr_mcontext_t, simd) + sizeof(dst->simd))
+                        return false;
+                    /* UNIX 64-bit case, up-to-date copy. XXX i#1312: We don't support
+                     * AVX-512 extended number of registers in 64-bit Windows yet.
+                     */
+                    memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
+                } else if (MCXT_NUM_SIMD_SLOTS > MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
+                           dst->size > offsetof(dr_mcontext_t, simd) +
+                                   MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
+                    if (dst->size < offsetof(dr_mcontext_t, simd) +
+                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE)
+                        return false;
+                    /* UNIX 64-bit case, backwards compatibility copy from old
+                     * ZMM_REG_SIZE format w/o AVX-512. XXX i#1312: We don't support
+                     * AVX-512 extended number of registers in 64-bit Windows yet.
+                     */
+                    memcpy(&dst->simd, &src->simd,
+                           MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE);
+                } else if (MCXT_NUM_SIMD_SLOTS == MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
+                           dst->size > offsetof(dr_mcontext_t, simd) +
+                                   MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
+                    if (dst->size < offsetof(dr_mcontext_t, simd) + sizeof(dst->simd))
+                        return false;
+                    /* Every other build other than UNIX 64-bit case, up-to-date copy. */
+                    memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
+                } else {
+                    if (dst->size < offsetof(dr_mcontext_t, simd) +
+                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE)
+                        return false;
+                    /* Any build, backwards compatibility copy from old YMM_REG_SIZE
+                     * format w/o AVX-512, all builds.
+                     */
+                    dr_ymm_t *dst_simd_compat = (dr_ymm_t *)dst->simd;
+                    for (int i = 0; i < MCXT_NUM_SIMD_SSE_AVX_SLOTS; ++i) {
+                        dst_simd_compat[i] = *(dr_ymm_t *)&src->simd[i];
+                    }
+                }
+            } else
+                return false;
+            if (dst->size > offsetof(dr_mcontext_t, opmask)) {
+                if (dst->size < offsetof(dr_mcontext_t, opmask) + sizeof(dst->opmask))
+                    return false;
+                memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask));
+            }
+#else
+            /* FIXME i#1551: NYI on ARM */
+            ASSERT_NOT_IMPLEMENTED(false);
+#endif
         }
     }
     return true;
@@ -3527,11 +3657,15 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
     );
 
 #ifdef X86
-    /* XXX i#1312: this needs to get extended to AVX-512. */
     if (preserve_xmm_caller_saved()) {
         int i, j;
         for (i = 0; i < proc_num_simd_saved(); i++) {
-            if (YMM_ENABLED()) {
+            if (ZMM_ENABLED()) {
+                print_file(f, dump_xml ? "\t\tzmm%d= \"0x" : "\tzmm%d= 0x", i);
+                for (j = 0; j < 16; j++) {
+                    print_file(f, "%08x", context->simd[i].u32[j]);
+                }
+            } else if (YMM_ENABLED()) {
                 print_file(f, dump_xml ? "\t\tymm%d= \"0x" : "\tymm%d= 0x", i);
                 for (j = 0; j < 8; j++) {
                     print_file(f, "%08x", context->simd[i].u32[j]);

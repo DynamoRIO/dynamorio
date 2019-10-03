@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -61,6 +61,7 @@
 extern droption_t<bool> op_offline;
 extern droption_t<std::string> op_ipc_name;
 extern droption_t<std::string> op_outdir;
+extern droption_t<std::string> op_subdir_prefix;
 extern droption_t<std::string> op_infile;
 extern droption_t<std::string> op_indir;
 extern droption_t<std::string> op_module_file;
@@ -76,6 +77,7 @@ extern droption_t<std::string> op_LL_miss_file;
 extern droption_t<bytesize_t> op_L0I_size;
 extern droption_t<bool> op_L0_filter;
 extern droption_t<bytesize_t> op_L0D_size;
+extern droption_t<bool> op_coherence;
 extern droption_t<bool> op_use_physical;
 extern droption_t<unsigned int> op_virt2phys_freq;
 extern droption_t<bool> op_cpu_scheduling;

@@ -490,7 +490,7 @@ Index: libdwarf/libdwarf_macho_init.c
 +            cmd_stop = (struct load_command *)((char *)cmd + hdr->sizeofcmds);
 +        }
 +        while (cmd < cmd_stop) {
-+            if (cmd->cmd == LC_SEGMENT) {
++            if (cmd->cmd == LC_SEGMENT || cmd->cmd == LC_SEGMENT_64) {
 +                if (is_64) {
 +                    struct segment_command_64 *seg64 = (struct segment_command_64 *) cmd;
 +                    struct section_64 *sec64 = (struct section_64 *)(seg64 + 1);
@@ -547,7 +547,7 @@ Index: libdwarf/libdwarf_macho_init.c
 +        else
 +            cmd = (struct load_command *)(hdr + 1);
 +        while (cmd < cmd_stop) {
-+            if (cmd->cmd == LC_SEGMENT) {
++            if (cmd->cmd == LC_SEGMENT || cmd->cmd == LC_SEGMENT_64) {
 +                if (is_64) {
 +                    struct segment_command_64 *seg64 = (struct segment_command_64 *) cmd;
 +                    struct section_64 *sec64 = (struct section_64 *)(seg64 + 1);

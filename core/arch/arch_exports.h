@@ -45,8 +45,8 @@
 #ifndef _ARCH_EXPORTS_H_
 #define _ARCH_EXPORTS_H_ 1
 
-/* stack slot width */
-#define XSP_SZ (sizeof(reg_t))
+/* We export all of opnd.h for reg_id_t, DR_NUM_GPR_REGS, etc. */
+#include "opnd.h"
 
 #ifdef X86
 /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
@@ -59,14 +59,20 @@
 #    define XMM_REG_SIZE 16
 #    define YMM_REG_SIZE 32
 #    define ZMM_REG_SIZE 64
-#    define OPMASK_REG_SIZE 8
+#    define OPMASK_AVX512F_REG_SIZE 2
+#    define OPMASK_AVX512BW_REG_SIZE 8
 #    define MCXT_SIMD_SLOT_SIZE ZMM_REG_SIZE
 #    define MCXT_TOTAL_SIMD_SLOTS_SIZE (MCXT_NUM_SIMD_SLOTS * MCXT_SIMD_SLOT_SIZE)
+#    define MCXT_TOTAL_OPMASK_SLOTS_SIZE \
+        (MCXT_NUM_OPMASK_SLOTS * OPMASK_AVX512BW_REG_SIZE)
+#    define MCXT_TOTAL_SIMD_SSE_AVX_SLOTS_SIZE \
+        (MCXT_NUM_SIMD_SSE_AVX_SLOTS * MCXT_SIMD_SLOT_SIZE)
 /* Indicates OS support, not just processor support (xref i#1278) */
 #    define YMM_ENABLED() (proc_avx_enabled())
 #    define ZMM_ENABLED() (proc_avx512_enabled())
 #    define YMMH_REG_SIZE (YMM_REG_SIZE / 2) /* upper half */
-#    define MCXT_YMMH_SLOTS_SIZE (MCXT_NUM_SIMD_SLOTS * YMMH_REG_SIZE)
+#    define ZMMH_REG_SIZE (ZMM_REG_SIZE / 2) /* upper half */
+#    define MCXT_YMMH_SLOTS_SIZE (MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMMH_REG_SIZE)
 #endif /* X86 */
 
 /* Number of slots for spills from inlined clean calls. */
@@ -311,6 +317,14 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
 /* note that the microsoft compiler will not enregister variables across asm
  * blocks that touch those registers, so don't need to worry about clobbering
  * eax and ebx */
+#    define ATOMIC_1BYTE_WRITE(target, value, hot_patch)                      \
+        do {                                                                  \
+            ASSERT(sizeof(value) == 1);                                       \
+            /* No alignment check necessary, hot_patch parameter provided for \
+             * consistency.                                                   \
+             */                                                               \
+            _InterlockedExchange8((volatile CHAR *)target, (CHAR)value);      \
+        } while (0)
 #    define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                    \
         do {                                                                \
             ASSERT(sizeof(value) == 4);                                     \
@@ -434,6 +448,18 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 /* IA-32 vol 3 7.1.4: processor will internally suppress the bus lock
  * if target is within cache line.
  */
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)                       \
+            do {                                                                   \
+                /* allow a constant to be passed in by supplying our own lvalue */ \
+                char _myval = value;                                               \
+                ASSERT(sizeof(value) == 1);                                        \
+                /* No alignment check necessary, hot_patch parameter provided for  \
+                 * consistency.                                                    \
+                 */                                                                \
+                __asm__ __volatile__("xchgb %0, %1"                                \
+                                     : "+m"(*(char *)(target)), "+r"(_myval)       \
+                                     :);                                           \
+            } while (0)
 #        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                       \
             do {                                                                   \
                 /* allow a constant to be passed in by supplying our own lvalue */ \
@@ -540,12 +566,22 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
                                  : "=qm"(flag)           \
                                  :                       \
                                  : "cc", "memory")
-/* clang-flag on */
+/* clang-format on */
 #        define SET_IF_NOT_ZERO(flag) SET_FLAG(nz, flag)
 #        define SET_IF_NOT_LESS(flag) SET_FLAG(nl, flag)
 
 #    elif defined(AARCH64)
 
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                ASSERT(sizeof(value) == 1);                    \
+                /* Not currently used to write code */         \
+                ASSERT_CURIOSITY(!hot_patch);                  \
+                __asm__ __volatile__("strb %w0, [%1]"          \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
 #        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                 \
             do {                                                             \
                 ASSERT(sizeof(value) == 4);                                  \
@@ -700,6 +736,14 @@ atomic_dec_becomes_zero(volatile int *var)
 
 #    elif defined(ARM)
 
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                ASSERT(sizeof(value) == 1);                    \
+                __asm__ __volatile__("strb %0, [%1]"           \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
 #        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                     \
             do {                                                                 \
                 ASSERT(sizeof(value) == 4);                                      \
@@ -1619,7 +1663,9 @@ d_r_decode_init(void);
 #    define STUB_COARSE_DIRECT_SIZE(flags) \
         (FRAG_IS_32(flags) ? STUB_COARSE_DIRECT_SIZE32 : STUB_COARSE_DIRECT_SIZE64)
 
-/* writes nops into the address range */
+/* Writes nops into the address range.
+ * XXX i#3828: Better to use the newer multi-byte nops.
+ */
 #    define SET_TO_NOPS(isa_mode, addr, size) memset(addr, 0x90, size)
 /* writes debugbreaks into the address range */
 #    define SET_TO_DEBUG(addr, size) memset(addr, 0xcc, size)
@@ -2229,6 +2275,9 @@ instr_supports_simple_mangling_epilogue(dcontext_t *dcontext, instr_t *inst);
 void
 float_pc_update(dcontext_t *dcontext);
 
+void
+mangle_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f);
+
 /* in retcheck.c */
 #ifdef CHECK_RETURNS_SSE2
 void
@@ -2495,6 +2544,13 @@ get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
 /* reset the encode state stored in dcontext used by A32 Thumb mode */
 void
 encode_reset_it_block(dcontext_t *dcontext);
+#endif
+
+#ifdef LINUX
+/* Register state preserved on input to restartable sequences ("rseq"). */
+typedef struct _rseq_entry_state_t {
+    reg_t gpr[DR_NUM_GPR_REGS];
+} rseq_entry_state_t;
 #endif
 
 #endif /* _ARCH_EXPORTS_H_ */

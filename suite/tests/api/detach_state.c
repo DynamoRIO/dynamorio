@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -224,11 +224,13 @@ check_gpr_value(const char *name, ptr_uint_t value, ptr_uint_t expect)
 }
 
 static void
-check_xmm_value(const char *name, ptr_uint_t value, ptr_uint_t expect)
+check_simd_value(const char *prefix, int idx, const char *suffix, ptr_uint_t value,
+                 ptr_uint_t expect)
 {
-    VPRINT("Value of %s is 0x%lx; expect 0x%lx\n", name, value, expect);
-    if (value != expect)
-        print("ERROR: detach changed %s from 0x%lx to 0x%lx\n", name, expect, value);
+    char name[16];
+    int len = snprintf(name, BUFFER_SIZE_ELEMENTS(name), "%s%d.%s", prefix, idx, suffix);
+    assert(len > 0 && len < BUFFER_SIZE_ELEMENTS(name));
+    check_gpr_value(name, value, expect);
 }
 
 /* If selfmod is true, allows xax and xcx to not match (selfmod code had to
@@ -237,39 +239,55 @@ check_xmm_value(const char *name, ptr_uint_t value, ptr_uint_t expect)
 void
 check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
 {
+    int i;
 #    ifdef X64
-    check_gpr_value("xmm0.hi", *(xsp + 17), MAKE_HEX_C(XMM0_HIGH_BASE()));
-    check_gpr_value("xmm0.lo", *(xsp + 16), MAKE_HEX_C(XMM0_LOW_BASE()));
-    check_gpr_value("xmm1.hi", *(xsp + 19), MAKE_HEX_C(XMM1_HIGH_BASE()));
-    check_gpr_value("xmm1.lo", *(xsp + 18), MAKE_HEX_C(XMM1_LOW_BASE()));
-    check_gpr_value("xmm2.hi", *(xsp + 21), MAKE_HEX_C(XMM2_HIGH_BASE()));
-    check_gpr_value("xmm2.lo", *(xsp + 20), MAKE_HEX_C(XMM2_LOW_BASE()));
-    check_gpr_value("xmm3.hi", *(xsp + 23), MAKE_HEX_C(XMM3_HIGH_BASE()));
-    check_gpr_value("xmm3.lo", *(xsp + 22), MAKE_HEX_C(XMM3_LOW_BASE()));
-    check_gpr_value("xmm4.hi", *(xsp + 25), MAKE_HEX_C(XMM4_HIGH_BASE()));
-    check_gpr_value("xmm4.lo", *(xsp + 24), MAKE_HEX_C(XMM4_LOW_BASE()));
-    check_gpr_value("xmm5.hi", *(xsp + 27), MAKE_HEX_C(XMM5_HIGH_BASE()));
-    check_gpr_value("xmm5.lo", *(xsp + 26), MAKE_HEX_C(XMM5_LOW_BASE()));
-    check_gpr_value("xmm6.hi", *(xsp + 29), MAKE_HEX_C(XMM6_HIGH_BASE()));
-    check_gpr_value("xmm6.lo", *(xsp + 28), MAKE_HEX_C(XMM6_LOW_BASE()));
-    check_gpr_value("xmm7.hi", *(xsp + 31), MAKE_HEX_C(XMM7_HIGH_BASE()));
-    check_gpr_value("xmm7.lo", *(xsp + 30), MAKE_HEX_C(XMM7_LOW_BASE()));
-    check_gpr_value("xmm8.hi", *(xsp + 33), MAKE_HEX_C(XMM8_HIGH_BASE()));
-    check_gpr_value("xmm8.lo", *(xsp + 32), MAKE_HEX_C(XMM8_LOW_BASE()));
-    check_gpr_value("xmm9.hi", *(xsp + 35), MAKE_HEX_C(XMM9_HIGH_BASE()));
-    check_gpr_value("xmm9.lo", *(xsp + 34), MAKE_HEX_C(XMM9_LOW_BASE()));
-    check_gpr_value("xmm10.hi", *(xsp + 37), MAKE_HEX_C(XMM10_HIGH_BASE()));
-    check_gpr_value("xmm10.lo", *(xsp + 36), MAKE_HEX_C(XMM10_LOW_BASE()));
-    check_gpr_value("xmm11.hi", *(xsp + 39), MAKE_HEX_C(XMM11_HIGH_BASE()));
-    check_gpr_value("xmm11.lo", *(xsp + 38), MAKE_HEX_C(XMM11_LOW_BASE()));
-    check_gpr_value("xmm12.hi", *(xsp + 41), MAKE_HEX_C(XMM12_HIGH_BASE()));
-    check_gpr_value("xmm12.lo", *(xsp + 40), MAKE_HEX_C(XMM12_LOW_BASE()));
-    check_gpr_value("xmm13.hi", *(xsp + 43), MAKE_HEX_C(XMM13_HIGH_BASE()));
-    check_gpr_value("xmm13.lo", *(xsp + 42), MAKE_HEX_C(XMM13_LOW_BASE()));
-    check_gpr_value("xmm14.hi", *(xsp + 45), MAKE_HEX_C(XMM14_HIGH_BASE()));
-    check_gpr_value("xmm14.lo", *(xsp + 44), MAKE_HEX_C(XMM14_LOW_BASE()));
-    check_gpr_value("xmm15.hi", *(xsp + 47), MAKE_HEX_C(XMM15_HIGH_BASE()));
-    check_gpr_value("xmm15.lo", *(xsp + 46), MAKE_HEX_C(XMM15_LOW_BASE()));
+#        define NUM_GPRS 16
+#        define SIMD_SZ_IN_PTRS (SIMD_REG_SIZE / sizeof(ptr_uint_t))
+#        ifdef __AVX512F__
+    for (i = 0; i < NUM_SIMD_REGS; i++) {
+        check_simd_value("xmm", i, "lo", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 0),
+                         MAKE_HEX_C(XMM0_LOW_BASE()) << i);
+        check_simd_value("xmm", i, "hi", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 1),
+                         MAKE_HEX_C(XMM0_HIGH_BASE()) << i);
+        check_simd_value("ymmh", i, "lo", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 2),
+                         MAKE_HEX_C(YMMH0_LOW_BASE()) << i);
+        check_simd_value("ymmh", i, "hi", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 3),
+                         MAKE_HEX_C(YMMH0_HIGH_BASE()) << i);
+        check_simd_value("zmmh", i, "0", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 4),
+                         MAKE_HEX_C(ZMMH0_0_BASE()) << i);
+        check_simd_value("zmmh", i, "1", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 5),
+                         MAKE_HEX_C(ZMMH0_1_BASE()) << i);
+        check_simd_value("zmmh", i, "2", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 6),
+                         MAKE_HEX_C(ZMMH0_2_BASE()) << i);
+        check_simd_value("zmmh", i, "3", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 7),
+                         MAKE_HEX_C(ZMMH0_3_BASE()) << i);
+    }
+    assert(sizeof(unsigned short) == OPMASK_REG_SIZE);
+    unsigned short *kbase = (unsigned short *)(xsp + NUM_GPRS + NUM_SIMD_REGS * 8);
+    for (i = 0; i < NUM_OPMASK_REGS; i++) {
+        ptr_uint_t val = *(kbase + i);
+        check_simd_value("k", i, "", val,
+                         (unsigned short)(MAKE_HEX_C(OPMASK0_BASE()) << i));
+    }
+#        elif defined(__AVX__)
+    for (i = 0; i < NUM_SIMD_REGS; i++) {
+        check_simd_value("xmm", i, "lo", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 0),
+                         MAKE_HEX_C(XMM0_LOW_BASE()) << i);
+        check_simd_value("xmm", i, "hi", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 1),
+                         MAKE_HEX_C(XMM0_HIGH_BASE()) << i);
+        check_simd_value("ymmh", i, "lo", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 2),
+                         MAKE_HEX_C(YMMH0_LOW_BASE()) << i);
+        check_simd_value("ymmh", i, "hi", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 3),
+                         MAKE_HEX_C(YMMH0_HIGH_BASE()) << i);
+    }
+#        else
+    for (i = 0; i < NUM_SIMD_REGS; i++) {
+        check_simd_value("xmm", i, "lo", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 0),
+                         MAKE_HEX_C(XMM0_LOW_BASE()) << i);
+        check_simd_value("xmm", i, "hi", *(xsp + NUM_GPRS + i * SIMD_SZ_IN_PTRS + 1),
+                         MAKE_HEX_C(XMM0_HIGH_BASE()) << i);
+    }
+#        endif
     check_gpr_value("r15", *(xsp + 15), MAKE_HEX_C(R15_BASE()));
     check_gpr_value("r14", *(xsp + 14), MAKE_HEX_C(R14_BASE()));
     check_gpr_value("r13", *(xsp + 13), MAKE_HEX_C(R13_BASE()));
@@ -278,6 +296,8 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
     check_gpr_value("r10", *(xsp + 10), MAKE_HEX_C(R10_BASE()));
     check_gpr_value("r9", *(xsp + 9), MAKE_HEX_C(R9_BASE()));
     check_gpr_value("r8", *(xsp + 8), MAKE_HEX_C(R8_BASE()));
+#    else
+#        error NYI /* TODO i#3160: Add 32-bit support. */
 #    endif
     if (!selfmod)
         check_gpr_value("xax", *(xsp + 7), MAKE_HEX_C(XAX_BASE()));
@@ -371,26 +391,8 @@ main(void)
 /* clang-format off */
 START_FILE
 
-#    ifdef X64
-/* This does NOT make xsp have its pre-push value. */
-#        define PUSHALL \
-        lea      rsp, [rsp - 16*16] @N@ \
-        movups   [rsp +  0*16], xmm0 @N@ \
-        movups   [rsp +  1*16], xmm1 @N@ \
-        movups   [rsp +  2*16], xmm2 @N@ \
-        movups   [rsp +  3*16], xmm3 @N@ \
-        movups   [rsp +  4*16], xmm4 @N@ \
-        movups   [rsp +  5*16], xmm5 @N@ \
-        movups   [rsp +  6*16], xmm6 @N@ \
-        movups   [rsp +  7*16], xmm7 @N@ \
-        movups   [rsp +  8*16], xmm8 @N@ \
-        movups   [rsp +  9*16], xmm9 @N@ \
-        movups   [rsp + 10*16], xmm10 @N@ \
-        movups   [rsp + 11*16], xmm11 @N@ \
-        movups   [rsp + 12*16], xmm12 @N@ \
-        movups   [rsp + 13*16], xmm13 @N@ \
-        movups   [rsp + 14*16], xmm14 @N@ \
-        movups   [rsp + 15*16], xmm15 @N@ \
+#ifdef X64
+#    define PUSH_GPRS \
         push     r15 @N@\
         push     r14 @N@\
         push     r13 @N@\
@@ -408,7 +410,94 @@ START_FILE
         push     rbp @N@\
         push     rsi @N@\
         push     rdi
-#        define POPALL        \
+/* This does NOT make xsp have its pre-push value. */
+#    ifdef __AVX512F__
+#        define PUSHALL                 \
+        lea      rsp, [rsp - NUM_SIMD_REGS*SIMD_REG_SIZE - \
+                       NUM_OPMASK_REGS*OPMASK_REG_SIZE] @N@     \
+        vmovups  [rsp +  0*SIMD_REG_SIZE], zmm0 @N@ \
+        vmovups  [rsp +  1*SIMD_REG_SIZE], zmm1 @N@ \
+        vmovups  [rsp +  2*SIMD_REG_SIZE], zmm2 @N@ \
+        vmovups  [rsp +  3*SIMD_REG_SIZE], zmm3 @N@ \
+        vmovups  [rsp +  4*SIMD_REG_SIZE], zmm4 @N@ \
+        vmovups  [rsp +  5*SIMD_REG_SIZE], zmm5 @N@ \
+        vmovups  [rsp +  6*SIMD_REG_SIZE], zmm6 @N@ \
+        vmovups  [rsp +  7*SIMD_REG_SIZE], zmm7 @N@ \
+        vmovups  [rsp +  8*SIMD_REG_SIZE], zmm8 @N@ \
+        vmovups  [rsp +  9*SIMD_REG_SIZE], zmm9 @N@ \
+        vmovups  [rsp + 10*SIMD_REG_SIZE], zmm10 @N@ \
+        vmovups  [rsp + 11*SIMD_REG_SIZE], zmm11 @N@ \
+        vmovups  [rsp + 12*SIMD_REG_SIZE], zmm12 @N@ \
+        vmovups  [rsp + 13*SIMD_REG_SIZE], zmm13 @N@ \
+        vmovups  [rsp + 14*SIMD_REG_SIZE], zmm14 @N@ \
+        vmovups  [rsp + 15*SIMD_REG_SIZE], zmm15 @N@ \
+        vmovups  [rsp + 16*SIMD_REG_SIZE], zmm16 @N@ \
+        vmovups  [rsp + 17*SIMD_REG_SIZE], zmm17 @N@ \
+        vmovups  [rsp + 18*SIMD_REG_SIZE], zmm18 @N@ \
+        vmovups  [rsp + 19*SIMD_REG_SIZE], zmm19 @N@ \
+        vmovups  [rsp + 20*SIMD_REG_SIZE], zmm20 @N@ \
+        vmovups  [rsp + 21*SIMD_REG_SIZE], zmm21 @N@ \
+        vmovups  [rsp + 22*SIMD_REG_SIZE], zmm22 @N@ \
+        vmovups  [rsp + 23*SIMD_REG_SIZE], zmm23 @N@ \
+        vmovups  [rsp + 24*SIMD_REG_SIZE], zmm24 @N@ \
+        vmovups  [rsp + 25*SIMD_REG_SIZE], zmm25 @N@ \
+        vmovups  [rsp + 26*SIMD_REG_SIZE], zmm26 @N@ \
+        vmovups  [rsp + 27*SIMD_REG_SIZE], zmm27 @N@ \
+        vmovups  [rsp + 28*SIMD_REG_SIZE], zmm28 @N@ \
+        vmovups  [rsp + 29*SIMD_REG_SIZE], zmm29 @N@ \
+        vmovups  [rsp + 30*SIMD_REG_SIZE], zmm30 @N@ \
+        vmovups  [rsp + 31*SIMD_REG_SIZE], zmm31 @N@ \
+        kmovw    [rsp + NUM_SIMD_REGS*SIMD_REG_SIZE + 0*OPMASK_REG_SIZE], k0 @N@ \
+        kmovw    [rsp + NUM_SIMD_REGS*SIMD_REG_SIZE + 1*OPMASK_REG_SIZE], k1 @N@ \
+        kmovw    [rsp + NUM_SIMD_REGS*SIMD_REG_SIZE + 2*OPMASK_REG_SIZE], k2 @N@ \
+        kmovw    [rsp + NUM_SIMD_REGS*SIMD_REG_SIZE + 3*OPMASK_REG_SIZE], k3 @N@ \
+        kmovw    [rsp + NUM_SIMD_REGS*SIMD_REG_SIZE + 4*OPMASK_REG_SIZE], k4 @N@ \
+        kmovw    [rsp + NUM_SIMD_REGS*SIMD_REG_SIZE + 5*OPMASK_REG_SIZE], k5 @N@ \
+        kmovw    [rsp + NUM_SIMD_REGS*SIMD_REG_SIZE + 6*OPMASK_REG_SIZE], k6 @N@ \
+        kmovw    [rsp + NUM_SIMD_REGS*SIMD_REG_SIZE + 7*OPMASK_REG_SIZE], k7 @N@ \
+        PUSH_GPRS
+#    elif defined(__AVX__)
+#        define PUSHALL                 \
+        lea      rsp, [rsp - NUM_SIMD_REGS*SIMD_REG_SIZE] @N@ \
+        vmovdqu  [rsp +  0*SIMD_REG_SIZE], ymm0 @N@ \
+        vmovdqu  [rsp +  1*SIMD_REG_SIZE], ymm1 @N@ \
+        vmovdqu  [rsp +  2*SIMD_REG_SIZE], ymm2 @N@ \
+        vmovdqu  [rsp +  3*SIMD_REG_SIZE], ymm3 @N@ \
+        vmovdqu  [rsp +  4*SIMD_REG_SIZE], ymm4 @N@ \
+        vmovdqu  [rsp +  5*SIMD_REG_SIZE], ymm5 @N@ \
+        vmovdqu  [rsp +  6*SIMD_REG_SIZE], ymm6 @N@ \
+        vmovdqu  [rsp +  7*SIMD_REG_SIZE], ymm7 @N@ \
+        vmovdqu  [rsp +  8*SIMD_REG_SIZE], ymm8 @N@ \
+        vmovdqu  [rsp +  9*SIMD_REG_SIZE], ymm9 @N@ \
+        vmovdqu  [rsp + 10*SIMD_REG_SIZE], ymm10 @N@ \
+        vmovdqu  [rsp + 11*SIMD_REG_SIZE], ymm11 @N@ \
+        vmovdqu  [rsp + 12*SIMD_REG_SIZE], ymm12 @N@ \
+        vmovdqu  [rsp + 13*SIMD_REG_SIZE], ymm13 @N@ \
+        vmovdqu  [rsp + 14*SIMD_REG_SIZE], ymm14 @N@ \
+        vmovdqu  [rsp + 15*SIMD_REG_SIZE], ymm15 @N@ \
+        PUSH_GPRS
+#    else
+#        define PUSHALL                 \
+        lea      rsp, [rsp - NUM_SIMD_REGS*SIMD_REG_SIZE] @N@ \
+        movups   [rsp +  0*SIMD_REG_SIZE], xmm0 @N@ \
+        movups   [rsp +  1*SIMD_REG_SIZE], xmm1 @N@ \
+        movups   [rsp +  2*SIMD_REG_SIZE], xmm2 @N@ \
+        movups   [rsp +  3*SIMD_REG_SIZE], xmm3 @N@ \
+        movups   [rsp +  4*SIMD_REG_SIZE], xmm4 @N@ \
+        movups   [rsp +  5*SIMD_REG_SIZE], xmm5 @N@ \
+        movups   [rsp +  6*SIMD_REG_SIZE], xmm6 @N@ \
+        movups   [rsp +  7*SIMD_REG_SIZE], xmm7 @N@ \
+        movups   [rsp +  8*SIMD_REG_SIZE], xmm8 @N@ \
+        movups   [rsp +  9*SIMD_REG_SIZE], xmm9 @N@ \
+        movups   [rsp + 10*SIMD_REG_SIZE], xmm10 @N@ \
+        movups   [rsp + 11*SIMD_REG_SIZE], xmm11 @N@ \
+        movups   [rsp + 12*SIMD_REG_SIZE], xmm12 @N@ \
+        movups   [rsp + 13*SIMD_REG_SIZE], xmm13 @N@ \
+        movups   [rsp + 14*SIMD_REG_SIZE], xmm14 @N@ \
+        movups   [rsp + 15*SIMD_REG_SIZE], xmm15 @N@ \
+        PUSH_GPRS
+#    endif
+#    define POPALL        \
         pop      rdi @N@\
         pop      rsi @N@\
         pop      rbp @N@\
@@ -425,12 +514,46 @@ START_FILE
         pop      r13 @N@\
         pop      r14 @N@\
         pop      r15 @N@\
-        lea      rsp, [rsp + 16*16] @N@
+        lea      rsp, [rsp + NUM_SIMD_REGS*SIMD_REG_SIZE + \
+                       NUM_OPMASK_REGS*OPMASK_REG_SIZE] @N@
+#    ifdef __AVX512F__
+/* There seems to be no way to move our immeds into zmm using just rax
+ * and zmm##num, since the top part beyond xmm##num is zeroed.
+ * We use memory instead.
+ */
+#        define PUSH_IMMED(immed, num) \
+        mov      rax, MAKE_HEX_ASM(immed) @N@ \
+        shl      rax, num @N@ \
+        push     rax @N@
+#        define SET_ZMM_IMMED(num, xmm_low, xmm_high, ymmh_low, ymmh_high, \
+                              zmmh0, zmmh1, zmmh2, zmmh3) \
+        PUSH_IMMED(zmmh3, num) @N@ \
+        PUSH_IMMED(zmmh2, num) @N@ \
+        PUSH_IMMED(zmmh1, num) @N@ \
+        PUSH_IMMED(zmmh0, num) @N@ \
+        PUSH_IMMED(ymmh_high, num) @N@ \
+        PUSH_IMMED(ymmh_low, num) @N@ \
+        PUSH_IMMED(xmm_high, num) @N@ \
+        PUSH_IMMED(xmm_low, num) @N@ \
+        vmovups  zmm##num, [rsp] @N@       \
+        lea      rsp, [rsp + SIMD_REG_SIZE] @N@
+#        define SET_OPMASK_IMMED(num, immed) \
+        mov      rax, MAKE_HEX_ASM(immed) @N@ \
+        shl      rax, num @N@ \
+        kmovw    k##num, eax
+#    else
 #        define SET_XMM_IMMED(num, low_base, high_base)  \
         mov      rax, MAKE_HEX_ASM(low_base) @N@ \
+        shl      rax, num @N@ \
         movq     xmm##num, rax @N@ \
         mov      rax, MAKE_HEX_ASM(high_base) @N@ \
+        shl      rax, num @N@ \
         pinsrq   xmm##num, rax, 1 @N@
+#        define SET_YMM_IMMED(num, xmm_low, xmm_high, ymmh_low, ymmh_high) \
+        SET_XMM_IMMED(num, ymmh_low, ymmh_high) @N@ \
+        vinserti128 ymm##num, ymm##num, xmm##num, 1 @N@ \
+        SET_XMM_IMMED(num, xmm_low, xmm_high)
+#    endif
 #        define PUSH_CALLEE_SAVED \
         push     REG_XBP @N@ \
         push     REG_XBX @N@ \
@@ -445,12 +568,12 @@ START_FILE
         pop      r12 @N@ \
         pop      REG_XBX @N@ \
         pop      REG_XBP @N@
-#    else
-#        define PUSHALL \
+#else /* X64 */
+#    define PUSHALL \
         pusha
-#        define POPALL  \
+#    define POPALL  \
         popa
-#    error NYI
+#    error NYI /* TODO i#3160: Add 32-bit support. */
 #endif
 
 DECL_EXTERN(sideline_exit)
@@ -462,22 +585,110 @@ DECL_EXTERN(safe_stack)
 #define FUNCNAME unique_values_to_registers
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+#ifdef __AVX512F__
+#    define Z0 XMM0_LOW_BASE()
+#    define Z1 XMM0_HIGH_BASE()
+#    define Z2 YMMH0_LOW_BASE()
+#    define Z3 YMMH0_HIGH_BASE()
+#    define Z4 ZMMH0_0_BASE()
+#    define Z5 ZMMH0_1_BASE()
+#    define Z6 ZMMH0_2_BASE()
+#    define Z7 ZMMH0_3_BASE()
+        SET_ZMM_IMMED(0, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(1, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(2, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(3, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(4, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(5, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(6, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(7, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+#    ifdef X64
+        SET_ZMM_IMMED(8, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(9, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(10, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(11, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(12, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(13, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(14, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(15, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(16, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(17, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(18, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(19, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(20, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(21, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(22, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(23, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(24, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(25, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(26, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(27, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(28, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(29, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(30, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+        SET_ZMM_IMMED(31, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
+#    endif
+#    undef Z0
+#    undef Z1
+#    undef Z2
+#    undef Z3
+#    undef Z4
+#    undef Z5
+#    undef Z6
+#    undef Z7
+        SET_OPMASK_IMMED(0, OPMASK0_BASE())
+        SET_OPMASK_IMMED(1, OPMASK0_BASE())
+        SET_OPMASK_IMMED(2, OPMASK0_BASE())
+        SET_OPMASK_IMMED(3, OPMASK0_BASE())
+        SET_OPMASK_IMMED(4, OPMASK0_BASE())
+        SET_OPMASK_IMMED(5, OPMASK0_BASE())
+        SET_OPMASK_IMMED(6, OPMASK0_BASE())
+        SET_OPMASK_IMMED(7, OPMASK0_BASE())
+#elif defined (__AVX__)
+#    define Y0 XMM0_LOW_BASE()
+#    define Y1 XMM0_HIGH_BASE()
+#    define Y2 YMMH0_LOW_BASE()
+#    define Y3 YMMH0_HIGH_BASE()
+        SET_YMM_IMMED(0, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(1, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(2, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(3, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(4, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(5, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(6, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(7, Y0, Y1, Y2, Y3)
+#    ifdef X64
+        SET_YMM_IMMED(8, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(9, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(10, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(11, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(12, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(13, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(14, Y0, Y1, Y2, Y3)
+        SET_YMM_IMMED(15, Y0, Y1, Y2, Y3)
+#    endif
+#    undef Y0
+#    undef Y1
+#    undef Y2
+#    undef Y3
+#else
         SET_XMM_IMMED(0, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
-        SET_XMM_IMMED(1, XMM1_LOW_BASE(), XMM1_HIGH_BASE())
-        SET_XMM_IMMED(2, XMM2_LOW_BASE(), XMM2_HIGH_BASE())
-        SET_XMM_IMMED(3, XMM3_LOW_BASE(), XMM3_HIGH_BASE())
-        SET_XMM_IMMED(4, XMM4_LOW_BASE(), XMM4_HIGH_BASE())
-        SET_XMM_IMMED(5, XMM5_LOW_BASE(), XMM5_HIGH_BASE())
-        SET_XMM_IMMED(6, XMM6_LOW_BASE(), XMM6_HIGH_BASE())
-        SET_XMM_IMMED(7, XMM7_LOW_BASE(), XMM7_HIGH_BASE())
-        SET_XMM_IMMED(8, XMM8_LOW_BASE(), XMM8_HIGH_BASE())
-        SET_XMM_IMMED(9, XMM9_LOW_BASE(), XMM9_HIGH_BASE())
-        SET_XMM_IMMED(10, XMM10_LOW_BASE(), XMM10_HIGH_BASE())
-        SET_XMM_IMMED(11, XMM11_LOW_BASE(), XMM11_HIGH_BASE())
-        SET_XMM_IMMED(12, XMM12_LOW_BASE(), XMM12_HIGH_BASE())
-        SET_XMM_IMMED(13, XMM13_LOW_BASE(), XMM13_HIGH_BASE())
-        SET_XMM_IMMED(14, XMM14_LOW_BASE(), XMM14_HIGH_BASE())
-        SET_XMM_IMMED(15, XMM15_LOW_BASE(), XMM15_HIGH_BASE())
+        SET_XMM_IMMED(1, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(2, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(3, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(4, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(5, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(6, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(7, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(8, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(9, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(10, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(11, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(12, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(13, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(14, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+        SET_XMM_IMMED(15, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
+#endif
 #ifdef X64
         mov      r15, MAKE_HEX_ASM(R15_BASE())
         mov      r14, MAKE_HEX_ASM(R14_BASE())

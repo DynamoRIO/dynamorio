@@ -136,13 +136,13 @@ clients.
 The changes between version \DR_VERSION and 7.1.0 include the following compatibility
 changes:
 
- - Changes the enumeration of the DR_REG_ enum by adding x86 AVX-512 registers as well
+ - Changed the enumeration of the DR_REG_ enum by adding x86 AVX-512 registers as well
    as reserved ranges for future extensions.
    This is a binary compatibility change for the DR_REG_ enum.
- - Changes the enumeration of the OPSZ_ enum by moving its start back to 0. The OPSZ_
+ - Changed the enumeration of the OPSZ_ enum by moving its start back to 0. The OPSZ_
    enum now completely overlaps the DR_REG_ enum.
    This is a binary compatibility change for the OPSZ_ enum.
- - Adds a new encoding hint field to #instr_t.
+ - Added a new encoding hint field to #instr_t.
 
 The changes between version \DR_VERSION and 7.1.0 include the following minor
 compatibility changes:
@@ -171,6 +171,9 @@ compatibility changes:
    to be the first source.
  - The GPR versions of the vmovd and vmovq AVX opcodes are no longer combined into a
    single vmovd.
+ - Changed the #PFX format string specifier to use %p rather than %x internally.
+ - DR no longer forwards _snprintf, _snwprintf, _vsnprintf, sprintf, or sscanf to
+   ntdll.  Clients should use the dr_-prefixed versions of these functions.
 
 Further non-compatibility-affecting changes include:
 
@@ -201,6 +204,15 @@ Further non-compatibility-affecting changes include:
  - Added dr_mcontext_zmm_fields_valid() to query the state of lazy AVX-512 context
    switching.
  - Added the function proc_avx512_enabled().
+ - Added support for applications using the Linux kernel's restartable sequence
+   ("rseq") feature, subject to the limitations listed in \ref sec_rseq.
+ - Added coherence support in drcachesim.
+ - Added the function proc_num_opmask_registers();
+ - reg_get_value_ex() now supports reading AVX-512 mask registers.
+ - Added the function reg_is_bnd().
+ - Added the functions instr_is_gather() and instr_is_scatter().
+ - Added the function drx_expand_scatter_gather().
+ - Added the function dr_atomic_add64_return_sum().
 
 **************************************************
 <hr>
@@ -1632,6 +1644,9 @@ not supported.
     not fully decoded or encoded yet, and a few features are not yet
     ported: traces, clean call inlining and other optimizations, and
     several samples and provided tools.
+  - This release of DynamoRIO includes support for applications using the Linux kernel
+    restartable sequence ("rseq") feature, subject to the limitations listed
+    in \ref sec_rseq.
 
 \subsection sec_limit_perf Performance Limitations
 
@@ -1752,14 +1767,14 @@ not supported.
 We hope to include the following major features in future releases:
 
  - Libraries to facilitate building tools that use shadow memory, examine
-   system calls, and insert heavyweight instrumentation
+   system calls, and insert heavyweight instrumentation.
  - Earliest Windows injection.  Today drinject injects fairly late; from a
    parent process, injection is very early (before kernel32.dll is loaded),
    but we plan to provide injection at the very first user-mode instruction
    in the future.
- - More flexible (earlier, or later via attach) Linux injection
- - Persistent and process-shared code caches
- - Full control over trace building
+ - Linux externally-triggered attaching.
+ - Persistent and process-shared code caches.
+ - Full control over trace building.
 
 To discuss current and future features, join the <a
 href="http://groups.google.com/group/dynamorio-users/">DynamoRIO Users

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -99,8 +99,8 @@ typedef struct {
 static size_t page_size;
 static client_id_t client_id;
 static app_pc code_cache;
-static void *mutex;     /* for multithread support */
-static uint64 num_refs; /* keep a global memory reference count */
+static void *mutex;            /* for multithread support */
+static uint64 global_num_refs; /* keep a global memory reference count */
 static int tls_index;
 
 static void
@@ -182,7 +182,7 @@ event_exit()
     len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
                       "Instrumentation results:\n"
                       "  saw %llu memory references\n",
-                      num_refs);
+                      global_num_refs);
     DR_ASSERT(len > 0);
     NULL_TERMINATE_BUFFER(msg);
     DISPLAY_STRING(msg);
@@ -247,7 +247,7 @@ event_thread_exit(void *drcontext)
     memtrace(drcontext);
     data = drmgr_get_tls_field(drcontext, tls_index);
     dr_mutex_lock(mutex);
-    num_refs += data->num_refs;
+    global_num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
 #ifdef OUTPUT_TEXT
     log_stream_close(data->logf); /* closes fd too */
@@ -353,8 +353,9 @@ code_cache_init(void)
     code_cache =
         dr_nonheap_alloc(page_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE | DR_MEMPROT_EXEC);
     ilist = instrlist_create(drcontext);
-    /* The lean procecure simply performs a clean call, and then jump back */
-    /* jump back to the DR's code cache */
+    /* The lean procedure simply performs a clean call, and then jumps back
+     * to the DR code cache.
+     */
     where = INSTR_CREATE_jmp_ind(drcontext, opnd_create_reg(DR_REG_XCX));
     instrlist_meta_append(ilist, where);
     /* clean call */

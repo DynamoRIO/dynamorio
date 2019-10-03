@@ -411,7 +411,9 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         cci = &default_clean_call_info;
     ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
     if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers()) {
-        /* FIXME i#1551: once we add skipping of regs, need to keep shape here */
+        /* FIXME i#1551: once we add skipping of regs, need to keep shape here.
+         * Also, num_opmask_skip is not applicable to ARM/AArch64.
+         */
     }
     /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
 #    ifdef AARCH64
@@ -1407,6 +1409,13 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
     if (last != NULL)
         *last = mov2;
 #endif
+}
+
+void
+patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
+                     instr_t *last)
+{
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
 }
 
 void

@@ -25,28 +25,40 @@
  * are used to extended the fpstate pointer in the sigcontext, which now
  * includes the extended state information along with fpstate information.
  *
- * Presence of FP_XSTATE_MAGIC1 at the beginning of this SW reserved
- * area and FP_XSTATE_MAGIC2 at the end of memory layout
- * (extended_size - FP_XSTATE_MAGIC2_SIZE) indicates the presence of the
- * extended state information in the memory layout pointed by the fpstate
- * pointer in sigcontext.
+ * If sw_reserved.magic1 == FP_XSTATE_MAGIC1 then there's a
+ * sw_reserved.extended_size bytes large extended context area present. (The
+ * last 32-bit word of this extended area (at the
+ * fpstate+extended_size-FP_XSTATE_MAGIC2_SIZE address) is set to
+ * FP_XSTATE_MAGIC2 so that you can sanity check your size calculations.)
+ *
+ * This extended area typically grows with newer CPUs that have larger and
+ * larger XSAVE areas.
  */
 typedef struct _kernel_fpx_sw_bytes_t {
-    __u32 magic1;        /* FP_XSTATE_MAGIC1 */
-    __u32 extended_size; /* total size of the layout referred by
-                          * fpstate pointer in the sigcontext.
-                          */
+    __u32 magic1; /* FP_XSTATE_MAGIC1 */
+    /* Total size of the fpstate area:
+     *
+     * - if magic1 == 0 then it's sizeof(struct _fpstate)
+     * - if magic1 == FP_XSTATE_MAGIC1 then it's sizeof(struct
+     *   _xstate) plus extensions (if any).
+     *
+     * The extensions always include FP_XSTATE_MAGIC2_SIZE.
+     * For 32-bit, they also include the FSAVE fields, but those are actually
+     * prepended: for DR they're the initial part of the 32-bit kernel_fpstate_t
+     * and thus part of kernel_xstate_t already.
+     */
+    __u32 extended_size;
     __u64 xstate_bv;
     /* feature bit mask (including fp/sse/extended
      * state) that is present in the memory
      * layout.
      */
-    __u32 xstate_size; /* actual xsave state size, based on the
-                        * features saved in the layout.
-                        * 'extended_size' will be greater than
-                        * 'xstate_size'.
-                        */
-    __u32 padding[7];  /*  for future use. */
+    /* Actual xsave state size, based on the features saved in the layout.
+     * 'extended_size' will be greater than 'xstate_size' (because it includes
+     * FP_XSTATE_MAGIC2, plus FSAVE data for 32-bit).
+     */
+    __u32 xstate_size;
+    __u32 padding[7]; /*  for future use. */
 } kernel_fpx_sw_bytes_t;
 
 #ifdef __i386__
@@ -80,7 +92,13 @@ typedef struct _kernel_xmmreg_t {
 } kernel_xmmreg_t;
 
 typedef struct _kernel_fpstate_t {
-    /* Regular FPU environment */
+    /* Regular FPU environment.
+     * These initial fields are the FSAVE format.  They are followed by the
+     * FXSAVE, which matches the 64-bit kernel_fpstate_t.  Note that in the kernel
+     * code, it treats this FSAVE prefix as a separate thing and includes it in
+     * extra size in kernel_fpx_sw_bytes_t.extended_size, although it is in essence
+     * prepended instead of appended.
+     */
     unsigned long cw;
     unsigned long sw;
     unsigned long tag;
@@ -108,6 +126,10 @@ typedef struct _kernel_fpstate_t {
 } kernel_fpstate_t;
 
 #    define X86_FXSR_MAGIC 0x0000
+/* This is the size of the FSAVE fields the kernel prepends to fpstate.
+ * We have them in our kernel_fpstate_t struct.
+ */
+#    define FSAVE_FPSTATE_PREFIX_SIZE offsetof(kernel_fpstate_t, _fxsr_env)
 
 /*
  * User-space might still rely on the old definition:

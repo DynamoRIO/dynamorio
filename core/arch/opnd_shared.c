@@ -170,7 +170,10 @@ opnd_is_far_abs_addr(opnd_t opnd)
 bool
 opnd_is_vsib(opnd_t op)
 {
-    return (opnd_is_base_disp(op) && reg_is_xmm(opnd_get_index(op)));
+    return (opnd_is_base_disp(op) &&
+            (reg_is_strictly_xmm(opnd_get_index(op)) ||
+             reg_is_strictly_ymm(opnd_get_index(op)) ||
+             reg_is_strictly_zmm(opnd_get_index(op))));
 }
 
 bool
@@ -1545,12 +1548,20 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_4x8_short2:    /* default size */
     case OPSZ_4x8_short2xi8: /* default size */
 #endif
-    case OPSZ_8_rex16: /* default size */
-    case OPSZ_8_rex16_short4: /* default size */ return 8;
+    case OPSZ_8_rex16:        /* default size */
+    case OPSZ_8_rex16_short4: /* default size */
+#ifndef X64
+    case OPSZ_8x16: /* default size */
+#endif
+        return 8;
     case OPSZ_16:
     case OPSZ_16_vex32:
     case OPSZ_16_of_32:
-    case OPSZ_16_vex32_evex64: return 16;
+    case OPSZ_16_vex32_evex64:
+#ifdef X64
+    case OPSZ_8x16: /* default size */
+#endif
+        return 16;
     case OPSZ_vex32_evex64: return 32;
     case OPSZ_6x10:
         /* table base + limit; w/ addr16, different format, but same total footprint */
@@ -1803,6 +1814,10 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val)
         if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->simd[reg - DR_REG_START_ZMM], ZMM_REG_SIZE);
+    } else if (reg >= DR_REG_START_OPMASK && reg <= DR_REG_STOP_OPMASK) {
+        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+            return false;
+        memcpy(val, &mc->opmask[reg - DR_REG_START_OPMASK], OPMASK_AVX512BW_REG_SIZE);
     } else {
         reg_t regval = reg_get_value(reg, mc);
         *(reg_t *)val = regval;
@@ -2155,6 +2170,8 @@ reg_get_bits(reg_id_t reg)
         return (byte)((reg - DR_REG_START_YMM) % 8);
     if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM)
         return (byte)((reg - DR_REG_START_ZMM) % 8);
+    if (reg >= DR_REG_START_BND && reg <= DR_REG_STOP_BND)
+        return (byte)((reg - DR_REG_START_BND) % 4);
     if (reg >= DR_REG_START_OPMASK && reg <= DR_REG_STOP_OPMASK)
         return (byte)((reg - DR_REG_START_OPMASK) % 8);
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
@@ -2203,12 +2220,11 @@ reg_get_size(reg_id_t reg)
         /* The default is 16 bits wide. The register may be up to 64 bits wide with
          * the AVX-512BW extension, which depends on the processor. The number of
          * bits actually used depends on the vector type of the instruction.
-         * XXX i#1312: return variable size dependent on processor feature. OPSZ_8
-         * is the most recent maximal physical register, but may not apply to every
-         * processor and OS we're running on.
          */
         return OPSZ_8;
     }
+    if (reg >= DR_REG_START_BND && reg <= DR_REG_STOP_BND)
+        return IF_X64_ELSE(OPSZ_16, OPSZ_8);
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return OPSZ_2;
     if (reg >= REG_START_DR && reg <= REG_STOP_DR)

@@ -254,15 +254,16 @@ typedef enum {
     FEATURE_FMA4 = 16 + 96,   /**< AMD FMA4 supported */
     FEATURE_TBM = 21 + 96,    /**< AMD Trailing Bit Manipulation supported */
     /* structured extended features returned in ebx */
-    FEATURE_FSGSBASE = 0 + 128, /**< #OP_rdfsbase, etc. supported */
-    FEATURE_BMI1 = 3 + 128,     /**< BMI1 instructions supported */
-    FEATURE_HLE = 4 + 128,      /**< Hardware Lock Elision supported */
-    FEATURE_AVX2 = 5 + 128,     /**< AVX2 instructions supported */
-    FEATURE_BMI2 = 8 + 128,     /**< BMI2 instructions supported */
-    FEATURE_ERMSB = 9 + 128,    /**< Enhanced rep movsb/stosb supported */
-    FEATURE_INVPCID = 10 + 128, /**< #OP_invpcid supported */
-    FEATURE_RTM = 11 + 128,     /**< Restricted Transactional Memory supported */
-    FEATURE_AVX512 = 16 + 128,  /**< AVX-512 instructions supported */
+    FEATURE_FSGSBASE = 0 + 128,  /**< #OP_rdfsbase, etc. supported */
+    FEATURE_BMI1 = 3 + 128,      /**< BMI1 instructions supported */
+    FEATURE_HLE = 4 + 128,       /**< Hardware Lock Elision supported */
+    FEATURE_AVX2 = 5 + 128,      /**< AVX2 instructions supported */
+    FEATURE_BMI2 = 8 + 128,      /**< BMI2 instructions supported */
+    FEATURE_ERMSB = 9 + 128,     /**< Enhanced rep movsb/stosb supported */
+    FEATURE_INVPCID = 10 + 128,  /**< #OP_invpcid supported */
+    FEATURE_RTM = 11 + 128,      /**< Restricted Transactional Memory supported */
+    FEATURE_AVX512F = 16 + 128,  /**< AVX-512F instructions supported */
+    FEATURE_AVX512BW = 30 + 128, /**< AVX-512BW instructions supported */
 } feature_bit_t;
 
 /**
@@ -293,14 +294,17 @@ extern size_t cache_line_size;
 
 #define CACHE_LINE_SIZE() cache_line_size
 
-/* xcr0 and xstate_bv feature bits */
+/* xcr0 and xstate_bv feature bits, as actually used by the processor. */
 enum {
-    XCR0_HI16_ZMM = 7,
-    XCR0_ZMM_HI256 = 6,
-    XCR0_OPMASK = 5,
-    XCR0_AVX = 4,
-    XCR0_SSE = 2,
-    XCR0_FP = 1,
+    /* Component for entire zmm16-zmm31 registers. */
+    XCR0_HI16_ZMM = 0x80,
+    /* Component for upper half of each of zmm0-zmm15 registers. */
+    XCR0_ZMM_HI256 = 0x40,
+    XCR0_OPMASK = 0x20,
+    /* TODO i#3581: mpx state */
+    XCR0_AVX = 0x4,
+    XCR0_SSE = 0x2,
+    XCR0_FP = 0x1,
 };
 
 /* information about a processor */
@@ -465,10 +469,7 @@ DR_API
  * to optimize the number of saved registers in a context switch to avoid frequency
  * scaling (https://github.com/DynamoRIO/dynamorio/issues/3169).
  */
-/* XXX i#1312: Implement lazy update mechanism and add a callback so clients
- * can adjust for changes mid-run.
- *
- * PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
+/* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
  * libc routines invoked by DR in some Linux systems (xref i#139),
  * so they should be saved in 32-bit Linux.
  *
@@ -497,6 +498,76 @@ DR_API
  */
 int
 proc_num_simd_registers(void);
+
+DR_API
+/**
+ * Returns the number of AVX-512 mask registers. The number returned here depends on the
+ * processor and OS feature bits on a given machine.
+ *
+ */
+int
+proc_num_opmask_registers(void);
+
+/*
+ * This function is internal only.
+ *
+ * Setter function for proc_num_simd_saved(). It should be used in order to change the
+ * number of saved SIMD registers, which currently happens once AVX-512 code has been
+ * detected.
+ */
+void
+proc_set_num_simd_saved(int num);
+
+/*
+ * This function is internal only.
+ *
+ * Returns the number of SIMD registers, but excluding AVX-512 extended registers. The
+ * function is only used internally. It shall be primarily used for xstate, fpstate,
+ * or sigcontext state access. For example, the xmm or ymmh fields are always of SSE or
+ * AVX size, while the extended AVX-512 register state is stored on top of that.
+ * proc_num_simd_registers() and proc_num_simd_saved() are not suitable to use in this
+ * case.
+ */
+int
+proc_num_simd_sse_avx_registers(void);
+
+/*
+ * This function is internal only.
+ *
+ * Returns the number of SIMD registers preserved for a context switch, but excluding
+ * AVX-512 extended registers. Its usage model is the same as
+ * proc_num_simd_sse_avx_registers(), but reflects the actual number of saved registers,
+ * the same way as proc_num_simd_saved() does.
+ */
+int
+proc_num_simd_sse_avx_saved(void);
+
+/*
+ * This function is internal only.
+ *
+ * Returns the AVX-512 kmask xstate component's offset in bytes, as reported by CPUID
+ * on the system.
+ */
+int
+proc_xstate_area_kmask_offs(void);
+
+/*
+ * This function is internal only.
+ *
+ * Returns the AVX-512 zmm_hi256 xstate component's offset in bytes, as reported by CPUID
+ * on the system.
+ */
+int
+proc_xstate_area_zmm_hi256_offs(void);
+
+/*
+ * This function is internal only.
+ *
+ * Returns the AVX-512 hi16_zmm xstate component's offset in bytes, as reported by CPUID
+ * on the system.
+ */
+int
+proc_xstate_area_hi16_zmm_offs(void);
 
 DR_API
 /**

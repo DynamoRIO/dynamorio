@@ -242,9 +242,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_pa
             int i, j;
             /* For x86, ensure we have ExtendedRegisters space (i#1223) */
             IF_NOT_X64(ASSERT(TEST(CONTEXT_XMM_FLAG, cxt->ContextFlags)));
-            /* XXX i#1312: This should be proc_num_simd_registers() which is part of
-             * the dynamorio lib.
-             */
+            /* XXX i#1312: This should be proc_num_simd_sse_avx_registers(). */
             ASSERT(MCXT_SIMD_SLOT_SIZE == ZMM_REG_SIZE);
             for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
                 for (j = 0; j < XMM_REG_SIZE / sizeof(*bufptr); j++) {
@@ -259,6 +257,8 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_pa
             /* skip xmm slots */
             bufptr += MCXT_TOTAL_SIMD_SLOTS_SIZE / sizeof(*bufptr);
         }
+        /* TODO i#1312: the zmm and mask fields need to be copied. */
+        bufptr += MCXT_TOTAL_OPMASK_SLOTS_SIZE / sizeof(*bufptr);
         ASSERT((char *)bufptr - (char *)buf == sizeof(priv_mcontext_t));
         *bufptr++ = (ptr_uint_t)load_dynamo_code;
         *bufptr++ = SIZE_OF_LOAD_DYNAMO;

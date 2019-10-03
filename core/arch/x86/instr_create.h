@@ -120,6 +120,9 @@
 /** Create a memory reference operand appropriately sized for OP_fxrstor32/OP_fxrstor64.*/
 #define OPND_CREATE_MEM_fxrstor(base, index, scale, disp) \
     opnd_create_base_disp(base, index, scale, disp, OPSZ_fxrstor)
+/** Create a memory reference operand appropriately sized for OP_ptwrite.*/
+#define OPND_CREATE_MEM_ptwrite(base, index, scale, disp) \
+    opnd_create_base_disp(base, index, scale, disp, OPSZ_ptwrite)
 /**
  * Create a memory reference operand appropriately sized for OP_xsave32,
  * OP_xsave64, OP_xsaveopt32, OP_xsaveopt64, OP_xsavec32, OP_xsavec64,
@@ -651,6 +654,15 @@
 #define INSTR_CREATE_ldmxcsr(dc, s) instr_create_0dst_1src((dc), OP_ldmxcsr, (s))
 #define INSTR_CREATE_vldmxcsr(dc, s) instr_create_0dst_1src((dc), OP_vldmxcsr, (s))
 #define INSTR_CREATE_nop_modrm(dc, s) instr_create_0dst_1src((dc), OP_nop_modrm, (s))
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param s The opnd_t explicit source operand for the instruction, which can be
+ * a general-purpose registers or a memory reference. The latter can be created with
+ * OPND_CREATE_MEM_ptwrite() to get the appropriate operand size.
+ */
+#define INSTR_CREATE_ptwrite(dc, s) instr_create_0dst_1src((dc), OP_ptwrite, (s))
 /* @} */ /* end doxygen group */
 /** @name Prefetch */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
@@ -1514,6 +1526,14 @@
     instr_create_1dst_1src((dc), OP_vpbroadcastmb2q, (d), (s))
 #define INSTR_CREATE_vpbroadcastmw2d(dc, d, s) \
     instr_create_1dst_1src((dc), OP_vpbroadcastmw2d, (d), (s))
+/* MPX */
+#define INSTR_CREATE_bndmov(dc, d, s) instr_create_1dst_1src((dc), OP_bndmov, (d), (s))
+#define INSTR_CREATE_bndcl(dc, d, s) instr_create_1dst_1src((dc), OP_bndcl, (d), (s))
+#define INSTR_CREATE_bndcu(dc, d, s) instr_create_1dst_1src((dc), OP_bndcu, (d), (s))
+#define INSTR_CREATE_bndcn(dc, d, s) instr_create_1dst_1src((dc), OP_bndcn, (d), (s))
+#define INSTR_CREATE_bndmk(dc, d, s) instr_create_1dst_1src((dc), OP_bndmk, (d), (s))
+#define INSTR_CREATE_bndldx(dc, d, s) instr_create_1dst_1src((dc), OP_bndldx, (d), (s))
+#define INSTR_CREATE_bndstx(dc, d, s) instr_create_1dst_1src((dc), OP_bndstx, (d), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
@@ -2878,6 +2898,17 @@
 /* ADX */
 #define INSTR_CREATE_adox(dc, d, s) instr_create_1dst_2src((dc), OP_adox, (d), (s), (d))
 #define INSTR_CREATE_adcx(dc, d, s) instr_create_1dst_2src((dc), OP_adcx, (d), (s), (d))
+/* SHA */
+#define INSTR_CREATE_sha1msg1(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha1msg1, (d), (s), (d))
+#define INSTR_CREATE_sha1msg2(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha1msg2, (d), (s), (d))
+#define INSTR_CREATE_sha1nexte(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha1nexte, (d), (s), (d))
+#define INSTR_CREATE_sha256msg1(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha256msg1, (d), (s), (d))
+#define INSTR_CREATE_sha256msg2(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha256msg2, (d), (s), (d))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 1 explicit register-or-immediate source */
@@ -3726,6 +3757,8 @@
     instr_create_1dst_3src((dc), OP_vinsertps, (d), (s1), (s2), (i))
 #define INSTR_CREATE_vpinsrd(dc, d, s1, s2, i) \
     instr_create_1dst_3src((dc), OP_vpinsrd, (d), (s1), (s2), (i))
+#define INSTR_CREATE_vpinsrq(dc, d, s1, s2, i) \
+    instr_create_1dst_3src((dc), OP_vpinsrq, (d), (s1), (s2), (i))
 #define INSTR_CREATE_vdpps(dc, d, s1, s2, i) \
     instr_create_1dst_3src((dc), OP_vdpps, (d), (s1), (s2), (i))
 #define INSTR_CREATE_vdppd(dc, d, s1, s2, i) \
@@ -3814,6 +3847,9 @@
     instr_create_1dst_3src((dc), OP_dppd, (d), (s), (i), (d))
 #define INSTR_CREATE_mpsadbw(dc, d, s, i) \
     instr_create_1dst_3src((dc), OP_mpsadbw, (d), (s), (i), (d))
+/* SHA */
+#define INSTR_CREATE_sha1rnds4(dc, d, s, i) \
+    instr_create_1dst_3src((dc), OP_sha1rnds4, (d), (s), (i), (d))
 /* @} */ /* end doxygen group */
 
 /** @name 1 explicit destination, 2 explicit sources, dest is implicit source */
@@ -4319,6 +4355,10 @@
     instr_create_1dst_3src((dc), OP_blendvps, (d), (s), opnd_create_reg(DR_REG_XMM0), (d))
 #define INSTR_CREATE_blendvpd(dc, d, s) \
     instr_create_1dst_3src((dc), OP_blendvpd, (d), (s), opnd_create_reg(DR_REG_XMM0), (d))
+/* SHA */
+#define INSTR_CREATE_sha256rnds2(dc, d, s)                                               \
+    instr_create_1dst_3src((dc), OP_sha256rnds2, (d), (s), opnd_create_reg(DR_REG_XMM0), \
+                           (d))
 /* @} */ /* end doxygen group */
 
 /* 1 implicit destination, 3 sources */

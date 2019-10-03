@@ -134,7 +134,10 @@ unit_test_get_ymm_caller_saved()
     register __m256 ymm15 asm("ymm15");
 #        endif
 
-    for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
+    /* The function get_ymm_caller_saved is intended to be used for AVX (no AVX-512). It
+     * doesn't cover extended AVX-512 registers.
+     */
+    for (int regno = 0; regno < proc_num_simd_sse_avx_registers(); ++regno) {
         for (int dword = 0; dword < sizeof(dr_ymm_t) / sizeof(uint); ++dword) {
             get_buffer[regno].u32[dword] = 0;
             ref_buffer[regno].u32[dword] = base++;
@@ -180,7 +183,7 @@ unit_test_get_ymm_caller_saved()
                        "xmm15");
 #        endif
 
-    for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
+    for (int regno = 0; regno < proc_num_simd_sse_avx_registers(); ++regno) {
         print_file(STDERR, "YMM%d ref\n:", regno);
         dump_buffer_as_bytes(STDERR, &ref_buffer[regno], sizeof(ref_buffer[regno]),
                              DUMP_RAW | DUMP_DWORD);
@@ -189,9 +192,9 @@ unit_test_get_ymm_caller_saved()
                              DUMP_RAW | DUMP_DWORD);
         print_file(STDERR, "\n");
     }
-    EXPECT(
-        memcmp(ref_buffer, get_buffer, proc_num_simd_registers() * MCXT_SIMD_SLOT_SIZE),
-        0);
+    EXPECT(memcmp(ref_buffer, get_buffer,
+                  proc_num_simd_sse_avx_registers() * MCXT_SIMD_SLOT_SIZE),
+           0);
 }
 
 #    endif
@@ -201,20 +204,11 @@ unit_test_get_ymm_caller_saved()
 static void
 unit_test_get_zmm_caller_saved()
 {
-    /* XXX i#1312: get_zmm_caller_saved(byte* buf) assumes that there is enough
-     * space in the buffer it's being passed. MCXT_NUM_SIMD_SLOTS does not yet
-     * reflect this. Once this happens, the array size should become
-     * MCXT_NUM_SIMD_SLOTS.
-     */
-    if (MCXT_NUM_SIMD_SLOTS == 32) {
-        /* This is a just reminder.*/
-        FAIL();
-    }
-    dr_zmm_t ref_buffer[32];
-    dr_zmm_t get_buffer[32];
+    dr_zmm_t ref_buffer[MCXT_NUM_SIMD_SLOTS];
+    dr_zmm_t get_buffer[MCXT_NUM_SIMD_SLOTS];
     ASSERT(sizeof(dr_zmm_t) == ZMM_REG_SIZE);
     uint base = 0x78abcdef;
-
+    ASSERT(ZMM_ENABLED());
     register __m512 zmm0 asm("zmm0");
     register __m512 zmm1 asm("zmm1");
     register __m512 zmm2 asm("zmm2");
@@ -333,7 +327,7 @@ unit_test_get_opmask_caller_saved()
      */
     dr_opmask_t ref_buffer[MCXT_NUM_OPMASK_SLOTS];
     dr_opmask_t get_buffer[MCXT_NUM_OPMASK_SLOTS];
-    ASSERT(sizeof(dr_opmask_t) == OPMASK_REG_SIZE);
+    ASSERT(sizeof(dr_opmask_t) == OPMASK_AVX512BW_REG_SIZE);
     uint base = 0x0000348e;
 
 #        ifdef __AVX512BW__
@@ -355,7 +349,7 @@ unit_test_get_opmask_caller_saved()
     register __mmask16 k7 asm("k7");
 #        endif
 
-    for (int regno = 0; regno < MCXT_NUM_OPMASK_SLOTS; ++regno) {
+    for (int regno = 0; regno < proc_num_opmask_registers(); ++regno) {
         get_buffer[regno] = 0;
         ref_buffer[regno] = base++;
     }
@@ -378,7 +372,7 @@ unit_test_get_opmask_caller_saved()
     /* Barrier, as described in unit_test_get_zmm_caller_saved. */
     asm volatile("" ::: "k0", "k1", "k2", "k3", "k4", "k5", "k6", "k7");
 
-    for (int regno = 0; regno < MCXT_NUM_OPMASK_SLOTS; ++regno) {
+    for (int regno = 0; regno < proc_num_opmask_registers(); ++regno) {
         print_file(STDERR, "K%d ref\n:", regno);
         dump_buffer_as_bytes(STDERR, &ref_buffer[regno], sizeof(ref_buffer[regno]),
                              DUMP_RAW | DUMP_DWORD);
