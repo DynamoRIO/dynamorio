@@ -2422,7 +2422,7 @@ DR_API
  * class of the given size.
  *
  * For example, given \p DR_REG_AX or \p DR_REG_RAX and \p OPSZ_1, this routine will
- * return \p DR_REG_AL. Given \p DR_REG_XMM0 and \p OPSZ-64, it will return \p
+ * return \p DR_REG_AL. Given \p DR_REG_XMM0 and \p OPSZ_64, it will return \p
  * DR_REG_ZMM0.
  *
  * Returns \p DR_REG_NULL when trying to get the 8-bit subregister of \p
