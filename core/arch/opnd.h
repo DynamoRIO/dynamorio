@@ -2431,6 +2431,7 @@ DR_API
  * version of \p reg.
  *
  * MMX registers are not yet supported.
+ * Moreover, ARM is not yet supported.
  */
 reg_id_t
 reg_resize_to_opsz(reg_id_t reg, opnd_size_t sz);
