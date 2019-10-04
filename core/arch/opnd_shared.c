@@ -2102,6 +2102,7 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
 static reg_id_t
 reg_resize_to_zmm(reg_id_t simd_reg)
 {
+#ifdef X86
     if (reg_is_strictly_xmm(simd_reg)) {
         return simd_reg - DR_REG_START_XMM + DR_REG_START_ZMM;
     } else if (reg_is_strictly_ymm(simd_reg)) {
@@ -2110,12 +2111,14 @@ reg_resize_to_zmm(reg_id_t simd_reg)
         return simd_reg;
     }
     CLIENT_ASSERT(false, "Not a simd register.");
+#endif
     return DR_REG_INVALID;
 }
 
 static reg_id_t
 reg_resize_to_ymm(reg_id_t simd_reg)
 {
+#ifdef X86
     if (reg_is_strictly_xmm(simd_reg)) {
         return simd_reg - DR_REG_START_XMM + DR_REG_START_YMM;
     } else if (reg_is_strictly_ymm(simd_reg)) {
@@ -2124,12 +2127,14 @@ reg_resize_to_ymm(reg_id_t simd_reg)
         return simd_reg - DR_REG_START_ZMM + DR_REG_START_YMM;
     }
     CLIENT_ASSERT(false, "not a simd register.");
+#endif
     return DR_REG_INVALID;
 }
 
 static reg_id_t
 reg_resize_to_xmm(reg_id_t simd_reg)
 {
+#ifdef X86
     if (reg_is_strictly_xmm(simd_reg)) {
         return simd_reg;
     } else if (reg_is_strictly_ymm(simd_reg)) {
@@ -2138,6 +2143,7 @@ reg_resize_to_xmm(reg_id_t simd_reg)
         return simd_reg - DR_REG_START_ZMM + DR_REG_START_XMM;
     }
     CLIENT_ASSERT(false, "not a simd register");
+#endif
     return DR_REG_INVALID;
 }
 
