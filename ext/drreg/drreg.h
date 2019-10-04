@@ -619,18 +619,6 @@ drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 DR_EXPORT
 /**
- * Terminates exclusive use of the XMM register \p reg.
- *
- * Similar to \p drreg_unreserve_register but for XMM registers.
- *
- * @return whether successful or an error code on failure.
- */
-drreg_status_t
-drreg_unreserve_xmm_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                             reg_id_t reg);
-
-DR_EXPORT
-/**
  * Returns in \p dead whether the register \p reg is dead at the
  * point of \p inst.  If called during drmgr's insertion phase, \p
  * inst must be the current application instruction.
