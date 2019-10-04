@@ -1504,16 +1504,17 @@ vmm_heap_handle_pending_low_on_memory_event_trigger()
     if (trigger)
         instrument_low_on_memory();
 }
+#endif
 
 static void
 schedule_low_on_memory_event_trigger()
 {
-#    ifdef CLIENT_INTERFACE
+#ifdef CLIENT_INTERFACE
     bool value = true;
     ATOMIC_1BYTE_WRITE(&low_on_memory_pending, value, false);
-#    endif
-}
 #endif
+}
+
 /* Reserve virtual address space without committing swap space for it */
 static vm_addr_t
 vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
