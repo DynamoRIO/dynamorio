@@ -1508,8 +1508,10 @@ vmm_heap_handle_pending_low_on_memory_event_trigger()
 static void
 schedule_low_on_memory_event_trigger()
 {
+#    ifdef CLIENT_INTERFACE
     bool value = true;
     ATOMIC_1BYTE_WRITE(&low_on_memory_pending, value, false);
+#    endif
 }
 #endif
 /* Reserve virtual address space without committing swap space for it */
@@ -1531,9 +1533,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             DO_ONCE({
                 if (DYNAMO_OPTION(reset_at_switch_to_os_at_vmm_limit)) {
                     schedule_reset(RESET_ALL);
-#ifdef CLIENT_INTERFACE
                     schedule_low_on_memory_event_trigger();
-#endif
                 }
                 DOCHECK(1, {
                     if (!INTERNAL_OPTION(vm_use_last)) {
@@ -1565,9 +1565,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
         if (at_reset_at_vmm_limit(vmh)) {
             /* We're running low on our reservation, trigger a reset */
             if (schedule_reset(RESET_ALL)) {
-#ifdef CLIENT_INTERFACE
                 schedule_low_on_memory_event_trigger();
-#endif
                 STATS_INC(reset_low_vmm_count);
                 DO_THRESHOLD_SAFE(
                     DYNAMO_OPTION(report_reset_vmm_threshold), FREQ_PROTECTED_SECTION,
