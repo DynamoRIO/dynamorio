@@ -3155,6 +3155,20 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
     protect_generated_code(code, READONLY);
 }
 
+/*
+RAW(66) RAW(90)
+RAW(67) RAW(90)
+RAW(f2) RAW(90)
+RAW(f3) RAW(90)
+RAW(66) RAW(66) RAW(66) RAW(66) RAW(66) RAW(90)
+RAW(0f) RAW(1f) RAW(00)
+RAW(0f) RAW(1f) RAW(40) RAW(00)
+RAW(0f) RAW(1f) RAW(44) RAW(00) RAW(00)
+RAW(66) RAW(0f) RAW(1f) RAW(44) RAW(00) RAW(00)
+RAW(0f) RAW(1f) RAW(80) RAW(00) RAW(00) RAW(00) RAW(00)
+RAW(0f) RAW(1f) RAW(84) RAW(00) RAW(00) RAW(00) RAW(00) RAW(00)
+RAW(66) RAW(0f) RAW(1f) RAW(84) RAW(00) RAW(00) RAW(00) RAW(00) RAW(00)
+*/
 bool
 fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
 {
@@ -3165,18 +3179,18 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
          * NOP", page 94)
          */
         switch (size) {
-        case 1: memcpy(addr, "\x90", 1);
-        case 2: memcpy(addr, "\x66\x90", 2);
-        case 3: memcpy(addr, "\x0f\x1f\x00", 3);
-        case 4: memcpy(addr, "\x0f\x1f\x40\x00", 4);
-        case 5: memcpy(addr, "\x0f\x1f\x44\x00\x00", 5);
-        case 6: memcpy(addr, "\x66\x0f\x1f\x44\x00\x00", 6);
-        case 7: memcpy(addr, "\x0f\x1f\x80\x00\x00\x00\x00", 7);
-        case 8: memcpy(addr, "\x0f\x1f\x84\x00\x00\x00\x00\x00", 8);
-        case 9: memcpy(addr, "\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 9);
-        case 10: memcpy(addr, "\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 10);
-        case 11: memcpy(addr, "\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 11);
-        default: memset(addr, 0x90, size);
+        case 1: memcpy(addr, "\x90", 1); break;
+        case 2: memcpy(addr, "\x66\x90", 2); break;
+        case 3: memcpy(addr, "\x0f\x1f\x00", 3); break;
+        case 4: memcpy(addr, "\x0f\x1f\x40\x00", 4); break;
+        case 5: memcpy(addr, "\x0f\x1f\x44\x00\x00", 5); break;
+        case 6: memcpy(addr, "\x66\x0f\x1f\x44\x00\x00", 6); break;
+        case 7: memcpy(addr, "\x0f\x1f\x80\x00\x00\x00\x00", 7); break;
+        case 8: memcpy(addr, "\x0f\x1f\x84\x00\x00\x00\x00\x00", 8); break;
+        case 9: memcpy(addr, "\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 9); break;
+        case 10: memcpy(addr, "\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 10); break;
+        case 11: memcpy(addr, "\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 11); break;
+        default: memset(addr, 0x90, size); break;
         }
     } else {
         /* 32 bit defaults to multiple nop instructions */
