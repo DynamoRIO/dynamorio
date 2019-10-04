@@ -1592,6 +1592,9 @@ DR_API
  * On ARM, a negative value for \p disp will be converted into a positive
  * value with #DR_OPND_NEGATED set in opnd_get_flags().
  * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ * Also use this function to create VSIB operands, passing a SIMD register as
+ * the index register.
  */
 opnd_t
 opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
@@ -2415,13 +2418,20 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz);
 
 DR_API
 /**
- * Given a general-purpose register of any size, returns a register in the same
- * class of the given size.  For example, given \p DR_REG_AX or \p DR_REG_RAX
- * and \p OPSZ_1, this routine will return \p DR_REG_AL.
+ * Given a general-purpose or SIMD register of any size, returns a register in the same
+ * class of the given size.
+ *
+ * For example, given \p DR_REG_AX or \p DR_REG_RAX and \p OPSZ_1, this routine will
+ * return \p DR_REG_AL. Given \p DR_REG_XMM0 and \p OPSZ_64, it will return \p
+ * DR_REG_ZMM0.
+ *
  * Returns \p DR_REG_NULL when trying to get the 8-bit subregister of \p
  * DR_REG_ESI, \p DR_REG_EDI, \p DR_REG_EBP, or \p DR_REG_ESP in 32-bit mode.
  * For 64-bit versions of this library, if \p sz == OPSZ_8, returns the 64-bit
  * version of \p reg.
+ *
+ * MMX registers are not yet supported.
+ * Moreover, ARM is not yet supported for resizing SIMD registers.
  */
 reg_id_t
 reg_resize_to_opsz(reg_id_t reg, opnd_size_t sz);
@@ -2896,6 +2906,9 @@ opnd_create_tls_slot(int offs);
 opnd_t
 opnd_create_sized_tls_slot(int offs, opnd_size_t size);
 #endif /* !STANDALONE_DECODER */
+
+/* stack slot width */
+#define XSP_SZ (sizeof(reg_t))
 
 /* This should be kept in sync w/ the defines in x86/x86.asm */
 enum {

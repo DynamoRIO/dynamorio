@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -918,7 +918,6 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 #ifdef DEBUG
     if (drmgr_is_last_instr(drcontext, inst)) {
         uint i;
-        reg_id_t reg;
         for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
             ASSERT(!pt->aflags.in_use, "user failed to unreserve aflags");
             ASSERT(pt->aflags.native, "user failed to unreserve aflags");
@@ -1337,7 +1336,7 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
-        drreg_status_t res = drreg_forward_analysis(drcontext, where);
+        res = drreg_forward_analysis(drcontext, where);
         if (res != DRREG_SUCCESS)
             return res;
     }
@@ -1376,7 +1375,7 @@ drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
-        drreg_status_t res = drreg_forward_analysis(drcontext, where);
+        res = drreg_forward_analysis(drcontext, where);
         if (res != DRREG_SUCCESS)
             return res;
     }

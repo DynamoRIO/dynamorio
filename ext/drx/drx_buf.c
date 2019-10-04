@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -412,11 +412,11 @@ drx_buf_insert_update_buf_ptr_2byte(void *drcontext, drx_buf_t *buf, instrlist_t
                                                            OPSZ_2),
                                  OPND_CREATE_INT16(stride)));
     } else {
-        reg_id_t scratch = reg_resize_to_opsz(buf_ptr, OPSZ_2);
+        reg_id_t scratch2 = reg_resize_to_opsz(buf_ptr, OPSZ_2);
         /* use lea to avoid dealing with aflags */
         MINSERT(ilist, where,
                 INSTR_CREATE_lea(
-                    drcontext, opnd_create_reg(scratch),
+                    drcontext, opnd_create_reg(scratch2),
                     opnd_create_base_disp(buf_ptr, DR_REG_NULL, 0, stride, OPSZ_lea)));
         dr_insert_write_raw_tls(drcontext, ilist, where, buf->tls_seg, buf->tls_offs,
                                 buf_ptr);

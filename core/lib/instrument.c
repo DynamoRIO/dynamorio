@@ -3863,10 +3863,19 @@ dr_mark_safe_to_suspend(void *drcontext, bool enter)
 
 DR_API
 int
-dr_atomic_add32_return_sum(volatile int *x, int val)
+dr_atomic_add32_return_sum(volatile int *dest, int val)
 {
-    return atomic_add_exchange_int(x, val);
+    return atomic_add_exchange_int(dest, val);
 }
+
+#    ifdef X64
+DR_API
+int64
+dr_atomic_add64_return_sum(volatile int64 *dest, int64 val)
+{
+    return atomic_add_exchange_int64(dest, val);
+}
+#    endif
 
 /***************************************************************************
  * MODULES

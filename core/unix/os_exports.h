@@ -45,6 +45,11 @@
 #include <stdarg.h>
 #include "../os_shared.h"
 #include "os_public.h"
+/* arch_exports.h exports opnd.h, but relies on kernel_sigset_t from this header.
+ * We thus directly include opnd.h here for reg_id_t to resolve the circular
+ * dependence (cleaner than having to use ushort instead of reg_id_t).
+ */
+#include "../arch/opnd.h"
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 #    define getpid getpid_forbidden_use_get_process_id
@@ -192,13 +197,12 @@ void
 os_signal_thread_detach(dcontext_t *dcontext);
 void
 os_tls_pre_init(int gdt_index);
-/* XXX: reg_id_t is not defined here, use ushort instead */
 ushort
-os_get_app_tls_base_offset(ushort /*reg_id_t*/ seg);
+os_get_app_tls_base_offset(reg_id_t seg);
 ushort
-os_get_app_tls_reg_offset(ushort /*reg_id_t*/ seg);
+os_get_app_tls_reg_offset(reg_id_t seg);
 void *
-os_get_app_tls_base(dcontext_t *dcontext, ushort /*reg_id_t*/ seg);
+os_get_app_tls_base(dcontext_t *dcontext, reg_id_t seg);
 void
 os_swap_context_go_native(dcontext_t *dcontext, dr_state_flags_t flags);
 

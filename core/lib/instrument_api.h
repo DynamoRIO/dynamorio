@@ -2916,9 +2916,22 @@ bool
 dr_mark_safe_to_suspend(void *drcontext, bool enter);
 
 DR_API
-/** Atomically adds \p *x and \p val and returns the sum. */
+/**
+ * Atomically adds \p val to \p *dest and returns the sum.
+ * \p dest must not straddle two cache lines.
+ */
 int
-dr_atomic_add32_return_sum(volatile int *x, int val);
+dr_atomic_add32_return_sum(volatile int *dest, int val);
+
+#    ifdef X64
+DR_API
+/**
+ * Atomically adds \p val to \p *dest and returns the sum.
+ * \p dest must not straddle two cache lines.
+ */
+int64
+dr_atomic_add64_return_sum(volatile int64 *dest, int64 val);
+#    endif
 
 /* DR_API EXPORT BEGIN */
 /**************************************************
@@ -4297,9 +4310,6 @@ DR_API
  * or S format specifiers.  On Windows, they are assumed to be UTF-16,
  * and are converted to UTF-8.  On Linux, they are converted by simply
  * dropping the high-order bytes.
- * \note On Windows, you can use _snprintf() instead (though _snprintf() does
- * not support printing floating point values and does not convert
- * between UTF-16 and UTF-8).
  * \note When printing floating-point values, the caller's code should
  * use proc_save_fpstate() or be inside a clean call that
  * has requested to preserve the floating-point state.

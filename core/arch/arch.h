@@ -401,7 +401,7 @@ typedef struct _clean_call_info_t {
     int num_opmask_skip;
     bool opmask_skip[MCXT_NUM_OPMASK_SLOTS];
     uint num_regs_skip;
-    bool reg_skip[NUM_GP_REGS];
+    bool reg_skip[DR_NUM_GPR_REGS];
     bool preserve_mcontext; /* even if skip reg save, preserve mcontext shape */
     bool out_of_line_swap;  /* whether we use clean_call_{save,restore} gencode */
     void *callee_info;      /* callee information */
@@ -1462,10 +1462,10 @@ typedef struct _callee_info_t {
     bool simd_used[MCXT_NUM_SIMD_SLOTS];
     /* AVX-512 mask register usage. */
     bool opmask_used[MCXT_NUM_OPMASK_SLOTS];
-    bool reg_used[NUM_GP_REGS];         /* general purpose registers usage */
-    int num_callee_save_regs;           /* number of regs callee saved */
-    bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */
-    bool has_locals;                    /* if reference local via stack */
+    bool reg_used[DR_NUM_GPR_REGS];         /* general purpose registers usage */
+    int num_callee_save_regs;               /* number of regs callee saved */
+    bool callee_save_regs[DR_NUM_GPR_REGS]; /* callee-save registers */
+    bool has_locals;                        /* if reference local via stack */
     bool standard_fp;   /* if standard reg (xbp/x29) is used as frame pointer */
     bool opt_inline;    /* can be inlined or not */
     bool write_flags;   /* if the function changes flags */

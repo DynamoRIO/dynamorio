@@ -488,7 +488,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_RSI)));
     if (!cci->reg_skip[REG_RDI - REG_XAX])
         PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_RDI)));
-    dstack_offs += (NUM_GP_REGS - cci->num_regs_skip) * XSP_SZ;
+    dstack_offs += (DR_NUM_GPR_REGS - cci->num_regs_skip) * XSP_SZ;
 #    else
     PRE(ilist, instr, INSTR_CREATE_pusha(dcontext));
     dstack_offs += 8 * XSP_SZ;

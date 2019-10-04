@@ -45,7 +45,8 @@
 #   HowToBuild.wiki
 ###########################################################################
 
-cmake_minimum_required(VERSION 3.2)
+# Visual Studio 2017 requires 3.7.
+cmake_minimum_required(VERSION 3.7)
 
 include(make/policies.cmake NO_POLICY_SCOPE)
 
@@ -851,7 +852,11 @@ else (UNIX)
   set(BASE_CFLAGS "${BASE_CFLAGS} /GS-")
   # VS2010 has /MD as the default (and does declspec(dllimport) for
   # libc routines) so make sure we explicitly request /MT
-  set(BASE_CFLAGS "${BASE_CFLAGS} /MT")
+  if (DEBUG)
+    set(BASE_CFLAGS "${BASE_CFLAGS} /MTd")
+  else ()
+    set(BASE_CFLAGS "${BASE_CFLAGS} /MT")
+  endif ()
   set(WARN "/W4 /WX")
   # Default from cmake has /W3 so remove to avoid warning about overriding
   string(REGEX REPLACE "/W[0-9]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")

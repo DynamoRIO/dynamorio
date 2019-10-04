@@ -171,6 +171,9 @@ compatibility changes:
    to be the first source.
  - The GPR versions of the vmovd and vmovq AVX opcodes are no longer combined into a
    single vmovd.
+ - Changed the #PFX format string specifier to use %p rather than %x internally.
+ - DR no longer forwards _snprintf, _snwprintf, _vsnprintf, sprintf, or sscanf to
+   ntdll.  Clients should use the dr_-prefixed versions of these functions.
 
 Further non-compatibility-affecting changes include:
 
@@ -208,6 +211,7 @@ Further non-compatibility-affecting changes include:
  - Added the function reg_is_bnd().
  - Added the functions instr_is_gather() and instr_is_scatter().
  - Added the function drx_expand_scatter_gather().
+ - Added the function dr_atomic_add64_return_sum().
 
 **************************************************
 <hr>

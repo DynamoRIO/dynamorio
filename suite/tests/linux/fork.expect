@@ -1,5 +1,4 @@
 parent is running under DynamoRIO
-child is running under DynamoRIO
-parent is running under DynamoRIO
 parent waiting for child
+child is running under DynamoRIO
 child has exited

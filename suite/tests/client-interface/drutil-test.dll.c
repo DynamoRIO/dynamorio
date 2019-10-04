@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -148,7 +148,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         dr_instr_label_data_t *data = instr_get_label_data_area(l);
         CHECK(data != NULL, "failed to get data area");
         memcpy(data, &magic_vals, sizeof(*data));
-        instr_set_note(l, (void *)MAGIC_NOTE);
+        instr_set_note(l, (void *)(ptr_uint_t)MAGIC_NOTE);
         instrlist_meta_preinsert(bb, first, l);
     }
     return DR_EMIT_DEFAULT;
@@ -164,7 +164,7 @@ check_label_data(instrlist_t *bb)
         CHECK(instr_is_label(first), "expected label");
         CHECK(memcmp(data, &magic_vals, sizeof(*data)) == 0,
               "label data was not preserved");
-        CHECK(instr_get_note(first) == (void *)MAGIC_NOTE,
+        CHECK(instr_get_note(first) == (void *)(ptr_uint_t)MAGIC_NOTE,
               "label note was not preserved");
     }
 }

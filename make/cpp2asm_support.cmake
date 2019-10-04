@@ -132,7 +132,14 @@ endif ()
 ##################################################
 # Preprocessor location and flags
 
-if (UNIX)
+if (MSVC)
+  set(CMAKE_CPP ${CMAKE_C_COMPILER})
+
+  set(CPP_KEEP_COMMENTS /C)
+  set(CPP_NO_LINENUM /EP)
+  set(CPP_KEEP_WHITESPACE "")
+  set(CMAKE_CPP_FLAGS "/nologo")
+else ()
   # "gcc -E" on a non-.c-extension file gives message:
   #   "linker input file unused because linking not done"
   # and doesn't produce any output, so we must use cpp for our .asm files.
@@ -153,14 +160,7 @@ if (UNIX)
   set(CPP_NO_LINENUM -P)
   set(CPP_KEEP_WHITESPACE -traditional-cpp)
   set(CMAKE_CPP_FLAGS "")
-else (UNIX)
-  set(CMAKE_CPP ${CMAKE_C_COMPILER})
-
-  set(CPP_KEEP_COMMENTS /C)
-  set(CPP_NO_LINENUM /EP)
-  set(CPP_KEEP_WHITESPACE "")
-  set(CMAKE_CPP_FLAGS "/nologo")
-endif (UNIX)
+endif (MSVC)
 
 ##################################################
 # Assembler location and flags

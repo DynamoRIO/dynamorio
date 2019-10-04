@@ -6577,7 +6577,6 @@ append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
 
     if (speculate_next_tag != NULL) {
         instr_t *next = instr_get_next(inst);
-        reg_id_t reg = IF_X86_ELSE(REG_ECX, DR_REG_R2);
         /* preinsert comparison before exit CTI, but increment goes after it */
 
         /* we need to compare to speculate_next_tag now - just like

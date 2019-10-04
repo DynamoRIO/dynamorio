@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -130,7 +130,8 @@ else (UNIX)
     add_executable(${tgt} ${tgt}.c ${RESOURCES})
 
     if ("${tgt}" STREQUAL "ldmp")
-      set(extra_lib libcmt ntdll_imports)
+      _DR_get_static_libc_list(static_libc)
+      set(extra_lib ${static_libc} ntdll_imports)
     endif ("${tgt}" STREQUAL "ldmp")
     target_link_libraries(${tgt}
       policy_static user32 advapi32 pdh imagehlp shell32 ${extra_lib})

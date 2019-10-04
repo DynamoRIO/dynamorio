@@ -681,7 +681,6 @@ d_r_arch_init(void)
      * masks. Also priv_mcontext_t.opmask slots are AVX512BW wide.
      */
     IF_X86(ASSERT(sizeof(dr_opmask_t) == OPMASK_AVX512BW_REG_SIZE));
-    ASSERT(NUM_GP_REGS == DR_NUM_GPR_REGS);
 
     /* Verify that the structures used for a register spill area and to hold IBT
      * table addresses & masks for IBL code are laid out as expected. We expect
