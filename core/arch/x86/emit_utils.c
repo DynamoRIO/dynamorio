@@ -3190,7 +3190,7 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
         case 9: memcpy(addr, "\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 9); break;
         case 10: memcpy(addr, "\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 10); break;
         case 11: memcpy(addr, "\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 11); break;
-        default: memset(addr, 0x90, size); break;
+        default: memset(addr, 0x90, size);
         }
     } else {
         /* 32 bit defaults to multiple nop instructions */
