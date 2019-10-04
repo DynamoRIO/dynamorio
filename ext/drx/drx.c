@@ -1532,24 +1532,6 @@ get_scatter_gather_info(instr_t *instr, scatter_gather_info_t *sg_info)
     sg_info->scale = opnd_get_scale(memopnd);
 }
 
-static reg_id_t
-simd_reg_to_zmm(reg_id_t simd_reg)
-{
-    return reg_resize_to_opsz(simd_reg, OPSZ_64);
-}
-
-static reg_id_t
-simd_reg_to_ymm(reg_id_t simd_reg)
-{
-    return reg_resize_to_opsz(simd_reg, OPSZ_32);
-}
-
-static reg_id_t
-simd_reg_to_xmm(reg_id_t simd_reg)
-{
-    return reg_resize_to_opsz(simd_reg, OPSZ_16);
-}
-
 static bool
 expand_gather_insert_scalar(void *drcontext, instrlist_t *bb, instr_t *sg_instr, int el,
                             scatter_gather_info_t *sg_info, reg_id_t simd_reg,
@@ -1558,8 +1540,8 @@ expand_gather_insert_scalar(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
 {
     /* Used by both AVX2 and AVX-512. */
     ASSERT(instr_is_gather(sg_instr), "Internal error: only gather instructions.");
-    reg_id_t simd_reg_zmm = simd_reg_to_zmm(simd_reg);
-    reg_id_t simd_reg_ymm = simd_reg_to_ymm(simd_reg);
+    reg_id_t simd_reg_zmm = reg_resize_to_opsz(simd_reg, OPSZ_64);
+    reg_id_t simd_reg_ymm = reg_resize_to_opsz(simd_reg, OPSZ_32);
     uint scalar_value_bytes = opnd_size_in_bytes(sg_info->scalar_value_size);
     int scalarxmmimm = el * scalar_value_bytes / XMM_REG_SIZE;
     if (is_avx512) {
@@ -1667,8 +1649,8 @@ expand_scatter_gather_extract_scalar(void *drcontext, instrlist_t *bb, instr_t *
                                      reg_id_t scratch_reg, bool is_avx512,
                                      app_pc orig_app_pc)
 {
-    reg_id_t from_simd_reg_zmm = simd_reg_to_zmm(from_simd_reg);
-    reg_id_t from_simd_reg_ymm = simd_reg_to_ymm(from_simd_reg);
+    reg_id_t from_simd_reg_zmm = reg_resize_to_opsz(from_simd_reg, OPSZ_64);
+    reg_id_t from_simd_reg_ymm = reg_resize_to_opsz(from_simd_reg, OPSZ_32);
     int scalarxmmimm = el * scalar_bytes / XMM_REG_SIZE;
     if (is_avx512) {
         PREXL8(bb, sg_instr,
@@ -2257,10 +2239,11 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     reg_id_t scratch_xmm;
     /* Search the instruction for an unused xmm register we will use as a temp. */
     for (scratch_xmm = DR_REG_START_XMM; scratch_xmm <= DR_REG_STOP_XMM; ++scratch_xmm) {
-        if ((sg_info.is_evex || scratch_xmm != simd_reg_to_xmm(sg_info.mask_reg)) &&
-            scratch_xmm != simd_reg_to_xmm(sg_info.index_reg) &&
+        if ((sg_info.is_evex ||
+             scratch_xmm != reg_resize_to_opsz(sg_info.mask_reg, OPSZ_16)) &&
+            scratch_xmm != reg_resize_to_opsz(sg_info.index_reg, OPSZ_16) &&
             /* redundant with scatter_src_reg */
-            scratch_xmm != simd_reg_to_xmm(sg_info.gather_dst_reg))
+            scratch_xmm != reg_resize_to_opsz(sg_info.gather_dst_reg, OPSZ_16))
             break;
     }
     /* FIXME i#2985: spill kTmp and xmmTmp. kTmp will always be k0, because it is never
