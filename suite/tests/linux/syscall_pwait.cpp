@@ -91,7 +91,7 @@ kick_off_child_func(void *arg)
 pthread_t
 kick_off_child_signal(int count, pthread_t main_thread, bool immediately)
 {
-    pthread_t child_thread;
+    pthread_t child_thread = 0;
     reset_cond_var(ready_to_listen);
     args.main_thread = main_thread;
     args.immediately = immediately;
