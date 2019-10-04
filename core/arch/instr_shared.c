@@ -1843,6 +1843,12 @@ instr_reads_from_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t f
         !instr_predicate_reads_srcs(instr_get_predicate(instr)))
         return false;
 
+#ifdef X86
+    /* special case */
+    if (instr_get_opcode(instr) == OP_nop_modrm)
+        return false;
+#endif
+
     for (i = 0; i < instr_num_srcs(instr); i++) {
         opnd = instr_get_src(instr, i);
         if (opnd_is_reg(opnd) && opnd_get_reg(opnd) == reg &&
