@@ -3418,7 +3418,6 @@ common_global_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t w
     acquire_recursive_lock(&global_alloc_lock);
     p = common_heap_alloc(tu, size HEAPACCT(which));
     release_recursive_lock(&global_alloc_lock);
-
     if (p == NULL) {
         /* circular dependence solution: we need to hold DR lock before
          * global alloc lock -- so we back out, grab it, and retry
@@ -3447,7 +3446,6 @@ common_global_heap_free(thread_units_t *tu, void *p,
     acquire_recursive_lock(&global_alloc_lock);
     ok = common_heap_free(tu, p, size HEAPACCT(which));
     release_recursive_lock(&global_alloc_lock);
-
     if (!ok) {
         /* circular dependence solution: we need to hold DR lock before
          * global alloc lock -- so we back out, grab it, and retry

@@ -171,7 +171,7 @@ check_result(void)
 static void
 low_on_memory_event()
 {
-    /** Do nothing. Testing only register and unregister functions **/
+    /* Do nothing. Testing only register and unregister functions. */
 }
 
 static void
