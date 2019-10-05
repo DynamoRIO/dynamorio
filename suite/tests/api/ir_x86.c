@@ -1288,6 +1288,64 @@ test_regs(void *dc)
     ASSERT(reg == DR_REG_SP);
     reg = reg_resize_to_opsz(DR_REG_XBP, OPSZ_2);
     ASSERT(reg == DR_REG_BP);
+
+#ifdef X86
+    /* SIMD only XMM, OPSZ 16. */
+    reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_XMM1, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM1);
+    reg = reg_resize_to_opsz(DR_REG_YMM0, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_YMM1, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM1);
+    reg = reg_resize_to_opsz(DR_REG_ZMM0, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM1);
+
+    /* SIMD only YMM, OPSZ 32. */
+    reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM0);
+    reg = reg_resize_to_opsz(DR_REG_XMM1, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM1);
+    reg = reg_resize_to_opsz(DR_REG_YMM0, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM0);
+    reg = reg_resize_to_opsz(DR_REG_YMM1, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM1);
+    reg = reg_resize_to_opsz(DR_REG_ZMM0, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM0);
+    reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM1);
+
+    /* SIMD only ZMM, OPSZ 64. */
+    reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM0);
+    reg = reg_resize_to_opsz(DR_REG_XMM1, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM1);
+    reg = reg_resize_to_opsz(DR_REG_YMM0, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM0);
+    reg = reg_resize_to_opsz(DR_REG_YMM1, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM1);
+    reg = reg_resize_to_opsz(DR_REG_ZMM0, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM0);
+    reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM1);
+
+    /* SIMD only ZMM, Negation, OPSZ 64. */
+    reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_XMM1, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM1);
+    reg = reg_resize_to_opsz(DR_REG_YMM0, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_YMM1, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM1);
+    reg = reg_resize_to_opsz(DR_REG_ZMM0, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM1);
+#endif
 }
 
 static void
