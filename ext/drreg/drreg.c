@@ -75,21 +75,19 @@
 
 #define AFLAGS_SLOT 0 /* always */
 
-/* We support using GPR registers only: [DR_REG_START_GPR..DR_REG_STOP_GPR] */
-
+/* Liveliness states for gprs */
 #define REG_DEAD ((void *)(ptr_uint_t)0)
 #define REG_LIVE ((void *)(ptr_uint_t)1)
 #define REG_UNKNOWN ((void *)(ptr_uint_t)2) /* only used outside drmgr insert phase */
 
+/* Liveliness states for SIMD (not for mmx) */
 #define SIMD_XMM_DEAD ((void *)(ptr_uint_t)0) /* first 16 bytes are dead, rest a live */
-#define SIMD_YMM_DEAD ((void *)(ptr_uint_t)2) /* first 32 bytes are dead, rest a live */
-#define SIMD_ZMM_DEAD ((void *)(ptr_uint_t)3) /* first 64 bytes are dead, rest a live */
-#define SIMD_XMM_LIVE ((void *)(ptr_uint_t)0) /* first 16 bytes are live, rest a dead */
-#define SIMD_YMM_LIVE ((void *)(ptr_uint_t)2) /* first 32 bytes are live, rest a dead */
-#define SIMD_ZMM_LIVE ((void *)(ptr_uint_t)3) /* first 64 bytes are live, rest a dead */
-
-#define SIMD_LIVE ((void *)(ptr_uint_t)4)
-#define SIMD_UNKNOWN ((void *)(ptr_uint_t)5)
+#define SIMD_YMM_DEAD ((void *)(ptr_uint_t)1) /* first 32 bytes are dead, rest a live */
+#define SIMD_ZMM_DEAD ((void *)(ptr_uint_t)2) /* first 64 bytes are dead, rest a live */
+#define SIMD_XMM_LIVE ((void *)(ptr_uint_t)3) /* first 16 bytes are live, rest a dead */
+#define SIMD_YMM_LIVE ((void *)(ptr_uint_t)4) /* first 32 bytes are live, rest a dead */
+#define SIMD_ZMM_LIVE ((void *)(ptr_uint_t)5) /* first 64 bytes are live, rest a dead */
+#define SIMD_UNKNOWN ((void *)(ptr_uint_t)6)
 
 typedef struct _reg_info_t {
     /* XXX: better to flip around and store bitvector of registers per instr
@@ -119,7 +117,7 @@ typedef struct _reg_info_t {
 #define DR_REG_EFLAGS DR_REG_INVALID
 
 #define GPR_IDX(reg) ((reg)-DR_REG_START_GPR)
-#define SIMD_IDX(reg) ((reg)-DR_REG_START_ZMM)
+#define SIMD_IDX(reg) ((reg_resize_to_opsz(reg, OPSZ_64))-DR_REG_START_ZMM)
 
 /* Depending on architecture, we have a set of applicable XMM registers */
 #define DR_REG_APPLICABLE_STOP_SIMD (DR_REG_START_ZMM + MCXT_NUM_SIMD_SLOTS - 1)
