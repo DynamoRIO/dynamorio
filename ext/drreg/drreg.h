@@ -79,8 +79,10 @@ typedef enum {
  * Classes of register spills used to initialize allowed vectors.
  */
 typedef enum {
-    DRREG_GPR_SPILL_CLASS,
-    DRREG_SIMD_SPILL_CLASS,
+    DRREG_GPR_SPILL_CLASS, /* for spilling GPR registers */
+    DRREG_SIMD_XMM_SPILL_CLASS, /* for spilling XMM registers */
+	DRREG_SIMD_YMM_SPILL_CLASS, /* for spilling YMM registers */
+	DRREG_SIMD_ZMM_SPILL_CLASS, /* for spilling ZMM registers */
 } drreg_spill_class_t;
 
 /**
@@ -354,18 +356,14 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                        drvector_t *reg_allowed, OUT reg_id_t *reg);
 
 DR_EXPORT
-drreg_status_t
 /**
- * Requests exclusive use of an XMM application register, spilling the
- * application value at \p where in \p ilist if necessary.  The
- * register chosen is returned in \p reg.
- *
- * Similar to \p drreg_reserve_register.
+ * Similar to \p drreg_reserve_register, but for a particular spill class.
  *
  * @return whether successful or an error code on failure.
  */
-drreg_reserve_xmm_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                           drvector_t *reg_allowed, OUT reg_id_t *reg_out);
+drreg_status_t
+drreg_reserve_register_ex(void *drcontext, drreg_spill_class_t spill_class, instrlist_t *ilist, instr_t *where,
+		drvector_t *reg_allowed, OUT reg_id_t *reg_out);
 
 DR_EXPORT
 /**
@@ -380,12 +378,12 @@ drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 DR_EXPORT
 /**
- * Similar to \p drreg_reserve_dead_register but for XMM registers
+ * Similar to \p drreg_reserve_dead_register, but for a particular spill class
  *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
-drreg_reserve_dead_xmm_register(void *drcontext, instrlist_t *ilist, instr_t *where,
+drreg_reserve_dead_register_ex(void *drcontext, drreg_spill_class_t spill_class, instrlist_t *ilist, instr_t *where,
                                 drvector_t *reg_allowed, OUT reg_id_t *reg_out);
 
 DR_EXPORT
@@ -406,8 +404,6 @@ DR_EXPORT
  * Similar to \p drreg_init_and_fill_vector but for a specific
  * register class.
  *
- * This function is used to init and fill an XMM vector.
- *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
@@ -425,19 +421,6 @@ DR_EXPORT
  */
 drreg_status_t
 drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed);
-
-DR_EXPORT
-/**
- * Similar to \p drreg_init_and_fill_vector but for a specific
- * register class.
- *
- * This function is used to set an entry in an XMM vector.
- *
- * @return whether successful or an error code on failure.
- */
-drreg_status_t
-drreg_set_vector_entry_ex(drvector_t *vec, drreg_spill_class_t spill_class, reg_id_t reg,
-                          bool allowed);
 
 DR_EXPORT
 /**
