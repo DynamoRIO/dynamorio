@@ -76,13 +76,15 @@ typedef enum {
  */
 
 /**
- * Classes of register spills used to initialize allowed vectors.
+ * Classes of registers spills used to denote which types of registers
+ * to spill or restore.
  */
 typedef enum {
-    DRREG_GPR_SPILL_CLASS, /* for spilling GPR registers */
-    DRREG_SIMD_XMM_SPILL_CLASS, /* for spilling XMM registers */
-	DRREG_SIMD_YMM_SPILL_CLASS, /* for spilling YMM registers */
-	DRREG_SIMD_ZMM_SPILL_CLASS, /* for spilling ZMM registers */
+    DRREG_GPR_SPILL_CLASS,        /* to consider GPR registers */
+    DRREG_SIMD_XMM_SPILL_CLASS,   /* to consider XMM registers */
+    DRREG_SIMD_YMM_SPILL_CLASS,   /* to consider YMM registers */
+    DRREG_SIMD_ZMM_SPILL_CLASS,   /* to consider ZMM registers */
+    DRREG_SIMD_KMASK_SPILL_CLASS, /* to consider ZMM registers */
 } drreg_spill_class_t;
 
 /**
@@ -362,8 +364,9 @@ DR_EXPORT
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
-drreg_reserve_register_ex(void *drcontext, drreg_spill_class_t spill_class, instrlist_t *ilist, instr_t *where,
-		drvector_t *reg_allowed, OUT reg_id_t *reg_out);
+drreg_reserve_register_ex(void *drcontext, drreg_spill_class_t spill_class,
+                          instrlist_t *ilist, instr_t *where, drvector_t *reg_allowed,
+                          OUT reg_id_t *reg_out);
 
 DR_EXPORT
 /**
@@ -383,8 +386,9 @@ DR_EXPORT
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
-drreg_reserve_dead_register_ex(void *drcontext, drreg_spill_class_t spill_class, instrlist_t *ilist, instr_t *where,
-                                drvector_t *reg_allowed, OUT reg_id_t *reg_out);
+drreg_reserve_dead_register_ex(void *drcontext, drreg_spill_class_t spill_class,
+                               instrlist_t *ilist, instr_t *where,
+                               drvector_t *reg_allowed, OUT reg_id_t *reg_out);
 
 DR_EXPORT
 /**
