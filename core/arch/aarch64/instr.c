@@ -342,6 +342,12 @@ reg_is_simd(reg_id_t reg)
 }
 
 bool
+reg_is_simd_extension(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_opmask(reg_id_t reg)
 {
     return false;

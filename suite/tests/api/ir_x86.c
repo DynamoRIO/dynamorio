@@ -1261,6 +1261,17 @@ test_regs(void *dc)
     ASSERT(reg == DR_REG_RAX);
 #endif
 
+#ifdef X86
+    DR_ASSERT(reg_is_simd_extension(DR_REG_XMM0));
+    DR_ASSERT(reg_is_simd_extension(DR_REG_XMM1));
+    DR_ASSERT(reg_is_simd_extension(DR_REG_YMM1));
+    DR_ASSERT(reg_is_simd_extension(DR_REG_ZMM1));
+    DR_ASSERT(!reg_is_simd_extension(DR_REG_MM0));
+    DR_ASSERT(!reg_is_simd_extension(DR_REG_MM1));
+    DR_ASSERT(!reg_is_simd_extension(DR_REG_XAX));
+    DR_ASSERT(!reg_is_simd_extension(DR_REG_AX));
+#endif
+
     /* Quick check of other regs. */
     reg = reg_resize_to_opsz(DR_REG_XBX, OPSZ_1);
     ASSERT(reg == DR_REG_BL);

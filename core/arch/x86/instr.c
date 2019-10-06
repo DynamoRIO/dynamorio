@@ -2088,6 +2088,12 @@ reg_is_simd(reg_id_t reg)
 }
 
 bool
+reg_is_simd_extension(reg_id_t reg)
+{
+    return reg_is_simd(reg) && !reg_is_mmx(reg);
+}
+
+bool
 reg_is_opmask(reg_id_t reg)
 {
     return (reg >= DR_REG_START_OPMASK && reg <= DR_REG_STOP_OPMASK);
