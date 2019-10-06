@@ -76,7 +76,7 @@ typedef enum {
  */
 
 /**
- * Classes of registers spills used to denote which types of registers
+ * Classes of register spills used to denote which types of registers
  * to spill or restore.
  */
 typedef enum {
@@ -84,7 +84,7 @@ typedef enum {
     DRREG_SIMD_XMM_SPILL_CLASS,   /* to consider XMM registers */
     DRREG_SIMD_YMM_SPILL_CLASS,   /* to consider YMM registers */
     DRREG_SIMD_ZMM_SPILL_CLASS,   /* to consider ZMM registers */
-    DRREG_SIMD_KMASK_SPILL_CLASS, /* to consider ZMM registers */
+    DRREG_SIMD_KMASK_SPILL_CLASS, /* to consider K Mask registers */
 } drreg_spill_class_t;
 
 /**

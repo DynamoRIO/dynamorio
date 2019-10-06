@@ -829,8 +829,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     }
 
                     /* We pick an unreserved reg, spill it, and use it for scratch */
-                    res = drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst, NULL, false,
-                                                     &block_reg);
+                    res =
+                        drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS,
+                                                   bb, inst, NULL, false, &block_reg);
                     if (res != DRREG_SUCCESS)
                         return res;
                     load_indirect_block(drcontext, tls_simd_offs, bb, inst, block_reg);
@@ -842,8 +843,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 instr_t *obt_instr =
                     restored_for_simd_read[SIMD_IDX(reg)] ? instr_get_prev(next) : next;
 
-                res = drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, obt_instr, NULL, false,
-                                                 &block_reg);
+                res = drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS,
+                                                 bb, obt_instr, NULL, false, &block_reg);
                 if (res != DRREG_SUCCESS)
                     return res;
                 load_indirect_block(drcontext, tls_simd_offs, bb, obt_instr, block_reg);
@@ -853,8 +854,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 
                 pt->simd_reg[SIMD_IDX(reg)].ever_spilled = true;
                 if (!restored_for_simd_read[SIMD_IDX(reg)]) {
-                    res = drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS,bb, next, NULL, false,
-                                                     &block_reg);
+                    res =
+                        drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS,
+                                                   bb, next, NULL, false, &block_reg);
                     if (res != DRREG_SUCCESS)
                         return res;
                     load_indirect_block(drcontext, tls_simd_offs, bb, next, block_reg);
@@ -1096,7 +1098,7 @@ drreg_init_and_fill_vector_ex(drvector_t *vec, drreg_spill_class_t spill_class,
              spill_class == DRREG_SIMD_ZMM_SPILL_CLASS)
         size = MCXT_NUM_SIMD_SLOTS;
     else
-    return DRREG_ERROR;
+        return DRREG_ERROR;
 
     drvector_init(vec, size, false /*!synch*/, NULL);
     for (reg = 0; reg < size; reg++)
@@ -1522,8 +1524,9 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
 
         reg_id_t xmm_block_reg;
         /* We pick an unreserved reg, spill it, and use it for scratch */
-        drreg_status_t res = drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, ilist, where, NULL,
-                                                        false, &xmm_block_reg);
+        drreg_status_t res =
+            drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, ilist,
+                                       where, NULL, false, &xmm_block_reg);
         if (res != DRREG_SUCCESS)
             return res;
 
@@ -1688,7 +1691,8 @@ drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
         if (pt->simd_reg[SIMD_IDX(reg)].ever_spilled) {
             reg_id_t block_reg;
             /* We pick an unreserved reg, spill it, and use it for scratch */
-            if (drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, ilist, inst, NULL, false,
+            if (drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, ilist,
+                                           inst, NULL, false,
                                            &block_reg) != DRREG_SUCCESS)
                 return DRREG_ERROR;
             /* First load the pointer refering to the block, then restore */
@@ -1977,7 +1981,8 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
          * aflags in our dedicated aflags tls slot and don't try to keep it in
          * this reg.
          */
-        res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL, false, &xax_swap);
+        res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, ilist, where,
+                                         NULL, false, &xax_swap);
         if (res != DRREG_SUCCESS)
             return res;
         LOG(drcontext, DR_LOG_ALL, 3, "  xax is in use: using %s temporarily\n",
@@ -2031,7 +2036,8 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
 #elif defined(AARCHXX)
     drreg_status_t res = DRREG_SUCCESS;
     reg_id_t scratch;
-    res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL, false, &scratch);
+    res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL,
+                                     false, &scratch);
     if (res != DRREG_SUCCESS)
         return res;
     dr_save_arith_flags_to_reg(drcontext, ilist, where, scratch);
@@ -2067,8 +2073,8 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
             return DRREG_ERROR_OUT_OF_SLOTS;
         if (pt->reg[DR_REG_XAX - DR_REG_START_GPR].in_use) {
             /* We pick an unreserved reg, spill it, and put xax there temporarily. */
-            res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL, false,
-                                             &xax_swap);
+            res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, ilist,
+                                             where, NULL, false, &xax_swap);
             if (res != DRREG_SUCCESS)
                 return res;
             LOG(drcontext, DR_LOG_ALL, 3, "  xax is in use: using %s temporarily\n",
@@ -2115,7 +2121,8 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
 #elif defined(AARCHXX)
     drreg_status_t res = DRREG_SUCCESS;
     reg_id_t scratch;
-    res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL, false, &scratch);
+    res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL,
+                                     false, &scratch);
     if (res != DRREG_SUCCESS)
         return res;
     restore_reg_directly(drcontext, pt, scratch, AFLAGS_SLOT, ilist, where, release);
