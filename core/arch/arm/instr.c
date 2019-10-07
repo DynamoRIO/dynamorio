@@ -737,7 +737,7 @@ reg_is_simd(reg_id_t reg)
 }
 
 bool
-reg_is_simd_extension(reg_id_t reg)
+reg_is_vector_simd(reg_id_t reg)
 {
     return false;
 }

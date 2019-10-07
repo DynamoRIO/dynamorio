@@ -1262,14 +1262,14 @@ test_regs(void *dc)
 #endif
 
 #ifdef X86
-    ASSERT(reg_is_simd_extension(DR_REG_XMM0));
-    ASSERT(reg_is_simd_extension(DR_REG_XMM1));
-    ASSERT(reg_is_simd_extension(DR_REG_YMM1));
-    ASSERT(reg_is_simd_extension(DR_REG_ZMM1));
-    ASSERT(!reg_is_simd_extension(DR_REG_MM0));
-    ASSERT(!reg_is_simd_extension(DR_REG_MM1));
-    ASSERT(!reg_is_simd_extension(DR_REG_XAX));
-    ASSERT(!reg_is_simd_extension(DR_REG_AX));
+    ASSERT(reg_is_vector_simd(DR_REG_XMM0));
+    ASSERT(reg_is_vector_simd(DR_REG_XMM1));
+    ASSERT(reg_is_vector_simd(DR_REG_YMM1));
+    ASSERT(reg_is_vector_simd(DR_REG_ZMM1));
+    ASSERT(!reg_is_vector_simd(DR_REG_MM0));
+    ASSERT(!reg_is_vector_simd(DR_REG_MM1));
+    ASSERT(!reg_is_vector_simd(DR_REG_XAX));
+    ASSERT(!reg_is_vector_simd(DR_REG_AX));
 #endif
 
     /* Quick check of other regs. */

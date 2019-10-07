@@ -2088,9 +2088,10 @@ reg_is_simd(reg_id_t reg)
 }
 
 bool
-reg_is_simd_extension(reg_id_t reg)
+reg_is_vector_simd(reg_id_t reg)
 {
-    return reg_is_simd(reg) && !reg_is_mmx(reg);
+    return reg_is_strictly_xmm(reg) || reg_is_strictly_ymm(reg) ||
+        reg_is_strictly_zmm(reg);
 }
 
 bool
