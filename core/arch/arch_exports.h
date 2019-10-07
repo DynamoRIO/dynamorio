@@ -1576,6 +1576,9 @@ canonicalize_pc_target(dcontext_t *dcontext, app_pc pc);
 void
 d_r_decode_init(void);
 
+bool
+fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
+
 /***************************************************************************
  * Arch-specific defines
  */
@@ -1664,8 +1667,6 @@ d_r_decode_init(void);
         (FRAG_IS_32(flags) ? STUB_COARSE_DIRECT_SIZE32 : STUB_COARSE_DIRECT_SIZE64)
 
 /* Writes nops into the address range. */
-bool
-fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
 /* writes debugbreaks into the address range */
 #    define SET_TO_DEBUG(addr, size) memset(addr, 0xcc, size)
@@ -1736,8 +1737,6 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define ARM_BKPT 0xe1200070
 #    define THUMB_BKPT 0xbe00
 /* writes nops into the address range */
-bool
-fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
 /* writes debugbreaks into the address range */
 #    define SET_TO_DEBUG(addr, size) ASSERT_NOT_IMPLEMENTED(false)
