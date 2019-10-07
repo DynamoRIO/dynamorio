@@ -3161,6 +3161,9 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
     /* ref. AMD Software Optimization Guide for AMD Family 15h Processors, document
      * #47414, section 5.8 "Code Padding with Operand-Size Override and Multibyte
      * NOP", page 94)
+     * For specification compatibility with Intel case 10 and 11 are left out.
+     * ref. Intel, see Vol. 2B 4-167 "Table 4-12. Recommended Multi-Byte Sequence of NOP
+     * Instruction"
      */
     switch (size) {
     case 1: memcpy(addr, "\x90", 1); break;
@@ -3172,8 +3175,6 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
     case 7: memcpy(addr, "\x0f\x1f\x80\x00\x00\x00\x00", 7); break;
     case 8: memcpy(addr, "\x0f\x1f\x84\x00\x00\x00\x00\x00", 8); break;
     case 9: memcpy(addr, "\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 9); break;
-    case 10: memcpy(addr, "\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 10); break;
-    case 11: memcpy(addr, "\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 11); break;
     default: memset(addr, 0x90, size);
     }
     return true;
