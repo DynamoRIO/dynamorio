@@ -19,7 +19,7 @@ main(int argc, char **argv)
     int total = 0;
     for (int i = 0; i < 200; i++) {
 #ifdef WINDOWS
-        int *my_integer = (int *) HeapAlloc(heap, HEAP_ZERO_MEMORY, sizeof(int);
+        int *my_integer = (int *)HeapAlloc(heap, HEAP_ZERO_MEMORY, sizeof(int));
 #else
         int *my_integer = (int *)malloc(sizeof(int));
 #endif
