@@ -3158,12 +3158,12 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
 bool
 fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
 {
-    /* ref. AMD Software Optimization Guide for AMD Family 15h Processors, document
+    /* Xref AMD Software Optimization Guide for AMD Family 15h Processors, document
      * #47414, section 5.8 "Code Padding with Operand-Size Override and Multibyte
-     * NOP", page 94)
-     * For specification compatibility with Intel case 10 and 11 are left out.
-     * ref. Intel, see Vol. 2B 4-167 "Table 4-12. Recommended Multi-Byte Sequence of NOP
-     * Instruction"
+     * NOP".
+     * For compatibility with Intel case 10 and 11 are left out.
+     * Xref Intel, see Vol. 2B 4-167 "Table 4-12. Recommended Multi-Byte Sequence of NOP
+     * Instruction".
      */
     switch (size) {
     case 1: memcpy(addr, "\x90", 1); break;
