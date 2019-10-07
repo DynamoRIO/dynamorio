@@ -12,6 +12,8 @@
 #include "drmgr.h"
 #include "drwrap.h"
 
+#define MALLOC_ROUTINE_NAME IF_WINDOWS_ELSE("HeapAlloc", "malloc")
+
 typedef struct node_type {
 
     int int_array[50000];
@@ -47,7 +49,7 @@ wrap_pre(void *wrapcxt, OUT void **user_data)
 static void
 module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 {
-    app_pc towrap = (app_pc)dr_get_proc_address(mod->handle, "malloc");
+    app_pc towrap = (app_pc)dr_get_proc_address(mod->handle, MALLOC_ROUTINE_NAME);
     if (towrap != NULL) {
         is_wrapped |= drwrap_wrap(towrap, wrap_pre, NULL);
     }
