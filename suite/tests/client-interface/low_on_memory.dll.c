@@ -19,6 +19,7 @@ typedef struct node_type {
 
 } node_t;
 
+static bool is_wrapped;
 static bool is_clear;
 static node_t *head;
 
@@ -48,7 +49,7 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 {
     app_pc towrap = (app_pc)dr_get_proc_address(mod->handle, "malloc");
     if (towrap != NULL) {
-        drwrap_wrap(towrap, wrap_pre, NULL);
+        is_wrapped |= drwrap_wrap(towrap, wrap_pre, NULL);
     }
 }
 
@@ -77,6 +78,9 @@ low_on_memory_event()
 static void
 exit_event(void)
 {
+    if (!is_wrapped)
+        dr_fprintf(STDERR, "was not wrapped!\n");
+
     if (!is_clear)
         dr_fprintf(STDERR, "was not cleared!\n");
 
@@ -104,6 +108,7 @@ dr_init(client_id_t id)
         dr_enable_console_printing();
 #endif
 
+    is_wrapped = false;
     is_clear = false;
     insert_new_node();
 
