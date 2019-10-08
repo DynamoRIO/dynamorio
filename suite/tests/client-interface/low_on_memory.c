@@ -26,7 +26,7 @@ main(int argc, char **argv)
         *my_integer = 9;
         total += *my_integer;
 #ifdef WINDOWS
-        HeapFree(heap, 0, sizeof(int));
+        HeapFree(heap, 0, my_integer);
 #else
         free(my_integer);
 #endif
