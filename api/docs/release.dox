@@ -214,7 +214,7 @@ Further non-compatibility-affecting changes include:
  - Added the function dr_atomic_add64_return_sum().
  - Added the function instr_reads_from_exact_reg() to test whether instructions
    read from exact registers.
- - Added the function reg_is_simd_extension() to test whether registers are
+ - Added the function reg_is_vector_simd() to test whether registers are
    either XMM, YMM or ZMM, excluding any MMX register checks.
 
 **************************************************

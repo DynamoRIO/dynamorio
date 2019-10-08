@@ -1272,6 +1272,12 @@ test_regs(void *dc)
     ASSERT(!reg_is_vector_simd(DR_REG_AX));
 #endif
 
+#ifdef X64
+ASSERT(reg_is_vector_simd(DR_REG_XMM31));
+ASSERT(reg_is_vector_simd(DR_REG_YMM31));
+ASSERT(reg_is_vector_simd(DR_REG_ZMM31));
+#endif
+
     /* Quick check of other regs. */
     reg = reg_resize_to_opsz(DR_REG_XBX, OPSZ_1);
     ASSERT(reg == DR_REG_BL);
