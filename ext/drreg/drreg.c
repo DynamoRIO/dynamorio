@@ -203,7 +203,7 @@ get_where_app_pc(instr_t *where)
 static inline bool
 is_applicable_simd(reg_id_t simd_reg)
 {
-    if (reg_is_simd(simd_reg) && !reg_is_mmx(simd_reg)) {
+    if (reg_is_vector_simd(simd_reg)) {
         simd_reg = reg_resize_to_opsz(simd_reg, OPSZ_64);
         return simd_reg >= DR_REG_APPLICABLE_START_SIMD &&
             simd_reg <= DR_REG_APPLICABLE_STOP_SIMD;
@@ -281,7 +281,7 @@ static void
 spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                      instrlist_t *ilist, instr_t *where, reg_id_t block_reg)
 {
-    if (reg_is_simd(reg) && !reg_is_mmx(reg)) {
+    if (reg_is_vector_simd(reg)) {
         ASSERT(is_applicable_simd(reg), "not applicable register");
         ASSERT(pt->simd_slot_use[slot] == DR_REG_NULL ||
                    reg_resize_to_opsz(pt->simd_slot_use[slot], OPSZ_64) ==
@@ -337,7 +337,7 @@ restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slo
                        instrlist_t *ilist, instr_t *where, reg_id_t block_reg,
                        bool release)
 {
-    if (reg_is_simd(reg) && !reg_is_mmx(reg)) {
+    if (reg_is_vector_simd(reg)) {
         reg_id_t simd_reg = reg_resize_to_opsz(reg, OPSZ_64);
         ASSERT(pt->simd_slot_use[slot] != DR_REG_NULL &&
                    reg_resize_to_opsz(pt->simd_slot_use[slot], OPSZ_64) == simd_reg &&
@@ -391,7 +391,7 @@ get_indirectly_spilled_value(void *drcontext, reg_id_t reg, uint slot,
     if (buf_size < reg_size)
         return false;
 
-    if (reg_is_simd(reg) && !reg_is_mmx(reg)) {
+    if (reg_is_vector_simd(reg)) {
         if (reg_is_strictly_xmm(reg)) {
             per_thread_t *pt = get_tls_data(drcontext);
             memcpy(value_buf, pt->simd_spills + (slot * REG_SIMD_SIZE), reg_size);
@@ -437,7 +437,7 @@ count_app_uses(per_thread_t *pt, opnd_t opnd)
              */
             if (opnd_is_memory_reference(opnd))
                 pt->reg[GPR_IDX(reg)].app_uses++;
-        } else if (reg_is_simd(reg) && !reg_is_mmx(reg)) {
+        } else if (reg_is_vector_simd(reg)) {
             pt->simd_reg[SIMD_IDX(reg)].app_uses++;
         }
     }
@@ -1122,7 +1122,7 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
         if (vec == NULL || reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR)
             return DRREG_ERROR_INVALID_PARAMETER;
         start_reg = DR_REG_START_GPR;
-    } else if (reg_is_simd(reg) && !reg_is_mmx(reg)) {
+    } else if (reg_is_vector_simd(reg)) {
         reg_id_t zmm_reg = reg_resize_to_opsz(reg, OPSZ_64);
         if (vec == NULL || zmm_reg < DR_REG_APPLICABLE_START_SIMD ||
             zmm_reg > DR_REG_APPLICABLE_STOP_SIMD)
@@ -1688,7 +1688,7 @@ drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
         }
         pt->reg[GPR_IDX(reg)].native = true;
 
-    } else if (reg_is_simd(reg) && !reg_is_mmx(reg)) {
+    } else if (reg_is_vector_simd(reg)) {
         if (pt->simd_reg[SIMD_IDX(reg)].ever_spilled) {
             reg_id_t block_reg;
             /* We pick an unreserved reg, spill it, and use it for scratch */
@@ -1742,7 +1742,7 @@ drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
         }
         pt->reg[GPR_IDX(reg)].in_use = false;
 
-    } else if (reg_is_simd(reg) && !reg_is_mmx(reg)) {
+    } else if (reg_is_vector_simd(reg)) {
 
         per_thread_t *pt = get_tls_data(drcontext);
         if (!pt->simd_reg[SIMD_IDX(reg)].in_use)
@@ -1891,7 +1891,7 @@ drreg_is_register_dead(void *drcontext, reg_id_t reg, instr_t *inst, bool *dead)
 
     if (reg_is_gpr(reg)) {
         *dead = drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx) == REG_DEAD;
-    } else if (reg_is_simd(reg) && !reg_is_mmx(reg)) {
+    } else if (reg_is_vector_simd(reg)) {
         *dead = drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx) ==
             SIMD_ZMM_DEAD;
     } else {
@@ -2309,14 +2309,14 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
         opnd_t dst = instr_get_dst(next_instr, 0);
         opnd_t src = instr_get_src(next_instr, 0);
 
-        if (opnd_is_reg(dst) && reg_is_simd(opnd_get_reg(dst)) &&
-            !reg_is_mmx(opnd_get_reg(dst)) && opnd_is_base_disp(src)) {
+        if (opnd_is_reg(dst) && reg_is_vector_simd(opnd_get_reg(dst))
+        		&& opnd_is_base_disp(src)) {
             reg = opnd_get_reg(dst);
             is_spilled = false;
             int disp = opnd_get_disp(src);
             slot = disp / REG_SIMD_SIZE;
-        } else if (opnd_is_reg(src) && reg_is_simd(opnd_get_reg(src)) &&
-                   !reg_is_mmx(opnd_get_reg(src)) && opnd_is_base_disp(dst)) {
+        } else if (opnd_is_reg(src) && reg_is_vector_simd(opnd_get_reg(src))
+        		&& opnd_is_base_disp(dst)) {
             reg = opnd_get_reg(src);
             is_spilled = true;
             int disp = opnd_get_disp(dst);
@@ -2468,7 +2468,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 slot);
             if (is_spill) {
                 if (is_indirect_spill) {
-                    if (reg_is_simd(reg) && !reg_is_mmx(reg)) {
+                    if (reg_is_vector_simd(reg)) {
                         if (spilled_simd_to[SIMD_IDX(reg)] < MAX_SIMD_SPILLS &&
                             /* allow redundant is_spill */
                             spilled_simd_to[SIMD_IDX(reg)] != slot) {
