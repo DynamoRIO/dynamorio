@@ -1304,7 +1304,6 @@ test_regs(void *dc)
     reg = reg_resize_to_opsz(DR_REG_XBP, OPSZ_2);
     ASSERT(reg == DR_REG_BP);
 
-#ifdef X86
     /* SIMD only XMM, OPSZ 16. */
     reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_16);
     ASSERT(reg == DR_REG_XMM0);
@@ -1360,7 +1359,6 @@ test_regs(void *dc)
     ASSERT(reg != DR_REG_XMM0);
     reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_64);
     ASSERT(reg != DR_REG_XMM1);
-#endif
 }
 
 static void
