@@ -6783,7 +6783,7 @@ DR_API
  * In particular, the function syncs threads to a safe point
  * before the fragment is deleted. Once deleted, no threads
  * can enter the fragment. It is for this reason why we require the user
- * tp call \p dr_redirect_execution().
+ * to call \p dr_redirect_execution().
  *
  * As a parameter, \p tag denotes the ID of the fragment requested for deletion.
  *
