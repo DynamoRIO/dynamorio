@@ -78,7 +78,7 @@ static droption_t<twostring_t>
 static droption_t<bytesize_t>
     op_large_bytesize(DROPTION_SCOPE_CLIENT, "large_bytesize", DROPTION_FLAG_ACCUMULATE,
                 0, "Param that takes in a large bytesize value",
-                "Longer desc of pagam that takes in a large bytesize value");
+                "Longer desc of param that takes in a large bytesize value");
 
 static void
 test_argv(int argc, const char *argv[])
