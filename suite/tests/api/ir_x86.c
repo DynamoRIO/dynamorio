@@ -1261,7 +1261,6 @@ test_regs(void *dc)
     ASSERT(reg == DR_REG_RAX);
 #endif
 
-#ifdef X86
     ASSERT(reg_is_vector_simd(DR_REG_XMM0));
     ASSERT(reg_is_vector_simd(DR_REG_XMM1));
     ASSERT(reg_is_vector_simd(DR_REG_YMM1));
@@ -1270,12 +1269,11 @@ test_regs(void *dc)
     ASSERT(!reg_is_vector_simd(DR_REG_MM1));
     ASSERT(!reg_is_vector_simd(DR_REG_XAX));
     ASSERT(!reg_is_vector_simd(DR_REG_AX));
-#endif
 
 #ifdef X64
-ASSERT(reg_is_vector_simd(DR_REG_XMM31));
-ASSERT(reg_is_vector_simd(DR_REG_YMM31));
-ASSERT(reg_is_vector_simd(DR_REG_ZMM31));
+    ASSERT(reg_is_vector_simd(DR_REG_XMM31));
+    ASSERT(reg_is_vector_simd(DR_REG_YMM31));
+    ASSERT(reg_is_vector_simd(DR_REG_ZMM31));
 #endif
 
     /* Quick check of other regs. */
