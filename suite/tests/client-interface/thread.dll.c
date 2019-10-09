@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -74,6 +74,12 @@ static void *child_continue;
 static void *child_dead;
 static bool nops_matched;
 
+static int client_thread_count;
+static int counter32;
+#ifdef X64
+static int64 counter64;
+#endif
+
 #ifdef UNIX
 /* test PR 368737: add client timer support */
 static void
@@ -94,6 +100,17 @@ thread_func(void *arg)
     ASSERT(arg == THREAD_ARG);
     dr_fprintf(STDERR, "client thread is alive\n");
     dr_event_signal(child_alive);
+
+    /* Just a sanity check that these functions operate.  We do not take the
+     * time to set up racing threads or sthg.
+     */
+    int count = dr_atomic_add32_return_sum(&counter32, 1);
+    ASSERT(count > 0 && count <= counter32);
+#ifdef X64
+    int64 count64 = dr_atomic_add64_return_sum(&counter64, 1);
+    ASSERT(count64 > 0 && count64 <= counter64);
+#endif
+
 #ifdef UNIX
     if (!dr_set_itimer(ITIMER_REAL, 10, event_timer))
         dr_fprintf(STDERR, "unable to set timer callback\n");
@@ -137,6 +154,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         /* PR 222812: start up and shut down a client thread */
         success = dr_create_client_thread(thread_func, THREAD_ARG);
         ASSERT(success);
+        client_thread_count++; /* app is single-threaded so no races */
         dr_event_wait(child_alive);
         dr_event_signal(child_continue);
         dr_event_wait(child_dead);
@@ -182,6 +200,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         dr_fprintf(STDERR, "PR 210591: testing client transparency\n");
         success = dr_create_client_thread(thread_func, THREAD_ARG);
         ASSERT(success);
+        client_thread_count++; /* app is single-threaded so no races */
         dr_event_wait(child_alive);
         /* We leave the client thread alive until the app exits, to test i#1489 */
 #ifdef UNIX
@@ -206,6 +225,10 @@ exit_event(void)
     dr_event_destroy(child_alive);
     dr_event_destroy(child_continue);
     dr_event_destroy(child_dead);
+    ASSERT(counter32 == client_thread_count);
+#ifdef X64
+    ASSERT(counter64 == client_thread_count);
+#endif
 }
 
 static bool

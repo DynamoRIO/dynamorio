@@ -1548,12 +1548,20 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_4x8_short2:    /* default size */
     case OPSZ_4x8_short2xi8: /* default size */
 #endif
-    case OPSZ_8_rex16: /* default size */
-    case OPSZ_8_rex16_short4: /* default size */ return 8;
+    case OPSZ_8_rex16:        /* default size */
+    case OPSZ_8_rex16_short4: /* default size */
+#ifndef X64
+    case OPSZ_8x16: /* default size */
+#endif
+        return 8;
     case OPSZ_16:
     case OPSZ_16_vex32:
     case OPSZ_16_of_32:
-    case OPSZ_16_vex32_evex64: return 16;
+    case OPSZ_16_vex32_evex64:
+#ifdef X64
+    case OPSZ_8x16: /* default size */
+#endif
+        return 16;
     case OPSZ_vex32_evex64: return 32;
     case OPSZ_6x10:
         /* table base + limit; w/ addr16, different format, but same total footprint */
@@ -2091,12 +2099,75 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
     return reg;
 }
 
+static reg_id_t
+reg_resize_to_zmm(reg_id_t simd_reg)
+{
+#ifdef X86
+    if (reg_is_strictly_xmm(simd_reg)) {
+        return simd_reg - DR_REG_START_XMM + DR_REG_START_ZMM;
+    } else if (reg_is_strictly_ymm(simd_reg)) {
+        return simd_reg - DR_REG_START_YMM + DR_REG_START_ZMM;
+    } else if (reg_is_strictly_zmm(simd_reg)) {
+        return simd_reg;
+    }
+    CLIENT_ASSERT(false, "Not a simd register.");
+#endif
+    return DR_REG_INVALID;
+}
+
+static reg_id_t
+reg_resize_to_ymm(reg_id_t simd_reg)
+{
+#ifdef X86
+    if (reg_is_strictly_xmm(simd_reg)) {
+        return simd_reg - DR_REG_START_XMM + DR_REG_START_YMM;
+    } else if (reg_is_strictly_ymm(simd_reg)) {
+        return simd_reg;
+    } else if (reg_is_strictly_zmm(simd_reg)) {
+        return simd_reg - DR_REG_START_ZMM + DR_REG_START_YMM;
+    }
+    CLIENT_ASSERT(false, "not a simd register.");
+#endif
+    return DR_REG_INVALID;
+}
+
+static reg_id_t
+reg_resize_to_xmm(reg_id_t simd_reg)
+{
+#ifdef X86
+    if (reg_is_strictly_xmm(simd_reg)) {
+        return simd_reg;
+    } else if (reg_is_strictly_ymm(simd_reg)) {
+        return simd_reg - DR_REG_START_YMM + DR_REG_START_XMM;
+    } else if (reg_is_strictly_zmm(simd_reg)) {
+        return simd_reg - DR_REG_START_ZMM + DR_REG_START_XMM;
+    }
+    CLIENT_ASSERT(false, "not a simd register");
+#endif
+    return DR_REG_INVALID;
+}
+
 reg_id_t
 reg_resize_to_opsz(reg_id_t reg, opnd_size_t sz)
 {
-    CLIENT_ASSERT(reg_is_gpr(reg), "reg_resize_to_opsz: passed non GPR reg");
-    reg = reg_to_pointer_sized(reg);
-    return reg_32_to_opsz(IF_X64_ELSE(reg_64_to_32(reg), reg), sz);
+    if (reg_is_gpr(reg)) {
+        reg = reg_to_pointer_sized(reg);
+        return reg_32_to_opsz(IF_X64_ELSE(reg_64_to_32(reg), reg), sz);
+    } else if (reg_is_strictly_xmm(reg) || reg_is_strictly_ymm(reg) ||
+               reg_is_strictly_zmm(reg)) {
+        if (sz == OPSZ_16) {
+            return reg_resize_to_xmm(reg);
+        } else if (sz == OPSZ_32) {
+            return reg_resize_to_ymm(reg);
+        } else if (sz == OPSZ_64) {
+            return reg_resize_to_zmm(reg);
+        } else {
+            CLIENT_ASSERT(false, "invalid size for simd register");
+        }
+    } else {
+        CLIENT_ASSERT(false, "reg_resize_to_opsz: unsupported reg");
+    }
+    return DR_REG_INVALID;
 }
 
 int
@@ -2162,6 +2233,8 @@ reg_get_bits(reg_id_t reg)
         return (byte)((reg - DR_REG_START_YMM) % 8);
     if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM)
         return (byte)((reg - DR_REG_START_ZMM) % 8);
+    if (reg >= DR_REG_START_BND && reg <= DR_REG_STOP_BND)
+        return (byte)((reg - DR_REG_START_BND) % 4);
     if (reg >= DR_REG_START_OPMASK && reg <= DR_REG_STOP_OPMASK)
         return (byte)((reg - DR_REG_START_OPMASK) % 8);
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
@@ -2213,6 +2286,8 @@ reg_get_size(reg_id_t reg)
          */
         return OPSZ_8;
     }
+    if (reg >= DR_REG_START_BND && reg <= DR_REG_STOP_BND)
+        return IF_X64_ELSE(OPSZ_16, OPSZ_8);
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return OPSZ_2;
     if (reg >= REG_START_DR && reg <= REG_STOP_DR)

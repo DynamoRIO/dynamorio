@@ -3444,7 +3444,7 @@ print_version_and_app_info(file_t file)
     print_file(file, PRODUCT_NAME " built with: %s\n", DYNAMORIO_DEFINES);
     print_file(file, PRODUCT_NAME " built on: %s\n", dynamorio_buildmark);
 #ifndef _WIN32_WCE
-    print_file(file, DYNAMORIO_VAR_OPTIONS ": %s\n", option_string);
+    print_file(file, DYNAMORIO_VAR_OPTIONS ": %s\n", d_r_option_string);
 #endif
 }
 

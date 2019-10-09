@@ -2083,13 +2083,27 @@ reg_is_segment(reg_id_t reg)
 bool
 reg_is_simd(reg_id_t reg)
 {
-    return reg_is_xmm(reg) /*includes ymm*/ || reg_is_mmx(reg);
+    return reg_is_strictly_xmm(reg) || reg_is_strictly_ymm(reg) ||
+        reg_is_strictly_zmm(reg) || reg_is_mmx(reg);
+}
+
+bool
+reg_is_vector_simd(reg_id_t reg)
+{
+    return reg_is_strictly_xmm(reg) || reg_is_strictly_ymm(reg) ||
+        reg_is_strictly_zmm(reg);
 }
 
 bool
 reg_is_opmask(reg_id_t reg)
 {
     return (reg >= DR_REG_START_OPMASK && reg <= DR_REG_STOP_OPMASK);
+}
+
+bool
+reg_is_bnd(reg_id_t reg)
+{
+    return (reg >= DR_REG_START_BND && reg <= DR_REG_STOP_BND);
 }
 
 bool
@@ -2258,4 +2272,38 @@ bool
 instr_is_exclusive_store(instr_t *instr)
 {
     return false;
+}
+
+DR_API
+bool
+instr_is_scatter(instr_t *instr)
+{
+    switch (instr_get_opcode(instr)) {
+    case OP_vpscatterdd:
+    case OP_vscatterdpd:
+    case OP_vscatterdps:
+    case OP_vpscatterdq:
+    case OP_vpscatterqd:
+    case OP_vscatterqpd:
+    case OP_vscatterqps:
+    case OP_vpscatterqq: return true;
+    default: return false;
+    }
+}
+
+DR_API
+bool
+instr_is_gather(instr_t *instr)
+{
+    switch (instr_get_opcode(instr)) {
+    case OP_vpgatherdd:
+    case OP_vgatherdpd:
+    case OP_vgatherdps:
+    case OP_vpgatherdq:
+    case OP_vpgatherqd:
+    case OP_vgatherqpd:
+    case OP_vgatherqps:
+    case OP_vpgatherqq: return true;
+    default: return false;
+    }
 }

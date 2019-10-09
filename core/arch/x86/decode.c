@@ -163,7 +163,8 @@ is_variable_size(opnd_size_t sz)
     case OPSZ_12_rex40_short6:
     case OPSZ_16_vex32:
     case OPSZ_16_vex32_evex64:
-    case OPSZ_vex32_evex64: return true;
+    case OPSZ_vex32_evex64:
+    case OPSZ_8x16: return true;
     default: return false;
     }
 }
@@ -285,6 +286,7 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
         return (TEST(PREFIX_EVEX_LL, di->prefixes)
                     ? OPSZ_8
                     : (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_4 : OPSZ_2));
+    case OPSZ_8x16: return IF_X64_ELSE(OPSZ_16, OPSZ_8);
     }
 
     return sz;
@@ -771,15 +773,6 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
             return pc;
         }
         *is_evex = true;
-#if !defined(STANDALONE_DECODER)
-        DO_ONCE({
-            char pc_addr[IF_X64_ELSE(20, 12)];
-            snprintf(pc_addr, BUFFER_SIZE_ELEMENTS(pc_addr), PFX, pc);
-            NULL_TERMINATE_BUFFER(pc_addr);
-            SYSLOG(SYSLOG_ERROR, AVX_512_SUPPORT_INCOMPLETE, 2, get_application_name(),
-                   get_application_pid(), pc_addr);
-        });
-#endif
         info = &evex_prefix_extensions[0][1];
     } else {
         /* not evex */
@@ -1222,6 +1215,8 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
             info = NULL; /* invalid encoding */
         else if (TEST(REQUIRES_VEX_L_0, info->flags) && TEST(PREFIX_VEX_L, di->prefixes))
             info = NULL; /* invalid encoding */
+        else if (TEST(REQUIRES_VEX_L_1, info->flags) && !TEST(PREFIX_VEX_L, di->prefixes))
+            info = NULL; /* invalid encoding */
     } else if (info != NULL && !di->vex_encoded && TEST(REQUIRES_VEX, info->flags)) {
         info = NULL; /* invalid encoding */
     } else if (info != NULL && di->evex_encoded) {
@@ -1231,6 +1226,8 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
             info = NULL; /* invalid encoding */
         else if (TEST(REQUIRES_EVEX_LL_0, info->flags) &&
                  TEST(PREFIX_EVEX_LL, di->prefixes))
+            info = NULL; /* invalid encoding */
+        else if (TEST(REQUIRES_NOT_K0, info->flags) && di->evex_aaa == 0)
             info = NULL; /* invalid encoding */
     } else if (info != NULL && !di->evex_encoded && TEST(REQUIRES_EVEX, info->flags))
         info = NULL; /* invalid encoding */
@@ -1520,6 +1517,11 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
         if (reg > DR_REG_STOP_OPMASK - DR_REG_START_OPMASK)
             return REG_NULL;
         return DR_REG_START_OPMASK + reg;
+    case TYPE_T_MODRM:
+    case TYPE_T_REG:
+        if (reg > DR_REG_STOP_BND - DR_REG_START_BND)
+            return REG_NULL;
+        return DR_REG_START_BND + reg;
     case TYPE_E:
     case TYPE_G:
     case TYPE_R:
@@ -2161,6 +2163,15 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         *opnd = opnd_create_reg(decode_reg(DECODE_REG_OPMASK, di, optype, opsize));
         return true;
     }
+    case TYPE_T_REG: {
+        /* MPX: modrm.reg selects bnd register */
+        reg_id_t reg = decode_reg(DECODE_REG_REG, di, optype, opsize);
+        if (reg == REG_NULL)
+            return false;
+        *opnd = opnd_create_reg(reg);
+        return true;
+    }
+    case TYPE_T_MODRM: return decode_modrm(di, optype, opsize, NULL, opnd);
     default:
         /* ok to assert, types coming only from instr_info_t */
         CLIENT_ASSERT(false, "decode error: unknown operand type");

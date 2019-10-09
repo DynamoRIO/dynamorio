@@ -1960,8 +1960,10 @@
 +0x1311   00 f9                add    cl, bh
 +0x1313   16...??              <INVALID>
 +0x1314   48 c3                ret
-+0x1316   c5 bf 93 bc a0 9a dd kmovd  edi, k4
++0x1316   c5 bf 93 bc a0 9a dd...??  <INVALID>
  55 a0
++0x1317   bf 93 bc a0 9a       mov    edi, 0x9aa0bc93
++0x131c   dd 55 a0             fst    qword ptr [rbp-0x60]
 +0x131f   32 69 f4             xor    ch, byte ptr [rcx-0x0c]
 +0x1322   66 7c f6             jl     0x000000001000131b
 +0x1325   f1                   int1

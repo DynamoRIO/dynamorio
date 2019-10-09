@@ -705,7 +705,6 @@ drfront_dir_try_writable(const char *path, OUT bool *is_writable)
                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
                    CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (f == INVALID_HANDLE_VALUE) {
-        drfront_status_t res;
         bool is_dir;
         *is_writable = false;
         res = drfront_dir_exists(path, &is_dir);

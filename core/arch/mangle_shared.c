@@ -43,6 +43,7 @@
 #include "instr_create.h"
 #include "instrument.h"  /* for insert_get_mcontext_base */
 #include "decode_fast.h" /* for decode_next_pc */
+#include "disassemble.h"
 
 #ifdef ANNOTATIONS
 #    include "../annotations.h"
@@ -275,7 +276,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
         /* PR 218790: maintain 16-byte rsp alignment.
          * insert_parameter_preparation() currently assumes we leave rsp aligned.
          */
-        uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;
+        uint num_slots = DR_NUM_GPR_REGS + NUM_EXTRA_SLOTS;
         if (cci->skip_save_flags)
             num_slots -= 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
@@ -311,7 +312,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
 #if (defined(X86) && defined(X64)) || defined(MACOS)
     /* PR 218790: remove the padding we added for 16-byte rsp alignment */
     if (cci->should_align) {
-        uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;
+        uint num_slots = DR_NUM_GPR_REGS + NUM_EXTRA_SLOTS;
         if (cci->skip_save_flags)
             num_slots += 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
@@ -533,6 +534,14 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  *
  *   M A N G L I N G   R O U T I N E S
  */
+
+/* This routine is not shared with drdecode, so it's here instead of mangle_utils.c. */
+void
+patch_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
+                      instr_t *last)
+{
+    patch_mov_immed_arch(dcontext, val, pc, first, last);
+}
 
 app_pc
 get_app_instr_xl8(instr_t *instr)
@@ -773,18 +782,453 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
 #endif /* UNIX */
 
 #ifdef LINUX
-/* Returns whether it destroyed "instr". */
-static bool
-mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next_instr)
+/***************************************************************************
+ * Rseq (restartable sequence) mangling.
+ */
+enum {
+    DR_RSEQ_LABEL_START = 0,
+    DR_RSEQ_LABEL_END = 1,
+    DR_RSEQ_LABEL_ABORT = 2,
+    DR_RSEQ_LABEL_CS = 3,
+};
+
+static instr_t *
+mangle_rseq_create_label(dcontext_t *dcontext, int type, ptr_uint_t data)
 {
+    instr_t *label = INSTR_CREATE_label(dcontext);
+    instr_set_note(label, (void *)DR_NOTE_RSEQ);
+    /* XXX: The note doesn't surivive encoding, so we also use a flag.  See comment in
+     * instr.h by this flag: maybe we should move a label's note somewhere persistent?
+     */
+    label->flags |= INSTR_RSEQ_ENDPOINT;
+    dr_instr_label_data_t *label_data = instr_get_label_data_area(label);
+    label_data->data[0] = type;
+    label_data->data[1] = data;
+    return label;
+}
+
+/* May modify next_instr. */
+/* TODO i#2350: Remove this once we are sure of the stability of
+ * mangle_rseq_insert_native_sequence().
+ */
+static void
+mangle_rseq_insert_call_sequence(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                                 instr_t *next_instr, uint *flags INOUT, app_pc start,
+                                 app_pc end, app_pc handler, reg_id_t scratch_reg,
+                                 bool *reg_written, int reg_written_count)
+{
+    /* See the big "We just ran the instrumented version" comment below. */
+    LOG(THREAD, LOG_INTERP, 4, "mangle: inserting call to native rseq " PFX "\n", start);
+    RSTATS_INC(num_rseq_native_calls_inserted);
+#    ifdef X86
+    /* Create a scratch register. */
+    if (SCRATCH_ALWAYS_TLS()) {
+        PRE(ilist, next_instr,
+            instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG0_SLOT));
+        insert_get_mcontext_base(dcontext, ilist, next_instr, scratch_reg);
+    } else {
+        PRE(ilist, next_instr,
+            instr_create_save_to_dcontext(dcontext, scratch_reg, REG0_OFFSET));
+        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)dcontext,
+                               opnd_create_reg(scratch_reg), ilist, next_instr, NULL,
+                               NULL);
+    }
+    if (reg_written_count > 0) {
+        /* Restore the entry state we preserved earlier. */
+        int i;
+        for (i = 0; i < DR_NUM_GPR_REGS; i++) {
+            if (reg_written[i]) {
+                size_t offs = offsetof(dcontext_t, rseq_entry_state) + sizeof(reg_t) * i;
+                PRE(ilist, next_instr,
+                    XINST_CREATE_load(dcontext,
+                                      opnd_create_reg(DR_REG_START_GPR + (reg_id_t)i),
+                                      OPND_CREATE_MEMPTR(scratch_reg, offs)));
+            }
+        }
+    }
+
+    /* For simplicity in this first version of the code, we assume call-return
+     * semantics for the rseq region.  We create an extra frame
+     * and assume that causes no problems.  We assume the native invocation will
+     * come back to us.
+     * TODO i#2350: Make a local copy of the rseq code so we can arrange for a
+     * guaranteed return on (any) exit from the region, and use relative jumps to
+     * avoid needing a scratch register (though on x86 we could call through TLS).
+     * We would transform all mid-point exits into capture points.  This gets rid
+     * of the call-return assumptions and the extra frame.
+     */
+    instr_t check;
+    instr_init(dcontext, &check);
+    if (decode_cti(dcontext, end, &check) == NULL || !instr_is_return(&check)) {
+        REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Rseq sequences must end with a return");
+        ASSERT_NOT_REACHED();
+    }
+    instr_free(dcontext, &check);
+    /* We assume that by making this a block end, clients will restore app state
+     * before this native invocation.
+     * TODO i#2350: Take some further action to better guarantee this in the face
+     * of future drreg optimizations, etc.  Do we need new interface features, or
+     * do we live with a fake app jump or sthg?
+     */
+    /* A direct call may not reach, so we need an indirect call.  We use a TLS slot
+     * to avoid needing a dead register.
+     */
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)start, opnd_create_reg(scratch_reg),
+                           ilist, next_instr, NULL, NULL);
+    if (SCRATCH_ALWAYS_TLS()) {
+        PRE(ilist, next_instr,
+            instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
+    } else {
+        PRE(ilist, next_instr,
+            instr_create_save_to_dcontext(dcontext, scratch_reg, REG1_OFFSET));
+    }
+    /* Restore the scratch register. */
+    if (SCRATCH_ALWAYS_TLS()) {
+        PRE(ilist, next_instr,
+            instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG0_SLOT));
+    } else {
+        PRE(ilist, next_instr,
+            instr_create_restore_from_dcontext(dcontext, scratch_reg, REG0_OFFSET));
+    }
+    /* Set up the frame and stack alignment.  We assume the rseq code was a leaf
+     * function and that rsp is 16-aligned now.
+     * TODO i#2350: If we stick with an extra call frame, it would be better to
+     * spill rsp and hard-align it using a bitmask to ensure alignment; however,
+     * see above where we hope to eliminate the call-return assumption altogether.
+     */
+    instrlist_meta_preinsert(
+        ilist, next_instr,
+        XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_RSP), OPND_CREATE_INT32(8)));
+    instrlist_meta_preinsert(
+        ilist, next_instr,
+        INSTR_CREATE_call_ind(dcontext,
+                              SCRATCH_ALWAYS_TLS()
+                                  ? opnd_create_tls_slot(os_tls_offset(TLS_REG1_SLOT))
+                                  : opnd_create_dcontext_field(dcontext, REG1_OFFSET)));
+    instrlist_meta_preinsert(
+        ilist, next_instr,
+        XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_RSP), OPND_CREATE_INT32(8)));
+#    else
+    /* TODO i#2350: Add non-x86 support.  We need to pay particular attention
+     * to the stolen register.  If we do a local copy (with no callouts) we could
+     * mangle it.  We also cannot do an indirect call through anything but a
+     * register and thus need a dead register for the call-return approach, but
+     * that disappears once DR uses a local copy.
+     */
+    REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                                get_application_pid(),
+                                "Rseq is not yet supported for non-x86");
+    ASSERT_NOT_REACHED();
+#    endif
+}
+
+/* May modify next_instr. */
+static void
+mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
+                                   instr_t *instr, INOUT instr_t **next_instr,
+                                   uint *flags INOUT, app_pc start, app_pc end,
+                                   app_pc handler, reg_id_t scratch_reg,
+                                   bool *reg_written, int reg_written_count)
+{
+    /* We just ran the instrumented version of the rseq code, with the stores
+     * removed.  Now we need to invoke it again natively for real.  We would prefer
+     * to invoke the abort handler, as it may perform some setup, but in too many
+     * cases it is truly an "abort" handler that just exits rather than a "restart
+     * handler".  Furthermore, to support executing a copy of the code natively in
+     * order to provide guarantees on regaining control and not rely on call-return
+     * semantics, it is simpler to execute only the limited-scope rseq region.
+     * Thus, we target the start point.
+     *
+     * In case the abort handler does perform setup, we checkpoint and restore GPR
+     * register values.  Memory should remain as it was, due to nop-ing of stores.
+     *
+     * XXX i#2350: We ignore the app's rseq flags for when to restart.  It's
+     * possible the app disabled restarts on preempts and migrations and can't
+     * handle our restart here, but that seems pathological: we expect the rseq
+     * feature to be used for restarts rather than just a detection mechanism of
+     * preemption.
+     */
+    /* TODO i#2350: We may want to watch exits from the sequence in the instrumented
+     * run and do this native invocation on those as well and not just on completion
+     * of the rseq sequence, in case a store we nop-ed is read post-exit.  We would
+     * flag all rseq exit ctis and process in dispatch or sthg.
+     */
+    LOG(THREAD, LOG_INTERP, 3, "mangle: inserting native rseq code " PFX "\n", start);
+    RSTATS_INC(num_rseq_native_calls_inserted);
+    instr_t *insert_at = *next_instr;
+
+    /* We assume that by making this a block end, clients will restore app state
+     * before this native invocation.
+     * TODO i#2350: Take some further action to better guarantee this in the face
+     * of future drreg optimizations, etc.  Do we need new interface features, or
+     * do we live with a fake app jump or sthg?
+     */
+
+    /* Create a scratch register. Use slot 1 to avoid conflict with segment
+     * mangling below.
+     */
+    if (SCRATCH_ALWAYS_TLS()) {
+        PRE(ilist, insert_at,
+            instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
+    } else {
+        PRE(ilist, insert_at,
+            instr_create_save_to_dcontext(dcontext, scratch_reg, REG1_OFFSET));
+    }
+    /* Restore the entry state we preserved earlier. */
+    if (reg_written_count > 0) {
+        if (SCRATCH_ALWAYS_TLS())
+            insert_get_mcontext_base(dcontext, ilist, insert_at, scratch_reg);
+        else {
+            insert_mov_immed_ptrsz(dcontext, (ptr_int_t)dcontext,
+                                   opnd_create_reg(scratch_reg), ilist, insert_at, NULL,
+                                   NULL);
+        }
+        int i;
+        for (i = 0; i < DR_NUM_GPR_REGS; i++) {
+            if (reg_written[i]) {
+                size_t offs = offsetof(dcontext_t, rseq_entry_state) + sizeof(reg_t) * i;
+                PRE(ilist, insert_at,
+                    XINST_CREATE_load(dcontext,
+                                      opnd_create_reg(DR_REG_START_GPR + (reg_id_t)i),
+                                      OPND_CREATE_MEMPTR(scratch_reg, offs)));
+            }
+        }
+    }
+
+    instr_t *label_start = mangle_rseq_create_label(dcontext, DR_RSEQ_LABEL_START, 0);
+    instr_t *label_end = mangle_rseq_create_label(dcontext, DR_RSEQ_LABEL_END, 0);
+    instr_t *label_abort = mangle_rseq_create_label(dcontext, DR_RSEQ_LABEL_ABORT, 0);
+
+    /* Create an exit cti targeting the abort handler, to use as our handler.
+     * XXX: I'd like to use DO_NOT_EMIT but that's not supported for regular
+     * blocks and so we pay the cost of a little jump.
+     * The jump helps with the signature data we embed in any case.
+     */
+    instr_t *skip_abort = INSTR_CREATE_label(dcontext);
+    PRE(ilist, insert_at,
+        XINST_CREATE_jump_short(dcontext, opnd_create_instr(skip_abort)));
+    /* We have to put the signature just prior to the abort handler pc. */
+    int signature = rseq_get_signature();
+#    ifdef X86
+    /* To avoid errors decoding in decode_fragment() or disassembly, we spend 3
+     * extra bytes making it into a 7-byte nop instr on variable-length x86.
+     */
+    instr_t *abort_sig = INSTR_CREATE_nop_modrm(
+        dcontext, opnd_create_base_disp(DR_REG_NULL, DR_REG_NULL, 0, signature, OPSZ_4));
+#    else
+    /* XXX i#2350: This may still have trouble with decode_fragment() if it
+     * happens to look like a branch or invalid opcode.
+     */
+    instr_t *abort_sig = INSTR_CREATE_nop(dcontext);
+    instr_allocate_raw_bits(dcontext, abort_sig, sizeof(signature));
+    instr_set_raw_word(abort_sig, 0, (uint)signature);
+#    endif
+    PRE(ilist, insert_at, abort_sig);
+    PRE(ilist, insert_at, label_abort);
+    instrlist_preinsert(ilist, insert_at,
+                        XINST_CREATE_jump(dcontext, opnd_create_pc(handler)));
+    PRE(ilist, insert_at, skip_abort);
+
+    /* Point this thread's struct rseq ptr at an rseq_cs which points at the bounds
+     * of this fragment's region.  We want to create a new rseq_cs, point at it
+     * here, and finalize it in mangle_rseq_finalize(), but allocating memory here
+     * leads to complexities freeing it and determinism complexities in various
+     * non-emitted-block scenarios, primarily translation.  Thus we instead make a
+     * placeholder and patch it in mangle_rseq_finalize().  To ensure the immed will
+     * reach we always ask for a large immediate (paying the price of an extra zero
+     * write for the top half for aarchxx).
+     *
+     * An alternative is to embed the rseq_cs as data inside the fragment, next to
+     * the signature above.  To ensure alignment, that would add 64 bytes to the
+     * cache and require extra intructions to do the alignment (if we got the
+     * address from an instr opnd), but the real problem is it messes up
+     * decode_fragment() and even disassembly.
+     */
+    instr_t *immed_first, *immed_last;
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)INT_MAX IF_X64(+1),
+                           opnd_create_reg(scratch_reg), ilist, insert_at, &immed_first,
+                           &immed_last);
+    ASSERT(immed_first != NULL);
+    IF_X86(ASSERT(immed_last == NULL));
+    instr_t *label_rseq_cs =
+        mangle_rseq_create_label(dcontext, DR_RSEQ_LABEL_CS, immed_last == NULL ? 1 : 2);
+    PRE(ilist, immed_first /*prior to immeds*/, label_rseq_cs);
+    /* We need to mangle this segment ref, and all of the subsequent local copy. */
+#    ifdef X86
+    instr_t *start_mangling = XINST_CREATE_store(
+        dcontext,
+        opnd_create_far_base_disp(LIB_SEG_TLS, DR_REG_NULL, DR_REG_NULL, 0,
+                                  rseq_get_tls_ptr_offset(), OPSZ_PTR),
+        opnd_create_reg(scratch_reg));
+#    else
+    /* TODO i#2350: Construct an app TLS access instruction for aarchxx. */
+    ASSERT_NOT_IMPLEMENTED(false);
+    instr_t *start_mangling = INSTR_CREATE_label(dcontext); /* So it compiles. */
+#    endif
+    instrlist_preinsert(ilist, insert_at, start_mangling);
+
+    /* Restore scratch_reg. */
+    if (SCRATCH_ALWAYS_TLS()) {
+        PRE(ilist, insert_at,
+            instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
+    } else {
+        PRE(ilist, insert_at,
+            instr_create_restore_from_dcontext(dcontext, scratch_reg, REG1_OFFSET));
+    }
+
+    /* Make a local copy of the rseq code (otherwise we would have to assume that
+     * all rseq sequences are callees with a nice return to come back to us, which
+     * is not true).  All exits become fragment exits; we assume all ind branches
+     * are exits.  We mangle the code here (but do *not* pass to clients), which is
+     * required (rip-rel reachable, segments, stolen reg!) and safe (mostly loads,
+     * not stores, and restartable).
+     */
+    app_pc pc = start;
+    PRE(ilist, insert_at, label_start);
+    while (pc < end) {
+        instr_t *copy = instr_create(dcontext);
+        pc = decode(dcontext, pc, copy);
+        if (pc == NULL) {
+            REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
+                                        get_application_name(), get_application_pid(),
+                                        "Invalid instruction inside rseq region");
+            ASSERT_NOT_REACHED();
+        }
+        /* Make intra-region branches meta; all others are exit ctis. */
+        if ((instr_is_cbr(copy) || instr_is_ubr(copy)) &&
+            opnd_is_pc(instr_get_target(copy))) {
+            app_pc tgt = opnd_get_pc(instr_get_target(copy));
+            if (tgt >= start && tgt < end) {
+                PRE(ilist, insert_at, copy);
+                continue;
+            }
+        }
+        instrlist_preinsert(ilist, insert_at, copy);
+        if (instr_is_mbr(copy)) {
+            /* We need to add the exit cti that interp adds for a regular block.
+             * We explicitly disallow targeting inside the sequence, but we have
+             * no way to easily verify that: if it happens we'll end up interpreting
+             * the target part of the sequence, leading to app errors.
+             */
+            uint exit_type = instr_branch_type(copy);
+            byte *pc = get_ibl_routine(dcontext, get_ibl_entry_type(exit_type),
+                                       TEST(FRAG_IS_TRACE, *flags) ? DEFAULT_IBL_TRACE()
+                                                                   : DEFAULT_IBL_BB(),
+                                       get_ibl_branch_type(copy));
+            instr_t *exit = XINST_CREATE_jump(dcontext, opnd_create_pc(pc));
+            instr_exit_branch_set_type(exit, exit_type);
+            instrlist_preinsert(ilist, insert_at, exit);
+        }
+    }
+    PRE(ilist, insert_at, label_end);
+    /* Now mangle from this point. */
+    *next_instr = start_mangling;
+
+    /* Clear the rseq ptr on exit to avoid problems if we free the rseq_cs and
+     * the kernel finds invalid addresses there and forces a SIGSEGV on us.
+     * For midpoint exits above, it's not easy to insert this clear directly.
+     * Instead, we rely on rseq_shared_fragment_flushtime_update() and
+     * rseq_remove_fragment() to clear the pointer before rseq_cs is freed.
+     */
+#    ifdef X86
+    instrlist_preinsert(ilist, insert_at,
+                        XINST_CREATE_store(dcontext,
+                                           opnd_create_far_base_disp(
+                                               LIB_SEG_TLS, DR_REG_NULL, DR_REG_NULL, 0,
+                                               rseq_get_tls_ptr_offset(), OPSZ_PTR),
+                                           OPND_CREATE_INT32(0)));
+#    else
+    /* TODO i#2350: Construct an app TLS access instruction for aarchxx. */
+    ASSERT_NOT_IMPLEMENTED(false);
+#    endif
+
+    DOLOG(4, LOG_INTERP, {
+        LOG(THREAD, LOG_INTERP, 4, "New ilist for rseq:\n");
+        instrlist_disassemble(dcontext, start, ilist, THREAD);
+    });
+}
+
+/* Returns whether it destroyed "instr".  May modify next_instr. */
+static bool
+mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+            INOUT instr_t **next_instr, uint *flags INOUT)
+{
+    int i;
     app_pc pc = get_app_instr_xl8(instr);
     app_pc start, end, handler;
-    if (!vmvector_lookup_data(d_r_rseq_areas, pc, &start, &end, (void **)&handler)) {
+    bool *reg_written;
+    int reg_written_size;
+    reg_id_t scratch_reg = DR_REG_START_GPR;
+    if (!rseq_get_region_info(pc, &start, &end, &handler, &reg_written,
+                              &reg_written_size)) {
         ASSERT_NOT_REACHED(); /* Caller was supposed to check for overlap */
         return false;
     }
+    /* We need to know the type of register so we can't completely abstract this. */
+    ASSERT(reg_written_size == DR_NUM_GPR_REGS);
+    int reg_written_count = 0;
+    for (i = 0; i < DR_NUM_GPR_REGS; i++) {
+        if (reg_written[i]) {
+            /* For simplicity we avoid our scratch being a register we're preserving. */
+            if (DR_REG_START_GPR + (reg_id_t)i == scratch_reg)
+                scratch_reg++;
+            reg_written_count++;
+        }
+    }
+    if (scratch_reg == DR_NUM_GPR_REGS) {
+        /* We could handle this by an xchg or sthg but it seems so rare, and given
+         * that we already have so many rseq limitations, I'm bailing on it.
+         */
+        REPORT_FATAL_ERROR_AND_EXIT(
+            RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(), get_application_pid(),
+            "Rseq sequence writes every general-purpose register");
+        ASSERT_NOT_REACHED();
+    }
+    if (pc == start && reg_written_count > 0) {
+        /* Preserve any input register state that will be re-set-up by the abort
+         * handler on a restart.  We directly invoke start on a restart to make it
+         * easier to use a copy of the code, and to support non-restarting handlers.
+         */
+        /* XXX i#3798: Be sure to insert these register saves prior to any client
+         * instrumentation, which may move app register values elsewhere.  We've
+         * arranged the rseq start to always be a block start, and with current drreg
+         * implementation, all values are native (i.e., in registers) at block start, so
+         * we're ok for now, but we may want some kind of barrier API in the future.
+         */
+        instr_t *first = instrlist_first(ilist);
+        if (SCRATCH_ALWAYS_TLS()) {
+            PRE(ilist, first,
+                instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG0_SLOT));
+            insert_get_mcontext_base(dcontext, ilist, first, scratch_reg);
+        } else {
+            PRE(ilist, first,
+                instr_create_save_to_dcontext(dcontext, scratch_reg, REG0_OFFSET));
+            insert_mov_immed_ptrsz(dcontext, (ptr_int_t)dcontext,
+                                   opnd_create_reg(scratch_reg), ilist, first, NULL,
+                                   NULL);
+        }
+        for (i = 0; i < DR_NUM_GPR_REGS; i++) {
+            if (reg_written[i]) {
+                size_t offs = offsetof(dcontext_t, rseq_entry_state) + sizeof(reg_t) * i;
+                PRE(ilist, first,
+                    XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(scratch_reg, offs),
+                                       opnd_create_reg(DR_REG_START_GPR + (reg_id_t)i)));
+            }
+        }
+        if (SCRATCH_ALWAYS_TLS()) {
+            PRE(ilist, first,
+                instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG0_SLOT));
+        } else {
+            PRE(ilist, first,
+                instr_create_restore_from_dcontext(dcontext, scratch_reg, REG0_OFFSET));
+        }
+    }
     int len = instr_length(dcontext, instr);
     if (pc + len >= end) {
+        ilist->flags |= INSTR_RSEQ_ENDPOINT;
+        *flags |= FRAG_HAS_RSEQ_ENDPOINT;
         if (pc + len != end) {
             REPORT_FATAL_ERROR_AND_EXIT(
                 RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
@@ -799,70 +1243,19 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
                 "Rseq sequences must fall through their endpoints");
             ASSERT_NOT_REACHED();
         }
-#    ifdef X86
-        /* We just ran the instrumented version of the rseq code, with the stores
-         * removed.  Now we need to invoke it again natively for real.  We have to
-         * invoke the abort handler, not the rseq start, as it may perform some setup.
-         *
-         * XXX i#2350: We assume the code can handle "aborting" once every time and
-         * still make forward progress.  We document this in our Limitations section.
-         * We also ignore the flags for when to restart.  It's possible the app
-         * disabled restarts on preempts and migrations and can't handle our restart
-         * here.
-         */
-        LOG(THREAD, LOG_INTERP, 4, "mangle: inserting call to native rseq " PFX "\n",
-            handler);
-        RSTATS_INC(num_rseq_native_calls_inserted);
-        /* For simplicity in this first version of the code, we assume call-return
-         * semantics for the abort handler + rseq region.  We create an extra frame
-         * and assume that causes no problems.  We assume the native invocation will
-         * come back to us.
-         * TODO i#2350: Make a copy of the rseq code and append a "return" as a jmp*
-         * through TLS.  Make a copy of the abort handler too.  Decode it and ensure
-         * it transitions directly to the rseq code (if not, bail).  "Call" the
-         * copied abort handler+rseq by setting the retaddr in TLS and jumping.  Then
-         * we have a guaranteed return and no extra frame, with verified assumptions.
-         */
-        instr_t check;
-        instr_init(dcontext, &check);
-        if (decode_cti(dcontext, end, &check) == NULL || !instr_is_return(&check)) {
-            REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
-                                        get_application_name(), get_application_pid(),
-                                        "Rseq sequences must end with a return");
-            ASSERT_NOT_REACHED();
+        if (DYNAMO_OPTION(rseq_assume_call)) {
+            mangle_rseq_insert_call_sequence(dcontext, ilist, instr, *next_instr, flags,
+                                             start, end, handler, scratch_reg,
+                                             reg_written, reg_written_count);
+        } else {
+            mangle_rseq_insert_native_sequence(dcontext, ilist, instr, next_instr, flags,
+                                               start, end, handler, scratch_reg,
+                                               reg_written, reg_written_count);
         }
-        instr_free(dcontext, &check);
-        /* We assume that by making this a block end, clients will restore app state
-         * before this native invocation.
-         * TODO i#2350: Take some further action to better guarantee this in the face
-         * of future drreg optimizations, etc.  Do we need new interface features, or
-         * do we live with a fake app jump or sthg?
+        /* TODO i#2350: We should also invoke the native sequence on a midpoint exit
+         * from the sequence during instrumentation, since there may be state changes
+         * in the early part that are visible outside.
          */
-        /* A direct call may not reach so we clobber a scratch register. */
-        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)handler, opnd_create_reg(DR_REG_RAX),
-                               ilist, next_instr, NULL, NULL);
-        /* Set up the frame and stack alignment.  We assume the rseq code was a leaf
-         * function and that rsp is 16-aligned now.
-         * TODO i#2350: If we stick with an extra call frame, it would be better to
-         * spill rsp and hard-align it using a bitmask to ensure alignment; however,
-         * see above where we hope to eliminate the call-return assumption altogether.
-         */
-        instrlist_meta_preinsert(ilist, next_instr,
-                                 XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_RSP),
-                                                  OPND_CREATE_INT32(8)));
-        instrlist_meta_preinsert(
-            ilist, next_instr,
-            INSTR_CREATE_call_ind(dcontext, opnd_create_reg(DR_REG_RAX)));
-        instrlist_meta_preinsert(ilist, next_instr,
-                                 XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_RSP),
-                                                  OPND_CREATE_INT32(8)));
-#    else
-        /* TODO i#2350: Add non-x86 support. */
-        REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
-                                    get_application_pid(),
-                                    "Rseq is not yet supported for non-x86");
-        ASSERT_NOT_REACHED();
-#    endif
     }
 
     /* If we're inside a restartable sequence, this is the first run which is
@@ -872,11 +1265,6 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
      * at the same time.
      */
     if (!instr_writes_memory(instr))
-        return false;
-    /* We allow a call to a helper function, since this happens in some apps we target.
-     * The helper is assumed to have no side effects.
-     */
-    if (instr_is_call(instr))
         return false;
     /* XXX i#2350: We want to turn just the store portion of the instr into a nop
      * and keep any register side effects.  That is complex, however.  For now we
@@ -892,12 +1280,57 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *n
                                     "Store inside rseq region has multiple destinations");
         ASSERT_NOT_REACHED();
     }
-    LOG(THREAD, LOG_INTERP, 4, "mangle: removing store inside rseq region @" PFX "\n",
+    LOG(THREAD, LOG_INTERP, 3, "mangle: removing store inside rseq region @" PFX "\n",
         pc);
     RSTATS_INC(num_rseq_stores_elided);
     instrlist_remove(ilist, instr);
     instr_destroy(dcontext, instr);
     return true; /* destroyed instr */
+}
+
+static void
+mangle_rseq_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
+{
+    if (DYNAMO_OPTION(rseq_assume_call))
+        return;
+    instr_t *instr, *immed_first = NULL, *immed_last = NULL;
+    cache_pc pc = FCACHE_ENTRY_PC(f), immed_start_pc = NULL;
+    cache_pc rseq_start = NULL, rseq_end = NULL, rseq_abort = NULL;
+    for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
+        if (instr_is_label(instr) &&
+            (instr_get_note(instr) == (void *)DR_NOTE_RSEQ ||
+             TEST(INSTR_RSEQ_ENDPOINT, instr->flags))) {
+            dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
+            switch (label_data->data[0]) {
+            case DR_RSEQ_LABEL_START: rseq_start = pc; break;
+            case DR_RSEQ_LABEL_END: rseq_end = pc; break;
+            case DR_RSEQ_LABEL_ABORT: rseq_abort = pc; break;
+            case DR_RSEQ_LABEL_CS:
+                immed_start_pc = pc;
+                immed_first = instr_get_next(instr);
+                if (label_data->data[1] > 1)
+                    immed_last = instr_get_next(immed_first);
+                break;
+            default: ASSERT_NOT_REACHED();
+            }
+        }
+        pc += instr_length(dcontext, instr);
+    }
+    LOG(THREAD, LOG_INTERP, 4, "%s: start=" PFX ", end=" PFX ", abort=" PFX "\n",
+        __FUNCTION__, rseq_start, rseq_end, rseq_abort);
+    ASSERT(rseq_start != NULL && rseq_end != NULL && rseq_abort != NULL);
+
+    byte *rseq_cs_alloc, *rseq_cs;
+    /* The rseq_cs creation and recording is structured like this in two steps to
+     * provide flexibility in mangling.  Originally the alloc was done in mangle_rseq()
+     * and passed here in the label data, but to simplify freeing we now allocate here
+     * and patch the immediates.
+     */
+    rseq_cs_alloc = rseq_get_rseq_cs_alloc(&rseq_cs);
+    rseq_record_rseq_cs(rseq_cs_alloc, f, rseq_start, rseq_end, rseq_abort);
+    ASSERT(immed_start_pc != NULL && immed_first != NULL);
+    patch_mov_immed_ptrsz(dcontext, (ptr_int_t)rseq_cs, immed_start_pc, immed_first,
+                          immed_last);
 }
 #endif /* LINUX */
 
@@ -1000,7 +1433,7 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
             !vmvector_empty(d_r_rseq_areas)) {
             app_pc pc = get_app_instr_xl8(instr);
             if (vmvector_overlap(d_r_rseq_areas, pc, pc + 1)) {
-                if (mangle_rseq(dcontext, ilist, instr, next_instr))
+                if (mangle_rseq(dcontext, ilist, instr, &next_instr, flags))
                     continue; /* instr was destroyed */
             }
         }
@@ -1183,7 +1616,7 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
         }
 
 #ifdef STEAL_REGISTER
-        if (ilist->flags) {
+        if (TESTANY(STEAL_REG_ILIST_FLAGS, ilist->flags)) {
             restore_state(dcontext, instr, ilist); /* end of edi calculation */
         }
 #endif
@@ -1235,10 +1668,12 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
     }
 #endif
 
+#ifdef STEAL_REGISTER
     /* The following assertion should be guaranteed by fact that all
      * blocks end in some kind of branch, and the code above restores
      * the register state on a branch. */
-    ASSERT(ilist->flags == 0);
+    ASSERT(!TESTANY(STEAL_REG_ILIST_FLAGS, ilist->flags));
+#endif
     KSTOP(mangling);
 }
 
@@ -1373,6 +1808,20 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     }
     IF_X64(ASSERT_TRUNCATE(int, int, syscall));
     return (int)syscall;
+}
+
+void
+mangle_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
+{
+#ifdef X86
+    if (TEST(FRAG_SELFMOD_SANDBOXED, f->flags)) {
+        finalize_selfmod_sandbox(dcontext, f);
+    }
+#endif
+#ifdef LINUX
+    if (TEST(INSTR_RSEQ_ENDPOINT, ilist->flags))
+        mangle_rseq_finalize(dcontext, ilist, f);
+#endif
 }
 
 /* END OF CONTROL-FLOW MANGLING ROUTINES

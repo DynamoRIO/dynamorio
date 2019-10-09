@@ -1603,6 +1603,16 @@ function(disable_optimizations_for_file source_file)
     COMPILE_FLAGS "${cflags}")
 endfunction(disable_optimizations_for_file)
 
+# Some of our tests were created for /MT which was the top-level flag even
+# in debug build until recently, so we go back to it to avoid breaking them.
+function(use_MT_not_MTd source_file)
+  if (WIN32)
+    # Appending to the target flags goes in too early: we need source to
+    # override the /MTd from the top level.
+    append_property_string(SOURCE ${source_file} COMPILE_FLAGS "/MT")
+  endif ()
+endfunction()
+
 # optimize the target
 function(optimize target)
   if (UNIX)
@@ -2214,6 +2224,23 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.drxmgr-test.dll drx)
   use_DynamoRIO_extension(client.drxmgr-test.dll drreg)
 
+  if (X86)
+    if (NOT MACOS)
+      # XXX i#2985: The test's asm doesn't build with MacOS's clang.
+      tobuild_ci(client.drx-scattergather client-interface/drx-scattergather.c "" "" "")
+      use_DynamoRIO_extension(client.drx-scattergather.dll drmgr)
+      use_DynamoRIO_extension(client.drx-scattergather.dll drx)
+      use_DynamoRIO_extension(client.drx-scattergather.dll drreg)
+      if (proc_supports_avx512)
+        append_property_string(TARGET client.drx-scattergather COMPILE_FLAGS "${CFLAGS_AVX512}")
+        set(client.drx-scattergather_runavx512 1)
+      elseif (proc_supports_avx)
+        append_property_string(TARGET client.drx-scattergather COMPILE_FLAGS "${CFLAGS_AVX}")
+        set(client.drx-scattergather_runavx 1)
+      endif ()
+    endif()
+  endif ()
+
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
   get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll "${location_suffix}")
   tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
@@ -2255,6 +2282,8 @@ if (CLIENT_INTERFACE)
     # Disable optimizations for the exe and appdll to allow stack tracing.
     disable_optimizations_for_file(client-interface/drsyms-test.cpp)
     disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
+    # Debug libc seems to mess up the test.
+    use_MT_not_MTd(client-interface/drsyms-test.appdll.cpp)
     use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
     use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
   endif ()
@@ -2405,6 +2434,13 @@ if (CLIENT_INTERFACE)
       target_include_directories(api.detach_state PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/api)
       link_with_pthread(api.detach_state)
+      if (proc_supports_avx512)
+        append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX512}")
+        set(api.detach_state_runavx512 1)
+      elseif (proc_supports_avx)
+        append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX}")
+        set(api.detach_state_runavx 1)
+      endif ()
     endif ()
     if (NOT WIN32) # XXX i#2611: fix for Windows
       if (X64)
@@ -2571,6 +2607,8 @@ endif ()
 
   if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
+    # Debug libc seems to mess up the test.
+    use_MT_not_MTd(client-interface/retaddr.c)
   endif (X86)
 
   if (X86 AND WIN32) # FIXME port test application to other systems
@@ -2597,6 +2635,8 @@ endif ()
       # XXX i#1312: we do not yet support AVX-512 Windows context switching.
       tobuild_ci(client.avx512ctx client-interface/avx512ctx.c "" "" "")
       set_target_properties(client.avx512ctx PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
+      append_property_string(TARGET client.avx512ctx.dll COMPILE_FLAGS
+        "${CFLAGS_AVX512}")
       target_include_directories(client.avx512ctx PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
@@ -3153,6 +3193,8 @@ endif ()
       endif ()
 
       add_exe(tool.cpuid ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
+      # Debug libc seems to run newer instructions, messing up the test.
+      use_MT_not_MTd(${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
       macro (add_cpusim_cpuid_test model)
         torunonly_ci(tool.drcpusim.cpuid-${model} tool.cpuid drcpusim
           ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid-${model}.c
@@ -3523,6 +3565,8 @@ if (UNIX)
     tobuild_api(api.rseq linux/rseq.c "" "" OFF OFF)
     link_with_pthread(api.rseq)
     append_property_string(TARGET api.rseq COMPILE_FLAGS "-DRSEQ_TEST_ATTACH")
+    # Test non-compliant code with our workaround flag.
+    tobuild_ops(linux.rseq_disable linux/rseq_disable.c "-disable_rseq" "")
   endif ()
 else (UNIX)
   add_exe(win32.infloop win32/infloop.c)
@@ -3618,6 +3662,8 @@ else (UNIX)
     tobuild(win32.fpe win32/fpe.c)
 
     tobuild(win32.except win32/except.c)
+    # Debug libc seems to mess up the test.
+    use_MT_not_MTd(win32/except.c)
     tobuild(win32.getthreadcontext win32/getthreadcontext.c)
     tobuild_dll(win32.hookerfirst win32/hookerfirst.c
       "-handle_ntdll_modify 1 -native_exec_hook_conflict 1")

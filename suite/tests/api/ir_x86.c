@@ -1120,6 +1120,10 @@ test_hint_nops(void *dc)
     /* other types of hintable nop [eax] */
     buf[2] = 0x00;
     for (buf[1] = 0x19; buf[1] <= 0x1f; buf[1]++) {
+        /* Intel is using these encodings now for the MPX instructions bndldx and bndstx.
+         */
+        if (buf[1] == 0x1a || buf[1] == 0x1b)
+            continue;
         pc = decode(dc, buf, instr);
         ASSERT(instr_get_opcode(instr) == OP_nop_modrm);
         instr_reset(dc, instr);
@@ -1257,6 +1261,21 @@ test_regs(void *dc)
     ASSERT(reg == DR_REG_RAX);
 #endif
 
+    ASSERT(reg_is_vector_simd(DR_REG_XMM0));
+    ASSERT(reg_is_vector_simd(DR_REG_XMM1));
+    ASSERT(reg_is_vector_simd(DR_REG_YMM1));
+    ASSERT(reg_is_vector_simd(DR_REG_ZMM1));
+    ASSERT(!reg_is_vector_simd(DR_REG_MM0));
+    ASSERT(!reg_is_vector_simd(DR_REG_MM1));
+    ASSERT(!reg_is_vector_simd(DR_REG_XAX));
+    ASSERT(!reg_is_vector_simd(DR_REG_AX));
+
+#ifdef X64
+    ASSERT(reg_is_vector_simd(DR_REG_XMM31));
+    ASSERT(reg_is_vector_simd(DR_REG_YMM31));
+    ASSERT(reg_is_vector_simd(DR_REG_ZMM31));
+#endif
+
     /* Quick check of other regs. */
     reg = reg_resize_to_opsz(DR_REG_XBX, OPSZ_1);
     ASSERT(reg == DR_REG_BL);
@@ -1284,6 +1303,62 @@ test_regs(void *dc)
     ASSERT(reg == DR_REG_SP);
     reg = reg_resize_to_opsz(DR_REG_XBP, OPSZ_2);
     ASSERT(reg == DR_REG_BP);
+
+    /* SIMD only XMM, OPSZ 16. */
+    reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_XMM1, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM1);
+    reg = reg_resize_to_opsz(DR_REG_YMM0, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_YMM1, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM1);
+    reg = reg_resize_to_opsz(DR_REG_ZMM0, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM1);
+
+    /* SIMD only YMM, OPSZ 32. */
+    reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM0);
+    reg = reg_resize_to_opsz(DR_REG_XMM1, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM1);
+    reg = reg_resize_to_opsz(DR_REG_YMM0, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM0);
+    reg = reg_resize_to_opsz(DR_REG_YMM1, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM1);
+    reg = reg_resize_to_opsz(DR_REG_ZMM0, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM0);
+    reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM1);
+
+    /* SIMD only ZMM, OPSZ 64. */
+    reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM0);
+    reg = reg_resize_to_opsz(DR_REG_XMM1, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM1);
+    reg = reg_resize_to_opsz(DR_REG_YMM0, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM0);
+    reg = reg_resize_to_opsz(DR_REG_YMM1, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM1);
+    reg = reg_resize_to_opsz(DR_REG_ZMM0, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM0);
+    reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM1);
+
+    /* SIMD only ZMM, Negation, OPSZ 64. */
+    reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_XMM1, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM1);
+    reg = reg_resize_to_opsz(DR_REG_YMM0, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_YMM1, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM1);
+    reg = reg_resize_to_opsz(DR_REG_ZMM0, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM1);
 }
 
 static void
@@ -1711,6 +1786,47 @@ test_vsib(void *dc)
     test_vsib_helper(dc, &mc, instr, mc.xcx, 1, 2, 0x12, 0 /*nothing*/, OPSZ_4,
                      true /* evex */, true /* expect_write */);
     instr_destroy(dc, instr);
+
+    /* Test invalid k0 mask with scatter/gather opcodes. */
+    const byte b_scattergatherinv[] = { /* vpscatterdd %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0xa0, 0x04, 0x48,
+                                        /* vpscatterdq %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0xa0, 0x04, 0x48,
+                                        /* vpscatterqd %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0xa1, 0x04, 0x48,
+                                        /* vpscatterqq %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0xa1, 0x04, 0x48,
+                                        /* vscatterdps %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0xa2, 0x04, 0x48,
+                                        /* vscatterdpd %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0xa2, 0x04, 0x48,
+                                        /* vscatterqps %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0xa3, 0x04, 0x48,
+                                        /* vscatterqpd %xmm0,(%rax,%xmm1,2){%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0xa3, 0x04, 0x48,
+                                        /* vpgatherdd (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0x90, 0x04, 0x48,
+                                        /* vpgatherdq (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0x90, 0x04, 0x48,
+                                        /* vpgatherqd (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0x91, 0x04, 0x48,
+                                        /* vpgatherqq (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0x91, 0x04, 0x48,
+                                        /* vgatherdps (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0x92, 0x04, 0x48,
+                                        /* vgatherdpd (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0x92, 0x04, 0x48,
+                                        /* vgatherqps (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0x7d, 0x08, 0x93, 0x04, 0x48,
+                                        /* vgatherqpd (%rax,%xmm1,2),%xmm0{%k0} */
+                                        0x62, 0xf2, 0xfd, 0x08, 0x93, 0x04, 0x48
+    };
+    instr_t invinstr;
+    instr_init(dc, &invinstr);
+    for (int i = 0; i < sizeof(b_scattergatherinv); i += 7) {
+        pc = decode(dc, (byte *)&b_scattergatherinv[i], &invinstr);
+        ASSERT(pc == NULL);
+    }
 }
 
 static void
@@ -1956,6 +2072,70 @@ test_stack_pointer_size(void *dc)
            0);
 }
 
+static void
+test_reg_exact_reads(void *dc)
+{
+    instr_t *instr = INSTR_CREATE_mov_ld(dc, OPND_CREATE_MEMPTR(DR_REG_XAX, 5),
+                                         opnd_create_reg(DR_REG_XBX));
+
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XBX, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XBX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XBX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XBX, 0));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, 0));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, DR_QUERY_DEFAULT));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, 0));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_AX, DR_QUERY_DEFAULT));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_AX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_AX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_AX, 0));
+
+    instr_reset(dc, instr);
+    instr = INSTR_CREATE_mov_ld(dc, OPND_CREATE_MEM16(DR_REG_XAX, 5),
+                                opnd_create_reg(DR_REG_BX));
+
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XBX, DR_QUERY_DEFAULT));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XBX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XBX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XBX, 0));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, 0));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, DR_QUERY_DEFAULT));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, 0));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_BX, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_BX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_BX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_BX, 0));
+
+    instr_reset(dc, instr);
+    instr =
+        INSTR_CREATE_pxor(dc, opnd_create_reg(DR_REG_XMM0), opnd_create_reg(DR_REG_XMM1));
+
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XMM0, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XMM0, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XMM0, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XMM0, 0));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_YMM0, DR_QUERY_DEFAULT));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_YMM0, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_YMM0, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_YMM0, 0));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_ZMM0, DR_QUERY_DEFAULT));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_ZMM0, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_ZMM0, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_ZMM0, 0));
+
+    instr_destroy(dc, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2022,6 +2202,8 @@ main(int argc, char *argv[])
     test_xinst_create(dcontext);
 
     test_stack_pointer_size(dcontext);
+
+    test_reg_exact_reads(dcontext);
 
 #ifndef STANDALONE_DECODER /* speed up compilation */
     test_all_opcodes_2_avx512_vex(dcontext);

@@ -2864,7 +2864,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             if (ZMM_ENABLED()) {
                 if (instr_may_write_zmm_or_opmask_register(inst)) {
                     LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
-                    d_r_set_avx512_code_in_use(true);
+                    d_r_set_avx512_code_in_use(true, NULL);
                     proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
                 }
             }
@@ -3513,7 +3513,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                          * are checked with instr_may_write_zmm_register.
                          */
                         LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
-                        d_r_set_avx512_code_in_use(true);
+                        d_r_set_avx512_code_in_use(true, instr_get_app_pc(bb->instr));
                         proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
                     }
                 }
@@ -3721,17 +3721,15 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             }
         }
 #else
-#    ifdef X86
+#    if defined(X86) && defined(LINUX)
         if (instr_get_prefix_flag(bb->instr,
                                   (SEG_TLS == SEG_GS) ? PREFIX_SEG_GS : PREFIX_SEG_FS)
             /* __errno_location is interpreted when global, though it's hidden in TOT */
             IF_UNIX(&&!is_in_dynamo_dll(bb->instr_start)) &&
             /* i#107 allows DR/APP using the same segment register. */
             !INTERNAL_OPTION(mangle_app_seg)) {
-            /* On linux we use a segment register and do not yet
-             * support the application using the same register!
-             */
-            CLIENT_ASSERT(false, "no support yet for application using non-NPTL segment");
+            CLIENT_ASSERT(false,
+                          "no support for app using DR's segment w/o -mangle_app_seg");
             ASSERT_BUG_NUM(205276, false);
         }
 #    endif /* X86 */
@@ -6579,7 +6577,6 @@ append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
 
     if (speculate_next_tag != NULL) {
         instr_t *next = instr_get_next(inst);
-        reg_id_t reg = IF_X86_ELSE(REG_ECX, DR_REG_R2);
         /* preinsert comparison before exit CTI, but increment goes after it */
 
         /* we need to compare to speculate_next_tag now - just like

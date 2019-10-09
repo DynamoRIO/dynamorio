@@ -50,7 +50,10 @@
 #include "memquery.h"
 
 /* Cross arch syscall nums for use with struct stat64. */
-#ifdef X64
+#ifdef MACOS64
+#    define SYSNUM_STAT SYS_stat64
+#    define SYSNUM_FSTAT SYS_fstat64
+#elif defined(X64)
 #    ifdef SYS_stat
 #        define SYSNUM_STAT SYS_stat
 #    endif
@@ -227,6 +230,20 @@ bool
 os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base);
 #endif
 
+#ifdef MACOS
+/* xref i#1404: we should expose these via the dr_get_os_version() API */
+#    define MACOS_VERSION_MOJAVE 18
+#    define MACOS_VERSION_HIGH_SIERRA 17
+#    define MACOS_VERSION_SIERRA 16
+#    define MACOS_VERSION_EL_CAPITAN 15
+#    define MACOS_VERSION_YOSEMITE 14
+#    define MACOS_VERSION_MAVERICKS 13
+#    define MACOS_VERSION_MOUNTAIN_LION 12
+#    define MACOS_VERSION_LION 11
+int
+os_get_version(void);
+#endif
+
 void
 set_executable_path(const char *);
 
@@ -289,8 +306,9 @@ void
 signal_thread_init(dcontext_t *dcontext, void *os_data);
 void
 signal_thread_exit(dcontext_t *dcontext, bool other_thread);
+/* In addition to the list, does not block SIGSEGV or SIGBUS. */
 void
-block_all_signals_except(kernel_sigset_t *oset, int num_signals, ...);
+block_all_noncrash_signals_except(kernel_sigset_t *oset, int num_signals, ...);
 void
 block_cleanup_and_terminate(dcontext_t *dcontext, int sysnum, ptr_uint_t sys_arg1,
                             ptr_uint_t sys_arg2, bool exitproc,

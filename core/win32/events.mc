@@ -678,4 +678,12 @@ Language=English
 Application %1!s! (%2!s!). Restartable sequence behavior is not supported: %3!s!.
 .
 
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_FAILED_TO_ALLOCATE_TLS
+Language=English
+Application %1!s! (%2!s!). Unable to allocate TLS slots. %3!s!
+.
+
 ;// ADD NEW MESSAGES HERE

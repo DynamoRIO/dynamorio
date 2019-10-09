@@ -164,8 +164,6 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
             app_pc shared_start, shared_end;
             bool have_shared = module_dyld_shared_region(&shared_start, &shared_end);
             if (have_shared && base >= shared_start && base < shared_end) {
-                /* These should have had their segment bounds updated */
-                ASSERT_CURIOSITY(seg_min_start == base);
                 out_data->in_shared_cache = true;
             }
             /* Now that we have the load delta, we can add the abs addr segments */
@@ -180,7 +178,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                         size_t seg_size = seg->vmsize;
                         bool shared = false;
                         if (strcmp(seg->segname, "__LINKEDIT") == 0 && have_shared &&
-                            seg_start >= shared_start && seg_start < shared_end) {
+                            out_data->in_shared_cache) {
                             /* We assume that all __LINKEDIT segments in the
                              * dyld cache are shared as one single segment.
                              */
@@ -188,8 +186,12 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                             /* XXX: seg->vmsize is too large for these: it extends
                              * off the end of the mapping.  I have no idea why.
                              * So we truncate it.  We leave max_end above.
+                             * For 10.14+ shared_end is actually the end of the libs,
+                             * not the cache, so we do not truncate there.  There we have
+                             * not seen this too-large size.
                              */
-                            if (seg_start + seg->vmsize > shared_end) {
+                            if (os_get_version() < MACOS_VERSION_MOJAVE &&
+                                seg_start + seg->vmsize > shared_end) {
                                 LOG(GLOBAL, LOG_VMAREAS, 4,
                                     "%s: truncating __LINKEDIT size from " PIFX
                                     " to " PIFX "\n",

@@ -69,7 +69,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
      */
     memset(ci->simd_used, 0, sizeof(bool) * proc_num_simd_registers());
     memset(ci->opmask_used, 0, sizeof(bool) * MCXT_NUM_OPMASK_SLOTS);
-    memset(ci->reg_used, 0, sizeof(bool) * NUM_GP_REGS);
+    memset(ci->reg_used, 0, sizeof(bool) * DR_NUM_GPR_REGS);
     ci->write_flags = false;
     for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
         /* XXX: this is not efficient as instr_uses_reg will iterate over
@@ -102,7 +102,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
             }
         }
         /* General purpose registers */
-        for (i = 0; i < NUM_GP_REGS; i++) {
+        for (i = 0; i < DR_NUM_GPR_REGS; i++) {
             reg_id_t reg = DR_REG_XAX + (reg_id_t)i;
             if (!ci->reg_used[i] &&
                 /* Later we'll rewrite stack accesses to not use XSP or XBP. */
@@ -620,7 +620,8 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
     int i;
 
     /* Don't spill anything if we don't have to. */
-    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags && !ci->has_locals) {
+    if (cci->num_regs_skip == DR_NUM_GPR_REGS && cci->skip_save_flags &&
+        !ci->has_locals) {
         return;
     }
 
@@ -631,7 +632,7 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
     /* Save used registers. */
     ASSERT(cci->num_simd_skip == proc_num_simd_registers());
     ASSERT(cci->num_opmask_skip == proc_num_opmask_registers());
-    for (i = 0; i < NUM_GP_REGS; i++) {
+    for (i = 0; i < DR_NUM_GPR_REGS; i++) {
         if (!cci->reg_skip[i]) {
             reg_id_t reg_id = DR_REG_XAX + (reg_id_t)i;
             LOG(THREAD, LOG_CLEANCALL, 2,
@@ -667,7 +668,8 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
     callee_info_t *ci = cci->callee_info;
 
     /* Don't restore regs if we don't have to. */
-    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags && !ci->has_locals) {
+    if (cci->num_regs_skip == DR_NUM_GPR_REGS && cci->skip_save_flags &&
+        !ci->has_locals) {
         return;
     }
 
@@ -680,7 +682,7 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 
     /* Now restore all registers. */
-    for (i = NUM_GP_REGS - 1; i >= 0; i--) {
+    for (i = DR_NUM_GPR_REGS - 1; i >= 0; i--) {
         if (!cci->reg_skip[i]) {
             reg_id_t reg_id = DR_REG_XAX + (reg_id_t)i;
             LOG(THREAD, LOG_CLEANCALL, 2,

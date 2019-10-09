@@ -1,4 +1,5 @@
 ;; **********************************************************
+;; Copyright (c) 2019 Google, Inc.  All rights reserved.
 ;; Copyright (c) 2008 VMware, Inc.  All rights reserved.
 ;; **********************************************************
 
@@ -67,9 +68,7 @@ EXPORTS
         strcspn = NTDLL.strcspn
         strcmp = NTDLL.strcmp
         strchr = NTDLL.strchr
-        sscanf = NTDLL.sscanf
         sqrt = NTDLL.sqrt
-        sprintf = NTDLL.sprintf
         sin = NTDLL.sin
         qsort = NTDLL.qsort
         pow = NTDLL.pow
@@ -113,7 +112,6 @@ EXPORTS
         _wcsnicmp = NTDLL._wcsnicmp
         _wcslwr = NTDLL._wcslwr
         _wcsicmp = NTDLL._wcsicmp
-        _vsnprintf = NTDLL._vsnprintf
         _ultow = NTDLL._ultow
         _ultoa = NTDLL._ultoa
         _ui64toa = NTDLL._ui64toa
@@ -124,8 +122,6 @@ EXPORTS
         _strlwr = NTDLL._strlwr
         _stricmp = NTDLL._stricmp
         _strcmpi = NTDLL._strcmpi
-        _snwprintf = NTDLL._snwprintf
-        _snprintf = NTDLL._snprintf
         _memicmp = NTDLL._memicmp
         _memccpy = NTDLL._memccpy
         _ltow = NTDLL._ltow

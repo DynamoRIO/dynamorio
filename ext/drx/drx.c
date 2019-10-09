@@ -63,7 +63,14 @@
 #    define IF_DEBUG(x)    /* nothing */
 #endif                     /* DEBUG */
 
+#define XMM_REG_SIZE 16
+#define MAX(x, y) ((x) >= (y) ? (x) : (y))
+
 #define MINSERT instrlist_meta_preinsert
+/* For inserting an app instruction, which must have a translation ("xl8") field. */
+#define PREXL8 instrlist_preinsert
+
+#define VERBOSE 0
 
 /* Reserved note range values */
 enum {
@@ -74,6 +81,8 @@ enum {
 };
 static ptr_uint_t note_base;
 #define NOTE_VAL(enum_val) ((void *)(ptr_int_t)(note_base + (enum_val)))
+
+static bool expand_scatter_gather_drreg_initialized;
 
 static bool soft_kills_enabled;
 
@@ -110,7 +119,9 @@ drx_init(void)
     /* drx_insert_counter_update() needs 1 slot on x86 plus the 1 slot
        drreg uses for aflags, and 2 reg slots on aarch, so 2 on both.
      * We set do_not_sum_slots to true so that we only ask for *more* slots
-     * if the client doesn't ask for any.
+     * if the client doesn't ask for any. Another drreg_init() call is made
+     * in case drx_expand_scatter_gather() is called. More slots are reserved
+     * in that case.
      */
     drreg_options_t ops = { sizeof(ops), 2, false, NULL, true };
 
@@ -124,6 +135,12 @@ drx_init(void)
 
     if (drreg_init(&ops) != DRREG_SUCCESS)
         return false;
+
+    /* FIXME i#2985: install restore event handler for drx_expand_scatter_gather().
+     * For example, the application state needs to be fixed if the sequence is getting
+     * interrupted after a scalar operation has been completed, but the mask hasn't been
+     * updated yet.
+     */
 
     return drx_buf_init_library();
 }
@@ -141,6 +158,8 @@ drx_exit()
 
     drx_buf_exit_library();
     drreg_exit();
+    if (expand_scatter_gather_drreg_initialized)
+        drreg_exit();
     drmgr_exit();
 }
 
@@ -1371,4 +1390,1008 @@ drx_tail_pad_block(void *drcontext, instrlist_t *ilist)
     }
     instrlist_meta_postinsert(ilist, last, INSTR_CREATE_label(drcontext));
     return true;
+}
+
+/***************************************************************************
+ * drx_expand_scatter_gather() related auxiliary functions and structures.
+ */
+
+#ifdef X86
+
+typedef struct _scatter_gather_info_t {
+    bool is_evex;
+    bool is_load;
+    opnd_size_t scalar_index_size;
+    opnd_size_t scalar_value_size;
+    opnd_size_t scatter_gather_size;
+    reg_id_t mask_reg;
+    reg_id_t base_reg;
+    reg_id_t index_reg;
+    union {
+        reg_id_t gather_dst_reg;
+        reg_id_t scatter_src_reg;
+    };
+    int disp;
+    int scale;
+} scatter_gather_info_t;
+
+static void
+get_scatter_gather_info(instr_t *instr, scatter_gather_info_t *sg_info)
+{
+    /* We detect whether the instruction is EVEX by looking at its potential mask
+     * operand.
+     */
+    opnd_t dst0 = instr_get_dst(instr, 0);
+    opnd_t src0 = instr_get_src(instr, 0);
+    opnd_t src1 = instr_get_src(instr, 1);
+    sg_info->is_evex = opnd_is_reg(src0) && reg_is_opmask(opnd_get_reg(src0));
+    sg_info->mask_reg = sg_info->is_evex ? opnd_get_reg(src0) : opnd_get_reg(src1);
+    ASSERT(!sg_info->is_evex ||
+               (opnd_get_reg(instr_get_dst(instr, 1)) == opnd_get_reg(src0)),
+           "Invalid gather instruction.");
+    int opc = instr_get_opcode(instr);
+    opnd_t memopnd;
+    switch (opc) {
+    case OP_vgatherdpd:
+        sg_info->scalar_index_size = OPSZ_4;
+        sg_info->scalar_value_size = OPSZ_8;
+        sg_info->is_load = true;
+        break;
+    case OP_vgatherqpd:
+        sg_info->scalar_index_size = OPSZ_8;
+        sg_info->scalar_value_size = OPSZ_8;
+        sg_info->is_load = true;
+        break;
+    case OP_vgatherdps:
+        sg_info->scalar_index_size = OPSZ_4;
+        sg_info->scalar_value_size = OPSZ_4;
+        sg_info->is_load = true;
+        break;
+    case OP_vgatherqps:
+        sg_info->scalar_index_size = OPSZ_8;
+        sg_info->scalar_value_size = OPSZ_4;
+        sg_info->is_load = true;
+        break;
+    case OP_vpgatherdd:
+        sg_info->scalar_index_size = OPSZ_4;
+        sg_info->scalar_value_size = OPSZ_4;
+        sg_info->is_load = true;
+        break;
+    case OP_vpgatherqd:
+        sg_info->scalar_index_size = OPSZ_8;
+        sg_info->scalar_value_size = OPSZ_4;
+        sg_info->is_load = true;
+        break;
+    case OP_vpgatherdq:
+        sg_info->scalar_index_size = OPSZ_4;
+        sg_info->scalar_value_size = OPSZ_8;
+        sg_info->is_load = true;
+        break;
+    case OP_vpgatherqq:
+        sg_info->scalar_index_size = OPSZ_8;
+        sg_info->scalar_value_size = OPSZ_8;
+        sg_info->is_load = true;
+        break;
+    case OP_vscatterdpd:
+        sg_info->scalar_index_size = OPSZ_4;
+        sg_info->scalar_value_size = OPSZ_8;
+        sg_info->is_load = false;
+        break;
+    case OP_vscatterqpd:
+        sg_info->scalar_index_size = OPSZ_8;
+        sg_info->scalar_value_size = OPSZ_8;
+        sg_info->is_load = false;
+        break;
+    case OP_vscatterdps:
+        sg_info->scalar_index_size = OPSZ_4;
+        sg_info->scalar_value_size = OPSZ_4;
+        sg_info->is_load = false;
+        break;
+    case OP_vscatterqps:
+        sg_info->scalar_index_size = OPSZ_8;
+        sg_info->scalar_value_size = OPSZ_4;
+        sg_info->is_load = false;
+        break;
+    case OP_vpscatterdd:
+        sg_info->scalar_index_size = OPSZ_4;
+        sg_info->scalar_value_size = OPSZ_4;
+        sg_info->is_load = false;
+        break;
+    case OP_vpscatterqd:
+        sg_info->scalar_index_size = OPSZ_8;
+        sg_info->scalar_value_size = OPSZ_4;
+        sg_info->is_load = false;
+        break;
+    case OP_vpscatterdq:
+        sg_info->scalar_index_size = OPSZ_4;
+        sg_info->scalar_value_size = OPSZ_8;
+        sg_info->is_load = false;
+        break;
+    case OP_vpscatterqq:
+        sg_info->scalar_index_size = OPSZ_8;
+        sg_info->scalar_value_size = OPSZ_8;
+        sg_info->is_load = false;
+        break;
+    default:
+        ASSERT(false, "Incorrect opcode.");
+        memopnd = opnd_create_null();
+        break;
+    }
+    if (sg_info->is_load) {
+        sg_info->scatter_gather_size = opnd_get_size(dst0);
+        sg_info->gather_dst_reg = opnd_get_reg(dst0);
+        memopnd = sg_info->is_evex ? src1 : src0;
+    } else {
+        sg_info->scatter_gather_size = opnd_get_size(src1);
+        sg_info->scatter_src_reg = opnd_get_reg(src1);
+        memopnd = dst0;
+    }
+    sg_info->index_reg = opnd_get_index(memopnd);
+    sg_info->base_reg = opnd_get_base(memopnd);
+    sg_info->disp = opnd_get_disp(memopnd);
+    sg_info->scale = opnd_get_scale(memopnd);
+}
+
+static bool
+expand_gather_insert_scalar(void *drcontext, instrlist_t *bb, instr_t *sg_instr, int el,
+                            scatter_gather_info_t *sg_info, reg_id_t simd_reg,
+                            reg_id_t scalar_reg, reg_id_t scratch_xmm, bool is_avx512,
+                            app_pc orig_app_pc)
+{
+    /* Used by both AVX2 and AVX-512. */
+    ASSERT(instr_is_gather(sg_instr), "Internal error: only gather instructions.");
+    reg_id_t simd_reg_zmm = reg_resize_to_opsz(simd_reg, OPSZ_64);
+    reg_id_t simd_reg_ymm = reg_resize_to_opsz(simd_reg, OPSZ_32);
+    uint scalar_value_bytes = opnd_size_in_bytes(sg_info->scalar_value_size);
+    int scalarxmmimm = el * scalar_value_bytes / XMM_REG_SIZE;
+    if (is_avx512) {
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_vextracti32x4_mask(
+                             drcontext, opnd_create_reg(scratch_xmm),
+                             opnd_create_reg(DR_REG_K0),
+                             opnd_create_immed_int(scalarxmmimm, OPSZ_1),
+                             opnd_create_reg(simd_reg_zmm)),
+                         orig_app_pc));
+    } else {
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(
+                   INSTR_CREATE_vextracti128(drcontext, opnd_create_reg(scratch_xmm),
+                                             opnd_create_reg(simd_reg_ymm),
+                                             opnd_create_immed_int(scalarxmmimm, OPSZ_1)),
+                   orig_app_pc));
+    }
+    if (sg_info->scalar_value_size == OPSZ_4) {
+        PREXL8(
+            bb, sg_instr,
+            INSTR_XL8(
+                INSTR_CREATE_vpinsrd(
+                    drcontext, opnd_create_reg(scratch_xmm), opnd_create_reg(scratch_xmm),
+                    opnd_create_reg(IF_X64_ELSE(reg_64_to_32(scalar_reg), scalar_reg)),
+                    opnd_create_immed_int((el * scalar_value_bytes) % XMM_REG_SIZE /
+                                              opnd_size_in_bytes(OPSZ_4),
+                                          OPSZ_1)),
+                orig_app_pc));
+    } else if (sg_info->scalar_value_size == OPSZ_8) {
+        ASSERT(reg_is_64bit(scalar_reg),
+               "The qword index versions are unsupported in 32-bit mode.");
+        PREXL8(
+            bb, sg_instr,
+            INSTR_XL8(INSTR_CREATE_vpinsrq(
+                          drcontext, opnd_create_reg(scratch_xmm),
+                          opnd_create_reg(scratch_xmm), opnd_create_reg(scalar_reg),
+                          opnd_create_immed_int((el * scalar_value_bytes) % XMM_REG_SIZE /
+                                                    opnd_size_in_bytes(OPSZ_8),
+                                                OPSZ_1)),
+                      orig_app_pc));
+
+    } else {
+        ASSERT(false, "Unexpected index size.");
+    }
+    if (is_avx512) {
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_vinserti32x4_mask(
+                             drcontext, opnd_create_reg(simd_reg_zmm),
+                             opnd_create_reg(DR_REG_K0),
+                             opnd_create_immed_int(scalarxmmimm, OPSZ_1),
+                             opnd_create_reg(simd_reg_zmm), opnd_create_reg(scratch_xmm)),
+                         orig_app_pc));
+    } else {
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_vinserti128(
+                             drcontext, opnd_create_reg(simd_reg_ymm),
+                             opnd_create_reg(simd_reg_ymm), opnd_create_reg(scratch_xmm),
+                             opnd_create_immed_int(scalarxmmimm, OPSZ_1)),
+                         orig_app_pc));
+    }
+    return true;
+}
+
+static bool
+expand_avx512_gather_insert_scalar_value(void *drcontext, instrlist_t *bb,
+                                         instr_t *sg_instr, int el,
+                                         scatter_gather_info_t *sg_info,
+                                         reg_id_t scalar_value_reg, reg_id_t scratch_xmm,
+                                         app_pc orig_app_pc)
+{
+    return expand_gather_insert_scalar(drcontext, bb, sg_instr, el, sg_info,
+                                       sg_info->gather_dst_reg, scalar_value_reg,
+                                       scratch_xmm, true /* AVX-512 */, orig_app_pc);
+}
+
+static bool
+expand_avx2_gather_insert_scalar_value(void *drcontext, instrlist_t *bb,
+                                       instr_t *sg_instr, int el,
+                                       scatter_gather_info_t *sg_info,
+                                       reg_id_t scalar_value_reg, reg_id_t scratch_xmm,
+                                       app_pc orig_app_pc)
+{
+    return expand_gather_insert_scalar(drcontext, bb, sg_instr, el, sg_info,
+                                       sg_info->gather_dst_reg, scalar_value_reg,
+                                       scratch_xmm, false /* AVX2 */, orig_app_pc);
+}
+
+static bool
+expand_avx2_gather_insert_scalar_mask(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
+                                      int el, scatter_gather_info_t *sg_info,
+                                      reg_id_t scalar_index_reg, reg_id_t scratch_xmm,
+                                      app_pc orig_app_pc)
+{
+    return expand_gather_insert_scalar(drcontext, bb, sg_instr, el, sg_info,
+                                       sg_info->mask_reg, scalar_index_reg, scratch_xmm,
+                                       false /* AVX2 */, orig_app_pc);
+}
+
+static bool
+expand_scatter_gather_extract_scalar(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
+                                     int el, scatter_gather_info_t *sg_info,
+                                     opnd_size_t scalar_size, uint scalar_bytes,
+                                     reg_id_t from_simd_reg, reg_id_t scratch_xmm,
+                                     reg_id_t scratch_reg, bool is_avx512,
+                                     app_pc orig_app_pc)
+{
+    reg_id_t from_simd_reg_zmm = reg_resize_to_opsz(from_simd_reg, OPSZ_64);
+    reg_id_t from_simd_reg_ymm = reg_resize_to_opsz(from_simd_reg, OPSZ_32);
+    int scalarxmmimm = el * scalar_bytes / XMM_REG_SIZE;
+    if (is_avx512) {
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_vextracti32x4_mask(
+                             drcontext, opnd_create_reg(scratch_xmm),
+                             opnd_create_reg(DR_REG_K0),
+                             opnd_create_immed_int(scalarxmmimm, OPSZ_1),
+                             opnd_create_reg(from_simd_reg_zmm)),
+                         orig_app_pc));
+    } else {
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(
+                   INSTR_CREATE_vextracti128(drcontext, opnd_create_reg(scratch_xmm),
+                                             opnd_create_reg(from_simd_reg_ymm),
+                                             opnd_create_immed_int(scalarxmmimm, OPSZ_1)),
+                   orig_app_pc));
+    }
+    if (scalar_size == OPSZ_4) {
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_vpextrd(
+                             drcontext,
+                             opnd_create_reg(
+                                 IF_X64_ELSE(reg_64_to_32(scratch_reg), scratch_reg)),
+                             opnd_create_reg(scratch_xmm),
+                             opnd_create_immed_int((el * scalar_bytes) % XMM_REG_SIZE /
+                                                       opnd_size_in_bytes(OPSZ_4),
+                                                   OPSZ_1)),
+                         orig_app_pc));
+    } else if (scalar_size == OPSZ_8) {
+        ASSERT(reg_is_64bit(scratch_reg),
+               "The qword index versions are unsupported in 32-bit mode.");
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_vpextrq(
+                             drcontext, opnd_create_reg(scratch_reg),
+                             opnd_create_reg(scratch_xmm),
+                             opnd_create_immed_int((el * scalar_bytes) % XMM_REG_SIZE /
+                                                       opnd_size_in_bytes(OPSZ_8),
+                                                   OPSZ_1)),
+                         orig_app_pc));
+    } else {
+        ASSERT(false, "Unexpected scalar size.");
+        return false;
+    }
+    return true;
+}
+
+static bool
+expand_avx512_scatter_extract_scalar_value(void *drcontext, instrlist_t *bb,
+                                           instr_t *sg_instr, int el,
+                                           scatter_gather_info_t *sg_info,
+                                           reg_id_t scratch_xmm, reg_id_t scratch_reg,
+                                           app_pc orig_app_pc)
+{
+    return expand_scatter_gather_extract_scalar(
+        drcontext, bb, sg_instr, el, sg_info, sg_info->scalar_value_size,
+        opnd_size_in_bytes(sg_info->scalar_value_size), sg_info->scatter_src_reg,
+        scratch_xmm, scratch_reg, true /* AVX-512 */, orig_app_pc);
+}
+
+static bool
+expand_avx512_scatter_gather_extract_scalar_index(void *drcontext, instrlist_t *bb,
+                                                  instr_t *sg_instr, int el,
+                                                  scatter_gather_info_t *sg_info,
+                                                  reg_id_t scratch_xmm,
+                                                  reg_id_t scratch_reg,
+                                                  app_pc orig_app_pc)
+{
+    return expand_scatter_gather_extract_scalar(
+        drcontext, bb, sg_instr, el, sg_info, sg_info->scalar_index_size,
+        opnd_size_in_bytes(sg_info->scalar_index_size), sg_info->index_reg, scratch_xmm,
+        scratch_reg, true /* AVX-512 */, orig_app_pc);
+}
+
+static bool
+expand_avx2_gather_extract_scalar_index(void *drcontext, instrlist_t *bb,
+                                        instr_t *sg_instr, int el,
+                                        scatter_gather_info_t *sg_info,
+                                        reg_id_t scratch_xmm, reg_id_t scratch_reg,
+                                        app_pc orig_app_pc)
+{
+    return expand_scatter_gather_extract_scalar(
+        drcontext, bb, sg_instr, el, sg_info, sg_info->scalar_index_size,
+        opnd_size_in_bytes(sg_info->scalar_index_size), sg_info->index_reg, scratch_xmm,
+        scratch_reg, false /* AVX2 */, orig_app_pc);
+}
+
+static bool
+expand_avx512_scatter_gather_update_mask(void *drcontext, instrlist_t *bb,
+                                         instr_t *sg_instr, int el,
+                                         scatter_gather_info_t *sg_info,
+                                         reg_id_t scratch_reg, app_pc orig_app_pc)
+{
+    PREXL8(bb, sg_instr,
+           INSTR_XL8(INSTR_CREATE_mov_imm(drcontext,
+                                          opnd_create_reg(IF_X64_ELSE(
+                                              reg_64_to_32(scratch_reg), scratch_reg)),
+                                          OPND_CREATE_INT32(1 << el)),
+                     orig_app_pc));
+    PREXL8(bb, sg_instr,
+           INSTR_XL8(INSTR_CREATE_kmovw(drcontext, opnd_create_reg(DR_REG_K0),
+                                        opnd_create_reg(IF_X64_ELSE(
+                                            reg_64_to_32(scratch_reg), scratch_reg))),
+                     orig_app_pc));
+    PREXL8(bb, sg_instr,
+           INSTR_XL8(INSTR_CREATE_kandnw(drcontext, opnd_create_reg(sg_info->mask_reg),
+                                         opnd_create_reg(DR_REG_K0),
+                                         opnd_create_reg(sg_info->mask_reg)),
+                     orig_app_pc));
+    return true;
+}
+
+static bool
+expand_avx2_gather_update_mask(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
+                               int el, scatter_gather_info_t *sg_info,
+                               reg_id_t scratch_xmm, reg_id_t scratch_reg,
+                               app_pc orig_app_pc)
+{
+    /* The width of the mask element and data element is identical per definition of the
+     * instruction. */
+    if (sg_info->scalar_value_size == OPSZ_4) {
+        PREXL8(
+            bb, sg_instr,
+            INSTR_XL8(
+                INSTR_CREATE_xor(
+                    drcontext,
+                    opnd_create_reg(IF_X64_ELSE(reg_64_to_32(scratch_reg), scratch_reg)),
+                    opnd_create_reg(IF_X64_ELSE(reg_64_to_32(scratch_reg), scratch_reg))),
+                orig_app_pc));
+    } else if (sg_info->scalar_value_size == OPSZ_8) {
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_xor(drcontext, opnd_create_reg(scratch_reg),
+                                          opnd_create_reg(scratch_reg)),
+                         orig_app_pc));
+    }
+    reg_id_t null_index_reg = scratch_reg;
+    if (!expand_avx2_gather_insert_scalar_mask(drcontext, bb, sg_instr, el, sg_info,
+                                               null_index_reg, scratch_xmm, orig_app_pc))
+        return false;
+    return true;
+}
+
+static bool
+expand_avx2_gather_make_test(void *drcontext, instrlist_t *bb, instr_t *sg_instr, int el,
+                             scatter_gather_info_t *sg_info, reg_id_t scratch_xmm,
+                             reg_id_t scratch_reg, instr_t *skip_label,
+                             app_pc orig_app_pc)
+{
+    /* The width of the mask element and data element is identical per definition of the
+     * instruction.
+     */
+    expand_scatter_gather_extract_scalar(
+        drcontext, bb, sg_instr, el, sg_info, sg_info->scalar_value_size,
+        opnd_size_in_bytes(sg_info->scalar_value_size), sg_info->mask_reg, scratch_xmm,
+        scratch_reg, false /* AVX2 */, orig_app_pc);
+    if (sg_info->scalar_value_size == OPSZ_4) {
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_shr(drcontext,
+                                          opnd_create_reg(IF_X64_ELSE(
+                                              reg_64_to_32(scratch_reg), scratch_reg)),
+                                          OPND_CREATE_INT8(31)),
+                         orig_app_pc));
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_and(drcontext,
+                                          opnd_create_reg(IF_X64_ELSE(
+                                              reg_64_to_32(scratch_reg), scratch_reg)),
+                                          OPND_CREATE_INT32(1)),
+                         orig_app_pc));
+    } else if (sg_info->scalar_value_size == OPSZ_8) {
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_shr(drcontext, opnd_create_reg(scratch_reg),
+                                          OPND_CREATE_INT8(63)),
+                         orig_app_pc));
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_and(drcontext, opnd_create_reg(scratch_reg),
+                                          OPND_CREATE_INT32(1)),
+                         orig_app_pc));
+    }
+    PREXL8(bb, sg_instr,
+           INSTR_XL8(INSTR_CREATE_jcc(drcontext, OP_jz, opnd_create_instr(skip_label)),
+                     orig_app_pc));
+    return true;
+}
+
+static bool
+expand_avx512_scatter_gather_make_test(void *drcontext, instrlist_t *bb,
+                                       instr_t *sg_instr, int el,
+                                       scatter_gather_info_t *sg_info,
+                                       reg_id_t scratch_reg, instr_t *skip_label,
+                                       app_pc orig_app_pc)
+{
+    PREXL8(bb, sg_instr,
+           INSTR_XL8(INSTR_CREATE_kmovw(drcontext,
+                                        opnd_create_reg(IF_X64_ELSE(
+                                            reg_64_to_32(scratch_reg), scratch_reg)),
+                                        opnd_create_reg(sg_info->mask_reg)),
+                     orig_app_pc));
+    PREXL8(bb, sg_instr,
+           INSTR_XL8(INSTR_CREATE_test(drcontext,
+                                       opnd_create_reg(IF_X64_ELSE(
+                                           reg_64_to_32(scratch_reg), scratch_reg)),
+                                       OPND_CREATE_INT32(1 << el)),
+                     orig_app_pc));
+    PREXL8(bb, sg_instr,
+           INSTR_XL8(INSTR_CREATE_jcc(drcontext, OP_jz, opnd_create_instr(skip_label)),
+                     orig_app_pc));
+    return true;
+}
+
+static bool
+expand_avx512_scatter_store_scalar_value(void *drcontext, instrlist_t *bb,
+                                         instr_t *sg_instr,
+                                         scatter_gather_info_t *sg_info,
+                                         reg_id_t scalar_index_reg,
+                                         reg_id_t scalar_value_reg, app_pc orig_app_pc)
+{
+    if (sg_info->base_reg == IF_X64_ELSE(DR_REG_RAX, DR_REG_EAX)) {
+        /* We need the app's base register value. If it's xax, then it may be used to
+         * store flags by drreg.
+         */
+        drreg_get_app_value(drcontext, bb, sg_instr, sg_info->base_reg,
+                            sg_info->base_reg);
+    }
+    if (sg_info->scalar_value_size == OPSZ_4) {
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_mov_st(
+                             drcontext,
+                             opnd_create_base_disp(sg_info->base_reg, scalar_index_reg,
+                                                   sg_info->scale, sg_info->disp, OPSZ_4),
+                             opnd_create_reg(IF_X64_ELSE(reg_64_to_32(scalar_value_reg),
+                                                         scalar_value_reg))),
+                         orig_app_pc));
+    } else if (sg_info->scalar_value_size == OPSZ_8) {
+        ASSERT(reg_is_64bit(scalar_index_reg),
+               "Internal error: scratch index register not 64-bit.");
+        ASSERT(reg_is_64bit(scalar_value_reg),
+               "Internal error: scratch value register not 64-bit.");
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_mov_st(
+                             drcontext,
+                             opnd_create_base_disp(sg_info->base_reg, scalar_index_reg,
+                                                   sg_info->scale, sg_info->disp, OPSZ_8),
+                             opnd_create_reg(scalar_value_reg)),
+                         orig_app_pc));
+    } else {
+        ASSERT(false, "Unexpected index size.");
+        return false;
+    }
+    return true;
+}
+
+static bool
+expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
+                                scatter_gather_info_t *sg_info, reg_id_t scalar_index_reg,
+                                app_pc orig_app_pc)
+{
+    if (sg_info->base_reg == IF_X64_ELSE(DR_REG_RAX, DR_REG_EAX)) {
+        /* We need the app's base register value. If it's xax, then it may be used to
+         * store flags by drreg.
+         */
+        drreg_get_app_value(drcontext, bb, sg_instr, sg_info->base_reg,
+                            sg_info->base_reg);
+    }
+    if (sg_info->scalar_value_size == OPSZ_4) {
+        PREXL8(
+            bb, sg_instr,
+            INSTR_XL8(INSTR_CREATE_mov_ld(
+                          drcontext,
+                          opnd_create_reg(IF_X64_ELSE(reg_64_to_32(scalar_index_reg),
+                                                      scalar_index_reg)),
+                          opnd_create_base_disp(sg_info->base_reg, scalar_index_reg,
+                                                sg_info->scale, sg_info->disp, OPSZ_4)),
+                      orig_app_pc));
+    } else if (sg_info->scalar_value_size == OPSZ_8) {
+        ASSERT(reg_is_64bit(scalar_index_reg),
+               "Internal error: scratch register not 64-bit.");
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(scalar_index_reg),
+                                             opnd_create_base_disp(
+                                                 sg_info->base_reg, scalar_index_reg,
+                                                 sg_info->scale, sg_info->disp, OPSZ_8)),
+                         orig_app_pc));
+    } else {
+        ASSERT(false, "Unexpected index size.");
+        return false;
+    }
+    return true;
+}
+
+#endif
+
+/*****************************************************************************************
+ * drx_expand_scatter_gather()
+ *
+ * The function expands scatter and gather instructions to a sequence of equivalent
+ * scalar operations. Gather instructions are expanded into a sequence of mask register
+ * bit tests, extracting the index value, a scalar load, inserting the scalar value into
+ * the destination simd register, and mask register bit updates. Scatter instructions
+ * are similarly expanded into a sequence, but deploy a scalar store.
+ *
+ * ------------------------------------------------------------------------------
+ * AVX2 vpgatherdd, vgatherdps, vpgatherdq, vgatherdpd, vpgatherqd, vgatherqps, |
+ * vpgatherqq, vgatherqpd:                                                      |
+ * ------------------------------------------------------------------------------
+ *
+ * vpgatherdd (%rax,%ymm1,4)[4byte] %ymm2 -> %ymm0 %ymm2 sequence laid out here,
+ * others are similar:
+ *
+ * Extract mask dword. qword versions use vpextrq:
+ *   vextracti128   %ymm2 $0x00 -> %xmm3
+ *   vpextrd        %xmm3 $0x00 -> %ecx
+ * Test mask bit:
+ *   shr            $0x0000001f %ecx -> %ecx
+ *   and            $0x00000001 %ecx -> %ecx
+ * Skip element if mask not set:
+ *   jz             <skip0>
+ * Extract index dword. qword versions use vpextrq:
+ *   vextracti128   %ymm1 $0x00 -> %xmm3
+ *   vpextrd        %xmm3 $0x00 -> %ecx
+ * Restore app's base register value (may not be present):
+ *   mov            %rax -> %gs:0x00000090[8byte]
+ *   mov            %gs:0x00000098[8byte] -> %rax
+ * Load scalar value:
+ *   mov            (%rax,%rcx,4)[4byte] -> %ecx
+ * Insert scalar value in destination register:
+ *   vextracti128   %ymm0 $0x00 -> %xmm3
+ *   vpinsrd        %xmm3 %ecx $0x00 -> %xmm3
+ *   vinserti128    %ymm0 %xmm3 $0x00 -> %ymm0
+ * Set mask dword to zero:
+ *   xor            %ecx %ecx -> %ecx
+ *   vextracti128   %ymm2 $0x00 -> %xmm3
+ *   vpinsrd        %xmm3 %ecx $0x00 -> %xmm3
+ *   vinserti128    %ymm2 %xmm3 $0x00 -> %ymm2
+ *   skip0:
+ * Do the same as above for the next element:
+ *   vextracti128   %ymm2 $0x00 -> %xmm3
+ *   vpextrd        %xmm3 $0x01 -> %ecx
+ *   shr            $0x0000001f %ecx -> %ecx
+ *   and            $0x00000001 %ecx -> %ecx
+ *   jz             <skip1>
+ *   vextracti128   %ymm1 $0x00 -> %xmm3
+ *   vpextrd        %xmm3 $0x01 -> %ecx
+ *   mov            (%rax,%rcx,4)[4byte] -> %ecx
+ *   vextracti128   %ymm0 $0x00 -> %xmm3
+ *   vpinsrd        %xmm3 %ecx $0x01 -> %xmm3
+ *   vinserti128    %ymm0 %xmm3 $0x00 -> %ymm0
+ *   xor            %ecx %ecx -> %ecx
+ *   vextracti128   %ymm2 $0x00 -> %xmm3
+ *   vpinsrd        %xmm3 %ecx $0x01 -> %xmm3
+ *   vinserti128    %ymm2 %xmm3 $0x00 -> %ymm2
+ *   skip1:
+ *   [..]
+ * Do the same as above for the last element:
+ *   vextracti128   %ymm2 $0x01 -> %xmm3
+ *   vpextrd        %xmm3 $0x03 -> %ecx
+ *   shr            $0x0000001f %ecx -> %ecx
+ *   and            $0x00000001 %ecx -> %ecx
+ *   jz             <skip7>
+ *   vextracti128   %ymm1 $0x01 -> %xmm3
+ *   vpextrd        %xmm3 $0x03 -> %ecx
+ *   mov            (%rax,%rcx,4)[4byte] -> %ecx
+ *   vextracti128   %ymm0 $0x01 -> %xmm3
+ *   vpinsrd        %xmm3 %ecx $0x03 -> %xmm3
+ *   vinserti128    %ymm0 %xmm3 $0x01 -> %ymm0
+ *   xor            %ecx %ecx -> %ecx
+ *   vextracti128   %ymm2 $0x01 -> %xmm3
+ *   vpinsrd        %xmm3 %ecx $0x03 -> %xmm3
+ *   vinserti128    %ymm2 %xmm3 $0x01 -> %ymm2
+ *   skip7:
+ * Finally, clear the entire mask register, even
+ * the parts that are not used as a mask:
+ *   vpxor          %ymm2 %ymm2 -> %ymm2
+ *
+ * ---------------------------------------------------------------------------------
+ * AVX-512 vpgatherdd, vgatherdps, vpgatherdq, vgatherdpd, vpgatherqd, vgatherqps, |
+ * vpgatherqq, vgatherqpd:                                                         |
+ * ---------------------------------------------------------------------------------
+ *
+ * vpgatherdd {%k1} (%rax,%zmm1,4)[4byte] -> %zmm0 %k1 sequence laid out here,
+ * others are similar:
+ *
+ * Extract mask bit:
+ *   kmovw           %k1 -> %ecx
+ * Test mask bit:
+ *   test            %ecx $0x00000001
+ * Skip element if mask not set:
+ *   jz              <skip0>
+ * Extract index dword. qword versions use vpextrq:
+ *   vextracti32x4   {%k0} $0x00 %zmm1 -> %xmm2
+ *   vpextrd         %xmm2 $0x00 -> %ecx
+ * Restore app's base register value (may not be present):
+ *   mov             %rax -> %gs:0x00000090[8byte]
+ *   mov             %gs:0x00000098[8byte] -> %rax
+ * Load scalar value:
+ *   mov             (%rax,%rcx,4)[4byte] -> %ecx
+ * Insert scalar value in destination register:
+ *   vextracti32x4   {%k0} $0x00 %zmm0 -> %xmm2
+ *   vpinsrd         %xmm2 %ecx $0x00 -> %xmm2
+ *   vinserti32x4    {%k0} $0x00 %zmm0 %xmm2 -> %zmm0
+ * Set mask bit to zero:
+ *   mov             $0x00000001 -> %ecx
+ *   kmovw           %ecx -> %k0
+ *   kandnw          %k0 %k1 -> %k1
+ *   skip0:
+ * Do the same as above for the next element:
+ *   kmovw           %k1 -> %ecx
+ *   test            %ecx $0x00000002
+ *   jz              <skip1>
+ *   vextracti32x4   {%k0} $0x00 %zmm1 -> %xmm2
+ *   vpextrd         %xmm2 $0x01 -> %ecx
+ *   mov             (%rax,%rcx,4)[4byte] -> %ecx
+ *   vextracti32x4   {%k0} $0x00 %zmm0 -> %xmm2
+ *   vpinsrd         %xmm2 %ecx $0x01 -> %xmm2
+ *   vinserti32x4    {%k0} $0x00 %zmm0 %xmm2 -> %zmm0
+ *   mov             $0x00000002 -> %ecx
+ *   kmovw           %ecx -> %k0
+ *   kandnw          %k0 %k1 -> %k1
+ *   skip1:
+ *   [..]
+ * Do the same as above for the last element:
+ *   kmovw           %k1 -> %ecx
+ *   test            %ecx $0x00008000
+ *   jz              <skip15>
+ *   vextracti32x4   {%k0} $0x03 %zmm1 -> %xmm2
+ *   vpextrd         %xmm2 $0x03 -> %ecx
+ *   mov             (%rax,%rcx,4)[4byte] -> %ecx
+ *   vextracti32x4   {%k0} $0x03 %zmm0 -> %xmm2
+ *   vpinsrd         %xmm2 %ecx $0x03 -> %xmm2
+ *   vinserti32x4    {%k0} $0x03 %zmm0 %xmm2 -> %zmm0
+ *   mov             $0x00008000 -> %ecx
+ *   kmovw           %ecx -> %k0
+ *   kandnw          %k0 %k1 -> %k1
+ *   skip15:
+ * Finally, clear the entire mask register, even
+ * the parts that are not used as a mask:
+ *   kxorq           %k1 %k1 -> %k1
+ *
+ * --------------------------------------------------------------------------
+ * AVX-512 vpscatterdd, vscatterdps, vpscatterdq, vscatterdpd, vpscatterqd, |
+ * vscatterqps, vpscatterqq, vscatterqpd:                                   |
+ * --------------------------------------------------------------------------
+ *
+ * vpscatterdd {%k1} %zmm0 -> (%rcx,%zmm1,4)[4byte] %k1 sequence laid out here,
+ * others are similar:
+ *
+ * Extract mask bit:
+ *   kmovw           %k1 -> %edx
+ * Test mask bit:
+ *   test            %edx $0x00000001
+ * Skip element if mask not set:
+ *   jz              <skip0>
+ * Extract index dword. qword versions use vpextrq:
+ *   vextracti32x4   {%k0} $0x00 %zmm1 -> %xmm2
+ *   vpextrd         %xmm2 $0x00 -> %edx
+ * Extract scalar value dword. qword versions use vpextrq:
+ *   vextracti32x4   {%k0} $0x00 %zmm0 -> %xmm2
+ *   vpextrd         %xmm2 $0x00 -> %ebx
+ * Store scalar value:
+ *   mov             %ebx -> (%rcx,%rdx,4)[4byte]
+ * Set mask bit to zero:
+ *   mov             $0x00000001 -> %edx
+ *   kmovw           %edx -> %k0
+ *   kandnw          %k0 %k1 -> %k1
+ *   skip0:
+ * Do the same as above for the next element:
+ *   kmovw           %k1 -> %edx
+ *   test            %edx $0x00000002
+ *   jz              <skip1>
+ *   vextracti32x4   {%k0} $0x00 %zmm1 -> %xmm2
+ *   vpextrd         %xmm2 $0x01 -> %edx
+ *   vextracti32x4   {%k0} $0x00 %zmm0 -> %xmm2
+ *   vpextrd         %xmm2 $0x01 -> %ebx
+ *   mov             %ebx -> (%rcx,%rdx,4)[4byte]
+ *   mov             $0x00000002 -> %edx
+ *   kmovw           %edx -> %k0
+ *   kandnw          %k0 %k1 -> %k1
+ *   skip1:
+ *   [..]
+ * Do the same as above for the last element:
+ *   kmovw           %k1 -> %edx
+ *   test            %edx $0x00008000
+ *   jz              <skip15>
+ *   vextracti32x4   {%k0} $0x03 %zmm1 -> %xmm2
+ *   vpextrd         %xmm2 $0x03 -> %edx
+ *   vextracti32x4   {%k0} $0x03 %zmm0 -> %xmm2
+ *   vpextrd         %xmm2 $0x03 -> %ebx
+ *   mov             %ebx -> (%rcx,%rdx,4)[4byte]
+ *   mov             $0x00008000 -> %edx
+ *   kmovw           %edx -> %k0
+ *   kandnw          %k0 %k1 -> %k1
+ *   skip15:
+ * Finally, clear the entire mask register, even
+ * the parts that are not used as a mask:
+ *   kxorq           %k1 %k1 -> %k1
+ */
+bool
+drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
+{
+#ifdef X86
+    instr_t *instr, *next_instr, *first_app = NULL;
+    bool delete_rest = false;
+#endif
+    if (expanded != NULL)
+        *expanded = false;
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_APP2APP) {
+        return false;
+    }
+#ifdef X86
+    /* Make each scatter or gather instruction be in their own basic block.
+     * TODO i#3837: cross-platform code like the following bb splitting can be shared
+     * with other architectures in the future.
+     */
+    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
+        next_instr = instr_get_next(instr);
+        if (delete_rest) {
+            instrlist_remove(bb, instr);
+            instr_destroy(drcontext, instr);
+        } else if (instr_is_app(instr)) {
+            if (first_app == NULL)
+                first_app = instr;
+            if (instr_is_gather(instr) || instr_is_scatter(instr)) {
+                delete_rest = true;
+                if (instr != first_app) {
+                    instrlist_remove(bb, instr);
+                    instr_destroy(drcontext, instr);
+                }
+            }
+        }
+    }
+    if (first_app == NULL)
+        return true;
+    if (!instr_is_gather(first_app) && !instr_is_scatter(first_app))
+        return true;
+    instr_t *sg_instr = first_app;
+    scatter_gather_info_t sg_info;
+    bool res = false;
+    /* XXX: we may want to make this function public, as it may be useful to clients. */
+    get_scatter_gather_info(sg_instr, &sg_info);
+#    ifndef X64
+    if (sg_info.scalar_index_size == OPSZ_8 || sg_info.scalar_value_size == OPSZ_8) {
+        /* FIXME i#2985: we do not yet support expansion of the qword index and value
+         * scatter/gather versions in 32-bit mode.
+         */
+        return false;
+    }
+#    endif
+    /* The expansion potentially needs more slots than the drx default. We need up to 2
+     * slots on x86 plus the 1 slot drreg uses for aflags. We set do_not_sum_slots here
+     * to false.
+     * FIXME i#2985: we potentially need more slots or use other means to spill a temp
+     * mask register as well as a temp xmm register.
+     */
+    if (!expand_scatter_gather_drreg_initialized) {
+        drreg_options_t ops = { sizeof(ops), 3, false, NULL, true };
+        if (drreg_init(&ops) != DRREG_SUCCESS)
+            return false;
+        expand_scatter_gather_drreg_initialized = true;
+    }
+    uint no_of_elements = opnd_size_in_bytes(sg_info.scatter_gather_size) /
+        MAX(opnd_size_in_bytes(sg_info.scalar_index_size),
+            opnd_size_in_bytes(sg_info.scalar_value_size));
+    reg_id_t scratch_reg0 = DR_REG_INVALID, scratch_reg1 = DR_REG_INVALID;
+    drvector_t allowed;
+    drreg_init_and_fill_vector(&allowed, true);
+    /* We need the scratch registers and base register app's value to be available at the
+     * same time. Do not use.
+     */
+    drreg_set_vector_entry(&allowed, sg_info.base_reg, false);
+    /* FIXME i#2985: these registers are reserved for client.drx-scattergather. This is a
+     * temporary hack due to the fact that drx is not yet able to restore the state across
+     * app instructions.
+     */
+    drreg_set_vector_entry(&allowed, DR_REG_XAX, false);
+    drreg_set_vector_entry(&allowed, DR_REG_XCX, false);
+    drreg_set_vector_entry(&allowed, DR_REG_XDX, false);
+    if (drreg_reserve_aflags(drcontext, bb, sg_instr) != DRREG_SUCCESS)
+        goto drx_expand_scatter_gather_exit;
+    if (drreg_reserve_register(drcontext, bb, sg_instr, &allowed, &scratch_reg0) !=
+        DRREG_SUCCESS)
+        goto drx_expand_scatter_gather_exit;
+    if (instr_is_scatter(sg_instr)) {
+        if (drreg_reserve_register(drcontext, bb, sg_instr, &allowed, &scratch_reg1) !=
+            DRREG_SUCCESS)
+            goto drx_expand_scatter_gather_exit;
+    }
+    app_pc orig_app_pc = instr_get_app_pc(sg_instr);
+    reg_id_t scratch_xmm;
+    /* Search the instruction for an unused xmm register we will use as a temp. */
+    for (scratch_xmm = DR_REG_START_XMM; scratch_xmm <= DR_REG_STOP_XMM; ++scratch_xmm) {
+        if ((sg_info.is_evex ||
+             scratch_xmm != reg_resize_to_opsz(sg_info.mask_reg, OPSZ_16)) &&
+            scratch_xmm != reg_resize_to_opsz(sg_info.index_reg, OPSZ_16) &&
+            /* redundant with scatter_src_reg */
+            scratch_xmm != reg_resize_to_opsz(sg_info.gather_dst_reg, OPSZ_16))
+            break;
+    }
+    /* FIXME i#2985: spill kTmp and xmmTmp. kTmp will always be k0, because it is never
+     * used for scatter/gather and is both writeable and acts as the default mask.
+     */
+    /* FIXME i#2985: add emulation labels. */
+    if (sg_info.is_evex) {
+        if (/* AVX-512 */ instr_is_gather(sg_instr)) {
+            for (uint el = 0; el < no_of_elements; ++el) {
+                instr_t *skip_label = INSTR_CREATE_label(drcontext);
+                if (!expand_avx512_scatter_gather_make_test(drcontext, bb, sg_instr, el,
+                                                            &sg_info, scratch_reg0,
+                                                            skip_label, orig_app_pc))
+                    goto drx_expand_scatter_gather_exit;
+                if (!expand_avx512_scatter_gather_extract_scalar_index(
+                        drcontext, bb, sg_instr, el, &sg_info, scratch_xmm, scratch_reg0,
+                        orig_app_pc))
+                    goto drx_expand_scatter_gather_exit;
+                reg_id_t scalar_index_reg = scratch_reg0;
+                if (!expand_gather_load_scalar_value(drcontext, bb, sg_instr, &sg_info,
+                                                     scalar_index_reg, orig_app_pc))
+                    goto drx_expand_scatter_gather_exit;
+                reg_id_t scalar_value_reg = scratch_reg0;
+                if (!expand_avx512_gather_insert_scalar_value(drcontext, bb, sg_instr, el,
+                                                              &sg_info, scalar_value_reg,
+                                                              scratch_xmm, orig_app_pc))
+                    goto drx_expand_scatter_gather_exit;
+                if (!expand_avx512_scatter_gather_update_mask(
+                        drcontext, bb, sg_instr, el, &sg_info, scratch_reg0, orig_app_pc))
+                    goto drx_expand_scatter_gather_exit;
+                MINSERT(bb, sg_instr, skip_label);
+            }
+        } else /* AVX-512 instr_is_scatter(sg_instr) */ {
+            for (uint el = 0; el < no_of_elements; ++el) {
+                instr_t *skip_label = INSTR_CREATE_label(drcontext);
+                expand_avx512_scatter_gather_make_test(drcontext, bb, sg_instr, el,
+                                                       &sg_info, scratch_reg0, skip_label,
+                                                       orig_app_pc);
+                if (!expand_avx512_scatter_gather_extract_scalar_index(
+                        drcontext, bb, sg_instr, el, &sg_info, scratch_xmm, scratch_reg0,
+                        orig_app_pc))
+                    goto drx_expand_scatter_gather_exit;
+                reg_id_t scalar_index_reg = scratch_reg0;
+                reg_id_t scalar_value_reg = scratch_reg1;
+                if (!expand_avx512_scatter_extract_scalar_value(
+                        drcontext, bb, sg_instr, el, &sg_info, scratch_xmm,
+                        scalar_value_reg, orig_app_pc))
+                    goto drx_expand_scatter_gather_exit;
+                if (!expand_avx512_scatter_store_scalar_value(
+                        drcontext, bb, sg_instr, &sg_info, scalar_index_reg,
+                        scalar_value_reg, orig_app_pc))
+                    goto drx_expand_scatter_gather_exit;
+                if (!expand_avx512_scatter_gather_update_mask(
+                        drcontext, bb, sg_instr, el, &sg_info, scratch_reg0, orig_app_pc))
+                    goto drx_expand_scatter_gather_exit;
+                MINSERT(bb, sg_instr, skip_label);
+            }
+        }
+        /* The mask register is zeroed completely when instruction finishes. */
+        if (proc_has_feature(FEATURE_AVX512BW)) {
+            PREXL8(
+                bb, sg_instr,
+                INSTR_XL8(INSTR_CREATE_kxorq(drcontext, opnd_create_reg(sg_info.mask_reg),
+                                             opnd_create_reg(sg_info.mask_reg),
+                                             opnd_create_reg(sg_info.mask_reg)),
+                          orig_app_pc));
+        } else {
+            PREXL8(
+                bb, sg_instr,
+                INSTR_XL8(INSTR_CREATE_kxorw(drcontext, opnd_create_reg(sg_info.mask_reg),
+                                             opnd_create_reg(sg_info.mask_reg),
+                                             opnd_create_reg(sg_info.mask_reg)),
+                          orig_app_pc));
+        }
+    } else {
+        /* AVX2 instr_is_gather(sg_instr) */
+        for (uint el = 0; el < no_of_elements; ++el) {
+            instr_t *skip_label = INSTR_CREATE_label(drcontext);
+            if (!expand_avx2_gather_make_test(drcontext, bb, sg_instr, el, &sg_info,
+                                              scratch_xmm, scratch_reg0, skip_label,
+                                              orig_app_pc))
+                goto drx_expand_scatter_gather_exit;
+            if (!expand_avx2_gather_extract_scalar_index(drcontext, bb, sg_instr, el,
+                                                         &sg_info, scratch_xmm,
+                                                         scratch_reg0, orig_app_pc))
+                goto drx_expand_scatter_gather_exit;
+            reg_id_t scalar_index_reg = scratch_reg0;
+            if (!expand_gather_load_scalar_value(drcontext, bb, sg_instr, &sg_info,
+                                                 scalar_index_reg, orig_app_pc))
+                goto drx_expand_scatter_gather_exit;
+            reg_id_t scalar_value_reg = scratch_reg0;
+            if (!expand_avx2_gather_insert_scalar_value(drcontext, bb, sg_instr, el,
+                                                        &sg_info, scalar_value_reg,
+                                                        scratch_xmm, orig_app_pc))
+                goto drx_expand_scatter_gather_exit;
+            if (!expand_avx2_gather_update_mask(drcontext, bb, sg_instr, el, &sg_info,
+                                                scratch_xmm, scratch_reg0, orig_app_pc))
+                goto drx_expand_scatter_gather_exit;
+            MINSERT(bb, sg_instr, skip_label);
+        }
+        /* The mask register is zeroed completely when instruction finishes. */
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_vpxor(drcontext, opnd_create_reg(sg_info.mask_reg),
+                                            opnd_create_reg(sg_info.mask_reg),
+                                            opnd_create_reg(sg_info.mask_reg)),
+                         orig_app_pc));
+    }
+    ASSERT(scratch_reg0 != scratch_reg1,
+           "Internal error: scratch registers must be different");
+    if (drreg_unreserve_register(drcontext, bb, sg_instr, scratch_reg0) !=
+        DRREG_SUCCESS) {
+        ASSERT(false, "drreg_unreserve_register should not fail");
+        goto drx_expand_scatter_gather_exit;
+    }
+    if (instr_is_scatter(sg_instr)) {
+        if (drreg_unreserve_register(drcontext, bb, sg_instr, scratch_reg1) !=
+            DRREG_SUCCESS) {
+            ASSERT(false, "drreg_unreserve_register should not fail");
+            goto drx_expand_scatter_gather_exit;
+        }
+    }
+    if (drreg_unreserve_aflags(drcontext, bb, sg_instr) != DRREG_SUCCESS)
+        goto drx_expand_scatter_gather_exit;
+#    if VERBOSE
+    dr_print_instr(drcontext, STDERR, sg_instr, "\tThe instruction\n");
+#    endif
+    /* Remove and destroy the original scatter/gather. */
+    instrlist_remove(bb, sg_instr);
+    instr_destroy(drcontext, sg_instr);
+#    if VERBOSE
+    dr_fprintf(STDERR, "\twas expanded to the following sequence:\n");
+    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+        dr_print_instr(drcontext, STDERR, instr, "");
+    }
+#    endif
+
+    if (expanded != NULL)
+        *expanded = true;
+    res = true;
+
+drx_expand_scatter_gather_exit:
+    drvector_delete(&allowed);
+    return res;
+
+#else /* !X86 */
+    /* TODO i#3837: add support for AArch64. */
+    if (expanded != NULL)
+        *expanded = false;
+    return true;
+#endif
 }

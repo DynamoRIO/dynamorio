@@ -1731,23 +1731,23 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #endif
 
     if (op_offline.get_value()) {
-        void *buf;
+        void *placement;
         if (!init_offline_dir()) {
             FATAL("Failed to create a subdir in %s\n", op_outdir.get_value().c_str());
         }
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
-        buf = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (buf)
+        placement = dr_global_alloc(MAX_INSTRU_SIZE);
+        instru = new (placement)
             offline_instru_t(insert_load_buf_ptr, op_L0_filter.get_value(),
                              &scratch_reserve_vec, file_ops_func.write_file, module_file);
     } else {
-        void *buf;
+        void *placement;
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(online_instru_t));
-        buf = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (buf) online_instru_t(insert_load_buf_ptr, op_L0_filter.get_value(),
-                                           &scratch_reserve_vec);
+        placement = dr_global_alloc(MAX_INSTRU_SIZE);
+        instru = new (placement) online_instru_t(
+            insert_load_buf_ptr, op_L0_filter.get_value(), &scratch_reserve_vec);
         if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
             DR_ASSERT(false);
 #ifdef UNIX

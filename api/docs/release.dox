@@ -171,6 +171,9 @@ compatibility changes:
    to be the first source.
  - The GPR versions of the vmovd and vmovq AVX opcodes are no longer combined into a
    single vmovd.
+ - Changed the #PFX format string specifier to use %p rather than %x internally.
+ - DR no longer forwards _snprintf, _snwprintf, _vsnprintf, sprintf, or sscanf to
+   ntdll.  Clients should use the dr_-prefixed versions of these functions.
 
 Further non-compatibility-affecting changes include:
 
@@ -201,10 +204,18 @@ Further non-compatibility-affecting changes include:
    switching.
  - Added the function proc_avx512_enabled().
  - Added support for applications using the Linux kernel's restartable sequence
-   ("rseq") feature, subject to the limitations listed in \ref sec_limit_platforms.
+   ("rseq") feature, subject to the limitations listed in \ref sec_rseq.
  - Added coherence support in drcachesim.
  - Added the function proc_num_opmask_registers();
  - reg_get_value_ex() now supports reading AVX-512 mask registers.
+ - Added the function reg_is_bnd().
+ - Added the functions instr_is_gather() and instr_is_scatter().
+ - Added the function drx_expand_scatter_gather().
+ - Added the function dr_atomic_add64_return_sum().
+ - Added the function instr_reads_from_exact_reg() to test whether instructions
+   read from exact registers.
+ - Added the function reg_is_vector_simd() to test whether registers are
+   either XMM, YMM or ZMM, excluding any MMX register checks.
  - Added dr_delete_shared_fragment() enabling the deletion of a specific shared fragment.
 
 **************************************************
@@ -1637,28 +1648,9 @@ not supported.
     not fully decoded or encoded yet, and a few features are not yet
     ported: traces, clean call inlining and other optimizations, and
     several samples and provided tools.
-  - This release of DynamoRIO adds support for applications using the Linux kernel
-    restartable sequence ("rseq") feature, subject to the following limitations:
-    - The application must store an rseq_cs struct for each rseq region in a
-      section of its binary named "__rseq_cs", optionally with an "__rseq_cs_ptr_array"
-      section of pointers into the __rseq_cs section, per established conventions.
-      These sections must be located in loaded segments.
-    - Each rseq region's code must never be also executed as a non-restartable sequence.
-    - Each rseq region must make forward progress if its abort handler is always
-      called the first time it is executed.
-    - Each memory store instruction inside an rseq region must have no other side
-      effects: it must only write to memory and not to any registers.
-    - Each rseq region must end with a return instruction, and each abort handler
-      plus rseq code must combine into a callee following normal call-return
-      semantics.
-    - Each rseq region's code must end with a fall-through (non-control-flow)
-      instruction.
-    - Any helper function called from within an rseq region must have no side effects.
-    - The instrumented execution of the rseq region may not perfectly reflect
-      the native behavior of the application.  The instrumentation will never see
-      the abort handler called, and memory addresses may be wrong if they are based on
-      the underlying cpuid and a migration occurred mid-region.  These are minor and
-      acceptable for most tools (especially given that there is no better alternative).
+  - This release of DynamoRIO includes support for applications using the Linux kernel
+    restartable sequence ("rseq") feature, subject to the limitations listed
+    in \ref sec_rseq.
 
 \subsection sec_limit_perf Performance Limitations
 

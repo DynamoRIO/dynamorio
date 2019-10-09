@@ -3155,6 +3155,31 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
     protect_generated_code(code, READONLY);
 }
 
+bool
+fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
+{
+    /* Xref AMD Software Optimization Guide for AMD Family 15h Processors, document
+     * #47414, section 5.8 "Code Padding with Operand-Size Override and Multibyte
+     * NOP".
+     * For compatibility with Intel case 10 and 11 are left out.
+     * Xref Intel, see Vol. 2B 4-167 "Table 4-12. Recommended Multi-Byte Sequence of NOP
+     * Instruction".
+     */
+    switch (size) {
+    case 1: memcpy(addr, "\x90", 1); break;
+    case 2: memcpy(addr, "\x66\x90", 2); break;
+    case 3: memcpy(addr, "\x0f\x1f\x00", 3); break;
+    case 4: memcpy(addr, "\x0f\x1f\x40\x00", 4); break;
+    case 5: memcpy(addr, "\x0f\x1f\x44\x00\x00", 5); break;
+    case 6: memcpy(addr, "\x66\x0f\x1f\x44\x00\x00", 6); break;
+    case 7: memcpy(addr, "\x0f\x1f\x80\x00\x00\x00\x00", 7); break;
+    case 8: memcpy(addr, "\x0f\x1f\x84\x00\x00\x00\x00\x00", 8); break;
+    case 9: memcpy(addr, "\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 9); break;
+    default: memset(addr, 0x90, size);
+    }
+    return true;
+}
+
 /* If code_buf points to a jmp rel32 returns true and returns the target of
  * the jmp in jmp_target as if was located at app_loc. */
 bool

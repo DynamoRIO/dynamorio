@@ -30,15 +30,19 @@
  * DAMAGE.
  */
 
+#ifndef _AVX512CTX_SHARED_H_
+#define _AVX512CTX_SHARED_H_ 1
+
+#ifndef __AVX512F__
+#    error "Build error, should only be added with AVX-512 support."
+#endif
+
 #define MARKER_REG REG_XAX
 #define TEST1_MARKER 0xabc6534f
 #define TEST2_MARKER 0x16dfc5a5
 
-#ifdef X64
-#    define NUM_SIMD_REGS 32
-#else
-#    define NUM_SIMD_REGS 8
-#endif
-#define NUM_OPMASK_REGS 8
+#include "../api/detach_state_shared.h" /* for NUM_{SIMD,OPMASK}_REGS */
 
 #define VERBOSE 0
+
+#endif /* _AVX512CTX_SHARED_H_ */

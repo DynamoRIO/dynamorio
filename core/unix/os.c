@@ -198,6 +198,10 @@ char **our_environ;
 #    include "instrument.h"
 #endif
 
+#ifdef LINUX
+#    include "rseq_linux.h"
+#endif
+
 #ifdef MACOS
 #    define SYSNUM_EXIT_PROCESS SYS_exit
 #    define SYSNUM_EXIT_THREAD SYS_bsdthread_terminate
@@ -331,15 +335,7 @@ static byte *app_brk_end;
 #endif
 
 #ifdef MACOS
-/* xref i#1404: we should expose these via the dr_get_os_version() API */
 static int macos_version;
-#    define MACOS_VERSION_HIGH_SIERRA 17
-#    define MACOS_VERSION_SIERRA 16
-#    define MACOS_VERSION_EL_CAPITAN 15
-#    define MACOS_VERSION_YOSEMITE 14
-#    define MACOS_VERSION_MAVERICKS 13
-#    define MACOS_VERSION_MOUNTAIN_LION 12
-#    define MACOS_VERSION_LION 11
 #endif
 
 static bool
@@ -785,6 +781,12 @@ sysctl_query(int level0, int level1, void *buf, size_t bufsz)
     res = dynamorio_syscall(SYS___sysctl, 6, &name, 2, buf, &len, NULL, 0);
     return (res >= 0);
 }
+
+int
+os_get_version(void)
+{
+    return macos_version;
+}
 #endif
 
 static void
@@ -916,6 +918,13 @@ d_r_os_init(void)
      * (i#1931).
      */
     init_android_version();
+#endif
+#ifdef LINUX
+    if (!standalone_library)
+        d_r_rseq_init();
+#endif
+#ifdef MACOS64
+    tls_process_init();
 #endif
 }
 
@@ -1259,6 +1268,13 @@ find_stack_bottom()
 void
 os_slow_exit(void)
 {
+#ifdef MACOS64
+    tls_process_exit();
+#endif
+#ifdef LINUX
+    if (!standalone_library)
+        d_r_rseq_exit();
+#endif
     d_r_signal_exit();
     memquery_exit();
     ksynch_exit();
@@ -1293,9 +1309,9 @@ block_cleanup_and_terminate(dcontext_t *dcontext, int sysnum, ptr_uint_t sys_arg
      * to reply to (i#2921).
      */
     if (sysnum == SYS_kill)
-        block_all_signals_except(NULL, 2, dcontext->sys_param0, SUSPEND_SIGNAL);
+        block_all_noncrash_signals_except(NULL, 2, dcontext->sys_param0, SUSPEND_SIGNAL);
     else
-        block_all_signals_except(NULL, 1, SUSPEND_SIGNAL);
+        block_all_noncrash_signals_except(NULL, 1, SUSPEND_SIGNAL);
     cleanup_and_terminate(dcontext, sysnum, sys_arg1, sys_arg2, exitproc, sys_arg3,
                           sys_arg4);
 }
@@ -1383,6 +1399,10 @@ os_timeout(int time_in_milliseconds)
  * glibc comments on THREAD_SELF.
  */
 #ifdef MACOS64
+/* For now we have both a directly-addressable os_local_state_t and a pointer to
+ * it in slot 6.  If we settle on always doing the full os_local_state_t in slots,
+ * we would probably get rid of the indirection here and directly access slot fields.
+ */
 #    define WRITE_TLS_SLOT_IMM(imm, var)                                             \
         IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                                       \
         ASSERT(sizeof(var) == sizeof(void *));                                       \
@@ -1520,6 +1540,11 @@ static bool
 is_thread_tls_initialized(void)
 {
 #ifdef MACOS64
+    /* For now we have both a directly-addressable os_local_state_t and a pointer to
+     * it in slot 6.  If we settle on always doing the full os_local_state_t in slots,
+     * we would probably get rid of the indirection here and directly read the magic
+     * field from its slot.
+     */
     byte **tls_swap_slot;
     tls_swap_slot = (byte **)get_app_tls_swap_slot_addr();
     if (tls_swap_slot == NULL || *tls_swap_slot == NULL ||
@@ -1654,7 +1679,7 @@ os_tls_offset(ushort tls_offs)
     /* no ushort truncation issues b/c TLS_LOCAL_STATE_OFFSET is 0 */
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
     ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
-    return (TLS_LOCAL_STATE_OFFSET + tls_offs);
+    return (TLS_LOCAL_STATE_OFFSET + tls_offs IF_MACOS64(+tls_get_dr_offs()));
 }
 
 /* converts a segment offset to a local_state_t offset */
@@ -1664,7 +1689,7 @@ os_local_state_offset(ushort seg_offs)
     /* no ushort truncation issues b/c TLS_LOCAL_STATE_OFFSET is 0 */
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
     ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
-    return (seg_offs - TLS_LOCAL_STATE_OFFSET);
+    return (seg_offs - TLS_LOCAL_STATE_OFFSET IF_MACOS64(-tls_get_dr_offs()));
 }
 
 /* XXX: Will return NULL if called before os_thread_init(), which sets
@@ -1815,7 +1840,8 @@ byte *
 get_segment_base(uint seg)
 {
 #ifdef MACOS64
-    return (byte *)read_thread_register(seg);
+    ptr_uint_t *pthread_self = (ptr_uint_t *)read_thread_register(seg);
+    return (byte *)&pthread_self[SEG_TLS_BASE_OFFSET];
 #elif defined(X86)
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
@@ -1840,7 +1866,8 @@ get_app_segment_base(uint seg)
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
 #endif /* X86 */
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false) &&
+        first_thread_tls_initialized && !last_thread_tls_exited) {
         return d_r_get_tls(os_get_app_tls_base_offset(seg));
     }
     return get_segment_base(seg);
@@ -2015,7 +2042,14 @@ os_tls_init(void)
      * FIXME PR 205276: this whole scheme currently does not check if app is using
      * segments need to watch modify_ldt syscall
      */
+#    ifdef MACOS64
+    /* Today we're allocating enough contiguous TLS slots to hold os_local_state_t.
+     * We also store a pointer to it in TLS slot 6.
+     */
+    byte *segment = tls_get_dr_addr();
+#    else
     byte *segment = heap_mmap(PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
+#    endif
     os_local_state_t *os_tls = (os_local_state_t *)segment;
 
     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread " TIDFMT "\n",
@@ -2131,9 +2165,6 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     static const ptr_uint_t zero = 0;
 #    endif /* X86 */
     /* We can't read from fs: as we can be called from other threads */
-    /* ASSUMPTION: local_state_t is laid out at same start as local_state_extended_t */
-    os_local_state_t *os_tls =
-        (os_local_state_t *)(((byte *)local_state) - offsetof(os_local_state_t, state));
 #    if defined(X86) && !defined(MACOS64)
     /* If the MSR is in use, writing to the reg faults.  We rely on it being 0
      * to indicate that.
@@ -2151,8 +2182,13 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     if (!other_thread)
         os_tls_thread_exit(local_state);
 
+#    ifndef MACOS64
     /* We can't free prior to tls_thread_free() in case that routine refs os_tls */
+    /* ASSUMPTION: local_state_t is laid out at same start as local_state_extended_t */
+    os_local_state_t *os_tls =
+        (os_local_state_t *)(((byte *)local_state) - offsetof(os_local_state_t, state));
     heap_munmap(os_tls->self, PAGE_SIZE, VMM_SPECIAL_MMAP);
+#    endif
 #else
     global_heap_free(tls_table, MAX_THREADS * sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
     DELETE_LOCK(tls_lock);
@@ -5491,7 +5527,7 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app
             break;
         case ENV_PROP_OPTIONS:
             ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_OPTIONS) == 0);
-            val = option_string;
+            val = d_r_option_string;
             break;
         case ENV_PROP_EXECVE_LOGDIR:
             /* we use PROCESS_DIR for DYNAMORIO_VAR_EXECVE_LOGDIR */
@@ -7549,8 +7585,16 @@ pre_system_call(dcontext_t *dcontext)
 
 #ifdef LINUX
     case SYS_rseq:
-        /* Lazy rseq handling. */
-        module_locate_rseq_regions();
+        LOG(THREAD, LOG_VMAREAS | LOG_SYSCALLS, 2, "syscall: rseq " PFX " %d %d %d\n",
+            sys_param(dcontext, 0), sys_param(dcontext, 1), sys_param(dcontext, 2),
+            sys_param(dcontext, 3));
+        if (DYNAMO_OPTION(disable_rseq)) {
+            set_failure_return_val(dcontext, ENOSYS);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            execute_syscall = false;
+        } else {
+            dcontext->sys_param0 = sys_param(dcontext, 0);
+        }
         break;
 #endif
 
@@ -8572,6 +8616,14 @@ post_system_call(dcontext_t *dcontext)
                     DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
                 }
             }
+        }
+        break;
+
+    case SYS_rseq:
+        /* Lazy rseq handling. */
+        if (success) {
+            rseq_process_syscall(dcontext);
+            rseq_locate_rseq_regions();
         }
         break;
 #endif
@@ -9908,7 +9960,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
 #ifdef LINUX
     /* Check this thread for rseq in between setup and start. */
     if (rseq_is_registered_for_current_thread())
-        module_locate_rseq_regions();
+        rseq_locate_rseq_regions();
 #endif
 
     /* Find tids for which we have no thread record, meaning they are not under
@@ -10112,8 +10164,10 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     /* See whether we should initiate lazy rseq handling, and avoid treating
      * regions as rseq when the rseq syscall is never set up.
      */
-    if (rseq_is_registered_for_current_thread())
-        module_locate_rseq_regions();
+    if (rseq_is_registered_for_current_thread()) {
+        rseq_locate_rseq_regions();
+        rseq_thread_attach(dcontext);
+    }
 #endif
 
     /* Start interpreting from the signal context. */
