@@ -1253,7 +1253,7 @@ intercept_fip_save(byte *pc, byte byte0, byte byte1)
     return false;
 }
 
-static void
+static bool
 get_implied_mm_e_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byte0,
                                   byte *byte1)
 {
@@ -1261,17 +1261,16 @@ get_implied_mm_e_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byt
     case 1:
         *byte0 = 0x0f;
         *byte1 = *(pc + prefixes);
-        break;
+        return true;
     case 2:
         *byte0 = 0x0f;
         *byte1 = 0x38;
-        break;
+        return true;
     case 3:
         *byte0 = 0x0f;
         *byte1 = 0x3a;
-        break;
-    default:
-        CLIENT_ASSERT(false, "get_implied_mm_e_vex_opcode_bytes: internal prefix error");
+        return true;
+    default: return false;
     }
 }
 
@@ -1354,7 +1353,12 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
                  * only 2 of them are used.
                  */
                 byte vex_mm = (byte)(*(pc + 1) & 0x3);
-                get_implied_mm_e_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0, &byte1);
+                if (!get_implied_mm_e_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0,
+                                                       &byte1)) {
+                    /* invalid instruction! */
+                    instr_set_opcode(instr, OP_INVALID);
+                    return NULL;
+                }
                 break;
             }
             default: break;

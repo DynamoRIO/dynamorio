@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -60,5 +61,10 @@ restore_state(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist);
 #define EDI_VAL_IN_MEM 0
 #define EDI_VAL_IN_EBX 1
 #define EDI_VAL_IN_EBX_AND_MEM 3
+/* XXX: We now store other flags in instrlist_t.flags.  The steal reg code needs
+ * to be updated for that.  However, it's been unused for so long perhaps it should
+ * just be deleted.
+ */
+#define STEAL_REG_ILIST_FLAGS (EDI_VAL_IN_MEM | EDI_VAL_IN_EBX | EDI_VAL_IN_EBX_AND_MEM)
 
 #endif /* X86_STEAL_REG_H */

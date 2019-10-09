@@ -85,7 +85,9 @@ mixed_mode_enabled(void)
 
 #ifdef X86
 #    define XAX_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xax)))
+#    define REG0_OFFSET XAX_OFFSET
 #    define XBX_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xbx)))
+#    define REG1_OFFSET XBX_OFFSET
 #    define XCX_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xcx)))
 #    define XDX_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xdx)))
 #    define XSI_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xsi)))
@@ -117,7 +119,9 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG5_OFFS XDI_OFFSET
 #elif defined(AARCHXX)
 #    define R0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r0)))
+#    define REG0_OFFSET R0_OFFSET
 #    define R1_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r1)))
+#    define REG1_OFFSET R1_OFFSET
 #    define R2_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r2)))
 #    define R3_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r3)))
 #    define R4_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r4)))
@@ -249,8 +253,20 @@ d_r_is_avx512_code_in_use()
 }
 
 static inline void
-d_r_set_avx512_code_in_use(bool in_use)
+d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
 {
+#    if !defined(UNIX) || !defined(X64)
+    /* We warn about unsupported AVX-512 present in the app. */
+    DO_ONCE({
+        if (pc != NULL) {
+            char pc_addr[IF_X64_ELSE(20, 12)];
+            snprintf(pc_addr, BUFFER_SIZE_ELEMENTS(pc_addr), PFX, pc);
+            NULL_TERMINATE_BUFFER(pc_addr);
+            SYSLOG(SYSLOG_ERROR, AVX_512_SUPPORT_INCOMPLETE, 2, get_application_name(),
+                   get_application_pid(), pc_addr);
+        }
+    });
+#    endif
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     ATOMIC_1BYTE_WRITE(d_r_avx512_code_in_use, in_use, false);
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
@@ -368,8 +384,6 @@ typedef enum {
 #    define SHARED_GENCODE_MATCH_THREAD(dc) get_shared_gencode(dc)
 #endif
 
-#define NUM_GP_REGS DR_NUM_GPR_REGS
-
 /* Information about each individual clean call invocation site.
  * The whole struct is set to 0 at init time.
  */
@@ -387,7 +401,7 @@ typedef struct _clean_call_info_t {
     int num_opmask_skip;
     bool opmask_skip[MCXT_NUM_OPMASK_SLOTS];
     uint num_regs_skip;
-    bool reg_skip[NUM_GP_REGS];
+    bool reg_skip[DR_NUM_GPR_REGS];
     bool preserve_mcontext; /* even if skip reg save, preserve mcontext shape */
     bool out_of_line_swap;  /* whether we use clean_call_{save,restore} gencode */
     void *callee_info;      /* callee information */
@@ -490,6 +504,9 @@ insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
                        instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
                        OUT instr_t **last);
 void
+patch_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
+                      instr_t *last);
+void
 insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, instrlist_t *ilist,
                         instr_t *instr, OUT instr_t **first, OUT instr_t **last);
 void
@@ -520,6 +537,9 @@ void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
                       OUT instr_t **first, OUT instr_t **last);
+void
+patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
+                     instr_t *last);
 void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
@@ -1442,10 +1462,10 @@ typedef struct _callee_info_t {
     bool simd_used[MCXT_NUM_SIMD_SLOTS];
     /* AVX-512 mask register usage. */
     bool opmask_used[MCXT_NUM_OPMASK_SLOTS];
-    bool reg_used[NUM_GP_REGS];         /* general purpose registers usage */
-    int num_callee_save_regs;           /* number of regs callee saved */
-    bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */
-    bool has_locals;                    /* if reference local via stack */
+    bool reg_used[DR_NUM_GPR_REGS];         /* general purpose registers usage */
+    int num_callee_save_regs;               /* number of regs callee saved */
+    bool callee_save_regs[DR_NUM_GPR_REGS]; /* callee-save registers */
+    bool has_locals;                        /* if reference local via stack */
     bool standard_fp;   /* if standard reg (xbp/x29) is used as frame pointer */
     bool opt_inline;    /* can be inlined or not */
     bool write_flags;   /* if the function changes flags */

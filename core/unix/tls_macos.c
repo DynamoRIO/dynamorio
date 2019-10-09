@@ -43,6 +43,7 @@
 #include "tls.h"
 #include <architecture/i386/table.h>
 #include <i386/user_ldt.h>
+#include <pthread.h>
 
 #ifndef MACOS
 #    error Mac-only
@@ -64,6 +65,118 @@
 static uint tls_app_index;
 
 #ifdef X64
+static pthread_key_t keys_start;
+
+static pthread_key_t
+tls_alloc_key(void)
+{
+    pthread_key_t key;
+    if (pthread_key_create(&key, NULL) != 0) {
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_ALLOCATE_TLS, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "System is out of slots or out of memory.");
+        ASSERT_NOT_REACHED();
+    }
+    return key;
+}
+
+void
+tls_process_init(void)
+{
+    /* Our strategy is to rely on libpthread and allocate directly-addressable
+     * slots using pthread_key_create().  Our initial implementation allocates
+     * enough to fit our entire os_local_state_t struct, to make Mac64 behave
+     * like Linux.  If this proves to be too many slots taken from the app,
+     * we'll want to shift to a strategy like Windows where we only put
+     * local_state_extended_t in slots and have a separate DR allocation for our
+     * other data, pointed at by a TLS slot (one of these, or slot 6).
+     */
+    int num_slots_needed = sizeof(os_local_state_t) / sizeof(void *);
+    byte *seg_base = get_segment_base(TLS_REG_LIB);
+    uint alignment;
+    if (DYNAMO_OPTION(tls_align) == 0) {
+        IF_X64(ASSERT_TRUNCATE(alignment, uint, proc_get_cache_line_size()));
+        alignment = (uint)proc_get_cache_line_size();
+    } else {
+        alignment = DYNAMO_OPTION(tls_align);
+    }
+    int i;
+    pthread_key_t delete_start = 0, delete_end = 0;
+    for (i = 0; i < alignment / sizeof(void *); i++) {
+        pthread_key_t key = tls_alloc_key();
+        if (ALIGNED(seg_base + key * sizeof(void *), alignment)) {
+            keys_start = key;
+            break;
+        }
+        if (i == 0)
+            delete_start = key;
+        delete_end = key;
+    }
+    if (keys_start == 0) {
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_ALLOCATE_TLS, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Failed to find aligned slot.");
+        ASSERT_NOT_REACHED();
+    }
+    for (i = 1; i < num_slots_needed; i++) {
+        pthread_key_t key = tls_alloc_key();
+        if (key != keys_start + i) {
+            /* TODO i#1979: To support attach we'll need to keep looking for a
+             * contiguous range elsewhere in the TLS space, like we do on Windows,
+             * instead of assuming the first free set is big enough.
+             */
+            REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_ALLOCATE_TLS, 3, get_application_name(),
+                                        get_application_pid(),
+                                        "Slots are not contiguous.");
+            ASSERT_NOT_REACHED();
+        }
+    }
+    if (delete_start > 0) {
+        for (pthread_key_t key = delete_start; key <= delete_end; key++) {
+            DEBUG_DECLARE(int res =)
+            pthread_key_delete(key);
+            ASSERT(res == 0); /* Can only fail with an invalid key. */
+        }
+    }
+    LOG(GLOBAL, LOG_THREADS, 1, "Reserved TLS keys %d-%d from base " PFX "\n", keys_start,
+        keys_start + num_slots_needed - 1, get_segment_base(TLS_REG_LIB));
+    /* Sanity check that the key is just an offset from the segment base. */
+    DODEBUG({
+        int seg_offs = keys_start * sizeof(void *);
+        ASSERT((ptr_int_t)pthread_getspecific(keys_start) == 0);
+        ASSERT(*(ptr_int_t *)(seg_base + seg_offs) == 0);
+#    define MAGIC_VALUE 0xdeadbeef12345678UL
+        int res = pthread_setspecific(keys_start, (void *)MAGIC_VALUE);
+        ASSERT(res == 0);
+        ASSERT((ptr_int_t)pthread_getspecific(keys_start) == MAGIC_VALUE);
+        ASSERT(*(ptr_int_t *)(seg_base + seg_offs) == MAGIC_VALUE);
+    });
+}
+
+void
+tls_process_exit(void)
+{
+    int num_slots_needed = sizeof(os_local_state_t) / sizeof(void *);
+    for (int i = 0; i < num_slots_needed; i++) {
+        DEBUG_DECLARE(int res =)
+        pthread_key_delete(keys_start + i);
+        ASSERT(res == 0); /* Can only fail with an invalid key. */
+    }
+}
+
+int
+tls_get_dr_offs(void)
+{
+    return keys_start * sizeof(void *);
+}
+
+byte *
+tls_get_dr_addr(void)
+{
+    byte *seg_base = get_segment_base(TLS_REG_LIB);
+    return seg_base + keys_start * sizeof(void *);
+}
+
 byte **
 get_app_tls_swap_slot_addr(void)
 {
@@ -79,6 +192,10 @@ void
 tls_thread_init(os_local_state_t *os_tls, byte *segment)
 {
 #ifdef X64
+    /* For now we have both a directly-addressable os_local_state_t and a pointer to
+     * it in slot 6.  If we settle on always doing the full os_local_state_t in slots,
+     * we would probably get rid of the use of slot 6.
+     */
     byte **tls_swap_slot;
     ASSERT((byte *)(os_tls->self) == segment);
     tls_swap_slot = get_app_tls_swap_slot_addr();
@@ -177,6 +294,8 @@ tls_get_fs_gs_segment_base(uint seg)
     ldt_t ldt;
     byte *base;
     int res;
+
+    IF_X64(ASSERT_NOT_REACHED()); /* Not used for x64. */
 
     if (seg != SEG_FS && seg != SEG_GS)
         return (byte *)POINTER_MAX;

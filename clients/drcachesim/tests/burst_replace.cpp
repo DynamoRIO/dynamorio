@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,7 +49,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAGIC_VALUE ((void *)0xdeadbeefUL)
+#define MAGIC_VALUE ((void *)(ptr_uint_t)0xdeadbeefUL)
 
 bool
 my_setenv(const char *var, const char *value)

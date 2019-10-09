@@ -8251,16 +8251,16 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         ASSERT(*stop != NULL);
 #ifdef LINUX
         if (!vmvector_empty(d_r_rseq_areas)) {
-            /* While for core operation we do not need to end a block at an rseq
-             * endpoint, we need clients to treat the endpoint as a barrier and
+            /* XXX i#3798: While for core operation we do not need to end a block at
+             * an rseq endpoint, we need clients to treat the endpoint as a barrier and
              * restore app state.  drreg today treats a block end as a barrier.  If
              * drreg adds optimizations that cross blocks (such as in traces), we may
              * need to add some other feature here: a fake app cti?  That affects
-             * clients measuring app behavior, though with rseq fidelity is already
-             * not 100%.
-             * Similarly, we don't really need to not have a block span the start of
-             * an rseq region.  But, that makes it easier to turn on full_decode for
-             * simpler mangling.
+             * clients measuring app behavior, though with rseq fidelity is already not
+             * 100%.  Similarly, we don't really need to not have a block span the start
+             * of an rseq region.  But, we need to save app values at the start, which
+             * is best done prior to drreg storing them elsewhere; plus, it makes it
+             * easier to turn on full_decode for simpler mangling.
              */
             bool entered_rseq = false;
             app_pc rseq_start, next_boundary = NULL;
@@ -8292,7 +8292,10 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
     }
 
     /* we are building a real bb, assert consistency checks */
-    DOCHECK(1, {
+    /* XXX i#1979: These memqueries are surprisingly slow on Mac64.
+     * Investigation is needed.
+     */
+    DOCHECK(IF_MACOS64_ELSE(3, 1), {
         uint prot2;
         ok = get_memory_info(pc, NULL, NULL, &prot2);
         ASSERT(!ok || !TEST(MEMPROT_WRITE, prot2) ||

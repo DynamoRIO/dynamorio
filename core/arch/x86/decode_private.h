@@ -231,7 +231,7 @@ enum {
     /* else, from OP_ enum */
 };
 
-/* instr_info_t modrm/extra operands flags == ushort only! */
+/* instr_info_t modrm/extra operands flags up to DR_TUPLE_TYPE_BITPOS bits only! */
 #define HAS_MODRM 0x01          /* else, no modrm */
 #define HAS_EXTRA_OPERANDS 0x02 /* else, <= 2 dsts, <= 3 srcs */
 /* if HAS_EXTRA_OPERANDS: */
@@ -280,14 +280,16 @@ enum {
 #define REQUIRES_VSIB_YMM 0x04000
 /* Instruction's VSIB's index reg must be zmm. */
 #define REQUIRES_VSIB_ZMM 0x08000
+/* EVEX default write mask not allowed. */
+#define REQUIRES_NOT_K0 0x10000
 /* 8-bit input size in the context of Intel's AVX-512 compressed disp8. */
-#define DR_EVEX_INPUT_OPSZ_1 0x10000
+#define DR_EVEX_INPUT_OPSZ_1 0x20000
 /* 16-bit input size in the context of Intel's AVX-512 compressed disp8. */
-#define DR_EVEX_INPUT_OPSZ_2 0x20000
+#define DR_EVEX_INPUT_OPSZ_2 0x40000
 /* 32-bit input size in the context of Intel's AVX-512 compressed disp8. */
-#define DR_EVEX_INPUT_OPSZ_4 0x40000
+#define DR_EVEX_INPUT_OPSZ_4 0x80000
 /* 64-bit input size in the context of Intel's AVX-512 compressed disp8. */
-#define DR_EVEX_INPUT_OPSZ_8 0x80000
+#define DR_EVEX_INPUT_OPSZ_8 0x100000
 
 struct _decode_info_t {
     uint opcode;
@@ -458,6 +460,11 @@ enum {
     TYPE_K_REG,                  /* modrm.reg selects k0-k7 */
     TYPE_K_VEX,                  /* vex.vvvv field selects k0-k7 */
     TYPE_K_EVEX,                 /* evex.aaa field selects k0-k7 */
+    TYPE_T_REG,                  /* modrm.reg selects bnd0-bnd3 */
+    TYPE_T_MODRM,                /* modrm.rm selects bnd0-bnd3 register or 8 bytes
+                                  * memory in 32-bit mode, or 16 bytes memory in 64-bit
+                                  * mode.
+                                  */
     /* when adding new types, update type_names[] in encode.c */
     TYPE_BEYOND_LAST_ENUM,
 };

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -375,7 +376,7 @@ typedef BOOL(WINAPI *ChangeServiceConfig2Func)(SC_HANDLE hService, DWORD dwInfoL
 DWORD
 set_service_restart_type(WCHAR *svcname, BOOL disable)
 {
-    SC_HANDLE scmdb = NULL, service = NULL;
+    SC_HANDLE local_scmdb = NULL, service = NULL;
     SC_ACTION restart_action = { SC_ACTION_RESTART, SERVICE_RESTART_DELAY_MS };
     SERVICE_FAILURE_ACTIONS failure_actions = {
         0,   /* dwResetPeriod: we only have one failure action, so
@@ -420,13 +421,13 @@ set_service_restart_type(WCHAR *svcname, BOOL disable)
     if (disable)
         restart_action.Type = SC_ACTION_NONE;
 
-    scmdb = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    if (scmdb == NULL) {
+    local_scmdb = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+    if (local_scmdb == NULL) {
         res = GetLastError();
         goto autorestart_out;
     }
 
-    service = OpenService(scmdb, svcname, SERVICE_ALL_ACCESS);
+    service = OpenService(local_scmdb, svcname, SERVICE_ALL_ACCESS);
 
     if (service == NULL) {
         res = GetLastError();
@@ -457,8 +458,8 @@ autorestart_out:
     if (service != NULL)
         CloseServiceHandle(service);
 
-    if (scmdb != NULL)
-        CloseServiceHandle(scmdb);
+    if (local_scmdb != NULL)
+        CloseServiceHandle(local_scmdb);
 
     return res;
 }

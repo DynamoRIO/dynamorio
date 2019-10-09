@@ -385,6 +385,13 @@ enum {
     DR_REG_K5,
     DR_REG_K6,
     DR_REG_K7,
+    /* 8 enums are reserved for future Intel SIMD mask extensions. */
+    RESERVED_OPMASK = DR_REG_K7 + 8,
+    /* Bounds registers for MPX. */
+    DR_REG_BND0,
+    DR_REG_BND1,
+    DR_REG_BND2,
+    DR_REG_BND3,
 
 /****************************************************************************/
 #elif defined(AARCHXX)
@@ -942,6 +949,8 @@ extern const reg_id_t dr_reg_fixer[];
 #    define DR_REG_STOP_ZMM DR_REG_ZMM31  /**< End of zmm register enum values */
 #    define DR_REG_START_OPMASK DR_REG_K0 /**< Start of opmask register enum values */
 #    define DR_REG_STOP_OPMASK DR_REG_K7  /**< End of opmask register enum values */
+#    define DR_REG_START_BND DR_REG_BND0  /**< Start of bounds register enum values */
+#    define DR_REG_STOP_BND DR_REG_BND3   /**< End of bounds register enum values */
 #    define DR_REG_START_FLOAT \
         DR_REG_ST0 /**< Start of floating-point-register enum values*/
 #    define DR_REG_STOP_FLOAT \
@@ -957,8 +966,8 @@ extern const reg_id_t dr_reg_fixer[];
  * than this value.
  */
 #    define DR_REG_LAST_VALID_ENUM DR_REG_K7
-#    define DR_REG_LAST_ENUM DR_REG_K7 /**< Last value of register enums */
-#endif                                 /* X86 */
+#    define DR_REG_LAST_ENUM DR_REG_BND3 /**< Last value of register enums */
+#endif                                   /* X86 */
 /* DR_API EXPORT END */
 
 #ifdef X86
@@ -1583,6 +1592,9 @@ DR_API
  * On ARM, a negative value for \p disp will be converted into a positive
  * value with #DR_OPND_NEGATED set in opnd_get_flags().
  * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ * Also use this function to create VSIB operands, passing a SIMD register as
+ * the index register.
  */
 opnd_t
 opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
@@ -2406,13 +2418,20 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz);
 
 DR_API
 /**
- * Given a general-purpose register of any size, returns a register in the same
- * class of the given size.  For example, given \p DR_REG_AX or \p DR_REG_RAX
- * and \p OPSZ_1, this routine will return \p DR_REG_AL.
+ * Given a general-purpose or SIMD register of any size, returns a register in the same
+ * class of the given size.
+ *
+ * For example, given \p DR_REG_AX or \p DR_REG_RAX and \p OPSZ_1, this routine will
+ * return \p DR_REG_AL. Given \p DR_REG_XMM0 and \p OPSZ_64, it will return \p
+ * DR_REG_ZMM0.
+ *
  * Returns \p DR_REG_NULL when trying to get the 8-bit subregister of \p
  * DR_REG_ESI, \p DR_REG_EDI, \p DR_REG_EBP, or \p DR_REG_ESP in 32-bit mode.
  * For 64-bit versions of this library, if \p sz == OPSZ_8, returns the 64-bit
  * version of \p reg.
+ *
+ * MMX registers are not yet supported.
+ * Moreover, ARM is not yet supported for resizing SIMD registers.
  */
 reg_id_t
 reg_resize_to_opsz(reg_id_t reg, opnd_size_t sz);
@@ -2452,6 +2471,19 @@ DR_API
  */
 bool
 reg_is_simd(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to an SSE or AVX register.
+ * In particular, the register must be either an xmm, ymm, or
+ * zmm for the function to return true.
+ *
+ * This function is subject to include any future vector register
+ * that x86 may add.
+ */
+bool
+reg_is_vector_simd(reg_id_t reg);
 
 DR_API
 /**
@@ -2503,6 +2535,14 @@ DR_API
  */
 bool
 reg_is_opmask(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to an x86 MPX bounds register.
+ */
+bool
+reg_is_bnd(reg_id_t reg);
 
 DR_API
 /**
@@ -2879,6 +2919,9 @@ opnd_create_tls_slot(int offs);
 opnd_t
 opnd_create_sized_tls_slot(int offs, opnd_size_t size);
 #endif /* !STANDALONE_DECODER */
+
+/* stack slot width */
+#define XSP_SZ (sizeof(reg_t))
 
 /* This should be kept in sync w/ the defines in x86/x86.asm */
 enum {

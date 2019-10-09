@@ -488,7 +488,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_RSI)));
     if (!cci->reg_skip[REG_RDI - REG_XAX])
         PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_RDI)));
-    dstack_offs += (NUM_GP_REGS - cci->num_regs_skip) * XSP_SZ;
+    dstack_offs += (DR_NUM_GPR_REGS - cci->num_regs_skip) * XSP_SZ;
 #    else
     PRE(ilist, instr, INSTR_CREATE_pusha(dcontext));
     dstack_offs += 8 * XSP_SZ;
@@ -1128,6 +1128,36 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
  *   M A N G L I N G   R O U T I N E S
  */
 
+/* Updates the immediates used by insert_mov_immed_arch() to use the value "val".
+ * The "first" and "last" from insert_mov_immed_arch() should be passed here,
+ * along with the encoded start pc of "first" as "pc".
+ * Keep this in sync with insert_mov_immed_arch().
+ * This is *not* a hot-patchable patch: i.e., it is subject to races.
+ */
+void
+patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
+                     instr_t *last)
+{
+    byte *write_pc = vmcode_get_writable_addr(pc);
+    byte *immed_pc;
+    ASSERT(first != NULL);
+#    ifdef X64
+    if (X64_MODE_DC(dcontext) && last != NULL) {
+        immed_pc = write_pc + instr_length(dcontext, first) - sizeof(int);
+        ATOMIC_4BYTE_WRITE(immed_pc, (int)val, NOT_HOT_PATCHABLE);
+        immed_pc = write_pc + instr_length(dcontext, first) +
+            instr_length(dcontext, last) - sizeof(int);
+        ATOMIC_4BYTE_WRITE(immed_pc, (int)(val >> 32), NOT_HOT_PATCHABLE);
+    } else {
+#    endif
+        immed_pc = write_pc + instr_length(dcontext, first) - sizeof(val);
+        ATOMIC_ADDR_WRITE(immed_pc, val, NOT_HOT_PATCHABLE);
+        ASSERT(last == NULL);
+#    ifdef X64
+    }
+#    endif
+}
+
 #endif /* !STANDALONE_DECODER */
 /* We export these mov/push utilities to drdecode */
 
@@ -1135,6 +1165,7 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
  * encode_estimate to determine whether > 32 bits or not: so if unsure where
  * it will be encoded, pass a high address) as the immediate; else
  * uses val.
+ * Keep this in sync with patch_mov_immed_arch().
  */
 void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,

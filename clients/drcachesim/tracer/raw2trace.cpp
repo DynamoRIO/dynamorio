@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -316,7 +316,7 @@ module_mapper_t::read_and_map_modules()
         if (custom_data != nullptr && custom_data->contents_size > 0) {
             VPRINT(1, "Using module %d %s stored %zd-byte contents @" PFX "\n",
                    (int)modvec.size(), info.path, custom_data->contents_size,
-                   (ptr_uint_t)custom_data->contents);
+                   custom_data->contents);
             modvec.push_back(
                 module_t(info.path, info.start, (byte *)custom_data->contents,
                          custom_data->contents_size, true /*external data*/));
@@ -332,7 +332,7 @@ module_mapper_t::read_and_map_modules()
             // the first segment thus includes the other segments and that we don't
             // need another mmap.
             VPRINT(1, "Separate segment assumed covered: module %d seg " PFX " = %s\n",
-                   (int)modvec.size(), (ptr_uint_t)info.start, info.path);
+                   (int)modvec.size(), info.start, info.path);
             modvec.push_back(module_t(info.path,
                                       // We want the low base not segment base.
                                       modvec[info.containing_index].orig_base,
@@ -353,8 +353,8 @@ module_mapper_t::read_and_map_modules()
                     return;
                 }
             } else {
-                VPRINT(1, "Mapped module %d @" PFX " = %s\n", (int)modvec.size(),
-                       (ptr_uint_t)base_pc, info.path);
+                VPRINT(1, "Mapped module %d @" PFX " = %s\n", (int)modvec.size(), base_pc,
+                       info.path);
                 modvec.push_back(module_t(info.path, info.start, base_pc, map_size));
             }
         }
@@ -637,8 +637,8 @@ raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs, INOUT a
     if (ret == nullptr) {
         instr_summary_t *desc = new instr_summary_t();
         if (!instr_summary_t::construct(dcontext, pc, orig, desc, verbosity)) {
-            WARN("Encountered invalid/undecodable instr @ %s+" PFX,
-                 modvec()[static_cast<size_t>(modidx)].path, (ptr_uint_t)modoffs);
+            WARN("Encountered invalid/undecodable instr @ %s+" PIFX,
+                 modvec()[static_cast<size_t>(modidx)].path, IF_NOT_X64((uint)) modoffs);
             delete desc;
             return nullptr;
         }

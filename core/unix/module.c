@@ -39,6 +39,9 @@
 #include "../utils.h"
 #include "instrument.h"
 #include <stddef.h> /* offsetof */
+#ifdef LINUX
+#    include "rseq_linux.h"
+#endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
 #    undef LOG
@@ -48,72 +51,17 @@
 /* XXX; perhaps make a module_list interface to check for overlap? */
 extern vm_area_vector_t *loaded_module_areas;
 
-#    ifdef LINUX
-vm_area_vector_t *d_r_rseq_areas;
-DECLARE_CXTSWPROT_VAR(static mutex_t rseq_trigger_lock,
-                      INIT_LOCK_FREE(rseq_trigger_lock));
-static volatile bool rseq_enabled;
-#    endif
-
 void
 os_modules_init(void)
 {
-#    ifdef LINUX
-    VMVECTOR_ALLOC_VECTOR(d_r_rseq_areas, GLOBAL_DCONTEXT,
-                          VECTOR_SHARED | VECTOR_NEVER_MERGE, rseq_areas);
-    if (rseq_is_registered_for_current_thread())
-        rseq_enabled = true;
-#    endif
+    /* Nothing. */
 }
 
 void
 os_modules_exit(void)
 {
-#    ifdef LINUX
-    vmvector_delete_vector(GLOBAL_DCONTEXT, d_r_rseq_areas);
-    DELETE_LOCK(rseq_trigger_lock);
-#    endif
+    /* Nothing. */
 }
-
-#    ifdef LINUX
-/* Restartable sequence region identification.  It lives here because it involves
- * reading ELF section headers.
- *
- * To avoid extra overhead going to disk to read section headers, we delay looking
- * for rseq data until the app invokes an rseq syscall (or on attach we see a thread
- * that has rseq set up).  We document that we do not handle the app using rseq
- * regions for non-rseq purposes, so we do not need to flush the cache here.
- */
-void
-module_locate_rseq_regions(void)
-{
-    if (rseq_enabled)
-        return;
-    d_r_mutex_lock(&rseq_trigger_lock);
-    if (rseq_enabled) {
-        d_r_mutex_unlock(&rseq_trigger_lock);
-        return;
-    }
-    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-    rseq_enabled = true;
-    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-
-    module_iterator_t *iter = module_iterator_start();
-    while (module_iterator_hasnext(iter)) {
-        module_area_t *ma = module_iterator_next(iter);
-        module_init_rseq(ma, false /*!at_map*/);
-    }
-    module_iterator_stop(iter);
-    d_r_mutex_unlock(&rseq_trigger_lock);
-}
-
-static void
-module_init_rseq_if_enabled(module_area_t *ma, bool at_map)
-{
-    if (rseq_enabled)
-        module_init_rseq(ma, at_map);
-}
-#    endif
 
 /* view_size can be the size of the first mapping, to handle non-contiguous
  * modules -- we'll update the module's size here
@@ -252,7 +200,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
     /* Timestamp we just leave as 0 */
 
 #    ifdef LINUX
-    module_init_rseq_if_enabled(ma, at_map);
+    rseq_module_init(ma, at_map);
 #    endif
 }
 

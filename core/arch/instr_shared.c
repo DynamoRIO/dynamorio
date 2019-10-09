@@ -1832,6 +1832,45 @@ instr_reads_from_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
     return false;
 }
 
+/* In this func, it must be the exact same register, not a sub reg. ie. eax!=ax */
+bool
+instr_reads_from_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
+{
+    int i;
+    opnd_t opnd;
+
+    if (!TEST(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_is_predicated(instr) &&
+        !instr_predicate_reads_srcs(instr_get_predicate(instr)))
+        return false;
+
+#ifdef X86
+    /* special case */
+    if (instr_get_opcode(instr) == OP_nop_modrm)
+        return false;
+#endif
+
+    for (i = 0; i < instr_num_srcs(instr); i++) {
+        opnd = instr_get_src(instr, i);
+        if (opnd_is_reg(opnd) && opnd_get_reg(opnd) == reg &&
+            opnd_get_size(opnd) == reg_get_size(reg))
+            return true;
+        else if (opnd_is_base_disp(opnd) &&
+                 (opnd_get_base(opnd) == reg || opnd_get_index(opnd) == reg ||
+                  opnd_get_segment(opnd) == reg))
+            return true;
+    }
+
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        opnd = instr_get_dst(instr, i);
+        if (opnd_is_base_disp(opnd) &&
+            (opnd_get_base(opnd) == reg || opnd_get_index(opnd) == reg ||
+             opnd_get_segment(opnd) == reg))
+            return true;
+    }
+
+    return false;
+}
+
 /* this checks sub-registers */
 bool
 instr_writes_to_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
@@ -1850,7 +1889,7 @@ instr_writes_to_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
     return false;
 }
 
-/* in this func, it must be the exact same register, not a sub reg. ie. eax!=ax */
+/* In this func, it must be the exact same register, not a sub reg. ie. eax!=ax */
 bool
 instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
 {
@@ -1865,7 +1904,7 @@ instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t fl
         if (opnd_is_reg(opnd) &&
             (opnd_get_reg(opnd) == reg)
             /* for case like OP_movt on ARM and SIMD regs on X86,
-             * partial reg writen with full reg name in opnd
+             * partial reg written with full reg name in opnd
              */
             && opnd_get_size(opnd) == reg_get_size(reg))
             return true;

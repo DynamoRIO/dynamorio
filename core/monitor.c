@@ -1306,7 +1306,6 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     }
 
     DOLOG(2, LOG_MONITOR, {
-        uint i;
         LOG(THREAD, LOG_MONITOR, 2, "Ending and emitting hot trace (tag " PFX ")\n", tag);
         if (d_r_stats->loglevel >= 4) {
             instrlist_disassemble(dcontext, md->trace_tag, trace, THREAD);

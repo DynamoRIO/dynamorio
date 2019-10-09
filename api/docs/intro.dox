@@ -1679,6 +1679,11 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    This option requests that DynamoRIO convert sysenter into int 0x80
    instead.  See \ref sec_extlibs.
 
+ - \b -disable_rseq: \anchor op_disable_rseq
+   This option only applies to Linux.  It returns -ENOSYS from the SYS_rseq
+   system call, forcing applications to fall back to code that does not
+   use restartable sequences.  See \ref sec_rseq for more information.
+
  - \b -multi_thread_exit:
    By default, DynamoRIO synchronizes with all remaining threads
    at process exit time and the process exit event executes with only

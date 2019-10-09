@@ -800,7 +800,7 @@ dynamorio_fork_init(dcontext_t *dcontext)
         /* FIXME: share these few lines of code w/ dynamorio_app_init? */
         LOG(GLOBAL, LOG_TOP, 1, "Running: %s\n", d_r_stats->process_name);
 #        ifndef _WIN32_WCE
-        LOG(GLOBAL, LOG_TOP, 1, "DYNAMORIO_OPTIONS: %s\n", option_string);
+        LOG(GLOBAL, LOG_TOP, 1, "DYNAMORIO_OPTIONS: %s\n", d_r_option_string);
 #        endif
     }
 #    endif /* DEBUG */

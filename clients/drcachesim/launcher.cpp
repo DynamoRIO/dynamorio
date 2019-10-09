@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -152,7 +152,7 @@ configure_application(char *app_name, char **app_argv, std::string tracer_ops,
     pid = dr_inject_get_process_id(*inject_data);
 
     process = dr_inject_get_image_name(*inject_data);
-    NOTIFY(1, "INFO", "configuring %s pid=%d dr_ops=\"%s\"", process, pid,
+    NOTIFY(1, "INFO", "configuring %s pid=" PIDFMT " dr_ops=\"%s\"", process, pid,
            op_dr_ops.get_value().c_str());
     if (dr_register_process(process, pid, false /*local*/, op_dr_root.get_value().c_str(),
                             DR_MODE_CODE_MANIPULATION, op_dr_debug.get_value(),

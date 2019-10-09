@@ -360,7 +360,7 @@ set_dynamo_options(options_t *options, const char *optstr);
 #        define CLIENT_OR_STANDALONE() false
 #    endif
 
-extern char option_string[];
+extern char d_r_option_string[];
 extern options_t dynamo_options;
 extern read_write_lock_t options_lock;
 

@@ -1,5 +1,5 @@
 ## **********************************************************
-## Copyright (c) 2012-2016 Google, Inc.    All rights reserved.
+## Copyright (c) 2012-2019 Google, Inc.    All rights reserved.
 ## **********************************************************
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -257,3 +257,32 @@ function(DynamoRIO_force_static_link target lib)
     append_property_string(TARGET ${target} LINK_FLAGS "/include:${incname}")
   endif ()
 endfunction(DynamoRIO_force_static_link)
+
+function (_DR_get_static_libc_list liblist_out)
+  if (WIN32)
+    if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+      set(static_libc libcmtd)
+      if (tgt_cxx)
+        set(static_libc libcpmtd ${static_libc})
+      endif ()
+      # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
+      if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
+        set(static_libc ${static_libc} libvcruntimed.lib libucrtd.lib)
+      endif ()
+      # libcmt has symbols libcmtd does not so we need all files compiled w/ _DEBUG
+      set(extra_flags "${extra_flags} -D_DEBUG")
+    else ()
+      set(static_libc libcmt)
+      if (tgt_cxx)
+        set(static_libc libcpmt ${static_libc})
+      endif ()
+      # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
+      if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
+        set(static_libc ${static_libc} libvcruntime.lib libucrt.lib)
+      endif ()
+    endif ()
+    set(${liblist_out} ${static_libc} PARENT_SCOPE)
+  else ()
+    set(${liblist_out} "" PARENT_SCOPE)
+  endif ()
+endfunction ()

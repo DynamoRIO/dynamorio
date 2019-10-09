@@ -253,9 +253,15 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, REG_XSP
         mov      REG_XBX, PTRSZ [TEST_REG_ASM]
 
+        jmp      test2_init
+     test2_init:
+        /* Initializing register for additional test on top of this one, see
+         * instru2instru.
+         */
+        mov      TEST_REG2_ASM, MAKE_HEX_ASM(0)
         jmp      test2
-        /* Test 2: same instr writes and reads reserved reg */
      test2:
+        /* Test 2: same instr writes and reads reserved reg */
         mov      TEST_REG_ASM, DRREG_TEST_2_ASM
         mov      TEST_REG_ASM, DRREG_TEST_2_ASM
         mov      TEST_REG_ASM, REG_XSP
@@ -280,7 +286,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_11_ASM
         mov      TEST_REG_ASM, DRREG_TEST_11_ASM
         cmp      TEST_REG_ASM, TEST_REG_ASM
-        push     TEST_CONST
+        push     TEST_11_CONST
         pop      REG_XAX
         mov      REG_XAX, TEST_REG_ASM
         mov      TEST_REG_ASM, REG_XAX
@@ -290,6 +296,19 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
         jmp      test11_done
      test11_done:
+        jmp     test12
+        /* Test 12: drreg_statelessly_restore_app_value  */
+     test12:
+        mov      TEST_REG_ASM, DRREG_TEST_12_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_12_ASM
+        mov      REG_XAX, TEST_12_CONST
+        cmp      REG_XAX, TEST_12_CONST
+        je       test12_done
+        /* Null deref if we have incorrect eflags */
+        xor      TEST_REG_ASM, TEST_REG_ASM
+        mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
+        jmp      test12_done
+     test12_done:
         jmp     epilog
 
      epilog:

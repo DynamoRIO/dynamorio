@@ -197,6 +197,14 @@ enum {
 #    ifdef WINDOWS
     /* used to indicate that a syscall should be executed via shared syscall */
     INSTR_SHARED_SYSCALL = 0x01000000,
+#    else
+    /* Indicates an instruction that's part of the rseq endpoint.  We use this in
+     * instrlist_t.flags (sort of the same namespace: INSTR_OUR_MANGLING is used there,
+     * but also EDI_VAL_*) and as a version of DR_NOTE_RSEQ that survives encoding
+     * (seems like we could store notes for labels in another field so they do
+     * in fact survive: a union with instr_t.translation?).
+     */
+    INSTR_RSEQ_ENDPOINT = 0x01000000,
 #    endif
 
 #    ifdef CLIENT_INTERFACE
@@ -1412,6 +1420,20 @@ DR_API
 bool
 instr_is_exclusive_store(instr_t *instr);
 
+DR_API
+/**
+ * Returns true iff \p instr is a scatter-store instruction.
+ */
+bool
+instr_is_scatter(instr_t *instr);
+
+DR_API
+/**
+ * Returns true iff \p instr is a gather-load instruction.
+ */
+bool
+instr_is_gather(instr_t *instr);
+
 bool
 instr_predicate_reads_srcs(dr_pred_type_t pred);
 
@@ -1765,6 +1787,24 @@ DR_API
  */
 bool
 instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff at least one of \p instr's source operands is
+ * the same register (not enough to just overlap) as \p reg.
+ *
+ * For example, false is returned if the instruction \p instr is vmov [m], zmm0
+ * and the register being tested \p reg is \p DR_REG_XMM0.
+ *
+ * Registers used in memory operands, namely base, index and segmentation registers,
+ * are checked also by this routine. This also includes destination operands.
+ *
+ * Which operands are considered to be accessed for conditionally executed
+ * instructions are controlled by \p flags.
+ */
+bool
+instr_reads_from_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags);
 
 DR_API
 /**

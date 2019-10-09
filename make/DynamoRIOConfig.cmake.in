@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -501,10 +501,16 @@ function (configure_DynamoRIO_global is_cxx change_flags)
           if (WIN32)
             # We could limit this global var changing to Windows,
             # but it simplifies cross-platform uses to be symmetric
-            if (local_${var} MATCHES "/M[TD]")
-              string(REGEX REPLACE "/M[TD]" "/MT" local_${var} "${local_${var}}")
+            set(MT_base "/MT")
+            if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+              set(MT_flag "/MTd")
             else ()
-              set(local_${var} "${local_${var}} /MT")
+              set(MT_flag "/MT")
+            endif()
+            if (local_${var} MATCHES "/M[TD]")
+              string(REGEX REPLACE "/M[TD]" "${MT_base}" local_${var} "${local_${var}}")
+            else ()
+              set(local_${var} "${local_${var}} ${MT_flag}")
             endif ()
             string(REGEX REPLACE "/RTC." "" local_${var} "${local_${var}}")
           endif (WIN32)
@@ -799,27 +805,7 @@ function (_DR_set_compile_flags target is_client extra_flags)
       else (tgt_cxx)
         set(tgt_link_flags "${tgt_link_flags} /nodefaultlib")
       endif (tgt_cxx)
-      if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
-        set(static_libc libcmtd)
-        if (tgt_cxx)
-          set(static_libc libcpmtd ${static_libc})
-        endif ()
-        # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
-        if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
-          set(static_libc ${static_libc} libvcruntimed.lib libucrtd.lib)
-        endif ()
-        # libcmt has symbols libcmtd does not so we need all files compiled w/ _DEBUG
-        set(extra_flags "${extra_flags} -D_DEBUG")
-      else ()
-        set(static_libc libcmt)
-        if (tgt_cxx)
-          set(static_libc libcpmt ${static_libc})
-        endif ()
-        # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
-        if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
-          set(static_libc ${static_libc} libvcruntime.lib libucrt.lib)
-        endif ()
-      endif ()
+      _DR_get_static_libc_list(static_libc)
       target_link_libraries(${target} ${static_libc})
     else ()
       set(tgt_link_flags "${tgt_link_flags} /nodefaultlib /noentry")
@@ -1093,12 +1079,16 @@ function (configure_DynamoRIO_static target)
     # should we pass -Wl,--export-dynamic here to match it?
     _DR_append_property_string(TARGET ${target} LINK_FLAGS "-Wl,--dynamic-list-data")
   endif ()
-
+  # We need libc before the ntdll_imports pulled in for DR.
+  _DR_get_static_libc_list(static_libc)
+  target_link_libraries(${target} ${static_libc})
   target_link_libraries(${target} dynamorio_static)
   if (UNIX AND NOT APPLE) # --as-needed not supported by Mac ld
     # i#2070: avoid pulling libdynamorio.so
     # Assuming LINK_FLAGS goes before target_link_libraries.
     _DR_append_property_string(TARGET ${target} LINK_FLAGS "-Wl,--as-needed")
+    # Ensure client symbols are visible to DR via dlsym.
+    _DR_append_property_string(TARGET ${target} LINK_FLAGS "-rdynamic")
   endif ()
 endfunction (configure_DynamoRIO_static)
 

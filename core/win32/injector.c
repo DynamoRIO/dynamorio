@@ -91,11 +91,7 @@
 #define HANDLE_CONTROL_C 0
 
 /* global vars */
-static int limit; /* in seconds */
-static BOOL showmem;
-static BOOL showstats;
-static BOOL inject;
-static BOOL force_injection;
+static int limit;                   /* in seconds */
 static BOOL use_environment = TRUE; /* FIXME : for now default to using
                                      * the environment, below we check and
                                      * never use the environment if using
@@ -309,21 +305,21 @@ dr_inject_print_stats(void *data, int elapsed_secs, bool showstats, bool showmem
                     secs / 60, secs % 60, 0 /* for now */);
         }
         fprintf(FP, "%d%%CPU \n", cpu);
-        fprintf(FP, "(%lu tot, %lu RSS, %lu paged, %lu non, %lu swap)k\n",
+        fprintf(FP, "(%zu tot, %zu RSS, %zu paged, %zu non, %zu swap)k\n",
                 mem.PeakVirtualSize / 1024, mem.PeakWorkingSetSize / 1024,
                 mem.QuotaPeakPagedPoolUsage / 1024, mem.QuotaPeakNonPagedPoolUsage / 1024,
                 mem.PeakPagefileUsage / 1024);
     }
     if (showmem) {
         fprintf(FP, "Process Memory Statistics:\n");
-        fprintf(FP, "\tPeak virtual size:         %6d KB\n", mem.PeakVirtualSize / 1024);
-        fprintf(FP, "\tPeak working set size:     %6d KB\n",
+        fprintf(FP, "\tPeak virtual size:         %6zu KB\n", mem.PeakVirtualSize / 1024);
+        fprintf(FP, "\tPeak working set size:     %6zu KB\n",
                 mem.PeakWorkingSetSize / 1024);
-        fprintf(FP, "\tPeak paged pool usage:     %6d KB\n",
+        fprintf(FP, "\tPeak paged pool usage:     %6zu KB\n",
                 mem.QuotaPeakPagedPoolUsage / 1024);
-        fprintf(FP, "\tPeak non-paged pool usage: %6d KB\n",
+        fprintf(FP, "\tPeak non-paged pool usage: %6zu KB\n",
                 mem.QuotaPeakNonPagedPoolUsage / 1024);
-        fprintf(FP, "\tPeak pagefile usage:       %6d KB\n",
+        fprintf(FP, "\tPeak pagefile usage:       %6zu KB\n",
                 mem.PeakPagefileUsage / 1024);
     }
 }

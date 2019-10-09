@@ -203,11 +203,11 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
         /* Fill in the extra fields first and then clobber xmm+ymm below.
          * We assume that DR's code does not touch this extra state.
          */
-        ASSERT(ALIGNED(xstate, AVX_ALIGNMENT));
         /* A processor w/o xsave but w/ extra xstate fields should not exist. */
         ASSERT(proc_has_feature(FEATURE_XSAVE));
         /* XXX i#1312: use xsaveopt if available (need to add FEATURE_XSAVEOPT) */
 #ifdef X64
+        ASSERT(ALIGNED(xstate, AVX_ALIGNMENT));
         /* Some assemblers, including on Travis, don't know "xsave64", so we
          * have to use raw bytes for:
          *    48 0f ae 21  xsave64 (%rcx)
@@ -225,12 +225,24 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
                      : "m"(xstate)
                      : "eax", "edx", "rcx", "memory");
 #else
+#    if DISABLED_ISSUE_3256
+        /* FIXME i#3256: DR's kernel_fpstate_t includes the fsave 112 bytes at the
+         * top.  We need to skip them to reach the xsave area at the _fxsr_env field.
+         * However, that requires aligning that instead of the kernel_fpstate_t start
+         * itself in sigpending_t and the frame we make on the app stack.  An
+         * alternative here is to copy into a temp buffer but that seems wasteful.
+         * For now we skip the xsave, which seems safer than clobbering the wrong
+         * fields, but is also buggy and can cause app data corruption.
+         */
+        byte *xsave_start = (byte *)(&xstate->fpstate._fxsr_env[0]);
+        ASSERT(ALIGNED(xsave_start, AVX_ALIGNMENT));
         /* We only enable the x87 state component. The rest of the user state components
          * gets copied below from priv_mcontext_t.
          * FIXME i#1312: it is unclear if and how the components are arranged in
          * 32-bit mode by the kernel. In fact, if we enable more state components here
          * than this, we get a crash in linux.sigcontext. This needs clarification about
          * what the kernel does for 32-bit with the extended xsave area.
+         * UPDATE from i#3256 analysis: Was this due to the incorrect xsave target?
          */
         asm volatile("mov $0x0, %%edx\n\t"
                      "mov $0x1, %%eax\n\t"
@@ -239,8 +251,9 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
                      ".byte 0xae\n\t"
                      ".byte 0x21\n"
                      :
-                     : "m"(xstate)
+                     : "m"(xsave_start)
                      : "eax", "edx", "ecx", "memory");
+#    endif
 #endif
     }
     if (YMM_ENABLED()) {
@@ -417,7 +430,7 @@ dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
     for (i = 0; i < 8; i++) {
         LOG(THREAD, LOG_ASYNCH, 1, "\txmm%d = ", i);
         for (j = 0; j < 4; j++)
-            LOG(THREAD, LOG_ASYNCH, 1, "%04x ", fp->_xmm[i].element[j]);
+            LOG(THREAD, LOG_ASYNCH, 1, "%08x ", fp->_xmm[i].element[j]);
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
 #    endif
@@ -435,7 +448,7 @@ dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
             for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                 LOG(THREAD, LOG_ASYNCH, 1, "\tymmh%d = ", i);
                 for (j = 0; j < 4; j++) {
-                    LOG(THREAD, LOG_ASYNCH, 1, "%04x ",
+                    LOG(THREAD, LOG_ASYNCH, 1, "%08x",
                         xstate->ymmh.ymmh_space[i * 4 + j]);
                 }
                 LOG(THREAD, LOG_ASYNCH, 1, "\n");
@@ -466,7 +479,7 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\txax=" PFX "\n", sc->SC_XAX);
 #    ifdef X64
     LOG(THREAD, LOG_ASYNCH, 1, "\t r8=" PFX "\n", sc->r8);
-    LOG(THREAD, LOG_ASYNCH, 1, "\t r9=" PFX "\n", sc->r8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\t r9=" PFX "\n", sc->r9);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr10=" PFX "\n", sc->r10);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr11=" PFX "\n", sc->r11);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr12=" PFX "\n", sc->r12);
@@ -669,7 +682,7 @@ xstate_query_signal_handler(int sig, kernel_siginfo_t *siginfo, kernel_ucontext_
 void
 signal_arch_init(void)
 {
-    xstate_size = sizeof(kernel_xstate_t) + 4 /* trailing FP_XSTATE_MAGIC2 */;
+    xstate_size = sizeof(kernel_xstate_t) + FP_XSTATE_MAGIC2_SIZE;
     ASSERT(YMM_ENABLED() || !ZMM_ENABLED());
     if (YMM_ENABLED() && !standalone_library /* avoid SIGILL for standalone */) {
         kernel_sigaction_t act, oldact;

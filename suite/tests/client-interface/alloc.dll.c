@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -207,7 +207,7 @@ reachability_test(void)
      */
     highmem =
         dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE | DR_MEMPROT_EXEC,
-                         (byte *)0xabcd0000);
+                         (byte *)(ptr_uint_t)0xabcd0000);
     instrlist_append(ilist,
                      INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(DR_REG_ECX),
                                          opnd_create_abs_addr(highmem, OPSZ_4)));

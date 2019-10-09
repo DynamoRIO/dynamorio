@@ -45,8 +45,8 @@
 #ifndef _ARCH_EXPORTS_H_
 #define _ARCH_EXPORTS_H_ 1
 
-/* stack slot width */
-#define XSP_SZ (sizeof(reg_t))
+/* We export all of opnd.h for reg_id_t, DR_NUM_GPR_REGS, etc. */
+#include "opnd.h"
 
 #ifdef X86
 /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
@@ -566,12 +566,22 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
                                  : "=qm"(flag)           \
                                  :                       \
                                  : "cc", "memory")
-/* clang-flag on */
+/* clang-format on */
 #        define SET_IF_NOT_ZERO(flag) SET_FLAG(nz, flag)
 #        define SET_IF_NOT_LESS(flag) SET_FLAG(nl, flag)
 
 #    elif defined(AARCH64)
 
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                ASSERT(sizeof(value) == 1);                    \
+                /* Not currently used to write code */         \
+                ASSERT_CURIOSITY(!hot_patch);                  \
+                __asm__ __volatile__("strb %w0, [%1]"          \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
 #        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                 \
             do {                                                             \
                 ASSERT(sizeof(value) == 4);                                  \
@@ -726,6 +736,14 @@ atomic_dec_becomes_zero(volatile int *var)
 
 #    elif defined(ARM)
 
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                ASSERT(sizeof(value) == 1);                    \
+                __asm__ __volatile__("strb %0, [%1]"           \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
 #        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                     \
             do {                                                                 \
                 ASSERT(sizeof(value) == 4);                                      \
@@ -1558,6 +1576,9 @@ canonicalize_pc_target(dcontext_t *dcontext, app_pc pc);
 void
 d_r_decode_init(void);
 
+bool
+fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
+
 /***************************************************************************
  * Arch-specific defines
  */
@@ -1645,8 +1666,8 @@ d_r_decode_init(void);
 #    define STUB_COARSE_DIRECT_SIZE(flags) \
         (FRAG_IS_32(flags) ? STUB_COARSE_DIRECT_SIZE32 : STUB_COARSE_DIRECT_SIZE64)
 
-/* writes nops into the address range */
-#    define SET_TO_NOPS(isa_mode, addr, size) memset(addr, 0x90, size)
+/* Writes nops into the address range. */
+#    define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
 /* writes debugbreaks into the address range */
 #    define SET_TO_DEBUG(addr, size) memset(addr, 0xcc, size)
 /* check if region is SET_TO_NOP */
@@ -1716,8 +1737,6 @@ d_r_decode_init(void);
 #    define ARM_BKPT 0xe1200070
 #    define THUMB_BKPT 0xbe00
 /* writes nops into the address range */
-bool
-fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
 /* writes debugbreaks into the address range */
 #    define SET_TO_DEBUG(addr, size) ASSERT_NOT_IMPLEMENTED(false)
@@ -2255,6 +2274,9 @@ instr_supports_simple_mangling_epilogue(dcontext_t *dcontext, instr_t *inst);
 void
 float_pc_update(dcontext_t *dcontext);
 
+void
+mangle_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f);
+
 /* in retcheck.c */
 #ifdef CHECK_RETURNS_SSE2
 void
@@ -2521,6 +2543,13 @@ get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
 /* reset the encode state stored in dcontext used by A32 Thumb mode */
 void
 encode_reset_it_block(dcontext_t *dcontext);
+#endif
+
+#ifdef LINUX
+/* Register state preserved on input to restartable sequences ("rseq"). */
+typedef struct _rseq_entry_state_t {
+    reg_t gpr[DR_NUM_GPR_REGS];
+} rseq_entry_state_t;
 #endif
 
 #endif /* _ARCH_EXPORTS_H_ */
