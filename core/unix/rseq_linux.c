@@ -280,6 +280,12 @@ rseq_is_registered_for_current_thread(void)
         return true;
     if (res == -ENOSYS)
         return false;
+    /* If seccomp blocks SYS_rseq we'll get -EPERM.  SYS_rseq also returns -EPERM
+     * if &test_rseq == the app's struct but the signature is different, but that
+     * seems so unlikely that we just assume -EPERM implies seccomp.
+     */
+    if (res == -EPERM)
+        return false;
     ASSERT(res == 0); /* If not, the struct size or sthg changed! */
     if (dynamorio_syscall(SYS_rseq, 4, &test_rseq, sizeof(test_rseq),
                           RSEQ_FLAG_UNREGISTER, 0) != 0) {
