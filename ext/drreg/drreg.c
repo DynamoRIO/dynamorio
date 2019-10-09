@@ -812,7 +812,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         }
     }
 
-    for (reg = DR_REG_START_XMM; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
+    for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         if (pt->simd_reg[SIMD_IDX(reg)].in_use) {
             if (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                 /* Don't bother if reg is dead beyond this write */
@@ -998,7 +998,7 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
         pt->reg[GPR_IDX(reg)].app_uses = 0;
         drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, REG_UNKNOWN);
     }
-    for (reg = DR_REG_START_XMM; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
+    for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         pt->simd_reg[SIMD_IDX(reg)].app_uses = 0;
         drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0, REG_UNKNOWN);
         pt->simd_reg[SIMD_IDX(reg)].ever_spilled = false;
@@ -1029,7 +1029,8 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
         }
 
         /* XMM liveness */
-        for (reg = DR_REG_START_XMM; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
+        for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
+             reg++) {
             void *value = REG_UNKNOWN;
             if (drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0) != REG_UNKNOWN)
                 continue;
@@ -1067,7 +1068,7 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
         if (drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, 0) == REG_UNKNOWN)
             drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, REG_LIVE);
     }
-    for (reg = DR_REG_START_XMM; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
+    for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         if (drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0) == REG_UNKNOWN)
             drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0, REG_LIVE);
     }
