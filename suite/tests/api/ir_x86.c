@@ -1288,6 +1288,64 @@ test_regs(void *dc)
     ASSERT(reg == DR_REG_SP);
     reg = reg_resize_to_opsz(DR_REG_XBP, OPSZ_2);
     ASSERT(reg == DR_REG_BP);
+
+#ifdef X86
+    /* SIMD only XMM, OPSZ 16. */
+    reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_XMM1, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM1);
+    reg = reg_resize_to_opsz(DR_REG_YMM0, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_YMM1, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM1);
+    reg = reg_resize_to_opsz(DR_REG_ZMM0, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_16);
+    ASSERT(reg == DR_REG_XMM1);
+
+    /* SIMD only YMM, OPSZ 32. */
+    reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM0);
+    reg = reg_resize_to_opsz(DR_REG_XMM1, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM1);
+    reg = reg_resize_to_opsz(DR_REG_YMM0, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM0);
+    reg = reg_resize_to_opsz(DR_REG_YMM1, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM1);
+    reg = reg_resize_to_opsz(DR_REG_ZMM0, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM0);
+    reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_32);
+    ASSERT(reg == DR_REG_YMM1);
+
+    /* SIMD only ZMM, OPSZ 64. */
+    reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM0);
+    reg = reg_resize_to_opsz(DR_REG_XMM1, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM1);
+    reg = reg_resize_to_opsz(DR_REG_YMM0, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM0);
+    reg = reg_resize_to_opsz(DR_REG_YMM1, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM1);
+    reg = reg_resize_to_opsz(DR_REG_ZMM0, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM0);
+    reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_64);
+    ASSERT(reg == DR_REG_ZMM1);
+
+    /* SIMD only ZMM, Negation, OPSZ 64. */
+    reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_XMM1, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM1);
+    reg = reg_resize_to_opsz(DR_REG_YMM0, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_YMM1, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM1);
+    reg = reg_resize_to_opsz(DR_REG_ZMM0, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM0);
+    reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_64);
+    ASSERT(reg != DR_REG_XMM1);
+#endif
 }
 
 static void
@@ -2001,6 +2059,70 @@ test_stack_pointer_size(void *dc)
            0);
 }
 
+static void
+test_reg_exact_reads(void *dc)
+{
+    instr_t *instr = INSTR_CREATE_mov_ld(dc, OPND_CREATE_MEMPTR(DR_REG_XAX, 5),
+                                         opnd_create_reg(DR_REG_XBX));
+
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XBX, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XBX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XBX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XBX, 0));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, 0));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, DR_QUERY_DEFAULT));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, 0));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_AX, DR_QUERY_DEFAULT));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_AX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_AX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_AX, 0));
+
+    instr_reset(dc, instr);
+    instr = INSTR_CREATE_mov_ld(dc, OPND_CREATE_MEM16(DR_REG_XAX, 5),
+                                opnd_create_reg(DR_REG_BX));
+
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XBX, DR_QUERY_DEFAULT));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XBX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XBX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XBX, 0));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XAX, 0));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, DR_QUERY_DEFAULT));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_XCX, 0));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_BX, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_BX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_BX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_BX, 0));
+
+    instr_reset(dc, instr);
+    instr =
+        INSTR_CREATE_pxor(dc, opnd_create_reg(DR_REG_XMM0), opnd_create_reg(DR_REG_XMM1));
+
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XMM0, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XMM0, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XMM0, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_exact_reg(instr, DR_REG_XMM0, 0));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_YMM0, DR_QUERY_DEFAULT));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_YMM0, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_YMM0, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_YMM0, 0));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_ZMM0, DR_QUERY_DEFAULT));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_ZMM0, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_ZMM0, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_ZMM0, 0));
+
+    instr_destroy(dc, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2067,6 +2189,8 @@ main(int argc, char *argv[])
     test_xinst_create(dcontext);
 
     test_stack_pointer_size(dcontext);
+
+    test_reg_exact_reads(dcontext);
 
 #ifndef STANDALONE_DECODER /* speed up compilation */
     test_all_opcodes_2_avx512_vex(dcontext);
