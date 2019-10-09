@@ -1261,6 +1261,21 @@ test_regs(void *dc)
     ASSERT(reg == DR_REG_RAX);
 #endif
 
+    ASSERT(reg_is_vector_simd(DR_REG_XMM0));
+    ASSERT(reg_is_vector_simd(DR_REG_XMM1));
+    ASSERT(reg_is_vector_simd(DR_REG_YMM1));
+    ASSERT(reg_is_vector_simd(DR_REG_ZMM1));
+    ASSERT(!reg_is_vector_simd(DR_REG_MM0));
+    ASSERT(!reg_is_vector_simd(DR_REG_MM1));
+    ASSERT(!reg_is_vector_simd(DR_REG_XAX));
+    ASSERT(!reg_is_vector_simd(DR_REG_AX));
+
+#ifdef X64
+    ASSERT(reg_is_vector_simd(DR_REG_XMM31));
+    ASSERT(reg_is_vector_simd(DR_REG_YMM31));
+    ASSERT(reg_is_vector_simd(DR_REG_ZMM31));
+#endif
+
     /* Quick check of other regs. */
     reg = reg_resize_to_opsz(DR_REG_XBX, OPSZ_1);
     ASSERT(reg == DR_REG_BL);
@@ -1289,7 +1304,6 @@ test_regs(void *dc)
     reg = reg_resize_to_opsz(DR_REG_XBP, OPSZ_2);
     ASSERT(reg == DR_REG_BP);
 
-#ifdef X86
     /* SIMD only XMM, OPSZ 16. */
     reg = reg_resize_to_opsz(DR_REG_XMM0, OPSZ_16);
     ASSERT(reg == DR_REG_XMM0);
@@ -1345,7 +1359,6 @@ test_regs(void *dc)
     ASSERT(reg != DR_REG_XMM0);
     reg = reg_resize_to_opsz(DR_REG_ZMM1, OPSZ_64);
     ASSERT(reg != DR_REG_XMM1);
-#endif
 }
 
 static void
