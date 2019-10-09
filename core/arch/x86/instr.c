@@ -2088,6 +2088,13 @@ reg_is_simd(reg_id_t reg)
 }
 
 bool
+reg_is_vector_simd(reg_id_t reg)
+{
+    return reg_is_strictly_xmm(reg) || reg_is_strictly_ymm(reg) ||
+        reg_is_strictly_zmm(reg);
+}
+
+bool
 reg_is_opmask(reg_id_t reg)
 {
     return (reg >= DR_REG_START_OPMASK && reg <= DR_REG_STOP_OPMASK);
