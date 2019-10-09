@@ -2476,7 +2476,7 @@ DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to an SSE or AVX register.
- * In particular, the register must be either an xmm, ymm or
+ * In particular, the register must be either an xmm, ymm, or
  * zmm for the function to return true.
  *
  * This function is subject to include any future vector register
