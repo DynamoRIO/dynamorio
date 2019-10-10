@@ -476,8 +476,8 @@ module_add_segment_data(OUT os_module_data_t *out_data, uint num_segments /*hint
     if (out_data->alignment == 0) {
         out_data->alignment = alignment;
     } else {
-        /* We expect all segments to have the same alignment */
-        ASSERT_CURIOSITY(out_data->alignment == alignment);
+        /* We expect all segments to have the same alignment for ELF. */
+        IF_LINUX(ASSERT_CURIOSITY(out_data->alignment == alignment));
     }
     /* Add segments to the module vector (i#160/PR 562667).
      * For !HAVE_MEMINFO we should combine w/ the segment
@@ -515,10 +515,18 @@ module_add_segment_data(OUT os_module_data_t *out_data, uint num_segments /*hint
     }
     out_data->num_segments++;
     ASSERT(out_data->num_segments <= out_data->alloc_segments);
+#    ifdef MACOS
+    /* Some libraries have sub-page segments so do not page-align.  We assume
+     * these are already aligned.
+     */
+    out_data->segments[seg].start = segment_start;
+    out_data->segments[seg].end = segment_start + segment_size;
+#    else
     /* ELF requires p_vaddr to already be aligned to p_align */
     out_data->segments[seg].start = (app_pc)ALIGN_BACKWARD(segment_start, PAGE_SIZE);
     out_data->segments[seg].end =
         (app_pc)ALIGN_FORWARD(segment_start + segment_size, PAGE_SIZE);
+#    endif
     out_data->segments[seg].prot = segment_prot;
     out_data->segments[seg].shared = shared;
     out_data->segments[seg].offset = offset;
