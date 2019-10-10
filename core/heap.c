@@ -348,7 +348,7 @@ DECLARE_CXTSWPROT_VAR(static recursive_lock_t low_on_memory_pending_lock,
                       INIT_RECURSIVE_LOCK(low_on_memory_pending_lock));
 
 /* Denotes whether or not low on memory event requires triggering. */
-bool low_on_memory_pending = false;
+DECLARE_FREQPROT_VAR(bool low_on_memory_pending, false);
 #endif
 
 #if defined(DEBUG) && defined(HEAP_ACCOUNTING) && defined(HOT_PATCHING_INTERFACE)
