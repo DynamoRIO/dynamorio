@@ -832,8 +832,13 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         }
     }
 
+    /* After each app write, update spilled app values: */
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         if (pt->simd_reg[SIMD_IDX(reg)].in_use) {
+
+            void *state =
+                drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx - 1);
+
             if (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                 /* Don't bother if reg is dead beyond this write */
                 (ops.conservative || pt->live_idx == 0 ||
@@ -849,9 +854,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     }
 
                     /* We pick an unreserved reg, spill it, and use it for scratch */
-                    res =
-                        drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS,
-                                                   bb, inst, NULL, false, &block_reg);
+                    res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
+                                                     inst, NULL, false, &block_reg);
                     if (res != DRREG_SUCCESS)
                         return res;
                     load_indirect_block(drcontext, tls_simd_offs, bb, inst, block_reg);
@@ -863,8 +867,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 instr_t *obt_instr =
                     restored_for_simd_read[SIMD_IDX(reg)] ? instr_get_prev(next) : next;
 
-                res = drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS,
-                                                 bb, obt_instr, NULL, false, &block_reg);
+                res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
+                                                 obt_instr, NULL, false, &block_reg);
                 if (res != DRREG_SUCCESS)
                     return res;
                 load_indirect_block(drcontext, tls_simd_offs, bb, obt_instr, block_reg);
@@ -874,9 +878,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 
                 pt->simd_reg[SIMD_IDX(reg)].ever_spilled = true;
                 if (!restored_for_simd_read[SIMD_IDX(reg)]) {
-                    res =
-                        drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS,
-                                                   bb, next, NULL, false, &block_reg);
+                    res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
+                                                     next, NULL, false, &block_reg);
                     if (res != DRREG_SUCCESS)
                         return res;
                     load_indirect_block(drcontext, tls_simd_offs, bb, next, block_reg);
@@ -901,7 +904,6 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         }
     }
 
-    /* After each app write, update spilled app values: */
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         if (pt->reg[GPR_IDX(reg)].in_use) {
             if (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
