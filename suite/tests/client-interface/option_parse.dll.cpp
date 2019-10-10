@@ -75,11 +75,15 @@ static droption_t<twostring_t>
                 twostring_t("", ""),
                 "Param that takes 2 and uses customized separator \"+\"",
                 "Longer desc of param that takes 2 and uses customized separator \"+\"");
+static droption_t<bytesize_t>
+    op_large_bytesize(DROPTION_SCOPE_CLIENT, "large_bytesize", DROPTION_FLAG_ACCUMULATE,
+                      0, "Param that takes in a large bytesize value",
+                      "Longer desc of param that takes in a large bytesize value");
 
 static void
 test_argv(int argc, const char *argv[])
 {
-    ASSERT(argc == 32);
+    ASSERT(argc == 34);
     ASSERT(strcmp(argv[1], "-x") == 0);
     ASSERT(strcmp(argv[2], "4") == 0);
     ASSERT(strcmp(argv[3], "-y") == 0);
@@ -111,6 +115,8 @@ test_argv(int argc, const char *argv[])
     ASSERT(strcmp(argv[29], "-val_sep2") == 0);
     ASSERT(strcmp(argv[30], "v3") == 0);
     ASSERT(strcmp(argv[31], "v4") == 0);
+    ASSERT(strcmp(argv[32], "-large_bytesize") == 0);
+    ASSERT(strcmp(argv[33], "9999999999") == 0);
 }
 
 DR_EXPORT void
@@ -144,6 +150,7 @@ dr_client_main(client_id_t client_id, int argc, const char *argv[])
     dr_fprintf(STDERR, "param val_sep2 = |%s|,|%s|\n",
                op_val_sep2.get_value().first.c_str(),
                op_val_sep2.get_value().second.c_str());
+    dr_fprintf(STDERR, "param large_bytesize = %lld\n", op_large_bytesize.get_value());
     ASSERT(!op_foo.specified());
     ASSERT(!op_bar.specified());
 
