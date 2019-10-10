@@ -28,12 +28,6 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "3.3" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "3.3")
-  # XXX i#1955: update our code to satisfy the changes in 3.3
-  cmake_policy(SET CMP0058 OLD)
-endif ()
-
 # XXX i#1718: update our code to satisfy the changes in 3.x
 cmake_policy(SET CMP0054 OLD)
 
