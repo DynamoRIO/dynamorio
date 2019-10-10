@@ -107,7 +107,6 @@ typedef struct _reg_info_t {
      * reservation).
      */
     bool ever_spilled;
-
     /* Where is the app value for this reg? */
     bool native;   /* app value is in original app reg */
     reg_id_t xchg; /* if !native && != REG_NULL, value was exchanged w/ this dead reg */
@@ -120,7 +119,7 @@ typedef struct _reg_info_t {
 #define GPR_IDX(reg) ((reg)-DR_REG_START_GPR)
 #define SIMD_IDX(reg) ((reg_resize_to_opsz(reg, OPSZ_64)) - DR_REG_START_ZMM)
 
-/* Depending on architecture, we have a set of applicable XMM registers */
+/* Depending on architecture, we have a set of applicable SIMD registers */
 #define DR_REG_APPLICABLE_START_SIMD DR_REG_START_ZMM
 #define DR_REG_APPLICABLE_STOP_SIMD \
     (DR_REG_APPLICABLE_START_SIMD + MCXT_NUM_SIMD_SLOTS - 1)
@@ -131,7 +130,7 @@ typedef struct _per_thread_t {
     reg_info_t reg[DR_NUM_GPR_REGS];
     reg_info_t simd_reg[MCXT_NUM_SIMD_SLOTS];
     byte *simd_spill_start;
-    byte *simd_spills; /* Storage for SIMD data */
+    byte *simd_spills; /* aligned storage for SIMD data */
     reg_info_t aflags;
     reg_id_t slot_use[MAX_SPILLS]; /* holds the reg_id_t of which reg is inside */
     reg_id_t simd_slot_use[MAX_SIMD_SPILLS];
@@ -147,7 +146,8 @@ typedef struct _per_thread_t {
 static drreg_options_t ops;
 
 static int tls_idx = -1;
-static uint tls_simd_offs; /* Start of all tls slots */
+static uint tls_start_offs; /* start of all tls slots */
+static uint tls_simd_offs; /* start of tls slots for gpr registers */
 static uint tls_slot_offs; /* Start of tls slots for gpr registers */
 static reg_id_t tls_seg;
 
@@ -521,6 +521,14 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
             if (index > 0)
                 value = drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, index - 1);
 
+            /* It is important to give precedence to bigger registers.
+             * If both ZMM0 and YMM0 are read and therefore live, then
+             * SIMD_ZMM_LIVE must be assigned and not SIMD_YMM_LIVE.
+             *
+             * The inverse also needs to be maintained. If both
+             * ZMM0 and YMM0 are dead, then SIMD_ZMM_DEAD must be
+             * assigned and not SIMD_YMM_DEAD.
+             */
             if (instr_reads_from_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
                 value < SIMD_ZMM_LIVE)
                 value = SIMD_ZMM_LIVE;
