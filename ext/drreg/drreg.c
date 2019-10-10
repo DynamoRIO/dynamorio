@@ -825,9 +825,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 (ops.conservative || pt->live_idx == 0 ||
                  (state >= SIMD_XMM_LIVE && state <= SIMD_ZMM_LIVE))) {
 
-				reg_id_t spilled_reg = pt->simd_slot_use[pt->simd_reg[SIMD_IDX(
-						reg)].slot];
-				ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
+                reg_id_t spilled_reg =
+                    pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
+                ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
 
                 uint tmp_slot = MAX_SIMD_SPILLS;
                 if (!restored_for_simd_read[SIMD_IDX(reg)]) {
@@ -857,8 +857,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 if (res != DRREG_SUCCESS)
                     return res;
                 load_indirect_block(drcontext, tls_simd_offs, bb, where, block_reg);
-                spill_reg_indirectly(drcontext, pt, spilled_reg, pt->simd_reg[SIMD_IDX(reg)].slot,
-                                     bb, where, block_reg);
+                spill_reg_indirectly(drcontext, pt, spilled_reg,
+                                     pt->simd_reg[SIMD_IDX(reg)].slot, bb, where,
+                                     block_reg);
                 drreg_unreserve_register(drcontext, bb, where, block_reg);
 
                 pt->simd_reg[SIMD_IDX(reg)].ever_spilled = true;
@@ -1037,36 +1038,37 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
              reg++) {
             void *value = SIMD_UNKNOWN;
-			if (drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live,
-					0) != SIMD_UNKNOWN)
-				continue;
+            if (drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0) != SIMD_UNKNOWN)
+                continue;
 
             /* Reason over partial registers in SIMD case to achieve efficient spilling*/
             reg_id_t xmm_reg = reg_resize_to_opsz(reg, OPSZ_16);
             reg_id_t ymm_reg = reg_resize_to_opsz(reg, OPSZ_32);
             reg_id_t zmm_reg = reg_resize_to_opsz(reg, OPSZ_64);
 
-			if (instr_reads_from_exact_reg(inst, zmm_reg,
-					DR_QUERY_INCLUDE_COND_SRCS) && value < SIMD_ZMM_LIVE)
-				value = SIMD_ZMM_LIVE;
-			else if (instr_reads_from_exact_reg(inst, ymm_reg,
-					DR_QUERY_INCLUDE_COND_SRCS) && value < SIMD_YMM_LIVE)
-				value = SIMD_YMM_LIVE;
-			else if (instr_reads_from_exact_reg(inst, xmm_reg,
-					DR_QUERY_INCLUDE_COND_SRCS) && value < SIMD_XMM_LIVE)
-				value = SIMD_XMM_LIVE;
-			else if (instr_writes_to_exact_reg(inst, zmm_reg,
-					DR_QUERY_INCLUDE_COND_SRCS)
-					&& (value < SIMD_ZMM_DEAD || value >= SIMD_XMM_LIVE))
-				value = SIMD_ZMM_DEAD;
-			else if (instr_writes_to_exact_reg(inst, ymm_reg,
-					DR_QUERY_INCLUDE_COND_SRCS)
-					&& (value < SIMD_YMM_DEAD || value >= SIMD_XMM_LIVE))
-				value = SIMD_YMM_DEAD;
-			else if (instr_writes_to_exact_reg(inst, xmm_reg,
-					DR_QUERY_INCLUDE_COND_SRCS)
-					&& (value < SIMD_XMM_DEAD || value >= SIMD_XMM_LIVE))
-				value = SIMD_XMM_DEAD;
+            if (instr_reads_from_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
+                value < SIMD_ZMM_LIVE)
+                value = SIMD_ZMM_LIVE;
+            else if (instr_reads_from_exact_reg(inst, ymm_reg,
+                                                DR_QUERY_INCLUDE_COND_SRCS) &&
+                     value < SIMD_YMM_LIVE)
+                value = SIMD_YMM_LIVE;
+            else if (instr_reads_from_exact_reg(inst, xmm_reg,
+                                                DR_QUERY_INCLUDE_COND_SRCS) &&
+                     value < SIMD_XMM_LIVE)
+                value = SIMD_XMM_LIVE;
+            else if (instr_writes_to_exact_reg(inst, zmm_reg,
+                                               DR_QUERY_INCLUDE_COND_SRCS) &&
+                     (value < SIMD_ZMM_DEAD || value >= SIMD_XMM_LIVE))
+                value = SIMD_ZMM_DEAD;
+            else if (instr_writes_to_exact_reg(inst, ymm_reg,
+                                               DR_QUERY_INCLUDE_COND_SRCS) &&
+                     (value < SIMD_YMM_DEAD || value >= SIMD_XMM_LIVE))
+                value = SIMD_YMM_DEAD;
+            else if (instr_writes_to_exact_reg(inst, xmm_reg,
+                                               DR_QUERY_INCLUDE_COND_SRCS) &&
+                     (value < SIMD_XMM_DEAD || value >= SIMD_XMM_LIVE))
+                value = SIMD_XMM_DEAD;
 
             if (value != SIMD_UNKNOWN)
                 drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0, value);
