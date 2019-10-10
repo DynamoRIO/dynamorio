@@ -604,61 +604,6 @@ drreg_event_bb_insert_early(void *drcontext, void *tag, instrlist_t *bb, instr_t
     return DR_EMIT_DEFAULT;
 }
 
-static drreg_status_t
-drreg_spill_then_restore_indirectly_now(void *drcontext, instrlist_t *bb, instr_t *inst,
-                                        per_thread_t *pt, reg_id_t reg)
-{
-    drreg_status_t res = DRREG_SUCCESS;
-    reg_id_t block_reg; /* Used for indirect access */
-    instr_t *next = instr_get_next(inst);
-
-    ASSERT(reg_is_gpr(reg), "gpr regs should be indirectly spilled/restored");
-
-    if (reg_is_vector_simd(reg)) {
-        ASSERT(is_applicable_simd(reg), "reg is not applicable");
-
-        reg_id_t spilled_reg = pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
-        ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
-
-        uint tmp_slot = find_simd_free_slot(pt);
-        if (tmp_slot == MAX_SIMD_SPILLS) {
-            drreg_report_error(DRREG_ERROR_OUT_OF_SLOTS,
-                               "failed to preserve tool val around app read");
-        }
-
-        res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb, inst, NULL,
-                                         false, &block_reg);
-        if (res != DRREG_SUCCESS)
-            return res;
-        load_indirect_block(drcontext, tls_simd_offs, bb, inst, block_reg);
-
-        spill_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, inst, block_reg);
-
-        restore_reg_indirectly(drcontext, pt, spilled_reg,
-                               pt->simd_reg[SIMD_IDX(reg)].slot, bb, inst, block_reg,
-                               false /*keep slot*/);
-        res = drreg_unreserve_register(drcontext, bb, inst, block_reg);
-        if (res != DRREG_SUCCESS)
-            return res;
-
-        res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb, next, NULL,
-                                         false, &block_reg);
-        if (res != DRREG_SUCCESS)
-            return res;
-
-        load_indirect_block(drcontext, tls_simd_offs, bb, next, block_reg);
-        restore_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, next, block_reg,
-                               true);
-
-        /* We keep .native==false */
-        drreg_unreserve_register(drcontext, bb, next, block_reg);
-    } else {
-        ASSERT(reg_is_gpr(reg), "non-applicable reg");
-    }
-
-    return res;
-}
-
 static dr_emit_flags_t
 drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                            bool for_trace, bool translating, void *user_data)
@@ -705,7 +650,6 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         restored_for_simd_read[SIMD_IDX(reg)] = false;
         if (!pt->simd_reg[SIMD_IDX(reg)].native) {
-
             if (drmgr_is_last_instr(drcontext, inst) ||
                 instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_ALL) ||
                 /* i#1954: for complex bbs we must restore before the next app instr */
@@ -720,7 +664,46 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     ASSERT(pt->simd_pending_unreserved > 0, "should not go negative");
                     pt->simd_pending_unreserved--;
                 } else {
-                    drreg_spill_then_restore_indirectly_now(drcontext, bb, inst, pt, reg);
+                    if (reg_is_vector_simd(reg)) {
+                        reg_id_t spilled_reg =
+                            pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
+                        ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
+
+                        uint tmp_slot = find_simd_free_slot(pt);
+                        if (tmp_slot == MAX_SIMD_SPILLS) {
+                            drreg_report_error(
+                                DRREG_ERROR_OUT_OF_SLOTS,
+                                "failed to preserve tool val around app read");
+                        }
+                        res =
+                            drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS,
+                                                       bb, inst, NULL, false, &block_reg);
+                        if (res != DRREG_SUCCESS)
+                            return res;
+                        load_indirect_block(drcontext, tls_simd_offs, bb, inst,
+                                            block_reg);
+                        spill_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb,
+                                             inst, block_reg);
+                        restore_reg_indirectly(drcontext, pt, spilled_reg,
+                                               pt->simd_reg[SIMD_IDX(reg)].slot, bb, inst,
+                                               block_reg, false /*keep slot*/);
+                        res = drreg_unreserve_register(drcontext, bb, inst, block_reg);
+                        if (res != DRREG_SUCCESS)
+                            return res;
+                        res =
+                            drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS,
+                                                       bb, next, NULL, false, &block_reg);
+                        if (res != DRREG_SUCCESS)
+                            return res;
+                        load_indirect_block(drcontext, tls_simd_offs, bb, next,
+                                            block_reg);
+                        restore_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb,
+                                               next, block_reg, true);
+                        /* We keep .native==false */
+                        drreg_unreserve_register(drcontext, bb, next, block_reg);
+                    } else {
+                        ASSERT(reg_is_gpr(reg), "non-applicable reg");
+                    }
                     /* Share the tool val spill if this inst writes too */
                     restored_for_simd_read[SIMD_IDX(reg)] = true;
                 }
@@ -835,17 +818,18 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     /* After each app write, update spilled app values: */
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         if (pt->simd_reg[SIMD_IDX(reg)].in_use) {
-
             void *state =
                 drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx - 1);
-
             if (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                 /* Don't bother if reg is dead beyond this write */
                 (ops.conservative || pt->live_idx == 0 ||
-                 drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live,
-                                    pt->live_idx - 1) == REG_LIVE)) {
-                uint tmp_slot = MAX_SIMD_SPILLS;
+                 (state >= SIMD_XMM_LIVE && state <= SIMD_ZMM_LIVE))) {
 
+				reg_id_t spilled_reg = pt->simd_slot_use[pt->simd_reg[SIMD_IDX(
+						reg)].slot];
+				ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
+
+                uint tmp_slot = MAX_SIMD_SPILLS;
                 if (!restored_for_simd_read[SIMD_IDX(reg)]) {
                     tmp_slot = find_simd_free_slot(pt);
                     if (tmp_slot == MAX_SIMD_SPILLS) {
@@ -859,22 +843,23 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     if (res != DRREG_SUCCESS)
                         return res;
                     load_indirect_block(drcontext, tls_simd_offs, bb, inst, block_reg);
-                    spill_reg_indirectly(drcontext, pt, reg, tmp_slot, bb, inst,
+
+                    spill_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, inst,
                                          block_reg);
                     drreg_unreserve_register(drcontext, bb, inst, block_reg);
                 }
 
-                instr_t *obt_instr =
+                instr_t *where =
                     restored_for_simd_read[SIMD_IDX(reg)] ? instr_get_prev(next) : next;
 
                 res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
-                                                 obt_instr, NULL, false, &block_reg);
+                                                 where, NULL, false, &block_reg);
                 if (res != DRREG_SUCCESS)
                     return res;
-                load_indirect_block(drcontext, tls_simd_offs, bb, obt_instr, block_reg);
-                spill_reg_indirectly(drcontext, pt, reg, pt->simd_reg[SIMD_IDX(reg)].slot,
-                                     bb, obt_instr, block_reg);
-                drreg_unreserve_register(drcontext, bb, obt_instr, block_reg);
+                load_indirect_block(drcontext, tls_simd_offs, bb, where, block_reg);
+                spill_reg_indirectly(drcontext, pt, spilled_reg, pt->simd_reg[SIMD_IDX(reg)].slot,
+                                     bb, where, block_reg);
+                drreg_unreserve_register(drcontext, bb, where, block_reg);
 
                 pt->simd_reg[SIMD_IDX(reg)].ever_spilled = true;
                 if (!restored_for_simd_read[SIMD_IDX(reg)]) {
@@ -883,8 +868,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     if (res != DRREG_SUCCESS)
                         return res;
                     load_indirect_block(drcontext, tls_simd_offs, bb, next, block_reg);
-
-                    restore_reg_indirectly(drcontext, pt, reg, tmp_slot, bb,
+                    restore_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb,
                                            next /*after*/, block_reg, true);
                     drreg_unreserve_register(drcontext, bb, next, block_reg);
                 }
@@ -894,7 +878,6 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
             /* For an unreserved reg that's written, just drop the slot, even
              * if it was spilled at an earlier reservation point.
              */
-
             if (pt->simd_reg[SIMD_IDX(reg)].ever_spilled)
                 pt->simd_reg[SIMD_IDX(reg)].ever_spilled = false; /* no need to restore */
             res = drreg_restore_reg_now(drcontext, bb, inst, pt, reg);
@@ -1050,19 +1033,42 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
                 drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, value);
         }
 
-        /* XMM liveness */
+        /* SIMD liveness */
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
              reg++) {
-            void *value = REG_UNKNOWN;
-            if (drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0) != REG_UNKNOWN)
-                continue;
-            /* DRi#1849: COND_SRCS here includes addressing regs in dsts */
-            if (instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS))
-                value = REG_LIVE;
-            /* make sure we don't consider writes to sub-regs */
-            else if (instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS))
-                value = REG_DEAD;
-            if (value != REG_UNKNOWN)
+            void *value = SIMD_UNKNOWN;
+			if (drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live,
+					0) != SIMD_UNKNOWN)
+				continue;
+
+            /* Reason over partial registers in SIMD case to achieve efficient spilling*/
+            reg_id_t xmm_reg = reg_resize_to_opsz(reg, OPSZ_16);
+            reg_id_t ymm_reg = reg_resize_to_opsz(reg, OPSZ_32);
+            reg_id_t zmm_reg = reg_resize_to_opsz(reg, OPSZ_64);
+
+			if (instr_reads_from_exact_reg(inst, zmm_reg,
+					DR_QUERY_INCLUDE_COND_SRCS) && value < SIMD_ZMM_LIVE)
+				value = SIMD_ZMM_LIVE;
+			else if (instr_reads_from_exact_reg(inst, ymm_reg,
+					DR_QUERY_INCLUDE_COND_SRCS) && value < SIMD_YMM_LIVE)
+				value = SIMD_YMM_LIVE;
+			else if (instr_reads_from_exact_reg(inst, xmm_reg,
+					DR_QUERY_INCLUDE_COND_SRCS) && value < SIMD_XMM_LIVE)
+				value = SIMD_XMM_LIVE;
+			else if (instr_writes_to_exact_reg(inst, zmm_reg,
+					DR_QUERY_INCLUDE_COND_SRCS)
+					&& (value < SIMD_ZMM_DEAD || value >= SIMD_XMM_LIVE))
+				value = SIMD_ZMM_DEAD;
+			else if (instr_writes_to_exact_reg(inst, ymm_reg,
+					DR_QUERY_INCLUDE_COND_SRCS)
+					&& (value < SIMD_YMM_DEAD || value >= SIMD_XMM_LIVE))
+				value = SIMD_YMM_DEAD;
+			else if (instr_writes_to_exact_reg(inst, xmm_reg,
+					DR_QUERY_INCLUDE_COND_SRCS)
+					&& (value < SIMD_XMM_DEAD || value >= SIMD_XMM_LIVE))
+				value = SIMD_XMM_DEAD;
+
+            if (value != SIMD_UNKNOWN)
                 drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0, value);
         }
 
@@ -1091,8 +1097,8 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
             drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, REG_LIVE);
     }
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
-        if (drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0) == REG_UNKNOWN)
-            drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0, REG_LIVE);
+        if (drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0) == SIMD_UNKNOWN)
+            drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0, SIMD_ZMM_LIVE);
     }
     drvector_set_entry(&pt->aflags.live, 0,
                        (void *)(ptr_uint_t)
@@ -1145,9 +1151,7 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
             return DRREG_ERROR_INVALID_PARAMETER;
         start_reg = DR_REG_START_GPR;
     } else if (reg_is_vector_simd(reg)) {
-        reg_id_t zmm_reg = reg_resize_to_opsz(reg, OPSZ_64);
-        if (vec == NULL || zmm_reg < DR_REG_APPLICABLE_START_SIMD ||
-            zmm_reg > DR_REG_APPLICABLE_STOP_SIMD)
+        if (vec == NULL || !is_applicable_simd(reg))
             return DRREG_ERROR_INVALID_PARAMETER;
         start_reg = DR_REG_APPLICABLE_START_SIMD;
     } else {
