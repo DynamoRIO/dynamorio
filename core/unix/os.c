@@ -823,7 +823,7 @@ get_uname(void)
      * crash with no output: I'd rather have two messages than silent crashing.
      */
     if (DYNAMO_OPTION(max_supported_os_version) != 0) { /* 0 disables */
-        /* We only support OSX 10.7.5 - 10.9.1.  That means kernels 11.x-13.x. */
+        /* We only support OSX 10.7.5+.  That means kernels 11.x+. */
 #    define MIN_DARWIN_VERSION_SUPPORTED 11
         int kernel_major;
         if (sscanf(uinfo.release, "%d", &kernel_major) != 1 ||
