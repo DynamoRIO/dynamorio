@@ -1509,9 +1509,9 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
     per_thread_t *pt = get_tls_data(drcontext);
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
 
-	if (reg_is_gpr(app_reg)
-			&& (!reg_is_pointer_sized(app_reg) || !reg_is_pointer_sized(dst_reg)))
-		return DRREG_ERROR_INVALID_PARAMETER;
+    if (reg_is_gpr(app_reg) &&
+        (!reg_is_pointer_sized(app_reg) || !reg_is_pointer_sized(dst_reg)))
+        return DRREG_ERROR_INVALID_PARAMETER;
 
     /* XXX i#2585: drreg should predicate spills and restores as appropriate */
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
@@ -1957,7 +1957,7 @@ drreg_is_register_dead(void *drcontext, reg_id_t reg, instr_t *inst, bool *dead)
 
     if (reg_is_gpr(reg))
         *dead = drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx) == REG_DEAD;
-     else if (reg_is_vector_simd(reg))
+    else if (reg_is_vector_simd(reg))
         *dead = drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx) ==
             SIMD_ZMM_DEAD;
     else
@@ -2350,9 +2350,8 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
     bool tls;
     uint slot, offs;
     reg_id_t reg;
-    bool
-        is_spilled; /* Flag denoting spillage regardless whether directly or indirectly */
-    bool is_indirect; /* Flag denoting whether spillage is direct or indirect */
+    bool is_spilled;  /* Flag denoting spill or restore*/
+    bool is_indirect; /* Flag denoting direct or indirect access */
 
     is_indirect = false;
     if (is_indirectly_spilled != NULL)
@@ -2367,7 +2366,8 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
     } else if (tls && offs == tls_simd_offs &&
                !(is_spilled) /* Cant be a spill bc loading block */) {
         ASSERT(next_instr != NULL, "next_instr cannot be NULL");
-        ASSERT(instr_get_opcode(next_instr) == OP_movdqa,
+        ASSERT(instr_get_opcode(next_instr) == OP_movdqa ||
+                   instr_get_opcode(next_instr) == OP_vmovdqa,
                "next instruction needs to be a mov");
         is_indirect = true;
         opnd_t dst = instr_get_dst(next_instr, 0);
@@ -2509,6 +2509,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
         spilled_to[GPR_IDX(reg)] = MAX_SPILLS;
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++)
         spilled_simd_to[SIMD_IDX(reg)] = MAX_SIMD_SPILLS;
+
     LOG(drcontext, DR_LOG_ALL, 3,
         "%s: processing fault @" PFX ": decoding from " PFX "\n", __FUNCTION__,
         info->raw_mcontext->pc, pc);
