@@ -431,6 +431,58 @@ drreg_max_slots_used(OUT uint *max)
  * ANALYSIS AND CROSS-APP-INSTR
  */
 
+/* Returns true if state has been set */
+static bool
+determine_simd_liveliness_state(instr_t *inst, reg_id_t reg, void **value)
+{
+
+    ASSERT(value != NULL, "cannot be NULL");
+    ASSERT(reg_is_vector_simd(reg), "must be a vector SIMD register");
+
+    /* Reason over partial registers in SIMD case to achieve efficient spilling*/
+    reg_id_t xmm_reg = reg_resize_to_opsz(reg, OPSZ_16);
+    reg_id_t ymm_reg = reg_resize_to_opsz(reg, OPSZ_32);
+    reg_id_t zmm_reg = reg_resize_to_opsz(reg, OPSZ_64);
+
+    /* It is important to give precedence to bigger registers.
+     * If both ZMM0 and YMM0 are read and therefore live, then
+     * SIMD_ZMM_LIVE must be assigned and not SIMD_YMM_LIVE.
+     *
+     * The inverse also needs to be maintained. If both
+     * ZMM0 and YMM0 are dead, then SIMD_ZMM_DEAD must be
+     * assigned and not SIMD_YMM_DEAD.
+     *
+     * This is important to achieve efficient spilling/restoring.
+     */
+    if (instr_reads_from_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
+        *value < SIMD_ZMM_LIVE) {
+        *value = SIMD_ZMM_LIVE;
+        return true;
+    } else if (instr_reads_from_exact_reg(inst, ymm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
+               *value < SIMD_YMM_LIVE) {
+        *value = SIMD_YMM_LIVE;
+        return true;
+    } else if (instr_reads_from_exact_reg(inst, xmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
+               *value < SIMD_XMM_LIVE) {
+        *value = SIMD_XMM_LIVE;
+        return true;
+    } else if (instr_writes_to_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
+               (*value < SIMD_ZMM_DEAD || *value >= SIMD_XMM_LIVE)) {
+        *value = SIMD_ZMM_DEAD;
+        return true;
+    } else if (instr_writes_to_exact_reg(inst, ymm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
+               (*value < SIMD_YMM_DEAD || *value >= SIMD_XMM_LIVE)) {
+        *value = SIMD_YMM_DEAD;
+        return true;
+    } else if (instr_writes_to_exact_reg(inst, xmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
+               (*value < SIMD_XMM_DEAD || *value >= SIMD_XMM_LIVE)) {
+        *value = SIMD_XMM_DEAD;
+        return true;
+    }
+
+    return false;
+}
+
 static void
 count_app_uses(per_thread_t *pt, opnd_t opnd)
 {
@@ -521,49 +573,11 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         /* SIMD liveness */
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
              reg++) {
-            /* Reason over partial registers in SIMD case to achieve efficient spilling*/
-            reg_id_t xmm_reg = reg_resize_to_opsz(reg, OPSZ_16);
-            reg_id_t ymm_reg = reg_resize_to_opsz(reg, OPSZ_32);
-            reg_id_t zmm_reg = reg_resize_to_opsz(reg, OPSZ_64);
-
             void *value = SIMD_ZMM_LIVE;
             if (index > 0)
                 value = drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, index - 1);
 
-            /* It is important to give precedence to bigger registers.
-             * If both ZMM0 and YMM0 are read and therefore live, then
-             * SIMD_ZMM_LIVE must be assigned and not SIMD_YMM_LIVE.
-             *
-             * The inverse also needs to be maintained. If both
-             * ZMM0 and YMM0 are dead, then SIMD_ZMM_DEAD must be
-             * assigned and not SIMD_YMM_DEAD.
-             *
-             * This is important to achieve efficient spilling/restoring.
-             */
-            if (instr_reads_from_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
-                value < SIMD_ZMM_LIVE)
-                value = SIMD_ZMM_LIVE;
-            else if (instr_reads_from_exact_reg(inst, ymm_reg,
-                                                DR_QUERY_INCLUDE_COND_SRCS) &&
-                     value < SIMD_YMM_LIVE)
-                value = SIMD_YMM_LIVE;
-            else if (instr_reads_from_exact_reg(inst, xmm_reg,
-                                                DR_QUERY_INCLUDE_COND_SRCS) &&
-                     value < SIMD_XMM_LIVE)
-                value = SIMD_XMM_LIVE;
-            else if (instr_writes_to_exact_reg(inst, zmm_reg,
-                                               DR_QUERY_INCLUDE_COND_SRCS) &&
-                     (value < SIMD_ZMM_DEAD || value >= SIMD_XMM_LIVE))
-                value = SIMD_ZMM_DEAD;
-            else if (instr_writes_to_exact_reg(inst, ymm_reg,
-                                               DR_QUERY_INCLUDE_COND_SRCS) &&
-                     (value < SIMD_YMM_DEAD || value >= SIMD_XMM_LIVE))
-                value = SIMD_YMM_DEAD;
-            else if (instr_writes_to_exact_reg(inst, xmm_reg,
-                                               DR_QUERY_INCLUDE_COND_SRCS) &&
-                     (value < SIMD_XMM_DEAD || value >= SIMD_XMM_LIVE))
-                value = SIMD_XMM_DEAD;
-            else if (xfer)
+            if (!determine_simd_liveliness_state(inst, reg, &value) && (xfer))
                 value = SIMD_ZMM_LIVE;
 
             drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, index, value);
@@ -1054,34 +1068,7 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
             if (drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0) != SIMD_UNKNOWN)
                 continue;
 
-            /* Reason over partial registers in SIMD case to achieve efficient spilling*/
-            reg_id_t xmm_reg = reg_resize_to_opsz(reg, OPSZ_16);
-            reg_id_t ymm_reg = reg_resize_to_opsz(reg, OPSZ_32);
-            reg_id_t zmm_reg = reg_resize_to_opsz(reg, OPSZ_64);
-
-            if (instr_reads_from_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
-                value < SIMD_ZMM_LIVE)
-                value = SIMD_ZMM_LIVE;
-            else if (instr_reads_from_exact_reg(inst, ymm_reg,
-                                                DR_QUERY_INCLUDE_COND_SRCS) &&
-                     value < SIMD_YMM_LIVE)
-                value = SIMD_YMM_LIVE;
-            else if (instr_reads_from_exact_reg(inst, xmm_reg,
-                                                DR_QUERY_INCLUDE_COND_SRCS) &&
-                     value < SIMD_XMM_LIVE)
-                value = SIMD_XMM_LIVE;
-            else if (instr_writes_to_exact_reg(inst, zmm_reg,
-                                               DR_QUERY_INCLUDE_COND_SRCS) &&
-                     (value < SIMD_ZMM_DEAD || value >= SIMD_XMM_LIVE))
-                value = SIMD_ZMM_DEAD;
-            else if (instr_writes_to_exact_reg(inst, ymm_reg,
-                                               DR_QUERY_INCLUDE_COND_SRCS) &&
-                     (value < SIMD_YMM_DEAD || value >= SIMD_XMM_LIVE))
-                value = SIMD_YMM_DEAD;
-            else if (instr_writes_to_exact_reg(inst, xmm_reg,
-                                               DR_QUERY_INCLUDE_COND_SRCS) &&
-                     (value < SIMD_XMM_DEAD || value >= SIMD_XMM_LIVE))
-                value = SIMD_XMM_DEAD;
+            determine_simd_liveliness_state(inst, reg, &value);
 
             if (value != SIMD_UNKNOWN)
                 drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0, value);
