@@ -1595,9 +1595,7 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
             if (stateful && !pt->reg[GPR_IDX(app_reg)].in_use)
                 pt->reg[GPR_IDX(app_reg)].native = true;
         }
-    }
-
-    if (is_applicable_simd(app_reg)) {
+    } else if (is_applicable_simd(app_reg)) {
 
         if (!is_applicable_simd(dst_reg))
             return DRREG_ERROR_INVALID_PARAMETER;
@@ -1626,20 +1624,17 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
             return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
         }
 
-        reg_id_t xmm_block_reg;
+        reg_id_t block_reg;
         /* We pick an unreserved reg, spill it, and use it for scratch */
-        drreg_status_t res =
-            drreg_reserve_reg_internal(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, ilist,
-                                       where, NULL, false, &xmm_block_reg);
+        drreg_status_t res = drreg_reserve_reg_internal(
+            drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL, false, &block_reg);
         if (res != DRREG_SUCCESS)
             return res;
-
-        // Load XMM Block
-        load_indirect_block(drcontext, tls_simd_offs, ilist, where, xmm_block_reg);
+        load_indirect_block(drcontext, tls_simd_offs, ilist, where, block_reg);
         restore_reg_indirectly(
             drcontext, pt, app_reg, pt->simd_reg[SIMD_IDX(app_reg)].slot, ilist, where,
-            xmm_block_reg, stateful && !pt->simd_reg[SIMD_IDX(app_reg)].in_use);
-        res = drreg_unreserve_register(drcontext, ilist, where, xmm_block_reg);
+            block_reg, stateful && !pt->simd_reg[SIMD_IDX(app_reg)].in_use);
+        res = drreg_unreserve_register(drcontext, ilist, where, block_reg);
         if (res != DRREG_SUCCESS)
             return res;
 
@@ -1671,7 +1666,7 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, op
     /* XXX i#2585: drreg should predicate spills and restores as appropriate */
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
 
-    /* First restore XMM registers. */
+    /* First restore SIMD registers. */
     for (i = 0; i < num_op; i++) {
         reg_id_t reg = opnd_get_reg_used(opnd, i);
         reg_id_t dst;
@@ -1723,7 +1718,6 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, op
             return res;
         }
     }
-
     instrlist_set_auto_predicate(ilist, pred);
     return (no_app_value ? DRREG_ERROR_NO_APP_VALUE : DRREG_SUCCESS);
 }
@@ -1892,10 +1886,9 @@ drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
     per_thread_t *pt = get_tls_data(drcontext);
     drreg_status_t res;
 
-    if (is_applicable_simd(reg) && !pt->simd_reg[SIMD_IDX(reg)].in_use)
-        return DRREG_ERROR_INVALID_PARAMETER;
-    else if (reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR ||
-             !pt->reg[GPR_IDX(reg)].in_use)
+    if ((reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR ||
+         !pt->reg[GPR_IDX(reg)].in_use) ||
+        (is_applicable_simd(reg) && !pt->simd_reg[SIMD_IDX(reg)].in_use))
         return DRREG_ERROR_INVALID_PARAMETER;
 
     res = drreg_reservation_info_ex(drcontext, reg, &info);
@@ -2720,7 +2713,8 @@ tls_data_init(per_thread_t *pt)
         pt->reg[GPR_IDX(reg)].native = true;
     }
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
-        drvector_init(&pt->simd_reg[SIMD_IDX(reg)].live, MCXT_NUM_SIMD_SLOTS + 10, false /*!synch*/, NULL);
+        drvector_init(&pt->simd_reg[SIMD_IDX(reg)].live, MCXT_NUM_SIMD_SLOTS + 10,
+                      false /*!synch*/, NULL);
         pt->simd_reg[SIMD_IDX(reg)].native = true;
     }
     pt->aflags.native = true;
