@@ -1713,10 +1713,14 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
     if (reg == DR_REG_NULL) {
         res = drreg_restore_aflags(drcontext, ilist, where_restore, pt, false);
     } else {
-        if (!is_applicable_simd(reg) ||
-            (reg_is_gpr(reg) &&
-             (!reg_is_pointer_sized(reg) || reg == dr_get_stolen_reg())))
-            return DRREG_ERROR_INVALID_PARAMETER;
+		if ((reg_is_vector_simd(reg) && !is_applicable_simd(reg))
+				|| (reg_is_gpr(reg)
+						&& (!reg_is_pointer_sized(reg)
+								|| reg == dr_get_stolen_reg()))) {
+			dr_fprintf(STDERR, "%p %s\n", reg, get_register_name(reg));
+			ASSERT(false, "hi! ");
+			return DRREG_ERROR_INVALID_PARAMETER;
+		}
         res = drreg_restore_app_value(drcontext, ilist, where_restore, reg, reg, false);
     }
     if (restore_needed != NULL)
