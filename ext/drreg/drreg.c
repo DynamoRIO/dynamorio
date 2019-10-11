@@ -478,7 +478,6 @@ determine_simd_liveliness_state(instr_t *inst, reg_id_t reg, void **value)
         *value = SIMD_XMM_DEAD;
         return true;
     }
-
     return false;
 }
 
@@ -523,7 +522,6 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         pt->reg[GPR_IDX(reg)].app_uses = 0;
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++)
         pt->simd_reg[SIMD_IDX(reg)].app_uses = 0;
-
     /* pt->bb_props is set to 0 at thread init and after each bb */
     pt->bb_has_internal_flow = false;
 
@@ -568,7 +566,6 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
                 (int)(ptr_uint_t)value);
             drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, index, value);
         }
-
         /* SIMD liveness */
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
              reg++) {
@@ -581,7 +578,6 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
 
             drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, index, value);
         }
-
         /* aflags liveness */
         aflags_new = instr_get_arith_flags(inst, DR_QUERY_INCLUDE_COND_SRCS);
         if (xfer)
@@ -1419,7 +1415,6 @@ drreg_reserve_simd_reg_internal(void *drcontext, drreg_spill_class_t spill_class
             pt->simd_reg[SIMD_IDX(reg)].ever_spilled = false;
         }
     }
-
     pt->simd_reg[SIMD_IDX(reg)].native = false;
     pt->simd_reg[SIMD_IDX(reg)].xchg = DR_REG_NULL;
     pt->simd_reg[SIMD_IDX(reg)].slot = slot;
@@ -1665,7 +1660,6 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, op
             return res;
         }
     }
-
     /* Now restore GPRs. */
     for (i = 0; i < num_op; i++) {
         reg_id_t reg = opnd_get_reg_used(opnd, i);
@@ -1768,7 +1762,6 @@ drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
             pt->slot_use[pt->reg[GPR_IDX(reg)].slot] = DR_REG_NULL;
         }
         pt->reg[GPR_IDX(reg)].native = true;
-
     } else if (reg_is_vector_simd(reg)) {
         if (pt->simd_reg[SIMD_IDX(reg)].ever_spilled) {
             reg_id_t spilled_reg = pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
@@ -1868,7 +1861,6 @@ drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
          !pt->reg[GPR_IDX(reg)].in_use) ||
         (is_applicable_simd(reg) && !pt->simd_reg[SIMD_IDX(reg)].in_use))
         return DRREG_ERROR_INVALID_PARAMETER;
-
     res = drreg_reservation_info_ex(drcontext, reg, &info);
     if (res != DRREG_SUCCESS)
         return res;
@@ -2449,7 +2441,6 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
         }
         slot += ops.num_spill_slots;
     }
-
     if (spill != NULL)
         *spill = is_spilled;
     if (reg_spilled != NULL)
@@ -2518,7 +2509,6 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
         spilled_to[GPR_IDX(reg)] = MAX_SPILLS;
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++)
         spilled_simd_to[SIMD_IDX(reg)] = MAX_SIMD_SPILLS;
-
     LOG(drcontext, DR_LOG_ALL, 3,
         "%s: processing fault @" PFX ": decoding from " PFX "\n", __FUNCTION__,
         info->raw_mcontext->pc, pc);

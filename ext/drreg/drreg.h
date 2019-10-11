@@ -76,7 +76,7 @@ typedef enum {
  */
 
 /**
- * Classes of register spills used to denote which types of registers
+ * Register classes used to denote which types of registers
  * to spill or restore.
  */
 typedef enum {
