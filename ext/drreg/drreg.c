@@ -2752,7 +2752,7 @@ drreg_thread_init(void *drcontext)
     tls_data_init(pt);
     pt->tls_seg_base = dr_get_dr_segment_base(tls_seg);
 
-    /* Place the pointer to the simd block inside a slot. */
+    /* Place the pointer to the SIMD block inside a slot. */
     void **addr = (void **)(pt->tls_seg_base + tls_simd_offs);
     *addr = pt->simd_spills;
 }
@@ -2845,22 +2845,22 @@ drreg_init(drreg_options_t *ops_in)
         ops.error_callback = ops_in->error_callback;
 
     if (prior_slots > 0) {
-
-        /* To cater for the additional slot of the xmm block ptr. */
+        /* To cater for the additional slot of the SIMD block pointer. */
         prior_slots++;
-
         if (!dr_raw_tls_cfree(tls_simd_offs, prior_slots))
             return DRREG_ERROR;
     }
 
     num_spill_slots = ops.num_spill_slots;
-    /* We always add an additional slot for xmm block ptr */
+    /* We always add an additional slot for SIMD block pointer */
     num_spill_slots++;
 
     /* 0 spill slots is supported and just fills in tls_seg for us. */
     if (!dr_raw_tls_calloc(&tls_seg, &tls_simd_offs, num_spill_slots, 0))
         return DRREG_ERROR_OUT_OF_SLOTS;
 
+    /* Increment offset so that we now directly point to GPR slots, skipping the pointer
+     * to the indirect SIMD block. */
     tls_slot_offs = tls_simd_offs + sizeof(void *);
 
     return DRREG_SUCCESS;
@@ -2889,10 +2889,8 @@ drreg_exit(void)
     drmgr_exit();
 
     num_spill_slots = ops.num_spill_slots;
-
-    // We always add an additional slot for xmm block ptr.
+    // We always add an additional slot for SIMD block pointer.
     num_spill_slots++;
-
     if (!dr_raw_tls_cfree(tls_simd_offs, num_spill_slots))
         return DRREG_ERROR;
 
