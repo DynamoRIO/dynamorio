@@ -163,6 +163,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
         if (out_data != NULL) {
             app_pc shared_start, shared_end;
             bool have_shared = module_dyld_shared_region(&shared_start, &shared_end);
+            size_t max_align = 0;
             if (have_shared && base >= shared_start && base < shared_end) {
                 out_data->in_shared_cache = true;
             }
@@ -199,14 +200,24 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                                 seg_size = shared_end - seg_start;
                             }
                         }
+                        /* We compute alignment as the max section alignment. */
+                        size_t align = 0;
+                        section_t *sec, *sec_stop;
+                        sec_stop = (section_t *)((byte *)seg + seg->cmdsize);
+                        sec = (section_t *)(seg + 1);
+                        while (sec < sec_stop) {
+                            align = MAX(align, 1 << sec->align);
+                            sec++;
+                        }
+                        LOG(GLOBAL, LOG_VMAREAS, 4,
+                            "%s: %s max section alignment is " PIFX "\n", __FUNCTION__,
+                            seg->segname, align);
                         module_add_segment_data(
                             out_data, 0 /*don't know*/, seg_start, seg_size,
                             /* we want initprot, not maxprot, right? */
-                            vmprot_to_memprot(seg->initprot),
-                            /* XXX: alignment is specified per section --
-                             * ignoring for now
-                             */
-                            PAGE_SIZE, shared, seg->fileoff);
+                            vmprot_to_memprot(seg->initprot), align, shared,
+                            seg->fileoff);
+                        max_align = MAX(max_align, align);
                     }
                 } else if (cmd->cmd == LC_SYMTAB) {
                     /* even if stripped, dynamic symbols are in this table */
@@ -224,10 +235,10 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                 cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
             }
             /* FIXME i#58: we need to fill in more of out_data, like preferred
-             * base.  For alignment: it's per-section, so how handle it?
+             * base.  For alignment: it's per-section, so we pass the max.
              */
             out_data->base_address = seg_min_start;
-            out_data->alignment = PAGE_SIZE; /* FIXME i#58: need min section align? */
+            out_data->alignment = max_align;
             if (linkedit_file_off > 0 && exports_file_off > 0) {
                 out_data->exports =
                     (app_pc)load_delta + exports_file_off + linkedit_delta;
