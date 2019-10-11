@@ -3411,6 +3411,13 @@ if (UNIX)
     if (proc_supports_avx512)
       append_property_string(TARGET linux.sigcontext COMPILE_FLAGS "${CFLAGS_AVX512}")
       set(linux.sigcontext_runavx512 1)
+      if (CLANG)
+        append_property_string(TARGET linux.sigcontext COMPILE_FLAGS
+          "-mllvm -x86-use-vzeroupper=0")
+      else ()
+        append_property_string(TARGET linux.sigcontext COMPILE_FLAGS
+          "-mno-vzeroupper")
+      endif ()
     elseif (proc_supports_avx)
       append_property_string(TARGET linux.sigcontext COMPILE_FLAGS "${CFLAGS_AVX}")
       set(linux.sigcontext_runavx 1)
