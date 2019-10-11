@@ -1440,13 +1440,13 @@ drreg_reserve_reg_internal(void *drcontext, drreg_spill_class_t spill_class,
         return DRREG_ERROR_INVALID_PARAMETER;
 
     if (spill_class == DRREG_GPR_SPILL_CLASS) {
-        return drreg_reserve_gpr_internal(drcontext, ilist, where, reg_allowed, only_if_no_spill,
-                                   reg_out);
+        return drreg_reserve_gpr_internal(drcontext, ilist, where, reg_allowed,
+                                          only_if_no_spill, reg_out);
     } else if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS ||
                spill_class == DRREG_SIMD_YMM_SPILL_CLASS ||
                spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
-        return drreg_reserve_simd_reg_internal(drcontext, spill_class, ilist, where, reg_allowed,
-                                        only_if_no_spill, reg_out);
+        return drreg_reserve_simd_reg_internal(drcontext, spill_class, ilist, where,
+                                               reg_allowed, only_if_no_spill, reg_out);
     } else {
         ASSERT(false, "invalid spill class");
     }
