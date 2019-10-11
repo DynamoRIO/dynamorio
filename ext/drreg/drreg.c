@@ -2577,7 +2577,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 if (is_indirect_spill) {
                     if (reg_is_vector_simd(reg)) {
                         if (spilled_simd_to[SIMD_IDX(reg)] < MAX_SIMD_SPILLS &&
-                            /* allow redundant is_spill */
+                            /* allow redundant spill */
                             spilled_simd_to[SIMD_IDX(reg)] != slot) {
                             /* This reg is already spilled: we assume that this new spill
                              * is to a tmp slot for preserving the tool's value.
@@ -2720,7 +2720,7 @@ tls_data_init(per_thread_t *pt)
         pt->reg[GPR_IDX(reg)].native = true;
     }
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
-        drvector_init(&pt->simd_reg[SIMD_IDX(reg)].live, 20, false /*!synch*/, NULL);
+        drvector_init(&pt->simd_reg[SIMD_IDX(reg)].live, MCXT_NUM_SIMD_SLOTS + 10, false /*!synch*/, NULL);
         pt->simd_reg[SIMD_IDX(reg)].native = true;
     }
     pt->aflags.native = true;
