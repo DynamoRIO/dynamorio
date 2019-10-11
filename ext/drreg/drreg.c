@@ -69,7 +69,7 @@
 /* This should be pretty hard to exceed as there aren't this many GPRs */
 #define MAX_SPILLS (SPILL_SLOT_MAX + 8)
 
-/* This should be pretty hard to exceed as there aren't this many XMMs */
+/* This should be pretty hard to exceed as there aren't this many SIMD registers */
 #define MAX_SIMD_SPILLS (MCXT_NUM_SIMD_SLOTS + 8)
 #define REG_SIMD_SIZE 64
 #define XMM_REG_SIZE 16
@@ -133,7 +133,8 @@ typedef struct _per_thread_t {
     byte *simd_spills; /* aligned storage for SIMD data */
     reg_info_t aflags;
     reg_id_t slot_use[MAX_SPILLS]; /* holds the reg_id_t of which reg is inside */
-    reg_id_t simd_slot_use[MAX_SIMD_SPILLS];
+    reg_id_t simd_slot_use[MAX_SIMD_SPILLS]; /* importantly, this can store partial SIMD
+                                                registers  */
     int pending_unreserved; /* count of to-be-lazily-restored unreserved regs */
     int simd_pending_unreserved;
     /* We store the linear address of our TLS for access from another thread: */
@@ -199,6 +200,7 @@ get_where_app_pc(instr_t *where)
 }
 #endif
 
+/* Checks whether or not the passed register is in the appropriate range. */
 static inline bool
 is_applicable_simd(reg_id_t simd_reg)
 {
@@ -207,7 +209,6 @@ is_applicable_simd(reg_id_t simd_reg)
         return simd_reg >= DR_REG_APPLICABLE_START_SIMD &&
             simd_reg <= DR_REG_APPLICABLE_STOP_SIMD;
     }
-
     return false;
 }
 
@@ -241,6 +242,9 @@ find_simd_free_slot(per_thread_t *pt)
 
 /* Up to caller to update pt->reg, including .ever_spilled.
  * This routine updates pt->slot_use.
+ *
+ * Mainly used for gpr spills as such registers can be directly
+ * stored in tls slots. This is in contrast to SIMD spills.
  */
 static void
 spill_reg_directly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
@@ -289,7 +293,6 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
 
         pt->simd_slot_use[slot] =
             (reg < pt->simd_slot_use[slot]) ? pt->simd_slot_use[slot] : reg;
-
         if (reg_is_strictly_xmm(reg)) {
             opnd_t mem_opnd = opnd_create_base_disp(block_reg, DR_REG_NULL, 1,
                                                     slot * REG_SIMD_SIZE, OPSZ_16);
@@ -297,10 +300,10 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
             PRE(ilist, where, INSTR_CREATE_movdqa(drcontext, mem_opnd, spill_reg_opnd));
         } else if (reg_is_strictly_ymm(reg)) {
             /* Support YMM here. */
-            ASSERT(false, "not applicable register");
+            ASSERT(false, "SIMD register not supported");
         } else if (reg_is_strictly_zmm(reg)) {
             /* Support ZMM here. */
-            ASSERT(false, "not applicable register");
+            ASSERT(false, "SIMD register not supported");
         } else {
             ASSERT(false, "not applicable register");
         }
@@ -353,10 +356,10 @@ restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slo
             PRE(ilist, where, INSTR_CREATE_movdqa(drcontext, restore_reg_opnd, mem_opnd));
         } else if (reg_is_strictly_ymm(reg)) {
             /* Support YMM here. */
-            ASSERT(false, "not applicable register");
+            ASSERT(false, "SIMD register not supported");
         } else if (reg_is_strictly_zmm(reg)) {
             /* Support ZMM here. */
-            ASSERT(false, "not applicable register");
+            ASSERT(false, "SIMD register not supported");
         } else {
             ASSERT(false, "not applicable register");
         }
@@ -385,6 +388,7 @@ get_indirectly_spilled_value(void *drcontext, reg_id_t reg, uint slot,
     if (value_buf == NULL)
         return false;
 
+    /* Get the size of the register so we can ensure that the buffer size is adequate. */
     size_t reg_size = opnd_size_in_bytes(reg_get_size(reg));
     ASSERT(buf_size >= reg_size, "value buffer too small in size");
     if (buf_size < reg_size)
@@ -395,8 +399,15 @@ get_indirectly_spilled_value(void *drcontext, reg_id_t reg, uint slot,
             per_thread_t *pt = get_tls_data(drcontext);
             memcpy(value_buf, pt->simd_spills + (slot * REG_SIMD_SIZE), reg_size);
             return true;
+        } else if (reg_is_strictly_ymm(reg)) {
+            /* Support YMM here. */
+            ASSERT(false, "SIMD register not supported");
+        } else if (reg_is_strictly_zmm(reg)) {
+            /* Support ZMM here. */
+            ASSERT(false, "SIMD register not supported");
+        } else {
+            ASSERT(false, "not applicable register");
         }
-        /* Add support for other SIMD registers here */
     }
     /* Add support for other non SIMD registers here */
     ASSERT(false, "not applicable register");
@@ -526,6 +537,8 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
              * The inverse also needs to be maintained. If both
              * ZMM0 and YMM0 are dead, then SIMD_ZMM_DEAD must be
              * assigned and not SIMD_YMM_DEAD.
+             *
+             * This is important to achieve efficient spilling/restoring.
              */
             if (instr_reads_from_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
                 value < SIMD_ZMM_LIVE)
@@ -1372,7 +1385,7 @@ drreg_reserve_simd_reg_internal(void *drcontext, drreg_spill_class_t spill_class
     bool already_spilled;
     drreg_status_t res;
 
-    /* First find a suitable reg. */
+    /* First find a suitable reg, and resize it according to the passed spill_class */
     if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS) {
         res = drreg_find_for_simd_reservation(drcontext, SIMD_XMM_DEAD, ilist, where,
                                               reg_allowed, only_if_no_spill, &slot, &reg,
@@ -1780,7 +1793,6 @@ drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
 
     } else if (reg_is_vector_simd(reg)) {
         if (pt->simd_reg[SIMD_IDX(reg)].ever_spilled) {
-
             reg_id_t spilled_reg = pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
 
             reg_id_t block_reg;
