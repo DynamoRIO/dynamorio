@@ -2424,7 +2424,7 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
             slot = disp / REG_SIMD_SIZE;
         } else {
             slot = -1;
-            ASSERT(false, "loaded block must involve simd register");
+            ASSERT(false, "use of block must involve a load/store");
         }
     } else {
         /* We assume a DR spill slot, in TLS or thread-private mcontext */
