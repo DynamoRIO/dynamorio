@@ -526,13 +526,7 @@ function (configure_core_lib target)
     endif (APPLE)
 
     set_target_properties(${target} PROPERTIES
-      LINK_FLAGS "${dynamorio_link_flags}"
-      # XXX i#1375: if we move to cmake 2.8.12 we can use its built-in
-      # rpath: until then we add @rpath ourselves.  The downside is that
-      # everyone who uses this lib has to have the rpath set and can't
-      # just copy the lib to the local dir (should we document that?
-      # DynamoRIO_RPATH is only on for standalone by default).
-      INSTALL_NAME_DIR "@rpath")
+      LINK_FLAGS "${dynamorio_link_flags}")
 
     # XXX: FRAGMENT_SIZES_STUDY needs libm for sqrt but it's not supported by default
 
