@@ -833,14 +833,17 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         if (pt->simd_reg[SIMD_IDX(reg)].in_use) {
             void *state =
                 drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx - 1);
+            reg_id_t spilled_reg = pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
+            ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
+
             if (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                 /* Don't bother if reg is dead beyond this write */
                 (ops.conservative || pt->live_idx == 0 ||
-                 (state >= SIMD_XMM_LIVE && state <= SIMD_ZMM_LIVE))) {
-
-                reg_id_t spilled_reg =
-                    pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
-                ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
+                 !((reg_is_strictly_xmm(spilled_reg) && state >= SIMD_XMM_DEAD &&
+                    state <= SIMD_ZMM_DEAD) ||
+                   (reg_is_strictly_ymm(spilled_reg) && state >= SIMD_YMM_DEAD &&
+                    state <= SIMD_ZMM_DEAD) ||
+                   (reg_is_strictly_zmm(spilled_reg) && state == SIMD_ZMM_DEAD)))) {
 
                 uint tmp_slot = MAX_SIMD_SPILLS;
                 if (!restored_for_simd_read[SIMD_IDX(reg)]) {
@@ -864,7 +867,6 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 
                 instr_t *where =
                     restored_for_simd_read[SIMD_IDX(reg)] ? instr_get_prev(next) : next;
-
                 res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
                                                  where, NULL, false, &block_reg);
                 if (res != DRREG_SUCCESS)
@@ -874,7 +876,6 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                                      pt->simd_reg[SIMD_IDX(reg)].slot, bb, where,
                                      block_reg);
                 drreg_unreserve_register(drcontext, bb, where, block_reg);
-
                 pt->simd_reg[SIMD_IDX(reg)].ever_spilled = true;
                 if (!restored_for_simd_read[SIMD_IDX(reg)]) {
                     res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
