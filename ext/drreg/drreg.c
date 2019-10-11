@@ -1166,9 +1166,9 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
 
 /* Assumes liveness info is already set up in per_thread_t */
 static drreg_status_t
-drreg_reserve_reg_internal(void *drcontext, drreg_spill_class_t spill_class,
-                           instrlist_t *ilist, instr_t *where, drvector_t *reg_allowed,
-                           bool only_if_no_spill, OUT reg_id_t *reg_out)
+drreg_reserve_gpr_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
+                           drvector_t *reg_allowed, bool only_if_no_spill,
+                           OUT reg_id_t *reg_out)
 {
     per_thread_t *pt = get_tls_data(drcontext);
     uint slot = MAX_SPILLS;
@@ -1288,108 +1288,170 @@ drreg_reserve_reg_internal(void *drcontext, drreg_spill_class_t spill_class,
     return DRREG_SUCCESS;
 }
 
-// static drreg_status_t
-// drreg_reserve_xmm_reg_internal(void *drcontext, drreg_spill_class_t
-// spill_class,instrlist_t *ilist, instr_t *where,
-//                               drvector_t *reg_allowed, bool only_if_no_spill,
-//                               OUT reg_id_t *reg_out)
-//{
-//    per_thread_t *pt = get_tls_data(drcontext);
-//    uint slot = MAX_SIMD_SPILLS;
-//    uint min_uses = UINT_MAX;
-//    reg_id_t reg = DR_REG_APPLICABLE_STOP_SIMD + 1, best_reg = DR_REG_NULL;
-//    bool already_spilled = false;
-//    if (reg_out == NULL)
-//        return DRREG_ERROR_INVALID_PARAMETER;
-//
-//    if (pt->simd_pending_unreserved > 0) {
-//        for (reg = DR_REG_START_XMM; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
-//            uint idx = SIMD_IDX(reg);
-//            if (!pt->simd_reg[idx].native && !pt->simd_reg[idx].in_use &&
-//                (reg_allowed == NULL || drvector_get_entry(reg_allowed, idx) != NULL) &&
-//                (!only_if_no_spill || pt->simd_reg[idx].ever_spilled ||
-//                 drvector_get_entry(&pt->simd_reg[idx].live, pt->live_idx) == REG_DEAD))
-//                 {
-//                slot = pt->simd_reg[idx].slot;
-//                pt->simd_pending_unreserved--;
-//                already_spilled = pt->simd_reg[idx].ever_spilled;
-//                break;
-//            }
-//        }
-//    }
-//
-//    if (reg > DR_REG_APPLICABLE_STOP_SIMD) {
-//        /* Look for a dead register, or the least-used register */
-//        for (reg = DR_REG_START_XMM; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
-//            uint idx = SIMD_IDX(reg);
-//
-//            if (pt->simd_reg[idx].in_use)
-//                continue;
-//
-//            if (reg_allowed != NULL && drvector_get_entry(reg_allowed, idx) == NULL)
-//                continue;
-//
-//            /* If we had a hint as to local vs whole-bb we could downgrade being
-//             * dead right now as a priority
-//             */
-//            if (drvector_get_entry(&pt->simd_reg[idx].live, pt->live_idx) == REG_DEAD)
-//                break;
-//
-//            if (only_if_no_spill)
-//                continue;
-//
-//            if (pt->simd_reg[idx].app_uses < min_uses) {
-//                best_reg = reg;
-//                min_uses = pt->simd_reg[idx].app_uses;
-//            }
-//        }
-//    }
-//    if (reg > DR_REG_APPLICABLE_STOP_SIMD) {
-//        if (best_reg != DR_REG_NULL)
-//            reg = best_reg;
-//        else
-//            return DRREG_ERROR_REG_CONFLICT;
-//    }
-//    if (slot == MAX_SIMD_SPILLS) {
-//        slot = find_simd_free_slot(pt);
-//        if (slot == MAX_SIMD_SPILLS)
-//            return DRREG_ERROR_OUT_OF_SLOTS;
-//    }
-//
-//    ASSERT(!pt->simd_reg[SIMD_IDX(reg)].in_use, "overlapping uses");
-//    pt->simd_reg[SIMD_IDX(reg)].in_use = true;
-//    if (!already_spilled) {
-//        /* Even if dead now, we need to own a slot in case reserved past dead point */
-//        if (ops.conservative ||
-//            drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx) ==
-//                REG_LIVE) {
-//
-//            reg_id_t xmm_block_reg;
-//            drreg_status_t res = drreg_reserve_reg_internal(drcontext, ilist, where,
-//            NULL,
-//                                                            false, &xmm_block_reg);
-//            if (res != DRREG_SUCCESS)
-//                return res;
-//
-//            load_indirect_block(drcontext, tls_simd_offs, ilist, where, xmm_block_reg);
-//
-//            spill_reg_indirectly(drcontext, pt, reg, slot, ilist, where, xmm_block_reg);
-//            drreg_unreserve_register(drcontext, ilist, where, xmm_block_reg);
-//
-//            pt->simd_reg[SIMD_IDX(reg)].ever_spilled = true;
-//        } else {
-//
-//            pt->simd_slot_use[slot] = reg;
-//            pt->simd_reg[SIMD_IDX(reg)].ever_spilled = false;
-//        }
-//    }
-//
-//    pt->simd_reg[SIMD_IDX(reg)].native = false;
-//    pt->simd_reg[SIMD_IDX(reg)].xchg = DR_REG_NULL;
-//    pt->simd_reg[SIMD_IDX(reg)].slot = slot;
-//    *reg_out = reg;
-//    return DRREG_SUCCESS;
-//}
+static drreg_status_t
+drreg_find_for_simd_reservation(void *drcontext, const void *dead_state,
+                                instrlist_t *ilist, instr_t *where,
+                                drvector_t *reg_allowed, bool only_if_no_spill,
+                                OUT uint *slot_out, OUT reg_id_t *reg_out,
+                                OUT bool *already_spilled_out)
+{
+    per_thread_t *pt = get_tls_data(drcontext);
+    uint min_uses = UINT_MAX;
+    uint slot = MAX_SIMD_SPILLS;
+    reg_id_t reg = DR_REG_APPLICABLE_STOP_SIMD + 1, best_reg = DR_REG_NULL;
+    bool already_spilled = false;
+
+    if (pt->simd_pending_unreserved > 0) {
+        for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
+             reg++) {
+            uint idx = SIMD_IDX(reg);
+            if (!pt->simd_reg[idx].native && !pt->simd_reg[idx].in_use &&
+                (reg_allowed == NULL || drvector_get_entry(reg_allowed, idx) != NULL) &&
+                (!only_if_no_spill || pt->simd_reg[idx].ever_spilled ||
+                 (drvector_get_entry(&pt->simd_reg[idx].live, pt->live_idx) >=
+                      dead_state &&
+                  drvector_get_entry(&pt->simd_reg[idx].live, pt->live_idx) <=
+                      SIMD_ZMM_DEAD))) {
+                slot = pt->simd_reg[idx].slot;
+                pt->simd_pending_unreserved--;
+                already_spilled = pt->simd_reg[idx].ever_spilled;
+                break;
+            }
+        }
+    }
+
+    if (reg > DR_REG_APPLICABLE_STOP_SIMD) {
+        /* Look for a dead register, or the least-used register */
+        for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
+             reg++) {
+            uint idx = SIMD_IDX(reg);
+            if (pt->simd_reg[idx].in_use)
+                continue;
+            if (reg_allowed != NULL && drvector_get_entry(reg_allowed, idx) == NULL)
+                continue;
+            if (drvector_get_entry(&pt->simd_reg[idx].live, pt->live_idx) >= dead_state &&
+                drvector_get_entry(&pt->simd_reg[idx].live, pt->live_idx) <=
+                    SIMD_ZMM_DEAD)
+                break;
+            if (only_if_no_spill)
+                continue;
+            if (pt->simd_reg[idx].app_uses < min_uses) {
+                best_reg = reg;
+                min_uses = pt->simd_reg[idx].app_uses;
+            }
+        }
+    }
+
+    if (reg > DR_REG_APPLICABLE_STOP_SIMD) {
+        if (best_reg != DR_REG_NULL)
+            reg = best_reg;
+        else
+            return DRREG_ERROR_REG_CONFLICT;
+    }
+    if (slot == MAX_SIMD_SPILLS) {
+        slot = find_simd_free_slot(pt);
+        if (slot == MAX_SIMD_SPILLS)
+            return DRREG_ERROR_OUT_OF_SLOTS;
+    }
+
+    *slot_out = slot;
+    *reg_out = reg;
+    *already_spilled_out = already_spilled;
+    return DRREG_SUCCESS;
+}
+
+static drreg_status_t
+drreg_reserve_simd_reg_internal(void *drcontext, drreg_spill_class_t spill_class,
+                                instrlist_t *ilist, instr_t *where,
+                                drvector_t *reg_allowed, bool only_if_no_spill,
+                                OUT reg_id_t *reg_out)
+{
+    per_thread_t *pt = get_tls_data(drcontext);
+    uint slot;
+    reg_id_t reg;
+    bool already_spilled;
+    drreg_status_t res;
+
+    /* First find a suitable reg. */
+    if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS) {
+        res = drreg_find_for_simd_reservation(drcontext, SIMD_XMM_DEAD, ilist, where,
+                                              reg_allowed, only_if_no_spill, &slot, &reg,
+                                              &already_spilled);
+        if (res != DRREG_SUCCESS)
+            return res;
+        reg = reg_resize_to_opsz(reg, OPSZ_16);
+    } else if (spill_class == DRREG_SIMD_YMM_SPILL_CLASS) {
+        res = drreg_find_for_simd_reservation(drcontext, SIMD_YMM_DEAD, ilist, where,
+                                              reg_allowed, only_if_no_spill, &slot, &reg,
+                                              &already_spilled);
+        if (res != DRREG_SUCCESS)
+            return res;
+        reg = reg_resize_to_opsz(reg, OPSZ_32);
+    } else if (spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
+        res = drreg_find_for_simd_reservation(drcontext, SIMD_ZMM_DEAD, ilist, where,
+                                              reg_allowed, only_if_no_spill, &slot, &reg,
+                                              &already_spilled);
+        if (res != DRREG_SUCCESS)
+            return res;
+        reg = reg_resize_to_opsz(reg, OPSZ_64);
+    }
+
+    /* We found a suitable reg, now we need to spill. */
+    ASSERT(!pt->simd_reg[SIMD_IDX(reg)].in_use, "overlapping uses");
+    pt->simd_reg[SIMD_IDX(reg)].in_use = true;
+    if (!already_spilled) {
+        /* Even if dead now, we need to own a slot in case reserved past dead point */
+        if (ops.conservative ||
+            (drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx) >=
+                 SIMD_XMM_LIVE &&
+             drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx) <=
+                 SIMD_ZMM_LIVE)) {
+            reg_id_t simd_block_reg;
+            drreg_status_t res =
+                drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, ilist, where,
+                                           NULL, false, &simd_block_reg);
+            if (res != DRREG_SUCCESS)
+                return res;
+            load_indirect_block(drcontext, tls_simd_offs, ilist, where, simd_block_reg);
+            spill_reg_indirectly(drcontext, pt, reg, slot, ilist, where, simd_block_reg);
+            drreg_unreserve_register(drcontext, ilist, where, simd_block_reg);
+
+            pt->simd_reg[SIMD_IDX(reg)].ever_spilled = true;
+        } else {
+            pt->simd_slot_use[slot] = reg;
+            pt->simd_reg[SIMD_IDX(reg)].ever_spilled = false;
+        }
+    }
+
+    pt->simd_reg[SIMD_IDX(reg)].native = false;
+    pt->simd_reg[SIMD_IDX(reg)].xchg = DR_REG_NULL;
+    pt->simd_reg[SIMD_IDX(reg)].slot = slot;
+    *reg_out = reg;
+    return DRREG_SUCCESS;
+}
+
+/* Assumes liveness info is already set up in per_thread_t */
+static drreg_status_t
+drreg_reserve_reg_internal(void *drcontext, drreg_spill_class_t spill_class,
+                           instrlist_t *ilist, instr_t *where, drvector_t *reg_allowed,
+                           bool only_if_no_spill, OUT reg_id_t *reg_out)
+{
+    if (reg_out == NULL)
+        return DRREG_ERROR_INVALID_PARAMETER;
+
+    if (spill_class == DRREG_GPR_SPILL_CLASS) {
+        return drreg_reserve_gpr_internal(drcontext, ilist, where, reg_allowed, only_if_no_spill,
+                                   reg_out);
+    } else if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS ||
+               spill_class == DRREG_SIMD_YMM_SPILL_CLASS ||
+               spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
+        return drreg_reserve_simd_reg_internal(drcontext, spill_class, ilist, where, reg_allowed,
+                                        only_if_no_spill, reg_out);
+    } else {
+        ASSERT(false, "invalid spill class");
+    }
+    return DRREG_ERROR;
+}
 
 drreg_status_t
 drreg_reserve_register_ex(void *drcontext, drreg_spill_class_t spill_class,
