@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2014-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2019 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,13 +28,15 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# XXX i#1375: if we make 2.8.12 the minimum we can remove the @rpath
-# Mac stuff and this policy, right?
-cmake_policy(SET CMP0042 OLD)
-
 # XXX DrMem-i#1481: dynamorio is using EXPORT_LINK_INTERFACE_LIBRARIES flag for
 # compatibility.
 cmake_policy(SET CMP0022 NEW)
 
 # Recognize literals in if statements
 cmake_policy(SET CMP0012 NEW)
+
+if ("${CMAKE_VERSION}" VERSION_EQUAL "3.9" OR
+   "${CMAKE_VERSION}" VERSION_GREATER "3.9")
+  # i#1375: We are ok w/ the new policy of SKIP_BUILD_RPATH not affecting install names.
+  cmake_policy(SET CMP0068 NEW)
+endif ()

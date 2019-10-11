@@ -241,11 +241,6 @@ else(CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
   set(X64 OFF)
 endif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 
-if (APPLE AND X64)
-  # XXX #1979: 64-bit OSX is not supported.
-  message(WARNING "64-bit Mac OSX is not supported")
-endif ()
-
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 
 # high-level configurations
@@ -401,6 +396,11 @@ endforeach ()
 foreach (var CMAKE_C_FLAGS;CMAKE_CXX_FLAGS)
   set(${var} " ") # if "" defaults come back
 endforeach ()
+
+if (APPLE)
+  # Enable @rpath for all shared library install names.
+  set(CMAKE_MACOSX_RPATH 1)
+endif ()
 
 ##################################################
 # resources when packaging
