@@ -36,12 +36,6 @@
 #include "dr_api.h"
 #include "client_tools.h"
 
-#ifdef WINDOWS
-#    define BINARY_NAME "client.inline.exe"
-#else
-#    define BINARY_NAME "client.inline"
-#endif
-
 /* List of instrumentation functions. */
 #ifdef X86
 #    define FUNCTIONS()             \

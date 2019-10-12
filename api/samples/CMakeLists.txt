@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -55,11 +55,10 @@ endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 
 project(DynamoRIO_samples)
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "3.0")
-  # XXX i#1375: if we make 2.8.12 the minimum we can remove the @rpath
-  # Mac stuff and this policy, right?
-  cmake_policy(SET CMP0042 OLD)
+if ("${CMAKE_VERSION}" VERSION_EQUAL "3.9" OR
+   "${CMAKE_VERSION}" VERSION_GREATER "3.9")
+  # i#1375: We are ok w/ the new policy of SKIP_BUILD_RPATH not affecting install names.
+  cmake_policy(SET CMP0068 NEW)
 endif ()
 
 set(output_dir "${PROJECT_BINARY_DIR}/bin")
