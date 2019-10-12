@@ -218,10 +218,10 @@ Further non-compatibility-affecting changes include:
    either XMM, YMM or ZMM, excluding any MMX register checks.
  - Included drreg_reserve_register_ex() to reserve a register according to a
    register class.
- - Included drreg_reserve_dead_register_ex() to reserve a dead register 
+ - Included drreg_reserve_dead_register_ex() to reserve a dead register
    according to a register class.
  - Added drreg_init_and_fill_vector_ex() to init a vector that specifies which
-   register can/cannot be used according to a register class. 
+   register can/cannot be used according to a register class.
 
 **************************************************
 <hr>
