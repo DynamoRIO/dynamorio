@@ -80,6 +80,7 @@ typedef enum {
  * to spill or restore.
  */
 typedef enum {
+    DRREG_INVALID_SPILL_CLASS,    /* to consider GPR registers */
     DRREG_GPR_SPILL_CLASS,        /* to consider GPR registers */
     DRREG_SIMD_XMM_SPILL_CLASS,   /* to consider XMM registers */
     DRREG_SIMD_YMM_SPILL_CLASS,   /* to consider YMM registers */

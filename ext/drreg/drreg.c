@@ -1281,8 +1281,42 @@ drreg_reserve_gpr_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
     return DRREG_SUCCESS;
 }
 
+static void *
+get_dead_state(const drreg_spill_class_t spill_class)
+{
+
+    if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS) {
+        return SIMD_XMM_DEAD;
+    } else if (spill_class == DRREG_SIMD_YMM_SPILL_CLASS) {
+        return SIMD_YMM_DEAD;
+    } else if (spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
+        return SIMD_ZMM_DEAD;
+    }
+
+    ASSERT(false, "cannot determine dead state");
+    return SIMD_UNKNOWN;
+}
+
+static drreg_spill_class_t
+get_spill_class(const reg_id_t reg)
+{
+
+    if (reg_is_gpr(reg)) {
+        return DRREG_GPR_SPILL_CLASS;
+    } else if (reg_is_strictly_xmm(reg)) {
+        return DRREG_SIMD_XMM_SPILL_CLASS;
+    } else if (reg_is_strictly_ymm(reg)) {
+        return DRREG_SIMD_YMM_SPILL_CLASS;
+    } else if (reg_is_strictly_zmm(reg)) {
+        return DRREG_SIMD_ZMM_SPILL_CLASS;
+    } else {
+        ASSERT(false, "unsupported or invalid spill class");
+    }
+    return DRREG_INVALID_SPILL_CLASS;
+}
+
 static drreg_status_t
-drreg_find_for_simd_reservation(void *drcontext, const void *dead_state,
+drreg_find_for_simd_reservation(void *drcontext, const drreg_spill_class_t spill_class,
                                 instrlist_t *ilist, instr_t *where,
                                 drvector_t *reg_allowed, bool only_if_no_spill,
                                 OUT uint *slot_out, OUT reg_id_t *reg_out,
@@ -1293,7 +1327,10 @@ drreg_find_for_simd_reservation(void *drcontext, const void *dead_state,
     uint slot = MAX_SIMD_SPILLS;
     reg_id_t reg = DR_REG_APPLICABLE_STOP_SIMD + 1, best_reg = DR_REG_NULL;
     bool already_spilled = false;
+    void *dead_state = get_dead_state(spill_class);
 
+    if (dead_state == SIMD_UNKNOWN)
+        return DRREG_ERROR;
     if (pt->simd_pending_unreserved > 0) {
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
              reg++) {
@@ -1307,12 +1344,14 @@ drreg_find_for_simd_reservation(void *drcontext, const void *dead_state,
                       SIMD_ZMM_DEAD))) {
                 slot = pt->simd_reg[idx].slot;
                 pt->simd_pending_unreserved--;
-                already_spilled = pt->simd_reg[idx].ever_spilled;
+
+                reg_id_t spilled_reg = pt->simd_slot_use[slot];
+                already_spilled = pt->simd_reg[idx].ever_spilled &&
+                    get_spill_class(spilled_reg) == spill_class;
                 break;
             }
         }
     }
-
     if (reg > DR_REG_APPLICABLE_STOP_SIMD) {
         /* Look for a dead register, or the least-used register */
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
@@ -1334,7 +1373,6 @@ drreg_find_for_simd_reservation(void *drcontext, const void *dead_state,
             }
         }
     }
-
     if (reg > DR_REG_APPLICABLE_STOP_SIMD) {
         if (best_reg != DR_REG_NULL)
             reg = best_reg;
@@ -1346,7 +1384,15 @@ drreg_find_for_simd_reservation(void *drcontext, const void *dead_state,
         if (slot == MAX_SIMD_SPILLS)
             return DRREG_ERROR_OUT_OF_SLOTS;
     }
-
+    if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS) {
+        reg = reg_resize_to_opsz(reg, OPSZ_16);
+    } else if (spill_class == DRREG_SIMD_YMM_SPILL_CLASS) {
+        reg = reg_resize_to_opsz(reg, OPSZ_32);
+    } else if (spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
+        reg = reg_resize_to_opsz(reg, OPSZ_64);
+    } else {
+        return DRREG_ERROR;
+    }
     *slot_out = slot;
     *reg_out = reg;
     *already_spilled_out = already_spilled;
@@ -1365,29 +1411,9 @@ drreg_reserve_simd_reg_internal(void *drcontext, drreg_spill_class_t spill_class
     bool already_spilled;
     drreg_status_t res;
 
-    /* First find a suitable reg, and resize it according to the passed spill_class */
-    if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS) {
-        res = drreg_find_for_simd_reservation(drcontext, SIMD_XMM_DEAD, ilist, where,
-                                              reg_allowed, only_if_no_spill, &slot, &reg,
-                                              &already_spilled);
-        if (res != DRREG_SUCCESS)
-            return res;
-        reg = reg_resize_to_opsz(reg, OPSZ_16);
-    } else if (spill_class == DRREG_SIMD_YMM_SPILL_CLASS) {
-        res = drreg_find_for_simd_reservation(drcontext, SIMD_YMM_DEAD, ilist, where,
-                                              reg_allowed, only_if_no_spill, &slot, &reg,
-                                              &already_spilled);
-        if (res != DRREG_SUCCESS)
-            return res;
-        reg = reg_resize_to_opsz(reg, OPSZ_32);
-    } else if (spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
-        res = drreg_find_for_simd_reservation(drcontext, SIMD_ZMM_DEAD, ilist, where,
-                                              reg_allowed, only_if_no_spill, &slot, &reg,
-                                              &already_spilled);
-        if (res != DRREG_SUCCESS)
-            return res;
-        reg = reg_resize_to_opsz(reg, OPSZ_64);
-    }
+    res =
+        drreg_find_for_simd_reservation(drcontext, spill_class, ilist, where, reg_allowed,
+                                        only_if_no_spill, &slot, &reg, &already_spilled);
 
     /* We found a suitable reg, now we need to spill. */
     ASSERT(!pt->simd_reg[SIMD_IDX(reg)].in_use, "overlapping uses");
