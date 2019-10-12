@@ -147,7 +147,8 @@ lookup_pcs(void)
     module_data_t *exe;
     int i;
 
-    exe = dr_lookup_module_by_name(BINARY_NAME);
+    exe = dr_lookup_module_by_name(dr_get_application_name());
+    DR_ASSERT_MSG(exe != NULL, "Could not find application binary name in modules!");
     for (i = 0; i < N_FUNCS; i++) {
         app_pc func_pc = (app_pc)dr_get_proc_address(exe->handle, func_names[i]);
         DR_ASSERT_MSG(func_pc != NULL,
