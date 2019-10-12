@@ -49,6 +49,7 @@
  * allowing us to use a global var here.
  */
 static reg_id_t reg = DR_REG_NULL;
+static reg_id_t simd_reg = DR_REG_NULL;
 
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
@@ -63,6 +64,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             CHECK(false, "failed to unreserve");
         reg = DR_REG_NULL;
     }
+    if (simd_reg != DR_REG_NULL) {
+        if (drreg_unreserve_register(drcontext, bb, instr, simd_reg) != DRREG_SUCCESS)
+            CHECK(false, "failed to unreserve");
+        simd_reg = DR_REG_NULL;
+    }
 
     if (!instr_is_app(instr))
         return DR_EMIT_DEFAULT;
@@ -75,6 +81,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         drreg_set_vector_entry(&allowed, IF_X86_ELSE(DR_REG_XCX, DR_REG_R0), false);
         drreg_set_vector_entry(&allowed, IF_X86_ELSE(DR_REG_XDX, DR_REG_R1), false);
         if (drreg_reserve_register(drcontext, bb, instr, &allowed, &reg) != DRREG_SUCCESS)
+            DR_ASSERT(false);
+        drvector_delete(&allowed);
+        /* Now reserve SIMD register */
+        drreg_init_and_fill_vector_ex(&allowed, DRREG_SIMD_XMM_SPILL_CLASS, true);
+        drreg_set_vector_entry(&allowed, DR_REG_XMM0, false);
+        drreg_set_vector_entry(&allowed, DR_REG_XMM1, false);
+        if (drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, instr,
+                                      &allowed, &simd_reg) != DRREG_SUCCESS)
             DR_ASSERT(false);
         drvector_delete(&allowed);
     }

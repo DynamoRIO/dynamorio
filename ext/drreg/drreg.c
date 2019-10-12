@@ -1149,6 +1149,7 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
         if (vec == NULL || !is_applicable_simd(reg))
             return DRREG_ERROR_INVALID_PARAMETER;
         start_reg = DR_REG_APPLICABLE_START_SIMD;
+        reg = reg_resize_to_opsz(reg, OPSZ_64);
     } else {
         return DRREG_ERROR;
     }
@@ -1559,7 +1560,6 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
         instrlist_set_auto_predicate(ilist, pred);
         return DRREG_ERROR;
     }
-
     if (reg_is_gpr(app_reg)) {
         /* check if app_reg is an unspilled reg */
         if (pt->reg[GPR_IDX(app_reg)].native) {
@@ -1574,7 +1574,6 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
             instrlist_set_auto_predicate(ilist, pred);
             return DRREG_SUCCESS;
         }
-
         /* we may have lost the app value for a dead reg */
         if (!pt->reg[GPR_IDX(app_reg)].ever_spilled) {
             LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": reg %s never spilled\n",

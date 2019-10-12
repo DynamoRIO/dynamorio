@@ -309,7 +309,25 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
         jmp      test12_done
      test12_done:
-        jmp     epilog
+        jmp     test14
+	 test13:
+	    mov      TEST_REG_ASM, DRREG_TEST_13_ASM
+	    mov      TEST_REG_ASM, DRREG_TEST_13_ASM
+	    pxor     xmm0, xmm0
+        jmp      test14
+      test14:
+		mov      TEST_REG_ASM, DRREG_TEST_14_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_14_ASM
+        pxor     xmm0, xmm0
+        jmp      epilog
+      test15:
+        mov      TEST_REG_ASM, DRREG_TEST_15_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_15_ASM
+        pxor     xmm0, xmm0
+		movdqa   xmm2, xmm0
+		movd     xmm0, eax
+		movdqa   xmm2, xmm0
+		jmp      epilog
 
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
