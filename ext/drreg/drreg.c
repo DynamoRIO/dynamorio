@@ -1412,15 +1412,16 @@ drreg_reserve_simd_reg_internal(void *drcontext, drreg_spill_class_t spill_class
                                 OUT reg_id_t *reg_out)
 {
     per_thread_t *pt = get_tls_data(drcontext);
-    uint slot;
-    reg_id_t reg;
-    bool already_spilled;
+    uint slot = 0;
+    reg_id_t reg = DR_REG_NULL;
+    bool already_spilled = false;
     drreg_status_t res;
 
     res =
         drreg_find_for_simd_reservation(drcontext, spill_class, ilist, where, reg_allowed,
                                         only_if_no_spill, &slot, &reg, &already_spilled);
-
+    if (res != DRREG_SUCCESS)
+    		return res;
     /* We found a suitable reg, now we need to spill. */
     ASSERT(!pt->simd_reg[SIMD_IDX(reg)].in_use, "overlapping uses");
     pt->simd_reg[SIMD_IDX(reg)].in_use = true;
