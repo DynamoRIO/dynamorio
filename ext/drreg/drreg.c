@@ -701,7 +701,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                             drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS,
                                                        bb, inst, NULL, false, &block_reg);
                         if (res != DRREG_SUCCESS)
-                            return res;
+                            drreg_report_error(res, "failed to reserve block register");
                         load_indirect_block(drcontext, tls_simd_offs, bb, inst,
                                             block_reg);
                         spill_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb,
@@ -711,18 +711,21 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                                                block_reg, false /*keep slot*/);
                         res = drreg_unreserve_register(drcontext, bb, inst, block_reg);
                         if (res != DRREG_SUCCESS)
-                            return res;
+                            drreg_report_error(res, "failed to unreserve block register");
                         res =
                             drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS,
                                                        bb, next, NULL, false, &block_reg);
                         if (res != DRREG_SUCCESS)
-                            return res;
+                            drreg_report_error(res, "failed to reserve block register");
                         load_indirect_block(drcontext, tls_simd_offs, bb, next,
                                             block_reg);
                         restore_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb,
                                                next, block_reg, true);
                         /* We keep .native==false */
-                        drreg_unreserve_register(drcontext, bb, next, block_reg);
+                        res = drreg_unreserve_register(drcontext, bb, next, block_reg);
+                        if (res != DRREG_SUCCESS)
+                            drreg_report_error(res, "failed to unreserve block register");
+
                     } else {
                         ASSERT(reg_is_gpr(reg), "non-applicable reg");
                     }
@@ -889,11 +892,13 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
                                                      next, NULL, false, &block_reg);
                     if (res != DRREG_SUCCESS)
-                        return res;
+                        drreg_report_error(res, "failed to reserve block register");
                     load_indirect_block(drcontext, tls_simd_offs, bb, next, block_reg);
                     restore_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb,
                                            next /*after*/, block_reg, true);
-                    drreg_unreserve_register(drcontext, bb, next, block_reg);
+                    res = drreg_unreserve_register(drcontext, bb, next, block_reg);
+                    if (res != DRREG_SUCCESS)
+                        drreg_report_error(res, "failed to unreserve block register");
                 }
             }
         } else if (!pt->simd_reg[SIMD_IDX(reg)].native &&
