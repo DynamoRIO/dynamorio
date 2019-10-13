@@ -1421,7 +1421,7 @@ drreg_reserve_simd_reg_internal(void *drcontext, drreg_spill_class_t spill_class
         drreg_find_for_simd_reservation(drcontext, spill_class, ilist, where, reg_allowed,
                                         only_if_no_spill, &slot, &reg, &already_spilled);
     if (res != DRREG_SUCCESS)
-    		return res;
+        return res;
     /* We found a suitable reg, now we need to spill. */
     ASSERT(!pt->simd_reg[SIMD_IDX(reg)].in_use, "overlapping uses");
     pt->simd_reg[SIMD_IDX(reg)].in_use = true;
