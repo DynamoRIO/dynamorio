@@ -959,7 +959,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                                    restored_for_read[GPR_IDX(reg)] ? instr_get_prev(next)
                                                                    : next /*after*/);
                 pt->reg[GPR_IDX(reg)].ever_spilled = true;
-                if (!restored_for_read[GPR_IDX(reg)]){
+                if (!restored_for_read[GPR_IDX(reg)]) {
                     restore_reg_directly(drcontext, pt, reg, tmp_slot, bb, next /*after*/,
                                          true);
                 }
@@ -1130,7 +1130,7 @@ drreg_init_and_fill_vector_ex(drvector_t *vec, drreg_spill_class_t spill_class,
     else
         return DRREG_ERROR;
 
-    drvector_init(vec, (uint) size, false /*!synch*/, NULL);
+    drvector_init(vec, (uint)size, false /*!synch*/, NULL);
     for (reg = 0; reg < size; reg++)
         drvector_set_entry(vec, reg, allowed ? (void *)(ptr_uint_t)1 : NULL);
     return DRREG_SUCCESS;
@@ -1989,11 +1989,10 @@ drreg_is_register_dead(void *drcontext, reg_id_t reg, instr_t *inst, bool *dead)
 
     if (reg_is_gpr(reg))
         *dead = drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx) == REG_DEAD;
-    else if (reg_is_vector_simd(reg)){
+    else if (reg_is_vector_simd(reg)) {
         *dead = drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx) ==
             SIMD_ZMM_DEAD;
-    }
-    else
+    } else
         return DRREG_ERROR;
 
     return DRREG_SUCCESS;
@@ -2213,7 +2212,7 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
     } else {
         if (ops.conservative ||
             drvector_get_entry(&pt->reg[DR_REG_XAX - DR_REG_START_GPR].live,
-                               pt->live_idx) == REG_LIVE){
+                               pt->live_idx) == REG_LIVE) {
             restore_reg_directly(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where,
                                  true);
         }
