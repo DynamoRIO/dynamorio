@@ -868,7 +868,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
                                                      inst, NULL, false, &block_reg);
                     if (res != DRREG_SUCCESS)
-                        return res;
+                        drreg_report_error(res, "failed to reserve block register");
                     load_indirect_block(drcontext, tls_simd_offs, bb, inst, block_reg);
 
                     spill_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, inst,
@@ -881,7 +881,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
                                                  where, NULL, false, &block_reg);
                 if (res != DRREG_SUCCESS)
-                    return res;
+                    drreg_report_error(res, "failed to reserve block register");
                 load_indirect_block(drcontext, tls_simd_offs, bb, where, block_reg);
                 spill_reg_indirectly(drcontext, pt, spilled_reg,
                                      pt->simd_reg[SIMD_IDX(reg)].slot, bb, where,
@@ -1117,7 +1117,7 @@ drreg_init_and_fill_vector_ex(drvector_t *vec, drreg_spill_class_t spill_class,
                               bool allowed)
 {
     reg_id_t reg;
-    size_t size;
+    uint size;
     if (vec == NULL)
         return DRREG_ERROR_INVALID_PARAMETER;
 
@@ -1130,7 +1130,7 @@ drreg_init_and_fill_vector_ex(drvector_t *vec, drreg_spill_class_t spill_class,
     else
         return DRREG_ERROR;
 
-    drvector_init(vec, (uint)size, false /*!synch*/, NULL);
+    drvector_init(vec, size, false /*!synch*/, NULL);
     for (reg = 0; reg < size; reg++)
         drvector_set_entry(vec, reg, allowed ? (void *)(ptr_uint_t)1 : NULL);
     return DRREG_SUCCESS;
