@@ -1463,6 +1463,8 @@ START_DATA_SECTION(FREQ_PROTECTED_SECTION, "w");
 static bool
 at_reset_at_vmm_limit(vm_heap_t *vmh)
 {
+    dr_fprintf(STDERR, "Enable reset %c",
+               DYNAMO_OPTION(reset_at_vmm_percent_free_limit) != 0);
     return (DYNAMO_OPTION(reset_at_vmm_percent_free_limit) != 0 &&
             100 * vmh->num_free_blocks <
                 DYNAMO_OPTION(reset_at_vmm_percent_free_limit) * vmh->num_blocks) ||
