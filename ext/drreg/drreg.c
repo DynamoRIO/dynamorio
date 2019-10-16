@@ -147,7 +147,7 @@ typedef struct _per_thread_t {
 static drreg_options_t ops;
 
 static int tls_idx = -1;
-static uint tls_simd_offs; /* start of tls slots for gpr registers */
+static uint tls_simd_offs; /* start of tls slots for SIMD block pointer */
 static uint tls_slot_offs; /* Start of tls slots for gpr registers */
 static reg_id_t tls_seg;
 
@@ -686,49 +686,40 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     ASSERT(pt->simd_pending_unreserved > 0, "should not go negative");
                     pt->simd_pending_unreserved--;
                 } else {
-                    if (reg_is_vector_simd(reg)) {
-                        reg_id_t spilled_reg =
-                            pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
-                        ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
+                    reg_id_t spilled_reg =
+                        pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
+                    ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
 
-                        uint tmp_slot = find_simd_free_slot(pt);
-                        if (tmp_slot == MAX_SIMD_SPILLS) {
-                            drreg_report_error(
-                                DRREG_ERROR_OUT_OF_SLOTS,
-                                "failed to preserve tool val around app read");
-                        }
-                        res =
-                            drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS,
-                                                       bb, inst, NULL, false, &block_reg);
-                        if (res != DRREG_SUCCESS)
-                            drreg_report_error(res, "failed to reserve block register");
-                        load_indirect_block(drcontext, tls_simd_offs, bb, inst,
-                                            block_reg);
-                        spill_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb,
-                                             inst, block_reg);
-                        restore_reg_indirectly(drcontext, pt, spilled_reg,
-                                               pt->simd_reg[SIMD_IDX(reg)].slot, bb, inst,
-                                               block_reg, false /*keep slot*/);
-                        res = drreg_unreserve_register(drcontext, bb, inst, block_reg);
-                        if (res != DRREG_SUCCESS)
-                            drreg_report_error(res, "failed to unreserve block register");
-                        res =
-                            drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS,
-                                                       bb, next, NULL, false, &block_reg);
-                        if (res != DRREG_SUCCESS)
-                            drreg_report_error(res, "failed to reserve block register");
-                        load_indirect_block(drcontext, tls_simd_offs, bb, next,
-                                            block_reg);
-                        restore_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb,
-                                               next, block_reg, true);
-                        /* We keep .native==false */
-                        res = drreg_unreserve_register(drcontext, bb, next, block_reg);
-                        if (res != DRREG_SUCCESS)
-                            drreg_report_error(res, "failed to unreserve block register");
-
-                    } else {
-                        ASSERT(reg_is_gpr(reg), "non-applicable reg");
+                    uint tmp_slot = find_simd_free_slot(pt);
+                    if (tmp_slot == MAX_SIMD_SPILLS) {
+                        drreg_report_error(DRREG_ERROR_OUT_OF_SLOTS,
+                                           "failed to preserve tool val around app read");
                     }
+                    res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
+                                                     inst, NULL, false, &block_reg);
+                    if (res != DRREG_SUCCESS)
+                        drreg_report_error(res, "failed to reserve block register");
+                    load_indirect_block(drcontext, tls_simd_offs, bb, inst, block_reg);
+                    spill_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, inst,
+                                         block_reg);
+                    restore_reg_indirectly(drcontext, pt, spilled_reg,
+                                           pt->simd_reg[SIMD_IDX(reg)].slot, bb, inst,
+                                           block_reg, false /*keep slot*/);
+                    res = drreg_unreserve_register(drcontext, bb, inst, block_reg);
+                    if (res != DRREG_SUCCESS)
+                        drreg_report_error(res, "failed to unreserve block register");
+                    res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
+                                                     next, NULL, false, &block_reg);
+                    if (res != DRREG_SUCCESS)
+                        drreg_report_error(res, "failed to reserve block register");
+                    load_indirect_block(drcontext, tls_simd_offs, bb, next, block_reg);
+                    restore_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, next,
+                                           block_reg, true);
+                    /* We keep .native==false */
+                    res = drreg_unreserve_register(drcontext, bb, next, block_reg);
+                    if (res != DRREG_SUCCESS)
+                        drreg_report_error(res, "failed to unreserve block register");
+
                     /* Share the tool val spill if this inst writes too */
                     restored_for_simd_read[SIMD_IDX(reg)] = true;
                 }
@@ -2705,7 +2696,7 @@ tls_data_init(per_thread_t *pt)
         pt->reg[GPR_IDX(reg)].native = true;
     }
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
-        drvector_init(&pt->simd_reg[SIMD_IDX(reg)].live, MCXT_NUM_SIMD_SLOTS + 10,
+        drvector_init(&pt->simd_reg[SIMD_IDX(reg)].live, MCXT_NUM_SIMD_SLOTS,
                       false /*!synch*/, NULL);
         pt->simd_reg[SIMD_IDX(reg)].native = true;
     }
