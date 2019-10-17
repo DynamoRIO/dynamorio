@@ -744,7 +744,8 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
  * been computed by a forward liveness scan upon every insertion if called outside of
  * insertion phase, see drreg_forward_liveness_analysis(). Or if called inside insertion
  * phase, at the end of drmgr's analysis phase once, see drreg_event_bb_analysis().
- * We are not able to properly handle multiple users, xref i#3823.
+ * Please note that drreg's insertion phase lazy register restore management is not yet
+ * able to properly handle multiple users, xref i#3823.
  */
 static drreg_status_t
 drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
