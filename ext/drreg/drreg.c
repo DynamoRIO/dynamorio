@@ -647,7 +647,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
  * eax and other optimizations.
  */
 static drreg_status_t
-drreg_forward_liveness_analysis(void *drcontext, instr_t *start)
+drreg_forward_analysis(void *drcontext, instr_t *start)
 {
     per_thread_t *pt = get_tls_data(drcontext);
     instr_t *inst;
@@ -742,7 +742,7 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
 
 /* Assumes liveness info is already set up in per_thread_t. Liveness should have either
  * been computed by a forward liveness scan upon every insertion if called outside of
- * insertion phase, see drreg_forward_liveness_analysis(). Or if called inside insertion
+ * insertion phase, see drreg_forward_analysis(). Or if called inside insertion
  * phase, at the end of drmgr's analysis phase once, see drreg_event_bb_analysis().
  * Please note that drreg is not yet able to properly handle multiple users if they use
  * drreg from in and outside of the insertion phase, xref i#3823.
@@ -877,7 +877,7 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
-        res = drreg_forward_liveness_analysis(drcontext, where);
+        res = drreg_forward_analysis(drcontext, where);
         if (res != DRREG_SUCCESS)
             return res;
     }
@@ -897,7 +897,7 @@ drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
-        res = drreg_forward_liveness_analysis(drcontext, where);
+        res = drreg_forward_analysis(drcontext, where);
         if (res != DRREG_SUCCESS)
             return res;
     }
@@ -1219,7 +1219,7 @@ drreg_is_register_dead(void *drcontext, reg_id_t reg, instr_t *inst, bool *dead)
     if (dead == NULL)
         return DRREG_ERROR_INVALID_PARAMETER;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
-        drreg_status_t res = drreg_forward_liveness_analysis(drcontext, inst);
+        drreg_status_t res = drreg_forward_analysis(drcontext, inst);
         if (res != DRREG_SUCCESS)
             return res;
         ASSERT(pt->live_idx == 0, "non-drmgr-insert always uses 0 index");
@@ -1464,7 +1464,7 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
     drreg_status_t res;
     uint aflags;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
-        res = drreg_forward_liveness_analysis(drcontext, where);
+        res = drreg_forward_analysis(drcontext, where);
         if (res != DRREG_SUCCESS)
             return res;
         ASSERT(pt->live_idx == 0, "non-drmgr-insert always uses 0 index");
@@ -1552,7 +1552,7 @@ drreg_aflags_liveness(void *drcontext, instr_t *inst, OUT uint *value)
     if (value == NULL)
         return DRREG_ERROR_INVALID_PARAMETER;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
-        drreg_status_t res = drreg_forward_liveness_analysis(drcontext, inst);
+        drreg_status_t res = drreg_forward_analysis(drcontext, inst);
         if (res != DRREG_SUCCESS)
             return res;
         ASSERT(pt->live_idx == 0, "non-drmgr-insert always uses 0 index");
