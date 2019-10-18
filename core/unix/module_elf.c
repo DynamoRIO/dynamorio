@@ -331,12 +331,14 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
     return res;
 }
 
-/* Returned addresses out_base and out_end are relative to the actual
+/* Identifies the bounds of each segment in the ELF at base.
+ * Returned addresses out_base and out_end are relative to the actual
  * loaded module base, so the "base" param should be added to produce
  * absolute addresses.
  * If out_data != NULL, fills in the dynamic section fields and adds
  * entries to the module list vector: so the caller must be
  * os_module_area_init() if out_data != NULL!
+ * Optionally returns the first segment bounds, the max segemnt end, and the soname.
  */
 bool
 module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn_reloc,
@@ -350,6 +352,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
     bool found_load = false;
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
     ptr_int_t load_delta; /* delta loaded at relative to base */
+    uint last_seg_align = 0;
     ASSERT(is_elf_so_header(base, view_size));
 
     /* On adjusting virtual address in the elf headers -
@@ -380,6 +383,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                                             i * elf_hdr->e_phentsize);
             if (prog_hdr->p_type == PT_LOAD) {
                 if (out_data != NULL) {
+                    last_seg_align = prog_hdr->p_align;
                     module_add_segment_data(
                         out_data, elf_hdr->e_phnum,
                         (app_pc)prog_hdr->p_vaddr + load_delta, prog_hdr->p_memsz,
@@ -412,7 +416,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
              * to create a synthetic segment.
              */
             LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
-                "max_end " PFX " is smaller than map size " PFX ": assuming VDSO\n",
+                "max segment end " PFX " smaller than map size " PFX ": probably VDSO\n",
                 max_end + load_delta, base + view_size);
             uint map_prot;
             if (out_data != NULL &&
@@ -423,8 +427,8 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                 ASSERT_CURIOSITY(soname != NULL && strstr(soname, "vdso") != NULL);
                 module_add_segment_data(out_data, elf_hdr->e_phnum, max_end + load_delta,
                                         base + view_size - (max_end + load_delta),
-                                        map_prot, PAGE_SIZE, false /*!shared*/,
-                                        max_end + load_delta - base);
+                                        map_prot, last_seg_align, false /*!shared*/,
+                                        max_end + load_delta - base /*offset*/);
             }
             max_end = base + view_size;
         }
