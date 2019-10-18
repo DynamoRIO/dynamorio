@@ -48,9 +48,12 @@
 
 #include <setjmp.h>
 
-static void
+volatile int val;
+
+static NOINLINE void
 foo(void)
 { /* nothing: just a marker */
+    val = 4;
 }
 
 SIGJMP_BUF mark;
@@ -100,13 +103,16 @@ int
 main(int argc, char *argv[])
 {
     int i, j;
+    /* Call foo() so it doesn't get optimized away. */
+    foo();
 #ifdef UNIX
     intercept_signal(SIGSEGV, (handler_3_t)signal_handler, false);
 #else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
 #endif
 
-    /* Each test in cleancall.dll.c crashes at the end */
+/* Each test in cleancall.dll.c crashes at the end */
+#pragma nounroll
     for (j = 0; j < 5; j++) {
         i = SIGSETJMP(mark);
         if (i == 0) {
@@ -114,9 +120,7 @@ main(int argc, char *argv[])
             /* use 2 NOPs + call to indicate it's ok to do the tests
              * now that the handlers are all set up
              */
-            NOP;
-            NOP;
-            foo();
+            NOP_NOP_CALL(foo);
             print("did not crash\n");
         }
     }
