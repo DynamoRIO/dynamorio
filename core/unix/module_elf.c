@@ -405,6 +405,29 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                 });
             }
         }
+        if (max_end + load_delta < base + view_size) {
+            /* i#3900: in-memory-only VDSO has a "loaded" portion not in a PT_LOAD
+             * official segment.  This confuses other code which takes the endpoint
+             * of the last segment as the endpoint of the mappings.  Our solution is
+             * to create a synthetic segment.
+             */
+            LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
+                "max_end " PFX " is smaller than map size " PFX ": assuming VDSO\n",
+                max_end + load_delta, base + view_size);
+            uint map_prot;
+            if (out_data != NULL &&
+                get_memory_info_from_os(max_end + load_delta, NULL, NULL, &map_prot)) {
+                LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
+                    "adding synthetic segment " PFX "-" PFX "\n", max_end + load_delta,
+                    base + view_size);
+                ASSERT_CURIOSITY(soname != NULL && strstr(soname, "vdso") != NULL);
+                module_add_segment_data(out_data, elf_hdr->e_phnum, max_end + load_delta,
+                                        base + view_size - (max_end + load_delta),
+                                        map_prot, PAGE_SIZE, false /*!shared*/,
+                                        max_end + load_delta - base);
+            }
+            max_end = base + view_size;
+        }
     }
     ASSERT_CURIOSITY(found_load && mod_base != (app_pc)POINTER_MAX &&
                      max_end != (app_pc)0);
