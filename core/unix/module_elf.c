@@ -338,7 +338,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
  * If out_data != NULL, fills in the dynamic section fields and adds
  * entries to the module list vector: so the caller must be
  * os_module_area_init() if out_data != NULL!
- * Optionally returns the first segment bounds, the max segemnt end, and the soname.
+ * Optionally returns the first segment bounds, the max segment end, and the soname.
  */
 bool
 module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn_reloc,
