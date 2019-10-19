@@ -910,8 +910,6 @@ extern const reg_id_t dr_reg_fixer[];
 #    else
 #        define DR_REG_STOP_GPR DR_REG_XDI /**< End of general register enum values */
 #    endif
-/** Number of SIMD vector registers */
-#    define DR_NUM_SIMD_VECTOR_REGS MCXT_NUM_SIMD_SLOTS
 /** Number of general registers */
 #    define DR_NUM_GPR_REGS (DR_REG_STOP_GPR - DR_REG_START_GPR + 1)
 #    define DR_REG_START_64 \
@@ -943,6 +941,8 @@ extern const reg_id_t dr_reg_fixer[];
         DR_REG_DIL /**< Stop of 8-bit x64-only register enum values */
 #    define DR_REG_START_MMX DR_REG_MM0   /**< Start of mmx register enum values */
 #    define DR_REG_STOP_MMX DR_REG_MM7    /**< End of mmx register enum values */
+/** Number of SIMD vector registers */
+#    define DR_NUM_SIMD_VECTOR_REGS MCXT_NUM_SIMD_SLOTS
 #    define DR_REG_START_XMM DR_REG_XMM0  /**< Start of sse xmm register enum values */
 #    define DR_REG_STOP_XMM DR_REG_XMM31  /**< End of sse xmm register enum values */
 #    define DR_REG_START_YMM DR_REG_YMM0  /**< Start of ymm register enum values */
