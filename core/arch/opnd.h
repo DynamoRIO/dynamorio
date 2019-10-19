@@ -939,8 +939,8 @@ extern const reg_id_t dr_reg_fixer[];
         DR_REG_SPL /**< Start of 8-bit x64-only register enum values*/
 #    define DR_REG_STOP_x64_8 \
         DR_REG_DIL /**< Stop of 8-bit x64-only register enum values */
-#    define DR_REG_START_MMX DR_REG_MM0   /**< Start of mmx register enum values */
-#    define DR_REG_STOP_MMX DR_REG_MM7    /**< End of mmx register enum values */
+#    define DR_REG_START_MMX DR_REG_MM0 /**< Start of mmx register enum values */
+#    define DR_REG_STOP_MMX DR_REG_MM7  /**< End of mmx register enum values */
 /** Number of SIMD vector registers */
 #    define DR_NUM_SIMD_VECTOR_REGS MCXT_NUM_SIMD_SLOTS
 #    define DR_REG_START_XMM DR_REG_XMM0  /**< Start of sse xmm register enum values */
