@@ -94,7 +94,7 @@ my_setjmp(sigjmp_buf env)
 }
 
 static void
-signal_handler(int sig, siginfo_t *siginfo)
+signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (sig == SIGILL) {
         count++;
@@ -365,7 +365,7 @@ GLOBAL_LABEL(FUNCNAME:)
 #endif
         mov  ecx, 0
         mov  edx, 0
-        RAW(0f) RAW(01) RAW(c8) /* monitor */
+        RAW(0f) RAW(01) RAW(c8) /* monitor. %rax from ARG1 above is live-in */
         RAW(0f) RAW(01) RAW(c9) /* mwait */
         /* we want failure on sse3 machine, to have constant output
          * (this will produce "Invalid opcode encountered" warning) */
