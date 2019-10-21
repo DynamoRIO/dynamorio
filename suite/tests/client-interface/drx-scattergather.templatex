@@ -27,4 +27,16 @@ AVX2 gather ok
 AVX2 gather ok
 #endif
 AVX2/AVX-512 scatter/gather checks ok
-event_exit
+#ifdef X64
+#ifdef __AVX512F__
+event_exit, 64 scatter/gather instructions
+#elif defined(__AVX__)
+event_exit, 16 scatter/gather instructions
+#endif
+#else
+#ifdef __AVX512F__
+event_exit, 16 scatter/gather instructions
+#elif defined(__AVX__)
+event_exit, 4 scatter/gather instructions
+#endif
+#endif
