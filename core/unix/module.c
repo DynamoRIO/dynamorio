@@ -473,6 +473,9 @@ module_add_segment_data(OUT os_module_data_t *out_data, uint num_segments /*hint
                         size_t alignment, bool shared, uint64 offset)
 {
     uint seg, i;
+    LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 3, "%s: #=%d " PFX "-" PFX " 0x%x\n",
+        __FUNCTION__, out_data->num_segments, segment_start, segment_start + segment_size,
+        segment_prot);
     if (out_data->alignment == 0) {
         out_data->alignment = alignment;
     } else {
