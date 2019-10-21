@@ -74,6 +74,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     num_instrs = (uint)(ptr_uint_t)user_data;
     dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb), (void *)inscount,
                          false /* save fpstate */, 1, OPND_CREATE_INT32(num_instrs));
+    return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
