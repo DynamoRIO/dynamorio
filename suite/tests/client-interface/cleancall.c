@@ -112,7 +112,9 @@ main(int argc, char *argv[])
 #endif
 
 /* Each test in cleancall.dll.c crashes at the end */
-#pragma nounroll
+#ifdef UNIX
+#    pragma nounroll
+#endif
     for (j = 0; j < 5; j++) {
         i = SIGSETJMP(mark);
         if (i == 0) {
