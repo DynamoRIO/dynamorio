@@ -71,7 +71,7 @@
  * that many GPRs.
  */
 #define MAX_SPILLS (SPILL_SLOT_MAX + 8)
-#define MAX_SIMD_SPILLS (MCXT_NUM_SIMD_SLOTS)
+#define MAX_SIMD_SPILLS DR_NUM_SIMD_VECTOR_REGS
 
 #define REG_SIMD_SIZE 64
 #define XMM_REG_SIZE 16
@@ -123,17 +123,17 @@ typedef struct _reg_info_t {
 
 /* Depending on architecture, we have a set of applicable SIMD registers.
  * Note that we are reasoning over ZMM registers but not blindly considering
- * all of their range. The latter is dictated by  MCXT_NUM_SIMD_SLOTS.
+ * all of their range. The latter is dictated by DR_NUM_SIMD_VECTOR_REGS.
  */
 #define DR_REG_APPLICABLE_START_SIMD DR_REG_START_ZMM
 #define DR_REG_APPLICABLE_STOP_SIMD \
-    (DR_REG_APPLICABLE_START_SIMD + MCXT_NUM_SIMD_SLOTS - 1)
+    (DR_REG_APPLICABLE_START_SIMD + DR_NUM_SIMD_VECTOR_REGS - 1)
 
 typedef struct _per_thread_t {
     instr_t *cur_instr;
     int live_idx;
     reg_info_t reg[DR_NUM_GPR_REGS];
-    reg_info_t simd_reg[MCXT_NUM_SIMD_SLOTS];
+    reg_info_t simd_reg[DR_NUM_SIMD_VECTOR_REGS];
     byte *simd_spill_start;
     byte *simd_spills; /* aligned storage for SIMD data */
     reg_info_t aflags;
@@ -641,7 +641,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     reg_id_t block_reg; /* Used for indirect access */
     instr_t *next = instr_get_next(inst);
     bool restored_for_read[DR_NUM_GPR_REGS];
-    bool restored_for_simd_read[MCXT_NUM_SIMD_SLOTS];
+    bool restored_for_simd_read[DR_NUM_SIMD_VECTOR_REGS];
     drreg_status_t res;
     dr_pred_type_t pred = instrlist_get_auto_predicate(bb);
 
@@ -1126,7 +1126,7 @@ drreg_init_and_fill_vector_ex(drvector_t *vec, drreg_spill_class_t spill_class,
     else if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS ||
              spill_class == DRREG_SIMD_YMM_SPILL_CLASS ||
              spill_class == DRREG_SIMD_ZMM_SPILL_CLASS)
-        size = MCXT_NUM_SIMD_SLOTS;
+        size = DR_NUM_SIMD_VECTOR_REGS;
     else
         return DRREG_ERROR;
 
@@ -2527,7 +2527,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
      */
     uint spilled_to[DR_NUM_GPR_REGS];
     uint spilled_to_aflags = MAX_SPILLS;
-    uint spilled_simd_to[MCXT_NUM_SIMD_SLOTS];
+    uint spilled_simd_to[DR_NUM_SIMD_VECTOR_REGS];
     reg_id_t reg;
     instr_t inst;
     instr_t next_inst; /* used to analyse the load to an indirect block. */
@@ -2711,7 +2711,7 @@ tls_data_init(per_thread_t *pt)
         pt->reg[GPR_IDX(reg)].native = true;
     }
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
-        drvector_init(&pt->simd_reg[SIMD_IDX(reg)].live, MCXT_NUM_SIMD_SLOTS,
+        drvector_init(&pt->simd_reg[SIMD_IDX(reg)].live, DR_NUM_SIMD_VECTOR_REGS,
                       false /*!synch*/, NULL);
         pt->simd_reg[SIMD_IDX(reg)].native = true;
     }
