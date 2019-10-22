@@ -528,7 +528,8 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
     /* Reverse scan is more efficient.  This means our indices are also reversed. */
     for (inst = instrlist_last(bb); inst != NULL; inst = instr_get_prev(inst)) {
         /* We consider both meta and app instrs, to handle rare cases of meta instrs
-         * being inserted during app2app for corner cases.
+         * being inserted during app2app for corner cases. An example are app2app
+         * emulation functions like drx_expand_scatter_gather().
          */
 
         bool xfer =
@@ -643,6 +644,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     instrlist_set_auto_predicate(bb, DR_PRED_NONE);
     /* For unreserved regs still spilled, we lazily do the restore here.  We also
      * update reserved regs wrt app uses.
+     * The instruction list presented to us here are app instrs but may contain meta
+     * instrs if any were inserted in app2app. Any such meta instr here will be treated
+     * like an app instr.
      */
 
     /* Before each app read, or at end of bb, restore aflags to app value */
@@ -1155,7 +1159,13 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
     return DRREG_SUCCESS;
 }
 
-/* Assumes liveness info is already set up in per_thread_t */
+/* Assumes liveness info is already set up in per_thread_t. Liveness should have either
+ * been computed by a forward liveness scan upon every insertion if called outside of
+ * insertion phase, see drreg_forward_analysis(). Or if called inside insertion
+ * phase, at the end of drmgr's analysis phase once, see drreg_event_bb_analysis().
+ * Please note that drreg is not yet able to properly handle multiple users if they use
+ * drreg from in and outside of the insertion phase, xref i#3823.
+ */
 static drreg_status_t
 drreg_reserve_gpr_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
                            drvector_t *reg_allowed, bool only_if_no_spill,
