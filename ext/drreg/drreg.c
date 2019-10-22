@@ -66,11 +66,13 @@
 
 #define PRE instrlist_meta_preinsert
 
-/* This should be pretty hard to exceed as there aren't this many GPRs */
+/* We add additional spill slots to cater for client spills.
+ * The number of spills should be pretty hard to exceed as there aren't
+ * that many GPRs.
+ */
 #define MAX_SPILLS (SPILL_SLOT_MAX + 8)
+#define MAX_SIMD_SPILLS (MCXT_NUM_SIMD_SLOTS)
 
-/* This should be pretty hard to exceed as there aren't this many SIMD registers */
-#define MAX_SIMD_SPILLS (MCXT_NUM_SIMD_SLOTS + 8)
 #define REG_SIMD_SIZE 64
 #define XMM_REG_SIZE 16
 
