@@ -848,6 +848,9 @@ enum {
     DR_REG_XSP = DR_REG_SP,
 #    endif
 
+/** Number of SIMD vector registers */
+#    define DR_NUM_SIMD_VECTOR_REGS MCXT_NUM_SIMD_SLOTS
+
 #endif /* X86/ARM */
 };
 
