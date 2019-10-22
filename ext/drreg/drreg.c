@@ -121,7 +121,10 @@ typedef struct _reg_info_t {
 #define GPR_IDX(reg) ((reg)-DR_REG_START_GPR)
 #define SIMD_IDX(reg) ((reg_resize_to_opsz(reg, OPSZ_64)) - DR_REG_START_ZMM)
 
-/* Depending on architecture, we have a set of applicable SIMD registers */
+/* Depending on architecture, we have a set of applicable SIMD registers.
+ * Note that we are reasoning over ZMM registers but not blindly considering
+ * all of their range. The latter is dictated by  MCXT_NUM_SIMD_SLOTS.
+ */
 #define DR_REG_APPLICABLE_START_SIMD DR_REG_START_ZMM
 #define DR_REG_APPLICABLE_STOP_SIMD \
     (DR_REG_APPLICABLE_START_SIMD + MCXT_NUM_SIMD_SLOTS - 1)
