@@ -59,6 +59,7 @@ event_exit(void)
 static void
 inscount(uint num_instrs)
 {
+    /* We assume the test is single threaded hence no race. */
     global_sg_count += num_instrs;
 }
 
