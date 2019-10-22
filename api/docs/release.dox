@@ -216,6 +216,8 @@ Further non-compatibility-affecting changes include:
    read from exact registers.
  - Added the function reg_is_vector_simd() to test whether registers are
    either XMM, YMM or ZMM, excluding any MMX register checks.
+ - Added DR_NUM_SIMD_VECTOR_REGS as an alias to MCXT_NUM_SIMD_SLOTS in order
+   to get the static number of supported SIMD vectors.
 
 **************************************************
 <hr>
