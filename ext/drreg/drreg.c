@@ -71,6 +71,9 @@
  * that many GPRs.
  */
 #define MAX_SPILLS (SPILL_SLOT_MAX + 8)
+/* We choose the number of available slots for spilling simds to match their
+ * theoretical max number on any platform, which is up to 32 for 64-bit on x86.
+ */
 #define MAX_SIMD_SPILLS DR_NUM_SIMD_VECTOR_REGS
 
 #define REG_SIMD_SIZE 64
