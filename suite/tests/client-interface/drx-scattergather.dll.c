@@ -45,13 +45,74 @@
         }                                                                            \
     } while (0);
 
+static uint64 global_sg_count;
+
 static void
 event_exit(void)
 {
     drx_exit();
     drreg_exit();
     drmgr_exit();
-    dr_fprintf(STDERR, "event_exit\n");
+    dr_fprintf(STDERR, "event_exit, %d scatter/gather instructions\n", global_sg_count);
+}
+
+static void
+inscount(uint num_instrs)
+{
+    /* We assume the test is single threaded hence no race. */
+    global_sg_count += num_instrs;
+}
+
+static dr_emit_flags_t
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      bool for_trace, bool translating, void *user_data)
+{
+    uint num_instrs;
+    if (!drmgr_is_first_instr(drcontext, instr))
+        return DR_EMIT_DEFAULT;
+    if (user_data == NULL)
+        return DR_EMIT_DEFAULT;
+    num_instrs = (uint)(ptr_uint_t)user_data;
+    dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb), (void *)inscount,
+                         false /* save fpstate */, 1, OPND_CREATE_INT32(num_instrs));
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, void **user_data)
+{
+    uint num_sg_instrs = 0;
+    bool is_emulation = false;
+    for (instr_t *instr = instrlist_first(bb); instr != NULL;
+         instr = instr_get_next(instr)) {
+        if (instr_is_gather(instr) || instr_is_scatter(instr)) {
+            /* FIXME i#2985: some scatter/gather instructions will not get expanded in
+             * 32-bit mode.
+             */
+            IF_X64(dr_fprintf(STDERR, "Unexpected scatter or gather instruction\n"));
+        }
+        if (drmgr_is_emulation_start(instr)) {
+            emulated_instr_t emulated_instr;
+            CHECK(drmgr_get_emulated_instr_data(instr, &emulated_instr),
+                  "drmgr_get_emulated_instr_data() failed");
+            if (instr_is_gather(emulated_instr.instr) ||
+                instr_is_scatter(emulated_instr.instr))
+                num_sg_instrs++;
+            is_emulation = true;
+            continue;
+        }
+        if (drmgr_is_emulation_end(instr)) {
+            is_emulation = false;
+            continue;
+        }
+        if (is_emulation)
+            continue;
+        if (!instr_is_app(instr))
+            continue;
+    }
+    *user_data = (void *)(ptr_uint_t)num_sg_instrs;
+    return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
@@ -98,5 +159,8 @@ dr_init(client_id_t id)
     dr_register_exit_event(event_exit);
 
     ok = drmgr_register_bb_app2app_event(event_bb_app2app, &priority);
+    CHECK(ok, "drmgr register bb failed");
+    ok = drmgr_register_bb_instrumentation_event(event_bb_analysis, event_app_instruction,
+                                                 NULL);
     CHECK(ok, "drmgr register bb failed");
 }
