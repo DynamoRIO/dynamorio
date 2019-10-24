@@ -49,6 +49,16 @@
 #include <limits.h>
 #include <stddef.h> /* offsetof */
 
+static drreg_options_t ops;
+
+static int tls_idx = -1;
+static uint tls_slot_offs;
+static reg_id_t tls_seg;
+
+#ifdef DEBUG
+static uint stats_max_slot;
+#endif
+
 static per_thread_t *
 get_tls_data(void *drcontext);
 
@@ -66,6 +76,18 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 static drreg_status_t
 drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thread_t *pt);
+
+void
+drreg_report_error(drreg_status_t res, const char *msg)
+{
+    if (ops.error_callback != NULL) {
+        if ((*ops.error_callback)(res))
+            return;
+    }
+    ASSERT(false, msg);
+    DISPLAY_ERROR(msg);
+    dr_abort();
+}
 
 #ifdef DEBUG
 static inline app_pc

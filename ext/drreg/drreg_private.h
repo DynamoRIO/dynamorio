@@ -105,26 +105,7 @@ typedef struct _per_thread_t {
     bool bb_has_internal_flow;
 } per_thread_t;
 
-static drreg_options_t ops;
-
-static int tls_idx = -1;
-static uint tls_slot_offs;
-static reg_id_t tls_seg;
-
-#ifdef DEBUG
-static uint stats_max_slot;
-#endif
-
-static void
-drreg_report_error(drreg_status_t res, const char *msg)
-{
-    if (ops.error_callback != NULL) {
-        if ((*ops.error_callback)(res))
-            return;
-    }
-    ASSERT(false, msg);
-    DISPLAY_ERROR(msg);
-    dr_abort();
-}
+void
+drreg_report_error(drreg_status_t res, const char *msg);
 
 #endif /* _DRREG_PRIVATE_H_ */
