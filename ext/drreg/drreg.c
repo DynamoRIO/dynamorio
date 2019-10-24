@@ -2407,6 +2407,9 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
         slot = (offs - tls_slot_offs) / sizeof(reg_t);
     } else if (tls && offs == tls_simd_offs &&
                !(is_spilled) /* Cant be a spill bc loading block */) {
+    	/* In order to detect indirect spills, the loading of the pointer
+    	 * to the indrect block must be done exactly prior.
+    	 */
         ASSERT(next_instr != NULL, "next_instr cannot be NULL");
         ASSERT(instr_get_opcode(next_instr) == OP_movdqa ||
                    instr_get_opcode(next_instr) == OP_vmovdqa,
