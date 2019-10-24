@@ -3010,8 +3010,3 @@ drreg_exit(void)
 
     return DRREG_SUCCESS;
 }
-
-void
-drreg_test()
-{
-}

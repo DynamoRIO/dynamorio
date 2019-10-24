@@ -83,6 +83,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         if (drreg_reserve_register(drcontext, bb, instr, &allowed, &reg) != DRREG_SUCCESS)
             DR_ASSERT(false);
         drvector_delete(&allowed);
+#ifdef X86
         /* Now reserve SIMD register */
         drreg_init_and_fill_vector_ex(&allowed, DRREG_SIMD_XMM_SPILL_CLASS, true);
         drreg_set_vector_entry(&allowed, DR_REG_XMM0, false);
@@ -91,6 +92,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                                       &allowed, &simd_reg) != DRREG_SUCCESS)
             DR_ASSERT(false);
         drvector_delete(&allowed);
+#endif
     }
     return DR_EMIT_DEFAULT;
 }

@@ -108,12 +108,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     drreg_init_and_fill_vector(&allowed, false);
     drreg_set_vector_entry(&allowed, TEST_REG, true);
 
+#ifdef X86
     res = drreg_init_and_fill_vector_ex(&simd_allowed, DRREG_SIMD_XMM_SPILL_CLASS, true);
     CHECK(res == DRREG_SUCCESS, "bitvector init should work");
     res = drreg_set_vector_entry(&simd_allowed, DR_REG_XMM0, false);
     CHECK(res == DRREG_SUCCESS, "bitvector init should work");
     res = drreg_set_vector_entry(&simd_allowed, DR_REG_XMM1, false);
     CHECK(res == DRREG_SUCCESS, "bitvector init should work");
+#endif
 
     if (subtest == 0) {
         uint flags;
