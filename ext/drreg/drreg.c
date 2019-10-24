@@ -49,6 +49,24 @@
 #include <limits.h>
 #include <stddef.h> /* offsetof */
 
+static per_thread_t *
+get_tls_data(void *drcontext);
+
+static drreg_status_t
+drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
+                      per_thread_t *pt, reg_id_t reg);
+
+static void
+drreg_move_aflags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
+                           per_thread_t *pt, bool stateful);
+
+static drreg_status_t
+drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
+                     per_thread_t *pt, bool release);
+
+static drreg_status_t
+drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thread_t *pt);
+
 #ifdef DEBUG
 static inline app_pc
 get_where_app_pc(instr_t *where)
