@@ -718,8 +718,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
             pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
         }
     }
-#ifdef X86
     /* Before each app read, or at end of bb, restore spilled registers to app values: */
+#ifdef X86
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         restored_for_simd_read[SIMD_IDX(reg)] = false;
         if (!pt->simd_reg[SIMD_IDX(reg)].native) {
@@ -881,8 +881,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         }
     }
 
-#ifdef X86
     /* After each app write, update spilled app values: */
+#ifdef X86
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         if (pt->simd_reg[SIMD_IDX(reg)].in_use) {
             void *state =
@@ -1399,7 +1399,7 @@ drreg_find_for_simd_reservation(void *drcontext, const drreg_spill_class_t spill
     uint slot = MAX_SIMD_SPILLS;
     reg_id_t best_reg = DR_REG_NULL;
     bool already_spilled = false;
-    reg_id_t reg = DR_REG_NULL;
+    reg_id_t reg = DR_REG_APPLICABLE_STOP_SIMD + 1;
     void *dead_state = get_simd_dead_state(spill_class);
     if (dead_state == SIMD_UNKNOWN)
         return DRREG_ERROR;
