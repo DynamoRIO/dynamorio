@@ -2780,6 +2780,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
         uint slot = spilled_simd_to[SIMD_IDX(reg)];
         if (slot < MAX_SIMD_SPILLS) {
             reg_id_t actualreg = simd_slot_use[slot];
+            ASSERT(actualreg != DR_REG_NULL, "internal error, register should be valid");
             if (reg_is_strictly_xmm(actualreg)) {
                 get_indirectly_spilled_value(drcontext, reg, actualreg, simd_buf,
                                              XMM_REG_SIZE);
