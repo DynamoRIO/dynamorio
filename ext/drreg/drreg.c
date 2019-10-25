@@ -1399,7 +1399,7 @@ drreg_find_for_simd_reservation(void *drcontext, const drreg_spill_class_t spill
     uint slot = MAX_SIMD_SPILLS;
     reg_id_t best_reg = DR_REG_NULL;
     bool already_spilled = false;
-    reg_id_t reg = DR_REG_APPLICABLE_STOP_SIMD + 1;
+    reg_id_t reg = (reg_id_t)DR_REG_APPLICABLE_STOP_SIMD + 1;
     void *dead_state = get_simd_dead_state(spill_class);
     if (dead_state == SIMD_UNKNOWN)
         return DRREG_ERROR;
