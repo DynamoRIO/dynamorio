@@ -2828,7 +2828,7 @@ tls_data_init(per_thread_t *pt)
     }
 #ifdef X86
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
-        drvector_init(&pt->simd_reg[SIMD_IDX(reg)].live, DR_NUM_SIMD_VECTOR_REGS,
+        drvector_init(&pt->simd_reg[SIMD_IDX(reg)].live, proc_num_simd_registers(),
                       false /*!synch*/, NULL);
         pt->simd_reg[SIMD_IDX(reg)].native = true;
     }
