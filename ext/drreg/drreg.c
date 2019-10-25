@@ -1170,10 +1170,10 @@ drreg_init_and_fill_vector_ex(drvector_t *vec, drreg_spill_class_t spill_class,
 
     if (spill_class == DRREG_GPR_SPILL_CLASS) {
         size = DR_NUM_GPR_REGS;
-#ifdef X86
     } else if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS ||
                spill_class == DRREG_SIMD_YMM_SPILL_CLASS ||
                spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
+#ifdef X86
         size = proc_num_simd_registers();
 #else
         /* FIXME i#3844: NYI on ARM */
