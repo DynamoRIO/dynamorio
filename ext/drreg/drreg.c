@@ -718,6 +718,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
             pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
         }
     }
+
     /* Before each app read, or at end of bb, restore spilled registers to app values: */
 #ifdef X86
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
