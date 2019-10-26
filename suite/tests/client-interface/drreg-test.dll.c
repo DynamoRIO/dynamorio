@@ -360,7 +360,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             CHECK(res == DRREG_SUCCESS, "unreserve of xmm register should work");
         }
 #endif
-    } else if (subtest == DRREG_TEST_17_C) {
+    } else if (subtest == DRREG_TEST_16_C) {
 #ifdef X86
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #17\n");
         res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
@@ -373,7 +373,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         res = drreg_unreserve_register(drcontext, bb, inst, reg);
         CHECK(res == DRREG_SUCCESS, "unreserve of xmm register should work");
 #endif
-    } else if (subtest == DRREG_TEST_18_C) {
+    } else if (subtest == DRREG_TEST_17_C) {
 #ifdef X86
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #17\n");
         res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
