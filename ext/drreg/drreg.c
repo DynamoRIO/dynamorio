@@ -622,9 +622,10 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
             if (!determine_simd_liveliness_state(inst, reg, &value)) {
                 if (xfer)
                     value = SIMD_ZMM_LIVE;
-                else if (index > 0)
+                else if (index > 0) {
                     value =
                         drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, index - 1);
+                }
             }
             drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, index, value);
         }

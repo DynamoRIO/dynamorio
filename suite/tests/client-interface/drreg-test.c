@@ -329,8 +329,8 @@ GLOBAL_LABEL(FUNCNAME:)
         movdqa   xmm2, xmm0
         jmp      test16
      test16:
-        mov      TEST_REG_ASM, DRREG_TEST_17_ASM
-        mov      TEST_REG_ASM, DRREG_TEST_17_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_16_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_16_ASM
         pxor     xmm0, xmm0
         ptest    xmm0, xmm0
         je       test16_done
@@ -341,8 +341,8 @@ GLOBAL_LABEL(FUNCNAME:)
      test16_done:
         jmp      test17
      test17:
-        mov      TEST_REG_ASM, DRREG_TEST_18_ASM
-        mov      TEST_REG_ASM, DRREG_TEST_18_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_17_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_17_ASM
         pcmpeqd  xmm0, xmm0
         ptest    xmm0, xmm0
         jne      test17_done
@@ -351,6 +351,18 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
         jmp      test17_done
         test17_done:
+        jmp      test18
+     test18:
+        mov      TEST_REG_ASM, DRREG_TEST_18_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_18_ASM
+        vpcmpeqd  ymm0, ymm0, ymm0
+        vptest    ymm0, ymm0
+        jne      test18_done
+        /* Null deref if we have incorrect eflags */
+        xor      TEST_REG_ASM, TEST_REG_ASM
+        mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
+        jmp      test17_done
+        test18_done:
         jmp      epilog
 
      epilog:
