@@ -99,7 +99,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 {
     reg_id_t reg, random = IF_X86_ELSE(DR_REG_XDI, DR_REG_R5);
     drreg_status_t res;
-    drvector_t allowed, simd_allowed;
+    drvector_t allowed, simd_allowed, xmm0_allowed;
     ptr_int_t subtest = (ptr_int_t)user_data;
     drreg_reserve_info_t info = {
         sizeof(info),
@@ -114,6 +114,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     res = drreg_set_vector_entry(&simd_allowed, DR_REG_XMM0, false);
     CHECK(res == DRREG_SUCCESS, "bitvector init should work");
     res = drreg_set_vector_entry(&simd_allowed, DR_REG_XMM1, false);
+    CHECK(res == DRREG_SUCCESS, "bitvector init should work");
+
+    res = drreg_init_and_fill_vector_ex(&xmm0_allowed, DRREG_SIMD_XMM_SPILL_CLASS, false);
+    CHECK(res == DRREG_SUCCESS, "bitvector init should work");
+    res = drreg_set_vector_entry(&xmm0_allowed, DR_REG_XMM0, true);
     CHECK(res == DRREG_SUCCESS, "bitvector init should work");
 #endif
 
@@ -345,11 +350,39 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 #endif
     } else if (subtest == DRREG_TEST_15_C) {
 #ifdef X86
-        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #15\n");
-        res = drreg_reserve_dead_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb,
-                                             inst, NULL, &reg);
-        CHECK(reg == DR_REG_XMM2, "the only dead register available is xmm2");
-        CHECK(res == DRREG_SUCCESS, "reserve of xmm register should work");
+        if (!instr_is_cti(inst)) {
+            dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #15\n");
+            res = drreg_reserve_dead_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS,
+                                                 bb, inst, NULL, &reg);
+            CHECK(reg == DR_REG_XMM2, "the only dead register available is xmm2");
+            CHECK(res == DRREG_SUCCESS, "reserve of xmm register should work");
+            res = drreg_unreserve_register(drcontext, bb, inst, reg);
+            CHECK(res == DRREG_SUCCESS, "unreserve of xmm register should work");
+        }
+#endif
+    } else if (subtest == DRREG_TEST_17_C) {
+#ifdef X86
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #17\n");
+        res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
+                                        &xmm0_allowed, &reg);
+        CHECK(reg == DR_REG_XMM0, "reserve of non-allowed xmm register should work");
+        instrlist_meta_preinsert(bb, inst,
+                                 INSTR_CREATE_pcmpeqd(drcontext,
+                                                      opnd_create_reg(DR_REG_XMM0),
+                                                      opnd_create_reg(DR_REG_XMM0)));
+        res = drreg_unreserve_register(drcontext, bb, inst, reg);
+        CHECK(res == DRREG_SUCCESS, "unreserve of xmm register should work");
+#endif
+    } else if (subtest == DRREG_TEST_18_C) {
+#ifdef X86
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #17\n");
+        res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
+                                        &xmm0_allowed, &reg);
+        CHECK(reg == DR_REG_XMM0, "reserve of non-allowed xmm register should work");
+        instrlist_meta_preinsert(bb, inst,
+                                 INSTR_CREATE_pxor(drcontext,
+                                                   opnd_create_reg(DR_REG_XMM0),
+                                                   opnd_create_reg(DR_REG_XMM0)));
         res = drreg_unreserve_register(drcontext, bb, inst, reg);
         CHECK(res == DRREG_SUCCESS, "unreserve of xmm register should work");
 #endif
@@ -357,6 +390,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     drvector_delete(&allowed);
 #ifdef X86
     drvector_delete(&simd_allowed);
+    drvector_delete(&xmm0_allowed);
 #endif
 
     /* XXX i#511: add more tests */

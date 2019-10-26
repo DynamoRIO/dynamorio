@@ -490,29 +490,33 @@ determine_simd_liveliness_state(instr_t *inst, reg_id_t reg, void **value)
      *
      * This is important to achieve efficient spilling/restoring.
      */
-    if (instr_reads_from_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
-        *value < SIMD_ZMM_LIVE) {
-        *value = SIMD_ZMM_LIVE;
+    if (instr_reads_from_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS)) {
+        if (instr_reads_from_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
+            *value <= SIMD_ZMM_LIVE) {
+            *value = SIMD_ZMM_LIVE;
+        } else if (instr_reads_from_exact_reg(inst, ymm_reg,
+                                              DR_QUERY_INCLUDE_COND_SRCS) &&
+                   *value <= SIMD_YMM_LIVE) {
+            *value = SIMD_YMM_LIVE;
+        } else if (instr_reads_from_exact_reg(inst, xmm_reg,
+                                              DR_QUERY_INCLUDE_COND_SRCS) &&
+                   *value <= SIMD_XMM_LIVE) {
+            *value = SIMD_XMM_LIVE;
+        }
         return true;
-    } else if (instr_reads_from_exact_reg(inst, ymm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
-               *value < SIMD_YMM_LIVE) {
-        *value = SIMD_YMM_LIVE;
-        return true;
-    } else if (instr_reads_from_exact_reg(inst, xmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
-               *value < SIMD_XMM_LIVE) {
-        *value = SIMD_XMM_LIVE;
-        return true;
-    } else if (instr_writes_to_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
-               (*value < SIMD_ZMM_DEAD || *value >= SIMD_XMM_LIVE)) {
-        *value = SIMD_ZMM_DEAD;
-        return true;
-    } else if (instr_writes_to_exact_reg(inst, ymm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
-               (*value < SIMD_YMM_DEAD || *value >= SIMD_XMM_LIVE)) {
-        *value = SIMD_YMM_DEAD;
-        return true;
-    } else if (instr_writes_to_exact_reg(inst, xmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
-               (*value < SIMD_XMM_DEAD || *value >= SIMD_XMM_LIVE)) {
-        *value = SIMD_XMM_DEAD;
+    }
+
+    if (instr_writes_to_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS)) {
+        if (instr_writes_to_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
+            (*value < SIMD_ZMM_DEAD || *value >= SIMD_XMM_LIVE)) {
+            *value = SIMD_ZMM_DEAD;
+        } else if (instr_writes_to_exact_reg(inst, ymm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
+                   (*value < SIMD_YMM_DEAD || *value >= SIMD_XMM_LIVE)) {
+            *value = SIMD_YMM_DEAD;
+        } else if (instr_writes_to_exact_reg(inst, xmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
+                   (*value < SIMD_XMM_DEAD || *value >= SIMD_XMM_LIVE)) {
+            *value = SIMD_XMM_DEAD;
+        }
         return true;
     }
     return false;
@@ -615,12 +619,13 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
              reg++) {
             void *value = SIMD_ZMM_LIVE;
-            if (index > 0)
-                value = drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, index - 1);
-
-            if (!determine_simd_liveliness_state(inst, reg, &value) && (xfer))
-                value = SIMD_ZMM_LIVE;
-
+            if (!determine_simd_liveliness_state(inst, reg, &value)) {
+                if (xfer)
+                    value = SIMD_ZMM_LIVE;
+                else if (index > 0)
+                    value =
+                        drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, index - 1);
+            }
             drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, index, value);
         }
 #endif
@@ -1417,7 +1422,6 @@ drreg_find_for_simd_reservation(void *drcontext, const drreg_spill_class_t spill
                       SIMD_ZMM_DEAD))) {
                 slot = pt->simd_reg[idx].slot;
                 pt->simd_pending_unreserved--;
-
                 reg_id_t spilled_reg = pt->simd_slot_use[slot];
                 already_spilled = pt->simd_reg[idx].ever_spilled &&
                     get_spill_class(spilled_reg) == spill_class;
@@ -1485,12 +1489,12 @@ drreg_reserve_simd_reg_internal(void *drcontext, drreg_spill_class_t spill_class
     reg_id_t reg = DR_REG_NULL;
     bool already_spilled = false;
     drreg_status_t res;
-
     res =
         drreg_find_for_simd_reservation(drcontext, spill_class, ilist, where, reg_allowed,
                                         only_if_no_spill, &slot, &reg, &already_spilled);
     if (res != DRREG_SUCCESS)
         return res;
+
     /* We found a suitable reg, now we need to spill. */
     ASSERT(!pt->simd_reg[SIMD_IDX(reg)].in_use, "overlapping uses");
     pt->simd_reg[SIMD_IDX(reg)].in_use = true;
