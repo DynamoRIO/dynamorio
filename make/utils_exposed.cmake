@@ -99,14 +99,15 @@ function (DynamoRIO_add_rel_rpaths target)
 
       # Append the new rpath element if it isn't there already.
       if (APPLE)
-        # @loader_path seems to work for executables too
+        # 10.5+ supports @rpath but I'm having trouble getting it to work properly,
+        # so I'm sticking with @loader_path for now, which works for executables too.
         set(new_lflag "-Wl,-rpath,'@loader_path/${relpath}'")
         get_target_property(lflags ${target} LINK_FLAGS)
         # We match the trailing ' to avoid matching a parent dir only
         if (NOT lflags MATCHES "@loader_path/${relpath}'")
           _DR_append_property_string(TARGET ${target} LINK_FLAGS "${new_lflag}")
         endif ()
-      else (APPLE)
+      else ()
         set(new_lflag "-Wl,-rpath='$ORIGIN/${relpath}'")
         get_target_property(lflags ${target} LINK_FLAGS)
         if (NOT lflags MATCHES "\\$ORIGIN/${relpath}")

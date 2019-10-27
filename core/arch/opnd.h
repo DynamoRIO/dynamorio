@@ -851,6 +851,9 @@ enum {
 #endif /* X86/ARM */
 };
 
+/** Number of SIMD vector registers */
+#define DR_NUM_SIMD_VECTOR_REGS MCXT_NUM_SIMD_SLOTS
+
 /* we avoid typedef-ing the enum, as its storage size is compiler-specific */
 typedef ushort reg_id_t; /**< The type of a DR_REG_ enum value. */
 /* For x86 we do store reg_id_t here, but the x86 DR_REG_ enum is small enough
