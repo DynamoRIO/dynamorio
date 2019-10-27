@@ -399,6 +399,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         res = drreg_unreserve_register(drcontext, bb, inst, reg);
         CHECK(res == DRREG_SUCCESS, "unreserve of xmm register should work");
 #endif
+    } else if (subtest == DRREG_TEST_19_C) {
+#ifdef X86
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #18\n");
+        res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
+                                        &xmm0_allowed, &reg);
+        CHECK(reg == DR_REG_XMM0, "reserve of non-allowed xmm register should work");
+        instrlist_meta_preinsert(bb, inst,
+                                 INSTR_CREATE_pcmpeqd(drcontext,
+                                                      opnd_create_reg(DR_REG_XMM0),
+                                                      opnd_create_reg(DR_REG_XMM0)));
+        res = drreg_unreserve_register(drcontext, bb, inst, reg);
+        CHECK(res == DRREG_SUCCESS, "unreserve of xmm register should work");
+#endif
     }
     drvector_delete(&allowed);
 #ifdef X86
