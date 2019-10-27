@@ -2223,7 +2223,8 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.drxmgr-test.dll drx)
   use_DynamoRIO_extension(client.drxmgr-test.dll drreg)
 
-  tobuild_ci(client.low_on_memory client-interface/low_on_memory.c "" "-enable_reset -vm_size 4M" "")
+  tobuild_ci(client.low_on_memory client-interface/low_on_memory.c ""
+      "-enable_reset -reset_at_vmm_percent_free_limit 10 -vm_size 4M" "")
   use_DynamoRIO_extension(client.low_on_memory.dll drmgr)
   use_DynamoRIO_extension(client.low_on_memory.dll drwrap)
 
