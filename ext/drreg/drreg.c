@@ -731,6 +731,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         restored_for_simd_read[SIMD_IDX(reg)] = false;
         if (!pt->simd_reg[SIMD_IDX(reg)].native) {
             if (drmgr_is_last_instr(drcontext, inst) ||
+                /* This covers reads from all simds, because the applicable range
+                 * resembles zmm, and all other x86 simds are included in zmm.
+                 */
                 instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_ALL) ||
                 /* i#1954: for complex bbs we must restore before the next app instr */
                 (!pt->simd_reg[SIMD_IDX(reg)].in_use &&
@@ -2887,7 +2890,6 @@ drreg_status_t
 drreg_init(drreg_options_t *ops_in)
 {
     uint prior_slots = ops.num_spill_slots;
-    uint num_spill_slots;
     drmgr_priority_t high_priority = { sizeof(high_priority),
                                        DRMGR_PRIORITY_NAME_DRREG_HIGH, NULL, NULL,
                                        DRMGR_PRIORITY_INSERT_DRREG_HIGH };
@@ -2916,10 +2918,11 @@ drreg_init(drreg_options_t *ops_in)
                                                       &fault_priority))
             return DRREG_ERROR;
 #ifdef X86
-        /* We get an extra slot for aflags xax, rather than just documenting that
-         * clients should add 2 instead of just 1, as there are many existing clients.
+        /* We get an extra slot for aflags xax and an additional one for indirect spills,
+         * rather than just documenting that clients should add 3 instead of just 1, as
+         * there are many existing clients.
          */
-        ops.num_spill_slots = 1;
+        ops.num_spill_slots = 2;
 #endif
         /* Support use during init when there is no TLS (i#2910). */
         tls_data_init(&init_pt);
@@ -2969,12 +2972,8 @@ drreg_init(drreg_options_t *ops_in)
             return DRREG_ERROR;
     }
 
-    num_spill_slots = ops.num_spill_slots;
-    /* We always add an additional slot for SIMD block pointer */
-    num_spill_slots++;
-
     /* 0 spill slots is supported and just fills in tls_seg for us. */
-    if (!dr_raw_tls_calloc(&tls_seg, &tls_simd_offs, num_spill_slots, 0))
+    if (!dr_raw_tls_calloc(&tls_seg, &tls_simd_offs, ops.num_spill_slots, 0))
         return DRREG_ERROR_OUT_OF_SLOTS;
 
     /* Increment offset so that we now directly point to GPR slots, skipping the
@@ -2987,7 +2986,6 @@ drreg_init(drreg_options_t *ops_in)
 drreg_status_t
 drreg_exit(void)
 {
-    uint num_spill_slots;
     int count = dr_atomic_add32_return_sum(&drreg_init_count, -1);
     if (count != 0)
         return DRREG_SUCCESS;
@@ -3006,10 +3004,7 @@ drreg_exit(void)
 
     drmgr_exit();
 
-    num_spill_slots = ops.num_spill_slots;
-    // We always add an additional slot for SIMD block pointer.
-    num_spill_slots++;
-    if (!dr_raw_tls_cfree(tls_simd_offs, num_spill_slots))
+    if (!dr_raw_tls_cfree(tls_simd_offs, ops.num_spill_slots))
         return DRREG_ERROR;
 
     /* Support re-attach */
