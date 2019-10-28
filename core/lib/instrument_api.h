@@ -1403,6 +1403,23 @@ bool dr_unregister_signal_event(dr_signal_action_t (*func)(void *drcontext,
 #    endif /* UNIX */
 /* DR_API EXPORT END */
 
+DR_API
+/**
+ * Registers a callback function for the low on memory event.  DR calls \p func
+ * whenever virtual memory is tight and enables the client to help free space.
+ */
+void
+dr_register_low_on_memory_event(void (*func)());
+
+DR_API
+/**
+ * Unregister a callback function for low on memory events.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., the function was not registered).
+ */
+bool
+dr_unregister_low_on_memory_event(void (*func)());
+
 /****************************************************************************
  * SECURITY SUPPORT
  */

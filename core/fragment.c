@@ -5646,6 +5646,12 @@ process_client_flush_requests(dcontext_t *dcontext, dcontext_t *alloc_dcontext,
 bool
 enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_transition)
 {
+
+#ifdef CLIENT_INTERFACE
+    /* Handle any pending low on memory events */
+    vmm_heap_handle_pending_low_on_memory_event_trigger();
+#endif
+
     per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
     bool not_flushed = true;
 

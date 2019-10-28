@@ -342,6 +342,15 @@ DECLARE_CXTSWPROT_VAR(static recursive_lock_t heap_unit_lock,
 DECLARE_CXTSWPROT_VAR(static recursive_lock_t global_alloc_lock,
                       INIT_RECURSIVE_LOCK(global_alloc_lock));
 
+#ifdef CLIENT_INTERFACE
+/* Used to sync low on memory event */
+DECLARE_CXTSWPROT_VAR(static recursive_lock_t low_on_memory_pending_lock,
+                      INIT_RECURSIVE_LOCK(low_on_memory_pending_lock));
+
+/* Denotes whether or not low on memory event requires triggering. */
+DECLARE_FREQPROT_VAR(bool low_on_memory_pending, false);
+#endif
+
 #if defined(DEBUG) && defined(HEAP_ACCOUNTING) && defined(HOT_PATCHING_INTERFACE)
 static int
 get_special_heap_header_size(void);
@@ -1478,6 +1487,34 @@ reached_beyond_vmm(void)
     }
 }
 
+#ifdef CLIENT_INTERFACE
+void
+vmm_heap_handle_pending_low_on_memory_event_trigger()
+{
+    bool trigger = false;
+
+    acquire_recursive_lock(&low_on_memory_pending_lock);
+    if (low_on_memory_pending) {
+        bool value = false;
+        ATOMIC_1BYTE_WRITE(&low_on_memory_pending, value, false);
+        trigger = true;
+    }
+    release_recursive_lock(&low_on_memory_pending_lock);
+
+    if (trigger)
+        instrument_low_on_memory();
+}
+#endif
+
+static void
+schedule_low_on_memory_event_trigger()
+{
+#ifdef CLIENT_INTERFACE
+    bool value = true;
+    ATOMIC_1BYTE_WRITE(&low_on_memory_pending, value, false);
+#endif
+}
+
 /* Reserve virtual address space without committing swap space for it */
 static vm_addr_t
 vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
@@ -1495,8 +1532,10 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             (DYNAMO_OPTION(switch_to_os_at_vmm_reset_limit) &&
              at_reset_at_vmm_limit(vmh))) {
             DO_ONCE({
-                if (DYNAMO_OPTION(reset_at_switch_to_os_at_vmm_limit))
+                if (DYNAMO_OPTION(reset_at_switch_to_os_at_vmm_limit)) {
                     schedule_reset(RESET_ALL);
+                }
+                schedule_low_on_memory_event_trigger();
                 DOCHECK(1, {
                     if (!INTERNAL_OPTION(vm_use_last)) {
                         ASSERT_CURIOSITY(false && "running low on vm reserve");
@@ -1526,6 +1565,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
 
         if (at_reset_at_vmm_limit(vmh)) {
             /* We're running low on our reservation, trigger a reset */
+            schedule_low_on_memory_event_trigger();
             if (schedule_reset(RESET_ALL)) {
                 STATS_INC(reset_low_vmm_count);
                 DO_THRESHOLD_SAFE(
@@ -2328,6 +2368,10 @@ d_r_heap_exit()
 
     DELETE_RECURSIVE_LOCK(heap_unit_lock);
     DELETE_RECURSIVE_LOCK(global_alloc_lock);
+#ifdef CLIENT_INTERFACE
+    DELETE_RECURSIVE_LOCK(low_on_memory_pending_lock);
+#endif
+
 #ifdef X64
     DELETE_LOCK(request_region_be_heap_reachable_lock);
 #endif
