@@ -2249,7 +2249,12 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     /* FIXME i#2985: spill kTmp and xmmTmp. kTmp will always be k0, because it is never
      * used for scatter/gather and is both writeable and acts as the default mask.
      */
-    /* FIXME i#2985: add emulation labels. */
+    emulated_instr_t emulated_instr;
+    emulated_instr.size = sizeof(emulated_instr);
+    emulated_instr.pc = instr_get_app_pc(sg_instr);
+    emulated_instr.instr = sg_instr;
+    drmgr_insert_emulation_start(drcontext, bb, sg_instr, &emulated_instr);
+
     if (sg_info.is_evex) {
         if (/* AVX-512 */ instr_is_gather(sg_instr)) {
             for (uint el = 0; el < no_of_elements; ++el) {
@@ -2370,9 +2375,10 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 #    if VERBOSE
     dr_print_instr(drcontext, STDERR, sg_instr, "\tThe instruction\n");
 #    endif
+
+    drmgr_insert_emulation_end(drcontext, bb, sg_instr);
     /* Remove and destroy the original scatter/gather. */
     instrlist_remove(bb, sg_instr);
-    instr_destroy(drcontext, sg_instr);
 #    if VERBOSE
     dr_fprintf(STDERR, "\twas expanded to the following sequence:\n");
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
