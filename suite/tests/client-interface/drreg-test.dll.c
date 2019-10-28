@@ -362,7 +362,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 #endif
     } else if (subtest == DRREG_TEST_16_C) {
 #ifdef X86
-        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #17\n");
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #16\n");
         res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
                                         &xmm0_allowed, &reg);
         CHECK(reg == DR_REG_XMM0, "reserve of non-allowed xmm register should work");
