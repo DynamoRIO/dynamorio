@@ -491,6 +491,8 @@ enum {
     LOCK_RANK(dr_client_mutex),            /* > module_data_lock */
     LOCK_RANK(client_thread_count_lock),   /* > dr_client_mutex */
     LOCK_RANK(client_flush_request_lock),  /* > dr_client_mutex */
+    LOCK_RANK(low_on_memory_pending_lock), /* < callback_registration_lock <
+                                              global_alloc_lock */
     LOCK_RANK(callback_registration_lock), /* > dr_client_mutex */
     LOCK_RANK(client_tls_lock),            /* > dr_client_mutex */
 #    endif

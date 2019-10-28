@@ -200,6 +200,7 @@ Further non-compatibility-affecting changes include:
  - Added the type #dr_encoding_hint_type_t.
  - Added #INSTR_ENCODING_HINT macro.
  - Added dr_standalone_exit() with support for re-attaching afterward.
+ - Added dr_register_low_on_memory_event() for tracking low on memory events.
  - Added dr_mcontext_zmm_fields_valid() to query the state of lazy AVX-512 context
    switching.
  - Added the function proc_avx512_enabled().
