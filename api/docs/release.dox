@@ -219,6 +219,7 @@ Further non-compatibility-affecting changes include:
    either XMM, YMM or ZMM, excluding any MMX register checks.
  - Added DR_NUM_SIMD_VECTOR_REGS as an alias to MCXT_NUM_SIMD_SLOTS in order
    to get the static number of supported SIMD vectors.
+ - Added dr_raw_read_tls_slot() and dr_raw_write_tls_slot().
 
 **************************************************
 <hr>

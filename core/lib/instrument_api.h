@@ -4553,6 +4553,22 @@ DR_API
 bool
 dr_raw_tls_cfree(uint offset, uint num_slots);
 
+/**
+ * Provides raw access to offset \p offset from TLS base \p tls_register
+ * and writes value \p value.
+ */
+DR_API
+void
+dr_raw_write_tls_slot(reg_id_t *tls_register, ushort offset, void *value);
+
+/**
+ * Provides raw access to offset \p offset from TLS base \p tls_register.
+ * Returns the slot's value.
+ */
+DR_API
+void *
+dr_raw_read_tls_slot(reg_id_t *tls_register, ushort offset);
+
 DR_API
 /**
  * Returns an operand that refers to the raw TLS slot with offset \p

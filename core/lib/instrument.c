@@ -4882,6 +4882,20 @@ dr_raw_tls_cfree(uint offset, uint num_slots)
 }
 
 DR_API
+void
+dr_raw_write_tls_slot(reg_id_t *tls_register, ushort offset, void *value)
+{
+    d_r_set_tls(offset, value);
+}
+
+DR_API
+void *
+dr_raw_read_tls_slot(reg_id_t *tls_register, ushort offset)
+{
+    return d_r_get_tls(offset);
+}
+
+DR_API
 opnd_t
 dr_raw_tls_opnd(void *drcontext, reg_id_t tls_register, uint tls_offs)
 {
