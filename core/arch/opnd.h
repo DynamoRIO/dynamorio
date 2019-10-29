@@ -842,6 +842,14 @@ enum {
 #    endif
 
     DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1,
+#    ifdef AARCH64
+    DR_NUM_SIMD_VECTOR_REGS = DR_REG_Z31 - DR_REG_Z0 + 1,
+#    else
+    /* XXX: maybe we want more distinct names that provide counts for 64-bit D or 32-bit
+     * S registers.
+     */
+    DR_NUM_SIMD_VECTOR_REGS = DR_REG_Q15 - DR_REG_Q0 + 1,
+#    endif
 
 #    ifndef AARCH64
     /** Platform-independent way to refer to stack pointer. */
@@ -850,9 +858,6 @@ enum {
 
 #endif /* X86/ARM */
 };
-
-/** Number of SIMD vector registers */
-#define DR_NUM_SIMD_VECTOR_REGS MCXT_NUM_SIMD_SLOTS
 
 /* we avoid typedef-ing the enum, as its storage size is compiler-specific */
 typedef ushort reg_id_t; /**< The type of a DR_REG_ enum value. */
@@ -915,6 +920,8 @@ extern const reg_id_t dr_reg_fixer[];
 #    endif
 /** Number of general registers */
 #    define DR_NUM_GPR_REGS (DR_REG_STOP_GPR - DR_REG_START_GPR + 1)
+/** The number of SIMD vector registers. */
+#    define DR_NUM_SIMD_VECTOR_REGS (DR_REG_STOP_ZMM - DR_REG_START_ZMM + 1)
 #    define DR_REG_START_64 \
         DR_REG_RAX                    /**< Start of 64-bit general register enum values */
 #    define DR_REG_STOP_64 DR_REG_R15 /**< End of 64-bit general register enum values */
@@ -942,14 +949,20 @@ extern const reg_id_t dr_reg_fixer[];
         DR_REG_SPL /**< Start of 8-bit x64-only register enum values*/
 #    define DR_REG_STOP_x64_8 \
         DR_REG_DIL /**< Stop of 8-bit x64-only register enum values */
-#    define DR_REG_START_MMX DR_REG_MM0   /**< Start of mmx register enum values */
-#    define DR_REG_STOP_MMX DR_REG_MM7    /**< End of mmx register enum values */
-#    define DR_REG_START_XMM DR_REG_XMM0  /**< Start of sse xmm register enum values */
-#    define DR_REG_STOP_XMM DR_REG_XMM31  /**< End of sse xmm register enum values */
-#    define DR_REG_START_YMM DR_REG_YMM0  /**< Start of ymm register enum values */
-#    define DR_REG_STOP_YMM DR_REG_YMM31  /**< End of ymm register enum values */
-#    define DR_REG_START_ZMM DR_REG_ZMM0  /**< Start of zmm register enum values */
-#    define DR_REG_STOP_ZMM DR_REG_ZMM31  /**< End of zmm register enum values */
+#    define DR_REG_START_MMX DR_REG_MM0  /**< Start of mmx register enum values */
+#    define DR_REG_STOP_MMX DR_REG_MM7   /**< End of mmx register enum values */
+#    define DR_REG_START_XMM DR_REG_XMM0 /**< Start of sse xmm register enum values */
+#    define DR_REG_START_YMM DR_REG_YMM0 /**< Start of ymm register enum values */
+#    define DR_REG_START_ZMM DR_REG_ZMM0 /**< Start of zmm register enum values */
+#    ifdef X64
+#        define DR_REG_STOP_XMM DR_REG_XMM31 /**< End of sse xmm register enum values */
+#        define DR_REG_STOP_YMM DR_REG_YMM31 /**< End of ymm register enum values */
+#        define DR_REG_STOP_ZMM DR_REG_ZMM31 /**< End of zmm register enum values */
+#    else
+#        define DR_REG_STOP_XMM DR_REG_XMM7 /**< End of sse xmm register enum values */
+#        define DR_REG_STOP_YMM DR_REG_YMM7 /**< End of ymm register enum values */
+#        define DR_REG_STOP_ZMM DR_REG_ZMM7 /**< End of zmm register enum values */
+#    endif
 #    define DR_REG_START_OPMASK DR_REG_K0 /**< Start of opmask register enum values */
 #    define DR_REG_STOP_OPMASK DR_REG_K7  /**< End of opmask register enum values */
 #    define DR_REG_START_BND DR_REG_BND0  /**< Start of bounds register enum values */
