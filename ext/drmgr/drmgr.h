@@ -1389,6 +1389,56 @@ drmgr_unregister_restore_state_ex_event(bool (*func)(void *drcontext, bool resto
 
 DR_EXPORT
 /**
+ * Registers a callback function \p func for the low-on-memory event. The callback
+ * provides a means for the client to free any non-critical data found on the heap, which
+ * could avoid a potential out-of-memory crash (particularly on X86_32)i. \return whether
+ * successful.
+ */
+bool
+drmgr_register_low_on_memory_event(void (*func)(void *drcontext));
+
+DR_EXPORT
+/**
+ * Registers a callback function \p func for the low-on-memory event just like
+ * drmgr_register_low_on_memory_event(), but the callback is prioritised according
+ * to \p priority.
+ * \return whether successful.
+ */
+bool
+drmgr_register_low_on_memory_event_ex(void (*func)(void *drcontext),
+                                      drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
+ * Registers a callback function \p func for the low-on-memory event just like
+ * drmgr_register_low_on_memory_event(), but allows the passing of user data
+ * \p user_data. The callback is prioritised according to to \p priority.
+ * \return whether successful.
+ */
+bool
+drmgr_register_low_on_memory_event_user_data(void (*func)(void *drcontext,
+                                                          void *user_data),
+                                             drmgr_priority_t *priority, void *user_data);
+
+DR_EXPORT
+bool
+/**
+ * Unregister a callback function for the low-on-memory event.
+ * \return true if the unregistration of \p func is successful.
+ */
+drmgr_unregister_low_on_memory_event(void (*func)(void *drcontext));
+
+DR_EXPORT
+/**
+ * Unregister a callback function that accepts user-data for the low-on-memory event.
+ * \return true if the unregistration of \p func is successful.
+ */
+bool
+drmgr_unregister_low_on_memory_event_user_data(void (*func)(void *drcontext,
+                                                            void *user_data));
+
+DR_EXPORT
+/**
  * Disables auto predication globally for this basic block.
  * \return whether successful.
  * \note Only to be used in the drmgr insertion event.
