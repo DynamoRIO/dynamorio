@@ -734,6 +734,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                  * resembles zmm, and all other x86 simds are included in zmm.
                  */
                 instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_ALL) ||
+                /* FIXME i#3844: We're missing support to restore upon a partial simd
+                   write. For example a write to xmm while zmm is clobbered, or a partial
+                   write with an evex mask. */
                 /* i#1954: for complex bbs we must restore before the next app instr */
                 (!pt->simd_reg[SIMD_IDX(reg)].in_use &&
                  ((pt->bb_has_internal_flow &&
@@ -2869,7 +2872,9 @@ drreg_thread_init(void *drcontext)
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
     tls_data_init(pt);
     pt->tls_seg_base = dr_get_dr_segment_base(tls_seg);
-    /* Place the pointer to the SIMD block inside a slot. */
+    /* Place the pointer to the SIMD block inside a slot.
+     * XXX: We could get API for this.
+     */
     void **addr = (void **)(pt->tls_seg_base + tls_simd_offs);
     *addr = pt->simd_spills;
 }
