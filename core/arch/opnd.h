@@ -842,7 +842,11 @@ enum {
 #    endif
 
     DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1,
+#    ifdef AARCH64
     DR_NUM_SIMD_VECTOR_REGS = DR_REG_Z31 - DR_REG_Z0 + 1,
+#    else
+    DR_NUM_SIMD_VECTOR_REGS = 0,
+#    endif
 
 #    ifndef AARCH64
     /** Platform-independent way to refer to stack pointer. */
