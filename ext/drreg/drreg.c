@@ -2969,8 +2969,6 @@ drreg_init(drreg_options_t *ops_in)
         ops.error_callback = ops_in->error_callback;
 
     if (prior_slots > 0) {
-        /* To cater for the additional slot of the SIMD block pointer. */
-        prior_slots++;
         if (!dr_raw_tls_cfree(tls_simd_offs, prior_slots))
             return DRREG_ERROR;
     }
