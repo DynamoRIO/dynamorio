@@ -843,10 +843,11 @@ enum {
 
     DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1,
 #    ifdef AARCH64
-    /* XXX: may need more distinct names for AArch64, like SVE, Neon etc. */
     DR_NUM_SIMD_VECTOR_REGS = DR_REG_Z31 - DR_REG_Z0 + 1,
 #    else
-    /* XXX: may need more distinct names for ARM types of SIMD registers. */
+    /* XXX: maybe want more distinct names for whether we are counting 64-bit D or 32-bit
+     * S registers.
+     */
     DR_NUM_SIMD_VECTOR_REGS = DR_REG_Q15 - DR_REG_Q0 + 1,
 #    endif
 
