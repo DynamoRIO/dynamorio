@@ -139,8 +139,7 @@ typedef struct _reg_info_t {
 
 #ifdef X86
 #    define DR_REG_APPLICABLE_START_SIMD DR_REG_START_ZMM
-#    define DR_REG_APPLICABLE_STOP_SIMD \
-        (DR_REG_APPLICABLE_START_SIMD + proc_num_simd_registers() - 1)
+#    define DR_REG_APPLICABLE_STOP_SIMD DR_REG_STOP_ZMM
 #    define SIMD_IDX(reg) ((reg_resize_to_opsz(reg, OPSZ_64)) - DR_REG_START_ZMM)
 #else
 /* FIXME i#3844: NYI on ARM */
@@ -1183,7 +1182,7 @@ drreg_init_and_fill_vector_ex(drvector_t *vec, drreg_spill_class_t spill_class,
                spill_class == DRREG_SIMD_YMM_SPILL_CLASS ||
                spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
 #ifdef X86
-        size = proc_num_simd_registers();
+        size = DR_NUM_SIMD_VECTOR_REGS;
 #else
         /* FIXME i#3844: NYI on ARM */
         return DRREG_ERROR;
@@ -2635,9 +2634,6 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
     uint spilled_to[DR_NUM_GPR_REGS];
     uint spilled_to_aflags = MAX_SPILLS;
 #ifdef X86
-    /* We could use a variable length array of size proc_num_simd_registers() which is
-     * supported by C99, but we choose not to keeping the code simple.
-     */
     uint spilled_simd_to[DR_NUM_SIMD_VECTOR_REGS];
     reg_id_t simd_slot_use[MAX_SIMD_SPILLS];
     byte simd_buf[REG_SIMD_SIZE];
@@ -2838,7 +2834,7 @@ tls_data_init(per_thread_t *pt)
     }
 #ifdef X86
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
-        drvector_init(&pt->simd_reg[SIMD_IDX(reg)].live, proc_num_simd_registers(),
+        drvector_init(&pt->simd_reg[SIMD_IDX(reg)].live, DR_NUM_SIMD_VECTOR_REGS,
                       false /*!synch*/, NULL);
         pt->simd_reg[SIMD_IDX(reg)].native = true;
     }
