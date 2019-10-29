@@ -913,6 +913,7 @@ extern const reg_id_t dr_reg_fixer[];
 #    endif
 /** Number of general registers */
 #    define DR_NUM_GPR_REGS (DR_REG_STOP_GPR - DR_REG_START_GPR + 1)
+/** Number of SIMD vector registers */
 #    define DR_NUM_SIMD_VECTOR_REGS (DR_REG_STOP_ZMM - DR_REG_START_ZMM + 1)
 #    define DR_REG_START_64 \
         DR_REG_RAX                    /**< Start of 64-bit general register enum values */
