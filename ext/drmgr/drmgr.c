@@ -142,8 +142,8 @@ typedef struct _generic_event_entry_t {
             void (*cb_user_data)(void *, const module_data_t *, void *);
         } modunload_cb;
         union {
-            void (*cb_no_user_data)(void *);
-            void (*cb_user_data)(void *, void *);
+            void (*cb_no_user_data)();
+            void (*cb_user_data)(void *);
         } low_on_memory_cb;
         void (*kernel_xfer_cb)(void *, const dr_kernel_xfer_info_t *);
 #ifdef UNIX
@@ -338,7 +338,7 @@ static void
 drmgr_modunload_event(void *drcontext, const module_data_t *info);
 
 static void
-drmgr_low_on_memory_event(void *drcontext);
+drmgr_low_on_memory_event();
 
 static void
 drmgr_kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info);
@@ -2530,7 +2530,7 @@ drmgr_pop_cls(void *drcontext)
 
 DR_EXPORT
 bool
-drmgr_register_low_on_memory_event(void (*func)(void *drcontext))
+drmgr_register_low_on_memory_event(void (*func)())
 {
     return drmgr_generic_event_add(&cblist_low_on_memory, low_on_memory_event_lock,
                                    (void (*)(void))func, NULL, false, NULL);
@@ -2538,8 +2538,7 @@ drmgr_register_low_on_memory_event(void (*func)(void *drcontext))
 
 DR_EXPORT
 bool
-drmgr_register_low_on_memory_event_ex(void (*func)(void *drcontext),
-                                      drmgr_priority_t *priority)
+drmgr_register_low_on_memory_event_ex(void (*func)(), drmgr_priority_t *priority)
 {
     return drmgr_generic_event_add(&cblist_low_on_memory, low_on_memory_event_lock,
                                    (void (*)(void))func, priority, false, NULL);
@@ -2547,8 +2546,7 @@ drmgr_register_low_on_memory_event_ex(void (*func)(void *drcontext),
 
 DR_EXPORT
 bool
-drmgr_register_low_on_memory_event_user_data(void (*func)(void *drcontext,
-                                                          void *user_data),
+drmgr_register_low_on_memory_event_user_data(void (*func)(void *user_data),
                                              drmgr_priority_t *priority, void *user_data)
 {
     return drmgr_generic_event_add(&cblist_low_on_memory, low_on_memory_event_lock,
@@ -2557,7 +2555,7 @@ drmgr_register_low_on_memory_event_user_data(void (*func)(void *drcontext,
 
 DR_EXPORT
 bool
-drmgr_unregister_low_on_memory_event(void (*func)(void *drcontext))
+drmgr_unregister_low_on_memory_event(void (*func)())
 {
     return drmgr_generic_event_remove(&cblist_low_on_memory, low_on_memory_event_lock,
                                       (void (*)(void))func);
@@ -2565,16 +2563,16 @@ drmgr_unregister_low_on_memory_event(void (*func)(void *drcontext))
 
 DR_EXPORT
 bool
-drmgr_unregister_low_on_memory_event_user_data(void (*func)(void *drcontext,
-                                                            void *user_data))
+drmgr_unregister_low_on_memory_event_user_data(void (*func)(void *user_data))
 {
     return drmgr_generic_event_remove(&cblist_low_on_memory, low_on_memory_event_lock,
                                       (void (*)(void))func);
 }
 
 static void
-drmgr_low_on_memory_event(void *drcontext)
+drmgr_low_on_memory_event()
 {
+    void *drcontext = dr_get_current_drcontext();
     generic_event_entry_t local[EVENTS_STACK_SZ];
     cb_list_t iter;
     uint i;
@@ -2590,9 +2588,9 @@ drmgr_low_on_memory_event(void *drcontext)
         bool is_using_user_data = iter.cbs.generic[i].is_using_user_data;
         void *user_data = iter.cbs.generic[i].user_data;
         if (is_using_user_data == false) {
-            (*iter.cbs.generic[i].cb.low_on_memory_cb.cb_no_user_data)(drcontext);
+            (*iter.cbs.generic[i].cb.low_on_memory_cb.cb_no_user_data)();
         } else {
-            (*iter.cbs.generic[i].cb.low_on_memory_cb.cb_user_data)(drcontext, user_data);
+            (*iter.cbs.generic[i].cb.low_on_memory_cb.cb_user_data)(user_data);
         }
     }
     cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));

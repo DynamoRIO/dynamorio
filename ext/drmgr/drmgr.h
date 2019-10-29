@@ -1395,7 +1395,7 @@ DR_EXPORT
  * successful.
  */
 bool
-drmgr_register_low_on_memory_event(void (*func)(void *drcontext));
+drmgr_register_low_on_memory_event(void (*func)());
 
 DR_EXPORT
 /**
@@ -1405,8 +1405,7 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drmgr_register_low_on_memory_event_ex(void (*func)(void *drcontext),
-                                      drmgr_priority_t *priority);
+drmgr_register_low_on_memory_event_ex(void (*func)(), drmgr_priority_t *priority);
 
 DR_EXPORT
 /**
@@ -1416,8 +1415,7 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drmgr_register_low_on_memory_event_user_data(void (*func)(void *drcontext,
-                                                          void *user_data),
+drmgr_register_low_on_memory_event_user_data(void (*func)(void *user_data),
                                              drmgr_priority_t *priority, void *user_data);
 
 DR_EXPORT
@@ -1426,7 +1424,7 @@ bool
  * Unregister a callback function for the low-on-memory event.
  * \return true if the unregistration of \p func is successful.
  */
-drmgr_unregister_low_on_memory_event(void (*func)(void *drcontext));
+drmgr_unregister_low_on_memory_event(void (*func)());
 
 DR_EXPORT
 /**
@@ -1434,8 +1432,7 @@ DR_EXPORT
  * \return true if the unregistration of \p func is successful.
  */
 bool
-drmgr_unregister_low_on_memory_event_user_data(void (*func)(void *drcontext,
-                                                            void *user_data));
+drmgr_unregister_low_on_memory_event_user_data(void (*func)(void *user_data));
 
 DR_EXPORT
 /**
