@@ -7245,16 +7245,18 @@ pre_system_call(dcontext_t *dcontext)
         } data_t;
         dcontext->sys_param3 = sys_param(dcontext, 5);
         data_t *data_param = (data_t *)dcontext->sys_param3;
-        data_t data;
+        data_t data = { 0 };
         /* Refer to comments in SYS_ppoll above. Taking extra steps here due to struct
          * argument in pselect6.
          */
-        if (!d_r_safe_read(data_param, sizeof(data), &data)) {
-            LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for pselect6\n");
-            set_failure_return_val(dcontext, EFAULT);
-            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-            execute_syscall = false;
-            break;
+        if (data_param != NULL) {
+            if (!d_r_safe_read(data_param, sizeof(data), &data)) {
+                LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for pselect6\n");
+                set_failure_return_val(dcontext, EFAULT);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                execute_syscall = false;
+                break;
+            }
         }
         dcontext->sys_param4 = (reg_t)data.sigmask;
         if (data.sigmask == NULL)

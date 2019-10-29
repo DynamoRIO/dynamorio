@@ -415,6 +415,40 @@ main(int argc, char *argv[])
 
     execute_subtest(main_thread, &test_set, psyscall_ppoll, true);
 
+    auto psyscall_raw_epoll_pwait = [test_set](bool nullsigmask) -> int {
+        int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+        struct epoll_event events;
+        return syscall(SYS_epoll_pwait, epoll_fd, &events, 24, 60000, 0);
+    };
+
+    auto psyscall_raw_pselect = [test_set](bool nullsigmask) -> int {
+        fd_set fds;
+        struct timespec ts;
+        FD_ZERO(&fds);
+        ts.tv_sec = 60;
+        ts.tv_nsec = 0;
+        return syscall(SYS_pselect6, 0, 0, 0, &fds, &ts, 0);
+    };
+
+    auto psyscall_raw_ppoll = [test_set](bool nullsigmask) -> int {
+        struct timespec ts;
+        ts.tv_sec = 60;
+        ts.tv_nsec = 0;
+        return syscall(SYS_ppoll, 0, 0, &ts, 0);
+    };
+
+    print("Testing raw epoll_pwait with NULL sigmask\n");
+
+    execute_subtest(main_thread, &test_set, psyscall_raw_epoll_pwait, true);
+
+    print("Testing raw pselect with NULL sigmask\n");
+
+    execute_subtest(main_thread, &test_set, psyscall_raw_pselect, true);
+
+    print("Testing raw ppoll with NULL sigmask\n");
+
+    execute_subtest(main_thread, &test_set, psyscall_raw_ppoll, true);
+
     destroy_cond_var(ready_to_listen);
 
     return 0;
