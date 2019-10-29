@@ -845,7 +845,7 @@ enum {
 #    ifdef AARCH64
     DR_NUM_SIMD_VECTOR_REGS = DR_REG_Z31 - DR_REG_Z0 + 1,
 #    else
-    DR_NUM_SIMD_VECTOR_REGS = 0,
+    DR_NUM_SIMD_VECTOR_REGS = DR_REG_Q31 - DR_REG_Q0 + 1,
 #    endif
 
 #    ifndef AARCH64
