@@ -2914,15 +2914,17 @@ drreg_init(drreg_options_t *ops_in)
                                                       &fault_priority))
             return DRREG_ERROR;
 #ifdef X86
-        /* We get an extra slot for aflags xax and an additional one for indirect spills,
-         * rather than just documenting that clients should add 3 instead of just 1, as
-         * there are many existing clients.
+        /* We get an extra slot for aflags xax, rather than just documenting that
+         * clients should add 2 instead of just 1, as there are many existing clients.
          */
-        ops.num_spill_slots = 2;
+        ops.num_spill_slots = 1;
 #endif
         /* Support use during init when there is no TLS (i#2910). */
         tls_data_init(&init_pt);
     }
+
+    /* We are adding an additional slot for indirect spills. */
+    ops.num_spill_slots += 1;
 
     if (ops_in->struct_size < offsetof(drreg_options_t, error_callback))
         return DRREG_ERROR_INVALID_PARAMETER;
