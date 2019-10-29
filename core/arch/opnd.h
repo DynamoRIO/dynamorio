@@ -845,7 +845,7 @@ enum {
 #    ifdef AARCH64
     DR_NUM_SIMD_VECTOR_REGS = DR_REG_Z31 - DR_REG_Z0 + 1,
 #    else
-    /* XXX: maybe want more distinct names for whether we are counting 64-bit D or 32-bit
+    /* XXX: maybe we want more distinct names that provide counts for 64-bit D or 32-bit
      * S registers.
      */
     DR_NUM_SIMD_VECTOR_REGS = DR_REG_Q15 - DR_REG_Q0 + 1,
