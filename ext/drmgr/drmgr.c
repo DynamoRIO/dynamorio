@@ -2575,7 +2575,6 @@ drmgr_unregister_low_on_memory_event_user_data(void (*func)(void *drcontext,
 static void
 drmgr_low_on_memory_event(void *drcontext)
 {
-
     generic_event_entry_t local[EVENTS_STACK_SZ];
     cb_list_t iter;
     uint i;
