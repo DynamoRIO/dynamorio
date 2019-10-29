@@ -47,6 +47,9 @@ Signal received: 12
 Testing raw pselect with NULL sigmask
 Signal received: 10
 Signal received: 12
+Testing raw pselect with NULL struct pointer
+Signal received: 10
+Signal received: 12
 Testing raw ppoll with NULL sigmask
 Signal received: 10
 Signal received: 12

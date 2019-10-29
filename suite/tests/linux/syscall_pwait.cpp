@@ -427,6 +427,21 @@ main(int argc, char *argv[])
         FD_ZERO(&fds);
         ts.tv_sec = 60;
         ts.tv_nsec = 0;
+        struct {
+            const sigset_t *sigmask;
+            size_t ss_len;
+        } data;
+        data.sigmask = NULL;
+        data.ss_len = 0;
+        return syscall(SYS_pselect6, 0, 0, 0, &fds, &ts, &data);
+    };
+
+    auto psyscall_raw_pselect_nullptr = [test_set](bool nullsigmask) -> int {
+        fd_set fds;
+        struct timespec ts;
+        FD_ZERO(&fds);
+        ts.tv_sec = 60;
+        ts.tv_nsec = 0;
         return syscall(SYS_pselect6, 0, 0, 0, &fds, &ts, 0);
     };
 
@@ -444,6 +459,10 @@ main(int argc, char *argv[])
     print("Testing raw pselect with NULL sigmask\n");
 
     execute_subtest(main_thread, &test_set, psyscall_raw_pselect, true);
+
+    print("Testing raw pselect with NULL struct pointer\n");
+
+    execute_subtest(main_thread, &test_set, psyscall_raw_pselect_nullptr, true);
 
     print("Testing raw ppoll with NULL sigmask\n");
 
