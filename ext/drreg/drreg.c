@@ -40,7 +40,6 @@
  * Distinguish by name, "drregi_*" or sthg.
  */
 
-#include "dr_defines.h"
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drvector.h"
@@ -1785,8 +1784,7 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
         *restore_needed = (res == DRREG_SUCCESS);
     if (res != DRREG_SUCCESS && res != DRREG_ERROR_NO_APP_VALUE)
         return res;
-        /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all
-         * here.
+        /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all here.
          */
 #ifdef X86
     if (reg != DR_REG_NULL && pt->aflags.xchg == reg) {
