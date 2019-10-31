@@ -435,9 +435,9 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_24_ASM
         pcmpeqd  xmm0, xmm0
         mov      TEST_REG_ASM, REG_XSP
-        movdqu   [TEST_REG_ASM - 16], xmm0
+        movdqu   oword ptr [TEST_REG_ASM - 16], xmm0
         pxor     xmm0, xmm0
-        movhps   xmm0, [TEST_REG_ASM - 16]
+        movhps   xmm0, qword ptr [TEST_REG_ASM - 16]
         ptest    xmm0, xmm0
         jnz      test24_done
         /* Fault if we have incorrect eflags */
