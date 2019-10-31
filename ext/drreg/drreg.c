@@ -169,8 +169,10 @@ typedef struct _per_thread_t {
 static drreg_options_t ops;
 
 static int tls_idx = -1;
-static uint tls_simd_offs; /* start of tls slots for SIMD block pointer */
-static uint tls_slot_offs; /* Start of tls slots for gpr registers */
+/* The raw tls segment offset of the pointer to the SIMD block indirect spill area. */
+static uint tls_simd_offs;
+/* The raw tls segment offset of tls slots for gpr registers. */
+static uint tls_slot_offs;
 static reg_id_t tls_seg;
 
 #ifdef DEBUG
@@ -301,7 +303,7 @@ static void
 spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                      instrlist_t *ilist, instr_t *where)
 {
-    reg_id_t tmp_reg;
+    reg_id_t tmp_reg = DR_REG_NULL;
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s %d\n", __FUNCTION__, pt->live_idx,
         get_where_app_pc(where), get_register_name(reg), slot);
     ASSERT(reg_is_vector_simd(reg), "not applicable register");
@@ -313,6 +315,7 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                                                     ilist, where, NULL, false, &tmp_reg);
     if (res != DRREG_SUCCESS)
         drreg_report_error(res, "failed to reserve tmp register");
+    ASSERT(tmp_reg != DR_REG_NULL, "invalid register");
     load_indirect_block(drcontext, pt, tls_simd_offs, ilist, where, tmp_reg);
     pt->simd_slot_use[slot] =
         (reg < pt->simd_slot_use[slot]) ? pt->simd_slot_use[slot] : reg;
@@ -363,7 +366,7 @@ static void
 restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                        instrlist_t *ilist, instr_t *where, bool release)
 {
-    reg_id_t tmp_reg;
+    reg_id_t tmp_reg = DR_REG_NULL;
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s slot=%d release=%d\n", __FUNCTION__,
         pt->live_idx, get_where_app_pc(where), get_register_name(reg), slot, release);
     ASSERT(reg_is_vector_simd(reg), "not applicable register");
@@ -376,6 +379,7 @@ restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slo
                                                     ilist, where, NULL, false, &tmp_reg);
     if (res != DRREG_SUCCESS)
         drreg_report_error(res, "failed to reserve tmp register");
+    ASSERT(tmp_reg != DR_REG_NULL, "invalid register");
     load_indirect_block(drcontext, pt, tls_simd_offs, ilist, where, tmp_reg);
     if (release && pt->simd_slot_use[slot] == reg)
         pt->simd_slot_use[slot] = DR_REG_NULL;
