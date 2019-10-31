@@ -227,7 +227,7 @@ main(int argc, char *argv[])
 
     int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     struct epoll_event events;
-    if (syscall(SYS_epoll_pwait, epoll_fd, &events, 24LL, -1LL, &test_set, 0) == 0) {
+    if (syscall(SYS_epoll_pwait, epoll_fd, &events, 24, -1, &test_set, NULL) == 0) {
         print("expected syscall failure");
         exit(1);
     } else if (errno != EINVAL) {
@@ -242,7 +242,7 @@ main(int argc, char *argv[])
 
     data_t data_wrong = { &test_set, 0 };
 
-    if (syscall(SYS_pselect6, 0, NULL, NULL, NULL, NULL, &data_wrong) == 0) {
+    if (syscall(SYS_pselect6, NULL, NULL, NULL, NULL, NULL, &data_wrong) == 0) {
         print("expected syscall failure");
         exit(1);
     } else if (errno != EINVAL) {
@@ -255,7 +255,7 @@ main(int argc, char *argv[])
     /* waste some time */
     nanosleep(&sleeptime, NULL);
 
-    if (syscall(SYS_ppoll, NULL, 0, NULL, &test_set, 0) == 0) {
+    if (syscall(SYS_ppoll, NULL, NULL, NULL, &test_set, NULL) == 0) {
         print("expected syscall failure");
         exit(1);
     } else if (errno != EINVAL) {
@@ -278,31 +278,31 @@ main(int argc, char *argv[])
          * of the call and restore it post syscall. The mask check is making sure
          * that save/restore is done properly.
          */
-        asm volatile("mov %7, %%rbx\n\t"
-                     "movq %2, %%rax\n\t"
-                     "movq %3, %%rdi\n\t"
-                     "movq %4, %%rsi\n\t"
-                     "movq %5, %%rdx\n\t"
-                     "movq %6, %%r10\n\t"
-                     "movq %7, %%r8\n\t"
-                     "movq %8, %%r9\n\t"
-                     "syscall\n\t"
-                     "mov $0, %0\n\t"
-                     "cmp $-4095, %%rax\n\t"
-                     "jl no_syscall_error%=\n\t"
-                     "mov $1, %0\n\t"
-                     "no_syscall_error%=:\n\t"
-                     "mov $0, %1\n\t"
-                     "cmp %%rbx, %%r8\n\t"
-                     "je no_mask_error%=\n\t"
-                     "mov $1, %1\n\t"
-                     "no_mask_error%=:\n"
-                     /* early-clobber outputs */
-                     : "=&r"(syscall_error), "=&r"(mask_error)
-                     : "r"((int64_t)SYS_epoll_pwait), "rm"((int64_t)epoll_fd),
-                       "rm"(&events), "r"(24LL), "r"(-1LL), "rm"(&test_set),
-                       "r"((int64_t)(_NSIG / 8))
-                     : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx");
+        asm volatile(
+            "mov %7, %%rbx\n\t"
+            "movq %2, %%rax\n\t"
+            "movq %3, %%rdi\n\t"
+            "movq %4, %%rsi\n\t"
+            "movq %5, %%rdx\n\t"
+            "movq %6, %%r10\n\t"
+            "movq %7, %%r8\n\t"
+            "movq %8, %%r9\n\t"
+            "syscall\n\t"
+            "mov $0, %0\n\t"
+            "cmp $-4095, %%rax\n\t"
+            "jl no_syscall_error%=\n\t"
+            "mov $1, %0\n\t"
+            "no_syscall_error%=:\n\t"
+            "mov $0, %1\n\t"
+            "cmp %%rbx, %%r8\n\t"
+            "je no_mask_error%=\n\t"
+            "mov $1, %1\n\t"
+            "no_mask_error%=:\n"
+            /* early-clobber outputs */
+            : "=&r"(syscall_error), "=&r"(mask_error)
+            : "rm"((int64_t)SYS_epoll_pwait), "rm"((int64_t)epoll_fd), "rm"(&events),
+              "rm"(24), "rm"(-1), "rm"(&test_set), "rm"((int64_t)(_NSIG / 8))
+            : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx", "rcx", "r11");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
         if (mask_error == 1) {
@@ -345,9 +345,10 @@ main(int argc, char *argv[])
                      "no_mask_error%=:\n"
                      /* early-clobber ouputs */
                      : "=&r"(syscall_error), "=&r"(mask_error)
-                     : "r"((int64_t)SYS_pselect6), "r"(0LL), "rm"(NULL), "rm"(NULL),
+                     : "rm"((int64_t)SYS_pselect6), "rm"(NULL), "rm"(NULL), "rm"(NULL),
                        "rm"(NULL), "rm"(NULL), "r"(&data)
-                     : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx");
+                     : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx", "rcx",
+                       "r11");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
         if (mask_error == 1)
@@ -382,9 +383,9 @@ main(int argc, char *argv[])
                      "no_mask_error%=:\n"
                      /* early-clobber outputs */
                      : "=&r"(syscall_error), "=&r"(mask_error)
-                     : "r"((int64_t)SYS_ppoll), "rm"(NULL), "r"(0LL), "rm"(NULL),
+                     : "r"((int64_t)SYS_ppoll), "rm"(NULL), "r"(NULL), "rm"(NULL),
                        "rm"(&test_set), "r"((int64_t)(_NSIG / 8))
-                     : "rax", "rdi", "rsi", "rdx", "r10", "r8", "rbx");
+                     : "rax", "rdi", "rsi", "rdx", "r10", "r8", "rbx", "rcx", "r11");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
         if (mask_error == 1)
@@ -418,7 +419,7 @@ main(int argc, char *argv[])
     auto psyscall_raw_epoll_pwait = [test_set](bool nullsigmask) -> int {
         int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         struct epoll_event events;
-        return syscall(SYS_epoll_pwait, epoll_fd, &events, 24, 60000, 0);
+        return syscall(SYS_epoll_pwait, epoll_fd, &events, 24, 60000, NULL);
     };
 
     auto psyscall_raw_pselect = [test_set](bool nullsigmask) -> int {
@@ -433,7 +434,7 @@ main(int argc, char *argv[])
         } data;
         data.sigmask = NULL;
         data.ss_len = 0;
-        return syscall(SYS_pselect6, 0, 0, 0, &fds, &ts, &data);
+        return syscall(SYS_pselect6, NULL, NULL, NULL, &fds, &ts, &data);
     };
 
     auto psyscall_raw_pselect_nullptr = [test_set](bool nullsigmask) -> int {
@@ -442,14 +443,46 @@ main(int argc, char *argv[])
         FD_ZERO(&fds);
         ts.tv_sec = 60;
         ts.tv_nsec = 0;
-        return syscall(SYS_pselect6, 0, 0, 0, &fds, &ts, 0);
+        return syscall(SYS_pselect6, NULL, NULL, NULL, &fds, &ts, NULL);
     };
+
+#if defined(X86) && defined(X64)
+
+    auto psyscall_raw_pselect_nullptr_inline_asm = [test_set](bool nullsigmask) -> int {
+        fd_set fds;
+        struct timespec ts;
+        FD_ZERO(&fds);
+        ts.tv_sec = 60;
+        ts.tv_nsec = 0;
+        int syscall_error = 0;
+        asm volatile("movq %1, %%rax\n\t"
+                     "movq %2, %%rdi\n\t"
+                     "movq %3, %%rsi\n\t"
+                     "movq %4, %%rdx\n\t"
+                     "movq %5, %%r10\n\t"
+                     "movq %6, %%r8\n\t"
+                     "movq %7, %%r9\n\t"
+                     "syscall\n\t"
+                     "movl $0, %0\n\t"
+                     "cmp $-4095, %%rax\n\t"
+                     "jl no_syscall_error%=\n\t"
+                     "movl $-1, %0\n\t"
+                     "no_syscall_error%=:\n\t"
+                     /* early-clobber ouputs */
+                     : "=&r"(syscall_error)
+                     : "rm"((int64_t)SYS_pselect6), "rm"(NULL), "rm"(NULL), "rm"(NULL),
+                       "rm"(fds), "rm"(ts), "rm"(NULL)
+                     : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rcx", "r11");
+        return syscall_error;
+    };
+
+#endif
 
     auto psyscall_raw_ppoll = [test_set](bool nullsigmask) -> int {
         struct timespec ts;
         ts.tv_sec = 60;
         ts.tv_nsec = 0;
-        return syscall(SYS_ppoll, 0, 0, &ts, 0);
+        return syscall(SYS_ppoll, NULL, NULL, &ts, NULL);
     };
 
     print("Testing raw epoll_pwait with NULL sigmask\n");
@@ -463,6 +496,18 @@ main(int argc, char *argv[])
     print("Testing raw pselect with NULL struct pointer\n");
 
     execute_subtest(main_thread, &test_set, psyscall_raw_pselect_nullptr, true);
+
+#if defined(X86) && defined(X64)
+
+    print("Testing raw pselect with NULL struct pointer, inline asm\n");
+
+    /* We are adding this raw asm version of the same test just in case syscall() does
+     * sth funny.
+     */
+    execute_subtest(main_thread, &test_set, psyscall_raw_pselect_nullptr_inline_asm,
+                    true);
+
+#endif
 
     print("Testing raw ppoll with NULL sigmask\n");
 
