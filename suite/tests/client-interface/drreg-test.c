@@ -371,9 +371,74 @@ GLOBAL_LABEL(FUNCNAME:)
         ud2
         jmp      test19_done
      test19_done:
+        jmp      test20
+     test20:
+        mov      TEST_REG_ASM, DRREG_TEST_20_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_20_ASM
+        vpxor    ymm0, ymm0, ymm0
+        vptest   ymm0, ymm0
+        pcmpeqd  xmm0, xmm0
+        vptest   ymm0, ymm0
+        jnz      test20_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp      test20_done
+     test20_done:
+        jmp      test21
+     test21:
+        mov      TEST_REG_ASM, DRREG_TEST_21_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_21_ASM
+        pcmpeqd  xmm0, xmm0
+		vptest   ymm0, ymm0
+        vpxor    ymm0, ymm0, ymm0
+		vptest   ymm0, ymm0
+        jz      test21_done
+	    /* Fault if we have incorrect eflags */
+        ud2
+        jmp      test21_done
+	 test21_done:
+        jmp      test22
+     test22:
+        mov      TEST_REG_ASM, DRREG_TEST_22_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_22_ASM
+        pcmpeqd  xmm0, xmm0
+        pcmpeqd  xmm1, xmm1
+        pcmpeqd  xmm2, xmm2
+        pcmpeqd  xmm3, xmm3
+        pcmpeqd  xmm4, xmm4
+        pcmpeqd  xmm5, xmm5
+        pcmpeqd  xmm6, xmm6
+        movdqa   xmm7, xmm0
+        jmp      test23
+     test23:
+        mov      TEST_REG_ASM, DRREG_TEST_23_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_23_ASM
+        pxor     xmm0, xmm0
+        pxor     xmm1, xmm1
+        pxor     xmm2, xmm2
+        pxor     xmm3, xmm3
+        pxor     xmm4, xmm4
+        pxor     xmm5, xmm5
+        pxor     xmm6, xmm6
+        pxor     xmm7, xmm7
+        jmp      test24
+     test24:
+        mov      TEST_REG_ASM, DRREG_TEST_24_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_24_ASM
+        pcmpeqd  xmm0, xmm0
+        mov      TEST_REG_ASM, REG_XSP
+        movdqu   [TEST_REG_ASM - 16], xmm0
+        pxor     xmm0, xmm0
+        movhps   xmm0, [TEST_REG_ASM - 16]
+        ptest    xmm0, xmm0
+        jnz      test24_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp      test24_done
+     test24_done:
         jmp      epilog
 
-     epilog:
+	epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
         ret
