@@ -222,22 +222,6 @@ get_where_app_pc(instr_t *where)
 }
 #endif
 
-/* Checks whether or not the passed register is in the appropriate range. */
-static inline bool
-is_applicable_simd(reg_id_t simd_reg)
-{
-#ifdef X86
-    if (reg_is_vector_simd(simd_reg)) {
-        simd_reg = reg_resize_to_opsz(simd_reg, OPSZ_64);
-        return simd_reg >= DR_REG_APPLICABLE_START_SIMD &&
-            simd_reg <= DR_REG_APPLICABLE_STOP_SIMD;
-    }
-#else
-/* FIXME i#3844: NYI on ARM */
-#endif
-    return false;
-}
-
 /***************************************************************************
  * SPILLING AND RESTORING
  */
@@ -321,7 +305,6 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s %d\n", __FUNCTION__, pt->live_idx,
         get_where_app_pc(where), get_register_name(reg), slot);
     ASSERT(reg_is_vector_simd(reg), "not applicable register");
-    ASSERT(is_applicable_simd(reg), "not applicable register");
     ASSERT(pt->simd_slot_use[slot] == DR_REG_NULL ||
                reg_resize_to_opsz(pt->simd_slot_use[slot], OPSZ_64) ==
                    reg_resize_to_opsz(reg, OPSZ_64),
@@ -1194,7 +1177,7 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
     }
 #ifdef X86
     else if (reg_is_vector_simd(reg)) {
-        if (vec == NULL || !is_applicable_simd(reg))
+        if (vec == NULL)
             return DRREG_ERROR_INVALID_PARAMETER;
         start_reg = DR_REG_APPLICABLE_START_SIMD;
         reg = reg_resize_to_opsz(reg, OPSZ_64);
@@ -1665,8 +1648,8 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
         }
     }
 #ifdef X86
-    else if (is_applicable_simd(app_reg)) {
-        if (!is_applicable_simd(dst_reg))
+    else if (reg_is_vector_simd(app_reg)) {
+        if (!reg_is_vector_simd(dst_reg))
             return DRREG_ERROR_INVALID_PARAMETER;
 
         /* check if app_reg is an unspilled reg */
@@ -1725,7 +1708,7 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, op
     for (i = 0; i < num_op; i++) {
         reg_id_t reg = opnd_get_reg_used(opnd, i);
         reg_id_t dst;
-        if (!is_applicable_simd(reg))
+        if (!reg_is_vector_simd(reg))
             continue;
 
         dst = reg;
@@ -1790,9 +1773,7 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
     if (reg == DR_REG_NULL) {
         res = drreg_restore_aflags(drcontext, ilist, where_restore, pt, false);
     } else {
-        if ((reg_is_vector_simd(reg) && !is_applicable_simd(reg)) ||
-            (reg_is_gpr(reg) &&
-             (!reg_is_pointer_sized(reg) || reg == dr_get_stolen_reg())))
+        if (reg_is_gpr(reg) && (!reg_is_pointer_sized(reg) || reg == dr_get_stolen_reg()))
             return DRREG_ERROR_INVALID_PARAMETER;
         res = drreg_restore_app_value(drcontext, ilist, where_restore, reg, reg, false);
     }
@@ -1936,7 +1917,7 @@ drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
          !pt->reg[GPR_IDX(reg)].in_use))
         return DRREG_ERROR_INVALID_PARAMETER;
 #ifdef X86
-    if (is_applicable_simd(reg) && !pt->simd_reg[SIMD_IDX(reg)].in_use)
+    if (reg_is_vector_simd(reg) && !pt->simd_reg[SIMD_IDX(reg)].in_use)
         return DRREG_ERROR_INVALID_PARAMETER;
 #endif
     res = drreg_reservation_info_ex(drcontext, reg, &info);
@@ -2010,7 +1991,7 @@ drreg_reservation_info_ex(void *drcontext, reg_id_t reg, drreg_reserve_info_t *i
     if (reg == DR_REG_NULL) {
         reg_info = &pt->aflags;
 #ifdef X86
-    } else if (is_applicable_simd(reg)) {
+    } else if (reg_is_vector_simd(reg)) {
         reg_info = &pt->simd_reg[SIMD_IDX(reg)];
 #endif
     } else {
