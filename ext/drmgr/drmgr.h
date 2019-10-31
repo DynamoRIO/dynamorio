@@ -85,6 +85,8 @@ extern "C" {
         DO_NOT_USE_module_load_USE_drmgr_events_instead
 #    define dr_register_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
 #    define dr_unregister_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
+#    define dr_register_low_on_memory_event DO_NOT_USE_low_on_memory_USE_drmgr_instead
+#    define dr_unregister_low_on_memory_event DO_NOT_USE_low_on_memory_USE_drmgr_instead
 #    define dr_register_kernel_xfer_event DO_NOT_USE_kernel_xfer_event_USE_drmgr_instead
 #    define dr_unregister_kernel_xfer_event DO_NOT_USE_kernel_xfer_event_USE_drmgr_instead
 #    define dr_register_signal_event DO_NOT_USE_signal_event_USE_drmgr_instead
