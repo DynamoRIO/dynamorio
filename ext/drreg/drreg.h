@@ -80,12 +80,11 @@ typedef enum {
  * to spill or restore.
  */
 typedef enum {
-    DRREG_INVALID_SPILL_CLASS,    /* denotes invalid class */
-    DRREG_GPR_SPILL_CLASS,        /* to consider GPR registers */
-    DRREG_SIMD_XMM_SPILL_CLASS,   /* to consider XMM registers */
-    DRREG_SIMD_YMM_SPILL_CLASS,   /* to consider YMM registers */
-    DRREG_SIMD_ZMM_SPILL_CLASS,   /* to consider ZMM registers */
-    DRREG_SIMD_KMASK_SPILL_CLASS, /* to consider K Mask registers */
+    DRREG_INVALID_SPILL_CLASS,  /* denotes invalid class */
+    DRREG_GPR_SPILL_CLASS,      /* to consider GPR registers */
+    DRREG_SIMD_XMM_SPILL_CLASS, /* to consider XMM registers */
+    DRREG_SIMD_YMM_SPILL_CLASS, /* to consider YMM registers, not yet supported. */
+    DRREG_SIMD_ZMM_SPILL_CLASS, /* to consider ZMM registers, not yet supported. */
 } drreg_spill_class_t;
 
 /**

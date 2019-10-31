@@ -334,9 +334,8 @@ GLOBAL_LABEL(FUNCNAME:)
         pxor     xmm0, xmm0
         ptest    xmm0, xmm0
         jz       test16_done
-        /* Null deref if we have incorrect eflags */
-        xor      TEST_REG_ASM, TEST_REG_ASM
-        mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
+        /* Fault if we have incorrect eflags */
+        ud2
         jmp      test16_done
      test16_done:
         jmp      test17
@@ -346,9 +345,8 @@ GLOBAL_LABEL(FUNCNAME:)
         pcmpeqd  xmm0, xmm0
         ptest    xmm0, xmm0
         jnz      test17_done
-        /* Null deref if we have incorrect eflags */
-        xor      TEST_REG_ASM, TEST_REG_ASM
-        mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
+        /* Fault if we have incorrect eflags */
+        ud2
         jmp      test17_done
      test17_done:
         jmp      test18
@@ -358,9 +356,8 @@ GLOBAL_LABEL(FUNCNAME:)
         vpcmpeqd ymm0, ymm0, ymm0
         vptest   ymm0, ymm0
         jnz      test18_done
-        /* Null deref if we have incorrect eflags */
-        xor      TEST_REG_ASM, TEST_REG_ASM
-        mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
+        /* Fault if we have incorrect eflags */
+        ud2
         jmp      test18_done
      test18_done:
         jmp      test19
@@ -370,9 +367,8 @@ GLOBAL_LABEL(FUNCNAME:)
         vpxor    ymm0, ymm0, ymm0
         vptest   ymm0, ymm0
         jz       test19_done
-        /* Null deref if we have incorrect eflags */
-        xor      TEST_REG_ASM, TEST_REG_ASM
-        mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
+        /* Fault if we have incorrect eflags */
+        ud2
         jmp      test19_done
      test19_done:
         jmp      epilog

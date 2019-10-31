@@ -342,8 +342,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #14\n");
         res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
                                         &simd_allowed, &reg);
-        CHECK(reg != DR_REG_XMM0, "reserve of non-allowed xmm register should work");
-        CHECK(reg != DR_REG_XMM1, "reserve of non-allowed xmm register should work");
+        CHECK(reg != DR_REG_XMM0, "reserved non-allowed register error");
+        CHECK(reg != DR_REG_XMM1, "reserved non-allowed register error");
         CHECK(res == DRREG_SUCCESS, "reserve of xmm register should work");
         res = drreg_unreserve_register(drcontext, bb, inst, reg);
         CHECK(res == DRREG_SUCCESS, "unreserve of xmm register should work");
@@ -365,7 +365,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #16\n");
         res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
                                         &xmm0_allowed, &reg);
-        CHECK(reg == DR_REG_XMM0, "reserve of non-allowed xmm register should work");
+        CHECK(reg == DR_REG_XMM0, "reserved non-allowed register error");
         instrlist_meta_preinsert(bb, inst,
                                  INSTR_CREATE_pcmpeqd(drcontext,
                                                       opnd_create_reg(DR_REG_XMM0),
@@ -378,7 +378,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #17\n");
         res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
                                         &xmm0_allowed, &reg);
-        CHECK(reg == DR_REG_XMM0, "reserve of non-allowed xmm register should work");
+        CHECK(reg == DR_REG_XMM0, "reserved non-allowed register error");
         instrlist_meta_preinsert(bb, inst,
                                  INSTR_CREATE_pxor(drcontext,
                                                    opnd_create_reg(DR_REG_XMM0),
@@ -391,7 +391,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #18\n");
         res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
                                         &xmm0_allowed, &reg);
-        CHECK(reg == DR_REG_XMM0, "reserve of non-allowed xmm register should work");
+        CHECK(reg == DR_REG_XMM0, "reserved non-allowed register error");
         instrlist_meta_preinsert(bb, inst,
                                  INSTR_CREATE_pxor(drcontext,
                                                    opnd_create_reg(DR_REG_XMM0),
