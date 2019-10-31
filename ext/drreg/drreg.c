@@ -304,6 +304,8 @@ static void
 load_indirect_block(void *drcontext, uint slot, instrlist_t *ilist, instr_t *where,
                     reg_id_t block_reg)
 {
+    LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s %d\n", __FUNCTION__, pt->live_idx,
+        get_where_app_pc(where), get_register_name(block_reg), slot);
     /* Simply load the pointer of the block to the passed register*/
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg, slot, block_reg);
 }
@@ -314,6 +316,8 @@ static void
 spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                      instrlist_t *ilist, instr_t *where, reg_id_t block_reg)
 {
+    LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s %d\n", __FUNCTION__, pt->live_idx,
+        get_where_app_pc(where), get_register_name(reg), slot);
     if (reg_is_vector_simd(reg)) {
         ASSERT(is_applicable_simd(reg), "not applicable register");
         ASSERT(pt->simd_slot_use[slot] == DR_REG_NULL ||
@@ -371,6 +375,8 @@ restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slo
                        instrlist_t *ilist, instr_t *where, reg_id_t block_reg,
                        bool release)
 {
+    LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s slot=%d release=%d\n", __FUNCTION__,
+        pt->live_idx, get_where_app_pc(where), get_register_name(reg), slot, release);
     if (reg_is_vector_simd(reg)) {
         ASSERT(pt->simd_slot_use[slot] != DR_REG_NULL &&
                    reg_resize_to_opsz(pt->simd_slot_use[slot], OPSZ_64) ==
@@ -615,6 +621,8 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         }
 #ifdef X86
         /* SIMD liveness */
+        LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ":", __FUNCTION__, index,
+            get_where_app_pc(inst));
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
              reg++) {
             void *value = SIMD_ZMM_LIVE;
@@ -626,6 +634,8 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
                         drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, index - 1);
                 }
             }
+            LOG(drcontext, DR_LOG_ALL, 3, " %s=%d", get_register_name(reg),
+                (int)(ptr_uint_t)value);
             drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, index, value);
         }
 #endif
