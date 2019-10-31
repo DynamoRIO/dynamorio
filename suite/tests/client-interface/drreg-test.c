@@ -396,15 +396,15 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_21_ASM
         mov      TEST_REG_ASM, DRREG_TEST_21_ASM
         pcmpeqd  xmm0, xmm0
-		vptest   ymm0, ymm0
+        vptest   ymm0, ymm0
         vpxor    ymm0, ymm0, ymm0
-		vptest   ymm0, ymm0
+        vptest   ymm0, ymm0
         jz      test21_done
-	    /* Fault if we have incorrect eflags */
+        /* Fault if we have incorrect eflags */
         ud2
         jmp      test21_done
 #endif
-	 test21_done:
+     test21_done:
         jmp      test22
      test22:
         mov      TEST_REG_ASM, DRREG_TEST_22_ASM
@@ -446,7 +446,7 @@ GLOBAL_LABEL(FUNCNAME:)
      test24_done:
         jmp      epilog
 
-	epilog:
+     epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
         ret
