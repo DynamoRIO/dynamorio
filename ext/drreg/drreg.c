@@ -289,12 +289,12 @@ spill_reg_directly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
 #ifdef X86
 static void
 load_indirect_block(void *drcontext, per_thread_t *pt, uint slot, instrlist_t *ilist,
-                    instr_t *where, reg_id_t tmp_reg)
+                    instr_t *where, reg_id_t scratch_block_reg)
 {
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s %d\n", __FUNCTION__, pt->live_idx,
-        get_where_app_pc(where), get_register_name(tmp_reg), slot);
+        get_where_app_pc(where), get_register_name(scratch_block_reg), slot);
     /* Simply load the pointer of the block to the passed register*/
-    dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg, slot, tmp_reg);
+    dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg, slot, scratch_block_reg);
 }
 #endif
 
@@ -303,7 +303,7 @@ static void
 spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                      instrlist_t *ilist, instr_t *where)
 {
-    reg_id_t tmp_reg = DR_REG_NULL;
+    reg_id_t scratch_block_reg = DR_REG_NULL;
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s %d\n", __FUNCTION__, pt->live_idx,
         get_where_app_pc(where), get_register_name(reg), slot);
     ASSERT(reg_is_vector_simd(reg), "not applicable register");
@@ -311,17 +311,17 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                reg_resize_to_opsz(pt->simd_slot_use[slot], OPSZ_64) ==
                    reg_resize_to_opsz(reg, OPSZ_64),
            "internal tracking error");
-    drreg_status_t res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS,
-                                                    ilist, where, NULL, false, &tmp_reg);
+    drreg_status_t res = drreg_reserve_reg_internal(
+        drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL, false, &scratch_block_reg);
     if (res != DRREG_SUCCESS)
         drreg_report_error(res, "failed to reserve tmp register");
-    ASSERT(tmp_reg != DR_REG_NULL, "invalid register");
-    load_indirect_block(drcontext, pt, tls_simd_offs, ilist, where, tmp_reg);
+    ASSERT(scratch_block_reg != DR_REG_NULL, "invalid register");
+    load_indirect_block(drcontext, pt, tls_simd_offs, ilist, where, scratch_block_reg);
     pt->simd_slot_use[slot] =
         (reg < pt->simd_slot_use[slot]) ? pt->simd_slot_use[slot] : reg;
     if (reg_is_strictly_xmm(reg)) {
-        opnd_t mem_opnd =
-            opnd_create_base_disp(tmp_reg, DR_REG_NULL, 1, slot * REG_SIMD_SIZE, OPSZ_16);
+        opnd_t mem_opnd = opnd_create_base_disp(scratch_block_reg, DR_REG_NULL, 1,
+                                                slot * REG_SIMD_SIZE, OPSZ_16);
         opnd_t spill_reg_opnd = opnd_create_reg(reg);
         PRE(ilist, where, INSTR_CREATE_movdqa(drcontext, mem_opnd, spill_reg_opnd));
     } else if (reg_is_strictly_ymm(reg)) {
@@ -333,7 +333,7 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
     } else {
         ASSERT(false, "not applicable register");
     }
-    res = drreg_unreserve_register(drcontext, ilist, where, tmp_reg);
+    res = drreg_unreserve_register(drcontext, ilist, where, scratch_block_reg);
     if (res != DRREG_SUCCESS)
         drreg_report_error(res, "failed to unreserve tmp register");
 }
@@ -366,7 +366,7 @@ static void
 restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                        instrlist_t *ilist, instr_t *where, bool release)
 {
-    reg_id_t tmp_reg = DR_REG_NULL;
+    reg_id_t scratch_block_reg = DR_REG_NULL;
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s slot=%d release=%d\n", __FUNCTION__,
         pt->live_idx, get_where_app_pc(where), get_register_name(reg), slot, release);
     ASSERT(reg_is_vector_simd(reg), "not applicable register");
@@ -375,18 +375,18 @@ restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slo
                    reg_resize_to_opsz(reg, OPSZ_64) &&
                pt->simd_slot_use[slot] >= reg,
            "internal tracking error");
-    drreg_status_t res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS,
-                                                    ilist, where, NULL, false, &tmp_reg);
+    drreg_status_t res = drreg_reserve_reg_internal(
+        drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL, false, &scratch_block_reg);
     if (res != DRREG_SUCCESS)
-        drreg_report_error(res, "failed to reserve tmp register");
-    ASSERT(tmp_reg != DR_REG_NULL, "invalid register");
-    load_indirect_block(drcontext, pt, tls_simd_offs, ilist, where, tmp_reg);
+        drreg_report_error(res, "failed to reserve scratch block register");
+    ASSERT(scratch_block_reg != DR_REG_NULL, "invalid register");
+    load_indirect_block(drcontext, pt, tls_simd_offs, ilist, where, scratch_block_reg);
     if (release && pt->simd_slot_use[slot] == reg)
         pt->simd_slot_use[slot] = DR_REG_NULL;
 
     if (reg_is_strictly_xmm(reg)) {
-        opnd_t mem_opnd =
-            opnd_create_base_disp(tmp_reg, DR_REG_NULL, 0, slot * REG_SIMD_SIZE, OPSZ_16);
+        opnd_t mem_opnd = opnd_create_base_disp(scratch_block_reg, DR_REG_NULL, 0,
+                                                slot * REG_SIMD_SIZE, OPSZ_16);
         opnd_t restore_reg_opnd = opnd_create_reg(reg);
         PRE(ilist, where, INSTR_CREATE_movdqa(drcontext, restore_reg_opnd, mem_opnd));
     } else if (reg_is_strictly_ymm(reg)) {
@@ -396,7 +396,7 @@ restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slo
     } else {
         ASSERT(false, "not an applicable register.");
     }
-    res = drreg_unreserve_register(drcontext, ilist, where, tmp_reg);
+    res = drreg_unreserve_register(drcontext, ilist, where, scratch_block_reg);
     if (res != DRREG_SUCCESS)
         drreg_report_error(res, "failed to unreserve tmp register");
 }
