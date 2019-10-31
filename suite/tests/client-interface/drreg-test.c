@@ -351,6 +351,7 @@ GLOBAL_LABEL(FUNCNAME:)
      test17_done:
         jmp      test18
      test18:
+#ifdef __AVX__
         mov      TEST_REG_ASM, DRREG_TEST_18_ASM
         mov      TEST_REG_ASM, DRREG_TEST_18_ASM
         vpcmpeqd ymm0, ymm0, ymm0
@@ -359,9 +360,11 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Fault if we have incorrect eflags */
         ud2
         jmp      test18_done
+#endif
      test18_done:
         jmp      test19
      test19:
+#ifdef __AVX__
         mov      TEST_REG_ASM, DRREG_TEST_19_ASM
         mov      TEST_REG_ASM, DRREG_TEST_19_ASM
         vpxor    ymm0, ymm0, ymm0
@@ -370,6 +373,7 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Fault if we have incorrect eflags */
         ud2
         jmp      test19_done
+#endif
      test19_done:
         jmp      epilog
 

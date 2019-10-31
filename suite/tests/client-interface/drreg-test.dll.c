@@ -387,7 +387,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         CHECK(res == DRREG_SUCCESS, "unreserve of xmm register should work");
 #endif
     } else if (subtest == DRREG_TEST_18_C) {
-#ifdef X86
+#ifdef __AVX__
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #18\n");
         res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
                                         &xmm0_allowed, &reg);
@@ -400,7 +400,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         CHECK(res == DRREG_SUCCESS, "unreserve of xmm register should work");
 #endif
     } else if (subtest == DRREG_TEST_19_C) {
-#ifdef X86
+#ifdef __AVX__
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #18\n");
         res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
                                         &xmm0_allowed, &reg);
