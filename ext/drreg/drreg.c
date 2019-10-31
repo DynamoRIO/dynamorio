@@ -2754,7 +2754,7 @@ get_tls_data(void *drcontext)
 }
 
 static void
-tls_data_init(per_thread_t *pt)
+tls_data_init(void *drcontext, per_thread_t *pt)
 {
     reg_id_t reg;
     memset(pt, 0, sizeof(*pt));
@@ -2769,7 +2769,12 @@ tls_data_init(per_thread_t *pt)
         pt->simd_reg[SIMD_IDX(reg)].native = true;
     }
     /* Block should be aligned on a 64-byte boundary */
-    pt->simd_spill_start = dr_global_alloc((REG_SIMD_SIZE * MAX_SIMD_SPILLS) + 63);
+    if (drcontext == GLOBAL_DCONTEXT) {
+        pt->simd_spill_start = dr_global_alloc((REG_SIMD_SIZE * MAX_SIMD_SPILLS) + 63);
+    } else {
+        pt->simd_spill_start =
+            dr_thread_alloc(drcontext, (REG_SIMD_SIZE * MAX_SIMD_SPILLS) + 63);
+    }
     pt->simd_spills = (byte *)ALIGN_FORWARD(pt->simd_spill_start, 64);
 #endif
     pt->aflags.native = true;
@@ -2777,7 +2782,7 @@ tls_data_init(per_thread_t *pt)
 }
 
 static void
-tls_data_free(per_thread_t *pt)
+tls_data_free(void *drcontext, per_thread_t *pt)
 {
     reg_id_t reg;
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
@@ -2787,7 +2792,12 @@ tls_data_free(per_thread_t *pt)
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         drvector_delete(&pt->simd_reg[SIMD_IDX(reg)].live);
     }
-    dr_global_free(pt->simd_spill_start, (REG_SIMD_SIZE * MAX_SIMD_SPILLS) + 63);
+    if (drcontext == GLOBAL_DCONTEXT) {
+        dr_global_free(pt->simd_spill_start, (REG_SIMD_SIZE * MAX_SIMD_SPILLS) + 63);
+    } else {
+        dr_thread_free(drcontext, pt->simd_spill_start,
+                       (REG_SIMD_SIZE * MAX_SIMD_SPILLS) + 63);
+    }
 #endif
     drvector_delete(&pt->aflags.live);
 }
@@ -2797,7 +2807,7 @@ drreg_thread_init(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(*pt));
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
-    tls_data_init(pt);
+    tls_data_init(drcontext, pt);
     pt->tls_seg_base = dr_get_dr_segment_base(tls_seg);
     /* Place the pointer to the SIMD block inside a slot.
      * XXX: We could get API for this.
@@ -2810,7 +2820,7 @@ static void
 drreg_thread_exit(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    tls_data_free(pt);
+    tls_data_free(drcontext, pt);
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
 
@@ -2852,7 +2862,7 @@ drreg_init(drreg_options_t *ops_in)
         ops.num_spill_slots = 1;
 #endif
         /* Support use during init when there is no TLS (i#2910). */
-        tls_data_init(&init_pt);
+        tls_data_init(GLOBAL_DCONTEXT, &init_pt);
     }
 
     if (ops_in->struct_size < offsetof(drreg_options_t, error_callback))
@@ -2922,7 +2932,7 @@ drreg_exit(void)
     if (count != 0)
         return DRREG_SUCCESS;
 
-    tls_data_free(&init_pt);
+    tls_data_free(GLOBAL_DCONTEXT, &init_pt);
 
     if (!drmgr_unregister_thread_init_event(drreg_thread_init) ||
         !drmgr_unregister_thread_exit_event(drreg_thread_exit))
