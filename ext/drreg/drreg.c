@@ -126,6 +126,7 @@ typedef struct _reg_info_t {
      * reservation).
      */
     bool ever_spilled;
+
     /* Where is the app value for this reg? */
     bool native;   /* app value is in original app reg */
     reg_id_t xchg; /* if !native && != REG_NULL, value was exchanged w/ this dead reg */
@@ -402,13 +403,11 @@ restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slo
         opnd_t restore_reg_opnd = opnd_create_reg(reg);
         PRE(ilist, where, INSTR_CREATE_movdqa(drcontext, restore_reg_opnd, mem_opnd));
     } else if (reg_is_strictly_ymm(reg)) {
-        /* Support YMM here. */
-        ASSERT(false, "SIMD register not supported");
+        ASSERT(false, "ymm registers not yet supported.");
     } else if (reg_is_strictly_zmm(reg)) {
-        /* Support ZMM here. */
-        ASSERT(false, "SIMD register not supported");
+        ASSERT(false, "zmm registers not yet supported.");
     } else {
-        ASSERT(false, "not applicable register");
+        ASSERT(false, "not an applicable register.");
     }
     res = drreg_unreserve_register(drcontext, ilist, where, tmp_reg);
     if (res != DRREG_SUCCESS)
@@ -436,30 +435,26 @@ get_indirectly_spilled_value(void *drcontext, reg_id_t reg, uint slot,
     ASSERT(value_buf != NULL, "value buffer not initialised");
     if (value_buf == NULL)
         return false;
-
     /* Get the size of the register so we can ensure that the buffer size is adequate. */
     size_t reg_size = opnd_size_in_bytes(reg_get_size(reg));
     ASSERT(buf_size >= reg_size, "value buffer too small in size");
     if (buf_size < reg_size)
         return false;
-
     if (reg_is_vector_simd(reg)) {
         if (reg_is_strictly_xmm(reg)) {
             per_thread_t *pt = get_tls_data(drcontext);
             memcpy(value_buf, pt->simd_spills + (slot * REG_SIMD_SIZE), reg_size);
             return true;
         } else if (reg_is_strictly_ymm(reg)) {
-            /* Support YMM here. */
-            ASSERT(false, "SIMD register not supported");
+            ASSERT(false, "ymm registers not yet supported.");
         } else if (reg_is_strictly_zmm(reg)) {
-            /* Support ZMM here. */
-            ASSERT(false, "SIMD register not supported");
+            ASSERT(false, "zmm registers not yet supported.");
         } else {
-            ASSERT(false, "not applicable register");
+            ASSERT(false, "not an applicable register.");
         }
     }
     /* Add support for other non SIMD registers here */
-    ASSERT(false, "not applicable register");
+    ASSERT(false, "not an applicable register.");
     return false;
 }
 #endif
@@ -752,15 +747,19 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                  * resembles zmm, and all other x86 simds are included in zmm.
                  */
                 instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_ALL) ||
-                /* FIXME i#3844: We're missing support to restore upon a partial simd
-                   write. For example a write to xmm while zmm is clobbered, or a partial
-                   write with an evex mask. */
+                /* FIXME i#3844: For ymm and zmm support, we're missing support to restore
+                 * upon a partial simd write. For example a write to xmm while zmm is
+                 * clobbered, or a partial write with an evex mask.
+                 */
                 /* i#1954: for complex bbs we must restore before the next app instr */
                 (!pt->simd_reg[SIMD_IDX(reg)].in_use &&
                  ((pt->bb_has_internal_flow &&
                    !TEST(DRREG_IGNORE_CONTROL_FLOW, pt->bb_props)) ||
                   TEST(DRREG_CONTAINS_SPANNING_CONTROL_FLOW, pt->bb_props)))) {
                 if (!pt->simd_reg[SIMD_IDX(reg)].in_use) {
+                    LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": lazily restoring %s\n",
+                        __FUNCTION__, pt->live_idx, get_where_app_pc(inst),
+                        get_register_name(reg));
                     res = drreg_restore_reg_now(drcontext, bb, inst, pt, reg);
                     if (res != DRREG_SUCCESS)
                         drreg_report_error(res, "lazy restore failed");
@@ -770,12 +769,14 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     reg_id_t spilled_reg =
                         pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
                     ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
-
                     uint tmp_slot = find_simd_free_slot(pt);
                     if (tmp_slot == MAX_SIMD_SPILLS) {
                         drreg_report_error(DRREG_ERROR_OUT_OF_SLOTS,
                                            "failed to preserve tool val around app read");
                     }
+                    LOG(drcontext, DR_LOG_ALL, 3,
+                        "%s @%d." PFX ": restoring %s for app read\n", __FUNCTION__,
+                        pt->live_idx, get_where_app_pc(inst), get_register_name(reg));
                     spill_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, inst);
                     restore_reg_indirectly(drcontext, pt, spilled_reg,
                                            pt->simd_reg[SIMD_IDX(reg)].slot, bb, inst,
@@ -1853,7 +1854,7 @@ drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
     }
 #endif
     else {
-        ASSERT(false, "not applicable register");
+        ASSERT(false, "not an applicable register.");
     }
     return DRREG_SUCCESS;
 }
@@ -2737,14 +2738,11 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 get_indirectly_spilled_value(drcontext, reg, actualreg, simd_buf,
                                              XMM_REG_SIZE);
             } else if (reg_is_strictly_ymm(reg)) {
-                /* Support YMM here. */
-                ASSERT(false, "not applicable register");
+                ASSERT(false, "ymm registers not yet supported.");
             } else if (reg_is_strictly_zmm(reg)) {
-                /* Support ZMM here. */
-                ASSERT(false, "not applicable register");
+                ASSERT(false, "zmm registers not yet supported.");
             } else
-                ASSERT(false, "not applicable register");
-
+                ASSERT(false, "not an applicable register.");
             reg_set_value_ex(reg, info->mcontext, simd_buf);
         }
     }
