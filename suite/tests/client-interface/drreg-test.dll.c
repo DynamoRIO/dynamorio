@@ -461,7 +461,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #22\n");
         res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
                                         NULL, &reg);
-        CHECK(reg == DR_REG_XMM7, "most efficient register not reserved");
+        /* XMM0 to XMM6 are all live in this test case. Hence, drreg should reserve XMM7
+         * or higher
+         */
+        CHECK(reg >= DR_REG_XMM7 && reg <= DR_REG_STOP_XMM,
+              "most efficient register not reserved");
         instrlist_meta_preinsert(bb, inst,
                                  INSTR_CREATE_pcmpeqd(drcontext,
                                                       opnd_create_reg(DR_REG_XMM7),
