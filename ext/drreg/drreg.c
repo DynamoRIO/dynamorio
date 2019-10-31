@@ -2928,9 +2928,6 @@ drreg_init(drreg_options_t *ops_in)
         tls_data_init(&init_pt);
     }
 
-    /* We are adding an additional slot for indirect spills. */
-    ops.num_spill_slots += 1;
-
     if (ops_in->struct_size < offsetof(drreg_options_t, error_callback))
         return DRREG_ERROR_INVALID_PARAMETER;
 
@@ -2969,16 +2966,19 @@ drreg_init(drreg_options_t *ops_in)
         ops.error_callback = ops_in->error_callback;
 
     if (prior_slots > 0) {
-        if (!dr_raw_tls_cfree(tls_simd_offs, prior_slots))
+        if (!dr_raw_tls_cfree(tls_simd_offs, prior_slots + 1))
             return DRREG_ERROR;
     }
 
     /* 0 spill slots is supported and just fills in tls_seg for us. */
-    if (!dr_raw_tls_calloc(&tls_seg, &tls_simd_offs, ops.num_spill_slots, 0))
+    if (!dr_raw_tls_calloc(&tls_seg, &tls_simd_offs, ops.num_spill_slots + 1, 0))
         return DRREG_ERROR_OUT_OF_SLOTS;
 
     /* Increment offset so that we now directly point to GPR slots, skipping the
-     * pointer to the indirect SIMD block. */
+     * pointer to the indirect SIMD block. We are treating this extra slot differently
+     * from the aflags slot, because its offset is distinctly used for spilling and
+     * restoring indirectly vs. directly.
+     */
     tls_slot_offs = tls_simd_offs + sizeof(void *);
 
     return DRREG_SUCCESS;
@@ -3005,7 +3005,7 @@ drreg_exit(void)
 
     drmgr_exit();
 
-    if (!dr_raw_tls_cfree(tls_simd_offs, ops.num_spill_slots))
+    if (!dr_raw_tls_cfree(tls_simd_offs, ops.num_spill_slots + 1))
         return DRREG_ERROR;
 
     /* Support re-attach */
