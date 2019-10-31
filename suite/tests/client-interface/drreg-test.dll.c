@@ -478,11 +478,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #23\n");
         res = drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, inst,
                                         &xmm7_allowed, &reg);
-        CHECK(reg == DR_REG_XMM7, "reserved non-allowed register error");
-        instrlist_meta_preinsert(bb, inst,
-                                 INSTR_CREATE_pcmpeqd(drcontext,
-                                                      opnd_create_reg(DR_REG_XMM7),
-                                                      opnd_create_reg(DR_REG_XMM7)));
+        CHECK(reg >= DR_REG_XMM7 && reg <= DR_REG_STOP_XMM,
+              "reserved non-allowed register error");
+        instrlist_meta_preinsert(
+            bb, inst,
+            INSTR_CREATE_pcmpeqd(drcontext, opnd_create_reg(reg), opnd_create_reg(reg)));
         res = drreg_unreserve_register(drcontext, bb, inst, reg);
         CHECK(res == DRREG_SUCCESS, "unreserve of xmm register should work");
 #endif
