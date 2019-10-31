@@ -301,49 +301,54 @@ spill_reg_directly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
 
 #ifdef X86
 static void
-load_indirect_block(void *drcontext, uint slot, instrlist_t *ilist, instr_t *where,
-                    reg_id_t block_reg)
+load_indirect_block(void *drcontext, per_thread_t *pt, uint slot, instrlist_t *ilist,
+                    instr_t *where, reg_id_t tmp_reg)
 {
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s %d\n", __FUNCTION__, pt->live_idx,
-        get_where_app_pc(where), get_register_name(block_reg), slot);
+        get_where_app_pc(where), get_register_name(tmp_reg), slot);
     /* Simply load the pointer of the block to the passed register*/
-    dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg, slot, block_reg);
+    dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg, slot, tmp_reg);
 }
 #endif
 
 #ifdef X86
 static void
 spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
-                     instrlist_t *ilist, instr_t *where, reg_id_t block_reg)
+                     instrlist_t *ilist, instr_t *where)
 {
+    reg_id_t tmp_reg;
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s %d\n", __FUNCTION__, pt->live_idx,
         get_where_app_pc(where), get_register_name(reg), slot);
-    if (reg_is_vector_simd(reg)) {
-        ASSERT(is_applicable_simd(reg), "not applicable register");
-        ASSERT(pt->simd_slot_use[slot] == DR_REG_NULL ||
-                   reg_resize_to_opsz(pt->simd_slot_use[slot], OPSZ_64) ==
-                       reg_resize_to_opsz(reg, OPSZ_64),
-               "internal tracking error");
-
-        pt->simd_slot_use[slot] =
-            (reg < pt->simd_slot_use[slot]) ? pt->simd_slot_use[slot] : reg;
-        if (reg_is_strictly_xmm(reg)) {
-            opnd_t mem_opnd = opnd_create_base_disp(block_reg, DR_REG_NULL, 1,
-                                                    slot * REG_SIMD_SIZE, OPSZ_16);
-            opnd_t spill_reg_opnd = opnd_create_reg(reg);
-            PRE(ilist, where, INSTR_CREATE_movdqa(drcontext, mem_opnd, spill_reg_opnd));
-        } else if (reg_is_strictly_ymm(reg)) {
-            /* Support YMM here. */
-            ASSERT(false, "SIMD register not supported");
-        } else if (reg_is_strictly_zmm(reg)) {
-            /* Support ZMM here. */
-            ASSERT(false, "SIMD register not supported");
-        } else {
-            ASSERT(false, "not applicable register");
-        }
+    ASSERT(reg_is_vector_simd(reg), "not applicable register");
+    ASSERT(is_applicable_simd(reg), "not applicable register");
+    ASSERT(pt->simd_slot_use[slot] == DR_REG_NULL ||
+               reg_resize_to_opsz(pt->simd_slot_use[slot], OPSZ_64) ==
+                   reg_resize_to_opsz(reg, OPSZ_64),
+           "internal tracking error");
+    drreg_status_t res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS,
+                                                    ilist, where, NULL, false, &tmp_reg);
+    if (res != DRREG_SUCCESS)
+        drreg_report_error(res, "failed to reserve tmp register");
+    load_indirect_block(drcontext, pt, tls_simd_offs, ilist, where, tmp_reg);
+    pt->simd_slot_use[slot] =
+        (reg < pt->simd_slot_use[slot]) ? pt->simd_slot_use[slot] : reg;
+    if (reg_is_strictly_xmm(reg)) {
+        opnd_t mem_opnd =
+            opnd_create_base_disp(tmp_reg, DR_REG_NULL, 1, slot * REG_SIMD_SIZE, OPSZ_16);
+        opnd_t spill_reg_opnd = opnd_create_reg(reg);
+        PRE(ilist, where, INSTR_CREATE_movdqa(drcontext, mem_opnd, spill_reg_opnd));
+    } else if (reg_is_strictly_ymm(reg)) {
+        /* Support YMM here. */
+        ASSERT(false, "SIMD register not supported");
+    } else if (reg_is_strictly_zmm(reg)) {
+        /* Support ZMM here. */
+        ASSERT(false, "SIMD register not supported");
     } else {
         ASSERT(false, "not applicable register");
     }
+    res = drreg_unreserve_register(drcontext, ilist, where, tmp_reg);
+    if (res != DRREG_SUCCESS)
+        drreg_report_error(res, "failed to unreserve tmp register");
 }
 #endif
 
@@ -372,38 +377,42 @@ restore_reg_directly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
 #ifdef X86
 static void
 restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
-                       instrlist_t *ilist, instr_t *where, reg_id_t block_reg,
-                       bool release)
+                       instrlist_t *ilist, instr_t *where, bool release)
 {
+    reg_id_t tmp_reg;
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s slot=%d release=%d\n", __FUNCTION__,
         pt->live_idx, get_where_app_pc(where), get_register_name(reg), slot, release);
-    if (reg_is_vector_simd(reg)) {
-        ASSERT(pt->simd_slot_use[slot] != DR_REG_NULL &&
-                   reg_resize_to_opsz(pt->simd_slot_use[slot], OPSZ_64) ==
-                       reg_resize_to_opsz(reg, OPSZ_64) &&
-                   pt->simd_slot_use[slot] >= reg,
-               "internal tracking error");
+    ASSERT(reg_is_vector_simd(reg), "not applicable register");
+    ASSERT(pt->simd_slot_use[slot] != DR_REG_NULL &&
+               reg_resize_to_opsz(pt->simd_slot_use[slot], OPSZ_64) ==
+                   reg_resize_to_opsz(reg, OPSZ_64) &&
+               pt->simd_slot_use[slot] >= reg,
+           "internal tracking error");
+    drreg_status_t res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS,
+                                                    ilist, where, NULL, false, &tmp_reg);
+    if (res != DRREG_SUCCESS)
+        drreg_report_error(res, "failed to reserve tmp register");
+    load_indirect_block(drcontext, pt, tls_simd_offs, ilist, where, tmp_reg);
+    if (release && pt->simd_slot_use[slot] == reg)
+        pt->simd_slot_use[slot] = DR_REG_NULL;
 
-        if (release && pt->simd_slot_use[slot] == reg)
-            pt->simd_slot_use[slot] = DR_REG_NULL;
-
-        if (reg_is_strictly_xmm(reg)) {
-            opnd_t mem_opnd = opnd_create_base_disp(block_reg, DR_REG_NULL, 0,
-                                                    slot * REG_SIMD_SIZE, OPSZ_16);
-            opnd_t restore_reg_opnd = opnd_create_reg(reg);
-            PRE(ilist, where, INSTR_CREATE_movdqa(drcontext, restore_reg_opnd, mem_opnd));
-        } else if (reg_is_strictly_ymm(reg)) {
-            /* Support YMM here. */
-            ASSERT(false, "SIMD register not supported");
-        } else if (reg_is_strictly_zmm(reg)) {
-            /* Support ZMM here. */
-            ASSERT(false, "SIMD register not supported");
-        } else {
-            ASSERT(false, "not applicable register");
-        }
+    if (reg_is_strictly_xmm(reg)) {
+        opnd_t mem_opnd =
+            opnd_create_base_disp(tmp_reg, DR_REG_NULL, 0, slot * REG_SIMD_SIZE, OPSZ_16);
+        opnd_t restore_reg_opnd = opnd_create_reg(reg);
+        PRE(ilist, where, INSTR_CREATE_movdqa(drcontext, restore_reg_opnd, mem_opnd));
+    } else if (reg_is_strictly_ymm(reg)) {
+        /* Support YMM here. */
+        ASSERT(false, "SIMD register not supported");
+    } else if (reg_is_strictly_zmm(reg)) {
+        /* Support ZMM here. */
+        ASSERT(false, "SIMD register not supported");
     } else {
         ASSERT(false, "not applicable register");
     }
+    res = drreg_unreserve_register(drcontext, ilist, where, tmp_reg);
+    if (res != DRREG_SUCCESS)
+        drreg_report_error(res, "failed to unreserve tmp register");
 }
 #endif
 
@@ -696,7 +705,6 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     instr_t *next = instr_get_next(inst);
     bool restored_for_read[DR_NUM_GPR_REGS];
 #ifdef X86
-    reg_id_t block_reg; /* Used for indirect access */
     bool restored_for_simd_read[DR_NUM_SIMD_VECTOR_REGS];
 #endif
     drreg_status_t res;
@@ -768,31 +776,13 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                         drreg_report_error(DRREG_ERROR_OUT_OF_SLOTS,
                                            "failed to preserve tool val around app read");
                     }
-                    res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
-                                                     inst, NULL, false, &block_reg);
-                    if (res != DRREG_SUCCESS)
-                        drreg_report_error(res, "failed to reserve block register");
-                    load_indirect_block(drcontext, tls_simd_offs, bb, inst, block_reg);
-                    spill_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, inst,
-                                         block_reg);
+                    spill_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, inst);
                     restore_reg_indirectly(drcontext, pt, spilled_reg,
                                            pt->simd_reg[SIMD_IDX(reg)].slot, bb, inst,
-                                           block_reg, false /*keep slot*/);
-                    res = drreg_unreserve_register(drcontext, bb, inst, block_reg);
-                    if (res != DRREG_SUCCESS)
-                        drreg_report_error(res, "failed to unreserve block register");
-                    res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
-                                                     next, NULL, false, &block_reg);
-                    if (res != DRREG_SUCCESS)
-                        drreg_report_error(res, "failed to reserve block register");
-                    load_indirect_block(drcontext, tls_simd_offs, bb, next, block_reg);
+                                           false /*keep slot*/);
                     restore_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, next,
-                                           block_reg, true);
+                                           true);
                     /* We keep .native==false */
-                    res = drreg_unreserve_register(drcontext, bb, next, block_reg);
-                    if (res != DRREG_SUCCESS)
-                        drreg_report_error(res, "failed to unreserve block register");
-
                     /* Share the tool val spill if this inst writes too */
                     restored_for_simd_read[SIMD_IDX(reg)] = true;
                 }
@@ -928,42 +918,17 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                         drreg_report_error(DRREG_ERROR_OUT_OF_SLOTS,
                                            "failed to preserve tool val wrt app write");
                     }
-
-                    /* We pick an unreserved reg, spill it, and use it for scratch */
-                    res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
-                                                     inst, NULL, false, &block_reg);
-                    if (res != DRREG_SUCCESS)
-                        drreg_report_error(res, "failed to reserve block register");
-                    load_indirect_block(drcontext, tls_simd_offs, bb, inst, block_reg);
-
-                    spill_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, inst,
-                                         block_reg);
-                    drreg_unreserve_register(drcontext, bb, inst, block_reg);
+                    spill_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, inst);
                 }
 
                 instr_t *where =
                     restored_for_simd_read[SIMD_IDX(reg)] ? instr_get_prev(next) : next;
-                res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
-                                                 where, NULL, false, &block_reg);
-                if (res != DRREG_SUCCESS)
-                    drreg_report_error(res, "failed to reserve block register");
-                load_indirect_block(drcontext, tls_simd_offs, bb, where, block_reg);
                 spill_reg_indirectly(drcontext, pt, spilled_reg,
-                                     pt->simd_reg[SIMD_IDX(reg)].slot, bb, where,
-                                     block_reg);
-                drreg_unreserve_register(drcontext, bb, where, block_reg);
+                                     pt->simd_reg[SIMD_IDX(reg)].slot, bb, where);
                 pt->simd_reg[SIMD_IDX(reg)].ever_spilled = true;
                 if (!restored_for_simd_read[SIMD_IDX(reg)]) {
-                    res = drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, bb,
-                                                     next, NULL, false, &block_reg);
-                    if (res != DRREG_SUCCESS)
-                        drreg_report_error(res, "failed to reserve block register");
-                    load_indirect_block(drcontext, tls_simd_offs, bb, next, block_reg);
                     restore_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb,
-                                           next /*after*/, block_reg, true);
-                    res = drreg_unreserve_register(drcontext, bb, next, block_reg);
-                    if (res != DRREG_SUCCESS)
-                        drreg_report_error(res, "failed to unreserve block register");
+                                           next /*after*/, true);
                 }
             }
         } else if (!pt->simd_reg[SIMD_IDX(reg)].native &&
@@ -1521,16 +1486,7 @@ drreg_reserve_simd_reg_internal(void *drcontext, drreg_spill_class_t spill_class
                  SIMD_XMM_LIVE &&
              drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx) <=
                  SIMD_ZMM_LIVE)) {
-            reg_id_t simd_block_reg;
-            drreg_status_t res =
-                drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, ilist, where,
-                                           NULL, false, &simd_block_reg);
-            if (res != DRREG_SUCCESS)
-                return res;
-            load_indirect_block(drcontext, tls_simd_offs, ilist, where, simd_block_reg);
-            spill_reg_indirectly(drcontext, pt, reg, slot, ilist, where, simd_block_reg);
-            drreg_unreserve_register(drcontext, ilist, where, simd_block_reg);
-
+            spill_reg_indirectly(drcontext, pt, reg, slot, ilist, where);
             pt->simd_reg[SIMD_IDX(reg)].ever_spilled = true;
         } else {
             pt->simd_slot_use[slot] = reg;
@@ -1733,20 +1689,9 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
             instrlist_set_auto_predicate(ilist, pred);
             return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
         }
-        reg_id_t block_reg;
-        /* We pick an unreserved reg, spill it, and use it to load the indirect block. */
-        drreg_status_t res = drreg_reserve_reg_internal(
-            drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL, false, &block_reg);
-        if (res != DRREG_SUCCESS)
-            return res;
-        load_indirect_block(drcontext, tls_simd_offs, ilist, where, block_reg);
-        restore_reg_indirectly(
-            drcontext, pt, app_reg, pt->simd_reg[SIMD_IDX(app_reg)].slot, ilist, where,
-            block_reg, stateful && !pt->simd_reg[SIMD_IDX(app_reg)].in_use);
-        res = drreg_unreserve_register(drcontext, ilist, where, block_reg);
-        if (res != DRREG_SUCCESS)
-            return res;
-
+        restore_reg_indirectly(drcontext, pt, app_reg,
+                               pt->simd_reg[SIMD_IDX(app_reg)].slot, ilist, where,
+                               stateful && !pt->simd_reg[SIMD_IDX(app_reg)].in_use);
         if (stateful && !pt->simd_reg[SIMD_IDX(app_reg)].in_use)
             pt->simd_reg[SIMD_IDX(app_reg)].native = true;
     }
@@ -1899,19 +1844,8 @@ drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
     else if (reg_is_vector_simd(reg)) {
         if (pt->simd_reg[SIMD_IDX(reg)].ever_spilled) {
             reg_id_t spilled_reg = pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
-
-            reg_id_t block_reg;
-            /* We pick an unreserved reg, spill it, and use it for scratch */
-            if (drreg_reserve_reg_internal(drcontext, DRREG_GPR_SPILL_CLASS, ilist, inst,
-                                           NULL, false, &block_reg) != DRREG_SUCCESS)
-                return DRREG_ERROR;
-
-            /* First load the pointer referring to the block, then restore */
-            load_indirect_block(drcontext, tls_simd_offs, ilist, inst, block_reg);
             restore_reg_indirectly(drcontext, pt, spilled_reg,
-                                   pt->simd_reg[SIMD_IDX(reg)].slot, ilist, inst,
-                                   block_reg, true);
-            drreg_unreserve_register(drcontext, ilist, inst, block_reg);
+                                   pt->simd_reg[SIMD_IDX(reg)].slot, ilist, inst, true);
         } else {
             pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot] = DR_REG_NULL;
         }
