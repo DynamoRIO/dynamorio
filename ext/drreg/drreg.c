@@ -2893,11 +2893,15 @@ drreg_init(drreg_options_t *ops_in)
         ops.error_callback = ops_in->error_callback;
 
     if (prior_slots > 0) {
+        /* +1 for the pointer to the indirect spill block, see below. */
         if (!dr_raw_tls_cfree(tls_simd_offs, prior_slots + 1))
             return DRREG_ERROR;
     }
 
     /* 0 spill slots is supported and just fills in tls_seg for us. */
+    /* We are allocating an additional slot for the pointer to the indirect
+     * spill block.
+     */
     if (!dr_raw_tls_calloc(&tls_seg, &tls_simd_offs, ops.num_spill_slots + 1, 0))
         return DRREG_ERROR_OUT_OF_SLOTS;
 
@@ -2932,6 +2936,7 @@ drreg_exit(void)
 
     drmgr_exit();
 
+    /* +1 for the pointer to the indirect spill block, see above. */
     if (!dr_raw_tls_cfree(tls_simd_offs, ops.num_spill_slots + 1))
         return DRREG_ERROR;
 
