@@ -43,6 +43,7 @@
 #include "client_tools.h"
 #include "drmgr.h"
 #include "drwrap.h"
+#include <stdint.h> /* uintptr_t */
 
 #define MALLOC_ROUTINE_NAME IF_WINDOWS_ELSE("HeapAlloc", "malloc")
 
@@ -57,7 +58,7 @@ static bool is_wrapped;
 static bool is_clear;
 static node_t *head;
 
-static const int user_value = 9909;
+static const uintptr_t user_value = 9909;
 
 static void
 insert_new_node()
