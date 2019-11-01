@@ -137,6 +137,7 @@ typedef struct _reg_info_t {
 
 #define GPR_IDX(reg) ((reg)-DR_REG_START_GPR)
 
+/* ZMM registers are used to manage SIMD data, resizing to smaller regs when needed */
 #ifdef X86
 #    define DR_REG_APPLICABLE_START_SIMD DR_REG_START_ZMM
 #    define DR_REG_APPLICABLE_STOP_SIMD DR_REG_STOP_ZMM
@@ -2440,6 +2441,9 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
          * simd registers.
          */
         ASSERT(next_instr != NULL, "next_instr cannot be NULL");
+        /* FIXME i#3844: Might need to change this assert when
+         * supporting other register spillage.
+         */
         ASSERT(instr_get_opcode(next_instr) == OP_movdqa ||
                    instr_get_opcode(next_instr) == OP_vmovdqa,
                "next instruction needs to be a mov");
