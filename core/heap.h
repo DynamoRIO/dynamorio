@@ -149,6 +149,11 @@ vmcode_get_writable_addr(byte *exec_addr);
 byte *
 vmcode_get_executable_addr(byte *write_addr);
 
+#ifdef CLIENT_INTERFACE
+void
+vmm_heap_handle_pending_low_on_memory_event_trigger();
+#endif
+
 bool
 heap_check_option_compatibility(void);
 
