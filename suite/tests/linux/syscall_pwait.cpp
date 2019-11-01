@@ -197,8 +197,7 @@ main(int argc, char *argv[])
     auto psyscall_epoll_pwait = [test_set](bool nullsigmask) -> int {
         int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         struct epoll_event events;
-        return epoll_pwait(epoll_fd, &events, IF_X64_ELSE(24LL, 24L),
-                           IF_X64_ELSE(-1LL, -1L), nullsigmask ? NULL : &test_set);
+        return epoll_pwait(epoll_fd, &events, 24, -1, nullsigmask ? NULL : &test_set);
     };
     execute_subtest(main_thread, &test_set, psyscall_epoll_pwait, false);
 
@@ -228,8 +227,7 @@ main(int argc, char *argv[])
 
     int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     struct epoll_event events;
-    if (syscall(SYS_epoll_pwait, epoll_fd, &events, IF_X64_ELSE(24LL, 24L),
-                IF_X64_ELSE(-1LL, -1L), &test_set, NULL) == 0) {
+    if (syscall(SYS_epoll_pwait, epoll_fd, &events, 24, -1, &test_set, (size_t)0) == 0) {
         print("expected syscall failure");
         exit(1);
     } else if (errno != EINVAL) {
@@ -244,7 +242,8 @@ main(int argc, char *argv[])
 
     data_t data_wrong = { &test_set, 0 };
 
-    if (syscall(SYS_pselect6, NULL, NULL, NULL, NULL, NULL, &data_wrong) == 0) {
+    if (syscall(SYS_pselect6, 0, (fd_set *)NULL, (fd_set *)NULL, (fd_set *)NULL,
+                (const struct timespec *)NULL, &data_wrong) == 0) {
         print("expected syscall failure");
         exit(1);
     } else if (errno != EINVAL) {
@@ -257,7 +256,8 @@ main(int argc, char *argv[])
     /* waste some time */
     nanosleep(&sleeptime, NULL);
 
-    if (syscall(SYS_ppoll, NULL, NULL, NULL, &test_set, NULL) == 0) {
+    if (syscall(SYS_ppoll, (struct pollfd *)NULL, (nfds_t)0,
+                (const struct timespec *)NULL, &test_set, (size_t)0) == 0) {
         print("expected syscall failure");
         exit(1);
     } else if (errno != EINVAL) {
@@ -282,28 +282,29 @@ main(int argc, char *argv[])
          */
         asm volatile(
             "mov %7, %%rbx\n\t"
-            "movq %2, %%rax\n\t"
-            "movq %3, %%rdi\n\t"
-            "movq %4, %%rsi\n\t"
-            "movq %5, %%rdx\n\t"
-            "movq %6, %%r10\n\t"
-            "movq %7, %%r8\n\t"
-            "movq %8, %%r9\n\t"
+            "movq %[sys_num], %%rax\n\t"
+            "movl %[epfd], %%edi\n\t"
+            "movq %[events], %%rsi\n\t"
+            "movl %[maxevents], %%edx\n\t"
+            "movq %[timeout], %%r10\n\t"
+            "movq %[sigmask], %%r8\n\t"
+            "movq %[ss_len], %%r9\n\t"
             "syscall\n\t"
-            "mov $0, %0\n\t"
+            "mov $0, %[syscall_error]\n\t"
             "cmp $-4095, %%rax\n\t"
             "jl no_syscall_error%=\n\t"
-            "mov $1, %0\n\t"
+            "mov $1, %[syscall_error]\n\t"
             "no_syscall_error%=:\n\t"
-            "mov $0, %1\n\t"
+            "mov $0, %[mask_error]\n\t"
             "cmp %%rbx, %%r8\n\t"
             "je no_mask_error%=\n\t"
-            "mov $1, %1\n\t"
+            "mov $1, %[mask_error]\n\t"
             "no_mask_error%=:\n"
             /* early-clobber outputs */
-            : "=&r"(syscall_error), "=&r"(mask_error)
-            : "rm"((int64_t)SYS_epoll_pwait), "rm"((int64_t)epoll_fd), "rm"(&events),
-              "rm"(24LL), "rm"(-1LL), "rm"(&test_set), "rm"((int64_t)(_NSIG / 8))
+            : [syscall_error] "=&r"(syscall_error), [mask_error] "=&r"(mask_error)
+            : [sys_num] "rm"((long)SYS_epoll_pwait), [epfd] "rm"(epoll_fd),
+              [events] "rm"(&events), [maxevents] "rm"(24), [timeout] "rm"((int64_t)-1),
+              [sigmask] "rm"(&test_set), [ss_len] "rm"((size_t)(_NSIG / 8))
             : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx", "rcx", "r11");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
@@ -326,31 +327,33 @@ main(int argc, char *argv[])
         int syscall_error = 0;
         int mask_error = 0;
         pthread_t child_thread = kick_off_child_signal(count, main_thread, true);
-        asm volatile("movq 0(%8), %%rbx\n\t"
-                     "movq %2, %%rax\n\t"
-                     "movq %3, %%rdi\n\t"
-                     "movq %4, %%rsi\n\t"
-                     "movq %5, %%rdx\n\t"
-                     "movq %6, %%r10\n\t"
-                     "movq %7, %%r8\n\t"
-                     "movq %8, %%r9\n\t"
-                     "syscall\n\t"
-                     "mov $0, %0\n\t"
-                     "cmp $-4095, %%rax\n\t"
-                     "jl no_syscall_error%=\n\t"
-                     "mov $1, %0\n\t"
-                     "no_syscall_error%=:\n\t"
-                     "mov $0, %1\n\t"
-                     "cmp 0(%%r9), %%rbx\n\t"
-                     "je no_mask_error%=\n\t"
-                     "mov $1, %1\n\t"
-                     "no_mask_error%=:\n"
-                     /* early-clobber ouputs */
-                     : "=&r"(syscall_error), "=&r"(mask_error)
-                     : "rm"((int64_t)SYS_pselect6), "rm"(NULL), "rm"(NULL), "rm"(NULL),
-                       "rm"(NULL), "rm"(NULL), "r"(&data)
-                     : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx", "rcx",
-                       "r11");
+        asm volatile(
+            "movq 0(%8), %%rbx\n\t"
+            "movq %[sys_num], %%rax\n\t"
+            "movl %[nfds], %%edi\n\t"
+            "movq %[readfds], %%rsi\n\t"
+            "movq %[writefds], %%rdx\n\t"
+            "movq %[exceptfds], %%r10\n\t"
+            "movq %[timeout], %%r8\n\t"
+            "movq %[sigmaskstruct], %%r9\n\t"
+            "syscall\n\t"
+            "mov $0, %[syscall_error]\n\t"
+            "cmp $-4095, %%rax\n\t"
+            "jl no_syscall_error%=\n\t"
+            "mov $1, %[syscall_error]\n\t"
+            "no_syscall_error%=:\n\t"
+            "mov $0, %[mask_error]\n\t"
+            "cmp 0(%%r9), %%rbx\n\t"
+            "je no_mask_error%=\n\t"
+            "mov $1, %[mask_error]\n\t"
+            "no_mask_error%=:\n"
+            /* early-clobber ouputs */
+            : [syscall_error] "=&r"(syscall_error), [mask_error] "=&r"(mask_error)
+            : [sys_num] "rm"((long)SYS_pselect6), [nfds] "rm"(0),
+              [readfds] "rm"((fd_set *)NULL), [writefds] "rm"((fd_set *)NULL),
+              [exceptfds] "rm"((fd_set *)NULL), [timeout] "rm"((struct timeval *)NULL),
+              [sigmaskstruct] "r"(&data)
+            : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx", "rcx", "r11");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
         if (mask_error == 1)
@@ -365,29 +368,31 @@ main(int argc, char *argv[])
         int syscall_error = 0;
         int mask_error = 0;
         pthread_t child_thread = kick_off_child_signal(count, main_thread, true);
-        asm volatile("mov %6, %%rbx\n\t"
-                     "movq %2, %%rax\n\t"
-                     "movq %3, %%rdi\n\t"
-                     "movq %4, %%rsi\n\t"
-                     "movq %5, %%rdx\n\t"
-                     "movq %6, %%r10\n\t"
-                     "movq %7, %%r8\n\t"
-                     "syscall\n\t"
-                     "mov $0, %0\n\t"
-                     "cmp $-4095, %%rax\n\t"
-                     "jl no_syscall_error%=\n\t"
-                     "mov $1, %0\n\t"
-                     "no_syscall_error%=:\n\t"
-                     "mov $0, %1\n\t"
-                     "cmp %%rbx, %%r10\n\t"
-                     "je no_mask_error%=\n\t"
-                     "mov $1, %1\n\t"
-                     "no_mask_error%=:\n"
-                     /* early-clobber outputs */
-                     : "=&r"(syscall_error), "=&r"(mask_error)
-                     : "r"((int64_t)SYS_ppoll), "rm"(NULL), "r"(NULL), "rm"(NULL),
-                       "rm"(&test_set), "r"((int64_t)(_NSIG / 8))
-                     : "rax", "rdi", "rsi", "rdx", "r10", "r8", "rbx", "rcx", "r11");
+        asm volatile(
+            "movq %6, %%rbx\n\t"
+            "movq %[sys_num], %%rax\n\t"
+            "movq %[fds], %%rdi\n\t"
+            "movq %[nfds], %%rsi\n\t"
+            "movq %[tmo_p], %%rdx\n\t"
+            "movq %[sigmask], %%r10\n\t"
+            "movq %[ss_len], %%r8\n\t"
+            "syscall\n\t"
+            "mov $0, %[syscall_error]\n\t"
+            "cmp $-4095, %%rax\n\t"
+            "jl no_syscall_error%=\n\t"
+            "mov $1, %[syscall_error]\n\t"
+            "no_syscall_error%=:\n\t"
+            "mov $0, %[mask_error]\n\t"
+            "cmp %%rbx, %%r10\n\t"
+            "je no_mask_error%=\n\t"
+            "mov $1, %[mask_error]\n\t"
+            "no_mask_error%=:\n"
+            /* early-clobber outputs */
+            : [syscall_error] "=&r"(syscall_error), [mask_error] "=&r"(mask_error)
+            : [sys_num] "r"((long)SYS_ppoll), [fds] "rm"((struct pollfd *)NULL),
+              [nfds] "rm"((nfds_t)0), [tmo_p] "rm"((const struct timespec *)NULL),
+              [sigmask] "rm"(&test_set), [ss_len] "rm"((size_t)(_NSIG / 8))
+            : "rax", "rdi", "rsi", "rdx", "r10", "r8", "rbx", "rcx", "r11");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
         if (mask_error == 1)
@@ -421,8 +426,8 @@ main(int argc, char *argv[])
     auto psyscall_raw_epoll_pwait = [test_set](bool nullsigmask) -> int {
         int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         struct epoll_event events;
-        return syscall(SYS_epoll_pwait, epoll_fd, &events, IF_X64_ELSE(24LL, 24L),
-                       IF_X64_ELSE(60000LL, 60000L), NULL);
+        return syscall(SYS_epoll_pwait, epoll_fd, &events, 24, 60000, (sigset_t *)NULL,
+                       (size_t)_NSIG / 8);
     };
 
     auto psyscall_raw_pselect = [test_set](bool nullsigmask) -> int {
@@ -437,7 +442,7 @@ main(int argc, char *argv[])
         } data;
         data.sigmask = NULL;
         data.ss_len = 0;
-        return syscall(SYS_pselect6, NULL, NULL, NULL, &fds, &ts, &data);
+        return syscall(SYS_pselect6, 0, (fd_set *)NULL, (fd_set *)NULL, &fds, &ts, &data);
     };
 
     auto psyscall_raw_pselect_nullptr = [test_set](bool nullsigmask) -> int {
@@ -446,7 +451,8 @@ main(int argc, char *argv[])
         FD_ZERO(&fds);
         ts.tv_sec = 60;
         ts.tv_nsec = 0;
-        return syscall(SYS_pselect6, NULL, NULL, NULL, &fds, &ts, NULL);
+        return syscall(SYS_pselect6, 0, (fd_set *)NULL, (fd_set *)NULL, &fds, &ts,
+                       (void *)NULL);
     };
 
 #if defined(X86) && defined(X64)
@@ -458,23 +464,25 @@ main(int argc, char *argv[])
         ts.tv_sec = 60;
         ts.tv_nsec = 0;
         int syscall_error = 0;
-        asm volatile("movq %1, %%rax\n\t"
-                     "movq %2, %%rdi\n\t"
-                     "movq %3, %%rsi\n\t"
-                     "movq %4, %%rdx\n\t"
-                     "movq %5, %%r10\n\t"
-                     "movq %6, %%r8\n\t"
-                     "movq %7, %%r9\n\t"
+        asm volatile("movq %[sys_num], %%rax\n\t"
+                     "movl %[nfds], %%edi\n\t"
+                     "movq %[readfds], %%rsi\n\t"
+                     "movq %[writefds], %%rdx\n\t"
+                     "movq %[exceptfds], %%r10\n\t"
+                     "movq %[timeout], %%r8\n\t"
+                     "movq %[sigmaskstruct], %%r9\n\t"
                      "syscall\n\t"
-                     "movl $0, %0\n\t"
+                     "movl $0, %[syscall_error]\n\t"
                      "cmp $-4095, %%rax\n\t"
                      "jl no_syscall_error%=\n\t"
-                     "movl $-1, %0\n\t"
-                     "no_syscall_error%=:\n\t"
+                     "movl $-1, %[syscall_error]\n\t"
+                     "no_syscall_error%=:\n"
                      /* early-clobber ouputs */
-                     : "=&r"(syscall_error)
-                     : "rm"((int64_t)SYS_pselect6), "rm"(NULL), "rm"(NULL), "rm"(NULL),
-                       "rm"(fds), "rm"(ts), "rm"(NULL)
+                     : [syscall_error] "=&r"(syscall_error)
+                     : [sys_num] "rm"((long)SYS_pselect6), [nfds] "rm"(0),
+                       [readfds] "rm"((fd_set *)NULL), [writefds] "rm"((fd_set *)NULL),
+                       [exceptfds] "rm"(fds), [timeout] "rm"(ts),
+                       [sigmaskstruct] "rm"((void *)NULL)
                      : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rcx", "r11");
         return syscall_error;
     };
@@ -485,7 +493,8 @@ main(int argc, char *argv[])
         struct timespec ts;
         ts.tv_sec = 60;
         ts.tv_nsec = 0;
-        return syscall(SYS_ppoll, NULL, NULL, &ts, NULL);
+        return syscall(SYS_ppoll, (struct pollfd *)NULL, (nfds_t)NULL, &ts,
+                       (const sigset_t *)NULL);
     };
 
     print("Testing raw epoll_pwait with NULL sigmask\n");
