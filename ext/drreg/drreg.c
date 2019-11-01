@@ -150,8 +150,8 @@ typedef struct _per_thread_t {
     int live_idx;
     reg_info_t reg[DR_NUM_GPR_REGS];
     reg_info_t simd_reg[DR_NUM_SIMD_VECTOR_REGS];
-    byte *simd_spill_start;
-    byte *simd_spills; /* aligned storage for SIMD data */
+    byte *simd_spill_start; /* storage returned by allocator (may not be aligned) */
+    byte *simd_spills;      /* aligned storage for SIMD data */
     reg_info_t aflags;
     reg_id_t slot_use[MAX_SPILLS]; /* holds the reg_id_t of which reg is inside */
     reg_id_t simd_slot_use[MAX_SIMD_SPILLS]; /* importantly, this can store partial SIMD
@@ -2458,6 +2458,7 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
             reg = opnd_get_reg(src);
             is_spilled = true;
             int disp = opnd_get_disp(dst);
+            /* Displacement spans over SIMD sizes. Perform division to get slot */
             slot = disp / REG_SIMD_SIZE;
         } else {
             ASSERT(false, "use of block must involve a load/store");
