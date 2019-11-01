@@ -50,6 +50,11 @@ Signal received: 12
 Testing raw pselect with NULL struct pointer
 Signal received: 10
 Signal received: 12
+#if defined(X86) && defined(X64)
+Testing raw pselect with NULL struct pointer, inline asm
+Signal received: 10
+Signal received: 12
+#endif
 Testing raw ppoll with NULL sigmask
 Signal received: 10
 Signal received: 12
