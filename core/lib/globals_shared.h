@@ -187,7 +187,7 @@
 /* DR_API EXPORT END */
 /* DR_API EXPORT VERBATIM */
 #ifndef NULL
-#    define NULL (0)
+#    define NULL ((void *)0)
 #endif
 
 /* on Windows where bool is char casting can truncate non-zero to zero
