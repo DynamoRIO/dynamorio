@@ -7246,6 +7246,13 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param3 = sys_param(dcontext, 5);
         data_t *data_param = (data_t *)dcontext->sys_param3;
         data_t data;
+        if (data_param == NULL) {
+            /* The kernel does not consider a NULL 6th+7th-args struct to be an error but
+             * just a NULL sigmask.
+             */
+            dcontext->sys_param4 = (reg_t)NULL;
+            break;
+        }
         /* Refer to comments in SYS_ppoll above. Taking extra steps here due to struct
          * argument in pselect6.
          */
