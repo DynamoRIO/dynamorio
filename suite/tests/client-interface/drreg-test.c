@@ -442,7 +442,40 @@ GLOBAL_LABEL(FUNCNAME:)
         ud2
         jmp      test24_done
      test24_done:
-        jmp      epilog
+        jmp      test25
+     test25:
+#ifdef __AVX512F__
+        mov          TEST_REG_ASM, DRREG_TEST_25_ASM
+        mov          TEST_REG_ASM, DRREG_TEST_25_ASM
+        vmovdqa32    zmm1{k1}{z}, zmm2
+		pxor         xmm1, xmm1
+        vmovdqa32    xmm0 {k1}, xmm1
+        pxor         xmm0, xmm0
+        ptest        xmm0, xmm0
+        jz           test25_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp          test25_done
+#endif
+     test25_done:
+        jmp          test26
+     test26:
+#ifdef __AVX512F__
+        mov          TEST_REG_ASM, DRREG_TEST_26_ASM
+        mov          TEST_REG_ASM, DRREG_TEST_26_ASM
+        pxor         xmm0, xmm0
+        pxor         xmm1, xmm1
+        pcmpeqd      xmm2, xmm2
+        vmovdqa32    zmm1 {k1}, zmm2
+        vmovdqa32    xmm0 {k1}, xmm1
+        ptest        xmm0, xmm0
+        jnz          test26_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp          test26_done
+#endif
+	 test26_done:
+	    jmp          epilog
 
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
