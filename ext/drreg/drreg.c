@@ -137,7 +137,6 @@ typedef struct _reg_info_t {
 
 #define GPR_IDX(reg) ((reg)-DR_REG_START_GPR)
 
-/* ZMM registers are used to manage SIMD data, resizing to smaller regs when needed */
 #ifdef X86
 #    define DR_REG_APPLICABLE_START_SIMD DR_REG_START_ZMM
 #    define DR_REG_APPLICABLE_STOP_SIMD DR_REG_STOP_ZMM
@@ -2462,7 +2461,9 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
             reg = opnd_get_reg(src);
             is_spilled = true;
             int disp = opnd_get_disp(dst);
-            /* Displacement spans over SIMD sizes. Perform division to get slot */
+            /* Slots spans over SIMD sizes.
+             * A div is therefore done to get the slot.
+             */
             slot = disp / REG_SIMD_SIZE;
         } else {
             ASSERT(false, "use of block must involve a load/store");
