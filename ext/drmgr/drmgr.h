@@ -1393,7 +1393,7 @@ DR_EXPORT
 /**
  * Registers a callback function \p func for the low-on-memory event. The callback
  * provides a means for the client to free any non-critical data found on the heap, which
- * could avoid a potential out-of-memory crash (particularly on X86_32). \return whether
+ * could avoid a potential out-of-memory crash (particularly on 32-bit). \return whether
  * successful.
  */
 bool
