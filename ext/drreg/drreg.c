@@ -71,7 +71,7 @@
  */
 #define MAX_SPILLS (SPILL_SLOT_MAX + 8)
 /* We choose the number of available slots for spilling simds to match their
- * theoretical max number on any platform, which is up to 32 for 64-bit on x86.
+ * theoretical max number for a given build.
  */
 #define MAX_SIMD_SPILLS DR_NUM_SIMD_VECTOR_REGS
 
@@ -79,7 +79,7 @@
 #    define XMM_REG_SIZE 16
 #    define YMM_REG_SIZE 32
 #    define ZMM_REG_SIZE 64
-#    define REG_SIMD_SIZE ZMM_REG_SIZE
+#    define SIMD_REG_SIZE ZMM_REG_SIZE
 #else
 /* FIXME i#3844: NYI on ARM */
 #endif
@@ -321,14 +321,14 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
         (reg < pt->simd_slot_use[slot]) ? pt->simd_slot_use[slot] : reg;
     if (reg_is_strictly_xmm(reg)) {
         opnd_t mem_opnd = opnd_create_base_disp(scratch_block_reg, DR_REG_NULL, 1,
-                                                slot * REG_SIMD_SIZE, OPSZ_16);
+                                                slot * SIMD_REG_SIZE, OPSZ_16);
         opnd_t spill_reg_opnd = opnd_create_reg(reg);
         PRE(ilist, where, INSTR_CREATE_movdqa(drcontext, mem_opnd, spill_reg_opnd));
     } else if (reg_is_strictly_ymm(reg)) {
-        /* Support YMM here. */
+        /* TODO i#3844: support YMM here. */
         ASSERT(false, "SIMD register not supported");
     } else if (reg_is_strictly_zmm(reg)) {
-        /* Support ZMM here. */
+        /* TODO i#3844: support ZMM here. */
         ASSERT(false, "SIMD register not supported");
     } else {
         ASSERT(false, "not applicable register");
@@ -386,7 +386,7 @@ restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slo
 
     if (reg_is_strictly_xmm(reg)) {
         opnd_t mem_opnd = opnd_create_base_disp(scratch_block_reg, DR_REG_NULL, 0,
-                                                slot * REG_SIMD_SIZE, OPSZ_16);
+                                                slot * SIMD_REG_SIZE, OPSZ_16);
         opnd_t restore_reg_opnd = opnd_create_reg(reg);
         PRE(ilist, where, INSTR_CREATE_movdqa(drcontext, restore_reg_opnd, mem_opnd));
     } else if (reg_is_strictly_ymm(reg)) {
@@ -430,7 +430,7 @@ get_indirectly_spilled_value(void *drcontext, reg_id_t reg, uint slot,
     if (reg_is_vector_simd(reg)) {
         if (reg_is_strictly_xmm(reg)) {
             per_thread_t *pt = get_tls_data(drcontext);
-            memcpy(value_buf, pt->simd_spills + (slot * REG_SIMD_SIZE), reg_size);
+            memcpy(value_buf, pt->simd_spills + (slot * SIMD_REG_SIZE), reg_size);
             return true;
         } else if (reg_is_strictly_ymm(reg)) {
             ASSERT(false, "ymm registers not yet supported.");
@@ -2456,14 +2456,14 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
             reg = opnd_get_reg(dst);
             is_spilled = false;
             int disp = opnd_get_disp(src);
-            slot = disp / REG_SIMD_SIZE;
+            slot = disp / SIMD_REG_SIZE;
         } else if (opnd_is_reg(src) && reg_is_vector_simd(opnd_get_reg(src)) &&
                    opnd_is_base_disp(dst)) {
             reg = opnd_get_reg(src);
             is_spilled = true;
             int disp = opnd_get_disp(dst);
             /* Displacement spans over SIMD sizes. Perform division to get slot */
-            slot = disp / REG_SIMD_SIZE;
+            slot = disp / SIMD_REG_SIZE;
         } else {
             ASSERT(false, "use of block must involve a load/store");
             return false;
@@ -2572,7 +2572,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
 #ifdef X86
     uint spilled_simd_to[DR_NUM_SIMD_VECTOR_REGS];
     reg_id_t simd_slot_use[MAX_SIMD_SPILLS];
-    byte simd_buf[REG_SIMD_SIZE];
+    byte simd_buf[SIMD_REG_SIZE];
 #endif
     reg_id_t reg;
     instr_t inst;
@@ -2773,10 +2773,10 @@ tls_data_init(void *drcontext, per_thread_t *pt)
     }
     /* Block should be aligned on a 64-byte boundary */
     if (drcontext == GLOBAL_DCONTEXT) {
-        pt->simd_spill_start = dr_global_alloc((REG_SIMD_SIZE * MAX_SIMD_SPILLS) + 63);
+        pt->simd_spill_start = dr_global_alloc((SIMD_REG_SIZE * MAX_SIMD_SPILLS) + 63);
     } else {
         pt->simd_spill_start =
-            dr_thread_alloc(drcontext, (REG_SIMD_SIZE * MAX_SIMD_SPILLS) + 63);
+            dr_thread_alloc(drcontext, (SIMD_REG_SIZE * MAX_SIMD_SPILLS) + 63);
     }
     pt->simd_spills = (byte *)ALIGN_FORWARD(pt->simd_spill_start, 64);
 #endif
@@ -2796,10 +2796,10 @@ tls_data_free(void *drcontext, per_thread_t *pt)
         drvector_delete(&pt->simd_reg[SIMD_IDX(reg)].live);
     }
     if (drcontext == GLOBAL_DCONTEXT) {
-        dr_global_free(pt->simd_spill_start, (REG_SIMD_SIZE * MAX_SIMD_SPILLS) + 63);
+        dr_global_free(pt->simd_spill_start, (SIMD_REG_SIZE * MAX_SIMD_SPILLS) + 63);
     } else {
         dr_thread_free(drcontext, pt->simd_spill_start,
-                       (REG_SIMD_SIZE * MAX_SIMD_SPILLS) + 63);
+                       (SIMD_REG_SIZE * MAX_SIMD_SPILLS) + 63);
     }
 #endif
     drvector_delete(&pt->aflags.live);
