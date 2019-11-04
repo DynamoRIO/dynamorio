@@ -359,7 +359,8 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 DR_EXPORT
 /**
- * Identical to \p drreg_reserve_register, but for a particular spill class.
+ * Identical to drreg_reserve_register(), but for a particular spill class
+ * \p spill_class.
  *
  * @return whether successful or an error code on failure.
  */
@@ -381,7 +382,8 @@ drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 DR_EXPORT
 /**
- * Identical to \p drreg_reserve_dead_register, but for a particular spill class.
+ * Identical to drreg_reserve_dead_register(), but for a particular spill class
+ * \p spill_class.
  *
  * @return whether successful or an error code on failure.
  */
@@ -405,8 +407,8 @@ drreg_init_and_fill_vector(drvector_t *vec, bool allowed);
 
 DR_EXPORT
 /**
- * Identical to \p drreg_init_and_fill_vector, but for a specific register
- * class based on spill class.
+ * Identical to drreg_init_and_fill_vector(), but for a specific register
+ * class based on spill class \p spill_class.
  *
  * @return whether successful or an error code on failure.
  */
