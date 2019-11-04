@@ -1184,6 +1184,8 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
     }
 #ifdef X86
     else if (reg_is_vector_simd(reg)) {
+        /* We assume the SIMD range is contiguous and no further out of range checks
+         * are performed.*/
         if (vec == NULL)
             return DRREG_ERROR_INVALID_PARAMETER;
         start_reg = DR_REG_APPLICABLE_START_SIMD;
