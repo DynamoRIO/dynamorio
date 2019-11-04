@@ -2835,8 +2835,8 @@ drreg_thread_init(void *drcontext)
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
     tls_data_init(drcontext, pt);
     pt->tls_seg_base = dr_get_dr_segment_base(tls_seg);
-    /* Place the pointer to the SIMD block inside a slot.
-     * XXX: We could get API for this.
+    /* Place the pointer to the SIMD block inside a hidden slot.
+     * XXX: We could get API to access raw TLS slots like this.
      */
     void **addr = (void **)(pt->tls_seg_base + tls_simd_offs);
     *addr = pt->simd_spills;
