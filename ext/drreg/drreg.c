@@ -2464,7 +2464,9 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
             reg = opnd_get_reg(src);
             is_spilled = true;
             int disp = opnd_get_disp(dst);
-            /* Displacement spans over SIMD sizes. Perform division to get slot */
+            /* Each slot here is of size SIMD_REG_SIZE. We perform a division to get the
+             * slot based on the displacement.
+             */
             slot = disp / SIMD_REG_SIZE;
         } else {
             ASSERT(false, "use of block must involve a load/store");
