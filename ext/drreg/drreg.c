@@ -1367,6 +1367,9 @@ get_spill_class(const reg_id_t reg)
 #endif
 
 #ifdef X86
+/* Makes the same assumptions about liveness info being already computed as
+ * drreg_reserve_gpr_internal().
+ */
 static drreg_status_t
 drreg_find_for_simd_reservation(void *drcontext, const drreg_spill_class_t spill_class,
                                 instrlist_t *ilist, instr_t *where,
@@ -1452,6 +1455,9 @@ drreg_find_for_simd_reservation(void *drcontext, const drreg_spill_class_t spill
 #endif
 
 #ifdef X86
+/* Makes the same assumptions about liveness info being already computed as
+ * drreg_reserve_gpr_internal().
+ */
 static drreg_status_t
 drreg_reserve_simd_reg_internal(void *drcontext, drreg_spill_class_t spill_class,
                                 instrlist_t *ilist, instr_t *where,
