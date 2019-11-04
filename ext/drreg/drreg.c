@@ -1485,12 +1485,22 @@ drreg_reserve_simd_reg_internal(void *drcontext, drreg_spill_class_t spill_class
                  SIMD_XMM_LIVE &&
              drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx) <=
                  SIMD_ZMM_LIVE)) {
+            LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": spilling %s to slot %d\n",
+                __FUNCTION__, pt->live_idx, get_where_app_pc(where),
+                get_register_name(reg), slot);
             spill_reg_indirectly(drcontext, pt, reg, slot, ilist, where);
             pt->simd_reg[SIMD_IDX(reg)].ever_spilled = true;
         } else {
+            LOG(drcontext, DR_LOG_ALL, 3,
+                "%s @%d." PFX ": no need to spill %s to slot %d\n", __FUNCTION__,
+                pt->live_idx, get_where_app_pc(where), get_register_name(reg), slot);
             pt->simd_slot_use[slot] = reg;
             pt->simd_reg[SIMD_IDX(reg)].ever_spilled = false;
         }
+    } else {
+        LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": %s already spilled to slot %d\n",
+            __FUNCTION__, pt->live_idx, get_where_app_pc(where), get_register_name(reg),
+            slot);
     }
     pt->simd_reg[SIMD_IDX(reg)].native = false;
     pt->simd_reg[SIMD_IDX(reg)].xchg = DR_REG_NULL;
