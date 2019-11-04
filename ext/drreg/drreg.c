@@ -159,8 +159,8 @@ typedef struct _per_thread_t {
     reg_id_t slot_use[MAX_SPILLS]; /* holds the reg_id_t of which reg is inside */
     reg_id_t simd_slot_use[MAX_SIMD_SPILLS]; /* importantly, this can store partial SIMD
                                                 registers  */
-    int pending_unreserved; /* count of to-be-lazily-restored unreserved regs */
-    int simd_pending_unreserved;
+    int pending_unreserved;      /* count of to-be-lazily-restored unreserved gpr regs */
+    int simd_pending_unreserved; /* count of to-be-lazily-restored unreserved SIMD regs */
     /* We store the linear address of our TLS for access from another thread: */
     byte *tls_seg_base;
     /* bb-local values */
@@ -1015,10 +1015,11 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
             ASSERT(pt->reg[GPR_IDX(reg)].native, "user failed to unreserve a register");
         }
         for (i = 0; i < MAX_SPILLS; i++) {
-            if (pt->slot_use[i] != DR_REG_NULL) {
-                ASSERT(pt->slot_use[i] == DR_REG_NULL,
-                       "user failed to unreserve a register");
-            }
+            ASSERT(pt->slot_use[i] == DR_REG_NULL, "user failed to unreserve a register");
+        }
+        for (i = 0; i < MAX_SIMD_SPILLS; i++) {
+            ASSERT(pt->simd_slot_use[i] == DR_REG_NULL,
+                   "user failed to unreserve a register");
         }
     }
 #endif
