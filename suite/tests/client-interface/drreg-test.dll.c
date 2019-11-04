@@ -121,7 +121,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     res = drreg_set_vector_entry(&xmm0_allowed, DR_REG_XMM0, true);
     CHECK(res == DRREG_SUCCESS, "bitvector init should work");
 
-    /* Fill with true values in order to test inversion */
+    /* Fill with true values in order to test the inverse of setting to false and xmm7
+     * to true. The test assumes that drreg searches the allowed vector from low to high
+     * numbered registers, even though the API does not guarantee this.
+     */
     res = drreg_init_and_fill_vector_ex(&xmm7_allowed, DRREG_SIMD_XMM_SPILL_CLASS, true);
     CHECK(res == DRREG_SUCCESS, "bitvector init should work");
     res = drreg_set_vector_entry(&xmm7_allowed, DR_REG_XMM0, false);
