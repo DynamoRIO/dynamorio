@@ -137,7 +137,9 @@ typedef struct _reg_info_t {
 
 #define GPR_IDX(reg) ((reg)-DR_REG_START_GPR)
 
-/* ZMM registers are used to manage SIMD data, resizing to smaller regs when needed */
+/* The applicable register range is what's used internally to iterate over all possible
+ * SIMD registers for a given build. Regs are resized to zmm when testing via SIMD_IDX().
+ */
 #ifdef X86
 #    define DR_REG_APPLICABLE_START_SIMD DR_REG_START_ZMM
 #    define DR_REG_APPLICABLE_STOP_SIMD DR_REG_STOP_ZMM
