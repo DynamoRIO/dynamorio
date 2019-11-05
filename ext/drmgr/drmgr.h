@@ -1413,7 +1413,7 @@ DR_EXPORT
 /**
  * Registers a callback function \p func for the low-on-memory event just like
  * drmgr_register_low_on_memory_event(), but allows the passing of user data
- * \p user_data. The callback is prioritised according to to \p priority.
+ * \p user_data. The callback is prioritised according to \p priority.
  * \return whether successful.
  */
 bool
