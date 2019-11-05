@@ -219,6 +219,8 @@ Further non-compatibility-affecting changes include:
    either XMM, YMM or ZMM, excluding any MMX register checks.
  - Added DR_NUM_SIMD_VECTOR_REGS as an alias to MCXT_NUM_SIMD_SLOTS in order
    to get the static number of supported SIMD vectors.
+ - Added drmgr_register_low_on_memory_event(), drmgr_unregister_low_on_memory_event()
+   and their variants so that drmgr can support low-on-memory events.
 
 **************************************************
 <hr>
