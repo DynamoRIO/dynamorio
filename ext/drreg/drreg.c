@@ -75,6 +75,11 @@
 #define MAX_SIMD_SPILLS DR_NUM_SIMD_VECTOR_REGS
 
 #ifdef X86
+/* Defines whether SIMD and indirect spilling is supported by drreg. */
+#    define SIMD_SUPPORTED
+#endif
+
+#ifdef SIMD_SUPPORTED
 #    define XMM_REG_SIZE 16
 #    define YMM_REG_SIZE 32
 #    define ZMM_REG_SIZE 64
@@ -90,7 +95,7 @@
 #define REG_LIVE ((void *)(ptr_uint_t)1)
 #define REG_UNKNOWN ((void *)(ptr_uint_t)2) /* only used outside drmgr insert phase */
 
-#ifdef X86
+#ifdef SIMD_SUPPORTED
 /* Liveness states for SIMD (not for mmx) */
 #    define SIMD_XMM_DEAD \
         ((void *)(ptr_uint_t)0) /* first 16 bytes are dead, rest is live */
@@ -139,7 +144,7 @@ typedef struct _reg_info_t {
 /* The applicable register range is what's used internally to iterate over all possible
  * SIMD registers for a given build. Regs are resized to zmm when testing via SIMD_IDX().
  */
-#ifdef X86
+#ifdef SIMD_SUPPORTED
 #    define DR_REG_APPLICABLE_START_SIMD DR_REG_START_ZMM
 #    define DR_REG_APPLICABLE_STOP_SIMD DR_REG_STOP_ZMM
 #    define SIMD_IDX(reg) ((reg_resize_to_opsz(reg, OPSZ_64)) - DR_REG_START_ZMM)
@@ -242,7 +247,7 @@ find_free_slot(per_thread_t *pt)
     return MAX_SPILLS;
 }
 
-#ifdef X86
+#ifdef SIMD_SUPPORTED
 static uint
 find_simd_free_slot(per_thread_t *pt)
 {
@@ -287,19 +292,19 @@ spill_reg_directly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
 #endif
 }
 
-#ifdef X86
+#ifdef SIMD_SUPPORTED
 static void
 load_indirect_block(void *drcontext, per_thread_t *pt, uint slot, instrlist_t *ilist,
                     instr_t *where, reg_id_t scratch_block_reg)
 {
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s %d\n", __FUNCTION__, pt->live_idx,
         get_where_app_pc(where), get_register_name(scratch_block_reg), slot);
-    /* Simply load the pointer of the block to the passed register*/
+    /* Simply load the pointer of the block to the passed register. */
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg, slot, scratch_block_reg);
 }
 #endif
 
-#ifdef X86
+#ifdef SIMD_SUPPORTED
 static void
 spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                      instrlist_t *ilist, instr_t *where)
@@ -362,7 +367,7 @@ restore_reg_directly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
     }
 }
 
-#ifdef X86
+#ifdef SIMD_SUPPORTED
 static void
 restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                        instrlist_t *ilist, instr_t *where, bool release)
@@ -415,7 +420,7 @@ get_directly_spilled_value(void *drcontext, uint slot)
     }
 }
 
-#ifdef X86
+#ifdef SIMD_SUPPORTED
 static bool
 get_indirectly_spilled_value(void *drcontext, reg_id_t reg, uint slot,
                              OUT byte *value_buf, size_t buf_size)
@@ -464,7 +469,7 @@ drreg_max_slots_used(OUT uint *max)
  * ANALYSIS AND CROSS-APP-INSTR
  */
 
-#ifdef X86
+#ifdef SIMD_SUPPORTED
 /* Returns true if state has been set */
 static bool
 determine_simd_liveness_state(instr_t *inst, reg_id_t reg, void **value)
@@ -537,7 +542,7 @@ count_app_uses(per_thread_t *pt, opnd_t opnd)
             if (opnd_is_memory_reference(opnd))
                 pt->reg[GPR_IDX(reg)].app_uses++;
         }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
         else if (reg_is_vector_simd(reg)) {
             pt->simd_reg[SIMD_IDX(reg)].app_uses++;
         }
@@ -562,7 +567,7 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
 
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++)
         pt->reg[GPR_IDX(reg)].app_uses = 0;
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++)
         pt->simd_reg[SIMD_IDX(reg)].app_uses = 0;
 #endif
@@ -611,7 +616,7 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
                 (int)(ptr_uint_t)value);
             drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, index, value);
         }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
         /* SIMD liveness */
         LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ":", __FUNCTION__, index,
             get_where_app_pc(inst));
@@ -687,7 +692,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     reg_id_t reg;
     instr_t *next = instr_get_next(inst);
     bool restored_for_read[DR_NUM_GPR_REGS];
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     bool restored_for_simd_read[DR_NUM_SIMD_VECTOR_REGS];
 #endif
     drreg_status_t res;
@@ -726,7 +731,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     }
 
     /* Before each app read, or at end of bb, restore spilled registers to app values: */
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         restored_for_simd_read[SIMD_IDX(reg)] = false;
         if (!pt->simd_reg[SIMD_IDX(reg)].native) {
@@ -883,7 +888,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     }
 
     /* After each app write, update spilled app values: */
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         if (pt->simd_reg[SIMD_IDX(reg)].in_use) {
             void *state =
@@ -1051,7 +1056,7 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
         pt->reg[GPR_IDX(reg)].app_uses = 0;
         drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, REG_UNKNOWN);
     }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         pt->simd_reg[SIMD_IDX(reg)].app_uses = 0;
         drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0, SIMD_UNKNOWN);
@@ -1081,7 +1086,7 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
             if (value != REG_UNKNOWN)
                 drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, value);
         }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
         /* SIMD liveness */
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
              reg++) {
@@ -1118,7 +1123,7 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
         if (drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, 0) == REG_UNKNOWN)
             drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, REG_LIVE);
     }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         if (drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0) == SIMD_UNKNOWN)
             drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0, SIMD_ZMM_LIVE);
@@ -1149,7 +1154,7 @@ drreg_init_and_fill_vector_ex(drvector_t *vec, drreg_spill_class_t spill_class,
     } else if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS ||
                spill_class == DRREG_SIMD_YMM_SPILL_CLASS ||
                spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
-#ifdef X86
+#ifdef SIMD_SUPPORTED
         size = DR_NUM_SIMD_VECTOR_REGS;
 #else
         /* FIXME i#3844: NYI on ARM */
@@ -1181,7 +1186,7 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
             return DRREG_ERROR_INVALID_PARAMETER;
         start_reg = DR_REG_START_GPR;
     }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     else if (reg_is_vector_simd(reg)) {
         /* We assume the SIMD range is contiguous and no further out of range checks
          * are performed.*/
@@ -1329,7 +1334,7 @@ drreg_reserve_gpr_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
     return DRREG_SUCCESS;
 }
 
-#ifdef X86
+#ifdef SIMD_SUPPORTED
 static void *
 get_simd_dead_state(const drreg_spill_class_t spill_class)
 {
@@ -1345,7 +1350,7 @@ get_simd_dead_state(const drreg_spill_class_t spill_class)
 }
 #endif
 
-#ifdef X86
+#ifdef SIMD_SUPPORTED
 static drreg_spill_class_t
 get_spill_class(const reg_id_t reg)
 {
@@ -1365,7 +1370,7 @@ get_spill_class(const reg_id_t reg)
 }
 #endif
 
-#ifdef X86
+#ifdef SIMD_SUPPORTED
 /* Makes the same assumptions about liveness info being already computed as
  * drreg_reserve_gpr_internal().
  */
@@ -1453,7 +1458,7 @@ drreg_find_for_simd_reservation(void *drcontext, const drreg_spill_class_t spill
 }
 #endif
 
-#ifdef X86
+#ifdef SIMD_SUPPORTED
 /* Makes the same assumptions about liveness info being already computed as
  * drreg_reserve_gpr_internal().
  */
@@ -1522,7 +1527,7 @@ drreg_reserve_reg_internal(void *drcontext, drreg_spill_class_t spill_class,
         return drreg_reserve_gpr_internal(drcontext, ilist, where, reg_allowed,
                                           only_if_no_spill, reg_out);
     }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     else if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS ||
              spill_class == DRREG_SIMD_YMM_SPILL_CLASS ||
              spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
@@ -1671,7 +1676,7 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
                 pt->reg[GPR_IDX(app_reg)].native = true;
         }
     }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     else if (reg_is_vector_simd(app_reg)) {
         if (!reg_is_vector_simd(dst_reg))
             return DRREG_ERROR_INVALID_PARAMETER;
@@ -1845,7 +1850,7 @@ drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
         }
         pt->reg[GPR_IDX(reg)].native = true;
     }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     else if (reg_is_vector_simd(reg)) {
         if (pt->simd_reg[SIMD_IDX(reg)].ever_spilled) {
             reg_id_t spilled_reg = pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
@@ -1895,7 +1900,7 @@ drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
         }
         pt->reg[GPR_IDX(reg)].in_use = false;
     }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     else if (reg_is_vector_simd(reg)) {
         if (!pt->simd_reg[SIMD_IDX(reg)].in_use)
             return DRREG_ERROR_INVALID_PARAMETER;
@@ -1939,7 +1944,7 @@ drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
     if ((reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR ||
          !pt->reg[GPR_IDX(reg)].in_use))
         return DRREG_ERROR_INVALID_PARAMETER;
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     if (reg_is_vector_simd(reg) && !pt->simd_reg[SIMD_IDX(reg)].in_use)
         return DRREG_ERROR_INVALID_PARAMETER;
 #endif
@@ -2013,7 +2018,7 @@ drreg_reservation_info_ex(void *drcontext, reg_id_t reg, drreg_reserve_info_t *i
 
     if (reg == DR_REG_NULL) {
         reg_info = &pt->aflags;
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     } else if (reg_is_vector_simd(reg)) {
         reg_info = &pt->simd_reg[SIMD_IDX(reg)];
 #endif
@@ -2041,7 +2046,7 @@ drreg_is_register_dead(void *drcontext, reg_id_t reg, instr_t *inst, bool *dead)
 
     if (reg_is_gpr(reg))
         *dead = drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx) == REG_DEAD;
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     else if (reg_is_vector_simd(reg)) {
         *dead = drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx) ==
             SIMD_ZMM_DEAD;
@@ -2452,7 +2457,7 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
         offs < (tls_slot_offs + ops.num_spill_slots * sizeof(reg_t))) {
         slot = (offs - tls_slot_offs) / sizeof(reg_t);
     }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     else if (tls && offs == tls_simd_offs &&
              !(is_spilled) /* Cant be a spill bc loading block */) {
         /* In order to detect indirect spills, the loading of the pointer
@@ -2591,7 +2596,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
      */
     uint spilled_to[DR_NUM_GPR_REGS];
     uint spilled_to_aflags = MAX_SPILLS;
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     uint spilled_simd_to[DR_NUM_SIMD_VECTOR_REGS];
     reg_id_t simd_slot_use[MAX_SIMD_SPILLS];
     byte simd_buf[SIMD_REG_SIZE];
@@ -2612,7 +2617,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
         return true; /* fault not in cache */
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++)
         spilled_to[GPR_IDX(reg)] = MAX_SPILLS;
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++)
         spilled_simd_to[SIMD_IDX(reg)] = MAX_SIMD_SPILLS;
     for (slot = 0; slot < MAX_SIMD_SPILLS; ++slot)
@@ -2639,7 +2644,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
             if (is_spill) {
                 if (slot == AFLAGS_SLOT) {
                     spilled_to_aflags = slot;
-#ifdef X86
+#ifdef SIMD_SUPPORTED
                 } else if (is_indirect_spill) {
                     if (reg_is_vector_simd(reg)) {
                         if (spilled_simd_to[SIMD_IDX(reg)] < MAX_SIMD_SPILLS &&
@@ -2672,7 +2677,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 /* Not a spill, but a restore. */
                 if (slot == AFLAGS_SLOT && spilled_to_aflags == slot) {
                     spilled_to_aflags = MAX_SPILLS;
-#ifdef X86
+#ifdef SIMD_SUPPORTED
                 } else if (is_indirect_spill) {
                     if (spilled_simd_to[SIMD_IDX(reg)] == slot) {
                         spilled_simd_to[SIMD_IDX(reg)] = MAX_SIMD_SPILLS;
@@ -2738,7 +2743,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
             reg_set_value(reg, info->mcontext, val);
         }
     }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         uint slot = spilled_simd_to[SIMD_IDX(reg)];
         if (slot < MAX_SIMD_SPILLS) {
@@ -2787,7 +2792,7 @@ tls_data_init(void *drcontext, per_thread_t *pt)
         drvector_init(&pt->reg[GPR_IDX(reg)].live, 20, false /*!synch*/, NULL);
         pt->reg[GPR_IDX(reg)].native = true;
     }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         drvector_init(&pt->simd_reg[SIMD_IDX(reg)].live, DR_NUM_SIMD_VECTOR_REGS,
                       false /*!synch*/, NULL);
@@ -2813,7 +2818,7 @@ tls_data_free(void *drcontext, per_thread_t *pt)
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         drvector_delete(&pt->reg[GPR_IDX(reg)].live);
     }
-#ifdef X86
+#ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         drvector_delete(&pt->simd_reg[SIMD_IDX(reg)].live);
     }
