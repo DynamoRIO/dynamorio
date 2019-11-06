@@ -65,9 +65,8 @@
 
 #define PRE instrlist_meta_preinsert
 
-/* We add additional spill slots to cater for client spills.
- * The number of spills should be pretty hard to exceed as there aren't
- * that many GPRs.
+/* The number of spills should be pretty hard to exceed as there aren't
+ * that many GPRs. We have a hard-coded max on spill slots that we track.
  */
 #define MAX_SPILLS (SPILL_SLOT_MAX + 8)
 /* We choose the number of available slots for spilling simds to match their
@@ -86,13 +85,13 @@
 
 #define AFLAGS_SLOT 0 /* always */
 
-/* Liveliness states for gprs */
+/* Liveness states for gprs */
 #define REG_DEAD ((void *)(ptr_uint_t)0)
 #define REG_LIVE ((void *)(ptr_uint_t)1)
 #define REG_UNKNOWN ((void *)(ptr_uint_t)2) /* only used outside drmgr insert phase */
 
 #ifdef X86
-/* Liveliness states for SIMD (not for mmx) */
+/* Liveness states for SIMD (not for mmx) */
 #    define SIMD_XMM_DEAD \
         ((void *)(ptr_uint_t)0) /* first 16 bytes are dead, rest a live */
 #    define SIMD_YMM_DEAD \
@@ -468,7 +467,7 @@ drreg_max_slots_used(OUT uint *max)
 #ifdef X86
 /* Returns true if state has been set */
 static bool
-determine_simd_liveliness_state(instr_t *inst, reg_id_t reg, void **value)
+determine_simd_liveness_state(instr_t *inst, reg_id_t reg, void **value)
 {
     ASSERT(value != NULL, "cannot be NULL");
     ASSERT(reg_is_vector_simd(reg), "must be a vector SIMD register");
@@ -619,7 +618,7 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
              reg++) {
             void *value = SIMD_ZMM_LIVE;
-            if (!determine_simd_liveliness_state(inst, reg, &value)) {
+            if (!determine_simd_liveness_state(inst, reg, &value)) {
                 if (xfer)
                     value = SIMD_ZMM_LIVE;
                 else if (index > 0) {
@@ -1090,7 +1089,7 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
             if (drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0) != SIMD_UNKNOWN)
                 continue;
 
-            determine_simd_liveliness_state(inst, reg, &value);
+            determine_simd_liveness_state(inst, reg, &value);
             if (value != SIMD_UNKNOWN)
                 drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0, value);
         }
