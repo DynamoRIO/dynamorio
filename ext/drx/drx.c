@@ -2203,6 +2203,10 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
      * mask register as well as a temp xmm register.
      */
     if (!expand_scatter_gather_drreg_initialized) {
+        /* We're requesting 3 slots for 3 gprs plus 3 additional ones because they are
+         * used cross-app. The additional slots are needed if drreg needs to move the
+         * values as documented in drreg.
+         */
         drreg_options_t ops = { sizeof(ops), 3 + 3, false, NULL, true };
         if (drreg_init(&ops) != DRREG_SUCCESS)
             return false;
