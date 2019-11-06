@@ -483,7 +483,7 @@ drreg_max_slots_used(OUT uint *max)
 #ifdef SIMD_SUPPORTED
 /* Returns true if state has been set. */
 static bool
-determine_simd_liveness_state(instr_t *inst, reg_id_t reg, void **value)
+determine_simd_liveness_state(void *drcontext, instr_t *inst, reg_id_t reg, void **value)
 {
     ASSERT(value != NULL, "cannot be NULL");
     ASSERT(reg_is_vector_simd(reg), "must be a vector SIMD register");
@@ -634,7 +634,7 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
              reg++) {
             void *value = SIMD_ZMM_LIVE;
-            if (!determine_simd_liveness_state(inst, reg, &value)) {
+            if (!determine_simd_liveness_state(drcontext, inst, reg, &value)) {
                 if (xfer)
                     value = SIMD_ZMM_LIVE;
                 else if (index > 0) {
@@ -1105,7 +1105,7 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
             if (drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0) != SIMD_UNKNOWN)
                 continue;
 
-            determine_simd_liveness_state(inst, reg, &value);
+            determine_simd_liveness_state(drcontext, inst, reg, &value);
             if (value != SIMD_UNKNOWN)
                 drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0, value);
         }
@@ -1205,7 +1205,8 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
 #ifdef SIMD_SUPPORTED
     else if (reg_is_vector_simd(reg)) {
         /* We assume the SIMD range is contiguous and no further out of range checks
-         * are performed.*/
+         * are performed as it is done above for gprs.
+         */
         if (vec == NULL)
             return DRREG_ERROR_INVALID_PARAMETER;
         start_reg = DR_REG_APPLICABLE_START_SIMD;
