@@ -159,6 +159,7 @@ test_avx512_restore_mask(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec
 #    define POISON 0xf
 #    define CPUID_KMASK_COMP 5
 
+#    ifdef UNIX
 static SIGJMP_BUF mark;
 
 static int
@@ -172,18 +173,19 @@ get_xstate_area_offs(int comp)
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
-#    ifdef X64
+#        ifdef X64
     kernel_xstate_t *xstate = (kernel_xstate_t *)ucxt->uc_mcontext.fpregs;
     __u32 *xstate_kmask_offs =
         (__u32 *)((byte *)xstate + get_xstate_area_offs(CPUID_KMASK_COMP));
     print("k0 = 0x%x\n", xstate_kmask_offs[0]);
-#    else
+#        else
     /* XXX i#1312: it is unclear if and how the components are arranged in
      * 32-bit mode by the kernel.
      */
-#    endif
+#        endif
     SIGLONGJMP(mark, 1);
 }
+#    endif
 
 static bool
 test_avx512_mask_all_zero(void)
@@ -458,13 +460,15 @@ test_avx2_avx512_scatter_gather(void)
                           output_xmm_ymm_zmm))
         return false;
 #    endif
-#    ifdef __AVX512F__
+#    ifdef UNIX
+#        ifdef __AVX512F__
     print("Testing restoring the mask register upon a fault:\n");
     intercept_signal(SIGSEGV, (handler_3_t)&signal_handler, false);
     /* This index will cause a fault. The index number is arbitrary.*/
     test_idx32_vec[9] = 0xefffffff;
     if (SIGSETJMP(mark) == 0)
         test_avx512_restore_mask(ref_sparse_test_buf, test_idx32_vec);
+#        endif
 #    endif
     return true;
 }

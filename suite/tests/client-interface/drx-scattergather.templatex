@@ -26,10 +26,12 @@ AVX2 gather ok
 AVX2 gather ok
 AVX2 gather ok
 #endif
+#ifdef UNIX
 #ifdef __AVX512F__
 Testing restoring the mask register upon a fault:
 #ifdef X64
 k0 = 0xffff
+#endif
 #endif
 #endif
 AVX2/AVX-512 scatter/gather checks ok
