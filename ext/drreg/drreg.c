@@ -263,8 +263,8 @@ find_simd_free_slot(per_thread_t *pt)
 /* Up to caller to update pt->reg, including .ever_spilled.
  * This routine updates pt->slot_use.
  *
- * Mainly used for gpr spills as such registers can be directly
- * stored in tls slots. This is in contrast to SIMD spills.
+ * This routine is used for gpr spills as such registers can be directly
+ * stored in tls slots.
  */
 static void
 spill_reg_directly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
@@ -305,6 +305,12 @@ load_indirect_block(void *drcontext, per_thread_t *pt, uint slot, instrlist_t *i
 #endif
 
 #ifdef SIMD_SUPPORTED
+/* Up to caller to update pt->simd_reg, including .ever_spilled.
+ * This routine updates pt->simd_slot_use.
+ *
+ * This routine is used for simd spills as such registers are indirectly
+ * stored in a separately allocated area pointed to by a hidden tls slot.
+ */
 static void
 spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                      instrlist_t *ilist, instr_t *where)
@@ -345,7 +351,7 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
 }
 #endif
 
-/* Up to caller to update pt->reg.  This routine updates pt->slot_use if release==true. */
+/* Up to caller to update pt->reg. This routine updates pt->slot_use if release==true. */
 static void
 restore_reg_directly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                      instrlist_t *ilist, instr_t *where, bool release)
@@ -368,6 +374,8 @@ restore_reg_directly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
 }
 
 #ifdef SIMD_SUPPORTED
+/* Up to caller to update pt->simd_reg. This routine updates pt->simd_slot_use if
+ * release==true. */
 static void
 restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                        instrlist_t *ilist, instr_t *where, bool release)
@@ -450,7 +458,6 @@ get_indirectly_spilled_value(void *drcontext, reg_id_t reg, uint slot,
             ASSERT(false, "internal error: not an applicable register.");
         }
     }
-    /* Add support for other non SIMD registers here */
     ASSERT(false, "not an applicable register.");
     return false;
 }
@@ -481,7 +488,7 @@ determine_simd_liveness_state(instr_t *inst, reg_id_t reg, void **value)
     ASSERT(value != NULL, "cannot be NULL");
     ASSERT(reg_is_vector_simd(reg), "must be a vector SIMD register");
 
-    /* Reason over partial registers in SIMD case to achieve efficient spilling*/
+    /* Reason over partial registers in SIMD case to achieve efficient spilling. */
     reg_id_t xmm_reg = reg_resize_to_opsz(reg, OPSZ_16);
     reg_id_t ymm_reg = reg_resize_to_opsz(reg, OPSZ_32);
     reg_id_t zmm_reg = reg_resize_to_opsz(reg, OPSZ_64);
@@ -748,7 +755,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                  * upon a partial simd write. For example a write to xmm while zmm is
                  * clobbered, or a partial write with an evex mask.
                  */
-                /* i#1954: for complex bbs we must restore before the next app instr */
+                /* i#1954: for complex bbs we must restore before the next app instr. */
                 (!pt->simd_reg[SIMD_IDX(reg)].in_use &&
                  ((pt->bb_has_internal_flow &&
                    !TEST(DRREG_IGNORE_CONTROL_FLOW, pt->bb_props)) ||
@@ -781,7 +788,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     restore_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, next,
                                            true);
                     /* We keep .native==false */
-                    /* Share the tool val spill if this inst writes too */
+                    /* Share the tool val spill if this inst writes, too. */
                     restored_for_simd_read[SIMD_IDX(reg)] = true;
                 }
             }
@@ -801,7 +808,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                  */
                 (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                  !instr_writes_to_reg(inst, reg, DR_QUERY_DEFAULT)) ||
-                /* i#1954: for complex bbs we must restore before the next app instr */
+                /* i#1954: for complex bbs we must restore before the next app instr. */
                 (!pt->reg[GPR_IDX(reg)].in_use &&
                  ((pt->bb_has_internal_flow &&
                    !TEST(DRREG_IGNORE_CONTROL_FLOW, pt->bb_props)) ||
@@ -849,7 +856,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     restore_reg_directly(drcontext, pt, reg, pt->reg[GPR_IDX(reg)].slot,
                                          bb, inst, false /*keep slot*/);
                     restore_reg_directly(drcontext, pt, reg, tmp_slot, bb, next, true);
-                    /* Share the tool val spill if this inst writes too */
+                    /* Share the tool val spill if this instruction writes, too. */
                     restored_for_read[GPR_IDX(reg)] = true;
                     /* We keep .native==false */
                 }
@@ -1523,7 +1530,7 @@ drreg_reserve_simd_reg_internal(void *drcontext, drreg_spill_class_t spill_class
 }
 #endif
 
-/* Assumes liveness info is already set up in per_thread_t */
+/* Assumes liveness info is already set up in per_thread_t. */
 static drreg_status_t
 drreg_reserve_reg_internal(void *drcontext, drreg_spill_class_t spill_class,
                            instrlist_t *ilist, instr_t *where, drvector_t *reg_allowed,
@@ -1547,7 +1554,10 @@ drreg_reserve_reg_internal(void *drcontext, drreg_spill_class_t spill_class,
     /* FIXME i#3844: NYI on ARM */
 #endif
     else {
-        ASSERT(false, "invalid spill class");
+        /* The caller should have catched this and return an error or invalid parameter
+         * error.
+         */
+        ASSERT(false, "internal error: invalid spill class");
     }
     return DRREG_ERROR;
 }
@@ -1667,7 +1677,7 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
         return DRREG_ERROR;
     }
     if (reg_is_gpr(app_reg)) {
-        /* check if app_reg is an unspilled reg */
+        /* Check if app_reg is an unspilled reg. */
         if (pt->reg[GPR_IDX(app_reg)].native) {
             LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": reg %s already native\n",
                 __FUNCTION__, pt->live_idx, get_where_app_pc(where),
@@ -1680,7 +1690,7 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
             instrlist_set_auto_predicate(ilist, pred);
             return DRREG_SUCCESS;
         }
-        /* we may have lost the app value for a dead reg */
+        /* We may have lost the app value for a dead reg. */
         if (!pt->reg[GPR_IDX(app_reg)].ever_spilled) {
             LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": reg %s never spilled\n",
                 __FUNCTION__, pt->live_idx, get_where_app_pc(where),
@@ -1688,7 +1698,7 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
             instrlist_set_auto_predicate(ilist, pred);
             return DRREG_ERROR_NO_APP_VALUE;
         }
-        /* restore app value back to app_reg */
+        /* Restore the app value back to app_reg. */
         if (pt->reg[GPR_IDX(app_reg)].xchg != DR_REG_NULL) {
             /* XXX i#511: NYI */
             instrlist_set_auto_predicate(ilist, pred);
@@ -1716,7 +1726,7 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
         if (!reg_is_vector_simd(dst_reg))
             return DRREG_ERROR_INVALID_PARAMETER;
 
-        /* check if app_reg is an unspilled reg */
+        /* Check if app_reg is an unspilled reg. */
         if (pt->simd_reg[SIMD_IDX(app_reg)].native) {
             if (dst_reg != app_reg) {
                 PRE(ilist, where,
@@ -1726,12 +1736,12 @@ drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
             instrlist_set_auto_predicate(ilist, pred);
             return DRREG_SUCCESS;
         }
-        /* we may have lost the app value for a dead reg */
+        /* We may have lost the app value for a dead reg. */
         if (!pt->simd_reg[SIMD_IDX(app_reg)].ever_spilled) {
             instrlist_set_auto_predicate(ilist, pred);
             return DRREG_ERROR_NO_APP_VALUE;
         }
-        /* restore app value back to app_reg */
+        /* Restore the app value back to app_reg. */
         if (pt->simd_reg[SIMD_IDX(app_reg)].xchg != DR_REG_NULL) {
             /* XXX i#511: NYI */
             instrlist_set_auto_predicate(ilist, pred);
@@ -1915,13 +1925,13 @@ drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
         LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s\n", __FUNCTION__, pt->live_idx,
             get_where_app_pc(where), get_register_name(reg));
         if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
-            /* We have no way to lazily restore.  We do not bother at this point
+            /* We have no way to lazily restore. We do not bother at this point
              * to try and eliminate back-to-back spill/restore pairs.
              */
             dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
             drreg_status_t res;
 
-            /* XXX i#2585: drreg should predicate spills and restores as appropriate */
+            /* XXX i#2585: drreg should predicate spills and restores as appropriate. */
             instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
             res = drreg_restore_reg_now(drcontext, ilist, where, pt, reg);
             instrlist_set_auto_predicate(ilist, pred);
@@ -2487,7 +2497,7 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
 
     if (!instr_is_reg_spill_or_restore(drcontext, instr, &tls, &is_spilled, &reg, &offs))
         return false;
-    /* Is this from our direct raw TLS for gpr registers ? */
+    /* Checks whether this from our direct raw TLS for gpr registers. */
     if (tls && offs >= tls_slot_offs &&
         offs < (tls_slot_offs + ops.num_spill_slots * sizeof(reg_t))) {
         slot = (offs - tls_slot_offs) / sizeof(reg_t);
@@ -2835,7 +2845,7 @@ tls_data_init(void *drcontext, per_thread_t *pt)
                       false /*!synch*/, NULL);
         pt->simd_reg[SIMD_IDX(reg)].native = true;
     }
-    /* Block should be aligned on a 64-byte boundary */
+    /* We align the block on a 64-byte boundary. */
     if (drcontext == GLOBAL_DCONTEXT) {
         pt->simd_spill_start = dr_global_alloc((SIMD_REG_SIZE * MAX_SIMD_SPILLS) + 63);
     } else {
