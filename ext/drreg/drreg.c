@@ -331,13 +331,13 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
         opnd_t spill_reg_opnd = opnd_create_reg(reg);
         PRE(ilist, where, INSTR_CREATE_movdqa(drcontext, mem_opnd, spill_reg_opnd));
     } else if (reg_is_strictly_ymm(reg)) {
-        /* TODO i#3844: support YMM here. */
-        ASSERT(false, "SIMD register not supported");
+        /* The callers should catch this when checking the spill class. */
+        ASSERT(false, "internal error: ymm registers are not supported yet.");
     } else if (reg_is_strictly_zmm(reg)) {
-        /* TODO i#3844: support ZMM here. */
-        ASSERT(false, "SIMD register not supported");
+        /* The callers should catch this when checking the spill class. */
+        ASSERT(false, "internal error: zmm registers are not supported yet.");
     } else {
-        ASSERT(false, "not applicable register");
+        ASSERT(false, "internal error: not applicable register");
     }
     res = drreg_unreserve_register(drcontext, ilist, where, scratch_block_reg);
     if (res != DRREG_SUCCESS)
@@ -396,11 +396,13 @@ restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slo
         opnd_t restore_reg_opnd = opnd_create_reg(reg);
         PRE(ilist, where, INSTR_CREATE_movdqa(drcontext, restore_reg_opnd, mem_opnd));
     } else if (reg_is_strictly_ymm(reg)) {
-        ASSERT(false, "ymm registers not yet supported.");
+        /* The callers should catch this when checking the spill class. */
+        ASSERT(false, "internal error: ymm registers are not supported yet.");
     } else if (reg_is_strictly_zmm(reg)) {
-        ASSERT(false, "zmm registers not yet supported.");
+        /* The callers should catch this when checking the spill class. */
+        ASSERT(false, "internal error: zmm registers are not supported yet.");
     } else {
-        ASSERT(false, "not an applicable register.");
+        ASSERT(false, "internal error: not an applicable register.");
     }
     res = drreg_unreserve_register(drcontext, ilist, where, scratch_block_reg);
     if (res != DRREG_SUCCESS)
@@ -439,11 +441,13 @@ get_indirectly_spilled_value(void *drcontext, reg_id_t reg, uint slot,
             memcpy(value_buf, pt->simd_spills + (slot * SIMD_REG_SIZE), reg_size);
             return true;
         } else if (reg_is_strictly_ymm(reg)) {
-            ASSERT(false, "ymm registers not yet supported.");
+            /* The callers should catch this when checking the spill class. */
+            ASSERT(false, "internal error: ymm registers are not supported yet.");
         } else if (reg_is_strictly_zmm(reg)) {
-            ASSERT(false, "zmm registers not yet supported.");
+            /* The callers should catch this when checking the spill class. */
+            ASSERT(false, "internal error: zmm registers are not supported yet.");
         } else {
-            ASSERT(false, "not an applicable register.");
+            ASSERT(false, "internal error: not an applicable register.");
         }
     }
     /* Add support for other non SIMD registers here */
@@ -470,7 +474,7 @@ drreg_max_slots_used(OUT uint *max)
  */
 
 #ifdef SIMD_SUPPORTED
-/* Returns true if state has been set */
+/* Returns true if state has been set. */
 static bool
 determine_simd_liveness_state(instr_t *inst, reg_id_t reg, void **value)
 {
@@ -1151,14 +1155,19 @@ drreg_init_and_fill_vector_ex(drvector_t *vec, drreg_spill_class_t spill_class,
 
     if (spill_class == DRREG_GPR_SPILL_CLASS) {
         size = DR_NUM_GPR_REGS;
-    } else if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS ||
-               spill_class == DRREG_SIMD_YMM_SPILL_CLASS ||
-               spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
-#ifdef SIMD_SUPPORTED
+    } else if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS) {
+#ifdef X86
         size = DR_NUM_SIMD_VECTOR_REGS;
 #else
-        /* FIXME i#3844: NYI on ARM */
-        return DRREG_ERROR;
+        return DRREG_ERROR_INVALID_PARAMETER;
+#endif
+    } else if (spill_class == DRREG_SIMD_YMM_SPILL_CLASS ||
+               spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
+#ifdef X86
+        /* TODO i#3844: support on x86. */
+        return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
+#else
+        return DRREG_ERROR_INVALID_PARAMETER;
 #endif
     } else {
         return DRREG_ERROR;
@@ -1550,6 +1559,19 @@ drreg_reserve_register_ex(void *drcontext, drreg_spill_class_t spill_class,
 {
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
+#ifdef ARM
+    if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS)
+        return DRREG_ERROR_INVALID_PARAMETER;
+#endif
+    if (spill_class == DRREG_SIMD_YMM_SPILL_CLASS ||
+        spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
+#ifdef X86
+        /* TODO i#3844: support on x86. */
+        return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
+#else
+        return DRREG_ERROR_INVALID_PARAMETER;
+#endif
+    }
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
         res = drreg_forward_analysis(drcontext, where);
         if (res != DRREG_SUCCESS)
@@ -1587,6 +1609,19 @@ drreg_reserve_dead_register_ex(void *drcontext, drreg_spill_class_t spill_class,
 {
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
+#ifdef ARM
+    if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS)
+        return DRREG_ERROR_INVALID_PARAMETER;
+#endif
+    if (spill_class == DRREG_SIMD_YMM_SPILL_CLASS ||
+        spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
+#ifdef X86
+        /* TODO i#3844: support on x86. */
+        return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
+#else
+        return DRREG_ERROR_INVALID_PARAMETER;
+#endif
+    }
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
         res = drreg_forward_analysis(drcontext, where);
         if (res != DRREG_SUCCESS)
@@ -1863,7 +1898,7 @@ drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
     }
 #endif
     else {
-        ASSERT(false, "not an applicable register.");
+        ASSERT(false, "internal error: not an applicable register.");
     }
     return DRREG_SUCCESS;
 }
@@ -1927,7 +1962,7 @@ drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
     }
 #endif
     else {
-        ASSERT(false, "not applicable register");
+        ASSERT(false, "internal error: not applicable register");
     }
     return DRREG_SUCCESS;
 }
@@ -2753,11 +2788,13 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 get_indirectly_spilled_value(drcontext, reg, actualreg, simd_buf,
                                              XMM_REG_SIZE);
             } else if (reg_is_strictly_ymm(reg)) {
-                ASSERT(false, "ymm registers not yet supported.");
+                /* The callers should catch this when checking the spill class. */
+                ASSERT(false, "internal error: ymm registers not supported yet.");
             } else if (reg_is_strictly_zmm(reg)) {
-                ASSERT(false, "zmm registers not yet supported.");
+                /* The callers should catch this when checking the spill class. */
+                ASSERT(false, "inernal error: zmm registers not supported yet.");
             } else
-                ASSERT(false, "not an applicable register.");
+                ASSERT(false, "internal error: not an applicable register.");
             reg_set_value_ex(reg, info->mcontext, simd_buf);
         }
     }
