@@ -525,14 +525,18 @@ determine_simd_liveness_state(void *drcontext, instr_t *inst, reg_id_t reg, void
         if (instr_writes_to_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
             (*value < SIMD_ZMM_DEAD || *value >= SIMD_XMM_LIVE)) {
             *value = SIMD_ZMM_DEAD;
+            return true;
         } else if (instr_writes_to_exact_reg(inst, ymm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
                    (*value < SIMD_YMM_DEAD || *value >= SIMD_XMM_LIVE)) {
             *value = SIMD_YMM_DEAD;
+            return true;
         } else if (instr_writes_to_exact_reg(inst, xmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
                    (*value < SIMD_XMM_DEAD || *value >= SIMD_XMM_LIVE)) {
             *value = SIMD_XMM_DEAD;
+            return true;
         }
-        return true;
+        /* We may partially write to above registers, which does not make them dead.
+         */
     }
     return false;
 }
