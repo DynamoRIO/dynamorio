@@ -80,11 +80,13 @@ typedef enum {
  * to spill or restore.
  */
 typedef enum {
-    DRREG_INVALID_SPILL_CLASS,  /* denotes invalid class */
-    DRREG_GPR_SPILL_CLASS,      /* to consider GPR registers */
-    DRREG_SIMD_XMM_SPILL_CLASS, /* to consider XMM registers */
-    DRREG_SIMD_YMM_SPILL_CLASS, /* to consider YMM registers, not yet supported. */
-    DRREG_SIMD_ZMM_SPILL_CLASS, /* to consider ZMM registers, not yet supported. */
+    DRREG_INVALID_SPILL_CLASS,  /**< Denotes an invalid spill class. */
+    DRREG_GPR_SPILL_CLASS,      /**< Denotes the GPR register spill class. */
+    DRREG_SIMD_XMM_SPILL_CLASS, /**< Denotes the XMM register spill class. */
+    DRREG_SIMD_YMM_SPILL_CLASS, /**< Denotes the YMM register spill class and is not yet
+                                     supported. */
+    DRREG_SIMD_ZMM_SPILL_CLASS, /**< Denotes the ZMM register spill class and is not yet
+                                     supported. */
 } drreg_spill_class_t;
 
 /**
@@ -351,6 +353,9 @@ DR_EXPORT
  * drreg_init_and_fill_vector() routine can be used to set up \p
  * reg_allowed.
  *
+ * drreg_reserve_register() is a special case of drreg_reserve_register_ex()
+ * with \p spill_class #DRREG_GPR_SPILL_CLASS.
+ *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
@@ -359,7 +364,19 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 DR_EXPORT
 /**
- * Similar to \p drreg_reserve_register, but for a particular spill class.
+ * Identical to drreg_reserve_register(), but for a particular spill class
+ * \p spill_class.
+ *
+ * If \p reg_allowed is non-NULL, then it must be a vector with one entry for
+ * each register of its \p spill_class:
+ *
+ * [#DR_REG_START_GPR..#DR_REG_STOP_GPR] entries if #DRREG_GPR_SPILL_CLASS.
+ * [#DR_REG_START_XMM..#DR_REG_STOP_XMM] entries if #DRREG_SIMD_XMM_SPILL_CLASS.
+ * [#DR_REG_START_YMM..#DR_REG_STOP_YMM] entries if #DRREG_SIMD_YMM_SPILL_CLASS.
+ * [#DR_REG_START_YMM..#DR_REG_STOP_ZMM] entries if #DRREG_SIMD_ZMM_SPILL_CLASS.
+ *
+ * The vector \p reg_allowed is interpreted as explained in drreg_reserve_register().
+ * The drreg_init_and_fill_vector_ex() routine can be used to set up \p reg_allowed.
  *
  * @return whether successful or an error code on failure.
  */
@@ -381,7 +398,7 @@ drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 DR_EXPORT
 /**
- * Similar to \p drreg_reserve_dead_register, but for a particular spill class
+ * Identical to drreg_reserve_dead_register(), but for a particular \p spill_class.
  *
  * @return whether successful or an error code on failure.
  */
@@ -405,8 +422,8 @@ drreg_init_and_fill_vector(drvector_t *vec, bool allowed);
 
 DR_EXPORT
 /**
- * Similar to \p drreg_init_and_fill_vector but for a specific
- * register class.
+ * Identical to drreg_init_and_fill_vector(), but for a specific register
+ * class based on \p spill_class.
  *
  * @return whether successful or an error code on failure.
  */
