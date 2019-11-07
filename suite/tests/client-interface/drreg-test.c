@@ -474,8 +474,8 @@ GLOBAL_LABEL(FUNCNAME:)
         ud2
         jmp          test26_done
 #endif
-	 test26_done:
-	    jmp          epilog
+     test26_done:
+        jmp          epilog
 
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */

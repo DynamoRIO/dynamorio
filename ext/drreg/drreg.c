@@ -65,14 +65,17 @@
 
 #define PRE instrlist_meta_preinsert
 
-/* The number of spills should be pretty hard to exceed as there aren't
- * that many GPRs. We have a hard-coded max on spill slots that we track.
+/* We have a hard-coded max on spill slots that we track.
+ * The number of spills should be pretty hard to exceed as there aren't
+ * that many GPRs.
+ *
+ * Note that additional slots are required to act as temporary storage
+ * for client values when restoring reserved registers back to their
+ * original app value.
  */
-#define MAX_SPILLS (SPILL_SLOT_MAX + 8)
-/* We choose the number of available slots for spilling simds to match their
- * theoretical max number for a given build.
- */
-#define MAX_SIMD_SPILLS DR_NUM_SIMD_VECTOR_REGS
+#define ADDITIONAL_SLOT_COUNT 8
+#define MAX_SPILLS (SPILL_SLOT_MAX + ADDITIONAL_SLOT_COUNT)
+#define MAX_SIMD_SPILLS (DR_NUM_SIMD_VECTOR_REGS + ADDITIONAL_SLOT_COUNT)
 
 #ifdef X86
 /* Defines whether SIMD and indirect spilling is supported by drreg. */
