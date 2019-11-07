@@ -226,6 +226,8 @@ Further non-compatibility-affecting changes include:
    according to a register class.
  - Added drreg_init_and_fill_vector_ex() to init a vector that specifies which
    register can/cannot be used according to a register class.
+ - Added drmgr_register_low_on_memory_event(), drmgr_unregister_low_on_memory_event()
+   and their variants so that drmgr can support low-on-memory events.
 
 **************************************************
 <hr>

@@ -2203,7 +2203,11 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
      * mask register as well as a temp xmm register.
      */
     if (!expand_scatter_gather_drreg_initialized) {
-        drreg_options_t ops = { sizeof(ops), 3, false, NULL, true };
+        /* We're requesting 3 slots for 3 gprs plus 3 additional ones because they are
+         * used cross-app. The additional slots are needed if drreg needs to move the
+         * values as documented in drreg.
+         */
+        drreg_options_t ops = { sizeof(ops), 3 + 3, false, NULL, true };
         if (drreg_init(&ops) != DRREG_SUCCESS)
             return false;
         expand_scatter_gather_drreg_initialized = true;
@@ -2218,13 +2222,6 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
      * same time. Do not use.
      */
     drreg_set_vector_entry(&allowed, sg_info.base_reg, false);
-    /* FIXME i#2985: these registers are reserved for client.drx-scattergather. This is a
-     * temporary hack due to the fact that drx is not yet able to restore the state across
-     * app instructions.
-     */
-    drreg_set_vector_entry(&allowed, DR_REG_XAX, false);
-    drreg_set_vector_entry(&allowed, DR_REG_XCX, false);
-    drreg_set_vector_entry(&allowed, DR_REG_XDX, false);
     if (drreg_reserve_aflags(drcontext, bb, sg_instr) != DRREG_SUCCESS)
         goto drx_expand_scatter_gather_exit;
     if (drreg_reserve_register(drcontext, bb, sg_instr, &allowed, &scratch_reg0) !=
