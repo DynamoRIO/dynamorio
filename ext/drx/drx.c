@@ -139,7 +139,9 @@ drx_init(void)
     /* FIXME i#2985: install restore event handler for drx_expand_scatter_gather().
      * For example, the application state needs to be fixed if the sequence is getting
      * interrupted after a scalar operation has been completed, but the mask hasn't been
-     * updated yet.
+     * updated yet. We also need to handle asynchronous restore events that hit in the
+     * small window while we're using a scratch mask register when updating the AVX-512
+     * mask.
      */
 
     return drx_buf_init_library();
@@ -1741,14 +1743,31 @@ static bool
 expand_avx512_scatter_gather_update_mask(void *drcontext, instrlist_t *bb,
                                          instr_t *sg_instr, int el,
                                          scatter_gather_info_t *sg_info,
-                                         reg_id_t scratch_reg, app_pc orig_app_pc)
+                                         reg_id_t scratch_reg, app_pc orig_app_pc,
+                                         drvector_t *allowed)
 {
+    reg_id_t save_mask_reg;
     PREXL8(bb, sg_instr,
            INSTR_XL8(INSTR_CREATE_mov_imm(drcontext,
                                           opnd_create_reg(IF_X64_ELSE(
                                               reg_64_to_32(scratch_reg), scratch_reg)),
                                           OPND_CREATE_INT32(1 << el)),
                      orig_app_pc));
+    /* TODO i#2985: We will have to detect this code in a future drx restore event in
+     * order to check whether an asynchronous event happened within this sequence,
+     * which will make it necessary to manually restore k0.
+     */
+    if (drreg_reserve_register(drcontext, bb, sg_instr, allowed, &save_mask_reg) !=
+        DRREG_SUCCESS)
+        return false;
+    /* The scratch k register we're using here is always k0, because it is never
+     * used for scatter/gather.
+     */
+    MINSERT(bb, sg_instr,
+            INSTR_CREATE_kmovw(
+                drcontext,
+                opnd_create_reg(IF_X64_ELSE(reg_64_to_32(save_mask_reg), save_mask_reg)),
+                opnd_create_reg(DR_REG_K0)));
     PREXL8(bb, sg_instr,
            INSTR_XL8(INSTR_CREATE_kmovw(drcontext, opnd_create_reg(DR_REG_K0),
                                         opnd_create_reg(IF_X64_ELSE(
@@ -1759,6 +1778,15 @@ expand_avx512_scatter_gather_update_mask(void *drcontext, instrlist_t *bb,
                                          opnd_create_reg(DR_REG_K0),
                                          opnd_create_reg(sg_info->mask_reg)),
                      orig_app_pc));
+    MINSERT(bb, sg_instr,
+            INSTR_CREATE_kmovw(drcontext, opnd_create_reg(DR_REG_K0),
+                               opnd_create_reg(IF_X64_ELSE(reg_64_to_32(save_mask_reg),
+                                                           save_mask_reg))));
+    if (drreg_unreserve_register(drcontext, bb, sg_instr, save_mask_reg) !=
+        DRREG_SUCCESS) {
+        ASSERT(false, "drreg_unreserve_register should not fail");
+        return false;
+    }
     return true;
 }
 
@@ -1948,7 +1976,8 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
  * scalar operations. Gather instructions are expanded into a sequence of mask register
  * bit tests, extracting the index value, a scalar load, inserting the scalar value into
  * the destination simd register, and mask register bit updates. Scatter instructions
- * are similarly expanded into a sequence, but deploy a scalar store.
+ * are similarly expanded into a sequence, but deploy a scalar store. Registers spilled
+ * and restored by drreg are not illustrated in the sequence below.
  *
  * ------------------------------------------------------------------------------
  * AVX2 vpgatherdd, vgatherdps, vpgatherdq, vgatherdpd, vpgatherqd, vgatherqps, |
@@ -2051,8 +2080,12 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
  *   vinserti32x4    {%k0} $0x00 %zmm0 %xmm2 -> %zmm0
  * Set mask bit to zero:
  *   mov             $0x00000001 -> %ecx
+ * %k0 is saved to a gpr here, while the gpr
+ * is managed by drreg. This is not further
+ * layed out in this example.
  *   kmovw           %ecx -> %k0
  *   kandnw          %k0 %k1 -> %k1
+ * It is not illustrated that %k0 is restored here.
  *   skip0:
  * Do the same as above for the next element:
  *   kmovw           %k1 -> %ecx
@@ -2199,8 +2232,6 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     /* The expansion potentially needs more slots than the drx default. We need up to 2
      * slots on x86 plus the 1 slot drreg uses for aflags. We set do_not_sum_slots here
      * to false.
-     * FIXME i#2985: we potentially need more slots or use other means to spill a temp
-     * mask register as well as a temp xmm register.
      */
     if (!expand_scatter_gather_drreg_initialized) {
         /* We're requesting 3 slots for 3 gprs plus 3 additional ones because they are
@@ -2243,9 +2274,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
             scratch_xmm != reg_resize_to_opsz(sg_info.gather_dst_reg, OPSZ_16))
             break;
     }
-    /* FIXME i#2985: spill kTmp and xmmTmp. kTmp will always be k0, because it is never
-     * used for scatter/gather and is both writeable and acts as the default mask.
-     */
+    /* FIXME i#2985: spill scratch_xmm using a future drreg extension for simd. */
     emulated_instr_t emulated_instr;
     emulated_instr.size = sizeof(emulated_instr);
     emulated_instr.pc = instr_get_app_pc(sg_instr);
@@ -2273,8 +2302,9 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
                                                               &sg_info, scalar_value_reg,
                                                               scratch_xmm, orig_app_pc))
                     goto drx_expand_scatter_gather_exit;
-                if (!expand_avx512_scatter_gather_update_mask(
-                        drcontext, bb, sg_instr, el, &sg_info, scratch_reg0, orig_app_pc))
+                if (!expand_avx512_scatter_gather_update_mask(drcontext, bb, sg_instr, el,
+                                                              &sg_info, scratch_reg0,
+                                                              orig_app_pc, &allowed))
                     goto drx_expand_scatter_gather_exit;
                 MINSERT(bb, sg_instr, skip_label);
             }
@@ -2298,8 +2328,9 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
                         drcontext, bb, sg_instr, &sg_info, scalar_index_reg,
                         scalar_value_reg, orig_app_pc))
                     goto drx_expand_scatter_gather_exit;
-                if (!expand_avx512_scatter_gather_update_mask(
-                        drcontext, bb, sg_instr, el, &sg_info, scratch_reg0, orig_app_pc))
+                if (!expand_avx512_scatter_gather_update_mask(drcontext, bb, sg_instr, el,
+                                                              &sg_info, scratch_reg0,
+                                                              orig_app_pc, &allowed))
                     goto drx_expand_scatter_gather_exit;
                 MINSERT(bb, sg_instr, skip_label);
             }
