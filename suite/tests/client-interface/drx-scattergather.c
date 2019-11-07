@@ -47,6 +47,7 @@
 
 #ifndef ASM_CODE_ONLY /* C code */
 #    include <stdint.h>
+#    include <setjmp.h>
 #    include "tools.h"
 
 #    ifndef X86
@@ -143,6 +144,9 @@ test_avx2_vgatherqps(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
 void
 test_avx2_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
                      uint32_t *output_xmm_ymm_zmm OUT);
+/* See comment above. */
+void
+test_avx512_restore_mask(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec);
 
 #    define SPARSE_FACTOR 4
 #    define XMM_REG_SIZE 16
@@ -153,6 +157,35 @@ test_avx2_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
 #    define CONCAT_XMM_YMM_U32 ((XMM_REG_SIZE + YMM_REG_SIZE) / sizeof(uint32_t))
 #    define SPARSE_TEST_BUF_SIZE_U32 (SPARSE_FACTOR * ZMM_REG_SIZE / sizeof(uint32_t))
 #    define POISON 0xf
+#    define CPUID_KMASK_COMP 5
+
+#    ifdef UNIX
+static SIGJMP_BUF mark;
+
+static int
+get_xstate_area_offs(int xstate_component)
+{
+    int offs;
+    __asm__ __volatile__("cpuid" : "=b"(offs) : "a"(0xd), "c"(xstate_component));
+    return offs;
+}
+
+static void
+signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+#        ifdef X64
+    kernel_xstate_t *xstate = (kernel_xstate_t *)ucxt->uc_mcontext.fpregs;
+    __u32 *xstate_kmask_offs =
+        (__u32 *)((byte *)xstate + get_xstate_area_offs(CPUID_KMASK_COMP));
+    print("k0 = 0x%x\n", xstate_kmask_offs[0]);
+#        else
+    /* XXX i#1312: it is unclear if and how the components are arranged in
+     * 32-bit mode by the kernel.
+     */
+#        endif
+    SIGLONGJMP(mark, 1);
+}
+#    endif
 
 static bool
 test_avx512_mask_all_zero(void)
@@ -426,6 +459,16 @@ test_avx2_avx512_scatter_gather(void)
                           ref_idx64_val64_xmm_ymm_zmm, test_idx64_vec,
                           output_xmm_ymm_zmm))
         return false;
+#    endif
+#    ifdef UNIX
+#        ifdef __AVX512F__
+    print("Testing restoring the mask register upon a fault:\n");
+    intercept_signal(SIGSEGV, (handler_3_t)&signal_handler, false);
+    /* This index will cause a fault. The index number is arbitrary.*/
+    test_idx32_vec[9] = 0xefffffff;
+    if (SIGSETJMP(mark) == 0)
+        test_avx512_restore_mask(ref_sparse_test_buf, test_idx32_vec);
+#        endif
 #    endif
     return true;
 }
@@ -712,6 +755,26 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
 
 TEST_AVX512_SCATTER_IDX64_VAL64(vpscatterqq)
 TEST_AVX512_SCATTER_IDX64_VAL64(vscatterqpd)
+
+DECLARE_FUNC_SEH(test_avx512_restore_mask)
+  GLOBAL_LABEL(test_avx512_restore_mask:)
+        /* uint32_t *ref_sparse_test_buf */
+        mov        REG_XAX, ARG1
+        /* uint32_t *test_idx32_vec */
+        mov        REG_XDX, ARG2
+        PUSH_CALLEE_SAVED_REGS()
+        sub        REG_XSP, FRAME_PADDING
+        END_PROLOG
+        vmovdqu32  zmm1, [REG_XDX]
+        movw       dx, 0xffff
+        kmovw      k0, edx
+        kmovw      k1, edx
+        vpgatherdd zmm0 {k1}, [REG_XAX + zmm1 * 4]
+        add        REG_XSP, FRAME_PADDING
+        POP_CALLEE_SAVED_REGS()
+        ret
+        END_FUNC(test_avx512_restore_mask)
+
 #endif /* __AVX512F__ */
 
 /****************************************************************************
