@@ -98,17 +98,17 @@
 #ifdef SIMD_SUPPORTED
 /* Liveness states for SIMD (not for mmx) */
 #    define SIMD_XMM_DEAD \
-        ((void *)(ptr_uint_t)0) /* first 16 bytes are dead, rest is live */
+        ((void *)(ptr_uint_t)0) /* first 16 bytes are dead, rest are live */
 #    define SIMD_YMM_DEAD \
-        ((void *)(ptr_uint_t)1) /* first 32 bytes are dead, rest is live */
+        ((void *)(ptr_uint_t)1) /* first 32 bytes are dead, rest are live */
 #    define SIMD_ZMM_DEAD \
-        ((void *)(ptr_uint_t)2) /* first 64 bytes are dead, rest is live */
+        ((void *)(ptr_uint_t)2) /* first 64 bytes are dead, rest are live */
 #    define SIMD_XMM_LIVE \
-        ((void *)(ptr_uint_t)3) /* first 16 bytes are live, rest is dead */
+        ((void *)(ptr_uint_t)3) /* first 16 bytes are live, rest are dead */
 #    define SIMD_YMM_LIVE \
-        ((void *)(ptr_uint_t)4) /* first 32 bytes are live, rest is dead */
+        ((void *)(ptr_uint_t)4) /* first 32 bytes are live, rest are dead */
 #    define SIMD_ZMM_LIVE \
-        ((void *)(ptr_uint_t)5) /* first 64 bytes are live, rest is dead */
+        ((void *)(ptr_uint_t)5) /* first 64 bytes are live, rest are dead */
 #endif
 #define SIMD_UNKNOWN ((void *)(ptr_uint_t)6)
 
