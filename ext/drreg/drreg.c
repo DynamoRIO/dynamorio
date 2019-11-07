@@ -1077,6 +1077,7 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         pt->simd_reg[SIMD_IDX(reg)].app_uses = 0;
         drvector_set_entry(&pt->simd_reg[SIMD_IDX(reg)].live, 0, SIMD_UNKNOWN);
+        /* TODO i#3827: investigate and confirm that this is correct. */
         pt->simd_reg[SIMD_IDX(reg)].ever_spilled = false;
     }
 #endif
