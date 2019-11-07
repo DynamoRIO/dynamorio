@@ -329,8 +329,10 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
         drreg_report_error(res, "failed to reserve tmp register");
     ASSERT(scratch_block_reg != DR_REG_NULL, "invalid register");
     load_indirect_block(drcontext, pt, tls_simd_offs, ilist, where, scratch_block_reg);
-    pt->simd_slot_use[slot] =
-        (reg < pt->simd_slot_use[slot]) ? pt->simd_slot_use[slot] : reg;
+    /* TODO i#3844: This needs to be updated according to its larger simd size when
+     * supporting ymm and zmm registers in the future.
+     */
+    pt->simd_slot_use[slot] = reg;
     if (reg_is_strictly_xmm(reg)) {
         opnd_t mem_opnd = opnd_create_base_disp(scratch_block_reg, DR_REG_NULL, 1,
                                                 slot * SIMD_REG_SIZE, OPSZ_16);
