@@ -475,6 +475,19 @@ GLOBAL_LABEL(FUNCNAME:)
         jmp          test26_done
 #endif
      test26_done:
+        jmp          test27
+     test27:
+        mov          TEST_REG_ASM, DRREG_TEST_27_ASM
+        mov          TEST_REG_ASM, DRREG_TEST_27_ASM
+        pxor         xmm0, xmm0
+        mov          TEST_REG_ASM, REG_XSP
+        movhps       QWORD [TEST_REG_ASM - 16], xmm0
+        cmp          DWORD [TEST_REG_ASM - 16], 0
+        jz          test27_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp          test27_done
+     test27_done:
         jmp          epilog
 
      epilog:
