@@ -2014,8 +2014,8 @@ drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
 }
 
 static void
-set_info(drreg_reserve_info_t *info, per_thread_t *pt, void *drcontext, reg_id_t reg,
-         reg_info_t *reg_info)
+set_reservation_info(drreg_reserve_info_t *info, per_thread_t *pt, void *drcontext,
+                     reg_id_t reg, reg_info_t *reg_info)
 {
     info->reserved = reg_info->in_use;
     info->holds_app_value = reg_info->native;
@@ -2080,7 +2080,7 @@ drreg_reservation_info_ex(void *drcontext, reg_id_t reg, drreg_reserve_info_t *i
             return DRREG_ERROR_INVALID_PARAMETER;
         reg_info = &pt->reg[GPR_IDX(reg)];
     }
-    set_info(info, pt, drcontext, reg, reg_info);
+    set_reservation_info(info, pt, drcontext, reg, reg_info);
     return DRREG_SUCCESS;
 }
 
