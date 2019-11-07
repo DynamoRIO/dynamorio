@@ -448,7 +448,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov          TEST_REG_ASM, DRREG_TEST_25_ASM
         mov          TEST_REG_ASM, DRREG_TEST_25_ASM
         vmovdqa32    zmm1{k1}{z}, zmm2
-		pxor         xmm1, xmm1
+        pxor         xmm1, xmm1
         vmovdqa32    xmm0 {k1}, xmm1
         pxor         xmm0, xmm0
         ptest        xmm0, xmm0
