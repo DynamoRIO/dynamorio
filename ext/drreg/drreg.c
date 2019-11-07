@@ -65,17 +65,25 @@
 
 #define PRE instrlist_meta_preinsert
 
-/* We have a hard-coded max on spill slots that we track.
- * The number of spills should be pretty hard to exceed as there aren't
- * that many GPRs.
+/* drreg uses DR spill slots by default if no addressable TLS
+ * storage is available. Since these slots are shared also with clients,
+ * it could be the case that the client uses a lot of these slots, resulting
+ * in an insufficient number of available slots for drreg to function properly.
  *
- * Note that additional slots are required to act as temporary storage
- * for client values when restoring reserved registers back to their
- * original app value.
+ * In order to mitigate this concern, we use a hard-coded max on the number
+ * of spill slots tracked. This number of spills surpasses SPILL_SLOT_MAX
+ * and is pretty hard to exceed as there aren't that many GPRs.
  */
-#define ADDITIONAL_SLOT_COUNT 8
-#define MAX_SPILLS (SPILL_SLOT_MAX + ADDITIONAL_SLOT_COUNT)
-#define MAX_SIMD_SPILLS (DR_NUM_SIMD_VECTOR_REGS + ADDITIONAL_SLOT_COUNT)
+#define MAX_SPILLS (SPILL_SLOT_MAX + DR_NUM_GPR_REGS)
+/* We choose the number of available slots for spilling simds to match their
+ * theoretical max number for a given build.
+ *
+ * We add an additional slot for temporary storage used by drreg. For example,
+ * it is used to handle cross-app spilling. Note that this is in contrast to GPRs,
+ * which require allocated thread storage for cross-app spilling as DR slots are not
+ * guaranteed preserve stored data in such cases.
+ */
+#define MAX_SIMD_SPILLS (DR_NUM_SIMD_VECTOR_REGS + 1)
 
 #ifdef X86
 /* Defines whether SIMD and indirect spilling is supported by drreg. */
