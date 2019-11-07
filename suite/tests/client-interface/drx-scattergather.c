@@ -163,10 +163,10 @@ test_avx512_restore_mask(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec
 static SIGJMP_BUF mark;
 
 static int
-get_xstate_area_offs(int comp)
+get_xstate_area_offs(int xstate_component)
 {
     int offs;
-    __asm__ __volatile__("cpuid" : "=b"(offs) : "a"(0xd), "c"(comp));
+    __asm__ __volatile__("cpuid" : "=b"(offs) : "a"(0xd), "c"(xstate_component));
     return offs;
 }
 
