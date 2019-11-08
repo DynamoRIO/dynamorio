@@ -70,9 +70,10 @@
  * it could be the case that the client uses a lot of these slots, resulting
  * in an insufficient number of available slots for drreg to function properly.
  *
- * In order to mitigate this concern, we use a hard-coded max on the number
- * of spill slots tracked. This number of spills surpasses SPILL_SLOT_MAX
- * and is pretty hard to exceed as there aren't that many GPRs.
+ * In order to address this concern, we use a hard-coded max on the number
+ * of spill slots tracked. This number of spills intentionally surpasses
+ * SPILL_SLOT_MAX to cater both for drreg and possible clients,
+ * It is set to be pretty hard to exceed as there aren't that many GPRs.
  */
 #define MAX_SPILLS (SPILL_SLOT_MAX + DR_NUM_GPR_REGS)
 /* We choose the number of available slots for spilling simds to match their
