@@ -65,24 +65,25 @@ inscount(uint num_instrs)
     global_sg_count += num_instrs;
 }
 
-static bool one_time_clobber_test = false;
+static bool one_time_mask_clobber_test = false;
 
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                       bool for_trace, bool translating, void *user_data)
 {
     uint num_instrs;
-    if (one_time_clobber_test) {
+    if (one_time_mask_clobber_test) {
         if (instr_get_opcode(instr) == OP_kandnw) {
             instr_t *search_app_instr = instr;
             while (!instr_is_app(search_app_instr)) {
                 search_app_instr = instr_get_next(search_app_instr);
             }
             /* We chose to do this in the insertion phase, even though we're inserting an
-             * app instruction. We're finding the clobber case of the scatter/gather
-             * sequence that clobbers the k0 mask register. Then we're inserting an ud2
-             * app instruction right after it, so we will SIGILL and can test the value in
-             * the app's signal handler.
+             * app instruction, so we don't have to search the app list for the markers.
+             * We're finding the clobber case of the scatter/gather sequence that clobbers
+             * the k0 mask register. Then we're inserting a ud2 app instruction right
+             * after it, so we will SIGILL and can test the value in the app's signal
+             * handler.
              */
             instrlist_postinsert(bb, instr,
                                  INSTR_XL8(INSTR_CREATE_ud2a(drcontext),
@@ -92,14 +93,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         }
     } else {
         ptr_int_t val;
-        if (instr_is_mov_constant(instr, &val)) {
-            if (val == TEST_CLOBBER_MARKER) {
-                instr_t *next_instr = instr_get_next(instr);
-                if (instr_is_mov_constant(next_instr, &val)) {
-                    if (val == 0x23bcfa0e) {
-                        one_time_clobber_test = true;
-                    }
-                }
+        if (instr_is_mov_constant(instr, &val) && val == TEST_MASK_CLOBBER_MARKER) {
+            instr_t *next_instr = instr_get_next(instr);
+            if (instr_is_mov_constant(next_instr, &val) &&
+                val == TEST_MASK_CLOBBER_MARKER) {
+                one_time_mask_clobber_test = true;
             }
         }
     }

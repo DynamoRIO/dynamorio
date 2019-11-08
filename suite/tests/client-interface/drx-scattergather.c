@@ -803,8 +803,8 @@ DECLARE_FUNC_SEH(test_avx512_restore_mask_clobber)
         PUSH_CALLEE_SAVED_REGS()
         sub        REG_XSP, FRAME_PADDING
         END_PROLOG
-        mov        REG_XCX, TEST_CLOBBER_MARKER
-        mov        REG_XCX, TEST_CLOBBER_MARKER
+        mov        REG_XCX, TEST_MASK_CLOBBER_MARKER
+        mov        REG_XCX, TEST_MASK_CLOBBER_MARKER
         vmovdqu32  zmm1, [REG_XDX]
         movw       dx, 0xffff
         kmovw      k0, edx

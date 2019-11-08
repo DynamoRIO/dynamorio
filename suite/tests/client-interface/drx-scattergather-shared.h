@@ -30,4 +30,4 @@
  * DAMAGE.
  */
 
-#define TEST_CLOBBER_MARKER 0x23bcfa0e
+#define TEST_MASK_CLOBBER_MARKER 0x23bcfa0e
