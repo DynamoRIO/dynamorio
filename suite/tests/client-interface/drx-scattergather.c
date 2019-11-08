@@ -55,6 +55,7 @@
 #        error "This test is x86 specific."
 #    endif
 
+#    ifdef __AVX512F__
 void
 test_avx512_vpscatterdd(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
                         uint32_t *output_sparse_test_buf OUT);
@@ -115,6 +116,8 @@ test_avx512_vgatherqps(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
 void
 test_avx512_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
                        uint32_t *output_xmm_ymm_zmm OUT);
+#    endif
+#    ifdef __AVX__
 void
 test_avx2_vpgatherdd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
                      uint32_t *output_xmm_ymm_zmm OUT);
@@ -145,12 +148,15 @@ test_avx2_vgatherqps(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
 void
 test_avx2_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
                      uint32_t *output_xmm_ymm_zmm OUT);
+#    endif
+#    ifdef __AVX512F__
 /* See comment above. */
 void
 test_avx512_restore_mask_fault(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec);
 /* See comment above. */
 void
 test_avx512_restore_mask_clobber(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec);
+#    endif
 
 #    define SPARSE_FACTOR 4
 #    define XMM_REG_SIZE 16
@@ -473,7 +479,6 @@ test_avx2_avx512_scatter_gather(void)
     test_idx32_vec[9] = 0xefffffff;
     if (SIGSETJMP(mark) == 0)
         test_avx512_restore_mask_fault(ref_sparse_test_buf, test_idx32_vec);
-#        endif
     print("Test restoring the mask register upon asynchronous events\n");
     /* We will get the SIGILL from an ud2 instruction that the client will insert. */
     intercept_signal(SIGILL, (handler_3_t)&signal_handler, false);
@@ -481,6 +486,7 @@ test_avx2_avx512_scatter_gather(void)
     test_idx32_vec[9] = 0x24;
     if (SIGSETJMP(mark) == 0)
         test_avx512_restore_mask_clobber(ref_sparse_test_buf, test_idx32_vec);
+#        endif
 #    endif
     return true;
 }
