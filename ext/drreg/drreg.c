@@ -529,6 +529,11 @@ determine_simd_liveness_state(void *drcontext, instr_t *inst, reg_id_t reg, void
                                               DR_QUERY_INCLUDE_COND_SRCS) &&
                    *value <= SIMD_XMM_LIVE) {
             *value = SIMD_XMM_LIVE;
+        } else {
+            /* If no exact read is found, then it implies that a partial read is
+             * occurring. Therefore, we just give it the highest live value
+             */
+            *value = SIMD_ZMM_LIVE;
         }
         return true;
     }
