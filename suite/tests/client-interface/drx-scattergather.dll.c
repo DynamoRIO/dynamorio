@@ -1,3 +1,4 @@
+
 /* **********************************************************
  * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * **********************************************************/
@@ -36,6 +37,7 @@
 #include "drmgr.h"
 #include "drreg.h"
 #include "drx.h"
+#include "drx-scattergather-shared.h"
 
 #define CHECK(x, msg)                                                                \
     do {                                                                             \
@@ -63,16 +65,51 @@ inscount(uint num_instrs)
     global_sg_count += num_instrs;
 }
 
+static bool one_time_clobber_test = false;
+
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                       bool for_trace, bool translating, void *user_data)
 {
     uint num_instrs;
-    if (!drmgr_is_first_instr(drcontext, instr))
-        return DR_EMIT_DEFAULT;
+    if (one_time_clobber_test) {
+        if (instr_get_opcode(instr) == OP_kandnw) {
+            instr_t *search_app_instr = instr;
+            while (!instr_is_app(search_app_instr)) {
+                search_app_instr = instr_get_next(search_app_instr);
+            }
+            /* We chose to do this in the insertion phase, even though we're inserting an
+             * app instruction. We're finding the clobber case of the scatter/gather
+             * sequence that clobbers the k0 mask register. Then we're inserting an ud2
+             * app instruction right after it, so we will SIGILL and can test the value in
+             * the app's signal handler.
+             */
+            instrlist_postinsert(bb, instr,
+                                 INSTR_XL8(INSTR_CREATE_ud2a(drcontext),
+                                           instr_get_app_pc(search_app_instr)));
+            /* We don't need to do anything else. */
+            return DR_EMIT_DEFAULT;
+        }
+    } else {
+        ptr_int_t val;
+        if (instr_is_mov_constant(instr, &val)) {
+            if (val == TEST_CLOBBER_MARKER) {
+                instr_t *next_instr = instr_get_next(instr);
+                if (instr_is_mov_constant(next_instr, &val)) {
+                    if (val == 0x23bcfa0e) {
+                        one_time_clobber_test = true;
+                    }
+                }
+            }
+        }
+    }
     if (user_data == NULL)
         return DR_EMIT_DEFAULT;
-    num_instrs = (uint)(ptr_uint_t)user_data;
+    num_instrs = *(uint *)user_data;
+    if (drmgr_is_last_instr(drcontext, instr))
+        dr_thread_free(drcontext, user_data, sizeof(uint));
+    if (!drmgr_is_first_instr(drcontext, instr))
+        return DR_EMIT_DEFAULT;
     dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb), (void *)inscount,
                          false /* save fpstate */, 1, OPND_CREATE_INT32(num_instrs));
     return DR_EMIT_DEFAULT;
@@ -80,7 +117,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, void **user_data)
+                  bool translating, void *user_data)
 {
     uint num_sg_instrs = 0;
     bool is_emulation = false;
@@ -111,13 +148,14 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         if (!instr_is_app(instr))
             continue;
     }
-    *user_data = (void *)(ptr_uint_t)num_sg_instrs;
+    uint *num_instr_data = (uint *)user_data;
+    *num_instr_data = num_sg_instrs;
     return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
 event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                 bool translating)
+                 bool translating, void **user_data)
 {
     instr_t *instr;
     bool expanded = false;
@@ -141,6 +179,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     }
     CHECK((scatter_gather_present IF_X64(&&expanded)) || (expansion_ok && !expanded),
           "drx_expand_scatter_gather() bad OUT values");
+    *user_data = (uint *)dr_thread_alloc(drcontext, sizeof(uint));
     return DR_EMIT_DEFAULT;
 }
 
@@ -157,10 +196,7 @@ dr_init(client_id_t id)
     res = drreg_init(&ops);
     CHECK(res == DRREG_SUCCESS, "drreg_init failed");
     dr_register_exit_event(event_exit);
-
-    ok = drmgr_register_bb_app2app_event(event_bb_app2app, &priority);
-    CHECK(ok, "drmgr register bb failed");
-    ok = drmgr_register_bb_instrumentation_event(event_bb_analysis, event_app_instruction,
-                                                 NULL);
+    ok = drmgr_register_bb_instrumentation_ex_event(event_bb_app2app, event_bb_analysis,
+                                                    event_app_instruction, NULL, NULL);
     CHECK(ok, "drmgr register bb failed");
 }
