@@ -65,6 +65,9 @@ inscount(uint num_instrs)
     global_sg_count += num_instrs;
 }
 
+/* Global, because the markers will be in a different app2app list after breaking up
+ * scatter/gather into separate basic blocks during expansion.
+ */
 static bool one_time_mask_clobber_test = false;
 
 static dr_emit_flags_t
@@ -72,35 +75,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                       bool for_trace, bool translating, void *user_data)
 {
     uint num_instrs;
-    if (one_time_mask_clobber_test) {
-        if (instr_get_opcode(instr) == OP_kandnw) {
-            instr_t *search_app_instr = instr;
-            while (!instr_is_app(search_app_instr)) {
-                search_app_instr = instr_get_next(search_app_instr);
-            }
-            /* We chose to do this in the insertion phase, even though we're inserting an
-             * app instruction, so we don't have to search the app list for the markers.
-             * We're finding the clobber case of the scatter/gather sequence that clobbers
-             * the k0 mask register. Then we're inserting a ud2 app instruction right
-             * after it, so we will SIGILL and can test the value in the app's signal
-             * handler.
-             */
-            instrlist_postinsert(bb, instr,
-                                 INSTR_XL8(INSTR_CREATE_ud2a(drcontext),
-                                           instr_get_app_pc(search_app_instr)));
-            /* We don't need to do anything else. */
-            return DR_EMIT_DEFAULT;
-        }
-    } else {
-        ptr_int_t val;
-        if (instr_is_mov_constant(instr, &val) && val == TEST_MASK_CLOBBER_MARKER) {
-            instr_t *next_instr = instr_get_next(instr);
-            if (instr_is_mov_constant(next_instr, &val) &&
-                val == TEST_MASK_CLOBBER_MARKER) {
-                one_time_mask_clobber_test = true;
-            }
-        }
-    }
     if (user_data == NULL)
         return DR_EMIT_DEFAULT;
     num_instrs = *(uint *)user_data;
@@ -158,14 +132,24 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     instr_t *instr;
     bool expanded = false;
     bool scatter_gather_present = false;
+    ptr_int_t val;
 
     for (instr = instrlist_first_app(bb); instr != NULL;
          instr = instr_get_next_app(instr)) {
         if (instr_is_gather(instr)) {
             scatter_gather_present = true;
-        }
-        if (instr_is_scatter(instr)) {
+        } else if (instr_is_scatter(instr)) {
             scatter_gather_present = true;
+        } else if (!one_time_mask_clobber_test) {
+            if (instr_is_mov_constant(instr, &val) && val == TEST_MASK_CLOBBER_MARKER) {
+                instr_t *next_instr = instr_get_next(instr);
+                if (next_instr != NULL) {
+                    if (instr_is_mov_constant(next_instr, &val) &&
+                        val == TEST_MASK_CLOBBER_MARKER) {
+                        one_time_mask_clobber_test = true;
+                    }
+                }
+            }
         }
     }
     bool expansion_ok = drx_expand_scatter_gather(drcontext, bb, &expanded);
@@ -177,6 +161,26 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     }
     CHECK((scatter_gather_present IF_X64(&&expanded)) || (expansion_ok && !expanded),
           "drx_expand_scatter_gather() bad OUT values");
+    if (one_time_mask_clobber_test) {
+        for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+            if (instr_get_opcode(instr) == OP_kandnw) {
+                instr_t *search_app_instr = instr;
+                while (!instr_is_app(search_app_instr)) {
+                    search_app_instr = instr_get_next(search_app_instr);
+                }
+                /* We've found the clobber case of the scatter/gather sequence that
+                 * clobbers the k0 mask register. Then we're inserting a ud2 app
+                 * instruction right after it, so we will SIGILL and can test the value in
+                 * the app's signal handler.
+                 */
+                instrlist_postinsert(bb, instr,
+                                     INSTR_XL8(INSTR_CREATE_ud2a(drcontext),
+                                               instr_get_app_pc(search_app_instr)));
+                /* We don't need to do anything else. */
+                break;
+            }
+        }
+    }
     *user_data = (uint *)dr_thread_alloc(drcontext, sizeof(uint));
     return DR_EMIT_DEFAULT;
 }
