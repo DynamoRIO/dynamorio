@@ -140,15 +140,14 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             scatter_gather_present = true;
         } else if (instr_is_scatter(instr)) {
             scatter_gather_present = true;
-        } else {
-            if (instr_is_mov_constant(instr, &val) && val == TEST_MASK_CLOBBER_MARKER) {
-                instr_t *next_instr = instr_get_next(instr);
-                if (next_instr != NULL) {
-                    if (instr_is_mov_constant(next_instr, &val) &&
-                        val == TEST_MASK_CLOBBER_MARKER) {
-                        one_time_mask_clobber_test = true;
-                        one_time_mask_clobber_translating = true;
-                    }
+        } else if (instr_is_mov_constant(instr, &val) &&
+                   val == TEST_MASK_CLOBBER_MARKER) {
+            instr_t *next_instr = instr_get_next(instr);
+            if (next_instr != NULL) {
+                if (instr_is_mov_constant(next_instr, &val) &&
+                    val == TEST_MASK_CLOBBER_MARKER) {
+                    one_time_mask_clobber_test = true;
+                    one_time_mask_clobber_translating = true;
                 }
             }
         }
