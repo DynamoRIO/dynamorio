@@ -11,7 +11,7 @@ assignees: ''
 **Describe the bug**
 A clear and concise description of what the bug is.  
 
-If you just have a question, please use the users list https://groups.google.com/forum/#!forum/DynamoRIO-Users instead of this issue tracker, as it will reach  wider audience of people who might have an answer, and it will reach other users who may find the information beneficial. The issue tracker is for specific detailed bugs. If you are not sure it's a bug, please start by asking on the users list.
+If you just have a question, please use the users list https://groups.google.com/forum/#!forum/DynamoRIO-Users instead of this issue tracker, as it will reach  wider audience of people who might have an answer, and it will reach other users who may find the information beneficial. The issue tracker is for specific detailed bugs. If you are not sure it's a bug, please start by asking on the users list.  If you have already asked on the users list and the consensus was to file a new issue, please include the URL to the discussion thread here.
 
 DynamoRIO is a tool platform, with end-user tools built on top of it. If you encounter a crash in a tool provided by a third party, please locate the issue tracker for the tool you are using and report the crash there.
 

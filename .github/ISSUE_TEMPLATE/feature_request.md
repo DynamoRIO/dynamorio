@@ -7,8 +7,8 @@ assignees: ''
 
 ---
 
-**Consider first asking on the users list.**
-Please use the users list https://groups.google.com/forum/#!forum/DynamoRIO-Users for questions or to propose initial feature ideas if you're not sure there's an existing solution.  The users list will reach a wider audience of people who may find the information beneficial.
+**Add a pointer to any prior users list discussion.**
+Please use the users list https://groups.google.com/forum/#!forum/DynamoRIO-Users for questions or to propose initial feature ideas if you're not sure there's an existing solution.  The users list will reach a wider audience of people who may find the information beneficial.  If you have already asked on the users list and the consensus was to file a new issue, please include the URL to the discussion thread here.
 
 **Is your feature request related to a problem? Please describe.**
 A clear and concise description of what the problem is.  E.g., "I'm always frustrated when [...]"
