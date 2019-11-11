@@ -160,7 +160,12 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                         CHECK(next_pc != NULL,
                               "Everything should be decodable in the test until a "
                               "gather instruction will be found.");
+                        CHECK(!instr_is_cti(&temp_instr),
+                              "unexpected cti instruction when decoding");
                         if (instr_is_gather(&temp_instr)) {
+                            CHECK(mask_clobber_test_gather_pc == NULL ||
+                                      mask_clobber_test_gather_pc == pc,
+                                  "unexpected gather instruction pc");
                             mask_clobber_test_gather_pc = pc;
                             break;
                         }
