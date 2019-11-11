@@ -67,8 +67,7 @@ inscount(uint num_instrs)
 /* Global, because the markers will be in a different app2app list after breaking up
  * scatter/gather into separate basic blocks during expansion.
  */
-static bool one_time_mask_clobber_test = false;
-static bool one_time_mask_clobber_translating = false;
+static app_pc mask_clobber_test_gather_pc;
 
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
@@ -146,8 +145,26 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             if (next_instr != NULL) {
                 if (instr_is_mov_constant(next_instr, &val) &&
                     val == TEST_MASK_CLOBBER_MARKER) {
-                    one_time_mask_clobber_test = true;
-                    one_time_mask_clobber_translating = true;
+                    byte *pc = instr_get_app_pc(next_instr);
+                    instr_t temp_instr;
+                    instr_init(drcontext, &temp_instr);
+                    /* We're searching for the next gather instruction that will be
+                     * expanded below. We will use its pc to identify the corner case
+                     * instructions where we will inject a ud2 after gather expansion.
+                     */
+                    while (true) {
+                        instr_reset(drcontext, &temp_instr);
+                        byte *next_pc = decode(drcontext, pc, &temp_instr);
+                        CHECK(pc != NULL,
+                              "Everything should be decodable in the test until a "
+                              "gather instruction will be found.");
+                        if (instr_is_gather(&temp_instr)) {
+                            mask_clobber_test_gather_pc = pc;
+                            break;
+                        }
+                        pc = next_pc;
+                    }
+                    instr_free(drcontext, &temp_instr);
                 }
             }
         }
@@ -161,26 +178,26 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     }
     CHECK((scatter_gather_present IF_X64(&&expanded)) || (expansion_ok && !expanded),
           "drx_expand_scatter_gather() bad OUT values");
-    if ((!translating && one_time_mask_clobber_test) ||
-        (translating && one_time_mask_clobber_translating)) {
-        for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
-            if (instr_get_opcode(instr) == OP_kandnw) {
-                /* We've found the clobber case of the scatter/gather sequence that
-                 * clobbers the k0 mask register. Then we're inserting a ud2 app
-                 * instruction right after it, so we will SIGILL and can test the
-                 * value in the app's signal handler.
-                 */
-                instrlist_postinsert(
-                    bb, instr,
-                    INSTR_XL8(INSTR_CREATE_ud2a(drcontext),
-                              instr_get_app_pc(instr_get_next_app(instr))));
-                if (translating)
-                    one_time_mask_clobber_translating = false;
-                else
-                    one_time_mask_clobber_test = false;
-                /* We don't need to do anything else. */
-                break;
-            }
+    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+        if (instr_get_opcode(instr) == OP_kandnw &&
+            instr_get_app_pc(instr) == mask_clobber_test_gather_pc) {
+            /* We've found the clobber case of the scatter/gather sequence that clobbers
+             * the k0 mask register. Then we're inserting a ud2 app instruction right
+             * after it, so we will SIGILL and the value will be tested in the app's
+             * signal handler. We will be here twice: one time during bb creation, and
+             * another time when translating. After that, the app itself will longjmp to
+             * the next subtest and we will neither recreate this code nor translate it.
+             */
+            instrlist_postinsert(
+                bb, instr,
+                INSTR_XL8(INSTR_CREATE_ud2a(drcontext),
+                          /* It's guaranteed by the test that there will be a next app
+                           * instruction, because the emulated sequence consists of 16
+                           * mask updates, and this is just the first.
+                           */
+                          instr_get_app_pc(instr_get_next_app(instr))));
+            /* We don't need to do anything else. */
+            break;
         }
     }
     *user_data = (uint *)dr_thread_alloc(drcontext, sizeof(uint));

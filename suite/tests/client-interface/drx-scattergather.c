@@ -480,7 +480,7 @@ test_avx2_avx512_scatter_gather(void)
     if (SIGSETJMP(mark) == 0)
         test_avx512_restore_mask_fault(ref_sparse_test_buf, test_idx32_vec);
     print("Test restoring the mask register upon asynchronous events\n");
-    /* We will get the SIGILL from an ud2 instruction that the client will insert. */
+    /* We will get the SIGILL from a ud2 instruction that the client will insert. */
     intercept_signal(SIGILL, (handler_3_t)&signal_handler, false);
     /* Restore to a valid value. */
     test_idx32_vec[9] = 0x24;
