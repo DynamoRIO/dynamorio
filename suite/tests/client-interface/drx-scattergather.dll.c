@@ -157,7 +157,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                     while (true) {
                         instr_reset(drcontext, &temp_instr);
                         byte *next_pc = decode(drcontext, pc, &temp_instr);
-                        CHECK(pc != NULL,
+                        CHECK(next_pc != NULL,
                               "Everything should be decodable in the test until a "
                               "gather instruction will be found.");
                         if (instr_is_gather(&temp_instr)) {
