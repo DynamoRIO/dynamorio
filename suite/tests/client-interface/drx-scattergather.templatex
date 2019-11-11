@@ -34,12 +34,16 @@ Test restoring the mask register upon asynchronous events
 #ifdef X64
 ERROR: expected k0 == 0xffff, but is 0x1
 #endif
+Test updating the mask register upon asynchronous events
+#ifdef X64
+ERROR: expected k1 == 0xfffe, but is 0xffff
+#endif
 #endif
 #endif
 AVX2/AVX-512 scatter/gather checks ok
 #ifdef X64
 #ifdef __AVX512F__
-event_exit, 66 scatter/gather instructions
+event_exit, 67 scatter/gather instructions
 #elif defined(__AVX__)
 event_exit, 16 scatter/gather instructions
 #else
@@ -47,7 +51,7 @@ event_exit, 0 scatter/gather instructions
 #endif
 #else
 #ifdef __AVX512F__
-event_exit, 18 scatter/gather instructions
+event_exit, 19 scatter/gather instructions
 #elif defined(__AVX__)
 event_exit, 4 scatter/gather instructions
 #else

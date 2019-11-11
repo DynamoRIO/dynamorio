@@ -31,3 +31,4 @@
  */
 
 #define TEST_MASK_CLOBBER_MARKER 0x23bcfa0e
+#define TEST_MASK_UPDATE_MARKER 0xe1f53a6d
