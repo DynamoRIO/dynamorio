@@ -151,6 +151,8 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                     /* We're searching for the next gather instruction that will be
                      * expanded below. We will use its pc to identify the corner case
                      * instructions where we will inject a ud2 after gather expansion.
+                     * This relies heavily on the exact test app's behavior, as well as
+                     * the scatter/gather expansion's code layout.
                      */
                     while (true) {
                         instr_reset(drcontext, &temp_instr);
