@@ -2233,6 +2233,8 @@ if (CLIENT_INTERFACE)
     if (NOT MACOS)
       # XXX i#2985: The test's asm doesn't build with MacOS's clang.
       tobuild_ci(client.drx-scattergather client-interface/drx-scattergather.c "" "" "")
+      target_include_directories(client.drx-scattergather PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
       use_DynamoRIO_extension(client.drx-scattergather.dll drmgr)
       use_DynamoRIO_extension(client.drx-scattergather.dll drx)
       use_DynamoRIO_extension(client.drx-scattergather.dll drreg)
