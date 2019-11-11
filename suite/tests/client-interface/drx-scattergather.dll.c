@@ -68,6 +68,7 @@ inscount(uint num_instrs)
  * scatter/gather into separate basic blocks during expansion.
  */
 static app_pc mask_clobber_test_gather_pc;
+static app_pc mask_update_test_gather_pc;
 
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
@@ -124,6 +125,31 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     return DR_EMIT_DEFAULT;
 }
 
+static void
+search_for_next_gather_pc(void *drcontext, instr_t *start_instr, byte **gather_pc)
+{
+    byte *pc = instr_get_app_pc(start_instr);
+    instr_t temp_instr;
+    instr_init(drcontext, &temp_instr);
+    /* This relies heavily on the exact test app's behavior, as well as
+     * the scatter/gather expansion's code layout.
+     */
+    while (true) {
+        instr_reset(drcontext, &temp_instr);
+        byte *next_pc = decode(drcontext, pc, &temp_instr);
+        CHECK(next_pc != NULL,
+              "Everything should be decodable in the test until a "
+              "gather instruction will be found.");
+        CHECK(!instr_is_cti(&temp_instr), "unexpected cti instruction when decoding");
+        if (instr_is_gather(&temp_instr)) {
+            *gather_pc = pc;
+            break;
+        }
+        pc = next_pc;
+    }
+    instr_free(drcontext, &temp_instr);
+}
+
 static dr_emit_flags_t
 event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                  bool translating, void **user_data)
@@ -145,33 +171,26 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             if (next_instr != NULL) {
                 if (instr_is_mov_constant(next_instr, &val) &&
                     val == TEST_MASK_CLOBBER_MARKER) {
-                    byte *pc = instr_get_app_pc(next_instr);
-                    instr_t temp_instr;
-                    instr_init(drcontext, &temp_instr);
                     /* We're searching for the next gather instruction that will be
-                     * expanded below. We will use its pc to identify the corner case
+                     * expanded. We will use its pc to identify the corner case
                      * instructions where we will inject a ud2 after gather expansion.
-                     * This relies heavily on the exact test app's behavior, as well as
-                     * the scatter/gather expansion's code layout.
                      */
-                    while (true) {
-                        instr_reset(drcontext, &temp_instr);
-                        byte *next_pc = decode(drcontext, pc, &temp_instr);
-                        CHECK(next_pc != NULL,
-                              "Everything should be decodable in the test until a "
-                              "gather instruction will be found.");
-                        CHECK(!instr_is_cti(&temp_instr),
-                              "unexpected cti instruction when decoding");
-                        if (instr_is_gather(&temp_instr)) {
-                            CHECK(mask_clobber_test_gather_pc == NULL ||
-                                      mask_clobber_test_gather_pc == pc,
-                                  "unexpected gather instruction pc");
-                            mask_clobber_test_gather_pc = pc;
-                            break;
-                        }
-                        pc = next_pc;
-                    }
-                    instr_free(drcontext, &temp_instr);
+                    CHECK(mask_clobber_test_gather_pc == NULL,
+                          "unexpected gather instruction pc");
+                    search_for_next_gather_pc(drcontext, next_instr,
+                                              &mask_clobber_test_gather_pc);
+                }
+            }
+        } else if (instr_is_mov_constant(instr, &val) && val == TEST_MASK_UPDATE_MARKER) {
+            instr_t *next_instr = instr_get_next(instr);
+            if (next_instr != NULL) {
+                if (instr_is_mov_constant(next_instr, &val) &&
+                    val == TEST_MASK_UPDATE_MARKER) {
+                    /* Same comment as above. */
+                    CHECK(mask_update_test_gather_pc == NULL,
+                          "unexpected gather instruction pc");
+                    search_for_next_gather_pc(drcontext, next_instr,
+                                              &mask_update_test_gather_pc);
                 }
             }
         }
@@ -198,11 +217,24 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             instrlist_postinsert(
                 bb, instr,
                 INSTR_XL8(INSTR_CREATE_ud2a(drcontext),
-                          /* It's guaranteed by the test that there will be a next app
-                           * instruction, because the emulated sequence consists of 16
-                           * mask updates, and this is just the first.
+                          /* It's guaranteed by the test that there will be a next
+                           * app instruction, because the emulated sequence consists
+                           * of 16 mask updates, and this is just the first.
                            */
                           instr_get_app_pc(instr_get_next_app(instr))));
+            /* We don't need to do anything else. */
+            break;
+        } else if (instr_get_opcode(instr) == OP_kandnw &&
+                   instr_get_app_pc(instr) == mask_update_test_gather_pc) {
+            /* Same as above, but this time, we inject the ud2 right before the mask
+             * update.
+             */
+            instrlist_preinsert(bb, instr,
+                                INSTR_XL8(INSTR_CREATE_ud2a(drcontext),
+                                          /* It's again guaranteed by the test that there
+                                           * will be a next app instruction.
+                                           */
+                                          instr_get_app_pc(instr_get_next_app(instr))));
             /* We don't need to do anything else. */
             break;
         }
