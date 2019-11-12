@@ -49,11 +49,13 @@
 #    include <stdint.h>
 #    include <setjmp.h>
 #    include "tools.h"
+#    include "drx-scattergather-shared.h"
 
 #    ifndef X86
 #        error "This test is x86 specific."
 #    endif
 
+#    ifdef __AVX512F__
 void
 test_avx512_vpscatterdd(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
                         uint32_t *output_sparse_test_buf OUT);
@@ -114,6 +116,8 @@ test_avx512_vgatherqps(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
 void
 test_avx512_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
                        uint32_t *output_xmm_ymm_zmm OUT);
+#    endif
+#    ifdef __AVX__
 void
 test_avx2_vpgatherdd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
                      uint32_t *output_xmm_ymm_zmm OUT);
@@ -144,9 +148,15 @@ test_avx2_vgatherqps(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
 void
 test_avx2_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
                      uint32_t *output_xmm_ymm_zmm OUT);
+#    endif
+#    ifdef __AVX512F__
 /* See comment above. */
 void
-test_avx512_restore_mask(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec);
+test_avx512_restore_mask_fault(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec);
+/* See comment above. */
+void
+test_avx512_restore_mask_clobber(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec);
+#    endif
 
 #    define SPARSE_FACTOR 4
 #    define XMM_REG_SIZE 16
@@ -177,7 +187,8 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     kernel_xstate_t *xstate = (kernel_xstate_t *)ucxt->uc_mcontext.fpregs;
     __u32 *xstate_kmask_offs =
         (__u32 *)((byte *)xstate + get_xstate_area_offs(CPUID_KMASK_COMP));
-    print("k0 = 0x%x\n", xstate_kmask_offs[0]);
+    if (xstate_kmask_offs[0] != 0xffff)
+        print("ERROR: expected k0 == 0xffff, but is 0x%x\n", xstate_kmask_offs[0]);
 #        else
     /* XXX i#1312: it is unclear if and how the components are arranged in
      * 32-bit mode by the kernel.
@@ -462,12 +473,19 @@ test_avx2_avx512_scatter_gather(void)
 #    endif
 #    ifdef UNIX
 #        ifdef __AVX512F__
-    print("Testing restoring the mask register upon a fault:\n");
+    print("Test restoring the mask register upon a fault\n");
     intercept_signal(SIGSEGV, (handler_3_t)&signal_handler, false);
     /* This index will cause a fault. The index number is arbitrary.*/
     test_idx32_vec[9] = 0xefffffff;
     if (SIGSETJMP(mark) == 0)
-        test_avx512_restore_mask(ref_sparse_test_buf, test_idx32_vec);
+        test_avx512_restore_mask_fault(ref_sparse_test_buf, test_idx32_vec);
+    print("Test restoring the mask register upon asynchronous events\n");
+    /* We will get the SIGILL from a ud2 instruction that the client will insert. */
+    intercept_signal(SIGILL, (handler_3_t)&signal_handler, false);
+    /* Restore to a valid value. */
+    test_idx32_vec[9] = 0x24;
+    if (SIGSETJMP(mark) == 0)
+        test_avx512_restore_mask_clobber(ref_sparse_test_buf, test_idx32_vec);
 #        endif
 #    endif
     return true;
@@ -487,6 +505,7 @@ main(void)
 
 #else /* asm code *************************************************************/
 #    include "asm_defines.asm"
+#    include "drx-scattergather-shared.h"
 /* clang-format off */
 START_FILE
 
@@ -756,8 +775,8 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
 TEST_AVX512_SCATTER_IDX64_VAL64(vpscatterqq)
 TEST_AVX512_SCATTER_IDX64_VAL64(vscatterqpd)
 
-DECLARE_FUNC_SEH(test_avx512_restore_mask)
-  GLOBAL_LABEL(test_avx512_restore_mask:)
+DECLARE_FUNC_SEH(test_avx512_restore_mask_fault)
+  GLOBAL_LABEL(test_avx512_restore_mask_fault:)
         /* uint32_t *ref_sparse_test_buf */
         mov        REG_XAX, ARG1
         /* uint32_t *test_idx32_vec */
@@ -773,7 +792,28 @@ DECLARE_FUNC_SEH(test_avx512_restore_mask)
         add        REG_XSP, FRAME_PADDING
         POP_CALLEE_SAVED_REGS()
         ret
-        END_FUNC(test_avx512_restore_mask)
+        END_FUNC(test_avx512_restore_mask_fault)
+
+DECLARE_FUNC_SEH(test_avx512_restore_mask_clobber)
+  GLOBAL_LABEL(test_avx512_restore_mask_clobber:)
+        /* uint32_t *ref_sparse_test_buf */
+        mov        REG_XAX, ARG1
+        /* uint32_t *test_idx32_vec */
+        mov        REG_XDX, ARG2
+        PUSH_CALLEE_SAVED_REGS()
+        sub        REG_XSP, FRAME_PADDING
+        END_PROLOG
+        mov        REG_XCX, TEST_MASK_CLOBBER_MARKER
+        mov        REG_XCX, TEST_MASK_CLOBBER_MARKER
+        vmovdqu32  zmm1, [REG_XDX]
+        movw       dx, 0xffff
+        kmovw      k0, edx
+        kmovw      k1, edx
+        vpgatherdd zmm0 {k1}, [REG_XAX + zmm1 * 4]
+        add        REG_XSP, FRAME_PADDING
+        POP_CALLEE_SAVED_REGS()
+        ret
+        END_FUNC(test_avx512_restore_mask_clobber)
 
 #endif /* __AVX512F__ */
 
