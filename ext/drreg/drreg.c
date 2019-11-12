@@ -490,6 +490,23 @@ drreg_max_slots_used(OUT uint *max)
  */
 
 #ifdef SIMD_SUPPORTED
+
+static bool
+is_partial_simd_read(instr_t *instr, reg_id_t reg)
+{
+    int i;
+    opnd_t opnd;
+
+    for (i = 0; i < instr_num_srcs(instr); i++) {
+        opnd = instr_get_src(instr, i);
+        if (opnd_is_reg(opnd) && opnd_get_reg(opnd) == reg &&
+            opnd_get_size(opnd) < reg_get_size(reg))
+            return true;
+    }
+
+    return false;
+}
+
 /* Returns true if state has been set. */
 static bool
 determine_simd_liveness_state(void *drcontext, instr_t *inst, reg_id_t reg, void **value)
@@ -513,21 +530,22 @@ determine_simd_liveness_state(void *drcontext, instr_t *inst, reg_id_t reg, void
      * This is important to achieve efficient spilling/restoring.
      */
     if (instr_reads_from_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS)) {
-        if (instr_reads_from_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
-            *value <= SIMD_ZMM_LIVE) {
+        if ((instr_reads_from_exact_reg(inst, zmm_reg, DR_QUERY_INCLUDE_COND_SRCS) ||
+             is_partial_simd_read(inst, zmm_reg)) &&
+            (*value <= SIMD_ZMM_LIVE || *value == SIMD_UNKNOWN)) {
             *value = SIMD_ZMM_LIVE;
-        } else if (instr_reads_from_exact_reg(inst, ymm_reg,
-                                              DR_QUERY_INCLUDE_COND_SRCS) &&
-                   *value <= SIMD_YMM_LIVE) {
+        } else if ((instr_reads_from_exact_reg(inst, ymm_reg,
+                                               DR_QUERY_INCLUDE_COND_SRCS) ||
+                    is_partial_simd_read(inst, ymm_reg)) &&
+                   (*value <= SIMD_YMM_LIVE || *value == SIMD_UNKNOWN)) {
             *value = SIMD_YMM_LIVE;
-        } else if (instr_reads_from_exact_reg(inst, xmm_reg,
-                                              DR_QUERY_INCLUDE_COND_SRCS) &&
-                   *value <= SIMD_XMM_LIVE) {
+        } else if ((instr_reads_from_exact_reg(inst, xmm_reg,
+                                               DR_QUERY_INCLUDE_COND_SRCS) ||
+                    is_partial_simd_read(inst, xmm_reg)) &&
+                   (*value <= SIMD_XMM_LIVE || *value == SIMD_UNKNOWN)) {
             *value = SIMD_XMM_LIVE;
         } else {
-            /* If no exact read is found, then it implies that a partial read is
-             * occurring. Therefore, we just give it the highest live value
-             */
+            DR_ASSERT_MSG(false, "failed to handle SIMD read");
             *value = SIMD_ZMM_LIVE;
         }
         return true;
@@ -651,7 +669,7 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
             get_where_app_pc(inst));
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
              reg++) {
-            void *value = SIMD_ZMM_LIVE;
+            void *value = SIMD_UNKNOWN;
             if (!determine_simd_liveness_state(drcontext, inst, reg, &value)) {
                 if (xfer)
                     value = SIMD_ZMM_LIVE;
