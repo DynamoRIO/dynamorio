@@ -43,6 +43,7 @@
 #include "client_tools.h"
 #include "drmgr.h"
 #include "drwrap.h"
+#include <stdint.h> /* uintptr_t */
 
 #define MALLOC_ROUTINE_NAME IF_WINDOWS_ELSE("HeapAlloc", "malloc")
 
@@ -57,10 +58,11 @@ static bool is_wrapped;
 static bool is_clear;
 static node_t *head;
 
+static const uintptr_t user_value = 9909;
+
 static void
 insert_new_node()
 {
-
     node_t **node = &head;
 
     while (*node != NULL) {
@@ -104,8 +106,26 @@ low_on_memory_event()
         dr_fprintf(STDERR, "low on memory event!\n");
         is_clear = true;
         head = NULL;
+
+        dr_fprintf(STDERR, "priority A\n");
     } else {
         dr_fprintf(STDERR, "another low on memory event!\n");
+    }
+}
+
+static void
+low_on_memory_event_user(void *user_data)
+{
+    if (is_clear) {
+        if (head != NULL)
+            dr_fprintf(STDERR, "clear mismatch - head should be NULL\n");
+
+        dr_fprintf(STDERR, "priority B\n");
+
+        if (user_data != (void *)user_value)
+            dr_fprintf(STDERR, "user data mismatch\n");
+    } else {
+        dr_fprintf(STDERR, "clear mismatch\n");
     }
 }
 
@@ -118,7 +138,8 @@ exit_event(void)
     if (!is_clear)
         dr_fprintf(STDERR, "was not cleared!\n");
 
-    if (!dr_unregister_low_on_memory_event(low_on_memory_event))
+    if (!drmgr_unregister_low_on_memory_event(low_on_memory_event) ||
+        !drmgr_unregister_low_on_memory_event_user_data(low_on_memory_event_user))
         dr_fprintf(STDERR, "unregister failed!\n");
 
     drmgr_unregister_module_load_event(module_load_event);
@@ -148,5 +169,12 @@ dr_init(client_id_t id)
 
     drmgr_register_module_load_event(module_load_event);
     dr_register_exit_event(exit_event);
-    dr_register_low_on_memory_event(low_on_memory_event);
+
+    drmgr_priority_t priority = { sizeof(priority), "low-on-memory", NULL, NULL, 0 };
+    drmgr_priority_t priority_user = { sizeof(priority), "low-on-memory-user", NULL, NULL,
+                                       3 };
+
+    drmgr_register_low_on_memory_event_ex(low_on_memory_event, &priority);
+    drmgr_register_low_on_memory_event_user_data(low_on_memory_event_user, &priority_user,
+                                                 (void *)user_value);
 }

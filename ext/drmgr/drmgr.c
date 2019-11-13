@@ -68,6 +68,8 @@
 #undef dr_unregister_exception_event
 #undef dr_register_restore_state_ex_event
 #undef dr_unregister_restore_state_ex_event
+#undef dr_register_low_on_memory_event
+#undef dr_unregister_low_on_memory_event
 
 /* currently using asserts on internal logic sanity checks (never on
  * input from user) but perhaps we shouldn't since this is a library
@@ -139,6 +141,10 @@ typedef struct _generic_event_entry_t {
             void (*cb_no_user_data)(void *, const module_data_t *);
             void (*cb_user_data)(void *, const module_data_t *, void *);
         } modunload_cb;
+        union {
+            void (*cb_no_user_data)();
+            void (*cb_user_data)(void *);
+        } low_on_memory_cb;
         void (*kernel_xfer_cb)(void *, const dr_kernel_xfer_info_t *);
 #ifdef UNIX
         union {
@@ -281,6 +287,9 @@ static void *modload_event_lock;
 static cb_list_t cblist_modunload;
 static void *modunload_event_lock;
 
+static cb_list_t cblist_low_on_memory;
+static void *low_on_memory_event_lock;
+
 static cb_list_t cblist_kernel_xfer;
 static void *kernel_xfer_event_lock;
 
@@ -327,6 +336,9 @@ drmgr_modload_event(void *drcontext, const module_data_t *info, bool loaded);
 
 static void
 drmgr_modunload_event(void *drcontext, const module_data_t *info);
+
+static void
+drmgr_low_on_memory_event();
 
 static void
 drmgr_kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info);
@@ -376,6 +388,7 @@ drmgr_init(void)
     postsys_event_lock = dr_rwlock_create();
     modload_event_lock = dr_rwlock_create();
     modunload_event_lock = dr_rwlock_create();
+    low_on_memory_event_lock = dr_rwlock_create();
     kernel_xfer_event_lock = dr_rwlock_create();
 #ifdef UNIX
     signal_event_lock = dr_rwlock_create();
@@ -389,6 +402,7 @@ drmgr_init(void)
     dr_register_thread_exit_event(drmgr_thread_exit_event);
     dr_register_module_load_event(drmgr_modload_event);
     dr_register_module_unload_event(drmgr_modunload_event);
+    dr_register_low_on_memory_event(drmgr_low_on_memory_event);
     dr_register_kernel_xfer_event(drmgr_kernel_xfer_event);
 #ifdef UNIX
     dr_register_signal_event(drmgr_signal_event);
@@ -434,6 +448,7 @@ drmgr_exit(void)
 
     dr_unregister_module_load_event(drmgr_modload_event);
     dr_unregister_module_unload_event(drmgr_modunload_event);
+    dr_unregister_low_on_memory_event(drmgr_low_on_memory_event);
     dr_unregister_kernel_xfer_event(drmgr_kernel_xfer_event);
 #ifdef UNIX
     dr_unregister_signal_event(drmgr_signal_event);
@@ -462,6 +477,7 @@ drmgr_exit(void)
     dr_rwlock_destroy(exception_event_lock);
 #endif
     dr_rwlock_destroy(kernel_xfer_event_lock);
+    dr_rwlock_destroy(low_on_memory_event_lock);
     dr_rwlock_destroy(modunload_event_lock);
     dr_rwlock_destroy(modload_event_lock);
     dr_rwlock_destroy(postsys_event_lock);
@@ -1295,6 +1311,7 @@ drmgr_event_init(void)
 
     cblist_init(&cblist_modload, sizeof(generic_event_entry_t));
     cblist_init(&cblist_modunload, sizeof(generic_event_entry_t));
+    cblist_init(&cblist_low_on_memory, sizeof(generic_event_entry_t));
     cblist_init(&cblist_kernel_xfer, sizeof(generic_event_entry_t));
 #ifdef UNIX
     cblist_init(&cblist_signal, sizeof(generic_event_entry_t));
@@ -1320,6 +1337,7 @@ drmgr_event_exit(void)
     cblist_delete(&cblist_postsys);
     cblist_delete(&cblist_modload);
     cblist_delete(&cblist_modunload);
+    cblist_delete(&cblist_low_on_memory);
     cblist_delete(&cblist_kernel_xfer);
 #ifdef UNIX
     cblist_delete(&cblist_signal);
@@ -2504,6 +2522,78 @@ bool
 drmgr_pop_cls(void *drcontext)
 {
     return drmgr_cls_stack_pop();
+}
+
+/***************************************************************************
+ * Low-on-memory
+ */
+
+DR_EXPORT
+bool
+drmgr_register_low_on_memory_event(void (*func)())
+{
+    return drmgr_generic_event_add(&cblist_low_on_memory, low_on_memory_event_lock,
+                                   (void (*)(void))func, NULL, false, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_low_on_memory_event_ex(void (*func)(), drmgr_priority_t *priority)
+{
+    return drmgr_generic_event_add(&cblist_low_on_memory, low_on_memory_event_lock,
+                                   (void (*)(void))func, priority, false, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_low_on_memory_event_user_data(void (*func)(void *user_data),
+                                             drmgr_priority_t *priority, void *user_data)
+{
+    return drmgr_generic_event_add(&cblist_low_on_memory, low_on_memory_event_lock,
+                                   (void (*)(void))func, priority, true, user_data);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_low_on_memory_event(void (*func)())
+{
+    return drmgr_generic_event_remove(&cblist_low_on_memory, low_on_memory_event_lock,
+                                      (void (*)(void))func);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_low_on_memory_event_user_data(void (*func)(void *user_data))
+{
+    return drmgr_generic_event_remove(&cblist_low_on_memory, low_on_memory_event_lock,
+                                      (void (*)(void))func);
+}
+
+static void
+drmgr_low_on_memory_event()
+{
+    void *drcontext = dr_get_current_drcontext();
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
+    dr_rwlock_read_lock(low_on_memory_event_lock);
+    cblist_create_local(drcontext, &cblist_low_on_memory, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
+    dr_rwlock_read_unlock(low_on_memory_event_lock);
+
+    for (i = 0; i < iter.num_def; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+
+        bool is_using_user_data = iter.cbs.generic[i].is_using_user_data;
+        void *user_data = iter.cbs.generic[i].user_data;
+        if (is_using_user_data == false) {
+            (*iter.cbs.generic[i].cb.low_on_memory_cb.cb_no_user_data)();
+        } else {
+            (*iter.cbs.generic[i].cb.low_on_memory_cb.cb_user_data)(user_data);
+        }
+    }
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 }
 
 /***************************************************************************

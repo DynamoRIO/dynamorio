@@ -59,6 +59,12 @@ include(make/policies.cmake NO_POLICY_SCOPE)
 # this must be done prior to the project() command and the var
 # must be set in the cache.
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # Workaround for https://gitlab.kitware.com/cmake/cmake/issues/17992
+  set(CMAKE_SYSTEM_VERSION_TEMP $ENV{WindowsSDKVersion})
+  string(REGEX REPLACE "([0-9.]+).*" "\\1" CMAKE_SYSTEM_VERSION_TEMP "${CMAKE_SYSTEM_VERSION_TEMP}")
+  if (CMAKE_SYSTEM_VERSION_TEMP)
+    set(CMAKE_SYSTEM_VERSION ${CMAKE_SYSTEM_VERSION_TEMP} CACHE INTERNAL "")
+  endif()
   if (DEBUG)
     set(CMAKE_CONFIGURATION_TYPES "Debug" CACHE STRING "" FORCE)
   else (DEBUG)
