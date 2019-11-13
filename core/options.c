@@ -74,7 +74,7 @@ typedef char bool;
 #        define false(0)
 #    endif
 #    ifndef NULL
-#        define NULL (0)
+#        define NULL ((void *)0)
 #    endif
 
 struct stats_type {
