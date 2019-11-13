@@ -137,6 +137,7 @@ search_for_next_scatter_or_gather_pc_impl(void *drcontext, instr_t *start_instr,
     /* This relies heavily on the exact test app's behavior, as well as
      * the scatter/gather expansion's code layout.
      */
+    int instr_count = 0;
     while (true) {
         instr_reset(drcontext, &temp_instr);
         byte *next_pc = decode(drcontext, pc, &temp_instr);
@@ -144,11 +145,15 @@ search_for_next_scatter_or_gather_pc_impl(void *drcontext, instr_t *start_instr,
               "Everything should be decodable in the test until a "
               "scatter or gather instruction will be found.");
         CHECK(!instr_is_cti(&temp_instr), "unexpected cti instruction when decoding");
-        if (search_for_gather && instr_is_gather(&temp_instr))
+        if (search_for_gather && instr_is_gather(&temp_instr)) {
             break;
-        else if (!search_for_gather && instr_is_scatter(&temp_instr))
+        } else if (!search_for_gather && instr_is_scatter(&temp_instr)) {
             break;
+        }
         pc = next_pc;
+        const int INSTRUCTIONS_OFF_MARKERS = 5;
+        if (instr_count++ > INSTRUCTIONS_OFF_MARKERS)
+            return NULL;
     }
     instr_free(drcontext, &temp_instr);
     return pc;
