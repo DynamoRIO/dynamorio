@@ -519,9 +519,10 @@ test_avx2_avx512_scatter_gather(void)
     if (SIGSETJMP(mark) == 0)
         test_avx512_restore_gather_mask_fault(ref_sparse_test_buf, test_idx32_vec);
     print("Test restoring the scatter scratch mask register upon a fault\n");
-    if (SIGSETJMP(mark) == 0)
+    if (SIGSETJMP(mark) == 0) {
         test_avx512_restore_scatter_mask_fault(ref_idx32_val32_xmm_ymm_zmm,
                                                test_idx32_vec, output_sparse_test_buf);
+    }
     /* We will get the SIGILL from a ud2 instruction that the client will insert. */
     intercept_signal(SIGILL, (handler_3_t)&signal_handler_check_k0, false);
     /* Restore to a valid value. */
@@ -530,9 +531,10 @@ test_avx2_avx512_scatter_gather(void)
     if (SIGSETJMP(mark) == 0)
         test_avx512_restore_gather_mask_clobber(ref_sparse_test_buf, test_idx32_vec);
     print("Test restoring the scatter mask register upon asynchronous events\n");
-    if (SIGSETJMP(mark) == 0)
+    if (SIGSETJMP(mark) == 0) {
         test_avx512_restore_scatter_mask_clobber(ref_sparse_test_buf, test_idx32_vec,
                                                  output_sparse_test_buf);
+    }
     /* We will get the SIGILL from a ud2 instruction that the client will insert. */
     intercept_signal(SIGILL, (handler_3_t)&signal_handler_check_k1, false);
     print("Test updating the gather mask register upon asynchronous events\n");
@@ -540,9 +542,10 @@ test_avx2_avx512_scatter_gather(void)
         test_avx512_restore_gather_mask_update(ref_idx32_val32_xmm_ymm_zmm,
                                                test_idx32_vec);
     print("Test updating the scatter mask register upon asynchronous events\n");
-    if (SIGSETJMP(mark) == 0)
+    if (SIGSETJMP(mark) == 0) {
         test_avx512_restore_scatter_mask_update(ref_idx32_val32_xmm_ymm_zmm,
                                                 test_idx32_vec, output_sparse_test_buf);
+    }
 #        endif
 #    endif
     return true;
