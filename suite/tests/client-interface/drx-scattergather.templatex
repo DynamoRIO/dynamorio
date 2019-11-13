@@ -55,7 +55,7 @@ AVX2/AVX-512 scatter/gather checks ok
 #ifdef __AVX512F__
 event_exit, 70 scatter/gather instructions
 #elif defined(__AVX__)
-event_exit, 19 scatter/gather instructions
+event_exit, 16 scatter/gather instructions
 #else
 event_exit, 0 scatter/gather instructions
 #endif
@@ -63,7 +63,7 @@ event_exit, 0 scatter/gather instructions
 #ifdef __AVX512F__
 event_exit, 22 scatter/gather instructions
 #elif defined(__AVX__)
-event_exit, 7 scatter/gather instructions
+event_exit, 4 scatter/gather instructions
 #else
 event_exit, 0 scatter/gather instructions
 #endif
