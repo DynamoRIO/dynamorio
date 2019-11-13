@@ -203,7 +203,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             if (next_instr != NULL) {
                 if (instr_is_mov_constant(next_instr, &val) &&
                     val == TEST_SCATTER_MASK_CLOBBER_MARKER) {
-                    /* Same as above, ut for scatter case. */
+                    /* Same as above, but for scatter case. */
                     CHECK(mask_clobber_test_scatter_pc == NULL,
                           "unexpected scatter instruction pc");
                     mask_clobber_test_scatter_pc =
