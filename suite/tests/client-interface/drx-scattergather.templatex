@@ -28,13 +28,23 @@ AVX2 gather ok
 #endif
 #ifdef UNIX
 #ifdef __AVX512F__
-Test restoring the mask register upon a fault
-Test restoring the mask register upon asynchronous events
+Test restoring the gather scratch mask register upon a fault
+Test restoring the scatter scratch mask register upon a fault
+Test restoring the gather mask register upon asynchronous events
 /* FIXME i2985: remove once restore event has been implemented in drx. */
 #ifdef X64
 ERROR: expected k0 == 0xffff, but is 0x1
 #endif
-Test updating the mask register upon asynchronous events
+Test restoring the scatter mask register upon asynchronous events
+/* FIXME i2985: remove once restore event has been implemented in drx. */
+#ifdef X64
+ERROR: expected k0 == 0xffff, but is 0x1
+#endif
+Test updating the gather mask register upon asynchronous events
+#ifdef X64
+ERROR: expected k1 == 0xfffe, but is 0xffff
+#endif
+Test updating the scatter mask register upon asynchronous events
 #ifdef X64
 ERROR: expected k1 == 0xfffe, but is 0xffff
 #endif
@@ -43,7 +53,7 @@ ERROR: expected k1 == 0xfffe, but is 0xffff
 AVX2/AVX-512 scatter/gather checks ok
 #ifdef X64
 #ifdef __AVX512F__
-event_exit, 67 scatter/gather instructions
+event_exit, 70 scatter/gather instructions
 #elif defined(__AVX__)
 event_exit, 16 scatter/gather instructions
 #else
@@ -51,7 +61,7 @@ event_exit, 0 scatter/gather instructions
 #endif
 #else
 #ifdef __AVX512F__
-event_exit, 19 scatter/gather instructions
+event_exit, 22 scatter/gather instructions
 #elif defined(__AVX__)
 event_exit, 4 scatter/gather instructions
 #else
