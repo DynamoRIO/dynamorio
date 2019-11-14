@@ -31412,22 +31412,27 @@ test_x86_64_s:
  12 00 00
  f2 0f 38 f0 06       crc32  (%rsi), %eax
  f2 48 0f 38 f0 06    crc32  (%rsi), %rax
+ 66 f2 0f 38 f1 06    data16 crc32  (%rsi), %eax
  f2 0f 38 f1 06       crc32  (%rsi), %eax
  f2 48 0f 38 f1 06    crc32  (%rsi), %rax
  f2 0f 38 f0 c0       crc32  %al, %eax
  f2 0f 38 f0 c0       crc32  %al, %eax
  f2 48 0f 38 f0 c0    crc32  %al, %rax
  f2 48 0f 38 f0 c0    crc32  %al, %rax
+ 66 f2 0f 38 f1 c0    data16 crc32  %ax, %eax
+ 66 f2 0f 38 f1 c0    data16 crc32  %ax, %eax
  f2 0f 38 f1 c0       crc32  %eax, %eax
  f2 0f 38 f1 c0       crc32  %eax, %eax
  f2 48 0f 38 f1 c0    crc32  %rax, %rax
  f2 48 0f 38 f1 c0    crc32  %rax, %rax
  f2 48 0f 38 f0 06    crc32  (%rsi), %rax
  f2 0f 38 f0 06       crc32  (%rsi), %eax
+ 66 f2 0f 38 f1 06    data16 crc32  (%rsi), %eax
  f2 0f 38 f1 06       crc32  (%rsi), %eax
  f2 48 0f 38 f1 06    crc32  (%rsi), %rax
  f2 0f 38 f0 c0       crc32  %al, %eax
  f2 48 0f 38 f0 c0    crc32  %al, %rax
+ 66 f2 0f 38 f1 c0    data16 crc32  %ax, %eax
  f2 0f 38 f1 c0       crc32  %eax, %eax
  f2 48 0f 38 f1 c0    crc32  %rax, %rax
  00 00                add    %al, (%rax)
@@ -31477,9 +31482,9 @@ test_x86_64_s:
  8b 98 ff 0f 00 00    mov    0x00000fff(%rax), %ebx
  8b 98 00 00 00 00    mov    0x00000000(%rax), %ebx
  8b 98 03 00 00 00    mov    0x00000003(%rax), %ebx
- eb 07                jmp    $0x0000000010010bd5
- eb 05                jmp    $0x0000000010010bd5
- e9 00 00 00 00       jmp    $0x0000000010010bd5
+ eb 07                jmp    $0x0000000010010bf3
+ eb 05                jmp    $0x0000000010010bf3
+ e9 00 00 00 00       jmp    $0x0000000010010bf3
  89 18                mov    %ebx, (%rax)
  89 58 03             mov    %ebx, 0x03(%rax)
  89 98 ff 0f 00 00    mov    %ebx, 0x00000fff(%rax)
@@ -32272,24 +32277,24 @@ test_x86_64_s:
  0f 01 18             lidt   (%rax)
  0f 01 00             sgdt   (%rax)
  0f 01 10             lgdt   (%rax)
- 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010011b59, %rax
+ 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010011b77, %rax
  48 c7 c0 00 00 00 00 mov    $0x00000000, %rax
  48 8b 04 25 00 00 00 mov    0x00, %rax
  00
- 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010011b6f, %rax
+ 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010011b8d, %rax
  48 8b 81 00 00 00 00 mov    0x00000000(%rcx), %rax
- ff 15 00 00 00 00    call   <rel> 0x0000000010011b7c
+ ff 15 00 00 00 00    call   <rel> 0x0000000010011b9a
  ff 90 00 00 00 00    call   0x00000000(%rax)
- ff 25 00 00 00 00    jmp    <rel> 0x0000000010011b88
+ ff 25 00 00 00 00    jmp    <rel> 0x0000000010011ba6
  ff a1 00 00 00 00    jmp    0x00000000(%rcx)
  48 c7 c0 00 00 00 00 mov    $0x00000000, %rax
  48 8b 04 25 00 00 00 mov    0x00, %rax
  00
- 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010011ba4, %rax
+ 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010011bc2, %rax
  48 8b 81 00 00 00 00 mov    0x00000000(%rcx), %rax
- ff 15 00 00 00 00    call   <rel> 0x0000000010011bb1
+ ff 15 00 00 00 00    call   <rel> 0x0000000010011bcf
  ff 90 00 00 00 00    call   0x00000000(%rax)
- ff 25 00 00 00 00    jmp    <rel> 0x0000000010011bbd
+ ff 25 00 00 00 00    jmp    <rel> 0x0000000010011bdb
  ff a1 00 00 00 00    jmp    0x00000000(%rcx)
  f2 f0 80 11 64       xacquire lock adcb   $0x64, (%rcx)
  f2 f0 80 11 64       xacquire lock adcb   $0x64, (%rcx)
@@ -34088,8 +34093,8 @@ test_x86_64_s:
  66 48 6d             insd
  48 6f                outsd
  66 48 6f             outsd
- eb fe                jmp    $0x0000000010013efe
- e9 00 00 00 00       jmp    $0x0000000010013f05
+ eb fe                jmp    $0x0000000010013f1c
+ e9 00 00 00 00       jmp    $0x0000000010013f23
  ff 24 25 00 00 00 00 jmp    0x00
  ff e7                jmp    %rdi
  ff 27                jmp    (%rdi)
@@ -34099,8 +34104,8 @@ test_x86_64_s:
  ff 2c 25 00 00 00 00 ljmp   0x00
  66 ff 2c 25 00 00 00 data16 ljmp   0x00
  00
- e8 cb ff ff ff       call   $0x0000000010013efe
- e8 00 00 00 00       call   $0x0000000010013f38
+ e8 cb ff ff ff       call   $0x0000000010013f1c
+ e8 00 00 00 00       call   $0x0000000010013f56
  ff 14 25 00 00 00 00 call   0x00
  ff d7                call   %rdi
  ff 17                call   (%rdi)
@@ -34110,22 +34115,22 @@ test_x86_64_s:
  ff 1c 25 00 00 00 00 lcall  0x00
  66 ff 1c 25 00 00 00 data16 lcall  0x00
  00
- 67 e3 00             addr32 jecxz  $0x0000000010013f64
+ 67 e3 00             addr32 jecxz  $0x0000000010013f82
  90                   nop
- e3 00                jrcxz  $0x0000000010013f67
+ e3 00                jrcxz  $0x0000000010013f85
  90                   nop
  66 ff 13             data16 call   (%rbx)
  ff 1b                lcall  (%rbx)
  66 ff 23             data16 jmp    (%rbx)
  ff 2b                ljmp   (%rbx)
- eb 00                jmp    $0x0000000010013f74
+ eb 00                jmp    $0x0000000010013f92
  90                   nop
- 67 e3 00             addr32 jecxz  $0x0000000010013f78
+ 67 e3 00             addr32 jecxz  $0x0000000010013f96
  90                   nop
- e3 00                jrcxz  $0x0000000010013f7b
+ e3 00                jrcxz  $0x0000000010013f99
  90                   nop
- eb 00                jmp    $0x0000000010013f7e
- 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010013f85, %rax
+ eb 00                jmp    $0x0000000010013f9c
+ 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010013fa3, %rax
  f0 01 03             lock add    %eax, (%rbx)
  f0 83 03 64          lock addl   $0x64, (%rbx)
  f0 11 03             lock adc    %eax, (%rbx)
@@ -34892,11 +34897,11 @@ test_x86_64_s:
  48 0f c3 00          movnti %rax, (%rax)
  4d 0f c3 00          movnti %r8, (%r8)
  4c 0f c3 00          movnti %r8, (%rax)
- e2 fe                loop   $0x0000000010014e18
- e2 fe                loop   $0x0000000010014e1a
- 67 e2 fd             addr32 loop   $0x0000000010014e1c
- e3 fe                jrcxz  $0x0000000010014e1f
- 67 e3 fd             addr32 jecxz  $0x0000000010014e21
+ e2 fe                loop   $0x0000000010014e36
+ e2 fe                loop   $0x0000000010014e38
+ 67 e2 fd             addr32 loop   $0x0000000010014e3a
+ e3 fe                jrcxz  $0x0000000010014e3d
+ 67 e3 fd             addr32 jecxz  $0x0000000010014e3f
  41 f6 38             idiv   (%r8), %ax
  f6 38                idiv   (%rax), %ax
  66 41 f7 38          data16 idiv   (%r8), %dx, %ax
@@ -35570,14 +35575,14 @@ test_x86_64_s:
  0f 73 f6 02          psllq  $0x02, %mm6
  66 0f 73 f2 02       psllq  $0x02, %xmm2
  66 0f 73 fa 02       pslldq $0x02, %xmm2
- 0f 84 6b 02 00 00    jz     $0x0000000010015a1e
+ 0f 84 6b 02 00 00    jz     $0x0000000010015a3c
  90                   nop
  90                   nop
  90                   nop
  90                   nop
  90                   nop
  90                   nop
- 0f 84 5f 02 00 00    jz     $0x0000000010015a1e
+ 0f 84 5f 02 00 00    jz     $0x0000000010015a3c
  90                   nop
  90                   nop
  90                   nop
@@ -35712,12 +35717,12 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 74 ff ff ff    jz     $0x00000000100157bf
+ 0f 84 74 ff ff ff    jz     $0x00000000100157dd
  90                   nop
  90                   nop
  90                   nop
  90                   nop
- 0f 84 6a ff ff ff    jz     $0x00000000100157bf
+ 0f 84 6a ff ff ff    jz     $0x00000000100157dd
  90                   nop
  90                   nop
  90                   nop
@@ -35726,7 +35731,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 bb 01 00 00    jz     $0x0000000010015a1e
+ 0f 84 bb 01 00 00    jz     $0x0000000010015a3c
  90                   nop
  90                   nop
  90                   nop
@@ -35737,24 +35742,24 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 4c ff ff ff    jz     $0x00000000100157bf
+ 0f 84 4c ff ff ff    jz     $0x00000000100157dd
  90                   nop
  90                   nop
  90                   nop
  90                   nop
- 0f 84 42 ff ff ff    jz     $0x00000000100157bf
+ 0f 84 42 ff ff ff    jz     $0x00000000100157dd
  4c 8b b4 24 30 01 00 mov    0x00000130(%rsp), %r14
  00
  90                   nop
  90                   nop
- 0f 84 32 ff ff ff    jz     $0x00000000100157bf
- 0f 84 2c ff ff ff    jz     $0x00000000100157bf
+ 0f 84 32 ff ff ff    jz     $0x00000000100157dd
+ 0f 84 2c ff ff ff    jz     $0x00000000100157dd
  4c 8b b4 24 00 01 00 mov    0x00000100(%rsp), %r14
  00
  90                   nop
  90                   nop
  90                   nop
- 0f 84 7a 01 00 00    jz     $0x0000000010015a1e
+ 0f 84 7a 01 00 00    jz     $0x0000000010015a3c
  90                   nop
  90                   nop
  90                   nop
@@ -35765,7 +35770,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 0b ff ff ff    jz     $0x00000000100157bf
+ 0f 84 0b ff ff ff    jz     $0x00000000100157dd
  90                   nop
  90                   nop
  90                   nop
@@ -35779,18 +35784,18 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 f8 fe ff ff    jz     $0x00000000100157bf
+ 0f 84 f8 fe ff ff    jz     $0x00000000100157dd
  48 8d b4 24 b0 01 00 lea    0x000001b0(%rsp), %rsi
  00
- 0f 84 ea fe ff ff    jz     $0x00000000100157bf
+ 0f 84 ea fe ff ff    jz     $0x00000000100157dd
  4c 8b b4 24 b0 00 00 mov    0xb0(%rsp), %r14
  00
- 0f 84 3b 01 00 00    jz     $0x0000000010015a1e
- 0f 84 d6 fe ff ff    jz     $0x00000000100157bf
- 0f 84 d0 fe ff ff    jz     $0x00000000100157bf
+ 0f 84 3b 01 00 00    jz     $0x0000000010015a3c
+ 0f 84 d6 fe ff ff    jz     $0x00000000100157dd
+ 0f 84 d0 fe ff ff    jz     $0x00000000100157dd
  48 8d b4 24 a8 01 00 lea    0x000001a8(%rsp), %rsi
  00
- 0f 84 c2 fe ff ff    jz     $0x00000000100157bf
+ 0f 84 c2 fe ff ff    jz     $0x00000000100157dd
  90                   nop
  90                   nop
  90                   nop
@@ -35813,7 +35818,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 a6 fe ff ff    jz     $0x00000000100157bf
+ 0f 84 a6 fe ff ff    jz     $0x00000000100157dd
  90                   nop
  90                   nop
  90                   nop
@@ -35825,10 +35830,10 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 95 fe ff ff    jz     $0x00000000100157bf
+ 0f 84 95 fe ff ff    jz     $0x00000000100157dd
  48 8d b4 24 a0 01 00 lea    0x000001a0(%rsp), %rsi
  00
- 0f 84 87 fe ff ff    jz     $0x00000000100157bf
+ 0f 84 87 fe ff ff    jz     $0x00000000100157dd
  90                   nop
  90                   nop
  90                   nop
@@ -35850,7 +35855,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 cb 00 00 00    jz     $0x0000000010015a1e
+ 0f 84 cb 00 00 00    jz     $0x0000000010015a3c
  90                   nop
  90                   nop
  90                   nop
@@ -35859,7 +35864,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 5e fe ff ff    jz     $0x00000000100157bf
+ 0f 84 5e fe ff ff    jz     $0x00000000100157dd
  90                   nop
  90                   nop
  90                   nop
@@ -35871,7 +35876,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 4d fe ff ff    jz     $0x00000000100157bf
+ 0f 84 4d fe ff ff    jz     $0x00000000100157dd
  90                   nop
  90                   nop
  90                   nop
@@ -35879,7 +35884,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 40 fe ff ff    jz     $0x00000000100157bf
+ 0f 84 40 fe ff ff    jz     $0x00000000100157dd
  90                   nop
  90                   nop
  90                   nop
@@ -35902,7 +35907,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 83 00 00 00    jz     $0x0000000010015a1e
+ 0f 84 83 00 00 00    jz     $0x0000000010015a3c
  90                   nop
  90                   nop
  90                   nop
@@ -36042,13 +36047,13 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 24 01 00 00    jz     $0x0000000010015b62
+ 0f 84 24 01 00 00    jz     $0x0000000010015b80
  66 66 2e 0f 1f 84 00 data16 nop    %cs:0x00000000(%rax,%rax)
  00 00 00 00
  0f 1f 40 00          nop    0x00(%rax)
  90                   nop
  90                   nop
- 0f 84 0d 01 00 00    jz     $0x0000000010015b62
+ 0f 84 0d 01 00 00    jz     $0x0000000010015b80
  90                   nop
  90                   nop
  90                   nop
@@ -36086,7 +36091,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 e2 00 00 00    jz     $0x0000000010015b62
+ 0f 84 e2 00 00 00    jz     $0x0000000010015b80
  90                   nop
  90                   nop
  90                   nop
@@ -36146,7 +36151,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 a1 00 00 00    jz     $0x0000000010015b62
+ 0f 84 a1 00 00 00    jz     $0x0000000010015b80
  90                   nop
  90                   nop
  90                   nop
@@ -36215,7 +36220,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 74 06                jz     $0x0000000010015b0d
+ 74 06                jz     $0x0000000010015b2b
  66 0f 1f 44 00 00    data16 nop    0x00(%rax,%rax)
  90                   nop
  90                   nop
@@ -36367,17 +36372,17 @@ test_x86_64_s:
  67 f3 48 ab          addr32 rep stosq
  67 f3 48 a7          addr32 rep cmpsq
  67 f3 48 af          addr32 rep scasq
- 8d 05 00 00 00 00    lea    <rel> 0x0000000010015c23, %eax
- 8d 05 11 11 11 11    lea    <rel> 0x0000000021126d3a, %eax
- 8d 05 01 00 00 00    lea    <rel> 0x0000000010015c30, %eax
- 8d 05 00 00 00 00    lea    <rel> 0x0000000010015c35, %eax
+ 8d 05 00 00 00 00    lea    <rel> 0x0000000010015c41, %eax
+ 8d 05 11 11 11 11    lea    <rel> 0x0000000021126d58, %eax
+ 8d 05 01 00 00 00    lea    <rel> 0x0000000010015c4e, %eax
+ 8d 05 00 00 00 00    lea    <rel> 0x0000000010015c53, %eax
  c6 f8 08             xabort $0x08
- c7 f8 fa ff ff ff    xbegin $0x0000000010015c38
- c7 f8 00 00 00 00    xbegin $0x0000000010015c44
+ c7 f8 fa ff ff ff    xbegin $0x0000000010015c56
+ c7 f8 00 00 00 00    xbegin $0x0000000010015c62
  0f 01 d5             xend
  c6 f8 08             xabort $0x08
- c7 f8 fa ff ff ff    xbegin $0x0000000010015c4a
- c7 f8 00 00 00 00    xbegin $0x0000000010015c56
+ c7 f8 fa ff ff ff    xbegin $0x0000000010015c68
+ c7 f8 00 00 00 00    xbegin $0x0000000010015c74
  0f 01 d5             xend
  0f 01 d6             xtest
  8c 18                mov    %ds, (%rax)
@@ -36473,17 +36478,17 @@ test_x86_64_s:
  41 8b 04 64          mov    (%r12), %eax
  41 8b 04 a4          mov    (%r12), %eax
  41 8b 04 e4          mov    (%r12), %eax
- f2 0f d0 0d 78 56 34 addsubps <rel> 0x000000002235b452, %xmm1
+ f2 0f d0 0d 78 56 34 addsubps <rel> 0x000000002235b470, %xmm1
  12
- 66 0f 2f 0d 78 56 34 comisd %xmm1, <rel> 0x000000002235b45a
+ 66 0f 2f 0d 78 56 34 comisd %xmm1, <rel> 0x000000002235b478
  12
- 0f 2f 0d 78 56 34 12 comiss %xmm1, <rel> 0x000000002235b461
- f3 0f e6 0d 78 56 34 cvtdq2pd <rel> 0x000000002235b469, %xmm1
+ 0f 2f 0d 78 56 34 12 comiss %xmm1, <rel> 0x000000002235b47f
+ f3 0f e6 0d 78 56 34 cvtdq2pd <rel> 0x000000002235b487, %xmm1
  12
- f2 0f e6 0d 78 56 34 cvtpd2dq <rel> 0x000000002235b471, %xmm1
+ f2 0f e6 0d 78 56 34 cvtpd2dq <rel> 0x000000002235b48f, %xmm1
  12
- 0f 5a 0d 78 56 34 12 cvtps2pd <rel> 0x000000002235b478, %xmm1
- f3 0f 5b 0d 78 56 34 cvttps2dq <rel> 0x000000002235b480, %xmm1
+ 0f 5a 0d 78 56 34 12 cvtps2pd <rel> 0x000000002235b496, %xmm1
+ f3 0f 5b 0d 78 56 34 cvttps2dq <rel> 0x000000002235b49e, %xmm1
  12
  f3 0f 2a c8          cvtsi2ss %eax, %xmm1
  f2 0f 2a c8          cvtsi2sd %eax, %xmm1
@@ -36499,50 +36504,50 @@ test_x86_64_s:
  f2 0f 2a 08          cvtsi2sd (%rax), %xmm1
  f3 48 0f 2a 08       cvtsi2ss (%rax), %xmm1
  f2 48 0f 2a 08       cvtsi2sd (%rax), %xmm1
- f2 0f 7c 0d 78 56 34 haddps <rel> 0x000000002235b4c6, %xmm1
+ f2 0f 7c 0d 78 56 34 haddps <rel> 0x000000002235b4e4, %xmm1
  12
- f3 0f 7f 0d 78 56 34 movdqu %xmm1, <rel> 0x000000002235b4ce
+ f3 0f 7f 0d 78 56 34 movdqu %xmm1, <rel> 0x000000002235b4ec
  12
- f3 0f 6f 0d 78 56 34 movdqu <rel> 0x000000002235b4d6, %xmm1
+ f3 0f 6f 0d 78 56 34 movdqu <rel> 0x000000002235b4f4, %xmm1
  12
- 66 0f 17 0d 78 56 34 movhpd %xmm1, <rel> 0x000000002235b4de
+ 66 0f 17 0d 78 56 34 movhpd %xmm1, <rel> 0x000000002235b4fc
  12
- 66 0f 16 0d 78 56 34 movhpd <rel> 0x000000002235b4e6, %xmm1
+ 66 0f 16 0d 78 56 34 movhpd <rel> 0x000000002235b504, %xmm1
  12
- 0f 17 0d 78 56 34 12 movhps %xmm1, <rel> 0x000000002235b4ed
- 0f 16 0d 78 56 34 12 movhps <rel> 0x000000002235b4f4, %xmm1
- 66 0f 13 0d 78 56 34 movlpd %xmm1, <rel> 0x000000002235b4fc
+ 0f 17 0d 78 56 34 12 movhps %xmm1, <rel> 0x000000002235b50b
+ 0f 16 0d 78 56 34 12 movhps <rel> 0x000000002235b512, %xmm1
+ 66 0f 13 0d 78 56 34 movlpd %xmm1, <rel> 0x000000002235b51a
  12
- 66 0f 12 0d 78 56 34 movlpd <rel> 0x000000002235b504, %xmm1
+ 66 0f 12 0d 78 56 34 movlpd <rel> 0x000000002235b522, %xmm1
  12
- 0f 13 0d 78 56 34 12 movlps %xmm1, <rel> 0x000000002235b50b
- 0f 12 0d 78 56 34 12 movlps <rel> 0x000000002235b512, %xmm1
- 66 0f d6 0d 78 56 34 movq   %xmm1, <rel> 0x000000002235b51a
+ 0f 13 0d 78 56 34 12 movlps %xmm1, <rel> 0x000000002235b529
+ 0f 12 0d 78 56 34 12 movlps <rel> 0x000000002235b530, %xmm1
+ 66 0f d6 0d 78 56 34 movq   %xmm1, <rel> 0x000000002235b538
  12
- f3 0f 7e 0d 78 56 34 movq   <rel> 0x000000002235b522, %xmm1
+ f3 0f 7e 0d 78 56 34 movq   <rel> 0x000000002235b540, %xmm1
  12
- f3 0f 16 0d 78 56 34 movshdup <rel> 0x000000002235b52a, %xmm1
+ f3 0f 16 0d 78 56 34 movshdup <rel> 0x000000002235b548, %xmm1
  12
- f3 0f 12 0d 78 56 34 movsldup <rel> 0x000000002235b532, %xmm1
+ f3 0f 12 0d 78 56 34 movsldup <rel> 0x000000002235b550, %xmm1
  12
- f3 0f 70 0d 78 56 34 pshufhw <rel> 0x000000002235b53b, $0x90, %xmm1
+ f3 0f 70 0d 78 56 34 pshufhw <rel> 0x000000002235b559, $0x90, %xmm1
  12 90
- f2 0f 70 0d 78 56 34 pshuflw <rel> 0x000000002235b544, $0x90, %xmm1
+ f2 0f 70 0d 78 56 34 pshuflw <rel> 0x000000002235b562, $0x90, %xmm1
  12 90
- 0f 60 0d 78 56 34 12 punpcklbw <rel> 0x000000002235b54b, %mm1
- 0f 62 0d 78 56 34 12 punpckldq <rel> 0x000000002235b552, %mm1
- 0f 61 0d 78 56 34 12 punpcklwd <rel> 0x000000002235b559, %mm1
- 66 0f 60 0d 78 56 34 punpcklbw <rel> 0x000000002235b561, %xmm1
+ 0f 60 0d 78 56 34 12 punpcklbw <rel> 0x000000002235b569, %mm1
+ 0f 62 0d 78 56 34 12 punpckldq <rel> 0x000000002235b570, %mm1
+ 0f 61 0d 78 56 34 12 punpcklwd <rel> 0x000000002235b577, %mm1
+ 66 0f 60 0d 78 56 34 punpcklbw <rel> 0x000000002235b57f, %xmm1
  12
- 66 0f 62 0d 78 56 34 punpckldq <rel> 0x000000002235b569, %xmm1
+ 66 0f 62 0d 78 56 34 punpckldq <rel> 0x000000002235b587, %xmm1
  12
- 66 0f 61 0d 78 56 34 punpcklwd <rel> 0x000000002235b571, %xmm1
+ 66 0f 61 0d 78 56 34 punpcklwd <rel> 0x000000002235b58f, %xmm1
  12
- 66 0f 6c 0d 78 56 34 punpcklqdq <rel> 0x000000002235b579, %xmm1
+ 66 0f 6c 0d 78 56 34 punpcklqdq <rel> 0x000000002235b597, %xmm1
  12
- 66 0f 2e 0d 78 56 34 ucomisd %xmm1, <rel> 0x000000002235b581
+ 66 0f 2e 0d 78 56 34 ucomisd %xmm1, <rel> 0x000000002235b59f
  12
- 0f 2e 0d 78 56 34 12 ucomiss %xmm1, <rel> 0x000000002235b588
+ 0f 2e 0d 78 56 34 12 ucomiss %xmm1, <rel> 0x000000002235b5a6
  f2 0f c2 00 00       cmpsd  (%rax), $0x00, %xmm0
  f3 0f c2 00 00       cmpss  (%rax), $0x00, %xmm0
  66 0f 2a 00          cvtpi2pd (%rax), %xmm0
@@ -36613,17 +36618,17 @@ test_x86_64_s:
  0f f4 00             pmuludq (%rax), %mm0
  66 0f f4 c1          pmuludq %xmm1, %xmm0
  66 0f f4 00          pmuludq (%rax), %xmm0
- f2 0f d0 0d 78 56 34 addsubps <rel> 0x000000002235b6ba, %xmm1
+ f2 0f d0 0d 78 56 34 addsubps <rel> 0x000000002235b6d8, %xmm1
  12
- 66 0f 2f 0d 78 56 34 comisd %xmm1, <rel> 0x000000002235b6c2
+ 66 0f 2f 0d 78 56 34 comisd %xmm1, <rel> 0x000000002235b6e0
  12
- 0f 2f 0d 78 56 34 12 comiss %xmm1, <rel> 0x000000002235b6c9
- f3 0f e6 0d 78 56 34 cvtdq2pd <rel> 0x000000002235b6d1, %xmm1
+ 0f 2f 0d 78 56 34 12 comiss %xmm1, <rel> 0x000000002235b6e7
+ f3 0f e6 0d 78 56 34 cvtdq2pd <rel> 0x000000002235b6ef, %xmm1
  12
- f2 0f e6 0d 78 56 34 cvtpd2dq <rel> 0x000000002235b6d9, %xmm1
+ f2 0f e6 0d 78 56 34 cvtpd2dq <rel> 0x000000002235b6f7, %xmm1
  12
- 0f 5a 0d 78 56 34 12 cvtps2pd <rel> 0x000000002235b6e0, %xmm1
- f3 0f 5b 0d 78 56 34 cvttps2dq <rel> 0x000000002235b6e8, %xmm1
+ 0f 5a 0d 78 56 34 12 cvtps2pd <rel> 0x000000002235b6fe, %xmm1
+ f3 0f 5b 0d 78 56 34 cvttps2dq <rel> 0x000000002235b706, %xmm1
  12
  f3 0f 2a c8          cvtsi2ss %eax, %xmm1
  f2 0f 2a c8          cvtsi2sd %eax, %xmm1
@@ -36641,50 +36646,50 @@ test_x86_64_s:
  f2 48 0f 2a 08       cvtsi2sd (%rax), %xmm1
  f3 48 0f 2a 08       cvtsi2ss (%rax), %xmm1
  f2 48 0f 2a 08       cvtsi2sd (%rax), %xmm1
- f2 0f 7c 0d 78 56 34 haddps <rel> 0x000000002235b738, %xmm1
+ f2 0f 7c 0d 78 56 34 haddps <rel> 0x000000002235b756, %xmm1
  12
- f3 0f 7f 0d 78 56 34 movdqu %xmm1, <rel> 0x000000002235b740
+ f3 0f 7f 0d 78 56 34 movdqu %xmm1, <rel> 0x000000002235b75e
  12
- f3 0f 6f 0d 78 56 34 movdqu <rel> 0x000000002235b748, %xmm1
+ f3 0f 6f 0d 78 56 34 movdqu <rel> 0x000000002235b766, %xmm1
  12
- 66 0f 17 0d 78 56 34 movhpd %xmm1, <rel> 0x000000002235b750
+ 66 0f 17 0d 78 56 34 movhpd %xmm1, <rel> 0x000000002235b76e
  12
- 66 0f 16 0d 78 56 34 movhpd <rel> 0x000000002235b758, %xmm1
+ 66 0f 16 0d 78 56 34 movhpd <rel> 0x000000002235b776, %xmm1
  12
- 0f 17 0d 78 56 34 12 movhps %xmm1, <rel> 0x000000002235b75f
- 0f 16 0d 78 56 34 12 movhps <rel> 0x000000002235b766, %xmm1
- 66 0f 13 0d 78 56 34 movlpd %xmm1, <rel> 0x000000002235b76e
+ 0f 17 0d 78 56 34 12 movhps %xmm1, <rel> 0x000000002235b77d
+ 0f 16 0d 78 56 34 12 movhps <rel> 0x000000002235b784, %xmm1
+ 66 0f 13 0d 78 56 34 movlpd %xmm1, <rel> 0x000000002235b78c
  12
- 66 0f 12 0d 78 56 34 movlpd <rel> 0x000000002235b776, %xmm1
+ 66 0f 12 0d 78 56 34 movlpd <rel> 0x000000002235b794, %xmm1
  12
- 0f 13 0d 78 56 34 12 movlps %xmm1, <rel> 0x000000002235b77d
- 0f 12 0d 78 56 34 12 movlps <rel> 0x000000002235b784, %xmm1
- 66 0f d6 0d 78 56 34 movq   %xmm1, <rel> 0x000000002235b78c
+ 0f 13 0d 78 56 34 12 movlps %xmm1, <rel> 0x000000002235b79b
+ 0f 12 0d 78 56 34 12 movlps <rel> 0x000000002235b7a2, %xmm1
+ 66 0f d6 0d 78 56 34 movq   %xmm1, <rel> 0x000000002235b7aa
  12
- f3 0f 7e 0d 78 56 34 movq   <rel> 0x000000002235b794, %xmm1
+ f3 0f 7e 0d 78 56 34 movq   <rel> 0x000000002235b7b2, %xmm1
  12
- f3 0f 16 0d 78 56 34 movshdup <rel> 0x000000002235b79c, %xmm1
+ f3 0f 16 0d 78 56 34 movshdup <rel> 0x000000002235b7ba, %xmm1
  12
- f3 0f 12 0d 78 56 34 movsldup <rel> 0x000000002235b7a4, %xmm1
+ f3 0f 12 0d 78 56 34 movsldup <rel> 0x000000002235b7c2, %xmm1
  12
- f3 0f 70 0d 78 56 34 pshufhw <rel> 0x000000002235b7ad, $0x90, %xmm1
+ f3 0f 70 0d 78 56 34 pshufhw <rel> 0x000000002235b7cb, $0x90, %xmm1
  12 90
- f2 0f 70 0d 78 56 34 pshuflw <rel> 0x000000002235b7b6, $0x90, %xmm1
+ f2 0f 70 0d 78 56 34 pshuflw <rel> 0x000000002235b7d4, $0x90, %xmm1
  12 90
- 0f 60 0d 78 56 34 12 punpcklbw <rel> 0x000000002235b7bd, %mm1
- 0f 62 0d 78 56 34 12 punpckldq <rel> 0x000000002235b7c4, %mm1
- 0f 61 0d 78 56 34 12 punpcklwd <rel> 0x000000002235b7cb, %mm1
- 66 0f 60 0d 78 56 34 punpcklbw <rel> 0x000000002235b7d3, %xmm1
+ 0f 60 0d 78 56 34 12 punpcklbw <rel> 0x000000002235b7db, %mm1
+ 0f 62 0d 78 56 34 12 punpckldq <rel> 0x000000002235b7e2, %mm1
+ 0f 61 0d 78 56 34 12 punpcklwd <rel> 0x000000002235b7e9, %mm1
+ 66 0f 60 0d 78 56 34 punpcklbw <rel> 0x000000002235b7f1, %xmm1
  12
- 66 0f 62 0d 78 56 34 punpckldq <rel> 0x000000002235b7db, %xmm1
+ 66 0f 62 0d 78 56 34 punpckldq <rel> 0x000000002235b7f9, %xmm1
  12
- 66 0f 61 0d 78 56 34 punpcklwd <rel> 0x000000002235b7e3, %xmm1
+ 66 0f 61 0d 78 56 34 punpcklwd <rel> 0x000000002235b801, %xmm1
  12
- 66 0f 6c 0d 78 56 34 punpcklqdq <rel> 0x000000002235b7eb, %xmm1
+ 66 0f 6c 0d 78 56 34 punpcklqdq <rel> 0x000000002235b809, %xmm1
  12
- 66 0f 2e 0d 78 56 34 ucomisd %xmm1, <rel> 0x000000002235b7f3
+ 66 0f 2e 0d 78 56 34 ucomisd %xmm1, <rel> 0x000000002235b811
  12
- 0f 2e 0d 78 56 34 12 ucomiss %xmm1, <rel> 0x000000002235b7fa
+ 0f 2e 0d 78 56 34 12 ucomiss %xmm1, <rel> 0x000000002235b818
  f2 0f c2 00 00       cmpsd  (%rax), $0x00, %xmm0
  f3 0f c2 00 00       cmpss  (%rax), $0x00, %xmm0
  66 0f 2a 00          cvtpi2pd (%rax), %xmm0
@@ -38277,13 +38282,16 @@ test_x86_64_s:
  66 0f 3a 0a c1 00    roundss %xmm1, $0x00, %xmm0
  f2 0f 38 f0 d9       crc32  %cl, %ebx
  f2 48 0f 38 f0 d9    crc32  %cl, %rbx
+ 66 f2 0f 38 f1 d9    data16 crc32  %cx, %ebx
  f2 0f 38 f1 d9       crc32  %ecx, %ebx
  f2 48 0f 38 f1 d9    crc32  %rcx, %rbx
  f2 0f 38 f0 19       crc32  (%rcx), %ebx
+ 66 f2 0f 38 f1 19    data16 crc32  (%rcx), %ebx
  f2 0f 38 f1 19       crc32  (%rcx), %ebx
  f2 48 0f 38 f1 19    crc32  (%rcx), %rbx
  f2 0f 38 f0 d9       crc32  %cl, %ebx
  f2 48 0f 38 f0 d9    crc32  %cl, %rbx
+ 66 f2 0f 38 f1 d9    data16 crc32  %cx, %ebx
  f2 0f 38 f1 d9       crc32  %ecx, %ebx
  f2 48 0f 38 f1 d9    crc32  %rcx, %rbx
  66 0f 38 37 01       pcmpgtq (%rcx), %xmm0
@@ -38314,14 +38322,16 @@ test_x86_64_s:
  f3 48 0f b8 d9       popcnt %rcx, %rbx
  f2 0f 38 f0 d9       crc32  %cl, %ebx
  f2 48 0f 38 f0 d9    crc32  %cl, %rbx
+ 66 f2 0f 38 f1 d9    data16 crc32  %cx, %ebx
  f2 0f 38 f1 d9       crc32  %ecx, %ebx
  f2 48 0f 38 f1 d9    crc32  %rcx, %rbx
  f2 0f 38 f0 19       crc32  (%rcx), %ebx
- 66 f2 0f 38 f1 19    movbe  %bx, (%rcx)
+ 66 f2 0f 38 f1 19    data16 crc32  (%rcx), %ebx
  f2 0f 38 f1 19       crc32  (%rcx), %ebx
  f2 48 0f 38 f1 19    crc32  (%rcx), %rbx
  f2 0f 38 f0 d9       crc32  %cl, %ebx
  f2 48 0f 38 f0 d9    crc32  %cl, %rbx
+ 66 f2 0f 38 f1 d9    data16 crc32  %cx, %ebx
  f2 0f 38 f1 d9       crc32  %ecx, %ebx
  f2 48 0f 38 f1 d9    crc32  %rcx, %rbx
  66 0f 38 37 01       pcmpgtq (%rcx), %xmm0
@@ -38988,9 +38998,9 @@ test_x86_64_s:
  8f e9 78 01 20       tzmsk  (%rax), %eax
  24 01                and    $0x01, %al
  00 00                add    %al, (%rax)
- 7b 62                jnp    $0x0000000010018c03
- 63 15 20 44 72 7f    movsxd <rel> 0x000000008f73cfc7, %edx
- 7b 34                jnp    $0x0000000010018bdd
+ 7b 62                jnp    $0x0000000010018c3f
+ 63 15 20 44 72 7f    movsxd <rel> 0x000000008f73d003, %edx
+ 7b 34                jnp    $0x0000000010018c19
  12 00                adc    (%rax), %al
  00 7b f3             add    %bh, -0x0d(%rbx)
  0f ae f0             mfence
@@ -40977,7 +40987,7 @@ test_x86_64_s:
  41 03 00             add    (%r8), %eax
  45 03 00             add    (%r8), %r8d
  49 03 00             add    (%r8), %rax
- 03 05 22 22 22 22    add    <rel> 0x000000003223d913, %eax
+ 03 05 22 22 22 22    add    <rel> 0x000000003223d94f, %eax
  03 45 00             add    0x00(%rbp), %eax
  03 04 25 22 22 22 22 add    0x22222222, %eax
  41 03 45 00          add    0x00(%r13), %eax
@@ -41009,12 +41019,12 @@ test_x86_64_s:
  83 04 81 11          addl   $0x11, (%rcx,%rax,4)
  41 83 04 81 11       addl   $0x11, (%r9,%rax,4)
  42 83 04 81 11       addl   $0x11, (%rcx,%r8,4)
- 83 05 22 22 22 22 33 addl   $0x33, <rel> 0x000000003223d98e
- 48 83 05 22 22 22 22 addq   $0x33, <rel> 0x000000003223d996
+ 83 05 22 22 22 22 33 addl   $0x33, <rel> 0x000000003223d9ca
+ 48 83 05 22 22 22 22 addq   $0x33, <rel> 0x000000003223d9d2
  33
- 81 05 22 22 22 22 33 addl   $0x33333333, <rel> 0x000000003223d9a0
+ 81 05 22 22 22 22 33 addl   $0x33333333, <rel> 0x000000003223d9dc
  33 33 33
- 48 81 05 22 22 22 22 addq   $0x33333333, <rel> 0x000000003223d9ab
+ 48 81 05 22 22 22 22 addq   $0x33333333, <rel> 0x000000003223d9e7
  33 33 33 33
  83 04 c5 22 22 22 22 addl   $0x33, 0x22222222(,%rax,8)
  33
@@ -41048,7 +41058,7 @@ test_x86_64_s:
  00 00
  8b 04 25 00 00 00 00 mov    0x00, %eax
  8b 80 00 00 00 00    mov    0x00000000(%rax), %eax
- 8b 05 00 00 00 00    mov    <rel> 0x000000001001b821, %eax
+ 8b 05 00 00 00 00    mov    <rel> 0x000000001001b85d, %eax
  b0 00                mov    $0x00, %al
  66 b8 00 00          data16 mov    $0x0000, %ax
  b8 00 00 00 00       mov    $0x00000000, %eax
@@ -41057,7 +41067,7 @@ test_x86_64_s:
  00 00
  8b 04 25 00 00 00 00 mov    0x00, %eax
  8b 80 00 00 00 00    mov    0x00000000(%rax), %eax
- 8b 05 00 00 00 00    mov    <rel> 0x000000001001b84f, %eax
+ 8b 05 00 00 00 00    mov    <rel> 0x000000001001b88b, %eax
  a0 11 22 33 44 55 66 mov    0x8877665544332211, %al
  77 88
  66 a1 11 22 33 44 55 data16 mov    0x8877665544332211, %ax
@@ -41230,10 +41240,10 @@ test_x86_64_s:
  48 05 00 00 00 00    add    $0x00000000, %rax
  66 b8 00 00          data16 mov    $0x0000, %ax
  b0 00                mov    $0x00, %al
- 8b 05 00 00 00 00    mov    <rel> 0x000000001001bb01, %eax
- 67 8b 05 00 00 00 00 addr32 mov    <rel> 0x000000001001bb08, %eax
- e8 00 00 00 00       call   $0x000000001001bb0d
- e3 00                jrcxz  $0x000000001001bb0f
+ 8b 05 00 00 00 00    mov    <rel> 0x000000001001bb3d, %eax
+ 67 8b 05 00 00 00 00 addr32 mov    <rel> 0x000000001001bb44, %eax
+ e8 00 00 00 00       call   $0x000000001001bb49
+ e3 00                jrcxz  $0x000000001001bb4b
  48 b8 00 00 00 00 00 mov    $0x0000000000000000, %rax
  00 00 00
  48 05 00 00 00 00    add    $0x00000000, %rax
@@ -41242,22 +41252,22 @@ test_x86_64_s:
  00 00 00
  48 05 00 00 00 00    add    $0x00000000, %rax
  8b 83 00 00 00 00    mov    0x00000000(%rbx), %eax
- e8 00 00 00 00       call   $0x000000001001bb40
+ e8 00 00 00 00       call   $0x000000001001bb7c
  48 05 00 00 00 00    add    $0x00000000, %rax
- 48 8d 05 00 00 00 00 lea    <rel> 0x000000001001bb4d, %rax
+ 48 8d 05 00 00 00 00 lea    <rel> 0x000000001001bb89, %rax
  48 05 00 00 00 00    add    $0x00000000, %rax
- 48 05 00 00 00 00    add    $0x00000000, %rax
- 8b 83 00 00 00 00    mov    0x00000000(%rbx), %eax
- e8 00 00 00 00       call   $0x000000001001bb64
  48 05 00 00 00 00    add    $0x00000000, %rax
  8b 83 00 00 00 00    mov    0x00000000(%rbx), %eax
- e8 00 00 00 00       call   $0x000000001001bb75
+ e8 00 00 00 00       call   $0x000000001001bba0
  48 05 00 00 00 00    add    $0x00000000, %rax
  8b 83 00 00 00 00    mov    0x00000000(%rbx), %eax
- e8 00 00 00 00       call   $0x000000001001bb86
+ e8 00 00 00 00       call   $0x000000001001bbb1
  48 05 00 00 00 00    add    $0x00000000, %rax
  8b 83 00 00 00 00    mov    0x00000000(%rbx), %eax
- e8 00 00 00 00       call   $0x000000001001bb97
+ e8 00 00 00 00       call   $0x000000001001bbc2
+ 48 05 00 00 00 00    add    $0x00000000, %rax
+ 8b 83 00 00 00 00    mov    0x00000000(%rbx), %eax
+ e8 00 00 00 00       call   $0x000000001001bbd3
  48 b8 00 00 00 00 00 mov    $0x0000000000000000, %rax
  00 00 00
  48 05 00 00 00 00    add    $0x00000000, %rax
