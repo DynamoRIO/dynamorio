@@ -181,6 +181,15 @@ typedef struct _drreg_options_t {
      * needed.
      */
     bool do_not_sum_slots;
+    /**
+     * The number of spill slots to use for SIMD vector registers.
+     *
+     * Similar to \p num_spill_slots, an additional slot must be
+     * requested for every register held across application instructions.
+     *
+     * The number of slots are added unless \p do_not_sum_slots is specified.
+     */
+    uint num_spill_simd_slots;
 } drreg_options_t;
 
 DR_EXPORT

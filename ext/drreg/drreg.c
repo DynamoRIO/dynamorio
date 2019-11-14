@@ -258,12 +258,14 @@ find_free_slot(per_thread_t *pt)
 static uint
 find_simd_free_slot(per_thread_t *pt)
 {
+    ASSERT(ops.num_spill_simd_slots > 0,
+           "cannot find free SIMD slots if non were initially requested");
     uint i;
-    for (i = 0; i < MAX_SIMD_SPILLS; i++) {
+    for (i = 0; i < ops.num_spill_simd_slots; i++) {
         if (pt->simd_slot_use[i] == DR_REG_NULL)
             return i;
     }
-    return MAX_SIMD_SPILLS;
+    return ops.num_spill_simd_slots;
 }
 #endif
 
@@ -335,6 +337,9 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
     if (res != DRREG_SUCCESS)
         drreg_report_error(res, "failed to reserve tmp register");
     ASSERT(scratch_block_reg != DR_REG_NULL, "invalid register");
+    ASSERT(pt->simd_spills != NULL, "SIMD spill storage cannot be NULL");
+    ASSERT(slot < ops.num_spill_simd_slots,
+           "using slots that is out-of-bounds to the number of SIMD slots requested");
     load_indirect_block(drcontext, pt, tls_simd_offs, ilist, where, scratch_block_reg);
     /* TODO i#3844: This needs to be updated according to its larger simd size when
      * supporting ymm and zmm registers in the future.
@@ -403,6 +408,9 @@ restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slo
     if (res != DRREG_SUCCESS)
         drreg_report_error(res, "failed to reserve scratch block register");
     ASSERT(scratch_block_reg != DR_REG_NULL, "invalid register");
+    ASSERT(pt->simd_spills != NULL, "SIMD spill storage cannot be NULL");
+    ASSERT(slot < ops.num_spill_simd_slots,
+           "using slots that is out-of-bounds to the number of SIMD slots requested");
     load_indirect_block(drcontext, pt, tls_simd_offs, ilist, where, scratch_block_reg);
     if (release && pt->simd_slot_use[slot] == reg)
         pt->simd_slot_use[slot] = DR_REG_NULL;
@@ -453,8 +461,9 @@ get_indirectly_spilled_value(void *drcontext, reg_id_t reg, uint slot,
     if (buf_size < reg_size)
         return false;
     if (reg_is_vector_simd(reg)) {
+        per_thread_t *pt = get_tls_data(drcontext);
+        ASSERT(pt->simd_spills != NULL, "SIMD spill storage cannot be NULL");
         if (reg_is_strictly_xmm(reg)) {
-            per_thread_t *pt = get_tls_data(drcontext);
             memcpy(value_buf, pt->simd_spills + (slot * SIMD_REG_SIZE), reg_size);
             return true;
         } else if (reg_is_strictly_ymm(reg)) {
@@ -781,6 +790,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         restored_for_simd_read[SIMD_IDX(reg)] = false;
         if (!pt->simd_reg[SIMD_IDX(reg)].native) {
+            ASSERT(ops.num_spill_simd_slots > 0, "requested SIMD slots cannot be zero");
             if (drmgr_is_last_instr(drcontext, inst) ||
                 /* This covers reads from all simds, because the applicable range
                  * resembles zmm, and all other x86 simds are included in zmm.
@@ -950,7 +960,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                    (reg_is_strictly_ymm(spilled_reg) && state >= SIMD_YMM_DEAD &&
                     state <= SIMD_ZMM_DEAD) ||
                    (reg_is_strictly_zmm(spilled_reg) && state == SIMD_ZMM_DEAD)))) {
-
+                ASSERT(ops.num_spill_simd_slots > 0,
+                       "requested SIMD slots cannot be zero");
                 uint tmp_slot = MAX_SIMD_SPILLS;
                 if (!restored_for_simd_read[SIMD_IDX(reg)]) {
                     tmp_slot = find_simd_free_slot(pt);
@@ -1439,6 +1450,8 @@ drreg_find_for_simd_reservation(void *drcontext, const drreg_spill_class_t spill
     uint slot = MAX_SIMD_SPILLS;
     reg_id_t best_reg = DR_REG_NULL;
     bool already_spilled = false;
+    if (ops.num_spill_simd_slots == 0)
+        return DRREG_ERROR;
     reg_id_t reg = (reg_id_t)DR_REG_APPLICABLE_STOP_SIMD + 1;
     void *dead_state = get_simd_dead_state(spill_class);
     if (dead_state == SIMD_UNKNOWN)
@@ -2702,7 +2715,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
 #ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++)
         spilled_simd_to[SIMD_IDX(reg)] = MAX_SIMD_SPILLS;
-    for (slot = 0; slot < MAX_SIMD_SPILLS; ++slot)
+    for (slot = 0; slot < ops.num_spill_simd_slots; ++slot)
         simd_slot_use[slot] = DR_REG_NULL;
 #endif
 
@@ -2736,7 +2749,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
 #ifdef SIMD_SUPPORTED
                 } else if (is_indirect_spill) {
                     if (reg_is_vector_simd(reg)) {
-                        if (spilled_simd_to[SIMD_IDX(reg)] < MAX_SIMD_SPILLS &&
+                        if (spilled_simd_to[SIMD_IDX(reg)] < ops.num_spill_simd_slots &&
                             /* allow redundant spill */
                             spilled_simd_to[SIMD_IDX(reg)] != slot) {
                             /* This reg is already spilled: we assume that this new
@@ -2835,7 +2848,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
 #ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         uint slot = spilled_simd_to[SIMD_IDX(reg)];
-        if (slot < MAX_SIMD_SPILLS) {
+        if (slot < ops.num_spill_simd_slots) {
             reg_id_t actualreg = simd_slot_use[slot];
             ASSERT(actualreg != DR_REG_NULL, "internal error, register should be valid");
             if (reg_is_strictly_xmm(actualreg)) {
@@ -2890,13 +2903,17 @@ tls_data_init(void *drcontext, per_thread_t *pt)
         pt->simd_reg[SIMD_IDX(reg)].native = true;
     }
     /* We align the block on a 64-byte boundary. */
-    if (drcontext == GLOBAL_DCONTEXT) {
-        pt->simd_spill_start = dr_global_alloc((SIMD_REG_SIZE * MAX_SIMD_SPILLS) + 63);
-    } else {
-        pt->simd_spill_start =
-            dr_thread_alloc(drcontext, (SIMD_REG_SIZE * MAX_SIMD_SPILLS) + 63);
+    if (ops.num_spill_simd_slots > 0) {
+        if (drcontext == GLOBAL_DCONTEXT) {
+            pt->simd_spill_start =
+                dr_global_alloc((SIMD_REG_SIZE * ops.num_spill_simd_slots) + 63);
+        } else {
+            pt->simd_spill_start = dr_thread_alloc(
+                drcontext, (SIMD_REG_SIZE * ops.num_spill_simd_slots) + 63);
+        }
+        pt->simd_spills = (byte *)ALIGN_FORWARD(pt->simd_spill_start, 64);
     }
-    pt->simd_spills = (byte *)ALIGN_FORWARD(pt->simd_spill_start, 64);
+
 #endif
     pt->aflags.native = true;
     drvector_init(&pt->aflags.live, 20, false /*!synch*/, NULL);
@@ -2913,11 +2930,15 @@ tls_data_free(void *drcontext, per_thread_t *pt)
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         drvector_delete(&pt->simd_reg[SIMD_IDX(reg)].live);
     }
-    if (drcontext == GLOBAL_DCONTEXT) {
-        dr_global_free(pt->simd_spill_start, (SIMD_REG_SIZE * MAX_SIMD_SPILLS) + 63);
-    } else {
-        dr_thread_free(drcontext, pt->simd_spill_start,
-                       (SIMD_REG_SIZE * MAX_SIMD_SPILLS) + 63);
+    if (ops.num_spill_simd_slots > 0) {
+        ASSERT(pt->simd_spill_start != NULL, "SIMD slot storage cannot be NULL")
+        if (drcontext == GLOBAL_DCONTEXT) {
+            dr_global_free(pt->simd_spill_start,
+                           (SIMD_REG_SIZE * ops.num_spill_simd_slots) + 63);
+        } else {
+            dr_thread_free(drcontext, pt->simd_spill_start,
+                           (SIMD_REG_SIZE * ops.num_spill_simd_slots) + 63);
+        }
     }
 #endif
     drvector_delete(&pt->aflags.live);
@@ -2943,6 +2964,18 @@ drreg_thread_exit(void *drcontext)
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     tls_data_free(drcontext, pt);
     dr_thread_free(drcontext, pt, sizeof(*pt));
+}
+
+static uint
+get_updated_num_slots(bool do_not_sum_slots, uint cur_slots, uint new_slots)
+{
+    if (do_not_sum_slots) {
+        if (new_slots > cur_slots)
+            return new_slots;
+        else
+            return cur_slots;
+    } else
+        return cur_slots + new_slots;
 }
 
 drreg_status_t
@@ -3000,18 +3033,20 @@ drreg_init(drreg_options_t *ops_in)
      * the max instead of summing.
      */
     if (ops_in->struct_size > offsetof(drreg_options_t, do_not_sum_slots)) {
-        if (ops_in->do_not_sum_slots) {
-            if (ops_in->num_spill_slots > ops.num_spill_slots)
-                ops.num_spill_slots = ops_in->num_spill_slots;
-        } else
-            ops.num_spill_slots += ops_in->num_spill_slots;
+        ops.num_spill_slots = get_updated_num_slots(
+            ops_in->do_not_sum_slots, ops.num_spill_slots, ops_in->num_spill_slots);
+        if (ops_in->struct_size > offsetof(drreg_options_t, num_spill_simd_slots))
+            ops.num_spill_simd_slots =
+                get_updated_num_slots(ops_in->do_not_sum_slots, ops.num_spill_simd_slots,
+                                      ops_in->num_spill_simd_slots);
         ops.do_not_sum_slots = ops_in->do_not_sum_slots;
     } else {
-        if (ops.do_not_sum_slots) {
-            if (ops_in->num_spill_slots > ops.num_spill_slots)
-                ops.num_spill_slots = ops_in->num_spill_slots;
-        } else
-            ops.num_spill_slots += ops_in->num_spill_slots;
+        ops.num_spill_slots = get_updated_num_slots(
+            ops.do_not_sum_slots, ops.num_spill_slots, ops_in->num_spill_slots);
+        if (ops_in->struct_size > offsetof(drreg_options_t, num_spill_simd_slots))
+            ops.num_spill_simd_slots =
+                get_updated_num_slots(ops.do_not_sum_slots, ops.num_spill_simd_slots,
+                                      ops_in->num_spill_simd_slots);
         ops.do_not_sum_slots = false;
     }
 

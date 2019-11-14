@@ -109,7 +109,9 @@ event_exit(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drreg_options_t ops = { sizeof(ops), 1 /*max slots needed*/, false };
+    drreg_options_t ops = { sizeof(ops), 1 /*max slots needed*/,
+                            false,       NULL,
+                            false,       2 /* max SIMD slots needed */ };
     if (!drmgr_init())
         CHECK(false, "drmgr init failed");
     if (drreg_init(&ops) != DRREG_SUCCESS)

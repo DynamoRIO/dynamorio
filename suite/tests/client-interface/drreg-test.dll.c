@@ -646,7 +646,9 @@ dr_init(client_id_t id)
     /* We actually need 3 slots (flags + 2 scratch) but we want to test using
      * a DR slot.
      */
-    drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
+    drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/,
+                            false,       NULL,
+                            false,       1 /*max SIMD slots needed*/ };
     if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
         CHECK(false, "init failed");
 
