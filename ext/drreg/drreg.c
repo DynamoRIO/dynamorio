@@ -816,6 +816,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     ASSERT(pt->simd_pending_unreserved > 0, "should not go negative");
                     pt->simd_pending_unreserved--;
                 } else {
+                    ASSERT(pt->simd_reg[SIMD_IDX(reg)].slot < ops.num_spill_simd_slots,
+                           "using slots that is out-of-bounds to the number of SIMD "
+                           "slots requested");
                     reg_id_t spilled_reg =
                         pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
                     ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
@@ -950,6 +953,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         if (pt->simd_reg[SIMD_IDX(reg)].in_use) {
             void *state =
                 drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx - 1);
+            ASSERT(pt->simd_reg[SIMD_IDX(reg)].slot < ops.num_spill_simd_slots,
+                   "using slots that is out-of-bounds to the number of SIMD slots "
+                   "requested");
             reg_id_t spilled_reg = pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
             ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
 
@@ -1470,6 +1476,9 @@ drreg_find_for_simd_reservation(void *drcontext, const drreg_spill_class_t spill
                       SIMD_ZMM_DEAD))) {
                 slot = pt->simd_reg[idx].slot;
                 pt->simd_pending_unreserved--;
+                ASSERT(slot < ops.num_spill_simd_slots,
+                       "using slots that is out-of-bounds to the number of SIMD slots "
+                       "requested");
                 reg_id_t spilled_reg = pt->simd_slot_use[slot];
                 already_spilled = pt->simd_reg[idx].ever_spilled &&
                     get_spill_class(spilled_reg) == spill_class;
