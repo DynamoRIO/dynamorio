@@ -140,7 +140,7 @@ typedef struct _reg_info_t {
     /* Where is the app value for this reg? */
     bool native;   /* app value is in original app reg */
     reg_id_t xchg; /* if !native && != REG_NULL, value was exchanged w/ this dead reg */
-    int slot;      /* if !native && xchg==REG_NULL, value is in this TLS slot */
+    int slot;      /* if !native && xchg==REG_NULL, value is in this TLS slot # */
 } reg_info_t;
 
 /* We use this in per_thread_t.slot_use[] and other places */
