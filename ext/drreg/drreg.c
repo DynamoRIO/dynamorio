@@ -3015,6 +3015,9 @@ drreg_init(drreg_options_t *ops_in)
          */
         ops.num_spill_slots = 1;
 #endif
+        /* Request no SIMD slots at the beginning */
+        ops.num_spill_simd_slots = 0;
+
         /* Support use during init when there is no TLS (i#2910). */
         tls_data_init(GLOBAL_DCONTEXT, &init_pt);
     }
