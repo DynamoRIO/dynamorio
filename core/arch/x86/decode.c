@@ -874,7 +874,8 @@ read_prefix_ext(const instr_info_t *info, decode_info_t *di)
 {
     /* discard old info, get new one */
     int code = (int)info->code;
-    int idx = (di->rep_prefix ? 1 : (di->data_prefix ? 2 : (di->repne_prefix ? 3 : 0)));
+    /* The order here matters: rep, then repne, then data (i#2431). */
+    int idx = (di->rep_prefix ? 1 : (di->repne_prefix ? 3 : (di->data_prefix ? 2 : 0)));
     if (di->vex_encoded)
         idx += 4;
     else if (di->evex_encoded)
