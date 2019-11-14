@@ -103,19 +103,28 @@ view_t::process_memref(const memref_t &memref)
     }
 
     if (memref.marker.type == TRACE_TYPE_MARKER) {
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP)
+        switch (memref.marker.marker_type) {
+        case TRACE_MARKER_TYPE_TIMESTAMP:
             std::cerr << "<marker: timestamp " << memref.marker.marker_value << ">\n";
-        else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
+            break;
+        case TRACE_MARKER_TYPE_CPU_ID:
             // We include the thread ID here under the assumption that we will always
             // see a cpuid marker on a thread switch.  To avoid that assumption
             // we would want to track the prior tid and print out a thread switch
             // message whenever it changes.
             std::cerr << "<marker: tid " << memref.marker.tid << " on core "
                       << memref.marker.marker_value << ">\n";
-        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT)
+            break;
+        case TRACE_MARKER_TYPE_KERNEL_EVENT:
             std::cerr << "<marker: kernel xfer to handler>\n";
-        else if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER)
+            break;
+        case TRACE_MARKER_TYPE_KERNEL_XFER:
             std::cerr << "<marker: syscall xfer>\n";
+            break;
+        default:
+            // We ignore other markers such as call/ret profiling for now.
+            break;
+        }
         return true;
     }
 
