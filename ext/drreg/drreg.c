@@ -2716,6 +2716,13 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
         instr_reset(drcontext, &next_inst);
         prev_pc = pc;
         pc = decode(drcontext, pc, &inst);
+        if (pc == NULL) {
+            LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX " \n", __FUNCTION__, prev_pc,
+                "PC decoding returned NULL during state restoration");
+            instr_free(drcontext, &inst);
+            instr_free(drcontext, &next_inst);
+            return true;
+        }
         decode(drcontext, pc, &next_inst);
         if (is_our_spill_or_restore(drcontext, &inst, &next_inst, &is_spill, &reg, &slot,
                                     &offs, &is_indirect_spill)) {
