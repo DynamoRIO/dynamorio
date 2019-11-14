@@ -2750,7 +2750,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
 #ifdef SIMD_SUPPORTED
                 } else if (is_indirect_spill) {
                     if (reg_is_vector_simd(reg)) {
-                        if (spilled_simd_to[SIMD_IDX(reg)] < ops.num_spill_simd_slots &&
+                        if (spilled_simd_to[SIMD_IDX(reg)] < MAX_SIMD_SPILLS &&
                             /* allow redundant spill */
                             spilled_simd_to[SIMD_IDX(reg)] != slot) {
                             /* This reg is already spilled: we assume that this new
