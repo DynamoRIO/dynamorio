@@ -3038,18 +3038,20 @@ drreg_init(drreg_options_t *ops_in)
     if (ops_in->struct_size > offsetof(drreg_options_t, do_not_sum_slots)) {
         ops.num_spill_slots = get_updated_num_slots(
             ops_in->do_not_sum_slots, ops.num_spill_slots, ops_in->num_spill_slots);
-        if (ops_in->struct_size > offsetof(drreg_options_t, num_spill_simd_slots))
+        if (ops_in->struct_size > offsetof(drreg_options_t, num_spill_simd_slots)) {
             ops.num_spill_simd_slots =
                 get_updated_num_slots(ops_in->do_not_sum_slots, ops.num_spill_simd_slots,
                                       ops_in->num_spill_simd_slots);
+        }
         ops.do_not_sum_slots = ops_in->do_not_sum_slots;
     } else {
         ops.num_spill_slots = get_updated_num_slots(
             ops.do_not_sum_slots, ops.num_spill_slots, ops_in->num_spill_slots);
-        if (ops_in->struct_size > offsetof(drreg_options_t, num_spill_simd_slots))
+        if (ops_in->struct_size > offsetof(drreg_options_t, num_spill_simd_slots)) {
             ops.num_spill_simd_slots =
                 get_updated_num_slots(ops.do_not_sum_slots, ops.num_spill_simd_slots,
                                       ops_in->num_spill_simd_slots);
+        }
         ops.do_not_sum_slots = false;
     }
 
