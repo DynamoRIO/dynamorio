@@ -265,7 +265,7 @@ find_simd_free_slot(per_thread_t *pt)
         if (pt->simd_slot_use[i] == DR_REG_NULL)
             return i;
     }
-    return ops.num_spill_simd_slots;
+    return MAX_SIMD_SPILLS;
 }
 #endif
 
