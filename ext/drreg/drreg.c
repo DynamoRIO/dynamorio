@@ -463,6 +463,7 @@ get_indirectly_spilled_value(void *drcontext, reg_id_t reg, uint slot,
     if (reg_is_vector_simd(reg)) {
         per_thread_t *pt = get_tls_data(drcontext);
         ASSERT(pt->simd_spills != NULL, "SIMD spill storage cannot be NULL");
+        ASSERT(slot < ops.num_spill_simd_slots, "slot is out-of-bounds");
         if (reg_is_strictly_xmm(reg)) {
             memcpy(value_buf, pt->simd_spills + (slot * SIMD_REG_SIZE), reg_size);
             return true;
@@ -2848,7 +2849,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
 #ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         uint slot = spilled_simd_to[SIMD_IDX(reg)];
-        if (slot < ops.num_spill_simd_slots) {
+        if (slot < MAX_SIMD_SPILLS) {
             reg_id_t actualreg = simd_slot_use[slot];
             ASSERT(actualreg != DR_REG_NULL, "internal error, register should be valid");
             if (reg_is_strictly_xmm(actualreg)) {
