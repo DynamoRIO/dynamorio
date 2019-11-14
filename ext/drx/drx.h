@@ -63,6 +63,18 @@ extern "C" {
  * INIT
  */
 
+enum {
+    /**
+     * Priority of drx fault handling event.
+     */
+    DRMGR_PRIORITY_FAULT_DRX = -7500,
+};
+
+/**
+ * Name of drx fault handling event.
+ */
+#define DRMGR_PRIORITY_NAME_DRX_FAULT "drx_fault"
+
 DR_EXPORT
 /**
  * Initializes the drx extension.  Must be called prior to any drx routine

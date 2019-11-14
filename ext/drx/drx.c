@@ -106,6 +106,10 @@ drx_buf_init_library(void);
 void
 drx_buf_exit_library(void);
 
+static bool
+drx_event_restore_state(void *drcontext, bool restore_memory,
+                        dr_restore_state_info_t *info);
+
 /***************************************************************************
  * INIT
  */
@@ -125,6 +129,10 @@ drx_init(void)
      */
     drreg_options_t ops = { sizeof(ops), 2, false, NULL, true };
 
+    drmgr_priority_t fault_priority = { sizeof(fault_priority),
+                                        DRMGR_PRIORITY_NAME_DRX_FAULT, NULL, NULL,
+                                        DRMGR_PRIORITY_FAULT_DRX };
+
     int count = dr_atomic_add32_return_sum(&drx_init_count, 1);
     if (count > 1)
         return true;
@@ -136,13 +144,9 @@ drx_init(void)
     if (drreg_init(&ops) != DRREG_SUCCESS)
         return false;
 
-    /* FIXME i#2985: install restore event handler for drx_expand_scatter_gather().
-     * For example, the application state needs to be fixed if the sequence is getting
-     * interrupted after a scalar operation has been completed, but the mask hasn't been
-     * updated yet. We also need to handle asynchronous restore events that hit in the
-     * small window while we're using a scratch mask register when updating the AVX-512
-     * mask.
-     */
+    if (!drmgr_register_restore_state_ex_event_ex(drx_event_restore_state,
+                                                  &fault_priority))
+        return false;
 
     return drx_buf_init_library();
 }
@@ -1797,7 +1801,8 @@ expand_avx2_gather_update_mask(void *drcontext, instrlist_t *bb, instr_t *sg_ins
                                app_pc orig_app_pc)
 {
     /* The width of the mask element and data element is identical per definition of the
-     * instruction. */
+     * instruction.
+     */
     if (sg_info->scalar_value_size == OPSZ_4) {
         PREXL8(
             bb, sg_instr,
@@ -2428,4 +2433,358 @@ drx_expand_scatter_gather_exit:
         *expanded = false;
     return true;
 #endif
+}
+
+/***************************************************************************
+ * RESTORE STATE
+ *
+ * The following state machines exist in order to detect restore events that need
+ * additional attention by drx in order to fix the application state on top of the
+ * fixes that drreg already makes. For the AVX-512 scatter/gather sequences this are
+ * instruction windows where a scratch mask is being used, and the windows after
+ * each scalar load/store but before the destination mask register update. For AVX2,
+ * the scratch mask is a xmm register and will be handled by drreg directly (future
+ * update, xref #3844).
+ *
+ * The state machines allow for instructions like drreg spill/restore and instrumentation
+ * in between recognized states. This is an approximation and could be broken in many
+ * ways, e.g. by a client adding more than DRX_RESTORE_EVENT_ALLOW_FOR_UNKNOWN_INSTR
+ * number of instructions as instrumentation, or by altering the emulation sequence's
+ * code.
+ *
+ * AVX-512 gather sequence detection example:
+ *
+ *         mov           (%rax,%rcx,4)[4byte] -> %ecx
+ * (a)     vextracti32x4 {%k0} $0x00 %zmm0 -> %xmm2
+ * (a)     vpinsrd       %xmm2 %ecx $0x00 -> %xmm2
+ * (a)     vinserti32x4  {%k0} $0x00 %zmm0 %xmm2 -> %zmm0
+ * (a)     mov           $0x00000001 -> %ecx
+ * (a)     mov           %rdx -> %gs:0x00000098[8byte]
+ * (a) (b) kmovw         %k0 -> %edx
+ * (a) (b) kmovw         %ecx -> %k0
+ * (a) (b) kandnw        %k0 %k1 -> %k1
+ *     (b) kmovw         %edx -> %k0
+ *
+ * (a): The instruction window the destination mask state is stale.
+ * (b): The instruction window the scratch mask is clobbered w/o support by drreg.
+ *
+ * AVX-512 scatter sequence detection example:
+ * TODO i#2985: support.
+ *
+ * AVX2 gather sequence detection example:
+ * TODO i#2985: support.
+ */
+
+#define DRX_RESTORE_EVENT_ALLOW_FOR_UNKNOWN_INSTR 32
+
+/* States of the AVX-512 gather detection state machine. */
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0 0
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1 1
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2 2
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3 3
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4 4
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5 5
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6 6
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7 7
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8 8
+
+/* TODO i#2985: implement a state machine for AVX-512 scatter
+ * as well as AVX2 gather.
+ */
+
+/* Returns false if counter has exceeded threshold, true otherwise. */
+static inline bool
+allow_for_unknown_instr_inc(int *allow_for_unknown_instr_count)
+{
+    if (*allow_for_unknown_instr_count++ < DRX_RESTORE_EVENT_ALLOW_FOR_UNKNOWN_INSTR)
+        return true;
+    return false;
+}
+
+static void
+advance_state(int *detect_state, int new_detect_state, int *allow_for_unknown_instr_count)
+{
+    *detect_state = new_detect_state;
+    *allow_for_unknown_instr_count = 0;
+}
+
+static void
+drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_t *info,
+                                         instr_t *inst, scatter_gather_info_t *sg_info)
+{
+    byte *prev_pc, *pc;
+    byte *restore_dest_mask_start = NULL;
+    byte *restore_scratch_mask_start = NULL;
+    int detect_state = 0;
+    int allow_for_unknown_instr_count = 0;
+    reg_id_t tmp_xmm = DR_REG_NULL;
+    reg_id_t gpr_bit_mask = DR_REG_NULL;
+    reg_id_t gpr_save_scratch_mask = DR_REG_NULL;
+    int scalar_mask_update_no = 0;
+    pc = info->fragment_info.cache_start_pc;
+    /* As the state machine is looking for blocks of code that the fault may hit, the 128
+     * bytes is a conservative approximation of the block's size, see (a) and (b) above.
+     */
+    while (pc <= info->raw_mcontext->pc + 128) {
+        instr_reset(drcontext, inst);
+        prev_pc = pc;
+        pc = decode(drcontext, pc, inst);
+        if (pc == NULL) {
+            /* Upon a decoding error we simply give up. */
+            return;
+        }
+        /* If there is a gather or scatter instruction in the code cache, then it is wise
+         * to assume that this is not an emulated sequence that we need to examine
+         * further.
+         */
+        if (instr_is_gather(inst))
+            return;
+        if (instr_is_scatter(inst))
+            return;
+        switch (detect_state) {
+        case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0:
+            if (instr_reads_memory(inst)) {
+                opnd_t dst0 = instr_get_dst(inst, 0);
+                if (opnd_is_reg(dst0) && reg_is_gpr(opnd_get_reg(dst0))) {
+                    restore_dest_mask_start = pc;
+                    advance_state(&detect_state,
+                                  DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1,
+                                  &allow_for_unknown_instr_count);
+                    break;
+                }
+            }
+            break;
+        case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1:
+            if (instr_get_opcode(inst) == OP_vextracti32x4) {
+                reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(inst, 0));
+                if (!reg_is_strictly_xmm(tmp_reg))
+                    break;
+                tmp_xmm = tmp_reg;
+                advance_state(&detect_state,
+                              DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2,
+                              &allow_for_unknown_instr_count);
+                break;
+            }
+            /* Intentionally not else if */
+            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
+                break;
+            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
+                          &allow_for_unknown_instr_count);
+            break;
+        case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2:
+            ASSERT(tmp_xmm != DR_REG_NULL,
+                   "internal error: expected xmm register to be recorded in state "
+                   "machine.");
+            if (instr_get_opcode(inst) == OP_vpinsrd) {
+                reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(inst, 0));
+                if (tmp_reg == tmp_xmm) {
+                    advance_state(&detect_state,
+                                  DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3,
+                                  &allow_for_unknown_instr_count);
+                    break;
+                }
+            }
+            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
+                break;
+            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
+                          &allow_for_unknown_instr_count);
+            break;
+        case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3:
+            if (instr_get_opcode(inst) == OP_vinserti32x4) {
+                reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(inst, 0));
+                if (tmp_reg == sg_info->gather_dst_reg) {
+                    advance_state(&detect_state,
+                                  DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4,
+                                  &allow_for_unknown_instr_count);
+                    break;
+                }
+            }
+            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
+                break;
+            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
+                          &allow_for_unknown_instr_count);
+            break;
+        case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4: {
+            ptr_int_t val;
+            if (instr_is_mov_constant(inst, &val)) {
+                /* If more than one bit is set, this is not what we're looking for. */
+                if (!val || (val & (val - 1))) {
+                    detect_state = DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0;
+                    break;
+                }
+                opnd_t dst0 = instr_get_dst(inst, 0);
+                if (opnd_is_reg(dst0)) {
+                    reg_id_t tmp_gpr = opnd_get_reg(dst0);
+                    if (reg_is_gpr(tmp_gpr)) {
+                        gpr_bit_mask = tmp_gpr;
+                        advance_state(&detect_state,
+                                      DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5,
+                                      &allow_for_unknown_instr_count);
+                        break;
+                    }
+                }
+            }
+            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
+                break;
+            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
+                          &allow_for_unknown_instr_count);
+            break;
+        }
+        case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5:
+            if (instr_get_opcode(inst) == OP_kmovw) {
+                opnd_t src0 = instr_get_src(inst, 0);
+                if (opnd_is_reg(src0) && opnd_get_reg(src0) == DR_REG_K0) {
+                    opnd_t dst0 = instr_get_dst(inst, 0);
+                    if (opnd_is_reg(dst0)) {
+                        reg_id_t tmp_gpr = opnd_get_reg(dst0);
+                        if (reg_is_gpr(tmp_gpr)) {
+                            gpr_save_scratch_mask = tmp_gpr;
+                            advance_state(&detect_state,
+                                          DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6,
+                                          &allow_for_unknown_instr_count);
+                            break;
+                        }
+                    }
+                }
+            }
+            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
+                break;
+            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
+                          &allow_for_unknown_instr_count);
+            break;
+        case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6:
+            ASSERT(gpr_bit_mask != DR_REG_NULL,
+                   "internal error: expected gpr register to be recorded in state "
+                   "machine.");
+            if (instr_get_opcode(inst) == OP_kmovw) {
+                opnd_t src0 = instr_get_src(inst, 0);
+                if (opnd_is_reg(src0) && opnd_get_reg(src0) == gpr_bit_mask) {
+                    opnd_t dst0 = instr_get_dst(inst, 0);
+                    if (opnd_is_reg(dst0) && opnd_get_reg(dst0) == DR_REG_K0) {
+                        restore_scratch_mask_start = pc;
+                        advance_state(&detect_state,
+                                      DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7,
+                                      &allow_for_unknown_instr_count);
+                        break;
+                    }
+                }
+            }
+            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
+                break;
+            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
+                          &allow_for_unknown_instr_count);
+            break;
+        case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7:
+            if (instr_get_opcode(inst) == OP_kandnw) {
+                opnd_t src0 = instr_get_src(inst, 0);
+                opnd_t src1 = instr_get_src(inst, 1);
+                opnd_t dst0 = instr_get_dst(inst, 0);
+                if (opnd_is_reg(src0) && opnd_get_reg(src0) == DR_REG_K0) {
+                    if (opnd_is_reg(src1) && opnd_get_reg(src1) == sg_info->mask_reg) {
+                        if (opnd_is_reg(dst0) &&
+                            opnd_get_reg(dst0) == sg_info->mask_reg) {
+                            if (restore_dest_mask_start <= info->raw_mcontext->pc &&
+                                info->raw_mcontext->pc <= prev_pc) {
+                                /* Fix the gather's destination mask here and zeroe
+                                 * out the bit that the emulation sequence hadn't done
+                                 * before the fault hit.
+                                 */
+                                info->mcontext->opmask[sg_info->mask_reg - DR_REG_K0] &=
+                                    ~(1 << scalar_mask_update_no);
+                            }
+                            /* We are counting the scalar load number in the sequence
+                             * here.
+                             */
+                            scalar_mask_update_no++;
+                            uint no_of_elements =
+                                opnd_size_in_bytes(sg_info->scatter_gather_size) /
+                                MAX(opnd_size_in_bytes(sg_info->scalar_index_size),
+                                    opnd_size_in_bytes(sg_info->scalar_value_size));
+                            if (scalar_mask_update_no > no_of_elements) {
+                                /* Unlikely that something looks identical to a emulation
+                                 * sequence for this long, but we safely can return here.
+                                 */
+                                return;
+                            }
+                            advance_state(&detect_state,
+                                          DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8,
+                                          &allow_for_unknown_instr_count);
+                            break;
+                        }
+                    }
+                }
+            }
+            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
+                break;
+            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
+                          &allow_for_unknown_instr_count);
+            break;
+        case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8:
+            if (instr_get_opcode(inst) == OP_kmovw) {
+                opnd_t dst0 = instr_get_dst(inst, 0);
+                if (opnd_is_reg(dst0) && opnd_get_reg(dst0) == DR_REG_K0) {
+                    opnd_t src0 = instr_get_src(inst, 0);
+                    if (opnd_is_reg(src0)) {
+                        reg_id_t tmp_gpr = opnd_get_reg(src0);
+                        if (reg_is_gpr(tmp_gpr)) {
+                            if (restore_scratch_mask_start <= info->raw_mcontext->pc &&
+                                info->raw_mcontext->pc <= prev_pc) {
+                                /* The scratch mask is always k0. this is hard-coded
+                                 * in drx. We carefully only update the lowest 16 bits
+                                 * because the mask was saved with kmovw.
+                                 */
+                                ASSERT(sizeof(info->mcontext->opmask[0]) ==
+                                           sizeof(long long),
+                                       "internal error: unexpected opmask slot size");
+                                info->mcontext->opmask[0] &= ~0xffffLL;
+                                info->mcontext->opmask[0] |=
+                                    reg_get_value(gpr_save_scratch_mask, info->mcontext) &
+                                    0xffff;
+                                advance_state(
+                                    &detect_state,
+                                    DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
+                                    &allow_for_unknown_instr_count);
+                            }
+                        }
+                    }
+                }
+            }
+            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
+                break;
+            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
+                          &allow_for_unknown_instr_count);
+            break;
+        default: ASSERT(false, "internal error: invalid state.");
+        }
+    }
+}
+
+static bool
+drx_event_restore_state(void *drcontext, bool restore_memory,
+                        dr_restore_state_info_t *info)
+{
+    instr_t inst;
+    if (info->fragment_info.cache_start_pc == NULL)
+        return true; /* fault not in cache */
+    instr_init(drcontext, &inst);
+    byte *pc = decode(drcontext, dr_fragment_app_pc(info->fragment_info.tag), &inst);
+    if (pc != NULL) {
+        if (instr_is_gather(&inst)) {
+            /* XXX i#2985: if !info->fragment_info.app_code_consistent, we run the state
+             * machine anyway.
+             */
+            scatter_gather_info_t sg_info;
+            get_scatter_gather_info(&inst, &sg_info);
+            if (sg_info.is_evex) {
+                drx_try_to_detect_avx512_gather_sequence(drcontext, info, &inst,
+                                                         &sg_info);
+            } else {
+                /* TODO i#2985: support AVX2 gather. */
+            }
+        } else if (instr_is_scatter(&inst)) {
+            /* TODO i#2985: support AVX-512 scatter. */
+        }
+    }
+    instr_free(drcontext, &inst);
+    return true;
 }
