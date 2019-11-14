@@ -140,7 +140,7 @@ typedef struct _reg_info_t {
     /* Where is the app value for this reg? */
     bool native;   /* app value is in original app reg */
     reg_id_t xchg; /* if !native && != REG_NULL, value was exchanged w/ this dead reg */
-    int slot;      /* if !native && xchg==REG_NULL, value is in this TLS slot # */
+    int slot;      /* if !native && xchg==REG_NULL, value is in this TLS slot */
 } reg_info_t;
 
 /* We use this in per_thread_t.slot_use[] and other places */
@@ -2931,7 +2931,7 @@ tls_data_free(void *drcontext, per_thread_t *pt)
         drvector_delete(&pt->simd_reg[SIMD_IDX(reg)].live);
     }
     if (ops.num_spill_simd_slots > 0) {
-        ASSERT(pt->simd_spill_start != NULL, "SIMD slot storage cannot be NULL")
+        ASSERT(pt->simd_spill_start != NULL, "SIMD slot storage cannot be NULL");
         if (drcontext == GLOBAL_DCONTEXT) {
             dr_global_free(pt->simd_spill_start,
                            (SIMD_REG_SIZE * ops.num_spill_simd_slots) + 63);
