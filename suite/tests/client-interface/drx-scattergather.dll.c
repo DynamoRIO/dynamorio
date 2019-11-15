@@ -37,6 +37,7 @@
 #include "drreg.h"
 #include "drx.h"
 #include "drx-scattergather-shared.h"
+#include <limits.h>
 
 #define CHECK(x, msg)                                                                \
     do {                                                                             \
@@ -67,10 +68,11 @@ inscount(uint num_instrs)
 /* Global, because the markers will be in a different app2app list after breaking up
  * scatter/gather into separate basic blocks during expansion.
  */
-static app_pc mask_clobber_test_gather_pc;
-static app_pc mask_update_test_gather_pc;
-static app_pc mask_clobber_test_scatter_pc;
-static app_pc mask_update_test_scatter_pc;
+static app_pc mask_clobber_test_avx512_gather_pc = (app_pc)INT_MAX;
+static app_pc mask_update_test_avx512_gather_pc = (app_pc)INT_MAX;
+static app_pc mask_clobber_test_avx512_scatter_pc = (app_pc)INT_MAX;
+static app_pc mask_update_test_avx512_scatter_pc = (app_pc)INT_MAX;
+static app_pc mask_update_test_avx2_gather_pc = (app_pc)INT_MAX;
 
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
@@ -187,58 +189,71 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         } else if (instr_is_scatter(instr)) {
             scatter_gather_present = true;
         } else if (instr_is_mov_constant(instr, &val) &&
-                   val == TEST_GATHER_MASK_CLOBBER_MARKER) {
+                   val == TEST_AVX512_GATHER_MASK_CLOBBER_MARKER) {
             instr_t *next_instr = instr_get_next(instr);
             if (next_instr != NULL) {
                 if (instr_is_mov_constant(next_instr, &val) &&
-                    val == TEST_GATHER_MASK_CLOBBER_MARKER) {
+                    val == TEST_AVX512_GATHER_MASK_CLOBBER_MARKER) {
                     /* We're searching for the next gather instruction that will be
                      * expanded. We will use its pc to identify the corner case
                      * instructions where we will inject a ud2 after gather expansion.
                      */
-                    CHECK(mask_clobber_test_gather_pc == NULL,
+                    CHECK(mask_clobber_test_avx512_gather_pc == (app_pc)INT_MAX,
                           "unexpected gather instruction pc");
-                    mask_clobber_test_gather_pc =
+                    mask_clobber_test_avx512_gather_pc =
                         search_for_next_gather_pc(drcontext, next_instr);
                 }
             }
         } else if (instr_is_mov_constant(instr, &val) &&
-                   val == TEST_SCATTER_MASK_CLOBBER_MARKER) {
+                   val == TEST_AVX512_SCATTER_MASK_CLOBBER_MARKER) {
             instr_t *next_instr = instr_get_next(instr);
             if (next_instr != NULL) {
                 if (instr_is_mov_constant(next_instr, &val) &&
-                    val == TEST_SCATTER_MASK_CLOBBER_MARKER) {
+                    val == TEST_AVX512_SCATTER_MASK_CLOBBER_MARKER) {
                     /* Same as above, but for scatter case. */
-                    CHECK(mask_clobber_test_scatter_pc == NULL,
+                    CHECK(mask_clobber_test_avx512_scatter_pc == (app_pc)INT_MAX,
                           "unexpected scatter instruction pc");
-                    mask_clobber_test_scatter_pc =
+                    mask_clobber_test_avx512_scatter_pc =
                         search_for_next_scatter_pc(drcontext, next_instr);
                 }
             }
         } else if (instr_is_mov_constant(instr, &val) &&
-                   val == TEST_GATHER_MASK_UPDATE_MARKER) {
+                   val == TEST_AVX512_GATHER_MASK_UPDATE_MARKER) {
             instr_t *next_instr = instr_get_next(instr);
             if (next_instr != NULL) {
                 if (instr_is_mov_constant(next_instr, &val) &&
-                    val == TEST_GATHER_MASK_UPDATE_MARKER) {
+                    val == TEST_AVX512_GATHER_MASK_UPDATE_MARKER) {
                     /* Same comment as above. */
-                    CHECK(mask_update_test_gather_pc == NULL,
+                    CHECK(mask_update_test_avx512_gather_pc == (app_pc)INT_MAX,
                           "unexpected gather instruction pc");
-                    mask_update_test_gather_pc =
+                    mask_update_test_avx512_gather_pc =
                         search_for_next_gather_pc(drcontext, next_instr);
                 }
             }
         } else if (instr_is_mov_constant(instr, &val) &&
-                   val == TEST_SCATTER_MASK_UPDATE_MARKER) {
+                   val == TEST_AVX512_SCATTER_MASK_UPDATE_MARKER) {
             instr_t *next_instr = instr_get_next(instr);
             if (next_instr != NULL) {
                 if (instr_is_mov_constant(next_instr, &val) &&
-                    val == TEST_SCATTER_MASK_UPDATE_MARKER) {
+                    val == TEST_AVX512_SCATTER_MASK_UPDATE_MARKER) {
                     /* Same comment as above. */
-                    CHECK(mask_update_test_scatter_pc == NULL,
+                    CHECK(mask_update_test_avx512_scatter_pc == (app_pc)INT_MAX,
                           "unexpected scatter instruction pc");
-                    mask_update_test_scatter_pc =
+                    mask_update_test_avx512_scatter_pc =
                         search_for_next_scatter_pc(drcontext, next_instr);
+                }
+            }
+        } else if (instr_is_mov_constant(instr, &val) &&
+                   val == TEST_AVX2_GATHER_MASK_UPDATE_MARKER) {
+            instr_t *next_instr = instr_get_next(instr);
+            if (next_instr != NULL) {
+                if (instr_is_mov_constant(next_instr, &val) &&
+                    val == TEST_AVX2_GATHER_MASK_UPDATE_MARKER) {
+                    /* Same comment as above. */
+                    CHECK(mask_update_test_avx2_gather_pc == (app_pc)INT_MAX,
+                          "unexpected gather instruction pc");
+                    mask_update_test_avx2_gather_pc =
+                        search_for_next_gather_pc(drcontext, next_instr);
                 }
             }
         }
@@ -254,8 +269,8 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
           "drx_expand_scatter_gather() bad OUT values");
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         if (instr_get_opcode(instr) == OP_kandnw &&
-            (instr_get_app_pc(instr) == mask_clobber_test_gather_pc ||
-             instr_get_app_pc(instr) == mask_clobber_test_scatter_pc)) {
+            (instr_get_app_pc(instr) == mask_clobber_test_avx512_gather_pc ||
+             instr_get_app_pc(instr) == mask_clobber_test_avx512_scatter_pc)) {
             /* We've found the clobber case of the scatter/gather sequence that clobbers
              * the k0 mask register. Then we're inserting a ud2 app instruction right
              * after it, so we will SIGILL and the value will be tested in the app's
@@ -274,8 +289,8 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             /* We don't need to do anything else. */
             break;
         } else if (instr_get_opcode(instr) == OP_kandnw &&
-                   (instr_get_app_pc(instr) == mask_update_test_gather_pc ||
-                    instr_get_app_pc(instr) == mask_update_test_scatter_pc)) {
+                   (instr_get_app_pc(instr) == mask_update_test_avx512_gather_pc ||
+                    instr_get_app_pc(instr) == mask_update_test_avx512_scatter_pc)) {
             /* Same as above, but this time, we inject the ud2 right before the mask
              * update.
              */
@@ -285,6 +300,14 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                                            * will be a next app instruction.
                                            */
                                           instr_get_app_pc(instr_get_next_app(instr))));
+        } else if (instr_is_mov(instr) && instr_reads_memory(instr) &&
+                   (instr_get_app_pc(instr) == mask_update_test_avx2_gather_pc)) {
+            instrlist_postinsert(bb, instr,
+                                 INSTR_XL8(INSTR_CREATE_ud2a(drcontext),
+                                           /* It's again guaranteed by the test that there
+                                            * will be a next app instruction.
+                                            */
+                                           instr_get_app_pc(instr_get_next_app(instr))));
             /* We don't need to do anything else. */
             break;
         }
