@@ -814,10 +814,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     ASSERT(pt->simd_pending_unreserved > 0, "should not go negative");
                     pt->simd_pending_unreserved--;
                 } else {
-                    ASSERT(pt->simd_reg[SIMD_IDX(reg)].slot < ops.num_spill_simd_slots,
-                           "slot is out-of-bounds");
-                    reg_id_t spilled_reg =
-                        pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
+                    uint slot = pt->simd_reg[SIMD_IDX(reg)].slot;
+                    ASSERT(slot < ops.num_spill_simd_slots, "slot is out-of-bounds");
+                    reg_id_t spilled_reg = pt->simd_slot_use[slot];
                     ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
                     uint tmp_slot = find_simd_free_slot(pt);
                     if (tmp_slot == MAX_SIMD_SPILLS) {
@@ -828,8 +827,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                         "%s @%d." PFX ": restoring %s for app read\n", __FUNCTION__,
                         pt->live_idx, get_where_app_pc(inst), get_register_name(reg));
                     spill_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, inst);
-                    restore_reg_indirectly(drcontext, pt, spilled_reg,
-                                           pt->simd_reg[SIMD_IDX(reg)].slot, bb, inst,
+                    restore_reg_indirectly(drcontext, pt, spilled_reg, slot, bb, inst,
                                            false /*keep slot*/);
                     restore_reg_indirectly(drcontext, pt, spilled_reg, tmp_slot, bb, next,
                                            true);
