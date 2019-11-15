@@ -408,8 +408,7 @@ restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slo
         drreg_report_error(res, "failed to reserve scratch block register");
     ASSERT(scratch_block_reg != DR_REG_NULL, "invalid register");
     ASSERT(pt->simd_spills != NULL, "SIMD spill storage cannot be NULL");
-    ASSERT(slot < ops.num_spill_simd_slots,
-           "using slots that is out-of-bounds to the number of SIMD slots requested");
+    ASSERT(slot < ops.num_spill_simd_slots, "slot is out-of-bounds");
     load_indirect_block(drcontext, pt, tls_simd_offs, ilist, where, scratch_block_reg);
     if (release && pt->simd_slot_use[slot] == reg)
         pt->simd_slot_use[slot] = DR_REG_NULL;
@@ -816,8 +815,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     pt->simd_pending_unreserved--;
                 } else {
                     ASSERT(pt->simd_reg[SIMD_IDX(reg)].slot < ops.num_spill_simd_slots,
-                           "using slots that is out-of-bounds to the number of SIMD "
-                           "slots requested");
+                           "slot is out-of-bounds");
                     reg_id_t spilled_reg =
                         pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
                     ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
@@ -953,8 +951,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
             void *state =
                 drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx - 1);
             ASSERT(pt->simd_reg[SIMD_IDX(reg)].slot < ops.num_spill_simd_slots,
-                   "using slots that is out-of-bounds to the number of SIMD slots "
-                   "requested");
+                   "slot is out-of-bounds");
             reg_id_t spilled_reg = pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot];
             ASSERT(spilled_reg != DR_REG_NULL, "invalid spilled reg");
 
@@ -1475,9 +1472,7 @@ drreg_find_for_simd_reservation(void *drcontext, const drreg_spill_class_t spill
                       SIMD_ZMM_DEAD))) {
                 slot = pt->simd_reg[idx].slot;
                 pt->simd_pending_unreserved--;
-                ASSERT(slot < ops.num_spill_simd_slots,
-                       "using slots that is out-of-bounds to the number of SIMD slots "
-                       "requested");
+                ASSERT(slot < ops.num_spill_simd_slots, "slot is out-of-bounds");
                 reg_id_t spilled_reg = pt->simd_slot_use[slot];
                 already_spilled = pt->simd_reg[idx].ever_spilled &&
                     get_spill_class(spilled_reg) == spill_class;
@@ -2898,6 +2893,39 @@ get_tls_data(void *drcontext)
     return pt;
 }
 
+#ifdef SIMD_SUPPORTED
+static void
+tls_alloc_simd_slots(void *drcontext, OUT byte **simd_spill_start, OUT byte **simd_spills,
+                     uint num_slots)
+{
+    *simd_spill_start = NULL;
+    *simd_spills = NULL;
+
+    if (num_slots > 0) {
+        if (drcontext == GLOBAL_DCONTEXT) {
+            *simd_spill_start = dr_global_alloc((SIMD_REG_SIZE * num_slots) + 63);
+        } else {
+            *simd_spill_start =
+                dr_thread_alloc(drcontext, (SIMD_REG_SIZE * num_slots) + 63);
+        }
+        *simd_spills = (byte *)ALIGN_FORWARD(*simd_spill_start, 64);
+    }
+}
+
+static void
+tls_free_simd_slots(void *drcontext, byte *simd_spill_start, uint num_slots)
+{
+    if (ops.num_spill_simd_slots > 0) {
+        ASSERT(simd_spill_start != NULL, "SIMD slot storage cannot be NULL");
+        if (drcontext == GLOBAL_DCONTEXT) {
+            dr_global_free(simd_spill_start, (SIMD_REG_SIZE * num_slots) + 63);
+        } else {
+            dr_thread_free(drcontext, simd_spill_start, (SIMD_REG_SIZE * num_slots) + 63);
+        }
+    }
+}
+#endif
+
 static void
 tls_data_init(void *drcontext, per_thread_t *pt)
 {
@@ -2914,19 +2942,8 @@ tls_data_init(void *drcontext, per_thread_t *pt)
         pt->simd_reg[SIMD_IDX(reg)].native = true;
     }
     /* We align the block on a 64-byte boundary. */
-    if (ops.num_spill_simd_slots > 0) {
-        if (drcontext == GLOBAL_DCONTEXT) {
-            pt->simd_spill_start =
-                dr_global_alloc((SIMD_REG_SIZE * ops.num_spill_simd_slots) + 63);
-        } else {
-            pt->simd_spill_start = dr_thread_alloc(
-                drcontext, (SIMD_REG_SIZE * ops.num_spill_simd_slots) + 63);
-        }
-        pt->simd_spills = (byte *)ALIGN_FORWARD(pt->simd_spill_start, 64);
-
-        ASSERT(pt->simd_spill_start != NULL, "SIMD slot storage cannot be NULL");
-    }
-
+    tls_alloc_simd_slots(drcontext, &(pt->simd_spill_start), &(pt->simd_spills),
+                         ops.num_spill_simd_slots);
 #endif
     pt->aflags.native = true;
     drvector_init(&pt->aflags.live, 20, false /*!synch*/, NULL);
@@ -2943,16 +2960,7 @@ tls_data_free(void *drcontext, per_thread_t *pt)
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         drvector_delete(&pt->simd_reg[SIMD_IDX(reg)].live);
     }
-    if (ops.num_spill_simd_slots > 0) {
-        ASSERT(pt->simd_spill_start != NULL, "SIMD slot storage cannot be NULL");
-        if (drcontext == GLOBAL_DCONTEXT) {
-            dr_global_free(pt->simd_spill_start,
-                           (SIMD_REG_SIZE * ops.num_spill_simd_slots) + 63);
-        } else {
-            dr_thread_free(drcontext, pt->simd_spill_start,
-                           (SIMD_REG_SIZE * ops.num_spill_simd_slots) + 63);
-        }
-    }
+    tls_free_simd_slots(drcontext, pt->simd_spill_start, ops.num_spill_simd_slots);
 #endif
     drvector_delete(&pt->aflags.live);
 }
@@ -2969,8 +2977,6 @@ drreg_thread_init(void *drcontext)
      */
     void **addr = (void **)(pt->tls_seg_base + tls_simd_offs);
     *addr = pt->simd_spills;
-
-    ASSERT(pt->simd_spills, "cannot be NULL");
 }
 
 static void
@@ -2997,6 +3003,10 @@ drreg_status_t
 drreg_init(drreg_options_t *ops_in)
 {
     uint prior_slots = ops.num_spill_slots;
+#ifdef SIMD_SUPPORTED
+    uint prior_simd_slots = ops.num_spill_simd_slots;
+#endif
+
     drmgr_priority_t high_priority = { sizeof(high_priority),
                                        DRMGR_PRIORITY_NAME_DRREG_HIGH, NULL, NULL,
                                        DRMGR_PRIORITY_INSERT_DRREG_HIGH };
@@ -3090,6 +3100,25 @@ drreg_init(drreg_options_t *ops_in)
      */
     if (!dr_raw_tls_calloc(&tls_seg, &tls_simd_offs, ops.num_spill_slots + 1, 0))
         return DRREG_ERROR_OUT_OF_SLOTS;
+
+#ifdef SIMD_SUPPORTED
+    if (prior_simd_slots < ops.num_spill_simd_slots) {
+        /* Refresh init_pt */
+
+        byte *simd_spill_start;
+        byte *simd_spills;
+        tls_alloc_simd_slots(GLOBAL_DCONTEXT, &simd_spill_start, &simd_spills,
+                             ops.num_spill_simd_slots);
+
+        if (prior_simd_slots > 0) {
+            memcpy(simd_spills, init_pt.simd_spills, (SIMD_REG_SIZE * prior_simd_slots));
+            tls_free_simd_slots(GLOBAL_DCONTEXT, init_pt.simd_spill_start,
+                                prior_simd_slots);
+        }
+        init_pt.simd_spill_start = simd_spill_start;
+        init_pt.simd_spills = simd_spills;
+    }
+#endif
 
     /* Increment offset so that we now directly point to GPR slots, skipping the
      * pointer to the indirect SIMD block. We are treating this extra slot differently
