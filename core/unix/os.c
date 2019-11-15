@@ -4318,8 +4318,8 @@ os_create_memory_file(const char *name, size_t size)
         return INVALID_FILE;
     }
     file_t priv_fd = fd_priv_dup(fd);
+    close_syscall(fd); /* Close the old descriptor on success *and* error. */
     if (priv_fd < 0) {
-        close_syscall(fd);
         return INVALID_FILE;
     }
     fd = priv_fd;
