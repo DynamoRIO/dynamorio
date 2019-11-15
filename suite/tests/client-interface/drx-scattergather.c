@@ -152,10 +152,28 @@ test_avx2_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
 #    ifdef __AVX512F__
 /* See comment above. */
 void
-test_avx512_restore_mask_fault(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec);
+test_avx512_restore_gather_mask_fault(uint32_t *ref_sparse_test_buf,
+                                      uint32_t *test_idx32_vec);
 /* See comment above. */
 void
-test_avx512_restore_mask_clobber(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec);
+test_avx512_restore_gather_mask_clobber(uint32_t *ref_sparse_test_buf,
+                                        uint32_t *test_idx32_vec);
+/* See comment above. */
+void
+test_avx512_restore_gather_mask_update(uint32_t *ref_sparse_test_buf,
+                                       uint32_t *test_idx32_vec);
+/* See comment above. */
+void
+test_avx512_restore_scatter_mask_fault(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
+                                       uint32_t *output_sparse_test_buf OUT);
+/* See comment above. */
+void
+test_avx512_restore_scatter_mask_clobber(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
+                                         uint32_t *output_sparse_test_buf OUT);
+/* See comment above. */
+void
+test_avx512_restore_scatter_mask_update(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
+                                        uint32_t *output_sparse_test_buf OUT);
 #    endif
 
 #    define SPARSE_FACTOR 4
@@ -181,7 +199,7 @@ get_xstate_area_offs(int xstate_component)
 }
 
 static void
-signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+signal_handler_check_k0(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
 #        ifdef X64
     kernel_xstate_t *xstate = (kernel_xstate_t *)ucxt->uc_mcontext.fpregs;
@@ -189,6 +207,27 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
         (__u32 *)((byte *)xstate + get_xstate_area_offs(CPUID_KMASK_COMP));
     if (xstate_kmask_offs[0] != 0xffff)
         print("ERROR: expected k0 == 0xffff, but is 0x%x\n", xstate_kmask_offs[0]);
+#        else
+    /* XXX i#1312: it is unclear if and how the components are arranged in
+     * 32-bit mode by the kernel.
+     */
+#        endif
+    SIGLONGJMP(mark, 1);
+}
+
+static void
+signal_handler_check_k1(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+#        ifdef X64
+    kernel_xstate_t *xstate = (kernel_xstate_t *)ucxt->uc_mcontext.fpregs;
+    __u32 *xstate_kmask_offs =
+        (__u32 *)((byte *)xstate + get_xstate_area_offs(CPUID_KMASK_COMP));
+    /* This check hardcodes an assumption that the rest of the test will make the SIGILL
+     * event appear in the mask update code right after the first scalar load, so we
+     * expect the lowest mask bit to be cleared.
+     */
+    if (xstate_kmask_offs[2] != 0xfffe)
+        print("ERROR: expected k1 == 0xfffe, but is 0x%x\n", xstate_kmask_offs[2]);
 #        else
     /* XXX i#1312: it is unclear if and how the components are arranged in
      * 32-bit mode by the kernel.
@@ -473,19 +512,40 @@ test_avx2_avx512_scatter_gather(void)
 #    endif
 #    ifdef UNIX
 #        ifdef __AVX512F__
-    print("Test restoring the mask register upon a fault\n");
-    intercept_signal(SIGSEGV, (handler_3_t)&signal_handler, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&signal_handler_check_k0, false);
     /* This index will cause a fault. The index number is arbitrary.*/
     test_idx32_vec[9] = 0xefffffff;
+    print("Test restoring the gather scratch mask register upon a fault\n");
     if (SIGSETJMP(mark) == 0)
-        test_avx512_restore_mask_fault(ref_sparse_test_buf, test_idx32_vec);
-    print("Test restoring the mask register upon asynchronous events\n");
+        test_avx512_restore_gather_mask_fault(ref_sparse_test_buf, test_idx32_vec);
+    print("Test restoring the scatter scratch mask register upon a fault\n");
+    if (SIGSETJMP(mark) == 0) {
+        test_avx512_restore_scatter_mask_fault(ref_idx32_val32_xmm_ymm_zmm,
+                                               test_idx32_vec, output_sparse_test_buf);
+    }
     /* We will get the SIGILL from a ud2 instruction that the client will insert. */
-    intercept_signal(SIGILL, (handler_3_t)&signal_handler, false);
+    intercept_signal(SIGILL, (handler_3_t)&signal_handler_check_k0, false);
     /* Restore to a valid value. */
     test_idx32_vec[9] = 0x24;
+    print("Test restoring the gather mask register upon asynchronous events\n");
     if (SIGSETJMP(mark) == 0)
-        test_avx512_restore_mask_clobber(ref_sparse_test_buf, test_idx32_vec);
+        test_avx512_restore_gather_mask_clobber(ref_sparse_test_buf, test_idx32_vec);
+    print("Test restoring the scatter mask register upon asynchronous events\n");
+    if (SIGSETJMP(mark) == 0) {
+        test_avx512_restore_scatter_mask_clobber(ref_sparse_test_buf, test_idx32_vec,
+                                                 output_sparse_test_buf);
+    }
+    /* We will get the SIGILL from a ud2 instruction that the client will insert. */
+    intercept_signal(SIGILL, (handler_3_t)&signal_handler_check_k1, false);
+    print("Test updating the gather mask register upon asynchronous events\n");
+    if (SIGSETJMP(mark) == 0)
+        test_avx512_restore_gather_mask_update(ref_idx32_val32_xmm_ymm_zmm,
+                                               test_idx32_vec);
+    print("Test updating the scatter mask register upon asynchronous events\n");
+    if (SIGSETJMP(mark) == 0) {
+        test_avx512_restore_scatter_mask_update(ref_idx32_val32_xmm_ymm_zmm,
+                                                test_idx32_vec, output_sparse_test_buf);
+    }
 #        endif
 #    endif
     return true;
@@ -775,45 +835,65 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
 TEST_AVX512_SCATTER_IDX64_VAL64(vpscatterqq)
 TEST_AVX512_SCATTER_IDX64_VAL64(vscatterqpd)
 
-DECLARE_FUNC_SEH(test_avx512_restore_mask_fault)
-  GLOBAL_LABEL(test_avx512_restore_mask_fault:)
-        /* uint32_t *ref_sparse_test_buf */
-        mov        REG_XAX, ARG1
-        /* uint32_t *test_idx32_vec */
-        mov        REG_XDX, ARG2
-        PUSH_CALLEE_SAVED_REGS()
-        sub        REG_XSP, FRAME_PADDING
-        END_PROLOG
-        vmovdqu32  zmm1, [REG_XDX]
-        movw       dx, 0xffff
-        kmovw      k0, edx
-        kmovw      k1, edx
-        vpgatherdd zmm0 {k1}, [REG_XAX + zmm1 * 4]
-        add        REG_XSP, FRAME_PADDING
-        POP_CALLEE_SAVED_REGS()
-        ret
-        END_FUNC(test_avx512_restore_mask_fault)
+#define TEST_AVX512_GATHER_MASK_RESTORE_EVENT(name, marker) @N@\
+DECLARE_FUNC_SEH(FUNCNAME(name))                            @N@\
+  GLOBAL_LABEL(FUNCNAME(name):)                             @N@\
+        /* uint32_t *ref_sparse_test_buf */                 @N@\
+        mov        REG_XAX, ARG1                            @N@\
+        /* uint32_t *test_idx32_vec */                      @N@\
+        mov        REG_XDX, ARG2                            @N@\
+        PUSH_CALLEE_SAVED_REGS()                            @N@\
+        sub        REG_XSP, FRAME_PADDING                   @N@\
+        END_PROLOG                                          @N@\
+        mov        REG_XCX, marker                          @N@\
+        mov        REG_XCX, marker                          @N@\
+        vmovdqu32  zmm1, [REG_XDX]                          @N@\
+        movw       dx, 0xffff                               @N@\
+        kmovw      k0, edx                                  @N@\
+        kmovw      k1, edx                                  @N@\
+        vpgatherdd zmm0 {k1}, [REG_XAX + zmm1 * 4]          @N@\
+        add        REG_XSP, FRAME_PADDING                   @N@\
+        POP_CALLEE_SAVED_REGS()                             @N@\
+        ret                                                 @N@\
+        END_FUNC(FUNCNAME(name))
 
-DECLARE_FUNC_SEH(test_avx512_restore_mask_clobber)
-  GLOBAL_LABEL(test_avx512_restore_mask_clobber:)
-        /* uint32_t *ref_sparse_test_buf */
-        mov        REG_XAX, ARG1
-        /* uint32_t *test_idx32_vec */
-        mov        REG_XDX, ARG2
-        PUSH_CALLEE_SAVED_REGS()
-        sub        REG_XSP, FRAME_PADDING
-        END_PROLOG
-        mov        REG_XCX, TEST_MASK_CLOBBER_MARKER
-        mov        REG_XCX, TEST_MASK_CLOBBER_MARKER
-        vmovdqu32  zmm1, [REG_XDX]
-        movw       dx, 0xffff
-        kmovw      k0, edx
-        kmovw      k1, edx
-        vpgatherdd zmm0 {k1}, [REG_XAX + zmm1 * 4]
-        add        REG_XSP, FRAME_PADDING
-        POP_CALLEE_SAVED_REGS()
-        ret
-        END_FUNC(test_avx512_restore_mask_clobber)
+#define TEST_AVX512_SCATTER_MASK_RESTORE_EVENT(name, marker) @N@\
+DECLARE_FUNC_SEH(FUNCNAME(name))                             @N@\
+  GLOBAL_LABEL(FUNCNAME(name):)                              @N@\
+        /* uint32_t *xmm_ymm_zmm */                          @N@\
+        mov         REG_XAX, ARG1                            @N@\
+        /* uint32_t *output_sparse_test_buf OUT */           @N@\
+        mov        REG_XCX, ARG3                             @N@\
+        /* uint32_t *test_idx32_vec */                       @N@\
+        mov         REG_XDX, ARG2                            @N@\
+        PUSH_CALLEE_SAVED_REGS()                             @N@\
+        sub         REG_XSP, FRAME_PADDING                   @N@\
+        END_PROLOG                                           @N@\
+        vmovdqu32   zmm0, [REG_XAX + 48]                     @N@\
+        mov         REG_XAX, marker                          @N@\
+        mov         REG_XAX, marker                          @N@\
+        vmovdqu32   zmm1, [REG_XDX]                          @N@\
+        movw        dx, 0xffff                               @N@\
+        kmovw       k0, edx                                  @N@\
+        kmovw       k1, edx                                  @N@\
+        vpscatterdd [REG_XCX + zmm1 * 4] {k1}, zmm0          @N@\
+        add         REG_XSP, FRAME_PADDING                   @N@\
+        POP_CALLEE_SAVED_REGS()                              @N@\
+        ret                                                  @N@\
+        END_FUNC(FUNCNAME(name))
+
+/* No marker is needed for the fault test. */
+TEST_AVX512_GATHER_MASK_RESTORE_EVENT(restore_gather_mask_fault, 0x0)
+TEST_AVX512_SCATTER_MASK_RESTORE_EVENT(restore_scatter_mask_fault, 0x0)
+/* These tests depend on markers being present. */
+TEST_AVX512_GATHER_MASK_RESTORE_EVENT(restore_gather_mask_clobber,
+                                      TEST_GATHER_MASK_CLOBBER_MARKER)
+TEST_AVX512_GATHER_MASK_RESTORE_EVENT(restore_gather_mask_update,
+                                      TEST_GATHER_MASK_UPDATE_MARKER)
+TEST_AVX512_SCATTER_MASK_RESTORE_EVENT(restore_scatter_mask_clobber,
+                                       TEST_SCATTER_MASK_CLOBBER_MARKER)
+TEST_AVX512_SCATTER_MASK_RESTORE_EVENT(restore_scatter_mask_update,
+                                       TEST_SCATTER_MASK_UPDATE_MARKER)
 
 #endif /* __AVX512F__ */
 

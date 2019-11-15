@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -95,14 +95,42 @@ view_t::initialize()
 bool
 view_t::process_memref(const memref_t &memref)
 {
+    if (instr_count < knob_skip_refs || instr_count >= (knob_skip_refs + knob_sim_refs)) {
+        if (type_is_instr(memref.instr.type) ||
+            memref.data.type == TRACE_TYPE_INSTR_NO_FETCH)
+            ++instr_count;
+        return true;
+    }
+
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+        switch (memref.marker.marker_type) {
+        case TRACE_MARKER_TYPE_TIMESTAMP:
+            std::cerr << "<marker: timestamp " << memref.marker.marker_value << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_CPU_ID:
+            // We include the thread ID here under the assumption that we will always
+            // see a cpuid marker on a thread switch.  To avoid that assumption
+            // we would want to track the prior tid and print out a thread switch
+            // message whenever it changes.
+            std::cerr << "<marker: tid " << memref.marker.tid << " on core "
+                      << memref.marker.marker_value << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_KERNEL_EVENT:
+            std::cerr << "<marker: kernel xfer to handler>\n";
+            break;
+        case TRACE_MARKER_TYPE_KERNEL_XFER:
+            std::cerr << "<marker: syscall xfer>\n";
+            break;
+        default:
+            // We ignore other markers such as call/ret profiling for now.
+            break;
+        }
+        return true;
+    }
+
     if (!type_is_instr(memref.instr.type) &&
         memref.data.type != TRACE_TYPE_INSTR_NO_FETCH)
         return true;
-
-    if (instr_count < knob_skip_refs || instr_count >= (knob_skip_refs + knob_sim_refs)) {
-        ++instr_count;
-        return true;
-    }
 
     ++instr_count;
 

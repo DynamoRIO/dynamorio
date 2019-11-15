@@ -5092,7 +5092,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,  0xf338f018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     /* really this is regular data-size prefix */
     {OP_movbe, 0x6638f018, "movbe", Gw, xx, Mw, xx, xx, mrm, x, tpe[139][2]},
-    {OP_crc32, 0xf238f018, "crc32", Gv, xx, Eb, Gv, xx, mrm, x, END_LIST},
+    {OP_crc32, 0xf238f018, "crc32", Gd_q, xx, Eb, Gd_q, xx, mrm, x, END_LIST},
     {INVALID,    0x38f018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,  0xf338f018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,  0x6638f018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5106,7 +5106,10 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,  0xf338f118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     /* really this is regular data-size prefix */
     {OP_movbe, 0x6638f118, "movbe", Mw, xx, Gw, xx, xx, mrm, x, END_LIST},
-    {OP_crc32, 0xf238f118, "crc32", Gv, xx, Ev, Gv, xx, mrm, x, tpe[138][3]},
+    /* The Intel table separates out a data-size prefix into Ey and Ew: ours are combined,
+     * and thus we want Ev.
+     */
+    {OP_crc32, 0xf238f118, "crc32", Gd_q, xx, Ev, Gd_q, xx, mrm, x, tpe[138][3]},
     {INVALID,    0x38f118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,  0xf338f118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,  0x6638f118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5115,11 +5118,6 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf338f118, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x6638f118, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf238f118, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX: Intel Vol2B Sep2010 decode table claims crc32 has Gd
-     * instead of Gv, and that f2 f1 has Ey instead of Ev, and that
-     * there is a separate instruction with both 66 and f2 prefixes!
-     * But detail page doesn't corroborate that...
-     */
   }, { /* prefix extension 140 */
     {OP_bsf,         0x0fbc10, "bsf",     Gv, xx, Ev, xx, xx, mrm|predcx, fW6, END_LIST},
     /* XXX: if cpuid doesn't show tzcnt support, this is treated as bsf */

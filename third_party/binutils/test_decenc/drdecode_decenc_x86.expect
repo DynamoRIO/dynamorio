@@ -66585,14 +66585,19 @@ test_s:
  90                   nop
  90                   nop
  f2 0f 38 f0 06       crc32  (%esi), %eax
+ 66 f2 0f 38 f1 06    data16 crc32  (%esi), %eax
  f2 0f 38 f1 06       crc32  (%esi), %eax
  f2 0f 38 f0 c0       crc32  %al, %eax
  f2 0f 38 f0 c0       crc32  %al, %eax
+ 66 f2 0f 38 f1 c0    data16 crc32  %ax, %eax
+ 66 f2 0f 38 f1 c0    data16 crc32  %ax, %eax
  f2 0f 38 f1 c0       crc32  %eax, %eax
  f2 0f 38 f1 c0       crc32  %eax, %eax
  f2 0f 38 f0 06       crc32  (%esi), %eax
+ 66 f2 0f 38 f1 06    data16 crc32  (%esi), %eax
  f2 0f 38 f1 06       crc32  (%esi), %eax
  f2 0f 38 f0 c0       crc32  %al, %eax
+ 66 f2 0f 38 f1 c0    data16 crc32  %ax, %eax
  f2 0f 38 f1 c0       crc32  %eax, %eax
  90                   nop
  90                   nop
@@ -66686,9 +66691,9 @@ test_s:
  8b 98 ff 0f 00 00    mov    0x00000fff(%eax), %ebx
  8b 98 00 00 00 00    mov    0x00000000(%eax), %ebx
  8b 98 03 00 00 00    mov    0x00000003(%eax), %ebx
- eb 07                jmp    $0x1001b50d
- eb 05                jmp    $0x1001b50d
- e9 00 00 00 00       jmp    $0x1001b50d
+ eb 07                jmp    $0x1001b52b
+ eb 05                jmp    $0x1001b52b
+ e9 00 00 00 00       jmp    $0x1001b52b
  89 18                mov    %ebx, (%eax)
  89 58 03             mov    %ebx, 0x03(%eax)
  89 98 ff 0f 00 00    mov    %ebx, 0x00000fff(%eax)
@@ -67662,8 +67667,8 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb fe                jmp    $0x1001c4f3
- e9 fc ff ff ff       jmp    $0x1001c4f6
+ eb fe                jmp    $0x1001c511
+ e9 fc ff ff ff       jmp    $0x1001c514
  ff 25 00 00 00 00    jmp    0x00
  ff 25 00 00 00 00    jmp    0x00
  ff e7                jmp    %edi
@@ -67675,8 +67680,8 @@ test_s:
  ff 2d 00 00 00 00    ljmp   0x00
  ff 2d 00 00 00 00    ljmp   0x00
  ea 00 00 00 00 34 12 ljmp   0x1234:0x00000000
- e8 bf ff ff ff       call   $0x1001c4f3
- e8 fc ff ff ff       call   $0x1001c535
+ e8 bf ff ff ff       call   $0x1001c511
+ e8 fc ff ff ff       call   $0x1001c553
  ff 15 00 00 00 00    call   0x00
  ff 15 00 00 00 00    call   0x00
  ff d7                call   %edi
@@ -67809,7 +67814,7 @@ test_s:
  d7                   xlatb
  d7                   xlatb
  dd d8                fstp   %st0, %st0
- e2 fc                loop   $0x1001c688
+ e2 fc                loop   $0x1001c6a6
  f6 f1                div    %cl, %ax
  66 f7 f1             data16 div    %cx, %dx, %ax
  f7 f1                div    %ecx, %edx, %eax
@@ -67942,7 +67947,7 @@ test_s:
  8d 9b 00 00 00 00    lea    0x00000000(%ebx), %ebx
  8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
  8b 9b 00 00 00 00    mov    0x00000000(%ebx), %ebx
- e0 00                loopne $0x1001c877
+ e0 00                loopne $0x1001c895
  00 00                add    %al, (%eax)
  00 00                add    %al, (%eax)
  00 00                add    %al, (%eax)
@@ -69705,7 +69710,7 @@ test_s:
  89 c0                mov    %eax, %eax
  4c                   dec    %esp
  89 c0                mov    %eax, %eax
- eb fe                jmp    $0x1001e5ba
+ eb fe                jmp    $0x1001e5d8
  90                   nop
  90                   nop
  90                   nop
@@ -69826,22 +69831,22 @@ test_s:
  6d                   insd
  6e                   outsb
  6f                   outsd
- 70 90                jo     $0x1001e6ab
- 71 90                jno    $0x1001e6ad
- 72 90                jb     $0x1001e6af
- 73 90                jnb    $0x1001e6b1
- 74 90                jz     $0x1001e6b3
- 75 90                jnz    $0x1001e6b5
- 76 90                jbe    $0x1001e6b7
- 77 90                jnbe   $0x1001e6b9
- 78 90                js     $0x1001e6bb
- 79 90                jns    $0x1001e6bd
- 7a 90                jp     $0x1001e6bf
- 7b 90                jnp    $0x1001e6c1
- 7c 90                jl     $0x1001e6c3
- 7d 90                jnl    $0x1001e6c5
- 7e 90                jle    $0x1001e6c7
- 7f 90                jnle   $0x1001e6c9
+ 70 90                jo     $0x1001e6c9
+ 71 90                jno    $0x1001e6cb
+ 72 90                jb     $0x1001e6cd
+ 73 90                jnb    $0x1001e6cf
+ 74 90                jz     $0x1001e6d1
+ 75 90                jnz    $0x1001e6d3
+ 76 90                jbe    $0x1001e6d5
+ 77 90                jnbe   $0x1001e6d7
+ 78 90                js     $0x1001e6d9
+ 79 90                jns    $0x1001e6db
+ 7a 90                jp     $0x1001e6dd
+ 7b 90                jnp    $0x1001e6df
+ 7c 90                jl     $0x1001e6e1
+ 7d 90                jnl    $0x1001e6e3
+ 7e 90                jle    $0x1001e6e5
+ 7f 90                jnle   $0x1001e6e7
  80 90 90 90 90 90 90 adcb   $0x90, -0x6f6f6f70(%eax)
  81 90 90 90 90 90 90 adcl   $0x90909090, -0x6f6f6f70(%eax)
  90 90 90
@@ -69940,18 +69945,18 @@ test_s:
  dd 90 90 90 90 90    fst    -0x6f6f6f70(%eax)
  de 90 90 90 90 90    ficom  -0x6f6f6f70(%eax)
  df 90 90 90 90 90    fist   -0x6f6f6f70(%eax)
- e0 90                loopne $0x1001e82c
- e1 90                loope  $0x1001e82e
- e2 90                loop   $0x1001e830
- e3 90                jecxz  $0x1001e832
+ e0 90                loopne $0x1001e84a
+ e1 90                loope  $0x1001e84c
+ e2 90                loop   $0x1001e84e
+ e3 90                jecxz  $0x1001e850
  e4 90                in     $0x90, %al
  e5 90                in     $0x90, %eax
  e6 90                out    $0x90, %al
  e7 90                out    $0x90, %eax
- e8 90 90 90 90       call   $0xa092793f
- e9 90 90 90 90       jmp    $0xa0927944
+ e8 90 90 90 90       call   $0xa092795d
+ e9 90 90 90 90       jmp    $0xa0927962
  ea 90 90 90 90 90 90 ljmp   0x9090:0x90909090
- eb 90                jmp    $0x1001e84d
+ eb 90                jmp    $0x1001e86b
  ec                   in     %dx
  ed                   in     %dx, %eax
  ee                   out    %al, %dx
@@ -70022,22 +70027,22 @@ test_s:
  0f 77                emms
  0f 7e 90 90 90 90 90 movd   %mm2, -0x6f6f6f70(%eax)
  0f 7f 90 90 90 90 90 movq   %mm2, -0x6f6f6f70(%eax)
- 0f 80 90 90 90 90    jo     $0xa0927aac
- 0f 81 90 90 90 90    jno    $0xa0927ab2
- 0f 82 90 90 90 90    jb     $0xa0927ab8
- 0f 83 90 90 90 90    jnb    $0xa0927abe
- 0f 84 90 90 90 90    jz     $0xa0927ac4
- 0f 85 90 90 90 90    jnz    $0xa0927aca
- 0f 86 90 90 90 90    jbe    $0xa0927ad0
- 0f 87 90 90 90 90    jnbe   $0xa0927ad6
- 0f 88 90 90 90 90    js     $0xa0927adc
- 0f 89 90 90 90 90    jns    $0xa0927ae2
- 0f 8a 90 90 90 90    jp     $0xa0927ae8
- 0f 8b 90 90 90 90    jnp    $0xa0927aee
- 0f 8c 90 90 90 90    jl     $0xa0927af4
- 0f 8d 90 90 90 90    jnl    $0xa0927afa
- 0f 8e 90 90 90 90    jle    $0xa0927b00
- 0f 8f 90 90 90 90    jnle   $0xa0927b06
+ 0f 80 90 90 90 90    jo     $0xa0927aca
+ 0f 81 90 90 90 90    jno    $0xa0927ad0
+ 0f 82 90 90 90 90    jb     $0xa0927ad6
+ 0f 83 90 90 90 90    jnb    $0xa0927adc
+ 0f 84 90 90 90 90    jz     $0xa0927ae2
+ 0f 85 90 90 90 90    jnz    $0xa0927ae8
+ 0f 86 90 90 90 90    jbe    $0xa0927aee
+ 0f 87 90 90 90 90    jnbe   $0xa0927af4
+ 0f 88 90 90 90 90    js     $0xa0927afa
+ 0f 89 90 90 90 90    jns    $0xa0927b00
+ 0f 8a 90 90 90 90    jp     $0xa0927b06
+ 0f 8b 90 90 90 90    jnp    $0xa0927b0c
+ 0f 8c 90 90 90 90    jl     $0xa0927b12
+ 0f 8d 90 90 90 90    jnl    $0xa0927b18
+ 0f 8e 90 90 90 90    jle    $0xa0927b1e
+ 0f 8f 90 90 90 90    jnle   $0xa0927b24
  0f 90 80 90 90 90 90 seto   -0x6f6f6f70(%eax)
  0f 91 80 90 90 90 90 setno  -0x6f6f6f70(%eax)
  0f 92 80 90 90 90 90 setb   -0x6f6f6f70(%eax)
@@ -70254,7 +70259,7 @@ test_s:
  66 d3 90 90 90 90 90 data16 rcl    %cl, -0x6f6f6f70(%eax)
  66 e5 90             data16 in     $0x90, %ax
  66 e7 90             data16 out    $0x90, %ax
- 66 e8 8f 90          data16 call   $0x00007ee8
+ 66 e8 8f 90          data16 call   $0x00007f06
  66 ea 90 90 90 90    data16 ljmp   0x9090:0x00009090
  66 ed                data16 in     %dx, %ax
  66 ef                data16 out    %ax, %dx
@@ -70338,15 +70343,15 @@ test_s:
  90
  c3                   ret
  c3                   ret
- e8 f9 ff ff ff       call   $0x1001ef9f
- e8 f5 ff ff ff       call   $0x1001efa0
+ e8 f9 ff ff ff       call   $0x1001efbd
+ e8 f5 ff ff ff       call   $0x1001efbe
  dd 1c d0             fstp   (%eax,%edx,8)
  b9 00 00 00 00       mov    $0x00000000, %ecx
  88 04 16             mov    %al, (%esi,%edx)
  88 04 32             mov    %al, (%edx,%esi)
  88 04 56             mov    %al, (%esi,%edx,2)
  88 04 56             mov    %al, (%esi,%edx,2)
- eb 0c                jmp    $0x1001efcd
+ eb 0c                jmp    $0x1001efeb
  6c                   insb
  66 0f c1 90 90 90 90 data16 xaddw  -0x6f6f6f70(%eax), %dx
  90
@@ -70361,8 +70366,8 @@ test_s:
  2f                   das
  ea 90 90 90 90 90 90 ljmp   0x9090:0x90909090
  66 a5                data16 movsw
- 70 90                jo     $0x1001ef84
- 75 fe                jnz    $0x1001eff4
+ 70 90                jo     $0x1001efa2
+ 75 fe                jnz    $0x1001f012
  0f 6f 35 28 00 00 00 movq   0x28, %mm6
  03 3c c3             add    (%ebx,%eax,8), %edi
  0f 6e 44 c3 04       movd   0x04(%ebx,%eax,8), %mm0
@@ -70380,7 +70385,7 @@ test_s:
  ff e0                jmp    %eax
  ff 20                jmp    (%eax)
  ff 25 db 09 00 00    jmp    0x000009db
- e9 5b ff ff ff       jmp    $0x1001efa1
+ e9 5b ff ff ff       jmp    $0x1001efbf
  b8 12 00 00 00       mov    $0x00000012, %eax
  25 ff ff fb ff       and    $0xfffbffff, %eax
  25 ff ff fb ff       and    $0xfffbffff, %eax
@@ -70772,8 +70777,8 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb fe                jmp    $0x1001f47f
- e9 fc ff ff ff       jmp    $0x1001f482
+ eb fe                jmp    $0x1001f49d
+ e9 fc ff ff ff       jmp    $0x1001f4a0
  ff 25 00 00 00 00    jmp    0x00
  ff e7                jmp    %edi
  ff 27                jmp    (%edi)
@@ -70783,8 +70788,8 @@ test_s:
  ff 2d 00 00 00 00    ljmp   0x00
  66 ff 2d 00 00 00 00 data16 ljmp   0x00
  ea 00 00 00 00 34 12 ljmp   0x1234:0x00000000
- e8 c7 ff ff ff       call   $0x1001f47f
- e8 fc ff ff ff       call   $0x1001f4b9
+ e8 c7 ff ff ff       call   $0x1001f49d
+ e8 fc ff ff ff       call   $0x1001f4d7
  ff 15 00 00 00 00    call   0x00
  ff d7                call   %edi
  ff 17                call   (%edi)
@@ -70800,11 +70805,11 @@ test_s:
  66 ff 23             data16 jmp    (%ebx)
  ff 23                jmp    (%ebx)
  ff 2b                ljmp   (%ebx)
- eb 00                jmp    $0x1001f4fa
+ eb 00                jmp    $0x1001f518
  90                   nop
- e3 00                jecxz  $0x1001f4fd
+ e3 00                jecxz  $0x1001f51b
  90                   nop
- eb 00                jmp    $0x1001f500
+ eb 00                jmp    $0x1001f51e
  90                   nop
  9a 90 90 90 90 90 90 lcall  0x9090:0x90909090
  9a 90 90 90 90 90 90 lcall  0x9090:0x90909090
@@ -70838,8 +70843,8 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb fe                jmp    $0x1001f581
- e9 fe ff ff 26       jmp    $0x3701f586
+ eb fe                jmp    $0x1001f59f
+ e9 fe ff ff 26       jmp    $0x3701f5a4
  00 00                add    %al, (%eax)
  66 ff e7             data16 jmp    %di
  67 ff 27             addr16 jmp    (%bx)
@@ -70861,7 +70866,7 @@ test_s:
  00 00                add    %al, (%eax)
  66 9a 00 00 00 00    data16 lcall  0x0000:0x00000000
  34 12                xor    $0x12, %al
- eb b2                jmp    $0x1001f57c
+ eb b2                jmp    $0x1001f59a
  ff 26                jmp    (%esi)
  00 00                add    %al, (%eax)
  ff e7                jmp    %edi
@@ -70871,7 +70876,7 @@ test_s:
  66 ff 2e             data16 ljmp   (%esi)
  00 00                add    %al, (%eax)
  ea 00 00 34 12 e8 90 ljmp   0x90e8:0x12340000
- e8 fe ff ff 16       call   $0x2701f5ee
+ e8 fe ff ff 16       call   $0x2701f60c
  00 00                add    %al, (%eax)
  ff d7                call   %edi
  ff 15 ff 9d 00 00    call   0x00009dff
@@ -70885,9 +70890,9 @@ test_s:
  ff 27                jmp    (%edi)
  ff 2f                ljmp   (%edi)
  66 ff 2f             data16 ljmp   (%edi)
- eb 00                jmp    $0x1001f61d
+ eb 00                jmp    $0x1001f63b
  90                   nop
- eb 00                jmp    $0x1001f620
+ eb 00                jmp    $0x1001f63e
  90                   nop
  9a 10 10 90 90 9a 10 lcall  0x109a:0x90901010
  10 90 90 9a 00 00    adc    %dl, 0x00009a90(%eax)
@@ -71401,12 +71406,12 @@ test_s:
  90                   nop
  67 66 8b 83 00 00    data16 addr16 mov    (%bp,%di), %ax
  00 00                add    %al, (%eax)
- 66 e8 fc ff          data16 call   $0x0000fcbc
+ 66 e8 fc ff          data16 call   $0x0000fcda
  8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
- e8 fc ff ff ff       call   $0x1001fcc7
+ e8 fc ff ff ff       call   $0x1001fce5
  48                   dec    %eax
  8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
- e8 fc ff ff ff       call   $0x1001fcd3
+ e8 fc ff ff ff       call   $0x1001fcf1
  90                   nop
  90                   nop
  90                   nop
@@ -73502,12 +73507,12 @@ test_s:
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b6 00 00 00 00    lea    0x00000000(%esi), %esi
- eb 1c                jmp    $0x10021fbb
+ eb 1c                jmp    $0x10021fd9
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
- eb 7f                jmp    $0x1002203c
+ eb 7f                jmp    $0x1002205a
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -73548,12 +73553,12 @@ test_s:
  90                   nop
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
- eb 12                jmp    $0x10022072
+ eb 12                jmp    $0x10022090
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
  00 66 90             add    %ah, -0x70(%esi)
- eb 1c                jmp    $0x10022090
+ eb 1c                jmp    $0x100220ae
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -73590,7 +73595,7 @@ test_s:
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
- 74 00                jz     $0x10022110
+ 74 00                jz     $0x1002212e
  66 31 c0             data16 xor    %ax, %ax
  90                   nop
  90                   nop
@@ -73613,7 +73618,7 @@ test_s:
  8d 76 00             lea    0x00(%esi), %esi
  31 c0                xor    %eax, %eax
  31 c0                xor    %eax, %eax
- e9 fc ff ff ff       jmp    $0x1002212f
+ e9 fc ff ff ff       jmp    $0x1002214d
  90                   nop
  90                   nop
  90                   nop
@@ -73639,7 +73644,7 @@ test_s:
  89 c0                mov    %eax, %eax
  89 c0                mov    %eax, %eax
  89 c0                mov    %eax, %eax
- e9 fc ff ff ff       jmp    $0x1002215b
+ e9 fc ff ff ff       jmp    $0x10022179
  90                   nop
  90                   nop
  90                   nop
@@ -73667,7 +73672,7 @@ test_s:
  89 c0                mov    %eax, %eax
  89 c0                mov    %eax, %eax
  89 c0                mov    %eax, %eax
- e9 fc ff ff ff       jmp    $0x1002218b
+ e9 fc ff ff ff       jmp    $0x100221a9
  90                   nop
  90                   nop
  90                   nop
@@ -73980,7 +73985,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 1d                jmp    $0x100223af
+ eb 1d                jmp    $0x100223cd
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74006,7 +74011,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 1d                jmp    $0x100223ef
+ eb 1d                jmp    $0x1002240d
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74014,7 +74019,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 1c                jmp    $0x1002240f
+ eb 1c                jmp    $0x1002242d
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74022,7 +74027,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 1b                jmp    $0x1002242f
+ eb 1b                jmp    $0x1002244d
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74031,7 +74036,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 1a                jmp    $0x1002244f
+ eb 1a                jmp    $0x1002246d
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74042,7 +74047,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 19                jmp    $0x1002246f
+ eb 19                jmp    $0x1002248d
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74053,7 +74058,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 18                jmp    $0x1002248f
+ eb 18                jmp    $0x100224ad
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74065,7 +74070,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 17                jmp    $0x100224af
+ eb 17                jmp    $0x100224cd
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74078,7 +74083,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 16                jmp    $0x100224cf
+ eb 16                jmp    $0x100224ed
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74092,7 +74097,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 15                jmp    $0x100224ef
+ eb 15                jmp    $0x1002250d
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74106,7 +74111,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 14                jmp    $0x1002250f
+ eb 14                jmp    $0x1002252d
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b6 00 00 00 00    lea    0x00000000(%esi), %esi
@@ -74121,7 +74126,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 13                jmp    $0x1002252f
+ eb 13                jmp    $0x1002254d
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d 74 26 00          lea    0x00(%esi), %esi
@@ -74318,7 +74323,7 @@ test_s:
  90                   nop
  90                   nop
  31 c0                xor    %eax, %eax
- e9 f9 01 00 00       jmp    $0x100228ff
+ e9 f9 01 00 00       jmp    $0x1002291d
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74393,7 +74398,7 @@ test_s:
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  90                   nop
  31 db                xor    %ebx, %ebx
- e9 f9 00 00 00       jmp    $0x100229ff
+ e9 f9 00 00 00       jmp    $0x10022a1d
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74431,7 +74436,7 @@ test_s:
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d 74 26 00          lea    0x00(%esi), %esi
  31 db                xor    %ebx, %ebx
- eb 7c                jmp    $0x10022a7f
+ eb 7c                jmp    $0x10022a9d
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74452,7 +74457,7 @@ test_s:
  8d 74 26 00          lea    0x00(%esi), %esi
  90                   nop
  31 c9                xor    %ecx, %ecx
- eb 3c                jmp    $0x10022abf
+ eb 3c                jmp    $0x10022add
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74463,7 +74468,7 @@ test_s:
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d 74 26 00          lea    0x00(%esi), %esi
  31 d2                xor    %edx, %edx
- eb 1c                jmp    $0x10022adf
+ eb 1c                jmp    $0x10022afd
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
  8d b4 26 00 00 00 00 lea    0x00000000(%esi), %esi
@@ -74550,7 +74555,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 1d                jmp    $0x10022be0
+ eb 1d                jmp    $0x10022bfe
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -74559,7 +74564,7 @@ test_s:
  00 8d b4 00 00 90    add    %cl, -0x6fffff4c(%ebp)
  90                   nop
  90                   nop
- eb 1c                jmp    $0x10022c00
+ eb 1c                jmp    $0x10022c1e
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -74567,7 +74572,7 @@ test_s:
  b4 00                mov    $0x00, %ah
  00 8d b4 00 90 90    add    %cl, -0x6f6fff4c(%ebp)
  90                   nop
- eb 1b                jmp    $0x10022c1f
+ eb 1b                jmp    $0x10022c3d
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -74576,7 +74581,7 @@ test_s:
  00 8d 74 00 90 90    add    %cl, -0x6f6fff8c(%ebp)
  90                   nop
  90                   nop
- eb 1a                jmp    $0x10022c3f
+ eb 1a                jmp    $0x10022c5d
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -74588,7 +74593,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 19                jmp    $0x10022c5f
+ eb 19                jmp    $0x10022c7d
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -74597,7 +74602,7 @@ test_s:
  00 90 90 90 90 90    add    %dl, -0x6f6f6f70(%eax)
  90                   nop
  90                   nop
- eb 18                jmp    $0x10022c7f
+ eb 18                jmp    $0x10022c9d
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -74610,12 +74615,12 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 17                jmp    $0x10022c9e
+ eb 17                jmp    $0x10022cbc
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
- 74 00                jz     $0x10022c9e
+ 74 00                jz     $0x10022cbc
  90                   nop
  90                   nop
  90                   nop
@@ -74624,7 +74629,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 16                jmp    $0x10022cbe
+ eb 16                jmp    $0x10022cdc
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -74639,7 +74644,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 15                jmp    $0x10022cde
+ eb 15                jmp    $0x10022cfc
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -74654,7 +74659,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 14                jmp    $0x10022cfe
+ eb 14                jmp    $0x10022d1c
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -74668,7 +74673,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 13                jmp    $0x10022d1d
+ eb 13                jmp    $0x10022d3b
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -74683,7 +74688,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 12                jmp    $0x10022d3d
+ eb 12                jmp    $0x10022d5b
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -74701,7 +74706,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 11                jmp    $0x10022d5d
+ eb 11                jmp    $0x10022d7b
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -74716,7 +74721,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 10                jmp    $0x10022d7d
+ eb 10                jmp    $0x10022d9b
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
  b4 00                mov    $0x00, %ah
@@ -74735,10 +74740,10 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 0f                jmp    $0x10022d9c
+ eb 0f                jmp    $0x10022dba
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 8d    add    %cl, -0x72ffff4c(%ebp)
- 74 00                jz     $0x10022d9c
+ 74 00                jz     $0x10022dba
  90                   nop
  90                   nop
  90                   nop
@@ -74755,26 +74760,26 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 0e                jmp    $0x10022dbc
+ eb 0e                jmp    $0x10022dda
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 66    add    %cl, 0x660000b4(%ebp)
  90                   nop
  90                   nop
- eb 0d                jmp    $0x10022dcc
+ eb 0d                jmp    $0x10022dea
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 00 90    add    %cl, -0x6fffff4c(%ebp)
  90                   nop
  90                   nop
- eb 0c                jmp    $0x10022ddc
+ eb 0c                jmp    $0x10022dfa
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d b4 00 90 90    add    %cl, -0x6f6fff4c(%ebp)
  90                   nop
- eb 0b                jmp    $0x10022deb
+ eb 0b                jmp    $0x10022e09
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 8d 74 00 90 90    add    %cl, -0x6f6fff8c(%ebp)
  90                   nop
  90                   nop
- eb 0a                jmp    $0x10022dfb
+ eb 0a                jmp    $0x10022e19
  8d b4 00 00 8d b4 00 lea    0x00b48d00(%eax,%eax), %esi
  00 66 90             add    %ah, -0x70(%esi)
  90                   nop
@@ -75117,22 +75122,22 @@ test_s:
  6d                   insd
  6e                   outsb
  6f                   outsd
- 70 90                jo     $0x10023090
- 71 90                jno    $0x10023092
- 72 90                jb     $0x10023094
- 73 90                jnb    $0x10023096
- 74 90                jz     $0x10023098
- 75 90                jnz    $0x1002309a
- 76 90                jbe    $0x1002309c
- 77 90                jnbe   $0x1002309e
- 78 90                js     $0x100230a0
- 79 90                jns    $0x100230a2
- 7a 90                jp     $0x100230a4
- 7b 90                jnp    $0x100230a6
- 7c 90                jl     $0x100230a8
- 7d 90                jnl    $0x100230aa
- 7e 90                jle    $0x100230ac
- 7f 90                jnle   $0x100230ae
+ 70 90                jo     $0x100230ae
+ 71 90                jno    $0x100230b0
+ 72 90                jb     $0x100230b2
+ 73 90                jnb    $0x100230b4
+ 74 90                jz     $0x100230b6
+ 75 90                jnz    $0x100230b8
+ 76 90                jbe    $0x100230ba
+ 77 90                jnbe   $0x100230bc
+ 78 90                js     $0x100230be
+ 79 90                jns    $0x100230c0
+ 7a 90                jp     $0x100230c2
+ 7b 90                jnp    $0x100230c4
+ 7c 90                jl     $0x100230c6
+ 7d 90                jnl    $0x100230c8
+ 7e 90                jle    $0x100230ca
+ 7f 90                jnle   $0x100230cc
  80 90 90 90 90 90 90 adcb   $0x90, -0x6f6f6f70(%eax)
  81 90 90 90 90 90 90 adcl   $0x90909090, -0x6f6f6f70(%eax)
  90 90 90
@@ -75229,18 +75234,18 @@ test_s:
  dd 90 90 90 90 90    fst    -0x6f6f6f70(%eax)
  de 90 90 90 90 90    ficom  -0x6f6f6f70(%eax)
  df 90 90 90 90 90    fist   -0x6f6f6f70(%eax)
- e0 90                loopne $0x1002320d
- e1 90                loope  $0x1002320f
- e2 90                loop   $0x10023211
- e3 90                jecxz  $0x10023213
+ e0 90                loopne $0x1002322b
+ e1 90                loope  $0x1002322d
+ e2 90                loop   $0x1002322f
+ e3 90                jecxz  $0x10023231
  e4 90                in     $0x90, %al
  e5 90                in     $0x90, %eax
  e6 90                out    $0x90, %al
  e7 90                out    $0x90, %eax
- e8 90 90 90 90       call   $0xa092c320
- e9 90 90 90 90       jmp    $0xa092c325
+ e8 90 90 90 90       call   $0xa092c33e
+ e9 90 90 90 90       jmp    $0xa092c343
  ea 90 90 90 90 90 90 ljmp   0x9090:0x90909090
- eb 90                jmp    $0x1002322e
+ eb 90                jmp    $0x1002324c
  ec                   in     %dx
  ed                   in     %dx, %eax
  ee                   out    %al, %dx
@@ -75311,22 +75316,22 @@ test_s:
  0f 77                emms
  0f 7e 90 90 90 90 90 movd   %mm2, -0x6f6f6f70(%eax)
  0f 7f 90 90 90 90 90 movq   %mm2, -0x6f6f6f70(%eax)
- 0f 80 90 90 90 90    jo     $0xa092c48d
- 0f 81 90 90 90 90    jno    $0xa092c493
- 0f 82 90 90 90 90    jb     $0xa092c499
- 0f 83 90 90 90 90    jnb    $0xa092c49f
- 0f 84 90 90 90 90    jz     $0xa092c4a5
- 0f 85 90 90 90 90    jnz    $0xa092c4ab
- 0f 86 90 90 90 90    jbe    $0xa092c4b1
- 0f 87 90 90 90 90    jnbe   $0xa092c4b7
- 0f 88 90 90 90 90    js     $0xa092c4bd
- 0f 89 90 90 90 90    jns    $0xa092c4c3
- 0f 8a 90 90 90 90    jp     $0xa092c4c9
- 0f 8b 90 90 90 90    jnp    $0xa092c4cf
- 0f 8c 90 90 90 90    jl     $0xa092c4d5
- 0f 8d 90 90 90 90    jnl    $0xa092c4db
- 0f 8e 90 90 90 90    jle    $0xa092c4e1
- 0f 8f 90 90 90 90    jnle   $0xa092c4e7
+ 0f 80 90 90 90 90    jo     $0xa092c4ab
+ 0f 81 90 90 90 90    jno    $0xa092c4b1
+ 0f 82 90 90 90 90    jb     $0xa092c4b7
+ 0f 83 90 90 90 90    jnb    $0xa092c4bd
+ 0f 84 90 90 90 90    jz     $0xa092c4c3
+ 0f 85 90 90 90 90    jnz    $0xa092c4c9
+ 0f 86 90 90 90 90    jbe    $0xa092c4cf
+ 0f 87 90 90 90 90    jnbe   $0xa092c4d5
+ 0f 88 90 90 90 90    js     $0xa092c4db
+ 0f 89 90 90 90 90    jns    $0xa092c4e1
+ 0f 8a 90 90 90 90    jp     $0xa092c4e7
+ 0f 8b 90 90 90 90    jnp    $0xa092c4ed
+ 0f 8c 90 90 90 90    jl     $0xa092c4f3
+ 0f 8d 90 90 90 90    jnl    $0xa092c4f9
+ 0f 8e 90 90 90 90    jle    $0xa092c4ff
+ 0f 8f 90 90 90 90    jnle   $0xa092c505
  0f 90 80 90 90 90 90 seto   -0x6f6f6f70(%eax)
  0f 91 80 90 90 90 90 setno  -0x6f6f6f70(%eax)
  0f 92 80 90 90 90 90 setb   -0x6f6f6f70(%eax)
@@ -75541,7 +75546,7 @@ test_s:
  66 d3 90 90 90 90 90 data16 rcl    %cl, -0x6f6f6f70(%eax)
  66 e5 90             data16 in     $0x90, %ax
  66 e7 90             data16 out    $0x90, %ax
- 66 e8 8f 90          data16 call   $0x0000c8c3
+ 66 e8 8f 90          data16 call   $0x0000c8e1
  66 ea 90 90 90 90    data16 ljmp   0x9090:0x00009090
  66 ed                data16 in     %dx, %ax
  66 ef                data16 out    %ax, %dx
@@ -76000,44 +76005,44 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- e9 30 12 00 00       jmp    $0x10024fa4
- e9 fc ff ff ff       jmp    $0x10023d75
- e9 fc ff ff ff       jmp    $0x10023d7a
- e9 fc ff ff ff       jmp    $0x10023d7f
- eb ea                jmp    $0x10023d6f
- eb ed                jmp    $0x10023d74
- e9 72 98 00 00       jmp    $0x1002d5fe
- e9 de 00 00 00       jmp    $0x10023e6f
- e9 de 00 00 00       jmp    $0x10023e74
- e9 fc ff ff ff       jmp    $0x10023d97
- e9 00 00 00 00       jmp    $0x10023da0
- e9 fc ff ff ff       jmp    $0x10023da1
- e9 c8 ed ff ff       jmp    $0x10022b72
- e9 c8 ed ff ff       jmp    $0x10022b77
- e9 c8 ed ff ff       jmp    $0x10022b7c
- e9 82 ed ff ff       jmp    $0x10022b3b
- e9 82 ed ff ff       jmp    $0x10022b40
- e9 3e 86 00 00       jmp    $0x1002c401
- e9 73 ee ff ff       jmp    $0x10022c3b
- e9 73 ee ff ff       jmp    $0x10022c40
+ e9 30 12 00 00       jmp    $0x10024fc2
+ e9 fc ff ff ff       jmp    $0x10023d93
+ e9 fc ff ff ff       jmp    $0x10023d98
+ e9 fc ff ff ff       jmp    $0x10023d9d
+ eb ea                jmp    $0x10023d8d
+ eb ed                jmp    $0x10023d92
+ e9 72 98 00 00       jmp    $0x1002d61c
+ e9 de 00 00 00       jmp    $0x10023e8d
+ e9 de 00 00 00       jmp    $0x10023e92
+ e9 fc ff ff ff       jmp    $0x10023db5
+ e9 00 00 00 00       jmp    $0x10023dbe
+ e9 fc ff ff ff       jmp    $0x10023dbf
+ e9 c8 ed ff ff       jmp    $0x10022b90
+ e9 c8 ed ff ff       jmp    $0x10022b95
  e9 c8 ed ff ff       jmp    $0x10022b9a
- e9 cc ed ff ff       jmp    $0x10022ba3
- e9 ba 79 ff ff       jmp    $0x1001b796
- e9 86 67 ff ff       jmp    $0x1001a567
- e9 86 67 ff ff       jmp    $0x1001a56c
- e9 86 67 ff ff       jmp    $0x1001a571
- e9 09 67 ff ff       jmp    $0x1001a4f9
- e9 09 67 ff ff       jmp    $0x1001a4fe
- e9 fc ff ff ff       jmp    $0x10023df6
- e9 fa 67 ff ff       jmp    $0x1001a5f9
- e9 fa 67 ff ff       jmp    $0x1001a5fe
+ e9 82 ed ff ff       jmp    $0x10022b59
+ e9 82 ed ff ff       jmp    $0x10022b5e
+ e9 3e 86 00 00       jmp    $0x1002c41f
+ e9 73 ee ff ff       jmp    $0x10022c59
+ e9 73 ee ff ff       jmp    $0x10022c5e
+ e9 c8 ed ff ff       jmp    $0x10022bb8
+ e9 cc ed ff ff       jmp    $0x10022bc1
+ e9 ba 79 ff ff       jmp    $0x1001b7b4
+ e9 86 67 ff ff       jmp    $0x1001a585
+ e9 86 67 ff ff       jmp    $0x1001a58a
  e9 86 67 ff ff       jmp    $0x1001a58f
- e9 8a 67 ff ff       jmp    $0x1001a598
- e9 fc 00 00 00       jmp    $0x10023f0f
- e9 01 00 00 00       jmp    $0x10023e19
- e9 01 ff ff ff       jmp    $0x10023d1e
- e9 01 01 00 00       jmp    $0x10023f23
- e9 01 00 00 00       jmp    $0x10023e28
+ e9 09 67 ff ff       jmp    $0x1001a517
+ e9 09 67 ff ff       jmp    $0x1001a51c
+ e9 fc ff ff ff       jmp    $0x10023e14
+ e9 fa 67 ff ff       jmp    $0x1001a617
+ e9 fa 67 ff ff       jmp    $0x1001a61c
+ e9 86 67 ff ff       jmp    $0x1001a5ad
+ e9 8a 67 ff ff       jmp    $0x1001a5b6
+ e9 fc 00 00 00       jmp    $0x10023f2d
+ e9 01 00 00 00       jmp    $0x10023e37
+ e9 01 ff ff ff       jmp    $0x10023d3c
+ e9 01 01 00 00       jmp    $0x10023f41
+ e9 01 00 00 00       jmp    $0x10023e46
  90                   nop
  90                   nop
  90                   nop
@@ -76054,7 +76059,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 02                jmp    $0x10023e3b
+ eb 02                jmp    $0x10023e59
  89 c0                mov    %eax, %eax
  90                   nop
  90                   nop
@@ -76073,7 +76078,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb fd                jmp    $0x10023e4b
+ eb fd                jmp    $0x10023e69
  90                   nop
  90                   nop
  90                   nop
@@ -76133,22 +76138,22 @@ test_s:
  66 0f 54 f2          andpd  %xmm2, %xmm6
  0f 54 f2             andps  %xmm2, %xmm6
  66 0f 11 22          movupd %xmm4, (%edx)
- f2 67 66 0f 11 22    addr16 movupd %xmm4, (%bp,%si)
+ f2 67 66 0f 11 22    data16 addr16 movsd  %xmm4, (%bp,%si)
  f3 66 0f 11 22       data16 movss  %xmm4, (%edx)
  f3 67 f2 66 0f 11 22 data16 addr16 movss  %xmm4, (%bp,%si)
  f3 66 3e 0f 11 22    data16 movss  %xmm4, %ds:(%edx)
- f2 66 36 0f 11 22    movupd %xmm4, %ss:(%edx)
+ f2 66 36 0f 11 22    data16 movsd  %xmm4, %ss:(%edx)
  22 f2                and    %dl, %dh
  66 3e 36 0f 11 22    movupd %xmm4, %ss:(%edx)
- f2 67 66 3e 36 0f 11 addr16 movupd %xmm4, %ss:(%bp,%si)
+ f2 67 66 3e 36 0f 11 data16 addr16 movsd  %xmm4, %ss:(%bp,%si)
  22
  11 22                adc    %esp, (%edx)
  f3 66 3e 36 0f 11 22 data16 movss  %xmm4, %ss:(%edx)
  22 f3                and    %bl, %dh
- 67 f2 66 3e 36 0f 11 addr16 movupd %xmm4, %ss:(%bp,%si)
+ 67 f2 66 3e 36 0f 11 data16 addr16 movsd  %xmm4, %ss:(%bp,%si)
  22
- f2 66 90             nop
- f2 67 66 90          addr16 nop
+ f2 66 90             data16 nop
+ f2 67 66 90          data16 addr16 nop
  f3 66 90             data16 pause
  f2 3e 90             nop
  f3 3e 90             pause
@@ -76312,7 +76317,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- e9 8d 00 00 00       jmp    $0x10024115
+ e9 8d 00 00 00       jmp    $0x10024133
  90                   nop
  90                   nop
  90                   nop
@@ -76327,7 +76332,7 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 7d                jmp    $0x10024115
+ eb 7d                jmp    $0x10024133
  90                   nop
  90                   nop
  90                   nop
@@ -76463,8 +76468,8 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- eb 14                jmp    $0x1002413e
- eb 12                jmp    $0x1002413e
+ eb 14                jmp    $0x1002415c
+ eb 12                jmp    $0x1002415c
  41                   inc    %ecx
  42                   inc    %edx
  43                   inc    %ebx
@@ -76478,7 +76483,7 @@ test_s:
  00 00                add    %al, (%eax)
  00 00                add    %al, (%eax)
  00 00                add    %al, (%eax)
- eb 00                jmp    $0x1002413f
+ eb 00                jmp    $0x1002415d
  90                   nop
  90                   nop
  90                   nop
@@ -76533,8 +76538,8 @@ test_s:
  b0 01                mov    $0x01, %al
  8b 83 02 00 00 00    mov    0x00000002(%ebx), %eax
  67 8b 87 03 00       addr16 mov    0x0003(%bx), %eax
- e8 fc ff ff ff       call   $0x100241b4
- e3 ff                jecxz  $0x100241b9
+ e8 fc ff ff ff       call   $0x100241d2
+ e3 ff                jecxz  $0x100241d7
  b8 00 00 00 00       mov    $0x00000000, %eax
  8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
  b8 00 00 00 00       mov    $0x00000000, %eax
@@ -76543,7 +76548,7 @@ test_s:
  05 01 00 00 00       add    $0x00000001, %eax
  b8 00 00 00 00       mov    $0x00000000, %eax
  8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
- e8 fc ff ff ff       call   $0x100241e6
+ e8 fc ff ff ff       call   $0x10024204
  b8 00 00 00 00       mov    $0x00000000, %eax
  8b 83 00 00 00 00    mov    0x00000000(%ebx), %eax
  b8 00 00 00 00       mov    $0x00000000, %eax
@@ -76661,12 +76666,12 @@ test_s:
  90                   nop
  90                   nop
  c6 f8 08             xabort $0x08
- c7 f8 fa ff ff ff    xbegin $0x10024306
- c7 f8 00 00 00 00    xbegin $0x10024312
+ c7 f8 fa ff ff ff    xbegin $0x10024324
+ c7 f8 00 00 00 00    xbegin $0x10024330
  0f 01 d5             xend
  c6 f8 08             xabort $0x08
- c7 f8 fa ff ff ff    xbegin $0x10024318
- c7 f8 00 00 00 00    xbegin $0x10024324
+ c7 f8 fa ff ff ff    xbegin $0x10024336
+ c7 f8 00 00 00 00    xbegin $0x10024342
  0f 01 d5             xend
  0f 01 d6             xtest
  90                   nop
@@ -78818,11 +78823,13 @@ test_s:
  90                   nop
  90                   nop
  f2 0f 38 f0 d9       crc32  %cl, %ebx
+ 66 f2 0f 38 f1 d9    data16 crc32  %cx, %ebx
  f2 0f 38 f1 d9       crc32  %ecx, %ebx
  f2 0f 38 f0 19       crc32  (%ecx), %ebx
- 66 f2 0f 38 f1 19    movbe  %bx, (%ecx)
+ 66 f2 0f 38 f1 19    data16 crc32  (%ecx), %ebx
  f2 0f 38 f1 19       crc32  (%ecx), %ebx
  f2 0f 38 f0 d9       crc32  %cl, %ebx
+ 66 f2 0f 38 f1 d9    data16 crc32  %cx, %ebx
  f2 0f 38 f1 d9       crc32  %ecx, %ebx
  66 0f 38 37 01       pcmpgtq (%ecx), %xmm0
  66 0f 38 37 c1       pcmpgtq %xmm1, %xmm0
@@ -78843,11 +78850,13 @@ test_s:
  66 f3 0f b8 d9       data16 popcnt %cx, %bx
  f3 0f b8 d9          popcnt %ecx, %ebx
  f2 0f 38 f0 d9       crc32  %cl, %ebx
+ 66 f2 0f 38 f1 d9    data16 crc32  %cx, %ebx
  f2 0f 38 f1 d9       crc32  %ecx, %ebx
  f2 0f 38 f0 19       crc32  (%ecx), %ebx
- 66 f2 0f 38 f1 19    movbe  %bx, (%ecx)
+ 66 f2 0f 38 f1 19    data16 crc32  (%ecx), %ebx
  f2 0f 38 f1 19       crc32  (%ecx), %ebx
  f2 0f 38 f0 d9       crc32  %cl, %ebx
+ 66 f2 0f 38 f1 d9    data16 crc32  %cx, %ebx
  f2 0f 38 f1 d9       crc32  %ecx, %ebx
  66 0f 38 37 01       pcmpgtq (%ecx), %xmm0
  66 0f 38 37 c1       pcmpgtq %xmm1, %xmm0
@@ -79488,13 +79497,13 @@ test_s:
  89 e5                mov    %esp, %ebp
  53                   push   %ebx
  50                   push   %eax
- e8 00 00 00 00       call   $0x10026f06
+ e8 00 00 00 00       call   $0x10026f3c
  5b                   pop    %ebx
  81 c3 03 00 00 00    add    $0x00000003, %ebx
  8d 04 1d 00 00 00 00 lea    0x00(,%ebx), %eax
- e8 fc ff ff ff       call   $0x10026f15
+ e8 fc ff ff ff       call   $0x10026f4b
  8d 83 00 00 00 00    lea    0x00000000(%ebx), %eax
- e8 fc ff ff ff       call   $0x10026f20
+ e8 fc ff ff ff       call   $0x10026f56
  83 c7 00             add    $0x00, %edi
  8d 90 00 00 00 00    lea    0x00000000(%eax), %edx
  83 c6 00             add    $0x00, %esi
@@ -79558,7 +79567,7 @@ test_s:
  89 e5                mov    %esp, %ebp
  53                   push   %ebx
  50                   push   %eax
- e8 00 00 00 00       call   $0x10026fc1
+ e8 00 00 00 00       call   $0x10026ff7
  5b                   pop    %ebx
  81 c3 03 00 00 00    add    $0x00000003, %ebx
  65 a1 00 00 00 00    mov    %gs:0x00, %eax

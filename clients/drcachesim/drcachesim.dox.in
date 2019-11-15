@@ -435,8 +435,15 @@ set a start point and end point for the disassembled view. Note that these
 flags compute the number of instructions which are skipped or displayed which
 is distinct from the number of trace entries.
 
+The tool also displays metadata marker entries for timestamps, on
+which core and thread the subsequent instruction sequence was
+executed, and kernel and system call transfers (these correspond to
+signal or event handler interruptions of the regular execution flow).
+
 \code
 $ bin64/drrun -t drcachesim -simulator_type view -sim_refs 20 -indir drmemtrace.*.dir
+<marker: timestamp 13218166936578899>
+<marker: tid 46977 on core 7>
   0x00007f3a5127d870  48 83 ec 48          sub    $0x48, %rsp
   0x00007f3a5127d874  0f 31                rdtsc
   0x00007f3a5127d876  48 c1 e2 20          shl    $0x20, %rdx
