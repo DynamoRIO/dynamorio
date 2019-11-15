@@ -339,7 +339,7 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
     ASSERT(scratch_block_reg != DR_REG_NULL, "invalid register");
     ASSERT(pt->simd_spills != NULL, "SIMD spill storage cannot be NULL");
     ASSERT(slot < ops.num_spill_simd_slots,
-           "using slots that is out-of-bounds to the number of SIMD slots requested");
+           "slots is out-of-bounds");
     load_indirect_block(drcontext, pt, tls_simd_offs, ilist, where, scratch_block_reg);
     /* TODO i#3844: This needs to be updated according to its larger simd size when
      * supporting ymm and zmm registers in the future.
@@ -2759,6 +2759,8 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
 #ifdef SIMD_SUPPORTED
                 } else if (is_indirect_spill) {
                     if (reg_is_vector_simd(reg)) {
+                    	ASSERT(slot < ops.num_spill_simd_slots,
+                    	           "slots is out-of-bounds");
                         if (spilled_simd_to[SIMD_IDX(reg)] < MAX_SIMD_SPILLS &&
                             /* allow redundant spill */
                             spilled_simd_to[SIMD_IDX(reg)] != slot) {
@@ -2859,6 +2861,8 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         uint slot = spilled_simd_to[SIMD_IDX(reg)];
         if (slot < MAX_SIMD_SPILLS) {
+        	ASSERT(slot < ops.num_spill_simd_slots,
+        	           "slots is out-of-bounds");
             reg_id_t actualreg = simd_slot_use[slot];
             ASSERT(actualreg != DR_REG_NULL, "internal error, register should be valid");
             if (reg_is_strictly_xmm(actualreg)) {
@@ -2922,6 +2926,9 @@ tls_data_init(void *drcontext, per_thread_t *pt)
                 drcontext, (SIMD_REG_SIZE * ops.num_spill_simd_slots) + 63);
         }
         pt->simd_spills = (byte *)ALIGN_FORWARD(pt->simd_spill_start, 64);
+
+        ASSERT(pt->simd_spill_start != NULL, "SIMD slot storage cannot be NULL");
+
     }
 
 #endif
@@ -2966,6 +2973,9 @@ drreg_thread_init(void *drcontext)
      */
     void **addr = (void **)(pt->tls_seg_base + tls_simd_offs);
     *addr = pt->simd_spills;
+
+    ASSERT(pt->simd_spills,
+               "cannot be NULL");
 }
 
 static void
