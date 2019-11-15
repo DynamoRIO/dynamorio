@@ -246,6 +246,12 @@ static void
 signal_handler_check_ymm1(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     kernel_fpstate_t *fp = (kernel_fpstate_t *)ucxt->uc_mcontext.fpregs;
+    /* We are expecting the AVX2 gather instruction, or in this case, the
+     * emulated sequence, to clear the mask bit. This depends heavily on the
+     * exact behavior of the test, which in order to perform this check,
+     * had inserted a ud2 right after the scalar load, but before the mask
+     * register update.
+     */
 #        ifdef X64
     if (((fp->xmm_space[8] >> 31) & 0x1) != 0) {
 #        else
