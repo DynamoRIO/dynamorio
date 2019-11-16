@@ -230,10 +230,7 @@ typedef struct {
     cache_pc exit_target;              /* fall-through target of final instr */
     uint exit_type;                    /* indirect branch type  */
     ibl_branch_type_t ibl_branch_type; /* indirect branch type as an IBL selector */
-#ifdef UNIX
-    bool invalid_instr_hack;
-#endif
-    instr_t *instr; /* the current instr */
+    instr_t *instr;                    /* the current instr */
     int eflags;
     app_pc pretend_pc; /* selfmod only: decode from separate pc */
 #ifdef ARM
@@ -850,7 +847,6 @@ bb_process_single_step(dcontext_t *dcontext, build_bb_t *bb)
 static inline void
 bb_process_invalid_instr(dcontext_t *dcontext, build_bb_t *bb)
 {
-
     /* invalid instr: end bb BEFORE the instr, we'll throw exception if we
      * reach the instr itself
      */
@@ -865,57 +861,37 @@ bb_process_invalid_instr(dcontext_t *dcontext, build_bb_t *bb)
          * A benefit of being first instr is that the state is easy
          * to translate.
          */
-#ifdef WINDOWS
-        /* Copying the invalid bytes and having the processor generate
-         * the exception would be cleaner in every way except our fear
-         * of a new processor making those bytes valid and us inadvertently
-         * executing the unexamined instructions afterward, since we do not
-         * know the proper amount of bytes to copy.  Copying is cleaner
-         * since Windows splits invalid instructions into different cases,
-         * an invalid lock prefix and maybe some other distinctions
-         * (it's all interrupt 6 to the processor), and it is hard to
-         * duplicate Windows' behavior in our forged exception.
+        /* Copying the invalid bytes and having the processor generate the exception
+         * would help on Windows where the kernel splits invalid instructions into
+         * different cases (an invalid lock prefix and other distinctions, when the
+         * underlying processor has a single interrupt 6), and it is hard to
+         * duplicate Windows' behavior in our forged exception.  However, we are not
+         * certain that this instruction will raise a fault on the processor.  It
+         * might not if our decoder has a bug, or a new processor has added new
+         * opcodes, or just due to processor variations in undefined gray areas.
+         * Trying to copy without knowing the length of the instruction is a recipe
+         * for disaster: it can lead to executing junk and even missing our exit cti
+         * (i#3939).
          */
-        /* FIXME case 10672: provide a runtime option to specify new
-         * instruction formats to avoid this app exception */
+        /* TODO i#1000: Give clients a chance to see this instruction for analysis,
+         * and to change it.  That's not easy to do though when we don't know what
+         * it is.  But it's confusing for the client to get the illegal instr fault
+         * having never seen the problematic instr in a bb event.
+         */
+        /* XXX i#57: provide a runtime option to specify new instruction formats to
+         * avoid this app exception for new opcodes.
+         */
         ASSERT(dcontext->bb_build_info == bb);
         bb_build_abort(dcontext, true /*clean vm area*/, true /*unlock*/);
-        /* FIXME : we use illegal instruction here, even though we
+        /* XXX: we use illegal instruction here, even though we
          * know windows uses different exception codes for different
          * types of invalid instructions (for ex. STATUS_INVALID_LOCK
-         * _SEQUENCE for lock prefix on a jmp instruction)
+         * _SEQUENCE for lock prefix on a jmp instruction).
          */
         if (TEST(DUMPCORE_FORGE_ILLEGAL_INST, DYNAMO_OPTION(dumpcore_mask)))
             os_dump_core("Warning: Encountered Illegal Instruction");
         os_forge_exception(bb->instr_start, ILLEGAL_INSTRUCTION_EXCEPTION);
         ASSERT_NOT_REACHED();
-#else
-        /* FIXME: Linux hack until we have a real os_forge_exception implementation:
-         * copy the bytes and have the process generate the exception.
-         * Once remove this, also disable check at top of insert_selfmod_sandbox
-         * FIXME PR 307880: we now have a preliminary
-         * os_forge_exception impl, but I'm leaving this hack until
-         * we're more comfortable w/ our forging.
-         */
-        uint sz;
-        instrlist_append(bb->ilist, bb->instr);
-        /* pretend raw bits valid to get it encoded
-         * For now we just do 17 bytes, being wary of unreadable pages.
-         * FIXME: better solution is to have decoder guess at length (if
-         * ok opcode just bad lock prefix or something know length, if
-         * bad opcode just bytes up until know it's bad).
-         */
-        if (!is_readable_without_exception(bb->instr_start, MAX_INSTR_LENGTH)) {
-            app_pc nxt_page = (app_pc)ALIGN_FORWARD(bb->instr_start, PAGE_SIZE);
-            sz = nxt_page - bb->instr_start;
-        } else {
-            sz = MAX_INSTR_LENGTH;
-        }
-        bb->cur_pc += sz; /* just in case, should have a non-self target */
-        ASSERT(bb->cur_pc > bb->instr_start); /* else still a self target */
-        instr_set_raw_bits(bb->instr, bb->instr_start, sz);
-        bb->invalid_instr_hack = true;
-#endif
     } else {
         instr_destroy(dcontext, bb->instr);
         bb->instr = NULL;
@@ -4054,16 +4030,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #endif
 
     STATS_TRACK_MAX(max_instrs_in_a_bb, total_instrs);
-
-#ifdef UNIX
-    if (bb->invalid_instr_hack) {
-        /* turn off selfmod -- we assume bb will hit exception right away */
-        if (TEST(FRAG_SELFMOD_SANDBOXED, bb->flags))
-            bb->flags &= ~FRAG_SELFMOD_SANDBOXED;
-        /* decode_fragment() can't handle invalid instrs, so store translations */
-        bb->flags |= FRAG_HAS_TRANSLATION_INFO;
-    }
-#endif
 
     if (stop_bb_on_fallthrough && TEST(FRAG_HAS_DIRECT_CTI, bb->flags)) {
         /* If we followed a direct cti to an instruction straddling a vmarea

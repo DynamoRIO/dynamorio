@@ -655,6 +655,13 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
         instr_reset(tdcontext, &instr);
         prev_cpc = cpc;
         cpc = decode(tdcontext, cpc, &instr);
+        if (cpc == NULL) {
+            LOG(THREAD_GET, LOG_INTERP, 2,
+                "recreate_app -- failed to decode cache pc " PFX "\n", cpc);
+            ASSERT_NOT_REACHED();
+            instr_free(tdcontext, &instr);
+            return RECREATE_FAILURE;
+        }
         instr_set_our_mangling(&instr, ours);
         /* Sets the translation so that spilled registers can be restored. */
         instr_set_translation(&instr, answer);

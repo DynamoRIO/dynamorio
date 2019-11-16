@@ -2606,7 +2606,7 @@ translate_sigcontext(dcontext_t *dcontext, kernel_ucontext_t *uc, bool avoid_fai
         success = true;
     } else {
         if (avoid_failure) {
-            ASSERT_NOT_REACHED(); /* is ok to break things, is UNIX :) */
+            ASSERT_NOT_REACHED(); /* Raise a visible debug error: sthg is wrong. */
             /* FIXME : what to do? reg state might be wrong at least get pc */
             if (safe_is_in_fcache(dcontext, (cache_pc)sc->SC_XIP, (app_pc)sc->SC_XSP)) {
                 sc->SC_XIP = (ptr_uint_t)recreate_app_pc(dcontext, mcontext.pc, f);
