@@ -66,7 +66,8 @@
 #define PRE instrlist_meta_preinsert
 
 /* This is an arbitrary hard-coded upper limit of how many slots drreg is able to track.
- * Note, the client is responsible for reserving enough slots for its use.
+ * This should accommodate all use-cases. Note, the client is responsible for reserving
+ * enough slots for its use.
  */
 #define ARBITRARY_UPPER_LIMIT (SPILL_SLOT_MAX + DR_NUM_GPR_REGS + 1)
 #define MAX_SPILLS ARBITRARY_UPPER_LIMIT
@@ -74,10 +75,10 @@
 /* We choose the number of available slots for spilling SIMDs to arbitrarily match
  * double their theoretical max number for a given build.
  *
- * We add an additional slot for temporary storage used by drreg. For example,
- * it is used to handle cross-app spilling. Note that this is in contrast to GPRs,
- * which require allocated thread storage for cross-app spilling as DR slots are not
- * guaranteed preserve stored data in such cases.
+ * Indirect spill area for SIMD is always allocated in TLS and therefore suitable for
+ * cross-app. Note that this is in contrast to GPRs, which requires allocated raw thread
+ * storage for cross-app spilling as DR slots are not guaranteed to preserve stored data
+ * in such cases.
  */
 #define MAX_SIMD_SPILLS (DR_NUM_SIMD_VECTOR_REGS * 2)
 
@@ -334,8 +335,9 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
            "internal tracking error");
     drreg_status_t res = drreg_reserve_reg_internal(
         drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL, false, &scratch_block_reg);
+    /* May fail if drreg runs out of regs to use as a temporary register */
     if (res != DRREG_SUCCESS)
-        drreg_report_error(res, "failed to reserve tmp register");
+        drreg_report_error(res, "failed to reserve temporary register");
     ASSERT(scratch_block_reg != DR_REG_NULL, "invalid register");
     ASSERT(pt->simd_spills != NULL, "SIMD spill storage cannot be NULL");
     ASSERT(slot < ops.num_spill_simd_slots, "slots is out-of-bounds");
@@ -504,14 +506,12 @@ is_partial_simd_read(instr_t *instr, reg_id_t reg)
 {
     int i;
     opnd_t opnd;
-
     for (i = 0; i < instr_num_srcs(instr); i++) {
         opnd = instr_get_src(instr, i);
         if (opnd_is_reg(opnd) && opnd_get_reg(opnd) == reg &&
             opnd_get_size(opnd) < reg_get_size(reg))
             return true;
     }
-
     return false;
 }
 
@@ -1418,7 +1418,7 @@ get_simd_dead_state(const drreg_spill_class_t spill_class)
 static drreg_spill_class_t
 get_spill_class(const reg_id_t reg)
 {
-
+    /* TODO i#3844: apart from GPRs and XMMs, other regs are currently unsupported. */
     if (reg_is_gpr(reg)) {
         return DRREG_GPR_SPILL_CLASS;
     } else if (reg_is_strictly_xmm(reg)) {
