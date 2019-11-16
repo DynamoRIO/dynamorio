@@ -509,7 +509,8 @@ is_partial_simd_read(instr_t *instr, reg_id_t reg)
     for (i = 0; i < instr_num_srcs(instr); i++) {
         opnd = instr_get_src(instr, i);
         if (opnd_is_reg(opnd) && opnd_get_reg(opnd) == reg &&
-            opnd_get_size(opnd) < reg_get_size(reg))
+            opnd_size_in_bytes(opnd_get_size(opnd)) <
+                opnd_size_in_bytes(reg_get_size(reg)))
             return true;
     }
     return false;
