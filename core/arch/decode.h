@@ -83,8 +83,11 @@
  */
 #    define PREFIX_SEG_FS 0x20
 #    define PREFIX_SEG_GS 0x40
+/* Prefix used for AVX */
+#    define PREFIX_VEX_2B 0x00010000
+#    define PREFIX_VEX_3B 0x00020000
 /* Prefix used for AVX-512 */
-#    define PREFIX_EVEX 0x000100000
+#    define PREFIX_EVEX 0x00100000
 #endif
 
 /* XXX: when adding prefixes, shift all the private values as they start

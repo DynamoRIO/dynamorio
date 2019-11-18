@@ -1274,6 +1274,18 @@ get_implied_mm_e_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byt
     }
 }
 
+static bool
+set_e_vex_mm_bits(byte *pc, instr_t *instr, int prefixes, byte *byte0, byte *byte1)
+{
+    byte vex_mm = (byte)(*(pc + 1) & 0x3);
+    if (!get_implied_mm_e_vex_opcode_bytes(pc, prefixes, vex_mm, byte0, byte1)) {
+        /* invalid instruction! */
+        instr_set_opcode(instr, OP_INVALID);
+        return false;
+    }
+    return true;
+}
+
 /* Decodes only enough of the instruction at address pc to determine
  * its size, its effects on the 6 arithmetic eflags, and whether it is
  * a control-transfer instruction.  If it is, the operands fields of
@@ -1340,25 +1352,24 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
             case FS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_FS); break;
             case GS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_GS); break;
             case VEX_2BYTE_PREFIX_OPCODE:
+                instr_set_prefix_flag(instr, PREFIX_VEX_2B);
                 /* VEX 2-byte prefix implies 0x0f opcode */
                 byte0 = 0x0f;
                 byte1 = *(pc + prefixes);
                 break;
             case EVEX_PREFIX_OPCODE:
                 instr_set_prefix_flag(instr, PREFIX_EVEX);
-                /* fall-through */
+                if (!set_e_vex_mm_bits(pc, instr, prefixes, &byte0, &byte1))
+                    return NULL;
+                break;
             case VEX_3BYTE_PREFIX_OPCODE: {
+                instr_set_prefix_flag(instr, PREFIX_VEX_3B);
                 /* EVEX and VEX 3-byte prefixes imply instruction opcodes by encoding mm
                  * bits in the second prefix byte. In theory, there are 5 VEX mm bits, but
                  * only 2 of them are used.
                  */
-                byte vex_mm = (byte)(*(pc + 1) & 0x3);
-                if (!get_implied_mm_e_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0,
-                                                       &byte1)) {
-                    /* invalid instruction! */
-                    instr_set_opcode(instr, OP_INVALID);
+                if (!set_e_vex_mm_bits(pc, instr, prefixes, &byte0, &byte1))
                     return NULL;
-                }
                 break;
             }
             default: break;

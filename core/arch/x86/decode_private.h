@@ -65,17 +65,15 @@
 /* First 2 are only used during initial decode so if running out of
  * space could replace w/ byte value compare.
  */
-#define PREFIX_VEX_2B 0x000010000
-#define PREFIX_VEX_3B 0x000020000
-#define PREFIX_VEX_L 0x000040000
+#define PREFIX_VEX_L 0x00040000
 /* Also only used during initial decode */
-#define PREFIX_XOP 0x000080000
+#define PREFIX_XOP 0x00080000
 /* Prefixes which are used for AVX-512 */
-#define PREFIX_EVEX_RR 0x000200000
-#define PREFIX_EVEX_LL 0x000400000
-#define PREFIX_EVEX_z 0x000800000
-#define PREFIX_EVEX_b 0x001000000
-#define PREFIX_EVEX_VV 0x002000000
+#define PREFIX_EVEX_RR 0x00200000
+#define PREFIX_EVEX_LL 0x00400000
+#define PREFIX_EVEX_z 0x00800000
+#define PREFIX_EVEX_b 0x01000000
+#define PREFIX_EVEX_VV 0x02000000
 
 /* branch hints show up as segment modifiers */
 #define SEG_JCC_NOT_TAKEN SEG_CS
