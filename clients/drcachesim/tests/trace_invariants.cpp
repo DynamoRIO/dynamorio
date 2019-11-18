@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -98,6 +98,9 @@ trace_invariants_t::process_memref(const memref_t &memref)
         // Clear prev_instr to avoid a branch-gap failure above for things like
         // wow64 call* NtContinue syscall.
         memset(&prev_instr, 0, sizeof(prev_instr));
+    } else {
+        // Clear prev_marker to ensure it's *immediately* prior (i#3937). */
+        memset(&prev_marker, 0, sizeof(prev_marker));
     }
     return true;
 }

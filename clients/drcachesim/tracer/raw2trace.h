@@ -434,6 +434,10 @@ struct trace_header_t {
  *
  * <LI>void log(uint level, const char *fmt, ...)
  *
+ * <LI>void log_instruction(uint level, app_pc decode_pc, app_pc orig_pc);
+ *
+ * Similar to log() but this disassembles the given PC.</LI>
+ *
  * Implementers are given the opportunity to implement their own logging. The level
  * parameter represents severity: the lower the level, the higher the severity.</LI>
  *
@@ -671,6 +675,7 @@ private:
             // To avoid repeatedly decoding the same instruction on every one of its
             // dynamic executions, we cache the decoding in a hashtable.
             pc = decode_pc;
+            impl()->log_instruction(4, decode_pc, orig_pc);
             instr = impl()->get_instr_summary(tls, in_entry->pc.modidx,
                                               in_entry->pc.modoffs, &pc, orig_pc);
             if (instr == nullptr) {
@@ -941,6 +946,8 @@ protected:
     on_thread_end(void *tls);
     virtual void
     log(uint level, const char *fmt, ...);
+    virtual void
+    log_instruction(uint level, app_pc decode_pc, app_pc orig_pc);
 
     // Per-traced-thread data is stored here and accessed without locks by having each
     // traced thread processed by only one processing thread.

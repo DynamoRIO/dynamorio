@@ -503,10 +503,12 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             }
             continue;
         }
-        // Append any delayed branch, but not until we output all markers to
+        // Append any delayed branch, but not until we output all (non-xfer) markers to
         // ensure we group them all with the timestamp for this thread segment.
-        if (entry.extended.type != OFFLINE_TYPE_EXTENDED ||
-            entry.extended.ext != OFFLINE_EXT_TYPE_MARKER) {
+        if (!(entry.extended.type == OFFLINE_TYPE_EXTENDED &&
+              entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+              entry.extended.valueB != TRACE_MARKER_TYPE_KERNEL_EVENT &&
+              entry.extended.valueB != TRACE_MARKER_TYPE_KERNEL_XFER)) {
             tdata->error = append_delayed_branch(tdata);
             if (!tdata->error.empty())
                 return tdata->error;
@@ -680,9 +682,11 @@ instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
     if (*pc == nullptr || !instr_valid(instr)) {
         return false;
     }
-    if (verbosity > 3) {
+    if (verbosity > 4) {
+        // This is called for look-ahead and look-behind too so we leave the
+        // main instr disasm to log_instruction and have high verbosity here.
         instr_set_translation(instr, orig_pc);
-        dr_print_instr(dcontext, STDOUT, instr, "");
+        dr_print_instr(dcontext, STDOUT, instr, "<caching:> ");
     }
     desc->next_pc_ = *pc;
     desc->packed_ = 0;
@@ -830,6 +834,15 @@ raw2trace_t::log(uint level, const char *fmt, ...)
         vfprintf(stderr, fmt, args);
     }
     va_end(args);
+}
+
+void
+raw2trace_t::log_instruction(uint level, app_pc decode_pc, app_pc orig_pc)
+{
+    if (verbosity >= level) {
+        disassemble_from_copy(dcontext, decode_pc, orig_pc, STDOUT, true /*pc*/,
+                              false /*bytes*/);
+    }
 }
 
 void
