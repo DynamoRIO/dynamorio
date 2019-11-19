@@ -104,7 +104,10 @@
 #define REG_UNKNOWN ((void *)(ptr_uint_t)2) /* only used outside drmgr insert phase */
 
 #ifdef SIMD_SUPPORTED
-/* Liveness states for SIMD (not for mmx) */
+/* Liveness states for SIMD (not for mmx).
+ * Note that value order, i.e., SIMD_ZMM_DEAD > SIMD_YMM_DEAD > SIMD_XMM_DEAD,
+ * is important as drreg relies on it to reason over states.
+ */
 #    define SIMD_XMM_DEAD \
         ((void *)(ptr_uint_t)0) /* first 16 bytes are dead, rest are live */
 #    define SIMD_YMM_DEAD \
@@ -448,25 +451,20 @@ get_directly_spilled_value(void *drcontext, uint slot)
 }
 
 #ifdef SIMD_SUPPORTED
-static bool
+static void
 get_indirectly_spilled_value(void *drcontext, reg_id_t reg, uint slot,
                              OUT byte *value_buf, size_t buf_size)
 {
     ASSERT(value_buf != NULL, "value buffer not initialised");
-    if (value_buf == NULL)
-        return false;
     /* Get the size of the register so we can ensure that the buffer size is adequate. */
     size_t reg_size = opnd_size_in_bytes(reg_get_size(reg));
     ASSERT(buf_size >= reg_size, "value buffer too small in size");
-    if (buf_size < reg_size)
-        return false;
     if (reg_is_vector_simd(reg)) {
         per_thread_t *pt = get_tls_data(drcontext);
         ASSERT(pt->simd_spills != NULL, "SIMD spill storage cannot be NULL");
         ASSERT(slot < ops.num_spill_simd_slots, "slot is out-of-bounds");
         if (reg_is_strictly_xmm(reg)) {
             memcpy(value_buf, pt->simd_spills + (slot * SIMD_REG_SIZE), reg_size);
-            return true;
         } else if (reg_is_strictly_ymm(reg)) {
             /* The callers should catch this when checking the spill class. */
             ASSERT(false, "internal error: ymm registers are not supported yet.");
@@ -478,7 +476,6 @@ get_indirectly_spilled_value(void *drcontext, reg_id_t reg, uint slot,
         }
     }
     ASSERT(false, "not an applicable register.");
-    return false;
 }
 #endif
 
@@ -1836,7 +1833,6 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, op
         reg_id_t dst;
         if (!reg_is_vector_simd(reg))
             continue;
-
         dst = reg;
         res = drreg_get_app_value(drcontext, ilist, where, reg, dst);
         if (res == DRREG_ERROR_NO_APP_VALUE)
@@ -1954,6 +1950,9 @@ drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
             restore_reg_indirectly(drcontext, pt, spilled_reg,
                                    pt->simd_reg[SIMD_IDX(reg)].slot, ilist, inst, true);
         } else {
+            LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": %s never spilled\n",
+                __FUNCTION__, pt->live_idx, get_where_app_pc(inst),
+                get_register_name(reg));
             pt->simd_slot_use[pt->simd_reg[SIMD_IDX(reg)].slot] = DR_REG_NULL;
         }
         pt->simd_reg[SIMD_IDX(reg)].native = true;
@@ -2119,10 +2118,10 @@ drreg_reservation_info_ex(void *drcontext, reg_id_t reg, drreg_reserve_info_t *i
     } else if (reg_is_vector_simd(reg)) {
         reg_info = &pt->simd_reg[SIMD_IDX(reg)];
 #endif
-    } else {
-        if (reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR)
-            return DRREG_ERROR_INVALID_PARAMETER;
+    } else if (reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR) {
         reg_info = &pt->reg[GPR_IDX(reg)];
+    } else {
+        return DRREG_ERROR_INVALID_PARAMETER;
     }
     set_reservation_info(info, pt, drcontext, reg, reg_info);
     return DRREG_SUCCESS;
@@ -2556,7 +2555,7 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
     }
 #ifdef SIMD_SUPPORTED
     else if (tls && offs == tls_simd_offs &&
-             !(is_spilled) /* Cant be a spill bc loading block */) {
+             !(is_spilled) /* Can't be a spill bc loading block */) {
         /* In order to detect indirect spills, the loading of the pointer
          * to the indrect block must be done exactly prior. We assume that
          * nobody else can interfere with our indirect load sequence for
@@ -2566,8 +2565,7 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
         /* FIXME i#3844: Might need to change this assert when
          * supporting other register spillage.
          */
-        ASSERT(instr_get_opcode(next_instr) == OP_movdqa ||
-                   instr_get_opcode(next_instr) == OP_vmovdqa,
+        ASSERT(instr_get_opcode(next_instr) == OP_movdqa,
                "next instruction needs to be a mov");
         is_indirect = true;
         opnd_t dst = instr_get_dst(next_instr, 0);
@@ -2704,7 +2702,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
     byte *prev_pc, *pc = info->fragment_info.cache_start_pc;
     uint offs;
     bool is_spill;
-    bool is_indirect_spill;
+    bool is_indirect;
 #ifdef X86
     bool prev_xax_spill = false;
     bool aflags_in_xax = false;
@@ -2740,7 +2738,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
         }
         decode(drcontext, pc, &next_inst);
         if (is_our_spill_or_restore(drcontext, &inst, &next_inst, &is_spill, &reg, &slot,
-                                    &offs, &is_indirect_spill)) {
+                                    &offs, &is_indirect)) {
             LOG(drcontext, DR_LOG_ALL, 3,
                 "%s @" PFX " found %s to %s offs=0x%x => slot %d\n", __FUNCTION__,
                 prev_pc, is_spill ? "is_spill" : "restore", get_register_name(reg), offs,
@@ -2749,22 +2747,21 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 if (slot == AFLAGS_SLOT) {
                     spilled_to_aflags = slot;
 #ifdef SIMD_SUPPORTED
-                } else if (is_indirect_spill) {
-                    if (reg_is_vector_simd(reg)) {
-                        ASSERT(slot < ops.num_spill_simd_slots, "slots is out-of-bounds");
-                        if (spilled_simd_to[SIMD_IDX(reg)] < MAX_SIMD_SPILLS &&
-                            /* allow redundant spill */
-                            spilled_simd_to[SIMD_IDX(reg)] != slot) {
-                            /* This reg is already spilled: we assume that this new
-                             * spill is to a tmp slot for preserving the tool's value.
-                             */
-                            LOG(drcontext, DR_LOG_ALL, 3,
-                                "%s @" PFX ": ignoring tool is_spill\n", __FUNCTION__,
-                                pc);
-                        } else {
-                            spilled_simd_to[SIMD_IDX(reg)] = slot;
-                            simd_slot_use[slot] = reg;
-                        }
+                } else if (is_indirect) {
+                    ASSERT(reg_is_vector_simd(reg),
+                           "indirect spill must be for SIMD reg");
+                    ASSERT(slot < ops.num_spill_simd_slots, "slots is out-of-bounds");
+                    if (spilled_simd_to[SIMD_IDX(reg)] < MAX_SIMD_SPILLS &&
+                        /* allow redundant spill */
+                        spilled_simd_to[SIMD_IDX(reg)] != slot) {
+                        /* This reg is already spilled: we assume that this new
+                         * spill is to a tmp slot for preserving the tool's value.
+                         */
+                        LOG(drcontext, DR_LOG_ALL, 3,
+                            "%s @" PFX ": ignoring tool is_spill\n", __FUNCTION__, pc);
+                    } else {
+                        spilled_simd_to[SIMD_IDX(reg)] = slot;
+                        simd_slot_use[slot] = reg;
                     }
 #endif
                 } else if (spilled_to[GPR_IDX(reg)] < MAX_SPILLS &&
@@ -2783,7 +2780,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 if (slot == AFLAGS_SLOT && spilled_to_aflags == slot) {
                     spilled_to_aflags = MAX_SPILLS;
 #ifdef SIMD_SUPPORTED
-                } else if (is_indirect_spill) {
+                } else if (is_indirect) {
                     if (spilled_simd_to[SIMD_IDX(reg)] == slot) {
                         spilled_simd_to[SIMD_IDX(reg)] = MAX_SIMD_SPILLS;
                         simd_slot_use[slot] = DR_REG_NULL;
@@ -3058,6 +3055,9 @@ drreg_init(drreg_options_t *ops_in)
     /* Sum the spill slots, honoring a new or prior do_not_sum_slots by taking
      * the max instead of summing.
      */
+
+    DR_ASSERT(!(ops_in->struct_size <= offsetof(drreg_options_t, do_not_sum_slots) &&
+                ops_in->struct_size > offsetof(drreg_options_t, num_spill_simd_slots)));
     if (ops_in->struct_size > offsetof(drreg_options_t, do_not_sum_slots)) {
         ops.num_spill_slots = get_updated_num_slots(
             ops_in->do_not_sum_slots, ops.num_spill_slots, ops_in->num_spill_slots);
