@@ -528,9 +528,13 @@ proc_num_opmask_registers(void)
 void
 proc_set_num_simd_saved(int num)
 {
+#if !defined(UNIX) || !defined(X64)
+    /* FIXME i#1312: support and test. */
+#else
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     ATOMIC_4BYTE_WRITE(&num_simd_saved, num, false);
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+#endif
 }
 
 int

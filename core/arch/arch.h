@@ -256,7 +256,7 @@ static inline void
 d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
 {
 #    if !defined(UNIX) || !defined(X64)
-    /* We warn about unsupported AVX-512 present in the app. */
+    /* FIXME i#1312: we warn about unsupported AVX-512 present in the app. */
     DO_ONCE({
         if (pc != NULL) {
             char pc_addr[IF_X64_ELSE(20, 12)];
