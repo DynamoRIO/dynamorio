@@ -256,7 +256,7 @@ static inline void
 d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
 {
 #    if !defined(UNIX) || !defined(X64)
-    /* We warn about unsupported AVX-512 present in the app. */
+    /* FIXME i#1312: we warn about unsupported AVX-512 present in the app. */
     DO_ONCE({
         if (pc != NULL) {
             char pc_addr[IF_X64_ELSE(20, 12)];
@@ -266,10 +266,11 @@ d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
                    get_application_pid(), pc_addr);
         }
     });
-#    endif
+#    else
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     ATOMIC_1BYTE_WRITE(d_r_avx512_code_in_use, in_use, false);
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+#    endif
 }
 
 static inline bool

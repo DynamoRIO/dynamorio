@@ -427,17 +427,27 @@ proc_init_arch(void)
         }
         if (proc_has_feature(FEATURE_AVX512F)) {
             if (TESTALL(XCR0_HI16_ZMM | XCR0_ZMM_HI256 | XCR0_OPMASK, bv_low)) {
-                /* XXX i#1312: It had been unclear whether the kernel uses CR0 bits to
-                 * disable AVX-512 for its own lazy context switching optimization. If it
-                 * did, then our lazy context switch would interfere with the kernel's and
-                 * more support would be needed. We have concluded that the Linux kernel
-                 * does not do its own lazy context switch optimization for AVX-512 at
-                 * this time.
+#if !defined(UNIX) || !defined(X64)
+                /* FIXME i#1312: AVX-512 is not fully supported or is untested on all
+                 * non-UNIX builds and in 32-bit yet. A SYSLOG_INTERNAL_ERROR_ONCE is
+                 * issued on Windows and by any 32-bit build if AVX-512 code is
+                 * encountered. Setting DynamoRIO to a state that partially supports
+                 * AVX-512 is causing problems, xref i#3949. We therefore completely
+                 * disable AVX-512 support in these builds for now.
+                 */
+#else
+                /* XXX i#1312: It had been unclear whether the kernel uses CR0
+                 * bits to disable AVX-512 for its own lazy context switching
+                 * optimization. If it did, then our lazy context switch would
+                 * interfere with the kernel's and more support would be needed.
+                 * We have concluded that the Linux kernel does not do its own
+                 * lazy context switch optimization for AVX-512 at this time.
                  */
                 avx512_enabled = true;
                 num_simd_registers = MCXT_NUM_SIMD_SLOTS;
                 num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;
                 LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX-512\n");
+#endif
             } else {
                 LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX-512\n");
             }
@@ -518,9 +528,13 @@ proc_num_opmask_registers(void)
 void
 proc_set_num_simd_saved(int num)
 {
+#if !defined(UNIX) || !defined(X64)
+    /* FIXME i#1312: support and test. */
+#else
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     ATOMIC_4BYTE_WRITE(&num_simd_saved, num, false);
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+#endif
 }
 
 int
