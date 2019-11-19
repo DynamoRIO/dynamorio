@@ -428,12 +428,12 @@ proc_init_arch(void)
         if (proc_has_feature(FEATURE_AVX512F)) {
             if (TESTALL(XCR0_HI16_ZMM | XCR0_ZMM_HI256 | XCR0_OPMASK, bv_low)) {
 #if !defined(UNIX) || !defined(X64)
-                /* FIXME i#1312: AVX-512 is not fully supported or untested on all
+                /* FIXME i#1312: AVX-512 is not fully supported or is untested on all
                  * non-UNIX builds and in 32-bit yet. A SYSLOG_INTERNAL_ERROR_ONCE is
                  * issued on Windows and by any 32-bit build if AVX-512 code is
                  * encountered. Setting DynamoRIO to a state that partially supports
                  * AVX-512 is causing problems, xref i#3949. We therefore completely
-                 * disable AVX-512 support in these builds.
+                 * disable AVX-512 support in these builds for now.
                  */
 #else
                 /* XXX i#1312: It had been unclear whether the kernel uses CR0
