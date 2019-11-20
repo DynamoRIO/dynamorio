@@ -2472,16 +2472,26 @@ drx_expand_scatter_gather_exit:
  *
  * AVX-512 gather sequence detection example:
  *
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0
  *         mov           (%rax,%rcx,4)[4byte] -> %ecx
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1
  * (a)     vextracti32x4 {%k0} $0x00 %zmm0 -> %xmm2
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2
  * (a)     vpinsrd       %xmm2 %ecx $0x00 -> %xmm2
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3
  * (a)     vinserti32x4  {%k0} $0x00 %zmm0 %xmm2 -> %zmm0
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4
  * (a)     mov           $0x00000001 -> %ecx
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5
  * (a)     mov           %rdx -> %gs:0x00000098[8byte]
  * (a) (b) kmovw         %k0 -> %edx
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6
  * (a) (b) kmovw         %ecx -> %k0
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7
  * (a) (b) kandnw        %k0 %k1 -> %k1
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8
  *     (b) kmovw         %edx -> %k0
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0
  *
  * (a): The instruction window where the destination mask state is stale.
  * (b): The instruction window where the scratch mask is clobbered w/o support by drreg.
