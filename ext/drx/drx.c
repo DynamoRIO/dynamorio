@@ -1763,8 +1763,10 @@ expand_avx512_scatter_gather_update_mask(void *drcontext, instrlist_t *bb,
                                           OPND_CREATE_INT32(1 << el)),
                      orig_app_pc));
     /* TODO i#2985: We will have to detect this code in a future drx restore event in
-     * order to check whether an asynchronous event happened within this sequence,
-     * which will make it necessary to manually restore k0.
+     * order to check whether an translation event happened within this sequence,
+     * which may make it necessary to manually restore k0 and maybe the destination
+     * mask. This is not supported for AVX2 gather and AVX-512 scatter. AVX-512 gather is
+     * supported.
      */
     if (drreg_reserve_register(drcontext, bb, sg_instr, allowed, &save_mask_reg) !=
         DRREG_SUCCESS)
