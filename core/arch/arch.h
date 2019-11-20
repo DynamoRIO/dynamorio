@@ -268,7 +268,7 @@ d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
     });
 #    endif
 #    if !defined(UNIX)
-    /* All non-UNIX builds are completely unsupported, while 32-bit UNIX builds are
+    /* All non-UNIX builds are completely unsupported. 32-bit UNIX builds are
      * partially supported, see comment in proc.c.
      */
     return;

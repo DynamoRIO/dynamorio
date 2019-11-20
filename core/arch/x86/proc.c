@@ -443,9 +443,9 @@ proc_init_arch(void)
                  * lazy context switch optimization for AVX-512 at this time.
                  *
                  * Please note that the 32-bit UNIX build is missing support for
-                 * handling AVX-512 state with signals and a SYSLOG_INTERNAL_ERROR_ONCE
-                 * will be issued if AVX-512 code is encountered. 64-bit builds are
-                 * fully supported.
+                 * handling AVX-512 state with signals. A SYSLOG_INTERNAL_ERROR_ONCE
+                 * will be issued if AVX-512 code is encountered for 32-bit. 64-bit
+                 * builds are fully supported.
                  */
                 avx512_enabled = true;
                 num_simd_registers = MCXT_NUM_SIMD_SLOTS;
