@@ -2520,20 +2520,21 @@ drx_expand_scatter_gather_exit:
  * as well as AVX2 gather.
  */
 
-/* Returns false if counter has exceeded threshold, true otherwise. */
-static inline bool
-allow_for_unknown_instr_inc(int *allow_for_unknown_instr_count)
-{
-    if (*allow_for_unknown_instr_count++ < DRX_RESTORE_EVENT_ALLOW_FOR_UNKNOWN_INSTR)
-        return true;
-    return false;
-}
-
 static void
 advance_state(int *detect_state, int new_detect_state, int *allow_for_unknown_instr_count)
 {
     *detect_state = new_detect_state;
     *allow_for_unknown_instr_count = 0;
+}
+
+/* Advances to state 0 if counter has exceeded threshold, returns otherwise. */
+static inline void
+allow_for_unknown_instr_inc(int *detect_state, int *allow_for_unknown_instr_count)
+{
+    if (*allow_for_unknown_instr_count++ >= DRX_RESTORE_EVENT_ALLOW_FOR_UNKNOWN_INSTR) {
+        advance_state(detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
+                      allow_for_unknown_instr_count);
+    }
 }
 
 static bool
@@ -2597,10 +2598,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                 break;
             }
             /* Intentionally not else if */
-            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
-                break;
-            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
-                          &allow_for_unknown_instr_count);
+            allow_for_unknown_instr_inc(&detect_state, &allow_for_unknown_instr_count);
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2:
             ASSERT(tmp_xmm != DR_REG_NULL,
@@ -2615,10 +2613,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                     break;
                 }
             }
-            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
-                break;
-            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
-                          &allow_for_unknown_instr_count);
+            allow_for_unknown_instr_inc(&detect_state, &allow_for_unknown_instr_count);
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3:
             if (instr_get_opcode(inst) == OP_vinserti32x4) {
@@ -2630,10 +2625,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                     break;
                 }
             }
-            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
-                break;
-            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
-                          &allow_for_unknown_instr_count);
+            allow_for_unknown_instr_inc(&detect_state, &allow_for_unknown_instr_count);
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4: {
             ptr_int_t val;
@@ -2655,10 +2647,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                     }
                 }
             }
-            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
-                break;
-            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
-                          &allow_for_unknown_instr_count);
+            allow_for_unknown_instr_inc(&detect_state, &allow_for_unknown_instr_count);
             break;
         }
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5:
@@ -2678,10 +2667,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                     }
                 }
             }
-            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
-                break;
-            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
-                          &allow_for_unknown_instr_count);
+            allow_for_unknown_instr_inc(&detect_state, &allow_for_unknown_instr_count);
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6:
             ASSERT(gpr_bit_mask != DR_REG_NULL,
@@ -2700,10 +2686,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                     }
                 }
             }
-            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
-                break;
-            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
-                          &allow_for_unknown_instr_count);
+            allow_for_unknown_instr_inc(&detect_state, &allow_for_unknown_instr_count);
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7:
             if (instr_get_opcode(inst) == OP_kandnw) {
@@ -2745,10 +2728,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                     }
                 }
             }
-            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
-                break;
-            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
-                          &allow_for_unknown_instr_count);
+            allow_for_unknown_instr_inc(&detect_state, &allow_for_unknown_instr_count);
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8:
             if (instr_get_opcode(inst) == OP_kmovw) {
@@ -2780,10 +2760,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                     }
                 }
             }
-            if (allow_for_unknown_instr_inc(&allow_for_unknown_instr_count))
-                break;
-            advance_state(&detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
-                          &allow_for_unknown_instr_count);
+            allow_for_unknown_instr_inc(&detect_state, &allow_for_unknown_instr_count);
             break;
         default: ASSERT(false, "internal error: invalid state.");
         }
