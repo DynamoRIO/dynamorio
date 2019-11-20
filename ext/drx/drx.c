@@ -2546,7 +2546,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
     byte *restore_scratch_mask_start = NULL;
     int detect_state = 0;
     int allow_for_unknown_instr_count = 0;
-    reg_id_t tmp_xmm = DR_REG_NULL;
+    reg_id_t the_scratch_xmm = DR_REG_NULL;
     reg_id_t gpr_bit_mask = DR_REG_NULL;
     reg_id_t gpr_save_scratch_mask = DR_REG_NULL;
     uint scalar_mask_update_no = 0;
@@ -2591,7 +2591,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                 reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(inst, 0));
                 if (!reg_is_strictly_xmm(tmp_reg))
                     break;
-                tmp_xmm = tmp_reg;
+                the_scratch_xmm = tmp_reg;
                 advance_state(&detect_state,
                               DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2,
                               &allow_for_unknown_instr_count);
@@ -2601,12 +2601,12 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
             allow_for_unknown_instr_inc(&detect_state, &allow_for_unknown_instr_count);
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2:
-            ASSERT(tmp_xmm != DR_REG_NULL,
+            ASSERT(the_scratch_xmm != DR_REG_NULL,
                    "internal error: expected xmm register to be recorded in state "
                    "machine.");
             if (instr_get_opcode(inst) == OP_vpinsrd) {
                 reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(inst, 0));
-                if (tmp_reg == tmp_xmm) {
+                if (tmp_reg == the_scratch_xmm) {
                     advance_state(&detect_state,
                                   DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3,
                                   &allow_for_unknown_instr_count);
