@@ -2638,7 +2638,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
             ptr_int_t val;
             if (instr_is_mov_constant(inst, &val)) {
                 /* If more than one bit is set, this is not what we're looking for. */
-                if (!val || (val & (val - 1))) {
+                if (val == 0 || (val & (val - 1)) != 0) {
                     detect_state = DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0;
                     break;
                 }
