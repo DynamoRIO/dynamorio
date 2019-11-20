@@ -2464,7 +2464,7 @@ drx_expand_scatter_gather_exit:
  *
  * The state machines allow for instructions like drreg spill/restore and instrumentation
  * in between recognized states. This is an approximation and could be broken in many
- * ways, e.g. by a client adding more than DRX_RESTORE_EVENT_ALLOW_FOR_UNKNOWN_INSTR
+ * ways, e.g. by a client adding more than DRX_RESTORE_EVENT_SKIP_UNKNOWN_INSTR_MAX
  * number of instructions as instrumentation, or by altering the emulation sequence's
  * code. A more safe way to do this would be along the lines of xref i#3801: if we had
  * instruction lists available, we could see and pass down emulation labels instead of
@@ -2503,7 +2503,7 @@ drx_expand_scatter_gather_exit:
  * TODO i#2985: support.
  */
 
-#    define DRX_RESTORE_EVENT_ALLOW_FOR_UNKNOWN_INSTR 32
+#    define DRX_RESTORE_EVENT_SKIP_UNKNOWN_INSTR_MAX 32
 
 /* States of the AVX-512 gather detection state machine. */
 #    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0 0
@@ -2521,19 +2521,19 @@ drx_expand_scatter_gather_exit:
  */
 
 static void
-advance_state(int *detect_state, int new_detect_state, int *unknown_instr_count)
+advance_state(int *detect_state, int new_detect_state, int *skip_unknown_instr_count)
 {
     *detect_state = new_detect_state;
-    *unknown_instr_count = 0;
+    *skip_unknown_instr_count = 0;
 }
 
 /* Advances to state 0 if counter has exceeded threshold, returns otherwise. */
 static inline void
-allow_for_unknown_instr_inc(int *detect_state, int *unknown_instr_count)
+skip_unknown_instr_inc(int *detect_state, int *skip_unknown_instr_count)
 {
-    if (*unknown_instr_count++ >= DRX_RESTORE_EVENT_ALLOW_FOR_UNKNOWN_INSTR) {
+    if (*skip_unknown_instr_count++ >= DRX_RESTORE_EVENT_SKIP_UNKNOWN_INSTR_MAX) {
         advance_state(detect_state, DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
-                      unknown_instr_count);
+                      skip_unknown_instr_count);
     }
 }
 
@@ -2545,7 +2545,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
     byte *restore_dest_mask_start = NULL;
     byte *restore_scratch_mask_start = NULL;
     int detect_state = 0;
-    int unknown_instr_count = 0;
+    int skip_unknown_instr_count = 0;
     reg_id_t the_scratch_xmm = DR_REG_NULL;
     reg_id_t gpr_bit_mask = DR_REG_NULL;
     reg_id_t gpr_save_scratch_mask = DR_REG_NULL;
@@ -2578,7 +2578,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                     restore_dest_mask_start = pc;
                     advance_state(&detect_state,
                                   DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1,
-                                  &unknown_instr_count);
+                                  &skip_unknown_instr_count);
                     break;
                 }
             }
@@ -2596,12 +2596,12 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                     the_scratch_xmm = tmp_reg;
                     advance_state(&detect_state,
                                   DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2,
-                                  &unknown_instr_count);
+                                  &skip_unknown_instr_count);
                     break;
                 }
             }
             /* Intentionally not else if */
-            allow_for_unknown_instr_inc(&detect_state, &unknown_instr_count);
+            skip_unknown_instr_inc(&detect_state, &skip_unknown_instr_count);
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2:
             ASSERT(the_scratch_xmm != DR_REG_NULL,
@@ -2614,11 +2614,11 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                 if (tmp_reg == the_scratch_xmm) {
                     advance_state(&detect_state,
                                   DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3,
-                                  &unknown_instr_count);
+                                  &skip_unknown_instr_count);
                     break;
                 }
             }
-            allow_for_unknown_instr_inc(&detect_state, &unknown_instr_count);
+            skip_unknown_instr_inc(&detect_state, &skip_unknown_instr_count);
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3:
             if (instr_get_opcode(inst) == OP_vinserti32x4) {
@@ -2628,11 +2628,11 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                 if (tmp_reg == sg_info->gather_dst_reg) {
                     advance_state(&detect_state,
                                   DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4,
-                                  &unknown_instr_count);
+                                  &skip_unknown_instr_count);
                     break;
                 }
             }
-            allow_for_unknown_instr_inc(&detect_state, &unknown_instr_count);
+            skip_unknown_instr_inc(&detect_state, &skip_unknown_instr_count);
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4: {
             ptr_int_t val;
@@ -2649,12 +2649,12 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                         gpr_bit_mask = tmp_gpr;
                         advance_state(&detect_state,
                                       DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5,
-                                      &unknown_instr_count);
+                                      &skip_unknown_instr_count);
                         break;
                     }
                 }
             }
-            allow_for_unknown_instr_inc(&detect_state, &unknown_instr_count);
+            skip_unknown_instr_inc(&detect_state, &skip_unknown_instr_count);
             break;
         }
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5:
@@ -2668,13 +2668,13 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                             gpr_save_scratch_mask = tmp_gpr;
                             advance_state(&detect_state,
                                           DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6,
-                                          &unknown_instr_count);
+                                          &skip_unknown_instr_count);
                             break;
                         }
                     }
                 }
             }
-            allow_for_unknown_instr_inc(&detect_state, &unknown_instr_count);
+            skip_unknown_instr_inc(&detect_state, &skip_unknown_instr_count);
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6:
             ASSERT(gpr_bit_mask != DR_REG_NULL,
@@ -2688,12 +2688,12 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                         restore_scratch_mask_start = pc;
                         advance_state(&detect_state,
                                       DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7,
-                                      &unknown_instr_count);
+                                      &skip_unknown_instr_count);
                         break;
                     }
                 }
             }
-            allow_for_unknown_instr_inc(&detect_state, &unknown_instr_count);
+            skip_unknown_instr_inc(&detect_state, &skip_unknown_instr_count);
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7:
             if (instr_get_opcode(inst) == OP_kandnw) {
@@ -2729,13 +2729,13 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                             }
                             advance_state(&detect_state,
                                           DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8,
-                                          &unknown_instr_count);
+                                          &skip_unknown_instr_count);
                             break;
                         }
                     }
                 }
             }
-            allow_for_unknown_instr_inc(&detect_state, &unknown_instr_count);
+            skip_unknown_instr_inc(&detect_state, &skip_unknown_instr_count);
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8:
             if (instr_get_opcode(inst) == OP_kmovw) {
@@ -2761,13 +2761,13 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                                 advance_state(
                                     &detect_state,
                                     DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0,
-                                    &unknown_instr_count);
+                                    &skip_unknown_instr_count);
                             }
                         }
                     }
                 }
             }
-            allow_for_unknown_instr_inc(&detect_state, &unknown_instr_count);
+            skip_unknown_instr_inc(&detect_state, &skip_unknown_instr_count);
             break;
         default: ASSERT(false, "internal error: invalid state.");
         }
