@@ -2443,6 +2443,8 @@ drx_expand_scatter_gather_exit:
 /***************************************************************************
  * RESTORE STATE
  *
+ * x86 scatter/gather emulation sequence support
+ *
  * The following state machines exist in order to detect restore events that need
  * additional attention by drx in order to fix the application state on top of the
  * fixes that drreg already makes. For the AVX-512 scatter/gather sequences this are
@@ -2497,6 +2499,8 @@ drx_expand_scatter_gather_exit:
  * as well as AVX2 gather.
  */
 
+#ifdef X86
+
 /* Returns false if counter has exceeded threshold, true otherwise. */
 static inline bool
 allow_for_unknown_instr_inc(int *allow_for_unknown_instr_count)
@@ -2512,8 +2516,6 @@ advance_state(int *detect_state, int new_detect_state, int *allow_for_unknown_in
     *detect_state = new_detect_state;
     *allow_for_unknown_instr_count = 0;
 }
-
-#ifdef X86
 
 static void
 drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_t *info,
