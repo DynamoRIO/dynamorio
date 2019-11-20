@@ -2581,6 +2581,9 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                     break;
                 }
             }
+            /* We don't need to ignore any instructions here, because we are already in
+             * DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0.
+             */
             break;
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1:
             if (instr_get_opcode(inst) == OP_vextracti32x4) {
