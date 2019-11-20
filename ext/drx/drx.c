@@ -66,6 +66,10 @@
 #define XMM_REG_SIZE 16
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
 
+#ifdef X86
+#    define PLATFORM_SUPPORTS_SCATTER_GATHER
+#endif
+
 #define MINSERT instrlist_meta_preinsert
 /* For inserting an app instruction, which must have a translation ("xl8") field. */
 #define PREXL8 instrlist_preinsert
@@ -106,7 +110,7 @@ drx_buf_init_library(void);
 void
 drx_buf_exit_library(void);
 
-#ifdef X86
+#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
 static bool
 drx_event_restore_state(void *drcontext, bool restore_memory,
                         dr_restore_state_info_t *info);
@@ -131,9 +135,11 @@ drx_init(void)
      */
     drreg_options_t ops = { sizeof(ops), 2, false, NULL, true };
 
+#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
     drmgr_priority_t fault_priority = { sizeof(fault_priority),
                                         DRMGR_PRIORITY_NAME_DRX_FAULT, NULL, NULL,
                                         DRMGR_PRIORITY_FAULT_DRX };
+#endif
 
     int count = dr_atomic_add32_return_sum(&drx_init_count, 1);
     if (count > 1)
@@ -146,7 +152,7 @@ drx_init(void)
     if (drreg_init(&ops) != DRREG_SUCCESS)
         return false;
 
-#ifdef X86
+#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
     /* Only needed for x86 at present. */
     if (!drmgr_register_restore_state_ex_event_ex(drx_event_restore_state,
                                                   &fault_priority))
@@ -1407,7 +1413,7 @@ drx_tail_pad_block(void *drcontext, instrlist_t *ilist)
  * drx_expand_scatter_gather() related auxiliary functions and structures.
  */
 
-#ifdef X86
+#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
 
 typedef struct _scatter_gather_info_t {
     bool is_evex;
@@ -2193,7 +2199,7 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
 bool
 drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 {
-#ifdef X86
+#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
     instr_t *instr, *next_instr, *first_app = NULL;
     bool delete_rest = false;
 #endif
@@ -2202,7 +2208,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_APP2APP) {
         return false;
     }
-#ifdef X86
+#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
     /* Make each scatter or gather instruction be in their own basic block.
      * TODO i#3837: cross-platform code like the following bb splitting can be shared
      * with other architectures in the future.
@@ -2434,7 +2440,7 @@ drx_expand_scatter_gather_exit:
     drvector_delete(&allowed);
     return res;
 
-#else /* !X86 */
+#else /* !PLATFORM_SUPPORTS_SCATTER_GATHER */
     /* TODO i#3837: add support for AArch64. */
     if (expanded != NULL)
         *expanded = false;
@@ -2501,7 +2507,7 @@ drx_expand_scatter_gather_exit:
  * as well as AVX2 gather.
  */
 
-#ifdef X86
+#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
 
 /* Returns false if counter has exceeded threshold, true otherwise. */
 static inline bool
