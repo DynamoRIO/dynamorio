@@ -106,9 +106,11 @@ drx_buf_init_library(void);
 void
 drx_buf_exit_library(void);
 
+#ifdef X86
 static bool
 drx_event_restore_state(void *drcontext, bool restore_memory,
                         dr_restore_state_info_t *info);
+#endif
 
 /***************************************************************************
  * INIT
@@ -144,9 +146,12 @@ drx_init(void)
     if (drreg_init(&ops) != DRREG_SUCCESS)
         return false;
 
+#ifdef X86
+    /* Only needed for x86 at present. */
     if (!drmgr_register_restore_state_ex_event_ex(drx_event_restore_state,
                                                   &fault_priority))
         return false;
+#endif
 
     return drx_buf_init_library();
 }
@@ -2508,6 +2513,8 @@ advance_state(int *detect_state, int new_detect_state, int *allow_for_unknown_in
     *allow_for_unknown_instr_count = 0;
 }
 
+#ifdef X86
+
 static void
 drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_t *info,
                                          instr_t *inst, scatter_gather_info_t *sg_info)
@@ -2788,3 +2795,5 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
     instr_free(drcontext, &inst);
     return true;
 }
+
+#endif
