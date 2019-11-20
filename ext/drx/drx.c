@@ -1769,7 +1769,7 @@ expand_avx512_scatter_gather_update_mask(void *drcontext, instrlist_t *bb,
                                           OPND_CREATE_INT32(1 << el)),
                      orig_app_pc));
     /* TODO i#2985: We will have to detect this code in a future drx restore event in
-     * order to check whether an translation event happened within this sequence,
+     * order to check whether a translation event happened within this sequence,
      * which may make it necessary to manually restore k0 and maybe the destination
      * mask. This is not supported for AVX2 gather and AVX-512 scatter. AVX-512 gather is
      * supported.
@@ -2455,10 +2455,10 @@ drx_expand_scatter_gather_exit:
  *
  * The following state machines exist in order to detect restore events that need
  * additional attention by drx in order to fix the application state on top of the
- * fixes that drreg already makes. For the AVX-512 scatter/gather sequences this are
+ * fixes that drreg already makes. For the AVX-512 scatter/gather sequences these are
  * instruction windows where a scratch mask is being used, and the windows after
  * each scalar load/store but before the destination mask register update. For AVX2,
- * the scratch mask is a xmm register and will be handled by drreg directly (future
+ * the scratch mask is an xmm register and will be handled by drreg directly (future
  * update, xref #3844).
  *
  * The state machines allow for instructions like drreg spill/restore and instrumentation
@@ -2480,8 +2480,8 @@ drx_expand_scatter_gather_exit:
  * (a) (b) kandnw        %k0 %k1 -> %k1
  *     (b) kmovw         %edx -> %k0
  *
- * (a): The instruction window the destination mask state is stale.
- * (b): The instruction window the scratch mask is clobbered w/o support by drreg.
+ * (a): The instruction window where the destination mask state is stale.
+ * (b): The instruction window where the scratch mask is clobbered w/o support by drreg.
  *
  * AVX-512 scatter sequence detection example:
  * TODO i#2985: support.
@@ -2718,7 +2718,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                                 MAX(opnd_size_in_bytes(sg_info->scalar_index_size),
                                     opnd_size_in_bytes(sg_info->scalar_value_size));
                             if (scalar_mask_update_no > no_of_elements) {
-                                /* Unlikely that something looks identical to a emulation
+                                /* Unlikely that something looks identical to an emulation
                                  * sequence for this long, but we safely can return here.
                                  */
                                 return true;
@@ -2746,7 +2746,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                         if (reg_is_gpr(tmp_gpr)) {
                             if (restore_scratch_mask_start <= info->raw_mcontext->pc &&
                                 info->raw_mcontext->pc <= prev_pc) {
-                                /* The scratch mask is always k0. this is hard-coded
+                                /* The scratch mask is always k0. This is hard-coded
                                  * in drx. We carefully only update the lowest 16 bits
                                  * because the mask was saved with kmovw.
                                  */
