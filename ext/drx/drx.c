@@ -2527,7 +2527,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
     reg_id_t tmp_xmm = DR_REG_NULL;
     reg_id_t gpr_bit_mask = DR_REG_NULL;
     reg_id_t gpr_save_scratch_mask = DR_REG_NULL;
-    int scalar_mask_update_no = 0;
+    uint scalar_mask_update_no = 0;
     pc = info->fragment_info.cache_start_pc;
     /* As the state machine is looking for blocks of code that the fault may hit, the 128
      * bytes is a conservative approximation of the block's size, see (a) and (b) above.
