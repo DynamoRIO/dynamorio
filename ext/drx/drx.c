@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -2519,7 +2519,7 @@ advance_state(int *detect_state, int new_detect_state, int *allow_for_unknown_in
     *allow_for_unknown_instr_count = 0;
 }
 
-static void
+static bool
 drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_t *info,
                                          instr_t *inst, scatter_gather_info_t *sg_info)
 {
@@ -2542,16 +2542,16 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
         pc = decode(drcontext, pc, inst);
         if (pc == NULL) {
             /* Upon a decoding error we simply give up. */
-            return;
+            return true;
         }
         /* If there is a gather or scatter instruction in the code cache, then it is wise
          * to assume that this is not an emulated sequence that we need to examine
          * further.
          */
         if (instr_is_gather(inst))
-            return;
+            return true;
         if (instr_is_scatter(inst))
-            return;
+            return true;
         switch (detect_state) {
         case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0:
             if (instr_reads_memory(inst)) {
@@ -2715,7 +2715,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
                                 /* Unlikely that something looks identical to a emulation
                                  * sequence for this long, but we safely can return here.
                                  */
-                                return;
+                                return true;
                             }
                             advance_state(&detect_state,
                                           DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8,
@@ -2768,6 +2768,7 @@ drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_
         default: ASSERT(false, "internal error: invalid state.");
         }
     }
+    return true;
 }
 
 static bool
@@ -2775,20 +2776,22 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
                         dr_restore_state_info_t *info)
 {
     instr_t inst;
+    bool success = true;
     if (info->fragment_info.cache_start_pc == NULL)
         return true; /* fault not in cache */
     instr_init(drcontext, &inst);
     byte *pc = decode(drcontext, dr_fragment_app_pc(info->fragment_info.tag), &inst);
     if (pc != NULL) {
         if (instr_is_gather(&inst)) {
-            /* XXX i#2985: if !info->fragment_info.app_code_consistent, we run the state
-             * machine anyway.
-             */
+            if (!info->fragment_info.app_code_consistent) {
+                /* Can't verify application code. Let the translation fail. */
+                return false;
+            }
             scatter_gather_info_t sg_info;
             get_scatter_gather_info(&inst, &sg_info);
             if (sg_info.is_evex) {
-                drx_try_to_detect_avx512_gather_sequence(drcontext, info, &inst,
-                                                         &sg_info);
+                success &= drx_try_to_detect_avx512_gather_sequence(drcontext, info,
+                                                                    &inst, &sg_info);
             } else {
                 /* TODO i#2985: support AVX2 gather. */
             }
@@ -2797,7 +2800,7 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
         }
     }
     instr_free(drcontext, &inst);
-    return true;
+    return success;
 }
 
 #endif
