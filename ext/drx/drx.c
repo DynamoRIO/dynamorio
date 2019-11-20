@@ -2447,7 +2447,11 @@ drx_expand_scatter_gather_exit:
 
 /***************************************************************************
  * RESTORE STATE
- *
+ */
+
+#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
+
+/*
  * x86 scatter/gather emulation sequence support
  *
  * The following state machines exist in order to detect restore events that need
@@ -2489,24 +2493,22 @@ drx_expand_scatter_gather_exit:
  * TODO i#2985: support.
  */
 
-#define DRX_RESTORE_EVENT_ALLOW_FOR_UNKNOWN_INSTR 32
+#    define DRX_RESTORE_EVENT_ALLOW_FOR_UNKNOWN_INSTR 32
 
 /* States of the AVX-512 gather detection state machine. */
-#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0 0
-#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1 1
-#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2 2
-#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3 3
-#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4 4
-#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5 5
-#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6 6
-#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7 7
-#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8 8
+#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0 0
+#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1 1
+#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2 2
+#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3 3
+#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4 4
+#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5 5
+#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6 6
+#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7 7
+#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8 8
 
 /* TODO i#2985: implement a state machine for AVX-512 scatter
  * as well as AVX2 gather.
  */
-
-#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
 
 /* Returns false if counter has exceeded threshold, true otherwise. */
 static inline bool
