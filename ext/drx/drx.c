@@ -2783,6 +2783,10 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
     bool success = true;
     if (info->fragment_info.cache_start_pc == NULL)
         return true; /* fault not in cache */
+    if (!expand_scatter_gather_drreg_initialized) {
+        /* Nothing to do if nobody had never called expand_scatter_gather() before. */
+        return true;
+    }
     instr_init(drcontext, &inst);
     byte *pc = decode(drcontext, dr_fragment_app_pc(info->fragment_info.tag), &inst);
     if (pc != NULL) {
