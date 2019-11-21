@@ -2792,7 +2792,7 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
     if (pc != NULL) {
         if (instr_is_gather(&inst)) {
             if (!info->fragment_info.app_code_consistent) {
-                /* Can't verify application code. Let the translation fail.
+                /* Can't verify application code.
                  * XXX i#2985: is it better to keep searching?
                  */
                 return true;
