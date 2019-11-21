@@ -153,7 +153,6 @@ drx_init(void)
         return false;
 
 #ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
-    /* Only needed for x86 at present. */
     if (!drmgr_register_restore_state_ex_event_ex(drx_event_restore_state,
                                                   &fault_priority))
         return false;
