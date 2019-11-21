@@ -67,6 +67,7 @@
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
 
 #ifdef X86
+/* TODO i#2985: add ARM SIMD. */
 #    define PLATFORM_SUPPORTS_SCATTER_GATHER
 #endif
 
