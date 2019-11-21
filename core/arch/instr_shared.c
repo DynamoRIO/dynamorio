@@ -130,7 +130,7 @@ instr_clone(dcontext_t *dcontext, instr_t *orig)
         /* We don't know what this callback does, we can't copy this. The caller that
          * makes the clone needs to take care of this, xref i#3926.
          */
-        instr_setlabel_callback(instr, NULL);
+        instr_set_label_callback(instr, NULL);
     }
 #ifdef CUSTOM_EXIT_STUBS
     if ((orig->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
