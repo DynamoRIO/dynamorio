@@ -30,27 +30,19 @@ AVX2 gather ok
 #ifdef __AVX512F__
 Test restoring the AVX-512 gather scratch mask register upon a fault
 Test restoring the AVX-512 scatter scratch mask register upon a fault
-Test restoring the AVX-512 gather mask register upon asynchronous events
-/* FIXME i2985: remove once restore event has been implemented in drx. This
- * applies to all errors below.
- */
+Test restoring the AVX-512 gather mask register upon translation events
+/* FIXME i2985: remove all errors below once restore event has been implemented in drx. */
+Test restoring the AVX-512 scatter mask register upon translation events
 #ifdef X64
 ERROR: expected k0 == 0xffff, but is 0x1
 #endif
-Test restoring the AVX-512 scatter mask register upon asynchronous events
-#ifdef X64
-ERROR: expected k0 == 0xffff, but is 0x1
-#endif
-Test updating the AVX-512 gather mask register upon asynchronous events
-#ifdef X64
-ERROR: expected k1 == 0xfffe, but is 0xffff
-#endif
-Test updating the AVX-512 scatter mask register upon asynchronous events
+Test updating the AVX-512 gather mask register upon translation events
+Test updating the AVX-512 scatter mask register upon translation events
 #ifdef X64
 ERROR: expected k1 == 0xfffe, but is 0xffff
 #endif
 #endif
-Test updating the AVX2 gather mask register upon asynchronous events
+Test updating the AVX2 gather mask register upon translation events
 ERROR: expected xmm2\[31:30\] == 0
 #endif
 AVX2/AVX-512 scatter/gather checks ok
