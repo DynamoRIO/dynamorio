@@ -886,7 +886,7 @@ DR_API
 /**
  * Returns a copy of \p orig with separately allocated memory for
  * operands and raw bytes if they were present in \p orig.
- * Only a shallow copy of the \p note field is made. The clone's label callback
+ * Only a shallow copy of the \p note field is made. The \p label_cb
  * field will not be copied at all if \p orig is a label instruction.
  */
 instr_t *
