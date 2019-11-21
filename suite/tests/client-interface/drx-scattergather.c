@@ -553,21 +553,21 @@ test_avx2_avx512_scatter_gather(void)
     intercept_signal(SIGILL, (handler_3_t)&signal_handler_check_k0, false);
     /* Restore to a valid value. */
     test_idx32_vec[9] = 0x24;
-    print("Test restoring the AVX-512 gather mask register upon asynchronous events\n");
+    print("Test restoring the AVX-512 gather mask register upon translation events\n");
     if (SIGSETJMP(mark) == 0)
         test_avx512_restore_gather_mask_clobber(ref_sparse_test_buf, test_idx32_vec);
-    print("Test restoring the AVX-512 scatter mask register upon asynchronous events\n");
+    print("Test restoring the AVX-512 scatter mask register upon translation events\n");
     if (SIGSETJMP(mark) == 0) {
         test_avx512_restore_scatter_mask_clobber(ref_sparse_test_buf, test_idx32_vec,
                                                  output_sparse_test_buf);
     }
     /* We will get the SIGILL from a ud2 instruction that the client will insert. */
     intercept_signal(SIGILL, (handler_3_t)&signal_handler_check_k1, false);
-    print("Test updating the AVX-512 gather mask register upon asynchronous events\n");
+    print("Test updating the AVX-512 gather mask register upon translation events\n");
     if (SIGSETJMP(mark) == 0)
         test_avx512_restore_gather_mask_update(ref_idx32_val32_xmm_ymm_zmm,
                                                test_idx32_vec);
-    print("Test updating the AVX-512 scatter mask register upon asynchronous events\n");
+    print("Test updating the AVX-512 scatter mask register upon translation events\n");
     if (SIGSETJMP(mark) == 0) {
         test_avx512_restore_scatter_mask_update(ref_idx32_val32_xmm_ymm_zmm,
                                                 test_idx32_vec, output_sparse_test_buf);
@@ -581,7 +581,7 @@ test_avx2_avx512_scatter_gather(void)
      */
     /* We will get the SIGILL from a ud2 instruction that the client will insert. */
     intercept_signal(SIGILL, (handler_3_t)&signal_handler_check_ymm1, false);
-    print("Test updating the AVX2 gather mask register upon asynchronous events\n");
+    print("Test updating the AVX2 gather mask register upon translation events\n");
     if (SIGSETJMP(mark) == 0)
         test_avx2_restore_gather_mask_update(ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec);
 #    endif
