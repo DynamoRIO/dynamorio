@@ -2797,8 +2797,9 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
             scatter_gather_info_t sg_info;
             get_scatter_gather_info(&inst, &sg_info);
             if (sg_info.is_evex) {
-                success &= drx_try_to_detect_avx512_gather_sequence(drcontext, info,
-                                                                    &inst, &sg_info);
+                success = success &&
+                    drx_try_to_detect_avx512_gather_sequence(drcontext, info, &inst,
+                                                             &sg_info);
             } else {
                 /* TODO i#2985: support AVX2 gather. */
             }
