@@ -266,11 +266,16 @@ d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
                    get_application_pid(), pc_addr);
         }
     });
-#    else
+#    endif
+#    if !defined(UNIX)
+    /* All non-UNIX builds are completely unsupported. 32-bit UNIX builds are
+     * partially supported, see comment in proc.c.
+     */
+    return;
+#    endif
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     ATOMIC_1BYTE_WRITE(d_r_avx512_code_in_use, in_use, false);
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-#    endif
 }
 
 static inline bool
