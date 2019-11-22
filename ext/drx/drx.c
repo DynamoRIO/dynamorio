@@ -2523,13 +2523,21 @@ drx_expand_scatter_gather_exit:
 typedef struct _drx_state_machine_params_t {
     byte *pc;
     byte *prev_pc;
+    /* state machine's state. */
     int detect_state;
+    /* detected start pc of destination mask update */
     byte *restore_dest_mask_start_pc;
+    /* detected start pc of scratch mask usage */
     byte *restore_scratch_mask_start_pc;
+    /* counter to allow for skipping unknown instructions */
     int skip_unknown_instr_count;
+    /* detected scratch xmm register for mask update */
     reg_id_t the_scratch_xmm;
+    /* detected gpr register that holds the mask update immediate */
     reg_id_t gpr_bit_mask;
+    /* detected gpr register that holds the app's mask state */
     reg_id_t gpr_save_scratch_mask;
+    /* counter of scalar element in the scatter/gather sequence */
     uint scalar_mask_update_no;
     instr_t *inst;
     dr_restore_state_info_t *info;
