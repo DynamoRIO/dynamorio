@@ -43,7 +43,6 @@ ERROR: expected k1 == 0xfffe, but is 0xffff
 #endif
 #endif
 Test updating the AVX2 gather mask register upon translation events
-ERROR: expected xmm2\[31:30\] == 0
 #endif
 AVX2/AVX-512 scatter/gather checks ok
 #ifdef X64
