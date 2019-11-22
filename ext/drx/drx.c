@@ -2661,7 +2661,7 @@ drx_avx512_gather_sequence_state_machine(
                "internal error: expected xmm register to be recorded in state "
                "machine.");
         if (instr_get_opcode(inst) == OP_vpinsrd) {
-            ASSERT(opnd_get_reg(instr_get_dst(inst, 0)),
+            ASSERT(opnd_is_reg(instr_get_dst(inst, 0)),
                    "internal error: unexpected instruction format");
             reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(inst, 0));
             if (tmp_reg == *the_scratch_xmm) {
@@ -2676,7 +2676,7 @@ drx_avx512_gather_sequence_state_machine(
         break;
     case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3:
         if (instr_get_opcode(inst) == OP_vinserti32x4) {
-            ASSERT(opnd_get_reg(instr_get_dst(inst, 0)),
+            ASSERT(opnd_is_reg(instr_get_dst(inst, 0)),
                    "internal error: unexpected instruction format");
             reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(inst, 0));
             if (tmp_reg == sg_info->gather_dst_reg) {
