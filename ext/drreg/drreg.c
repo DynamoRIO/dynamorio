@@ -2124,8 +2124,6 @@ drreg_reservation_info_ex(void *drcontext, reg_id_t reg, drreg_reserve_info_t *i
 drreg_status_t
 drreg_is_register_dead(void *drcontext, reg_id_t reg, instr_t *inst, bool *dead)
 {
-    void *dead_state;
-    void *cur_state;
     per_thread_t *pt = get_tls_data(drcontext);
     if (dead == NULL)
         return DRREG_ERROR_INVALID_PARAMETER;
@@ -2140,8 +2138,9 @@ drreg_is_register_dead(void *drcontext, reg_id_t reg, instr_t *inst, bool *dead)
         *dead = drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx) == REG_DEAD;
 #ifdef SIMD_SUPPORTED
     else if (reg_is_vector_simd(reg)) {
-        dead_state = get_simd_dead_state(get_spill_class(reg));
-        cur_state = drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx);
+        void *dead_state = get_simd_dead_state(get_spill_class(reg));
+        void *cur_state =
+            drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx);
         if (dead_state == SIMD_UNKNOWN)
             return DRREG_ERROR;
         *dead = cur_state >= dead_state && cur_state <= SIMD_ZMM_DEAD;
