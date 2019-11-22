@@ -2066,6 +2066,8 @@ DR_API
  * Set a function \p func which is called when the label instruction is freed.
  * \p instr is the label instruction allowing \p func to free the label's
  * auxiliary data.
+ * \note This data field is not copied across instr_clone(). Instead, the
+ * clone's field will be NULL.
  */
 void
 instr_set_label_callback(instr_t *instr, instr_label_callback_t func);
