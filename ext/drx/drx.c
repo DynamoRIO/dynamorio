@@ -2832,24 +2832,24 @@ drx_avx512_gather_sequence_state_machine(
 }
 
 static bool
-drx_try_to_detect_avx512_gather_sequence(void *drcontext, dr_restore_state_info_t *info,
-                                         instr_t *inst, scatter_gather_info_t *sg_info)
+drx_restore_state_for_avx512_gather(void *drcontext, dr_restore_state_info_t *info,
+                                    instr_t *inst, scatter_gather_info_t *sg_info)
 {
     return drx_try_to_detect_scatter_gather_sequence(
         drcontext, info, inst, sg_info, drx_avx512_gather_sequence_state_machine);
 }
 
 static bool
-drx_try_to_detect_avx512_scatter_sequence(void *drcontext, dr_restore_state_info_t *info,
-                                          instr_t *inst, scatter_gather_info_t *sg_info)
+drx_restore_state_for_avx512_scatter(void *drcontext, dr_restore_state_info_t *info,
+                                     instr_t *inst, scatter_gather_info_t *sg_info)
 {
     return drx_try_to_detect_scatter_gather_sequence(
         drcontext, info, inst, sg_info, drx_avx512_scatter_sequence_state_machine);
 }
 
 static bool
-drx_try_to_detect_avx2_gather_sequence(void *drcontext, dr_restore_state_info_t *info,
-                                       instr_t *inst, scatter_gather_info_t *sg_info)
+drx_restore_state_for_avx2_gather(void *drcontext, dr_restore_state_info_t *info,
+                                  instr_t *inst, scatter_gather_info_t *sg_info)
 {
     return drx_try_to_detect_scatter_gather_sequence(
         drcontext, info, inst, sg_info, drx_avx2_gather_sequence_state_machine);
@@ -2881,17 +2881,14 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
         if (instr_is_gather(&inst)) {
             if (sg_info.is_evex) {
                 success = success &&
-                    drx_try_to_detect_avx512_gather_sequence(drcontext, info, &inst,
-                                                             &sg_info);
+                    drx_restore_state_for_avx512_gather(drcontext, info, &inst, &sg_info);
             } else {
                 success = success &&
-                    drx_try_to_detect_avx2_gather_sequence(drcontext, info, &inst,
-                                                           &sg_info);
+                    drx_restore_state_for_avx2_gather(drcontext, info, &inst, &sg_info);
             }
         } else if (instr_is_scatter(&inst)) {
             success = success &&
-                drx_try_to_detect_avx512_scatter_sequence(drcontext, info, &inst,
-                                                          &sg_info);
+                drx_restore_state_for_avx512_scatter(drcontext, info, &inst, &sg_info);
         }
     }
     instr_free(drcontext, &inst);
