@@ -2523,7 +2523,7 @@ drx_expand_scatter_gather_exit:
 typedef struct _drx_state_machine_params_t {
     byte *pc;
     byte *prev_pc;
-    /* state machine's state. */
+    /* state machine's state */
     int detect_state;
     /* detected start pc of destination mask update */
     byte *restore_dest_mask_start_pc;
