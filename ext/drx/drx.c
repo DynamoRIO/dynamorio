@@ -2592,21 +2592,19 @@ drx_restore_state_scatter_gather(
         params.pc = decode(drcontext, params.pc, &params.inst);
         if (params.pc == NULL) {
             /* Upon a decoding error we simply give up. */
-            goto drx_restore_state_scatter_gather_exit;
+            break;
         }
         /* If there is a gather or scatter instruction in the code cache, then it is wise
          * to assume that this is not an emulated sequence that we need to examine
          * further.
          */
         if (instr_is_gather(&params.inst))
-            goto drx_restore_state_scatter_gather_exit;
+            break;
         if (instr_is_scatter(&params.inst))
-            goto drx_restore_state_scatter_gather_exit;
+            break;
         if ((*state_machine_func)(drcontext, &params))
-            goto drx_restore_state_scatter_gather_exit;
+            break;
     }
-
-drx_restore_state_scatter_gather_exit:
     instr_free(drcontext, &params.inst);
     return true;
 }
