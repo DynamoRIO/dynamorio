@@ -2560,7 +2560,11 @@ skip_unknown_instr_inc(int reset_state, drx_state_machine_params_t *params)
     }
 }
 
-/* */
+/* Run the state machines and decode the code cache. The state machines will search the
+ * code for whether the translation pc is in one of the instruction windows that need
+ * additional handling by drx in order to restore specific state of the application's mask
+ * registers. We consider this sufficiently accurate, but this is still an approximation.
+ */
 static bool
 drx_restore_state_scatter_gather(
     void *drcontext, dr_restore_state_info_t *info, scatter_gather_info_t *sg_info,
