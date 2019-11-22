@@ -333,9 +333,7 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
         get_where_app_pc(where), get_register_name(reg), slot);
     ASSERT(reg_is_vector_simd(reg), "not applicable register");
     ASSERT(pt->simd_slot_use[slot] == DR_REG_NULL ||
-               reg_resize_to_opsz(pt->simd_slot_use[slot], OPSZ_64) ==
-                   reg_resize_to_opsz(reg, OPSZ_64),
-           "internal tracking error");
+			pt->simd_slot_use[slot] == reg, "internal tracking error");
     drreg_status_t res = drreg_reserve_reg_internal(
         drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL, false, &scratch_block_reg);
     /* May fail if drreg runs out of regs to use as a temporary register */
@@ -402,10 +400,7 @@ restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slo
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s slot=%d release=%d\n", __FUNCTION__,
         pt->live_idx, get_where_app_pc(where), get_register_name(reg), slot, release);
     ASSERT(reg_is_vector_simd(reg), "not applicable register");
-    ASSERT(pt->simd_slot_use[slot] != DR_REG_NULL &&
-               reg_resize_to_opsz(pt->simd_slot_use[slot], OPSZ_64) ==
-                   reg_resize_to_opsz(reg, OPSZ_64) &&
-               pt->simd_slot_use[slot] >= reg,
+    ASSERT(pt->simd_slot_use[slot] == reg,
            "internal tracking error");
     drreg_status_t res = drreg_reserve_reg_internal(
         drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL, false, &scratch_block_reg);
