@@ -2910,10 +2910,16 @@ endif ()
       # We run an app w/ kernel xfers to test trace_invariants online.
       # Offline invariants are tested in the tool.histogram.offline test below.
       if (UNIX)
-        add_exe(drmemtrace.signal_invariants
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/signal_invariants.c")
-        link_with_pthread(drmemtrace.signal_invariants)
-        set(kernel_xfer_app drmemtrace.signal_invariants)
+        # The signal_invariants asm is x86-only.  The extra checks are cross-arch
+        # so we do not try to port it to ARM or Mac but use a different app there.
+        if (X86 AND NOT APPLE)
+          add_exe(drmemtrace.signal_invariants
+            "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/signal_invariants.c")
+          link_with_pthread(drmemtrace.signal_invariants)
+          set(kernel_xfer_app drmemtrace.signal_invariants)
+        else ()
+          set(kernel_xfer_app pthreads.ptsig)
+        endif ()
       else ()
         if (CLIENT_INTERFACE)
           set(kernel_xfer_app client.winxfer) # We want threads and xfers.

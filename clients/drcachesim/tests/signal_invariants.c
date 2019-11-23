@@ -228,7 +228,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XSI, HEX(42)
         mov      REG_XDI, REG_XSP
         push     REG_XAX
-        movsq
+        movsd
         pop      REG_XAX
         ret
         END_FUNC(FUNCNAME)
