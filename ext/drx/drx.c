@@ -2676,7 +2676,10 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
         ASSERT(params->the_scratch_xmm != DR_REG_NULL,
                "internal error: expected xmm register to be recorded in state "
                "machine.");
-        if (instr_get_opcode(&params->inst) == OP_vpinsrd) {
+        if ((params->sg_info->scalar_value_size == OPSZ_4 &&
+             instr_get_opcode(&params->inst) == OP_vpinsrd) ||
+            (params->sg_info->scalar_value_size == OPSZ_8 &&
+             instr_get_opcode(&params->inst) == OP_vpinsrq)) {
             ASSERT(opnd_is_reg(instr_get_dst(&params->inst, 0)),
                    "internal error: unexpected instruction format");
             reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(&params->inst, 0));
@@ -2744,7 +2747,10 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
         ASSERT(params->the_scratch_xmm != DR_REG_NULL,
                "internal error: expected xmm register to be recorded in state "
                "machine.");
-        if (instr_get_opcode(&params->inst) == OP_vpinsrd) {
+        if ((params->sg_info->scalar_value_size == OPSZ_4 &&
+             instr_get_opcode(&params->inst) == OP_vpinsrd) ||
+            (params->sg_info->scalar_value_size == OPSZ_8 &&
+             instr_get_opcode(&params->inst) == OP_vpinsrq)) {
             opnd_t src1 = instr_get_src(&params->inst, 1);
             if (opnd_is_reg(src1)) {
                 if (opnd_get_reg(src1) == params->gpr_bit_mask) {
@@ -2872,7 +2878,10 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
         ASSERT(params->the_scratch_xmm != DR_REG_NULL,
                "internal error: expected xmm register to be recorded in state "
                "machine.");
-        if (instr_get_opcode(&params->inst) == OP_vpinsrd) {
+        if ((params->sg_info->scalar_value_size == OPSZ_4 &&
+             instr_get_opcode(&params->inst) == OP_vpinsrd) ||
+            (params->sg_info->scalar_value_size == OPSZ_8 &&
+             instr_get_opcode(&params->inst) == OP_vpinsrq)) {
             ASSERT(opnd_is_reg(instr_get_dst(&params->inst, 0)),
                    "internal error: unexpected instruction format");
             reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(&params->inst, 0));
