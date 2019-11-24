@@ -600,12 +600,29 @@ droption_t<twostring_t>::convert_from_string(const std::string s)
     return false;
 }
 
+// Default implementations
+
+template <typename T>
+inline bool
+droption_t<T>::convert_from_string(const std::string sc)
+{
+    return false;
+}
+
 template <typename T>
 inline bool
 droption_t<T>::convert_from_string(const std::string s1, const std::string s2)
 {
     return false;
 }
+
+template <typename T>
+inline std::string
+droption_t<T>::default_as_string() const
+{
+  static_assert (sizeof (T) == -1, "Use of unsupported droption_t type");
+}
+
 template <>
 inline bool
 droption_t<std::string>::convert_from_string(const std::string s1, const std::string s2)
