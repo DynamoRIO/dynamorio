@@ -1222,6 +1222,7 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     trace_marker_type_t marker_type;
+    uintptr_t marker_val = 0;
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
     switch (info->type) {
@@ -1242,8 +1243,21 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     default: return;
     }
     NOTIFY(2, "%s: type %d, sig %d\n", __FUNCTION__, info->type, info->sig);
+    /* TODO i3937: We need something similar to this for online too, to place signals
+     * inside instr bundles.
+     */
+    if (op_offline.get_value()) {
+        /* Enable post-processing to figure out the ordering of this xfer vs
+         * non-memref instrs in the bb.
+         */
+        uint64_t modoffs = reinterpret_cast<offline_instru_t *>(instru)->get_modoffs(
+            drcontext, info->source_mcontext->pc);
+        marker_val = static_cast<uintptr_t>(modoffs);
+        NOTIFY(3, "%s: source pc " PFX " => modoffs " PIFX "\n", __FUNCTION__,
+               info->source_mcontext->pc, marker_val);
+    }
     BUF_PTR(data->seg_base) +=
-        instru->append_marker(BUF_PTR(data->seg_base), marker_type, 0);
+        instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
     if (file_ops_func.handoff_buf == NULL)
         memtrace(drcontext, false);
 }
