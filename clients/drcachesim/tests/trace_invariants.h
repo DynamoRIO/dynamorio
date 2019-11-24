@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,7 +53,13 @@ protected:
     bool knob_offline;
     unsigned int knob_verbose;
     memref_t prev_instr;
-    memref_t prev_marker;
+    memref_t prev_xfer_marker;
+    memref_t prev_entry;
+    memref_t prev_prev_entry;
+    memref_t pre_signal_instr;
+    int instrs_until_interrupt;
+    int memrefs_until_interrupt;
+    addr_t app_handler_pc;
     std::unordered_map<memref_tid_t, bool> thread_exited;
 };
 

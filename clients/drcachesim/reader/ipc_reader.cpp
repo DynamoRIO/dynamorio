@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,8 +46,9 @@ ipc_reader_t::ipc_reader_t()
     /* Empty. */
 }
 
-ipc_reader_t::ipc_reader_t(const char *ipc_name)
-    : pipe(ipc_name)
+ipc_reader_t::ipc_reader_t(const char *ipc_name, int verbosity_in)
+    : reader_t(verbosity_in, "IPC")
+    , pipe(ipc_name)
 {
     // We create the pipe here so the user can set up a pipe writer
     // *before* calling the blocking analyzer_t::run().

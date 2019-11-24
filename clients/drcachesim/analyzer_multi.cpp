@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -117,8 +117,8 @@ analyzer_multi_t::analyzer_multi_t()
     } else if (op_infile.get_value().empty()) {
         // XXX i#3323: Add parallel analysis support for online tools.
         parallel = false;
-        serial_trace_iter =
-            std::unique_ptr<reader_t>(new ipc_reader_t(op_ipc_name.get_value().c_str()));
+        serial_trace_iter = std::unique_ptr<reader_t>(
+            new ipc_reader_t(op_ipc_name.get_value().c_str(), op_verbose.get_value()));
         trace_end = std::unique_ptr<reader_t>(new ipc_reader_t());
         if (!*serial_trace_iter) {
             success = false;
