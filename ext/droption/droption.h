@@ -539,9 +539,49 @@ droption_t<int>::convert_from_string(const std::string s)
 }
 template <>
 inline bool
+droption_t<long>::convert_from_string(const std::string s)
+{
+    value = atol(s.c_str());
+    return true;
+}
+template <>
+inline bool
+droption_t<long long>::convert_from_string(const std::string s)
+{
+    value = atoll(s.c_str());
+    return true;
+}
+template <>
+inline bool
 droption_t<unsigned int>::convert_from_string(const std::string s)
 {
     int input = atoi(s.c_str());
+    if (input >= 0)
+        value = input;
+    else {
+        value = 0;
+        return false;
+    }
+    return true;
+}
+template <>
+inline bool
+droption_t<unsigned long>::convert_from_string(const std::string s)
+{
+    int input = atol(s.c_str());
+    if (input >= 0)
+        value = input;
+    else {
+        value = 0;
+        return false;
+    }
+    return true;
+}
+template <>
+inline bool
+droption_t<unsigned long long>::convert_from_string(const std::string s)
+{
+    int input = atoll(s.c_str());
     if (input >= 0)
         value = input;
     else {
@@ -621,6 +661,7 @@ inline std::string
 droption_t<T>::default_as_string() const
 {
   static_assert (sizeof (T) == -1, "Use of unsupported droption_t type");
+  return std::string ();
 }
 
 template <>
@@ -664,7 +705,39 @@ droption_t<int>::default_as_string() const
 }
 template <>
 inline std::string
+droption_t<long>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template <>
+inline std::string
+droption_t<long long>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template <>
+inline std::string
 droption_t<unsigned int>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template <>
+inline std::string
+droption_t<unsigned long>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template <>
+inline std::string
+droption_t<unsigned long long>::default_as_string() const
 {
     std::ostringstream stream;
     stream << std::dec << defval;
