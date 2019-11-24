@@ -865,7 +865,9 @@ inflating instruction fetch statistics.
 Offline traces guarantee that a branch target instruction entry in a
 trace must immediately follow the branch instruction with no intervening
 thread switch.  This allows a core simulator to identify the target of a
-branch by looking at the subsequent trace entry.
+branch by looking at the subsequent trace entry.  However, this guarantee
+does not hold when a kernel event such as a signal is delivered
+immediately after a branch.
 
 Traces include scheduling markers providing the timestamp and hardware
 thread identifier on each thread transition, allowing a simulator to more

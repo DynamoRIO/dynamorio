@@ -102,9 +102,13 @@ trace_invariants_t::process_memref(const memref_t &memref)
         // Invariant: offline traces guarantee that a branch target must immediately
         // follow the branch w/ no intervening trace switch.
         if (knob_offline && type_is_instr_branch(prev_instr.instr.type)) {
-            assert(prev_instr.instr.tid == memref.instr.tid ||
-                   // For limited-window traces a thread might exit after a branch.
-                   thread_exited[prev_instr.instr.tid]);
+            assert(
+                prev_instr.instr.tid == memref.instr.tid ||
+                // For limited-window traces a thread might exit after a branch.
+                thread_exited[prev_instr.instr.tid] ||
+                // The invariant is relaxed for a signal.
+                (prev_xfer_marker.instr.tid == prev_instr.instr.tid &&
+                 prev_xfer_marker.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT));
         }
         // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
         // by markers.
@@ -135,7 +139,8 @@ trace_invariants_t::process_memref(const memref_t &memref)
                    // signal_invariants.
                    memref.instr.addr == app_handler_pc ||
                    // Too hard to figure out branch targets.
-                   type_is_instr_branch(pre_signal_instr.instr.type));
+                   type_is_instr_branch(pre_signal_instr.instr.type) ||
+                   pre_signal_instr.instr.type == TRACE_TYPE_INSTR_SYSENTER);
         }
 #endif
         prev_instr = memref;
