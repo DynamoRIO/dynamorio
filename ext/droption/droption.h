@@ -44,7 +44,7 @@
 #include <stdlib.h>
 #include <sstream>
 #include <iomanip>
-#include <stdint.h> /* for supporting 64-bit integers*/
+#include <limits.h>
 #include <assert.h>
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
@@ -535,61 +535,72 @@ template <>
 inline bool
 droption_t<int>::convert_from_string(const std::string s)
 {
-    value = atoi(s.c_str());
-    return true;
+    errno = 0;
+    long input = strtol(s.c_str(), NULL, 10);
+
+    // strtol returns a long, but this may not always fit into an integer.
+    if (input >= INT_MIN && input <= INT_MAX)
+        value = (int) input;
+    else
+        return false;
+
+    return errno == 0;
 }
 template <>
 inline bool
 droption_t<long>::convert_from_string(const std::string s)
 {
-    value = atol(s.c_str());
-    return true;
+    errno = 0;
+    value = strtol(s.c_str(), NULL, 10);
+    return errno == 0;
 }
 template <>
 inline bool
 droption_t<long long>::convert_from_string(const std::string s)
 {
-    value = atoll(s.c_str());
-    return true;
+    errno = 0;
+    value = strtoll(s.c_str(), NULL, 10);
+    return errno == 0;
 }
 template <>
 inline bool
 droption_t<unsigned int>::convert_from_string(const std::string s)
 {
-    int input = atoi(s.c_str());
-    if (input >= 0)
-        value = input;
-    else {
-        value = 0;
+    errno = 0;
+    long input = strtol(s.c_str(), NULL, 10);
+
+    // Is the value positive and fits into an unsigned integer?
+    if (input >= 0 && input <= UINT_MAX)
+        value = (unsigned int) input;
+    else
         return false;
-    }
-    return true;
+
+    return errno == 0;
 }
 template <>
 inline bool
 droption_t<unsigned long>::convert_from_string(const std::string s)
 {
-    long input = atol(s.c_str());
+    errno = 0;
+    long input = strtol(s.c_str(), NULL, 10);
     if (input >= 0)
-        value = input;
-    else {
-        value = 0;
+        value = (unsigned long) input;
+    else
         return false;
-    }
-    return true;
+
+    return errno == 0;
 }
 template <>
 inline bool
 droption_t<unsigned long long>::convert_from_string(const std::string s)
 {
-    long long input = atoll(s.c_str());
+    long long input = strtoll(s.c_str(), NULL, 10);
     if (input >= 0)
-        value = input;
-    else {
-        value = 0;
+        value = (unsigned long long)input;
+    else
         return false;
-    }
-    return true;
+
+    return errno == 0 ;
 }
 template <>
 inline bool
