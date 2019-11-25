@@ -96,11 +96,11 @@ test_argv(int argc, const char *argv[])
     ASSERT(strcmp(argv[1], "-l") == 0);
     ASSERT(strcmp(argv[2], "-4") == 0);
     ASSERT(strcmp(argv[3], "-ll") == 0);
-    ASSERT(strcmp(argv[4], "-749882561") == 0);
+    ASSERT(strcmp(argv[4], "-3220721071790640321") == 0);
     ASSERT(strcmp(argv[5], "-ul") == 0);
     ASSERT(strcmp(argv[6], "4") == 0);
     ASSERT(strcmp(argv[7], "-ull") == 0);
-    ASSERT(strcmp(argv[8], "823636799") == 0);
+    ASSERT(strcmp(argv[8], "1384772493926445887") == 0);
     ASSERT(strcmp(argv[9], "-x") == 0);
     ASSERT(strcmp(argv[10], "4") == 0);
     ASSERT(strcmp(argv[11], "-y") == 0);
@@ -158,10 +158,10 @@ dr_client_main(client_id_t client_id, int argc, const char *argv[])
     ASSERT(op_x.specified());
     ASSERT(op_y.specified());
     ASSERT(op_z.specified());
-    dr_fprintf(STDERR, "param l = %d\n", op_l.get_value());
-    dr_fprintf(STDERR, "param ll = %d\n", op_ll.get_value());
-    dr_fprintf(STDERR, "param ul = %d\n", op_ul.get_value());
-    dr_fprintf(STDERR, "param ull = %d\n", op_ull.get_value());
+    dr_fprintf(STDERR, "param l = %ld\n", op_l.get_value());
+    dr_fprintf(STDERR, "param ll = %lld\n", op_ll.get_value());
+    dr_fprintf(STDERR, "param ul = %lu\n", op_ul.get_value());
+    dr_fprintf(STDERR, "param ull = %llu\n", op_ull.get_value());
     dr_fprintf(STDERR, "param x = %d\n", op_x.get_value());
     dr_fprintf(STDERR, "param y = |%s|\n", op_y.get_value().c_str());
     dr_fprintf(STDERR, "param z = |%s|\n", op_z.get_value().c_str());
