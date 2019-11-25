@@ -45,7 +45,6 @@
 #include <sstream>
 #include <iomanip>
 #include <limits.h>
-#include <assert.h>
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
@@ -675,7 +674,7 @@ droption_t<T>::default_as_string() const
 #if __cplusplus >= 201103L
     static_assert(sizeof(T) == -1, "Use of unsupported droption_t type");
 #else
-    assert(false && "Use of unsupported droption_t type");
+    DR_ASSERT_MSG(false, "Use of unsupported droption_t type");
 #endif
     return std::string();
 }
