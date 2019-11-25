@@ -46,6 +46,7 @@
 #include <iomanip>
 #include <limits.h>
 #include <stdint.h>
+#include <errno.h>
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
