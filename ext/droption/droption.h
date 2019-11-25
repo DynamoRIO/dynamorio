@@ -45,6 +45,7 @@
 #include <sstream>
 #include <iomanip>
 #include <stdint.h> /* for supporting 64-bit integers*/
+#include <assert.h>
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
