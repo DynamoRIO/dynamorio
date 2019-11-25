@@ -2067,7 +2067,7 @@ DR_API
  * \p instr is the label instruction allowing \p func to free the label's
  * auxiliary data.
  * \note This data field is not copied across instr_clone(). Instead, the
- * clone's field will be NULL.
+ * clone's field will be NULL (xref i#3962).
  */
 void
 instr_set_label_callback(instr_t *instr, instr_label_callback_t func);
