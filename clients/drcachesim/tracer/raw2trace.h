@@ -513,7 +513,11 @@ protected:
                 buf += trace_metadata_writer_t::write_marker(
                     buf, (trace_marker_type_t)in_entry->extended.valueB,
                     (uintptr_t)in_entry->extended.valueA);
-                impl()->log(3, "Appended marker type %u value %zu\n",
+                if (in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+                    in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+                    impl()->log(4, "Signal/exception between bbs\n");
+                }
+                impl()->log(3, "Appended marker type %u value " PIFX "\n",
                             (trace_marker_type_t)in_entry->extended.valueB,
                             (uintptr_t)in_entry->extended.valueA);
             } else {
@@ -654,10 +658,10 @@ private:
                         modvec()[in_entry->pc.modidx].path);
         }
         bool skip_icache = false;
-        bool truncated = false; // Whether a fault ended the bb early.
         // This indicates that each memref has its own PC entry and that each
         // icache entry does not need to be considered a memref PC entry as well.
         bool instrs_are_separate = false;
+        uint64_t cur_modoffs = in_entry->pc.modoffs;
         if (instr_count == 0) {
             // L0 filtering adds a PC entry with a count of 0 prior to each memref.
             skip_icache = true;
@@ -667,7 +671,7 @@ private:
         }
         DR_CHECK(!instrs_are_separate || instr_count == 1,
                  "cannot mix 0-count and >1-count");
-        for (uint i = 0; !truncated && i < instr_count; ++i) {
+        for (uint i = 0; i < instr_count; ++i) {
             trace_entry_t *buf_start = impl()->get_write_buffer(tls);
             trace_entry_t *buf = buf_start;
             app_pc orig_pc = decode_pc - modvec()[in_entry->pc.modidx].map_base +
@@ -707,31 +711,47 @@ private:
             buf->addr = (addr_t)orig_pc;
             ++buf;
             decode_pc = pc;
+            // Check for a signal *after* the instruction.  The trace is recording
+            // instruction *fetches*, not instruction retirement, and we want to
+            // include a faulting instruction before its raised signal.
+            bool interrupted = false;
+            error = handle_kernel_interrupt(tls, &buf, cur_modoffs, instr->length(),
+                                            &interrupted);
+            if (!error.empty())
+                return error;
+            if (interrupted) {
+                impl()->log(3, "Stopping bb at kernel interruption point +" PIFX "\n",
+                            cur_modoffs);
+            }
+            cur_modoffs += instr->length();
             // We need to interleave instrs with memrefs.
             // There is no following memref for (instrs_are_separate && !skip_icache).
-            if ((!instrs_are_separate || skip_icache) &&
+            if (!interrupted && (!instrs_are_separate || skip_icache) &&
                 // Rule out OP_lea.
                 (instr->reads_memory() || instr->writes_memory())) {
-                bool interrupted = false;
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
-                    error = append_memref(tls, &buf, instr, instr->mem_src_at(j), false,
-                                          &interrupted);
+                    error = append_memref(tls, &buf, instr, instr->mem_src_at(j), false);
                     if (!error.empty())
                         return error;
-                    if (interrupted) {
-                        truncated = true;
+                    error = handle_kernel_interrupt(tls, &buf, cur_modoffs,
+                                                    instr->length(), &interrupted);
+                    if (!error.empty())
+                        return error;
+                    if (interrupted)
                         break;
-                    }
                 }
-                for (uint j = 0; !truncated && j < instr->num_mem_dests(); j++) {
-                    error = append_memref(tls, &buf, instr, instr->mem_dest_at(j), true,
-                                          &interrupted);
+                // We break before subsequent memrefs on an interrupt, though with
+                // today's tracer that will never happen (i#3958).
+                for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
+                    error = append_memref(tls, &buf, instr, instr->mem_dest_at(j), true);
                     if (!error.empty())
                         return error;
-                    if (interrupted) {
-                        truncated = true;
+                    error = handle_kernel_interrupt(tls, &buf, cur_modoffs,
+                                                    instr->length(), &interrupted);
+                    if (!error.empty())
+                        return error;
+                    if (interrupted)
                         break;
-                    }
                 }
             }
             DR_CHECK((size_t)(buf - buf_start) < WRITE_BUFFER_SIZE, "Too many entries");
@@ -751,16 +771,61 @@ private:
                 if (!impl()->write(tls, buf_start, buf))
                     return "Failed to write to output file";
             }
+            if (interrupted)
+                break;
         }
         *handled = true;
         return "";
     }
 
+    // Returns true if a kernel interrupt happened at cur_modoffs.
+    std::string
+    handle_kernel_interrupt(void *tls, INOUT trace_entry_t **buf_in, uint64_t cur_modoffs,
+                            int instr_length, OUT bool *interrupted)
+    {
+        // To avoid having to backtrack later, we read ahead to ensure we insert
+        // an interrupt at the right place between memrefs or between instructions.
+        *interrupted = false;
+        const offline_entry_t *in_entry = impl()->get_next_entry(tls);
+        if (in_entry == nullptr)
+            return "";
+        if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+            in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+            in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+            // A signal/exception marker in the next entry could be at any point
+            // among non-memref instrs, or it could be after this bb.
+            // We check the stored offset.
+            uint64_t int_modoffs = (uint64_t)in_entry->extended.valueA;
+            impl()->log(4,
+                        "Checking whether reached signal/exception +" PIFX
+                        " vs cur +" PIFX "\n",
+                        int_modoffs, cur_modoffs);
+            // Because we increment the instr fetch first, the signal modoffs may be
+            // less than the current for a memref fault.
+            if (int_modoffs == cur_modoffs || int_modoffs + instr_length == cur_modoffs) {
+                impl()->log(4, "Signal/exception interrupted the bb @ +" PIFX "\n",
+                            int_modoffs);
+                byte *buf = reinterpret_cast<byte *>(*buf_in);
+                buf += trace_metadata_writer_t::write_marker(
+                    buf, (trace_marker_type_t)in_entry->extended.valueB,
+                    (uintptr_t)int_modoffs);
+                *buf_in = reinterpret_cast<trace_entry_t *>(buf);
+                impl()->log(3, "Appended marker type %u value " PIFX "\n",
+                            (trace_marker_type_t)in_entry->extended.valueB,
+                            (uintptr_t)int_modoffs);
+                *interrupted = true;
+                return "";
+            }
+        }
+        // Put it back.
+        impl()->unread_last_entry(tls);
+        return "";
+    }
+
     std::string
     append_memref(void *tls, INOUT trace_entry_t **buf_in, const instr_summary_t *instr,
-                  opnd_t ref, bool write, OUT bool *interrupted)
+                  opnd_t ref, bool write)
     {
-        *interrupted = false;
         trace_entry_t *buf = *buf_in;
         const offline_entry_t *in_entry = impl()->get_next_entry(tls);
         bool have_type = false;
@@ -822,20 +887,6 @@ private:
         impl()->log(4, "Appended memref type %d size %d to " PFX "\n", buf->type,
                     buf->size, (ptr_uint_t)buf->addr);
         *buf_in = ++buf;
-        // To avoid having to backtrack later, we read ahead to see whether this memref
-        // faulted.
-        in_entry = impl()->get_next_entry(tls);
-        if (in_entry == nullptr)
-            return "";
-        // Put it back.
-        impl()->unread_last_entry(tls);
-        if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-            in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-            in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-            // A signal/exception interrupted the bb after the memref.
-            impl()->log(4, "Signal/exception interrupted the bb\n");
-            *interrupted = true;
-        }
         return "";
     }
 
