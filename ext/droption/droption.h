@@ -568,7 +568,7 @@ template <>
 inline bool
 droption_t<unsigned long>::convert_from_string(const std::string s)
 {
-    int input = atol(s.c_str());
+    long input = atol(s.c_str());
     if (input >= 0)
         value = input;
     else {
@@ -581,7 +581,7 @@ template <>
 inline bool
 droption_t<unsigned long long>::convert_from_string(const std::string s)
 {
-    int input = atoll(s.c_str());
+    long long input = atoll(s.c_str());
     if (input >= 0)
         value = input;
     else {
