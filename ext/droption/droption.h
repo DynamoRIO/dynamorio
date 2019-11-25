@@ -45,6 +45,7 @@
 #include <sstream>
 #include <iomanip>
 #include <limits.h>
+#include <stdint.h>
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
