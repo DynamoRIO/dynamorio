@@ -539,7 +539,7 @@ droption_t<int>::convert_from_string(const std::string s)
     long input = strtol(s.c_str(), NULL, 10);
 
     // strtol returns a long, but this may not always fit into an integer.
-    if (input >= INT_MIN && input <= INT_MAX)
+    if (input >= (long) INT_MIN && input <= (long) INT_MAX)
         value = (int) input;
     else
         return false;
@@ -570,7 +570,7 @@ droption_t<unsigned int>::convert_from_string(const std::string s)
     long input = strtol(s.c_str(), NULL, 10);
 
     // Is the value positive and fits into an unsigned integer?
-    if (input >= 0 && input <= UINT_MAX)
+    if (input >= 0 && (unsigned long) input <= (unsigned long) UINT_MAX)
         value = (unsigned int) input;
     else
         return false;
