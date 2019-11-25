@@ -662,11 +662,11 @@ inline std::string
 droption_t<T>::default_as_string() const
 {
 #if __cplusplus >= 201103L
-  static_assert (sizeof (T) == -1, "Use of unsupported droption_t type");
+    static_assert(sizeof(T) == -1, "Use of unsupported droption_t type");
 #else
-  assert (false && "Use of unsupported droption_t type");
+    assert(false && "Use of unsupported droption_t type");
 #endif
-  return std::string ();
+    return std::string();
 }
 
 template <>

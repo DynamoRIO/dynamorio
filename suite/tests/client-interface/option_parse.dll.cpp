@@ -39,13 +39,13 @@
 #include <string.h>
 
 static droption_t<long> op_l(DROPTION_SCOPE_CLIENT, "l", 0L, -64, 64, "Some param",
-                                     "Longer desc of some param.");
+                             "Longer desc of some param.");
 static droption_t<long long> op_ll(DROPTION_SCOPE_CLIENT, "ll", 0LL, "Some param",
-                                     "Longer desc of some param.");
-static droption_t<unsigned long> op_ul(DROPTION_SCOPE_CLIENT, "ul", 0UL, 0, 64, "Some param",
-                                     "Longer desc of some param.");
-static droption_t<unsigned long long> op_ull(DROPTION_SCOPE_CLIENT, "ull", 0ULL, "Some param",
-                                     "Longer desc of some param.");
+                                   "Longer desc of some param.");
+static droption_t<unsigned long> op_ul(DROPTION_SCOPE_CLIENT, "ul", 0UL, 0, 64,
+                                       "Some param", "Longer desc of some param.");
+static droption_t<unsigned long long> op_ull(DROPTION_SCOPE_CLIENT, "ull", 0ULL,
+                                             "Some param", "Longer desc of some param.");
 static droption_t<unsigned int> op_x(DROPTION_SCOPE_CLIENT, "x", 0, 0, 64, "Some param",
                                      "Longer desc of some param.");
 static droption_t<std::string> op_y(DROPTION_SCOPE_CLIENT, "y", DROPTION_FLAG_ACCUMULATE,
@@ -91,7 +91,7 @@ static droption_t<bytesize_t>
 static void
 test_argv(int argc, const char *argv[])
 {
-  ASSERT(argc == 42);
+    ASSERT(argc == 42);
 
     ASSERT(strcmp(argv[1], "-l") == 0);
     ASSERT(strcmp(argv[2], "-4") == 0);
@@ -139,7 +139,7 @@ test_argv(int argc, const char *argv[])
 DR_EXPORT void
 dr_client_main(client_id_t client_id, int argc, const char *argv[])
 {
-  test_argv(argc, argv);
+    test_argv(argc, argv);
 
     // Test dr_get_option_array().
     int ask_argc;
