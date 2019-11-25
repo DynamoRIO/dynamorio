@@ -1427,6 +1427,22 @@ get_spill_class(const reg_id_t reg)
 #endif
 
 #ifdef SIMD_SUPPORTED
+/* Reflects that a simd state is considered dead if it covers an equal or wider simd
+ * register than spill_class.
+ */
+static bool
+is_simd_dead(void *dead_state, const drreg_spill_class_t spill_class)
+{
+    return dead_state >= get_simd_dead_state(spill_class) && dead_state <= SIMD_ZMM_DEAD;
+}
+
+/* Reflects that any simd live state has to be considered live for a given spill_class. */
+static bool
+is_simd_live(void *live_state, const drreg_spill_class_t spill_class /* unused */)
+{
+    return live_state >= SIMD_XMM_LIVE && live_state <= SIMD_ZMM_LIVE;
+}
+
 /* Makes the same assumptions about liveness info being already computed as
  * drreg_reserve_gpr_internal().
  */
@@ -1445,7 +1461,6 @@ drreg_find_for_simd_reservation(void *drcontext, const drreg_spill_class_t spill
     if (ops.num_spill_simd_slots == 0)
         return DRREG_ERROR;
     reg_id_t reg = (reg_id_t)DR_REG_APPLICABLE_STOP_SIMD + 1;
-    void *cur_state;
     void *dead_state = get_simd_dead_state(spill_class);
     if (dead_state == SIMD_UNKNOWN)
         return DRREG_ERROR;
@@ -1456,10 +1471,8 @@ drreg_find_for_simd_reservation(void *drcontext, const drreg_spill_class_t spill
             if (!pt->simd_reg[idx].native && !pt->simd_reg[idx].in_use &&
                 (reg_allowed == NULL || drvector_get_entry(reg_allowed, idx) != NULL) &&
                 (!only_if_no_spill || pt->simd_reg[idx].ever_spilled ||
-                 (drvector_get_entry(&pt->simd_reg[idx].live, pt->live_idx) >=
-                      dead_state &&
-                  drvector_get_entry(&pt->simd_reg[idx].live, pt->live_idx) <=
-                      SIMD_ZMM_DEAD))) {
+                 is_simd_dead(drvector_get_entry(&pt->simd_reg[idx].live, pt->live_idx),
+                              spill_class))) {
                 slot = pt->simd_reg[idx].slot;
                 pt->simd_pending_unreserved--;
                 ASSERT(slot < ops.num_spill_simd_slots, "slot is out-of-bounds");
@@ -1479,8 +1492,8 @@ drreg_find_for_simd_reservation(void *drcontext, const drreg_spill_class_t spill
                 continue;
             if (reg_allowed != NULL && drvector_get_entry(reg_allowed, idx) == NULL)
                 continue;
-            cur_state = drvector_get_entry(&pt->simd_reg[idx].live, pt->live_idx);
-            if (cur_state >= dead_state && cur_state <= SIMD_ZMM_DEAD)
+            if (is_simd_dead(drvector_get_entry(&pt->simd_reg[idx].live, pt->live_idx),
+                             spill_class))
                 break;
             if (only_if_no_spill)
                 continue;
@@ -1530,7 +1543,6 @@ drreg_reserve_simd_reg_internal(void *drcontext, drreg_spill_class_t spill_class
     per_thread_t *pt = get_tls_data(drcontext);
     uint slot = 0;
     reg_id_t reg = DR_REG_NULL;
-    void *cur_state;
     bool already_spilled = false;
     drreg_status_t res;
     res =
@@ -1543,11 +1555,11 @@ drreg_reserve_simd_reg_internal(void *drcontext, drreg_spill_class_t spill_class
     ASSERT(!pt->simd_reg[SIMD_IDX(reg)].in_use, "overlapping uses");
     pt->simd_reg[SIMD_IDX(reg)].in_use = true;
     if (!already_spilled) {
-
-        cur_state = drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx);
         /* Even if dead now, we need to own a slot in case reserved past dead point */
         if (ops.conservative ||
-            (cur_state >= SIMD_XMM_LIVE && cur_state <= SIMD_ZMM_LIVE)) {
+            is_simd_live(
+                drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx),
+                spill_class)) {
             LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": spilling %s to slot %d\n",
                 __FUNCTION__, pt->live_idx, get_where_app_pc(where),
                 get_register_name(reg), slot);
