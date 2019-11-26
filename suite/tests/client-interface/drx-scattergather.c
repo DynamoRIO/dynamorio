@@ -255,7 +255,7 @@ signal_handler_check_ymm1(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 #        ifdef X64
     if (((fp->xmm_space[8] >> 31) & 0x1) != 0) {
 #        else
-    if (((fp->_xmm[2].element[3] >> 31) & 0x1) != 0) {
+    if (((fp->_xmm[2].element[0] >> 31) & 0x1) != 0) {
 #        endif
         print("ERROR: expected xmm2[31:30] == 0\n");
     }
