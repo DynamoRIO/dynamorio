@@ -40,7 +40,7 @@ declaration and parsing for both clients and standalone programs.
 
  - \ref sec_droption_setup
  - \ref sec_droption_usage
- - \ref sec_droption_special
+ - \ref sec_droption_types
  - \ref sec_droption_html
 
 \section sec_droption_setup Setup
@@ -125,9 +125,20 @@ if (op_x.get_value() > 4) {
 The value set on the command line can be overridden with the \p set_value
 function.
 
-\section sec_droption_special Special Types
+\section sec_droption_types Supported Types
 
-\p droption provides some custom value types for options:
+\p droption only supports the following standard value types for options:
+
+- int
+- long
+- long long
+- unsigned int
+- unsigned long
+- unsigned long long
+- double
+- bool
+
+\p droption also provides some custom value types for options:
 
 - bytesize_t: this class provides an integer type that accepts suffixes
   like 'K', 'M', and 'G' when specifying sizes in units of bytes.
