@@ -758,6 +758,9 @@ typedef struct _emulated_instr_t {
  * Information about the instruction being emulated can be read from the label using
  * drmgr_get_emulated_instr_data().
  *
+ * If label callbacks are used, please note that the callback will not be cloned
+ * and its use is currently not consistent (xref i#3962).
+ *
  * \return false if the caller's \p emulated_instr_t is not compatible, true otherwise.
  *
  */
