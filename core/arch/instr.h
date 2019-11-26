@@ -886,7 +886,8 @@ DR_API
 /**
  * Returns a copy of \p orig with separately allocated memory for
  * operands and raw bytes if they were present in \p orig.
- * Only a shallow copy of the \p note field is made.
+ * Only a shallow copy of the \p note field is made. The \p label_cb
+ * field will not be copied at all if \p orig is a label instruction.
  */
 instr_t *
 instr_clone(dcontext_t *dcontext, instr_t *orig);
@@ -2065,6 +2066,8 @@ DR_API
  * Set a function \p func which is called when the label instruction is freed.
  * \p instr is the label instruction allowing \p func to free the label's
  * auxiliary data.
+ * \note This data field is not copied across instr_clone(). Instead, the
+ * clone's field will be NULL (xref i#3962).
  */
 void
 instr_set_label_callback(instr_t *instr, instr_label_callback_t func);
