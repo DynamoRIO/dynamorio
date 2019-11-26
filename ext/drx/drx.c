@@ -1769,8 +1769,8 @@ expand_avx512_scatter_gather_update_mask(void *drcontext, instrlist_t *bb,
                                               reg_64_to_32(scratch_reg), scratch_reg)),
                                           OPND_CREATE_INT32(1 << el)),
                      orig_app_pc));
-    /* TODO i#2985: Support the drx restore event for AVX2 gather and AVX-512 scatter.
-     * AVX-512 gather is already supported.
+    /* TODO i#2985: Support the drx restore event for AVX-512 scatter.
+     * AVX-512 gather and AVX2 gather is already supported.
      */
     if (drreg_reserve_register(drcontext, bb, sg_instr, allowed, &save_mask_reg) !=
         DRREG_SUCCESS)
