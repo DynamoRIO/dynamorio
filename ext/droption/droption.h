@@ -540,8 +540,8 @@ droption_t<int>::convert_from_string(const std::string s)
     long input = strtol(s.c_str(), NULL, 10);
 
     // strtol returns a long, but this may not always fit into an integer.
-    if (input >= (long) INT_MIN && input <= (long) INT_MAX)
-        value = (int) input;
+    if (input >= (long)INT_MIN && input <= (long)INT_MAX)
+        value = (int)input;
     else
         return false;
 
@@ -571,8 +571,8 @@ droption_t<unsigned int>::convert_from_string(const std::string s)
     long input = strtol(s.c_str(), NULL, 10);
 
     // Is the value positive and fits into an unsigned integer?
-    if (input >= 0 && (unsigned long) input <= (unsigned long) UINT_MAX)
-        value = (unsigned int) input;
+    if (input >= 0 && (unsigned long)input <= (unsigned long)UINT_MAX)
+        value = (unsigned int)input;
     else
         return false;
 
@@ -585,7 +585,7 @@ droption_t<unsigned long>::convert_from_string(const std::string s)
     errno = 0;
     long input = strtol(s.c_str(), NULL, 10);
     if (input >= 0)
-        value = (unsigned long) input;
+        value = (unsigned long)input;
     else
         return false;
 
@@ -601,7 +601,7 @@ droption_t<unsigned long long>::convert_from_string(const std::string s)
     else
         return false;
 
-    return errno == 0 ;
+    return errno == 0;
 }
 template <>
 inline bool
