@@ -538,7 +538,8 @@ function(add_exe test source)
   if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
     # we rely on the asm rule doing preprocessing for us, so we just make
     # a copy and set the ASM_CODE_ONLY define
-    add_split_asm_target("${CMAKE_CURRENT_SOURCE_DIR}/${source}" asm_source gen_asm_tgt
+    get_filename_component(source_abs "${source}" ABSOLUTE)
+    add_split_asm_target("${source_abs}" asm_source gen_asm_tgt
       "_asm" "${asm_defs}" "${asm_deps}")
     set(test_srcs ${test_srcs} ${asm_source})
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
@@ -2909,7 +2910,16 @@ endif ()
       # We run an app w/ kernel xfers to test trace_invariants online.
       # Offline invariants are tested in the tool.histogram.offline test below.
       if (UNIX)
-        set(kernel_xfer_app pthreads.ptsig)
+        # The signal_invariants asm is x86-only.  The extra checks are cross-arch
+        # so we do not try to port it to ARM or Mac but use a different app there.
+        if (X86 AND NOT APPLE)
+          add_exe(drmemtrace.signal_invariants
+            "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/signal_invariants.c")
+          link_with_pthread(drmemtrace.signal_invariants)
+          set(kernel_xfer_app drmemtrace.signal_invariants)
+        else ()
+          set(kernel_xfer_app pthreads.ptsig)
+        endif ()
       else ()
         if (CLIENT_INTERFACE)
           set(kernel_xfer_app client.winxfer) # We want threads and xfers.

@@ -64,7 +64,7 @@ reader_t::operator++()
             // We've already presented the thread exit entry to the analyzer.
             continue;
         }
-        VPRINT(this, 4, "RECV: type=%d, size=%d, addr=%zd\n", input_entry->type,
+        VPRINT(this, 4, "RECV: type=%d, size=%d, addr=0x%zx\n", input_entry->type,
                input_entry->size, input_entry->addr);
         bool have_memref = false;
         switch (input_entry->type) {

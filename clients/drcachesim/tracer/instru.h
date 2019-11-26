@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -222,6 +222,9 @@ public:
     get_entry_addr(byte *buf_ptr) const;
     virtual void
     set_entry_addr(byte *buf_ptr, addr_t addr);
+
+    uint64_t
+    get_modoffs(void *drcontext, app_pc pc);
 
     virtual int
     append_pid(byte *buf_ptr, process_id_t pid);

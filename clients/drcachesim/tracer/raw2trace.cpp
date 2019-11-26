@@ -546,7 +546,8 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
                     return tdata->error;
             } else {
                 std::stringstream ss;
-                ss << "Failed to process file for thread " << (uint)tdata->tid;
+                ss << "Failed to process file for thread " << (uint)tdata->tid << ": "
+                   << tdata->error;
                 tdata->error = ss.str();
                 return tdata->error;
             }
