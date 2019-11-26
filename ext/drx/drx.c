@@ -2782,8 +2782,8 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
                         if (params->restore_dest_mask_start_pc <=
                                 params->info->raw_mcontext->pc &&
                             params->info->raw_mcontext->pc <= params->prev_pc) {
-                            /* Fix the gather's destination mask here and zeroe
-                             * out the bit that the emulation sequence hadn't done
+                            /* Fix the gather's destination mask here and zero out
+                             * the bit that the emulation sequence hadn't done
                              * before the fault hit.
                              */
                             ASSERT(reg_is_strictly_xmm(params->sg_info->mask_reg) ||
@@ -2971,8 +2971,8 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
                         if (params->restore_dest_mask_start_pc <=
                                 params->info->raw_mcontext->pc &&
                             params->info->raw_mcontext->pc <= params->prev_pc) {
-                            /* Fix the gather's destination mask here and zeroe
-                             * out the bit that the emulation sequence hadn't done
+                            /* Fix the gather's destination mask here and zero out
+                             * the bit that the emulation sequence hadn't done
                              * before the fault hit.
                              */
                             params->info->mcontext
