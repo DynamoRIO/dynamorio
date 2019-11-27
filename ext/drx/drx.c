@@ -3017,16 +3017,13 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                 opnd_t dst0 = instr_get_dst(&params->inst, 0);
                 if (opnd_is_memory_reference(dst0)) {
                     opnd_t src0 = instr_get_src(&params->inst, 0);
-                    if (opnd_is_reg(src0)) {
-                        if (opnd_uses_reg(src0, params->gpr_scratch_value)) {
-                            if (opnd_uses_reg(dst0, params->gpr_scratch_index)) {
-                                params->restore_dest_mask_start_pc = params->pc;
-                                advance_state(
-                                    DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_5,
-                                    params);
-                                break;
-                            }
-                        }
+                    if (opnd_is_reg(src0) &&
+                        opnd_uses_reg(src0, params->gpr_scratch_value) &&
+                        opnd_uses_reg(dst0, params->gpr_scratch_index)) {
+                        params->restore_dest_mask_start_pc = params->pc;
+                        advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_5,
+                                      params);
+                        break;
                     }
                 }
             }
@@ -3097,41 +3094,40 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
             opnd_t dst0 = instr_get_dst(&params->inst, 0);
             if (opnd_is_reg(src0) && opnd_get_reg(src0) == DR_REG_K0) {
                 if (opnd_is_reg(src1) &&
-                    opnd_get_reg(src1) == params->sg_info->mask_reg) {
-                    if (opnd_is_reg(dst0) &&
-                        opnd_get_reg(dst0) == params->sg_info->mask_reg) {
-                        if (params->restore_dest_mask_start_pc <=
-                                params->info->raw_mcontext->pc &&
-                            params->info->raw_mcontext->pc <= params->prev_pc) {
-                            /* Fix the scatter's destination mask here and zero out
-                             * the bit that the emulation sequence hadn't done
-                             * before the fault hit.
-                             */
-                            params->info->mcontext
-                                ->opmask[params->sg_info->mask_reg - DR_REG_K0] &=
-                                ~(1 << params->scalar_mask_update_no);
-                            /* We are not done yet, we have to fix up the scratch
-                             * mask as well.
-                             */
-                        }
-                        /* We are counting the scalar load number in the sequence
-                         * here.
+                    opnd_get_reg(src1) == params->sg_info->mask_reg &&
+                    opnd_is_reg(dst0) &&
+                    opnd_get_reg(dst0) == params->sg_info->mask_reg) {
+                    if (params->restore_dest_mask_start_pc <=
+                            params->info->raw_mcontext->pc &&
+                        params->info->raw_mcontext->pc <= params->prev_pc) {
+                        /* Fix the scatter's destination mask here and zero out
+                         * the bit that the emulation sequence hadn't done
+                         * before the fault hit.
                          */
-                        params->scalar_mask_update_no++;
-                        uint no_of_elements =
-                            opnd_size_in_bytes(params->sg_info->scatter_gather_size) /
-                            MAX(opnd_size_in_bytes(params->sg_info->scalar_index_size),
-                                opnd_size_in_bytes(params->sg_info->scalar_value_size));
-                        if (params->scalar_mask_update_no > no_of_elements) {
-                            /* Unlikely that something looks identical to an emulation
-                             * sequence for this long, but we safely can return here.
-                             */
-                            return true;
-                        }
-                        advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_9,
-                                      params);
-                        break;
+                        params->info->mcontext
+                            ->opmask[params->sg_info->mask_reg - DR_REG_K0] &=
+                            ~(1 << params->scalar_mask_update_no);
+                        /* We are not done yet, we have to fix up the scratch
+                         * mask as well.
+                         */
                     }
+                    /* We are counting the scalar load number in the sequence
+                     * here.
+                     */
+                    params->scalar_mask_update_no++;
+                    uint no_of_elements =
+                        opnd_size_in_bytes(params->sg_info->scatter_gather_size) /
+                        MAX(opnd_size_in_bytes(params->sg_info->scalar_index_size),
+                            opnd_size_in_bytes(params->sg_info->scalar_value_size));
+                    if (params->scalar_mask_update_no > no_of_elements) {
+                        /* Unlikely that something looks identical to an emulation
+                         * sequence for this long, but we safely can return here.
+                         */
+                        return true;
+                    }
+                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_9,
+                                  params);
+                    break;
                 }
             }
         }
@@ -3144,27 +3140,26 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                 opnd_t src0 = instr_get_src(&params->inst, 0);
                 if (opnd_is_reg(src0)) {
                     reg_id_t tmp_gpr = opnd_get_reg(src0);
-                    if (reg_is_gpr(tmp_gpr)) {
-                        if (params->restore_scratch_mask_start_pc <=
-                                params->info->raw_mcontext->pc &&
-                            params->info->raw_mcontext->pc <= params->prev_pc) {
-                            /* The scratch mask is always k0. This is hard-coded
-                             * in drx. We carefully only update the lowest 16 bits
-                             * because the mask was saved with kmovw.
-                             */
-                            ASSERT(sizeof(params->info->mcontext->opmask[0]) ==
-                                       sizeof(long long),
-                                   "internal error: unexpected opmask slot size");
-                            params->info->mcontext->opmask[0] &= ~0xffffLL;
-                            params->info->mcontext->opmask[0] |=
-                                reg_get_value(params->gpr_save_scratch_mask,
-                                              params->info->raw_mcontext) &
-                                0xffff;
-                            /* We are done. If we did fix up the scatter's destination
-                             * mask, this already has happened.
-                             */
-                            return true;
-                        }
+                    if (reg_is_gpr(tmp_gpr) &&
+                        params->restore_scratch_mask_start_pc <=
+                            params->info->raw_mcontext->pc &&
+                        params->info->raw_mcontext->pc <= params->prev_pc) {
+                        /* The scratch mask is always k0. This is hard-coded
+                         * in drx. We carefully only update the lowest 16 bits
+                         * because the mask was saved with kmovw.
+                         */
+                        ASSERT(sizeof(params->info->mcontext->opmask[0]) ==
+                                   sizeof(long long),
+                               "internal error: unexpected opmask slot size");
+                        params->info->mcontext->opmask[0] &= ~0xffffLL;
+                        params->info->mcontext->opmask[0] |=
+                            reg_get_value(params->gpr_save_scratch_mask,
+                                          params->info->raw_mcontext) &
+                            0xffff;
+                        /* We are done. If we did fix up the scatter's destination
+                         * mask, this already has happened.
+                         */
+                        return true;
                     }
                 }
             }
@@ -3227,15 +3222,14 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
                                            NULL)) {
             if (instr_reads_memory(&params->inst)) {
                 opnd_t src0 = instr_get_src(&params->inst, 0);
-                if (opnd_is_memory_reference(src0)) {
-                    if (opnd_uses_reg(src0, params->gpr_scratch_index)) {
-                        opnd_t dst0 = instr_get_dst(&params->inst, 0);
-                        if (opnd_is_reg(dst0) && reg_is_gpr(opnd_get_reg(dst0))) {
-                            params->restore_dest_mask_start_pc = params->pc;
-                            advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3,
-                                          params);
-                            break;
-                        }
+                if (opnd_is_memory_reference(src0) &&
+                    opnd_uses_reg(src0, params->gpr_scratch_index)) {
+                    opnd_t dst0 = instr_get_dst(&params->inst, 0);
+                    if (opnd_is_reg(dst0) && reg_is_gpr(opnd_get_reg(dst0))) {
+                        params->restore_dest_mask_start_pc = params->pc;
+                        advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3,
+                                      params);
+                        break;
                     }
                 }
             }
