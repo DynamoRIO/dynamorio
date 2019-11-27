@@ -33,14 +33,8 @@ Test restoring the AVX-512 scatter scratch mask register upon a fault
 Test restoring the AVX-512 gather mask register upon translation events
 /* FIXME i2985: remove all errors below once restore event has been implemented in drx. */
 Test restoring the AVX-512 scatter mask register upon translation events
-#ifdef X64
-ERROR: expected k0 == 0xffff, but is 0x1
-#endif
 Test updating the AVX-512 gather mask register upon translation events
 Test updating the AVX-512 scatter mask register upon translation events
-#ifdef X64
-ERROR: expected k1 == 0xfffe, but is 0xffff
-#endif
 #endif
 Test updating the AVX2 gather mask register upon translation events
 #endif
