@@ -44,7 +44,9 @@
 #include <stdlib.h>
 #include <sstream>
 #include <iomanip>
-#include <stdint.h> /* for supporting 64-bit integers*/
+#include <limits.h>
+#include <stdint.h>
+#include <errno.h>
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
@@ -534,21 +536,72 @@ template <>
 inline bool
 droption_t<int>::convert_from_string(const std::string s)
 {
-    value = atoi(s.c_str());
-    return true;
+    errno = 0;
+    long input = strtol(s.c_str(), NULL, 10);
+
+    // strtol returns a long, but this may not always fit into an integer.
+    if (input >= (long)INT_MIN && input <= (long)INT_MAX)
+        value = (int)input;
+    else
+        return false;
+
+    return errno == 0;
+}
+template <>
+inline bool
+droption_t<long>::convert_from_string(const std::string s)
+{
+    errno = 0;
+    value = strtol(s.c_str(), NULL, 10);
+    return errno == 0;
+}
+template <>
+inline bool
+droption_t<long long>::convert_from_string(const std::string s)
+{
+    errno = 0;
+    value = strtoll(s.c_str(), NULL, 10);
+    return errno == 0;
 }
 template <>
 inline bool
 droption_t<unsigned int>::convert_from_string(const std::string s)
 {
-    int input = atoi(s.c_str());
-    if (input >= 0)
-        value = input;
-    else {
-        value = 0;
+    errno = 0;
+    long input = strtol(s.c_str(), NULL, 10);
+
+    // Is the value positive and fits into an unsigned integer?
+    if (input >= 0 && (unsigned long)input <= (unsigned long)UINT_MAX)
+        value = (unsigned int)input;
+    else
         return false;
-    }
-    return true;
+
+    return errno == 0;
+}
+template <>
+inline bool
+droption_t<unsigned long>::convert_from_string(const std::string s)
+{
+    errno = 0;
+    long input = strtol(s.c_str(), NULL, 10);
+    if (input >= 0)
+        value = (unsigned long)input;
+    else
+        return false;
+
+    return errno == 0;
+}
+template <>
+inline bool
+droption_t<unsigned long long>::convert_from_string(const std::string s)
+{
+    long long input = strtoll(s.c_str(), NULL, 10);
+    if (input >= 0)
+        value = (unsigned long long)input;
+    else
+        return false;
+
+    return errno == 0;
 }
 template <>
 inline bool
@@ -600,12 +653,34 @@ droption_t<twostring_t>::convert_from_string(const std::string s)
     return false;
 }
 
+// Default implementations
+
+template <typename T>
+inline bool
+droption_t<T>::convert_from_string(const std::string sc)
+{
+    return false;
+}
+
 template <typename T>
 inline bool
 droption_t<T>::convert_from_string(const std::string s1, const std::string s2)
 {
     return false;
 }
+
+template <typename T>
+inline std::string
+droption_t<T>::default_as_string() const
+{
+#if __cplusplus >= 201103L
+    static_assert(sizeof(T) == -1, "Use of unsupported droption_t type");
+#else
+    DR_ASSERT_MSG(false, "Use of unsupported droption_t type");
+#endif
+    return std::string();
+}
+
 template <>
 inline bool
 droption_t<std::string>::convert_from_string(const std::string s1, const std::string s2)
@@ -647,7 +722,39 @@ droption_t<int>::default_as_string() const
 }
 template <>
 inline std::string
+droption_t<long>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template <>
+inline std::string
+droption_t<long long>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template <>
+inline std::string
 droption_t<unsigned int>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template <>
+inline std::string
+droption_t<unsigned long>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template <>
+inline std::string
+droption_t<unsigned long long>::default_as_string() const
 {
     std::ostringstream stream;
     stream << std::dec << defval;
