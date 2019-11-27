@@ -977,10 +977,10 @@ privload_call_lib_func(fp_t func)
      */
     dummy_argv[0] = dummy_str;
     dummy_argv[1] = NULL;
-#ifdef X64
+#if defined(X64) || !defined(X86)
     func(1, dummy_argv, our_environ);
 #else
-    /* DR code has 4-byte stack alignment (-mpreferred-stack-boundary=2) but other
+    /* DR x86 code has 4-byte stack alignment (-mpreferred-stack-boundary=2) but other
      * libraries often assume 16-byte (xref i#847 and i#3966).
      * TODO(i#3966): This can lead to problem on clean calls as well.  We should
      * probably just abandon 4-byte alignment and switch to 16 everywhere, since
@@ -993,7 +993,7 @@ privload_call_lib_func(fp_t func)
                          "push %[env]\n"
                          "push %[argv]\n"
                          "push $1\n"
-                         "call %[callee]\n"
+                         "call *%[callee]\n"
                          "mov %%edi, %%esp\n" /* Restore. */
                          :
                          : [env] "g"(our_environ), [argv] "g"(&dummy_argv[0]),
