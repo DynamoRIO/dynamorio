@@ -2703,7 +2703,8 @@ DR_API
  * while application code is executing in the code cache.  Locks can
  * be used while inside client code reached from clean calls out of
  * the code cache, but they must be released before returning to the
- * cache.  Failing to follow these restrictions can lead to deadlocks.
+ * cache.  A lock must also be released by the same thread that acquired
+ * it.  Failing to follow these restrictions can lead to deadlocks.
  */
 void *
 dr_mutex_create(void);
@@ -2719,12 +2720,15 @@ void
 dr_mutex_lock(void *mutex);
 
 DR_API
-/** Unlocks \p mutex.  Asserts that mutex is currently locked. */
+/**
+ * Unlocks \p mutex.  Asserts that mutex is currently locked by the
+ * current thread.
+ */
 void
 dr_mutex_unlock(void *mutex);
 
 DR_API
-/** Tries once to lock \p mutex, returns whether or not successful. */
+/** Tries once to lock \p mutex and returns whether or not successful. */
 bool
 dr_mutex_trylock(void *mutex);
 
