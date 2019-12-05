@@ -2719,7 +2719,8 @@ void
 dr_mutex_lock(void *mutex);
 
 DR_API
-/** Unlocks \p mutex.  Asserts that mutex is currently locked. */
+/** Unlocks \p mutex.  Asserts that mutex is currently locked by the
+ * current thread. */
 void
 dr_mutex_unlock(void *mutex);
 
