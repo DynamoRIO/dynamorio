@@ -93,7 +93,7 @@ event_timer(void *drcontext, dr_mcontext_t *mcontext)
 }
 #endif
 
-TLS_ATTR int tls = 42;
+static TLS_ATTR int tls = 42;
 
 static void
 thread_func(void *arg)
