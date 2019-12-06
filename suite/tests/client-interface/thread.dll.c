@@ -39,9 +39,11 @@
 
 #ifdef WINDOWS
 #    define THREAD_ARG ((void *)dr_get_process_id())
+#    define TLS_ATTR __declspec(thread)
 #else
 /* thread actually has own pid so just using a constant to test arg passing */
 #    define THREAD_ARG ((void *)37)
+#    define TLS_ATTR __thread
 #endif
 
 /* Eventually this routine will test i/o by waiting on a file */
@@ -91,7 +93,7 @@ event_timer(void *drcontext, dr_mcontext_t *mcontext)
 }
 #endif
 
-__thread int tls = 42;
+TLS_ATTR int tls = 42;
 
 static void
 thread_func(void *arg)
