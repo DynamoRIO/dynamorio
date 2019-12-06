@@ -86,7 +86,7 @@ if ($child) {
         $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
         chomp $mydir;
     }
-    system("ctest --output-on-failure ${verbose} -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
+    system("ctest -VV --output-on-failure ${verbose} -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
     exit 0;
 }
 
