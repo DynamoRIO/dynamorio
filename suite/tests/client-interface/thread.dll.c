@@ -91,6 +91,8 @@ event_timer(void *drcontext, dr_mcontext_t *mcontext)
 }
 #endif
 
+__thread int tls = 42;
+
 static void
 thread_func(void *arg)
 {
@@ -98,7 +100,8 @@ thread_func(void *arg)
      * ensure we're treating it as a true native thread
      */
     ASSERT(arg == THREAD_ARG);
-    dr_fprintf(STDERR, "client thread is alive\n");
+    dr_fprintf(STDERR, "client thread is alive tls=%d\n", tls);
+    tls++;
     dr_event_signal(child_alive);
 
     /* Just a sanity check that these functions operate.  We do not take the
