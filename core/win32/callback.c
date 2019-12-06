@@ -3113,6 +3113,18 @@ intercept_new_thread(CONTEXT *cxt)
     is_client = is_new_thread_client_thread(cxt, &dstack);
     if (is_client) {
         ASSERT(is_dynamo_address(dstack));
+        /* i#2335: we support setup separate from start, and we want to allow a client
+         * to create a client thread during init, but we do not support that thread
+         * executing until the app has started (b/c we have no signal handlers in place).
+         */
+        /* i#3973: on unix, there are some race conditions that can
+         * occur if the client thread starts executing before
+         * dynamo_initialized is set.  although we are not aware of
+         * such a race condition on windows, we are proactively
+         * delaying client thread execution until after the app has
+         * started (and thus after dynamo_initialized is set.
+         */
+         wait_for_event(dr_app_started, 0);
     }
 #endif
     /* FIXME i#2718: we want the app_state_at_intercept_t context, which is
