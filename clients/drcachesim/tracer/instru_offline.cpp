@@ -679,9 +679,8 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
     // We can't elide when doing filtering.
     if (memref_needs_full_info)
         return;
-    instr_t *instr;
     reg_id_set_t saw_base;
-    for (instr = instrlist_first_app(ilist); instr != NULL;
+    for (instr_t *instr = instrlist_first_app(ilist); instr != NULL;
          instr = instr_get_next_app(instr)) {
         // For now we bail at predication.
         if (instr_get_predicate(instr) != DR_PRED_NONE) {

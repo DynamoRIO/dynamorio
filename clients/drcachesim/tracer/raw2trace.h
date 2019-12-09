@@ -168,10 +168,9 @@ struct instr_summary_t final {
     set_mem_src_flags(size_t pos, bool use_remembered_base, bool remember_base)
     {
         DEBUG_ASSERT(pos < mem_srcs_and_dests_.size());
-        mem_srcs_and_dests_[pos].use_remembered_base =
-            mem_srcs_and_dests_[pos].use_remembered_base || use_remembered_base;
-        mem_srcs_and_dests_[pos].remember_base =
-            mem_srcs_and_dests_[pos].remember_base || remember_base;
+        auto target = &mem_srcs_and_dests_[pos];
+        target->use_remembered_base = target->use_remembered_base || use_remembered_base;
+        target->remember_base = target->remember_base || remember_base;
     }
 
     /**
@@ -182,11 +181,9 @@ struct instr_summary_t final {
     set_mem_dest_flags(size_t pos, bool use_remembered_base, bool remember_base)
     {
         DEBUG_ASSERT(num_mem_srcs_ + pos < mem_srcs_and_dests_.size());
-        mem_srcs_and_dests_[num_mem_srcs_ + pos].use_remembered_base =
-            mem_srcs_and_dests_[num_mem_srcs_ + pos].use_remembered_base ||
-            use_remembered_base;
-        mem_srcs_and_dests_[num_mem_srcs_ + pos].remember_base =
-            mem_srcs_and_dests_[num_mem_srcs_ + pos].remember_base || remember_base;
+        auto target = &mem_srcs_and_dests_[num_mem_srcs_ + pos];
+        target->use_remembered_base = target->use_remembered_base || use_remembered_base;
+        target->remember_base = target->remember_base || remember_base;
     }
 
 private:
@@ -1309,6 +1306,7 @@ protected:
             , thread_file(nullptr)
             , out_file(nullptr)
             , version(0)
+            , file_type(OFFLINE_FILE_TYPE_DEFAULT)
             , saw_header(false)
             , prev_instr_was_rep_string(false)
             , last_decode_pc(nullptr)
