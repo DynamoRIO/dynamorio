@@ -768,6 +768,8 @@ private:
         // Filtered traces have no elision.
         if (impl()->get_file_type(tls) == OFFLINE_FILE_TYPE_FILTERED)
             return "";
+        // Avoid type complaints for 32-bit.
+        size_t modidx_typed = static_cast<size_t>(modidx);
         // We build an ilist to use identify_elidable_addresses() and fill in
         // state needed to reconstruct elided addresses.
         instrlist_t *ilist = instrlist_create(dcontext);
@@ -794,7 +796,8 @@ private:
                 meminst = instr_get_next(meminst);
             DR_ASSERT(meminst != nullptr);
             pc = instr_get_app_pc(meminst);
-            app_pc orig_pc = pc - modvec()[modidx].map_base + modvec()[modidx].orig_base;
+            app_pc orig_pc =
+                pc - modvec()[modidx_typed].map_base + modvec()[modidx_typed].orig_base;
             impl()->log(5, "Marking pc " PFX " %s #%d to use remembered base\n", pc,
                         write ? "write" : "read", memop_index);
             if (!impl()->set_instr_summary_flags(
@@ -854,8 +857,8 @@ private:
                 if (remember_index == -1)
                     continue;
                 app_pc pc_prev = instr_get_app_pc(prev);
-                app_pc orig_pc_prev =
-                    pc_prev - modvec()[modidx].map_base + modvec()[modidx].orig_base;
+                app_pc orig_pc_prev = pc_prev - modvec()[modidx_typed].map_base +
+                    modvec()[modidx_typed].orig_base;
                 if (!impl()->set_instr_summary_flags(
                         tls, modidx, modoffs, start_pc, pc_prev, orig_pc_prev,
                         remember_write, remember_index,

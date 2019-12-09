@@ -40,10 +40,16 @@
 #include <cstdlib>
 #include <new>
 
+#if defined(WINDOWS) && _MSC_VER < 1910
+#    define NOEXCEPT /* nothing: not supported */
+#else
+#    define NOEXCEPT noexcept
+#endif
+
 template <class T> struct dr_allocator_t {
     typedef T value_type;
     dr_allocator_t() = default;
-    template <class U> constexpr dr_allocator_t(const dr_allocator_t<U> &) noexcept
+    template <class U> dr_allocator_t(const dr_allocator_t<U> &) NOEXCEPT
     {
     }
     // Required for move semantics.
@@ -59,7 +65,7 @@ template <class T> struct dr_allocator_t {
         return (T *)ptr;
     }
     void
-    deallocate(T *ptr, std::size_t num) noexcept
+    deallocate(T *ptr, std::size_t num) NOEXCEPT
     {
         dr_global_free(ptr, num * sizeof(T));
     }

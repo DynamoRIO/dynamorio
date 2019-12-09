@@ -1111,6 +1111,6 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
 {
     switch (stat) {
     case RAW2TRACE_STAT_COUNT_ELIDED: return count_elided;
-    default: DR_ASSERT(false); return -1;
+    default: DR_ASSERT(false); return 0;
     }
 }

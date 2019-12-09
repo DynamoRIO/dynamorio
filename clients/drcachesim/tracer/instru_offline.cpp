@@ -657,13 +657,14 @@ offline_instru_t::label_marks_elidable(instr_t *instr, OUT int *opnd_index,
         return false;
     dr_instr_label_data_t *data = instr_get_label_data_area(instr);
     if (opnd_index != nullptr)
-        *opnd_index = data->data[LABEL_DATA_ELIDED_INDEX];
+        *opnd_index = static_cast<int>(data->data[LABEL_DATA_ELIDED_INDEX]);
     if (memopnd_index != nullptr)
-        *memopnd_index = data->data[LABEL_DATA_ELIDED_MEMOP_INDEX];
+        *memopnd_index = static_cast<int>(data->data[LABEL_DATA_ELIDED_MEMOP_INDEX]);
+    // The !! is to work around MSVC's warning C4800 about casting int to bool.
     if (is_write != nullptr)
-        *is_write = data->data[LABEL_DATA_ELIDED_IS_WRITE];
+        *is_write = static_cast<bool>(!!data->data[LABEL_DATA_ELIDED_IS_WRITE]);
     if (needs_base != nullptr)
-        *needs_base = data->data[LABEL_DATA_ELIDED_NEEDS_BASE];
+        *needs_base = static_cast<bool>(!!data->data[LABEL_DATA_ELIDED_NEEDS_BASE]);
     return true;
 }
 
