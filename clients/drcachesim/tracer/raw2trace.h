@@ -840,6 +840,7 @@ private:
                     }
                 }
                 if (remember_index == -1 && prev != meminst) {
+                    mem_count = 0;
                     for (int i = 0; i < instr_num_dsts(prev); i++) {
                         reg_id_t prev_base;
                         if (opnd_is_memory_reference(instr_get_dst(prev, i))) {

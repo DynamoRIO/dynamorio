@@ -493,7 +493,9 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
                                     dr_pred_type_t pred)
 {
     // Check whether we can elide this address.
-    for (instr_t *prev = instr_get_prev(where); prev != nullptr && !instr_is_app(prev);
+    // Be sure to start with "app" and not "where" to handle post-instr insertion
+    // such as for exclusive stores.
+    for (instr_t *prev = instr_get_prev(app); prev != nullptr && !instr_is_app(prev);
          prev = instr_get_prev(prev)) {
         int elided_index;
         bool elided_is_store;
@@ -711,6 +713,17 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
                                     mem_count, true, version, saw_base);
                 ++mem_count;
             }
+        }
+        // Rule out sharing with prior *or* subsequent instrs if the base is written
+        // to.  The ISA does not specify the ordering of multiple dests.
+        // TODO(i#2001): Add special support for eliding the xsp base of push+pop
+        // instructions.
+        reg_it = saw_base.begin();
+        while (reg_it != saw_base.end()) {
+            if (instr_writes_to_reg(instr, *reg_it, DR_QUERY_INCLUDE_COND_DSTS))
+                reg_it = saw_base.erase(reg_it);
+            else
+                ++reg_it;
         }
     }
 }
