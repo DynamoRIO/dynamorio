@@ -576,7 +576,7 @@ struct trace_header_t {
  *
  * <LI>offline_file_type_t get_file_type(void *tls)
  *
- * Returns the trace file type (an OFFLINE_FILE_TYPE* constant).
+ * Returns the trace file type (a combination of OFFLINE_FILE_TYPE* constants).
  * </LI>
  * </UL>
  */
@@ -763,7 +763,8 @@ private:
         if (version <= OFFLINE_FILE_VERSION_NO_ELISION)
             return "";
         // Filtered traces have no elision.
-        if (impl()->get_file_type(tls) == OFFLINE_FILE_TYPE_FILTERED)
+        if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS,
+                    impl()->get_file_type(tls)))
             return "";
         // Avoid type complaints for 32-bit.
         size_t modidx_typed = static_cast<size_t>(modidx);
@@ -1087,12 +1088,12 @@ private:
         reg_id_t base;
         int version = impl()->get_version(tls);
         if (memref.use_remembered_base) {
-            DR_ASSERT(impl()->get_file_type(tls) != OFFLINE_FILE_TYPE_FILTERED);
+            DR_ASSERT(!TEST(OFFLINE_FILE_TYPE_FILTERED, impl()->get_file_type(tls)));
             bool is_elidable =
                 instru_offline.opnd_is_elidable(memref.opnd, base, version);
             DR_ASSERT(is_elidable);
             if (base == DR_REG_NULL) {
-                DR_ASSERT(IF_X64(opnd_is_near_rel_addr(memref.opnd) ||)
+                DR_ASSERT(IF_REL_ADDRS(opnd_is_near_rel_addr(memref.opnd) ||)
                               opnd_is_near_abs_addr(memref.opnd));
                 buf->addr = reinterpret_cast<addr_t>(opnd_get_addr(memref.opnd));
                 impl()->log(4, "Filling in elided rip-rel addr with %p\n", buf->addr);
@@ -1167,14 +1168,11 @@ private:
                         get_register_name(base));
             reg_vals[base] = buf->addr;
         }
-#ifdef X86
-        if (opnd_is_near_base_disp(memref.opnd) &&
-            opnd_get_base(memref.opnd) != DR_REG_NULL &&
-            opnd_get_index(memref.opnd) == DR_REG_NULL) {
+        if (!TEST(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, impl()->get_file_type(tls)) &&
+            instru_offline.opnd_disp_is_elidable(memref.opnd)) {
             // We stored only the base reg, as an optimization.
             buf->addr += opnd_get_disp(memref.opnd);
         }
-#endif
         impl()->log(4, "Appended memref type %d size %d to " PFX "\n", buf->type,
                     buf->size, (ptr_uint_t)buf->addr);
         *buf_in = ++buf;

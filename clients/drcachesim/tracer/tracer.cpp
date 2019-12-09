@@ -1464,6 +1464,10 @@ init_thread_in_process(void *drcontext)
         offline_file_type_t file_type = op_L0_filter.get_value()
             ? OFFLINE_FILE_TYPE_FILTERED
             : OFFLINE_FILE_TYPE_DEFAULT;
+        if (op_disable_optimizations.get_value()) {
+            file_type = static_cast<offline_file_type_t>(
+                file_type | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
+        }
         data->init_header_size =
             reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
                 data->buf_base, dr_get_thread_id(drcontext), file_type);
@@ -1757,9 +1761,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (placement)
-            offline_instru_t(insert_load_buf_ptr, op_L0_filter.get_value(),
-                             &scratch_reserve_vec, file_ops_func.write_file, module_file);
+        instru = new (placement) offline_instru_t(
+            insert_load_buf_ptr, op_L0_filter.get_value(), &scratch_reserve_vec,
+            file_ops_func.write_file, module_file, op_disable_optimizations.get_value());
     } else {
         void *placement;
         /* we use placement new for better isolation */

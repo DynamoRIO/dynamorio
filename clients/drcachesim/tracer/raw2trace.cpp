@@ -607,6 +607,7 @@ raw2trace_t::do_conversion()
             error = process_thread_file(&thread_data[i]);
             if (!error.empty())
                 return error;
+            count_elided += thread_data[i].count_elided;
         }
     } else {
         // The files can be converted concurrently.
@@ -750,7 +751,7 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
     instr_destroy_t instr_collector(dcontext, instr);
 
     desc->pc_ = *pc;
-    *pc = decode(dcontext, *pc, instr);
+    *pc = decode_from_copy(dcontext, *pc, orig_pc, instr);
     if (*pc == nullptr || !instr_valid(instr)) {
         return false;
     }

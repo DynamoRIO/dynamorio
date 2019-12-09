@@ -69,8 +69,9 @@ offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *
                                    bool memref_needs_info, drvector_t *reg_vector,
                                    ssize_t (*write_file)(file_t file, const void *data,
                                                          size_t count),
-                                   file_t module_file)
-    : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(offline_entry_t))
+                                   file_t module_file, bool disable_optimizations)
+    : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(offline_entry_t),
+               disable_optimizations)
     , write_file_func(write_file)
     , modfile(module_file)
 {
@@ -406,6 +407,22 @@ offline_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
     return insert_save_entry(drcontext, ilist, where, reg_ptr, scratch, adjust, &entry);
 }
 
+bool
+offline_instru_t::opnd_disp_is_elidable(opnd_t memop)
+{
+    return !disable_optimizations && opnd_is_near_base_disp(memop) &&
+        opnd_get_base(memop) != DR_REG_NULL &&
+        opnd_get_index(memop) == DR_REG_NULL
+#ifdef AARCH64
+        /* On AArch64 we cannot directly store SP to memory. */
+        && opnd_get_base(memop) != DR_REG_SP
+#elif defined(AARCH32)
+        /* Avoid complexities with PC bases which are completely elided separately. */
+        && opnd_get_base(memop) != DR_REG_PC
+#endif
+        ;
+}
+
 int
 offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                                    reg_id_t reg_ptr, int adjust, opnd_t ref, bool write)
@@ -415,13 +432,9 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
     bool reserved = false;
     bool have_addr = false;
     drreg_status_t res;
-#ifdef X86
-    if (opnd_is_near_base_disp(ref) && opnd_get_base(ref) != DR_REG_NULL &&
-        opnd_get_index(ref) == DR_REG_NULL) {
+    if (opnd_disp_is_elidable(ref)) {
         /* Optimization: to avoid needing a scratch reg to lea into, we simply
          * store the base reg directly and add the disp during post-processing.
-         * We only do this for x86 for now to avoid dealing with complexities of
-         * PC bases.
          */
         reg_addr = opnd_get_base(ref);
         if (opnd_get_base(ref) == reg_ptr) {
@@ -432,7 +445,6 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
         } else
             have_addr = true;
     }
-#endif
     if (!have_addr) {
         res = drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_addr);
         DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
@@ -609,11 +621,17 @@ offline_instru_t::opnd_is_elidable(opnd_t memop, OUT reg_id_t &base, int version
     // index register).  We include rip-relative in this category.
     // Here we look for rip-relative and no-index operands: opnd_check_elidable()
     // checks for an unchanged prior instance.
-    if (IF_X64(opnd_is_near_rel_addr(memop) ||) opnd_is_near_abs_addr(memop)) {
+    if (IF_REL_ADDRS(opnd_is_near_rel_addr(memop) ||) opnd_is_near_abs_addr(memop)) {
         base = DR_REG_NULL;
         return true;
     }
     if (!opnd_is_near_base_disp(memop) ||
+        // We're assuming displacements are all factored out, such that we can share
+        // a base across all uses without subtracting the original disp.
+        // TODO(i#2001): This is blocking elision of SP bases on AArch64.  We should
+        // add disp subtraction by storing the disp along with reg_vals in raw2trace
+        // for AArch64.
+        !opnd_disp_is_elidable(memop) ||
         (opnd_get_base(memop) != DR_REG_NULL && opnd_get_index(memop) != DR_REG_NULL))
         return false;
     base = opnd_get_base(memop);
@@ -676,6 +694,8 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
 {
     // Analysis for eliding redundant addresses we can reconstruct during
     // post-processing.
+    if (disable_optimizations)
+        return;
     // We can't elide when doing filtering.
     if (memref_needs_full_info)
         return;

@@ -2960,8 +2960,12 @@ endif ()
         set(${testname_full}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
         set(${testname_full}_precmd
           "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir")
-        set(${testname_full}_postcmd
-          "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir${sim_atops}")
+        if (${testname_full}_nopost)
+          # No post needed.
+        else ()
+          set(${testname_full}_postcmd
+            "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir${sim_atops}")
+        endif ()
         set(${testname_full}_self_serial ON)
       endmacro()
 
@@ -3039,6 +3043,10 @@ endif ()
           set(tool.drcacheoff.burst_maps_nodr ON)
           torunonly_drcacheoff(burst_maps tool.drcacheoff.burst_maps "" "" "")
         endif ()
+
+        set(tool.drcacheoff.burst_traceopts_nodr ON)
+        set(tool.drcacheoff.burst_traceopts_nopost ON)
+        torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
 
         if (UNIX)
           # FIXME i#2040: this hits static client issues on Windows

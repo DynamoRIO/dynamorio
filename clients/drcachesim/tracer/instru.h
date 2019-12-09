@@ -57,10 +57,12 @@ public:
     // to insert code to re-load the current trace buffer pointer into a register.
     // We require that this is passed at construction time:
     instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
-             bool memref_needs_info, drvector_t *reg_vector_in, size_t instruction_size)
+             bool memref_needs_info, drvector_t *reg_vector_in, size_t instruction_size,
+             bool disable_opts = false)
         : insert_load_buf_ptr(insert_load_buf)
         , memref_needs_full_info(memref_needs_info)
         , reg_vector(reg_vector_in)
+        , disable_optimizations(disable_opts)
         , instr_size(instruction_size)
     {
     }
@@ -143,6 +145,7 @@ protected:
     // this info cannot be inferred from surrounding icache entries).
     bool memref_needs_full_info;
     drvector_t *reg_vector;
+    bool disable_optimizations;
 
 private:
     instru_t()
@@ -218,7 +221,7 @@ public:
     offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
                      bool memref_needs_info, drvector_t *reg_vector,
                      ssize_t (*write_file)(file_t file, const void *data, size_t count),
-                     file_t module_file);
+                     file_t module_file, bool disable_optimizations = false);
     virtual ~offline_instru_t();
 
     virtual trace_type_t
@@ -271,6 +274,8 @@ public:
                        int (*print_cb)(void *data, char *dst, size_t max_len),
                        void (*free_cb)(void *data));
 
+    bool
+    opnd_disp_is_elidable(opnd_t memop);
     // "version" is an OFFLINE_FILE_VERSION* constant.
     bool
     opnd_is_elidable(opnd_t memop, OUT reg_id_t &base, int version);
