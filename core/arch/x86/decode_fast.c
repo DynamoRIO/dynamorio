@@ -1359,7 +1359,9 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
                     instr_set_opcode(instr, OP_INVALID);
                     return NULL;
                 }
-                break;
+                /* There are no prefixes after (e)vex. */
+                pc = start_pc + prefixes;
+                i = prefixes;
             }
             default: break;
             }

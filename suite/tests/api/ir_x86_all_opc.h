@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -67,11 +67,24 @@ orig = instrlist_first(ilist);
  * we'd have to parse past prefixes.  Xref i#2985.
  */
 #define XOPCODE OPCODE
+#if defined(DEBUG) && defined(BUILD_TESTS) /* Export for api.ir test. */
+#    define EXTRA_IN_DEBUG(dc, pc, instr)                                         \
+        do {                                                                      \
+            /* Test decode_cti() which is exported just for debug test builds. */ \
+            instr_reset(dc, instr);                                               \
+            byte *cti_next = decode_cti(dc, pc, instr);                           \
+            ASSERT(cti_next != NULL);                                             \
+            ASSERT((cti_next - pc) == decode_sizeof(dc, pc, NULL _IF_X64(NULL))); \
+        } while (0)
+#else
+#    define EXTRA_IN_DEBUG /* Nothing. */
+#endif
 #define OPCODE(name, opc, icnm, flags, ...)                                            \
     do {                                                                               \
         if (!TEST(IF_X64_ELSE(X86_ONLY, X64_ONLY), flags) && len_##name != 0) {        \
             instr_reset(dc, instr);                                                    \
             next_pc = decode(dc, pc, instr);                                           \
+            ASSERT(next_pc != NULL);                                                   \
             if (TEST(VERIFY_EVEX, flags))                                              \
                 ASSERT(*pc == FIRST_EVEX_BYTE);                                        \
             ASSERT((next_pc - pc) == decode_sizeof(dc, pc, NULL _IF_X64(NULL)));       \
@@ -80,6 +93,7 @@ orig = instrlist_first(ilist);
             /* ensure operands all came out the same (xref i#1232) */                  \
             ASSERT(instr_same(orig, instr) ||                                          \
                    instr_num_srcs(orig) > 0 && opnd_is_instr(instr_get_target(orig))); \
+            EXTRA_IN_DEBUG(dc, pc, instr); /* Clobbers "instr". */                     \
             pc = next_pc;                                                              \
             orig = instr_get_next(orig);                                               \
             if (orig != NULL && instr_is_label(orig))                                  \
