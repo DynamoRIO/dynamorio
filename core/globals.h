@@ -127,6 +127,11 @@
 #else
 #    define DR_API
 #endif
+#if (defined(DEBUG) && defined(BUILD_TESTS)) || defined(UNSUPPORTED_API)
+#    define DR_UNS_EXCEPT_TESTS_API DR_API
+#else
+#    define DR_UNS_EXCEPT_TESTS_API /* nothing */
+#endif
 #ifdef UNSUPPORTED_API
 #    define DR_UNS_API DR_API
 #else
