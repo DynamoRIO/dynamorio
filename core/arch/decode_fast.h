@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -87,7 +87,7 @@ DR_UNS_API
 byte *
 decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr);
 
-DR_UNS_API
+DR_UNS_EXCEPT_TESTS_API
 /**
  * Decodes only enough of the instruction at address \p pc to determine
  * its size, its effects on the 6 arithmetic eflags, and whether it is

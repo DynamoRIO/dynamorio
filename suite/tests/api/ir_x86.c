@@ -58,6 +58,12 @@
 #    include <math.h> /* for M_PI, M_LN2, and M_LN10 for OP_fldpi, etc. */
 #endif
 
+#if defined(DEBUG) && defined(BUILD_TESTS)
+/* Not in the headers because it is not generally exported. */
+extern byte *
+decode_cti(void *dcontext, byte *pc, instr_t *instr);
+#endif
+
 #define VERBOSE 0
 
 #ifdef STANDALONE_DECODER
