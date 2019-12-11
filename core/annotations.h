@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -404,7 +404,7 @@ is_encoded_valgrind_annotation(app_pc xchg_start_pc, app_pc bb_start, app_pc pag
     if (safe_to_read) {
         word1 = *(uint64 *)(xchg_start_pc - (2 * sizeof(uint64)));
     } else {
-        if (!safe_read(xchg_start_pc - (2 * sizeof(uint64)), sizeof(uint64), &word1))
+        if (!d_r_safe_read(xchg_start_pc - (2 * sizeof(uint64)), sizeof(uint64), &word1))
             return false; /* If it's not safe to read, it must not be an annotation. */
     }
     /* This word must be safe to read because it lies directly between two pcs that are
@@ -441,7 +441,7 @@ is_encoded_valgrind_annotation(app_pc xchg_start_pc, app_pc bb_start, app_pc pag
     if (safe_to_read) {
         word1 = *(uint *)(xchg_start_pc - (3 * sizeof(uint)));
     } else {
-        if (!safe_read(xchg_start_pc - (3 * sizeof(uint)), sizeof(uint), &word1))
+        if (!d_r_safe_read(xchg_start_pc - (3 * sizeof(uint)), sizeof(uint), &word1))
             return false; /* If it's not safe to read, it must not be an annotation. */
     }
     /* These words must be safe to read because they lie directly between two pcs that are

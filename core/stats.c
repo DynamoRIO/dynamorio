@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,8 +59,6 @@
 #include "globals.h"
 #include "dr_stats.h"
 #include "stats.h"
-
-#include <string.h> /* for memset */
 
 #ifdef KSTATS
 
@@ -214,10 +212,10 @@ kstat_exit()
         return;
 
     /* report merged process statistics */
-    mutex_lock(&process_kstats_lock);
+    d_r_mutex_lock(&process_kstats_lock);
     print_file(process_kstats_outfile, "Process KSTATS:\n");
     kstat_report(process_kstats_outfile, &process_kstats);
-    mutex_unlock(&process_kstats_lock);
+    d_r_mutex_unlock(&process_kstats_lock);
 
     DELETE_LOCK(process_kstats_lock);
 
@@ -266,7 +264,7 @@ kstat_thread_init(dcontext_t *dcontext)
     /* add a dummy node to save one branch in UPDATE_CURRENT_COUNTER */
     new_thread_kstats->stack_kstats.depth = 1;
 
-    new_thread_kstats->thread_id = get_thread_id();
+    new_thread_kstats->thread_id = d_r_get_thread_id();
 #    ifdef DEBUG
     new_thread_kstats->outfile_kstats = THREAD;
 #    else
@@ -363,9 +361,9 @@ kstat_thread_exit(dcontext_t *dcontext)
     dump_thread_kstats(dcontext);
 
     /* a good time to combine all of these with the global statistics */
-    mutex_lock(&process_kstats_lock);
+    d_r_mutex_lock(&process_kstats_lock);
     kstat_merge(&process_kstats, &old_thread_kstats->vars_kstats);
-    mutex_unlock(&process_kstats_lock);
+    d_r_mutex_unlock(&process_kstats_lock);
 
 #    ifdef DEBUG
     /* for non-debug we do fast exit path and don't free local heap */

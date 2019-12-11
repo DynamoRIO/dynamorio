@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,7 +45,6 @@
 #include "fcache.h"
 #include "emit.h"
 #include "monitor.h"
-#include <string.h> /* for memset */
 #include "perscache.h"
 #include "instr.h" /* PC_RELATIVE_TARGET */
 
@@ -164,7 +163,7 @@ static
 static const linkstub_t linkstub_ibl_deleted = { LINK_FAKE, 0 };
 static const linkstub_t linkstub_asynch = { LINK_FAKE, 0 };
 static const linkstub_t linkstub_native_exec = { LINK_FAKE, 0 };
-/* this one we give the flag LINK_NI_SYSCALL for executing a syscall in dispatch() */
+/* this one we give the flag LINK_NI_SYSCALL for executing a syscall in d_r_dispatch() */
 static const linkstub_t linkstub_native_exec_syscall = { LINK_FAKE | LINK_NI_SYSCALL, 0 };
 
 #ifdef WINDOWS
@@ -310,14 +309,14 @@ link_reset_free(void)
 }
 
 void
-link_init()
+d_r_link_init()
 {
     link_reset_init();
     coarse_stubs_init();
 }
 
 void
-link_exit()
+d_r_link_exit()
 {
     coarse_stubs_free();
     link_reset_free();
@@ -571,9 +570,9 @@ void
 set_last_exit(dcontext_t *dcontext, linkstub_t *l)
 {
     /* We try to set last_fragment every time we set last_exit, rather than
-     * leaving it as a dangling pointer until the next dispatch entrance,
+     * leaving it as a dangling pointer until the next d_r_dispatch entrance,
      * to avoid cases like bug 7534.  However, fcache_return only sets
-     * last_exit, though it hits the dispatch point that sets last_fragment
+     * last_exit, though it hits the d_r_dispatch point that sets last_fragment
      * soon after, and everyone who frees fragments that other threads can
      * see should call last_exit_deleted() on the other threads.
      */
@@ -1260,20 +1259,20 @@ incoming_find_link(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         coarse_incoming_t *e;
         coarse_info_t *info = get_fragment_coarse_info(targetf);
         ASSERT(info != NULL);
-        mutex_lock(&info->incoming_lock);
+        d_r_mutex_lock(&info->incoming_lock);
         for (e = info->incoming; e != NULL; e = e->next) {
             if (!e->coarse) {
                 linkstub_t *ls;
                 for (ls = e->in.fine_l; ls != NULL; ls = LINKSTUB_NEXT_INCOMING(ls)) {
                     if (incoming_direct_linkstubs_match(((common_direct_linkstub_t *)ls),
                                                         dl)) {
-                        mutex_unlock(&info->incoming_lock);
+                        d_r_mutex_unlock(&info->incoming_lock);
                         return ls;
                     }
                 }
             }
         }
-        mutex_unlock(&info->incoming_lock);
+        d_r_mutex_unlock(&info->incoming_lock);
     } else {
         for (s = *inlist; s != NULL; s = (common_direct_linkstub_t *)s->next_incoming) {
             ASSERT(LINKSTUB_DIRECT(s->l.flags));
@@ -1699,7 +1698,7 @@ static void inline debug_after_link_change(dcontext_t *dcontext, fragment_t *f,
 {
     DOLOG(5, LOG_LINKS, {
         LOG(THREAD, LOG_LINKS, 5, "%s\n", msg);
-        disassemble_fragment(dcontext, f, stats->loglevel < 3);
+        disassemble_fragment(dcontext, f, d_r_stats->loglevel < 3);
     });
 }
 #endif
@@ -2172,7 +2171,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
         new_f->flags |= FRAG_LINKED_INCOMING;
 
         /* Now re-route incoming from outside the unit */
-        mutex_lock(&info->incoming_lock);
+        d_r_mutex_lock(&info->incoming_lock);
         for (e = info->incoming; e != NULL; e = next_e) {
             next_e = e->next;
             remove_entry = false;
@@ -2250,7 +2249,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
             } else
                 prev_e = e;
         }
-        mutex_unlock(&info->incoming_lock);
+        d_r_mutex_unlock(&info->incoming_lock);
 
     } else if (TEST(FRAG_COARSE_GRAIN, new_f->flags)) {
         /* Change the entrance stub to point to the trace head routine again
@@ -2329,9 +2328,9 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
 
     DOLOG(4, LOG_LINKS, {
         LOG(THREAD, LOG_LINKS, 4, "Old fragment after shift:\n");
-        disassemble_fragment(dcontext, old_f, stats->loglevel < 4);
+        disassemble_fragment(dcontext, old_f, d_r_stats->loglevel < 4);
         LOG(THREAD, LOG_LINKS, 4, "New fragment after shift:\n");
-        disassemble_fragment(dcontext, new_f, stats->loglevel < 4);
+        disassemble_fragment(dcontext, new_f, d_r_stats->loglevel < 4);
     });
 }
 
@@ -2620,14 +2619,14 @@ prepend_new_coarse_incoming(coarse_info_t *info, cache_pc coarse, linkstub_t *fi
         });
     }
     ASSERT(info != NULL);
-    mutex_lock(&info->incoming_lock);
+    d_r_mutex_lock(&info->incoming_lock);
     entry->next = info->incoming;
     info->incoming = entry;
     DOLOG(5, LOG_LINKS, {
         LOG(GLOBAL, LOG_LINKS, 4, "after adding new incoming " PFX ":\n", entry);
         print_coarse_incoming(GLOBAL_DCONTEXT, info);
     });
-    mutex_unlock(&info->incoming_lock);
+    d_r_mutex_unlock(&info->incoming_lock);
     return entry;
 }
 
@@ -3095,7 +3094,7 @@ coarse_remove_incoming(dcontext_t *dcontext, fragment_t *src_f, linkstub_t *src_
     LOG(THREAD, LOG_LINKS, 4, "coarse_remove_incoming %s " PFX " to " PFX "\n",
         info->module, src_f->tag, targetf->tag);
 
-    mutex_lock(&info->incoming_lock);
+    d_r_mutex_lock(&info->incoming_lock);
     for (prev_e = NULL, e = info->incoming; e != NULL; prev_e = e, e = e->next) {
         if (!e->coarse) {
             if (incoming_remove_link_search(dcontext, src_f, src_l, targetf,
@@ -3118,7 +3117,7 @@ coarse_remove_incoming(dcontext_t *dcontext, fragment_t *src_f, linkstub_t *src_
         LOG(THREAD, LOG_LINKS, 4, "after removing incoming:\n");
         print_coarse_incoming(dcontext, info);
     });
-    mutex_unlock(&info->incoming_lock);
+    d_r_mutex_unlock(&info->incoming_lock);
 }
 
 /* Removes any incoming data recording the outgoing link from stub */
@@ -3152,7 +3151,7 @@ coarse_remove_outgoing(dcontext_t *dcontext, cache_pc stub, coarse_info_t *src_i
             unlink_entrance_stub(dcontext, stub, 0, src_info);
             LOG(THREAD, LOG_LINKS, 4, "    removing coarse link " PFX " -> %s " PFX "\n",
                 stub, target_info->module, target_tag);
-            mutex_lock(&target_info->incoming_lock);
+            d_r_mutex_lock(&target_info->incoming_lock);
             for (e = target_info->incoming; e != NULL; e = e->next) {
                 if (e->coarse && e->in.stub_pc == stub) {
                     if (prev_e == NULL)
@@ -3171,7 +3170,7 @@ coarse_remove_outgoing(dcontext_t *dcontext, cache_pc stub, coarse_info_t *src_i
                 LOG(THREAD, LOG_LINKS, 4, "after removing outgoing, target:\n");
                 print_coarse_incoming(dcontext, target_info);
             });
-            mutex_unlock(&target_info->incoming_lock);
+            d_r_mutex_unlock(&target_info->incoming_lock);
             ASSERT(found);
         } else {
             /* an intra-unit link, so no incoming entry */
@@ -3222,14 +3221,14 @@ coarse_unit_unlink(dcontext_t *dcontext, coarse_info_t *info)
     ASSERT_OWN_MUTEX(true, &info->lock);
     if (info->stubs == NULL) /* lazily initialized, so common to have empty units */
         return;
-    mutex_lock(&info->incoming_lock);
+    d_r_mutex_lock(&info->incoming_lock);
 #ifndef DEBUG
     /* case 8599: fast exit/reset path: all incoming links are in
      * nonpersistent memory
      */
     if (dynamo_exited || dynamo_resetting) {
         info->incoming = NULL;
-        mutex_unlock(&info->incoming_lock);
+        d_r_mutex_unlock(&info->incoming_lock);
         return;
     }
 #endif
@@ -3288,7 +3287,7 @@ coarse_unit_unlink(dcontext_t *dcontext, coarse_info_t *info)
                                      ACCT_COARSE_LINK);
     }
     info->incoming = NULL;
-    mutex_unlock(&info->incoming_lock);
+    d_r_mutex_unlock(&info->incoming_lock);
 
     coarse_unit_unlink_outgoing(dcontext, info);
 }
@@ -3329,7 +3328,7 @@ coarse_unit_outgoing_linked(dcontext_t *dcontext, coarse_info_t *info)
     cache_pc pc;
     bool linked = false;
     ASSERT(info != NULL);
-    mutex_lock(&info->lock);
+    d_r_mutex_lock(&info->lock);
 
     /* Check outgoing links by walking the stubs */
     coarse_stubs_iterator_start(info, &csi);
@@ -3342,7 +3341,7 @@ coarse_unit_outgoing_linked(dcontext_t *dcontext, coarse_info_t *info)
     }
 coarse_unit_outgoing_linked_done:
     coarse_stubs_iterator_stop(&csi);
-    mutex_unlock(&info->lock);
+    d_r_mutex_unlock(&info->lock);
     return linked;
 }
 #endif
@@ -3705,7 +3704,7 @@ coarse_update_outgoing(dcontext_t *dcontext, cache_pc old_stub, cache_pc new_stu
                 replace ? "updating" : "adding", old_stub, new_stub, target_info->module,
                 target_tag);
             if (replace) {
-                mutex_lock(&target_info->incoming_lock);
+                d_r_mutex_lock(&target_info->incoming_lock);
                 for (e = target_info->incoming; e != NULL; e = e->next) {
                     if (e->coarse && e->in.stub_pc == old_stub) {
                         e->in.stub_pc = new_stub;
@@ -3717,7 +3716,7 @@ coarse_update_outgoing(dcontext_t *dcontext, cache_pc old_stub, cache_pc new_stu
                     LOG(THREAD, LOG_LINKS, 4, "after updating outgoing, target:\n");
                     print_coarse_incoming(dcontext, target_info);
                 });
-                mutex_unlock(&target_info->incoming_lock);
+                d_r_mutex_unlock(&target_info->incoming_lock);
                 ASSERT(found);
             } else {
                 prepend_new_coarse_incoming(target_info, new_stub, NULL);
@@ -3753,7 +3752,7 @@ coarse_unit_shift_links(dcontext_t *dcontext, coarse_info_t *info)
         return;
     LOG(THREAD, LOG_LINKS, 4, "coarse_unit_shift_links %s\n", info->module);
 
-    mutex_lock(&info->incoming_lock);
+    d_r_mutex_lock(&info->incoming_lock);
     DOLOG(5, LOG_LINKS, {
         LOG(THREAD, LOG_LINKS, 4, "about to patch all incoming links:\n");
         print_coarse_incoming(dcontext, info);
@@ -3788,7 +3787,7 @@ coarse_unit_shift_links(dcontext_t *dcontext, coarse_info_t *info)
             }
         }
     }
-    mutex_unlock(&info->incoming_lock);
+    d_r_mutex_unlock(&info->incoming_lock);
 }
 
 /* Updates the info pointers embedded in the coarse_stub_areas vector */

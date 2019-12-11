@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -73,6 +73,12 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     ASSERT(*get_dr_tls_base_addr() == NULL);
     *get_dr_tls_base_addr() = segment;
     os_tls->tls_type = TLS_TYPE_SLOT;
+}
+
+bool
+tls_thread_preinit()
+{
+    return true;
 }
 
 void

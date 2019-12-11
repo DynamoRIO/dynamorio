@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -43,10 +43,6 @@
 #    if !(defined(WINDOWS) && defined(X64))
 #        include "../third_party/valgrind/valgrind.h"
 #        include "../third_party/valgrind/memcheck.h"
-#    endif
-
-#    ifdef UNIX
-#        include <string.h>
 #    endif
 
 /* Macros for identifying an annotation head and extracting the pointer to its name.
@@ -343,7 +339,7 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
     if (hint_is_safe) {
         hint_byte = *hint_pc;
     } else {
-        if (!safe_read(hint_pc, 1, &hint_byte))
+        if (!d_r_safe_read(hint_pc, 1, &hint_byte))
             return false;
     }
     if (hint_byte != WINDOWS_X64_ANNOTATION_HINT_BYTE)
@@ -715,7 +711,7 @@ handle_vg_annotation(app_pc request_args)
     dr_vg_client_request_t request;
     ptr_uint_t result;
 
-    if (!safe_read(request_args, sizeof(dr_vg_client_request_t), &request)) {
+    if (!d_r_safe_read(request_args, sizeof(dr_vg_client_request_t), &request)) {
         LOG(THREAD, LOG_ANNOTATIONS, 2,
             "Failed to read Valgrind client request args at " PFX
             ". Skipping the annotation.\n",
@@ -850,7 +846,7 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
             if (!IS_ANNOTATION_LABEL_GOT_OFFSET_REFERENCE(src)) /* step 4 */
                 return false;
             opnd_ptr += opnd_get_disp(src); /* step 5 */
-            if (!safe_read(opnd_ptr, sizeof(app_pc), &got_ptr))
+            if (!d_r_safe_read(opnd_ptr, sizeof(app_pc), &got_ptr))
                 return false;
             opnd_ptr = got_ptr;
 #    endif
@@ -860,7 +856,7 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
              * pointer must be an immediate operand to that `prefetch`.
              */
             if (instr_get_opcode(scratch) == OP_prefetchw) { /* step 6 */
-                if (!safe_read(opnd_ptr, DYNAMORIO_ANNOTATION_LABEL_LENGTH, buf))
+                if (!d_r_safe_read(opnd_ptr, DYNAMORIO_ANNOTATION_LABEL_LENGTH, buf))
                     return false;
                 buf[DYNAMORIO_ANNOTATION_LABEL_LENGTH] = '\0';
                 if (strcmp(buf, DYNAMORIO_ANNOTATION_LABEL) == 0) {
@@ -871,9 +867,9 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
                 }
             } /* else the label pointer is the usual `mov` operand: */
 #    endif
-            if (!safe_read(opnd_ptr, sizeof(app_pc), &buf_ptr)) /* step 6 */
+            if (!d_r_safe_read(opnd_ptr, sizeof(app_pc), &buf_ptr)) /* step 6 */
                 return false;
-            if (!safe_read(buf_ptr, DYNAMORIO_ANNOTATION_LABEL_LENGTH, buf))
+            if (!d_r_safe_read(buf_ptr, DYNAMORIO_ANNOTATION_LABEL_LENGTH, buf))
                 return false;
             buf[DYNAMORIO_ANNOTATION_LABEL_LENGTH] = '\0';
             if (strcmp(buf, DYNAMORIO_ANNOTATION_LABEL) != 0)
@@ -1095,9 +1091,9 @@ annotation_printf(const char *format, ...)
     char *timestamped_format = NULL;
     uint buffer_length = 0;
 
-    if (stats == NULL || stats->loglevel == 0)
+    if (d_r_stats == NULL || d_r_stats->loglevel == 0)
         return 0; /* No log is available for writing. */
-    if ((stats->logmask & LOG_VIA_ANNOTATIONS) == 0)
+    if ((d_r_stats->logmask & LOG_VIA_ANNOTATIONS) == 0)
         return 0; /* Filtered out by the user. */
 
     /* Substitute the first instance of the timestamp token with a timestamp string.
@@ -1115,9 +1111,9 @@ annotation_printf(const char *format, ...)
                                                   ACCT_OTHER, UNPROTECTED);
 
             /* copy the original format string up to the timestamp token */
-            our_snprintf(timestamped_format, length_before_token, "%s", format);
+            d_r_snprintf(timestamped_format, length_before_token, "%s", format);
             /* copy the timestamp and the remainder of the original format string */
-            our_snprintf(timestamped_format + length_before_token,
+            d_r_snprintf(timestamped_format + length_before_token,
                          (buffer_length - length_before_token), "%s%s", timestamp_buffer,
                          timestamp_token_start + LOG_ANNOTATION_TIMESTAMP_TOKEN_LENGTH);
             /* use the timestamped format string */

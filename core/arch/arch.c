@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,8 +52,6 @@
 #include "proc.h"
 #include "instrument.h"
 
-#include <string.h> /* for memcpy */
-
 #if defined(DEBUG) || defined(INTERNAL)
 #    include "disassemble.h"
 #endif
@@ -85,6 +83,11 @@ static int syscall_method = SYSCALL_METHOD_UNINITIALIZED;
 byte *app_sysenter_instr_addr = NULL;
 #ifdef LINUX
 static bool sysenter_hook_failed = false;
+#endif
+
+#ifdef X86
+bool *d_r_avx512_code_in_use = NULL;
+bool d_r_client_avx512_code_in_use = false;
 #endif
 
 /* static functions forward references */
@@ -244,7 +247,7 @@ static byte *
 code_align_forward(dr_isa_mode_t isa_mode, byte *pc, size_t alignment)
 {
     byte *new_pc = (byte *)ALIGN_FORWARD(pc, alignment);
-    DOCHECK(1, { SET_TO_NOPS(isa_mode, pc, new_pc - pc); });
+    DOCHECK(1, { SET_TO_NOPS(isa_mode, vmcode_get_writable_addr(pc), new_pc - pc); });
     return new_pc;
 }
 
@@ -272,8 +275,10 @@ check_size_and_cache_line(dr_isa_mode_t isa_mode, generated_code_t *code, byte *
      */
     byte *next_pc = move_to_start_of_cache_line(isa_mode, pc);
     if ((byte *)ALIGN_FORWARD(pc, PAGE_SIZE) + PAGE_SIZE > code->commit_end_pc) {
-        ASSERT(code->commit_end_pc + PAGE_SIZE <= ((byte *)code) + GENCODE_RESERVE_SIZE);
-        heap_mmap_extend_commitment(code->commit_end_pc, PAGE_SIZE, VMM_SPECIAL_MMAP);
+        ASSERT(code->commit_end_pc + PAGE_SIZE <=
+               vmcode_get_executable_addr((byte *)code) + GENCODE_RESERVE_SIZE);
+        heap_mmap_extend_commitment(code->commit_end_pc, PAGE_SIZE,
+                                    VMM_SPECIAL_MMAP | VMM_REACHABLE);
         code->commit_end_pc += PAGE_SIZE;
     }
     return next_pc;
@@ -292,7 +297,7 @@ release_final_page(generated_code_t *code)
     ASSERT(ALIGNED(leftover, PAGE_SIZE));
     if (leftover > 0) {
         heap_mmap_retract_commitment(code->commit_end_pc - leftover, leftover,
-                                     VMM_SPECIAL_MMAP);
+                                     VMM_SPECIAL_MMAP | VMM_REACHABLE);
         code->commit_end_pc -= leftover;
     }
     LOG(THREAD_GET, LOG_EMIT, 1,
@@ -488,8 +493,9 @@ static void shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void
     bool x86_to_x64_mode = false;
 #endif
 
-    gencode =
-        heap_mmap_reserve(GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE, VMM_SPECIAL_MMAP);
+    gencode = heap_mmap_reserve(GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
+                                MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
+                                VMM_SPECIAL_MMAP | VMM_REACHABLE);
     /* we would return gencode and let caller assign, but emit routines
      * that this routine calls query the shared vars so we set here
      */
@@ -512,13 +518,19 @@ static void shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void
 #else
     shared_code = gencode;
 #endif
-    memset(gencode, 0, sizeof(*gencode));
+    generated_code_t *gencode_writable =
+        (generated_code_t *)vmcode_get_writable_addr((byte *)gencode);
+    memset(gencode_writable, 0, sizeof(*gencode));
+    /* Generated code immediately follows struct */
+    gencode_writable->gen_start_pc = ((byte *)gencode) + sizeof(*gencode);
+    gencode_writable->commit_end_pc = ((byte *)gencode) + GENCODE_COMMIT_SIZE;
+    /* Now switch to the writable one.  We assume no further code examines the address
+     * of the struct.
+     */
+    gencode = gencode_writable;
 
     gencode->thread_shared = true;
     IF_X86_64(gencode->gencode_mode = gencode_mode);
-    /* Generated code immediately follows struct */
-    gencode->gen_start_pc = ((byte *)gencode) + sizeof(*gencode);
-    gencode->commit_end_pc = ((byte *)gencode) + GENCODE_COMMIT_SIZE;
     for (branch_type = IBL_BRANCH_TYPE_START; branch_type < IBL_BRANCH_TYPE_END;
          branch_type++) {
         gencode->trace_ibl[branch_type].initialized = false;
@@ -646,14 +658,29 @@ far_ibl_set_targets(ibl_code_t src_ibl[], ibl_code_t tgt_ibl[])
 
 /* arch-specific initializations */
 void
-arch_init(void)
+d_r_arch_init(void)
 {
     ASSERT(sizeof(opnd_t) == EXPECTED_SIZEOF_OPND);
     IF_X86(ASSERT(CHECK_TRUNCATE_TYPE_byte(OPSZ_LAST)));
+    /* This ensures that DR_REG_ enums that may be used as opnd_size_t fit its size.
+     * Only DR_REG_ enums covered by types listed in template_optype_is_reg can fall
+     * into this category.
+     */
+    IF_X86(ASSERT(CHECK_TRUNCATE_TYPE_byte(DR_REG_MAX_AS_OPSZ)));
     /* ensure our flag sharing is done properly */
     ASSERT((uint)LINK_FINAL_INSTR_SHARED_FLAG < (uint)INSTR_FIRST_NON_LINK_SHARED_FLAG);
     ASSERT_TRUNCATE(byte, byte, OPSZ_LAST_ENUM);
     ASSERT(DR_ISA_ARM_A32 + 1 == DR_ISA_ARM_THUMB); /* ibl relies on this */
+#ifdef X86_64
+    /* We rely on contiguous ranges when computing AVX-512 registers. */
+    ASSERT(DR_REG_XMM16 == DR_REG_XMM15 + 1);
+    ASSERT(DR_REG_YMM16 == DR_REG_YMM15 + 1);
+    ASSERT(DR_REG_ZMM16 == DR_REG_ZMM15 + 1);
+#endif
+    /* We rely on the dr_opmask_t register type to be able to store AVX512BW wide 64-bit
+     * masks. Also priv_mcontext_t.opmask slots are AVX512BW wide.
+     */
+    IF_X86(ASSERT(sizeof(dr_opmask_t) == OPMASK_AVX512BW_REG_SIZE));
 
     /* Verify that the structures used for a register spill area and to hold IBT
      * table addresses & masks for IBL code are laid out as expected. We expect
@@ -686,7 +713,7 @@ arch_init(void)
     /* Ensure we have no unexpected padding inside structs that include
      * priv_mcontext_t (app_state_at_intercept_t and dcontext_t) */
     IF_X86(ASSERT(offsetof(priv_mcontext_t, pc) + sizeof(byte *) + PRE_XMM_PADDING ==
-                  offsetof(priv_mcontext_t, ymm)));
+                  offsetof(priv_mcontext_t, simd)));
     ASSERT(offsetof(app_state_at_intercept_t, mc) ==
            offsetof(app_state_at_intercept_t, start_pc) + sizeof(void *));
     /* Try to catch errors in x86.asm offsets for dcontext_t */
@@ -695,6 +722,15 @@ arch_init(void)
                IF_CLIENT_INTERFACE_ELSE(5 * sizeof(reg_t), 0));
 
     interp_init();
+
+#ifdef X86
+    /* We're allocating a reachable heap variable in order to be able to use a more
+     * compact rip-rel load in SIMD restore/save gencode.
+     */
+    d_r_avx512_code_in_use = heap_reachable_alloc(
+        GLOBAL_DCONTEXT, sizeof(*d_r_avx512_code_in_use) HEAPACCT(ACCT_OTHER));
+    *d_r_avx512_code_in_use = false;
+#endif
 
 #ifdef CHECK_RETURNS_SSE2
     if (proc_has_feature(FEATURE_SSE2)) {
@@ -765,7 +801,7 @@ arch_extract_profile(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
         protect_generated_code(tpc, WRITABLE);
 
         stop_profile(tpc->profile);
-        mutex_lock(&profile_dump_lock);
+        d_r_mutex_lock(&profile_dump_lock);
 
         /* Print the thread id so even if it has no hits we can
          * count the # total threads. */
@@ -838,7 +874,7 @@ arch_extract_profile(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
                                tpc->profile->end);
         }
 
-        mutex_unlock(&profile_dump_lock);
+        d_r_mutex_unlock(&profile_dump_lock);
         free_profile(tpc->profile);
         tpc->profile = NULL;
     }
@@ -855,7 +891,7 @@ arch_profile_exit()
 #endif /* WINDOWS_PC_SAMPLE */
 
 /* arch-specific atexit cleanup */
-void arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
+void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 {
     /* we only need to unprotect shared_code for profile extraction
      * so we do it there to also cover the fast exit path
@@ -865,14 +901,24 @@ void arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 #endif
     /* on x64 we have syscall routines in the shared code so can't free if detaching */
     if (IF_WINDOWS(IF_X64(!detach_stacked_callbacks &&)) shared_code != NULL) {
-        heap_munmap(shared_code, GENCODE_RESERVE_SIZE, VMM_SPECIAL_MMAP);
+        heap_munmap(shared_code, GENCODE_RESERVE_SIZE, VMM_SPECIAL_MMAP | VMM_REACHABLE);
     }
 #if defined(X86) && defined(X64)
-    if (shared_code_x86 != NULL)
-        heap_munmap(shared_code_x86, GENCODE_RESERVE_SIZE, VMM_SPECIAL_MMAP);
-    if (shared_code_x86_to_x64 != NULL)
-        heap_munmap(shared_code_x86_to_x64, GENCODE_RESERVE_SIZE, VMM_SPECIAL_MMAP);
+    if (shared_code_x86 != NULL) {
+        heap_munmap(shared_code_x86, GENCODE_RESERVE_SIZE,
+                    VMM_SPECIAL_MMAP | VMM_REACHABLE);
+    }
+    if (shared_code_x86_to_x64 != NULL) {
+        heap_munmap(shared_code_x86_to_x64, GENCODE_RESERVE_SIZE,
+                    VMM_SPECIAL_MMAP | VMM_REACHABLE);
+    }
 #endif
+
+#ifdef X86
+    heap_reachable_free(GLOBAL_DCONTEXT, d_r_avx512_code_in_use,
+                        sizeof(*d_r_avx512_code_in_use) HEAPACCT(ACCT_OTHER));
+#endif
+
     interp_exit();
     mangle_exit();
 
@@ -1166,25 +1212,33 @@ arch_thread_init(dcontext_t *dcontext)
      */
     ASSERT(GENCODE_COMMIT_SIZE < GENCODE_RESERVE_SIZE);
     /* case 9474; share allocation unit w/ thread-private stack */
-    code = heap_mmap_reserve_post_stack(dcontext, GENCODE_RESERVE_SIZE,
-                                        GENCODE_COMMIT_SIZE, VMM_SPECIAL_MMAP);
+    code = heap_mmap_reserve_post_stack(
+        dcontext, GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
+        MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP | VMM_REACHABLE);
     ASSERT(code != NULL);
+    dcontext->private_code = (void *)code;
+
+    generated_code_t *code_writable =
+        (generated_code_t *)vmcode_get_writable_addr((byte *)code);
     /* FIXME case 6493: if we split private from shared, remove this
      * memset since we will no longer have a bunch of fields we don't use
      */
-    memset(code, 0, sizeof(*code));
-    code->thread_shared = false;
+    memset(code_writable, 0, sizeof(*code));
     /* Generated code immediately follows struct */
-    code->gen_start_pc = ((byte *)code) + sizeof(*code);
-    code->commit_end_pc = ((byte *)code) + GENCODE_COMMIT_SIZE;
+    code_writable->gen_start_pc = ((byte *)code) + sizeof(*code);
+    code_writable->commit_end_pc = ((byte *)code) + GENCODE_COMMIT_SIZE;
+    /* Now switch to the writable one.  We assume no further code examines the address
+     * of the struct.
+     */
+    code = code_writable;
+
+    code->thread_shared = false;
     for (branch_type = IBL_BRANCH_TYPE_START; branch_type < IBL_BRANCH_TYPE_END;
          branch_type++) {
         code->trace_ibl[branch_type].initialized = false;
         code->bb_ibl[branch_type].initialized = false;
         code->coarse_ibl[branch_type].initialized = false;
     }
-
-    dcontext->private_code = (void *)code;
 
     pc = code->gen_start_pc;
     pc = check_size_and_cache_line(isa_mode, code, pc);
@@ -1193,7 +1247,7 @@ arch_thread_init(dcontext_t *dcontext)
     pc = check_size_and_cache_line(isa_mode, code, pc);
     code->fcache_return = pc;
     pc = emit_fcache_return(dcontext, code, pc);
-    ;
+
     code->fcache_return_end = pc;
 #ifdef WINDOWS_PC_SAMPLE
     code->fcache_enter_return_end = pc;
@@ -1383,7 +1437,7 @@ arch_thread_exit(dcontext_t *dcontext _IF_WINDOWS(bool detach_stacked_callbacks)
     if (!detach_stacked_callbacks)
 #endif
         heap_munmap_post_stack(dcontext, dcontext->private_code, GENCODE_RESERVE_SIZE,
-                               VMM_SPECIAL_MMAP);
+                               VMM_SPECIAL_MMAP | VMM_REACHABLE);
 }
 
 #ifdef WINDOWS
@@ -1425,7 +1479,8 @@ protect_generated_code(generated_code_t *code_in, bool writable)
      * changing the conditionally-executed stores into always-executed
      * stores of conditionally-determined values.
      */
-    volatile generated_code_t *code = code_in;
+    volatile generated_code_t *code =
+        (generated_code_t *)vmcode_get_writable_addr((byte *)code_in);
     if (TEST(SELFPROT_GENCODE, DYNAMO_OPTION(protect_mask)) &&
         code->writable != writable) {
         byte *genstart = (byte *)PAGE_START(code->gen_start_pc);
@@ -1434,7 +1489,8 @@ protect_generated_code(generated_code_t *code_in, bool writable)
             code->writable = writable;
         }
         STATS_INC(gencode_prot_changes);
-        change_protection(genstart, code->commit_end_pc - genstart, writable);
+        change_protection(vmcode_get_writable_addr(genstart),
+                          code->commit_end_pc - genstart, writable);
         if (writable) {
             ASSERT(!code->writable);
             code->writable = writable;
@@ -2160,94 +2216,108 @@ get_ibl_branch_type(instr_t *instr)
 const char *
 get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brtype_name)
 {
-    static const char *const
-        ibl_routine_names IF_X86_64([3]) [IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] = {
-        IF_X86_64({)
-        {"shared_unlinked_bb_ibl", "shared_delete_bb_ibl",
-         "shared_bb_far", "shared_bb_far_unlinked",
-         IF_X86_64_("shared_bb_cmp") IF_X86_64_("shared_bb_cmp_unlinked")
-         "shared_bb_ibl", "shared_bb_ibl_template"},
-        {"shared_unlinked_trace_ibl", "shared_delete_trace_ibl",
-         "shared_trace_far", "shared_trace_far_unlinked",
-         IF_X86_64_("shared_trace_cmp") IF_X86_64_("shared_trace_cmp_unlinked")
-         "shared_trace_ibl", "shared_trace_ibl_template"},
-        {"private_unlinked_bb_ibl", "private_delete_bb_ibl",
-         "private_bb_far", "private_bb_far_unlinked",
-         IF_X86_64_("private_bb_cmp") IF_X86_64_("private_bb_cmp_unlinked")
-         "private_bb_ibl", "private_bb_ibl_template"},
-        {"private_unlinked_trace_ibl", "private_delete_trace_ibl",
-         "private_trace_far", "private_trace_far_unlinked",
-         IF_X86_64_("private_trace_cmp") IF_X86_64_("private_trace_cmp_unlinked")
-         "private_trace_ibl", "private_trace_ibl_template"},
-        {"shared_unlinked_coarse_ibl", "shared_delete_coarse_ibl",
-         "shared_coarse_trace_far", "shared_coarse_trace_far_unlinked",
-         IF_X86_64_("shared_coarse_trace_cmp")
-         IF_X86_64_("shared_coarse_trace_cmp_unlinked")
-         "shared_coarse_ibl", "shared_coarse_ibl_template"},
 #if defined(X86) && defined(X64)
-        /* PR 282576: for WOW64 processes we have separate x86 routines */
-        }, {
-        {"x86_shared_unlinked_bb_ibl", "x86_shared_delete_bb_ibl",
-         "x86_shared_bb_far", "x86_shared_bb_far_unlinked",
-         IF_X64_("x86_shared_bb_cmp") IF_X64_("x86_shared_bb_cmp_unlinked")
-         "x86_shared_bb_ibl", "x86_shared_bb_ibl_template"},
-        {"x86_shared_unlinked_trace_ibl", "x86_shared_delete_trace_ibl",
-         "x86_shared_trace_far", "x86_shared_trace_far_unlinked",
-         IF_X64_("x86_shared_trace_cmp") IF_X64_("x86_shared_trace_cmp_unlinked")
-         "x86_shared_trace_ibl", "x86_shared_trace_ibl_template"},
-        {"x86_private_unlinked_bb_ibl", "x86_private_delete_bb_ibl",
-         "x86_private_bb_far", "x86_private_bb_far_unlinked",
-         IF_X64_("x86_private_bb_cmp") IF_X64_("x86_private_bb_cmp_unlinked")
-         "x86_private_bb_ibl", "x86_private_bb_ibl_template"},
-        {"x86_private_unlinked_trace_ibl", "x86_private_delete_trace_ibl",
-         "x86_private_trace_far", "x86_private_trace_far_unlinked",
-         IF_X64_("x86_private_trace_cmp") IF_X64_("x86_private_trace_cmp_unlinked")
-         "x86_private_trace_ibl", "x86_private_trace_ibl_template"},
-        {"x86_shared_unlinked_coarse_ibl", "x86_shared_delete_coarse_ibl",
-         "x86_shared_coarse_trace_far",
-         "x86_shared_coarse_trace_far_unlinked",
-         IF_X64_("x86_shared_coarse_trace_cmp")
-         IF_X64_("x86_shared_coarse_trace_cmp_unlinked")
-         "x86_shared_coarse_ibl", "x86_shared_coarse_ibl_template"},
-        }, {
-        { "x86_to_x64_shared_unlinked_bb_ibl", "x86_to_x64_shared_delete_bb_ibl",
-          "x86_to_x64_shared_bb_far",          "x86_to_x64_shared_bb_far_unlinked",
-          "x86_to_x64_shared_bb_cmp",          "x86_to_x64_shared_bb_cmp_unlinked",
-          "x86_to_x64_shared_bb_ibl",          "x86_to_x64_shared_bb_ibl_template" },
-            { "x86_to_x64_shared_unlinked_trace_ibl",
-              "x86_to_x64_shared_delete_trace_ibl",
-              "x86_to_x64_shared_trace_far",
-              "x86_to_x64_shared_trace_far_unlinked",
-              "x86_to_x64_shared_trace_cmp",
-              "x86_to_x64_shared_trace_cmp_unlinked",
-              "x86_to_x64_shared_trace_ibl",
-              "x86_to_x64_shared_trace_ibl_template" },
-            { "x86_to_x64_private_unlinked_bb_ibl", "x86_to_x64_private_delete_bb_ibl",
-              "x86_to_x64_private_bb_far", "x86_to_x64_private_bb_far_unlinked",
-              "x86_to_x64_private_bb_cmp", "x86_to_x64_private_bb_cmp_unlinked",
-              /* clang-format off */
+    static const char
+        *const ibl_routine_names[3][IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] = {
+            {
+                { "shared_unlinked_bb_ibl", "shared_delete_bb_ibl", "shared_bb_far",
+                  "shared_bb_far_unlinked", "shared_bb_cmp", "shared_bb_cmp_unlinked",
+                  "shared_bb_ibl", "shared_bb_ibl_template" },
+                { "shared_unlinked_trace_ibl", "shared_delete_trace_ibl",
+                  "shared_trace_far", "shared_trace_far_unlinked", "shared_trace_cmp",
+                  "shared_trace_cmp_unlinked", "shared_trace_ibl",
+                  "shared_trace_ibl_template" },
+                { "private_unlinked_bb_ibl", "private_delete_bb_ibl", "private_bb_far",
+                  "private_bb_far_unlinked", "private_bb_cmp", "private_bb_cmp_unlinked",
+                  "private_bb_ibl", "private_bb_ibl_template" },
+                { "private_unlinked_trace_ibl", "private_delete_trace_ibl",
+                  "private_trace_far", "private_trace_far_unlinked", "private_trace_cmp",
+                  "private_trace_cmp_unlinked", "private_trace_ibl",
+                  "private_trace_ibl_template" },
+                { "shared_unlinked_coarse_ibl", "shared_delete_coarse_ibl",
+                  "shared_coarse_trace_far", "shared_coarse_trace_far_unlinked",
+                  "shared_coarse_trace_cmp", "shared_coarse_trace_cmp_unlinked",
+                  "shared_coarse_ibl", "shared_coarse_ibl_template" },
+                /* PR 282576: for WOW64 processes we have separate x86 routines */
+            },
+            {
+                { "x86_shared_unlinked_bb_ibl", "x86_shared_delete_bb_ibl",
+                  "x86_shared_bb_far", "x86_shared_bb_far_unlinked",
+                  IF_X64_("x86_shared_bb_cmp")
+                      IF_X64_("x86_shared_bb_cmp_unlinked") "x86_shared_bb_ibl",
+                  "x86_shared_bb_ibl_template" },
+                { "x86_shared_unlinked_trace_ibl", "x86_shared_delete_trace_ibl",
+                  "x86_shared_trace_far", "x86_shared_trace_far_unlinked",
+                  IF_X64_("x86_shared_trace_cmp")
+                      IF_X64_("x86_shared_trace_cmp_unlinked") "x86_shared_trace_ibl",
+                  "x86_shared_trace_ibl_template" },
+                { "x86_private_unlinked_bb_ibl", "x86_private_delete_bb_ibl",
+                  "x86_private_bb_far", "x86_private_bb_far_unlinked",
+                  IF_X64_("x86_private_bb_cmp")
+                      IF_X64_("x86_private_bb_cmp_unlinked") "x86_private_bb_ibl",
+                  "x86_private_bb_ibl_template" },
+                { "x86_private_unlinked_trace_ibl", "x86_private_delete_trace_ibl",
+                  "x86_private_trace_far", "x86_private_trace_far_unlinked",
+                  IF_X64_("x86_private_trace_cmp")
+                      IF_X64_("x86_private_trace_cmp_unlinked") "x86_private_trace_ibl",
+                  "x86_private_trace_ibl_template" },
+                { "x86_shared_unlinked_coarse_ibl", "x86_shared_delete_coarse_ibl",
+                  "x86_shared_coarse_trace_far", "x86_shared_coarse_trace_far_unlinked",
+                  IF_X64_("x86_shared_coarse_trace_cmp") IF_X64_(
+                      "x86_shared_coarse_trace_cmp_unlinked") "x86_shared_coarse_ibl",
+                  "x86_shared_coarse_ibl_template" },
+            },
+            {
+                { "x86_to_x64_shared_unlinked_bb_ibl", "x86_to_x64_shared_delete_bb_ibl",
+                  "x86_to_x64_shared_bb_far", "x86_to_x64_shared_bb_far_unlinked",
+                  "x86_to_x64_shared_bb_cmp", "x86_to_x64_shared_bb_cmp_unlinked",
+                  "x86_to_x64_shared_bb_ibl", "x86_to_x64_shared_bb_ibl_template" },
+                { "x86_to_x64_shared_unlinked_trace_ibl",
+                  "x86_to_x64_shared_delete_trace_ibl", "x86_to_x64_shared_trace_far",
+                  "x86_to_x64_shared_trace_far_unlinked", "x86_to_x64_shared_trace_cmp",
+                  "x86_to_x64_shared_trace_cmp_unlinked", "x86_to_x64_shared_trace_ibl",
+                  "x86_to_x64_shared_trace_ibl_template" },
+                { "x86_to_x64_private_unlinked_bb_ibl",
+                  "x86_to_x64_private_delete_bb_ibl", "x86_to_x64_private_bb_far",
+                  "x86_to_x64_private_bb_far_unlinked", "x86_to_x64_private_bb_cmp",
+                  "x86_to_x64_private_bb_cmp_unlinked",
+                  /* clang-format off */
               "x86_to_x64_private_bb_ibl",
               "x86_to_x64_private_bb_ibl_template" },
-            /* clang-format on */
-            { "x86_to_x64_private_unlinked_trace_ibl",
-              "x86_to_x64_private_delete_trace_ibl",
-              "x86_to_x64_private_trace_far",
-              "x86_to_x64_private_trace_far_unlinked",
-              "x86_to_x64_private_trace_cmp",
-              "x86_to_x64_private_trace_cmp_unlinked",
-              "x86_to_x64_private_trace_ibl",
-              "x86_to_x64_private_trace_ibl_template" },
-            { "x86_to_x64_shared_unlinked_coarse_ibl",
-              "x86_to_x64_shared_delete_coarse_ibl",
-              "x86_to_x64_shared_coarse_trace_far",
-              "x86_to_x64_shared_coarse_trace_far_unlinked",
-              "x86_to_x64_shared_coarse_trace_cmp",
-              "x86_to_x64_shared_coarse_trace_cmp_unlinked",
-              "x86_to_x64_shared_coarse_ibl",
-              "x86_to_x64_shared_coarse_ibl_template" },
-        }
+                /* clang-format on */
+                { "x86_to_x64_private_unlinked_trace_ibl",
+                  "x86_to_x64_private_delete_trace_ibl", "x86_to_x64_private_trace_far",
+                  "x86_to_x64_private_trace_far_unlinked", "x86_to_x64_private_trace_cmp",
+                  "x86_to_x64_private_trace_cmp_unlinked", "x86_to_x64_private_trace_ibl",
+                  "x86_to_x64_private_trace_ibl_template" },
+                { "x86_to_x64_shared_unlinked_coarse_ibl",
+                  "x86_to_x64_shared_delete_coarse_ibl",
+                  "x86_to_x64_shared_coarse_trace_far",
+                  "x86_to_x64_shared_coarse_trace_far_unlinked",
+                  "x86_to_x64_shared_coarse_trace_cmp",
+                  "x86_to_x64_shared_coarse_trace_cmp_unlinked",
+                  "x86_to_x64_shared_coarse_ibl",
+                  "x86_to_x64_shared_coarse_ibl_template" },
+            }
+        };
+#else
+    static const char *const ibl_routine_names[IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] =
+        {
+            { "shared_unlinked_bb_ibl", "shared_delete_bb_ibl", "shared_bb_far",
+              "shared_bb_far_unlinked", "shared_bb_ibl", "shared_bb_ibl_template" },
+            { "shared_unlinked_trace_ibl", "shared_delete_trace_ibl", "shared_trace_far",
+              "shared_trace_far_unlinked", "shared_trace_ibl",
+              "shared_trace_ibl_template" },
+            { "private_unlinked_bb_ibl", "private_delete_bb_ibl", "private_bb_far",
+              "private_bb_far_unlinked", "private_bb_ibl", "private_bb_ibl_template" },
+            { "private_unlinked_trace_ibl", "private_delete_trace_ibl",
+              "private_trace_far", "private_trace_far_unlinked", "private_trace_ibl",
+              "private_trace_ibl_template" },
+            { "shared_unlinked_coarse_ibl", "shared_delete_coarse_ibl",
+              "shared_coarse_trace_far", "shared_coarse_trace_far_unlinked",
+              "shared_coarse_ibl", "shared_coarse_ibl_template" },
+        };
 #endif
-    };
     ibl_type_t ibl_type;
 #if defined(X86) && defined(X64)
     gencode_mode_t mode;
@@ -2528,48 +2598,51 @@ after_do_syscall_addr(dcontext_t *dcontext)
         return after_do_syscall_code(dcontext);
 }
 #else
-    cache_pc after_do_shared_syscall_addr(dcontext_t * dcontext)
-    {
-        /* PR 212570: return the thread-shared do_syscall used for vsyscall hook */
-        generated_code_t *code =
-            get_emitted_routines_code(GLOBAL_DCONTEXT _IF_X86_64(GENCODE_X64));
-        IF_X86_64(ASSERT_NOT_REACHED()); /* else have to worry about GENCODE_X86 */
-        ASSERT(code != NULL);
-        ASSERT(code->do_syscall != NULL);
-        return (cache_pc)(code->do_syscall + code->do_syscall_offs);
-    }
+cache_pc
+after_do_shared_syscall_addr(dcontext_t *dcontext)
+{
+    /* PR 212570: return the thread-shared do_syscall used for vsyscall hook */
+    generated_code_t *code =
+        get_emitted_routines_code(GLOBAL_DCONTEXT _IF_X86_64(GENCODE_X64));
+    IF_X86_64(ASSERT_NOT_REACHED()); /* else have to worry about GENCODE_X86 */
+    ASSERT(code != NULL);
+    ASSERT(code->do_syscall != NULL);
+    return (cache_pc)(code->do_syscall + code->do_syscall_offs);
+}
 
-    cache_pc after_do_syscall_addr(dcontext_t * dcontext)
-    {
-        /* PR 212570: return the thread-shared do_syscall used for vsyscall hook */
-        generated_code_t *code =
-            get_emitted_routines_code(dcontext _IF_X86_64(GENCODE_FROM_DCONTEXT));
-        ASSERT(code != NULL);
-        ASSERT(code->do_syscall != NULL);
-        return (cache_pc)(code->do_syscall + code->do_syscall_offs);
-    }
+cache_pc
+after_do_syscall_addr(dcontext_t *dcontext)
+{
+    /* PR 212570: return the thread-shared do_syscall used for vsyscall hook */
+    generated_code_t *code =
+        get_emitted_routines_code(dcontext _IF_X86_64(GENCODE_FROM_DCONTEXT));
+    ASSERT(code != NULL);
+    ASSERT(code->do_syscall != NULL);
+    return (cache_pc)(code->do_syscall + code->do_syscall_offs);
+}
 
-    bool is_after_main_do_syscall_addr(dcontext_t * dcontext, cache_pc pc)
-    {
-        generated_code_t *code =
-            get_emitted_routines_code(dcontext _IF_X86_64(GENCODE_FROM_DCONTEXT));
-        ASSERT(code != NULL);
-        return (pc == (cache_pc)(code->do_syscall + code->do_syscall_offs));
-    }
+bool
+is_after_main_do_syscall_addr(dcontext_t *dcontext, cache_pc pc)
+{
+    generated_code_t *code =
+        get_emitted_routines_code(dcontext _IF_X86_64(GENCODE_FROM_DCONTEXT));
+    ASSERT(code != NULL);
+    return (pc == (cache_pc)(code->do_syscall + code->do_syscall_offs));
+}
 
-    bool is_after_do_syscall_addr(dcontext_t * dcontext, cache_pc pc)
-    {
-        generated_code_t *code =
-            get_emitted_routines_code(dcontext _IF_X86_64(GENCODE_FROM_DCONTEXT));
-        ASSERT(code != NULL);
-        return (pc == (cache_pc)(code->do_syscall + code->do_syscall_offs) ||
-                pc ==
-                    (cache_pc)(code->do_int_syscall + code->do_int_syscall_offs)
-                        IF_VMX86(||
-                                 pc ==
-                                     (cache_pc)(code->do_vmkuw_syscall +
-                                                code->do_vmkuw_syscall_offs)));
-    }
+bool
+is_after_do_syscall_addr(dcontext_t *dcontext, cache_pc pc)
+{
+    generated_code_t *code =
+        get_emitted_routines_code(dcontext _IF_X86_64(GENCODE_FROM_DCONTEXT));
+    ASSERT(code != NULL);
+    return (
+        pc == (cache_pc)(code->do_syscall + code->do_syscall_offs) ||
+        pc ==
+            (cache_pc)(code->do_int_syscall + code->do_int_syscall_offs) IF_VMX86(
+                ||
+                pc == (cache_pc)(code->do_vmkuw_syscall + code->do_vmkuw_syscall_offs)));
+}
 #endif
 
 bool
@@ -2582,7 +2655,7 @@ is_after_syscall_address(dcontext_t *dcontext, cache_pc pc)
         return true;
     return false;
 #else
-        return is_after_do_syscall_addr(dcontext, pc);
+    return is_after_do_syscall_addr(dcontext, pc);
 #endif
     /* NOTE - we ignore global_do_syscall since that's only used in special
      * circumstances and is not something the callers (recreate_app_state)
@@ -2598,17 +2671,16 @@ is_after_syscall_that_rets(dcontext_t *dcontext, cache_pc pc)
 #ifdef WINDOWS
     return (is_after_syscall_address(dcontext, pc) && does_syscall_ret_to_callsite());
 #else
-        generated_code_t *code =
-            get_emitted_routines_code(dcontext _IF_X86_64(GENCODE_FROM_DCONTEXT));
-        ASSERT(code != NULL);
-        return ((pc == (cache_pc)(code->do_syscall + code->do_syscall_offs) &&
-                 does_syscall_ret_to_callsite()) ||
-                pc ==
-                    (cache_pc)(code->do_int_syscall + code->do_int_syscall_offs)
-                        IF_VMX86(||
-                                 pc ==
-                                     (cache_pc)(code->do_vmkuw_syscall +
-                                                code->do_vmkuw_syscall_offs)));
+    generated_code_t *code =
+        get_emitted_routines_code(dcontext _IF_X86_64(GENCODE_FROM_DCONTEXT));
+    ASSERT(code != NULL);
+    return (
+        (pc == (cache_pc)(code->do_syscall + code->do_syscall_offs) &&
+         does_syscall_ret_to_callsite()) ||
+        pc ==
+            (cache_pc)(code->do_int_syscall + code->do_int_syscall_offs) IF_VMX86(
+                ||
+                pc == (cache_pc)(code->do_vmkuw_syscall + code->do_vmkuw_syscall_offs)));
 #endif
 }
 
@@ -2735,7 +2807,7 @@ get_global_do_syscall_entry()
         else
             return (byte *)global_do_syscall_sysenter;
 #else
-            return (byte *)global_do_syscall_int;
+        return (byte *)global_do_syscall_int;
 #endif
     }
 #ifdef WINDOWS
@@ -2747,9 +2819,9 @@ get_global_do_syscall_entry()
         return (byte *)global_do_syscall_syscall;
 #else
 #    ifdef WINDOWS
-            ASSERT_NOT_IMPLEMENTED(false && "PR 205898: 32-bit syscall on Windows NYI");
+        ASSERT_NOT_IMPLEMENTED(false && "PR 205898: 32-bit syscall on Windows NYI");
 #    else
-            return (byte *)global_do_syscall_int;
+        return (byte *)global_do_syscall_int;
 #    endif
 #endif
     } else {
@@ -2759,7 +2831,7 @@ get_global_do_syscall_entry()
          */
         return (byte *)IF_X86_64_ELSE(global_do_syscall_syscall, global_do_syscall_int);
 #else
-            ASSERT_NOT_REACHED();
+        ASSERT_NOT_REACHED();
 #endif
     }
     return NULL;
@@ -2803,96 +2875,102 @@ unhook_vsyscall(void)
     return false;
 }
 #elif defined(LINUX)
-    /* PR 212570: for sysenter support we need to regain control after the
-     * kernel sets eip to a hardcoded user-mode address on the vsyscall page.
-     * The vsyscall code layout is as follows:
-     *     0xffffe400 <__kernel_vsyscall+0>:       push   %ecx
-     *     0xffffe401 <__kernel_vsyscall+1>:       push   %edx
-     *     0xffffe402 <__kernel_vsyscall+2>:       push   %ebp
-     *     0xffffe403 <__kernel_vsyscall+3>:       mov    %esp,%ebp
-     *     0xffffe405 <__kernel_vsyscall+5>:       sysenter
-     *   nops for alignment of return point:
-     *     0xffffe407 <__kernel_vsyscall+7>:       nop
-     *     0xffffe408 <__kernel_vsyscall+8>:       nop
-     *     0xffffe409 <__kernel_vsyscall+9>:       nop
-     *     0xffffe40a <__kernel_vsyscall+10>:      nop
-     *     0xffffe40b <__kernel_vsyscall+11>:      nop
-     *     0xffffe40c <__kernel_vsyscall+12>:      nop
-     *     0xffffe40d <__kernel_vsyscall+13>:      nop
-     *   system call restart point:
-     *     0xffffe40e <__kernel_vsyscall+14>:      jmp    0xffffe403 <__kernel_vsyscall+3>
-     *   system call normal return point:
-     *     0xffffe410 <__kernel_vsyscall+16>:      pop    %ebp
-     *     0xffffe411 <__kernel_vsyscall+17>:      pop    %edx
-     *     0xffffe412 <__kernel_vsyscall+18>:      pop    %ecx
-     *     0xffffe413 <__kernel_vsyscall+19>:      ret
-     *
-     * For randomized vsyscall page locations we can mark the page +w and
-     * write to it.  For now, for simplicity, we focus only on that case;
-     * for vsyscall page at un-reachable 0xffffe000 we bail out and use
-     * ints for now (perf hit but works).  PR 288330 covers leaving
-     * as sysenters.
-     *
-     * There are either nops or garbage after the ret, so we clobber one
-     * byte past the ret to put in a rel32 jmp (an alternative is to do
-     * rel8 jmp into the nop area and have a rel32 jmp there).  We
-     * cleverly copy the 4 bytes of displaced code into the nop area, so
-     * that 1) we don't have to allocate any memory and 2) we don't have
-     * to do any extra work in dispatch, which will naturally go to the
-     * post-system-call-instr pc.
-     * Unfortunately the 4.4.8 kernel removed the nops (i#1939) so for
-     * recent kernels we instead copy into the padding area:
-     *     0xf77c6be0:  push   %ecx
-     *     0xf77c6be1:  push   %edx
-     *     0xf77c6be2:  push   %ebp
-     *     0xf77c6be3:  mov    %esp,%ebp
-     *     0xf77c6be5:  sysenter
-     *     0xf77c6be7:  int    $0x80
-     *   normal return point:
-     *     0xf77c6be9:  pop    %ebp
-     *     0xf77c6bea:  pop    %edx
-     *     0xf77c6beb:  pop    %ecx
-     *     0xf77c6bec:  ret
-     *     0xf77c6bed+:  <padding>
-     *
-     * Using a hook is much simpler than clobbering the retaddr, which is what
-     * Windows does and then has to spend a lot of effort juggling transparency
-     * and control on asynch in/out events.
-     */
+/* PR 212570: for sysenter support we need to regain control after the
+ * kernel sets eip to a hardcoded user-mode address on the vsyscall page.
+ * The vsyscall code layout is as follows:
+ *     0xffffe400 <__kernel_vsyscall+0>:       push   %ecx
+ *     0xffffe401 <__kernel_vsyscall+1>:       push   %edx
+ *     0xffffe402 <__kernel_vsyscall+2>:       push   %ebp
+ *     0xffffe403 <__kernel_vsyscall+3>:       mov    %esp,%ebp
+ *     0xffffe405 <__kernel_vsyscall+5>:       sysenter
+ *   nops for alignment of return point:
+ *     0xffffe407 <__kernel_vsyscall+7>:       nop
+ *     0xffffe408 <__kernel_vsyscall+8>:       nop
+ *     0xffffe409 <__kernel_vsyscall+9>:       nop
+ *     0xffffe40a <__kernel_vsyscall+10>:      nop
+ *     0xffffe40b <__kernel_vsyscall+11>:      nop
+ *     0xffffe40c <__kernel_vsyscall+12>:      nop
+ *     0xffffe40d <__kernel_vsyscall+13>:      nop
+ *   system call restart point:
+ *     0xffffe40e <__kernel_vsyscall+14>:      jmp    0xffffe403 <__kernel_vsyscall+3>
+ *   system call normal return point:
+ *     0xffffe410 <__kernel_vsyscall+16>:      pop    %ebp
+ *     0xffffe411 <__kernel_vsyscall+17>:      pop    %edx
+ *     0xffffe412 <__kernel_vsyscall+18>:      pop    %ecx
+ *     0xffffe413 <__kernel_vsyscall+19>:      ret
+ *
+ * For randomized vsyscall page locations we can mark the page +w and
+ * write to it.  For now, for simplicity, we focus only on that case;
+ * for vsyscall page at un-reachable 0xffffe000 we bail out and use
+ * ints for now (perf hit but works).  PR 288330 covers leaving
+ * as sysenters.
+ *
+ * There are either nops or garbage after the ret, so we clobber one
+ * byte past the ret to put in a rel32 jmp (an alternative is to do
+ * rel8 jmp into the nop area and have a rel32 jmp there).  We
+ * cleverly copy the 4 bytes of displaced code into the nop area, so
+ * that 1) we don't have to allocate any memory and 2) we don't have
+ * to do any extra work in d_r_dispatch, which will naturally go to the
+ * post-system-call-instr pc.
+ * Unfortunately the 4.4.8 kernel removed the nops (i#1939) so for
+ * recent kernels we instead copy into the padding area:
+ *     0xf77c6be0:  push   %ecx
+ *     0xf77c6be1:  push   %edx
+ *     0xf77c6be2:  push   %ebp
+ *     0xf77c6be3:  mov    %esp,%ebp
+ *     0xf77c6be5:  sysenter
+ *     0xf77c6be7:  int    $0x80
+ *   normal return point:
+ *     0xf77c6be9:  pop    %ebp
+ *     0xf77c6bea:  pop    %edx
+ *     0xf77c6beb:  pop    %ecx
+ *     0xf77c6bec:  ret
+ *     0xf77c6bed+:  <padding>
+ *
+ * Using a hook is much simpler than clobbering the retaddr, which is what
+ * Windows does and then has to spend a lot of effort juggling transparency
+ * and control on asynch in/out events.
+ *
+ * XXX i#2694: We can't handle threads that had never been taken over. Such
+ * native threads w/o TLS will follow the hook and will crash when spilling
+ * to TLS post-syscall before the jump to the linkstub. More synchronization
+ * or no-TLS handling is needed.
+ */
 
 #    define VSYS_DISPLACED_LEN 4
 
-    bool hook_vsyscall(dcontext_t * dcontext, bool method_changing)
-    {
+bool
+hook_vsyscall(dcontext_t *dcontext, bool method_changing)
+{
 #    ifdef X86
-        bool res = true;
-        instr_t instr;
-        byte *pc;
-        uint num_nops = 0;
-        uint prot;
+    bool res = true;
+    instr_t instr;
+    byte *pc;
+    uint num_nops = 0;
+    uint prot;
 
-        /* On a call on a method change the method is not yet finalized so we always try
-         */
-        if (get_syscall_method() != SYSCALL_METHOD_SYSENTER && !method_changing)
-            return false;
+    /* On a call on a method change the method is not yet finalized so we always try
+     */
+    if (get_syscall_method() != SYSCALL_METHOD_SYSENTER && !method_changing)
+        return false;
 
-        ASSERT(DATASEC_WRITABLE(DATASEC_RARELY_PROT));
-        ASSERT(vsyscall_page_start != NULL && vsyscall_syscall_end_pc != NULL &&
-               vsyscall_page_start == (app_pc)PAGE_START(vsyscall_syscall_end_pc));
+    ASSERT(DATASEC_WRITABLE(DATASEC_RARELY_PROT));
+    ASSERT(vsyscall_page_start != NULL && vsyscall_syscall_end_pc != NULL &&
+           vsyscall_page_start == (app_pc)PAGE_START(vsyscall_syscall_end_pc));
 
-        instr_init(dcontext, &instr);
-        pc = vsyscall_syscall_end_pc;
-        do {
-            instr_reset(dcontext, &instr);
-            pc = decode(dcontext, pc, &instr);
-            if (instr_is_nop(&instr))
-                num_nops++;
-        } while (instr_is_nop(&instr));
-        vsyscall_sysenter_return_pc = pc;
-        ASSERT(instr_get_opcode(&instr) == OP_jmp_short ||
-               instr_get_opcode(&instr) == OP_int /*ubuntu 11.10: i#647*/);
+    instr_init(dcontext, &instr);
+    pc = vsyscall_syscall_end_pc;
+    do {
+        instr_reset(dcontext, &instr);
+        pc = decode(dcontext, pc, &instr);
+        if (instr_is_nop(&instr))
+            num_nops++;
+    } while (instr_is_nop(&instr));
+    vsyscall_sysenter_return_pc = pc;
+    ASSERT(instr_get_opcode(&instr) == OP_jmp_short ||
+           instr_get_opcode(&instr) == OP_int /*ubuntu 11.10: i#647*/);
 
-        /* We fail if the pattern looks different */
+    /* We fail if the pattern looks different */
 #        define CHECK(x)                                          \
             do {                                                  \
                 if (!(x)) {                                       \
@@ -2902,124 +2980,127 @@ unhook_vsyscall(void)
                 }                                                 \
             } while (0);
 
-        /* Only now that we've set vsyscall_sysenter_return_pc do we check writability */
-        if (!DYNAMO_OPTION(hook_vsyscall)) {
-            res = false;
+    /* Only now that we've set vsyscall_sysenter_return_pc do we check writability */
+    if (!DYNAMO_OPTION(hook_vsyscall)) {
+        res = false;
+        goto hook_vsyscall_return;
+    }
+    get_memory_info(vsyscall_page_start, NULL, NULL, &prot);
+    if (!TEST(MEMPROT_WRITE, prot)) {
+        res = set_protection(vsyscall_page_start, PAGE_SIZE, prot | MEMPROT_WRITE);
+        if (!res)
             goto hook_vsyscall_return;
-        }
-        get_memory_info(vsyscall_page_start, NULL, NULL, &prot);
-        if (!TEST(MEMPROT_WRITE, prot)) {
-            res = set_protection(vsyscall_page_start, PAGE_SIZE, prot | MEMPROT_WRITE);
-            if (!res)
-                goto hook_vsyscall_return;
-        }
+    }
 
-        LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1, "Hooking vsyscall page @ " PFX "\n",
-            vsyscall_sysenter_return_pc);
+    LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1, "Hooking vsyscall page @ " PFX "\n",
+        vsyscall_sysenter_return_pc);
 
-        /* The 5 bytes we'll clobber: */
-        instr_reset(dcontext, &instr);
-        pc = decode(dcontext, pc, &instr);
-        CHECK(instr_get_opcode(&instr) == OP_pop);
-        instr_reset(dcontext, &instr);
-        pc = decode(dcontext, pc, &instr);
-        CHECK(instr_get_opcode(&instr) == OP_pop);
-        instr_reset(dcontext, &instr);
-        pc = decode(dcontext, pc, &instr);
-        CHECK(instr_get_opcode(&instr) == OP_pop);
-        instr_reset(dcontext, &instr);
-        pc = decode(dcontext, pc, &instr);
-        CHECK(instr_get_opcode(&instr) == OP_ret);
-        /* We don't know what the 5th byte is but we assume that it is junk */
+    /* The 5 bytes we'll clobber: */
+    instr_reset(dcontext, &instr);
+    pc = decode(dcontext, pc, &instr);
+    CHECK(instr_get_opcode(&instr) == OP_pop);
+    instr_reset(dcontext, &instr);
+    pc = decode(dcontext, pc, &instr);
+    CHECK(instr_get_opcode(&instr) == OP_pop);
+    instr_reset(dcontext, &instr);
+    pc = decode(dcontext, pc, &instr);
+    CHECK(instr_get_opcode(&instr) == OP_pop);
+    instr_reset(dcontext, &instr);
+    pc = decode(dcontext, pc, &instr);
+    CHECK(instr_get_opcode(&instr) == OP_ret);
+    /* We don't know what the 5th byte is but we assume that it is junk */
 
-        /* FIXME: at some point we should pull out all the hook code from
-         * callback.c into an os-neutral location.  For now, this hook
-         * is very special-case and simple.
+    /* FIXME: at some point we should pull out all the hook code from
+     * callback.c into an os-neutral location.  For now, this hook
+     * is very special-case and simple.
+     */
+
+    /* For thread synch, the datasec prot lock will serialize us (FIXME: do this at
+     * init time instead, when see [vdso] page in maps file?)
+     */
+
+    CHECK(pc - vsyscall_sysenter_return_pc == VSYS_DISPLACED_LEN);
+    ASSERT(pc + 1 /*nop*/ - vsyscall_sysenter_return_pc == JMP_LONG_LENGTH);
+    if (num_nops >= VSYS_DISPLACED_LEN) {
+        CHECK(num_nops >= pc - vsyscall_sysenter_return_pc);
+        memcpy(vmcode_get_writable_addr(vsyscall_syscall_end_pc),
+               vsyscall_sysenter_return_pc,
+               /* we don't copy the 5th byte to preserve nop for nice disassembly */
+               pc - vsyscall_sysenter_return_pc);
+        vsyscall_sysenter_displaced_pc = vsyscall_syscall_end_pc;
+    } else {
+        /* i#1939: the 4.4.8 kernel removed the nops.  It might be safer
+         * to place the bytes in our own memory somewhere but that requires
+         * extra logic to mark it as executable and to map the PC for
+         * dr_fragment_app_pc() and dr_app_pc_for_decoding(), so we go for the
+         * easier-to-implement route and clobber the padding garbage after the ret.
+         * We assume it is large enough for the 1 byte from the jmp32 and the
+         * 4 bytes of displacement.  Technically we should map the PC back
+         * here as well but it's close enough.
          */
+        pc += 1; /* skip 5th byte of to-be-inserted jmp */
+        CHECK(PAGE_START(pc) == PAGE_START(pc + VSYS_DISPLACED_LEN));
+        memcpy(vmcode_get_writable_addr(pc), vsyscall_sysenter_return_pc,
+               VSYS_DISPLACED_LEN);
+        vsyscall_sysenter_displaced_pc = pc;
+    }
+    insert_relative_jump(vsyscall_sysenter_return_pc,
+                         /* we require a thread-shared fcache_return */
+                         after_do_shared_syscall_addr(dcontext), NOT_HOT_PATCHABLE);
 
-        /* For thread synch, the datasec prot lock will serialize us (FIXME: do this at
-         * init time instead, when see [vdso] page in maps file?)
-         */
-
-        CHECK(pc - vsyscall_sysenter_return_pc == VSYS_DISPLACED_LEN);
-        ASSERT(pc + 1 /*nop*/ - vsyscall_sysenter_return_pc == JMP_LONG_LENGTH);
-        if (num_nops >= VSYS_DISPLACED_LEN) {
-            CHECK(num_nops >= pc - vsyscall_sysenter_return_pc);
-            memcpy(vsyscall_syscall_end_pc, vsyscall_sysenter_return_pc,
-                   /* we don't copy the 5th byte to preserve nop for nice disassembly */
-                   pc - vsyscall_sysenter_return_pc);
-            vsyscall_sysenter_displaced_pc = vsyscall_syscall_end_pc;
-        } else {
-            /* i#1939: the 4.4.8 kernel removed the nops.  It might be safer
-             * to place the bytes in our own memory somewhere but that requires
-             * extra logic to mark it as executable and to map the PC for
-             * dr_fragment_app_pc() and dr_app_pc_for_decoding(), so we go for the
-             * easier-to-implement route and clobber the padding garbage after the ret.
-             * We assume it is large enough for the 1 byte from the jmp32 and the
-             * 4 bytes of displacement.  Technically we should map the PC back
-             * here as well but it's close enough.
-             */
-            pc += 1; /* skip 5th byte of to-be-inserted jmp */
-            CHECK(PAGE_START(pc) == PAGE_START(pc + VSYS_DISPLACED_LEN));
-            memcpy(pc, vsyscall_sysenter_return_pc, VSYS_DISPLACED_LEN);
-            vsyscall_sysenter_displaced_pc = pc;
-        }
-        insert_relative_jump(vsyscall_sysenter_return_pc,
-                             /* we require a thread-shared fcache_return */
-                             after_do_shared_syscall_addr(dcontext), NOT_HOT_PATCHABLE);
-
-        if (!TEST(MEMPROT_WRITE, prot)) {
-            /* we don't override res here since not much point in not using the
-             * hook once its in if we failed to re-protect: we're going to have to
-             * trust the app code here anyway */
-            DEBUG_DECLARE(bool ok =)
-            set_protection(vsyscall_page_start, PAGE_SIZE, prot);
-            ASSERT(ok);
-        }
-    hook_vsyscall_return:
-        instr_free(dcontext, &instr);
-        return res;
+    if (!TEST(MEMPROT_WRITE, prot)) {
+        /* we don't override res here since not much point in not using the
+         * hook once its in if we failed to re-protect: we're going to have to
+         * trust the app code here anyway */
+        DEBUG_DECLARE(bool ok =)
+        set_protection(vsyscall_page_start, PAGE_SIZE, prot);
+        ASSERT(ok);
+    }
+hook_vsyscall_return:
+    instr_free(dcontext, &instr);
+    return res;
 #        undef CHECK
 #    elif defined(AARCHXX)
-        /* No vsyscall support needed for our ARM targets -- still called on
-         * os_process_under_dynamorio().
-         */
-        ASSERT(!method_changing);
-        return false;
+    /* No vsyscall support needed for our ARM targets -- still called on
+     * os_process_under_dynamorio().
+     */
+    ASSERT(!method_changing);
+    return false;
 #    endif /* X86/ARM */
-    }
+}
 
-    bool unhook_vsyscall(void)
-    {
+bool
+unhook_vsyscall(void)
+{
 #    ifdef X86
-        uint prot;
-        bool res;
-        uint len = VSYS_DISPLACED_LEN;
-        if (get_syscall_method() != SYSCALL_METHOD_SYSENTER)
-            return false;
-        ASSERT(!sysenter_hook_failed);
-        ASSERT(vsyscall_sysenter_return_pc != NULL);
-        ASSERT(vsyscall_syscall_end_pc != NULL);
-        get_memory_info(vsyscall_page_start, NULL, NULL, &prot);
-        if (!TEST(MEMPROT_WRITE, prot)) {
-            res = set_protection(vsyscall_page_start, PAGE_SIZE, prot | MEMPROT_WRITE);
-            if (!res)
-                return false;
-        }
-        memcpy(vsyscall_sysenter_return_pc, vsyscall_sysenter_displaced_pc, len);
-        /* we do not restore the 5th (junk/nop) byte (we never copied it) */
-        if (vsyscall_sysenter_displaced_pc == vsyscall_syscall_end_pc) /* <4.4.8 */
-            memset(vsyscall_syscall_end_pc, RAW_OPCODE_nop, len);
-        if (!TEST(MEMPROT_WRITE, prot)) {
-            res = set_protection(vsyscall_page_start, PAGE_SIZE, prot);
-            ASSERT(res);
-        }
-        return true;
-#    elif defined(AARCHXX)
-        ASSERT_NOT_IMPLEMENTED(get_syscall_method() != SYSCALL_METHOD_SYSENTER);
+    uint prot;
+    bool res;
+    uint len = VSYS_DISPLACED_LEN;
+    if (get_syscall_method() != SYSCALL_METHOD_SYSENTER)
         return false;
-#    endif /* X86/ARM */
+    ASSERT(!sysenter_hook_failed);
+    ASSERT(vsyscall_sysenter_return_pc != NULL);
+    ASSERT(vsyscall_syscall_end_pc != NULL);
+    get_memory_info(vsyscall_page_start, NULL, NULL, &prot);
+    if (!TEST(MEMPROT_WRITE, prot)) {
+        res = set_protection(vsyscall_page_start, PAGE_SIZE, prot | MEMPROT_WRITE);
+        if (!res)
+            return false;
     }
+    memcpy(vsyscall_sysenter_return_pc, vsyscall_sysenter_displaced_pc, len);
+    /* we do not restore the 5th (junk/nop) byte (we never copied it) */
+    if (vsyscall_sysenter_displaced_pc == vsyscall_syscall_end_pc) /* <4.4.8 */
+        memset(vmcode_get_writable_addr(vsyscall_syscall_end_pc), RAW_OPCODE_nop, len);
+    if (!TEST(MEMPROT_WRITE, prot)) {
+        res = set_protection(vsyscall_page_start, PAGE_SIZE, prot);
+        ASSERT(res);
+    }
+    return true;
+#    elif defined(AARCHXX)
+    ASSERT_NOT_IMPLEMENTED(get_syscall_method() != SYSCALL_METHOD_SYSENTER);
+    return false;
+#    endif /* X86/ARM */
+}
 #endif     /* LINUX */
 
 void
@@ -3038,8 +3119,8 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
         new_method = SYSCALL_METHOD_WOW64;
 #    endif
 #elif defined(AARCHXX)
-        if (instr_get_opcode(instr) == OP_svc)
-            new_method = SYSCALL_METHOD_SVC;
+    if (instr_get_opcode(instr) == OP_svc)
+        new_method = SYSCALL_METHOD_SVC;
 #endif /* X86/ARM */
     else
         ASSERT_NOT_REACHED();
@@ -3136,9 +3217,9 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
             SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
         });
 #else
-            /* On Linux we can't clear vsyscall_page_start as the app will often use both
-             * inlined int and vsyscall sysenter system calls. We handle fixing up for
-             * that in the next ifdef. */
+        /* On Linux we can't clear vsyscall_page_start as the app will often use both
+         * inlined int and vsyscall sysenter system calls. We handle fixing up for
+         * that in the next ifdef. */
 #endif
     }
 
@@ -3185,8 +3266,8 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
         }
     }
 #else
-        /* we assume only single method; else need multiple do_syscalls */
-        ASSERT(new_method == get_syscall_method());
+    /* we assume only single method; else need multiple do_syscalls */
+    ASSERT(new_method == get_syscall_method());
 #endif
 }
 
@@ -3290,37 +3371,91 @@ copy_mcontext(priv_mcontext_t *src, priv_mcontext_t *dst)
 bool
 dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
 {
-    /* we assume fields from xdi onward are identical.
-     * if we append to dr_mcontext_t in the future we'll need
-     * to check src->size here.
-     */
-    if (src->size != sizeof(dr_mcontext_t))
+    /* We assume fields from xdi onward are identical. */
+    if (src->size > sizeof(dr_mcontext_t))
         return false;
-    if (TESTALL(DR_MC_ALL, src->flags))
+    if (TESTALL(DR_MC_ALL, src->flags) && src->size == sizeof(dr_mcontext_t)) {
         *dst = *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(src));
-    else {
+    } else {
         if (TEST(DR_MC_INTEGER, src->flags)) {
             /* xsp is in the middle of the mcxt, so we save dst->xsp here and
              * restore it later so we can use one memcpy for DR_MC_INTEGER.
              */
             reg_t save_xsp = dst->xsp;
-            memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
-                   /* end of the mcxt integer gpr */
-                   offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
+            if (src->size >= offsetof(dr_mcontext_t, IF_X86_ELSE(xflags, pc))) {
+                memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
+                       /* end of the mcxt integer gpr */
+                       offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
+            } else
+                return false;
             dst->xsp = save_xsp;
         }
         if (TEST(DR_MC_CONTROL, src->flags)) {
             /* XXX i#2710: mc->lr should be under DR_MC_CONTROL */
             dst->xsp = src->xsp;
-            dst->xflags = src->xflags;
-            dst->pc = src->pc;
+            if (src->size > offsetof(dr_mcontext_t, xflags))
+                dst->xflags = src->xflags;
+            else
+                return false;
+            if (src->size > offsetof(dr_mcontext_t, pc))
+                dst->pc = src->pc;
+            else
+                return false;
         }
         if (TEST(DR_MC_MULTIMEDIA, src->flags)) {
-            IF_X86_ELSE({ memcpy(&dst->ymm, &src->ymm, sizeof(dst->ymm)); },
-                        {
-                            /* FIXME i#1551: NYI on ARM */
-                            ASSERT_NOT_IMPLEMENTED(false);
-                        });
+#ifdef X86
+            if (src->size > offsetof(dr_mcontext_t, simd)) {
+                if (MCXT_NUM_SIMD_SLOTS > MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
+                    src->size > offsetof(dr_mcontext_t, simd) +
+                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE) {
+                    if (src->size < offsetof(dr_mcontext_t, simd) + sizeof(dst->simd))
+                        return false;
+                    /* UNIX 64-bit case, up-to-date copy. XXX i#1312: We don't support
+                     * AVX-512 extended number of registers in 64-bit Windows yet.
+                     */
+                    memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
+                } else if (MCXT_NUM_SIMD_SLOTS > MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
+                           src->size > offsetof(dr_mcontext_t, simd) +
+                                   MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
+                    if (src->size < offsetof(dr_mcontext_t, simd) +
+                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE)
+                        return false;
+                    /* UNIX 64-bit case, backwards compatibility copy from old
+                     * ZMM_REG_SIZE format w/o AVX-512. XXX i#1312: We don't support
+                     * AVX-512 extended number of registers in 64-bit Windows yet.
+                     */
+                    memcpy(&dst->simd, &src->simd,
+                           MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE);
+                } else if (MCXT_NUM_SIMD_SLOTS == MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
+                           src->size > offsetof(dr_mcontext_t, simd) +
+                                   MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
+                    if (src->size < offsetof(dr_mcontext_t, simd) + sizeof(dst->simd))
+                        return false;
+                    /* Every other build other than UNIX 64-bit case, up-to-date copy. */
+                    memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
+                } else {
+                    if (src->size < offsetof(dr_mcontext_t, simd) +
+                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE)
+                        return false;
+                    /* Any build, backwards compatibility copy from old YMM_REG_SIZE
+                     * format w/o AVX-512, all builds.
+                     */
+                    dr_ymm_t *src_simd_compat = (dr_ymm_t *)src->simd;
+                    for (int i = 0; i < MCXT_NUM_SIMD_SSE_AVX_SLOTS; ++i) {
+                        dst->simd[i] = *(dr_zmm_t *)&src_simd_compat[i];
+                    }
+                }
+            } else
+                return false;
+            if (src->size > offsetof(dr_mcontext_t, opmask)) {
+                if (src->size < offsetof(dr_mcontext_t, opmask) + sizeof(dst->opmask))
+                    return false;
+                memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask));
+            }
+#else
+            /* FIXME i#1551: NYI on ARM */
+            ASSERT_NOT_IMPLEMENTED(false);
+#endif
         }
     }
     return true;
@@ -3329,36 +3464,92 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
 bool
 priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
 {
-    /* we assume fields from xdi onward are identical.
-     * if we append to dr_mcontext_t in the future we'll need
-     * to check dst->size here.
+    /* We assume fields from xdi onward are identical. DynamoRIO's mcontext's size has
+     * been appended for AVX-512, and the additional structure's size is checked here.
      */
-    if (dst->size != sizeof(dr_mcontext_t))
+    if (dst->size > sizeof(dr_mcontext_t))
         return false;
-    if (TESTALL(DR_MC_ALL, dst->flags))
+    if (TESTALL(DR_MC_ALL, dst->flags) && dst->size == sizeof(dr_mcontext_t)) {
         *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(dst)) = *src;
-    else {
+    } else {
         if (TEST(DR_MC_INTEGER, dst->flags)) {
             /* xsp is in the middle of the mcxt, so we save dst->xsp here and
              * restore it later so we can use one memcpy for DR_MC_INTEGER.
              */
             reg_t save_xsp = dst->xsp;
-            memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
-                   /* end of the mcxt integer gpr */
-                   offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
+            if (dst->size >= offsetof(dr_mcontext_t, IF_X86_ELSE(xflags, pc))) {
+                memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
+                       /* end of the mcxt integer gpr */
+                       offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
+            } else
+                return false;
             dst->xsp = save_xsp;
         }
         if (TEST(DR_MC_CONTROL, dst->flags)) {
             dst->xsp = src->xsp;
-            dst->xflags = src->xflags;
-            dst->pc = src->pc;
+            if (dst->size > offsetof(dr_mcontext_t, xflags))
+                dst->xflags = src->xflags;
+            else
+                return false;
+            if (dst->size > offsetof(dr_mcontext_t, pc))
+                dst->pc = src->pc;
+            else
+                return false;
         }
         if (TEST(DR_MC_MULTIMEDIA, dst->flags)) {
-            IF_X86_ELSE({ memcpy(&dst->ymm, &src->ymm, sizeof(dst->ymm)); },
-                        {
-                            /* FIXME i#1551: NYI on ARM */
-                            ASSERT_NOT_IMPLEMENTED(false);
-                        });
+#ifdef X86
+            if (dst->size > offsetof(dr_mcontext_t, simd)) {
+                if (MCXT_NUM_SIMD_SLOTS > MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
+                    dst->size > offsetof(dr_mcontext_t, simd) +
+                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE) {
+                    if (dst->size < offsetof(dr_mcontext_t, simd) + sizeof(dst->simd))
+                        return false;
+                    /* UNIX 64-bit case, up-to-date copy. XXX i#1312: We don't support
+                     * AVX-512 extended number of registers in 64-bit Windows yet.
+                     */
+                    memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
+                } else if (MCXT_NUM_SIMD_SLOTS > MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
+                           dst->size > offsetof(dr_mcontext_t, simd) +
+                                   MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
+                    if (dst->size < offsetof(dr_mcontext_t, simd) +
+                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE)
+                        return false;
+                    /* UNIX 64-bit case, backwards compatibility copy from old
+                     * ZMM_REG_SIZE format w/o AVX-512. XXX i#1312: We don't support
+                     * AVX-512 extended number of registers in 64-bit Windows yet.
+                     */
+                    memcpy(&dst->simd, &src->simd,
+                           MCXT_NUM_SIMD_SSE_AVX_SLOTS * ZMM_REG_SIZE);
+                } else if (MCXT_NUM_SIMD_SLOTS == MCXT_NUM_SIMD_SSE_AVX_SLOTS &&
+                           dst->size > offsetof(dr_mcontext_t, simd) +
+                                   MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE) {
+                    if (dst->size < offsetof(dr_mcontext_t, simd) + sizeof(dst->simd))
+                        return false;
+                    /* Every other build other than UNIX 64-bit case, up-to-date copy. */
+                    memcpy(&dst->simd, &src->simd, sizeof(dst->simd));
+                } else {
+                    if (dst->size < offsetof(dr_mcontext_t, simd) +
+                            MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMM_REG_SIZE)
+                        return false;
+                    /* Any build, backwards compatibility copy from old YMM_REG_SIZE
+                     * format w/o AVX-512, all builds.
+                     */
+                    dr_ymm_t *dst_simd_compat = (dr_ymm_t *)dst->simd;
+                    for (int i = 0; i < MCXT_NUM_SIMD_SSE_AVX_SLOTS; ++i) {
+                        dst_simd_compat[i] = *(dr_ymm_t *)&src->simd[i];
+                    }
+                }
+            } else
+                return false;
+            if (dst->size > offsetof(dr_mcontext_t, opmask)) {
+                if (dst->size < offsetof(dr_mcontext_t, opmask) + sizeof(dst->opmask))
+                    return false;
+                memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask));
+            }
+#else
+            /* FIXME i#1551: NYI on ARM */
+            ASSERT_NOT_IMPLEMENTED(false);
+#endif
         }
     }
     return true;
@@ -3403,23 +3594,23 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                    "\n\t\tr14=\"" PFX "\"\n\t\tr15=\"" PFX "\""
 #    endif /* X64 */
 #elif defined(ARM)
-                       "\n\t\tr0=\"" PFX "\"\n\t\tr1=\"" PFX "\""
-                       "\n\t\tr2=\"" PFX "\"\n\t\tr3=\"" PFX "\""
-                       "\n\t\tr4=\"" PFX "\"\n\t\tr5=\"" PFX "\""
-                       "\n\t\tr6=\"" PFX "\"\n\t\tr7=\"" PFX "\""
-                       "\n\t\tr8=\"" PFX "\"\n\t\tr9=\"" PFX "\""
-                       "\n\t\tr10=\"" PFX "\"\n\t\tr11=\"" PFX "\""
-                       "\n\t\tr12=\"" PFX "\"\n\t\tr13=\"" PFX "\""
-                       "\n\t\tr14=\"" PFX "\"\n\t\tr15=\"" PFX "\""
+                   "\n\t\tr0=\"" PFX "\"\n\t\tr1=\"" PFX "\""
+                   "\n\t\tr2=\"" PFX "\"\n\t\tr3=\"" PFX "\""
+                   "\n\t\tr4=\"" PFX "\"\n\t\tr5=\"" PFX "\""
+                   "\n\t\tr6=\"" PFX "\"\n\t\tr7=\"" PFX "\""
+                   "\n\t\tr8=\"" PFX "\"\n\t\tr9=\"" PFX "\""
+                   "\n\t\tr10=\"" PFX "\"\n\t\tr11=\"" PFX "\""
+                   "\n\t\tr12=\"" PFX "\"\n\t\tr13=\"" PFX "\""
+                   "\n\t\tr14=\"" PFX "\"\n\t\tr15=\"" PFX "\""
 #    ifdef X64
-                       "\n\t\tr16=\"" PFX "\"\n\t\tr17=\"" PFX "\""
-                       "\n\t\tr18=\"" PFX "\"\n\t\tr19=\"" PFX "\""
-                       "\n\t\tr20=\"" PFX "\"\n\t\tr21=\"" PFX "\""
-                       "\n\t\tr22=\"" PFX "\"\n\t\tr23=\"" PFX "\""
-                       "\n\t\tr24=\"" PFX "\"\n\t\tr25=\"" PFX "\""
-                       "\n\t\tr26=\"" PFX "\"\n\t\tr27=\"" PFX "\""
-                       "\n\t\tr28=\"" PFX "\"\n\t\tr29=\"" PFX "\""
-                       "\n\t\tr30=\"" PFX "\"\n\t\tr31=\"" PFX "\""
+                   "\n\t\tr16=\"" PFX "\"\n\t\tr17=\"" PFX "\""
+                   "\n\t\tr18=\"" PFX "\"\n\t\tr19=\"" PFX "\""
+                   "\n\t\tr20=\"" PFX "\"\n\t\tr21=\"" PFX "\""
+                   "\n\t\tr22=\"" PFX "\"\n\t\tr23=\"" PFX "\""
+                   "\n\t\tr24=\"" PFX "\"\n\t\tr25=\"" PFX "\""
+                   "\n\t\tr26=\"" PFX "\"\n\t\tr27=\"" PFX "\""
+                   "\n\t\tr28=\"" PFX "\"\n\t\tr29=\"" PFX "\""
+                   "\n\t\tr30=\"" PFX "\"\n\t\tr31=\"" PFX "\""
 #    endif /* X64 */
 #endif     /* X86/ARM */
                  : "priv_mcontext_t @" PFX "\n"
@@ -3431,23 +3622,15 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                    "\tr12 = " PFX "\n\tr13 = " PFX "\n\tr14 = " PFX "\n\tr15 = " PFX "\n"
 #    endif /* X64 */
 #elif defined(ARM)
-                       "\tr0  = " PFX "\n\tr1  = " PFX "\n\tr2  = " PFX "\n\tr3  = " PFX
-                       "\n"
-                       "\tr4  = " PFX "\n\tr5  = " PFX "\n\tr6  = " PFX "\n\tr7  = " PFX
-                       "\n"
-                       "\tr8  = " PFX "\n\tr9  = " PFX "\n\tr10 = " PFX "\n\tr11 = " PFX
-                       "\n"
-                       "\tr12 = " PFX "\n\tr13 = " PFX "\n\tr14 = " PFX "\n\tr15 = " PFX
-                       "\n"
+                   "\tr0  = " PFX "\n\tr1  = " PFX "\n\tr2  = " PFX "\n\tr3  = " PFX "\n"
+                   "\tr4  = " PFX "\n\tr5  = " PFX "\n\tr6  = " PFX "\n\tr7  = " PFX "\n"
+                   "\tr8  = " PFX "\n\tr9  = " PFX "\n\tr10 = " PFX "\n\tr11 = " PFX "\n"
+                   "\tr12 = " PFX "\n\tr13 = " PFX "\n\tr14 = " PFX "\n\tr15 = " PFX "\n"
 #    ifdef X64
-                       "\tr16 = " PFX "\n\tr17 = " PFX "\n\tr18 = " PFX "\n\tr19 = " PFX
-                       "\n"
-                       "\tr20 = " PFX "\n\tr21 = " PFX "\n\tr22 = " PFX "\n\tr23 = " PFX
-                       "\n"
-                       "\tr24 = " PFX "\n\tr25 = " PFX "\n\tr26 = " PFX "\n\tr27 = " PFX
-                       "\n"
-                       "\tr28 = " PFX "\n\tr29 = " PFX "\n\tr30 = " PFX "\n\tr31 = " PFX
-                       "\n"
+                   "\tr16 = " PFX "\n\tr17 = " PFX "\n\tr18 = " PFX "\n\tr19 = " PFX "\n"
+                   "\tr20 = " PFX "\n\tr21 = " PFX "\n\tr22 = " PFX "\n\tr23 = " PFX "\n"
+                   "\tr24 = " PFX "\n\tr25 = " PFX "\n\tr26 = " PFX "\n\tr27 = " PFX "\n"
+                   "\tr28 = " PFX "\n\tr29 = " PFX "\n\tr30 = " PFX "\n\tr31 = " PFX "\n"
 #    endif /* X64 */
 #endif     /* X86/ARM */
         ,
@@ -3461,15 +3644,14 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
         context->r14, context->r15
 #    endif /* X64 */
 #elif defined(AARCHXX)
-            context->r0, context->r1, context->r2, context->r3, context->r4, context->r5,
-            context->r6, context->r7, context->r8, context->r9, context->r10,
-            context->r11, context->r12, context->r13, context->r14, context->r15
+        context->r0, context->r1, context->r2, context->r3, context->r4, context->r5,
+        context->r6, context->r7, context->r8, context->r9, context->r10, context->r11,
+        context->r12, context->r13, context->r14, context->r15
 #    ifdef X64
-            ,
-            context->r16, context->r17, context->r18, context->r19, context->r20,
-            context->r21, context->r22, context->r23, context->r24, context->r25,
-            context->r26, context->r27, context->r28, context->r29, context->r30,
-            context->r31
+        ,
+        context->r16, context->r17, context->r18, context->r19, context->r20,
+        context->r21, context->r22, context->r23, context->r24, context->r25,
+        context->r26, context->r27, context->r28, context->r29, context->r30, context->r31
 #    endif /* X64 */
 #endif     /* X86/ARM */
     );
@@ -3477,18 +3659,23 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 #ifdef X86
     if (preserve_xmm_caller_saved()) {
         int i, j;
-        for (i = 0; i < NUM_SIMD_SAVED; i++) {
-            if (YMM_ENABLED()) {
+        for (i = 0; i < proc_num_simd_saved(); i++) {
+            if (ZMM_ENABLED()) {
+                print_file(f, dump_xml ? "\t\tzmm%d= \"0x" : "\tzmm%d= 0x", i);
+                for (j = 0; j < 16; j++) {
+                    print_file(f, "%08x", context->simd[i].u32[j]);
+                }
+            } else if (YMM_ENABLED()) {
                 print_file(f, dump_xml ? "\t\tymm%d= \"0x" : "\tymm%d= 0x", i);
                 for (j = 0; j < 8; j++) {
-                    print_file(f, "%08x", context->ymm[i].u32[j]);
+                    print_file(f, "%08x", context->simd[i].u32[j]);
                 }
             } else {
                 print_file(f, dump_xml ? "\t\txmm%d= \"0x" : "\txmm%d= 0x", i);
                 /* This would be simpler if we had uint64 fields in dr_xmm_t but
                  * that complicates our struct layouts */
                 for (j = 0; j < 4; j++) {
-                    print_file(f, "%08x", context->ymm[i].u32[j]);
+                    print_file(f, "%08x", context->simd[i].u32[j]);
                 }
             }
             print_file(f, dump_xml ? "\"\n" : "\n");
@@ -3503,16 +3690,17 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
         });
     }
 #elif defined(ARM)
-        {
-            int i, j;
-            for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-                print_file(f, dump_xml ? "\t\tqd= \"0x" : "\tq%-3d= 0x", i);
-                for (j = 0; j < 4; j++) {
-                    print_file(f, "%08x ", context->simd[i].u32[j]);
-                }
-                print_file(f, dump_xml ? "\"\n" : "\n");
+    {
+        int i, j;
+        /* XXX: should be proc_num_simd_saved(). */
+        for (i = 0; i < proc_num_simd_registers(); i++) {
+            print_file(f, dump_xml ? "\t\tqd= \"0x" : "\tq%-3d= 0x", i);
+            for (j = 0; j < 4; j++) {
+                print_file(f, "%08x ", context->simd[i].u32[j]);
             }
+            print_file(f, dump_xml ? "\"\n" : "\n");
         }
+    }
 #endif
 
     print_file(f,

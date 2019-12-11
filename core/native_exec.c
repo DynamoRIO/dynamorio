@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -74,7 +74,6 @@ native_exec_init(void)
         ASSERT(retstub_end ==
                local_start + MAX_NATIVE_RETSTACK * BACK_FROM_NATIVE_RETSTUB_SIZE);
     });
-    native_exec_os_init();
 }
 
 void
@@ -340,7 +339,7 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
     ASSERT(dcontext->last_exit == get_native_exec_linkstub());
     ASSERT(!is_native_pc(target));
     dcontext->next_tag = target;
-    /* tell dispatch() why we're coming there */
+    /* tell d_r_dispatch() why we're coming there */
     dcontext->whereami = DR_WHERE_FCACHE;
     /* FIXME i#2375: for -native_exec_opt on UNIX we need to update the gencode
      * to do what os_thread_{,not_}under_dynamo() and os_thread_re_take_over() do.
@@ -362,8 +361,8 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
             dcontext->next_tag, cur_esp, mc->xsp);
     });
 
-    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))dispatch,
-                      NULL /*not on initstack*/, false /*shouldn't return*/);
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
+                      NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 

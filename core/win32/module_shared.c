@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,6 +42,8 @@
  * to link both ntdll.lib and a libc.lib).
  */
 
+#include <stdio.h> /* sscanf */
+
 #include "configure.h"
 #if defined(NOT_DYNAMORIO_CORE)
 #    define ASSERT(x)
@@ -55,7 +57,7 @@
 #else
 /* we include globals.h mainly for ASSERT, even though we're
  * used by preinject.
- * preinject just defines its own internal_error!
+ * preinject just defines its own d_r_internal_error!
  */
 #    include "../globals.h"
 #    if !defined(NOT_DYNAMORIO_CORE_PROPER)
@@ -119,7 +121,7 @@ typedef struct _pe_symbol_export_iterator_t {
  * !not_readable() below.
  * FIXME : beware of multi-thread races, just because this returns true,
  * doesn't mean another thread can't make the region unreadable between the
- * check here and the actual read later.  See safe_read() as an alt.
+ * check here and the actual read later.  See d_r_safe_read() as an alt.
  */
 /* throw-away buffer */
 DECLARE_NEVERPROT_VAR(static char is_readable_buf[4 /*efficient read*/], { 0 });
@@ -371,17 +373,34 @@ get_proc_address_common(module_base_t lib, const char *name,
 
     exports = get_module_exports_directory_check_common(module_base, &exports_size,
                                                         true _IF_NOT_X64(ldr64));
-    if (exports == NULL || exports_size == 0 || exports->NumberOfNames == 0 ||
-        /* just extra sanity check */ exports->AddressOfNames == 0)
-        return NULL;
 
-        /* avoid preinject issues: doesn't have module_size */
+    /* NB: There are some DLLs (like System32\profapi.dll) that have no named
+     * exported functions names, only ordinals. As a result, the only correct
+     * checks we can do here are on the presence and size of the export table
+     * and the presence and count of the function export list.
+     */
+    if (exports == NULL || exports_size == 0 || exports->AddressOfFunctions == 0 ||
+        exports->NumberOfFunctions == 0) {
+        LOG(GLOBAL, LOG_INTERP, 1, "%s: module 0x%08x doesn't have any exports\n",
+            __FUNCTION__, module_base);
+        return NULL;
+    }
+
+    /* avoid preinject issues: doesn't have module_size */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
-    /* sanity check */
-    ASSERT(exports->AddressOfFunctions < module_size && exports->AddressOfFunctions > 0 &&
-           exports->AddressOfNameOrdinals < module_size &&
-           exports->AddressOfNameOrdinals > 0 && exports->AddressOfNames < module_size &&
-           exports->AddressOfNames > 0);
+    /* sanity checks, split up for readability */
+    /* The DLL either exports nothing or has a sane combination of export
+     * table address and function count.
+     */
+    ASSERT(exports->AddressOfFunctions == 0 ||
+           (exports->AddressOfFunctions < module_size && exports->NumberOfFunctions > 0));
+
+    /* The DLL either exports no names for its functions or has a sane combination
+     * of name and ordinal table addresses and counts.
+     */
+    ASSERT((exports->AddressOfNames == 0 && exports->AddressOfNameOrdinals == 0) ||
+           (exports->AddressOfNames < module_size &&
+            exports->AddressOfNameOrdinals < module_size && exports->NumberOfNames > 0));
 #endif
 
     functions = (PULONG)(module_base + exports->AddressOfFunctions);
@@ -393,6 +412,18 @@ get_proc_address_common(module_base_t lib, const char *name,
          * support ordinals starting at 1 (i#1866).
          */
         ord = ordinal - exports->Base;
+    } else if (name[0] == '#') {
+        /* Ordinal forwarders are formatted as #XXX, when XXX is a positive
+         * base-10 integer.
+         */
+        if (sscanf(name, "#%u", &ord) != 1) {
+            ASSERT_CURIOSITY(false && "non-numeric ordinal forwarder");
+            return NULL;
+        }
+
+        /* Like raw ordinals, these are offset from the export base.
+         */
+        ord -= exports->Base;
     } else {
         /* FIXME - linear walk, if this routine becomes performance critical we
          * we should use a binary search. */
@@ -511,7 +542,7 @@ get_module_exports_directory_check(app_pc base_addr,
 }
 
 generic_func_t
-get_proc_address(module_base_t lib, const char *name)
+d_r_get_proc_address(module_base_t lib, const char *name)
 {
     return get_proc_address_common(lib, name, UINT_MAX _IF_NOT_X64(false), NULL);
 }
@@ -539,7 +570,7 @@ generic_func_t
 get_proc_address_resolve_forward(module_base_t lib, const char *name)
 {
     /* We match GetProcAddress and follow forwarded exports (i#428).
-     * Not doing this inside get_proc_address() b/c I'm not certain the core
+     * Not doing this inside d_r_get_proc_address() b/c I'm not certain the core
      * never relies on the answer being inside the asked-about module.
      */
     const char *forwarder, *forwfunc;

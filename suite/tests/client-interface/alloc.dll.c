@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -202,10 +202,12 @@ reachability_test(void)
 
     dr_raw_mem_free(highmem, PAGE_SIZE);
 
-    /* Test targeting upper 2GB of low 4GB */
+    /* Test targeting upper 2GB of low 4GB (this will fail with default options
+     * of -vm_size 2G and a low vm_base b/c there's no room there).
+     */
     highmem =
         dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE | DR_MEMPROT_EXEC,
-                         (byte *)0xabcd0000);
+                         (byte *)(ptr_uint_t)0xabcd0000);
     instrlist_append(ilist,
                      INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(DR_REG_ECX),
                                          opnd_create_abs_addr(highmem, OPSZ_4)));

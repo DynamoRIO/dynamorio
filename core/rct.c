@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -252,7 +252,7 @@ is_address_after_call(dcontext_t *dcontext, app_pc target)
 }
 
 /* Restricted control transfer check on indirect branches called by
- * dispatch after inlined indirect branch lookup routine has failed
+ * d_r_dispatch after inlined indirect branch lookup routine has failed
  *
  * function does not return if a security violation is blocked
  * FIXME: return value is ignored
@@ -388,12 +388,12 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
         /* Grab the rct_module_lock to ensure no duplicates if two threads
          * attempt to add the same module
          */
-        mutex_lock(&rct_module_lock);
+        d_r_mutex_lock(&rct_module_lock);
         /* NOTE - under current default options (analyze_at_load) this routine will have
          * no effect and is only being used for its is_in_code_section (&IMAGE) return
          * value.  For x64 it is used to scan on violation (PR 277044/277064). */
         is_code_section = rct_analyze_module_at_violation(dcontext, target_addr);
-        mutex_unlock(&rct_module_lock);
+        d_r_mutex_unlock(&rct_module_lock);
 
         /* In fact, we have to let all regions that are not modules - so
          * .A and .B attacks will still be marked as such instead of failing here.
@@ -519,9 +519,9 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
          * threads do not fail.
          */
         if (DYNAMO_OPTION(rct_cache_exempt) != RCT_CACHE_EXEMPT_NONE) {
-            mutex_lock(&rct_module_lock);
+            d_r_mutex_lock(&rct_module_lock);
             rct_add_valid_ind_branch_target(dcontext, target_addr);
-            mutex_unlock(&rct_module_lock);
+            d_r_mutex_unlock(&rct_module_lock);
         }
         return res;
     }
@@ -548,7 +548,7 @@ rct_known_targets_init(void)
     /* Allow targeting dynamorio!generic_nudge_target and
      * dynamorio!safe_apc_or_thread_target (case 7266)
      */
-    mutex_lock(&rct_module_lock);
+    d_r_mutex_lock(&rct_module_lock);
 
     ASSERT(is_in_dynamo_dll((app_pc)generic_nudge_target));
     rct_add_valid_ind_branch_target(GLOBAL_DCONTEXT, (app_pc)generic_nudge_target);
@@ -556,7 +556,7 @@ rct_known_targets_init(void)
     ASSERT(is_in_dynamo_dll((app_pc)safe_apc_or_thread_target));
     rct_add_valid_ind_branch_target(GLOBAL_DCONTEXT, (app_pc)safe_apc_or_thread_target);
 
-    mutex_unlock(&rct_module_lock);
+    d_r_mutex_unlock(&rct_module_lock);
 }
 #    endif
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -56,13 +56,21 @@
 
 #ifdef MACOS
 /* mcontext_t is a pointer and we want the real thing */
-/* We need room for avx.  If we end up with !YMM_ENABLED() we'll just end
- * up wasting some space in synched thread allocations.
+/* We need room for AVX512.  If we end up with !YMM_ENABLED() or !ZMM_ENABLED() we'll
+ * just end up wasting some space in synched thread allocations.
  */
 #    ifdef X64
+/* TODO i#1979/i#1312: This should become _STRUCT_MCONTEXT_AVX512_64 ==
+ * __darwin_mcontext_avx512_64.  However, we need to resolve the copy in
+ * sigframe_rt_t as well (which currently is not labeled as a sigcontext_t).  We may
+ * want to use a similar strategy to handle the different struct sizes for both.
+ */
 typedef _STRUCT_MCONTEXT_AVX64 sigcontext_t; /* == __darwin_mcontext_avx64 */
 #    else
-typedef _STRUCT_MCONTEXT_AVX32 sigcontext_t; /* == __darwin_mcontext_avx32 */
+/* TODO i#1979/i#1312: Like for X64, this should become _STRUCT_MCONTEXT_AVX512_32 ==
+ * __darwin_mcontext_avx512_32.
+ */
+typedef _STRUCT_MCONTEXT_AVX512_32 sigcontext_t; /* == __darwin_mcontext_avx32 */
 #    endif
 #else
 typedef kernel_sigcontext_t sigcontext_t;
@@ -97,6 +105,14 @@ typedef kernel_sigcontext_t sigcontext_t;
 #        define SC_XBP SC_FIELD(rbp)
 #        define SC_XSI SC_FIELD(rsi)
 #        define SC_XDI SC_FIELD(rdi)
+#        define SC_R8 SC_FIELD(r9)
+#        define SC_R9 SC_FIELD(r9)
+#        define SC_R10 SC_FIELD(r10)
+#        define SC_R11 SC_FIELD(r11)
+#        define SC_R12 SC_FIELD(r12)
+#        define SC_R13 SC_FIELD(r13)
+#        define SC_R14 SC_FIELD(r14)
+#        define SC_R15 SC_FIELD(r15)
 #        ifdef MACOS
 #            define SC_XFLAGS SC_FIELD(rflags)
 #        else

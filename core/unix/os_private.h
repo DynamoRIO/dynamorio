@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,6 +48,20 @@
 #include "dr_config.h" /* for dr_platform_t */
 #include "tls.h"
 #include "memquery.h"
+
+/* Cross arch syscall nums for use with struct stat64. */
+#ifdef MACOS64
+#    define SYSNUM_STAT SYS_stat64
+#    define SYSNUM_FSTAT SYS_fstat64
+#elif defined(X64)
+#    ifdef SYS_stat
+#        define SYSNUM_STAT SYS_stat
+#    endif
+#    define SYSNUM_FSTAT SYS_fstat
+#else
+#    define SYSNUM_STAT SYS_stat64
+#    define SYSNUM_FSTAT SYS_fstat64
+#endif
 
 /* for inline asm */
 #ifdef X86
@@ -105,6 +119,8 @@
 #define PTHREAD_CLONE_FLAGS                                                             \
     (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM | \
      CLONE_SETTLS | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID)
+
+#define SYSCALL_PARAM_CLONE_STACK 1
 
 /* On Mac, we use the _nocancel variant to defer app-initiated thread termination */
 #ifdef MACOS
@@ -192,6 +208,13 @@ typedef struct ptrace_stack_args_t {
     char home_dir[MAXIMUM_PATH]; /* In case the user of the injectee is not us. */
 } ptrace_stack_args_t;
 
+/* in drlibc_os.c */
+byte *
+mmap_syscall(byte *addr, size_t len, ulong prot, ulong flags, ulong fd, ulong offs);
+
+long
+munmap_syscall(byte *addr, size_t len);
+
 /* in os.c */
 bool
 os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset);
@@ -205,6 +228,20 @@ os_tls_thread_exit(local_state_t *local_state);
 #ifdef AARCHXX
 bool
 os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base);
+#endif
+
+#ifdef MACOS
+/* xref i#1404: we should expose these via the dr_get_os_version() API */
+#    define MACOS_VERSION_MOJAVE 18
+#    define MACOS_VERSION_HIGH_SIERRA 17
+#    define MACOS_VERSION_SIERRA 16
+#    define MACOS_VERSION_EL_CAPITAN 15
+#    define MACOS_VERSION_YOSEMITE 14
+#    define MACOS_VERSION_MAVERICKS 13
+#    define MACOS_VERSION_MOUNTAIN_LION 12
+#    define MACOS_VERSION_LION 11
+int
+os_get_version(void);
 #endif
 
 void
@@ -262,13 +299,21 @@ typedef kernel_sigaction_t prev_sigaction_t;
 #endif
 
 void
-signal_init(void);
+d_r_signal_init(void);
 void
-signal_exit(void);
+d_r_signal_exit(void);
 void
 signal_thread_init(dcontext_t *dcontext, void *os_data);
 void
 signal_thread_exit(dcontext_t *dcontext, bool other_thread);
+/* In addition to the list, does not block SIGSEGV or SIGBUS. */
+void
+block_all_noncrash_signals_except(kernel_sigset_t *oset, int num_signals, ...);
+void
+block_cleanup_and_terminate(dcontext_t *dcontext, int sysnum, ptr_uint_t sys_arg1,
+                            ptr_uint_t sys_arg2, bool exitproc,
+                            /* these 2 args are only used for Mac thread exit */
+                            ptr_uint_t sys_arg3, ptr_uint_t sys_arg4);
 bool
 is_thread_signal_info_initialized(dcontext_t *dcontext);
 void
@@ -305,8 +350,20 @@ handle_sigreturn(dcontext_t *dcontext, bool rt);
 bool
 handle_sigreturn(dcontext_t *dcontext, void *ucxt, int style);
 #endif
+
+#ifdef LINUX
 bool
-handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stack);
+handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigmask,
+                                     size_t sizemask, bool *pending);
+
+void
+handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success);
+#endif
+
+bool
+handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stack,
+                   reg_t cur_xsp, OUT uint *result);
+
 bool
 handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
                    kernel_sigset_t *oset, size_t sigsetsize);
@@ -425,6 +482,14 @@ byte *
 safe_read_tls_app_self(void);
 void
 safe_read_tls_app_self_recover(void);
+#endif
+
+/* In module.c */
+#ifdef LINUX
+void
+module_locate_rseq_regions(void);
+bool
+rseq_is_registered_for_current_thread(void);
 #endif
 
 #endif /* _OS_PRIVATE_H_ */

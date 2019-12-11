@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -309,7 +309,8 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
     /* Reverse scan is more efficient.  This means our indices are also reversed. */
     for (inst = instrlist_last(bb); inst != NULL; inst = instr_get_prev(inst)) {
         /* We consider both meta and app instrs, to handle rare cases of meta instrs
-         * being inserted during app2app for corner cases.
+         * being inserted during app2app for corner cases. An example are app2app
+         * emulation functions like drx_expand_scatter_gather().
          */
 
         bool xfer =
@@ -411,6 +412,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     instrlist_set_auto_predicate(bb, DR_PRED_NONE);
     /* For unreserved regs still spilled, we lazily do the restore here.  We also
      * update reserved regs wrt app uses.
+     * The instruction list presented to us here are app instrs but may contain meta
+     * instrs if any were inserted in app2app. Any such meta instr here will be treated
+     * like an app instr.
      */
 
     /* Before each app read, or at end of bb, restore aflags to app value */
@@ -547,7 +551,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 /* Don't bother if reg is dead beyond this write */
                 (ops.conservative || pt->live_idx == 0 ||
                  drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx - 1) ==
-                     REG_LIVE)) {
+                     REG_LIVE ||
+                 pt->aflags.xchg == reg)) {
                 uint tmp_slot = MAX_SPILLS;
                 if (pt->aflags.xchg == reg) {
                     /* Bail on keeping the flags in the reg. */
@@ -611,7 +616,6 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 #ifdef DEBUG
     if (drmgr_is_last_instr(drcontext, inst)) {
         uint i;
-        reg_id_t reg;
         for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
             ASSERT(!pt->aflags.in_use, "user failed to unreserve aflags");
             ASSERT(pt->aflags.native, "user failed to unreserve aflags");
@@ -654,7 +658,6 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         pt->reg[GPR_IDX(reg)].app_uses = 0;
         drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, REG_UNKNOWN);
-        pt->reg[GPR_IDX(reg)].ever_spilled = false;
     }
 
     /* We have to consider meta instrs as well */
@@ -737,7 +740,13 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
     return DRREG_SUCCESS;
 }
 
-/* Assumes liveness info is already set up in per_thread_t */
+/* Assumes liveness info is already set up in per_thread_t. Liveness should have either
+ * been computed by a forward liveness scan upon every insertion if called outside of
+ * insertion phase, see drreg_forward_analysis(). Or if called inside insertion
+ * phase, at the end of drmgr's analysis phase once, see drreg_event_bb_analysis().
+ * Please note that drreg is not yet able to properly handle multiple users if they use
+ * drreg from in and outside of the insertion phase, xref i#3823.
+ */
 static drreg_status_t
 drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
                            drvector_t *reg_allowed, bool only_if_no_spill,
@@ -868,10 +877,11 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
-        drreg_status_t res = drreg_forward_analysis(drcontext, where);
+        res = drreg_forward_analysis(drcontext, where);
         if (res != DRREG_SUCCESS)
             return res;
     }
+    /* FIXME i#3827: ever_spilled is not being reset. */
     /* XXX i#2585: drreg should predicate spills and restores as appropriate */
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     res =
@@ -887,7 +897,7 @@ drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
-        drreg_status_t res = drreg_forward_analysis(drcontext, where);
+        res = drreg_forward_analysis(drcontext, where);
         if (res != DRREG_SUCCESS)
             return res;
     }
@@ -1055,7 +1065,7 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
         /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all here.
          */
 #ifdef X86
-    if (pt->aflags.xchg == reg) {
+    if (reg != DR_REG_NULL && pt->aflags.xchg == reg) {
         pt->slot_use[AFLAGS_SLOT] = DR_REG_XAX; /* appease assert */
         restore_reg(drcontext, pt, DR_REG_XAX, AFLAGS_SLOT, ilist, where_respill, false);
         pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
@@ -1609,10 +1619,26 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
                 opnd_get_disp(dr_reg_spill_slot_opnd(drcontext, SPILL_SLOT_1));
             uint DR_max_offs = opnd_get_disp(
                 dr_reg_spill_slot_opnd(drcontext, dr_max_opnd_accessible_spill_slot()));
-            if (DR_min_offs > DR_max_offs)
-                DR_min_offs = DR_max_offs;
-            slot = (offs - DR_min_offs) / sizeof(reg_t);
             uint max_DR_slot = (uint)dr_max_opnd_accessible_spill_slot();
+            if (DR_min_offs > DR_max_offs) {
+                if (offs > DR_min_offs) {
+                    slot = (offs - DR_min_offs) / sizeof(reg_t);
+                } else if (offs < DR_max_offs) {
+                    /* Fix hidden slot regardless of low-to-high or vice versa. */
+                    slot = max_DR_slot + 1;
+                } else {
+                    slot = (DR_min_offs - offs) / sizeof(reg_t);
+                }
+            } else {
+                if (offs > DR_max_offs) {
+                    slot = (offs - DR_max_offs) / sizeof(reg_t);
+                } else if (offs < DR_min_offs) {
+                    /* Fix hidden slot regardless of low-to-high or vice versa. */
+                    slot = max_DR_slot + 1;
+                } else {
+                    slot = (offs - DR_min_offs) / sizeof(reg_t);
+                }
+            }
             if (slot > max_DR_slot) {
                 /* This is not a drreg spill, but some TLS access by
                  * tool instrumentation (i#2035).
@@ -1774,9 +1800,10 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         if (spilled_to[GPR_IDX(reg)] < MAX_SPILLS) {
             reg_t val = get_spilled_value(drcontext, spilled_to[GPR_IDX(reg)]);
-            LOG(drcontext, DR_LOG_ALL, 3, "%s: restoring %s from " PFX " to " PFX "\n",
-                __FUNCTION__, get_register_name(reg), reg_get_value(reg, info->mcontext),
-                val);
+            LOG(drcontext, DR_LOG_ALL, 3,
+                "%s: restoring %s from slot %d from " PFX " to " PFX "\n", __FUNCTION__,
+                get_register_name(reg), spilled_to[GPR_IDX(reg)],
+                reg_get_value(reg, info->mcontext), val);
             reg_set_value(reg, info->mcontext, val);
         }
     }

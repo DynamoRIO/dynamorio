@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -78,7 +78,7 @@
  */
 enum { DL_RUNTIME_RESOLVE_IDX = 2 };
 
-/* The loader's _dl_fixup.  For ia32 it uses regparms. */
+/* The loader's _dl_fixup.  For ia32 it uses d_r_regparms. */
 typedef void *(*fixup_fn_t)(struct link_map *l_map, uint dynamic_index)
     IF_X86_32(__attribute__((regparm(3), stdcall, unused)));
 
@@ -125,24 +125,24 @@ find_dl_fixup(dcontext_t *dcontext, app_pc resolver)
 {
 #ifdef X86
     instr_t instr;
-    int max_decodes = 30;
+    const int max_decodes = 225;
     int i = 0;
     app_pc pc = resolver;
     app_pc fixup = NULL;
 
-    LOG(THREAD, 5, LOG_LOADER, "%s: scanning for _dl_fixup call:\n", __FUNCTION__);
+    LOG(THREAD, LOG_LOADER, 5, "%s: scanning for _dl_fixup call:\n", __FUNCTION__);
     instr_init(dcontext, &instr);
-    while (pc != NULL && i < max_decodes) {
+    while (pc != NULL && i++ < max_decodes) {
         DOLOG(5, LOG_LOADER, { disassemble(dcontext, pc, THREAD); });
         pc = decode(dcontext, pc, &instr);
         if (instr_get_opcode(&instr) == OP_call) {
             opnd_t tgt = instr_get_target(&instr);
             fixup = opnd_get_pc(tgt);
-            LOG(THREAD, 1, LOG_LOADER,
+            LOG(THREAD, LOG_LOADER, 1,
                 "%s: found _dl_fixup call at " PFX ", _dl_fixup is " PFX ":\n",
                 __FUNCTION__, pc, fixup);
             break;
-        } else if (instr_is_cti(&instr)) {
+        } else if (instr_is_return(&instr)) {
             break;
         }
         instr_reset(dcontext, &instr);
@@ -277,7 +277,7 @@ create_opt_plt_stub(app_pc plt_tgt, app_pc stub_pc)
     instr_t *instr;
     byte *pc;
     /* XXX i#1238-c#4: because we may continue in the code cache if the target
-     * is found or back to dispatch otherwise, and we use the standard ibl
+     * is found or back to d_r_dispatch otherwise, and we use the standard ibl
      * routine, we may not be able to update kstats correctly.
      */
     ASSERT_BUG_NUM(1238,
@@ -774,8 +774,8 @@ native_module_at_runtime_resolve_ret(app_pc xsp, int ret_imm)
 {
     app_pc call_tgt, ret_tgt;
 
-    if (!safe_read(xsp, sizeof(app_pc), &call_tgt) ||
-        !safe_read(xsp + ret_imm + sizeof(XSP_SZ), sizeof(app_pc), &ret_tgt)) {
+    if (!d_r_safe_read(xsp, sizeof(app_pc), &call_tgt) ||
+        !d_r_safe_read(xsp + ret_imm + sizeof(XSP_SZ), sizeof(app_pc), &ret_tgt)) {
         ASSERT(false && "fail to read app stack!\n");
         return;
     }
@@ -816,7 +816,7 @@ is_special_ret_stub(app_pc pc)
 
 /* i#1276: dcontext->next_tag could be special stub pc from special_ret_stub
  * for DR maintaining the control in hybrid execution, this routine is called
- * in dispatch to adjust the target if necessary.
+ * in d_r_dispatch to adjust the target if necessary.
  */
 bool
 native_exec_replace_next_tag(dcontext_t *dcontext)

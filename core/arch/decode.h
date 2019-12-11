@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -83,6 +83,8 @@
  */
 #    define PREFIX_SEG_FS 0x20
 #    define PREFIX_SEG_GS 0x40
+/* Prefix used for AVX-512 */
+#    define PREFIX_EVEX 0x000100000
 #endif
 
 /* XXX: when adding prefixes, shift all the private values as they start
@@ -121,8 +123,10 @@ typedef struct instr_info_t {
     opnd_size_t src2_size;
     byte src3_type;
     opnd_size_t src3_size;
-    ushort flags; /* encoding and extra operand flags */
-    uint eflags;  /* combination of read & write flags from instr.h */
+    uint flags;  /* encoding and extra operand flags starting at lsb,
+                  * AVX-512 tupletype attribute starting at msb.
+                  */
+    uint eflags; /* combination of read & write flags from instr.h */
     /* For normal entries, this points to the next entry in the encoding chain
      * for this opcode.
      * For special entries, this can point to the extra operand table,
@@ -173,20 +177,15 @@ typedef struct _decode_info_t decode_info_t;
  * byte, so the largest value here needs to be <= 255.
  */
 enum {
-/* For x86, register enum values are used for TYPE_*REG but we only use them
- * as opnd_size_t when we have the type available, so we can overlap
- * the two enums by adding new registers consecutively to the reg enum.
- * The reg_id_t type is now wider, but for x86 we ensure our values
- * all fit via an assert in arch_init().
- * To maintain backward compatibility we keep the OPSZ_ constants
- * starting at the same spot, now midway through the reg enum:
- */
-#ifdef X86
-    OPSZ_NA = DR_REG_INVALID + 1,
-/**< Sentinel value: not a valid size. */ /* = 140 */
-#else
+    /* For x86, register enum values are used for TYPE_*REG but we only use them
+     * as opnd_size_t when we have the type available, so we can overlap
+     * the two enums. If needed, the function template_optype_is_reg can be used
+     * to check whether the operand type has an implicit size and stores the reg enum
+     * instead of the size enum.
+     * The reg_id_t type is now wider, but for x86 we ensure our values
+     * all fit via an assert in d_r_arch_init().
+     */
     OPSZ_NA = 0, /**< Sentinel value: not a valid size. */
-#endif
     OPSZ_FIRST = OPSZ_NA,
     OPSZ_0,   /**< 0 bytes, for "sizeless" operands (for Intel, code
                * 'm': used for both start addresses (lea, invlpg) and
@@ -232,7 +231,7 @@ enum {
     OPSZ_108_short94,     /**< FPU state with variable data size (fnsave, frstor) */
     /** Varies by 32-bit versus 64-bit processor mode. */
     OPSZ_4x8,  /**< Full register size with no variation by prefix.
-                *   Used for control and debug register moves. */
+                *   Used for control and debug register moves and for Intel MPX. */
     OPSZ_6x10, /**< Intel 's': 6-byte (10-byte for 64-bit mode) table base + limit */
     /**
      * Stack operands not only vary by operand size specifications but also
@@ -302,7 +301,8 @@ enum {
     OPSZ_52,  /**< 52 bytes.  Needed for load/store of register lists. */
     OPSZ_56,  /**< 56 bytes.  Needed for load/store of register lists. */
     OPSZ_60,  /**< 60 bytes.  Needed for load/store of register lists. */
-    OPSZ_64,  /**< 64 bytes.  Needed for load/store of register lists. */
+    OPSZ_64,  /**< 64 bytes.  Needed for load/store of register lists.
+               * Also Intel: 64 bytes (512 bits) */
     OPSZ_68,  /**< 68 bytes.  Needed for load/store of register lists. */
     OPSZ_72,  /**< 72 bytes.  Needed for load/store of register lists. */
     OPSZ_76,  /**< 76 bytes.  Needed for load/store of register lists. */
@@ -314,13 +314,24 @@ enum {
     OPSZ_100, /**< 100 bytes. Needed for load/store of register lists. */
     OPSZ_104, /**< 104 bytes. Needed for load/store of register lists. */
     /* OPSZ_108 already exists */
-    OPSZ_112,           /**< 112 bytes. Needed for load/store of register lists. */
-    OPSZ_116,           /**< 116 bytes. Needed for load/store of register lists. */
-    OPSZ_120,           /**< 120 bytes. Needed for load/store of register lists. */
-    OPSZ_124,           /**< 124 bytes. Needed for load/store of register lists. */
-    OPSZ_128,           /**< 128 bytes. Needed for load/store of register lists. */
-    OPSZ_SCALABLE,      /** Scalable size for SVE vector registers. */
-    OPSZ_SCALABLE_PRED, /** Scalable size for SVE predicate registers. */
+    OPSZ_112,             /**< 112 bytes. Needed for load/store of register lists. */
+    OPSZ_116,             /**< 116 bytes. Needed for load/store of register lists. */
+    OPSZ_120,             /**< 120 bytes. Needed for load/store of register lists. */
+    OPSZ_124,             /**< 124 bytes. Needed for load/store of register lists. */
+    OPSZ_128,             /**< 128 bytes. Needed for load/store of register lists. */
+    OPSZ_SCALABLE,        /**< Scalable size for SVE vector registers. */
+    OPSZ_SCALABLE_PRED,   /**< Scalable size for SVE predicate registers. */
+    OPSZ_16_vex32_evex64, /**< 16, 32, or 64 bytes depending on EVEX.L and EVEX.LL'. */
+    OPSZ_vex32_evex64,    /**< 32 or 64 bytes depending on EVEX.L and EVEX.LL'. */
+    OPSZ_16_of_32_evex64, /**< 128 bits: half of YMM or quarter of ZMM depending on
+                           * EVEX.LL'.
+                           */
+    OPSZ_32_of_64,        /**< 256 bits: half of ZMM. */
+    OPSZ_4_of_32_evex64,  /**< 32 bits: can be part of YMM or ZMM register. */
+    OPSZ_8_of_32_evex64,  /**< 64 bits: can be part of YMM or ZMM register. */
+    OPSZ_8x16, /**< 8 or 16 bytes, but not based on rex prefix, instead dependent
+                * on 32-bit/64-bit mode.
+                */
 #ifdef AVOID_API_EXPORT
 /* Add new size here.  Also update size_names[] in decode_shared.c along with
  * the size routines in opnd_shared.c.
@@ -351,24 +362,26 @@ enum {
 #define OPSZ_call OPSZ_ret          /**< Operand size for push portion of call. */
 
 /* Convenience defines for specific opcodes */
-#define OPSZ_lea OPSZ_0              /**< Operand size for lea memory reference. */
-#define OPSZ_invlpg OPSZ_0           /**< Operand size for invlpg memory reference. */
-#define OPSZ_xlat OPSZ_1             /**< Operand size for xlat memory reference. */
-#define OPSZ_clflush OPSZ_1          /**< Operand size for clflush memory reference. */
-#define OPSZ_prefetch OPSZ_1         /**< Operand size for prefetch memory references. */
-#define OPSZ_lgdt OPSZ_6x10          /**< Operand size for lgdt memory reference. */
-#define OPSZ_sgdt OPSZ_6x10          /**< Operand size for sgdt memory reference. */
-#define OPSZ_lidt OPSZ_6x10          /**< Operand size for lidt memory reference. */
-#define OPSZ_sidt OPSZ_6x10          /**< Operand size for sidt memory reference. */
-#define OPSZ_bound OPSZ_8_short4     /**< Operand size for bound memory reference. */
-#define OPSZ_maskmovq OPSZ_8         /**< Operand size for maskmovq memory reference. */
-#define OPSZ_maskmovdqu OPSZ_16      /**< Operand size for maskmovdqu memory reference. */
+#define OPSZ_lea OPSZ_0          /**< Operand size for lea memory reference. */
+#define OPSZ_invlpg OPSZ_0       /**< Operand size for invlpg memory reference. */
+#define OPSZ_bnd OPSZ_0          /**< Operand size for bndldx, bndstx memory reference. */
+#define OPSZ_xlat OPSZ_1         /**< Operand size for xlat memory reference. */
+#define OPSZ_clflush OPSZ_1      /**< Operand size for clflush memory reference. */
+#define OPSZ_prefetch OPSZ_1     /**< Operand size for prefetch memory references. */
+#define OPSZ_lgdt OPSZ_6x10      /**< Operand size for lgdt memory reference. */
+#define OPSZ_sgdt OPSZ_6x10      /**< Operand size for sgdt memory reference. */
+#define OPSZ_lidt OPSZ_6x10      /**< Operand size for lidt memory reference. */
+#define OPSZ_sidt OPSZ_6x10      /**< Operand size for sidt memory reference. */
+#define OPSZ_bound OPSZ_8_short4 /**< Operand size for bound memory reference. */
+#define OPSZ_maskmovq OPSZ_8     /**< Operand size for maskmovq memory reference. */
+#define OPSZ_maskmovdqu OPSZ_16  /**< Operand size for maskmovdqu memory reference. */
 #define OPSZ_fldenv OPSZ_28_short14  /**< Operand size for fldenv memory reference. */
 #define OPSZ_fnstenv OPSZ_28_short14 /**< Operand size for fnstenv memory reference. */
 #define OPSZ_fnsave OPSZ_108_short94 /**< Operand size for fnsave memory reference. */
 #define OPSZ_frstor OPSZ_108_short94 /**< Operand size for frstor memory reference. */
 #define OPSZ_fxsave OPSZ_512         /**< Operand size for fxsave memory reference. */
 #define OPSZ_fxrstor OPSZ_512        /**< Operand size for fxrstor memory reference. */
+#define OPSZ_ptwrite OPSZ_4_rex8     /**< Operand size for ptwrite memory reference. */
 /* DR_API EXPORT END */
 
 enum {
@@ -389,12 +402,37 @@ enum {
     OPSZ_12_rex8_of_16,      /* 96 bits, or 64 with rex.w: 3/4 of XMM */
     OPSZ_14_of_16,           /* 112 bits; all but one word of XMM */
     OPSZ_15_of_16,           /* 120 bits: all but one byte of XMM */
-    OPSZ_8_of_16_vex32,      /* 64 bits, but can be half of XMM register; if
-                              * vex.L then is 256 bits (YMM or memory)
+    OPSZ_8_of_16_vex32,      /* 64 bits, but can be half of XMM register;
+                              * if vex.L then is 256 bits (YMM or memory).
                               */
     OPSZ_16_of_32,           /* 128 bits: half of YMM */
+    OPSZ_half_16_vex32,      /* half of 128 bits (XMM or memory);
+                              * if vex.L then is half of 256 bits (YMM or memory).
+                              */
+    OPSZ_half_16_vex32_evex64,    /* 64 bits, but can be half of XMM register;
+                                   * if evex.L then is 256 bits (YMM or memory);
+                                   * if evex.L' then is 512 bits (ZMM or memory).
+                                   */
+    OPSZ_quarter_16_vex32,        /* quarter of 128 bits (XMM or memory);
+                                   * if vex.L then is quarter of 256 bits (YMM or memory).
+                                   */
+    OPSZ_quarter_16_vex32_evex64, /* quarter of 128 bits (XMM or memory);
+                                   * if evex.L then is quarter of 256 bits (YMM or
+                                   * memory);
+                                   * if evex.L' then is quarter of 512 bits (ZMM
+                                   * or memory).
+                                   */
+    OPSZ_eighth_16_vex32,         /* eighth of 128 bits (XMM or memory);
+                                   * if vex.L then is eighth of 256 bits (YMM or memory).
+                                   */
+    OPSZ_eighth_16_vex32_evex64,  /* eighth of 128 bits (XMM or memory);
+                                   * if evex.L then is eighth of 256 bits (YMM or
+                                   * memory);
+                                   * if evex.L' then is eighth of 512 bits (ZMM
+                                   * or memory).
+                                   */
     OPSZ_SUBREG_START = OPSZ_1_of_4,
-    OPSZ_SUBREG_END = OPSZ_16_of_32,
+    OPSZ_SUBREG_END = OPSZ_eighth_16_vex32_evex64,
     OPSZ_LAST_ENUM, /* note last is NOT inclusive */
 };
 

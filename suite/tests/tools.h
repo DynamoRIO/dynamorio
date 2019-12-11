@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,7 +43,7 @@
 
 #define _GNU_SOURCE 1 /* for REG_RIP, etc. */
 #include "configure.h"
-#include "dr_helper.h"
+#include "drlibc.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h> /* memcpy */
@@ -62,6 +62,14 @@
 #    include <ucontext.h>
 #    include <unistd.h>
 #    include "../../core/unix/os_public.h"
+#    ifdef X64
+/* XCode 10.1 (probably others too) toolchain wants _STRUCT_MCONTEXT
+ * w/o _AVX64 and has a field named uc_mcontext with no 64.
+ */
+#        undef _STRUCT_MCONTEXT_AVX64
+#        define _STRUCT_MCONTEXT_AVX64 _STRUCT_MCONTEXT64
+#        define uc_mcontext64 uc_mcontext
+#    endif
 #else
 #    include <windows.h>
 #    include <process.h> /* _beginthreadex */
@@ -69,6 +77,13 @@
 #    define NTSTATUS DWORD
 #    define NT_SUCCESS(status) (status >= 0)
 #endif
+
+/* Ensure we get 0x, lower-case, and leading zeroes when not using DR's printf.  This
+ * is a tradeoff: we get consistent style for golden output matching, but we have
+ * reduced error detection from format string type checks by the compiler.
+ */
+#undef PFX
+#define PFX "0x" PFMT
 
 #if defined(AARCH64) && SIGSTKSZ < 16384
 /* SIGSTKSZ was incorrectly defined in Linux releases before 4.3. */

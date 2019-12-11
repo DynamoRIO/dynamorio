@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -53,6 +53,9 @@
 #elif defined(MACOS)
 #    include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
 #    include <signal.h>     /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
+#    ifdef X64
+#        include <sys/_types/_ucontext64.h> /* for _STRUCT_UCONTEXT64 */
+#    endif
 #endif
 
 #include "os_private.h"
@@ -66,6 +69,8 @@ typedef void (*handler_t)(int, kernel_siginfo_t *, void *);
 
 #ifdef MACOS
 typedef void (*tramp_t)(handler_t, int, int, kernel_siginfo_t *, void *);
+#    define SIGHAND_STYLE_UC_TRAD 1
+#    define SIGHAND_STYLE_UC_FLAVOR 30
 #endif
 
 /* default actions */
@@ -187,7 +192,7 @@ typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
 #    define SIGMASK_FROM_UCXT(ucxt) ((kernel_sigset_t *)&((ucxt)->uc_sigmask))
 #endif
 
-#ifdef LINUX
+#if defined(LINUX) || defined(X64)
 #    define SIGINFO_FROM_RT_FRAME(frame) (&(frame)->info)
 #elif defined(MACOS)
 /* Make sure to access through pinfo rather than info as on Mac the info
@@ -273,7 +278,16 @@ typedef struct rt_sigframe {
 
 #elif defined(MACOS)
 #    ifdef X64
-    /* kernel places padding to align to 16, and then puts retaddr slot */
+    /* Kernel places padding to align to 16 (via an inefficient alignment macro!),
+     * and then skips the retaddr slot to align to 8.
+     */
+    /* TODO i#1979/i#1312: This will be __darwin_mcontext_avx512_64 if AVX512 is
+     * enabled.  Given that it's inlined here *first*, though, we need to figure
+     * out how best to handle this variability.  Multiple sigframe_rt_t struct
+     * definitions?  Do we want a discovery signal to find the size at init time
+     * like on Linux?  We would get the size by counting from "info".
+     * Also, should we change this to sigcontext_t.
+     */
     struct __darwin_mcontext_avx64 mc; /* sigcontext, "struct mcontext_avx64" to kernel */
     kernel_siginfo_t info;             /* matches user-mode sys/signal.h struct */
     struct __darwin_ucontext64 uc;     /* "struct user_ucontext64" to kernel */
@@ -430,8 +444,12 @@ typedef struct _thread_sig_info_t {
     kernel_sigset_t app_sigblocked;
     /* for returning the old mask (xref PR 523394) */
     kernel_sigset_t pre_syscall_app_sigblocked;
-    /* for preserving the app memory (xref i#1187) */
+    /* for preserving the app memory (xref i#1187), and for preserving app
+     * mask supporting ppoll, epoll_pwait and pselect
+     */
     kernel_sigset_t pre_syscall_app_sigprocmask;
+    /* True if pre_syscall_app_sigprocmask holds a pre-syscall sigmask */
+    bool pre_syscall_app_sigprocmask_valid;
     /* for alarm signals arriving in coarse units we only attempt to xl8
      * every nth signal since coarse translation is expensive (PR 213040)
      */
@@ -563,7 +581,7 @@ libc_sigismember(const sigset_t *set, int _sig)
 
 /* XXX: how does libc do this? */
 static inline void
-copy_sigset_to_kernel_sigset(sigset_t *uset, kernel_sigset_t *kset)
+copy_sigset_to_kernel_sigset(const sigset_t *uset, kernel_sigset_t *kset)
 {
     int sig;
     kernel_sigemptyset(kset);
@@ -613,6 +631,9 @@ signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info);
 bool
 notify_signalfd(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
                 sigframe_rt_t *frame);
+
+void
+check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info);
 #endif
 
 #endif /* _SIGNAL_PRIVATE_H_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -154,7 +154,7 @@ test_small_array(dcontext_t *dcontext)
     arr[4 + 2] = 2;
     arr[4 + 3] = 1;
 
-    mutex_lock(&rct_module_lock); /* around whole sequence */
+    d_r_mutex_lock(&rct_module_lock); /* around whole sequence */
 
     EXPECT(find_address_references(dcontext, (app_pc)arr, (app_pc)(arr + 8),
                                    (app_pc)0x01020304, (app_pc)0x01020304),
@@ -255,7 +255,7 @@ test_small_array(dcontext_t *dcontext)
 
     EXPECT(invalidate_ind_branch_target_range(dcontext, 0, (app_pc)-1), 0);
 
-    mutex_unlock(&rct_module_lock);
+    d_r_mutex_unlock(&rct_module_lock);
 
     return 1;
 }
@@ -268,10 +268,10 @@ test_lookup_delete(dcontext_t *dcontext)
     fragment_t *f = rct_ind_branch_target_lookup(dcontext, tag);
     EXPECT_RELATION((ptr_uint_t)f, ==, 0);
 
-    mutex_lock(&rct_module_lock);
+    d_r_mutex_lock(&rct_module_lock);
     EXPECT(rct_add_valid_ind_branch_target(dcontext, tag), true);
     EXPECT(rct_add_valid_ind_branch_target(dcontext, tag), false);
-    mutex_unlock(&rct_module_lock);
+    d_r_mutex_unlock(&rct_module_lock);
 
     f = rct_ind_branch_target_lookup(dcontext, tag);
     EXPECT_RELATION((ptr_uint_t)f, !=, 0);
@@ -301,10 +301,10 @@ test_self_direct(dcontext_t *dcontext)
     get_memory_info((app_pc)test_self_direct, &base_pc, &size, NULL);
 #endif
 
-    mutex_lock(&rct_module_lock);
+    d_r_mutex_lock(&rct_module_lock);
     found = find_address_references(dcontext, base_pc, base_pc + size, base_pc,
                                     base_pc + size);
-    mutex_unlock(&rct_module_lock);
+    d_r_mutex_unlock(&rct_module_lock);
 
     /* guesstimate */
     EXPECT_RELATION(found, >, 140);
@@ -326,15 +326,15 @@ test_self_direct(dcontext_t *dcontext)
     EXPECT(is_address_taken(dcontext, (app_pc)f2 + 1), false);
     EXPECT(is_address_taken(dcontext, (app_pc)f7 + 1), false);
 
-    mutex_lock(&rct_module_lock);
+    d_r_mutex_lock(&rct_module_lock);
     EXPECT(invalidate_ind_branch_target_range(dcontext, 0, (app_pc)-1), found);
     EXPECT_RELATION(invalidate_ind_branch_target_range(dcontext, 0, (app_pc)-1), ==,
                     0); /* nothing missed */
-    mutex_unlock(&rct_module_lock);
+    d_r_mutex_unlock(&rct_module_lock);
 
     /* now try manually rct_analyze_module_at_violation */
 
-    mutex_lock(&rct_module_lock);
+    d_r_mutex_lock(&rct_module_lock);
     EXPECT(rct_analyze_module_at_violation(dcontext, (app_pc)test_self_direct), true);
 
     /* should be all found */
@@ -349,7 +349,7 @@ test_self_direct(dcontext_t *dcontext)
 
     EXPECT_RELATION(invalidate_ind_branch_target_range(dcontext, 0, (app_pc)-1), ==,
                     0); /* nothing missed */
-    mutex_unlock(&rct_module_lock);
+    d_r_mutex_unlock(&rct_module_lock);
 }
 
 static void
@@ -380,9 +380,9 @@ test_rct_ind_branch_check(void)
     EXPECT(rct_ind_branch_check(dcontext, (app_pc)0xbad), 2);
 
     /* starting over */
-    mutex_lock(&rct_module_lock);
+    d_r_mutex_lock(&rct_module_lock);
     invalidate_ind_branch_target_range(dcontext, 0, (app_pc)-1);
-    mutex_unlock(&rct_module_lock);
+    d_r_mutex_unlock(&rct_module_lock);
 
     EXPECT(rct_ind_branch_check(dcontext, (app_pc)f3), 1);
     EXPECT(rct_ind_branch_check(dcontext, (app_pc)f2), 1);
@@ -396,9 +396,9 @@ test_rct_ind_branch_check(void)
     EXPECT(rct_ind_branch_check(dcontext, (app_pc)f2 + 1), -1);
     EXPECT(rct_ind_branch_check(dcontext, (app_pc)f7 + 1), -1);
 
-    mutex_lock(&rct_module_lock);
+    d_r_mutex_lock(&rct_module_lock);
     found = invalidate_ind_branch_target_range(dcontext, 0, (app_pc)-1);
-    mutex_unlock(&rct_module_lock);
+    d_r_mutex_unlock(&rct_module_lock);
 
     EXPECT_RELATION(found, >, 140);
 }

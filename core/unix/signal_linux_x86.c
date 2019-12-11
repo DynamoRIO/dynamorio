@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -179,7 +179,8 @@ convert_fxsave_to_fpstate(kernel_fpstate_t *fpstate, struct i387_fxsave_struct *
     fpstate->status = fxsave->swd;
     fpstate->magic = X86_FXSR_MAGIC;
 
-    memcpy(&fpstate->_fxsr_env[0], fxsave, sizeof(struct i387_fxsave_struct));
+    memcpy(&fpstate->_fxsr_env[0], fxsave,
+           offsetof(struct i387_fxsave_struct, xmm_space));
 }
 #endif /* !X64 */
 
@@ -202,21 +203,57 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
         /* Fill in the extra fields first and then clobber xmm+ymm below.
          * We assume that DR's code does not touch this extra state.
          */
-        ASSERT(ALIGNED(xstate, AVX_ALIGNMENT));
         /* A processor w/o xsave but w/ extra xstate fields should not exist. */
         ASSERT(proc_has_feature(FEATURE_XSAVE));
         /* XXX i#1312: use xsaveopt if available (need to add FEATURE_XSAVEOPT) */
 #ifdef X64
+        ASSERT(ALIGNED(xstate, AVX_ALIGNMENT));
         /* Some assemblers, including on Travis, don't know "xsave64", so we
          * have to use raw bytes for:
-         *    48 0f ae 20  xsave64 (%rax)
+         *    48 0f ae 21  xsave64 (%rcx)
+         * We only enable the x87 state component. The rest of the user state components
+         * get copied below from priv_mcontext_t.
          */
-        asm volatile("mov %0, %%rax; .byte 0x48; .byte 0x0f; .byte 0xae; .byte 0x20"
-                     : "=m"(xstate)
+        asm volatile("mov $0x0, %%edx\n\t"
+                     "mov $0x1, %%eax\n\t"
+                     "mov %0, %%rcx\n\t"
+                     ".byte 0x48\n\t"
+                     ".byte 0x0f\n\t"
+                     ".byte 0xae\n\t"
+                     ".byte 0x21\n"
                      :
-                     : "rax");
+                     : "m"(xstate)
+                     : "eax", "edx", "rcx", "memory");
 #else
-        asm volatile("xsave %0" : "=m"(*xstate));
+#    if DISABLED_ISSUE_3256
+        /* FIXME i#3256: DR's kernel_fpstate_t includes the fsave 112 bytes at the
+         * top.  We need to skip them to reach the xsave area at the _fxsr_env field.
+         * However, that requires aligning that instead of the kernel_fpstate_t start
+         * itself in sigpending_t and the frame we make on the app stack.  An
+         * alternative here is to copy into a temp buffer but that seems wasteful.
+         * For now we skip the xsave, which seems safer than clobbering the wrong
+         * fields, but is also buggy and can cause app data corruption.
+         */
+        byte *xsave_start = (byte *)(&xstate->fpstate._fxsr_env[0]);
+        ASSERT(ALIGNED(xsave_start, AVX_ALIGNMENT));
+        /* We only enable the x87 state component. The rest of the user state components
+         * gets copied below from priv_mcontext_t.
+         * FIXME i#1312: it is unclear if and how the components are arranged in
+         * 32-bit mode by the kernel. In fact, if we enable more state components here
+         * than this, we get a crash in linux.sigcontext. This needs clarification about
+         * what the kernel does for 32-bit with the extended xsave area.
+         * UPDATE from i#3256 analysis: Was this due to the incorrect xsave target?
+         */
+        asm volatile("mov $0x0, %%edx\n\t"
+                     "mov $0x1, %%eax\n\t"
+                     "mov %0, %%ecx\n\t"
+                     ".byte 0x0f\n\t"
+                     ".byte 0xae\n\t"
+                     ".byte 0x21\n"
+                     :
+                     : "m"(xsave_start)
+                     : "eax", "edx", "ecx", "memory");
+#    endif
 #endif
     }
     if (YMM_ENABLED()) {
@@ -227,28 +264,55 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
         dr_xgetbv(&bv_high, &bv_low);
         xstate->xstate_hdr.xstate_bv = (((uint64)bv_high) << 32) | bv_low;
     }
-    for (i = 0; i < NUM_SIMD_SAVED; i++) {
+    for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
         /* we assume no padding */
 #ifdef X64
         /* __u32 xmm_space[64] */
-        memcpy(&sc->fpstate->xmm_space[i * 4], &get_mcontext(dcontext)->ymm[i],
+        memcpy(&sc->fpstate->xmm_space[i * 4], &get_mcontext(dcontext)->simd[i],
                XMM_REG_SIZE);
         if (YMM_ENABLED()) {
             /* i#637: ymm top halves are inside kernel_xstate_t */
             memcpy(&xstate->ymmh.ymmh_space[i * 4],
-                   ((void *)&get_mcontext(dcontext)->ymm[i]) + XMM_REG_SIZE,
+                   ((void *)&get_mcontext(dcontext)->simd[i]) + YMMH_REG_SIZE,
                    YMMH_REG_SIZE);
         }
 #else
-        memcpy(&sc->fpstate->_xmm[i], &get_mcontext(dcontext)->ymm[i], XMM_REG_SIZE);
+        memcpy(&sc->fpstate->_xmm[i], &get_mcontext(dcontext)->simd[i], XMM_REG_SIZE);
         if (YMM_ENABLED()) {
             /* i#637: ymm top halves are inside kernel_xstate_t */
             memcpy(&xstate->ymmh.ymmh_space[i * 4],
-                   ((void *)&get_mcontext(dcontext)->ymm[i]) + XMM_REG_SIZE,
+                   ((void *)&get_mcontext(dcontext)->simd[i]) + YMMH_REG_SIZE,
                    YMMH_REG_SIZE);
         }
 #endif
+#ifdef X64
+        if (ZMM_ENABLED()) {
+            memcpy((byte *)xstate + proc_xstate_area_zmm_hi256_offs() + i * ZMMH_REG_SIZE,
+                   ((void *)&get_mcontext(dcontext)->simd[i]) + ZMMH_REG_SIZE,
+                   ZMMH_REG_SIZE);
+            ASSERT(proc_num_simd_sse_avx_saved() ==
+                   proc_num_simd_registers() - proc_num_simd_sse_avx_saved());
+            memcpy((byte *)xstate + proc_xstate_area_hi16_zmm_offs() + i * ZMM_REG_SIZE,
+                   ((void *)&get_mcontext(dcontext)
+                        ->simd[i + proc_num_simd_sse_avx_saved()]),
+                   ZMM_REG_SIZE);
+        }
+#else
+        /* FIXME i#1312: it is unclear if and how the components are arranged in
+         * 32-bit mode by the kernel.
+         */
+#endif
     }
+#ifdef X64
+    if (ZMM_ENABLED()) {
+        for (i = 0; i < proc_num_opmask_registers(); i++) {
+            memcpy((byte *)xstate + proc_xstate_area_kmask_offs() +
+                       i * OPMASK_AVX512BW_REG_SIZE,
+                   ((void *)&get_mcontext(dcontext)->opmask[i]),
+                   OPMASK_AVX512BW_REG_SIZE);
+        }
+    }
+#endif
 }
 
 /* We can't tell whether the app has used fpstate yet so we preserve every time
@@ -257,13 +321,14 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
 void
 save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 {
-    /* FIXME: is there a better way to align this thing?
-     * the __attribute__ on the struct above doesn't do it
+    /* The compiler may not be able to properly align stack variables even with
+     * __attribute__((aligned()). We maintain this array to enforce alignment.
      */
-    char align[sizeof(union i387_union) + 16];
+    char align[sizeof(union i387_union) + 16] __attribute__((aligned(16)));
     union i387_union *temp =
         (union i387_union *)((((ptr_uint_t)align) + 16) & ((ptr_uint_t)-16));
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
+
     LOG(THREAD, LOG_ASYNCH, 3, "save_fpstate\n");
     if (sc->fpstate == NULL) {
         /* Nothing to do: there was no fpstate to save at the time the kernel
@@ -284,7 +349,8 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
         asm volatile("fxsaveq %0 ; fnclex" : "=m"(temp->fxsave));
         /* now convert into kernel_fpstate_t form */
         ASSERT(sizeof(kernel_fpstate_t) == sizeof(struct i387_fxsave_struct));
-        memcpy(sc->fpstate, &temp->fxsave, sizeof(struct i387_fxsave_struct));
+        memcpy(sc->fpstate, &temp->fxsave,
+               offsetof(struct i387_fxsave_struct, xmm_space));
 #else
         /* this is "unlazy_fpu" */
         asm volatile("fxsave %0 ; fnclex" : "=m"(temp->fxsave));
@@ -364,11 +430,11 @@ dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
     for (i = 0; i < 8; i++) {
         LOG(THREAD, LOG_ASYNCH, 1, "\txmm%d = ", i);
         for (j = 0; j < 4; j++)
-            LOG(THREAD, LOG_ASYNCH, 1, "%04x ", fp->_xmm[i].element[j]);
+            LOG(THREAD, LOG_ASYNCH, 1, "%08x ", fp->_xmm[i].element[j]);
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
 #    endif
-    /* ignore padding */
+    /* Ignore padding. */
     if (YMM_ENABLED()) {
         kernel_xstate_t *xstate = (kernel_xstate_t *)fp;
         if (fp->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
@@ -379,16 +445,17 @@ dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
             ASSERT(TEST(XCR0_AVX, fp->sw_reserved.xstate_bv));
             LOG(THREAD, LOG_ASYNCH, 1, "\txstate_bv = 0x" HEX64_FORMAT_STRING "\n",
                 xstate->xstate_hdr.xstate_bv);
-            for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+            for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                 LOG(THREAD, LOG_ASYNCH, 1, "\tymmh%d = ", i);
                 for (j = 0; j < 4; j++) {
-                    LOG(THREAD, LOG_ASYNCH, 1, "%04x ",
+                    LOG(THREAD, LOG_ASYNCH, 1, "%08x",
                         xstate->ymmh.ymmh_space[i * 4 + j]);
                 }
                 LOG(THREAD, LOG_ASYNCH, 1, "\n");
             }
         }
     }
+    /* XXX i#1312: Dumping AVX-512 extended registers missing yet.  */
 }
 
 void
@@ -412,7 +479,7 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\txax=" PFX "\n", sc->SC_XAX);
 #    ifdef X64
     LOG(THREAD, LOG_ASYNCH, 1, "\t r8=" PFX "\n", sc->r8);
-    LOG(THREAD, LOG_ASYNCH, 1, "\t r9=" PFX "\n", sc->r8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\t r9=" PFX "\n", sc->r9);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr10=" PFX "\n", sc->r10);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr11=" PFX "\n", sc->r11);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr12=" PFX "\n", sc->r12);
@@ -445,8 +512,8 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
     sigcontext_t *sc = sc_full->sc;
     if (sc->fpstate != NULL) {
         int i;
-        for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-            memcpy(&mc->ymm[i], &sc->fpstate->IF_X64_ELSE(xmm_space[i * 4], _xmm[i]),
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+            memcpy(&mc->simd[i], &sc->fpstate->IF_X64_ELSE(xmm_space[i * 4], _xmm[i]),
                    XMM_REG_SIZE);
         }
         if (YMM_ENABLED()) {
@@ -457,12 +524,48 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
                  */
                 ASSERT(sc->fpstate->sw_reserved.extended_size >= sizeof(*xstate));
                 ASSERT(TEST(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
-                for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-                    memcpy(&mc->ymm[i].u32[4], &xstate->ymmh.ymmh_space[i * 4],
+                for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+                    memcpy(&mc->simd[i].u32[4], &xstate->ymmh.ymmh_space[i * 4],
                            YMMH_REG_SIZE);
                 }
             }
         }
+#ifdef X64
+        if (ZMM_ENABLED()) {
+            kernel_xstate_t *xstate = (kernel_xstate_t *)sc->fpstate;
+            if (sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
+                /* The following three XCR0 bits should have been checked already
+                 * in ZMM_ENABLED().
+                 */
+                ASSERT(TEST(XCR0_ZMM_HI256, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TEST(XCR0_HI16_ZMM, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TEST(XCR0_OPMASK, sc->fpstate->sw_reserved.xstate_bv));
+                for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+                    memcpy(&mc->simd[i].u32[8],
+                           (byte *)xstate + proc_xstate_area_zmm_hi256_offs() +
+                               i * ZMMH_REG_SIZE,
+                           ZMMH_REG_SIZE);
+                    ASSERT(proc_num_simd_sse_avx_saved() ==
+                           proc_num_simd_registers() - proc_num_simd_sse_avx_saved());
+                    memcpy(&mc->simd[i + proc_num_simd_sse_avx_saved()],
+                           (byte *)xstate + proc_xstate_area_hi16_zmm_offs() +
+                               i * ZMM_REG_SIZE,
+                           ZMM_REG_SIZE);
+                }
+                ASSERT(TEST(XCR0_OPMASK, sc->fpstate->sw_reserved.xstate_bv));
+                for (i = 0; i < proc_num_opmask_registers(); i++) {
+                    memcpy(&mc->opmask[i],
+                           (byte *)xstate + proc_xstate_area_kmask_offs() +
+                               i * OPMASK_AVX512BW_REG_SIZE,
+                           OPMASK_AVX512BW_REG_SIZE);
+                }
+            }
+        }
+#else
+        /* FIXME i#1312: it is unclear if and how the components are arranged in
+         * 32-bit mode by the kernel.
+         */
+#endif
     }
 }
 
@@ -472,8 +575,8 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
     sigcontext_t *sc = sc_full->sc;
     if (sc->fpstate != NULL) {
         int i;
-        for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-            memcpy(&sc->fpstate->IF_X64_ELSE(xmm_space[i * 4], _xmm[i]), &mc->ymm[i],
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+            memcpy(&sc->fpstate->IF_X64_ELSE(xmm_space[i * 4], _xmm[i]), &mc->simd[i],
                    XMM_REG_SIZE);
         }
         if (YMM_ENABLED()) {
@@ -484,12 +587,46 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                  */
                 ASSERT(sc->fpstate->sw_reserved.extended_size >= sizeof(*xstate));
                 ASSERT(TEST(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
-                for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-                    memcpy(&xstate->ymmh.ymmh_space[i * 4], &mc->ymm[i].u32[4],
+                for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+                    memcpy(&xstate->ymmh.ymmh_space[i * 4], &mc->simd[i].u32[4],
                            YMMH_REG_SIZE);
                 }
             }
         }
+#ifdef X64
+        if (ZMM_ENABLED()) {
+            kernel_xstate_t *xstate = (kernel_xstate_t *)sc->fpstate;
+            if (sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
+                /* The following three XCR0 bits should have been checked already
+                 * in ZMM_ENABLED().
+                 */
+                ASSERT(TEST(XCR0_ZMM_HI256, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TEST(XCR0_HI16_ZMM, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TEST(XCR0_OPMASK, sc->fpstate->sw_reserved.xstate_bv));
+                for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+                    memcpy((byte *)xstate + proc_xstate_area_zmm_hi256_offs() +
+                               i * ZMMH_REG_SIZE,
+                           &mc->simd[i].u32[8], ZMMH_REG_SIZE);
+                    ASSERT(proc_num_simd_sse_avx_registers() ==
+                           proc_num_simd_registers() - proc_num_simd_sse_avx_registers());
+                    memcpy((byte *)xstate + proc_xstate_area_hi16_zmm_offs() +
+                               i * ZMM_REG_SIZE,
+                           &mc->simd[i + proc_num_simd_sse_avx_registers()],
+                           ZMM_REG_SIZE);
+                }
+                ASSERT(TEST(XCR0_OPMASK, sc->fpstate->sw_reserved.xstate_bv));
+                for (i = 0; i < proc_num_opmask_registers(); i++) {
+                    memcpy((byte *)xstate + proc_xstate_area_kmask_offs() +
+                               i * OPMASK_AVX512BW_REG_SIZE,
+                           &mc->opmask[i], OPMASK_AVX512BW_REG_SIZE);
+                }
+            }
+        }
+#else
+        /* FIXME i#1312: it is unclear if and how the components are arranged in
+         * 32-bit mode by the kernel.
+         */
+#endif
     }
 }
 
@@ -501,6 +638,7 @@ signal_frame_extra_size(bool include_alignment)
      * assume the stack pointer is 4-aligned already, so we over estimate padding
      * size by the alignment minus 4.
      */
+    ASSERT(YMM_ENABLED() || !ZMM_ENABLED());
     size_t size = YMM_ENABLED() ? xstate_size : sizeof(kernel_fpstate_t);
     if (include_alignment)
         size += (YMM_ENABLED() ? AVX_ALIGNMENT : FPSTATE_ALIGNMENT) - 4;
@@ -544,7 +682,8 @@ xstate_query_signal_handler(int sig, kernel_siginfo_t *siginfo, kernel_ucontext_
 void
 signal_arch_init(void)
 {
-    xstate_size = sizeof(kernel_xstate_t) + 4 /* trailing FP_XSTATE_MAGIC2 */;
+    xstate_size = sizeof(kernel_xstate_t) + FP_XSTATE_MAGIC2_SIZE;
+    ASSERT(YMM_ENABLED() || !ZMM_ENABLED());
     if (YMM_ENABLED() && !standalone_library /* avoid SIGILL for standalone */) {
         kernel_sigaction_t act, oldact;
         int rc;

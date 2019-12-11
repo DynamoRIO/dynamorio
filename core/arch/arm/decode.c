@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,6 @@
 #include "decode_private.h"
 #include "decode_fast.h" /* ensure we export decode_next_pc, decode_sizeof */
 #include "instr_create.h"
-#include <string.h> /* for memcpy */
 #include "disassemble.h"
 
 /* ARM decoder.
@@ -171,7 +170,7 @@ is_isa_mode_legal(dr_isa_mode_t mode)
 
 /* We need to call canonicalize_pc_target() on all next_tag-writing
  * instances in initial takeover, signal handling, ibl, etc..
- * We can't put it in dispatch() b/c with our decision to store
+ * We can't put it in d_r_dispatch() b/c with our decision to store
  * tags and addresses as LSB=0, we can easily double-mode-switch.
  */
 app_pc

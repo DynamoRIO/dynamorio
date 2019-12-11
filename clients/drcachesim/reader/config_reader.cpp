@@ -143,6 +143,18 @@ config_reader_t::configure(const std::string &config_file, cache_simulator_knobs
                 ERRMSG("Error reading verbose from the configuration file\n");
                 return false;
             }
+        } else if (param == "coherence") {
+            // Whether to simulate coherence
+            std::string bool_val;
+            if (!(fin >> bool_val)) {
+                ERRMSG("Error reading coherence from the configuration file\n");
+                return false;
+            }
+            if (is_true(bool_val)) {
+                knobs.model_coherence = true;
+            } else {
+                knobs.model_coherence = false;
+            }
         } else {
             // A cache unit.
             cache_params_t cache;

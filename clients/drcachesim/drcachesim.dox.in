@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,6 +50,7 @@ online and offline.
  - \ref sec_drcachesim_offline
  - \ref sec_drcachesim_partial
  - \ref sec_drcachesim_sim
+ - \ref sec_drcachesim_analyzer
  - \ref sec_drcachesim_phys
  - \ref sec_drcachesim_core
  - \ref sec_drcachesim_extend
@@ -209,67 +210,88 @@ To compute reuse distance metrics:
 $ bin64/drrun -t drcachesim -simulator_type reuse_distance -reuse_distance_histogram -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
-Reuse distance tool results:
-Total accesses: 361486
-Unique accesses: 205963
-Unique cache lines accessed: 4188
+Reuse distance tool aggregated results:
+Total accesses: 349632
+Unique accesses: 196603
+Unique cache lines accessed: 4235
 
-Reuse distance mean: 14.76
+Reuse distance mean: 14.64
 Reuse distance median: 1
-Reuse distance standard deviation: 109.74
+Reuse distance standard deviation: 104.10
 Reuse distance histogram:
 Distance       Count  Percent  Cumulative
-       0      155523   43.53%   43.53%
-       1      108799   30.45%   73.98%
-       2       17659    4.94%   78.92%
-       3       12417    3.48%   82.40%
-       4        9304    2.60%   85.00%
-       5        3949    1.11%   86.10%
-       6        1747    0.49%   86.59%
-       7        3091    0.87%   87.46%
-       8        3894    1.09%   88.55%
-       9        3047    0.85%   89.40%
-      10        1415    0.40%   89.80%
-      11        1113    0.31%   90.11%
-      12         682    0.19%   90.30%
-      13         773    0.22%   90.52%
-      14         698    0.20%   90.71%
-      15        1167    0.33%   91.04%
-      16         971    0.27%   91.31%
-      17        1564    0.44%   91.75%
-      18        1127    0.32%   92.06%
-      19         660    0.18%   92.25%
-      20         480    0.13%   92.38%
+       0      153029   44.36%   44.36%
+       1      101294   29.37%   73.73%
+       2       14116    4.09%   77.82%
+       3       14248    4.13%   81.95%
+       4        8894    2.58%   84.53%
+       5        2733    0.79%   85.32%
 ...
-    3642           1    0.00%  100.00%
-    3906           1    0.00%  100.00%
-    3912           1    0.00%  100.00%
+==================================================
+Reuse distance tool results for shard 29327 (thread 29327):
+Total accesses: 335084
+Unique accesses: 187927
+Unique cache lines accessed: 4148
+
+Reuse distance mean: 14.77
+Reuse distance median: 1
+Reuse distance standard deviation: 106.02
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+       0      147157   44.47%   44.47%
+       1       96820   29.26%   73.72%
+       2       13613    4.11%   77.84%
+       3       13834    4.18%   82.02%
+       4        8666    2.62%   84.64%
+       5        2552    0.77%   85.41%
+...
+    3658          29    0.01%  100.00%
+    3851           1    0.00%  100.00%
 
 Reuse distance threshold = 100 cache lines
 Top 10 frequently referenced cache lines
         cache line:     #references   #distant refs
-    0x7fc242632780:        30216,           56
-    0x7fc240da8fc0:        27664,            0
-    0x7fc240da9000:        18629,            0
-    0x7fc242622e80:        17864,           70
-    0x7fc242622500:        10976,           29
-    0x7fc2426224c0:         9633,           28
-    0x7fc242624940:         8865,            6
-    0x7fc242622480:         8167,           29
-    0x7fc240da8f80:         6660,            0
-    0x7fc242622540:         5768,           31
+    0x7f2a86b3fd80:        27980,            0
+    0x7f2a86b3fdc0:        18823,            0
+    0x7f2a88388fc0:        16409,          111
+    0x7f2a8838abc0:        15176,            6
+    0x7f2a883884c0:         9930,           20
+    0x7f2a88388480:         7944,           20
+    0x7f2a88388500:         7574,           20
+    0x7f2a88398d00:         7390,          100
+    0x7f2a86b3fd40:         6668,            0
+    0x7f2a88388440:         5717,           20
 Top 10 distant repeatedly referenced cache lines
         cache line:     #references   #distant refs
-    0x7fc24283b140:          293,          104
-    0x7fc2417806c0:          353,          100
-    0x7fc24144d000:          333,          100
-    0x7fc24283a940:          322,           99
-    0x7fc2417809c0:          212,           97
-    0x7fc241780700:          320,           96
-    0x7fc24144d300:          202,           96
-    0x7fc241754e40:          319,           95
-    0x7fc24144d040:          314,           95
-    0x7fc24144be40:          309,           95
+    0x7f2a885a4180:          246,          132
+    0x7f2a87504ec0:          202,          128
+    0x7f2a875044c0:          323,          126
+    0x7f2a885a4480:          220,          126
+    0x7f2a87504f00:          293,          124
+    0x7f2a86fd7e00:          289,          124
+    0x7f2a875049c0:          221,          124
+    0x7f2a875053c0:          270,          122
+    0x7f2a86db9c00:          269,          122
+    0x7f2a875047c0:          201,          122
+
+==================================================
+Reuse distance tool results for shard 29328 (thread 29328):
+Total accesses: 12216
+Unique accesses: 7251
+Unique cache lines accessed: 319
+
+Reuse distance mean: 12.98
+Reuse distance median: 1
+Reuse distance standard deviation: 38.19
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+       0        4965   41.73%   41.73%
+       1        3758   31.59%   73.32%
+       2         411    3.45%   76.78%
+       3         348    2.93%   79.70%
+       4         179    1.50%   81.21%
+       5         152    1.28%   82.48%
+...
 \endcode
 
 A reuse time tool is also provided, which counts the total number of memory
@@ -280,19 +302,37 @@ address:
 $ bin64/drrun -t drcachesim -simulator_type reuse_time -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
-Reuse time tool results:
-Total accesses: 99944
-Total instructions: 259351
-Mean reuse time: 479.21
+Reuse time tool aggregated results:
+Total accesses: 88281
+Total instructions: 261315
+Mean reuse time: 433.47
 Reuse time histogram:
 Distance       Count  Percent  Cumulative
-       1       33901   34.99%      34.99%
-       2       13646   14.09%      49.08%
-       3        6837    7.06%      56.13%
+       1       27893   32.84%      32.84%
+       2       10948   12.89%      45.73%
+       3        5789    6.82%      52.54%
 ...
-   88585           1    0.00%     100.00%
-   93953           1    0.00%     100.00%
-   94830           1    0.00%     100.00%
+==================================================
+Reuse time tool results for shard 29482 (thread 29482):
+Total accesses: 84194
+Total instructions: 250854
+Mean reuse time: 450.01
+Reuse time histogram:
+Distance       Count  Percent  Cumulative
+       1       26677   32.86%      32.86%
+       2       10508   12.95%      45.81%
+       3        5427    6.69%      52.50%
+...
+==================================================
+Reuse time tool results for shard 29483 (thread 29483):
+Total accesses: 3411
+Total instructions: 8805
+Mean reuse time: 86.36
+Reuse time histogram:
+Distance       Count  Percent  Cumulative
+       1        1014   31.56%      31.56%
+       2         363   11.30%      42.86%
+       3         308    9.59%      52.44%
 \endcode
 
 To simply see the counts of instructions and memory references broken down
@@ -395,8 +435,15 @@ set a start point and end point for the disassembled view. Note that these
 flags compute the number of instructions which are skipped or displayed which
 is distinct from the number of trace entries.
 
+The tool also displays metadata marker entries for timestamps, on
+which core and thread the subsequent instruction sequence was
+executed, and kernel and system call transfers (these correspond to
+signal or event handler interruptions of the regular execution flow).
+
 \code
 $ bin64/drrun -t drcachesim -simulator_type view -sim_refs 20 -indir drmemtrace.*.dir
+<marker: timestamp 13218166936578899>
+<marker: tid 46977 on core 7>
   0x00007f3a5127d870  48 83 ec 48          sub    $0x48, %rsp
   0x00007f3a5127d874  0f 31                rdtsc
   0x00007f3a5127d876  48 c1 e2 20          shl    $0x20, %rdx
@@ -421,6 +468,45 @@ $ bin64/drrun -t drcachesim -simulator_type view -sim_refs 20 -indir drmemtrace.
   0x00007f3a5127d8dc  41 bb ff fd ff 6f    mov    $0x6ffffdff, %r11d
 View tool results:
              20 : total disassembled instructions
+\endcode
+
+Here is an example of a signal handler interrupting the regular flow:
+
+\code
+  0x00007fa87c6c0512  eb 5a                jmp    $0x00007fa87c6c056e
+  0x00007fa87c6c056e  80 bd 7c ff ff ff 00 cmp    -0x84(%rbp), $0x00
+  0x00007fa87c6c0575  0f 85 e5 03 00 00    jnz    $0x00007fa87c6c0960
+<marker: kernel xfer to handler>
+<marker: timestamp 13218875821472138>
+<marker: tid 159754 on core 0>
+  0x00007fa879bb88dc  55                   push   %rbp
+  0x00007fa879bb88dd  48 89 e5             mov    %rsp, %rbp
+  0x00007fa879bb88e0  48 83 ec 40          sub    $0x40, %rsp
+  0x00007fa879bb88e4  89 7d dc             mov    %edi, -0x24(%rbp)
+  0x00007fa879bb88e7  48 89 75 d0          mov    %rsi, -0x30(%rbp)
+  0x00007fa879bb88eb  48 89 55 c8          mov    %rdx, -0x38(%rbp)
+  0x00007fa879bb88ef  83 7d dc 0a          cmp    -0x24(%rbp), $0x0a
+  0x00007fa879bb88f3  74 0e                jz     $0x00007fa879bb8903
+  0x00007fa879bb8903  48 8b 45 c8          mov    -0x38(%rbp), %rax
+  0x00007fa879bb8907  48 83 c0 28          add    $0x28, %rax
+  0x00007fa879bb890b  48 89 45 f8          mov    %rax, -0x08(%rbp)
+  0x00007fa879bb890f  48 8b 45 f8          mov    -0x08(%rbp), %rax
+  0x00007fa879bb8913  48 8b 80 80 00 00 00 mov    0x80(%rax), %rax
+  0x00007fa879bb891a  48 89 45 f0          mov    %rax, -0x10(%rbp)
+  0x00007fa879bb891e  eb 6d                jmp    $0x00007fa879bb898d
+  0x00007fa879bb898d  90                   nop
+  0x00007fa879bb898e  c9                   leave
+  0x00007fa879bb898f  c3                   ret
+  0x00007fa87c6ca3a0  48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
+  0x00007fa87c6ca3a7  0f 05                syscall
+<marker: timestamp 13218875821472148>
+<marker: tid 159754 on core 0>
+<marker: syscall xfer>
+<marker: timestamp 13218875821475975>
+<marker: tid 159754 on core 4>
+  0x00007fa87c6c057b  48 8b 75 c8          mov    -0x38(%rbp), %rsi
+  0x00007fa87c6c057f  64 48 33 34 25 28 00 xor    %fs:0x28, %rsi
+                      00 00
 \endcode
 
 The top referenced cache lines are displayed by the \p histogram tool:
@@ -485,6 +571,7 @@ sets the corresponding option with the same name described in \ref sec_drcachesi
 - sim_refs \<unsigned int\>
 - cpu_scheduling \<bool\>
 - verbose \<unsigned int\>
+- coherence \<bool\>
 
 Supported cache parameters and their value types:
 - type \<string, one of "instruction", "data", or "unified"\>
@@ -558,18 +645,25 @@ $ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/
 \endcode
 
 The direct results of the \p -offline run are raw, compacted files, stored
-in a \p raw subdirectory of the \p drmemtrace.app.pid.xxxx.dir directory.
+in a \p raw/ subdirectory of the \p drmemtrace.app.pid.xxxx.dir directory.
 The \p -indir option both converts the data to a canonical trace form and
 passes the resulting data to the cache simulator.  The canonical trace data
-is stored by \p -indir in a file named \p drmemtrace.trace inside the \p
-drmemtrace.app.pid.xxxx.dir/ directory.  Future runs can point directly at
-this file using the \p -infile option:
+is stored by \p -indir in a \p trace/ subdirectory inside the \p
+drmemtrace.app.pid.xxxx.dir/ directory.  For both the raw and canonical
+data, a separate file per application thread is used.  If the canonical
+data already exists, future runs will use that data rather than
+re-converting it.  Either the top-level directory or the \p trace/
+subdirectory may be pointed at with \p -indir:
+
 \code
-$ bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
+$ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/trace
 \endcode
 
-The \p -infile option supports reading a gzipped trace file, allowing
-compression of the \p drmemtrace.trace file to save space:
+The canonical trace files may be manually compressed with gzip, as the
+trace reader supports reading gzipped files.
+
+Older versions of the simulator produced a single trace file containing all threads
+interleaved.  The \p -infile option supports reading these legacy files:
 \code
 $ gzip drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
 $ bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace.gz
@@ -718,6 +812,28 @@ Software and hardware prefetches are combined in the prefetch hit and miss
 statistics, which are reported separately from regular loads and stores.
 To isolate software prefetch statistics, disable the hardware prefetcher by
 running with "-data_prefetcher none" (see \ref sec_drcachesim_ops).
+While misses from software prefetches are included in cache miss files,
+misses from hardware prefetches are not.
+
+
+****************************************************************************
+\section sec_drcachesim_analyzer Cache Miss Analyzer
+
+The cache simulator can be used to analyze the stream of last-level cache (LLC)
+miss addresses. This can be useful when looking for patterns that can be utilized
+in software prefetching. The current analyzer can only identify simple stride
+patterns, but it can be extended to search for more complex patterns.
+To invoke the miss analyzer, pass \p miss_analyzer to the \p -simulator_type
+parameter. To write the prefetching hints to a file use the \p -LL_miss_file
+parameter to specify the file's path and name.
+
+For example, to run the analyzer on a benchmark called "my_benchmark" and store
+the prefetching recommendations in a file called "rec.csv", run the following:
+
+\code
+$ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv -- my_benchmark
+\endcode
+
 
 ****************************************************************************
 \section sec_drcachesim_phys Physical Addresses
@@ -749,7 +865,9 @@ inflating instruction fetch statistics.
 Offline traces guarantee that a branch target instruction entry in a
 trace must immediately follow the branch instruction with no intervening
 thread switch.  This allows a core simulator to identify the target of a
-branch by looking at the subsequent trace entry.
+branch by looking at the subsequent trace entry.  However, this guarantee
+does not hold when a kernel event such as a signal is delivered
+immediately after a branch.
 
 Traces include scheduling markers providing the timestamp and hardware
 thread identifier on each thread transition, allowing a simulator to more
@@ -759,8 +877,8 @@ Traces also include markers indicating disruptions in user mode control
 flow such as signal handler entry and exit.
 
 A final feature that aids core simulators is the pair of interfaces
-raw2trace_t::do_module_parsing_and_mapping() and
-raw2trace_t::find_mapped_trace_address(), which facilitate reading the raw
+module_mapper_t::get_loaded_modules() and
+module_mapper_t::find_mapped_trace_address(), which facilitate reading the raw
 bytes for each instruction in order to obtain the opcode and full operand
 information.
 
@@ -801,23 +919,55 @@ drmemtrace_client_main().
 
 The tracer also supports storing custom data with each module (i.e.,
 library or executable) such as a build identifier via
-drmemtrace_custom_module_data().  The custom data can be retrieved via
-raw2trace_t::handle_custom_data() by creating a custom offline trace
-post-processor using the #raw2trace_t class.
+drmemtrace_custom_module_data().  The custom data may be retrieved by
+creating a custom offline trace post-processor and using the #module_mapper_t
+class.
 
 ****************************************************************************
 \section sec_drcachesim_newtool Creating New Analysis Tools
 
 \p drcachesim provides a \p drmemtrace analysis tool framework to make it
 easy to create new trace analysis tools.  A new tool should subclass
-#analysis_tool_t.  Two key functions should be overridden:
-analysis_tool_t::process_memref(), which operates on a single trace entry,
-and analysis_tool_t::print_results(), which is called just once after
-processing the entire trace and should present the results of analysis.  In
-the default mode of operation, the #analyzer_t class iterates over the
-trace and calls the analysis_tool_t::process_memref() function of each
-tool.  An alternative mode is supported which exposes the iterator and
-allows a separate control infrastructure to be built.
+#analysis_tool_t.
+
+Concurrent processing of traces is supported by logically splitting a trace into
+"shards" which are each processed sequentially.  The default shard is a traced
+application thread, but the tool interface can support other divisions.  For tools
+that support concurrent processing of shards and do not need to see a single
+time-sorted interleaved merged trace, the interface functions with the parallel_
+prefix should be overridden, and parallel_shard_supported() should return true.
+parallel_shard_init() will be invoked for each shard prior to invoking
+parallel_shard_memref() for each entry in that shard; the data structure returned
+from parallel_shard_init() will be passed to parallel_shard_memref() for each
+trace entry for that shard.  The concurrency model used guarantees that all
+entries from any one shard are processed by the same single worker thread, so no
+synchronization is needed inside the parallel_ functions.  A single worker thread
+invokes print_results() as well.
+
+For serial operation, process_memref(), operates on a trace entry in a single,
+sorted, interleaved stream of trace entries.  In the default mode of operation,
+the #analyzer_t class iterates over the trace and calls the process_memref()
+function of each tool.  An alternative mode is supported which exposes the
+iterator and allows a separate control infrastructure to be built.  This
+alternative mode does not support parallel operation at this time.
+
+Both parallel and serial operation can be supported by a tool, typically by having
+process_memref() create data on a newly seen traced thread and invoking
+parallel_shard_memref() to do its work.
+
+For both parallel and serial operation, the function print_results() should be
+overridden.  It is called just once after processing all trace data and it should
+present the results of the analysis.  For parallel operation, any desired
+aggregation across the whole trace should occur here as well, while shard-specific
+results can be presented in parallel_shard_exit().
+
+Today, parallel analysis is only supported for offline traces.
+Support for online traces may be added in the future.
+
+In the default mode of operation, the #analyzer_t class iterates over
+the trace and calls the appropriate #analysis_tool_t functions for
+each tool.  An alternative mode is supported which exposes the
+iterator and allows a separate control infrastructure to be built.
 
 Each trace entry is of type #memref_t and represents one instruction or
 data reference or a metadata operation such as a thread exit or marker.
@@ -867,14 +1017,21 @@ REPLACEME_WITH_OPTION_LIST
 The \p drcachesim tool is a work in progress.  We welcome contributions in
 these areas of missing functionality:
 
-- Cache coherence (https://github.com/DynamoRIO/dynamorio/issues/1726)
-- Multi-process online application simulation on Windows (https://github.com/DynamoRIO/dynamorio/issues/1727)
+- Multi-process online application simulation on Windows
+  (https://github.com/DynamoRIO/dynamorio/issues/1727)
 - Arbitrary cache hierarchy support via an input config file
   (https://github.com/DynamoRIO/dynamorio/issues/1715)
 - Offline traces do not currently accurately record instruction fetches in
   dynamically generated code (https://github.com/DynamoRIO/dynamorio/issues/2062).
   All data references are included, but instruction fetches may be skipped.
   This problem is limited to offline traces.
+- If an instruction with multiple memory accesses faults on the
+  non-final access, the trace may incorrectly contain subsequent
+  accesses which did not actually happen
+  (https://github.com/DynamoRIO/dynamorio/issues/3958).
+- Online traces may skip instructions immediately prior to
+  non-load-or-store-related kernel transfer events
+  (https://github.com/DynamoRIO/dynamorio/issues/3937).
 - Application phase marking is not yet implemented
   (https://github.com/DynamoRIO/dynamorio/issues/2478).
 

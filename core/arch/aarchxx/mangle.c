@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -409,8 +409,11 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 #    endif
     if (cci == NULL)
         cci = &default_clean_call_info;
-    if (cci->preserve_mcontext || cci->num_simd_skip != NUM_SIMD_REGS) {
-        /* FIXME i#1551: once we add skipping of regs, need to keep shape here */
+    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+    if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers()) {
+        /* FIXME i#1551: once we add skipping of regs, need to keep shape here.
+         * Also, num_opmask_skip is not applicable to ARM/AArch64.
+         */
     }
     /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
 #    ifdef AARCH64
@@ -523,7 +526,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     insert_save_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0,
                           false /* is_gpr */);
 
-    dstack_offs += (NUM_SIMD_SLOTS * sizeof(dr_simd_t));
+    dstack_offs += (proc_num_simd_registers() * sizeof(dr_simd_t));
+    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
 
     /* Restore the registers we used. */
     /* ldp x0, x1, [sp] */
@@ -544,7 +548,10 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr,
         INSTR_CREATE_vstmdb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP), SIMD_REG_LIST_LEN,
                             SIMD_REG_LIST_0_15));
-    dstack_offs += NUM_SIMD_SLOTS * sizeof(dr_simd_t);
+
+    dstack_offs += proc_num_simd_registers() * sizeof(dr_simd_t);
+    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+
     /* pc and aflags */
     if (cci->skip_save_flags) {
         /* even if we skip flag saves we want to keep mcontext shape */
@@ -634,8 +641,9 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                           opnd_create_reg(DR_REG_SP)));
 
-    current_offs =
-        get_clean_call_switch_stack_size() - NUM_SIMD_SLOTS * sizeof(dr_simd_t);
+    current_offs = get_clean_call_switch_stack_size() -
+        proc_num_simd_registers() * sizeof(dr_simd_t);
+    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
 
     /* add x0, x0, current_offs */
     PRE(ilist, instr,
@@ -883,7 +891,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
     }
 
     /* Initialise regs[], which encodes the contents of parameter registers.
-     * A non-negative value x means regparms[x];
+     * A non-negative value x means d_r_regparms[x];
      * -1 means an immediate integer;
      * -2 means a non-parameter register.
      */
@@ -894,7 +902,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             reg_id_t reg = opnd_get_reg(args[i]);
             regs[i] = -2;
             for (j = 0; j < NUM_REGPARM; j++) {
-                if (reg == regparms[j]) {
+                if (reg == d_r_regparms[j]) {
                     regs[i] = j;
                     break;
                 }
@@ -920,19 +928,19 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                     continue;
                 if (regs[i] == -1) {
                     insert_mov_immed_ptrsz(dcontext, opnd_get_immed_int(args[i]),
-                                           opnd_create_reg(regparms[i]), ilist, instr,
+                                           opnd_create_reg(d_r_regparms[i]), ilist, instr,
                                            NULL, NULL);
                 } else if (regs[i] == -2 && opnd_get_reg(args[i]) == DR_REG_XSP) {
                     /* XXX: We could record which register has been set to the SP to
                      * avoid repeating this load if several arguments are set to SP.
                      */
-                    insert_get_mcontext_base(dcontext, ilist, instr, regparms[i]);
+                    insert_get_mcontext_base(dcontext, ilist, instr, d_r_regparms[i]);
                     PRE(ilist, instr,
-                        instr_create_restore_from_dc_via_reg(dcontext, regparms[i],
-                                                             regparms[i], XSP_OFFSET));
+                        instr_create_restore_from_dc_via_reg(
+                            dcontext, d_r_regparms[i], d_r_regparms[i], XSP_OFFSET));
                 } else {
                     PRE(ilist, instr,
-                        XINST_CREATE_move(dcontext, opnd_create_reg(regparms[i]),
+                        XINST_CREATE_move(dcontext, opnd_create_reg(d_r_regparms[i]),
                                           args[i]));
                     if (regs[i] != -2)
                         --usecount[regs[i]];
@@ -959,14 +967,14 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
         first = i;
         PRE(ilist, instr,
             XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_LR),
-                              opnd_create_reg(regparms[i])));
+                              opnd_create_reg(d_r_regparms[i])));
         do {
             tmp = regs[i];
             ASSERT(0 <= tmp && tmp < num_regs);
             PRE(ilist, instr,
-                XINST_CREATE_move(dcontext, opnd_create_reg(regparms[i]),
+                XINST_CREATE_move(dcontext, opnd_create_reg(d_r_regparms[i]),
                                   tmp == first ? opnd_create_reg(DR_REG_LR)
-                                               : opnd_create_reg(regparms[tmp])));
+                                               : opnd_create_reg(d_r_regparms[tmp])));
             regs[i] = i;
             i = tmp;
         } while (tmp != first);
@@ -1116,7 +1124,7 @@ find_prior_scratch_reg_restore(dcontext_t *dcontext, instr_t *instr, reg_id_t *p
            instr_is_label(prev) && instr_is_our_mangling(prev))
         prev = instr_get_prev(prev);
     if (prev != NULL &&
-        instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, prior_reg)) {
+        instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, prior_reg, NULL)) {
         if (tls && !spill && *prior_reg >= SCRATCH_REG0 && *prior_reg <= SCRATCH_REG_LAST)
             return prev;
     }
@@ -1144,9 +1152,9 @@ insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist, instr_
     STATS_INC(non_mbr_spills);
     prev = find_prior_scratch_reg_restore(dcontext, where, &prior_reg);
     if (INTERNAL_OPTION(opt_mangle) > 0 && prev != NULL && prior_reg == reg) {
-        ASSERT(
-            instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, &prior_reg) &&
-            tls && !spill && prior_reg == reg);
+        ASSERT(instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, &prior_reg,
+                                                NULL) &&
+               tls && !spill && prior_reg == reg);
         /* remove the redundant restore-spill pair */
         instrlist_remove(ilist, prev);
         instr_destroy(dcontext, prev);
@@ -1404,6 +1412,13 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
 }
 
 void
+patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
+                     instr_t *last)
+{
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
+}
+
+void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
                        OUT instr_t **first, OUT instr_t **last)
@@ -1517,7 +1532,7 @@ mangle_add_predicated_fall_through(dcontext_t *dcontext, instrlist_t *ilist,
         instr_t *prev = instr_get_next(mangle_start);
         for (; prev != next_instr; prev = instr_get_next(prev)) {
             if (instr_is_app(prev) ||
-                !instr_is_DR_reg_spill_or_restore(dcontext, prev, NULL, NULL, NULL))
+                !instr_is_DR_reg_spill_or_restore(dcontext, prev, NULL, NULL, NULL, NULL))
                 instr_set_predicate(prev, pred);
         }
     }

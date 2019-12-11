@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2009 Derek Bruening   All rights reserved.
  * *******************************************************************************/
@@ -42,8 +42,6 @@
 #ifdef CLIENT_INTERFACE
 #    include "instrument.h" /* for instrument_client_lib_unloaded */
 #endif
-
-#include <string.h>
 
 /* ok to be in .data w/ no sentinel head node b/c never empties out
  * .ntdll always there for Windows, so no need to unprot.
@@ -114,6 +112,9 @@ loader_init(void)
         char name_copy[MAXIMUM_PATH];
         mod = privload_insert(NULL, privmod_static[i].base, privmod_static[i].size,
                               privmod_static[i].name, privmod_static[i].path);
+#ifdef CLIENT_INTERFACE
+        mod->is_client = true;
+#endif
         LOG(GLOBAL, LOG_LOADER, 1, "%s: processing imports for %s\n", __FUNCTION__,
             mod->name);
         /* save a copy for error msg, b/c mod will be unloaded (i#643) */
@@ -211,7 +212,7 @@ loader_thread_exit(dcontext_t *dcontext)
          * we're not worried about leaks from not calling DLL_THREAD_EXIT.
          * (We can't check get_thread_private_dcontext() b/c it's already cleared.)
          */
-        dcontext->owning_thread == get_thread_id()) {
+        dcontext->owning_thread == d_r_get_thread_id()) {
         acquire_recursive_lock(&privload_lock);
         /* Walk forward and call independent libs last */
         for (mod = modlist; mod != NULL; mod = mod->next) {
@@ -412,6 +413,9 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
      */
     if (IF_UNIX_ELSE(mod->name == NULL, false)) {
         mod->name = double_strrchr(mod->path, DIRSEP, ALT_DIRSEP);
+        /* XXX: double_strrchr() returns mod->name containing the leading '/'. We probably
+         * don't want that, but it doesn't seem to break anything, leaving it for now.
+         */
         if (mod->name == NULL)
             mod->name = mod->path;
     }
@@ -445,7 +449,7 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
     return (void *)mod;
 }
 
-static bool
+bool
 privload_search_path_exists(const char *path, size_t len)
 {
     uint i;
@@ -612,7 +616,7 @@ privload_unload(privmod_t *privmod)
             /* this routine may modify modlist, but we're done with it */
             privload_unload_imports(privmod);
             privload_remove_areas(privmod);
-            /* unmap_file removes from DR areas and calls unmap_file().
+            /* unmap_file removes from DR areas and calls d_r_unmap_file().
              * It's ok to call this for client libs: ok to remove what's not there.
              */
             privload_unmap_file(privmod);

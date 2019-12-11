@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,7 +46,7 @@
 class ipc_reader_t : public reader_t {
 public:
     ipc_reader_t();
-    explicit ipc_reader_t(const char *ipc_name);
+    ipc_reader_t(const char *ipc_name, int verbosity);
     virtual ~ipc_reader_t();
     virtual bool operator!();
     // This potentially blocks.
@@ -58,6 +58,13 @@ public:
 protected:
     virtual trace_entry_t *
     read_next_entry();
+
+    virtual bool
+    read_next_thread_entry(size_t, trace_entry_t *, bool *)
+    {
+        // Only an interleaved stream is supported.
+        return false;
+    }
 
 private:
     named_pipe_t pipe;

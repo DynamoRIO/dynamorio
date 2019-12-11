@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,13 +52,15 @@
 #include <sys/types.h>
 #include <sys/stat.h> /* for _stat */
 
+int drfrontend_verbosity = 0;
+
 drfront_status_t
 drfront_bufprint(char *buf, size_t bufsz, INOUT size_t *sofar, OUT ssize_t *len,
                  const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    /* XXX i#1397: We would like to use our_vsnprintf() instead of depending
+    /* XXX i#1397: We would like to use d_r_vsnprintf() instead of depending
      * on libc/winapi.
      */
     *len = vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
@@ -248,7 +250,7 @@ drfront_create_dir(const char *dir)
         } else if (errcode == ERROR_ACCESS_DENIED) {
             return DRFRONT_ERROR_ACCESS_DENIED;
         } else {
-            DO_DEBUG(DL_WARN, printf("CreateDirectoryW failed %d", errcode););
+            NOTIFY(1, "CreateDirectoryW failed %d\n", errcode);
             return DRFRONT_ERROR;
         }
     }
@@ -259,7 +261,7 @@ drfront_create_dir(const char *dir)
         } else if (errno == EACCES) {
             return DRFRONT_ERROR_ACCESS_DENIED;
         } else {
-            DO_DEBUG(DL_WARN, printf("mkdir failed %d", errno););
+            NOTIFY(1, "mkdir failed %d\n", errno);
             return DRFRONT_ERROR;
         }
     }
@@ -286,7 +288,7 @@ drfront_remove_dir(const char *dir)
         } else if (errcode == ERROR_ACCESS_DENIED) {
             return DRFRONT_ERROR_ACCESS_DENIED;
         } else {
-            DO_DEBUG(DL_WARN, printf("RemoveDirectoryW failed %d", errcode););
+            NOTIFY(1, "RemoveDirectoryW failed %d\n", errcode);
             return DRFRONT_ERROR;
         }
     }
@@ -297,10 +299,19 @@ drfront_remove_dir(const char *dir)
         } else if (errno == EACCES) {
             return DRFRONT_ERROR_ACCESS_DENIED;
         } else {
-            DO_DEBUG(DL_WARN, printf("rmdir failed %d", errno););
+            NOTIFY(1, "rmdir failed %d\n", errno);
             return DRFRONT_ERROR;
         }
     }
 #endif
+    return DRFRONT_SUCCESS;
+}
+
+drfront_status_t
+drfront_set_verbose(int verbosity)
+{
+    if (verbosity < 0)
+        return DRFRONT_ERROR_INVALID_PARAMETER;
+    drfrontend_verbosity = verbosity;
     return DRFRONT_SUCCESS;
 }

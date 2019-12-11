@@ -42,7 +42,6 @@
 #include "instr.h"
 #include "decode.h"
 #include "arch.h"
-#include <string.h>
 
 #if defined(DEBUG) && defined(CLIENT_INTERFACE)
 /* case 10450: give messages to clients */

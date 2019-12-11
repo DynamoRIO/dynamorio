@@ -53,8 +53,9 @@
     } while (0)
 
 static droption_t<std::string>
-    op_trace(DROPTION_SCOPE_FRONTEND, "trace", "", "[Required] Trace input file",
-             "Specifies the file containing the trace to be analyzed.");
+    op_trace_dir(DROPTION_SCOPE_FRONTEND, "trace_dir", "",
+                 "[Required] Trace input directory",
+                 "Specifies the directory containing the trace files to be analyzed.");
 
 // XXX i#2006: these are duplicated from drcachesim's options.
 // Once we decide on the final tool generalization approach we should
@@ -90,7 +91,7 @@ _tmain(int argc, const TCHAR *targv[])
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
                                        &parse_err, NULL) ||
-        op_trace.get_value().empty()) {
+        op_trace_dir.get_value().empty()) {
         FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
@@ -104,7 +105,7 @@ _tmain(int argc, const TCHAR *targv[])
         // We use this launcher to run tests as well:
         tools.push_back(&tool2);
     }
-    analyzer_t analyzer(op_trace.get_value(), &tools[0], (int)tools.size());
+    analyzer_t analyzer(op_trace_dir.get_value(), &tools[0], (int)tools.size());
     if (!analyzer) {
         FATAL_ERROR("failed to initialize analyzer: %s",
                     analyzer.get_error_string().c_str());
@@ -119,7 +120,7 @@ _tmain(int argc, const TCHAR *targv[])
         // Test the external-iterator interface.
         tool1 = histogram_tool_create(op_line_size.get_value(), op_report_top.get_value(),
                                       op_verbose.get_value());
-        analyzer_t external(op_trace.get_value());
+        analyzer_t external(op_trace_dir.get_value());
         if (!external) {
             FATAL_ERROR("failed to initialize analyzer: %s",
                         external.get_error_string().c_str());

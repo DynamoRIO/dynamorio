@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -57,15 +57,35 @@ droption_t<std::string> op_outdir(
     "For the offline analysis mode (when -offline is requested), specifies the path "
     "to a directory where per-thread trace files will be written.");
 
+droption_t<std::string> op_subdir_prefix(
+    DROPTION_SCOPE_ALL, "subdir_prefix", "drmemtrace",
+    "Prefix for output subdir for offline traces",
+    "For the offline analysis mode (when -offline is requested), specifies the prefix "
+    "for the name of the sub-directory where per-thread trace files will be written. "
+    "The sub-directory is created inside -outdir and has the form "
+    "'prefix.app-name.pid.id.dir'.");
+
 droption_t<std::string> op_indir(
-    DROPTION_SCOPE_ALL, "indir", "", "Offline directory of raw data for input",
+    DROPTION_SCOPE_ALL, "indir", "", "Input directory of offline trace files",
     "After a trace file is produced via -offline into -outdir, it can be passed to the "
-    "simulator via this flag pointing at the subdirectory created in -outdir.");
+    "simulator via this flag pointing at the subdirectory created in -outdir. "
+    "The -offline tracing produces raw data files which are converted into final "
+    "trace files on the first execution with -indir.  The raw files can also be manually "
+    "converted using the drraw2trace tool.  Legacy single trace files with all threads "
+    "interleaved into one are not supported with this option: use -infile instead.");
 
 droption_t<std::string> op_infile(
-    DROPTION_SCOPE_ALL, "infile", "", "Offline trace file for input to the simulator",
-    "Directs the simulator to use a trace file (not a raw data file from -offline: "
-    "such a file neeeds to be converted via drraw2trace or -indir first).");
+    DROPTION_SCOPE_ALL, "infile", "", "Offline legacy file for input to the simulator",
+    "Directs the simulator to use a single all-threads-interleaved-into-one trace file. "
+    "This is a legacy file format that is no longer produced.");
+
+droption_t<int> op_jobs(
+    DROPTION_SCOPE_ALL, "jobs", -1, "Number of parallel jobs",
+    "By default, both post-processing of offline raw trace files and analysis of trace "
+    "files is parallelized.  This option controls the number of concurrent jobs.  0 "
+    "disables concurrency and uses a single thread to perform all operations.  A "
+    "negative value sets the job count to the number of hardware threads, "
+    "with a cap of 16.");
 
 droption_t<std::string> op_module_file(
     DROPTION_SCOPE_ALL, "module_file", "", "Path to modules.log for opcode_mix tool",
@@ -114,11 +134,15 @@ droption_t<unsigned int>
                 "Must be a power of 2.");
 
 droption_t<std::string> op_LL_miss_file(
-    DROPTION_SCOPE_FRONTEND, "LL_miss_file", "", "Path for dumping LLC misses",
-    "If non-empty, requests that every last-level "
-    "cache miss be written to a file at the specified path.  Each miss is written "
-    "in text format as a <program counter, address> pair.  If this tool is linked "
-    "with zlib, the file is written in gzip-compressed format.");
+    DROPTION_SCOPE_FRONTEND, "LL_miss_file", "",
+    "Path for dumping LLC misses or prefetching hints",
+    "If non-empty, when running the cache simulator, requests that "
+    "every last-level cache miss be written to a file at the specified path. Each miss "
+    "is written in text format as a <program counter, address> pair. If this tool is "
+    "linked with zlib, the file is written in gzip-compressed format. If non-empty, when "
+    "running the cache miss analyzer, requests that prefetching hints based on the miss "
+    "analysis be written to the specified file. Each hint is written in text format as a "
+    "<program counter, stride, locality level> tuple.");
 
 droption_t<bool> op_L0_filter(
     DROPTION_SCOPE_CLIENT, "L0_filter", false,
@@ -143,6 +167,10 @@ droption_t<bytesize_t> op_L0D_size(
     "Specifies the size of the 'zero-level' data cache for -L0_filter.  "
     "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
     "which disables data entries from appearing in the trace.");
+
+droption_t<bool> op_coherence(
+    DROPTION_SCOPE_FRONTEND, "coherence", false, "Model coherence for private caches",
+    "Writes to cache lines will invalidate other private caches that hold that line.");
 
 droption_t<bool> op_use_physical(
     DROPTION_SCOPE_CLIENT, "use_physical", false, "Use physical addresses if possible",
@@ -247,13 +275,15 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
-droption_t<std::string>
-    op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-                      "Simulator type (" CPU_CACHE ", " TLB ", " REUSE_DIST
-                      ", " REUSE_TIME ", " HISTOGRAM ", or " BASIC_COUNTS ").",
-                      "Specifies the type of the simulator. "
-                      "Supported types: " CPU_CACHE ", " TLB ", " REUSE_DIST
-                      ", " REUSE_TIME ", " HISTOGRAM "or " BASIC_COUNTS ".");
+droption_t<std::string> op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type",
+                                          CPU_CACHE,
+                                          "Simulator type (" CPU_CACHE ", " MISS_ANALYZER
+                                          ", " TLB ", " REUSE_DIST ", " REUSE_TIME
+                                          ", " HISTOGRAM ", or " BASIC_COUNTS ").",
+                                          "Specifies the type of the simulator. "
+                                          "Supported types: " CPU_CACHE ", " MISS_ANALYZER
+                                          ", " TLB ", " REUSE_DIST ", " REUSE_TIME
+                                          ", " HISTOGRAM "or " BASIC_COUNTS ".");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
@@ -374,6 +404,9 @@ droption_t<std::string> op_record_function(
     " and function return value. We only record pointer-sized arguments and"
     " return value. The trace is labeled with the function_id via an ID entry"
     " prior to each set of value entries."
+    " If the target function is in the dynamic symbol table, then the function_name"
+    " should be a mangled name (e.g. \"_Znwm\" for \"operator new\", \"_ZdlPv\" for"
+    " \"operator delete\"). Otherwise, the function_name should be a demangled name."
     " Recording multiple functions can be achieved by using the separator"
     " \"" OP_RECORD_FUNC_ITEM_SEP
     "\" (e.g., -record_function \"memset|10|3" OP_RECORD_FUNC_ITEM_SEP
@@ -395,8 +428,29 @@ droption_t<std::string> op_record_heap_value(
     OP_RECORD_FUNC_ITEM_SEP,
     "malloc|0|1" OP_RECORD_FUNC_ITEM_SEP "free|1|1" OP_RECORD_FUNC_ITEM_SEP
     "tc_malloc|2|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|3|1" OP_RECORD_FUNC_ITEM_SEP
-    "__libc_malloc|4|1" OP_RECORD_FUNC_ITEM_SEP "__libc_free|5|1",
+    "__libc_malloc|4|1" OP_RECORD_FUNC_ITEM_SEP "__libc_free|5|1" OP_RECORD_FUNC_ITEM_SEP
+    "calloc|6|2",
     "Functions recorded by -record_heap",
     "Functions recorded by -record_heap. The option value should fit the same"
     " format required by -record_function. These functions will not"
     " be traced unless -record_heap is specified.");
+droption_t<unsigned int> op_miss_count_threshold(
+    DROPTION_SCOPE_FRONTEND, "miss_count_threshold", 50000,
+    "For cache miss analysis: minimum LLC miss count for a load to be eligible for "
+    "analysis.",
+    "Specifies the minimum number of LLC misses of a load for it to be eligible for "
+    "analysis in search of patterns in the miss address stream.");
+droption_t<double> op_miss_frac_threshold(
+    DROPTION_SCOPE_FRONTEND, "miss_frac_threshold", 0.005,
+    "For cache miss analysis: minimum LLC miss fraction for a load to be eligible for "
+    "analysis.",
+    "Specifies the minimum fraction of LLC misses of a load (from all misses) for it to "
+    "be eligible for analysis in search of patterns in the miss address stream.");
+droption_t<double> op_confidence_threshold(
+    DROPTION_SCOPE_FRONTEND, "confidence_threshold", 0.75,
+    "For cache miss analysis: minimum confidence threshold of a pattern to be printed "
+    "out.",
+    "Specifies the minimum confidence to include a discovered pattern in the output "
+    "results. Confidence in a discovered pattern for a load instruction is calculated "
+    "as the fraction of the load's misses with the discovered pattern over all the "
+    "load's misses.");

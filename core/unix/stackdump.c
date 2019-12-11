@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,7 +48,6 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <sys/wait.h>
-#include <string.h>
 
 #include "../globals.h"
 #include "os_private.h"
@@ -161,7 +160,7 @@ fork_syscall(void)
 /*-----------------------------------------------------------------------*/
 
 void
-stackdump(void)
+d_r_stackdump(void)
 {
     int pid, core_pid;
     /* get name now -- will be same for children */
@@ -186,7 +185,7 @@ stackdump(void)
 #if VERBOSE
         SYSLOG_INTERNAL_ERROR("about to dump core in process %d parent %d thread " TIDFMT
                               "",
-                              get_process_id(), get_parent_id(), get_thread_id());
+                              get_process_id(), get_parent_id(), d_r_get_thread_id());
 #endif
         /* We used to use abort here, but that had lots of complications with
          * pthreads and libc, so now we just dereference NULL.
@@ -206,7 +205,7 @@ stackdump(void)
     }
 #if VERBOSE
     SYSLOG_INTERNAL_ERROR("parent %d %d waiting for child %d", get_process_id(),
-                          get_thread_id(), pid);
+                          d_r_get_thread_id(), pid);
 #endif
     /* Parent continues */
     core_pid = pid;

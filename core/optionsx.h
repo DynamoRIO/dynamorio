@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -239,6 +239,7 @@ OPTION_DEFAULT_INTERNAL(bool, rstats_to_stderr, false,
 
 /* this takes precedence over the DYNAMORIO_VAR_LOGDIR config var */
 OPTION_DEFAULT(pathstring_t, logdir, EMPTY_STRING, "directory for log files")
+OPTION(bool, log_to_stderr, "log to stderr instead of files")
 #ifdef DEBUG /* options that only work for debug build */
 /* we do allow logging for customers for forensics/diagnostics that requires
  * debug build for more information.
@@ -249,18 +250,17 @@ OPTION_DEFAULT(pathstring_t, logdir, EMPTY_STRING, "directory for log files")
  yet we'll also have the initial value in options_t at the cost of 8 bytes */
 OPTION_COMMAND(uint, stats_logmask, 0, "logmask",
                {
-                   if (stats != NULL && for_this_process)
-                       stats->logmask = options->stats_logmask;
+                   if (d_r_stats != NULL && for_this_process)
+                       d_r_stats->logmask = options->stats_logmask;
                },
                "set mask for logging from specified modules", DYNAMIC, OP_PCACHE_NOP)
 
 OPTION_COMMAND(uint, stats_loglevel, 0, "loglevel",
                {
-                   if (stats != NULL && for_this_process)
-                       stats->loglevel = options->stats_loglevel;
+                   if (d_r_stats != NULL && for_this_process)
+                       d_r_stats->loglevel = options->stats_loglevel;
                },
                "set level of detail for logging", DYNAMIC, OP_PCACHE_NOP)
-OPTION_INTERNAL(bool, log_to_stderr, "log to stderr instead of files")
 OPTION_INTERNAL(uint, log_at_fragment_count,
                 "start execution at loglevel 1 and raise to the specified -loglevel at "
                 "this fragment count")
@@ -520,7 +520,7 @@ OPTION_DEFAULT(bool, opt_jit, false, "optimize translation of dynamically genera
      * It cannot be used with DGC_DIAGNOSTICS.
      */
     OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg,
-                            IF_WINDOWS_ELSE(false, true),
+                            IF_WINDOWS_ELSE(false, IF_LINUX_ELSE(true, false)),
                             "mangle application's segment usage.")
 #endif /* X86 */
 #ifdef X64
@@ -687,7 +687,7 @@ DYNAMIC_OPTION(bool, pause_via_loop,
 
     /* For MacOS, set to 0 to disable the check */
     OPTION_DEFAULT(uint, max_supported_os_version,
-        IF_WINDOWS_ELSE(105, IF_MACOS_ELSE(15, 0)),
+        IF_WINDOWS_ELSE(105, IF_MACOS_ELSE(19, 0)),
         /* case 447, defaults to supporting NT, 2000, XP, 2003, and Vista.
          * Windows 7 added with i#218
          * Windows 8 added with i#565
@@ -1013,10 +1013,11 @@ DYNAMIC_OPTION(bool, pause_via_loop,
 
     OPTION_DEFAULT(uint, max_trace_bbs, 128, "maximum number of basic blocks in a trace")
 
-    /* FIXME: case 8023 covers re-enabling on linux */
+    /* FIXME i#3522: re-enable SELFPROT_DATA_RARE on linux */
     OPTION_DEFAULT(uint, protect_mask,
-        IF_STATIC_LIBRARY_ELSE(0,
-            IF_WINDOWS_ELSE(0x101/*SELFPROT_DATA_RARE|SELFPROT_GENCODE*/, 0/*NYI*/)),
+        IF_STATIC_LIBRARY_ELSE(0x100/*SELFPROT_GENCODE*/,
+            IF_WINDOWS_ELSE(0x101/*SELFPROT_DATA_RARE|SELFPROT_GENCODE*/,
+                            0x100/*SELFPROT_GENCODE*/)),
         "which memory regions to protect")
     OPTION_INTERNAL(bool, single_privileged_thread, "suspend all other threads when one is out of cache")
 
@@ -1180,7 +1181,7 @@ DYNAMIC_OPTION(bool, pause_via_loop,
     /* heap_commit_increment may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT(uint_size, heap_commit_increment, 4*1024, "heap commit increment")
     /* cache_commit_increment may be adjusted by adjust_defaults_for_page_size(). */
-    OPTION_DEFAULT(uint, cache_commit_increment, 4*1024, "cache commit increment")
+    OPTION_DEFAULT(uint_size, cache_commit_increment, 4*1024, "cache commit increment")
 
     /* cache capacity control
      * FIXME: these are external for now while we study the right way to
@@ -1416,21 +1417,38 @@ DYNAMIC_OPTION(bool, pause_via_loop,
     OPTION_DEFAULT_INTERNAL(bool, skip_out_of_vm_reserve_curiosity, false,
         "skip the assert curiosity on out of vm_reserve (for regression tests)")
     OPTION_DEFAULT(bool, vm_reserve, true, "reserve virtual memory")
-    OPTION_DEFAULT(uint_size, vm_size, IF_X64_ELSE(256,128)*1024*1024,
+    OPTION_DEFAULT(uint_size, vm_size,
+                   /* The 64-bit default is 1G instead of the full 32-bit-reachable
+                    * 2G to allow for -vm_base_near_app to reduce overheads.
+                    * If this is set to 2G, -vm_base_near_app will always fail.
+                    */
+                   /* TODO i#3570: Add support for private loading inside the vm_size
+                    * region so Windows can support a 2G size.
+                    */
+                   IF_X64_ELSE(IF_WINDOWS_ELSE(512,1024UL),128)*1024*1024,
+                   "capacity of virtual memory region reserved (maximum supported is "
+                   "512MB for 32-bit and 2GB for 64-bit) for code and reachable heap")
+    OPTION_DEFAULT(uint_size, vmheap_size, IF_X64_ELSE(2048UL,128)*1024*1024,
                    /* XXX: default value is currently not good enough for sqlserver,
                     * for which we need more than 256MB.
                     */
                    "capacity of virtual memory region reserved (maximum supported is "
-                   "512MB for 32-bit and 1GB for 64-bit)")
+                   "512MB for 32-bit and 2GB for 64-bit) for unreachable heap")
 
     /* We hardcode an address in the mmap_text region here, but verify via
      * in vmk_init().
-     * For Linux we start higher to avoid limiting the brk (i#766).
+     * For Linux we start higher to avoid limiting the brk (i#766), but with our
+     * new default -vm_size of 0x20000000 we want to stay below our various
+     * preferred addresses of 0x7xxx0000 so we keep the base plus offset plus
+     * size below that.
+     * For a 64-bit process on MacOS __PAGEZERO takes up the first 4GB by default.
+     * We ignore this for x64 if -vm_base_near_app and the app is far away.
      */
     OPTION_DEFAULT(uint_addr, vm_base,
                    IF_VMX86_ELSE(IF_X64_ELSE(0x40000000,0x10800000),
-                                 IF_WINDOWS_ELSE(0x16000000, 0x46000000)),
-                   "preferred base address hint (ignored for 64-bit linux)")
+                                 IF_WINDOWS_ELSE(0x16000000, IF_MACOS_ELSE(
+                                 IF_X64_ELSE(0x120000000,0x3f000000),0x3f000000))),
+                   "preferred base address hint for reachable code+heap")
      /* FIXME: we need to find a good location with no conflict with DLLs or apps allocations */
     OPTION_DEFAULT(uint_addr, vm_max_offset,
                    IF_VMX86_ELSE(IF_X64_ELSE(0x18000000,0x05800000),0x10000000),
@@ -1448,16 +1466,27 @@ DYNAMIC_OPTION(bool, pause_via_loop,
      * an absolute requirement (XXX i#829: it is required for mixed-mode).
      */
     OPTION_DEFAULT(bool, heap_in_lower_4GB, false,
-                   "on 64bit request that the dr heap "
-                   "be allocated entirely within the lower 4GB of address space so that "
-                   "it can be accessed directly as a 32bit address. See PR 215395.")
-    /* XXX i#774: this will become false by default once we split vmheap and vmcode */
-    OPTION_DEFAULT(bool, reachable_heap, true,
+                   "on 64bit request that the dr heap be allocated entirely within the "
+                   "lower 4GB of address space so that it can be accessed directly as a "
+                   "32bit address. See PR 215395.  Requires -reachable_heap.")
+    /* By default we separate heap from code and do not require reachability for heap. */
+    OPTION_DEFAULT(bool, reachable_heap, false,
                    "guarantee that all heap memory is 32-bit-displacement "
                    "reachable from the code cache.")
-    OPTION_DEFAULT(bool, reachable_client, true,
+    /* i#3570: For static DR we do not guarantee reachability. */
+    OPTION_DEFAULT(bool, reachable_client, IF_STATIC_LIBRARY_ELSE(false, true),
                    "guarantee that clients are reachable from the code cache.")
 #endif
+    /* XXX i#3566: Support for W^X has some current limitations:
+     * + It is not implemented for Windows or Mac.
+     * + Pcaches are not supported.
+     * + -native_exec_list is not supported.
+     * + dr_nonheap_alloc(rwx) is not supported.
+     * + DR_ALLOC_CACHE_REACHABLE is not supported.
+     *   Clients using other non-vmcode sources of +wx memory will also not comply.
+     */
+    OPTION_DEFAULT(bool, satisfy_w_xor_x, false,
+                   "avoids ever allocating memory that is both writable and executable.")
      /* FIXME: the lower 16 bits are ignored - so this here gives us
       * 12bits of randomness.  Could make it larger if we verify as
       * collision free the whole range [vm_base, * vm_base+vm_size+vm_max_offset)
@@ -1589,14 +1618,12 @@ OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
     OPTION_DEFAULT(bool, hook_vsyscall, true, "hook vdso vsyscall if possible")
     /* PR 356503: workaround to allow clients to make syscalls */
     OPTION_ALIAS(sysenter_is_int80, hook_vsyscall, false, STATIC, OP_PCACHE_GLOBAL)
-    /* i#2350: we support restartable sequence ("rseq") Linux kernel extensions,
-     * but as they are not in the mainline kernel we need the number to be passed
-     * in.  If left as 0 the support is disabled.
-     * Current support is preliminary: we execute them natively.
-     */
-    /* XXX: I'd prefer -1 to disable but there's no signed option type. */
-    OPTION_DEFAULT(uint, rseq_sysnum, 0,
-                   "system call number for restartable sequences; 0 disables")
+    OPTION_DEFAULT(bool, disable_rseq, false, "cause the restartable sequence SYS_rseq "
+                   "system call to return -ENOSYS as a workaround for rseq features not "
+                   "supportable by DR")
+    /* TODO i#2350: Remove this once we are sure of the stability of local copies. */
+    OPTION_DEFAULT(bool, rseq_assume_call, false, "assume rseq sequences are always "
+                   "structured with function call interfaces")
 #endif
 #ifdef UNIX
     OPTION_DEFAULT(bool, restart_syscalls, true,
@@ -1604,6 +1631,20 @@ OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
 #endif
 
     /* These should be made internal when sufficiently tested */
+#if defined(WINDOWS) || defined(MACOS64)
+    /* We mark as pcache-affecting though we have other explicit checks */
+    PC_OPTION_DEFAULT(uint, tls_align,
+        IF_WINDOWS_ELSE(1 /* case 6770: for disabling alignment */, 0),
+        /* 0 - use processor cache line */
+        /* 1, 2, 4 - no alignment
+         * 32 - Pentium III, Pentium M cache line
+         * 64 - Pentium 4 cache line
+         */
+        /* XXX: if we ever change our -tls_align default from 1 we should
+         * consider implications on platform-independence of persisted caches
+         */
+        "TLS slots preferred alignment")
+#endif
 #ifdef WINDOWS
     /* FIXME There's gotta be a better name for this. */
     OPTION_DEFAULT(bool, ignore_syscalls_follow_sysenter, true,
@@ -1630,17 +1671,6 @@ OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
         "use ignorable syscall classification for shared_syscalls")
 
     /* We mark as pcache-affecting though we have other explicit checks */
-    PC_OPTION_DEFAULT(uint, tls_align, 1, /* case 6770: for disabling alignment */
-        /* 0 - use processor cache line */
-        /* 1, 2, 4 - no alignment
-         * 32 - Pentium III, Pentium M cache line
-         * 64 - Pentium 4 cache line
-         */
-        /* FIXME: if we ever change our -tls_align default from 1 we should
-         * consider implications on platform-independence of persisted caches
-         */
-        "TLS slots preferred alignment")
-    /* We mark as pcache-affecting though we have other explicit checks */
     PC_OPTION_DEFAULT(uint, tls_flags, 1|2 /* TLS_FLAG_BITMAP_TOP_DOWN |
                                           * TLS_FLAG_CACHE_LINE_START */,
         "TLS allocation choices")
@@ -1652,7 +1682,7 @@ OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
      * whether a thread's TLS is initialized yet, on x86.
      * XXX: we plan to remove this once we're sure it's stable.
      */
-    OPTION_DEFAULT_INTERNAL(bool, safe_read_tls_init, true,
+    OPTION_DEFAULT_INTERNAL(bool, safe_read_tls_init, IF_LINUX_ELSE(true, false),
                             "use a safe read to identify uninit TLS")
 
     OPTION_DEFAULT(bool, guard_pages, true, "add guard pages to our heap units")
@@ -1682,7 +1712,7 @@ OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
         options->diagnostics = true;
 
         /* xref PR 232126 */
-        options->syslog_mask = SYSLOG_ALL;
+        options->syslog_mask = SYSLOG_ALL_NOVERBOSE;
         options->syslog_init = true;
         IF_INTERNAL(options->syslog_internal_mask = SYSLOG_ALL;)
 
@@ -2800,7 +2830,7 @@ OPTION_DEFAULT(bool, pad_jmps_mark_no_trace, false,
         "detach once a thread has 2 levels of nested callbacks (for internal testing)")
     OPTION_DEFAULT_INTERNAL(bool, detach_fix_sysenter_on_stack, true /* default true */,
         "if false then detach does not fix sysenter callbacks on the stack and instead "
-        "uses the emitted dispatch code used for other system calls (a fairly minor "
+        "uses the emitted d_r_dispatch code used for other system calls (a fairly minor "
         "transparency violation).  Used for internal testing.")
 
      /* for stress testing can use 1 */
@@ -2871,9 +2901,6 @@ OPTION_DEFAULT(bool, pad_jmps_mark_no_trace, false,
     OPTION(uint, aggressiveness, "level of aggressiveness in optimizations")
 #    endif
 
-#    ifdef IA32_ON_IA64
-    OPTIMIZE_OPTION(bool, test_ia64)
-#    endif
     OPTIMIZE_OPTION(bool, prefetch)
     OPTIMIZE_OPTION(bool, rlr)
     OPTIMIZE_OPTION(bool, vectorize)

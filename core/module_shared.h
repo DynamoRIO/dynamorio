@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -352,7 +352,7 @@ os_get_module_info_all_names(const app_pc pc,
 typedef void *module_base_t;
 
 generic_func_t
-get_proc_address(module_base_t lib, const char *name);
+d_r_get_proc_address(module_base_t lib, const char *name);
 
 #ifdef UNIX
 /* if we add any more values, switch to a globally-defined dr_export_info_t
@@ -536,6 +536,12 @@ typedef enum {
     /* These are for use with dr_map_executable_file(): */
     MODLOAD_NOT_PRIVLIB = 0x0002,
     MODLOAD_SKIP_WRITABLE = 0x0004, /* ignored on Windows */
+    /* For use with privload_map_and_relocate() or elf_loader_map_phdrs().
+     * Places an extra no-access page after .bss.
+     */
+    MODLOAD_SEPARATE_BSS = 0x0008,
+    /* Indicates that the module is being loaded in another process. */
+    MODLOAD_SEPARATE_PROCESS = 0x0010,
 } modload_flags_t;
 
 /* This function is used for loading non-private libs as well as private. */
@@ -570,6 +576,9 @@ privload_lookup_by_pc(app_pc modbase);
 privmod_t *
 privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
                 const char *path);
+
+bool
+privload_search_path_exists(const char *path, size_t len);
 
 /* ************************************************************************* *
  * os specific functions in loader.c, can be called from loader_shared.c     *

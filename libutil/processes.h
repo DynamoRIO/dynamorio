@@ -45,7 +45,7 @@
 extern "C" {
 #endif
 
-#include "lib/dr_stats.h" // from src tree
+#include "dr_stats.h" // from src tree
 
 /* dup KPRIORITY and VM_COUNTERS from src/win32/ntdll.h, in order
  *  to have process_info_s self-contained.

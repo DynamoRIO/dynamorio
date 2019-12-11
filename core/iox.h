@@ -201,10 +201,10 @@ TNAME(double_to_exp_str)(double d, int exp, int decimal, TCHAR *buf,
     return buf;
 }
 
-/* i#386: separated out to avoid floating-point instrs in our_vsnprintf */
+/* i#386: separated out to avoid floating-point instrs in d_r_vsnprintf */
 /* clang-format off */ /* (work around clang-format newline-after-type bug) */
 static const TCHAR *
-TNAME(our_vsnprintf_float)(double val, const TCHAR *c,
+TNAME(d_r_vsnprintf_float)(double val, const TCHAR *c,
                            TCHAR prefixbuf[3], TCHAR buf[BUF_SIZE],
                            int decimal, bool space_flag,
                            bool plus_flag, bool pound_flag)
@@ -282,7 +282,7 @@ TNAME(our_vsnprintf_float)(double val, const TCHAR *c,
  */
 /* clang-format off */ /* (work around clang-format newline-after-type bug) */
 int
-TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
+TNAME(d_r_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
 /* clang-format on */
 {
     const TCHAR *c;
@@ -563,7 +563,7 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             case _T('f'): {
                 /* pretty sure will always be promoted to a double in arg list */
                 double val = va_arg(ap, double);
-                str = TNAME(our_vsnprintf_float)(val, c, prefixbuf, buf, decimal,
+                str = TNAME(d_r_vsnprintf_float)(val, c, prefixbuf, buf, decimal,
                                                  space_flag, plus_flag, pound_flag);
                 break;
             }
@@ -738,14 +738,14 @@ max_reached:
  */
 /* clang-format off */ /* (work around clang-format newline-after-type bug) */
 int
-TNAME(our_snprintf)(TCHAR *s, size_t max, const TCHAR *fmt, ...)
+TNAME(d_r_snprintf)(TCHAR *s, size_t max, const TCHAR *fmt, ...)
 /* clang-format on */
 {
     int res;
     va_list ap;
     ASSERT(s);
     va_start(ap, fmt);
-    res = TNAME(our_vsnprintf)(s, max, fmt, ap);
+    res = TNAME(d_r_vsnprintf)(s, max, fmt, ap);
     va_end(ap);
     return res;
 }

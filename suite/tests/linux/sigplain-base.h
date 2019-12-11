@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -84,6 +84,16 @@ static int timer_hits = 0;
 static void
 signal_handler(int sig)
 {
+#if USE_SIGSTACK
+    /* Ensure setting a new stack while on the current one fails with EPERM. */
+    stack_t sigstack;
+    sigstack.ss_sp = a; /* will fail: just need sthg */
+    sigstack.ss_size = ALT_STACK_SIZE;
+    sigstack.ss_flags = 0;
+    int rc = sigaltstack(&sigstack, NULL);
+    assert(rc == -1 && errno == EPERM);
+#endif
+
 #if USE_TIMER
     if (sig == SIGVTALRM)
         timer_hits++;
@@ -125,6 +135,28 @@ main(int argc, char *argv[])
     struct itimerval t;
 #endif
 
+    /* Block a few signals */
+    sigset_t mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGURG);
+    sigaddset(&mask, SIGALRM);
+    rc = sigprocmask(SIG_SETMASK, &mask, NULL);
+    ASSERT_NOERR(rc);
+
+#if USE_SIGSTACK
+    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
+    sigstack.ss_size = ALT_STACK_SIZE;
+    sigstack.ss_flags = 0;
+    rc = sigaltstack(&sigstack, NULL);
+    ASSERT_NOERR(rc);
+#    if VERBOSE
+    print("Set up sigstack: 0x%08x - 0x%08x\n", sigstack.ss_sp,
+          sigstack.ss_sp + sigstack.ss_size);
+#    endif
+#endif
+
 #if USE_TIMER
     custom_intercept_signal(SIGVTALRM, signal_handler);
     t.it_interval.tv_sec = 0;
@@ -133,18 +165,6 @@ main(int argc, char *argv[])
     t.it_value.tv_usec = 20000;
     rc = setitimer(ITIMER_VIRTUAL, &t, NULL);
     ASSERT_NOERR(rc);
-#endif
-
-#if USE_SIGSTACK
-    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
-    sigstack.ss_size = ALT_STACK_SIZE;
-    sigstack.ss_flags = SS_ONSTACK;
-    rc = sigaltstack(&sigstack, NULL);
-    ASSERT_NOERR(rc);
-#    if VERBOSE
-    print("Set up sigstack: 0x%08x - 0x%08x\n", sigstack.ss_sp,
-          sigstack.ss_sp + sigstack.ss_size);
-#    endif
 #endif
 
     custom_intercept_signal(SIGSEGV, signal_handler);
@@ -170,6 +190,13 @@ main(int argc, char *argv[])
     }
     print("%f\n", res);
 
+    sigset_t check_mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    rc = sigprocmask(SIG_BLOCK, NULL, &check_mask);
+    ASSERT_NOERR(rc);
+    assert(memcmp(&mask, &check_mask, sizeof(mask)) == 0);
+
 #if USE_TIMER
     memset(&t, 0, sizeof(t));
     rc = setitimer(ITIMER_VIRTUAL, &t, NULL);
@@ -181,7 +208,16 @@ main(int argc, char *argv[])
         print("Got some timer hits!\n");
 #endif
 
-#if USE_SIGSTACK
+        /* We leave the sigstack in place for the timer so any racy alarm arriving
+         * after we disabled the itimer will be on the alt stack.
+         */
+#if USE_SIGSTACK && !USE_TIMER
+    stack_t check_stack;
+    rc = sigaltstack(NULL, &check_stack);
+    ASSERT_NOERR(rc);
+    assert(check_stack.ss_sp == sigstack.ss_sp &&
+           check_stack.ss_size == sigstack.ss_size &&
+           check_stack.ss_flags == sigstack.ss_flags);
     free(sigstack.ss_sp);
 #endif
     return 0;

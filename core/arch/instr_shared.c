@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -61,8 +61,6 @@
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #include "x86/decode_private.h"
 
-#include <string.h> /* for memcpy */
-
 #ifdef DEBUG
 #    include "disassemble.h"
 #endif
@@ -98,7 +96,7 @@ instr_create(dcontext_t *dcontext)
     return instr;
 }
 
-/* deletes the instr_t object with handle "inst" and frees its storage */
+/* deletes the instr_t object with handle "instr" and frees its storage */
 void
 instr_destroy(dcontext_t *dcontext, instr_t *instr)
 {
@@ -125,8 +123,14 @@ instr_clone(dcontext_t *dcontext, instr_t *orig)
 
     if ((orig->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
         /* instr length already set from memcpy */
-        instr->bytes = (byte *)heap_alloc(dcontext, instr->length HEAPACCT(ACCT_IR));
+        instr->bytes =
+            (byte *)heap_reachable_alloc(dcontext, instr->length HEAPACCT(ACCT_IR));
         memcpy((void *)instr->bytes, (void *)orig->bytes, instr->length);
+    } else if (instr_is_label(orig)) {
+        /* We don't know what this callback does, we can't copy this. The caller that
+         * makes the clone needs to take care of this, xref i#3926.
+         */
+        instr_set_label_callback(instr, NULL);
     }
 #ifdef CUSTOM_EXIT_STUBS
     if ((orig->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
@@ -168,10 +172,10 @@ instr_init(dcontext_t *dcontext, instr_t *instr)
 void
 instr_free(dcontext_t *dcontext, instr_t *instr)
 {
-    if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
-        heap_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
-        instr->bytes = NULL;
-        instr->flags &= ~INSTR_RAW_BITS_ALLOCATED;
+    if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
+        (*instr->label_cb)(dcontext, instr);
+    if (TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags)) {
+        instr_free_raw_bits(dcontext, instr);
     }
 #ifdef CUSTOM_EXIT_STUBS
     if ((instr->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
@@ -318,10 +322,10 @@ instr_build_bits(dcontext_t *dcontext, int opcode, uint num_bytes)
 static int
 private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
 {
-    /* we cannot use a stack buffer for encoding since our stack on x64 linux
-     * can be too far to reach from our heap
+    /* We cannot use a stack buffer for encoding since our stack on x64 linux
+     * can be too far to reach from our heap.  We need reachable heap.
      */
-    byte *buf = heap_alloc(dcontext, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+    byte *buf = heap_reachable_alloc(dcontext, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     uint len;
     /* Do not cache instr opnds as they are pc-relative to final encoding location.
      * Rather than us walking all of the operands separately here, we have
@@ -339,7 +343,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
                                                             instr_get_isa_mode(instr)
                                                                 _IF_ARM(false))
                                         ->name);
-            heap_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+            heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
             return 0;
         }
         /* if unreachable, we can't cache, since re-relativization won't work */
@@ -387,7 +391,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         instr->bytes = tmp;
         instr_set_operands_valid(instr, valid);
     }
-    heap_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+    heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     return len;
 }
 
@@ -1072,7 +1076,8 @@ instr_free_raw_bits(dcontext_t *dcontext, instr_t *instr)
 {
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0)
         return;
-    heap_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
+    heap_reachable_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
+    instr->bytes = NULL;
     instr->flags &= ~INSTR_RAW_BITS_VALID;
     instr->flags &= ~INSTR_RAW_BITS_ALLOCATED;
 }
@@ -1088,7 +1093,9 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
     if ((instr->flags & INSTR_RAW_BITS_VALID) != 0)
         original_bits = instr->bytes;
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0 || instr->length != num_bytes) {
-        byte *new_bits = (byte *)heap_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR));
+        /* We need reachable heap for rip-rel re-relativization. */
+        byte *new_bits =
+            (byte *)heap_reachable_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR));
         if (original_bits != NULL) {
             /* copy original bits into modified bits so can just modify
              * a few and still have all info in one place
@@ -1109,6 +1116,27 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
 #ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
+}
+
+void
+instr_set_label_callback(instr_t *instr, instr_label_callback_t cb)
+{
+    CLIENT_ASSERT(instr_is_label(instr),
+                  "only set callback functions for label instructions");
+    CLIENT_ASSERT(instr->label_cb == NULL, "label callback function is already set");
+    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+                  "instruction's raw bits occupying label callback memory");
+    instr->label_cb = cb;
+}
+
+instr_label_callback_t
+instr_get_label_callback(instr_t *instr)
+{
+    CLIENT_ASSERT(instr_is_label(instr),
+                  "only label instructions have a callback function");
+    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+                  "instruction's raw bits occupying label callback memory");
+    return instr->label_cb;
 }
 
 instr_t *
@@ -1243,6 +1271,19 @@ instr_length(dcontext_t *dcontext, instr_t *instr)
     return private_instr_encode(dcontext, instr, false /*don't need to cache*/);
 }
 
+instr_t *
+instr_set_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
+{
+    instr->encoding_hints |= hint;
+    return instr;
+}
+
+bool
+instr_has_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
+{
+    return TEST(hint, instr->encoding_hints);
+}
+
 /***********************************************************************/
 /* decoding routines */
 
@@ -1276,7 +1317,13 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
         !instr_valid(instr))
         return instr;
 
-    DOLOG(5, LOG_ALL, { loginst(dcontext, 4, instr, "instr_expand"); });
+    DOLOG(5, LOG_ALL, {
+        /* disassembling might change the instruction object, we're cloning it
+         * for the logger */
+        instr_t *log_instr = instr_clone(dcontext, instr);
+        d_r_loginst(dcontext, 4, log_instr, "instr_expand");
+        instr_free(dcontext, log_instr);
+    });
 
     /* decode routines use dcontext mode, but we want instr mode */
     dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
@@ -1309,7 +1356,8 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
             dr_set_isa_mode(dcontext, old_mode, NULL);
             return firstinstr;
         }
-        DOLOG(5, LOG_ALL, { loginst(dcontext, 4, newinstr, "\tjust expanded into"); });
+        DOLOG(5, LOG_ALL,
+              { d_r_loginst(dcontext, 4, newinstr, "\tjust expanded into"); });
 
         /* CAREFUL of what you call here -- don't call anything that
          * auto-upgrades instr to Level 2, it will fail on Level 0 bundles!
@@ -1580,10 +1628,10 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
         if (!instr_opcode_valid(instr) ||
             (instr_is_cti(instr) && !instr_operands_valid(instr))) {
             DOLOG(4, LOG_ALL, {
-                loginst(dcontext, 4, instr, "instrlist_decode_cti: about to decode");
+                d_r_loginst(dcontext, 4, instr, "instrlist_decode_cti: about to decode");
             });
             instr_decode_cti(dcontext, instr);
-            DOLOG(4, LOG_ALL, { loginst(dcontext, 4, instr, "\tjust decoded"); });
+            DOLOG(4, LOG_ALL, { d_r_loginst(dcontext, 4, instr, "\tjust decoded"); });
         }
     }
 
@@ -1602,11 +1650,11 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
             opnd_is_near_pc(instr_get_src(instr, 0))) {
             instr_t *tgt;
             DOLOG(4, LOG_ALL, {
-                loginst(dcontext, 4, instr,
-                        "instrlist_decode_cti: found cti w/ pc target");
+                d_r_loginst(dcontext, 4, instr,
+                            "instrlist_decode_cti: found cti w/ pc target");
             });
             for (tgt = instrlist_first(ilist); tgt != NULL; tgt = instr_get_next(tgt)) {
-                DOLOG(4, LOG_ALL, { loginst(dcontext, 4, tgt, "\tchecking"); });
+                DOLOG(4, LOG_ALL, { d_r_loginst(dcontext, 4, tgt, "\tchecking"); });
                 LOG(THREAD, LOG_INTERP | LOG_OPTS, 4, "\t\taddress is " PFX "\n",
                     instr_get_raw_bits(tgt));
                 if (opnd_get_pc(instr_get_target(instr)) == instr_get_raw_bits(tgt)) {
@@ -1621,7 +1669,7 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
                     if (bits != 0)
                         instr_set_raw_bits(instr, bits, len);
                     DOLOG(4, LOG_ALL,
-                          { loginst(dcontext, 4, tgt, "\tcti targets this"); });
+                          { d_r_loginst(dcontext, 4, tgt, "\tcti targets this"); });
                     break;
                 }
             }
@@ -1639,7 +1687,7 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
 /* utility routines */
 
 void
-loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string)
+d_r_loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         LOG(THREAD, LOG_ALL, level, "%s: ", string);
@@ -1649,7 +1697,7 @@ loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string)
 }
 
 void
-logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string)
+d_r_logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         LOG(THREAD, LOG_ALL, level, "%s: ", string);
@@ -1659,7 +1707,7 @@ logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string)
 }
 
 void
-logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string)
+d_r_logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         instr_t *inst;
@@ -1789,6 +1837,45 @@ instr_reads_from_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
     return false;
 }
 
+/* In this func, it must be the exact same register, not a sub reg. ie. eax!=ax */
+bool
+instr_reads_from_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
+{
+    int i;
+    opnd_t opnd;
+
+    if (!TEST(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_is_predicated(instr) &&
+        !instr_predicate_reads_srcs(instr_get_predicate(instr)))
+        return false;
+
+#ifdef X86
+    /* special case */
+    if (instr_get_opcode(instr) == OP_nop_modrm)
+        return false;
+#endif
+
+    for (i = 0; i < instr_num_srcs(instr); i++) {
+        opnd = instr_get_src(instr, i);
+        if (opnd_is_reg(opnd) && opnd_get_reg(opnd) == reg &&
+            opnd_get_size(opnd) == reg_get_size(reg))
+            return true;
+        else if (opnd_is_base_disp(opnd) &&
+                 (opnd_get_base(opnd) == reg || opnd_get_index(opnd) == reg ||
+                  opnd_get_segment(opnd) == reg))
+            return true;
+    }
+
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        opnd = instr_get_dst(instr, i);
+        if (opnd_is_base_disp(opnd) &&
+            (opnd_get_base(opnd) == reg || opnd_get_index(opnd) == reg ||
+             opnd_get_segment(opnd) == reg))
+            return true;
+    }
+
+    return false;
+}
+
 /* this checks sub-registers */
 bool
 instr_writes_to_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
@@ -1807,7 +1894,7 @@ instr_writes_to_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
     return false;
 }
 
-/* in this func, it must be the exact same register, not a sub reg. ie. eax!=ax */
+/* In this func, it must be the exact same register, not a sub reg. ie. eax!=ax */
 bool
 instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
 {
@@ -1822,7 +1909,7 @@ instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t fl
         if (opnd_is_reg(opnd) &&
             (opnd_get_reg(opnd) == reg)
             /* for case like OP_movt on ARM and SIMD regs on X86,
-             * partial reg writen with full reg name in opnd
+             * partial reg written with full reg name in opnd
              */
             && opnd_get_size(opnd) == reg_get_size(reg))
             return true;
@@ -1936,6 +2023,16 @@ instr_zeroes_ymmh(instr_t *instr)
             !reg_is_ymm(opnd_get_reg(opnd)))
             return true;
     }
+    return false;
+}
+
+bool
+instr_is_xsave(instr_t *instr)
+{
+    int opcode = instr_get_opcode(instr); /* force decode */
+    if (opcode == OP_xsave32 || opcode == OP_xsaveopt32 || opcode == OP_xsave64 ||
+        opcode == OP_xsaveopt64 || opcode == OP_xsavec32 || opcode == OP_xsavec64)
+        return true;
     return false;
 }
 #endif /* X86 */
@@ -2130,6 +2227,36 @@ instr_set_our_mangling(instr_t *instr, bool ours)
         instr->flags &= ~INSTR_OUR_MANGLING;
 }
 
+bool
+instr_is_our_mangling_epilogue(instr_t *instr)
+{
+    ASSERT(!TEST(INSTR_OUR_MANGLING_EPILOGUE, instr->flags) ||
+           instr_is_our_mangling(instr));
+    return TEST(INSTR_OUR_MANGLING_EPILOGUE, instr->flags);
+}
+
+void
+instr_set_our_mangling_epilogue(instr_t *instr, bool epilogue)
+{
+    if (epilogue) {
+        instr->flags |= INSTR_OUR_MANGLING_EPILOGUE;
+    } else
+        instr->flags &= ~INSTR_OUR_MANGLING_EPILOGUE;
+}
+
+instr_t *
+instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist,
+                                        instr_t *instr)
+{
+    if (instrlist_get_translation_target(ilist) != NULL) {
+        int sz = decode_sizeof(dcontext, instrlist_get_translation_target(ilist),
+                               NULL _IF_X86_64(NULL));
+        instr_set_translation(instr, instrlist_get_translation_target(ilist) + sz);
+    }
+    instr_set_our_mangling_epilogue(instr, true);
+    return instr;
+}
+
 /* Emulates instruction to find the address of the index-th memory operand.
  * Either or both OUT variables can be NULL.
  */
@@ -2154,6 +2281,21 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     for (i = 0; i < instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
         if (opnd_is_memory_reference(curop)) {
+            if (opnd_is_vsib(curop)) {
+#ifdef X86
+                if (instr_compute_address_VSIB(instr, mc, mc_size, mc_flags, curop, index,
+                                               &have_addr, addr, &write)) {
+                    CLIENT_ASSERT(
+                        write,
+                        "VSIB found in destination but instruction is not a scatter");
+                    break;
+                } else {
+                    return false;
+                }
+#else
+                CLIENT_ASSERT(false, "VSIB should be x86-only");
+#endif
+            }
             memcount++;
             if (memcount == (int)index) {
                 write = true;
@@ -2161,7 +2303,7 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
             }
         }
     }
-    if (memcount != (int)index &&
+    if (!write && memcount != (int)index &&
         /* lea has a mem_ref source operand, but doesn't actually read */
         !opc_is_not_a_real_memory_load(instr_get_opcode(instr))) {
         for (i = 0; i < instr_num_srcs(instr); i++) {
@@ -3273,8 +3415,16 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, 
     if (reg == NULL)
         reg = &myreg;
     if (instr_check_tls_spill_restore(instr, spill, reg, &check_disp)) {
-        int offs = reg_spill_tls_offs(*reg);
-        if (!DR_only || (offs != -1 && check_disp == os_tls_offset((ushort)offs))) {
+        if (!DR_only ||
+            (reg_spill_tls_offs(*reg) != -1 &&
+             /* Mangling may choose to spill registers to a not natural tls offset,
+              * e.g. rip-rel mangling will, if rax is used by the instruction. We
+              * allow for all possible internal DR slots to recognize a DR spill.
+              */
+             (check_disp == os_tls_offset((ushort)TLS_REG0_SLOT) ||
+              check_disp == os_tls_offset((ushort)TLS_REG1_SLOT) ||
+              check_disp == os_tls_offset((ushort)TLS_REG2_SLOT) ||
+              check_disp == os_tls_offset((ushort)TLS_REG3_SLOT)))) {
             if (tls != NULL)
                 *tls = true;
             if (offs_out != NULL)
@@ -3307,10 +3457,10 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *
 
 bool
 instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *spill,
-                                 reg_id_t *reg)
+                                 reg_id_t *reg, uint *offs)
 {
     return instr_is_reg_spill_or_restore_ex(drcontext, instr, true, tls, spill, reg,
-                                            NULL);
+                                            offs);
 }
 
 /* N.B. : client meta routines (dr_insert_* etc.) should never use anything other
@@ -3388,6 +3538,20 @@ move_mm_reg_opcode(bool aligned16, bool aligned32)
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return 0;
 #    endif /* X86/ARM */
+}
+
+uint
+move_mm_avx512_reg_opcode(bool aligned64)
+{
+#    ifdef X86
+    /* move_mm_avx512_reg_opcode can only be called on processors that support AVX-512. */
+    ASSERT(ZMM_ENABLED());
+    return (aligned64 ? OP_vmovaps : OP_vmovups);
+#    else
+    /* move_mm_avx512_reg_opcode not supported on ARM/AArch64. */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return 0;
+#    endif /* X86 */
 }
 
 #endif /* !STANDALONE_DECODER */

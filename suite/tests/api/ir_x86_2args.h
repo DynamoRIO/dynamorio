@@ -449,3 +449,12 @@ OPCODE(adox_x64, adox, adox, X64_ONLY, REGARG(RAX), MEMARG(OPSZ_8))
 OPCODE(adox, adox, adox, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(adcx_x64, adcx, adcx, X64_ONLY, REGARG(RAX), MEMARG(OPSZ_8))
 OPCODE(adcx, adcx, adcx, 0, REGARG(EAX), MEMARG(OPSZ_4))
+
+/****************************************************************************/
+/* AVX */
+OPCODE(vpabsb, vpabsb, vpabsb, 0, REGARG(XMM1), MEMARG(OPSZ_16))
+OPCODE(vpabsw, vpabsw, vpabsw, 0, REGARG(XMM1), MEMARG(OPSZ_16))
+OPCODE(vpabsd, vpabsd, vpabsd, 0, REGARG(XMM1), MEMARG(OPSZ_16))
+OPCODE(vpabsb_256, vpabsb, vpabsb, 0, REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpabsw_256, vpabsw, vpabsw, 0, REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpabsd_256, vpabsd, vpabsd, 0, REGARG(YMM1), MEMARG(OPSZ_32))

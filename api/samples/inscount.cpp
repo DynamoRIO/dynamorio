@@ -164,9 +164,36 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             }
         }
     }
-    /* Count instructions */
-    for (instr = instrlist_first_app(bb), num_instrs = 0; instr != NULL;
-         instr = instr_get_next_app(instr)) {
+
+    /* Count instructions. If an emulation client is running with this client,
+     * we want to count all the original native instructions and the emulated
+     * instruction but NOT the introduced native instructions used for emulation.
+     */
+    bool is_emulation = false;
+    for (instr = instrlist_first(bb), num_instrs = 0; instr != NULL;
+         instr = instr_get_next(instr)) {
+        if (drmgr_is_emulation_start(instr)) {
+            /* Each emulated instruction is replaced by a series of native
+             * instructions delimited by labels indicating when the emulation
+             * sequence begins and ends. It is the responsibility of the
+             * emulation client to place the start/stop labels correctly.
+             */
+            num_instrs++;
+            is_emulation = true;
+            /* Data about the emulated instruction can be extracted from the
+             * start label using the accessor function:
+             * drmgr_get_emulated_instr_data()
+             */
+            continue;
+        }
+        if (drmgr_is_emulation_end(instr)) {
+            is_emulation = false;
+            continue;
+        }
+        if (is_emulation)
+            continue;
+        if (!instr_is_app(instr))
+            continue;
         num_instrs++;
     }
     *user_data = (void *)(ptr_uint_t)num_instrs;

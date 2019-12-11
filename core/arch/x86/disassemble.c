@@ -43,7 +43,6 @@
 #include "decode.h"
 #include "decode_private.h"
 #include "disassemble.h"
-#include <string.h>
 
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 
@@ -164,6 +163,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     case TYPE_VAR_REG_EX:
     case TYPE_VAR_XREG_EX:
     case TYPE_VAR_REGX_EX:
+    case TYPE_VAR_REGX:
         /* we do want to print implicit operands for opcode-decides-register
          * instrs like inc-reg and pop-reg, but not for say lahf, aaa, or cdq.
          */
@@ -196,6 +196,13 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     case TYPE_FLOATMEM:
     case TYPE_VSIB:
     case TYPE_1:
+    case TYPE_K_REG:
+    case TYPE_K_MODRM:
+    case TYPE_K_MODRM_R:
+    case TYPE_K_VEX:
+    case TYPE_K_EVEX:
+    case TYPE_T_REG:
+    case TYPE_T_MODRM:
         if (prev)
             print_to_buffer(buf, bufsz, sofar, ", ");
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);

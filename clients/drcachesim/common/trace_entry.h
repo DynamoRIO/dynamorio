@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -162,6 +162,8 @@ typedef enum {
      * counter execution sequence.
      */
     TRACE_TYPE_INSTR_SYSENTER,
+
+    // Update trace_type_names[] when adding here.
 } trace_type_t;
 
 /** The sub-type for TRACE_TYPE_MARKER. */
@@ -169,7 +171,8 @@ typedef enum {
     /**
      * The subsequent instruction is the start of a handler for a kernel-initiated
      * event: a signal handler on UNIX, or an APC, exception, or callback dispatcher
-     * on Windows.
+     * on Windows.  The value holds the module offset of the interruption point PC,
+     * which is used in post-processing.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
     /**

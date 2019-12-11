@@ -481,6 +481,23 @@ bit    %q21 %q12 -> %q12
 bif    %d3 %d3 -> %d20
 bif    %q3 %q3 -> %q20
 test_asimdsame complete
+ld1    (%x0)[8byte] $0x00 -> %q0
+ld1    (%x0)[16byte] $0x00 -> %q0
+ld1    (%x0)[4byte] $0x01 -> %q0
+ld1    (%x0)[8byte] $0x01 -> %q0
+ld1    (%x0)[2byte] $0x02 -> %q0
+ld1    (%x0)[4byte] $0x02 -> %q0
+ld1    (%x0)[1byte] $0x03 -> %q0
+ld1    (%x0)[2byte] $0x03 -> %q0
+st1    %q0 $0x00 -> (%x0)[8byte]
+st1    %q0 $0x00 -> (%x0)[16byte]
+st1    %q0 $0x01 -> (%x0)[4byte]
+st1    %q0 $0x01 -> (%x0)[8byte]
+st1    %q0 $0x02 -> (%x0)[2byte]
+st1    %q0 $0x02 -> (%x0)[4byte]
+st1    %q0 $0x03 -> (%x0)[1byte]
+st1    %q0 $0x03 -> (%x0)[2byte]
+test_asimd_mem complete
 fmov   %d27 -> %d2
 fmov   %s27 -> %s2
 fmov   %h27 -> %h2
@@ -604,4 +621,153 @@ uqsub  %z26 %z8 $0x01 -> %z2
 uqsub  %z26 %z8 $0x02 -> %z2
 uqsub  %z26 %z8 $0x03 -> %z2
 test_sve_int_bin_cons_arit_0 complete
+saddl  %d13 %d18 $0x00 -> %q18
+saddl  %d13 %d18 $0x01 -> %q18
+saddl  %d13 %d18 $0x02 -> %q18
+saddl2 %q26 %q26 $0x00 -> %q6
+saddl2 %q26 %q26 $0x01 -> %q6
+saddl2 %q26 %q26 $0x02 -> %q6
+saddw  %q5 %d16 $0x00 -> %q20
+saddw  %q5 %d16 $0x01 -> %q20
+saddw  %q5 %d16 $0x02 -> %q20
+saddw2 %q7 %q30 $0x00 -> %q10
+saddw2 %q7 %q30 $0x01 -> %q10
+saddw2 %q7 %q30 $0x02 -> %q10
+ssubl  %d1 %d27 $0x00 -> %q31
+ssubl  %d1 %d27 $0x01 -> %q31
+ssubl  %d1 %d27 $0x02 -> %q31
+ssubl2 %q12 %q9 $0x00 -> %q19
+ssubl2 %q12 %q9 $0x01 -> %q19
+ssubl2 %q12 %q9 $0x02 -> %q19
+ssubw  %q14 %d21 $0x00 -> %q21
+ssubw  %q14 %d21 $0x01 -> %q21
+ssubw  %q14 %d21 $0x02 -> %q21
+ssubw2 %q4 %q24 $0x00 -> %q21
+ssubw2 %q4 %q24 $0x01 -> %q21
+ssubw2 %q4 %q24 $0x02 -> %q21
+addhn  %q31 %q19 $0x00 -> %d31
+addhn  %q31 %q19 $0x01 -> %d31
+addhn  %q31 %q19 $0x02 -> %d31
+addhn2 %q0 %q4 $0x00 -> %q1
+addhn2 %q0 %q4 $0x01 -> %q1
+addhn2 %q0 %q4 $0x02 -> %q1
+sabal  %d9 %d11 $0x00 -> %q30
+sabal  %d9 %d11 $0x01 -> %q30
+sabal  %d9 %d11 $0x02 -> %q30
+sabal2 %q10 %q17 $0x00 -> %q28
+sabal2 %q10 %q17 $0x01 -> %q28
+sabal2 %q10 %q17 $0x02 -> %q28
+subhn  %q2 %q18 $0x00 -> %d13
+subhn  %q2 %q18 $0x01 -> %d13
+subhn  %q2 %q18 $0x02 -> %d13
+subhn2 %q5 %q7 $0x00 -> %q27
+subhn2 %q5 %q7 $0x01 -> %q27
+subhn2 %q5 %q7 $0x02 -> %q27
+sabdl  %d1 %d15 $0x00 -> %q13
+sabdl  %d1 %d15 $0x01 -> %q13
+sabdl  %d1 %d15 $0x02 -> %q13
+sabdl2 %q21 %q17 $0x00 -> %q26
+sabdl2 %q21 %q17 $0x01 -> %q26
+sabdl2 %q21 %q17 $0x02 -> %q26
+smlal  %d4 %d18 $0x00 -> %q27
+smlal  %d4 %d18 $0x01 -> %q27
+smlal  %d4 %d18 $0x02 -> %q27
+smlal2 %q19 %q3 $0x00 -> %q11
+smlal2 %q19 %q3 $0x01 -> %q11
+smlal2 %q19 %q3 $0x02 -> %q11
+sqdmlal %d3 %d5 $0x01 -> %q24
+sqdmlal %d3 %d5 $0x02 -> %q24
+sqdmlal2 %q30 %q13 $0x01 -> %q25
+sqdmlal2 %q30 %q13 $0x02 -> %q25
+smlsl  %d7 %d8 $0x00 -> %q13
+smlsl  %d7 %d8 $0x01 -> %q13
+smlsl  %d7 %d8 $0x02 -> %q13
+smlsl2 %q5 %q3 $0x00 -> %q19
+smlsl2 %q5 %q3 $0x01 -> %q19
+smlsl2 %q5 %q3 $0x02 -> %q19
+sqdmlsl %d5 %d20 $0x01 -> %q14
+sqdmlsl %d5 %d20 $0x02 -> %q14
+sqdmlsl2 %q24 %q15 $0x01 -> %q26
+sqdmlsl2 %q24 %q15 $0x02 -> %q26
+smull  %d13 %d0 $0x00 -> %q11
+smull  %d13 %d0 $0x01 -> %q11
+smull  %d13 %d0 $0x02 -> %q11
+smull2 %q10 %q10 $0x00 -> %q22
+smull2 %q10 %q10 $0x01 -> %q22
+smull2 %q10 %q10 $0x02 -> %q22
+sqdmull %d14 %d18 $0x01 -> %q2
+sqdmull %d14 %d18 $0x02 -> %q2
+sqdmull2 %q27 %q21 $0x01 -> %q12
+sqdmull2 %q27 %q21 $0x02 -> %q12
+pmull  %d19 %d2 $0x00 -> %q16
+pmull  %d19 %d2 $0x03 -> %q16
+pmull2 %q19 %q2 $0x00 -> %q16
+pmull2 %q19 %q2 $0x03 -> %q16
+uaddl  %d16 %d29 $0x00 -> %q7
+uaddl  %d16 %d29 $0x01 -> %q7
+uaddl  %d16 %d29 $0x02 -> %q7
+uaddl2 %q19 %q2 $0x00 -> %q16
+uaddl2 %q19 %q2 $0x01 -> %q16
+uaddl2 %q19 %q2 $0x02 -> %q16
+uaddw  %q14 %d12 $0x00 -> %q15
+uaddw  %q14 %d12 $0x01 -> %q15
+uaddw  %q14 %d12 $0x02 -> %q15
+uaddw2 %q18 %q17 $0x00 -> %q13
+uaddw2 %q18 %q17 $0x01 -> %q13
+uaddw2 %q18 %q17 $0x02 -> %q13
+usubl  %d5 %d14 $0x00 -> %q15
+usubl  %d5 %d14 $0x01 -> %q15
+usubl  %d5 %d14 $0x02 -> %q15
+usubl2 %q13 %q1 $0x00 -> %q30
+usubl2 %q13 %q1 $0x01 -> %q30
+usubl2 %q13 %q1 $0x02 -> %q30
+usubw  %q17 %d1 $0x00 -> %q0
+usubw  %q17 %d1 $0x01 -> %q0
+usubw  %q17 %d1 $0x02 -> %q0
+usubw2 %q3 %q14 $0x00 -> %q2
+usubw2 %q3 %q14 $0x01 -> %q2
+usubw2 %q3 %q14 $0x02 -> %q2
+raddhn %q15 %q14 $0x00 -> %d31
+raddhn %q15 %q14 $0x01 -> %d31
+raddhn %q15 %q14 $0x02 -> %d31
+raddhn2 %q16 %q14 $0x00 -> %q13
+raddhn2 %q16 %q14 $0x01 -> %q13
+raddhn2 %q16 %q14 $0x02 -> %q13
+uabal  %d28 %d22 $0x00 -> %q23
+uabal  %d28 %d22 $0x01 -> %q23
+uabal  %d28 %d22 $0x02 -> %q23
+uabal2 %q20 %q29 $0x00 -> %q13
+uabal2 %q20 %q29 $0x01 -> %q13
+uabal2 %q20 %q29 $0x02 -> %q13
+rsubhn %q7 %q19 $0x00 -> %d4
+rsubhn %q7 %q19 $0x01 -> %d4
+rsubhn %q7 %q19 $0x02 -> %d4
+rsubhn2 %q20 %q18 $0x00 -> %q21
+rsubhn2 %q20 %q18 $0x01 -> %q21
+rsubhn2 %q20 %q18 $0x02 -> %q21
+uabdl  %d15 %d25 $0x00 -> %q26
+uabdl  %d15 %d25 $0x01 -> %q26
+uabdl  %d15 %d25 $0x02 -> %q26
+uabdl2 %q13 %q27 $0x00 -> %q30
+uabdl2 %q13 %q27 $0x01 -> %q30
+uabdl2 %q13 %q27 $0x02 -> %q30
+umlal  %d28 %d1 $0x00 -> %q22
+umlal  %d28 %d1 $0x01 -> %q22
+umlal  %d28 %d1 $0x02 -> %q22
+umlal2 %q24 %q30 $0x00 -> %q29
+umlal2 %q24 %q30 $0x01 -> %q29
+umlal2 %q24 %q30 $0x02 -> %q29
+umlsl  %d9 %d21 $0x00 -> %q31
+umlsl  %d9 %d21 $0x01 -> %q31
+umlsl  %d9 %d21 $0x02 -> %q31
+umlsl2 %q19 %q29 $0x00 -> %q4
+umlsl2 %q19 %q29 $0x01 -> %q4
+umlsl2 %q19 %q29 $0x02 -> %q4
+umull  %d11 %d2 $0x00 -> %q6
+umull  %d11 %d2 $0x01 -> %q6
+umull  %d11 %d2 $0x02 -> %q6
+umull2 %q6 %q3 $0x00 -> %q6
+umull2 %q6 %q3 $0x01 -> %q6
+umull2 %q6 %q3 $0x02 -> %q6
+test_asimddiff complete
 All tests complete

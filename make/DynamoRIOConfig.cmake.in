@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -177,14 +177,21 @@
 #
 #  set(DynamoRIO_VISATT ON)
 #
-# To request the old REG_ enum symbols (which were changed to DR_REG_ to
-# avoid conflicts with system headers) set this variable:
+# To request the old REG_ enum symbols (which were changed to DR_REG_ to avoid
+# conflicts with system headers) set this variable. The newly added x86 AVX-512
+# registers DR_REG_ZMM0 - DR_REG_ZMM31 as well as DR_REG_K0 - DR_REG_K7 will not
+# be provided a deprecated REG_ name and are only available via DR_REG_ symbol.
+#
 #
 #  set(DynamoRIO_REG_COMPATIBILITY ON)
 #
 # To request that PAGE_SIZE and PAGE_START be defined set this variable:
 #
 #  set(DynamoRIO_PAGE_SIZE_COMPATIBILITY ON)
+#
+# To request that NUM_SIMD_SLOTS and NUM_XMM_SLOTS be defined set this variable:
+#
+#  set(DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY ON)
 #
 # To request a preferred base even when not targeting 64-bit:
 # (the actual base will use PREFERRED_BASE if set)
@@ -244,13 +251,6 @@
 # to avoid namespace conflicts.  Internal (global) variables and helper functions
 # should have a "_DR_" prefix.  Public functions and variables should have DynamoRIO
 # in the name.
-
-if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "3.0")
-  # XXX i#1557: update our code to satisfy the changes in 3.x
-  cmake_policy(PUSH)
-  cmake_policy(SET CMP0026 OLD)
-endif ()
 
 INCLUDEFILE make/utils_exposed.cmake
 
@@ -382,7 +382,7 @@ endfunction (_DR_get_x64)
 
 # i#955: support a <basename>.drpath file for loader search paths
 function (_DR_get_drpath_name out target)
-  get_target_property(client_path ${target} LOCATION${_DR_location_suffix})
+  DynamoRIO_get_full_path(client_path ${target} "${_DR_location_suffix}")
   # NAME_WE chops off from the first . instead of the last . so we use regex:
   string(REGEX REPLACE "\\.[^\\.]*$" "" client_base ${client_path})
   set(${out} ${client_base}.@DR_RPATH_SUFFIX@ PARENT_SCOPE)
@@ -501,10 +501,16 @@ function (configure_DynamoRIO_global is_cxx change_flags)
           if (WIN32)
             # We could limit this global var changing to Windows,
             # but it simplifies cross-platform uses to be symmetric
-            if (local_${var} MATCHES "/M[TD]")
-              string(REGEX REPLACE "/M[TD]" "/MT" local_${var} "${local_${var}}")
+            set(MT_base "/MT")
+            if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+              set(MT_flag "/MTd")
             else ()
-              set(local_${var} "${local_${var}} /MT")
+              set(MT_flag "/MT")
+            endif()
+            if (local_${var} MATCHES "/M[TD]")
+              string(REGEX REPLACE "/M[TD]" "${MT_base}" local_${var} "${local_${var}}")
+            else ()
+              set(local_${var} "${local_${var}} ${MT_flag}")
             endif ()
             string(REGEX REPLACE "/RTC." "" local_${var} "${local_${var}}")
           endif (WIN32)
@@ -580,6 +586,10 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
   if (DynamoRIO_PAGE_SIZE_COMPATIBILITY)
     set(extra_cflags "${extra_cflags} -DDR_PAGE_SIZE_COMPATIBILITY")
   endif (DynamoRIO_PAGE_SIZE_COMPATIBILITY)
+
+  if (DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY)
+    set(extra_cflags "${extra_cflags} -DDR_NUM_SIMD_SLOTS_COMPATIBILITY")
+  endif (DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY)
 
   if (DynamoRIO_LOG_COMPATIBILITY)
     set(extra_cflags "${extra_cflags} -DDR_LOG_DEFINE_COMPATIBILITY")
@@ -795,27 +805,7 @@ function (_DR_set_compile_flags target is_client extra_flags)
       else (tgt_cxx)
         set(tgt_link_flags "${tgt_link_flags} /nodefaultlib")
       endif (tgt_cxx)
-      if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
-        set(static_libc libcmtd)
-        if (tgt_cxx)
-          set(static_libc libcpmtd ${static_libc})
-        endif ()
-        # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
-        if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
-          set(static_libc ${static_libc} libvcruntimed.lib libucrtd.lib)
-        endif ()
-        # libcmt has symbols libcmtd does not so we need all files compiled w/ _DEBUG
-        set(extra_flags "${extra_flags} -D_DEBUG")
-      else ()
-        set(static_libc libcmt)
-        if (tgt_cxx)
-          set(static_libc libcpmt ${static_libc})
-        endif ()
-        # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
-        if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
-          set(static_libc ${static_libc} libvcruntime.lib libucrt.lib)
-        endif ()
-      endif ()
+      _DR_get_static_libc_list(static_libc)
       target_link_libraries(${target} ${static_libc})
     else ()
       set(tgt_link_flags "${tgt_link_flags} /nodefaultlib /noentry")
@@ -844,7 +834,7 @@ function (_DR_set_compile_flags target is_client extra_flags)
     DynamoRIO_add_rel_rpaths(${target} dynamorio)
     if (USE_DRPATH AND is_client) # doesn't make sense for standalone
       # Create the .drpath file our loader uses
-      get_target_property(libpath dynamorio LOCATION${_DR_location_suffix})
+      DynamoRIO_get_full_path(libpath dynamorio "${_DR_location_suffix}")
       get_filename_component(libdir ${libpath} PATH)
       _DR_get_drpath_name(drpath_file ${target})
       file(WRITE ${drpath_file} "${libdir}\n")
@@ -1089,12 +1079,16 @@ function (configure_DynamoRIO_static target)
     # should we pass -Wl,--export-dynamic here to match it?
     _DR_append_property_string(TARGET ${target} LINK_FLAGS "-Wl,--dynamic-list-data")
   endif ()
-
+  # We need libc before the ntdll_imports pulled in for DR.
+  _DR_get_static_libc_list(static_libc)
+  target_link_libraries(${target} ${static_libc})
   target_link_libraries(${target} dynamorio_static)
-  if (UNIX)
+  if (UNIX AND NOT APPLE) # --as-needed not supported by Mac ld
     # i#2070: avoid pulling libdynamorio.so
     # Assuming LINK_FLAGS goes before target_link_libraries.
     _DR_append_property_string(TARGET ${target} LINK_FLAGS "-Wl,--as-needed")
+    # Ensure client symbols are visible to DR via dlsym.
+    _DR_append_property_string(TARGET ${target} LINK_FLAGS "-rdynamic")
   endif ()
 endfunction (configure_DynamoRIO_static)
 
@@ -1171,7 +1165,7 @@ function (use_DynamoRIO_extension target extname)
   if (DynamoRIO_RPATH AND NOT DynamoRIO_EXT_${extname}_NOLIB)
     DynamoRIO_add_rel_rpaths(${target} ${extname})
     if (USE_DRPATH)
-      get_target_property(libpath ${extname} LOCATION${_DR_location_suffix})
+      DynamoRIO_get_full_path(libpath ${extname} "${_DR_location_suffix}")
       get_filename_component(libdir ${libpath} PATH)
       _DR_get_drpath_name(drpath_file ${target})
       if (EXISTS ${drpath_file})
@@ -1252,9 +1246,4 @@ endfunction ()
 if (NOT DrMemoryFramework_DIR AND EXISTS "${DynamoRIO_DIR}/../drmemory/drmf")
   set(DrMemoryFramework_DIR "${DynamoRIO_DIR}/../drmemory/drmf")
   find_package(DrMemoryFramework)
-endif ()
-
-if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "3.0")
-  cmake_policy(POP)
 endif ()

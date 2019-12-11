@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1403,6 +1403,23 @@ bool dr_unregister_signal_event(dr_signal_action_t (*func)(void *drcontext,
 #    endif /* UNIX */
 /* DR_API EXPORT END */
 
+DR_API
+/**
+ * Registers a callback function for the low on memory event.  DR calls \p func
+ * whenever virtual memory is tight and enables the client to help free space.
+ */
+void
+dr_register_low_on_memory_event(void (*func)());
+
+DR_API
+/**
+ * Unregister a callback function for low on memory events.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., the function was not registered).
+ */
+bool
+dr_unregister_low_on_memory_event(void (*func)());
+
 /****************************************************************************
  * SECURITY SUPPORT
  */
@@ -1615,6 +1632,14 @@ DR_API
 void *
 dr_standalone_init(void);
 
+DR_API
+/**
+ * Restores application state modified by dr_standalone_init(), which can
+ * include some signal handlers.
+ */
+void
+dr_standalone_exit(void);
+
 /* DR_API EXPORT BEGIN */
 
 #    ifdef API_EXPORT_ONLY
@@ -1748,6 +1773,8 @@ dr_set_client_name(const char *name, const char *report_URL);
 DR_API
 /**
  * Sets the version string presented to users in diagnostic messages.
+ * This has a maximum length of 96 characters; anything beyond that is
+ * silently truncated.
  */
 bool
 dr_set_client_version_string(const char *version);
@@ -1833,6 +1860,12 @@ typedef struct _dr_os_version_info_t {
     uint service_pack_major;
     /** The service pack minor number */
     uint service_pack_minor;
+    /** The build number. */
+    uint build_number;
+    /** The release identifier (such as "1803" for a Windows 10 release). */
+    char release_id[64];
+    /** The edition (such as "Education" or "Professional"). */
+    char edition[64];
 } dr_os_version_info_t;
 /* DR_API EXPORT END */
 
@@ -1951,6 +1984,19 @@ dr_abort(void);
 
 DR_API
 /**
+ * Aborts the process immediately without any cleanup (i.e., the exit event
+ * will not be called) with the exit code \p exit_code.
+ *
+ * On Linux, only the bottom 8 bits of \p exit_code will be honored
+ * for a normal exit.  If bits 9..16 are not all zero, DR will send an
+ * unhandled signal of that signal number instead of performing a normal
+ * exit.
+ */
+void
+dr_abort_with_code(int exit_code);
+
+DR_API
+/**
  * Exits the process, first performing a full cleanup that will
  * trigger the exit event (dr_register_exit_event()).  The process
  * exit code is set to \p exit_code.
@@ -1963,7 +2009,7 @@ DR_API
  * \note Calling this from \p dr_client_main or from the primary thread's
  * initialization event is not guaranteed to always work, as DR may
  * invoke a thread exit event where a thread init event was never
- * called.  We recommend using dr_abort() or waiting for full
+ * called.  We recommend using dr_abort_ex() or waiting for full
  * initialization prior to use of this routine.
  */
 void
@@ -2657,7 +2703,8 @@ DR_API
  * while application code is executing in the code cache.  Locks can
  * be used while inside client code reached from clean calls out of
  * the code cache, but they must be released before returning to the
- * cache.  Failing to follow these restrictions can lead to deadlocks.
+ * cache.  A lock must also be released by the same thread that acquired
+ * it.  Failing to follow these restrictions can lead to deadlocks.
  */
 void *
 dr_mutex_create(void);
@@ -2673,12 +2720,15 @@ void
 dr_mutex_lock(void *mutex);
 
 DR_API
-/** Unlocks \p mutex.  Asserts that mutex is currently locked. */
+/**
+ * Unlocks \p mutex.  Asserts that mutex is currently locked by the
+ * current thread.
+ */
 void
 dr_mutex_unlock(void *mutex);
 
 DR_API
-/** Tries once to lock \p mutex, returns whether or not successful. */
+/** Tries once to lock \p mutex and returns whether or not successful. */
 bool
 dr_mutex_trylock(void *mutex);
 
@@ -2887,9 +2937,22 @@ bool
 dr_mark_safe_to_suspend(void *drcontext, bool enter);
 
 DR_API
-/** Atomically adds \p *x and \p val and returns the sum. */
+/**
+ * Atomically adds \p val to \p *dest and returns the sum.
+ * \p dest must not straddle two cache lines.
+ */
 int
-dr_atomic_add32_return_sum(volatile int *x, int val);
+dr_atomic_add32_return_sum(volatile int *dest, int val);
+
+#    ifdef X64
+DR_API
+/**
+ * Atomically adds \p val to \p *dest and returns the sum.
+ * \p dest must not straddle two cache lines.
+ */
+int64
+dr_atomic_add64_return_sum(volatile int64 *dest, int64 val);
+#    endif
 
 /* DR_API EXPORT BEGIN */
 /**************************************************
@@ -4015,15 +4078,16 @@ dr_log(void *drcontext, uint mask, uint level, const char *fmt, ...);
 #    define DR_LOG_CACHE                                           \
         0x00000100 /**< Log data related to code cache management. \
                     */
-#    define DR_LOG_FRAGMENT                                                         \
-        0x00000200                     /**< Log data related to app code fragments. \
-                                        */
-#    define DR_LOG_DISPATCH 0x00000400 /**< Log data on every context switch dispatch. \
-                                        */
-#    define DR_LOG_MONITOR 0x00000800  /**< Log data related to trace building. */
-#    define DR_LOG_HEAP 0x00001000     /**< Log data related to memory management. */
-#    define DR_LOG_VMAREAS 0x00002000  /**< Log data related to address space regions. */
-#    define DR_LOG_SYNCH 0x00004000    /**< Log data related to synchronization. */
+#    define DR_LOG_FRAGMENT                                     \
+        0x00000200 /**< Log data related to app code fragments. \
+                    */
+#    define DR_LOG_DISPATCH                                                           \
+        0x00000400                    /**< Log data on every context switch dispatch. \
+                                       */
+#    define DR_LOG_MONITOR 0x00000800 /**< Log data related to trace building. */
+#    define DR_LOG_HEAP 0x00001000    /**< Log data related to memory management. */
+#    define DR_LOG_VMAREAS 0x00002000 /**< Log data related to address space regions. */
+#    define DR_LOG_SYNCH 0x00004000   /**< Log data related to synchronization. */
 #    define DR_LOG_MEMSTATS                                                            \
         0x00008000                         /**< Log data related to memory statistics. \
                                             */
@@ -4267,9 +4331,6 @@ DR_API
  * or S format specifiers.  On Windows, they are assumed to be UTF-16,
  * and are converted to UTF-8.  On Linux, they are converted by simply
  * dropping the high-order bytes.
- * \note On Windows, you can use _snprintf() instead (though _snprintf() does
- * not support printing floating point values and does not convert
- * between UTF-16 and UTF-8).
  * \note When printing floating-point values, the caller's code should
  * use proc_save_fpstate() or be inside a clean call that
  * has requested to preserve the floating-point state.
@@ -4730,8 +4791,8 @@ DR_API
  *   been translated and so may contain raw code cache values.  The function
  *   will be called from a signal handler that may have interrupted a
  *   lock holder or other critical code, so it must be careful in its
- *   operations: keep it as simple as possible, and avoid lock usage or
- *   I/O operations. If a general timer that does not interrupt client code
+ *   operations: keep it as simple as possible, and avoid any non-reentrant actions
+ *   such as lock usage. If a general timer that does not interrupt client code
  *   is required, the client should create a separate thread via
  *   dr_create_client_thread() (which is guaranteed to have a private
  *   itimer) and set the itimer there, where the callback function can
@@ -5535,14 +5596,26 @@ dr_clobber_retaddr_after_read(void *drcontext, instrlist_t *ilist, instr_t *inst
 
 DR_API
 /**
- * Returns true if the xmm fields in dr_mcontext_t are valid
+ * Returns true if the simd fields in dr_mcontext_t are valid xmm, ymm, or zmm values
  * (i.e., whether the underlying processor supports SSE).
  * \note If #DR_MC_MULTIMEDIA is not specified when calling dr_get_mcontext(),
- * the xmm fields will not be filled in regardless of the return value
+ * the simd fields will not be filled in regardless of the return value
  * of this routine.
  */
 bool
 dr_mcontext_xmm_fields_valid(void);
+
+DR_API
+/**
+ * Returns true if the simd fields in dr_mcontext_t are valid zmm values
+ * (i.e., whether the underlying processor and OS support AVX-512 and AVX-512 code
+ * is present).
+ * \note If #DR_MC_MULTIMEDIA is not specified when calling dr_get_mcontext(),
+ * the simd fields will not be filled in regardless of the return value
+ * of this routine.
+ */
+bool
+dr_mcontext_zmm_fields_valid(void);
 
 #endif /* CLIENT_INTERFACE */
 /* dr_get_mcontext() needed for translating clean call arg errors */
@@ -6227,7 +6300,7 @@ typedef enum {
 DR_API
 /**
  * Intended to augment dr_prepopulate_cache() by populating DR's indirect branch
- * tables, avoiding trips back to dispatch during initial execution.  This is only
+ * tables, avoiding trips back to the dispatcher during initial execution.  This is only
  * effective when one of the the runtime options -shared_trace_ibt_tables and
  * -shared_bb_ibt_tables (depending on whether traces are enabled) is turned on, as
  * this routine does not try to populate tables belonging to threads other than the

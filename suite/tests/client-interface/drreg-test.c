@@ -30,6 +30,11 @@
  * DAMAGE.
  */
 
+/* clang-format off */
+/* XXX: clang-format incorrectly detected a tab difference at "clang-format on"
+ * below. This is why "clang-format off" has been moved outside the ifdef until
+ * bug is fixed.
+ */
 #ifndef ASM_CODE_ONLY /* C code */
 #    include "tools.h"
 #    include "drreg-test-shared.h"
@@ -42,11 +47,18 @@ void
 test_asm_faultA();
 void
 test_asm_faultB();
+void
+test_asm_faultC();
+void
+test_asm_faultD();
+void
+test_asm_faultE();
 
 static SIGJMP_BUF mark;
 
 #    if defined(UNIX)
 #        include <signal.h>
+
 static void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -59,6 +71,44 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
         if (((sc->TEST_FLAGS_SIG) & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
             print("ERROR: spilled flags value was not preserved!\n");
     }
+    SIGLONGJMP(mark, 1);
+}
+static void
+handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_7_C)
+            print("ERROR: spilled register value was not preserved!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+static void
+handle_signal3(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+#        ifdef X86
+    if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->SC_XAX != DRREG_TEST_9_C) {
+            print("ERROR: spilled register value was not preserved!\n");
+            exit(1);
+        }
+    }
+#        endif
+    SIGLONGJMP(mark, 1);
+}
+static void
+handle_signal4(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+#        ifdef X86
+    if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->SC_XAX != DRREG_TEST_11_C) {
+            print("ERROR: spilled register value was not preserved!\n");
+            exit(1);
+        }
+    }
+#        endif
     SIGLONGJMP(mark, 1);
 }
 #    elif defined(WINDOWS)
@@ -75,8 +125,38 @@ handle_exception(struct _EXCEPTION_POINTERS *ep)
     }
     SIGLONGJMP(mark, 1);
 }
+static LONG WINAPI
+handle_exception2(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_7_C)
+            print("ERROR: spilled register value was not preserved!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+static LONG WINAPI
+handle_exception3(struct _EXCEPTION_POINTERS *ep)
+{
+#        ifdef X86
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_XAX_CXT != DRREG_TEST_9_C)
+            print("ERROR: spilled register value was not preserved!\n");
+    }
+#        endif
+    SIGLONGJMP(mark, 1);
+}
+static LONG WINAPI
+handle_exception4(struct _EXCEPTION_POINTERS *ep)
+{
+#        ifdef X86
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_XAX_CXT != DRREG_TEST_11_C)
+            print("ERROR: spilled register value was not preserved!\n");
+    }
+#        endif
+    SIGLONGJMP(mark, 1);
+}
 #    endif
-
 int
 main(int argc, const char *argv[])
 {
@@ -101,6 +181,45 @@ main(int argc, const char *argv[])
         test_asm_faultB();
     }
 
+#    if defined(UNIX)
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal2, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception2);
+#    endif
+
+    /* Test fault check ignore 3rd DR TLS slot */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultC();
+    }
+
+#    if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal3, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception3);
+#    endif
+
+    /* Test fault restore of non-public DR slot used by mangling.
+     * Making sure drreg ignores restoring this slot.
+     */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultD();
+    }
+
+#    if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal4, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception4);
+#    endif
+
+    /* Test 10: test fault restore of non-public DR slot used by mangling,
+     * when rip-rel address is forced to be in register. Making sure drreg
+     * ignores restoring this slot. Exposes transparency limitation of DR
+     * if reg is optimized to be app's dead reg.
+     */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultE();
+    }
+
     /* XXX i#511: add more fault tests and other tricky corner cases */
 
     print("drreg-test finished\n");
@@ -110,11 +229,10 @@ main(int argc, const char *argv[])
 #else /* asm code *************************************************************/
 #    include "asm_defines.asm"
 #    include "drreg-test-shared.h"
-/* clang-format off */
 START_FILE
 
 #ifdef X64
-# define FRAME_PADDING 8
+# define FRAME_PADDING 0
 #else
 # define FRAME_PADDING 0
 #endif
@@ -123,11 +241,7 @@ START_FILE
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 
@@ -139,9 +253,15 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, REG_XSP
         mov      REG_XBX, PTRSZ [TEST_REG_ASM]
 
+        jmp      test2_init
+     test2_init:
+        /* Initializing register for additional test on top of this one, see
+         * instru2instru.
+         */
+        mov      TEST_REG2_ASM, MAKE_HEX_ASM(0)
         jmp      test2
-        /* Test 2: same instr writes and reads reserved reg */
      test2:
+        /* Test 2: same instr writes and reads reserved reg */
         mov      TEST_REG_ASM, DRREG_TEST_2_ASM
         mov      TEST_REG_ASM, DRREG_TEST_2_ASM
         mov      TEST_REG_ASM, REG_XSP
@@ -160,15 +280,43 @@ GLOBAL_LABEL(FUNCNAME:)
         setne    TEST_REG_ASM_LSB
         cmp      TEST_REG_ASM, REG_XSP
 
-        jmp      epilog
+        jmp      test11
+        /* Store aflags to dead XAX, and restore when XAX is live */
+     test11:
+        mov      TEST_REG_ASM, DRREG_TEST_11_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_11_ASM
+        cmp      TEST_REG_ASM, TEST_REG_ASM
+        push     TEST_11_CONST
+        pop      REG_XAX
+        mov      REG_XAX, TEST_REG_ASM
+        mov      TEST_REG_ASM, REG_XAX
+        je       test11_done
+        /* Null deref if we have incorrect eflags */
+        xor      TEST_REG_ASM, TEST_REG_ASM
+        mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
+        jmp      test11_done
+     test11_done:
+        jmp     test12
+        /* Test 12: drreg_statelessly_restore_app_value  */
+     test12:
+        mov      TEST_REG_ASM, DRREG_TEST_12_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_12_ASM
+        mov      REG_XAX, TEST_12_CONST
+        cmp      REG_XAX, TEST_12_CONST
+        je       test12_done
+        /* Null deref if we have incorrect eflags */
+        xor      TEST_REG_ASM, TEST_REG_ASM
+        mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
+        jmp      test12_done
+     test12_done:
+        jmp     epilog
+
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
+        /* XXX i#3289: prologue missing */
         b        test1
         /* Test 1: separate write and read of reserved reg */
      test1:
@@ -197,6 +345,7 @@ GLOBAL_LABEL(FUNCNAME:)
     epilog:
         bx       lr
 #elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
         b        test1
         /* Test 1: separate write and read of reserved reg */
      test1:
@@ -232,11 +381,7 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 
@@ -251,12 +396,10 @@ GLOBAL_LABEL(FUNCNAME:)
         jmp      epilog2
      epilog2:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
+        /* XXX i#3289: prologue missing */
         b        test3
         /* Test 3: fault reg restore */
      test3:
@@ -269,6 +412,7 @@ GLOBAL_LABEL(FUNCNAME:)
     epilog2:
         bx       lr
 #elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
         b        test3
         /* Test 3: fault reg restore */
      test3:
@@ -288,11 +432,7 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 
@@ -310,12 +450,10 @@ GLOBAL_LABEL(FUNCNAME:)
         jmp      epilog3
      epilog3:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
+        /* XXX i#3289: prologue missing */
         b        test5
         /* Test 5: fault aflags restore */
      test5:
@@ -331,6 +469,7 @@ GLOBAL_LABEL(FUNCNAME:)
     epilog3:
         bx       lr
 #elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
         b        test5
         /* Test 5: fault aflags restore */
      test5:
@@ -349,6 +488,133 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-END_FILE
-/* clang-format on */
+#define FUNCNAME test_asm_faultC
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test6
+        /* Test 6: fault check ignore 3rd DR TLS slot */
+     test6:
+        mov      TEST_REG_ASM, DRREG_TEST_6_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_6_ASM
+        nop
+        mov      TEST_REG_ASM, DRREG_TEST_7_ASM
+        nop
+        ud2
+
+        jmp      epilog6
+     epilog6:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        /* Test 6: doesn't exist for ARM */
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        /* Test 6: doesn't exist for AARCH64 */
+        ret
 #endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+#define FUNCNAME test_asm_faultD
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+#ifdef X64
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+        /* XXX i#3312: Temporarily disable test until bug has been fixed. */
+#if 0
+
+        jmp      test8
+        /* Test 8: test fault restore of non-public DR slot used by mangling.
+         * Making sure drreg ignores restoring this slot.
+         */
+     test8:
+        mov      PTRSZ [REG_XSP], REG_XAX
+        sub      REG_XSP, 8
+        mov      TEST_REG_ASM, DRREG_TEST_8_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_8_ASM
+        nop
+        mov      REG_XAX, DRREG_TEST_9_ASM
+        /* The address will get mangled into register REG_XAX. */
+        add      TEST_REG_ASM, PTRSZ SYMREF(-0x7fffffff) /* crash */
+
+        jmp      epilog8
+     epilog8:
+        add      REG_XSP, 8
+        mov      REG_XAX, PTRSZ [REG_XSP]
+#endif
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+#endif
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        /* Test 8: not implemented for ARM */
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        /* Test 8: not implemented for AARCH64 */
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+#define FUNCNAME test_asm_faultE
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+#ifdef X64
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+          /* XXX i#3312: Temporarily disable test until bug has been fixed. */
+#if 0
+OB        jmp      test10
+        /* Test 10: test fault restore of non-public DR slot used by mangling,
+         * when rip-rel address is forced to be in register. Making sure drreg ignores
+         * restoring this slot.
+         */
+     test10:
+        mov      PTRSZ [REG_XSP], REG_XAX
+        sub      REG_XSP, 8
+        mov      TEST_REG_ASM, DRREG_TEST_10_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_10_ASM
+        nop
+        mov      REG_XAX, DRREG_TEST_11_ASM
+        /* The address will get mangled into register REG_XAX. */
+        add      REG_XAX, PTRSZ SYMREF(-0x7fffffff) /* crash */
+
+        jmp      epilog10
+     epilog10:
+        add      REG_XSP, 8
+        mov      REG_XAX, PTRSZ [REG_XSP]
+#endif
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+#endif
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        /* Test 10: not implemented for ARM */
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        /* Test 10: not implemented for AARCH64 */
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+END_FILE
+#endif
+/* clang-format on */

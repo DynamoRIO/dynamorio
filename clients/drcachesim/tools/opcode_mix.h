@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,6 +33,7 @@
 #ifndef _OPCODE_MIX_H_
 #define _OPCODE_MIX_H_ 1
 
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -44,22 +45,85 @@ class opcode_mix_t : public analysis_tool_t {
 public:
     opcode_mix_t(const std::string &module_file_path, unsigned int verbose);
     virtual ~opcode_mix_t();
-    virtual bool
-    process_memref(const memref_t &memref);
-    virtual bool
-    print_results();
+    std::string
+    initialize() override;
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
+    bool
+    parallel_shard_supported() override;
+    void *
+    parallel_worker_init(int worker_index) override;
+    std::string
+    parallel_worker_exit(void *worker_data) override;
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override;
+    bool
+    parallel_shard_exit(void *shard_data) override;
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    std::string
+    parallel_shard_error(void *shard_data) override;
 
 protected:
+    struct worker_data_t {
+        std::unordered_map<app_pc, int> opcode_cache;
+    };
+
+    struct shard_data_t {
+        shard_data_t()
+            : worker(nullptr)
+            , instr_count(0)
+        {
+        }
+        shard_data_t(worker_data_t *worker_in)
+            : worker(worker_in)
+            , instr_count(0)
+            , last_trace_module_start(nullptr)
+            , last_trace_module_size(0)
+            , last_mapped_module_start(nullptr)
+        {
+        }
+        worker_data_t *worker;
+        int_least64_t instr_count;
+        std::unordered_map<int, int_least64_t> opcode_counts;
+        std::string error;
+        app_pc last_trace_module_start;
+        size_t last_trace_module_size;
+        app_pc last_mapped_module_start;
+    };
+
+    // XXX: Share this for use in other C++ code.
+    struct scoped_mutex_t {
+        scoped_mutex_t(void *mutex_in)
+            : mutex(mutex_in)
+        {
+            dr_mutex_lock(mutex);
+        }
+        ~scoped_mutex_t()
+        {
+            dr_mutex_unlock(mutex);
+        }
+        void *mutex;
+    };
+
     void *dcontext;
-    raw2trace_t *raw2trace;
+    std::string module_file_path;
+    std::unique_ptr<module_mapper_t> module_mapper;
+    void *mapper_mutex;
     // We reference directory.modfile_bytes throughout operation, so its lifetime
     // must match ours.
     raw2trace_directory_t directory;
+    std::unordered_map<memref_tid_t, shard_data_t *> shard_map;
+    // This mutex is only needed in parallel_shard_init.  In all other accesses to
+    // shard_map (process_memref, print_results) we are single-threaded.
+    std::mutex shard_map_mutex;
     unsigned int knob_verbose;
-    int_least64_t instr_count;
-    std::unordered_map<int, int_least64_t> opcode_counts;
-    std::unordered_map<app_pc, int> opcode_cache;
     static const std::string TOOL_NAME;
+    // For serial operation.
+    worker_data_t serial_worker;
+    shard_data_t serial_shard;
 };
 
 #endif /* _OPCODE_MIX_H_ */

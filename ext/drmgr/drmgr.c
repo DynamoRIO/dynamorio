@@ -68,6 +68,8 @@
 #undef dr_unregister_exception_event
 #undef dr_register_restore_state_ex_event
 #undef dr_unregister_restore_state_ex_event
+#undef dr_register_low_on_memory_event
+#undef dr_unregister_low_on_memory_event
 
 /* currently using asserts on internal logic sanity checks (never on
  * input from user) but perhaps we shouldn't since this is a library
@@ -139,9 +141,16 @@ typedef struct _generic_event_entry_t {
             void (*cb_no_user_data)(void *, const module_data_t *);
             void (*cb_user_data)(void *, const module_data_t *, void *);
         } modunload_cb;
+        union {
+            void (*cb_no_user_data)();
+            void (*cb_user_data)(void *);
+        } low_on_memory_cb;
         void (*kernel_xfer_cb)(void *, const dr_kernel_xfer_info_t *);
 #ifdef UNIX
-        dr_signal_action_t (*signal_cb)(void *, dr_siginfo_t *);
+        union {
+            dr_signal_action_t (*cb_no_user_data)(void *, dr_siginfo_t *);
+            dr_signal_action_t (*cb_user_data)(void *, dr_siginfo_t *, void *);
+        } signal_cb;
 #endif
 #ifdef WINDOWS
         bool (*exception_cb)(void *, dr_exception_t *);
@@ -180,6 +189,13 @@ typedef struct _per_thread_t {
     instr_t *last_app;
 } per_thread_t;
 
+/* Emulation note types */
+enum {
+    DRMGR_NOTE_EMUL_START,
+    DRMGR_NOTE_EMUL_STOP,
+    DRMGR_NOTE_EMUL_COUNT,
+};
+
 /***************************************************************************
  * GLOBALS
  */
@@ -217,6 +233,11 @@ drmgr_bb_init(void);
 
 static void
 drmgr_bb_exit(void);
+
+/* Reserve space for emulation specific note values */
+static ptr_uint_t note_base_emul;
+static void
+drmgr_emulation_init(void);
 
 /* Size of tls/cls arrays.  In order to support slot access from the
  * code cache, this number cannot be changed dynamically.  We could
@@ -266,6 +287,9 @@ static void *modload_event_lock;
 static cb_list_t cblist_modunload;
 static void *modunload_event_lock;
 
+static cb_list_t cblist_low_on_memory;
+static void *low_on_memory_event_lock;
+
 static cb_list_t cblist_kernel_xfer;
 static void *kernel_xfer_event_lock;
 
@@ -312,6 +336,9 @@ drmgr_modload_event(void *drcontext, const module_data_t *info, bool loaded);
 
 static void
 drmgr_modunload_event(void *drcontext, const module_data_t *info);
+
+static void
+drmgr_low_on_memory_event();
 
 static void
 drmgr_kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info);
@@ -361,6 +388,7 @@ drmgr_init(void)
     postsys_event_lock = dr_rwlock_create();
     modload_event_lock = dr_rwlock_create();
     modunload_event_lock = dr_rwlock_create();
+    low_on_memory_event_lock = dr_rwlock_create();
     kernel_xfer_event_lock = dr_rwlock_create();
 #ifdef UNIX
     signal_event_lock = dr_rwlock_create();
@@ -374,6 +402,7 @@ drmgr_init(void)
     dr_register_thread_exit_event(drmgr_thread_exit_event);
     dr_register_module_load_event(drmgr_modload_event);
     dr_register_module_unload_event(drmgr_modunload_event);
+    dr_register_low_on_memory_event(drmgr_low_on_memory_event);
     dr_register_kernel_xfer_event(drmgr_kernel_xfer_event);
 #ifdef UNIX
     dr_register_signal_event(drmgr_signal_event);
@@ -384,6 +413,7 @@ drmgr_init(void)
 
     drmgr_bb_init();
     drmgr_event_init();
+    drmgr_emulation_init();
 
     our_tls_idx = drmgr_register_tls_field();
     if (!drmgr_register_thread_init_event(our_thread_init_event) ||
@@ -418,6 +448,7 @@ drmgr_exit(void)
 
     dr_unregister_module_load_event(drmgr_modload_event);
     dr_unregister_module_unload_event(drmgr_modunload_event);
+    dr_unregister_low_on_memory_event(drmgr_low_on_memory_event);
     dr_unregister_kernel_xfer_event(drmgr_kernel_xfer_event);
 #ifdef UNIX
     dr_unregister_signal_event(drmgr_signal_event);
@@ -446,6 +477,7 @@ drmgr_exit(void)
     dr_rwlock_destroy(exception_event_lock);
 #endif
     dr_rwlock_destroy(kernel_xfer_event_lock);
+    dr_rwlock_destroy(low_on_memory_event_lock);
     dr_rwlock_destroy(modunload_event_lock);
     dr_rwlock_destroy(modload_event_lock);
     dr_rwlock_destroy(postsys_event_lock);
@@ -1279,6 +1311,7 @@ drmgr_event_init(void)
 
     cblist_init(&cblist_modload, sizeof(generic_event_entry_t));
     cblist_init(&cblist_modunload, sizeof(generic_event_entry_t));
+    cblist_init(&cblist_low_on_memory, sizeof(generic_event_entry_t));
     cblist_init(&cblist_kernel_xfer, sizeof(generic_event_entry_t));
 #ifdef UNIX
     cblist_init(&cblist_signal, sizeof(generic_event_entry_t));
@@ -1304,6 +1337,7 @@ drmgr_event_exit(void)
     cblist_delete(&cblist_postsys);
     cblist_delete(&cblist_modload);
     cblist_delete(&cblist_modunload);
+    cblist_delete(&cblist_low_on_memory);
     cblist_delete(&cblist_kernel_xfer);
 #ifdef UNIX
     cblist_delete(&cblist_signal);
@@ -1730,10 +1764,33 @@ drmgr_register_signal_event_ex(dr_signal_action_t (*func)(void *drcontext,
 }
 
 DR_EXPORT
+bool
+drmgr_register_signal_event_user_data(dr_signal_action_t (*func)(void *drcontext,
+                                                                 dr_siginfo_t *siginfo,
+                                                                 void *user_data),
+                                      drmgr_priority_t *priority, void *user_data)
+{
+    return drmgr_generic_event_add(&cblist_signal, signal_event_lock,
+                                   (void (*)(void))func, priority, true, user_data);
+}
+
+DR_EXPORT
 /* clang-format off */ /* (work around clang-format newline-after-type bug) */
 bool
-drmgr_unregister_signal_event(dr_signal_action_t (*func)(void *drcontext,
-                                                         dr_siginfo_t *siginfo))
+drmgr_unregister_signal_event(dr_signal_action_t (*func)
+                              (void *drcontext, dr_siginfo_t *siginfo))
+/* clang-format on */
+{
+    return drmgr_generic_event_remove(&cblist_signal, signal_event_lock,
+                                      (void (*)(void))func);
+}
+
+DR_EXPORT
+/* clang-format off */ /* (work around clang-format newline-after-type bug) */
+bool
+drmgr_unregister_signal_event_user_data(dr_signal_action_t (*func)(void *drcontext,
+                                                                   dr_siginfo_t *siginfo,
+                                                                   void *user_data))
 /* clang-format on */
 {
     return drmgr_generic_event_remove(&cblist_signal, signal_event_lock,
@@ -1755,8 +1812,16 @@ drmgr_signal_event(void *drcontext, dr_siginfo_t *siginfo)
     for (i = 0; i < iter.num_def; i++) {
         if (!iter.cbs.generic[i].pri.valid)
             continue;
+
+        bool is_using_user_data = iter.cbs.generic[i].is_using_user_data;
+        void *user_data = iter.cbs.generic[i].user_data;
         /* follow DR semantics: short-circuit on first handler to "own" the signal */
-        res = (*iter.cbs.generic[i].cb.signal_cb)(drcontext, siginfo);
+        if (is_using_user_data == false) {
+            res = (*iter.cbs.generic[i].cb.signal_cb.cb_no_user_data)(drcontext, siginfo);
+        } else {
+            res = (*iter.cbs.generic[i].cb.signal_cb.cb_user_data)(drcontext, siginfo,
+                                                                   user_data);
+        }
         if (res != DR_SIGNAL_DELIVER)
             break;
     }
@@ -2460,6 +2525,78 @@ drmgr_pop_cls(void *drcontext)
 }
 
 /***************************************************************************
+ * Low-on-memory
+ */
+
+DR_EXPORT
+bool
+drmgr_register_low_on_memory_event(void (*func)())
+{
+    return drmgr_generic_event_add(&cblist_low_on_memory, low_on_memory_event_lock,
+                                   (void (*)(void))func, NULL, false, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_low_on_memory_event_ex(void (*func)(), drmgr_priority_t *priority)
+{
+    return drmgr_generic_event_add(&cblist_low_on_memory, low_on_memory_event_lock,
+                                   (void (*)(void))func, priority, false, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_low_on_memory_event_user_data(void (*func)(void *user_data),
+                                             drmgr_priority_t *priority, void *user_data)
+{
+    return drmgr_generic_event_add(&cblist_low_on_memory, low_on_memory_event_lock,
+                                   (void (*)(void))func, priority, true, user_data);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_low_on_memory_event(void (*func)())
+{
+    return drmgr_generic_event_remove(&cblist_low_on_memory, low_on_memory_event_lock,
+                                      (void (*)(void))func);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_low_on_memory_event_user_data(void (*func)(void *user_data))
+{
+    return drmgr_generic_event_remove(&cblist_low_on_memory, low_on_memory_event_lock,
+                                      (void (*)(void))func);
+}
+
+static void
+drmgr_low_on_memory_event()
+{
+    void *drcontext = dr_get_current_drcontext();
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
+    dr_rwlock_read_lock(low_on_memory_event_lock);
+    cblist_create_local(drcontext, &cblist_low_on_memory, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
+    dr_rwlock_read_unlock(low_on_memory_event_lock);
+
+    for (i = 0; i < iter.num_def; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+
+        bool is_using_user_data = iter.cbs.generic[i].is_using_user_data;
+        void *user_data = iter.cbs.generic[i].user_data;
+        if (is_using_user_data == false) {
+            (*iter.cbs.generic[i].cb.low_on_memory_cb.cb_no_user_data)();
+        } else {
+            (*iter.cbs.generic[i].cb.low_on_memory_cb.cb_user_data)(user_data);
+        }
+    }
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
+}
+
+/***************************************************************************
  * INSTRUCTION NOTE FIELD
  */
 
@@ -2495,5 +2632,136 @@ drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist)
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION)
         return false;
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+    return true;
+}
+
+/***************************************************************************
+ * EMULATION
+ */
+
+/*
+ * Constants used when accessing emulated instruction data with the
+ * drmgr_get_emulated_instr_data() function. Each constant refers to an element
+ * of the emulated_instr_t struct.
+ */
+typedef enum {
+    DRMGR_EMUL_INSTR_PC, /* The PC address of the emulated instruction. */
+    DRMGR_EMUL_INSTR,    /* The emulated instruction. */
+} emulated_instr_data_t;
+
+/* Reserve space for emulation note values */
+static void
+drmgr_emulation_init(void)
+{
+    ASSERT(sizeof(emulated_instr_t) <= sizeof(dr_instr_label_data_t),
+           "label data area is not large enough to store emulation data");
+
+    note_base_emul = drmgr_reserve_note_range(DRMGR_NOTE_EMUL_COUNT);
+    ASSERT(note_base_emul != DRMGR_NOTE_NONE, "failed to reserve emulation note space");
+}
+
+/* Get note values based on emulation specific enums. */
+static ptr_int_t
+get_emul_note_val(int enote_val)
+{
+    return (ptr_int_t)(note_base_emul + enote_val);
+}
+
+/* Write emulation data to a label's data area. */
+static void
+set_emul_label_data(instr_t *label, int type, ptr_uint_t data)
+{
+    dr_instr_label_data_t *label_data = instr_get_label_data_area(label);
+    ASSERT(label_data != NULL, "failed to find label's data area");
+
+    ASSERT(type >= DRMGR_EMUL_INSTR_PC && type <= DRMGR_EMUL_INSTR,
+           "type is invalid, should be an emulated_instr_data_t");
+    label_data->data[type] = data;
+}
+
+/* Read emulation data from a label's data area. */
+static ptr_uint_t
+get_emul_label_data(instr_t *label, int type)
+{
+    dr_instr_label_data_t *label_data = instr_get_label_data_area(label);
+    ASSERT(label_data != NULL, "failed to find label's data area");
+
+    ASSERT(type >= DRMGR_EMUL_INSTR_PC && type <= DRMGR_EMUL_INSTR,
+           "type is invalid, should be an emulated_instr_data_t");
+    return label_data->data[type];
+}
+
+/* A callback function to free the emulated instruction represented by the label.
+ * This will be called when the label is freed.
+ */
+static void
+free_einstr(void *drcontext, instr_t *label)
+{
+    instr_t *einstr = (instr_t *)get_emul_label_data(label, DRMGR_EMUL_INSTR);
+    instr_destroy(drcontext, einstr);
+}
+
+/* Set the start emulation label and emulated instruction data */
+DR_EXPORT
+bool
+drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where,
+                             emulated_instr_t *einstr)
+{
+    if (einstr->size < sizeof(emulated_instr_t)) {
+        return false;
+    }
+    instr_t *start_emul_label = INSTR_CREATE_label(drcontext);
+    instr_set_meta(start_emul_label);
+    instr_set_note(start_emul_label, (void *)get_emul_note_val(DRMGR_NOTE_EMUL_START));
+
+    set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR_PC, (ptr_uint_t)einstr->pc);
+    set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR, (ptr_uint_t)einstr->instr);
+
+    instr_set_label_callback(start_emul_label, free_einstr);
+    instrlist_meta_preinsert(ilist, where, start_emul_label);
+
+    return true;
+}
+
+/* Set the end emulation label */
+DR_EXPORT
+void
+drmgr_insert_emulation_end(void *drcontext, instrlist_t *ilist, instr_t *where)
+{
+    instr_t *stop_emul_label = INSTR_CREATE_label(drcontext);
+    instr_set_meta(stop_emul_label);
+    instr_set_note(stop_emul_label, (void *)get_emul_note_val(DRMGR_NOTE_EMUL_STOP));
+    instrlist_meta_preinsert(ilist, where, stop_emul_label);
+}
+
+DR_EXPORT
+bool
+drmgr_is_emulation_start(instr_t *instr)
+{
+    return instr_is_label(instr) &&
+        ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_START));
+}
+
+DR_EXPORT
+bool
+drmgr_is_emulation_end(instr_t *instr)
+{
+    return instr_is_label(instr) &&
+        ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_STOP));
+}
+
+DR_EXPORT
+bool
+drmgr_get_emulated_instr_data(instr_t *instr, emulated_instr_t *emulated)
+{
+    ASSERT(instr_is_label(instr), "emulation instruction does not have a label");
+    ASSERT(drmgr_is_emulation_start(instr), "instruction is not a start emulation label");
+
+    if (emulated->size < sizeof(emulated_instr_t))
+        return false;
+
+    emulated->pc = (app_pc)get_emul_label_data(instr, DRMGR_EMUL_INSTR_PC);
+    emulated->instr = (instr_t *)get_emul_label_data(instr, DRMGR_EMUL_INSTR);
+
     return true;
 }

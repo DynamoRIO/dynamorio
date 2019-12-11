@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,8 @@
 #ifndef _REUSE_DISTANCE_H_
 #define _REUSE_DISTANCE_H_ 1
 
+#include <memory>
+#include <mutex>
 #include <unordered_map>
 #include <string>
 #include <assert.h>
@@ -59,28 +61,56 @@ struct line_ref_list_t;
 
 class reuse_distance_t : public analysis_tool_t {
 public:
-    reuse_distance_t(const reuse_distance_knobs_t &knobs);
-    virtual ~reuse_distance_t();
-    virtual bool
-    process_memref(const memref_t &memref);
-    virtual bool
-    print_results();
+    explicit reuse_distance_t(const reuse_distance_knobs_t &knobs);
+    ~reuse_distance_t() override;
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
+    bool
+    parallel_shard_supported() override;
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override;
+    bool
+    parallel_shard_exit(void *shard_data) override;
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    std::string
+    parallel_shard_error(void *shard_data) override;
 
     // Global value for use in non-member code.
     static unsigned int knob_verbose;
 
 protected:
-    std::unordered_map<addr_t, line_ref_t *> cache_map;
-    // This is our reuse distance histogram.
-    std::unordered_map<int_least64_t, int_least64_t> dist_map;
-    line_ref_list_t *ref_list;
+    // We assume that the shard unit is the unit over which we should measure
+    // distance.  By default this is a traced thread.  For serial operation we look
+    // at the tid values and enforce it to be a thread, but for parallel we just use
+    // the shards we're given.  This is for simplicity and to give the user a method
+    // for computing over different units if for some reason that was desired.
+    struct shard_data_t {
+        shard_data_t(uint64_t reuse_threshold, uint64_t skip_dist, bool verify);
+        std::unordered_map<addr_t, line_ref_t *> cache_map;
+        // This is our reuse distance histogram.
+        std::unordered_map<int_least64_t, int_least64_t> dist_map;
+        std::unique_ptr<line_ref_list_t> ref_list;
+        int_least64_t total_refs = 0;
+        // Ideally the shard index would be the tid when shard==thread but that's
+        // not the case today so we store the tid.
+        memref_tid_t tid;
+        std::string error;
+    };
 
-    reuse_distance_knobs_t knobs;
+    void
+    print_shard_results(const shard_data_t *shard);
 
-    uint64_t time_stamp;
-    size_t line_size_bits;
-    int_least64_t total_refs;
+    const reuse_distance_knobs_t knobs;
+    const size_t line_size_bits;
     static const std::string TOOL_NAME;
+    // In parallel operation the keys are "shard indices": just ints.
+    std::unordered_map<memref_tid_t, shard_data_t *> shard_map;
+    // This mutex is only needed in parallel_shard_init.  In all other accesses to
+    // shard_map (process_memref, print_results) we are single-threaded.
+    std::mutex shard_map_mutex;
 };
 
 /* A doubly linked list node for the cache line reference info */

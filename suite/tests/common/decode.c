@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -56,6 +56,8 @@ test_nops(void);
 void
 test_sse3(char *buf);
 void
+test_avx512_vex(char *buf);
+void
 test_3dnow(char *buf);
 void
 test_far_cti(void);
@@ -92,7 +94,7 @@ my_setjmp(sigjmp_buf env)
 }
 
 static void
-signal_handler(int sig)
+signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (sig == SIGILL) {
         count++;
@@ -175,6 +177,7 @@ main(int argc, char *argv[])
 
     buf = allocate_mem(7 * 256 + 1, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     assert(buf != NULL);
+    print("Start\n");
 
 #    ifndef X64
     print("Jumping to a sequence of every addr16 modrm byte\n");
@@ -287,6 +290,12 @@ main(int argc, char *argv[])
     free(sigstack.ss_sp);
 #    endif
 
+    /* AVX-512 VEX tests */
+#    ifdef __AVX512F__
+    print("Testing AVX-512 VEX\n");
+    test_avx512_vex(buf);
+#    endif
+
     print("All done\n");
     return 0;
 }
@@ -301,11 +310,7 @@ START_FILE
 GLOBAL_LABEL(FUNCNAME:)
         /* can't push ARG1 here b/c of SEH64 epilog restrictions */
         mov      REG_XAX, ARG1
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         PUSH_NONCALLEE_SEH(REG_XAX)
         END_PROLOG
         mov      ax, 4
@@ -318,10 +323,7 @@ GLOBAL_LABEL(FUNCNAME:)
         CALLC0(PTRSZ [REG_XSP] /* ARG1 */)
         pop      REG_XAX /* arg1 */
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 
@@ -361,10 +363,9 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(41) RAW(0f) RAW(12) RAW(f4) /* i#319: movlhps %xmm12, xmm6 */
         RAW(41) RAW(0f) RAW(16) RAW(f4) /* i#319: movhlps %xmm12, xmm6 */
 #endif
-        mov  eax, 0
         mov  ecx, 0
         mov  edx, 0
-        RAW(0f) RAW(01) RAW(c8) /* monitor */
+        RAW(0f) RAW(01) RAW(c8) /* monitor. %rax from ARG1 above is live-in */
         RAW(0f) RAW(01) RAW(c9) /* mwait */
         /* we want failure on sse3 machine, to have constant output
          * (this will produce "Invalid opcode encountered" warning) */
@@ -373,6 +374,81 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 #undef FUNCNAME
+#define FUNCNAME test_avx512_vex
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov    REG_XAX, ARG1
+        RAW(c5) RAW(f8) RAW(90) RAW(c8)                 /* kmovw  %k0,%k1 */
+        RAW(c5) RAW(f9) RAW(90) RAW(da)                 /* kmovb  %k2,%k3 */
+        RAW(c4) RAW(e1) RAW(f8) RAW(90) RAW(ec)         /* kmovq  %k4,%k5 */
+        RAW(c4) RAW(e1) RAW(f9) RAW(90) RAW(fe)         /* kmovd  %k6,%k7 */
+        RAW(c5) RAW(f8) RAW(90) RAW(45) RAW(e4)         /* kmovw  -0x1c(%rbp),%k0 */
+        RAW(c5) RAW(f9) RAW(90) RAW(4d) RAW(e4)         /* kmovb  -0x1c(%rbp),%k1 */
+        RAW(c4) RAW(e1) RAW(f8) RAW(90) RAW(55) RAW(e4) /* kmovq  -0x1c(%rbp),%k2 */
+        RAW(c4) RAW(e1) RAW(f9) RAW(90) RAW(5d) RAW(e4) /* kmovd  -0x1c(%rbp),%k3 */
+        RAW(c5) RAW(f8) RAW(91) RAW(65) RAW(e4)         /* kmovw  %k4,-0x1c(%rbp) */
+        RAW(c5) RAW(f9) RAW(91) RAW(6d) RAW(e4)         /* kmovb  %k5,-0x1c(%rbp) */
+        RAW(c4) RAW(e1) RAW(f8) RAW(91) RAW(75) RAW(e4) /* kmovq  %k6,-0x1c(%rbp) */
+        RAW(c4) RAW(e1) RAW(f9) RAW(91) RAW(7d) RAW(e4) /* kmovd  %k7,-0x1c(%rbp) */
+        RAW(c5) RAW(f8) RAW(92) RAW(c0)                 /* kmovw  %eax,%k0 */
+        RAW(c5) RAW(f9) RAW(92) RAW(cb)                 /* kmovb  %ebx,%k1 */
+        RAW(c4) RAW(e1) RAW(fb) RAW(92) RAW(d1)         /* kmovq  %rcx,%k2 */
+        RAW(c5) RAW(fb) RAW(92) RAW(da)                 /* kmovd  %edx,%k3 */
+        RAW(c5) RAW(f8) RAW(93) RAW(f4)                 /* kmovw  %k4,%esi */
+        RAW(c5) RAW(f9) RAW(93) RAW(fd)                 /* kmovb  %k5,%edi */
+        RAW(c4) RAW(e1) RAW(fb) RAW(93) RAW(c6)         /* kmovq  %k6,%rax */
+        RAW(c5) RAW(fb) RAW(93) RAW(df)                 /* kmovd  %k7,%ebx */
+        RAW(c5) RAW(f4) RAW(41) RAW(d0)                 /* kandw  %k0,%k1,%k2 */
+        RAW(c5) RAW(dd) RAW(41) RAW(eb)                 /* kandb  %k3,%k4,%k5 */
+        RAW(c4) RAW(e1) RAW(c4) RAW(41) RAW(c6)         /* kandq  %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ed) RAW(41) RAW(d9)         /* kandd  %k1,%k2,%k3 */
+        RAW(c5) RAW(f4) RAW(42) RAW(d0)                 /* kandnw %k0,%k1,%k2 */
+        RAW(c5) RAW(dd) RAW(42) RAW(eb)                 /* kandnb %k3,%k4,%k5 */
+        RAW(c4) RAW(e1) RAW(c4) RAW(42) RAW(c6)         /* kandnq %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ed) RAW(42) RAW(d9)         /* kandnd %k1,%k2,%k3 */
+        RAW(c5) RAW(f5) RAW(4b) RAW(d0)                 /* kunpckbw %k0,%k1,%k2 */
+        RAW(c5) RAW(c4) RAW(4b) RAW(c6)                 /* kunpckwd %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ec) RAW(4b) RAW(d9)         /* kunpckdq %k1,%k2,%k3 */
+        RAW(c5) RAW(f8) RAW(44) RAW(c8)                 /* knotw  %k0,%k1 */
+        RAW(c5) RAW(f9) RAW(44) RAW(da)                 /* knotb  %k2,%k3 */
+        RAW(c4) RAW(e1) RAW(f8) RAW(44) RAW(ec)         /* knotq  %k4,%k5 */
+        RAW(c4) RAW(e1) RAW(f9) RAW(44) RAW(fe)         /* knotd  %k6,%k7 */
+        RAW(c5) RAW(f4) RAW(45) RAW(d0)                 /* korw   %k0,%k1,%k2 */
+        RAW(c5) RAW(dd) RAW(45) RAW(eb)                 /* korb   %k3,%k4,%k5 */
+        RAW(c4) RAW(e1) RAW(c4) RAW(45) RAW(c6)         /* korq   %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ed) RAW(45) RAW(d9)         /* kord   %k1,%k2,%k3 */
+        RAW(c5) RAW(f4) RAW(46) RAW(d0)                 /* kxnorw %k0,%k1,%k2 */
+        RAW(c5) RAW(dd) RAW(46) RAW(eb)                 /* kxnorb %k3,%k4,%k5 */
+        RAW(c4) RAW(e1) RAW(c4) RAW(46) RAW(c6)         /* kxnorq %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ed) RAW(46) RAW(d9)         /* kxnord %k1,%k2,%k3 */
+        RAW(c5) RAW(f4) RAW(47) RAW(d0)                 /* kxorw  %k0,%k1,%k2 */
+        RAW(c5) RAW(dd) RAW(47) RAW(eb)                 /* kxorb  %k3,%k4,%k5 */
+        RAW(c4) RAW(e1) RAW(c4) RAW(47) RAW(c6)         /* kxorq  %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ed) RAW(47) RAW(d9)         /* kxord  %k1,%k2,%k3 */
+        RAW(c5) RAW(f4) RAW(4a) RAW(d0)                 /* kaddw  %k0,%k1,%k2 */
+        RAW(c5) RAW(dd) RAW(4a) RAW(eb)                 /* kaddb  %k3,%k4,%k5 */
+        RAW(c4) RAW(e1) RAW(c4) RAW(4a) RAW(c6)         /* kaddq  %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ed) RAW(4a) RAW(d9)         /* kaddd  %k1,%k2,%k3 */
+        RAW(c5) RAW(f8) RAW(98) RAW(c8)                 /* kortestw %k0,%k1 */
+        RAW(c5) RAW(f9) RAW(98) RAW(da)                 /* kortestb %k2,%k3 */
+        RAW(c4) RAW(e1) RAW(f8) RAW(98) RAW(ec)         /* kortestq %k4,%k5 */
+        RAW(c4) RAW(e1) RAW(f9) RAW(98) RAW(fe)         /* kortestd %k6,%k7 */
+        RAW(c5) RAW(f8) RAW(99) RAW(c8)                 /* ktestw %k0,%k1 */
+        RAW(c5) RAW(f9) RAW(99) RAW(da)                 /* ktestb %k2,%k3 */
+        RAW(c4) RAW(e1) RAW(f8) RAW(99) RAW(ec)         /* ktestq %k4,%k5 */
+        RAW(c4) RAW(e1) RAW(f9) RAW(99) RAW(fe)         /* ktestd %k6,%k7 */
+        RAW(c4) RAW(e3) RAW(f9) RAW(32) RAW(c8) RAW(ff) /* kshiftlw $0xff,%k0,%k1 */
+        RAW(c4) RAW(e3) RAW(79) RAW(32) RAW(da) RAW(7b) /* kshiftlb $0x7b,%k2,%k3 */
+        RAW(c4) RAW(e3) RAW(f9) RAW(33) RAW(ec) RAW(07) /* kshiftlq $0x7,%k4,%k5 */
+        RAW(c4) RAW(e3) RAW(79) RAW(33) RAW(fe) RAW(63) /* kshiftld $0x63,%k6,%k7 */
+        RAW(c4) RAW(e3) RAW(f9) RAW(30) RAW(c8) RAW(df) /* kshiftrw $0xdf,%k0,%k1 */
+        RAW(c4) RAW(e3) RAW(79) RAW(30) RAW(da) RAW(65) /* kshiftrb $0x65,%k2,%k3 */
+        RAW(c4) RAW(e3) RAW(f9) RAW(31) RAW(ec) RAW(05) /* kshiftrq $0x5,%k4,%k5 */
+        RAW(c4) RAW(e3) RAW(79) RAW(31) RAW(fe) RAW(2f) /* kshiftrd $0x2f,%k6,%k7 */
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
 #define FUNCNAME test_3dnow
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
@@ -428,11 +504,11 @@ DECL_EXTERN(my_setjmp)
 # ifdef X64
 #  define CALL_SETJMP \
         lea   REG_XAX, SYMREF(mark) @N@ \
-        CALLC1(my_setjmp, REG_XAX)
+        CALLC1(GLOBAL_REF(my_setjmp), REG_XAX)
 # else
 #  define CALL_SETJMP \
         lea   REG_XAX, mark @N@\
-        CALLC1(my_setjmp, REG_XAX)
+        CALLC1(GLOBAL_REF(my_setjmp), REG_XAX)
 # endif
 #endif
 
@@ -632,9 +708,15 @@ DECL_EXTERN(func_ptr)
 #define FUNCNAME test_rip_rel_ind
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ADD_STACK_ALIGNMENT  /* Maintain alignment. Some system's
+                              * libc may decide to callee-save xmm
+                              * registers which requires alignment.
+                              * (xref i#3674).
+                              */
         END_PROLOG
         CALL_SETJMP
         call     PTRSZ SYMREF(func_ptr)
+        RESTORE_STACK_ALIGNMENT
         ret
         END_FUNC(FUNCNAME)
 
@@ -645,11 +727,7 @@ GLOBAL_LABEL(FUNCNAME:)
         */
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         END_PROLOG
 
         /* test i#1118 sequences: all should be valid */
@@ -664,10 +742,7 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(f3) RAW(0F) RAW(BD) RAW(E9) /* bsr */
 
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 
@@ -678,11 +753,7 @@ GLOBAL_LABEL(FUNCNAME:)
         */
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         END_PROLOG
 
         RAW(66) RAW(0F) RAW(D8) RAW(E9) /* psubusb */
@@ -691,10 +762,7 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(f3) RAW(0F) RAW(D8) RAW(E9) /* psubusb */
 
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 

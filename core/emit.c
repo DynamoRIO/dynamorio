@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,7 +51,6 @@
 #include "instr_create.h"
 #include "monitor.h"
 #include "translate.h"
-#include <string.h> /* memcpy */
 
 #ifdef DEBUG
 #    include "decode_fast.h" /* for decode_next_pc for stress_recreate_pc */
@@ -369,8 +368,10 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
         } /* exit cti */
         if (instr_ok_to_emit(inst)) {
             if (emit) {
-                pc = instr_encode(dcontext, inst, pc);
+                pc = instr_encode_to_copy(dcontext, inst, vmcode_get_writable_addr(pc),
+                                          pc);
                 ASSERT(pc != NULL);
+                pc = vmcode_get_executable_addr(pc);
             } else {
                 pc += instr_length(dcontext, inst);
             }
@@ -779,8 +780,10 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
                 instr_t *in;
                 ASSERT(!no_stub);
                 for (in = instrlist_first(custom); in; in = instr_get_next(in)) {
-                    pc = instr_encode(dcontext, in, (void *)pc);
+                    pc = instr_encode_to_copy(dcontext, in,
+                                              (void *)vmcode_get_writable_addr(pc), pc);
                     ASSERT(pc != NULL);
+                    pc = vmcode_get_executable_addr(pc);
                 }
             }
         }
@@ -859,8 +862,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
                (PAD_FRAGMENT_JMPS(flags) &&
                 !INTERNAL_OPTION(pad_jmps_return_excess_padding)));
         /* size is stored at the end, but included in copy_sz */
-        memcpy(copy_pc, tag, copy_sz - sizeof(uint));
-        *((uint *)(copy_pc + copy_sz - sizeof(uint))) = copy_sz;
+        memcpy(vmcode_get_writable_addr(copy_pc), tag, copy_sz - sizeof(uint));
+        *((uint *)vmcode_get_writable_addr(copy_pc + copy_sz - sizeof(uint))) = copy_sz;
         /* count copy as part of fragment */
         pc = copy_pc + copy_sz;
     }
@@ -900,11 +903,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
     } else {
         /* bb-only finalization */
     }
-#ifdef X86
-    if ((flags & FRAG_SELFMOD_SANDBOXED) != 0) {
-        finalize_selfmod_sandbox(dcontext, f);
-    }
-#endif
+    mangle_finalize(dcontext, ilist, f);
+
     /* add fragment to vm area lists */
     vm_area_add_fragment(dcontext, f, vmlist);
 

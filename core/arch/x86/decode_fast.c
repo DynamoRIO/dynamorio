@@ -283,37 +283,31 @@ static const byte variable_length[256] = {
 /* Data table for the additional fixed part of a two-byte opcode.
  * This table is indexed by the 2nd opcode byte.  Zero entries are
  * reserved/bad opcodes.
- * N.B.: none of these (except IA32_ON_IA64) need adjustment
- * for data16 or addr16.
+ * N.B.: none of these need adjustment for data16 or addr16.
+ *
+ * 0f0f has extra suffix opcode byte
+ * 0f78 has immeds depending on prefixes: handled in decode_sizeof()
  */
 static const byte escape_fixed_length[256] = {
-    1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 2,
-    /* 0 */ /* 0f0f has extra suffix opcode byte */
+    1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 2, /* 0 */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 1 */
     1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, /* 2 */
     1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, /* 3 */
+
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 4 */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 5 */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 6 */
-    2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, /* 7 */
+    2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 7 */
 
     5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, /* 8 */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 9 */
     1, 1, 1, 1, 2, 1, 0, 0, 1, 1, 1, 1, 2, 1, 1, 1, /* A */
-#ifdef IA32_ON_IA64
-    /* change is the 5, could also be 3 depending on which mode we are */
-    /* FIXME : no modrm byte so the standard variable thing won't work */
-    /* (need a escape_disp_adjustment table) */
-    1, 1, 1, 1, 1, 1, 1, 1, 5, 1, 2, 1, 1, 1, 1, 1, /* B */
-#else
-    1,1,1,1, 1,1,1,1, 1,1,2,1, 1,1,1,1,  /* B */
-#endif
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, /* B */
 
     1, 1, 2, 1, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* C */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* D */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* E */
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0  /* F */
-    /* 0f78 has immeds depending on prefixes: handled in decode_sizeof() */
 };
 
 /* Some macros to make the following table look better. */
@@ -333,16 +327,13 @@ static const byte escape_variable_length[256] = {
     m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 4 */
     m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 5 */
     m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 6 */
-    m, m, m, m, m, m, m, 0, m,  m, 0,  0, m, m, m, m, /* 7 */
+    m, m, m, m, m, m, m, 0, m,  m, m,  m, m, m, m, m, /* 7 */
 
     0, 0, 0, 0, 0, 0, 0, 0, 0,  0, 0,  0, 0, 0, 0, 0, /* 8 */
     m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 9 */
     0, 0, 0, m, m, m, 0, 0, 0,  0, 0,  m, m, m, m, m, /* A */
-#ifdef IA32_ON_IA64
-    m, m, m, m, m, m, m, m, 0,  0, m,  m, m, m, m, m, /* B */
-#else
     m, m, m, m, m, m, m, m, m,  0, m,  m, m, m, m, m, /* B */
-#endif
+
     m, m, m, m, m, m, m, m, 0,  0, 0,  0, 0, 0, 0, 0, /* C */
     m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* D */
     m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* E */
@@ -483,6 +474,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
     bool addr16 = false;         /* really "addr32" for x64 mode */
     bool found_prefix = true;
     bool rep_prefix = false;
+    bool evex_prefix = false;
     byte reg_opcode; /* reg_opcode field of modrm byte */
 #ifdef X64
     byte *rip_rel_pc = NULL;
@@ -509,7 +501,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
             sz += 1;
         } else {
             switch (opc) {
-            case 0x66: /* operand size */
+            case DATA_PREFIX_OPCODE: /* operand size */
                 /* rex.w before other prefixes is a nop */
                 if (qword_operands)
                     qword_operands = false;
@@ -517,43 +509,57 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                 opc = (uint) * (++pc);
                 sz += 1;
                 break;
-            case 0xf2:
-            case 0xf3: /* REP */
+            case REPNE_PREFIX_OPCODE:
+            case REP_PREFIX_OPCODE: /* REP */
                 rep_prefix = true;
                 /* fall through */
-            case 0xf0: /* LOCK */
-            case 0x64:
-            case 0x65: /* segment overrides */
-            case 0x26:
-            case 0x36:
-            case 0x2e:
-            case 0x3e:
+            case RAW_PREFIX_lock: /* LOCK */
+            case CS_SEG_OPCODE:   /* segment overrides */
+            case DS_SEG_OPCODE:
+            case ES_SEG_OPCODE:
+            case FS_SEG_OPCODE:
+            case GS_SEG_OPCODE:
+            case SS_SEG_OPCODE:
                 opc = (uint) * (++pc);
                 sz += 1;
                 break;
-            case 0x67:
+            case ADDR_PREFIX_OPCODE:
                 addr16 = true;
                 opc = (uint) * (++pc);
                 sz += 1;
                 /* up to caller to check for addr prefix! */
                 break;
-            case 0xc4:
-            case 0xc5: {
+            case EVEX_PREFIX_OPCODE: {
+                /* If 64-bit mode or EVEX.R' bit is flipped, this is evex */
+                if (X64_MODE_DC(dcontext) || TEST(0x10, *(pc + 1))) {
+                    evex_prefix = true;
+                }
+                /* Fall-through is deliberate, EVEX is handled through VEX below */
+            }
+            case VEX_3BYTE_PREFIX_OPCODE:
+            case VEX_2BYTE_PREFIX_OPCODE: {
                 /* If 64-bit mode or mod selects for register, this is vex */
-                if (X64_MODE_DC(dcontext) || TESTALL(MODRM_BYTE(3, 0, 0), *(pc + 1))) {
+                if (evex_prefix || X64_MODE_DC(dcontext) ||
+                    TESTALL(MODRM_BYTE(3, 0, 0), *(pc + 1))) {
                     /* Assumptions:
                      * - no vex-encoded instr size differs based on vex.w,
                      *   so we don't bother to set qword_operands
                      * - no vex-encoded instr size differs based on prefixes,
                      *   so we don't bother to decode vex.pp
                      */
-                    bool vex3 = (opc == 0xc4);
+                    bool vex3 = (opc == VEX_3BYTE_PREFIX_OPCODE);
                     byte vex_mm = 0;
-                    opc = (uint) * (++pc); /* 2nd vex prefix byte */
+                    opc = (uint) * (++pc); /* 2nd (e)vex prefix byte */
                     sz += 1;
                     if (vex3) {
                         vex_mm = (byte)(opc & 0x1f);
                         opc = (uint) * (++pc); /* 3rd vex prefix byte */
+                        sz += 1;
+                    } else if (evex_prefix) {
+                        vex_mm = (byte)(opc & 0x3);
+                        opc = (uint) * (++pc); /* 3rd evex prefix byte */
+                        sz += 1;
+                        opc = (uint) * (++pc); /* 4th evex prefix byte */
                         sz += 1;
                     }
                     opc = (uint) * (++pc); /* 1st opcode byte */
@@ -561,7 +567,9 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                     if (num_prefixes != NULL)
                         *num_prefixes = sz;
                     /* no prefixes after vex + already did full size, so goto end */
-                    if (!vex3 || (vex3 && (vex_mm == 1))) {
+                    bool implied_escape = (!vex3 && !evex_prefix) ||
+                        ((vex3 || evex_prefix) && (vex_mm == 1));
+                    if (implied_escape) {
                         sz += sizeof_escape(dcontext, pc, addr16 _IF_X64(&rip_rel_pc));
                         goto decode_sizeof_done;
                     } else if (vex_mm == 2) {
@@ -1245,6 +1253,27 @@ intercept_fip_save(byte *pc, byte byte0, byte byte1)
     return false;
 }
 
+static bool
+get_implied_mm_e_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byte0,
+                                  byte *byte1)
+{
+    switch (vex_mm) {
+    case 1:
+        *byte0 = 0x0f;
+        *byte1 = *(pc + prefixes);
+        return true;
+    case 2:
+        *byte0 = 0x0f;
+        *byte1 = 0x38;
+        return true;
+    case 3:
+        *byte0 = 0x0f;
+        *byte1 = 0x3a;
+        return true;
+    default: return false;
+    }
+}
+
 /* Decodes only enough of the instruction at address pc to determine
  * its size, its effects on the 6 arithmetic eflags, and whether it is
  * a control-transfer instruction.  If it is, the operands fields of
@@ -1291,32 +1320,58 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     instr_set_opcode(instr, OP_UNDECODED);
     IF_X64(instr_set_x86_mode(instr, get_x86_mode(dcontext)));
 
+    byte0 = *(pc + prefixes);
+    byte1 = *(pc + prefixes + 1);
+
     /* we call instr_set_raw_bits on every return from here, not up
      * front, because any instr_set_src, instr_set_dst, or
-     * instr_set_opcode will kill original bits state */
+     * instr_set_opcode will kill original bits state
+     */
 
     /* Fill in SEG_FS and SEG_GS override prefixes, ignore rest for now.
      * We rely on having these set during bb building.
      * FIXME - could be done in decode_sizeof which is already walking these
      * bytes, but would need to complicate its interface and prefixes are
-     * fairly rare to begin with. */
+     * fairly rare to begin with.
+     */
     if (prefixes > 0) {
         for (i = 0; i < prefixes; i++, pc++) {
             switch (*pc) {
             case FS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_FS); break;
             case GS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_GS); break;
+            case VEX_2BYTE_PREFIX_OPCODE:
+                /* VEX 2-byte prefix implies 0x0f opcode */
+                byte0 = 0x0f;
+                byte1 = *(pc + prefixes);
+                break;
+            case EVEX_PREFIX_OPCODE:
+                instr_set_prefix_flag(instr, PREFIX_EVEX);
+                /* fall-through */
+            case VEX_3BYTE_PREFIX_OPCODE: {
+                /* EVEX and VEX 3-byte prefixes imply instruction opcodes by encoding mm
+                 * bits in the second prefix byte. In theory, there are 5 VEX mm bits, but
+                 * only 2 of them are used.
+                 */
+                byte vex_mm = (byte)(*(pc + 1) & 0x3);
+                if (!get_implied_mm_e_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0,
+                                                       &byte1)) {
+                    /* invalid instruction! */
+                    instr_set_opcode(instr, OP_INVALID);
+                    return NULL;
+                }
+                break;
+            }
             default: break;
             }
         }
     }
 
-    byte0 = *pc;
-    byte1 = *(pc + 1);
-
     /* eflags analysis
      * we do this even if -unsafe_ignore_eflags b/c it doesn't cost that
      * much and we can use the analysis to detect any bb that reads a flag
      * prior to writing it
+     * i#3267: eflags lookup possibly incorrect for instructions with VEX prefix.
+     * (and instructions with EVEX prefix once AVX512 has been added).
      */
     eflags = eflags_6[byte0];
     if (eflags == EFLAGS_6_ESCAPE) {

@@ -58,9 +58,6 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
     }
 }
 
-# We have no way to access the log files, so we can -VV to ensure
-# we can diagnose failures, but it makes for too large of an online
-# result to have on by default.
 # We tee to stdout to provide incremental output and avoid the 10-min
 # no-output timeout on Travis.
 my $res = '';
@@ -75,14 +72,21 @@ if ($child) {
     }
     close(CHILD);
 } else {
+    # We have no way to access the log files, so we can -VV to ensure
+    # we can diagnose failures, but it makes for a large online result
+    # that has to be manually downloaded.  We thus stick with -V for
+    # Travis.  For Appveyor where many devs have no local Visual
+    # Studio we do use -VV so build warning details are visible.
+    my $verbose = "-V";
     if ($^O eq 'cygwin') {
+        $verbose = "-VV";
         # CMake is native Windows so pass it a Windows path.
         # We use the full path to cygpath as git's cygpath is earlier on
         # the PATH for AppVeyor and it fails.
         $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
         chomp $mydir;
     }
-    system("ctest --output-on-failure -VV -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
+    system("ctest --output-on-failure ${verbose} -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
     exit 0;
 }
 
@@ -117,6 +121,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
             # FIXME i#2145: ignoring certain AppVeyor test failures until
             # we get all tests passing.
             %ignore_failures_32 = ('code_api|security-common.retnonexisting' => 1,
+                                   'code_api|security-win32.gbop-test' => 1, # i#2972
                                    'code_api|win32.reload-newaddr' => 1,
                                    'code_api|client.pcache-use' => 1,
                                    'code_api|api.detach' => 1, # i#2246
@@ -158,6 +163,18 @@ for (my $i = 0; $i < $#lines; ++$i) {
             } else {
                 $issue_no = "#2417";
             }
+        } elsif ($^O eq 'darwin') {
+            %ignore_failures_32 = ('code_api|common.decode-bad' => 1, # i#3127
+                                   'code_api|linux.signal0000' => 1, # i#3127
+                                   'code_api|linux.signal0010' => 1, # i#3127
+                                   'code_api|linux.signal0100' => 1, # i#3127
+                                   'code_api|linux.signal0110' => 1, # i#3127
+                                   'code_api|linux.sigaction' => 1, # i#3127
+                                   'code_api|security-common.codemod' => 1, # i#3127
+                                   'code_api|client.crashmsg' => 1, # i#3127
+                                   'code_api|client.exception' => 1, # i#3127
+                                   'code_api|client.timer' => 1, # i#3127
+                                   'code_api|sample.signal' => 1); # i#3127
         } else {
             # FIXME i#2921: fix flaky ptsig test
             %ignore_failures_32 = ('code_api|pthreads.ptsig' => 1);

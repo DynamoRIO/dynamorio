@@ -349,6 +349,41 @@ signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info)
     TABLE_RWLOCK(sigfd_table, write, unlock);
 }
 
+bool
+handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigmask,
+                                     size_t sizemask, bool *pending)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+
+    /* XXX i#2311, #3240: We may currently deliver incorrect signals, because the
+     * native sigprocmask the system call may get interrupted by may not be the same
+     * as the native app expects. In addition to this, the p* variants of above syscalls
+     * are not properly emulated w.r.t. their atomicity setting the sigprocmask and
+     * executing the syscall.
+     */
+    *pending = false;
+    if (sizemask != sizeof(kernel_sigset_t))
+        return false;
+    ASSERT(sigmask != NULL);
+    ASSERT(!info->pre_syscall_app_sigprocmask_valid);
+    info->pre_syscall_app_sigprocmask_valid = true;
+    info->pre_syscall_app_sigprocmask = info->app_sigblocked;
+    signal_set_mask(dcontext, sigmask);
+    /* Make sure we deliver pending signals that are now unblocked. */
+    check_signals_pending(dcontext, info);
+    *pending = dcontext->signals_pending;
+    return true;
+}
+
+void
+handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    ASSERT(info->pre_syscall_app_sigprocmask_valid);
+    info->pre_syscall_app_sigprocmask_valid = false;
+    signal_set_mask(dcontext, &info->pre_syscall_app_sigprocmask);
+}
+
 ptr_int_t
 handle_pre_signalfd(dcontext_t *dcontext, int fd, kernel_sigset_t *mask, size_t sizemask,
                     int flags)

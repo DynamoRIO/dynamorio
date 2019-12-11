@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -58,6 +58,10 @@
 #if defined(MACOS) || defined (LINUX) || defined(VMKERNEL) || defined(ANDROID)
 # define UNIX
 #endif
+#if defined(MACOS) && defined (X64)
+/* Used a lot due to the different TLS.  We thus provide a convenience define. */
+# define MACOS64
+#endif
 
 /* set by high-level VMAP/VMSAFE/VPS configurations */
 #cmakedefine PROGRAM_SHEPHERDING
@@ -79,6 +83,7 @@
 # define CALL_PROFILE
 #endif
 #cmakedefine PARAMS_IN_REGISTRY
+#cmakedefine RECORD_MEMQUERY
 
 /* when packaging */
 #cmakedefine VERSION_NUMBER ${VERSION_NUMBER}
@@ -93,6 +98,7 @@
 #cmakedefine HAVE_FVISIBILITY
 #cmakedefine HAVE_TYPELIMITS_CONTROL
 #cmakedefine ANNOTATIONS
+#cmakedefine HAVE_RSEQ
 
 /* typedef conflicts */
 #cmakedefine DR_DO_NOT_DEFINE_bool
@@ -219,9 +225,6 @@
 #    we're just starting to add VMKERNEL and MACOS support
 #    $(D)X86
 #    $(D)X64
-
-# support for running in x86 emulator on IA-64
-#    $(D)IA32_ON_IA64
 
 # build script provides these
 #    $(D)BUILD_NUMBER (<64K == vmware's PRODUCT_BUILD_NUMBER)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,7 +49,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAGIC_VALUE ((void *)0xdeadbeefUL)
+#define MAGIC_VALUE ((void *)(ptr_uint_t)0xdeadbeefUL)
 
 bool
 my_setenv(const char *var, const char *value)
@@ -177,17 +177,22 @@ free_cb(void *data)
 static void
 post_process()
 {
-    const char *output_path;
-    drmemtrace_status_t mem_res = drmemtrace_get_output_path(&output_path);
+    const char *raw_dir;
+    drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
     assert(mem_res == DRMEMTRACE_SUCCESS);
-    std::string output_trace(std::string(output_path) + std::string(DIRSEP) + ".." +
-                             std::string(DIRSEP) + TRACE_FILENAME);
+    void *dr_context = dr_standalone_init();
     {
         /* First, test just the module parsing w/o writing a final trace, in a separate
          * scope to delete the drmodtrack state afterward.
          */
-        raw2trace_directory_t dir(output_path, output_trace);
-        raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, NULL, NULL);
+        raw2trace_directory_t dir;
+        std::string dir_err = dir.initialize(raw_dir, "");
+        assert(dir_err.empty());
+        std::unique_ptr<module_mapper_t> module_mapper = module_mapper_t::create(
+            dir.modfile_bytes, parse_cb, process_cb, MAGIC_VALUE, free_cb);
+        assert(module_mapper->get_last_error().empty());
+        // Test back-compat of deprecated APIs.
+        raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, NULL);
         std::string error =
             raw2trace.handle_custom_data(parse_cb, process_cb, MAGIC_VALUE, free_cb);
         assert(error.empty());
@@ -197,8 +202,10 @@ post_process()
     /* Now write a final trace to a location that the drcachesim -indir step
      * run by the outer test harness will find (TRACE_FILENAME).
      */
-    raw2trace_directory_t dir(output_path, output_trace);
-    raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, &dir.out_file, NULL, 0);
+    raw2trace_directory_t dir;
+    std::string dir_err = dir.initialize(raw_dir, "");
+    assert(dir_err.empty());
+    raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, dr_context, 0);
     std::string error =
         raw2trace.handle_custom_data(parse_cb, process_cb, MAGIC_VALUE, free_cb);
     assert(error.empty());

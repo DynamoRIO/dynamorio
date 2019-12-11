@@ -37,13 +37,35 @@
 
 #include "trace_entry.h"
 
-typedef void (*func_trace_append_entry_t)(void *drcontext, trace_marker_type_t marker,
-                                          uintptr_t value);
+#define MAX_FUNC_TRACE_ENTRY_VEC_CAP 16
+
+struct func_trace_entry_t {
+    func_trace_entry_t()
+    {
+    }
+    func_trace_entry_t(trace_marker_type_t type, uintptr_t value)
+        : marker_type(type)
+        , marker_value(value)
+    {
+    }
+    trace_marker_type_t marker_type;
+    uintptr_t marker_value;
+};
+
+// XXX: replace it with a drvector_t. But note that we need to care about the overhead
+// when doing so, since the existence of this vector is to reduce the overhead to
+// under a threshold for some large application.
+struct func_trace_entry_vector_t {
+    int size;
+    func_trace_entry_t entries[MAX_FUNC_TRACE_ENTRY_VEC_CAP];
+};
+
+typedef void (*func_trace_append_entry_vec_t)(void *, func_trace_entry_vector_t *);
 
 // Initializes the func_trace module. Each call must be paired with a
 // corresponding call to func_trace_exit().
 bool
-func_trace_init(func_trace_append_entry_t append_entry_);
+func_trace_init(func_trace_append_entry_vec_t append_entry_vec_);
 
 // Cleans up the func_trace module
 void

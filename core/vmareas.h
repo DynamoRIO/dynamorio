@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -116,10 +116,11 @@ struct vm_area_vector_t {
 /* vm_area_vectors should NOT be declared statically if their locks need to be
  * accessed on a regular basis.  Instead, allocate them on the heap with this macro:
  */
-#define VMVECTOR_ALLOC_VECTOR(v, dc, flags, lockname)         \
-    do {                                                      \
-        v = vmvector_create_vector((dc), (flags));            \
-        ASSIGN_INIT_READWRITE_LOCK_FREE((v)->lock, lockname); \
+#define VMVECTOR_ALLOC_VECTOR(v, dc, flags, lockname)             \
+    do {                                                          \
+        v = vmvector_create_vector((dc), (flags));                \
+        if (!TEST(VECTOR_NO_LOCK, (flags)))                       \
+            ASSIGN_INIT_READWRITE_LOCK_FREE((v)->lock, lockname); \
     } while (0);
 
 /* iterator over a vm_area_vector_t */
@@ -194,14 +195,14 @@ bool
 vmvector_lookup_data(vm_area_vector_t *v, app_pc pc, app_pc *start, app_pc *end,
                      void **data);
 
-/* Returns false if pc is in a vmarea in v.
- * Otherwise, returns the start pc of the vmarea prior to pc in prev (NULL
- * if none) and the start pc of the vmarea after pc in next (POINTER_MAX
- * if none).
+/* Returns false if pc is in a vmarea in v.  Otherwise, returns the bounds of the
+ * vmarea prior to pc in [prev_start,prev_end) (both NULL if none) and the bounds of
+ * the vmarea after pc in [next_start,next_end) (both POINTER_MAX if none).
  */
 bool
-vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev,
-                          OUT app_pc *next);
+vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev_start,
+                          OUT app_pc *prev_end, OUT app_pc *next_start,
+                          OUT app_pc *next_end);
 
 bool
 vmvector_modify_data(vm_area_vector_t *v, app_pc start, app_pc end, void *data);
@@ -238,6 +239,9 @@ vmvector_iterator_stop(vmvector_iterator_t *vmvi);
 /* called earlier than vm_areas_init() to allow add_dynamo_vm_area to be called */
 void
 dynamo_vm_areas_init(void);
+
+void
+dynamo_vm_areas_exit(void);
 
 /* initialize per process */
 int
@@ -620,13 +624,14 @@ enum {
 };
 
 bool
-app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, bool hint);
+app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, bool hint,
+                     bool update_areas, bool image);
 
 uint
 app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                              uint prot,         /* platform independent MEMPROT_ */
                              uint *new_memprot, /* OUT */
-                             uint *old_memprot /* OPTIONAL OUT*/);
+                             uint *old_memprot /* OPTIONAL OUT*/, bool image);
 
 #ifdef WINDOWS
 /* memory region base:base+size was flushed from hardware icache by app */
@@ -745,7 +750,7 @@ thread_vm_area_overlap(dcontext_t *dcontext, app_pc start, app_pc end);
 
 /* Returns NULL if should re-execute the faulting write
  * Else returns the target pc for a new basic block -- caller should
- * return to dispatch rather than the code cache.
+ * return to d_r_dispatch rather than the code cache.
  * Pass in the fragment containing instr_cache_pc if known: else pass NULL.
  */
 app_pc

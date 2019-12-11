@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,9 +44,30 @@
 #include "memref.h"
 #include "utils.h"
 
+#define OUT /* just a marker */
+
+#ifdef DEBUG
+#    define VPRINT(reader, level, ...)                           \
+        do {                                                     \
+            if ((reader)->verbosity >= (level)) {                \
+                fprintf(stderr, "%s ", (reader)->output_prefix); \
+                fprintf(stderr, __VA_ARGS__);                    \
+            }                                                    \
+        } while (0)
+#else
+#    define VPRINT(reader, level, ...) /* nothing */
+#endif
+
 class reader_t : public std::iterator<std::input_iterator_tag, memref_t> {
 public:
-    reader_t();
+    reader_t()
+    {
+    }
+    reader_t(int verbosity_in, const char *prefix)
+        : verbosity(verbosity_in)
+        , output_prefix(prefix)
+    {
+    }
     virtual ~reader_t()
     {
     }
@@ -89,20 +110,35 @@ public:
     //    have a copy constructor.
 
 protected:
+    // This reads the next entry from the stream of entries from all threads interleaved
+    // in timestamp order.
     virtual trace_entry_t *
     read_next_entry() = 0;
+    // This reads the next entry from the single stream of entries
+    // from the specified thread.  If it returns false it will set *eof to distinguish
+    // end-of-file from an error.
+    virtual bool
+    read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
+                           OUT bool *eof) = 0;
 
-    bool at_eof;
+    // Following typical stream iterator convention, the default constructor
+    // produces an EOF object.
+    // This should be set to false by subclasses in init() and set
+    // back to true when actual EOF is hit.
+    bool at_eof = true;
+
+    int verbosity = 0;
+    const char *output_prefix = "[reader]";
 
 private:
-    trace_entry_t *input_entry;
+    trace_entry_t *input_entry = nullptr;
     memref_t cur_ref;
-    memref_tid_t cur_tid;
-    memref_pid_t cur_pid;
-    addr_t cur_pc;
+    memref_tid_t cur_tid = 0;
+    memref_pid_t cur_pid = 0;
+    addr_t cur_pc = 0;
     addr_t next_pc;
-    addr_t prev_instr_addr;
-    int bundle_idx;
+    addr_t prev_instr_addr = 0;
+    int bundle_idx = 0;
     std::unordered_map<memref_tid_t, memref_pid_t> tid2pid;
 };
 

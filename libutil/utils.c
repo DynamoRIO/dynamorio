@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,7 +42,7 @@
 #    include "elm.h"
 #    include "events.h"      /* for canary */
 #    include "processes.h"   /* for canary */
-#    include "options.h"     /* for option checking */
+#    include "../options.h"  /* for option checking */
 #    include "ntdll_types.h" /* for NT_SUCCESS */
 
 #    include <io.h>    /* for canary */
@@ -372,7 +372,7 @@ file_exists(const TCHAR *fn)
         /* special handling for e.g. C:\\ */
         if (LAST_WCHAR(fn) == L'\\' || LAST_WCHAR(fn) == L':') {
             WCHAR buf[MAX_PATH];
-            _snwprintf(buf, MAX_PATH, L"%S%S*", fn,
+            _snwprintf(buf, MAX_PATH, L"%s%s*", fn,
                        LAST_WCHAR(fn) == L'\\' ? L"" : L"\\");
             NULL_TERMINATE_BUFFER(buf);
             search = FindFirstFile(buf, &fd);
@@ -1410,7 +1410,7 @@ read_file_contents(WCHAR *path, char *contents, SIZE_T maxchars, SIZE_T *needed)
         contents[n_read == maxchars ? n_read - 1 : n_read] = '\0';
 
         DO_DEBUG(DL_FINEST,
-                 printf("*Read %d bytes from %S (max=%d)\n", n_read, path, maxchars););
+                 printf("*Read %zu bytes from %S (max=%zu)\n", n_read, path, maxchars););
     }
 
     n_needed = n_read;
@@ -1420,7 +1420,7 @@ read_file_contents(WCHAR *path, char *contents, SIZE_T maxchars, SIZE_T *needed)
 
         n_read = fread(buf, 1, READ_BUF_SZ, fp);
 
-        DO_DEBUG(DL_FINEST, printf("  Read an additional %d bytes\n", n_read););
+        DO_DEBUG(DL_FINEST, printf("  Read an additional %zu bytes\n", n_read););
 
         if (n_read == 0 && !feof(fp)) {
             res = ERROR_READ_FAULT;
@@ -1441,7 +1441,7 @@ read_file_contents(WCHAR *path, char *contents, SIZE_T maxchars, SIZE_T *needed)
     if (res == ERROR_SUCCESS || res == ERROR_MORE_DATA) {
         DO_DEBUG(
             DL_VERB,
-            printf("file %S contents: (%d needed)\n\n%s\n", path, n_needed, contents););
+            printf("file %S contents: (%zu needed)\n\n%s\n", path, n_needed, contents););
     } else {
         DO_DEBUG(DL_ERROR, printf("read failed, error %d\n", res););
     }

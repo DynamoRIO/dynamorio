@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -70,7 +70,7 @@ event_bb(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 static void
 event_exit(void)
 {
-    dr_nonheap_free(gencode, GENCODE_SIZE);
+    dr_raw_mem_free(gencode, GENCODE_SIZE);
 }
 
 DR_EXPORT void

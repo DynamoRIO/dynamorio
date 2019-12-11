@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -38,14 +38,8 @@
 #include "module_private.h"
 #include "../utils.h"
 #include "instrument.h"
-#include <string.h>
 #include <stddef.h> /* offsetof */
 #include <link.h>   /* Elf_Symndx */
-
-typedef union _elf_generic_header_t {
-    Elf64_Ehdr elf64;
-    Elf32_Ehdr elf32;
-} elf_generic_header_t;
 
 #ifndef ANDROID
 struct tlsdesc_t {
@@ -66,41 +60,13 @@ typedef uint32_t Elf_Symndx;
 #    define STN_UNDEF 0
 #endif
 
-#ifdef NOT_DYNAMORIO_CORE_PROPER
-#    undef LOG
-#    define LOG(...) /* nothing */
-#    undef ASSERT
-#    define ASSERT(x) ((void)0)
-#    undef ASSERT_NOT_IMPLEMENTED
-#    define ASSERT_NOT_IMPLEMENTED(x) ((void)0)
-#    undef ASSERT_CURIOSITY
-#    define ASSERT_CURIOSITY(x) ((void)0)
-
-/* Compatibility layer
- * XXX i#1409: really we should split out a lib shared w/ non-core from os.c.
- */
-bool
-safe_read(const void *base, size_t size, void *out_buf)
-{
-    memcpy(out_buf, base, size);
-    return true;
-}
-
-bool
-safe_read_if_fast(const void *base, size_t size, void *out_buf)
-{
-    return safe_read(base, size, out_buf);
-}
-
-#else /* !NOT_DYNAMORIO_CORE_PROPER */
-
-#    ifdef CLIENT_INTERFACE
+#ifdef CLIENT_INTERFACE
 typedef struct _elf_symbol_iterator_t {
     dr_symbol_import_t symbol_import; /* symbol import returned by next() */
     dr_symbol_export_t symbol_export; /* symbol export returned by next() */
 
     ELF_SYM_TYPE *symbol;      /* safe_cur_sym or NULL */
-    ELF_SYM_TYPE safe_cur_sym; /* safe_read() copy of current symbol */
+    ELF_SYM_TYPE safe_cur_sym; /* d_r_safe_read() copy of current symbol */
 
     /* This data is copied from os_module_data_t so we don't have to hold the
      * module area lock while the client iterates.
@@ -122,16 +88,16 @@ typedef struct _elf_symbol_iterator_t {
     Elf_Symndx hidx;
     Elf_Symndx chain_idx;
 } elf_symbol_iterator_t;
-#    endif /* CLIENT_INTERFACE */
+#endif /* CLIENT_INTERFACE */
 
 /* In case want to build w/o gnu headers and use that to run recent gnu elf */
-#    ifndef DT_GNU_HASH
-#        define DT_GNU_HASH 0x6ffffef5
-#    endif
+#ifndef DT_GNU_HASH
+#    define DT_GNU_HASH 0x6ffffef5
+#endif
 
-#    ifndef STT_GNU_IFUNC
-#        define STT_GNU_IFUNC STT_LOOS
-#    endif
+#ifndef STT_GNU_IFUNC
+#    define STT_GNU_IFUNC STT_LOOS
+#endif
 
 /* forward declaration */
 static void
@@ -152,97 +118,6 @@ module_hashtab_init(os_module_data_t *os_data);
  * backtrack some of them out from program headers which need to point to plt relocs
  * etc.
  */
-
-#endif /* !NOT_DYNAMORIO_CORE_PROPER */
-
-/* This routine is duplicated in privload_mem_is_elf_so_header. Any update here
- * should be updated in privload_mem_is_elf_so_header.
- */
-/* Is there an ELF header for a shared object at address 'base'?
- * If size == 0 then checks for header readability else assumes that size bytes from
- * base are readable (unmap races are then callers responsibility).
- */
-static bool
-is_elf_so_header_common(app_pc base, size_t size, bool memory)
-{
-    /* FIXME We could check more fields in the header just as the
-     * dlopen() does. */
-    static const unsigned char ei_expected[SELFMAG] = {
-        [EI_MAG0] = ELFMAG0, [EI_MAG1] = ELFMAG1, [EI_MAG2] = ELFMAG2, [EI_MAG3] = ELFMAG3
-    };
-    ELF_HEADER_TYPE elf_header;
-
-    if (base == NULL) {
-        ASSERT(false && "is_elf_so_header(): NULL base");
-        return false;
-    }
-
-    /* Read the header.  We used to directly deref if size >= sizeof(ELF_HEADER_TYPE)
-     * but given that we now have safe_read_fast() it's best to always use it and
-     * avoid races (like i#2113).  However, the non-fast version hits deadlock on
-     * memquery during client init, so we use a special routine safe_read_if_fast().
-     */
-    if (size >= sizeof(ELF_HEADER_TYPE)) {
-        if (!safe_read_if_fast(base, sizeof(ELF_HEADER_TYPE), &elf_header))
-            return false;
-    } else if (size == 0) {
-        if (!safe_read(base, sizeof(ELF_HEADER_TYPE), &elf_header))
-            return false;
-    } else {
-        return false;
-    }
-
-    /* We check the first 4 bytes which is the magic number. */
-    if ((size == 0 || size >= sizeof(ELF_HEADER_TYPE)) &&
-        elf_header.e_ident[EI_MAG0] == ei_expected[EI_MAG0] &&
-        elf_header.e_ident[EI_MAG1] == ei_expected[EI_MAG1] &&
-        elf_header.e_ident[EI_MAG2] == ei_expected[EI_MAG2] &&
-        elf_header.e_ident[EI_MAG3] == ei_expected[EI_MAG3] &&
-        /* PR 475158: if an app loads a linkable but not loadable
-         * file (e.g., .o file) we don't want to treat as a module
-         */
-        (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC)) {
-#ifdef CLIENT_INTERFACE
-        /* i#157, we do more check to make sure we load the right modules,
-         * i.e. 32/64-bit libraries.
-         * We check again in privload_map_and_relocate() in loader for nice
-         * error message.
-         * Xref i#1345 for supporting mixed libs, which makes more sense for
-         * standalone mode tools like those using drsyms (i#1532) or
-         * dr_map_executable_file, but we just don't support that yet until we
-         * remove our hardcoded type defines in module_elf.h.
-         */
-        if ((elf_header.e_version != 1) ||
-            (memory && elf_header.e_ehsize != sizeof(ELF_HEADER_TYPE)) ||
-            (memory &&
-             elf_header.e_machine !=
-                 IF_X86_ELSE(IF_X64_ELSE(EM_X86_64, EM_386),
-                             IF_X64_ELSE(EM_AARCH64, EM_ARM))))
-            return false;
-#endif
-        /* FIXME - should we add any of these to the check? For real
-         * modules all of these should hold. */
-        ASSERT_CURIOSITY(elf_header.e_version == 1);
-        ASSERT_CURIOSITY(!memory || elf_header.e_ehsize == sizeof(ELF_HEADER_TYPE));
-        ASSERT_CURIOSITY(elf_header.e_ident[EI_OSABI] == ELFOSABI_SYSV ||
-                         elf_header.e_ident[EI_OSABI] == ELFOSABI_LINUX);
-        ASSERT_CURIOSITY(!memory ||
-                         elf_header.e_machine ==
-                             IF_X86_ELSE(IF_X64_ELSE(EM_X86_64, EM_386),
-                                         IF_X64_ELSE(EM_AARCH64, EM_ARM)));
-        return true;
-    }
-    return false;
-}
-
-/* i#727: Recommend passing 0 as size if not known if the header can be safely
- * read.
- */
-bool
-is_elf_so_header(app_pc base, size_t size)
-{
-    return is_elf_so_header_common(base, size, true);
-}
 
 bool
 module_file_has_module_header(const char *filename)
@@ -295,8 +170,6 @@ module_is_partial_map(app_pc base, size_t size, uint memprot)
         ALIGN_FORWARD(size, PAGE_SIZE) < (last_seg_end - first_seg_base);
 }
 
-#ifndef NOT_DYNAMORIO_CORE_PROPER
-
 /* Returns absolute address of the ELF dynamic array DT_ target */
 static app_pc
 elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size, size_t view_size,
@@ -336,23 +209,6 @@ elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size, size_t vi
     return tgt;
 }
 
-#endif /* !NOT_DYNAMORIO_CORE_PROPER */
-
-uint
-module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr)
-{
-    uint segment_prot = 0;
-    if (TEST(PF_X, prog_hdr->p_flags))
-        segment_prot |= MEMPROT_EXEC;
-    if (TEST(PF_W, prog_hdr->p_flags))
-        segment_prot |= MEMPROT_WRITE;
-    if (TEST(PF_R, prog_hdr->p_flags))
-        segment_prot |= MEMPROT_READ;
-    return segment_prot;
-}
-
-#ifndef NOT_DYNAMORIO_CORE_PROPER
-
 /* common code to fill os_module_data_t for loader and module_area_t */
 static bool
 module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
@@ -378,7 +234,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
     dcontext_t *dcontext = get_thread_private_dcontext();
     /* i#489, DT_SONAME is optional, init soname to NULL first */
     *soname = NULL;
-#    ifdef ANDROID
+#ifdef ANDROID
     /* On Android only the first segment is mapped in and .dynamic is not
      * accessible.  We try to avoid the cost of the fault.
      * If we do a query (e.g., via is_readable_without_exception()) we'll get
@@ -389,7 +245,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
      */
     if ((app_pc)dyn > base + view_size)
         return false;
-#    endif
+#endif
 
     TRY_EXCEPT_ALLOW_NO_DCONTEXT(
         dcontext,
@@ -429,12 +285,12 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                         out_data->symentry_size = (size_t)dyn->d_un.d_val;
                     } else if (dyn->d_tag == DT_RUNPATH) {
                         out_data->has_runpath = true;
-#    ifndef ANDROID
+#ifndef ANDROID
                     } else if (dyn->d_tag == DT_CHECKSUM) {
                         out_data->checksum = (size_t)dyn->d_un.d_val;
                     } else if (dyn->d_tag == DT_GNU_PRELINKED) {
                         out_data->timestamp = (size_t)dyn->d_un.d_val;
-#    endif
+#endif
                     }
                 }
                 dyn++;
@@ -475,12 +331,14 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
     return res;
 }
 
-/* Returned addresses out_base and out_end are relative to the actual
+/* Identifies the bounds of each segment in the ELF at base.
+ * Returned addresses out_base and out_end are relative to the actual
  * loaded module base, so the "base" param should be added to produce
  * absolute addresses.
  * If out_data != NULL, fills in the dynamic section fields and adds
  * entries to the module list vector: so the caller must be
  * os_module_area_init() if out_data != NULL!
+ * Optionally returns the first segment bounds, the max segment end, and the soname.
  */
 bool
 module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn_reloc,
@@ -494,6 +352,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
     bool found_load = false;
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
     ptr_int_t load_delta; /* delta loaded at relative to base */
+    uint last_seg_align = 0;
     ASSERT(is_elf_so_header(base, view_size));
 
     /* On adjusting virtual address in the elf headers -
@@ -524,6 +383,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                                             i * elf_hdr->e_phentsize);
             if (prog_hdr->p_type == PT_LOAD) {
                 if (out_data != NULL) {
+                    last_seg_align = prog_hdr->p_align;
                     module_add_segment_data(
                         out_data, elf_hdr->e_phnum,
                         (app_pc)prog_hdr->p_vaddr + load_delta, prog_hdr->p_memsz,
@@ -548,6 +408,29 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                     }
                 });
             }
+        }
+        if (max_end + load_delta < base + view_size) {
+            /* i#3900: in-memory-only VDSO has a "loaded" portion not in a PT_LOAD
+             * official segment.  This confuses other code which takes the endpoint
+             * of the last segment as the endpoint of the mappings.  Our solution is
+             * to create a synthetic segment.
+             */
+            LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
+                "max segment end " PFX " smaller than map size " PFX ": probably VDSO\n",
+                max_end + load_delta, base + view_size);
+            uint map_prot;
+            if (out_data != NULL &&
+                get_memory_info_from_os(max_end + load_delta, NULL, NULL, &map_prot)) {
+                LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
+                    "adding synthetic segment " PFX "-" PFX "\n", max_end + load_delta,
+                    base + view_size);
+                ASSERT_CURIOSITY(soname != NULL && strstr(soname, "vdso") != NULL);
+                module_add_segment_data(out_data, elf_hdr->e_phnum, max_end + load_delta,
+                                        base + view_size - (max_end + load_delta),
+                                        map_prot, last_seg_align, false /*!shared*/,
+                                        max_end + load_delta - base /*offset*/);
+            }
+            max_end = base + view_size;
         }
     }
     ASSERT_CURIOSITY(found_load && mod_base != (app_pc)POINTER_MAX &&
@@ -614,50 +497,6 @@ os_module_update_dynamic_info(app_pc base, size_t size, bool at_map)
     }
     os_get_module_info_write_unlock();
 }
-#endif /* !NOT_DYNAMORIO_CORE_PROPER */
-
-/* XXX: This routine may be called before dynamorio relocation when we are
- * in a fragile state and thus no globals access or use of ASSERT/LOG/STATS!
- */
-/* Returns the minimum p_vaddr field, aligned to page boundaries, in
- * the loadable segments in the prog_header array, or POINTER_MAX if
- * there are no loadable segments.
- */
-app_pc
-module_vaddr_from_prog_header(app_pc prog_header, uint num_segments,
-                              OUT app_pc *out_first_end, OUT app_pc *out_max_end)
-{
-    uint i;
-    app_pc min_vaddr = (app_pc)POINTER_MAX;
-    app_pc max_end = (app_pc)PTR_UINT_0;
-    app_pc first_end = NULL;
-    for (i = 0; i < num_segments; i++) {
-        /* Without the ELF header we use sizeof instead of elf_hdr->e_phentsize
-         * which must be a reliable assumption as dl_iterate_phdr() doesn't
-         * bother to deliver the entry size.
-         */
-        ELF_PROGRAM_HEADER_TYPE *prog_hdr =
-            (ELF_PROGRAM_HEADER_TYPE *)(prog_header +
-                                        i * sizeof(ELF_PROGRAM_HEADER_TYPE));
-        if (prog_hdr->p_type == PT_LOAD) {
-            /* ELF requires p_vaddr to already be aligned to p_align */
-            min_vaddr =
-                MIN(min_vaddr, (app_pc)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE));
-            if (min_vaddr == (app_pc)prog_hdr->p_vaddr)
-                first_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_memsz;
-            max_end = MAX(
-                max_end,
-                (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr + prog_hdr->p_memsz, PAGE_SIZE));
-        }
-    }
-    if (out_first_end != NULL)
-        *out_first_end = first_end;
-    if (out_max_end != NULL)
-        *out_max_end = max_end;
-    return min_vaddr;
-}
-
-#ifndef NOT_DYNAMORIO_CORE_PROPER
 
 bool
 module_read_program_header(app_pc base, uint segment_num,
@@ -937,18 +776,16 @@ get_proc_address_ex(module_base_t lib, const char *name, bool *is_indirect_code 
 }
 
 generic_func_t
-get_proc_address(module_base_t lib, const char *name)
+d_r_get_proc_address(module_base_t lib, const char *name)
 {
     return get_proc_address_ex(lib, name, NULL);
 }
-
-#endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 size_t
 module_get_header_size(app_pc module_base)
 {
     ELF_HEADER_TYPE *elf_header = (ELF_HEADER_TYPE *)module_base;
-    if (!is_elf_so_header_common(module_base, 0, true))
+    if (!is_elf_so_header(module_base, 0))
         return 0;
     ASSERT(offsetof(Elf64_Ehdr, e_machine) == offsetof(Elf32_Ehdr, e_machine));
     if (elf_header->e_machine == EM_X86_64)
@@ -956,33 +793,6 @@ module_get_header_size(app_pc module_base)
     else
         return sizeof(Elf32_Ehdr);
 }
-
-bool
-module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platform)
-{
-    elf_generic_header_t elf_header;
-    if (alt_platform != NULL)
-        *alt_platform = DR_PLATFORM_NONE;
-    if (os_read(f, &elf_header, sizeof(elf_header)) != sizeof(elf_header))
-        return false;
-    if (!is_elf_so_header_common((app_pc)&elf_header, sizeof(elf_header), false))
-        return false;
-    ASSERT(offsetof(Elf64_Ehdr, e_machine) == offsetof(Elf32_Ehdr, e_machine));
-    switch (elf_header.elf64.e_machine) {
-    case EM_X86_64:
-#ifdef EM_AARCH64
-    case EM_AARCH64:
-#endif
-        *platform = DR_PLATFORM_64BIT;
-        break;
-    case EM_386:
-    case EM_ARM: *platform = DR_PLATFORM_32BIT; break;
-    default: return false;
-    }
-    return true;
-}
-
-#ifndef NOT_DYNAMORIO_CORE_PROPER
 
 /* returns true if the module is marked as having text relocations.
  * XXX: should we also have a routine that walks the relocs (once that
@@ -1064,7 +874,7 @@ module_get_section_with_name(app_pc image, size_t img_size, const char *sec_name
     sec_hdr = (ELF_SECTION_HEADER_TYPE *)(image + elf_hdr->e_shoff);
     ASSERT(sec_hdr[elf_hdr->e_shstrndx].sh_offset < img_size);
     strtab = (char *)(image + sec_hdr[elf_hdr->e_shstrndx].sh_offset);
-    /* walk the section table to check if a section name is ".text" */
+    /* walk the section table to check if a section name is sec_name */
     for (i = 0; i < elf_hdr->e_shnum; i++) {
         if (strcmp(sec_name, strtab + sec_hdr->sh_name) == 0)
             return sec_hdr->sh_addr;
@@ -1302,6 +1112,9 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
      */
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     mod = privload_first_module();
+    /* FIXME i#3850: Symbols are currently looked up following the dependency chain
+     * depth-first instead of breadth-first.
+     */
     while (mod != NULL) {
         pd = mod->os_privmod_data;
         ASSERT(pd != NULL && name != NULL);
@@ -1331,7 +1144,7 @@ module_undef_symbols()
     FATAL_USAGE_ERROR(UNDEFINED_SYMBOL_REFERENCE, 0, "");
 }
 
-#    ifdef CLIENT_INTERFACE
+#ifdef CLIENT_INTERFACE
 
 static ELF_SYM_TYPE *
 symbol_iterator_cur_symbol(elf_symbol_iterator_t *iter)
@@ -1573,15 +1386,15 @@ dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
     symbol_iterator_stop((elf_symbol_iterator_t *)dr_iter);
 }
 
-#    endif /* CLIENT_INTERFACE */
+#endif /* CLIENT_INTERFACE */
 
-#    ifndef ANDROID
+#ifndef ANDROID
 
-#        ifdef AARCH64
+#    ifdef AARCH64
 /* Defined in aarch64.asm. */
 ptr_int_t
 tlsdesc_resolver(struct tlsdesc_t *);
-#        else
+#    else
 static ptr_int_t
 tlsdesc_resolver(struct tlsdesc_t *arg)
 {
@@ -1589,9 +1402,9 @@ tlsdesc_resolver(struct tlsdesc_t *arg)
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 }
-#        endif
+#    endif
 
-#    endif /* !ANDROID */
+#endif /* !ANDROID */
 
 /* This routine is duplicated in privload_relocate_symbol for relocating
  * dynamorio symbols in a bootstrap stage. Any update here should be also
@@ -1641,10 +1454,10 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
     sym = &((ELF_SYM_TYPE *)pd->os_data.dynsym)[r_sym];
     name = (char *)pd->os_data.dynstr + sym->st_name;
 
-#    ifdef CLIENT_INTERFACE
+#ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_loader) && privload_redirect_sym(r_addr, name))
         return;
-#    endif
+#endif
 
     resolved = true;
     /* handle syms that do not need symbol lookup */
@@ -1666,7 +1479,7 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
         if (sym != NULL)
             *r_addr = sym->st_value + addend;
         break;
-#    ifndef ANDROID
+#ifndef ANDROID
     case ELF_R_TLS_DESC: {
         /* Provided the client does not invoke dr_load_aux_library after the
          * app has started and might have called clone, TLS descriptors can be
@@ -1678,19 +1491,19 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
         tlsdesc->arg = (void *)(sym->st_value + addend - pd->tls_offset);
         break;
     }
-#        ifndef X64
+#    ifndef X64
     case R_386_TLS_TPOFF32:
         /* offset is positive, backward from the thread pointer */
         if (sym != NULL)
             *r_addr += pd->tls_offset - sym->st_value;
         break;
-#        endif
+#    endif
     case ELF_R_IRELATIVE:
         res = (byte *)pd->load_delta + (is_rela ? addend : *r_addr);
         *r_addr = ((ELF_ADDR(*)(void))res)();
         LOG(GLOBAL, LOG_LOADER, 4, "privmod ifunc reloc %s => " PFX "\n", name, *r_addr);
         break;
-#    endif /* ANDROID */
+#endif /* ANDROID */
     default: resolved = false;
     }
     if (resolved)
@@ -1723,18 +1536,18 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
         if (sym != NULL)
             memcpy(r_addr, res, sym->st_size);
         break;
-#    ifdef X86
+#ifdef X86
     case ELF_R_PC32:
         res += addend - (reg_t)r_addr;
         *(uint *)r_addr = (uint)(reg_t)res;
         break;
-#        ifdef X64
+#    ifdef X64
     case R_X86_64_32:
         res += addend;
         *(uint *)r_addr = (uint)(reg_t)res;
         break;
-#        endif
 #    endif
+#endif
     /* FIXME i#1551: add ARM specific relocs type handling */
     default:
         /* unhandled rel type */
@@ -1769,317 +1582,4 @@ module_relocate_rela(app_pc modbase, os_privmod_data_t *pd, ELF_RELA_TYPE *start
 
     for (rela = start; rela < end; rela++)
         module_relocate_symbol((ELF_REL_TYPE *)rela, pd, true);
-}
-
-#endif /* !NOT_DYNAMORIO_CORE_PROPER */
-
-/* Get the module text section from the mapped image file,
- * Note that it must be the image file, not the loaded module.
- */
-ELF_ADDR
-module_get_text_section(app_pc file_map, size_t file_size)
-{
-    ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)file_map;
-    ELF_SECTION_HEADER_TYPE *sec_hdr;
-    char *strtab;
-    uint i;
-    ASSERT(is_elf_so_header(file_map, file_size));
-    ASSERT(elf_hdr->e_shoff < file_size);
-    ASSERT(elf_hdr->e_shentsize == sizeof(ELF_SECTION_HEADER_TYPE));
-    ASSERT(elf_hdr->e_shoff + elf_hdr->e_shentsize * elf_hdr->e_shnum <= file_size);
-    sec_hdr = (ELF_SECTION_HEADER_TYPE *)(file_map + elf_hdr->e_shoff);
-    strtab = (char *)(file_map + sec_hdr[elf_hdr->e_shstrndx].sh_offset);
-    for (i = 0; i < elf_hdr->e_shnum; i++) {
-        if (strcmp(".text", strtab + sec_hdr->sh_name) == 0)
-            return sec_hdr->sh_addr;
-        ++sec_hdr;
-    }
-    /* ELF doesn't require that there's a section named ".text". */
-    ASSERT_CURIOSITY(false);
-    return 0;
-}
-
-/* Read until EOF or error. Return number of bytes read. */
-static size_t
-os_read_until(file_t fd, void *buf, size_t toread)
-{
-    size_t orig_toread = toread;
-    ssize_t nread;
-    while (toread > 0) {
-        nread = os_read(fd, buf, toread);
-        if (nread <= 0)
-            break;
-        toread -= nread;
-        buf = (app_pc)buf + nread;
-    }
-    return orig_toread - toread;
-}
-
-bool
-elf_loader_init(elf_loader_t *elf, const char *filename)
-{
-    memset(elf, 0, sizeof(*elf));
-    elf->filename = filename;
-    elf->fd = os_open(filename, OS_OPEN_READ);
-    return elf->fd != INVALID_FILE;
-}
-
-void
-elf_loader_destroy(elf_loader_t *elf)
-{
-    if (elf->fd != INVALID_FILE) {
-        os_close(elf->fd);
-    }
-    if (elf->file_map != NULL) {
-        os_unmap_file(elf->file_map, elf->file_size);
-    }
-    memset(elf, 0, sizeof(*elf));
-}
-
-ELF_HEADER_TYPE *
-elf_loader_read_ehdr(elf_loader_t *elf)
-{
-    /* The initial read is sized to read both ehdr and all phdrs. */
-    if (elf->fd == INVALID_FILE)
-        return NULL;
-    if (elf->file_map != NULL) {
-        /* The user mapped the entire file up front, so use it. */
-        elf->ehdr = (ELF_HEADER_TYPE *)elf->file_map;
-    } else {
-        size_t size = os_read_until(elf->fd, elf->buf, sizeof(elf->buf));
-        if (size == 0)
-            return NULL;
-        if (!is_elf_so_header(elf->buf, size))
-            return NULL;
-        elf->ehdr = (ELF_HEADER_TYPE *)elf->buf;
-    }
-    return elf->ehdr;
-}
-
-app_pc
-elf_loader_map_file(elf_loader_t *elf, bool reachable)
-{
-    uint64 size64;
-    if (elf->file_map != NULL)
-        return elf->file_map;
-    if (elf->fd == INVALID_FILE)
-        return NULL;
-    if (!os_get_file_size_by_handle(elf->fd, &size64))
-        return NULL;
-    ASSERT_TRUNCATE(elf->file_size, size_t, size64);
-    elf->file_size = (size_t)size64; /* truncate */
-    /* We use os_map_file instead of map_file since this mapping is temporary.
-     * We don't need to add and remove it from dynamo_areas.
-     */
-    elf->file_map =
-        os_map_file(elf->fd, &elf->file_size, 0, NULL, MEMPROT_READ,
-                    MAP_FILE_COPY_ON_WRITE | (reachable ? MAP_FILE_REACHABLE : 0));
-    return elf->file_map;
-}
-
-ELF_PROGRAM_HEADER_TYPE *
-elf_loader_read_phdrs(elf_loader_t *elf)
-{
-    size_t ph_off;
-    size_t ph_size;
-    if (elf->ehdr == NULL)
-        return NULL;
-    ph_off = elf->ehdr->e_phoff;
-    ph_size = elf->ehdr->e_phnum * elf->ehdr->e_phentsize;
-    if (elf->file_map == NULL && ph_off + ph_size < sizeof(elf->buf)) {
-        /* We already read phdrs, and they are in buf. */
-        elf->phdrs = (ELF_PROGRAM_HEADER_TYPE *)(elf->buf + elf->ehdr->e_phoff);
-    } else {
-        /* We have large or distant phdrs, so map the whole file.  We could
-         * seek and read just the phdrs to avoid disturbing the address space,
-         * but that would introduce a dependency on DR's heap.
-         */
-        if (elf_loader_map_file(elf, false /*!reachable*/) == NULL)
-            return NULL;
-        elf->phdrs = (ELF_PROGRAM_HEADER_TYPE *)(elf->file_map + elf->ehdr->e_phoff);
-    }
-    return elf->phdrs;
-}
-
-bool
-elf_loader_read_headers(elf_loader_t *elf, const char *filename)
-{
-    if (!elf_loader_init(elf, filename))
-        return false;
-    if (elf_loader_read_ehdr(elf) == NULL)
-        return false;
-    if (elf_loader_read_phdrs(elf) == NULL)
-        return false;
-    return true;
-}
-
-app_pc
-elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
-                     unmap_fn_t unmap_func, prot_fn_t prot_func, modload_flags_t flags)
-{
-    app_pc lib_base, lib_end, last_end;
-    ELF_HEADER_TYPE *elf_hdr = elf->ehdr;
-    app_pc map_base, map_end;
-    reg_t pg_offs;
-    uint seg_prot, i;
-    ptr_int_t delta;
-    size_t initial_map_size;
-
-    ASSERT(elf->phdrs != NULL && "call elf_loader_read_phdrs() first");
-    if (elf->phdrs == NULL)
-        return NULL;
-
-    map_base = module_vaddr_from_prog_header((app_pc)elf->phdrs, elf->ehdr->e_phnum, NULL,
-                                             &map_end);
-
-#ifndef NOT_DYNAMORIO_CORE_PROPER
-    if (fixed &&
-        (get_dynamorio_dll_start() < map_end && get_dynamorio_dll_end() > map_base)) {
-        FATAL_USAGE_ERROR(FIXED_MAP_OVERLAPS_DR, 3, get_application_name(),
-                          get_application_pid(), elf->filename);
-        ASSERT_NOT_REACHED();
-    }
-#endif
-
-    elf->image_size = map_end - map_base;
-
-    /* reserve the memory from os for library */
-    initial_map_size = elf->image_size;
-    if (INTERNAL_OPTION(separate_private_bss) && !TEST(MODLOAD_NOT_PRIVLIB, flags)) {
-        /* place an extra no-access page after .bss */
-        /* XXX: update privload_early_inject call to init_emulated_brk if this changes */
-        /* XXX: should we avoid this for -early_inject's map of the app and ld.so? */
-        initial_map_size += PAGE_SIZE;
-    }
-    lib_base = (*map_func)(-1, &initial_map_size, 0, map_base,
-                           MEMPROT_NONE, /* so the separating page is no-access */
-                           MAP_FILE_COPY_ON_WRITE | MAP_FILE_IMAGE |
-                               /* i#1001: a PIE executable may have NULL as preferred
-                                * base, in which case the map can be anywhere
-                                */
-                               ((fixed && map_base != NULL) ? MAP_FILE_FIXED : 0) |
-                               (TEST(MODLOAD_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0));
-    ASSERT(lib_base != NULL);
-    if (INTERNAL_OPTION(separate_private_bss) && initial_map_size > elf->image_size)
-        elf->image_size = initial_map_size - PAGE_SIZE;
-    else
-        elf->image_size = initial_map_size;
-    lib_end = lib_base + elf->image_size;
-    elf->load_base = lib_base;
-    ASSERT(elf->load_delta == 0 || map_base == NULL);
-
-    if (map_base != NULL && map_base != lib_base) {
-        /* the mapped memory is not at preferred address,
-         * should be ok if it is still reachable for X64,
-         * which will be checked later.
-         */
-        LOG(GLOBAL, LOG_LOADER, 1, "%s: module not loaded at preferred address\n",
-            __FUNCTION__);
-    }
-    delta = lib_base - map_base;
-    elf->load_delta = delta;
-
-    /* walk over the program header to load the individual segments */
-    last_end = lib_base;
-    for (i = 0; i < elf_hdr->e_phnum; i++) {
-        app_pc seg_base, seg_end, map, file_end;
-        size_t seg_size;
-        ELF_PROGRAM_HEADER_TYPE *prog_hdr =
-            (ELF_PROGRAM_HEADER_TYPE *)((byte *)elf->phdrs + i * elf_hdr->e_phentsize);
-        if (prog_hdr->p_type == PT_LOAD) {
-            bool do_mmap = true;
-            seg_base = (app_pc)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE) + delta;
-            seg_end =
-                (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr + prog_hdr->p_filesz, PAGE_SIZE) +
-                delta;
-            seg_size = seg_end - seg_base;
-            if (seg_base != last_end) {
-                /* XXX: a hole, I reserve this space instead of unmap it */
-                size_t hole_size = seg_base - last_end;
-                (*prot_func)(last_end, hole_size, MEMPROT_NONE);
-            }
-            seg_prot = module_segment_prot_to_osprot(prog_hdr);
-            pg_offs = ALIGN_BACKWARD(prog_hdr->p_offset, PAGE_SIZE);
-            if (TEST(MODLOAD_SKIP_WRITABLE, flags) && TEST(MEMPROT_WRITE, seg_prot) &&
-                seg_end == lib_end) {
-                /* We only actually skip if it's the final segment, to allow
-                 * unmapping with a single mmap and not worrying about sthg
-                 * else having been unmapped at the end in the meantime.
-                 */
-                do_mmap = false;
-                elf->image_size = last_end - lib_base;
-            }
-            /* XXX:
-             * This function can be called after dynamorio_heap_initialized,
-             * and we will use map_file instead of os_map_file.
-             * However, map_file does not allow mmap with overlapped memory,
-             * so we have to unmap the old memory first.
-             * This might be a problem, e.g.
-             * one thread unmaps the memory and before mapping the actual file,
-             * another thread requests memory via mmap takes the memory here,
-             * a racy condition.
-             */
-            if (seg_size > 0) { /* i#1872: handle empty segments */
-                (*unmap_func)(seg_base, seg_size);
-                if (do_mmap) {
-                    map = (*map_func)(
-                        elf->fd, &seg_size, pg_offs, seg_base /* base */,
-                        seg_prot | MEMPROT_WRITE /* prot */,
-                        MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
-                            MAP_FILE_IMAGE |
-                            /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
-                            MAP_FILE_FIXED);
-                    ASSERT(map != NULL);
-                    /* fill zeros at extend size */
-                    file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
-                    if (seg_end > file_end + delta) {
-#ifndef NOT_DYNAMORIO_CORE_PROPER
-                        memset(file_end + delta, 0, seg_end - (file_end + delta));
-#else
-                        /* FIXME i#37: use a remote memset to zero out this gap or fix
-                         * it up in the child.  There is typically one RW PT_LOAD
-                         * segment for .data and .bss.  If .data ends and .bss starts
-                         * before filesz bytes, we need to zero the .bss bytes manually.
-                         */
-#endif /* !NOT_DYNAMORIO_CORE_PROPER */
-                    }
-                }
-            }
-            seg_end =
-                (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr + prog_hdr->p_memsz, PAGE_SIZE) +
-                delta;
-            seg_size = seg_end - seg_base;
-            if (seg_size > 0 && do_mmap)
-                (*prot_func)(seg_base, seg_size, seg_prot);
-            last_end = seg_end;
-        }
-    }
-    ASSERT(last_end == lib_end);
-    /* FIXME: recover from map failure rather than relying on asserts. */
-
-    return lib_base;
-}
-
-/* Iterate program headers of a mapped ELF image and find the string that
- * PT_INTERP points to.  Typically this comes early in the file and is always
- * included in PT_LOAD segments, so we safely do this after the initial
- * mapping.
- */
-const char *
-elf_loader_find_pt_interp(elf_loader_t *elf)
-{
-    int i;
-    ELF_HEADER_TYPE *ehdr = elf->ehdr;
-    ELF_PROGRAM_HEADER_TYPE *phdrs = elf->phdrs;
-
-    ASSERT(elf->load_base != NULL && "call elf_loader_map_phdrs() first");
-    if (ehdr == NULL || phdrs == NULL || elf->load_base == NULL)
-        return NULL;
-    for (i = 0; i < ehdr->e_phnum; i++) {
-        if (phdrs[i].p_type == PT_INTERP) {
-            return (const char *)(phdrs[i].p_vaddr + elf->load_delta);
-        }
-    }
-
-    return NULL;
 }

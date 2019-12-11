@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,4 +58,11 @@ const char *const trace_type_names[] = {
     "thread",
     "thread_exit",
     "pid",
+    "header",
+    "footer",
+    "hw prefetch",
+    "marker",
+    "non-fetched instr",
+    "maybe-fetched instr",
+    "sysenter",
 };

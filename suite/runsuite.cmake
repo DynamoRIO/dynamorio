@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -90,9 +90,13 @@ endif()
 
 if (TEST_LONG)
   set(DO_ALL_BUILDS ON)
+  # i#2974: We skip tests marked _FLAKY since we have no other mechanism to
+  # have CDash ignore them and avoid going red and sending emails.
+  # We rely on our CI for a history of _FLAKY results.
   set(base_cache "${base_cache}
     BUILD_TESTS:BOOL=ON
-    TEST_LONG:BOOL=ON")
+    TEST_LONG:BOOL=ON
+    SKIP_FLAKY_TESTS:BOOL=ON")
 else (TEST_LONG)
   set(DO_ALL_BUILDS OFF)
 endif (TEST_LONG)
@@ -262,7 +266,9 @@ endif ()
 
 # for short suite, don't build tests for builds that don't run tests
 # (since building takes forever on windows): so we only turn
-# on BUILD_TESTS for TEST_LONG or debug-internal-{32,64}
+# on BUILD_TESTS for TEST_LONG or debug-internal-{32,64}. BUILD_TESTS is
+# also turned on for release-external-64, but ctest will run with label
+# RUN_IN_RELEASE.
 
 if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   # For cross-arch execve test we need to "make install"
@@ -305,12 +311,16 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   else ()
     set(32bit_path "")
   endif ()
+  set(orig_extra_ctest_args extra_ctest_args)
+  set(extra_ctest_args INCLUDE_LABEL RUN_IN_RELEASE)
   testbuild_ex("release-external-64" ON "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
+    BUILD_TESTS:BOOL=ON
     ${install_path_cache}
     ${32bit_path}
     " OFF ${arg_package} "${install_build_args}")
+  set(extra_ctest_args orig_extra_ctest_args)
   if (DO_ALL_BUILDS)
     # we rarely use internal release builds but keep them working in long
     # suite (not much burden) in case we need to tweak internal options
@@ -324,6 +334,16 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
       INTERNAL:BOOL=ON
       ${install_path_cache}
       ")
+    if (UNIX)
+      # Ensure the code to record memquery unit test cases continues to
+      # at least compile.
+      testbuild("record-memquery-64" ON "
+        RECORD_MEMQUERY:BOOL=ON
+        DEBUG:BOOL=OFF
+        INTERNAL:BOOL=ON
+        ${install_path_cache}
+        ")
+    endif (UNIX)
   endif (DO_ALL_BUILDS)
   # Non-official-API builds but not all are in pre-commit suite, esp on Windows
   # where building is slow: we'll rely on bots to catch breakage in most of these
@@ -414,6 +434,7 @@ if (UNIX AND ARCH_IS_X86)
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
     " OFF ${arg_package} "")
+
   set(run_tests ${prev_run_tests})
   set(optional_cross_compile ${prev_optional_cross_compile})
 

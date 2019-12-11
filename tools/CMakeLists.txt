@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -35,7 +35,7 @@ add_executable(run_in_bg run_in_bg.c)
 
 if (UNIX)
   add_executable(runstats runstats.c)
-  copy_target_to_device(runstats)
+  copy_target_to_device(runstats "${location_suffix}")
   if (APPLE)
     # XXX i#1286: implement nudge for MacOS
   else (APPLE)
@@ -130,7 +130,8 @@ else (UNIX)
     add_executable(${tgt} ${tgt}.c ${RESOURCES})
 
     if ("${tgt}" STREQUAL "ldmp")
-      set(extra_lib libcmt ntdll_imports)
+      _DR_get_static_libc_list(static_libc)
+      set(extra_lib ${static_libc} ntdll_imports)
     endif ("${tgt}" STREQUAL "ldmp")
     target_link_libraries(${tgt}
       policy_static user32 advapi32 pdh imagehlp shell32 ${extra_lib})
@@ -172,7 +173,7 @@ set_target_properties(drinject PROPERTIES
 set(tgts ${tgts} drconfig drrun drinject)
 
 foreach (deploytgt drconfig drrun drinject)
-  copy_target_to_device(${deploytgt})
+  copy_target_to_device(${deploytgt} "${location_suffix}")
   if (WINDOWS)
     target_link_libraries(${deploytgt}
       policy_static user32 advapi32 pdh imagehlp shell32)
@@ -182,11 +183,12 @@ foreach (deploytgt drconfig drrun drinject)
     target_link_libraries(${deploytgt} drinjectlib)
   endif ()
   if (LINUX) # No checks for MacOS
-    get_target_property(check_path ${deploytgt} LOCATION)
-    add_custom_command(TARGET ${deploytgt}
-      POST_BUILD
+    set(locvar_name ${deploytgt}loc)
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
+      "set(${locvar_name} \"$<TARGET_FILE:${deploytgt}>\")\n")
+    add_custom_command(TARGET ${deploytgt} POST_BUILD
       COMMAND ${CMAKE_COMMAND}
-      ARGS -D lib=${check_path}
+      ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
            -D check_textrel=ON
            -D check_deps=OFF
            -D check_libc=ON

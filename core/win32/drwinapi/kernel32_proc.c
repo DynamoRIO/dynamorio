@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,8 +48,11 @@ void
 kernel32_redir_init_proc(void)
 {
     PEB *peb = get_own_peb();
+    /* i#3633: Implement FLS isolation for Win10 1903+ where FLS data is no longer
+     * in the PEB.
+     */
     ASSERT(get_os_version() < WINDOWS_VERSION_2003 ||
-           peb->FlsBitmap->SizeOfBitMap == FLS_MAX_COUNT);
+           (peb->FlsBitmap == NULL || peb->FlsBitmap->SizeOfBitMap == FLS_MAX_COUNT));
 #ifdef CLIENT_INTERFACE
     /* We rely on -private_peb for FLS isolation.  Otherwise we'd have to
      * put back in place all the code to handle mixing private and app FLS
@@ -133,7 +136,7 @@ DWORD
 WINAPI
 redirect_GetCurrentThreadId(VOID)
 {
-    return (DWORD)get_thread_id();
+    return (DWORD)d_r_get_thread_id();
 }
 
 /***************************************************************************

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,24 +35,6 @@
 #include "../common/memref.h"
 #include "../common/utils.h"
 
-#ifdef VERBOSE
-#    include <iostream>
-#endif
-
-// Following typical stream iterator convention, the default constructor
-// produces an EOF object.
-reader_t::reader_t()
-    : at_eof(true)
-    , input_entry(NULL)
-    , cur_tid(0)
-    , cur_pid(0)
-    , cur_pc(0)
-    , prev_instr_addr(0)
-    , bundle_idx(0)
-{
-    /* Empty. */
-}
-
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
 const memref_t &
@@ -70,22 +52,20 @@ reader_t::operator++()
         if (bundle_idx == 0 /*not in instr bundle*/)
             input_entry = read_next_entry();
         if (input_entry == NULL) {
-            ERRMSG("Trace is truncated\n");
-            assert(false);
-            at_eof = true; // bail
+            if (!at_eof) {
+                ERRMSG("Trace is truncated\n");
+                assert(false);
+                at_eof = true; // bail
+            }
             break;
         }
         if (input_entry->type == TRACE_TYPE_FOOTER) {
-#ifdef VERBOSE
-            std::cerr << "EOF" << std::endl;
-#endif
-            at_eof = true;
-            break;
+            VPRINT(this, 2, "At thread EOF\n");
+            // We've already presented the thread exit entry to the analyzer.
+            continue;
         }
-#ifdef VERBOSE
-        std::cerr << "RECV: " << input_entry->type << " sz=" << input_entry->size
-                  << " addr=" << (void *)input_entry->addr << std::endl;
-#endif
+        VPRINT(this, 4, "RECV: type=%d, size=%d, addr=0x%zx\n", input_entry->type,
+               input_entry->size, input_entry->addr);
         bool have_memref = false;
         switch (input_entry->type) {
         case TRACE_TYPE_READ:
@@ -149,7 +129,16 @@ reader_t::operator++()
             have_memref = true;
             // The trace stream always has the instr fetch first, which we
             // use to compute the starting PC for the subsequent instructions.
-            assert(type_is_instr(cur_ref.instr.type));
+            if (!(type_is_instr(cur_ref.instr.type) ||
+                  cur_ref.instr.type == TRACE_TYPE_INSTR_NO_FETCH)) {
+                // XXX i#3320: Diagnostics to track down the elusive remaining case of
+                // this assert on Appveyor.  We'll remove and replace with just the
+                // assert once we have a fix.
+                ERRMSG("Invalid trace entry type %d before a bundle\n",
+                       cur_ref.instr.type);
+                assert(type_is_instr(cur_ref.instr.type) ||
+                       cur_ref.instr.type == TRACE_TYPE_INSTR_NO_FETCH);
+            }
             cur_ref.instr.size = input_entry->length[bundle_idx++];
             cur_pc = next_pc;
             cur_ref.instr.addr = cur_pc;

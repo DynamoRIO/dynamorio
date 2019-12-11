@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -109,6 +109,10 @@ bool return_stolen_lib_tls_gdt;
 #ifdef DEBUG
 #    define GDT_32BIT 8  /*  6=NPTL, 7=wine */
 #    define GDT_64BIT 14 /* 12=NPTL, 13=wine */
+#endif
+
+#ifdef X64
+#    define NON_ZERO_UNINIT_GSBASE 0x1000UL
 #endif
 
 static int
@@ -438,7 +442,8 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     if (res >= 0) {
         LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: cur gs base is " PFX "\n", cur_gs);
         /* If we're a non-initial thread, gs will be set to the parent thread's value */
-        if (cur_gs == NULL || is_dynamo_address(cur_gs) ||
+        if (cur_gs == NULL || cur_gs == (byte *)NON_ZERO_UNINIT_GSBASE ||
+            is_dynamo_address(cur_gs) ||
             /* By resolving i#107, we can handle gs conflicts between app and dr. */
             INTERNAL_OPTION(mangle_app_seg)) {
             res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_GS, segment);
@@ -580,10 +585,51 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     os_tls->ldt_index = index;
 }
 
+bool
+tls_thread_preinit()
+{
+#ifdef X64
+    /* i#3356: Write a non-zero value to the gs base to work around an AMD bug
+     * present on pre-4.7 Linux kernels.  See the call to this in our signal
+     * handler for more information.
+     */
+    if (proc_get_vendor() != VENDOR_AMD)
+        return true;
+    /* First identify a temp-native thread with a real segment in
+     * place but just an invalid .magic field.  We do not want to clobber the
+     * legitimate segment base in that case.
+     */
+    if (safe_read_tls_magic() == TLS_MAGIC_INVALID) {
+        os_local_state_t *tls = (os_local_state_t *)safe_read_tls_self();
+        if (tls != NULL &&
+            tls->state.spill_space.dcontext->owning_thread == get_sys_thread_id())
+            return true;
+    }
+    /* XXX: What about Mac on AMD?  Presumably by the time anyone wants to run
+     * that combination the Mac kernel will have fixed this if they haven't already.
+     */
+    /* We just don't have time to support non-arch_prctl and test it. */
+    if (tls_global_type != TLS_TYPE_ARCH_PRCTL) {
+        ASSERT_BUG_NUM(3356, tls_global_type == TLS_TYPE_ARCH_PRCTL);
+        return false;
+    }
+    int res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_GS, NON_ZERO_UNINIT_GSBASE);
+    LOG(GLOBAL, LOG_THREADS, 1,
+        "%s: set non-zero pre-init gs base for thread " TIDFMT "\n", __FUNCTION__,
+        get_sys_thread_id());
+    return res == 0;
+#else
+    return true;
+#endif
+}
+
 /* i#2089: we skip this for non-detach */
 void
 tls_thread_free(tls_type_t tls_type, int index)
 {
+    /* XXX i#107 (and i#2088): We need to restore the segment base the
+     * app was using when we detach, instead of just clearing.
+     */
     if (tls_type == TLS_TYPE_LDT)
         clear_ldt_entry(index);
     else if (tls_type == TLS_TYPE_GDT) {
@@ -595,8 +641,11 @@ tls_thread_free(tls_type_t tls_type, int index)
     }
 #ifdef X64
     else if (tls_type == TLS_TYPE_ARCH_PRCTL) {
+        byte *restore_base =
+            /* i#3356: We need a non-zero value for AMD */
+            (proc_get_vendor() == VENDOR_AMD) ? (byte *)NON_ZERO_UNINIT_GSBASE : NULL;
         DEBUG_DECLARE(int res =)
-        dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_GS, NULL);
+        dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_GS, restore_base);
         ASSERT(res >= 0);
         /* syscall re-sets gs register so caller must re-clear it */
     }
@@ -892,6 +941,6 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
     LOG(THREAD_GET, LOG_THREADS, 2,
         "thread " TIDFMT " segment change => app lib tls base: " PFX ", "
         "alt tls base: " PFX "\n",
-        get_thread_id(), os_tls->app_lib_tls_base, os_tls->app_alt_tls_base);
+        d_r_get_thread_id(), os_tls->app_lib_tls_base, os_tls->app_alt_tls_base);
 }
 #endif /* X64 */

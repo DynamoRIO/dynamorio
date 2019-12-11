@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,9 +48,9 @@
 extern mutex_t trace_building_lock;
 
 void
-monitor_init(void);
+d_r_monitor_init(void);
 void
-monitor_exit(void);
+d_r_monitor_exit(void);
 void
 monitor_thread_init(dcontext_t *dcontext);
 void

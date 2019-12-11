@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -51,7 +51,7 @@ static const WPARAM WP_NOP = 0;
 static const WPARAM WP_EXIT = 1;
 static const WPARAM WP_CRASH = 3;
 
-static const uint BAD_WRITE = 0x40;
+static const ptr_uint_t BAD_WRITE = 0x40;
 
 #    ifndef WM_DWMNCRENDERINGCHANGED
 #        define WM_DWMNCRENDERINGCHANGED 0x031F
@@ -232,6 +232,10 @@ main(int argc, char **argv)
         Sleep(0);
 
     WaitForSingleObject(hThread, INFINITE);
+
+    char ALIGN_VAR(64) buffer[2048];
+    _xsave(buffer, -1);
+
     print("All done\n");
 
     HMODULE hmod;
@@ -253,6 +257,7 @@ main(int argc, char **argv)
 #    include <stdlib.h>
 #    include <pthread.h>
 #    include <dlfcn.h>
+#    include <signal.h>
 
 volatile double pi = 0.0;  /* Approximation to pi (shared) */
 pthread_mutex_t pi_lock;   /* Lock for above */
@@ -295,7 +300,7 @@ main(int argc, char **argv)
     char table[2] = { 'A', 'B' };
 #    ifdef X86
     char ch;
-    /* test xlat for drutil_insert_get_mem_addr,
+    /* Test xlat for drutil_insert_get_mem_addr,
      * we do not bother to run this test on Windows side.
      */
     __asm("mov %1, %%" IF_X64_ELSE("rbx", "ebx") "\n\t"
@@ -312,6 +317,19 @@ main(int argc, char **argv)
      */
 #    else
     print("%c\n", table[1]);
+#    endif
+
+#    ifdef X86
+    /* Test xsave for drutil_opnd_mem_size_in_bytes. We're assuming that
+     * xsave support is available and enabled, which should be the case
+     * on all machines we're running on.
+     */
+    char ALIGN_VAR(64) buffer[2048];
+    __asm("or $-1, %%eax\n"
+          "\txsave %0"
+          : "=m"(buffer)
+          :
+          : "eax");
 #    endif
 
     intervals = 10;
@@ -340,6 +358,9 @@ main(int argc, char **argv)
 
     /* Print the result */
     print("Estimation of pi is %16.15f\n", pi);
+
+    /* Let's raise a signal */
+    raise(SIGUSR1);
     return 0;
 }
 #endif /* !WINDOWS */

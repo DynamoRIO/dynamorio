@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,9 +33,9 @@
 
 #include "share.h"
 
-#include "win32/drmarker.h"      // from src tree
-#include "win32/ntdll.h"         // from src tree
-#include "win32/inject_shared.h" // only for w_get_short_name
+#include "drmarker.h"      // from src tree
+#include "ntdll.h"         // from src tree
+#include "inject_shared.h" // only for w_get_short_name
 
 #include "processes.h"
 
@@ -102,12 +102,12 @@ read_hotp_status(const HANDLE hproc, const void *table_ptr,
     }
 
 #    if 0
-    /* FIXME: crc32 is not defined where share/ can get at it,
+    /* FIXME: d_r_crc32 is not defined where share/ can get at it,
      *  and we may be changing it anyway (case 5346) -- so just
      *  don't do a check for now. */
     /* verify crc: crc starts at size elt, see globals_shared.h */
     if ((*hotp_status)->crc !=
-        crc32((char *)*hotp_status + sizeof(UINT), size - sizeof(UINT))) {
+        d_r_crc32((char *)*hotp_status + sizeof(UINT), size - sizeof(UINT))) {
         free(*hotp_status);
         *hotp_status = NULL;
         return ERROR_DRMARKER_ERROR;

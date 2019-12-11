@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -103,6 +103,7 @@ The following are part of the DynamoRIO release distribution:
 \endif
  - A number of end-user tools including a code coverage tool (see \ref
    page_drcov), a multi-process cache simulator (see \ref page_drcachesim),
+   a last-level cache miss analyzer (see \ref page_drcachesim),
    and a legacy CPU testing tool (see \ref page_drcpusim).
    If this is a DynamoRIO public release, it also includes the
    Dr. Memory memory debugging tool (see \ref page_drmemory), a system call
@@ -132,7 +133,103 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 7.0.0 include the following minor
+The changes between version \DR_VERSION and 7.1.0 include the following compatibility
+changes:
+
+ - Changed the enumeration of the DR_REG_ enum by adding x86 AVX-512 registers as well
+   as reserved ranges for future extensions.
+   This is a binary compatibility change for the DR_REG_ enum.
+ - Changed the enumeration of the OPSZ_ enum by moving its start back to 0. The OPSZ_
+   enum now completely overlaps the DR_REG_ enum.
+   This is a binary compatibility change for the OPSZ_ enum.
+ - Added a new encoding hint field to #instr_t.
+
+The changes between version \DR_VERSION and 7.1.0 include the following minor
+compatibility changes:
+
+ - Added the define #MCXT_NUM_SIMD_SLOTS that was renamed from NUM_SIMD_SLOTS.
+   #MCXT_NUM_SIMD_SLOTS is now a constant that shall be used only to determine
+   the number of SIMD slots in DynamoRIO's mcontext.
+ - Replaced NUM_SIMD_SLOTS with proc_num_simd_saved().
+   Clients may set(DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY ON) in order to provide
+   the define NUM_SIMD_SLOTS using proc_num_simd_saved(). The macro is not a constant
+   expression and code relying on this needs to be rewritten.
+   DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY is set automatically if clients target
+   version 7.1.0 or earlier.
+ - Renamed mcontext's "ymm" structure to "simd".
+ - Deprecated reg_is_xmm() and reg_is_ymm().
+ - The function reg_is_extended() now returns true for the upper 8 simd registers
+   as part of AVX-512, e.g. xmm16 - xmm31.
+ - Dropped support for clients used with statically linked DynamoRIO to reach
+   the code cache with 32-bit displacements.
+ - An additional parameter in the accessors to the drcachesim cache stats
+   (namely cache_stats_t and caching_device_stats_t) that passes a pointer to
+   the cache block being accessed (on a hit) or being replaced (on a miss).
+   This allows users to extend the cache block and stats classes in order to
+   collect more stats.
+ - Moves the immediate operand of the VEX encoded version of vextractps and vinsertps
+   to be the first source.
+ - The GPR versions of the vmovd and vmovq AVX opcodes are no longer combined into a
+   single vmovd.
+ - Changed the #PFX format string specifier to use %p rather than %x internally.
+ - DR no longer forwards _snprintf, _snwprintf, _vsnprintf, sprintf, or sscanf to
+   ntdll.  Clients should use the dr_-prefixed versions of these functions.
+
+Further non-compatibility-affecting changes include:
+
+ - Added the function proc_num_simd_registers().
+ - Added drfront_set_verbose() to obtain diagnostics from drfrontendlib.
+ - Added new fields to #dr_os_version_info_t which contain the build number,
+   edition, and Windows 10 release identifier.
+ - Added the function instr_is_xsave().
+ - Added the type #dr_zmm_t.
+ - Added the type #dr_opmask_t.
+ - Added the define #MCXT_NUM_OPMASK_SLOTS for the number of AVX-512 OpMask registers.
+ - Renamed mcontext's ymm structure into simd.
+ - Added a new option -logprefix to drcov.
+ - Added the AVX-512 registers #DR_REG_XMM16 - #DR_REG_XMM31, #DR_REG_YMM16 -
+   #DR_REG_YMM31 and their #DR_REG_ZMM0 - #DR_REG_ZMM31 siblings as well as
+   #DR_REG_K0 - #DR_REG_K7.
+ - Added the function reg_is_opmask().
+ - Added the functions reg_is_strictly_xmm(), reg_is_strictly_ymm() and
+   reg_is_strictly_zmm().
+ - Added the function reg_is_avx512_extended().
+ - Added the function instr_is_opmask().
+ - Added reg_set_value_ex() to set XMM, YMM and ZMM values.
+ - Added the functions instr_set_encoding_hint(), instr_has_encoding_hint().
+ - Added the type #dr_encoding_hint_type_t.
+ - Added #INSTR_ENCODING_HINT macro.
+ - Added dr_standalone_exit() with support for re-attaching afterward.
+ - Added dr_register_low_on_memory_event() for tracking low on memory events.
+ - Added dr_mcontext_zmm_fields_valid() to query the state of lazy AVX-512 context
+   switching.
+ - Added the function proc_avx512_enabled().
+ - Added support for applications using the Linux kernel's restartable sequence
+   ("rseq") feature, subject to the limitations listed in \ref sec_rseq.
+ - Added coherence support in drcachesim.
+ - Added the function proc_num_opmask_registers();
+ - reg_get_value_ex() now supports reading AVX-512 mask registers.
+ - Added the function reg_is_bnd().
+ - Added the functions instr_is_gather() and instr_is_scatter().
+ - Added the function drx_expand_scatter_gather().
+ - Added the function dr_atomic_add64_return_sum().
+ - Added the function instr_reads_from_exact_reg() to test whether instructions
+   read from exact registers.
+ - Added the function reg_is_vector_simd() to test whether registers are
+   either XMM, YMM or ZMM, excluding any MMX register checks.
+ - Added DR_NUM_SIMD_VECTOR_REGS as an alias to MCXT_NUM_SIMD_SLOTS in order
+   to get the static number of supported SIMD vectors.
+ - Added drmgr_register_low_on_memory_event(), drmgr_unregister_low_on_memory_event()
+   and their variants so that drmgr can support low-on-memory events.
+
+**************************************************
+<hr>
+
+Version 7.1.0 includes Dr. Memory and the Dr. Memory Framework (DRMF) in
+the same package as DynamoRIO.  DRMF provides the umbra, drsyscall, and
+drsymcache Extensions for use by clients.
+
+The changes between version 7.1.0 and 7.0.0 include the following minor
 compatibility changes:
 
  - The drltrace tool has been moved to the Dr.Memory Framework.
@@ -145,6 +242,15 @@ compatibility changes:
    prior to configure_DynamoRIO_client() to use the old constants and avoid
    any source changes; this will happen automatically if the client
    targets version 7.0.0 or earlier.  Binary compatibility is unaffected.
+ - Added a parameter to cmake functions DynamoRIO_get_target_path_for_execution and
+   DynamoRIO_copy_target_to_device. External projects outside of DynamoRIO need
+   to pass _DR_location_suffix.
+ - The drcachesim tool's offline traces are now stored in separate files per traced
+   application thread, rather than a single interleaved file.  Reading and analyzing
+   a legacy interleaved file is still supported, but all new generated traces are
+   split.  Splitting enables parallelized post-processing and trace analysis.
+ - In standalone mode, there are no 32-bit-displacement reachability guarantees
+   regarding DynamoRIO's heap.
 
 Further non-compatibility-affecting changes include:
 
@@ -238,6 +344,48 @@ Further non-compatibility-affecting changes include:
    setting up the code cache prior to execution.
  - Added support for Windows 10 1803. We provide an artificial version
    identifier #DR_WINDOWS_VERSION_10_1803 to distinguish this major update.
+ - Generalization of the drcachesim #raw2trace_t API (Issue #3129):
+   - Added #module_mapper_t, which factors out the module mapping functionality
+     out of #raw2trace_t, replacing the following #raw2trace_t APIs:
+     #raw2trace_t::handle_custom_data(), #raw2trace_t::do_module_parsing(),
+     #raw2trace_t::do_module_parsing_and_mapping(), and
+     #raw2trace_t::find_mapped_trace_address().
+   - Added #trace_metadata_writer_t, a set of utility functions used by drcachesim's
+     #raw2trace_t for writing trace metadata: process/thread ids, timestamps, etc.
+   - Added #trace_metadata_reader_t, a set of utilities for checking and validating
+     thread start successions of offline entries in a raw data file.
+   - Added #trace_converter_t, an extensibility mechanism for raw trace conversion.
+ - Added drmemtrace_get_timestamp_from_offline_trace(), an API for fetching the timestamp
+   from the beginning of a raw trace bundle (regardless of whether it is a thread start
+   or just a subsequent bundle).
+ - Added dr_abort_with_code().
+ - Added support for interoperability between emulation clients and observational
+   clients: #emulated_instr_t, drmgr_insert_emulation_start(),
+   drmgr_insert_emulation_end(), drmgr_is_emulation_start(), drmgr_is_emulation_end()
+   and drmgr_get_emulated_instr_data().
+ - Added drmgr_register_signal_event_user_data() and
+   drmgr_unregister_signal_event_user_data() to enable passing of user data.
+ - Added hashtable_apply_to_all_payloads_user_data() to iterate over all payloads
+   in a hashtable with user data also available.
+ - Added cmake function DynamoRIO_get_full_path that shall be used instead of reading
+   the LOCATION target property.
+ - Added a drcachesim/drmemtrace analysis tool routine initialize() to help separate
+   initialization that could fail from tool construction.
+ - Split raw2trace_directory_t initialization from its constructors
+   into new initialize() and initialize_module_file() methods.
+ - Added drcachesim/drmemtrace support for analyzing offline traces in parallel,
+   concurrently operating on each traced thread (or other sharding division).  This
+   is made possible by the new storage of traces in separate files.  Adds a new
+   analysis_tool_t interface where if the tool's parallel_shard_supported() returns
+   true, analyzer_t switches to a parallel operation mode.  Today, a simple static
+   scheduling among worker threads is used.  Each worker completely owns one or more
+   shards, eliminating the need for synchronization when processing a thread's trace
+   entries.  The tools' parallel_shard_init() function is invoked to create
+   traced-thread-local data, which is passed to parallel_shard_memref().  A
+   parallel_shard_exit() is provided for cleanup, though most tools will sort,
+   aggregate, and clean up in print_results().
+ - Added module_mapper_t::find_mapped_trace_bounds() to allow callers to cache
+   results and avoid global locks during parallel operation.
 
 **************************************************
 <hr>
@@ -1504,6 +1652,9 @@ not supported.
     not fully decoded or encoded yet, and a few features are not yet
     ported: traces, clean call inlining and other optimizations, and
     several samples and provided tools.
+  - This release of DynamoRIO includes support for applications using the Linux kernel
+    restartable sequence ("rseq") feature, subject to the limitations listed
+    in \ref sec_rseq.
 
 \subsection sec_limit_perf Performance Limitations
 
@@ -1624,14 +1775,14 @@ not supported.
 We hope to include the following major features in future releases:
 
  - Libraries to facilitate building tools that use shadow memory, examine
-   system calls, and insert heavyweight instrumentation
+   system calls, and insert heavyweight instrumentation.
  - Earliest Windows injection.  Today drinject injects fairly late; from a
    parent process, injection is very early (before kernel32.dll is loaded),
    but we plan to provide injection at the very first user-mode instruction
    in the future.
- - More flexible (earlier, or later via attach) Linux injection
- - Persistent and process-shared code caches
- - Full control over trace building
+ - Linux externally-triggered attaching.
+ - Persistent and process-shared code caches.
+ - Full control over trace building.
 
 To discuss current and future features, join the <a
 href="http://groups.google.com/group/dynamorio-users/">DynamoRIO Users

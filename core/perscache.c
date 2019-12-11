@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,7 +48,6 @@
 #include "hotpatch.h"
 #include "synch.h"
 #include "module_shared.h"
-#include <string.h> /* for memset */
 #include <stddef.h> /* for offsetof */
 #ifdef CLIENT_INTERFACE
 #    include "instrument.h"
@@ -270,7 +269,7 @@ coarse_unit_reset_free_internal(dcontext_t *dcontext, coarse_info_t *info,
         if (unlink)
             acquire_recursive_lock(&change_linking_lock);
         if (need_info_lock)
-            mutex_lock(&info->lock);
+            d_r_mutex_lock(&info->lock);
     }
     ASSERT(!unlink || self_owns_recursive_lock(&change_linking_lock));
     ASSERT_OWN_MUTEX(need_info_lock, &info->lock);
@@ -307,15 +306,15 @@ coarse_unit_reset_free_internal(dcontext_t *dcontext, coarse_info_t *info,
             ASSERT(info->mmap_pc != NULL);
             if (info->mmap_ro_size > 0) {
                 /* two views */
-                DEBUG_DECLARE(ok =) unmap_file(info->mmap_pc, info->mmap_ro_size);
+                DEBUG_DECLARE(ok =) d_r_unmap_file(info->mmap_pc, info->mmap_ro_size);
                 ASSERT(ok);
                 DEBUG_DECLARE(ok =)
-                unmap_file(info->mmap_pc + info->mmap_ro_size,
-                           info->mmap_size - info->mmap_ro_size);
+                d_r_unmap_file(info->mmap_pc + info->mmap_ro_size,
+                               info->mmap_size - info->mmap_ro_size);
                 ASSERT(ok);
                 info->mmap_ro_size = 0;
             } else {
-                DEBUG_DECLARE(ok =) unmap_file(info->mmap_pc, info->mmap_size);
+                DEBUG_DECLARE(ok =) d_r_unmap_file(info->mmap_pc, info->mmap_size);
                 ASSERT(ok);
             }
             if (DYNAMO_OPTION(persist_lock_file)) {
@@ -327,7 +326,7 @@ coarse_unit_reset_free_internal(dcontext_t *dcontext, coarse_info_t *info,
             ASSERT(info->cache_start_pc != NULL);
             ASSERT(info->stubs_start_pc != NULL);
             ASSERT(info->mmap_ro_size == 0);
-            heap_munmap(info->cache_start_pc, info->mmap_size, VMM_CACHE);
+            heap_munmap(info->cache_start_pc, info->mmap_size, VMM_CACHE | VMM_REACHABLE);
             if (info->has_persist_info) {
                 /* Persisted units point at their mmaps for these structures;
                  * non-persisted dynamically allocate them from DR heap.
@@ -362,7 +361,7 @@ coarse_unit_reset_free_internal(dcontext_t *dcontext, coarse_info_t *info,
     memset(info, 0, offsetof(coarse_info_t, lock));
     if (!have_locks) {
         if (need_info_lock)
-            mutex_unlock(&info->lock);
+            d_r_mutex_unlock(&info->lock);
         if (unlink)
             release_recursive_lock(&change_linking_lock);
     }
@@ -617,11 +616,11 @@ coarse_replace_unit(dcontext_t *dcontext, coarse_info_t *dst, coarse_info_t *src
     mutex_t temp_lock, temp_incoming_lock;
     DEBUG_DECLARE(const char *modname;)
     ASSERT_OWN_MUTEX(true, &dst->lock);
-    mutex_lock(&dst->incoming_lock);
+    d_r_mutex_lock(&dst->incoming_lock);
     ASSERT(src->incoming == NULL); /* else we leak */
     src->incoming = dst->incoming;
     dst->incoming = NULL; /* do not free incoming */
-    mutex_unlock(&dst->incoming_lock);
+    d_r_mutex_unlock(&dst->incoming_lock);
     non_frozen = dst->non_frozen;
     coarse_unit_reset_free(dcontext, dst, true /*have locks*/, false /*do not unlink*/,
                            false /*keep primary*/);
@@ -696,7 +695,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
      */
     fragment_coarse_create_entry_pclookup_table(dcontext, info);
 
-    mutex_lock(&info->lock);
+    d_r_mutex_lock(&info->lock);
     ASSERT(info->cache != NULL); /* don't freeze empty units */
     ASSERT(!info->frozen);       /* don't freeze already frozen units */
     if (info->cache == NULL || info->frozen)
@@ -729,8 +728,9 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
     frozen_cache_size = coarse_frozen_cache_size(dcontext, info);
     /* we need the stubs to start on a new page since will be +rw vs cache +r */
     frozen_cache_size = ALIGN_FORWARD(frozen_cache_size, PAGE_SIZE);
-    freeze_info->cache_start_pc =
-        (cache_pc)heap_mmap(frozen_stub_size + frozen_cache_size, VMM_CACHE);
+    freeze_info->cache_start_pc = (cache_pc)heap_mmap(
+        frozen_stub_size + frozen_cache_size, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
+        VMM_CACHE | VMM_REACHABLE);
     /* FIXME: should show full non-frozen size as well */
     LOG(THREAD, LOG_CACHE, 2,
         "%d frozen stubs @ " SZFMT " bytes + %d fragments @ " SZFMT " bytes => " PFX "\n",
@@ -835,7 +835,7 @@ coarse_unit_freeze_exit:
     HEAP_TYPE_FREE(dcontext, freeze_info, coarse_freeze_info_t,
                    ACCT_MEM_MGT /*appropriate?*/, PROTECTED);
 
-    mutex_unlock(&info->lock);
+    d_r_mutex_unlock(&info->lock);
 
     /* be sure to free to avoid missing entries if we add to info later */
     fragment_coarse_free_entry_pclookup_table(dcontext, info);
@@ -1854,13 +1854,13 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
 #ifdef HOT_PATCHING_INTERFACE
     /* we may call coarse_unit_calculate_persist_info() */
     if (DYNAMO_OPTION(hot_patching))
-        read_lock(hotp_get_lock());
+        d_r_read_lock(hotp_get_lock());
 #endif
     /* We can't grab both locks due to deadlock potential.  Currently we are
      * always fully synched, so we rely on that to synch with info2.
      */
     ASSERT(dynamo_all_threads_synched);
-    mutex_lock(&info1->lock);
+    d_r_mutex_lock(&info1->lock);
     ASSERT(info1->cache != NULL && info2->cache != NULL); /* don't merge empty units */
     ASSERT(info1->frozen && info2->frozen);
 
@@ -1895,7 +1895,9 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
     merged->mmap_size = merged_cache_size + stubs1_size + stubs2_size;
     /* Our relative jmps require that we do not exceed 32-bit reachability */
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(merged->mmap_size)));
-    merged->cache_start_pc = (cache_pc)heap_mmap(merged->mmap_size, VMM_CACHE);
+    merged->cache_start_pc = (cache_pc)heap_mmap(
+        merged->mmap_size, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
+        VMM_CACHE | VMM_REACHABLE);
     merged->cache_end_pc = merged->cache_start_pc + cache1_size + cache2_size;
     merged->stubs_start_pc = coarse_stubs_create(
         merged, merged->cache_start_pc + merged_cache_size, stubs1_size + stubs2_size);
@@ -1990,7 +1992,9 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
         size_t stubsz = merged->stubs_end_pc - merged->fcache_return_prefix;
         size_t newsz = cachesz_aligned + stubsz;
         size_t old_mapsz = merged->mmap_size;
-        cache_pc newmap = (cache_pc)heap_mmap(newsz, VMM_CACHE);
+        cache_pc newmap =
+            (cache_pc)heap_mmap(newsz, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
+                                VMM_CACHE | VMM_REACHABLE);
         ssize_t cache_shift = merged->cache_start_pc - newmap;
         /* stubs have moved too, so a relative shift not absolute */
         ssize_t stubs_shift =
@@ -2002,7 +2006,7 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
             newsz, newmap, newmap + cachesz_aligned, cache_shift, stubs_shift);
         memcpy(newmap, merged->cache_start_pc, cachesz);
         memcpy(newmap + cachesz_aligned, merged->fcache_return_prefix, stubsz);
-        heap_munmap(merged->cache_start_pc, merged->mmap_size, VMM_CACHE);
+        heap_munmap(merged->cache_start_pc, merged->mmap_size, VMM_CACHE | VMM_REACHABLE);
         coarse_stubs_delete(merged);
         merged->mmap_size = newsz;
         /* Our relative jmps require that we do not exceed 32-bit reachability */
@@ -2062,7 +2066,7 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
         /* case 10877: must combine the incoming lists
          * targets should be unique, so can just append
          */
-        mutex_lock(&info1->incoming_lock);
+        d_r_mutex_lock(&info1->incoming_lock);
         /* can't grab info2 lock, so just like for main lock we rely on synchall */
         DODEBUG({
             /* Make sure no inter-incoming left */
@@ -2082,7 +2086,7 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
                 e = e->next;
             e->next = info2->incoming;
         }
-        mutex_unlock(&info1->incoming_lock);
+        d_r_mutex_unlock(&info1->incoming_lock);
         info2->incoming = NULL; /* ensure not freed when info2 is freed */
         coarse_unit_shift_links(dcontext, info1);
 
@@ -2091,11 +2095,11 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
         /* we made separate copy that has no outgoing or incoming links */
         res = merged;
     }
-    mutex_unlock(&info1->lock);
+    d_r_mutex_unlock(&info1->lock);
 #ifdef HOT_PATCHING_INTERFACE
     /* we may call coarse_unit_calculate_persist_info() */
     if (DYNAMO_OPTION(hot_patching))
-        read_unlock(hotp_get_lock());
+        d_r_read_unlock(hotp_get_lock());
 #endif
     release_recursive_lock(&change_linking_lock);
     return res;
@@ -2121,7 +2125,7 @@ perscache_dirname(char *directory /* OUT */, uint directory_len)
     const char *param_name = DYNAMO_OPTION(persist_per_user)
         ? PARAM_STR(DYNAMORIO_VAR_PERSCACHE_ROOT)
         : PARAM_STR(DYNAMORIO_VAR_PERSCACHE_SHARED);
-    retval = get_parameter(param_name, directory, directory_len);
+    retval = d_r_get_parameter(param_name, directory, directory_len);
     if (IS_GET_PARAMETER_FAILURE(retval)) {
         string_option_read_lock();
         if (DYNAMO_OPTION(persist_per_user) && !IS_STRING_OPTION_EMPTY(persist_dir)) {
@@ -2383,18 +2387,18 @@ persist_calculate_self_digest(module_digest_t *digest, coarse_persisted_info_t *
 {
     struct MD5Context self_md5_cxt;
     if (TEST(PERSCACHE_GENFILE_MD5_COMPLETE, validation_option)) {
-        MD5Init(&self_md5_cxt);
+        d_r_md5_init(&self_md5_cxt);
         /* Even if generated w/ -persist_map_rw_separate but loaded w/o that
          * option, the md5 should match since the memory layout is the same.
          */
-        MD5Update(&self_md5_cxt, map,
-                  pers->header_len + pers->data_len - sizeof(persisted_footer_t));
-        MD5Final(digest->full_MD5, &self_md5_cxt);
+        d_r_md5_update(&self_md5_cxt, map,
+                       pers->header_len + pers->data_len - sizeof(persisted_footer_t));
+        d_r_md5_final(digest->full_MD5, &self_md5_cxt);
     }
     if (TEST(PERSCACHE_GENFILE_MD5_SHORT, validation_option)) {
-        MD5Init(&self_md5_cxt);
-        MD5Update(&self_md5_cxt, (byte *)pers, pers->header_len);
-        MD5Final(digest->short_MD5, &self_md5_cxt);
+        d_r_md5_init(&self_md5_cxt);
+        d_r_md5_update(&self_md5_cxt, (byte *)pers, pers->header_len);
+        d_r_md5_final(digest->short_MD5, &self_md5_cxt);
     }
 }
 
@@ -2418,13 +2422,13 @@ persist_calculate_module_digest(module_digest_t *digest, app_pc modbase, size_t 
          * the load-time md5 when persisting.
          */
         struct MD5Context code_md5_cxt;
-        MD5Init(&code_md5_cxt);
+        d_r_md5_init(&code_md5_cxt);
         /* Code range should be within a single memory allocation so it should
          * all be readable.  Xref case 9653.
          */
         code_end = MIN(code_end, modbase + view_size);
-        MD5Update(&code_md5_cxt, code_start, code_end - code_start);
-        MD5Final(digest->full_MD5, &code_md5_cxt);
+        d_r_md5_update(&code_md5_cxt, code_start, code_end - code_start);
+        d_r_md5_final(digest->full_MD5, &code_md5_cxt);
     }
     if (TEST(PERSCACHE_MODULE_MD5_SHORT, validation_option)) {
         /* Examine only the image header and the footer (if non-writable)
@@ -3328,7 +3332,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
      * Note the prescribed order of unmap and then flush in case 9696.
      */
 
-    mutex_lock(&info->lock);
+    d_r_mutex_lock(&info->lock);
     /* Get info that is not needed for online coarse units but is needed at persist
      * time (RCT, RAC, and hotp info) now, so we can merge it more easily.
      */
@@ -3339,7 +3343,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
      * release since coarse_unit_merge() will acquire.  Should we not grab any
      * info lock?  We're already relying on dynamo_all_threads_synched.
      */
-    mutex_unlock(&info->lock);
+    d_r_mutex_unlock(&info->lock);
 
     /* Attempt to merge with any new on-disk file */
     if (DYNAMO_OPTION(coarse_lone_merge) || DYNAMO_OPTION(coarse_disk_merge)) {
@@ -3351,7 +3355,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
         }
     }
 
-    mutex_lock(&info->lock);
+    d_r_mutex_lock(&info->lock);
 
     /* Fill in the rest of pers */
     coarse_unit_set_persist_data(dcontext, info, &pers, modbase, option_level,
@@ -3492,9 +3496,9 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
         if (TEST(PERSCACHE_GENFILE_MD5_COMPLETE, DYNAMO_OPTION(persist_gen_validation))) {
             /* FIXME if mmap up front (case 9758) don't need this mmap */
             sz = pers.header_len + pers.data_len - sizeof(persisted_footer_t);
-            map = map_file(fd, &sz, 0, NULL, MEMPROT_READ,
-                           /* won't change so save pagefile by not asking for COW */
-                           MAP_FILE_REACHABLE);
+            map = d_r_map_file(fd, &sz, 0, NULL, MEMPROT_READ,
+                               /* won't change so save pagefile by not asking for COW */
+                               MAP_FILE_REACHABLE);
             ASSERT(map != NULL);
             if (map == NULL) {
                 /* give up */
@@ -3507,7 +3511,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
         if (TEST(PERSCACHE_GENFILE_MD5_COMPLETE, DYNAMO_OPTION(persist_gen_validation)) &&
             map != (byte *)&pers) {
             ASSERT(map != NULL); /* we cleared _COMPLETE so shouldn't get here */
-            unmap_file(map, sz);
+            d_r_unmap_file(map, sz);
         }
     } else {
         memset(&footer, 0, sizeof(footer));
@@ -3549,7 +3553,7 @@ coarse_unit_persist_exit:
         }
     }
     if (created_temp)
-        mutex_unlock(&info->lock);
+        d_r_mutex_unlock(&info->lock);
     if (free_info) {
         /* if we dup-ed when merging with disk, free now */
         coarse_unit_reset_free(dcontext, info, false /*no locks*/, false /*no unlink*/,
@@ -3646,7 +3650,7 @@ pcache_dir_check_permissions(dcontext_t *dcontext, const char *filename)
     /* `dirname filename` */
     const char *file_parent = double_strrchr(filename, DIRSEP, ALT_DIRSEP);
     size_t per_user_len;
-    mutex_lock(&pcache_dir_check_lock);
+    d_r_mutex_lock(&pcache_dir_check_lock);
     if (DYNAMO_OPTION(persist_per_app)) {
         /* back up one level higher */
         /* note that we only need to check whether the per-user directory
@@ -3669,7 +3673,7 @@ pcache_dir_check_permissions(dcontext_t *dcontext, const char *filename)
         pcache_dir_check_temp);
     ASSERT(!os_rename_file(pcache_dir_check_root, pcache_dir_check_temp, false) &&
            "directory can be bumped!");
-    mutex_unlock(&pcache_dir_check_lock);
+    d_r_mutex_unlock(&pcache_dir_check_lock);
 }
 #endif
 
@@ -3822,14 +3826,14 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
     /* FIXME case 9642: control where in address space we map the file:
      * right after vmheap?  Randomized?
      */
-    map = map_file(fd, &map_size, 0, NULL,
-                   /* Ask for max, then restrict pieces */
-                   MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
-                   /* case 9599: asking for COW commits pagefile space
-                    * up front, so we map two separate views later: see below
-                    */
-                   MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
-                       MAP_FILE_REACHABLE);
+    map = d_r_map_file(fd, &map_size, 0, NULL,
+                       /* Ask for max, then restrict pieces */
+                       MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
+                       /* case 9599: asking for COW commits pagefile space
+                        * up front, so we map two separate views later: see below
+                        */
+                       MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
+                           MAP_FILE_REACHABLE);
     /* case 9925: if we keep the file handle open we can prevent writes
      * to the file while it's mapped in, but it prevents our rename replacement
      * scheme (case 9701/9720) so we have it under option control.
@@ -3938,7 +3942,11 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
             /* XXX: may not be at_map if re-add coarse post-load (e.g., IAT or other
              * special cases): how know?
              */
-            !module_has_text_relocs(modbase, dynamo_initialized /*at_map*/)) {
+            !module_has_text_relocs(modbase,
+                                    /* If !for_execution we're freezing at exit
+                                     * or sthg and not at_map.
+                                     */
+                                    for_execution && dynamo_initialized /*at_map*/)) {
             LOG(THREAD, LOG_CACHE, 1,
                 "  module base mismatch " PFX " vs persisted " PFX
                 ", but no text relocs so ok\n",
@@ -4011,20 +4019,20 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
         }
         ASSERT(fd != INVALID_FILE);
         if (fd != INVALID_FILE) {
-            unmap_file(map, map_size);
+            d_r_unmap_file(map, map_size);
             pers = NULL;
             map_size = ro_size;
             /* we know the whole thing fit @map, so try there */
-            map = map_file(fd, &map_size, 0, map,
-                           /* Ask for max, then restrict pieces */
-                           MEMPROT_READ | MEMPROT_EXEC,
-                           /* no COW to avoid pagefile cost */
-                           MAP_FILE_REACHABLE);
-            map2 = map_file(fd, &map2_size, map_size, map + map_size,
-                            /* Ask for max, then restrict pieces */
-                            MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
-                            MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
-                                MAP_FILE_REACHABLE);
+            map = d_r_map_file(fd, &map_size, 0, map,
+                               /* Ask for max, then restrict pieces */
+                               MEMPROT_READ | MEMPROT_EXEC,
+                               /* no COW to avoid pagefile cost */
+                               MAP_FILE_REACHABLE);
+            map2 = d_r_map_file(fd, &map2_size, map_size, map + map_size,
+                                /* Ask for max, then restrict pieces */
+                                MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
+                                MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
+                                    MAP_FILE_REACHABLE);
             /* FIXME: try again if racy alloc and they both don't fit */
             if (!DYNAMO_OPTION(persist_lock_file)) {
                 os_close(fd);
@@ -4306,9 +4314,9 @@ coarse_unit_load_exit:
             info = NULL;
         } else {
             if (map != NULL)
-                unmap_file(map, map_size);
+                d_r_unmap_file(map, map_size);
             if (map2 != NULL)
-                unmap_file(map2, map2_size);
+                d_r_unmap_file(map2, map2_size);
             if (fd != INVALID_FILE)
                 os_close(fd);
         }

@@ -34,14 +34,14 @@
 #include <stdio.h>
 #include <setjmp.h>
 #include <stdlib.h>
+#include "tools.h"
 
 jmp_buf mark;
 
 void
 foo()
 {
-    printf("about to do longjmp\n");
-    fflush(stdout);
+    print("about to do longjmp\n");
     longjmp(mark, -1);
 }
 
@@ -56,10 +56,10 @@ main()
      */
     jmpret = setjmp(mark);
     if (jmpret == 0) {
-        printf("doing stuff\n");
+        print("doing stuff\n");
         foo();
     } else {
-        printf("after longjmp\n");
+        print("after longjmp\n");
     }
     return 0;
 }

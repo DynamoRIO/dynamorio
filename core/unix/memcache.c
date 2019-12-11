@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -44,7 +44,6 @@
 #include "memcache.h"
 #include "memquery.h"
 #include "os_private.h"
-#include <string.h>
 #include <sys/mman.h>
 #ifdef CLIENT_INTERFACE
 #    include "instrument.h"
@@ -75,6 +74,7 @@ typedef struct _allmem_info_t {
     dr_mem_type_t type;
     bool shareable;
     bool vdso;
+    bool dr_vmm;
 } allmem_info_t;
 
 static void
@@ -128,7 +128,7 @@ memcache_lock(void)
      * during heap init and before we can allocate it.  no lock needed then.
      */
     ASSERT(all_memory_areas != NULL ||
-           get_num_threads() <= 1 /* must be only DR thread */);
+           d_r_get_num_threads() <= 1 /* must be only DR thread */);
     if (all_memory_areas == NULL)
         return;
     if (self_owns_write_lock(&all_memory_areas->lock)) {
@@ -139,7 +139,7 @@ memcache_lock(void)
          */
         ASSERT_CURIOSITY(all_memory_areas_recursion <= 4);
     } else
-        write_lock(&all_memory_areas->lock);
+        d_r_write_lock(&all_memory_areas->lock);
 }
 
 void
@@ -148,14 +148,15 @@ memcache_unlock(void)
     /* ok to ask for locks or mark stale before all_memory_areas is allocated,
      * during heap init and before we can allocate it.  no lock needed then.
      */
-    ASSERT(all_memory_areas != NULL || get_num_threads() <= 1 /*must be only DR thread*/);
+    ASSERT(all_memory_areas != NULL ||
+           d_r_get_num_threads() <= 1 /*must be only DR thread*/);
     if (all_memory_areas == NULL)
         return;
     if (all_memory_areas_recursion > 0) {
         ASSERT_OWN_WRITE_LOCK(true, &all_memory_areas->lock);
         all_memory_areas_recursion--;
     } else
-        write_unlock(&all_memory_areas->lock);
+        d_r_write_unlock(&all_memory_areas->lock);
 }
 
 /* vmvector callbacks */
@@ -188,7 +189,9 @@ allmem_should_merge(bool adjacent, void *data1, void *data2)
     return (i1->prot == i2->prot && i1->type == i2->type &&
             i1->shareable == i2->shareable &&
             /* i#1583: kernel doesn't merge 2-page vdso after we hook vsyscall */
-            !i1->vdso && !i2->vdso);
+            !i1->vdso && !i2->vdso &&
+            /* kernel doesn't merge app anon region with vmheap */
+            !i1->dr_vmm && !i2->dr_vmm);
 }
 
 static void *
@@ -232,6 +235,7 @@ add_all_memory_area(app_pc start, app_pc end, uint prot, int type, bool shareabl
     info->type = type;
     info->shareable = shareable;
     info->vdso = (start == vsyscall_page_start);
+    info->dr_vmm = is_vmm_reserved_address(start, 1, NULL, NULL);
     vmvector_add(all_memory_areas, start, end, (void *)info);
 }
 
@@ -335,7 +339,7 @@ memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exist
                      /* we could synch up: instead we relax the assert if DR areas not
                       * in allmem
                       */
-                     are_dynamo_vm_areas_stale());
+                     are_dynamo_vm_areas_stale() || !dynamo_initialized);
     LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas " PFX "-" PFX " prot->%d\n",
         start, end, prot);
     memcache_update(start, end, prot, type);
@@ -418,7 +422,8 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
 #endif
     } else {
         app_pc prev, next;
-        found = vmvector_lookup_prev_next(all_memory_areas, (app_pc)pc, &prev, &next);
+        found = vmvector_lookup_prev_next(all_memory_areas, (app_pc)pc, &prev, NULL,
+                                          &next, NULL);
         ASSERT(found);
         if (prev != NULL) {
             found = vmvector_lookup_data(all_memory_areas, prev, NULL, &out_info->base_pc,
@@ -517,7 +522,7 @@ memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint mempro
              */
             DEBUG_DECLARE(uint res =)
             app_memory_protection_change(dcontext, base, size, memprot, &new_memprot,
-                                         NULL);
+                                         NULL, image);
             ASSERT_NOT_IMPLEMENTED(res != PRETEND_APP_MEM_PROT_CHANGE &&
                                    res != SUBSET_APP_MEM_PROT_CHANGE);
         }

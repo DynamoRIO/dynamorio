@@ -35,7 +35,7 @@
 #define _DETERMINA_SHAREUTILS_H_
 
 #include "share.h"
-#include "lib/dr_config.h"
+#include "dr_config.h"
 #include "our_tchar.h"
 
 #ifdef WINDOWS

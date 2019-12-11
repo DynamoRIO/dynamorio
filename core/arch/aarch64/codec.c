@@ -1309,6 +1309,20 @@ encode_opnd_d5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_vector_reg(5, 3, opnd, enc_out);
 }
 
+/* q5: Q register at bit position 5 */
+
+static inline bool
+decode_opnd_q5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_vector_reg(5, 4, enc, opnd);
+}
+
+static inline bool
+encode_opnd_q5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_vector_reg(5, 4, opnd, enc_out);
+}
+
 /* z5: Z register at bit position 5. */
 
 static inline bool
@@ -1657,6 +1671,34 @@ static inline bool
 encode_opnd_x16p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_wxnp(true, 1, 16, opnd, enc_out);
+}
+
+/* d16: D register at bit position 16 */
+
+static inline bool
+decode_opnd_d16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_vector_reg(16, 3, enc, opnd);
+}
+
+static inline bool
+encode_opnd_d16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_vector_reg(16, 3, opnd, enc_out);
+}
+
+/* q16: Q register at bit position 16 */
+
+static inline bool
+decode_opnd_q16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_vector_reg(16, 4, enc, opnd);
+}
+
+static inline bool
+encode_opnd_q16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_vector_reg(16, 4, opnd, enc_out);
 }
 
 /* z16: Z register at bit position 16. */
@@ -2106,6 +2148,28 @@ encode_opnd_bhsd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
 {
     ptr_int_t val = opnd_get_immed_int(opnd);
     if (val < 0 || val > 3)
+        return false;
+    *enc_out = val << 22;
+    return true;
+}
+
+/* bd_sz: Vector element width for SIMD instructions. */
+
+static inline bool
+decode_opnd_bd_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint bits = enc >> 22 & 3;
+    if (bits != 0 && bits != 3)
+        return false;
+    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_bd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    ptr_int_t val = opnd_get_immed_int(opnd);
+    if (val != 0 && val != 3)
         return false;
     *enc_out = val << 22;
     return true;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,68 +52,94 @@ view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
     return new view_t(module_file_path, skip_refs, sim_refs, syntax, verbose);
 }
 
-view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
-               const std::string &syntax, unsigned int verbose)
+view_t::view_t(const std::string &module_file_path_in, uint64_t skip_refs,
+               uint64_t sim_refs, const std::string &syntax, unsigned int verbose)
     : dcontext(nullptr)
-    , raw2trace(nullptr)
-    , directory(module_file_path)
+    , module_file_path(module_file_path_in)
     , knob_verbose(verbose)
     , instr_count(0)
     , knob_skip_refs(skip_refs)
     , knob_sim_refs(sim_refs)
+    , knob_syntax(syntax)
     , num_disasm_instrs(0)
 {
-    if (module_file_path.empty()) {
-        error_string = "Module file path is missing";
-        success = false;
-        return;
-    }
-    dcontext = dr_standalone_init();
-    raw2trace = new raw2trace_t(directory.modfile_bytes, std::vector<std::istream *>(),
-                                nullptr, dcontext, verbose);
-    std::string error = raw2trace->do_module_parsing_and_mapping();
-    if (!error.empty()) {
-        error_string = "Failed to load binaries: " + error;
-        success = false;
-        return;
-    }
+}
 
+std::string
+view_t::initialize()
+{
+    if (module_file_path.empty())
+        return "Module file path is missing";
+    dcontext = dr_standalone_init();
+    std::string error = directory.initialize_module_file(module_file_path);
+    if (!error.empty())
+        return "Failed to initialize directory: " + error;
+    module_mapper = module_mapper_t::create(directory.modfile_bytes, nullptr, nullptr,
+                                            nullptr, nullptr, knob_verbose);
+    module_mapper->get_loaded_modules();
+    error = module_mapper->get_last_error();
+    if (!error.empty())
+        return "Failed to load binaries: " + error;
     dr_disasm_flags_t flags = DR_DISASM_ATT;
-    if (syntax == "intel") {
+    if (knob_syntax == "intel") {
         flags = DR_DISASM_INTEL;
-    } else if (syntax == "dr") {
+    } else if (knob_syntax == "dr") {
         flags = DR_DISASM_DR;
-    } else if (syntax == "arm") {
+    } else if (knob_syntax == "arm") {
         flags = DR_DISASM_ARM;
     }
     disassemble_set_syntax(flags);
-}
-
-view_t::~view_t()
-{
-    delete raw2trace;
+    return "";
 }
 
 bool
 view_t::process_memref(const memref_t &memref)
 {
+    if (instr_count < knob_skip_refs || instr_count >= (knob_skip_refs + knob_sim_refs)) {
+        if (type_is_instr(memref.instr.type) ||
+            memref.data.type == TRACE_TYPE_INSTR_NO_FETCH)
+            ++instr_count;
+        return true;
+    }
+
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+        switch (memref.marker.marker_type) {
+        case TRACE_MARKER_TYPE_TIMESTAMP:
+            std::cerr << "<marker: timestamp " << memref.marker.marker_value << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_CPU_ID:
+            // We include the thread ID here under the assumption that we will always
+            // see a cpuid marker on a thread switch.  To avoid that assumption
+            // we would want to track the prior tid and print out a thread switch
+            // message whenever it changes.
+            std::cerr << "<marker: tid " << memref.marker.tid << " on core "
+                      << memref.marker.marker_value << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_KERNEL_EVENT:
+            std::cerr << "<marker: kernel xfer to handler>\n";
+            break;
+        case TRACE_MARKER_TYPE_KERNEL_XFER:
+            std::cerr << "<marker: syscall xfer>\n";
+            break;
+        default:
+            // We ignore other markers such as call/ret profiling for now.
+            break;
+        }
+        return true;
+    }
+
     if (!type_is_instr(memref.instr.type) &&
         memref.data.type != TRACE_TYPE_INSTR_NO_FETCH)
         return true;
-
-    if (instr_count < knob_skip_refs || instr_count >= (knob_skip_refs + knob_sim_refs)) {
-        ++instr_count;
-        return true;
-    }
 
     ++instr_count;
 
     app_pc mapped_pc;
     app_pc orig_pc = (app_pc)memref.instr.addr;
-    std::string err = raw2trace->find_mapped_trace_address(orig_pc, &mapped_pc);
-    if (!err.empty()) {
+    mapped_pc = module_mapper->find_mapped_trace_address(orig_pc);
+    if (!module_mapper->get_last_error().empty()) {
         error_string = "Failed to find mapped address for " +
-            to_hex_string(memref.instr.addr) + ": " + err;
+            to_hex_string(memref.instr.addr) + ": " + module_mapper->get_last_error();
         return false;
     }
 

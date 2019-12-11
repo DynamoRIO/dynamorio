@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,6 +59,10 @@ main()
         return -1;
     }
 #ifdef WINDOWS
+    if (drfront_set_verbose(1) != DRFRONT_SUCCESS) {
+        printf("drfront_set_verbose failed\n");
+        return -1;
+    }
     if (drfront_sym_init(NULL, DBGHELP_LIB) != DRFRONT_SUCCESS) {
         printf("drfront_sym_init failed\n");
         return -1;

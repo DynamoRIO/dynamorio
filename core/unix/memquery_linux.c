@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -44,7 +44,6 @@
 #include "memquery.h"
 #include "os_private.h"
 #include "module_private.h"
-#include <string.h>
 #include <sys/mman.h>
 
 #ifndef LINUX
@@ -132,9 +131,9 @@ memquery_from_os_will_block(void)
 #else
     /* "may_alloc" is false for memquery_from_os() */
     bool res = true;
-    if (mutex_trylock(&memory_info_buf_lock)) {
+    if (d_r_mutex_trylock(&memory_info_buf_lock)) {
         res = false;
-        mutex_unlock(&memory_info_buf_lock);
+        d_r_mutex_unlock(&memory_info_buf_lock);
     }
     return res;
 #endif
@@ -149,11 +148,11 @@ memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
     /* Don't assign the local ptrs until the lock is grabbed to make
      * their relationship clear. */
     if (may_alloc) {
-        mutex_lock(&maps_iter_buf_lock);
+        d_r_mutex_lock(&maps_iter_buf_lock);
         mi->buf = (char *)&buf_iter;
         mi->comment_buffer = (char *)&comment_buf_iter;
     } else {
-        mutex_lock(&memory_info_buf_lock);
+        d_r_mutex_lock(&memory_info_buf_lock);
         mi->buf = (char *)&buf_scratch;
         mi->comment_buffer = (char *)&comment_buf_scratch;
     }
@@ -163,7 +162,7 @@ memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
      * has exited.
      */
     snprintf(maps_name, BUFFER_SIZE_ELEMENTS(maps_name), "/proc/%d/maps",
-             get_thread_id());
+             d_r_get_thread_id());
     mi->maps = os_open(maps_name, OS_OPEN_READ);
     ASSERT(mi->maps != INVALID_FILE);
     mi->buf[BUFSIZE - 1] = '\0'; /* permanently */
@@ -192,9 +191,9 @@ memquery_iterator_stop(memquery_iter_t *iter)
            (!iter->may_alloc && OWN_MUTEX(&memory_info_buf_lock)));
     os_close(mi->maps);
     if (iter->may_alloc)
-        mutex_unlock(&maps_iter_buf_lock);
+        d_r_mutex_unlock(&maps_iter_buf_lock);
     else
-        mutex_unlock(&memory_info_buf_lock);
+        d_r_mutex_unlock(&memory_info_buf_lock);
 }
 
 bool
@@ -252,12 +251,7 @@ memquery_iterator_next(memquery_iter_t *iter)
     *mi->newline = '\0';
     LOG(GLOBAL, LOG_VMAREAS, 6, "\nget_memory_info_from_os: line=[%s]\n", line);
     mi->comment_buffer[0] = '\0';
-    len = sscanf(line,
-#ifdef IA32_ON_IA64
-                 MAPS_LINE_FORMAT8, /* cross-compiling! */
-#else
-                 sizeof(void *) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
-#endif
+    len = sscanf(line, sizeof(void *) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
                  (unsigned long *)&iter->vm_start, (unsigned long *)&iter->vm_end, perm,
                  (unsigned long *)&iter->offset, &iter->inode, mi->comment_buffer);
     if (iter->vm_start == iter->vm_end) {
@@ -323,9 +317,11 @@ memquery_iterator_next(memquery_iter_t *iter)
  */
 int
 memquery_library_bounds(const char *name, app_pc *start /*IN/OUT*/, app_pc *end /*OUT*/,
-                        char *fullpath /*OPTIONAL OUT*/, size_t path_size)
+                        char *fulldir /*OPTIONAL OUT*/, size_t fulldir_size,
+                        char *filename /*OPTIONAL OUT*/, size_t filename_size)
 {
-    return memquery_library_bounds_by_iterator(name, start, end, fullpath, path_size);
+    return memquery_library_bounds_by_iterator(name, start, end, fulldir, fulldir_size,
+                                               filename, filename_size);
 }
 
 /***************************************************************************

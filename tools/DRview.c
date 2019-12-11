@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -236,8 +236,9 @@ print_mem_stats(process_info_t *pi, char reschar, int version)
 
     /* single line best so can line up columns and process output easily */
     fprintf(fp,
-            "%-23.23S %5d %c %5d %2d%% %3d%% %5d %3d %7d %7d %8d %7d %7d %7d %7d %5d %5d "
-            "%5d %5d %5d",
+            "%-23.23S %5d %c %5d %2d%% %3d%% %5d %3d %7zd %7zd %8zd %7zd %7zd %7zd %7d "
+            "%5zd %5zd "
+            "%5zd %5zd %5d",
             qual_name, pi->ProcessID, reschar, version, cpu, user, pi->HandleCount,
             pi->ThreadCount, pi->VmCounters.PeakVirtualSize / 1024,
             pi->VmCounters.VirtualSize / 1024, pi->VmCounters.PeakPagefileUsage / 1024,
@@ -390,7 +391,7 @@ main(int argc, char **argv)
     if (outf) {
         fp = fopen(outf, "w");
         if (fp == NULL) {
-            fprintf(stderr, "Error opening %s for output.\n");
+            fprintf(stderr, "Error opening %s for output.\n", outf);
             exit(-1);
         }
     } else
@@ -574,7 +575,7 @@ pw_callback(process_info_t *pi, void **param)
                 if (res == ERROR_SUCCESS) {
                     uint j;
                     hotp_policy_status_t *cur;
-                    fprintf(fp, "\tHotpatching:\n", res);
+                    fprintf(fp, "\tHotpatching:\n");
                     for (j = 0; j < status_tbl->num_policies; j++) {
                         char status_buf[MAX_PATH];
                         cur = &(status_tbl->policy_status_array[j]);
@@ -583,7 +584,7 @@ pw_callback(process_info_t *pi, void **param)
                             fprintf(fp, "\t  Patch %s: %s\n", cur->policy_id, status_buf);
                     }
                 } else if (res == ERROR_DRMARKER_ERROR) {
-                    fprintf(fp, "\tHot Patching Not Enabled\n", res);
+                    fprintf(fp, "\tHot Patching Not Enabled\n");
                 } else {
                     fprintf(fp, "\t<Hotpatch Query Error %d>\n", res);
                 }
@@ -592,12 +593,13 @@ pw_callback(process_info_t *pi, void **param)
                 dr_statistics_t *stats = get_dynamorio_stats(pi->ProcessID);
                 if (stats != NULL) {
                     uint i;
-                    fprintf(fp, "\t%.*s\n", BUFFER_SIZE_ELEMENTS(stats->process_name),
+                    fprintf(fp, "\t%.*s\n",
+                            (int)BUFFER_SIZE_ELEMENTS(stats->process_name),
                             stats->process_name);
                     for (i = 0; i < stats->num_stats; i++) {
-                        fprintf(fp, "\t%*.*s :%9d\n",
-                                BUFFER_SIZE_ELEMENTS(stats->stats[i].name),
-                                BUFFER_SIZE_ELEMENTS(stats->stats[i].name),
+                        fprintf(fp, "\t%*.*s :%9zd\n",
+                                (int)BUFFER_SIZE_ELEMENTS(stats->stats[i].name),
+                                (int)BUFFER_SIZE_ELEMENTS(stats->stats[i].name),
                                 stats->stats[i].name, stats->stats[i].value);
                     }
                 }
@@ -671,7 +673,7 @@ dllw_callback(module_info_t *mi, void **param)
                         sizeof(save_module) / sizeof(save_module[0]));
                 save_module[(sizeof(save_module) / sizeof(save_module[0])) - 1] = L'\0';
                 if (!nopid && !showmem)
-                    fprintf(fp, "\n\nPID %d ", mi->ProcessID);
+                    fprintf(fp, "\n\nPID " PIDFMT, mi->ProcessID);
                 if (!showmem) {
                     if (version == -1 || !showbuild) {
                         fprintf(fp, "\t\tProcess %S, running %s\n", mi->BaseDllName,

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -100,7 +100,7 @@ insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
      */
     int value = (int)(ptr_int_t)(target - pc - 4);
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(target - pc - 4)));
-    ATOMIC_4BYTE_WRITE(pc, value, hot_patch);
+    ATOMIC_4BYTE_WRITE(vmcode_get_writable_addr(pc), value, hot_patch);
     pc += 4;
     return pc;
 }
@@ -110,7 +110,7 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
 {
     int value;
     ASSERT(pc != NULL);
-    *pc = JMP_OPCODE;
+    *(vmcode_get_writable_addr(pc)) = JMP_OPCODE;
     pc++;
 
     /* test that we aren't crossing a cache line boundary */
@@ -118,7 +118,7 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
     /* We don't need to be atomic, so don't use insert_relative_target. */
     value = (int)(ptr_int_t)(target - pc - 4);
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(target - pc - 4)));
-    *(int *)pc = value;
+    *(int *)(vmcode_get_writable_addr(pc)) = value;
     pc += 4;
     return pc;
 }
@@ -191,7 +191,9 @@ insert_spill_or_restore(dcontext_t *dcontext, cache_pc pc, uint flags, bool spil
                         bool shared, reg_id_t reg, ushort tls_offs, uint dc_offs,
                         bool require_addr16)
 {
-    DEBUG_DECLARE(cache_pc start_pc = pc;)
+    DEBUG_DECLARE(cache_pc start_pc;)
+    pc = vmcode_get_writable_addr(pc);
+    IF_DEBUG(start_pc = pc);
     byte opcode = ((reg == REG_XAX) ? (spill ? MOV_XAX2MEM_OPCODE : MOV_MEM2XAX_OPCODE)
                                     : (spill ? MOV_REG2MEM_OPCODE : MOV_MEM2REG_OPCODE));
 #ifdef X64
@@ -271,7 +273,7 @@ insert_spill_or_restore(dcontext_t *dcontext, cache_pc pc, uint flags, bool spil
                                : SIZE_MOV_XBX_TO_TLS(flags, require_addr16)));
     ASSERT(IF_X64_ELSE(false, !shared) || !spill || reg == REG_XAX ||
            instr_raw_is_tls_spill(start_pc, reg, tls_offs));
-    return pc;
+    return vmcode_get_executable_addr(pc);
 }
 
 /* instr_raw_is_tls_spill() matches the exact sequence of bytes inserted here */
@@ -301,7 +303,9 @@ insert_jmp_to_ibl(byte *pc, fragment_t *f, linkstub_t *l, cache_pc exit_target,
                                      spill_xbx_to_fs, REG_XBX, INDIRECT_STUB_SPILL_SLOT,
                                      XBX_OFFSET, true);
 
-        /* mov $linkstub_ptr,%xbx */
+    /* Switch to the writable view for the raw stores below. */
+    pc = vmcode_get_writable_addr(pc);
+    /* mov $linkstub_ptr,%xbx */
 #ifdef X64
     if (!FRAG_IS_32(f->flags)) {
         *pc = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
@@ -340,6 +344,8 @@ insert_jmp_to_ibl(byte *pc, fragment_t *f, linkstub_t *l, cache_pc exit_target,
         *((ptr_uint_t *)pc) = (ptr_uint_t)l;
         pc += sizeof(l);
     }
+    pc = vmcode_get_executable_addr(pc);
+
     /* jmp <exit_target> */
     pc = insert_relative_jump(pc, exit_target, NOT_HOT_PATCHABLE);
     return pc;
@@ -516,11 +522,11 @@ insert_inlined_ibl(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, byte *pc,
         /* set the linkstub ptr */
         pc = start_pc + ibl_code->inline_linkstub_first_offs;
         IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-        *((uint *)pc) = (uint)(ptr_uint_t)l;
+        *((uint *)vmcode_get_writable_addr(pc)) = (uint)(ptr_uint_t)l;
         if (DYNAMO_OPTION(atomic_inlined_linking)) {
             pc = start_pc + ibl_code->inline_linkstub_second_offs;
             IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-            *((uint *)pc) = (uint)(ptr_uint_t)l;
+            *((uint *)vmcode_get_writable_addr(pc)) = (uint)(ptr_uint_t)l;
         }
     } else {
         insert_relative_target(start_pc + ibl_code->inline_linkedjmp_offs,
@@ -603,6 +609,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
             /* Both entrance_stub_target_tag() and coarse_indirect_stub_jmp_target()
              * assume that the addr prefix is present for 32-bit but not 64-bit.
              */
+            pc = vmcode_get_writable_addr(pc);
             /* since we have no 8-byte-immed-to-memory, we split into two pieces */
             *pc = TLS_SEG_OPCODE;
             pc++;
@@ -631,12 +638,14 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
             pc += 4;
             *((uint *)pc) = (uint)(((ptr_uint_t)tgt) >> 32);
             pc += 4;
+            pc = vmcode_get_executable_addr(pc);
         } else {
 #endif /* X64 */
             /* We must be at or below 15 bytes so we require addr16.
              * Both entrance_stub_target_tag() and coarse_indirect_stub_jmp_target()
              * assume that the addr prefix is present for 32-bit but not 64-bit.
              */
+            pc = vmcode_get_writable_addr(pc);
             /* addr16 mov <target>, fs:<dir-stub-spill> */
             /* FIXME: PR 209709: test perf and remove if outweighs space */
             *pc = ADDR_PREFIX_OPCODE;
@@ -651,6 +660,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
             pc += 2;
             *((uint *)pc) = (uint)(ptr_uint_t)EXIT_TARGET_TAG(dcontext, f, l);
             pc += 4;
+            pc = vmcode_get_executable_addr(pc);
 #ifdef X64
         }
 #endif /* X64 */
@@ -674,19 +684,21 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
             uint l_uint;
             ASSERT_TRUNCATE(l_uint, uint, (ptr_uint_t)l);
             l_uint = (uint)(ptr_uint_t)l;
-            *pc = MOV_IMM2XAX_OPCODE;
+            *(vmcode_get_writable_addr(pc)) = MOV_IMM2XAX_OPCODE;
             pc++;
-            *((uint *)pc) = l_uint;
+            *((uint *)vmcode_get_writable_addr(pc)) = l_uint;
             pc += sizeof(l_uint);
         } else {
-            *pc = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
+            *(vmcode_get_writable_addr(pc)) =
+                REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
             pc++;
 #endif
             /* shared w/ 32-bit and 64-bit !FRAG_IS_32 */
-            *pc = MOV_IMM2XAX_OPCODE;
+            *(vmcode_get_writable_addr(pc)) = MOV_IMM2XAX_OPCODE;
             pc++;
-            *((ptr_uint_t *)pc) = (ptr_uint_t)l;
+            *((ptr_uint_t *)vmcode_get_writable_addr(pc)) = (ptr_uint_t)l;
             pc += sizeof(l);
+
 #ifdef X64
         }
 #endif
@@ -1093,6 +1105,7 @@ insert_restore_register(dcontext_t *dcontext, fragment_t *f, cache_pc pc, reg_id
          * to restore rax:  49 8b c0   mov %r8 -> %rax
          * to restore rcx:  49 8b c9   mov %r9 -> %rcx
          */
+        pc = vmcode_get_writable_addr(pc);
         *pc = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG | REX_PREFIX_B_OPFLAG;
         pc++;
         *pc = MOV_MEM2REG_OPCODE;
@@ -1100,6 +1113,7 @@ insert_restore_register(dcontext_t *dcontext, fragment_t *f, cache_pc pc, reg_id
         *pc = MODRM_BYTE(3 /*mod*/, reg_get_bits(reg),
                          reg_get_bits((reg == REG_XAX) ? REG_R8 : REG_R9));
         pc++;
+        pc = vmcode_get_executable_addr(pc);
     } else {
 #endif
         pc = (reg == REG_XAX)
@@ -1120,6 +1134,7 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
         ? !DYNAMO_OPTION(trace_single_restore_prefix)
         : !DYNAMO_OPTION(bb_single_restore_prefix);
     ASSERT(f->prefix_size == 0); /* shouldn't be any prefixes yet */
+
     if (use_ibt_prefix(f->flags)) {
         if ((!INTERNAL_OPTION(unsafe_ignore_eflags_prefix) ||
              !INTERNAL_OPTION(unsafe_ignore_eflags_ibl)) &&
@@ -1136,17 +1151,19 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
                      */
                     STATS_INC(num_oflag_prefix_restore);
 
+                    pc = vmcode_get_writable_addr(pc);
                     /* 04 7f   add $0x7f,%al */
                     *pc = ADD_AL_OPCODE;
                     pc++;
                     *pc = 0x7f;
                     pc++;
+                    pc = vmcode_get_executable_addr(pc);
 
                     ASSERT(pc - restore_of_prefix_pc == PREFIX_SIZE_RESTORE_OF);
                 }
 
                 /* restore other 5 flags w/ sahf */
-                *pc = SAHF_OPCODE;
+                *vmcode_get_writable_addr(pc) = SAHF_OPCODE;
                 pc++;
                 ASSERT(PREFIX_SIZE_FIVE_EFLAGS == 1);
             }
@@ -1318,32 +1335,71 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 void
 append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    if (preserve_xmm_caller_saved()) {
-        /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
-         * Rather than try and optimize we save/restore on every cxt
-         * sw.  The xmm field is aligned, so we can use movdqa/movaps,
-         * though movdqu is stated to be as fast as movdqa when aligned:
-         * but if so, why have two versions?  Is it only loads and not stores
-         * for which that is true?  => PR 266305.
-         * It's not clear that movdqa is any faster (and its opcode is longer):
-         * movdqa and movaps are listed as the same latency and throughput in
-         * the AMD optimization guide.  Yet examples of fast memcpy online seem
-         * to use movdqa when sse2 is available.
-         * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
-         */
-        /* FIXME i#438: once have SandyBridge processor need to measure
-         * cost of vmovdqu and whether worth arranging 32-byte alignment
-         */
-        int i;
-        uint opcode = move_mm_reg_opcode(true /*align32*/, true /*align16*/);
-        ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < NUM_SIMD_SAVED; i++) {
+    /* No processor will support AVX-512 but no SSE/AVX. */
+    ASSERT(preserve_xmm_caller_saved() || !ZMM_ENABLED());
+    if (!preserve_xmm_caller_saved())
+        return;
+    /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
+     * Rather than try and optimize we save/restore on every cxt
+     * sw.  The xmm field is aligned, so we can use movdqa/movaps,
+     * though movdqu is stated to be as fast as movdqa when aligned:
+     * but if so, why have two versions?  Is it only loads and not stores
+     * for which that is true?  => PR 266305.
+     * It's not clear that movdqa is any faster (and its opcode is longer):
+     * movdqa and movaps are listed as the same latency and throughput in
+     * the AMD optimization guide.  Yet examples of fast memcpy online seem
+     * to use movdqa when sse2 is available.
+     * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
+     */
+    /* FIXME i#438: once have SandyBridge processor need to measure
+     * cost of vmovdqu and whether worth arranging 32-byte alignment
+     */
+    int i;
+    uint opcode = move_mm_reg_opcode(true /*align16*/, true /*align32*/);
+    ASSERT(proc_has_feature(FEATURE_SSE));
+    instr_t *post_restore = NULL;
+    instr_t *pre_avx512_restore = NULL;
+    if (ZMM_ENABLED()) {
+        post_restore = INSTR_CREATE_label(dcontext);
+        pre_avx512_restore = INSTR_CREATE_label(dcontext);
+        APP(ilist,
+            INSTR_CREATE_cmp(
+                dcontext,
+                OPND_CREATE_ABSMEM(
+                    vmcode_get_executable_addr((byte *)d_r_avx512_code_in_use), OPSZ_1),
+                OPND_CREATE_INT8(0)));
+        APP(ilist,
+            INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(pre_avx512_restore)));
+    }
+    for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
+        APP(ilist,
+            instr_create_1dst_1src(dcontext, opcode,
+                                   opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
+                                   OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
+                                                 SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE)));
+    }
+    if (ZMM_ENABLED()) {
+        APP(ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(post_restore)));
+        APP(ilist, pre_avx512_restore /*label*/);
+        uint opcode_avx512 = move_mm_avx512_reg_opcode(true /*align64*/);
+        for (i = 0; i < proc_num_simd_registers(); i++) {
+            APP(ilist,
+                instr_create_1dst_2src(
+                    dcontext, opcode_avx512,
+                    opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i),
+                    opnd_create_reg(DR_REG_K0),
+                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_ZMM,
+                                  SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE)));
+        }
+        for (i = 0; i < proc_num_opmask_registers(); i++) {
             APP(ilist,
                 instr_create_1dst_1src(
-                    dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
-                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
-                                  XMM_OFFSET + i * XMM_SAVED_REG_SIZE)));
+                    dcontext, proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,
+                    opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i),
+                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_OPMASK,
+                                  OPMASK_OFFSET + i * OPMASK_AVX512BW_REG_SIZE)));
         }
+        APP(ilist, post_restore /*label*/);
     }
 }
 
@@ -1541,32 +1597,71 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
 void
 append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    if (preserve_xmm_caller_saved()) {
-        /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
-         * Rather than try and optimize we save/restore on every cxt
-         * sw.  The xmm field is aligned, so we can use movdqa/movaps,
-         * though movdqu is stated to be as fast as movdqa when aligned:
-         * but if so, why have two versions?  Is it only loads and not stores
-         * for which that is true?  => PR 266305.
-         * It's not clear that movdqa is any faster (and its opcode is longer):
-         * movdqa and movaps are listed as the same latency and throughput in
-         * the AMD optimization guide.  Yet examples of fast memcpy online seem
-         * to use movdqa when sse2 is available.
-         * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
-         */
-        /* FIXME i#438: once have SandyBridge processor need to measure
-         * cost of vmovdqu and whether worth arranging 32-byte alignment
-         */
-        int i;
-        uint opcode = move_mm_reg_opcode(true /*align32*/, true /*align16*/);
-        ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < NUM_SIMD_SAVED; i++) {
+    /* No processor will support AVX-512 but no SSE/AVX. */
+    ASSERT(preserve_xmm_caller_saved() || !ZMM_ENABLED());
+    if (!preserve_xmm_caller_saved())
+        return;
+    /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
+     * Rather than try and optimize we save/restore on every cxt
+     * sw.  The xmm field is aligned, so we can use movdqa/movaps,
+     * though movdqu is stated to be as fast as movdqa when aligned:
+     * but if so, why have two versions?  Is it only loads and not stores
+     * for which that is true?  => PR 266305.
+     * It's not clear that movdqa is any faster (and its opcode is longer):
+     * movdqa and movaps are listed as the same latency and throughput in
+     * the AMD optimization guide.  Yet examples of fast memcpy online seem
+     * to use movdqa when sse2 is available.
+     * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
+     */
+    /* FIXME i#438: once have SandyBridge processor need to measure
+     * cost of vmovdqu and whether worth arranging 32-byte alignment
+     */
+    int i;
+    uint opcode = move_mm_reg_opcode(true /*align16*/, true /*align32*/);
+    ASSERT(proc_has_feature(FEATURE_SSE));
+    instr_t *post_save = NULL;
+    instr_t *pre_avx512_save = NULL;
+    if (ZMM_ENABLED()) {
+        post_save = INSTR_CREATE_label(dcontext);
+        pre_avx512_save = INSTR_CREATE_label(dcontext);
+        APP(ilist,
+            INSTR_CREATE_cmp(
+                dcontext,
+                OPND_CREATE_ABSMEM(
+                    vmcode_get_executable_addr((byte *)d_r_avx512_code_in_use), OPSZ_1),
+                OPND_CREATE_INT8(0)));
+        APP(ilist,
+            INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(pre_avx512_save)));
+    }
+    for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
+        APP(ilist,
+            instr_create_1dst_1src(dcontext, opcode,
+                                   OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
+                                                 SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE),
+                                   opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
+    }
+    if (ZMM_ENABLED()) {
+        APP(ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(post_save)));
+        APP(ilist, pre_avx512_save /*label*/);
+        uint opcode_avx512 = move_mm_avx512_reg_opcode(true /*align64*/);
+        for (i = 0; i < proc_num_simd_registers(); i++) {
             APP(ilist,
-                instr_create_1dst_1src(dcontext, opcode,
-                                       OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
-                                                     XMM_OFFSET + i * XMM_SAVED_REG_SIZE),
-                                       opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
+                instr_create_1dst_2src(
+                    dcontext, opcode_avx512,
+                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_ZMM,
+                                  SIMD_OFFSET + i * MCXT_SIMD_SLOT_SIZE),
+                    opnd_create_reg(DR_REG_K0),
+                    opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i)));
         }
+        for (i = 0; i < proc_num_opmask_registers(); i++) {
+            APP(ilist,
+                instr_create_1dst_1src(
+                    dcontext, proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,
+                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_OPMASK,
+                                  OPMASK_OFFSET + i * OPMASK_AVX512BW_REG_SIZE),
+                    opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i)));
+        }
+        APP(ilist, post_save /*label*/);
     }
 }
 
@@ -2423,7 +2518,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
             OPND_CREATE_INT8((int)(ptr_int_t)HASHLOOKUP_SENTINEL_START_PC));
     } else {
         /* sentinel handled in C code
-         * just exit back to dispatch
+         * just exit back to d_r_dispatch
          */
         sentinel_check = fragment_not_found;
     }
@@ -2809,7 +2904,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
          */
         /* need to save xax (was never saved before) */
         /*>>>    SAVE_TO_UPCONTEXT %xax,xax_OFFSET                  */
-        /* put &linkstub where dispatch expects it */
+        /* put &linkstub where d_r_dispatch expects it */
         /*>>>    mov     %xbx,%xax                                       */
         if (linkstub == NULL) {
             APP(&ilist,
@@ -3058,6 +3153,31 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
     protect_generated_code(code, WRITABLE);
     insert_relative_target(pc, ibl_tgt, code->thread_shared /*hot patch*/);
     protect_generated_code(code, READONLY);
+}
+
+bool
+fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
+{
+    /* Xref AMD Software Optimization Guide for AMD Family 15h Processors, document
+     * #47414, section 5.8 "Code Padding with Operand-Size Override and Multibyte
+     * NOP".
+     * For compatibility with Intel case 10 and 11 are left out.
+     * Xref Intel, see Vol. 2B 4-167 "Table 4-12. Recommended Multi-Byte Sequence of NOP
+     * Instruction".
+     */
+    switch (size) {
+    case 1: memcpy(addr, "\x90", 1); break;
+    case 2: memcpy(addr, "\x66\x90", 2); break;
+    case 3: memcpy(addr, "\x0f\x1f\x00", 3); break;
+    case 4: memcpy(addr, "\x0f\x1f\x40\x00", 4); break;
+    case 5: memcpy(addr, "\x0f\x1f\x44\x00\x00", 5); break;
+    case 6: memcpy(addr, "\x66\x0f\x1f\x44\x00\x00", 6); break;
+    case 7: memcpy(addr, "\x0f\x1f\x80\x00\x00\x00\x00", 7); break;
+    case 8: memcpy(addr, "\x0f\x1f\x84\x00\x00\x00\x00\x00", 8); break;
+    case 9: memcpy(addr, "\x66\x0f\x1f\x84\x00\x00\x00\x00\x00", 9); break;
+    default: memset(addr, 0x90, size);
+    }
+    return true;
 }
 
 /* If code_buf points to a jmp rel32 returns true and returns the target of

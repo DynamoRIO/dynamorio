@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -58,7 +58,7 @@
 #else
 /* we include globals.h mainly for ASSERT, even though we're
  * used by preinject.
- * preinject just defines its own internal_error!
+ * preinject just defines its own d_r_internal_error!
  */
 #    include "../globals.h"
 #    include "../module_shared.h"
@@ -374,10 +374,10 @@ syscalls_init_get_num(HANDLE ntdllh, int sys_enum)
     app_pc wrapper;
     ASSERT(ntdllh != NULL);
     /* We can't check syscalls[] for SYSCALL_NOT_PRESENT b/c it's not set up yet */
-    /* get_proc_address() does invoke NtQueryVirtualMemory, but we go through the
+    /* d_r_get_proc_address() does invoke NtQueryVirtualMemory, but we go through the
      * ntdll wrapper for that syscall and thus it works this early.
      */
-    wrapper = (app_pc)get_proc_address(ntdllh, syscall_names[sys_enum]);
+    wrapper = (app_pc)d_r_get_proc_address(ntdllh, syscall_names[sys_enum]);
     if (wrapper != NULL && !ALLOW_HOOKER(wrapper))
         return *((int *)((wrapper) + SYSNUM_OFFS));
     else
@@ -542,7 +542,7 @@ syscalls_init()
          * Versus:
          *   0x7c90e520   8d 54 24 08      lea     edx,[esp+8]
          *   0x7c90e524   cd 2e            int     2Eh
-         * XXX: I'd like to use safe_read() but that's not set up yet.
+         * XXX: I'd like to use d_r_safe_read() but that's not set up yet.
          */
         if (*((ushort *)(int_target + 1)) == 0xd2ff) {
             vsys = VSYSCALL_BOOTSTRAP_ADDR;
@@ -556,7 +556,7 @@ syscalls_init()
              * which requires looking at the vsyscall code.
              */
             KiFastSystemCallRet_address =
-                (app_pc)get_proc_address(ntdllh, "KiFastSystemCallRet");
+                (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
 #    endif
             set_syscall_method(SYSCALL_METHOD_SYSENTER);
             dr_which_syscall_t = DR_SYSCALL_SYSENTER;
@@ -570,11 +570,12 @@ syscalls_init()
         /* win8: call followed by ret */
         IF_X64(ASSERT_NOT_IMPLEMENTED(false));
         /* kernel returns control to KiFastSystemCallRet, not local sysenter, of course */
-        sysenter_ret_address = (app_pc)get_proc_address(ntdllh, "KiFastSystemCallRet");
+        sysenter_ret_address =
+            (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
         ASSERT(sysenter_ret_address != NULL);
 #    ifdef CLIENT_INTERFACE
         KiFastSystemCallRet_address =
-            (app_pc)get_proc_address(ntdllh, "KiFastSystemCallRet");
+            (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
 #    endif
         set_syscall_method(SYSCALL_METHOD_SYSENTER);
         dr_which_syscall_t = DR_SYSCALL_SYSENTER;
@@ -600,7 +601,7 @@ syscalls_init()
         for (i = 0; i < SYS_MAX; i++) {
             if (syscalls[i] == SYSCALL_NOT_PRESENT) /* presumably matches known ver */
                 continue;
-            wrapper = (app_pc)get_proc_address(ntdllh, syscall_names[i]);
+            wrapper = (app_pc)d_r_get_proc_address(ntdllh, syscall_names[i]);
             if (wrapper != NULL && !ALLOW_HOOKER(wrapper))
                 syscalls[i] = *((int *)((wrapper) + SYSNUM_OFFS));
             /* We ignore TestAlert complications: we don't call it anyway */
@@ -618,7 +619,7 @@ syscalls_init()
             /* note that this check allows a hooker so we'll need a
              * better way of determining syscall numbers
              */
-            CHECK_SYSNUM_AT((byte *)get_proc_address(ntdllh, syscall_names[i]), i);
+            CHECK_SYSNUM_AT((byte *)d_r_get_proc_address(ntdllh, syscall_names[i]), i);
         }
     });
     return true;
@@ -642,7 +643,7 @@ use_ki_syscall_routines()
      * work just as well. */
     static generic_func_t ki_fastsyscall_addr = (generic_func_t)PTR_UINT_MINUS_1;
     if (ki_fastsyscall_addr == (generic_func_t)PTR_UINT_MINUS_1) {
-        ki_fastsyscall_addr = get_proc_address(get_ntdll_base(), "KiFastSystemCall");
+        ki_fastsyscall_addr = d_r_get_proc_address(get_ntdll_base(), "KiFastSystemCall");
         ASSERT(ki_fastsyscall_addr != (generic_func_t)PTR_UINT_MINUS_1);
     }
     return (ki_fastsyscall_addr != NULL);
@@ -653,13 +654,14 @@ nt_get_context_extended_functions(app_pc base)
 {
     if (YMM_ENABLED()) { /* indicates OS support, not just processor support */
         ntdll_RtlGetExtendedContextLength =
-            (ntdll_RtlGetExtendedContextLength_t)get_proc_address(
+            (ntdll_RtlGetExtendedContextLength_t)d_r_get_proc_address(
                 base, "RtlGetExtendedContextLength");
         ntdll_RtlInitializeExtendedContext =
-            (ntdll_RtlInitializeExtendedContext_t)get_proc_address(
+            (ntdll_RtlInitializeExtendedContext_t)d_r_get_proc_address(
                 base, "RtlInitializeExtendedContext");
-        ntdll_RtlLocateLegacyContext = (ntdll_RtlLocateLegacyContext_t)get_proc_address(
-            base, "RtlLocateLegacyContext");
+        ntdll_RtlLocateLegacyContext =
+            (ntdll_RtlLocateLegacyContext_t)d_r_get_proc_address(
+                base, "RtlLocateLegacyContext");
         ASSERT(ntdll_RtlGetExtendedContextLength != NULL &&
                ntdll_RtlInitializeExtendedContext != NULL &&
                ntdll_RtlLocateLegacyContext != NULL);
@@ -669,7 +671,7 @@ nt_get_context_extended_functions(app_pc base)
 static void
 nt_init_dynamic_syscall_wrappers(app_pc base)
 {
-    NtGetNextThread = (NtGetNextThread_t)get_proc_address(base, "NtGetNextThread");
+    NtGetNextThread = (NtGetNextThread_t)d_r_get_proc_address(base, "NtGetNextThread");
 }
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
@@ -771,7 +773,7 @@ query_system_info(IN SYSTEM_INFORMATION_CLASS info_class, IN int info_size,
 /* since not exporting get_own_teb() */
 #ifndef NOT_DYNAMORIO_CORE
 thread_id_t
-get_thread_id()
+d_r_get_thread_id()
 {
     return (thread_id_t)get_own_teb()->ClientId.UniqueThread;
 }
@@ -1070,7 +1072,7 @@ context_ymmh_saved_area(CONTEXT *cxt)
     context_ex_t *cxt_ex = (context_ex_t *)(p + sizeof(*cxt));
     ASSERT(proc_avx_enabled());
     /* verify the dr_cxt_ex is correct */
-    if (safe_read(cxt_ex, sizeof(*cxt_ex), &our_cxt_ex)) {
+    if (d_r_safe_read(cxt_ex, sizeof(*cxt_ex), &our_cxt_ex)) {
         if (!context_check_extended_sizes(&our_cxt_ex, cxt->ContextFlags)) {
             ASSERT_CURIOSITY(false && "CONTEXT_EX is not setup correctly");
             return NULL;
@@ -1120,12 +1122,16 @@ context_to_mcontext_internal(priv_mcontext_t *mcontext, CONTEXT *cxt)
     mcontext->r14 = cxt->R14;
     mcontext->r15 = cxt->R15;
 #        endif
+    /* XXX i#1312: This will need attention for AVX-512, specifically the different
+     * xstate formats supported by the processor, compacted and standard, as well as
+     * MPX.
+     */
     if (CONTEXT_PRESERVE_XMM && TESTALL(CONTEXT_XMM_FLAG, cxt->ContextFlags)) {
         /* no harm done if no sse support */
         /* CONTEXT_FLOATING_POINT or CONTEXT_EXTENDED_REGISTERS */
         int i;
-        for (i = 0; i < NUM_SIMD_SLOTS; i++)
-            memcpy(&mcontext->ymm[i], CXT_XMM(cxt, i), XMM_REG_SIZE);
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++)
+            memcpy(&mcontext->simd[i], CXT_XMM(cxt, i), XMM_REG_SIZE);
     }
     /* if XSTATE is NOT set, the app has NOT used any ymm state and
      * thus it's fine if we do not copy dr_mcontext_t ymm value.
@@ -1134,12 +1140,13 @@ context_to_mcontext_internal(priv_mcontext_t *mcontext, CONTEXT *cxt)
         byte *ymmh_area = context_ymmh_saved_area(cxt);
         if (ymmh_area != NULL) {
             int i;
-            for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-                memcpy(&mcontext->ymm[i].u32[4], &YMMH_AREA(ymmh_area, i).u32[0],
+            for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+                memcpy(&mcontext->simd[i].u32[4], &YMMH_AREA(ymmh_area, i).u32[0],
                        YMMH_REG_SIZE);
             }
         }
     }
+    /* XXX i#1312: AVX-512 extended register copies missing yet. */
 
     /* CONTEXT_CONTROL without the segments */
     mcontext->xbp = cxt->CXT_XBP;
@@ -1225,9 +1232,13 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
         memcpy(&cxt->ExtendedRegisters, fpstate, written);
 #        endif
         /* Now update w/ the xmm values from mcontext */
-        for (i = 0; i < NUM_SIMD_SLOTS; i++)
-            memcpy(CXT_XMM(cxt, i), &mcontext->ymm[i], XMM_REG_SIZE);
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++)
+            memcpy(CXT_XMM(cxt, i), &mcontext->simd[i], XMM_REG_SIZE);
     }
+    /* XXX i#1312: This may need attention for AVX-512, specifically the different
+     * xstate formats supported by the kernel, compacted and standard, as well as
+     * MPX.
+     */
     if (CONTEXT_PRESERVE_YMM && TESTALL(CONTEXT_XSTATE, cxt->ContextFlags)) {
         byte *ymmh_area = context_ymmh_saved_area(cxt);
         if (ymmh_area != NULL) {
@@ -1255,10 +1266,11 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
             memcpy(&YMMH_AREA(ymmh_area, 6).u32[0], &ymms[0].u32[4], YMMH_REG_SIZE);
             memcpy(&YMMH_AREA(ymmh_area, 7).u32[0], &ymms[1].u32[4], YMMH_REG_SIZE);
 #        endif
-            for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-                memcpy(&YMMH_AREA(ymmh_area, i).u32[0], &mcontext->ymm[i].u32[4],
+            for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+                memcpy(&YMMH_AREA(ymmh_area, i).u32[0], &mcontext->simd[i].u32[4],
                        YMMH_REG_SIZE);
             }
+            /* XXX i#1312: AVX-512 extended register copies missing yet. */
             /* The only un-reserved part of the AVX header saved by OP_xsave is
              * the XSTATE_BV byte.
              */
@@ -1266,6 +1278,7 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
             *header_bv = (((uint64)bv_high) << 32) | bv_low;
         }
     }
+    /* XXX i#1312: AVX-512 extended register copies missing yet. */
     /* CONTEXT_CONTROL without the segments */
     cxt->CXT_XBP = mcontext->xbp;
     cxt->CXT_XSP = mcontext->xsp;
@@ -1401,7 +1414,7 @@ alt_tls_acquire(uint *teb_offs /* OUT */, int num_slots, uint alignment)
      *
      * Second, on 64-bit, use space beyond the TEB on the 2nd TEB page.
      */
-    mutex_lock(&alt_tls_lock);
+    d_r_mutex_lock(&alt_tls_lock);
     res = alt_tls_acquire_helper(alt_tls_spare_taken, TLS_SPAREBYTES_SLOTS,
                                  offsetof(TEB, SpareBytes1), teb_offs, num_slots,
                                  alignment);
@@ -1414,7 +1427,7 @@ alt_tls_acquire(uint *teb_offs /* OUT */, int num_slots, uint alignment)
                                    TLS_POSTTEB_BASE_OFFS, teb_offs, num_slots, alignment);
     }
 #    endif
-    mutex_unlock(&alt_tls_lock);
+    d_r_mutex_unlock(&alt_tls_lock);
     return res;
 }
 
@@ -1442,19 +1455,19 @@ alt_tls_release(uint teb_offs, int num_slots)
     ASSERT(DYNAMO_OPTION(alt_teb_tls));
     if (teb_offs >= base_offs &&
         teb_offs < base_offs + TLS_SPAREBYTES_SLOTS * sizeof(void *)) {
-        mutex_lock(&alt_tls_lock);
+        d_r_mutex_lock(&alt_tls_lock);
         res = alt_tls_release_helper(alt_tls_spare_taken, (uint)base_offs, teb_offs,
                                      num_slots);
-        mutex_unlock(&alt_tls_lock);
+        d_r_mutex_unlock(&alt_tls_lock);
     }
 #    ifdef X64
     if (!res) {
         if (teb_offs >= TLS_POSTTEB_BASE_OFFS &&
             teb_offs < TLS_POSTTEB_BASE_OFFS + TLS_POSTTEB_SLOTS * sizeof(void *)) {
-            mutex_lock(&alt_tls_lock);
+            d_r_mutex_lock(&alt_tls_lock);
             res = alt_tls_release_helper(alt_tls_post_taken, TLS_POSTTEB_BASE_OFFS,
                                          teb_offs, num_slots);
-            mutex_unlock(&alt_tls_lock);
+            d_r_mutex_unlock(&alt_tls_lock);
         }
     }
 #    endif
@@ -2146,7 +2159,7 @@ NTSTATUS
 nt_remote_query_virtual_memory(HANDLE process, const byte *pc,
                                MEMORY_BASIC_INFORMATION *mbi, size_t mbilen, size_t *got)
 {
-    /* XXX: we can't switch this to a raw syscall as we rely on get_proc_address()
+    /* XXX: we can't switch this to a raw syscall as we rely on d_r_get_proc_address()
      * working in syscalls_init_get_num(), and it calls get_allocation_size()
      * which ends up here.
      */
@@ -5007,7 +5020,7 @@ are_mapped_files_the_same(app_pc addr1, app_pc addr2)
 
     /* FIXME: this doesn't exist on NT4 - make sure we handle
      * gracefully not finding the target - needs a very explicit
-     * get_proc_address() here.
+     * d_r_get_proc_address() here.
      */
     GET_NTDLL(ZwAreMappedFilesTheSame, (
                                         IN PVOID Address1,

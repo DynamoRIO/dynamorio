@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -71,6 +71,13 @@
 
 #undef WEAK /* avoid conflict with C define */
 
+/* This is really the alignment needed by x64 code.  For now, when we bother to
+ * align the stack pointer, we just go for 16 byte alignment.  We do *not*
+ * assume 16-byte alignment across the code base.
+ * i#847: Investigate using aligned SSE ops (see get_xmm_caller_saved).
+ */
+#define FRAME_ALIGNMENT 16
+
 /****************************************************/
 #if defined(ASSEMBLE_WITH_GAS)
 # define START_FILE .text
@@ -100,6 +107,7 @@
 #  define MMWORD qword ptr
 #  define XMMWORD oword ptr
 #  define YMMWORD ymmword ptr
+#  define ZMMWORD zmmword ptr
 #  ifdef X64
 /* w/o the rip, gas won't use rip-rel and adds relocs that ld trips over */
 #   define SYMREF(sym) [rip + sym]
@@ -114,6 +122,7 @@
 #  define MMWORD /* nothing */
 #  define XMMWORD /* nothing */
 #  define YMMWORD /* nothing */
+#  define ZMMWORD /* nothing */
 /* XXX: this will NOT produce PIC code!  A multi-instr multi-local-data sequence
  * must be used.  See cleanup_and_terminate() for examples.
  */
@@ -132,6 +141,8 @@
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
+# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
+# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # define END_PROLOG /* nothing */
 /* PR 212290: avoid text relocations.
  * @GOT returns the address and is for extern vars; @GOTOFF gets the value.
@@ -178,6 +189,7 @@ ASSUME fs:_DATA @N@\
 # define MMWORD mmword ptr
 # define XMMWORD xmmword ptr
 # define YMMWORD ymmword ptr /* added in VS 2010 */
+# define ZMMWORD zmmword ptr /* XXX i#1312: supported by our supported version of VS? */
 /* ml64 uses rip-rel automatically */
 # define SYMREF(sym) [sym]
 # define HEX(n) 0##n##h
@@ -193,11 +205,15 @@ ASSUME fs:_DATA @N@\
 #  define PUSH_SEH(reg) push reg @N@ .pushreg reg
 /* Push a volatile register or an immed in prolog: */
 #  define PUSH_NONCALLEE_SEH(reg) push reg @N@ .allocstack 8
+# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ @N@ .allocstack 8
+# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ @N@
 #  define END_PROLOG .endprolog
 # else
 #  define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 #  define PUSH_SEH(reg) push reg @N@ /* add a line to match x64 line count */
 #  define PUSH_NONCALLEE_SEH(reg) push reg @N@ /* add a line to match x64 line count */
+# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ @N@
+# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ @N@
 #  define END_PROLOG /* nothing */
 # endif
 /****************************************************/
@@ -212,7 +228,7 @@ ASSUME fs:_DATA @N@\
 # define GLOBAL_LABEL(label) _##label
 # define ADDRTAKEN_LABEL(label) _##label
 # define GLOBAL_REF(label) _##label
-# define WEAK(name) weak name
+# define WEAK(name) /* no support */
 # define BYTE byte
 # define WORD word
 # define DWORD dword
@@ -220,6 +236,7 @@ ASSUME fs:_DATA @N@\
 # define MMWORD qword
 # define XMMWORD oword
 # define YMMWORD yword
+# define ZMMWORD zword
 # ifdef X64
 #  define SYMREF(sym) [rel GLOBAL_REF(sym)]
 # else
@@ -232,6 +249,8 @@ ASSUME fs:_DATA @N@\
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
+# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
+# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # define END_PROLOG /* nothing */
 /****************************************************/
 #else
@@ -283,9 +302,16 @@ ASSUME fs:_DATA @N@\
 #  define REG_XDI rdi
 #  define REG_XBP rbp
 #  define REG_XSP rsp
-/* skip [r8..r15], only available on AMD64 */
+#  define REG_R8  r8
+#  define REG_R9  r9
+#  define REG_R10 r10
+#  define REG_R11 r11
+#  define REG_R12 r12
+#  define REG_R13 r13
+#  define REG_R14 r14
+#  define REG_R15 r15
 #  define SEG_TLS gs /* keep in sync w/ {unix,win32}/os_exports.h defines */
-#  ifdef UNIX
+#  if defined(UNIX) && !defined(MACOS)
 #   define LIB_SEG_TLS fs /* keep in sync w/ unix/os_exports.h defines */
 #  endif
 # else /* 32-bit */
@@ -302,6 +328,8 @@ ASSUME fs:_DATA @N@\
 #   define LIB_SEG_TLS gs /* keep in sync w/ unix/os_exports.h defines */
 #  endif
 # endif /* 64/32-bit */
+#  define REG_ZMM0 zmm0
+#  define REG_ZMM1 zmm1
 #endif /* ARM/X86 */
 
 /* calling convention */
@@ -411,6 +439,24 @@ ASSUME fs:_DATA @N@\
 #   define ARG8_NORETADDR  QWORD [7*ARG_SZ + REG_XSP]
 #   define ARG9_NORETADDR  QWORD [8*ARG_SZ + REG_XSP]
 #   define ARG10_NORETADDR QWORD [9*ARG_SZ + REG_XSP]
+#   define PUSH_CALLEE_SAVED_REGS() \
+         PUSH_SEH(REG_XBX) @N@\
+         PUSH_SEH(REG_XBP) @N@\
+         PUSH_SEH(REG_XSI) @N@\
+         PUSH_SEH(REG_XDI) @N@\
+         PUSH_SEH(REG_R12) @N@\
+         PUSH_SEH(REG_R13) @N@\
+         PUSH_SEH(REG_R14) @N@\
+         PUSH_SEH(REG_R15)
+#   define POP_CALLEE_SAVED_REGS() \
+         pop REG_R15 @N@\
+         pop REG_R14 @N@\
+         pop REG_R13 @N@\
+         pop REG_R12 @N@\
+         pop REG_XDI @N@\
+         pop REG_XSI @N@\
+         pop REG_XBP @N@\
+         pop REG_XBX
 #  else /* UNIX */
 /* Arguments are passed in: rdi, rsi, rdx, rcx, r8, r9, then on stack right-to-left,
  * without leaving any space on stack for the 1st 6.
@@ -435,6 +481,20 @@ ASSUME fs:_DATA @N@\
 #   define ARG8_NORETADDR  QWORD [1*ARG_SZ + rsp]
 #   define ARG9_NORETADDR  QWORD [2*ARG_SZ + rsp]
 #   define ARG10_NORETADDR QWORD [3*ARG_SZ + rsp]
+#   define PUSH_CALLEE_SAVED_REGS() \
+         PUSH_SEH(REG_XBX) @N@\
+         PUSH_SEH(REG_XBP) @N@\
+         PUSH_SEH(REG_R12) @N@\
+         PUSH_SEH(REG_R13) @N@\
+         PUSH_SEH(REG_R14) @N@\
+         PUSH_SEH(REG_R15)
+#   define POP_CALLEE_SAVED_REGS() \
+         pop REG_R15 @N@\
+         pop REG_R14 @N@\
+         pop REG_R13 @N@\
+         pop REG_R12 @N@\
+         pop REG_XBP @N@\
+         pop REG_XBX
 #  endif /* WINDOWS/UNIX */
 # else /* 32-bit */
 /* Arguments are passed on stack right-to-left. */
@@ -458,11 +518,31 @@ ASSUME fs:_DATA @N@\
 #  define ARG8_NORETADDR  DWORD [7*ARG_SZ + esp]
 #  define ARG9_NORETADDR  DWORD [8*ARG_SZ + esp]
 #  define ARG10_NORETADDR DWORD [9*ARG_SZ + esp]
+#  ifdef WINDOWS
+#  define PUSH_CALLEE_SAVED_REGS() \
+        PUSH_SEH(REG_XBX) @N@\
+        PUSH_SEH(REG_XBP) @N@\
+        PUSH_SEH(REG_XSI) @N@\
+        PUSH_SEH(REG_XDI)
+#  define POP_CALLEE_SAVED_REGS() \
+        pop REG_XDI @N@\
+        pop REG_XSI @N@\
+        pop REG_XBP @N@\
+        pop REG_XBX
+#  else /* UNIX */
+#   define PUSH_CALLEE_SAVED_REGS() \
+         PUSH_SEH(REG_XBX) @N@\
+         PUSH_SEH(REG_XBP) @N@\
+         PUSH_SEH(REG_XSI) @N@\
+         PUSH_SEH(REG_XDI)
+#   define POP_CALLEE_SAVED_REGS() \
+         pop REG_XDI @N@\
+         pop REG_XSI @N@\
+         pop REG_XBP @N@\
+         pop REG_XBX
+#  endif /* WINDOWS/UNIX */
 # endif /* 64/32-bit */
 #endif /* ARM/X86 */
-
-/* Keep in sync with arch_exports.h. */
-#define FRAME_ALIGNMENT 16
 
 /* From globals_shared.h, but we can't include that into asm code. */
 #ifdef X64

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -222,19 +222,19 @@ os_loader_init_prologue(void)
         LOG(GLOBAL, LOG_LOADER, 2, "private peb=" PFX "\n", private_peb);
 
         if (should_swap_teb_nonstack_fields()) {
-            pre_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
-            pre_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
-            pre_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
+            pre_nls_cache = d_r_get_tls(NLS_CACHE_TIB_OFFSET);
+            pre_fls_data = d_r_get_tls(FLS_DATA_TIB_OFFSET);
+            pre_nt_rpc = d_r_get_tls(NT_RPC_TIB_OFFSET);
             /* Clear state to separate priv from app.
              * XXX: if we attach or something it seems possible that ntdll or user32
              * or some other shared resource might set these and we want to share
              * the value between app and priv.  In that case we should not clear here
-             * and should relax the asserts in dispatch and is_using_app_peb to
+             * and should relax the asserts in d_r_dispatch and is_using_app_peb to
              * allow app==priv if both ==pre.
              */
-            set_tls(NLS_CACHE_TIB_OFFSET, NULL);
-            set_tls(FLS_DATA_TIB_OFFSET, NULL);
-            set_tls(NT_RPC_TIB_OFFSET, NULL);
+            d_r_set_tls(NLS_CACHE_TIB_OFFSET, NULL);
+            d_r_set_tls(FLS_DATA_TIB_OFFSET, NULL);
+            d_r_set_tls(NT_RPC_TIB_OFFSET, NULL);
             LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->NlsCache=" PFX "\n",
                 pre_nls_cache);
             LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->FlsData=" PFX "\n",
@@ -293,7 +293,7 @@ os_loader_init_prologue(void)
      * the old KUSER_SHARED_DATA so make sure we're on an old OS.
      */
     ntdll_NtTickCount =
-        (ntdll_NtTickCount_t)get_proc_address(get_ntdll_base(), "NtGetTickCount");
+        (ntdll_NtTickCount_t)d_r_get_proc_address(get_ntdll_base(), "NtGetTickCount");
     ASSERT(ntdll_NtTickCount != NULL || get_os_version() <= WINDOWS_VERSION_XP);
 }
 
@@ -349,18 +349,18 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
             /* For first thread use cached pre-priv-lib value for app and
              * whatever value priv libs have set for priv
              */
-            dcontext->app_stack_limit = get_tls(BASE_STACK_TIB_OFFSET);
-            dcontext->app_stack_base = get_tls(TOP_STACK_TIB_OFFSET);
+            dcontext->app_stack_limit = d_r_get_tls(BASE_STACK_TIB_OFFSET);
+            dcontext->app_stack_base = d_r_get_tls(TOP_STACK_TIB_OFFSET);
             if (should_swap_teb_nonstack_fields()) {
-                dcontext->priv_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
-                dcontext->priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
-                dcontext->priv_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
+                dcontext->priv_nls_cache = d_r_get_tls(NLS_CACHE_TIB_OFFSET);
+                dcontext->priv_fls_data = d_r_get_tls(FLS_DATA_TIB_OFFSET);
+                dcontext->priv_nt_rpc = d_r_get_tls(NT_RPC_TIB_OFFSET);
                 dcontext->app_nls_cache = pre_nls_cache;
                 dcontext->app_fls_data = pre_fls_data;
                 dcontext->app_nt_rpc = pre_nt_rpc;
-                set_tls(NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
-                set_tls(FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
-                set_tls(NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
+                d_r_set_tls(NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
+                d_r_set_tls(FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
+                d_r_set_tls(NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
             }
         } else {
             /* The real value will be set by swap_peb_pointer */
@@ -390,7 +390,7 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
         /* For swapping teb fields (detach, reset i#25) we'll need to
          * know the teb base from another thread
          */
-        dcontext->teb_base = (byte *)get_tls(SELF_TIB_OFFSET);
+        dcontext->teb_base = (byte *)d_r_get_tls(SELF_TIB_OFFSET);
         swap_peb_pointer(dcontext, true /*to priv*/);
     }
 #endif
@@ -412,7 +412,13 @@ os_loader_thread_init_epilogue(dcontext_t *dcontext)
 void
 os_loader_thread_exit(dcontext_t *dcontext)
 {
-    /* do nothing in Windows */
+#ifdef CLIENT_INTERFACE
+    /* i#3633: In case of windows 1903 if priv_fls_data ends up in internal list of
+     * ntdll.dll, we have to unlink it manually. We do unlinking always on thread
+     * exit.
+     */
+    ntdll_redir_fls_thread_exit(dcontext->priv_fls_data);
+#endif
 }
 
 void
@@ -435,7 +441,7 @@ get_private_peb(void)
  * We'd like to do so if there are no private WinAPI libs
  * (we assume libs not in the system dir will not write to PEB or TEB fields we
  * care about (mainly Fls ones)), but kernel32 can be loaded in dr_client_main()
- * (which is after arch_init()) via dr_enable_console_printing(); plus,
+ * (which is after d_r_arch_init()) via dr_enable_console_printing(); plus,
  * a client could load kernel32 via dr_load_aux_library(), or a 3rd-party
  * priv lib could load anything at any time.  Xref i#984.
  * This does not indicate whether TEB fields should be swapped: we need
@@ -460,7 +466,7 @@ get_teb_field(dcontext_t *dcontext, ushort offs)
 {
     if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
         /* get our own */
-        return get_tls(offs);
+        return d_r_get_tls(offs);
     } else {
         byte *teb = dcontext->teb_base;
         return *((void **)(teb + offs));
@@ -472,7 +478,7 @@ set_teb_field(dcontext_t *dcontext, ushort offs, void *value)
 {
     if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
         /* set our own */
-        set_tls(offs, value);
+        d_r_set_tls(offs, value);
     } else {
         byte *teb = dcontext->teb_base;
         ASSERT(dcontext->teb_base != NULL);
@@ -835,7 +841,7 @@ privload_remove_areas(privmod_t *privmod)
 void
 privload_unmap_file(privmod_t *mod)
 {
-    unmap_file(mod->base, mod->size);
+    d_r_unmap_file(mod->base, mod->size);
 }
 
 bool
@@ -910,8 +916,8 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
     *size = 0; /* map at full size */
     if (dynamo_heap_initialized) {
         /* These hold the DR lock and update DR areas */
-        map_func = map_file;
-        unmap_func = unmap_file;
+        map_func = d_r_map_file;
+        unmap_func = d_r_unmap_file;
     } else {
         map_func = os_map_file;
         unmap_func = os_unmap_file;
@@ -1356,7 +1362,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
      * But this is simpler than trying to parse that dll's table.
      * We ignore the version suffix ("-1-0", e.g.).
      */
-    if (str_case_prefix(name, "API-MS-Win-Core-APIQuery-L1"))
+    if (str_case_prefix(name, "API-MS-Win-Core-APIQuery-L1") ||
+        str_case_prefix(name, "API-MS-Win-Core-CRT-L1"))
         return "ntdll.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-Console-L1"))
         return "kernel32.dll";
@@ -1402,7 +1409,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-ProcessEnvironment-L1"))
         return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-ProcessThreads-L1")) {
+    else if (str_case_prefix(name, "API-MS-Win-Core-ProcessThreads-L1") ||
+             str_case_prefix(name, "API-MS-Win-Core-AppInit-L1-1")) {
         /* This one includes CreateProcessAsUserW which is only in
          * kernel32, but kernel32 itself imports from here and its must come
          * from kernelbase to avoid infinite loop.  XXX: see above: seeming
@@ -1454,6 +1462,7 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-BEM-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Comm-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Console-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-CRT-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-File-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Job-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Localization-L2-1") ||
@@ -1479,11 +1488,12 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1"))
         return "kernel32.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-CRT-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-CRT-L2-1"))
-        return "msvcrt.dll";
     else if (str_case_prefix(name, "API-MS-Win-Service-Private-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Security-Audit-L1-1"))
+             str_case_prefix(name, "API-MS-Win-Security-Audit-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-Capability-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-Credentials-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-Credentials-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-LSAPolicy-L1"))
         return "sechost.dll";
     else if (str_case_prefix(name, "API-MS-Win-Eventing-Controller-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Eventing-Consumer-L1-1")) {
@@ -1498,7 +1508,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
     else if (str_case_prefix(name, "API-MS-Win-Core-ProcessTopology-L1-2") ||
              str_case_prefix(name, "API-MS-Win-Core-XState-L2-1"))
         return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-WIN-SECURITY-LSAPOLICY-L1"))
+    else if (str_case_prefix(name, "API-MS-Win-Core-Registry-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Eventing-ClassicProvider-L1-1"))
         return "advapi32.dll";
     /**************************************************/
     /* Added in Win10 (some may be 8.1 too) */
@@ -1519,20 +1530,24 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-Quirks-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-RegistryUserSpecific-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-SHLWAPI-Legacy-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-SHLWAPI-Obsolete-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-SHLWAPI-Obsolete-L1-2") ||
              str_case_prefix(name, "API-MS-Win-Core-String-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-StringAnsi-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-URL-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Version-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Version-Private-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-VersionAnsi-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Eventing-Provider-L1-1"))
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-PrivateProfile-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Atoms-L1-1"))
+             str_case_prefix(name, "API-MS-Win-Core-Atoms-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Job-L2-1"))
         return "kernel32.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-WinRT-Error-L1-1"))
         return "combase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Appmodel-Runtime-L1-1"))
+    else if (str_case_prefix(name, "API-MS-Win-Appmodel-Runtime-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Appmodel-State-L1-2"))
         return "kernel.appcore.dll";
     else if (str_case_prefix(name, "API-MS-Win-GDI-")) {
         /* We've seen many different GDI-* */
@@ -1542,10 +1557,39 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "ucrtbase.dll";
     } else if (str_case_prefix(name, "API-MS-Win-Core-COM-L1-1") ||
                str_case_prefix(name, "API-MS-Win-Core-COM-Private-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Core-COM-Private-L1-2") ||
+               str_case_prefix(name, "API-MS-Win-Core-Com-MidlProxyStub-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Core-WinRT-L1-1") ||
                str_case_prefix(name, "API-MS-Win-Core-WinRT-String-L1-1")) {
         return "combase.dll";
     } else if (str_case_prefix(name, "API-MS-Win-Core-Kernel32-Private-L1-1")) {
         return "kernel32.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Shell-Shellcom-L1-1")) {
+        return "kernelbase.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Stateseparation-Helpers-L1-1")) {
+        return "kernelbase.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Shell-ShellFolders-L1-1")) {
+        /* Moved to windows.storage.dll on Windows 10 */
+        if (get_os_version() >= WINDOWS_VERSION_10) {
+            return "windows.storage.dll";
+        } else {
+            return "kernelbase.dll";
+        }
+    } else if (str_case_prefix(name, "API-MS-Win-Devices-Config-L1-1")) {
+        return "cfgmgr32.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Shcore-")) {
+        /* There are a lot of these, and they all seem to redirect to shcore.dll */
+        return "shcore.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Storage-Exports-Internal-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Storage-Exports-External-L1-1")) {
+        return "windows.storage.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Security-Cryptoapi-L1-1")) {
+        return "cryptsp.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Shlwapi-WinRT-Storage-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Shlwapi-WinRT-IE-L1-1")) {
+        return "shlwapi.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Power-Base-L1-1")) {
+        return "powrprof.dll";
     } else {
         SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
         /* good guess */
@@ -1871,7 +1915,7 @@ privload_attach_parent_console(app_pc app_kernel32)
     ASSERT(app_kernel32 != NULL);
     if (kernel32_AttachConsole == NULL) {
         kernel32_AttachConsole =
-            (kernel32_AttachConsole_t)get_proc_address(app_kernel32, "AttachConsole");
+            (kernel32_AttachConsole_t)d_r_get_proc_address(app_kernel32, "AttachConsole");
     }
     if (kernel32_AttachConsole != NULL) {
         if (kernel32_AttachConsole(ATTACH_PARENT_PROCESS) != 0)
@@ -1912,7 +1956,7 @@ privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
          */
         if (get_os_version() >= WINDOWS_VERSION_8) {
             kernel32_FreeConsole =
-                (kernel32_FreeConsole_t)get_proc_address(app_kernel32, "FreeConsole");
+                (kernel32_FreeConsole_t)d_r_get_proc_address(app_kernel32, "FreeConsole");
             if (kernel32_FreeConsole != NULL) {
                 if (kernel32_FreeConsole() == 0)
                     return false;
@@ -1931,7 +1975,7 @@ privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
     /* Below here is win7-specific */
     if (get_os_version() != WINDOWS_VERSION_7)
         return true;
-    get_console_cp = (app_pc)get_proc_address(app_kernel32, "GetConsoleCP");
+    get_console_cp = (app_pc)d_r_get_proc_address(app_kernel32, "GetConsoleCP");
     ASSERT(get_console_cp != NULL);
     /* No exported routines directly reference the globals. The easiest and shortest
      * path is through GetConsoleCP, where we look for a call to ConsoleClientCallServer
@@ -2141,7 +2185,7 @@ privload_set_security_cookie(privmod_t *mod)
     /* 64-bit seems to sign-extend so we use ptr_int_t */
     cookie = (ptr_int_t)(time100ns >> 32) ^ (ptr_int_t)time100ns;
     cookie ^= get_process_id();
-    cookie ^= get_thread_id();
+    cookie ^= d_r_get_thread_id();
     cookie ^= get_tick_count();
     nt_query_performance_counter(&perfctr, NULL);
 #ifdef X64

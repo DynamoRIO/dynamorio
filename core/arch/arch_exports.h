@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,8 +45,8 @@
 #ifndef _ARCH_EXPORTS_H_
 #define _ARCH_EXPORTS_H_ 1
 
-/* stack slot width */
-#define XSP_SZ (sizeof(reg_t))
+/* We export all of opnd.h for reg_id_t, DR_NUM_GPR_REGS, etc. */
+#include "opnd.h"
 
 #ifdef X86
 /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
@@ -58,13 +58,21 @@
  */
 #    define XMM_REG_SIZE 16
 #    define YMM_REG_SIZE 32
-#    define XMM_SAVED_REG_SIZE YMM_REG_SIZE /* space in priv_mcontext_t for xmm/ymm */
-#    define XMM_SLOTS_SIZE (NUM_SIMD_SLOTS * XMM_SAVED_REG_SIZE)
-#    define XMM_SAVED_SIZE (NUM_SIMD_SAVED * XMM_SAVED_REG_SIZE)
+#    define ZMM_REG_SIZE 64
+#    define OPMASK_AVX512F_REG_SIZE 2
+#    define OPMASK_AVX512BW_REG_SIZE 8
+#    define MCXT_SIMD_SLOT_SIZE ZMM_REG_SIZE
+#    define MCXT_TOTAL_SIMD_SLOTS_SIZE (MCXT_NUM_SIMD_SLOTS * MCXT_SIMD_SLOT_SIZE)
+#    define MCXT_TOTAL_OPMASK_SLOTS_SIZE \
+        (MCXT_NUM_OPMASK_SLOTS * OPMASK_AVX512BW_REG_SIZE)
+#    define MCXT_TOTAL_SIMD_SSE_AVX_SLOTS_SIZE \
+        (MCXT_NUM_SIMD_SSE_AVX_SLOTS * MCXT_SIMD_SLOT_SIZE)
 /* Indicates OS support, not just processor support (xref i#1278) */
 #    define YMM_ENABLED() (proc_avx_enabled())
+#    define ZMM_ENABLED() (proc_avx512_enabled())
 #    define YMMH_REG_SIZE (YMM_REG_SIZE / 2) /* upper half */
-#    define YMMH_SAVED_SIZE (NUM_SIMD_SLOTS * YMMH_REG_SIZE)
+#    define ZMMH_REG_SIZE (ZMM_REG_SIZE / 2) /* upper half */
+#    define MCXT_YMMH_SLOTS_SIZE (MCXT_NUM_SIMD_SSE_AVX_SLOTS * YMMH_REG_SIZE)
 #endif /* X86 */
 
 /* Number of slots for spills from inlined clean calls. */
@@ -237,7 +245,7 @@ typedef struct _local_state_extended_t {
 #    define DETACH_CALLBACK_CODE_SIZE 256
 #    define DETACH_CALLBACK_FINAL_JMP_SIZE 32
 
-/* For detach - stores callback continuation pcs and is used to dispatch to them after
+/* For detach - stores callback continuation pcs and is used to d_r_dispatch to them after
  * we detach. We have one per a thread (with stacked callbacks) stored in an array. */
 typedef struct _detach_callback_stack_t {
     thread_id_t tid;        /* thread tid */
@@ -309,6 +317,14 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
 /* note that the microsoft compiler will not enregister variables across asm
  * blocks that touch those registers, so don't need to worry about clobbering
  * eax and ebx */
+#    define ATOMIC_1BYTE_WRITE(target, value, hot_patch)                      \
+        do {                                                                  \
+            ASSERT(sizeof(value) == 1);                                       \
+            /* No alignment check necessary, hot_patch parameter provided for \
+             * consistency.                                                   \
+             */                                                               \
+            _InterlockedExchange8((volatile CHAR *)target, (CHAR)value);      \
+        } while (0)
 #    define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                    \
         do {                                                                \
             ASSERT(sizeof(value) == 4);                                     \
@@ -432,6 +448,18 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 /* IA-32 vol 3 7.1.4: processor will internally suppress the bus lock
  * if target is within cache line.
  */
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)                       \
+            do {                                                                   \
+                /* allow a constant to be passed in by supplying our own lvalue */ \
+                char _myval = value;                                               \
+                ASSERT(sizeof(value) == 1);                                        \
+                /* No alignment check necessary, hot_patch parameter provided for  \
+                 * consistency.                                                    \
+                 */                                                                \
+                __asm__ __volatile__("xchgb %0, %1"                                \
+                                     : "+m"(*(char *)(target)), "+r"(_myval)       \
+                                     :);                                           \
+            } while (0)
 #        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                       \
             do {                                                                   \
                 /* allow a constant to be passed in by supplying our own lvalue */ \
@@ -464,12 +492,12 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
                 } while (0)
 #        endif /* X64 */
 #        define ATOMIC_INC_suffix(suffix, var) \
-            __asm__ __volatile__("lock inc" suffix " %0" : "=m"(var) : : "memory")
+            __asm__ __volatile__("lock inc" suffix " %0" : "=m"(var) : : "cc", "memory")
 #        define ATOMIC_INC_int(var) ATOMIC_INC_suffix("l", var)
 #        define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("q", var)
 #        define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
 #        define ATOMIC_DEC_suffix(suffix, var) \
-            __asm__ __volatile__("lock dec" suffix " %0" : "=m"(var) : : "memory")
+            __asm__ __volatile__("lock dec" suffix " %0" : "=m"(var) : : "cc", "memory")
 #        define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("l", var)
 #        define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("q", var)
 #        define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
@@ -481,7 +509,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
             __asm__ __volatile__("lock add" suffix " %1, %0" \
                                  : "=m"(var)                 \
                                  : "ri"(value)               \
-                                 : "memory")
+                                 : "cc", "memory")
 #        define ATOMIC_ADD_int(var, val) ATOMIC_ADD_suffix("l", var, val)
 #        define ATOMIC_ADD_int64(var, val) ATOMIC_ADD_suffix("q", var, val)
 #        define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(var, val)
@@ -490,7 +518,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
             __asm__ __volatile__("lock xadd" suffix " %1, %0"          \
                                  : "=m"(*var), "=r"(result)            \
                                  : "1"(value)                          \
-                                 : "memory")
+                                 : "cc", "memory")
 #        define ATOMIC_ADD_EXCHANGE_int(var, val, res) \
             ATOMIC_ADD_EXCHANGE_suffix("l", var, val, res)
 #        define ATOMIC_ADD_EXCHANGE_int64(var, val, res) \
@@ -499,7 +527,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
             __asm__ __volatile__("lock cmpxchg" suffix " %2,%0"                \
                                  : "=m"(var)                                   \
                                  : "a"(compare), "r"(exchange)                 \
-                                 : "memory")
+                                 : "cc", "memory")
 #        define ATOMIC_COMPARE_EXCHANGE_int(var, compare, exchange) \
             ATOMIC_COMPARE_EXCHANGE_suffix("l", var, compare, exchange)
 #        define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange) \
@@ -534,13 +562,26 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 
 /* clang-format off */
 #        define SET_FLAG(cc, flag) \
-            __asm__ __volatile__("set" #        cc " %0" : "=qm"(flag))
-/* clang-flag on */
+            __asm__ __volatile__("set" #        cc " %0" \
+                                 : "=qm"(flag)           \
+                                 :                       \
+                                 : "cc", "memory")
+/* clang-format on */
 #        define SET_IF_NOT_ZERO(flag) SET_FLAG(nz, flag)
 #        define SET_IF_NOT_LESS(flag) SET_FLAG(nl, flag)
 
 #    elif defined(AARCH64)
 
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                ASSERT(sizeof(value) == 1);                    \
+                /* Not currently used to write code */         \
+                ASSERT_CURIOSITY(!hot_patch);                  \
+                __asm__ __volatile__("strb %w0, [%1]"          \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
 #        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                 \
             do {                                                             \
                 ASSERT(sizeof(value) == 4);                                  \
@@ -695,6 +736,14 @@ atomic_dec_becomes_zero(volatile int *var)
 
 #    elif defined(ARM)
 
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                ASSERT(sizeof(value) == 1);                    \
+                __asm__ __volatile__("strb %0, [%1]"           \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
 #        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                     \
             do {                                                                 \
                 ASSERT(sizeof(value) == 4);                                      \
@@ -1023,8 +1072,8 @@ get_time(void);
 #endif
 
 void
-arch_init(void);
-void arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void));
+d_r_arch_init(void);
+void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void));
 void
 arch_thread_init(dcontext_t *dcontext);
 void
@@ -1223,8 +1272,8 @@ get_app_sysenter_addr(void);
 
 /* in [x86/arm].asm */
 /* Calls the specified function 'func' after switching to the stack 'stack'.  If we're
- * currently on the initstack 'mutex_to_free' should be passed so we release the
- * initstack lock.  The supplied 'func_arg' will be passed as an argument to 'func'.
+ * currently on the d_r_initstack, 'mutex_to_free' should be passed so we release the
+ * initstack_mutex.  The supplied 'func_arg' will be passed as an argument to 'func'.
  * If 'func' returns then 'return_on_return' is checked. If set we swap back stacks and
  * return to the caller.  If not set then it's assumed that func wasn't supposed to
  * return and we go to an error routine unexpected_return() below.
@@ -1245,8 +1294,8 @@ go_native(dcontext_t *dcontext);
 
 /* Calls dynamo_exit_process if exitproc is true, else calls dynamo_exit_thread.
  * Uses the current dstack, but instructs the cleanup routines not to
- * de-allocate it, does a custom de-allocate after swapping to initstack (don't
- * want to use initstack the whole time, that's too long to hold the mutex).
+ * de-allocate it, does a custom de-allocate after swapping to d_r_initstack (don't
+ * want to use d_r_initstack the whole time, that's too long to hold the mutex).
  * Then calls system call sysnum with parameter base param_base, which is presumed
  * to be either NtTerminateThread or NtTerminateProcess or exit.
  *
@@ -1525,7 +1574,10 @@ app_pc
 canonicalize_pc_target(dcontext_t *dcontext, app_pc pc);
 
 void
-decode_init(void);
+d_r_decode_init(void);
+
+bool
+fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 /***************************************************************************
  * Arch-specific defines
@@ -1614,8 +1666,8 @@ decode_init(void);
 #    define STUB_COARSE_DIRECT_SIZE(flags) \
         (FRAG_IS_32(flags) ? STUB_COARSE_DIRECT_SIZE32 : STUB_COARSE_DIRECT_SIZE64)
 
-/* writes nops into the address range */
-#    define SET_TO_NOPS(isa_mode, addr, size) memset(addr, 0x90, size)
+/* Writes nops into the address range. */
+#    define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
 /* writes debugbreaks into the address range */
 #    define SET_TO_DEBUG(addr, size) memset(addr, 0xcc, size)
 /* check if region is SET_TO_NOP */
@@ -1685,8 +1737,6 @@ decode_init(void);
 #    define ARM_BKPT 0xe1200070
 #    define THUMB_BKPT 0xbe00
 /* writes nops into the address range */
-bool
-fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
 /* writes debugbreaks into the address range */
 #    define SET_TO_DEBUG(addr, size) ASSERT_NOT_IMPLEMENTED(false)
@@ -2043,7 +2093,7 @@ void
 add_profile_call(dcontext_t *dcontext);
 #endif
 app_pc
-emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc);
+d_r_emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc);
 
 bool
 instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst);
@@ -2218,8 +2268,14 @@ finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f);
 bool
 instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust);
 
+bool
+instr_supports_simple_mangling_epilogue(dcontext_t *dcontext, instr_t *inst);
+
 void
 float_pc_update(dcontext_t *dcontext);
+
+void
+mangle_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f);
 
 /* in retcheck.c */
 #ifdef CHECK_RETURNS_SSE2
@@ -2366,6 +2422,8 @@ void *
 memcpy(void *dst, const void *src, size_t n);
 void *
 memset(void *dst, int val, size_t n);
+void *
+memmove(void *dst, const void *src, size_t n);
 #endif /* UNIX */
 
 #ifdef UNIX
@@ -2485,6 +2543,13 @@ get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
 /* reset the encode state stored in dcontext used by A32 Thumb mode */
 void
 encode_reset_it_block(dcontext_t *dcontext);
+#endif
+
+#ifdef LINUX
+/* Register state preserved on input to restartable sequences ("rseq"). */
+typedef struct _rseq_entry_state_t {
+    reg_t gpr[DR_NUM_GPR_REGS];
+} rseq_entry_state_t;
 #endif
 
 #endif /* _ARCH_EXPORTS_H_ */

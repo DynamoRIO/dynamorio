@@ -51,7 +51,7 @@ main(void)
 START_FILE
 
 #ifdef X64
-# define FRAME_PADDING 8
+# define FRAME_PADDING 0
 #else
 # define FRAME_PADDING 0
 #endif
@@ -59,11 +59,7 @@ START_FILE
 #define FUNCNAME test_asm
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         mov      REG_XBP, REG_XSP
         sub      REG_XSP, 256
@@ -109,10 +105,7 @@ GLOBAL_LABEL(FUNCNAME:)
      epilog:
         mov      REG_XSP, REG_XBP
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME

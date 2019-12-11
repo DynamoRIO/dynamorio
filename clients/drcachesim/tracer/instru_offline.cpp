@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -313,6 +313,15 @@ offline_instru_t::insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t
                                opnd_create_reg(scratch)));
 #endif
     return sizeof(offline_entry_t);
+}
+
+uint64_t
+offline_instru_t::get_modoffs(void *drcontext, app_pc pc)
+{
+    app_pc modbase;
+    if (drmodtrack_lookup(drcontext, pc, NULL, &modbase) != DRCOVLIB_SUCCESS)
+        return 0;
+    return pc - modbase;
 }
 
 int

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,6 +42,7 @@
 #define PREFETCH_POLICY_NEXTLINE "nextline"
 #define PREFETCH_POLICY_NONE "none"
 #define CPU_CACHE "cache"
+#define MISS_ANALYZER "miss_analyzer"
 #define TLB "TLB"
 #define HISTOGRAM "histogram"
 #define REUSE_DIST "reuse_distance"
@@ -60,6 +61,7 @@
 extern droption_t<bool> op_offline;
 extern droption_t<std::string> op_ipc_name;
 extern droption_t<std::string> op_outdir;
+extern droption_t<std::string> op_subdir_prefix;
 extern droption_t<std::string> op_infile;
 extern droption_t<std::string> op_indir;
 extern droption_t<std::string> op_module_file;
@@ -75,6 +77,7 @@ extern droption_t<std::string> op_LL_miss_file;
 extern droption_t<bytesize_t> op_L0I_size;
 extern droption_t<bool> op_L0_filter;
 extern droption_t<bytesize_t> op_L0D_size;
+extern droption_t<bool> op_coherence;
 extern droption_t<bool> op_use_physical;
 extern droption_t<unsigned int> op_virt2phys_freq;
 extern droption_t<bool> op_cpu_scheduling;
@@ -94,6 +97,7 @@ extern droption_t<unsigned int> op_TLB_L2_assoc;
 extern droption_t<std::string> op_TLB_replace_policy;
 extern droption_t<std::string> op_simulator_type;
 extern droption_t<unsigned int> op_verbose;
+extern droption_t<int> op_jobs;
 #ifdef DEBUG
 extern droption_t<bool> op_test_mode;
 #endif
@@ -116,4 +120,7 @@ extern droption_t<std::string> op_view_syntax;
 extern droption_t<std::string> op_record_function;
 extern droption_t<bool> op_record_heap;
 extern droption_t<std::string> op_record_heap_value;
+extern droption_t<unsigned int> op_miss_count_threshold;
+extern droption_t<double> op_miss_frac_threshold;
+extern droption_t<double> op_confidence_threshold;
 #endif /* _OPTIONS_H_ */

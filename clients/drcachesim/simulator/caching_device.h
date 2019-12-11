@@ -51,18 +51,28 @@
 // We assume we're only invoked from a single thread of control and do
 // not need to synchronize data access.
 
+class snoop_filter_t;
+
 class caching_device_t {
 public:
     caching_device_t();
     virtual bool
     init(int associativity, int block_size, int num_blocks, caching_device_t *parent,
          caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
-         bool inclusive = false, const std::vector<caching_device_t *> &children = {});
+         bool inclusive = false, bool coherent_cache = false, int id_ = -1,
+         snoop_filter_t *snoop_filter_ = nullptr,
+         const std::vector<caching_device_t *> &children = {});
     virtual ~caching_device_t();
     virtual void
     request(const memref_t &memref);
     virtual void
-    invalidate(const addr_t tag);
+    invalidate(addr_t tag, invalidation_type_t invalidation_type_);
+    bool
+    contains_tag(addr_t tag);
+    void
+    propagate_eviction(addr_t tag, const caching_device_t *requester);
+    void
+    propagate_write(addr_t tag, const caching_device_t *requester);
 
     caching_device_stats_t *
     get_stats() const
@@ -118,12 +128,18 @@ protected:
     int associativity;
     int block_size;
     int num_blocks;
+    bool coherent_cache;
+    // This is an index into snoop filter's array of caches.
+    int id;
+
     // Current valid blocks in the cache
     int loaded_blocks;
 
     // Pointers to the caching device's parent and children devices.
     caching_device_t *parent;
     std::vector<caching_device_t *> children;
+
+    snoop_filter_t *snoop_filter;
 
     // If true, this device is inclusive of its children.
     bool inclusive;

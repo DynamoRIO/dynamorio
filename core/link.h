@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -89,7 +89,7 @@ enum {
      */
     LINK_TRACE_CMP = 0x0080,
 #endif
-    /* Flags that tell DR to take some action upon returning to dispatch.
+    /* Flags that tell DR to take some action upon returning to d_r_dispatch.
      * This first one is multiplexed via dcontext->upcontext.upcontext.exit_reason.
      * All uses are assumed to be unlinkable.
      */
@@ -375,9 +375,9 @@ typedef struct _coarse_incoming_t {
     (EXIT_HAS_STUB(l_flags, f_flags) && !TEST(LINK_SEPARATE_STUB, (l_flags)))
 
 void
-link_init(void);
+d_r_link_init(void);
 void
-link_exit(void);
+d_r_link_exit(void);
 void
 link_reset_init(void);
 void

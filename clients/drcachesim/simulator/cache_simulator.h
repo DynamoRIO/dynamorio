@@ -41,6 +41,7 @@
 #include "cache_simulator_create.h"
 #include "cache_stats.h"
 #include "cache.h"
+#include "snoop_filter.h"
 
 class cache_simulator_t : public simulator_t {
 public:
@@ -76,11 +77,19 @@ protected:
     // This is useful for implementing polymorphism correctly.
     cache_t **l1_icaches;
     cache_t **l1_dcaches;
+    // This is an array of coherent caches for the snoop filter.
+    // Cache IDs index into this array.
+    cache_t **snooped_caches;
 
     // The following unordered maps map a cache's name to a pointer to it.
     std::unordered_map<std::string, cache_t *> llcaches;     // LLC(s)
     std::unordered_map<std::string, cache_t *> other_caches; // Non-L1, non-LLC caches
     std::unordered_map<std::string, cache_t *> all_caches;   // All caches.
+    // This is a list of non-coherent caches for shared caches above snoop filter.
+    std::unordered_map<std::string, cache_t *> non_coherent_caches;
+
+    // Snoop filter tracks ownership of cache lines across private caches.
+    snoop_filter_t *snoop_filter = nullptr;
 
 private:
     bool is_warmed_up;

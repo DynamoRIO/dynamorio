@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -63,7 +63,6 @@
 #include <imagehlp.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h> /* memset */
 #include <time.h>
 #include <tchar.h>
 
@@ -92,11 +91,7 @@
 #define HANDLE_CONTROL_C 0
 
 /* global vars */
-static int limit; /* in seconds */
-static BOOL showmem;
-static BOOL showstats;
-static BOOL inject;
-static BOOL force_injection;
+static int limit;                   /* in seconds */
 static BOOL use_environment = TRUE; /* FIXME : for now default to using
                                      * the environment, below we check and
                                      * never use the environment if using
@@ -114,20 +109,20 @@ static double wallclock;            /* in seconds */
 /* avoid mistake of lower-case assert */
 #define assert assert_no_good_use_ASSERT_instead
 void
-internal_error(const char *file, int line, const char *msg);
+d_r_internal_error(const char *file, int line, const char *msg);
 #undef ASSERT
 #ifdef DEBUG
 void
 display_error(char *msg);
 #    ifdef INTERNAL
-#        define ASSERT(x)                               \
-            if (!(x)) {                                 \
-                internal_error(__FILE__, __LINE__, #x); \
+#        define ASSERT(x)                                   \
+            if (!(x)) {                                     \
+                d_r_internal_error(__FILE__, __LINE__, #x); \
             }
 #    else
-#        define ASSERT(x)                               \
-            if (!(x)) {                                 \
-                internal_error(__FILE__, __LINE__, ""); \
+#        define ASSERT(x)                                   \
+            if (!(x)) {                                     \
+                d_r_internal_error(__FILE__, __LINE__, ""); \
             }
 #    endif /* INTERNAL */
 #else
@@ -162,7 +157,7 @@ display_error_helper(wchar_t *msg)
 }
 
 void
-internal_error(const char *file, int line, const char *expr)
+d_r_internal_error(const char *file, int line, const char *expr)
 {
 #ifdef INTERNAL
 #    define FILENAME_LENGTH L""
@@ -310,21 +305,21 @@ dr_inject_print_stats(void *data, int elapsed_secs, bool showstats, bool showmem
                     secs / 60, secs % 60, 0 /* for now */);
         }
         fprintf(FP, "%d%%CPU \n", cpu);
-        fprintf(FP, "(%lu tot, %lu RSS, %lu paged, %lu non, %lu swap)k\n",
+        fprintf(FP, "(%zu tot, %zu RSS, %zu paged, %zu non, %zu swap)k\n",
                 mem.PeakVirtualSize / 1024, mem.PeakWorkingSetSize / 1024,
                 mem.QuotaPeakPagedPoolUsage / 1024, mem.QuotaPeakNonPagedPoolUsage / 1024,
                 mem.PeakPagefileUsage / 1024);
     }
     if (showmem) {
         fprintf(FP, "Process Memory Statistics:\n");
-        fprintf(FP, "\tPeak virtual size:         %6d KB\n", mem.PeakVirtualSize / 1024);
-        fprintf(FP, "\tPeak working set size:     %6d KB\n",
+        fprintf(FP, "\tPeak virtual size:         %6zu KB\n", mem.PeakVirtualSize / 1024);
+        fprintf(FP, "\tPeak working set size:     %6zu KB\n",
                 mem.PeakWorkingSetSize / 1024);
-        fprintf(FP, "\tPeak paged pool usage:     %6d KB\n",
+        fprintf(FP, "\tPeak paged pool usage:     %6zu KB\n",
                 mem.QuotaPeakPagedPoolUsage / 1024);
-        fprintf(FP, "\tPeak non-paged pool usage: %6d KB\n",
+        fprintf(FP, "\tPeak non-paged pool usage: %6zu KB\n",
                 mem.QuotaPeakNonPagedPoolUsage / 1024);
-        fprintf(FP, "\tPeak pagefile usage:       %6d KB\n",
+        fprintf(FP, "\tPeak pagefile usage:       %6zu KB\n",
                 mem.PeakPagefileUsage / 1024);
     }
 }

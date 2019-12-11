@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,11 +45,11 @@
 #else
 #    include "configure.h"
 #    include "globals_shared.h"
+#    include <string.h>
 typedef unsigned long ulong;
 void
 dr_fpu_exception_init(void);
 #endif
-#include <string.h>
 #include <stdarg.h> /* for varargs */
 
 #ifdef UNIX
@@ -360,8 +360,8 @@ typedef enum _int_sz_t {
  */
 /* clang-format off */ /* (work around clang-format newline-after-type bug) */
 static bool inline
-/* clang-format on */
 our_isspace(int c)
+/* clang-format on */
 {
     return (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v');
 }
@@ -396,7 +396,7 @@ in_charset(const char *charset, int c)
 }
 
 const char *
-parse_int(const char *sp, uint64 *res_out, uint base, uint width, bool is_signed)
+d_r_parse_int(const char *sp, uint64 *res_out, uint base, uint width, bool is_signed)
 {
     bool negative = false;
     uint64 res = 0;
@@ -478,7 +478,7 @@ parse_int(const char *sp, uint64 *res_out, uint base, uint width, bool is_signed
  * Therefore, we roll our own.
  */
 int
-our_vsscanf(const char *str, const char *fmt, va_list ap)
+d_r_vsscanf(const char *str, const char *fmt, va_list ap)
 {
     int num_parsed = 0;
     const char *fp = fmt;
@@ -666,7 +666,7 @@ our_vsscanf(const char *str, const char *fmt, va_list ap)
             /* C sscanf skips leading whitespace before parsing integers. */
             while (*sp != '\0' && our_isspace(*sp))
                 sp++;
-            sp = parse_int(sp, &res, base, width, is_signed);
+            sp = d_r_parse_int(sp, &res, base, width, is_signed);
             if (sp == NULL)
                 return num_parsed;
 
@@ -719,13 +719,13 @@ our_vsscanf(const char *str, const char *fmt, va_list ap)
 }
 
 int
-our_sscanf(const char *str, const char *fmt, ...)
+d_r_sscanf(const char *str, const char *fmt, ...)
 {
     /* No need to save errno, we don't call libc anymore. */
     int res;
     va_list ap;
     va_start(ap, fmt);
-    res = our_vsscanf(str, fmt, ap);
+    res = d_r_vsscanf(str, fmt, ap);
     va_end(ap);
     return res;
 }
@@ -755,8 +755,8 @@ test_sscanf_maps_x86(void)
     const char *maps_line = "f75c3000-f75c4000 rw-p 00155000 fc:00 1840387"
                             "                            /lib32/libc-2.11.1.so";
 
-    strcpy(line_copy, maps_line);
-    len = our_sscanf(line_copy, MAPS_LINE_FORMAT4, &start, &end, perm, &offset, &inode,
+    strncpy(line_copy, maps_line, BUFFER_SIZE_ELEMENTS(line_copy));
+    len = d_r_sscanf(line_copy, MAPS_LINE_FORMAT4, &start, &end, perm, &offset, &inode,
                      comment);
     EXPECT(len, 6);
     /* Do int64 comparisons directly.  EXPECT casts to ptr_uint_t. */
@@ -783,8 +783,8 @@ test_sscanf_maps_x64(void)
     const char *maps_line = "7f94a6757000-7f94a6758000 rw-p 0017d000 fc:00 "
                             "1839331                     /lib/libc-2.11.1.so";
 
-    strcpy(line_copy, maps_line);
-    len = our_sscanf(line_copy, MAPS_LINE_FORMAT8, &start, &end, perm, &offset, &inode,
+    strncpy(line_copy, maps_line, BUFFER_SIZE_ELEMENTS(line_copy));
+    len = d_r_sscanf(line_copy, MAPS_LINE_FORMAT8, &start, &end, perm, &offset, &inode,
                      comment);
     EXPECT(len, 6);
     /* Do int64 comparisons directly.  EXPECT casts to ptr_uint_t. */
@@ -818,7 +818,7 @@ test_sscanf_all_specs(void)
 #    endif
 
     /* ULLONG_MAX is a corner case. */
-    res = our_sscanf("c str -123 +456 0x789 0xffffffffffffffff", "%c %s %d %u %x %llx",
+    res = d_r_sscanf("c str -123 +456 0x789 0xffffffffffffffff", "%c %s %d %u %x %llx",
                      &ch, str, &signed_int, &unsigned_int, &hex_num, &ull_num);
     EXPECT(res, 6);
     EXPECT(ch, 'c');
@@ -829,28 +829,28 @@ test_sscanf_all_specs(void)
     EXPECT((ull_num == ULLONG_MAX), true);
 
     /* A variety of ways to say negative one. */
-    res = our_sscanf("-1-1", "%d%d", &signed_int, &signed_int_2);
+    res = d_r_sscanf("-1-1", "%d%d", &signed_int, &signed_int_2);
     EXPECT(res, 2);
     EXPECT(signed_int, -1);
     EXPECT(signed_int_2, -1);
 
     /* Test ignores. */
-    res = our_sscanf("c str -123 +456 0x789 0xffffffffffffffff 1",
+    res = d_r_sscanf("c str -123 +456 0x789 0xffffffffffffffff 1",
                      "%*c %*s %*d %*u %*x %*llx %d", &signed_int);
     EXPECT(res, 1);
     EXPECT(signed_int, 1);
 
     /* Test width specifications on strings. */
     memset(str, '*', sizeof(str)); /* Fill string with garbage. */
-    res = our_sscanf("abcdefghijklmnopqrstuvwxyz", "%13s", str);
+    res = d_r_sscanf("abcdefghijklmnopqrstuvwxyz", "%13s", str);
     EXPECT(res, 1);
-    /* our_sscanf should read 13 chars and add null termination. */
+    /* d_r_sscanf should read 13 chars and add null termination. */
     EXPECT(memcmp(str, "abcdefghijklm", 13), 0);
     EXPECT(str[13], '\0');
     EXPECT(str[14], '*'); /* Asterisk should still be there. */
 
     /* Test width specifications for integers. */
-    res = our_sscanf("123456 0x9abc", "%03d%03d %03xc", &signed_int, &signed_int_2,
+    res = d_r_sscanf("123456 0x9abc", "%03d%03d %03xc", &signed_int, &signed_int_2,
                      &unsigned_int);
     EXPECT(res, 3);
     EXPECT(signed_int, 123);
@@ -858,7 +858,7 @@ test_sscanf_all_specs(void)
     EXPECT(unsigned_int, 0x9ab);
 
     /* Test modifiers for integers. */
-    res = our_sscanf("123456 789012345 678901234", "%hd %ld %zd", &signed_short,
+    res = d_r_sscanf("123456 789012345 678901234", "%hd %ld %zd", &signed_short,
                      &signed_long, &z_num);
     EXPECT(res, 3);
     EXPECT(signed_short, -7616);
@@ -866,37 +866,37 @@ test_sscanf_all_specs(void)
     EXPECT(z_num, 678901234);
 
     /* Test skipping leading whitespace for integer conversions. */
-    res = our_sscanf(" \t123456\t\n 0x9abc", "%d%x", &signed_int, &unsigned_int);
+    res = d_r_sscanf(" \t123456\t\n 0x9abc", "%d%x", &signed_int, &unsigned_int);
     EXPECT(res, 2);
     EXPECT(signed_int, 123456);
     EXPECT(unsigned_int, 0x9abc);
 
     /* Test Windows-style integer width specifiers using decimal ULLONG_MAX. */
-    res = our_sscanf("1234 18446744073709551615", "%I32d %I64d", &signed_int, &ull_num);
+    res = d_r_sscanf("1234 18446744073709551615", "%I32d %I64d", &signed_int, &ull_num);
     EXPECT(res, 2);
     EXPECT(signed_int, 1234);
     EXPECT((ull_num == ULLONG_MAX), true);
 
     /* Test [] charsets. */
-    res = our_sscanf("aacaadaac", "%[abc]", str);
+    res = d_r_sscanf("aacaadaac", "%[abc]", str);
     EXPECT(res, 1);
     EXPECT(strcmp(str, "aacaa"), 0);
-    res = our_sscanf("abcd.%[]/\\^4xyz", "%[^0-9]", str);
+    res = d_r_sscanf("abcd.%[]/\\^4xyz", "%[^0-9]", str);
     EXPECT(res, 1);
     EXPECT(strcmp(str, "abcd.%[]/\\^"), 0);
-    res = our_sscanf("abcd.%[]/\\^4xyz", "%8[^0-9]", str);
+    res = d_r_sscanf("abcd.%[]/\\^4xyz", "%8[^0-9]", str);
     EXPECT(res, 1);
     EXPECT(strcmp(str, "abcd.%[]"), 0);
-    res = our_sscanf("32495873-23489---34---00a0", "%[0-9-]", str);
+    res = d_r_sscanf("32495873-23489---34---00a0", "%[0-9-]", str);
     EXPECT(res, 1);
     EXPECT(strcmp(str, "32495873-23489---34---00"), 0);
-    res = our_sscanf("]3249587]3-23489---34---00a0", "%[]0-9-]", str);
+    res = d_r_sscanf("]3249587]3-23489---34---00a0", "%[]0-9-]", str);
     EXPECT(res, 1);
     EXPECT(strcmp(str, "]3249587]3-23489---34---00"), 0);
-    res = our_sscanf("abcd.%[]/\\^4xyz", "%[^]]", str);
+    res = d_r_sscanf("abcd.%[]/\\^4xyz", "%[^]]", str);
     EXPECT(res, 1);
     EXPECT(strcmp(str, "abcd.%["), 0);
-    res = our_sscanf("line\v\r\nline\r\n", "%[^\r\n]", str);
+    res = d_r_sscanf("line\v\r\nline\r\n", "%[^\r\n]", str);
     EXPECT(res, 1);
     EXPECT(strcmp(str, "line\v"), 0);
 
@@ -1049,25 +1049,25 @@ test_integer(void)
     ssize_t res;
 
     /* test integer codes */
-    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%lld", 0x12345678abcdef01LL);
+    res = d_r_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%lld", 0x12345678abcdef01LL);
     EXPECT(res == (ssize_t)strlen("1311768467750121217"), true);
     EXPECT(strcmp(buf, "1311768467750121217"), 0);
 
-    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%lld", 0x82345678abcdef01LL);
+    res = d_r_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%lld", 0x82345678abcdef01LL);
     EXPECT(res == (ssize_t)strlen("-9064525073711501567"), true);
     EXPECT(strcmp(buf, "-9064525073711501567"), 0);
 
-    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%llu", 0x82345678abcdef01LL);
+    res = d_r_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%llu", 0x82345678abcdef01LL);
     EXPECT(res == (ssize_t)strlen("9382218999998050049"), true);
     EXPECT(strcmp(buf, "9382218999998050049"), 0);
 
-    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%zu",
+    res = d_r_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%zu",
                        (size_t)IF_X64_ELSE(0x82345678abcdef01LL, 0x82345678));
     EXPECT(res == (ssize_t)strlen(IF_X64_ELSE("9382218999998050049", "2184468088")),
            true);
     EXPECT(strcmp(buf, IF_X64_ELSE("9382218999998050049", "2184468088")), 0);
 
-    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%zd",
+    res = d_r_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%zd",
                        (size_t)IF_X64_ELSE(0x82345678abcdef01LL, 0x82345678));
     EXPECT(res == (ssize_t)strlen(IF_X64_ELSE("-9064525073711501567", "-2110499208")),
            true);
@@ -1084,44 +1084,44 @@ unit_test_io(void)
     ssize_t res;
 
     /* test wide char conversion */
-    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", L"wide string");
+    res = d_r_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", L"wide string");
     EXPECT(res == (ssize_t)strlen("wide string"), true);
     EXPECT(strcmp(buf, "wide string"), 0);
-    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%ls", L"wide string");
+    res = d_r_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%ls", L"wide string");
     EXPECT(res == (ssize_t)strlen("wide string"), true);
     EXPECT(strcmp(buf, "wide string"), 0);
-    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%.3S", L"wide string");
+    res = d_r_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%.3S", L"wide string");
     EXPECT(res == (ssize_t)strlen("wid"), true);
     EXPECT(strcmp(buf, "wid"), 0);
-    res = our_snprintf(buf, 4, "%S", L"wide string");
+    res = d_r_snprintf(buf, 4, "%S", L"wide string");
     EXPECT(res == -1, true);
     EXPECT(buf[4], ' '); /* ' ' from prior calls: no NULL written since hit max */
     buf[4] = '\0';
     EXPECT(strcmp(buf, "wide"), 0);
 
     /* test float */
-    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%3.1f", 42.9f);
+    res = d_r_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%3.1f", 42.9f);
     EXPECT(res == (ssize_t)strlen("42.9"), true);
     EXPECT(strcmp(buf, "42.9"), 0);
     /* XXX: add more */
 
     /* test all-wide */
-    res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%d%s%3.1f", -42,
+    res = d_r_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%d%s%3.1f", -42,
                             L"wide string", 42.9f);
     EXPECT(res == (ssize_t)wcslen(L"-42wide string42.9"), true);
     EXPECT(wcscmp(wbuf, L"-42wide string42.9"), 0);
 
     /* test all-wide conversion */
-    res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%S", "narrow string");
+    res = d_r_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%S", "narrow string");
     EXPECT(res == (ssize_t)wcslen(L"narrow string"), true);
     EXPECT(wcscmp(wbuf, L"narrow string"), 0);
-    res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%hs", "narrow string");
+    res = d_r_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%hs", "narrow string");
     EXPECT(res == (ssize_t)wcslen(L"narrow string"), true);
     EXPECT(wcscmp(wbuf, L"narrow string"), 0);
-    res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%.3S", "narrow string");
+    res = d_r_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%.3S", "narrow string");
     EXPECT(res == (ssize_t)wcslen(L"nar"), true);
     EXPECT(wcscmp(wbuf, L"nar"), 0);
-    res = our_snprintf_wide(wbuf, 6, L"%S", "narrow string");
+    res = d_r_snprintf_wide(wbuf, 6, L"%S", "narrow string");
     EXPECT(res == -1, true);
     EXPECT(wbuf[6], L' '); /* ' ' from prior calls: no NULL written since hit max */
     wbuf[6] = L'\0';
@@ -1129,7 +1129,7 @@ unit_test_io(void)
 
 #    ifdef WINDOWS
     /* test UTF-16 to UTF-8 */
-    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S",
+    res = d_r_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S",
                        L"\x0391\x03A9\x20Ac"); /* alpha, omega, euro sign */
     EXPECT(res == 7, true);                    /* 2x 2-char + 1 3-char encodings */
     EXPECT((byte)buf[0] == 0xce && (byte)buf[1] == 0x91, true); /* UTF-8 U-0391 */
@@ -1137,17 +1137,17 @@ unit_test_io(void)
     EXPECT((byte)buf[4] == 0xe2 && (byte)buf[5] == 0x82 && (byte)buf[6] == 0xac,
            true); /* UTF-8 U-20Ac */
     EXPECT((byte)buf[7] == '\0', true);
-    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S",
+    res = d_r_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S",
                        L"\xd800"); /* no low surrogate */
     EXPECT(res == -1, true);
-    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S",
+    res = d_r_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S",
                        L"\xd800\xdc00"); /* surrogate pair */
     EXPECT(res == 4, true);              /* 4-char encoding */
     EXPECT((byte)buf[0] == 0xf0 && (byte)buf[1] == 0x90 && (byte)buf[2] == 0x80 &&
                (byte)buf[3] == 0x80,
            true); /* UTF-8 U-10000 */
     EXPECT((byte)buf[4] == '\0', true);
-    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%.6S",
+    res = d_r_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%.6S",
                        L"\x0391\x03A9\x20Ac"); /* alpha, omega, euro sign */
     EXPECT(res == 4, true); /* 2x 2-char + aborted the 3-char encoding */
     EXPECT((byte)buf[0] == 0xce && (byte)buf[1] == 0x91, true); /* UTF-8 U-0391 */
@@ -1155,19 +1155,19 @@ unit_test_io(void)
     EXPECT((byte)buf[4] == '\0', true);
 
     /* test UTF-8 to UTF-16 */
-    res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%S",
+    res = d_r_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%S",
                             "\xce\x91\xce\xa9\xe2\x82\xac"); /* alpha, omega, euro sign */
     EXPECT(res == 3, true);
     EXPECT(wbuf[0] == 0x0391 && wbuf[1] == 0x03a9 && wbuf[2] == 0x20ac, true);
     EXPECT(wbuf[3] == L'\0', true);
-    res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%S",
+    res = d_r_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%S",
                             "\xff\x91\xce\xa9\xe2\x82");
     EXPECT(res == -1, true); /* not encodable in UTF-16 */
-    res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%S",
+    res = d_r_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%S",
                             "\xf0\x90\x80\x80"); /* U-1000 */
     EXPECT(res == 2, true);
     EXPECT(wbuf[0] == 0xd800 && wbuf[1] == 0xdc00 && wbuf[2] == L'\0', true);
-    res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%.2S",
+    res = d_r_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%.2S",
                             "\xce\x91\xce\xa9\xe2\x82\xac"); /* alpha, omega, euro sign */
     EXPECT(res == 2, true);
     EXPECT(wbuf[0] == 0x0391 && wbuf[1] == 0x03a9 && wbuf[2] == L'\0', true);
