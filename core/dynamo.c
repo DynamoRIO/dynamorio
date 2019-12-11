@@ -955,6 +955,7 @@ standalone_exit(void)
     doing_detach = false;
     standalone_library = false;
     dynamo_initialized = false;
+    options_detach();
 }
 #endif
 

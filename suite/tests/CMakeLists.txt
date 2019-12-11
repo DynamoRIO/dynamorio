@@ -882,7 +882,7 @@ endmacro(tobuild_api)
 # plumbing for no clear gain.
 macro(tobuild_static_nohide_api test source dr_ops exe_ops use_decoder)
   add_api_exe(${test} ${source} ${use_decoder} ON)
-  torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder})
+  torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder} OFF)
   get_target_property(lib_list ${test} LINK_LIBRARIES)
   list(REMOVE_ITEM lib_list dynamorio_static)
   set_property(TARGET ${test} PROPERTY LINK_LIBRARIES ${lib_list} )
@@ -2444,12 +2444,12 @@ if (CLIENT_INTERFACE)
   endif (ARM)
 
   if (NOT ARM AND NOT AARCH64) # FIXME i#1551, i#1569: fix bugs on ARM/AArch64
-    tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
+     tobuild_api(api.startstop api/startstop.c "" "" OFF OFF OFF)
     link_with_pthread(api.startstop)
-    tobuild_api(api.detach api/detach.c "" "" OFF OFF)
+    tobuild_api(api.detach api/detach.c "" "" OFF OFF OFF)
     link_with_pthread(api.detach)
     if (LINUX AND X64) # Will take extra work to port to 32-bit.
-      tobuild_api(api.detach_state api/detach_state.c "" "" OFF OFF)
+      tobuild_api(api.detach_state api/detach_state.c "" "" OFF OFF OFF)
       target_include_directories(api.detach_state PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/api)
       link_with_pthread(api.detach_state)
@@ -2470,11 +2470,11 @@ if (CLIENT_INTERFACE)
       endif ()
       set(detach_spawn_stress_name api.detach_spawn_stress_FLAKY)
       set(detach_spawn_quick_exit_name api.detach_spawn_quick_exit)
-      tobuild_api(${detach_spawn_name} api/detach_spawn.c "" "" OFF OFF)
+      tobuild_api(${detach_spawn_name} api/detach_spawn.c "" "" OFF OFF OFF)
       link_with_pthread(${detach_spawn_name})
-      tobuild_api(${detach_spawn_stress_name} api/detach_spawn_stress.c "" "" OFF OFF)
+      tobuild_api(${detach_spawn_stress_name} api/detach_spawn_stress.c "" "" OFF OFF OFF)
       link_with_pthread(${detach_spawn_stress_name})
-      tobuild_api(${detach_spawn_quick_exit_name} api/detach_spawn_quick_exit.c "" "" OFF OFF)
+      tobuild_api(${detach_spawn_quick_exit_name} api/detach_spawn_quick_exit.c "" "" OFF OFF OFF)
       link_with_pthread(${detach_spawn_quick_exit_name})
     endif ()
   endif ()
@@ -2493,13 +2493,13 @@ if (CLIENT_INTERFACE)
   if (X86)
     if (X64)
       tobuild_api(decenc.drdecode_decenc_x86_64
-        ../../third_party/binutils/test_decenc/drdecode_decenc_x86_64.c "" "" OFF OFF)
+        ../../third_party/binutils/test_decenc/drdecode_decenc_x86_64.c "" "" OFF OFF OFF)
       target_include_directories(decenc.drdecode_decenc_x86_64 PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/binutils/test_decenc/)
       set(decenc.drdecode_decenc_x86_64_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
     else ()
       tobuild_api(decenc.drdecode_decenc_x86
-        ../../third_party/binutils/test_decenc/drdecode_decenc_x86.c "" "" OFF OFF)
+        ../../third_party/binutils/test_decenc/drdecode_decenc_x86.c "" "" OFF OFF OFF)
       target_include_directories(decenc.drdecode_decenc_x86 PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/binutils/test_decenc/)
       set(decenc.drdecode_decenc_x86_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
@@ -2514,7 +2514,7 @@ if (CLIENT_INTERFACE)
       set(checklevel "-checklevel 0")
     endif ()
     tobuild_api(api.ibl-stress api/ibl-stress.c
-      "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
+      "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF OFF)
     use_DynamoRIO_extension(api.ibl-stress drcontainers)
     link_with_pthread(api.ibl-stress)
     if (WIN32)
@@ -2559,9 +2559,11 @@ endif ()
     target_link_libraries(api.static_detach ${libmath})
     tobuild_api(api.static_prepop api/static_prepop.c "" "" OFF ON OFF)
     target_link_libraries(api.static_prepop ${libmath})
+    tobuild_api(api.static_reattach_client_flags api/static_reattach_client_flags.c "" "" OFF ON ON)
+    target_link_libraries(api.static_reattach_client_flags ${libmath})
 
     if (NOT WIN32)
-      tobuild_api(api.static_signal api/static_signal.c "" "" OFF ON)
+      tobuild_api(api.static_signal api/static_signal.c "" "" OFF ON OFF)
       target_link_libraries(api.static_signal ${libmath})
       link_with_pthread(api.static_signal)
       # i#2119: test invoking the app's handler on a DR fault.
@@ -2569,7 +2571,7 @@ endif ()
       target_link_libraries(api.static_crash ${libmath})
       # XXX i#2346: add delayed sideline thread exit on Windows
       # FIXME i#297: static_sideline is flaky and sometimes hangs on exit.
-      tobuild_api(api.static_sideline_FLAKY api/static_sideline.c "" "" OFF ON)
+      tobuild_api(api.static_sideline_FLAKY api/static_sideline.c "" "" OFF ON OFF)
       target_link_libraries(api.static_sideline_FLAKY ${libmath})
       link_with_pthread(api.static_sideline_FLAKY)
 
@@ -2667,7 +2669,7 @@ endif ()
         "${CFLAGS_AVX512}")
       get_client_path(client_path api.startstop_avx512lazy.dll api.startstop_avx512lazy)
       tobuild_api(api.startstop_avx512lazy api/startstop_avx512lazy.c
-        "-client_lib ${client_path}" "" OFF OFF)
+        "-client_lib ${client_path}" "" OFF OFF OFF)
       append_property_string(TARGET api.startstop_avx512lazy COMPILE_FLAGS
         "${CFLAGS_AVX512}")
       append_property_string(TARGET api.startstop_avx512lazy.dll COMPILE_FLAGS
@@ -3597,7 +3599,7 @@ if (UNIX)
     append_property_string(TARGET linux.rseq_noarray
       COMPILE_FLAGS "-DRSEQ_TEST_USE_NO_ARRAY")
     # Test attaching, which has a separate lazy rseq check.
-    tobuild_api(api.rseq linux/rseq.c "" "" OFF OFF)
+    tobuild_api(api.rseq linux/rseq.c "" "" OFF OFF OFF)
     link_with_pthread(api.rseq)
     append_property_string(TARGET api.rseq COMPILE_FLAGS "-DRSEQ_TEST_ATTACH")
     # Test non-compliant code with our workaround flag.

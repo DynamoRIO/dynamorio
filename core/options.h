@@ -268,7 +268,8 @@ void
 options_exit(void);
 
 /* resets options to default values for the purpose of a full cleanup
- * during static detach.
+ * during static detach. It is called after nearly all other cleanup has
+ * occurred.
  */
 void
 options_detach(void);
