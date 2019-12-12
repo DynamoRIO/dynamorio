@@ -53,7 +53,6 @@
 #define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
-#define TEST TESTANY
 
 #if defined(X64) || defined(ARM)
 #    define IF_REL_ADDRS(x) x

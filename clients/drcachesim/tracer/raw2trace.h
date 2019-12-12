@@ -1088,7 +1088,7 @@ private:
         reg_id_t base;
         int version = impl()->get_version(tls);
         if (memref.use_remembered_base) {
-            DR_ASSERT(!TEST(OFFLINE_FILE_TYPE_FILTERED, impl()->get_file_type(tls)));
+            DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_FILTERED, impl()->get_file_type(tls)));
             bool is_elidable =
                 instru_offline.opnd_is_elidable(memref.opnd, base, version);
             DR_ASSERT(is_elidable);
@@ -1168,7 +1168,7 @@ private:
                         get_register_name(base));
             reg_vals[base] = buf->addr;
         }
-        if (!TEST(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, impl()->get_file_type(tls)) &&
+        if (!TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, impl()->get_file_type(tls)) &&
             instru_offline.opnd_disp_is_elidable(memref.opnd)) {
             // We stored only the base reg, as an optimization.
             buf->addr += opnd_get_disp(memref.opnd);
