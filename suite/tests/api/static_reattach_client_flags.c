@@ -39,7 +39,10 @@
 
 #define VERBOSE 0
 
-#define vprint(...) if (VERBOSE) { print(__VA_ARGS__); }
+#define vprint(...)         \
+    if (VERBOSE) {          \
+        print(__VA_ARGS__); \
+    }
 
 /* A test to verify that flags are appropriately piped through to client
  * libraries for static reattach, verifying that the lazy-loading logic is
@@ -99,7 +102,9 @@ int
 main(int argc, const char *argv[])
 {
 #define BUF_LEN (DR_MAX_OPTIONS_LENGTH + 100)
-    char original_options[BUF_LEN] = {0,};
+    char original_options[BUF_LEN] = {
+        0,
+    };
     if (!my_getenv("DYNAMORIO_OPTIONS", original_options, BUF_LEN)) {
         print("Failed to get DYNAMORIO_OPTIONS\n");
         return 1;
