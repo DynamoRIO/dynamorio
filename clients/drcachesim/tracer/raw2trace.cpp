@@ -633,8 +633,10 @@ raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs, INOUT a
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     const app_pc decode_pc = *pc;
     // For rep string loops we expect the same PC many times in a row.
-    if (decode_pc == tdata->last_decode_pc)
+    if (decode_pc == tdata->last_decode_pc) {
+        *pc = tdata->last_summary->next_pc();
         return tdata->last_summary;
+    }
     const instr_summary_t *ret = static_cast<const instr_summary_t *>(
         hashtable_lookup(&decode_cache[tdata->worker], decode_pc));
     if (ret == nullptr) {
