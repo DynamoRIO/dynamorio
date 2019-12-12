@@ -58,78 +58,54 @@ void
 test_base_elision();
 };
 
-class trace_comparer_t : public analysis_tool_t {
-public:
-    trace_comparer_t(void *dc)
-        : dcontext(dc)
-    {
+std::string
+compare_memref(void *dcontext, int64 entry_count, const memref_t &memref1,
+               const memref_t &memref2)
+{
+    if (memref1.instr.type != memref2.instr.type) {
+        return "Trace types do not match";
     }
-    virtual ~trace_comparer_t()
-    {
-    }
-    bool
-    compare_memref(const memref_t &memref1, const memref_t &memref2)
-    {
-        ++entry_count;
-        if (memref1.instr.type != memref2.instr.type) {
-            error_string = "Trace types do not match";
-            return false;
-        }
-        if (type_is_instr(memref1.instr.type) ||
-            memref1.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
-            if (memref1.instr.addr != memref2.instr.addr ||
-                memref1.instr.size != memref2.instr.size) {
-                std::cerr << "#" << entry_count << ": instr1=0x" << std::hex
-                          << memref1.instr.addr << " x" << memref1.instr.size
-                          << " vs instr2=0x" << memref2.instr.addr << " x"
-                          << memref2.instr.size << "\n";
+    // We check the details of fields which trace optimizations affect: the core
+    // instruction and data fetch entries. The current optimizations have no impact
+    // on other entries, and many other entries have variable values such as
+    // timestamps from run to run.
+    if (type_is_instr(memref1.instr.type) ||
+        memref1.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        if (memref1.instr.addr != memref2.instr.addr ||
+            memref1.instr.size != memref2.instr.size) {
+            std::cerr << "#" << entry_count << ": instr1=0x" << std::hex
+                      << memref1.instr.addr << " x" << memref1.instr.size
+                      << " vs instr2=0x" << memref2.instr.addr << " x"
+                      << memref2.instr.size << "\n";
+            disassemble_with_info(dcontext, reinterpret_cast<byte *>(memref1.instr.addr),
+                                  STDERR, true, true);
+            if (memref1.instr.addr != memref2.instr.addr) {
                 disassemble_with_info(dcontext,
-                                      reinterpret_cast<byte *>(memref1.instr.addr),
+                                      reinterpret_cast<byte *>(memref2.instr.addr),
                                       STDERR, true, true);
-                if (memref1.instr.addr != memref2.instr.addr) {
-                    disassemble_with_info(dcontext,
-                                          reinterpret_cast<byte *>(memref2.instr.addr),
-                                          STDERR, true, true);
-                }
-                error_string = "Instr fields do not match";
-                return false;
             }
-        } else if (memref1.data.type == TRACE_TYPE_READ ||
-                   memref1.data.type == TRACE_TYPE_WRITE) {
-            if (memref1.data.addr != memref2.data.addr ||
-                memref1.data.size != memref2.data.size ||
-                memref1.data.pc != memref2.data.pc) {
-                std::cerr << "#" << entry_count << ": addr1=0x" << std::hex
-                          << memref1.data.addr << " x" << memref1.data.size << " @0x"
-                          << memref1.data.pc << " vs addr2=0x" << memref2.data.addr
-                          << " x" << memref2.data.size << " @0x" << memref2.data.pc
-                          << "\n";
-                disassemble_with_info(dcontext, reinterpret_cast<byte *>(memref1.data.pc),
-                                      STDERR, true, true);
-                if (memref1.data.pc != memref2.data.pc) {
-                    disassemble_with_info(dcontext,
-                                          reinterpret_cast<byte *>(memref2.data.pc),
-                                          STDERR, true, true);
-                }
-                error_string = "Data fields do not match";
-                return false;
-            }
+            return "Instr fields do not match";
         }
-        return true;
+    } else if (memref1.data.type == TRACE_TYPE_READ ||
+               memref1.data.type == TRACE_TYPE_WRITE) {
+        if (memref1.data.addr != memref2.data.addr ||
+            memref1.data.size != memref2.data.size ||
+            memref1.data.pc != memref2.data.pc) {
+            std::cerr << "#" << entry_count << ": addr1=0x" << std::hex
+                      << memref1.data.addr << " x" << memref1.data.size << " @0x"
+                      << memref1.data.pc << " vs addr2=0x" << memref2.data.addr << " x"
+                      << memref2.data.size << " @0x" << memref2.data.pc << "\n";
+            disassemble_with_info(dcontext, reinterpret_cast<byte *>(memref1.data.pc),
+                                  STDERR, true, true);
+            if (memref1.data.pc != memref2.data.pc) {
+                disassemble_with_info(dcontext, reinterpret_cast<byte *>(memref2.data.pc),
+                                      STDERR, true, true);
+            }
+            return "Data fields do not match";
+        }
     }
-    bool
-    process_memref(const memref_t &memref) override
-    {
-        return false;
-    }
-    bool
-    print_results() override
-    {
-        return false;
-    }
-    void *dcontext = nullptr;
-    int64 entry_count = 0;
-};
+    return "";
+}
 
 bool
 my_setenv(const char *var, const char *value)
@@ -193,10 +169,7 @@ static std::string
 gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
 {
     // We use the '#' prefix to overwrite and work around i#2661.
-    //    std::string dr_ops("-stderr_mask 0xc -client_lib '#;;-offline " + tracer_ops +
-    //    "'");
-    std::string dr_ops("-stderr_mask 0xf -msgbox_mask 0xc -client_lib '#;;-offline " +
-                       tracer_ops + "'");
+    std::string dr_ops("-stderr_mask 0xc -client_lib '#;;-offline " + tracer_ops + "'");
     if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
         std::cerr << "failed to set env var!\n";
     dr_app_setup();
@@ -218,7 +191,6 @@ main(int argc, const char *argv[])
 
     // Now compare the two traces using external iterators and a custom tool.
     void *dr_context = dr_standalone_init();
-    trace_comparer_t comparer(dr_context);
     analyzer_t analyzer_opt(dir_opt);
     analyzer_t analyzer_noopt(dir_noopt);
     if (!analyzer_opt) {
@@ -231,10 +203,13 @@ main(int argc, const char *argv[])
     }
     reader_t &iter_opt = analyzer_opt.begin();
     reader_t &iter_noopt = analyzer_noopt.begin();
-    for (; iter_opt != analyzer_opt.end() && iter_noopt != analyzer_noopt.end();
-         ++iter_opt, ++iter_noopt) {
-        if (!comparer.compare_memref(*iter_opt, *iter_noopt)) {
-            std::cerr << "Trace mismatch found: " << comparer.get_error_string() << "\n";
+    for (int64 entry_count = 0;
+         iter_opt != analyzer_opt.end() && iter_noopt != analyzer_noopt.end();
+         ++iter_opt, ++iter_noopt, ++entry_count) {
+        std::string error =
+            compare_memref(dr_context, entry_count, *iter_opt, *iter_noopt);
+        if (!error.empty()) {
+            std::cerr << "Trace mismatch found: " << error << "\n";
             break;
         }
     }
