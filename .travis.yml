@@ -73,7 +73,7 @@ jobs:
     # 32-bit Linux build with clang, no tests (runsuite.cmake disables the tests):
     - os: linux
       compiler: clang
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only CC=clang-8 && CXX=clang++-8
       addons:
         apt:
           sources:
@@ -85,7 +85,7 @@ jobs:
     # install and require clang-format:
     - os: linux
       compiler: clang
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="64_only require_format"
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="64_only require_format" CC=clang-8.0 && CXX=clang++-8.0
       addons:
         apt:
           sources:
