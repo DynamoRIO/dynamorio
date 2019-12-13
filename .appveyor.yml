@@ -53,7 +53,7 @@ branches:
 
 platform: x64
 
-image: Visual Studio 2017
+image: Visual Studio 2013
 
 build:
   verbosity: detailed
@@ -62,7 +62,7 @@ build:
 # one configuration.  We no longer build packages with VS2010 and are
 # dropping official support for it, meaning we only need to test VS2013 here.
 configuration:
-  - 2017
+  - 2013
 
 install:
   ##################################################
@@ -92,7 +92,7 @@ install:
   # XXX i#2145: point at Qt5 for testing drgui build.
 
 before_build:
-  - if "%configuration%"=="2017" call "c:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat" x86
+  - if "%configuration%"=="2013" call "c:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat" x86
   - cd c:\projects\dynamorio
 
 build_script:
