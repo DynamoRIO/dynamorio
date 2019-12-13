@@ -450,18 +450,44 @@ test_all_opcodes_4(void *dc)
 #    undef INCLUDE_NAME
 }
 
+/* Part A: Split in half to avoid a VS2013 compiler bug i#3992.
+ * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
+ */
 static void
-test_all_opcodes_4_avx512_evex_mask(void *dc)
+test_all_opcodes_4_avx512_evex_mask_A(void *dc)
 {
-#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask.h"
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_A.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
+/* Part B: Split in half to avoid a VS2013 compiler bug i#3992.
+ * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
+ */
 static void
-test_all_opcodes_4_avx512_evex_mask_scaled_disp8(void *dc)
+test_all_opcodes_4_avx512_evex_mask_B(void *dc)
 {
-#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask.h"
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_B.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+/* Part A: Split in half to avoid a VS2013 compiler bug i#3992. */
+static void
+test_all_opcodes_4_avx512_evex_mask_scaled_disp8_A(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_A.h"
+    memarg_disp = EVEX_SCALABLE_DISP;
+#    include "ir_x86_all_opc.h"
+    memarg_disp = DEFAULT_DISP;
+#    undef INCLUDE_NAME
+}
+
+/* Part B: Split in half to avoid a VS2013 compiler bug i#3992. */
+static void
+test_all_opcodes_4_avx512_evex_mask_scaled_disp8_B(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_B.h"
     memarg_disp = EVEX_SCALABLE_DISP;
 #    include "ir_x86_all_opc.h"
     memarg_disp = DEFAULT_DISP;
@@ -2218,7 +2244,8 @@ main(int argc, char *argv[])
     test_all_opcodes_3_avx512_evex_mask(dcontext);
     test_disas_3_avx512_evex_mask(dcontext);
     test_all_opcodes_5_avx512_evex_mask(dcontext);
-    test_all_opcodes_4_avx512_evex_mask(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_A(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_B(dcontext);
     test_all_opcodes_4_avx512_evex(dcontext);
     test_all_opcodes_3_avx512_evex(dcontext);
     test_all_opcodes_2_avx512_evex(dcontext);
@@ -2229,7 +2256,8 @@ main(int argc, char *argv[])
      */
     test_all_opcodes_3_avx512_evex_mask_scaled_disp8(dcontext);
     test_all_opcodes_5_avx512_evex_mask_scaled_disp8(dcontext);
-    test_all_opcodes_4_avx512_evex_mask_scaled_disp8(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_scaled_disp8_A(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_scaled_disp8_B(dcontext);
     test_all_opcodes_4_avx512_evex_scaled_disp8(dcontext);
     test_all_opcodes_3_avx512_evex_scaled_disp8(dcontext);
     test_all_opcodes_2_avx512_evex_scaled_disp8(dcontext);
