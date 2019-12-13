@@ -83,7 +83,7 @@ jobs:
         apt:
           sources:
           - ubuntu-toolchain-r-test
-          - llvm-toolchain-xenial-7
+          - llvm-toolchain-xenial-8
           packages:
           - clang-format-6.0
     # 32-bit OSX build with clang and run tests:
