@@ -2712,7 +2712,7 @@ thread_attach_setup(priv_mcontext_t *mc)
                                                   (ptr_uint_t)d_r_get_thread_id());
     TABLE_RWLOCK(takeover_table, write, unlock);
     if (data == NULL || data == INVALID_PAYLOAD) {
-        ASSERT_NOT_REACHED();
+        ASSERT(standalone_library);
         /* in release better to let thread run native than to crash */
         EXITING_DR();
         return;
