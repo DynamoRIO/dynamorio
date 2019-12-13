@@ -74,6 +74,13 @@ jobs:
     - os: linux
       compiler: clang
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          - llvm-toolchain-xenial-8
+          packages:
+          - clang-8
     # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests),
     # install and require clang-format:
     - os: linux
@@ -85,6 +92,7 @@ jobs:
           - ubuntu-toolchain-r-test
           - llvm-toolchain-xenial-8
           packages:
+          - clang-8
           - clang-format-6.0
     # 32-bit OSX build with clang and run tests:
     - os: osx
