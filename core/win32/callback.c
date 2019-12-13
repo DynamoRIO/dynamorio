@@ -8705,7 +8705,7 @@ thread_attach_takeover_callee(app_state_at_intercept_t *state)
      * the initstack_mutex.
      */
     thread_attach_setup(&state->mc);
-    ASSERT_NOT_REACHED();
+    ASSERT(standalone_library);
     return AFTER_INTERCEPT_LET_GO;
 }
 
