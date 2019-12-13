@@ -54,22 +54,22 @@ language:
 # with excludes so we can use conditional builds (plus it's clearer this way).
 jobs:
   include:
-    # 32-bit Linux build with gcc and run tests:
-    - os: linux
-      compiler: gcc
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=yes EXTRA_ARGS="32_only package"
-    # 64-bit Linux build with gcc and run tests:
-    - os: linux
-      compiler: gcc
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=yes EXTRA_ARGS="64_only package"
-    # AArchXX cross-compile with gcc, no tests:
-    - os: linux
-      compiler: gcc
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes DEPLOY=no
-    # Android ARM cross-compile with gcc, no tests:
-    - os: linux
-      compiler: gcc
-      env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DEPLOY=no DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
+#TEMP    # 32-bit Linux build with gcc and run tests:
+#TEMP    - os: linux
+#TEMP      compiler: gcc
+#TEMP      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=yes EXTRA_ARGS="32_only package"
+#TEMP    # 64-bit Linux build with gcc and run tests:
+#TEMP    - os: linux
+#TEMP      compiler: gcc
+#TEMP      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=yes EXTRA_ARGS="64_only package"
+#TEMP    # AArchXX cross-compile with gcc, no tests:
+#TEMP    - os: linux
+#TEMP      compiler: gcc
+#TEMP      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes DEPLOY=no
+#TEMP    # Android ARM cross-compile with gcc, no tests:
+#TEMP    - os: linux
+#TEMP      compiler: gcc
+#TEMP      env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DEPLOY=no DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
     # 32-bit Linux build with clang, no tests (runsuite.cmake disables the tests):
     - os: linux
       compiler: clang
@@ -96,12 +96,12 @@ jobs:
           packages:
           - clang-8
           - clang-format-6.0
-    # 32-bit OSX build with clang and run tests:
-    - os: osx
-      # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
-      compiler: clang
-      # We do not have 64-bit support on OSX yet (i#1979).
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only
+#TEMP    # 32-bit OSX build with clang and run tests:
+#TEMP    - os: osx
+#TEMP      # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
+#TEMP      compiler: clang
+#TEMP      # We do not have 64-bit support on OSX yet (i#1979).
+#TEMP      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
