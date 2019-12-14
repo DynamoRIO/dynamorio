@@ -104,8 +104,6 @@ macro(process_cmdline line skip_empty err_and_out)
         OUTPUT_VARIABLE cmd_out)
       if (cmd_result)
         message(FATAL_ERROR "*** ${line} failed (${cmd_result}): ${cmd_err}***\n")
-      else (cmd_result)
-        message("OUTPUT IS: |${cmd_out}||${cmd_err}|")#NOCHECK
       endif (cmd_result)
     endif ()
   endif ()

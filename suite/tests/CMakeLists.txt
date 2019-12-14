@@ -2885,7 +2885,7 @@ endif ()
       # We run common.decode-bad to test markers for faults
       if (X86) # decode-bad is x86-only
         torunonly_simtool(basic_counts common.decode-bad
-          "-simulator_type basic_counts" "")
+          "-simulator_type basic_counts -verbose 4" "") #NOCHECK
       endif ()
 
       if (X86 AND X64) # We only bother with a sample trace for x86_64.
@@ -3013,7 +3013,7 @@ endif ()
       # We run common.decode-bad to test markers for faults
       if (X86) # decode-bad is x86-only
         torunonly_drcacheoff(basic_counts common.decode-bad ""
-          "@-simulator_type@basic_counts@-verbose@4" "") #NOCHECK
+          "@-simulator_type@basic_counts" "")
         unset(tool.drcacheoff.basic_counts_rawtemp)
       endif ()
 
