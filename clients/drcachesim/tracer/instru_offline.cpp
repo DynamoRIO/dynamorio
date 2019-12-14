@@ -600,8 +600,13 @@ offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
              instr = instr_get_next_app(instr)) {
             // To deal with app2app changes, we do not double-count consecutive instrs
             // with the same translation.
-            if (instr_get_app_pc(instr) != last_xl8)
-                ++count;
+            if (instr_get_app_pc(instr) != last_xl8) {
+                // Hooked native functions end up with an artifical jump whose translation
+                // is its target.  We do not want to count these.
+                if (!(instr_is_ubr(instr) && opnd_is_pc(instr_get_target(instr)) &&
+                      opnd_get_pc(instr_get_target(instr)) == instr_get_app_pc(instr)))
+                    ++count;
+            }
             last_xl8 = instr_get_app_pc(instr);
         }
     }

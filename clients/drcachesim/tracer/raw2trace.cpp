@@ -65,11 +65,13 @@
         fprintf(stderr, "[drmemtrace]: "); \
     } while (0)
 
+// We fflush for Windows cygwin where stderr is not flushed.
 #define VPRINT(level, ...)                \
     do {                                  \
         if (this->verbosity >= (level)) { \
             VPRINT_HEADER();              \
             fprintf(stderr, __VA_ARGS__); \
+            fflush(stderr);               \
         }                                 \
     } while (0)
 
@@ -676,7 +678,8 @@ raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     const app_pc decode_pc = *pc;
     // For rep string loops we expect the same PC many times in a row.
-    if (decode_pc == tdata->last_decode_pc) {
+    if (decode_pc == tdata->last_decode_pc &&
+        block_start == tdata->last_decode_block_start) {
         *pc = tdata->last_summary->next_pc();
         return tdata->last_summary;
     }
@@ -699,6 +702,7 @@ raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
         *pc = ret->next_pc();
     }
     tdata->last_decode_pc = decode_pc;
+    tdata->last_decode_block_start = block_start;
     tdata->last_summary = ret;
     return ret;
 }
@@ -759,7 +763,8 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
         // This is called for look-ahead and look-behind too so we leave the
         // main instr disasm to log_instruction and have high verbosity here.
         instr_set_translation(instr, orig_pc);
-        dr_print_instr(dcontext, STDOUT, instr, "<caching:> ");
+        dr_fprintf(STDERR, "<caching for start=" PFX "> ", block_start);
+        dr_print_instr(dcontext, STDERR, instr, "");
     }
     desc->tag_ = block_start;
     desc->next_pc_ = *pc;
@@ -911,6 +916,10 @@ raw2trace_t::log(uint level, const char *fmt, ...)
     if (verbosity >= level) {
         VPRINT_HEADER();
         vfprintf(stderr, fmt, args);
+#ifdef WINDOWS
+        // We fflush for Windows cygwin where stderr is not flushed.
+        fflush(stderr);
+#endif
     }
     va_end(args);
 }

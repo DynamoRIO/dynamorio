@@ -796,8 +796,8 @@ private:
             pc = instr_get_app_pc(meminst);
             app_pc orig_pc =
                 pc - modvec()[modidx_typed].map_base + modvec()[modidx_typed].orig_base;
-            impl()->log(5, "Marking pc " PFX " %s #%d to use remembered base\n", pc,
-                        write ? "write" : "read", memop_index);
+            impl()->log(5, "Marking < " PFX ", " PFX "> %s #%d to use remembered base\n",
+                        start_pc, pc, write ? "write" : "read", memop_index);
             if (!impl()->set_instr_summary_flags(
                     tls, modidx, modoffs, start_pc, pc, orig_pc, write, memop_index,
                     true /*use_remembered*/, false /*don't change "remember"*/))
@@ -863,8 +863,9 @@ private:
                         remember_write, remember_index,
                         false /*don't change "use_remembered"*/, true /*remember*/))
                     return "Failed to set flags for elided base address";
-                impl()->log(5, "Asking pc " PFX " %s #%d to remember base\n", pc_prev,
-                            remember_write ? "write" : "read", remember_index);
+                impl()->log(5, "Asking <" PFX ", " PFX "> %s #%d to remember base\n",
+                            start_pc, pc_prev, remember_write ? "write" : "read",
+                            remember_index);
                 break;
             }
             if (remember_index == -1)
@@ -1308,6 +1309,7 @@ protected:
             , saw_header(false)
             , prev_instr_was_rep_string(false)
             , last_decode_pc(nullptr)
+            , last_decode_block_start(nullptr)
             , last_summary(nullptr)
         {
         }
@@ -1331,6 +1333,7 @@ protected:
         std::array<trace_entry_t, WRITE_BUFFER_SIZE> out_buf;
         bool prev_instr_was_rep_string;
         app_pc last_decode_pc;
+        app_pc last_decode_block_start;
         const instr_summary_t *last_summary;
 
         // Statistics on the processing.
