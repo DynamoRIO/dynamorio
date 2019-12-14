@@ -2885,7 +2885,7 @@ endif ()
       # We run common.decode-bad to test markers for faults
       if (X86) # decode-bad is x86-only
         torunonly_simtool(basic_counts common.decode-bad
-          "-simulator_type basic_counts" "")
+          "-simulator_type basic_counts -verbose 4" "") #NOCHECK
       endif ()
 
       if (X86 AND X64) # We only bother with a sample trace for x86_64.
@@ -3956,7 +3956,9 @@ function(is_test_enabled_by_name output name regex)
   set(enabled OFF)
   if (NOT SKIP_FLAKY_TESTS OR NOT "${name}" MATCHES "_FLAKY")
     if (NOT regex OR "${name}" MATCHES "${regex}")
-      set(enabled ON)
+      if ("${name}" MATCHES "basic_counts")#NOCHECK
+        set(enabled ON)
+      endif ()
     endif ()
   endif ()
   set(${output} ${enabled} PARENT_SCOPE)
