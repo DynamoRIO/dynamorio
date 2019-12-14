@@ -906,7 +906,7 @@ raw2trace_t::dump_log(void *tls)
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     fprintf(stderr, "offs: %lu\n", (unsigned long)tdata->thread_file->tellg());
     ptr_int_t buf[128];
-    tdata->thread_file->seekg(-(int)sizeof(buf), tdata->thread_file->cur);
+    tdata->thread_file->seekg(-sizeof(buf), tdata->thread_file->cur);
     tdata->thread_file->read((char *)buf, sizeof(buf));
     for (unsigned int i = 0; i < sizeof(buf) / sizeof(buf[0]); ++i) {
         fprintf(stderr, "0x%08lx\n", buf[i]);
