@@ -658,7 +658,6 @@ protected:
                 buf += sizeof(*entry);
             } else {
                 // We should see an instr entry first
-                impl()->dump_log(tls);
                 return "memref entry found outside of bb";
             }
         } else if (in_entry->pc.type == OFFLINE_TYPE_PC) {
@@ -1107,15 +1106,9 @@ private:
             impl()->add_to_statistic(tls, RAW2TRACE_STAT_COUNT_ELIDED, 1);
         }
         if (!have_addr) {
-            static int mycount;
-            if (mycount++ > 1000 && false /*NOCHECK*/) {
-                buf->addr = 0xdeadbeef;
-                have_addr = true;
-            } else {
-                if (memref.use_remembered_base)
-                    return "Non-elided base mislabeled to use remembered base";
-                in_entry = impl()->get_next_entry(tls);
-            }
+            if (memref.use_remembered_base)
+                return "Non-elided base mislabeled to use remembered base";
+            in_entry = impl()->get_next_entry(tls);
         }
         if (in_entry != nullptr && in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
             in_entry->extended.ext == OFFLINE_EXT_TYPE_MEMINFO) {
@@ -1403,8 +1396,6 @@ private:
     add_to_statistic(void *tls, raw2trace_statistic_t stat, int value);
     void
     log_instruction(app_pc decode_pc, app_pc orig_pc);
-    void
-    dump_log(void *tls);
 
     static uint
     hash_instr_summary(void *key);
@@ -1452,9 +1443,6 @@ private:
     // Our decode_cache duplication will not scale forever on very large code
     // footprint traces, so we set a cap for the default.
     static const int kDefaultJobMax = 16;
-
-    std::vector<std::string> outbuf;
-    int outbuf_cur = 0;
 };
 
 #endif /* _RAW2TRACE_H_ */

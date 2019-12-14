@@ -60,9 +60,18 @@
         fflush(stderr);                                       \
     } while (0)
 
-#define VPRINT_HEADER()
+#define VPRINT_HEADER()                    \
+    do {                                   \
+        fprintf(stderr, "[drmemtrace]: "); \
+    } while (0)
 
-#define VPRINT(level, ...)
+#define VPRINT(level, ...)                \
+    do {                                  \
+        if (this->verbosity >= (level)) { \
+            VPRINT_HEADER();              \
+            fprintf(stderr, __VA_ARGS__); \
+        }                                 \
+    } while (0)
 
 static online_instru_t instru(NULL, false, NULL);
 
@@ -895,39 +904,13 @@ raw2trace_t::on_thread_end(void *tls)
 }
 
 void
-raw2trace_t::dump_log(void *tls)
-{
-    fprintf(stderr, "\nLast lines:\n----------------------------------------------\n");
-    for (const auto &line : outbuf) {
-        fprintf(stderr, "%s", line.c_str());
-    }
-    fprintf(stderr, "\n----------------------------------------------\n");
-    fprintf(stderr, "\nRaw input:\n----------------------------------------------\n");
-    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    fprintf(stderr, "offs: %lu\n", (unsigned long)tdata->thread_file->tellg());
-    ptr_int_t buf[128];
-    tdata->thread_file->seekg(-sizeof(buf), tdata->thread_file->cur);
-    tdata->thread_file->read((char *)buf, sizeof(buf));
-    for (unsigned int i = 0; i < sizeof(buf) / sizeof(buf[0]); ++i) {
-        fprintf(stderr, "0x%08lx\n", buf[i]);
-    }
-    fprintf(stderr, "\n----------------------------------------------\n");
-}
-
-void
 raw2trace_t::log(uint level, const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
     if (verbosity >= level) {
-#if 0
         VPRINT_HEADER();
         vfprintf(stderr, fmt, args);
-#else
-        char buf[512];
-        vsnprintf(buf, sizeof(buf), fmt, args);
-        outbuf[outbuf_cur++ % outbuf.size()] = std::string(buf);
-#endif
     }
     va_end(args);
 }
@@ -936,15 +919,8 @@ void
 raw2trace_t::log_instruction(uint level, app_pc decode_pc, app_pc orig_pc)
 {
     if (verbosity >= level) {
-#if 0
         disassemble_from_copy(dcontext, decode_pc, orig_pc, STDOUT, true /*pc*/,
                               false /*bytes*/);
-#else
-        char buf[512];
-        disassemble_to_buffer(dcontext, decode_pc, orig_pc, true /*pc*/, false /*bytes*/,
-                              buf, sizeof(buf), NULL);
-        outbuf[outbuf_cur++ % outbuf.size()] = std::string(buf);
-#endif
     }
 }
 
@@ -986,8 +962,7 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
     , user_process(nullptr)
     , user_process_data(nullptr)
     , modmap(module_map_in)
-    , verbosity(4) // verbosity_in)
-    , outbuf(200, "")
+    , verbosity(verbosity_in)
 {
     if (dcontext == NULL) {
 #ifdef ARM
