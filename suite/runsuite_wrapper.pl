@@ -57,6 +57,7 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
         $args .= ";$ARGV[$i]";
     }
 }
+$args .= ";32_only"; #NOCHECK
 
 # We tee to stdout to provide incremental output and avoid the 10-min
 # no-output timeout on Travis.
