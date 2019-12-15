@@ -293,6 +293,12 @@ droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
 droption_t<bool> op_test_mode(DROPTION_SCOPE_ALL, "test_mode", false, "Run sanity tests",
                               "Run extra analyses for sanity checks on the trace.");
 #endif
+droption_t<bool> op_disable_optimizations(
+    DROPTION_SCOPE_ALL, "disable_optimizations", false,
+    "Disable offline trace optimizations for testing",
+    "Disables various optimizations where information is omitted from offline trace "
+    "recording when it can be reconstructed during post-processing.  This is meant for "
+    "testing purposes.");
 
 droption_t<std::string> op_dr_root(DROPTION_SCOPE_FRONTEND, "dr", "",
                                    "Path to DynamoRIO root directory",

@@ -145,7 +145,7 @@ typedef struct {
 /* For online simulation, we write to a single global pipe */
 static named_pipe_t ipc_pipe;
 
-#define MAX_INSTRU_SIZE 64 /* the max obj size of instr_t or its children */
+#define MAX_INSTRU_SIZE 128 /* the max obj size of instr_t or its children */
 static instru_t *instru;
 
 static client_id_t client_id;
@@ -883,8 +883,8 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
 
 static int
 instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t *where,
-                  reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref, bool write,
-                  dr_pred_type_t pred)
+                  reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref, int ref_index,
+                  bool write, dr_pred_type_t pred)
 {
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
@@ -899,7 +899,7 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
     if (op_L0_filter.get_value())
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     adjust = instru->instrument_memref(drcontext, ilist, where, reg_ptr, adjust, app, ref,
-                                       write, pred);
+                                       ref_index, write, pred);
     if (op_L0_filter.get_value() && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
         insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, pred, adjust);
@@ -1081,7 +1081,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         adjust =
             instrument_instr(drcontext, tag, ud, bb, instr, reg_ptr, adjust, ud->strex);
         adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust, ud->strex,
-                                   instr_get_dst(ud->strex, 0), true,
+                                   instr_get_dst(ud->strex, 0), 0, true,
                                    instr_get_predicate(ud->strex));
         ud->strex = NULL;
     }
@@ -1117,15 +1117,16 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         /* insert code to add an entry for each memory reference opnd */
         for (i = 0; i < instr_num_srcs(instr); i++) {
             if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-                adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust,
-                                           instr, instr_get_src(instr, i), false, pred);
+                adjust =
+                    instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust, instr,
+                                      instr_get_src(instr, i), i, false, pred);
             }
         }
 
         for (i = 0; i < instr_num_dsts(instr); i++) {
             if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
                 adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust,
-                                           instr, instr_get_dst(instr, i), true, pred);
+                                           instr, instr_get_dst(instr, i), i, true, pred);
             }
         }
         if (adjust != 0)
@@ -1460,8 +1461,16 @@ init_thread_in_process(void *drcontext)
         NOTIFY(2, "Created thread trace file %s\n", buf);
 
         /* Write initial headers at the top of the first buffer. */
+        offline_file_type_t file_type = op_L0_filter.get_value()
+            ? OFFLINE_FILE_TYPE_FILTERED
+            : OFFLINE_FILE_TYPE_DEFAULT;
+        if (op_disable_optimizations.get_value()) {
+            file_type = static_cast<offline_file_type_t>(
+                file_type | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
+        }
         data->init_header_size =
-            instru->append_thread_header(data->buf_base, dr_get_thread_id(drcontext));
+            reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
+                data->buf_base, dr_get_thread_id(drcontext), file_type);
         BUF_PTR(data->seg_base) =
             data->buf_base + data->init_header_size + buf_hdr_slots_size;
     } else {
@@ -1752,9 +1761,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (placement)
-            offline_instru_t(insert_load_buf_ptr, op_L0_filter.get_value(),
-                             &scratch_reserve_vec, file_ops_func.write_file, module_file);
+        instru = new (placement) offline_instru_t(
+            insert_load_buf_ptr, op_L0_filter.get_value(), &scratch_reserve_vec,
+            file_ops_func.write_file, module_file, op_disable_optimizations.get_value());
     } else {
         void *placement;
         /* we use placement new for better isolation */

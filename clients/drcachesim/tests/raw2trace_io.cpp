@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -201,7 +201,8 @@ test_trace_timestamp_reader(const raw2trace_directory_t *dir)
     file->read((char *)buffer, BUFFER_SIZE_BYTES(buffer));
 
     std::string error;
-    if (!trace_metadata_reader_t::is_thread_start(buffer, &error) && !error.empty())
+    if (!trace_metadata_reader_t::is_thread_start(buffer, &error, nullptr, nullptr) &&
+        !error.empty())
         return false;
     uint64 timestamp = 0;
     if (drmemtrace_get_timestamp_from_offline_trace(buffer, BUFFER_SIZE_BYTES(buffer),
