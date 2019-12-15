@@ -101,6 +101,7 @@ extern droption_t<int> op_jobs;
 #ifdef DEBUG
 extern droption_t<bool> op_test_mode;
 #endif
+extern droption_t<bool> op_disable_optimizations;
 extern droption_t<std::string> op_dr_root;
 extern droption_t<bool> op_dr_debug;
 extern droption_t<std::string> op_dr_ops;

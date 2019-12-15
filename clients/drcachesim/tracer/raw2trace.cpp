@@ -65,11 +65,13 @@
         fprintf(stderr, "[drmemtrace]: "); \
     } while (0)
 
+// We fflush for Windows cygwin where stderr is not flushed.
 #define VPRINT(level, ...)                \
     do {                                  \
         if (this->verbosity >= (level)) { \
             VPRINT_HEADER();              \
             fprintf(stderr, __VA_ARGS__); \
+            fflush(stderr);               \
         }                                 \
     } while (0)
 
@@ -473,8 +475,10 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         // We look for the initial header here rather than the top of
         // process_thread_file() to support use cases where buffers are passed from
         // another source.
-        tdata->saw_header =
-            trace_metadata_reader_t::is_thread_start(in_entry, &tdata->error);
+        tdata->saw_header = trace_metadata_reader_t::is_thread_start(
+            in_entry, &tdata->error, &tdata->version, &tdata->file_type);
+        VPRINT(2, "Trace file version is %d; type is %d\n", tdata->version,
+               tdata->file_type);
         if (!tdata->error.empty())
             return tdata->error;
         if (tdata->saw_header) {
@@ -605,6 +609,7 @@ raw2trace_t::do_conversion()
             error = process_thread_file(&thread_data[i]);
             if (!error.empty())
                 return error;
+            count_elided += thread_data[i].count_elided;
         }
     } else {
         // The files can be converted concurrently.
@@ -619,35 +624,76 @@ raw2trace_t::do_conversion()
             thread.join();
         for (auto &tdata : thread_data) {
             if (!tdata.error.empty())
-                return error;
+                return tdata.error;
+            count_elided += tdata.count_elided;
         }
     }
+    VPRINT(1, "Reconstructed " UINT64_FORMAT_STRING " elided addresses.\n", count_elided);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data.size());
     return "";
 }
 
+uint
+raw2trace_t::hash_instr_summary(void *key)
+{
+    // Our key is a payload instance.
+    const instr_summary_t *instr = static_cast<const instr_summary_t *>(key);
+    // We assume tail-duplication is rare.
+    // We target x86 and use all bits of the PC.
+    // hashtable_t masks this off to the size of the table for us.
+    return static_cast<uint>(reinterpret_cast<ptr_uint_t>(instr->pc()));
+}
+
+bool
+raw2trace_t::cmp_instr_summary(void *val1, void *val2)
+{
+    const instr_summary_t *instr1 = static_cast<const instr_summary_t *>(val1);
+    const instr_summary_t *instr2 = static_cast<const instr_summary_t *>(val2);
+    return (instr1->tag() == instr2->tag() && instr1->pc() == instr2->pc());
+}
+
+instr_summary_t *
+raw2trace_t::lookup_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
+                                  app_pc block_start, app_pc pc)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    // To avoid an extra heap alloc for a key pair we use a payload instance.
+    instr_summary_t lookup(block_start, pc);
+    instr_summary_t *ret = static_cast<instr_summary_t *>(
+        hashtable_lookup(&decode_cache[tdata->worker], &lookup));
+    return ret;
+}
+
+bool
+raw2trace_t::instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs,
+                                  app_pc block_start, app_pc pc)
+{
+    return lookup_instr_summary(tls, modidx, modoffs, block_start, pc) != nullptr;
+}
+
 const instr_summary_t *
-raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
-                               app_pc orig)
+raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
+                               app_pc block_start, INOUT app_pc *pc, app_pc orig)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     const app_pc decode_pc = *pc;
     // For rep string loops we expect the same PC many times in a row.
-    if (decode_pc == tdata->last_decode_pc) {
+    if (decode_pc == tdata->last_decode_pc &&
+        block_start == tdata->last_decode_block_start) {
         *pc = tdata->last_summary->next_pc();
         return tdata->last_summary;
     }
-    const instr_summary_t *ret = static_cast<const instr_summary_t *>(
-        hashtable_lookup(&decode_cache[tdata->worker], decode_pc));
+    const instr_summary_t *ret =
+        lookup_instr_summary(tls, modidx, modoffs, block_start, *pc);
     if (ret == nullptr) {
         instr_summary_t *desc = new instr_summary_t();
-        if (!instr_summary_t::construct(dcontext, pc, orig, desc, verbosity)) {
+        if (!instr_summary_t::construct(dcontext, block_start, pc, orig, desc,
+                                        verbosity)) {
             WARN("Encountered invalid/undecodable instr @ %s+" PIFX,
                  modvec()[static_cast<size_t>(modidx)].path, IF_NOT_X64((uint)) modoffs);
-            delete desc;
             return nullptr;
         }
-        hashtable_add(&decode_cache[tdata->worker], decode_pc, desc);
+        hashtable_add(&decode_cache[tdata->worker], desc, desc);
         ret = desc;
     } else {
         /* XXX i#3129: Log some rendering of the instruction summary that will be
@@ -656,13 +702,40 @@ raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs, INOUT a
         *pc = ret->next_pc();
     }
     tdata->last_decode_pc = decode_pc;
+    tdata->last_decode_block_start = block_start;
     tdata->last_summary = ret;
     return ret;
 }
 
+// These flags are difficult to set on construction: because one instr_t may have
+// multiple flags, we'd need get_instr_summary() to take in a vector or sthg.
+// Instead we set after the fact.
 bool
-instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
-                           OUT instr_summary_t *desc, uint verbosity)
+raw2trace_t::set_instr_summary_flags(void *tls, uint64 modidx, uint64 modoffs,
+                                     app_pc block_start, app_pc pc, app_pc orig,
+                                     bool write, int memop_index,
+                                     bool use_remembered_base, bool remember_base)
+{
+    if (!instr_summary_exists(tls, modidx, modoffs, block_start, pc)) {
+        // Trigger creation of the summary.
+        app_pc pc_copy = pc;
+        if (get_instr_summary(tls, modidx, modoffs, block_start, &pc_copy, orig) ==
+            nullptr)
+            return false;
+    }
+    instr_summary_t *desc = lookup_instr_summary(tls, modidx, modoffs, block_start, pc);
+    if (desc == nullptr)
+        return false;
+    if (write)
+        desc->set_mem_dest_flags(memop_index, use_remembered_base, remember_base);
+    else
+        desc->set_mem_src_flags(memop_index, use_remembered_base, remember_base);
+    return true;
+}
+
+bool
+instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
+                           app_pc orig_pc, OUT instr_summary_t *desc, uint verbosity)
 {
     struct instr_destroy_t {
         instr_destroy_t(void *dcontext_in, instr_t *instr_in)
@@ -681,7 +754,8 @@ instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
     instr_t *instr = instr_create(dcontext);
     instr_destroy_t instr_collector(dcontext, instr);
 
-    *pc = decode(dcontext, *pc, instr);
+    desc->pc_ = *pc;
+    *pc = decode_from_copy(dcontext, *pc, orig_pc, instr);
     if (*pc == nullptr || !instr_valid(instr)) {
         return false;
     }
@@ -689,9 +763,12 @@ instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
         // This is called for look-ahead and look-behind too so we leave the
         // main instr disasm to log_instruction and have high verbosity here.
         instr_set_translation(instr, orig_pc);
-        dr_print_instr(dcontext, STDOUT, instr, "<caching:> ");
+        dr_fprintf(STDERR, "<caching for start=" PFX "> ", block_start);
+        dr_print_instr(dcontext, STDERR, instr, "");
     }
+    desc->tag_ = block_start;
     desc->next_pc_ = *pc;
+    DEBUG_ASSERT(desc->next_pc_ > desc->pc_);
     desc->packed_ = 0;
 
     bool is_prefetch = instr_is_prefetch(instr);
@@ -717,14 +794,14 @@ instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
         for (int i = 0, e = instr_num_srcs(instr); i < e; ++i) {
             opnd_t op = instr_get_src(instr, i);
             if (opnd_is_memory_reference(op))
-                desc->mem_srcs_and_dests_.push_back(op);
+                desc->mem_srcs_and_dests_.push_back(memref_summary_t(op));
         }
         desc->num_mem_srcs_ = static_cast<uint8_t>(desc->mem_srcs_and_dests_.size());
 
         for (int i = 0, e = instr_num_dsts(instr); i < e; ++i) {
             opnd_t op = instr_get_dst(instr, i);
             if (opnd_is_memory_reference(op))
-                desc->mem_srcs_and_dests_.push_back(op);
+                desc->mem_srcs_and_dests_.push_back(memref_summary_t(op));
         }
     }
     return true;
@@ -747,6 +824,10 @@ raw2trace_t::get_next_entry(void *tls)
                                       sizeof(tdata->last_entry)))
             return nullptr;
     }
+    VPRINT(5, "[get_next_entry]: type=%d\n",
+           // Some compilers think .addr.type is "int" while others think it's "unsigned
+           // long".  We avoid dueling warnings by casting to int.
+           static_cast<int>(tdata->last_entry.addr.type));
     return &tdata->last_entry;
 }
 
@@ -835,6 +916,10 @@ raw2trace_t::log(uint level, const char *fmt, ...)
     if (verbosity >= level) {
         VPRINT_HEADER();
         vfprintf(stderr, fmt, args);
+#ifdef WINDOWS
+        // We fflush for Windows cygwin where stderr is not flushed.
+        fflush(stderr);
+#endif
     }
     va_end(args);
 }
@@ -860,6 +945,20 @@ raw2trace_t::was_prev_instr_rep_string(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     return tdata->prev_instr_was_rep_string;
+}
+
+int
+raw2trace_t::get_version(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    return tdata->version;
+}
+
+offline_file_type_t
+raw2trace_t::get_file_type(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    return tdata->file_type;
 }
 
 raw2trace_t::raw2trace_t(const char *module_map_in,
@@ -911,8 +1010,8 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
     for (int i = 0; i < cache_count; ++i) {
         // We go ahead and start with a reasonably large capacity.
         // We do not want the built-in mutex: this is per-worker so it can be lockless.
-        hashtable_init_ex(&decode_cache[i], 16, HASH_INTPTR, false, false, NULL, NULL,
-                          NULL);
+        hashtable_init_ex(&decode_cache[i], 16, HASH_INTPTR, false, false, NULL,
+                          hash_instr_summary, cmp_instr_summary);
         // We pay a little memory to get a lower load factor, unless we have
         // many duplicated tables.
         hashtable_config_t config = { sizeof(config), true,
@@ -939,17 +1038,24 @@ raw2trace_t::~raw2trace_t()
 }
 
 bool
-trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry, std::string *error)
+trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
+                                         OUT std::string *error, OUT int *version,
+                                         OUT offline_file_type_t *file_type)
 {
     *error = "";
     if (entry->extended.type != OFFLINE_TYPE_EXTENDED ||
         entry->extended.ext != OFFLINE_EXT_TYPE_HEADER) {
         return false;
     }
-    if (entry->extended.valueA != OFFLINE_FILE_VERSION) {
+    int ver = static_cast<int>(entry->extended.valueA);
+    if (version != nullptr)
+        *version = ver;
+    if (file_type != nullptr)
+        *file_type = static_cast<offline_file_type_t>(entry->extended.valueB);
+    if (ver < OFFLINE_FILE_VERSION_OLDEST_SUPPORTED || ver > OFFLINE_FILE_VERSION) {
         std::stringstream ss;
-        ss << "Version mismatch: expect " << OFFLINE_FILE_VERSION << " vs "
-           << (int)entry->extended.valueA;
+        ss << "Version mismatch: found " << ver << " but we require between "
+           << OFFLINE_FILE_VERSION_OLDEST_SUPPORTED << " and " << OFFLINE_FILE_VERSION;
         *error = ss.str();
         return false;
     }
@@ -960,7 +1066,7 @@ std::string
 trace_metadata_reader_t::check_entry_thread_start(const offline_entry_t *entry)
 {
     std::string error;
-    if (is_thread_start(entry, &error))
+    if (is_thread_start(entry, &error, nullptr, nullptr))
         return "";
     if (error.empty())
         return "Thread log file is corrupted: missing version entry";
@@ -982,7 +1088,8 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
 
     size_t timestamp_pos = 0;
     std::string error;
-    if (trace_metadata_reader_t::is_thread_start(offline_entries, &error) &&
+    if (trace_metadata_reader_t::is_thread_start(offline_entries, &error, nullptr,
+                                                 nullptr) &&
         error.empty()) {
         if (size < 4)
             return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -997,4 +1104,23 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
 
     *timestamp = offline_entries[timestamp_pos].timestamp.usec;
     return DRMEMTRACE_SUCCESS;
+}
+
+void
+raw2trace_t::add_to_statistic(void *tls, raw2trace_statistic_t stat, int value)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    switch (stat) {
+    case RAW2TRACE_STAT_COUNT_ELIDED: tdata->count_elided += value; break;
+    default: DR_ASSERT(false);
+    }
+}
+
+uint64
+raw2trace_t::get_statistic(raw2trace_statistic_t stat)
+{
+    switch (stat) {
+    case RAW2TRACE_STAT_COUNT_ELIDED: return count_elided;
+    default: DR_ASSERT(false); return 0;
+    }
 }

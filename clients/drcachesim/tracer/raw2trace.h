@@ -47,10 +47,18 @@
 #include <array>
 #include <atomic>
 #include <memory>
+#include <unordered_map>
 #include "trace_entry.h"
+#include "instru.h"
 #include <fstream>
 #include "hashtable.h"
 #include <vector>
+
+#ifdef DEBUG
+#    define DEBUG_ASSERT(x) DR_ASSERT(x)
+#else
+#    define DEBUG_ASSERT(x) /* nothing */
+#endif
 
 #define OUTFILE_SUFFIX "raw"
 #define OUTFILE_SUBDIR "raw"
@@ -60,6 +68,10 @@
 #else
 #    define TRACE_SUFFIX "trace"
 #endif
+
+typedef enum {
+    RAW2TRACE_STAT_COUNT_ELIDED,
+} raw2trace_statistic_t;
 
 struct module_t {
     module_t(const char *path, app_pc orig, byte *map, size_t size, bool external = false)
@@ -82,7 +94,39 @@ struct module_t {
  * conversion from decoded instructions.
  */
 struct instr_summary_t final {
+    /** Caches information about a single memory reference. */
+    struct memref_summary_t {
+        memref_summary_t(opnd_t opnd)
+            : opnd(opnd)
+            , remember_base(0)
+            , use_remembered_base(0)
+        {
+        }
+        /** The addressing mode of this reference. */
+        opnd_t opnd;
+        /**
+         * A flag for reconstructing elided same-base addresses.  If set, this
+         * address should be remembered for use on a later reference with the same
+         * base and use_remembered_base set.
+         */
+        bool remember_base : 1;
+        /**
+         * A flag for reconstructing elided same-base addresses.  If set, this
+         * address is not present in the trace and should be filled in from the prior
+         * reference with the same base and remember_base set, or from the PC for
+         * a rip-relative reference.
+         */
+        bool use_remembered_base : 1;
+    };
+
     instr_summary_t()
+    {
+    }
+
+    /* Meant for lookups when an instance of the payload is used for the key. */
+    instr_summary_t(app_pc block_start, app_pc pc)
+        : tag_(block_start)
+        , pc_(pc)
     {
     }
 
@@ -92,8 +136,8 @@ struct instr_summary_t final {
      * (using orig_pc and verbosity).
      */
     static bool
-    construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc, OUT instr_summary_t *desc,
-              uint verbosity = 0);
+    construct(void *dcontext, app_pc block_start, INOUT app_pc *pc, app_pc orig_pc,
+              OUT instr_summary_t *desc, uint verbosity = 0);
 
     /**
      * Get the pc after the instruction that was used to produce this instr_summary_t.
@@ -102,6 +146,44 @@ struct instr_summary_t final {
     next_pc() const
     {
         return next_pc_;
+    }
+    /** Get the pc of the start of the block containing this instrucion. */
+    app_pc
+    tag() const
+    {
+        return tag_;
+    }
+    /** Get the pc of the start of this instrucion. */
+    app_pc
+    pc() const
+    {
+        return pc_;
+    }
+
+    /**
+     * Sets properties of the "pos"-th source memory operand by OR-ing in the
+     * two boolean values.
+     */
+    void
+    set_mem_src_flags(size_t pos, bool use_remembered_base, bool remember_base)
+    {
+        DEBUG_ASSERT(pos < mem_srcs_and_dests_.size());
+        auto target = &mem_srcs_and_dests_[pos];
+        target->use_remembered_base = target->use_remembered_base || use_remembered_base;
+        target->remember_base = target->remember_base || remember_base;
+    }
+
+    /**
+     * Sets properties of the "pos"-th destination memory operand by OR-ing in the
+     * two boolean values.
+     */
+    void
+    set_mem_dest_flags(size_t pos, bool use_remembered_base, bool remember_base)
+    {
+        DEBUG_ASSERT(num_mem_srcs_ + pos < mem_srcs_and_dests_.size());
+        auto target = &mem_srcs_and_dests_[num_mem_srcs_ + pos];
+        target->use_remembered_base = target->use_remembered_base || use_remembered_base;
+        target->remember_base = target->remember_base || remember_base;
     }
 
 private:
@@ -149,12 +231,12 @@ private:
         return TESTANY(kIsCtiMask, packed_);
     }
 
-    const opnd_t &
+    const memref_summary_t &
     mem_src_at(size_t pos) const
     {
         return mem_srcs_and_dests_[pos];
     }
-    const opnd_t &
+    const memref_summary_t &
     mem_dest_at(size_t pos) const
     {
         return mem_srcs_and_dests_[num_mem_srcs_ + pos];
@@ -183,6 +265,8 @@ private:
     instr_summary_t &
     operator=(instr_summary_t &&) = delete;
 
+    app_pc tag_ = 0;
+    app_pc pc_ = 0;
     uint16_t type_ = 0;
     uint16_t prefetch_type_ = 0;
     byte length_ = 0;
@@ -192,7 +276,7 @@ private:
     // bulk-allocate pages of instr_summary_t objects, instead
     // of piece-meal allocating them on the heap one at a time.
     // One vector and a byte is smaller than 2 vectors.
-    std::vector<opnd_t> mem_srcs_and_dests_;
+    std::vector<memref_summary_t> mem_srcs_and_dests_;
     uint8_t num_mem_srcs_ = 0;
     byte packed_ = 0;
 };
@@ -222,7 +306,8 @@ struct trace_metadata_writer_t {
  */
 struct trace_metadata_reader_t {
     static bool
-    is_thread_start(const offline_entry_t *entry, OUT std::string *error);
+    is_thread_start(const offline_entry_t *entry, OUT std::string *error,
+                    OUT int *version, OUT offline_file_type_t *file_type);
     static std::string
     check_entry_thread_start(const offline_entry_t *entry);
 };
@@ -434,21 +519,45 @@ struct trace_header_t {
  *
  * <LI>void log(uint level, const char *fmt, ...)
  *
+ * Implementers are given the opportunity to implement their own logging. The level
+ * parameter represents severity: the lower the level, the higher the severity.</LI>
+ *
  * <LI>void log_instruction(uint level, app_pc decode_pc, app_pc orig_pc);
  *
  * Similar to log() but this disassembles the given PC.</LI>
  *
- * Implementers are given the opportunity to implement their own logging. The level
- * parameter represents severity: the lower the level, the higher the severity.</LI>
+ * <LI>void add_to_statistic(void *tls, raw2trace_statistic_t stat, int value)
+ *
+ * Increases the per-thread counter for the statistic identified by stat by value.
+ * </LI>
+ *
+ * <LI>bool raw2trace_t::instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs,
+ * app_pc block_start_pc, app_pc pc) const
+ *
+ * Returns whether an #instr_summary_t representation of the instruction at pc inside
+ * the block that begins at block_start_pc in the specified module exists.
+ * </LI>
  *
  * <LI>const instr_summary_t *get_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
- * INOUT app_pc *pc, app_pc orig)
+ * app_pc block_start_pc, INOUT app_pc *pc, app_pc orig)
  *
- * Return the #instr_summary_t representation of the instruction at *pc,
- * updating the value at pc to the PC of the next instruction. It is assumed the app
+ * Return the #instr_summary_t representation of the instruction at *pc inside the block
+ * that begins at block_start_pc in the specified module.
+ * Updates the value at pc to the PC of the next instruction. It is assumed the app
  * binaries have already been loaded using #module_mapper_t, and the values at *pc point
  * within memory mapped by the module mapper. This API provides an opportunity to cache
  * decoded instructions.</LI>
+ *
+ * <LI>bool set_instr_summary_flags(void *tls, uint64 modidx, uint64 modoffs,
+ * app_pc block_start_pc, app_pc pc, app_pc orig, bool write, int memop_index,
+ * bool use_remembered_base, bool remember_base)
+ *
+ * Sets two flags stored in the memref_summary_t inside the instr_summary_t for
+ * the instruction at pc inside the block that begins at block_start_pc in the specified
+ * module.  The flags use_remembered_base and remember_base are set for the source
+ * (write==false) or destination (write==true) operand of index memop_index.
+ * The flags are OR-ed in: i.e., they are never cleared.
+ * </LI>
  *
  * <LI>void set_prev_instr_rep_string(void *tls, bool value)
  *
@@ -458,6 +567,16 @@ struct trace_header_t {
  * <LI>bool was_prev_instr_rep_string(void *tls)
  *
  * Queries a per-traced-thread cached flag that is set by set_prev_instr_rep_string().
+ * </LI>
+ *
+ * <LI>int get_version(void *tls)
+ *
+ * Returns the trace file version (an OFFLINE_FILE_VERSION* constant).
+ * </LI>
+ *
+ * <LI>offline_file_type_t get_file_type(void *tls)
+ *
+ * Returns the trace file type (a combination of OFFLINE_FILE_TYPE* constants).
  * </LI>
  * </UL>
  */
@@ -634,6 +753,128 @@ private:
     {
         return static_cast<T *>(this);
     }
+
+    std::string
+    analyze_elidable_addresses(void *tls, uint64 modidx, uint64 modoffs, app_pc start_pc,
+                               uint instr_count)
+    {
+        int version = impl()->get_version(tls);
+        // Old versions have no elision.
+        if (version <= OFFLINE_FILE_VERSION_NO_ELISION)
+            return "";
+        // Filtered traces have no elision.
+        if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS,
+                    impl()->get_file_type(tls)))
+            return "";
+        // Avoid type complaints for 32-bit.
+        size_t modidx_typed = static_cast<size_t>(modidx);
+        // We build an ilist to use identify_elidable_addresses() and fill in
+        // state needed to reconstruct elided addresses.
+        instrlist_t *ilist = instrlist_create(dcontext);
+        app_pc pc = start_pc;
+        for (uint count = 0; count < instr_count; ++count) {
+            instr_t *inst = instr_create(dcontext);
+            app_pc next_pc = decode(dcontext, pc, inst);
+            DR_ASSERT(next_pc != NULL);
+            instr_set_translation(inst, pc);
+            pc = next_pc;
+            instrlist_append(ilist, inst);
+        }
+        instru_offline.identify_elidable_addresses(dcontext, ilist, version);
+        for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
+             inst = instr_get_next(inst)) {
+            int index, memop_index;
+            bool write, needs_base;
+            if (!instru_offline.label_marks_elidable(inst, &index, &memop_index, &write,
+                                                     &needs_base))
+                continue;
+            // There could be multiple labels for one instr (e.g., "push (%rsp)".
+            instr_t *meminst = instr_get_next(inst);
+            while (meminst != nullptr && instr_is_label(meminst))
+                meminst = instr_get_next(meminst);
+            DR_ASSERT(meminst != nullptr);
+            pc = instr_get_app_pc(meminst);
+            app_pc orig_pc =
+                pc - modvec()[modidx_typed].map_base + modvec()[modidx_typed].orig_base;
+            impl()->log(5, "Marking < " PFX ", " PFX "> %s #%d to use remembered base\n",
+                        start_pc, pc, write ? "write" : "read", memop_index);
+            if (!impl()->set_instr_summary_flags(
+                    tls, modidx, modoffs, start_pc, pc, orig_pc, write, memop_index,
+                    true /*use_remembered*/, false /*don't change "remember"*/))
+                return "Failed to set flags for elided base address";
+            // We still need to set the use_remember flag for rip-rel, even though it
+            // does not need a prior base, because we do not elide *all* rip-rels
+            // (e.g., predicated rip-rels).
+            if (!needs_base)
+                continue;
+            // Find the source of the base.  It has to be the first instance when
+            // walking backward.
+            opnd_t elided_op =
+                write ? instr_get_dst(meminst, index) : instr_get_src(meminst, index);
+            reg_id_t base;
+            bool got_base = instru_offline.opnd_is_elidable(elided_op, base, version);
+            DR_ASSERT(got_base && base != DR_REG_NULL);
+            int remember_index = -1;
+            for (instr_t *prev = meminst; prev != nullptr; prev = instr_get_prev(prev)) {
+                if (!instr_is_app(prev))
+                    continue;
+                // Use instr_{reads,writes}_memory() to rule out LEA and NOP.
+                if (!instr_reads_memory(prev) && !instr_writes_memory(prev))
+                    continue;
+                bool remember_write = false;
+                int mem_count = 0;
+                if (prev != meminst || write) {
+                    for (int i = 0; i < instr_num_srcs(prev); i++) {
+                        reg_id_t prev_base;
+                        if (opnd_is_memory_reference(instr_get_src(prev, i))) {
+                            if (instru_offline.opnd_is_elidable(instr_get_src(prev, i),
+                                                                prev_base, version) &&
+                                prev_base == base) {
+                                remember_index = mem_count;
+                                break;
+                            }
+                            ++mem_count;
+                        }
+                    }
+                }
+                if (remember_index == -1 && prev != meminst) {
+                    mem_count = 0;
+                    for (int i = 0; i < instr_num_dsts(prev); i++) {
+                        reg_id_t prev_base;
+                        if (opnd_is_memory_reference(instr_get_dst(prev, i))) {
+                            if (instru_offline.opnd_is_elidable(instr_get_dst(prev, i),
+                                                                prev_base, version) &&
+                                prev_base == base) {
+                                remember_index = mem_count;
+                                remember_write = true;
+                                break;
+                            }
+                            ++mem_count;
+                        }
+                    }
+                }
+                if (remember_index == -1)
+                    continue;
+                app_pc pc_prev = instr_get_app_pc(prev);
+                app_pc orig_pc_prev = pc_prev - modvec()[modidx_typed].map_base +
+                    modvec()[modidx_typed].orig_base;
+                if (!impl()->set_instr_summary_flags(
+                        tls, modidx, modoffs, start_pc, pc_prev, orig_pc_prev,
+                        remember_write, remember_index,
+                        false /*don't change "use_remembered"*/, true /*remember*/))
+                    return "Failed to set flags for elided base address";
+                impl()->log(5, "Asking <" PFX ", " PFX "> %s #%d to remember base\n",
+                            start_pc, pc_prev, remember_write ? "write" : "read",
+                            remember_index);
+                break;
+            }
+            if (remember_index == -1)
+                return "Failed to find the source of the elided base";
+        }
+        instrlist_clear_and_destroy(dcontext, ilist);
+        return "";
+    }
+
     std::string
     append_bb_entries(void *tls, const offline_entry_t *in_entry, OUT bool *handled)
     {
@@ -662,12 +903,23 @@ private:
         // icache entry does not need to be considered a memref PC entry as well.
         bool instrs_are_separate = false;
         uint64_t cur_modoffs = in_entry->pc.modoffs;
+        std::unordered_map<reg_id_t, addr_t> reg_vals;
         if (instr_count == 0) {
             // L0 filtering adds a PC entry with a count of 0 prior to each memref.
             skip_icache = true;
             instr_count = 1;
             // We set a flag to avoid peeking forward on instr entries.
             instrs_are_separate = true;
+        } else {
+            if (!impl()->instr_summary_exists(tls, in_entry->pc.modidx,
+                                              in_entry->pc.modoffs, start_pc,
+                                              decode_pc)) {
+                std::string res = analyze_elidable_addresses(tls, in_entry->pc.modidx,
+                                                             in_entry->pc.modoffs,
+                                                             start_pc, instr_count);
+                if (!res.empty())
+                    return res;
+            }
         }
         DR_CHECK(!instrs_are_separate || instr_count == 1,
                  "cannot mix 0-count and >1-count");
@@ -680,13 +932,14 @@ private:
             // dynamic executions, we cache the decoding in a hashtable.
             pc = decode_pc;
             impl()->log_instruction(4, decode_pc, orig_pc);
-            instr = impl()->get_instr_summary(tls, in_entry->pc.modidx,
-                                              in_entry->pc.modoffs, &pc, orig_pc);
+            instr = impl()->get_instr_summary(
+                tls, in_entry->pc.modidx, in_entry->pc.modoffs, start_pc, &pc, orig_pc);
             if (instr == nullptr) {
                 // We hit some error somewhere, and already reported it. Just exit the
                 // loop.
                 break;
             }
+            DR_CHECK(pc > decode_pc, "error advancing inside block");
             DR_CHECK(!instr->is_cti() || i == instr_count - 1, "invalid cti");
             // FIXME i#1729: make bundles via lazy accum until hit memref/end.
             buf->type = instr->type();
@@ -730,7 +983,8 @@ private:
                 // Rule out OP_lea.
                 (instr->reads_memory() || instr->writes_memory())) {
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
-                    error = append_memref(tls, &buf, instr, instr->mem_src_at(j), false);
+                    error = append_memref(tls, &buf, instr, instr->mem_src_at(j), false,
+                                          reg_vals);
                     if (!error.empty())
                         return error;
                     error = handle_kernel_interrupt(tls, &buf, cur_modoffs,
@@ -743,7 +997,8 @@ private:
                 // We break before subsequent memrefs on an interrupt, though with
                 // today's tracer that will never happen (i#3958).
                 for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
-                    error = append_memref(tls, &buf, instr, instr->mem_dest_at(j), true);
+                    error = append_memref(tls, &buf, instr, instr->mem_dest_at(j), true,
+                                          reg_vals);
                     if (!error.empty())
                         return error;
                     error = handle_kernel_interrupt(tls, &buf, cur_modoffs,
@@ -824,11 +1079,38 @@ private:
 
     std::string
     append_memref(void *tls, INOUT trace_entry_t **buf_in, const instr_summary_t *instr,
-                  opnd_t ref, bool write)
+                  instr_summary_t::memref_summary_t memref, bool write,
+                  std::unordered_map<reg_id_t, addr_t> &reg_vals)
     {
         trace_entry_t *buf = *buf_in;
-        const offline_entry_t *in_entry = impl()->get_next_entry(tls);
+        const offline_entry_t *in_entry = nullptr;
+        bool have_addr = false;
         bool have_type = false;
+        reg_id_t base;
+        int version = impl()->get_version(tls);
+        if (memref.use_remembered_base) {
+            DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_FILTERED, impl()->get_file_type(tls)));
+            bool is_elidable =
+                instru_offline.opnd_is_elidable(memref.opnd, base, version);
+            DR_ASSERT(is_elidable);
+            if (base == DR_REG_NULL) {
+                DR_ASSERT(IF_REL_ADDRS(opnd_is_near_rel_addr(memref.opnd) ||)
+                              opnd_is_near_abs_addr(memref.opnd));
+                buf->addr = reinterpret_cast<addr_t>(opnd_get_addr(memref.opnd));
+                impl()->log(4, "Filling in elided rip-rel addr with %p\n", buf->addr);
+            } else {
+                buf->addr = reg_vals[base];
+                impl()->log(4, "Filling in elided addr with remembered %s: %p\n",
+                            get_register_name(base), buf->addr);
+            }
+            have_addr = true;
+            impl()->add_to_statistic(tls, RAW2TRACE_STAT_COUNT_ELIDED, 1);
+        }
+        if (!have_addr) {
+            if (memref.use_remembered_base)
+                return "Non-elided base mislabeled to use remembered base";
+            in_entry = impl()->get_next_entry(tls);
+        }
         if (in_entry != nullptr && in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
             in_entry->extended.ext == OFFLINE_EXT_TYPE_MEMINFO) {
             // For -L0_filter we have to store the type for multi-memref instrs where
@@ -842,9 +1124,10 @@ private:
             if (in_entry == nullptr)
                 return "Trace ends mid-block";
         }
-        if (in_entry == nullptr ||
-            (in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
-             in_entry->addr.type != OFFLINE_TYPE_MEMREF_HIGH)) {
+        if (!have_addr &&
+            (in_entry == nullptr ||
+             (in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
+              in_entry->addr.type != OFFLINE_TYPE_MEMREF_HIGH))) {
             // This happens when there are predicated memrefs in the bb, or for a
             // zero-iter rep string loop, or for a multi-memref instr with -L0_filter.
             // For predicated memrefs, they could be earlier, so "instr"
@@ -866,30 +1149,38 @@ private:
                 buf->size = 1;
             } else if (instr->is_flush()) {
                 buf->type = TRACE_TYPE_DATA_FLUSH;
-                buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(ref));
+                buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(memref.opnd));
             } else {
                 if (write)
                     buf->type = TRACE_TYPE_WRITE;
                 else
                     buf->type = TRACE_TYPE_READ;
-                buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(ref));
+                buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(memref.opnd));
             }
         }
-        // We take the full value, to handle low or high.
-        buf->addr = (addr_t)in_entry->combined_value;
-#ifdef X86
-        if (opnd_is_near_base_disp(ref) && opnd_get_base(ref) != DR_REG_NULL &&
-            opnd_get_index(ref) == DR_REG_NULL) {
-            // We stored only the base reg, as an optimization.
-            buf->addr += opnd_get_disp(ref);
+        if (!have_addr) {
+            DR_ASSERT(in_entry != nullptr);
+            // We take the full value, to handle low or high.
+            buf->addr = (addr_t)in_entry->combined_value;
         }
-#endif
+        if (memref.remember_base &&
+            instru_offline.opnd_is_elidable(memref.opnd, base, version)) {
+            impl()->log(5, "Remembering base " PFX " for %s\n", buf->addr,
+                        get_register_name(base));
+            reg_vals[base] = buf->addr;
+        }
+        if (!TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, impl()->get_file_type(tls)) &&
+            instru_offline.opnd_disp_is_elidable(memref.opnd)) {
+            // We stored only the base reg, as an optimization.
+            buf->addr += opnd_get_disp(memref.opnd);
+        }
         impl()->log(4, "Appended memref type %d size %d to " PFX "\n", buf->type,
                     buf->size, (ptr_uint_t)buf->addr);
         *buf_in = ++buf;
         return "";
     }
 
+    offline_instru_t instru_offline;
     const std::vector<module_t> *modvec_ptr = nullptr;
 
 #undef DR_CHECK
@@ -987,6 +1278,9 @@ public:
     static std::string
     check_thread_file(std::istream *f);
 
+    uint64
+    get_statistic(raw2trace_statistic_t stat);
+
 protected:
     // Overridable parts of the interface expected by trace_converter_t.
     virtual const offline_entry_t *
@@ -1010,9 +1304,12 @@ protected:
             , worker(0)
             , thread_file(nullptr)
             , out_file(nullptr)
+            , version(0)
+            , file_type(OFFLINE_FILE_TYPE_DEFAULT)
             , saw_header(false)
             , prev_instr_was_rep_string(false)
             , last_decode_pc(nullptr)
+            , last_decode_block_start(nullptr)
             , last_summary(nullptr)
         {
         }
@@ -1023,6 +1320,8 @@ protected:
         std::istream *thread_file;
         std::ostream *out_file;
         std::string error;
+        int version;
+        offline_file_type_t file_type;
         std::vector<offline_entry_t> pre_read;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
@@ -1034,7 +1333,11 @@ protected:
         std::array<trace_entry_t, WRITE_BUFFER_SIZE> out_buf;
         bool prev_instr_was_rep_string;
         app_pc last_decode_pc;
+        app_pc last_decode_block_start;
         const instr_summary_t *last_summary;
+
+        // Statistics on the processing.
+        uint64 count_elided = 0;
     };
 
     std::string
@@ -1049,6 +1352,8 @@ protected:
 
     std::string
     write_footer(void *tls);
+
+    uint64 count_elided = 0;
 
 private:
     friend class trace_converter_t<raw2trace_t>;
@@ -1069,13 +1374,36 @@ private:
     std::string
     write_delayed_branches(void *tls, const trace_entry_t *start,
                            const trace_entry_t *end);
+    bool
+    instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start,
+                         app_pc pc);
+    instr_summary_t *
+    lookup_instr_summary(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start,
+                         app_pc pc);
     const instr_summary_t *
-    get_instr_summary(void *tls, uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
-                      app_pc orig);
+    get_instr_summary(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start,
+                      INOUT app_pc *pc, app_pc orig);
+    bool
+    set_instr_summary_flags(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start,
+                            app_pc pc, app_pc orig, bool write, int memop_index,
+                            bool use_remembered_base, bool remember_base);
     void
     set_prev_instr_rep_string(void *tls, bool value);
     bool
     was_prev_instr_rep_string(void *tls);
+    int
+    get_version(void *tls);
+    offline_file_type_t
+    get_file_type(void *tls);
+    void
+    add_to_statistic(void *tls, raw2trace_statistic_t stat, int value);
+    void
+    log_instruction(app_pc decode_pc, app_pc orig_pc);
+
+    static uint
+    hash_instr_summary(void *key);
+    static bool
+    cmp_instr_summary(void *val1, void *val2);
 
     std::string
     append_delayed_branch(void *tls);
