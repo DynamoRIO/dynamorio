@@ -186,7 +186,7 @@ basic_counts_t::print_results()
         std::cerr << "Thread " << keyvals.second->tid << " counts:\n";
         std::cerr << std::setw(12) << keyvals.second->instrs
                   << " (fetched) instructions\n";
-        std::cerr << std::setw(12) << keyvals.unique_pc_addrs.size()
+        std::cerr << std::setw(12) << keyvals.second->unique_pc_addrs.size()
                   << " unique (fetched) instructions\n";
         std::cerr << std::setw(12) << keyvals.second->instrs_nofetch
                   << " non-fetched instructions\n";
