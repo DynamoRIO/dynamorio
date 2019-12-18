@@ -79,8 +79,8 @@ protected:
             func_arg_markers += rhs.func_arg_markers;
             func_retval_markers += rhs.func_retval_markers;
             other_markers += rhs.other_markers;
-            for(const uint64_t addr : rhs.unique_pc_addrs) {
-              unique_pc_addrs.insert(addr);
+            for (const uint64_t addr : rhs.unique_pc_addrs) {
+                unique_pc_addrs.insert(addr);
             }
             return *this;
         }
