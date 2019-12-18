@@ -39,8 +39,8 @@
 #include "WizSheet.h"
 
 #ifdef _DEBUG
-#define new DEBUG_NEW
-#undef THIS_FILE
+#    define new DEBUG_NEW
+#    undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
 
@@ -48,11 +48,11 @@ static char THIS_FILE[] = __FILE__;
 // CWizardApp
 
 BEGIN_MESSAGE_MAP(CWizardApp, CWinApp)
-    //{{AFX_MSG_MAP(CWizardApp)
-    // NOTE - the ClassWizard will add and remove mapping macros here.
-    //    DO NOT EDIT what you see in these blocks of generated code!
-    //}}AFX_MSG
-    ON_COMMAND(ID_HELP, CWinApp::OnHelp)
+//{{AFX_MSG_MAP(CWizardApp)
+// NOTE - the ClassWizard will add and remove mapping macros here.
+//    DO NOT EDIT what you see in these blocks of generated code!
+//}}AFX_MSG
+ON_COMMAND(ID_HELP, CWinApp::OnHelp)
 END_MESSAGE_MAP()
 
 /////////////////////////////////////////////////////////////////////////////
@@ -72,7 +72,8 @@ CWizardApp theApp;
 /////////////////////////////////////////////////////////////////////////////
 // CWizardApp initialization
 
-BOOL CWizardApp::InitInstance()
+BOOL
+CWizardApp::InitInstance()
 {
     // Standard initialization
     // If you are not using these features and wish to reduce the size
@@ -80,11 +81,11 @@ BOOL CWizardApp::InitInstance()
     //  the specific initialization routines you do not need.
 
 #ifdef USE_VC60 /* deprecated in VC7.1: not needed anymore */
-# ifdef _AFXDLL
-    Enable3dControls();         // Call this when using MFC in a shared DLL
-# else
-    Enable3dControlsStatic();   // Call this when linking to MFC statically
-# endif
+#    ifdef _AFXDLL
+    Enable3dControls(); // Call this when using MFC in a shared DLL
+#    else
+    Enable3dControlsStatic(); // Call this when linking to MFC statically
+#    endif
 #endif
 
     CWizardSheet dlg(IDS_SAMPLEWIZARD, NULL, 0);
@@ -94,8 +95,7 @@ BOOL CWizardApp::InitInstance()
     if (nResponse == IDOK) {
         // TODO: Place code here to handle when the dialog is
         //  dismissed with OK
-    }
-    else if (nResponse == IDCANCEL) {
+    } else if (nResponse == IDCANCEL) {
         // TODO: Place code here to handle when the dialog is
         //  dismissed with Cancel
     }

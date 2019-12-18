@@ -42,8 +42,7 @@
 static int num_bbs;
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-         bool translating)
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     num_bbs++;
     return DR_EMIT_DEFAULT;

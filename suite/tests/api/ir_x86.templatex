@@ -1,0 +1,2 @@
+(<Application .*api\.ir.*AVX-512 was detected at PC 0x[0-9a-f]+. AVX-512 is not fully supported yet.>
+)?all done

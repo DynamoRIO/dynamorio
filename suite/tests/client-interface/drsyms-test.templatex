@@ -46,11 +46,11 @@ drsyms-test\.appdll\.cpp:60!dll_public
 #if !(defined(WINDOWS) && defined(X64)) && !defined(AARCHXX)
 drsyms-test\.appdll\.cpp:67!dll_static
 drsyms-test\.appdll\.cpp:73!dll_export
-drsyms-test\.cpp:75!.anonymous namespace.::Foo::Bar
-drsyms-test\.cpp:82!exe_export
-drsyms-test\.cpp:88!exe_public
-drsyms-test\.cpp:94!exe_static
-drsyms-test\.cpp:180!main
+drsyms-test\.cpp:77!.anonymous namespace.::Foo::Bar
+drsyms-test\.cpp:84!exe_export
+drsyms-test\.cpp:90!exe_public
+drsyms-test\.cpp:96!exe_static
+drsyms-test\.cpp:214!main
 #endif
 overloaded: 1
 overloaded: 2

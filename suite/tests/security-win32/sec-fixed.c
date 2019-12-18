@@ -37,7 +37,7 @@
 #define VERBOSE 0
 
 HMODULE
-myload(char* lib)
+myload(char *lib)
 {
     HMODULE hm = LoadLibrary(lib);
     if (hm == NULL) {
@@ -45,13 +45,14 @@ myload(char* lib)
     } else {
         print("loaded %s\n", lib);
 #if VERBOSE
-        print("library is at "PFX"\n", hm);
+        print("library is at " PFX "\n", hm);
 #endif
     }
     return hm;
 }
 
-int main()
+int
+main()
 {
     HMODULE lib;
     HMODULE cmd;
@@ -70,8 +71,10 @@ int main()
     assert(res);
     print("cmd.exe as data\n");
 
-    /* FIXME: for some reason the loader reuses the exe - if we ask for cmd.exe again here  */
-    cmd = LoadLibraryExW(L"calc.exe", NULL, DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE);
+    /* FIXME: for some reason the loader reuses the exe - if we ask for cmd.exe again here
+     */
+    cmd = LoadLibraryExW(L"calc.exe", NULL,
+                         DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE);
     assert(cmd != NULL);
     res = FreeLibrary(cmd);
     assert(res);

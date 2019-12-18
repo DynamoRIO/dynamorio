@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,77 +37,107 @@
 #define _INSTRU_H_ 1
 
 #include <stdint.h>
+#include <unordered_set>
 #include "drvector.h"
-#include "../common/trace_entry.h"
+#include "trace_entry.h"
+#include "dr_allocator.h"
 
 #define MINSERT instrlist_meta_preinsert
 
 // Versioning for our drmodtrack custom module fields.
 #define CUSTOM_MODULE_VERSION 1
 
-class instru_t
-{
+typedef std::unordered_set<reg_id_t, std::hash<reg_id_t>, std::equal_to<reg_id_t>,
+                           dr_allocator_t<reg_id_t>>
+    reg_id_set_t;
+
+class instru_t {
 public:
     // The one dependence we have on the user is that we need to know how
     // to insert code to re-load the current trace buffer pointer into a register.
     // We require that this is passed at construction time:
-    instru_t(void (*insert_load_buf)(void *, instrlist_t *,
-                                     instr_t *, reg_id_t),
-             bool memref_needs_info,
-             drvector_t *reg_vector_in,
-             size_t instruction_size)
-        : insert_load_buf_ptr(insert_load_buf),
-        memref_needs_full_info(memref_needs_info),
-        reg_vector(reg_vector_in),
-        instr_size(instruction_size) {}
-    virtual ~instru_t() {}
+    instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
+             bool memref_needs_info, drvector_t *reg_vector_in, size_t instruction_size,
+             bool disable_opts = false)
+        : insert_load_buf_ptr(insert_load_buf)
+        , memref_needs_full_info(memref_needs_info)
+        , reg_vector(reg_vector_in)
+        , disable_optimizations(disable_opts)
+        , instr_size(instruction_size)
+    {
+    }
+    virtual ~instru_t()
+    {
+    }
 
-    instru_t &operator=(instru_t&) = delete;
+    instru_t &
+    operator=(instru_t &) = delete;
 
-    size_t sizeof_entry() const { return instr_size; }
+    size_t
+    sizeof_entry() const
+    {
+        return instr_size;
+    }
 
-    virtual trace_type_t get_entry_type(byte *buf_ptr) const = 0;
-    virtual size_t get_entry_size(byte *buf_ptr) const = 0;
-    virtual addr_t get_entry_addr(byte *buf_ptr) const = 0;
-    virtual void set_entry_addr(byte *buf_ptr, addr_t addr) = 0;
+    virtual trace_type_t
+    get_entry_type(byte *buf_ptr) const = 0;
+    virtual size_t
+    get_entry_size(byte *buf_ptr) const = 0;
+    virtual addr_t
+    get_entry_addr(byte *buf_ptr) const = 0;
+    virtual void
+    set_entry_addr(byte *buf_ptr, addr_t addr) = 0;
 
     // All of these return how many bytes to advance the buffer pointer.
 
-    virtual int append_pid(byte *buf_ptr, process_id_t pid) = 0;
-    virtual int append_tid(byte *buf_ptr, thread_id_t tid) = 0;
-    virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid) = 0;
-    virtual int append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val) = 0;
-    virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size) = 0;
-    virtual int append_thread_header(byte *buf_ptr, thread_id_t tid) = 0;
+    virtual int
+    append_pid(byte *buf_ptr, process_id_t pid) = 0;
+    virtual int
+    append_tid(byte *buf_ptr, thread_id_t tid) = 0;
+    virtual int
+    append_thread_exit(byte *buf_ptr, thread_id_t tid) = 0;
+    virtual int
+    append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val) = 0;
+    virtual int
+    append_iflush(byte *buf_ptr, addr_t start, size_t size) = 0;
+    virtual int
+    append_thread_header(byte *buf_ptr, thread_id_t tid) = 0;
     // This is a per-buffer-writeout header.
-    virtual int append_unit_header(byte *buf_ptr, thread_id_t tid) = 0;
+    virtual int
+    append_unit_header(byte *buf_ptr, thread_id_t tid) = 0;
 
     // These insert inlined code to add an entry into the trace buffer.
-    virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                  reg_id_t reg_ptr, int adjust,
-                                  instr_t *app, opnd_t ref, bool write,
-                                  dr_pred_type_t pred) = 0;
-    virtual int instrument_instr(void *drcontext, void *tag, void **bb_field,
-                                 instrlist_t *ilist, instr_t *where,
-                                 reg_id_t reg_ptr, int adjust,
-                                 instr_t *app) = 0;
-    virtual int instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, int adjust,
-                                   instr_t **delay_instrs, int num_delay_instrs) = 0;
+    virtual int
+    instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
+                      reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
+                      int ref_index, bool write, dr_pred_type_t pred) = 0;
+    virtual int
+    instrument_instr(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
+                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app) = 0;
+    virtual int
+    instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
+                       int num_delay_instrs) = 0;
 
-    virtual void bb_analysis(void *drcontext, void *tag, void **bb_field,
-                             instrlist_t *ilist, bool repstr_expanded) = 0;
+    virtual void
+    bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
+                bool repstr_expanded) = 0;
 
     // Utilities.
-    static unsigned short instr_to_prefetch_type(instr_t *instr);
-    static unsigned short instr_to_instr_type(instr_t *instr,
-                                              bool repstr_expanded = false);
-    static bool instr_is_flush(instr_t *instr);
-    static int get_cpu_id();
-    static uint64 get_timestamp();
-    virtual void insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                    reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref,
-                                    OUT bool *scratch_used = NULL);
+    static unsigned short
+    instr_to_prefetch_type(instr_t *instr);
+    static unsigned short
+    instr_to_instr_type(instr_t *instr, bool repstr_expanded = false);
+    static bool
+    instr_is_flush(instr_t *instr);
+    static int
+    get_cpu_id();
+    static uint64
+    get_timestamp();
+    virtual void
+    insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref,
+                       OUT bool *scratch_used = NULL);
 
 protected:
     void (*insert_load_buf_ptr)(void *, instrlist_t *, instr_t *, reg_id_t);
@@ -115,138 +145,204 @@ protected:
     // this info cannot be inferred from surrounding icache entries).
     bool memref_needs_full_info;
     drvector_t *reg_vector;
+    bool disable_optimizations;
 
 private:
-    instru_t(): instr_size(0) {}
+    instru_t()
+        : instr_size(0)
+    {
+    }
 
     const size_t instr_size;
 };
 
-class online_instru_t : public instru_t
-{
+class online_instru_t : public instru_t {
 public:
-    online_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
-                                            instr_t *, reg_id_t),
-                    bool memref_needs_info,
-                    drvector_t *reg_vector);
+    online_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
+                    bool memref_needs_info, drvector_t *reg_vector);
     virtual ~online_instru_t();
 
-    virtual trace_type_t get_entry_type(byte *buf_ptr) const;
-    virtual size_t get_entry_size(byte *buf_ptr) const;
-    virtual addr_t get_entry_addr(byte *buf_ptr) const;
-    virtual void set_entry_addr(byte *buf_ptr, addr_t addr);
+    virtual trace_type_t
+    get_entry_type(byte *buf_ptr) const;
+    virtual size_t
+    get_entry_size(byte *buf_ptr) const;
+    virtual addr_t
+    get_entry_addr(byte *buf_ptr) const;
+    virtual void
+    set_entry_addr(byte *buf_ptr, addr_t addr);
 
-    virtual int append_pid(byte *buf_ptr, process_id_t pid);
-    virtual int append_tid(byte *buf_ptr, thread_id_t tid);
-    virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid);
-    virtual int append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val);
-    virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size);
-    virtual int append_thread_header(byte *buf_ptr, thread_id_t tid);
-    virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
+    virtual int
+    append_pid(byte *buf_ptr, process_id_t pid);
+    virtual int
+    append_tid(byte *buf_ptr, thread_id_t tid);
+    virtual int
+    append_thread_exit(byte *buf_ptr, thread_id_t tid);
+    virtual int
+    append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val);
+    virtual int
+    append_iflush(byte *buf_ptr, addr_t start, size_t size);
+    virtual int
+    append_thread_header(byte *buf_ptr, thread_id_t tid);
+    virtual int
+    append_unit_header(byte *buf_ptr, thread_id_t tid);
 
-    virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                  reg_id_t reg_ptr, int adjust,
-                                  instr_t *app, opnd_t ref, bool write,
-                                  dr_pred_type_t pred);
-    virtual int instrument_instr(void *drcontext, void *tag, void **bb_field,
-                                 instrlist_t *ilist, instr_t *where,
-                                 reg_id_t reg_ptr, int adjust,
-                                 instr_t *app);
-    virtual int instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, int adjust,
-                                   instr_t **delay_instrs, int num_delay_instrs);
+    virtual int
+    instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
+                      reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
+                      int ref_index, bool write, dr_pred_type_t pred);
+    virtual int
+    instrument_instr(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
+                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app);
+    virtual int
+    instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
+                       int num_delay_instrs);
 
-    virtual void bb_analysis(void *drcontext, void *tag, void **bb_field,
-                             instrlist_t *ilist, bool repstr_expanded);
+    virtual void
+    bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
+                bool repstr_expanded);
 
 private:
-    void insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        reg_id_t base, reg_id_t scratch, app_pc pc, int adjust);
-    void insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          reg_id_t reg_ptr, reg_id_t reg_addr, int adjust, opnd_t ref);
-    void insert_save_type_and_size(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t base, reg_id_t scratch, ushort type,
-                                   ushort size, int adjust);
+    void
+    insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t base,
+                   reg_id_t scratch, app_pc pc, int adjust);
+    void
+    insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
+                     reg_id_t reg_ptr, reg_id_t reg_addr, int adjust, opnd_t ref);
+    void
+    insert_save_type_and_size(void *drcontext, instrlist_t *ilist, instr_t *where,
+                              reg_id_t base, reg_id_t scratch, ushort type, ushort size,
+                              int adjust);
 };
 
-class offline_instru_t : public instru_t
-{
+class offline_instru_t : public instru_t {
 public:
-    offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
-                                             instr_t *, reg_id_t),
-                     bool memref_needs_info,
-                     drvector_t *reg_vector,
-                     ssize_t (*write_file)(file_t file,
-                                           const void *data,
-                                           size_t count),
-                     file_t module_file);
+    offline_instru_t();
+    offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
+                     bool memref_needs_info, drvector_t *reg_vector,
+                     ssize_t (*write_file)(file_t file, const void *data, size_t count),
+                     file_t module_file, bool disable_optimizations = false);
     virtual ~offline_instru_t();
 
-    virtual trace_type_t get_entry_type(byte *buf_ptr) const;
-    virtual size_t get_entry_size(byte *buf_ptr) const;
-    virtual addr_t get_entry_addr(byte *buf_ptr) const;
-    virtual void set_entry_addr(byte *buf_ptr, addr_t addr);
+    virtual trace_type_t
+    get_entry_type(byte *buf_ptr) const;
+    virtual size_t
+    get_entry_size(byte *buf_ptr) const;
+    virtual addr_t
+    get_entry_addr(byte *buf_ptr) const;
+    virtual void
+    set_entry_addr(byte *buf_ptr, addr_t addr);
 
-    virtual int append_pid(byte *buf_ptr, process_id_t pid);
-    virtual int append_tid(byte *buf_ptr, thread_id_t tid);
-    virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid);
-    virtual int append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val);
-    virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size);
-    virtual int append_thread_header(byte *buf_ptr, thread_id_t tid);
-    virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
+    uint64_t
+    get_modoffs(void *drcontext, app_pc pc);
 
-    virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                  reg_id_t reg_ptr, int adjust,
-                                  instr_t *app, opnd_t ref, bool write,
-                                  dr_pred_type_t pred);
-    virtual int instrument_instr(void *drcontext, void *tag, void **bb_field,
-                                 instrlist_t *ilist, instr_t *where,
-                                 reg_id_t reg_ptr, int adjust,
-                                 instr_t *app);
-    virtual int instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, int adjust,
-                                   instr_t **delay_instrs, int num_delay_instrs);
+    virtual int
+    append_pid(byte *buf_ptr, process_id_t pid);
+    virtual int
+    append_tid(byte *buf_ptr, thread_id_t tid);
+    virtual int
+    append_thread_exit(byte *buf_ptr, thread_id_t tid);
+    virtual int
+    append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val);
+    virtual int
+    append_iflush(byte *buf_ptr, addr_t start, size_t size);
+    virtual int
+    append_thread_header(byte *buf_ptr, thread_id_t tid);
+    virtual int
+    append_thread_header(byte *buf_ptr, thread_id_t tid, offline_file_type_t file_type);
+    virtual int
+    append_unit_header(byte *buf_ptr, thread_id_t tid);
 
-    virtual void bb_analysis(void *drcontext, void *tag, void **bb_field,
-                             instrlist_t *ilist, bool repstr_expanded);
+    virtual int
+    instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
+                      reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
+                      int ref_index, bool write, dr_pred_type_t pred);
+    virtual int
+    instrument_instr(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
+                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app);
+    virtual int
+    instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
+                       int num_delay_instrs);
 
-    static bool custom_module_data(void * (*load_cb)(module_data_t *module),
-                                   int (*print_cb)(void *data, char *dst,
-                                                   size_t max_len),
-                                   void (*free_cb)(void *data));
+    virtual void
+    bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
+                bool repstr_expanded);
+
+    static bool
+    custom_module_data(void *(*load_cb)(module_data_t *module),
+                       int (*print_cb)(void *data, char *dst, size_t max_len),
+                       void (*free_cb)(void *data));
+
+    bool
+    opnd_disp_is_elidable(opnd_t memop);
+    // "version" is an OFFLINE_FILE_VERSION* constant.
+    bool
+    opnd_is_elidable(opnd_t memop, OUT reg_id_t &base, int version);
+    // Inserts labels marking elidable addresses. label_marks_elidable() identifies them.
+    // "version" is an OFFLINE_FILE_VERSION* constant.
+    void
+    identify_elidable_addresses(void *drcontext, instrlist_t *ilist, int version);
+    bool
+    label_marks_elidable(instr_t *instr, OUT int *opnd_index, OUT int *memopnd_index,
+                         OUT bool *is_write, OUT bool *needs_base);
 
 private:
     struct custom_module_data_t {
-        custom_module_data_t(const char *base_, size_t size_, void *user_) :
-            base(base_), size(size_), user_data(user_) {}
+        custom_module_data_t(const char *base_, size_t size_, void *user_)
+            : base(base_)
+            , size(size_)
+            , user_data(user_)
+        {
+        }
         const char *base;
         size_t size;
         void *user_data;
     };
 
-    bool instr_has_multiple_different_memrefs(instr_t *instr);
-    int insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          reg_id_t reg_ptr, reg_id_t scratch, int adjust,
-                          offline_entry_t *entry);
-    int insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        reg_id_t reg_ptr, reg_id_t scratch, int adjust, app_pc pc,
-                        uint instr_count);
-    int insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                         reg_id_t reg_ptr, int adjust, opnd_t ref, bool write);
-    int insert_save_type_and_size(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                  reg_id_t reg_ptr, reg_id_t scratch, int adjust,
-                                  instr_t *app, opnd_t ref, bool write);
+    bool
+    instr_has_multiple_different_memrefs(instr_t *instr);
+    int
+    insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t *where,
+                      reg_id_t reg_ptr, reg_id_t scratch, int adjust,
+                      offline_entry_t *entry);
+    int
+    insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
+                   reg_id_t scratch, int adjust, app_pc pc, uint instr_count);
+    int
+    insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
+                     reg_id_t reg_ptr, int adjust, opnd_t ref, bool write);
+    int
+    insert_save_type_and_size(void *drcontext, instrlist_t *ilist, instr_t *where,
+                              reg_id_t reg_ptr, reg_id_t scratch, int adjust,
+                              instr_t *app, opnd_t ref, bool write);
     ssize_t (*write_file_func)(file_t file, const void *data, size_t count);
     file_t modfile;
 
+    void
+    opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr_t *instr, opnd_t memop,
+                        int op_index, int memop_index, bool write, int version,
+                        reg_id_set_t &saw_base);
+
     // Custom module fields are global (since drmodtrack's support is global, we don't
     // try to pass void* user data params through).
-    static void * (*user_load)(module_data_t *module);
+    static void *(*user_load)(module_data_t *module);
     static int (*user_print)(void *data, char *dst, size_t max_len);
     static void (*user_free)(void *data);
-    static void *load_custom_module_data(module_data_t *module);
-    static int print_custom_module_data(void *data, char *dst, size_t max_len);
-    static void free_custom_module_data(void *data);
+    static void *
+    load_custom_module_data(module_data_t *module);
+    static int
+    print_custom_module_data(void *data, char *dst, size_t max_len);
+    static void
+    free_custom_module_data(void *data);
+
+    // These identify the 4 fields we store in the label data area array.
+    static CONSTEXPR int LABEL_DATA_ELIDED_INDEX = 0;       // Index among all operands.
+    static CONSTEXPR int LABEL_DATA_ELIDED_MEMOP_INDEX = 1; // Index among memory ops.
+    static CONSTEXPR int LABEL_DATA_ELIDED_IS_WRITE = 2;
+    static CONSTEXPR int LABEL_DATA_ELIDED_NEEDS_BASE = 3;
+    ptr_uint_t elide_memref_note;
+    bool standalone = false;
 };
 
 #endif /* _INSTRU_H_ */

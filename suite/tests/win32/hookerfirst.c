@@ -40,8 +40,8 @@
  * case 2525
  *3) Ent hooks first
  *  We hook -- need to chain -- mangle their call
- *  Ent unhooks (dynamic off) -- need to unchain by emulating their write and then restoring
- *  they could come back -- then follow 1)
+ *  Ent unhooks (dynamic off) -- need to unchain by emulating their write and then
+ *restoring they could come back -- then follow 1)
  *
  *4) Ent hooks first
  *  We hook -- need to chain
@@ -53,15 +53,13 @@
 #include "tools.h"
 
 #ifdef USE_DYNAMO
-#include "dynamorio.h"
+#    include "dynamorio.h"
 #endif
 
 /* from hookerfirst.dll */
-__declspec(dllimport)
-hookit(int x);
+__declspec(dllimport) hookit(int x);
 
-__declspec(dllimport)
-unhookit(int x);
+__declspec(dllimport) unhookit(int x);
 
 int
 badfunc(void)
@@ -85,7 +83,8 @@ main()
      * should figure out how to trigger detach on error here.
      */
 
-    /* this is for testing with -internal_detach 0x2 -- we'd need to detach ourselves cleanly */
+    /* this is for testing with -internal_detach 0x2 -- we'd need to detach ourselves
+     * cleanly */
 
     /* ensure still checking ret-after-call
      * use a nop between push and ret to avoid VB push/ret pattern match

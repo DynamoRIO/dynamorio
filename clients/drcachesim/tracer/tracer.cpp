@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -44,6 +44,7 @@
 #include <string>
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drwrap.h"
 #include "drmemtrace.h"
 #include "drreg.h"
 #include "drutil.h"
@@ -52,19 +53,21 @@
 #include "instru.h"
 #include "raw2trace.h"
 #include "physaddr.h"
+#include "func_trace.h"
 #include "../common/trace_entry.h"
 #include "../common/named_pipe.h"
 #include "../common/options.h"
 #include "../common/utils.h"
 
 #ifdef ARM
-# include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
+#    include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
 #endif
 
 /* Make sure we export function name as the symbol name without mangling. */
 #ifdef __cplusplus
 extern "C" {
-DR_EXPORT void drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
+DR_EXPORT void
+drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
 }
 #endif
 
@@ -73,21 +76,24 @@ DR_EXPORT void drmemtrace_client_main(client_id_t id, int argc, const char *argv
  */
 DR_DISALLOW_UNSAFE_STATIC
 
-#define NOTIFY(level, ...) do {            \
-    if (op_verbose.get_value() >= (level)) \
-        dr_fprintf(STDERR, __VA_ARGS__);   \
-} while (0)
+#define NOTIFY(level, ...)                     \
+    do {                                       \
+        if (op_verbose.get_value() >= (level)) \
+            dr_fprintf(STDERR, __VA_ARGS__);   \
+    } while (0)
 
 // A clean exit via dr_exit_process() is not supported from init code, but
 // we do want to at least close the pipe file.
-#define FATAL(...) do {                \
-    dr_fprintf(STDERR, __VA_ARGS__);   \
-    if (!op_offline.get_value())       \
-        ipc_pipe.close();              \
-    dr_abort();                        \
-} while (0)
+#define FATAL(...)                       \
+    do {                                 \
+        dr_fprintf(STDERR, __VA_ARGS__); \
+        if (!op_offline.get_value())     \
+            ipc_pipe.close();            \
+        dr_abort();                      \
+    } while (0)
 
 static char logsubdir[MAXIMUM_PATH];
+static char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 static file_t module_file;
 
 /* Max number of entries a buffer can have. It should be big enough
@@ -139,18 +145,28 @@ typedef struct {
 /* For online simulation, we write to a single global pipe */
 static named_pipe_t ipc_pipe;
 
-#define MAX_INSTRU_SIZE 64  /* the max obj size of instr_t or its children */
+#define MAX_INSTRU_SIZE 128 /* the max obj size of instr_t or its children */
 static instru_t *instru;
 
 static client_id_t client_id;
-static void  *mutex;    /* for multithread support */
-static uint64 num_refs; /* keep a global memory reference count */
+static void *mutex;          /* for multithread support */
+static uint64 num_refs;      /* keep a global memory reference count */
 static uint64 num_refs_racy; /* racy global memory reference count */
 static volatile bool exited_process;
 
 /* virtual to physical translation */
 static bool have_phys;
 static physaddr_t physaddr;
+
+// The purpose of priority = DRMGR_PRIORITY_INSERT_DRWRAP + 1 is to make sure
+// function pre/post callbacks of drwrap API happens before memtrace's
+// meta instruction, so that function trace entries will not be appended to the
+// middle of a BB's PC and Memory Access trace entries. Assumption made here is
+// that, every function pre/post callback always happens at the first
+// instruction of a BB.
+static drmgr_priority_t memtrace_pri = { sizeof(drmgr_priority_t),
+                                         DRMGR_PRIORITY_NAME_MEMTRACE, NULL, NULL,
+                                         DRMGR_PRIORITY_INSERT_DRWRAP + 1 };
 
 /* Allocated TLS slot offsets */
 enum {
@@ -161,9 +177,10 @@ enum {
     MEMTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
 static reg_id_t tls_seg;
-static uint     tls_offs;
-static int      tls_idx;
-#define TLS_SLOT(tls_base, enum_val) (((void **)((byte *)(tls_base)+tls_offs))+(enum_val))
+static uint tls_offs;
+static int tls_idx;
+#define TLS_SLOT(tls_base, enum_val) \
+    (((void **)((byte *)(tls_base) + tls_offs)) + (enum_val))
 #define BUF_PTR(tls_base) *(byte **)TLS_SLOT(tls_base, MEMTRACE_TLS_OFFS_BUF_PTR)
 /* We leave slot(s) at the start so we can easily insert a header entry */
 static size_t buf_hdr_slots_size;
@@ -178,12 +195,19 @@ static bool thread_filtering_enabled;
 
 /* file operations functions */
 struct file_ops_func_t {
-    file_ops_func_t() :
-        open_file(dr_open_file), read_file(dr_read_file), write_file(dr_write_file),
-        close_file(dr_close_file), create_dir(dr_create_dir), handoff_buf(nullptr),
-        exit_cb(nullptr), exit_arg(nullptr) {}
-    drmemtrace_open_file_func_t  open_file;
-    drmemtrace_read_file_func_t  read_file;
+    file_ops_func_t()
+        : open_file(dr_open_file)
+        , read_file(dr_read_file)
+        , write_file(dr_write_file)
+        , close_file(dr_close_file)
+        , create_dir(dr_create_dir)
+        , handoff_buf(nullptr)
+        , exit_cb(nullptr)
+        , exit_arg(nullptr)
+    {
+    }
+    drmemtrace_open_file_func_t open_file;
+    drmemtrace_read_file_func_t read_file;
     drmemtrace_write_file_func_t write_file;
     drmemtrace_close_file_func_t close_file;
     drmemtrace_create_dir_func_t create_dir;
@@ -194,8 +218,8 @@ struct file_ops_func_t {
 static struct file_ops_func_t file_ops_func;
 
 drmemtrace_status_t
-drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
-                            drmemtrace_read_file_func_t  read_file_func,
+drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
+                            drmemtrace_read_file_func_t read_file_func,
                             drmemtrace_write_file_func_t write_file_func,
                             drmemtrace_close_file_func_t close_file_func,
                             drmemtrace_create_dir_func_t create_dir_func)
@@ -216,8 +240,7 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
 
 drmemtrace_status_t
 drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
-                          drmemtrace_exit_func_t exit_func,
-                          void *exit_func_arg)
+                          drmemtrace_exit_func_t exit_func, void *exit_func_arg)
 {
     /* We don't check op_offline b/c option parsing may not have happened yet. */
     file_ops_func.handoff_buf = handoff_func;
@@ -247,7 +270,7 @@ drmemtrace_get_modlist_path(OUT const char **path)
 }
 
 drmemtrace_status_t
-drmemtrace_custom_module_data(void * (*load_cb)(module_data_t *module),
+drmemtrace_custom_module_data(void *(*load_cb)(module_data_t *module),
                               int (*print_cb)(void *data, char *dst, size_t max_len),
                               void (*free_cb)(void *data))
 {
@@ -286,8 +309,8 @@ drmemtrace_filter_threads(bool (*should_trace_thread)(thread_id_t tid, void *use
 static void
 create_buffer(per_thread_t *data)
 {
-    data->buf_base = (byte *)
-        dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    data->buf_base =
+        (byte *)dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     /* For file_ops_func.handoff_buf we have to handle failure as OOM is not unlikely. */
     if (data->buf_base == NULL) {
         /* Switch to "reserve" buffer. */
@@ -311,8 +334,8 @@ create_buffer(per_thread_t *data)
          * -max_trace_size.  This costs us some memory (not for idle threads: that's
          * why we wait for the 2nd buffer) but we gain simplicity.
          */
-        data->reserve_buf = (byte *)
-            dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+        data->reserve_buf = (byte *)dr_raw_mem_alloc(
+            max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
         if (data->reserve_buf != NULL)
             memset(data->reserve_buf + trace_buf_size, -1, redzone_size);
     }
@@ -338,7 +361,7 @@ static inline byte *
 write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
 {
     if (op_offline.get_value()) {
-        per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+        per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
         ssize_t size = towrite_end - towrite_start;
         if (file_ops_func.handoff_buf != NULL) {
             if (!file_ops_func.handoff_buf(data->file, towrite_start, size,
@@ -363,7 +386,7 @@ is_ok_to_split_before(trace_type_t type)
 static void
 memtrace(void *drcontext, bool skip_size_cap)
 {
-    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     byte *mem_ref, *buf_ptr;
     byte *pipe_start, *pipe_end, *redzone;
     bool do_write = true;
@@ -395,11 +418,10 @@ memtrace(void *drcontext, bool skip_size_cap)
 
     if (do_write) {
         if (have_phys && op_use_physical.get_value()) {
-          for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
-               mem_ref += instru->sizeof_entry()) {
+            for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
+                 mem_ref += instru->sizeof_entry()) {
                 trace_type_t type = instru->get_entry_type(mem_ref);
-                if (type != TRACE_TYPE_THREAD &&
-                    type != TRACE_TYPE_THREAD_EXIT &&
+                if (type != TRACE_TYPE_THREAD && type != TRACE_TYPE_THREAD_EXIT &&
                     type != TRACE_TYPE_PID) {
                     addr_t virt = instru->get_entry_addr(mem_ref);
                     addr_t phys = physaddr.virtual2physical(virt);
@@ -411,8 +433,9 @@ memtrace(void *drcontext, bool skip_size_cap)
                         // There are cases the xl8 fail, e.g.,:
                         // - vsyscall/kernel page,
                         // - wild access (NULL or very large bogus address) by app
-                        NOTIFY(1, "virtual2physical translation failure for "
-                               "<%2d, %2d, " PFX">\n",
+                        NOTIFY(1,
+                               "virtual2physical translation failure for "
+                               "<%2d, %2d, " PFX ">\n",
                                type, instru->get_entry_size(mem_ref), virt);
                     }
                 }
@@ -432,11 +455,11 @@ memtrace(void *drcontext, bool skip_size_cap)
                     // We check the end of this entry + the max # of delay entries to
                     // avoid splitting an instr from its subsequent bundle entry.
                     // An alternative is to have the reader use per-thread state.
-                    if ((mem_ref + (1+MAX_NUM_DELAY_ENTRIES)*instru->sizeof_entry()
-                         - pipe_start) > ipc_pipe.get_atomic_write_size()) {
-                      DR_ASSERT(is_ok_to_split_before(instru->get_entry_type
-                                                      (pipe_start+header_size)));
-                      pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
+                    if ((mem_ref + (1 + MAX_NUM_DELAY_ENTRIES) * instru->sizeof_entry() -
+                         pipe_start) > ipc_pipe.get_atomic_write_size()) {
+                        DR_ASSERT(is_ok_to_split_before(
+                            instru->get_entry_type(pipe_start + header_size)));
+                        pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
                     }
                 }
             }
@@ -447,13 +470,13 @@ memtrace(void *drcontext, bool skip_size_cap)
             // traces we'll need to not split after a branch by carrying a write-final
             // branch forward to the next buffer.
             if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size()) {
-                DR_ASSERT(is_ok_to_split_before(instru->get_entry_type
-                                                (pipe_start+header_size)));
+                DR_ASSERT(is_ok_to_split_before(
+                    instru->get_entry_type(pipe_start + header_size)));
                 pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
             }
             if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size) {
-                DR_ASSERT(is_ok_to_split_before(instru->get_entry_type
-                                                (pipe_start+header_size)));
+                DR_ASSERT(is_ok_to_split_before(
+                    instru->get_entry_type(pipe_start + header_size)));
                 atomic_pipe_write(drcontext, pipe_start, buf_ptr);
             }
         } else {
@@ -490,7 +513,7 @@ memtrace(void *drcontext, bool skip_size_cap)
             // XXX i#2644: we would prefer detach_after_tracing rather than exiting
             // the process but that requires a client-triggered detach so for now
             // we settle for exiting.
-            NOTIFY(0, "Exiting process after ~" UINT64_FORMAT_STRING" references.\n",
+            NOTIFY(0, "Exiting process after ~" UINT64_FORMAT_STRING " references.\n",
                    num_refs_racy);
             dr_exit_process(0);
         }
@@ -511,11 +534,24 @@ clean_call(void)
  */
 
 static void
-insert_load_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                    reg_id_t reg_ptr)
+append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (data->seg_base == NULL)
+        return; /* This thread was filtered out. */
+    for (int i = 0; i < vec->size; i++) {
+        BUF_PTR(data->seg_base) +=
+            instru->append_marker(BUF_PTR(data->seg_base), vec->entries[i].marker_type,
+                                  vec->entries[i].marker_value);
+    }
+}
+
+static void
+insert_load_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr)
 {
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
-                           tls_offs + sizeof(void*)*MEMTRACE_TLS_OFFS_BUF_PTR, reg_ptr);
+                           tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_BUF_PTR,
+                           reg_ptr);
 }
 
 static void
@@ -526,19 +562,17 @@ insert_update_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
         return;
     if (!op_L0_filter.get_value()) // Filter skips over this for !pred.
         instrlist_set_auto_predicate(ilist, pred);
-    MINSERT(ilist, where,
-            XINST_CREATE_add(drcontext,
-                             opnd_create_reg(reg_ptr),
-                             OPND_CREATE_INT16(adjust)));
+    MINSERT(
+        ilist, where,
+        XINST_CREATE_add(drcontext, opnd_create_reg(reg_ptr), OPND_CREATE_INT16(adjust)));
     dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
                             tls_offs + MEMTRACE_TLS_OFFS_BUF_PTR, reg_ptr);
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
 }
 
 static int
-instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist,
-                        user_data_t *ud, instr_t *where,
-                        reg_id_t reg_ptr, int adjust)
+instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_data_t *ud,
+                        instr_t *where, reg_id_t reg_ptr, int adjust)
 {
     if (ud->repstr) {
         // We assume that drutil restricts repstr to a single bb on its own, and
@@ -550,22 +584,21 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist,
         return adjust;
     }
     // Instrument to add a full instr entry for the first instr.
-    adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field,
-                                      ilist, where, reg_ptr, adjust,
-                                      ud->delay_instrs[0]);
+    adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
+                                      reg_ptr, adjust, ud->delay_instrs[0]);
     if (have_phys && op_use_physical.get_value()) {
         // No instr bundle if physical-2-virtual since instr bundle may
         // cross page bundary.
         int i;
         for (i = 1; i < ud->num_delay_instrs; i++) {
-            adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field,
-                                              ilist, where, reg_ptr,
-                                              adjust, ud->delay_instrs[i]);
+            adjust =
+                instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
+                                         reg_ptr, adjust, ud->delay_instrs[i]);
         }
     } else {
-        adjust = instru->instrument_ibundle(drcontext, ilist, where, reg_ptr,
-                                            adjust, ud->delay_instrs + 1,
-                                            ud->num_delay_instrs - 1);
+        adjust =
+            instru->instrument_ibundle(drcontext, ilist, where, reg_ptr, adjust,
+                                       ud->delay_instrs + 1, ud->num_delay_instrs - 1);
     }
     ud->num_delay_instrs = 0;
     return adjust;
@@ -598,8 +631,7 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
         /* XXX i#2825: we need this to not match instr_is_cti_short_rewrite() */
         MINSERT(ilist, where, INSTR_CREATE_nop(drcontext));
         MINSERT(ilist, where, should_skip);
-        MINSERT(ilist, where,
-                INSTR_CREATE_jmp(drcontext, opnd_create_instr(skip_label)));
+        MINSERT(ilist, where, INSTR_CREATE_jmp(drcontext, opnd_create_instr(skip_label)));
         MINSERT(ilist, where, no_skip);
     }
 #elif defined(ARM)
@@ -608,12 +640,10 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
         /* XXX: clean call is too long to use cbz to skip. */
         DR_ASSERT(reg_skip_if_zero <= DR_REG_R7); /* cbnz can't take r8+ */
         MINSERT(ilist, where,
-                INSTR_CREATE_cbnz(drcontext,
-                                 opnd_create_instr(noskip),
-                                 opnd_create_reg(reg_skip_if_zero)));
+                INSTR_CREATE_cbnz(drcontext, opnd_create_instr(noskip),
+                                  opnd_create_reg(reg_skip_if_zero)));
         MINSERT(ilist, where,
-                XINST_CREATE_jump(drcontext,
-                                  opnd_create_instr(skip_label)));
+                XINST_CREATE_jump(drcontext, opnd_create_instr(skip_label)));
         MINSERT(ilist, where, noskip);
     } else {
         /* There is no jecxz/cbz like instr on ARM-A32 mode, so we have to
@@ -625,18 +655,16 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
             FATAL("Fatal error: failed to reserve reg.");
         dr_save_arith_flags_to_reg(drcontext, ilist, where, reg_tmp);
         MINSERT(ilist, where,
-                INSTR_CREATE_cmp(drcontext,
-                                 opnd_create_reg(reg_skip_if_zero),
+                INSTR_CREATE_cmp(drcontext, opnd_create_reg(reg_skip_if_zero),
                                  OPND_CREATE_INT(0)));
-        MINSERT(ilist, where,
-                instr_set_predicate(XINST_CREATE_jump(drcontext,
-                                                      opnd_create_instr(skip_label)),
-                                    DR_PRED_EQ));
+        MINSERT(
+            ilist, where,
+            instr_set_predicate(
+                XINST_CREATE_jump(drcontext, opnd_create_instr(skip_label)), DR_PRED_EQ));
     }
 #elif defined(AARCH64)
     MINSERT(ilist, where,
-            INSTR_CREATE_cbz(drcontext,
-                             opnd_create_instr(skip_label),
+            INSTR_CREATE_cbz(drcontext, opnd_create_instr(skip_label),
                              opnd_create_reg(reg_skip_if_zero)));
 #endif
     return reg_tmp;
@@ -705,8 +733,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                                              skip_thread, short_reaches);
     }
     MINSERT(ilist, where,
-            XINST_CREATE_load(drcontext,
-                              opnd_create_reg(reg_ptr),
+            XINST_CREATE_load(drcontext, opnd_create_reg(reg_ptr),
                               OPND_CREATE_MEMPTR(reg_ptr, 0)));
     reg_id_t reg_tmp = insert_conditional_skip(drcontext, ilist, where, reg_ptr,
                                                skip_call, short_reaches);
@@ -715,7 +742,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     insert_conditional_skip_target(drcontext, ilist, where, skip_call, reg_tmp,
                                    DR_REG_NULL);
     insert_conditional_skip_target(drcontext, ilist, where, skip_thread, reg_thread,
-                                   DR_REG_NULL/*for filter we spill pre-cond*/);
+                                   DR_REG_NULL /*for filter we spill pre-cond*/);
 }
 
 // Called before writing to the trace buffer.
@@ -726,9 +753,9 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
 // aflags after the skip target.  (This is for parity on all paths per drreg
 // limitations.)
 static reg_id_t
-insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                   user_data_t *ud, reg_id_t reg_ptr,
-                   opnd_t ref, instr_t *app, instr_t *skip, dr_pred_type_t pred)
+insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_data_t *ud,
+                   reg_id_t reg_ptr, opnd_t ref, instr_t *app, instr_t *skip,
+                   dr_pred_type_t pred)
 {
     // Our "level 0" inlined direct-mapped cache filter.
     DR_ASSERT(op_L0_filter.get_value());
@@ -759,8 +786,8 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
         }
         ud->last_app_pc = instr_get_app_pc(app);
     }
-    if (drreg_reserve_register(drcontext, ilist, where, &scratch_reserve_vec, &reg_addr)
-        != DRREG_SUCCESS)
+    if (drreg_reserve_register(drcontext, ilist, where, &scratch_reserve_vec,
+                               &reg_addr) != DRREG_SUCCESS)
         FATAL("Fatal error: failed to reserve scratch reg\n");
     if (drreg_reserve_aflags(drcontext, ilist, where) != DRREG_SUCCESS)
         FATAL("Fatal error: failed to reserve aflags\n");
@@ -768,8 +795,7 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
     // if we either get a 4th scratch or keep re-computing the tag and the mask
     // but it's better to keep the common path shorter, so we clobber reg_addr
     // with the tag and recompute on a miss.
-    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_idx) !=
-        DRREG_SUCCESS)
+    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_idx) != DRREG_SUCCESS)
         FATAL("Fatal error: failed to reserve 3rd scratch register\n");
 #ifdef ARM
     if (instr_predicate_is_cond(pred)) {
@@ -788,9 +814,9 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
         // lazy restores are the same on all paths.
         // XXX: do better!
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
-        MINSERT(ilist, where,
-                XINST_CREATE_cmp
-                (drcontext, opnd_create_reg(reg_ptr), OPND_CREATE_INT32(0)));
+        MINSERT(
+            ilist, where,
+            XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_ptr), OPND_CREATE_INT32(0)));
         MINSERT(ilist, where,
                 XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(skip)));
     }
@@ -799,51 +825,51 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
     // That will only happen for unaligned accesses.
     if (is_icache) {
         instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)instr_get_app_pc(app),
-                                         opnd_create_reg(reg_addr), ilist, where,
-                                         NULL, NULL);
+                                         opnd_create_reg(reg_addr), ilist, where, NULL,
+                                         NULL);
     } else
         instru->insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref);
     MINSERT(ilist, where,
-            XINST_CREATE_slr_s
-            (drcontext, opnd_create_reg(reg_addr), OPND_CREATE_INT8(line_bits)));
+            XINST_CREATE_slr_s(drcontext, opnd_create_reg(reg_addr),
+                               OPND_CREATE_INT8(line_bits)));
     MINSERT(ilist, where,
-            XINST_CREATE_move
-            (drcontext, opnd_create_reg(reg_idx), opnd_create_reg(reg_addr)));
+            XINST_CREATE_move(drcontext, opnd_create_reg(reg_idx),
+                              opnd_create_reg(reg_addr)));
 #ifndef X86
     /* Unfortunately the mask is likely too big for an immediate (32K cache and
      * 64-byte line => 0x1ff mask, and A32 and T32 have an 8-bit limit).
      */
     MINSERT(ilist, where,
-            XINST_CREATE_load_int
-            (drcontext, opnd_create_reg(reg_ptr), OPND_CREATE_INT32(mask)));
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_ptr),
+                                  OPND_CREATE_INT32(mask)));
 #endif
     MINSERT(ilist, where,
-            XINST_CREATE_and_s
-            (drcontext, opnd_create_reg(reg_idx),
-             IF_X86_ELSE(OPND_CREATE_INT32(mask), opnd_create_reg(reg_ptr))));
+            XINST_CREATE_and_s(
+                drcontext, opnd_create_reg(reg_idx),
+                IF_X86_ELSE(OPND_CREATE_INT32(mask), opnd_create_reg(reg_ptr))));
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
-                           tls_offs + sizeof(void*)*offs, reg_ptr);
+                           tls_offs + sizeof(void *) * offs, reg_ptr);
     // While we can load from a base reg + scaled index reg on x86 and arm, we
     // have to clobber the index reg as the dest, and we need the final address again
     // to store on a miss.  Thus we take a step to compute the final
     // cache addr in a register.
     MINSERT(ilist, where,
-            XINST_CREATE_add_sll
-            (drcontext, opnd_create_reg(reg_ptr), opnd_create_reg(reg_ptr),
-             opnd_create_reg(reg_idx), compute_log2(sizeof(app_pc))));
+            XINST_CREATE_add_sll(drcontext, opnd_create_reg(reg_ptr),
+                                 opnd_create_reg(reg_ptr), opnd_create_reg(reg_idx),
+                                 compute_log2(sizeof(app_pc))));
     MINSERT(ilist, where,
-            XINST_CREATE_load
-            (drcontext, opnd_create_reg(reg_idx), OPND_CREATE_MEMPTR(reg_ptr, 0)));
+            XINST_CREATE_load(drcontext, opnd_create_reg(reg_idx),
+                              OPND_CREATE_MEMPTR(reg_ptr, 0)));
     // Now see whether it's a hit or a miss.
-    MINSERT(ilist, where,
-            XINST_CREATE_cmp
-            (drcontext, opnd_create_reg(reg_idx), opnd_create_reg(reg_addr)));
+    MINSERT(
+        ilist, where,
+        XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_idx), opnd_create_reg(reg_addr)));
     MINSERT(ilist, where,
             XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(skip)));
     // On a miss, replace the cache entry with the new cache line.
     MINSERT(ilist, where,
-            XINST_CREATE_store
-            (drcontext, OPND_CREATE_MEMPTR(reg_ptr, 0), opnd_create_reg(reg_addr)));
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, 0),
+                               opnd_create_reg(reg_addr)));
     // Restore app value b/c the caller will re-compute the app addr.
     // We can avoid clobbering the app address if we either get a 4th scratch or
     // keep re-computing the tag and the mask but it's better to keep the common
@@ -857,14 +883,14 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 static int
 instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t *where,
-                  reg_id_t reg_ptr, int adjust,
-                  instr_t *app, opnd_t ref, bool write, dr_pred_type_t pred)
+                  reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref, int ref_index,
+                  bool write, dr_pred_type_t pred)
 {
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
     if (op_L0_filter.get_value()) {
-        reg_third = insert_filter_addr(drcontext, ilist, where, ud, reg_ptr,
-                                       ref, NULL, skip, pred);
+        reg_third = insert_filter_addr(drcontext, ilist, where, ud, reg_ptr, ref, NULL,
+                                       skip, pred);
         if (reg_third == DR_REG_NULL) {
             instr_destroy(drcontext, skip);
             return adjust;
@@ -872,8 +898,8 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
     }
     if (op_L0_filter.get_value())
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
-    adjust = instru->instrument_memref(drcontext, ilist, where, reg_ptr,
-                                       adjust, app, ref, write, pred);
+    adjust = instru->instrument_memref(drcontext, ilist, where, reg_ptr, adjust, app, ref,
+                                       ref_index, write, pred);
     if (op_L0_filter.get_value() && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
         insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, pred, adjust);
@@ -893,9 +919,8 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
 }
 
 static int
-instrument_instr(void *drcontext, void *tag, user_data_t *ud,
-                 instrlist_t *ilist, instr_t *where,
-                 reg_id_t reg_ptr, int adjust, instr_t *app)
+instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist,
+                 instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app)
 {
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
@@ -909,8 +934,8 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud,
     }
     if (op_L0_filter.get_value()) // Else already loaded.
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
-    adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist,
-                                      where, reg_ptr, adjust, app);
+    adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
+                                      reg_ptr, adjust, app);
     if (op_L0_filter.get_value() && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
         insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, DR_PRED_NONE, adjust);
@@ -933,12 +958,11 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud,
  * with an instruction entry and memory reference entries.
  */
 static dr_emit_flags_t
-event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
-                      instr_t *instr, bool for_trace,
-                      bool translating, void *user_data)
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      bool for_trace, bool translating, void *user_data)
 {
     int i, adjust = 0;
-    user_data_t *ud = (user_data_t *) user_data;
+    user_data_t *ud = (user_data_t *)user_data;
     dr_pred_type_t pred;
     reg_id_t reg_ptr;
     drvector_t rvec;
@@ -956,7 +980,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
             FATAL("Fatal error: failed to reserve aflags\n");
         if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
-                FATAL("Fatal error: failed to reserve aflags\n");
+            FATAL("Fatal error: failed to reserve aflags\n");
     }
 
     if ((!instr_is_app(instr) ||
@@ -979,8 +1003,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         DR_ASSERT(opnd_is_base_disp(dst));
         // Assuming there are no consecutive strex instructions, otherwise we
         // will insert instrumentation code at the second strex instruction.
-        if (!instr_writes_to_reg(instr, opnd_get_base(dst),
-                                 DR_QUERY_INCLUDE_COND_DSTS)) {
+        if (!instr_writes_to_reg(instr, opnd_get_base(dst), DR_QUERY_INCLUDE_COND_DSTS)) {
             ud->strex = instr;
             ud->last_app_pc = instr_get_app_pc(instr);
         }
@@ -990,7 +1013,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     // Optimization: delay the simple instr trace instrumentation if possible.
     // For offline traces we want a single instr entry for the start of the bb.
     if ((!op_offline.get_value() || !drmgr_is_first_instr(drcontext, instr)) &&
-        !(instr_reads_memory(instr) ||instr_writes_memory(instr)) &&
+        !(instr_reads_memory(instr) || instr_writes_memory(instr)) &&
         // Avoid dropping trailing instrs
         !drmgr_is_last_instr(drcontext, instr) &&
         // Avoid bundling instrs whose types we separate.
@@ -1050,17 +1073,16 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     }
 
     if (ud->num_delay_instrs != 0) {
-        adjust = instrument_delay_instrs(drcontext, tag, bb, ud, instr,
-                                         reg_ptr, adjust);
+        adjust = instrument_delay_instrs(drcontext, tag, bb, ud, instr, reg_ptr, adjust);
     }
 
     if (ud->strex != NULL) {
         DR_ASSERT(instr_is_exclusive_store(ud->strex));
-        adjust = instrument_instr(drcontext, tag, ud, bb,
-                                  instr, reg_ptr, adjust, ud->strex);
-        adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr,
-                                   adjust, ud->strex, instr_get_dst(ud->strex, 0),
-                                   true, instr_get_predicate(ud->strex));
+        adjust =
+            instrument_instr(drcontext, tag, ud, bb, instr, reg_ptr, adjust, ud->strex);
+        adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust, ud->strex,
+                                   instr_get_dst(ud->strex, 0), 0, true,
+                                   instr_get_predicate(ud->strex));
         ud->strex = NULL;
     }
 
@@ -1080,8 +1102,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     // one to handle a zero-iter loop.  For offline, we just record the pc; for
     // online we have to ignore "instr" here in instru_online::instrument_instr().
     if (!ud->repstr || drmgr_is_first_instr(drcontext, instr)) {
-        adjust = instrument_instr(drcontext, tag, ud, bb,
-                                  instr, reg_ptr, adjust, instr);
+        adjust = instrument_instr(drcontext, tag, ud, bb, instr, reg_ptr, adjust, instr);
     }
     ud->last_app_pc = instr_get_app_pc(instr);
 
@@ -1089,23 +1110,23 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         if (pred != DR_PRED_NONE && adjust != 0) {
             // Update buffer ptr and reset adjust to 0, because
             // we may not execute the inserted code below.
-            insert_update_buf_ptr(drcontext, bb, instr, reg_ptr,
-                                  DR_PRED_NONE, adjust);
+            insert_update_buf_ptr(drcontext, bb, instr, reg_ptr, DR_PRED_NONE, adjust);
             adjust = 0;
         }
 
         /* insert code to add an entry for each memory reference opnd */
         for (i = 0; i < instr_num_srcs(instr); i++) {
             if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-                adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust,
-                                           instr, instr_get_src(instr, i), false, pred);
+                adjust =
+                    instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust, instr,
+                                      instr_get_src(instr, i), i, false, pred);
             }
         }
 
         for (i = 0; i < instr_num_dsts(instr); i++) {
             if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
                 adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust,
-                                           instr, instr_get_dst(instr, i), true, pred);
+                                           instr, instr_get_dst(instr, i), i, true, pred);
             }
         }
         if (adjust != 0)
@@ -1136,10 +1157,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
  * monitor every memory reference they make.
  */
 static dr_emit_flags_t
-event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
-                 bool for_trace, bool translating, OUT void **user_data)
+event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating, OUT void **user_data)
 {
-    user_data_t *data = (user_data_t *) dr_thread_alloc(drcontext, sizeof(user_data_t));
+    user_data_t *data = (user_data_t *)dr_thread_alloc(drcontext, sizeof(user_data_t));
     data->last_app_pc = NULL;
     data->strex = NULL;
     data->num_delay_instrs = 0;
@@ -1153,18 +1174,17 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
 }
 
 static dr_emit_flags_t
-event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating, void *user_data)
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, void *user_data)
 {
-    user_data_t *ud = (user_data_t *) user_data;
+    user_data_t *ud = (user_data_t *)user_data;
     instru->bb_analysis(drcontext, tag, &ud->instru_field, bb, ud->repstr);
     return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
-event_bb_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
-                       bool for_trace, bool translating,
-                       void *user_data)
+event_bb_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                       bool translating, void *user_data)
 {
     dr_thread_free(drcontext, user_data, sizeof(user_data_t));
     return DR_EMIT_DEFAULT;
@@ -1179,14 +1199,14 @@ event_filter_syscall(void *drcontext, int sysnum)
 static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
-    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if (BUF_PTR(data->seg_base) == NULL)
         return true; /* This thread was filtered out. */
 #ifdef ARM
     // On Linux ARM, cacheflush syscall takes 3 params: start, end, and 0.
     if (sysnum == SYS_cacheflush) {
         addr_t start = (addr_t)dr_syscall_get_param(drcontext, 0);
-        addr_t end   = (addr_t)dr_syscall_get_param(drcontext, 1);
+        addr_t end = (addr_t)dr_syscall_get_param(drcontext, 1);
         if (end > start) {
             BUF_PTR(data->seg_base) +=
                 instru->append_iflush(BUF_PTR(data->seg_base), start, end - start);
@@ -1201,8 +1221,9 @@ event_pre_syscall(void *drcontext, int sysnum)
 static void
 event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
 {
-    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     trace_marker_type_t marker_type;
+    uintptr_t marker_val = 0;
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
     switch (info->type) {
@@ -1215,21 +1236,29 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     case DR_XFER_SIGNAL_DELIVERY:
     case DR_XFER_EXCEPTION_DISPATCHER:
     case DR_XFER_RAISE_DISPATCHER:
-    case DR_XFER_CALLBACK_DISPATCHER:
-        marker_type = TRACE_MARKER_TYPE_KERNEL_EVENT;
-        break;
+    case DR_XFER_CALLBACK_DISPATCHER: marker_type = TRACE_MARKER_TYPE_KERNEL_EVENT; break;
     case DR_XFER_SIGNAL_RETURN:
     case DR_XFER_CALLBACK_RETURN:
     case DR_XFER_CONTINUE:
-    case DR_XFER_SET_CONTEXT_THREAD:
-        marker_type = TRACE_MARKER_TYPE_KERNEL_XFER;
-        break;
-    default:
-        return;
+    case DR_XFER_SET_CONTEXT_THREAD: marker_type = TRACE_MARKER_TYPE_KERNEL_XFER; break;
+    default: return;
     }
     NOTIFY(2, "%s: type %d, sig %d\n", __FUNCTION__, info->type, info->sig);
+    /* TODO i3937: We need something similar to this for online too, to place signals
+     * inside instr bundles.
+     */
+    if (op_offline.get_value()) {
+        /* Enable post-processing to figure out the ordering of this xfer vs
+         * non-memref instrs in the bb.
+         */
+        uint64_t modoffs = reinterpret_cast<offline_instru_t *>(instru)->get_modoffs(
+            drcontext, info->source_mcontext->pc);
+        marker_val = static_cast<uintptr_t>(modoffs);
+        NOTIFY(3, "%s: source pc " PFX " => modoffs " PIFX "\n", __FUNCTION__,
+               info->source_mcontext->pc, marker_val);
+    }
     BUF_PTR(data->seg_base) +=
-        instru->append_marker(BUF_PTR(data->seg_base), marker_type, 0);
+        instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
     if (file_ops_func.handoff_buf == NULL)
         memtrace(drcontext, false);
 }
@@ -1243,14 +1272,14 @@ static volatile bool tracing_enabled;
 static void *enable_tracing_lock;
 
 #ifdef X86_64
-# define DELAYED_CHECK_INLINED 1
+#    define DELAYED_CHECK_INLINED 1
 #else
 // XXX: we don't have the inlining implemented yet.
 #endif
 
 static dr_emit_flags_t
-event_delay_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                        bool for_trace, bool translating, void **user_data);
+event_delay_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                        bool translating, void **user_data);
 
 static dr_emit_flags_t
 event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
@@ -1265,8 +1294,8 @@ enable_delay_instrumentation()
     /* We first have a phase where we count instructions.  Only then do we switch
      * to tracing instrumentation.
      */
-    if (!drmgr_register_bb_instrumentation_event(event_delay_bb_analysis,
-                                                 event_delay_app_instruction, NULL))
+    if (!drmgr_register_bb_instrumentation_event(
+            event_delay_bb_analysis, event_delay_app_instruction, &memtrace_pri))
         DR_ASSERT(false);
     enable_tracing_lock = dr_mutex_create();
 }
@@ -1293,11 +1322,9 @@ enable_tracing_instrumentation()
 {
     if (!drmgr_register_pre_syscall_event(event_pre_syscall) ||
         !drmgr_register_kernel_xfer_event(event_kernel_xfer) ||
-        !drmgr_register_bb_instrumentation_ex_event(event_bb_app2app,
-                                                    event_bb_analysis,
-                                                    event_app_instruction,
-                                                    event_bb_instru2instru,
-                                                    NULL))
+        !drmgr_register_bb_instrumentation_ex_event(
+            event_bb_app2app, event_bb_analysis, event_app_instruction,
+            event_bb_instru2instru, &memtrace_pri))
         DR_ASSERT(false);
     dr_register_filter_syscall_event(event_filter_syscall);
     tracing_enabled = true;
@@ -1330,13 +1357,12 @@ check_instr_count_threshold(uint incby)
 #endif
 
 static dr_emit_flags_t
-event_delay_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                        bool for_trace, bool translating, void **user_data)
+event_delay_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                        bool translating, void **user_data)
 {
     instr_t *instr;
     uint num_instrs;
-    for (instr = instrlist_first_app(bb), num_instrs = 0;
-         instr != NULL;
+    for (instr = instrlist_first_app(bb), num_instrs = 0; instr != NULL;
          instr = instr_get_next_app(instr)) {
         num_instrs++;
     }
@@ -1354,46 +1380,42 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
     num_instrs = (uint)(ptr_uint_t)user_data;
     drmgr_disable_auto_predication(drcontext, bb);
 #ifdef DELAYED_CHECK_INLINED
-# ifdef X86_64
+#    ifdef X86_64
     if (!drx_insert_counter_update(drcontext, bb, instr,
-                                   (dr_spill_slot_t)(SPILL_SLOT_MAX+1)/*use drmgr*/,
+                                   (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
                                    &instr_count, num_instrs, DRX_COUNTER_64BIT))
         DR_ASSERT(false);
     instr_t *skip_call = INSTR_CREATE_label(drcontext);
     reg_id_t scratch = DR_REG_NULL;
     if (op_trace_after_instrs.get_value() < INT_MAX) {
         MINSERT(bb, instr,
-                XINST_CREATE_cmp
-                (drcontext,  OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
-                 OPND_CREATE_INT32(op_trace_after_instrs.get_value())));
+                XINST_CREATE_cmp(drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
+                                 OPND_CREATE_INT32(op_trace_after_instrs.get_value())));
     } else {
         if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch) != DRREG_SUCCESS)
             FATAL("Fatal error: failed to reserve scratch register");
         instrlist_insert_mov_immed_ptrsz(drcontext, op_trace_after_instrs.get_value(),
                                          opnd_create_reg(scratch), bb, instr, NULL, NULL);
         MINSERT(bb, instr,
-                XINST_CREATE_cmp
-                (drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
-                 opnd_create_reg(scratch)));
+                XINST_CREATE_cmp(drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
+                                 opnd_create_reg(scratch)));
     }
-    MINSERT(bb, instr,
-            INSTR_CREATE_jcc(drcontext, OP_jl, opnd_create_instr(skip_call)));
-    dr_insert_clean_call(drcontext, bb, instr,
-                         (void *)hit_instr_count_threshold, false/*fpstate */, 0);
+    MINSERT(bb, instr, INSTR_CREATE_jcc(drcontext, OP_jl, opnd_create_instr(skip_call)));
+    dr_insert_clean_call(drcontext, bb, instr, (void *)hit_instr_count_threshold,
+                         false /*fpstate */, 0);
     MINSERT(bb, instr, skip_call);
     if (scratch != DR_REG_NULL) {
         if (drreg_unreserve_register(drcontext, bb, instr, scratch) != DRREG_SUCCESS)
             DR_ASSERT(false);
     }
-# else
-#  error NYI
-# endif
+#    else
+#        error NYI
+#    endif
 #else
     // XXX: drx_insert_counter_update doesn't support 64-bit, and there's no
     // XINST_CREATE_load_8bytes.  For now we pay the cost of a clean call every time.
-    dr_insert_clean_call(drcontext, bb, instr,
-                         (void *)check_instr_count_threshold, false/*fpstate */, 1,
-                         OPND_CREATE_INT32(num_instrs));
+    dr_insert_clean_call(drcontext, bb, instr, (void *)check_instr_count_threshold,
+                         false /*fpstate */, 1, OPND_CREATE_INT32(num_instrs));
 #endif
     return DR_EMIT_DEFAULT;
 }
@@ -1408,7 +1430,7 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
 static void
 init_thread_in_process(void *drcontext)
 {
-    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     char buf[MAXIMUM_PATH];
     byte *proc_info;
     if (op_offline.get_value()) {
@@ -1418,17 +1440,15 @@ init_thread_in_process(void *drcontext)
          */
         int i;
         const int NUM_OF_TRIES = 10000;
-        uint flags = IF_UNIX(DR_FILE_CLOSE_ON_FORK |)
-            DR_FILE_ALLOW_LARGE | DR_FILE_WRITE_REQUIRE_NEW;
+        uint flags = IF_UNIX(DR_FILE_CLOSE_ON_FORK |) DR_FILE_ALLOW_LARGE |
+            DR_FILE_WRITE_REQUIRE_NEW;
         /* We use drx_open_unique_appid_file with DRX_FILE_SKIP_OPEN to get a
          * file name for creation.  Retry if the same name file already exists.
          * Abort if we fail too many times.
          */
         for (i = 0; i < NUM_OF_TRIES; i++) {
-            drx_open_unique_appid_file(logsubdir,
-                                       dr_get_thread_id(drcontext),
-                                       OUTFILE_PREFIX, OUTFILE_SUFFIX,
-                                       DRX_FILE_SKIP_OPEN,
+            drx_open_unique_appid_file(logsubdir, dr_get_thread_id(drcontext),
+                                       subdir_prefix, OUTFILE_SUFFIX, DRX_FILE_SKIP_OPEN,
                                        buf, BUFFER_SIZE_ELEMENTS(buf));
             NULL_TERMINATE_BUFFER(buf);
             data->file = file_ops_func.open_file(buf, flags);
@@ -1441,10 +1461,18 @@ init_thread_in_process(void *drcontext)
         NOTIFY(2, "Created thread trace file %s\n", buf);
 
         /* Write initial headers at the top of the first buffer. */
+        offline_file_type_t file_type = op_L0_filter.get_value()
+            ? OFFLINE_FILE_TYPE_FILTERED
+            : OFFLINE_FILE_TYPE_DEFAULT;
+        if (op_disable_optimizations.get_value()) {
+            file_type = static_cast<offline_file_type_t>(
+                file_type | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
+        }
         data->init_header_size =
-            instru->append_thread_header(data->buf_base, dr_get_thread_id(drcontext));
-        BUF_PTR(data->seg_base) = data->buf_base + data->init_header_size +
-            buf_hdr_slots_size;
+            reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
+                data->buf_base, dr_get_thread_id(drcontext), file_type);
+        BUF_PTR(data->seg_base) =
+            data->buf_base + data->init_header_size + buf_hdr_slots_size;
     } else {
         /* pass pid and tid to the simulator to register current thread */
         proc_info = (byte *)buf;
@@ -1459,16 +1487,18 @@ init_thread_in_process(void *drcontext)
 
     if (op_L0_filter.get_value()) {
         if (op_L0D_size.get_value() > 0) {
-            data->l0_dcache = (byte *) dr_raw_mem_alloc
-                ((size_t)op_L0D_size.get_value()/op_line_size.get_value()*sizeof(void*),
-                 DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+            data->l0_dcache =
+                (byte *)dr_raw_mem_alloc((size_t)op_L0D_size.get_value() /
+                                             op_line_size.get_value() * sizeof(void *),
+                                         DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
             *(byte **)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_DCACHE) =
                 data->l0_dcache;
         }
         if (op_L0I_size.get_value() > 0) {
-            data->l0_icache = (byte *) dr_raw_mem_alloc
-                ((size_t)op_L0I_size.get_value()/op_line_size.get_value()*sizeof(void*),
-                 DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+            data->l0_icache =
+                (byte *)dr_raw_mem_alloc((size_t)op_L0I_size.get_value() /
+                                             op_line_size.get_value() * sizeof(void *),
+                                         DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
             *(byte **)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICACHE) =
                 data->l0_icache;
         }
@@ -1480,8 +1510,7 @@ init_thread_in_process(void *drcontext)
 static void
 event_thread_init(void *drcontext)
 {
-    per_thread_t *data = (per_thread_t *)
-        dr_thread_alloc(drcontext, sizeof(per_thread_t));
+    per_thread_t *data = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(per_thread_t));
     DR_ASSERT(data != NULL);
     memset(data, 0, sizeof(*data));
     drmgr_set_tls_field(drcontext, tls_idx, data);
@@ -1489,7 +1518,7 @@ event_thread_init(void *drcontext)
     /* Keep seg_base in a per-thread data structure so we can get the TLS
      * slot and find where the pointer points to in the buffer.
      */
-    data->seg_base = (byte *) dr_get_dr_segment_base(tls_seg);
+    data->seg_base = (byte *)dr_get_dr_segment_base(tls_seg);
     DR_ASSERT(data->seg_base != NULL);
 
     if (should_trace_thread_cb != NULL &&
@@ -1506,7 +1535,7 @@ event_thread_init(void *drcontext)
 static void
 event_thread_exit(void *drcontext)
 {
-    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if (BUF_PTR(data->seg_base) != NULL) {
         /* This thread was *not* filtered out. */
 
@@ -1516,9 +1545,8 @@ event_thread_exit(void *drcontext)
             // If over the limit, we still want to write the footer, but nothing else.
             BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
         }
-        BUF_PTR(data->seg_base) +=
-            instru->append_thread_exit(BUF_PTR(data->seg_base),
-                                       dr_get_thread_id(drcontext));
+        BUF_PTR(data->seg_base) += instru->append_thread_exit(
+            BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
 
         memtrace(drcontext, true);
 
@@ -1528,13 +1556,13 @@ event_thread_exit(void *drcontext)
         if (op_L0_filter.get_value()) {
             if (op_L0D_size.get_value() > 0) {
                 dr_raw_mem_free(data->l0_dcache,
-                                (size_t)op_L0D_size.get_value()/op_line_size.get_value()
-                                *sizeof(void*));
+                                (size_t)op_L0D_size.get_value() /
+                                    op_line_size.get_value() * sizeof(void *));
             }
             if (op_L0I_size.get_value() > 0) {
                 dr_raw_mem_free(data->l0_icache,
-                                (size_t)op_L0I_size.get_value()/op_line_size.get_value()
-                                *sizeof(void*));
+                                (size_t)op_L0I_size.get_value() /
+                                    op_line_size.get_value() * sizeof(void *));
             }
         }
 
@@ -1551,10 +1579,12 @@ event_thread_exit(void *drcontext)
 static void
 event_exit(void)
 {
-    dr_log(NULL, DR_LOG_ALL, 1, "drcachesim num refs seen: " UINT64_FORMAT_STRING"\n",
+    dr_log(NULL, DR_LOG_ALL, 1, "drcachesim num refs seen: " UINT64_FORMAT_STRING "\n",
            num_refs);
-    NOTIFY(1, "drmemtrace exiting process " PIDFMT"; traced " UINT64_FORMAT_STRING
-           " references.\n", dr_get_process_id(), num_refs);
+    NOTIFY(1,
+           "drmemtrace exiting process " PIDFMT "; traced " UINT64_FORMAT_STRING
+           " references.\n",
+           dr_get_process_id(), num_refs);
     /* we use placement new for better isolation */
     instru->~instru_t();
     dr_global_free(instru, MAX_INSTRU_SIZE);
@@ -1576,10 +1606,9 @@ event_exit(void)
         dr_unregister_filter_syscall_event(event_filter_syscall);
         if (!drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
             !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
-            !drmgr_unregister_bb_instrumentation_ex_event(event_bb_app2app,
-                                                          event_bb_analysis,
-                                                          event_app_instruction,
-                                                          event_bb_instru2instru))
+            !drmgr_unregister_bb_instrumentation_ex_event(
+                event_bb_app2app, event_bb_analysis, event_app_instruction,
+                event_bb_instru2instru))
             DR_ASSERT(false);
     } else {
         disable_delay_instrumentation();
@@ -1604,6 +1633,7 @@ event_exit(void)
     if (op_trace_after_instrs.get_value() > 0)
         exit_delay_instrumentation();
     drmgr_exit();
+    func_trace_exit();
 }
 
 static bool
@@ -1613,17 +1643,21 @@ init_offline_dir(void)
     int i;
     const int NUM_OF_TRIES = 10000;
     /* open unique dir */
+    /* We cannot use malloc mid-run (to support static client use).  We thus need
+     * to move all std::strings into plain buffers at init time.
+     */
+    dr_snprintf(subdir_prefix, BUFFER_SIZE_ELEMENTS(subdir_prefix), "%s",
+                op_subdir_prefix.get_value().c_str());
+    NULL_TERMINATE_BUFFER(subdir_prefix);
     /* We do not need to call drx_init before using drx_open_unique_appid_file. */
     for (i = 0; i < NUM_OF_TRIES; i++) {
         /* We use drx_open_unique_appid_file with DRX_FILE_SKIP_OPEN to get a
          * directory name for creation.  Retry if the same name directory already
          * exists.  Abort if we fail too many times.
          */
-        drx_open_unique_appid_file(op_outdir.get_value().c_str(),
-                                   dr_get_process_id(),
-                                   OUTFILE_PREFIX, "dir",
-                                   DRX_FILE_SKIP_OPEN,
-                                   buf, BUFFER_SIZE_ELEMENTS(buf));
+        drx_open_unique_appid_file(op_outdir.get_value().c_str(), dr_get_process_id(),
+                                   subdir_prefix, "dir", DRX_FILE_SKIP_OPEN, buf,
+                                   BUFFER_SIZE_ELEMENTS(buf));
         NULL_TERMINATE_BUFFER(buf);
         /* open the dir */
         if (file_ops_func.create_dir(buf))
@@ -1645,11 +1679,11 @@ init_offline_dir(void)
      */
     if (file_ops_func.create_dir == dr_create_dir)
         NOTIFY(1, "Log directory is %s\n", logsubdir);
-    dr_snprintf(modlist_path, BUFFER_SIZE_ELEMENTS(modlist_path),
-                "%s%s%s", logsubdir, DIRSEP, DRMEMTRACE_MODULE_LIST_FILENAME);
+    dr_snprintf(modlist_path, BUFFER_SIZE_ELEMENTS(modlist_path), "%s%s%s", logsubdir,
+                DIRSEP, DRMEMTRACE_MODULE_LIST_FILENAME);
     NULL_TERMINATE_BUFFER(modlist_path);
-    module_file = file_ops_func.open_file(modlist_path, DR_FILE_WRITE_REQUIRE_NEW
-                                          IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
+    module_file = file_ops_func.open_file(
+        modlist_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
     return (module_file != INVALID_FILE);
 }
 
@@ -1662,7 +1696,7 @@ fork_init(void *drcontext)
      * a new initial thread file for offline, or register the new process for
      * online.
      */
-    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     /* Only count refs in the new process (plus, we use this to set up the
      * initial header in memtrace() for offline).
      */
@@ -1684,15 +1718,14 @@ DR_EXPORT void
 drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 {
     /* We need 2 reg slots beyond drreg's eflags slots => 3 slots */
-    drreg_options_t ops = {sizeof(ops), 3, false};
+    drreg_options_t ops = { sizeof(ops), 3, false };
     byte buf[MAXIMUM_PATH];
 
-    dr_set_client_name("DynamoRIO Cache Simulator Tracer",
-                       "http://dynamorio.org/issues");
+    dr_set_client_name("DynamoRIO Cache Simulator Tracer", "http://dynamorio.org/issues");
 
     std::string parse_err;
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv,
-                                       &parse_err, NULL)) {
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, &parse_err,
+                                       NULL)) {
         FATAL("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
@@ -1704,12 +1737,13 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
     if (op_L0_filter.get_value() &&
-        ((!IS_POWER_OF_2(op_L0I_size.get_value()) &&
-          op_L0I_size.get_value() != 0) ||
-         (!IS_POWER_OF_2(op_L0D_size.get_value()) &&
-          op_L0D_size.get_value() != 0))) {
+        ((!IS_POWER_OF_2(op_L0I_size.get_value()) && op_L0I_size.get_value() != 0) ||
+         (!IS_POWER_OF_2(op_L0D_size.get_value()) && op_L0D_size.get_value() != 0))) {
         FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
     }
+
+    if (!func_trace_init(append_marker_seg_base))
+        DR_ASSERT(false);
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
 #ifdef X86
@@ -1720,26 +1754,23 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #endif
 
     if (op_offline.get_value()) {
-        void *buf;
+        void *placement;
         if (!init_offline_dir()) {
             FATAL("Failed to create a subdir in %s\n", op_outdir.get_value().c_str());
         }
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
-        buf = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new(buf) offline_instru_t(insert_load_buf_ptr,
-                                           op_L0_filter.get_value(),
-                                           &scratch_reserve_vec,
-                                           file_ops_func.write_file,
-                                           module_file);
+        placement = dr_global_alloc(MAX_INSTRU_SIZE);
+        instru = new (placement) offline_instru_t(
+            insert_load_buf_ptr, op_L0_filter.get_value(), &scratch_reserve_vec,
+            file_ops_func.write_file, module_file, op_disable_optimizations.get_value());
     } else {
-        void *buf;
+        void *placement;
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(online_instru_t));
-        buf = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new(buf) online_instru_t(insert_load_buf_ptr,
-                                          op_L0_filter.get_value(),
-                                          &scratch_reserve_vec);
+        placement = dr_global_alloc(MAX_INSTRU_SIZE);
+        instru = new (placement) online_instru_t(
+            insert_load_buf_ptr, op_L0_filter.get_value(), &scratch_reserve_vec);
         if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
             DR_ASSERT(false);
 #ifdef UNIX
@@ -1806,7 +1837,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     /* Mark any padding as redzone as well */
     redzone_size = max_buf_size - trace_buf_size;
     /* Append a throwaway header to get its size. */
-    buf_hdr_slots_size = instru->append_unit_header(buf, 0/*doesn't matter*/);
+    buf_hdr_slots_size = instru->append_unit_header(buf, 0 /*doesn't matter*/);
     DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= buf_hdr_slots_size);
 
     client_id = id;

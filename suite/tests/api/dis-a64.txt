@@ -74,7 +74,7 @@
 0b9f13ff : add    wzr, wzr, wzr, asr #4   : add    %wzr %wzr asr $0x04 -> %wzr
 0c0007ff : st4    {v31.4h, v0.4h, v1.4h, v2.4h}, [sp]: st4    $0x01 %d31 %d0 %d1 %d2 -> (%sp)[32byte]
 0c0067ff : st1    {v31.4h, v0.4h, v1.4h}, [sp]: st1    $0x01 %d31 %d0 %d1 -> (%sp)[24byte]
-0c0077ff : st1    {v31.4h}, [sp]          : st1    $0x01 %d31 -> (%sp)[8byte]
+0c0077ff : st1    {v31.4h}, [sp]          : st1    %d31 $0x01 -> (%sp)[8byte]
 0c00a7ff : st1    {v31.4h, v0.4h}, [sp]   : st1    $0x01 %d31 %d0 -> (%sp)[16byte]
 0c4027ff : ld1    {v31.4h, v0.4h, v1.4h, v2.4h}, [sp]: ld1    (%sp)[32byte] $0x01 -> %d31 %d0 %d1 %d2
 0c4047ff : ld3    {v31.4h, v0.4h, v1.4h}, [sp]: ld3    (%sp)[24byte] $0x01 -> %d31 %d0 %d1
@@ -1765,6 +1765,12 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 0e33cfa7 : fmla v7.2s, v29.2s, v19.2s               : fmla   %d7 %d29 %d19 $0x02 -> %d7
 4e33cfa7 : fmla v7.4s, v29.4s, v19.4s               : fmla   %q7 %q29 %q19 $0x02 -> %q7
 4e73cfa7 : fmla v7.2d, v29.2d, v19.2d               : fmla   %q7 %q29 %q19 $0x03 -> %q7
+4fd11240 : fmla v0.2d, v18.2d, v17.d[0]             : fmla   %q0 %q18 %q17 $0x00 $0x03 -> %q0
+4fc4180b : fmla v11.2d, v0.2d, v4.d[1]              : fmla   %q11 %q0 %q4 $0x01 $0x03 -> %q11
+4f981382 : fmla v2.4s, v28.4s, v24.s[0]             : fmla   %q2 %q28 %q24 $0x00 $0x02 -> %q2
+4fb81343 : fmla v3.4s, v26.4s, v24.s[1]             : fmla   %q3 %q26 %q24 $0x01 $0x02 -> %q3
+4f981b88 : fmla v8.4s, v28.4s, v24.s[2]             : fmla   %q8 %q28 %q24 $0x02 $0x02 -> %q8
+4fb81b49 : fmla v9.4s, v26.4s, v24.s[3]             : fmla   %q9 %q26 %q24 $0x03 $0x02 -> %q9
 0e2bd56a : fadd v10.2s, v11.2s, v11.2s              : fadd   %d11 %d11 $0x02 -> %d10
 4e2bd56a : fadd v10.4s, v11.4s, v11.4s              : fadd   %q11 %q11 $0x02 -> %q10
 4e6bd56a : fadd v10.2d, v11.2d, v11.2d              : fadd   %q11 %q11 $0x03 -> %q10
@@ -2075,3 +2081,197 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 1f7789e4 : fnmsub d4, d15, d23, d2                  : fnmsub %d15 %d23 %d2 -> %d4
 1f3789e4 : fnmsub s4, s15, s23, s2                  : fnmsub %s15 %s23 %s2 -> %s4
 1ff789e4 : fnmsub h4, h15, h23, h2                  : fnmsub %h15 %h23 %h2 -> %h4
+
+# SVE bitwise logical operations (predicated)
+04181da2 : orr z2.b, p7/m, z2.b, z13.b              : orr    %p7 %z2 %z13 $0x00 -> %z2
+04581da2 : orr z2.h, p7/m, z2.h, z13.h              : orr    %p7 %z2 %z13 $0x01 -> %z2
+04981da2 : orr z2.s, p7/m, z2.s, z13.s              : orr    %p7 %z2 %z13 $0x02 -> %z2
+04d81da2 : orr z2.d, p7/m, z2.d, z13.d              : orr    %p7 %z2 %z13 $0x03 -> %z2
+0419105d : eor z29.b, p4/m, z29.b, z2.b             : eor    %p4 %z29 %z2 $0x00 -> %z29
+0459105d : eor z29.h, p4/m, z29.h, z2.h             : eor    %p4 %z29 %z2 $0x01 -> %z29
+0499105d : eor z29.s, p4/m, z29.s, z2.s             : eor    %p4 %z29 %z2 $0x02 -> %z29
+04d9105d : eor z29.d, p4/m, z29.d, z2.d             : eor    %p4 %z29 %z2 $0x03 -> %z29
+041a06ff : and z31.b, p1/m, z31.b, z23.b            : and    %p1 %z31 %z23 $0x00 -> %z31
+045a06ff : and z31.h, p1/m, z31.h, z23.h            : and    %p1 %z31 %z23 $0x01 -> %z31
+049a06ff : and z31.s, p1/m, z31.s, z23.s            : and    %p1 %z31 %z23 $0x02 -> %z31
+04da06ff : and z31.d, p1/m, z31.d, z23.d            : and    %p1 %z31 %z23 $0x03 -> %z31
+041b0b02 : bic z2.b, p2/m, z2.b, z24.b              : bic    %p2 %z2 %z24 $0x00 -> %z2
+045b0b02 : bic z2.h, p2/m, z2.h, z24.h              : bic    %p2 %z2 %z24 $0x01 -> %z2
+049b0b02 : bic z2.s, p2/m, z2.s, z24.s              : bic    %p2 %z2 %z24 $0x02 -> %z2
+04db0b02 : bic z2.d, p2/m, z2.d, z24.d              : bic    %p2 %z2 %z24 $0x03 -> %z2
+
+# SVE integer add/subtract vectors (unpredicated)
+043e0362 : add z2.b, z27.b, z30.b                   : add    %z27 %z30 $0x00 -> %z2
+047e0362 : add z2.h, z27.h, z30.h                   : add    %z27 %z30 $0x01 -> %z2
+04be0362 : add z2.s, z27.s, z30.s                   : add    %z27 %z30 $0x02 -> %z2
+04fe0362 : add z2.d, z27.d, z30.d                   : add    %z27 %z30 $0x03 -> %z2
+043d05a0 : sub z0.b, z13.b, z29.b                   : sub    %z13 %z29 $0x00 -> %z0
+047d05a0 : sub z0.h, z13.h, z29.h                   : sub    %z13 %z29 $0x01 -> %z0
+04bd05a0 : sub z0.s, z13.s, z29.s                   : sub    %z13 %z29 $0x02 -> %z0
+04fd05a0 : sub z0.d, z13.d, z29.d                   : sub    %z13 %z29 $0x03 -> %z0
+042a123f : sqadd z31.b, z17.b, z10.b                : sqadd  %z17 %z10 $0x00 -> %z31
+046a123f : sqadd z31.h, z17.h, z10.h                : sqadd  %z17 %z10 $0x01 -> %z31
+04aa123f : sqadd z31.s, z17.s, z10.s                : sqadd  %z17 %z10 $0x02 -> %z31
+04ea123f : sqadd z31.d, z17.d, z10.d                : sqadd  %z17 %z10 $0x03 -> %z31
+043417e2 : uqadd z2.b, z31.b, z20.b                 : uqadd  %z31 %z20 $0x00 -> %z2
+047417e2 : uqadd z2.h, z31.h, z20.h                 : uqadd  %z31 %z20 $0x01 -> %z2
+04b417e2 : uqadd z2.s, z31.s, z20.s                 : uqadd  %z31 %z20 $0x02 -> %z2
+04f417e2 : uqadd z2.d, z31.d, z20.d                 : uqadd  %z31 %z20 $0x03 -> %z2
+043719e4 : sqsub z4.b, z15.b, z23.b                 : sqsub  %z15 %z23 $0x00 -> %z4
+047719e4 : sqsub z4.h, z15.h, z23.h                 : sqsub  %z15 %z23 $0x01 -> %z4
+04b719e4 : sqsub z4.s, z15.s, z23.s                 : sqsub  %z15 %z23 $0x02 -> %z4
+04f719e4 : sqsub z4.d, z15.d, z23.d                 : sqsub  %z15 %z23 $0x03 -> %z4
+04281f42 : uqsub z2.b, z26.b, z8.b                  : uqsub  %z26 %z8 $0x00 -> %z2
+04681f42 : uqsub z2.h, z26.h, z8.h                  : uqsub  %z26 %z8 $0x01 -> %z2
+04a81f42 : uqsub z2.s, z26.s, z8.s                  : uqsub  %z26 %z8 $0x02 -> %z2
+04e81f42 : uqsub z2.d, z26.d, z8.d                  : uqsub  %z26 %z8 $0x03 -> %z2
+
+# Advanced SIMD three different
+0e3201b2 : saddl v18.8h, v13.8b, v18.8b             : saddl  %d13 %d18 $0x00 -> %q18
+0e7201b2 : saddl v18.4s, v13.4h, v18.4h             : saddl  %d13 %d18 $0x01 -> %q18
+0eb201b2 : saddl v18.2d, v13.2s, v18.2s             : saddl  %d13 %d18 $0x02 -> %q18
+4e3a0346 : saddl2 v6.8h, v26.16b, v26.16b           : saddl2 %q26 %q26 $0x00 -> %q6
+4e7a0346 : saddl2 v6.4s, v26.8h, v26.8h             : saddl2 %q26 %q26 $0x01 -> %q6
+4eba0346 : saddl2 v6.2d, v26.4s, v26.4s             : saddl2 %q26 %q26 $0x02 -> %q6
+0e3010b4 : saddw v20.8h, v5.8h, v16.8b              : saddw  %q5 %d16 $0x00 -> %q20
+0e7010b4 : saddw v20.4s, v5.4s, v16.4h              : saddw  %q5 %d16 $0x01 -> %q20
+0eb010b4 : saddw v20.2d, v5.2d, v16.2s              : saddw  %q5 %d16 $0x02 -> %q20
+4e3e10ea : saddw2 v10.8h, v7.8h, v30.16b            : saddw2 %q7 %q30 $0x00 -> %q10
+4e7e10ea : saddw2 v10.4s, v7.4s, v30.8h             : saddw2 %q7 %q30 $0x01 -> %q10
+4ebe10ea : saddw2 v10.2d, v7.2d, v30.4s             : saddw2 %q7 %q30 $0x02 -> %q10
+0e3b203f : ssubl v31.8h, v1.8b, v27.8b              : ssubl  %d1 %d27 $0x00 -> %q31
+0e7b203f : ssubl v31.4s, v1.4h, v27.4h              : ssubl  %d1 %d27 $0x01 -> %q31
+0ebb203f : ssubl v31.2d, v1.2s, v27.2s              : ssubl  %d1 %d27 $0x02 -> %q31
+4e292193 : ssubl2 v19.8h, v12.16b, v9.16b           : ssubl2 %q12 %q9 $0x00 -> %q19
+4e692193 : ssubl2 v19.4s, v12.8h, v9.8h             : ssubl2 %q12 %q9 $0x01 -> %q19
+4ea92193 : ssubl2 v19.2d, v12.4s, v9.4s             : ssubl2 %q12 %q9 $0x02 -> %q19
+0e3531d5 : ssubw v21.8h, v14.8h, v21.8b             : ssubw  %q14 %d21 $0x00 -> %q21
+0e7531d5 : ssubw v21.4s, v14.4s, v21.4h             : ssubw  %q14 %d21 $0x01 -> %q21
+0eb531d5 : ssubw v21.2d, v14.2d, v21.2s             : ssubw  %q14 %d21 $0x02 -> %q21
+4e383095 : ssubw2 v21.8h, v4.8h, v24.16b            : ssubw2 %q4 %q24 $0x00 -> %q21
+4e783095 : ssubw2 v21.4s, v4.4s, v24.8h             : ssubw2 %q4 %q24 $0x01 -> %q21
+4eb83095 : ssubw2 v21.2d, v4.2d, v24.4s             : ssubw2 %q4 %q24 $0x02 -> %q21
+0e3343ff : addhn v31.8b, v31.8h, v19.8h             : addhn  %q31 %q19 $0x00 -> %d31
+0e7343ff : addhn v31.4h, v31.4s, v19.4s             : addhn  %q31 %q19 $0x01 -> %d31
+0eb343ff : addhn v31.2s, v31.2d, v19.2d             : addhn  %q31 %q19 $0x02 -> %d31
+4e244001 : addhn2 v1.16b, v0.8h, v4.8h              : addhn2 %q0 %q4 $0x00 -> %q1
+4e644001 : addhn2 v1.8h, v0.4s, v4.4s               : addhn2 %q0 %q4 $0x01 -> %q1
+4ea44001 : addhn2 v1.4s, v0.2d, v4.2d               : addhn2 %q0 %q4 $0x02 -> %q1
+0e2b513e : sabal v30.8h, v9.8b, v11.8b              : sabal  %d9 %d11 $0x00 -> %q30
+0e6b513e : sabal v30.4s, v9.4h, v11.4h              : sabal  %d9 %d11 $0x01 -> %q30
+0eab513e : sabal v30.2d, v9.2s, v11.2s              : sabal  %d9 %d11 $0x02 -> %q30
+4e31515c : sabal2 v28.8h, v10.16b, v17.16b          : sabal2 %q10 %q17 $0x00 -> %q28
+4e71515c : sabal2 v28.4s, v10.8h, v17.8h            : sabal2 %q10 %q17 $0x01 -> %q28
+4eb1515c : sabal2 v28.2d, v10.4s, v17.4s            : sabal2 %q10 %q17 $0x02 -> %q28
+0e32604d : subhn v13.8b, v2.8h, v18.8h              : subhn  %q2 %q18 $0x00 -> %d13
+0e72604d : subhn v13.4h, v2.4s, v18.4s              : subhn  %q2 %q18 $0x01 -> %d13
+0eb2604d : subhn v13.2s, v2.2d, v18.2d              : subhn  %q2 %q18 $0x02 -> %d13
+4e2760bb : subhn2 v27.16b, v5.8h, v7.8h             : subhn2 %q5 %q7 $0x00 -> %q27
+4e6760bb : subhn2 v27.8h, v5.4s, v7.4s              : subhn2 %q5 %q7 $0x01 -> %q27
+4ea760bb : subhn2 v27.4s, v5.2d, v7.2d              : subhn2 %q5 %q7 $0x02 -> %q27
+0e2f702d : sabdl v13.8h, v1.8b, v15.8b              : sabdl  %d1 %d15 $0x00 -> %q13
+0e6f702d : sabdl v13.4s, v1.4h, v15.4h              : sabdl  %d1 %d15 $0x01 -> %q13
+0eaf702d : sabdl v13.2d, v1.2s, v15.2s              : sabdl  %d1 %d15 $0x02 -> %q13
+4e3172ba : sabdl2 v26.8h, v21.16b, v17.16b          : sabdl2 %q21 %q17 $0x00 -> %q26
+4e7172ba : sabdl2 v26.4s, v21.8h, v17.8h            : sabdl2 %q21 %q17 $0x01 -> %q26
+4eb172ba : sabdl2 v26.2d, v21.4s, v17.4s            : sabdl2 %q21 %q17 $0x02 -> %q26
+0e32809b : smlal v27.8h, v4.8b, v18.8b              : smlal  %d4 %d18 $0x00 -> %q27
+0e72809b : smlal v27.4s, v4.4h, v18.4h              : smlal  %d4 %d18 $0x01 -> %q27
+0eb2809b : smlal v27.2d, v4.2s, v18.2s              : smlal  %d4 %d18 $0x02 -> %q27
+4e23826b : smlal2 v11.8h, v19.16b, v3.16b           : smlal2 %q19 %q3 $0x00 -> %q11
+4e63826b : smlal2 v11.4s, v19.8h, v3.8h             : smlal2 %q19 %q3 $0x01 -> %q11
+4ea3826b : smlal2 v11.2d, v19.4s, v3.4s             : smlal2 %q19 %q3 $0x02 -> %q11
+0e659078 : sqdmlal v24.4s, v3.4h, v5.4h             : sqdmlal %d3 %d5 $0x01 -> %q24
+0ea59078 : sqdmlal v24.2d, v3.2s, v5.2s             : sqdmlal %d3 %d5 $0x02 -> %q24
+4e6d93d9 : sqdmlal2 v25.4s, v30.8h, v13.8h          : sqdmlal2 %q30 %q13 $0x01 -> %q25
+4ead93d9 : sqdmlal2 v25.2d, v30.4s, v13.4s          : sqdmlal2 %q30 %q13 $0x02 -> %q25
+0e28a0ed : smlsl v13.8h, v7.8b, v8.8b               : smlsl  %d7 %d8 $0x00 -> %q13
+0e68a0ed : smlsl v13.4s, v7.4h, v8.4h               : smlsl  %d7 %d8 $0x01 -> %q13
+0ea8a0ed : smlsl v13.2d, v7.2s, v8.2s               : smlsl  %d7 %d8 $0x02 -> %q13
+4e23a0b3 : smlsl2 v19.8h, v5.16b, v3.16b            : smlsl2 %q5 %q3 $0x00 -> %q19
+4e63a0b3 : smlsl2 v19.4s, v5.8h, v3.8h              : smlsl2 %q5 %q3 $0x01 -> %q19
+4ea3a0b3 : smlsl2 v19.2d, v5.4s, v3.4s              : smlsl2 %q5 %q3 $0x02 -> %q19
+0e74b0ae : sqdmlsl v14.4s, v5.4h, v20.4h            : sqdmlsl %d5 %d20 $0x01 -> %q14
+0eb4b0ae : sqdmlsl v14.2d, v5.2s, v20.2s            : sqdmlsl %d5 %d20 $0x02 -> %q14
+4e6fb31a : sqdmlsl2 v26.4s, v24.8h, v15.8h          : sqdmlsl2 %q24 %q15 $0x01 -> %q26
+4eafb31a : sqdmlsl2 v26.2d, v24.4s, v15.4s          : sqdmlsl2 %q24 %q15 $0x02 -> %q26
+0e20c1ab : smull v11.8h, v13.8b, v0.8b              : smull  %d13 %d0 $0x00 -> %q11
+0e60c1ab : smull v11.4s, v13.4h, v0.4h              : smull  %d13 %d0 $0x01 -> %q11
+0ea0c1ab : smull v11.2d, v13.2s, v0.2s              : smull  %d13 %d0 $0x02 -> %q11
+4e2ac156 : smull2 v22.8h, v10.16b, v10.16b          : smull2 %q10 %q10 $0x00 -> %q22
+4e6ac156 : smull2 v22.4s, v10.8h, v10.8h            : smull2 %q10 %q10 $0x01 -> %q22
+4eaac156 : smull2 v22.2d, v10.4s, v10.4s            : smull2 %q10 %q10 $0x02 -> %q22
+0e72d1c2 : sqdmull v2.4s, v14.4h, v18.4h            : sqdmull %d14 %d18 $0x01 -> %q2
+0eb2d1c2 : sqdmull v2.2d, v14.2s, v18.2s            : sqdmull %d14 %d18 $0x02 -> %q2
+4e75d36c : sqdmull2 v12.4s, v27.8h, v21.8h          : sqdmull2 %q27 %q21 $0x01 -> %q12
+4eb5d36c : sqdmull2 v12.2d, v27.4s, v21.4s          : sqdmull2 %q27 %q21 $0x02 -> %q12
+0e22e270 : pmull v16.8h, v19.8b, v2.8b              : pmull  %d19 %d2 $0x00 -> %q16
+0ee2e270 : pmull v16.1q, v19.1d, v2.1d              : pmull  %d19 %d2 $0x03 -> %q16
+4e22e270 : pmull2 v16.8h, v19.16b, v2.16b           : pmull2 %q19 %q2 $0x00 -> %q16
+4ee2e270 : pmull2 v16.1q, v19.2d, v2.2d             : pmull2 %q19 %q2 $0x03 -> %q16
+2e3d0207 : uaddl v7.8h, v16.8b, v29.8b              : uaddl  %d16 %d29 $0x00 -> %q7
+2e7d0207 : uaddl v7.4s, v16.4h, v29.4h              : uaddl  %d16 %d29 $0x01 -> %q7
+2ebd0207 : uaddl v7.2d, v16.2s, v29.2s              : uaddl  %d16 %d29 $0x02 -> %q7
+6e220270 : uaddl2 v16.8h, v19.16b, v2.16b           : uaddl2 %q19 %q2 $0x00 -> %q16
+6e620270 : uaddl2 v16.4s, v19.8h, v2.8h             : uaddl2 %q19 %q2 $0x01 -> %q16
+6ea20270 : uaddl2 v16.2d, v19.4s, v2.4s             : uaddl2 %q19 %q2 $0x02 -> %q16
+2e2c11cf : uaddw v15.8h, v14.8h, v12.8b             : uaddw  %q14 %d12 $0x00 -> %q15
+2e6c11cf : uaddw v15.4s, v14.4s, v12.4h             : uaddw  %q14 %d12 $0x01 -> %q15
+2eac11cf : uaddw v15.2d, v14.2d, v12.2s             : uaddw  %q14 %d12 $0x02 -> %q15
+6e31124d : uaddw2 v13.8h, v18.8h, v17.16b           : uaddw2 %q18 %q17 $0x00 -> %q13
+6e71124d : uaddw2 v13.4s, v18.4s, v17.8h            : uaddw2 %q18 %q17 $0x01 -> %q13
+6eb1124d : uaddw2 v13.2d, v18.2d, v17.4s            : uaddw2 %q18 %q17 $0x02 -> %q13
+2e2e20af : usubl v15.8h, v5.8b, v14.8b              : usubl  %d5 %d14 $0x00 -> %q15
+2e6e20af : usubl v15.4s, v5.4h, v14.4h              : usubl  %d5 %d14 $0x01 -> %q15
+2eae20af : usubl v15.2d, v5.2s, v14.2s              : usubl  %d5 %d14 $0x02 -> %q15
+6e2121be : usubl2 v30.8h, v13.16b, v1.16b           : usubl2 %q13 %q1 $0x00 -> %q30
+6e6121be : usubl2 v30.4s, v13.8h, v1.8h             : usubl2 %q13 %q1 $0x01 -> %q30
+6ea121be : usubl2 v30.2d, v13.4s, v1.4s             : usubl2 %q13 %q1 $0x02 -> %q30
+2e213220 : usubw v0.8h, v17.8h, v1.8b               : usubw  %q17 %d1 $0x00 -> %q0
+2e613220 : usubw v0.4s, v17.4s, v1.4h               : usubw  %q17 %d1 $0x01 -> %q0
+2ea13220 : usubw v0.2d, v17.2d, v1.2s               : usubw  %q17 %d1 $0x02 -> %q0
+6e2e3062 : usubw2 v2.8h, v3.8h, v14.16b             : usubw2 %q3 %q14 $0x00 -> %q2
+6e6e3062 : usubw2 v2.4s, v3.4s, v14.8h              : usubw2 %q3 %q14 $0x01 -> %q2
+6eae3062 : usubw2 v2.2d, v3.2d, v14.4s              : usubw2 %q3 %q14 $0x02 -> %q2
+2e2e41ff : raddhn v31.8b, v15.8h, v14.8h            : raddhn %q15 %q14 $0x00 -> %d31
+2e6e41ff : raddhn v31.4h, v15.4s, v14.4s            : raddhn %q15 %q14 $0x01 -> %d31
+2eae41ff : raddhn v31.2s, v15.2d, v14.2d            : raddhn %q15 %q14 $0x02 -> %d31
+6e2e420d : raddhn2 v13.16b, v16.8h, v14.8h          : raddhn2 %q16 %q14 $0x00 -> %q13
+6e6e420d : raddhn2 v13.8h, v16.4s, v14.4s           : raddhn2 %q16 %q14 $0x01 -> %q13
+6eae420d : raddhn2 v13.4s, v16.2d, v14.2d           : raddhn2 %q16 %q14 $0x02 -> %q13
+2e365397 : uabal v23.8h, v28.8b, v22.8b             : uabal  %d28 %d22 $0x00 -> %q23
+2e765397 : uabal v23.4s, v28.4h, v22.4h             : uabal  %d28 %d22 $0x01 -> %q23
+2eb65397 : uabal v23.2d, v28.2s, v22.2s             : uabal  %d28 %d22 $0x02 -> %q23
+6e3d528d : uabal2 v13.8h, v20.16b, v29.16b          : uabal2 %q20 %q29 $0x00 -> %q13
+6e7d528d : uabal2 v13.4s, v20.8h, v29.8h            : uabal2 %q20 %q29 $0x01 -> %q13
+6ebd528d : uabal2 v13.2d, v20.4s, v29.4s            : uabal2 %q20 %q29 $0x02 -> %q13
+2e3360e4 : rsubhn v4.8b, v7.8h, v19.8h              : rsubhn %q7 %q19 $0x00 -> %d4
+2e7360e4 : rsubhn v4.4h, v7.4s, v19.4s              : rsubhn %q7 %q19 $0x01 -> %d4
+2eb360e4 : rsubhn v4.2s, v7.2d, v19.2d              : rsubhn %q7 %q19 $0x02 -> %d4
+6e326295 : rsubhn2 v21.16b, v20.8h, v18.8h          : rsubhn2 %q20 %q18 $0x00 -> %q21
+6e726295 : rsubhn2 v21.8h, v20.4s, v18.4s           : rsubhn2 %q20 %q18 $0x01 -> %q21
+6eb26295 : rsubhn2 v21.4s, v20.2d, v18.2d           : rsubhn2 %q20 %q18 $0x02 -> %q21
+2e3971fa : uabdl v26.8h, v15.8b, v25.8b             : uabdl  %d15 %d25 $0x00 -> %q26
+2e7971fa : uabdl v26.4s, v15.4h, v25.4h             : uabdl  %d15 %d25 $0x01 -> %q26
+2eb971fa : uabdl v26.2d, v15.2s, v25.2s             : uabdl  %d15 %d25 $0x02 -> %q26
+6e3b71be : uabdl2 v30.8h, v13.16b, v27.16b          : uabdl2 %q13 %q27 $0x00 -> %q30
+6e7b71be : uabdl2 v30.4s, v13.8h, v27.8h            : uabdl2 %q13 %q27 $0x01 -> %q30
+6ebb71be : uabdl2 v30.2d, v13.4s, v27.4s            : uabdl2 %q13 %q27 $0x02 -> %q30
+2e218396 : umlal v22.8h, v28.8b, v1.8b              : umlal  %d28 %d1 $0x00 -> %q22
+2e618396 : umlal v22.4s, v28.4h, v1.4h              : umlal  %d28 %d1 $0x01 -> %q22
+2ea18396 : umlal v22.2d, v28.2s, v1.2s              : umlal  %d28 %d1 $0x02 -> %q22
+6e3e831d : umlal2 v29.8h, v24.16b, v30.16b          : umlal2 %q24 %q30 $0x00 -> %q29
+6e7e831d : umlal2 v29.4s, v24.8h, v30.8h            : umlal2 %q24 %q30 $0x01 -> %q29
+6ebe831d : umlal2 v29.2d, v24.4s, v30.4s            : umlal2 %q24 %q30 $0x02 -> %q29
+2e35a13f : umlsl v31.8h, v9.8b, v21.8b              : umlsl  %d9 %d21 $0x00 -> %q31
+2e75a13f : umlsl v31.4s, v9.4h, v21.4h              : umlsl  %d9 %d21 $0x01 -> %q31
+2eb5a13f : umlsl v31.2d, v9.2s, v21.2s              : umlsl  %d9 %d21 $0x02 -> %q31
+6e3da264 : umlsl2 v4.8h, v19.16b, v29.16b           : umlsl2 %q19 %q29 $0x00 -> %q4
+6e7da264 : umlsl2 v4.4s, v19.8h, v29.8h             : umlsl2 %q19 %q29 $0x01 -> %q4
+6ebda264 : umlsl2 v4.2d, v19.4s, v29.4s             : umlsl2 %q19 %q29 $0x02 -> %q4
+2e22c166 : umull v6.8h, v11.8b, v2.8b               : umull  %d11 %d2 $0x00 -> %q6
+2e62c166 : umull v6.4s, v11.4h, v2.4h               : umull  %d11 %d2 $0x01 -> %q6
+2ea2c166 : umull v6.2d, v11.2s, v2.2s               : umull  %d11 %d2 $0x02 -> %q6
+6e23c0c6 : umull2 v6.8h, v6.16b, v3.16b             : umull2 %q6 %q3 $0x00 -> %q6
+6e63c0c6 : umull2 v6.4s, v6.8h, v3.8h               : umull2 %q6 %q3 $0x01 -> %q6
+6ea3c0c6 : umull2 v6.2d, v6.4s, v3.4s               : umull2 %q6 %q3 $0x02 -> %q6

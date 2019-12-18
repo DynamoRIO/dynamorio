@@ -39,9 +39,12 @@
 #include "instrument.h"
 
 /* shorten code generation lines */
-#define APP    instrlist_meta_append
-#define PRE    instrlist_meta_preinsert
-#define OPREG  opnd_create_reg
+#define APP instrlist_meta_append
+#define PRE instrlist_meta_preinsert
+#define OPREG opnd_create_reg
+
+#define NOP_INST 0xd503201f
+#define BR_X1_INST (0xd61f0000 | 1 << 5) /* br x1 */
 
 /***************************************************************************/
 /*                               EXIT STUB                                 */
@@ -80,16 +83,20 @@ get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
     return TLS_FCACHE_RETURN_SLOT;
 }
 
-/* Generate move (immediate) of a 64-bit value using 4 instructions. */
+/* Generate move (immediate) of a 64-bit value using at most 4 instructions. */
 static uint *
 insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
 {
     uint rt = dst - DR_REG_X0;
     ASSERT(rt < 31);
-    *pc++ = 0xd2800000 | rt | (val       & 0xffff) << 5; /* mov  x(rt), #x */
-    *pc++ = 0xf2a00000 | rt | (val >> 16 & 0xffff) << 5; /* movk x(rt), #x, lsl #16 */
-    *pc++ = 0xf2c00000 | rt | (val >> 32 & 0xffff) << 5; /* movk x(rt), #x, lsl #32 */
-    *pc++ = 0xf2e00000 | rt | (val >> 48 & 0xffff) << 5; /* movk x(rt), #x, lsl #48 */
+    *pc++ = 0xd2800000 | rt | (val & 0xffff) << 5; /* mov  x(rt), #x */
+
+    if ((val >> 16 & 0xffff) != 0)
+        *pc++ = 0xf2a00000 | rt | (val >> 16 & 0xffff) << 5; /* movk x(rt), #x, lsl #16 */
+    if ((val >> 32 & 0xffff) != 0)
+        *pc++ = 0xf2c00000 | rt | (val >> 32 & 0xffff) << 5; /* movk x(rt), #x, lsl #32 */
+    if ((val >> 48 & 0xffff) != 0)
+        *pc++ = 0xf2e00000 | rt | (val >> 48 & 0xffff) << 5; /* movk x(rt), #x, lsl #48 */
     return pc;
 }
 
@@ -100,10 +107,11 @@ insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
  * which are always linked.
  */
 int
-insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
-                             linkstub_t *l, cache_pc stub_pc, ushort l_flags)
+insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
+                             cache_pc stub_pc, ushort l_flags)
 {
     uint *pc = (uint *)stub_pc;
+    uint num_nops_needed = 0;
     /* FIXME i#1575: coarse-grain NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
     if (LINKSTUB_DIRECT(l_flags)) {
@@ -112,35 +120,43 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                  TLS_REG0_SLOT >> 3 << 15);
         /* mov x0, ... */
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
+        num_nops_needed = 4 - (pc - (uint *)stub_pc - 1);
         /* ldr x1, [x(stolen), #(offs)] */
         *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
-                 get_fcache_return_tls_offs(dcontext, f->flags) >>
-                 3 << 10);
+                 get_fcache_return_tls_offs(dcontext, f->flags) >> 3 << 10);
         /* br x1 */
-        *pc++ = 0xd61f0000 | 1 << 5;
+        *pc++ = BR_X1_INST;
     } else {
         /* Stub starts out unlinked. */
-        cache_pc exit_target = get_unlinked_entry(dcontext,
-                                                  EXIT_TARGET_TAG(dcontext, f, l));
+        cache_pc exit_target =
+            get_unlinked_entry(dcontext, EXIT_TARGET_TAG(dcontext, f, l));
         /* stp x0, x1, [x(stolen), #(offs)] */
         *pc++ = (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  TLS_REG0_SLOT >> 3 << 15);
         /* mov x0, ... */
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
+        num_nops_needed = 4 - (pc - (uint *)stub_pc - 1);
         /* ldr x1, [x(stolen), #(offs)] */
         *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
         /* br x1 */
-        *pc++ = 0xd61f0000 | 1 << 5;
+        *pc++ = BR_X1_INST;
     }
-    ASSERT((ptr_int_t)((byte *)pc - (byte *)stub_pc) ==
-           DIRECT_EXIT_STUB_SIZE(l_flags));
+
+    /* Fill up with NOPs, depending on how many instructions we needed to move
+     * the immediate in a registers. Ideally we would skip adding NOPs, but
+     * lots of places expect the stub size to be fixed.
+     */
+    for (uint j = 0; j < num_nops_needed; j++)
+        *pc++ = NOP_INST;
+
+    ASSERT((ptr_int_t)((byte *)pc - (byte *)stub_pc) == DIRECT_EXIT_STUB_SIZE(l_flags));
     return (int)((byte *)pc - (byte *)stub_pc);
 }
 
 bool
-exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f,
-                        linkstub_t *l, cache_pc target_pc)
+exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
+                        cache_pc target_pc)
 {
     cache_pc branch_pc = EXIT_CTI_PC(f, l);
     /* Compute offset as unsigned, modulo arithmetic. */
@@ -203,17 +219,14 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
     if ((enc & 0xfc000000) == 0x14000000) { /* B */
         ASSERT(off + 0x8000000 < 0x10000000);
         *p = (0x14000000 | (0x03ffffff & off >> 2));
-    }
-    else if ((enc & 0xff000010) == 0x54000000 ||
-             (enc & 0x7e000000) == 0x34000000) { /* B.cond, CBNZ, CBZ */
+    } else if ((enc & 0xff000010) == 0x54000000 ||
+               (enc & 0x7e000000) == 0x34000000) { /* B.cond, CBNZ, CBZ */
         ASSERT(off + 0x40000 < 0x80000);
         *p = (enc & 0xff00001f) | (0x00ffffe0 & off >> 2 << 5);
-    }
-    else if ((enc & 0x7e000000) == 0x36000000) { /* TBNZ, TBZ */
+    } else if ((enc & 0x7e000000) == 0x36000000) { /* TBNZ, TBZ */
         ASSERT(off + 0x2000 < 0x4000);
         *p = (enc & 0xfff8001f) | (0x0007ffe0 & off >> 2 << 5);
-    }
-    else
+    } else
         ASSERT(false);
     if (hot_patch)
         machine_cache_sync(branch_pc, branch_pc + 4, true);
@@ -233,34 +246,45 @@ exit_cti_disp_pc(cache_pc branch_pc)
     return NULL;
 }
 
+/* Skips NOP instructions backwards until the first non-NOP instruction is found. */
+static uint *
+get_stub_branch(uint *pc)
+{
+    /* Skip NOP instructions backwards. */
+    while (*pc == NOP_INST)
+        pc--;
+    /* The First non-NOP instruction must be the branch. */
+    ASSERT(*pc == BR_X1_INST);
+    return pc;
+}
+
 void
-link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
-                        linkstub_t *l, bool hot_patch,
-                        app_pc target_tag)
+link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
+                        bool hot_patch, app_pc target_tag)
 {
     byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
     uint *pc;
     cache_pc exit_target;
-    ibl_type_t ibl_type = {0};
-    DEBUG_DECLARE(bool is_ibl = )
-        get_ibl_routine_type_ex(dcontext, target_tag, &ibl_type);
+    ibl_type_t ibl_type = { 0 };
+    DEBUG_DECLARE(bool is_ibl =)
+    get_ibl_routine_type_ex(dcontext, target_tag, &ibl_type);
     ASSERT(is_ibl);
     if (IS_IBL_LINKED(ibl_type.link_state))
         exit_target = target_tag;
     else
         exit_target = get_linked_entry(dcontext, target_tag);
 
+    /* Set pc to the last instruction in the stub. */
     pc = (uint *)(stub_pc + exit_stub_size(dcontext, target_tag, f->flags) -
-                  (2 * AARCH64_INSTR_SIZE));
+                  AARCH64_INSTR_SIZE);
 
+    pc = get_stub_branch(pc) - 1;
     /* ldr x1, [x(stolen), #(offs)] */
-    pc[0] = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
-             get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
-    /* br x1 */
-    pc[1] = 0xd61f0000 | 1 << 5;
+    *pc = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
+           get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
 
     if (hot_patch)
-        machine_cache_sync(pc, pc + 2, true);
+        machine_cache_sync(pc, pc + 1, true);
 }
 
 cache_pc
@@ -292,13 +316,15 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     /* Target is always the same, so if it's already unlinked, this is a nop. */
     if (!TEST(LINK_LINKED, l->flags))
         return;
-    ibl_code = get_ibl_routine_code(dcontext,
-                                    extract_branchtype(l->flags), f->flags);
+    ibl_code = get_ibl_routine_code(dcontext, extract_branchtype(l->flags), f->flags);
     exit_target = ibl_code->unlinked_ibl_entry;
 
+    /* Set pc to the last instruction in the stub. */
     pc = (uint *)(stub_pc +
                   exit_stub_size(dcontext, ibl_code->indirect_branch_lookup_routine,
-                                 f->flags) - (2 * AARCH64_INSTR_SIZE));
+                                 f->flags) -
+                  AARCH64_INSTR_SIZE);
+    pc = get_stub_branch(pc) - 1;
 
     /* ldr x1, [x(stolen), #(offs)] */
     *pc = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
@@ -345,8 +371,7 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
     ASSERT(f->prefix_size == 0);
     /* ldr x0, [x(stolen), #(off)] */
     *(uint *)pc = (0xf9400000 | (ENTRY_PC_REG - DR_REG_X0) |
-                   (dr_reg_stolen - DR_REG_X0) << 5 |
-                   ENTRY_PC_SPILL_SLOT >> 3 << 10);
+                   (dr_reg_stolen - DR_REG_X0) << 5 | ENTRY_PC_SPILL_SLOT >> 3 << 10);
     pc += 4;
     f->prefix_size = (byte)(((cache_pc)pc) - f->start_pc);
     ASSERT(f->prefix_size == fragment_prefix_size(f->flags));
@@ -364,8 +389,9 @@ insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where
     /* Load TLS base from user-mode thread pointer/ID register:
      * mrs reg_base, tpidr_el0
      */
-    PRE(ilist, where, INSTR_CREATE_mrs(dcontext, opnd_create_reg(reg_base),
-                                       opnd_create_reg(DR_REG_TPIDR_EL0)));
+    PRE(ilist, where,
+        INSTR_CREATE_mrs(dcontext, opnd_create_reg(reg_base),
+                         opnd_create_reg(DR_REG_TPIDR_EL0)));
     /* ldr dr_reg_stolen, [reg_base, DR_TLS_BASE_OFFSET] */
     PRE(ilist, where,
         XINST_CREATE_load(dcontext, opnd_create_reg(dr_reg_stolen),
@@ -387,20 +413,21 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
     /* Grab gen routine's parameter dcontext and put it into REG_DCXT:
      * mov x(dxct), x0
      */
-    APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT),
-                                 opnd_create_reg(DR_REG_X0)));
+    APP(ilist,
+        XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT),
+                          opnd_create_reg(DR_REG_X0)));
 
     /* FIXME i#2019: check dcontext->signals_pending.  First we need a way to
      * create a conditional branch b.le.
      */
 
     /* set up stolen reg */
-    insert_load_dr_tls_base(dcontext, ilist, NULL/*append*/, SCRATCH_REG0);
+    insert_load_dr_tls_base(dcontext, ilist, NULL /*append*/, SCRATCH_REG0);
 }
 
 void
-append_call_exit_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
-                         bool absolute, bool shared)
+append_call_exit_dr_hook(dcontext_t *dcontext, instrlist_t *ilist, bool absolute,
+                         bool shared)
 {
     /* i#1569: DR_HOOK is not supported on AArch64 */
     ASSERT_NOT_IMPLEMENTED(EXIT_DR_HOOK == NULL);
@@ -412,12 +439,15 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_W0, XFLAGS_OFFSET));
     APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_W1, XFLAGS_OFFSET + 4));
     APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_W2, XFLAGS_OFFSET + 8));
-    APP(ilist, INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_NZCV),
-                                opnd_create_reg(DR_REG_X0)));
-    APP(ilist, INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_FPCR),
-                                opnd_create_reg(DR_REG_X1)));
-    APP(ilist, INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_FPSR),
-                                opnd_create_reg(DR_REG_X2)));
+    APP(ilist,
+        INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_NZCV),
+                         opnd_create_reg(DR_REG_X0)));
+    APP(ilist,
+        INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_FPCR),
+                         opnd_create_reg(DR_REG_X1)));
+    APP(ilist,
+        INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_FPSR),
+                         opnd_create_reg(DR_REG_X2)));
 }
 
 /* dcontext is in REG_DCXT; other registers can be used as scratch.
@@ -433,11 +463,11 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                               OPND_CREATE_INTPTR(offsetof(priv_mcontext_t, simd))));
     for (i = 0; i < 32; i += 2) {
         /* ldp q(i), q(i + 1), [x1, #(i * 16)] */
-        APP(ilist, INSTR_CREATE_ldp(dcontext,
-                                    opnd_create_reg(DR_REG_Q0 + i),
-                                    opnd_create_reg(DR_REG_Q0 + i + 1),
-                                    opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0,
-                                                          i * 16, OPSZ_32)));
+        APP(ilist,
+            INSTR_CREATE_ldp(
+                dcontext, opnd_create_reg(DR_REG_Q0 + i),
+                opnd_create_reg(DR_REG_Q0 + i + 1),
+                opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0, i * 16, OPSZ_32)));
     }
 }
 
@@ -452,7 +482,7 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     int i;
 
-     /* FIXME i#1573: NYI on ARM with SELFPROT_DCONTEXT */
+    /* FIXME i#1573: NYI on ARM with SELFPROT_DCONTEXT */
     ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
     ASSERT(dr_reg_stolen != SCRATCH_REG0);
     /* Store stolen reg value into TLS slot. */
@@ -464,33 +494,33 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 
     i = (REG_DCXT == DR_REG_X0);
     /* ldp x30, x(i), [x(dcxt), #x30_offset] */
-    APP(ilist, INSTR_CREATE_ldp(dcontext,
-                                opnd_create_reg(DR_REG_X30),
-                                opnd_create_reg(DR_REG_X0 + i),
-                                opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
-                                                      REG_OFFSET(DR_REG_X30), OPSZ_16)));
+    APP(ilist,
+        INSTR_CREATE_ldp(dcontext, opnd_create_reg(DR_REG_X30),
+                         opnd_create_reg(DR_REG_X0 + i),
+                         opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                               REG_OFFSET(DR_REG_X30), OPSZ_16)));
     /* mov sp, x(i) */
-    APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_SP),
-                                 opnd_create_reg(DR_REG_X0 + i)));
+    APP(ilist,
+        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_SP),
+                          opnd_create_reg(DR_REG_X0 + i)));
     for (i = 0; i < 30; i += 2) {
         if ((REG_DCXT - DR_REG_X0) >> 1 != i >> 1) {
             /* ldp x(i), x(i+1), [x(dcxt), #xi_offset] */
-            APP(ilist, INSTR_CREATE_ldp(dcontext,
-                                        opnd_create_reg(DR_REG_X0 + i),
-                                        opnd_create_reg(DR_REG_X0 + i + 1),
-                                        opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
-                                                              REG_OFFSET(DR_REG_X0 + i),
-                                                              OPSZ_16)));
+            APP(ilist,
+                INSTR_CREATE_ldp(dcontext, opnd_create_reg(DR_REG_X0 + i),
+                                 opnd_create_reg(DR_REG_X0 + i + 1),
+                                 opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                                       REG_OFFSET(DR_REG_X0 + i),
+                                                       OPSZ_16)));
         }
     }
     i = (REG_DCXT - DR_REG_X0) & ~1;
     /* ldp x(i), x(i+1), [x(dcxt), #xi_offset] */
-    APP(ilist, INSTR_CREATE_ldp(dcontext,
-                                opnd_create_reg(DR_REG_X0 + i),
-                                opnd_create_reg(DR_REG_X0 + i + 1),
-                                opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
-                                                      REG_OFFSET(DR_REG_X0 + i),
-                                                      OPSZ_16)));
+    APP(ilist,
+        INSTR_CREATE_ldp(dcontext, opnd_create_reg(DR_REG_X0 + i),
+                         opnd_create_reg(DR_REG_X0 + i + 1),
+                         opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                               REG_OFFSET(DR_REG_X0 + i), OPSZ_16)));
 }
 
 /* Append instructions to save gpr on fcache return, called after
@@ -516,34 +546,35 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
      */
     for (i = 2; i < 30; i += 2) {
         /* stp x(i), x(i+1), [x(dcxt), #xi_offset] */
-        APP(ilist, INSTR_CREATE_stp(dcontext,
-                                    opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
-                                                          REG_OFFSET(DR_REG_X0 + i),
-                                                          OPSZ_16),
-                                    opnd_create_reg(DR_REG_X0 + i),
-                                    opnd_create_reg(DR_REG_X0 + i + 1)));
+        APP(ilist,
+            INSTR_CREATE_stp(dcontext,
+                             opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                                   REG_OFFSET(DR_REG_X0 + i), OPSZ_16),
+                             opnd_create_reg(DR_REG_X0 + i),
+                             opnd_create_reg(DR_REG_X0 + i + 1)));
     }
     /* mov x1, sp */
-    APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X1),
-                                 opnd_create_reg(DR_REG_SP)));
+    APP(ilist,
+        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X1),
+                          opnd_create_reg(DR_REG_SP)));
     /* stp x30, x1, [x(dcxt), #x30_offset] */
-    APP(ilist, INSTR_CREATE_stp(dcontext,
-                                opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
-                                                      REG_OFFSET(DR_REG_X30), OPSZ_16),
-                                opnd_create_reg(DR_REG_X30),
-                                opnd_create_reg(DR_REG_X1)));
+    APP(ilist,
+        INSTR_CREATE_stp(dcontext,
+                         opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                               REG_OFFSET(DR_REG_X30), OPSZ_16),
+                         opnd_create_reg(DR_REG_X30), opnd_create_reg(DR_REG_X1)));
 
     /* ldp x1, x2, [x(stolen)]
      * stp x1, x2, [x(dcxt)]
      */
-    APP(ilist, INSTR_CREATE_ldp(dcontext,
-                                opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2),
-                                opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
-                                                      0, OPSZ_16)));
-    APP(ilist, INSTR_CREATE_stp(dcontext,
-                                opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
-                                                      0, OPSZ_16),
-                                opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2)));
+    APP(ilist,
+        INSTR_CREATE_ldp(
+            dcontext, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2),
+            opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, 0, OPSZ_16)));
+    APP(ilist,
+        INSTR_CREATE_stp(dcontext,
+                         opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0, 0, OPSZ_16),
+                         opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2)));
 
     if (linkstub != NULL) {
         /* FIXME i#1575: NYI for coarse-grain stub */
@@ -576,11 +607,11 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                               OPND_CREATE_INTPTR(offsetof(priv_mcontext_t, simd))));
     for (i = 0; i < 32; i += 2) {
         /* stp q(i), q(i + 1), [x1, #(i * 16)] */
-        APP(ilist, INSTR_CREATE_stp(dcontext,
-                                    opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0,
-                                                          i * 16, OPSZ_32),
-                                    opnd_create_reg(DR_REG_Q0 + i),
-                                    opnd_create_reg(DR_REG_Q0 + i + 1)));
+        APP(ilist,
+            INSTR_CREATE_stp(
+                dcontext,
+                opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0, i * 16, OPSZ_32),
+                opnd_create_reg(DR_REG_Q0 + i), opnd_create_reg(DR_REG_Q0 + i + 1)));
     }
 }
 
@@ -588,20 +619,23 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 void
 append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    APP(ilist, INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X1),
-                                opnd_create_reg(DR_REG_NZCV)));
-    APP(ilist, INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X2),
-                                opnd_create_reg(DR_REG_FPCR)));
-    APP(ilist, INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X3),
-                                opnd_create_reg(DR_REG_FPSR)));
+    APP(ilist,
+        INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X1),
+                         opnd_create_reg(DR_REG_NZCV)));
+    APP(ilist,
+        INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X2),
+                         opnd_create_reg(DR_REG_FPCR)));
+    APP(ilist,
+        INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X3),
+                         opnd_create_reg(DR_REG_FPSR)));
     APP(ilist, SAVE_TO_DC(dcontext, DR_REG_W1, XFLAGS_OFFSET));
     APP(ilist, SAVE_TO_DC(dcontext, DR_REG_W2, XFLAGS_OFFSET + 4));
     APP(ilist, SAVE_TO_DC(dcontext, DR_REG_W3, XFLAGS_OFFSET + 8));
 }
 
 bool
-append_call_enter_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
-                          bool ibl_end, bool absolute)
+append_call_enter_dr_hook(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end,
+                          bool absolute)
 {
     /* i#1569: DR_HOOK is not supported on AArch64 */
     ASSERT_NOT_IMPLEMENTED(EXIT_DR_HOOK == NULL);
@@ -609,24 +643,23 @@ append_call_enter_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
 }
 
 void
-insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                   uint flags, bool tls, bool absolute
-                   _IF_X86_64(bool x86_to_x64_ibl_opt))
+insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, uint flags,
+                   bool tls, bool absolute _IF_X86_64(bool x86_to_x64_ibl_opt))
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 }
 
 void
 insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                      uint flags, bool tls, bool absolute
-                      _IF_X86_64(bool x86_to_x64_ibl_opt))
+                      uint flags, bool tls,
+                      bool absolute _IF_X86_64(bool x86_to_x64_ibl_opt))
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 }
 
 byte *
-emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc,
-                     ibl_code_t *ibl_code, bool target_trace_table)
+emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
+                     bool target_trace_table)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return pc;
@@ -641,10 +674,8 @@ instr_is_ibl_hit_jump(instr_t *instr)
 
 byte *
 emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
-                            byte *fcache_return_pc,
-                            bool target_trace_table,
-                            bool inline_ibl_head,
-                            ibl_code_t *ibl_code /* IN/OUT */)
+                            byte *fcache_return_pc, bool target_trace_table,
+                            bool inline_ibl_head, ibl_code_t *ibl_code /* IN/OUT */)
 {
     bool absolute = false;
     instrlist_t ilist;
@@ -697,53 +728,52 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
                                                TLS_MASK_SLOT(ibl_code->branch_type),
                                                OPSZ_16)));
     /* and x1, x1, x2 */
-    APP(&ilist, INSTR_CREATE_and(dc, opnd_create_reg(DR_REG_X1),
-                                 opnd_create_reg(DR_REG_X1),
-                                 opnd_create_reg(DR_REG_X2)));
+    APP(&ilist,
+        INSTR_CREATE_and(dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X1),
+                         opnd_create_reg(DR_REG_X2)));
     /* Get table entry. */
     /* add x1, x0, x1, LSL #4 */
-    APP(&ilist, INSTR_CREATE_add_shift
-        (dc, opnd_create_reg(DR_REG_X1),
-         opnd_create_reg(DR_REG_X0),
-         opnd_create_reg(DR_REG_X1),
-         OPND_CREATE_INT8(DR_SHIFT_LSL),
-         OPND_CREATE_INT8(4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type))));
+    APP(&ilist,
+        INSTR_CREATE_add_shift(
+            dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X0),
+            opnd_create_reg(DR_REG_X1), OPND_CREATE_INT8(DR_SHIFT_LSL),
+            OPND_CREATE_INT8(4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type))));
     /* x1 now holds the fragment_entry_t* in the hashtable. */
     APP(&ilist, load_tag);
     /* Load tag from fragment_entry_t* in the hashtable to x0. */
     /* ldr x0, [x1, #tag_fragment_offset] */
     APP(&ilist,
-        INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X0),
-                         OPND_CREATE_MEMPTR(DR_REG_X1,
-                                            offsetof(fragment_entry_t, tag_fragment))));
+        INSTR_CREATE_ldr(
+            dc, opnd_create_reg(DR_REG_X0),
+            OPND_CREATE_MEMPTR(DR_REG_X1, offsetof(fragment_entry_t, tag_fragment))));
     /* Did we hit? */
     APP(&ilist, compare_tag);
     /* cbz x0, not_hit */
-    APP(&ilist, INSTR_CREATE_cbz(dc, opnd_create_instr(not_hit),
-                                 opnd_create_reg(DR_REG_X0)));
+    APP(&ilist,
+        INSTR_CREATE_cbz(dc, opnd_create_instr(not_hit), opnd_create_reg(DR_REG_X0)));
     /* sub x0, x0, x2 */
-    APP(&ilist, XINST_CREATE_sub(dc, opnd_create_reg(DR_REG_X0),
-                                 opnd_create_reg(DR_REG_X2)));
+    APP(&ilist,
+        XINST_CREATE_sub(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X2)));
     /* cbnz x0, try_next */
-    APP(&ilist, INSTR_CREATE_cbnz(dc, opnd_create_instr(try_next),
-                                  opnd_create_reg(DR_REG_X0)));
+    APP(&ilist,
+        INSTR_CREATE_cbnz(dc, opnd_create_instr(try_next), opnd_create_reg(DR_REG_X0)));
 
     /* Hit path: load the app's original value of x0 and x1. */
     /* ldp x0, x2, [x28] */
-    APP(&ilist, INSTR_CREATE_ldp(dc,
-                                 opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X2),
-                                 opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
-                                                       TLS_REG0_SLOT, OPSZ_16)));
+    APP(&ilist,
+        INSTR_CREATE_ldp(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X2),
+                         opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
+                                               TLS_REG0_SLOT, OPSZ_16)));
     /* Store x0 in TLS_REG1_SLOT as requied in the fragment prefix. */
     APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG1_SLOT));
     /* ldr x0, [x1, #start_pc_fragment_offset] */
-    APP(&ilist, INSTR_CREATE_ldr
-        (dc, opnd_create_reg(DR_REG_X0),
-         OPND_CREATE_MEMPTR(DR_REG_X1,
-                            offsetof(fragment_entry_t, start_pc_fragment))));
+    APP(&ilist,
+        INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X0),
+                         OPND_CREATE_MEMPTR(
+                             DR_REG_X1, offsetof(fragment_entry_t, start_pc_fragment))));
     /* mov x1, x2 */
-    APP(&ilist, XINST_CREATE_move(dc, opnd_create_reg(DR_REG_X1),
-                                  opnd_create_reg(DR_REG_X2)));
+    APP(&ilist,
+        XINST_CREATE_move(dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2)));
     /* Recover app's original x2. */
     APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
     /* br x0
@@ -757,11 +787,10 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
      * because of the sentinel at the end.
      * ldr x0, [x1, #tag_fragment_offset]! */
     APP(&ilist,
-        instr_create_2dst_3src(dc, OP_ldr, opnd_create_reg(DR_REG_X0),
-                               opnd_create_reg(DR_REG_X1),
-                               OPND_CREATE_MEMPTR(DR_REG_X1, sizeof(fragment_entry_t)),
-                               opnd_create_reg(DR_REG_X1),
-                               OPND_CREATE_INTPTR(sizeof(fragment_entry_t))));
+        instr_create_2dst_3src(
+            dc, OP_ldr, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1),
+            OPND_CREATE_MEMPTR(DR_REG_X1, sizeof(fragment_entry_t)),
+            opnd_create_reg(DR_REG_X1), OPND_CREATE_INTPTR(sizeof(fragment_entry_t))));
     /* b compare_tag */
     APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(compare_tag)));
 
@@ -770,20 +799,21 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     if (INTERNAL_OPTION(ibl_sentinel_check)) {
         /* Load start_pc from fragment_entry_t* in the hashtable to x0. */
         /* ldr x0, [x1, #start_pc_fragment] */
-        APP(&ilist, XINST_CREATE_load(dc, opnd_create_reg(DR_REG_X0),
-                                      OPND_CREATE_MEMPTR(DR_REG_X1,
-                                                         offsetof(fragment_entry_t,
-                                                                  start_pc_fragment))));
+        APP(&ilist,
+            XINST_CREATE_load(
+                dc, opnd_create_reg(DR_REG_X0),
+                OPND_CREATE_MEMPTR(DR_REG_X1,
+                                   offsetof(fragment_entry_t, start_pc_fragment))));
         /* To compare with an arbitrary constant we'd need a 4th scratch reg.
          * Instead we rely on the sentinel start PC being 1.
          */
         ASSERT(HASHLOOKUP_SENTINEL_START_PC == (cache_pc)PTR_UINT_1);
         /* sub x0, x0, #1 */
-        APP(&ilist, XINST_CREATE_sub(dc, opnd_create_reg(DR_REG_X0),
-                                     OPND_CREATE_INT8(1)));
+        APP(&ilist,
+            XINST_CREATE_sub(dc, opnd_create_reg(DR_REG_X0), OPND_CREATE_INT8(1)));
         /* cbnz x0, miss */
-        APP(&ilist, INSTR_CREATE_cbnz(dc, opnd_create_instr(miss),
-                                      opnd_create_reg(DR_REG_R0)));
+        APP(&ilist,
+            INSTR_CREATE_cbnz(dc, opnd_create_instr(miss), opnd_create_reg(DR_REG_R0)));
         /* Point at the first table slot and then go load and compare its tag */
         /* ldr x1, [x28, #table_base] */
         APP(&ilist,
@@ -802,13 +832,13 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist, target_delete_entry);
     add_patch_marker(patch, target_delete_entry, PATCH_ASSEMBLE_ABSOLUTE,
                      0 /* beginning of instruction */,
-                     (ptr_uint_t*)&ibl_code->target_delete_entry);
+                     (ptr_uint_t *)&ibl_code->target_delete_entry);
 
     /* Unlink path: entry from stub */
     APP(&ilist, unlinked);
     add_patch_marker(patch, unlinked, PATCH_ASSEMBLE_ABSOLUTE,
                      0 /* beginning of instruction */,
-                     (ptr_uint_t*)&ibl_code->unlinked_ibl_entry);
+                     (ptr_uint_t *)&ibl_code->unlinked_ibl_entry);
 
     /* Put ib tgt into dcontext->next_tag */
     insert_shared_get_dcontext(dc, &ilist, NULL, true);
@@ -817,8 +847,9 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
 
     /* ldr x1, [x(stolen), #(offs)] */
-    APP(&ilist, INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X1),
-                                 OPND_TLS_FIELD(TLS_FCACHE_RETURN_SLOT)));
+    APP(&ilist,
+        INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X1),
+                         OPND_TLS_FIELD(TLS_FCACHE_RETURN_SLOT)));
     /* br x1 */
     APP(&ilist, INSTR_CREATE_br(dc, opnd_create_reg(DR_REG_X1)));
 
@@ -829,8 +860,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 
 void
 relink_special_ibl_xfer(dcontext_t *dcontext, int index,
-                        ibl_entry_point_type_t entry_type,
-                        ibl_branch_type_t ibl_type)
+                        ibl_entry_point_type_t entry_type, ibl_branch_type_t ibl_type)
 {
     generated_code_t *code;
     byte *ibl_tgt;
@@ -870,6 +900,6 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
         return false;
     }
     for (pc = addr; pc < addr + size; pc += 4)
-        *(uint *)pc = 0xd503201f; /* nop */
+        *(uint *)pc = NOP_INST; /* nop */
     return true;
 }

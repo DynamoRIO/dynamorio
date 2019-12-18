@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,78 +38,164 @@
 
 #include "dr_api.h"
 #include "opcode_mix.h"
-#include "common/utils.h"
-#include "tracer/raw2trace.h"
-#include "tracer/raw2trace_directory.h"
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <vector>
+#include <string.h>
 
 const std::string opcode_mix_t::TOOL_NAME = "Opcode mix tool";
 
 analysis_tool_t *
-opcode_mix_tool_create(const std::string& module_file_path, unsigned int verbose)
+opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose)
 {
     return new opcode_mix_t(module_file_path, verbose);
 }
 
-opcode_mix_t::opcode_mix_t(const std::string& module_file_path, unsigned int verbose) :
-    dcontext(nullptr), raw2trace(nullptr), knob_verbose(verbose), instr_count(0)
+opcode_mix_t::opcode_mix_t(const std::string &module_file_path_in, unsigned int verbose)
+    : dcontext(nullptr)
+    , module_file_path(module_file_path_in)
+    , knob_verbose(verbose)
 {
-    if (module_file_path.empty()) {
-        success = false;
-        return;
-    }
+}
+
+std::string
+opcode_mix_t::initialize()
+{
+    serial_shard.worker = &serial_worker;
+    if (module_file_path.empty())
+        return "Module file path is missing";
     dcontext = dr_standalone_init();
-    raw2trace_directory_t dir(module_file_path);
-    raw2trace = new raw2trace_t(dir.modfile_bytes, std::vector<std::istream*>(),
-                                nullptr, dcontext, verbose);
-    std::string error = raw2trace->do_module_parsing_and_mapping();
-    if (!error.empty()) {
-        success = false;
-        return;
-    }
+    std::string error = directory.initialize_module_file(module_file_path);
+    if (!error.empty())
+        return "Failed to initialize directory: " + error;
+    mapper_mutex = dr_mutex_create();
+    module_mapper = module_mapper_t::create(directory.modfile_bytes, nullptr, nullptr,
+                                            nullptr, nullptr, knob_verbose);
+    module_mapper->get_loaded_modules();
+    error = module_mapper->get_last_error();
+    if (!error.empty())
+        return "Failed to load binaries: " + error;
+    return "";
 }
 
 opcode_mix_t::~opcode_mix_t()
 {
-    delete raw2trace;
+    for (auto &iter : shard_map) {
+        delete iter.second;
+    }
+    dr_mutex_destroy(mapper_mutex);
+}
+
+bool
+opcode_mix_t::parallel_shard_supported()
+{
+    return true;
+}
+
+void *
+opcode_mix_t::parallel_worker_init(int worker_index)
+{
+    auto worker = new worker_data_t;
+    return reinterpret_cast<void *>(worker);
+}
+
+std::string
+opcode_mix_t::parallel_worker_exit(void *worker_data)
+{
+    worker_data_t *worker = reinterpret_cast<worker_data_t *>(worker_data);
+    delete worker;
+    return "";
+}
+
+void *
+opcode_mix_t::parallel_shard_init(int shard_index, void *worker_data)
+{
+    worker_data_t *worker = reinterpret_cast<worker_data_t *>(worker_data);
+    auto shard = new shard_data_t(worker);
+    std::lock_guard<std::mutex> guard(shard_map_mutex);
+    shard_map[shard_index] = shard;
+    return reinterpret_cast<void *>(shard);
+}
+
+bool
+opcode_mix_t::parallel_shard_exit(void *shard_data)
+{
+    // Nothing (we read the shard data in print_results).
+    return true;
+}
+
+bool
+opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
+{
+    if (!type_is_instr(memref.instr.type) &&
+        memref.data.type != TRACE_TYPE_INSTR_NO_FETCH) {
+        return true;
+    }
+    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
+    ++shard->instr_count;
+
+    app_pc mapped_pc;
+    const app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
+    if (trace_pc >= shard->last_trace_module_start &&
+        static_cast<size_t>(trace_pc - shard->last_trace_module_start) <
+            shard->last_trace_module_size) {
+        mapped_pc =
+            shard->last_mapped_module_start + (trace_pc - shard->last_trace_module_start);
+    } else {
+        scoped_mutex_t scoped_mutex(mapper_mutex);
+        mapped_pc = module_mapper->find_mapped_trace_bounds(
+            trace_pc, &shard->last_mapped_module_start, &shard->last_trace_module_size);
+        if (!module_mapper->get_last_error().empty()) {
+            shard->last_trace_module_start = nullptr;
+            shard->last_trace_module_size = 0;
+            shard->error = "Failed to find mapped address for " +
+                to_hex_string(memref.instr.addr) + ": " + module_mapper->get_last_error();
+            return false;
+        }
+        shard->last_trace_module_start =
+            trace_pc - (mapped_pc - shard->last_mapped_module_start);
+    }
+    int opcode;
+    auto cached_opcode = shard->worker->opcode_cache.find(mapped_pc);
+    if (cached_opcode != shard->worker->opcode_cache.end()) {
+        opcode = cached_opcode->second;
+    } else {
+        instr_t instr;
+        instr_init(dcontext, &instr);
+        app_pc next_pc = decode(dcontext, mapped_pc, &instr);
+        if (next_pc == NULL || !instr_valid(&instr)) {
+            error_string =
+                "Failed to decode instruction " + to_hex_string(memref.instr.addr);
+            return false;
+        }
+        opcode = instr_get_opcode(&instr);
+        shard->worker->opcode_cache[mapped_pc] = opcode;
+        instr_free(dcontext, &instr);
+    }
+    ++shard->opcode_counts[opcode];
+    return true;
+}
+
+std::string
+opcode_mix_t::parallel_shard_error(void *shard_data)
+{
+    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
+    return shard->error;
 }
 
 bool
 opcode_mix_t::process_memref(const memref_t &memref)
 {
-  if (!type_is_instr(memref.instr.type) &&
-      memref.data.type != TRACE_TYPE_INSTR_NO_FETCH)
-      return true;
-  ++instr_count;
-  app_pc mapped_pc;
-  std::string err =
-      raw2trace->find_mapped_trace_address((app_pc)memref.instr.addr, &mapped_pc);
-  if (!err.empty())
-      return false;
-  int opcode;
-  auto cached_opcode = opcode_cache.find(mapped_pc);
-  if (cached_opcode != opcode_cache.end()) {
-      opcode = cached_opcode->second;
-  } else {
-      instr_t instr;
-      instr_init(dcontext, &instr);
-      app_pc next_pc = decode(dcontext, mapped_pc, &instr);
-      if (next_pc == NULL || !instr_valid(&instr))
-          return false;
-      opcode = instr_get_opcode(&instr);
-      opcode_cache[mapped_pc] = opcode;
-      instr_free(dcontext, &instr);
-  }
-  ++opcode_counts[opcode];
-  return true;
+    if (!parallel_shard_memref(reinterpret_cast<void *>(&serial_shard), memref)) {
+        error_string = serial_shard.error;
+        return false;
+    }
+    return true;
 }
 
 static bool
-cmp_val(const std::pair<int, int_least64_t> &l,
-        const std::pair<int, int_least64_t> &r)
+cmp_val(const std::pair<int, int_least64_t> &l, const std::pair<int, int_least64_t> &r)
 {
     return (l.second > r.second);
 }
@@ -117,14 +203,25 @@ cmp_val(const std::pair<int, int_least64_t> &l,
 bool
 opcode_mix_t::print_results()
 {
+    shard_data_t total(0);
+    if (shard_map.empty()) {
+        total = serial_shard;
+    } else {
+        for (const auto &shard : shard_map) {
+            total.instr_count += shard.second->instr_count;
+            for (const auto &keyvals : shard.second->opcode_counts) {
+                total.opcode_counts[keyvals.first] += keyvals.second;
+            }
+        }
+    }
     std::cerr << TOOL_NAME << " results:\n";
-    std::cerr << std::setw(15) << instr_count << " : total executed instructions\n";
-    std::vector<std::pair<int, int_least64_t>> sorted(opcode_counts.begin(),
-                                                      opcode_counts.end());
+    std::cerr << std::setw(15) << total.instr_count << " : total executed instructions\n";
+    std::vector<std::pair<int, int_least64_t>> sorted(total.opcode_counts.begin(),
+                                                      total.opcode_counts.end());
     std::sort(sorted.begin(), sorted.end(), cmp_val);
     for (const auto &keyvals : sorted) {
-        std::cerr << std::setw(15) << keyvals.second << " : "
-                  << std::setw(9) << decode_opcode_name(keyvals.first) << "\n";
+        std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
+                  << decode_opcode_name(keyvals.first) << "\n";
     }
     return true;
 }

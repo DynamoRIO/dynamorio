@@ -35,7 +35,7 @@
  * routines to support optimization of traces
  */
 
-#include "../globals.h"   /* just to disable warning C4206 about an empty file */
+#include "../globals.h" /* just to disable warning C4206 about an empty file */
 
 #ifdef INTERNAL /* around whole file */
 

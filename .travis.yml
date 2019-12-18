@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+# Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -33,10 +33,9 @@
 notifications:
   email:
     # This overrides the default of sending to the committer and author.
-    # Temporarily sending to bruening too to help diagnose email problems.
     recipients:
-      - bruening@google.com
-    on_success: always
+      - dynamorio-devs@googlegroups.com
+    on_success: change
     on_failure: always
 
 # Don't run Travis on pushes to feature branches: pull requests cover those.
@@ -44,9 +43,9 @@ branches:
   only:
   - master
 
-# We use Trusty to get cmake 3.5 via the cmake3 package.
+# We use Xenial.
 sudo: required
-dist: trusty
+dist: xenial
 
 language:
   - c
@@ -74,20 +73,37 @@ jobs:
     # 32-bit Linux build with clang, no tests (runsuite.cmake disables the tests):
     - os: linux
       compiler: clang
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only
-    # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests):
+      # We need clang 9.0 to avoid a compiler bug: i#3989.
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only CC=clang-9 && CXX=clang++-9
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
+            key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
+          packages:
+          - clang-9
+    # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests),
+    # install and require clang-format:
     - os: linux
       compiler: clang
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=64_only
+      # We need clang 9.0 to avoid a compiler bug: i#3989.
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="64_only require_format" CC=clang-9 && CXX=clang++-9
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
+            key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
+          packages:
+          - clang-9
+          - clang-format-6.0
     # 32-bit OSX build with clang and run tests:
     - os: osx
       # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
       compiler: clang
       # We do not have 64-bit support on OSX yet (i#1979).
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only
-      # XXX i#2764: Travis OSX resources are over-subscribed and it can take
-      # hours to get an OSX machine, so we skip running PR's for now.
-      if: type = push
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
@@ -98,7 +114,7 @@ install:
   # ImageMagick is present but these are not:
   - >
       if [[ "`uname`" == "Linux" ]]; then
-      sudo apt-get -y install doxygen transfig vera++ cmake3; fi
+      sudo apt-get -y install ghostscript doxygen transfig vera++ cmake zlib1g-dev libsnappy-dev; fi
   # Install multilib for non-cross-compiling Linux builds:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY == no ]]; then
@@ -138,7 +154,7 @@ before_deploy:
   # We should find a way to share (xref i#1565).
   # We support setting TAG_SUFFIX on triggered builds so we can have
   # multiple unique tags in one day (the patchlevel here is the day number).
-  - export GIT_TAG="cronbuild-7.0.$((`git log -n 1 --format=%ct` / (60*60*24)))${TAG_SUFFIX}"
+  - export GIT_TAG="cronbuild-7.91.$((`git log -n 1 --format=%ct` / (60*60*24)))${TAG_SUFFIX}"
   - git tag $GIT_TAG -a -m "Travis auto-generated tag for build $TRAVIS_BUILD_NUMBER."
 deploy:
   provider: releases

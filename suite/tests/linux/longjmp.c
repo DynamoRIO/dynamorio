@@ -34,32 +34,32 @@
 #include <stdio.h>
 #include <setjmp.h>
 #include <stdlib.h>
+#include "tools.h"
 
 jmp_buf mark;
 
 void
 foo()
 {
-   printf("about to do longjmp\n");
-   fflush(stdout);
-   longjmp(mark, -1);
+    print("about to do longjmp\n");
+    longjmp(mark, -1);
 }
 
 int
 main()
 {
-   int jmpret;
-   /* Save stack environment for return in case of error. First
-    * time through, jmpret is 0, so true conditional is executed.
-    * If an error occurs, jmpret will be set to -1 and false
-    * conditional will be executed.
-    */
-   jmpret = setjmp(mark);
-   if (jmpret == 0) {
-       printf("doing stuff\n");
-       foo();
-   } else {
-       printf("after longjmp\n");
-   }
-   return 0;
+    int jmpret;
+    /* Save stack environment for return in case of error. First
+     * time through, jmpret is 0, so true conditional is executed.
+     * If an error occurs, jmpret will be set to -1 and false
+     * conditional will be executed.
+     */
+    jmpret = setjmp(mark);
+    if (jmpret == 0) {
+        print("doing stuff\n");
+        foo();
+    } else {
+        print("after longjmp\n");
+    }
+    return 0;
 }

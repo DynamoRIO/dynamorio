@@ -32,35 +32,21 @@
 
 #include "dr_api.h"
 
-static
-void security_event(void *drcontext, void *source_tag,
-                    app_pc source_pc, app_pc target_pc,
-                    dr_security_violation_type_t violation,
-                    dr_mcontext_t *mcontext,
-                    dr_security_violation_action_t *action)
+static void
+security_event(void *drcontext, void *source_tag, app_pc source_pc, app_pc target_pc,
+               dr_security_violation_type_t violation, dr_mcontext_t *mcontext,
+               dr_security_violation_action_t *action)
 {
     static int violations = 0;
 
     const char *violation_str = NULL;
     switch (violation) {
-    case DR_RCO_STACK_VIOLATION:
-        violation_str = "stack execution violation";
-        break;
-    case DR_RCO_HEAP_VIOLATION:
-        violation_str = "heap execution violation";
-        break;
-    case DR_RCT_RETURN_VIOLATION:
-        violation_str = "return target violation";
-        break;
-    case DR_RCT_INDIRECT_CALL_VIOLATION:
-        violation_str = "call rct violation";
-        break;
-    case DR_RCT_INDIRECT_JUMP_VIOLATION:
-        violation_str = "jump rct violation";
-        break;
-    default:
-        violation_str = "unknown";
-        break;
+    case DR_RCO_STACK_VIOLATION: violation_str = "stack execution violation"; break;
+    case DR_RCO_HEAP_VIOLATION: violation_str = "heap execution violation"; break;
+    case DR_RCT_RETURN_VIOLATION: violation_str = "return target violation"; break;
+    case DR_RCT_INDIRECT_CALL_VIOLATION: violation_str = "call rct violation"; break;
+    case DR_RCT_INDIRECT_JUMP_VIOLATION: violation_str = "jump rct violation"; break;
+    default: violation_str = "unknown"; break;
     }
 
     dr_fprintf(STDERR, "security violation: \"%s\"\n", violation_str);
@@ -74,8 +60,7 @@ void security_event(void *drcontext, void *source_tag,
     if (violations == 1) {
         dr_fprintf(STDERR, "continuing...\n");
         *action = DR_VIOLATION_ACTION_CONTINUE;
-    }
-    else {
+    } else {
         dr_fprintf(STDERR, "terminating...\n");
         *action = DR_VIOLATION_ACTION_KILL_PROCESS;
 #if 0
@@ -86,7 +71,8 @@ void security_event(void *drcontext, void *source_tag,
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     dr_register_security_event(security_event);
 }

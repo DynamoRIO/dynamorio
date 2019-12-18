@@ -37,10 +37,15 @@
 /*
 To build need to align to 0x2000 to get non-committed pages as padding
 
-cl /nologo /Zi /I. tools.c /Od /MTd win32/secalign.dll.c kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /link /subsystem:console /dll /out:win32/secalign.dll.dll /implib:win32/secalign.dll.lib /align:0x2000 /driver
+cl /nologo /Zi /I. tools.c /Od /MTd win32/secalign.dll.c kernel32.lib user32.lib gdi32.lib
+winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib
+odbc32.lib odbccp32.lib /link /subsystem:console /dll /out:win32/secalign.dll.dll
+/implib:win32/secalign.dll.lib /align:0x2000 /driver
 
 new link.exe has /section, accomplishes same thing, still need /driver:
-"/c/Program Files/Microsoft Visual Studio 8/VC/bin/link.exe" win32/secalign.dll.obj /subsystem:console /dll /out:win32/secalign.dll.dll /implib:win32/secalign.dll.lib /section:.text,,align=0x2000 /driver
+"/c/Program Files/Microsoft Visual Studio 8/VC/bin/link.exe" win32/secalign.dll.obj
+/subsystem:console /dll /out:win32/secalign.dll.dll /implib:win32/secalign.dll.lib
+/section:.text,,align=0x2000 /driver
 */
 
 #include "tools.h"
@@ -55,9 +60,7 @@ new link.exe has /section, accomplishes same thing, still need /driver:
 #pragma comment(linker, "/fixed /align:0x2000 /driver")
 
 /* our Makefile expects a .lib */
-int
-__declspec(dllexport)
-make_a_lib(int arg)
+int __declspec(dllexport) make_a_lib(int arg)
 {
     return 1;
 }
@@ -66,9 +69,7 @@ BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     switch (reason_for_call) {
-    case DLL_PROCESS_ATTACH:
-        print("in fixed dll\n");
-        break;
+    case DLL_PROCESS_ATTACH: print("in fixed dll\n"); break;
     }
     return TRUE;
 }

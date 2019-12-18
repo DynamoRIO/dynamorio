@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,16 +41,18 @@
 #include "dr_frontend.h"
 
 #ifdef WINDOWS
-# include <direct.h>
+#    include <direct.h>
 /* It looks better to consistently use the same separator */
-# define DIRSEP '\\'
-# define snprintf _snprintf
+#    define DIRSEP '\\'
+#    define snprintf _snprintf
 #else
-# include <unistd.h>
-# define DIRSEP '/'
+#    include <unistd.h>
+#    define DIRSEP '/'
 #endif
 #include <sys/types.h>
 #include <sys/stat.h> /* for _stat */
+
+int drfrontend_verbosity = 0;
 
 drfront_status_t
 drfront_bufprint(char *buf, size_t bufsz, INOUT size_t *sofar, OUT ssize_t *len,
@@ -58,7 +60,7 @@ drfront_bufprint(char *buf, size_t bufsz, INOUT size_t *sofar, OUT ssize_t *len,
 {
     va_list ap;
     va_start(ap, fmt);
-    /* XXX i#1397: We would like to use our_vsnprintf() instead of depending
+    /* XXX i#1397: We would like to use d_r_vsnprintf() instead of depending
      * on libc/winapi.
      */
     *len = vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
@@ -81,13 +83,13 @@ drfront_convert_args(const TCHAR **targv, OUT char ***argv, int argc)
 {
     int i = 0;
     drfront_status_t ret = DRFRONT_ERROR;
-    *argv = (char **) calloc(argc + 1/*null*/, sizeof(**argv));
+    *argv = (char **)calloc(argc + 1 /*null*/, sizeof(**argv));
     for (i = 0; i < argc; i++) {
         size_t len = 0;
         ret = drfront_tchar_to_char_size_needed(targv[i], &len);
         if (ret != DRFRONT_SUCCESS)
             return ret;
-        (*argv)[i] = (char *) malloc(len); /* len includes terminating null */
+        (*argv)[i] = (char *)malloc(len); /* len includes terminating null */
         ret = drfront_tchar_to_char(targv[i], (*argv)[i], len);
         if (ret != DRFRONT_SUCCESS)
             return ret;
@@ -114,15 +116,15 @@ drfront_is_system_install_dir(const char *dir)
      * to get to the system install dir, so we cannot just rely on path name to
      * check if dir is the system install dir.
      */
-    return (_strnicmp(dir+strlen("c:\\"), "progra~", strlen("progra~")) == 0 ||
-            _strnicmp(dir+strlen("c:\\"), "Program Files", strlen("Program Files")) == 0);
+    return (_strnicmp(dir + strlen("c:\\"), "progra~", strlen("progra~")) == 0 ||
+            _strnicmp(dir + strlen("c:\\"), "Program Files", strlen("Program Files")) ==
+                0);
 }
 #endif
 
 drfront_status_t
-drfront_appdata_logdir(const char *root, const char *subdir,
-                       OUT bool *use_root,
-                       OUT char *buf, size_t buflen/*# elements*/)
+drfront_appdata_logdir(const char *root, const char *subdir, OUT bool *use_root,
+                       OUT char *buf, size_t buflen /*# elements*/)
 {
     drfront_status_t res = DRFRONT_ERROR;
     bool writable = false;
@@ -136,7 +138,7 @@ drfront_appdata_logdir(const char *root, const char *subdir,
      * VirtualStore.
      */
     if (IF_WINDOWS(drfront_is_system_install_dir(root) ||)
-        drfront_access(root, DRFRONT_WRITE, &writable) != DRFRONT_SUCCESS ||
+                drfront_access(root, DRFRONT_WRITE, &writable) != DRFRONT_SUCCESS ||
         !writable) {
         bool have_env = false;
         drfront_status_t sc;
@@ -153,8 +155,8 @@ drfront_appdata_logdir(const char *root, const char *subdir,
             if (sc == DRFRONT_SUCCESS)
                 have_env = true;
             if (have_env) {
-                snprintf(buf, buflen,
-                          "%s%cApplication Data%c%s", env, DIRSEP, DIRSEP, subdir);
+                snprintf(buf, buflen, "%s%cApplication Data%c%s", env, DIRSEP, DIRSEP,
+                         subdir);
                 buf[buflen - 1] = '\0';
             }
         }
@@ -170,14 +172,14 @@ drfront_appdata_logdir(const char *root, const char *subdir,
                 /* bail */
 #else
                 have_env = true;
-# ifdef ANDROID
+#    ifdef ANDROID
                 /* It's impractical to query Java for the "cache dir" so we use
                  * this commonly present dir.
                  */
-#  define TMP_DIR "/data/local/tmp"
-# else
-#  define TMP_DIR "/tmp"
-# endif
+#        define TMP_DIR "/data/local/tmp"
+#    else
+#        define TMP_DIR "/tmp"
+#    endif
                 snprintf(env, BUFFER_SIZE_ELEMENTS(env), "%s", TMP_DIR);
                 NULL_TERMINATE_BUFFER(env);
 #endif
@@ -248,22 +250,18 @@ drfront_create_dir(const char *dir)
         } else if (errcode == ERROR_ACCESS_DENIED) {
             return DRFRONT_ERROR_ACCESS_DENIED;
         } else {
-            DO_DEBUG(DL_WARN,
-                     printf("CreateDirectoryW failed %d", errcode);
-                     );
+            NOTIFY(1, "CreateDirectoryW failed %d\n", errcode);
             return DRFRONT_ERROR;
         }
     }
 #else
     if (mkdir(wdir, 0777) != 0) {
-        if(errno == EEXIST) {
+        if (errno == EEXIST) {
             return DRFRONT_ERROR_FILE_EXISTS;
-        } else if(errno == EACCES) {
+        } else if (errno == EACCES) {
             return DRFRONT_ERROR_ACCESS_DENIED;
         } else {
-            DO_DEBUG(DL_WARN,
-                     printf("mkdir failed %d", errno);
-                     );
+            NOTIFY(1, "mkdir failed %d\n", errno);
             return DRFRONT_ERROR;
         }
     }
@@ -290,25 +288,30 @@ drfront_remove_dir(const char *dir)
         } else if (errcode == ERROR_ACCESS_DENIED) {
             return DRFRONT_ERROR_ACCESS_DENIED;
         } else {
-            DO_DEBUG(DL_WARN,
-                     printf("RemoveDirectoryW failed %d", errcode);
-                     );
+            NOTIFY(1, "RemoveDirectoryW failed %d\n", errcode);
             return DRFRONT_ERROR;
         }
     }
 #else
     if (rmdir(dir) != 0) {
-        if(errno == ENOENT) {
+        if (errno == ENOENT) {
             return DRFRONT_ERROR_INVALID_PATH;
-        } else if(errno == EACCES) {
+        } else if (errno == EACCES) {
             return DRFRONT_ERROR_ACCESS_DENIED;
         } else {
-            DO_DEBUG(DL_WARN,
-                     printf("rmdir failed %d", errno);
-                     );
+            NOTIFY(1, "rmdir failed %d\n", errno);
             return DRFRONT_ERROR;
         }
     }
 #endif
+    return DRFRONT_SUCCESS;
+}
+
+drfront_status_t
+drfront_set_verbose(int verbosity)
+{
+    if (verbosity < 0)
+        return DRFRONT_ERROR_INVALID_PARAMETER;
+    drfrontend_verbosity = verbosity;
     return DRFRONT_SUCCESS;
 }

@@ -35,8 +35,7 @@
 
 #include "dr_annotations_asm.h"
 
-#define TEST_ANNOTATION_INIT_MODE(mode) \
-    DR_ANNOTATION(test_annotation_init_mode, mode)
+#define TEST_ANNOTATION_INIT_MODE(mode) DR_ANNOTATION(test_annotation_init_mode, mode)
 
 #define TEST_ANNOTATION_INIT_CONTEXT(id, name, mode) \
     DR_ANNOTATION(test_annotation_init_context, id, name, mode)
@@ -57,14 +56,13 @@ extern "C" {
 
 DR_DECLARE_ANNOTATION(void, test_annotation_init_mode, (unsigned int mode));
 
-DR_DECLARE_ANNOTATION(void, test_annotation_init_context, (unsigned int id,
-                                                           const char *name,
-                                                           unsigned int initial_mode));
+DR_DECLARE_ANNOTATION(void, test_annotation_init_context,
+                      (unsigned int id, const char *name, unsigned int initial_mode));
 
 DR_DECLARE_ANNOTATION(unsigned int, test_annotation_get_mode, (unsigned int context_id));
 
-DR_DECLARE_ANNOTATION(void, test_annotation_set_mode, (unsigned int context_id,
-                                                       unsigned int mode));
+DR_DECLARE_ANNOTATION(void, test_annotation_set_mode,
+                      (unsigned int context_id, unsigned int mode));
 
 DR_DECLARE_ANNOTATION(const char *, test_annotation_get_client_version, (void));
 
@@ -75,4 +73,3 @@ DR_DECLARE_ANNOTATION(void, test_annotation_rotate_valgrind_handler, (int phase)
 #endif
 
 #endif
-

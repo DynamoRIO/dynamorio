@@ -43,7 +43,7 @@ cleancallee(app_pc pc)
 }
 
 static dr_emit_flags_t
-bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool translating)
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     static int64 bb_count;
     if (++bb_count % 10 == 0) {
@@ -52,8 +52,8 @@ bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool trans
             if (instr_is_exclusive_store(inst))
                 return DR_EMIT_DEFAULT;
         }
-        dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
-                             (void*) cleancallee, false, 1, OPND_CREATE_INTPTR(tag));
+        dr_insert_clean_call(drcontext, bb, instrlist_first(bb), (void *)cleancallee,
+                             false, 1, OPND_CREATE_INTPTR(tag));
     }
     return DR_EMIT_DEFAULT;
 }

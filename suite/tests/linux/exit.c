@@ -34,11 +34,12 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "tools.h"
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
-    printf("Inside main\n");
-    fflush(stdout);
+    print("Inside main\n");
 
     exit(0);
     return 0;

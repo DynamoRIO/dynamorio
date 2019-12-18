@@ -42,7 +42,8 @@
 typedef int (*fconvert)(int c);
 typedef int (*fmult)(int);
 
-int foo(int a, int lower)
+int
+foo(int a, int lower)
 {
     fconvert f = toupper;
     int res;
@@ -53,19 +54,22 @@ int foo(int a, int lower)
     return res;
 }
 
-int f2(int a)
+int
+f2(int a)
 {
-    return 2*a;
+    return 2 * a;
 }
 
-int f3(int a)
+int
+f3(int a)
 {
-    return 3*a;
+    return 3 * a;
 }
 
-int f7(int a)
+int
+f7(int a)
 {
-    return 7*a;
+    return 7 * a;
 }
 
 int
@@ -80,17 +84,17 @@ bar(int a, fmult f)
 }
 
 /*  Writable yet initialized data indeed needs to be processed.*/
-fmult farr[2] = {f2, f7};
+fmult farr[2] = { f2, f7 };
 
 static void
 test_good_indcalls()
 {
-    foo('a', true); //a
-    foo('a', false);// 'A'
-    foo('Z', true); // 'z'
-    bar(5, f2);//10
-    bar(7, f3);// 21
-    bar(7, f3);// 21
+    foo('a', true);  // a
+    foo('a', false); // 'A'
+    foo('Z', true);  // 'z'
+    bar(5, f2);      // 10
+    bar(7, f3);      // 21
+    bar(7, f3);      // 21
 }
 
 int some_global = 123456;
@@ -99,7 +103,7 @@ int
 precious(int arg)
 {
     /* this is a very important function - also not address taken by itself */
-#ifdef USER32    /* map user32.dll for a RunAll test */
+#ifdef USER32 /* map user32.dll for a RunAll test */
     MessageBeep(0);
 #endif
     print("PRECIOUS function shouldn't be reachable! ATTACK SUCCESSFUL!\n");
@@ -108,14 +112,14 @@ precious(int arg)
 }
 
 int
-good(int* arg)
+good(int *arg)
 {
     print("this is a normal function %d\n", *arg);
     return 1;
 }
 
 int
-good2(int* arg)
+good2(int *arg)
 {
     print("this is another normal function %d, but shouldn't be called!\n", *arg);
     return 2;
@@ -124,65 +128,64 @@ good2(int* arg)
 static void
 test_PLT_with_indcalls(int table_index)
 {
-    table_index *= 5;  /* general instructions */
+    table_index *= 5; /* general instructions */
     print("calling via PLT-style call\n");
     __asm {
-        push offset some_global   // note that data references will also be absolute!
+        push offset some_global // note that data references will also be absolute!
 
-        push offset plt_ind_call_table  // note that this will also be absolute!
+        push offset plt_ind_call_table // note that this will also be absolute!
         pop eax
         add eax, table_index
 
-        call eax   // THIS indirect call should succeed at going only to the first instruction
-                   // in this pseudo jump-table
+        call eax // THIS indirect call should succeed at going only to the first
+                     // instruction in this pseudo jump-table
         jmp after_plt_call
     plt_ind_call_table:
-        jmp good     // label address taken
+        jmp good // label address taken
         jmp precious //  this address is not address taken
-        jmp good2    //  this address is not address taken
+        jmp good2 //  this address is not address taken
 
     after_plt_call:
-        add esp,4 // arg
+        add esp,4            // arg
     }
 }
 
 static void
 test_PLT_with_indjumps(int table_index)
 {
-    table_index *= 5;  /* general instructions */
+    table_index *= 5; /* general instructions */
     print("calling via PLT-style indirect jmp\n");
     __asm {
-        push offset some_global   // note that data references will also be absolute!
+        push offset some_global // note that data references will also be absolute!
 
-        push offset plt_ind_call_table  // note that this will also be absolute!
+        push offset plt_ind_call_table // note that this will also be absolute!
         pop eax
         add eax, table_index
 
         push offset after_plt_call // in fact desired location
-/* FIXME: note however that we're not going to like this with a .C violation!
- * unless we start allowing all addresses added with 'push offset'
- */
-        jmp eax   // THIS indirect call should succeed at going only to the first instruction
-                  // in this pseudo jump-table
+                /* FIXME: note however that we're not going to like this with a .C
+                 * violation! unless we start allowing all addresses added with 'push
+                 * offset'
+                 */
+        jmp eax // THIS indirect call should succeed at going only to the
+                        // first instruction in this pseudo jump-table
     plt_ind_call_table:
         jmp good
         jmp precious
         jmp good2
 
     after_plt_call:
-        add esp,4 // arg
+        add esp,4               // arg
     }
 }
 
 /* TODO: need to add a test that a jump instead of a return is OK */
 
-__declspec( naked )
-int
-jmp_instead_of_ret()
+__declspec(naked) int jmp_instead_of_ret()
 {
     __asm {
         mov eax, 42
-        add esp, 4  // is it safe to use the stack in-between these two ops?
+        add esp, 4 // is it safe to use the stack in-between these two ops?
         jmp dword ptr [esp-4]
     }
 }
@@ -193,7 +196,6 @@ test_jmp_instead_of_ret()
     print("the answer is %d\n", jmp_instead_of_ret());
 }
 
-
 int
 main()
 {
@@ -203,8 +205,8 @@ main()
     test_jmp_instead_of_ret();
 
     test_PLT_with_indcalls(0);
-    test_PLT_with_indcalls(1);  /* VIOLATION expected */
-    test_PLT_with_indcalls(2);  /* VIOLATION expected */
+    test_PLT_with_indcalls(1); /* VIOLATION expected */
+    test_PLT_with_indcalls(2); /* VIOLATION expected */
 
     test_PLT_with_indjumps(0);
     test_PLT_with_indjumps(1); /* VIOLATION expected */

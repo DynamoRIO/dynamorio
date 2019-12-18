@@ -48,8 +48,7 @@
  */
 // These options are currently documented in ../common/options.cpp.
 analysis_tool_t *
-histogram_tool_create(unsigned int line_size = 64,
-                      unsigned int report_top = 10,
+histogram_tool_create(unsigned int line_size = 64, unsigned int report_top = 10,
                       unsigned int verbose = 0);
 
 #endif /* _HISTOGRAM_CREATE_H_ */

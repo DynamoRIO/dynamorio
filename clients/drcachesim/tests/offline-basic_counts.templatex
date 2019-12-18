@@ -31,6 +31,10 @@ Total counts:
 #else
           13 total transfer markers
 #endif
+     .* total function id markers
+     .* total function return address markers
+     .* total function argument markers
+     .* total function return value markers
            0 total other markers
 Thread .* counts:
      .* \(fetched\) instructions
@@ -44,4 +48,8 @@ Thread .* counts:
 #else
           13 transfer markers
 #endif
+     .* function id markers
+     .* function return address markers
+     .* function argument markers
+     .* function return value markers
            0 other markers

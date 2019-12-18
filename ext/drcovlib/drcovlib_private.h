@@ -38,14 +38,15 @@
 extern uint verbose;
 
 #ifdef DEBUG
-# define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
-# define NOTIFY(level, fmt, ...) do {         \
-    if (verbose >= (level))                   \
-        dr_fprintf(STDERR, fmt, __VA_ARGS__); \
-} while (0)
+#    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+#    define NOTIFY(level, fmt, ...)                   \
+        do {                                          \
+            if (verbose >= (level))                   \
+                dr_fprintf(STDERR, fmt, __VA_ARGS__); \
+        } while (0)
 #else
-# define ASSERT(x, msg) /* nothing */
-# define NOTIFY(level, fmt, ...) /* nothing */
+#    define ASSERT(x, msg)          /* nothing */
+#    define NOTIFY(level, fmt, ...) /* nothing */
 #endif
 
 #endif /* _DRCOVLIB_PRIVATE_H */

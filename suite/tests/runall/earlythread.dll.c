@@ -39,11 +39,10 @@ int sleep_under_ldrlock = 100;
  * of course it will run only once we let go of the LdrLock)
  */
 
-int  __declspec(dllexport)
-import_me(int x)
+int __declspec(dllexport) import_me(int x)
 {
     print("in import\n");
-    return 2*x;
+    return 2 * x;
 }
 
 BOOL APIENTRY
@@ -54,9 +53,7 @@ DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
         print("earlythreaddll.dll.dll process attach\n");
         Sleep(sleep_under_ldrlock);
         break;
-    case DLL_PROCESS_DETACH:
-        print("earlythreaddll.dll.dll process detach\n");
-        break;
+    case DLL_PROCESS_DETACH: print("earlythreaddll.dll.dll process detach\n"); break;
     }
     return TRUE;
 }

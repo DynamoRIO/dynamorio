@@ -42,10 +42,10 @@
 #include "config.h"
 
 #ifdef __cplusplus
-extern "C"{
+extern "C" {
 #endif
 
-#include "lib/dr_stats.h" // from src tree
+#include "dr_stats.h" // from src tree
 
 /* dup KPRIORITY and VM_COUNTERS from src/win32/ntdll.h, in order
  *  to have process_info_s self-contained.
@@ -84,7 +84,6 @@ typedef struct process_info_s {
     VM_COUNTERS VmCounters;
 } process_info_t;
 
-
 typedef struct module_info_s {
     PVOID BaseAddress;
     PVOID EntryPoint;
@@ -98,19 +97,15 @@ typedef struct module_info_s {
     process_id_t ProcessID; // ID of Process this module is loaded into
 } module_info_t;
 
-
 /* for process and dll callback routines; the callback should
  *  return FALSE to abort the walk */
 typedef BOOL (*processwalk_callback)(process_info_t *pi, void **param);
 
 typedef BOOL (*dllwalk_callback)(module_info_t *mi, void **param);
 
-
-
 /*
  * generic process information methods
  */
-
 
 DWORD
 dll_walk_proc(process_id_t ProcessID, dllwalk_callback dwcb, void **param);
@@ -131,8 +126,6 @@ get_process_name(process_id_t pid, WCHAR *buf, int len);
 DWORD
 get_process_cmdline(process_id_t pid, WCHAR *buf, int len);
 
-
-
 /*
  * heavy-duty kill
  */
@@ -142,8 +135,6 @@ terminate_process(process_id_t pid);
 
 DWORD
 terminate_process_by_exe(WCHAR *exename);
-
-
 
 /*
  * DR process status / drmarker functions
@@ -164,8 +155,8 @@ under_dynamorio_ex(process_id_t ProcessID, DWORD *build_num);
  *  status is the only well-defined output parameter. */
 DWORD
 check_status_and_pending_restart(ConfigGroup *config, process_id_t pid,
-                                 BOOL *pending_restart,
-                                 int *status, ConfigGroup **process_cfg);
+                                 BOOL *pending_restart, int *status,
+                                 ConfigGroup **process_cfg);
 
 /* pending_restart is required OUT parameter */
 DWORD
@@ -217,12 +208,11 @@ generic_nudge(process_id_t pid, BOOL allow_upgraded_perms, DWORD action_mask,
  *   delay_ms is pause between processing each process, 0 no pause
  */
 DWORD
-generic_nudge_all(DWORD action_mask, uint64 client_arg /* optional */,
-                  DWORD timeout_ms, DWORD delay_ms);
+generic_nudge_all(DWORD action_mask, uint64 client_arg /* optional */, DWORD timeout_ms,
+                  DWORD delay_ms);
 
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif //_NM_PROCESSES_H_

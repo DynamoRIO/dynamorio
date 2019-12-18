@@ -65,8 +65,7 @@
  */
 #define UNLOAD __FUnloadDelayLoadedDLL2
 
-int __declspec(dllimport)
-make_a_lib(int arg);
+int __declspec(dllimport) make_a_lib(int arg);
 
 int
 myloader(void)
@@ -86,7 +85,8 @@ myloader(void)
     return TestReturn;
 }
 
-int main()
+int
+main()
 {
     print("starting delaybind\n");
 
@@ -100,7 +100,6 @@ int main()
     return 0;
 }
 
-
 /* Note that dumpbin from VC98 is crashing of showing imports of say
  * user32.dll on XP SP2, so the format of some fields may have changed!
  */
@@ -108,17 +107,19 @@ int main()
 #ifdef DELAYHLP
 /* from Microsoft Visual Studio/VC98/Include/DELAYHLP.CPP */
 
- if (pinh->Signature == IMAGE_NT_SIGNATURE &&
-                TimeStampOfImage(pinh) == pidd->dwTimeStamp &&
-                FLoadedAtPreferredAddress(pinh, hmod)) {
+if (pinh->Signature == IMAGE_NT_SIGNATURE &&
+    TimeStampOfImage(pinh) == pidd->dwTimeStamp &&
+    FLoadedAtPreferredAddress(pinh, hmod)) {
 
-                OverlayIAT(pidd->pIAT, pidd->pBoundIAT);
+    OverlayIAT(pidd->pIAT, pidd->pBoundIAT);
 
-TimeStampOfImage(PIMAGE_NT_HEADERS pinh) {
-    return pinh->FileHeader.TimeDateStamp;
- }
+    TimeStampOfImage(PIMAGE_NT_HEADERS pinh)
+    {
+        return pinh->FileHeader.TimeDateStamp;
+    }
 
-FLoadedAtPreferredAddress(PIMAGE_NT_HEADERS pinh, HMODULE hmod) {
-    return DWORD(hmod) == pinh->OptionalHeader.ImageBase;
- }
+    FLoadedAtPreferredAddress(PIMAGE_NT_HEADERS pinh, HMODULE hmod)
+    {
+        return DWORD(hmod) == pinh->OptionalHeader.ImageBase;
+    }
 #endif

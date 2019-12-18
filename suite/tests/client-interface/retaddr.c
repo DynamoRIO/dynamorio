@@ -30,10 +30,10 @@
  * DAMAGE.
  */
 
-#ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h" /* for print() */
+#ifndef ASM_CODE_ONLY  /* C code */
+#    include "tools.h" /* for print() */
 
-#include <assert.h>
+#    include <assert.h>
 
 void
 callee(void)
@@ -42,11 +42,15 @@ callee(void)
 }
 
 /* asm routines */
-void *test_ret();
-void *test_iret();
-void *test_far_ret();
+void *
+test_ret();
+void *
+test_iret();
+void *
+test_far_ret();
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     void *addr = test_ret();
     print("retaddr 0x%x\n", addr);
@@ -58,9 +62,9 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #ifdef X64
@@ -78,6 +82,9 @@ DECL_EXTERN(callee)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         /* push callee-saved registers */
+        /* XXX i#3289: test fails when changing this to
+         * PUSH_CALLEE_SAVED_REGS, POP_CALLEE_SAVED_REGS
+         */
         PUSH_SEH(REG_XBX)
         PUSH_SEH(REG_XBP)
         PUSH_SEH(REG_XSI)
@@ -99,6 +106,9 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         /* push callee-saved registers */
+        /* XXX i#3289: test fails when changing this to
+         * PUSH_CALLEE_SAVED_REGS, POP_CALLEE_SAVED_REGS
+         */
         PUSH_SEH(REG_XBX)
         PUSH_SEH(REG_XBP)
         PUSH_SEH(REG_XSI)
@@ -141,6 +151,9 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         /* push callee-saved registers */
+        /* XXX i#3289: test fails when changing this to
+         * PUSH_CALLEE_SAVED_REGS, POP_CALLEE_SAVED_REGS
+         */
         PUSH_SEH(REG_XBX)
         PUSH_SEH(REG_XBP)
         PUSH_SEH(REG_XSI)
@@ -169,4 +182,5 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 #endif

@@ -35,9 +35,6 @@ cmake_minimum_required(VERSION 3.2)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
-# XXX i#1481: update to cmake 2.8.12's better handling of interface imports
-cmake_policy(SET CMP0022 OLD)
-
 if (X64)
   set(BITS "64")
 else ()
@@ -158,6 +155,8 @@ macro(configure_drsyms_target target)
       add_dependencies(${target} dbghelp_tgt)
     endif ()
   endif ()
+  # we always use the elftoolchain library when building with cmake
+  append_property_string(TARGET ${target} COMPILE_FLAGS "-DDRSYM_HAVE_LIBELFTC")
 endmacro(configure_drsyms_target)
 
 configure_drsyms_target(drsyms)
@@ -189,7 +188,9 @@ endif ()
 # i#693: CMake will try to export the path to the static libs we use via
 # IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG, but they won't exist on the
 # user's machine.  Clearing this property prevents that.
-set_target_properties(drsyms PROPERTIES LINK_INTERFACE_LIBRARIES "")
+# i#3474: LINK_INTERFACE_LIBRARIES is deprecated, which is overridden by
+# INTERFACE_LINK_LIBRARIES property if policy CMP0022 is NEW.
+set_target_properties(drsyms PROPERTIES INTERFACE_LINK_LIBRARIES "")
 
 # If drsyms is built static we need to include these with an exports path
 # in DynamoRIOTarget*.cmake and not with the source path here:

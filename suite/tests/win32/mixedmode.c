@@ -38,28 +38,42 @@
  * across mode changes (i#865).
  */
 
-#ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h" /* for print() */
+#ifndef ASM_CODE_ONLY  /* C code */
+#    include "tools.h" /* for print() */
 
 /* asm routines */
-void test_top_bits(void);
-void test_push_word(void);
-void test_pop_word(void);
-void test_push_es(void);
-void test_pop_es(void);
-void test_push_esp(void);
-void test_pusha(void);
-void test_pushf(void);
-void test_les(void);
-void test_lea_addr32(void);
-void test_call_esp(void);
-int test_iret(void);
-int test_far_calls(void);
+void
+test_top_bits(void);
+void
+test_push_word(void);
+void
+test_pop_word(void);
+void
+test_push_es(void);
+void
+test_pop_es(void);
+void
+test_push_esp(void);
+void
+test_pusha(void);
+void
+test_pushf(void);
+void
+test_les(void);
+void
+test_lea_addr32(void);
+void
+test_call_esp(void);
+int
+test_iret(void);
+int
+test_far_calls(void);
 
 char global_data[8];
 char is_x86_to_x64;
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     is_x86_to_x64 = (strcmp(argv[1], "x86_to_x64") == 0);
 
@@ -68,38 +82,37 @@ int main(int argc, char *argv[])
          * We don't test it for now -- just store the result to global_data
          * in order to pass the test suite.
          */
-        *(__int64*)global_data = 0x1234567812345678LL;
-    }
-    else
+        *(__int64 *)global_data = 0x1234567812345678LL;
+    } else
         test_top_bits();
-    print("r8 was 0x%016"INT64_FORMAT"x\n", *(__int64*)global_data);
+    print("r8 was 0x%016" INT64_FORMAT "x\n", *(__int64 *)global_data);
 
     test_push_word();
-    print("edx was "PFX"\n", *(__int32*)global_data);
+    print("edx was " PFX "\n", *(__int32 *)global_data);
 
     test_pop_word();
-    print("global_data is "PFX"\n", *(__int32*)global_data);
+    print("global_data is " PFX "\n", *(__int32 *)global_data);
 
     test_push_es();
-    print("edx was "PFX"\n", *(__int32*)global_data);
+    print("edx was " PFX "\n", *(__int32 *)global_data);
 
     test_pop_es();
-    print("edx was "PFX"\n", *(__int32*)global_data);
+    print("edx was " PFX "\n", *(__int32 *)global_data);
 
     test_push_esp();
-    print("edx was "PFX"\n", *(__int32*)global_data);
+    print("edx was " PFX "\n", *(__int32 *)global_data);
 
     test_pusha();
-    print("edx was "PFX"\n", *(__int32*)global_data);
+    print("edx was " PFX "\n", *(__int32 *)global_data);
 
     test_pushf();
-    print("edx was "PFX"\n", *(__int32*)global_data);
+    print("edx was " PFX "\n", *(__int32 *)global_data);
 
     test_les();
-    print("edx was "PFX"\n", *(__int32*)global_data);
+    print("edx was " PFX "\n", *(__int32 *)global_data);
 
     test_lea_addr32();
-    print("edx was "PFX"\n", *(__int32*)global_data);
+    print("edx was " PFX "\n", *(__int32 *)global_data);
 
     test_call_esp();
     print("test_call_esp() returned successfully\n");
@@ -111,7 +124,8 @@ int main(int argc, char *argv[])
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 /* N.B.: it's tricky to write this code b/c it's built with a 32-bit assembler
@@ -462,4 +476,5 @@ GLOBAL_LABEL(FUNCNAME:)
 # undef FUNCNAME
 
 END_FILE
+/* clang-format on */
 #endif /* ASM_CODE_ONLY */

@@ -39,23 +39,25 @@
 
 static int a[ITERS];
 
-void arch_init()
+void
+arch_init()
 {
     printf("in conflict's arch init\n");
 }
 
-int main()
+int
+main()
 {
     double res = 0.;
-    int i,j;
+    int i, j;
 
     arch_init();
 
-    for (i=0; i<ITERS; i++) {
+    for (i = 0; i < ITERS; i++) {
         if (i % 2 == 0) {
-            res += cos(1./(double)(i+1));
+            res += cos(1. / (double)(i + 1));
         } else {
-            res += sin(1./(double)(i+1));
+            res += sin(1. / (double)(i + 1));
         }
         j = (i << 4) / (i | 0x38);
         a[i] += j;

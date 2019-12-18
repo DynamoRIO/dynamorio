@@ -31,7 +31,7 @@
  */
 
 #ifdef WINDOWS
-# pragma warning( disable : 4100) /* unreferenced formal parameter */
+#    pragma warning(disable : 4100) /* unreferenced formal parameter */
 #endif
 
 #include "dr_api.h"
@@ -41,8 +41,14 @@
 
 class hasdtr {
 public:
-    hasdtr()  { std::cerr << "hasdtr::hasdtr" << std::endl; }
-    ~hasdtr() { std::cerr << "hasdtr::~hasdtr" << std::endl; }
+    hasdtr()
+    {
+        std::cerr << "hasdtr::hasdtr" << std::endl;
+    }
+    ~hasdtr()
+    {
+        std::cerr << "hasdtr::~hasdtr" << std::endl;
+    }
 };
 
 static hasdtr global_hasdtr;

@@ -38,11 +38,11 @@
 #include <string.h>
 
 #ifdef WINDOWS
-# include <windows.h>
+#    include <windows.h>
 #else
-# include <stdlib.h>
-# include <unistd.h>
-# include <time.h>
+#    include <stdlib.h>
+#    include <unistd.h>
+#    include <time.h>
 #endif
 
 /* check if all bits in mask are set in var */
@@ -52,12 +52,18 @@
 /* check if a single bit is set in var */
 #define TEST TESTANY
 
-static void test_dr_rename_delete(void);
-static void test_dir(void);
-static void test_relative(void);
-static void test_map_exe(void);
-static void test_times(void);
-static void test_vfprintf(void);
+static void
+test_dr_rename_delete(void);
+static void
+test_dir(void);
+static void
+test_relative(void);
+static void
+test_map_exe(void);
+static void
+test_times(void);
+static void
+test_vfprintf(void);
 
 byte *
 find_prot_edge(const byte *start, uint prot_flag)
@@ -81,24 +87,26 @@ bool
 memchk(byte *start, byte value, size_t size)
 {
     size_t i;
-    for (i = 0; i < size && *(start+i) == value; i++) ;
+    for (i = 0; i < size && *(start + i) == value; i++)
+        ;
     return i == size;
 }
 
-const byte read_only_buf[2*PAGE_SIZE_MAX] = {0};
+const byte read_only_buf[2 * PAGE_SIZE_MAX] = { 0 };
 
 /* NOTE - we need to initialize the writable buffers to some non-zero value so that they
  * will all be placed in the same memory region (on Linux only the first page is part
  * of the map and the remaining pages are just allocated instead of mapped if these are
  * 0). */
-byte safe_buf[2*PAGE_SIZE_MAX+100] = {1};
+byte safe_buf[2 * PAGE_SIZE_MAX + 100] = { 1 };
 
-byte writable_buf[2*PAGE_SIZE_MAX] = {1};
+byte writable_buf[2 * PAGE_SIZE_MAX] = { 1 };
 
 static file_t file;
 static client_id_t client_id;
 
-bool dummy_func()
+bool
+dummy_func()
 {
     return true;
 }
@@ -121,7 +129,8 @@ event_exit(void)
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     char buf[MAXIMUM_PATH];
     int64 pos;
@@ -153,7 +162,8 @@ void dr_init(client_id_t id)
     memset(buf, 0, sizeof(buf));
     dr_read_file(file, buf, 5);
     dr_fprintf(STDERR, "%s\n", buf);
-    for (i = 0; i < 100; i++) buf[i] = 0;
+    for (i = 0; i < 100; i++)
+        buf[i] = 0;
     if (!dr_file_seek(file, pos - 5, DR_SEEK_CUR))
         dr_fprintf(STDERR, "seek error\n");
     memset(buf, 0, sizeof(buf));
@@ -171,12 +181,12 @@ void dr_init(client_id_t id)
          */
         if (!dr_file_seek(file, -8, DR_SEEK_END))
             dr_fprintf(STDERR, "seek error\n");
-            memset(buf, 0, sizeof(buf));
-            dr_read_file(file, buf, 8);
+        memset(buf, 0, sizeof(buf));
+        dr_read_file(file, buf, 8);
     }
     dr_fprintf(STDERR, "%s\n", buf);
 #define EXTRA_SIZE 0x60
-    size  = PAGE_SIZE + EXTRA_SIZE;
+    size = PAGE_SIZE + EXTRA_SIZE;
     f_map = dr_map_file(file, &size, 0, NULL, DR_MEMPROT_READ, DR_MAP_PRIVATE);
     if (f_map == NULL || size < (PAGE_SIZE + EXTRA_SIZE))
         dr_fprintf(STDERR, "map error\n");
@@ -195,44 +205,44 @@ void dr_init(client_id_t id)
     /* Test the memory query routines */
     dummy_func();
     if (!dr_memory_is_readable((byte *)dummy_func, 1) ||
-        !dr_memory_is_readable(read_only_buf+1000, 4000) ||
-        !dr_memory_is_readable(writable_buf+1000, 4000)) {
+        !dr_memory_is_readable(read_only_buf + 1000, 4000) ||
+        !dr_memory_is_readable(writable_buf + 1000, 4000)) {
         dr_fprintf(STDERR, "ERROR : dr_memory_is_readable() incorrect results\n");
     }
 
     if (!dr_query_memory((byte *)dummy_func, &base_pc, &size, &prot))
         dr_fprintf(STDERR, "ERROR : can't find dummy_func mem region\n");
     dr_fprintf(STDERR, "dummy_func is %s%s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
-              TEST(DR_MEMPROT_WRITE, prot) ? "w" : "",
-              TEST(DR_MEMPROT_EXEC, prot) ? "x" : "");
+               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "",
+               TEST(DR_MEMPROT_EXEC, prot) ? "x" : "");
     if (base_pc > (byte *)dummy_func || base_pc + size < (byte *)dummy_func)
         dr_fprintf(STDERR, "dummy_func region mismatch");
 
     memset(writable_buf, 0, sizeof(writable_buf)); /* strip off write copy */
-    if (!dr_query_memory(writable_buf+100, &base_pc, &size, &prot))
+    if (!dr_query_memory(writable_buf + 100, &base_pc, &size, &prot))
         dr_fprintf(STDERR, "ERROR : can't find dummy_func mem region\n");
     dr_fprintf(STDERR, "writable_buf is %s%s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
-              TEST(DR_MEMPROT_WRITE, prot) ? "w" : "",
+               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "",
 #ifdef UNIX
-              /* Linux sometimes (probably depends on version and hardware NX
-               * support) lists all readable regions as also exectuable in the
-               * maps file.  We just skip checking here for Linux to make
-               * matching the template file easier. */
-              ""
+               /* Linux sometimes (probably depends on version and hardware NX
+                * support) lists all readable regions as also exectuable in the
+                * maps file.  We just skip checking here for Linux to make
+                * matching the template file easier. */
+               ""
 #else
-              TEST(DR_MEMPROT_EXEC, prot) ? "x" : ""
+               TEST(DR_MEMPROT_EXEC, prot) ? "x" : ""
 #endif
-              );
+    );
     if (base_pc > writable_buf || base_pc + size < writable_buf)
         dr_fprintf(STDERR, "writable_buf region mismatch\n");
     if (base_pc + size < writable_buf + sizeof(writable_buf))
-        dr_fprintf(STDERR, "writable_buf size mismatch "PFX" "PFX" "PFX" "PFX"\n",
-                  base_pc, size, writable_buf, sizeof(writable_buf));
+        dr_fprintf(STDERR, "writable_buf size mismatch " PFX " " PFX " " PFX " " PFX "\n",
+                   base_pc, size, writable_buf, sizeof(writable_buf));
 
-    if (!dr_query_memory(read_only_buf+100, &base_pc, &size, &prot))
+    if (!dr_query_memory(read_only_buf + 100, &base_pc, &size, &prot))
         dr_fprintf(STDERR, "ERROR : can't find dummy_func mem region\n");
     dr_fprintf(STDERR, "read_only_buf is %s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
-              TEST(DR_MEMPROT_WRITE, prot) ? "w" : "");
+               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "");
     if (base_pc > read_only_buf || base_pc + size < read_only_buf)
         dr_fprintf(STDERR, "read_only_buf region mismatch");
     if (base_pc + size < read_only_buf + sizeof(read_only_buf))
@@ -242,7 +252,7 @@ void dr_init(client_id_t id)
     /* TODO - extend test to cover racy writes and reads (won't work on Linux yet). */
     memset(safe_buf, 0xcd, sizeof(safe_buf));
     if (!dr_safe_read(read_only_buf + 4000, 1000, safe_buf, &bytes_read) ||
-        bytes_read != 1000 || !memchk(safe_buf, 0, 1000) || *(safe_buf+1000) != 0xcd) {
+        bytes_read != 1000 || !memchk(safe_buf, 0, 1000) || *(safe_buf + 1000) != 0xcd) {
         dr_fprintf(STDERR, "ERROR in plain dr_safe_read()\n");
     }
     memset(safe_buf, 0xcd, sizeof(safe_buf));
@@ -250,26 +260,28 @@ void dr_init(client_id_t id)
      * constants with the same page protections.  In order to be sure that we're
      * copying zeroes, we map our own memory.
      */
-    mbuf = dr_nonheap_alloc(PAGE_SIZE*3, DR_MEMPROT_READ|DR_MEMPROT_WRITE);
-    memset(mbuf, 0, PAGE_SIZE*3);
-    dr_memory_protect(mbuf + PAGE_SIZE*2, PAGE_SIZE, DR_MEMPROT_NONE);
+    mbuf = dr_nonheap_alloc(PAGE_SIZE * 3, DR_MEMPROT_READ | DR_MEMPROT_WRITE);
+    memset(mbuf, 0, PAGE_SIZE * 3);
+    dr_memory_protect(mbuf + PAGE_SIZE * 2, PAGE_SIZE, DR_MEMPROT_NONE);
     edge = find_prot_edge(mbuf, DR_MEMPROT_READ);
     bytes_read = 0xcdcdcdcd;
-    if (dr_safe_read(edge - (PAGE_SIZE + 10), PAGE_SIZE+20, safe_buf, &bytes_read) ||
-        bytes_read == 0xcdcdcdcd || bytes_read > PAGE_SIZE+10 ||
+    if (dr_safe_read(edge - (PAGE_SIZE + 10), PAGE_SIZE + 20, safe_buf, &bytes_read) ||
+        bytes_read == 0xcdcdcdcd || bytes_read > PAGE_SIZE + 10 ||
         !memchk(safe_buf, 0, bytes_read)) {
         dr_fprintf(STDERR, "ERROR in overlap dr_safe_read()\n");
     }
-    dr_nonheap_free(mbuf, PAGE_SIZE*3);
+    dr_nonheap_free(mbuf, PAGE_SIZE * 3);
     dr_fprintf(STDERR, "dr_safe_read() check\n");
 
     /* test DR_TRY_EXCEPT */
-    DR_TRY_EXCEPT(dr_get_current_drcontext(), {
-        ok = false;
-        *((int *)4) = 37;
-    }, { /* EXCEPT */
-        ok = true;
-    });
+    DR_TRY_EXCEPT(dr_get_current_drcontext(),
+                  {
+                      ok = false;
+                      *((int *)4) = 37;
+                  },
+                  { /* EXCEPT */
+                    ok = true;
+                  });
     if (!ok)
         dr_fprintf(STDERR, "ERROR in DR_TRY_EXCEPT\n");
     dr_fprintf(STDERR, "DR_TRY_EXCEPT check\n");
@@ -277,23 +289,24 @@ void dr_init(client_id_t id)
     memset(safe_buf, 0xcd, sizeof(safe_buf));
     if (!dr_safe_write(writable_buf, 1000, safe_buf, &bytes_written) ||
         bytes_written != 1000 || !memchk(writable_buf, 0xcd, 1000) ||
-        !memchk(writable_buf+1000, 0, 1000)) {
+        !memchk(writable_buf + 1000, 0, 1000)) {
         dr_fprintf(STDERR, "ERROR in plain dr_safe_write()\n");
     }
     /* so we don't clobber other global vars we use an allocated buffer here */
-    mbuf = dr_nonheap_alloc(PAGE_SIZE*3, DR_MEMPROT_READ|DR_MEMPROT_WRITE);
-    if (!dr_memory_protect(mbuf + PAGE_SIZE*2, PAGE_SIZE, DR_MEMPROT_READ))
+    mbuf = dr_nonheap_alloc(PAGE_SIZE * 3, DR_MEMPROT_READ | DR_MEMPROT_WRITE);
+    if (!dr_memory_protect(mbuf + PAGE_SIZE * 2, PAGE_SIZE, DR_MEMPROT_READ))
         dr_fprintf(STDERR, "ERROR in dr_memory_protect\n");
-    memset(mbuf, 0, PAGE_SIZE*2);
+    memset(mbuf, 0, PAGE_SIZE * 2);
     edge = find_prot_edge(mbuf, DR_MEMPROT_WRITE);
     bytes_written = 0xcdcdcdcd;
-    if (dr_safe_write(edge - (PAGE_SIZE + 10), PAGE_SIZE+20, safe_buf, &bytes_written) ||
-        bytes_written == 0xcdcdcdcd || bytes_written > PAGE_SIZE+10 ||
+    if (dr_safe_write(edge - (PAGE_SIZE + 10), PAGE_SIZE + 20, safe_buf,
+                      &bytes_written) ||
+        bytes_written == 0xcdcdcdcd || bytes_written > PAGE_SIZE + 10 ||
         !memchk(edge - (PAGE_SIZE + 10), 0xcd, bytes_written)) {
-        dr_fprintf(STDERR, "ERROR in overlap dr_safe_write() "PFX" "PFX" %d\n",
-                   mbuf, edge, bytes_written);
+        dr_fprintf(STDERR, "ERROR in overlap dr_safe_write() " PFX " " PFX " %d\n", mbuf,
+                   edge, bytes_written);
     }
-    dr_nonheap_free(mbuf, PAGE_SIZE*3);
+    dr_nonheap_free(mbuf, PAGE_SIZE * 3);
     dr_fprintf(STDERR, "dr_safe_write() check\n");
 
     test_dir();
@@ -316,13 +329,13 @@ get_temp_filename(char filename_out[MAXIMUM_PATH])
 {
 #ifdef WINDOWS
     char tmppath_buf[MAXIMUM_PATH];
-    filename_out[0] = '\0';  /* Empty on failure. */
+    filename_out[0] = '\0'; /* Empty on failure. */
     if (!GetTempPath(BUFFER_SIZE_ELEMENTS(tmppath_buf), tmppath_buf)) {
         dr_printf("Failed to create temp file.\n");
         return;
     }
     /* A uuid of 0 causes the OS to generate one for us. */
-    if (!GetTempFileName(tmppath_buf, "tmp_file_io", /*uuid*/0, filename_out)) {
+    if (!GetTempFileName(tmppath_buf, "tmp_file_io", /*uuid*/ 0, filename_out)) {
         dr_printf("Failed to create temp file.\n");
         return;
     }
@@ -353,12 +366,12 @@ test_dr_rename_delete(void)
     dr_close_file(fd);
 
     /* Should fail, dst exists. */
-    success = dr_rename_file(tmp_src, tmp_dst, /*replace*/false);
+    success = dr_rename_file(tmp_src, tmp_dst, /*replace*/ false);
     if (success)
         dr_fprintf(STDERR, "rename replaced an existing file!\n");
 
     /* Should succeed. */
-    success = dr_rename_file(tmp_src, tmp_dst, /*replace*/true);
+    success = dr_rename_file(tmp_src, tmp_dst, /*replace*/ true);
     if (!success)
         dr_fprintf(STDERR, "rename failed to replace existing file!\n");
 
@@ -372,13 +385,14 @@ test_dr_rename_delete(void)
     }
     dr_close_file(fd);
     if (strncmp(contents, contents_buf, strlen(contents)) != 0) {
-        dr_fprintf(STDERR, "renamed file contents don't match!\n"
+        dr_fprintf(STDERR,
+                   "renamed file contents don't match!\n"
                    " expected: %s\n actual: %s\n",
                    contents, contents_buf);
     }
 
     /* Rename back should succeed. */
-    success = dr_rename_file(tmp_dst, tmp_src, /*replace*/false);
+    success = dr_rename_file(tmp_dst, tmp_src, /*replace*/ false);
     if (!success)
         dr_fprintf(STDERR, "rename back to tmp_src failed!\n");
 
@@ -421,8 +435,7 @@ test_relative_path(const char *path)
         dr_close_file(fd);
     } else
         dr_fprintf(STDERR, "failed to open %s\n", path);
-    if (!dr_file_exists(path) ||
-        !dr_delete_file(path))
+    if (!dr_file_exists(path) || !dr_delete_file(path))
         dr_fprintf(STDERR, "failed to delete newly created relative file\n");
 }
 

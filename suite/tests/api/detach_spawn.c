@@ -54,15 +54,15 @@ static void *parent_ready;
 static volatile bool parent_exit = false;
 
 #if VERBOSE
-# define VPRINT(...) print(__VA_ARGS__)
+#    define VPRINT(...) print(__VA_ARGS__)
 #else
-# define VPRINT(...) /* nothing */
+#    define VPRINT(...) /* nothing */
 #endif
 
 THREAD_FUNC_RETURN_TYPE
 child_func(void *arg)
 {
-   return THREAD_FUNC_RETURN_ZERO;
+    return THREAD_FUNC_RETURN_ZERO;
 }
 
 THREAD_FUNC_RETURN_TYPE
@@ -82,7 +82,8 @@ parent_func(void *arg)
     return THREAD_FUNC_RETURN_ZERO;
 }
 
-int main(void)
+int
+main(void)
 {
     parent_ready = create_cond_var();
     int i;

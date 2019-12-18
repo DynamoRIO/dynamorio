@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,6 @@
 #ifndef DECODE_PRIVATE_H
 #define DECODE_PRIVATE_H
 
-
 /* Non-public prefix constants.
  * These are used only in the decoding tables.  We decode the
  * information into the operands.
@@ -48,33 +47,39 @@
  * with our encoder auto-adding the appropriate prefixes.
  */
 /* We start after PREFIX_SEG_GS which is 0x40 */
-#define PREFIX_DATA           0x0080
-#define PREFIX_ADDR           0x0100
-#define PREFIX_REX_W          0x0200
-#define PREFIX_REX_R          0x0400
-#define PREFIX_REX_X          0x0800
-#define PREFIX_REX_B          0x1000
-#define PREFIX_REX_GENERAL    0x2000 /* 0x40: only matters for SPL...SDL vs AH..BH */
-#define PREFIX_REX_ALL        (PREFIX_REX_W|PREFIX_REX_R|PREFIX_REX_X|PREFIX_REX_B|\
-                               PREFIX_REX_GENERAL)
-#define PREFIX_SIZE_SPECIFIERS (PREFIX_DATA|PREFIX_ADDR|PREFIX_REX_ALL)
+#define PREFIX_DATA 0x0080
+#define PREFIX_ADDR 0x0100
+#define PREFIX_REX_W 0x0200
+#define PREFIX_REX_R 0x0400
+#define PREFIX_REX_X 0x0800
+#define PREFIX_REX_B 0x1000
+#define PREFIX_REX_GENERAL 0x2000 /* 0x40: only matters for SPL...SDL vs AH..BH */
+#define PREFIX_REX_ALL \
+    (PREFIX_REX_W | PREFIX_REX_R | PREFIX_REX_X | PREFIX_REX_B | PREFIX_REX_GENERAL)
+#define PREFIX_SIZE_SPECIFIERS (PREFIX_DATA | PREFIX_ADDR | PREFIX_REX_ALL)
 
 /* Unused except in decode tables (we encode the prefix into the opcodes) */
-#define PREFIX_REP            0x4000 /* 0xf3 */
-#define PREFIX_REPNE          0x8000 /* 0xf2 */
+#define PREFIX_REP 0x4000   /* 0xf3 */
+#define PREFIX_REPNE 0x8000 /* 0xf2 */
 
 /* First 2 are only used during initial decode so if running out of
  * space could replace w/ byte value compare.
  */
-#define PREFIX_VEX_2B    0x000010000
-#define PREFIX_VEX_3B    0x000020000
-#define PREFIX_VEX_L     0x000040000
+#define PREFIX_VEX_2B 0x000010000
+#define PREFIX_VEX_3B 0x000020000
+#define PREFIX_VEX_L 0x000040000
 /* Also only used during initial decode */
-#define PREFIX_XOP       0x000080000
+#define PREFIX_XOP 0x000080000
+/* Prefixes which are used for AVX-512 */
+#define PREFIX_EVEX_RR 0x000200000
+#define PREFIX_EVEX_LL 0x000400000
+#define PREFIX_EVEX_z 0x000800000
+#define PREFIX_EVEX_b 0x001000000
+#define PREFIX_EVEX_VV 0x002000000
 
 /* branch hints show up as segment modifiers */
-#define SEG_JCC_NOT_TAKEN     SEG_CS
-#define SEG_JCC_TAKEN         SEG_DS
+#define SEG_JCC_NOT_TAKEN SEG_CS
+#define SEG_JCC_TAKEN SEG_DS
 
 /* XXX:
  *  o get rid of sI?  I sign-extend all the Ib's on decoding, many are
@@ -88,10 +93,10 @@
 /* bits used to encode info in instr_info_t's opcode field */
 enum {
     OPCODE_TWOBYTES = 0x00000010,
-    OPCODE_REG      = 0x00000020,
-    OPCODE_MODRM    = 0x00000040,
-    OPCODE_SUFFIX   = 0x00000080,
-    OPCODE_THREEBYTES=0x00000008,
+    OPCODE_REG = 0x00000020,
+    OPCODE_MODRM = 0x00000040,
+    OPCODE_SUFFIX = 0x00000080,
+    OPCODE_THREEBYTES = 0x00000008,
 };
 
 /* instr_info_t: each table entry is one of these
@@ -142,12 +147,14 @@ enum {
  *                     if bit 2 (OPCODE_REG) set, opcode has /n
  *                     if bit 3 (OPCODE_MODRM) set, opcode based on entire modrm
  *                       that modrm is stored as the byte 0.
- *                       if REQUIRES_VEX then this bit instead means that
- *                       this instruction must have vex.W set.
+ *                       if REQUIRES_VEX or REQUIRES_EVEX then this bit instead means
+ *                       that this instruction must have vex.W or evex.W set.
  *                     if bit 4 (OPCODE_SUFFIX) set, opcode based on suffix byte
  *                       that byte is stored as the byte 0
  *                       if REQUIRES_VEX then this bit instead means that
  *                       this instruction must have vex.L set.
+ *                     XXX i#1312: Possibly a case for EVEX_LL (L') needs to be
+ *                     supported at some point.
  *                     XXX: so we do not support an instr that has an opcode
  *                     dependent on both a prefix and the entire modrm or suffix!
  *   2nd nibble (ls) = bits 1-3 hold /n for OPCODE_REG
@@ -161,7 +168,6 @@ enum {
  * + for OP_: pointer to next entry of that opcode
  * + may also point to extra operand table
  */
-
 
 /* classification of instruction bytes up to modrm/disp/immed
  * these constants are used for instr_info_t.type field
@@ -201,8 +207,8 @@ enum {
     REX_W_EXT,
     /* instructions differing based on whether part of a vex prefix */
     VEX_PREFIX_EXT,
-    /* instructions differing based on whether vex-encoded */
-    VEX_EXT,
+    /* instructions differing based on whether (e)vex-encoded */
+    E_VEX_EXT,
     /* instructions differing based on whether vex-encoded and vex.L */
     VEX_L_EXT,
     /* instructions differing based on vex.W */
@@ -215,46 +221,75 @@ enum {
     XOP_9_EXT,
     /* xop opcode map 10 */
     XOP_A_EXT,
+    /* instructions differing based on evex */
+    EVEX_PREFIX_EXT,
+    /* instructions differing based on evex.W */
+    EVEX_W_EXT,
+    /* XXX i#1312: We probably do not need EVEX_LL_EXT. L' does not seem to be part
+     * of any instruction's opcode. Remove this comment when this has been finalized.
+     */
     /* else, from OP_ enum */
 };
 
-/* instr_info_t modrm/extra operands flags == ushort only! */
-#define HAS_MODRM             0x01   /* else, no modrm */
-#define HAS_EXTRA_OPERANDS    0x02   /* else, <= 2 dsts, <= 3 srcs */
+/* instr_info_t modrm/extra operands flags up to DR_TUPLE_TYPE_BITPOS bits only! */
+#define HAS_MODRM 0x01          /* else, no modrm */
+#define HAS_EXTRA_OPERANDS 0x02 /* else, <= 2 dsts, <= 3 srcs */
 /* if HAS_EXTRA_OPERANDS: */
-#define EXTRAS_IN_CODE_FIELD  0x04   /* next instr_info_t pointed to by code field */
+#define EXTRAS_IN_CODE_FIELD 0x04 /* next instr_info_t pointed to by code field */
 /* rather than split out into little tables of 32-bit vs OP_INVALID, we use a
  * flag to indicate opcodes that are invalid in particular modes:
  */
-#define X86_INVALID           0x08
-#define X64_INVALID           0x10
+#define X86_INVALID 0x08
+#define X64_INVALID 0x10
 /* We use this to avoid needing a single-valid-entry subtable in prefix_extensions
  * when decoding.  This is never needed for encoding.
  */
-#define REQUIRES_PREFIX       0x20
-/* instr must be encoded using vex.  if this flag is not present, this instruction
+#define REQUIRES_PREFIX 0x20
+/* Instr must be encoded using vex. If this flag is not present, this instruction
  * is invalid if encoded using vex.
  */
-#define REQUIRES_VEX          0x40
+#define REQUIRES_VEX 0x40
 /* Instr must be encoded using a rex.w prefix.  We could expand this to
  * include other rex flags by combining with OPCODE_* flags, like REQUIRES_VEX
  * does today.
  */
-#define REQUIRES_REX          0x80
+#define REQUIRES_REX 0x80
 /* Instr must be encoded with VEX.L=0.  If VEX.L=1 this is an invalid instr.
  * This helps us avoid creating a ton of vex_L_extensions entries.
  */
-#define REQUIRES_VEX_L_0    0x0100
+#define REQUIRES_VEX_L_0 0x0100
 /* Instr must be encoded with VEX.L=1.  If VEX.L=0 this is an invalid instr.
  * This helps us avoid creating a ton of vex_L_extensions entries.
  * OPCODE_SUFFIX for REQUIRES_VEX means the same thing for encoding.
  */
-#define REQUIRES_VEX_L_1    0x0200
+#define REQUIRES_VEX_L_1 0x0200
 /* Predicated via a jcc condition code */
-#define HAS_PRED_CC         0x0400
+#define HAS_PRED_CC 0x0400
 /* Predicated via something complex */
-#define HAS_PRED_COMPLEX    0x0800
-
+#define HAS_PRED_COMPLEX 0x0800
+/* Instr must be encoded using evex. If this flag is not present, this instruction
+ * is invalid if encoded using evex.
+ */
+#define REQUIRES_EVEX 0x01000
+/* Instr must be encoded with EVEX.LL=0.  If EVEX.LL=1 this is an invalid instr.
+ */
+#define REQUIRES_EVEX_LL_0 0x02000
+/* Instruction's VSIB's index reg must be ymm. We are using this and the next flag
+ * to constrain the VSIB's index register's size.
+ */
+#define REQUIRES_VSIB_YMM 0x04000
+/* Instruction's VSIB's index reg must be zmm. */
+#define REQUIRES_VSIB_ZMM 0x08000
+/* EVEX default write mask not allowed. */
+#define REQUIRES_NOT_K0 0x10000
+/* 8-bit input size in the context of Intel's AVX-512 compressed disp8. */
+#define DR_EVEX_INPUT_OPSZ_1 0x20000
+/* 16-bit input size in the context of Intel's AVX-512 compressed disp8. */
+#define DR_EVEX_INPUT_OPSZ_2 0x40000
+/* 32-bit input size in the context of Intel's AVX-512 compressed disp8. */
+#define DR_EVEX_INPUT_OPSZ_4 0x80000
+/* 64-bit input size in the context of Intel's AVX-512 compressed disp8. */
+#define DR_EVEX_INPUT_OPSZ_8 0x100000
 
 struct _decode_info_t {
     uint opcode;
@@ -280,13 +315,13 @@ struct _decode_info_t {
     /* immed info */
     opnd_size_t size_immed;
     opnd_size_t size_immed2;
-    bool immed_pc_relativize:1;
-    bool immed_subtract_length:1;
-    bool immed_pc_rel_offs:1;
+    bool immed_pc_relativize : 1;
+    bool immed_subtract_length : 1;
+    bool immed_pc_rel_offs : 1;
     ushort immed_shift;
     ptr_int_t immed;
     ptr_int_t immed2; /* this additional field could be 32-bit on all platforms */
-    /* These fields are only used when decoding rip-relative data refs */
+    /* These fields are used for decoding/encoding rip-relative data refs. */
     byte *start_pc;
     byte *final_pc;
     uint len;
@@ -308,13 +343,20 @@ struct _decode_info_t {
     bool data_prefix;
     bool rep_prefix;
     bool repne_prefix;
-    byte vex_vvvv; /* vvvv bits for extra operand */
+    /* vvvv bits for extra operand */
+    union {
+        byte vex_vvvv;
+        byte evex_vvvv;
+    };
     bool vex_encoded;
+    bool evex_encoded;
+    byte evex_aaa; /* aaa bits for opmask */
     /* for instr_t* target encoding */
     ptr_int_t cur_note;
     bool has_instr_opnds;
+    dr_tuple_type_t tuple_type;
+    opnd_size_t input_size;
 };
-
 
 /* N.B.: if you change the type enum, change the string names for
  * them, kept in encode.c
@@ -324,48 +366,48 @@ struct _decode_info_t {
 enum {
     /* operand types */
     TYPE_NONE, /* must be 0 for invalid_instr */
-    TYPE_A, /* immediate that is absolute address */
-    TYPE_B, /* vex.vvvv field selects general-purpose register */
-    TYPE_C, /* reg of modrm selects control reg */
-    TYPE_D, /* reg of modrm selects debug reg */
-    TYPE_E, /* modrm selects reg or mem addr */
+    TYPE_A,    /* immediate that is absolute address */
+    TYPE_B,    /* vex.vvvv field selects general-purpose register */
+    TYPE_C,    /* reg of modrm selects control reg */
+    TYPE_D,    /* reg of modrm selects debug reg */
+    TYPE_E,    /* modrm selects reg or mem addr */
     /* I don't use type F, I have eflags info in separate field */
-    TYPE_G, /* reg of modrm selects register */
-    TYPE_H, /* vex.vvvv field selects xmm/ymm register */
-    TYPE_I, /* immediate */
-    TYPE_J, /* immediate that is relative offset of EIP */
-    TYPE_L, /* top 4 bits of 8-bit immed select xmm/ymm register */
-    TYPE_M, /* modrm selects mem addr */
-    TYPE_O, /* immediate that is memory offset */
-    TYPE_P, /* reg of modrm selects MMX */
-    TYPE_Q, /* modrm selects MMX or mem addr */
-    TYPE_R, /* modrm selects register */
-    TYPE_S, /* reg of modrm selects segment register */
-    TYPE_V, /* reg of modrm selects XMM */
-    TYPE_W, /* modrm selects XMM or mem addr */
-    TYPE_X, /* DS:(RE)(E)SI */
-    TYPE_Y, /* ES:(RE)(E)SDI */
-    TYPE_P_MODRM,  /* == Intel 'N': modrm selects MMX */
-    TYPE_V_MODRM,  /* == Intel 'U': modrm selects XMM */
+    TYPE_G,       /* reg of modrm selects register */
+    TYPE_H,       /* vex.vvvv field selects xmm/ymm register */
+    TYPE_I,       /* immediate */
+    TYPE_J,       /* immediate that is relative offset of EIP */
+    TYPE_L,       /* top 4 bits of 8-bit immed select xmm/ymm register */
+    TYPE_M,       /* modrm selects mem addr */
+    TYPE_O,       /* immediate that is memory offset */
+    TYPE_P,       /* reg of modrm selects MMX */
+    TYPE_Q,       /* modrm selects MMX or mem addr */
+    TYPE_R,       /* modrm selects register */
+    TYPE_S,       /* reg of modrm selects segment register */
+    TYPE_V,       /* reg of modrm selects XMM */
+    TYPE_W,       /* modrm selects XMM or mem addr */
+    TYPE_X,       /* DS:(RE)(E)SI */
+    TYPE_Y,       /* ES:(RE)(E)SDI */
+    TYPE_P_MODRM, /* == Intel 'N': modrm selects MMX */
+    TYPE_V_MODRM, /* == Intel 'U': modrm selects XMM */
     TYPE_1,
     TYPE_FLOATCONST,
     TYPE_XLAT,     /* DS:(RE)(E)BX+AL */
     TYPE_MASKMOVQ, /* DS:(RE)(E)DI */
     TYPE_FLOATMEM,
-    TYPE_VSIB, /* modrm selects mem addr with required VSIB */
-    TYPE_REG,     /* hardcoded register */
-    TYPE_XREG, /* hardcoded register, default 32/64 bits depending on mode */
-    TYPE_VAR_REG, /* hardcoded register, default 32 bits, but can be
-                   * 16 w/ data prefix or 64 w/ rex.w: equivalent of Intel 'v'
-                   * == like OPSZ_4_rex8_short2 */
-    TYPE_VARZ_REG, /* hardcoded register, default 32 bits, but can be
-                    * 16 w/ data prefix: equivalent of Intel 'z'
-                    * == like OPSZ_4_short2 */
-    TYPE_VAR_XREG, /* hardcoded register, default 32/64 bits depending on mode,
-                    * but can be 16 w/ data prefix: equivalent of Intel 'd64'
-                    * == like OPSZ_4x8_short2 */
-    TYPE_VAR_REGX, /* hardcoded register, default 32 bits, but can be 64 w/ rex.w:
-                    * equivalent of Intel 'y' == like OPSZ_4_rex8 */
+    TYPE_VSIB,          /* modrm selects mem addr with required VSIB */
+    TYPE_REG,           /* hardcoded register */
+    TYPE_XREG,          /* hardcoded register, default 32/64 bits depending on mode */
+    TYPE_VAR_REG,       /* hardcoded register, default 32 bits, but can be
+                         * 16 w/ data prefix or 64 w/ rex.w: equivalent of Intel 'v'
+                         * == like OPSZ_4_rex8_short2 */
+    TYPE_VARZ_REG,      /* hardcoded register, default 32 bits, but can be
+                         * 16 w/ data prefix: equivalent of Intel 'z'
+                         * == like OPSZ_4_short2 */
+    TYPE_VAR_XREG,      /* hardcoded register, default 32/64 bits depending on mode,
+                         * but can be 16 w/ data prefix: equivalent of Intel 'd64'
+                         * == like OPSZ_4x8_short2 */
+    TYPE_VAR_REGX,      /* hardcoded register, default 32 bits, but can be 64 w/ rex.w:
+                         * equivalent of Intel 'y' == like OPSZ_4_rex8 */
     TYPE_VAR_ADDR_XREG, /* hardcoded register, default 32/64 bits depending on mode,
                          * but can be 16/32 w/ addr prefix: equivalent of Intel 'd64' */
     /* For x64 extensions (Intel '+r.') where rex.r can select an extended
@@ -381,22 +423,23 @@ enum {
     TYPE_VAR_REGX_EX, /* like TYPE_VAR_REGX but extendable.  used for bswap. */
     TYPE_INDIR_E,
     TYPE_INDIR_REG,
-    TYPE_INDIR_VAR_XREG, /* indirected register that only varies by stack segment,
-                          * with a base of 32/64 depending on the mode;
-                          * indirected size varies with data prefix */
-    TYPE_INDIR_VAR_REG, /* indirected register that only varies by stack segment,
-                         * with a base of 32/64;
-                         * indirected size varies with data and rex prefixes */
-    TYPE_INDIR_VAR_XIREG, /* indirected register that only varies by stack segment,
-                           * with a base of 32/64 depending on the mode;
-                           * indirected size varies w/ data prefix, except 64-bit Intel */
-    TYPE_INDIR_VAR_XREG_OFFS_1, /* TYPE_INDIR_VAR_XREG but with an offset of
-                                 * -1 * size */
-    TYPE_INDIR_VAR_XREG_OFFS_8, /* TYPE_INDIR_VAR_XREG but with an offset of
-                                 * -8 * size and a size of 8 stack slots */
-    TYPE_INDIR_VAR_XREG_OFFS_N, /* TYPE_INDIR_VAR_XREG but with an offset of
-                                 * -N * size and a size to match: i.e., it
-                                 * varies based on other operands */
+    TYPE_INDIR_VAR_XREG,         /* indirected register that only varies by stack segment,
+                                  * with a base of 32/64 depending on the mode;
+                                  * indirected size varies with data prefix */
+    TYPE_INDIR_VAR_REG,          /* indirected register that only varies by stack segment,
+                                  * with a base of 32/64;
+                                  * indirected size varies with data and rex prefixes */
+    TYPE_INDIR_VAR_XIREG,        /* indirected register that only varies by stack segment,
+                                  * with a base of 32/64 depending on the mode;
+                                  * indirected size varies w/ data prefix, except
+                                  * 64-bit Intel */
+    TYPE_INDIR_VAR_XREG_OFFS_1,  /* TYPE_INDIR_VAR_XREG but with an offset of
+                                  * -1 * size */
+    TYPE_INDIR_VAR_XREG_OFFS_8,  /* TYPE_INDIR_VAR_XREG but with an offset of
+                                  * -8 * size and a size of 8 stack slots */
+    TYPE_INDIR_VAR_XREG_OFFS_N,  /* TYPE_INDIR_VAR_XREG but with an offset of
+                                  * -N * size and a size to match: i.e., it
+                                  * varies based on other operands */
     TYPE_INDIR_VAR_XIREG_OFFS_1, /* TYPE_INDIR_VAR_XIREG but with an offset of
                                   * -1 * size */
     TYPE_INDIR_VAR_REG_OFFS_2,   /* TYPE_INDIR_VAR_REG but with an offset of
@@ -412,48 +455,78 @@ enum {
     TYPE_INDIR_VAR_REG_SIZEx3x5, /* TYPE_INDIR_VAR_REG but with a size of
                                   * 3 * regular size for 32-bit, 5 * regular
                                   * size for 64-bit */
+    TYPE_K_MODRM,                /* modrm.rm selects k0-k7 or mem addr */
+    TYPE_K_MODRM_R,              /* modrm.rm selects k0-k7 */
+    TYPE_K_REG,                  /* modrm.reg selects k0-k7 */
+    TYPE_K_VEX,                  /* vex.vvvv field selects k0-k7 */
+    TYPE_K_EVEX,                 /* evex.aaa field selects k0-k7 */
+    TYPE_T_REG,                  /* modrm.reg selects bnd0-bnd3 */
+    TYPE_T_MODRM,                /* modrm.rm selects bnd0-bnd3 register or 8 bytes
+                                  * memory in 32-bit mode, or 16 bytes memory in 64-bit
+                                  * mode.
+                                  */
     /* when adding new types, update type_names[] in encode.c */
     TYPE_BEYOND_LAST_ENUM,
 };
 
-#define MODRM_BYTE(mod, reg, rm) ((byte) (((mod) << 6) | ((reg) << 3) | (rm)))
+#define MODRM_BYTE(mod, reg, rm) ((byte)(((mod) << 6) | ((reg) << 3) | (rm)))
 
 /* for decode_info_t */
 #define X64_MODE(di) IF_X64_ELSE(!(di)->x86_mode, false)
 
 /* in decode.c, not exported to non-x86 files */
-bool optype_is_indir_reg(int optype);
-opnd_size_t resolve_var_reg_size(opnd_size_t sz, bool is_reg);
-opnd_size_t resolve_variable_size(decode_info_t *di/*IN: x86_mode, prefixes*/,
-                                  opnd_size_t sz, bool is_reg);
-opnd_size_t resolve_variable_size_dc(dcontext_t *dcontext,
-                                     uint prefixes, opnd_size_t sz, bool is_reg);
+bool
+optype_is_indir_reg(int optype);
+opnd_size_t
+resolve_var_reg_size(opnd_size_t sz, bool is_reg);
+opnd_size_t
+resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t sz,
+                      bool is_reg);
+opnd_size_t
+resolve_variable_size_dc(dcontext_t *dcontext, uint prefixes, opnd_size_t sz,
+                         bool is_reg);
 /* Also takes in reg8 for TYPE_REG_EX mov_imm */
-reg_id_t resolve_var_reg(decode_info_t *di/*IN: x86_mode, prefixes*/,
-                         reg_id_t reg32, bool addr, bool can_shrink
-                         _IF_X64(bool default_64) _IF_X64(bool can_grow)
-                         _IF_X64(bool extendable));
-opnd_size_t resolve_addr_size(decode_info_t *di/*IN: x86_mode, prefixes*/);
-opnd_size_t indir_var_reg_size(decode_info_t *di, int optype);
-int indir_var_reg_offs_factor(int optype);
-opnd_size_t expand_subreg_size(opnd_size_t sz);
-dr_pred_type_t decode_predicate_from_instr_info(uint opcode, const instr_info_t *info);
+reg_id_t
+resolve_var_reg(decode_info_t *di /*IN: x86_mode, prefixes*/, reg_id_t reg32, bool addr,
+                bool can_shrink _IF_X64(bool default_64) _IF_X64(bool can_grow)
+                    _IF_X64(bool extendable));
+opnd_size_t
+resolve_addr_size(decode_info_t *di /*IN: x86_mode, prefixes*/);
+opnd_size_t
+indir_var_reg_size(decode_info_t *di, int optype);
+int
+indir_var_reg_offs_factor(int optype);
+opnd_size_t
+expand_subreg_size(opnd_size_t sz);
+dr_pred_type_t
+decode_predicate_from_instr_info(uint opcode, const instr_info_t *info);
+
+/* Helper function to determine the compressed displacement factor, as specified in
+ * Intel's Vol.2A 2.6.5 "Compressed Displacement (disp8*N) Support in EVEX".
+ */
+int
+decode_get_compressed_disp_scale(decode_info_t *di);
+
+/* Retrieves the tuple_type and input_size from info and saves it in di. */
+void
+decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di);
 
 /* in instr.c, not exported to non-x86 files */
-bool opc_is_cbr_arch(int opc);
+bool
+opc_is_cbr_arch(int opc);
 
 /* exported tables */
 extern const instr_info_t first_byte[];
 extern const instr_info_t second_byte[];
-extern const instr_info_t extensions[][8];
-extern const instr_info_t prefix_extensions[][8];
+extern const instr_info_t base_extensions[][8];
+extern const instr_info_t prefix_extensions[][12];
 extern const instr_info_t mod_extensions[][2];
 extern const instr_info_t rm_extensions[][8];
 extern const instr_info_t x64_extensions[][2];
 extern const instr_info_t rex_b_extensions[][2];
 extern const instr_info_t rex_w_extensions[][2];
 extern const instr_info_t vex_prefix_extensions[][2];
-extern const instr_info_t vex_extensions[][2];
+extern const instr_info_t e_vex_extensions[][3];
 extern const instr_info_t vex_L_extensions[][3];
 extern const instr_info_t vex_W_extensions[][2];
 extern const byte third_byte_38_index[256];
@@ -472,8 +545,10 @@ extern const byte xop_9_index[256];
 extern const byte xop_a_index[256];
 extern const instr_info_t xop_prefix_extensions[][2];
 extern const instr_info_t xop_extensions[];
+extern const instr_info_t evex_prefix_extensions[][2];
+extern const instr_info_t evex_W_extensions[][2];
 
 /* table that translates opcode enums into pointers into decoding tables */
-extern const instr_info_t * const op_instr[];
+extern const instr_info_t *const op_instr[];
 
 #endif /* DECODE_PRIVATE_H */

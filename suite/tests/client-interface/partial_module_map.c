@@ -73,8 +73,8 @@ main(int argc, char **argv)
     }
 
     /* Tell the compiler not to optimize away the existence of big_array */
-    __asm__ __volatile__ ("" :: "m"(big_array[0]));
-    (void) big_array;
+    __asm__ __volatile__("" ::"m"(big_array[0]));
+    (void)big_array;
 
     print("Done mmaping.\n");
     return 0;

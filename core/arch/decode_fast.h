@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,8 +52,8 @@ DR_API
  * May return 0 size for certain invalid instructions.
  */
 int
-decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes
-              _IF_X86_64(uint *rip_rel_pos));
+decode_sizeof(dcontext_t *dcontext, byte *pc,
+              int *num_prefixes _IF_X86_64(uint *rip_rel_pos));
 
 DR_API
 /**
@@ -87,7 +87,7 @@ DR_UNS_API
 byte *
 decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr);
 
-DR_UNS_API
+DR_UNS_EXCEPT_TESTS_API
 /**
  * Decodes only enough of the instruction at address \p pc to determine
  * its size, its effects on the 6 arithmetic eflags, and whether it is
@@ -119,6 +119,5 @@ DR_UNS_API
 #endif
 byte *
 decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr);
-
 
 #endif /* DECODE_FAST_H */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
 #include "configure.h"
 #include "dr_api.h"
 #include "tools.h"
+#include <assert.h>
 #include <math.h>
 
 static int
@@ -49,9 +50,56 @@ do_some_work(int seed)
     return (val > 0);
 }
 
+static void
+test_static_decode_before_attach(void)
+{
+    /* FIXME i#2040: this hits the app_fls_data assert on Windows. */
+#ifdef UNIX
+    /* Test restoration of signal state. */
+    int res;
+    sigset_t mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGBUS);
+    sigaddset(&mask, SIGUSR2);
+    res = sigprocmask(SIG_BLOCK, &mask, NULL);
+    assert(res == 0);
+    intercept_signal(SIGUSR1, (handler_3_t)SIG_IGN, false);
+    intercept_signal(SIGBUS, (handler_3_t)SIG_IGN, false);
+
+    /* We test using DR IR routines when statically linked.  We can't use
+     * drdecode when statically linked with DR as drdecode relies on symbol
+     * replacement, so instead we initialize DR and then "detach" to do a full
+     * cleanup (even without an attach) before starting our regular
+     * attach+detach testing.
+     * XXX: When there's a client, this requires a flag to skip the client init
+     * in this first dr_app_setup().
+     */
+    dr_standalone_init();
+    instr_t *instr = XINST_CREATE_return(GLOBAL_DCONTEXT);
+    assert(instr_is_return(instr));
+    instr_destroy(GLOBAL_DCONTEXT, instr);
+    dr_standalone_exit();
+
+    sigset_t check_mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    res = sigprocmask(SIG_BLOCK, NULL, &check_mask);
+    assert(res == 0 && memcmp(&mask, &check_mask, sizeof(mask)) == 0);
+    struct sigaction act;
+    res = sigaction(SIGUSR1, NULL, &act);
+    assert(res == 0 && (handler_3_t)act.sa_sigaction == (handler_3_t)SIG_IGN);
+    res = sigaction(SIGBUS, NULL, &act);
+    assert(res == 0 && (handler_3_t)act.sa_sigaction == (handler_3_t)SIG_IGN);
+#endif
+}
+
 int
 main(int argc, const char *argv[])
 {
+    test_static_decode_before_attach();
+
     print("pre-DR init\n");
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());

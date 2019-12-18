@@ -44,12 +44,12 @@
 
 bool
 drvector_init(drvector_t *vec, uint initial_capacity, bool synch,
-              void (*free_data_func)(void*))
+              void (*free_data_func)(void *))
 {
     if (vec == NULL)
         return false;
     if (initial_capacity > 0)
-        vec->array = dr_global_alloc(initial_capacity * sizeof(void*));
+        vec->array = dr_global_alloc(initial_capacity * sizeof(void *));
     else
         vec->array = NULL;
     vec->entries = 0;
@@ -78,10 +78,10 @@ drvector_get_entry(drvector_t *vec, uint idx)
 static void
 drvector_increase_size(drvector_t *vec, uint newcap)
 {
-    void **newarray = dr_global_alloc(newcap * sizeof(void*));
+    void **newarray = dr_global_alloc(newcap * sizeof(void *));
     if (vec->array != NULL) {
-        memcpy(newarray, vec->array, vec->entries * sizeof(void*));
-        dr_global_free(vec->array, vec->capacity * sizeof(void*));
+        memcpy(newarray, vec->array, vec->entries * sizeof(void *));
+        dr_global_free(vec->array, vec->capacity * sizeof(void *));
     }
     vec->array = newarray;
     vec->capacity = newcap;
@@ -140,12 +140,12 @@ drvector_delete(drvector_t *vec)
      * */
     if (vec->free_data_func != NULL && vec->array != NULL) {
         for (i = 0; i < vec->entries; i++) {
-                (vec->free_data_func)(vec->array[i]);
+            (vec->free_data_func)(vec->array[i]);
         }
     }
 
     if (vec->array != NULL) {
-        dr_global_free(vec->array, vec->capacity * sizeof(void*));
+        dr_global_free(vec->array, vec->capacity * sizeof(void *));
         vec->array = NULL;
         vec->entries = 0;
     }

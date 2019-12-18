@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,9 +31,12 @@
  */
 
 #include "../globals.h" /* need this to include decode.h (uint, etc.) */
-#include "arch.h"    /* need this to include decode.h (byte, etc. */
+#include "arch.h"       /* need this to include decode.h (byte, etc. */
 #include "decode.h"
 #include "decode_private.h"
+
+// We skip auto-formatting for the entire file to keep our single-line entries:
+/* clang-format off */
 
 /* When adding new opcodes here, run tools/x86opnums.pl (with the -arm option) on
  * this file and update opcode.h using the resulting output.
@@ -976,3 +979,5 @@ const op_to_instr_info_t op_instr[] = {
     /* OP_wfi            */ {&A32_ext_bits0[0][0x03],    &T32_16_ext_bits_6_4[0][0x03],    &T32_16_it_ext_bits_6_4[0][0x03]},
     /* OP_yield          */ {&A32_ext_bits0[0][0x01],    &T32_16_ext_bits_6_4[0][0x01],    &T32_16_it_ext_bits_6_4[0][0x01]},
 };
+
+/* clang-format on */

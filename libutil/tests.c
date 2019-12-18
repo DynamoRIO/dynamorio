@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-
 /* ok this is more than a little shady...we'll just run through
  *  assertions, so that if a test fails, we'll keep on trying
  *  other ones.
@@ -38,21 +37,20 @@
  *  a way for running these tests in separate processes.
  *  (or: make this driver c++ so we can use try/catch?) */
 #ifndef FAIL_ON_TEST_ASSERT
-#  define ASSERTION_EXPRESSION(msg) report_assertion(msg)
-#  define EXIT_ON_ASSERT FALSE
+#    define ASSERTION_EXPRESSION(msg) report_assertion(msg)
+#    define EXIT_ON_ASSERT FALSE
 #endif
 
 #include "share.h"
 #include "processes.h"
 
 #ifdef SINGLE_TEST
-#  define TESTNAME STRINGIFY(SINGLE_TEST)
-#  define RESTRICTED_BOOL TRUE
+#    define TESTNAME STRINGIFY(SINGLE_TEST)
+#    define RESTRICTED_BOOL TRUE
 #else
-#  define TESTNAME ""
-#  define RESTRICTED_BOOL FALSE
+#    define TESTNAME ""
+#    define RESTRICTED_BOOL FALSE
 #endif
-
 
 BOOL test_asserted;
 char *assert_message;
@@ -75,8 +73,7 @@ display_failure(char *testname)
     fflush(stderr);
     printf("  Test FAILURE: %s\n", assert_message);
     _snwprintf(w_testname, MAX_PATH, L"%S", testname);
-    DO_ASSERT(get_unique_filename(L".", w_testname,
-                                  L".evtlog", evt_filename, MAX_PATH));
+    DO_ASSERT(get_unique_filename(L".", w_testname, L".evtlog", evt_filename, MAX_PATH));
     evtfile = _wfopen(evt_filename, L"w");
     show_all_events(evtfile);
     fclose(evtfile);
@@ -103,8 +100,7 @@ main()
     get_testdir(coredir, MAX_PATH);
     CHECKED_OPERATION(setup_installation(coredir, TRUE));
 
-    _snwprintf(mp_cfg_file, MAX_PATH, L"%s\\conf\\mp-defs.cfg",
-               get_dynamorio_home());
+    _snwprintf(mp_cfg_file, MAX_PATH, L"%s\\conf\\mp-defs.cfg", get_dynamorio_home());
     DO_ASSERT(file_exists(mp_cfg_file));
 
     CHECKED_OPERATION(get_preinject_name(preinject, MAX_PATH));
@@ -121,28 +117,30 @@ main()
 
     DO_ASSERT_WSTR_EQ(get_dynamorio_home(), coredir);
 
-#  define DO_TEST_HP(name, appstr, use_hotp, block)             \
- {                                                              \
-     if (!restricted || 0 == strcmp(#name, TESTNAME)) {         \
-         test_asserted = FALSE;                                 \
-         numtests++;                                            \
-         printf("Executing " #name " test...\n");               \
-         clear_eventlog();                                      \
-         reset_last_event();                                    \
-         CHECKED_OPERATION(load_test_config(appstr, use_hotp)); \
-         block                                                  \
-         if (test_asserted) {                                   \
-             display_failure(#name);                            \
-         } else {                                               \
-             passed++;                                          \
-             printf("  Passed.\n");                             \
-         }                                                      \
-     }                                                          \
- }
+#define DO_TEST_HP(name, appstr, use_hotp, block)                  \
+    {                                                              \
+        if (!restricted || 0 == strcmp(#name, TESTNAME)) {         \
+            test_asserted = FALSE;                                 \
+            numtests++;                                            \
+            printf("Executing " #name " test...\n");               \
+            clear_eventlog();                                      \
+            reset_last_event();                                    \
+            CHECKED_OPERATION(load_test_config(appstr, use_hotp)); \
+            block if (test_asserted)                               \
+            {                                                      \
+                display_failure(#name);                            \
+            }                                                      \
+            else                                                   \
+            {                                                      \
+                passed++;                                          \
+                printf("  Passed.\n");                             \
+            }                                                      \
+        }                                                          \
+    }
 
-#    include "tests.h"
+#include "tests.h"
 
-#  undef DO_TEST
+#undef DO_TEST
 
     CHECKED_OPERATION(disable_protection());
     CHECKED_OPERATION(clear_policy());

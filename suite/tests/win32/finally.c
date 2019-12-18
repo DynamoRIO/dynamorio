@@ -34,7 +34,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <setjmp.h>
-jmp_buf mark;              /* Address for long jump to jump to */
+jmp_buf mark; /* Address for long jump to jump to */
 
 void
 finally_proc()
@@ -44,13 +44,11 @@ finally_proc()
             printf("This should be printed\n");
             __leave;
             printf("This should NOT be printed\n");
-        }
-        __finally {
+        } __finally {
             printf("Inside first finally\n");
         }
         printf("At statement after 1st try-finally\n");
-    }
-    __finally {
+    } __finally {
         printf("Inside second finally\n");
         longjmp(mark, 1);
         printf("This should NOT be printed\n");
@@ -68,8 +66,7 @@ main()
             finally_proc();
         else
             printf("done with longjmp\n");
-    }
-    __finally {
+    } __finally {
         printf("In final finally\n");
     }
 }

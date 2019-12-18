@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -46,6 +46,7 @@ include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
 # the list and did not remove its args so be sure to avoid conflicts).
 set(arg_travis OFF)
 set(arg_package OFF)
+set(arg_require_format OFF)
 set(cross_aarchxx_linux_only OFF)
 set(cross_android_only OFF)
 foreach (arg ${CTEST_SCRIPT_ARG})
@@ -62,6 +63,8 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     # conflicts if different architectures are being built: e.g., ARM
     # and AArch64.  It's up to the caller to arrange things properly.
     set(arg_package ON)
+  elseif (${arg} STREQUAL "require_format")
+    set(arg_require_format ON)
   endif ()
 endforeach (arg)
 
@@ -87,9 +90,13 @@ endif()
 
 if (TEST_LONG)
   set(DO_ALL_BUILDS ON)
+  # i#2974: We skip tests marked _FLAKY since we have no other mechanism to
+  # have CDash ignore them and avoid going red and sending emails.
+  # We rely on our CI for a history of _FLAKY results.
   set(base_cache "${base_cache}
     BUILD_TESTS:BOOL=ON
-    TEST_LONG:BOOL=ON")
+    TEST_LONG:BOOL=ON
+    SKIP_FLAKY_TESTS:BOOL=ON")
 else (TEST_LONG)
   set(DO_ALL_BUILDS OFF)
 endif (TEST_LONG)
@@ -129,8 +136,6 @@ if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.svn" OR
     if (svn_result OR svn_err)
       message(FATAL_ERROR "*** ${SVN} diff failed: ***\n${svn_result} ${svn_err}")
     endif (svn_result OR svn_err)
-    # Remove tabs from the revision lines
-    string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_contents "${diff_contents}")
   endif (SVN)
 else ()
   if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
@@ -138,13 +143,12 @@ else ()
     if (GIT)
       # Included committed, staged, and unstaged changes.
       # We assume "origin/master" contains the top-of-trunk.
-      execute_process(COMMAND "${GIT} diff origin/master"
+      # We pass -U0 so clang-format-diff only complains about touched lines.
+      execute_process(COMMAND ${GIT} diff -U0 origin/master
         WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
         RESULT_VARIABLE git_result
         ERROR_VARIABLE git_err
         OUTPUT_VARIABLE diff_contents)
-      # Remove tabs from the revision lines
-      string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_contents "${diff_contents}")
       if (git_result OR git_err)
         if (git_err MATCHES "unknown revision")
           # It may be a cloned branch
@@ -156,7 +160,7 @@ else ()
         endif ()
         if (git_result OR git_err)
           # Not a fatal error as this can happen when mixing cygwin and windows git.
-          message(STATUS "${GIT} remote -v failed: ${git_err}")
+          message(STATUS "${GIT} remote -v failed (${git_result}): ${git_err}")
           set(git_out OFF)
         endif (git_result OR git_err)
         if (NOT git_out)
@@ -179,10 +183,61 @@ if (NOT DEFINED diff_contents)
   message(FATAL_ERROR "Unable to construct diff for pre-commit checks")
 endif ()
 
-# Check for tabs.  We already removed them from svn's diff format.
-string(REGEX MATCH "\t" match "${diff_contents}")
+# Ensure changes are formatted according to clang-format.
+# XXX i#2876: we'd like to ignore changes to files like this which we don't
+# want to mark up with "// clang-format off":
+# + ext/drsyms/libefltc/include/*.h
+# + third_party/libgcc/*.c
+# + third_party/valgrind/*.h
+# However, there's no simple way to do that.  For now we punt until someone
+# changes one of those.
+#
+# Prefer named version 6.0 from apt.llvm.org.
+find_program(CLANG_FORMAT_DIFF clang-format-diff-6.0 DOC "clang-format-diff")
+if (NOT CLANG_FORMAT_DIFF)
+  find_program(CLANG_FORMAT_DIFF clang-format-diff DOC "clang-format-diff")
+endif ()
+if (NOT CLANG_FORMAT_DIFF)
+  find_program(CLANG_FORMAT_DIFF clang-format-diff.py DOC "clang-format-diff")
+endif ()
+if (CLANG_FORMAT_DIFF)
+  get_filename_component(CUR_DIR "." ABSOLUTE)
+  set(diff_file "${CUR_DIR}/runsuite_diff.patch")
+  file(WRITE ${diff_file} "${diff_contents}")
+  execute_process(COMMAND ${CLANG_FORMAT_DIFF} -p1
+    WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
+    INPUT_FILE ${diff_file}
+    RESULT_VARIABLE format_result
+    ERROR_VARIABLE format_err
+    OUTPUT_VARIABLE format_out)
+  if (format_result OR format_err)
+    message(FATAL_ERROR
+      "Error (${format_result}) running clang-format-diff: ${format_err}")
+  endif ()
+  if (format_out)
+    # The WARNING and FATAL_ERROR message types try to format the diff and it
+    # looks bad w/ extra newlines, so we use STATUS for a more verbatim printout.
+    message(STATUS
+      "Changes are not formatted properly:\n${format_out}")
+    message(FATAL_ERROR
+      "FATAL ERROR: Changes are not formatted properly (see diff above)!")
+  else ()
+    message("clang-format check passed")
+  endif ()
+else ()
+  if (arg_require_format)
+    message(FATAL_ERROR "FATAL ERROR: clang-format is required but not found!")
+  else ()
+    message("clang-format-diff not found: skipping format checks")
+  endif ()
+endif ()
+
+# Check for tabs other than on the revision lines.
+# The clang-format check will now find these in C files, but not non-C files.
+string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents}")
+string(REGEX MATCH "\t" match "${diff_notabs}")
 if (NOT "${match}" STREQUAL "")
-  string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_contents}")
+  string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_notabs}")
   message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
 endif ()
 
@@ -199,6 +254,7 @@ endif ()
 
 # Check for trailing space.  This is a diff with an initial column for +-,
 # so a blank line will have one space: thus we rule that out.
+# The clang-format check will now find these in C files, but not non-C files.
 string(REGEX MATCH "[^\n] \n" match "${diff_contents}")
 if (NOT "${match}" STREQUAL "")
   # Get more context
@@ -208,10 +264,11 @@ endif ()
 
 ##################################################
 
-
 # for short suite, don't build tests for builds that don't run tests
 # (since building takes forever on windows): so we only turn
-# on BUILD_TESTS for TEST_LONG or debug-internal-{32,64}
+# on BUILD_TESTS for TEST_LONG or debug-internal-{32,64}. BUILD_TESTS is
+# also turned on for release-external-64, but ctest will run with label
+# RUN_IN_RELEASE.
 
 if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   # For cross-arch execve test we need to "make install"
@@ -254,12 +311,16 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   else ()
     set(32bit_path "")
   endif ()
+  set(orig_extra_ctest_args extra_ctest_args)
+  set(extra_ctest_args INCLUDE_LABEL RUN_IN_RELEASE)
   testbuild_ex("release-external-64" ON "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
+    BUILD_TESTS:BOOL=ON
     ${install_path_cache}
     ${32bit_path}
     " OFF ${arg_package} "${install_build_args}")
+  set(extra_ctest_args orig_extra_ctest_args)
   if (DO_ALL_BUILDS)
     # we rarely use internal release builds but keep them working in long
     # suite (not much burden) in case we need to tweak internal options
@@ -273,6 +334,16 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
       INTERNAL:BOOL=ON
       ${install_path_cache}
       ")
+    if (UNIX)
+      # Ensure the code to record memquery unit test cases continues to
+      # at least compile.
+      testbuild("record-memquery-64" ON "
+        RECORD_MEMQUERY:BOOL=ON
+        DEBUG:BOOL=OFF
+        INTERNAL:BOOL=ON
+        ${install_path_cache}
+        ")
+    endif (UNIX)
   endif (DO_ALL_BUILDS)
   # Non-official-API builds but not all are in pre-commit suite, esp on Windows
   # where building is slow: we'll rely on bots to catch breakage in most of these
@@ -363,6 +434,7 @@ if (UNIX AND ARCH_IS_X86)
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
     " OFF ${arg_package} "")
+
   set(run_tests ${prev_run_tests})
   set(optional_cross_compile ${prev_optional_cross_compile})
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2018 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,9 +37,12 @@
 #include "../ntdll.h"
 #include "../os_private.h"
 #include "drwinapi_private.h"
+/* avoid define conflicts with ntdll.h with recent WDK */
+#undef FILE_READ_ACCESS
+#undef FILE_WRITE_ACCESS
 #include <winioctl.h> /* DEVICE_TYPE_FROM_CTL_CODE */
 
-static HANDLE (WINAPI *priv_kernel32_OpenConsoleW)(LPCWSTR, DWORD, BOOL, DWORD);
+static HANDLE(WINAPI *priv_kernel32_OpenConsoleW)(LPCWSTR, DWORD, BOOL, DWORD);
 
 static HANDLE base_named_obj_dir;
 static HANDLE base_named_pipe_dir;
@@ -57,7 +60,7 @@ get_base_named_obj_dir_name(wchar_t *wbuf OUT, size_t wbuflen)
      * here and not lazily I'm hoping we can avoid that complexity
      * (XXX: what about attach?).
      */
-    byte *ptr = (byte *) get_peb(NT_CURRENT_PROCESS)->ReadOnlyStaticServerData;
+    byte *ptr = (byte *)get_peb(NT_CURRENT_PROCESS)->ReadOnlyStaticServerData;
     int len;
     /* For win8 wow64, data is above 4GB so we can't read it as easily.  Rather than
      * muck around with NtWow64ReadVirtualMemory64 we construct the string.
@@ -68,7 +71,7 @@ get_base_named_obj_dir_name(wchar_t *wbuf OUT, size_t wbuflen)
 #ifndef X64
         if (is_wow64_process(NT_CURRENT_PROCESS)) {
             BASE_STATIC_SERVER_DATA_64 *data =
-                *(BASE_STATIC_SERVER_DATA_64 **)(ptr + 2*sizeof(void*));
+                *(BASE_STATIC_SERVER_DATA_64 **)(ptr + 2 * sizeof(void *));
             /* we assume null-terminated */
             if (data != NULL)
                 return data->NamedObjectDirectory.u.b32.Buffer32;
@@ -76,7 +79,7 @@ get_base_named_obj_dir_name(wchar_t *wbuf OUT, size_t wbuflen)
 #endif
         {
             BASE_STATIC_SERVER_DATA *data =
-                *(BASE_STATIC_SERVER_DATA **)(ptr + sizeof(void*));
+                *(BASE_STATIC_SERVER_DATA **)(ptr + sizeof(void *));
             /* we assume null-terminated */
             if (data != NULL)
                 return data->NamedObjectDirectory.Buffer;
@@ -105,15 +108,15 @@ kernel32_redir_init_file(void)
 {
     wchar_t wbuf[MAX_PATH];
     wchar_t *name = get_base_named_obj_dir_name(wbuf, BUFFER_SIZE_ELEMENTS(wbuf));
-    NTSTATUS res = nt_open_object_directory(&base_named_obj_dir, name,
-                                            true/*create perms*/);
+    NTSTATUS res =
+        nt_open_object_directory(&base_named_obj_dir, name, true /*create perms*/);
     ASSERT(NT_SUCCESS(res));
 
     /* The trailing \ is critical: w/o it, NtCreateNamedPipeFile returns
      * STATUS_OBJECT_NAME_INVALID.
      */
-    res = nt_open_file(&base_named_pipe_dir, L"\\Device\\NamedPipe\\",
-                       GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, 0);
+    res = nt_open_file(&base_named_pipe_dir, L"\\Device\\NamedPipe\\", GENERIC_READ,
+                       FILE_SHARE_READ | FILE_SHARE_WRITE, 0);
     ASSERT(NT_SUCCESS(res));
 }
 
@@ -127,23 +130,24 @@ kernel32_redir_exit_file(void)
 void
 kernel32_redir_onload_file(privmod_t *mod)
 {
-    priv_kernel32_OpenConsoleW = (HANDLE (WINAPI *)(LPCWSTR, DWORD, BOOL, DWORD))
-        get_proc_address_ex(mod->base, "OpenConsoleW", NULL);
+    priv_kernel32_OpenConsoleW = (HANDLE(WINAPI *)(
+        LPCWSTR, DWORD, BOOL, DWORD))get_proc_address_ex(mod->base, "OpenConsoleW", NULL);
 }
 
 static void
 init_object_attr_for_files(OBJECT_ATTRIBUTES *oa, UNICODE_STRING *us,
-                           SECURITY_ATTRIBUTES *sa,
-                           SECURITY_QUALITY_OF_SERVICE *sqos)
+                           SECURITY_ATTRIBUTES *sa, SECURITY_QUALITY_OF_SERVICE *sqos)
 {
     ULONG obj_flags = OBJ_CASE_INSENSITIVE;
     if (sa != NULL && sa->nLength >= sizeof(SECURITY_ATTRIBUTES) && sa->bInheritHandle)
         obj_flags |= OBJ_INHERIT;
-    InitializeObjectAttributes(oa, us, obj_flags, NULL,
-                               (sa != NULL && sa->nLength >=
-                                offsetof(SECURITY_ATTRIBUTES, lpSecurityDescriptor) +
-                                sizeof(sa->lpSecurityDescriptor)) ?
-                               sa->lpSecurityDescriptor : NULL);
+    InitializeObjectAttributes(
+        oa, us, obj_flags, NULL,
+        (sa != NULL &&
+         sa->nLength >= offsetof(SECURITY_ATTRIBUTES, lpSecurityDescriptor) +
+                 sizeof(sa->lpSecurityDescriptor))
+            ? sa->lpSecurityDescriptor
+            : NULL);
     if (sqos != NULL)
         oa->SecurityQualityOfService = sqos;
 }
@@ -155,21 +159,18 @@ largeint_to_filetime(const LARGE_INTEGER *li, FILETIME *ft OUT)
     ft->dwLowDateTime = li->LowPart;
 }
 
-
 /***************************************************************************
  * DIRECTORIES
  */
 
 /* nt_path_name must already be in NT format */
 static BOOL
-create_dir_common(
-    __in     LPCWSTR nt_path_name,
-    __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes
-    )
+create_dir_common(__in LPCWSTR nt_path_name,
+                  __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes)
 {
     NTSTATUS res;
     OBJECT_ATTRIBUTES oa;
-    IO_STATUS_BLOCK iob = {0,0};
+    IO_STATUS_BLOCK iob = { 0, 0 };
     UNICODE_STRING file_path_unicode;
     HANDLE handle;
     ACCESS_MASK access = SYNCHRONIZE | FILE_LIST_DIRECTORY;
@@ -177,7 +178,7 @@ create_dir_common(
     ULONG sharing = FILE_SHARE_READ;
     ULONG disposition = FILE_CREATE;
     ULONG options = FILE_SYNCHRONOUS_IO_NONALERT | FILE_DIRECTORY_FILE |
-        FILE_OPEN_FOR_BACKUP_INTENT/*docs say to use for dir handle*/;
+        FILE_OPEN_FOR_BACKUP_INTENT /*docs say to use for dir handle*/;
 
     res = wchar_to_unicode(&file_path_unicode, nt_path_name);
     if (!NT_SUCCESS(res)) {
@@ -187,8 +188,8 @@ create_dir_common(
 
     init_object_attr_for_files(&oa, &file_path_unicode, lpSecurityAttributes, NULL);
 
-    res = nt_raw_CreateFile(&handle, access, &oa, &iob, NULL, file_attributes,
-                            sharing, disposition, options, NULL, 0);
+    res = nt_raw_CreateFile(&handle, access, &oa, &iob, NULL, file_attributes, sharing,
+                            disposition, options, NULL, 0);
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
         return FALSE;
@@ -197,12 +198,9 @@ create_dir_common(
     return TRUE;
 }
 
-BOOL
-WINAPI
-redirect_CreateDirectoryA(
-    __in     LPCSTR lpPathName,
-    __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes
-    )
+BOOL WINAPI
+redirect_CreateDirectoryA(__in LPCSTR lpPathName,
+                          __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes)
 {
     wchar_t wbuf[MAX_PATH];
     if (lpPathName == NULL ||
@@ -214,12 +212,9 @@ redirect_CreateDirectoryA(
     return create_dir_common(wbuf, lpSecurityAttributes);
 }
 
-BOOL
-WINAPI
-redirect_CreateDirectoryW(
-    __in     LPCWSTR lpPathName,
-    __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes
-    )
+BOOL WINAPI
+redirect_CreateDirectoryW(__in LPCWSTR lpPathName,
+                          __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes)
 {
     wchar_t wbuf[MAX_PATH];
     wchar_t *nt_path = NULL;
@@ -239,11 +234,8 @@ redirect_CreateDirectoryW(
     return res;
 }
 
-BOOL
-WINAPI
-redirect_RemoveDirectoryA(
-    __in LPCSTR lpPathName
-    )
+BOOL WINAPI
+redirect_RemoveDirectoryA(__in LPCSTR lpPathName)
 {
     /* Existing file code should work on dirs and links.
      * XXX: what about removing mount points for volumes?
@@ -251,11 +243,8 @@ redirect_RemoveDirectoryA(
     return redirect_DeleteFileA(lpPathName);
 }
 
-BOOL
-WINAPI
-redirect_RemoveDirectoryW(
-    __in LPCWSTR lpPathName
-    )
+BOOL WINAPI
+redirect_RemoveDirectoryW(__in LPCWSTR lpPathName)
 {
     /* Existing file code should work on dirs and links.
      * XXX: what about removing mount points for volumes?
@@ -265,16 +254,15 @@ redirect_RemoveDirectoryW(
 
 DWORD
 WINAPI
-redirect_GetCurrentDirectoryA(
-    __in DWORD nBufferLength,
-    __out_ecount_part_opt(nBufferLength, return + 1) LPSTR lpBuffer
-    )
+redirect_GetCurrentDirectoryA(__in DWORD nBufferLength,
+                              __out_ecount_part_opt(nBufferLength, return +1)
+                                  LPSTR lpBuffer)
 {
     wchar_t *wbuf = NULL;
     DWORD res;
     if (lpBuffer != NULL) {
-        wbuf = (wchar_t *)
-            global_heap_alloc(nBufferLength*sizeof(wchar_t) HEAPACCT(ACCT_OTHER));
+        wbuf = (wchar_t *)global_heap_alloc(nBufferLength *
+                                            sizeof(wchar_t) HEAPACCT(ACCT_OTHER));
     }
     res = redirect_GetCurrentDirectoryW(nBufferLength, wbuf);
     if (lpBuffer != NULL && res > 0 && res < nBufferLength) {
@@ -285,16 +273,15 @@ redirect_GetCurrentDirectoryA(
         }
     }
     if (wbuf != NULL)
-        global_heap_free(wbuf, nBufferLength*sizeof(wchar_t) HEAPACCT(ACCT_OTHER));
+        global_heap_free(wbuf, nBufferLength * sizeof(wchar_t) HEAPACCT(ACCT_OTHER));
     return res;
 }
 
 DWORD
 WINAPI
-redirect_GetCurrentDirectoryW(
-    __in DWORD nBufferLength,
-    __out_ecount_part_opt(nBufferLength, return + 1) LPWSTR lpBuffer
-    )
+redirect_GetCurrentDirectoryW(__in DWORD nBufferLength,
+                              __out_ecount_part_opt(nBufferLength, return +1)
+                                  LPWSTR lpBuffer)
 {
     /* For the cur dir, we do not try to grab the PEB lock.
      * The Win32 API docs warn that accessing the cur dir is racy, and it's
@@ -303,8 +290,8 @@ redirect_GetCurrentDirectoryW(
      */
     PEB *peb = get_own_peb();
     int len;
-    DWORD total = peb->ProcessParameters->CurrentDirectoryPath.Length/sizeof(wchar_t)
-        + 1/*null*/;
+    DWORD total = peb->ProcessParameters->CurrentDirectoryPath.Length / sizeof(wchar_t) +
+        1 /*null*/;
     if (lpBuffer == NULL)
         return total; /* no errno */
     else {
@@ -317,17 +304,14 @@ redirect_GetCurrentDirectoryW(
             return 0;
         }
         if ((DWORD)len < nBufferLength)
-            return (DWORD) len;
+            return (DWORD)len;
         else
             return total;
     }
 }
 
-BOOL
-WINAPI
-redirect_SetCurrentDirectoryA(
-    __in LPCSTR lpPathName
-    )
+BOOL WINAPI
+redirect_SetCurrentDirectoryA(__in LPCSTR lpPathName)
 {
     wchar_t wbuf[MAX_PATH];
     int len = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%hs", lpPathName);
@@ -337,11 +321,8 @@ redirect_SetCurrentDirectoryA(
     return redirect_SetCurrentDirectoryW(wbuf);
 }
 
-BOOL
-WINAPI
-redirect_SetCurrentDirectoryW(
-    __in LPCWSTR lpPathName
-    )
+BOOL WINAPI
+redirect_SetCurrentDirectoryW(__in LPCWSTR lpPathName)
 {
     PEB *peb = get_own_peb();
     UNICODE_STRING *us = &peb->ProcessParameters->CurrentDirectoryPath;
@@ -353,10 +334,9 @@ redirect_SetCurrentDirectoryW(
      */
     /* CurrentDirectoryPath.Buffer should have MAX_PATH space in it */
     len = _snwprintf(us->Buffer, us->MaximumLength, L"%s", lpPathName);
-    us->Buffer[us->MaximumLength-1] = L'\0';
+    us->Buffer[us->MaximumLength - 1] = L'\0';
     return (len > 0);
 }
-
 
 /***************************************************************************
  * FILES
@@ -407,11 +387,11 @@ file_options_to_nt(DWORD winapi, ACCESS_MASK *access INOUT)
     if (TEST(FILE_FLAG_WRITE_THROUGH, winapi))
         options |= FILE_WRITE_THROUGH;
 
-   /* XXX: not sure about FILE_FLAG_POSIX_SEMANTICS or
-    * FILE_FLAG_SESSION_AWARE
-    */
+    /* XXX: not sure about FILE_FLAG_POSIX_SEMANTICS or
+     * FILE_FLAG_SESSION_AWARE
+     */
 
-   return options;
+    return options;
 }
 
 static ACCESS_MASK
@@ -431,19 +411,15 @@ file_access_to_nt(ACCESS_MASK winapi)
 
 /* nt_file_name must already be in NT format */
 static HANDLE
-create_file_common(
-    __in     LPCWSTR nt_file_name,
-    __in     DWORD dwDesiredAccess,
-    __in     DWORD dwShareMode,
-    __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-    __in     DWORD dwCreationDisposition,
-    __in     DWORD dwFlagsAndAttributes,
-    __in_opt HANDLE hTemplateFile
-    )
+create_file_common(__in LPCWSTR nt_file_name, __in DWORD dwDesiredAccess,
+                   __in DWORD dwShareMode,
+                   __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+                   __in DWORD dwCreationDisposition, __in DWORD dwFlagsAndAttributes,
+                   __in_opt HANDLE hTemplateFile)
 {
     NTSTATUS res;
     OBJECT_ATTRIBUTES oa;
-    IO_STATUS_BLOCK iob = {0,0};
+    IO_STATUS_BLOCK iob = { 0, 0 };
     UNICODE_STRING file_path_unicode;
     SECURITY_QUALITY_OF_SERVICE sqos, *sqos_ptr = NULL;
     HANDLE handle;
@@ -469,7 +445,8 @@ create_file_common(
         sqos_ptr = &sqos;
         sqos.Length = sizeof(sqos);
         /* SECURITY_* flags are from 4-member SECURITY_IMPERSONATION_LEVEL enum <<16 */
-        sqos.ImpersonationLevel = (dwFlagsAndAttributes >> 16) & 0x3;;
+        sqos.ImpersonationLevel = (dwFlagsAndAttributes >> 16) & 0x3;
+        ;
         if (TEST(SECURITY_CONTEXT_TRACKING, dwFlagsAndAttributes))
             sqos.ContextTrackingMode = SECURITY_DYNAMIC_TRACKING;
         else
@@ -490,10 +467,10 @@ create_file_common(
         /* route to OpenConsole */
         SYSLOG_INTERNAL_WARNING_ONCE("priv lib called CreateFile on the console");
         ASSERT(priv_kernel32_OpenConsoleW != NULL);
-        return (*priv_kernel32_OpenConsoleW)(nt_file_name, dwDesiredAccess,
-                                             (lpSecurityAttributes == NULL) ? FALSE :
-                                             lpSecurityAttributes->bInheritHandle,
-                                             OPEN_EXISTING);
+        return (*priv_kernel32_OpenConsoleW)(
+            nt_file_name, dwDesiredAccess,
+            (lpSecurityAttributes == NULL) ? FALSE : lpSecurityAttributes->bInheritHandle,
+            OPEN_EXISTING);
     }
 
     if (hTemplateFile != NULL) {
@@ -503,8 +480,8 @@ create_file_common(
 
     init_object_attr_for_files(&oa, &file_path_unicode, lpSecurityAttributes, sqos_ptr);
 
-    res = nt_raw_CreateFile(&handle, access, &oa, &iob, NULL, file_attributes,
-                            sharing, disposition, options, NULL, 0);
+    res = nt_raw_CreateFile(&handle, access, &oa, &iob, NULL, file_attributes, sharing,
+                            disposition, options, NULL, 0);
     if (!NT_SUCCESS(res)) {
         if (res == STATUS_OBJECT_NAME_COLLISION)
             set_last_error(ERROR_FILE_EXISTS); /* instead of ERROR_ALREADY_EXISTS */
@@ -515,8 +492,7 @@ create_file_common(
         /* on success, errno is still set in some cases */
         if ((dwCreationDisposition == CREATE_ALWAYS &&
              iob.Information == FILE_OVERWRITTEN) ||
-            (dwCreationDisposition == OPEN_ALWAYS &&
-             iob.Information == FILE_OPENED))
+            (dwCreationDisposition == OPEN_ALWAYS && iob.Information == FILE_OPENED))
             set_last_error(ERROR_ALREADY_EXISTS);
         else
             set_last_error(ERROR_SUCCESS);
@@ -526,15 +502,11 @@ create_file_common(
 
 HANDLE
 WINAPI
-redirect_CreateFileA(
-    __in     LPCSTR lpFileName,
-    __in     DWORD dwDesiredAccess,
-    __in     DWORD dwShareMode,
-    __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-    __in     DWORD dwCreationDisposition,
-    __in     DWORD dwFlagsAndAttributes,
-    __in_opt HANDLE hTemplateFile
-    )
+redirect_CreateFileA(__in LPCSTR lpFileName, __in DWORD dwDesiredAccess,
+                     __in DWORD dwShareMode,
+                     __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+                     __in DWORD dwCreationDisposition, __in DWORD dwFlagsAndAttributes,
+                     __in_opt HANDLE hTemplateFile)
 {
     wchar_t wbuf[MAX_PATH];
     if (lpFileName == NULL ||
@@ -549,15 +521,11 @@ redirect_CreateFileA(
 
 HANDLE
 WINAPI
-redirect_CreateFileW(
-    __in     LPCWSTR lpFileName,
-    __in     DWORD dwDesiredAccess,
-    __in     DWORD dwShareMode,
-    __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-    __in     DWORD dwCreationDisposition,
-    __in     DWORD dwFlagsAndAttributes,
-    __in_opt HANDLE hTemplateFile
-    )
+redirect_CreateFileW(__in LPCWSTR lpFileName, __in DWORD dwDesiredAccess,
+                     __in DWORD dwShareMode,
+                     __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+                     __in DWORD dwCreationDisposition, __in DWORD dwFlagsAndAttributes,
+                     __in_opt HANDLE hTemplateFile)
 {
     wchar_t wbuf[MAX_PATH];
     wchar_t *nt_path = NULL;
@@ -571,19 +539,15 @@ redirect_CreateFileW(
         set_last_error(ERROR_PATH_NOT_FOUND);
         return FALSE;
     }
-    res = create_file_common(nt_path, dwDesiredAccess, dwShareMode,
-                             lpSecurityAttributes, dwCreationDisposition,
-                             dwFlagsAndAttributes, hTemplateFile);
+    res = create_file_common(nt_path, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+                             dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
     if (nt_path != NULL && nt_path != wbuf)
         convert_to_NT_file_path_wide_free(nt_path, alloc_sz);
     return res;
 }
 
-BOOL
-WINAPI
-redirect_DeleteFileA(
-    __in LPCSTR lpFileName
-    )
+BOOL WINAPI
+redirect_DeleteFileA(__in LPCSTR lpFileName)
 {
     NTSTATUS res;
     wchar_t wbuf[MAX_PATH];
@@ -601,11 +565,8 @@ redirect_DeleteFileA(
     return TRUE;
 }
 
-BOOL
-WINAPI
-redirect_DeleteFileW(
-    __in LPCWSTR lpFileName
-    )
+BOOL WINAPI
+redirect_DeleteFileW(__in LPCWSTR lpFileName)
 {
     NTSTATUS res;
     wchar_t wbuf[MAX_PATH];
@@ -629,18 +590,15 @@ redirect_DeleteFileW(
     return TRUE;
 }
 
-BOOL
-WINAPI
-redirect_ReadFile(
-    __in        HANDLE hFile,
-    __out_bcount_part(nNumberOfBytesToRead, *lpNumberOfBytesRead) LPVOID lpBuffer,
-    __in        DWORD nNumberOfBytesToRead,
-    __out_opt   LPDWORD lpNumberOfBytesRead,
-    __inout_opt LPOVERLAPPED lpOverlapped
-    )
+BOOL WINAPI
+redirect_ReadFile(__in HANDLE hFile,
+                  __out_bcount_part(nNumberOfBytesToRead, *lpNumberOfBytesRead)
+                      LPVOID lpBuffer,
+                  __in DWORD nNumberOfBytesToRead, __out_opt LPDWORD lpNumberOfBytesRead,
+                  __inout_opt LPOVERLAPPED lpOverlapped)
 {
     NTSTATUS res;
-    IO_STATUS_BLOCK iob = {0,0};
+    IO_STATUS_BLOCK iob = { 0, 0 };
     HANDLE event = NULL;
     PVOID apc_cxt = NULL;
     LARGE_INTEGER offs;
@@ -654,15 +612,15 @@ redirect_ReadFile(
          * don't help, but it seems that the APC context is passed and used even
          * when there's no APC routine.
          */
-        apc_cxt = (PVOID) lpOverlapped;
+        apc_cxt = (PVOID)lpOverlapped;
         lpOverlapped->Internal = STATUS_PENDING;
         offs_ptr = &offs;
         offs.HighPart = lpOverlapped->OffsetHigh;
         offs.LowPart = lpOverlapped->Offset;
     }
 
-    res = NtReadFile(hFile, event, NULL, apc_cxt, &iob,
-                    lpBuffer, nNumberOfBytesToRead, offs_ptr, NULL);
+    res = NtReadFile(hFile, event, NULL, apc_cxt, &iob, lpBuffer, nNumberOfBytesToRead,
+                     offs_ptr, NULL);
 
     if (lpOverlapped == NULL && res == STATUS_PENDING) {
         /* If synchronous, wait for it */
@@ -676,9 +634,9 @@ redirect_ReadFile(
             *lpNumberOfBytesRead = 0;
         else if (!NT_ERROR(res)) {
             if (lpOverlapped != NULL)
-                *lpNumberOfBytesRead = (DWORD) lpOverlapped->InternalHigh;
+                *lpNumberOfBytesRead = (DWORD)lpOverlapped->InternalHigh;
             else
-                *lpNumberOfBytesRead = (DWORD) iob.Information;
+                *lpNumberOfBytesRead = (DWORD)iob.Information;
         }
     }
     if ((!NT_SUCCESS(res) && res != STATUS_END_OF_FILE) || res == STATUS_PENDING) {
@@ -688,18 +646,14 @@ redirect_ReadFile(
     return TRUE;
 }
 
-BOOL
-WINAPI
-redirect_WriteFile(
-    __in        HANDLE hFile,
-    __in_bcount(nNumberOfBytesToWrite) LPCVOID lpBuffer,
-    __in        DWORD nNumberOfBytesToWrite,
-    __out_opt   LPDWORD lpNumberOfBytesWritten,
-    __inout_opt LPOVERLAPPED lpOverlapped
-    )
+BOOL WINAPI
+redirect_WriteFile(__in HANDLE hFile, __in_bcount(nNumberOfBytesToWrite) LPCVOID lpBuffer,
+                   __in DWORD nNumberOfBytesToWrite,
+                   __out_opt LPDWORD lpNumberOfBytesWritten,
+                   __inout_opt LPOVERLAPPED lpOverlapped)
 {
     NTSTATUS res;
-    IO_STATUS_BLOCK iob = {0,0};
+    IO_STATUS_BLOCK iob = { 0, 0 };
     IO_STATUS_BLOCK *iob_ptr = &iob;
     HANDLE event = NULL;
     PVOID apc_cxt = NULL;
@@ -713,7 +667,7 @@ redirect_WriteFile(
         /* XXX: I don't fully understand this, but it seems that the APC context
          * is passed and used even when there's no APC routine.
          */
-        apc_cxt = (PVOID) lpOverlapped;
+        apc_cxt = (PVOID)lpOverlapped;
         lpOverlapped->Internal = STATUS_PENDING;
         offs_ptr = &offs;
         offs.HighPart = lpOverlapped->OffsetHigh;
@@ -723,11 +677,11 @@ redirect_WriteFile(
          * XXX: why do I only seem to need this for WriteFile
          * and not ReadFile or DeviceIoControl?
          */
-        iob_ptr = (IO_STATUS_BLOCK *) lpOverlapped;
+        iob_ptr = (IO_STATUS_BLOCK *)lpOverlapped;
     }
 
-    res = NtWriteFile(hFile, event, NULL, apc_cxt, iob_ptr,
-                      lpBuffer, nNumberOfBytesToWrite, offs_ptr, NULL);
+    res = NtWriteFile(hFile, event, NULL, apc_cxt, iob_ptr, lpBuffer,
+                      nNumberOfBytesToWrite, offs_ptr, NULL);
 
     if (lpOverlapped == NULL && res == STATUS_PENDING) {
         /* If synchronous, wait for it */
@@ -738,9 +692,9 @@ redirect_WriteFile(
     /* Warning status codes may still set the size */
     if (!NT_ERROR(res) && lpNumberOfBytesWritten != NULL) {
         if (lpOverlapped != NULL)
-            *lpNumberOfBytesWritten = (DWORD) lpOverlapped->InternalHigh;
+            *lpNumberOfBytesWritten = (DWORD)lpOverlapped->InternalHigh;
         else
-            *lpNumberOfBytesWritten = (DWORD) iob.Information;
+            *lpNumberOfBytesWritten = (DWORD)iob.Information;
     }
     if (!NT_SUCCESS(res) || res == STATUS_PENDING) {
         set_last_error(ntstatus_to_last_error(res));
@@ -755,9 +709,7 @@ redirect_WriteFile(
 
 DWORD
 WINAPI
-redirect_GetFileAttributesA(
-    __in LPCSTR lpFileName
-    )
+redirect_GetFileAttributesA(__in LPCSTR lpFileName)
 {
     wchar_t wbuf[MAX_PATH];
     int len;
@@ -776,9 +728,7 @@ redirect_GetFileAttributesA(
 
 DWORD
 WINAPI
-redirect_GetFileAttributesW(
-    __in LPCWSTR lpFileName
-    )
+redirect_GetFileAttributesW(__in LPCWSTR lpFileName)
 {
     NTSTATUS res;
     wchar_t ntbuf[MAX_PATH];
@@ -788,8 +738,8 @@ redirect_GetFileAttributesW(
     UNICODE_STRING us;
     FILE_NETWORK_OPEN_INFORMATION info;
 
-    nt_path = convert_to_NT_file_path_wide(ntbuf, lpFileName,
-                                           BUFFER_SIZE_ELEMENTS(ntbuf), &alloc_sz);
+    nt_path = convert_to_NT_file_path_wide(ntbuf, lpFileName, BUFFER_SIZE_ELEMENTS(ntbuf),
+                                           &alloc_sz);
     if (nt_path == NULL) {
         set_last_error(ERROR_FILE_NOT_FOUND);
         return INVALID_FILE_ATTRIBUTES;
@@ -809,19 +759,16 @@ redirect_GetFileAttributesW(
     return info.FileAttributes;
 }
 
-BOOL
-WINAPI
-redirect_GetFileInformationByHandle(
-    __in  HANDLE hFile,
-    __out LPBY_HANDLE_FILE_INFORMATION lpFileInformation
-    )
+BOOL WINAPI
+redirect_GetFileInformationByHandle(__in HANDLE hFile,
+                                    __out LPBY_HANDLE_FILE_INFORMATION lpFileInformation)
 {
     NTSTATUS res;
     FILE_BASIC_INFORMATION basic;
     FILE_STANDARD_INFORMATION standard;
     FILE_INTERNAL_INFORMATION internal;
-    byte volume_buf[sizeof(FILE_FS_VOLUME_INFORMATION) + sizeof(wchar_t)*MAX_PATH];
-    FILE_FS_VOLUME_INFORMATION *volume = (FILE_FS_VOLUME_INFORMATION *) volume_buf;
+    byte volume_buf[sizeof(FILE_FS_VOLUME_INFORMATION) + sizeof(wchar_t) * MAX_PATH];
+    FILE_FS_VOLUME_INFORMATION *volume = (FILE_FS_VOLUME_INFORMATION *)volume_buf;
 
     if (lpFileInformation == NULL) {
         set_last_error(ERROR_INVALID_PARAMETER);
@@ -846,8 +793,8 @@ redirect_GetFileInformationByHandle(
     lpFileInformation->nFileIndexHigh = internal.IndexNumber.HighPart;
     lpFileInformation->nFileIndexLow = internal.IndexNumber.LowPart;
 
-    res = nt_query_volume_info(hFile, volume, sizeof(volume_buf),
-                               FileFsVolumeInformation);
+    res =
+        nt_query_volume_info(hFile, volume, sizeof(volume_buf), FileFsVolumeInformation);
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
         return FALSE;
@@ -868,10 +815,7 @@ redirect_GetFileInformationByHandle(
 
 DWORD
 WINAPI
-redirect_GetFileSize(
-    __in      HANDLE hFile,
-    __out_opt LPDWORD lpFileSizeHigh
-    )
+redirect_GetFileSize(__in HANDLE hFile, __out_opt LPDWORD lpFileSizeHigh)
 {
     NTSTATUS res;
     FILE_STANDARD_INFORMATION standard;
@@ -887,9 +831,7 @@ redirect_GetFileSize(
 
 DWORD
 WINAPI
-redirect_GetFileType(
-    __in HANDLE hFile
-    )
+redirect_GetFileType(__in HANDLE hFile)
 {
     NTSTATUS res;
     FILE_FS_DEVICE_INFORMATION info;
@@ -908,8 +850,7 @@ redirect_GetFileType(
     case FILE_DEVICE_DFS:
     case FILE_DEVICE_DISK:
     case FILE_DEVICE_DISK_FILE_SYSTEM:
-    case FILE_DEVICE_VIRTUAL_DISK:
-        return FILE_TYPE_DISK;
+    case FILE_DEVICE_VIRTUAL_DISK: return FILE_TYPE_DISK;
 
     case FILE_DEVICE_KEYBOARD:
     case FILE_DEVICE_MOUSE:
@@ -919,11 +860,9 @@ redirect_GetFileType(
     case FILE_DEVICE_SERIAL_PORT:
     case FILE_DEVICE_SCREEN:
     case FILE_DEVICE_SOUND:
-    case FILE_DEVICE_MODEM:
-        return FILE_TYPE_CHAR;
+    case FILE_DEVICE_MODEM: return FILE_TYPE_CHAR;
 
-    case FILE_DEVICE_NAMED_PIPE:
-        return FILE_TYPE_PIPE;
+    case FILE_DEVICE_NAMED_PIPE: return FILE_TYPE_PIPE;
     }
     return FILE_TYPE_UNKNOWN;
 }
@@ -938,14 +877,10 @@ redirect_GetFileType(
 
 HANDLE
 WINAPI
-redirect_CreateFileMappingA(
-    __in     HANDLE hFile,
-    __in_opt LPSECURITY_ATTRIBUTES lpFileMappingAttributes,
-    __in     DWORD flProtect,
-    __in     DWORD dwMaximumSizeHigh,
-    __in     DWORD dwMaximumSizeLow,
-    __in_opt LPCSTR lpName
-    )
+redirect_CreateFileMappingA(__in HANDLE hFile,
+                            __in_opt LPSECURITY_ATTRIBUTES lpFileMappingAttributes,
+                            __in DWORD flProtect, __in DWORD dwMaximumSizeHigh,
+                            __in DWORD dwMaximumSizeLow, __in_opt LPCSTR lpName)
 {
     wchar_t wbuf[MAX_PATH];
     LPCWSTR wname = NULL;
@@ -964,14 +899,10 @@ redirect_CreateFileMappingA(
 
 HANDLE
 WINAPI
-redirect_CreateFileMappingW(
-    __in     HANDLE hFile,
-    __in_opt LPSECURITY_ATTRIBUTES lpFileMappingAttributes,
-    __in     DWORD flProtect,
-    __in     DWORD dwMaximumSizeHigh,
-    __in     DWORD dwMaximumSizeLow,
-    __in_opt LPCWSTR lpName
-    )
+redirect_CreateFileMappingW(__in HANDLE hFile,
+                            __in_opt LPSECURITY_ATTRIBUTES lpFileMappingAttributes,
+                            __in DWORD flProtect, __in DWORD dwMaximumSizeHigh,
+                            __in DWORD dwMaximumSizeLow, __in_opt LPCWSTR lpName)
 {
     NTSTATUS res;
     HANDLE section;
@@ -1002,18 +933,17 @@ redirect_CreateFileMappingW(
      * dir regardless of the name.
      */
 
-    res = nt_create_section(&section, access,
-                            (dwMaximumSizeHigh == 0 && dwMaximumSizeLow == 0) ?
-                            NULL : &li_size,
-                            prot, section_flags,
-                            (hFile == INVALID_HANDLE_VALUE) ? NULL : hFile,
-                            /* our nt_create_section() re-creates oa */
-                            lpName, oa.Attributes,
-                            /* anonymous section needs base dir, else we get
-                             * STATUS_OBJECT_PATH_SYNTAX_BAD
-                             */
-                            (hFile == INVALID_HANDLE_VALUE) ? base_named_obj_dir : NULL,
-                            oa.SecurityDescriptor);
+    res = nt_create_section(
+        &section, access,
+        (dwMaximumSizeHigh == 0 && dwMaximumSizeLow == 0) ? NULL : &li_size, prot,
+        section_flags, (hFile == INVALID_HANDLE_VALUE) ? NULL : hFile,
+        /* our nt_create_section() re-creates oa */
+        lpName, oa.Attributes,
+        /* anonymous section needs base dir, else we get
+         * STATUS_OBJECT_PATH_SYNTAX_BAD
+         */
+        (hFile == INVALID_HANDLE_VALUE) ? base_named_obj_dir : NULL,
+        oa.SecurityDescriptor);
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
         return NULL;
@@ -1027,29 +957,19 @@ redirect_CreateFileMappingW(
 
 LPVOID
 WINAPI
-redirect_MapViewOfFile(
-    __in HANDLE hFileMappingObject,
-    __in DWORD dwDesiredAccess,
-    __in DWORD dwFileOffsetHigh,
-    __in DWORD dwFileOffsetLow,
-    __in SIZE_T dwNumberOfBytesToMap
-    )
+redirect_MapViewOfFile(__in HANDLE hFileMappingObject, __in DWORD dwDesiredAccess,
+                       __in DWORD dwFileOffsetHigh, __in DWORD dwFileOffsetLow,
+                       __in SIZE_T dwNumberOfBytesToMap)
 {
-    return redirect_MapViewOfFileEx(hFileMappingObject, dwDesiredAccess,
-                                    dwFileOffsetHigh, dwFileOffsetLow,
-                                    dwNumberOfBytesToMap, NULL);
+    return redirect_MapViewOfFileEx(hFileMappingObject, dwDesiredAccess, dwFileOffsetHigh,
+                                    dwFileOffsetLow, dwNumberOfBytesToMap, NULL);
 }
 
 LPVOID
 WINAPI
-redirect_MapViewOfFileEx(
-    __in     HANDLE hFileMappingObject,
-    __in     DWORD dwDesiredAccess,
-    __in     DWORD dwFileOffsetHigh,
-    __in     DWORD dwFileOffsetLow,
-    __in     SIZE_T dwNumberOfBytesToMap,
-    __in_opt LPVOID lpBaseAddress
-    )
+redirect_MapViewOfFileEx(__in HANDLE hFileMappingObject, __in DWORD dwDesiredAccess,
+                         __in DWORD dwFileOffsetHigh, __in DWORD dwFileOffsetLow,
+                         __in SIZE_T dwNumberOfBytesToMap, __in_opt LPVOID lpBaseAddress)
 {
     NTSTATUS res;
     SIZE_T size = dwNumberOfBytesToMap;
@@ -1060,12 +980,12 @@ redirect_MapViewOfFileEx(
     li_offs.HighPart = dwFileOffsetHigh;
 
     /* Easiest to deal w/ our bitmasks and then convert: */
-    if (TESTANY(FILE_MAP_READ|FILE_MAP_WRITE|FILE_MAP_COPY, dwDesiredAccess))
+    if (TESTANY(FILE_MAP_READ | FILE_MAP_WRITE | FILE_MAP_COPY, dwDesiredAccess))
         prot |= MEMPROT_READ;
     /* I checked: despite the docs talking about FILE_MAP_COPY working with
      * read-only file mapping objects, it does end up as PAGE_WRITECOPY.
      */
-    if (TESTANY(FILE_MAP_WRITE|FILE_MAP_COPY, dwDesiredAccess))
+    if (TESTANY(FILE_MAP_WRITE | FILE_MAP_COPY, dwDesiredAccess))
         prot |= FILE_MAP_WRITE;
     if (TEST(FILE_MAP_EXECUTE, dwDesiredAccess))
         prot |= MEMPROT_EXEC;
@@ -1080,11 +1000,8 @@ redirect_MapViewOfFileEx(
                                   /* if section created SEC_COMMIT, will all be
                                    * committed automatically
                                    */
-                                  0,
-                                  &li_offs, &size,
-                                  ViewShare, /* not exposed */
-                                  0 /* no special top-down or anything */,
-                                  prot);
+                                  0, &li_offs, &size, ViewShare, /* not exposed */
+                                  0 /* no special top-down or anything */, prot);
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
         return NULL;
@@ -1092,11 +1009,8 @@ redirect_MapViewOfFileEx(
     return map;
 }
 
-BOOL
-WINAPI
-redirect_UnmapViewOfFile(
-    __in LPCVOID lpBaseAddress
-    )
+BOOL WINAPI
+redirect_UnmapViewOfFile(__in LPCVOID lpBaseAddress)
 {
     NTSTATUS res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, (void *)lpBaseAddress);
     if (!NT_SUCCESS(res)) {
@@ -1106,22 +1020,16 @@ redirect_UnmapViewOfFile(
     return TRUE;
 }
 
-BOOL
-WINAPI
-redirect_FlushViewOfFile(
-    __in LPCVOID lpBaseAddress,
-    __in SIZE_T dwNumberOfBytesToFlush
-    )
+BOOL WINAPI
+redirect_FlushViewOfFile(__in LPCVOID lpBaseAddress, __in SIZE_T dwNumberOfBytesToFlush)
 {
     NTSTATUS res;
-    PVOID base = (PVOID) lpBaseAddress;
-    ULONG_PTR size = (ULONG_PTR) dwNumberOfBytesToFlush;
-    IO_STATUS_BLOCK iob = {0,0};
+    PVOID base = (PVOID)lpBaseAddress;
+    ULONG_PTR size = (ULONG_PTR)dwNumberOfBytesToFlush;
+    IO_STATUS_BLOCK iob = { 0, 0 };
     GET_NTDLL(NtFlushVirtualMemory,
-              (IN HANDLE ProcessHandle,
-               IN OUT PVOID *BaseAddress,
-               IN OUT PULONG_PTR FlushSize,
-               OUT PIO_STATUS_BLOCK IoStatusBlock));
+              (IN HANDLE ProcessHandle, IN OUT PVOID * BaseAddress,
+               IN OUT PULONG_PTR FlushSize, OUT PIO_STATUS_BLOCK IoStatusBlock));
     res = NtFlushVirtualMemory(NT_CURRENT_PROCESS, &base, &size, &iob);
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
@@ -1130,47 +1038,36 @@ redirect_FlushViewOfFile(
     return TRUE;
 }
 
-
 /***************************************************************************
  * DEVICES
  */
 
-BOOL
-WINAPI
-redirect_CreatePipe(
-    __out_ecount_full(1) PHANDLE hReadPipe,
-    __out_ecount_full(1) PHANDLE hWritePipe,
-    __in_opt LPSECURITY_ATTRIBUTES lpPipeAttributes,
-    __in     DWORD nSize
-    )
+BOOL WINAPI
+redirect_CreatePipe(__out_ecount_full(1) PHANDLE hReadPipe,
+                    __out_ecount_full(1) PHANDLE hWritePipe,
+                    __in_opt LPSECURITY_ATTRIBUTES lpPipeAttributes, __in DWORD nSize)
 {
     NTSTATUS res;
     OBJECT_ATTRIBUTES oa;
-    UNICODE_STRING us = {0,};
-    IO_STATUS_BLOCK iob = {0,0};
+    UNICODE_STRING us = {
+        0,
+    };
+    IO_STATUS_BLOCK iob = { 0, 0 };
     ACCESS_MASK access = SYNCHRONIZE | GENERIC_READ | FILE_WRITE_ATTRIBUTES;
     DWORD size = (nSize != 0) ? nSize : (DWORD)PAGE_SIZE; /* default size */
     LARGE_INTEGER timeout;
     wchar_t wbuf[MAX_PATH];
     static uint pipe_counter;
     GET_NTDLL(NtCreateNamedPipeFile,
-              (OUT PHANDLE FileHandle,
-               IN ACCESS_MASK DesiredAccess,
-               IN POBJECT_ATTRIBUTES ObjectAttributes,
-               OUT PIO_STATUS_BLOCK IoStatusBlock,
-               IN ULONG ShareAccess,
-               IN ULONG CreateDisposition,
-               IN ULONG CreateOptions,
+              (OUT PHANDLE FileHandle, IN ACCESS_MASK DesiredAccess,
+               IN POBJECT_ATTRIBUTES ObjectAttributes, OUT PIO_STATUS_BLOCK IoStatusBlock,
+               IN ULONG ShareAccess, IN ULONG CreateDisposition, IN ULONG CreateOptions,
                /* XXX: when these are BOOLEAN, as Nebbett has them, we just
                 * set the LSB and we get STATUS_INVALID_PARAMETER!
                 * So I'm considering to be BOOOL.
                 */
-               IN BOOL TypeMessage,
-               IN BOOL ReadmodeMessage,
-               IN BOOL Nonblocking,
-               IN ULONG MaxInstances,
-               IN ULONG InBufferSize,
-               IN ULONG OutBufferSize,
+               IN BOOL TypeMessage, IN BOOL ReadmodeMessage, IN BOOL Nonblocking,
+               IN ULONG MaxInstances, IN ULONG InBufferSize, IN ULONG OutBufferSize,
                IN PLARGE_INTEGER DefaultTimeout OPTIONAL));
 
     timeout.QuadPart = -1200000000; /* 120s */
@@ -1193,14 +1090,10 @@ redirect_CreatePipe(
 
     init_object_attr_for_files(&oa, &us, lpPipeAttributes, NULL);
     oa.RootDirectory = base_named_pipe_dir;
-    res = NtCreateNamedPipeFile(hReadPipe, access, &oa, &iob,
-                                FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                FILE_CREATE,
-                                FILE_SYNCHRONOUS_IO_NONALERT,
-                                FILE_PIPE_BYTE_STREAM_TYPE,
-                                FILE_PIPE_BYTE_STREAM_MODE,
-                                FILE_PIPE_QUEUE_OPERATION,
-                                1, size, size, &timeout);
+    res = NtCreateNamedPipeFile(
+        hReadPipe, access, &oa, &iob, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_CREATE,
+        FILE_SYNCHRONOUS_IO_NONALERT, FILE_PIPE_BYTE_STREAM_TYPE,
+        FILE_PIPE_BYTE_STREAM_MODE, FILE_PIPE_QUEUE_OPERATION, 1, size, size, &timeout);
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
         return FALSE;
@@ -1211,8 +1104,8 @@ redirect_CreatePipe(
         memset(&us, 0, sizeof(us));
     }
     oa.RootDirectory = *hReadPipe;
-    res = nt_raw_OpenFile(hWritePipe, SYNCHRONIZE | FILE_GENERIC_WRITE,
-                          &oa, &iob, FILE_SHARE_READ | FILE_SHARE_WRITE,
+    res = nt_raw_OpenFile(hWritePipe, SYNCHRONIZE | FILE_GENERIC_WRITE, &oa, &iob,
+                          FILE_SHARE_READ | FILE_SHARE_WRITE,
                           FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE);
     if (!NT_SUCCESS(res)) {
         close_handle(*hReadPipe);
@@ -1222,40 +1115,31 @@ redirect_CreatePipe(
     return TRUE;
 }
 
-BOOL
-WINAPI
-redirect_DeviceIoControl(
-    __in        HANDLE hDevice,
-    __in        DWORD dwIoControlCode,
-    __in_bcount_opt(nInBufferSize) LPVOID lpInBuffer,
-    __in        DWORD nInBufferSize,
-    __out_bcount_part_opt(nOutBufferSize, *lpBytesReturned) LPVOID lpOutBuffer,
-    __in        DWORD nOutBufferSize,
-    __out_opt   LPDWORD lpBytesReturned,
-    __inout_opt LPOVERLAPPED lpOverlapped
-    )
+BOOL WINAPI
+redirect_DeviceIoControl(__in HANDLE hDevice, __in DWORD dwIoControlCode,
+                         __in_bcount_opt(nInBufferSize) LPVOID lpInBuffer,
+                         __in DWORD nInBufferSize,
+                         __out_bcount_part_opt(nOutBufferSize, *lpBytesReturned)
+                             LPVOID lpOutBuffer,
+                         __in DWORD nOutBufferSize, __out_opt LPDWORD lpBytesReturned,
+                         __inout_opt LPOVERLAPPED lpOverlapped)
 {
     NTSTATUS res;
     HANDLE event = NULL;
     PVOID apc_cxt = NULL;
-    IO_STATUS_BLOCK iob = {0,0};
+    IO_STATUS_BLOCK iob = { 0, 0 };
     bool is_fs = (DEVICE_TYPE_FROM_CTL_CODE(dwIoControlCode) == FILE_DEVICE_FILE_SYSTEM);
 
     GET_NTDLL(NtDeviceIoControlFile,
-              (IN HANDLE FileHandle,
-               IN HANDLE Event OPTIONAL,
-               IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
-               IN PVOID ApcContext OPTIONAL,
-               OUT PIO_STATUS_BLOCK IoStatusBlock,
-               IN ULONG IoControlCode,
-               IN PVOID InputBuffer OPTIONAL,
-               IN ULONG InputBufferLength,
-               OUT PVOID OutputBuffer OPTIONAL,
-               IN ULONG OutputBufferLength));
+              (IN HANDLE FileHandle, IN HANDLE Event OPTIONAL,
+               IN PIO_APC_ROUTINE ApcRoutine OPTIONAL, IN PVOID ApcContext OPTIONAL,
+               OUT PIO_STATUS_BLOCK IoStatusBlock, IN ULONG IoControlCode,
+               IN PVOID InputBuffer OPTIONAL, IN ULONG InputBufferLength,
+               OUT PVOID OutputBuffer OPTIONAL, IN ULONG OutputBufferLength));
 
     if (lpOverlapped != NULL) {
         event = lpOverlapped->hEvent;
-        apc_cxt = (PVOID) lpOverlapped;
+        apc_cxt = (PVOID)lpOverlapped;
         lpOverlapped->Internal = STATUS_PENDING;
     }
 
@@ -1263,9 +1147,9 @@ redirect_DeviceIoControl(
         res = NtFsControlFile(hDevice, event, NULL, apc_cxt, &iob, dwIoControlCode,
                               lpInBuffer, nInBufferSize, lpOutBuffer, nOutBufferSize);
     } else {
-        res = NtDeviceIoControlFile(hDevice, event, NULL, apc_cxt, &iob, dwIoControlCode,
-                                    lpInBuffer, nInBufferSize,
-                                    lpOutBuffer, nOutBufferSize);
+        res =
+            NtDeviceIoControlFile(hDevice, event, NULL, apc_cxt, &iob, dwIoControlCode,
+                                  lpInBuffer, nInBufferSize, lpOutBuffer, nOutBufferSize);
     }
 
     if (lpOverlapped == NULL && res == STATUS_PENDING) {
@@ -1278,9 +1162,9 @@ redirect_DeviceIoControl(
     /* Warning error codes may still set the size */
     if (!NT_ERROR(res) && lpBytesReturned != NULL) {
         if (lpOverlapped != NULL)
-            *lpBytesReturned = (DWORD) lpOverlapped->InternalHigh;
+            *lpBytesReturned = (DWORD)lpOverlapped->InternalHigh;
         else
-            *lpBytesReturned = (DWORD) iob.Information;
+            *lpBytesReturned = (DWORD)iob.Information;
     }
     if (!NT_SUCCESS(res) || res == STATUS_PENDING) {
         set_last_error(ntstatus_to_last_error(res));
@@ -1289,15 +1173,12 @@ redirect_DeviceIoControl(
     return TRUE;
 }
 
-BOOL
-WINAPI
-redirect_GetDiskFreeSpaceA(
-    __in_opt  LPCSTR lpRootPathName,
-    __out_opt LPDWORD lpSectorsPerCluster,
-    __out_opt LPDWORD lpBytesPerSector,
-    __out_opt LPDWORD lpNumberOfFreeClusters,
-    __out_opt LPDWORD lpTotalNumberOfClusters
-    )
+BOOL WINAPI
+redirect_GetDiskFreeSpaceA(__in_opt LPCSTR lpRootPathName,
+                           __out_opt LPDWORD lpSectorsPerCluster,
+                           __out_opt LPDWORD lpBytesPerSector,
+                           __out_opt LPDWORD lpNumberOfFreeClusters,
+                           __out_opt LPDWORD lpTotalNumberOfClusters)
 {
     wchar_t wbuf[MAX_PATH];
     wchar_t *wpath = NULL;
@@ -1320,7 +1201,7 @@ redirect_GetDiskFreeSpaceA(
  * On success, up to user to close the handle returned.
  */
 HANDLE
-open_dir_from_path(__in_opt  LPCWSTR lpRootPathName)
+open_dir_from_path(__in_opt LPCWSTR lpRootPathName)
 {
     NTSTATUS res;
     wchar_t wbuf[MAX_PATH];
@@ -1371,15 +1252,12 @@ open_dir_from_path(__in_opt  LPCWSTR lpRootPathName)
     return dir;
 }
 
-BOOL
-WINAPI
-redirect_GetDiskFreeSpaceW(
-    __in_opt  LPCWSTR lpRootPathName,
-    __out_opt LPDWORD lpSectorsPerCluster,
-    __out_opt LPDWORD lpBytesPerSector,
-    __out_opt LPDWORD lpNumberOfFreeClusters,
-    __out_opt LPDWORD lpTotalNumberOfClusters
-    )
+BOOL WINAPI
+redirect_GetDiskFreeSpaceW(__in_opt LPCWSTR lpRootPathName,
+                           __out_opt LPDWORD lpSectorsPerCluster,
+                           __out_opt LPDWORD lpBytesPerSector,
+                           __out_opt LPDWORD lpNumberOfFreeClusters,
+                           __out_opt LPDWORD lpTotalNumberOfClusters)
 {
     NTSTATUS res;
     HANDLE dir;
@@ -1409,11 +1287,8 @@ redirect_GetDiskFreeSpaceW(
     return TRUE;
 }
 
-UINT
-WINAPI
-redirect_GetDriveTypeA(
-    __in_opt  LPCSTR lpRootPathName
-    )
+UINT WINAPI
+redirect_GetDriveTypeA(__in_opt LPCSTR lpRootPathName)
 {
     wchar_t wbuf[MAX_PATH];
     wchar_t *wpath = NULL;
@@ -1430,11 +1305,8 @@ redirect_GetDriveTypeA(
     return redirect_GetDriveTypeW(wpath);
 }
 
-UINT
-WINAPI
-redirect_GetDriveTypeW(
-    __in_opt  LPCWSTR lpRootPathName
-    )
+UINT WINAPI
+redirect_GetDriveTypeW(__in_opt LPCWSTR lpRootPathName)
 {
     NTSTATUS res;
     HANDLE dir;
@@ -1464,56 +1336,39 @@ redirect_GetDriveTypeW(
             return DRIVE_FIXED;
     }
     case FILE_DEVICE_CD_ROM:
-    case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
-        return DRIVE_CDROM;
-    case FILE_DEVICE_VIRTUAL_DISK:
-        return DRIVE_RAMDISK;
-    case FILE_DEVICE_NETWORK_FILE_SYSTEM:
-        return DRIVE_REMOTE;
+    case FILE_DEVICE_CD_ROM_FILE_SYSTEM: return DRIVE_CDROM;
+    case FILE_DEVICE_VIRTUAL_DISK: return DRIVE_RAMDISK;
+    case FILE_DEVICE_NETWORK_FILE_SYSTEM: return DRIVE_REMOTE;
     }
     return DRIVE_UNKNOWN;
 }
-
 
 /***************************************************************************
  * HANDLES
  */
 
-BOOL
-WINAPI
-redirect_CloseHandle(
-    __in HANDLE hObject
-    )
+BOOL WINAPI
+redirect_CloseHandle(__in HANDLE hObject)
 {
-    return (BOOL) close_handle(hObject);
+    return (BOOL)close_handle(hObject);
 }
 
-BOOL
-WINAPI
-redirect_DuplicateHandle(
-    __in        HANDLE hSourceProcessHandle,
-    __in        HANDLE hSourceHandle,
-    __in        HANDLE hTargetProcessHandle,
-    __deref_out LPHANDLE lpTargetHandle,
-    __in        DWORD dwDesiredAccess,
-    __in        BOOL bInheritHandle,
-    __in        DWORD dwOptions
-    )
+BOOL WINAPI
+redirect_DuplicateHandle(__in HANDLE hSourceProcessHandle, __in HANDLE hSourceHandle,
+                         __in HANDLE hTargetProcessHandle,
+                         __deref_out LPHANDLE lpTargetHandle, __in DWORD dwDesiredAccess,
+                         __in BOOL bInheritHandle, __in DWORD dwOptions)
 {
-    NTSTATUS res = duplicate_handle(hSourceProcessHandle, hSourceHandle,
-                                    hTargetProcessHandle, lpTargetHandle,
-                                    /* real impl doesn't add SYNCHRONIZE, so we don't */
-                                    dwDesiredAccess,
-                                    bInheritHandle ? HANDLE_FLAG_INHERIT : 0,
-                                    dwOptions);
+    NTSTATUS res = duplicate_handle(
+        hSourceProcessHandle, hSourceHandle, hTargetProcessHandle, lpTargetHandle,
+        /* real impl doesn't add SYNCHRONIZE, so we don't */
+        dwDesiredAccess, bInheritHandle ? HANDLE_FLAG_INHERIT : 0, dwOptions);
     return NT_SUCCESS(res);
 }
 
 HANDLE
 WINAPI
-redirect_GetStdHandle(
-    __in DWORD nStdHandle
-    )
+redirect_GetStdHandle(__in DWORD nStdHandle)
 {
     switch (nStdHandle) {
     case STD_INPUT_HANDLE: return get_stdin_handle();
@@ -1528,12 +1383,9 @@ redirect_GetStdHandle(
  * FILE TIME
  */
 
-BOOL
-WINAPI
-redirect_FileTimeToLocalFileTime(
-    __in  CONST FILETIME *lpFileTime,
-    __out LPFILETIME lpLocalFileTime
-    )
+BOOL WINAPI
+redirect_FileTimeToLocalFileTime(__in CONST FILETIME *lpFileTime,
+                                 __out LPFILETIME lpLocalFileTime)
 {
     /* XXX: the kernelbase version looks at KUSER_SHARED_DATA and
      * BASE_STATIC_SERVER_DATA to get the bias, but I'm assuming those
@@ -1555,12 +1407,9 @@ redirect_FileTimeToLocalFileTime(
     return TRUE;
 }
 
-BOOL
-WINAPI
-redirect_LocalFileTimeToFileTime(
-    __in  CONST FILETIME *lpLocalFileTime,
-    __out LPFILETIME lpFileTime
-    )
+BOOL WINAPI
+redirect_LocalFileTimeToFileTime(__in CONST FILETIME *lpLocalFileTime,
+                                 __out LPFILETIME lpFileTime)
 {
     NTSTATUS res;
     LARGE_INTEGER local;
@@ -1578,51 +1427,38 @@ redirect_LocalFileTimeToFileTime(
     return TRUE;
 }
 
-BOOL
-WINAPI
-redirect_FileTimeToSystemTime(
-    __in  CONST FILETIME *lpFileTime,
-    __out LPSYSTEMTIME lpSystemTime
-    )
+BOOL WINAPI
+redirect_FileTimeToSystemTime(__in CONST FILETIME *lpFileTime,
+                              __out LPSYSTEMTIME lpSystemTime)
 {
     uint64 time = ((uint64)lpFileTime->dwHighDateTime << 32) | lpFileTime->dwLowDateTime;
     convert_100ns_to_system_time(time, lpSystemTime);
     return TRUE;
 }
 
-BOOL
-WINAPI
-redirect_SystemTimeToFileTime(
-    __in  CONST SYSTEMTIME *lpSystemTime,
-    __out LPFILETIME lpFileTime
-    )
+BOOL WINAPI
+redirect_SystemTimeToFileTime(__in CONST SYSTEMTIME *lpSystemTime,
+                              __out LPFILETIME lpFileTime)
 {
     uint64 time;
     convert_system_time_to_100ns(lpSystemTime, &time);
-    lpFileTime->dwHighDateTime = (DWORD) (time >> 32);
-    lpFileTime->dwLowDateTime = (DWORD) time;
+    lpFileTime->dwHighDateTime = (DWORD)(time >> 32);
+    lpFileTime->dwLowDateTime = (DWORD)time;
     return TRUE;
 }
 
-VOID
-WINAPI
-redirect_GetSystemTimeAsFileTime(
-    __out LPFILETIME lpSystemTimeAsFileTime
-    )
+VOID WINAPI
+redirect_GetSystemTimeAsFileTime(__out LPFILETIME lpSystemTimeAsFileTime)
 {
     SYSTEMTIME st;
     query_system_time(&st);
     redirect_SystemTimeToFileTime(&st, lpSystemTimeAsFileTime);
 }
 
-BOOL
-WINAPI
-redirect_GetFileTime(
-    __in      HANDLE hFile,
-    __out_opt LPFILETIME lpCreationTime,
-    __out_opt LPFILETIME lpLastAccessTime,
-    __out_opt LPFILETIME lpLastWriteTime
-    )
+BOOL WINAPI
+redirect_GetFileTime(__in HANDLE hFile, __out_opt LPFILETIME lpCreationTime,
+                     __out_opt LPFILETIME lpLastAccessTime,
+                     __out_opt LPFILETIME lpLastWriteTime)
 {
     NTSTATUS res;
     FILE_BASIC_INFORMATION info;
@@ -1644,14 +1480,10 @@ redirect_GetFileTime(
     return TRUE;
 }
 
-BOOL
-WINAPI
-redirect_SetFileTime(
-    __in     HANDLE hFile,
-    __in_opt CONST FILETIME *lpCreationTime,
-    __in_opt CONST FILETIME *lpLastAccessTime,
-    __in_opt CONST FILETIME *lpLastWriteTime
-    )
+BOOL WINAPI
+redirect_SetFileTime(__in HANDLE hFile, __in_opt CONST FILETIME *lpCreationTime,
+                     __in_opt CONST FILETIME *lpLastAccessTime,
+                     __in_opt CONST FILETIME *lpLastWriteTime)
 {
     NTSTATUS res;
     FILE_BASIC_INFORMATION info;
@@ -1685,14 +1517,10 @@ redirect_SetFileTime(
  * as the return value for FindFirstFile.
  */
 
-#define FIND_FILE_INFO_SZ \
-    (sizeof(FILE_BOTH_DIR_INFORMATION) + MAX_PATH*sizeof(wchar_t))
+#define FIND_FILE_INFO_SZ (sizeof(FILE_BOTH_DIR_INFORMATION) + MAX_PATH * sizeof(wchar_t))
 
-BOOL
-WINAPI
-redirect_FindClose(
-    __inout HANDLE hFindFile
-    )
+BOOL WINAPI
+redirect_FindClose(__inout HANDLE hFindFile)
 {
     return redirect_CloseHandle(hFindFile);
 }
@@ -1703,26 +1531,21 @@ redirect_FindClose(
  */
 static BOOL
 find_next_file_common(
-    __in  HANDLE dir,
-    __in  LPCWSTR pattern, /* pass pattern for first, NULL for next */
+    __in HANDLE dir, __in LPCWSTR pattern, /* pass pattern for first, NULL for next */
     __out LPWIN32_FIND_DATAW lpFindFileData,
     __out FILE_BOTH_DIR_INFORMATION *info /* FIND_FILE_INFO_SZ bytes in length */
-    )
+)
 {
     NTSTATUS res;
-    IO_STATUS_BLOCK iob = {0,0};
+    IO_STATUS_BLOCK iob = { 0, 0 };
     UNICODE_STRING us;
     GET_NTDLL(NtQueryDirectoryFile,
-              (IN HANDLE FileHandle,
-               IN HANDLE Event OPTIONAL,
-               IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
-               IN PVOID ApcContext OPTIONAL,
-               OUT PIO_STATUS_BLOCK IoStatusBlock,
-               OUT PVOID FileInformation,
+              (IN HANDLE FileHandle, IN HANDLE Event OPTIONAL,
+               IN PIO_APC_ROUTINE ApcRoutine OPTIONAL, IN PVOID ApcContext OPTIONAL,
+               OUT PIO_STATUS_BLOCK IoStatusBlock, OUT PVOID FileInformation,
                IN ULONG FileInformationLength,
                IN FILE_INFORMATION_CLASS FileInformationClass,
-               IN BOOLEAN ReturnSingleEntry,
-               IN PUNICODE_STRING FileName OPTIONAL,
+               IN BOOLEAN ReturnSingleEntry, IN PUNICODE_STRING FileName OPTIONAL,
                IN BOOLEAN RestartScan));
 
     res = wchar_to_unicode(&us, pattern);
@@ -1732,9 +1555,9 @@ find_next_file_common(
     }
 
     /* NtQueryDirectoryFile does the globbing for us */
-    res = NtQueryDirectoryFile(dir, NULL, NULL, NULL, &iob, info,
-                               FIND_FILE_INFO_SZ, FileBothDirectoryInformation,
-                               TRUE, &us, (pattern != NULL));
+    res =
+        NtQueryDirectoryFile(dir, NULL, NULL, NULL, &iob, info, FIND_FILE_INFO_SZ,
+                             FileBothDirectoryInformation, TRUE, &us, (pattern != NULL));
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
         return FALSE;
@@ -1757,10 +1580,9 @@ find_next_file_common(
  */
 static HANDLE
 find_first_file_common(
-    LPCWSTR nt_file_name,
-    __out LPWIN32_FIND_DATAW lpFindFileData,
+    LPCWSTR nt_file_name, __out LPWIN32_FIND_DATAW lpFindFileData,
     __out FILE_BOTH_DIR_INFORMATION *info /* FIND_FILE_INFO_SZ bytes in length */
-    )
+)
 {
     NTSTATUS res;
     HANDLE dir = INVALID_HANDLE_VALUE;
@@ -1777,18 +1599,17 @@ find_first_file_common(
          * While convert_to_NT_file_path*() ensures there are no forward slashes,
          * a path w/ \\? prefix will come here w/ the rest of it unchanged.
          */
-        sep = (wchar_t *) double_wcsrchr(nt_file_name, L_EXPAND_LEVEL(DIRSEP),
-                                         L_EXPAND_LEVEL(ALT_DIRSEP));
+        sep = (wchar_t *)double_wcsrchr(nt_file_name, L_EXPAND_LEVEL(DIRSEP),
+                                        L_EXPAND_LEVEL(ALT_DIRSEP));
         if (sep == NULL) {
             set_last_error(ERROR_PATH_NOT_FOUND);
             return INVALID_HANDLE_VALUE;
         }
         /* we can't assume nt_file_name is writable so we must make a copy */
-        dirname_len = (size_t) (sep - nt_file_name);
-        dirname = (wchar_t *)
-            global_heap_alloc((dirname_len + 1/*null*/)*sizeof(wchar_t)
-                              HEAPACCT(ACCT_OTHER));
-        memcpy(dirname, nt_file_name, dirname_len*sizeof(wchar_t));
+        dirname_len = (size_t)(sep - nt_file_name);
+        dirname = (wchar_t *)global_heap_alloc((dirname_len + 1 /*null*/) *
+                                               sizeof(wchar_t) HEAPACCT(ACCT_OTHER));
+        memcpy(dirname, nt_file_name, dirname_len * sizeof(wchar_t));
         dirname[dirname_len] = L'\0';
         res = nt_open_file(&dir, dirname, GENERIC_READ | FILE_LIST_DIRECTORY,
                            FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_DIRECTORY_FILE);
@@ -1798,26 +1619,26 @@ find_first_file_common(
         }
 
         /* Now separate the file name pattern */
-        fname_len = wcslen(nt_file_name) - (dirname_len + 1/*dir separator*/);
-        fname = (wchar_t *) global_heap_alloc((fname_len + 1/*null*/)*sizeof(wchar_t)
-                                              HEAPACCT(ACCT_OTHER));
-        memcpy(fname, sep + 1, fname_len*sizeof(wchar_t));
+        fname_len = wcslen(nt_file_name) - (dirname_len + 1 /*dir separator*/);
+        fname = (wchar_t *)global_heap_alloc((fname_len + 1 /*null*/) *
+                                             sizeof(wchar_t) HEAPACCT(ACCT_OTHER));
+        memcpy(fname, sep + 1, fname_len * sizeof(wchar_t));
         fname[fname_len] = L'\0';
     }
 
-    if (find_next_file_common(dir, fname/*==NULL for plain dir */,
-                              lpFindFileData, info)) {
+    if (find_next_file_common(dir, fname /*==NULL for plain dir */, lpFindFileData,
+                              info)) {
         ans = dir; /* success */
-    } /* else, last errror was already set */
+    }              /* else, last errror was already set */
 
- find_first_file_error:
+find_first_file_error:
     if (dirname != NULL) {
-        global_heap_free(dirname, (dirname_len + 1/*null*/)*sizeof(wchar_t)
-                         HEAPACCT(ACCT_OTHER));
+        global_heap_free(
+            dirname, (dirname_len + 1 /*null*/) * sizeof(wchar_t) HEAPACCT(ACCT_OTHER));
     }
     if (fname != NULL) {
-        global_heap_free(fname, (fname_len + 1/*null*/)*sizeof(wchar_t)
-                         HEAPACCT(ACCT_OTHER));
+        global_heap_free(fname,
+                         (fname_len + 1 /*null*/) * sizeof(wchar_t) HEAPACCT(ACCT_OTHER));
     }
     if (ans == INVALID_HANDLE_VALUE && dir != INVALID_HANDLE_VALUE)
         close_handle(dir);
@@ -1832,8 +1653,8 @@ find_nt_to_win32A(FILE_BOTH_DIR_INFORMATION *info, WIN32_FIND_DATAA *win32 OUT)
     /* Names in info are not null-terminated so we have to copy the count
      * specified and then add a null ourselves.
      */
-    len = _snprintf(win32->cFileName, BUFFER_SIZE_ELEMENTS(win32->cFileName),
-                    "%.*S", info->FileNameLength/sizeof(wchar_t), info->FileName);
+    len = _snprintf(win32->cFileName, BUFFER_SIZE_ELEMENTS(win32->cFileName), "%.*S",
+                    info->FileNameLength / sizeof(wchar_t), info->FileName);
     /* MSDN doesn't say what happens if we hit MAX_PATH.  It's unlikely to happen
      * as most NTFS volumes have a 255 limit on path components.  We return error.
      */
@@ -1841,20 +1662,19 @@ find_nt_to_win32A(FILE_BOTH_DIR_INFORMATION *info, WIN32_FIND_DATAA *win32 OUT)
         set_last_error(ERROR_FILE_INVALID); /* XXX: not sure what to return */
         return false;
     }
-    if (info->FileNameLength/sizeof(wchar_t) < BUFFER_SIZE_ELEMENTS(win32->cFileName))
-        win32->cFileName[info->FileNameLength/sizeof(wchar_t)] = '\0';
+    if (info->FileNameLength / sizeof(wchar_t) < BUFFER_SIZE_ELEMENTS(win32->cFileName))
+        win32->cFileName[info->FileNameLength / sizeof(wchar_t)] = '\0';
     NULL_TERMINATE_BUFFER(win32->cFileName);
     len = _snprintf(win32->cAlternateFileName,
-                    BUFFER_SIZE_ELEMENTS(win32->cAlternateFileName),
-                    "%.*S", info->ShortNameLength/sizeof(wchar_t),
-                    info->ShortName);
+                    BUFFER_SIZE_ELEMENTS(win32->cAlternateFileName), "%.*S",
+                    info->ShortNameLength / sizeof(wchar_t), info->ShortName);
     if (len < 0 || len == BUFFER_SIZE_ELEMENTS(win32->cAlternateFileName)) {
         set_last_error(ERROR_FILE_INVALID); /* XXX: not sure what to return */
         return false;
     }
-    if (info->ShortNameLength/sizeof(wchar_t) <
+    if (info->ShortNameLength / sizeof(wchar_t) <
         BUFFER_SIZE_ELEMENTS(win32->cAlternateFileName)) {
-        win32->cAlternateFileName[info->ShortNameLength/sizeof(wchar_t)] = '\0';
+        win32->cAlternateFileName[info->ShortNameLength / sizeof(wchar_t)] = '\0';
     }
     NULL_TERMINATE_BUFFER(win32->cAlternateFileName);
     return true;
@@ -1866,26 +1686,24 @@ find_nt_to_win32W(FILE_BOTH_DIR_INFORMATION *info, WIN32_FIND_DATAW *win32 OUT)
 {
     int len;
     /* See comments in find_nt_to_win32A. */
-    len = _snwprintf(win32->cFileName, BUFFER_SIZE_ELEMENTS(win32->cFileName),
-                     L"%.*s", info->FileNameLength/sizeof(wchar_t),
-                     info->FileName);
+    len = _snwprintf(win32->cFileName, BUFFER_SIZE_ELEMENTS(win32->cFileName), L"%.*s",
+                     info->FileNameLength / sizeof(wchar_t), info->FileName);
     if (len < 0 || len == BUFFER_SIZE_ELEMENTS(win32->cFileName)) {
         set_last_error(ERROR_FILE_INVALID); /* XXX: not sure what to return */
         return false;
     }
     if (info->FileNameLength < BUFFER_SIZE_BYTES(win32->cFileName))
-        win32->cFileName[info->FileNameLength/sizeof(wchar_t)] = L'\0';
+        win32->cFileName[info->FileNameLength / sizeof(wchar_t)] = L'\0';
     NULL_TERMINATE_BUFFER(win32->cFileName);
     len = _snwprintf(win32->cAlternateFileName,
-                     BUFFER_SIZE_ELEMENTS(win32->cAlternateFileName),
-                     L"%.*s", info->ShortNameLength/sizeof(wchar_t),
-                     info->ShortName);
+                     BUFFER_SIZE_ELEMENTS(win32->cAlternateFileName), L"%.*s",
+                     info->ShortNameLength / sizeof(wchar_t), info->ShortName);
     if (len < 0 || len == BUFFER_SIZE_ELEMENTS(win32->cAlternateFileName)) {
         set_last_error(ERROR_FILE_INVALID); /* XXX: not sure what to return */
         return false;
     }
     if (info->ShortNameLength < BUFFER_SIZE_BYTES(win32->cAlternateFileName)) {
-        win32->cAlternateFileName[info->ShortNameLength/sizeof(wchar_t)] = L'\0';
+        win32->cAlternateFileName[info->ShortNameLength / sizeof(wchar_t)] = L'\0';
     }
     NULL_TERMINATE_BUFFER(win32->cAlternateFileName);
     return true;
@@ -1893,15 +1711,12 @@ find_nt_to_win32W(FILE_BOTH_DIR_INFORMATION *info, WIN32_FIND_DATAW *win32 OUT)
 
 HANDLE
 WINAPI
-redirect_FindFirstFileA(
-    __in  LPCSTR lpFileName,
-    __out LPWIN32_FIND_DATAA lpFindFileData
-    )
+redirect_FindFirstFileA(__in LPCSTR lpFileName, __out LPWIN32_FIND_DATAA lpFindFileData)
 {
     wchar_t wbuf[MAX_PATH];
     HANDLE dir;
     byte info_buf[FIND_FILE_INFO_SZ]; /* 616 bytes => ok to stack alloc */
-    FILE_BOTH_DIR_INFORMATION *info = (FILE_BOTH_DIR_INFORMATION *) info_buf;
+    FILE_BOTH_DIR_INFORMATION *info = (FILE_BOTH_DIR_INFORMATION *)info_buf;
     if (lpFileName == NULL ||
         !convert_to_NT_file_path(wbuf, lpFileName, BUFFER_SIZE_ELEMENTS(wbuf))) {
         set_last_error(ERROR_PATH_NOT_FOUND);
@@ -1918,17 +1733,14 @@ redirect_FindFirstFileA(
 
 HANDLE
 WINAPI
-redirect_FindFirstFileW(
-    __in  LPCWSTR lpFileName,
-    __out LPWIN32_FIND_DATAW lpFindFileData
-    )
+redirect_FindFirstFileW(__in LPCWSTR lpFileName, __out LPWIN32_FIND_DATAW lpFindFileData)
 {
     wchar_t wbuf[MAX_PATH];
     wchar_t *nt_path = NULL;
     size_t alloc_sz = 0;
     HANDLE dir;
     char info_buf[FIND_FILE_INFO_SZ]; /* 616 bytes => ok to stack alloc */
-    FILE_BOTH_DIR_INFORMATION *info = (FILE_BOTH_DIR_INFORMATION *) info_buf;
+    FILE_BOTH_DIR_INFORMATION *info = (FILE_BOTH_DIR_INFORMATION *)info_buf;
     if (lpFileName != NULL) {
         nt_path = convert_to_NT_file_path_wide(wbuf, lpFileName,
                                                BUFFER_SIZE_ELEMENTS(wbuf), &alloc_sz);
@@ -1947,40 +1759,29 @@ redirect_FindFirstFileW(
     return dir;
 }
 
-BOOL
-WINAPI
-redirect_FindNextFileA(
-    __in  HANDLE hFindFile,
-    __out LPWIN32_FIND_DATAA lpFindFileData
-    )
+BOOL WINAPI
+redirect_FindNextFileA(__in HANDLE hFindFile, __out LPWIN32_FIND_DATAA lpFindFileData)
 {
     char info_buf[FIND_FILE_INFO_SZ]; /* 616 bytes => ok to stack alloc */
-    FILE_BOTH_DIR_INFORMATION *info = (FILE_BOTH_DIR_INFORMATION *) info_buf;
-    return (find_next_file_common(hFindFile, NULL,
-                                  (WIN32_FIND_DATAW *)lpFindFileData, info) &&
+    FILE_BOTH_DIR_INFORMATION *info = (FILE_BOTH_DIR_INFORMATION *)info_buf;
+    return (find_next_file_common(hFindFile, NULL, (WIN32_FIND_DATAW *)lpFindFileData,
+                                  info) &&
             find_nt_to_win32A(info, lpFindFileData));
 }
 
-BOOL
-WINAPI
-redirect_FindNextFileW(
-    __in  HANDLE hFindFile,
-    __out LPWIN32_FIND_DATAW lpFindFileData
-    )
+BOOL WINAPI
+redirect_FindNextFileW(__in HANDLE hFindFile, __out LPWIN32_FIND_DATAW lpFindFileData)
 {
     char info_buf[FIND_FILE_INFO_SZ]; /* 616 bytes => ok to stack alloc */
-    FILE_BOTH_DIR_INFORMATION *info = (FILE_BOTH_DIR_INFORMATION *) info_buf;
+    FILE_BOTH_DIR_INFORMATION *info = (FILE_BOTH_DIR_INFORMATION *)info_buf;
     return (find_next_file_common(hFindFile, NULL, lpFindFileData, info) &&
             find_nt_to_win32W(info, lpFindFileData));
 }
 
 /***************************************************************************/
 
-BOOL
-WINAPI
-redirect_FlushFileBuffers(
-    __in HANDLE hFile
-    )
+BOOL WINAPI
+redirect_FlushFileBuffers(__in HANDLE hFile)
 {
     NTSTATUS res = nt_flush_file_buffers(hFile);
     if (!NT_SUCCESS(res)) {
@@ -1990,11 +1791,9 @@ redirect_FlushFileBuffers(
     return TRUE;
 }
 
-
 /* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
  * Files
  */
-
 
 /***************************************************************************
  * TESTS
@@ -2023,10 +1822,10 @@ test_directories(void)
     dw = redirect_GetCurrentDirectoryA(0, NULL);
     EXPECT(dw > 0 && dw < BUFFER_SIZE_ELEMENTS(buf), true);
     dw2 = redirect_GetCurrentDirectoryA(dw, buf);
-    EXPECT(dw2 == dw-1/*null*/, true);
-    dw2 = redirect_GetCurrentDirectoryA(dw-1, buf);
+    EXPECT(dw2 == dw - 1 /*null*/, true);
+    dw2 = redirect_GetCurrentDirectoryA(dw - 1, buf);
     EXPECT(dw2 == dw, true);
-    dw2 = redirect_GetCurrentDirectoryW(dw-1, wbuf);
+    dw2 = redirect_GetCurrentDirectoryW(dw - 1, wbuf);
     EXPECT(dw2 == dw, true);
 
     ok = redirect_SetCurrentDirectoryW(L"c:\\windows");
@@ -2050,7 +1849,9 @@ test_files(void)
     char env[MAX_PATH];
     char buf[MAX_PATH];
     int res;
-    OVERLAPPED overlap = {0,};
+    OVERLAPPED overlap = {
+        0,
+    };
     HANDLE e;
     BY_HANDLE_FILE_INFORMATION byh_info;
 
@@ -2060,26 +1861,26 @@ test_files(void)
 
     /* test creating files */
     h = redirect_CreateFileW(L"c:\\cygwin\\tmp\\_kernel32_file_test_bogus.txt",
-                             GENERIC_READ, FILE_SHARE_READ, NULL,
-                             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                             GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                             FILE_ATTRIBUTE_NORMAL, NULL);
     EXPECT(h == INVALID_HANDLE_VALUE, true);
     EXPECT(get_last_error() == ERROR_FILE_NOT_FOUND ||
-           get_last_error() == ERROR_PATH_NOT_FOUND, true);
+               get_last_error() == ERROR_PATH_NOT_FOUND,
+           true);
 
-    res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
-                    "%s\\_kernel32_file_test_temp.txt", env);
+    res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s\\_kernel32_file_test_temp.txt",
+                    env);
     EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(buf), true);
     NULL_TERMINATE_BUFFER(buf);
-    h = redirect_CreateFileA(buf, GENERIC_WRITE, 0, NULL,
-                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    h = redirect_CreateFileA(buf, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL, NULL);
     EXPECT(h != INVALID_HANDLE_VALUE, true);
     ok = redirect_CloseHandle(h);
     EXPECT(ok, true);
     /* clobber it and ensure we give the right errno */
-    h2 = redirect_CreateFileA(buf, GENERIC_WRITE,
-                              FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, NULL,
-                              CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL|
-                              FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    h2 = redirect_CreateFileA(
+        buf, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+        CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
     EXPECT(h2 != INVALID_HANDLE_VALUE, true);
     EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
     ok = redirect_FlushFileBuffers(h2);
@@ -2087,18 +1888,18 @@ test_files(void)
     ok = redirect_CloseHandle(h2);
     EXPECT(ok, true);
     /* re-create and then test deleting it */
-    h = redirect_CreateFileA(buf, GENERIC_READ|GENERIC_WRITE, 0, NULL,
-                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    h = redirect_CreateFileA(buf, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL, NULL);
     EXPECT(h != INVALID_HANDLE_VALUE, true);
 
     /* test read and write */
-    ok = redirect_WriteFile(h, &h2, sizeof(h2), (LPDWORD) &dw, NULL);
+    ok = redirect_WriteFile(h, &h2, sizeof(h2), (LPDWORD)&dw, NULL);
     EXPECT(ok, true);
     EXPECT(dw == sizeof(h2), true);
     /* XXX: once we have redirect_SetFilePointer use it here */
     dw = SetFilePointer(h, 0, NULL, FILE_BEGIN);
     EXPECT(dw == 0, true);
-    ok = redirect_ReadFile(h, &p, sizeof(p), (LPDWORD) &dw, NULL);
+    ok = redirect_ReadFile(h, &p, sizeof(p), (LPDWORD)&dw, NULL);
     EXPECT(ok, true);
     EXPECT(dw == sizeof(h2), true);
     EXPECT((HANDLE)p == h2, true);
@@ -2125,28 +1926,30 @@ test_files(void)
     EXPECT(ok, true);
 
     /* test asynch read and write */
-    h = redirect_CreateFileA(buf, GENERIC_READ|GENERIC_WRITE, 0, NULL,
-                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL |
-                             FILE_FLAG_OVERLAPPED/*for asynch*/, NULL);
+    h = redirect_CreateFileA(buf, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED /*for asynch*/,
+                             NULL);
     EXPECT(h != INVALID_HANDLE_VALUE, true);
     e = CreateEvent(NULL, TRUE, FALSE, "myevent");
     EXPECT(e != NULL, true);
     overlap.hEvent = e;
-    ok = redirect_WriteFile(h, &h2, sizeof(h2), (LPDWORD) &dw, &overlap);
+    ok = redirect_WriteFile(h, &h2, sizeof(h2), (LPDWORD)&dw, &overlap);
     EXPECT((!ok && get_last_error() == ERROR_IO_PENDING) ||
-           /* On XP, 2K3, and win8.1 this returns TRUE (i#1196, i#2145) */
-           ok, true);
-    ok = GetOverlappedResult(h, &overlap, &dw, TRUE/*wait*/);
+               /* On XP, 2K3, and win8.1 this returns TRUE (i#1196, i#2145) */
+               ok,
+           true);
+    ok = GetOverlappedResult(h, &overlap, &dw, TRUE /*wait*/);
     EXPECT(ok, true);
     EXPECT(dw == sizeof(h2), true);
     /* XXX: once we have redirect_SetFilePointer use it here */
     dw = SetFilePointer(h, 0, NULL, FILE_BEGIN);
     EXPECT(dw == 0, true);
-    ok = redirect_ReadFile(h, &p, sizeof(p), (LPDWORD) &dw, &overlap);
+    ok = redirect_ReadFile(h, &p, sizeof(p), (LPDWORD)&dw, &overlap);
     EXPECT((!ok && get_last_error() == ERROR_IO_PENDING) ||
-           /* On XP, 2K3, and win8.1 this returns TRUE (i#1196, i#2145) */
-           ok, true);
-    ok = GetOverlappedResult(h, &overlap, &dw, TRUE/*wait*/);
+               /* On XP, 2K3, and win8.1 this returns TRUE (i#1196, i#2145) */
+               ok,
+           true);
+    ok = GetOverlappedResult(h, &overlap, &dw, TRUE /*wait*/);
     EXPECT(ok, true);
     EXPECT(dw == sizeof(h2), true);
     EXPECT((HANDLE)p == h2, true);
@@ -2174,16 +1977,16 @@ test_file_mapping(void)
     /* test anonymous mappings */
     h2 = CreateEvent(NULL, TRUE, TRUE, "Local\\mymapping"); /* for conflict */
     EXPECT(h2 != NULL, true);
-    h = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                    0, 0x1000, "Local\\mymapping");
+    h = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 0x1000,
+                                    "Local\\mymapping");
     EXPECT(h == NULL, true);
     EXPECT(get_last_error(), ERROR_INVALID_HANDLE);
     CloseHandle(h2); /* removes conflict */
-    h = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                    0, 0x1000, "Local\\mymapping");
+    h = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 0x1000,
+                                    "Local\\mymapping");
     EXPECT(h != NULL, true);
-    h2 = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                     0, 0x1000, "Local\\mymapping");
+    h2 = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0,
+                                     0x1000, "Local\\mymapping");
     EXPECT(h2 != NULL, true);
     EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
     ok = redirect_CloseHandle(h2);
@@ -2219,12 +2022,11 @@ test_file_mapping(void)
     res = GetEnvironmentVariableA("SystemRoot", env, BUFFER_SIZE_ELEMENTS(env));
     EXPECT(res > 0, true);
     NULL_TERMINATE_BUFFER(env);
-    res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
-                    "%s\\system32\\notepad.exe", env);
+    res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s\\system32\\notepad.exe", env);
     EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(buf), true);
     NULL_TERMINATE_BUFFER(buf);
-    h = redirect_CreateFileA(buf, GENERIC_READ, 0, NULL,
-                             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    h = redirect_CreateFileA(buf, GENERIC_READ, 0, NULL, OPEN_EXISTING,
+                             FILE_ATTRIBUTE_NORMAL, NULL);
     EXPECT(h != INVALID_HANDLE_VALUE, true);
     h2 = redirect_CreateFileMappingA(h, NULL, PAGE_READONLY, 0, 0, NULL);
     EXPECT(h2 != NULL, true);
@@ -2255,15 +2057,15 @@ test_pipe(void)
     /* This will block if the buffer is full, but we assume the buffer
      * is much bigger than the size of a handle for our single-threaded test.
      */
-    ok = redirect_WriteFile(h2, &h2, sizeof(h2), (LPDWORD) &res, NULL);
+    ok = redirect_WriteFile(h2, &h2, sizeof(h2), (LPDWORD)&res, NULL);
     EXPECT(ok, true);
-    ok = redirect_ReadFile(h, &p, sizeof(p), (LPDWORD) &res, NULL);
+    ok = redirect_ReadFile(h, &p, sizeof(p), (LPDWORD)&res, NULL);
     EXPECT(ok, true);
     EXPECT((HANDLE)p == h2, true);
     res = redirect_GetFileType(h);
     EXPECT(res == FILE_TYPE_PIPE, true);
-    ok = redirect_DuplicateHandle(GetCurrentProcess(), h, GetCurrentProcess(), &h3,
-                                  0, FALSE, 0);
+    ok = redirect_DuplicateHandle(GetCurrentProcess(), h, GetCurrentProcess(), &h3, 0,
+                                  FALSE, 0);
     EXPECT(ok, true);
     ok = redirect_CloseHandle(h3);
     EXPECT(ok, true);
@@ -2285,11 +2087,11 @@ test_DeviceIoControl(void)
 
     /* Test synchronous */
     dev = redirect_CreateFileW(L"\\\\.\\PhysicalDrive0", 0,
-                               FILE_SHARE_READ | FILE_SHARE_WRITE,
-                               NULL, OPEN_EXISTING, 0, NULL);
+                               FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0,
+                               NULL);
     EXPECT(dev != INVALID_HANDLE_VALUE, true);
-    ok = redirect_DeviceIoControl(dev, IOCTL_DISK_GET_DRIVE_GEOMETRY,
-                                  NULL, 0, &geo, sizeof(geo), &res, NULL);
+    ok = redirect_DeviceIoControl(dev, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &geo,
+                                  sizeof(geo), &res, NULL);
     EXPECT(ok, true);
     EXPECT(res > 0, true);
     EXPECT(geo.Cylinders.QuadPart > 0, true);
@@ -2298,16 +2100,16 @@ test_DeviceIoControl(void)
 
     /* Test asynchronous */
     dev = redirect_CreateFileW(L"\\\\.\\PhysicalDrive0", 0,
-                               FILE_SHARE_READ | FILE_SHARE_WRITE,
-                               NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+                               FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+                               FILE_FLAG_OVERLAPPED, NULL);
     EXPECT(dev != INVALID_HANDLE_VALUE, true);
     e = CreateEvent(NULL, TRUE, FALSE, "myevent");
     EXPECT(e != NULL, true);
     overlap.hEvent = e;
-    ok = redirect_DeviceIoControl(dev, IOCTL_DISK_GET_DRIVE_GEOMETRY,
-                                  NULL, 0, &geo, sizeof(geo), &res, &overlap);
+    ok = redirect_DeviceIoControl(dev, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &geo,
+                                  sizeof(geo), &res, &overlap);
     EXPECT(ok, true);
-    ok = GetOverlappedResult(dev, &overlap, &res, TRUE/*wait*/);
+    ok = GetOverlappedResult(dev, &overlap, &res, TRUE /*wait*/);
     EXPECT(ok, true);
     EXPECT(res > 0, true);
     EXPECT(geo.Cylinders.QuadPart > 0, true);
@@ -2340,13 +2142,12 @@ test_file_times(void)
     res = GetEnvironmentVariableA("TMP", env, BUFFER_SIZE_ELEMENTS(env));
     EXPECT(res > 0, true);
     NULL_TERMINATE_BUFFER(env);
-    res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
-                    "%s\\_kernel32_file_time_temp.txt", env);
+    res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s\\_kernel32_file_time_temp.txt",
+                    env);
     EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(buf), true);
     NULL_TERMINATE_BUFFER(buf);
-    h = redirect_CreateFileA(buf, GENERIC_WRITE, 0, NULL,
-                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL|
-                             FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    h = redirect_CreateFileA(buf, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
     EXPECT(h != INVALID_HANDLE_VALUE, true);
 
     ok = redirect_GetFileTime(h, &ft_create, &ft_access, &ft_write);
@@ -2357,13 +2158,15 @@ test_file_times(void)
     ok = FileTimeToLocalFileTime(&ft_create, &local_native);
     EXPECT(ok, true);
     EXPECT(local_ours.dwLowDateTime == local_native.dwLowDateTime &&
-           local_ours.dwHighDateTime == local_native.dwHighDateTime, true);
+               local_ours.dwHighDateTime == local_native.dwHighDateTime,
+           true);
 
     ok = redirect_LocalFileTimeToFileTime(&local_ours, &ft_access);
     EXPECT(ok, true);
     /* now ft_access holds ft_create converted to local and back to file */
     EXPECT(ft_access.dwLowDateTime == ft_create.dwLowDateTime &&
-           ft_access.dwHighDateTime == ft_create.dwHighDateTime, true);
+               ft_access.dwHighDateTime == ft_create.dwHighDateTime,
+           true);
 
     ok = redirect_SetFileTime(h, &ft_create, &ft_access, &ft_write);
     EXPECT(ok, true);
@@ -2386,7 +2189,8 @@ test_file_times(void)
      */
     EXPECT(within_one(ft_access.dwLowDateTime / TIMER_UNITS_PER_MILLISECOND,
                       ft_create.dwLowDateTime / TIMER_UNITS_PER_MILLISECOND) &&
-            ft_access.dwHighDateTime == ft_create.dwHighDateTime, true);
+               ft_access.dwHighDateTime == ft_create.dwHighDateTime,
+           true);
 
     redirect_GetSystemTimeAsFileTime(&ft_access);
     /* call the real thing to compare results */
@@ -2423,13 +2227,13 @@ test_find_file(void)
     res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s\\%s\\test123.txt", env, testdir);
     EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(buf), true);
     f1 = redirect_CreateFileA(buf, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
-                             FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+                              FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
     EXPECT(f1 != INVALID_HANDLE_VALUE, true);
 
     res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s\\%s\\test113.txt", env, testdir);
     EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(buf), true);
     f2 = redirect_CreateFileA(buf, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
-                             FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+                              FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
     EXPECT(f2 != INVALID_HANDLE_VALUE, true);
 
     /* search for a pattern */
@@ -2454,19 +2258,23 @@ test_find_file(void)
     find = redirect_FindFirstFileA(buf, &data);
     EXPECT(find != INVALID_HANDLE_VALUE, true);
     EXPECT(check_filter_with_wildcards("test1?3.txt", data.cFileName) ||
-           strcmp(".", data.cFileName) == 0 || strcmp("..", data.cFileName) == 0, true);
+               strcmp(".", data.cFileName) == 0 || strcmp("..", data.cFileName) == 0,
+           true);
     ok = redirect_FindNextFileA(find, &data);
     EXPECT(ok, true);
     EXPECT(check_filter_with_wildcards("test1?3.txt", data.cFileName) ||
-           strcmp(".", data.cFileName) == 0 || strcmp("..", data.cFileName) == 0, true);
+               strcmp(".", data.cFileName) == 0 || strcmp("..", data.cFileName) == 0,
+           true);
     ok = redirect_FindNextFileA(find, &data);
     EXPECT(ok, true);
     EXPECT(check_filter_with_wildcards("test1?3.txt", data.cFileName) ||
-           strcmp(".", data.cFileName) == 0 || strcmp("..", data.cFileName) == 0, true);
+               strcmp(".", data.cFileName) == 0 || strcmp("..", data.cFileName) == 0,
+           true);
     ok = redirect_FindNextFileA(find, &data);
     EXPECT(ok, true);
     EXPECT(check_filter_with_wildcards("test1?3.txt", data.cFileName) ||
-           strcmp(".", data.cFileName) == 0 || strcmp("..", data.cFileName) == 0, true);
+               strcmp(".", data.cFileName) == 0 || strcmp("..", data.cFileName) == 0,
+           true);
     ok = redirect_FindNextFileA(find, &data);
     EXPECT(!ok && get_last_error() == ERROR_NO_MORE_FILES, true);
     ok = redirect_CloseHandle(find);
@@ -2497,13 +2305,12 @@ test_file_paths(void)
     HANDLE f;
     BOOL ok;
     wchar_t env[MAX_PATH];
-    wchar_t wbuf[MAX_PATH*2];
+    wchar_t wbuf[MAX_PATH * 2];
     int res;
     res = GetEnvironmentVariableW(L"TMP", env, BUFFER_SIZE_ELEMENTS(env));
     EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(env), true);
 
-    res = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf),
-                     L"\\\\.\\%s\\test123.txt", env);
+    res = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"\\\\.\\%s\\test123.txt", env);
     EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(wbuf), true);
     f = redirect_CreateFileW(wbuf, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
                              FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
@@ -2511,8 +2318,7 @@ test_file_paths(void)
     ok = redirect_CloseHandle(f);
     EXPECT(ok, TRUE);
 
-    res = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf),
-                     L"\\\\?\\%s\\test123.txt", env);
+    res = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"\\\\?\\%s\\test123.txt", env);
     EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(wbuf), true);
     f = redirect_CreateFileW(wbuf, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
                              FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
@@ -2520,8 +2326,7 @@ test_file_paths(void)
     ok = redirect_CloseHandle(f);
     EXPECT(ok, TRUE);
 
-    res = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf),
-                     L"\\??\\%s\\test123.txt", env);
+    res = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"\\??\\%s\\test123.txt", env);
     EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(wbuf), true);
     f = redirect_CreateFileW(wbuf, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
                              FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
@@ -2537,7 +2342,8 @@ test_file_paths(void)
                      L"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                      L"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                      L"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                     L"3.txt", env);
+                     L"3.txt",
+                     env);
     EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(wbuf), true);
     f = redirect_CreateFileW(wbuf, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
                              FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
@@ -2590,14 +2396,12 @@ test_drive(void)
     ok = redirect_GetDiskFreeSpaceA("c:", &secs_per_cluster, &bytes_per_sector,
                                     &free_clusters, &num_clusters);
     EXPECT(ok, TRUE);
-    ok = redirect_GetDiskFreeSpaceA("bogus\\relative\\path",
-                                    &secs_per_cluster, &bytes_per_sector,
-                                    &free_clusters, &num_clusters);
+    ok = redirect_GetDiskFreeSpaceA("bogus\\relative\\path", &secs_per_cluster,
+                                    &bytes_per_sector, &free_clusters, &num_clusters);
     EXPECT(ok, TRUE);
     /* test passing in a file instead of a dir */
-    ok = redirect_GetDiskFreeSpaceA("c:\\windows\\system.ini",
-                                    &secs_per_cluster, &bytes_per_sector,
-                                    &free_clusters, &num_clusters);
+    ok = redirect_GetDiskFreeSpaceA("c:\\windows\\system.ini", &secs_per_cluster,
+                                    &bytes_per_sector, &free_clusters, &num_clusters);
     EXPECT(ok, FALSE);
     EXPECT(get_last_error(), ERROR_PATH_NOT_FOUND);
     ok = redirect_GetDiskFreeSpaceW(L"c:\\", &secs_per_cluster, &bytes_per_sector,
@@ -2611,12 +2415,14 @@ test_drive(void)
     EXPECT(redirect_GetDriveTypeA("c:\\"), DRIVE_FIXED);
     type = redirect_GetDriveTypeA("bogus\\relative\\path");
     EXPECT(type == DRIVE_FIXED ||
-           /* handle tester's cur dir being elsewhere */
-           type == DRIVE_RAMDISK || type == DRIVE_REMOTE, true);
+               /* handle tester's cur dir being elsewhere */
+               type == DRIVE_RAMDISK || type == DRIVE_REMOTE,
+           true);
     type = redirect_GetDriveTypeA(NULL);
     EXPECT(type == DRIVE_FIXED ||
-           /* handle tester's cur dir being elsewhere */
-           type == DRIVE_RAMDISK || type == DRIVE_REMOTE, true);
+               /* handle tester's cur dir being elsewhere */
+               type == DRIVE_RAMDISK || type == DRIVE_REMOTE,
+           true);
     /* test passing in a file instead of a dir */
     EXPECT(redirect_GetDriveTypeA("c:\\windows\\system.ini"), DRIVE_NO_ROOT_DIR);
     EXPECT(redirect_GetDriveTypeW(L"c:\\"), DRIVE_FIXED);
@@ -2635,7 +2441,7 @@ test_handles(void)
     const char *msg = "GetStdHandle test\n";
 
     h = redirect_GetStdHandle(STD_ERROR_HANDLE);
-    ok = redirect_WriteFile(h, msg, (DWORD) strlen(msg), &written, NULL);
+    ok = redirect_WriteFile(h, msg, (DWORD)strlen(msg), &written, NULL);
     EXPECT(ok && written == strlen(msg), true);
 }
 

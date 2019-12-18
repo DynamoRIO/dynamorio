@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -46,7 +46,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # Go w/ debug info (i#1392)
     set(CMAKE_CONFIGURATION_TYPES "RelWithDebInfo" CACHE STRING "" FORCE)
   endif ()
-  # we want to use the _LOCATION_<config> property
+  # we want to use the <VAR>_<config> variants of config-dependent properties
   string(TOUPPER "${CMAKE_CONFIGURATION_TYPES}" upper)
   set(location_suffix "_${upper}")
 else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
@@ -55,13 +55,10 @@ endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 
 project(DynamoRIO_samples)
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "3.0")
-  # XXX i#1557: update our code to satisfy the changes in 3.x
-  cmake_policy(SET CMP0026 OLD)
-  # XXX i#1375: if we make 2.8.12 the minimum we can remove the @rpath
-  # Mac stuff and this policy, right?
-  cmake_policy(SET CMP0042 OLD)
+if ("${CMAKE_VERSION}" VERSION_EQUAL "3.9" OR
+   "${CMAKE_VERSION}" VERSION_GREATER "3.9")
+  # i#1375: We are ok w/ the new policy of SKIP_BUILD_RPATH not affecting install names.
+  cmake_policy(SET CMP0068 NEW)
 endif ()
 
 set(output_dir "${PROJECT_BINARY_DIR}/bin")
@@ -162,7 +159,7 @@ function (add_sample_client name source_file_list extension_list)
 
   # Provide a hint for how to use the client
   if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
-    get_target_property(path ${name} LOCATION${location_suffix})
+    DynamoRIO_get_full_path(path ${name} "${location_suffix}")
     add_custom_command(TARGET ${name}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND}
@@ -312,13 +309,12 @@ DR_install(TARGETS ${tgts} DESTINATION ${INSTALL_SAMPLES_BIN})
 DR_install(FILES ${srcs} DESTINATION ${INSTALL_SAMPLES})
 DR_install(FILES "${public_clist}"
   DESTINATION "${INSTALL_SAMPLES}" RENAME CMakeLists.txt)
-if (WIN32)                                                    # NON-PUBLIC
-  # have a copy of dynamorio library for tracedump            # NON-PUBLIC
-  get_target_property(DR_TARGET_LOCATION dynamorio            # NON-PUBLIC
-    LOCATION${location_suffix})                               # NON-PUBLIC
-  DR_install(FILES "${DR_TARGET_LOCATION}"                    # NON-PUBLIC
-    DESTINATION "${INSTALL_SAMPLES_BIN}")                     # NON-PUBLIC
-endif (WIN32)                                                 # NON-PUBLIC
+if (WIN32)                                                                    # NON-PUBLIC
+  # Have a copy of dynamorio library for tracedump.                           # NON-PUBLIC
+  DynamoRIO_get_full_path(DR_TARGET_LOCATION dynamorio "${location_suffix}")  # NON-PUBLIC
+  DR_install(FILES "${DR_TARGET_LOCATION}"                                    # NON-PUBLIC
+    DESTINATION "${INSTALL_SAMPLES_BIN}")                                     # NON-PUBLIC
+endif (WIN32)                                                                 # NON-PUBLIC
 
 DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
   DESTINATION ${INSTALL_SAMPLES_BIN}

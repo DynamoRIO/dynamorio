@@ -42,17 +42,19 @@
 #include "tlb_stats.h"
 #include "tlb.h"
 
-class tlb_simulator_t : public simulator_t
-{
- public:
+class tlb_simulator_t : public simulator_t {
+public:
     tlb_simulator_t(const tlb_simulator_knobs_t &knobs);
     virtual ~tlb_simulator_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    virtual bool
+    process_memref(const memref_t &memref);
+    virtual bool
+    print_results();
 
- protected:
+protected:
     // Create a tlb_t object with a specific replacement policy.
-    virtual tlb_t *create_tlb(std::string policy);
+    virtual tlb_t *
+    create_tlb(std::string policy);
 
     tlb_simulator_knobs_t knobs;
 

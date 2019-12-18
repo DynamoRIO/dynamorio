@@ -62,7 +62,6 @@ DR_EXPORT
 void
 drutil_exit(void);
 
-
 /***************************************************************************
  * MEMORY TRACING
  */
@@ -111,6 +110,26 @@ DR_EXPORT
  * to be passed in.
  * For single-instruction string loops, returns the size referenced
  * by each iteration.
+ *
+ * If the instruction is part of the xsave family of instructions, this
+ * returns an incomplete computation of the xsave instruction's written
+ * xsave area's size. Specifically, it
+ *
+ * - Ignores the user state mask components set in edx:eax, because they are
+ *   dynamic values. The real output size of xsave depends on the instruction's
+ *   user state mask AND the user state mask as supported by the CPU based on
+ *   the XCR0 control register.
+ * - Ignores supervisor state component PT
+ *   (enabled/disabled by user state component mask bit 8).
+ * - Ignores the user state component PKRU state
+ *   (enabled/disabled by user state component mask bit 9).
+ * - Ignores the xsaveopt flavor of xsave.
+ * - Ignores the xsavec flavor of xsave (compacted format).
+ *
+ * It computes the expected size for the standard format of the x87 user state
+ * component (enabled/disabled by user state component mask bit 0), the SSE user
+ * state component (bit 1), the AVX user state component (bit 2), the MPX user
+ * state components (bit 2 and 3) and the AVX-512 user state component (bit 7).
  */
 uint
 drutil_opnd_mem_size_in_bytes(opnd_t memref, instr_t *inst);
@@ -165,7 +184,6 @@ DR_EXPORT
 bool
 drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, OUT bool *expanded,
                             OUT instr_t **stringop);
-
 
 /*@}*/ /* end doxygen group */
 

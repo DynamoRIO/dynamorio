@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,24 +51,23 @@
 #include "instr_create.h"
 #include "monitor.h"
 #include "translate.h"
-#include <string.h> /* memcpy */
 
 #ifdef DEBUG
-# include "decode_fast.h" /* for decode_next_pc for stress_recreate_pc */
+#    include "decode_fast.h" /* for decode_next_pc for stress_recreate_pc */
 #endif
 
-#define STATS_FCACHE_ADD(flags, stat, val) DOSTATS({   \
-    if (TEST(FRAG_SHARED, (flags))) {                  \
-        if (IN_TRACE_CACHE(flags))                     \
-            STATS_ADD(fcache_shared_trace_##stat, val);\
-        else                                           \
-            STATS_ADD(fcache_shared_bb_##stat, val);   \
-    }                                                  \
-    else if (IN_TRACE_CACHE(flags))                    \
-        STATS_ADD(fcache_trace_##stat, val);           \
-    else                                               \
-        STATS_ADD(fcache_bb_##stat, val);              \
-})
+#define STATS_FCACHE_ADD(flags, stat, val)                  \
+    DOSTATS({                                               \
+        if (TEST(FRAG_SHARED, (flags))) {                   \
+            if (IN_TRACE_CACHE(flags))                      \
+                STATS_ADD(fcache_shared_trace_##stat, val); \
+            else                                            \
+                STATS_ADD(fcache_shared_bb_##stat, val);    \
+        } else if (IN_TRACE_CACHE(flags))                   \
+            STATS_ADD(fcache_trace_##stat, val);            \
+        else                                                \
+            STATS_ADD(fcache_bb_##stat, val);               \
+    })
 
 #ifdef INTERNAL
 /* case 4344 - verify we can recreate app pc in fragment, returns the pc of
@@ -91,14 +90,14 @@ get_last_fragment_body_instr_pc(dcontext_t *dcontext, fragment_t *f)
 }
 
 void
-stress_test_recreate(dcontext_t *dcontext, fragment_t *f,
-                     instrlist_t *ilist)
+stress_test_recreate(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist)
 {
     cache_pc body_end_pc = get_last_fragment_body_instr_pc(dcontext, f);
     app_pc recreated_pc;
 
-    LOG(THREAD, LOG_MONITOR, 2, "Testing recreating Fragment %d for tag "PFX" at "PFX"\n",
-        f->id, f->tag, f->start_pc);
+    LOG(THREAD, LOG_MONITOR, 2,
+        "Testing recreating Fragment %d for tag " PFX " at " PFX "\n", f->id, f->tag,
+        f->start_pc);
 
     DOLOG(3, LOG_INTERP, {
         /* visualize translation info if it were to be recorded for every
@@ -118,16 +117,16 @@ stress_test_recreate(dcontext_t *dcontext, fragment_t *f,
          */
         cache_pc cpc = f->start_pc;
         while (cpc <= body_end_pc) {
-            recreated_pc = recreate_app_pc(dcontext, cpc, NULL/*for full test*/);
-            LOG(THREAD, LOG_MONITOR, 2, "\ttranslated cache "PFX" => app "PFX"\n",
+            recreated_pc = recreate_app_pc(dcontext, cpc, NULL /*for full test*/);
+            LOG(THREAD, LOG_MONITOR, 2, "\ttranslated cache " PFX " => app " PFX "\n",
                 cpc, recreated_pc);
             cpc = decode_next_pc(dcontext, cpc);
         }
     });
 
-    recreated_pc = recreate_app_pc(dcontext, body_end_pc, NULL/*for full test*/);
+    recreated_pc = recreate_app_pc(dcontext, body_end_pc, NULL /*for full test*/);
     /* FIXME: figure out how to test each instruction, while knowing the app state */
-    LOG(THREAD, LOG_MONITOR, 2, "Testing recreating Fragment #%d recreated_pc="PFX"\n",
+    LOG(THREAD, LOG_MONITOR, 2, "Testing recreating Fragment #%d recreated_pc=" PFX "\n",
         GLOBAL_STAT(num_fragments), recreated_pc);
 
     ASSERT(recreated_pc != NULL);
@@ -152,14 +151,15 @@ final_exit_shares_prev_stub(dcontext_t *dcontext, instrlist_t *ilist, uint frag_
         if (instr_is_exit_cti(inst) && instr_is_ubr(inst)) {
             /* don't need to expand since is_exit_cti will rule out level 0 */
             instr_t *prev_cti = instr_get_prev(inst);
-            if (prev_cti != NULL && instr_is_exit_cti(prev_cti)
+            if (prev_cti != NULL &&
+                instr_is_exit_cti(prev_cti)
                 /* cti_loop is fine since cti points to loop instr, enabling
                  * our disambiguation to know which state to look at */
                 && instr_is_cbr(prev_cti)
 #ifdef CUSTOM_EXIT_STUBS
                 /* no custom code */
-                && instr_exit_stub_code(prev_cti) == NULL
-                && instr_exit_stub_code(inst) == NULL
+                && instr_exit_stub_code(prev_cti) == NULL &&
+                instr_exit_stub_code(inst) == NULL
 #endif
                 /* no separate freeing */
                 && ((TEST(FRAG_SHARED, frag_flags) &&
@@ -193,8 +193,8 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
     pc = FCACHE_ENTRY_PC(f);
     l = FRAGMENT_EXIT_STUBS(f);
     i = 0;
-    frag_offs_at_end = linkstub_frag_offs_at_end(f->flags, num_direct_stubs,
-                                                 num_indirect_stubs);
+    frag_offs_at_end =
+        linkstub_frag_offs_at_end(f->flags, num_direct_stubs, num_indirect_stubs);
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
         if (instr_is_exit_cti(inst)) {
             /* l is currently zeroed out but otherwise uninitialized
@@ -230,9 +230,9 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
 
             if (is_indirect_branch_lookup_routine(dcontext, (cache_pc)target)) {
                 ASSERT(IF_WINDOWS_ELSE_0(is_shared_syscall_routine(dcontext, target)) ||
-                       is_ibl_routine_type
-                       (dcontext, (cache_pc)target,
-                        extract_branchtype((ushort)instr_exit_branch_type(inst))));
+                       is_ibl_routine_type(
+                           dcontext, (cache_pc)target,
+                           extract_branchtype((ushort)instr_exit_branch_type(inst))));
                 /* this is a mangled form of an original indirect
                  * branch or is a mangled form of an indirect branch
                  * to a real native pc out of the fragment
@@ -242,8 +242,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                 ASSERT(!LINKSTUB_NORMAL_DIRECT(l->flags));
                 ASSERT(!LINKSTUB_CBR_FALLTHROUGH(l->flags));
                 ASSERT(LINKSTUB_INDIRECT(l->flags));
-            }
-            else {
+            } else {
                 DOSTATS({
                     if (emit) {
                         if (PTR_UINT_ABS(target - f->tag) > SHRT_MAX) {
@@ -285,7 +284,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                            (inst == instrlist_last(ilist) &&
                             final_exit_shares_prev_stub(dcontext, ilist, f->flags)));
                 } else {
-                    direct_linkstub_t *dl = (direct_linkstub_t *) l;
+                    direct_linkstub_t *dl = (direct_linkstub_t *)l;
                     l->flags |= LINK_DIRECT;
                     /* ensure our macros are in synch */
                     ASSERT(LINKSTUB_DIRECT(l->flags));
@@ -301,7 +300,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                 /* we can't separate custom stubs */
                 && instr_exit_stub_code(inst) == NULL
 #endif
-                )
+            )
                 l->flags |= LINK_SEPARATE_STUB;
 
             /* FIXME: we don't yet support !emit ctis: need to avoid patching
@@ -314,7 +313,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                 l->cti_offset = (ushort) /* really a short */ (target - f->tag);
             } else {
                 ASSERT_TRUNCATE(l->cti_offset, ushort, pc - f->start_pc);
-                l->cti_offset = (ushort) (pc - f->start_pc);
+                l->cti_offset = (ushort)(pc - f->start_pc);
             }
 
             DOCHECK(1, {
@@ -344,9 +343,9 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
             /* PR 267260/PR 214962: keep this exit cti marked */
             instr_set_our_mangling(inst, true);
 
-            LOG(THREAD, LOG_EMIT, dcontext == GLOBAL_DCONTEXT ||
-                dcontext->in_opnd_disassemble ? 5U : 3U,
-                "exit_branch_type=0x%x target="PFX" l->flags=0x%x\n",
+            LOG(THREAD, LOG_EMIT,
+                dcontext == GLOBAL_DCONTEXT || dcontext->in_opnd_disassemble ? 5U : 3U,
+                "exit_branch_type=0x%x target=" PFX " l->flags=0x%x\n",
                 instr_exit_branch_type(inst), target, l->flags);
 
             DOCHECK(1, {
@@ -369,8 +368,10 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
         } /* exit cti */
         if (instr_ok_to_emit(inst)) {
             if (emit) {
-                pc = instr_encode(dcontext, inst, pc);
+                pc = instr_encode_to_copy(dcontext, inst, vmcode_get_writable_addr(pc),
+                                          pc);
                 ASSERT(pc != NULL);
+                pc = vmcode_get_executable_addr(pc);
             } else {
                 pc += instr_length(dcontext, inst);
             }
@@ -383,34 +384,33 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
  * It is not added to the fragment table, nor is it linked!
  */
 static fragment_t *
-emit_fragment_common(dcontext_t *dcontext, app_pc tag,
-                     instrlist_t *ilist, uint flags, void *vmlist,
-                     bool link_fragment, bool add_to_htable,
+emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint flags,
+                     void *vmlist, bool link_fragment, bool add_to_htable,
                      fragment_t *replace_fragment)
 {
-    fragment_t  *f;
-    instr_t     *inst;
-    cache_pc  pc = 0;
-    app_pc    target;
-    linkstub_t  *l;
-    uint      len;
-    uint      offset = 0;
-    uint      copy_sz = 0;
-    uint      extra_jmp_padding_body = 0;
-    uint      extra_jmp_padding_stubs = 0;
-    uint      last_pad_offset = 0;
-    uint      num_direct_stubs = 0;
-    uint      num_indirect_stubs = 0;
-    uint      stub_size_total = 0; /* those in fcache w/ fragment */
+    fragment_t *f;
+    instr_t *inst;
+    cache_pc pc = 0;
+    app_pc target;
+    linkstub_t *l;
+    uint len;
+    uint offset = 0;
+    uint copy_sz = 0;
+    uint extra_jmp_padding_body = 0;
+    uint extra_jmp_padding_stubs = 0;
+    uint last_pad_offset = 0;
+    uint num_direct_stubs = 0;
+    uint num_indirect_stubs = 0;
+    uint stub_size_total = 0; /* those in fcache w/ fragment */
 #ifdef CUSTOM_EXIT_STUBS
-    bool      custom_stubs_present = false;
+    bool custom_stubs_present = false;
 #endif
-    bool      final_cbr_single_stub = false;
-    byte      *prev_stub_pc = NULL;
-    uint      stub_size = 0;
-    bool      no_stub = false;
+    bool final_cbr_single_stub = false;
+    byte *prev_stub_pc = NULL;
+    uint stub_size = 0;
+    bool no_stub = false;
     dr_isa_mode_t isa_mode;
-    uint      mode_flags;
+    uint mode_flags;
 
     KSTART(emit);
     /* we do entire cache b/c links may touch many units
@@ -420,8 +420,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
 
     /* ensure some higher-level lock is held if f is shared */
     ASSERT(!TEST(FRAG_SHARED, flags) || INTERNAL_OPTION(single_thread_in_DR) ||
-           !USE_BB_BUILDING_LOCK() ||
-           OWN_MUTEX(&bb_building_lock) || OWN_MUTEX(&trace_building_lock));
+           !USE_BB_BUILDING_LOCK() || OWN_MUTEX(&bb_building_lock) ||
+           OWN_MUTEX(&trace_building_lock));
 
     /* 1st walk through instr list:
      * -- determine body size and number of exit stubs required;
@@ -489,7 +489,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
             if (is_indirect_branch_lookup_routine(dcontext, target)) {
                 num_indirect_stubs++;
                 STATS_INC(num_indirect_exit_stubs);
-                LOG(THREAD, LOG_EMIT, 3, "emit_fragment: %s use ibl <"PFX">\n",
+                LOG(THREAD, LOG_EMIT, 3, "emit_fragment: %s use ibl <" PFX ">\n",
                     TEST(FRAG_IS_TRACE, flags) ? "trace" : "bb", target);
                 stub_size_total += len;
                 STATS_FCACHE_ADD(flags, indirect_stubs, len);
@@ -498,8 +498,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
                 STATS_INC(num_direct_exit_stubs);
 
                 /* if a cbr is final exit pair, should they share a stub? */
-                if (INTERNAL_OPTION(cbr_single_stub) &&
-                    inst == instrlist_last(ilist) &&
+                if (INTERNAL_OPTION(cbr_single_stub) && inst == instrlist_last(ilist) &&
                     final_exit_shares_prev_stub(dcontext, ilist, flags)) {
                     final_cbr_single_stub = true;
                     STATS_INC(num_cbr_single_stub);
@@ -525,7 +524,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
             ASSERT(instr_length(dcontext, instrlist_last(ilist)) == 2);
             instr_set_note(instrlist_last(ilist), (void *)(ptr_uint_t)offset);
         }
-        ASSERT(ALIGNED(offset+extra_jmp_padding_body, PC_LOAD_ADDR_ALIGN));
+        ASSERT(ALIGNED(offset + extra_jmp_padding_body, PC_LOAD_ADDR_ALIGN));
     }
 #endif
 
@@ -546,8 +545,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
             }
             if (TEST(FRAG_HAS_DIRECT_CTI, flags))
                 STATS_INC(num_bb_has_elided);
-            if (linkstub_frag_offs_at_end(flags, num_direct_stubs,
-                                          num_indirect_stubs))
+            if (linkstub_frag_offs_at_end(flags, num_direct_stubs, num_indirect_stubs))
                 STATS_INC(num_bb_fragment_offset);
         }
     });
@@ -559,9 +557,9 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
                      (num_indirect_stubs == 1 && num_direct_stubs == 0) ||
                      (num_indirect_stubs == 0 && num_direct_stubs <= 2) ||
                      IF_UNIX((num_indirect_stubs == 0 && num_direct_stubs >= 2 &&
-                               TEST(FRAG_HAS_SYSCALL, flags)) ||)
-                     (num_indirect_stubs <= 1 && num_direct_stubs >= 1 &&
-                      TEST(FRAG_SELFMOD_SANDBOXED, flags)));
+                              TEST(FRAG_HAS_SYSCALL, flags)) ||)(
+                         num_indirect_stubs <= 1 && num_direct_stubs >= 1 &&
+                         TEST(FRAG_SELFMOD_SANDBOXED, flags)));
 #endif
 
 #ifdef CUSTOM_EXIT_STUBS
@@ -576,8 +574,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
                 if (custom != NULL) {
                     instr_t *in;
                     for (in = instrlist_first(custom); in; in = instr_get_next(in)) {
-                        ASSERT_NOT_IMPLEMENTED(!TEST(INSTR_HOT_PATCHABLE,
-                                                     inst->flags));
+                        ASSERT_NOT_IMPLEMENTED(!TEST(INSTR_HOT_PATCHABLE, inst->flags));
                         if (!PAD_FRAGMENT_JMPS(flags)) {
                             /* we're going to skip the 2nd pass, save this
                              * instr's offset in the note field for use by
@@ -633,26 +630,26 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
      * for tracing. Xref PR 215179, we allow additional pads for CLIENT_INTERFACE
      * and UNIX by marking the bb untraceable and inserting nops. */
 #if !defined(UNIX) && !defined(CLIENT_INTERFACE)
-# ifndef TRACE_HEAD_CACHE_INCR
+#    ifndef TRACE_HEAD_CACHE_INCR
     /* bbs shouldn't need more than a single pad */
     ASSERT((PAD_FRAGMENT_JMPS(flags) && TEST(FRAG_IS_TRACE, flags)) ||
-           extra_jmp_padding_body+extra_jmp_padding_stubs ==
-           (PAD_FRAGMENT_JMPS(flags) ? MAX_PAD_SIZE : 0U));
-# else
+           extra_jmp_padding_body + extra_jmp_padding_stubs ==
+               (PAD_FRAGMENT_JMPS(flags) ? MAX_PAD_SIZE : 0U));
+#    else
     /* no more than two pads should be needed for a bb with these defines */
     ASSERT((PAD_FRAGMENT_JMPS(flags) && TEST(FRAG_IS_TRACE, flags)) ||
-           extra_jmp_padding_body+extra_jmp_padding_stubs <=
-           (PAD_FRAGMENT_JMPS(flags) ? 2*MAX_PAD_SIZE : 0U));
-# endif
+           extra_jmp_padding_body + extra_jmp_padding_stubs <=
+               (PAD_FRAGMENT_JMPS(flags) ? 2 * MAX_PAD_SIZE : 0U));
+#    endif
 #endif
 
     /* create a new fragment_t, or fill in the emit wrapper for coarse-grain */
     /* FIXME : don't worry too much about whether padding should be requested in
      * the stub or body argument, fragment_create doesn't distinguish between
      * the two */
-    f = fragment_create(dcontext, tag, offset+extra_jmp_padding_body,
-                        num_direct_stubs, num_indirect_stubs,
-                        stub_size_total+extra_jmp_padding_stubs, flags);
+    f = fragment_create(dcontext, tag, offset + extra_jmp_padding_body, num_direct_stubs,
+                        num_indirect_stubs, stub_size_total + extra_jmp_padding_stubs,
+                        flags);
     ASSERT(f != NULL);
     DOSTATS({
         /* PR 217008: avoid gcc warning from truncation assert in XSTATS_TRACK_MAX:
@@ -681,7 +678,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
      * -- emit each instr into the fragment.
      */
     pc = set_linkstub_fields(dcontext, f, ilist, num_direct_stubs, num_indirect_stubs,
-                             true/*encode each instr*/);
+                             true /*encode each instr*/);
     /* pc should now be pointing to the beginning of the first exit stub */
 
     /* emit the exit stub code */
@@ -723,14 +720,14 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
                 /* still need to patch the cti, so set pc back to prev stub pc */
                 pc = prev_stub_pc;
             }
-            LOG(THREAD, LOG_EMIT, 3,
-                "final exit sharing prev exit's stub @ "PFX"\n", prev_stub_pc);
+            LOG(THREAD, LOG_EMIT, 3, "final exit sharing prev exit's stub @ " PFX "\n",
+                prev_stub_pc);
         }
 
         if (TEST(LINK_SEPARATE_STUB, l->flags)) {
             if (no_stub) {
                 if (LINKSTUB_NORMAL_DIRECT(l->flags)) {
-                    direct_linkstub_t *dl = (direct_linkstub_t *) l;
+                    direct_linkstub_t *dl = (direct_linkstub_t *)l;
                     dl->stub_pc = prev_stub_pc;
                 } else {
                     ASSERT(LINKSTUB_CBR_FALLTHROUGH(l->flags));
@@ -761,7 +758,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
             /* need to figure out size to get right offset */
             if (custom_stubs_present) {
                 /* inst is pointing at l's exit inst */
-                instrlist_t *custom = (instrlist_t *) instr_exit_stub_code(inst);
+                instrlist_t *custom = (instrlist_t *)instr_exit_stub_code(inst);
                 if (custom != NULL) {
                     instr_t *in;
                     ASSERT(!no_stub);
@@ -771,20 +768,22 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
                 }
             }
 #endif
-            pc = pad_for_exitstub_alignment(dcontext, l, f, pc+custom_exit_length);
+            pc = pad_for_exitstub_alignment(dcontext, l, f, pc + custom_exit_length);
         }
 
 #ifdef CUSTOM_EXIT_STUBS
         old_pc = pc;
         if (custom_stubs_present) {
             /* inst is pointing at l's exit inst */
-            instrlist_t *custom = (instrlist_t *) instr_exit_stub_code(inst);
+            instrlist_t *custom = (instrlist_t *)instr_exit_stub_code(inst);
             if (custom != NULL) {
                 instr_t *in;
                 ASSERT(!no_stub);
                 for (in = instrlist_first(custom); in; in = instr_get_next(in)) {
-                    pc = instr_encode(dcontext, in, (void*)pc);
+                    pc = instr_encode_to_copy(dcontext, in,
+                                              (void *)vmcode_get_writable_addr(pc), pc);
                     ASSERT(pc != NULL);
+                    pc = vmcode_get_executable_addr(pc);
                 }
             }
         }
@@ -793,17 +792,17 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
          * custom part) for things like linkcount that modify that
          */
         if (LINKSTUB_NORMAL_DIRECT(l->flags)) {
-            direct_linkstub_t *dl = (direct_linkstub_t *) l;
+            direct_linkstub_t *dl = (direct_linkstub_t *)l;
             ASSERT(!TEST(LINK_SEPARATE_STUB, l->flags));
             dl->stub_pc = old_pc;
         }
         ASSERT_TRUNCATE(l->fixed_stub_offset, ushort, (pc - old_pc));
-        l->fixed_stub_offset = (ushort) (pc - old_pc);
+        l->fixed_stub_offset = (ushort)(pc - old_pc);
         /* relocate the exit branch target so it takes to the stub */
         patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), old_pc, false);
 #else
         if (LINKSTUB_NORMAL_DIRECT(l->flags)) {
-            direct_linkstub_t *dl = (direct_linkstub_t *) l;
+            direct_linkstub_t *dl = (direct_linkstub_t *)l;
             dl->stub_pc = pc;
         }
         /* relocate the exit branch target so it takes to the unlink
@@ -812,7 +811,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
         patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l),
                      pc + linkstub_unlink_entry_offset(dcontext, f, l), false);
         LOG(THREAD, LOG_EMIT, 3,
-            "Exit cti "PFX" is targeting "PFX" + 0x%x => "PFX"\n",
+            "Exit cti " PFX " is targeting " PFX " + 0x%x => " PFX "\n",
             EXIT_CTI_PC(f, l), pc, linkstub_unlink_entry_offset(dcontext, f, l),
             pc + linkstub_unlink_entry_offset(dcontext, f, l));
 #endif
@@ -844,16 +843,13 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
     ASSERT(pc - f->start_pc <= f->size);
 
     /* Give back extra space to fcache */
-    STATS_PAD_JMPS_ADD(flags, excess_bytes,
-                       f->size - (pc - f->start_pc) - copy_sz);
-    if (PAD_FRAGMENT_JMPS(flags) &&
-        INTERNAL_OPTION(pad_jmps_return_excess_padding) &&
+    STATS_PAD_JMPS_ADD(flags, excess_bytes, f->size - (pc - f->start_pc) - copy_sz);
+    if (PAD_FRAGMENT_JMPS(flags) && INTERNAL_OPTION(pad_jmps_return_excess_padding) &&
         f->size - (pc - f->start_pc) - copy_sz > 0) {
         /* will adjust size, must call before we copy the selfmod since we
          * break abstraction by putting the copy space in the fcache
          * extra field and fcache needs to read/modify the fields */
-        fcache_return_extra_space(dcontext, f,
-                                  f->size - (pc - f->start_pc) - copy_sz);
+        fcache_return_extra_space(dcontext, f, f->size - (pc - f->start_pc) - copy_sz);
     }
 
     if (TEST(FRAG_SELFMOD_SANDBOXED, flags)) {
@@ -866,8 +862,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
                (PAD_FRAGMENT_JMPS(flags) &&
                 !INTERNAL_OPTION(pad_jmps_return_excess_padding)));
         /* size is stored at the end, but included in copy_sz */
-        memcpy(copy_pc, tag, copy_sz - sizeof(uint));
-        *((uint *)(copy_pc + copy_sz - sizeof(uint))) = copy_sz;
+        memcpy(vmcode_get_writable_addr(copy_pc), tag, copy_sz - sizeof(uint));
+        *((uint *)vmcode_get_writable_addr(copy_pc + copy_sz - sizeof(uint))) = copy_sz;
         /* count copy as part of fragment */
         pc = copy_pc + copy_sz;
     }
@@ -907,11 +903,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
     } else {
         /* bb-only finalization */
     }
-#ifdef X86
-    if ((flags & FRAG_SELFMOD_SANDBOXED) != 0) {
-        finalize_selfmod_sandbox(dcontext, f);
-    }
-#endif
+    mangle_finalize(dcontext, ilist, f);
+
     /* add fragment to vm area lists */
     vm_area_add_fragment(dcontext, f, vmlist);
 
@@ -922,7 +915,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
     }
 
     /* if necessary, i-cache sync */
-    machine_cache_sync((void*)f->start_pc, (void*)(f->start_pc+f->size), true);
+    machine_cache_sync((void *)f->start_pc, (void *)(f->start_pc + f->size), true);
 
     /* Future removal and replacement w/ the real fragment must be atomic
      * wrt linking, so we hold the change_linking_lock across both (xref
@@ -978,13 +971,12 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
  * The fragment is also not linked, to give the caller more flexibility.
  */
 fragment_t *
-emit_invisible_fragment(dcontext_t *dcontext, app_pc tag,
-                        instrlist_t *ilist, uint flags, void *vmlist)
+emit_invisible_fragment(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint flags,
+                        void *vmlist)
 {
-    return emit_fragment_common(dcontext, tag, ilist, flags, vmlist,
-                                false /* don't link: up to caller */,
-                                false /* don't add: it's invisible! */,
-                                NULL /* not replacing */);
+    return emit_fragment_common(
+        dcontext, tag, ilist, flags, vmlist, false /* don't link: up to caller */,
+        false /* don't add: it's invisible! */, NULL /* not replacing */);
 }
 
 /* Emits code for ilist into the fcache, returns the created
@@ -995,10 +987,8 @@ fragment_t *
 emit_fragment(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint flags,
               void *vmlist, bool link)
 {
-    return emit_fragment_common(dcontext, tag, ilist, flags, vmlist,
-                                link,
-                                true /* add to htable */,
-                                NULL /* not replacing */);
+    return emit_fragment_common(dcontext, tag, ilist, flags, vmlist, link,
+                                true /* add to htable */, NULL /* not replacing */);
 }
 
 /* Emits code for ilist into the fcache, returns the created
@@ -1009,8 +999,8 @@ fragment_t *
 emit_fragment_ex(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint flags,
                  void *vmlist, bool link, bool visible)
 {
-    return emit_fragment_common(dcontext, tag, ilist, flags, vmlist,
-                                link, visible, NULL /* not replacing */);
+    return emit_fragment_common(dcontext, tag, ilist, flags, vmlist, link, visible,
+                                NULL /* not replacing */);
 }
 
 /* Emits code for ilist into the fcache, returns the created
@@ -1022,8 +1012,6 @@ emit_fragment_as_replacement(dcontext_t *dcontext, app_pc tag, instrlist_t *ilis
                              uint flags, void *vmlist, fragment_t *replace)
 {
     return emit_fragment_common(dcontext, tag, ilist, flags, vmlist,
-                                true /* link it up */,
-                                true /* add to htable */,
+                                true /* link it up */, true /* add to htable */,
                                 replace /* replace this fragment */);
 }
-

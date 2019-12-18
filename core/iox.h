@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,39 +41,42 @@
 #include <limits.h> /* for UCHAR_MAX */
 
 #ifdef IOX_WIDE_CHAR
-# define TCHAR wchar_t
-# define _T(s) L##s
-# define TNAME(n) n##_wide
-# define IF_WIDE_ELSE(x,y) x
+#    define TCHAR wchar_t
+#    define _T(s) L##s
+#    define TNAME(n) n##_wide
+#    define IF_WIDE_ELSE(x, y) x
 #else
-# define TCHAR char
-# define _T(s) s
-# define TNAME(n) n
-# define IF_WIDE_ELSE(x,y) y
+#    define TCHAR char
+#    define _T(s) s
+#    define TNAME(n) n
+#    define IF_WIDE_ELSE(x, y) y
 #endif
 
-const static char TNAME(base_letters)[] = {
-    _T('0'),_T('1'),_T('2'),_T('3'),_T('4'),_T('5'),_T('6'),_T('7'),
-    _T('8'),_T('9'),_T('a'),_T('b'),_T('c'),_T('d'),_T('e'),_T('f')
-};
-const static char TNAME(base_letters_cap)[] = {
-    _T('0'),_T('1'),_T('2'),_T('3'),_T('4'),_T('5'),_T('6'),_T('7'),
-    _T('8'),_T('9'),_T('A'),_T('B'),_T('C'),_T('D'),_T('E'),_T('F')
-};
+const static char TNAME(base_letters)[] = { _T('0'), _T('1'), _T('2'), _T('3'),
+                                            _T('4'), _T('5'), _T('6'), _T('7'),
+                                            _T('8'), _T('9'), _T('a'), _T('b'),
+                                            _T('c'), _T('d'), _T('e'), _T('f') };
+const static char TNAME(base_letters_cap)[] = { _T('0'), _T('1'), _T('2'), _T('3'),
+                                                _T('4'), _T('5'), _T('6'), _T('7'),
+                                                _T('8'), _T('9'), _T('A'), _T('B'),
+                                                _T('C'), _T('D'), _T('E'), _T('F') };
 
 /* convert uint64 to a string */
+/* clang-format off */ /* (work around clang-format newline-after-type bug) */
 static TCHAR *
-TNAME(uint64_to_str)(uint64 num, int base, TCHAR * buf, int decimal, bool caps)
+TNAME(uint64_to_str)(uint64 num, int base, TCHAR *buf, int decimal,
+                     bool caps)
+/* clang-format on */
 {
-    int    cnt;
-    TCHAR   *p = buf;
-    int    end = (43 > decimal ? 43 : decimal);
+    int cnt;
+    TCHAR *p = buf;
+    int end = (43 > decimal ? 43 : decimal);
     ASSERT(decimal < BUF_SIZE - 1); /* so don't overflow buf */
 
     buf[end] = '\0';
     for (cnt = end - 1; cnt >= 0; cnt--) {
-        buf[cnt] = caps ? TNAME(base_letters_cap)[(num %base)] :
-            TNAME(base_letters)[(num % base)];
+        buf[cnt] = caps ? TNAME(base_letters_cap)[(num % base)]
+                        : TNAME(base_letters)[(num % base)];
         num /= base;
     }
 
@@ -86,22 +89,24 @@ TNAME(uint64_to_str)(uint64 num, int base, TCHAR * buf, int decimal, bool caps)
 }
 
 /* convert ulong to a string */
+/* clang-format off */ /* (work around clang-format newline-after-type bug) */
 static TCHAR *
 TNAME(ulong_to_str)(ulong num, int base, TCHAR *buf, int decimal, bool caps)
+/* clang-format on */
 {
-    int    cnt;
-    TCHAR   *p = buf;
-    int    end = (22 > decimal ? 22 : decimal); /* room for 64 bits octal */
-    ASSERT(decimal < BUF_SIZE - 1); /* so don't overflow buf */
+    int cnt;
+    TCHAR *p = buf;
+    int end = (22 > decimal ? 22 : decimal); /* room for 64 bits octal */
+    ASSERT(decimal < BUF_SIZE - 1);          /* so don't overflow buf */
 
     buf[end] = '\0';
     for (cnt = end - 1; cnt >= 0; cnt--) {
-        buf[cnt] = caps ? TNAME(base_letters_cap)[(num %base)] :
-            TNAME(base_letters)[(num % base)];
+        buf[cnt] = caps ? TNAME(base_letters_cap)[(num % base)]
+                        : TNAME(base_letters)[(num % base)];
         num /= base;
     }
 
-    while (*p && *p == _T('0') && end - decimal> 0) {
+    while (*p && *p == _T('0') && end - decimal > 0) {
         p++;
         decimal++;
     }
@@ -112,9 +117,11 @@ TNAME(ulong_to_str)(ulong num, int base, TCHAR *buf, int decimal, bool caps)
 /* N.B.: when building with /QIfist casting rounds instead of truncating (i#763)!
  * Thus, use double2int_trunc() instead of casting.
  */
+/* clang-format off */ /* (work around clang-format newline-after-type bug) */
 static TCHAR *
 TNAME(double_to_str)(double d, int decimal, TCHAR *buf, bool force_dot,
                      bool suppress_zeros)
+/* clang-format on */
 {
     /* support really big numbers with %f? */
     TCHAR tmpbuf[BUF_SIZE];
@@ -129,7 +136,7 @@ TNAME(double_to_str)(double d, int decimal, TCHAR *buf, bool force_dot,
     else
         predot = double2int(d);
     sub = 1;
-    for (i=0; i<decimal; i++)
+    for (i = 0; i < decimal; i++)
         sub *= 10;
     postdot = double2int((d - double2int_trunc(d)) * (double)sub);
     if (postdot == sub) {
@@ -139,7 +146,7 @@ TNAME(double_to_str)(double d, int decimal, TCHAR *buf, bool force_dot,
     }
 
     pre = TNAME(ulong_to_str)((ulong)predot, 10, tmpbuf, 1, false);
-    for (i=0, c = pre; *c; c++)
+    for (i = 0, c = pre; *c; c++)
         buf[i++] = *c;
     if (force_dot || !(decimal == 0 || (suppress_zeros && postdot == 0))) {
         buf[i++] = _T('.');
@@ -148,19 +155,21 @@ TNAME(double_to_str)(double d, int decimal, TCHAR *buf, bool force_dot,
             buf[i++] = *c;
         /* remove trailing zeros */
         if (suppress_zeros) {
-            while (buf[i-1] == _T('0'))
+            while (buf[i - 1] == _T('0'))
                 i--;
         }
     }
 
     buf[i] = '\0';
-    ASSERT(i<BUF_SIZE);  /* make sure don't overflow buffer */
+    ASSERT(i < BUF_SIZE); /* make sure don't overflow buffer */
     return buf;
 }
 
+/* clang-format off */ /* (work around clang-format newline-after-type bug) */
 static TCHAR *
-TNAME(double_to_exp_str)(double d, int exp, int decimal, TCHAR * buf,
+TNAME(double_to_exp_str)(double d, int exp, int decimal, TCHAR *buf,
                          bool force_dot, bool suppress_zeros, bool caps)
+/* clang-format on */
 {
     TCHAR tmp_buf[BUF_SIZE];
     TCHAR *tc;
@@ -192,11 +201,14 @@ TNAME(double_to_exp_str)(double d, int exp, int decimal, TCHAR * buf,
     return buf;
 }
 
-/* i#386: separated out to avoid floating-point instrs in our_vsnprintf */
+/* i#386: separated out to avoid floating-point instrs in d_r_vsnprintf */
+/* clang-format off */ /* (work around clang-format newline-after-type bug) */
 static const TCHAR *
-TNAME(our_vsnprintf_float)(double val, const TCHAR *c, TCHAR prefixbuf[3],
-                           TCHAR buf[BUF_SIZE], int decimal, bool space_flag,
+TNAME(d_r_vsnprintf_float)(double val, const TCHAR *c,
+                           TCHAR prefixbuf[3], TCHAR buf[BUF_SIZE],
+                           int decimal, bool space_flag,
                            bool plus_flag, bool pound_flag)
+/* clang-format on */
 {
     const TCHAR *str;
     bool caps = (*c == _T('E')) || (*c == _T('G'));
@@ -268,13 +280,15 @@ TNAME(our_vsnprintf_float)(double val, const TCHAR *c, TCHAR prefixbuf[3],
  * if passed an invalid encoding.
  * (Thus, matches Windows snprintf, not Linux.)
  */
+/* clang-format off */ /* (work around clang-format newline-after-type bug) */
 int
-TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
+TNAME(d_r_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
+/* clang-format on */
 {
     const TCHAR *c;
     const TCHAR *str = NULL;
-    TCHAR     *start = s;
-    TCHAR     buf[BUF_SIZE];
+    TCHAR *start = s;
+    TCHAR buf[BUF_SIZE];
 
     if (fmt == NULL)
         return 0;
@@ -284,11 +298,11 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
     c = fmt;
     while (*c) {
         if (*c == _T('%')) {
-            int  fill = 0;
+            int fill = 0;
             TCHAR filler = _T(' ');
             int decimal = -1; /* codes defaults (6 int, 1 float, all string) */
-            TCHAR charbuf[2] = {_T('\0'),_T('\0')};
-            TCHAR prefixbuf[3] = {_T('\0'),_T('\0'),_T('\0')};
+            TCHAR charbuf[2] = { _T('\0'), _T('\0') };
+            TCHAR prefixbuf[3] = { _T('\0'), _T('\0'), _T('\0') };
             TCHAR *prefix;
             bool minus_flag = false;
             bool plus_flag = false;
@@ -392,11 +406,11 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                     ASSERT(*c);
                 }
             } else if (*c == _T('I')) { /* %I64 or %I32, to match Win32 */
-                if (*(c+1)==_T('6') && *(c+2)==_T('4')) {
+                if (*(c + 1) == _T('6') && *(c + 2) == _T('4')) {
                     ll_type = true;
                     c += 3;
                     ASSERT(*c);
-                } else if (*(c+1)==_T('3') && *(c+2)==_T('2')) {
+                } else if (*(c + 1) == _T('3') && *(c + 2) == _T('2')) {
                     l_type = true;
                     c += 3;
                     ASSERT(*c);
@@ -411,50 +425,49 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                 str = charbuf;
                 break;
             case _T('d'):
-            case _T('i'):
-                {
-                    long val;
-                    ulong abval = 0;
-                    int64 val64;
-                    uint64 abval64 = 0;
-                    bool negative = false;
-                    if (decimal == -1)
-                        decimal = 1;  /* defaults */
-                    else
-                        filler = _T(' ');
-                    if (ll_type) {
-                        val64 = va_arg(ap, int64);  /* get arg */
-                        negative = (val64 < 0);
-                        if (negative)
-                            abval64= -val64;
-                        else
-                            abval64 = val64;
-                    } else {
-                        if (l_type)
-                            val = va_arg(ap, long);  /* get arg */
-                        else if (h_type)
-                            val = (long)va_arg(ap, int); /* short is promoted to int */
-                        else
-                            val = (long)va_arg(ap, int);
-                        negative = (val < 0);
-                        if (negative)
-                            abval = -val;
-                        else
-                            abval = val;
-                    }
-                    if (!negative && space_flag)
-                        prefixbuf[0] = _T(' ');  /* set prefix */
-                    if (!negative && plus_flag)
-                        prefixbuf[0] = _T('+');
+            case _T('i'): {
+                long val;
+                ulong abval = 0;
+                int64 val64;
+                uint64 abval64 = 0;
+                bool negative = false;
+                if (decimal == -1)
+                    decimal = 1; /* defaults */
+                else
+                    filler = _T(' ');
+                if (ll_type) {
+                    val64 = va_arg(ap, int64); /* get arg */
+                    negative = (val64 < 0);
                     if (negative)
-                        prefixbuf[0] = _T('-');
-                    /* generate string */
-                    if (ll_type)
-                        str = TNAME(uint64_to_str)(abval64, 10, buf, decimal, false);
+                        abval64 = -val64;
                     else
-                        str = TNAME(ulong_to_str)(abval, 10, buf, decimal, false);
-                    break;
+                        abval64 = val64;
+                } else {
+                    if (l_type)
+                        val = va_arg(ap, long); /* get arg */
+                    else if (h_type)
+                        val = (long)va_arg(ap, int); /* short is promoted to int */
+                    else
+                        val = (long)va_arg(ap, int);
+                    negative = (val < 0);
+                    if (negative)
+                        abval = -val;
+                    else
+                        abval = val;
                 }
+                if (!negative && space_flag)
+                    prefixbuf[0] = _T(' '); /* set prefix */
+                if (!negative && plus_flag)
+                    prefixbuf[0] = _T('+');
+                if (negative)
+                    prefixbuf[0] = _T('-');
+                /* generate string */
+                if (ll_type)
+                    str = TNAME(uint64_to_str)(abval64, 10, buf, decimal, false);
+                else
+                    str = TNAME(ulong_to_str)(abval, 10, buf, decimal, false);
+                break;
+            }
             case _T('u'):
                 /* handle long long u type */
                 if (decimal == -1)
@@ -470,75 +483,74 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             case _T('x'):
             case _T('X'):
             case _T('o'):
-            case _T('p'):
-                {
-                    ptr_uint_t val;
-                    bool caps = *c == _T('X');
-                    int base = 10;
-                    if (decimal == -1)
-                        decimal = 1; /* defaults */
-                    else
-                        filler = _T(' ');
-                    if (*c == _T('p'))
-                        decimal = 2 * sizeof(void *); /* pointer precision */
-                    /* generate prefix */
-                    if ((pound_flag && *c != _T('u')) || (*c == _T('p'))) {
-                        prefixbuf[0] = _T('0');
-                        if (*c == _T('x') || *c == _T('p'))
-                            prefixbuf[1] = _T('x');
-                        if (*c == _T('X'))
-                            prefixbuf[1] = _T('X');
-                    }
-                    if (*c == _T('o'))
-                        base = 8;    /* determine base */
-                    if (*c == _T('x') || *c == _T('X') || *c == _T('p'))
-                        base = 16;
-                    ASSERT(sizeof(void *) == sizeof(val));
-                    if (*c == _T('p')) {
-                        val = (ptr_uint_t) va_arg(ap, void *);  /* get val */
-#ifdef X64
-                        str = TNAME(uint64_to_str)((uint64)val, base, buf, decimal, caps);
-                        break;
-#endif
-                    } else if (l_type)
-                        val = (ptr_uint_t) va_arg(ap, ulong);
-                    else if (h_type)
-                        val = (ptr_uint_t) va_arg(ap, uint); /* ushort promoted */
-                    else if (ll_type) {
-                        str = TNAME(uint64_to_str)((uint64)va_arg(ap, uint64), base, buf,
-                                            decimal, caps);
-                        break;
-                    } else
-                        val = (ptr_uint_t) va_arg(ap, uint);
-                    /* generate string */
-                    ASSERT(sizeof(val) >= sizeof(ulong));
-                    str = TNAME(ulong_to_str)((ulong)val, base, buf, decimal, caps);
-                    break;
+            case _T('p'): {
+                ptr_uint_t val;
+                bool caps = *c == _T('X');
+                int base = 10;
+                if (decimal == -1)
+                    decimal = 1; /* defaults */
+                else
+                    filler = _T(' ');
+                if (*c == _T('p'))
+                    decimal = 2 * sizeof(void *); /* pointer precision */
+                /* generate prefix */
+                if ((pound_flag && *c != _T('u')) || (*c == _T('p'))) {
+                    prefixbuf[0] = _T('0');
+                    if (*c == _T('x') || *c == _T('p'))
+                        prefixbuf[1] = _T('x');
+                    if (*c == _T('X'))
+                        prefixbuf[1] = _T('X');
                 }
+                if (*c == _T('o'))
+                    base = 8; /* determine base */
+                if (*c == _T('x') || *c == _T('X') || *c == _T('p'))
+                    base = 16;
+                ASSERT(sizeof(void *) == sizeof(val));
+                if (*c == _T('p')) {
+                    val = (ptr_uint_t)va_arg(ap, void *); /* get val */
+#ifdef X64
+                    str = TNAME(uint64_to_str)((uint64)val, base, buf, decimal, caps);
+                    break;
+#endif
+                } else if (l_type)
+                    val = (ptr_uint_t)va_arg(ap, ulong);
+                else if (h_type)
+                    val = (ptr_uint_t)va_arg(ap, uint); /* ushort promoted */
+                else if (ll_type) {
+                    str = TNAME(uint64_to_str)((uint64)va_arg(ap, uint64), base, buf,
+                                               decimal, caps);
+                    break;
+                } else
+                    val = (ptr_uint_t)va_arg(ap, uint);
+                /* generate string */
+                ASSERT(sizeof(val) >= sizeof(ulong));
+                str = TNAME(ulong_to_str)((ulong)val, base, buf, decimal, caps);
+                break;
+            }
             case _T('c'):
                 /* FIXME: using int instead of char seems to work for RH7.2 as
                  * well as 8.0, but using char crashes 8.0 but not 7.2
                  */
 #ifdef VA_ARG_CHAR2INT
-                charbuf[0] = (TCHAR) va_arg(ap, int); /* char -> int in va_list */
+                charbuf[0] = (TCHAR)va_arg(ap, int); /* char -> int in va_list */
 #else
                 charbuf[0] = va_arg(ap, TCHAR);
 #endif
                 str = charbuf;
                 break;
             case _T('s'):
-                if (!IF_WIDE_ELSE(h_type,l_type)) {
-                    str = va_arg(ap, TCHAR*);
+                if (!IF_WIDE_ELSE(h_type, l_type)) {
+                    str = va_arg(ap, TCHAR *);
                     break;
                 }
                 /* fall-through */
             case _T('S'):
 #ifdef IOX_WIDE_CHAR
                 h_type = true;
-                wstr = va_arg(ap, char*);
+                wstr = va_arg(ap, char *);
 #else
                 l_type = true;
-                wstr = va_arg(ap, wchar_t*);
+                wstr = va_arg(ap, wchar_t *);
 #endif
                 break;
             case _T('g'):
@@ -548,39 +560,36 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                 /* no break */
             case _T('e'):
             case _T('E'):
-            case _T('f'):
-                {
-                    /* pretty sure will always be promoted to a double in arg list */
-                    double val = va_arg(ap, double);
-                    str = TNAME(our_vsnprintf_float)(val, c, prefixbuf, buf, decimal,
-                                                     space_flag, plus_flag, pound_flag);
-                    break;
+            case _T('f'): {
+                /* pretty sure will always be promoted to a double in arg list */
+                double val = va_arg(ap, double);
+                str = TNAME(d_r_vsnprintf_float)(val, c, prefixbuf, buf, decimal,
+                                                 space_flag, plus_flag, pound_flag);
+                break;
+            }
+            case _T('n'): {
+                /* save num of chars printed so far in address specified */
+                uint num_char = (uint)(s - start);
+                /* yes, snprintf on all platforms returns int, not ssize_t */
+                IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(s - start)));
+                if (l_type) {
+                    long *val = va_arg(ap, long *);
+                    *val = (long)num_char;
+                } else if (h_type) {
+                    short *val = va_arg(ap, short *);
+                    *val = (short)num_char;
+                } else {
+                    int *val = va_arg(ap, int *);
+                    *val = num_char;
                 }
-            case _T('n'):
-                {
-                    /* save num of chars printed so far in address specified */
-                    uint num_char = (uint) (s - start);
-                    /* yes, snprintf on all platforms returns int, not ssize_t */
-                    IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(s - start)));
-                    if (l_type) {
-                        long * val = va_arg(ap, long *);
-                        *val = (long) num_char;
-                    } else if (h_type) {
-                        short * val = va_arg(ap, short *);
-                        *val = (short) num_char;
-                    } else {
-                        int * val = va_arg(ap, int *);
-                        *val = num_char;
-                    }
-                    buf[0] = '\0';
-                    str = buf;
-                    break;
-                }
+                buf[0] = '\0';
+                str = buf;
+                break;
+            }
                 /* FIXME : support the following? */
             case _T('a'):
             case _T('A'):
-            default:
-                ASSERT_NOT_REACHED();
+            default: ASSERT_NOT_REACHED();
             }
 
             /* if filler is 0 fill after prefix, else fill before prefix */
@@ -588,20 +597,20 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
 
             /* calculate number of fill characters */
             if (fill > 0) {
-                size_t plen = IF_WIDE_ELSE(wcslen,strlen)(prefix);
+                size_t plen = IF_WIDE_ELSE(wcslen, strlen)(prefix);
                 if (wstr != NULL) {
                     /* XXX: this doesn't take into account UTF-16 or UTF-8
                      * multi-byte chars.  For now we just don't support
                      * properly filling those.  It should only matter
                      * for pretty-printing.
                      */
-                    size_t wlen = IF_WIDE_ELSE(strlen,wcslen)(wstr);
+                    size_t wlen = IF_WIDE_ELSE(strlen, wcslen)(wstr);
                     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(wlen + plen)));
-                    fill -= (uint) (wlen + plen);
+                    fill -= (uint)(wlen + plen);
                 } else {
-                    size_t len = IF_WIDE_ELSE(wcslen,strlen)(str);
+                    size_t len = IF_WIDE_ELSE(wcslen, strlen)(str);
                     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(len + plen)));
-                    fill -= (uint) (len + plen);
+                    fill -= (uint)(len + plen);
                 }
             }
             /* insert prefix if filler is 0, filler won't be 0 if - flag is set */
@@ -649,8 +658,8 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                 if ((*c == _T('s') || *c == _T('S')) && decimal >= 0 &&
                     (size_t)decimal < max_bytes)
                     max_bytes = decimal;
-                els = IF_WIDE_ELSE(utf8_to_utf16, utf16_to_utf8)
-                    (s, max_bytes, wstr, 0, NULL);
+                els = IF_WIDE_ELSE(utf8_to_utf16, utf16_to_utf8)(s, max_bytes, wstr, 0,
+                                                                 NULL);
                 if (els < 0)
                     return -1;
                 s += els;
@@ -661,11 +670,11 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                     if ((size_t)(s - start) >= max)
                         goto max_reached;
                     if ((*c == _T('s') || *c == _T('S')) && decimal == 0)
-                        break;  /* check string precision */
+                        break; /* check string precision */
                     decimal--;
                     /* we only support ascii */
                     ASSERT((unsigned short)(*wstr) <= UCHAR_MAX);
-                    *s = (TCHAR) *wstr;
+                    *s = (TCHAR)*wstr;
                     s++;
                     wstr++;
                 }
@@ -677,7 +686,7 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                     if ((size_t)(s - start) >= max)
                         goto max_reached;
                     if (*c == _T('s') && decimal == 0)
-                        break;  /* check string precision */
+                        break; /* check string precision */
                     decimal--;
                     *s = *str;
                     s++;
@@ -695,10 +704,9 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                 }
             }
             c++;
-        }
-        else {
+        } else {
             const TCHAR *cstart = c;
-            int  nbytes = 0;
+            int nbytes = 0;
             while (*c && *c != _T('%')) {
                 nbytes++;
                 c++;
@@ -714,13 +722,13 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
     }
 
     if (max == 0 || (size_t)(s - start) < max)
-      *s = '\0';
+        *s = '\0';
 
     /* yes, snprintf on all platforms returns int, not ssize_t */
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(s - start)));
-    return (int) (s - start);
+    return (int)(s - start);
 
- max_reached:
+max_reached:
     return -1;
 }
 
@@ -728,14 +736,16 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
  * prints max (without null) and returns -1.
  * (Thus, matches Windows snprintf, not Linux.)
  */
+/* clang-format off */ /* (work around clang-format newline-after-type bug) */
 int
-TNAME(our_snprintf)(TCHAR *s, size_t max, const TCHAR *fmt, ...)
+TNAME(d_r_snprintf)(TCHAR *s, size_t max, const TCHAR *fmt, ...)
+/* clang-format on */
 {
     int res;
     va_list ap;
     ASSERT(s);
     va_start(ap, fmt);
-    res = TNAME(our_vsnprintf)(s, max, fmt, ap);
+    res = TNAME(d_r_vsnprintf)(s, max, fmt, ap);
     va_end(ap);
     return res;
 }

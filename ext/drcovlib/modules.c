@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -80,9 +80,9 @@ static int tls_idx = -1;
 static module_table_t module_table;
 
 /* Custom per-module field support. */
-static void * (*module_load_cb)(module_data_t *module);
+static void *(*module_load_cb)(module_data_t *module);
 static int (*module_print_cb)(void *data, char *dst, size_t max_len);
-static const char * (*module_parse_cb)(const char *src, OUT void **data);
+static const char *(*module_parse_cb)(const char *src, OUT void **data);
 static void (*module_free_cb)(void *data);
 
 /* we use direct map cache to avoid locking */
@@ -97,21 +97,18 @@ global_module_cache_add(module_entry_t **cache, module_entry_t *entry)
  * entries, shifting results in the oldest entry being discarded.
  */
 static inline void
-thread_module_cache_adjust(module_entry_t **cache,
-                           module_entry_t  *entry,
-                           uint pos,
+thread_module_cache_adjust(module_entry_t **cache, module_entry_t *entry, uint pos,
                            uint max_pos)
 {
     uint i;
     ASSERT(pos < max_pos, "wrong pos");
     for (i = pos; i > 0; i--)
-        cache[i] = cache[i-1];
+        cache[i] = cache[i - 1];
     cache[0] = entry;
 }
 
 static inline void
-thread_module_cache_add(module_entry_t **cache, uint cache_size,
-                        module_entry_t *entry)
+thread_module_cache_add(module_entry_t **cache, uint cache_size, module_entry_t *entry)
 {
     thread_module_cache_adjust(cache, entry, cache_size - 1, cache_size);
 }
@@ -132,7 +129,7 @@ static void
 event_module_load(void *drcontext, const module_data_t *data, bool loaded)
 {
     module_entry_t *entry = NULL;
-    module_data_t  *mod;
+    module_data_t *mod;
     int i;
     /* Some apps repeatedly unload and reload the same module,
      * so we will try to re-use the old one.
@@ -142,9 +139,9 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
     /* Assuming most recently loaded entries are most likely to be unloaded,
      * we iterate the module table in a backward way for better performance.
      */
-    for (i = module_table.vector.entries-1; i >= 0; i--) {
+    for (i = module_table.vector.entries - 1; i >= 0; i--) {
         entry = drvector_get_entry(&module_table.vector, i);
-        mod   = entry->data;
+        mod = entry->data;
         if (entry->unload &&
             /* Only check the main (containing) module.
              * This is necessary because the loop is backward.
@@ -153,20 +150,17 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
             /* If the same module is re-loaded at the same address,
              * we will try to use the existing entry.
              */
-            mod->start       == data->start        &&
-            mod->end         == data->end          &&
-            mod->entry_point == data->entry_point  &&
+            mod->start == data->start && mod->end == data->end &&
+            mod->entry_point == data->entry_point &&
 #ifdef WINDOWS
-            mod->checksum    == data->checksum     &&
-            mod->timestamp   == data->timestamp    &&
+            mod->checksum == data->checksum && mod->timestamp == data->timestamp &&
 #endif
             /* If a module w/ no name (there are some) is loaded, we will
              * keep making new entries.
              */
             dr_module_preferred_name(data) != NULL &&
-            dr_module_preferred_name(mod)  != NULL &&
-            strcmp(dr_module_preferred_name(data),
-                   dr_module_preferred_name(mod)) == 0) {
+            dr_module_preferred_name(mod) != NULL &&
+            strcmp(dr_module_preferred_name(data), dr_module_preferred_name(mod)) == 0) {
             entry->unload = false;
 #ifndef WINDOWS
             if (!mod->contiguous) {
@@ -204,7 +198,7 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
         module_entry_t *sub_entry;
         ASSERT(entry->start == data->segments[0].start, "illegal segments");
         entry->end = data->segments[0].end;
-        for (j = 1/*we did 1st*/; j < data->num_segments; j++) {
+        for (j = 1 /*we did 1st*/; j < data->num_segments; j++) {
             /* Add an entry for each separate piece.  On unload we assume
              * that these entries are consecutive following the main entry.
              */
@@ -353,8 +347,7 @@ drmodtrack_init(void)
     if (count > 1)
         return DRCOVLIB_SUCCESS;
 
-    if (!drmgr_init() ||
-        !drmgr_register_thread_init_event(event_thread_init) ||
+    if (!drmgr_init() || !drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
         !drmgr_register_module_load_event(event_module_load) ||
         !drmgr_register_module_unload_event(event_module_unload))
@@ -414,18 +407,17 @@ static int
 module_read_entry_print(module_read_entry_t *entry, uint idx, char *buf, size_t size)
 {
     int len, total_len = 0;
-    len = dr_snprintf(buf, size, "%3u, %3u, " PFX ", " PFX ", " PFX ", "
-                      ZHEX64_FORMAT_STRING ", ",
-                      idx, entry->containing_id, entry->base,
-                      entry->base+entry->size, entry->entry, entry->offset);
+    len = dr_snprintf(buf, size,
+                      "%3u, %3u, " PFX ", " PFX ", " PFX ", " ZHEX64_FORMAT_STRING ", ",
+                      idx, entry->containing_id, entry->base, entry->base + entry->size,
+                      entry->entry, entry->offset);
     if (len == -1)
         return -1;
     buf += len;
     total_len += len;
     size -= len;
 #ifdef WINDOWS
-    len = dr_snprintf(buf, size, "0x%08x, 0x%08x, ",
-                      entry->checksum, entry->timestamp);
+    len = dr_snprintf(buf, size, "0x%08x, 0x%08x, ", entry->checksum, entry->timestamp);
     if (len == -1)
         return -1;
     buf += len;
@@ -482,7 +474,7 @@ drmodtrack_dump_buf_headers(char *buf_in, size_t size, uint count, OUT int *len_
     char *buf = buf_in;
     if (buf == NULL || size == 0)
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
-    size--;  /* for the terminating null character */
+    size--; /* for the terminating null character */
     len = dr_snprintf(buf, size, "Module Table: version %u, count %u\n",
                       MODULE_FILE_VERSION, count);
     if (len == -1)
@@ -543,11 +535,11 @@ drmodtrack_dump_buf(char *buf_start, size_t size, OUT size_t *wrote)
         }
         buf += len;
         size -= len;
-     }
+    }
     buf[0] = '\0';
     drvector_unlock(&module_table.vector);
     if (wrote != NULL)
-        *wrote = buf + 1/*null*/ - buf_start;
+        *wrote = buf + 1 /*null*/ - buf_start;
     return DRCOVLIB_SUCCESS;
 }
 
@@ -562,7 +554,7 @@ drmodtrack_dump(file_t log)
         buf = dr_global_alloc(size);
         res = drmodtrack_dump_buf(buf, size, &wrote);
         if (res == DRCOVLIB_SUCCESS)
-            dr_write_file(log, buf, wrote - 1/*no null*/);
+            dr_write_file(log, buf, wrote - 1 /*no null*/);
         dr_global_free(buf, size);
         size *= 2;
     } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
@@ -603,7 +595,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                         OUT void **handle, OUT uint *num_mods)
 {
     module_read_info_t *info = NULL;
-    uint i;
+    uint i, mods_parsed = 0;
     uint64 file_size;
     size_t map_size = 0;
     const char *buf, *map_start;
@@ -621,7 +613,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
         if (!dr_file_size(file, &file_size))
             return DRCOVLIB_ERROR_INVALID_PARAMETER;
         map_size = (size_t)file_size;
-        map_start = (char *) dr_map_file(file, &map_size, 0, NULL, DR_MEMPROT_READ, 0);
+        map_start = (char *)dr_map_file(file, &map_size, 0, NULL, DR_MEMPROT_READ, 0);
         if (map_start == NULL || map_size < file_size)
             return DRCOVLIB_ERROR_INVALID_PARAMETER; /* assume bad perms or sthg */
     }
@@ -632,8 +624,8 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
     /* Module table header, handling the pre-versioning legacy format. */
     if (dr_sscanf(buf, "Module Table: %u\n", num_mods) == 1)
         version = 1;
-    else if (dr_sscanf(buf, "Module Table: version %u, count %u\n", &version,
-                       num_mods) != 2 ||
+    else if (dr_sscanf(buf, "Module Table: version %u, count %u\n", &version, num_mods) !=
+                 2 ||
              version > MODULE_FILE_VERSION)
         goto read_error;
     buf = move_to_next_line(buf);
@@ -652,37 +644,36 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
     info->mod = (module_read_entry_t *)dr_global_alloc(*num_mods * sizeof(*info->mod));
 
     /* module lists */
+    mods_parsed = 0;
     for (i = 0; i < *num_mods; i++) {
         uint mod_id;
         if (version == 1) {
-            if (dr_sscanf(buf, " %u, %" INT64_FORMAT"u, %[^\n\r]",
-                          &mod_id, &info->mod[i].size, info->mod[i].path) != 3 ||
+            if (dr_sscanf(buf, " %u, %" INT64_FORMAT "u, %[^\n\r]", &mod_id,
+                          &info->mod[i].size, info->mod[i].path) != 3 ||
                 mod_id != i)
                 goto read_error;
         } else {
             app_pc end;
             if (version == 2) {
-                if (dr_sscanf(buf, "%u, "PIFX", "PIFX", "PIFX", ",
-                              &mod_id, &info->mod[i].base, &end,
-                              &info->mod[i].entry) != 4 ||
+                if (dr_sscanf(buf, "%u, " PIFX ", " PIFX ", " PIFX ", ", &mod_id,
+                              &info->mod[i].base, &end, &info->mod[i].entry) != 4 ||
                     mod_id != i)
                     goto read_error;
                 info->mod[i].containing_id = mod_id;
                 buf = skip_commas_and_spaces(buf, 4);
-            } else
-            if (version == 3) {
-                if (dr_sscanf(buf, "%u, %u, "PIFX", "PIFX", "PIFX", ",
-                              &mod_id, &info->mod[i].containing_id,
-                              &info->mod[i].base, &end, &info->mod[i].entry) != 5 ||
+            } else if (version == 3) {
+                if (dr_sscanf(buf, "%u, %u, " PIFX ", " PIFX ", " PIFX ", ", &mod_id,
+                              &info->mod[i].containing_id, &info->mod[i].base, &end,
+                              &info->mod[i].entry) != 5 ||
                     mod_id != i)
                     goto read_error;
                 buf = skip_commas_and_spaces(buf, 5);
             } else { // version == 4
-                if (dr_sscanf(buf, "%u, %u, "PIFX", "PIFX", "
-                              PIFX", "HEX64_FORMAT_STRING", ",
-                              &mod_id, &info->mod[i].containing_id,
-                              &info->mod[i].base, &end, &info->mod[i].entry,
-                              &info->mod[i].offset) != 6 ||
+                if (dr_sscanf(buf,
+                              "%u, %u, " PIFX ", " PIFX ", " PIFX ", " HEX64_FORMAT_STRING
+                              ", ",
+                              &mod_id, &info->mod[i].containing_id, &info->mod[i].base,
+                              &end, &info->mod[i].entry, &info->mod[i].offset) != 6 ||
                     mod_id != i)
                     goto read_error;
                 buf = skip_commas_and_spaces(buf, 6);
@@ -702,6 +693,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                 buf = module_parse_cb(buf, &info->mod[i].custom);
             if (buf == NULL)
                 goto read_error;
+            ++mods_parsed;
             info->mod[i].path = info->mod[i].path_buf;
             if (dr_sscanf(buf, " %[^\n\r]", info->mod[i].path) != 1)
                 goto read_error;
@@ -715,7 +707,11 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
     *handle = (void *)info;
     return DRCOVLIB_SUCCESS;
 
- read_error:
+read_error:
+    if (module_free_cb != NULL) {
+        for (i = 0; i < mods_parsed; i++)
+            module_free_cb(info->mod[i].custom);
+    }
     if (info != NULL) {
         dr_global_free(info->mod, *num_mods * sizeof(*info->mod));
         dr_global_free(info, sizeof(*info));
@@ -773,7 +769,7 @@ drmodtrack_offline_write(void *handle, OUT char *buf_start, size_t size,
     }
     *buf = '\0';
     if (wrote != NULL)
-        *wrote = buf + 1/*null*/ - buf_start;
+        *wrote = buf + 1 /*null*/ - buf_start;
     return DRCOVLIB_SUCCESS;
 }
 
@@ -796,9 +792,9 @@ drmodtrack_offline_exit(void *handle)
 }
 
 drcovlib_status_t
-drmodtrack_add_custom_data(void * (*load_cb)(module_data_t *module),
+drmodtrack_add_custom_data(void *(*load_cb)(module_data_t *module),
                            int (*print_cb)(void *data, char *dst, size_t max_len),
-                           const char * (*parse_cb)(const char *src, OUT void **data),
+                           const char *(*parse_cb)(const char *src, OUT void **data),
                            void (*free_cb)(void *data))
 {
     /* We blindly replace if values already exist, as documented. */

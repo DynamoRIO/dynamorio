@@ -42,9 +42,11 @@ typedef void (*funcptr)();
  * writes to other vars
  */
 #pragma data_seg(".isolate")
-char badfuncbuf[1000] = {0,};
+char badfuncbuf[1000] = {
+    0,
+};
 #pragma data_seg()
-char* badfunc;
+char *badfunc;
 
 DWORD WINAPI
 call_bad_code(LPVOID parm)
@@ -70,19 +72,26 @@ call_bad_code(LPVOID parm)
                 initialize_registry_context();
                 ((funcptr)badfunc)();
                 print("DATA: At statement after exception\n");
-            }
-            __except (
-                      exception = *((GetExceptionInformation())->ExceptionRecord),
-                      context = (GetExceptionInformation())->ContextRecord,
-                      print("DATA VIOLATION: Inside first filter eax=%x\n",
-                             context->CXT_XAX),
+            } __except (
+                exception = *((GetExceptionInformation())->ExceptionRecord),
+                context = (GetExceptionInformation())->ContextRecord,
+                print("DATA VIOLATION: Inside first filter eax=%x\n", context->CXT_XAX),
 #ifdef DUMP_REGISTER_STATE
-                      dump_exception_info(&exception, context),
+                dump_exception_info(&exception, context),
 #else
-                      print("Address match : %s\n", (exception.ExceptionAddress == (PVOID)badfunc && context->CXT_XIP == (ptr_uint_t)badfunc) ? "yes" : "no"),
-                      print("Exception match : %s\n", (exception.ExceptionCode == 0xc0000005 && exception.ExceptionInformation[0] == 0 && exception.ExceptionInformation[1] == (ptr_uint_t)badfunc) ? "yes" : "no"),
+                print("Address match : %s\n",
+                      (exception.ExceptionAddress == (PVOID)badfunc &&
+                       context->CXT_XIP == (ptr_uint_t)badfunc)
+                          ? "yes"
+                          : "no"),
+                print("Exception match : %s\n",
+                      (exception.ExceptionCode == 0xc0000005 &&
+                       exception.ExceptionInformation[0] == 0 &&
+                       exception.ExceptionInformation[1] == (ptr_uint_t)badfunc)
+                          ? "yes"
+                          : "no"),
 #endif
-                      EXCEPTION_EXECUTE_HANDLER) {
+                EXCEPTION_EXECUTE_HANDLER) {
                 print("DATA VIOLATION: Inside first handler\n");
             }
             print("DATA: At statement after 1st try-except\n");
@@ -93,23 +102,30 @@ call_bad_code(LPVOID parm)
             } __except (EXCEPTION_CONTINUE_SEARCH) {
                 print("DATA: This should NOT be printed\n");
             }
-        }
-        __finally {
+        } __finally {
             print("DATA: Finally!\n");
         }
         print("DATA: At statement after 2nd try-finally\n");
-    }
-    __except (
-              exception = *((GetExceptionInformation())->ExceptionRecord),
-              context = (GetExceptionInformation())->ContextRecord,
-              (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION) ?
-              EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+    } __except (exception = *((GetExceptionInformation())->ExceptionRecord),
+                context = (GetExceptionInformation())->ContextRecord,
+                (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION)
+                    ? EXCEPTION_EXECUTE_HANDLER
+                    : EXCEPTION_CONTINUE_SEARCH) {
         print("DATA: Expected execution violation!\n");
 #ifdef DUMP_REGISTER_STATE
         dump_exception_info(&exception, context);
 #else
-        print("Address match : %s\n", (exception.ExceptionAddress == (PVOID)badfunc && context->CXT_XIP == (ptr_uint_t)badfunc) ? "yes" : "no");
-        print("Exception match : %s\n", (exception.ExceptionCode == 0xc0000005 && exception.ExceptionInformation[0] == 0 && exception.ExceptionInformation[1] == (ptr_uint_t)badfunc) ? "yes" : "no");
+        print("Address match : %s\n",
+              (exception.ExceptionAddress == (PVOID)badfunc &&
+               context->CXT_XIP == (ptr_uint_t)badfunc)
+                  ? "yes"
+                  : "no");
+        print("Exception match : %s\n",
+              (exception.ExceptionCode == 0xc0000005 &&
+               exception.ExceptionInformation[0] == 0 &&
+               exception.ExceptionInformation[1] == (ptr_uint_t)badfunc)
+                  ? "yes"
+                  : "no");
 #endif
     }
     print("DATA: After exception handler\n");
@@ -122,7 +138,7 @@ main()
     DWORD tid;
     HANDLE ht;
 
-    badfunc = (char *) ALIGN_FORWARD(badfuncbuf, 512);
+    badfunc = (char *)ALIGN_FORWARD(badfuncbuf, 512);
 
     /* FIXME: make this fancier */
     badfunc[0] = 0xc3; /* ret */

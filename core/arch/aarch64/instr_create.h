@@ -71,7 +71,6 @@
  */
 #define OPND_CREATE_BYTE() OPND_CREATE_INT8(VECTOR_ELEM_WIDTH_BYTE)
 
-
 /**
  * Operand denoting 16 bit vector element width for the other operands of
  * the containing instruction.
@@ -90,7 +89,6 @@
  */
 #define OPND_CREATE_DOUBLE() OPND_CREATE_INT8(VECTOR_ELEM_WIDTH_DOUBLE)
 
-
 /**
  * @file dr_ir_macros_aarch64.h
  * @brief AArch64-specific instruction creation convenience macros.
@@ -101,8 +99,7 @@
  * Encoding will fail if addr is out of the maximum signed displacement
  * reach for the architecture.
  */
-#define OPND_CREATE_ABSMEM(addr, size) \
-  opnd_create_rel_addr(addr, size)
+#define OPND_CREATE_ABSMEM(addr, size) opnd_create_rel_addr(addr, size)
 
 /**
  * Create an immediate integer operand. For AArch64 the size of an immediate
@@ -112,11 +109,10 @@
 
 /** Create a zero register operand of the same size as reg. */
 #define OPND_CREATE_ZR(reg) \
-  opnd_create_reg(opnd_get_size(reg) == OPSZ_4 ? DR_REG_WZR : DR_REG_XZR)
+    opnd_create_reg(opnd_get_size(reg) == OPSZ_4 ? DR_REG_WZR : DR_REG_XZR)
 
 /** Create an operand specifying LSL, the default shift type when there is no shift. */
-#define OPND_CREATE_LSL() \
-  opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSL), DR_OPND_IS_SHIFT)
+#define OPND_CREATE_LSL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSL), DR_OPND_IS_SHIFT)
 
 /****************************************************************************
  * Platform-independent INSTR_CREATE_* macros
@@ -129,8 +125,7 @@
  * instruction, automatically supplying any implicit operands.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
-#define XINST_CREATE_debug_instr(dc) \
-  INSTR_CREATE_brk((dc), OPND_CREATE_INT16(0))
+#define XINST_CREATE_debug_instr(dc) INSTR_CREATE_brk((dc), OPND_CREATE_INT16(0))
 
 /**
  * This platform-independent macro creates an instr_t for a 4-byte
@@ -176,13 +171,15 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store(dc, m, r) \
-  (opnd_is_base_disp(m) && \
-   opnd_get_disp(m) % opnd_size_in_bytes(opnd_get_size(m)) != 0 ? \
-    INSTR_CREATE_stur(dc, m, \
-      opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m)))) : \
-    INSTR_CREATE_str(dc, m, \
-      opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m)))))
+#define XINST_CREATE_store(dc, m, r)                                                   \
+    (opnd_is_base_disp(m) &&                                                           \
+             opnd_get_disp(m) % opnd_size_in_bytes(opnd_get_size(m)) != 0              \
+         ? INSTR_CREATE_stur(                                                          \
+               dc, m,                                                                  \
+               opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m)))) \
+         : INSTR_CREATE_str(                                                           \
+               dc, m,                                                                  \
+               opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m)))))
 
 /**
  * This platform-independent macro creates an instr_t for a 1-byte
@@ -191,8 +188,8 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store_1byte(dc, m, r) INSTR_CREATE_strb(dc, m, \
-   opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), OPSZ_4)))
+#define XINST_CREATE_store_1byte(dc, m, r) \
+    INSTR_CREATE_strb(dc, m, opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), OPSZ_4)))
 
 /**
  * This platform-independent macro creates an instr_t for a 2-byte
@@ -201,8 +198,8 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store_2bytes(dc, m, r) INSTR_CREATE_strh(dc, m, \
-  opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), OPSZ_4)))
+#define XINST_CREATE_store_2bytes(dc, m, r) \
+    INSTR_CREATE_strh(dc, m, opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), OPSZ_4)))
 
 /**
  * This platform-independent macro creates an instr_t for a register
@@ -211,13 +208,13 @@
  * \param d   The destination register opnd.
  * \param s   The source register opnd.
  */
-#define XINST_CREATE_move(dc, d, s) \
-  ((opnd_get_reg(d) == DR_REG_XSP || opnd_get_reg(s) == DR_REG_XSP || \
-    opnd_get_reg(d) == DR_REG_WSP || opnd_get_reg(s) == DR_REG_WSP) ? \
-   instr_create_1dst_4src(dc, OP_add, d, s, OPND_CREATE_INT(0), \
-                          OPND_CREATE_LSL(), OPND_CREATE_INT(0)) : \
-   instr_create_1dst_4src(dc, OP_orr, d, OPND_CREATE_ZR(d), s, \
-                          OPND_CREATE_LSL(), OPND_CREATE_INT(0)))
+#define XINST_CREATE_move(dc, d, s)                                      \
+    ((opnd_get_reg(d) == DR_REG_XSP || opnd_get_reg(s) == DR_REG_XSP ||  \
+      opnd_get_reg(d) == DR_REG_WSP || opnd_get_reg(s) == DR_REG_WSP)    \
+         ? instr_create_1dst_4src(dc, OP_add, d, s, OPND_CREATE_INT(0),  \
+                                  OPND_CREATE_LSL(), OPND_CREATE_INT(0)) \
+         : instr_create_1dst_4src(dc, OP_orr, d, OPND_CREATE_ZR(d), s,   \
+                                  OPND_CREATE_LSL(), OPND_CREATE_INT(0)))
 
 /**
  * This platform-independent macro creates an instr_t for a multimedia
@@ -252,18 +249,17 @@
  * \param r   The destination register opnd.
  * \param i   The source immediate integer opnd.
  */
-#define XINST_CREATE_load_int(dc, r, i) \
-  (opnd_get_immed_int(i) < 0 ? \
-   INSTR_CREATE_movn((dc), (r), OPND_CREATE_INT32(~opnd_get_immed_int(i)), \
-                     OPND_CREATE_INT(0)) : \
-   INSTR_CREATE_movz((dc), (r), (i), OPND_CREATE_INT(0)))
+#define XINST_CREATE_load_int(dc, r, i)                                            \
+    (opnd_get_immed_int(i) < 0                                                     \
+         ? INSTR_CREATE_movn((dc), (r), OPND_CREATE_INT32(~opnd_get_immed_int(i)), \
+                             OPND_CREATE_INT(0))                                   \
+         : INSTR_CREATE_movz((dc), (r), (i), OPND_CREATE_INT(0)))
 
 /**
  * This platform-independent macro creates an instr_t for a return instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  */
-#define XINST_CREATE_return(dc) \
-    INSTR_CREATE_ret(dc, opnd_create_reg(DR_REG_X30))
+#define XINST_CREATE_return(dc) INSTR_CREATE_ret(dc, opnd_create_reg(DR_REG_X30))
 
 /**
  * This platform-independent macro creates an instr_t for an unconditional
@@ -351,9 +347,9 @@
  * must be a register.
  * \param shift_amount  An integer value that must be either 0, 1, 2, or 3.
  */
-#define XINST_CREATE_add_sll(dc, d, s1, s2_toshift, shift_amount) \
-  INSTR_CREATE_add_shift((dc), (d), (s1), (s2_toshift), \
-    OPND_CREATE_LSL(), OPND_CREATE_INT8(shift_amount))
+#define XINST_CREATE_add_sll(dc, d, s1, s2_toshift, shift_amount)            \
+    INSTR_CREATE_add_shift((dc), (d), (s1), (s2_toshift), OPND_CREATE_LSL(), \
+                           OPND_CREATE_INT8(shift_amount))
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -420,12 +416,12 @@
  * they just need to know whether they need to preserve the app's flags, so maybe
  * we can just document that this may not write them.
  */
-#define XINST_CREATE_slr_s(dc, d, rm_or_imm) \
-  (opnd_is_reg(rm_or_imm) ? \
-    instr_create_1dst_2src(dc, OP_lsrv, d, d, rm_or_imm) : \
-    instr_create_1dst_3src(dc, OP_ubfm, d, d, rm_or_imm, \
-                           reg_is_32bit(opnd_get_reg(d)) ? OPND_CREATE_INT(31) : \
-                                                           OPND_CREATE_INT(63)))
+#define XINST_CREATE_slr_s(dc, d, rm_or_imm)                                          \
+    (opnd_is_reg(rm_or_imm)                                                           \
+         ? instr_create_1dst_2src(dc, OP_lsrv, d, d, rm_or_imm)                       \
+         : instr_create_1dst_3src(dc, OP_ubfm, d, d, rm_or_imm,                       \
+                                  reg_is_32bit(opnd_get_reg(d)) ? OPND_CREATE_INT(31) \
+                                                                : OPND_CREATE_INT(63)))
 
 /**
  * This platform-independent macro creates an instr_t for a nop instruction.
@@ -441,22 +437,23 @@
  */
 
 #define INSTR_CREATE_add(dc, rd, rn, rm_or_imm) \
-  INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
-#define INSTR_CREATE_add_extend(dc, rd, rn, rm, ext, exa) \
-  instr_create_1dst_4src(dc, OP_add, rd, rn, \
-    opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
-    opnd_add_flags(ext, DR_OPND_IS_EXTEND), \
-    exa)
-#define INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, sht, sha) \
-  opnd_is_reg(rm_or_imm) ? \
-  instr_create_1dst_4src((dc), OP_add, (rd), (rn), \
-    opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
-    opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha)) : \
-  instr_create_1dst_4src((dc), OP_add, (rd), (rn), (rm_or_imm), (sht), (sha))
-#define INSTR_CREATE_adds(dc, rd, rn, rm_or_imm) \
-  (opnd_is_reg(rm_or_imm) ? \
-    INSTR_CREATE_adds_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0)) : \
-    INSTR_CREATE_adds_imm(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(0)))
+    INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define INSTR_CREATE_add_extend(dc, rd, rn, rm, ext, exa)                             \
+    instr_create_1dst_4src(dc, OP_add, rd, rn,                                        \
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
+                           opnd_add_flags(ext, DR_OPND_IS_EXTEND), exa)
+#define INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, sht, sha)                \
+    opnd_is_reg(rm_or_imm)                                                     \
+        ? instr_create_1dst_4src(                                              \
+              (dc), OP_add, (rd), (rn),                                        \
+              opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
+              opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))                  \
+        : instr_create_1dst_4src((dc), OP_add, (rd), (rn), (rm_or_imm), (sht), (sha))
+#define INSTR_CREATE_adds(dc, rd, rn, rm_or_imm)                             \
+    (opnd_is_reg(rm_or_imm)                                                  \
+         ? INSTR_CREATE_adds_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
+                                   OPND_CREATE_INT(0))                       \
+         : INSTR_CREATE_adds_imm(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(0)))
 
 /**
  * Creates an AND instruction with one output and two inputs.
@@ -465,14 +462,15 @@
  * \param rn   The first input register.
  * \param rm_or_imm   The second input register or immediate.
  */
-#define INSTR_CREATE_and(dc, rd, rn, rm_or_imm) \
-  (opnd_is_immed(rm_or_imm) ? instr_create_1dst_2src((dc), OP_and, (rd), (rn), (rm_or_imm)) :  \
-                             INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
-                                                    OPND_CREATE_INT(0)))
-#define INSTR_CREATE_and_shift(dc, rd, rn, rm, sht, sha) \
-  instr_create_1dst_4src((dc), OP_and, (rd), (rn), \
-    opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
-    opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
+#define INSTR_CREATE_and(dc, rd, rn, rm_or_imm)                             \
+    (opnd_is_immed(rm_or_imm)                                               \
+         ? instr_create_1dst_2src((dc), OP_and, (rd), (rn), (rm_or_imm))    \
+         : INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
+                                  OPND_CREATE_INT(0)))
+#define INSTR_CREATE_and_shift(dc, rd, rn, rm, sht, sha)                             \
+    instr_create_1dst_4src((dc), OP_and, (rd), (rn),                                 \
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
+                           opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
 
 /**
  * Creates an ANDS instruction with one output and two inputs.
@@ -481,132 +479,118 @@
  * \param rn   The first input register.
  * \param rm_or_imm   The second input register or immediate.
  */
-#define INSTR_CREATE_ands(dc, rd, rn, rm_or_imm) \
-  (opnd_is_immed(rm_or_imm) ? instr_create_1dst_2src((dc), OP_ands, (rd), (rn), (rm_or_imm)) :  \
-                             INSTR_CREATE_ands_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
-                                                    OPND_CREATE_INT(0)))
-#define INSTR_CREATE_ands_shift(dc, rd, rn, rm, sht, sha) \
-  instr_create_1dst_4src((dc), OP_ands, (rd), (rn), \
-    opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
-    opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
-#define INSTR_CREATE_b(dc, pc) \
-  instr_create_0dst_1src((dc), OP_b, (pc))
+#define INSTR_CREATE_ands(dc, rd, rn, rm_or_imm)                             \
+    (opnd_is_immed(rm_or_imm)                                                \
+         ? instr_create_1dst_2src((dc), OP_ands, (rd), (rn), (rm_or_imm))    \
+         : INSTR_CREATE_ands_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
+                                   OPND_CREATE_INT(0)))
+#define INSTR_CREATE_ands_shift(dc, rd, rn, rm, sht, sha)                            \
+    instr_create_1dst_4src((dc), OP_ands, (rd), (rn),                                \
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
+                           opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
+#define INSTR_CREATE_b(dc, pc) instr_create_0dst_1src((dc), OP_b, (pc))
 /**
  * This macro creates an instr_t for a conditional branch instruction. The condition
  * can be set using INSTR_PRED macro.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param pc The opnd_t target operand containing the program counter to jump to.
  */
-#define INSTR_CREATE_bcond(dc, pc) \
-  instr_create_0dst_1src((dc), OP_bcond, (pc))
+#define INSTR_CREATE_bcond(dc, pc) instr_create_0dst_1src((dc), OP_bcond, (pc))
 /**
  * This macro creates an instr_t for a BL (branch and link) instruction.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param pc The opnd_t target operand containing the program counter to jump to.
  */
 #define INSTR_CREATE_bl(dc, pc) \
-  instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_X30), (pc))
+    instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_X30), (pc))
 
 #define INSTR_CREATE_adc(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_adc, (Rd), (Rn), (Rm))
+    instr_create_1dst_2src((dc), OP_adc, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_adcs(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_adcs, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_adds_extend(dc, Rd, Rn, Rm, shift, imm3) \
-  instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_EXTENDED), opnd_add_flags((shift), DR_OPND_IS_EXTEND), (imm3))
-#define INSTR_CREATE_adds_imm(dc, Rd, Rn, imm12, shift_amt) \
-  instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn), (imm12), OPND_CREATE_LSL(), (shift_amt))
-#define INSTR_CREATE_adds_shift(dc, Rd, Rn, Rm, shift, imm6) \
-  instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm6))
-#define INSTR_CREATE_br(dc, xn) \
-  instr_create_0dst_1src((dc), OP_br, (xn))
+    instr_create_1dst_2src((dc), OP_adcs, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_adds_extend(dc, Rd, Rn, Rm, shift, imm3)                         \
+    instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn),                                 \
+                           opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_EXTENDED), \
+                           opnd_add_flags((shift), DR_OPND_IS_EXTEND), (imm3))
+#define INSTR_CREATE_adds_imm(dc, Rd, Rn, imm12, shift_amt)                       \
+    instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn), (imm12), OPND_CREATE_LSL(), \
+                           (shift_amt))
+#define INSTR_CREATE_adds_shift(dc, Rd, Rn, Rm, shift, imm6)                         \
+    instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn),                                \
+                           opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
+                           opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm6))
+#define INSTR_CREATE_br(dc, xn) instr_create_0dst_1src((dc), OP_br, (xn))
 #define INSTR_CREATE_blr(dc, xn) \
-  instr_create_1dst_1src((dc), OP_blr, opnd_create_reg(DR_REG_X30), (xn))
-#define INSTR_CREATE_brk(dc, imm) \
-  instr_create_0dst_1src((dc), OP_brk, (imm))
-#define INSTR_CREATE_cbnz(dc, pc, reg) \
-  instr_create_0dst_2src((dc), OP_cbnz, (pc), (reg))
-#define INSTR_CREATE_cbz(dc, pc, reg) \
-  instr_create_0dst_2src((dc), OP_cbz, (pc), (reg))
+    instr_create_1dst_1src((dc), OP_blr, opnd_create_reg(DR_REG_X30), (xn))
+#define INSTR_CREATE_brk(dc, imm) instr_create_0dst_1src((dc), OP_brk, (imm))
+#define INSTR_CREATE_cbnz(dc, pc, reg) instr_create_0dst_2src((dc), OP_cbnz, (pc), (reg))
+#define INSTR_CREATE_cbz(dc, pc, reg) instr_create_0dst_2src((dc), OP_cbz, (pc), (reg))
 #define INSTR_CREATE_cmp(dc, rn, rm_or_imm) \
-  INSTR_CREATE_subs(dc, OPND_CREATE_ZR(rn), rn, rm_or_imm)
+    INSTR_CREATE_subs(dc, OPND_CREATE_ZR(rn), rn, rm_or_imm)
 #define INSTR_CREATE_ldp(dc, rt1, rt2, mem) \
-  instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
-#define INSTR_CREATE_ldr(dc, Rd, mem) \
-  instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
-#define INSTR_CREATE_ldrb(dc, Rd, mem) \
-  instr_create_1dst_1src(dc, OP_ldrb, Rd, mem)
-#define INSTR_CREATE_ldrh(dc, Rd, mem) \
-  instr_create_1dst_1src(dc, OP_ldrh, Rd, mem)
-#define INSTR_CREATE_ldar(dc, Rt, mem) \
-  instr_create_1dst_1src((dc), OP_ldar, (Rt), (mem))
+    instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
+#define INSTR_CREATE_ldr(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
+#define INSTR_CREATE_ldrb(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrb, Rd, mem)
+#define INSTR_CREATE_ldrh(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrh, Rd, mem)
+#define INSTR_CREATE_ldar(dc, Rt, mem) instr_create_1dst_1src((dc), OP_ldar, (Rt), (mem))
 #define INSTR_CREATE_ldarb(dc, Rt, mem) \
-  instr_create_1dst_1src((dc), OP_ldarb, (Rt), (mem))
+    instr_create_1dst_1src((dc), OP_ldarb, (Rt), (mem))
 #define INSTR_CREATE_ldarh(dc, Rt, mem) \
-  instr_create_1dst_1src((dc), OP_ldarh, (Rt), (mem))
+    instr_create_1dst_1src((dc), OP_ldarh, (Rt), (mem))
 #define INSTR_CREATE_movk(dc, rt, imm16, lsl) \
-  instr_create_1dst_4src(dc, OP_movk, rt, rt, imm16, OPND_CREATE_LSL(), lsl)
+    instr_create_1dst_4src(dc, OP_movk, rt, rt, imm16, OPND_CREATE_LSL(), lsl)
 #define INSTR_CREATE_movn(dc, rt, imm16, lsl) \
-  instr_create_1dst_3src(dc, OP_movn, rt, imm16, OPND_CREATE_LSL(), lsl)
+    instr_create_1dst_3src(dc, OP_movn, rt, imm16, OPND_CREATE_LSL(), lsl)
 #define INSTR_CREATE_movz(dc, rt, imm16, lsl) \
-  instr_create_1dst_3src(dc, OP_movz, rt, imm16, OPND_CREATE_LSL(), lsl)
+    instr_create_1dst_3src(dc, OP_movz, rt, imm16, OPND_CREATE_LSL(), lsl)
 #define INSTR_CREATE_mrs(dc, Xt, sysreg) \
-  instr_create_1dst_1src((dc), OP_mrs, (Xt), (sysreg))
+    instr_create_1dst_1src((dc), OP_mrs, (Xt), (sysreg))
 #define INSTR_CREATE_msr(dc, sysreg, Xt) \
-  instr_create_1dst_1src((dc), OP_msr, (sysreg), (Xt))
-#define INSTR_CREATE_nop(dc) \
-  instr_create_0dst_0src((dc), OP_nop)
-#define INSTR_CREATE_ret(dc, Rn) \
-  instr_create_0dst_1src((dc), OP_ret, (Rn))
+    instr_create_1dst_1src((dc), OP_msr, (sysreg), (Xt))
+#define INSTR_CREATE_nop(dc) instr_create_0dst_0src((dc), OP_nop)
+#define INSTR_CREATE_ret(dc, Rn) instr_create_0dst_1src((dc), OP_ret, (Rn))
 #define INSTR_CREATE_stp(dc, mem, rt1, rt2) \
-  instr_create_1dst_2src(dc, OP_stp, mem, rt1, rt2)
-#define INSTR_CREATE_str(dc, mem, rt) \
-  instr_create_1dst_1src(dc, OP_str, mem, rt)
-#define INSTR_CREATE_strb(dc, mem, rt) \
-  instr_create_1dst_1src(dc, OP_strb, mem, rt)
-#define INSTR_CREATE_strh(dc, mem, rt) \
-  instr_create_1dst_1src(dc, OP_strh, mem, rt)
-#define INSTR_CREATE_stur(dc, mem, rt) \
-  instr_create_1dst_1src(dc, OP_stur, mem, rt)
-#define INSTR_CREATE_sturh(dc, mem, rt) \
-  instr_create_1dst_1src(dc, OP_sturh, mem, rt)
+    instr_create_1dst_2src(dc, OP_stp, mem, rt1, rt2)
+#define INSTR_CREATE_str(dc, mem, rt) instr_create_1dst_1src(dc, OP_str, mem, rt)
+#define INSTR_CREATE_strb(dc, mem, rt) instr_create_1dst_1src(dc, OP_strb, mem, rt)
+#define INSTR_CREATE_strh(dc, mem, rt) instr_create_1dst_1src(dc, OP_strh, mem, rt)
+#define INSTR_CREATE_stur(dc, mem, rt) instr_create_1dst_1src(dc, OP_stur, mem, rt)
+#define INSTR_CREATE_sturh(dc, mem, rt) instr_create_1dst_1src(dc, OP_sturh, mem, rt)
 #define INSTR_CREATE_sub(dc, rd, rn, rm_or_imm) \
-  INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
-#define INSTR_CREATE_sub_extend(dc, rd, rn, rm, ext, exa) \
-  instr_create_1dst_4src(dc, OP_sub, rd, rn, \
-    opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
-    opnd_add_flags(ext, DR_OPND_IS_EXTEND), \
-    exa)
-#define INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, sht, sha) \
-  opnd_is_reg(rm_or_imm) ? \
-  instr_create_1dst_4src((dc), OP_sub, (rd), (rn), \
-    opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
-    opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha)) : \
-  instr_create_1dst_4src((dc), OP_sub, (rd), (rn), (rm_or_imm), (sht), (sha))
+    INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define INSTR_CREATE_sub_extend(dc, rd, rn, rm, ext, exa)                             \
+    instr_create_1dst_4src(dc, OP_sub, rd, rn,                                        \
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
+                           opnd_add_flags(ext, DR_OPND_IS_EXTEND), exa)
+#define INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, sht, sha)                \
+    opnd_is_reg(rm_or_imm)                                                     \
+        ? instr_create_1dst_4src(                                              \
+              (dc), OP_sub, (rd), (rn),                                        \
+              opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
+              opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))                  \
+        : instr_create_1dst_4src((dc), OP_sub, (rd), (rn), (rm_or_imm), (sht), (sha))
 #define INSTR_CREATE_subs(dc, rd, rn, rm_or_imm) \
-  INSTR_CREATE_subs_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
-#define INSTR_CREATE_subs_extend(dc, rd, rn, rm, ext, exa) \
-  instr_create_1dst_4src(dc, OP_subs, rd, rn, \
-    opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
-    opnd_add_flags(ext, DR_OPND_IS_EXTEND), \
-    exa)
-#define INSTR_CREATE_subs_shift(dc, rd, rn, rm_or_imm, sht, sha) \
-  opnd_is_reg(rm_or_imm) ? \
-  instr_create_1dst_4src((dc), OP_subs, (rd), (rn), \
-    opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
-    opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha)) : \
-  instr_create_1dst_4src((dc), OP_subs, (rd), (rn), (rm_or_imm), (sht), (sha))
-#define INSTR_CREATE_svc(dc, imm) \
-  instr_create_0dst_1src((dc), OP_svc, (imm))
-#define INSTR_CREATE_adr(dc, rt, imm) \
-  instr_create_1dst_1src(dc, OP_adr, rt, imm)
-#define INSTR_CREATE_adrp(dc, rt, imm) \
-  instr_create_1dst_1src(dc, OP_adrp, rt, imm)
+    INSTR_CREATE_subs_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define INSTR_CREATE_subs_extend(dc, rd, rn, rm, ext, exa)                            \
+    instr_create_1dst_4src(dc, OP_subs, rd, rn,                                       \
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
+                           opnd_add_flags(ext, DR_OPND_IS_EXTEND), exa)
+#define INSTR_CREATE_subs_shift(dc, rd, rn, rm_or_imm, sht, sha)               \
+    opnd_is_reg(rm_or_imm)                                                     \
+        ? instr_create_1dst_4src(                                              \
+              (dc), OP_subs, (rd), (rn),                                       \
+              opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
+              opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))                  \
+        : instr_create_1dst_4src((dc), OP_subs, (rd), (rn), (rm_or_imm), (sht), (sha))
+#define INSTR_CREATE_svc(dc, imm) instr_create_0dst_1src((dc), OP_svc, (imm))
+#define INSTR_CREATE_adr(dc, rt, imm) instr_create_1dst_1src(dc, OP_adr, rt, imm)
+#define INSTR_CREATE_adrp(dc, rt, imm) instr_create_1dst_1src(dc, OP_adrp, rt, imm)
 
 /* FIXME i#1569: these two should perhaps not be provided */
 #define INSTR_CREATE_add_shimm(dc, rd, rn, rm_or_imm, sht, sha) \
-  INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, sht, sha)
+    INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, sht, sha)
 #define INSTR_CREATE_sub_shimm(dc, rd, rn, rm_or_imm, sht, sha) \
-  INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, sht, sha)
+    INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, sht, sha)
 
 /**
  * Creates an FMOV instruction to move between GPRs and floating point registers.
@@ -614,10 +598,13 @@
  * \param Rd   The output register.
  * \param Rn   The first input register.
  */
-#define INSTR_CREATE_fmov_general(dc, Rd, Rn) \
-    instr_create_1dst_1src(dc, OP_fmov, Rd, Rn)
+#define INSTR_CREATE_fmov_general(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_fmov, Rd, Rn)
 
-/* -------- Advanced SIMD three same including fp16 versions ---------------- */
+/* -------- Advanced SIMD three same including fp16 versions ----------------
+ * Some macros are also used for
+ *   SVE Integer Arithmetic - Unpredicated Group
+ *   Advanced SIMD three same (FP16)
+ */
 
 /**
  * Creates a SHADD vector instruction.
@@ -1574,8 +1561,7 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
-#define INSTR_CREATE_fmov_scalar(dc, Rd, Rm) \
-    instr_create_1dst_1src(dc, OP_fmov, Rd, Rm)
+#define INSTR_CREATE_fmov_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_fmov, Rd, Rm)
 
 /**
  * Creates a FABS floating point instruction.
@@ -1583,8 +1569,7 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
-#define INSTR_CREATE_fabs_scalar(dc, Rd, Rm) \
-    instr_create_1dst_1src(dc, OP_fabs, Rd, Rm)
+#define INSTR_CREATE_fabs_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_fabs, Rd, Rm)
 
 /**
  * Creates a FNEG floating point instruction.
@@ -1592,8 +1577,7 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
-#define INSTR_CREATE_fneg_scalar(dc, Rd, Rm) \
-    instr_create_1dst_1src(dc, OP_fneg, Rd, Rm)
+#define INSTR_CREATE_fneg_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_fneg, Rd, Rm)
 
 /**
  * Creates a FSQRT floating point instruction.
@@ -1601,8 +1585,7 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
-#define INSTR_CREATE_fsqrt_scalar(dc, Rd, Rm) \
-    instr_create_1dst_1src(dc, OP_fsqrt, Rd, Rm)
+#define INSTR_CREATE_fsqrt_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_fsqrt, Rd, Rm)
 
 /**
  * Creates a FCVT floating point instruction.
@@ -1610,8 +1593,7 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
-#define INSTR_CREATE_fcvt_scalar(dc, Rd, Rm) \
-    instr_create_1dst_1src(dc, OP_fcvt, Rd, Rm)
+#define INSTR_CREATE_fcvt_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_fcvt, Rd, Rm)
 
 /**
  * Creates a FRINTN floating point instruction.
@@ -1813,6 +1795,714 @@
  */
 #define INSTR_CREATE_fnmsub_scalar(dc, Rd, Rm, Rn, Ra) \
     instr_create_1dst_3src(dc, OP_fnmsub, Rd, Rm, Rn, Ra)
+
+/* Advanced SIMD (NEON) memory instructions */
+
+/**
+ * Creates an Advanced SIMD (NEON) LD1 instruction to load multiple
+ * single element structures to one vector register, e.g. LD1 {V0.4H},[X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param q       The destination vector register operand.
+ * \param r       The source memory operand.
+ * \param s       The size of the vector element.
+ */
+#define INSTR_CREATE_ld1_multi_1(dc, q, r, s) instr_create_1dst_2src(dc, OP_ld1, q, r, s)
+
+/**
+ * Creates an Advanced SIMD (NEON) ST1 instruction to store multiple
+ * single element structures from one vector register, e.g. ST1 {V1.2S},[X1].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param r       The destination memory operand.
+ * \param q       The source vector register operand.
+ * \param s       The size of the vector element.
+ */
+#define INSTR_CREATE_st1_multi_1(dc, r, q, s) instr_create_1dst_2src(dc, OP_st1, r, q, s)
+
+/* TODO i#2626: Remaining advanced SIMD (NEON) memory instructions:
+ * #define INSTR_CREATE_ld2/3/4_multi_2/3/4()
+ * #define INSTR_CREATE_ld1/2/3/4_single()
+ * and st1 equivalents including post-index variants.
+ */
+
+/* -------- SVE bitwise logical operations (predicated) ---------------- */
+
+/**
+ * Creates an ORR scalable vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Zd      The output SVE vector register.
+ * \param Pg      Predicate register for predicated instruction, P0-P7.
+ * \param Zd_     The first input SVE vector register. Must match Zd.
+ * \param Zm      The second input SVE vector register.
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_orr_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
+    instr_create_1dst_4src(dc, OP_orr, Zd, Pg, Zd_, Zm, width)
+
+/**
+ * Creates an EOR scalable vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Zd      The output SVE vector register.
+ * \param Pg      Predicate register for predicated instruction, P0-P7.
+ * \param Zd_     The first input SVE vector register. Must match Zd.
+ * \param Zm      The second input SVE vector register.
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_eor_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
+    instr_create_1dst_4src(dc, OP_eor, Zd, Pg, Zd_, Zm, width)
+
+/**
+ * Creates an AND scalable vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Zd      The output SVE vector register.
+ * \param Pg      Predicate register for predicated instruction, P0-P7.
+ * \param Zd_     The first input SVE vector register. Must match Zd.
+ * \param Zm      The second input SVE vector register.
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_and_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
+    instr_create_1dst_4src(dc, OP_and, Zd, Pg, Zd_, Zm, width)
+
+/**
+ * Creates a BIC scalable vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Zd      The output SVE vector register.
+ * \param Pg      Predicate register for predicated instruction, P0-P7.
+ * \param Zd_     The first input SVE vector register. Must match Zd.
+ * \param Zm      The second input SVE vector register.
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_bic_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
+    instr_create_1dst_4src(dc, OP_bic, Zd, Pg, Zd_, Zm, width)
+
+/* -------- Advanced SIMD three different ------------------------------ */
+
+/**
+ * Creates a SADDL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_saddl_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_saddl, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SADDL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_saddl2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_saddl2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SADDW vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_saddw_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_saddw, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SADDW2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_saddw2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_saddw2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SSUBL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_ssubl_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_ssubl, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SSUBL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_ssubl2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_ssubl2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SSUBW vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_ssubw_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_ssubw, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SSUBW2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_ssubw2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_ssubw2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a ADDHN vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_addhn_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_addhn, Rd, Rm, Rn, width)
+
+/**
+ * Creates a ADDHN2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_addhn2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_addhn2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SABAL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sabal_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_sabal, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SABAL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sabal2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_sabal2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SUBHN vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_subhn_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_subhn, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SUBHN2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_subhn2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_subhn2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SABDL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sabdl_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_sabdl, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SABDL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sabdl2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_sabdl2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SMLAL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_smlal_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_smlal, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SMLAL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_smlal2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_smlal2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SQDMLAL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_HALF() or
+ *                OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sqdmlal_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_sqdmlal, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SQDMLAL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_HALF() or
+ *                OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sqdmlal2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_sqdmlal2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SMLSL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_smlsl_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_smlsl, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SMLSL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_smlsl2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_smlsl2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SQDMLSL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_HALF() or
+ *                OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sqdmlsl_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_sqdmlsl, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SQDMLSL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_HALF() or
+ *                OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sqdmlsl2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_sqdmlsl2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SMULL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_smull_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_smull, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SMULL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_smull2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_smull2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SQDMULL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_HALF() or
+ *                OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sqdmull_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_sqdmull, Rd, Rm, Rn, width)
+
+/**
+ * Creates a SQDMULL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_HALF() or
+ *                OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sqdmull2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_sqdmull2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a PMULL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(), or
+ *                OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_pmull_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_pmull, Rd, Rm, Rn, width)
+
+/**
+ * Creates a PMULL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(), or
+ *                OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_pmull2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_pmull2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UADDL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_uaddl_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_uaddl, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UADDL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_uaddl2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_uaddl2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UADDW vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_uaddw_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_uaddw, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UADDW2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_uaddw2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_uaddw2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a USUBL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_usubl_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_usubl, Rd, Rm, Rn, width)
+
+/**
+ * Creates a USUBL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_usubl2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_usubl2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a USUBW vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_usubw_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_usubw, Rd, Rm, Rn, width)
+
+/**
+ * Creates a USUBW2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_usubw2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_usubw2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a RADDHN vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_raddhn_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_raddhn, Rd, Rm, Rn, width)
+
+/**
+ * Creates a RADDHN2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_raddhn2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_raddhn2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UABAL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_uabal_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_uabal, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UABAL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_uabal2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_uabal2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a RSUBHN vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_rsubhn_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_rsubhn, Rd, Rm, Rn, width)
+
+/**
+ * Creates a RSUBHN2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_rsubhn2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_rsubhn2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UABDL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_uabdl_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_uabdl, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UABDL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_uabdl2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_uabdl2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UMLAL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_umlal_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_umlal, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UMLAL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_umlal2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_umlal2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UMLSL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_umlsl_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_umlsl, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UMLSL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_umlsl2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_umlsl2, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UMULL vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_umull_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_umull, Rd, Rm, Rn, width)
+
+/**
+ * Creates a UMULL2 vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The input vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_umull2_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_umull2, Rd, Rm, Rn, width)
 
 /* DR_API EXPORT END */
 #endif /* INSTR_CREATE_H */

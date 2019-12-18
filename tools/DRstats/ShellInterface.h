@@ -39,22 +39,24 @@
 //////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_SHELLINTERFACE_H__9BEBA793_2785_4664_8854_201A76160E2C__INCLUDED_)
-#define AFX_SHELLINTERFACE_H__9BEBA793_2785_4664_8854_201A76160E2C__INCLUDED_
+#    define AFX_SHELLINTERFACE_H__9BEBA793_2785_4664_8854_201A76160E2C__INCLUDED_
 
-#if _MSC_VER > 1000
-#pragma once
-#endif // _MSC_VER > 1000
+#    if _MSC_VER > 1000
+#        pragma once
+#    endif // _MSC_VER > 1000
 
-class CShellInterface
-{
+class CShellInterface {
 public:
     CShellInterface();
     virtual ~CShellInterface();
 
-    static void Initialize();
-    static void Uninitialize();
-    static BOOL ResolveLinkFile(TCHAR *name, TCHAR *resolution, TCHAR *arguments,
-                                TCHAR *working_dir, HWND hwnd);
+    static void
+    Initialize();
+    static void
+    Uninitialize();
+    static BOOL
+    ResolveLinkFile(TCHAR *name, TCHAR *resolution, TCHAR *arguments, TCHAR *working_dir,
+                    HWND hwnd);
 
     static BOOL m_bInitialized;
 };

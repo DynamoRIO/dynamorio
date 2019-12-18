@@ -48,6 +48,6 @@
  * and binaries from the traced execution.  It does not support online analysis.
  */
 analysis_tool_t *
-opcode_mix_tool_create(const std::string& module_file_path, unsigned int verbose = 0);
+opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose = 0);
 
 #endif /* _OPCODE_MIX_CREATE_H_ */

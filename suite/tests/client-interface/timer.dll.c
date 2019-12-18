@@ -33,14 +33,14 @@
 
 #include "dr_api.h"
 #ifdef UNIX
-# include <sys/time.h>
-# ifdef MACOS
-#  include <sys/syscall.h>
-# else
-#  include <syscall.h>
-# endif
+#    include <sys/time.h>
+#    ifdef MACOS
+#        include <sys/syscall.h>
+#    else
+#        include <syscall.h>
+#    endif
 #else
-# error NYI
+#    error NYI
 #endif
 
 /* We do not synchronize access because we assume the itimer is shared
@@ -65,7 +65,7 @@ event_sample(void *drcontext, dr_mcontext_t *mcontext)
     buckets[whereami]++;
     DR_ASSERT(mcontext->pc != NULL &&
               /* Ensure DR wrote the value and it's not the uninit 0xab pattern. */
-              mcontext->pc != (app_pc)IF_X64_ELSE(0xabababababababab,0xabababab));
+              mcontext->pc != (app_pc)IF_X64_ELSE(0xabababababababab, 0xabababab));
 #if VERBOSE
     dr_fprintf(STDERR, "sample: %p %d %p\n", mcontext->pc, whereami, tag);
 #endif
@@ -115,7 +115,8 @@ exit_event(void)
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     dr_register_exit_event(exit_event);
     dr_register_post_syscall_event(post_syscall_event);

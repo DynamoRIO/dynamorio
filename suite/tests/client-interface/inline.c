@@ -32,40 +32,46 @@
  */
 
 #include "configure.h"
+#include "tools.h"
 
 /* Export instrumented functions so we can easily find them in client.  */
 #ifdef WINDOWS
-# define EXPORT __declspec(dllexport)
+#    define EXPORT __declspec(dllexport)
 #else /* UNIX */
-# define EXPORT __attribute__((visibility("default")))
+#    define EXPORT __attribute__((visibility("default")))
 #endif
 
 #ifdef X86
-# define FUNCTIONS() \
-         FUNCTION(empty) \
-         FUNCTION(empty_1arg) \
-         FUNCTION(inscount) \
-         FUNCTION(compiler_inscount) \
-         FUNCTION(gcc47_inscount) \
-         FUNCTION(callpic_pop) \
-         FUNCTION(callpic_mov) \
-         FUNCTION(nonleaf) \
-         FUNCTION(cond_br) \
-         FUNCTION(tls_clobber) \
-         FUNCTION(aflags_clobber) \
-         LAST_FUNCTION()
+#    define FUNCTIONS()             \
+        FUNCTION(empty)             \
+        FUNCTION(empty_1arg)        \
+        FUNCTION(inscount)          \
+        FUNCTION(compiler_inscount) \
+        FUNCTION(gcc47_inscount)    \
+        FUNCTION(callpic_pop)       \
+        FUNCTION(callpic_mov)       \
+        FUNCTION(nonleaf)           \
+        FUNCTION(cond_br)           \
+        FUNCTION(tls_clobber)       \
+        FUNCTION(aflags_clobber)    \
+        LAST_FUNCTION()
 #elif defined(AARCH64)
-# define FUNCTIONS() \
-         FUNCTION(empty) \
-         FUNCTION(empty_1arg) \
-         FUNCTION(inscount) \
-         FUNCTION(compiler_inscount) \
-         FUNCTION(aflags_clobber) \
+#    define FUNCTIONS()             \
+        FUNCTION(empty)             \
+        FUNCTION(empty_1arg)        \
+        FUNCTION(inscount)          \
+        FUNCTION(compiler_inscount) \
+        FUNCTION(aflags_clobber)    \
         LAST_FUNCTION()
 #endif
 
 /* Definitions for every function. */
-#define FUNCTION(FUNCNAME) EXPORT void FUNCNAME(void) { }
+volatile int val;
+#define FUNCTION(FUNCNAME)              \
+    EXPORT NOINLINE void FUNCNAME(void) \
+    {                                   \
+        val = 4;                        \
+    }
 #define LAST_FUNCTION()
 FUNCTIONS()
 #undef FUNCTION
@@ -74,7 +80,7 @@ FUNCTIONS()
 /* For bbcount, do arithmetic to clobber flags so the flag saving optimization
  * kicks in.
  */
-EXPORT void
+EXPORT NOINLINE void
 bbcount(void)
 {
     static int count;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,6 +31,7 @@
  */
 
 /* Test of code style violations.  We never actually build this code. */
+/* clang-format off */
 
 /* Missing break after return.  Brace on wrong line.  CamelCase. */
 static int CamelCase(int id) {
@@ -59,12 +60,4 @@ static int CamelCase(int id) {
     foo   ("too many spaces");
     return val;
 }
-
-# define FOO 1
-#  include "foo.h"
-#if FOO
-# define FOO 1
-# elif
-# else
-#undef FOO
- #endif
+/* clang-format on */

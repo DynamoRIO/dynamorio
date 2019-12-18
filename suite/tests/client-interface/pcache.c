@@ -51,7 +51,7 @@ do_some_work(int start)
 
     /* Do the local computation */
     localsum = 0;
-    for (i=start; i<intervals; i+=2) {
+    for (i = start; i < intervals; i += 2) {
         register double x = (i + 0.5) * width;
         localsum += 4.0 / (1.0 + x * x);
     }

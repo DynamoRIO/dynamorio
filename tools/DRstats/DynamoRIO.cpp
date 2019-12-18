@@ -52,52 +52,53 @@
 #include <process.h> // for system()
 
 #ifdef _DEBUG
-#define new DEBUG_NEW
-#undef THIS_FILE
+#    define new DEBUG_NEW
+#    undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
 
-#define HELP_PATH          _T("\\docs\\html\\index.html")
+#define HELP_PATH _T("\\docs\\html\\index.html")
 
 // FIXME: these are duplicated with the installation wizard, so
 // that the GUI can set env vars for new users (installer can only
 // set for user installing)
-#define INITIAL_OPTIONS      _T("-stats -loglevel 1")
-#define INITIAL_SYSTEMWIDE   _T("\\lib\\debug\\dynamorio.dll")
-#define INITIAL_IGNORE       _T("drinject.exe;DynamoRIO.exe")
-//#define INITIAL_IGNORE       _T("drinject.exe;DynamoRIO.exe;CSRSS.EXE;WINLOGON.EXE;SERVICES.EXE;LSASS.EXE;svchost.exe;SPOOLSV.EXE;taskmgr.exe;jconfigdnt.exe;explorer.exe")
+#define INITIAL_OPTIONS _T("-stats -loglevel 1")
+#define INITIAL_SYSTEMWIDE _T("\\lib\\debug\\dynamorio.dll")
+#define INITIAL_IGNORE _T("drinject.exe;DynamoRIO.exe")
+//#define INITIAL_IGNORE
+//_T("drinject.exe;DynamoRIO.exe;CSRSS.EXE;WINLOGON.EXE;SERVICES.EXE;LSASS.EXE;svchost.exe;SPOOLSV.EXE;taskmgr.exe;jconfigdnt.exe;explorer.exe")
 
 /////////////////////////////////////////////////////////////////////////////
 // CDynamoRIOApp
 
 BEGIN_MESSAGE_MAP(CDynamoRIOApp, CWinApp)
-    //{{AFX_MSG_MAP(CDynamoRIOApp)
-    ON_COMMAND(ID_APP_ABOUT, OnAppAbout)
-    ON_COMMAND(ID_APP_EXIT, OnAppExit)
+//{{AFX_MSG_MAP(CDynamoRIOApp)
+ON_COMMAND(ID_APP_ABOUT, OnAppAbout)
+ON_COMMAND(ID_APP_EXIT, OnAppExit)
 #ifndef DRSTATS_DEMO
-    ON_COMMAND(ID_EDIT_OPTIONS, OnEditOptions)
-    ON_COMMAND(ID_LIBRARY_RELEASE, OnLibraryRelease)
-    ON_COMMAND(ID_LIBRARY_PROFILE, OnLibraryProfile)
-    ON_COMMAND(ID_LIBRARY_DEBUG, OnLibraryDebug)
-    ON_COMMAND(ID_FILE_RUN, OnFileRun)
-    ON_COMMAND(ID_FILE_SYSTEMWIDE, OnFileSystemwide)
-    ON_COMMAND(ID_HELP_HELP, OnHelpHelp)
-    ON_COMMAND(ID_EDIT_IGNORELIST, OnEditIgnorelist)
+ON_COMMAND(ID_EDIT_OPTIONS, OnEditOptions)
+ON_COMMAND(ID_LIBRARY_RELEASE, OnLibraryRelease)
+ON_COMMAND(ID_LIBRARY_PROFILE, OnLibraryProfile)
+ON_COMMAND(ID_LIBRARY_DEBUG, OnLibraryDebug)
+ON_COMMAND(ID_FILE_RUN, OnFileRun)
+ON_COMMAND(ID_FILE_SYSTEMWIDE, OnFileSystemwide)
+ON_COMMAND(ID_HELP_HELP, OnHelpHelp)
+ON_COMMAND(ID_EDIT_IGNORELIST, OnEditIgnorelist)
 #endif
-    //}}AFX_MSG_MAP
+//}}AFX_MSG_MAP
 #ifndef DRSTATS_DEMO
-    // Standard file based document commands
-    ON_COMMAND(ID_FILE_NEW, CWinApp::OnFileNew)
-    ON_COMMAND(ID_FILE_OPEN, CWinApp::OnFileOpen)
-    // Standard print setup command
-    ON_COMMAND(ID_FILE_PRINT_SETUP, CWinApp::OnFilePrintSetup)
+// Standard file based document commands
+ON_COMMAND(ID_FILE_NEW, CWinApp::OnFileNew)
+ON_COMMAND(ID_FILE_OPEN, CWinApp::OnFileOpen)
+// Standard print setup command
+ON_COMMAND(ID_FILE_PRINT_SETUP, CWinApp::OnFilePrintSetup)
 #endif
-    END_MESSAGE_MAP()
+END_MESSAGE_MAP()
 
-    /////////////////////////////////////////////////////////////////////////////
-    // CDynamoRIOApp construction
+/////////////////////////////////////////////////////////////////////////////
+// CDynamoRIOApp construction
 
-    CDynamoRIOApp::CDynamoRIOApp()
+CDynamoRIOApp::CDynamoRIOApp()
 {
     // Place all significant initialization in InitInstance
 }
@@ -109,39 +110,46 @@ CDynamoRIOApp theApp;
 
 // FIXME: find better way to have other classes access this one
 
-/* static */ CDynamoRIOView * CDynamoRIOApp::GetActiveView()
+/* static */ CDynamoRIOView *
+CDynamoRIOApp::GetActiveView()
 {
-    return (CDynamoRIOView *) theApp.m_pMainFrame->GetActiveView();
+    return (CDynamoRIOView *)theApp.m_pMainFrame->GetActiveView();
 }
 
 #ifndef DRSTATS_DEMO
-/* static */ BOOL CDynamoRIOApp::SystemwideSet()
+/* static */ BOOL
+CDynamoRIOApp::SystemwideSet()
 {
     return theApp.m_bInjectAll;
 }
 
-/*static */TCHAR * CDynamoRIOApp::GetDllPath()
+/*static */ TCHAR *
+CDynamoRIOApp::GetDllPath()
 {
     return theApp.m_dll_path;
 }
 
-/*static */DLL_TYPE CDynamoRIOApp::GetDllType()
+/*static */ DLL_TYPE
+CDynamoRIOApp::GetDllType()
 {
     return theApp.m_dll_type;
 }
 
-/*static */void CDynamoRIOApp::SetSystemwideSetting(int val)
+/*static */ void
+CDynamoRIOApp::SetSystemwideSetting(int val)
 {
     theApp.WriteProfileInt(_T("Settings"), _T("Confirm Systemwide"), val);
 }
 
-/*static */void CDynamoRIOApp::AboutToExit()
+/*static */ void
+CDynamoRIOApp::AboutToExit()
 {
     theApp.PreExit();
 }
 #endif /* !DRSTATS_DEMO */
 
-/*static */void CDynamoRIOApp::SetStatusbarText(TCHAR *txt)
+/*static */ void
+CDynamoRIOApp::SetStatusbarText(TCHAR *txt)
 {
     theApp.m_pMainFrame->SetStatusBarText(0, txt);
 }
@@ -149,10 +157,11 @@ CDynamoRIOApp theApp;
 /////////////////////////////////////////////////////////////////////////////
 // CDynamoRIOApp initialization
 
-BOOL CDynamoRIOApp::InitInstance()
+BOOL
+CDynamoRIOApp::InitInstance()
 {
 #ifndef DRSTATS_DEMO
-    TCHAR msg[MAX_PATH*2];
+    TCHAR msg[MAX_PATH * 2];
 #endif
     BOOL windows_NT;
 
@@ -166,12 +175,13 @@ BOOL CDynamoRIOApp::InitInstance()
         return FALSE;
     }
 
-#if 0 // warning C4996: 'CWinApp::Enable3dControlsStatic': CWinApp::Enable3dControlsStatic is no longer needed. You should remove this call.
-#ifdef _AFXDLL
+#if 0 // warning C4996: 'CWinApp::Enable3dControlsStatic': CWinApp::Enable3dControlsStatic
+      // is no longer needed. You should remove this call.
+#    ifdef _AFXDLL
     Enable3dControls();                     // Call this when using MFC in a shared DLL
-#else
+#    else
     Enable3dControlsStatic();       // Call this when linking to MFC statically
-#endif
+#    endif
 #endif
 
 #ifndef DRSTATS_DEMO
@@ -179,22 +189,22 @@ BOOL CDynamoRIOApp::InitInstance()
     // including MRU
     SetRegistryKey(L_DYNAMORIO_REGISTRY_KEY);
 
-    LoadStdProfileSettings(12);  // Load standard INI file options (including MRU)
+    LoadStdProfileSettings(12); // Load standard INI file options (including MRU)
 #endif
 
     // Register the application's document templates.  Document templates
     //  serve as the connection between documents, frame windows and views.
 
-    CSingleDocTemplate* pDocTemplate;
+    CSingleDocTemplate *pDocTemplate;
     pDocTemplate = new CSingleDocTemplate(
 #ifdef DRSTATS_DEMO
-                                          IDR_MAINFRAME_DEMO,
+        IDR_MAINFRAME_DEMO,
 #else
-                                          IDR_MAINFRAME,
+        IDR_MAINFRAME,
 #endif
-                                          RUNTIME_CLASS(CDynamoRIODoc),
-                                          RUNTIME_CLASS(CMainFrame),       // main SDI frame window
-                                          RUNTIME_CLASS(CDynamoRIOView));
+        RUNTIME_CLASS(CDynamoRIODoc),
+        RUNTIME_CLASS(CMainFrame), // main SDI frame window
+        RUNTIME_CLASS(CDynamoRIOView));
     AddDocTemplate(pDocTemplate);
 
     // Parse command line for standard shell commands, DDE, file open
@@ -213,7 +223,7 @@ BOOL CDynamoRIOApp::InitInstance()
     m_pMainWnd->UpdateWindow();
 
     // I can't find any other way to access the main frame
-    m_pMainFrame = (CMainFrame *) m_pMainWnd;
+    m_pMainFrame = (CMainFrame *)m_pMainWnd;
 
     // I can't figure out how to disable a menu item that has a command
     // handler when this var is set, so I disable it:
@@ -226,11 +236,12 @@ BOOL CDynamoRIOApp::InitInstance()
     TCHAR data[1024];
     int len = GetEnvironmentVariable(_T("DYNAMORIO_HOME"), m_dynamorio_home, _MAX_DIR);
     if (len == 0) {
-        int res = MessageBox(NULL,
-                             _T("DYNAMORIO_HOME environment variable not found.\n")
-                             _T("Set all the DynamoRIO environment variables to their default values?\n")
-                             _T("(Otherwise this GUI cannot operate and must exit.)"),
-                             _T("DynamoRIO Not Configured for Current User"), MB_YESNO | MYMBFLAGS);
+        int res = MessageBox(
+            NULL,
+            _T("DYNAMORIO_HOME environment variable not found.\n")
+            _T("Set all the DynamoRIO environment variables to their default values?\n")
+            _T("(Otherwise this GUI cannot operate and must exit.)"),
+            _T("DynamoRIO Not Configured for Current User"), MB_YESNO | MYMBFLAGS);
         if (res == IDYES) {
             if (!ConfigureForNewUser())
                 return FALSE;
@@ -244,7 +255,8 @@ BOOL CDynamoRIOApp::InitInstance()
         // we don't support systemwide on NT
         // hack: use "confirm systemwide" setting to decide whether to notify user
         if (GetProfileInt(_T("Settings"), _T("Confirm Systemwide"), 1) == 1) {
-            MessageBox(NULL, _T("Run All is not supported on Windows NT, it will be disabled"),
+            MessageBox(NULL,
+                       _T("Run All is not supported on Windows NT, it will be disabled"),
                        _T("Notice"), MB_OK | MYMBFLAGS);
             // but then how does user turn off, if can't do Run All?
             // just turn it off now:
@@ -259,11 +271,11 @@ BOOL CDynamoRIOApp::InitInstance()
 
         // make sure it exists
         CFile check;
-        if (!check.Open(data, CFile::modeRead|CFile::shareDenyNone)) {
-#if 0 // I'm disabling this dialog until we decide to support running apps
+        if (!check.Open(data, CFile::modeRead | CFile::shareDenyNone)) {
+#    if 0 // I'm disabling this dialog until we decide to support running apps
             _stprintf(msg, _T("Library %s does not exist"), data);
             MessageBox(NULL, msg, _T("Error"), MB_OK | MYMBFLAGS);
-#endif
+#    endif
             m_bSystemwideAllowed = FALSE; // so key won't be cleared
             DisableSystemwideInject();
         } else {
@@ -272,7 +284,9 @@ BOOL CDynamoRIOApp::InitInstance()
                 // must get 8.3 alias -- and some volumes do not support such an alias!
                 len = GetShortPathName(data, m_inject_all_value, MAX_PATH);
                 if (len == 0) {
-                    _stprintf(msg, _T("Cannot find 8.3 alias for space-containing path \"%s\"!\nDisabling Run All"),
+                    _stprintf(msg,
+                              _T("Cannot find 8.3 alias for space-containing path ")
+                              _T("\"%s\"!\nDisabling Run All"),
                               data);
                     MessageBox(NULL, msg, _T("Error"), MB_OK | MYMBFLAGS);
                     m_bSystemwideAllowed = FALSE; // so key won't be cleared
@@ -289,9 +303,9 @@ BOOL CDynamoRIOApp::InitInstance()
     if (m_bSystemwideAllowed) {
         HKEY hk;
         unsigned long size = 1024;
-        int     res = RegOpenKeyEx(INJECT_ALL_HIVE, INJECT_ALL_KEY_L, 0, KEY_READ, &hk);
+        int res = RegOpenKeyEx(INJECT_ALL_HIVE, INJECT_ALL_KEY_L, 0, KEY_READ, &hk);
         assert(res == ERROR_SUCCESS);
-        res = RegQueryValueEx(hk, INJECT_ALL_SUBKEY_L, 0, NULL, (LPBYTE) data, &size);
+        res = RegQueryValueEx(hk, INJECT_ALL_SUBKEY_L, 0, NULL, (LPBYTE)data, &size);
         assert(res == ERROR_SUCCESS);
         RegCloseKey(hk);
 
@@ -302,14 +316,14 @@ BOOL CDynamoRIOApp::InitInstance()
             // make sure we're the ones who set this value
             if (_tcscmp(m_inject_all_value, data) != 0) {
                 // FIXME: have user notify us of conflict?
-                int res = MessageBox(NULL,
-                                     _T("DynamoRIO's RunAll system-wide injection method is ")
-                                     _T("being used by some other program.\n")
-                                     _T("DynamoRIO can attempt to override the other program.\n")
-                                     _T("Otherwise, system-wide injection will be disabled.\n")
-                                     _T("Override?"),
-                                     _T("DynamoRIO Conflict"),
-                                     MB_YESNO | MYMBFLAGS);
+                int res = MessageBox(
+                    NULL,
+                    _T("DynamoRIO's RunAll system-wide injection method is ")
+                    _T("being used by some other program.\n")
+                    _T("DynamoRIO can attempt to override the other program.\n")
+                    _T("Otherwise, system-wide injection will be disabled.\n")
+                    _T("Override?"),
+                    _T("DynamoRIO Conflict"), MB_YESNO | MYMBFLAGS);
                 if (res == IDYES) {
                     // now clear the registry key
                     SetSystemwideInject(_T(""));
@@ -327,18 +341,19 @@ BOOL CDynamoRIOApp::InitInstance()
         }
     }
     if (m_bSystemwideAllowed) {
-        m_pMainWnd->GetMenu()->CheckMenuItem(ID_FILE_SYSTEMWIDE,
-                                             MF_BYCOMMAND | ((m_bInjectAll) ? MF_CHECKED : MF_UNCHECKED));
+        m_pMainWnd->GetMenu()->CheckMenuItem(
+            ID_FILE_SYSTEMWIDE,
+            MF_BYCOMMAND | ((m_bInjectAll) ? MF_CHECKED : MF_UNCHECKED));
     }
 
     // make sure preinject dll exists
     if (m_bSystemwideAllowed) {
         CFile check;
-        if (!check.Open(m_inject_all_value, CFile::modeRead|CFile::shareDenyNone)) {
-#if 0 // I'm disabling this dialog until we decide to support running apps
+        if (!check.Open(m_inject_all_value, CFile::modeRead | CFile::shareDenyNone)) {
+#    if 0 // I'm disabling this dialog until we decide to support running apps
             _stprintf(msg, _T("Library %s does not exist!\nDisabling Run All"), m_inject_all_value);
             MessageBox(NULL, msg, _T("DynamoRIO Configuration Error"), MB_OK | MYMBFLAGS);
-#endif
+#    endif
             DisableSystemwideInject();
         } else
             check.Close();
@@ -366,51 +381,58 @@ BOOL CDynamoRIOApp::InitInstance()
         tried++;
     }
     if (tried == 3) {
-#if 0 // Disabling
+#    if 0 // Disabling
         MessageBox(NULL, _T("Cannot find any DynamoRIO libraries!\n")
                    _T("Running of applications will be disabled."), _T("Error"), MB_OK | MYMBFLAGS);
-#endif
+#    endif
         // disable Run and libraries
-        m_pMainWnd->GetMenu()->EnableMenuItem(ID_FILE_RUN, MF_BYCOMMAND|MF_GRAYED);
+        m_pMainWnd->GetMenu()->EnableMenuItem(ID_FILE_RUN, MF_BYCOMMAND | MF_GRAYED);
         DisableSystemwideInject();
-        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_RELEASE, MF_BYCOMMAND|MF_GRAYED);
-        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_DEBUG, MF_BYCOMMAND|MF_GRAYED);
-        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_PROFILE, MF_BYCOMMAND|MF_GRAYED);
-        m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_RELEASE, MF_BYCOMMAND|MF_UNCHECKED);
-        m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_DEBUG,   MF_BYCOMMAND|MF_UNCHECKED);
-        m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_PROFILE, MF_BYCOMMAND|MF_UNCHECKED);
+        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_RELEASE,
+                                              MF_BYCOMMAND | MF_GRAYED);
+        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_DEBUG, MF_BYCOMMAND | MF_GRAYED);
+        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_PROFILE,
+                                              MF_BYCOMMAND | MF_GRAYED);
+        m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_RELEASE,
+                                             MF_BYCOMMAND | MF_UNCHECKED);
+        m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_DEBUG,
+                                             MF_BYCOMMAND | MF_UNCHECKED);
+        m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_PROFILE,
+                                             MF_BYCOMMAND | MF_UNCHECKED);
     }
 
     if (m_bInjectAll) {
-        MessageBox(NULL, _T("Run All is already set!"),
-                   _T("Warning"), MB_OK | MYMBFLAGS);
+        MessageBox(NULL, _T("Run All is already set!"), _T("Warning"), MB_OK | MYMBFLAGS);
 
         // FIXME: share this code with OnFileSystemwide
         SetEnvVarPermanently(_T("DYNAMORIO_SYSTEMWIDE"), m_dll_path);
 
         // disable changing the library
-        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_RELEASE, MF_BYCOMMAND|MF_GRAYED);
-        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_DEBUG, MF_BYCOMMAND|MF_GRAYED);
-        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_PROFILE, MF_BYCOMMAND|MF_GRAYED);
+        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_RELEASE,
+                                              MF_BYCOMMAND | MF_GRAYED);
+        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_DEBUG, MF_BYCOMMAND | MF_GRAYED);
+        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_PROFILE,
+                                              MF_BYCOMMAND | MF_GRAYED);
     }
 #endif /*! DRSTATS_DEMO */
 
     return TRUE;
 }
 
-/*static*/ BOOL CDynamoRIOApp::GetWindowsVersion(OSVERSIONINFOW *version)
+/*static*/ BOOL
+CDynamoRIOApp::GetWindowsVersion(OSVERSIONINFOW *version)
 {
     /* i#1418: GetVersionEx is just plain broken on win8.1+ so we use the Rtl version */
     typedef DWORD NTSTATUS;
-    typedef NTSTATUS (NTAPI *RtlGetVersion_t)(OSVERSIONINFOW *info);
-#   define NT_SUCCESS(res) ((res) >= 0)
+    typedef NTSTATUS(NTAPI * RtlGetVersion_t)(OSVERSIONINFOW * info);
+#define NT_SUCCESS(res) ((res) >= 0)
     RtlGetVersion_t RtlGetVersion;
     NTSTATUS res;
     HANDLE ntdll_handle = GetModuleHandle(_T("ntdll.dll"));
     if (ntdll_handle == NULL)
         return FALSE;
-    RtlGetVersion = (RtlGetVersion_t)
-        GetProcAddress((HMODULE)ntdll_handle, "RtlGetVersion");
+    RtlGetVersion =
+        (RtlGetVersion_t)GetProcAddress((HMODULE)ntdll_handle, "RtlGetVersion");
     if (RtlGetVersion == NULL)
         return FALSE;
     version->dwOSVersionInfoSize = sizeof(*version);
@@ -418,7 +440,8 @@ BOOL CDynamoRIOApp::InitInstance()
     return NT_SUCCESS(res);
 }
 
-BOOL CDynamoRIOApp::CheckWindowsVersion(BOOL &windows_NT)
+BOOL
+CDynamoRIOApp::CheckWindowsVersion(BOOL &windows_NT)
 {
     // make sure we're on an NT-based system
     windows_NT = FALSE;
@@ -465,8 +488,7 @@ BOOL CDynamoRIOApp::CheckWindowsVersion(BOOL &windows_NT)
 /////////////////////////////////////////////////////////////////////////////
 // CAboutDlg dialog used for App About
 
-class CAboutDlg : public CDialog
-{
+class CAboutDlg : public CDialog {
 public:
     CAboutDlg();
 
@@ -478,7 +500,8 @@ public:
     // ClassWizard generated virtual function overrides
     //{{AFX_VIRTUAL(CAboutDlg)
 protected:
-    virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+    virtual void
+    DoDataExchange(CDataExchange *pDX); // DDX/DDV support
     //}}AFX_VIRTUAL
 
     // Implementation
@@ -486,15 +509,17 @@ protected:
     //{{AFX_MSG(CAboutDlg)
     //}}AFX_MSG
     DECLARE_MESSAGE_MAP()
-        };
+};
 
-CAboutDlg::CAboutDlg() : CDialog(CAboutDlg::IDD)
+CAboutDlg::CAboutDlg()
+    : CDialog(CAboutDlg::IDD)
 {
     //{{AFX_DATA_INIT(CAboutDlg)
     //}}AFX_DATA_INIT
 }
 
-void CAboutDlg::DoDataExchange(CDataExchange* pDX)
+void
+CAboutDlg::DoDataExchange(CDataExchange *pDX)
 {
     CDialog::DoDataExchange(pDX);
     //{{AFX_DATA_MAP(CAboutDlg)
@@ -502,12 +527,13 @@ void CAboutDlg::DoDataExchange(CDataExchange* pDX)
 }
 
 BEGIN_MESSAGE_MAP(CAboutDlg, CDialog)
-    //{{AFX_MSG_MAP(CAboutDlg)
-    //}}AFX_MSG_MAP
-    END_MESSAGE_MAP()
+//{{AFX_MSG_MAP(CAboutDlg)
+//}}AFX_MSG_MAP
+END_MESSAGE_MAP()
 
-    // App command to run the dialog
-    void CDynamoRIOApp::OnAppAbout()
+// App command to run the dialog
+void
+CDynamoRIOApp::OnAppAbout()
 {
     CAboutDlg aboutDlg;
     aboutDlg.DoModal();
@@ -516,12 +542,12 @@ BEGIN_MESSAGE_MAP(CAboutDlg, CDialog)
 /////////////////////////////////////////////////////////////////////////////
 // CDynamoRIOApp message handlers
 
-
-CDocument * CDynamoRIOApp::OpenDocumentFile(LPCTSTR
+CDocument *
+CDynamoRIOApp::OpenDocumentFile(LPCTSTR
 #ifndef DRSTATS_DEMO /* avoid warning */
-                                            lpszFileName
+                                    lpszFileName
 #endif
-                                            )
+)
 {
 #ifndef DRSTATS_DEMO
     RunNewApp(lpszFileName);
@@ -533,7 +559,8 @@ CDocument * CDynamoRIOApp::OpenDocumentFile(LPCTSTR
 
 static TCHAR szFilter[] = _T("Executable Files (*.exe)|*.exe|All Files (*.*)|*.*||");
 
-void CDynamoRIOApp::OnFileRun()
+void
+CDynamoRIOApp::OnFileRun()
 {
     CFileDialog fileDlg(TRUE, _T(".exe"), NULL,
                         // hide the "open as read-only" checkbox
@@ -546,20 +573,23 @@ void CDynamoRIOApp::OnFileRun()
     RunNewApp(file);
 }
 
-BOOL CDynamoRIOApp::RunNewApp(LPCTSTR lpszFileName)
+BOOL
+CDynamoRIOApp::RunNewApp(LPCTSTR lpszFileName)
 {
     m_pMainFrame->SetStatusBarText(0, lpszFileName);
     AddToRecentFileList(lpszFileName);
-    CDynamoRIODoc *doc = (CDynamoRIODoc *) m_pMainFrame->GetActiveView()->GetDocument();
+    CDynamoRIODoc *doc = (CDynamoRIODoc *)m_pMainFrame->GetActiveView()->GetDocument();
     doc->RunApplication(lpszFileName);
     return TRUE;
 }
 
-void CDynamoRIOApp::OnFileSystemwide()
+void
+CDynamoRIOApp::OnFileSystemwide()
 {
     assert(m_bSystemwideAllowed);
 
-    if (!m_bInjectAll && GetProfileInt(_T("Settings"), _T("Confirm Systemwide"), 1) == 1) {
+    if (!m_bInjectAll &&
+        GetProfileInt(_T("Settings"), _T("Confirm Systemwide"), 1) == 1) {
         // confirm with user the gravity of this setting
         CSyswideDlg dlg;
         int res = dlg.DoModal();
@@ -567,7 +597,7 @@ void CDynamoRIOApp::OnFileSystemwide()
             return;
     }
 
-    TCHAR * val;
+    TCHAR *val;
     if (m_bInjectAll) {
         m_bInjectAll = FALSE;
         val = _T("");
@@ -582,39 +612,46 @@ void CDynamoRIOApp::OnFileSystemwide()
         SetEnvVarPermanently(_T("DYNAMORIO_SYSTEMWIDE"), m_dll_path);
 
         // disable changing the library
-        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_RELEASE, MF_BYCOMMAND|MF_GRAYED);
-        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_DEBUG, MF_BYCOMMAND|MF_GRAYED);
-        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_PROFILE, MF_BYCOMMAND|MF_GRAYED);
+        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_RELEASE,
+                                              MF_BYCOMMAND | MF_GRAYED);
+        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_DEBUG, MF_BYCOMMAND | MF_GRAYED);
+        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_PROFILE,
+                                              MF_BYCOMMAND | MF_GRAYED);
     }
     if (!SetSystemwideInject(val))
         return;
-    m_pMainWnd->GetMenu()->CheckMenuItem(ID_FILE_SYSTEMWIDE,
-                                         MF_BYCOMMAND | ((m_bInjectAll) ? MF_CHECKED : MF_UNCHECKED));
+    m_pMainWnd->GetMenu()->CheckMenuItem(
+        ID_FILE_SYSTEMWIDE, MF_BYCOMMAND | ((m_bInjectAll) ? MF_CHECKED : MF_UNCHECKED));
 }
 
-BOOL CDynamoRIOApp::SetSystemwideInject(TCHAR *val)
+BOOL
+CDynamoRIOApp::SetSystemwideInject(TCHAR *val)
 {
     assert(m_bSystemwideAllowed);
     HKEY hk;
     // must have administrative privilegs to write this key!
-    int     res = RegOpenKeyEx(INJECT_ALL_HIVE, INJECT_ALL_KEY_L, 0, KEY_WRITE, &hk);
+    int res = RegOpenKeyEx(INJECT_ALL_HIVE, INJECT_ALL_KEY_L, 0, KEY_WRITE, &hk);
     if (res != ERROR_SUCCESS) {
-        MessageBox(NULL,
-                   _T("DynamoRIO's system-wide injection method requires administrative privileges.\n")
-                   _T("You must restart this program with such privileges to use this feature."),
-                   _T("Lack of Privileges"), MB_OK | MYMBFLAGS);
+        MessageBox(
+            NULL,
+            _T("DynamoRIO's system-wide injection method requires administrative ")
+            _T("privileges.\n")
+            _T("You must restart this program with such privileges to use this feature."),
+            _T("Lack of Privileges"), MB_OK | MYMBFLAGS);
         // now disable systemwide injection
         m_bSystemwideAllowed = FALSE; // prevent infinite loop
         DisableSystemwideInject();
         return FALSE;
     }
-    res = RegSetValueEx(hk, INJECT_ALL_SUBKEY_L, 0, REG_SZ, (LPBYTE) val, _tcslen(val)+1);
+    res =
+        RegSetValueEx(hk, INJECT_ALL_SUBKEY_L, 0, REG_SZ, (LPBYTE)val, _tcslen(val) + 1);
     assert(res == ERROR_SUCCESS);
     RegCloseKey(hk);
     return TRUE;
 }
 
-void CDynamoRIOApp::DisableSystemwideInject()
+void
+CDynamoRIOApp::DisableSystemwideInject()
 {
     if (m_bSystemwideAllowed) {
         // clear key
@@ -624,25 +661,26 @@ void CDynamoRIOApp::DisableSystemwideInject()
     m_bSystemwideAllowed = FALSE;
     m_bInjectAll = FALSE;
     // disable checkbox, but allow editing ignore list
-    m_pMainWnd->GetMenu()->EnableMenuItem(ID_FILE_SYSTEMWIDE,
-                                          MF_BYCOMMAND|MF_GRAYED);
+    m_pMainWnd->GetMenu()->EnableMenuItem(ID_FILE_SYSTEMWIDE, MF_BYCOMMAND | MF_GRAYED);
     m_pMainFrame->SetStatusBarText(0, _T("Disabled system-wide injection"));
 }
 
-void CDynamoRIOApp::OnEditOptions()
+void
+CDynamoRIOApp::OnEditOptions()
 {
     COptionsDlg ops;
     ops.DoModal();
 }
 
-
-void CDynamoRIOApp::OnEditIgnorelist()
+void
+CDynamoRIOApp::OnEditIgnorelist()
 {
     CIgnoreDlg dlg;
     dlg.DoModal();
 }
 
-void CDynamoRIOApp::DisableMissingLibraries(BOOL notify)
+void
+CDynamoRIOApp::DisableMissingLibraries(BOOL notify)
 {
     BOOL release_ok, debug_ok, profile_ok;
     if (SwitchLibraries(L_DLLPATH_RELEASE, notify)) {
@@ -650,38 +688,41 @@ void CDynamoRIOApp::DisableMissingLibraries(BOOL notify)
         m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_RELEASE, MF_BYCOMMAND);
     } else {
         release_ok = FALSE;
-        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_RELEASE, MF_BYCOMMAND|MF_GRAYED);
+        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_RELEASE,
+                                              MF_BYCOMMAND | MF_GRAYED);
     }
     if (SwitchLibraries(L_DLLPATH_DEBUG, notify)) {
         debug_ok = TRUE;
         m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_DEBUG, MF_BYCOMMAND);
     } else {
         debug_ok = FALSE;
-        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_DEBUG, MF_BYCOMMAND|MF_GRAYED);
+        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_DEBUG, MF_BYCOMMAND | MF_GRAYED);
     }
     if (SwitchLibraries(L_DLLPATH_PROFILE, notify)) {
         profile_ok = TRUE;
         m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_PROFILE, MF_BYCOMMAND);
     } else {
         profile_ok = FALSE;
-        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_PROFILE, MF_BYCOMMAND|MF_GRAYED);
+        m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_PROFILE,
+                                              MF_BYCOMMAND | MF_GRAYED);
     }
 }
 
-BOOL CDynamoRIOApp::SwitchLibraries(TCHAR *newdllpath, BOOL notify)
+BOOL
+CDynamoRIOApp::SwitchLibraries(TCHAR *newdllpath, BOOL notify)
 {
     // first see if new dll exists
     CFile check;
-    TCHAR msg[MAX_PATH*2];
+    TCHAR msg[MAX_PATH * 2];
     TCHAR file[MAX_PATH];
     assert(_tcslen(m_dynamorio_home) + _tcslen(newdllpath) < MAX_PATH);
     _stprintf(file, _T("%s%s"), m_dynamorio_home, newdllpath);
-    if (!check.Open(file, CFile::modeRead|CFile::shareDenyNone)) {
+    if (!check.Open(file, CFile::modeRead | CFile::shareDenyNone)) {
         if (notify) {
             _stprintf(msg, _T("Library %s does not exist"), file);
-#if 0 // I'm disabling this dialog until we decide to support running apps
+#    if 0 // I'm disabling this dialog until we decide to support running apps
             MessageBox(NULL, msg, _T("DynamoRIO Configuration Error"), MB_OK | MYMBFLAGS);
-#endif
+#    endif
         }
         return FALSE;
     }
@@ -693,7 +734,8 @@ BOOL CDynamoRIOApp::SwitchLibraries(TCHAR *newdllpath, BOOL notify)
     return TRUE;
 }
 
-void CDynamoRIOApp::OnLibraryRelease()
+void
+CDynamoRIOApp::OnLibraryRelease()
 {
     if (!SwitchLibraries(L_DLLPATH_RELEASE, TRUE))
         return;
@@ -701,11 +743,12 @@ void CDynamoRIOApp::OnLibraryRelease()
     m_dll_type = DLL_RELEASE;
     COptionsDlg::CheckOptionsVersusDllType(m_dll_type);
     m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_RELEASE, MF_BYCOMMAND | MF_CHECKED);
-    m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_DEBUG,   MF_BYCOMMAND | MF_UNCHECKED);
+    m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_DEBUG, MF_BYCOMMAND | MF_UNCHECKED);
     m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_PROFILE, MF_BYCOMMAND | MF_UNCHECKED);
 }
 
-void CDynamoRIOApp::OnLibraryDebug()
+void
+CDynamoRIOApp::OnLibraryDebug()
 {
     if (!SwitchLibraries(L_DLLPATH_DEBUG, TRUE))
         return;
@@ -713,11 +756,12 @@ void CDynamoRIOApp::OnLibraryDebug()
     m_dll_type = DLL_DEBUG;
     COptionsDlg::CheckOptionsVersusDllType(m_dll_type);
     m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_RELEASE, MF_BYCOMMAND | MF_UNCHECKED);
-    m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_DEBUG,   MF_BYCOMMAND | MF_CHECKED);
+    m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_DEBUG, MF_BYCOMMAND | MF_CHECKED);
     m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_PROFILE, MF_BYCOMMAND | MF_UNCHECKED);
 }
 
-void CDynamoRIOApp::OnLibraryProfile()
+void
+CDynamoRIOApp::OnLibraryProfile()
 {
     if (!SwitchLibraries(L_DLLPATH_PROFILE, TRUE))
         return;
@@ -725,12 +769,12 @@ void CDynamoRIOApp::OnLibraryProfile()
     m_dll_type = DLL_PROFILE;
     COptionsDlg::CheckOptionsVersusDllType(m_dll_type);
     m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_RELEASE, MF_BYCOMMAND | MF_UNCHECKED);
-    m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_DEBUG,   MF_BYCOMMAND | MF_UNCHECKED);
+    m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_DEBUG, MF_BYCOMMAND | MF_UNCHECKED);
     m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_PROFILE, MF_BYCOMMAND | MF_CHECKED);
 }
 
-
-void CDynamoRIOApp::OnHelpHelp()
+void
+CDynamoRIOApp::OnHelpHelp()
 {
     TCHAR helppath[MAX_PATH];
     _stprintf(helppath, _T("%s%s"), m_dynamorio_home, HELP_PATH);
@@ -740,20 +784,21 @@ void CDynamoRIOApp::OnHelpHelp()
     assert(cwd_res > 0);
 
     // launch browser on documentation file!
-    HINSTANCE res = ShellExecute(m_pMainWnd->m_hWnd, _T("open"),
-                                 helppath, NULL, cwd, SW_SHOWNORMAL);
+    HINSTANCE res =
+        ShellExecute(m_pMainWnd->m_hWnd, _T("open"), helppath, NULL, cwd, SW_SHOWNORMAL);
     // FIXME: I get back 2 == SE_ERR_FNF == file not found, but netscape finds and
     // displays it fine...
     if ((int)res <= 32) {
-        TCHAR msg[MAX_PATH*2];
+        TCHAR msg[MAX_PATH * 2];
         _stprintf(msg, _T("Error browsing help document %s"), helppath);
-        MessageBox(m_pMainWnd->m_hWnd, msg,     _T("Error"), MB_OK | MYMBFLAGS);
+        MessageBox(m_pMainWnd->m_hWnd, msg, _T("Error"), MB_OK | MYMBFLAGS);
     }
 }
 
 // MessageBox crashes in ExitInstance so I added this PreExit routine, called
 // using the framework's notion of "save unsaved data?" for CDocument
-void CDynamoRIOApp::PreExit()
+void
+CDynamoRIOApp::PreExit()
 {
     BOOL ok = TRUE; // libraries may have been disabled
     if (_tcsstr(m_dll_path, L_DLLPATH_RELEASE) != NULL)
@@ -763,7 +808,6 @@ void CDynamoRIOApp::PreExit()
     else if (_tcsstr(m_dll_path, L_DLLPATH_PROFILE) != NULL)
         ok = WriteProfileInt(_T("Settings"), _T("Library"), 2);
     assert(ok);
-
 
     if (m_bSystemwideAllowed && m_bInjectAll) {
         // FIXME: MessageBox crashes...try to get this code into
@@ -778,7 +822,8 @@ void CDynamoRIOApp::PreExit()
     }
 }
 
-void CDynamoRIOApp::SetEnvVarPermanently(TCHAR *var, TCHAR *val)
+void
+CDynamoRIOApp::SetEnvVarPermanently(TCHAR *var, TCHAR *val)
 {
     // it takes a while to broadcast the "we've changed env vars" message,
     // so set a wait cursor
@@ -795,7 +840,7 @@ void CDynamoRIOApp::SetEnvVarPermanently(TCHAR *var, TCHAR *val)
         MessageBox(NULL, msg, _T("Error"), MB_OK | MYMBFLAGS);
     }
 
-    res = RegSetValueEx(hk, var, 0, REG_SZ, (LPBYTE) val, _tcslen(val)+1);
+    res = RegSetValueEx(hk, var, 0, REG_SZ, (LPBYTE)val, _tcslen(val) + 1);
     assert(res == ERROR_SUCCESS);
 
     RegCloseKey(hk);
@@ -805,8 +850,8 @@ void CDynamoRIOApp::SetEnvVarPermanently(TCHAR *var, TCHAR *val)
     DWORD dwReturnValue;
     // Code I copied this from used an ANSI string...I'm leaving
     // it like that FIXME
-    SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0,
-                       (LPARAM) "Environment", SMTO_ABORTIFHUNG, 5000, &dwReturnValue);
+    SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM) "Environment",
+                       SMTO_ABORTIFHUNG, 5000, &dwReturnValue);
 
     // set local var too
     BOOL ok = SetEnvironmentVariable(var, val);
@@ -815,11 +860,12 @@ void CDynamoRIOApp::SetEnvVarPermanently(TCHAR *var, TCHAR *val)
     SetCursor(prev_cursor);
 }
 
-BOOL CDynamoRIOApp::ConfigureForNewUser()
+BOOL
+CDynamoRIOApp::ConfigureForNewUser()
 {
     // Need to find location of dynamorio install
     BOOL ok = FALSE;
-    TCHAR msg[MAX_PATH*2];
+    TCHAR msg[MAX_PATH * 2];
     int res;
     // First attempt: look at gui's executable path
     GetModuleFileName(NULL, m_dynamorio_home, MAX_PATH);
@@ -869,7 +915,8 @@ BOOL CDynamoRIOApp::ConfigureForNewUser()
 
     // DYNAMORIO_HOME
     TCHAR *val = m_dynamorio_home;
-    res = RegSetValueEx(hk, _T("DYNAMORIO_HOME"), 0, REG_SZ, (LPBYTE) val, _tcslen(val)+1);
+    res =
+        RegSetValueEx(hk, _T("DYNAMORIO_HOME"), 0, REG_SZ, (LPBYTE)val, _tcslen(val) + 1);
     assert(res == ERROR_SUCCESS);
     // set local var too
     ok = SetEnvironmentVariable(_T("DYNAMORIO_HOME"), val);
@@ -877,7 +924,8 @@ BOOL CDynamoRIOApp::ConfigureForNewUser()
 
     // DYNAMORIO_OPTIONS
     val = INITIAL_OPTIONS;
-    res = RegSetValueEx(hk, _T("DYNAMORIO_OPTIONS"), 0, REG_SZ, (LPBYTE) val, _tcslen(val)+1);
+    res = RegSetValueEx(hk, _T("DYNAMORIO_OPTIONS"), 0, REG_SZ, (LPBYTE)val,
+                        _tcslen(val) + 1);
     assert(res == ERROR_SUCCESS);
     // set local var too
     ok = SetEnvironmentVariable(_T("DYNAMORIO_OPTIONS"), val);
@@ -887,7 +935,8 @@ BOOL CDynamoRIOApp::ConfigureForNewUser()
     TCHAR buf[MAX_PATH];
     _stprintf(buf, _T("%s%s"), m_dynamorio_home, INITIAL_SYSTEMWIDE);
     val = buf;
-    res = RegSetValueEx(hk, _T("DYNAMORIO_SYSTEMWIDE"), 0, REG_SZ, (LPBYTE) val, _tcslen(val)+1);
+    res = RegSetValueEx(hk, _T("DYNAMORIO_SYSTEMWIDE"), 0, REG_SZ, (LPBYTE)val,
+                        _tcslen(val) + 1);
     assert(res == ERROR_SUCCESS);
     // set local var too
     ok = SetEnvironmentVariable(_T("DYNAMORIO_SYSTEMWIDE"), val);
@@ -895,7 +944,8 @@ BOOL CDynamoRIOApp::ConfigureForNewUser()
 
     // DYNAMORIO_IGNORE
     val = INITIAL_IGNORE;
-    res = RegSetValueEx(hk, _T("DYNAMORIO_IGNORE"), 0, REG_SZ, (LPBYTE) val, _tcslen(val)+1);
+    res = RegSetValueEx(hk, _T("DYNAMORIO_IGNORE"), 0, REG_SZ, (LPBYTE)val,
+                        _tcslen(val) + 1);
     assert(res == ERROR_SUCCESS);
     // set local var too
     ok = SetEnvironmentVariable(_T("DYNAMORIO_IGNORE"), val);
@@ -908,12 +958,12 @@ BOOL CDynamoRIOApp::ConfigureForNewUser()
     DWORD dwReturnValue;
     // Code I copied this from used an ANSI string...I'm leaving
     // it like that FIXME
-    SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0,
-                       (LPARAM) "Environment", SMTO_ABORTIFHUNG, 5000, &dwReturnValue);
+    SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM) "Environment",
+                       SMTO_ABORTIFHUNG, 5000, &dwReturnValue);
 
     // FIXME: Doc keeps its own internal var w/ home, must update here,
     // better to have Doc grab ours!
-    CDynamoRIODoc *doc = (CDynamoRIODoc *) m_pMainFrame->GetActiveView()->GetDocument();
+    CDynamoRIODoc *doc = (CDynamoRIODoc *)m_pMainFrame->GetActiveView()->GetDocument();
     doc->InitPaths();
 
     SetCursor(prev_cursor);
@@ -923,16 +973,17 @@ BOOL CDynamoRIOApp::ConfigureForNewUser()
 
 #endif /* !DRSTATS_DEMO */
 
-void CDynamoRIOApp::OnAppExit()
+void
+CDynamoRIOApp::OnAppExit()
 {
     // Same as double-clicking on main window close box.
     ASSERT(AfxGetMainWnd() != NULL);
     AfxGetMainWnd()->SendMessage(WM_CLOSE);
 }
 
-int CDynamoRIOApp::ExitInstance()
+int
+CDynamoRIOApp::ExitInstance()
 {
     // no longer need to do anything special -- PreExit does it now
     return CWinApp::ExitInstance();
 }
-

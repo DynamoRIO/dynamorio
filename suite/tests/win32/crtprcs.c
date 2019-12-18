@@ -31,7 +31,6 @@
  * DAMAGE.
  */
 
-
 #define _CRT_SECURE_NO_WARNINGS 1
 #include "Windows.h"
 #include <stdio.h>
@@ -43,29 +42,18 @@ main(int argc, char **argv)
     PROCESS_INFORMATION pi;
     char cmdline[128];
 
-
     if (argc == 1) {
         /* normal execution */
 
-        sprintf(cmdline,"crtprcs.exe 1");
+        sprintf(cmdline, "crtprcs.exe 1");
 
         printf("creating subprocess...\n");
 
-        if (!CreateProcess(argv[0],
-                           cmdline,
-                           NULL,
-                           NULL,
-                           FALSE,
-                           0,
-                           NULL,
-                           NULL,
-                           &si,
-                           &pi))
+        if (!CreateProcess(argv[0], cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
             printf("CreateProcess failure\n");
         else
             WaitForSingleObject(pi.hProcess, INFINITE);
-    }
-    else { /* child process */
+    } else { /* child process */
         printf("subprocess running.\n");
     }
 

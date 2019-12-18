@@ -36,21 +36,22 @@
 #include "tools.h"
 
 #ifdef VERBOSE
-#  define pf print
+#    define pf print
 #else
-#  define pf if(0)print
+#    define pf \
+        if (0) \
+        print
 #endif
 
-#define REPORT(res)                                             \
-    pf("res=%x\n", res);                                        \
-    print("res=%s\n",                                           \
-          (res == kernel32_base) ? "kernel32_base" : "BAD");    \
+#define REPORT(res)                                                      \
+    pf("res=%x\n", res);                                                 \
+    print("res=%s\n", (res == kernel32_base) ? "kernel32_base" : "BAD"); \
     res = 0;
 
 int
 main()
 {
-    char* arg0 = "kernel32.dll";
+    char *arg0 = "kernel32.dll";
     ptr_uint_t res;
     ptr_uint_t stack = 0;
     ptr_uint_t kernel32_base;
@@ -58,7 +59,7 @@ main()
     INIT();
 
     print("plain C call\n");
-    res = (ptr_uint_t) LoadLibrary(arg0);
+    res = (ptr_uint_t)LoadLibrary(arg0);
 
     kernel32_base = res;
     REPORT(res);
@@ -67,7 +68,7 @@ main()
 
     __asm {
         push arg0
-            /* note using the IAT directly */
+                /* note using the IAT directly */
         call dword ptr LoadLibraryA
         mov res, eax
     }
@@ -91,8 +92,7 @@ main()
             jmp dword ptr LoadLibraryA
             mov res, eax
         }
-    } __except (
-                (res = (GetExceptionInformation())->ContextRecord->CXT_XAX),
+    } __except ((res = (GetExceptionInformation())->ContextRecord->CXT_XAX),
                 EXCEPTION_EXECUTE_HANDLER) {
         print("exception since not cleaning up stack\n");
     }
@@ -124,8 +124,7 @@ main()
             jmp dword ptr LoadLibraryA
             mov res, eax
         }
-    } __except (
-                (res = (GetExceptionInformation())->ContextRecord->CXT_XAX),
+    } __except ((res = (GetExceptionInformation())->ContextRecord->CXT_XAX),
                 EXCEPTION_EXECUTE_HANDLER) {
         print("exception since not cleaning up stack\n");
     }
@@ -141,9 +140,8 @@ main()
                 push offset after_jmp
                 jmp dword ptr LoadLibraryA
                 mov res, eax
-              }
-    } __except (
-                (res = (GetExceptionInformation())->ContextRecord->CXT_XAX),
+        }
+    } __except ((res = (GetExceptionInformation())->ContextRecord->CXT_XAX),
                 EXCEPTION_EXECUTE_HANDLER) {
         /* stack should be properly cleaned up */
         print("native exception unexpected, unless detected as violation\n");
@@ -162,7 +160,7 @@ main()
 
     print("JMP allowed!\n");
 
- done:
+done:
     print("done\n");
     return 0;
 }

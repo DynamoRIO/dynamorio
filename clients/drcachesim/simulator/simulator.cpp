@@ -40,26 +40,36 @@
 #include "droption.h"
 #include "simulator.h"
 
-simulator_t::simulator_t(unsigned int num_cores,
-                         uint64_t skip_refs,
-                         uint64_t warmup_refs,
-                         double warmup_fraction,
-                         uint64_t sim_refs,
-                         bool cpu_scheduling,
-                         unsigned int verbose) :
-    knob_num_cores(num_cores),
-    knob_skip_refs(skip_refs),
-    knob_warmup_refs(warmup_refs),
-    knob_warmup_fraction(warmup_fraction),
-    knob_sim_refs(sim_refs),
-    knob_cpu_scheduling(cpu_scheduling),
-    knob_verbose(verbose),
-    last_thread(0),
-    last_core(0),
-    cpu_counts(knob_num_cores, 0),
-    thread_counts(knob_num_cores, 0),
-    thread_ever_counts(knob_num_cores, 0)
+simulator_t::simulator_t(unsigned int num_cores, uint64_t skip_refs, uint64_t warmup_refs,
+                         double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
+                         unsigned int verbose)
 {
+    init_knobs(num_cores, skip_refs, warmup_refs, warmup_fraction, sim_refs,
+               cpu_scheduling, verbose);
+}
+
+simulator_t::~simulator_t()
+{
+}
+
+void
+simulator_t::init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t warmup_refs,
+                        double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
+                        unsigned int verbose)
+{
+    knob_num_cores = num_cores;
+    knob_skip_refs = skip_refs;
+    knob_warmup_refs = warmup_refs;
+    knob_warmup_fraction = warmup_fraction;
+    knob_sim_refs = sim_refs;
+    knob_cpu_scheduling = cpu_scheduling;
+    knob_verbose = verbose;
+    last_thread = 0;
+    last_core = 0;
+    cpu_counts.resize(knob_num_cores, 0);
+    thread_counts.resize(knob_num_cores, 0);
+    thread_ever_counts.resize(knob_num_cores, 0);
+
     if (knob_warmup_refs > 0 && (knob_warmup_fraction > 0.0)) {
         ERRMSG("Usage error: Either warmup_refs OR warmup_fraction can be set");
         success = false;
@@ -67,14 +77,11 @@ simulator_t::simulator_t(unsigned int num_cores,
     }
 }
 
-simulator_t::~simulator_t() {}
-
 bool
 simulator_t::process_memref(const memref_t &memref)
 {
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID &&
-        knob_cpu_scheduling) {
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID && knob_cpu_scheduling) {
         int cpu = (int)(intptr_t)memref.marker.marker_value;
         if (cpu < 0)
             return true;
@@ -85,8 +92,8 @@ simulator_t::process_memref(const memref_t &memref)
             ++cpu_counts[min_core];
             cpu2core[cpu] = min_core;
             if (knob_verbose >= 1) {
-                std::cerr << "new cpu " << cpu << " => core " << min_core <<
-                    " (count=" << cpu_counts[min_core] << ")" << std::endl;
+                std::cerr << "new cpu " << cpu << " => core " << min_core
+                          << " (count=" << cpu_counts[min_core] << ")" << std::endl;
             }
         } else
             min_core = exists->second;
@@ -129,8 +136,8 @@ simulator_t::core_for_thread(memref_tid_t tid)
     // thread.  We fall back to scheduling threads directly to cores.
     int min_core = find_emptiest_core(thread_counts);
     if (!knob_cpu_scheduling && knob_verbose >= 1) {
-        std::cerr << "new thread " << tid << " => core " << min_core <<
-            " (count=" << thread_counts[min_core] << ")" << std::endl;
+        std::cerr << "new thread " << tid << " => core " << min_core
+                  << " (count=" << thread_counts[min_core] << ")" << std::endl;
     } else if (knob_cpu_scheduling && knob_verbose >= 1) {
         std::cerr << "missing cpu marker, so placing thread " << tid << " => core "
                   << min_core << " (count=" << thread_counts[min_core] << ")"
@@ -145,13 +152,13 @@ simulator_t::core_for_thread(memref_tid_t tid)
 void
 simulator_t::handle_thread_exit(memref_tid_t tid)
 {
-    std::unordered_map<memref_tid_t,int>::iterator exists = thread2core.find(tid);
+    std::unordered_map<memref_tid_t, int>::iterator exists = thread2core.find(tid);
     assert(exists != thread2core.end());
     assert(thread_counts[exists->second] > 0);
     --thread_counts[exists->second];
     if (knob_verbose >= 1) {
-        std::cerr << "thread " << tid << " exited from core " << exists->second <<
-            " (count=" << thread_counts[exists->second] << ")" << std::endl;
+        std::cerr << "thread " << tid << " exited from core " << exists->second
+                  << " (count=" << thread_counts[exists->second] << ")" << std::endl;
     }
     thread2core.erase(tid);
 }
@@ -160,8 +167,8 @@ void
 simulator_t::print_core(int core) const
 {
     if (!knob_cpu_scheduling) {
-        std::cerr << "Core #" << core << " (" << thread_ever_counts[core]
-                  << " thread(s))" << std::endl;
+        std::cerr << "Core #" << core << " (" << thread_ever_counts[core] << " thread(s))"
+                  << std::endl;
     } else {
         std::cerr << "Core #" << core;
         if (cpu_counts[core] == 0) {

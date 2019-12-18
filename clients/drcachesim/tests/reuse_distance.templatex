@@ -1,6 +1,6 @@
 Hello, world!
 ---- <application exited with code 0> ----
-Reuse distance tool results:
+Reuse distance tool aggregated results:
 Total accesses: [0-9]+
 Unique accesses: [0-9]+
 Unique cache lines accessed: [0-9]+

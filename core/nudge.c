@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,24 +36,23 @@
 #include "nudge.h"
 
 #ifdef WINDOWS
-# include "ntdll.h" /* for our_create_thread(), nt_free_virtual_memory() */
-# include "os_exports.h" /* for detach_helper(), get_stack_bounds() */
-# include "drmarker.h"
+#    include "ntdll.h"      /* for our_create_thread(), nt_free_virtual_memory() */
+#    include "os_exports.h" /* for detach_helper(), get_stack_bounds() */
+#    include "drmarker.h"
 #else
-# include <string.h>
 #endif /* WINDOWS */
 
 #ifdef HOT_PATCHING_INTERFACE
-# include "hotpatch.h" /* for hotp_nudge_update() */
+#    include "hotpatch.h" /* for hotp_nudge_update() */
 #endif
 #ifdef PROCESS_CONTROL
-# include "moduledb.h" /* for process_control() */
+#    include "moduledb.h" /* for process_control() */
 #endif
 
-#include "fragment.h" /* needed for perscache.h */
+#include "fragment.h"  /* needed for perscache.h */
 #include "perscache.h" /* for coarse_units_freeze_all() */
 #ifdef CLIENT_INTERFACE
-# include "instrument.h" /* for instrement_nudge() */
+#    include "instrument.h" /* for instrement_nudge() */
 #endif
 #include "fcache.h" /* for reset routines */
 
@@ -66,10 +65,10 @@ nudge_terminate_on_dstack(dcontext_t *dcontext)
 {
     ASSERT(dcontext == get_thread_private_dcontext());
     if (dcontext->nudge_terminate_process) {
-        os_terminate_with_code(dcontext, TERMINATE_PROCESS|TERMINATE_CLEANUP,
+        os_terminate_with_code(dcontext, TERMINATE_PROCESS | TERMINATE_CLEANUP,
                                dcontext->nudge_exit_code);
     } else
-        os_terminate(dcontext, TERMINATE_THREAD|TERMINATE_CLEANUP);
+        os_terminate(dcontext, TERMINATE_THREAD | TERMINATE_CLEANUP);
     ASSERT_NOT_REACHED();
 }
 
@@ -147,23 +146,23 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
          * before dr exited (i.e. before drmarker was freed) but didn't end up getting
          * scheduled till after dr exited. */
         ASSERT(!exit_process); /* shouldn't happen */
-# ifdef WINDOWS
+#    ifdef WINDOWS
         if (dcontext != NULL)
-            swap_peb_pointer(dcontext, false/*to app*/);
-# endif
+            swap_peb_pointer(dcontext, false /*to app*/);
+#    endif
 
         os_terminate(dcontext, TERMINATE_THREAD);
     } else {
         /* Nudge threads should exit without holding any locks. */
         ASSERT_OWN_NO_LOCKS();
 
-# ifdef WINDOWS
+#    ifdef WINDOWS
         /* if exiting the process, os_loader_exit will swap to app, and we want to
          * remain private during exit (esp client exit)
          */
         if (!exit_process && dcontext != NULL)
-            swap_peb_pointer(dcontext, false/*to app*/);
-# endif
+            swap_peb_pointer(dcontext, false /*to app*/);
+#    endif
 
         /* if freeing the app stack we must be on the dstack when we cleanup */
         if (dcontext->free_app_stack && !is_currently_on_dstack(dcontext)) {
@@ -175,15 +174,15 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
                 dcontext->nudge_exit_code = exit_code;
             }
             call_switch_stack(dcontext, dcontext->dstack,
-                              (void(*)(void*))nudge_terminate_on_dstack,
-                              NULL /* not on initstack */, false /* don't return */);
+                              (void (*)(void *))nudge_terminate_on_dstack,
+                              NULL /* not on d_r_initstack */, false /* don't return */);
         } else {
             /* Already on dstack or nudge creator will free app stack. */
             if (exit_process) {
-                os_terminate_with_code(dcontext, TERMINATE_PROCESS|TERMINATE_CLEANUP,
+                os_terminate_with_code(dcontext, TERMINATE_PROCESS | TERMINATE_CLEANUP,
                                        exit_code);
             } else {
-                os_terminate(dcontext, TERMINATE_THREAD|TERMINATE_CLEANUP);
+                os_terminate(dcontext, TERMINATE_THREAD | TERMINATE_CLEANUP);
             }
         }
     }
@@ -199,21 +198,21 @@ bool
 generic_nudge_handler(nudge_arg_t *arg_dont_use)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
-    nudge_arg_t safe_arg = {0};
+    nudge_arg_t safe_arg = { 0 };
     uint nudge_action_mask = 0;
 
-# ifdef WINDOWS
+#    ifdef WINDOWS
     /* this routine is run natively via leave_call_native() so there's no
      * cxt switch that swapped for us
      */
     if (dcontext != NULL)
-        swap_peb_pointer(dcontext, true/*to priv*/);
-# endif
+        swap_peb_pointer(dcontext, true /*to priv*/);
+#    endif
 
-    /* To be extra safe we use safe_read() to access the nudge argument, though once
+    /* To be extra safe we use d_r_safe_read() to access the nudge argument, though once
      * we get past the checks below we are trusting its content. */
     ASSERT(arg_dont_use != NULL && "invalid nudge argument");
-    if (!safe_read(arg_dont_use, sizeof(nudge_arg_t), &safe_arg)) {
+    if (!d_r_safe_read(arg_dont_use, sizeof(nudge_arg_t), &safe_arg)) {
         ASSERT(false && "invalid nudge argument");
         goto nudge_finished;
     }
@@ -268,16 +267,14 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
 
     handle_nudge(dcontext, &safe_arg);
 
- nudge_finished:
-    return nudge_thread_cleanup(dcontext, false/*just thread*/, 0/*unused*/);
+nudge_finished:
+    return nudge_thread_cleanup(dcontext, false /*just thread*/, 0 /*unused*/);
 }
 
 #endif /* WINDOWS */
 
 /* This routine may not return */
-#ifdef WINDOWS
-static
-#endif
+IF_WINDOWS(static)
 void
 handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
 {
@@ -294,7 +291,7 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
 
 #ifdef WINDOWS
     /* Linux does this in signal.c */
-    SYSLOG_INTERNAL_INFO("received nudge mask=0x%x id=0x%08x arg=0x"ZHEX64_FORMAT_STRING,
+    SYSLOG_INTERNAL_INFO("received nudge mask=0x%x id=0x%08x arg=0x" ZHEX64_FORMAT_STRING,
                          arg->nudge_action_mask, arg->client_id, arg->client_arg);
 #endif
 
@@ -308,13 +305,13 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
 
     /* In -thin_client mode only detach and process_control nudges are allowed;
      * case 8888. */
-#define VALID_THIN_CLIENT_NUDGES (NUDGE_GENERIC(process_control)|NUDGE_GENERIC(detach))
+#define VALID_THIN_CLIENT_NUDGES (NUDGE_GENERIC(process_control) | NUDGE_GENERIC(detach))
     if (DYNAMO_OPTION(thin_client)) {
         if (TEST(VALID_THIN_CLIENT_NUDGES, nudge_action_mask)) {
-             /* If it is a valid thin client nudge, then disable all others. */
-             nudge_action_mask &= VALID_THIN_CLIENT_NUDGES;
+            /* If it is a valid thin client nudge, then disable all others. */
+            nudge_action_mask &= VALID_THIN_CLIENT_NUDGES;
         } else {
-            return;   /* invalid nudge for thin_client, so mute it */
+            return; /* invalid nudge for thin_client, so mute it */
         }
     }
 
@@ -368,11 +365,11 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
     }
     if (TEST(NUDGE_GENERIC(freeze), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(freeze);
-        coarse_units_freeze_all(true/*in-place: FIXME: separate nudge for non?*/);
+        coarse_units_freeze_all(true /*in-place: FIXME: separate nudge for non?*/);
     }
     if (TEST(NUDGE_GENERIC(persist), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(persist);
-        coarse_units_freeze_all(false/*!in-place==persist*/);
+        coarse_units_freeze_all(false /*!in-place==persist*/);
     }
 #ifdef CLIENT_INTERFACE
     if (TEST(NUDGE_GENERIC(client), nudge_action_mask)) {
@@ -381,7 +378,7 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
     }
 #endif
 #ifdef PROCESS_CONTROL
-    if (TEST(NUDGE_GENERIC(process_control), nudge_action_mask)) {  /* Case 8594 */
+    if (TEST(NUDGE_GENERIC(process_control), nudge_action_mask)) { /* Case 8594 */
         nudge_action_mask &= ~NUDGE_GENERIC(process_control);
         /* Need to synchronize because process control can be switched between
          * on (white or black list) & off.  FIXME - the nudge mask should specify this,
@@ -398,13 +395,13 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
 #endif
 #ifdef HOTPATCHING
     if (DYNAMO_OPTION(hot_patching) && DYNAMO_OPTION(liveshields) &&
-        TEST_ANY(NUDGE_GENERIC(policy)|NUDGE_GENERIC(mode)|NUDGE_GENERIC(lstats),
+        TEST_ANY(NUDGE_GENERIC(policy) | NUDGE_GENERIC(mode) | NUDGE_GENERIC(lstats),
                  nudge_action_mask)) {
-        hotp_nudge_update(nudge_action_mask &
-                          (NUDGE_GENERIC(policy)|NUDGE_GENERIC(mode)|
-                           NUDGE_GENERIC(lstats)));
-        nudge_action_mask &= ~(NUDGE_GENERIC(policy)|NUDGE_GENERIC(mode)|
-                               NUDGE_GENERIC(lstats));
+        hotp_nudge_update(
+            nudge_action_mask &
+            (NUDGE_GENERIC(policy) | NUDGE_GENERIC(mode) | NUDGE_GENERIC(lstats)));
+        nudge_action_mask &=
+            ~(NUDGE_GENERIC(policy) | NUDGE_GENERIC(mode) | NUDGE_GENERIC(lstats));
     }
 #endif
 #ifdef PROGRAM_SHEPHERDING
@@ -414,14 +411,14 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
          * arbitrary time. Note - is only useful for testing kill process attack
          * handling as this is not an app thread (we injected it). */
         /* see bug 652 for planned improvements */
-        security_violation(dcontext, dcontext->next_tag,
-                           ATTACK_SIM_NUDGE_VIOLATION, OPTION_BLOCK|OPTION_REPORT);
+        security_violation(dcontext, dcontext->next_tag, ATTACK_SIM_NUDGE_VIOLATION,
+                           OPTION_BLOCK | OPTION_REPORT);
     }
 #endif
     if (TEST(NUDGE_GENERIC(reset), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(reset);
         if (DYNAMO_OPTION(enable_reset)) {
-            mutex_lock(&reset_pending_lock);
+            d_r_mutex_lock(&reset_pending_lock);
             /* fcache_reset_all_caches_proactively() will unlock */
             fcache_reset_all_caches_proactively(RESET_ALL);
             /* NOTE - reset is safe since we won't return to the code cache below (we
@@ -445,8 +442,8 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
 void
 nudge_add_pending(dcontext_t *dcontext, nudge_arg_t *nudge_arg)
 {
-    pending_nudge_t *pending = (pending_nudge_t *)
-        heap_alloc(dcontext, sizeof(*pending) HEAPACCT(ACCT_OTHER));
+    pending_nudge_t *pending =
+        (pending_nudge_t *)heap_alloc(dcontext, sizeof(*pending) HEAPACCT(ACCT_OTHER));
     pending_nudge_t *prev;
     pending->arg = *nudge_arg;
     pending->next = NULL;
@@ -457,8 +454,8 @@ nudge_add_pending(dcontext_t *dcontext, nudge_arg_t *nudge_arg)
         if (dcontext->nudge_pending != NULL)
             STATS_INC(num_pending_nudges);
     });
-    for (prev = dcontext->nudge_pending;
-         prev != NULL && prev->next != NULL; prev = prev->next)
+    for (prev = dcontext->nudge_pending; prev != NULL && prev->next != NULL;
+         prev = prev->next)
         ;
     if (prev == NULL) {
         dcontext->nudge_pending = pending;
@@ -470,8 +467,8 @@ nudge_add_pending(dcontext_t *dcontext, nudge_arg_t *nudge_arg)
 
 /* send a nudge from DR to the current process or another process */
 dr_config_status_t
-nudge_internal(process_id_t pid, uint nudge_action_mask,
-               uint64 client_arg, client_id_t client_id, uint timeout_ms)
+nudge_internal(process_id_t pid, uint nudge_action_mask, uint64 client_arg,
+               client_id_t client_id, uint timeout_ms)
 {
     bool internal = (pid == get_process_id());
 #ifdef WINDOWS
@@ -509,7 +506,7 @@ nudge_internal(process_id_t pid, uint nudge_action_mask,
 #ifdef WINDOWS
     if (internal) {
         hproc = NT_CURRENT_PROCESS;
-        nudge_target = (void *) generic_nudge_target;
+        nudge_target = (void *)generic_nudge_target;
     } else {
         dr_marker_t marker;
 
@@ -525,9 +522,9 @@ nudge_internal(process_id_t pid, uint nudge_action_mask,
         nudge_target = marker.dr_generic_nudge_target;
     }
 
-    hthread = our_create_thread(hproc, IF_X64_ELSE(true, false), nudge_target,
-                                NULL, &nudge_arg, sizeof(nudge_arg_t),
-                                15*(uint)PAGE_SIZE, 12*(uint)PAGE_SIZE, false, NULL);
+    hthread = our_create_thread(hproc, IF_X64_ELSE(true, false), nudge_target, NULL,
+                                &nudge_arg, sizeof(nudge_arg_t), 15 * (uint)PAGE_SIZE,
+                                12 * (uint)PAGE_SIZE, false, NULL);
     ASSERT(hthread != INVALID_HANDLE_VALUE);
     if (hthread == INVALID_HANDLE_VALUE)
         return DR_FAILURE;

@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-
 /* Tests the drmgr extension */
 
 #include "dr_api.h"
@@ -39,12 +38,17 @@
 #include <string.h> /* memset */
 #include <stdint.h> /* uintptr_t */
 
-#define CHECK(x, msg) do {               \
-    if (!(x)) {                          \
-        dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-        dr_abort();                      \
-    }                                    \
-} while (0);
+#ifdef UNIX
+#    include <signal.h>
+#endif
+
+#define CHECK(x, msg)                                                                \
+    do {                                                                             \
+        if (!(x)) {                                                                  \
+            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            dr_abort();                                                              \
+        }                                                                            \
+    } while (0);
 
 /* CLS tests: easiest to assume a single thread (the 2nd thread the
  * app creates, in this case) hitting callbacks and use global data to
@@ -84,57 +88,85 @@ static bool checked_cls_from_cache;
 static bool checked_tls_write_from_cache;
 static bool checked_cls_write_from_cache;
 
-static void event_exit(void);
-static void event_thread_init(void *drcontext);
-static void event_thread_exit(void *drcontext);
-static void event_thread_init_ex(void *drcontext);
-static void event_thread_exit_ex(void *drcontext);
-static void event_thread_init_user_data(void *drcontext, void *user_data);
-static void event_thread_exit_user_data(void *drcontext, void *user_data);
-static void event_thread_init_null_user_data(void *drcontext, void *user_data);
-static void event_thread_exit_null_user_data(void *drcontext, void *user_data);
-static void event_thread_context_init(void *drcontext, bool new_depth);
-static void event_thread_context_exit(void *drcontext, bool process_exit);
-static void event_mod_load(void *drcontext, const module_data_t *mod,
-                           bool loaded, void *user_data);
-static void event_mod_unload(void *drcontext, const module_data_t *mod,
-                             void *user_data);
-static bool event_filter_syscall(void *drcontext, int sysnum);
-static bool event_pre_sys_A(void *drcontext, int sysnum);
-static bool event_pre_sys_A_user_data(void *drcontext, int sysnum, void *user_data);
-static bool event_pre_sys_B(void *drcontext, int sysnum);
-static bool event_pre_sys_B_user_data(void *drcontext, int sysnum, void *user_data);
-static void event_post_sys_A(void *drcontext, int sysnum);
-static void event_post_sys_A_user_data(void *drcontext, int sysnum, void *user_data);
-static void event_post_sys_B(void *drcontext, int sysnum);
-static void event_post_sys_B_user_data(void *drcontext, int sysnum, void *user_data);
-static dr_emit_flags_t event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating,
-                                         OUT void **user_data);
-static dr_emit_flags_t event_bb_insert(void *drcontext, void *tag, instrlist_t *bb,
-                                       instr_t *inst, bool for_trace, bool translating,
-                                       void *user_data);
+static void
+event_exit(void);
+static void
+event_thread_init(void *drcontext);
+static void
+event_thread_exit(void *drcontext);
+static void
+event_thread_init_ex(void *drcontext);
+static void
+event_thread_exit_ex(void *drcontext);
+static void
+event_thread_init_user_data(void *drcontext, void *user_data);
+static void
+event_thread_exit_user_data(void *drcontext, void *user_data);
+static void
+event_thread_init_null_user_data(void *drcontext, void *user_data);
+static void
+event_thread_exit_null_user_data(void *drcontext, void *user_data);
+static void
+event_thread_context_init(void *drcontext, bool new_depth);
+static void
+event_thread_context_exit(void *drcontext, bool process_exit);
+static void
+event_mod_load(void *drcontext, const module_data_t *mod, bool loaded, void *user_data);
+static void
+event_mod_unload(void *drcontext, const module_data_t *mod, void *user_data);
+static bool
+event_filter_syscall(void *drcontext, int sysnum);
+static bool
+event_pre_sys_A(void *drcontext, int sysnum);
+static bool
+event_pre_sys_A_user_data(void *drcontext, int sysnum, void *user_data);
+static bool
+event_pre_sys_B(void *drcontext, int sysnum);
+static bool
+event_pre_sys_B_user_data(void *drcontext, int sysnum, void *user_data);
+static void
+event_post_sys_A(void *drcontext, int sysnum);
+static void
+event_post_sys_A_user_data(void *drcontext, int sysnum, void *user_data);
+static void
+event_post_sys_B(void *drcontext, int sysnum);
+static void
+event_post_sys_B_user_data(void *drcontext, int sysnum, void *user_data);
+static dr_emit_flags_t
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, OUT void **user_data);
+static dr_emit_flags_t
+event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                bool for_trace, bool translating, void *user_data);
 
-static dr_emit_flags_t event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating,
-                                         OUT void **user_data);
-static dr_emit_flags_t event_bb4_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                                          bool for_trace, bool translating,
-                                          void *user_data);
-static dr_emit_flags_t event_bb4_insert(void *drcontext, void *tag, instrlist_t *bb,
-                                       instr_t *inst, bool for_trace, bool translating,
-                                       void *user_data);
-static dr_emit_flags_t event_bb4_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
-                                               bool for_trace, bool translating,
-                                               void *user_data);
-static dr_emit_flags_t event_bb4_insert2(void *drcontext, void *tag, instrlist_t *bb,
-                                         instr_t *inst, bool for_trace, bool translating,
-                                         void *user_data);
+static dr_emit_flags_t
+event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, OUT void **user_data);
+static dr_emit_flags_t
+event_bb4_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                   bool translating, void *user_data);
+static dr_emit_flags_t
+event_bb4_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                 bool for_trace, bool translating, void *user_data);
+static dr_emit_flags_t
+event_bb4_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                        bool translating, void *user_data);
+static dr_emit_flags_t
+event_bb4_insert2(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                  bool for_trace, bool translating, void *user_data);
 
+static dr_emit_flags_t
+one_time_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating);
+static void
+event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info);
 
-static dr_emit_flags_t one_time_bb_event(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
-static void event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info);
+#ifdef UNIX
+static dr_signal_action_t
+event_signal(void *drcontext, dr_siginfo_t *siginfo, void *user_data);
+static dr_signal_action_t
+event_null_signal(void *drcontext, dr_siginfo_t *siginfo, void *user_data);
+#endif
 
 /* The following test values are arbitrary */
 
@@ -143,38 +175,48 @@ static const uintptr_t syscall_A_user_data_test = 7189;
 static const uintptr_t syscall_B_user_data_test = 3218;
 static const uintptr_t mod_user_data_test = 1070;
 
+#ifdef UNIX
+static const uintptr_t signal_user_data_test = 5115;
+#endif
+
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    drmgr_priority_t priority = {sizeof(priority), "drmgr-test", NULL, NULL, 0};
-    drmgr_priority_t priority4 = {sizeof(priority), "drmgr-test4", NULL, NULL, 0};
-    drmgr_priority_t sys_pri_A = {sizeof(priority), "drmgr-test-A",
-                                  NULL, NULL, 10};
-    drmgr_priority_t sys_pri_A_user_data = {sizeof(priority),
-                                            "drmgr-test-A-usr-data-test",
-                                            "drmgr-test-A", NULL, 9};
-    drmgr_priority_t sys_pri_B = {sizeof(priority), "drmgr-test-B",
-                                  "drmgr-test-A-usr-data-test", NULL, 5};
-    drmgr_priority_t sys_pri_B_user_data = {sizeof(priority),
-                                            "drmgr-test-B-usr-data-test",
-                                            "drmgr-test-B",
-                                            NULL, 4};
-    drmgr_priority_t thread_init_null_user_data_pri = {sizeof(priority),
-                                                       "drmgr-t-in-null-user-data-test",
-                                                       NULL, NULL, -3};
-    drmgr_priority_t thread_init_user_data_pri = {sizeof(priority),
-                                                  "drmgr-thread-init-user-data-test",
-                                                   NULL, NULL, -2};
-    drmgr_priority_t thread_init_pri = {sizeof(priority), "drmgr-thread-init-test",
-                                        NULL, NULL, -1};
-    drmgr_priority_t thread_exit_pri = {sizeof(priority), "drmgr-thread-exit-test",
-                                        NULL, NULL, 1};
-    drmgr_priority_t thread_exit_user_data_pri = {sizeof(priority),
-                                                  "drmgr-thread-exit-user-data-test",
-                                                  NULL, NULL, 2};
-    drmgr_priority_t thread_exit_null_user_data_pri = {sizeof(priority),
-                                                       "drmgr-t-exit-null-usr-data-test",
-                                                       NULL, NULL, 3};
+    drmgr_priority_t priority = { sizeof(priority), "drmgr-test", NULL, NULL, 0 };
+    drmgr_priority_t priority4 = { sizeof(priority), "drmgr-test4", NULL, NULL, 0 };
+    drmgr_priority_t sys_pri_A = { sizeof(priority), "drmgr-test-A", NULL, NULL, 10 };
+    drmgr_priority_t sys_pri_A_user_data = { sizeof(priority),
+                                             "drmgr-test-A-usr-data-test", "drmgr-test-A",
+                                             NULL, 9 };
+    drmgr_priority_t sys_pri_B = { sizeof(priority), "drmgr-test-B",
+                                   "drmgr-test-A-usr-data-test", NULL, 5 };
+    drmgr_priority_t sys_pri_B_user_data = { sizeof(priority),
+                                             "drmgr-test-B-usr-data-test", "drmgr-test-B",
+                                             NULL, 4 };
+    drmgr_priority_t thread_init_null_user_data_pri = { sizeof(priority),
+                                                        "drmgr-t-in-null-user-data-test",
+                                                        NULL, NULL, -3 };
+    drmgr_priority_t thread_init_user_data_pri = { sizeof(priority),
+                                                   "drmgr-thread-init-user-data-test",
+                                                   NULL, NULL, -2 };
+    drmgr_priority_t thread_init_pri = { sizeof(priority), "drmgr-thread-init-test", NULL,
+                                         NULL, -1 };
+    drmgr_priority_t thread_exit_pri = { sizeof(priority), "drmgr-thread-exit-test", NULL,
+                                         NULL, 1 };
+    drmgr_priority_t thread_exit_user_data_pri = { sizeof(priority),
+                                                   "drmgr-thread-exit-user-data-test",
+                                                   NULL, NULL, 2 };
+    drmgr_priority_t thread_exit_null_user_data_pri = { sizeof(priority),
+                                                        "drmgr-t-exit-null-usr-data-test",
+                                                        NULL, NULL, 3 };
+
+#ifdef UNIX
+    drmgr_priority_t signal_user_data = { sizeof(priority), "drmgr-signal-usr-data-test",
+                                          NULL, NULL, 2 };
+    drmgr_priority_t signal_null_user_data = { sizeof(priority),
+                                               "drmgr-signal-null-usr-data-test", NULL,
+                                               NULL, 3 };
+#endif
 
     bool ok;
 
@@ -186,72 +228,74 @@ dr_init(client_id_t id)
     drmgr_register_thread_exit_event_ex(event_thread_exit_ex, &thread_exit_pri);
     drmgr_register_thread_init_event_user_data(event_thread_init_user_data,
                                                &thread_init_user_data_pri,
-                                               (void *) thread_user_data_test);
+                                               (void *)thread_user_data_test);
     drmgr_register_thread_exit_event_user_data(event_thread_exit_user_data,
                                                &thread_exit_user_data_pri,
-                                               (void *) thread_user_data_test);
+                                               (void *)thread_user_data_test);
     drmgr_register_thread_init_event_user_data(event_thread_init_null_user_data,
-                                               &thread_init_null_user_data_pri,
-                                               NULL);
+                                               &thread_init_null_user_data_pri, NULL);
     drmgr_register_thread_exit_event_user_data(event_thread_exit_null_user_data,
-                                               &thread_exit_null_user_data_pri,
-                                               NULL);
+                                               &thread_exit_null_user_data_pri, NULL);
 
-    ok = drmgr_register_bb_instrumentation_event(event_bb_analysis,
-                                                 event_bb_insert,
+#ifdef UNIX
+    ok = drmgr_register_signal_event_user_data(event_signal, &signal_user_data,
+                                               (void *)signal_user_data_test);
+    CHECK(ok, "drmgr_register_signal_event_user_data failed");
+
+    ok = drmgr_register_signal_event_user_data(event_null_signal, &signal_null_user_data,
+                                               NULL);
+    CHECK(ok, "drmgr_register_signal_event_user_data (null) failed");
+#endif
+
+    ok = drmgr_register_bb_instrumentation_event(event_bb_analysis, event_bb_insert,
                                                  &priority);
     CHECK(ok, "drmgr register bb failed");
 
     /* check register/unregister instrumentation_ex */
-    ok = drmgr_register_bb_instrumentation_ex_event(event_bb4_app2app,
-                                                    event_bb4_analysis,
+    ok = drmgr_register_bb_instrumentation_ex_event(event_bb4_app2app, event_bb4_analysis,
                                                     event_bb4_insert2,
-                                                    event_bb4_instru2instru,
-                                                    NULL);
+                                                    event_bb4_instru2instru, NULL);
     CHECK(ok, "drmgr_register_bb_instrumentation_ex_event failed");
-    ok = drmgr_unregister_bb_instrumentation_ex_event(event_bb4_app2app,
-                                                      event_bb4_analysis,
-                                                      event_bb4_insert2,
-                                                      event_bb4_instru2instru);
+    ok = drmgr_unregister_bb_instrumentation_ex_event(
+        event_bb4_app2app, event_bb4_analysis, event_bb4_insert2,
+        event_bb4_instru2instru);
     CHECK(ok, "drmgr_unregister_bb_instrumentation_ex_event failed");
 
     /* test data passing among all 4 phases */
-    ok = drmgr_register_bb_instrumentation_ex_event(event_bb4_app2app,
-                                                    event_bb4_analysis,
+    ok = drmgr_register_bb_instrumentation_ex_event(event_bb4_app2app, event_bb4_analysis,
                                                     event_bb4_insert,
-                                                    event_bb4_instru2instru,
-                                                    &priority4);
+                                                    event_bb4_instru2instru, &priority4);
 
     drmgr_register_module_load_event_user_data(event_mod_load, NULL,
-                                               (void *) mod_user_data_test);
+                                               (void *)mod_user_data_test);
 
     drmgr_register_module_unload_event_user_data(event_mod_unload, NULL,
-                                                 (void *) mod_user_data_test);
+                                                 (void *)mod_user_data_test);
 
     tls_idx = drmgr_register_tls_field();
     CHECK(tls_idx != -1, "drmgr_register_tls_field failed");
-    cls_idx = drmgr_register_cls_field(event_thread_context_init,
-                                       event_thread_context_exit);
+    cls_idx =
+        drmgr_register_cls_field(event_thread_context_init, event_thread_context_exit);
     CHECK(cls_idx != -1, "drmgr_register_tls_field failed");
 
     dr_register_filter_syscall_event(event_filter_syscall);
     ok = drmgr_register_pre_syscall_event_ex(event_pre_sys_A, &sys_pri_A) &&
         drmgr_register_pre_syscall_event_user_data(event_pre_sys_A_user_data,
                                                    &sys_pri_A_user_data,
-                                                   (void *) syscall_A_user_data_test) &&
+                                                   (void *)syscall_A_user_data_test) &&
         drmgr_register_pre_syscall_event_ex(event_pre_sys_B, &sys_pri_B) &&
         drmgr_register_pre_syscall_event_user_data(event_pre_sys_B_user_data,
                                                    &sys_pri_B_user_data,
-                                                   (void *) syscall_B_user_data_test);
+                                                   (void *)syscall_B_user_data_test);
     CHECK(ok, "drmgr register sys failed");
     ok = drmgr_register_post_syscall_event_ex(event_post_sys_A, &sys_pri_A) &&
         drmgr_register_post_syscall_event_user_data(event_post_sys_A_user_data,
                                                     &sys_pri_A_user_data,
-                                                    (void *) syscall_A_user_data_test) &&
+                                                    (void *)syscall_A_user_data_test) &&
         drmgr_register_post_syscall_event_ex(event_post_sys_B, &sys_pri_B) &&
         drmgr_register_post_syscall_event_user_data(event_post_sys_B_user_data,
                                                     &sys_pri_B_user_data,
-                                                    (void *) syscall_B_user_data_test);
+                                                    (void *)syscall_B_user_data_test);
     CHECK(ok, "drmgr register sys failed");
 
     syslock = dr_mutex_create();
@@ -296,10 +340,16 @@ event_exit(void)
     if (!drmgr_unregister_bb_instrumentation_event(event_bb_analysis))
         CHECK(false, "drmgr unregistration failed");
 
-    if (!drmgr_unregister_bb_instrumentation_ex_event(event_bb4_app2app,
-                                                      event_bb4_analysis,
-                                                      event_bb4_insert,
-                                                      event_bb4_instru2instru))
+#ifdef UNIX
+    if (!drmgr_unregister_signal_event_user_data(event_signal))
+        CHECK(false, "drmgr unregister signal event user_data failed");
+    if (!drmgr_unregister_signal_event_user_data(event_null_signal))
+        CHECK(false, "drmgr unregister null signal event user_data failed");
+#endif
+
+    if (!drmgr_unregister_bb_instrumentation_ex_event(
+            event_bb4_app2app, event_bb4_analysis, event_bb4_insert,
+            event_bb4_instru2instru))
         CHECK(false, "drmgr unregistration failed");
 
     if (!drmgr_unregister_module_load_event_user_data(event_mod_load))
@@ -308,8 +358,8 @@ event_exit(void)
     if (!drmgr_unregister_module_unload_event_user_data(event_mod_unload))
         CHECK(false, "drmgr mod load unregistration failed");
 
-    if (!drmgr_unregister_cls_field(event_thread_context_init,
-                                    event_thread_context_exit, cls_idx))
+    if (!drmgr_unregister_cls_field(event_thread_context_init, event_thread_context_exit,
+                                    cls_idx))
         CHECK(false, "drmgr unregistration failed");
     if (!drmgr_unregister_kernel_xfer_event(event_kernel_xfer))
         CHECK(false, "drmgr_unregister_kernel_xfer_event failed");
@@ -357,7 +407,8 @@ event_thread_init_user_data(void *drcontext, void *user_data)
             dr_fprintf(STDERR, "in event_thread_init_user_data\n");
             in_event_thread_init_user_data = true;
 
-            CHECK(user_data == (void *) thread_user_data_test, "incorrect user data passed");
+            CHECK(user_data == (void *)thread_user_data_test,
+                  "incorrect user data passed");
         }
         dr_mutex_unlock(threadlock);
     }
@@ -382,7 +433,7 @@ static void
 event_thread_exit(void *drcontext)
 {
     CHECK(drmgr_get_tls_field(drcontext, tls_idx) ==
-          (void *)(ptr_int_t)dr_get_thread_id(drcontext),
+              (void *)(ptr_int_t)dr_get_thread_id(drcontext),
           "tls not preserved");
     /* We do not print as on Win10 there are extra threads messing up the order. */
     dr_mutex_lock(threadlock);
@@ -404,7 +455,7 @@ event_thread_exit_user_data(void *drcontext, void *user_data)
 {
     /* We do not print as on Win10 there are extra threads messing up the order. */
     dr_mutex_lock(threadlock);
-    CHECK(user_data == (void *) thread_user_data_test, "incorrect user data passed");
+    CHECK(user_data == (void *)thread_user_data_test, "incorrect user data passed");
     thread_exit_user_data_events++;
     dr_mutex_unlock(threadlock);
 }
@@ -423,15 +474,14 @@ static void
 event_mod_load(void *drcontext, const module_data_t *mod, bool loaded, void *user_data)
 {
     mod_load_events++;
-    CHECK(user_data == (void *) mod_user_data_test, "incorrect user data for mod load");
+    CHECK(user_data == (void *)mod_user_data_test, "incorrect user data for mod load");
 }
-
 
 static void
 event_mod_unload(void *drcontext, const module_data_t *mod, void *user_data)
 {
     mod_unload_events++;
-    CHECK(user_data == (void *) mod_user_data_test, "incorrect user data for mod unload");
+    CHECK(user_data == (void *)mod_user_data_test, "incorrect user data for mod unload");
 }
 
 static void
@@ -443,12 +493,13 @@ event_thread_context_init(void *drcontext, bool new_depth)
         /* # cbs differs on xp vs win7 so not part of output */
         dr_fprintf(STDERR, "non-main thread entering callback depth=%d\n", cb_depth);
 #endif
-        CHECK(new_depth || drmgr_get_cls_field(drcontext, cls_idx) ==
-              (void *)(ptr_int_t)cb_depth,
+        CHECK(new_depth ||
+                  drmgr_get_cls_field(drcontext, cls_idx) == (void *)(ptr_int_t)cb_depth,
               "not re-using prior callback value");
         drmgr_set_cls_field(drcontext, cls_idx, (void *)(ptr_int_t)cb_depth);
         CHECK(drmgr_get_tls_field(drcontext, tls_idx) ==
-              (void *)(ptr_int_t)dr_get_thread_id(drcontext), "tls not preserved");
+                  (void *)(ptr_int_t)dr_get_thread_id(drcontext),
+              "tls not preserved");
     }
 }
 
@@ -458,23 +509,23 @@ event_thread_context_exit(void *drcontext, bool thread_exit)
     if (!thread_exit && dr_get_thread_id(drcontext) != main_thread) {
 #if VERBOSE
         dr_fprintf(STDERR, "  non-main thread exiting callback depth=%d cls=%d\n",
-                   cb_depth, (int)(ptr_int_t) drmgr_get_cls_field(drcontext, cls_idx));
+                   cb_depth, (int)(ptr_int_t)drmgr_get_cls_field(drcontext, cls_idx));
 #endif
-        CHECK(drmgr_get_cls_field(drcontext, cls_idx) ==
-              (void *)(ptr_int_t)cb_depth,
+        CHECK(drmgr_get_cls_field(drcontext, cls_idx) == (void *)(ptr_int_t)cb_depth,
               "cls not preserved");
         cb_depth--;
         CHECK(drmgr_get_tls_field(drcontext, tls_idx) ==
-              (void *)(ptr_int_t)dr_get_thread_id(drcontext), "tls not preserved");
+                  (void *)(ptr_int_t)dr_get_thread_id(drcontext),
+              "tls not preserved");
     }
 }
 
 static dr_emit_flags_t
-event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating, OUT void **user_data)
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, OUT void **user_data)
 {
     /* point at first instr */
-    *user_data = (void *) instrlist_first(bb);
+    *user_data = (void *)instrlist_first(bb);
     return DR_EMIT_DEFAULT;
 }
 
@@ -498,7 +549,7 @@ static void
 check_tls_write_from_cache(void)
 {
     void *drcontext = dr_get_current_drcontext();
-    CHECK(drmgr_get_tls_field(drcontext, tls_idx) == (void *) MAGIC_NUMBER_FROM_CACHE,
+    CHECK(drmgr_get_tls_field(drcontext, tls_idx) == (void *)MAGIC_NUMBER_FROM_CACHE,
           "cls write from cache incorrect");
     /* now restore */
     drmgr_set_tls_field(drcontext, tls_idx,
@@ -510,11 +561,10 @@ static void
 check_cls_write_from_cache(void)
 {
     CHECK(drmgr_get_cls_field(dr_get_current_drcontext(), cls_idx) ==
-          (void *) MAGIC_NUMBER_FROM_CACHE,
+              (void *)MAGIC_NUMBER_FROM_CACHE,
           "cls write from cache incorrect");
     /* now restore */
-    drmgr_set_cls_field(dr_get_current_drcontext(), cls_idx,
-                        (void *)(ptr_int_t)cb_depth);
+    drmgr_set_cls_field(dr_get_current_drcontext(), cls_idx, (void *)(ptr_int_t)cb_depth);
     checked_cls_write_from_cache = true;
 }
 
@@ -528,32 +578,32 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
 
     CHECK(drmgr_is_first_instr(drcontext, instrlist_first_app(bb)), "first incorrect");
     CHECK(!drmgr_is_first_instr(drcontext, instrlist_last(bb)) ||
-          instrlist_first_app(bb) == instrlist_last(bb), "first incorrect");
+              instrlist_first_app(bb) == instrlist_last(bb),
+          "first incorrect");
     CHECK(drmgr_is_last_instr(drcontext, instrlist_last(bb)), "last incorrect");
     CHECK(!drmgr_is_last_instr(drcontext, instrlist_first_app(bb)) ||
-          instrlist_first_app(bb) == instrlist_last(bb), "last incorrect");
+              instrlist_first_app(bb) == instrlist_last(bb),
+          "last incorrect");
 
     /* hack to instrument every nth bb.  assumes DR serializes bb events. */
     freq++;
-    if (freq % 100 == 0 && inst == (instr_t*)user_data/*first instr*/) {
+    if (freq % 100 == 0 && inst == (instr_t *)user_data /*first instr*/) {
         /* test read from cache */
         dr_save_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
         drmgr_insert_read_tls_field(drcontext, tls_idx, bb, inst, reg1);
-        dr_insert_clean_call(drcontext, bb, inst, (void *)check_tls_from_cache,
-                             false, 1, opnd_create_reg(reg1));
+        dr_insert_clean_call(drcontext, bb, inst, (void *)check_tls_from_cache, false, 1,
+                             opnd_create_reg(reg1));
         drmgr_insert_read_cls_field(drcontext, cls_idx, bb, inst, reg1);
-        dr_insert_clean_call(drcontext, bb, inst, (void *)check_cls_from_cache,
-                             false, 1, opnd_create_reg(reg1));
+        dr_insert_clean_call(drcontext, bb, inst, (void *)check_cls_from_cache, false, 1,
+                             opnd_create_reg(reg1));
         dr_restore_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
     }
-    if (freq % 300 == 0 && inst == (instr_t*)user_data/*first instr*/) {
+    if (freq % 300 == 0 && inst == (instr_t *)user_data /*first instr*/) {
         /* test write from cache */
         dr_save_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
         dr_save_reg(drcontext, bb, inst, reg2, SPILL_SLOT_2);
-        instrlist_insert_mov_immed_ptrsz(drcontext,
-                                         (ptr_int_t)MAGIC_NUMBER_FROM_CACHE,
-                                         opnd_create_reg(reg1),
-                                         bb, inst, NULL, NULL);
+        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)MAGIC_NUMBER_FROM_CACHE,
+                                         opnd_create_reg(reg1), bb, inst, NULL, NULL);
         drmgr_insert_write_tls_field(drcontext, tls_idx, bb, inst, reg1, reg2);
         dr_insert_clean_call(drcontext, bb, inst, (void *)check_tls_write_from_cache,
                              false, 0);
@@ -568,49 +618,66 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
 
 /* test data passed among all 4 phases */
 static dr_emit_flags_t
-event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating,
-                  OUT void **user_data)
+event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, OUT void **user_data)
 {
-    *user_data = (void *) ((ptr_uint_t)tag + 1);
+    *user_data = (void *)((ptr_uint_t)tag + 1);
     return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
-event_bb4_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                   bool for_trace, bool translating,
-                   void *user_data)
+event_bb4_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                   bool translating, void *user_data)
 {
-    CHECK(user_data == (void *) ((ptr_uint_t)tag + 1), "user data not preserved");
+    CHECK(user_data == (void *)((ptr_uint_t)tag + 1), "user data not preserved");
     return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
-event_bb4_insert(void *drcontext, void *tag, instrlist_t *bb,
-                 instr_t *inst, bool for_trace, bool translating,
-                 void *user_data)
+event_bb4_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                 bool for_trace, bool translating, void *user_data)
 {
-    CHECK(user_data == (void *) ((ptr_uint_t)tag + 1), "user data not preserved");
+    CHECK(user_data == (void *)((ptr_uint_t)tag + 1), "user data not preserved");
     return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
-event_bb4_insert2(void *drcontext, void *tag, instrlist_t *bb,
-                  instr_t *inst, bool for_trace, bool translating,
-                  void *user_data)
+event_bb4_insert2(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                  bool for_trace, bool translating, void *user_data)
 {
     CHECK(false, "should never be executed");
     return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
-event_bb4_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
-                        bool for_trace, bool translating,
-                        void *user_data)
+event_bb4_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                        bool translating, void *user_data)
 {
-    CHECK(user_data == (void *) ((ptr_uint_t)tag + 1), "user data not preserved");
+    CHECK(user_data == (void *)((ptr_uint_t)tag + 1), "user data not preserved");
     return DR_EMIT_DEFAULT;
 }
+
+#ifdef UNIX
+static dr_signal_action_t
+event_signal(void *drcontext, dr_siginfo_t *siginfo, void *user_data)
+{
+    CHECK(siginfo->sig == SIGUSR1, "signal not correct");
+    CHECK(user_data == (void *)signal_user_data_test, "user data of signal not valid");
+    dr_fprintf(STDERR, "in signal_A_user_data\n");
+
+    return DR_SIGNAL_DELIVER;
+}
+
+static dr_signal_action_t
+event_null_signal(void *drcontext, dr_siginfo_t *siginfo, void *user_data)
+{
+    CHECK(siginfo->sig == SIGUSR1, "signal not correct");
+    CHECK(user_data == NULL, "user data of signal not valid");
+    dr_fprintf(STDERR, "in signal_B_user_data\n");
+
+    return DR_SIGNAL_SUPPRESS;
+}
+#endif
 
 static bool
 event_filter_syscall(void *drcontext, int sysnum)
@@ -640,8 +707,8 @@ event_pre_sys_A_user_data(void *drcontext, int sysnum, void *user_data)
         if (!in_syscall_A_user_data) {
             dr_fprintf(STDERR, "in pre_sys_A_user_data\n");
             in_syscall_A_user_data = true;
-            CHECK(user_data == (void *) syscall_A_user_data_test,
-                                "incorrect user data pre-syscall A");
+            CHECK(user_data == (void *)syscall_A_user_data_test,
+                  "incorrect user data pre-syscall A");
         }
         dr_mutex_unlock(syslock);
     }
@@ -670,8 +737,8 @@ event_pre_sys_B_user_data(void *drcontext, int sysnum, void *user_data)
         if (!in_syscall_B_user_data) {
             dr_fprintf(STDERR, "in pre_sys_B_user_data\n");
             in_syscall_B_user_data = true;
-            CHECK(user_data == (void *) syscall_B_user_data_test,
-                                "incorrect user data pre-syscall B");
+            CHECK(user_data == (void *)syscall_B_user_data_test,
+                  "incorrect user data pre-syscall B");
         }
         dr_mutex_unlock(syslock);
     }
@@ -699,8 +766,8 @@ event_post_sys_A_user_data(void *drcontext, int sysnum, void *user_data)
         if (!in_post_syscall_A_user_data) {
             dr_fprintf(STDERR, "in post_sys_A_user_data\n");
             in_post_syscall_A_user_data = true;
-            CHECK(user_data == (void *) syscall_A_user_data_test,
-                                "incorrect user data post-syscall A");
+            CHECK(user_data == (void *)syscall_A_user_data_test,
+                  "incorrect user data post-syscall A");
         }
         dr_mutex_unlock(syslock);
     }
@@ -734,14 +801,16 @@ event_post_sys_B_user_data(void *drcontext, int sysnum, void *user_data)
 
 /* test unregistering from inside an event */
 static dr_emit_flags_t
-one_time_bb_event(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+one_time_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating)
 {
     int i;
-#   define STRESS_REGISTER_ITERS 64
-#   define NAME_SZ 32
+#define STRESS_REGISTER_ITERS 64
+#define NAME_SZ 32
     char *names[STRESS_REGISTER_ITERS];
-    drmgr_priority_t pri = { sizeof(pri), };
+    drmgr_priority_t pri = {
+        sizeof(pri),
+    };
 
     one_time_exec++;
     if (!drmgr_unregister_bb_app2app_event(one_time_bb_event))

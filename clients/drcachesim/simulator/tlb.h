@@ -40,12 +40,14 @@
 #include "tlb_entry.h"
 #include "tlb_stats.h"
 
-class tlb_t : public caching_device_t
-{
- public:
-    virtual void request(const memref_t &memref);
- protected:
-    virtual void init_blocks();
+class tlb_t : public caching_device_t {
+public:
+    virtual void
+    request(const memref_t &memref);
+
+protected:
+    virtual void
+    init_blocks();
 
     // Optimization: remember last pid in addition to last tag
     memref_pid_t last_pid;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,20 +40,27 @@
 #include "../common/memref.h"
 #include <unordered_map>
 
-class trace_invariants_t : public analysis_tool_t
-{
- public:
+class trace_invariants_t : public analysis_tool_t {
+public:
     trace_invariants_t(bool offline = true, unsigned int verbose = 0);
     virtual ~trace_invariants_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    virtual bool
+    process_memref(const memref_t &memref);
+    virtual bool
+    print_results();
 
- protected:
+protected:
     bool knob_offline;
     unsigned int knob_verbose;
     memref_t prev_instr;
-    memref_t prev_marker;
-    std::unordered_map<memref_tid_t,bool> thread_exited;
+    memref_t prev_xfer_marker;
+    memref_t prev_entry;
+    memref_t prev_prev_entry;
+    memref_t pre_signal_instr;
+    int instrs_until_interrupt;
+    int memrefs_until_interrupt;
+    addr_t app_handler_pc;
+    std::unordered_map<memref_tid_t, bool> thread_exited;
 };
 
 #endif /* _TRACE_INVARIANTS_H_ */

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -74,7 +75,7 @@ static double wallclock; /* in seconds */
 static void
 print_mem_stats(HANDLE h)
 {
-    long secs = (long) wallclock;
+    long secs = (long)wallclock;
     VM_COUNTERS mem;
     int cpu;
     if (!get_process_load_ex(h, &cpu, NULL))
@@ -82,36 +83,26 @@ print_mem_stats(HANDLE h)
     get_process_mem_stats(h, &mem);
 #if VERBOSE
     printf("Process Memory Statistics:\n");
-    printf("\tPeak virtual size:         %6d KB\n",
-        mem.PeakVirtualSize/1024);
-    printf("\tPeak working set size:     %6d KB\n",
-        mem.PeakWorkingSetSize/1024);
-    printf("\tPeak paged pool usage:     %6d KB\n",
-        mem.QuotaPeakPagedPoolUsage/1024);
+    printf("\tPeak virtual size:         %6d KB\n", mem.PeakVirtualSize / 1024);
+    printf("\tPeak working set size:     %6d KB\n", mem.PeakWorkingSetSize / 1024);
+    printf("\tPeak paged pool usage:     %6d KB\n", mem.QuotaPeakPagedPoolUsage / 1024);
     printf("\tPeak non-paged pool usage: %6d KB\n",
-        mem.QuotaPeakNonPagedPoolUsage/1024);
-    printf("\tPeak pagefile usage:       %6d KB\n",
-        mem.PeakPagefileUsage/1024);
+           mem.QuotaPeakNonPagedPoolUsage / 1024);
+    printf("\tPeak pagefile usage:       %6d KB\n", mem.PeakPagefileUsage / 1024);
 #endif
     /* Elapsed real (wall clock) time.  */
     if (secs >= 3600) { /* One hour -> h:m:s.  */
-        fprintf(FP, "%ld:%02ld:%02ldelapsed ",
-                secs / 3600,
-                (secs % 3600) / 60,
+        fprintf(FP, "%ld:%02ld:%02ldelapsed ", secs / 3600, (secs % 3600) / 60,
                 secs % 60);
     } else {
-        fprintf(FP, "%ld:%02ld.%02ldelapsed ",  /* -> m:s.  */
-                secs / 60,
-                secs % 60,
-                0 /* for now */);
+        fprintf(FP, "%ld:%02ld.%02ldelapsed ", /* -> m:s.  */
+                secs / 60, secs % 60, 0 /* for now */);
     }
     fprintf(FP, "%d%%CPU \n", cpu);
-    fprintf(FP, "(%lu tot, %lu RSS, %lu paged, %lu non, %lu swap)k\n",
-            mem.PeakVirtualSize/1024,
-            mem.PeakWorkingSetSize/1024,
-            mem.QuotaPeakPagedPoolUsage/1024,
-            mem.QuotaPeakNonPagedPoolUsage/1024,
-            mem.PeakPagefileUsage/1024);
+    fprintf(FP, "(%zu tot, %zu RSS, %zu paged, %zu non, %zu swap)k\n",
+            mem.PeakVirtualSize / 1024, mem.PeakWorkingSetSize / 1024,
+            mem.QuotaPeakPagedPoolUsage / 1024, mem.QuotaPeakNonPagedPoolUsage / 1024,
+            mem.PeakPagefileUsage / 1024);
 }
 
 #define DEBUGPRINT 0
@@ -129,8 +120,9 @@ debugbox(char *msg)
 }
 
 #if HANDLE_CONTROL_C
-BOOL WINAPI HandlerRoutine(DWORD dwCtrlType   //  control signal type
-                           )
+BOOL WINAPI
+HandlerRoutine(DWORD dwCtrlType //  control signal type
+)
 {
     printf("Inside HandlerRoutine!\n");
     fflush(stdout);
@@ -139,10 +131,12 @@ BOOL WINAPI HandlerRoutine(DWORD dwCtrlType   //  control signal type
 }
 #endif
 
-int usage(char *us)
+int
+usage(char *us)
 {
     printf("Usage: %s [-s limit_sec | -m limit_min | -h limit_hr]\n"
-            "      [-silent] <program> <args...>\n", us);
+           "      [-silent] <program> <args...>\n",
+           us);
     return 0;
 }
 
@@ -151,21 +145,19 @@ int usage(char *us)
 /* we must be a console application in order to have the process
  * we launch NOT get a brand new console window!
  */
-int __cdecl
-main(int argc, char *argv[], char *envp[])
+int __cdecl main(int argc, char *argv[], char *envp[])
 {
-    LPTSTR              app_name = NULL;
-    TCHAR               app_cmdline[MAX_CMDLINE];
-    LPTSTR              ch;
-    int                 i;
-    LPTSTR              pszCmdLine = GetCommandLine();
-    PLOADED_IMAGE       li;
-    STARTUPINFO         si;
+    LPTSTR app_name = NULL;
+    TCHAR app_cmdline[MAX_CMDLINE];
+    LPTSTR ch;
+    int i;
+    LPTSTR pszCmdLine = GetCommandLine();
+    PLOADED_IMAGE li;
+    STARTUPINFO si;
     PROCESS_INFORMATION pi;
-    HANDLE              phandle;
-    BOOL                success;
-    DWORD               app_entry;
-    DWORD               wait_result;
+    HANDLE phandle;
+    BOOL success;
+    DWORD wait_result;
     int arg_offs = 1;
     time_t start_time, end_time;
 
@@ -180,19 +172,19 @@ main(int argc, char *argv[], char *envp[])
     }
     while (argv[arg_offs][0] == '-') {
         if (strcmp(argv[arg_offs], "-s") == 0) {
-            if (argc <= arg_offs+1)
+            if (argc <= arg_offs + 1)
                 return usage(argv[0]);
-            limit = atoi(argv[arg_offs+1]);
+            limit = atoi(argv[arg_offs + 1]);
             arg_offs += 2;
         } else if (strcmp(argv[arg_offs], "-m") == 0) {
-            if (argc <= arg_offs+1)
+            if (argc <= arg_offs + 1)
                 return usage(argv[0]);
-            limit = atoi(argv[arg_offs+1])*60;
+            limit = atoi(argv[arg_offs + 1]) * 60;
             arg_offs += 2;
         } else if (strcmp(argv[arg_offs], "-h") == 0) {
-            if (argc <= arg_offs+1)
+            if (argc <= arg_offs + 1)
                 return usage(argv[0]);
-            limit = atoi(argv[arg_offs+1])*3600;
+            limit = atoi(argv[arg_offs + 1]) * 3600;
             arg_offs += 2;
         } else if (strcmp(argv[arg_offs], "-v") == 0) {
             /* just ignore -v, only here for compatibility with texec */
@@ -219,7 +211,7 @@ main(int argc, char *argv[], char *envp[])
     if (app_name[0] == '\"' || app_name[0] == '\'' || app_name[0] == '`') {
         /* remove quotes */
         app_name++;
-        app_name[strlen(app_name)-1] = '\0';
+        app_name[strlen(app_name) - 1] = '\0';
     }
     /* note that we want target app name as part of cmd line
      * (FYI: if we were using WinMain, the pzsCmdLine passed in
@@ -231,7 +223,7 @@ main(int argc, char *argv[], char *envp[])
      */
     ch = app_cmdline;
     ch += _snprintf(app_cmdline, MAX_CMDLINE, "\"%s\"", app_name);
-    for (i = arg_offs+1; i < argc; i++)
+    for (i = arg_offs + 1; i < argc; i++)
         ch += _snprintf(ch, MAX_CMDLINE - (ch - app_cmdline), " \"%s\"", argv[i]);
     assert(ch - app_cmdline < MAX_CMDLINE);
 #if DEBUGPRINT
@@ -258,14 +250,10 @@ main(int argc, char *argv[], char *envp[])
 #endif
 
     if (li = ImageLoad(app_name, NULL)) {
-        app_entry = (DWORD)
-            (li->MappedAddress +
-             li->FileHeader->OptionalHeader.AddressOfEntryPoint);
         ImageUnload(li);
-    }
-    else {
+    } else {
         _snprintf(app_cmdline, MAX_CMDLINE, "Failed to load executable image \"%s\"",
-                 app_name);
+                  app_name);
         debugbox(app_cmdline);
         return 1;
     }
@@ -279,15 +267,13 @@ main(int argc, char *argv[], char *envp[])
     si.hStdError = mysi.hStdError;
 
     /* Must specify TRUE for bInheritHandles so child inherits stdin! */
-    if (!CreateProcess(app_name, app_cmdline, NULL, NULL, TRUE,
-                       CREATE_SUSPENDED,
-                       NULL, NULL, &si, &pi)) {
+    if (!CreateProcess(app_name, app_cmdline, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL,
+                       NULL, &si, &pi)) {
         debugbox("Failed to launch application");
         return 1;
     }
 
-    if ((phandle = OpenProcess(PROCESS_ALL_ACCESS,
-                               FALSE, pi.dwProcessId)) == NULL) {
+    if ((phandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pi.dwProcessId)) == NULL) {
         debugbox("Cannot open application process");
         TerminateProcess(pi.hProcess, 0);
         return 1;
@@ -310,16 +296,15 @@ main(int argc, char *argv[], char *envp[])
         CloseHandle(pi.hProcess);
 
         /* now wait for app process to finish */
-        wait_result = WaitForSingleObject(phandle,
-                                          (limit==0) ? INFINITE : (limit*1000));
+        wait_result =
+            WaitForSingleObject(phandle, (limit == 0) ? INFINITE : (limit * 1000));
         end_time = time(NULL);
         wallclock = difftime(end_time, start_time);
         if (wait_result == WAIT_OBJECT_0)
             success = TRUE;
         else
             printf("Timeout after %d seconds\n", limit);
-    }
-    __finally {
+    } __finally {
         /* FIXME: this is my attempt to get ^C, but it doesn't work... */
 #if HANDLE_CONTROL_C
         if (!success) {

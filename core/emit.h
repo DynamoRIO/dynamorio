@@ -46,14 +46,12 @@
  * links it as a new fragment.
  */
 fragment_t *
-emit_fragment(dcontext_t *dcontext, app_pc tag,
-              instrlist_t *ilist, uint flags, void *vmlist,
-              bool link);
+emit_fragment(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint flags,
+              void *vmlist, bool link);
 
 fragment_t *
-emit_fragment_ex(dcontext_t *dcontext, app_pc tag,
-                 instrlist_t *ilist, uint flags, void *vmlist,
-                 bool link, bool visible);
+emit_fragment_ex(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint flags,
+                 void *vmlist, bool link, bool visible);
 
 /* Emits code for ilist into the fcache, returns the created fragment.
  * Does not add the fragment to the ftable, leaving it as an "invisible"
@@ -62,16 +60,16 @@ emit_fragment_ex(dcontext_t *dcontext, app_pc tag,
  * The fragment is also not linked, to give the caller more flexibility.
  */
 fragment_t *
-emit_invisible_fragment(dcontext_t *dcontext, app_pc tag,
-                        instrlist_t *ilist, uint flags, void *vmlist);
+emit_invisible_fragment(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint flags,
+                        void *vmlist);
 
 fragment_t *
 emit_fragment_as_replacement(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist,
                              uint flags, void *vmlist, fragment_t *replace);
 
 #ifdef INTERNAL
-void stress_test_recreate(dcontext_t *dcontext, fragment_t *f,
-                          instrlist_t *ilist);
+void
+stress_test_recreate(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist);
 #endif
 
 bool

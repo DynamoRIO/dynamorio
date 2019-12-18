@@ -40,7 +40,7 @@ static HANDLE thread;
 static DWORD exit_thread;
 
 int WINAPI
-run_func(void * arg)
+run_func(void *arg)
 {
     while (!exit_thread) {
         Sleep(200);
@@ -48,9 +48,7 @@ run_func(void * arg)
     return 0;
 }
 
-int
-__declspec(dllexport)
-in_lib(int arg)
+int __declspec(dllexport) in_lib(int arg)
 {
     print("in lib\n");
     return 4;
@@ -62,7 +60,7 @@ DllMain(HANDLE module, DWORD reason_for_call, LPVOID reserved)
     int tid;
     switch (reason_for_call) {
     case DLL_PROCESS_ATTACH:
-        thread = (HANDLE) _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
+        thread = (HANDLE)_beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
         break;
     case DLL_PROCESS_DETACH:
         exit_thread = 1;

@@ -38,8 +38,7 @@
  * FIXME: Stub for future development; diagnostics not supported on linux (yet)
  */
 void
-report_diagnostics(IN const char *message,
-                   IN const char *name,
+report_diagnostics(IN const char *message, IN const char *name,
                    security_violation_t violation_type)
 {
     /* FIXME: Diagnostics not implemented for Linux */

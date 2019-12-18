@@ -37,12 +37,13 @@
 /***************************************************************************/
 #ifndef ASM_CODE_ONLY /* C code */
 
-#include "tools.h"
+#    include "tools.h"
 
-#include <setjmp.h>
+#    include <setjmp.h>
 jmp_buf mark;
 
-int EXPORT makes_tailcall(int x); /* in asm */
+int EXPORT
+makes_tailcall(int x); /* in asm */
 
 int EXPORT
 runlots(int *x)
@@ -128,7 +129,7 @@ int EXPORT
 level1(int x, int y)
 {
     print("in level1 %d %d\n", x, y);
-    makes_tailcall(x+y);
+    makes_tailcall(x + y);
     return x;
 }
 
@@ -136,7 +137,7 @@ int EXPORT
 level0(int x)
 {
     print("in level0 %d\n", x);
-    print("level1 returned %d\n", level1(x, x*2));
+    print("level1 returned %d\n", level1(x, x * 2));
     return x;
 }
 
@@ -146,7 +147,7 @@ skip_flags(int x, int y)
     /* check if arg value is changed by drwrap */
     if (x != 1 || y != 2)
         print("wrong argument %d %d!", x, y);
-    return (x+y);
+    return (x + y);
 }
 
 void *level2_ptr;
@@ -159,17 +160,18 @@ void EXPORT
 long3(void)
 {
     print("long3 A\n");
-#ifdef WINDOWS
+#    ifdef WINDOWS
     /* test SEH */
     __try {
         *(int *)4 = 42;
-    } __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ?
-                EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+    } __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION
+                    ? EXCEPTION_EXECUTE_HANDLER
+                    : EXCEPTION_CONTINUE_SEARCH) {
         longjmp(mark, 1);
     }
-#else
+#    else
     longjmp(mark, 1);
-#endif
+#    endif
     print("  long3 B\n");
 }
 
@@ -214,7 +216,7 @@ run_tests(void)
 {
     int x = 3;
     int res;
-    level2_ptr = (void *) level2;
+    level2_ptr = (void *)level2;
     print("thread.appdll process init\n");
     skip_flags(1, 2);
     print("level0 returned %d\n", level0(37));
@@ -245,35 +247,29 @@ run_tests(void)
     longdone();
 }
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
 BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     switch (reason_for_call) {
-    case DLL_PROCESS_ATTACH:
-        run_tests();
-        break;
-    case DLL_PROCESS_DETACH:
-        break;
-    case DLL_THREAD_ATTACH:
-        break;
-    case DLL_THREAD_DETACH:
-        break;
+    case DLL_PROCESS_ATTACH: run_tests(); break;
+    case DLL_PROCESS_DETACH: break;
+    case DLL_THREAD_ATTACH: break;
+    case DLL_THREAD_DETACH: break;
     }
     return TRUE;
 }
-#else
-int __attribute__((constructor))
-so_init(void)
+#    else
+int __attribute__((constructor)) so_init(void)
 {
     run_tests();
     return 0;
 }
-#endif
-
+#    endif
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 # if defined(UNIX) && defined(X64)
@@ -304,4 +300,5 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 #endif /* ASM_CODE_ONLY */

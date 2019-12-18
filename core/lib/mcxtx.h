@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,10 +37,11 @@
  * structs for internal and external use.
  *
  */
+/* clang-format off */
 /* START INCLUDE */
 
 #ifdef AARCHXX
-# ifdef AVOID_API_EXPORT
+#    ifdef AVOID_API_EXPORT
     /* FIXME: have special comment syntax instead of bogus ifdef to
      * get genapi to strip out internal-only comments? */
     /* We want to simplify things by keeping this in register lists order.
@@ -49,7 +50,7 @@
      * or a 32-byte or 64-byte cache line.
      * Any changes in order here must be mirrored in arch/arm.asm offsets.
      */
-# endif
+#    endif
     reg_t r0;   /**< The r0 register. */
     reg_t r1;   /**< The r1 register. */
     reg_t r2;   /**< The r2 register. */
@@ -63,7 +64,7 @@
     reg_t r10;  /**< The r10 register. */
     reg_t r11;  /**< The r11 register. */
     reg_t r12;  /**< The r12 register. */
-# ifdef X64 /* 64-bit */
+#    ifdef X64 /* 64-bit */
     reg_t r13;  /**< The r13 register. */
     reg_t r14;  /**< The r14 register. */
     reg_t r15;  /**< The r15 register. */
@@ -103,7 +104,7 @@
             uint fpsr; /**< Floating-Point Status Register. */
         }; /**< AArch64 flag registers. */
     }; /**< The anonymous union of alternative names for flag registers. */
-# else /* 32-bit */
+#    else /* 32-bit */
     union {
         reg_t r13; /**< The r13 register. */
         reg_t sp;  /**< The stack pointer register.*/
@@ -126,16 +127,16 @@
         uint apsr; /**< The application program status registers in AArch32. */
         uint cpsr; /**< The current program status registers in AArch32. */
     }; /**< The anonymous union of alternative names for apsr/cpsr register. */
-# endif /* 64/32-bit */
+#    endif /* 64/32-bit */
     /**
      * The SIMD registers.  We would probably be ok if we did not preserve the
      * callee-saved registers (q4-q7 == d8-d15) but to be safe we preserve them
      * all.  We do not need anything more than word alignment for OP_vldm/OP_vstm,
      * and dr_simd_t has no fields larger than 32 bits, so we have no padding.
      */
-    dr_simd_t simd[NUM_SIMD_SLOTS];
+    dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
 #else /* X86 */
-# ifdef AVOID_API_EXPORT
+#    ifdef AVOID_API_EXPORT
     /* FIXME: have special comment syntax instead of bogus ifdef to
      * get genapi to strip out internal-only comments? */
     /* Our inlined ibl uses eax-edx, so we place them together to fit
@@ -148,7 +149,7 @@
      * UPDATE: actually we now use TLS for scratch slots.
      * See the list above of places that assume dr_mcxt_t layout.
      */
-# endif
+#    endif
     union {
         reg_t xdi; /**< The platform-independent name for full rdi/edi register. */
         reg_t IF_X64_ELSE(rdi, edi); /**< The platform-dependent name for
@@ -189,7 +190,7 @@
         reg_t IF_X64_ELSE(rax, eax); /**< The platform-dependent name for
                                           rax/eax register. */
     }; /**< The anonymous union of alternative names for rax/eax register. */
-# ifdef X64
+#    ifdef X64
     reg_t r8;  /**< The r8 register. \note For 64-bit DR builds only. */
     reg_t r9;  /**< The r9 register. \note For 64-bit DR builds only. */
     reg_t r10; /**< The r10 register. \note For 64-bit DR builds only. */
@@ -198,7 +199,7 @@
     reg_t r13; /**< The r13 register. \note For 64-bit DR builds only. */
     reg_t r14; /**< The r14 register. \note For 64-bit DR builds only. */
     reg_t r15; /**< The r15 register. \note For 64-bit DR builds only. */
-# endif
+#    endif
     union {
         reg_t xflags; /**< The platform-independent name for
                            full rflags/eflags register. */
@@ -216,33 +217,64 @@
         byte *IF_X64_ELSE(rip, eip); /**< The platform-dependent name for
                                           rip/eip register. */
     };
-    byte padding[PRE_XMM_PADDING]; /**< The padding to get ymm field 32-byte aligned. */
+    byte padding[PRE_XMM_PADDING]; /**< The padding to get zmm field 64-byte aligned. */
     /**
-     * The SSE registers xmm0-xmm5 (-xmm15 on Linux) are volatile
-     * (caller-saved) for 64-bit and WOW64, and are actually zeroed out on
-     * Windows system calls.  These fields are ignored for 32-bit processes
-     * that are not WOW64, or if the underlying processor does not support
-     * SSE.  Use dr_mcontext_xmm_fields_valid() to determine whether the
-     * fields are valid.
-     *
-     * When the fields are valid, on processors with AVX enabled (i.e.,
-     * proc_has_feature(FEATURE_AVX) returns true), these fields will
-     * contain the full ymm register values; otherwise, the top 128
-     * bits of each slot will be undefined.
+     * Anonymous union of alternative names for the simd structure in dr_mcontext_t. The
+     * deprecated name ymm is provided for backward compatibility.
      */
-# ifdef AVOID_API_EXPORT
-    /* PR 264138: we must preserve xmm0-5 if on a 64-bit Windows kernel,
-     * and xmm0-15 if in a 64-bit Linux app (PR 302107).  (Note that
-     * mmx0-7 are also caller-saved on linux but we assume they're not
-     * going to be used by DR, libc, or client routines: overlap w/
-     * floating point).  For Windows we assume that none of our routines
-     * (or libc routines that we call, except the floating-point ones,
-     * where we explicitly save state) clobber beyond xmm0-5.  Rather than
-     * have a separate WOW64 build, we have them in the struct but ignored
-     * for normal 32-bit.
-     * PR 306394: we preserve xmm0-7 for 32-bit linux too.
-     * DrMi#665: we now preserve all of the xmm registers.
-     */
-# endif
-    dr_ymm_t ymm[NUM_SIMD_SLOTS];
+    union {
+        /**
+         * The SSE registers xmm0-xmm5 (-xmm15 on Linux) are volatile
+         * (caller-saved) for 64-bit and WOW64, and are actually zeroed out on
+         * Windows system calls.  These fields are ignored for 32-bit processes
+         * that are not WOW64, or if the underlying processor does not support
+         * SSE.  Use dr_mcontext_xmm_fields_valid() to determine whether the
+         * fields are valid. Use dr_mcontext_zmm_fields_valid() to determine
+         * whether zmm registers are preserved.
+         *
+         * When the xmm fields are valid, on processors with AVX enabled (i.e.,
+         * proc_has_feature() with #FEATURE_AVX returns true), these fields will
+         * contain the full ymm register values; otherwise, the top 128
+         * bits of each slot will be undefined.
+         *
+         * When the zmm fields are valid, it implies that
+         * proc_has_feature() with #FEATURE_AVX512F is true. This is because DynamoRIO
+         * will not attempt to fill zmm fields w/o support by the processor and OS. The
+         * fields then will contain the full zmm register values.
+         */
+#    ifdef AVOID_API_EXPORT
+        /* PR 264138: we must preserve xmm0-5 if on a 64-bit Windows kernel,
+         * and xmm0-15 if in a 64-bit Linux app (PR 302107).  (Note that
+         * mmx0-7 are also caller-saved on linux but we assume they're not
+         * going to be used by DR, libc, or client routines: overlap w/
+         * floating point).  For Windows we assume that none of our routines
+         * (or libc routines that we call, except the floating-point ones,
+         * where we explicitly save state) clobber beyond xmm0-5.  Rather than
+         * have a separate WOW64 build, we have them in the struct but ignored
+         * for normal 32-bit.
+         * PR 306394: we preserve xmm0-7 for 32-bit linux too.
+         * DrMi#665: we now preserve all of the xmm registers.
+         *
+         * The size of mcontext's simd strucure has become a potential risk for
+         * DynamoRIO's stack- and signal stack size or for general memory usage becoming
+         * too large. Compared to AVX's ymm registers, the AVX-512 zmm register slots are
+         * adding 1536 bytes on 64-bit on Linux. On 32-bit Linux, it is adding 256 bytes.
+         * XXX i#1312: If this will become a problem, we may want to separate this out
+         * into a heap structure and only maintain a pointer on the stack. This would save
+         * space on memory constraint platforms as well as keep our signal stack size
+         * smaller.
+         * XXX i#1312: Currently, only 512 bytes are added on 64-bit until
+         * MCXT_NUM_SIMD_SLOTS will be 32. This excludes AVX-512 k mask registers, which
+         * will add another 64 bytes.
+         */
+#    endif
+        dr_zmm_t simd[MCXT_NUM_SIMD_SLOTS];
+        /**
+         * \deprecated The ymm field is provided for backward compatibility and is an
+         * alias for the simd field.
+         */
+        dr_zmm_t ymm[MCXT_NUM_SIMD_SLOTS];
+    };
+    /** Storage for #MCXT_NUM_OPMASK_SLOTS mask registers as part of AVX-512. */
+    dr_opmask_t opmask[MCXT_NUM_OPMASK_SLOTS];
 #endif /* ARM/X86 */

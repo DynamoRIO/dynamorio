@@ -34,10 +34,10 @@
 #include "tools.h"
 
 #ifdef WINDOWS
-# include <windows.h>
+#    include <windows.h>
 #else
-# include <dlfcn.h>
-# include <stdio.h>
+#    include <dlfcn.h>
+#    include <stdio.h>
 #endif
 
 int

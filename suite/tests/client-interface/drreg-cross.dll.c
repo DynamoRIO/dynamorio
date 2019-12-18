@@ -37,12 +37,13 @@
 #include "drreg.h"
 #include "client_tools.h"
 
-#define CHECK(x, msg) do {               \
-    if (!(x)) {                          \
-        dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-        dr_abort();                      \
-    }                                    \
-} while (0);
+#define CHECK(x, msg)                                                                \
+    do {                                                                             \
+        if (!(x)) {                                                                  \
+            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            dr_abort();                                                              \
+        }                                                                            \
+    } while (0);
 
 /* This test assumes that DR has a global lock around bb creation,
  * allowing us to use a global var here.
@@ -50,9 +51,8 @@
 static reg_id_t reg = DR_REG_NULL;
 
 static dr_emit_flags_t
-event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
-                      instr_t *instr, bool for_trace,
-                      bool translating, void *user_data)
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      bool for_trace, bool translating, void *user_data)
 {
     /* We test reserving across app instrs by reserving on each store and
      * unreserving on the subsequent instr.
@@ -93,7 +93,7 @@ event_exit(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drreg_options_t ops = {sizeof(ops), 1 /*max slots needed*/, false};
+    drreg_options_t ops = { sizeof(ops), 1 /*max slots needed*/, false };
     if (!drmgr_init())
         CHECK(false, "drmgr init failed");
     if (drreg_init(&ops) != DRREG_SUCCESS)

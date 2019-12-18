@@ -33,22 +33,23 @@
 #include <stdio.h>
 
 #if defined(MACOS) || defined(WINDOWS)
-# error Linux x86 only
+#    error Linux x86 only
 #endif
 
 #ifdef __i386__
-# include <linux/unistd.h>
-# include <asm/ldt.h>
-# include <sys/mman.h>
-# include <unistd.h>
-# include <sys/syscall.h>
-# include <errno.h>
+#    include <linux/unistd.h>
+#    include <asm/ldt.h>
+#    include <sys/mman.h>
+#    include <unistd.h>
+#    include <sys/syscall.h>
+#    include <errno.h>
 #else
-# include <asm/prctl.h>
-# include <sys/prctl.h>
+#    include <asm/prctl.h>
+#    include <sys/prctl.h>
 #endif
 
-int arch_prctl(int code, unsigned long addr);
+int
+arch_prctl(int code, unsigned long addr);
 
 static int
 test_func()
@@ -89,22 +90,24 @@ main()
     /* FIXME i#1833: the following code with gs doesn't run properly with DynamoRIO
      * when it will, enable the following code for gs segment test.
      */
-# if ENABLE_ONCE_1833_IS_FIXED
-    __asm__ volatile (
-                      "push    %%gs\n"
-                      "mov     %0, %%gs\n"
-                      "call    *%%gs:0x10\n"
-                      "mov     $0x10, %%eax\n"
-                      "call    *%%gs:(%%eax)\n"
-                      "pop     %%gs\n"
-                      : : "m" (val) : "eax");
-# endif
-    __asm__ volatile (
-                      "mov     %0, %%fs\n"
-                      "call    *%%fs:0x10\n"
-                      "mov     $0x10, %%eax\n"
-                      "call    *%%fs:(%%eax)\n"
-                      : : "m" (val) : "eax");
+#    if ENABLE_ONCE_1833_IS_FIXED
+    __asm__ volatile("push    %%gs\n"
+                     "mov     %0, %%gs\n"
+                     "call    *%%gs:0x10\n"
+                     "mov     $0x10, %%eax\n"
+                     "call    *%%gs:(%%eax)\n"
+                     "pop     %%gs\n"
+                     :
+                     : "m"(val)
+                     : "eax");
+#    endif
+    __asm__ volatile("mov     %0, %%fs\n"
+                     "call    *%%fs:0x10\n"
+                     "mov     $0x10, %%eax\n"
+                     "call    *%%fs:(%%eax)\n"
+                     :
+                     : "m"(val)
+                     : "eax");
 #else
     void (*funcs[10])();
     void *old_fs;
@@ -113,11 +116,9 @@ main()
 
     arch_prctl(ARCH_GET_FS, (unsigned long)&old_fs);
     arch_prctl(ARCH_SET_FS, (unsigned long)funcs);
-    __asm__ volatile (
-                      "call    *%fs:0x10\n"
-                      "mov     $0x10, %rax\n"
-                      "call    *%fs:(%rax)\n"
-                      );
+    __asm__ volatile("call    *%fs:0x10\n"
+                     "mov     $0x10, %rax\n"
+                     "call    *%fs:(%rax)\n");
     arch_prctl(ARCH_SET_FS, (unsigned long)old_fs);
 
     /* FIXME i#1833: Actually only fs is test because gs is used by DynamoRIO
@@ -126,14 +127,12 @@ main()
      * When the segfault is fixed enable the following code to add
      * the test for gs.
      */
-# if ENABLE_ONCE_1833_IS_FIXED
+#    if ENABLE_ONCE_1833_IS_FIXED
     arch_prctl(ARCH_SET_GS, (unsigned long)funcs);
-    __asm__ volatile (
-                      "call    *%gs:0x10\n"
-                      "mov     $0x10, %rax\n"
-                      "call    *%gs:(%rax)\n"
-                      );
-# endif
+    __asm__ volatile("call    *%gs:0x10\n"
+                     "mov     $0x10, %rax\n"
+                     "call    *%gs:(%rax)\n");
+#    endif
 
 #endif
     return 0;

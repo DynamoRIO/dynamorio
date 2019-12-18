@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,14 +37,15 @@
  */
 
 #include "configure.h"
-#include <string.h>
 #include <unistd.h>
 #include "include/syscall.h"
 #include "include/siginfo.h"
 
 #include "globals_shared.h"
 #ifndef NOT_DYNAMORIO_CORE
-# include "../globals.h" /* for arch_exports.h for dynamorio_syscall */
+#    include "../globals.h" /* for arch_exports.h for dynamorio_syscall */
+#else
+#    include <string.h> /* for memset */
 #endif
 
 /* shared with tools/nudgeunix.c */
@@ -58,7 +59,7 @@ create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask,
     info->si_signo = NUDGESIG_SIGNUM;
     info->si_code = SI_QUEUE;
 
-    arg = (nudge_arg_t *) info;
+    arg = (nudge_arg_t *)info;
     arg->version = NUDGE_ARG_CURRENT_VERSION;
     arg->nudge_action_mask = action_mask;
     arg->flags = 0;
@@ -66,8 +67,7 @@ create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask,
     arg->client_arg = client_arg;
 
     /* ensure nudge_arg_t overlays how we expect it to */
-    if (info->si_signo != NUDGESIG_SIGNUM ||
-        info->si_code != SI_QUEUE)
+    if (info->si_signo != NUDGESIG_SIGNUM || info->si_code != SI_QUEUE)
         return false;
 
     return true;
@@ -75,8 +75,8 @@ create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask,
 
 #ifndef NOT_DYNAMORIO_CORE
 bool
-send_nudge_signal(process_id_t pid, uint action_mask,
-                  client_id_t client_id, uint64 client_arg)
+send_nudge_signal(process_id_t pid, uint action_mask, client_id_t client_id,
+                  uint64 client_arg)
 {
     kernel_siginfo_t info;
     int res;

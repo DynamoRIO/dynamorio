@@ -59,7 +59,7 @@ main(int argc, const char *argv[])
             /* enough verbosity to satisfy runall.cmake: needs an initial and a
              * final line
              */
-            intercept_signal(SIGTERM, (handler_3_t) signal_handler, false);
+            intercept_signal(SIGTERM, (handler_3_t)signal_handler, false);
             print("starting\n");
             arg_offs++;
         } else
@@ -70,16 +70,15 @@ main(int argc, const char *argv[])
         /* workaround for PR 213040 and i#1087: prevent loop from being coarse
          * by using a non-ignorable system call
          */
-        protect_mem((void *)signal_handler, 1, ALLOW_READ|ALLOW_EXEC);
+        protect_mem((void *)signal_handler, 1, ALLOW_READ | ALLOW_EXEC);
         /* don't spin forever to avoid hosing machines if test harness somehow
          * fails to kill.  15 billion syscalls takes ~ 1 minute.
          */
         counter++;
-        if (counter > 15*1024*1024*1024LL) {
+        if (counter > 15 * 1024 * 1024 * 1024LL) {
             print("hit max iters\n");
             break;
         }
     }
     return 0;
 }
-

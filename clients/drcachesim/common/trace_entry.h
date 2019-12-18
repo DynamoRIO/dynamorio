@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -71,7 +71,7 @@ typedef enum {
     TRACE_TYPE_READ,  /**< A data load. */
     TRACE_TYPE_WRITE, /**< A data store. */
 
-    TRACE_TYPE_PREFETCH,    /**< A general prefetch to the level 1 data cache. */
+    TRACE_TYPE_PREFETCH, /**< A general prefetch to the level 1 data cache. */
     // X86 specific prefetch
     TRACE_TYPE_PREFETCHT0,  /**< An x86 prefetch to all levels of the cache. */
     TRACE_TYPE_PREFETCHT1,  /**< An x86 prefetch to level 1 of the cache. */
@@ -111,9 +111,9 @@ typedef enum {
     // for the end address (exclusive) of flush.
     // The size field of both entries should be 0.
     // The _END entries are hidden by reader_t as memref_t has space for the size.
-    TRACE_TYPE_INSTR_FLUSH,     /**< An instruction cache flush. */
+    TRACE_TYPE_INSTR_FLUSH, /**< An instruction cache flush. */
     TRACE_TYPE_INSTR_FLUSH_END,
-    TRACE_TYPE_DATA_FLUSH,      /**< A data cache flush. */
+    TRACE_TYPE_DATA_FLUSH, /**< A data cache flush. */
     TRACE_TYPE_DATA_FLUSH_END,
 
     // These entries indicate that all subsequent memory references (until the
@@ -123,7 +123,7 @@ typedef enum {
     TRACE_TYPE_THREAD,
 
     // This entry indicates that the thread whose id is in the addr field exited:
-    TRACE_TYPE_THREAD_EXIT,     /**< A thread exit. */
+    TRACE_TYPE_THREAD_EXIT, /**< A thread exit. */
 
     // These entries indicate which process the current thread belongs to.
     // The process id is in the addr field.
@@ -162,6 +162,8 @@ typedef enum {
      * counter execution sequence.
      */
     TRACE_TYPE_INSTR_SYSENTER,
+
+    // Update trace_type_names[] when adding here.
 } trace_type_t;
 
 /** The sub-type for TRACE_TYPE_MARKER. */
@@ -169,7 +171,8 @@ typedef enum {
     /**
      * The subsequent instruction is the start of a handler for a kernel-initiated
      * event: a signal handler on UNIX, or an APC, exception, or callback dispatcher
-     * on Windows.
+     * on Windows.  The value holds the module offset of the interruption point PC,
+     * which is used in post-processing.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
     /**
@@ -191,6 +194,38 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_CPU_ID,
 
+    /**
+     * The marker value contains the function id defined by the user in the
+     * -record_function (and -record_heap_value if -record_heap is specified)
+     * option.
+     */
+    TRACE_MARKER_TYPE_FUNC_ID,
+
+    // XXX i#3048: replace return address with callstack information.
+    /**
+     * The marker value contains the return address of the just-entered
+     * function, whose id is specified by the closest previous
+     * #TRACE_MARKER_TYPE_FUNC_ID marker entry.
+     */
+    TRACE_MARKER_TYPE_FUNC_RETADDR,
+
+    /**
+     * The marker value contains one argument value of the just-entered
+     * function, whose id is specified by the closest previous
+     * #TRACE_MARKER_TYPE_FUNC_ID marker entry. The number of such entries
+     * for one function invocation is equal to the specified argument in
+     * -record_function (or pre-defined functions in -record_heap_value if
+     * -record_heap is specified).
+     */
+    TRACE_MARKER_TYPE_FUNC_ARG,
+
+    /**
+     * The marker value contains the return value of the just-entered function,
+     * whose id is specified by the closest previous #TRACE_MARKER_TYPE_FUNC_ID
+     * marker entry
+     */
+    TRACE_MARKER_TYPE_FUNC_RETVAL,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -198,7 +233,7 @@ typedef enum {
     // Values below here are available for users to use for custom markers.
 } trace_marker_type_t;
 
-extern const char * const trace_type_names[];
+extern const char *const trace_type_names[];
 
 /**
  * Returns whether the type represents an instruction fetch.
@@ -243,7 +278,7 @@ struct _trace_entry_t {
     // or marker sub-type.
     unsigned short size;
     union {
-        addr_t addr;     // 4/8 bytes: mem ref addr, instr pc, tid, pid, marker val
+        addr_t addr; // 4/8 bytes: mem ref addr, instr pc, tid, pid, marker val
         // The length of each instr in the instr bundle
         unsigned char length[sizeof(addr_t)];
     };
@@ -283,7 +318,9 @@ typedef enum {
 // Sub-type when the primary type is OFFLINE_TYPE_EXTENDED.
 // These differ in what they store in offline_entry_t.extended.value.
 typedef enum {
-    // The initial entry in the file.  The valueA field holds the version.
+    // The initial entry in the file.  The valueA field holds the version
+    // (OFFLINE_FILE_VERSION*) while valueB holds the type
+    // (OFFLINE_FILE_TYPE*).
     OFFLINE_EXT_TYPE_HEADER,
     // The final entry in the file.  The value fields are 0.
     OFFLINE_EXT_TYPE_FOOTER,
@@ -303,7 +340,17 @@ typedef enum {
 #define PC_INSTR_COUNT_BITS 12
 #define PC_TYPE_BITS 3
 
-#define OFFLINE_FILE_VERSION 2
+#define OFFLINE_FILE_VERSION_NO_ELISION 2
+#define OFFLINE_FILE_VERSION_OLDEST_SUPPORTED OFFLINE_FILE_VERSION_NO_ELISION
+#define OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE 3
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE
+
+// Bitfields used to describe the file type.
+typedef enum {
+    OFFLINE_FILE_TYPE_DEFAULT = 0,
+    OFFLINE_FILE_TYPE_FILTERED = 1,
+    OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS = 2,
+} offline_file_type_t;
 
 START_PACKED_STRUCTURE
 struct _offline_entry_t {
@@ -311,33 +358,33 @@ struct _offline_entry_t {
         // Unfortunately the compiler won't combine bitfields across the union border
         // so we have to duplicate the type field in each alternative.
         struct {
-            uint64_t addr:61;
-            uint64_t type:3;
+            uint64_t addr : 61;
+            uint64_t type : 3;
         } addr;
         struct {
             // This describes the entire basic block.
-            uint64_t modoffs:PC_MODOFFS_BITS;
-            uint64_t modidx:PC_MODIDX_BITS;
-            uint64_t instr_count:PC_INSTR_COUNT_BITS;
-            uint64_t type:PC_TYPE_BITS;
+            uint64_t modoffs : PC_MODOFFS_BITS;
+            uint64_t modidx : PC_MODIDX_BITS;
+            uint64_t instr_count : PC_INSTR_COUNT_BITS;
+            uint64_t type : PC_TYPE_BITS;
         } pc;
         struct {
-            uint64_t tid:61;
-            uint64_t type:3;
+            uint64_t tid : 61;
+            uint64_t type : 3;
         } tid;
         struct {
-            uint64_t pid:61;
-            uint64_t type:3;
+            uint64_t pid : 61;
+            uint64_t type : 3;
         } pid;
         struct {
-            uint64_t usec:61; // Microseconds since Jan 1, 1601.
-            uint64_t type:3;
+            uint64_t usec : 61; // Microseconds since Jan 1, 1601.
+            uint64_t type : 3;
         } timestamp;
         struct {
-            uint64_t valueA:EXT_VALUE_A_BITS; // Meaning is specific to ext type.
-            uint64_t valueB:EXT_VALUE_B_BITS; // Meaning is specific to ext type.
-            uint64_t ext:5;     // Holds an offline_ext_type_t value.
-            uint64_t type:3;
+            uint64_t valueA : EXT_VALUE_A_BITS; // Meaning is specific to ext type.
+            uint64_t valueB : EXT_VALUE_B_BITS; // Meaning is specific to ext type.
+            uint64_t ext : 5;                   // Holds an offline_ext_type_t value.
+            uint64_t type : 3;
         } extended;
         uint64_t combined_value;
         // XXX: add a CPU id entry for more faithful thread scheduling.

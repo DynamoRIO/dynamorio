@@ -38,8 +38,7 @@
 
 #include "caching_device_block.h"
 
-class cache_line_t : public caching_device_block_t
-{
+class cache_line_t : public caching_device_block_t {
 
     // Currently, "cache_line_t" is identical to caching_device_block_t; however,
     // cache_line_t is probably to be extended to have distinct member variables
@@ -47,7 +46,6 @@ class cache_line_t : public caching_device_block_t
     // reasonable to keep two identical classes now rather than use one instead.
 
     // FIXME i#1726: implement cache coherency protocols
-
 };
 
 #endif /* _CACHE_LINE_H_ */

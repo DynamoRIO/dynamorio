@@ -45,32 +45,90 @@
 #include "../tools/reuse_time_create.h"
 #include "../tools/basic_counts_create.h"
 #include "../tools/opcode_mix_create.h"
+#include "../tools/view_create.h"
 #include "../tracer/raw2trace.h"
 #include <fstream>
+
+/* Get the path to the modules.log file by examining
+ * 1. the module_file option
+ * 2. the trace directory
+ * If a trace file is provided instead of a trace directory, it searches in the
+ * directory which contains the trace file.
+ */
+static std::string
+get_module_file_path()
+{
+    std::string module_file_path;
+    if (!op_module_file.get_value().empty())
+        module_file_path = op_module_file.get_value();
+    else {
+        std::string trace_dir;
+        if (!op_indir.get_value().empty())
+            trace_dir = op_indir.get_value();
+        else {
+            if (op_infile.get_value().empty()) {
+                ERRMSG("Usage error: the opcode mix tool requires offline traces.\n");
+                return "";
+            }
+            size_t sep_index = op_infile.get_value().find_last_of(DIRSEP ALT_DIRSEP);
+            if (sep_index != std::string::npos)
+                trace_dir = std::string(op_infile.get_value(), 0, sep_index);
+        }
+        module_file_path =
+            trace_dir + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
+        if (!std::ifstream(module_file_path.c_str()).good()) {
+            trace_dir += std::string(DIRSEP) + OUTFILE_SUBDIR;
+            module_file_path =
+                trace_dir + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
+        }
+    }
+    return module_file_path;
+}
+
+/* Get the cache simulator knobs used by the cache simulator
+ * and the cache miss analyzer.
+ */
+static cache_simulator_knobs_t *
+get_cache_simulator_knobs()
+{
+    cache_simulator_knobs_t *knobs = new cache_simulator_knobs_t;
+    knobs->num_cores = op_num_cores.get_value();
+    knobs->line_size = op_line_size.get_value();
+    knobs->L1I_size = op_L1I_size.get_value();
+    knobs->L1D_size = op_L1D_size.get_value();
+    knobs->L1I_assoc = op_L1I_assoc.get_value();
+    knobs->L1D_assoc = op_L1D_assoc.get_value();
+    knobs->LL_size = op_LL_size.get_value();
+    knobs->LL_assoc = op_LL_assoc.get_value();
+    knobs->LL_miss_file = op_LL_miss_file.get_value();
+    knobs->model_coherence = op_coherence.get_value();
+    knobs->replace_policy = op_replace_policy.get_value();
+    knobs->data_prefetcher = op_data_prefetcher.get_value();
+    knobs->skip_refs = op_skip_refs.get_value();
+    knobs->warmup_refs = op_warmup_refs.get_value();
+    knobs->warmup_fraction = op_warmup_fraction.get_value();
+    knobs->sim_refs = op_sim_refs.get_value();
+    knobs->verbose = op_verbose.get_value();
+    knobs->cpu_scheduling = op_cpu_scheduling.get_value();
+    return knobs;
+}
 
 analysis_tool_t *
 drmemtrace_analysis_tool_create()
 {
     if (op_simulator_type.get_value() == CPU_CACHE) {
-        cache_simulator_knobs_t knobs;
-        knobs.num_cores = op_num_cores.get_value();
-        knobs.line_size = op_line_size.get_value();
-        knobs.L1I_size = op_L1I_size.get_value();
-        knobs.L1D_size = op_L1D_size.get_value();
-        knobs.L1I_assoc = op_L1I_assoc.get_value();
-        knobs.L1D_assoc = op_L1D_assoc.get_value();
-        knobs.LL_size = op_LL_size.get_value();
-        knobs.LL_assoc = op_LL_assoc.get_value();
-        knobs.LL_miss_file = op_LL_miss_file.get_value();
-        knobs.replace_policy = op_replace_policy.get_value();
-        knobs.data_prefetcher = op_data_prefetcher.get_value();
-        knobs.skip_refs = op_skip_refs.get_value();
-        knobs.warmup_refs = op_warmup_refs.get_value();
-        knobs.warmup_fraction = op_warmup_fraction.get_value();
-        knobs.sim_refs = op_sim_refs.get_value();
-        knobs.verbose = op_verbose.get_value();
-        knobs.cpu_scheduling = op_cpu_scheduling.get_value();
-        return cache_simulator_create(knobs);
+        const std::string &config_file = op_config_file.get_value();
+        if (!config_file.empty()) {
+            return cache_simulator_create(config_file);
+        } else {
+            cache_simulator_knobs_t *knobs = get_cache_simulator_knobs();
+            return cache_simulator_create(*knobs);
+        }
+    } else if (op_simulator_type.get_value() == MISS_ANALYZER) {
+        cache_simulator_knobs_t *knobs = get_cache_simulator_knobs();
+        return cache_miss_analyzer_create(*knobs, op_miss_count_threshold.get_value(),
+                                          op_miss_frac_threshold.get_value(),
+                                          op_confidence_threshold.get_value());
     } else if (op_simulator_type.get_value() == TLB) {
         tlb_simulator_knobs_t knobs;
         knobs.num_cores = op_num_cores.get_value();
@@ -90,8 +148,7 @@ drmemtrace_analysis_tool_create()
         knobs.cpu_scheduling = op_cpu_scheduling.get_value();
         return tlb_simulator_create(knobs);
     } else if (op_simulator_type.get_value() == HISTOGRAM) {
-        return histogram_tool_create(op_line_size.get_value(),
-                                     op_report_top.get_value(),
+        return histogram_tool_create(op_line_size.get_value(), op_report_top.get_value(),
                                      op_verbose.get_value());
     } else if (op_simulator_type.get_value() == REUSE_DIST) {
         reuse_distance_knobs_t knobs;
@@ -104,42 +161,25 @@ drmemtrace_analysis_tool_create()
         knobs.verbose = op_verbose.get_value();
         return reuse_distance_tool_create(knobs);
     } else if (op_simulator_type.get_value() == REUSE_TIME) {
-        return reuse_time_tool_create(op_line_size.get_value(),
-                                      op_verbose.get_value());
+        return reuse_time_tool_create(op_line_size.get_value(), op_verbose.get_value());
     } else if (op_simulator_type.get_value() == BASIC_COUNTS) {
         return basic_counts_tool_create(op_verbose.get_value());
     } else if (op_simulator_type.get_value() == OPCODE_MIX) {
-        // This tool needs the modules.log, which we assume is next to the trace file or
-        // in the raw/ subdir from raw2trace.
-        std::string module_file_path;
-        if (!op_module_file.get_value().empty())
-            module_file_path = op_module_file.get_value();
-        else {
-            std::string trace_dir;
-            if (!op_indir.get_value().empty())
-                trace_dir = op_indir.get_value();
-            else {
-                if (op_infile.get_value().empty()) {
-                    ERRMSG("Usage error: the opcode mix tool requires offline traces.\n");
-                    return nullptr;
-                }
-                size_t sep_index = op_infile.get_value().find_last_of(DIRSEP ALT_DIRSEP);
-                if (sep_index != std::string::npos)
-                    trace_dir = std::string(op_infile.get_value(), 0, sep_index);
-            }
-            module_file_path = trace_dir + std::string(DIRSEP) +
-                DRMEMTRACE_MODULE_LIST_FILENAME;
-            if (!std::ifstream(module_file_path.c_str()).good()) {
-                trace_dir += std::string(DIRSEP) + OUTFILE_SUBDIR;
-                module_file_path = trace_dir + std::string(DIRSEP) +
-                    DRMEMTRACE_MODULE_LIST_FILENAME;
-            }
-        }
+        std::string module_file_path = get_module_file_path();
+        if (module_file_path.empty())
+            return nullptr;
         return opcode_mix_tool_create(module_file_path, op_verbose.get_value());
+    } else if (op_simulator_type.get_value() == VIEW) {
+        std::string module_file_path = get_module_file_path();
+        if (module_file_path.empty())
+            return nullptr;
+        return view_tool_create(module_file_path, op_skip_refs.get_value(),
+                                op_sim_refs.get_value(), op_view_syntax.get_value(),
+                                op_verbose.get_value());
     } else {
         ERRMSG("Usage error: unsupported analyzer type. "
-               "Please choose " CPU_CACHE ", " TLB ", "
-               HISTOGRAM ", " REUSE_DIST ", or " BASIC_COUNTS ".\n");
+               "Please choose " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " HISTOGRAM
+               ", " REUSE_DIST ", " BASIC_COUNTS ", " OPCODE_MIX " or " VIEW ".\n");
         return nullptr;
     }
 }

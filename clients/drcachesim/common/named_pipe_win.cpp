@@ -35,18 +35,18 @@
 #include "named_pipe.h"
 
 #define MAX_NAME_LEN 256 // From CreateNamedPipe docs.
-#define ALLOC_UNIT (64*1025)
-#define OUT_BUFSZ  (16*ALLOC_UNIT)
-#define IN_BUFSZ   OUT_BUFSZ
+#define ALLOC_UNIT (64 * 1025)
+#define OUT_BUFSZ (16 * ALLOC_UNIT)
+#define IN_BUFSZ OUT_BUFSZ
 
-named_pipe_t::named_pipe_t() :
-    fd(INVALID_HANDLE_VALUE)
+named_pipe_t::named_pipe_t()
+    : fd(INVALID_HANDLE_VALUE)
 {
     // Empty.
 }
 
-named_pipe_t::named_pipe_t(const char *name) :
-    fd(INVALID_HANDLE_VALUE)
+named_pipe_t::named_pipe_t(const char *name)
+    : fd(INVALID_HANDLE_VALUE)
 {
     set_name(name);
 }
@@ -80,8 +80,8 @@ bool
 named_pipe_t::create()
 {
     fd = CreateNamedPipeA(pipe_name.c_str(), PIPE_ACCESS_INBOUND,
-                          PIPE_TYPE_BYTE | PIPE_WAIT, PIPE_UNLIMITED_INSTANCES,
-                          OUT_BUFSZ, IN_BUFSZ, 0, NULL);
+                          PIPE_TYPE_BYTE | PIPE_WAIT, PIPE_UNLIMITED_INSTANCES, OUT_BUFSZ,
+                          IN_BUFSZ, 0, NULL);
     return (fd != INVALID_HANDLE_VALUE);
 }
 
@@ -96,7 +96,7 @@ named_pipe_t::open_for_read()
 {
     if (fd == INVALID_HANDLE_VALUE) {
         fd = CreateFileA(pipe_name.c_str(), GENERIC_READ,
-                         FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, NULL,
+                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
         return (fd != INVALID_HANDLE_VALUE);
     } else {
@@ -111,7 +111,7 @@ named_pipe_t::open_for_write()
 {
     if (fd == INVALID_HANDLE_VALUE) {
         fd = CreateFileA(pipe_name.c_str(), GENERIC_WRITE,
-                         FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, NULL,
+                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
         // FIXME i#1727: support multiple processes.  We get ERROR_PIPE_BUSY if
         // a 2nd process connects to the same pipe instance, so we need an array
@@ -119,7 +119,7 @@ named_pipe_t::open_for_write()
         // and have read() wait on an event for each pipe instance (or, use a
         // separate thread per app process, but that significantly changes our
         // design).
-        return (fd != INVALID_HANDLE_VALUE) ;
+        return (fd != INVALID_HANDLE_VALUE);
     } else {
         // This may block.
         BOOL res = ConnectNamedPipe(fd, NULL);

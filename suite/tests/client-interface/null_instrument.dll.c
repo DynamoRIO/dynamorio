@@ -51,9 +51,9 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded)
          */
         bool success, should_instrument;
         should_instrument = dr_module_should_instrument(info->handle);
-        ASSERT(should_instrument);  /* By default, should be yes. */
-        success = dr_module_set_should_instrument(info->handle,
-                                                  false/*!should_instrument*/);
+        ASSERT(should_instrument); /* By default, should be yes. */
+        success =
+            dr_module_set_should_instrument(info->handle, false /*!should_instrument*/);
         ASSERT(success);
         should_instrument = dr_module_should_instrument(info->handle);
         ASSERT(!should_instrument);
@@ -61,19 +61,16 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 }
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-         bool translating)
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr;
-    for (instr = instrlist_first(bb); instr != NULL;
-         instr = instr_get_next(instr)) {
+    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         app_pc pc = instr_get_app_pc(instr);
         module_data_t *mod = dr_lookup_module(pc);
-        if (mod != NULL &&
-            strstr(dr_module_preferred_name(mod), "appdll") != NULL) {
+        if (mod != NULL && strstr(dr_module_preferred_name(mod), "appdll") != NULL) {
             size_t modoffs = pc - mod->start;
-            dr_fprintf(STDERR, "appdll pc appeared in bb event: 0x%08lx %s\n",
-                       modoffs, dr_module_preferred_name(mod));
+            dr_fprintf(STDERR, "appdll pc appeared in bb event: 0x%08lx %s\n", modoffs,
+                       dr_module_preferred_name(mod));
         }
         dr_free_module_data(mod);
     }
@@ -84,12 +81,10 @@ static dr_emit_flags_t
 event_trace(void *drcontext, void *tag, instrlist_t *trace, bool translating)
 {
     instr_t *instr;
-    for (instr = instrlist_first(trace); instr != NULL;
-         instr = instr_get_next(instr)) {
+    for (instr = instrlist_first(trace); instr != NULL; instr = instr_get_next(instr)) {
         app_pc pc = instr_get_app_pc(instr);
         module_data_t *mod = dr_lookup_module(pc);
-        if (mod != NULL &&
-            strstr(dr_module_preferred_name(mod), "appdll") != NULL) {
+        if (mod != NULL && strstr(dr_module_preferred_name(mod), "appdll") != NULL) {
             found_appdll_in_trace = true;
         }
         dr_free_module_data(mod);
@@ -106,7 +101,6 @@ event_exit(void)
     if (enable_traces != 0 && !found_appdll_in_trace)
         dr_fprintf(STDERR, "didn't find appdll in trace\n");
 }
-
 
 DR_EXPORT void
 dr_init(client_id_t client_id)

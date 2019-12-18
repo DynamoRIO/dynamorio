@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,21 +43,24 @@
 #include "../dispatch.h"
 #include "../monitor.h"
 #include "arch.h"
-#include <string.h> /* for memcpy */
 
 /* Helper routine for the x86.asm PUSH_DR_MCONTEXT, to fill in the xmm0-5 values
  * (or all for linux) (or ymm) only if necessary.
  */
 void
-get_xmm_vals(priv_mcontext_t *mc)
+get_simd_vals(priv_mcontext_t *mc)
 {
 #ifdef X86
     if (preserve_xmm_caller_saved()) {
         ASSERT(proc_has_feature(FEATURE_SSE));
-        if (YMM_ENABLED())
-            get_ymm_caller_saved(&mc->ymm[0]);
-        else
-            get_xmm_caller_saved(&mc->ymm[0]);
+        if (d_r_is_avx512_code_in_use()) {
+            get_zmm_caller_saved(&mc->simd[0]);
+            get_opmask_caller_saved(&mc->opmask[0]);
+        } else if (YMM_ENABLED()) {
+            get_ymm_caller_saved(&mc->simd[0]);
+        } else {
+            get_xmm_caller_saved(&mc->simd[0]);
+        }
     }
 #elif defined(ARM)
     /* FIXME i#1551: no xmm but SIMD regs on ARM */
@@ -75,7 +78,7 @@ thread_starting(dcontext_t *dcontext)
     dynamo_thread_under_dynamo(dcontext);
 }
 
-/* Initializes a dcontext with the supplied state and calls dispatch */
+/* Initializes a dcontext with the supplied state and calls d_r_dispatch */
 void
 dynamo_start(priv_mcontext_t *mc)
 {
@@ -117,13 +120,14 @@ dynamo_start(priv_mcontext_t *mc)
     DOLOG(2, LOG_TOP, {
         byte *cur_esp;
         GET_STACK_PTR(cur_esp);
-        LOG(THREAD, LOG_TOP, 2, "%s: next_tag="PFX", cur xsp="PFX", mc->xsp="PFX"\n",
-            __FUNCTION__, dcontext->next_tag, cur_esp, mc->xsp);
+        LOG(THREAD, LOG_TOP, 2,
+            "%s: next_tag=" PFX ", cur xsp=" PFX ", mc->xsp=" PFX "\n", __FUNCTION__,
+            dcontext->next_tag, cur_esp, mc->xsp);
     });
 
-    /* Swap stacks so dispatch is invoked outside the application. */
-    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
-                      NULL/*not on initstack*/, true/*return on error*/);
+    /* Swap stacks so d_r_dispatch is invoked outside the application. */
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
+                      NULL /*not on d_r_initstack*/, true /*return on error*/);
     /* In release builds, this will simply return and continue native
      * execution.  That's better than calling unexpected_return() which
      * goes into an infinite loop.
@@ -147,7 +151,7 @@ auto_setup(ptr_uint_t appstack)
     dcontext_t *dcontext;
     priv_mcontext_t *mcontext;
     byte *pappstack;
-    byte        *addr;
+    byte *addr;
 
     pappstack = (byte *)appstack;
 
@@ -180,8 +184,8 @@ auto_setup(ptr_uint_t appstack)
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext);
 #ifdef WINDOWS
-    LOG(THREAD, LOG_INTERP, 2, "thread_starting: interpreting thread "TIDFMT"\n",
-        get_thread_id());
+    LOG(THREAD, LOG_INTERP, 2, "thread_starting: interpreting thread " TIDFMT "\n",
+        d_r_get_thread_id());
 #endif
 
     /* Despite what *should* happen, there can be other threads if a statically
@@ -201,10 +205,10 @@ auto_setup(ptr_uint_t appstack)
     ASSERT(dcontext->next_tag != NULL);
 
     /* free memory */
-    addr = (byte *) *((byte **)pappstack);
-    pappstack += sizeof(byte*);
+    addr = (byte *)*((byte **)pappstack);
+    pappstack += sizeof(byte *);
     if (addr != NULL) {
-        size_t size = *((size_t*)pappstack);
+        size_t size = *((size_t *)pappstack);
         heap_error_code_t error_code;
         /* since this is rx it was added to our exec list, remove now
          * ASSUMPTION: no fragments in the region so no need to flush
@@ -213,28 +217,25 @@ auto_setup(ptr_uint_t appstack)
         size_t alloc_size = ALIGN_FORWARD(size, PAGE_SIZE);
         DODEBUG({
             if (SHARED_FRAGMENTS_ENABLED())
-                ASSERT(!thread_vm_area_overlap(GLOBAL_DCONTEXT, addr, addr+alloc_size));
+                ASSERT(!thread_vm_area_overlap(GLOBAL_DCONTEXT, addr, addr + alloc_size));
         });
-        ASSERT(!thread_vm_area_overlap(dcontext, addr, addr+alloc_size));
-        remove_executable_region(addr, alloc_size, false/*do not have lock*/);
+        ASSERT(!thread_vm_area_overlap(dcontext, addr, addr + alloc_size));
+        remove_executable_region(addr, alloc_size, false /*do not have lock*/);
         os_heap_free(addr, size, &error_code);
     }
 
     /* FIXME : for transparency should we zero out the appstack where we
      * stored injection information? would be safe to do so here */
 
-    LOG(THREAD, LOG_INTERP, 1, "DynamoRIO auto start at 0x%08x\n",
-        dcontext->next_tag);
-    DOLOG(LOG_INTERP, 2, {
-        dump_mcontext(mcontext, THREAD, DUMP_NOT_XML);
-    });
+    LOG(THREAD, LOG_INTERP, 1, "DynamoRIO auto start at 0x%08x\n", dcontext->next_tag);
+    DOLOG(LOG_INTERP, 2, { dump_mcontext(mcontext, THREAD, DUMP_NOT_XML); });
 
     /* We didn't swap the stack ptr at loader init b/c we were on the app stack
      * then.  We do so now.
      */
-    IF_WINDOWS(os_swap_context(dcontext, false/*to priv*/, DR_STATE_STACK_BOUNDS));
-    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
-                      NULL/*not on initstack*/, false/*shouldn't return*/);
+    IF_WINDOWS(os_swap_context(dcontext, false /*to priv*/, DR_STATE_STACK_BOUNDS));
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
+                      NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -249,8 +250,8 @@ auto_setup(ptr_uint_t appstack)
 int
 native_get_retstack_idx(priv_mcontext_t *mc)
 {
-    int retidx = (int) *(ptr_int_t *) mc->xsp;
-    mc->xsp += sizeof(void *);  /* Undo the push. */
+    int retidx = (int)*(ptr_int_t *)mc->xsp;
+    mc->xsp += sizeof(void *); /* Undo the push. */
     return retidx;
 }
 
@@ -280,8 +281,8 @@ new_thread_setup(priv_mcontext_t *mc)
     /* i#149/PR 403015: clone_record_t is passed via dstack. */
     crec = get_clone_record(mc->xsp);
     LOG(GLOBAL, LOG_INTERP, 1,
-        "new_thread_setup: thread "TIDFMT", dstack "PFX" clone record "PFX"\n",
-        get_thread_id(), get_clone_record_dstack(crec), crec);
+        "new_thread_setup: thread " TIDFMT ", dstack " PFX " clone record " PFX "\n",
+        d_r_get_thread_id(), get_clone_record_dstack(crec), crec);
 
     /* As we used dstack as app thread stack to pass clone record, we now need
      * to switch back to the real app thread stack before continuing.
@@ -291,32 +292,38 @@ new_thread_setup(priv_mcontext_t *mc)
     mc->IF_X86_ELSE(xax, r0) = 0;
     /* clear pc */
     mc->pc = 0;
-# ifdef AARCHXX
+#    ifdef AARCHXX
     /* set the stolen register's app value */
     set_stolen_reg_val(mc, get_clone_record_stolen_value(crec));
     /* set the thread register if necessary */
     set_thread_register_from_clone_record(crec);
-# endif
+#    endif
 
-    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc, crec
-                            _IF_CLIENT_INTERFACE(false));
+    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc,
+                            crec _IF_CLIENT_INTERFACE(false));
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
-# ifdef AARCHXX
+#    ifdef AARCHXX
     set_app_lib_tls_base_from_clone_record(dcontext, crec);
-# endif
-# ifdef ARM
+#    endif
+#    ifdef ARM
     dr_set_isa_mode(dcontext, get_clone_record_isa_mode(crec), NULL);
-# endif
+#    endif
+
+    /* Restore the original stack parameter to the syscall, which we clobbered
+     * in create_clone_record().  Some apps examine it post-syscall (i#3171).
+     */
+    restore_clone_param_from_clone_record(dcontext, crec);
+
     thread_starting(dcontext);
 
-    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
-                      NULL/*not on initstack*/, false/*shouldn't return*/);
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
+                      NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 
-# ifdef MACOS
+#    ifdef MACOS
 /* Called from new_bsdthread_intercept for targeting a bsd thread user function.
  * new_bsdthread_intercept stored the arg to the user thread func in
  * mc->xax.  We're on the app stack -- but this is a temporary solution.
@@ -333,14 +340,14 @@ new_bsdthread_setup(priv_mcontext_t *mc)
      */
     ENTERING_DR();
 
-    crec = (void *) mc->xax; /* placed there by new_bsdthread_intercept */
-    func_arg = (void *) get_clone_record_thread_arg(crec);
+    crec = (void *)mc->xax; /* placed there by new_bsdthread_intercept */
+    func_arg = (void *)get_clone_record_thread_arg(crec);
     LOG(GLOBAL, LOG_INTERP, 1,
-        "new_thread_setup: thread "TIDFMT", dstack "PFX" clone record "PFX"\n",
-        get_thread_id(), get_clone_record_dstack(crec), crec);
+        "new_thread_setup: thread " TIDFMT ", dstack " PFX " clone record " PFX "\n",
+        d_r_get_thread_id(), get_clone_record_dstack(crec), crec);
 
-    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc, crec
-                            _IF_CLIENT_INTERFACE(false));
+    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc,
+                            crec _IF_CLIENT_INTERFACE(false));
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
@@ -348,17 +355,17 @@ new_bsdthread_setup(priv_mcontext_t *mc)
     thread_starting(dcontext);
 
     /* We assume that the only state that matters is the arg to the function. */
-#  ifdef X64
-    mc->rdi = (reg_t) func_arg;
-#  else
-    *(reg_t*)(mc->xsp + sizeof(reg_t)) = (reg_t) func_arg;
-#  endif
+#        ifdef X64
+    mc->rdi = (reg_t)func_arg;
+#        else
+    *(reg_t *)(mc->xsp + sizeof(reg_t)) = (reg_t)func_arg;
+#        endif
 
-    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
-                      NULL/*not on initstack*/, false/*shouldn't return*/);
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
+                      NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
-# endif /* MACOS */
+#    endif /* MACOS */
 
 #endif /* UNIX */
 
@@ -380,7 +387,7 @@ nt_continue_setup(priv_mcontext_t *mc)
     SELF_PROTECT_LOCAL(dcontext, WRITABLE);
     /* save target in temp var during init of dcontext */
     /* we have to use a different slot since next_tag ends up holding the do_syscall
-     * entry when entered from dispatch
+     * entry when entered from d_r_dispatch
      */
     if (dcontext->asynch_target != NULL)
         next_pc = dcontext->asynch_target;
@@ -388,21 +395,21 @@ nt_continue_setup(priv_mcontext_t *mc)
         ASSERT(DYNAMO_OPTION(shared_syscalls));
         next_pc = dcontext->next_tag;
     }
-    LOG(THREAD, LOG_ASYNCH, 2, "nt_continue_setup: target is "PFX"\n", next_pc);
+    LOG(THREAD, LOG_ASYNCH, 2, "nt_continue_setup: target is " PFX "\n", next_pc);
     initialize_dynamo_context(dcontext);
     dcontext->next_tag = next_pc;
     ASSERT(dcontext->next_tag != NULL);
-    set_last_exit(dcontext, (linkstub_t *) get_asynch_linkstub());
+    set_last_exit(dcontext, (linkstub_t *)get_asynch_linkstub());
     dcontext->whereami = DR_WHERE_TRAMPOLINE;
 
     *get_mcontext(dcontext) = *mc;
     /* clear pc */
     get_mcontext(dcontext)->pc = 0;
     /* We came straight from fcache, so swap to priv now (i#25) */
-    IF_WINDOWS(swap_peb_pointer(dcontext, true/*to priv*/));
+    IF_WINDOWS(swap_peb_pointer(dcontext, true /*to priv*/));
 
-    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
-                      NULL/*not on initstack*/, false/*shouldn't return*/);
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
+                      NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -421,7 +428,7 @@ safe_read_fast(const void *base, size_t size, void *out_buf, size_t *bytes_read)
     byte *stop_pc;
     size_t nbytes;
     stop_pc = safe_read_asm(out_buf, base, size);
-    nbytes = stop_pc - (byte*)base;
+    nbytes = stop_pc - (byte *)base;
     if (bytes_read != NULL)
         *bytes_read = nbytes;
     return (nbytes == size);
@@ -430,80 +437,12 @@ safe_read_fast(const void *base, size_t size, void *out_buf, size_t *bytes_read)
 bool
 is_safe_read_pc(app_pc pc)
 {
-    return (pc == (app_pc)safe_read_asm_pre ||
-            pc == (app_pc)safe_read_asm_mid ||
+    return (pc == (app_pc)safe_read_asm_pre || pc == (app_pc)safe_read_asm_mid ||
             pc == (app_pc)safe_read_asm_post);
 }
 
 app_pc
 safe_read_resume_pc(void)
 {
-    return (app_pc) &safe_read_asm_recover;
+    return (app_pc)&safe_read_asm_recover;
 }
-
-#if defined(STANDALONE_UNIT_TEST)
-
-# define CONST_BYTE      0x1f
-# define TEST_STACK_SIZE 4096
-/* Align stack to 16 bytes: sufficient for all current architectures. */
-byte ALIGN_VAR(16) test_stack[TEST_STACK_SIZE];
-static dcontext_t *static_dc;
-
-static void
-check_var(byte *var)
-{
-    EXPECT(*var, CONST_BYTE);
-}
-
-static void (*check_var_ptr)(byte *) = check_var;
-
-static void
-test_func(dcontext_t *dcontext)
-{
-    /* i#1577: we want to read the stack without bothering with a separate
-     * assembly routine and without getting an uninit var warning from the
-     * compiler.  We go through a separate function and avoid compiler analysis
-     * of that function via an indirect call.
-     */
-    byte var;
-    check_var_ptr(&var);
-    EXPECT((ptr_uint_t)dcontext, (ptr_uint_t)static_dc);
-    return;
-}
-
-static void
-test_call_switch_stack(dcontext_t *dc)
-{
-    byte* stack_ptr = test_stack + TEST_STACK_SIZE;
-    static_dc = dc;
-    print_file(STDERR, "testing asm call_switch_stack\n");
-    memset(test_stack, CONST_BYTE, sizeof(test_stack));
-    call_switch_stack(dc, stack_ptr, (void(*)(void*))test_func,
-                      NULL, true /* should return */);
-}
-
-static void
-test_cpuid()
-{
-# ifdef X86
-    int cpuid_res[4] = {0};
-# endif
-    print_file(STDERR, "testing asm cpuid\n");
-    EXPECT(cpuid_supported(), IF_X86_ELSE(true, false));
-# ifdef X86
-    our_cpuid(cpuid_res, 0, 0); /* get vendor id */
-    /* cpuid_res[1..3] stores vendor info like "GenuineIntel" or "AuthenticAMD" for X86 */
-    EXPECT_NE(cpuid_res[1], 0);
-    EXPECT_NE(cpuid_res[2], 0);
-    EXPECT_NE(cpuid_res[3], 0);
-# endif
-}
-
-void
-unit_test_asm(dcontext_t *dc)
-{
-    print_file(STDERR, "testing asm\n");
-    test_call_switch_stack(dc);
-    test_cpuid();
-}
-#endif /* STANDALONE_UNIT_TEST */

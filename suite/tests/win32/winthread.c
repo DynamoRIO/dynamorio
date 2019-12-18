@@ -36,7 +36,7 @@
 #include <stdio.h>
 
 int WINAPI
-run_func(void * arg)
+run_func(void *arg)
 {
     printf("In run_func\n");
     fflush(stdout);
@@ -51,7 +51,7 @@ main()
 
     printf("Before _beginthreadex\n");
     fflush(stdout);
-    hThread = (HANDLE) _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
+    hThread = (HANDLE)_beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
 
     WaitForSingleObject((HANDLE)hThread, INFINITE);
 

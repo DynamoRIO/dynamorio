@@ -31,14 +31,16 @@
  * DAMAGE.
  */
 
-#ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h" /* for print() */
-#include <stdio.h>
+#ifndef ASM_CODE_ONLY  /* C code */
+#    include "tools.h" /* for print() */
+#    include <stdio.h>
 
 /* in asm */
-void test_jecxz(int *x);
+void
+test_jecxz(int *x);
 
-int main()
+int
+main()
 {
     int x = 0;
     test_jecxz(&x);
@@ -47,18 +49,15 @@ int main()
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #define FUNCNAME test_jecxz
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XAX, ARG1
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         END_PROLOG
 
         /* test jecxz */
@@ -90,13 +89,11 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      DWORD [REG_XCX], HEX(abcd1234)
 
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 
 
 END_FILE
+/* clang-format on */
 #endif

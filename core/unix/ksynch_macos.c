@@ -44,7 +44,7 @@
 #include <errno.h>
 /* avoid problems with use of errno as var name in rest of file */
 #if !defined(STANDALONE_UNIT_TEST) && !defined(MACOS)
-# undef errno
+#    undef errno
 #endif
 
 #include "ksynch.h"
@@ -55,10 +55,10 @@
 #include <mach/sync_policy.h>
 
 /* Only in kernel headers, not in user headers */
-#define SYNC_POLICY_PREPOST          0x4
+#define SYNC_POLICY_PREPOST 0x4
 
 #ifndef MACOS
-# error Mac-only
+#    error Mac-only
 #endif
 
 void
@@ -83,12 +83,11 @@ ksynch_init_var(mac_synch_t *synch)
     /* We use SYNC_POLICY_PREPOST so that a signal sent is not lost if there's
      * no thread waiting at that precise point.
      */
-    kern_return_t res = semaphore_create(mach_task_self(), &synch->sem,
-                                         SYNC_POLICY_PREPOST, 0);
+    kern_return_t res =
+        semaphore_create(mach_task_self(), &synch->sem, SYNC_POLICY_PREPOST, 0);
     ASSERT(synch->sem != 0); /* we assume 0 is never a legitimate value */
     synch->value = 0;
-    LOG(THREAD_GET, LOG_THREADS, 2, "semaphore %d created, status %d\n",
-        synch->sem, res);
+    LOG(THREAD_GET, LOG_THREADS, 2, "semaphore %d created, status %d\n", synch->sem, res);
     return (res == KERN_SUCCESS);
 }
 
@@ -134,12 +133,9 @@ ksynch_wait(mac_synch_t *synch, int mustbe, int timeout_ms)
 
     /* Conform to the API specified in ksynch.h */
     switch (res) {
-    case KERN_SUCCESS:
-        return 0;
-    case KERN_OPERATION_TIMED_OUT:
-        return -ETIMEDOUT;
-    default:
-        return -1;
+    case KERN_SUCCESS: return 0;
+    case KERN_OPERATION_TIMED_OUT: return -ETIMEDOUT;
+    default: return -1;
     }
 }
 
@@ -167,9 +163,8 @@ mutex_get_contended_event(mutex_t *lock)
             ASSERT_NOT_REACHED();
             return NULL;
         }
-        not_yet_created =
-            atomic_compare_exchange_int((int*)&lock->contended_event.sem,
-                                        0, (int)local.sem);
+        not_yet_created = atomic_compare_exchange_int((int *)&lock->contended_event.sem,
+                                                      0, (int)local.sem);
         if (not_yet_created) {
             /* we're the ones to initialize it */
         } else {

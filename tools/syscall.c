@@ -30,57 +30,40 @@
  * DAMAGE.
  */
 
-
 #include <windows.h>
 #include <stdio.h>
-
 
 int
 main(int argc, char **argv)
 {
-    int   trip_count;
-    int   syscall_count = 0;
-    int   i;
-    int   tid = GetCurrentThreadId();
+    int trip_count;
+    int syscall_count = 0;
+    int i;
+    int tid = GetCurrentThreadId();
     void *addr;
-    int   old_flags;
-    int   prot_mask = PAGE_EXECUTE;
-    int   prot_flags = PAGE_EXECUTE_READ;
-    BOOL  double_syscall = FALSE;
+    int old_flags;
+    int prot_mask = PAGE_EXECUTE;
+    int prot_flags = PAGE_EXECUTE_READ;
+    BOOL double_syscall = FALSE;
 
-
-    if ( !(argc == 2 || argc == 3) ||
-         (argc == 3 && strcmp(argv[2], "-double_syscall"))) {
-        fprintf(stderr, "Usage: %s <loop trip count> [-double-syscall]\n",
-                argv[0]);
+    if (!(argc == 2 || argc == 3) || (argc == 3 && strcmp(argv[2], "-double_syscall"))) {
+        fprintf(stderr, "Usage: %s <loop trip count> [-double-syscall]\n", argv[0]);
         return -1;
     }
     if (argc == 3 && !strcmp(argv[2], "-double_syscall"))
-     double_syscall = TRUE;
+        double_syscall = TRUE;
     trip_count = atoi(argv[1]);
-    addr = VirtualAlloc(NULL,
-                        65536,
-                        MEM_RESERVE,
-                        prot_flags);
-    for (i = 0; i < trip_count;
-         i++, syscall_count++, prot_flags ^= prot_mask) {
-        VirtualProtect(addr,
-                       65536,
-                       prot_flags,
-                       &old_flags);
+    addr = VirtualAlloc(NULL, 65536, MEM_RESERVE, prot_flags);
+    for (i = 0; i < trip_count; i++, syscall_count++, prot_flags ^= prot_mask) {
+        VirtualProtect(addr, 65536, prot_flags, &old_flags);
         if (double_syscall) {
-            VirtualProtect(addr,
-                           65536,
-                           prot_flags,
-                           &old_flags);
+            VirtualProtect(addr, 65536, prot_flags, &old_flags);
             syscall_count++;
             prot_flags ^= prot_mask;
         }
     }
-    VirtualFree(addr,
-                0,
-                MEM_RELEASE);
-    fprintf(stderr, "Loop trips completed -- %d, syscalls completed -- %d\n",
-            i, syscall_count);
+    VirtualFree(addr, 0, MEM_RELEASE);
+    fprintf(stderr, "Loop trips completed -- %d, syscalls completed -- %d\n", i,
+            syscall_count);
     return 0;
 }

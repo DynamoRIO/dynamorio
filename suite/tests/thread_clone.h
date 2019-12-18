@@ -35,23 +35,23 @@
 #define THREAD_CLONE_H
 
 #ifndef LINUX
-# error Only LINUX is supported
+#    error Only LINUX is supported
 #endif
 
 #define WINAPI
 
-#include <sys/types.h> /* for wait and mmap */
-#include <sys/wait.h>  /* for wait */
-#include <linux/sched.h>     /* for clone and CLONE_ flags */
-#include <sys/mman.h>  /* for mmap */
+#include <sys/types.h>   /* for wait and mmap */
+#include <sys/wait.h>    /* for wait */
+#include <linux/sched.h> /* for clone and CLONE_ flags */
+#include <sys/mman.h>    /* for mmap */
 
 /* i#762: Hard to get clone() from sched.h, so copy prototype. */
 extern int
-clone(int (*fn) (void *arg), void *child_stack, int flags, void *arg, ...);
+clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg, ...);
 
 typedef pid_t thread_t;
 
-#define THREAD_STACK_SIZE   (32*1024)
+#define THREAD_STACK_SIZE (32 * 1024)
 
 /* allocate stack storage on the app's heap */
 static void *
@@ -61,23 +61,23 @@ stack_alloc(int size)
 
 #if STACK_OVERFLOW_PROTECT
     /* allocate an extra page and mark it non-accessible to trap stack overflow */
-    q = mmap(0, PAGE_SIZE, PROT_NONE, MAP_ANON|MAP_PRIVATE, -1, 0);
+    q = mmap(0, PAGE_SIZE, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
     assert(q);
-    stack_redzone_start = (size_t) q;
+    stack_redzone_start = (size_t)q;
 #endif
 
-    p = mmap(q, size, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
+    p = mmap(q, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
     assert(p);
     /* stack grows from high to low addresses, so return a ptr to the top of the
        allocated region */
-    return (void *) ((size_t)p + size);
+    return (void *)((size_t)p + size);
 }
 
 /* free memory-mapped stack storage */
 static void
 stack_free(void *p, int size)
 {
-    void *sp = (void *) ((size_t)p - size);
+    void *sp = (void *)((size_t)p - size);
     munmap(sp, size);
 #if STACK_OVERFLOW_PROTECT
     sp = sp - PAGE_SIZE;

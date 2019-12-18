@@ -33,13 +33,13 @@
 #include "share.h"
 
 #ifndef UNIX
-# error UNIX-only
+#    error UNIX-only
 #endif
 
 #ifdef LINUX
-# include <elf.h>
+#    include <elf.h>
 #elif defined(MACOS)
-# include <mach-o/loader.h> /* mach_header */
+#    include <mach-o/loader.h> /* mach_header */
 #endif
 
 #include <errno.h>
@@ -60,10 +60,11 @@ module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platfo
 #define drfront_die() exit(1)
 
 /* up to caller to call die() if necessary */
-#define drfront_error(msg, ...) do { \
-    fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
-    fflush(stderr); \
-} while (0)
+#define drfront_error(msg, ...)                             \
+    do {                                                    \
+        fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
+        fflush(stderr);                                     \
+    } while (0)
 
 /* Semi-compatibility with the Windows CRT _access function.
  */
@@ -160,8 +161,8 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
     while (cur < end) {
         next = strchr(cur, ':');
         next = (next == NULL ? end : next);
-        snprintf(tmp, BUFFER_SIZE_ELEMENTS(tmp),
-                 "%.*s/%s", (int)(next - cur), cur, fname);
+        snprintf(tmp, BUFFER_SIZE_ELEMENTS(tmp), "%.*s/%s", (int)(next - cur), cur,
+                 fname);
         NULL_TERMINATE_BUFFER(tmp);
         /* realpath checks for existence too. */
         if (realpath(tmp, realpath_buf) != NULL) {
@@ -187,7 +188,7 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
  * No conversion on UNIX, just copy the data.
  */
 drfront_status_t
-drfront_tchar_to_char(const char *wstr, OUT char *buf, size_t buflen/*# elements*/)
+drfront_tchar_to_char(const char *wstr, OUT char *buf, size_t buflen /*# elements*/)
 {
     strncpy(buf, wstr, buflen);
     buf[buflen - 1] = '\0';
@@ -200,7 +201,7 @@ drfront_tchar_to_char_size_needed(const char *wstr, OUT size_t *needed)
 {
     if (needed == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
-    *needed =  strlen(wstr) + 1;
+    *needed = strlen(wstr) + 1;
     return DRFRONT_SUCCESS;
 }
 
@@ -208,7 +209,7 @@ drfront_tchar_to_char_size_needed(const char *wstr, OUT size_t *needed)
  * No conversion on UNIX, just copy the data.
  */
 drfront_status_t
-drfront_char_to_tchar(const char *str, OUT char *wbuf, size_t wbuflen/*# elements*/)
+drfront_char_to_tchar(const char *str, OUT char *wbuf, size_t wbuflen /*# elements*/)
 {
     strncpy(wbuf, str, wbuflen);
     wbuf[wbuflen - 1] = '\0';
@@ -252,7 +253,7 @@ drfront_is_graphical_app(const char *exe, OUT bool *is_graphical)
 }
 
 drfront_status_t
-drfront_get_env_var(const char *name, OUT char *buf, size_t buflen/*# elements*/)
+drfront_get_env_var(const char *name, OUT char *buf, size_t buflen /*# elements*/)
 {
     const char *tmp_buf = getenv(name);
     size_t len_var = 0;
@@ -275,7 +276,7 @@ drfront_get_env_var(const char *name, OUT char *buf, size_t buflen/*# elements*/
  * which is inconsistent with Windows GetFullPathName().
  */
 drfront_status_t
-drfront_get_absolute_path(const char *rel, OUT char *buf, size_t buflen/*# elements*/)
+drfront_get_absolute_path(const char *rel, OUT char *buf, size_t buflen /*# elements*/)
 {
     size_t len = 0;
     char *err = NULL;
@@ -301,7 +302,7 @@ drfront_get_absolute_path(const char *rel, OUT char *buf, size_t buflen/*# eleme
 }
 
 drfront_status_t
-drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen/*# elements*/)
+drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen /*# elements*/)
 {
     bool res = false;
     drfront_status_t status_check = DRFRONT_ERROR;
@@ -350,7 +351,7 @@ drfront_dir_try_writable(const char *path, OUT bool *is_writable)
     /* We actually don't care about races w/ other threads or processes running
      * this same code: each syscall should succeed and truncate whatever is there.
      */
-#   define TMP_FILE_NAME ".__drfrontendlib_tmp"
+#define TMP_FILE_NAME ".__drfrontendlib_tmp"
     if (is_writable == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
     snprintf(tmpname, BUFFER_SIZE_ELEMENTS(tmpname), "%s/%s", path, TMP_FILE_NAME);

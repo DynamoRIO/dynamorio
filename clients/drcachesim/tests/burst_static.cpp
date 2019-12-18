@@ -48,7 +48,7 @@ bool
 my_setenv(const char *var, const char *value)
 {
 #ifdef UNIX
-    return setenv(var, value, 1/*override*/) == 0;
+    return setenv(var, value, 1 /*override*/) == 0;
 #else
     return SetEnvironmentVariable(var, value) == TRUE;
 #endif
@@ -70,11 +70,12 @@ main(int argc, const char *argv[])
 {
     static int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
-    static int iter_start = outer_iters/3;
+    static int iter_start = outer_iters / 3;
     static int iter_stop = iter_start + 4;
 
     /* We also test -rstats_to_stderr */
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -rstats_to_stderr "
+    if (!my_setenv("DYNAMORIO_OPTIONS",
+                   "-stderr_mask 0xc -rstats_to_stderr "
                    "-client_lib ';;-offline'"))
         std::cerr << "failed to set env var!\n";
 
@@ -107,9 +108,9 @@ main(int argc, const char *argv[])
 
 /* FIXME i#2099: the weak symbol is not supported on Windows. */
 #if defined(UNIX) && defined(TEST_APP_DR_CLIENT_MAIN)
-# ifdef __cplusplus
+#    ifdef __cplusplus
 extern "C" {
-# endif
+#    endif
 
 /* Test if the drmemtrace_client_main() in drmemtrace will be called. */
 DR_EXPORT WEAK void
@@ -126,7 +127,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drmemtrace_client_main(id, argc, argv);
 }
 
-# ifdef __cplusplus
+#    ifdef __cplusplus
 }
-# endif
-#endif  /* UNIX && TEST_APP_DR_CLIENT_MAIN */
+#    endif
+#endif /* UNIX && TEST_APP_DR_CLIENT_MAIN */

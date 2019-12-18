@@ -37,7 +37,7 @@
 
 /* To simplify project configuration, this pragma excludes the file from GCC warnings. */
 #ifdef __GNUC__
-# pragma GCC system_header
+#    pragma GCC system_header
 #endif
 
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() \

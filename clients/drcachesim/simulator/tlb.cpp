@@ -56,7 +56,7 @@ tlb_t::request(const memref_t &memref_in)
     // We support larger sizes to improve the IPC perf.
     // This means that one memref could touch multiple blocks.
     // We treat each block separately for statistics purposes.
-    addr_t final_addr = memref_in.data.addr + memref_in.data.size - 1/*avoid overflow*/;
+    addr_t final_addr = memref_in.data.addr + memref_in.data.size - 1 /*avoid overflow*/;
     addr_t final_tag = compute_tag(final_addr);
     addr_t tag = compute_tag(memref_in.data.addr);
     memref_pid_t pid = memref_in.data.pid;
@@ -64,13 +64,13 @@ tlb_t::request(const memref_t &memref_in)
     // Optimization: check last tag and pid if single-block
     if (tag == final_tag && tag == last_tag && pid == last_pid) {
         // Make sure last_tag and pid are properly in sync.
-        assert(tag != TAG_INVALID &&
-               tag == get_caching_device_block(last_block_idx, last_way).tag &&
-               pid == ((tlb_entry_t &)get_caching_device_block(
-                       last_block_idx, last_way)).pid);
-        stats->access(memref_in, true/*hit*/);
+        caching_device_block_t *tlb_entry =
+            &get_caching_device_block(last_block_idx, last_way);
+        assert(tag != TAG_INVALID && tag == tlb_entry->tag &&
+               pid == ((tlb_entry_t *)tlb_entry)->pid);
+        stats->access(memref_in, true /*hit*/, tlb_entry);
         if (parent != NULL)
-            parent->get_stats()->child_access(memref_in, true);
+            parent->get_stats()->child_access(memref_in, true, tlb_entry);
         access_update(last_block_idx, last_way);
         return;
     }
@@ -84,28 +84,30 @@ tlb_t::request(const memref_t &memref_in)
             memref.data.size = ((tag + 1) << block_size_bits) - memref.data.addr;
 
         for (way = 0; way < associativity; ++way) {
-            if (get_caching_device_block(block_idx, way).tag == tag &&
-                ((tlb_entry_t &)get_caching_device_block(block_idx, way)).pid == pid) {
-                stats->access(memref, true/*hit*/);
+            caching_device_block_t *tlb_entry = &get_caching_device_block(block_idx, way);
+            if (tlb_entry->tag == tag && ((tlb_entry_t *)tlb_entry)->pid == pid) {
+                stats->access(memref, true /*hit*/, tlb_entry);
                 if (parent != NULL)
-                    parent->get_stats()->child_access(memref, true);
+                    parent->get_stats()->child_access(memref, true, tlb_entry);
                 break;
             }
         }
 
         if (way == associativity) {
-            stats->access(memref, false/*miss*/);
+            way = replace_which_way(block_idx);
+            caching_device_block_t *tlb_entry = &get_caching_device_block(block_idx, way);
+
+            stats->access(memref, false /*miss*/, tlb_entry);
             // If no parent we assume we get the data from main memory
             if (parent != NULL) {
-                parent->get_stats()->child_access(memref, false);
+                parent->get_stats()->child_access(memref, false, tlb_entry);
                 parent->request(memref);
             }
 
             // XXX: do we need to handle TLB coherency?
 
-            way = replace_which_way(block_idx);
-            get_caching_device_block(block_idx, way).tag = tag;
-            ((tlb_entry_t &)get_caching_device_block(block_idx, way)).pid = pid;
+            tlb_entry->tag = tag;
+            ((tlb_entry_t *)tlb_entry)->pid = pid;
         }
 
         access_update(block_idx, way);
@@ -113,7 +115,7 @@ tlb_t::request(const memref_t &memref_in)
         if (tag + 1 <= final_tag) {
             addr_t next_addr = (tag + 1) << block_size_bits;
             memref.data.addr = next_addr;
-            memref.data.size = final_addr - next_addr + 1/*undo the -1*/;
+            memref.data.size = final_addr - next_addr + 1 /*undo the -1*/;
         }
         // Optimization: remember last tag and pid
         last_tag = tag;

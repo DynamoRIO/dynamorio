@@ -39,55 +39,60 @@
 /////////////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_DYNAMORIODOC_H__832A85FF_15EB_41D0_86C5_BE2CDD746729__INCLUDED_)
-#define AFX_DYNAMORIODOC_H__832A85FF_15EB_41D0_86C5_BE2CDD746729__INCLUDED_
+#    define AFX_DYNAMORIODOC_H__832A85FF_15EB_41D0_86C5_BE2CDD746729__INCLUDED_
 
-#if _MSC_VER > 1000
-#pragma once
-#endif // _MSC_VER > 1000
+#    if _MSC_VER > 1000
+#        pragma once
+#    endif // _MSC_VER > 1000
 
-#define DYNAMORIO_SHARED_MEMORY_KEY "DynamoRIOStatistics"
+#    define DYNAMORIO_SHARED_MEMORY_KEY "DynamoRIOStatistics"
 
-class CDynamoRIODoc : public CDocument
-{
+class CDynamoRIODoc : public CDocument {
 protected: // create from serialization only
     CDynamoRIODoc();
     DECLARE_DYNCREATE(CDynamoRIODoc)
 
     // Attributes
 public:
-
     // Operations
 public:
-
     // Overrides
     // ClassWizard generated virtual function overrides
     //{{AFX_VIRTUAL(CDynamoRIODoc)
 public:
-    virtual BOOL OnNewDocument();
-    virtual void Serialize(CArchive& ar);
+    virtual BOOL
+    OnNewDocument();
+    virtual void
+    Serialize(CArchive &ar);
+
 protected:
-    virtual BOOL SaveModified();
+    virtual BOOL
+    SaveModified();
     //}}AFX_VIRTUAL
 
     // Implementation
 public:
-#ifndef DRSTATS_DEMO
-    void InitPaths();
+#    ifndef DRSTATS_DEMO
+    void
+    InitPaths();
     TCHAR m_dynamorio_home[_MAX_DIR];
     TCHAR m_injector_path[MAX_PATH];
     TCHAR m_logs_dir[MAX_PATH];
-#endif
+#    endif
 
-    BOOL OnOpenDocument(LPCTSTR lpszPathName);
-    BOOL RunApplication(LPCTSTR lpszPathName);
+    BOOL
+    OnOpenDocument(LPCTSTR lpszPathName);
+    BOOL
+    RunApplication(LPCTSTR lpszPathName);
     virtual ~CDynamoRIODoc();
-#ifdef _DEBUG
-    virtual void AssertValid() const;
-    virtual void Dump(CDumpContext& dc) const;
-#endif
+#    ifdef _DEBUG
+    virtual void
+    AssertValid() const;
+    virtual void
+    Dump(CDumpContext &dc) const;
+#    endif
 
 protected:
-
     // Generated message map functions
 protected:
     //{{AFX_MSG(CDynamoRIODoc)
@@ -100,6 +105,7 @@ protected:
 /////////////////////////////////////////////////////////////////////////////
 
 //{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
+// Microsoft Visual C++ will insert additional declarations immediately before the
+// previous line.
 
 #endif // !defined(AFX_DYNAMORIODOC_H__832A85FF_15EB_41D0_86C5_BE2CDD746729__INCLUDED_)

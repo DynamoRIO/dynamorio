@@ -61,12 +61,12 @@ extern "C" {
  * We use ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE in both Windows and Unix
  * assuming no error code conflict on Unix.
  */
-# define ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE 720L
+#    define ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE 720L
 /**
  * Alias of ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE to indicate it is not
  * a fatal error on Unix.
  */
-# define WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE
+#    define WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE
 #endif
 
 DR_EXPORT
@@ -102,8 +102,7 @@ DR_EXPORT
  *          when finished to clean up internally-allocated resources.
  */
 int
-dr_inject_process_create(const char *app_name, const char **app_cmdline,
-                         void **data);
+dr_inject_process_create(const char *app_name, const char **app_cmdline, void **data);
 
 #ifdef UNIX
 
@@ -137,8 +136,7 @@ DR_EXPORT
  *          when finished to clean up internally-allocated resources.
  */
 int
-dr_inject_prepare_to_exec(const char *app_name, const char **app_cmdline,
-                          void **data);
+dr_inject_prepare_to_exec(const char *app_name, const char **app_cmdline, void **data);
 
 DR_EXPORT
 /**
@@ -199,8 +197,7 @@ DR_EXPORT
  * \return  Whether successful.
  */
 bool
-dr_inject_process_inject(void *data, bool force_injection,
-                         const char *library_path);
+dr_inject_process_inject(void *data, bool force_injection, const char *library_path);
 
 DR_EXPORT
 /**

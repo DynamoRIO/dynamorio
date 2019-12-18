@@ -35,7 +35,6 @@
 
 #include "globals.h"
 #include "hashtable.h"
-#include <string.h> /* memset */
 
 /* Returns the proper number of hash bits to have a capacity with the
  * given load for the given number of entries
@@ -46,7 +45,6 @@ hashtable_bits_given_entries(uint entries, uint load)
     /* Add 1 for the sentinel */
     return hashtable_num_bits(((entries + 1) * 100) / load);
 }
-
 
 /*******************************************************************************
  * GENERIC HASHTABLE INSTANTIATION
@@ -64,22 +62,22 @@ hashtable_bits_given_entries(uint entries, uint load)
 #define NAME_KEY generic
 #define ENTRY_TYPE generic_entry_t *
 /* not defining HASHTABLE_USE_LOOKUPTABLE */
-#define ENTRY_TAG(f)              ((f)->key)
-#define ENTRY_EMPTY               NULL
+#define ENTRY_TAG(f) ((f)->key)
+#define ENTRY_EMPTY NULL
 /* we assume that 1 is not a valid value: that keys are in fact pointers */
-#define ENTRY_SENTINEL            ((generic_entry_t*)(ptr_uint_t)1)
-#define ENTRY_IS_EMPTY(f)         ((f) == NULL)
-#define ENTRY_IS_SENTINEL(f)      ((f) == ENTRY_SENTINEL)
-#define ENTRY_IS_INVALID(f)       (false) /* no invalid entries */
-#define ENTRIES_ARE_EQUAL(t,f,g)  (ENTRY_TAG(f) == ENTRY_TAG(g))
+#define ENTRY_SENTINEL ((generic_entry_t *)(ptr_uint_t)1)
+#define ENTRY_IS_EMPTY(f) ((f) == NULL)
+#define ENTRY_IS_SENTINEL(f) ((f) == ENTRY_SENTINEL)
+#define ENTRY_IS_INVALID(f) (false) /* no invalid entries */
+#define ENTRIES_ARE_EQUAL(t, f, g) (ENTRY_TAG(f) == ENTRY_TAG(g))
 /* if usage becomes widespread we may need to parameterize this */
 #define HASHTABLE_WHICH_HEAP(flags) (ACCT_OTHER)
-#define HTLOCK_RANK               table_rwlock
+#define HTLOCK_RANK table_rwlock
 #define HASHTABLE_SUPPORT_PERSISTENCE 0
 
 #include "hashtablex.h"
 /* all defines are undef-ed at end of hashtablex.h */
-#define GENERIC_ENTRY_IS_REAL(e) ((e) != NULL && (e) != (generic_entry_t*)(ptr_uint_t)1)
+#define GENERIC_ENTRY_IS_REAL(e) ((e) != NULL && (e) != (generic_entry_t *)(ptr_uint_t)1)
 
 /* required routines for hashtable interface */
 
@@ -90,16 +88,16 @@ hashtable_generic_init_internal_custom(dcontext_t *dcontext, generic_table_t *ht
 
 static void
 hashtable_generic_resized_custom(dcontext_t *dcontext, generic_table_t *htable,
-                                uint old_capacity, generic_entry_t **old_table,
-                                generic_entry_t **old_table_unaligned,
-                                uint old_ref_count, uint old_table_flags)
+                                 uint old_capacity, generic_entry_t **old_table,
+                                 generic_entry_t **old_table_unaligned,
+                                 uint old_ref_count, uint old_table_flags)
 { /* nothing */
 }
 
 #ifdef DEBUG
 static void
 hashtable_generic_study_custom(dcontext_t *dcontext, generic_table_t *htable,
-                              uint entries_inc/*amnt table->entries was pre-inced*/)
+                               uint entries_inc /*amnt table->entries was pre-inced*/)
 { /* nothing */
 }
 #endif
@@ -117,15 +115,15 @@ hashtable_generic_free_entry(dcontext_t *dcontext, generic_table_t *htable,
 
 generic_table_t *
 generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
-                    uint table_flags, void (*free_payload_func)(dcontext_t*, void*)
-                    _IF_DEBUG(const char *table_name))
+                    uint table_flags,
+                    void (*free_payload_func)(dcontext_t *, void *)
+                        _IF_DEBUG(const char *table_name))
 {
-    generic_table_t *table = HEAP_TYPE_ALLOC(dcontext, generic_table_t,
-                                             ACCT_OTHER, PROTECTED);
+    generic_table_t *table =
+        HEAP_TYPE_ALLOC(dcontext, generic_table_t, ACCT_OTHER, PROTECTED);
     hashtable_generic_init(dcontext, table, bits, load_factor_percent,
                            (hash_function_t)INTERNAL_OPTION(alt_hash_func),
-                           0 /* hash_mask_offset */, table_flags
-                           _IF_DEBUG(table_name));
+                           0 /* hash_mask_offset */, table_flags _IF_DEBUG(table_name));
     table->free_payload_func = free_payload_func;
     return table;
 }
@@ -190,8 +188,8 @@ generic_hash_remove(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t ke
 }
 
 uint
-generic_hash_range_remove(dcontext_t *dcontext, generic_table_t *htable,
-                          ptr_uint_t start, ptr_uint_t end)
+generic_hash_range_remove(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t start,
+                          ptr_uint_t end)
 {
     return hashtable_generic_range_remove(dcontext, htable, start, end, NULL);
 }
@@ -203,21 +201,21 @@ generic_hash_iterate_next(dcontext_t *dcontext, generic_table_t *htable, int ite
 {
     int i;
     generic_entry_t *e = NULL;
-    for (i = iter; i < (int) htable->capacity; i++) {
+    for (i = iter; i < (int)htable->capacity; i++) {
         e = htable->table[i];
         if (!GENERIC_ENTRY_IS_REAL(e))
             continue;
         else
             break;
     }
-    if (i >= (int) htable->capacity)
+    if (i >= (int)htable->capacity)
         return -1;
     ASSERT(e != NULL);
     if (key != NULL)
         *key = e->key;
     if (payload != NULL)
         *payload = e->payload;
-    return i+1;
+    return i + 1;
 }
 
 /* removes from the hashtable in a safe way during iteration.  returns an
@@ -254,24 +252,24 @@ generic_hash_iterate_remove(dcontext_t *dcontext, generic_table_t *htable, int i
 #define NAME_KEY strhash
 #define ENTRY_TYPE strhash_entry_t *
 /* not defining HASHTABLE_USE_LOOKUPTABLE */
-#define ENTRY_TAG(f)              (ptr_uint_t)((f)->key)
-#define ENTRY_EMPTY               NULL
+#define ENTRY_TAG(f) (ptr_uint_t)((f)->key)
+#define ENTRY_EMPTY NULL
 /* we assume that 1 is not a valid value: that keys are in fact pointers */
-#define STRHASH_SENTINEL          ((strhash_entry_t*)(ptr_uint_t)1)
-#define ENTRY_SENTINEL            STRHASH_SENTINEL
-#define ENTRY_IS_EMPTY(f)         ((f) == NULL)
-#define ENTRY_IS_SENTINEL(f)      ((f) == STRHASH_SENTINEL)
-#define ENTRY_IS_INVALID(f)       (false) /* no invalid entries */
-#define TAGS_ARE_EQUAL(table,s1,s2)  (strhash_key_cmp(table, (const char *)(s1),\
-                                                     (const char *)(s2)))
-#define ENTRIES_ARE_EQUAL(table,f,g)  (TAGS_ARE_EQUAL(table, (f)->key, (g)->key))
+#define STRHASH_SENTINEL ((strhash_entry_t *)(ptr_uint_t)1)
+#define ENTRY_SENTINEL STRHASH_SENTINEL
+#define ENTRY_IS_EMPTY(f) ((f) == NULL)
+#define ENTRY_IS_SENTINEL(f) ((f) == STRHASH_SENTINEL)
+#define ENTRY_IS_INVALID(f) (false) /* no invalid entries */
+#define TAGS_ARE_EQUAL(table, s1, s2) \
+    (strhash_key_cmp(table, (const char *)(s1), (const char *)(s2)))
+#define ENTRIES_ARE_EQUAL(table, f, g) (TAGS_ARE_EQUAL(table, (f)->key, (g)->key))
 /* if usage becomes widespread we may need to parameterize this */
 #define HASHTABLE_WHICH_HEAP(flags) (ACCT_OTHER)
-#define HTLOCK_RANK               table_rwlock
+#define HTLOCK_RANK table_rwlock
 #define HASHTABLE_SUPPORT_PERSISTENCE 0
 
 /* case sensitive by default */
-#define STRHASH_CASE_INSENSITIVE  HASHTABLE_CUSTOM_FLAGS_START
+#define STRHASH_CASE_INSENSITIVE HASHTABLE_CUSTOM_FLAGS_START
 
 static inline bool
 strhash_key_cmp(strhash_table_t *htable, const char *s1, const char *s2)
@@ -304,7 +302,7 @@ hashtable_strhash_resized_custom(dcontext_t *dcontext, strhash_table_t *htable,
 #ifdef DEBUG
 static void
 hashtable_strhash_study_custom(dcontext_t *dcontext, strhash_table_t *htable,
-                               uint entries_inc/*amnt table->entries was pre-inced*/)
+                               uint entries_inc /*amnt table->entries was pre-inced*/)
 { /* nothing */
 }
 #endif
@@ -322,16 +320,16 @@ hashtable_strhash_free_entry(dcontext_t *dcontext, strhash_table_t *htable,
 
 strhash_table_t *
 strhash_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
-                    uint table_flags, void (*free_payload_func)(void*)
-                    _IF_DEBUG(const char *table_name))
+                    uint table_flags,
+                    void (*free_payload_func)(void *) _IF_DEBUG(const char *table_name))
 {
-    strhash_table_t *table = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, strhash_table_t,
-                                             ACCT_OTHER, PROTECTED);
+    strhash_table_t *table =
+        HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, strhash_table_t, ACCT_OTHER, PROTECTED);
     hashtable_strhash_init(GLOBAL_DCONTEXT, table, bits, load_factor_percent,
-                           TEST(STRHASH_CASE_INSENSITIVE, table_flags) ?
-                           HASH_FUNCTION_STRING_NOCASE : HASH_FUNCTION_STRING,
-                           0 /* hash_mask_offset */, table_flags
-                           _IF_DEBUG(table_name));
+                           TEST(STRHASH_CASE_INSENSITIVE, table_flags)
+                               ? HASH_FUNCTION_STRING_NOCASE
+                               : HASH_FUNCTION_STRING,
+                           0 /* hash_mask_offset */, table_flags _IF_DEBUG(table_name));
     table->free_payload_func = free_payload_func;
     return table;
 }
@@ -397,16 +395,13 @@ strhash_hash_remove(dcontext_t *dcontext, strhash_table_t *htable, const char *k
 
 /*******************************************************************************/
 
-
 #ifdef HASHTABLE_STATISTICS
 
 /* caller is responsible for any needed synchronization */
 void
-print_hashtable_stats(dcontext_t *dcontext,
-                      const char *is_final_str, const char *is_trace_str,
-                      const char *lookup_routine_str,
-                      const char *brtype_str,
-                      hashtable_statistics_t *lookup_stats)
+print_hashtable_stats(dcontext_t *dcontext, const char *is_final_str,
+                      const char *is_trace_str, const char *lookup_routine_str,
+                      const char *brtype_str, hashtable_statistics_t *lookup_stats)
 {
     uint64 hits_stat = lookup_stats->hit_stat;
     uint64 total_lookups;
@@ -415,33 +410,33 @@ print_hashtable_stats(dcontext_t *dcontext,
         /* assuming only one overflow, which is the only case on spec (GAP)  */
         hits_stat = (uint64)lookup_stats->hit_stat + UINT_MAX + 1;
     }
-    total_lookups= hits_stat + lookup_stats->miss_stat + lookup_stats->collision_hit_stat;
+    total_lookups =
+        hits_stat + lookup_stats->miss_stat + lookup_stats->collision_hit_stat;
 
-    DOLOG(1, LOG_FRAGMENT|LOG_STATS, {
-        uint miss_top=0; uint miss_bottom=0;
-        uint hit_top=0; uint hit_bottom=0;
-        uint col_top=0; uint col_bottom=0;
+    DOLOG(1, LOG_FRAGMENT | LOG_STATS, {
+        uint miss_top = 0;
+        uint miss_bottom = 0;
+        uint hit_top = 0;
+        uint hit_bottom = 0;
+        uint col_top = 0;
+        uint col_bottom = 0;
         if (total_lookups > 0) {
-            divide_uint64_print(lookup_stats->miss_stat, total_lookups, false,
-                                4, &miss_top, &miss_bottom);
+            divide_uint64_print(lookup_stats->miss_stat, total_lookups, false, 4,
+                                &miss_top, &miss_bottom);
         }
         if (hits_stat > 0) {
-            divide_uint64_print(lookup_stats->collision_hit_stat, hits_stat,
-                                false, 4, &hit_top, &hit_bottom);
-            divide_uint64_print(hits_stat + lookup_stats->collision_stat,
-                                hits_stat, false, 4, &col_top, &col_bottom);
+            divide_uint64_print(lookup_stats->collision_hit_stat, hits_stat, false, 4,
+                                &hit_top, &hit_bottom);
+            divide_uint64_print(hits_stat + lookup_stats->collision_stat, hits_stat,
+                                false, 4, &col_top, &col_bottom);
         }
-        LOG(THREAD, LOG_FRAGMENT|LOG_STATS, 1,
-            "%s %s table %s%s lookup hits%s: "UINT64_FORMAT_STRING", "
-            "misses: %u, total: "UINT64_FORMAT_STRING", miss%%=%u.%.4u\n",
+        LOG(THREAD, LOG_FRAGMENT | LOG_STATS, 1,
+            "%s %s table %s%s lookup hits%s: " UINT64_FORMAT_STRING ", "
+            "misses: %u, total: " UINT64_FORMAT_STRING ", miss%%=%u.%.4u\n",
             is_final_str, is_trace_str, lookup_routine_str, brtype_str,
-            (lookup_stats->hit_stat < lookup_stats->collision_hit_stat) ?
-            "[OVFL]" : "",
-            hits_stat,
-            lookup_stats->miss_stat,
-            total_lookups,
-            miss_top, miss_bottom);
-        LOG(THREAD, LOG_FRAGMENT|LOG_STATS, 1,
+            (lookup_stats->hit_stat < lookup_stats->collision_hit_stat) ? "[OVFL]" : "",
+            hits_stat, lookup_stats->miss_stat, total_lookups, miss_top, miss_bottom);
+        LOG(THREAD, LOG_FRAGMENT | LOG_STATS, 1,
             "%s %s table %s%s "
             "collisions: %u, collision hits: %u, "
             ">2_or_miss: %u, overwrap: %u\n",
@@ -451,41 +446,42 @@ print_hashtable_stats(dcontext_t *dcontext,
             lookup_stats->collision_hit_stat,
             lookup_stats->collision_stat - lookup_stats->collision_hit_stat,
             lookup_stats->overwrap_stat);
-        LOG(THREAD, LOG_FRAGMENT|LOG_STATS, 1,
+        LOG(THREAD, LOG_FRAGMENT | LOG_STATS, 1,
             "%s %s table %s%s lookup "
             " coll%%=%u.%.4u, dyn.avgcoll=%u.%.4u\n",
-            is_final_str, is_trace_str, lookup_routine_str, brtype_str,
-            hit_top, hit_bottom,
-            col_top, col_bottom);
+            is_final_str, is_trace_str, lookup_routine_str, brtype_str, hit_top,
+            hit_bottom, col_top, col_bottom);
         if (lookup_stats->race_condition_stat || lookup_stats->unlinked_count_stat) {
-            LOG(THREAD, LOG_FRAGMENT|LOG_STATS, 1,
+            LOG(THREAD, LOG_FRAGMENT | LOG_STATS, 1,
                 "%s %s table %s%s inlined ibl unlinking races: %d, unlinked: %d\n",
                 is_final_str, is_trace_str, lookup_routine_str, brtype_str,
-                lookup_stats->race_condition_stat,
-                lookup_stats->unlinked_count_stat);
+                lookup_stats->race_condition_stat, lookup_stats->unlinked_count_stat);
         }
         if (lookup_stats->ib_stay_on_trace_stat) {
-            uint ontrace_top=0; uint ontrace_bottom=0;
-            uint lastexit_top=0; uint lastexit_bottom=0;
-            uint speculate_lastexit_top=0; uint speculate_lastexit_bottom=0;
+            uint ontrace_top = 0;
+            uint ontrace_bottom = 0;
+            uint lastexit_top = 0;
+            uint lastexit_bottom = 0;
+            uint speculate_lastexit_top = 0;
+            uint speculate_lastexit_bottom = 0;
             /* indirect branch lookups */
-            uint64 total_dynamic_ibs =
-                total_lookups + lookup_stats->ib_stay_on_trace_stat +
-                (DYNAMO_OPTION(speculate_last_exit) ?
-                 lookup_stats->ib_trace_last_ibl_speculate_success : 0);
+            uint64 total_dynamic_ibs = total_lookups +
+                lookup_stats->ib_stay_on_trace_stat +
+                (DYNAMO_OPTION(speculate_last_exit)
+                     ? lookup_stats->ib_trace_last_ibl_speculate_success
+                     : 0);
 
             /* FIXME: add ib_stay_on_trace_stat_ovfl here */
 
             if (total_dynamic_ibs > 0) {
                 divide_uint64_print(lookup_stats->ib_stay_on_trace_stat,
-                                    total_dynamic_ibs, false,
-                                    4, &ontrace_top, &ontrace_bottom);
+                                    total_dynamic_ibs, false, 4, &ontrace_top,
+                                    &ontrace_bottom);
                 divide_uint64_print(lookup_stats->ib_trace_last_ibl_exit,
-                                    total_dynamic_ibs, false,
-                                    4, &lastexit_top, &lastexit_bottom);
+                                    total_dynamic_ibs, false, 4, &lastexit_top,
+                                    &lastexit_bottom);
                 divide_uint64_print(lookup_stats->ib_trace_last_ibl_speculate_success,
-                                    total_dynamic_ibs, false,
-                                    4, &speculate_lastexit_top,
+                                    total_dynamic_ibs, false, 4, &speculate_lastexit_top,
                                     &speculate_lastexit_bottom);
             }
 
@@ -496,62 +492,60 @@ print_hashtable_stats(dcontext_t *dcontext,
              */
             /* lastexit is how many are on last IBL when it is not speculated */
             /* lastexit_speculate is how many are speculatively hit (as of all IBs) */
-            LOG(THREAD, LOG_FRAGMENT|LOG_STATS, 1,
+            LOG(THREAD, LOG_FRAGMENT | LOG_STATS, 1,
                 "%s %s table %s%s stay on trace hit:%s %u, last_ibl: %u, "
                 "ontrace%%=%u.%.4u, lastexit%%=%u.%.4u\n",
                 is_final_str, is_trace_str, lookup_routine_str, brtype_str,
                 lookup_stats->ib_stay_on_trace_stat_ovfl ? " OVFL" : "",
-                lookup_stats->ib_stay_on_trace_stat,
-                lookup_stats->ib_trace_last_ibl_exit,
-                ontrace_top, ontrace_bottom,
-                lastexit_top, lastexit_bottom
-                );
-            LOG(THREAD, LOG_FRAGMENT|LOG_STATS, 1,
+                lookup_stats->ib_stay_on_trace_stat, lookup_stats->ib_trace_last_ibl_exit,
+                ontrace_top, ontrace_bottom, lastexit_top, lastexit_bottom);
+            LOG(THREAD, LOG_FRAGMENT | LOG_STATS, 1,
                 "%s %s table %s%s last trace exit speculation hit: %u, "
                 "lastexit_ontrace%%=%u.%.4u(%%IB)\n",
                 is_final_str, is_trace_str, lookup_routine_str, brtype_str,
-                lookup_stats->ib_trace_last_ibl_speculate_success,
-                speculate_lastexit_top, speculate_lastexit_bottom);
+                lookup_stats->ib_trace_last_ibl_speculate_success, speculate_lastexit_top,
+                speculate_lastexit_bottom);
         }
 
         if (lookup_stats->ib_trace_last_ibl_exit > 0) {
             /* ignoring indirect branches that stayed on trace */
             /* FIXME: add ib_stay_on_trace_stat_ovfl here */
-            uint speculate_only_lastexit_top=0; uint speculate_only_lastexit_bottom=0;
-            uint lastexit_ibl_top=0; uint lastexit_ibl_bottom=0;
-            uint speculate_lastexit_ibl_top=0; uint speculate_lastexit_ibl_bottom=0;
+            uint speculate_only_lastexit_top = 0;
+            uint speculate_only_lastexit_bottom = 0;
+            uint lastexit_ibl_top = 0;
+            uint lastexit_ibl_bottom = 0;
+            uint speculate_lastexit_ibl_top = 0;
+            uint speculate_lastexit_ibl_bottom = 0;
 
             uint64 total_dynamic_ibl_no_trace =
                 total_lookups + lookup_stats->ib_trace_last_ibl_exit;
             if (total_dynamic_ibl_no_trace > 0) {
                 divide_uint64_print(lookup_stats->ib_trace_last_ibl_exit,
-                                    total_dynamic_ibl_no_trace, false,
-                                    4, &lastexit_ibl_top, &lastexit_ibl_bottom);
+                                    total_dynamic_ibl_no_trace, false, 4,
+                                    &lastexit_ibl_top, &lastexit_ibl_bottom);
                 divide_uint64_print(lookup_stats->ib_trace_last_ibl_speculate_success,
-                                    total_dynamic_ibl_no_trace, false,
-                                    4, &speculate_lastexit_ibl_top,
+                                    total_dynamic_ibl_no_trace, false, 4,
+                                    &speculate_lastexit_ibl_top,
                                     &speculate_lastexit_ibl_bottom);
             }
 
             /* ib_trace_last_ibl_exit includes all ib_trace_last_ibl_speculate_success */
             divide_uint64_print(lookup_stats->ib_trace_last_ibl_speculate_success,
-                                lookup_stats->ib_trace_last_ibl_exit, false,
-                                4, &speculate_only_lastexit_top,
+                                lookup_stats->ib_trace_last_ibl_exit, false, 4,
+                                &speculate_only_lastexit_top,
                                 &speculate_only_lastexit_bottom);
 
-
-            LOG(THREAD, LOG_FRAGMENT|LOG_STATS, 1,
+            LOG(THREAD, LOG_FRAGMENT | LOG_STATS, 1,
                 "%s %s table %s%s last trace exit speculation hit: %u, speculation miss: "
                 "%u, lastexit%%=%u.%.4u(%%IBL), lastexit_succ%%=%u.%.4u(%%IBL), "
                 "spec hit%%=%u.%.4u(%%last exit)\n",
                 is_final_str, is_trace_str, lookup_routine_str, brtype_str,
                 lookup_stats->ib_trace_last_ibl_speculate_success,
                 lookup_stats->ib_trace_last_ibl_exit -
-                lookup_stats->ib_trace_last_ibl_speculate_success,
-                lastexit_ibl_top, lastexit_ibl_bottom,
-                speculate_lastexit_ibl_top, speculate_lastexit_ibl_bottom,
-                speculate_only_lastexit_top, speculate_only_lastexit_bottom
-                );
+                    lookup_stats->ib_trace_last_ibl_speculate_success,
+                lastexit_ibl_top, lastexit_ibl_bottom, speculate_lastexit_ibl_top,
+                speculate_lastexit_ibl_bottom, speculate_only_lastexit_top,
+                speculate_only_lastexit_bottom);
         }
     });
 }

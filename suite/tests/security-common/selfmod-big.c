@@ -37,17 +37,18 @@
 
 #ifndef ASM_CODE_ONLY
 
-#include "tools.h"
+#    include "tools.h"
 
-#ifdef USE_DYNAMO
-# include "dynamorio.h"
-#endif
+#    ifdef USE_DYNAMO
+#        include "dynamorio.h"
+#    endif
 
 uint big[1024];
 
 /* executes iters iters, by modifying the iters bound using self-modifying code
  */
-int foo(int iters);
+int
+foo(int iters);
 
 int
 main(void)
@@ -63,8 +64,9 @@ main(void)
 
 #else /* ASM_CODE_ONLY */
 
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
 
+/* clang-format off */
 START_FILE
 
 DECL_EXTERN(big)
@@ -1030,5 +1032,6 @@ ADDRTAKEN_LABEL(foo_end:)
         END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 
 #endif /* ASM_CODE_ONLY */

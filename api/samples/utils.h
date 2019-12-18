@@ -35,25 +35,25 @@
 #include "dr_api.h" /* for file_t, client_id_t */
 #include <stdio.h>
 
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
-#define BUFFER_LAST_ELEMENT(buf)    (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
+#define BUFFER_LAST_ELEMENT(buf) (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 #ifdef WINDOWS
-# define IF_WINDOWS(x) x
-# define IF_UNIX_ELSE(x, y) y
+#    define IF_WINDOWS(x) x
+#    define IF_UNIX_ELSE(x, y) y
 #else
-# define IF_WINDOWS(x)
-# define IF_UNIX_ELSE(x, y) x
+#    define IF_WINDOWS(x)
+#    define IF_UNIX_ELSE(x, y) x
 #endif
 
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox("%s", msg)
-# define IF_WINDOWS(x) x
+#    define DISPLAY_STRING(msg) dr_messagebox("%s", msg)
+#    define IF_WINDOWS(x) x
 #else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
-# define IF_WINDOWS(x) /* nothing */
+#    define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
+#    define IF_WINDOWS(x) /* nothing */
 #endif
 
 /* open a log file
@@ -64,8 +64,8 @@
  * - flags:     file open mode, e.g., DR_FILE_WRITE_REQUIRE_NEW
  */
 file_t
-log_file_open(client_id_t id, void *drcontext,
-              const char *path, const char *name, uint flags);
+log_file_open(client_id_t id, void *drcontext, const char *path, const char *name,
+              uint flags);
 
 /* close a log file opened by log_file_open */
 void

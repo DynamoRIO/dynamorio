@@ -41,10 +41,10 @@
 #include <setjmp.h>
 
 #ifdef UNIX
-# include <unistd.h>
-# include <signal.h>
-# include <ucontext.h>
-# include <errno.h>
+#    include <unistd.h>
+#    include <signal.h>
+#    include <ucontext.h>
+#    include <errno.h>
 #endif
 
 SIGJMP_BUF mark;
@@ -53,8 +53,8 @@ int where; /* 0 = normal, 1 = segfault SIGLONGJMP */
 void
 ring(void **retaddr_p, ptr_int_t x)
 {
-    print("looking at ring "PFX"\n", x);
-    *retaddr_p = (void*)x;
+    print("looking at ring " PFX "\n", x);
+    *retaddr_p = (void *)x;
 }
 
 ptr_int_t
@@ -75,41 +75,40 @@ ptr_int_t
 twofoo()
 {
     ptr_int_t a = foo();
-    print("first foo a="SZFMT"\n", a);
+    print("first foo a=" SZFMT "\n", a);
 
     a += foo();
-    print("second foo a="SZFMT"\n", a);
+    print("second foo a=" SZFMT "\n", a);
     return a;
 }
-
 
 #ifdef UNIX
 static void
 signal_handler(int sig)
 {
     if (sig == SIGSEGV) {
-#if VERY_VERBOSE
+#    if VERY_VERBOSE
         print("Got seg fault\n");
-#endif
+#    endif
         SIGLONGJMP(mark, 1);
     }
     exit(-1);
 }
 #else
-# include <windows.h>
+#    include <windows.h>
 /* top-level exception handler */
 static LONG
-custom_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+custom_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-#if VERY_VERBOSE
+#    if VERY_VERBOSE
         print("Got segfault\n");
-#endif
+#    endif
         SIGLONGJMP(mark, 1);
     }
-# if VERBOSE
+#    if VERBOSE
     print("Exception occurred, process about to die silently\n");
-# endif
+#    endif
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
 #endif
@@ -117,13 +116,13 @@ custom_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 int
 invalid_ret(int x)
 {
-    ptr_int_t bad_retaddr = x;  /* Sign extend x on X64. */
+    ptr_int_t bad_retaddr = x; /* Sign extend x on X64. */
     where = SIGSETJMP(mark);
     if (where == 0) {
-        call_with_retaddr((void*)ring, bad_retaddr);
+        call_with_retaddr((void *)ring, bad_retaddr);
         print("unexpectedly we came back!");
     } else {
-        print("fault caught on "PFX"\n", x);
+        print("fault caught on " PFX "\n", x);
     }
     return 0;
 }
@@ -134,23 +133,23 @@ main()
     INIT();
 
 #ifdef UNIX
-    intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
+    intercept_signal(SIGSEGV, (handler_3_t)signal_handler, false);
 #else
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) custom_top_handler);
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)custom_top_handler);
 #endif
 
     print("starting good function\n");
     twofoo();
     print("starting bad function\n");
 
-    invalid_ret(1);                    /* zero page */
-    invalid_ret(0);                    /* NULL */
-    invalid_ret(0x00badbad);           /* user mode */
-    invalid_ret(0x7fffffff);           /* user mode */
-    invalid_ret(0x80000000);           /* kernel addr */
-    invalid_ret(0xbadbad00);           /* kernel addr */
-    invalid_ret(0xfffffffe);           /* just bad */
-    invalid_ret(0xffffffff);           /* just bad */
+    invalid_ret(1);          /* zero page */
+    invalid_ret(0);          /* NULL */
+    invalid_ret(0x00badbad); /* user mode */
+    invalid_ret(0x7fffffff); /* user mode */
+    invalid_ret(0x80000000); /* kernel addr */
+    invalid_ret(0xbadbad00); /* kernel addr */
+    invalid_ret(0xfffffffe); /* just bad */
+    invalid_ret(0xffffffff); /* just bad */
 
     print("all done [not seen]\n");
 }

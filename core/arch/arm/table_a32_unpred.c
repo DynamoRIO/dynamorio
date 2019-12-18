@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,10 +31,13 @@
  */
 
 #include "../globals.h" /* need this to include decode.h (uint, etc.) */
-#include "arch.h"    /* need this to include decode.h (byte, etc. */
+#include "arch.h"       /* need this to include decode.h (byte, etc. */
 #include "decode.h"
 #include "decode_private.h"
 #include "table_private.h"
+
+// We skip auto-formatting for the entire file to keep our single-line table entries:
+/* clang-format off */
 
 /* Indexed by bits 27:23,21:20.
  * The D bit (0x04) has been removed.  We are including the U bit.  Is
@@ -2557,3 +2560,5 @@ const instr_info_t A32_ext_vtb[][9] = {
     {OP_vtbx_8,         0xf3b00b40, "vtbx.8",         VBq, xx, LXA4q, VCq, xx, no, x, tvtb[0][0x06]},
   },
 };
+
+/* clang-format on */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,15 +47,23 @@
 #include "opcode.h"
 #include "opnd.h"
 
-/* to avoid duplicating code we use our own exported macros */
-#define DR_FAST_IR 1
-
-/* drpreinject.dll doesn't link in instr_shared.c so we can't include our inline
- * functions.  We want to use our inline functions for the standalone decoder
- * and everything else, so we single out drpreinject.
+/* To avoid duplicating code we use our own exported macros, unless an includer
+ * needs to avoid it.
  */
-#ifdef RC_IS_PRELOAD
-# undef DR_FAST_IR
+#ifdef DR_NO_FAST_IR
+#    undef DR_FAST_IR
+#    undef INSTR_INLINE
+#else
+#    define DR_FAST_IR 1
+#endif
+
+/* Avoid clang-format bug in i#3158 where having ifdef AVOID_API_EXPORT before
+ * a declaration causes the declaration to be indented and skipped by genapi.pl.
+ */
+#ifdef AVOID_API_EXPORT
+#    define INSTR_INLINE_INTERNALLY INSTR_INLINE
+#else
+#    define INSTR_INLINE_INTERNALLY /* nothing */
 #endif
 
 /* can't include decode.h, it includes us, just declare struct */
@@ -64,13 +72,13 @@ struct instr_info_t;
 /* DR_API EXPORT TOFILE dr_ir_opcodes.h */
 /* DR_API EXPORT BEGIN */
 #ifdef API_EXPORT_ONLY
-#ifdef X86
-# include "dr_ir_opcodes_x86.h"
-#elif defined(AARCH64)
-# include "dr_ir_opcodes_aarch64.h"
-#elif defined(ARM)
-# include "dr_ir_opcodes_arm.h"
-#endif
+#    ifdef X86
+#        include "dr_ir_opcodes_x86.h"
+#    elif defined(AARCH64)
+#        include "dr_ir_opcodes_aarch64.h"
+#    elif defined(ARM)
+#        include "dr_ir_opcodes_arm.h"
+#    endif
 #endif
 /* DR_API EXPORT END */
 
@@ -80,11 +88,11 @@ struct instr_info_t;
  */
 /* Inlining macro controls. */
 #ifndef INSTR_INLINE
-# ifdef DR_FAST_IR
-#  define INSTR_INLINE inline
-# else
-#  define INSTR_INLINE
-# endif
+#    ifdef DR_FAST_IR
+#        define INSTR_INLINE inline
+#    else
+#        define INSTR_INLINE
+#    endif
 #endif
 
 /*************************
@@ -123,118 +131,133 @@ struct instr_info_t;
 #ifdef DR_FAST_IR
 /* flags */
 enum {
-/* DR_API EXPORT END */
+    /* DR_API EXPORT END */
     /* these first flags are shared with the LINK_ flags and are
      * used to pass on info to link stubs
      */
     /* used to determine type of indirect branch for exits */
-    INSTR_DIRECT_EXIT           = LINK_DIRECT,
-    INSTR_INDIRECT_EXIT         = LINK_INDIRECT,
-    INSTR_RETURN_EXIT           = LINK_RETURN,
+    INSTR_DIRECT_EXIT = LINK_DIRECT,
+    INSTR_INDIRECT_EXIT = LINK_INDIRECT,
+    INSTR_RETURN_EXIT = LINK_RETURN,
     /* JMP|CALL marks an indirect jmp preceded by a call (== a PLT-style ind call)
      * so use EXIT_IS_{JMP,CALL} rather than these raw bits
      */
-    INSTR_CALL_EXIT             = LINK_CALL,
-    INSTR_JMP_EXIT              = LINK_JMP,
-    INSTR_IND_JMP_PLT_EXIT      = (INSTR_JMP_EXIT | INSTR_CALL_EXIT),
-    INSTR_FAR_EXIT              = LINK_FAR,
-    INSTR_BRANCH_SPECIAL_EXIT   = LINK_SPECIAL_EXIT,
-#ifdef UNSUPPORTED_API
+    INSTR_CALL_EXIT = LINK_CALL,
+    INSTR_JMP_EXIT = LINK_JMP,
+    INSTR_IND_JMP_PLT_EXIT = (INSTR_JMP_EXIT | INSTR_CALL_EXIT),
+    INSTR_FAR_EXIT = LINK_FAR,
+    INSTR_BRANCH_SPECIAL_EXIT = LINK_SPECIAL_EXIT,
+#    ifdef UNSUPPORTED_API
     INSTR_BRANCH_TARGETS_PREFIX = LINK_TARGET_PREFIX,
-#endif
-#ifdef X64
+#    endif
+#    ifdef X64
     /* PR 257963: since we don't store targets of ind branches, we need a flag
      * so we know whether this is a trace cmp exit, which has its own ibl entry
      */
-    INSTR_TRACE_CMP_EXIT        = LINK_TRACE_CMP,
-#endif
-#ifdef WINDOWS
-    INSTR_CALLBACK_RETURN       = LINK_CALLBACK_RETURN,
-#else
-    INSTR_NI_SYSCALL_INT        = LINK_NI_SYSCALL_INT,
-#endif
-    INSTR_NI_SYSCALL            = LINK_NI_SYSCALL,
-    INSTR_NI_SYSCALL_ALL        = LINK_NI_SYSCALL_ALL,
+    INSTR_TRACE_CMP_EXIT = LINK_TRACE_CMP,
+#    endif
+#    ifdef WINDOWS
+    INSTR_CALLBACK_RETURN = LINK_CALLBACK_RETURN,
+#    else
+    INSTR_NI_SYSCALL_INT = LINK_NI_SYSCALL_INT,
+#    endif
+    INSTR_NI_SYSCALL = LINK_NI_SYSCALL,
+    INSTR_NI_SYSCALL_ALL = LINK_NI_SYSCALL_ALL,
     /* meta-flag */
-    EXIT_CTI_TYPES              = (INSTR_DIRECT_EXIT | INSTR_INDIRECT_EXIT |
-                                   INSTR_RETURN_EXIT | INSTR_CALL_EXIT |
-                                   INSTR_JMP_EXIT |
-                                   INSTR_FAR_EXIT |
-                                   INSTR_BRANCH_SPECIAL_EXIT |
-#ifdef UNSUPPORTED_API
-                                   INSTR_BRANCH_TARGETS_PREFIX |
-#endif
-#ifdef X64
-                                   INSTR_TRACE_CMP_EXIT |
-#endif
-#ifdef WINDOWS
-                                   INSTR_CALLBACK_RETURN |
-#else
-                                   INSTR_NI_SYSCALL_INT |
-#endif
-                                   INSTR_NI_SYSCALL),
+    EXIT_CTI_TYPES =
+        (INSTR_DIRECT_EXIT | INSTR_INDIRECT_EXIT | INSTR_RETURN_EXIT | INSTR_CALL_EXIT |
+         INSTR_JMP_EXIT | INSTR_FAR_EXIT | INSTR_BRANCH_SPECIAL_EXIT |
+#    ifdef UNSUPPORTED_API
+         INSTR_BRANCH_TARGETS_PREFIX |
+#    endif
+#    ifdef X64
+         INSTR_TRACE_CMP_EXIT |
+#    endif
+#    ifdef WINDOWS
+         INSTR_CALLBACK_RETURN |
+#    else
+         INSTR_NI_SYSCALL_INT |
+#    endif
+         INSTR_NI_SYSCALL),
 
     /* instr_t-internal flags (not shared with LINK_) */
-    INSTR_OPERANDS_VALID        = 0x00010000,
+    INSTR_OPERANDS_VALID = 0x00010000,
     /* meta-flag */
     INSTR_FIRST_NON_LINK_SHARED_FLAG = INSTR_OPERANDS_VALID,
-    INSTR_EFLAGS_VALID          = 0x00020000,
-    INSTR_EFLAGS_6_VALID        = 0x00040000,
-    INSTR_RAW_BITS_VALID        = 0x00080000,
-    INSTR_RAW_BITS_ALLOCATED    = 0x00100000,
-/* DR_API EXPORT BEGIN */
-    INSTR_DO_NOT_MANGLE         = 0x00200000,
-/* DR_API EXPORT END */
-    INSTR_HAS_CUSTOM_STUB       = 0x00400000,
+    INSTR_EFLAGS_VALID = 0x00020000,
+    INSTR_EFLAGS_6_VALID = 0x00040000,
+    INSTR_RAW_BITS_VALID = 0x00080000,
+    INSTR_RAW_BITS_ALLOCATED = 0x00100000,
+    /* DR_API EXPORT BEGIN */
+    INSTR_DO_NOT_MANGLE = 0x00200000,
+    /* DR_API EXPORT END */
+    INSTR_HAS_CUSTOM_STUB = 0x00400000,
     /* used to indicate that an indirect call can be treated as a direct call */
-    INSTR_IND_CALL_DIRECT       = 0x00800000,
-#ifdef WINDOWS
+    INSTR_IND_CALL_DIRECT = 0x00800000,
+#    ifdef WINDOWS
     /* used to indicate that a syscall should be executed via shared syscall */
-    INSTR_SHARED_SYSCALL        = 0x01000000,
-#endif
+    INSTR_SHARED_SYSCALL = 0x01000000,
+#    else
+    /* Indicates an instruction that's part of the rseq endpoint.  We use this in
+     * instrlist_t.flags (sort of the same namespace: INSTR_OUR_MANGLING is used there,
+     * but also EDI_VAL_*) and as a version of DR_NOTE_RSEQ that survives encoding
+     * (seems like we could store notes for labels in another field so they do
+     * in fact survive: a union with instr_t.translation?).
+     */
+    INSTR_RSEQ_ENDPOINT = 0x01000000,
+#    endif
 
-#ifdef CLIENT_INTERFACE
-    INSTR_CLOBBER_RETADDR       = 0x02000000,
-#endif
+#    ifdef CLIENT_INTERFACE
+    /* This enum is also used for INSTR_OUR_MANGLING_EPILOGUE. Its semantics are
+     * orthogonal to this and must not overlap.
+     */
+    INSTR_CLOBBER_RETADDR = 0x02000000,
+#    endif
 
+    /* Indicates that the instruction is part of an own mangling region's
+     * epilogue (xref i#3307). Currently, instructions with the
+     * INSTR_CLOBBER_RETADDR property are never in a mangling epilogue, which
+     * is why we are reusing its enum value here.
+     * */
+    INSTR_OUR_MANGLING_EPILOGUE = 0x02000000,
     /* Signifies that this instruction may need to be hot patched and should
      * therefore not cross a cache line. It is not necessary to set this for
      * exit cti's or linkstubs since it is mainly intended for clients etc.
      * Handling of this flag is not yet implemented */
-    INSTR_HOT_PATCHABLE         = 0x04000000,
-#ifdef DEBUG
+    INSTR_HOT_PATCHABLE = 0x04000000,
+#    ifdef DEBUG
     /* case 9151: only report invalid instrs for normal code decoding */
-    INSTR_IGNORE_INVALID        = 0x08000000,
-#endif
+    INSTR_IGNORE_INVALID = 0x08000000,
+#    endif
     /* Currently used for frozen coarse fragments with final jmps and
      * jmps to ib stubs that are elided: we need the jmp instr there
      * to build the linkstub_t but we do not want to emit it. */
-    INSTR_DO_NOT_EMIT           = 0x10000000,
+    INSTR_DO_NOT_EMIT = 0x10000000,
     /* PR 251479: re-relativization support: is instr->rip_rel_pos valid? */
-    INSTR_RIP_REL_VALID         = 0x20000000,
-#ifdef X86
+    INSTR_RIP_REL_VALID = 0x20000000,
+#    ifdef X86
     /* PR 278329: each instr stores its own mode */
-    INSTR_X86_MODE              = 0x40000000,
-#elif defined(ARM)
+    INSTR_X86_MODE = 0x40000000,
+#    elif defined(ARM)
     /* We assume we don't need to distinguish A64 from A32 as you cannot swap
      * between them in user mode.  Thus we only need one flag.
      * XXX: we might want more power for drdecode, though the global isa_mode
      * should be sufficient there.
      */
-    INSTR_THUMB_MODE            = 0x40000000,
-#endif
+    INSTR_THUMB_MODE = 0x40000000,
+#    endif
     /* PR 267260: distinguish our own mangling from client-added instrs */
-    INSTR_OUR_MANGLING          = 0x80000000,
-/* DR_API EXPORT BEGIN */
+    INSTR_OUR_MANGLING = 0x80000000,
+    /* DR_API EXPORT BEGIN */
 };
 #endif /* DR_FAST_IR */
 
 /** Triggers used for conditionally executed instructions. */
 typedef enum _dr_pred_type_t {
 #ifdef AVOID_API_EXPORT
-    /* We resist using #elif here because otherwise doxygen will be unable to
-     * document both defines, for X86 and for AARCHXX.
-     */
+/* We resist using #elif here because otherwise doxygen will be unable to
+ * document both defines, for X86 and for AARCHXX.
+ */
 #endif
     DR_PRED_NONE, /**< No predicate is present. */
 #ifdef X86
@@ -263,9 +286,9 @@ typedef enum _dr_pred_type_t {
      */
     DR_PRED_COMPLEX,
     /* Aliases for XINST_CREATE_jump_cond() and other cross-platform routines. */
-    DR_PRED_EQ = DR_PRED_Z,   /**< Condition code: equal. */
-    DR_PRED_NE = DR_PRED_NZ,  /**< Condition code: not equal. */
-    DR_PRED_LT = DR_PRED_L,   /**< Condition code: signed less than. */
+    DR_PRED_EQ = DR_PRED_Z,  /**< Condition code: equal. */
+    DR_PRED_NE = DR_PRED_NZ, /**< Condition code: not equal. */
+    DR_PRED_LT = DR_PRED_L,  /**< Condition code: signed less than. */
     /* DR_PRED_LE already matches aarchxx */
     DR_PRED_GT = DR_PRED_NLE, /**< Condition code: signed greater than. */
     DR_PRED_GE = DR_PRED_NL,  /**< Condition code: signed greater than or equal. */
@@ -286,19 +309,54 @@ typedef enum _dr_pred_type_t {
     DR_PRED_GT, /**< ARM condition: 1100 Signed greater than     (Z == 0 and N == V)*/
     DR_PRED_LE, /**< ARM condition: 1101 Signed <=               (Z == 1 or N != V) */
     DR_PRED_AL, /**< ARM condition: 1110 Always (unconditional)                    */
-# ifdef AARCH64
+#    ifdef AARCH64
     DR_PRED_NV, /**< ARM condition: 1111 Never, meaning always                     */
-# endif
-# ifdef ARM
+#    endif
+#    ifdef ARM
     DR_PRED_OP, /**< ARM condition: 1111 Part of opcode                            */
-# endif
+#    endif
     /* Aliases */
     DR_PRED_HS = DR_PRED_CS, /**< ARM condition: alias for DR_PRED_CS. */
     DR_PRED_LO = DR_PRED_CC, /**< ARM condition: alias for DR_PRED_CC. */
 #endif
 } dr_pred_type_t;
 
+/**
+ * Specifies hints for how an instruction should be encoded if redundant encodings are
+ * available. Currently, we provide a hint for x86 evex encoded instructions. It can be
+ * used to encode an instruction in its evex form instead of its vex format (xref #3339).
+ */
+typedef enum _dr_encoding_hint_type_t {
+    DR_ENCODING_HINT_NONE = 0x0, /**< No encoding hint is present. */
+#ifdef X86
+    DR_ENCODING_HINT_X86_EVEX = 0x1, /**< x86: Encode in EVEX form if available. */
+#endif
+} dr_encoding_hint_type_t;
 /* DR_API EXPORT END */
+
+#define DR_TUPLE_TYPE_BITS 4
+#define DR_TUPLE_TYPE_BITPOS (32 - DR_TUPLE_TYPE_BITS)
+
+/* AVX-512 tuple type attributes as specified in Intel's tables. */
+typedef enum _dr_tuple_type_t {
+    DR_TUPLE_TYPE_NONE = 0,
+#ifdef X86
+    DR_TUPLE_TYPE_FV = 1,
+    DR_TUPLE_TYPE_HV = 2,
+    DR_TUPLE_TYPE_FVM = 3,
+    DR_TUPLE_TYPE_T1S = 4,
+    DR_TUPLE_TYPE_T1F = 5,
+    DR_TUPLE_TYPE_T2 = 6,
+    DR_TUPLE_TYPE_T4 = 7,
+    DR_TUPLE_TYPE_T8 = 8,
+    DR_TUPLE_TYPE_HVM = 9,
+    DR_TUPLE_TYPE_QVM = 10,
+    DR_TUPLE_TYPE_OVM = 11,
+    DR_TUPLE_TYPE_M128 = 12,
+    DR_TUPLE_TYPE_DUP = 13,
+#endif
+} dr_tuple_type_t;
+
 /* These aren't composable, so we store them in as few bits as possible.
  * The top 5 prefix bits hold the value (x86 needs 17 values).
  * XXX: if we need more space we could compress the x86 values: they're
@@ -309,7 +367,7 @@ typedef enum _dr_pred_type_t {
 #define PREFIX_PRED_BITS 5
 #define PREFIX_PRED_BITPOS (32 - PREFIX_PRED_BITS)
 #define PREFIX_PRED_MASK \
-    (((1 << PREFIX_PRED_BITS)-1) << PREFIX_PRED_BITPOS) /*0xf8000000 */
+    (((1 << PREFIX_PRED_BITS) - 1) << PREFIX_PRED_BITPOS) /*0xf8000000 */
 /* DR_API EXPORT BEGIN */
 
 /**
@@ -320,6 +378,13 @@ typedef enum _dr_pred_type_t {
 typedef struct _dr_instr_label_data_t {
     ptr_uint_t data[4]; /**< Generic fields for storing user-controlled data */
 } dr_instr_label_data_t;
+
+/**
+ * Label instruction callback function. Set by instr_set_label_callback() and
+ * called when the label is freed. \p instr is the label instruction allowing
+ * the caller to free the label's auxiliary data.
+ */
+typedef void (*instr_label_callback_t)(void *drcontext, instr_t *instr);
 
 /**
  * Bitmask values passed as flags to routines that ask about whether operands
@@ -353,9 +418,9 @@ typedef enum _dr_opnd_query_flags_t {
      */
     DR_QUERY_INCLUDE_COND_SRCS = 0x02,
     /** The default value that typical liveness analysis would want to use. */
-    DR_QUERY_DEFAULT           = DR_QUERY_INCLUDE_COND_SRCS,
+    DR_QUERY_DEFAULT = DR_QUERY_INCLUDE_COND_SRCS,
     /** Includes all operands whether conditional or not. */
-    DR_QUERY_INCLUDE_ALL       = (DR_QUERY_INCLUDE_COND_DSTS|DR_QUERY_INCLUDE_COND_SRCS),
+    DR_QUERY_INCLUDE_ALL = (DR_QUERY_INCLUDE_COND_DSTS | DR_QUERY_INCLUDE_COND_SRCS),
 } dr_opnd_query_flags_t;
 
 #ifdef DR_FAST_IR
@@ -375,28 +440,37 @@ typedef enum _dr_opnd_query_flags_t {
  */
 struct _instr_t {
     /* flags contains the constants defined above */
-    uint    flags;
+    uint flags;
 
-    /* raw bits of length length are pointed to by the bytes field */
-    uint    length;
-    byte    *bytes;
+    /* hints for encoding this instr in a specific way, holds dr_encoding_hint_type_t */
+    uint encoding_hints;
+
+    /* Raw bits of length length are pointed to by the bytes field.
+     * label_cb stores a callback function pointer used by label instructions
+     * and called when the label is freed.
+     */
+    uint length;
+    union {
+        byte *bytes;
+        instr_label_callback_t label_cb;
+    };
 
     /* translation target for this instr */
-    app_pc  translation;
+    app_pc translation;
 
-    uint    opcode;
+    uint opcode;
 
-#ifdef X86_64
+#    ifdef X86_64
     /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */
-    byte    rip_rel_pos;
-#endif
+    byte rip_rel_pos;
+#    endif
 
     /* we dynamically allocate dst and src arrays b/c x86 instrs can have
      * up to 8 of each of them, but most have <=2 dsts and <=3 srcs, and we
      * use this struct for un-decoded instrs too
      */
-    byte    num_dsts;
-    byte    num_srcs;
+    byte num_dsts;
+    byte num_srcs;
 
     union {
         struct {
@@ -404,16 +478,16 @@ struct _instr_t {
              * decode jumps, which all have a single source (==target)
              * yes this is an extra 10 bytes, but the whole struct is still < 64 bytes!
              */
-            opnd_t    src0;
-            opnd_t    *srcs; /* this array has 2nd src and beyond */
-            opnd_t    *dsts;
+            opnd_t src0;
+            opnd_t *srcs; /* this array has 2nd src and beyond */
+            opnd_t *dsts;
         };
         dr_instr_label_data_t label_data;
     };
 
-    uint    prefixes; /* data size, addr size, or lock prefix info */
-    uint    eflags;   /* contains EFLAGS_ bits, but amount of info varies
-                       * depending on how instr was decoded/built */
+    uint prefixes; /* data size, addr size, or lock prefix info */
+    uint eflags;   /* contains EFLAGS_ bits, but amount of info varies
+                    * depending on how instr was decoded/built */
 
     /* this field is for the use of passes as an annotation.
      * it is also used to hold the offset of an instruction when encoding
@@ -423,10 +497,10 @@ struct _instr_t {
     void *note;
 
     /* fields for building instructions into instruction lists */
-    instr_t   *prev;
-    instr_t   *next;
+    instr_t *prev;
+    instr_t *next;
 
-}; /* instr_t */
+};     /* instr_t */
 #endif /* DR_FAST_IR */
 
 /****************************************************************************
@@ -449,7 +523,7 @@ DR_API
  */
 /* For -x86_to_x64, sets the mode of the instr to the code cache mode instead of
 the app mode. */
-instr_t*
+instr_t *
 instr_create(dcontext_t *dcontext);
 
 DR_API
@@ -509,7 +583,7 @@ INSTR_INLINE
  * two different InstrLists (but removing the need for an extra data
  * structure for each element of the instrlist_t).
  */
-instr_t*
+instr_t *
 instr_get_next(instr_t *instr);
 
 DR_API
@@ -534,7 +608,7 @@ instr_get_next_app(instr_t *instr);
 DR_API
 INSTR_INLINE
 /** Returns the previous instr_t in the instrlist_t that contains \p instr. */
-instr_t*
+instr_t *
 instr_get_prev(instr_t *instr);
 
 DR_API
@@ -796,9 +870,12 @@ int
 instr_length(dcontext_t *dcontext, instr_t *instr);
 
 /* not exported */
-void instr_shift_raw_bits(instr_t *instr, ssize_t offs);
-int instr_exit_branch_type(instr_t *instr);
-void instr_exit_branch_set_type(instr_t *instr, uint type);
+void
+instr_shift_raw_bits(instr_t *instr, ssize_t offs);
+int
+instr_exit_branch_type(instr_t *instr);
+void
+instr_exit_branch_set_type(instr_t *instr, uint type);
 
 DR_API
 /** Returns number of bytes of heap used by \p instr. */
@@ -809,7 +886,8 @@ DR_API
 /**
  * Returns a copy of \p orig with separately allocated memory for
  * operands and raw bytes if they were present in \p orig.
- * Only a shallow copy of the \p note field is made.
+ * Only a shallow copy of the \p note field is made. The \p label_cb
+ * field will not be copied at all if \p orig is a label instruction.
  */
 instr_t *
 instr_clone(dcontext_t *dcontext, instr_t *orig);
@@ -972,9 +1050,7 @@ DR_API
 void
 instr_set_target(instr_t *cti_instr, opnd_t target);
 
-#ifdef AVOID_API_EXPORT
-INSTR_INLINE  /* hot internally */
-#endif
+INSTR_INLINE_INTERNALLY
 DR_API
 /** Returns true iff \p instr's operands are up to date. */
 bool
@@ -1065,32 +1141,26 @@ DR_API
  * Does not set the operands invalid.
  */
 void
-instr_set_raw_bits(instr_t *instr, byte * addr, uint length);
+instr_set_raw_bits(instr_t *instr, byte *addr, uint length);
 
 DR_API
 /** Sets \p instr's raw bits to be valid if \p valid is true, invalid otherwise. */
 void
 instr_set_raw_bits_valid(instr_t *instr, bool valid);
 
-#ifdef AVOID_API_EXPORT
-INSTR_INLINE  /* internal inline */
-#endif
+INSTR_INLINE_INTERNALLY
 DR_API
 /** Returns true iff \p instr's raw bits are a valid encoding of instr. */
 bool
 instr_raw_bits_valid(instr_t *instr);
 
-#ifdef AVOID_API_EXPORT
-INSTR_INLINE  /* internal inline */
-#endif
+INSTR_INLINE_INTERNALLY
 DR_API
 /** Returns true iff \p instr has its own allocated memory for raw bits. */
 bool
 instr_has_allocated_bits(instr_t *instr);
 
-#ifdef AVOID_API_EXPORT
-INSTR_INLINE  /* internal inline */
-#endif
+INSTR_INLINE_INTERNALLY
 DR_API
 /** Returns true iff \p instr's raw bits are not a valid encoding of \p instr. */
 bool
@@ -1328,7 +1398,7 @@ DR_API
 bool
 instr_it_block_compute_immediates(dr_pred_type_t pred0, dr_pred_type_t pred1,
                                   dr_pred_type_t pred2, dr_pred_type_t pred3,
-                                  byte *firstcond_out,  byte *mask_out);
+                                  byte *firstcond_out, byte *mask_out);
 
 DR_API
 /**
@@ -1350,6 +1420,20 @@ DR_API
  */
 bool
 instr_is_exclusive_store(instr_t *instr);
+
+DR_API
+/**
+ * Returns true iff \p instr is a scatter-store instruction.
+ */
+bool
+instr_is_scatter(instr_t *instr);
+
+DR_API
+/**
+ * Returns true iff \p instr is a gather-load instruction.
+ */
+bool
+instr_is_gather(instr_t *instr);
 
 bool
 instr_predicate_reads_srcs(dr_pred_type_t pred);
@@ -1453,6 +1537,26 @@ DR_API
 dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr);
 
+DR_API
+/**
+ * Each instruction may store a hint for how the instruction should be encoded if
+ * redundant encodings are available. This presumes that the user knows that a
+ * redundant encoding is available. This routine sets the \p hint for \p instr.
+ * Returns \p instr (for easy chaining).
+ */
+instr_t *
+instr_set_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint);
+
+DR_API
+/**
+ * Each instruction may store a hint for how the instruction should be encoded if
+ * redundant encodings are available. This presumes that the user knows that a
+ * redundant encoding is available. This routine returns whether the \p hint is set
+ * for \p instr.
+ */
+bool
+instr_has_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint);
+
 /***********************************************************************/
 /* decoding routines */
 
@@ -1547,7 +1651,7 @@ DR_UNS_API
  * expands it into a sequence of Level 1 instrs using decode_raw() which
  * are added in place to ilist.  Then returns the new first instr.
  */
-instr_t*
+instr_t *
 instrlist_first_expanded(dcontext_t *dcontext, instrlist_t *ilist);
 
 DR_UNS_API
@@ -1556,7 +1660,7 @@ DR_UNS_API
  * expands it into a sequence of Level 1 instrs using decode_raw() which
  * are added in place to ilist.  Then returns the new last instr.
  */
-instr_t*
+instr_t *
 instrlist_last_expanded(dcontext_t *dcontext, instrlist_t *ilist);
 
 DR_UNS_API
@@ -1687,6 +1791,24 @@ instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t fl
 
 DR_API
 /**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff at least one of \p instr's source operands is
+ * the same register (not enough to just overlap) as \p reg.
+ *
+ * For example, false is returned if the instruction \p instr is vmov [m], zmm0
+ * and the register being tested \p reg is \p DR_REG_XMM0.
+ *
+ * Registers used in memory operands, namely base, index and segmentation registers,
+ * are checked also by this routine. This also includes destination operands.
+ *
+ * Which operands are considered to be accessed for conditionally executed
+ * instructions are controlled by \p flags.
+ */
+bool
+instr_reads_from_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags);
+
+DR_API
+/**
  * Replaces all instances of \p old_opnd in \p instr's source operands with
  * \p new_opnd (uses opnd_same() to detect sameness).
  */
@@ -1734,8 +1856,18 @@ DR_API
  * the top half while others zero it when writing to the bottom half).
  * This zeroing will occur even if \p instr is predicated (see instr_is_predicated()).
  */
+/* XXX i#1312: For AVX-512, we will want a instr_zeroes_zmmh function as well that also
+ * includes the vzeroupper instruction.
+ */
 bool
 instr_zeroes_ymmh(instr_t *instr);
+
+DR_API
+/** Returns true if \p instr's opcode is #OP_xsave32, #OP_xsaveopt32, #OP_xsave64,
+ * #OP_xsaveopt64, #OP_xsavec32 or #OP_xsavec64.
+ */
+bool
+instr_is_xsave(instr_t *instr);
 #endif
 
 /* DR_API EXPORT BEGIN */
@@ -1827,6 +1959,23 @@ instr_is_our_mangling(instr_t *instr);
 void
 instr_set_our_mangling(instr_t *instr, bool ours);
 
+/* Returns whether instr came from our mangling and is in epilogue. This routine
+ * requires the caller to already know that instr is our_mangling.
+ */
+bool
+instr_is_our_mangling_epilogue(instr_t *instr);
+
+/* Sets whether instr came from our mangling and is in epilogue. */
+void
+instr_set_our_mangling_epilogue(instr_t *instr, bool epilogue);
+
+/* Sets that instr is in our mangling epilogue as well as the translation pointer
+ * for instr, by adding the translation pointer of mangle_instr to its length.
+ * Returns the instr.
+ */
+instr_t *
+instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist,
+                                        instr_t *instr);
 
 DR_API
 /**
@@ -1868,8 +2017,8 @@ DR_API
  * instruction's source operand, to be memory references.
  */
 bool
-instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
-                         OUT app_pc *addr, OUT bool *write);
+instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index, OUT app_pc *addr,
+                         OUT bool *write);
 
 DR_API
 /**
@@ -1885,8 +2034,7 @@ DR_API
  */
 bool
 instr_compute_address_ex_pos(instr_t *instr, dr_mcontext_t *mc, uint index,
-                             OUT app_pc *addr, OUT bool *is_write,
-                             OUT uint *pos);
+                             OUT app_pc *addr, OUT bool *is_write, OUT uint *pos);
 
 bool
 instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
@@ -1912,6 +2060,21 @@ DR_API
  */
 dr_instr_label_data_t *
 instr_get_label_data_area(instr_t *instr);
+
+DR_API
+/**
+ * Set a function \p func which is called when the label instruction is freed.
+ * \p instr is the label instruction allowing \p func to free the label's
+ * auxiliary data.
+ * \note This data field is not copied across instr_clone(). Instead, the
+ * clone's field will be NULL (xref i#3962).
+ */
+void
+instr_set_label_callback(instr_t *instr, instr_label_callback_t func);
+
+/* Get a label instructions callback function */
+instr_label_callback_t
+instr_get_label_callback(instr_t *instr);
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */
@@ -2176,6 +2339,11 @@ bool
 instr_is_mmx(instr_t *instr);
 
 DR_API
+/** Returns true iff \p instr is part of Intel's AVX-512 scalar opmask instructions. */
+bool
+instr_is_opmask(instr_t *instr);
+
+DR_API
 /** Returns true iff \p instr is part of Intel's SSE instructions. */
 bool
 instr_is_sse(instr_t *instr);
@@ -2258,6 +2426,16 @@ instr_writes_reg_list(instr_t *instr);
 #ifdef X86
 bool
 instr_can_set_single_step(instr_t *instr);
+
+/* Returns true if \p instr is part of Intel's AVX-512 instructions that may write to a
+ * zmm or opmask register. It approximates this by checking whether PREFIX_EVEX is set. If
+ * not set, it is looking at whether the instruction's raw bytes are valid, and if they
+ * are, whether the instruction is evex-encoded. The function assumes that the
+ * instruction's isa mode is set correctly. If the instruction's raw bytes are not valid,
+ * it checks the destinations of \p instr.
+ */
+bool
+instr_may_write_zmm_or_opmask_register(instr_t *instr);
 #endif
 
 DR_API
@@ -2335,10 +2513,10 @@ opnd_t
 instr_get_src_mem_access(instr_t *instr);
 
 void
-loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string);
+d_r_loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string);
 
 void
-logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string);
+d_r_logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string);
 
 DR_API
 /**
@@ -2375,8 +2553,7 @@ DR_API
  * thread-local heap with opcode \p opcode and a single source (\p src).
  */
 instr_t *
-instr_create_0dst_1src(dcontext_t *dcontext, int opcode,
-                       opnd_t src);
+instr_create_0dst_1src(dcontext_t *dcontext, int opcode, opnd_t src);
 
 DR_API
 /**
@@ -2384,8 +2561,7 @@ DR_API
  * thread-local heap with opcode \p opcode and two sources (\p src1, \p src2).
  */
 instr_t *
-instr_create_0dst_2src(dcontext_t *dcontext, int opcode,
-                       opnd_t src1, opnd_t src2);
+instr_create_0dst_2src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src2);
 
 DR_API
 /**
@@ -2394,8 +2570,8 @@ DR_API
  * (\p src1, \p src2, \p src3).
  */
 instr_t *
-instr_create_0dst_3src(dcontext_t *dcontext, int opcode,
-                       opnd_t src1, opnd_t src2, opnd_t src3);
+instr_create_0dst_3src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src2,
+                       opnd_t src3);
 
 DR_API
 /**
@@ -2404,8 +2580,8 @@ DR_API
  * (\p src1, \p src2, \p src3, \p src4).
  */
 instr_t *
-instr_create_0dst_4src(dcontext_t *dcontext, int opcode,
-                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4);
+instr_create_0dst_4src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src2,
+                       opnd_t src3, opnd_t src4);
 
 DR_API
 /**
@@ -2413,8 +2589,7 @@ DR_API
  * thread-local heap with opcode \p opcode and one destination (\p dst).
  */
 instr_t *
-instr_create_1dst_0src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst);
+instr_create_1dst_0src(dcontext_t *dcontext, int opcode, opnd_t dst);
 
 DR_API
 /**
@@ -2423,8 +2598,7 @@ DR_API
  * and one source (\p src).
  */
 instr_t *
-instr_create_1dst_1src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst, opnd_t src);
+instr_create_1dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src);
 
 DR_API
 /**
@@ -2433,8 +2607,8 @@ DR_API
  * and two sources (\p src1, \p src2).
  */
 instr_t *
-instr_create_1dst_2src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst, opnd_t src1, opnd_t src2);
+instr_create_1dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
+                       opnd_t src2);
 
 DR_API
 /**
@@ -2443,8 +2617,8 @@ DR_API
  * and three sources (\p src1, \p src2, \p src3).
  */
 instr_t *
-instr_create_1dst_3src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst, opnd_t src1, opnd_t src2, opnd_t src3);
+instr_create_1dst_3src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
+                       opnd_t src2, opnd_t src3);
 
 DR_API
 /**
@@ -2453,8 +2627,8 @@ DR_API
  * and four sources (\p src1, \p src2, \p src3, \p src4).
  */
 instr_t *
-instr_create_1dst_4src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4);
+instr_create_1dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
+                       opnd_t src2, opnd_t src3, opnd_t src4);
 
 DR_API
 /**
@@ -2463,9 +2637,8 @@ DR_API
  * and five sources (\p src1, \p src2, \p src3, \p src4, \p src5).
  */
 instr_t *
-instr_create_1dst_5src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst, opnd_t src1, opnd_t src2, opnd_t src3,
-                       opnd_t src4, opnd_t src5);
+instr_create_1dst_5src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
+                       opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5);
 
 DR_API
 /**
@@ -2474,8 +2647,7 @@ DR_API
  * and no sources.
  */
 instr_t *
-instr_create_2dst_0src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2);
+instr_create_2dst_0src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2);
 
 DR_API
 /**
@@ -2484,8 +2656,8 @@ DR_API
  * and one source (\p src).
  */
 instr_t *
-instr_create_2dst_1src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t src);
+instr_create_2dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t src);
 
 DR_API
 /**
@@ -2494,8 +2666,8 @@ DR_API
  * and two sources (\p src1, \p src2).
  */
 instr_t *
-instr_create_2dst_2src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t src1, opnd_t src2);
+instr_create_2dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t src1, opnd_t src2);
 
 DR_API
 /**
@@ -2504,8 +2676,7 @@ DR_API
  * and three sources (\p src1, \p src2, \p src3).
  */
 instr_t *
-instr_create_2dst_3src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2,
+instr_create_2dst_3src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
                        opnd_t src1, opnd_t src2, opnd_t src3);
 
 DR_API
@@ -2515,8 +2686,7 @@ DR_API
  * and four sources (\p src1, \p src2, \p src3, \p src4).
  */
 instr_t *
-instr_create_2dst_4src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2,
+instr_create_2dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
                        opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4);
 
 DR_API
@@ -2526,8 +2696,7 @@ DR_API
  * and five sources (\p src1, \p src2, \p src3, \p src4, \p src5).
  */
 instr_t *
-instr_create_2dst_5src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2,
+instr_create_2dst_5src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
                        opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5);
 
 DR_API
@@ -2537,8 +2706,8 @@ DR_API
  * (\p dst1, \p dst2, \p dst3) and no sources.
  */
 instr_t *
-instr_create_3dst_0src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3);
+instr_create_3dst_0src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3);
 
 DR_API
 /**
@@ -2548,9 +2717,8 @@ DR_API
  * (\p src1, \p src2).
  */
 instr_t *
-instr_create_3dst_2src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3,
-                       opnd_t src1, opnd_t src2);
+instr_create_3dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t src1, opnd_t src2);
 
 DR_API
 /**
@@ -2560,9 +2728,8 @@ DR_API
  * (\p src1, \p src2, \p src3).
  */
 instr_t *
-instr_create_3dst_3src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3,
-                       opnd_t src1, opnd_t src2, opnd_t src3);
+instr_create_3dst_3src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t src1, opnd_t src2, opnd_t src3);
 
 DR_API
 /**
@@ -2572,9 +2739,8 @@ DR_API
  * (\p src1, \p src2, \p src3, \p src4).
  */
 instr_t *
-instr_create_3dst_4src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3,
-                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4);
+instr_create_3dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4);
 
 DR_API
 /**
@@ -2584,10 +2750,9 @@ DR_API
  * (\p src1, \p src2, \p src3, \p src4, \p src5).
  */
 instr_t *
-instr_create_3dst_5src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3,
-                       opnd_t src1, opnd_t src2, opnd_t src3,
-                       opnd_t src4, opnd_t src5);
+instr_create_3dst_5src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4,
+                       opnd_t src5);
 
 DR_API
 /**
@@ -2596,9 +2761,8 @@ DR_API
  * (\p dst1, \p dst2, \p dst3, \p dst4) and 1 source (\p src).
  */
 instr_t *
-instr_create_4dst_1src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
-                       opnd_t src);
+instr_create_4dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t dst4, opnd_t src);
 
 DR_API
 /**
@@ -2607,9 +2771,8 @@ DR_API
  * (\p dst1, \p dst2, \p dst3, \p dst4) and 2 sources (\p src1 and \p src2).
  */
 instr_t *
-instr_create_4dst_2src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
-                       opnd_t src1, opnd_t src2);
+instr_create_4dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t dst4, opnd_t src1, opnd_t src2);
 
 DR_API
 /**
@@ -2619,9 +2782,9 @@ DR_API
  * (\p src1, \p src2, \p src3, \p src4).
  */
 instr_t *
-instr_create_4dst_4src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
-                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4);
+instr_create_4dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t dst4, opnd_t src1, opnd_t src2, opnd_t src3,
+                       opnd_t src4);
 
 DR_API
 /**
@@ -2687,8 +2850,7 @@ DR_UNS_API
  * and allocated raw bits with 3 bytes (byte1, byte2, byte3).
  */
 instr_t *
-instr_create_raw_3bytes(dcontext_t *dcontext, byte byte1,
-                        byte byte2, byte byte3);
+instr_create_raw_3bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3);
 
 DR_UNS_API
 /**
@@ -2696,8 +2858,8 @@ DR_UNS_API
  * and allocated raw bits with 4 bytes (byte1, byte2, byte3, byte4).
  */
 instr_t *
-instr_create_raw_4bytes(dcontext_t *dcontext, byte byte1,
-                        byte byte2, byte byte3, byte byte4);
+instr_create_raw_4bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3,
+                        byte byte4);
 
 DR_UNS_API
 /**
@@ -2705,8 +2867,8 @@ DR_UNS_API
  * and allocated raw bits with 5 bytes (byte1, byte2, byte3, byte4, byte5).
  */
 instr_t *
-instr_create_raw_5bytes(dcontext_t *dcontext, byte byte1,
-                        byte byte2, byte byte3, byte byte4, byte byte5);
+instr_create_raw_5bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3,
+                        byte byte4, byte byte5);
 
 DR_UNS_API
 /**
@@ -2714,8 +2876,8 @@ DR_UNS_API
  * and allocated raw bits with 6 bytes (byte1, byte2, byte3, byte4, byte5, byte6).
  */
 instr_t *
-instr_create_raw_6bytes(dcontext_t *dcontext, byte byte1, byte byte2,
-                        byte byte3, byte byte4, byte byte5, byte byte6);
+instr_create_raw_6bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3,
+                        byte byte4, byte byte5, byte byte6);
 
 DR_UNS_API
 /**
@@ -2724,9 +2886,8 @@ DR_UNS_API
  * byte7).
  */
 instr_t *
-instr_create_raw_7bytes(dcontext_t *dcontext, byte byte1, byte byte2,
-                        byte byte3, byte byte4, byte byte5,
-                        byte byte6, byte byte7);
+instr_create_raw_7bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3,
+                        byte byte4, byte byte5, byte byte6, byte byte7);
 
 DR_UNS_API
 /**
@@ -2735,51 +2896,68 @@ DR_UNS_API
  * byte7, byte8).
  */
 instr_t *
-instr_create_raw_8bytes(dcontext_t *dcontext, byte byte1, byte byte2,
-                        byte byte3, byte byte4, byte byte5,
-                        byte byte6, byte byte7, byte byte8);
+instr_create_raw_8bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3,
+                        byte byte4, byte byte5, byte byte6, byte byte7, byte byte8);
 
 /* arch-specific routines */
-int instr_length_arch(dcontext_t *dcontext, instr_t *instr);
-bool opc_is_not_a_real_memory_load(int opc);
-bool instr_compute_address_VSIB(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
-                                dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
-                                OUT bool *have_addr, OUT app_pc *addr, OUT bool *write);
-uint instr_branch_type(instr_t *cti_instr);
+int
+instr_length_arch(dcontext_t *dcontext, instr_t *instr);
+bool
+opc_is_not_a_real_memory_load(int opc);
+bool
+instr_compute_address_VSIB(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
+                           dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
+                           OUT bool *have_addr, OUT app_pc *addr, OUT bool *write);
+uint
+instr_branch_type(instr_t *cti_instr);
 #ifdef AARCH64
-const char *get_opcode_name(int opc);
+const char *
+get_opcode_name(int opc);
 #endif
 /* these routines can assume that instr's opcode is valid */
-bool instr_is_call_arch(instr_t *instr);
-bool instr_is_cbr_arch(instr_t *instr);
-bool instr_is_mbr_arch(instr_t *instr);
-bool instr_is_ubr_arch(instr_t *instr);
+bool
+instr_is_call_arch(instr_t *instr);
+bool
+instr_is_cbr_arch(instr_t *instr);
+bool
+instr_is_mbr_arch(instr_t *instr);
+bool
+instr_is_ubr_arch(instr_t *instr);
 
 /* private routines for spill code */
-instr_t * instr_create_save_to_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs);
-instr_t * instr_create_save_immed32_to_dcontext(dcontext_t *dcontext, int immed,
-                                                int offs);
-instr_t * instr_create_save_immed16_to_dcontext(dcontext_t *dcontext, int immed,
-                                                int offs);
-instr_t * instr_create_save_immed8_to_dcontext(dcontext_t *dcontext, int immed,
-                                               int offs);
 instr_t *
-instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
-                                      int offs, ptr_int_t immed, opnd_size_t sz);
-instr_t * instr_create_restore_from_dcontext(dcontext_t *dcontext, reg_id_t reg,
-                                             int offs);
+instr_create_save_to_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs);
+instr_t *
+instr_create_save_immed32_to_dcontext(dcontext_t *dcontext, int immed, int offs);
+instr_t *
+instr_create_save_immed16_to_dcontext(dcontext_t *dcontext, int immed, int offs);
+instr_t *
+instr_create_save_immed8_to_dcontext(dcontext_t *dcontext, int immed, int offs);
+instr_t *
+instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg, int offs,
+                                      ptr_int_t immed, opnd_size_t sz);
+instr_t *
+instr_create_restore_from_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs);
 
-instr_t * instr_create_save_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
-                                        reg_id_t reg, int offs);
-instr_t * instr_create_restore_from_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
-                                             reg_id_t reg, int offs);
+instr_t *
+instr_create_save_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg, reg_id_t reg,
+                                int offs);
+instr_t *
+instr_create_restore_from_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg, reg_id_t reg,
+                                     int offs);
 
-instr_t * instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs);
-instr_t * instr_create_save_dynamo_stack(dcontext_t *dcontext);
-instr_t * instr_create_restore_dynamo_stack(dcontext_t *dcontext);
-bool instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs);
-bool instr_is_tls_spill(instr_t *instr, reg_id_t reg, ushort offs);
-bool instr_is_tls_xcx_spill(instr_t *instr);
+instr_t *
+instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs);
+instr_t *
+instr_create_save_dynamo_stack(dcontext_t *dcontext);
+instr_t *
+instr_create_restore_dynamo_stack(dcontext_t *dcontext);
+bool
+instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs);
+bool
+instr_is_tls_spill(instr_t *instr, reg_id_t reg, ushort offs);
+bool
+instr_is_tls_xcx_spill(instr_t *instr);
 /* Pass REG_NULL to not care about the reg */
 bool
 instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs);
@@ -2795,33 +2973,39 @@ DR_API
  * the stolen register base, or the thread-private context area.
  */
 bool
-instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr,
-                              bool *tls OUT, bool *spill OUT, reg_id_t *reg OUT,
-                              uint *offs OUT);
+instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
+                              bool *spill OUT, reg_id_t *reg OUT, uint *offs OUT);
 
 bool
-instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr,
-                                 bool *tls OUT, bool *spill OUT, reg_id_t *reg OUT);
+instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
+                                 bool *spill OUT, reg_id_t *reg OUT, uint *offs OUT);
 
 #ifdef ARM
-bool instr_reads_thread_register(instr_t *instr);
-bool instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg);
+bool
+instr_reads_thread_register(instr_t *instr);
+bool
+instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg);
 #endif
 
 #ifdef AARCH64
-bool instr_reads_thread_register(instr_t *instr);
-bool instr_writes_thread_register(instr_t *instr);
+bool
+instr_reads_thread_register(instr_t *instr);
+bool
+instr_writes_thread_register(instr_t *instr);
 #endif
 
 /* N.B. : client meta routines (dr_insert_* etc.) should never use anything other
  * then TLS_XAX_SLOT unless the client has specified a slot to use as we let the
  * client use the rest. */
-instr_t * instr_create_save_to_tls(dcontext_t *dcontext, reg_id_t reg, ushort offs);
-instr_t * instr_create_restore_from_tls(dcontext_t *dcontext, reg_id_t reg, ushort offs);
+instr_t *
+instr_create_save_to_tls(dcontext_t *dcontext, reg_id_t reg, ushort offs);
+instr_t *
+instr_create_restore_from_tls(dcontext_t *dcontext, reg_id_t reg, ushort offs);
 /* For -x86_to_x64, we can spill to 64-bit extra registers (xref i#751). */
-instr_t * instr_create_save_to_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2);
-instr_t * instr_create_restore_from_reg(dcontext_t *dcontext,
-                                        reg_id_t reg1, reg_id_t reg2);
+instr_t *
+instr_create_save_to_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2);
+instr_t *
+instr_create_restore_from_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2);
 
 #ifdef X64
 byte *
@@ -2830,7 +3014,6 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 /* DR_API EXPORT BEGIN */
-
 
 /****************************************************************************
  * EFLAGS/CONDITION CODES
@@ -2842,47 +3025,47 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 /* we only care about these 11 flags, and mostly only about the first 6
  * we consider an undefined effect on a flag to be a write
  */
-# define EFLAGS_READ_CF   0x00000001 /**< Reads CF (Carry Flag). */
-# define EFLAGS_READ_PF   0x00000002 /**< Reads PF (Parity Flag). */
-# define EFLAGS_READ_AF   0x00000004 /**< Reads AF (Auxiliary Carry Flag). */
-# define EFLAGS_READ_ZF   0x00000008 /**< Reads ZF (Zero Flag). */
-# define EFLAGS_READ_SF   0x00000010 /**< Reads SF (Sign Flag). */
-# define EFLAGS_READ_TF   0x00000020 /**< Reads TF (Trap Flag). */
-# define EFLAGS_READ_IF   0x00000040 /**< Reads IF (Interrupt Enable Flag). */
-# define EFLAGS_READ_DF   0x00000080 /**< Reads DF (Direction Flag). */
-# define EFLAGS_READ_OF   0x00000100 /**< Reads OF (Overflow Flag). */
-# define EFLAGS_READ_NT   0x00000200 /**< Reads NT (Nested Task). */
-# define EFLAGS_READ_RF   0x00000400 /**< Reads RF (Resume Flag). */
-# define EFLAGS_WRITE_CF  0x00000800 /**< Writes CF (Carry Flag). */
-# define EFLAGS_WRITE_PF  0x00001000 /**< Writes PF (Parity Flag). */
-# define EFLAGS_WRITE_AF  0x00002000 /**< Writes AF (Auxiliary Carry Flag). */
-# define EFLAGS_WRITE_ZF  0x00004000 /**< Writes ZF (Zero Flag). */
-# define EFLAGS_WRITE_SF  0x00008000 /**< Writes SF (Sign Flag). */
-# define EFLAGS_WRITE_TF  0x00010000 /**< Writes TF (Trap Flag). */
-# define EFLAGS_WRITE_IF  0x00020000 /**< Writes IF (Interrupt Enable Flag). */
-# define EFLAGS_WRITE_DF  0x00040000 /**< Writes DF (Direction Flag). */
-# define EFLAGS_WRITE_OF  0x00080000 /**< Writes OF (Overflow Flag). */
-# define EFLAGS_WRITE_NT  0x00100000 /**< Writes NT (Nested Task). */
-# define EFLAGS_WRITE_RF  0x00200000 /**< Writes RF (Resume Flag). */
+#    define EFLAGS_READ_CF 0x00000001  /**< Reads CF (Carry Flag). */
+#    define EFLAGS_READ_PF 0x00000002  /**< Reads PF (Parity Flag). */
+#    define EFLAGS_READ_AF 0x00000004  /**< Reads AF (Auxiliary Carry Flag). */
+#    define EFLAGS_READ_ZF 0x00000008  /**< Reads ZF (Zero Flag). */
+#    define EFLAGS_READ_SF 0x00000010  /**< Reads SF (Sign Flag). */
+#    define EFLAGS_READ_TF 0x00000020  /**< Reads TF (Trap Flag). */
+#    define EFLAGS_READ_IF 0x00000040  /**< Reads IF (Interrupt Enable Flag). */
+#    define EFLAGS_READ_DF 0x00000080  /**< Reads DF (Direction Flag). */
+#    define EFLAGS_READ_OF 0x00000100  /**< Reads OF (Overflow Flag). */
+#    define EFLAGS_READ_NT 0x00000200  /**< Reads NT (Nested Task). */
+#    define EFLAGS_READ_RF 0x00000400  /**< Reads RF (Resume Flag). */
+#    define EFLAGS_WRITE_CF 0x00000800 /**< Writes CF (Carry Flag). */
+#    define EFLAGS_WRITE_PF 0x00001000 /**< Writes PF (Parity Flag). */
+#    define EFLAGS_WRITE_AF 0x00002000 /**< Writes AF (Auxiliary Carry Flag). */
+#    define EFLAGS_WRITE_ZF 0x00004000 /**< Writes ZF (Zero Flag). */
+#    define EFLAGS_WRITE_SF 0x00008000 /**< Writes SF (Sign Flag). */
+#    define EFLAGS_WRITE_TF 0x00010000 /**< Writes TF (Trap Flag). */
+#    define EFLAGS_WRITE_IF 0x00020000 /**< Writes IF (Interrupt Enable Flag). */
+#    define EFLAGS_WRITE_DF 0x00040000 /**< Writes DF (Direction Flag). */
+#    define EFLAGS_WRITE_OF 0x00080000 /**< Writes OF (Overflow Flag). */
+#    define EFLAGS_WRITE_NT 0x00100000 /**< Writes NT (Nested Task). */
+#    define EFLAGS_WRITE_RF 0x00200000 /**< Writes RF (Resume Flag). */
 
-# define EFLAGS_READ_ALL  0x000007ff /**< Reads all flags. */
-# define EFLAGS_READ_NON_PRED EFLAGS_READ_ALL /**< Flags not read by predicates. */
-# define EFLAGS_WRITE_ALL 0x003ff800 /**< Writes all flags. */
+#    define EFLAGS_READ_ALL 0x000007ff           /**< Reads all flags. */
+#    define EFLAGS_READ_NON_PRED EFLAGS_READ_ALL /**< Flags not read by predicates. */
+#    define EFLAGS_WRITE_ALL 0x003ff800          /**< Writes all flags. */
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
 /** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
-# define EFLAGS_READ_6    0x0000011f
+#    define EFLAGS_READ_6 0x0000011f
 /** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
-# define EFLAGS_WRITE_6   0x0008f800
+#    define EFLAGS_WRITE_6 0x0008f800
 
 /** Platform-independent macro for reads all arithmetic flags. */
-# define EFLAGS_READ_ARITH   EFLAGS_READ_6
+#    define EFLAGS_READ_ARITH EFLAGS_READ_6
 /** Platform-independent macor for writes all arithmetic flags. */
-# define EFLAGS_WRITE_ARITH  EFLAGS_WRITE_6
+#    define EFLAGS_WRITE_ARITH EFLAGS_WRITE_6
 
 /** Converts an EFLAGS_WRITE_* value to the corresponding EFLAGS_READ_* value. */
-# define EFLAGS_WRITE_TO_READ(x) ((x) >> 11)
+#    define EFLAGS_WRITE_TO_READ(x) ((x) >> 11)
 /** Converts an EFLAGS_READ_* value to the corresponding EFLAGS_WRITE_* value. */
-# define EFLAGS_READ_TO_WRITE(x) ((x) << 11)
+#    define EFLAGS_READ_TO_WRITE(x) ((x) << 11)
 
 /**
  * The actual bits in the eflags register that we care about:\n<pre>
@@ -2898,38 +3081,42 @@ enum {
     EFLAGS_DF = 0x00000400, /**< The bit in the eflags register of DF (Direction Flag). */
     EFLAGS_OF = 0x00000800, /**< The bit in the eflags register of OF (Overflow Flag). */
     /** The bits in the eflags register of CF, PF, AF, ZF, SF, OF. */
-    EFLAGS_ARITH = EFLAGS_CF|EFLAGS_PF|EFLAGS_AF|EFLAGS_ZF|EFLAGS_SF|EFLAGS_OF,
+    EFLAGS_ARITH = EFLAGS_CF | EFLAGS_PF | EFLAGS_AF | EFLAGS_ZF | EFLAGS_SF | EFLAGS_OF,
 };
 
 #elif defined(AARCHXX)
-# define EFLAGS_READ_N      0x00000001 /**< Reads N (negative flag). */
-# define EFLAGS_READ_Z      0x00000002 /**< Reads Z (zero flag). */
-# define EFLAGS_READ_C      0x00000004 /**< Reads C (carry flag). */
-# define EFLAGS_READ_V      0x00000008 /**< Reads V (overflow flag). */
-# define EFLAGS_READ_Q      0x00000010 /**< Reads Q (saturation flag). */
-# define EFLAGS_READ_GE     0x00000020 /**< Reads GE (>= for parallel arithmetic). */
-# define EFLAGS_READ_NZCV   (EFLAGS_READ_N | EFLAGS_READ_Z |\
-                             EFLAGS_READ_C | EFLAGS_READ_V)
+#    define EFLAGS_READ_N 0x00000001  /**< Reads N (negative flag). */
+#    define EFLAGS_READ_Z 0x00000002  /**< Reads Z (zero flag). */
+#    define EFLAGS_READ_C 0x00000004  /**< Reads C (carry flag). */
+#    define EFLAGS_READ_V 0x00000008  /**< Reads V (overflow flag). */
+#    define EFLAGS_READ_Q 0x00000010  /**< Reads Q (saturation flag). */
+#    define EFLAGS_READ_GE 0x00000020 /**< Reads GE (>= for parallel arithmetic). */
+#    define EFLAGS_READ_NZCV \
+        (EFLAGS_READ_N | EFLAGS_READ_Z | EFLAGS_READ_C | EFLAGS_READ_V)
 /** Platform-independent macro for reads all arithmetic flags. */
-# define EFLAGS_READ_ARITH  (EFLAGS_READ_NZCV | EFLAGS_READ_Q | EFLAGS_READ_GE)
-# define EFLAGS_READ_ALL    (EFLAGS_READ_ARITH) /**< Reads all flags. */
-# define EFLAGS_READ_NON_PRED EFLAGS_READ_GE /**< Flags not read by predicates. */
-# define EFLAGS_WRITE_N     0x00000040 /**< Reads N (negative). */
-# define EFLAGS_WRITE_Z     0x00000080 /**< Reads Z (zero). */
-# define EFLAGS_WRITE_C     0x00000100 /**< Reads C (carry). */
-# define EFLAGS_WRITE_V     0x00000200 /**< Reads V (overflow). */
-# define EFLAGS_WRITE_Q     0x00000400 /**< Reads Q (saturation). */
-# define EFLAGS_WRITE_GE    0x00000800 /**< Reads GE (>= for parallel arithmetic). */
-# define EFLAGS_WRITE_NZCV  (EFLAGS_WRITE_N | EFLAGS_WRITE_Z |\
-                             EFLAGS_WRITE_C | EFLAGS_WRITE_V)
+#    define EFLAGS_READ_ARITH (EFLAGS_READ_NZCV | EFLAGS_READ_Q | EFLAGS_READ_GE)
+#    define EFLAGS_READ_ALL (EFLAGS_READ_ARITH) /**< Reads all flags. */
+#    define EFLAGS_READ_NON_PRED                                         \
+        EFLAGS_READ_GE                /**< Flags not read by predicates. \
+                                       */
+#    define EFLAGS_WRITE_N 0x00000040 /**< Reads N (negative). */
+#    define EFLAGS_WRITE_Z 0x00000080 /**< Reads Z (zero). */
+#    define EFLAGS_WRITE_C 0x00000100 /**< Reads C (carry). */
+#    define EFLAGS_WRITE_V 0x00000200 /**< Reads V (overflow). */
+#    define EFLAGS_WRITE_Q 0x00000400 /**< Reads Q (saturation). */
+#    define EFLAGS_WRITE_GE                                    \
+        0x00000800 /**< Reads GE (>= for parallel arithmetic). \
+                    */
+#    define EFLAGS_WRITE_NZCV \
+        (EFLAGS_WRITE_N | EFLAGS_WRITE_Z | EFLAGS_WRITE_C | EFLAGS_WRITE_V)
 /** Platform-independent macro for writes all arithmetic flags. */
-# define EFLAGS_WRITE_ARITH (EFLAGS_WRITE_NZCV | EFLAGS_WRITE_Q | EFLAGS_WRITE_GE)
-# define EFLAGS_WRITE_ALL   (EFLAGS_WRITE_ARITH) /**< Writes all flags. */
+#    define EFLAGS_WRITE_ARITH (EFLAGS_WRITE_NZCV | EFLAGS_WRITE_Q | EFLAGS_WRITE_GE)
+#    define EFLAGS_WRITE_ALL (EFLAGS_WRITE_ARITH) /**< Writes all flags. */
 
 /** Converts an EFLAGS_WRITE_* value to the corresponding EFLAGS_READ_* value. */
-# define EFLAGS_WRITE_TO_READ(x) ((x) >> 6)
+#    define EFLAGS_WRITE_TO_READ(x) ((x) >> 6)
 /** Converts an EFLAGS_READ_* value to the corresponding EFLAGS_WRITE_* value. */
-# define EFLAGS_READ_TO_WRITE(x) ((x) << 6)
+#    define EFLAGS_READ_TO_WRITE(x) ((x) << 6)
 
 /**
  * The actual bits in the CPSR that we care about:\n<pre>
@@ -2937,20 +3124,20 @@ enum {
  *    N  Z  C  V  Q       GE[3:0]       T </pre>
  */
 enum {
-    EFLAGS_N =  0x80000000, /**< The bit in the CPSR register of N (negative flag). */
-    EFLAGS_Z =  0x40000000, /**< The bit in the CPSR register of Z (zero flag). */
-    EFLAGS_C =  0x20000000, /**< The bit in the CPSR register of C (carry flag). */
-    EFLAGS_V =  0x10000000, /**< The bit in the CPSR register of V (overflow flag). */
-    EFLAGS_Q =  0x08000000, /**< The bit in the CPSR register of Q (saturation flag). */
+    EFLAGS_N = 0x80000000,  /**< The bit in the CPSR register of N (negative flag). */
+    EFLAGS_Z = 0x40000000,  /**< The bit in the CPSR register of Z (zero flag). */
+    EFLAGS_C = 0x20000000,  /**< The bit in the CPSR register of C (carry flag). */
+    EFLAGS_V = 0x10000000,  /**< The bit in the CPSR register of V (overflow flag). */
+    EFLAGS_Q = 0x08000000,  /**< The bit in the CPSR register of Q (saturation flag). */
     EFLAGS_GE = 0x000f0000, /**< The bits in the CPSR register of GE[3:0]. */
     /** The bits in the CPSR register of N, Z, C, V, Q, and GE. */
-    EFLAGS_ARITH = EFLAGS_N|EFLAGS_Z|EFLAGS_C|EFLAGS_V|EFLAGS_Q|EFLAGS_GE,
+    EFLAGS_ARITH = EFLAGS_N | EFLAGS_Z | EFLAGS_C | EFLAGS_V | EFLAGS_Q | EFLAGS_GE,
     /**
      * The bit in the CPSR register of T (Thumb mode indicator bit).  This is
      * not readable from user space and should only be examined when looking at
      * machine state from the kernel, such as in a signal handler.
      */
-    EFLAGS_T  = 0x00000020,
+    EFLAGS_T = 0x00000020,
     /**
      * The bits in the CPSR register of the T32 IT block base condition.
      * This is not readable from user space and should only be examined when
@@ -2966,27 +3153,28 @@ enum {
 };
 
 /** The bits in the CPSR register of the T32 IT block state. */
-# define EFLAGS_IT (EFLAGS_IT_COND | EFLAGS_IT_SIZE)
+#    define EFLAGS_IT (EFLAGS_IT_COND | EFLAGS_IT_SIZE)
 
 /** The bit in the 4-bit OP_msr immediate that selects the nzcvq status flags. */
-# define EFLAGS_MSR_NZCVQ 0x8
+#    define EFLAGS_MSR_NZCVQ 0x8
 /** The bit in the 4-bit OP_msr immediate that selects the apsr_g status flags. */
-# define EFLAGS_MSR_G     0x4
+#    define EFLAGS_MSR_G 0x4
 /** The bits in the 4-bit OP_msr immediate that select the nzcvqg status flags. */
-# define EFLAGS_MSR_NZCVQG (EFLAGS_MSR_NZCVQ|EFLAGS_MSR_G)
+#    define EFLAGS_MSR_NZCVQG (EFLAGS_MSR_NZCVQ | EFLAGS_MSR_G)
 #endif
 /* DR_API EXPORT END */
 
-/* even on x64, displacements are 32 bits, so we keep the "int" type and 4-byte size */
-#define PC_RELATIVE_TARGET(addr) ( *((int *)(addr)) + (addr) + 4 )
+/* even on x64, displacements are 32 bits, so we keep the "int" type and 4-byte size
+ */
+#define PC_RELATIVE_TARGET(addr) (*((int *)(addr)) + (addr) + 4)
 
 /* length of our mangling of jecxz/loop*, beyond a possible addr prefix byte */
 #ifdef X86
-# define CTI_SHORT_REWRITE_LENGTH 9
+#    define CTI_SHORT_REWRITE_LENGTH 9
 #else
 /* cbz/cbnz + b */
-# define CTI_SHORT_REWRITE_LENGTH 6
-# define CTI_SHORT_REWRITE_B_OFFS 2
+#    define CTI_SHORT_REWRITE_LENGTH 6
+#    define CTI_SHORT_REWRITE_B_OFFS 2
 #endif
 
 #include "instr_inline.h"

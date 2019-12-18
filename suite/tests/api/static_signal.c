@@ -32,7 +32,7 @@
 
 #include "configure.h"
 #ifndef UNIX
-# error UNIX-only
+#    error UNIX-only
 #endif
 #include "dr_api.h"
 #include "tools.h"
@@ -45,7 +45,7 @@
 #include <setjmp.h>
 #include <sys/time.h> /* itimer */
 
-#define ALT_STACK_SIZE  (SIGSTKSZ*2)
+#define ALT_STACK_SIZE (SIGSTKSZ * 2)
 
 static int num_bbs;
 static int num_signals;
@@ -80,7 +80,7 @@ thread_func(void *arg)
 {
     stack_t sigstack;
     int rc;
-    sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
+    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
     sigstack.ss_size = ALT_STACK_SIZE;
     sigstack.ss_flags = SS_ONSTACK;
     rc = sigaltstack(&sigstack, NULL);
@@ -92,8 +92,7 @@ thread_func(void *arg)
 }
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-         bool translating)
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     num_bbs++;
     return DR_EMIT_DEFAULT;
@@ -114,7 +113,7 @@ event_sample(void *drcontext, dr_mcontext_t *mcontext)
     buckets[whereami]++;
     DR_ASSERT(mcontext->pc != NULL &&
               /* Ensure DR wrote the value and it's not the uninit 0xab pattern. */
-              mcontext->pc != (app_pc)IF_X64_ELSE(0xabababababababab,0xabababab));
+              mcontext->pc != (app_pc)IF_X64_ELSE(0xabababababababab, 0xabababab));
 #if VERBOSE
     dr_fprintf(STDERR, "sample: %p %d %p\n", mcontext->pc, whereami, tag);
 #endif
@@ -187,13 +186,13 @@ main(int argc, const char *argv[])
     if (!my_setenv("DYNAMORIO_OPTIONS", "-prof_pcs -stderr_mask 0xc"))
         dr_fprintf(STDERR, "Failed to set env var!\n");
 
-    intercept_signal(SIGUSR1, signal_handler, true/*sigstack*/);
-    intercept_signal(SIGSEGV, signal_handler, true/*sigstack*/);
+    intercept_signal(SIGUSR1, signal_handler, true /*sigstack*/);
+    intercept_signal(SIGSEGV, signal_handler, true /*sigstack*/);
     thread_ready = create_cond_var();
     thread_exit = create_cond_var();
     got_signal = create_cond_var();
 
-    intercept_signal(SIGPROF, signal_handler, true/*sigstack*/);
+    intercept_signal(SIGPROF, signal_handler, true /*sigstack*/);
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = 1000;
     timer.it_value.tv_sec = 0;

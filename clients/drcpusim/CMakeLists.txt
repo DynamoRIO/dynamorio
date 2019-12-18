@@ -95,8 +95,6 @@ if (WIN32)
 endif ()
 use_DynamoRIO_extension(drcpusim_ops droption)
 
-get_target_property(ops_path drcpusim_ops LOCATION${location_suffix})
-
 # We then have to insert it into the doxygen files at build time:
 set(srcdoc ${CMAKE_CURRENT_SOURCE_DIR}/drcpusim.dox.in)
 set(gendoc ${CMAKE_CURRENT_BINARY_DIR}/drcpusim.dox)
@@ -117,6 +115,6 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND}
   ARGS -D src=${srcdoc}
        -D dst=${gendoc}
-       -D prog=${ops_path}
+       -D prog=$<TARGET_FILE:drcpusim_ops>
        -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake
   VERBATIM)

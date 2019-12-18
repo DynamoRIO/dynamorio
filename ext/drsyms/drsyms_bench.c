@@ -68,18 +68,17 @@ usage(const char *msg)
 static bool
 sym_callback(const char *name, size_t modoffs, void *data)
 {
-    uint64 *count = (uint64*)data;
+    uint64 *count = (uint64 *)data;
     *count += 1;
     if (*count % 50000 == 0) {
         dr_printf("{\"%s\",\n", name);
         memset(sym_buf, 0, sizeof(sym_buf));
-        if (drsym_demangle_symbol(sym_buf, sizeof(sym_buf), name,
-                                  DRSYM_DEMANGLE_FULL) != 0) {
+        if (drsym_demangle_symbol(sym_buf, sizeof(sym_buf), name, DRSYM_DEMANGLE_FULL) !=
+            0) {
             dr_printf(" \"%s\",\n", sym_buf);
         }
         memset(sym_buf, 0, sizeof(sym_buf));
-        if (drsym_demangle_symbol(sym_buf, sizeof(sym_buf), name,
-                                  DRSYM_DEMANGLE) != 0) {
+        if (drsym_demangle_symbol(sym_buf, sizeof(sym_buf), name, DRSYM_DEMANGLE) != 0) {
             dr_printf(" \"%s\"},\n", sym_buf);
         }
     }

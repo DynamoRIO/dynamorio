@@ -61,7 +61,9 @@ func1()
 }
 
 #pragma code_seg(".mycode1")
-void func2() {
+void
+func2()
+{
     print("func2\n");
 }
 
@@ -74,17 +76,21 @@ funcptr f2 = &func2;
  * #pragma code_seg(push, r1, ".mycode2")
  */
 #pragma code_seg(".mycode2")
-void func3() {
+void
+func3()
+{
     print("calling f2\n");
     (*f2)();
     print("func3\n");
 }
 
-#pragma code_seg(".mycode1")      /* back to my_code1 */
-void func4() {
+#pragma code_seg(".mycode1") /* back to my_code1 */
+void
+func4()
+{
     print("func4\n");
 }
-#pragma code_seg()                /* back in .text */
+#pragma code_seg() /* back in .text */
 
 const funcptr cf = &foo;
 funcptr f = &foo;
@@ -109,11 +115,8 @@ dlltest(void)
     f4();
 }
 
-
 /* our Makefile expects a .lib */
-int
-__declspec(dllexport)
-data_attack(int arg)
+int __declspec(dllexport) data_attack(int arg)
 {
     print("data_attack\n");
     /* FIXME: will do this some other time */
@@ -125,10 +128,7 @@ BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     switch (reason_for_call) {
-    case DLL_PROCESS_ATTACH:
-        dlltest();
-
-        break;
+    case DLL_PROCESS_ATTACH: dlltest(); break;
     }
     return TRUE;
 }

@@ -30,18 +30,18 @@
  * DAMAGE.
  */
 
- /* Tests correctness of decoding and substituting Valgrind annotations. The process is
-  * to traverse an array in a branchy loop, occasionally invoking a Valgrind annotation.
-  *
-  * Four versions of the test are executed:
-  *   - default (fast decoding)
-  *   - full decoding
-  *   - tiny bbs (-max_bb_instrs 3)
-  *   - truncation (client chops every basic block to 2 instructions or less)
-  *
-  * XXX i#1610: also invoke all tests on an optimized version that compiles this app
-  *             with -O3 (or equivalent)
-  */
+/* Tests correctness of decoding and substituting Valgrind annotations. The process is
+ * to traverse an array in a branchy loop, occasionally invoking a Valgrind annotation.
+ *
+ * Four versions of the test are executed:
+ *   - default (fast decoding)
+ *   - full decoding
+ *   - tiny bbs (-max_bb_instrs 3)
+ *   - truncation (client chops every basic block to 2 instructions or less)
+ *
+ * XXX i#1610: also invoke all tests on an optimized version that compiles this app
+ *             with -O3 (or equivalent)
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,16 +63,16 @@ main()
     unsigned int i, j, k;
 #else /* UNIX */
     unsigned int i, j;
-    /* Since the Valgrind annotations use the XDI register in a sequence of `rol` instructions
-     * that comprise a nop, a decoding error in DR would corrupt the app's XDI value. So this
-     * register variable plays "canary" to verify that XDI remains intact across the annotation
-     * under DR (not supported in Windows).
+    /* Since the Valgrind annotations use the XDI register in a sequence of `rol`
+     * instructions that comprise a nop, a decoding error in DR would corrupt the app's
+     * XDI value. So this register variable plays "canary" to verify that XDI remains
+     * intact across the annotation under DR (not supported in Windows).
      */
-# ifdef X64
-    register unsigned int k asm ("rdi");
-# else
-    register unsigned int k asm ("edi");
-# endif
+#    ifdef X64
+    register unsigned int k asm("rdi");
+#    else
+    register unsigned int k asm("edi");
+#    endif
 #endif
     unsigned int data[MATRIX_SIZE][MATRIX_SIZE];
 
@@ -91,8 +91,8 @@ main()
      * split the annotations between two bbs (which would cause a test failure). Branches
      * verify that annotation handling does not interfere with the app's control flow.
      */
-    for (i = 0; i < (MATRIX_SIZE/2); i++) {
-        for (j = 0; j < (MATRIX_SIZE/2); j++) {
+    for (i = 0; i < (MATRIX_SIZE / 2); i++) {
+        for (j = 0; j < (MATRIX_SIZE / 2); j++) {
             data[i][j] = i + (3 * j);
 
             if ((i == 3) && (j == 4)) {
@@ -101,42 +101,42 @@ main()
                 k = i;
                 VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(alloc_a, MEMORY_BLOCK_A);
                 if (k != i) {
-                    printf("Annotation changed %%xdi! Was %d, but it shifted to %d.\n",
-                           i, k);
+                    printf("Annotation changed %%xdi! Was %d, but it shifted to %d.\n", i,
+                           k);
                 }
                 printf("After annotation: j=%d\n", j);
                 j = 4;
             }
 
-            data[i*2][j+1] = (4 * i) / (j + 1);
+            data[i * 2][j + 1] = (4 * i) / (j + 1);
 
             if (i == (2 * j)) {
-                j = data[i/2][j + (j / (data[i][i] + 1))] + 1;
+                j = data[i / 2][j + (j / (data[i][i] + 1))] + 1;
                 printf("Before annotation: j=%d\n", j);
                 k = i;
                 VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(alloc_b, MEMORY_BLOCK_B);
                 if (k != i) {
-                    printf("Annotation changed %%xdi! Was %d, but it shifted to %d.\n",
-                           i, k);
+                    printf("Annotation changed %%xdi! Was %d, but it shifted to %d.\n", i,
+                           k);
                 }
                 printf("After annotation: j=%d\n", j);
                 j = i / 2;
             }
 
-            data[i*2][j+i] = data[(MATRIX_SIZE/2) + (j-i)][3];
+            data[i * 2][j + i] = data[(MATRIX_SIZE / 2) + (j - i)][3];
 
             if ((j > 0) && ((i / j) >= (MATRIX_SIZE - (j * (i % j))))) {
-                data[i/2][j + data[i][j]] = j;
+                data[i / 2][j + data[i][j]] = j;
                 printf("Before annotation: data[i/2][j + data[i][j]]=%d\n",
-                       data[i/2][j + data[i][j]]);
+                       data[i / 2][j + data[i][j]]);
                 k = i;
                 VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(alloc_c, MEMORY_BLOCK_C);
                 if (k != i) {
-                    printf("Annotation changed %%xdi! Was %d, but it shifted to %d.\n",
-                           i, k);
+                    printf("Annotation changed %%xdi! Was %d, but it shifted to %d.\n", i,
+                           k);
                 }
                 printf("After annotation: data[i/2][j + data[i][j]]=%d\n",
-                       data[i/2][j + data[i][j]]);
+                       data[i / 2][j + data[i][j]]);
             }
         }
     }

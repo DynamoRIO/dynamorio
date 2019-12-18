@@ -42,30 +42,28 @@
 #include "arch.h"
 
 enum {
-    FLOAT_ZERO    = 0x00000000,
-    FLOAT_ONE     = 0x3f800000,
+    FLOAT_ZERO = 0x00000000,
+    FLOAT_ONE = 0x3f800000,
     FLOAT_LOG2_10 = 0x40549a78,
-    FLOAT_LOG2_E  = 0x3fb8aa3b,
-    FLOAT_PI      = 0x40490fdb,
+    FLOAT_LOG2_E = 0x3fb8aa3b,
+    FLOAT_PI = 0x40490fdb,
     FLOAT_LOG10_2 = 0x3e9a209a,
-    FLOAT_LOGE_2  = 0x3f317218,
+    FLOAT_LOGE_2 = 0x3f317218,
 };
 
 uint
 opnd_immed_float_arch(uint opcode)
 {
     switch (opcode) {
-    case OP_fldz:    return FLOAT_ZERO;
-    case OP_fld1:    return FLOAT_ONE;
-    case OP_fldl2t:  return FLOAT_LOG2_10;
-    case OP_fldl2e:  return FLOAT_LOG2_E;
-    case OP_fldpi:   return FLOAT_PI;
-    case OP_fldlg2:  return FLOAT_LOG10_2;
-    case OP_fldln2:  return FLOAT_LOGE_2;
-    case OP_ftst:    return FLOAT_ZERO;
-    default:
-       CLIENT_ASSERT(false, "invalid float opc");
-       return FLOAT_ZERO;
+    case OP_fldz: return FLOAT_ZERO;
+    case OP_fld1: return FLOAT_ONE;
+    case OP_fldl2t: return FLOAT_LOG2_10;
+    case OP_fldl2e: return FLOAT_LOG2_E;
+    case OP_fldpi: return FLOAT_PI;
+    case OP_fldlg2: return FLOAT_LOG10_2;
+    case OP_fldln2: return FLOAT_LOGE_2;
+    case OP_ftst: return FLOAT_ZERO;
+    default: CLIENT_ASSERT(false, "invalid float opc"); return FLOAT_ZERO;
     }
 }
 
@@ -89,8 +87,8 @@ opnd_get_reg_dcontext_offs(reg_id_t reg)
     case REG_XSI: return XSI_OFFSET;
     case REG_XDI: return XDI_OFFSET;
 #ifdef X64
-    case REG_R8:  return  R8_OFFSET;
-    case REG_R9:  return  R9_OFFSET;
+    case REG_R8: return R8_OFFSET;
+    case REG_R9: return R9_OFFSET;
     case REG_R10: return R10_OFFSET;
     case REG_R11: return R11_OFFSET;
     case REG_R12: return R12_OFFSET;
@@ -98,8 +96,7 @@ opnd_get_reg_dcontext_offs(reg_id_t reg)
     case REG_R14: return R14_OFFSET;
     case REG_R15: return R15_OFFSET;
 #endif
-    default: CLIENT_ASSERT(false, "opnd_get_reg_dcontext_offs: invalid reg");
-        return -1;
+    default: CLIENT_ASSERT(false, "opnd_get_reg_dcontext_offs: invalid reg"); return -1;
     }
 }
 

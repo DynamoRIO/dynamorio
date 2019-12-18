@@ -40,28 +40,28 @@
 /////////////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_DYNAMORIOVIEW_H__93D53B0D_7233_4E40_8240_C733CC5C6DF8__INCLUDED_)
-#define AFX_DYNAMORIOVIEW_H__93D53B0D_7233_4E40_8240_C733CC5C6DF8__INCLUDED_
+#    define AFX_DYNAMORIOVIEW_H__93D53B0D_7233_4E40_8240_C733CC5C6DF8__INCLUDED_
 
-#if _MSC_VER > 1000
-#pragma once
-#endif // _MSC_VER > 1000
+#    if _MSC_VER > 1000
+#        pragma once
+#    endif // _MSC_VER > 1000
 
 extern "C" {
-#include "share.h"
-#include "processes.h"
+#    include "share.h"
+#    include "processes.h"
 };
 
 /* client stats -- FIXME: put this stuff in shared header file, for
  * now duplicated here and in client
  */
-#include "afxwin.h"
+#    include "afxwin.h"
 /* We use "Local\" to avoid needing to be admin on Vista+.  This limits
  * viewing to processes in the same session.
  * Prefixes are not supported on NT.
  */
-#define CLIENT_SHMEM_KEY_NT "DynamoRIO_Client_Statistics"
-#define CLIENT_SHMEM_KEY "Local\\DynamoRIO_Client_Statistics"
-#define CLIENTSTAT_NAME_MAX_LEN 47
+#    define CLIENT_SHMEM_KEY_NT "DynamoRIO_Client_Statistics"
+#    define CLIENT_SHMEM_KEY "Local\\DynamoRIO_Client_Statistics"
+#    define CLIENTSTAT_NAME_MAX_LEN 47
 
 /* we allocate this struct in the shared memory: */
 typedef struct _client_stats {
@@ -74,62 +74,78 @@ typedef struct _client_stats {
     char data[CLIENTSTAT_NAME_MAX_LEN];
 } client_stats;
 
-
-class CDynamoRIOView : public CFormView
-{
+class CDynamoRIOView : public CFormView {
 protected: // create from serialization only
     CDynamoRIOView();
     DECLARE_DYNCREATE(CDynamoRIOView)
 
-        public:
+public:
     //{{AFX_DATA(CDynamoRIOView)
     enum {
-#ifdef DRSTATS_DEMO
+#    ifdef DRSTATS_DEMO
         IDD = IDD_DRSTATS_DEMO_FORM
-#else
+#    else
         IDD = IDD_DYNAMORIO_FORM
-#endif
+#    endif
     };
     //}}AFX_DATA
 
     // Attributes
 public:
-    CDynamoRIODoc* GetDocument();
-    BOOL SelectProcess(int pid);
+    CDynamoRIODoc *
+    GetDocument();
+    BOOL
+    SelectProcess(int pid);
 
     // Operations
 public:
-
     // Overrides
     // ClassWizard generated virtual function overrides
     //{{AFX_VIRTUAL(CDynamoRIOView)
 public:
-    virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
+    virtual BOOL
+    PreCreateWindow(CREATESTRUCT &cs);
+
 protected:
-    virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
-    virtual void OnInitialUpdate(); // called first time after construct
-    virtual BOOL OnPreparePrinting(CPrintInfo* pInfo);
-    virtual void OnBeginPrinting(CDC* pDC, CPrintInfo* pInfo);
-    virtual void OnEndPrinting(CDC* pDC, CPrintInfo* pInfo);
-    virtual void OnPrint(CDC* pDC, CPrintInfo* pInfo);
+    virtual void
+    DoDataExchange(CDataExchange *pDX); // DDX/DDV support
+    virtual void
+    OnInitialUpdate(); // called first time after construct
+    virtual BOOL
+    OnPreparePrinting(CPrintInfo *pInfo);
+    virtual void
+    OnBeginPrinting(CDC *pDC, CPrintInfo *pInfo);
+    virtual void
+    OnEndPrinting(CDC *pDC, CPrintInfo *pInfo);
+    virtual void
+    OnPrint(CDC *pDC, CPrintInfo *pInfo);
     //}}AFX_VIRTUAL
 
     // Implementation
 public:
-    BOOL UpdateProcessList();
-    BOOL Refresh();
+    BOOL
+    UpdateProcessList();
+    BOOL
+    Refresh();
     virtual ~CDynamoRIOView();
-#ifdef _DEBUG
-    virtual void AssertValid() const;
-    virtual void Dump(CDumpContext& dc) const;
-#endif
+#    ifdef _DEBUG
+    virtual void
+    AssertValid() const;
+    virtual void
+    Dump(CDumpContext &dc) const;
+#    endif
 
 protected:
-    void ZeroStrings();
-    void ClearData();
-    void EnumerateInstances();
-    uint PrintStat(TCHAR *c, uint i, BOOL filter);
-    uint PrintClientStats(TCHAR *c, TCHAR *max);
+    void
+    ZeroStrings();
+    void
+    ClearData();
+    void
+    EnumerateInstances();
+    uint
+    PrintStat(TCHAR *c, uint i, BOOL filter);
+    uint
+    PrintClientStats(TCHAR *c, TCHAR *max);
 
     dr_statistics_t *m_stats;
     CComboBox m_ProcessList;
@@ -142,11 +158,11 @@ protected:
 
     // statistics
     CString m_Exited;
-#ifndef DRSTATS_DEMO
+#    ifndef DRSTATS_DEMO
     CString m_LogLevel;
     CString m_LogMask;
     CString m_LogDir;
-#endif
+#    endif
     CEdit m_StatsCtl;
     CScrollBar m_StatsSB;
     CSliderCtrl m_StatsSlider;
@@ -156,27 +172,38 @@ protected:
     // Generated message map functions
 protected:
     //{{AFX_MSG(CDynamoRIOView)
-    afx_msg void OnSelchangeList();
-    afx_msg void OnDropdownList();
-#ifndef DRSTATS_DEMO
-    afx_msg void OnChangeLogging();
-    afx_msg void OnLogDirExplore();
-#endif
-    afx_msg void OnEditCopystats();
-    afx_msg void OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
+    afx_msg void
+    OnSelchangeList();
+    afx_msg void
+    OnDropdownList();
+#    ifndef DRSTATS_DEMO
+    afx_msg void
+    OnChangeLogging();
+    afx_msg void
+    OnLogDirExplore();
+#    endif
+    afx_msg void
+    OnEditCopystats();
+    afx_msg void
+    OnVScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar);
     //}}AFX_MSG
     DECLARE_MESSAGE_MAP()
-    friend BOOL pw_callback_under_dr(process_info_t *pi, void **param);
+    friend BOOL
+    pw_callback_under_dr(process_info_t *pi, void **param);
 };
 
-#ifndef _DEBUG  // debug version in DynamoRIOView.cpp
-inline CDynamoRIODoc* CDynamoRIOView::GetDocument()
-{ return (CDynamoRIODoc*)m_pDocument; }
-#endif
+#    ifndef _DEBUG // debug version in DynamoRIOView.cpp
+inline CDynamoRIODoc *
+CDynamoRIOView::GetDocument()
+{
+    return (CDynamoRIODoc *)m_pDocument;
+}
+#    endif
 
 /////////////////////////////////////////////////////////////////////////////
 
 //{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
+// Microsoft Visual C++ will insert additional declarations immediately before the
+// previous line.
 
 #endif // !defined(AFX_DYNAMORIOVIEW_H__93D53B0D_7233_4E40_8240_C733CC5C6DF8__INCLUDED_)

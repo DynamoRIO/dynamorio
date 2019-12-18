@@ -33,17 +33,20 @@
 
 #include "tools.h"
 
-void foo(void)
+void
+foo(void)
 {
     print("called foo()\n");
 }
 
-void bar(void)
+void
+bar(void)
 {
     print("called bar()\n");
 }
 
-int main(void)
+int
+main(void)
 {
     /* Kind of a hack, but seems to work: Use three nops to mark a cbr
      * instruction whose fall-through address we can change.
@@ -56,16 +59,17 @@ int main(void)
         jne skip
         call foo
         skip:
-    };
+    }
+    ;
 #else
     __asm("movl $0x0, %ecx");
     __asm("cmp $0x0, %ecx");
     __asm("jne skip");
-# ifdef MACOS
+#    ifdef MACOS
     __asm("call _foo");
-# else
+#    else
     __asm("call foo");
-# endif
+#    endif
     __asm("skip:");
 #endif
     bar();

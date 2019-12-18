@@ -43,15 +43,13 @@
  * (c) araksha, inc. all rights reserved
  */
 
-
 #include "share.h"
 #include "processes.h"
 
 #include <stdio.h>
 
-
-void procwalk();
-
+void
+procwalk();
 
 void
 usage()
@@ -75,56 +73,49 @@ help()
     exit(1);
 }
 
-BOOL underdr=FALSE, killquietly=FALSE;
-uint pid=0;
+BOOL underdr = FALSE, killquietly = FALSE;
+uint pid = 0;
 WCHAR exe[MAX_PATH];
 
 int
 main(int argc, char **argv)
 {
-    int argidx=1;
-    exe[0]=0;
+    int argidx = 1;
+    exe[0] = 0;
     if (argc < 2)
         usage();
 
     while (argidx < argc) {
 
         if (!strcmp(argv[argidx], "-help")) {
-              help();
-        }
-        else if (!strcmp(argv[argidx], "-quiet")) {
-            killquietly=TRUE;
-        }
-        else if (!strcmp(argv[argidx], "-pid")) {
-            pid=atoi(argv[++argidx]);
-        }
-        else if (!strcmp(argv[argidx], "-exe")) {
+            help();
+        } else if (!strcmp(argv[argidx], "-quiet")) {
+            killquietly = TRUE;
+        } else if (!strcmp(argv[argidx], "-pid")) {
+            pid = atoi(argv[++argidx]);
+        } else if (!strcmp(argv[argidx], "-exe")) {
             _snwprintf(exe, MAX_PATH, L"%S", argv[++argidx]);
-        }
-        else if (!strcmp(argv[argidx], "-underdr")) {
-            underdr=TRUE;
-        }
-        else if (!strcmp(argv[argidx], "-v")) {
+        } else if (!strcmp(argv[argidx], "-underdr")) {
+            underdr = TRUE;
+        } else if (!strcmp(argv[argidx], "-v")) {
 #ifdef BUILD_NUMBER
-          printf("DRkill.exe build %d -- %s\n", BUILD_NUMBER, __DATE__);
+            printf("DRkill.exe build %d -- %s\n", BUILD_NUMBER, __DATE__);
 #else
-          printf("DRkill.exe custom build -- %s, %s\n", __DATE__, __TIME__);
+            printf("DRkill.exe custom build -- %s, %s\n", __DATE__, __TIME__);
 #endif
-        }
-        else {
-            fprintf(stderr,"Unknown option: %s\n", argv[argidx]);
+        } else {
+            fprintf(stderr, "Unknown option: %s\n", argv[argidx]);
             usage();
         }
         argidx++;
     }
 
-    if(pid) {
+    if (pid) {
         if (!killquietly)
             printf("killing process %d\n", pid);
 
         terminate_process(pid);
-    }
-    else {
+    } else {
         procwalk();
     }
 }
@@ -135,8 +126,7 @@ pw_callback(process_info_t *pi, void **param)
     int res;
 
     if ((pid != 0 && pi->ProcessID == pid) ||
-        (exe[0] != '\0' && !wcsicmp(exe, pi->ProcessName)) ||
-        underdr) {
+        (exe[0] != '\0' && !wcsicmp(exe, pi->ProcessName)) || underdr) {
 
         res = under_dynamorio(pi->ProcessID);
 
@@ -144,8 +134,7 @@ pw_callback(process_info_t *pi, void **param)
             (underdr && (res != DLL_NONE && res != DLL_UNKNOWN))) {
 
             if (!killquietly)
-                printf("killing process %d=%S\n",
-                       pi->ProcessID, pi->ProcessName);
+                printf("killing process %d=%S\n", pi->ProcessID, pi->ProcessName);
 
             terminate_process(pi->ProcessID);
         }

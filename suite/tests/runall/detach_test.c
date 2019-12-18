@@ -42,8 +42,10 @@
 static HWND hwnd = NULL;
 static BOOL thread_ready = FALSE;
 
-void CALLBACK SendAsyncProc(HWND hwnd, UINT uMsg, ULONG *dwData, LRESULT lResult);
-void do_test(int count);
+void CALLBACK
+SendAsyncProc(HWND hwnd, UINT uMsg, ULONG *dwData, LRESULT lResult);
+void
+do_test(int count);
 
 int
 do_busy_work(int c)
@@ -51,8 +53,8 @@ do_busy_work(int c)
     int i, t;
     for (i = 0, t = 0; i < c; i++)
         t = (i * c) - t;
-    if (t != c*((c+1)/2))
-        print("Failure %d != %d\n", t, c*((c+1)/2));
+    if (t != c * ((c + 1) / 2))
+        print("Failure %d != %d\n", t, c * ((c + 1) / 2));
     return t;
 }
 
@@ -104,18 +106,31 @@ ThreadProcBusyBuild(LPVOID param)
 void
 detach()
 {
-    char buf[2*MAX_PATH] = "\"";
+    char buf[2 * MAX_PATH] = "\"";
     char *tools = getenv("DYNAMORIO_WINTOOLS");
     int size;
-    STARTUPINFO sinfo = {sizeof(sinfo), NULL, "", 0, 0, 0, 0, 0, 0, 0, 0,
-                         STARTF_USESTDHANDLES, 0, 0, NULL,
-                         GetStdHandle(STD_INPUT_HANDLE),
-                         GetStdHandle(STD_OUTPUT_HANDLE),
-                         GetStdHandle(STD_ERROR_HANDLE)};
+    STARTUPINFO sinfo = { sizeof(sinfo),
+                          NULL,
+                          "",
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          STARTF_USESTDHANDLES,
+                          0,
+                          0,
+                          NULL,
+                          GetStdHandle(STD_INPUT_HANDLE),
+                          GetStdHandle(STD_OUTPUT_HANDLE),
+                          GetStdHandle(STD_ERROR_HANDLE) };
     PROCESS_INFORMATION pinfo;
     strncat(buf, tools == NULL ? "" : tools, BUFFER_ROOM_LEFT(buf));
     NULL_TERMINATE_BUFFER(buf);
-    strncat(buf, "\\DRcontrol.exe\" -detachexe "PROC_NAME, BUFFER_ROOM_LEFT(buf));
+    strncat(buf, "\\DRcontrol.exe\" -detachexe " PROC_NAME, BUFFER_ROOM_LEFT(buf));
     NULL_TERMINATE_BUFFER(buf);
     print("Detaching\n");
     if (CreateProcess(NULL, buf, NULL, NULL, TRUE, 0, NULL, NULL, &sinfo, &pinfo)) {
@@ -218,19 +233,21 @@ wnd_callback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 int WINAPI
-window_func(void * arg)
+window_func(void *arg)
 {
     MSG msg;
     char *winName = "foobar";
-    WNDCLASS wndclass = {0, wnd_callback, 0, 0, NULL/* WinMain hwnd would be here */,
-                         NULL, NULL, NULL, NULL, winName};
+    WNDCLASS wndclass = {
+        0,    wnd_callback, 0,    0,    NULL /* WinMain hwnd would be here */,
+        NULL, NULL,         NULL, NULL, winName
+    };
 
     if (!RegisterClass(&wndclass)) {
         print("Unable to create window class\n");
         return 0;
     }
     hwnd = CreateWindow(winName, winName, 0, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-                        CW_USEDEFAULT, NULL, NULL, NULL/* WinMain hwnd would be here */,
+                        CW_USEDEFAULT, NULL, NULL, NULL /* WinMain hwnd would be here */,
                         NULL);
     if (hwnd == NULL) {
         print("Error creating window\n");

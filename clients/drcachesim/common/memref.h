@@ -94,9 +94,9 @@ struct _memref_thread_exit_t {
  * a signal return.
  */
 struct _memref_marker_t {
-    trace_type_t type; /**< #TRACE_TYPE_MARKER. */
-    memref_pid_t pid;  /**< Process id. */
-    memref_tid_t tid;  /**< Thread id. */
+    trace_type_t type;               /**< #TRACE_TYPE_MARKER. */
+    memref_pid_t pid;                /**< Process id. */
+    memref_tid_t tid;                /**< Thread id. */
     trace_marker_type_t marker_type; /**< Identifies the type of marker. */
     uintptr_t marker_value; /**< A value whose meaning depends on the marker type. */
 };
@@ -119,11 +119,11 @@ typedef union _memref_t {
     // The C standard allows us to reference the type field of any of these, and the
     // addr and size fields of data, instr, or flush generically if known to be one
     // of those types, due to the shared fields in our union of structs.
-    struct _memref_data_t data;         /**< A data load or store. */
-    struct _memref_instr_t instr;       /**< An insruction fetch. */
-    struct _memref_flush_t flush;       /**< A software-initiated cache flush. */
-    struct _memref_thread_exit_t exit;  /**< A thread exit. */
-    struct _memref_marker_t marker;     /**< A marker holding metadata. */
+    struct _memref_data_t data;        /**< A data load or store. */
+    struct _memref_instr_t instr;      /**< An insruction fetch. */
+    struct _memref_flush_t flush;      /**< A software-initiated cache flush. */
+    struct _memref_thread_exit_t exit; /**< A thread exit. */
+    struct _memref_marker_t marker;    /**< A marker holding metadata. */
 } memref_t;
 
 #endif /* _MEMREF_H_ */

@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-
 #include <stdio.h>
 
 #include "share.h"
@@ -39,9 +38,9 @@
 
 #define OUTFILE L"tester.out"
 
-#define ATTACK_NONE   0
-#define ATTACK_STACK  1
-#define ATTACK_HEAP   2
+#define ATTACK_NONE 0
+#define ATTACK_STACK 1
+#define ATTACK_HEAP 2
 
 int attack_status = ATTACK_NONE;
 
@@ -57,13 +56,16 @@ DWORD
 WINAPI
 ls_attack(LPVOID param);
 
-enum { stack=1, heap, liveshield };
+enum { stack = 1, heap, liveshield };
 
 /* disable type case warning for attacks below. */
 #pragma warning(disable : 4055)
 
-void usage() {
-    fprintf(stderr,
+void
+usage()
+{
+    fprintf(
+        stderr,
         " usage: tester [initial_sleep_ms] [attack] [num_attacks]\n"
         "\n"
         " tester will then do:\n"
@@ -85,8 +87,7 @@ main(int argc, char **argv)
 {
     int timeout = 5000;
     /*char output[MAX_PATH];*/
-    if (argc == 2
-        && (_stricmp(argv[1], "-h") == 0 || _stricmp(argv[1], "-help") == 0)) {
+    if (argc == 2 && (_stricmp(argv[1], "-h") == 0 || _stricmp(argv[1], "-help") == 0)) {
         usage();
         exit(0);
     }
@@ -102,7 +103,7 @@ main(int argc, char **argv)
         if (attack == 0) {
             fprintf(stderr, "attack=%d not expected\n", attack);
             usage();
-            exit (-1);
+            exit(-1);
         }
 
         if (argc >= 4)
@@ -110,13 +111,13 @@ main(int argc, char **argv)
 
         for (i = 0; i < count; i++) {
             HANDLE athr;
-            fprintf(stderr, "loop %d\n",i);
+            fprintf(stderr, "loop %d\n", i);
             if (attack == 1)
-                athr= CreateThread(NULL, 0, stack_attack, NULL, 0, NULL);
+                athr = CreateThread(NULL, 0, stack_attack, NULL, 0, NULL);
             else if (attack == 2)
-                athr= CreateThread(NULL, 0, heap_attack, NULL, 0, NULL);
+                athr = CreateThread(NULL, 0, heap_attack, NULL, 0, NULL);
             else if (attack == 3)
-                athr= CreateThread(NULL, 0, ls_attack, (void*)i, 0, NULL);
+                athr = CreateThread(NULL, 0, ls_attack, (void *)i, 0, NULL);
             else {
                 fprintf(stderr, "attack=%d can take 1,2 or 3\n", attack);
                 usage();
@@ -125,7 +126,7 @@ main(int argc, char **argv)
 
             if (athr == NULL) {
                 fprintf(stderr, "tc %d\n", GetLastError());
-                exit (-1);
+                exit(-1);
             }
             WaitForSingleObject(athr, INFINITE);
             CloseHandle(athr);
@@ -134,7 +135,6 @@ main(int argc, char **argv)
 
     return 0;
 }
-
 
 /*
 123:
@@ -158,52 +158,30 @@ main(int argc, char **argv)
 004012BE FF 55 08             call        dword ptr [ebp+8]
 004012C1 83 C4 04             add         esp,4
 004012C4 3B F4                cmp         esi,esp
-004012C6 E8 55 10 00 00       call        _chkesp (00402320) ***GET RID OF THIS B'COZ ABS ADDR ****
-128:      return;
-129:  }
-004012CB 5F                   pop         edi
-004012CC 5E                   pop         esi
-004012CD 5B                   pop         ebx
+004012C6 E8 55 10 00 00       call        _chkesp (00402320) ***GET RID OF THIS B'COZ ABS
+ADDR **** 128:      return; 129:  } 004012CB 5F                   pop         edi 004012CC
+5E                   pop         esi 004012CD 5B                   pop         ebx
 004012CE 83 C4 40             add         esp,40h
 004012D1 3B EC                cmp         ebp,esp
-004012D3 E8 48 10 00 00       call        _chkesp (00402320) ***GET RID OF THIS B'COZ ABS ADDR ****
-004012D8 8B E5                mov         esp,ebp
-004012DA 5D                   pop         ebp
+004012D3 E8 48 10 00 00       call        _chkesp (00402320) ***GET RID OF THIS B'COZ ABS
+ADDR **** 004012D8 8B E5                mov         esp,ebp 004012DA 5D pop         ebp
 004012DB C3                   ret
 
 
 */
 unsigned char test_compiled_with_debug[] = {
-    0x55,
-    0x8B, 0xEC,
-    0x83, 0xEC, 0x40,
-    0x53,
-    0x56,
-    0x57,
-    0x8D, 0x7D, 0xC0,
-    0xB9, 0x10, 0x00, 0x00, 0x00,
-    0xB8, 0xCC, 0xCC, 0xCC, 0xCC,
+    0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x40, 0x53, 0x56, 0x57, 0x8D, 0x7D, 0xC0, 0xB9, 0x10,
+    0x00, 0x00, 0x00, 0xB8, 0xCC, 0xCC, 0xCC, 0xCC,
     /* 0xF3, 0xAB, */
-    0x8B, 0xF4,
-    0x8B, 0x45, 0x0C,
-    0x50,
-    0xFF, 0x55, 0x08,
-    0x83, 0xC4, 0x04,
-    0x3B, 0xF4,
+    0x8B, 0xF4, 0x8B, 0x45, 0x0C, 0x50, 0xFF, 0x55, 0x08, 0x83, 0xC4, 0x04, 0x3B, 0xF4,
     /* 0xE8, 0xC5, 0x0E, 0x00, 0x00, */
-    0x5F,
-    0x5E,
-    0x5B,
-    0x83, 0xC4, 0x40,
-    0x3B, 0xEC,
+    0x5F, 0x5E, 0x5B, 0x83, 0xC4, 0x40, 0x3B, 0xEC,
     /* 0xE8, 0xB8, 0x0E, 0x00, 0x00, */
-    0x8B, 0xE5,
-    0x5D,
-    0xC3,
-    0x00, 0x00, 0x00, 0x00 };
+    0x8B, 0xE5, 0x5D, 0xC3, 0x00, 0x00, 0x00, 0x00
+};
 
-
-void test(void(*f)(int),  int i)
+void
+test(void (*f)(int), int i)
 {
     (f)(i);
     return;
@@ -228,27 +206,19 @@ void test(void(*f)(int),  int i)
 
 
 */
-unsigned char sendfunc[] = {
-    0x55,
-    0x8B, 0xEC,
-    0x8B, 0x45, 0x0C,
-    0x50,
-    0xFF, 0x55, 0x08,
-    0x8B, 0xE5,
-    0x5D,
-    0xC3,
-    0x00, 0x00, 0x00, 0x00 };
+unsigned char sendfunc[] = { 0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x0C, 0x50, 0xFF, 0x55,
+                             0x08, 0x8B, 0xE5, 0x5D, 0xC3, 0x00, 0x00, 0x00, 0x00 };
 
-
-void set_attack(int i)
+void
+set_attack(int i)
 {
     attack_status = i;
 }
 
-
-void fool_opt_compiler(unsigned char * foo)
+void
+fool_opt_compiler(unsigned char *foo)
 {
-    foo[0] =1;
+    foo[0] = 1;
 }
 
 DWORD
@@ -262,38 +232,37 @@ stack_attack(LPVOID param)
     if (param == NULL)
         i = 0;
 
-    if(sizeof(sendfunc)>=sizeof(myfunc))
+    if (sizeof(sendfunc) >= sizeof(myfunc))
         MessageBox(NULL, L"ERROR", L"Memory allocation problem", MB_OK);
 
-    for(i=0; i<sizeof(sendfunc); i++)
+    for (i = 0; i < sizeof(sendfunc); i++)
         myfunc[i] = sendfunc[i];
 
-    ((void(*)(void(*)(int),int))((void *)myfunc))(set_attack, ATTACK_STACK);
+    ((void (*)(void (*)(int), int))((void *)myfunc))(set_attack, ATTACK_STACK);
     fool_opt_compiler(myfunc);
     return ERROR_SUCCESS;
 }
-
 
 DWORD
 WINAPI
 heap_attack(LPVOID param)
 {
-    unsigned char  * myfunc;
+    unsigned char *myfunc;
     int i;
 
     /* use the param to make compiler happy */
     if (param == NULL)
         i = 0;
 
-    myfunc = (unsigned char *) malloc(sizeof(sendfunc));
+    myfunc = (unsigned char *)malloc(sizeof(sendfunc));
 
-    if(myfunc == NULL)
+    if (myfunc == NULL)
         MessageBox(NULL, L"ERROR", L"Memory allocation problem", MB_OK);
 
-    for(i=0; i<sizeof(sendfunc); i++)
+    for (i = 0; i < sizeof(sendfunc); i++)
         myfunc[i] = sendfunc[i];
 
-    ((void(*)(void(*)(int),int))((void *)myfunc))(set_attack, ATTACK_HEAP);
+    ((void (*)(void (*)(int), int))((void *)myfunc))(set_attack, ATTACK_HEAP);
     free(myfunc);
     return ERROR_SUCCESS;
 }
@@ -308,8 +277,7 @@ ls_attack(LPVOID param)
     _snwprintf(filename, MAX_PATH, L"%s.%d", OUTFILE, (int)param);
     delete_file_rename_in_use(filename);
 
-    _snprintf(output, MAX_PATH,
-              "%d%d\n", hotp_test_reg(), hotp_test_control_flow());
+    _snprintf(output, MAX_PATH, "%d%d\n", hotp_test_reg(), hotp_test_control_flow());
     write_file_contents(filename, output, TRUE);
 
     return ERROR_SUCCESS;

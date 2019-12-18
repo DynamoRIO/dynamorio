@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,7 +57,7 @@ KSTAT_DEF("total measured and propagated in thread", thread_measured)
 
 KSTAT_DEF("in bb building", bb_building)
 KSTAT_DEF("in bb decoding", bb_decoding) /* sub-node of bb_building */
-KSTAT_DEF("in emitting BB", bb_emit) /* sub-node of bb_building */
+KSTAT_DEF("in emitting BB", bb_emit)     /* sub-node of bb_building */
 KSTAT_DEF("in mangling", mangling)
 KSTAT_DEF("in emit", emit)
 KSTAT_DEF("in hotpatch lookup", hotp_lookup)

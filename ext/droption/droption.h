@@ -44,7 +44,9 @@
 #include <stdlib.h>
 #include <sstream>
 #include <iomanip>
-#include <stdint.h> /* for supporting 64-bit integers*/
+#include <limits.h>
+#include <stdint.h>
+#include <errno.h>
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
@@ -58,10 +60,10 @@
  * by a client for a tool frontend, or both.
  */
 typedef enum {
-    DROPTION_SCOPE_CLIENT    = 0x0001,   /**< Acted on by the client only. */
-    DROPTION_SCOPE_FRONTEND  = 0x0002, /**< Acted on by the frontend only. */
+    DROPTION_SCOPE_CLIENT = 0x0001,   /**< Acted on by the client only. */
+    DROPTION_SCOPE_FRONTEND = 0x0002, /**< Acted on by the frontend only. */
     /** Acted on by both client and frontend. */
-    DROPTION_SCOPE_ALL       = (DROPTION_SCOPE_CLIENT|DROPTION_SCOPE_FRONTEND),
+    DROPTION_SCOPE_ALL = (DROPTION_SCOPE_CLIENT | DROPTION_SCOPE_FRONTEND),
 } droption_scope_t;
 
 /**
@@ -79,7 +81,7 @@ typedef enum {
      */
     // XXX: to support other types of accumulation, we should add explicit
     // support for dr_option_t<std::vector<std::string> >.
-    DROPTION_FLAG_ACCUMULATE     = 0x0001,
+    DROPTION_FLAG_ACCUMULATE = 0x0001,
     /**
      * By default, an option that does not match a known name and the
      * current scope results in an error.  If a string option exists
@@ -90,25 +92,33 @@ typedef enum {
      * specified and that have #DROPTION_SCOPE_ALL are swept as well.
      * The scope of an option with this flag is ignored.
      */
-    DROPTION_FLAG_SWEEP          = 0x0002,
+    DROPTION_FLAG_SWEEP = 0x0002,
     /**
      * Indicates that this is an internal option and should be excluded from
      * usage messages and documentation.
      */
-    DROPTION_FLAG_INTERNAL       = 0x0004,
+    DROPTION_FLAG_INTERNAL = 0x0004,
 } droption_flags_t;
 
 /**
  * The bytesize_t class exists to provide an option type that accepts suffixes
  * like 'K', 'M', and 'G' when specifying sizes in units of bytes.
  */
-class bytesize_t
-{
- public:
-    bytesize_t() : size(0) {}
+class bytesize_t {
+public:
+    bytesize_t()
+        : size(0)
+    {
+    }
     // The bytesize_t class is backed by a 64-bit unsigned integer.
-    bytesize_t(uint64_t val) : size(val) {}
-    operator uint64_t() const { return size; }
+    bytesize_t(uint64_t val)
+        : size(val)
+    {
+    }
+    operator uint64_t() const
+    {
+        return size;
+    }
     uint64_t size;
 };
 
@@ -118,14 +128,16 @@ typedef std::pair<std::string, std::string> twostring_t;
 /**
  * Option parser base class.
  */
-class droption_parser_t
-{
- public:
-    droption_parser_t(unsigned int scope_, std::string name_,
-                      std::string desc_short_, std::string desc_long_,
-                      unsigned int flags_)
-        : scope(scope_), name(name_), is_specified(false),
-        desc_short(desc_short_), desc_long(desc_long_), flags(flags_)
+class droption_parser_t {
+public:
+    droption_parser_t(unsigned int scope_, std::string name_, std::string desc_short_,
+                      std::string desc_long_, unsigned int flags_)
+        : scope(scope_)
+        , name(name_)
+        , is_specified(false)
+        , desc_short(desc_short_)
+        , desc_long(desc_long_)
+        , flags(flags_)
     {
         // We assume no synch is needed as this is a static initializer.
         // XXX: any way to check/assert on that?
@@ -153,12 +165,12 @@ class droption_parser_t
      * for proper internationalization support.
      */
     static bool
-    parse_argv(unsigned int scope, int argc, const char *argv[],
-               std::string *error_msg, int *last_index)
+    parse_argv(unsigned int scope, int argc, const char *argv[], std::string *error_msg,
+               int *last_index)
     {
         int i;
         bool res = true;
-        for (i = 1/*skip app*/; i < argc; ++i) {
+        for (i = 1 /*skip app*/; i < argc; ++i) {
             // We support the universal "--" as a separator
             if (strcmp(argv[i], "--") == 0) {
                 ++i; // for last_index
@@ -166,9 +178,8 @@ class droption_parser_t
             }
             bool matched = false;
             bool swept = false;
-            for (std::vector<droption_parser_t*>::iterator opi = allops().begin();
-                 opi != allops().end();
-                 ++opi) {
+            for (std::vector<droption_parser_t *>::iterator opi = allops().begin();
+                 opi != allops().end(); ++opi) {
                 droption_parser_t *op = *opi;
                 // We parse other-scope options and their values, for sweeping.
                 if (op->name_match(argv[i])) {
@@ -197,11 +208,11 @@ class droption_parser_t
                             if ((!op->option_takes_2args() &&
                                  !op->convert_from_string(argv[i])) ||
                                 (op->option_takes_2args() &&
-                                 !op->convert_from_string(argv[i-1], argv[i])) ||
+                                 !op->convert_from_string(argv[i - 1], argv[i])) ||
                                 !op->clamp_value()) {
                                 if (error_msg != NULL) {
-                                    *error_msg = "Option " + op->name +
-                                        " value out of range";
+                                    *error_msg =
+                                        "Option " + op->name + " value out of range";
                                 }
                                 res = false;
                                 goto parse_finished;
@@ -211,11 +222,11 @@ class droption_parser_t
                             if ((!op->option_takes_2args() &&
                                  !sweeper()->convert_from_string(argv[i])) ||
                                 (op->option_takes_2args() &&
-                                 !sweeper()->convert_from_string(argv[i-1], argv[i])) ||
+                                 !sweeper()->convert_from_string(argv[i - 1], argv[i])) ||
                                 !sweeper()->clamp_value()) {
                                 if (error_msg != NULL) {
-                                    *error_msg = "Option " + op->name +
-                                        " value out of range";
+                                    *error_msg =
+                                        "Option " + op->name + " value out of range";
                                 }
                                 res = false;
                                 goto parse_finished;
@@ -247,15 +258,13 @@ class droption_parser_t
     usage_short(unsigned int scope)
     {
         std::ostringstream oss;
-        for (std::vector<droption_parser_t*>::iterator opi = allops().begin();
-             opi != allops().end();
-             ++opi) {
+        for (std::vector<droption_parser_t *>::iterator opi = allops().begin();
+             opi != allops().end(); ++opi) {
             droption_parser_t *op = *opi;
             if (!TESTALL(DROPTION_FLAG_INTERNAL, op->flags) &&
                 TESTANY(scope, op->scope)) {
-                oss << " -" << std::setw(20) << std::left << op->name
-                    << "[" << std::setw(6) << std::right
-                    << op->default_as_string() << "]"
+                oss << " -" << std::setw(20) << std::left << op->name << "["
+                    << std::setw(6) << std::right << op->default_as_string() << "]"
                     << "  " << std::left << op->desc_short << std::endl;
             }
         }
@@ -268,22 +277,20 @@ class droption_parser_t
      * post- values.  This is intended for use in generating documentation.
      */
     static std::string
-    usage_long(unsigned int scope,
-               std::string pre_name = "----------\n", std::string post_name = "\n",
-               std::string pre_value = "", std::string post_value = "\n",
-               std::string pre_desc = "", std::string post_desc = "\n")
+    usage_long(unsigned int scope, std::string pre_name = "----------\n",
+               std::string post_name = "\n", std::string pre_value = "",
+               std::string post_value = "\n", std::string pre_desc = "",
+               std::string post_desc = "\n")
     {
         std::ostringstream oss;
-        for (std::vector<droption_parser_t*>::iterator opi = allops().begin();
-             opi != allops().end();
-             ++opi) {
+        for (std::vector<droption_parser_t *>::iterator opi = allops().begin();
+             opi != allops().end(); ++opi) {
             droption_parser_t *op = *opi;
             // XXX: we should also add the min and max values
             if (!TESTALL(DROPTION_FLAG_INTERNAL, op->flags) &&
                 TESTANY(scope, op->scope)) {
-                oss << pre_name << "-" << op->name << post_name
-                    << pre_value << "default value: "
-                    << op->default_as_string() << post_value
+                oss << pre_name << "-" << op->name << post_name << pre_value
+                    << "default value: " << op->default_as_string() << post_value
                     << pre_desc << op->desc_long << post_desc << std::endl;
             }
         }
@@ -291,26 +298,43 @@ class droption_parser_t
     }
 
     /** Returns whether this option was specified in the argument list. */
-    bool specified() { return is_specified; }
+    bool
+    specified()
+    {
+        return is_specified;
+    }
     /** Returns the name of this option. */
-    std::string get_name() { return name; }
+    std::string
+    get_name()
+    {
+        return name;
+    }
 
- protected:
-    virtual bool option_takes_arg() const = 0;
-    virtual bool option_takes_2args() const = 0;
-    virtual bool name_match(const char *arg) = 0; // also sets value for bools!
-    virtual bool convert_from_string(const std::string s) = 0;
-    virtual bool convert_from_string(const std::string s1, const std::string s2) = 0;
-    virtual bool clamp_value() = 0;
-    virtual std::string default_as_string() const = 0;
+protected:
+    virtual bool
+    option_takes_arg() const = 0;
+    virtual bool
+    option_takes_2args() const = 0;
+    virtual bool
+    name_match(const char *arg) = 0; // also sets value for bools!
+    virtual bool
+    convert_from_string(const std::string s) = 0;
+    virtual bool
+    convert_from_string(const std::string s1, const std::string s2) = 0;
+    virtual bool
+    clamp_value() = 0;
+    virtual std::string
+    default_as_string() const = 0;
 
     // To avoid static initializer ordering problems we use a function:
-    static std::vector<droption_parser_t*>& allops()
+    static std::vector<droption_parser_t *> &
+    allops()
     {
-        static std::vector<droption_parser_t*> allops_vec;
+        static std::vector<droption_parser_t *> allops_vec;
         return allops_vec;
     }
-    static droption_parser_t *& sweeper()
+    static droption_parser_t *&
+    sweeper()
     {
         static droption_parser_t *global_sweeper;
         return global_sweeper;
@@ -325,28 +349,35 @@ class droption_parser_t
 };
 
 /** Option class for declaring new options. */
-template <typename T> class droption_t : public droption_parser_t
-{
- public:
+template <typename T> class droption_t : public droption_parser_t {
+public:
     /**
      * Declares a new option of type T with the given scope, default value,
      * and description in short and long forms.
      */
-    droption_t(unsigned int scope_, std::string name_, T defval_,
-               std::string desc_short_, std::string desc_long_)
-        : droption_parser_t(scope_, name_, desc_short_, desc_long_, 0),
-        value(defval_), defval(defval_), valsep(DROPTION_DEFAULT_VALUE_SEP),
-        has_range(false) {}
+    droption_t(unsigned int scope_, std::string name_, T defval_, std::string desc_short_,
+               std::string desc_long_)
+        : droption_parser_t(scope_, name_, desc_short_, desc_long_, 0)
+        , value(defval_)
+        , defval(defval_)
+        , valsep(DROPTION_DEFAULT_VALUE_SEP)
+        , has_range(false)
+    {
+    }
 
     /**
      * Declares a new option of type T with the given scope, behavior flags,
      * default value, and description in short and long forms.
      */
-    droption_t(unsigned int scope_, std::string name_, unsigned int flags_,
-               T defval_, std::string desc_short_, std::string desc_long_)
-        : droption_parser_t(scope_, name_, desc_short_, desc_long_, flags_),
-        value(defval_), defval(defval_), valsep(DROPTION_DEFAULT_VALUE_SEP),
-        has_range(false) {}
+    droption_t(unsigned int scope_, std::string name_, unsigned int flags_, T defval_,
+               std::string desc_short_, std::string desc_long_)
+        : droption_parser_t(scope_, name_, desc_short_, desc_long_, flags_)
+        , value(defval_)
+        , defval(defval_)
+        , valsep(DROPTION_DEFAULT_VALUE_SEP)
+        , has_range(false)
+    {
+    }
 
     /**
      * Declares a new option of type T with the given scope, behavior flags,
@@ -356,33 +387,56 @@ template <typename T> class droption_t : public droption_parser_t
     droption_t(unsigned int scope_, std::string name_, unsigned int flags_,
                std::string valsep_, T defval_, std::string desc_short_,
                std::string desc_long_)
-        : droption_parser_t(scope_, name_, desc_short_, desc_long_, flags_),
-        value(defval_), defval(defval_), valsep(valsep_), has_range(false) {}
+        : droption_parser_t(scope_, name_, desc_short_, desc_long_, flags_)
+        , value(defval_)
+        , defval(defval_)
+        , valsep(valsep_)
+        , has_range(false)
+    {
+    }
 
     /**
      * Declares a new option of type T with the given scope, default value,
      * minimum and maximum values, and description in short and long forms.
      */
-    droption_t(unsigned int scope_, std::string name_, T defval_,
-               T minval_, T maxval_,
+    droption_t(unsigned int scope_, std::string name_, T defval_, T minval_, T maxval_,
                std::string desc_short_, std::string desc_long_)
-        : droption_parser_t(scope_, name_, desc_short_, desc_long_, 0),
-        value(defval_), defval(defval_), valsep(DROPTION_DEFAULT_VALUE_SEP),
-        has_range(true), minval(minval_), maxval(maxval_) {}
+        : droption_parser_t(scope_, name_, desc_short_, desc_long_, 0)
+        , value(defval_)
+        , defval(defval_)
+        , valsep(DROPTION_DEFAULT_VALUE_SEP)
+        , has_range(true)
+        , minval(minval_)
+        , maxval(maxval_)
+    {
+    }
 
     /** Returns the value of this option. */
-    T get_value() const { return value; }
+    T
+    get_value() const
+    {
+        return value;
+    }
 
     /** Returns the separator of the option value
      * (see #DROPTION_FLAG_ACCUMULATE).
      */
-    std::string get_value_separator() const { return valsep; }
+    std::string
+    get_value_separator() const
+    {
+        return valsep;
+    }
 
     /** Sets the value of this option, overriding the command line. */
-    void set_value(T new_value) { value = new_value; }
+    void
+    set_value(T new_value)
+    {
+        value = new_value;
+    }
 
- protected:
-    bool clamp_value()
+protected:
+    bool
+    clamp_value()
     {
         if (has_range) {
             if (value < minval) {
@@ -396,12 +450,18 @@ template <typename T> class droption_t : public droption_parser_t
         return true;
     }
 
-    bool option_takes_arg() const;
-    bool option_takes_2args() const;
-    bool name_match(const char *arg);
-    bool convert_from_string(const std::string s);
-    bool convert_from_string(const std::string s1, const std::string s2);
-    std::string default_as_string() const;
+    bool
+    option_takes_arg() const;
+    bool
+    option_takes_2args() const;
+    bool
+    name_match(const char *arg);
+    bool
+    convert_from_string(const std::string s);
+    bool
+    convert_from_string(const std::string s1, const std::string s2);
+    std::string
+    default_as_string() const;
 
     T value;
     T defval;
@@ -411,31 +471,44 @@ template <typename T> class droption_t : public droption_parser_t
     T maxval;
 };
 
-template <typename T> inline bool droption_t<T>::option_takes_arg() const { return true; }
-template<> inline bool droption_t<bool>::option_takes_arg() const { return false; }
+template <typename T>
+inline bool
+droption_t<T>::option_takes_arg() const
+{
+    return true;
+}
+template <>
+inline bool
+droption_t<bool>::option_takes_arg() const
+{
+    return false;
+}
 
-template <typename T> inline bool
+template <typename T>
+inline bool
 droption_t<T>::option_takes_2args() const
 {
     return false;
 }
-template<> inline bool
+template <>
+inline bool
 droption_t<twostring_t>::option_takes_2args() const
 {
     return true;
 }
 
-template <typename T> inline bool
+template <typename T>
+inline bool
 droption_t<T>::name_match(const char *arg)
 {
     return (std::string("-").append(name) == arg ||
             std::string("--").append(name) == arg);
 }
-template<> inline bool
+template <>
+inline bool
 droption_t<bool>::name_match(const char *arg)
 {
-    if (std::string("-").append(name) == arg ||
-        std::string("--").append(name) == arg) {
+    if (std::string("-").append(name) == arg || std::string("--").append(name) == arg) {
         value = true;
         return true;
     }
@@ -449,7 +522,8 @@ droption_t<bool>::name_match(const char *arg)
     return false;
 }
 
-template<> inline bool
+template <>
+inline bool
 droption_t<std::string>::convert_from_string(const std::string s)
 {
     if (TESTANY(DROPTION_FLAG_ACCUMULATE, flags) && is_specified) {
@@ -458,39 +532,95 @@ droption_t<std::string>::convert_from_string(const std::string s)
         value = s;
     return true;
 }
-template<> inline bool
+template <>
+inline bool
 droption_t<int>::convert_from_string(const std::string s)
 {
-    value = atoi(s.c_str());
-    return true;
+    errno = 0;
+    long input = strtol(s.c_str(), NULL, 10);
+
+    // strtol returns a long, but this may not always fit into an integer.
+    if (input >= (long)INT_MIN && input <= (long)INT_MAX)
+        value = (int)input;
+    else
+        return false;
+
+    return errno == 0;
 }
-template<> inline bool
+template <>
+inline bool
+droption_t<long>::convert_from_string(const std::string s)
+{
+    errno = 0;
+    value = strtol(s.c_str(), NULL, 10);
+    return errno == 0;
+}
+template <>
+inline bool
+droption_t<long long>::convert_from_string(const std::string s)
+{
+    errno = 0;
+    value = strtoll(s.c_str(), NULL, 10);
+    return errno == 0;
+}
+template <>
+inline bool
 droption_t<unsigned int>::convert_from_string(const std::string s)
 {
-    int input = atoi(s.c_str());
-    if (input >= 0)
-        value = input;
-    else {
-        value = 0;
+    errno = 0;
+    long input = strtol(s.c_str(), NULL, 10);
+
+    // Is the value positive and fits into an unsigned integer?
+    if (input >= 0 && (unsigned long)input <= (unsigned long)UINT_MAX)
+        value = (unsigned int)input;
+    else
         return false;
-    }
-    return true;
+
+    return errno == 0;
 }
-template<> inline bool
+template <>
+inline bool
+droption_t<unsigned long>::convert_from_string(const std::string s)
+{
+    errno = 0;
+    long input = strtol(s.c_str(), NULL, 10);
+    if (input >= 0)
+        value = (unsigned long)input;
+    else
+        return false;
+
+    return errno == 0;
+}
+template <>
+inline bool
+droption_t<unsigned long long>::convert_from_string(const std::string s)
+{
+    long long input = strtoll(s.c_str(), NULL, 10);
+    if (input >= 0)
+        value = (unsigned long long)input;
+    else
+        return false;
+
+    return errno == 0;
+}
+template <>
+inline bool
 droption_t<double>::convert_from_string(const std::string s)
 {
     // strtod will return 0.0 for invalid conversions
-    char * pEnd = NULL;
+    char *pEnd = NULL;
     value = strtod(s.c_str(), &pEnd);
     return true;
 }
-template<> inline bool
+template <>
+inline bool
 droption_t<bool>::convert_from_string(const std::string s)
 {
     // We shouldn't get here
     return false;
 }
-template<> inline bool
+template <>
+inline bool
 droption_t<bytesize_t>::convert_from_string(const std::string s)
 {
     char suffix = *s.rbegin(); // s.back() only in C++11
@@ -499,17 +629,15 @@ droption_t<bytesize_t>::convert_from_string(const std::string s)
     case 'K':
     case 'k': scale = 1024; break;
     case 'M':
-    case 'm': scale = 1024*1024; break;
+    case 'm': scale = 1024 * 1024; break;
     case 'G':
-    case 'g': scale = 1024*1024*1024; break;
+    case 'g': scale = 1024 * 1024 * 1024; break;
     default: scale = 1;
     }
     std::string toparse = s;
     if (scale > 1)
-        toparse = s.substr(0, s.size()-1); // s.pop_back() only in C++11
-    // While the overall size is likely too large to be represented
-    // by a 32-bit integer, the prefix number is usually not.
-    int input = atoi(toparse.c_str());
+        toparse = s.substr(0, s.size() - 1); // s.pop_back() only in C++11
+    long long input = atoll(toparse.c_str());
     if (input >= 0)
         value = (uint64_t)input * scale;
     else {
@@ -518,18 +646,43 @@ droption_t<bytesize_t>::convert_from_string(const std::string s)
     }
     return true;
 }
-template<> inline bool
+template <>
+inline bool
 droption_t<twostring_t>::convert_from_string(const std::string s)
 {
     return false;
 }
 
-template <typename T> inline bool
+// Default implementations
+
+template <typename T>
+inline bool
+droption_t<T>::convert_from_string(const std::string sc)
+{
+    return false;
+}
+
+template <typename T>
+inline bool
 droption_t<T>::convert_from_string(const std::string s1, const std::string s2)
 {
     return false;
 }
-template<> inline bool
+
+template <typename T>
+inline std::string
+droption_t<T>::default_as_string() const
+{
+#if __cplusplus >= 201103L
+    static_assert(sizeof(T) == -1, "Use of unsupported droption_t type");
+#else
+    DR_ASSERT_MSG(false, "Use of unsupported droption_t type");
+#endif
+    return std::string();
+}
+
+template <>
+inline bool
 droption_t<std::string>::convert_from_string(const std::string s1, const std::string s2)
 {
     // This is for the sweeper
@@ -539,7 +692,8 @@ droption_t<std::string>::convert_from_string(const std::string s1, const std::st
     } else
         return false;
 }
-template<> inline bool
+template <>
+inline bool
 droption_t<twostring_t>::convert_from_string(const std::string s1, const std::string s2)
 {
     if (TESTANY(DROPTION_FLAG_ACCUMULATE, flags) && is_specified) {
@@ -552,48 +706,86 @@ droption_t<twostring_t>::convert_from_string(const std::string s1, const std::st
     return true;
 }
 
-template<> inline std::string
+template <>
+inline std::string
 droption_t<std::string>::default_as_string() const
 {
     return defval.empty() ? "\"\"" : defval;
 }
-template<> inline std::string
+template <>
+inline std::string
 droption_t<int>::default_as_string() const
 {
     std::ostringstream stream;
     stream << std::dec << defval;
     return stream.str();
 }
-template<> inline std::string
+template <>
+inline std::string
+droption_t<long>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template <>
+inline std::string
+droption_t<long long>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template <>
+inline std::string
 droption_t<unsigned int>::default_as_string() const
 {
     std::ostringstream stream;
     stream << std::dec << defval;
     return stream.str();
 }
-template<> inline std::string
+template <>
+inline std::string
+droption_t<unsigned long>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template <>
+inline std::string
+droption_t<unsigned long long>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template <>
+inline std::string
 droption_t<double>::default_as_string() const
 {
     std::ostringstream stream;
     stream << std::dec << defval;
     return stream.str();
 }
-template<> inline std::string
+template <>
+inline std::string
 droption_t<bool>::default_as_string() const
 {
     return (defval ? "true" : "false");
 }
-template<> inline std::string
+template <>
+inline std::string
 droption_t<bytesize_t>::default_as_string() const
 {
     uint64_t val = defval;
     std::string suffix = "";
-    if (defval >= 1024*1024*1024 && defval % 1024*1024*1024 == 0) {
+    if (defval >= 1024 * 1024 * 1024 && defval % 1024 * 1024 * 1024 == 0) {
         suffix = "G";
-        val /= 1024*1024*1024;
-    } else if (defval >= 1024*1024 && defval % 1024*1024 == 0) {
+        val /= 1024 * 1024 * 1024;
+    } else if (defval >= 1024 * 1024 && defval % 1024 * 1024 == 0) {
         suffix = "M";
-        val /= 1024*1024;
+        val /= 1024 * 1024;
     } else if (defval >= 1024 && defval % 1024 == 0) {
         suffix = "K";
         val /= 1024;
@@ -602,7 +794,8 @@ droption_t<bytesize_t>::default_as_string() const
     stream << std::dec << val;
     return stream.str() + suffix;
 }
-template<> inline std::string
+template <>
+inline std::string
 droption_t<twostring_t>::default_as_string() const
 {
     return (defval.first.empty() ? "\"\"" : defval.first) + " " +
@@ -632,8 +825,8 @@ dr_parse_options(client_id_t client_id, std::string *error_msg, int *last_index)
     bool res = dr_get_option_array(client_id, &argc, &argv);
     if (!res)
         return false;
-    return droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv,
-                                         error_msg, last_index);
+    return droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, error_msg,
+                                         last_index);
 }
 #endif
 

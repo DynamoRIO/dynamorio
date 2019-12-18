@@ -48,33 +48,35 @@ main()
 
     p = VirtualAlloc(0, size, MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     assert(p);
-    print("alloced %d\n",size);
+    print("alloced %d\n", size);
 
     commit += 0x1000;
     p = VirtualAlloc(p, commit, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
     assert(p);
-    print("committed %d\n",commit);
+    print("committed %d\n", commit);
 
     commit += 0x1000;
     p = VirtualAlloc(p, commit, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
     assert(p);
-    print("committed %d\n",commit);
+    print("committed %d\n", commit);
 
     /* in fact nothing prevents a flush on non-reserved memory */
-    if (1) commit += 0x1000;
+    if (1)
+        commit += 0x1000;
     res = FlushInstructionCache(GetCurrentProcess(), p, commit);
     assert(res);
-    print("flushed %d\n",commit);
+    print("flushed %d\n", commit);
 
     commit += 0x1000;
     p = VirtualAlloc(p, commit, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
     assert(p);
-    print("committed %d\n",commit);
+    print("committed %d\n", commit);
 
     /* FIXME: should add VirtualQuery calls here to verify it all */
     /* case 4494 - VirtualFree special cases */
-    res = VirtualFree((char*)p+0x2000-1, 3, MEM_DECOMMIT);
-    print("attempting to decommit 3 byte cross-page 0 - should decommit two pages\n",commit);
+    res = VirtualFree((char *)p + 0x2000 - 1, 3, MEM_DECOMMIT);
+    print("attempting to decommit 3 byte cross-page 0 - should decommit two pages\n",
+          commit);
     assert(res);
 
     /* LastErrorValue: (Win32) 0x1e7 (487) - Attempt to access invalid
@@ -83,48 +85,50 @@ main()
      * region and a region size of zero was specified.
      */
 
-    res = VirtualFree((char*)p+0x3040, 0, MEM_DECOMMIT);
+    res = VirtualFree((char *)p + 0x3040, 0, MEM_DECOMMIT);
     print("attempting to decommitted 3 byte cross-page 0 - should fail\n");
-    assert(res == 0 && GetLastError()==487);
+    assert(res == 0 && GetLastError() == 487);
 
-    res = VirtualFree((char*)p+0x10, commit, MEM_DECOMMIT);
-    print("decommitting (p+0x10, %d) (gets backwards aligned) - should hopefully fail\n", commit);
+    res = VirtualFree((char *)p + 0x10, commit, MEM_DECOMMIT);
+    print("decommitting (p+0x10, %d) (gets backwards aligned) - should hopefully fail\n",
+          commit);
     /*  LastErrorValue: (Win32) 0x57 (87) - The parameter is incorrect. */
     /* LastStatusValue: (NTSTATUS) 0xc000001a - Virtual memory cannot be freed. */
-    assert(res == 0 && GetLastError()==87);
+    assert(res == 0 && GetLastError() == 87);
 
-    res = VirtualFree((char*)p+0x10, 0, MEM_DECOMMIT);
-    print("decommitted size 0 and p (gets backwards aligned) - should decommit whole region\n");
+    res = VirtualFree((char *)p + 0x10, 0, MEM_DECOMMIT);
+    print("decommitted size 0 and p (gets backwards aligned) - should decommit whole "
+          "region\n");
     if (version == WINDOWS_VERSION_NT) {
         /* on NT NtFreeVirtualMemory does NOT back-align the base and fails instead */
         /* FIXME: change message above -- but then have to change template */
-        assert(res == 0 && GetLastError()==487);
+        assert(res == 0 && GetLastError() == 487);
     } else {
         assert(res);
     }
 
-    res = VirtualFree((char*)p+0, commit, MEM_DECOMMIT);
+    res = VirtualFree((char *)p + 0, commit, MEM_DECOMMIT);
     print("decommitting (p+0x0, %d) - should be ok\n", commit);
     assert(res);
 
     /* MEM_RELEASE tests */
-    res = VirtualFree((char*)p+0x3010, 0, MEM_RELEASE);
+    res = VirtualFree((char *)p + 0x3010, 0, MEM_RELEASE);
     print("releasing p+0x3010 - should fail\n");
-    assert(res == 0 && GetLastError()==487);
+    assert(res == 0 && GetLastError() == 487);
 
-    res = VirtualFree((char*)p+0x10, 0, MEM_RELEASE);
+    res = VirtualFree((char *)p + 0x10, 0, MEM_RELEASE);
     print("releasing p+0x10 - will actually free\n");
     if (version == WINDOWS_VERSION_NT) {
         /* on NT NtFreeVirtualMemory does NOT back-align the base and fails instead */
         /* FIXME: change message above -- but then have to change template */
-        assert(res == 0 && GetLastError()==487);
+        assert(res == 0 && GetLastError() == 487);
     } else {
         assert(res);
     }
 
     p = VirtualAlloc(0, size, MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     assert(p);
-    print("alloced again %d\n",size);
+    print("alloced again %d\n", size);
 
     res = VirtualFree(p, 0, MEM_RELEASE);
     print("released p\n");

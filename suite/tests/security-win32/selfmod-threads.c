@@ -54,7 +54,7 @@ foo(int iters)
     while (!go_threads)
         Sleep(1);
 #ifdef UNIX
-    asm("  movl %0, %%ecx" : : "r" (iters));
+    asm("  movl %0, %%ecx" : : "r"(iters));
     asm("  call next_inst");
     asm("next_inst:");
     asm("  pop %edx");
@@ -62,25 +62,25 @@ foo(int iters)
      *                 3 == mov ecx into target
      *                 1 == opcode of target movl
      */
-    asm("  movl %ecx, 0x5(%edx)"); /* the modifying store */
+    asm("  movl %ecx, 0x5(%edx)");  /* the modifying store */
     asm("  movl $0x12345678,%eax"); /* this instr's immed gets overwritten */
-    asm("  movl $0x0,%ecx"); /* counter for diagnostics */
+    asm("  movl $0x0,%ecx");        /* counter for diagnostics */
     asm("repeata:");
     asm("  decl %eax");
     asm("  inc  %ecx");
     asm("  cmpl $0x0,%eax");
     asm("  jnz repeata");
-    asm("  movl %%ecx, %0" : "=r" (total));
+    asm("  movl %%ecx, %0" : "=r"(total));
 #else
     __asm {
         mov  ecx, iters
         call next_inst
       next_inst:
         pop  edx
-    /* add to retaddr: 1 == pop
-     *                 3 == mov ecx into target
-     *                 1 == opcode of target movl
-     */
+            /* add to retaddr: 1 == pop
+             *                 3 == mov ecx into target
+             *                 1 == opcode of target movl
+             */
         mov  dword ptr [edx + 0x5], ecx /* the modifying store */
         mov  eax,0x12345678 /* this instr's immed gets overwritten */
         mov  ecx,0x0 /* counter for diagnostics */
@@ -98,10 +98,10 @@ foo(int iters)
 }
 
 int WINAPI
-run_func(void * arg)
+run_func(void *arg)
 {
     int i;
-    for (i=0; i<ITERS; i++) {
+    for (i = 0; i < ITERS; i++) {
         foo(0xabcd);
         foo(0x1234);
         foo(0xef01);
@@ -119,13 +119,13 @@ main()
     print("starting up\n");
 
     /* make foo code writable */
-    protect_mem(foo, PAGE_SIZE, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(foo, PAGE_SIZE, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     // Note that main and the exception handler __except_handler3 are on this page too
 
-    for (i=0; i<NUM_THREADS; i++)
+    for (i = 0; i < NUM_THREADS; i++)
         hThread[i] = _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
     go_threads = 1;
-    for (i=0; i<NUM_THREADS; i++)
+    for (i = 0; i < NUM_THREADS; i++)
         WaitForSingleObject((HANDLE)hThread[i], INFINITE);
 
     print("all done\n");

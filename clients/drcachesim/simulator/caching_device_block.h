@@ -45,16 +45,21 @@
 // block status.
 static const addr_t TAG_INVALID = (addr_t)-1; // block is invalid
 
-class caching_device_block_t
-{
- public:
+class caching_device_block_t {
+public:
     // Initializing counter to 0 is just to be safe and to make it easier to write new
     // replacement algorithms without errors (and we expect negligible perf cost), as
     // we expect any use of counter to only occur *after* a valid tag is put in place,
     // where for the current replacement code we also set the counter at that time.
-    caching_device_block_t() : tag(TAG_INVALID), counter(0) {}
+    caching_device_block_t()
+        : tag(TAG_INVALID)
+        , counter(0)
+    {
+    }
     // Destructor must be virtual and default is not.
-    virtual ~caching_device_block_t() {}
+    virtual ~caching_device_block_t()
+    {
+    }
 
     addr_t tag;
 

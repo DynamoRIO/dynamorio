@@ -43,39 +43,35 @@
 #include "decode.h"
 #include "decode_private.h"
 #include "disassemble.h"
-#include <string.h>
 
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 
-# ifdef DEBUG
+#    ifdef DEBUG
 /* case 10450: give messages to clients */
 /* we can't undef ASSERT b/c of DYNAMO_OPTION */
-#  undef ASSERT_TRUNCATE
-#  undef ASSERT_BITFIELD_TRUNCATE
-#  undef ASSERT_NOT_REACHED
-#  define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-#  define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-#  define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# endif
+#        undef ASSERT_TRUNCATE
+#        undef ASSERT_BITFIELD_TRUNCATE
+#        undef ASSERT_NOT_REACHED
+#        define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#        define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#        define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    endif
 
 /* in disassemble_shared.c */
 void
 internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
-                          dcontext_t *dcontext, opnd_t opnd,
-                          bool use_size_sfx);
+                          dcontext_t *dcontext, opnd_t opnd, bool use_size_sfx);
 void
-reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
-                reg_id_t reg, dr_opnd_flags_t flags,
-                const char *prefix, const char *suffix);
+reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, reg_id_t reg,
+                dr_opnd_flags_t flags, const char *prefix, const char *suffix);
 
-
-# define BYTES_PER_LINE 7
+#    define BYTES_PER_LINE 7
 
 int
-print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
-                      byte *pc, byte *next_pc, instr_t *instr)
+print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
+                      byte *next_pc, instr_t *instr)
 {
-    int sz = (int) (next_pc - pc);
+    int sz = (int)(next_pc - pc);
     int i, extra_sz;
     if (sz > BYTES_PER_LINE) {
         extra_sz = sz - BYTES_PER_LINE;
@@ -95,9 +91,8 @@ print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
 }
 
 void
-print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
-                            byte *pc, byte *next_pc, int extra_sz,
-                            const char *extra_bytes_prefix)
+print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
+                            byte *next_pc, int extra_sz, const char *extra_bytes_prefix)
 {
     int i;
     if (extra_sz > 0) {
@@ -133,23 +128,31 @@ instr_implicit_reg(instr_t *instr)
 {
     /* instrs that have multiple encodings whose reg opnds are always implicit */
     switch (instr_get_opcode(instr)) {
-    case OP_ins: case OP_rep_ins:
-    case OP_outs: case OP_rep_outs:
-    case OP_movs: case OP_rep_movs:
-    case OP_stos: case OP_rep_stos:
-    case OP_lods: case OP_rep_lods:
-    case OP_cmps: case OP_rep_cmps: case OP_repne_cmps:
-    case OP_scas: case OP_rep_scas: case OP_repne_scas:
-        return true;
+    case OP_ins:
+    case OP_rep_ins:
+    case OP_outs:
+    case OP_rep_outs:
+    case OP_movs:
+    case OP_rep_movs:
+    case OP_stos:
+    case OP_rep_stos:
+    case OP_lods:
+    case OP_rep_lods:
+    case OP_cmps:
+    case OP_rep_cmps:
+    case OP_repne_cmps:
+    case OP_scas:
+    case OP_rep_scas:
+    case OP_repne_scas: return true;
     }
     return false;
 }
 
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
-                            dcontext_t *dcontext, instr_t *instr,
-                            byte optype, opnd_t opnd, bool prev, bool multiple_encodings,
-                            bool dst, int *idx INOUT)
+                            dcontext_t *dcontext, instr_t *instr, byte optype,
+                            opnd_t opnd, bool prev, bool multiple_encodings, bool dst,
+                            int *idx INOUT)
 {
     switch (optype) {
     case TYPE_REG:
@@ -160,6 +163,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     case TYPE_VAR_REG_EX:
     case TYPE_VAR_XREG_EX:
     case TYPE_VAR_REGX_EX:
+    case TYPE_VAR_REGX:
         /* we do want to print implicit operands for opcode-decides-register
          * instrs like inc-reg and pop-reg, but not for say lahf, aaa, or cdq.
          */
@@ -192,6 +196,13 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     case TYPE_FLOATMEM:
     case TYPE_VSIB:
     case TYPE_1:
+    case TYPE_K_REG:
+    case TYPE_K_MODRM:
+    case TYPE_K_MODRM_R:
+    case TYPE_K_VEX:
+    case TYPE_K_EVEX:
+    case TYPE_T_REG:
+    case TYPE_T_MODRM:
         if (prev)
             print_to_buffer(buf, bufsz, sofar, ", ");
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
@@ -224,8 +235,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     case TYPE_INDIR_VAR_REG_SIZEx3x5:
         /* implicit operand */
         return false;
-    default:
-        CLIENT_ASSERT(false, "missing decode type"); /* catch any missing types */
+    default: CLIENT_ASSERT(false, "missing decode type"); /* catch any missing types */
     }
     return false;
 }
@@ -243,7 +253,7 @@ instr_opcode_name(instr_t *instr)
         case OP_ret_far: return "retf";
         }
     }
-# ifdef X64
+#    ifdef X64
     if (!instr_get_x86_mode(instr)) {
         if (instr_get_opcode(instr) == OP_jecxz &&
             reg_is_pointer_sized(opnd_get_reg(instr_get_src(instr, 1))))
@@ -261,51 +271,61 @@ instr_opcode_name(instr_t *instr)
                  opnd_get_size(instr_get_src(instr, 0)) == OPSZ_PTR)
             return "vpinsrq";
     }
-# endif
+#    endif
     return NULL;
 }
 
 static const char *
 instr_opcode_name_suffix(instr_t *instr)
 {
-    if (TESTANY(DR_DISASM_INTEL|DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask))) {
+    if (TESTANY(DR_DISASM_INTEL | DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask))) {
         /* add "b" or "d" suffix */
         switch (instr_get_opcode(instr)) {
-        case OP_pushf: case OP_popf:
+        case OP_pushf:
+        case OP_popf:
         case OP_xlat:
-        case OP_ins: case OP_rep_ins:
-        case OP_outs: case OP_rep_outs:
-        case OP_movs: case OP_rep_movs:
-        case OP_stos: case OP_rep_stos:
-        case OP_lods: case OP_rep_lods:
-        case OP_cmps: case OP_rep_cmps: case OP_repne_cmps:
-        case OP_scas: case OP_rep_scas: case OP_repne_scas: {
-                uint sz = instr_memory_reference_size(instr);
-                if (sz == 1)
-                    return "b";
-                else if (sz == 2)
-                    return "w";
-                else if (sz == 4)
-                    return "d";
-                else if (sz == 8)
-                    return "q";
+        case OP_ins:
+        case OP_rep_ins:
+        case OP_outs:
+        case OP_rep_outs:
+        case OP_movs:
+        case OP_rep_movs:
+        case OP_stos:
+        case OP_rep_stos:
+        case OP_lods:
+        case OP_rep_lods:
+        case OP_cmps:
+        case OP_rep_cmps:
+        case OP_repne_cmps:
+        case OP_scas:
+        case OP_rep_scas:
+        case OP_repne_scas: {
+            uint sz = instr_memory_reference_size(instr);
+            if (sz == 1)
+                return "b";
+            else if (sz == 2)
+                return "w";
+            else if (sz == 4)
+                return "d";
+            else if (sz == 8)
+                return "q";
         }
         case OP_pusha:
         case OP_popa: {
-                uint sz = instr_memory_reference_size(instr);
-                if (sz == 16)
-                    return "w";
-                else if (sz == 32)
-                    return "d";
+            uint sz = instr_memory_reference_size(instr);
+            if (sz == 16)
+                return "w";
+            else if (sz == 32)
+                return "d";
         }
         case OP_iret: {
-                uint sz = instr_memory_reference_size(instr);
-                if (sz == 6)
-                    return "w";
-                else if (sz == 12)
-                    return "d";
-                else if (sz == 40)
-                    return "q";
+            uint sz = instr_memory_reference_size(instr);
+            if (sz == 6)
+                return "w";
+            else if (sz == 12)
+                return "d";
+            else if (sz == 40)
+                return "q";
         }
         }
     }
@@ -331,18 +351,17 @@ instr_opcode_name_suffix(instr_t *instr)
 }
 
 void
-print_opcode_name(instr_t *instr, const char *name,
-                  char *buf, size_t bufsz, size_t *sofar INOUT)
+print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
+                  size_t *sofar INOUT)
 {
     const char *subst_name = instr_opcode_name(instr);
     print_to_buffer(buf, bufsz, sofar, "%s%s", subst_name == NULL ? name : subst_name,
                     instr_opcode_name_suffix(instr));
 }
 
-
 void
-print_instr_prefixes(dcontext_t *dcontext, instr_t *instr,
-                     char *buf, size_t bufsz, size_t *sofar INOUT)
+print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t bufsz,
+                     size_t *sofar INOUT)
 {
     if (TEST(PREFIX_XACQUIRE, instr->prefixes))
         print_to_buffer(buf, bufsz, sofar, "xacquire ");
@@ -366,10 +385,10 @@ print_instr_prefixes(dcontext_t *dcontext, instr_t *instr,
             print_to_buffer(buf, bufsz, sofar,
                             X64_MODE_DC(dcontext) ? "addr32 " : "addr16 ");
         }
-# if 0 /* disabling for PR 256226 */
+#    if 0 /* disabling for PR 256226 */
         if (TEST(PREFIX_REX_W, instr->prefixes))
             print_to_buffer(buf, bufsz, sofar, "rex.w ");
-# endif
+#    endif
     }
 }
 

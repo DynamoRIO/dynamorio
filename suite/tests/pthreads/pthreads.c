@@ -32,12 +32,14 @@
  */
 
 /* Build with:
- * gcc -o pthreads pthreads.c -lpthread -D_REENTRANT -I../lib -L../lib -ldynamo -ldl -lbfd -liberty
+ * gcc -o pthreads pthreads.c -lpthread -D_REENTRANT -I../lib -L../lib -ldynamo -ldl -lbfd
+ * -liberty
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include "tools.h"
 
 volatile double pi = 0.0;  /* Approximation to pi (shared) */
 pthread_mutex_t pi_lock;   /* Lock for above */
@@ -46,22 +48,22 @@ volatile double intervals; /* How many intervals? */
 void *
 process(void *arg)
 {
-    char *id = (char *) arg;
+    char *id = (char *)arg;
     register double width, localsum;
     register int i;
     register int iproc;
 
 #if VERBOSE
-    fprintf(stderr, "\tthread %s starting\n", id);
+    print("\tthread %s starting\n", id);
 #endif
-    iproc = (*((char *) arg) - '0');
+    iproc = (*((char *)arg) - '0');
 
     /* Set width */
     width = 1.0 / intervals;
 
     /* Do the local computations */
     localsum = 0;
-    for (i=iproc; i<intervals; i+=2) {
+    for (i = iproc; i < intervals; i += 2) {
         register double x = (i + 0.5) * width;
         localsum += 4.0 / (1.0 + x * x);
     }
@@ -73,21 +75,21 @@ process(void *arg)
     pthread_mutex_unlock(&pi_lock);
 
 #if VERBOSE
-    fprintf(stderr, "\tthread %s exiting\n", id);
+    print("\tthread %s exiting\n", id);
 #endif
-    return(NULL);
+    return (NULL);
 }
 
 int
 main(int argc, char **argv)
 {
     pthread_t thread0, thread1;
-    void * retval;
+    void *retval;
 
 #if 0
     /* Get the number of intervals */
     if (argc != 2) {
-        fprintf(stderr, "Usage: %s <intervals>\n", argv[0]);
+        print("Usage: %s <intervals>\n", argv[0]);
         exit(0);
     }
     intervals = atoi(argv[1]);
@@ -101,17 +103,16 @@ main(int argc, char **argv)
     /* Make the two threads */
     if (pthread_create(&thread0, NULL, process, (void *)"0") ||
         pthread_create(&thread1, NULL, process, (void *)"1")) {
-        fprintf(stderr, "%s: cannot make thread\n", argv[0]);
+        print("%s: cannot make thread\n", argv[0]);
         exit(1);
     }
 
     /* Join (collapse) the two threads */
-    if (pthread_join(thread0, &retval) ||
-        pthread_join(thread1, &retval)) {
-        fprintf(stderr, "%s: thread join failed\n", argv[0]);
+    if (pthread_join(thread0, &retval) || pthread_join(thread1, &retval)) {
+        print("%s: thread join failed\n", argv[0]);
         exit(1);
     }
 
     /* Print the result */
-    printf("Estimation of pi is %16.15f\n", pi);
+    print("Estimation of pi is %16.15f\n", pi);
 }

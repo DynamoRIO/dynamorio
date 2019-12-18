@@ -33,9 +33,9 @@
 
 #include "dr_api.h"
 #ifdef MACOS
-# include <sys/syscall.h>
+#    include <sys/syscall.h>
 #else
-# include <syscall.h>
+#    include <syscall.h>
 #endif
 
 /* Tests removing a system call. */
@@ -43,16 +43,15 @@
 #define MINSERT instrlist_meta_preinsert
 
 #ifdef AARCH64
-# define SYSCALL_ARG_REG DR_REG_X8
-# define SYSCALL_RES_REG DR_REG_X0
+#    define SYSCALL_ARG_REG DR_REG_X8
+#    define SYSCALL_RES_REG DR_REG_X0
 #else
-# define SYSCALL_ARG_REG REG_EAX
-# define SYSCALL_RES_REG REG_EAX
+#    define SYSCALL_ARG_REG REG_EAX
+#    define SYSCALL_RES_REG REG_EAX
 #endif
 
-static
-dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t* bb,
-                         bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr;
     instr_t *next_instr;
@@ -66,11 +65,9 @@ dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t* bb,
             opnd_get_reg(instr_get_dst(instr, 0)) == SYSCALL_ARG_REG &&
             opnd_is_immed_int(instr_get_src(instr, 0)))
             in_reg = opnd_get_immed_int(instr_get_src(instr, 0));
-        if (instr_is_syscall(instr) &&
-            in_reg == SYS_getpid) {
-            instr_t *myval = XINST_CREATE_load_int
-                (drcontext, opnd_create_reg(SYSCALL_RES_REG),
-                 OPND_CREATE_INT32(-7));
+        if (instr_is_syscall(instr) && in_reg == SYS_getpid) {
+            instr_t *myval = XINST_CREATE_load_int(
+                drcontext, opnd_create_reg(SYSCALL_RES_REG), OPND_CREATE_INT32(-7));
             instr_set_translation(myval, instr_get_app_pc(instr));
             instrlist_preinsert(bb, instr, myval);
             instrlist_remove(bb, instr);
@@ -81,7 +78,8 @@ dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t* bb,
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     dr_register_bb_event(bb_event);
 }

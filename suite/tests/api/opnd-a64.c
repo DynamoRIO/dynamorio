@@ -36,10 +36,11 @@
 #include "dr_api.h"
 #include <stdio.h>
 
-#define ASSERT(x) \
-   ((void)((!(x)) ? \
-       (fprintf(stderr, "ASSERT FAILURE: %s:%d: %s\n", __FILE__,  __LINE__, #x),\
-        abort(), 0) : 0))
+#define ASSERT(x)                                                                        \
+    ((void)((!(x)) ? (fprintf(stderr, "ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, \
+                              #x),                                                       \
+                      abort(), 0)                                                        \
+                   : 0))
 
 static void
 test_get_size()
@@ -52,16 +53,26 @@ test_get_size()
 
     // Check sizes of GPRs.
     for (uint i = 0; i < DR_NUM_GPR_REGS; i++) {
-        ASSERT(reg_get_size((reg_id_t) DR_REG_W0 + i) == OPSZ_4);
-        ASSERT(reg_get_size((reg_id_t) DR_REG_X0 + i) == OPSZ_8);
+        ASSERT(reg_get_size((reg_id_t)DR_REG_W0 + i) == OPSZ_4);
+        ASSERT(reg_get_size((reg_id_t)DR_REG_X0 + i) == OPSZ_8);
     }
 
     // Check sizes of FP/SIMD regs.
-    for (uint i = 0; i < NUM_SIMD_SLOTS; i++) {
-        ASSERT(reg_get_size((reg_id_t) DR_REG_H0 + i) == OPSZ_2);
-        ASSERT(reg_get_size((reg_id_t) DR_REG_S0 + i) == OPSZ_4);
-        ASSERT(reg_get_size((reg_id_t) DR_REG_D0 + i) == OPSZ_8);
-        ASSERT(reg_get_size((reg_id_t) DR_REG_Q0 + i) == OPSZ_16);
+    for (int i = 0; i < proc_num_simd_registers(); i++) {
+        ASSERT(reg_get_size((reg_id_t)DR_REG_H0 + i) == OPSZ_2);
+        ASSERT(reg_get_size((reg_id_t)DR_REG_S0 + i) == OPSZ_4);
+        ASSERT(reg_get_size((reg_id_t)DR_REG_D0 + i) == OPSZ_8);
+        ASSERT(reg_get_size((reg_id_t)DR_REG_Q0 + i) == OPSZ_16);
+    }
+
+    // Check sizes of SVE vector regs.
+    for (uint i = 0; i < 32; i++) {
+        ASSERT(reg_get_size((reg_id_t)DR_REG_Z0 + i) == OPSZ_SCALABLE);
+    }
+
+    // Check sizes of SVE predicate regs.
+    for (uint i = 0; i < 16; i++) {
+        ASSERT(reg_get_size((reg_id_t)DR_REG_P0 + i) == OPSZ_SCALABLE_PRED);
     }
 }
 

@@ -60,68 +60,78 @@
 #include "test_annotation_arguments.h"
 
 #ifdef WINDOWS
-# define INLINE __inline
+#    define INLINE __inline
 #else
-# define INLINE inline
+#    define INLINE inline
 #endif
 
 #define DR_LOG(format, ...) \
     DYNAMORIO_ANNOTATE_LOG("<annotation-detection> " format, ##__VA_ARGS__)
 
 /* Test virtual function calls */
-class Shape
-{
+class Shape {
 public:
-    virtual double get_area() = 0;
-    virtual unsigned int get_vertex_count() = 0;
+    virtual double
+    get_area() = 0;
+    virtual unsigned int
+    get_vertex_count() = 0;
 };
 
 /* Test inheritance */
-class Square : public Shape
-{
+class Square : public Shape {
 public:
     Square(double side_length);
-    double get_side_length();
-    double get_area();
-    unsigned int get_vertex_count();
+    double
+    get_side_length();
+    double
+    get_area();
+    unsigned int
+    get_vertex_count();
 
 private:
     double side_length;
 };
 
-
 /* Test inheritance */
-class Triangle : public Shape
-{
+class Triangle : public Shape {
 public:
     Triangle(double a, double b, double c);
-    double get_a();
-    double get_b();
-    double get_c();
-    double get_area();
-    unsigned int three();
-    void set_lengths(double a, double b, double c);
-    unsigned int get_vertex_count();
+    double
+    get_a();
+    double
+    get_b();
+    double
+    get_c();
+    double
+    get_area();
+    unsigned int
+    three();
+    void
+    set_lengths(double a, double b, double c);
+    unsigned int
+    get_vertex_count();
 
 private:
     double lengths[3];
 
-    double calculate_s();
+    double
+    calculate_s();
 };
 
 /* Test exception handling */
-class Fail : public std::runtime_error
-{
+class Fail : public std::runtime_error {
 public:
     Fail(int error_code);
-    int get_error_code() const;
+    int
+    get_error_code() const;
 
 private:
     int error_code;
 };
 
 /* Test a constructor containing only an annotation */
-Square::Square(double side_length) : side_length(side_length)
+Square::Square(double side_length)
+    : side_length(side_length)
 {
     DR_LOG("Square::Square() ${timestamp}\n");
 }
@@ -130,8 +140,7 @@ Square::Square(double side_length) : side_length(side_length)
 INLINE double
 Square::get_side_length()
 {
-    TEST_ANNOTATION_TWO_ARGS(1001, (unsigned int) side_length,
-    {
+    TEST_ANNOTATION_TWO_ARGS(1001, (unsigned int)side_length, {
         print("Native two-args in Square::get_side_length()\n");
     });
 
@@ -142,10 +151,8 @@ Square::get_side_length()
 double
 Square::get_area()
 {
-    TEST_ANNOTATION_TWO_ARGS(1002, (unsigned int) (get_side_length() * get_side_length()),
-    {
-        print("Native two-args in Square::get_area()\n");
-    });
+    TEST_ANNOTATION_TWO_ARGS(1002, (unsigned int)(get_side_length() * get_side_length()),
+                             { print("Native two-args in Square::get_area()\n"); });
 
     return get_side_length() * get_side_length();
 }
@@ -165,15 +172,15 @@ Triangle::Triangle(double a, double b, double c)
 
     set_lengths(a, b, c);
 
-    TEST_ANNOTATION_THREE_ARGS(1003, (unsigned int) b, (unsigned int) get_area());
+    TEST_ANNOTATION_THREE_ARGS(1003, (unsigned int)b, (unsigned int)get_area());
 }
 
 /* Tests annotations in a virtual function implementation */
 unsigned int
 Triangle::three()
 {
-    return TEST_ANNOTATION_THREE_ARGS((unsigned int) get_a(), (unsigned int) get_b(),
-                                      (unsigned int) get_c());
+    return TEST_ANNOTATION_THREE_ARGS((unsigned int)get_a(), (unsigned int)get_b(),
+                                      (unsigned int)get_c());
 }
 
 /* Tests annotations in an inline non-virtual C++ function */
@@ -182,15 +189,13 @@ Triangle::set_lengths(double a, double b, double c)
 {
     lengths[0] = a;
 
-    TEST_ANNOTATION_TWO_ARGS(1004, (unsigned int) b,
-    {
-        print("Native two-args in Square::set_lengths()\n");
-    });
+    TEST_ANNOTATION_TWO_ARGS(1004, (unsigned int)b,
+                             { print("Native two-args in Square::set_lengths()\n"); });
 
     lengths[1] = b;
     lengths[2] = c;
 
-    TEST_ANNOTATION_THREE_ARGS(1005, (unsigned int) b, (unsigned int) get_area());
+    TEST_ANNOTATION_THREE_ARGS(1005, (unsigned int)b, (unsigned int)get_area());
 }
 
 /* For adding variety to long argument lists */
@@ -206,10 +211,8 @@ Triangle::get_a()
 INLINE double
 Triangle::get_b()
 {
-    TEST_ANNOTATION_TWO_ARGS(1006, (unsigned int) get_c(),
-    {
-        print("Native two-args in Triangle::get_b()\n");
-    });
+    TEST_ANNOTATION_TWO_ARGS(1006, (unsigned int)get_c(),
+                             { print("Native two-args in Triangle::get_b()\n"); });
 
     return lengths[1];
 }
@@ -218,9 +221,8 @@ Triangle::get_b()
 INLINE double
 Triangle::get_c()
 {
-    TEST_ANNOTATION_TWO_ARGS(1007, (unsigned int) get_a(), {
-        print("Native two-args in Triangle::get_c()\n");
-    });
+    TEST_ANNOTATION_TWO_ARGS(1007, (unsigned int)get_a(),
+                             { print("Native two-args in Triangle::get_c()\n"); });
     TEST_ANNOTATION_THREE_ARGS(1008, 0x77, 0x7890);
 
     return lengths[2];
@@ -262,12 +264,12 @@ Triangle::calculate_s()
 }
 
 /* Tests an exception constructor containing only an annotation */
-Fail::Fail(int error_code) : runtime_error("foo"), error_code(error_code)
+Fail::Fail(int error_code)
+    : runtime_error("foo")
+    , error_code(error_code)
 {
     TEST_ANNOTATION_TWO_ARGS(1009, error_code,
-    {
-        print("Native two-args in Fail::Fail()\n");
-    });
+                             { print("Native two-args in Fail::Fail()\n"); });
 }
 
 /* For testing an annotated function call on a `catch` block's argument */
@@ -275,9 +277,7 @@ int
 Fail::get_error_code() const
 {
     TEST_ANNOTATION_TWO_ARGS(1010, error_code,
-    {
-        print("Native two-args in Fail::get_error_code()\n");
-    });
+                             { print("Native two-args in Fail::get_error_code()\n"); });
 
     return error_code;
 }
@@ -311,10 +311,7 @@ power(int x, unsigned int exp)
 static INLINE int
 two()
 {
-    TEST_ANNOTATION_TWO_ARGS(1011, 5,
-    {
-        print("Native two args: %d, %d\n", 1012, 5);
-    });
+    TEST_ANNOTATION_TWO_ARGS(1011, 5, { print("Native two args: %d, %d\n", 1012, 5); });
     return 2;
 }
 
@@ -332,14 +329,16 @@ static void
 colocated_annotation_test()
 {
     /* This line is over length so that it can test two annotations on the same line */
-    TEST_ANNOTATION_EIGHT_ARGS(1014, 2, 3, 4, 5, 6, 7, 8); TEST_ANNOTATION_NINE_ARGS(1014, 2, 3, 4, 5, 6, 7, 8, 9);
+    TEST_ANNOTATION_EIGHT_ARGS(1014, 2, 3, 4, 5, 6, 7, 8);
+    TEST_ANNOTATION_NINE_ARGS(1014, 2, 3, 4, 5, 6, 7, 8, 9);
 }
 
 /* Tests control flow correctness in a large loopy function having a switch statement,
  * goto, exceptions, setjmp/longjmp and very long chains of inline functions having
  * long arg lists with annotations at every level of inlining, including return values.
  */
-int main(void)
+int
+main(void)
 {
     int result = 0;
     unsigned int i, j;
@@ -357,59 +356,45 @@ int main(void)
 
     shape = t;
     print("Triangle [%f x %f x %f] area: %f (%d)\n", t->get_a(), t->get_b(), t->get_c(),
-           t->get_area(), three((unsigned int) shape->get_vertex_count(), t->three()));
+          t->get_area(), three((unsigned int)shape->get_vertex_count(), t->three()));
 
     shape = s;
     print("Square [%f x %f] area: %f (%d)\n", s->get_side_length(), s->get_side_length(),
           shape->get_area(),
-          three((unsigned int) shape->get_vertex_count(),
-                three((unsigned int) shape->get_area(),
-                      (unsigned int) t->get_b()) == two() ?
-                           DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() :
-                           TEST_ANNOTATION_THREE_ARGS(t->three(), t->three(),
-                                                      t->three())));
+          three((unsigned int)shape->get_vertex_count(),
+                three((unsigned int)shape->get_area(), (unsigned int)t->get_b()) == two()
+                    ? DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO()
+                    : TEST_ANNOTATION_THREE_ARGS(t->three(), t->three(), t->three())));
 
     try {
         TEST_ANNOTATION_NINE_ARGS(1016, 2, 3, 4, 5, 6, 7, 8, 9);
-        throw (Fail(TEST_ANNOTATION_THREE_ARGS((unsigned int) t->get_b(),
-                                               (unsigned int) shape->get_area(), 4)));
-        TEST_ANNOTATION_TWO_ARGS(two(), 4,
-        {
-            print("Native line %d\n", 1017);
-        });
-    } catch (const Fail& fail) {
-        TEST_ANNOTATION_TWO_ARGS(1, two(),
-        {
-            print("Native line %d\n", 1018);
-        });
+        throw(Fail(TEST_ANNOTATION_THREE_ARGS((unsigned int)t->get_b(),
+                                              (unsigned int)shape->get_area(), 4)));
+        TEST_ANNOTATION_TWO_ARGS(two(), 4, { print("Native line %d\n", 1017); });
+    } catch (const Fail &fail) {
+        TEST_ANNOTATION_TWO_ARGS(1, two(), { print("Native line %d\n", 1018); });
         print("Fail! %d\n", fail.get_error_code());
     }
 
-    TEST_ANNOTATION_TWO_ARGS(two(), 4,
-    {
-        print("Native line %d\n", 1019);
-    });
+    TEST_ANNOTATION_TWO_ARGS(two(), 4, { print("Native line %d\n", 1019); });
     print("three args #0: %d\n", TEST_ANNOTATION_THREE_ARGS(1, 2, 3));
     print("three args #1: %d\n", TEST_ANNOTATION_THREE_ARGS(three(9, 8), two(), 1));
     print("three args #2: %d\n", TEST_ANNOTATION_THREE_ARGS(two(), 4, three(2, 3)));
 
     colocated_annotation_test();
 
-    j = ((unsigned int) shape->get_area()) % 11;
+    j = ((unsigned int)shape->get_area()) % 11;
     for (i = 0; i < 10; i++) {
         DR_LOG("Iteration %d\n", i);
         switch ((i + j) % 10) {
         case 0:
-            TEST_ANNOTATION_NINE_ARGS(power(2, power(i, 3) % 9), power(3, 4), power(i, j),
-                                      power(2, i), power(two(), 3), power(3, 4),
-                                      DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO(),
-                                      power(i, j),
-                                      power(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO(),
-                                            i));
-        case 1:
-            TEST_ANNOTATION_EIGHT_ARGS(1020, 2, 3, 4, 5, 6, 7, 8);
+            TEST_ANNOTATION_NINE_ARGS(
+                power(2, power(i, 3) % 9), power(3, 4), power(i, j), power(2, i),
+                power(two(), 3), power(3, 4), DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO(),
+                power(i, j), power(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO(), i));
+        case 1: TEST_ANNOTATION_EIGHT_ARGS(1020, 2, 3, 4, 5, 6, 7, 8);
         case 2:
-test_goto_label:
+        test_goto_label:
         case 3:
         case 4:
             TEST_ANNOTATION_NINE_ARGS(1021, 2, 3, 4, 5, 6, 7, 8, 9);
@@ -420,8 +405,7 @@ test_goto_label:
             annotation_wrapper(i, j, i + j, i * j);
             TEST_ANNOTATION_TEN_ARGS(1024, 2, 3, 4, 5, 6, 7, 8, 9, 10);
             break;
-        case 6:
-            TEST_ANNOTATION_EIGHT_ARGS(1025, 2, 3, 4, 5, 6, 7, 8);
+        case 6: TEST_ANNOTATION_EIGHT_ARGS(1025, 2, 3, 4, 5, 6, 7, 8);
         case 7: {
             unsigned int a = two();
             unsigned int b = three(i, j);

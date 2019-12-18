@@ -50,28 +50,36 @@ tlb_simulator_create(const tlb_simulator_knobs_t &knobs)
     return new tlb_simulator_t(knobs);
 }
 
-tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs_) :
-    simulator_t(knobs_.num_cores, knobs_.skip_refs, knobs_.warmup_refs,
-                knobs_.warmup_fraction, knobs_.sim_refs,
-                knobs_.cpu_scheduling, knobs_.verbose),
-    knobs(knobs_)
+tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs_)
+    : simulator_t(knobs_.num_cores, knobs_.skip_refs, knobs_.warmup_refs,
+                  knobs_.warmup_fraction, knobs_.sim_refs, knobs_.cpu_scheduling,
+                  knobs_.verbose)
+    , knobs(knobs_)
 {
-    itlbs = new tlb_t* [knobs.num_cores];
-    dtlbs = new tlb_t* [knobs.num_cores];
-    lltlbs = new tlb_t* [knobs.num_cores];
+    itlbs = new tlb_t *[knobs.num_cores];
+    dtlbs = new tlb_t *[knobs.num_cores];
+    lltlbs = new tlb_t *[knobs.num_cores];
+    for (unsigned int i = 0; i < knobs.num_cores; i++) {
+        itlbs[i] = NULL;
+        dtlbs[i] = NULL;
+        lltlbs[i] = NULL;
+    }
     for (unsigned int i = 0; i < knobs.num_cores; i++) {
         itlbs[i] = create_tlb(knobs.TLB_replace_policy);
         if (itlbs[i] == NULL) {
+            error_string = "Failed to create itlbs";
             success = false;
             return;
         }
         dtlbs[i] = create_tlb(knobs.TLB_replace_policy);
         if (dtlbs[i] == NULL) {
+            error_string = "Failed to create dtlbs";
             success = false;
             return;
         }
         lltlbs[i] = create_tlb(knobs.TLB_replace_policy);
         if (lltlbs[i] == NULL) {
+            error_string = "Failed to create lltlbs";
             success = false;
             return;
         }
@@ -82,8 +90,8 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs_) :
                             knobs.TLB_L1D_entries, lltlbs[i], new tlb_stats_t) ||
             !lltlbs[i]->init(knobs.TLB_L2_assoc, (int)knobs.page_size,
                              knobs.TLB_L2_entries, NULL, new tlb_stats_t)) {
-            ERRMSG("Usage error: failed to initialize TLBs. Ensure entry number, "
-                   "page size and associativity are powers of 2.\n");
+            error_string = "Usage error: failed to initialize TLBs. Ensure entry number, "
+                           "page size and associativity are powers of 2.";
             success = false;
             return;
         }
@@ -107,9 +115,9 @@ tlb_simulator_t::~tlb_simulator_t()
         delete lltlbs[i]->get_stats();
         delete lltlbs[i];
     }
-    delete [] itlbs;
-    delete [] dtlbs;
-    delete [] lltlbs;
+    delete[] itlbs;
+    delete[] dtlbs;
+    delete[] lltlbs;
 }
 
 bool
@@ -126,7 +134,8 @@ tlb_simulator_t::process_memref(const memref_t &memref)
 
     // Both warmup and simulated references are simulated.
 
-    simulator_t::process_memref(memref);
+    if (!simulator_t::process_memref(memref))
+        return false;
 
     if (memref.marker.type == TRACE_TYPE_MARKER) {
         // We ignore markers before we ask core_for_thread, to avoid asking
@@ -148,29 +157,27 @@ tlb_simulator_t::process_memref(const memref_t &memref)
 
     if (type_is_instr(memref.instr.type))
         itlbs[core]->request(memref);
-    else if (memref.data.type == TRACE_TYPE_READ ||
-             memref.data.type == TRACE_TYPE_WRITE)
+    else if (memref.data.type == TRACE_TYPE_READ || memref.data.type == TRACE_TYPE_WRITE)
         dtlbs[core]->request(memref);
     else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         handle_thread_exit(memref.exit.tid);
         last_thread = 0;
-    }
-    else if (type_is_prefetch(memref.data.type) ||
-             memref.flush.type == TRACE_TYPE_INSTR_FLUSH ||
-             memref.flush.type == TRACE_TYPE_DATA_FLUSH ||
-             memref.marker.type == TRACE_TYPE_MARKER ||
-             memref.marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
+    } else if (type_is_prefetch(memref.data.type) ||
+               memref.flush.type == TRACE_TYPE_INSTR_FLUSH ||
+               memref.flush.type == TRACE_TYPE_DATA_FLUSH ||
+               memref.marker.type == TRACE_TYPE_MARKER ||
+               memref.marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
         // TLB simulator ignores prefetching, cache flushing, and markers
     } else {
-        ERRMSG("unhandled memref type");
+        error_string = "Unhandled memref type " + std::to_string(memref.data.type);
         return false;
     }
 
     if (knobs.verbose >= 3) {
-        std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
-            " @" << (void *)memref.data.pc <<
-            " " << trace_type_names[memref.data.type] << " " <<
-            (void *)memref.data.addr << " x" << memref.data.size << std::endl;
+        std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
+                  << " @" << (void *)memref.data.pc << " "
+                  << trace_type_names[memref.data.type] << " " << (void *)memref.data.addr
+                  << " x" << memref.data.size << std::endl;
     }
 
     // process counters for warmup and simulated references
@@ -184,8 +191,7 @@ tlb_simulator_t::process_memref(const memref_t &memref)
                 lltlbs[i]->get_stats()->reset();
             }
         }
-    }
-    else {
+    } else {
         knobs.sim_refs--;
     }
     return true;
@@ -209,7 +215,7 @@ tlb_simulator_t::print_results()
     return true;
 }
 
-tlb_t*
+tlb_t *
 tlb_simulator_t::create_tlb(std::string policy)
 {
     // XXX: how to implement different replacement policies?
@@ -217,11 +223,11 @@ tlb_simulator_t::create_tlb(std::string policy)
     // Or should we adopt multiple inheritence to have caching_device_XXX_t as one base
     // and tlb_t as another base class?
     if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LFU
-        policy == REPLACE_POLICY_LFU) // set to LFU
+        policy == REPLACE_POLICY_LFU)             // set to LFU
         return new tlb_t;
 
     // undefined replacement policy
     ERRMSG("Usage error: undefined replacement policy. "
-           "Please choose " REPLACE_POLICY_LFU".\n");
+           "Please choose " REPLACE_POLICY_LFU ".\n");
     return NULL;
 }

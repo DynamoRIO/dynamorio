@@ -79,8 +79,7 @@ check_inst(void *dc, uint enc, const char *dis, size_t len, bool verbose, bool *
     }
 
     /* Test disassembler. */
-    disassemble_to_buffer(dc, (byte *)&enc, ORIG_PC, false, false,
-                          buf, buflen, NULL);
+    disassemble_to_buffer(dc, (byte *)&enc, ORIG_PC, false, false, buf, buflen, NULL);
     end = buf + strlen(buf);
     if (end > buf && *(end - 1) == '\n')
         --end;
@@ -174,7 +173,7 @@ run_test(void *dc, const char *file, bool verbose)
     end = map_base + map_size;
     while (s < end) {
         byte *t = memchr(s, '\n', end - s);
-        do_line(dc, (const char *) s, (t == NULL ? end : t) - s, verbose, &failed);
+        do_line(dc, (const char *)s, (t == NULL ? end : t) - s, verbose, &failed);
         s = (t == NULL ? end : t + 1);
     }
 
@@ -199,9 +198,9 @@ main(int argc, char *argv[])
 {
     void *dc = dr_standalone_init();
 
-    if (argc != 3 || (strcmp(argv[1], "-q") != 0 &&
-                      strcmp(argv[1], "-v") != 0 &&
-                      strcmp(argv[1], "-d") != 0)) {
+    if (argc != 3 ||
+        (strcmp(argv[1], "-q") != 0 && strcmp(argv[1], "-v") != 0 &&
+         strcmp(argv[1], "-d") != 0)) {
         dr_printf("Usage: %s [-q |- v] FILE\n", argv[0]);
         dr_printf("   Or: %s -d NUMBER\n", argv[0]);
         dr_printf("Test the disassembler, decoder and encoder on a set of test cases.\n"

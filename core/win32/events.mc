@@ -1,5 +1,5 @@
 ;// **********************************************************
-;// Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+;// Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
 ;// Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
 ;// **********************************************************
 
@@ -633,7 +633,57 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_FAILED_TO_TAKE_OVER_THREADS
 Language=English
-Application %1!s! (%2!s!). Failed to take over all threads after multiple attempts
+Application %1!s! (%2!s!). Failed to take over all threads after multiple attempts.
+.
+
+;#ifdef UNIX
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_FAILED_TO_FIND_DR_BOUNDS
+Language=English
+Application %1!s! (%2!s!). Failed to find DynamoRIO library bounds.
+.
+;#endif
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_FAILED_TO_SATISFY_W_XOR_X
+Language=English
+Application %1!s! (%2!s!). Failed to satisfy W^X policies.
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_OUT_OF_VMM_CANNOT_USE_OS
+Language=English
+Application %1!s! (%2!s!). Out of contiguous memory. %3!s!
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_AVX_512_SUPPORT_INCOMPLETE
+Language=English
+Application %1!s! (%2!s!): AVX-512 was detected at PC %3!s!. AVX-512 is not fully supported yet.
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_RSEQ_BEHAVIOR_UNSUPPORTED
+Language=English
+Application %1!s! (%2!s!). Restartable sequence behavior is not supported: %3!s!.
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_FAILED_TO_ALLOCATE_TLS
+Language=English
+Application %1!s! (%2!s!). Unable to allocate TLS slots. %3!s!
 .
 
 ;// ADD NEW MESSAGES HERE

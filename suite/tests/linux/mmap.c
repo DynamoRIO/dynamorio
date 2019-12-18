@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,28 +46,54 @@ main()
                                     * kernel
                                     */
     void *p;
-    print("Calling mmap(0, "PFX", "PFX", "PFX", "PFX", 0)\n",
-           size, PROT_EXEC|PROT_READ|PROT_WRITE,
-           MAP_ANON|MAP_PRIVATE, -1);
-    p = mmap(0, size, PROT_EXEC|PROT_READ|PROT_WRITE,
-                   MAP_ANON|MAP_PRIVATE, -1, 0);
+    print("Calling mmap(0, " PFX ", " PFX ", " PFX ", " PFX ", 0)\n", size,
+          PROT_EXEC | PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1);
+    p = mmap(0, size, PROT_EXEC | PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
     if (p == MAP_FAILED) {
-        print("mmap ERROR "PFX"\n", p);
+        print("mmap ERROR " PFX "\n", p);
         return 1;
     }
 #if VERBOSE
-    print("mmap returned "PFX"\n", p);
+    print("mmap returned " PFX "\n", p);
 #endif
 #ifndef MACOS
     p = (void *)mremap(p, size, newsize, 0);
-    if ((ptr_int_t) p == -1) {
-        print("mremap ERROR "PFX"\n", p);
+    if ((ptr_int_t)p == -1) {
+        print("mremap ERROR " PFX "\n", p);
         return 1;
     }
-# if VERBOSE
-    print("mremap returned "PFX"\n", p);
-# endif
+#    if VERBOSE
+    print("mremap returned " PFX "\n", p);
+#    endif
 #endif
     munmap(p, newsize);
+
+    /* Test some transition sequences that have been problematic in the past
+     * b/c they look like ld.so's ELF loading.
+     */
+    p = mmap(0, newsize, PROT_READ, MAP_ANON | MAP_PRIVATE, -1, 0);
+    if (p == MAP_FAILED) {
+        print("mmap ERROR " PFX "\n", p);
+        return 1;
+    }
+    p = mmap(p, size, PROT_READ | PROT_EXEC, MAP_ANON | MAP_PRIVATE | MAP_FIXED, -1, 0);
+    if (p == MAP_FAILED) {
+        print("mmap ERROR " PFX "\n", p);
+        return 1;
+    }
+    munmap(p, newsize);
+
+    p = mmap(0, newsize, PROT_READ | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0);
+    if (p == MAP_FAILED) {
+        print("mmap ERROR " PFX "\n", p);
+        return 1;
+    }
+    p = mmap(p, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE | MAP_FIXED, -1, 0);
+    if (p == MAP_FAILED) {
+        print("mmap ERROR " PFX "\n", p);
+        return 1;
+    }
+    munmap(p, newsize);
+
     return 0;
 }

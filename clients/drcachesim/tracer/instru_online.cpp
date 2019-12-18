@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,12 +41,10 @@
 #include <limits.h> /* for USHRT_MAX */
 #include <stddef.h> /* for offsetof */
 
-online_instru_t::online_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
-                                                         instr_t *, reg_id_t),
-                                 bool memref_needs_info,
-                                 drvector_t *reg_vector)
-    : instru_t(insert_load_buf, memref_needs_info, reg_vector,
-               sizeof(trace_entry_t))
+online_instru_t::online_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *,
+                                                         reg_id_t),
+                                 bool memref_needs_info, drvector_t *reg_vector)
+    : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(trace_entry_t))
 {
 }
 
@@ -57,75 +55,75 @@ online_instru_t::~online_instru_t()
 trace_type_t
 online_instru_t::get_entry_type(byte *buf_ptr) const
 {
-    trace_entry_t *entry = (trace_entry_t *) buf_ptr;
+    trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     return (trace_type_t)entry->type;
 }
 
 size_t
 online_instru_t::get_entry_size(byte *buf_ptr) const
 {
-    trace_entry_t *entry = (trace_entry_t *) buf_ptr;
+    trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     return entry->size;
 }
 
 addr_t
 online_instru_t::get_entry_addr(byte *buf_ptr) const
 {
-    trace_entry_t *entry = (trace_entry_t *) buf_ptr;
+    trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     return entry->addr;
 }
 
 void
 online_instru_t::set_entry_addr(byte *buf_ptr, addr_t addr)
 {
-    trace_entry_t *entry = (trace_entry_t *) buf_ptr;
+    trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     entry->addr = addr;
 }
 
 int
 online_instru_t::append_pid(byte *buf_ptr, process_id_t pid)
 {
-    trace_entry_t *entry = (trace_entry_t *) buf_ptr;
+    trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     entry->type = TRACE_TYPE_PID;
     entry->size = sizeof(process_id_t);
-    entry->addr = (addr_t) pid;
+    entry->addr = (addr_t)pid;
     return sizeof(trace_entry_t);
 }
 
 int
 online_instru_t::append_tid(byte *buf_ptr, thread_id_t tid)
 {
-    trace_entry_t *entry = (trace_entry_t *) buf_ptr;
+    trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     entry->type = TRACE_TYPE_THREAD;
     entry->size = sizeof(thread_id_t);
-    entry->addr = (addr_t) tid;
+    entry->addr = (addr_t)tid;
     return sizeof(trace_entry_t);
 }
 
 int
 online_instru_t::append_thread_exit(byte *buf_ptr, thread_id_t tid)
 {
-    trace_entry_t *entry = (trace_entry_t *) buf_ptr;
+    trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     entry->type = TRACE_TYPE_THREAD_EXIT;
     entry->size = sizeof(thread_id_t);
-    entry->addr = (addr_t) tid;
+    entry->addr = (addr_t)tid;
     return sizeof(trace_entry_t);
 }
 
 int
 online_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val)
 {
-    trace_entry_t *entry = (trace_entry_t *) buf_ptr;
+    trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     entry->type = TRACE_TYPE_MARKER;
-    entry->size = (ushort) type;
-    entry->addr = (addr_t) val;
+    entry->size = (ushort)type;
+    entry->addr = (addr_t)val;
     return sizeof(trace_entry_t);
 }
 
 int
 online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 {
-    trace_entry_t *entry = (trace_entry_t *) buf_ptr;
+    trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     entry->type = TRACE_TYPE_INSTR_FLUSH;
     entry->addr = start;
     entry->size = (size <= USHRT_MAX) ? (ushort)size : 0;
@@ -168,8 +166,7 @@ online_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *wh
 #ifdef X86_32
     ptr_int_t val = (ptr_int_t)pc;
     MINSERT(ilist, where,
-            INSTR_CREATE_mov_st(drcontext,
-                                OPND_CREATE_MEM32(base, disp),
+            INSTR_CREATE_mov_st(drcontext, OPND_CREATE_MEM32(base, disp),
                                 OPND_CREATE_INT32((int)val)));
 #else
     // For X86_64, we can't write the PC immed directly to memory and
@@ -177,12 +174,10 @@ online_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *wh
     // region of the buffer we'll be leaving 0xffffffff in the top
     // half (i#1735).  Thus we go through a register on x86 (where we
     // can skip the top half), just like on ARM.
-    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
-                                     opnd_create_reg(scratch),
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc, opnd_create_reg(scratch),
                                      ilist, where, NULL, NULL);
     MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext,
-                               OPND_CREATE_MEMPTR(base, disp),
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(base, disp),
                                opnd_create_reg(scratch)));
 #endif
 }
@@ -200,8 +195,7 @@ online_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     }
     MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext,
-                               OPND_CREATE_MEMPTR(reg_ptr, disp),
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
                                opnd_create_reg(reg_addr)));
 }
 
@@ -218,43 +212,35 @@ online_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
         scratch = reg_resize_to_opsz(scratch, OPSZ_2);
         /* save type */
         MINSERT(ilist, where,
-                XINST_CREATE_load_int(drcontext,
-                                      opnd_create_reg(scratch),
+                XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch),
                                       OPND_CREATE_INT16(type)));
         MINSERT(ilist, where,
-                XINST_CREATE_store_2bytes(drcontext,
-                                          OPND_CREATE_MEM16(base, disp),
+                XINST_CREATE_store_2bytes(drcontext, OPND_CREATE_MEM16(base, disp),
                                           opnd_create_reg(scratch)));
         /* save size */
         disp = adjust + offsetof(trace_entry_t, size);
         MINSERT(ilist, where,
-                XINST_CREATE_load_int(drcontext,
-                                      opnd_create_reg(scratch),
+                XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch),
                                       OPND_CREATE_INT16(size)));
         MINSERT(ilist, where,
-                XINST_CREATE_store_2bytes(drcontext,
-                                          OPND_CREATE_MEM16(base, disp),
+                XINST_CREATE_store_2bytes(drcontext, OPND_CREATE_MEM16(base, disp),
                                           opnd_create_reg(scratch)));
     } else {
         /* no padding, save type and size together */
         disp = adjust + offsetof(trace_entry_t, type);
 #ifdef X86
         MINSERT(ilist, where,
-                INSTR_CREATE_mov_st(drcontext,
-                                    OPND_CREATE_MEM32(base, disp),
+                INSTR_CREATE_mov_st(drcontext, OPND_CREATE_MEM32(base, disp),
                                     OPND_CREATE_INT32(type | (size << 16))));
 #elif defined(ARM)
         MINSERT(ilist, where,
-                XINST_CREATE_load_int(drcontext,
-                                      opnd_create_reg(scratch),
+                XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch),
                                       OPND_CREATE_INT(type)));
         MINSERT(ilist, where,
-                INSTR_CREATE_movt(drcontext,
-                                  opnd_create_reg(scratch),
+                INSTR_CREATE_movt(drcontext, opnd_create_reg(scratch),
                                   OPND_CREATE_INT(size)));
         MINSERT(ilist, where,
-                XINST_CREATE_store(drcontext,
-                                   OPND_CREATE_MEM32(base, disp),
+                XINST_CREATE_store(drcontext, OPND_CREATE_MEM32(base, disp),
                                    opnd_create_reg(scratch)));
 #elif defined(AARCH64)
         scratch = reg_resize_to_opsz(scratch, OPSZ_4);
@@ -267,8 +253,7 @@ online_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
                 INSTR_CREATE_movk(drcontext, opnd_create_reg(scratch),
                                   OPND_CREATE_INT(size), OPND_CREATE_INT8(16)));
         MINSERT(ilist, where,
-                XINST_CREATE_store(drcontext,
-                                   OPND_CREATE_MEM32(base, disp),
+                XINST_CREATE_store(drcontext, OPND_CREATE_MEM32(base, disp),
                                    opnd_create_reg(scratch)));
 #endif
     }
@@ -276,9 +261,8 @@ online_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
 
 int
 online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, int adjust,
-                                   instr_t *app, opnd_t ref, bool write,
-                                   dr_pred_type_t pred)
+                                   reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
+                                   int ref_index, bool write, dr_pred_type_t pred)
 {
     ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
     ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, app);
@@ -286,7 +270,7 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
-    if (!memref_needs_full_info) // For full info we skip this for !pred
+    if (!memref_needs_full_info)     // For full info we skip this for !pred
         instrlist_set_auto_predicate(ilist, pred);
     if (memref_needs_full_info) {
         // When filtering we have to insert a PC entry for every memref.
@@ -309,8 +293,8 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
         // hierarchy (data and instruction)
         type = TRACE_TYPE_DATA_FLUSH;
     }
-    insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                              type, size, adjust);
+    insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp, type, size,
+                              adjust);
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
@@ -319,9 +303,8 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
 
 int
 online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
-                                  instrlist_t *ilist, instr_t *where,
-                                  reg_id_t reg_ptr, int adjust,
-                                  instr_t *app)
+                                  instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
+                                  int adjust, instr_t *app)
 {
     bool repstr_expanded = *bb_field != 0; // Avoid cl warning C4800.
     app_pc pc = repstr_expanded ? dr_fragment_app_pc(tag) : instr_get_app_pc(app);
@@ -332,13 +315,13 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     // To handle zero-iter repstr loops this routine is called at the top of the bb
     // where "app" is jecxz so we have to hardcode the rep str type and get length
     // from the tag.
-    ushort type = repstr_expanded ? TRACE_TYPE_INSTR_MAYBE_FETCH :
-        instr_to_instr_type(app, repstr_expanded);
-    ushort size = repstr_expanded ?
-        (ushort)decode_sizeof(drcontext, pc, NULL _IF_X86_64(NULL)) :
-        (ushort)instr_length(drcontext, app);
-    insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                              type, size, adjust);
+    ushort type = repstr_expanded ? TRACE_TYPE_INSTR_MAYBE_FETCH
+                                  : instr_to_instr_type(app, repstr_expanded);
+    ushort size = repstr_expanded
+        ? (ushort)decode_sizeof(drcontext, pc, NULL _IF_X86_64(NULL))
+        : (ushort)instr_length(drcontext, app);
+    insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp, type, size,
+                              adjust);
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, pc, adjust);
     res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
@@ -347,8 +330,8 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
 
 int
 online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                    reg_id_t reg_ptr, int adjust,
-                                    instr_t **delay_instrs, int num_delay_instrs)
+                                    reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
+                                    int num_delay_instrs)
 {
     // Create and instrument for INSTR_BUNDLE
     trace_entry_t entry;
@@ -361,13 +344,13 @@ online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t
     entry.size = 0;
     for (i = 0; i < num_delay_instrs; i++) {
         // Fill instr size into bundle entry
-        entry.length[entry.size++] = (char) instr_length(drcontext, delay_instrs[i]);
+        entry.length[entry.size++] = (char)instr_length(drcontext, delay_instrs[i]);
         // Instrument to add an INSTR_BUNDLE entry if bundle is full or last instr
         if (entry.size == sizeof(entry.length) || i == num_delay_instrs - 1) {
             insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                                       entry.type, entry.size, adjust);
-            insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
-                           (app_pc)entry.addr, adjust);
+            insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, (app_pc)entry.addr,
+                           adjust);
             adjust += sizeof(trace_entry_t);
             entry.size = 0;
         }

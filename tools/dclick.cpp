@@ -46,7 +46,8 @@
 #include <stdio.h>
 #include <assert.h>
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <filename> <args...>\n", argv[0]);
@@ -57,10 +58,10 @@ int main(int argc, char *argv[])
     int cwd_res = GetCurrentDirectory(MAX_PATH, cwd);
     assert(cwd_res > 0);
 
-    TCHAR *params = (TCHAR *) malloc(sizeof(TCHAR) * (argc-1) * MAX_PATH);
+    TCHAR *params = (TCHAR *)malloc(sizeof(TCHAR) * (argc - 1) * MAX_PATH);
     TCHAR *cur = params;
     int i;
-    int len, left = (argc-1) * MAX_PATH;
+    int len, left = (argc - 1) * MAX_PATH;
     for (i = 2; i < argc; i++) {
         len = _sntprintf(cur, left, "%s ", argv[i]);
         if (len < 0) {
@@ -76,19 +77,18 @@ int main(int argc, char *argv[])
 
     fprintf(stderr, "Opening \"%s\" with parameters \"%s\"\n", argv[1], params);
     // tell explorer to "open" the file
-    HINSTANCE res = ShellExecute(NULL, _T("open"),
-                                 argv[1], (LPCTSTR) params, cwd, SW_SHOWNORMAL);
+    HINSTANCE res =
+        ShellExecute(NULL, _T("open"), argv[1], (LPCTSTR)params, cwd, SW_SHOWNORMAL);
 
     free(params);
     if ((int)res <= 32) {
         int errnum = GetLastError();
         LPVOID lpMsgBuf;
-        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                      FORMAT_MESSAGE_FROM_SYSTEM |
-                      FORMAT_MESSAGE_IGNORE_INSERTS,
-                      NULL,  errnum,
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+                          FORMAT_MESSAGE_IGNORE_INSERTS,
+                      NULL, errnum,
                       MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
-                      (LPTSTR) &lpMsgBuf, 0, NULL);
+                      (LPTSTR)&lpMsgBuf, 0, NULL);
         // Display the string.
         fprintf(stderr, "Error opening \"%s\":\n\t%s\n", argv[1], lpMsgBuf);
         // Free the buffer.

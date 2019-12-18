@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,36 +37,37 @@
 #include "drutil.h"
 #include <string.h> /* memcpy */
 
-#define CHECK(x, msg) do {               \
-    if (!(x)) {                          \
-        dr_fprintf(STDERR, "%s\n", msg); \
-        dr_abort();                      \
-    }                                    \
-} while (0);
+#define CHECK(x, msg)                        \
+    do {                                     \
+        if (!(x)) {                          \
+            dr_fprintf(STDERR, "%s\n", msg); \
+            dr_abort();                      \
+        }                                    \
+    } while (0);
 
 static bool verbose;
 
 static int repstr_seen;
 
 #define MAGIC_NOTE 0x9a9b9c9d
-dr_instr_label_data_t magic_vals = {
-    0xdeadbeef, 0xeeeebabe, 0x12345678, 0x8765432
-};
+dr_instr_label_data_t magic_vals = { 0xdeadbeef, 0xeeeebabe, 0x12345678, 0x8765432 };
 
-static void event_exit(void);
-static dr_emit_flags_t event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
-                                        bool for_trace, bool translating);
-static dr_emit_flags_t event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating,
-                                         OUT void **user_data);
-static dr_emit_flags_t event_bb_insert(void *drcontext, void *tag, instrlist_t *bb,
-                                       instr_t *inst, bool for_trace, bool translating,
-                                       void *user_data);
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating);
+static dr_emit_flags_t
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, OUT void **user_data);
+static dr_emit_flags_t
+event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                bool for_trace, bool translating, void *user_data);
 
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    drmgr_priority_t priority = {sizeof(priority), "drutil-test", NULL, NULL, 0};
+    drmgr_priority_t priority = { sizeof(priority), "drutil-test", NULL, NULL, 0 };
     bool ok;
 
     drmgr_init();
@@ -76,8 +77,7 @@ dr_init(client_id_t id)
     ok = drmgr_register_bb_app2app_event(event_bb_app2app, &priority);
     CHECK(ok, "drmgr register bb failed");
 
-    ok = drmgr_register_bb_instrumentation_event(event_bb_analysis,
-                                                 event_bb_insert,
+    ok = drmgr_register_bb_instrumentation_event(event_bb_analysis, event_bb_insert,
                                                  &priority);
     CHECK(ok, "drmgr register bb failed");
 }
@@ -108,8 +108,8 @@ instr_is_stringop_loop(instr_t *inst)
 }
 
 static dr_emit_flags_t
-event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
-                 bool for_trace, bool translating)
+event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating)
 {
     instr_t *inst;
     bool expanded;
@@ -138,8 +138,8 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
 }
 
 static dr_emit_flags_t
-event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating, OUT void **user_data)
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, OUT void **user_data)
 {
     /* test label data (i#675) */
     instr_t *first = instrlist_first(bb);
@@ -148,7 +148,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
         dr_instr_label_data_t *data = instr_get_label_data_area(l);
         CHECK(data != NULL, "failed to get data area");
         memcpy(data, &magic_vals, sizeof(*data));
-        instr_set_note(l, (void *)MAGIC_NOTE);
+        instr_set_note(l, (void *)(ptr_uint_t)MAGIC_NOTE);
         instrlist_meta_preinsert(bb, first, l);
     }
     return DR_EMIT_DEFAULT;
@@ -164,7 +164,7 @@ check_label_data(instrlist_t *bb)
         CHECK(instr_is_label(first), "expected label");
         CHECK(memcmp(data, &magic_vals, sizeof(*data)) == 0,
               "label data was not preserved");
-        CHECK(instr_get_note(first) == (void *)MAGIC_NOTE,
+        CHECK(instr_get_note(first) == (void *)(ptr_uint_t)MAGIC_NOTE,
               "label note was not preserved");
     }
 }
@@ -186,8 +186,8 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                  * this gets the right address: for now just making sure
                  * it doesn't crash
                  */
-                drutil_insert_get_mem_addr(drcontext, bb, instr,
-                                           instr_get_src(instr, i), reg1, reg2);
+                drutil_insert_get_mem_addr(drcontext, bb, instr, instr_get_src(instr, i),
+                                           reg1, reg2);
                 dr_restore_reg(drcontext, bb, instr, reg2, SPILL_SLOT_2);
                 dr_restore_reg(drcontext, bb, instr, reg1, SPILL_SLOT_1);
             }
@@ -204,6 +204,17 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                 dr_restore_reg(drcontext, bb, instr, reg1, SPILL_SLOT_1);
             }
         }
+#ifdef X86
+        if (instr_is_xsave(instr)) {
+            ushort size =
+                (ushort)drutil_opnd_mem_size_in_bytes(instr_get_dst(instr, 0), instr);
+            /* We're checking for a reasonable xsave area size which is at least 576
+             * bytes for the x87 + SSE user state components, or up to 2688 if AVX-512
+             * is enabled.
+             */
+            CHECK(size >= 576 && size <= 2688, "xsave area size unexpected");
+        }
+#endif
     }
     check_label_data(bb);
     return DR_EMIT_DEFAULT;

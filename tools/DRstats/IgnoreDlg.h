@@ -35,23 +35,23 @@
 /* Copyright (c) 2002 Hewlett-Packard Company */
 
 #if !defined(AFX_IGNOREDLG_H__42A2FDDE_31BD_40C1_B7B3_44E955FDC7AD__INCLUDED_)
-#define AFX_IGNOREDLG_H__42A2FDDE_31BD_40C1_B7B3_44E955FDC7AD__INCLUDED_
+#    define AFX_IGNOREDLG_H__42A2FDDE_31BD_40C1_B7B3_44E955FDC7AD__INCLUDED_
 
-#if _MSC_VER > 1000
-#pragma once
-#endif // _MSC_VER > 1000
+#    if _MSC_VER > 1000
+#        pragma once
+#    endif // _MSC_VER > 1000
 // IgnoreDlg.h : header file
 //
 
 /////////////////////////////////////////////////////////////////////////////
 // CIgnoreDlg dialog
 
-class CIgnoreDlg : public CDialog
-{
+class CIgnoreDlg : public CDialog {
     // Construction
 public:
-    BOOL OnInitDialog();
-    CIgnoreDlg(CWnd* pParent = NULL);   // standard constructor
+    BOOL
+    OnInitDialog();
+    CIgnoreDlg(CWnd *pParent = NULL); // standard constructor
 
     // Dialog Data
     //{{AFX_DATA(CIgnoreDlg)
@@ -59,26 +59,28 @@ public:
     CString m_IgnoreList;
     //}}AFX_DATA
 
-
     // Overrides
     // ClassWizard generated virtual function overrides
     //{{AFX_VIRTUAL(CIgnoreDlg)
 protected:
-    virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+    virtual void
+    DoDataExchange(CDataExchange *pDX); // DDX/DDV support
     //}}AFX_VIRTUAL
 
     // Implementation
 protected:
-
     // Generated message map functions
     //{{AFX_MSG(CIgnoreDlg)
-    virtual void OnOK();
-    afx_msg void OnSetPermanent();
+    virtual void
+    OnOK();
+    afx_msg void
+    OnSetPermanent();
     //}}AFX_MSG
     DECLARE_MESSAGE_MAP()
 };
 
 //{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
+// Microsoft Visual C++ will insert additional declarations immediately before the
+// previous line.
 
 #endif // !defined(AFX_IGNOREDLG_H__42A2FDDE_31BD_40C1_B7B3_44E955FDC7AD__INCLUDED_)

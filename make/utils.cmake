@@ -54,11 +54,16 @@ function (append_property_list type target name value)
   set_property(${type} ${target} PROPERTY ${name} ${value})
 endfunction (append_property_list)
 
-function (get_target_path_for_execution out target)
+function(get_full_path out target loc_suffix)
+  DynamoRIO_get_full_path(local ${target} "${loc_suffix}")
+  set(${out} ${local} PARENT_SCOPE)
+endfunction (get_full_path)
+
+function (get_target_path_for_execution out target loc_suffix)
   if (ANDROID)
-    DynamoRIO_get_target_path_for_execution(local ${target} ${DR_DEVICE_BASEDIR})
+    DynamoRIO_get_target_path_for_execution(local ${target} ${DR_DEVICE_BASEDIR} "${loc_suffix}")
   else ()
-    DynamoRIO_get_target_path_for_execution(local ${target} "")
+    DynamoRIO_get_target_path_for_execution(local ${target} "" "${loc_suffix}")
   endif ()
   set(${out} ${local} PARENT_SCOPE)
 endfunction (get_target_path_for_execution)
@@ -71,9 +76,9 @@ endfunction (prefix_cmd_if_necessary)
 # i#1873: we copy individual targets for speed, using up less space, and to
 # support "make test" as well as a much nicer rebuild-and-rerun dev model,
 # rather than a massive "adb push" at the very end of the build.
-function (copy_target_to_device target)
+function (copy_target_to_device target loc_suffix)
   if (DR_COPY_TO_DEVICE)
-    DynamoRIO_copy_target_to_device(${target} ${DR_DEVICE_BASEDIR})
+    DynamoRIO_copy_target_to_device(${target} ${DR_DEVICE_BASEDIR} "${loc_suffix}")
   endif ()
 endfunction (copy_target_to_device)
 
@@ -157,6 +162,54 @@ function (place_shared_lib_in_lib_dir target)
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
     ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 endfunction ()
+
+function (check_avx_processor_and_compiler_support out)
+  if (WIN32)
+    # XXX i#1312: add Windows support.
+    message(FATAL_ERROR "Windows not supported yet.")
+  endif ()
+  include(CheckCSourceRuns)
+  set(avx_prog "#include <immintrin.h>
+                int main() {
+                  register __m256 ymm0 asm(\"ymm0\");
+                  (void)ymm0;
+                  asm volatile(\"vmovdqu %ymm0, %ymm1\");
+                  return 0;
+                }")
+  set(CMAKE_REQUIRED_FLAGS ${CFLAGS_AVX})
+  check_c_source_runs("${avx_prog}" proc_found_avx)
+  if (proc_found_avx)
+    message(STATUS "Compiler and processor support AVX.")
+  else ()
+    message(STATUS "WARNING: Compiler or processor do not support AVX. "
+                   "Skipping tests")
+  endif ()
+  set(${out} ${proc_found_avx} PARENT_SCOPE)
+endfunction (check_avx_processor_and_compiler_support)
+
+function (check_avx512_processor_and_compiler_support out)
+  if (WIN32)
+    # XXX i#1312: add Windows support.
+    message(FATAL_ERROR "Windows not supported yet.")
+  endif ()
+  include(CheckCSourceRuns)
+  set(avx512_prog "#include <immintrin.h>
+                   int main() {
+                     register __m512 zmm0 asm(\"zmm0\");
+                     (void)zmm0;
+                     asm volatile(\"vmovdqu64 %zmm0, %zmm1\");
+                     return 0;
+                   }")
+  set(CMAKE_REQUIRED_FLAGS ${CFLAGS_AVX512})
+  check_c_source_runs("${avx512_prog}" proc_found_avx512)
+  if (proc_found_avx512)
+    message(STATUS "Compiler and processor support AVX-512.")
+  else ()
+    message(STATUS "WARNING: Compiler or processor do not support AVX-512. "
+                   "Skipping tests")
+  endif ()
+  set(${out} ${proc_found_avx512} PARENT_SCOPE)
+endfunction (check_avx512_processor_and_compiler_support)
 
 if (UNIX)
   # We always use a script for our own library bounds (PR 361594).

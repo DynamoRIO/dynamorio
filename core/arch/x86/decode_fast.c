@@ -49,12 +49,12 @@
 
 #ifdef DEBUG
 /* case 10450: give messages to clients */
-# undef ASSERT_TRUNCATE
-# undef ASSERT_BITFIELD_TRUNCATE
-# undef ASSERT_NOT_REACHED
-# define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    undef ASSERT_TRUNCATE
+#    undef ASSERT_BITFIELD_TRUNCATE
+#    undef ASSERT_NOT_REACHED
+#    define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 #endif
 
 /* This file contains tables and functions that help decode x86
@@ -74,25 +74,41 @@
    indexed by the 1st (primary) opcode byte.  Zero entries are
    reserved opcodes. */
 static const byte fixed_length[256] = {
-    1,1,1,1, 2,5,1,1, 1,1,1,1, 2,5,1,1,  /* 0 */
-    1,1,1,1, 2,5,1,1, 1,1,1,1, 2,5,1,1,  /* 1 */
-    1,1,1,1, 2,5,1,1, 1,1,1,1, 2,5,1,1,  /* 2 */
-    1,1,1,1, 2,5,1,1, 1,1,1,1, 2,5,1,1,  /* 3 */
+    1, 1, 1, 1, 2, 5, 1, 1, 1,
+    1, 1, 1, 2, 5, 1, 1, /* 0 */
+    1, 1, 1, 1, 2, 5, 1, 1, 1,
+    1, 1, 1, 2, 5, 1, 1, /* 1 */
+    1, 1, 1, 1, 2, 5, 1, 1, 1,
+    1, 1, 1, 2, 5, 1, 1, /* 2 */
+    1, 1, 1, 1, 2, 5, 1, 1, 1,
+    1, 1, 1, 2, 5, 1, 1, /* 3 */
 
-    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 4 */
-    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 5 */
-    1,1,1,1, 1,1,1,1, 5,5,2,2, 1,1,1,1,  /* 6 */
-    2,2,2,2, 2,2,2,2, 2,2,2,2, 2,2,2,2,  /* 7 */
+    1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, /* 4 */
+    1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, /* 5 */
+    1, 1, 1, 1, 1, 1, 1, 1, 5,
+    5, 2, 2, 1, 1, 1, 1, /* 6 */
+    2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, /* 7 */
 
-    2,5,2,2, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 8 */
-    1,1,1,1, 1,1,1,1, 1,1,7,1, 1,1,1,1,  /* 9 */
-    5,5,5,5, 1,1,1,1, 2,5,1,1, 1,1,1,1,  /* A */
-    2,2,2,2, 2,2,2,2, 5,5,5,5, 5,5,5,5,  /* B */
+    2, 5, 2, 2, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, /* 8 */
+    1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 7, 1, 1, 1, 1, 1, /* 9 */
+    5, 5, 5, 5, 1, 1, 1, 1, 2,
+    5, 1, 1, 1, 1, 1, 1, /* A */
+    2, 2, 2, 2, 2, 2, 2, 2, 5,
+    5, 5, 5, 5, 5, 5, 5, /* B */
 
-    2,2,3,1, 1,1,2,5, 4,1,3,1, 1,2,1,1,  /* C */
-    1,1,1,1, 2,2,1,1, 1,1,1,1, 1,1,1,1,  /* D */
-    2,2,2,2, 2,2,2,2, 5,5,7,2, 1,1,1,1,  /* E */
-    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1   /* F */
+    2, 2, 3, 1, 1, 1, 2, 5, 4,
+    1, 3, 1, 1, 2, 1, 1, /* C */
+    1, 1, 1, 1, 2, 2, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, /* D */
+    2, 2, 2, 2, 2, 2, 2, 2, 5,
+    5, 7, 2, 1, 1, 1, 1, /* E */
+    1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1 /* F */
     /* f6 and f7 OP_test immeds are handled specially in decode_sizeof() */
 };
 
@@ -104,49 +120,49 @@ static const byte fixed_length[256] = {
    the fixed_length from dword to word.
  */
 static const signed char immed_adjustment[256] = {
-     0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 0 */
-     0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 1 */
-     0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 2 */
-     0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 3 */
+    0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 0 */
+    0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 1 */
+    0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 2 */
+    0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 3 */
 
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
-     0, 0, 0, 0,  0, 0, 0, 0, -2,-2, 0, 0,  0, 0, 0, 0,  /* 6 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  0,  0,  0,  0,  0,  0,  0, /* 4 */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  0,  0,  0,  0,  0,  0,  0, /* 5 */
+    0, 0,  0, 0, 0, 0,  0, 0,  -2, -2, 0,  0,  0,  0,  0,  0, /* 6 */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  0,  0,  0,  0,  0,  0,  0, /* 7 */
 
-     0,-2, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0,-2, 0,  0, 0, 0, 0,  /* 9 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  /* A */
-     0, 0, 0, 0,  0, 0, 0, 0, -2,-2,-2,-2, -2,-2,-2,-2,  /* B */
+    0, -2, 0, 0, 0, 0,  0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  /* 8 */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  0,  -2, 0,  0,  0,  0,  0,  /* 9 */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  -2, 0,  0,  0,  0,  0,  0,  /* A */
+    0, 0,  0, 0, 0, 0,  0, 0,  -2, -2, -2, -2, -2, -2, -2, -2, /* B */
 
-     0, 0, 0, 0,  0, 0, 0,-2,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* D */
-     0, 0, 0, 0,  0, 0, 0, 0, -2,-2,-2,-2,  0, 0, 0, 0,  /* E */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
+    0, 0,  0, 0, 0, 0,  0, -2, 0,  0,  0,  0,  0,  0,  0,  0, /* C */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  0,  0,  0,  0,  0,  0,  0, /* D */
+    0, 0,  0, 0, 0, 0,  0, 0,  -2, -2, -2, -2, 0,  0,  0,  0, /* E */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  0,  0,  0,  0,  0,  0,  0  /* F */
 };
 
 #ifdef X64
 /* for x64 Intel, Jz is always a 64-bit addr ("f64" in Intel table) */
 static const signed char immed_adjustment_intel64[256] = {
-     0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 0 */
-     0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 1 */
-     0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 2 */
-     0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 3 */
+    0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 0 */
+    0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 1 */
+    0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 2 */
+    0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 3 */
 
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
-     0, 0, 0, 0,  0, 0, 0, 0, -2,-2, 0, 0,  0, 0, 0, 0,  /* 6 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  0,  0,  0,  0,  0,  0,  0, /* 4 */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  0,  0,  0,  0,  0,  0,  0, /* 5 */
+    0, 0,  0, 0, 0, 0,  0, 0,  -2, -2, 0,  0,  0,  0,  0,  0, /* 6 */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  0,  0,  0,  0,  0,  0,  0, /* 7 */
 
-     0,-2, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0,-2, 0,  0, 0, 0, 0,  /* 9 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  /* A */
-     0, 0, 0, 0,  0, 0, 0, 0, -2,-2,-2,-2, -2,-2,-2,-2,  /* B */
+    0, -2, 0, 0, 0, 0,  0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  /* 8 */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  0,  -2, 0,  0,  0,  0,  0,  /* 9 */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  -2, 0,  0,  0,  0,  0,  0,  /* A */
+    0, 0,  0, 0, 0, 0,  0, 0,  -2, -2, -2, -2, -2, -2, -2, -2, /* B */
 
-     0, 0, 0, 0,  0, 0, 0,-2,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* D */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0,-2,-2,  0, 0, 0, 0,  /* E */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
+    0, 0,  0, 0, 0, 0,  0, -2, 0,  0,  0,  0,  0,  0,  0,  0, /* C */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  0,  0,  0,  0,  0,  0,  0, /* D */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  0,  -2, -2, 0,  0,  0,  0, /* E */
+    0, 0,  0, 0, 0, 0,  0, 0,  0,  0,  0,  0,  0,  0,  0,  0  /* F */
 };
 #endif
 
@@ -156,25 +172,25 @@ static const signed char immed_adjustment_intel64[256] = {
  * The value here is doubled for x64 mode.
  */
 static const signed char disp_adjustment[256] = {
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 0 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 1 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 2 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 3 */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 0 */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 1 */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 2 */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 3 */
 
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 6 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 4 */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 5 */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 6 */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 7 */
 
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 9 */
-    -2,-2,-2,-2,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* A */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* B */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 8 */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 9 */
+    -2, -2, -2, -2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* A */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* B */
 
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* D */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* E */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* C */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* D */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* E */
+    0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* F */
 };
 
 #ifdef X64
@@ -184,46 +200,47 @@ static const signed char disp_adjustment[256] = {
  * adjustments (negative numbers, to be made positive when applied).
  */
 static const char x64_adjustment[256] = {
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 0 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 1 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 2 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 3 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 0 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 1 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 2 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 3 */
 
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 6 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 4 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 5 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 6 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 7 */
 
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 9 */
-     4, 4, 4, 4,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* A */
-     0, 0, 0, 0,  0, 0, 0, 0, -4,-4,-4,-4, -4,-4,-4,-4,  /* B */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0,  /* 8 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0,  /* 9 */
+    4, 4, 4, 4, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0,  /* A */
+    0, 0, 0, 0, 0, 0, 0, 0, -4, -4, -4, -4, -4, -4, -4, -4, /* B */
 
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* D */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* E */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* C */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* D */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* E */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0  /* F */
 };
 #endif
 
 /* Prototypes for the functions that calculate the variable
  * part of the x86 instruction length. */
-static int sizeof_modrm(dcontext_t *dcontext, byte *pc, bool addr16
-                        _IF_X64(byte **rip_rel_pc));
-static int sizeof_fp_op(dcontext_t *dcontext, byte *pc, bool addr16
-                        _IF_X64(byte **rip_rel_pc));
-static int sizeof_escape(dcontext_t *dcontext, byte *pc, bool addr16
-                         _IF_X64(byte **rip_rel_pc));
-static int sizeof_3byte_38(dcontext_t *dcontext, byte *pc, bool addr16, bool vex
-                           _IF_X64(byte **rip_rel_pc));
-static int sizeof_3byte_3a(dcontext_t *dcontext, byte *pc, bool addr16
-                           _IF_X64(byte **rip_rel_pc));
+static int
+sizeof_modrm(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel_pc));
+static int
+sizeof_fp_op(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel_pc));
+static int
+sizeof_escape(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel_pc));
+static int
+sizeof_3byte_38(dcontext_t *dcontext, byte *pc, bool addr16,
+                bool vex _IF_X64(byte **rip_rel_pc));
+static int
+sizeof_3byte_3a(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel_pc));
 
 enum {
     VARLEN_NONE,
     VARLEN_MODRM,
     VARLEN_FP_OP,
-    VARLEN_ESCAPE, /* 2-byte opcodes */
+    VARLEN_ESCAPE,          /* 2-byte opcodes */
     VARLEN_3BYTE_38_ESCAPE, /* 3-byte opcodes 0f 38 */
     VARLEN_3BYTE_3A_ESCAPE, /* 3-byte opcodes 0f 3a */
 };
@@ -237,25 +254,25 @@ enum {
    the variable part of the x86 instruction.  This table
    is indexed by the primary opcode.  */
 static const byte variable_length[256] = {
-    m,m,m,m, 0,0,0,0, m,m,m,m, 0,0,0,e,   /* 0 */
-    m,m,m,m, 0,0,0,0, m,m,m,m, 0,0,0,0,   /* 1 */
-    m,m,m,m, 0,0,0,0, m,m,m,m, 0,0,0,0,   /* 2 */
-    m,m,m,m, 0,0,0,0, m,m,m,m, 0,0,0,0,   /* 3 */
+    m, m, m, m, 0, 0, 0, 0, m, m, m, m, 0, 0, 0, e, /* 0 */
+    m, m, m, m, 0, 0, 0, 0, m, m, m, m, 0, 0, 0, 0, /* 1 */
+    m, m, m, m, 0, 0, 0, 0, m, m, m, m, 0, 0, 0, 0, /* 2 */
+    m, m, m, m, 0, 0, 0, 0, m, m, m, m, 0, 0, 0, 0, /* 3 */
 
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* 4 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* 5 */
-    0,0,m,m, 0,0,0,0, 0,m,0,m, 0,0,0,0,   /* 6 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* 7 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 4 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 5 */
+    0, 0, m, m, 0, 0, 0, 0, 0, m, 0, m, 0, 0, 0, 0, /* 6 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 7 */
 
-    m,m,m,m, m,m,m,m, m,m,m,m, m,m,m,m,   /* 8 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* 9 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* A */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* B */
+    m, m, m, m, m, m, m, m, m, m, m, m, m, m, m, m, /* 8 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 9 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* A */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* B */
 
-    m,m,0,0, m,m,m,m, 0,0,0,0, 0,0,0,0,   /* C */
-    m,m,m,m, 0,0,0,0, f,f,f,f, f,f,f,f,   /* D */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* E */
-    0,0,0,0, 0,0,m,m, 0,0,0,0, 0,0,m,m    /* F */
+    m, m, 0, 0, m, m, m, m, 0, 0, 0, 0, 0, 0, 0, 0, /* C */
+    m, m, m, m, 0, 0, 0, 0, f, f, f, f, f, f, f, f, /* D */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* E */
+    0, 0, 0, 0, 0, 0, m, m, 0, 0, 0, 0, 0, 0, m, m  /* F */
 };
 
 /* eliminate the macros */
@@ -263,42 +280,35 @@ static const byte variable_length[256] = {
 #undef f
 #undef e
 
-
 /* Data table for the additional fixed part of a two-byte opcode.
  * This table is indexed by the 2nd opcode byte.  Zero entries are
  * reserved/bad opcodes.
- * N.B.: none of these (except IA32_ON_IA64) need adjustment
- * for data16 or addr16.
+ * N.B.: none of these need adjustment for data16 or addr16.
+ *
+ * 0f0f has extra suffix opcode byte
+ * 0f78 has immeds depending on prefixes: handled in decode_sizeof()
  */
 static const byte escape_fixed_length[256] = {
-    1,1,1,1, 0,1,1,1, 1,1,0,1, 0,1,1,2,  /* 0 */ /* 0f0f has extra suffix opcode byte */
-    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 1 */
-    1,1,1,1, 0,0,0,0, 1,1,1,1, 1,1,1,1,  /* 2 */
-    1,1,1,1, 1,1,0,1, 1,0,1,0, 0,0,0,0,  /* 3 */
-    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 4 */
-    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 5 */
-    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 6 */
-    2,2,2,2, 1,1,1,1, 1,1,0,0, 1,1,1,1,  /* 7 */
+    1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 2, /* 0 */
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 1 */
+    1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, /* 2 */
+    1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, /* 3 */
 
-    5,5,5,5, 5,5,5,5, 5,5,5,5, 5,5,5,5,  /* 8 */
-    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 9 */
-    1,1,1,1, 2,1,0,0, 1,1,1,1, 2,1,1,1,  /* A */
-#ifdef IA32_ON_IA64
-    /* change is the 5, could also be 3 depending on which mode we are */
-    /* FIXME : no modrm byte so the standard variable thing won't work */
-    /* (need a escape_disp_adjustment table) */
-    1,1,1,1, 1,1,1,1, 5,1,2,1, 1,1,1,1,  /* B */
-#else
-    1,1,1,1, 1,1,1,1, 1,1,2,1, 1,1,1,1,  /* B */
-#endif
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 4 */
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 5 */
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 6 */
+    2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 7 */
 
-    1,1,2,1, 2,2,2,1, 1,1,1,1, 1,1,1,1,  /* C */
-    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* D */
-    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* E */
-    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,0   /* F */
-    /* 0f78 has immeds depending on prefixes: handled in decode_sizeof() */
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, /* 8 */
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 9 */
+    1, 1, 1, 1, 2, 1, 0, 0, 1, 1, 1, 1, 2, 1, 1, 1, /* A */
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, /* B */
+
+    1, 1, 2, 1, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* C */
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* D */
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* E */
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0  /* F */
 };
-
 
 /* Some macros to make the following table look better. */
 #define m VARLEN_MODRM
@@ -309,28 +319,25 @@ static const byte escape_fixed_length[256] = {
    the variable part of the escaped x86 instruction.  This table
    is indexed by the 2nd opcode byte.  */
 static const byte escape_variable_length[256] = {
-    m,m,m,m, 0,0,0,0, 0,0,0,0, 0,m,0,m, /* 0 */
-    m,m,m,m, m,m,m,m, m,m,m,m, m,m,m,m, /* 1 */
-    m,m,m,m, 0,0,0,0, m,m,m,m, m,m,m,m, /* 2 */
-    0,0,0,0, 0,0,0,0, e1,0,e2,0, 0,0,0,0, /* 3 */
+    m, m, m, m, 0, 0, 0, 0, 0,  0, 0,  0, 0, m, 0, m, /* 0 */
+    m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 1 */
+    m, m, m, m, 0, 0, 0, 0, m,  m, m,  m, m, m, m, m, /* 2 */
+    0, 0, 0, 0, 0, 0, 0, 0, e1, 0, e2, 0, 0, 0, 0, 0, /* 3 */
 
-    m,m,m,m, m,m,m,m, m,m,m,m, m,m,m,m, /* 4 */
-    m,m,m,m, m,m,m,m, m,m,m,m, m,m,m,m, /* 5 */
-    m,m,m,m, m,m,m,m, m,m,m,m, m,m,m,m, /* 6 */
-    m,m,m,m, m,m,m,0, m,m,0,0, m,m,m,m, /* 7 */
+    m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 4 */
+    m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 5 */
+    m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 6 */
+    m, m, m, m, m, m, m, 0, m,  m, m,  m, m, m, m, m, /* 7 */
 
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* 8 */
-    m,m,m,m, m,m,m,m, m,m,m,m, m,m,m,m, /* 9 */
-    0,0,0,m, m,m,0,0, 0,0,0,m, m,m,m,m, /* A */
-#ifdef IA32_ON_IA64
-    m,m,m,m, m,m,m,m, 0,0,m,m, m,m,m,m, /* B */
-#else
-    m,m,m,m, m,m,m,m, m,0,m,m, m,m,m,m, /* B */
-#endif
-    m,m,m,m, m,m,m,m, 0,0,0,0, 0,0,0,0, /* C */
-    m,m,m,m, m,m,m,m, m,m,m,m, m,m,m,m, /* D */
-    m,m,m,m, m,m,m,m, m,m,m,m, m,m,m,m, /* E */
-    m,m,m,m, m,m,m,m, m,m,m,m, m,m,m,0  /* F */
+    0, 0, 0, 0, 0, 0, 0, 0, 0,  0, 0,  0, 0, 0, 0, 0, /* 8 */
+    m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* 9 */
+    0, 0, 0, m, m, m, 0, 0, 0,  0, 0,  m, m, m, m, m, /* A */
+    m, m, m, m, m, m, m, m, m,  0, m,  m, m, m, m, m, /* B */
+
+    m, m, m, m, m, m, m, m, 0,  0, 0,  0, 0, 0, 0, 0, /* C */
+    m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* D */
+    m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, m, /* E */
+    m, m, m, m, m, m, m, m, m,  m, m,  m, m, m, m, 0  /* F */
 };
 
 /* eliminate the macros */
@@ -387,64 +394,64 @@ static const byte threebyte_3a_fixed_length[256] = {
 
 /* Extra size when vex-encoded (from immeds) */
 static const byte threebyte_38_vex_extra[256] = {
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 0 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 1 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 2 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 3 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 4 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 5 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 6 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 7 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 8 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 9 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* A */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* B */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* C */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* D */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* E */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0   /* F */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 0 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 1 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 2 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 3 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 4 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 5 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 6 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 7 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 8 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 9 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* A */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* B */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* C */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* D */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* E */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* F */
 };
 
 /* XOP.0x08 is assumed to always have an immed byte */
 
 /* Extra size for XOP opcode 0x09 (from immeds) */
 static const byte xop_9_extra[256] = {
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 0 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 1 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 2 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 3 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 4 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 5 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 6 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 7 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 8 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 9 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* A */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* B */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* C */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* D */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* E */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0   /* F */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 0 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 1 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 2 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 3 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 4 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 5 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 6 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 7 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 8 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 9 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* A */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* B */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* C */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* D */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* E */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* F */
 };
 
 /* Extra size for XOP opcode 0x0a (from immeds) */
 static const byte xop_a_extra[256] = {
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 0 */
-    4,0,4,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 1 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 2 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 3 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 4 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 5 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 6 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 7 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 8 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 9 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* A */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* B */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* C */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* D */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* E */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0   /* F */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 0 */
+    4, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 1 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 2 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 3 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 4 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 5 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 6 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 7 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 8 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 9 */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* A */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* B */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* C */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* D */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* E */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* F */
 };
 
 /* Returns the length of the instruction at pc.
@@ -455,19 +462,20 @@ static const byte xop_a_extra[256] = {
  * May return 0 size for certain invalid instructions
  */
 int
-decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
-              _IF_X64(uint *rip_rel_pos))
+decode_sizeof(dcontext_t *dcontext, byte *start_pc,
+              int *num_prefixes _IF_X64(uint *rip_rel_pos))
 {
     byte *pc = start_pc;
     uint opc = (uint)*pc;
     int sz = 0;
     ushort varlen;
-    bool word_operands = false; /* data16 */
+    bool word_operands = false;  /* data16 */
     bool qword_operands = false; /* rex.w */
-    bool addr16 = false; /* really "addr32" for x64 mode */
+    bool addr16 = false;         /* really "addr32" for x64 mode */
     bool found_prefix = true;
     bool rep_prefix = false;
-    byte reg_opcode;    /* reg_opcode field of modrm byte */
+    bool evex_prefix = false;
+    byte reg_opcode; /* reg_opcode field of modrm byte */
 #ifdef X64
     byte *rip_rel_pc = NULL;
 #endif
@@ -488,70 +496,89 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
                 qword_operands = true;
                 if (word_operands)
                     word_operands = false; /* rex.w trumps data16 */
-            } /* else, doesn't affect instr size */
-            opc = (uint)*(++pc);
+            }                              /* else, doesn't affect instr size */
+            opc = (uint) * (++pc);
             sz += 1;
         } else {
             switch (opc) {
-            case 0x66:    /* operand size */
+            case DATA_PREFIX_OPCODE: /* operand size */
                 /* rex.w before other prefixes is a nop */
                 if (qword_operands)
                     qword_operands = false;
                 word_operands = true;
-                opc = (uint)*(++pc);
+                opc = (uint) * (++pc);
                 sz += 1;
                 break;
-            case 0xf2: case 0xf3: /* REP */
+            case REPNE_PREFIX_OPCODE:
+            case REP_PREFIX_OPCODE: /* REP */
                 rep_prefix = true;
                 /* fall through */
-            case 0xf0:          /* LOCK */
-            case 0x64: case 0x65: /* segment overrides */
-            case 0x26: case 0x36:
-            case 0x2e: case 0x3e:
-                opc = (uint)*(++pc);
+            case RAW_PREFIX_lock: /* LOCK */
+            case CS_SEG_OPCODE:   /* segment overrides */
+            case DS_SEG_OPCODE:
+            case ES_SEG_OPCODE:
+            case FS_SEG_OPCODE:
+            case GS_SEG_OPCODE:
+            case SS_SEG_OPCODE:
+                opc = (uint) * (++pc);
                 sz += 1;
                 break;
-            case 0x67:
+            case ADDR_PREFIX_OPCODE:
                 addr16 = true;
-                opc = (uint)*(++pc);
+                opc = (uint) * (++pc);
                 sz += 1;
                 /* up to caller to check for addr prefix! */
                 break;
-            case 0xc4:
-            case 0xc5: {
+            case EVEX_PREFIX_OPCODE: {
+                /* If 64-bit mode or EVEX.R' bit is flipped, this is evex */
+                if (X64_MODE_DC(dcontext) || TEST(0x10, *(pc + 1))) {
+                    evex_prefix = true;
+                }
+                /* Fall-through is deliberate, EVEX is handled through VEX below */
+            }
+            case VEX_3BYTE_PREFIX_OPCODE:
+            case VEX_2BYTE_PREFIX_OPCODE: {
                 /* If 64-bit mode or mod selects for register, this is vex */
-                if (X64_MODE_DC(dcontext) || TESTALL(MODRM_BYTE(3, 0, 0), *(pc+1))) {
+                if (evex_prefix || X64_MODE_DC(dcontext) ||
+                    TESTALL(MODRM_BYTE(3, 0, 0), *(pc + 1))) {
                     /* Assumptions:
                      * - no vex-encoded instr size differs based on vex.w,
                      *   so we don't bother to set qword_operands
                      * - no vex-encoded instr size differs based on prefixes,
                      *   so we don't bother to decode vex.pp
                      */
-                    bool vex3 = (opc == 0xc4);
+                    bool vex3 = (opc == VEX_3BYTE_PREFIX_OPCODE);
                     byte vex_mm = 0;
-                    opc = (uint)*(++pc); /* 2nd vex prefix byte */
+                    opc = (uint) * (++pc); /* 2nd (e)vex prefix byte */
                     sz += 1;
                     if (vex3) {
-                        vex_mm = (byte) (opc & 0x1f);
-                        opc = (uint)*(++pc); /* 3rd vex prefix byte */
+                        vex_mm = (byte)(opc & 0x1f);
+                        opc = (uint) * (++pc); /* 3rd vex prefix byte */
+                        sz += 1;
+                    } else if (evex_prefix) {
+                        vex_mm = (byte)(opc & 0x3);
+                        opc = (uint) * (++pc); /* 3rd evex prefix byte */
+                        sz += 1;
+                        opc = (uint) * (++pc); /* 4th evex prefix byte */
                         sz += 1;
                     }
-                    opc = (uint)*(++pc); /* 1st opcode byte */
+                    opc = (uint) * (++pc); /* 1st opcode byte */
                     sz += 1;
                     if (num_prefixes != NULL)
                         *num_prefixes = sz;
                     /* no prefixes after vex + already did full size, so goto end */
-                    if (!vex3 || (vex3 && (vex_mm == 1))) {
-                        sz += sizeof_escape(dcontext, pc, addr16
-                                            _IF_X64(&rip_rel_pc));
+                    bool implied_escape = (!vex3 && !evex_prefix) ||
+                        ((vex3 || evex_prefix) && (vex_mm == 1));
+                    if (implied_escape) {
+                        sz += sizeof_escape(dcontext, pc, addr16 _IF_X64(&rip_rel_pc));
                         goto decode_sizeof_done;
                     } else if (vex_mm == 2) {
-                        sz += sizeof_3byte_38(dcontext, pc - 1, addr16, true
-                                              _IF_X64(&rip_rel_pc));
+                        sz += sizeof_3byte_38(dcontext, pc - 1, addr16,
+                                              true _IF_X64(&rip_rel_pc));
                         goto decode_sizeof_done;
                     } else if (vex_mm == 3) {
-                        sz += sizeof_3byte_3a(dcontext, pc - 1, addr16
-                                              _IF_X64(&rip_rel_pc));
+                        sz += sizeof_3byte_3a(dcontext, pc - 1,
+                                              addr16 _IF_X64(&rip_rel_pc));
                         goto decode_sizeof_done;
                     }
                 } else
@@ -560,7 +587,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
             }
             case 0x8f: {
                 /* If XOP.map_select < 8, this is not XOP but instead OP_pop */
-                byte map_select = *(pc+1) & 0x1f;
+                byte map_select = *(pc + 1) & 0x1f;
                 if (map_select >= 0x8) {
                     /* we have the same assumptions as for vex, that no instr size
                      * differs vased on vex.w or vex.pp
@@ -572,7 +599,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
                     if (num_prefixes != NULL)
                         *num_prefixes = sz;
                     /* all have modrm */
-                    sz += sizeof_modrm(dcontext, pc+1, addr16 _IF_X64(&rip_rel_pc));
+                    sz += sizeof_modrm(dcontext, pc + 1, addr16 _IF_X64(&rip_rel_pc));
                     if (map_select == 0x8) {
                         /* these always have an immediate byte */
                         sz += 1;
@@ -590,8 +617,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
                     found_prefix = false;
                 break;
             }
-            default:
-                found_prefix = false;
+            default: found_prefix = false;
             }
         }
     }
@@ -608,9 +634,9 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
 #endif
             sz += immed_adjustment[opc]; /* no adjustment for 2-byte escapes */
     }
-    if (addr16) {  /* no adjustment for 2-byte escapes */
+    if (addr16) {                  /* no adjustment for 2-byte escapes */
         if (X64_MODE_DC(dcontext)) /* from 64 bits down to 32 bits */
-            sz += 2*disp_adjustment[opc];
+            sz += 2 * disp_adjustment[opc];
         else /* from 32 bits down to 16 bits */
             sz += disp_adjustment[opc];
     }
@@ -634,11 +660,11 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
      */
 
     if (varlen == VARLEN_MODRM)
-        sz += sizeof_modrm(dcontext, pc+1, addr16 _IF_X64(&rip_rel_pc));
+        sz += sizeof_modrm(dcontext, pc + 1, addr16 _IF_X64(&rip_rel_pc));
     else if (varlen == VARLEN_ESCAPE) {
-        sz += sizeof_escape(dcontext, pc+1, addr16 _IF_X64(&rip_rel_pc));
+        sz += sizeof_escape(dcontext, pc + 1, addr16 _IF_X64(&rip_rel_pc));
         /* special case: Intel and AMD added size-differing prefix-dependent instrs! */
-        if (*(pc+1) == 0x78) {
+        if (*(pc + 1) == 0x78) {
             /* XXX: if have rex.w prefix we clear word_operands: is that legal combo? */
             if (word_operands || rep_prefix) {
                 /* extrq, insertq: 2 1-byte immeds */
@@ -646,22 +672,22 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
             } /* else, vmread, w/ no immeds */
         }
     } else if (varlen == VARLEN_FP_OP)
-        sz += sizeof_fp_op(dcontext, pc+1, addr16 _IF_X64(&rip_rel_pc));
+        sz += sizeof_fp_op(dcontext, pc + 1, addr16 _IF_X64(&rip_rel_pc));
     else
         CLIENT_ASSERT(varlen == VARLEN_NONE, "internal decoding error");
 
     /* special case that doesn't fit the mold (of course one had to exist) */
-    reg_opcode = (byte) (((*(pc + 1)) & 0x38) >> 3);
+    reg_opcode = (byte)(((*(pc + 1)) & 0x38) >> 3);
     if (opc == 0xf6 && reg_opcode == 0) {
-        sz += 1;        /* TEST Eb,ib -- add size of immediate */
+        sz += 1; /* TEST Eb,ib -- add size of immediate */
     } else if (opc == 0xf7 && reg_opcode == 0) {
         if (word_operands)
-            sz += 2;    /* TEST Ew,iw -- add size of immediate */
+            sz += 2; /* TEST Ew,iw -- add size of immediate */
         else
-            sz += 4;    /* TEST El,il -- add size of immediate */
+            sz += 4; /* TEST El,il -- add size of immediate */
     }
 
- decode_sizeof_done:
+decode_sizeof_done:
 #ifdef X64
     if (rip_rel_pos != NULL) {
         if (rip_rel_pc != NULL) {
@@ -669,7 +695,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
                           "decode_sizeof: invalid non-x64 rip_rel instr");
             CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(rip_rel_pc - start_pc),
                           "decode_sizeof: unknown rip_rel instr type");
-            *rip_rel_pos = (uint) (rip_rel_pc - start_pc);
+            *rip_rel_pos = (uint)(rip_rel_pc - start_pc);
         } else
             *rip_rel_pos = 0;
     }
@@ -679,8 +705,8 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
 }
 
 static int
-sizeof_3byte_38(dcontext_t *dcontext, byte *pc, bool addr16, bool vex
-                _IF_X64(byte **rip_rel_pc))
+sizeof_3byte_38(dcontext_t *dcontext, byte *pc, bool addr16,
+                bool vex _IF_X64(byte **rip_rel_pc))
 {
     int sz = 1; /* opcode past 0x0f 0x38 */
     uint opc = *(++pc);
@@ -689,7 +715,7 @@ sizeof_3byte_38(dcontext_t *dcontext, byte *pc, bool addr16, bool vex
      * use the threebyte_38_fixed_length[opc] entry and assume 1 */
     if (vex)
         sz += threebyte_38_vex_extra[opc];
-    sz += sizeof_modrm(dcontext, pc+1, addr16 _IF_X64(rip_rel_pc));
+    sz += sizeof_modrm(dcontext, pc + 1, addr16 _IF_X64(rip_rel_pc));
     return sz;
 }
 
@@ -700,7 +726,7 @@ sizeof_3byte_3a(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_r
     /* so far all 0f 3a 3-byte instrs have modrm bytes and 1-byte immeds */
     /* to be robust for future additions we don't actually
      * use the threebyte_3a_fixed_length[opc] entry and assume 1 */
-    return 1 + sizeof_modrm(dcontext, pc+1, addr16 _IF_X64(rip_rel_pc)) + 1;
+    return 1 + sizeof_modrm(dcontext, pc + 1, addr16 _IF_X64(rip_rel_pc)) + 1;
 }
 
 /* Two-byte opcode map (Tables A-4 and A-5).  You use this routine
@@ -721,19 +747,16 @@ sizeof_escape(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel
      */
 
     if (varlen == VARLEN_MODRM)
-        return sz + sizeof_modrm(dcontext, pc+1, addr16 _IF_X64(rip_rel_pc));
+        return sz + sizeof_modrm(dcontext, pc + 1, addr16 _IF_X64(rip_rel_pc));
     else if (varlen == VARLEN_3BYTE_38_ESCAPE) {
         return sz + sizeof_3byte_38(dcontext, pc, addr16, false _IF_X64(rip_rel_pc));
-    }
-    else if (varlen == VARLEN_3BYTE_3A_ESCAPE) {
+    } else if (varlen == VARLEN_3BYTE_3A_ESCAPE) {
         return sz + sizeof_3byte_3a(dcontext, pc, addr16 _IF_X64(rip_rel_pc));
-    }
-    else
+    } else
         CLIENT_ASSERT(varlen == VARLEN_NONE, "internal decoding error");
 
     return sz;
 }
-
 
 /* 32-bit addressing forms with the ModR/M Byte (Table 2-2).  You call
  * this routine with the byte following the primary opcode byte when you
@@ -752,7 +775,7 @@ sizeof_escape(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel
 static int
 sizeof_modrm(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel_pc))
 {
-    int l = 0;          /* return value for sizeof(eAddr) */
+    int l = 0; /* return value for sizeof(eAddr) */
 
     uint modrm = (uint)*pc;
     int r_m = modrm & 0x7;
@@ -785,17 +808,17 @@ sizeof_modrm(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel_
     /* for x64, addr16 simply truncates the computed address: there is
      * no change in disp sizes */
 
-    if (mod == 3)       /* register operand */
+    if (mod == 3) /* register operand */
         return 1;
 
-    switch (mod) {      /* memory or immediate operand */
-      case 0: l = (r_m == 5) ? 5 : 1; break;
-      case 1: l = 2; break;
-      case 2: l = 5; break;
+    switch (mod) { /* memory or immediate operand */
+    case 0: l = (r_m == 5) ? 5 : 1; break;
+    case 1: l = 2; break;
+    case 2: l = 5; break;
     }
     if (r_m == 4) {
-        l += 1;         /* adjust for sib byte */
-        sib = (uint)(*(pc+1));
+        l += 1; /* adjust for sib byte */
+        sib = (uint)(*(pc + 1));
         if ((sib & 0x7) == 5) {
             if (mod == 0)
                 l += 4; /* disp32(,index,s) */
@@ -814,12 +837,11 @@ static int
 sizeof_fp_op(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel_pc))
 {
     if (*pc > 0xbf)
-        return 1;       /* entire ModR/M byte is an opcode extension */
+        return 1; /* entire ModR/M byte is an opcode extension */
 
     /* fp opcode in reg/opcode field */
     return sizeof_modrm(dcontext, pc, addr16 _IF_X64(rip_rel_pc));
 }
-
 
 /* Table indicating "interesting" instructions, i.e., ones we
  * would like to decode.  Currently these are control-transfer
@@ -830,27 +852,272 @@ sizeof_fp_op(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel_
  * extension is present in the modrm byte.
  */
 static const byte interesting[256] = {
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,2, /* 0 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* 1 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* 2 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* 3 */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2, /* 0 */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0, /* 1 */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0, /* 2 */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0, /* 3 */
 
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* 4 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* 5 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* 6 */
-    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1, /* 7 */ /* jcc_short */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0, /* 4 */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0, /* 5 */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0, /* 6 */
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    /* 7 */ /* jcc_short */
 
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 1,0,1,0, /* 8 */ /* mov_seg */
-    0,0,0,0, 0,0,0,0, 0,0,1,0, 0,1,0,0, /* 9 */ /* call_far, popf */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* A */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* B */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    1,
+    0,
+    /* 8 */ /* mov_seg */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    1,
+    0,
+    0,
+    /* 9 */ /* call_far, popf */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0, /* A */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0, /* B */
 
-    0,0,1,1, 0,0,0,0, 0,0,1,1, 1,1,1,1, /* C */ /* ret*, int* */
-    0,0,0,0, 0,0,0,0, 0,3,0,0, 0,3,0,0, /* D */ /* fnstenv, fnsave */
-    1,1,1,1, 0,0,0,0, 1,1,1,1, 0,0,0,0, /* E */ /* loop*, call, jmp* */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,3, /* F */
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    /* C */ /* ret*, int* */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    3,
+    0,
+    0,
+    0,
+    3,
+    0,
+    0,
+    /* D */ /* fnstenv, fnsave */
+    1,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    /* E */ /* loop*, call, jmp* */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    3, /* F */
 };
-
 
 /* Table indicating operations on the lower 6 eflags (CF,PF,AF,ZF,SF,OF)
  * This table is indexed by the 1st (primary) opcode byte.
@@ -859,75 +1126,75 @@ static const byte interesting[256] = {
  * Also note that for some groups we assign values to invalid opcodes
  * just for simplicity
  */
-#define x     0
-#define RC   EFLAGS_READ_CF
-#define RP   EFLAGS_READ_PF
-#define RZ   EFLAGS_READ_ZF
-#define RS   EFLAGS_READ_SF
-#define RO   EFLAGS_READ_OF
-#define R6   EFLAGS_READ_6
-#define RB   (EFLAGS_READ_CF|EFLAGS_READ_ZF)
-#define RL   (EFLAGS_READ_SF|EFLAGS_READ_OF)
-#define RE   (EFLAGS_READ_SF|EFLAGS_READ_OF|EFLAGS_READ_ZF)
-#define R5O  (EFLAGS_READ_6 & (~EFLAGS_READ_OF))
-#define WC   EFLAGS_WRITE_CF
-#define WZ   EFLAGS_WRITE_ZF
-#define W6   EFLAGS_WRITE_6
-#define W5   (EFLAGS_WRITE_6 & (~EFLAGS_WRITE_CF))
-#define W5O  (EFLAGS_WRITE_6 & (~EFLAGS_WRITE_OF))
-#define BC   (EFLAGS_WRITE_6|EFLAGS_READ_CF)
-#define BA   (EFLAGS_WRITE_6|EFLAGS_READ_AF)
-#define BD   (EFLAGS_WRITE_6|EFLAGS_READ_CF|EFLAGS_READ_AF)
-#define B6   (EFLAGS_WRITE_6|EFLAGS_READ_6)
-#define EFLAGS_6_ESCAPE  -1
+#define x 0
+#define RC EFLAGS_READ_CF
+#define RP EFLAGS_READ_PF
+#define RZ EFLAGS_READ_ZF
+#define RS EFLAGS_READ_SF
+#define RO EFLAGS_READ_OF
+#define R6 EFLAGS_READ_6
+#define RB (EFLAGS_READ_CF | EFLAGS_READ_ZF)
+#define RL (EFLAGS_READ_SF | EFLAGS_READ_OF)
+#define RE (EFLAGS_READ_SF | EFLAGS_READ_OF | EFLAGS_READ_ZF)
+#define R5O (EFLAGS_READ_6 & (~EFLAGS_READ_OF))
+#define WC EFLAGS_WRITE_CF
+#define WZ EFLAGS_WRITE_ZF
+#define W6 EFLAGS_WRITE_6
+#define W5 (EFLAGS_WRITE_6 & (~EFLAGS_WRITE_CF))
+#define W5O (EFLAGS_WRITE_6 & (~EFLAGS_WRITE_OF))
+#define BC (EFLAGS_WRITE_6 | EFLAGS_READ_CF)
+#define BA (EFLAGS_WRITE_6 | EFLAGS_READ_AF)
+#define BD (EFLAGS_WRITE_6 | EFLAGS_READ_CF | EFLAGS_READ_AF)
+#define B6 (EFLAGS_WRITE_6 | EFLAGS_READ_6)
+#define EFLAGS_6_ESCAPE -1
 #define EFLAGS_6_SPECIAL -2
 #define E EFLAGS_6_ESCAPE
 #define S EFLAGS_6_SPECIAL
 
 static const int eflags_6[256] = {
-    W6,W6,W6,W6, W6,W6, x, x, W6,W6,W6,W6, W6,W6, x, E, /* 0 */
-    BC,BC,BC,BC, BC,BC, x, x, BC,BC,BC,BC, BC,BC, x, x, /* 1 */
-    W6,W6,W6,W6, W6,W6, x,BD, W6,W6,W6,W6, W6,W6, x,BD, /* 2 */
-    W6,W6,W6,W6, W6,W6, x,BA, W6,W6,W6,W6, W6,W6, x,BA, /* 3 */
+    W6, W6, W6, W6, W6, W6, x,  x,  W6, W6, W6, W6, W6, W6, x,   E,  /* 0 */
+    BC, BC, BC, BC, BC, BC, x,  x,  BC, BC, BC, BC, BC, BC, x,   x,  /* 1 */
+    W6, W6, W6, W6, W6, W6, x,  BD, W6, W6, W6, W6, W6, W6, x,   BD, /* 2 */
+    W6, W6, W6, W6, W6, W6, x,  BA, W6, W6, W6, W6, W6, W6, x,   BA, /* 3 */
 
-    W5,W5,W5,W5, W5,W5,W5,W5, W5,W5,W5,W5, W5,W5,W5,W5, /* 4 */
-     x, x, x, x,  x, x, x, x,  x, x, x, x,  x, x, x, x, /* 5 */
-     x, x, x,WZ,  x, x, x, x,  x,W6, x,W6,  x, x, x, x, /* 6 */
-    RO,RO,RC,RC, RZ,RZ,RB,RB, RS,RS,RP,RP, RL,RL,RE,RE, /* 7 */
+    W5, W5, W5, W5, W5, W5, W5, W5, W5, W5, W5, W5, W5, W5, W5,  W5, /* 4 */
+    x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,   x,  /* 5 */
+    x,  x,  x,  WZ, x,  x,  x,  x,  x,  W6, x,  W6, x,  x,  x,   x,  /* 6 */
+    RO, RO, RC, RC, RZ, RZ, RB, RB, RS, RS, RP, RP, RL, RL, RE,  RE, /* 7 */
 
-     S, S, S, S, W6,W6, x, x,  x, x, x, x,  x, x, x, x, /* 8 */
-     x, x, x, x,  x, x, x, x,  x, x, x, x, R6,W6,W5O,R5O, /* 9 */
-     x, x, x, x,  x, x,W6,W6, W6,W6, x, x,  x, x,W6,W6, /* A */
-     x, x, x, x,  x, x, x, x,  x, x, x, x,  x, x, x, x, /* B */
+    S,  S,  S,  S,  W6, W6, x,  x,  x,  x,  x,  x,  x,  x,  x,   x,   /* 8 */
+    x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  R6, W6, W5O, R5O, /* 9 */
+    x,  x,  x,  x,  x,  x,  W6, W6, W6, W6, x,  x,  x,  x,  W6,  W6,  /* A */
+    x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,   x,   /* B */
 
-     S, S, x, x,  x, x, x, x,  x, x, x, x, R6,R6,R6,W6, /* C */
-     S, S, S, S, W6,W6, x, x,  x, x, S, S,  x, x, x, S, /* D */
-    RZ,RZ, x, x,  x, x, x, x,  x, x, x, x,  x, x, x, x, /* E */
-     x, x, x, x,  x,WC, S, S, WC,WC, x, x,  x, x, S, S, /* F */
+    S,  S,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  R6, R6, R6,  W6, /* C */
+    S,  S,  S,  S,  W6, W6, x,  x,  x,  x,  S,  S,  x,  x,  x,   S,  /* D */
+    RZ, RZ, x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,   x,  /* E */
+    x,  x,  x,  x,  x,  WC, S,  S,  WC, WC, x,  x,  x,  x,  S,   S,  /* F */
 };
 
 /* Same as eflags_6 table, but for 2nd byte of 0x0f extension opcodes
  */
 static const int escape_eflags_6[256] = {
-     x, x,WZ,WZ,  x, x, x, x,  x, x, x, x,  x, x, x, x, /* 0 */
-     x, x, x, x,  x, x, x, x,  x, x, x, x,  x, x, x, x, /* 1 */
-    W6,W6,W6,W6,  x, x, x, x,  x, x, x, x,  x, x,W6,W6, /* 2 */
-     x, x, x, x,  x, x, x, x,  x, x, x, x,  x, x, x, x, /* 3 */
+    x,  x,  WZ, WZ, x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  /* 0 */
+    x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  /* 1 */
+    W6, W6, W6, W6, x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  W6, W6, /* 2 */
+    x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  /* 3 */
 
-    RO,RO,RC,RC, RZ,RZ,RB,RB, RS,RS,RP,RP, RL,RL,RE,RE, /* 4 */
-     x, x, x, x,  x, x, x, x,  x, x, x, x,  x, x, x, x, /* 5 */
-     x, x, x, x,  x, x, x, x,  x, x, x, x,  x, x, x, x, /* 6 */
-     x, x, x, x,  x, x, x, x,  x, x, x, x,  x, x, x, x, /* 7 */
+    RO, RO, RC, RC, RZ, RZ, RB, RB, RS, RS, RP, RP, RL, RL, RE, RE, /* 4 */
+    x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  /* 5 */
+    x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  /* 6 */
+    x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  /* 7 */
 
-    RO,RO,RC,RC, RZ,RZ,RB,RB, RS,RS,RP,RP, RL,RL,RE,RE, /* 8 */
-    RO,RO,RC,RC, RZ,RZ,RB,RB, RS,RS,RP,RP, RL,RL,RE,RE, /* 9 */
-     x, x, x,W6, W6,W6, x, x,  x, x,W6,W6, W6,W6, x,W6, /* A */
-    W6,W6, x,W6,  x, x, x, x,  x, x,W6,W6, W6,W6, x, x, /* B */
+    RO, RO, RC, RC, RZ, RZ, RB, RB, RS, RS, RP, RP, RL, RL, RE, RE, /* 8 */
+    RO, RO, RC, RC, RZ, RZ, RB, RB, RS, RS, RP, RP, RL, RL, RE, RE, /* 9 */
+    x,  x,  x,  W6, W6, W6, x,  x,  x,  x,  W6, W6, W6, W6, x,  W6, /* A */
+    W6, W6, x,  W6, x,  x,  x,  x,  x,  x,  W6, W6, W6, W6, x,  x,  /* B */
 
-    W6,W6, x, x,  x, x, x,WZ,  x, x, x, x,  x, x, x, x, /* C */
-     x, x, x, x,  x, x, x, x,  x, x, x, x,  x, x, x, x, /* D */
-     x, x, x, x,  x, x, x, x,  x, x, x, x,  x, x, x, x, /* E */
-     x, x, x, x,  x, x, x, x,  x, x, x, x,  x, x, x, x, /* F */
+    W6, W6, x,  x,  x,  x,  x,  WZ, x,  x,  x,  x,  x,  x,  x,  x, /* C */
+    x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x, /* D */
+    x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x, /* E */
+    x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x,  x, /* F */
 };
 #undef x
 #undef RC
@@ -952,7 +1219,6 @@ static const int escape_eflags_6[256] = {
 #undef E
 #undef S
 
-
 /* This routine converts a signed 8-bit offset into a target pc.  The
  * formal parameter pc should point to the beginning of the branch
  * instruction containing the offset and having length len in bytes.
@@ -974,9 +1240,9 @@ intercept_fip_save(byte *pc, byte byte0, byte byte1)
         int opc_ext;
         byte byte2 = *(pc + 2);
         opc_ext = (byte2 >> 3) & 0x7;
-        return opc_ext == 0 ||  /* 0f ae /0 == OP_fxsave */
-               opc_ext == 4 ||  /* 0f ae /4 == OP_xsave */
-               opc_ext == 6;    /* 0f ae /6 == OP_xsaveopt */
+        return opc_ext == 0 || /* 0f ae /0 == OP_fxsave */
+            opc_ext == 4 ||    /* 0f ae /4 == OP_xsave */
+            opc_ext == 6;      /* 0f ae /6 == OP_xsaveopt */
     }
     if (byte0 == 0x0f && byte1 == 0xc7) {
         int opc_ext;
@@ -985,6 +1251,27 @@ intercept_fip_save(byte *pc, byte byte0, byte byte1)
         return opc_ext == 4; /* 0f c7 /4 == OP_xsavec */
     }
     return false;
+}
+
+static bool
+get_implied_mm_e_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byte0,
+                                  byte *byte1)
+{
+    switch (vex_mm) {
+    case 1:
+        *byte0 = 0x0f;
+        *byte1 = *(pc + prefixes);
+        return true;
+    case 2:
+        *byte0 = 0x0f;
+        *byte1 = 0x38;
+        return true;
+    case 3:
+        *byte0 = 0x0f;
+        *byte1 = 0x3a;
+        return true;
+    default: return false;
+    }
 }
 
 /* Decodes only enough of the instruction at address pc to determine
@@ -1017,7 +1304,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     /* next two needed for eflags analysis */
     int eflags;
     int i;
-    byte modrm = 0;    /* used only for EFLAGS_6_SPECIAL */
+    byte modrm = 0; /* used only for EFLAGS_6_SPECIAL */
 #ifdef X64
     /* PR 251479: we need to know about all rip-relative addresses.
      * Since change/setting raw bits invalidates, we must set this
@@ -1033,37 +1320,60 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     instr_set_opcode(instr, OP_UNDECODED);
     IF_X64(instr_set_x86_mode(instr, get_x86_mode(dcontext)));
 
+    byte0 = *(pc + prefixes);
+    byte1 = *(pc + prefixes + 1);
+
     /* we call instr_set_raw_bits on every return from here, not up
      * front, because any instr_set_src, instr_set_dst, or
-     * instr_set_opcode will kill original bits state */
+     * instr_set_opcode will kill original bits state
+     */
 
     /* Fill in SEG_FS and SEG_GS override prefixes, ignore rest for now.
      * We rely on having these set during bb building.
      * FIXME - could be done in decode_sizeof which is already walking these
      * bytes, but would need to complicate its interface and prefixes are
-     * fairly rare to begin with. */
+     * fairly rare to begin with.
+     */
     if (prefixes > 0) {
         for (i = 0; i < prefixes; i++, pc++) {
             switch (*pc) {
-            case FS_SEG_OPCODE:
-                instr_set_prefix_flag(instr, PREFIX_SEG_FS);
+            case FS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_FS); break;
+            case GS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_GS); break;
+            case VEX_2BYTE_PREFIX_OPCODE:
+                /* VEX 2-byte prefix implies 0x0f opcode */
+                byte0 = 0x0f;
+                byte1 = *(pc + prefixes);
                 break;
-            case GS_SEG_OPCODE:
-                instr_set_prefix_flag(instr, PREFIX_SEG_GS);
-                break;
-            default:
-                break;
+            case EVEX_PREFIX_OPCODE:
+                instr_set_prefix_flag(instr, PREFIX_EVEX);
+                /* fall-through */
+            case VEX_3BYTE_PREFIX_OPCODE: {
+                /* EVEX and VEX 3-byte prefixes imply instruction opcodes by encoding mm
+                 * bits in the second prefix byte. In theory, there are 5 VEX mm bits, but
+                 * only 2 of them are used.
+                 */
+                byte vex_mm = (byte)(*(pc + 1) & 0x3);
+                if (!get_implied_mm_e_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0,
+                                                       &byte1)) {
+                    /* invalid instruction! */
+                    instr_set_opcode(instr, OP_INVALID);
+                    return NULL;
+                }
+                /* There are no prefixes after (e)vex. */
+                pc = start_pc + prefixes;
+                i = prefixes;
+            }
+            default: break;
             }
         }
     }
-
-    byte0 = *pc;
-    byte1 = *(pc + 1);
 
     /* eflags analysis
      * we do this even if -unsafe_ignore_eflags b/c it doesn't cost that
      * much and we can use the analysis to detect any bb that reads a flag
      * prior to writing it
+     * i#3267: eflags lookup possibly incorrect for instructions with VEX prefix.
+     * (and instructions with EVEX prefix once AVX512 has been added).
      */
     eflags = eflags_6[byte0];
     if (eflags == EFLAGS_6_ESCAPE) {
@@ -1081,28 +1391,26 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         if (byte0 <= 0x84) {
             /* group 1* (80-83): all W6 except /2,/3=B */
             if (opc_ext == 2 || opc_ext == 3)
-                eflags = EFLAGS_WRITE_6|EFLAGS_READ_CF;
+                eflags = EFLAGS_WRITE_6 | EFLAGS_READ_CF;
             else
                 eflags = EFLAGS_WRITE_6;
         } else if (byte0 <= 0xd3) {
             /* group 2* (c0,c1,d0-d3): /0,/1=WC|WO, /2,/3=WC|WO|RC, /4,/5,/7=W6 */
             if (opc_ext == 0 || opc_ext == 1)
-                eflags = EFLAGS_WRITE_CF|EFLAGS_WRITE_OF;
+                eflags = EFLAGS_WRITE_CF | EFLAGS_WRITE_OF;
             else if (opc_ext == 2 || opc_ext == 3)
-                eflags = EFLAGS_WRITE_CF|EFLAGS_WRITE_OF|EFLAGS_READ_CF;
+                eflags = EFLAGS_WRITE_CF | EFLAGS_WRITE_OF | EFLAGS_READ_CF;
             else if (opc_ext == 4 || opc_ext == 5 || opc_ext == 7)
                 eflags = EFLAGS_WRITE_6;
             else
                 eflags = 0;
         } else if (byte0 <= 0xdf) {
             /* floats: dac0-dadf and dbc0-dbdf = RC|RP|RZ */
-            if ((byte0 == 0xda || byte0 == 0xdb) &&
-                modrm >= 0xc0 && modrm <= 0xdf)
-                eflags = EFLAGS_READ_CF|EFLAGS_READ_PF|EFLAGS_READ_ZF;
+            if ((byte0 == 0xda || byte0 == 0xdb) && modrm >= 0xc0 && modrm <= 0xdf)
+                eflags = EFLAGS_READ_CF | EFLAGS_READ_PF | EFLAGS_READ_ZF;
             /* floats: dbe8-dbf7 and dfe8-dff7 = WC|WP|WZ */
-            else if ((byte0 == 0xdb || byte0 == 0xdf) &&
-                     modrm >= 0xe8 && modrm <= 0xf7)
-                eflags = EFLAGS_WRITE_CF|EFLAGS_WRITE_PF|EFLAGS_WRITE_ZF;
+            else if ((byte0 == 0xdb || byte0 == 0xdf) && modrm >= 0xe8 && modrm <= 0xf7)
+                eflags = EFLAGS_WRITE_CF | EFLAGS_WRITE_PF | EFLAGS_WRITE_ZF;
             else
                 eflags = 0;
         } else if (byte0 <= 0xf7) {
@@ -1130,7 +1438,6 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         return (start_pc + sz);
     }
 
-
     /* FIXME: would further "interesting" table produce any noticeable
      * performance improvement?
      */
@@ -1149,7 +1456,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
 
 #ifdef FOOL_CPUID
     /* for fooling program into thinking hardware is different than it is */
-    if (byte0==0x0f && byte1==0xa2) { /* cpuid */
+    if (byte0 == 0x0f && byte1 == 0xa2) { /* cpuid */
         instr_set_opcode(instr, OP_cpuid);
         /* don't bother to set dsts/srcs */
         instr_set_operands_valid(instr, false);
@@ -1161,7 +1468,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
 
     /* prefixes won't make a difference for 8-bit-offset jumps */
 
-    if (byte0 == 0xeb) {                /* jmp_short */
+    if (byte0 == 0xeb) { /* jmp_short */
         app_pc tgt = convert_8bit_offset(pc, byte1, 2);
         instr_set_opcode(instr, OP_jmp_short);
         instr_set_num_opnds(dcontext, instr, 0, 1);
@@ -1171,7 +1478,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         return (pc + 2);
     }
 
-    if ((byte0 & 0xf0) == 0x70) {       /* jcc_short */
+    if ((byte0 & 0xf0) == 0x70) { /* jcc_short */
         /* 2-byte pc-relative jumps with an 8-bit displacement */
         app_pc tgt = convert_8bit_offset(pc, byte1, 2);
         /* Set the instr's opcode field.  Relies on special ordering
@@ -1187,7 +1494,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         return (pc + 2);
     }
 
-    if (byte0 == 0xe8) {                /* call */
+    if (byte0 == 0xe8) { /* call */
         int offset = *((int *)(pc + 1));
         app_pc tgt = pc + offset + 5;
         instr_set_opcode(instr, OP_call);
@@ -1195,15 +1502,16 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         instr_set_target(instr, opnd_create_pc(tgt));
         instr_set_src(instr, 1, opnd_create_reg(REG_XSP));
         instr_set_dst(instr, 0, opnd_create_reg(REG_XSP));
-        instr_set_dst(instr, 1, opnd_create_base_disp
-                      (REG_XSP, REG_NULL, 0, 0,
-                       resolve_variable_size_dc(dcontext, 0, OPSZ_call, false)));
+        instr_set_dst(instr, 1,
+                      opnd_create_base_disp(
+                          REG_XSP, REG_NULL, 0, 0,
+                          resolve_variable_size_dc(dcontext, 0, OPSZ_call, false)));
         instr_set_raw_bits(instr, start_pc, sz);
         IF_X64(instr_set_rip_rel_pos(instr, rip_rel_pos));
         return (pc + 5);
     }
 
-    if (byte0 == 0xe9) {                /* jmp */
+    if (byte0 == 0xe9) { /* jmp */
         int offset = *((int *)(pc + 1));
         app_pc tgt = pc + offset + 5;
         instr_set_opcode(instr, OP_jmp);
@@ -1231,7 +1539,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         return (pc + 6);
     }
 
-    if (byte0 == 0xff) {                /* check for indirect calls/branches */
+    if (byte0 == 0xff) { /* check for indirect calls/branches */
         /* dispatch based on bits 5,4,3 in mod_rm byte */
         uint opc = (byte1 >> 3) & 0x7;
 
@@ -1247,8 +1555,8 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         /* otherwise it wasn't an indirect branch so continue */
     }
 
-    if ((byte0 & 0xf0) == 0xc0) {       /* check for returns */
-        byte nibble1 = (byte) (byte0 & 0x0f);
+    if ((byte0 & 0xf0) == 0xc0) { /* check for returns */
+        byte nibble1 = (byte)(byte0 & 0x0f);
         switch (nibble1) {
         case 2:   /* ret w/ 2-byte immed */
         case 0xa: /* far ret w/ 2-byte immed */
@@ -1257,18 +1565,18 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
             instr_set_opcode(instr, nibble1 == 2 ? OP_ret : OP_ret_far);
             instr_set_num_opnds(dcontext, instr, 1, 3);
             instr_set_dst(instr, 0, opnd_create_reg(REG_XSP));
-            instr_set_src(instr, 0,
-                          opnd_create_immed_int(*((short*)(pc+1)), OPSZ_2));
+            instr_set_src(instr, 0, opnd_create_immed_int(*((short *)(pc + 1)), OPSZ_2));
             instr_set_src(instr, 1, opnd_create_reg(REG_XSP));
-            instr_set_src(instr, 2, opnd_create_base_disp
-                          (REG_XSP, REG_NULL, 0, 0,
-                           resolve_variable_size_dc(dcontext, 0,
-                                                    nibble1 == 2 ? OPSZ_ret :
-                                                    OPSZ_REXVARSTACK, false)));
+            instr_set_src(
+                instr, 2,
+                opnd_create_base_disp(
+                    REG_XSP, REG_NULL, 0, 0,
+                    resolve_variable_size_dc(
+                        dcontext, 0, nibble1 == 2 ? OPSZ_ret : OPSZ_REXVARSTACK, false)));
             instr_set_raw_bits(instr, start_pc, sz);
             IF_X64(instr_set_rip_rel_pos(instr, rip_rel_pos));
             return (pc + 3);
-        case 3:         /* ret w/ no immed */
+        case 3: /* ret w/ no immed */
             instr_set_opcode(instr, OP_ret);
             instr_set_raw_bits(instr, start_pc, sz);
             IF_X64(instr_set_rip_rel_pos(instr, rip_rel_pos));
@@ -1284,19 +1592,19 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         /* otherwise it wasn't a return so continue */
     }
 
-    if ((byte0 & 0xf0) == 0xe0) {       /* check for a funny 8-bit branch */
-        byte nibble1 = (byte) (byte0 & 0x0f);
+    if ((byte0 & 0xf0) == 0xe0) { /* check for a funny 8-bit branch */
+        byte nibble1 = (byte)(byte0 & 0x0f);
 
         /* determine the opcode */
-        if (nibble1 == 0) {             /* loopne */
+        if (nibble1 == 0) { /* loopne */
             instr_set_opcode(instr, OP_loopne);
-        } else if (nibble1 == 1) {      /* loope */
+        } else if (nibble1 == 1) { /* loope */
             instr_set_opcode(instr, OP_loope);
-        } else if (nibble1 == 2) {      /* loop */
+        } else if (nibble1 == 2) { /* loop */
             instr_set_opcode(instr, OP_loop);
-        } else if (nibble1 == 3) {      /* jecxz */
+        } else if (nibble1 == 3) { /* jecxz */
             instr_set_opcode(instr, OP_jecxz);
-        } else if (nibble1 == 10) {     /* jmp_far */
+        } else if (nibble1 == 10) { /* jmp_far */
             /* we need prefix info (data size controls immediate offset size),
              * this is rare so go ahead and do full decode
              */
@@ -1321,7 +1629,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         /* otherwise it wasn't a funny 8-bit cbr so continue */
     }
 
-    if (byte0 == 0x9a) {        /* check for far-absolute calls */
+    if (byte0 == 0x9a) { /* check for far-absolute calls */
         /* we need prefix info, this is rare so we do a full decode
          */
         if (decode(dcontext, start_pc, instr) == NULL)
@@ -1335,8 +1643,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         instr_set_opcode(instr, OP_int);
         instr_set_num_opnds(dcontext, instr, 2, 2);
         instr_set_dst(instr, 0, opnd_create_reg(REG_XSP));
-        instr_set_dst(instr, 1,
-                      opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_4));
+        instr_set_dst(instr, 1, opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_4));
         instr_set_src(instr, 0, opnd_create_immed_int((char)byte1, OPSZ_1));
         instr_set_src(instr, 1, opnd_create_reg(REG_XSP));
         instr_set_raw_bits(instr, start_pc, sz);
@@ -1385,10 +1692,11 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         instr_set_raw_bits(instr, start_pc, sz);
         instr_set_num_opnds(dcontext, instr, 1, 2);
         instr_set_src(instr, 0, opnd_create_reg(stack_sized_reg));
-        instr_set_src(instr, 1, opnd_create_base_disp
-                      (stack_sized_reg, REG_NULL, 0, 0,
-                       resolve_variable_size_dc(dcontext, prefixes,
-                                                OPSZ_VARSTACK, false)));
+        instr_set_src(
+            instr, 1,
+            opnd_create_base_disp(
+                stack_sized_reg, REG_NULL, 0, 0,
+                resolve_variable_size_dc(dcontext, prefixes, OPSZ_VARSTACK, false)));
         instr_set_dst(instr, 0, opnd_create_reg(stack_sized_reg));
         IF_X64(instr_set_rip_rel_pos(instr, rip_rel_pos));
         return (pc + 1);
@@ -1460,4 +1768,3 @@ decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr)
     /* assumption: operands are already marked invalid (instr was reset) */
     return (pc + sz);
 }
-

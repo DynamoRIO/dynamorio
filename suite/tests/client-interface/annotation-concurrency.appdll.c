@@ -38,20 +38,17 @@
 #include "test_annotation_arguments.h"
 #include "test_mode_annotations.h"
 
-#if !(defined (WINDOWS) && defined (X64))
-# include "memcheck.h"
+#if !(defined(WINDOWS) && defined(X64))
+#    include "memcheck.h"
 #endif
 
 #ifdef WINDOWS
-# define EXPORT __declspec(dllexport)
+#    define EXPORT __declspec(dllexport)
 #else /* UNIX */
-# define EXPORT __attribute__((visibility("default")))
+#    define EXPORT __attribute__((visibility("default")))
 #endif
 
-typedef enum {
-    false,
-    true
-} bool;
+typedef enum { false, true } bool;
 
 static bool invoke_annotations;
 static double *x_temp;
@@ -62,22 +59,22 @@ jacobi_init(int matrix_size, bool enable_annotations)
 {
     invoke_annotations = enable_annotations;
 
-    x_temp = (double *) malloc(matrix_size * sizeof(double));
+    x_temp = (double *)malloc(matrix_size * sizeof(double));
     if (invoke_annotations)
         TEST_ANNOTATION_EIGHT_ARGS(matrix_size, 102, 103, 104, 105, 106, 107, 108);
 }
 
 /* compute one iteration of the Jacobi method for solving linear equations */
 EXPORT void
-jacobi(double *dst, double *src, double **coefficients, double *rhs_vector,
-       int limit, unsigned int worker_id)
+jacobi(double *dst, double *src, double **coefficients, double *rhs_vector, int limit,
+       unsigned int worker_id)
 {
     int i, j;
 
     for (i = 0; i < limit; i++) {
         x_temp[i] = rhs_vector[i];
 
-#if !(defined (WINDOWS) && defined (X64))
+#if !(defined(WINDOWS) && defined(X64))
         if (invoke_annotations && worker_id < 3) {
             switch (worker_id) {
             case 0:
@@ -98,7 +95,7 @@ jacobi(double *dst, double *src, double **coefficients, double *rhs_vector,
 #endif
             for (j = 0; j < i; j++)
                 x_temp[i] -= src[j] * coefficients[i][j];
-#if !(defined (WINDOWS) && defined (X64))
+#if !(defined(WINDOWS) && defined(X64))
         }
 #endif
 

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -43,37 +43,166 @@
 #include "tls.h"
 #include <architecture/i386/table.h>
 #include <i386/user_ldt.h>
+#include <pthread.h>
 
 #ifndef MACOS
-# error Mac-only
+#    error Mac-only
 #endif
 
 /* From the (short) machdep syscall table */
+#define SYS_thread_set_tsd_base 3
 #define SYS_thread_set_user_ldt 4
 #define SYS_i386_set_ldt 5
 #define SYS_i386_get_ldt 6
 
-#ifdef X64
-# error TLS NYI
-#else
 /* This is what thread_set_user_ldt and i386_set_ldt give us.
  * XXX: a 32-bit Mac kernel will return 0x3f?
  * If so, update GDT_NUM_TLS_SLOTS in tls.h.
  */
-# define TLS_DR_SELECTOR 0x1f
-# define TLS_DR_INDEX    0x3
-#endif
+#define TLS_DR_SELECTOR 0x1f
+#define TLS_DR_INDEX 0x3
 
 static uint tls_app_index;
+
+#ifdef X64
+static pthread_key_t keys_start;
+
+static pthread_key_t
+tls_alloc_key(void)
+{
+    pthread_key_t key;
+    if (pthread_key_create(&key, NULL) != 0) {
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_ALLOCATE_TLS, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "System is out of slots or out of memory.");
+        ASSERT_NOT_REACHED();
+    }
+    return key;
+}
+
+void
+tls_process_init(void)
+{
+    /* Our strategy is to rely on libpthread and allocate directly-addressable
+     * slots using pthread_key_create().  Our initial implementation allocates
+     * enough to fit our entire os_local_state_t struct, to make Mac64 behave
+     * like Linux.  If this proves to be too many slots taken from the app,
+     * we'll want to shift to a strategy like Windows where we only put
+     * local_state_extended_t in slots and have a separate DR allocation for our
+     * other data, pointed at by a TLS slot (one of these, or slot 6).
+     */
+    int num_slots_needed = sizeof(os_local_state_t) / sizeof(void *);
+    byte *seg_base = get_segment_base(TLS_REG_LIB);
+    uint alignment;
+    if (DYNAMO_OPTION(tls_align) == 0) {
+        IF_X64(ASSERT_TRUNCATE(alignment, uint, proc_get_cache_line_size()));
+        alignment = (uint)proc_get_cache_line_size();
+    } else {
+        alignment = DYNAMO_OPTION(tls_align);
+    }
+    int i;
+    pthread_key_t delete_start = 0, delete_end = 0;
+    for (i = 0; i < alignment / sizeof(void *); i++) {
+        pthread_key_t key = tls_alloc_key();
+        if (ALIGNED(seg_base + key * sizeof(void *), alignment)) {
+            keys_start = key;
+            break;
+        }
+        if (i == 0)
+            delete_start = key;
+        delete_end = key;
+    }
+    if (keys_start == 0) {
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_ALLOCATE_TLS, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Failed to find aligned slot.");
+        ASSERT_NOT_REACHED();
+    }
+    for (i = 1; i < num_slots_needed; i++) {
+        pthread_key_t key = tls_alloc_key();
+        if (key != keys_start + i) {
+            /* TODO i#1979: To support attach we'll need to keep looking for a
+             * contiguous range elsewhere in the TLS space, like we do on Windows,
+             * instead of assuming the first free set is big enough.
+             */
+            REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_ALLOCATE_TLS, 3, get_application_name(),
+                                        get_application_pid(),
+                                        "Slots are not contiguous.");
+            ASSERT_NOT_REACHED();
+        }
+    }
+    if (delete_start > 0) {
+        for (pthread_key_t key = delete_start; key <= delete_end; key++) {
+            DEBUG_DECLARE(int res =)
+            pthread_key_delete(key);
+            ASSERT(res == 0); /* Can only fail with an invalid key. */
+        }
+    }
+    LOG(GLOBAL, LOG_THREADS, 1, "Reserved TLS keys %d-%d from base " PFX "\n", keys_start,
+        keys_start + num_slots_needed - 1, get_segment_base(TLS_REG_LIB));
+    /* Sanity check that the key is just an offset from the segment base. */
+    DODEBUG({
+        int seg_offs = keys_start * sizeof(void *);
+        ASSERT((ptr_int_t)pthread_getspecific(keys_start) == 0);
+        ASSERT(*(ptr_int_t *)(seg_base + seg_offs) == 0);
+#    define MAGIC_VALUE 0xdeadbeef12345678UL
+        int res = pthread_setspecific(keys_start, (void *)MAGIC_VALUE);
+        ASSERT(res == 0);
+        ASSERT((ptr_int_t)pthread_getspecific(keys_start) == MAGIC_VALUE);
+        ASSERT(*(ptr_int_t *)(seg_base + seg_offs) == MAGIC_VALUE);
+    });
+}
+
+void
+tls_process_exit(void)
+{
+    int num_slots_needed = sizeof(os_local_state_t) / sizeof(void *);
+    for (int i = 0; i < num_slots_needed; i++) {
+        DEBUG_DECLARE(int res =)
+        pthread_key_delete(keys_start + i);
+        ASSERT(res == 0); /* Can only fail with an invalid key. */
+    }
+}
+
+int
+tls_get_dr_offs(void)
+{
+    return keys_start * sizeof(void *);
+}
+
+byte *
+tls_get_dr_addr(void)
+{
+    byte *seg_base = get_segment_base(TLS_REG_LIB);
+    return seg_base + keys_start * sizeof(void *);
+}
+
+byte **
+get_app_tls_swap_slot_addr(void)
+{
+    byte **app_tls_base = (byte **)read_thread_register(TLS_REG_LIB);
+    if (app_tls_base == NULL) {
+        ASSERT_NOT_IMPLEMENTED(false);
+    }
+    return (byte **)(app_tls_base + DR_TLS_BASE_OFFSET);
+}
+#endif
 
 void
 tls_thread_init(os_local_state_t *os_tls, byte *segment)
 {
 #ifdef X64
-    /* FIXME: for 64-bit, our only option is thread_fast_set_cthread_self64
-     * and sharing with the app.  No way to read current base?!?
+    /* For now we have both a directly-addressable os_local_state_t and a pointer to
+     * it in slot 6.  If we settle on always doing the full os_local_state_t in slots,
+     * we would probably get rid of the use of slot 6.
      */
-# error NYI
+    byte **tls_swap_slot;
+    ASSERT((byte *)(os_tls->self) == segment);
+    tls_swap_slot = get_app_tls_swap_slot_addr();
+    /* we assume the swap slot is initialized as 0 */
+    ASSERT_NOT_IMPLEMENTED(*tls_swap_slot == NULL);
+    *tls_swap_slot = segment;
+    os_tls->tls_type = TLS_TYPE_SLOT;
 #else
     /* SYS_thread_set_user_ldt looks appealing, as it has built-in kernel
      * support which swaps it on thread switches.
@@ -84,10 +213,10 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     ldt_t ldt;
     int res;
 
-    ldt.data.base00 = (ushort)(ptr_uint_t) segment;
+    ldt.data.base00 = (ushort)(ptr_uint_t)segment;
     ldt.data.base16 = (byte)((ptr_uint_t)segment >> 16);
     ldt.data.base24 = (byte)((ptr_uint_t)segment >> 24);
-    ldt.data.limit00 = (ushort) PAGE_SIZE;
+    ldt.data.limit00 = (ushort)PAGE_SIZE;
     ldt.data.limit16 = 0;
     ldt.data.type = DESC_DATA_WRITE;
     ldt.data.dpl = USER_PRIVILEGE;
@@ -100,7 +229,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
         LOG(THREAD_GET, LOG_THREADS, 4, "%s failed with code %d\n", __FUNCTION__, res);
         ASSERT_NOT_REACHED();
     } else {
-        uint index = (uint) res;
+        uint index = (uint)res;
         uint selector = LDT_SELECTOR(index);
         /* XXX i#1405: we end up getting index 3 for the 1st thread,
          * but later ones seem to need new slots (originally I thought
@@ -117,6 +246,12 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
 #endif
 }
 
+bool
+tls_thread_preinit()
+{
+    return true;
+}
+
 #ifndef X64
 /* The kernel clears fs in signal handlers, so we have to re-instate our selector */
 void
@@ -131,13 +266,16 @@ void
 tls_thread_free(tls_type_t tls_type, int index)
 {
 #ifdef X64
-    /* FIXME: for 64-bit, our only option is thread_fast_set_cthread_self64
-     * and sharing with the app.  No way to read current base?!?
-     */
-# error NYI
+    byte **tls_swap_slot;
+    os_local_state_t *os_tls;
+    ASSERT(tls_type == TLS_TYPE_SLOT);
+    tls_swap_slot = get_app_tls_swap_slot_addr();
+    ASSERT(tls_swap_slot != NULL);
+    os_tls = (os_local_state_t *)*tls_swap_slot;
+    ASSERT(os_tls->self == os_tls);
+    *tls_swap_slot = TLS_SLOT_VAL_EXITED;
 #else
-    int res = dynamorio_mach_dep_syscall(SYS_thread_set_user_ldt, 3,
-                                         NULL, 0, 0);
+    int res = dynamorio_mach_dep_syscall(SYS_thread_set_user_ldt, 3, NULL, 0, 0);
     if (res < 0) {
         LOG(THREAD_GET, LOG_THREADS, 4, "%s failed with code %d\n", __FUNCTION__, res);
         ASSERT_NOT_REACHED();
@@ -157,17 +295,19 @@ tls_get_fs_gs_segment_base(uint seg)
     byte *base;
     int res;
 
+    IF_X64(ASSERT_NOT_REACHED()); /* Not used for x64. */
+
     if (seg != SEG_FS && seg != SEG_GS)
-        return (byte *) POINTER_MAX;
+        return (byte *)POINTER_MAX;
 
     selector = read_thread_register(seg);
     index = SELECTOR_INDEX(selector);
-    LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n",
-        __FUNCTION__, selector, index, TEST(SELECTOR_IS_LDT, selector));
+    LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n", __FUNCTION__,
+        selector, index, TEST(SELECTOR_IS_LDT, selector));
 
     if (!TEST(SELECTOR_IS_LDT, selector) && selector != 0) {
         ASSERT_NOT_IMPLEMENTED(false);
-        return (byte *) POINTER_MAX;
+        return (byte *)POINTER_MAX;
     }
 
     /* The man page is confusing, but experimentation shows it takes in the index,
@@ -177,14 +317,12 @@ tls_get_fs_gs_segment_base(uint seg)
     if (res < 0) {
         LOG(THREAD_GET, LOG_THREADS, 4, "%s failed with code %d\n", __FUNCTION__, res);
         ASSERT_NOT_REACHED();
-        return (byte *) POINTER_MAX;
+        return (byte *)POINTER_MAX;
     }
 
-    base = (byte *)
-        (((ptr_uint_t)ldt.data.base24 << 24) |
-         ((ptr_uint_t)ldt.data.base16 << 16) |
-         (ptr_uint_t)ldt.data.base00);
-    LOG(THREAD_GET, LOG_THREADS, 4, "%s => base "PFX"\n", __FUNCTION__, base);
+    base = (byte *)(((ptr_uint_t)ldt.data.base24 << 24) |
+                    ((ptr_uint_t)ldt.data.base16 << 16) | (ptr_uint_t)ldt.data.base00);
+    LOG(THREAD_GET, LOG_THREADS, 4, "%s => base " PFX "\n", __FUNCTION__, base);
     return base;
 }
 
@@ -224,8 +362,7 @@ tls_get_descriptor(int index, our_modify_ldt_t *desc OUT)
         return false;
     }
     desc->entry_number = index;
-    desc->base_addr = (((uint)ldt.data.base24 << 24) |
-                       ((uint)ldt.data.base16 << 16) |
+    desc->base_addr = (((uint)ldt.data.base24 << 24) | ((uint)ldt.data.base16 << 16) |
                        (uint)ldt.data.base00);
     desc->limit = ((uint)ldt.data.limit16 << 16) | (uint)ldt.data.limit00;
     desc->seg_32bit = ldt.data.stksz;
@@ -247,7 +384,12 @@ tls_clear_descriptor(int index)
 int
 tls_dr_index(void)
 {
+#ifdef X64
+    ASSERT_NOT_IMPLEMENTED(false);
+#else
     return TLS_DR_INDEX;
+#endif
+    return 0; /* not reached */
 }
 
 int
@@ -271,7 +413,7 @@ void
 tls_initialize_indices(os_local_state_t *os_tls)
 {
 #ifdef X64
-# error NYI
+    ASSERT_NOT_IMPLEMENTED(false);
 #else
     uint selector = read_thread_register(SEG_GS);
     tls_app_index = SELECTOR_INDEX(selector);

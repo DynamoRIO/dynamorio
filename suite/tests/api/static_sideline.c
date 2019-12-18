@@ -41,7 +41,6 @@
  * -static instead of calling dr_app_*.
  */
 
-
 #define NUM_APP_THREADS 4
 #define NUM_SIDELINE_THREADS 4
 
@@ -69,10 +68,9 @@ sideline_run(void *arg)
 }
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-         bool translating)
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
-    num_bbs++;  /* racy update, but it is ok */
+    num_bbs++; /* racy update, but it is ok */
     return DR_EMIT_DEFAULT;
 }
 
@@ -143,7 +141,7 @@ main(int argc, const char *argv[])
 
     /* test attaching to multi-threaded app */
     for (i = 0; i < NUM_APP_THREADS; i++) {
-        pthread_create(&thread[i], NULL, thread_func, (void*)(ptr_int_t)i);
+        pthread_create(&thread[i], NULL, thread_func, (void *)(ptr_int_t)i);
     }
     print("pre-DR init\n");
     dr_app_setup();
@@ -171,7 +169,7 @@ main(int argc, const char *argv[])
     if (!dr_app_running_under_dynamorio())
         print("ERROR: should be under DynamoRIO after dr_app_start!\n");
     for (i = 0; i < NUM_APP_THREADS; i++) {
-        pthread_create(&thread[i], NULL, thread_func, (void*)(ptr_int_t)i);
+        pthread_create(&thread[i], NULL, thread_func, (void *)(ptr_int_t)i);
     }
     /* test detaching from multi-threaded app */
     dr_app_stop_and_cleanup();

@@ -32,23 +32,21 @@
 
 #include "dr_api.h"
 
-static
-dr_emit_flags_t bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr, *next_next_instr;
     static app_pc target = NULL;
 
     /* Look for pattern: nop; nop; call direct; */
-    for (instr = instrlist_first(bb);
-         instr != NULL; instr = next_instr) {
+    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
         if (next_instr != NULL)
             next_next_instr = instr_get_next(next_instr);
         else
             next_next_instr = NULL;
 
-        if (instr_is_nop(instr) &&
-            next_instr != NULL && instr_is_nop(next_instr)) {
+        if (instr_is_nop(instr) && next_instr != NULL && instr_is_nop(next_instr)) {
             if (instr_is_call_direct(next_next_instr)) {
                 /* The first nop followed by a direct call is a marker
                  * for the function we want to call.
@@ -73,7 +71,8 @@ dr_emit_flags_t bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_t
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     dr_register_bb_event(bb_event);
 }

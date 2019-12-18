@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2006 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -30,12 +31,9 @@
  * DAMAGE.
  */
 
-
-
 #include "share.h"
 #include "parser.h"
 #include <stdio.h>
-
 
 #ifndef UNIT_TEST
 
@@ -92,28 +90,21 @@ get_message_block_size(char *start, WCHAR *end_delimiter_w, SIZE_T *size)
     endptr = strstr(start, end_delimiter);
 
     if (endptr == NULL) {
-        DO_DEBUG(DL_WARN,
-                 printf("No %s end delimiter!\n", end_delimiter);
-                 );
+        DO_DEBUG(DL_WARN, printf("No %s end delimiter!\n", end_delimiter););
         *size = 0xffffffff;
         return NULL;
-    }
-    else {
+    } else {
         DO_DEBUG(DL_VERB,
-                 printf("Block size %d for %s:\n",
-                        endptr - start, end_delimiter);
-                 );
+                 printf("Block size %zd for %s:\n", endptr - start, end_delimiter););
         *size = endptr - start;
         return endptr + strlen(end_delimiter);
     }
 }
 
-
-
 /* takes an optional separator, by default '=' */
 char *
-parse_line_sep(char *start, char sep, BOOL *done,
-               WCHAR *param, WCHAR *value, SIZE_T maxchars)
+parse_line_sep(char *start, char sep, BOOL *done, WCHAR *param, WCHAR *value,
+               SIZE_T maxchars)
 {
     char *curtok;
     SIZE_T toklen = 0;
@@ -132,29 +123,24 @@ parse_line_sep(char *start, char sep, BOOL *done,
 
     curtok = next_token_sep(start, &toklen, sep);
 
-    DO_DEBUG(DL_FINEST,
-             printf("curtok (tl=%d):\n%s",
-                    toklen, curtok);
-             );
+    DO_DEBUG(DL_FINEST, printf("curtok (tl=%zu):\n%s", toklen, curtok););
 
     if (toklen == 0 && curtok[0] == '\0') {
         *done = TRUE;
         goto parse_line_out;
     }
 
-    _snwprintf(param, MIN(toklen, maxchars-1), L"%S", curtok);
-    param[MIN(toklen, maxchars-1)] = L'\0';
+    _snwprintf(param, MIN(toklen, maxchars - 1), L"%S", curtok);
+    param[MIN(toklen, maxchars - 1)] = L'\0';
 
     DO_DEBUG(DL_FINEST,
-             printf("curtok: %s, nc=%d (%d or %d?)\n",
-                    curtok, curtok[toklen + 1], '\r', '\n');
-             );
+             printf("curtok: %s, nc=%d (%d or %d?)\n", curtok, curtok[toklen + 1], '\r',
+                    '\n'););
 
     /* handle the empty option properly */
     if (curtok[toklen] == '\r' || curtok[toklen] == '\n') {
         value[0] = L'\0';
-    }
-    else {
+    } else {
         curtok = next_token_sep(curtok + toklen, &toklen, sep);
 
         if (toklen == 0 && curtok[0] == '\0') {
@@ -162,9 +148,7 @@ parse_line_sep(char *start, char sep, BOOL *done,
             goto parse_line_out;
         }
 
-        DO_DEBUG(DL_FINEST,
-                 printf("vt(%d): %s\n", toklen, curtok);
-                 );
+        DO_DEBUG(DL_FINEST, printf("vt(%zu): %s\n", toklen, curtok););
 
         /* all values that start with \\ have DR_HOME prepended */
         if ('\\' == curtok[0])
@@ -172,33 +156,27 @@ parse_line_sep(char *start, char sep, BOOL *done,
         else
             prefix = L"";
 
-        _snwprintf(value, MIN(toklen + wcslen(prefix), maxchars - 1),
-                   L"%s%S", prefix, curtok);
+        _snwprintf(value, MIN(toklen + wcslen(prefix), maxchars - 1), L"%s%S", prefix,
+                   curtok);
         value[MIN(toklen + wcslen(prefix), maxchars - 1)] = L'\0';
     }
 
- parse_line_out:
+parse_line_out:
 
-    DO_DEBUG(DL_FINEST,
-             printf("parsed line: %S(%d)=%S\n",
-                    param, toklen, value);
-             );
+    DO_DEBUG(DL_FINEST, printf("parsed line: %S(%zu)=%S\n", param, toklen, value););
 
     return curtok + toklen;
 }
-
 
 /* first argument is where to start searching from.
  * returns a value which is the right place to start searching
  *  from for the next token.
  * a line is either a single token, or an NVP (separated by =). */
 char *
-parse_line(char *start, BOOL *done,
-           WCHAR *param, WCHAR *value, SIZE_T maxchars)
+parse_line(char *start, BOOL *done, WCHAR *param, WCHAR *value, SIZE_T maxchars)
 {
     return parse_line_sep(start, '=', done, param, value, maxchars);
 }
-
 
 void
 msg_append(char *msg_buffer, SIZE_T maxchars, WCHAR *data, SIZE_T *accumlen)
@@ -208,18 +186,13 @@ msg_append(char *msg_buffer, SIZE_T maxchars, WCHAR *data, SIZE_T *accumlen)
     if (data == NULL)
         return;
 
-    if (msg_buffer != NULL &&
-        strlen(msg_buffer) + wcslen(data) < maxchars) {
+    if (msg_buffer != NULL && strlen(msg_buffer) + wcslen(data) < maxchars) {
         SIZE_T oldsz = strlen(msg_buffer);
         DO_DEBUG(DL_FINEST,
-                 printf("msg_buffer: %s, os=%d, data=%S\n",
-                        msg_buffer, oldsz, data);
-                 );
+                 printf("msg_buffer: %s, os=%zu, data=%S\n", msg_buffer, oldsz, data););
         _snprintf(msg_buffer + oldsz, maxchars - oldsz, "%S", data);
         msg_buffer[oldsz + wcslen(data)] = '\0';
-        DO_DEBUG(DL_FINEST,
-                 printf("msg_buffer: %s\n", msg_buffer);
-                 );
+        DO_DEBUG(DL_FINEST, printf("msg_buffer: %s\n", msg_buffer););
         DO_ASSERT(strlen(msg_buffer) == oldsz + wcslen(data));
     }
 
@@ -239,8 +212,8 @@ msg_append(char *msg_buffer, SIZE_T maxchars, WCHAR *data, SIZE_T *accumlen)
  */
 
 void
-msg_append_nvp(char *msg_buffer, SIZE_T maxchars, SIZE_T *accumlen,
-               WCHAR *name, WCHAR *value)
+msg_append_nvp(char *msg_buffer, SIZE_T maxchars, SIZE_T *accumlen, WCHAR *name,
+               WCHAR *value)
 {
     /* exclude installation-specific parameters */
     if (0 == wcscmp(name, L_DYNAMORIO_VAR_HOME) ||
@@ -251,26 +224,21 @@ msg_append_nvp(char *msg_buffer, SIZE_T maxchars, SIZE_T *accumlen,
     msg_append(msg_buffer, maxchars, L_EQUALS, accumlen);
 
     /* relativize any paths to DRHOME */
-    if (0 == wcsncmp(value, get_dynamorio_home(),
-                     wcslen(get_dynamorio_home())))
-        msg_append(msg_buffer, maxchars,
-                   value + wcslen(get_dynamorio_home()), accumlen);
+    if (0 == wcsncmp(value, get_dynamorio_home(), wcslen(get_dynamorio_home())))
+        msg_append(msg_buffer, maxchars, value + wcslen(get_dynamorio_home()), accumlen);
     else
         msg_append(msg_buffer, maxchars, value, accumlen);
 
     msg_append(msg_buffer, maxchars, L_NEWLINE, accumlen);
 }
 
-
-
 #else // ifdef UNIT_TEST
-
-
 
 int
 main()
 {
-    char *testline = "GLOBAL_PROTECT=1\r\nBEGIN_BLOCK\r\nAPP_NAME=inetinfo.exe\r\nDYNAMORIO_OPTIONS=\r\nFOO=\\bar.dll\r\n";
+    char *testline = "GLOBAL_PROTECT=1\r\nBEGIN_BLOCK\r\nAPP_NAME=inetinfo."
+                     "exe\r\nDYNAMORIO_OPTIONS=\r\nFOO=\\bar.dll\r\n";
     WCHAR *sample = L"sample.mfp";
     SIZE_T len;
     DWORD res;
@@ -279,16 +247,14 @@ main()
     set_debuglevel(DL_INFO);
     set_abortlevel(DL_WARN);
 
-
     /* load the sample policy file for testing */
     res = read_file_contents(sample, NULL, 0, &len);
     DO_ASSERT(res == ERROR_MORE_DATA);
     DO_ASSERT(len > 1000);
 
-    policy = (char *) malloc(len);
+    policy = (char *)malloc(len);
     res = read_file_contents(sample, policy, len, NULL);
     DO_ASSERT(res == ERROR_SUCCESS);
-
 
     /* next_token tests */
     {
@@ -359,39 +325,32 @@ main()
         BOOL done;
         char *ptr, *line = testline;
 
-        ptr =
-            parse_line(line, &done, param, value, MAX_PATH);
+        ptr = parse_line(line, &done, param, value, MAX_PATH);
         DO_ASSERT(!done);
         DO_ASSERT_WSTR_EQ(param, L"GLOBAL_PROTECT");
         DO_ASSERT_WSTR_EQ(value, L"1");
 
-        ptr =
-            parse_line(ptr, &done, param, value, MAX_PATH);
+        ptr = parse_line(ptr, &done, param, value, MAX_PATH);
         DO_ASSERT(!done);
         DO_ASSERT_WSTR_EQ(param, L"BEGIN_BLOCK");
         DO_ASSERT_WSTR_EQ(value, L"");
 
-        ptr =
-            parse_line(ptr, &done, param, value, MAX_PATH);
+        ptr = parse_line(ptr, &done, param, value, MAX_PATH);
         DO_ASSERT(!done);
         DO_ASSERT_WSTR_EQ(param, L"APP_NAME");
         DO_ASSERT_WSTR_EQ(value, L"inetinfo.exe");
 
-        ptr =
-            parse_line(ptr, &done, param, value, MAX_PATH);
+        ptr = parse_line(ptr, &done, param, value, MAX_PATH);
         DO_ASSERT(!done);
         DO_ASSERT_WSTR_EQ(param, L"DYNAMORIO_OPTIONS");
         DO_ASSERT_WSTR_EQ(value, L"");
 
-        ptr =
-            parse_line(ptr, &done, param, value, MAX_PATH);
+        ptr = parse_line(ptr, &done, param, value, MAX_PATH);
         DO_ASSERT(!done);
         DO_ASSERT_WSTR_EQ(param, L"FOO");
         DO_ASSERT(NULL != wcsstr(value, L"bar"));
         DO_ASSERT(NULL != wcsstr(value, get_dynamorio_home()));
-
     }
-
 
     /* msg_append tests */
     {
@@ -428,7 +387,7 @@ main()
     /* MSVCRT \r\r\n bug */
     {
         WCHAR *outfn = L"testcr.txt";
-        char *str="line\r\n";
+        char *str = "line\r\n";
         char buf[MAX_PATH];
 
         res = write_file_contents(outfn, str, TRUE);
@@ -446,7 +405,6 @@ main()
     printf("All Test Passed\n");
 
     return 0;
-
 }
 
 #endif

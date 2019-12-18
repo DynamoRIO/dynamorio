@@ -78,7 +78,6 @@ int nopage1 = 4;
 int nopage2;
 #pragma data_seg()
 
-
 /*
 E Execute The section is executable
 R Read Allows read operations on data
@@ -102,26 +101,25 @@ int erw2;
 /* FIXME: we can't use _Pragma as we do in core in ACTUAL_PRAGMA since we're
  * not using gcc as a preprocessor here! */
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
-#define ACTUAL_PRAGMA(p) _Pragma ( #p )
-#define START_DATA_SECTION(name, prot) ACTUAL_PRAGMA( data_seg(name) )
+#define ACTUAL_PRAGMA(p) _Pragma(#p)
+#define START_DATA_SECTION(name, prot) ACTUAL_PRAGMA(data_seg(name))
 #define VAR_IN_SECTION(name) /* nothing */
-#define END_DATA_SECTION() ACTUAL_PRAGMA( data_seg() )
+#define END_DATA_SECTION() ACTUAL_PRAGMA(data_seg())
 
-#define SECTION_SET(id)                         \
-        START_DATA_SECTION(".rx" #id, "rx")     \
-        int rx##id;                             \
-        END_DATA_SECTION()                      \
-        START_DATA_SECTION(".rwx" #id, "rwx")   \
-        int rwx##id;                            \
-        END_DATA_SECTION()                      \
-        START_DATA_SECTION(".r" #id, "r")       \
-        int r##id;                              \
-        END_DATA_SECTION()
+#define SECTION_SET(id)                   \
+    START_DATA_SECTION(".rx" #id, "rx")   \
+    int rx##id;                           \
+    END_DATA_SECTION()                    \
+    START_DATA_SECTION(".rwx" #id, "rwx") \
+    int rwx##id;                          \
+    END_DATA_SECTION()                    \
+    START_DATA_SECTION(".r" #id, "r")     \
+    int r##id;                            \
+    END_DATA_SECTION()
 
 /* FIXME: plan was to just use SECTION_SET(1) ...
  * but for now doing manually
  */
-
 
 /* add alignment - has to be smaller than the /ALIGN option above */
 #pragma comment(linker, "/SECTION:.awer5,WER,ALIGN:0x1000")
@@ -135,7 +133,11 @@ int awer5 = 5;
 #pragma code_seg(".cer1")
 int cer1 = 5;
 /* this is supposed to crash if ever run since not writable */
-void funcer1() { cer1 = 1;}
+void
+funcer1()
+{
+    cer1 = 1;
+}
 #pragma code_seg()
 
 /* does it matter what is what? */
@@ -143,19 +145,31 @@ void funcer1() { cer1 = 1;}
 #pragma data_seg(".cwer1")
 int cwer1 = 5;
 /* forcing a relocation */
-void funccwer1() { cwer1 = 1;}
+void
+funccwer1()
+{
+    cwer1 = 1;
+}
 #pragma data_seg()
 
 #pragma comment(linker, "/SECTION:.cer2,ER")
 #pragma code_seg(".cer2")
 int cer2 = 5;
-void funcer2() { cer2 = 2;}
+void
+funcer2()
+{
+    cer2 = 2;
+}
 #pragma code_seg()
 
 #pragma comment(linker, "/SECTION:.cer3,ER")
 #pragma code_seg(".cer3")
 int cer3 = 5;
-void funcer3() { cer3 = 3;}
+void
+funcer3()
+{
+    cer3 = 3;
+}
 #pragma code_seg()
 /* FIXME: could add more code sections, but to avoid triggering the
  * curiosity in add_rct_module() not adding many code sections */
@@ -182,7 +196,6 @@ int er1 = 5;
 #pragma data_seg(".wer1")
 int wer1 = 5;
 #pragma data_seg()
-
 
 /* FIXME: just doing manually in emacs for now
  *  (query-replace "er1" "er2" nil nil nil)
@@ -285,7 +298,6 @@ int er10 = 5;
 int wer10 = 5;
 #pragma data_seg()
 
-
 /* now replacing er with er20 */
 
 /* --- */
@@ -385,7 +397,6 @@ int er209 = 5;
 #pragma data_seg(".wer209")
 int wer209 = 5;
 #pragma data_seg()
-
 
 /* now replacing er20 with er30 */
 
@@ -605,29 +616,29 @@ int er502 = 5;
 #pragma data_seg()
 
 #ifndef X64 /* leaving this in goes over the xp x64 loader limit so removing */
-#pragma comment(linker, "/SECTION:.wer502,WER")
-#pragma data_seg(".wer502")
+#    pragma comment(linker, "/SECTION:.wer502,WER")
+#    pragma data_seg(".wer502")
 int wer502 = 5;
-#pragma data_seg()
+#    pragma data_seg()
 #endif
 
 #if 0 /* leaving this in goes over the WOW64 xp loader limit so removing */
 /* --- */
-#pragma comment(linker, "/SECTION:.er503,ER")
-#pragma data_seg(".er503")
+#    pragma comment(linker, "/SECTION:.er503,ER")
+#    pragma data_seg(".er503")
 int er503 = 5;
-#pragma data_seg()
+#    pragma data_seg()
 #endif
 
 /* 96 if we stop adding .er50x here */
-
 
 /* although dumpbin has no problems with 107 sections */
 /* The windows XP SP2 loader still maintains this limit
  * ---------------------------
  * section-max.exe - Bad Image
  * ---------------------------
- * The application or DLL i:\vlk\trees\tot\suite\tests\security-win32\section-max.dll.dll is not a valid Windows image. Please check this against your installation diskette.
+ * The application or DLL i:\vlk\trees\tot\suite\tests\security-win32\section-max.dll.dll
+ * is not a valid Windows image. Please check this against your installation diskette.
  * ---------------------------
  * OK
  * ---------------------------
@@ -635,11 +646,7 @@ int er503 = 5;
  *
  */
 
-
-
-int
-__declspec(dllexport)
-make_a_lib(int arg)
+int __declspec(dllexport) make_a_lib(int arg)
 {
     shared2 = 101;
     return shared1 + discard1 + nocache1 + nopage1 + erw1;
@@ -649,9 +656,7 @@ BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     switch (reason_for_call) {
-    case DLL_PROCESS_ATTACH:
-        print("in section max dll\n");
-        break;
+    case DLL_PROCESS_ATTACH: print("in section max dll\n"); break;
     }
     return TRUE;
 }

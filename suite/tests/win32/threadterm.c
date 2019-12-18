@@ -39,7 +39,7 @@
 volatile long thread_started = 0;
 
 int WINAPI
-run_func(void * arg)
+run_func(void *arg)
 {
     InterlockedIncrement(&thread_started);
     SleepEx(20000, FALSE);

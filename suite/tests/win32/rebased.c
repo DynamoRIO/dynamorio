@@ -38,7 +38,7 @@
 #define VERBOSE 0
 
 HMODULE
-myload(char* lib)
+myload(char *lib)
 {
     HMODULE hm = LoadLibrary(lib);
     if (hm == NULL)
@@ -49,13 +49,14 @@ myload(char* lib)
     } else {
         print("loaded %s\n", lib);
 #if VERBOSE
-        print("library is at "PFX"\n", hm);
+        print("library is at " PFX "\n", hm);
 #endif
     }
     return hm;
 }
 
-int main()
+int
+main()
 {
     HMODULE lib1;
     HMODULE lib2;

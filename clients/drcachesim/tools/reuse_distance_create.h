@@ -48,21 +48,23 @@
  */
 // These options are currently documented in ../common/options.cpp.
 struct reuse_distance_knobs_t {
-    reuse_distance_knobs_t() :
-        line_size(64),
-        report_histogram(false),
-        distance_threshold(100),
-        report_top(10),
-        skip_list_distance(500),
-        verify_skip(false),
-        verbose(0) {}
-     unsigned int line_size;
-     bool report_histogram;
-     unsigned int distance_threshold;
-     unsigned int report_top;
-     unsigned int skip_list_distance;
-     bool verify_skip;
-     unsigned int verbose;
+    reuse_distance_knobs_t()
+        : line_size(64)
+        , report_histogram(false)
+        , distance_threshold(100)
+        , report_top(10)
+        , skip_list_distance(500)
+        , verify_skip(false)
+        , verbose(0)
+    {
+    }
+    unsigned int line_size;
+    bool report_histogram;
+    unsigned int distance_threshold;
+    unsigned int report_top;
+    unsigned int skip_list_distance;
+    bool verify_skip;
+    unsigned int verbose;
 };
 
 /** Creates an analysis tool which computes reuse distance. */

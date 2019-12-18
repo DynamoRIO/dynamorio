@@ -31,26 +31,26 @@
  */
 
 #ifndef IF_X86_ELSE
-# ifdef X86
-#  define IF_X86_ELSE(x, y) x
-# else
-#  define IF_X86_ELSE(x, y) y
-# endif
+#    ifdef X86
+#        define IF_X86_ELSE(x, y) x
+#    else
+#        define IF_X86_ELSE(x, y) y
+#    endif
 #endif
 
 #ifdef X86
-# define TEST_REG DR_REG_XDX
-# define TEST_REG_ASM REG_XDX
+#    define TEST_REG DR_REG_XDX
+#    define TEST_REG_ASM REG_XDX
 #endif
 
 #ifdef ARM
-# define TEST_REG DR_REG_R12
-# define TEST_REG_ASM r12
+#    define TEST_REG DR_REG_R12
+#    define TEST_REG_ASM r12
 #endif
 
 #ifdef AARCH64
-# define TEST_REG DR_REG_X4
-# define TEST_REG_ASM x4
+#    define TEST_REG DR_REG_X4
+#    define TEST_REG_ASM x4
 #endif
 
 /* Immediates that we look for in the app code to identify places for
@@ -63,21 +63,21 @@
 #define MAKE_HEX_C(n) MAKE_HEX(n)
 
 #define DRX_BUF_TEST_1_ASM MAKE_HEX_ASM(DRX_BUF_TEST_CONST(1))
-#define DRX_BUF_TEST_1_C   MAKE_HEX_C(DRX_BUF_TEST_CONST(1))
+#define DRX_BUF_TEST_1_C MAKE_HEX_C(DRX_BUF_TEST_CONST(1))
 
 #define DRX_BUF_TEST_2_ASM MAKE_HEX_ASM(DRX_BUF_TEST_CONST(2))
-#define DRX_BUF_TEST_2_C   MAKE_HEX_C(DRX_BUF_TEST_CONST(2))
+#define DRX_BUF_TEST_2_C MAKE_HEX_C(DRX_BUF_TEST_CONST(2))
 
 #define DRX_BUF_TEST_3_ASM MAKE_HEX_ASM(DRX_BUF_TEST_CONST(3))
-#define DRX_BUF_TEST_3_C   MAKE_HEX_C(DRX_BUF_TEST_CONST(3))
+#define DRX_BUF_TEST_3_C MAKE_HEX_C(DRX_BUF_TEST_CONST(3))
 
 #define DRX_BUF_TEST_4_ASM MAKE_HEX_ASM(DRX_BUF_TEST_CONST(4))
-#define DRX_BUF_TEST_4_C   MAKE_HEX_C(DRX_BUF_TEST_CONST(4))
+#define DRX_BUF_TEST_4_C MAKE_HEX_C(DRX_BUF_TEST_CONST(4))
 
 #define DRX_BUF_TEST_5_ASM MAKE_HEX_ASM(DRX_BUF_TEST_CONST(5))
-#define DRX_BUF_TEST_5_C   MAKE_HEX_C(DRX_BUF_TEST_CONST(5))
+#define DRX_BUF_TEST_5_C MAKE_HEX_C(DRX_BUF_TEST_CONST(5))
 
 #define DRX_BUF_TEST_6_ASM MAKE_HEX_ASM(DRX_BUF_TEST_CONST(6))
-#define DRX_BUF_TEST_6_C   MAKE_HEX_C(DRX_BUF_TEST_CONST(6))
+#define DRX_BUF_TEST_6_C MAKE_HEX_C(DRX_BUF_TEST_CONST(6))
 
 #define NUM_ITER 100

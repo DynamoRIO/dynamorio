@@ -90,19 +90,19 @@ instr_branch_type(instr_t *cti_instr)
          * FIXME i#1551: once we have far linking through stubs we should
          * remove this and have a faster link through the stub.
          */
-        return LINK_INDIRECT|LINK_CALL;
+        return LINK_INDIRECT | LINK_CALL;
     }
     /* We treate a predicated call as a cbr, not a call */
     else if (instr_is_cbr_arch(cti_instr) || instr_is_ubr_arch(cti_instr))
-        return LINK_DIRECT|LINK_JMP;
+        return LINK_DIRECT | LINK_JMP;
     else if (instr_is_call_direct(cti_instr))
-        return LINK_DIRECT|LINK_CALL;
+        return LINK_DIRECT | LINK_CALL;
     else if (instr_is_call_indirect(cti_instr))
-        return LINK_INDIRECT|LINK_CALL;
+        return LINK_INDIRECT | LINK_CALL;
     else if (instr_is_return(cti_instr))
-        return LINK_INDIRECT|LINK_RETURN;
+        return LINK_INDIRECT | LINK_RETURN;
     else if (instr_is_mbr_arch(cti_instr))
-        return LINK_INDIRECT|LINK_JMP;
+        return LINK_INDIRECT | LINK_JMP;
     else
         CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
     return LINK_INDIRECT;
@@ -172,10 +172,8 @@ instr_reads_gpr_list(instr_t *instr)
     case OP_stm_priv:
     case OP_stmib_priv:
     case OP_stmda_priv:
-    case OP_stmdb_priv:
-        return true;
-    default:
-        return false;
+    case OP_stmdb_priv: return true;
+    default: return false;
     }
 }
 
@@ -191,10 +189,8 @@ instr_writes_gpr_list(instr_t *instr)
     case OP_ldm_priv:
     case OP_ldmib_priv:
     case OP_ldmda_priv:
-    case OP_ldmdb_priv:
-        return true;
-    default:
-        return false;
+    case OP_ldmdb_priv: return true;
+    default: return false;
     }
 }
 
@@ -212,10 +208,8 @@ instr_reads_reg_list(instr_t *instr)
     case OP_stmda_priv:
     case OP_stmdb_priv:
     case OP_vstm:
-    case OP_vstmdb:
-        return true;
-    default:
-        return false;
+    case OP_vstmdb: return true;
+    default: return false;
     }
 }
 
@@ -233,10 +227,8 @@ instr_writes_reg_list(instr_t *instr)
     case OP_ldmda_priv:
     case OP_ldmdb_priv:
     case OP_vldm:
-    case OP_vldmdb:
-        return true;
-    default:
-        return false;
+    case OP_vldmdb: return true;
+    default: return false;
     }
 }
 
@@ -250,7 +242,7 @@ instr_is_return(instr_t *instr)
      * C) A pop into pc.
      */
     int opc = instr_get_opcode(instr);
-    if ((opc == OP_bx || opc ==  OP_bxj) &&
+    if ((opc == OP_bx || opc == OP_bxj) &&
         opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_LR)
         return true;
     if (!instr_writes_to_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL))
@@ -263,7 +255,7 @@ bool
 instr_is_cbr_arch(instr_t *instr)
 {
     int opc = instr->opcode; /* caller ensures opcode is valid */
-    if (opc == OP_cbnz || opc ==  OP_cbz)
+    if (opc == OP_cbnz || opc == OP_cbz)
         return true;
     /* We don't consider a predicated indirect branch to be a cbr */
     if (opc == OP_b || opc == OP_b_short ||
@@ -280,9 +272,9 @@ bool
 instr_is_mbr_arch(instr_t *instr)
 {
     int opc = instr->opcode; /* caller ensures opcode is valid */
-    if (opc == OP_bx || opc ==  OP_bxj || opc == OP_blx_ind ||
-        opc == OP_rfe || opc == OP_rfedb || opc == OP_rfeda || opc == OP_rfeib ||
-        opc == OP_eret || opc == OP_tbb || opc == OP_tbh)
+    if (opc == OP_bx || opc == OP_bxj || opc == OP_blx_ind || opc == OP_rfe ||
+        opc == OP_rfedb || opc == OP_rfeda || opc == OP_rfeib || opc == OP_eret ||
+        opc == OP_tbb || opc == OP_tbh)
         return true;
     /* Any instr that writes to the pc, even conditionally (b/c consider that
      * OP_blx_ind when conditional is still an mbr) is an mbr.
@@ -321,7 +313,7 @@ instr_is_ubr_arch(instr_t *instr)
 }
 
 bool
-instr_is_near_ubr(instr_t *instr)      /* unconditional branch */
+instr_is_near_ubr(instr_t *instr) /* unconditional branch */
 {
     return instr_is_ubr(instr);
 }
@@ -358,7 +350,7 @@ instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
         if (opc != OP_cbz && opc != OP_cbnz)
             return false;
     }
-    if ((*(pc+1) != CBNZ_BYTE_A && *(pc+1) != CBZ_BYTE_A) ||
+    if ((*(pc + 1) != CBNZ_BYTE_A && *(pc + 1) != CBZ_BYTE_A) ||
         /* Further verify by checking for a disp of 1 */
         (*pc & 0xf8) != 0x08)
         return false;
@@ -473,6 +465,12 @@ instr_is_mmx(instr_t *instr)
 }
 
 bool
+instr_is_opmask(instr_t *instr)
+{
+    return false;
+}
+
+bool
 instr_is_sse_or_sse2(instr_t *instr)
 {
     return false;
@@ -537,15 +535,14 @@ instr_is_mov_imm_to_tos(instr_t *instr)
 bool
 instr_is_undefined(instr_t *instr)
 {
-    return (instr_opcode_valid(instr) &&
-            (instr_get_opcode(instr) == OP_udf));
+    return (instr_opcode_valid(instr) && (instr_get_opcode(instr) == OP_udf));
 }
 
 dr_pred_type_t
 instr_invert_predicate(dr_pred_type_t pred)
 {
-    CLIENT_ASSERT(pred != DR_PRED_NONE && pred != DR_PRED_AL &&
-                  pred != DR_PRED_OP, "invalid cbr predicate");
+    CLIENT_ASSERT(pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_OP,
+                  "invalid cbr predicate");
     /* Flipping the bottom bit inverts a predicate */
     return (dr_pred_type_t)(DR_PRED_EQ + (((uint)pred - DR_PRED_EQ) ^ 0x1));
 }
@@ -558,7 +555,7 @@ instr_invert_cbr(instr_t *instr)
     CLIENT_ASSERT(instr_is_cbr(instr), "instr_invert_cbr: instr not a cbr");
     if (opc == OP_cbnz) {
         instr_set_opcode(instr, OP_cbz);
-    } else if (opc ==  OP_cbz) {
+    } else if (opc == OP_cbz) {
         instr_set_opcode(instr, OP_cbnz);
     } else {
         instr_set_predicate(instr, instr_invert_predicate(pred));
@@ -572,54 +569,58 @@ instr_predicate_triggered_priv(instr_t *instr, priv_mcontext_t *mc)
     switch (pred) {
     case DR_PRED_NONE: return DR_PRED_TRIGGER_NOPRED;
     case DR_PRED_EQ: /* Z == 1 */
-        return (TEST(EFLAGS_Z, mc->apsr)) ?
-            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+        return (TEST(EFLAGS_Z, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                          : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_NE: /* Z == 0 */
-        return (!TEST(EFLAGS_Z, mc->apsr)) ?
-            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+        return (!TEST(EFLAGS_Z, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                           : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_CS: /* C == 1 */
-        return (TEST(EFLAGS_C, mc->apsr)) ?
-            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+        return (TEST(EFLAGS_C, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                          : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_CC: /* C == 0 */
-        return (!TEST(EFLAGS_C, mc->apsr)) ?
-            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+        return (!TEST(EFLAGS_C, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                           : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_MI: /* N == 1 */
-        return (TEST(EFLAGS_N, mc->apsr)) ?
-            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+        return (TEST(EFLAGS_N, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                          : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_PL: /* N == 0 */
-        return (!TEST(EFLAGS_N, mc->apsr)) ?
-            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+        return (!TEST(EFLAGS_N, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                           : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_VS: /* V == 1 */
-        return (TEST(EFLAGS_V, mc->apsr)) ?
-            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+        return (TEST(EFLAGS_V, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                          : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_VC: /* V == 0 */
-        return (!TEST(EFLAGS_V, mc->apsr)) ?
-            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+        return (!TEST(EFLAGS_V, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                           : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_HI: /* C == 1 and Z == 0 */
-        return (TEST(EFLAGS_C, mc->apsr) && !TEST(EFLAGS_Z, mc->apsr)) ?
-            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+        return (TEST(EFLAGS_C, mc->apsr) && !TEST(EFLAGS_Z, mc->apsr))
+            ? DR_PRED_TRIGGER_MATCH
+            : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_LS: /* C == 0 or Z == 1 */
-        return (!TEST(EFLAGS_C, mc->apsr) || TEST(EFLAGS_Z, mc->apsr)) ?
-            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
-   case DR_PRED_GE: /* N == V */
-       return BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr)) ?
-           DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+        return (!TEST(EFLAGS_C, mc->apsr) || TEST(EFLAGS_Z, mc->apsr))
+            ? DR_PRED_TRIGGER_MATCH
+            : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_GE: /* N == V */
+        return BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr))
+            ? DR_PRED_TRIGGER_MATCH
+            : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_LT: /* N != V */
-        return !BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr)) ?
-            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+        return !BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr))
+            ? DR_PRED_TRIGGER_MATCH
+            : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_GT /* Z == 0 and N == V */:
         return (!TEST(EFLAGS_Z, mc->apsr) &&
-                BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr))) ?
-            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+                BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr)))
+            ? DR_PRED_TRIGGER_MATCH
+            : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_LE: /* Z == 1 or N != V */
         return (TEST(EFLAGS_Z, mc->apsr) ||
-                !BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr))) ?
-            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+                !BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr)))
+            ? DR_PRED_TRIGGER_MATCH
+            : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_AL: return DR_PRED_TRIGGER_MATCH;
     case DR_PRED_OP: return DR_PRED_TRIGGER_NOPRED;
-    default:
-        CLIENT_ASSERT(false, "invalid predicate");
-        return DR_PRED_TRIGGER_INVALID;
+    default: CLIENT_ASSERT(false, "invalid predicate"); return DR_PRED_TRIGGER_INVALID;
     }
 }
 
@@ -634,7 +635,7 @@ instr_cbr_taken(instr_t *instr, priv_mcontext_t *mc, bool pre)
     CLIENT_ASSERT(instr_is_cbr(instr), "instr_cbr_taken: instr not a cbr");
     if (trigger == DR_PRED_TRIGGER_MISMATCH)
         return false;
-    if (opc == OP_cbnz || opc ==  OP_cbz) {
+    if (opc == OP_cbnz || opc == OP_cbz) {
         reg_id_t reg;
         reg_t val;
         CLIENT_ASSERT(opnd_is_reg(instr_get_src(instr, 1)), "invalid OP_cb{,n}z");
@@ -646,7 +647,8 @@ instr_cbr_taken(instr_t *instr, priv_mcontext_t *mc, bool pre)
             return (val == 0);
     } else {
         CLIENT_ASSERT(instr_get_predicate(instr) != DR_PRED_NONE &&
-                      instr_get_predicate(instr) != DR_PRED_AL, "invalid cbr type");
+                          instr_get_predicate(instr) != DR_PRED_AL,
+                      "invalid cbr type");
         return (trigger == DR_PRED_TRIGGER_MATCH);
     }
 }
@@ -735,13 +737,49 @@ reg_is_simd(reg_id_t reg)
 }
 
 bool
+reg_is_vector_simd(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_opmask(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_bnd(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_strictly_zmm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_ymm(reg_id_t reg)
 {
     return false;
 }
 
 bool
+reg_is_strictly_ymm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_xmm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_strictly_xmm(reg_id_t reg)
 {
     return false;
 }
@@ -825,10 +863,8 @@ instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg)
         reg = &myreg;
     if (instr_is_app(instr) || instr_get_opcode(instr) != OP_mov)
         return false;
-    ASSERT(instr_num_srcs(instr) == 1 &&
-           instr_num_dsts(instr) == 1 &&
-           opnd_is_reg(instr_get_src(instr, 0)) &&
-           opnd_is_reg(instr_get_dst(instr, 0)));
+    ASSERT(instr_num_srcs(instr) == 1 && instr_num_dsts(instr) == 1 &&
+           opnd_is_reg(instr_get_src(instr, 0)) && opnd_is_reg(instr_get_dst(instr, 0)));
     if (opnd_get_reg(instr_get_src(instr, 0)) == dr_reg_stolen) {
         if (save != NULL)
             *save = true;
@@ -850,6 +886,22 @@ bool
 instr_is_exclusive_store(instr_t *instr)
 {
     int opcode = instr_get_opcode(instr);
-    return (opcode == OP_strex  || opcode == OP_strexb ||
-            opcode == OP_strexd || opcode == OP_strexh);
+    return (opcode == OP_strex || opcode == OP_strexb || opcode == OP_strexd ||
+            opcode == OP_strexh);
+}
+
+DR_API
+bool
+instr_is_scatter(instr_t *instr)
+{
+    /* XXX i#3837: no scatter-store on ARM? */
+    return false;
+}
+
+DR_API
+bool
+instr_is_gather(instr_t *instr)
+{
+    /* XXX i#3837: no gather-load on ARM? */
+    return false;
 }

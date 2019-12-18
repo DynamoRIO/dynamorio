@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,12 +47,15 @@
  */
 #include "include/siginfo.h"
 #ifdef LINUX
-# include "include/sigcontext.h"
-# include "include/signalfd.h"
-# include "../globals.h" /* after our sigcontext.h, to preclude bits/sigcontext.h */
+#    include "include/sigcontext.h"
+#    include "include/signalfd.h"
+#    include "../globals.h" /* after our sigcontext.h, to preclude bits/sigcontext.h */
 #elif defined(MACOS)
-# include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
-# include <signal.h> /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
+#    include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
+#    include <signal.h>     /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
+#    ifdef X64
+#        include <sys/_types/_ucontext64.h> /* for _STRUCT_UCONTEXT64 */
+#    endif
 #endif
 
 #include "os_private.h"
@@ -66,6 +69,8 @@ typedef void (*handler_t)(int, kernel_siginfo_t *, void *);
 
 #ifdef MACOS
 typedef void (*tramp_t)(handler_t, int, int, kernel_siginfo_t *, void *);
+#    define SIGHAND_STYLE_UC_TRAD 1
+#    define SIGHAND_STYLE_UC_FLAVOR 30
 #endif
 
 /* default actions */
@@ -81,11 +86,11 @@ enum {
 /* Even though we don't always execute xsave ourselves, kernel will do
  * xrestore on sigreturn so we have to obey alignment for avx.
  */
-# define AVX_ALIGNMENT 64
-# define FPSTATE_ALIGNMENT 16
-# define XSTATE_ALIGNMENT (YMM_ENABLED() ? AVX_ALIGNMENT : FPSTATE_ALIGNMENT)
+#    define AVX_ALIGNMENT 64
+#    define FPSTATE_ALIGNMENT 16
+#    define XSTATE_ALIGNMENT (YMM_ENABLED() ? AVX_ALIGNMENT : FPSTATE_ALIGNMENT)
 #else
-# define XSTATE_ALIGNMENT REGPARM_END_ALIGN /* actually 4 is prob enough */
+#    define XSTATE_ALIGNMENT REGPARM_END_ALIGN /* actually 4 is prob enough */
 #endif
 
 /***************************************************************************
@@ -126,9 +131,9 @@ struct _prev_sigaction_t {
 #endif
 
 #ifdef LINUX
-# define SIGACT_PRIMARY_HANDLER(sigact) (sigact)->handler
+#    define SIGACT_PRIMARY_HANDLER(sigact) (sigact)->handler
 #elif defined(MACOS)
-# define SIGACT_PRIMARY_HANDLER(sigact) (sigact)->tramp
+#    define SIGACT_PRIMARY_HANDLER(sigact) (sigact)->tramp
 #endif
 
 #ifdef LINUX
@@ -145,56 +150,56 @@ struct _old_sigaction_t {
  * this is adapted from asm/ucontext.h:
  */
 typedef struct {
-# if defined(X86)
-    unsigned long     uc_flags;
-    struct ucontext  *uc_link;
-    stack_t           uc_stack;
-    sigcontext_t      uc_mcontext;
-    kernel_sigset_t   uc_sigmask; /* mask last for extensibility */
-# elif defined(AARCH64)
-    unsigned long     uc_flags;
-    struct ucontext  *uc_link;
-    stack_t           uc_stack;
-    kernel_sigset_t   uc_sigmask;
-    unsigned char     sigset_ex[1024 / 8 - sizeof(kernel_sigset_t)];
-    sigcontext_t      uc_mcontext; /* last for future expansion */
-# elif defined(ARM)
-    unsigned long     uc_flags;
-    struct ucontext  *uc_link;
-    stack_t           uc_stack;
-    sigcontext_t      uc_mcontext;
-    kernel_sigset_t   uc_sigmask;
-    int               sigset_ex[32 - (sizeof(kernel_sigset_t)/sizeof(int))];
+#    if defined(X86)
+    unsigned long uc_flags;
+    struct ucontext *uc_link;
+    stack_t uc_stack;
+    sigcontext_t uc_mcontext;
+    kernel_sigset_t uc_sigmask; /* mask last for extensibility */
+#    elif defined(AARCH64)
+    unsigned long uc_flags;
+    struct ucontext *uc_link;
+    stack_t uc_stack;
+    kernel_sigset_t uc_sigmask;
+    unsigned char sigset_ex[1024 / 8 - sizeof(kernel_sigset_t)];
+    sigcontext_t uc_mcontext; /* last for future expansion */
+#    elif defined(ARM)
+    unsigned long uc_flags;
+    struct ucontext *uc_link;
+    stack_t uc_stack;
+    sigcontext_t uc_mcontext;
+    kernel_sigset_t uc_sigmask;
+    int sigset_ex[32 - (sizeof(kernel_sigset_t) / sizeof(int))];
     /* coprocessor state is here */
     union {
         unsigned long uc_regspace[128] __attribute__((__aligned__(8)));
         kernel_vfp_sigframe_t uc_vfp;
     } coproc;
-# else
-#  error NYI
-# endif
+#    else
+#        error NYI
+#    endif
 } kernel_ucontext_t;
 
 /* SIGCXT_FROM_UCXT is in os_public.h */
-# define SIGMASK_FROM_UCXT(ucxt) (&((ucxt)->uc_sigmask))
+#    define SIGMASK_FROM_UCXT(ucxt) (&((ucxt)->uc_sigmask))
 
 #elif defined(MACOS)
-# ifdef X64
+#    ifdef X64
 typedef _STRUCT_UCONTEXT64 /* == __darwin_ucontext64 */ kernel_ucontext_t;
-# else
+#    else
 typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
-# endif
-# define SIGMASK_FROM_UCXT(ucxt) ((kernel_sigset_t*)&((ucxt)->uc_sigmask))
+#    endif
+#    define SIGMASK_FROM_UCXT(ucxt) ((kernel_sigset_t *)&((ucxt)->uc_sigmask))
 #endif
 
-#ifdef LINUX
-# define SIGINFO_FROM_RT_FRAME(frame) (&(frame)->info)
+#if defined(LINUX) || defined(X64)
+#    define SIGINFO_FROM_RT_FRAME(frame) (&(frame)->info)
 #elif defined(MACOS)
 /* Make sure to access through pinfo rather than info as on Mac the info
  * location in our frame struct doesn't exactly match the kernel due to
  * the mid padding.
  */
-# define SIGINFO_FROM_RT_FRAME(frame) ((frame)->pinfo)
+#    define SIGINFO_FROM_RT_FRAME(frame) ((frame)->pinfo)
 #endif
 
 #ifdef LINUX
@@ -202,10 +207,10 @@ typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
  * (these are from /usr/src/linux/arch/i386/kernel/signal.c for kernel 2.4.17)
  */
 
-# define RETCODE_SIZE 8
+#    define RETCODE_SIZE 8
 
 typedef struct sigframe {
-# ifdef X86
+#    ifdef X86
     char *pretcode;
     int sig;
     sigcontext_t sc;
@@ -213,12 +218,12 @@ typedef struct sigframe {
      * is at the end of the struct so it can include xstate
      */
     kernel_fpstate_t fpstate;
-    unsigned long extramask[_NSIG_WORDS-1];
+    unsigned long extramask[_NSIG_WORDS - 1];
     char retcode[RETCODE_SIZE];
-# elif defined(ARM)
+#    elif defined(ARM)
     kernel_ucontext_t uc;
     char retcode[RETCODE_SIZE];
-# endif
+#    endif
     /* FIXME: this is a field I added, so our frame looks different from
      * the kernel's...but where else can I store sig where the app won't
      * clobber it?
@@ -239,17 +244,17 @@ typedef struct sigframe {
 /* the rt frame is used for SA_SIGINFO signals */
 typedef struct rt_sigframe {
 #ifdef LINUX
-# ifdef X86
+#    ifdef X86
     char *pretcode;
-#  ifdef X64
-#   ifdef VMX86_SERVER
+#        ifdef X64
+#            ifdef VMX86_SERVER
     kernel_siginfo_t info;
     kernel_ucontext_t uc;
-#   else
+#            else
     kernel_ucontext_t uc;
     kernel_siginfo_t info;
-#   endif
-#  else
+#            endif
+#        else
     int sig;
     kernel_siginfo_t *pinfo;
     void *puc;
@@ -263,21 +268,30 @@ typedef struct rt_sigframe {
      * pointer in the sigcontext anyway.
      */
     char retcode[RETCODE_SIZE];
-#  endif
+#        endif
     /* In 2.6.28+, fpstate/xstate goes here */
-# elif defined(AARCHXX)
+#    elif defined(AARCHXX)
     kernel_siginfo_t info;
     kernel_ucontext_t uc;
     char retcode[RETCODE_SIZE];
-# endif
+#    endif
 
 #elif defined(MACOS)
-# ifdef X64
-    /* kernel places padding to align to 16, and then puts retaddr slot */
+#    ifdef X64
+    /* Kernel places padding to align to 16 (via an inefficient alignment macro!),
+     * and then skips the retaddr slot to align to 8.
+     */
+    /* TODO i#1979/i#1312: This will be __darwin_mcontext_avx512_64 if AVX512 is
+     * enabled.  Given that it's inlined here *first*, though, we need to figure
+     * out how best to handle this variability.  Multiple sigframe_rt_t struct
+     * definitions?  Do we want a discovery signal to find the size at init time
+     * like on Linux?  We would get the size by counting from "info".
+     * Also, should we change this to sigcontext_t.
+     */
     struct __darwin_mcontext_avx64 mc; /* sigcontext, "struct mcontext_avx64" to kernel */
-    kernel_siginfo_t info; /* matches user-mode sys/signal.h struct */
-    struct __darwin_ucontext64 uc; /* "struct user_ucontext64" to kernel */
-# else
+    kernel_siginfo_t info;             /* matches user-mode sys/signal.h struct */
+    struct __darwin_ucontext64 uc;     /* "struct user_ucontext64" to kernel */
+#    else
     app_pc retaddr;
     app_pc handler;
     int sigstyle; /* UC_TRAD = 1-arg, UC_FLAVOR = 3-arg handler */
@@ -289,9 +303,9 @@ typedef struct rt_sigframe {
      * directly if given a frame from the kernel!
      */
     struct __darwin_mcontext_avx32 mc; /* sigcontext, "struct mcontext_avx32" to kernel */
-    kernel_siginfo_t info; /* matches user-mode sys/signal.h struct */
-    struct __darwin_ucontext uc; /* "struct user_ucontext32" to kernel */
-# endif
+    kernel_siginfo_t info;             /* matches user-mode sys/signal.h struct */
+    struct __darwin_ucontext uc;       /* "struct user_ucontext32" to kernel */
+#    endif
 #endif
 } sigframe_rt_t;
 
@@ -317,14 +331,15 @@ typedef struct _sigpending_t {
      * if we delay we need to ensure we have room for it.
      * we statically keep room for full xstate in case we need it.
      */
-    kernel_xstate_t __attribute__ ((aligned (AVX_ALIGNMENT))) xstate;
+    kernel_xstate_t __attribute__((aligned(AVX_ALIGNMENT))) xstate;
     /* The xstate struct grows and we have to allow for variable sizing,
      * which we handle here by placing it last.
      */
 #endif /* LINUX && X86 */
 } sigpending_t;
 
-size_t signal_frame_extra_size(bool include_alignment);
+size_t
+signal_frame_extra_size(bool include_alignment);
 
 /***************************************************************************
  * PER-THREAD DATA
@@ -429,8 +444,12 @@ typedef struct _thread_sig_info_t {
     kernel_sigset_t app_sigblocked;
     /* for returning the old mask (xref PR 523394) */
     kernel_sigset_t pre_syscall_app_sigblocked;
-    /* for preserving the app memory (xref i#1187) */
+    /* for preserving the app memory (xref i#1187), and for preserving app
+     * mask supporting ppoll, epoll_pwait and pselect
+     */
     kernel_sigset_t pre_syscall_app_sigprocmask;
+    /* True if pre_syscall_app_sigprocmask holds a pre-syscall sigmask */
+    bool pre_syscall_app_sigprocmask_valid;
     /* for alarm signals arriving in coarse units we only attempt to xl8
      * every nth signal since coarse translation is expensive (PR 213040)
      */
@@ -448,7 +467,7 @@ typedef struct _thread_sig_info_t {
 
     /* our own structures */
     stack_t sigstack;
-    void *sigheap; /* special heap */
+    void *sigheap;           /* special heap */
     fragment_t *interrupted; /* frag we unlinked for delaying signal */
     cache_pc interrupted_pc; /* pc within frag we unlinked for delaying signal */
 
@@ -462,7 +481,7 @@ typedef struct _thread_sig_info_t {
 #endif
 
 #ifdef RETURN_AFTER_CALL
-    app_pc signal_restorer_retaddr;     /* last signal restorer, known ret exception */
+    app_pc signal_restorer_retaddr; /* last signal restorer, known ret exception */
 #endif
 } thread_sig_info_t;
 
@@ -537,7 +556,7 @@ copy_kernel_sigset_to_sigset(kernel_sigset_t *kset, sigset_t *uset)
     /* do this the slow way...I don't want to make assumptions about
      * structure of user sigset_t
      */
-    for (sig=1; sig<=MAX_SIGNUM; sig++) {
+    for (sig = 1; sig <= MAX_SIGNUM; sig++) {
         if (kernel_sigismember(kset, sig))
             sigaddset(uset, sig); /* inlined, so no libc dep */
     }
@@ -555,18 +574,18 @@ libc_sigismember(const sigset_t *set, int _sig)
     /* "set->__val" would be cleaner, but is glibc specific (e.g. musl libc
      * uses __bits as the field name on sigset_t).
      */
-    uint bits_per = 8*sizeof(ulong);
+    uint bits_per = 8 * sizeof(ulong);
     return TEST(1UL << (sig % bits_per), ((const ulong *)set)[sig / bits_per]);
 #endif
 }
 
 /* XXX: how does libc do this? */
 static inline void
-copy_sigset_to_kernel_sigset(sigset_t *uset, kernel_sigset_t *kset)
+copy_sigset_to_kernel_sigset(const sigset_t *uset, kernel_sigset_t *kset)
 {
     int sig;
     kernel_sigemptyset(kset);
-    for (sig=1; sig<=MAX_SIGNUM; sig++) {
+    for (sig = 1; sig <= MAX_SIGNUM; sig++) {
         if (libc_sigismember(uset, sig))
             kernel_sigaddset(kset, sig);
     }
@@ -612,7 +631,9 @@ signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info);
 bool
 notify_signalfd(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
                 sigframe_rt_t *frame);
-#endif
 
+void
+check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info);
+#endif
 
 #endif /* _SIGNAL_PRIVATE_H_ */

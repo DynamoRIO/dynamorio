@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,12 +38,12 @@
 
 #include "configure.h"
 #include "globals_shared.h"
-#include "../config.h"  /* for get_config_val_other_app */
+#include "../config.h" /* for get_config_val_other_app */
 #include "../globals.h"
 #ifdef LINUX
-# include "include/syscall.h"  /* for SYS_ptrace */
+#    include "include/syscall.h" /* for SYS_ptrace */
 #else
-# include <sys/syscall.h>
+#    include <sys/syscall.h>
 #endif
 #include "instrument.h"
 #include "instr.h"
@@ -61,26 +61,26 @@
  * in globals.h; if we do, we get errors on isspace missing.  We solve that
  * by just by supplying our own isspace.
  */
-# include <ctype.h>
+#    include <ctype.h>
 #endif
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <string.h> /* for strerror */
 #include <sys/mman.h>
 #include <sys/ptrace.h>
 #if defined(LINUX) && defined(AARCH64)
-# include <linux/ptrace.h> /* for struct user_pt_regs */
+#    include <linux/ptrace.h> /* for struct user_pt_regs */
 #endif
 #include <sys/uio.h> /* for struct iovec */
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #ifdef MACOS
-# include <spawn.h>
-# include <crt_externs.h> /* _NSGetEnviron() */
+#    include <spawn.h>
+#    include <crt_externs.h> /* _NSGetEnviron() */
 #endif
 
 /* i#1925: we need to support executing a shell script so we distinguish a
@@ -96,23 +96,24 @@ typedef enum {
 /* The type is just "int", and the values are different, so we use the Linux
  * type name to match the Linux constant names.
  */
-# ifndef PT_ATTACHEXC /* New replacement for PT_ATTACH */
-#  define PT_ATTACHEXC PT_ATTACH
-# endif
+#    ifndef PT_ATTACHEXC /* New replacement for PT_ATTACH */
+#        define PT_ATTACHEXC PT_ATTACH
+#    endif
 enum __ptrace_request {
-    PTRACE_TRACEME     = PT_TRACE_ME,
-    PTRACE_CONT        = PT_CONTINUE,
-    PTRACE_KILL        = PT_KILL,
-    PTRACE_ATTACH      = PT_ATTACHEXC,
-    PTRACE_DETACH      = PT_DETACH,
-    PTRACE_SINGLESTEP  = PT_STEP,
+    PTRACE_TRACEME = PT_TRACE_ME,
+    PTRACE_CONT = PT_CONTINUE,
+    PTRACE_KILL = PT_KILL,
+    PTRACE_ATTACH = PT_ATTACHEXC,
+    PTRACE_DETACH = PT_DETACH,
+    PTRACE_SINGLESTEP = PT_STEP,
 };
 
+/* clang-format off */ /* (work around clang-format bug) */
 static int inline
 isspace(int c)
+/* clang-format on */
 {
-    return (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' ||
-            c == '\v');
+    return (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v');
 }
 #endif
 
@@ -123,20 +124,20 @@ static bool verbose = false;
 static volatile int timeout_expired;
 
 typedef enum _inject_method_t {
-    INJECT_EARLY,       /* Works with self or child. */
-    INJECT_LD_PRELOAD,  /* Works with self or child. */
-    INJECT_PTRACE       /* Doesn't work with exec_self. */
+    INJECT_EARLY,      /* Works with self or child. */
+    INJECT_LD_PRELOAD, /* Works with self or child. */
+    INJECT_PTRACE      /* Doesn't work with exec_self. */
 } inject_method_t;
 
 /* Opaque type to users, holds our state */
 typedef struct _dr_inject_info_t {
     process_id_t pid;
-    const char *exe;            /* full path of executable */
-    const char *image_name;     /* basename of exe */
-    const char **argv;          /* array of arguments */
+    const char *exe;        /* full path of executable */
+    const char *image_name; /* basename of exe */
+    const char **argv;      /* array of arguments */
     int pipe_fd;
 
-    bool exec_self;             /* this process will exec the app */
+    bool exec_self; /* this process will exec the app */
     inject_method_t method;
 
     bool killpg;
@@ -170,12 +171,12 @@ get_application_short_name(void)
     return "";
 }
 
-/* Shadow DR's internal_error so assertions work in standalone mode.  DR tries
+/* Shadow DR's d_r_internal_error so assertions work in standalone mode.  DR tries
  * to use safe_read to take a stack trace, but none of its signal handlers are
  * installed, so it will segfault before it prints our error.
  */
 void
-internal_error(const char *file, int line, const char *expr)
+d_r_internal_error(const char *file, int line, const char *expr)
 {
     fprintf(stderr, "ASSERT failed: %s:%d (%s)\n", file, line, expr);
     fflush(stderr);
@@ -189,9 +190,8 @@ ignore_assert(const char *assert_stmt, const char *expr)
 }
 
 void
-report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
-                         app_pc exception_addr, app_pc report_ebp,
-                         const char *fmt, ...)
+report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc exception_addr,
+                         app_pc report_ebp, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
@@ -230,35 +230,31 @@ pre_execve_ld_preload(const char *dr_path)
     }
     /* dr_path should be absolute and have at least three components. */
     ASSERT(lib_slash != NULL && last_slash != NULL);
-    ASSERT(strncmp(lib_slash, "/lib32", 5) == 0 ||
-           strncmp(lib_slash, "/lib64", 5) == 0);
+    ASSERT(strncmp(lib_slash, "/lib32", 5) == 0 || strncmp(lib_slash, "/lib64", 5) == 0);
     /* Put both DR's path and the extension path on LD_LIBRARY_PATH.  We only
      * need the extension path if -no_private_loader is used.
      */
-    snprintf(ld_lib_path, BUFFER_SIZE_ELEMENTS(ld_lib_path),
-             "%.*s:%.*s/ext%.*s%s%s",
-             last_slash - dr_path, dr_path,      /* DR path */
-             lib_slash - dr_path, dr_path,       /* pre-ext path */
-             last_slash - lib_slash, lib_slash,  /* libNN component */
-             cur_path == NULL ? "" : ":",
-             cur_path == NULL ? "" : cur_path);
+    snprintf(ld_lib_path, BUFFER_SIZE_ELEMENTS(ld_lib_path), "%.*s:%.*s/ext%.*s%s%s",
+             last_slash - dr_path, dr_path,     /* DR path */
+             lib_slash - dr_path, dr_path,      /* pre-ext path */
+             last_slash - lib_slash, lib_slash, /* libNN component */
+             cur_path == NULL ? "" : ":", cur_path == NULL ? "" : cur_path);
     NULL_TERMINATE_BUFFER(ld_lib_path);
 #ifdef MACOS
-    setenv("DYLD_LIBRARY_PATH", ld_lib_path, true/*overwrite*/);
+    setenv("DYLD_LIBRARY_PATH", ld_lib_path, true /*overwrite*/);
     /* XXX: why does it not work w/o the full path? */
-    snprintf(ld_lib_path, BUFFER_SIZE_ELEMENTS(ld_lib_path),
-             "%.*s/%s:%.*s/%s",
-             last_slash - dr_path, dr_path, "libdrpreload.dylib",
-             last_slash - dr_path, dr_path, "libdynamorio.dylib");
-    setenv("DYLD_INSERT_LIBRARIES", ld_lib_path, true/*overwrite*/);
+    snprintf(ld_lib_path, BUFFER_SIZE_ELEMENTS(ld_lib_path), "%.*s/%s:%.*s/%s",
+             last_slash - dr_path, dr_path, "libdrpreload.dylib", last_slash - dr_path,
+             dr_path, "libdynamorio.dylib");
+    setenv("DYLD_INSERT_LIBRARIES", ld_lib_path, true /*overwrite*/);
     /* This is required to use DYLD_INSERT_LIBRARIES on apps that use
      * two-level naming, but it can cause an app to run incorrectly.
      * Long-term we'll want a true early injector.
      */
-    setenv("DYLD_FORCE_FLAT_NAMESPACE", "1", true/*overwrite*/);
+    setenv("DYLD_FORCE_FLAT_NAMESPACE", "1", true /*overwrite*/);
 #else
-    setenv("LD_LIBRARY_PATH", ld_lib_path, true/*overwrite*/);
-    setenv("LD_PRELOAD", "libdynamorio.so libdrpreload.so", true/*overwrite*/);
+    setenv("LD_LIBRARY_PATH", ld_lib_path, true /*overwrite*/);
+    setenv("LD_PRELOAD", "libdynamorio.so libdrpreload.so", true /*overwrite*/);
 #endif
     if (verbose) {
         printf("Setting LD_USE_LOAD_BIAS for PIEs so the loader will honor "
@@ -266,7 +262,7 @@ pre_execve_ld_preload(const char *dr_path)
                "Set LD_USE_LOAD_BIAS=0 prior to injecting if this is a "
                "problem.\n");
     }
-    setenv("LD_USE_LOAD_BIAS", "1", false/*!overwrite, let user set it*/);
+    setenv("LD_USE_LOAD_BIAS", "1", false /*!overwrite, let user set it*/);
 }
 
 /* Environment modifications before executing the child process for early
@@ -275,9 +271,9 @@ pre_execve_ld_preload(const char *dr_path)
 static void
 pre_execve_early(dr_inject_info_t *info, const char *exe)
 {
-    setenv(DYNAMORIO_VAR_EXE_PATH, exe, true/*overwrite*/);
+    setenv(DYNAMORIO_VAR_EXE_PATH, exe, true /*overwrite*/);
     if (info->no_emulate_brk)
-        setenv(DYNAMORIO_VAR_NO_EMULATE_BRK, exe, true/*overwrite*/);
+        setenv(DYNAMORIO_VAR_NO_EMULATE_BRK, exe, true /*overwrite*/);
 }
 
 static void
@@ -293,7 +289,7 @@ execute_exec(dr_inject_info_t *info, const char *toexec)
             size_t sz;
             if (posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC) == 0 &&
                 posix_spawnattr_setbinpref_np(&attr, sizeof(cpu), &cpu, &sz) == 0) {
-                posix_spawn(NULL, toexec, NULL, &attr, (char *const *) info->argv,
+                posix_spawn(NULL, toexec, NULL, &attr, (char *const *)info->argv,
                             /* On Mac, shared libs don't have access to environ
                              * directly and must use this routine (if we declare
                              * environ as extern we end up looking in the wrong
@@ -307,7 +303,7 @@ execute_exec(dr_inject_info_t *info, const char *toexec)
         return; /* don't do exec if error */
     }
 #endif
-    execv(toexec, (char **) info->argv);
+    execv(toexec, (char **)info->argv);
 }
 
 static process_id_t
@@ -321,14 +317,13 @@ fork_suspended_child(const char *exe, dr_inject_info_t *info, int fds[2])
         size_t sofar = 0;
         const char *real_exe = NULL;
         const char *arg;
-        close(fds[1]);  /* Close writer in child, keep reader. */
+        close(fds[1]); /* Close writer in child, keep reader. */
         do {
-            nread = read(fds[0], pipe_cmd + sofar,
-                         BUFFER_SIZE_BYTES(pipe_cmd) - sofar);
+            nread = read(fds[0], pipe_cmd + sofar, BUFFER_SIZE_BYTES(pipe_cmd) - sofar);
             sofar += nread;
-        } while (nread > 0 && sofar < BUFFER_SIZE_BYTES(pipe_cmd)-1);
+        } while (nread > 0 && sofar < BUFFER_SIZE_BYTES(pipe_cmd) - 1);
         pipe_cmd[sofar] = '\0';
-        close(fds[0]);  /* Close reader before exec. */
+        close(fds[0]); /* Close reader before exec. */
         arg = pipe_cmd;
         /* The first token is the command and the rest is an argument. */
         while (*arg != '\0' && !isspace(*arg))
@@ -353,7 +348,7 @@ fork_suspended_child(const char *exe, dr_inject_info_t *info, int fds[2])
         /* Trigger automated takeover in case DR is statically linked (yes
          * we blindly do this rather than try to pass in a parameter).
          */
-        setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
+        setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true /*overwrite*/);
         execute_exec(info, real_exe);
         /* If execv returns, there was an error. */
         exit(-1);
@@ -386,7 +381,7 @@ inject_early(dr_inject_info_t *info, const char *library_path)
          */
         pre_execve_early(info, info->exe);
         execute_exec(info, library_path);
-        return false;  /* if execv returns, there was an error */
+        return false; /* if execv returns, there was an error */
     } else {
         /* Write the path to DR to the pipe. */
         char cmd[MAXIMUM_PATH];
@@ -403,7 +398,7 @@ inject_ld_preload(dr_inject_info_t *info, const char *library_path)
     if (info->exec_self) {
         pre_execve_ld_preload(library_path);
         execute_exec(info, info->exe);
-        return false;  /* if execv returns, there was an error */
+        return false; /* if execv returns, there was an error */
     } else {
         /* Write the path to DR to the pipe. */
         char cmd[MAXIMUM_PATH];
@@ -456,7 +451,7 @@ exe_is_right_bitwidth(const char *exe, int *errcode)
         *errcode = errno;
         if (*errcode == 0)
             *errcode = ESRCH;
-        return true;//false;
+        return true; // false;
     }
     /* Check if the executable is the right bitwidth and set errcode to be
      * special code WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE if not.
@@ -465,8 +460,9 @@ exe_is_right_bitwidth(const char *exe, int *errcode)
      * XXX: i#1176 and DrM-i#1037, we need a long term solution to
      * support cross-arch injection.
      */
-    if (platform != IF_X64_ELSE(DR_PLATFORM_64BIT, DR_PLATFORM_32BIT)
-        IF_MACOS(IF_NOT_X64(&& alt_platform != DR_PLATFORM_32BIT))) {
+    if (platform !=
+        IF_X64_ELSE(DR_PLATFORM_64BIT, DR_PLATFORM_32BIT)
+            IF_MACOS(IF_NOT_X64(&&alt_platform != DR_PLATFORM_32BIT))) {
         *errcode = WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE;
         return false;
     }
@@ -512,7 +508,7 @@ dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
         goto error;
     info->argv = argv;
     info->pid = fork_suspended_child(exe, info, fds);
-    close(fds[0]);  /* Close reader, keep writer. */
+    close(fds[0]); /* Close reader, keep writer. */
     info->pipe_fd = fds[1];
     info->exec_self = false;
     info->method = INJECT_LD_PRELOAD;
@@ -540,11 +536,11 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
         return errcode;
     }
     info->pid = getpid();
-    info->pipe_fd = 0;  /* No pipe. */
+    info->pipe_fd = 0; /* No pipe. */
     info->exec_self = true;
     info->method = INJECT_LD_PRELOAD;
     /* Trigger automated takeover in case DR is statically linked. */
-    setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
+    setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true /*overwrite*/);
     return errcode;
 }
 
@@ -552,7 +548,7 @@ DR_EXPORT
 bool
 dr_inject_prepare_to_ptrace(void *data)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     if (data == NULL)
         return false;
     if (info->exec_self)
@@ -565,7 +561,7 @@ DR_EXPORT
 bool
 dr_inject_prepare_new_process_group(void *data)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     int res;
     if (data == NULL)
         return false;
@@ -583,7 +579,7 @@ DR_EXPORT
 process_id_t
 dr_inject_get_process_id(void *data)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     return info->pid;
 }
 
@@ -591,8 +587,8 @@ DR_EXPORT
 char *
 dr_inject_get_image_name(void *data)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
-    return (char *) info->image_name;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
+    return (char *)info->image_name;
 }
 
 /* FIXME: Use the parser in options.c.  The implementation here will find
@@ -614,10 +610,9 @@ option_present(const char *dr_ops, const char *op)
 
 DR_EXPORT
 bool
-dr_inject_process_inject(void *data, bool force_injection,
-                         const char *library_path)
+dr_inject_process_inject(void *data, bool force_injection, const char *library_path)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     char dr_path_buf[MAXIMUM_PATH];
     char dr_ops[MAX_OPTIONS_STRING];
     dr_platform_t platform, alt_platform;
@@ -639,8 +634,7 @@ dr_inject_process_inject(void *data, bool force_injection,
 
     if (!get_config_val_other_app(info->image_name, info->pid, platform,
                                   DYNAMORIO_VAR_OPTIONS, dr_ops,
-                                  BUFFER_SIZE_ELEMENTS(dr_ops), NULL,
-                                  NULL, NULL)) {
+                                  BUFFER_SIZE_ELEMENTS(dr_ops), NULL, NULL, NULL)) {
         return false;
     }
 
@@ -657,27 +651,24 @@ dr_inject_process_inject(void *data, bool force_injection,
     }
 
 #ifdef STATIC_LIBRARY
-    return true;  /* Do nothing.  DR will takeover by itself. */
+    return true; /* Do nothing.  DR will takeover by itself. */
 #endif
 
     /* Read the autoinject var from the config file if the caller didn't
      * override it.
      */
     if (library_path == NULL) {
-        if (!get_config_val_other_app(info->image_name, info->pid, platform,
-                                      DYNAMORIO_VAR_AUTOINJECT, dr_path_buf,
-                                      BUFFER_SIZE_ELEMENTS(dr_path_buf), NULL,
-                                      NULL, NULL)) {
+        if (!get_config_val_other_app(
+                info->image_name, info->pid, platform, DYNAMORIO_VAR_AUTOINJECT,
+                dr_path_buf, BUFFER_SIZE_ELEMENTS(dr_path_buf), NULL, NULL, NULL)) {
             return false;
         }
         library_path = dr_path_buf;
     }
 
     switch (info->method) {
-    case INJECT_EARLY:
-        return inject_early(info, library_path);
-    case INJECT_LD_PRELOAD:
-        return inject_ld_preload(info, library_path);
+    case INJECT_EARLY: return inject_early(info, library_path);
+    case INJECT_LD_PRELOAD: return inject_ld_preload(info, library_path);
     case INJECT_PTRACE:
 #if defined(LINUX) && !defined(ANDROID) /* XXX i#1290/i#1701: NYI on MacOS/Android */
         return inject_ptrace(info, library_path);
@@ -702,13 +693,13 @@ DR_EXPORT
 bool
 dr_inject_process_run(void *data)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     if (info->exec_self) {
         /* If we're injecting with LD_PRELOAD or STATIC_LIBRARY, we already set
          * up the environment.  If not, then let the app run natively.
          */
         execute_exec(info, info->exe);
-        return false;  /* if execv returns, there was an error */
+        return false; /* if execv returns, there was an error */
     } else {
         if (info->method == INJECT_PTRACE) {
 #if defined(LINUX) && !defined(ANDROID) /* XXX i#1290/i#1701: NYI on MacOS/Android */
@@ -728,7 +719,7 @@ DR_EXPORT
 bool
 dr_inject_wait_for_child(void *data, uint64 timeout_millis)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     pid_t res;
 
     timeout_expired = false;
@@ -763,16 +754,16 @@ DR_EXPORT
 int
 dr_inject_process_exit(void *data, bool terminate)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     int status;
     if (info->exited) {
         /* If it already exited when we waited on it above, then we *cannot*
          * wait on it again or try to kill it, or we might target some new
          * process with the same pid.
          */
-        status = info->exitcode;
+        status = WEXITSTATUS(info->exitcode);
     } else if (info->exec_self) {
-        status = -1;  /* We never injected, must have been some other error. */
+        status = -1; /* We never injected, must have been some other error. */
     } else if (terminate) {
         /* We use SIGKILL to match Windows, which doesn't provide the app a
          * chance to clean up.
@@ -808,12 +799,12 @@ dr_inject_process_exit(void *data, bool terminate)
 
 enum { MAX_SHELL_CODE = 4096 };
 
-#ifdef X86
-# define USER_REGS_TYPE user_regs_struct
-# define REG_PC_FIELD IF_X64_ELSE(rip, eip)
-# define REG_SP_FIELD IF_X64_ELSE(rsp, esp)
-# define REG_RETVAL_FIELD IF_X64_ELSE(rax, eax)
-#elif defined(ARM)
+#    ifdef X86
+#        define USER_REGS_TYPE user_regs_struct
+#        define REG_PC_FIELD IF_X64_ELSE(rip, eip)
+#        define REG_SP_FIELD IF_X64_ELSE(rsp, esp)
+#        define REG_RETVAL_FIELD IF_X64_ELSE(rax, eax)
+#    elif defined(ARM)
 /* On AArch32, glibc uses user_regs instead of user_regs_struct.
  * struct user_regs {
  *   unsigned long int uregs[18];
@@ -822,21 +813,21 @@ enum { MAX_SHELL_CODE = 4096 };
  * - uregs[16] is for cpsr,
  * - uregs[17] is for "orig_r0".
  */
-# define USER_REGS_TYPE user_regs
-# define REG_PC_FIELD uregs[15] /* r15 in user_regs */
-# define REG_SP_FIELD uregs[13] /* r13 in user_regs */
+#        define USER_REGS_TYPE user_regs
+#        define REG_PC_FIELD uregs[15]    /* r15 in user_regs */
+#        define REG_SP_FIELD uregs[13]    /* r13 in user_regs */
 /* On ARM, all reg args are also reg retvals. */
-# define REG_RETVAL_FIELD uregs[0] /* r0 in user_regs */
-#elif defined(AARCH64)
-# define USER_REGS_TYPE user_pt_regs
-# define REG_PC_FIELD pc
-# define REG_SP_FIELD sp
-# define REG_RETVAL_FIELD regs[0] /* x0 in user_regs_struct */
-#endif
+#        define REG_RETVAL_FIELD uregs[0] /* r0 in user_regs */
+#    elif defined(AARCH64)
+#        define USER_REGS_TYPE user_pt_regs
+#        define REG_PC_FIELD pc
+#        define REG_SP_FIELD sp
+#        define REG_RETVAL_FIELD regs[0] /* x0 in user_regs_struct */
+#    endif
 
 enum { REG_PC_OFFSET = offsetof(struct USER_REGS_TYPE, REG_PC_FIELD) };
 
-#define APP  instrlist_append
+#    define APP instrlist_append
 
 static bool op_exec_gdb = false;
 
@@ -847,42 +838,41 @@ static file_t injectee_dr_fd;
 
 typedef struct _enum_name_pair_t {
     const int enum_val;
-    const char * const enum_name;
+    const char *const enum_name;
 } enum_name_pair_t;
 
 /* Ptrace request enum name mapping.  The complete enumeration is in
  * sys/ptrace.h.
  */
-static const enum_name_pair_t pt_req_map[] = {
-    {PTRACE_TRACEME,        "PTRACE_TRACEME"},
-    {PTRACE_PEEKTEXT,       "PTRACE_PEEKTEXT"},
-    {PTRACE_PEEKDATA,       "PTRACE_PEEKDATA"},
-    {PTRACE_PEEKUSER,       "PTRACE_PEEKUSER"},
-    {PTRACE_POKETEXT,       "PTRACE_POKETEXT"},
-    {PTRACE_POKEDATA,       "PTRACE_POKEDATA"},
-    {PTRACE_POKEUSER,       "PTRACE_POKEUSER"},
-    {PTRACE_CONT,           "PTRACE_CONT"},
-    {PTRACE_KILL,           "PTRACE_KILL"},
-    {PTRACE_SINGLESTEP,     "PTRACE_SINGLESTEP"},
-#ifndef AARCH64
-    {PTRACE_GETREGS,        "PTRACE_GETREGS"},
-    {PTRACE_SETREGS,        "PTRACE_SETREGS"},
-    {PTRACE_GETFPREGS,      "PTRACE_GETFPREGS"},
-    {PTRACE_SETFPREGS,      "PTRACE_SETFPREGS"},
-#endif
-    {PTRACE_ATTACH,         "PTRACE_ATTACH"},
-    {PTRACE_DETACH,         "PTRACE_DETACH"},
-#ifndef AARCH64
-    {PTRACE_GETFPXREGS,     "PTRACE_GETFPXREGS"},
-    {PTRACE_SETFPXREGS,     "PTRACE_SETFPXREGS"},
-#endif
-    {PTRACE_SYSCALL,        "PTRACE_SYSCALL"},
-    {PTRACE_SETOPTIONS,     "PTRACE_SETOPTIONS"},
-    {PTRACE_GETEVENTMSG,    "PTRACE_GETEVENTMSG"},
-    {PTRACE_GETSIGINFO,     "PTRACE_GETSIGINFO"},
-    {PTRACE_SETSIGINFO,     "PTRACE_SETSIGINFO"},
-    {0}
-};
+static const enum_name_pair_t pt_req_map[] = { { PTRACE_TRACEME, "PTRACE_TRACEME" },
+                                               { PTRACE_PEEKTEXT, "PTRACE_PEEKTEXT" },
+                                               { PTRACE_PEEKDATA, "PTRACE_PEEKDATA" },
+                                               { PTRACE_PEEKUSER, "PTRACE_PEEKUSER" },
+                                               { PTRACE_POKETEXT, "PTRACE_POKETEXT" },
+                                               { PTRACE_POKEDATA, "PTRACE_POKEDATA" },
+                                               { PTRACE_POKEUSER, "PTRACE_POKEUSER" },
+                                               { PTRACE_CONT, "PTRACE_CONT" },
+                                               { PTRACE_KILL, "PTRACE_KILL" },
+                                               { PTRACE_SINGLESTEP, "PTRACE_SINGLESTEP" },
+#    ifndef AARCH64
+                                               { PTRACE_GETREGS, "PTRACE_GETREGS" },
+                                               { PTRACE_SETREGS, "PTRACE_SETREGS" },
+                                               { PTRACE_GETFPREGS, "PTRACE_GETFPREGS" },
+                                               { PTRACE_SETFPREGS, "PTRACE_SETFPREGS" },
+#    endif
+                                               { PTRACE_ATTACH, "PTRACE_ATTACH" },
+                                               { PTRACE_DETACH, "PTRACE_DETACH" },
+#    if defined(PTRACE_GETFPXREGS) && defined(PTRACE_SETFPXREGS)
+                                               { PTRACE_GETFPXREGS, "PTRACE_GETFPXREGS" },
+                                               { PTRACE_SETFPXREGS, "PTRACE_SETFPXREGS" },
+#    endif
+                                               { PTRACE_SYSCALL, "PTRACE_SYSCALL" },
+                                               { PTRACE_SETOPTIONS, "PTRACE_SETOPTIONS" },
+                                               { PTRACE_GETEVENTMSG,
+                                                 "PTRACE_GETEVENTMSG" },
+                                               { PTRACE_GETSIGINFO, "PTRACE_GETSIGINFO" },
+                                               { PTRACE_SETSIGINFO, "PTRACE_SETSIGINFO" },
+                                               { 0 } };
 
 /* Ptrace syscall wrapper, for logging.
  * XXX: We could call libc's ptrace instead of using dynamorio_syscall.
@@ -895,23 +885,22 @@ our_ptrace(int request, pid_t pid, void *addr, void *data)
     long r = dynamorio_syscall(SYS_ptrace, 4, request, pid, addr, data);
     if (verbose &&
         /* Don't log reads and writes. */
-        request != PTRACE_POKEDATA &&
-        request != PTRACE_PEEKDATA) {
+        request != PTRACE_POKEDATA && request != PTRACE_PEEKDATA) {
         const enum_name_pair_t *pair = NULL;
         int i;
         for (i = 0; pt_req_map[i].enum_name != NULL; i++) {
-             if (pt_req_map[i].enum_val == request) {
-                 pair = &pt_req_map[i];
-                 break;
-             }
+            if (pt_req_map[i].enum_val == request) {
+                pair = &pt_req_map[i];
+                break;
+            }
         }
         ASSERT(pair != NULL);
-        fprintf(stderr, "\tptrace(%s, %d, %p, %p) -> %ld %s\n",
-                pair->enum_name, (int)pid, addr, data, r, strerror(-r));
+        fprintf(stderr, "\tptrace(%s, %d, %p, %p) -> %ld %s\n", pair->enum_name, (int)pid,
+                addr, data, r, strerror(-r));
     }
     return r;
 }
-#define ptrace DO_NOT_USE_ptrace_USE_our_ptrace
+#    define ptrace DO_NOT_USE_ptrace_USE_our_ptrace
 
 /* We use these wrappers because PTRACE_GETREGS and PTRACE_SETREGS are not
  * present on all architectures, while the alternatives, PTRACE_GETREGSET
@@ -922,23 +911,23 @@ our_ptrace(int request, pid_t pid, void *addr, void *data)
 static long
 our_ptrace_getregs(pid_t pid, struct USER_REGS_TYPE *regs)
 {
-#ifdef AARCH64
+#    ifdef AARCH64
     struct iovec iovec = { regs, sizeof(*regs) };
     return our_ptrace(PTRACE_GETREGSET, pid, (void *)NT_PRSTATUS, &iovec);
-#else
+#    else
     return our_ptrace(PTRACE_GETREGS, pid, NULL, regs);
-#endif
+#    endif
 }
 
 static long
 our_ptrace_setregs(pid_t pid, struct USER_REGS_TYPE *regs)
 {
-#ifdef AARCH64
+#    ifdef AARCH64
     struct iovec iovec = { regs, sizeof(*regs) };
     return our_ptrace(PTRACE_SETREGSET, pid, (void *)NT_PRSTATUS, &iovec);
-#else
+#    else
     return our_ptrace(PTRACE_SETREGS, pid, NULL, regs);
-#endif
+#    endif
 }
 
 /* Copies memory from traced process into parent.
@@ -949,7 +938,7 @@ ptrace_read_memory(pid_t pid, void *dst, void *src, size_t len)
     uint i;
     ptr_int_t *dst_reg = dst;
     ptr_int_t *src_reg = src;
-    ASSERT(len % sizeof(ptr_int_t) == 0);  /* FIXME handle */
+    ASSERT(len % sizeof(ptr_int_t) == 0); /* FIXME handle */
     for (i = 0; i < len / sizeof(ptr_int_t); i++) {
         /* We use a raw syscall instead of the libc wrapper, so the value read
          * is stored in the data pointer instead of being returned in r.
@@ -969,16 +958,14 @@ ptrace_write_memory(pid_t pid, void *dst, void *src, size_t len)
     uint i;
     ptr_int_t *dst_reg = dst;
     ptr_int_t *src_reg = src;
-    ASSERT(len % sizeof(ptr_int_t) == 0);  /* FIXME handle */
+    ASSERT(len % sizeof(ptr_int_t) == 0); /* FIXME handle */
     for (i = 0; i < len / sizeof(ptr_int_t); i++) {
-        long r = our_ptrace(PTRACE_POKEDATA, pid, &dst_reg[i],
-                            (void *) src_reg[i]);
+        long r = our_ptrace(PTRACE_POKEDATA, pid, &dst_reg[i], (void *)src_reg[i]);
         if (r < 0)
             return false;
     }
     return true;
 }
-
 
 /* Push a pointer to a string to the stack.  We create a fake instruction with
  * raw bytes equal to the string we want to put in the injectee.  The call will
@@ -988,51 +975,51 @@ ptrace_write_memory(pid_t pid, void *dst, void *src, size_t len)
 static void
 gen_push_string(void *dc, instrlist_t *ilist, const char *msg)
 {
-#ifdef X86
+#    ifdef X86
     instr_t *after_msg = INSTR_CREATE_label(dc);
     instr_t *msg_instr = instr_build_bits(dc, OP_UNDECODED, strlen(msg) + 1);
     APP(ilist, INSTR_CREATE_call(dc, opnd_create_instr(after_msg)));
-    instr_set_raw_bytes(msg_instr, (byte*)msg, strlen(msg) + 1);
+    instr_set_raw_bytes(msg_instr, (byte *)msg, strlen(msg) + 1);
     instr_set_raw_bits_valid(msg_instr, true);
     APP(ilist, msg_instr);
     APP(ilist, after_msg);
-#else
+#    else
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86 */
+#    endif /* X86 */
 }
 
 static void
-gen_syscall(void *dc, instrlist_t *ilist, int sysnum, uint num_opnds,
-            opnd_t *args)
+gen_syscall(void *dc, instrlist_t *ilist, int sysnum, uint num_opnds, opnd_t *args)
 {
-#ifdef X86
+#    ifdef X86
     uint i;
     ASSERT(num_opnds <= MAX_SYSCALL_ARGS);
-    APP(ilist, INSTR_CREATE_mov_imm
-        (dc, opnd_create_reg(DR_REG_XAX), OPND_CREATE_INTPTR(sysnum)));
+    APP(ilist,
+        INSTR_CREATE_mov_imm(dc, opnd_create_reg(DR_REG_XAX),
+                             OPND_CREATE_INTPTR(sysnum)));
     for (i = 0; i < num_opnds; i++) {
         if (opnd_is_immed_int(args[i]) || opnd_is_instr(args[i])) {
-            APP(ilist, INSTR_CREATE_mov_imm
-                (dc, opnd_create_reg(syscall_regparms[i]), args[i]));
+            APP(ilist,
+                INSTR_CREATE_mov_imm(dc, opnd_create_reg(syscall_regparms[i]), args[i]));
         } else if (opnd_is_base_disp(args[i])) {
-            APP(ilist, INSTR_CREATE_mov_ld
-                (dc, opnd_create_reg(syscall_regparms[i]), args[i]));
+            APP(ilist,
+                INSTR_CREATE_mov_ld(dc, opnd_create_reg(syscall_regparms[i]), args[i]));
         }
     }
     /* XXX: Reuse create_syscall_instr() in emit_utils.c. */
-# ifdef X64
+#        ifdef X64
     APP(ilist, INSTR_CREATE_syscall(dc));
-# else
+#        else
     APP(ilist, INSTR_CREATE_int(dc, OPND_CREATE_INT8((char)0x80)));
-# endif
-#else
+#        endif
+#    else
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86 */
+#    endif /* X86 */
 }
 
-#if 0  /* Useful for debugging gen_syscall and gen_push_string. */
+#    if 0 /* Useful for debugging gen_syscall and gen_push_string. */
 static void
 gen_print(void *dc, instrlist_t *ilist, const char *msg)
 {
@@ -1043,7 +1030,7 @@ gen_print(void *dc, instrlist_t *ilist, const char *msg)
     gen_push_string(dc, ilist, msg);
     gen_syscall(dc, ilist, SYSNUM_NO_CANCEL(SYS_write), 3, args);
 }
-#endif
+#    endif
 
 static void
 unexpected_trace_event(process_id_t pid, int sig_expected, int sig_actual)
@@ -1051,9 +1038,10 @@ unexpected_trace_event(process_id_t pid, int sig_expected, int sig_actual)
     if (verbose) {
         app_pc err_pc;
         our_ptrace(PTRACE_PEEKUSER, pid, (void *)REG_PC_OFFSET, &err_pc);
-        fprintf(stderr, "Unexpected trace event.  Expected %s, got signal %d "
-                "at pc: %p\n", strsignal(sig_expected), sig_actual,
-                err_pc);
+        fprintf(stderr,
+                "Unexpected trace event.  Expected %s, got signal %d "
+                "at pc: %p\n",
+                strsignal(sig_expected), sig_actual, err_pc);
     }
 }
 
@@ -1099,7 +1087,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     ptr_int_t ret;
     app_pc pc;
     long r;
-    ptr_int_t failure = -EUNATCH;  /* Unlikely to be used by most syscalls. */
+    ptr_int_t failure = -EUNATCH; /* Unlikely to be used by most syscalls. */
 
     /* Get register state before executing the shellcode. */
     r = our_ptrace_getregs(info->pid, &regs);
@@ -1115,17 +1103,17 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     APP(ilist, XINST_CREATE_debug_instr(dc));
     if (verbose) {
         fprintf(stderr, "injecting code:\n");
-#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
+#    if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
         /* XXX: This disas call aborts on our raw bytes instructions.  Can we
          * teach DR's disassembler to avoid those instrs?
          */
         instrlist_disassemble(dc, pc, ilist, STDERR);
-#endif
+#    endif
     }
 
     /* Encode ilist into shellcode. */
     end_pc = instrlist_encode_to_copy(dc, ilist, shellcode, pc,
-                                      &shellcode[MAX_SHELL_CODE], true/*jmp*/);
+                                      &shellcode[MAX_SHELL_CODE], true /*jmp*/);
     code_size = end_pc - &shellcode[0];
     code_size = ALIGN_FORWARD(code_size, sizeof(reg_t));
     ASSERT(code_size <= MAX_SHELL_CODE);
@@ -1167,24 +1155,24 @@ injectee_open(dr_inject_info_t *info, const char *path, int flags, mode_t mode)
     opnd_t args[MAX_SYSCALL_ARGS];
     int num_args = 0;
     gen_push_string(dc, ilist, path);
-#ifndef SYS_open
+#    ifndef SYS_open
     args[num_args++] = OPND_CREATE_INTPTR(AT_FDCWD);
-#endif
+#    endif
     args[num_args++] = OPND_CREATE_MEMPTR(REG_XSP, 0);
     args[num_args++] = OPND_CREATE_INTPTR(flags);
     args[num_args++] = OPND_CREATE_INTPTR(mode);
     ASSERT(num_args <= MAX_SYSCALL_ARGS);
-#ifdef SYS_open
+#    ifdef SYS_open
     gen_syscall(dc, ilist, SYSNUM_NO_CANCEL(SYS_open), num_args, args);
-#else
+#    else
     gen_syscall(dc, ilist, SYSNUM_NO_CANCEL(SYS_openat), num_args, args);
-#endif
+#    endif
     return injectee_run_get_retval(info, dc, ilist);
 }
 
 static void *
-injectee_mmap(dr_inject_info_t *info, void *addr, size_t sz, int prot,
-              int flags, int fd, off_t offset)
+injectee_mmap(dr_inject_info_t *info, void *addr, size_t sz, int prot, int flags, int fd,
+              off_t offset)
 {
     void *dc = GLOBAL_DCONTEXT;
     instrlist_t *ilist = instrlist_create(dc);
@@ -1199,7 +1187,7 @@ injectee_mmap(dr_inject_info_t *info, void *addr, size_t sz, int prot,
     ASSERT(num_args <= MAX_SYSCALL_ARGS);
     /* XXX: Regular mmap gives EBADR on ia32, but mmap2 works. */
     gen_syscall(dc, ilist, IF_X64_ELSE(SYS_mmap, SYS_mmap2), num_args, args);
-    return (void *) injectee_run_get_retval(info, dc, ilist);
+    return (void *)injectee_run_get_retval(info, dc, ilist);
 }
 
 /* Do an mmap syscall in the injectee, parallel to the os_map_file prototype.
@@ -1207,8 +1195,8 @@ injectee_mmap(dr_inject_info_t *info, void *addr, size_t sz, int prot,
  * injector_dr_fd to injectee_dr_fd to map the former to the latter.
  */
 static byte *
-injectee_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr,
-                  uint prot, map_flags_t map_flags)
+injectee_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+                  map_flags_t map_flags)
 {
     int fd;
     int flags = 0;
@@ -1225,13 +1213,13 @@ injectee_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr,
     if (fd == -1) {
         flags |= MAP_ANONYMOUS;
     }
-    r = injectee_mmap(injector_info, addr, *size, memprot_to_osprot(prot),
-                      flags, fd, offs);
+    r = injectee_mmap(injector_info, addr, *size, memprot_to_osprot(prot), flags, fd,
+                      offs);
     if (!mmap_syscall_succeeded(r)) {
         int err = -(int)(ptr_int_t)r;
-        printf("injectee_mmap(%d, %p, %p, 0x%x, 0x%lx, 0x%x) -> (%d): %s\n",
-               fd, addr, (void *)*size, memprot_to_osprot(prot), (long)offs,
-               flags, err, strerror(err));
+        printf("injectee_mmap(%d, %p, %p, 0x%x, 0x%lx, 0x%x) -> (%d): %s\n", fd, addr,
+               (void *)*size, memprot_to_osprot(prot), (long)offs, flags, err,
+               strerror(err));
         return NULL;
     }
     return r;
@@ -1252,8 +1240,7 @@ injectee_unmap(byte *addr, size_t size)
     gen_syscall(dc, ilist, SYS_munmap, num_args, args);
     r = injectee_run_get_retval(injector_info, dc, ilist);
     if (r < 0) {
-        printf("injectee_munmap(%p, %p) -> %p\n",
-               addr, (void *) size, (void *)r);
+        printf("injectee_munmap(%p, %p) -> %p\n", addr, (void *)size, (void *)r);
         return false;
     }
     return true;
@@ -1261,7 +1248,7 @@ injectee_unmap(byte *addr, size_t size)
 
 /* Do an mprotect syscall in the injectee. */
 static bool
-injectee_prot(byte *addr, size_t size, uint prot/*MEMPROT_*/)
+injectee_prot(byte *addr, size_t size, uint prot /*MEMPROT_*/)
 {
     void *dc = GLOBAL_DCONTEXT;
     instrlist_t *ilist = instrlist_create(dc);
@@ -1275,8 +1262,7 @@ injectee_prot(byte *addr, size_t size, uint prot/*MEMPROT_*/)
     gen_syscall(dc, ilist, SYS_mprotect, num_args, args);
     r = injectee_run_get_retval(injector_info, dc, ilist);
     if (r < 0) {
-        printf("injectee_prot(%p, %p, %x) -> %d\n",
-               addr, (void *) size, prot, (int)r);
+        printf("injectee_prot(%p, %p, %x) -> %d\n", addr, (void *)size, prot, (int)r);
         return false;
     }
     return true;
@@ -1288,8 +1274,8 @@ injectee_prot(byte *addr, size_t size, uint prot/*MEMPROT_*/)
 static void
 user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
 {
-#ifdef X86
-# ifdef X64
+#    ifdef X86
+#        ifdef X64
     mc->rip = (app_pc)regs->rip;
     mc->rax = regs->rax;
     mc->rcx = regs->rcx;
@@ -1299,15 +1285,15 @@ user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
     mc->rbp = regs->rbp;
     mc->rsi = regs->rsi;
     mc->rdi = regs->rdi;
-    mc->r8  = regs->r8 ;
-    mc->r9  = regs->r9 ;
+    mc->r8 = regs->r8;
+    mc->r9 = regs->r9;
     mc->r10 = regs->r10;
     mc->r11 = regs->r11;
     mc->r12 = regs->r12;
     mc->r13 = regs->r13;
     mc->r14 = regs->r14;
     mc->r15 = regs->r15;
-# else
+#        else
     mc->eip = (app_pc)regs->eip;
     mc->eax = regs->eax;
     mc->ecx = regs->ecx;
@@ -1317,18 +1303,18 @@ user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
     mc->ebp = regs->ebp;
     mc->esi = regs->esi;
     mc->edi = regs->edi;
-# endif
-#elif defined(ARM)
-    mc->r0  = regs->uregs[0];
-    mc->r1  = regs->uregs[1];
-    mc->r2  = regs->uregs[2];
-    mc->r3  = regs->uregs[3];
-    mc->r4  = regs->uregs[4];
-    mc->r5  = regs->uregs[5];
-    mc->r6  = regs->uregs[6];
-    mc->r7  = regs->uregs[7];
-    mc->r8  = regs->uregs[8];
-    mc->r9  = regs->uregs[9];
+#        endif
+#    elif defined(ARM)
+    mc->r0 = regs->uregs[0];
+    mc->r1 = regs->uregs[1];
+    mc->r2 = regs->uregs[2];
+    mc->r3 = regs->uregs[3];
+    mc->r4 = regs->uregs[4];
+    mc->r5 = regs->uregs[5];
+    mc->r6 = regs->uregs[6];
+    mc->r7 = regs->uregs[7];
+    mc->r8 = regs->uregs[8];
+    mc->r9 = regs->uregs[9];
     mc->r10 = regs->uregs[10];
     mc->r11 = regs->uregs[11];
     mc->r12 = regs->uregs[12];
@@ -1336,9 +1322,9 @@ user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
     mc->r14 = regs->uregs[14];
     mc->r15 = regs->uregs[15];
     mc->cpsr = regs->uregs[16];
-#elif defined(AARCH64)
+#    elif defined(AARCH64)
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#endif /* X86/ARM */
+#    endif /* X86/ARM */
 }
 
 /* Detach from the injectee and re-exec ourselves as gdb with --pid.  This is
@@ -1349,8 +1335,8 @@ user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
 static void
 detach_and_exec_gdb(process_id_t pid, const char *library_path)
 {
-    char pid_str[16];  /* long enough for a decimal string pid */
-    const char *argv[20];  /* 20 is long enough for our gdb command. */
+    char pid_str[16];     /* long enough for a decimal string pid */
+    const char *argv[20]; /* 20 is long enough for our gdb command. */
     int num_args = 0;
     char add_symfile[MAXIMUM_PATH];
 
@@ -1358,12 +1344,14 @@ detach_and_exec_gdb(process_id_t pid, const char *library_path)
     file_t f = os_open(library_path, OS_OPEN_READ);
     uint64 size64;
     os_get_file_size_by_handle(f, &size64);
-    size_t size = (size_t) size64;
+    size_t size = (size_t)size64;
     byte *base = os_map_file(f, &size, 0, NULL, MEMPROT_READ, MAP_FILE_COPY_ON_WRITE);
-    app_pc text_start = (app_pc) module_get_text_section(base, size);
+    app_pc text_start = (app_pc)module_get_text_section(base, size);
     os_unmap_file(base, size);
     os_close(f);
 
+    /* SIGSTOP can let gdb break into privload_early_inject(). */
+    kill(pid, SIGSTOP);
     our_ptrace(PTRACE_DETACH, pid, NULL, NULL);
     snprintf(pid_str, BUFFER_SIZE_ELEMENTS(pid_str), "%d", pid);
     NULL_TERMINATE_BUFFER(pid_str);
@@ -1374,8 +1362,8 @@ detach_and_exec_gdb(process_id_t pid, const char *library_path)
     argv[num_args++] = "-ex";
     argv[num_args++] = "set confirm off";
     argv[num_args++] = "-ex";
-    snprintf(add_symfile, BUFFER_SIZE_ELEMENTS(add_symfile),
-             "add-symbol-file %s "PFX, library_path, text_start);
+    snprintf(add_symfile, BUFFER_SIZE_ELEMENTS(add_symfile), "add-symbol-file %s " PFX,
+             library_path, text_start);
     NULL_TERMINATE_BUFFER(add_symfile);
     argv[num_args++] = add_symfile;
     argv[num_args++] = NULL;
@@ -1401,8 +1389,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     r = our_ptrace(PTRACE_ATTACH, info->pid, NULL, NULL);
     if (r < 0) {
         if (verbose) {
-            fprintf(stderr, "PTRACE_ATTACH failed with error: %s\n",
-                    strerror(-r));
+            fprintf(stderr, "PTRACE_ATTACH failed with error: %s\n", strerror(-r));
         }
         return false;
     }
@@ -1414,8 +1401,8 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
         write_pipe_cmd(info->pipe_fd, "ptrace");
         close(info->pipe_fd);
         info->pipe_fd = 0;
-        if (our_ptrace(PTRACE_SETOPTIONS, info->pid, NULL,
-                       (void *)PTRACE_O_TRACEEXEC) < 0)
+        if (our_ptrace(PTRACE_SETOPTIONS, info->pid, NULL, (void *)PTRACE_O_TRACEEXEC) <
+            0)
             return false;
         if (!continue_until_break(info->pid))
             return false;
@@ -1425,8 +1412,10 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     dr_fd = injectee_open(info, library_path, O_RDONLY, 0);
     if (dr_fd < 0) {
         if (verbose) {
-            fprintf(stderr, "Unable to open libdynamorio.so in injectee (%d): "
-                    "%s\n", -dr_fd, strerror(-dr_fd));
+            fprintf(stderr,
+                    "Unable to open libdynamorio.so in injectee (%d): "
+                    "%s\n",
+                    -dr_fd, strerror(-dr_fd));
         }
         return false;
     }
@@ -1440,9 +1429,9 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     injector_info = info;
     injector_dr_fd = loader.fd;
     injectee_dr_fd = dr_fd;
-    injected_base = elf_loader_map_phdrs(&loader, true/*fixed*/,
-                                         injectee_map_file, injectee_unmap,
-                                         injectee_prot, 0/*!reachable*/);
+    injected_base = elf_loader_map_phdrs(&loader, true /*fixed*/, injectee_map_file,
+                                         injectee_unmap, injectee_prot, NULL,
+                                         MODLOAD_SEPARATE_PROCESS /*!reachable*/);
     if (injected_base == NULL) {
         if (verbose)
             fprintf(stderr, "Unable to mmap libdynamorio.so in injectee\n");
@@ -1452,7 +1441,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
      * the ELF header with different arguments.
      * XXX: Actually look up an export.
      */
-    injected_dr_start = (app_pc) loader.ehdr->e_entry + loader.load_delta;
+    injected_dr_start = (app_pc)loader.ehdr->e_entry + loader.load_delta;
     elf_loader_destroy(&loader);
 
     our_ptrace_getregs(info->pid, &regs);
@@ -1472,17 +1461,16 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     strncpy(args.home_dir, getenv("HOME"), BUFFER_SIZE_ELEMENTS(args.home_dir));
     NULL_TERMINATE_BUFFER(args.home_dir);
 
-#if defined(X86) || defined(AARCHXX)
-    regs.REG_SP_FIELD -= REDZONE_SIZE;  /* Need to preserve x64 red zone. */
-    regs.REG_SP_FIELD -= sizeof(args);  /* Allocate space for args. */
+#    if defined(X86) || defined(AARCHXX)
+    regs.REG_SP_FIELD -= REDZONE_SIZE; /* Need to preserve x64 red zone. */
+    regs.REG_SP_FIELD -= sizeof(args); /* Allocate space for args. */
     regs.REG_SP_FIELD = ALIGN_BACKWARD(regs.REG_SP_FIELD, REGPARM_END_ALIGN);
-    ptrace_write_memory(info->pid, (void *)regs.REG_SP_FIELD,
-                        &args, sizeof(args));
-#else
-# error "depends on arch stack growth direction"
-#endif
+    ptrace_write_memory(info->pid, (void *)regs.REG_SP_FIELD, &args, sizeof(args));
+#    else
+#        error "depends on arch stack growth direction"
+#    endif
 
-    regs.REG_PC_FIELD = (ptr_int_t) injected_dr_start;
+    regs.REG_PC_FIELD = (ptr_int_t)injected_dr_start;
     our_ptrace_setregs(info->pid, &regs);
 
     if (op_exec_gdb) {
@@ -1494,6 +1482,8 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
      * return.
      * XXX: we can actually fault during dynamorio_app_init() due to safe_reads,
      * so we have to expect SIGSEGV and let it be delivered.
+     * XXX: SIGILL is delivered from signal_arch_init() and we should pass it
+     * to its original handler.
      */
     signal = 0;
     do {
@@ -1505,7 +1495,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
         if (r < 0 || !WIFSTOPPED(status))
             return false;
         signal = WSTOPSIG(status);
-    } while (signal == SIGSEGV);
+    } while (signal == SIGSEGV || signal == SIGILL);
 
     /* When we get SIGTRAP, DR has initialized. */
     if (signal != SIGTRAP) {

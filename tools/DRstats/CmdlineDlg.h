@@ -35,25 +35,27 @@
 /* Copyright (c) 2002 Hewlett-Packard Company */
 
 #if !defined(AFX_CMDLINEDLG_H__762C8A3E_B123_480F_9CF7_56ABA0FA6CC6__INCLUDED_)
-#define AFX_CMDLINEDLG_H__762C8A3E_B123_480F_9CF7_56ABA0FA6CC6__INCLUDED_
+#    define AFX_CMDLINEDLG_H__762C8A3E_B123_480F_9CF7_56ABA0FA6CC6__INCLUDED_
 
-#if _MSC_VER > 1000
-#pragma once
-#endif // _MSC_VER > 1000
+#    if _MSC_VER > 1000
+#        pragma once
+#    endif // _MSC_VER > 1000
 // CmdlineDlg.h : header file
 //
 
 /////////////////////////////////////////////////////////////////////////////
 // CCmdlineDlg dialog
 
-class CCmdlineDlg : public CDialog
-{
+class CCmdlineDlg : public CDialog {
     // Construction
 public:
-    CString GetArguments();
-    CString GetWorkingDir();
-    BOOL OnInitDialog();
-    CCmdlineDlg(CString wdir, CWnd* pParent = NULL);
+    CString
+    GetArguments();
+    CString
+    GetWorkingDir();
+    BOOL
+    OnInitDialog();
+    CCmdlineDlg(CString wdir, CWnd *pParent = NULL);
 
     // Dialog Data
     //{{AFX_DATA(CCmdlineDlg)
@@ -62,27 +64,30 @@ public:
     CString m_WorkingDir;
     //}}AFX_DATA
 
-
     // Overrides
     // ClassWizard generated virtual function overrides
     //{{AFX_VIRTUAL(CCmdlineDlg)
 protected:
-    virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+    virtual void
+    DoDataExchange(CDataExchange *pDX); // DDX/DDV support
     //}}AFX_VIRTUAL
 
     // Implementation
 protected:
-    CCmdlineDlg(CWnd* pParent = NULL);   // standard constructor
+    CCmdlineDlg(CWnd *pParent = NULL); // standard constructor
 
     // Generated message map functions
     //{{AFX_MSG(CCmdlineDlg)
-    afx_msg void OnWorkingDirBrowse();
-    virtual void OnOK();
+    afx_msg void
+    OnWorkingDirBrowse();
+    virtual void
+    OnOK();
     //}}AFX_MSG
     DECLARE_MESSAGE_MAP()
-        };
+};
 
 //{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
+// Microsoft Visual C++ will insert additional declarations immediately before the
+// previous line.
 
 #endif // !defined(AFX_CMDLINEDLG_H__762C8A3E_B123_480F_9CF7_56ABA0FA6CC6__INCLUDED_)

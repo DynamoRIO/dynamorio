@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,34 +31,46 @@
  * DAMAGE.
  */
 
-#ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h" /* for print() */
+#ifndef ASM_CODE_ONLY  /* C code */
+#    include "tools.h" /* for print() */
 
-#include <assert.h>
-#include <stdio.h>
-#include <math.h>
+#    include <assert.h>
+#    include <stdio.h>
+#    include <math.h>
 
-#ifdef UNIX
-# include <unistd.h>
-# include <signal.h>
-# include <ucontext.h>
-# include <errno.h>
-# include <stdlib.h>
-#endif
+#    ifdef UNIX
+#        include <unistd.h>
+#        include <signal.h>
+#        include <ucontext.h>
+#        include <errno.h>
+#        include <stdlib.h>
+#    endif
 
-#include <setjmp.h>
+#    include <setjmp.h>
 
 /* asm routines */
-void test_modrm16(char *buf);
-void test_nops(void);
-void test_sse3(char *buf);
-void test_3dnow(char *buf);
-void test_far_cti(void);
-void test_data16_mbr(void);
-void test_rip_rel_ind(void);
-void test_bsr(void);
-void test_SSE2(void);
-void test_mangle_seg(void);
+void
+test_modrm16(char *buf);
+void
+test_nops(void);
+void
+test_sse3(char *buf);
+void
+test_avx512_vex(char *buf);
+void
+test_3dnow(char *buf);
+void
+test_far_cti(void);
+void
+test_data16_mbr(void);
+void
+test_rip_rel_ind(void);
+void
+test_bsr(void);
+void
+test_SSE2(void);
+void
+test_mangle_seg(void);
 
 SIGJMP_BUF mark;
 static int count = 0;
@@ -66,14 +78,14 @@ static bool print_access_vio = true;
 
 void (*func_ptr)(void);
 
-#define VERBOSE 0
+#    define VERBOSE 0
 
-#define ITERS 1500000
+#    define ITERS 1500000
 
 static int a[ITERS];
 
-#ifdef UNIX
-# define ALT_STACK_SIZE  (SIGSTKSZ*3)
+#    ifdef UNIX
+#        define ALT_STACK_SIZE (SIGSTKSZ * 3)
 
 int
 my_setjmp(sigjmp_buf env)
@@ -82,7 +94,7 @@ my_setjmp(sigjmp_buf env)
 }
 
 static void
-signal_handler(int sig)
+signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (sig == SIGILL) {
         count++;
@@ -96,14 +108,14 @@ signal_handler(int sig)
     }
     exit(-1);
 }
-#else
+#    else
 /* sort of a hack to avoid the MessageBox of the unhandled exception spoiling
  * our batch runs
  */
-# include <windows.h>
+#        include <windows.h>
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ILLEGAL_INSTRUCTION) {
         count++;
@@ -112,23 +124,24 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
     }
     /* Shouldn't get here in normal operation so this isn't #if VERBOSE */
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-#if VERBOSE
+#        if VERBOSE
         /* DR gets the target addr wrong for far call/jmp so we don't print it */
-        print("\tPC "PFX" tried to %s address "PFX"\n",
-            pExceptionInfo->ExceptionRecord->ExceptionAddress,
-            (pExceptionInfo->ExceptionRecord->ExceptionInformation[0]==0)?"read":"write",
-            pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
-#endif
+        print("\tPC " PFX " tried to %s address " PFX "\n",
+              pExceptionInfo->ExceptionRecord->ExceptionAddress,
+              (pExceptionInfo->ExceptionRecord->ExceptionInformation[0] == 0) ? "read"
+                                                                              : "write",
+              pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
+#        endif
         count++;
         if (print_access_vio)
             print("Access violation, instance %d\n", count);
         longjmp(mark, count);
     }
-    print("Exception "PFX" occurred, process about to die silently\n",
+    print("Exception " PFX " occurred, process about to die silently\n",
           pExceptionInfo->ExceptionRecord->ExceptionCode);
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
-#endif
+#    endif
 
 static void
 actual_call_target(void)
@@ -136,81 +149,83 @@ actual_call_target(void)
     print("Made it to actual_call_target\n");
 }
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     double res = 0.;
     int i;
-#ifndef X64
+#    ifndef X64
     int j;
-#endif
+#    endif
     char *buf;
-#ifdef UNIX
+#    ifdef UNIX
     stack_t sigstack;
-#endif
+#    endif
 
-#ifdef UNIX
+#    ifdef UNIX
     /* our modrm16 tests clobber esp so we need an alternate stack */
-    sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
+    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
     sigstack.ss_size = ALT_STACK_SIZE;
     sigstack.ss_flags = SS_ONSTACK;
     i = sigaltstack(&sigstack, NULL);
     assert(i == 0);
-    intercept_signal(SIGILL, (handler_3_t) signal_handler, true);
-    intercept_signal(SIGSEGV, (handler_3_t) signal_handler, true);
-#else
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
-#endif
+    intercept_signal(SIGILL, (handler_3_t)signal_handler, true);
+    intercept_signal(SIGSEGV, (handler_3_t)signal_handler, true);
+#    else
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
+#    endif
 
-    buf = allocate_mem(7*256+1, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    buf = allocate_mem(7 * 256 + 1, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     assert(buf != NULL);
+    print("Start\n");
 
-#ifndef X64
+#    ifndef X64
     print("Jumping to a sequence of every addr16 modrm byte\n");
-    for (j=0; j<256; j++) {
+    for (j = 0; j < 256; j++) {
         int mod = ((j >> 6) & 0x3); /* top 2 bits */
         int reg = ((j >> 3) & 0x7); /* middle 3 bits */
-        int rm  = (j & 0x7);        /* bottom 3 bits */
-# if defined(UNIX) || defined(X64)
-        buf[j*7 + 0] = 0x65; /* gs: */
-# else
-        buf[j*7 + 0] = 0x64; /* fs: */
-# endif
-        buf[j*7 + 1] = 0x67; /* addr16 */
-        buf[j*7 + 2] = 0x8b; /* load */
-# ifdef WINDOWS
+        int rm = (j & 0x7);         /* bottom 3 bits */
+#        if defined(UNIX) || defined(X64)
+        buf[j * 7 + 0] = 0x65; /* gs: */
+#        else
+        buf[j * 7 + 0] = 0x64; /* fs: */
+#        endif
+        buf[j * 7 + 1] = 0x67; /* addr16 */
+        buf[j * 7 + 2] = 0x8b; /* load */
+#        ifdef WINDOWS
         /* Windows can't handle stack pointer being off */
         if (reg == 4) { /* xsp */
-            buf[j*7 + 3] = j | 0x8;
+            buf[j * 7 + 3] = j | 0x8;
         } else
-            buf[j*7 + 3] = j; /* nearly every single modrm byte */
-# else
-        buf[j*7 + 3] = j; /* every single modrm byte */
-# endif
+            buf[j * 7 + 3] = j; /* nearly every single modrm byte */
+#        else
+        buf[j * 7 + 3] = j;    /* every single modrm byte */
+#        endif
         if (mod == 1) {
-            buf[j*7 + 4] = 0x03; /* disp */
-            buf[j*7 + 5] = 0xc3;
+            buf[j * 7 + 4] = 0x03; /* disp */
+            buf[j * 7 + 5] = 0xc3;
         } else if (mod == 2 || (mod == 0 && rm == 6)) {
-            buf[j*7 + 4] = 0x03; /* disp */
-            buf[j*7 + 5] = 0x00; /* disp */
+            buf[j * 7 + 4] = 0x03; /* disp */
+            buf[j * 7 + 5] = 0x00; /* disp */
         } else {
-            buf[j*7 + 4] = 0xc3; /* ret */
-            buf[j*7 + 5] = 0xc3;
+            buf[j * 7 + 4] = 0xc3; /* ret */
+            buf[j * 7 + 5] = 0xc3;
         }
-        buf[j*7 + 6] = 0xc3;
+        buf[j * 7 + 6] = 0xc3;
     }
-    buf[256*7] = 0xcc;
+    buf[256 * 7] = 0xcc;
     print_access_vio = false;
-    for (j=0; j<256; j++) {
+    for (j = 0; j < 256; j++) {
         i = SIGSETJMP(mark);
         if (i == 0)
-            test_modrm16(&buf[j*7]);
+            test_modrm16(&buf[j * 7]);
         else
             continue;
     }
     print("Done with modrm test: tested %d\n", j);
     count = 0;
     print_access_vio = true;
-#endif /* !X64 */
+#    endif /* !X64 */
 
     /* multi-byte nop tests (case 9862) */
     i = SIGSETJMP(mark);
@@ -250,11 +265,11 @@ int main(int argc, char *argv[])
     print("Testing far call/jmp\n");
     test_far_cti();
 
-#ifdef WINDOWS /* FIXME i#105: crashing on Linux so disabling for now */
+#    ifdef WINDOWS /* FIXME i#105: crashing on Linux so disabling for now */
     /* PR 242815: data16 mbr */
     print("Testing data16 mbr\n");
     test_data16_mbr();
-#endif
+#    endif
 
     /* i#1024: rip-rel ind branch */
     print("Testing rip-rel ind branch\n");
@@ -271,17 +286,23 @@ int main(int argc, char *argv[])
     /* i#1493: segment register mangling */
     test_mangle_seg();
 
-#ifdef UNIX
+#    ifdef UNIX
     free(sigstack.ss_sp);
-#endif
+#    endif
+
+    /* AVX-512 VEX tests */
+#    ifdef __AVX512F__
+    print("Testing AVX-512 VEX\n");
+    test_avx512_vex(buf);
+#    endif
 
     print("All done\n");
     return 0;
 }
 
-
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #define FUNCNAME test_modrm16
@@ -289,11 +310,7 @@ START_FILE
 GLOBAL_LABEL(FUNCNAME:)
         /* can't push ARG1 here b/c of SEH64 epilog restrictions */
         mov      REG_XAX, ARG1
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         PUSH_NONCALLEE_SEH(REG_XAX)
         END_PROLOG
         mov      ax, 4
@@ -306,10 +323,7 @@ GLOBAL_LABEL(FUNCNAME:)
         CALLC0(PTRSZ [REG_XSP] /* ARG1 */)
         pop      REG_XAX /* arg1 */
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 
@@ -349,10 +363,9 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(41) RAW(0f) RAW(12) RAW(f4) /* i#319: movlhps %xmm12, xmm6 */
         RAW(41) RAW(0f) RAW(16) RAW(f4) /* i#319: movhlps %xmm12, xmm6 */
 #endif
-        mov  eax, 0
         mov  ecx, 0
         mov  edx, 0
-        RAW(0f) RAW(01) RAW(c8) /* monitor */
+        RAW(0f) RAW(01) RAW(c8) /* monitor. %rax from ARG1 above is live-in */
         RAW(0f) RAW(01) RAW(c9) /* mwait */
         /* we want failure on sse3 machine, to have constant output
          * (this will produce "Invalid opcode encountered" warning) */
@@ -361,6 +374,81 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 #undef FUNCNAME
+#define FUNCNAME test_avx512_vex
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov    REG_XAX, ARG1
+        RAW(c5) RAW(f8) RAW(90) RAW(c8)                 /* kmovw  %k0,%k1 */
+        RAW(c5) RAW(f9) RAW(90) RAW(da)                 /* kmovb  %k2,%k3 */
+        RAW(c4) RAW(e1) RAW(f8) RAW(90) RAW(ec)         /* kmovq  %k4,%k5 */
+        RAW(c4) RAW(e1) RAW(f9) RAW(90) RAW(fe)         /* kmovd  %k6,%k7 */
+        RAW(c5) RAW(f8) RAW(90) RAW(45) RAW(e4)         /* kmovw  -0x1c(%rbp),%k0 */
+        RAW(c5) RAW(f9) RAW(90) RAW(4d) RAW(e4)         /* kmovb  -0x1c(%rbp),%k1 */
+        RAW(c4) RAW(e1) RAW(f8) RAW(90) RAW(55) RAW(e4) /* kmovq  -0x1c(%rbp),%k2 */
+        RAW(c4) RAW(e1) RAW(f9) RAW(90) RAW(5d) RAW(e4) /* kmovd  -0x1c(%rbp),%k3 */
+        RAW(c5) RAW(f8) RAW(91) RAW(65) RAW(e4)         /* kmovw  %k4,-0x1c(%rbp) */
+        RAW(c5) RAW(f9) RAW(91) RAW(6d) RAW(e4)         /* kmovb  %k5,-0x1c(%rbp) */
+        RAW(c4) RAW(e1) RAW(f8) RAW(91) RAW(75) RAW(e4) /* kmovq  %k6,-0x1c(%rbp) */
+        RAW(c4) RAW(e1) RAW(f9) RAW(91) RAW(7d) RAW(e4) /* kmovd  %k7,-0x1c(%rbp) */
+        RAW(c5) RAW(f8) RAW(92) RAW(c0)                 /* kmovw  %eax,%k0 */
+        RAW(c5) RAW(f9) RAW(92) RAW(cb)                 /* kmovb  %ebx,%k1 */
+        RAW(c4) RAW(e1) RAW(fb) RAW(92) RAW(d1)         /* kmovq  %rcx,%k2 */
+        RAW(c5) RAW(fb) RAW(92) RAW(da)                 /* kmovd  %edx,%k3 */
+        RAW(c5) RAW(f8) RAW(93) RAW(f4)                 /* kmovw  %k4,%esi */
+        RAW(c5) RAW(f9) RAW(93) RAW(fd)                 /* kmovb  %k5,%edi */
+        RAW(c4) RAW(e1) RAW(fb) RAW(93) RAW(c6)         /* kmovq  %k6,%rax */
+        RAW(c5) RAW(fb) RAW(93) RAW(df)                 /* kmovd  %k7,%ebx */
+        RAW(c5) RAW(f4) RAW(41) RAW(d0)                 /* kandw  %k0,%k1,%k2 */
+        RAW(c5) RAW(dd) RAW(41) RAW(eb)                 /* kandb  %k3,%k4,%k5 */
+        RAW(c4) RAW(e1) RAW(c4) RAW(41) RAW(c6)         /* kandq  %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ed) RAW(41) RAW(d9)         /* kandd  %k1,%k2,%k3 */
+        RAW(c5) RAW(f4) RAW(42) RAW(d0)                 /* kandnw %k0,%k1,%k2 */
+        RAW(c5) RAW(dd) RAW(42) RAW(eb)                 /* kandnb %k3,%k4,%k5 */
+        RAW(c4) RAW(e1) RAW(c4) RAW(42) RAW(c6)         /* kandnq %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ed) RAW(42) RAW(d9)         /* kandnd %k1,%k2,%k3 */
+        RAW(c5) RAW(f5) RAW(4b) RAW(d0)                 /* kunpckbw %k0,%k1,%k2 */
+        RAW(c5) RAW(c4) RAW(4b) RAW(c6)                 /* kunpckwd %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ec) RAW(4b) RAW(d9)         /* kunpckdq %k1,%k2,%k3 */
+        RAW(c5) RAW(f8) RAW(44) RAW(c8)                 /* knotw  %k0,%k1 */
+        RAW(c5) RAW(f9) RAW(44) RAW(da)                 /* knotb  %k2,%k3 */
+        RAW(c4) RAW(e1) RAW(f8) RAW(44) RAW(ec)         /* knotq  %k4,%k5 */
+        RAW(c4) RAW(e1) RAW(f9) RAW(44) RAW(fe)         /* knotd  %k6,%k7 */
+        RAW(c5) RAW(f4) RAW(45) RAW(d0)                 /* korw   %k0,%k1,%k2 */
+        RAW(c5) RAW(dd) RAW(45) RAW(eb)                 /* korb   %k3,%k4,%k5 */
+        RAW(c4) RAW(e1) RAW(c4) RAW(45) RAW(c6)         /* korq   %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ed) RAW(45) RAW(d9)         /* kord   %k1,%k2,%k3 */
+        RAW(c5) RAW(f4) RAW(46) RAW(d0)                 /* kxnorw %k0,%k1,%k2 */
+        RAW(c5) RAW(dd) RAW(46) RAW(eb)                 /* kxnorb %k3,%k4,%k5 */
+        RAW(c4) RAW(e1) RAW(c4) RAW(46) RAW(c6)         /* kxnorq %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ed) RAW(46) RAW(d9)         /* kxnord %k1,%k2,%k3 */
+        RAW(c5) RAW(f4) RAW(47) RAW(d0)                 /* kxorw  %k0,%k1,%k2 */
+        RAW(c5) RAW(dd) RAW(47) RAW(eb)                 /* kxorb  %k3,%k4,%k5 */
+        RAW(c4) RAW(e1) RAW(c4) RAW(47) RAW(c6)         /* kxorq  %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ed) RAW(47) RAW(d9)         /* kxord  %k1,%k2,%k3 */
+        RAW(c5) RAW(f4) RAW(4a) RAW(d0)                 /* kaddw  %k0,%k1,%k2 */
+        RAW(c5) RAW(dd) RAW(4a) RAW(eb)                 /* kaddb  %k3,%k4,%k5 */
+        RAW(c4) RAW(e1) RAW(c4) RAW(4a) RAW(c6)         /* kaddq  %k6,%k7,%k0 */
+        RAW(c4) RAW(e1) RAW(ed) RAW(4a) RAW(d9)         /* kaddd  %k1,%k2,%k3 */
+        RAW(c5) RAW(f8) RAW(98) RAW(c8)                 /* kortestw %k0,%k1 */
+        RAW(c5) RAW(f9) RAW(98) RAW(da)                 /* kortestb %k2,%k3 */
+        RAW(c4) RAW(e1) RAW(f8) RAW(98) RAW(ec)         /* kortestq %k4,%k5 */
+        RAW(c4) RAW(e1) RAW(f9) RAW(98) RAW(fe)         /* kortestd %k6,%k7 */
+        RAW(c5) RAW(f8) RAW(99) RAW(c8)                 /* ktestw %k0,%k1 */
+        RAW(c5) RAW(f9) RAW(99) RAW(da)                 /* ktestb %k2,%k3 */
+        RAW(c4) RAW(e1) RAW(f8) RAW(99) RAW(ec)         /* ktestq %k4,%k5 */
+        RAW(c4) RAW(e1) RAW(f9) RAW(99) RAW(fe)         /* ktestd %k6,%k7 */
+        RAW(c4) RAW(e3) RAW(f9) RAW(32) RAW(c8) RAW(ff) /* kshiftlw $0xff,%k0,%k1 */
+        RAW(c4) RAW(e3) RAW(79) RAW(32) RAW(da) RAW(7b) /* kshiftlb $0x7b,%k2,%k3 */
+        RAW(c4) RAW(e3) RAW(f9) RAW(33) RAW(ec) RAW(07) /* kshiftlq $0x7,%k4,%k5 */
+        RAW(c4) RAW(e3) RAW(79) RAW(33) RAW(fe) RAW(63) /* kshiftld $0x63,%k6,%k7 */
+        RAW(c4) RAW(e3) RAW(f9) RAW(30) RAW(c8) RAW(df) /* kshiftrw $0xdf,%k0,%k1 */
+        RAW(c4) RAW(e3) RAW(79) RAW(30) RAW(da) RAW(65) /* kshiftrb $0x65,%k2,%k3 */
+        RAW(c4) RAW(e3) RAW(f9) RAW(31) RAW(ec) RAW(05) /* kshiftrq $0x5,%k4,%k5 */
+        RAW(c4) RAW(e3) RAW(79) RAW(31) RAW(fe) RAW(2f) /* kshiftrd $0x2f,%k6,%k7 */
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
 #define FUNCNAME test_3dnow
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
@@ -416,11 +504,11 @@ DECL_EXTERN(my_setjmp)
 # ifdef X64
 #  define CALL_SETJMP \
         lea   REG_XAX, SYMREF(mark) @N@ \
-        CALLC1(my_setjmp, REG_XAX)
+        CALLC1(GLOBAL_REF(my_setjmp), REG_XAX)
 # else
 #  define CALL_SETJMP \
         lea   REG_XAX, mark @N@\
-        CALLC1(my_setjmp, REG_XAX)
+        CALLC1(GLOBAL_REF(my_setjmp), REG_XAX)
 # endif
 #endif
 
@@ -620,9 +708,15 @@ DECL_EXTERN(func_ptr)
 #define FUNCNAME test_rip_rel_ind
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ADD_STACK_ALIGNMENT  /* Maintain alignment. Some system's
+                              * libc may decide to callee-save xmm
+                              * registers which requires alignment.
+                              * (xref i#3674).
+                              */
         END_PROLOG
         CALL_SETJMP
         call     PTRSZ SYMREF(func_ptr)
+        RESTORE_STACK_ALIGNMENT
         ret
         END_FUNC(FUNCNAME)
 
@@ -633,11 +727,7 @@ GLOBAL_LABEL(FUNCNAME:)
         */
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         END_PROLOG
 
         /* test i#1118 sequences: all should be valid */
@@ -652,10 +742,7 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(f3) RAW(0F) RAW(BD) RAW(E9) /* bsr */
 
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 
@@ -666,11 +753,7 @@ GLOBAL_LABEL(FUNCNAME:)
         */
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         END_PROLOG
 
         RAW(66) RAW(0F) RAW(D8) RAW(E9) /* psubusb */
@@ -679,10 +762,7 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(f3) RAW(0F) RAW(D8) RAW(E9) /* psubusb */
 
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 
@@ -705,4 +785,5 @@ GLOBAL_LABEL(FUNCNAME:)
         ret
         END_FUNC(FUNCNAME)
 END_FILE
+/* clang-format on */
 #endif /* ASM_CODE_ONLY */

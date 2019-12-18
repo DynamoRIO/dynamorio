@@ -36,8 +36,9 @@
 #include <ucontext.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <assert.h>
 
-#define ALT_STACK_SIZE  (SIGSTKSZ*4)
+#define ALT_STACK_SIZE (SIGSTKSZ * 4)
 
 static void
 signal_handler(int sig)
@@ -48,13 +49,44 @@ signal_handler(int sig)
 int
 main(int argc, char *argv[])
 {
-    char *sp;
     int rc;
     INIT();
+    stack_t sigstack;
+    char *alloc = (char *)malloc(ALT_STACK_SIZE);
+
+    /* First, test various failures of sigaltstack */
+    rc = sigaltstack(NULL, (stack_t *)0x4);
+    assert(rc == -1 && errno == EFAULT);
+
+    rc = sigaltstack((stack_t *)0x4, NULL);
+    assert(rc == -1 && errno == EFAULT);
+
+    sigstack.ss_sp = alloc;
+    sigstack.ss_size = MINSIGSTKSZ - 1;
+    sigstack.ss_flags = 0;
+    rc = sigaltstack(&sigstack, NULL);
+    assert(rc == -1 && errno == ENOMEM);
+
+    sigstack.ss_sp = alloc;
+    sigstack.ss_size = MINSIGSTKSZ - 1;
+    /* SS_DISABLE causes the kernel to ignore sp and size: it zeroes them out. */
+    sigstack.ss_flags = SS_DISABLE;
+    rc = sigaltstack(&sigstack, NULL);
+    ASSERT_NOERR(rc);
+    stack_t mystack;
+    rc = sigaltstack(NULL, &mystack);
+    ASSERT_NOERR(rc);
+    assert(mystack.ss_sp == NULL && mystack.ss_size == 0 &&
+           mystack.ss_flags == SS_DISABLE);
+
+    sigstack.ss_sp = alloc;
+    sigstack.ss_size = ALT_STACK_SIZE;
+    sigstack.ss_flags = SS_DISABLE | SS_ONSTACK;
+    rc = sigaltstack(&sigstack, NULL);
+    assert(rc == -1 && errno == EINVAL);
 
     /* Make an alternate stack that's not writable. */
-    stack_t sigstack;
-    sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
+    sigstack.ss_sp = alloc;
     sigstack.ss_size = ALT_STACK_SIZE;
     sigstack.ss_flags = SS_ONSTACK;
     rc = sigaltstack(&sigstack, NULL);
@@ -64,7 +96,7 @@ main(int argc, char *argv[])
     /* Test checking for SA_ONSTACK: this one should be delivered to the main
      * stack and should work.
      */
-    intercept_signal(SIGUSR1, (handler_3_t) signal_handler, false);
+    intercept_signal(SIGUSR1, (handler_3_t)signal_handler, false);
     print("Sending SIGUSR1\n");
     kill(getpid(), SIGUSR1);
 
@@ -72,11 +104,13 @@ main(int argc, char *argv[])
      * crash with SIGSEGV, which we handle on the main stack and whose
      * resumption is the same post-kill point, letting us continue.
      */
-    intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
-    intercept_signal(SIGUSR1, (handler_3_t) signal_handler, true);
+    intercept_signal(SIGSEGV, (handler_3_t)signal_handler, false);
+    intercept_signal(SIGUSR1, (handler_3_t)signal_handler, true);
     print("Sending SIGUSR1\n");
     kill(getpid(), SIGUSR1);
 
+    protect_mem(alloc, ALT_STACK_SIZE, ALLOW_READ | ALLOW_WRITE);
+    free(alloc);
     print("All done\n");
     return 0;
 }

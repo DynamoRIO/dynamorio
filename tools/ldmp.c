@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 #ifdef X64
-# error 64-bit not yet supported (issue #118)
+#    error 64-bit not yet supported (issue #118)
 #endif
 
 #include <windows.h>
@@ -46,13 +46,14 @@ static int verbose = 1;
 /* Avoid flushing issues on Windows, and keep warnings and info messages
  * all in the same order, by always going to STDERR
  */
-#define PRINT(...) fprintf(stderr,  __VA_ARGS__)
+#define PRINT(...) fprintf(stderr, __VA_ARGS__)
 
-#define INFO(level, ...) do { \
-    if (verbose >= (level)) { \
-        PRINT(__VA_ARGS__);   \
-    }                         \
-} while (0)
+#define INFO(level, ...)          \
+    do {                          \
+        if (verbose >= (level)) { \
+            PRINT(__VA_ARGS__);   \
+        }                         \
+    } while (0)
 
 #define WARN(...) INFO(0, __VA_ARGS__)
 
@@ -69,10 +70,10 @@ static int verbose = 1;
 /* check if a single bit is set in var */
 #define TEST TESTANY
 
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
+#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 typedef int bool;
 typedef unsigned int uint;
@@ -86,14 +87,13 @@ typedef LONG NTSTATUS;
 #define ALLOCATION_GRANULARITY 0x10000
 #define INVALID_File (NULL)
 
-#define GET_NTDLL(NtFunction, signature)                             \
-  NTSYSAPI NTSTATUS NTAPI NtFunction signature
+#define GET_NTDLL(NtFunction, signature) NTSYSAPI NTSTATUS NTAPI NtFunction signature
 
 typedef struct _UNICODE_STRING {
     /* Length field is size in bytes not counting final 0 */
     USHORT Length;
     USHORT MaximumLength;
-    PWSTR  Buffer;
+    PWSTR Buffer;
 } UNICODE_STRING;
 typedef UNICODE_STRING *PUNICODE_STRING;
 
@@ -102,28 +102,29 @@ typedef struct _OBJECT_ATTRIBUTES {
     HANDLE RootDirectory;
     PUNICODE_STRING ObjectName;
     ULONG Attributes;
-    PVOID SecurityDescriptor;        // Points to type SECURITY_DESCRIPTOR
-    PVOID SecurityQualityOfService;  // Points to type SECURITY_QUALITY_OF_SERVICE
+    PVOID SecurityDescriptor;       // Points to type SECURITY_DESCRIPTOR
+    PVOID SecurityQualityOfService; // Points to type SECURITY_QUALITY_OF_SERVICE
 } OBJECT_ATTRIBUTES;
 typedef OBJECT_ATTRIBUTES *POBJECT_ATTRIBUTES;
 
-#define InitializeObjectAttributes( p, n, a, r, s ) { \
-    (p)->Length = sizeof( OBJECT_ATTRIBUTES );          \
-    (p)->RootDirectory = r;                             \
-    (p)->Attributes = a;                                \
-    (p)->ObjectName = n;                                \
-    (p)->SecurityDescriptor = s;                        \
-    (p)->SecurityQualityOfService = NULL;               \
+#define InitializeObjectAttributes(p, n, a, r, s) \
+    {                                             \
+        (p)->Length = sizeof(OBJECT_ATTRIBUTES);  \
+        (p)->RootDirectory = r;                   \
+        (p)->Attributes = a;                      \
+        (p)->ObjectName = n;                      \
+        (p)->SecurityDescriptor = s;              \
+        (p)->SecurityQualityOfService = NULL;     \
     }
 
-#define OBJ_CASE_INSENSITIVE    0x00000040L
-#define OBJ_KERNEL_HANDLE       0x00000200L
+#define OBJ_CASE_INSENSITIVE 0x00000040L
+#define OBJ_KERNEL_HANDLE 0x00000200L
 typedef ULONG ACCESS_MASK;
 
 #ifndef X64
-# ifndef _W64
-#  define _W64
-# endif
+#    ifndef _W64
+#        define _W64
+#    endif
 typedef _W64 long LONG_PTR, *PLONG_PTR;
 typedef _W64 unsigned long ULONG_PTR, *PULONG_PTR;
 #endif
@@ -155,14 +156,15 @@ typedef struct _THREAD_BASIC_INFORMATION { // Information Class 0
     KPRIORITY BasePriority;
 } THREAD_BASIC_INFORMATION, *PTHREAD_BASIC_INFORMATION;
 
-typedef enum {MEMORY_RESERVE_ONLY = MEM_RESERVE,
-              MEMORY_COMMIT = MEM_RESERVE|MEM_COMMIT
+typedef enum {
+    MEMORY_RESERVE_ONLY = MEM_RESERVE,
+    MEMORY_COMMIT = MEM_RESERVE | MEM_COMMIT
 } memory_commit_status_t;
 
 typedef struct _IO_STATUS_BLOCK {
     NTSTATUS Status;
     // PVOID Pointer - Reserved, supposedly in a union with Status. see MSDN
-    ULONG Information;          // MSDN says it is ULONG_PTR
+    ULONG Information; // MSDN says it is ULONG_PTR
 } IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;
 
 typedef struct _USER_STACK {
@@ -173,7 +175,7 @@ typedef struct _USER_STACK {
     PVOID ExpandableStackBottom;
 } USER_STACK, *PUSER_STACK;
 
-#define FILE_SYNCHRONOUS_IO_NONALERT            0x00000020
+#define FILE_SYNCHRONOUS_IO_NONALERT 0x00000020
 
 typedef enum _THREADINFOCLASS {
     ThreadBasicInformation,
@@ -195,7 +197,7 @@ typedef enum _THREADINFOCLASS {
     ThreadIsIoPending,
     ThreadHideFromDebugger,
     MaxThreadInfoClass
-    } THREADINFOCLASS;
+} THREADINFOCLASS;
 
 typedef enum _PROCESSINFOCLASS {
     ProcessBasicInformation,
@@ -211,7 +213,7 @@ typedef enum _PROCESSINFOCLASS {
     ProcessLdtInformation,
     ProcessLdtSize,
     ProcessDefaultHardErrorMode,
-    ProcessIoPortHandlers,          // Note: this is kernel mode only
+    ProcessIoPortHandlers, // Note: this is kernel mode only
     ProcessPooledUsageAndLimits,
     ProcessWorkingSetWatch,
     ProcessUserModeIOPL,
@@ -233,23 +235,18 @@ typedef struct _DESCRIPTOR_TABLE_ENTRY {
     LDT_ENTRY Descriptor;
 } DESCRIPTOR_TABLE_ENTRY, *PDESCRIPTOR_TABLE_ENTRY;
 
-
 /************************************************************************/
 static bool
-nt_remote_allocate_virtual_memory(HANDLE process, void **base, uint size,
-                                  uint prot, memory_commit_status_t commit)
+nt_remote_allocate_virtual_memory(HANDLE process, void **base, uint size, uint prot,
+                                  memory_commit_status_t commit)
 {
     NTSTATUS res;
-    GET_NTDLL(NtAllocateVirtualMemory, (IN HANDLE ProcessHandle,
-                                        IN OUT PVOID *BaseAddress,
-                                        IN ULONG ZeroBits,
-                                        IN OUT PULONG AllocationSize,
-                                        IN ULONG AllocationType,
-                                        IN ULONG Protect));
+    GET_NTDLL(NtAllocateVirtualMemory,
+              (IN HANDLE ProcessHandle, IN OUT PVOID * BaseAddress, IN ULONG ZeroBits,
+               IN OUT PULONG AllocationSize, IN ULONG AllocationType, IN ULONG Protect));
     uint sz = size;
     assert(ALIGNED(*base, PAGE_SIZE));
-    res = NtAllocateVirtualMemory(process, base, 0 /* zero bits */, &sz,
-                                  commit, prot);
+    res = NtAllocateVirtualMemory(process, base, 0 /* zero bits */, &sz, commit, prot);
     assert(sz >= size);
     return NT_SUCCESS(res);
 }
@@ -258,15 +255,14 @@ static bool
 query_thread_info(HANDLE h, THREAD_BASIC_INFORMATION *info)
 {
     NTSTATUS res;
-    GET_NTDLL(NtQueryInformationThread, (IN HANDLE ThreadHandle,
-                                         IN THREADINFOCLASS ThreadInformationClass,
-                                         OUT PVOID ThreadInformation,
-                                         IN ULONG ThreadInformationLength,
-                                         OUT PULONG ReturnLength OPTIONAL));
+    GET_NTDLL(NtQueryInformationThread,
+              (IN HANDLE ThreadHandle, IN THREADINFOCLASS ThreadInformationClass,
+               OUT PVOID ThreadInformation, IN ULONG ThreadInformationLength,
+               OUT PULONG ReturnLength OPTIONAL));
     int got;
     memset(info, 0, sizeof(THREAD_BASIC_INFORMATION));
-    res = NtQueryInformationThread(h, ThreadBasicInformation,
-                                   info, sizeof(THREAD_BASIC_INFORMATION), &got);
+    res = NtQueryInformationThread(h, ThreadBasicInformation, info,
+                                   sizeof(THREAD_BASIC_INFORMATION), &got);
     assert(!NT_SUCCESS(res) || got == sizeof(THREAD_BASIC_INFORMATION));
     return NT_SUCCESS(res);
 }
@@ -275,11 +271,10 @@ static bool
 query_process_info(HANDLE h, PROCESS_BASIC_INFORMATION *info)
 {
     NTSTATUS res;
-    GET_NTDLL(NtQueryInformationProcess, (IN HANDLE ProcessHandle,
-                                          IN PROCESSINFOCLASS ProcessInformationClass,
-                                          OUT PVOID ProcessInformation,
-                                          IN ULONG ProcessInformationLength,
-                                          OUT PULONG ReturnLength OPTIONAL));
+    GET_NTDLL(NtQueryInformationProcess,
+              (IN HANDLE ProcessHandle, IN PROCESSINFOCLASS ProcessInformationClass,
+               OUT PVOID ProcessInformation, IN ULONG ProcessInformationLength,
+               OUT PULONG ReturnLength OPTIONAL));
     int got;
     memset(info, 0, sizeof(PROCESS_BASIC_INFORMATION));
     res = NtQueryInformationProcess(h, ProcessBasicInformation, info,
@@ -289,15 +284,14 @@ query_process_info(HANDLE h, PROCESS_BASIC_INFORMATION *info)
 }
 
 static bool
-set_win32_start_addr(HANDLE h, uint *start_addr)
+set_win32_start_addr(HANDLE h, void **start_addr)
 {
     NTSTATUS res;
-    GET_NTDLL(NtSetInformationThread, (IN HANDLE ThreadHandle,
-                                       IN THREADINFOCLASS ThreadInfoClass,
-                                       IN PVOID ThreadInformation,
-                                       IN ULONG ThreadInformationLength));
-    res = NtSetInformationThread(h, ThreadQuerySetWin32StartAddress,
-                                 start_addr, sizeof(*start_addr));
+    GET_NTDLL(NtSetInformationThread,
+              (IN HANDLE ThreadHandle, IN THREADINFOCLASS ThreadInfoClass,
+               IN PVOID ThreadInformation, IN ULONG ThreadInformationLength));
+    res = NtSetInformationThread(h, ThreadQuerySetWin32StartAddress, start_addr,
+                                 sizeof(*start_addr));
     if (!NT_SUCCESS(res)) {
         INFO(1, "setting thread start addr failed with 0x%08x\n", res);
     }
@@ -308,8 +302,8 @@ static bool
 wchar_to_unicode(PUNICODE_STRING dst, PCWSTR src)
 {
     NTSTATUS res;
-    GET_NTDLL(RtlInitUnicodeString, (IN OUT PUNICODE_STRING DestinationString,
-                                     IN PCWSTR SourceString));
+    GET_NTDLL(RtlInitUnicodeString,
+              (IN OUT PUNICODE_STRING DestinationString, IN PCWSTR SourceString));
     res = RtlInitUnicodeString(dst, src);
     return NT_SUCCESS(res);
 }
@@ -325,14 +319,9 @@ remove_writecopy(uint prot)
     case PAGE_READWRITE:
     case PAGE_EXECUTE:
     case PAGE_EXECUTE_READ:
-    case PAGE_EXECUTE_READWRITE:
-        break;
-    case PAGE_WRITECOPY:
-        prot = PAGE_READWRITE;
-        break;
-    case PAGE_EXECUTE_WRITECOPY:
-        prot = PAGE_EXECUTE_READWRITE;
-        break;
+    case PAGE_EXECUTE_READWRITE: break;
+    case PAGE_WRITECOPY: prot = PAGE_READWRITE; break;
+    case PAGE_EXECUTE_WRITECOPY: prot = PAGE_EXECUTE_READWRITE; break;
     }
     return (prot | other);
 }
@@ -366,10 +355,10 @@ static char *
 mem_state_string(DWORD state)
 {
     switch (state) {
-    case 0:            return "none";
-    case MEM_COMMIT:   return "COMMIT";
-    case MEM_FREE:     return "FREE";
-    case MEM_RESERVE:  return "RESERVE";
+    case 0: return "none";
+    case MEM_COMMIT: return "COMMIT";
+    case MEM_FREE: return "FREE";
+    case MEM_RESERVE: return "RESERVE";
     }
     return "<error>";
 }
@@ -378,10 +367,10 @@ static char *
 mem_type_string(DWORD type)
 {
     switch (type) {
-    case 0:            return "none";
-    case MEM_IMAGE:    return "IMAGE";
-    case MEM_MAPPED:   return "MAPPED";
-    case MEM_PRIVATE:  return "PRIVATE";
+    case 0: return "none";
+    case MEM_IMAGE: return "IMAGE";
+    case MEM_MAPPED: return "MAPPED";
+    case MEM_PRIVATE: return "PRIVATE";
     }
     return "<error>";
 }
@@ -391,12 +380,12 @@ prot_string(DWORD prot)
 {
     DWORD ignore_extras = prot & ~(PAGE_GUARD | PAGE_NOCACHE | PAGE_WRITECOMBINE);
     switch (ignore_extras) {
-    case PAGE_NOACCESS:          return "----";
-    case PAGE_READONLY:          return "r---";
-    case PAGE_READWRITE:         return "rw--";
-    case PAGE_WRITECOPY:         return "rw-c";
-    case PAGE_EXECUTE:           return "--x-";
-    case PAGE_EXECUTE_READ:      return "r-x-";
+    case PAGE_NOACCESS: return "----";
+    case PAGE_READONLY: return "r---";
+    case PAGE_READWRITE: return "rw--";
+    case PAGE_WRITECOPY: return "rw-c";
+    case PAGE_EXECUTE: return "--x-";
+    case PAGE_EXECUTE_READ: return "r-x-";
     case PAGE_EXECUTE_READWRITE: return "rwx-";
     case PAGE_EXECUTE_WRITECOPY: return "rwxc";
     }
@@ -406,21 +395,17 @@ prot_string(DWORD prot)
 void
 dump_mbi(MEMORY_BASIC_INFORMATION *mbi)
 {
-    PRINT(
-           "BaseAddress:       %08x\n"
-           "AllocationBase:    %08x\n"
-           "AllocationProtect: %08x %s\n"
-           "RegionSize:        %08x\n"
-           "State:             %08x %s\n"
-           "Protect:           %08x %s\n"
-           "Type:              %08x %s\n",
-           mbi->BaseAddress,
-           mbi->AllocationBase,
-           mbi->AllocationProtect, prot_string(mbi->AllocationProtect),
-           mbi->RegionSize,
-           mbi->State, mem_state_string(mbi->State),
-           mbi->Protect, prot_string(mbi->Protect),
-           mbi->Type, mem_type_string(mbi->Type));
+    PRINT("BaseAddress:       %p\n"
+          "AllocationBase:    %p\n"
+          "AllocationProtect: %08x %s\n"
+          "RegionSize:        %08x\n"
+          "State:             %08x %s\n"
+          "Protect:           %08x %s\n"
+          "Type:              %08x %s\n",
+          mbi->BaseAddress, mbi->AllocationBase, mbi->AllocationProtect,
+          prot_string(mbi->AllocationProtect), mbi->RegionSize, mbi->State,
+          mem_state_string(mbi->State), mbi->Protect, prot_string(mbi->Protect),
+          mbi->Type, mem_type_string(mbi->Type));
 }
 
 /********************************************************************************/
@@ -433,7 +418,7 @@ typedef struct _mem_map {
 static int map_count = 0;
 static mem_map map[4097];
 static int pending_map_count = 0;
-static char * pending_map[4097];
+static char *pending_map[4097];
 
 static void
 add_mapped_addr(char *old, char *new)
@@ -500,12 +485,12 @@ read_mbi(FILE *file, MEMORY_BASIC_INFORMATION *mbi)
     char *resc;
     char dummy_buf[128];
     memset(mbi, 0, sizeof(MEMORY_BASIC_INFORMATION));
-    res = fscanf(file, "\nBaseAddress=0x%08x\nAllocationBase=0x%08x\n"
+    res = fscanf(file,
+                 "\nBaseAddress=%p\nAllocationBase=%p\n"
                  "AllocationProtect=0x%08x %*s\nRegionSize=0x%08x\n"
                  "State=0x%08x %*s\nProtect=0x%08x %*s\n",
-                 &(mbi->BaseAddress), &(mbi->AllocationBase),
-                 &(mbi->AllocationProtect), &(mbi->RegionSize),
-                 &(mbi->State), &(mbi->Protect));
+                 &(mbi->BaseAddress), &(mbi->AllocationBase), &(mbi->AllocationProtect),
+                 &(mbi->RegionSize), &(mbi->State), &(mbi->Protect));
     if (res != 6)
         return false;
     /* eat the type line */
@@ -521,27 +506,18 @@ print_descriptor(DESCRIPTOR_TABLE_ENTRY *entry)
      * The segment type is determined by the S bit (0=system,
      * 1=code or data) and the 4-bit type field:
      */
-    static const char *types[] = {"Data RO             ",
-                                  "Data RO, acc        ",
-                                  "Data R/W,           ",
-                                  "Data R/W, acc       ",
-                                  "Data RO, down       ",
-                                  "Data RO, down, acc  ",
-                                  "Data R/W, down      ",
-                                  "Data R/W, down, acc ",
-                                  "Code EO             ",
-                                  "Code EO, acc        ",
-                                  "Code E/R            ",
-                                  "Code E/R, acc       ",
-                                  "Code EO, conf       ",
-                                  "Code EO, conf, acc  ",
-                                  "Code E/RO, conf     ",
-                                  "Code E/RO, conf, acc"};
+    static const char *types[] = { "Data RO             ", "Data RO, acc        ",
+                                   "Data R/W,           ", "Data R/W, acc       ",
+                                   "Data RO, down       ", "Data RO, down, acc  ",
+                                   "Data R/W, down      ", "Data R/W, down, acc ",
+                                   "Code EO             ", "Code EO, acc        ",
+                                   "Code E/R            ", "Code E/R, acc       ",
+                                   "Code EO, conf       ", "Code EO, conf, acc  ",
+                                   "Code E/RO, conf     ", "Code E/RO, conf, acc" };
 
     LDT_ENTRY *descr = &entry->Descriptor;
 
-    uint base = (descr->BaseLow |
-                 (descr->HighWord.Bits.BaseMid << 16) |
+    uint base = (descr->BaseLow | (descr->HighWord.Bits.BaseMid << 16) |
                  (descr->HighWord.Bits.BaseHi << 24));
 
     uint limit = descr->LimitLow | (descr->HighWord.Bits.LimitHi << 16);
@@ -574,9 +550,9 @@ print_descriptors(DESCRIPTOR_TABLE_ENTRY entries[6])
 {
     int i;
     PRINT("\n\tSel    Base    Limit            Type        Dpl D/B Gran Pres L Sys\n"
-           "\t---- -------- -------- -------------------- --- --- ---- ---- - ---\n");
+          "\t---- -------- -------- -------------------- --- --- ---- ---- - ---\n");
 
-    for (i=0; i<6; i++) {
+    for (i = 0; i < 6; i++) {
         /* Intel SDM vol. 3A, section 3.4.2: the first entry in the LDT
          * is null and not used by the processor */
         if (entries[i].Selector != 0) {
@@ -594,7 +570,7 @@ insert_entry(uint selector, uint word1, uint word2, DESCRIPTOR_TABLE_ENTRY entri
     /* Intel SDM vol. 3A, section 3.4.2: the first entry in the LDT
      * is null and not used by the processor */
     if (selector != 0) {
-        for (i=0; i<6; i++) {
+        for (i = 0; i < 6; i++) {
             /* don't insert duplicates */
             if (entries[i].Selector == selector)
                 return;
@@ -611,38 +587,36 @@ insert_entry(uint selector, uint word1, uint word2, DESCRIPTOR_TABLE_ENTRY entri
 }
 
 /* macro to read descriptor info and insert it in a table */
-#define read_descriptor_and_insert(name, reg) {                                         \
-        fgets(line, sizeof(line), file);                                                \
-        res = sscanf(line, name "=0x%04x (0x%08x 0x%08x)\n", &reg, &word1, &word2);     \
-        assert(res == 3 || res == 1);                                                   \
-        if (res == 3)                                                                   \
-            insert_entry(reg, word1, word2, entries);                                   \
-        }
+#define read_descriptor_and_insert(name, reg)                                       \
+    {                                                                               \
+        fgets(line, sizeof(line), file);                                            \
+        res = sscanf(line, name "=0x%04x (0x%08x 0x%08x)\n", &reg, &word1, &word2); \
+        assert(res == 3 || res == 1);                                               \
+        if (res == 3)                                                               \
+            insert_entry(reg, word1, word2, entries);                               \
+    }
 
 static void
-read_threads(FILE *file, bool create, HANDLE hProc) {
+read_threads(FILE *file, bool create, HANDLE hProc)
+{
     HANDLE hThread;
     DWORD thread_id, new_id, res;
     THREAD_BASIC_INFORMATION thread_info;
     CLIENT_ID cid;
     OBJECT_ATTRIBUTES oa;
-    USER_STACK stack = {0};
+    USER_STACK stack = { 0 };
     CONTEXT cxt;
-    GET_NTDLL(NtCreateThread, (OUT PHANDLE ThreadHandle,
-                               IN ACCESS_MASK DesiredAccess,
-                               IN POBJECT_ATTRIBUTES ObjectAttributes,
-                               IN HANDLE ProcessHandle,
-                               OUT PCLIENT_ID ClientId,
-                               IN PCONTEXT ThreadContext,
-                               IN PUSER_STACK UserStack,
-                               IN BOOLEAN CreateSuspended));
+    GET_NTDLL(NtCreateThread,
+              (OUT PHANDLE ThreadHandle, IN ACCESS_MASK DesiredAccess,
+               IN POBJECT_ATTRIBUTES ObjectAttributes, IN HANDLE ProcessHandle,
+               OUT PCLIENT_ID ClientId, IN PCONTEXT ThreadContext,
+               IN PUSER_STACK UserStack, IN BOOLEAN CreateSuspended));
 
     if (create) {
-        cxt.ContextFlags = CONTEXT_INTEGER|CONTEXT_CONTROL;
+        cxt.ContextFlags = CONTEXT_INTEGER | CONTEXT_CONTROL;
         /* initialize, unsafe but should be ok right? */
         GetThreadContext(GetCurrentThread(), &cxt);
-        InitializeObjectAttributes(&oa, NULL, OBJ_CASE_INSENSITIVE,
-                                   NULL, NULL);
+        InitializeObjectAttributes(&oa, NULL, OBJ_CASE_INSENSITIVE, NULL, NULL);
     }
 
     while (fscanf(file, "Thread=0x%08x\n", &thread_id)) {
@@ -651,13 +625,15 @@ read_threads(FILE *file, bool create, HANDLE hProc) {
         char *teb;
         bool valid_selectors = false;
         uint Cs, Ss, Ds, Es, Fs, Gs;
-        DESCRIPTOR_TABLE_ENTRY entries[6] = {0,};
+        DESCRIPTOR_TABLE_ENTRY entries[6] = {
+            0,
+        };
         uint word1, word2;
         char line[64];
         long pos;
-        uint win32_start_addr = 0;
+        void *win32_start_addr = 0;
 
-        res = fscanf(file, "TEB=0x%08x\n", &teb);
+        res = fscanf(file, "TEB=%p\n", &teb);
         assert(res == 1);
 
         res = fscanf(file, "HandleRights=0x%08x\n", &handle_rights);
@@ -665,14 +641,13 @@ read_threads(FILE *file, bool create, HANDLE hProc) {
             valid_handle_state = true;
         }
 
-        res = fscanf(file, "Eax=0x%08x, Ebx=0x%08x, Ecx=0x%08x, Edx=0x%08x\n",
-                     &cxt.Eax, &cxt.Ebx, &cxt.Ecx, &cxt.Edx);
+        res = fscanf(file, "Eax=0x%08x, Ebx=0x%08x, Ecx=0x%08x, Edx=0x%08x\n", &cxt.Eax,
+                     &cxt.Ebx, &cxt.Ecx, &cxt.Edx);
         if (res == 4) {
             res = fscanf(file, "Esi=0x%08x, Edi=0x%08x, Esp=0x%08x, Ebp=0x%08x\n",
                          &cxt.Esi, &cxt.Edi, &cxt.Esp, &cxt.Ebp);
             assert(res == 4);
-            res = fscanf(file, "EFlags=0x%08x, Eip=0x%08x\n\n",
-                         &cxt.EFlags, &cxt.Eip);
+            res = fscanf(file, "EFlags=0x%08x, Eip=0x%08x\n\n", &cxt.EFlags, &cxt.Eip);
             assert(res == 2);
 
             /* look for segment registers and associated descriptors */
@@ -696,12 +671,12 @@ read_threads(FILE *file, bool create, HANDLE hProc) {
 
             /* look for the win32 start address */
             pos = ftell(file);
-            res = fscanf(file, "Win32StartAddr=0x%08x\n", &win32_start_addr);
+            res = fscanf(file, "Win32StartAddr=%p\n", &win32_start_addr);
             if (res != 1) {
                 /* set start addr to 0 so we know right away if the thread
                  * doesn't have a start address in the ldmp.
                  */
-                win32_start_addr = 0;
+                win32_start_addr = NULL;
 
                 /* put file position back a line */
                 fseek(file, pos, SEEK_SET);
@@ -717,13 +692,21 @@ read_threads(FILE *file, bool create, HANDLE hProc) {
             }
             fgets(buf, sizeof(buf), file); /* read in the newline */
             /* clear context integer registers */
-            cxt.Eax = 0; cxt.Ebx = 0; cxt.Ecx = 0; cxt.Edx = 0; cxt.EFlags = 0;
-            cxt.Edi = 0; cxt.Esi = 0; cxt.Esp = 0; cxt.Ebp = 0; cxt.Eip = 0;
+            cxt.Eax = 0;
+            cxt.Ebx = 0;
+            cxt.Ecx = 0;
+            cxt.Edx = 0;
+            cxt.EFlags = 0;
+            cxt.Edi = 0;
+            cxt.Esi = 0;
+            cxt.Esp = 0;
+            cxt.Ebp = 0;
+            cxt.Eip = 0;
         }
 
         if (create) {
-            res = NtCreateThread(&hThread, THREAD_ALL_ACCESS, &oa, hProc,
-                                 &cid, &cxt, &stack, TRUE);
+            res = NtCreateThread(&hThread, THREAD_ALL_ACCESS, &oa, hProc, &cid, &cxt,
+                                 &stack, TRUE);
             assert(NT_SUCCESS(res));
             res = set_win32_start_addr(hThread, &win32_start_addr);
             if (!res)
@@ -731,11 +714,13 @@ read_threads(FILE *file, bool create, HANDLE hProc) {
             res = query_thread_info(hThread, &thread_info);
             assert(res);
             new_id = (uint)thread_info.ClientId.UniqueThread;
-            INFO(1, "created thread tid=0x%04x with TEB=0x%08x original tid=0x%04x with TEB=0x%08x\n",
-                   new_id, thread_info.TebBaseAddress, thread_id, teb);
+            INFO(1,
+                 "created thread tid=0x%04x with TEB=%p original tid=0x%04x with "
+                 "TEB=%p\n",
+                 new_id, thread_info.TebBaseAddress, thread_id, teb);
             if (valid_selectors) {
-                INFO(1, "\tcs=%04x ss=%04x ds=%04x es=%04x fs=%04x gs=%04x\n",
-                       Cs, Ss, Ds, Es, Fs, Gs);
+                INFO(1, "\tcs=%04x ss=%04x ds=%04x es=%04x fs=%04x gs=%04x\n", Cs, Ss, Ds,
+                     Es, Fs, Gs);
             }
             if (entries[0].Selector != 0) {
                 print_descriptors(entries);
@@ -769,27 +754,20 @@ create_process(char *path)
     NTSTATUS res;
     wchar_t abs_path[MAX_PATH];
     wchar_t wpath[MAX_PATH];
-    GET_NTDLL(NtCreateProcess, (OUT PHANDLE ProcessHandle,
-                                IN ACCESS_MASK DesiredAccess,
-                                IN POBJECT_ATTRIBUTES ObjectAttributes,
-                                IN HANDLE InheritFromProcessHandle,
-                                IN BOOLEAN InheritHandles,
-                                IN HANDLE SectionHandle OPTIONAL,
-                                IN HANDLE DebugPort OPTIONAL,
-                                IN HANDLE ExceptionPort OPTIONAL));
-    GET_NTDLL(NtOpenFile, (OUT PHANDLE FileHandle,
-                           IN ACCESS_MASK DesiredAccess,
-                           IN POBJECT_ATTRIBUTES ObjectAttributes,
-                           OUT PIO_STATUS_BLOCK IoStatusBlock,
-                           IN ULONG ShareAccess,
-                           IN ULONG OpenOptions));
-    GET_NTDLL(NtCreateSection, (OUT PHANDLE SectionHandle,
-                                IN ACCESS_MASK DesiredAccess,
-                                IN POBJECT_ATTRIBUTES ObjectAttributes,
-                                IN PLARGE_INTEGER SectionSize OPTIONAL,
-                                IN ULONG Protect,
-                                IN ULONG Attributes,
-                                IN HANDLE FileHandle));
+    GET_NTDLL(NtCreateProcess,
+              (OUT PHANDLE ProcessHandle, IN ACCESS_MASK DesiredAccess,
+               IN POBJECT_ATTRIBUTES ObjectAttributes, IN HANDLE InheritFromProcessHandle,
+               IN BOOLEAN InheritHandles, IN HANDLE SectionHandle OPTIONAL,
+               IN HANDLE DebugPort OPTIONAL, IN HANDLE ExceptionPort OPTIONAL));
+    GET_NTDLL(NtOpenFile,
+              (OUT PHANDLE FileHandle, IN ACCESS_MASK DesiredAccess,
+               IN POBJECT_ATTRIBUTES ObjectAttributes, OUT PIO_STATUS_BLOCK IoStatusBlock,
+               IN ULONG ShareAccess, IN ULONG OpenOptions));
+    GET_NTDLL(NtCreateSection,
+              (OUT PHANDLE SectionHandle, IN ACCESS_MASK DesiredAccess,
+               IN POBJECT_ATTRIBUTES ObjectAttributes,
+               IN PLARGE_INTEGER SectionSize OPTIONAL, IN ULONG Protect,
+               IN ULONG Attributes, IN HANDLE FileHandle));
 
     /* convert to absolute path which is required for create_process() */
     _snwprintf(wpath, BUFFER_SIZE_ELEMENTS(wpath), L"%hs", path);
@@ -808,13 +786,13 @@ create_process(char *path)
         exit(0);
     }
     oa.ObjectName = 0;
-    res = NtCreateSection(&hSection, SECTION_ALL_ACCESS, &oa,
-                          0, PAGE_EXECUTE, SEC_IMAGE, hFile);
+    res = NtCreateSection(&hSection, SECTION_ALL_ACCESS, &oa, 0, PAGE_EXECUTE, SEC_IMAGE,
+                          hFile);
     if (!NT_SUCCESS(res)) {
         WARN("failed to create section with error=0x%08x\n", res);
     }
-    res = NtCreateProcess(&hProc, PROCESS_ALL_ACCESS, &oa,
-                          GetCurrentProcess(), true, hSection, 0, 0);
+    res = NtCreateProcess(&hProc, PROCESS_ALL_ACCESS, &oa, GetCurrentProcess(), true,
+                          hSection, 0, 0);
     if (!NT_SUCCESS(res)) {
         WARN("failed to create dummy process with error=0x%08x\n", res);
         exit(0);
@@ -849,8 +827,8 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
 
             /* we can't handle write copy flag! remove it */
             allocation_protect = remove_writecopy(allocation_protect);
-            INFO(2, "allocation base = 0x%08x, protect = 0x%08x\n",
-                allocation_base, allocation_protect);
+            INFO(2, "allocation base = %p, protect = 0x%08x\n", allocation_base,
+                 allocation_protect);
 
             do {
                 allocation_size += mbi.RegionSize;
@@ -884,8 +862,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 }
                 res = fgetpos(file, &last_mbi_pos);
                 assert(res == 0);
-            } while (read_mbi(file, &mbi) &&
-                     mbi.State != MEM_FREE &&
+            } while (read_mbi(file, &mbi) && mbi.State != MEM_FREE &&
                      mbi.AllocationBase == allocation_base);
 
             /* see if we should copy over this allocation */
@@ -905,26 +882,24 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                     /* probably a TEB for a thread that wasn't in the all
                      * threads list at time of ldmp */
                     WARN("Probable TEB for unknown thread region (or x64 PEB/TEB?) "
-                         "addr 0x%08x size 0x%08x\n",
+                         "addr %p size 0x%08x\n",
                          allocation_base, allocation_size);
                 }
                 target = allocation_base;
                 /* FIXME : why can't we use VirtualAllocEx? it fails with
                  * code 487 == INVALID_ADDRESS */
-                res = nt_remote_allocate_virtual_memory(hProc, &target,
-                                                        allocation_size,
-                                                        allocation_protect,
-                                                        MEMORY_COMMIT);
+                res = nt_remote_allocate_virtual_memory(
+                    hProc, &target, allocation_size, allocation_protect, MEMORY_COMMIT);
                 if (!res) {
                     target = NULL;
-                    res = nt_remote_allocate_virtual_memory(hProc, &target,
-                                                            allocation_size,
-                                                            allocation_protect,
-                                                            MEMORY_COMMIT);
+                    res = nt_remote_allocate_virtual_memory(
+                        hProc, &target, allocation_size, allocation_protect,
+                        MEMORY_COMMIT);
                 }
                 if (!res) {
-                    WARN("ERROR: unable to allocate memory at 0x%08x size 0x%08x, SKIPPING\n",
-                           allocation_base, allocation_size);
+                    WARN("ERROR: unable to allocate memory at %p size 0x%08x, "
+                         "SKIPPING\n",
+                         allocation_base, allocation_size);
                     res = fsetpos(file, &last_mbi_pos);
                     assert(res == 0);
                     continue;
@@ -932,13 +907,14 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
 
                 assert(target != NULL);
                 if (target != allocation_base) {
-                    WARN("ERROR: unable to allocate memory at 0x%08x size 0x%08x\n\t will be copied to 0x%08x instead\n",
-                           allocation_base, allocation_size, target);
+                    WARN("ERROR: unable to allocate memory at %p size 0x%08x\n\t "
+                         "will be copied to %p instead\n",
+                         allocation_base, allocation_size, target);
                 }
-                INFO(2, "target = 0x%08x, base = 0x%08x\n", target, allocation_base);
+                INFO(2, "target = %p, base = %p\n", target, allocation_base);
             }
             INFO(2, "size=0x%08x\n", allocation_size);
-            INFO(2, "target=0x%08x\n", target);
+            INFO(2, "target=%p\n", target);
 
             /* reset file pointer */
             res = fsetpos(file, &pos);
@@ -953,10 +929,10 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 if ((uint)mbi.BaseAddress > (uint)highest_address_copied)
                     highest_address_copied = mbi.BaseAddress;
                 if (mbi.State == MEM_RESERVE) {
-                    res = VirtualFreeEx(hProc, TARGET_ADDR, mbi.RegionSize,
-                                        MEM_DECOMMIT);
+                    res = VirtualFreeEx(hProc, TARGET_ADDR, mbi.RegionSize, MEM_DECOMMIT);
                     if (!res && TARGET_ADDR == (char *)0x7ffe1000) {
-                        WARN("unable to make post vsyscall/shared user data page 0x7ffe1000 reserve, skipping\n");
+                        WARN("unable to make post vsyscall/shared user data page "
+                             "0x7ffe1000 reserve, skipping\n");
                         /* in case break out, save position */
                         res = fgetpos(file, &pos);
                         assert(res == 0);
@@ -966,15 +942,14 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 } else {
                     uint old_prot;
                     assert(mbi.State = MEM_COMMIT);
-                    if (!TEST(PAGE_GUARD, mbi.Protect) &&
-                        prot_is_readable(mbi.Protect)) {
+                    if (!TEST(PAGE_GUARD, mbi.Protect) && prot_is_readable(mbi.Protect)) {
                         uint i;
                         /* copy over memory */
-                        res = VirtualProtectEx(hProc, TARGET_ADDR,
-                                               mbi.RegionSize, PAGE_READWRITE,
-                                               &old_prot);
+                        res = VirtualProtectEx(hProc, TARGET_ADDR, mbi.RegionSize,
+                                               PAGE_READWRITE, &old_prot);
                         if (!res && TARGET_ADDR == (char *)0x7ffe0000) {
-                            WARN("unable to copy over vsyscall/shared user data page 0x7ffe0000, skipping\n");
+                            WARN("unable to copy over vsyscall/shared user data page "
+                                 "0x7ffe0000, skipping\n");
                             reached_vsyscall_page = true;
                             res = fseek(file, mbi.RegionSize, SEEK_CUR);
                             assert(res == 0);
@@ -989,7 +964,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                             uint written;
                             res = fread(buf, 1, sizeof(buf), file);
                             assert(res == sizeof(buf));
-                            res = WriteProcessMemory(hProc, TARGET_ADDR+i, buf,
+                            res = WriteProcessMemory(hProc, TARGET_ADDR + i, buf,
                                                      sizeof(buf), &written);
                             assert(res && written == sizeof(buf));
                         }
@@ -1013,8 +988,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
 #endif
                     }
                     res = VirtualProtectEx(hProc, TARGET_ADDR, mbi.RegionSize,
-                                           remove_writecopy(mbi.Protect),
-                                           &old_prot);
+                                           remove_writecopy(mbi.Protect), &old_prot);
                     assert(res);
                 }
                 /* in case break out, save position */
@@ -1032,8 +1006,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
 static void
 usage(const char *msg)
 {
-    PRINT("%s\nusage: ldmp [-verbose <N>] <.ldmp file> <dummy executable>\n",
-            msg);
+    PRINT("%s\nusage: ldmp [-verbose <N>] <.ldmp file> <dummy executable>\n", msg);
     PRINT("example: bin32/ldmp logs/hello.exe.5124.0000000.ldmp bin32/dummy.exe\n");
     exit(-1);
 }
@@ -1042,15 +1015,14 @@ usage(const char *msg)
  * used to generate the .ldmp file, prints out a mapping of thread_ids from
  * the dump to the new process.
  * ldmp.exe <.ldmp file> <windows path to dummy.exe (absolute, local drive)> */
-DWORD __cdecl
-main(DWORD argc, char *argv[], char *envp[])
+DWORD __cdecl main(DWORD argc, char *argv[], char *envp[])
 {
     FILE *file;
     HANDLE hProc;
     PROCESS_BASIC_INFORMATION info;
     MEMORY_BASIC_INFORMATION mbi;
     char *pb;
-    uint drbase = 0;
+    void *drbase = 0;
 
     DWORD res;
     fpos_t thread_start_pos;
@@ -1067,7 +1039,7 @@ main(DWORD argc, char *argv[], char *envp[])
         } else
             break;
     }
-    if (i >= argc -1)
+    if (i >= argc - 1)
         usage("missing arguments");
     INFO(1, "opening ldump file %s\n", argv[i]);
     file = fopen(argv[i], "rb");
@@ -1076,7 +1048,7 @@ main(DWORD argc, char *argv[], char *envp[])
         exit(-1);
     }
 
-    hProc = create_process(argv[i+1]);
+    hProc = create_process(argv[i + 1]);
 
     if (GetProcAddress(GetModuleHandle(L"ntdll.dll"), "NtCreateThreadEx")) {
         /* XXX i#397: on Vista in the past we saw NtCreateThread fail
@@ -1088,7 +1060,7 @@ main(DWORD argc, char *argv[], char *envp[])
     }
 
     /* read peb (& message if there is one) */
-    res = fscanf(file, "PEB=0x%08x\n", &pb);
+    res = fscanf(file, "PEB=%p\n", &pb);
     if (res != 1) {
         uint length = 0;
         /* newer format, starts with a message prefaced with number of bytes
@@ -1104,28 +1076,31 @@ main(DWORD argc, char *argv[], char *envp[])
          * pieces */
         assert(length < sizeof(buf));
         if (length >= sizeof(buf))
-            length = sizeof(buf)-1;
+            length = sizeof(buf) - 1;
         res = fread(buf, 1, length, file);
         assert(res == length);
         buf[length] = '\0';
         /* Remember that buf has a newline as its first char */
-        INFO(1, "\n**************************************************\n"
-             "Message:\n%s\n**************************************************\n", buf);
-        res = fscanf(file, "PEB=0x%08x\n", &pb);
+        INFO(1,
+             "\n**************************************************\n"
+             "Message:\n%s\n**************************************************\n",
+             buf);
+        res = fscanf(file, "PEB=%p\n", &pb);
     }
     assert(res == 1);
     res = query_process_info(hProc, &info);
     assert(res);
-    INFO(1, "\ncreated dummy process pid=%d with PEB=0x%08x original PEB=0x%08x\n",
+    INFO(1, "\ncreated dummy process pid=%d with PEB=%p original PEB=%p\n",
          info.UniqueProcessId, info.PebBaseAddress, pb);
 
     /* read dynamorio.dll base, present only in format after case 5366 */
-    if (fscanf(file, "dynamorio.dll=0x%08x\n", &drbase) == 1) {
+    if (fscanf(file, "dynamorio.dll=%p\n", &drbase) == 1) {
         /* for custom scripting */
-        INFO(1, "\ndynamorio.dll=0x%08x\n", drbase);
+        INFO(1, "\ndynamorio.dll=%p\n", drbase);
         /* or more likely */
-        INFO(1, "\nRun this command, or attach non-invasively from an existing windbg:\n"
-             "windbg -pv -p %d -c '.reload dynamorio.dll=0x%08x'\n\n",
+        INFO(1,
+             "\nRun this command, or attach non-invasively from an existing windbg:\n"
+             "windbg -pv -p %d -c '.reload dynamorio.dll=%p'\n\n",
              info.UniqueProcessId, drbase);
     }
 
@@ -1142,7 +1117,7 @@ main(DWORD argc, char *argv[], char *envp[])
     INFO(1, "\n");
     /* free memory in dummy process */
     pb = NULL;
-    while(VirtualQueryEx(hProc, pb, &mbi, sizeof(mbi)) == sizeof(mbi)) {
+    while (VirtualQueryEx(hProc, pb, &mbi, sizeof(mbi)) == sizeof(mbi)) {
         if (mbi.State == MEM_FREE || get_original_addr(mbi.AllocationBase) != FAIL) {
             if ((uint)mbi.BaseAddress + mbi.RegionSize < (uint)mbi.BaseAddress)
                 break;
@@ -1150,8 +1125,8 @@ main(DWORD argc, char *argv[], char *envp[])
         } else {
             if (!VirtualFreeEx(hProc, mbi.AllocationBase, 0, MEM_RELEASE)) {
                 /* try an unmap */
-                GET_NTDLL(NtUnmapViewOfSection, (IN HANDLE ProcessHandle,
-                                                 IN PVOID BaseAddress));
+                GET_NTDLL(NtUnmapViewOfSection,
+                          (IN HANDLE ProcessHandle, IN PVOID BaseAddress));
                 if (!NT_SUCCESS(NtUnmapViewOfSection(hProc, mbi.AllocationBase))) {
                     if (get_original_addr(mbi.AllocationBase) == FAIL) {
                         /* this happens in wow64 w/ the x64 PEB */
@@ -1160,10 +1135,10 @@ main(DWORD argc, char *argv[], char *envp[])
                     }
                     pb += mbi.RegionSize;
                 } else {
-                    INFO(2, "unmapped allocation at 0x%08x\n", mbi.AllocationBase);
+                    INFO(2, "unmapped allocation at %p\n", mbi.AllocationBase);
                 }
             } else {
-                INFO(2, "freed memory at 0x%08x\n", mbi.AllocationBase);
+                INFO(2, "freed memory at %p\n", mbi.AllocationBase);
             }
         }
     }
@@ -1190,9 +1165,10 @@ main(DWORD argc, char *argv[], char *envp[])
     copy_memory(file, true, hProc);
 
     if (!reached_vsyscall_page) {
-        WARN("ERROR: failed to reach shared_user_data/vsyscall page, ldmp likely truncated.\n"
-               "       Memory above 0x%08x is likely unavailable or incorrect.\n\n",
-               highest_address_copied);
+        WARN("ERROR: failed to reach shared_user_data/vsyscall page, ldmp likely "
+             "truncated.\n"
+             "       Memory above %p is likely unavailable or incorrect.\n\n",
+             highest_address_copied);
     }
 
     INFO(1, "finished\n");

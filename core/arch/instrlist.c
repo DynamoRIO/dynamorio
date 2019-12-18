@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,26 +40,27 @@
 #include "../globals.h"
 #include "instrlist.h"
 #include "instr.h"
-#include <string.h>
+#include "decode.h"
+#include "arch.h"
 
 #if defined(DEBUG) && defined(CLIENT_INTERFACE)
 /* case 10450: give messages to clients */
-# undef ASSERT /* N.B.: if have issues w/ DYNAMO_OPTION, re-instate */
-# undef ASSERT_TRUNCATE
-# undef ASSERT_BITFIELD_TRUNCATE
-# undef ASSERT_NOT_REACHED
-# define ASSERT DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    undef ASSERT /* N.B.: if have issues w/ DYNAMO_OPTION, re-instate */
+#    undef ASSERT_TRUNCATE
+#    undef ASSERT_BITFIELD_TRUNCATE
+#    undef ASSERT_NOT_REACHED
+#    define ASSERT DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 #endif
 
 /* returns an empty instrlist_t object */
-instrlist_t*
+instrlist_t *
 instrlist_create(dcontext_t *dcontext)
 {
-    instrlist_t *ilist = (instrlist_t*) heap_alloc(dcontext, sizeof(instrlist_t)
-                                               HEAPACCT(ACCT_IR));
+    instrlist_t *ilist =
+        (instrlist_t *)heap_alloc(dcontext, sizeof(instrlist_t) HEAPACCT(ACCT_IR));
     CLIENT_ASSERT(ilist != NULL, "instrlist_create: allocation error");
     instrlist_init(ilist);
     return ilist;
@@ -71,13 +72,13 @@ instrlist_init(instrlist_t *ilist)
 {
     CLIENT_ASSERT(ilist != NULL, "instrlist_create: NULL parameter");
     ilist->first = ilist->last = NULL;
-    ilist->flags = 0;   /* no flags set */
+    ilist->flags = 0; /* no flags set */
     ilist->translation_target = NULL;
 #ifdef CLIENT_INTERFACE
     ilist->fall_through_bb = NULL;
-# ifdef ARM
+#    ifdef ARM
     ilist->auto_pred = DR_PRED_NONE;
-# endif
+#    endif
 #endif
 }
 
@@ -105,8 +106,8 @@ instrlist_clear(dcontext_t *dcontext, instrlist_t *ilist)
 void
 instrlist_clear_and_destroy(dcontext_t *dcontext, instrlist_t *ilist)
 {
-    instrlist_clear(dcontext,ilist);
-    instrlist_destroy(dcontext,ilist);
+    instrlist_clear(dcontext, ilist);
+    instrlist_destroy(dcontext, ilist);
 }
 
 #ifdef CLIENT_INTERFACE
@@ -247,10 +248,10 @@ check_translation(instrlist_t *ilist, instr_t *inst)
         dr_pred_type_t auto_pred = ilist->auto_pred;
         if (instr_predicate_is_cond(auto_pred)) {
             CLIENT_ASSERT(!instr_is_cti(inst), "auto-predication does not support cti's");
-            CLIENT_ASSERT(!TESTANY(EFLAGS_WRITE_NZCV,
-                                   instr_get_arith_flags(inst,
-                                                         DR_QUERY_INCLUDE_COND_SRCS)),
-                    "cannot auto predicate a meta-inst that writes to NZCV");
+            CLIENT_ASSERT(
+                !TESTANY(EFLAGS_WRITE_NZCV,
+                         instr_get_arith_flags(inst, DR_QUERY_INCLUDE_COND_SRCS)),
+                "cannot auto predicate a meta-inst that writes to NZCV");
             if (!instr_is_predicated(inst))
                 instr_set_predicate(inst, auto_pred);
         }
@@ -277,8 +278,7 @@ instrlist_append(instrlist_t *ilist, instr_t *inst)
         instr_set_next(ilist->last, top);
         instr_set_prev(top, ilist->last);
         ilist->last = bot;
-    }
-    else {
+    } else {
         ilist->first = top;
         ilist->last = bot;
     }
@@ -303,13 +303,11 @@ instrlist_prepend(instrlist_t *ilist, instr_t *inst)
         instr_set_next(bot, ilist->first);
         instr_set_prev(ilist->first, bot);
         ilist->first = top;
-    }
-    else {
+    } else {
         ilist->first = top;
         ilist->last = bot;
     }
 }
-
 
 /* inserts "inst" before "where" ("inst" can be a chain of insts) */
 void
@@ -338,8 +336,7 @@ instrlist_preinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
     if (whereprev) {
         instr_set_next(whereprev, top);
         instr_set_prev(top, whereprev);
-    }
-    else {
+    } else {
         ilist->first = top;
     }
     instr_set_next(bot, where);
@@ -376,15 +373,14 @@ instrlist_postinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
     if (wherenext) {
         instr_set_next(bot, wherenext);
         instr_set_prev(wherenext, bot);
-    }
-    else {
+    } else {
         ilist->last = bot;
     }
 }
 
 /* replace oldinst with newinst, remove oldinst from ilist, and return oldinst
    (newinst can be a chain of insts) */
-instr_t*
+instr_t *
 instrlist_replace(instrlist_t *ilist, instr_t *oldinst, instr_t *newinst)
 {
     instr_t *where;
@@ -420,7 +416,7 @@ instrlist_remove(instrlist_t *ilist, instr_t *inst)
     instr_set_next(inst, NULL);
 }
 
-instrlist_t*
+instrlist_t *
 instrlist_clone(dcontext_t *dcontext, instrlist_t *old)
 {
     instr_t *inst, *copy;
@@ -446,21 +442,18 @@ instrlist_clone(dcontext_t *dcontext, instrlist_t *old)
         int i;
         for (i = 0; i < inst->num_srcs; i++) {
             instr_t *tgt;
-            opnd_t   op = instr_get_src(copy, i);
+            opnd_t op = instr_get_src(copy, i);
             if (!opnd_is_instr(op))
                 continue;
             CLIENT_ASSERT(opnd_get_instr(op) != NULL,
                           "instrlist_clone: NULL instr operand");
-            tgt = (instr_t *) instr_get_note(opnd_get_instr(op));
-            CLIENT_ASSERT(tgt != NULL,
-                          "instrlist_clone: operand instr not in instrlist");
+            tgt = (instr_t *)instr_get_note(opnd_get_instr(op));
+            CLIENT_ASSERT(tgt != NULL, "instrlist_clone: operand instr not in instrlist");
             if (opnd_is_far_instr(op)) {
                 instr_set_src(copy, i,
-                              opnd_create_far_instr
-                              (opnd_get_segment_selector(op), tgt));
+                              opnd_create_far_instr(opnd_get_segment_selector(op), tgt));
             } else
-                instr_set_src(copy, i,
-                              opnd_create_instr(tgt));
+                instr_set_src(copy, i, opnd_create_instr(tgt));
         }
     }
     for (inst = instrlist_first(old), copy = instrlist_first(newlist);
@@ -475,34 +468,33 @@ instrlist_clone(dcontext_t *dcontext, instrlist_t *old)
     return newlist;
 }
 
-
 /*
  * puts a whole list (prependee) onto the front of ilist
  * frees prependee when done because it will contain nothing useful
  */
 
 void
-instrlist_prepend_instrlist(dcontext_t *dcontext,instrlist_t *ilist,
+instrlist_prepend_instrlist(dcontext_t *dcontext, instrlist_t *ilist,
                             instrlist_t *prependee)
 {
-    instr_t *first=instrlist_first(prependee);
+    instr_t *first = instrlist_first(prependee);
     if (!first)
         return;
-    instrlist_prepend(ilist,first);
+    instrlist_prepend(ilist, first);
     instrlist_init(prependee);
-    instrlist_destroy(dcontext,prependee);
+    instrlist_destroy(dcontext, prependee);
 }
 
 void
-instrlist_append_instrlist(dcontext_t *dcontext,instrlist_t *ilist,
+instrlist_append_instrlist(dcontext_t *dcontext, instrlist_t *ilist,
                            instrlist_t *appendee)
 {
-    instr_t *first=instrlist_first(appendee);
+    instr_t *first = instrlist_first(appendee);
     if (!first)
         return;
-    instrlist_append(ilist,first);
+    instrlist_append(ilist, first);
     instrlist_init(appendee);
-    instrlist_destroy(dcontext,appendee);
+    instrlist_destroy(dcontext, appendee);
 }
 
 /* If has_instr_jmp_targets is true, this routine trashes the note field
@@ -565,4 +557,100 @@ instrlist_encode(dcontext_t *dcontext, instrlist_t *ilist, byte *pc,
                  bool has_instr_jmp_targets)
 {
     return instrlist_encode_to_copy(dcontext, ilist, pc, pc, NULL, has_instr_jmp_targets);
+}
+
+DR_API
+/* Inserts inst as a non-application instruction into ilist prior to "where" */
+void
+instrlist_meta_preinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
+{
+    instr_set_meta(inst);
+    instrlist_preinsert(ilist, where, inst);
+}
+
+DR_API
+/* Inserts inst as a non-application instruction into ilist after "where" */
+void
+instrlist_meta_postinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
+{
+    instr_set_meta(inst);
+    instrlist_postinsert(ilist, where, inst);
+}
+
+DR_API
+/* Inserts inst as a non-application instruction onto the end of ilist */
+void
+instrlist_meta_append(instrlist_t *ilist, instr_t *inst)
+{
+    instr_set_meta(inst);
+    instrlist_append(ilist, inst);
+}
+
+DR_API
+/* Create instructions for storing pointer-size integer val to dst,
+ * and then insert them into ilist prior to where.
+ * The "first" and "last" created instructions are returned.
+ */
+void
+instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
+                                 instrlist_t *ilist, instr_t *where, OUT instr_t **first,
+                                 OUT instr_t **last)
+{
+    CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
+    insert_mov_immed_ptrsz((dcontext_t *)drcontext, val, dst, ilist, where, first, last);
+}
+
+DR_API
+/* Create instructions for pushing pointer-size integer val on the stack,
+ * and then insert them into ilist prior to where.
+ * The "first" and "last" created instructions are returned.
+ */
+void
+instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val, instrlist_t *ilist,
+                                  instr_t *where, OUT instr_t **first, OUT instr_t **last)
+{
+    insert_push_immed_ptrsz((dcontext_t *)drcontext, val, ilist, where, first, last);
+}
+
+DR_API
+void
+instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
+                                opnd_t dst, instrlist_t *ilist, instr_t *where,
+                                OUT instr_t **first, OUT instr_t **last)
+{
+    CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
+    if (encode_pc == NULL) {
+#ifdef STANDALONE_DECODER
+        /* Maybe we should fail? */
+#else
+        /* Pass highest code cache address.
+         * XXX: unless we're beyond the reservation!  Would still be reachable
+         * from rest of vmcode, but might be higher than vmcode_get_end()!
+         */
+        encode_pc = vmcode_get_end();
+#endif
+    }
+    insert_mov_instr_addr((dcontext_t *)drcontext, src_inst, encode_pc, dst, ilist, where,
+                          first, last);
+}
+
+DR_API
+void
+instrlist_insert_push_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
+                                 instrlist_t *ilist, instr_t *where, OUT instr_t **first,
+                                 OUT instr_t **last)
+{
+    if (encode_pc == NULL) {
+#ifdef STANDALONE_DECODER
+        /* Maybe we should fail? */
+#else
+        /* Pass highest code cache address.
+         * XXX: unless we're beyond the reservation!  Would still be reachable
+         * from rest of vmcode, but might be higher than vmcode_get_end()!
+         */
+        encode_pc = vmcode_get_end();
+#endif
+    }
+    insert_push_instr_addr((dcontext_t *)drcontext, src_inst, encode_pc, ilist, where,
+                           first, last);
 }

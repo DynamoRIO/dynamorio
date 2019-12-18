@@ -47,12 +47,14 @@
 #include <stddef.h> /* offsetof */
 
 #include "demangle.h"
-#include "libelftc.h"
+#ifdef DRSYM_HAVE_LIBELFTC
+#    include "libelftc.h"
+#endif
 
 #ifdef WINDOWS
-# define IF_WINDOWS(x) x
+#    define IF_WINDOWS(x) x
 #else
-# define IF_WINDOWS(x)
+#    define IF_WINDOWS(x)
 #endif
 
 /* For debugging */
@@ -77,9 +79,11 @@ typedef struct _dbg_module_t {
  * Forward declarations.
  */
 
-static void unload_module(dbg_module_t *mod);
-static bool follow_debuglink(const char * modpath, dbg_module_t *mod,
-                             const char *debuglink, char debug_modpath[MAXIMUM_PATH]);
+static void
+unload_module(dbg_module_t *mod);
+static bool
+follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
+                 char debug_modpath[MAXIMUM_PATH]);
 
 /******************************************************************************
  * Module loading and unloading.
@@ -121,11 +125,11 @@ load_module(const char *modpath)
         NOTIFY("%s: unable to get file size %s\n", __FUNCTION__, modpath);
         goto error;
     }
-    mod->file_size = (size_t) file_size; /* XXX: ignoring truncation */
+    mod->file_size = (size_t)file_size; /* XXX: ignoring truncation */
 
     mod->map_size = mod->file_size;
-    mod->map_base = dr_map_file(mod->fd, &mod->map_size, 0, NULL, DR_MEMPROT_READ,
-                                DR_MAP_PRIVATE);
+    mod->map_base =
+        dr_map_file(mod->fd, &mod->map_size, 0, NULL, DR_MEMPROT_READ, DR_MAP_PRIVATE);
     /* map_size can be larger than file_size */
     if (mod->map_base == NULL || mod->map_size < mod->file_size) {
         NOTIFY("%s: unable to map %s\n", __FUNCTION__, modpath);
@@ -155,8 +159,9 @@ load_module(const char *modpath)
                  * may need to keep mod for that (i#642).
                  */
                 NOTIFY("%s: followed debuglink to %s\n", __FUNCTION__, debug_modpath);
-                if (!TESTANY(DRSYM_ELF_SYMTAB|DRSYM_PECOFF_SYMTAB, newmod->debug_kind) &&
-                    TESTANY(DRSYM_ELF_SYMTAB|DRSYM_PECOFF_SYMTAB, mod->debug_kind)) {
+                if (!TESTANY(DRSYM_ELF_SYMTAB | DRSYM_PECOFF_SYMTAB,
+                             newmod->debug_kind) &&
+                    TESTANY(DRSYM_ELF_SYMTAB | DRSYM_PECOFF_SYMTAB, mod->debug_kind)) {
                     /* We need both */
                     mod->mod_with_dwarf = newmod;
                     mod->debug_kind |= newmod->debug_kind;
@@ -166,7 +171,7 @@ load_module(const char *modpath)
                     mod = newmod;
                 }
             } /* else stick with mod */
-        } /* else stick with mod */
+        }     /* else stick with mod */
     }
     if (newmod == NULL) {
         Dwarf_Debug dbg;
@@ -206,7 +211,7 @@ load_module(const char *modpath)
     load_module_depth--;
     return mod;
 
- error:
+error:
     unload_module(mod);
     load_module_depth--;
     return NULL;
@@ -233,7 +238,7 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
     /* For non-GNU we might be handed an absolute path */
     if (debuglink[0] == '/' && dr_file_exists(debuglink)) {
         strncpy(debug_modpath, debuglink, MAXIMUM_PATH);
-        debug_modpath[MAXIMUM_PATH-1] = '\0';
+        debug_modpath[MAXIMUM_PATH - 1] = '\0';
         return true;
     }
 
@@ -249,9 +254,8 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
         *last_slash = '\0';
 
     /* 1. Check $mod_dir/$debuglink */
-    dr_snprintf(debug_modpath, MAXIMUM_PATH,
-                "%s/%s", mod_dir, debuglink);
-    debug_modpath[MAXIMUM_PATH-1] = '\0';
+    dr_snprintf(debug_modpath, MAXIMUM_PATH, "%s/%s", mod_dir, debuglink);
+    debug_modpath[MAXIMUM_PATH - 1] = '\0';
     NOTIFY("%s: looking for %s\n", __FUNCTION__, debug_modpath);
     /* If debuglink is the basename of modpath, this can point to the same file.
      * Infinite recursion is prevented with a depth check, but we would fail to
@@ -262,17 +266,16 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
         return true;
 
     /* 2. Check $mod_dir/.debug/$debuglink */
-    dr_snprintf(debug_modpath, MAXIMUM_PATH,
-                "%s/.debug/%s", mod_dir, debuglink);
-    debug_modpath[MAXIMUM_PATH-1] = '\0';
+    dr_snprintf(debug_modpath, MAXIMUM_PATH, "%s/.debug/%s", mod_dir, debuglink);
+    debug_modpath[MAXIMUM_PATH - 1] = '\0';
     NOTIFY("%s: looking for %s\n", __FUNCTION__, debug_modpath);
     if (dr_file_exists(debug_modpath))
         return true;
 
     /* 3. Check /usr/lib/debug/$mod_dir/$debuglink */
-    dr_snprintf(debug_modpath, MAXIMUM_PATH,
-                "%s/%s/%s", drsym_obj_debug_path(), mod_dir, debuglink);
-    debug_modpath[MAXIMUM_PATH-1] = '\0';
+    dr_snprintf(debug_modpath, MAXIMUM_PATH, "%s/%s/%s", drsym_obj_debug_path(), mod_dir,
+                debuglink);
+    debug_modpath[MAXIMUM_PATH - 1] = '\0';
     NOTIFY("%s: looking for %s\n", __FUNCTION__, debug_modpath);
     if (dr_file_exists(debug_modpath))
         return true;
@@ -307,13 +310,13 @@ unload_module(dbg_module_t *mod)
 
 static drsym_error_t
 symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
-                 drsym_enumerate_ex_cb callback_ex, size_t info_size,
-                 void *data, uint flags)
+                 drsym_enumerate_ex_cb callback_ex, size_t info_size, void *data,
+                 uint flags)
 {
     int num_syms;
     int i;
     bool keep_searching = true;
-    size_t name_buf_size = 1024;  /* C++ symbols can be quite long. */
+    size_t name_buf_size = 1024; /* C++ symbols can be quite long. */
     drsym_error_t res = DRSYM_SUCCESS;
     drsym_info_t *out;
 
@@ -321,8 +324,8 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
     if (num_syms == 0)
         return DRSYM_ERROR;
 
-    out = (drsym_info_t *) dr_global_alloc(info_size);
-    out->name = (char *) dr_global_alloc(name_buf_size);
+    out = (drsym_info_t *)dr_global_alloc(info_size);
+    out->name = (char *)dr_global_alloc(name_buf_size);
     out->struct_size = info_size;
     out->debug_kind = mod->debug_kind;
     out->type_id = 0; /* NYI */
@@ -338,7 +341,7 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
 
     for (i = 0; keep_searching && i < num_syms; i++) {
         const char *mangled = drsym_obj_symbol_name(mod->obj_info, i);
-        const char *unmangled = mangled;  /* Points at mangled or symbol_buf. */
+        const char *unmangled = mangled; /* Points at mangled or symbol_buf. */
         size_t modoffs = 0;
         if (mangled == NULL) {
             res = DRSYM_ERROR;
@@ -346,12 +349,12 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
         }
 
         if (callback_ex != NULL) {
-            res = drsym_obj_symbol_offs(mod->obj_info, i, &out->start_offs,
-                                        &out->end_offs);
+            res =
+                drsym_obj_symbol_offs(mod->obj_info, i, &out->start_offs, &out->end_offs);
         } else
             res = drsym_obj_symbol_offs(mod->obj_info, i, &modoffs, NULL);
         if (res == DRSYM_ERROR_SYMBOL_NOT_FOUND) { /* an import, so skip */
-            res = DRSYM_SUCCESS; /* if go off end of loop */
+            res = DRSYM_SUCCESS;                   /* if go off end of loop */
             continue;
         }
         if (res != DRSYM_SUCCESS)
@@ -360,12 +363,11 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
         if (TEST(DRSYM_DEMANGLE, flags)) {
             size_t len;
             /* Resize until it's big enough. */
-            while ((len = drsym_demangle_symbol(out->name, name_buf_size,
-                                                mangled, flags))
-                   > name_buf_size) {
+            while ((len = drsym_demangle_symbol(out->name, name_buf_size, mangled,
+                                                flags)) > name_buf_size) {
                 dr_global_free(out->name, name_buf_size);
                 name_buf_size = len;
-                out->name = (char *) dr_global_alloc(name_buf_size);
+                out->name = (char *)dr_global_alloc(name_buf_size);
             }
             if (len != 0) {
                 /* Success. */
@@ -394,8 +396,7 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
 }
 
 static drsym_error_t
-addrsearch_symtab(dbg_module_t *mod, size_t modoffs, drsym_info_t *info INOUT,
-                  uint flags)
+addrsearch_symtab(dbg_module_t *mod, size_t modoffs, drsym_info_t *info INOUT, uint flags)
 {
     const char *symbol;
     size_t name_len = 0;
@@ -451,7 +452,7 @@ drsym_unix_load(const char *modpath)
 void
 drsym_unix_unload(void *mod_in)
 {
-    dbg_module_t *mod = (dbg_module_t *) mod_in;
+    dbg_module_t *mod = (dbg_module_t *)mod_in;
     unload_module(mod);
 }
 
@@ -460,7 +461,7 @@ drsym_unix_enumerate_symbols(void *mod_in, drsym_enumerate_cb callback,
                              drsym_enumerate_ex_cb callback_ex, size_t info_size,
                              void *data, uint flags)
 {
-    dbg_module_t *mod = (dbg_module_t *) mod_in;
+    dbg_module_t *mod = (dbg_module_t *)mod_in;
     if (info_size != sizeof(drsym_info_t))
         return DRSYM_ERROR_INVALID_SIZE;
     return symsearch_symtab(mod, callback, callback_ex, info_size, data, flags);
@@ -478,7 +479,7 @@ typedef struct _sym_lookup_params_t {
 static bool
 sym_lookup_cb(const char *sym, size_t modoffs, void *data INOUT)
 {
-    sym_lookup_params_t *p = (sym_lookup_params_t*)data;
+    sym_lookup_params_t *p = (sym_lookup_params_t *)data;
 
     if (strncmp(sym, p->search_sym, p->search_sym_len) == 0 &&
         strlen(sym) >= p->search_sym_len &&
@@ -492,7 +493,7 @@ sym_lookup_cb(const char *sym, size_t modoffs, void *data INOUT)
           * "foo@@GLIBC_2.1".  If there are multiple, a user who wants one in
           * particular needs to include the version name in the search target.
           */
-          sym[p->search_sym_len] == '@')) {
+         sym[p->search_sym_len] == '@')) {
         NOTIFY("Looked up symbol: %s %s\n", p->search_sym, sym);
         *p->modoffs = modoffs;
         /* Stop after the first match. */
@@ -505,7 +506,7 @@ drsym_error_t
 drsym_unix_lookup_symbol(void *mod_in, const char *symbol, size_t *modoffs OUT,
                          uint flags)
 {
-    dbg_module_t *mod = (dbg_module_t *) mod_in;
+    dbg_module_t *mod = (dbg_module_t *)mod_in;
     drsym_error_t r;
     const char *sym_no_mod;
     sym_lookup_params_t params;
@@ -553,10 +554,10 @@ drsym_unix_lookup_symbol(void *mod_in, const char *symbol, size_t *modoffs OUT,
 }
 
 drsym_error_t
-drsym_unix_lookup_address(void *mod_in, size_t modoffs,
-                          drsym_info_t *out INOUT, uint flags)
+drsym_unix_lookup_address(void *mod_in, size_t modoffs, drsym_info_t *out INOUT,
+                          uint flags)
 {
-    dbg_module_t *mod = (dbg_module_t *) mod_in;
+    dbg_module_t *mod = (dbg_module_t *)mod_in;
     drsym_error_t r = addrsearch_symtab(mod, modoffs, out, flags);
 
     /* If we did find an address for the symbol, go look for its line number
@@ -571,9 +572,10 @@ drsym_unix_lookup_address(void *mod_in, size_t modoffs,
         if (mod->mod_with_dwarf != NULL)
             mod4line = mod->mod_with_dwarf;
         if (mod4line->dwarf_info == NULL ||
-            !drsym_dwarf_search_addr2line
-            (mod4line->dwarf_info, (Dwarf_Addr)(ptr_uint_t)
-             (drsym_obj_load_base(mod->obj_info) + modoffs), out)) {
+            !drsym_dwarf_search_addr2line(
+                mod4line->dwarf_info,
+                (Dwarf_Addr)(ptr_uint_t)(drsym_obj_load_base(mod->obj_info) + modoffs),
+                out)) {
             r = DRSYM_ERROR_LINE_NOT_AVAILABLE;
         }
     }
@@ -590,7 +592,7 @@ drsym_unix_lookup_address(void *mod_in, size_t modoffs,
 drsym_error_t
 drsym_unix_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, void *data)
 {
-    dbg_module_t *mod = (dbg_module_t *) mod_in;
+    dbg_module_t *mod = (dbg_module_t *)mod_in;
     dbg_module_t *mod4line = mod;
     if (mod->mod_with_dwarf != NULL)
         mod4line = mod->mod_with_dwarf;
@@ -601,44 +603,41 @@ drsym_unix_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, void
 }
 
 drsym_error_t
-drsym_unix_get_type(void *mod_in, size_t modoffs, uint levels_to_expand,
-                    char *buf, size_t buf_sz, drsym_type_t **type OUT)
+drsym_unix_get_type(void *mod_in, size_t modoffs, uint levels_to_expand, char *buf,
+                    size_t buf_sz, drsym_type_t **type OUT)
 {
     return DRSYM_ERROR_NOT_IMPLEMENTED;
 }
 
 drsym_error_t
-drsym_unix_get_func_type(void *mod_in, size_t modoffs, char *buf,
-                         size_t buf_sz, drsym_func_type_t **func_type OUT)
+drsym_unix_get_func_type(void *mod_in, size_t modoffs, char *buf, size_t buf_sz,
+                         drsym_func_type_t **func_type OUT)
 {
     return DRSYM_ERROR_NOT_IMPLEMENTED;
 }
 
 drsym_error_t
 drsym_unix_expand_type(const char *modpath, uint type_id, uint levels_to_expand,
-                  char *buf, size_t buf_sz,
-                  drsym_type_t **expanded_type OUT)
+                       char *buf, size_t buf_sz, drsym_type_t **expanded_type OUT)
 {
     return DRSYM_ERROR_NOT_IMPLEMENTED;
 }
 
 size_t
-drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
-                           uint flags)
+drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags)
 {
-    int status;
-
     if (!TEST(DRSYM_DEMANGLE_FULL, flags)) {
         /* The demangle.cc implementation is fast and replaces template args
          * with <> and omits parameters.  Use it if the user doesn't
          * want either of those.  Its return value always follows our
          * conventions.
          */
-        int len = Demangle(mangled, dst, (int) dst_sz, DEMANGLE_DEFAULT);
+        int len = Demangle(mangled, dst, (int)dst_sz, DEMANGLE_DEFAULT);
         if (len > 0) {
-            return len;  /* Success or truncation. */
+            return len; /* Success or truncation. */
         }
     } else {
+#ifdef DRSYM_HAVE_LIBELFTC
         /* If the user wants template arguments or overloads, we use the
          * libelftc demangler which is slower, but can properly demangle
          * template arguments.
@@ -646,18 +645,18 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
 
         /* libelftc code use fp ops so we have to save fp state (i#756) */
         byte fp_raw[DR_FPSTATE_BUF_SIZE + DR_FPSTATE_ALIGN];
-        byte *fp_align = (byte *) ALIGN_FORWARD(fp_raw, DR_FPSTATE_ALIGN);
+        byte *fp_align = (byte *)ALIGN_FORWARD(fp_raw, DR_FPSTATE_ALIGN);
 
         proc_save_fpstate(fp_align);
-        status = elftc_demangle(mangled, dst, dst_sz, ELFTC_DEM_GNU3);
+        int status = elftc_demangle(mangled, dst, dst_sz, ELFTC_DEM_GNU3);
         proc_restore_fpstate(fp_align);
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
         /* our libelftc returns the # of chars needed, and copies the truncated
          * unmangled name
          */
         return status;
-#else
+#    else
         /* XXX: let's make the same change to the libelftc we're using here */
         if (status == 0) {
             return strlen(dst) + 1;
@@ -667,26 +666,27 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
              * mangled name in there.
              */
             strncpy(dst, mangled, dst_sz);
-            dst[dst_sz-1] = '\0';
+            dst[dst_sz - 1] = '\0';
             /* FIXME: This return value is made up and may not be large enough.
              * It will work eventually if the caller reallocates their buffer
              * and retries in a loop, or if they just want to detect truncation.
              */
             return dst_sz * 2;
         }
-#endif
+#    endif
+#endif /* DRSYM_HAVE_LIBELFTC */
     }
 
     /* If the demangling failed, copy the mangled symbol into the output. */
     strncpy(dst, mangled, dst_sz);
-    dst[dst_sz-1] = '\0';
+    dst[dst_sz - 1] = '\0';
     return 0;
 }
 
 drsym_error_t
 drsym_unix_get_module_debug_kind(void *mod_in, drsym_debug_kind_t *kind OUT)
 {
-    dbg_module_t *mod = (dbg_module_t *) mod_in;
+    dbg_module_t *mod = (dbg_module_t *)mod_in;
     if (mod != NULL) {
         *kind = mod->debug_kind;
         return DRSYM_SUCCESS;
@@ -694,4 +694,3 @@ drsym_unix_get_module_debug_kind(void *mod_in, drsym_debug_kind_t *kind OUT)
         return DRSYM_ERROR_LOAD_FAILED;
     }
 }
-

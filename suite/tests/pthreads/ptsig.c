@@ -32,7 +32,8 @@
  */
 
 /* Build with:
- * gcc -o pthreads pthreads.c -lpthread -D_REENTRANT -I../lib -L../lib -ldynamo -ldl -lbfd -liberty
+ * gcc -o pthreads pthreads.c -lpthread -D_REENTRANT -I../lib -L../lib -ldynamo -ldl -lbfd
+ * -liberty
  */
 
 #include "tools.h"
@@ -54,34 +55,33 @@ static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
 #if VERBOSE
-    print("thread %d signal_handler: sig=%d, retaddr="PFX", fpregs="PFX"\n",
-          getpid(), sig, *(&sig - 1), ucxt->uc_mcontext.fpregs);
+    print("thread %d signal_handler: sig=%d, retaddr=" PFX ", fpregs=" PFX "\n", getpid(),
+          sig, *(&sig - 1), ucxt->uc_mcontext.fpregs);
 #endif
 
     switch (sig) {
     case SIGUSR1: {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        void *pc = (void *) sc->SC_XIP;
+        void *pc = (void *)sc->SC_XIP;
 #if VERBOSE
-        print("thread %d got SIGUSR1 @ "PFX"\n", getpid(), pc);
+        print("thread %d got SIGUSR1 @ " PFX "\n", getpid(), pc);
 #endif
         break;
     }
     case SIGSEGV:
 #if VERBOSE
-        print("thread %d got SIGSEGV @ "PFX"\n", getpid(), pc);
+        print("thread %d got SIGSEGV @ " PFX "\n", getpid(), pc);
 #endif
         SIGLONGJMP(mark, 1);
         break;
-    default:
-        assert(0);
+    default: assert(0);
     }
 }
 
 void *
 process(void *arg)
 {
-    char *id = (char *) arg;
+    char *id = (char *)arg;
     register double width, localsum;
     register int i;
     register int iproc;
@@ -99,7 +99,7 @@ process(void *arg)
 
     /* Do the local computations */
     localsum = 0;
-    for (i=iproc; i<intervals; i+=2) {
+    for (i = iproc; i < intervals; i += 2) {
         register double x = (i + 0.5) * width;
         localsum += 4.0 / (1.0 + x * x);
     }
@@ -113,14 +113,14 @@ process(void *arg)
 #if VERBOSE
     print("thread %s exiting\n", id);
 #endif
-    return(NULL);
+    return (NULL);
 }
 
 int
 main(int argc, char **argv)
 {
     pthread_t thread0, thread1;
-    void * retval;
+    void *retval;
 
 #if 0
     /* Get the number of intervals */
@@ -147,8 +147,7 @@ main(int argc, char **argv)
     }
 
     /* Join (collapse) the two threads */
-    if (pthread_join(thread0, &retval) ||
-        pthread_join(thread1, &retval)) {
+    if (pthread_join(thread0, &retval) || pthread_join(thread1, &retval)) {
         print("%s: thread join failed\n", argv[0]);
         exit(1);
     }
@@ -161,7 +160,7 @@ main(int argc, char **argv)
     print("thread %d hitting SIGSEGV\n", getpid());
 #endif
     if (SIGSETJMP(mark) == 0) {
-        *(int*)42 = 0;
+        *(int *)42 = 0;
     }
 
     /* Print the result */
@@ -169,6 +168,6 @@ main(int argc, char **argv)
 
     struct timespec sleeptime;
     sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 1000*1000*1000; /* 100ms */
+    sleeptime.tv_nsec = 1000 * 1000 * 1000; /* 100ms */
     nanosleep(&sleeptime, NULL);
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,14 +32,14 @@
 
 #include "configure.h"
 #if defined(UNIX) || defined(_MSC_VER)
-# include "tools.h"
+#    include "tools.h"
 #else /* cygwin/mingw */
-# include <windows.h>
-# include <stdio.h>
-# define print(...) fprintf(stderr, __VA_ARGS__)
+#    include <windows.h>
+#    include <stdio.h>
+#    define print(...) fprintf(stderr, __VA_ARGS__)
 /* we want PE exports so dr_get_proc_addr finds them */
-# define EXPORT __declspec(dllexport)
-# define NOINLINE __declspec(noinline)
+#    define EXPORT __declspec(dllexport)
+#    define NOINLINE __declspec(noinline)
 #endif
 
 NOINLINE void
@@ -50,7 +50,7 @@ stack_trace(void)
      * This test should pass with any page size from 1 KiB to 256 MiB.
      */
     if (page_align((char *)0x4ffffc12) != (char *)0x50000000)
-        print("page_align is wrong %p!\n");
+        print("page_align is wrong!\n");
 #endif
 }
 
@@ -58,17 +58,17 @@ NOINLINE int
 dll_public(int a)
 {
     stack_trace();
-    return a+1;
+    return a + 1;
 }
 
 static NOINLINE int
 dll_static(int a)
 {
-    return dll_public(a+1);
+    return dll_public(a + 1);
 }
 
 extern "C" EXPORT int
 dll_export(int a)
 {
-    return dll_static(a+1);
+    return dll_static(a + 1);
 }

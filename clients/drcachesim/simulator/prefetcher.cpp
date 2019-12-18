@@ -36,7 +36,8 @@
 #include "caching_device.h"
 #include "../common/memref.h"
 
-prefetcher_t::prefetcher_t(int block_size) : block_size(block_size)
+prefetcher_t::prefetcher_t(int block_size)
+    : block_size(block_size)
 {
     // Nothing else to do.
 }

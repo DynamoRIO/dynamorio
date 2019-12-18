@@ -38,7 +38,7 @@
 #define _WIZ_SHEET_H_
 
 #if _MSC_VER > 1000
-#pragma once
+#    pragma once
 #endif // _MSC_VER > 1000
 
 #include "LicenseDlg.h"
@@ -48,32 +48,28 @@
 /////////////////////////////////////////////////////////////////////////////
 // CWizardSheet
 
-class CWizardSheet : public CPropertySheet
-{
+class CWizardSheet : public CPropertySheet {
     DECLARE_DYNAMIC(CWizardSheet)
 
-// Construction
+    // Construction
 public:
-    CWizardSheet(UINT nIDCaption, CWnd* pParentWnd = NULL,
-                 UINT iSelectPage = 0);
-    CWizardSheet(LPCTSTR pszCaption, CWnd* pParentWnd = NULL,
-                 UINT iSelectPage = 0);
+    CWizardSheet(UINT nIDCaption, CWnd *pParentWnd = NULL, UINT iSelectPage = 0);
+    CWizardSheet(LPCTSTR pszCaption, CWnd *pParentWnd = NULL, UINT iSelectPage = 0);
 
-// Attributes
+    // Attributes
 public:
     CLicenseDlg m_License;
     CCopyDlg m_Copy;
     CFinalDlg m_Final;
 
-// Operations
+    // Operations
 public:
-
-// Overrides
+    // Overrides
     // ClassWizard generated virtual function overrides
     //{{AFX_VIRTUAL(CWizardSheet)
     //}}AFX_VIRTUAL
 
-// Implementation
+    // Implementation
 public:
     // used for communication of install dir between pages
     CString m_InstallDir;
@@ -90,6 +86,7 @@ protected:
 /////////////////////////////////////////////////////////////////////////////
 
 //{{AFX_INSERT_LOCATION}}
-// Microsoft Developer Studio will insert additional declarations immediately before the previous line.
+// Microsoft Developer Studio will insert additional declarations immediately before the
+// previous line.
 
 #endif // _WIZ_SHEET_H_

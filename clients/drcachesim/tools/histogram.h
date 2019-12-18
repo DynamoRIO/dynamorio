@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,29 +36,52 @@
 #ifndef _HISTOGRAM_H_
 #define _HISTOGRAM_H_ 1
 
-#include <unordered_map>
+#include <mutex>
 #include <string>
+#include <unordered_map>
+
 #include "analysis_tool.h"
 #include "memref.h"
 
-class histogram_t : public analysis_tool_t
-{
- public:
-    histogram_t(unsigned int line_size,
-                unsigned int report_top,
-                unsigned int verbose);
+class histogram_t : public analysis_tool_t {
+public:
+    histogram_t(unsigned int line_size, unsigned int report_top, unsigned int verbose);
     virtual ~histogram_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
+    bool
+    parallel_shard_supported() override;
+    void *
+    parallel_worker_init(int worker_index) override;
+    std::string
+    parallel_worker_exit(void *worker_data) override;
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override;
+    bool
+    parallel_shard_exit(void *shard_data) override;
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    std::string
+    parallel_shard_error(void *shard_data) override;
 
- protected:
-    std::unordered_map<addr_t, uint64_t> icache_map;
-    std::unordered_map<addr_t, uint64_t> dcache_map;
+protected:
+    struct shard_data_t {
+        std::unordered_map<addr_t, uint64_t> icache_map;
+        std::unordered_map<addr_t, uint64_t> dcache_map;
+        std::string error;
+    };
 
     unsigned int knob_line_size;
     unsigned int knob_report_top; /* most accessed lines */
     size_t line_size_bits;
     static const std::string TOOL_NAME;
+    std::unordered_map<memref_tid_t, shard_data_t *> shard_map;
+    // This mutex is only needed in parallel_shard_init.  In all other accesses to
+    // shard_map (process_memref, print_results) we are single-threaded.
+    std::mutex shard_map_mutex;
+    shard_data_t serial_shard;
 };
 
 #endif /* _HISTOGRAM_H_ */

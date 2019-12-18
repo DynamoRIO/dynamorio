@@ -40,20 +40,26 @@
 #include "cache_line.h"
 #include "cache_stats.h"
 
-class cache_t : public caching_device_t
-{
- public:
+class cache_t : public caching_device_t {
+public:
     // Size, line size and associativity are generally used
     // to describe a CPU cache.
-    virtual bool init(int associativity, int line_size, int total_size,
-                      caching_device_t *parent, caching_device_stats_t *stats,
-                      prefetcher_t *prefetcher = nullptr,
-                      bool inclusive = false,
-                      const std::vector<caching_device_t*>& children = {});
-    virtual void request(const memref_t &memref);
-    virtual void flush(const memref_t &memref);
- protected:
-    virtual void init_blocks();
+    // The id is an index into the snoop filter's array of caches for coherent caches.
+    // If this is a coherent cache, id should be in the range [0,num_snooped_caches).
+    virtual bool
+    init(int associativity, int line_size, int total_size, caching_device_t *parent,
+         caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
+         bool inclusive = false, bool coherent_cache = false, int id_ = -1,
+         snoop_filter_t *snoop_filter_ = nullptr,
+         const std::vector<caching_device_t *> &children = {});
+    virtual void
+    request(const memref_t &memref);
+    virtual void
+    flush(const memref_t &memref);
+
+protected:
+    virtual void
+    init_blocks();
 };
 
 #endif /* _CACHE_H_ */

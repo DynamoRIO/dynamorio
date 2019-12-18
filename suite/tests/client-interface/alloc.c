@@ -33,16 +33,17 @@
 
 #include "tools.h"
 
-int main()
+int
+main()
 {
     /* Execute writable code to test i#143.
      * This opcode sequence is matched in the client.
      * We can't put this on the stack b/c we need page prot -w on Windows.
      */
-    static char buf[] = { 0x90, 0x90, 0x90, 0xc3/*ret*/ };
-    void (*func)(void) = (void (*)(void)) buf;
+    static char buf[] = { 0x90, 0x90, 0x90, 0xc3 /*ret*/ };
+    void (*func)(void) = (void (*)(void))buf;
 
-    protect_mem(buf, sizeof(buf), ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(buf, sizeof(buf), ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
 
     (*func)();
 

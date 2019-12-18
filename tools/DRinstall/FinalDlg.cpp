@@ -39,8 +39,8 @@
 #include "FinalDlg.h"
 
 #ifdef _DEBUG
-#define new DEBUG_NEW
-#undef THIS_FILE
+#    define new DEBUG_NEW
+#    undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
 
@@ -49,7 +49,8 @@ static char THIS_FILE[] = __FILE__;
 
 IMPLEMENT_DYNCREATE(CFinalDlg, CPropertyPage)
 
-CFinalDlg::CFinalDlg() : CPropertyPage(CFinalDlg::IDD)
+CFinalDlg::CFinalDlg()
+    : CPropertyPage(CFinalDlg::IDD)
 {
     //{{AFX_DATA_INIT(CFinalDlg)
     // NOTE: the ClassWizard will add member initialization here
@@ -62,7 +63,8 @@ CFinalDlg::~CFinalDlg()
 {
 }
 
-void CFinalDlg::DoDataExchange(CDataExchange* pDX)
+void
+CFinalDlg::DoDataExchange(CDataExchange *pDX)
 {
     CPropertyPage::DoDataExchange(pDX);
     //{{AFX_DATA_MAP(CFinalDlg)
@@ -70,22 +72,22 @@ void CFinalDlg::DoDataExchange(CDataExchange* pDX)
     //}}AFX_DATA_MAP
 }
 
-
 BEGIN_MESSAGE_MAP(CFinalDlg, CPropertyPage)
-    //{{AFX_MSG_MAP(CFinalDlg)
-    // NOTE: the ClassWizard will add message map macros here
-    //}}AFX_MSG_MAP
+//{{AFX_MSG_MAP(CFinalDlg)
+// NOTE: the ClassWizard will add message map macros here
+//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 /////////////////////////////////////////////////////////////////////////////
 // CFinalDlg message handlers
 
-BOOL CFinalDlg::OnSetActive()
+BOOL
+CFinalDlg::OnSetActive()
 {
-    CPropertySheet* pSheet = (CPropertySheet*)GetParent();
+    CPropertySheet *pSheet = (CPropertySheet *)GetParent();
     ASSERT_KINDOF(CPropertySheet, pSheet);
     // our installer doesn't support Back!
     //      pSheet->SetWizardButtons( PSWIZB_BACK | PSWIZB_NEXT | PSWIZB_FINISH);
-    pSheet->SetWizardButtons( PSWIZB_NEXT | PSWIZB_FINISH);
+    pSheet->SetWizardButtons(PSWIZB_NEXT | PSWIZB_FINISH);
     return CPropertyPage::OnSetActive();
 }

@@ -32,7 +32,7 @@
 
 /* undefine this for a performance test */
 #ifndef NIGHTLY_REGRESSION
-# define NIGHTLY_REGRESSION
+#    define NIGHTLY_REGRESSION
 #endif
 
 #include "tools.h"
@@ -41,13 +41,13 @@
 
 #ifdef WINDOWS
 /* and compile with user32.lib */
-#include <windows.h>
+#    include <windows.h>
 #endif
 
 #ifdef NIGHTLY_REGRESSION
-#  define ITER 10*1000
+#    define ITER 10 * 1000
 #else
-#  define ITER 10*200*1000 // *100
+#    define ITER 10 * 200 * 1000 // *100
 #endif
 
 #define GOAL 32 /* recursive fib of course is exponential here */
@@ -57,16 +57,18 @@
 
 /* ignore overflow errors */
 int
-fib(int n) {
-    if (n <= 1) return 1;
+fib(int n)
+{
+    if (n <= 1)
+        return 1;
     /* for drcov test, we add a line that won't be executed */
     if (n > 100)
         return 0;
-    return fib(n-1) + fib(n-2);
+    return fib(n - 1) + fib(n - 2);
 }
 
 int
-main(int argc, char** argv)
+main(int argc, char **argv)
 {
     int i, t;
 
@@ -79,12 +81,12 @@ main(int argc, char** argv)
     print("fib(%d)=%d\n", 25, fib(25));
 
     /* show recursion */
-    for (i=0; i<=GOAL; i++) {
+    for (i = 0; i <= GOAL; i++) {
         t = fib(i);
         print("fib(%d)=%d\n", i, t);
     }
 
-    for (i=0; i<=ITER; i++) {
+    for (i = 0; i <= ITER; i++) {
         t = fib(DEPTH);
     }
 

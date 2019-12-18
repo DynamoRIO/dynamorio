@@ -39,7 +39,7 @@
 #include "advapi32_redir.h"
 
 #ifndef WINDOWS
-# error Windows-only
+#    error Windows-only
 #endif
 
 #define MAX_REG_KEY_NAME_LEN 255 /* from docs: don't see in headers */
@@ -48,28 +48,27 @@
 static strhash_table_t *advapi32_table;
 
 static const redirect_import_t redirect_advapi32[] = {
-    {"RegCloseKey",                   (app_pc)redirect_RegCloseKey},
-    {"RegOpenKeyExA",                 (app_pc)redirect_RegOpenKeyExA},
-    {"RegOpenKeyExW",                 (app_pc)redirect_RegOpenKeyExW},
-    {"RegQueryValueExA",              (app_pc)redirect_RegQueryValueExA},
-    {"RegQueryValueExW",              (app_pc)redirect_RegQueryValueExW},
+    { "RegCloseKey", (app_pc)redirect_RegCloseKey },
+    { "RegOpenKeyExA", (app_pc)redirect_RegOpenKeyExA },
+    { "RegOpenKeyExW", (app_pc)redirect_RegOpenKeyExW },
+    { "RegQueryValueExA", (app_pc)redirect_RegQueryValueExA },
+    { "RegQueryValueExW", (app_pc)redirect_RegQueryValueExW },
 };
-#define REDIRECT_ADVAPI32_NUM (sizeof(redirect_advapi32)/sizeof(redirect_advapi32[0]))
+#define REDIRECT_ADVAPI32_NUM (sizeof(redirect_advapi32) / sizeof(redirect_advapi32[0]))
 
 void
 advapi32_redir_init(void)
 {
     uint i;
-    advapi32_table =
-        strhash_hash_create(GLOBAL_DCONTEXT,
-                            hashtable_num_bits(REDIRECT_ADVAPI32_NUM*2),
-                            80 /* load factor: not perf-critical, plus static */,
-                            HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
-                            NULL _IF_DEBUG("advapi32 redirection table"));
+    advapi32_table = strhash_hash_create(
+        GLOBAL_DCONTEXT, hashtable_num_bits(REDIRECT_ADVAPI32_NUM * 2),
+        80 /* load factor: not perf-critical, plus static */,
+        HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
+        NULL _IF_DEBUG("advapi32 redirection table"));
     TABLE_RWLOCK(advapi32_table, write, lock);
     for (i = 0; i < REDIRECT_ADVAPI32_NUM; i++) {
         strhash_hash_add(GLOBAL_DCONTEXT, advapi32_table, redirect_advapi32[i].name,
-                         (void *) redirect_advapi32[i].func);
+                         (void *)redirect_advapi32[i].func);
     }
     TABLE_RWLOCK(advapi32_table, write, unlock);
 }
@@ -96,27 +95,18 @@ advapi32_redir_lookup(const char *name)
     return res;
 }
 
-
 LSTATUS
 WINAPI
-redirect_RegCloseKey(
-    __in HKEY hKey
-    )
+redirect_RegCloseKey(__in HKEY hKey)
 {
     NTSTATUS res = nt_raw_close(hKey);
     return ntstatus_to_last_error(res);
 }
 
-
 LSTATUS
 WINAPI
-redirect_RegOpenKeyExA(
-    __in HKEY hKey,
-    __in_opt LPCSTR lpSubKey,
-    __in_opt DWORD ulOptions,
-    __in REGSAM samDesired,
-    __out PHKEY phkResult
-    )
+redirect_RegOpenKeyExA(__in HKEY hKey, __in_opt LPCSTR lpSubKey, __in_opt DWORD ulOptions,
+                       __in REGSAM samDesired, __out PHKEY phkResult)
 {
     wchar_t *wkey;
     wchar_t wbuf[MAX_REG_KEY_NAME_LEN];
@@ -149,8 +139,7 @@ static bool
 key_is_special(HKEY key)
 {
     return (key == HKEY_LOCAL_MACHINE || key == HKEY_CURRENT_USER ||
-            key == HKEY_CURRENT_CONFIG || key == HKEY_CLASSES_ROOT ||
-            key == HKEY_USERS);
+            key == HKEY_CURRENT_CONFIG || key == HKEY_CLASSES_ROOT || key == HKEY_USERS);
 }
 
 /* Caller needs to close the key if key_is_special(key) */
@@ -165,12 +154,11 @@ special_to_handle(HKEY key, HKEY *special_key OUT)
         res = get_current_user_SID(sid, sizeof(sid));
         if (!NT_SUCCESS(res))
             return res;
-        len = _snwprintf(entry, BUFFER_SIZE_ELEMENTS(entry),
-                         L"\\Registry\\User\\%s", sid);
+        len =
+            _snwprintf(entry, BUFFER_SIZE_ELEMENTS(entry), L"\\Registry\\User\\%s", sid);
     } else {
         if (key == HKEY_LOCAL_MACHINE) {
-            len = _snwprintf(entry, BUFFER_SIZE_ELEMENTS(entry),
-                             L"\\Registry\\Machine");
+            len = _snwprintf(entry, BUFFER_SIZE_ELEMENTS(entry), L"\\Registry\\Machine");
         } else if (key == HKEY_CURRENT_CONFIG) {
             len = _snwprintf(entry, BUFFER_SIZE_ELEMENTS(entry),
                              L"\\Registry\\Machine\\System\\CurrentControlSet\\"
@@ -179,14 +167,12 @@ special_to_handle(HKEY key, HKEY *special_key OUT)
             len = _snwprintf(entry, BUFFER_SIZE_ELEMENTS(entry),
                              L"\\Registry\\Machine\\Software\\CLASSES");
         } else if (key == HKEY_USERS) {
-            len = _snwprintf(entry, BUFFER_SIZE_ELEMENTS(entry),
-                             L"\\Registry\\User");
-        } else if (key == HKEY_PERFORMANCE_DATA ||
-                   key == HKEY_PERFORMANCE_NLSTEXT ||
+            len = _snwprintf(entry, BUFFER_SIZE_ELEMENTS(entry), L"\\Registry\\User");
+        } else if (key == HKEY_PERFORMANCE_DATA || key == HKEY_PERFORMANCE_NLSTEXT ||
                    key == HKEY_PERFORMANCE_TEXT) {
             /* XXX: NYI */
             return STATUS_NOT_IMPLEMENTED;
-       } else {
+        } else {
             *special_key = key;
             return STATUS_SUCCESS;
         }
@@ -206,13 +192,9 @@ key_close_special(HKEY orig_key, HKEY resolved_key)
 
 LSTATUS
 WINAPI
-redirect_RegOpenKeyExW(
-    __in HKEY hKey,
-    __in_opt LPCWSTR lpSubKey,
-    __in_opt DWORD ulOptions,
-    __in REGSAM samDesired,
-    __out PHKEY phkResult
-    )
+redirect_RegOpenKeyExW(__in HKEY hKey, __in_opt LPCWSTR lpSubKey,
+                       __in_opt DWORD ulOptions, __in REGSAM samDesired,
+                       __out PHKEY phkResult)
 {
     NTSTATUS res;
     HKEY parent_key;
@@ -248,14 +230,11 @@ redirect_RegOpenKeyExW(
 
 LSTATUS
 WINAPI
-redirect_RegQueryValueExA(
-    __in HKEY hKey,
-    __in_opt LPCSTR lpValueName,
-    __reserved LPDWORD lpReserved,
-    __out_opt LPDWORD lpType,
-    __out_bcount_part_opt(*lpcbData, *lpcbData) __out_data_source(REGISTRY) LPBYTE lpData,
-    __inout_opt LPDWORD lpcbData
-    )
+redirect_RegQueryValueExA(__in HKEY hKey, __in_opt LPCSTR lpValueName,
+                          __reserved LPDWORD lpReserved, __out_opt LPDWORD lpType,
+                          __out_bcount_part_opt(*lpcbData, *lpcbData)
+                              __out_data_source(REGISTRY) LPBYTE lpData,
+                          __inout_opt LPDWORD lpcbData)
 {
     NTSTATUS res;
     wchar_t wbuf[MAX_REG_KEY_NAME_LEN];
@@ -283,7 +262,7 @@ redirect_RegQueryValueExA(
         do { /* loop for REG_MULTI_SZ */
             prev_sofar = sofar;
             if (!print_to_buffer(buf, max_len, &sofar, "%.*ls", *lpcbData - sofar,
-                                 ((char *)lpData) + sofar*sizeof(wchar_t))) {
+                                 ((char *)lpData) + sofar * sizeof(wchar_t))) {
                 /* XXX: we don't know what to set *lpcbData to: really shouldn't happen */
                 return ERROR_MORE_DATA;
             }
@@ -297,14 +276,11 @@ redirect_RegQueryValueExA(
 
 LSTATUS
 WINAPI
-redirect_RegQueryValueExW(
-    __in HKEY hKey,
-    __in_opt LPCWSTR lpValueName,
-    __reserved LPDWORD lpReserved,
-    __out_opt LPDWORD lpType,
-    __out_bcount_part_opt(*lpcbData, *lpcbData) __out_data_source(REGISTRY) LPBYTE lpData,
-    __inout_opt LPDWORD lpcbData
-    )
+redirect_RegQueryValueExW(__in HKEY hKey, __in_opt LPCWSTR lpValueName,
+                          __reserved LPDWORD lpReserved, __out_opt LPDWORD lpType,
+                          __out_bcount_part_opt(*lpcbData, *lpcbData)
+                              __out_data_source(REGISTRY) LPBYTE lpData,
+                          __inout_opt LPDWORD lpcbData)
 {
     UNICODE_STRING us;
     NTSTATUS res;
@@ -325,14 +301,13 @@ redirect_RegQueryValueExW(
     if (!NT_SUCCESS(res))
         return ntstatus_to_last_error(res);
 
-    kvpi = (KEY_VALUE_PARTIAL_INFORMATION *) buf;
+    kvpi = (KEY_VALUE_PARTIAL_INFORMATION *)buf;
     kvpi_sz = BUFFER_SIZE_BYTES(buf);
 
-    res = nt_query_value_key(key, &us, KeyValuePartialInformation,
-                             kvpi, kvpi_sz, &res_sz);
+    res =
+        nt_query_value_key(key, &us, KeyValuePartialInformation, kvpi, kvpi_sz, &res_sz);
     /* while loop in case of race */
-    while (lpData != NULL &&
-           res == STATUS_BUFFER_OVERFLOW &&
+    while (lpData != NULL && res == STATUS_BUFFER_OVERFLOW &&
            *lpcbData >= res_sz - offsetof(KEY_VALUE_PARTIAL_INFORMATION, Data)) {
         if (kvpi != (KEY_VALUE_PARTIAL_INFORMATION *)buf)
             redirect_HeapFree(redirect_GetProcessHeap(), 0, kvpi);
@@ -342,8 +317,8 @@ redirect_RegQueryValueExW(
             key_close_special(hKey, key);
             return ERROR_NOT_ENOUGH_MEMORY;
         }
-        res = nt_query_value_key(key, &us, KeyValuePartialInformation,
-                                 kvpi, kvpi_sz, &res_sz);
+        res = nt_query_value_key(key, &us, KeyValuePartialInformation, kvpi, kvpi_sz,
+                                 &res_sz);
     }
 
     if (lpcbData != NULL) {
@@ -356,8 +331,8 @@ redirect_RegQueryValueExW(
         if (lpType != NULL)
             *lpType = kvpi->Type;
         if (lpData != NULL) {
-            memcpy(lpData, &kvpi->Data, res_sz -
-                   offsetof(KEY_VALUE_PARTIAL_INFORMATION, Data));
+            memcpy(lpData, &kvpi->Data,
+                   res_sz - offsetof(KEY_VALUE_PARTIAL_INFORMATION, Data));
         }
     }
 
@@ -367,7 +342,6 @@ redirect_RegQueryValueExW(
     return ntstatus_to_last_error(res);
 }
 
-
 #ifdef STANDALONE_UNIT_TEST
 void
 unit_test_drwinapi_advapi32(void)
@@ -376,7 +350,7 @@ unit_test_drwinapi_advapi32(void)
     HKEY key;
     DWORD type, size, handle_count = 0;
     /* NetworkService gets bigger then 512 so we go for 1024 */
-# define REG_KEY_DATA_SZ 1024
+#    define REG_KEY_DATA_SZ 1024
     char buf[REG_KEY_DATA_SZ];
     BOOL ok;
 
@@ -391,19 +365,19 @@ unit_test_drwinapi_advapi32(void)
     }
 
     res = redirect_RegOpenKeyExA(HKEY_LOCAL_MACHINE,
-                                 "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
-                                 0, KEY_READ, &key);
+                                 "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0,
+                                 KEY_READ, &key);
     EXPECT(res == ERROR_SUCCESS, true);
     size = BUFFER_SIZE_BYTES(buf);
-    res = redirect_RegQueryValueExA(key, "SystemRoot", 0, &type, (LPBYTE) buf, &size);
+    res = redirect_RegQueryValueExA(key, "SystemRoot", 0, &type, (LPBYTE)buf, &size);
     EXPECT(res == ERROR_SUCCESS, true);
     EXPECT(type == REG_SZ, true);
-    EXPECT(strstr(buf, "Windows") != NULL ||
-           strstr(buf, "WINDOWS") != NULL ||
-           /* Appveyor's Server 2012 R2 is all lower-case.
-            * If we had a stristr I'd use it here.
-            */
-           strstr(buf, "windows") != NULL, true);
+    EXPECT(strstr(buf, "Windows") != NULL || strstr(buf, "WINDOWS") != NULL ||
+               /* Appveyor's Server 2012 R2 is all lower-case.
+                * If we had a stristr I'd use it here.
+                */
+               strstr(buf, "windows") != NULL,
+           true);
 
     size = 0;
     res = redirect_RegQueryValueExA(key, "SystemRoot", 0, NULL, NULL, &size);
@@ -414,13 +388,12 @@ unit_test_drwinapi_advapi32(void)
     EXPECT(res == ERROR_SUCCESS, true);
 
     /* test REG_MULTI_SZ */
-    res = redirect_RegOpenKeyExA
-        (HKEY_LOCAL_MACHINE,
-         "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Svchost",
-         0, KEY_READ, &key);
+    res = redirect_RegOpenKeyExA(
+        HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Svchost", 0,
+        KEY_READ, &key);
     EXPECT(res == ERROR_SUCCESS, true);
     size = BUFFER_SIZE_BYTES(buf);
-    res = redirect_RegQueryValueExA(key, "NetworkService", 0, &type, (LPBYTE) buf, &size);
+    res = redirect_RegQueryValueExA(key, "NetworkService", 0, &type, (LPBYTE)buf, &size);
     EXPECT(res == ERROR_SUCCESS, true);
     EXPECT(type == REG_MULTI_SZ, true);
     {
@@ -432,13 +405,12 @@ unit_test_drwinapi_advapi32(void)
             count++;
             if (strcmp(s, "DHCP") == 0)
                 found_dhcp = true;
-            else if (strstr(s, "DNS") != NULL ||
-                     strstr(s, "DnsCache") != NULL)
+            else if (strstr(s, "DNS") != NULL || strstr(s, "DnsCache") != NULL)
                 found_DNS = true;
-            s += strlen(s) + 1/*null*/;
+            s += strlen(s) + 1 /*null*/;
         }
-        EXPECT ((count == 1 /*seen on XP*/ && found_DNS) ||
-                (found_dhcp && found_DNS), true);
+        EXPECT((count == 1 /*seen on XP*/ && found_DNS) || (found_dhcp && found_DNS),
+               true);
     }
     res = redirect_RegCloseKey(key);
     EXPECT(res == ERROR_SUCCESS, true);
@@ -449,7 +421,7 @@ unit_test_drwinapi_advapi32(void)
     /* PATH is sometimes REG_SZ and sometimes REG_EXPAND_SZ.  TEMP is
      * REG_EXPAND_SZ by default, but if the user changes it it may be REG_SZ.
      */
-    res = redirect_RegQueryValueExW(key, L"TEMP", 0, &type, (LPBYTE) buf, &size);
+    res = redirect_RegQueryValueExW(key, L"TEMP", 0, &type, (LPBYTE)buf, &size);
     EXPECT(res == ERROR_SUCCESS, true);
     EXPECT(type == REG_EXPAND_SZ || type == REG_SZ, true);
     res = redirect_RegCloseKey(key);

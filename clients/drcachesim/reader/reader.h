@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,33 +44,62 @@
 #include "memref.h"
 #include "utils.h"
 
-class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
-{
- public:
-    reader_t();
-    virtual ~reader_t() {}
+#define OUT /* just a marker */
+
+#ifdef DEBUG
+#    define VPRINT(reader, level, ...)                           \
+        do {                                                     \
+            if ((reader)->verbosity >= (level)) {                \
+                fprintf(stderr, "%s ", (reader)->output_prefix); \
+                fprintf(stderr, __VA_ARGS__);                    \
+            }                                                    \
+        } while (0)
+#else
+#    define VPRINT(reader, level, ...) /* nothing */
+#endif
+
+class reader_t : public std::iterator<std::input_iterator_tag, memref_t> {
+public:
+    reader_t()
+    {
+    }
+    reader_t(int verbosity_in, const char *prefix)
+        : verbosity(verbosity_in)
+        , output_prefix(prefix)
+    {
+    }
+    virtual ~reader_t()
+    {
+    }
 
     // This may block.
-    virtual bool init() = 0;
+    virtual bool
+    init() = 0;
 
-    virtual const memref_t& operator*();
+    virtual const memref_t &operator*();
 
     // To avoid double-dispatch (requires listing all derived types in the base here)
     // and RTTI in trying to get the right operators called for subclasses, we
     // instead directly check at_eof here.  If we end up needing to run code
     // and a bool field is not enough we can change this to invoke a virtual
     // method is_at_eof().
-    virtual bool operator==(const reader_t& rhs) const {
+    virtual bool
+    operator==(const reader_t &rhs) const
+    {
         return BOOLS_MATCH(at_eof, rhs.at_eof);
     }
-    virtual bool operator!=(const reader_t& rhs) const {
+    virtual bool
+    operator!=(const reader_t &rhs) const
+    {
         return !BOOLS_MATCH(at_eof, rhs.at_eof);
     }
 
-    virtual reader_t& operator++();
+    virtual reader_t &
+    operator++();
 
     // Supplied for subclasses that may fail in their constructors.
-    virtual bool operator!() {
+    virtual bool operator!()
+    {
         return false;
     }
 
@@ -80,20 +109,36 @@ class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
     // 2) It is difficult to implement for file_reader_t as streams do not
     //    have a copy constructor.
 
- protected:
-    virtual trace_entry_t * read_next_entry() = 0;
+protected:
+    // This reads the next entry from the stream of entries from all threads interleaved
+    // in timestamp order.
+    virtual trace_entry_t *
+    read_next_entry() = 0;
+    // This reads the next entry from the single stream of entries
+    // from the specified thread.  If it returns false it will set *eof to distinguish
+    // end-of-file from an error.
+    virtual bool
+    read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
+                           OUT bool *eof) = 0;
 
-    bool at_eof;
+    // Following typical stream iterator convention, the default constructor
+    // produces an EOF object.
+    // This should be set to false by subclasses in init() and set
+    // back to true when actual EOF is hit.
+    bool at_eof = true;
 
- private:
-    trace_entry_t *input_entry;
+    int verbosity = 0;
+    const char *output_prefix = "[reader]";
+
+private:
+    trace_entry_t *input_entry = nullptr;
     memref_t cur_ref;
-    memref_tid_t cur_tid;
-    memref_pid_t cur_pid;
-    addr_t cur_pc;
+    memref_tid_t cur_tid = 0;
+    memref_pid_t cur_pid = 0;
+    addr_t cur_pc = 0;
     addr_t next_pc;
-    addr_t prev_instr_addr;
-    int bundle_idx;
+    addr_t prev_instr_addr = 0;
+    int bundle_idx = 0;
     std::unordered_map<memref_tid_t, memref_pid_t> tid2pid;
 };
 

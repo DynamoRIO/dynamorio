@@ -45,8 +45,7 @@
  * preferences dialog. The page will be accessed by drgui's preferences dialog
  * through drgui_tool_interface_t's create_options_page() method.
  */
-class drgui_options_interface_t : public QWidget
-{
+class drgui_options_interface_t : public QWidget {
     Q_OBJECT
 public:
     /**
@@ -55,16 +54,16 @@ public:
      * The names are used for accessing the different options pages
      * via the list widget in drgui's preferences dialog, and must be unique.
      */
-    virtual
-    QStringList tool_names(void) const = 0;
+    virtual QStringList
+    tool_names(void) const = 0;
 
     /**
      * Writes the settings for the options page.
      * Called by drgui_options_window_t for each tool when the save button is pressed.
      * The tool will decide how it wants to handle its settings' persistence.
      */
-    virtual
-    void write_settings(void) = 0;
+    virtual void
+    write_settings(void) = 0;
 
     /**
      * Reads the settings for the options page.
@@ -72,9 +71,8 @@ public:
      * button is pressed.
      * The tool will decide how it wants to handle its settings' persistence.
      */
-    virtual
-    void read_settings(void) = 0;
-
+    virtual void
+    read_settings(void) = 0;
 };
 
 #define DrGUI_OptionsInterface_iid "DynamoRIO.DrGUI.OptionsInterface"

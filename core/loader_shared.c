@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2009 Derek Bruening   All rights reserved.
  * *******************************************************************************/
@@ -40,10 +40,8 @@
 #include "globals.h"
 #include "module_shared.h"
 #ifdef CLIENT_INTERFACE
-# include "instrument.h" /* for instrument_client_lib_unloaded */
+#    include "instrument.h" /* for instrument_client_lib_unloaded */
 #endif
-
-#include <string.h>
 
 /* ok to be in .data w/ no sentinel head node b/c never empties out
  * .ntdll always there for Windows, so no need to unprot.
@@ -53,19 +51,16 @@
  */
 static privmod_t *modlist;
 
-
 /* Recursive library load could happen:
  * Linux:   when load dependent library
  * Windows: redirect_* can be invoked from private libray
  *          entry points.
  */
-DECLARE_CXTSWPROT_VAR(recursive_lock_t privload_lock,
-                      INIT_RECURSIVE_LOCK(privload_lock));
+DECLARE_CXTSWPROT_VAR(recursive_lock_t privload_lock, INIT_RECURSIVE_LOCK(privload_lock));
 /* Protected by privload_lock */
 #ifdef DEBUG
 DECLARE_NEVERPROT_VAR(static uint privload_recurse_cnt, 0);
 #endif
-
 
 /* These are only written during init so ok to be in .data */
 static privmod_t privmod_static[PRIVMOD_STATIC_NUM];
@@ -103,9 +98,10 @@ loader_init(void)
 
     acquire_recursive_lock(&privload_lock);
     VMVECTOR_ALLOC_VECTOR(modlist_areas, GLOBAL_DCONTEXT,
-                          VECTOR_SHARED | VECTOR_NEVER_MERGE
-                          /* protected by privload_lock */
-                          | VECTOR_NO_LOCK,
+                          VECTOR_SHARED |
+                              VECTOR_NEVER_MERGE
+                              /* protected by privload_lock */
+                              | VECTOR_NO_LOCK,
                           modlist_areas);
     /* os specific loader initialization prologue before finalize the load */
     os_loader_init_prologue();
@@ -114,21 +110,21 @@ loader_init(void)
     for (i = 0; i < privmod_static_idx; i++) {
         /* Transfer to real list so we can do normal processing */
         char name_copy[MAXIMUM_PATH];
-        mod = privload_insert(NULL,
-                              privmod_static[i].base,
-                              privmod_static[i].size,
-                              privmod_static[i].name,
-                              privmod_static[i].path);
-        LOG(GLOBAL, LOG_LOADER, 1, "%s: processing imports for %s\n",
-            __FUNCTION__, mod->name);
+        mod = privload_insert(NULL, privmod_static[i].base, privmod_static[i].size,
+                              privmod_static[i].name, privmod_static[i].path);
+#ifdef CLIENT_INTERFACE
+        mod->is_client = true;
+#endif
+        LOG(GLOBAL, LOG_LOADER, 1, "%s: processing imports for %s\n", __FUNCTION__,
+            mod->name);
         /* save a copy for error msg, b/c mod will be unloaded (i#643) */
         snprintf(name_copy, BUFFER_SIZE_ELEMENTS(name_copy), "%s", mod->name);
         NULL_TERMINATE_BUFFER(name_copy);
         if (!privload_load_finalize(mod)) {
             mod = NULL; /* it's been unloaded! */
 #ifdef CLIENT_INTERFACE
-            SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 5,
-                   get_application_name(), get_application_pid(), name_copy,
+            SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 5, get_application_name(),
+                   get_application_pid(), name_copy,
                    "\n\tUnable to locate imports of client library");
 #endif
             os_terminate(NULL, TERMINATE_PROCESS);
@@ -216,10 +212,10 @@ loader_thread_exit(dcontext_t *dcontext)
          * we're not worried about leaks from not calling DLL_THREAD_EXIT.
          * (We can't check get_thread_private_dcontext() b/c it's already cleared.)
          */
-        dcontext->owning_thread == get_thread_id()) {
+        dcontext->owning_thread == d_r_get_thread_id()) {
         acquire_recursive_lock(&privload_lock);
         /* Walk forward and call independent libs last */
-         for (mod = modlist; mod != NULL; mod = mod->next) {
+        for (mod = modlist; mod != NULL; mod = mod->next) {
             if (!mod->externally_loaded)
                 privload_call_entry(mod, DLL_THREAD_EXIT);
         }
@@ -284,7 +280,7 @@ unload_private_library(app_pc modbase)
 bool
 in_private_library(app_pc pc)
 {
-    return vmvector_overlap(modlist_areas, pc, pc+1);
+    return vmvector_overlap(modlist_areas, pc, pc + 1);
 }
 
 /* Caseless and "separator agnostic" (i#1869) */
@@ -417,6 +413,9 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
      */
     if (IF_UNIX_ELSE(mod->name == NULL, false)) {
         mod->name = double_strrchr(mod->path, DIRSEP, ALT_DIRSEP);
+        /* XXX: double_strrchr() returns mod->name containing the leading '/'. We probably
+         * don't want that, but it doesn't seem to break anything, leaving it for now.
+         */
         if (mod->name == NULL)
             mod->name = mod->path;
     }
@@ -450,13 +449,13 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
     return (void *)mod;
 }
 
-static bool
+bool
 privload_search_path_exists(const char *path, size_t len)
 {
     uint i;
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     for (i = 0; i < search_paths_idx; i++) {
-        if (IF_UNIX_ELSE(strncmp,strncasecmp)(search_paths[i], path, len) == 0)
+        if (IF_UNIX_ELSE(strncmp, strncasecmp)(search_paths[i], path, len) == 0)
             return true;
     }
     return false;
@@ -474,11 +473,11 @@ privload_read_drpath_file(const char *libname)
     if (end == NULL)
         return;
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%.*s.%s",
-             end - libname, libname, DR_RPATH_SUFFIX);
+    snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%.*s.%s", end - libname, libname,
+             DR_RPATH_SUFFIX);
     NULL_TERMINATE_BUFFER(path);
     LOG(GLOBAL, LOG_LOADER, 3, "%s: looking for %s\n", __FUNCTION__, path);
-    if (os_file_exists(path, false/*!is_dir*/)) {
+    if (os_file_exists(path, false /*!is_dir*/)) {
         /* Easiest to parse by mapping.  It's a newline-separated list of
          * paths.  We support carriage returns as well.
          */
@@ -486,15 +485,13 @@ privload_read_drpath_file(const char *libname)
         char *map;
         size_t map_size;
         uint64 file_size;
-        if (f != INVALID_FILE &&
-            os_get_file_size_by_handle(f, &file_size)) {
+        if (f != INVALID_FILE && os_get_file_size_by_handle(f, &file_size)) {
             LOG(GLOBAL, LOG_LOADER, 2, "%s: reading %s\n", __FUNCTION__, path);
             ASSERT_TRUNCATE(map_size, size_t, file_size);
-            map_size = (size_t) file_size;
-            map = (char *)
-                os_map_file(f, &map_size, 0, NULL, MEMPROT_READ, 0);
+            map_size = (size_t)file_size;
+            map = (char *)os_map_file(f, &map_size, 0, NULL, MEMPROT_READ, 0);
             if (map != NULL && map_size >= file_size) {
-                const char *s = (char *) map;
+                const char *s = (char *)map;
                 const char *nl;
                 while (s < map + file_size && search_paths_idx < SEARCH_PATHS_NUM) {
                     for (nl = s; nl < map + file_size && *nl != '\r' && *nl != '\n';
@@ -562,8 +559,7 @@ privload_load(const char *filename, privmod_t *dependent, bool client)
         ASSERT(search_paths_idx < SEARCH_PATHS_NUM);
         if (end != NULL &&
             end - filename < BUFFER_SIZE_ELEMENTS(search_paths[search_paths_idx])) {
-            snprintf(search_paths[search_paths_idx], end - filename, "%s",
-                     filename);
+            snprintf(search_paths[search_paths_idx], end - filename, "%s", filename);
             NULL_TERMINATE_BUFFER(search_paths[search_paths_idx]);
         } else
             ASSERT_NOT_REACHED(); /* should never have client lib path so big */
@@ -574,8 +570,7 @@ privload_load(const char *filename, privmod_t *dependent, bool client)
      * don't need strdup
      */
     /* Add after its dependent to preserve forward-can-unload order */
-    privmod = privload_insert(dependent, map, size, get_shared_lib_name(map),
-                              filename);
+    privmod = privload_insert(dependent, map, size, get_shared_lib_name(map), filename);
 
     /* If no heap yet, we'll call finalize later in loader_init() */
     if (privmod != NULL && privload_modlist_initialized()) {
@@ -596,10 +591,10 @@ privload_unload(privmod_t *privmod)
     ASSERT(privload_modlist_initialized());
     ASSERT(privmod->ref_count > 0);
     privmod->ref_count--;
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: %s refcount => %d\n", __FUNCTION__,
-        privmod->name, privmod->ref_count);
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: %s refcount => %d\n", __FUNCTION__, privmod->name,
+        privmod->ref_count);
     if (privmod->ref_count == 0) {
-        LOG(GLOBAL, LOG_LOADER, 1, "%s: unloading %s @ "PFX"\n", __FUNCTION__,
+        LOG(GLOBAL, LOG_LOADER, 1, "%s: unloading %s @ " PFX "\n", __FUNCTION__,
             privmod->name, privmod->base);
 #ifdef CLIENT_INTERFACE
         if (privmod->is_client)
@@ -621,7 +616,7 @@ privload_unload(privmod_t *privmod)
             /* this routine may modify modlist, but we're done with it */
             privload_unload_imports(privmod);
             privload_remove_areas(privmod);
-            /* unmap_file removes from DR areas and calls unmap_file().
+            /* unmap_file removes from DR areas and calls d_r_unmap_file().
              * It's ok to call this for client libs: ok to remove what's not there.
              */
             privload_unmap_file(privmod);
@@ -633,9 +628,9 @@ privload_unload(privmod_t *privmod)
 }
 
 #ifdef X64
-# define LIB_SUBDIR "lib64"
+#    define LIB_SUBDIR "lib64"
 #else
-# define LIB_SUBDIR "lib32"
+#    define LIB_SUBDIR "lib32"
 #endif
 #define EXT_SUBDIR "ext"
 #define DRMF_SUBDIR "drmemory/drmf"
@@ -655,15 +650,14 @@ privload_add_subdir_path(const char *subdir)
      */
     path = get_dynamorio_library_path();
     mid = strstr(path, LIB_SUBDIR);
-    if (mid != NULL &&
-        search_paths_idx < SEARCH_PATHS_NUM &&
-        (strlen(path)+strlen(subdir)+1/*sep*/) <
-        BUFFER_SIZE_ELEMENTS(search_paths[search_paths_idx])) {
+    if (mid != NULL && search_paths_idx < SEARCH_PATHS_NUM &&
+        (strlen(path) + strlen(subdir) + 1 /*sep*/) <
+            BUFFER_SIZE_ELEMENTS(search_paths[search_paths_idx])) {
         char *s = search_paths[search_paths_idx];
         snprintf(s, mid - path, "%s", path);
         s += (mid - path);
-        snprintf(s, strlen(subdir)+1/*sep*/, "%s%c", subdir, DIRSEP);
-        s += strlen(subdir)+1/*sep*/;
+        snprintf(s, strlen(subdir) + 1 /*sep*/, "%s%c", subdir, DIRSEP);
+        s += strlen(subdir) + 1 /*sep*/;
         end = double_strrchr(path, DIRSEP, ALT_DIRSEP);
         if (end != NULL && search_paths_idx < SEARCH_PATHS_NUM) {
             snprintf(s, end - mid, "%s", mid);
@@ -703,8 +697,8 @@ privload_load_finalize(privmod_t *privmod)
     privload_redirect_setup(privmod);
 
     if (!privload_process_imports(privmod)) {
-        LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to process imports %s\n",
-            __FUNCTION__, privmod->name);
+        LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to process imports %s\n", __FUNCTION__,
+            privmod->name);
         privload_unload(privmod);
         return false;
     }
@@ -719,7 +713,7 @@ privload_load_finalize(privmod_t *privmod)
 
     privload_load_finalized(privmod);
 
-    LOG(GLOBAL, LOG_LOADER, 1, "%s: loaded %s @ "PFX"-"PFX" from %s\n", __FUNCTION__,
+    LOG(GLOBAL, LOG_LOADER, 1, "%s: loaded %s @ " PFX "-" PFX " from %s\n", __FUNCTION__,
         privmod->name, privmod->base, privmod->base + privmod->size, privmod->path);
     return true;
 }
@@ -759,7 +753,7 @@ privload_print_modules(bool path, bool lock, char *buf, size_t bufsz, size_t *so
         acquire_recursive_lock(&privload_lock);
     for (mod = modlist; mod != NULL; mod = mod->next) {
         if (!mod->externally_loaded) {
-            if (!print_to_buffer(buf, bufsz, sofar, "%s="PFX"\n",
+            if (!print_to_buffer(buf, bufsz, sofar, "%s=" PFX "\n",
                                  path ? mod->path : mod->name, mod->base)) {
                 if (lock)
                     release_recursive_lock(&privload_lock);
@@ -771,4 +765,3 @@ privload_print_modules(bool path, bool lock, char *buf, size_t bufsz, size_t *so
         release_recursive_lock(&privload_lock);
     return true;
 }
-

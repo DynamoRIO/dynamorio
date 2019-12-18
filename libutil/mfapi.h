@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,12 +40,11 @@
  *
  */
 
-
 #ifndef _DETERMINA_MFAPI_H_
 #define _DETERMINA_MFAPI_H_
 
 #ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0500
+#    define _WIN32_WINNT 0x0500
 #endif
 
 #include <windows.h>
@@ -55,22 +54,21 @@
 typedef UINT_PTR process_id_t;
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /* custom Win32-style error codes; using "high" constants so that
  *   it's obvious it's not win32. */
-#define ERROR_OPTION_NOT_FOUND     0xffffffff
-#define ERROR_NOT_INITIALIZED      0xfffffffe
-#define ERROR_UNKNOWN_ENTRY        0xfffffffd
-#define ERROR_DETACH_NOT_ALLOWED   0xfffffffc
-#define ERROR_UNSUPPORTED_OS       0xfffffffb
-#define ERROR_LIST_VIOLATION       0xfffffffa
-#define ERROR_LENGTH_VIOLATION     0xfffffff9
-#define ERROR_DETACH_ERROR         0xfffffff8
-#define ERROR_PARSE_ERROR          0xfffffff7
-#define ERROR_DRMARKER_ERROR       0xfffffff6
+#define ERROR_OPTION_NOT_FOUND 0xffffffff
+#define ERROR_NOT_INITIALIZED 0xfffffffe
+#define ERROR_UNKNOWN_ENTRY 0xfffffffd
+#define ERROR_DETACH_NOT_ALLOWED 0xfffffffc
+#define ERROR_UNSUPPORTED_OS 0xfffffffb
+#define ERROR_LIST_VIOLATION 0xfffffffa
+#define ERROR_LENGTH_VIOLATION 0xfffffff9
+#define ERROR_DETACH_ERROR 0xfffffff8
+#define ERROR_PARSE_ERROR 0xfffffff7
+#define ERROR_DRMARKER_ERROR 0xfffffff6
 
 /************************
  * policy import/export *
@@ -201,7 +199,6 @@ extern "C"
  *
  */
 
-
 /* import the specified configuration, thus enabling Determina
  *  protection for all newly launched processes. note that, according
  *  to the policy definition (GLOBAL_PROTECT), this will either call
@@ -227,8 +224,8 @@ extern "C"
  *   definition is being read from an ASCII file or a network
  *   connection. */
 DWORD
-policy_import(char *policy_definition, BOOL synchronize_system,
-              BOOL *inject_flag, DWORD *warning);
+policy_import(char *policy_definition, BOOL synchronize_system, BOOL *inject_flag,
+              DWORD *warning);
 
 /* returns a policy definition string based on the current registry
  *  configuration.
@@ -256,7 +253,6 @@ validate_policy(char *policy_buffer);
 DWORD
 clear_policy();
 
-
 /************************
  * AppInit_DLLs setting *
  ************************/
@@ -273,7 +269,6 @@ is_protection_enabled();
 /* disable Determina protection on the system. */
 DWORD
 disable_protection();
-
 
 /*
  * For more detailed control over the AppInit_DLLs key, use
@@ -338,18 +333,18 @@ disable_protection();
  *
  */
 
-#define APPINIT_FORCE_TO_FRONT               0x1
-#define APPINIT_FORCE_TO_BACK                0x2
-#define APPINIT_USE_BLACKLIST                0x4
-#define APPINIT_USE_WHITELIST                0x8
-#define APPINIT_CHECK_LISTS_ONLY             0x10
-#define APPINIT_WARN_ON_LIST_VIOLATION       0x20
-#define APPINIT_BAIL_ON_LIST_VIOLATION       0x40
-#define APPINIT_SYS32_USE_LENGTH_WORKAROUND  0x100
-#define APPINIT_SYS32_FAIL_ON_LENGTH_ERROR   0x200
-#define APPINIT_SYS32_CLEAR_OTHERS           0x400
-#define APPINIT_SYS32_TRUNCATE               0x800
-#define APPINIT_OVERWRITE                    0x1000
+#define APPINIT_FORCE_TO_FRONT 0x1
+#define APPINIT_FORCE_TO_BACK 0x2
+#define APPINIT_USE_BLACKLIST 0x4
+#define APPINIT_USE_WHITELIST 0x8
+#define APPINIT_CHECK_LISTS_ONLY 0x10
+#define APPINIT_WARN_ON_LIST_VIOLATION 0x20
+#define APPINIT_BAIL_ON_LIST_VIOLATION 0x40
+#define APPINIT_SYS32_USE_LENGTH_WORKAROUND 0x100
+#define APPINIT_SYS32_FAIL_ON_LENGTH_ERROR 0x200
+#define APPINIT_SYS32_CLEAR_OTHERS 0x400
+#define APPINIT_SYS32_TRUNCATE 0x800
+#define APPINIT_OVERWRITE 0x1000
 
 /* The flags, blacklist, whitelist, list_error parameters are as
  *  described above.
@@ -363,12 +358,10 @@ disable_protection();
  *  violation is reported.
  */
 DWORD
-enable_protection_ex(BOOL inject, DWORD flags,
-                     const WCHAR *blacklist,
+enable_protection_ex(BOOL inject, DWORD flags, const WCHAR *blacklist,
                      const WCHAR *whitelist, DWORD *list_error,
-                     const WCHAR *custom_preinject_name,
-                     WCHAR *current_list, SIZE_T maxchars);
-
+                     const WCHAR *custom_preinject_name, WCHAR *current_list,
+                     SIZE_T maxchars);
 
 /*************************
  *    process status     *
@@ -377,8 +370,7 @@ enable_protection_ex(BOOL inject, DWORD flags,
 /* generic process walk callback routine; the callback should
  *  return FALSE to abort the walk. optionally takes a parameter
  *  which can be passed to the enumerate_processes method. */
-typedef BOOL (*process_callback)(ULONG pid, WCHAR *process_name,
-                                 void **param);
+typedef BOOL (*process_callback)(ULONG pid, WCHAR *process_name, void **param);
 
 /* helper method: for each running processes on the system,
  *  executes the callback with the specified info. (everything is
@@ -388,11 +380,10 @@ typedef BOOL (*process_callback)(ULONG pid, WCHAR *process_name,
 DWORD
 enumerate_processes(process_callback pcb, void **param);
 
-
 /* process status codes */
 #define INJECT_STATUS_PROTECTED 1
-#define INJECT_STATUS_NATIVE    2
-#define INJECT_STATUS_UNKNOWN   3
+#define INJECT_STATUS_NATIVE 2
+#define INJECT_STATUS_UNKNOWN 3
 
 /* returns one of above status definitions in the status pointer.
  * if the build pointer is non-NULL, returns the build number of the
@@ -416,13 +407,9 @@ is_process_pending_restart(process_id_t pid);
 BOOL
 is_any_process_pending_restart();
 
-
-
-
 /********************
  *  detach / nudge  *
  ********************/
-
 
 /* in ms */
 #define DETACH_RECOMMENDED_TIMEOUT 60000
@@ -430,7 +417,6 @@ is_any_process_pending_restart();
 
 /* this is recommended for all hotp notification methods. */
 #define NUDGE_RECOMMENDED_PAUSE 100
-
 
 /* detach from indicated process -- if allow_upgraded_perms, then
  *  attempt to acquire necessary privileges (usually necessary) */
@@ -476,7 +462,6 @@ hotp_notify_all_defs_update(DWORD timeout_ms);
 DWORD
 hotp_notify_exe_modes_update(WCHAR *exename, DWORD timeout_ms);
 
-
 /************************
  *      event log       *
  ************************/
@@ -494,28 +479,23 @@ hotp_notify_exe_modes_update(WCHAR *exename, DWORD timeout_ms);
 
 /* monitor error codes */
 #define ELM_ERR_FATAL 1
-#define ELM_ERR_WARN  2
+#define ELM_ERR_WARN 2
 #define ELM_ERR_CLEARED 3
 
-typedef void (*eventlog_formatted_callback)(unsigned int mID,
-                                            unsigned int type,
-                                            WCHAR *message,
-                                            DWORD timestamp);
+typedef void (*eventlog_formatted_callback)(unsigned int mID, unsigned int type,
+                                            WCHAR *message, DWORD timestamp);
 
 typedef void (*eventlog_raw_callback)(EVENTLOGRECORD *record);
 
-typedef void (*eventlog_error_callback)(unsigned int errcode,
-                                        WCHAR *message);
+typedef void (*eventlog_error_callback)(unsigned int errcode, WCHAR *message);
 
 /* last_record must be a valid eventlog record number!!
  * this can be obtained from the "raw" callback by the RecordNumber
  *   value of the EVENTLOGRECORD struct.
  * pass -1 to retrieve all event records. */
 DWORD
-start_eventlog_monitor(BOOL use_formatted_callback,
-                       eventlog_formatted_callback cb_format,
-                       eventlog_raw_callback cb_raw,
-                       eventlog_error_callback cb_err,
+start_eventlog_monitor(BOOL use_formatted_callback, eventlog_formatted_callback cb_format,
+                       eventlog_raw_callback cb_raw, eventlog_error_callback cb_err,
                        DWORD next_record);
 
 void
@@ -560,31 +540,30 @@ get_formatted_message(EVENTLOGRECORD *pevlr, WCHAR *buf, DWORD maxchars);
  ***************************************/
 
 /* supported platform identifiers */
-#define PLATFORM_UNKNOWN         0
-#define PLATFORM_WIN_2000      100
-#define PLATFORM_WIN_XP        110
-#define PLATFORM_WIN_2003      120
-#define PLATFORM_WIN_NT_4      130
-#define PLATFORM_VISTA         140
-#define PLATFORM_WIN_7         150
-#define PLATFORM_WIN_8         160
-#define PLATFORM_WIN_8_1       170
-#define PLATFORM_WIN_10        180
-#define PLATFORM_WIN_10_1511   190
-#define PLATFORM_WIN_10_1607   200
-#define PLATFORM_WIN_10_1703   210
-#define PLATFORM_WIN_10_1709   220
+#define PLATFORM_UNKNOWN 0
+#define PLATFORM_WIN_2000 100
+#define PLATFORM_WIN_XP 110
+#define PLATFORM_WIN_2003 120
+#define PLATFORM_WIN_NT_4 130
+#define PLATFORM_VISTA 140
+#define PLATFORM_WIN_7 150
+#define PLATFORM_WIN_8 160
+#define PLATFORM_WIN_8_1 170
+#define PLATFORM_WIN_10 180
+#define PLATFORM_WIN_10_1511 190
+#define PLATFORM_WIN_10_1607 200
+#define PLATFORM_WIN_10_1703 210
+#define PLATFORM_WIN_10_1709 220
+#define PLATFORM_WIN_10_1803 230
 
 DWORD
 get_platform(DWORD *platform);
-
 
 const WCHAR *
 get_installation_path();
 
 const WCHAR *
 get_product_name();
-
 
 #ifdef __cplusplus
 }

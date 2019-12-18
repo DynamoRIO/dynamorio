@@ -33,18 +33,18 @@
 #include <iostream>
 #include <sstream>
 #ifdef LINUX
-# include <sys/types.h>
-# include <unistd.h>
-# include <sys/stat.h>
-# include <fcntl.h>
+#    include <sys/types.h>
+#    include <unistd.h>
+#    include <sys/stat.h>
+#    include <fcntl.h>
 #endif
 #include "physaddr.h"
 #include "../common/options.h"
 
 #if defined(X86_32) || defined(ARM_32)
-# define IF_X64_ELSE(x, y) y
+#    define IF_X64_ELSE(x, y) y
 #else
-# define IF_X64_ELSE(x, y) x
+#    define IF_X64_ELSE(x, y) x
 #endif
 
 // XXX: can we share w/ core DR?
@@ -52,18 +52,21 @@
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
 
 #ifdef LINUX
-# define PAGEMAP_VALID 0x8000000000000000
-# define PAGEMAP_SWAP  0x4000000000000000
-# define PAGEMAP_PFN   0x007fffffffffffff
-# define PAGE_BITS 12 // XXX i#1703: handle large pages
-# define PAGE_START(addr) ((addr) & (~((1 << PAGE_BITS)-1)))
-# define PAGE_OFFS(addr) ((addr) & ((1 << PAGE_BITS)-1))
+#    define PAGEMAP_VALID 0x8000000000000000
+#    define PAGEMAP_SWAP 0x4000000000000000
+#    define PAGEMAP_PFN 0x007fffffffffffff
+#    define PAGE_BITS 12 // XXX i#1703: handle large pages
+#    define PAGE_START(addr) ((addr) & (~((1 << PAGE_BITS) - 1)))
+#    define PAGE_OFFS(addr) ((addr) & ((1 << PAGE_BITS) - 1))
 static const addr_t PAGE_INVALID = (addr_t)-1;
 #endif
 
 physaddr_t::physaddr_t()
 #ifdef LINUX
-    : last_vpage(PAGE_INVALID), last_ppage(PAGE_INVALID), fd(-1), count(0)
+    : last_vpage(PAGE_INVALID)
+    , last_ppage(PAGE_INVALID)
+    , fd(-1)
+    , count(0)
 #endif
 {
     // Nothing else.
@@ -75,8 +78,9 @@ physaddr_t::init()
 {
 #ifdef LINUX
     std::ostringstream oss;
-    std::string pagemap = dynamic_cast<std::ostringstream &>
-        (oss << "/proc/" << getpid() << "/pagemap").str();
+    std::string pagemap =
+        dynamic_cast<std::ostringstream &>(oss << "/proc/" << getpid() << "/pagemap")
+            .str();
     // We can't read pagemap with any buffered i/o, like ifstream, as we'll
     // get EINVAL on any non-8-aligned size, and ifstream at least likes to
     // read buffers of non-aligned sizes.
@@ -111,7 +115,7 @@ physaddr_t::virtual2physical(addr_t virt)
             return last_ppage + PAGE_OFFS(virt);
         // XXX i#1703: add (debug-build-only) internal stats here and
         // on cache_t::request() fastpath.
-        std::unordered_map<addr_t,addr_t>::iterator exists = v2p.find(vpage);
+        std::unordered_map<addr_t, addr_t>::iterator exists = v2p.find(vpage);
         if (exists != v2p.end()) {
             last_vpage = vpage;
             last_ppage = exists->second;
@@ -135,8 +139,8 @@ physaddr_t::virtual2physical(addr_t virt)
         return 0;
     last_ppage = (addr_t)((entry & PAGEMAP_PFN) << PAGE_BITS);
     if (op_verbose.get_value() >= 2) {
-        std::cerr << "virtual " << virt << " => physical " <<
-            (last_ppage + PAGE_OFFS(virt)) << std::endl;
+        std::cerr << "virtual " << virt << " => physical "
+                  << (last_ppage + PAGE_OFFS(virt)) << std::endl;
     }
     v2p[vpage] = last_ppage;
     last_vpage = vpage;

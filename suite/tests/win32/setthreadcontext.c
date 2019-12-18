@@ -70,7 +70,7 @@ transferProc()
     print("&next_instr recorded\n");
     return;
 
- transferout:
+transferout:
     print("control has been redirected.\n");
     return;
 }

@@ -35,21 +35,22 @@
 #define VERBOSE 0
 
 int
-fib(int n) {
+fib(int n)
+{
     if (n <= 1)
         return 1;
-    return fib(n-1) + fib(n-2);
+    return fib(n - 1) + fib(n - 2);
 }
 
 int
-fact(int n) {
+fact(int n)
+{
     if (n <= 1)
         return 1;
-    return n * fact(n-1);
+    return n * fact(n - 1);
 }
 
-int  __declspec(dllexport)
-import_me(int x)
+int __declspec(dllexport) import_me(int x)
 {
 #if VERBOSE
     print("in import %d\n", x);
@@ -64,10 +65,8 @@ BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     switch (reason_for_call) {
-    case DLL_PROCESS_ATTACH:
-        break;
-    case DLL_PROCESS_DETACH:
-        break;
+    case DLL_PROCESS_ATTACH: break;
+    case DLL_PROCESS_DETACH: break;
     }
     return TRUE;
 }

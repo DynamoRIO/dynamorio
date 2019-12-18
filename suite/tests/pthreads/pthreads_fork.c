@@ -38,7 +38,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
-#include <unistd.h>  /* for fork */
+#include <unistd.h> /* for fork */
 
 /* FIXME i#26: We can't reliably synch with threads that have just been created.
  * Raising NUM_FORK_THREADS above 1 means we spawn threads and fork at the same
@@ -63,7 +63,7 @@ static void *
 mprotect_thread(void *page)
 {
     while (keep_running) {
-        mprotect(page, PAGE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC);
+        mprotect(page, PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC);
         /* If we were adventurous, we'd execute some code off this RWX page to
          * really try and contend the vmareas lock.  However, Linux tends to
          * merge these pages into adjacent regions in /proc/pid/maps, which DR
@@ -97,8 +97,8 @@ do_fork(int level)
         if (status != 0) {
             fprintf(stderr, "child %d exited non-zero: %x\n", pid, status);
             fprintf(stderr, "signalled: %d, signal: %d, exited: %d, exit: %d\n",
-                    WIFSIGNALED(status), WTERMSIG(status),
-                    WIFEXITED(status), WEXITSTATUS(status));
+                    WIFSIGNALED(status), WTERMSIG(status), WIFEXITED(status),
+                    WEXITSTATUS(status));
         }
     }
     return NULL;
@@ -115,7 +115,7 @@ use_fork_and_threads(int level)
     /* Spawn a few threads that try to acquire DR's locks. */
     keep_running = 1;
     for (i = 0; i < NUM_MPROTECT_THREADS; i++) {
-        pages[i] = mmap(NULL, PAGE_SIZE, PROT_READ, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+        pages[i] = mmap(NULL, PAGE_SIZE, PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
         if (pages[i] == MAP_FAILED) {
             fprintf(stderr, "mmap failed: %s\n", strerror(errno));
         }
@@ -124,8 +124,7 @@ use_fork_and_threads(int level)
 
     /* Spawn a few threads and have them fork concurrently. */
     for (i = 0; i < NUM_FORK_THREADS; i++) {
-        pthread_create(&fork_threads[i], NULL,
-                       (void *(*)(void *))do_fork,
+        pthread_create(&fork_threads[i], NULL, (void *(*)(void *))do_fork,
                        (void *)(long)level);
     }
 

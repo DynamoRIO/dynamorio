@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,14 +34,14 @@
 #include "dr_api.h"
 #include "client_tools.h"
 #ifdef UNIX
-# include <sys/time.h>
+#    include <sys/time.h>
 #endif
 
 #ifdef WINDOWS
-# define THREAD_ARG ((void *) dr_get_process_id())
+#    define THREAD_ARG ((void *)dr_get_process_id())
 #else
 /* thread actually has own pid so just using a constant to test arg passing */
-# define THREAD_ARG ((void *)37)
+#    define THREAD_ARG ((void *)37)
 #endif
 
 /* Eventually this routine will test i/o by waiting on a file */
@@ -56,23 +56,29 @@ static uint tls_offs;
 #define NUM_TLS_SLOTS 4
 
 #ifdef X64
-# define ASM_XAX "rax"
-# define ASM_XDX "rdx"
-# define ASM_XBP "rbp"
-# define ASM_XSP "rsp"
-# define ASM_SEG "gs"
+#    define ASM_XAX "rax"
+#    define ASM_XDX "rdx"
+#    define ASM_XBP "rbp"
+#    define ASM_XSP "rsp"
+#    define ASM_SEG "gs"
 #else
-# define ASM_XAX "eax"
-# define ASM_XDX "edx"
-# define ASM_XBP "ebp"
-# define ASM_XSP "esp"
-# define ASM_SEG "fs"
+#    define ASM_XAX "eax"
+#    define ASM_XDX "edx"
+#    define ASM_XBP "ebp"
+#    define ASM_XSP "esp"
+#    define ASM_SEG "fs"
 #endif
 
 static void *child_alive;
 static void *child_continue;
 static void *child_dead;
 static bool nops_matched;
+
+static int client_thread_count;
+static int counter32;
+#ifdef X64
+static int64 counter64;
+#endif
 
 #ifdef UNIX
 /* test PR 368737: add client timer support */
@@ -94,6 +100,17 @@ thread_func(void *arg)
     ASSERT(arg == THREAD_ARG);
     dr_fprintf(STDERR, "client thread is alive\n");
     dr_event_signal(child_alive);
+
+    /* Just a sanity check that these functions operate.  We do not take the
+     * time to set up racing threads or sthg.
+     */
+    int count = dr_atomic_add32_return_sum(&counter32, 1);
+    ASSERT(count > 0 && count <= counter32);
+#ifdef X64
+    int64 count64 = dr_atomic_add64_return_sum(&counter64, 1);
+    ASSERT(count64 > 0 && count64 <= counter64);
+#endif
+
 #ifdef UNIX
     if (!dr_set_itimer(ITIMER_REAL, 10, event_timer))
         dr_fprintf(STDERR, "unable to set timer callback\n");
@@ -111,10 +128,9 @@ at_lea(uint opc, app_pc tag)
      * (we don't want msgboxes in regressions)
      */
     DR_ASSERT(opc == OP_lea);
-    ASSERT((process_id_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext()) ==
+    ASSERT((process_id_t)(ptr_uint_t)dr_get_tls_field(dr_get_current_drcontext()) ==
            dr_get_process_id() + 1 /*we added 1 inline*/);
-    dr_set_tls_field(dr_get_current_drcontext(),
-                     (void *)(ptr_uint_t) dr_get_process_id());
+    dr_set_tls_field(dr_get_current_drcontext(), (void *)(ptr_uint_t)dr_get_process_id());
     num_lea++;
     /* FIXME: should do some fp ops and really test the fp state preservation */
 }
@@ -138,27 +154,28 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         /* PR 222812: start up and shut down a client thread */
         success = dr_create_client_thread(thread_func, THREAD_ARG);
         ASSERT(success);
+        client_thread_count++; /* app is single-threaded so no races */
         dr_event_wait(child_alive);
         dr_event_signal(child_continue);
         dr_event_wait(child_dead);
         dr_fprintf(STDERR, "PR 222812: client thread test passed\n");
     }
 
-    for (instr = instrlist_first(bb);
-         instr != NULL; instr = next_instr) {
+    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
         if (instr_get_opcode(instr) == OP_lea) {
             /* PR 200411: test inline tls access by adding 1 */
             dr_save_reg(drcontext, bb, instr, REG_XAX, SPILL_SLOT_1);
             dr_insert_read_tls_field(drcontext, bb, instr, REG_XAX);
-            instrlist_meta_preinsert(bb, instr, INSTR_CREATE_lea
-                                     (drcontext, opnd_create_reg(REG_XAX),
-                                      opnd_create_base_disp(REG_XAX, REG_NULL, 0, 1,
-                                                            OPSZ_lea)));
+            instrlist_meta_preinsert(
+                bb, instr,
+                INSTR_CREATE_lea(
+                    drcontext, opnd_create_reg(REG_XAX),
+                    opnd_create_base_disp(REG_XAX, REG_NULL, 0, 1, OPSZ_lea)));
             dr_insert_write_tls_field(drcontext, bb, instr, REG_XAX);
             dr_restore_reg(drcontext, bb, instr, REG_XAX, SPILL_SLOT_1);
-            dr_insert_clean_call(drcontext, bb, instr, at_lea, true/*save fp*/,
-                                 2, OPND_CREATE_INT32(instr_get_opcode(instr)),
+            dr_insert_clean_call(drcontext, bb, instr, at_lea, true /*save fp*/, 2,
+                                 OPND_CREATE_INT32(instr_get_opcode(instr)),
                                  OPND_CREATE_INTPTR(tag));
         }
         if (instr_get_opcode(instr) == OP_nop) {
@@ -183,6 +200,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         dr_fprintf(STDERR, "PR 210591: testing client transparency\n");
         success = dr_create_client_thread(thread_func, THREAD_ARG);
         ASSERT(success);
+        client_thread_count++; /* app is single-threaded so no races */
         dr_event_wait(child_alive);
         /* We leave the client thread alive until the app exits, to test i#1489 */
 #ifdef UNIX
@@ -192,7 +210,8 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     return DR_EMIT_DEFAULT;
 }
 
-void exit_event(void)
+void
+exit_event(void)
 {
     bool success = dr_raw_tls_cfree(tls_offs, NUM_TLS_SLOTS);
     ASSERT(success);
@@ -206,6 +225,10 @@ void exit_event(void)
     dr_event_destroy(child_alive);
     dr_event_destroy(child_continue);
     dr_event_destroy(child_dead);
+    ASSERT(counter32 == client_thread_count);
+#ifdef X64
+    ASSERT(counter64 == client_thread_count);
+#endif
 }
 
 static bool
@@ -226,16 +249,16 @@ static void
 thread_init_event(void *drcontext)
 {
     int i;
-    dr_set_tls_field(drcontext, (void *)(ptr_uint_t) dr_get_process_id());
+    dr_set_tls_field(drcontext, (void *)(ptr_uint_t)dr_get_process_id());
     for (i = 0; i < NUM_TLS_SLOTS; i++) {
-        int idx = tls_offs + i*sizeof(void*);
-        ptr_uint_t val = (ptr_uint_t) (CANARY+i);
+        int idx = tls_offs + i * sizeof(void *);
+        ptr_uint_t val = (ptr_uint_t)(CANARY + i);
 #ifdef WINDOWS
-        IF_X64_ELSE(__writegsqword,__writefsdword)(idx, val);
+        IF_X64_ELSE(__writegsqword, __writefsdword)(idx, val);
 #else
-        asm("mov %0, %%"ASM_XAX: : "m"((val)) : ASM_XAX);
+        asm("mov %0, %%" ASM_XAX : : "m"((val)) : ASM_XAX);
         asm("mov %0, %%edx" : : "m"((idx)) : ASM_XDX);
-        asm("mov %%"ASM_XAX", %%"ASM_SEG":(%%"ASM_XDX")" : : : ASM_XAX, ASM_XDX);
+        asm("mov %%" ASM_XAX ", %%" ASM_SEG ":(%%" ASM_XDX ")" : : : ASM_XAX, ASM_XDX);
 #endif
     }
 }
@@ -251,16 +274,16 @@ thread_exit_event(void *drcontext)
     instrlist_clear_and_destroy(drcontext, ilist);
 
     for (i = 0; i < NUM_TLS_SLOTS; i++) {
-        int idx = tls_offs + i*sizeof(void*);
+        int idx = tls_offs + i * sizeof(void *);
         ptr_uint_t val;
 #ifdef WINDOWS
-        val = IF_X64_ELSE(__readgsqword,__readfsdword)(idx);
+        val = IF_X64_ELSE(__readgsqword, __readfsdword)(idx);
 #else
-        asm("mov %0, %%eax": : "m"((idx)) : ASM_XAX);
-        asm("mov %%"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);
-        asm("mov %%"ASM_XAX", %0" : "=m"((val)) : : ASM_XAX);
+        asm("mov %0, %%eax" : : "m"((idx)) : ASM_XAX);
+        asm("mov %%" ASM_SEG ":(%%" ASM_XAX "), %%" ASM_XAX : : : ASM_XAX);
+        asm("mov %%" ASM_XAX ", %0" : "=m"((val)) : : ASM_XAX);
 #endif
-        dr_fprintf(STDERR, "TLS slot %d is "PFX"\n", i, val);
+        dr_fprintf(STDERR, "TLS slot %d is " PFX "\n", i, val);
     }
 }
 
@@ -269,7 +292,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     bool success;
     /* PR 216931: client options */
-    const char * ops = dr_get_options(id);
+    const char *ops = dr_get_options(id);
     dr_fprintf(STDERR, "PR 216931: client options are %s\n", ops);
     ASSERT(str_eq(ops, "-paramx -paramy"));
     ASSERT(argc == 3 && str_eq(argv[1], "-paramx") && str_eq(argv[2], "-paramy"));

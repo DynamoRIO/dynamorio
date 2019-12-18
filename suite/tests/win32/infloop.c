@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,7 +52,7 @@ main(int argc, const char *argv[])
     char title[64];
     _snprintf_s(title, BUFFER_SIZE_BYTES(title), BUFFER_SIZE_ELEMENTS(title),
                 "Infloop pid=%d", GetProcessId(GetCurrentProcess()));
-    SetTimer(NULL, NULL, 180*1000/*3 mins*/, TimerProc);
+    SetTimer(NULL, 0, 180 * 1000 /*3 mins*/, TimerProc);
     MessageBoxA(NULL, "DynamoRIO test: will be auto-closed", title, MB_OK);
     print("MessageBox closed\n");
     return 0;

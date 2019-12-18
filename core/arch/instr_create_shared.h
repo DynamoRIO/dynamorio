@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,20 +45,19 @@
  */
 
 #ifdef AVOID_API_EXPORT
-# include "decode.h"
-/* (deliberately not indenting the #includes in API_EXPORT_ONLY for generated file) */
+#    include "decode.h"
 #endif
 #ifdef API_EXPORT_ONLY
-#ifdef X86
-# include "dr_ir_macros_x86.h"
-#elif defined(AARCH64)
-# include "dr_ir_macros_aarch64.h"
-#elif defined(ARM)
-# include "dr_ir_macros_arm.h"
-#endif
-#include "dr_ir_opnd.h"
-#include "dr_ir_instr.h"
-#include "dr_ir_utils.h"
+#    ifdef X86
+#        include "dr_ir_macros_x86.h"
+#    elif defined(AARCH64)
+#        include "dr_ir_macros_aarch64.h"
+#    elif defined(ARM)
+#        include "dr_ir_macros_arm.h"
+#    endif
+#    include "dr_ir_opnd.h"
+#    include "dr_ir_instr.h"
+#    include "dr_ir_utils.h"
 #endif
 
 /* instruction modification convenience routines */
@@ -73,25 +72,30 @@
  */
 #define INSTR_PRED(instr_ptr, pred) instr_set_predicate((instr_ptr), (pred))
 
+/**
+ * Set an encoding hint for an instruction.
+ */
+#define INSTR_ENCODING_HINT(instr_ptr, hint) instr_set_encoding_hint((instr_ptr), (hint))
+
 /* operand convenience routines for common cases */
 /** Create a base+disp 8-byte operand. */
 #define OPND_CREATE_MEM64(base_reg, disp) \
-  opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_8)
+    opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_8)
 /** Create a base+disp 4-byte operand. */
 #define OPND_CREATE_MEM32(base_reg, disp) \
-  opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_4)
+    opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_4)
 /** Create a base+disp 2-byte operand. */
 #define OPND_CREATE_MEM16(base_reg, disp) \
-  opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_2)
+    opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_2)
 /** Create a base+disp 1-byte operand. */
 #define OPND_CREATE_MEM8(base_reg, disp) \
-  opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_1)
+    opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_1)
 #ifdef X64
 /** Create a base+disp pointer-sized operand. */
-# define OPND_CREATE_MEMPTR OPND_CREATE_MEM64
+#    define OPND_CREATE_MEMPTR OPND_CREATE_MEM64
 #else
 /** Create a base+disp pointer-sized operand. */
-# define OPND_CREATE_MEMPTR OPND_CREATE_MEM32
+#    define OPND_CREATE_MEMPTR OPND_CREATE_MEM32
 #endif
 
 #ifdef X64
@@ -100,20 +104,20 @@
  * \note This is only relevant for x86: for ARM where immediate sizes are
  * ignored, simply use OPND_CREATE_INT().
  */
-# define OPND_CREATE_INT64(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_8)
+#    define OPND_CREATE_INT64(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_8)
 /**
  * Create a pointer-sized immediate integer operand.
  * \note This is only relevant for x86: for ARM where immediate sizes are
  * ignored, simply use OPND_CREATE_INT().
  */
-# define OPND_CREATE_INTPTR OPND_CREATE_INT64
+#    define OPND_CREATE_INTPTR OPND_CREATE_INT64
 #else
 /**
  * Create a pointer-sized immediate integer operand.
  * \note This is only relevant for x86: for ARM where immediate sizes are
  * ignored, simply use OPND_CREATE_INT().
  */
-# define OPND_CREATE_INTPTR OPND_CREATE_INT32
+#    define OPND_CREATE_INTPTR OPND_CREATE_INT32
 #endif
 /**
  * Create a 4-byte immediate integer operand.
@@ -139,18 +143,18 @@
  * \note This is only relevant for x86: for ARM where immediate sizes are
  * ignored, simply use OPND_CREATE_INT().
  */
-#define OPND_CREATE_INT_32OR8(val) \
-    ((val) <= SCHAR_MAX && (ptr_int_t)(val) >= SCHAR_MIN ? \
-        OPND_CREATE_INT8(val) : OPND_CREATE_INT32(val))
+#define OPND_CREATE_INT_32OR8(val)                                               \
+    ((val) <= SCHAR_MAX && (ptr_int_t)(val) >= SCHAR_MIN ? OPND_CREATE_INT8(val) \
+                                                         : OPND_CREATE_INT32(val))
 /**
  * Create a 1-byte immediate interger operand if val will fit, else create a 2-byte
  * immediate integer operand.
  * \note This is only relevant for x86: for ARM where immediate sizes are
  * ignored, simply use OPND_CREATE_INT().
  */
-#define OPND_CREATE_INT_16OR8(val) \
-    ((val) <= SCHAR_MAX && (ptr_int_t)(val) >= SCHAR_MIN ? \
-        OPND_CREATE_INT8(val) : OPND_CREATE_INT16(val))
+#define OPND_CREATE_INT_16OR8(val)                                               \
+    ((val) <= SCHAR_MAX && (ptr_int_t)(val) >= SCHAR_MIN ? OPND_CREATE_INT8(val) \
+                                                         : OPND_CREATE_INT16(val))
 
 /**
  * Creates an instr_t with opcode OP_LABEL.  An OP_LABEL instruction can be used as a
@@ -158,7 +162,7 @@
  * resulting machine code.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
-#define INSTR_CREATE_label(dc)    instr_create_0dst_0src((dc), OP_LABEL)
+#define INSTR_CREATE_label(dc) instr_create_0dst_0src((dc), OP_LABEL)
 
 /* DR_API EXPORT END */
 

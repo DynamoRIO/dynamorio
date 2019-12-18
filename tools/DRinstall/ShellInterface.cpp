@@ -44,9 +44,9 @@
 #include <shlwapi.h>
 
 #ifdef _DEBUG
-#undef THIS_FILE
-static char THIS_FILE[]=__FILE__;
-#define new DEBUG_NEW
+#    undef THIS_FILE
+static char THIS_FILE[] = __FILE__;
+#    define new DEBUG_NEW
 #endif
 
 //////////////////////////////////////////////////////////////////////
@@ -55,17 +55,16 @@ static char THIS_FILE[]=__FILE__;
 
 CShellInterface::CShellInterface()
 {
-
 }
 
 CShellInterface::~CShellInterface()
 {
-
 }
 
-/*static */BOOL CShellInterface::m_bInitialized = FALSE;
+/*static */ BOOL CShellInterface::m_bInitialized = FALSE;
 
-/*static */void CShellInterface::Initialize()
+/*static */ void
+CShellInterface::Initialize()
 {
     if (m_bInitialized)
         return;
@@ -74,7 +73,8 @@ CShellInterface::~CShellInterface()
     m_bInitialized = TRUE;
 }
 
-/*static */void CShellInterface::Uninitialize()
+/*static */ void
+CShellInterface::Uninitialize()
 {
     if (!m_bInitialized)
         return;
@@ -82,71 +82,70 @@ CShellInterface::~CShellInterface()
     m_bInitialized = FALSE;
 }
 
-/*static*/ BOOL CShellInterface::CreateLinkFile(LPCTSTR pszShortcutFile,
-                                                LPTSTR pszLink, LPTSTR pszDesc)
+/*static*/ BOOL
+CShellInterface::CreateLinkFile(LPCTSTR pszShortcutFile, LPTSTR pszLink, LPTSTR pszDesc)
 {
     HRESULT hres;
     IShellLink *psl;
 
     // Create an IShellLink object and get a pointer to the IShellLink
     // interface (returned from CoCreateInstance).
-    hres = CoCreateInstance (CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER,
-                             IID_IShellLink, (void **)&psl);
-    if (SUCCEEDED (hres)) {
+    hres = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLink,
+                            (void **)&psl);
+    if (SUCCEEDED(hres)) {
         IPersistFile *ppf;
 
         // Query IShellLink for the IPersistFile interface for
         // saving the shortcut in persistent storage.
-        hres = psl->QueryInterface (IID_IPersistFile, (void **)&ppf);
-        if (SUCCEEDED (hres)) {
+        hres = psl->QueryInterface(IID_IPersistFile, (void **)&ppf);
+        if (SUCCEEDED(hres)) {
             // Set the path to the shortcut target.
-            hres = psl->SetPath (pszShortcutFile);
+            hres = psl->SetPath(pszShortcutFile);
 
-            if (! SUCCEEDED (hres))
-                AfxMessageBox (_T("SetPath failed!"));
+            if (!SUCCEEDED(hres))
+                AfxMessageBox(_T("SetPath failed!"));
 
             // Set the description of the shortcut.
-            hres = psl->SetDescription (pszDesc);
+            hres = psl->SetDescription(pszDesc);
 
-            if (! SUCCEEDED (hres))
-                AfxMessageBox (_T("SetDescription failed!"));
+            if (!SUCCEEDED(hres))
+                AfxMessageBox(_T("SetDescription failed!"));
 
 #ifndef UNICODE
             // Ensure that the string consists of ANSI characters.
-            WORD wsz [MAX_PATH]; // buffer for Unicode string
-            MultiByteToWideChar (CP_ACP, 0, pszLink, -1, wsz, MAX_PATH);
+            WORD wsz[MAX_PATH]; // buffer for Unicode string
+            MultiByteToWideChar(CP_ACP, 0, pszLink, -1, wsz, MAX_PATH);
             // Save the shortcut via the IPersistFile::Save member function.
-            hres = ppf->Save (wsz, TRUE);
+            hres = ppf->Save(wsz, TRUE);
 #else
             // Save the shortcut via the IPersistFile::Save member function.
-            hres = ppf->Save (pszLink, TRUE);
+            hres = ppf->Save(pszLink, TRUE);
 #endif
 
-
-            if (! SUCCEEDED (hres))
-                AfxMessageBox (_T("Save failed!"));
+            if (!SUCCEEDED(hres))
+                AfxMessageBox(_T("Save failed!"));
 
             // Release the pointer to IPersistFile.
-            ppf->Release ();
+            ppf->Release();
         }
         // Release the pointer to IShellLink.
-        psl->Release ();
+        psl->Release();
     }
     return (SUCCEEDED(hres));
 }
 
-
-/*static*/ BOOL CShellInterface::CopyDir(LPCTSTR from, LPCTSTR to, HWND hwnd)
+/*static*/ BOOL
+CShellInterface::CopyDir(LPCTSTR from, LPCTSTR to, HWND hwnd)
 {
-    assert(_tcslen(from) < MAX_PATH-1);
-    assert(_tcslen(to) < MAX_PATH-1);
+    assert(_tcslen(from) < MAX_PATH - 1);
+    assert(_tcslen(to) < MAX_PATH - 1);
     // strings must end with pair of nulls
-    TCHAR myfrom[MAX_PATH+2];
+    TCHAR myfrom[MAX_PATH + 2];
     _tcscpy(myfrom, from);
-    myfrom[_tcslen(myfrom)+1] = _T('\0');
-    TCHAR myto[MAX_PATH+2];
+    myfrom[_tcslen(myfrom) + 1] = _T('\0');
+    TCHAR myto[MAX_PATH + 2];
     _tcscpy(myto, to);
-    myto[_tcslen(myto)+1] = _T('\0');
+    myto[_tcslen(myto) + 1] = _T('\0');
     SHFILEOPSTRUCT fileop;
     fileop.hwnd = hwnd;
     fileop.wFunc = FO_COPY;
@@ -157,13 +156,14 @@ CShellInterface::~CShellInterface()
     return (res == 0);
 }
 
-/*static*/ BOOL CShellInterface::DeleteFile(LPCTSTR name, HWND hwnd)
+/*static*/ BOOL
+CShellInterface::DeleteFile(LPCTSTR name, HWND hwnd)
 {
-    assert(_tcslen(name) < MAX_PATH-1);
+    assert(_tcslen(name) < MAX_PATH - 1);
     // string must end with pair of nulls
-    TCHAR myname[MAX_PATH+2];
+    TCHAR myname[MAX_PATH + 2];
     _tcscpy(myname, name);
-    myname[_tcslen(myname)+1] = _T('\0');
+    myname[_tcslen(myname) + 1] = _T('\0');
     SHFILEOPSTRUCT fileop;
     fileop.hwnd = hwnd;
     fileop.wFunc = FO_DELETE;
@@ -173,7 +173,6 @@ CShellInterface::~CShellInterface()
     int res = SHFileOperation(&fileop);
     return (res == 0);
 }
-
 
 #if 0
 /* From MSDN's MFC sample:

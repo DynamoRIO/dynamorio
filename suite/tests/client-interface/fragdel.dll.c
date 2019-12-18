@@ -36,11 +36,10 @@ static void *mutex = NULL;
 static int deletions = 0;
 
 app_pc start = NULL;
-app_pc end   = NULL;
-
+app_pc end = NULL;
 
 static bool
-my_strcmp(const char* in1, const char* in2)
+my_strcmp(const char *in1, const char *in2)
 {
     if (in1 == NULL || in2 == NULL)
         return false;
@@ -66,28 +65,29 @@ delete_fragment(void *drcontext, app_pc tag)
 
 #define MINSERT instrlist_meta_preinsert
 
-static
-dr_emit_flags_t bb_event(void* drcontext, app_pc tag, instrlist_t* bb, bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event(void *drcontext, app_pc tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     if (tag >= start && tag < end) {
-        instr_t* instr = instrlist_first(bb);
+        instr_t *instr = instrlist_first(bb);
 
         dr_prepare_for_call(drcontext, bb, instr);
 
-        MINSERT(bb, instr, INSTR_CREATE_push_imm
-                (drcontext, OPND_CREATE_INT32((ptr_uint_t)tag)));
-        MINSERT(bb, instr, INSTR_CREATE_push_imm
-                (drcontext, OPND_CREATE_INT32((ptr_uint_t)drcontext)));
-        MINSERT(bb, instr, INSTR_CREATE_call
-                (drcontext, opnd_create_pc((void*)delete_fragment)));
+        MINSERT(bb, instr,
+                INSTR_CREATE_push_imm(drcontext, OPND_CREATE_INT32((ptr_uint_t)tag)));
+        MINSERT(
+            bb, instr,
+            INSTR_CREATE_push_imm(drcontext, OPND_CREATE_INT32((ptr_uint_t)drcontext)));
+        MINSERT(bb, instr,
+                INSTR_CREATE_call(drcontext, opnd_create_pc((void *)delete_fragment)));
 
         dr_cleanup_after_call(drcontext, bb, instr, 8);
     }
     return DR_EMIT_DEFAULT;
 }
 
-static
-void exit_event(void)
+static void
+exit_event(void)
 {
     dr_mutex_exit(mutex);
     if (deletions > 10000)
@@ -97,7 +97,8 @@ void exit_event(void)
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     module_iterator_t *iter;
 

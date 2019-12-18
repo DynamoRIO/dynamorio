@@ -15,15 +15,15 @@
 
 /* Do not include this on MacOS as you'll get the wrong numbers! */
 #ifndef LINUX
-# error Only use this file on Linux
+#    error Only use this file on Linux
 #endif
 
 #ifdef X86
-# include "syscall_linux_x86.h"
+#    include "syscall_linux_x86.h"
 #elif defined(ARM)
-# include "syscall_linux_arm.h"
+#    include "syscall_linux_arm.h"
 #elif defined(AARCH64)
-# include "syscall_linux_uapi.h"
+#    include "syscall_linux_uapi.h"
 #endif
 
 #endif /* _SYSCALL_H_ */

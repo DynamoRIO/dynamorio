@@ -39,19 +39,20 @@
 
 #include "analyzer.h"
 
-class analyzer_multi_t : public analyzer_t
-{
- public:
+class analyzer_multi_t : public analyzer_t {
+public:
     // Usage: errors encountered during the constructor will set a flag that should
     // be queried via operator!.
     analyzer_multi_t();
     virtual ~analyzer_multi_t();
 
- protected:
-    bool create_analysis_tools();
-    void destroy_analysis_tools();
+protected:
+    bool
+    create_analysis_tools();
+    void
+    destroy_analysis_tools();
 
     static const int max_num_tools = 8;
- };
+};
 
 #endif /* _ANALYZER_MULTI_H_ */

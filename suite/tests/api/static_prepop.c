@@ -32,17 +32,22 @@
 
 #ifndef ASM_CODE_ONLY /* C code */
 
-#include "configure.h"
-#include "dr_api.h"
-#include "tools.h"
-#include <math.h>
+#    include "configure.h"
+#    include "dr_api.h"
+#    include "tools.h"
+#    include <math.h>
 
 /* asm routine and labels */
-void asm_func(void);
-void asm_label1(void);
-void asm_label2(void);
-void asm_label3(void);
-void asm_return(void);
+void
+asm_func(void);
+void
+asm_label1(void);
+void
+asm_label2(void);
+void
+asm_label3(void);
+void
+asm_return(void);
 static bool bb_seen_func;
 static bool bb_seen_label1;
 static bool bb_seen_label2;
@@ -56,8 +61,7 @@ clean_callee(void)
 }
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-         bool translating)
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     if (tag == asm_func)
         dr_fprintf(STDERR, "bb asm_func\n");
@@ -71,8 +75,7 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         dr_fprintf(STDERR, "bb asm_return\n");
 
     /* Test instrumentation. */
-    dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
-                         clean_callee, false, 0);
+    dr_insert_clean_call(drcontext, bb, instrlist_first(bb), clean_callee, false, 0);
     return DR_EMIT_DEFAULT;
 }
 
@@ -109,15 +112,13 @@ int
 main(int argc, const char *argv[])
 {
     bool success;
-    app_pc tags[] = {(app_pc)asm_func,
-                     (app_pc)asm_label1,
-                     (app_pc)asm_label2,
-                     (app_pc)asm_label3,
-                     (app_pc)asm_return};
-    app_pc return_tags[] = {(app_pc)asm_return};
+    app_pc tags[] = { (app_pc)asm_func, (app_pc)asm_label1, (app_pc)asm_label2,
+                      (app_pc)asm_label3, (app_pc)asm_return };
+    app_pc return_tags[] = { (app_pc)asm_return };
 
     // For testing ibt prepop, we want bb's to be indirect branch targets.
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-disable_traces -shared_bb_ibt_tables "
+    if (!my_setenv("DYNAMORIO_OPTIONS",
+                   "-disable_traces -shared_bb_ibt_tables "
                    // Standard test options.
                    "-stderr_mask 0xc"))
         dr_fprintf(STDERR, "Failed to set env var!\n");
@@ -134,11 +135,11 @@ main(int argc, const char *argv[])
         // At that point, the stats should have been reset at reattach.
         if (i == 0)
             assert(stats.basic_block_count == 0);
-        success = dr_prepopulate_cache(tags, sizeof(tags)/sizeof(tags[0]));
+        success = dr_prepopulate_cache(tags, sizeof(tags) / sizeof(tags[0]));
         assert(success);
-        success = dr_prepopulate_indirect_targets
-            (DR_INDIRECT_RETURN, return_tags,
-             sizeof(return_tags)/sizeof(return_tags[0]));
+        success =
+            dr_prepopulate_indirect_targets(DR_INDIRECT_RETURN, return_tags,
+                                            sizeof(return_tags) / sizeof(return_tags[0]));
         // There's no simple way to verify DR did not have to lazily add asm_return
         // to any ibt table: we could export the num_exits_ind_bad_miss stat, but it's
         // going to make a flaky test as it depends on the compiler precisely how
@@ -164,7 +165,7 @@ main(int argc, const char *argv[])
 
         if (i > 0) {
             print("pre-DR detach with stats\n");
-            dr_stats_t end_stats = {sizeof(dr_stats_t)};
+            dr_stats_t end_stats = { sizeof(dr_stats_t) };
             dr_app_stop_and_cleanup_with_stats(&end_stats);
             assert(end_stats.basic_block_count > 0);
         } else {
@@ -181,7 +182,8 @@ main(int argc, const char *argv[])
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 DECLARE_GLOBAL(asm_label1)
@@ -212,4 +214,5 @@ ADDRTAKEN_LABEL(asm_label3:)
 
 
 END_FILE
+/* clang-format on */
 #endif

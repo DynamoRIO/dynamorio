@@ -55,13 +55,13 @@ static app_pc
 dis(void *drcontext, app_pc pc, app_pc display_pc)
 {
     return disassemble_from_copy(drcontext, pc, display_pc, STDOUT,
-                                 true/*show display_pc*/, true/*bytes*/);
+                                 true /*show display_pc*/, true /*bytes*/);
 }
 
 /* We use an array of SEPARATE_STUB_MAX_SIZE */
 #define STUB_STRUCT_MAX_SIZE (sizeof(tracedump_stub_data_t) + SEPARATE_STUB_MAX_SIZE)
 #define STUBIDX(stubs, i) \
-    ((tracedump_stub_data_t *)(((byte *)stubs)+(i)*STUB_STRUCT_MAX_SIZE))
+    ((tracedump_stub_data_t *)(((byte *)stubs) + (i)*STUB_STRUCT_MAX_SIZE))
 
 static void
 read_data(file_t f, void *drcontext)
@@ -103,19 +103,19 @@ read_data(file_t f, void *drcontext)
         set_x86_mode(drcontext, !hdrs.x64);
 #endif
         dr_printf("\nTRACE # %d\n", hdrs.frag_id);
-        dr_printf("Tag = "PFX"\n", hdrs.tag);
+        dr_printf("Tag = " PFX "\n", hdrs.tag);
         if (hdrs.num_bbs > 0) {
             uint j;
             app_pc tag;
             dr_printf("\nORIGINAL CODE\n");
-            for (j=0; j<hdrs.num_bbs; j++) {
+            for (j = 0; j < hdrs.num_bbs; j++) {
                 read = dr_read_file(f, sbuf, BB_ORIGIN_HEADER_SIZE);
                 assert(read == BB_ORIGIN_HEADER_SIZE);
                 p = sbuf;
-                tag = *((app_pc*)p);
+                tag = *((app_pc *)p);
                 p += sizeof(tag);
-                dr_printf("Basic block %d: tag "PFX"\n", j, tag);
-                i = *((int*)p);
+                dr_printf("Basic block %d: tag " PFX "\n", j, tag);
+                i = *((int *)p);
                 p += sizeof(i);
                 dr_printf("Size: %d bytes\n", i);
                 if (i >= BUF_SIZE) {
@@ -139,49 +139,50 @@ read_data(file_t f, void *drcontext)
         if (fhdr.linkcount_size > 0) {
             dr_printf("Exit stubs:\n");
         }
-        for (i = 0; i<hdrs.num_exits; i++) {
-            assert(STUB_DATA_FIXED_SIZE+fhdr.linkcount_size < BUF_SIZE);
-            read = dr_read_file(f, sbuf, STUB_DATA_FIXED_SIZE+fhdr.linkcount_size);
-            assert(read == (int) STUB_DATA_FIXED_SIZE+fhdr.linkcount_size);
+        for (i = 0; i < hdrs.num_exits; i++) {
+            assert(STUB_DATA_FIXED_SIZE + fhdr.linkcount_size < BUF_SIZE);
+            read = dr_read_file(f, sbuf, STUB_DATA_FIXED_SIZE + fhdr.linkcount_size);
+            assert(read == (int)STUB_DATA_FIXED_SIZE + fhdr.linkcount_size);
             p = sbuf;
 
             /* We read in whole struct.  The union and code fields are of
              * course variable-sized so we update them after.
              */
-            *STUBIDX(stubs,i) = *(tracedump_stub_data_t *)p;
+            *STUBIDX(stubs, i) = *(tracedump_stub_data_t *)p;
             p += STUB_DATA_FIXED_SIZE;
             /* linkcounts are no longer available but we have backward compatibility */
             if (fhdr.linkcount_size == 8) {
-                STUBIDX(stubs,i)->count.count64 = *((uint64*)p);
+                STUBIDX(stubs, i)->count.count64 = *((uint64 *)p);
                 p += 8;
-                dr_printf("\t#%d: target = "PFX", %s, count = %" UINT64_FORMAT_CODE "\n",
-                          i, STUBIDX(stubs,i)->target,
-                          STUBIDX(stubs,i)->linked ? "not linked" : "linked",
-                          STUBIDX(stubs,i)->count.count64);
+                dr_printf("\t#%d: target = " PFX ", %s, count = %" UINT64_FORMAT_CODE
+                          "\n",
+                          i, STUBIDX(stubs, i)->target,
+                          STUBIDX(stubs, i)->linked ? "not linked" : "linked",
+                          STUBIDX(stubs, i)->count.count64);
             } else if (fhdr.linkcount_size == 4) {
-                STUBIDX(stubs,i)->count.count32 = *((uint *)p);
+                STUBIDX(stubs, i)->count.count32 = *((uint *)p);
                 p += 4;
-                dr_printf("\t#%d: target = "PFX", %s, count = %lu\n",
-                          i, STUBIDX(stubs,i)->target,
-                          STUBIDX(stubs,i)->linked ? "not linked" : "linked",
-                          STUBIDX(stubs,i)->count.count32);
+                dr_printf("\t#%d: target = " PFX ", %s, count = %lu\n", i,
+                          STUBIDX(stubs, i)->target,
+                          STUBIDX(stubs, i)->linked ? "not linked" : "linked",
+                          STUBIDX(stubs, i)->count.count32);
             } else {
-                dr_printf("\t#%d: target = "PFX", %s\n",
-                          i, STUBIDX(stubs,i)->target,
-                          STUBIDX(stubs,i)->linked ? "not linked" : "linked");
+                dr_printf("\t#%d: target = " PFX ", %s\n", i, STUBIDX(stubs, i)->target,
+                          STUBIDX(stubs, i)->linked ? "not linked" : "linked");
             }
-            assert(p - sbuf == (int) STUB_DATA_FIXED_SIZE+fhdr.linkcount_size);
-            if (STUBIDX(stubs,i)->stub_pc < hdrs.cache_start_pc ||
-                STUBIDX(stubs,i)->stub_pc >= hdrs.cache_start_pc + hdrs.code_size) {
-                assert(STUBIDX(stubs,i)->stub_size < BUF_SIZE);
-                assert(STUBIDX(stubs,i)->stub_size <= SEPARATE_STUB_MAX_SIZE);
-                read = dr_read_file(f, sbuf, STUBIDX(stubs,i)->stub_size);
-                assert(read == STUBIDX(stubs,i)->stub_size);
+            assert(p - sbuf == (int)STUB_DATA_FIXED_SIZE + fhdr.linkcount_size);
+            if (STUBIDX(stubs, i)->stub_pc < hdrs.cache_start_pc ||
+                STUBIDX(stubs, i)->stub_pc >= hdrs.cache_start_pc + hdrs.code_size) {
+                assert(STUBIDX(stubs, i)->stub_size < BUF_SIZE);
+                assert(STUBIDX(stubs, i)->stub_size <= SEPARATE_STUB_MAX_SIZE);
+                read = dr_read_file(f, sbuf, STUBIDX(stubs, i)->stub_size);
+                assert(read == STUBIDX(stubs, i)->stub_size);
                 p = sbuf;
-                memcpy(STUBIDX(stubs,i)->stub_code, p, STUBIDX(stubs,i)->stub_size);
-                p += STUBIDX(stubs,i)->stub_size;
-            } else if (STUBIDX(stubs,i)->stub_pc - hdrs.cache_start_pc < next_stub_offs) {
-                next_stub_offs = (int) (STUBIDX(stubs,i)->stub_pc - hdrs.cache_start_pc);
+                memcpy(STUBIDX(stubs, i)->stub_code, p, STUBIDX(stubs, i)->stub_size);
+                p += STUBIDX(stubs, i)->stub_size;
+            } else if (STUBIDX(stubs, i)->stub_pc - hdrs.cache_start_pc <
+                       next_stub_offs) {
+                next_stub_offs = (int)(STUBIDX(stubs, i)->stub_pc - hdrs.cache_start_pc);
             }
         }
         if (hdrs.code_size >= dlen)
@@ -203,25 +204,25 @@ read_data(file_t f, void *drcontext)
         }
         /* stubs */
         for (cur_stub = 0; cur_stub < hdrs.num_exits; cur_stub++) {
-            bool separate = STUBIDX(stubs,cur_stub)->stub_pc < hdrs.cache_start_pc ||
-                STUBIDX(stubs,cur_stub)->stub_pc >= hdrs.cache_start_pc + hdrs.code_size;
-            app_pc stub_pc = (app_pc) STUBIDX(stubs,cur_stub)->stub_code;
-            dr_printf("  -------- exit stub %d: -------- <target: "PFX">\n",
-                      cur_stub, STUBIDX(stubs,cur_stub)->target);
+            bool separate = STUBIDX(stubs, cur_stub)->stub_pc < hdrs.cache_start_pc ||
+                STUBIDX(stubs, cur_stub)->stub_pc >= hdrs.cache_start_pc + hdrs.code_size;
+            app_pc stub_pc = (app_pc)STUBIDX(stubs, cur_stub)->stub_code;
+            dr_printf("  -------- exit stub %d: -------- <target: " PFX ">\n", cur_stub,
+                      STUBIDX(stubs, cur_stub)->target);
             next_stub_offs = hdrs.code_size;
-            for (i=cur_stub + 1; i<hdrs.num_exits; i++) {
-                if (STUBIDX(stubs,i)->stub_pc >= hdrs.cache_start_pc &&
-                    STUBIDX(stubs,i)->stub_pc < hdrs.cache_start_pc + hdrs.code_size) {
-                    next_stub_offs = (int)
-                        (STUBIDX(stubs,i)->stub_pc - hdrs.cache_start_pc);
+            for (i = cur_stub + 1; i < hdrs.num_exits; i++) {
+                if (STUBIDX(stubs, i)->stub_pc >= hdrs.cache_start_pc &&
+                    STUBIDX(stubs, i)->stub_pc < hdrs.cache_start_pc + hdrs.code_size) {
+                    next_stub_offs =
+                        (int)(STUBIDX(stubs, i)->stub_pc - hdrs.cache_start_pc);
                     break;
                 }
             }
             if (separate) {
                 app_pc spc = stub_pc;
-                while (spc - stub_pc < STUBIDX(stubs,cur_stub)->stub_size) {
-                    spc = dis(drcontext, spc, STUBIDX(stubs,cur_stub)->stub_pc +
-                              (spc - stub_pc));
+                while (spc - stub_pc < STUBIDX(stubs, cur_stub)->stub_size) {
+                    spc = dis(drcontext, spc,
+                              STUBIDX(stubs, cur_stub)->stub_pc + (spc - stub_pc));
                 }
             } else {
                 while (pc - p < next_stub_offs) {

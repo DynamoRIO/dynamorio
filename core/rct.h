@@ -39,9 +39,10 @@
 #ifndef RCT_H
 #define RCT_H
 
-enum {RCT_CACHE_EXEMPT_NONE = 0,
-      RCT_CACHE_EXEMPT_MODULES = 1,
-      RCT_CACHE_EXEMPT_ALL = 2, /* including DGC */
+enum {
+    RCT_CACHE_EXEMPT_NONE = 0,
+    RCT_CACHE_EXEMPT_MODULES = 1,
+    RCT_CACHE_EXEMPT_ALL = 2, /* including DGC */
 };
 
 #ifdef RCT_IND_BRANCH
@@ -50,22 +51,23 @@ int
 rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr);
 
 bool
-rct_check_ref_and_add(dcontext_t *dcontext, app_pc ref,
-                      app_pc referto_start, app_pc referto_end
-                      _IF_DEBUG(app_pc addr)
-                      _IF_DEBUG(bool *known_ref /* OPTIONAL OUT */));
+rct_check_ref_and_add(dcontext_t *dcontext, app_pc ref, app_pc referto_start,
+                      app_pc referto_end _IF_DEBUG(app_pc addr)
+                          _IF_DEBUG(bool *known_ref /* OPTIONAL OUT */));
 
 uint
-find_address_references(dcontext_t *dcontext,
-                        app_pc text_start, app_pc text_end,
+find_address_references(dcontext_t *dcontext, app_pc text_start, app_pc text_end,
                         app_pc referto_start, app_pc referto_end);
 uint
-invalidate_ind_branch_target_range(dcontext_t *dcontext,
-                                   app_pc text_start, app_pc text_end);
+invalidate_ind_branch_target_range(dcontext_t *dcontext, app_pc text_start,
+                                   app_pc text_end);
 
-void rct_known_targets_init(void);
-void rct_init(void);
-void rct_exit(void);
+void
+rct_known_targets_init(void);
+void
+rct_init(void);
+void
+rct_exit(void);
 
 /* private routines for rct.c and fragment.c */
 
@@ -73,7 +75,7 @@ void rct_exit(void);
  * these routines can be moved from fragment.c and be static in rct.c
  */
 
-# include "fragment.h"
+#    include "fragment.h"
 
 /* returns NULL if not found */
 app_pc
@@ -86,13 +88,13 @@ void
 rct_flush_ind_branch_target_entry(dcontext_t *dcontext, app_pc tag);
 
 bool
-rct_is_exported_function(app_pc tag);  /* in module.c */
+rct_is_exported_function(app_pc tag); /* in module.c */
 
-# ifdef X64
+#    ifdef X64
 /* in module.c */
 bool
 rct_add_rip_rel_addr(dcontext_t *dcontext, app_pc tgt _IF_DEBUG(app_pc src));
-# endif
+#    endif
 
 /* exported for ASSERT's to verify it's held */
 extern mutex_t rct_module_lock;

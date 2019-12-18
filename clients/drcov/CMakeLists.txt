@@ -99,7 +99,7 @@ install_target(drcov2lcov ${INSTALL_CLIENTS_BIN})
 
 # On Linux we rely on the rpath
 if (WIN32)
-  get_target_property(DR_TARGET_LOCATION dynamorio LOCATION${location_suffix})
+  DynamoRIO_get_full_path(DR_TARGET_LOCATION dynamorio "${location_suffix}")
   DR_install(FILES "${DR_TARGET_LOCATION}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   # i#1344: Include a copy of a recent (> 6.0) redistributable version of dbghelp,
   # if we found one, so our drcov2lcov works pre-Vista.
@@ -154,7 +154,6 @@ DR_install(FILES "${PROJECT_SOURCE_DIR}/third_party/lcov/genhtml"
 # We auto-generate the list of options in the html docs by running a helper app.
 # To avoid having a separate options.h, our helper here is drcov2locv itself when
 # passed a special flag.
-get_target_property(ops_path drcov2lcov LOCATION${location_suffix})
 
 # We then have to insert it into the doxygen files at build time:
 set(srcdoc ${CMAKE_CURRENT_SOURCE_DIR}/drcov.dox.in)
@@ -175,7 +174,7 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND}
   ARGS -D src=${srcdoc}
        -D dst=${gendoc}
-       -D prog=${ops_path}
+       -D prog=$<TARGET_FILE:drcov2lcov>
        -D prog_arg=-help_html
        -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake
   VERBATIM)

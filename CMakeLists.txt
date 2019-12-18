@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -45,7 +45,8 @@
 #   HowToBuild.wiki
 ###########################################################################
 
-cmake_minimum_required(VERSION 3.2)
+# Visual Studio 2017 requires 3.7.
+cmake_minimum_required(VERSION 3.7)
 
 include(make/policies.cmake NO_POLICY_SCOPE)
 
@@ -58,12 +59,18 @@ include(make/policies.cmake NO_POLICY_SCOPE)
 # this must be done prior to the project() command and the var
 # must be set in the cache.
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # Workaround for https://gitlab.kitware.com/cmake/cmake/issues/17992
+  set(CMAKE_SYSTEM_VERSION_TEMP $ENV{WindowsSDKVersion})
+  string(REGEX REPLACE "([0-9.]+).*" "\\1" CMAKE_SYSTEM_VERSION_TEMP "${CMAKE_SYSTEM_VERSION_TEMP}")
+  if (CMAKE_SYSTEM_VERSION_TEMP)
+    set(CMAKE_SYSTEM_VERSION ${CMAKE_SYSTEM_VERSION_TEMP} CACHE INTERNAL "")
+  endif()
   if (DEBUG)
     set(CMAKE_CONFIGURATION_TYPES "Debug" CACHE STRING "" FORCE)
   else (DEBUG)
     set(CMAKE_CONFIGURATION_TYPES "RelWithDebInfo" CACHE STRING "" FORCE)
   endif (DEBUG)
-  # we want to use the _LOCATION_<config> property
+  # we want to use the <VAR>_<config> variants of config-dependent properties
   string(TOUPPER "${CMAKE_CONFIGURATION_TYPES}" upper)
   set(location_suffix "_${upper}")
 else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
@@ -240,11 +247,6 @@ else(CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
   set(X64 OFF)
 endif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 
-if (APPLE AND X64)
-  # XXX #1979: 64-bit OSX is not supported.
-  message(FATAL_ERROR "64-bit Mac OSX is not supported")
-endif ()
-
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 
 # high-level configurations
@@ -308,6 +310,10 @@ endif()
 option(CALLPROF "internal caller profiling support")
 option(PROFILE "profiling build: disables FPO and tweaks other flags" OFF)
 
+if (UNIX)
+  option(RECORD_MEMQUERY "generate test cases for memquery_library_bounds_by_iterator")
+endif ()
+
 if (X86)
   set(ANNOTATIONS_DEFAULT ON)
 else ()
@@ -330,9 +336,12 @@ option(SET_PREFERRED_BASE "set a preferred library base address")
 if (WIN32 AND DEBUG)
   # apparently no numeric type so we use STRING
   set(preferred_base "0x15000000" CACHE STRING "Preferred library base address")
-else (WIN32 AND DEBUG)
+elseif (APPLE AND X64)
+  # Set to higher than _PAGEZERO which is [0..0x1'00000000).
+  set(preferred_base "0x171000000" CACHE STRING "Preferred library base address")
+else ()
   set(preferred_base "0x71000000" CACHE STRING "Preferred library base address")
-endif (WIN32 AND DEBUG)
+endif ()
 
 # for x64: PR 253624: we need our library to be next to our heap
 # for win32: not PIC so need a base
@@ -393,6 +402,11 @@ endforeach ()
 foreach (var CMAKE_C_FLAGS;CMAKE_CXX_FLAGS)
   set(${var} " ") # if "" defaults come back
 endforeach ()
+
+if (APPLE)
+  # Enable @rpath for all shared library install names.
+  set(CMAKE_MACOSX_RPATH 1)
+endif ()
 
 ##################################################
 # resources when packaging
@@ -478,12 +492,9 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
-# N.B.: if VERSION_NUMBER's major number is incremented without also
-# incrementing OLDEST_COMPATIBLE_VERSION we'll need to add another
-# symlink loop in core/CMakeLists.txt
 # N.B.: when updating this, update the git tag in .travis.yml.
 # We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "7.0.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "7.91.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -607,14 +618,17 @@ else (UNIX)
       set(sdk_bindir "${sdk_dir}/bin")
     endif (X64)
   endif ()
-  find_program(CMAKE_MC_COMPILER mc.exe HINTS "${sdk_bindir}"
-    DOC "path to message compiler")
-  if (NOT CMAKE_MC_COMPILER)
-    message(FATAL_ERROR "message compiler not found: required to build")
-  endif (NOT CMAKE_MC_COMPILER)
-  message(STATUS "Found message compiler: ${CMAKE_MC_COMPILER}")
-  mark_as_advanced(CMAKE_MC_COMPILER)
-
+  if (NOT ("${CMAKE_GENERATOR}" MATCHES "MSYS Makefiles"))
+    # For MinGW (MSYS Makefiles) we do not have a message compiler.
+    # We build without it (which means we can't use the Windows event log).
+    find_program(CMAKE_MC_COMPILER mc.exe HINTS "${sdk_bindir}"
+      DOC "path to message compiler")
+    if (NOT CMAKE_MC_COMPILER)
+      message(FATAL_ERROR "message compiler not found: required to build")
+    endif (NOT CMAKE_MC_COMPILER)
+    message(STATUS "Found message compiler: ${CMAKE_MC_COMPILER}")
+    mark_as_advanced(CMAKE_MC_COMPILER)
+  endif ()
 endif (UNIX)
 
 find_package(Perl)
@@ -729,9 +743,10 @@ if (UNIX)
   endif ()
   if (APPLE AND CMAKE_COMPILER_IS_CLANG)
     # Ensure our binaries can run on older OSX
-    # We're building our release package on 10.11, and that XCode does not
+    # We're building our release package on 10.14, and that XCode does not
     # supply C++ libraries for below 10.9, causing drcachesim to fail to build.
     # Thus we have abandoned support for below 10.9.
+    # If this is updated, update drcachesim's as well.
     set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=10.9")
   endif ()
   if (APPLE)
@@ -749,6 +764,23 @@ if (UNIX)
     if (nounused_avail)
       set(WARN "${WARN} -Wno-unused-but-set-variable")
     endif (nounused_avail)
+    # XXX i#3792: DynamoRIO manages '\0' termination and error states itself in
+    # too many places. In order to activate this warning, this code needs to get
+    # re-factored for no good reason.
+    CHECK_C_COMPILER_FLAG("-Wstringop-truncation" stringop_truncation_avail)
+    if (stringop_truncation_avail)
+      set(WARN "${WARN} -Wno-stringop-truncation")
+    endif (stringop_truncation_avail)
+    # XXX i#3792: see comment above.
+    CHECK_C_COMPILER_FLAG("-Wformat-truncation" format_truncation_avail)
+    if (format_truncation_avail)
+      set(WARN "${WARN} -Wno-format-truncation")
+    endif (format_truncation_avail)
+    # XXX i#3792: see comment above.
+    CHECK_C_COMPILER_FLAG("-Wstringop-overflow" stringop_overflow_avail)
+    if (stringop_overflow_avail)
+      set(WARN "${WARN} -Wno-stringop-overflow")
+    endif (stringop_overflow_avail)
     CHECK_C_COMPILER_FLAG("-Wtype-limits" HAVE_TYPELIMITS_CONTROL)
   else (NOT CMAKE_COMPILER_IS_CLANG)
     # clang turns off color when it's writing to a pipe, but the user may still
@@ -826,7 +858,11 @@ else (UNIX)
   set(BASE_CFLAGS "${BASE_CFLAGS} /GS-")
   # VS2010 has /MD as the default (and does declspec(dllimport) for
   # libc routines) so make sure we explicitly request /MT
-  set(BASE_CFLAGS "${BASE_CFLAGS} /MT")
+  if (DEBUG)
+    set(BASE_CFLAGS "${BASE_CFLAGS} /MTd")
+  else ()
+    set(BASE_CFLAGS "${BASE_CFLAGS} /MT")
+  endif ()
   set(WARN "/W4 /WX")
   # Default from cmake has /W3 so remove to avoid warning about overriding
   string(REGEX REPLACE "/W[0-9]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
@@ -1077,6 +1113,12 @@ if (NOT DISABLE_WARNINGS)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARN}")
 endif (NOT DISABLE_WARNINGS)
 
+if (LINUX)
+  CHECK_INCLUDE_FILE("linux/rseq.h" HAVE_RSEQ)
+else ()
+  set(HAVE_RSEQ OFF)
+endif ()
+
 ###########################################################################
 
 # Issue 20: cross-arch execve depends on these being distinct and not
@@ -1133,7 +1175,14 @@ macro(DR_target_install_dst dst)
     else ()
       set(inst_dst ${dst})
     endif ()
-    install(${ARGN} DESTINATION ${inst_dst})
+    set(export_flag "")
+    foreach (n ${ARGN})
+      if (n MATCHES EXPORT)
+        set(export_flag "EXPORT_LINK_INTERFACE_LIBRARIES")
+      endif ()
+      break ()
+    endforeach ()
+    install(${ARGN} DESTINATION ${inst_dst} ${export_flag})
   endif (DO_DR_INSTALL_TARGETS)
 endmacro(DR_target_install_dst)
 function (install_exported_target target dest)
@@ -1186,11 +1235,14 @@ string(REGEX REPLACE
 math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
+# Every release since has had minor compat breakages.
+# 7.91 broke backcompat by adding a field to instr_t .
+# 7.90 broke backcompat in DR_REG_ enums and OPSZ_ enums.
 # 6.0 broke backcompat in Linux injection, mod load event, etc.
 # 5.0 broke backcompat in drsyms and xmm opnd sizes
 # 4.1 broke backcompat in drsyms + 64-bit core (opcodes + reachability)
 # 4.0 broke backcompat in drmgr, drsyms, drinjectlib, and dr_get_milliseconds()
-set(OLDEST_COMPATIBLE_VERSION_DEFAULT "600")
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "791")
 set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
   "Oldest compatible version: leave empty for default")
 if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")
@@ -1287,8 +1339,8 @@ endif (X64)
 file(WRITE ${PROJECT_BINARY_DIR}/cmake/${exported_map_name}.cmake "")
 set(exported_targets_append "")
 macro(DR_export_target target)
-  export(TARGETS ${ARGV} FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
-    APPEND)
+  export(TARGETS ${ARGV} APPEND FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
+    EXPORT_LINK_INTERFACE_LIBRARIES)
   set(toadd "
 SET_PROPERTY(TARGET ${ARGV} PROPERTY MAP_IMPORTED_CONFIG_RELEASE RelWithDebInfo)
 SET_PROPERTY(TARGET ${ARGV} PROPERTY MAP_IMPORTED_CONFIG_RELMINSIZE RelWithDebInfo)
@@ -1417,6 +1469,14 @@ if (BUILD_TESTS)
   # Tests require tools
   set(BUILD_TOOLS ON)
   enable_testing()
+  set(proc_supports_avx OFF)
+  set(proc_supports_avx512 OFF)
+  if (UNIX)
+    set(CFLAGS_AVX "-mavx")
+    set(CFLAGS_AVX512 "-mavx512f")
+    check_avx_processor_and_compiler_support(proc_supports_avx)
+    check_avx512_processor_and_compiler_support(proc_supports_avx512)
+  endif ()
   # add Dashboard support
   include(CTest)
 endif (BUILD_TESTS)
@@ -1585,8 +1645,8 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     REGEX "annotations/valgrind.h|annotations/memcheck.h" EXCLUDE)
 endif (CLIENT_INTERFACE OR APP_EXPORTS)
 
-# Used by tests in multiple places.
-if (BUILD_TESTS AND UNIX)
+# Used by tests in multiple places, and by some drcachesim non-test binaries.
+if (UNIX)
   if (ANDROID)
     # pthreads is inside Bionic on Android, and for some reason find_library() can't
     # locate libm or libdl within the Android toolchain: we just assume they're there.
@@ -1619,13 +1679,23 @@ if (BUILD_TESTS AND UNIX)
   endif ()
 endif ()
 
-# zlib is used for some clients/ and tests.
+function (link_with_pthread target)
+  if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
+    target_link_libraries(${target} ${libpthread})
+  endif ()
+endfunction ()
+
+# zlib and snappy are used for some clients/ and tests.
 if (CMAKE_CROSSCOMPILING)
   # find_package looks at the host system.
   # XXX i#2285: we should re-visit the CMAKE_FIND_ROOT_PATH settings!
   set(ZLIB_FOUND OFF)
 else ()
   find_package(ZLIB)
+  # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
+  if (UNIX AND X64)
+    find_library(libsnappy snappy)
+  endif ()
 endif ()
 
 if (BUILD_CLIENTS)
@@ -1731,6 +1801,8 @@ endif (CLIENT_INTERFACE OR APP_EXPORTS)
 
 ###########################################################################
 # Style checks:
+
+option(VERA_ERROR "Turn vera++ checks into error (default)" ON)
 
 find_package(vera++ QUIET)
 if (vera++_FOUND)

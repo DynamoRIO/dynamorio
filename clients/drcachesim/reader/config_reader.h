@@ -49,21 +49,23 @@ using namespace std;
 
 // Cache configuration settings.
 struct cache_params_t {
-    cache_params_t() :
-        type(CACHE_TYPE_UNIFIED),
-        core(-1),
-        size(0),
-        assoc(0),
-        inclusive(false),
-        parent(CACHE_PARENT_MEMORY),
-        replace_policy(REPLACE_POLICY_LRU),
-        prefetcher(PREFETCH_POLICY_NONE),
-        miss_file("") {}
+    cache_params_t()
+        : type(CACHE_TYPE_UNIFIED)
+        , core(-1)
+        , size(0)
+        , assoc(0)
+        , inclusive(false)
+        , parent(CACHE_PARENT_MEMORY)
+        , replace_policy(REPLACE_POLICY_LRU)
+        , prefetcher(PREFETCH_POLICY_NONE)
+        , miss_file("")
+    {
+    }
     // Cache's name. Each cache must have a unique name.
-    string name;
+    std::string name;
     // Cache type: CACHE_TYPE_INSTRUCTION, CACHE_TYPE_DATA,
     // or CACHE_TYPE_UNIFIED (default).
-    string type;
+    std::string type;
     // CPU core this cache is associated with.
     // Must be specified for L1 caches only.
     int core;
@@ -75,36 +77,38 @@ struct cache_params_t {
     bool inclusive;
     // Name of the cache's parent. LLC's parent is main memory
     // (CACHE_PARENT_MEMORY).
-    string parent;
+    std::string parent;
     // Names of the cache's children. L1 caches don't have children.
-    std::vector<string> children;
+    std::vector<std::string> children;
     // Cache replacement policy as described by the runtime option
     // op_replace_policy (see ../common/options.cpp).
-    string replace_policy;
+    std::string replace_policy;
     // Type of prefetcher as described by the runtime option
     // op_data_prefetcher (see ../common/options.cpp).
-    string prefetcher;
+    std::string prefetcher;
     // Name of the file to use to dump cache misses info.
-    string miss_file;
+    std::string miss_file;
 };
 
-class config_reader_t
-{
- public:
+class config_reader_t {
+public:
     config_reader_t();
     ~config_reader_t();
-    bool configure(const string &config_file,
-                   cache_simulator_knobs_t &knobs,
-                   std::map<string, cache_params_t> &caches);
+    bool
+    configure(const std::string &config_file, cache_simulator_knobs_t &knobs,
+              std::map<std::string, cache_params_t> &caches);
 
- private:
+private:
     std::ifstream fin;
 
-    bool configure_cache(cache_params_t &cache);
-    bool check_cache_config(int num_cores,
-                            std::map<string, cache_params_t> &caches_map);
-    bool convert_string_to_size(const string &s, uint64_t &size);
-    bool is_true(string bool_val)
+    bool
+    configure_cache(cache_params_t &cache);
+    bool
+    check_cache_config(int num_cores, std::map<std::string, cache_params_t> &caches_map);
+    bool
+    convert_string_to_size(const std::string &s, uint64_t &size);
+    bool
+    is_true(std::string bool_val)
     {
         if (bool_val == "true" || bool_val == "True" || bool_val == "TRUE") {
             return true;

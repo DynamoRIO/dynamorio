@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,34 +43,34 @@
 
 #include "configure.h"
 #if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-# include "../globals.h"
-# include "os_private.h"
-# include "../nudge.h"
-# include "../module_shared.h"
-#else  /* NOT_DYNAMORIO_CORE */
-# define WIN32_LEAN_AND_MEAN
-# include <windows.h> /* no longer included in globals_shared.h */
-# include "globals_shared.h"
+#    include "../globals.h"
+#    include "os_private.h"
+#    include "../nudge.h"
+#    include "../module_shared.h"
+#else /* NOT_DYNAMORIO_CORE */
+#    define WIN32_LEAN_AND_MEAN
+#    include <windows.h> /* no longer included in globals_shared.h */
+#    include "globals_shared.h"
 #endif
 
 #include "ntdll.h"
 #include "drmarker.h"
 
 #if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-# define READ_FUNC nt_read_virtual_memory
-# define DR_MARKER_VERSION_CURRENT DR_MARKER_VERSION_2
-#else /* NOT_DYNAMORIO_CORE */
-# pragma warning( disable : 4054) /* from function pointer to data pointer */
+#    define READ_FUNC nt_read_virtual_memory
+#    define DR_MARKER_VERSION_CURRENT DR_MARKER_VERSION_2
+#else                               /* NOT_DYNAMORIO_CORE */
+#    pragma warning(disable : 4054) /* from function pointer to data pointer */
 /* complains about size_t* vs SIZE_T* */
 /* 'unsigned long *' differs to slightly different base types from 'int *' */
-# pragma warning( disable : 4057)
-# pragma warning( disable : 4100) /* 'envp' : unreferenced formal parameter */
-# ifndef byte
+#    pragma warning(disable : 4057)
+#    pragma warning(disable : 4100) /* 'envp' : unreferenced formal parameter */
+#    ifndef byte
 typedef unsigned char byte;
-# endif
-# define PAGE_START(x) (((ptr_uint_t)(x)) & ~((PAGE_SIZE)-1))
-# define PAGE_SIZE (4*1024)
-# define READ_FUNC ReadProcessMemory
+#    endif
+#    define PAGE_START(x) (((ptr_uint_t)(x)) & ~((PAGE_SIZE)-1))
+#    define PAGE_SIZE (4 * 1024)
+#    define READ_FUNC ReadProcessMemory
 #endif
 
 #define OP_jmp_byte 0xe9
@@ -81,15 +81,14 @@ bool
 is_wow64_process(HANDLE hProcess)
 {
     /* IsWow64Pocess is only available on XP+ */
-    typedef DWORD (WINAPI *IsWow64Process_Type)(HANDLE hProcess,
-                                                PBOOL isWow64Process);
+    typedef DWORD(WINAPI * IsWow64Process_Type)(HANDLE hProcess, PBOOL isWow64Process);
     static HANDLE kernel32_handle;
     static IsWow64Process_Type IsWow64Process;
     if (kernel32_handle == NULL)
         kernel32_handle = GetModuleHandle(L"kernel32.dll");
     if (IsWow64Process == NULL && kernel32_handle != NULL) {
-        IsWow64Process = (IsWow64Process_Type)
-            GetProcAddress(kernel32_handle, "IsWow64Process");
+        IsWow64Process =
+            (IsWow64Process_Type)GetProcAddress(kernel32_handle, "IsWow64Process");
     }
     if (IsWow64Process == NULL) {
         /* should be NT or 2K */
@@ -109,6 +108,8 @@ is_wow64_process(HANDLE hProcess)
 static int
 read_and_verify_dr_marker_common(HANDLE process, dr_marker_t *marker, bool x64)
 {
+    /* clang-format mis-parses this function! */
+    /* clang-format off */
     byte buf[8]; /* only needs to be 5, but dword pad just in case */
     size_t res;
     void *target = NULL;
@@ -119,15 +120,16 @@ read_and_verify_dr_marker_common(HANDLE process, dr_marker_t *marker, bool x64)
     if (IF_X64_ELSE(!x64, x64 && !is_wow64_process(NT_CURRENT_PROCESS)))
         return DR_MARKER_ERROR;
     if (x64) {
-# ifndef X64
-        uint64 hook_func = get_proc_address_64
-            (get_module_handle_64(L_DR_MARKER_HOOKED_DLL),
-             DR_MARKER_HOOKED_FUNCTION_STRING);
+#    ifndef X64
+        uint64 hook_func =
+            get_proc_address_64(get_module_handle_64(L_DR_MARKER_HOOKED_DLL),
+                                DR_MARKER_HOOKED_FUNCTION_STRING);
         uint64 landing_pad = 0;
         if (hook_func == 0)
             return DR_MARKER_ERROR;
-        if (!NT_SUCCESS(nt_wow64_read_virtual_memory64(process, hook_func, buf, 5, &res))
-            || res != 5) {
+        if (!NT_SUCCESS(
+                nt_wow64_read_virtual_memory64(process, hook_func, buf, 5, &res)) ||
+            res != 5) {
             return DR_MARKER_ERROR;
         }
         if (buf[0] != OP_jmp_byte)
@@ -136,14 +138,14 @@ read_and_verify_dr_marker_common(HANDLE process, dr_marker_t *marker, bool x64)
         /* jmp offset + EIP (after jmp = hook_func + size of jmp (5 bytes)) */
         /* for 64-bit, the target is stored in front of the trampoline */
         landing_pad = *(int *)&buf[1] + hook_func + 5 - 8;
-         if (!NT_SUCCESS(nt_wow64_read_virtual_memory64(process, landing_pad, buf, 8,
-                                                        &res)) ||
+        if (!NT_SUCCESS(
+                nt_wow64_read_virtual_memory64(process, landing_pad, buf, 8, &res)) ||
             res != 8U)
             return DR_MARKER_ERROR;
         /* trampoline address is stored at the top of the landing pad for 64-bit */
         target = (void *)PAGE_START(*(ptr_int_t *)buf);
     } else {
-# endif /* !X64 */
+#    endif /* !X64 */
         void *hook_func = (void *)GetProcAddress(GetModuleHandle(DR_MARKER_HOOKED_DLL),
                                                  DR_MARKER_HOOKED_FUNCTION_STRING);
 #endif
@@ -187,6 +189,7 @@ read_and_verify_dr_marker_common(HANDLE process, dr_marker_t *marker, bool x64)
     }
 
     return DR_MARKER_NOT_FOUND; /* probably some other hooker */
+/* clang-format on */
 }
 
 #ifndef X64
@@ -216,10 +219,8 @@ read_and_verify_dr_marker(HANDLE process, dr_marker_t *marker)
 bool
 dr_marker_verify(HANDLE process, dr_marker_t *marker)
 {
-    return (marker->magic1 == DR_MARKER_MAGIC1 &&
-            marker->magic2 == DR_MARKER_MAGIC2 &&
-            marker->magic3 == DR_MARKER_MAGIC3 &&
-            marker->magic4 == DR_MARKER_MAGIC4);
+    return (marker->magic1 == DR_MARKER_MAGIC1 && marker->magic2 == DR_MARKER_MAGIC2 &&
+            marker->magic3 == DR_MARKER_MAGIC3 && marker->magic4 == DR_MARKER_MAGIC4);
 }
 
 #if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
@@ -234,28 +235,29 @@ dr_marker_magic_init(HANDLE process, dr_marker_t *marker)
     marker->magic4 = DR_MARKER_MAGIC4;
 }
 
-# ifdef HOT_PATCHING_INTERFACE
+#    ifdef HOT_PATCHING_INTERFACE
 /* FIXME: Including hotpatch.h here breaks the share module because it doesn't
  *        define a whole bunch of types like app_pc.  Once that is fixed, this
  *        extern declaration should be removed and hotpatch.h included; see
  *        case 4999.
  */
-extern void *hotp_policy_status_table;  /* See FIXME above. */
-extern read_write_lock_t *hotp_get_lock(void);  /* See FIXME above. */
-# endif
+extern void *hotp_policy_status_table; /* See FIXME above. */
+extern read_write_lock_t *
+hotp_get_lock(void); /* See FIXME above. */
+#    endif
 
 void
 init_dr_marker(dr_marker_t *marker)
 {
     /* not calling memset b/c windbg_cmds is large */
-# ifdef DEBUG
+#    ifdef DEBUG
     marker->flags = DR_MARKER_DEBUG_BUILD;
-# else
+#    else
     marker->flags = DR_MARKER_RELEASE_BUILD;
-# endif
-# ifdef PROFILE
+#    endif
+#    ifdef PROFILE
     marker->flags = DR_MARKER_PROFILE_BUILD;
-# endif
+#    endif
     /* make sure we set one of the above flags and not more then one */
     ASSERT(TESTANY(DR_MARKER_BUILD_TYPES, marker->flags) &&
            ((DR_MARKER_BUILD_TYPES & marker->flags) &
@@ -264,26 +266,26 @@ init_dr_marker(dr_marker_t *marker)
     marker->build_num = BUILD_NUMBER;
     marker->dr_base_addr = get_module_base((app_pc)init_dr_marker);
     marker->dr_generic_nudge_target = (void *)generic_nudge_target;
-# ifdef HOT_PATCHING_INTERFACE
+#    ifdef HOT_PATCHING_INTERFACE
     marker->dr_hotp_policy_status_table = (void *)hotp_policy_status_table;
-# else
+#    else
     marker->dr_hotp_policy_status_table = NULL;
-# endif
+#    endif
     marker->dr_marker_version = DR_MARKER_VERSION_CURRENT;
     marker->stats = get_dr_stats();
     dr_marker_magic_init(NT_CURRENT_PROCESS, marker);
     marker->windbg_cmds[0] = '\0';
 }
 
-# ifdef HOT_PATCHING_INTERFACE
-void*
+#    ifdef HOT_PATCHING_INTERFACE
+void *
 get_drmarker_hotp_policy_status_table()
 {
     dr_marker_t *dr_marker = get_drmarker();
 
     ASSERT_OWN_READWRITE_LOCK(true, hotp_get_lock());
 
-    if (dr_marker == NULL)      /* dr_marker_t has been initialized. */
+    if (dr_marker == NULL) /* dr_marker_t has been initialized. */
         return NULL;
 
     return dr_marker->dr_hotp_policy_status_table;
@@ -299,7 +301,7 @@ set_drmarker_hotp_policy_status_table(void *new_table)
     /* We don't want to write to the dr_marker_t before it is initialized;  we
      * could get an exception.
      */
-    if (dr_marker == NULL)      /* Part of fix for case 5367. */
+    if (dr_marker == NULL) /* Part of fix for case 5367. */
         return;
     /* Ok, dr_marker_t has been initialized. */
 
@@ -312,10 +314,10 @@ set_drmarker_hotp_policy_status_table(void *new_table)
      *       It might be a good idea to introduce a lock for the dr_marker_t and
      *       generic accessor functions.
      */
-    make_writable((byte*)dr_marker, INTERCEPTION_CODE_SIZE);
+    make_writable((byte *)dr_marker, INTERCEPTION_CODE_SIZE);
     dr_marker->dr_hotp_policy_status_table = new_table;
-    make_unwritable((byte*)dr_marker, INTERCEPTION_CODE_SIZE);
+    make_unwritable((byte *)dr_marker, INTERCEPTION_CODE_SIZE);
 }
-# endif  /* HOT_PATCHING_INTERFACE */
+#    endif /* HOT_PATCHING_INTERFACE */
 
 #endif /* !NOT_DYNAMORIO_CORE && !NOT_DYNAMORIO_CORE_PROPER */

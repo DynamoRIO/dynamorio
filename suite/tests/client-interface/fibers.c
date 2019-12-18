@@ -78,7 +78,7 @@ run_fibers(void *arg)
 static void
 fls_index_iter(void)
 {
-#   define FLS_COUNT 128
+#define FLS_COUNT 128
     DWORD idx[FLS_COUNT];
     int i;
     bool ran_out = false;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,13 +41,13 @@
  */
 
 #ifndef _GLOBALS_SHARED_H_
-#define _GLOBALS_SHARED_H_
+#define _GLOBALS_SHARED_H_ 1
 
 /* if not Unix, we assume Windows */
 #ifndef UNIX
-#  ifndef WINDOWS
-#    define WINDOWS
-#  endif
+#    ifndef WINDOWS
+#        define WINDOWS
+#    endif
 #endif
 
 /* DR_API EXPORT TOFILE dr_defines.h */
@@ -63,108 +63,103 @@
 
 #ifdef API_EXPORT_ONLY
 /* A client's target operating system and architecture must be specified. */
-#if !defined(LINUX) && !defined(WINDOWS) && !defined(MACOS)
-# error Target operating system unspecified: must define WINDOWS, LINUX, or MACOS
-#endif
+#    if !defined(LINUX) && !defined(WINDOWS) && !defined(MACOS)
+#        error Target operating system unspecified: define WINDOWS, LINUX, or MACOS
+#    endif
 #endif
 
 #ifdef API_EXPORT_ONLY
-#if defined(X86_32) || defined(X86_64)
-# define X86
-# if (defined(X86_64) && defined(X86_32)) || defined(ARM_32) || defined(ARM_64)
-#  error Target architecture over-specified: must define only one
-# endif
-#elif defined(ARM_32)
-# define ARM
-# define AARCHXX
-# if defined(X86_32) || defined(X86_64) || defined(ARM_64)
-#  error Target architecture over-specified: must define only one
-# endif
-#elif defined(ARM_64)
-# define AARCH64
-# define AARCHXX
-# if defined(X86_32) || defined(X86_64) || defined(ARM_32)
-#  error Target architecture over-specified: must define only one
-# endif
-#else
-# error Target architecture unknown: must define X86_32, X86_64, ARM_32, or ARM_64
-#endif
+#    if defined(X86_32) || defined(X86_64)
+#        define X86
+#        if (defined(X86_64) && defined(X86_32)) || defined(ARM_32) || defined(ARM_64)
+#            error Target architecture over-specified: must define only one
+#        endif
+#    elif defined(ARM_32)
+#        define ARM
+#        define AARCHXX
+#        if defined(X86_32) || defined(X86_64) || defined(ARM_64)
+#            error Target architecture over-specified: must define only one
+#        endif
+#    elif defined(ARM_64)
+#        define AARCH64
+#        define AARCHXX
+#        if defined(X86_32) || defined(X86_64) || defined(ARM_32)
+#            error Target architecture over-specified: must define only one
+#        endif
+#    else
+#        error Target architecture unknown: define X86_32, X86_64, ARM_32, or ARM_64
+#    endif
 #endif
 
 #if (defined(X86_64) || defined(ARM_64)) && !defined(X64)
-# define X64
+#    define X64
 #endif
 
 #if (defined(LINUX) || defined(MACOS)) && !defined(UNIX)
-# define UNIX
+#    define UNIX
 #endif
 
 #ifdef API_EXPORT_ONLY
-#ifdef WINDOWS
-#  define WIN32_LEAN_AND_MEAN
-#  include <windows.h>
-#  include <winbase.h>
-#else
-#  include <stdio.h>
-#  include <stdlib.h>
-#endif
-#include <stdarg.h> /* for varargs */
+#    ifdef WINDOWS
+#        define WIN32_LEAN_AND_MEAN
+#        include <windows.h>
+#        include <winbase.h>
+#    else
+#        include <stdio.h>
+#        include <stdlib.h>
+#    endif
+#    include <stdarg.h> /* for varargs */
 #endif
 /* DR_API EXPORT END */
 
 /* Internally, ensure these defines are set */
 #if defined(X86) && !defined(X64) && !defined(X86_32)
-# define X86_32
+#    define X86_32
 #endif
 #if defined(X86) && defined(X64) && !defined(X86_64)
-# define X86_64
+#    define X86_64
 #endif
 
-#include <limits.h>  /* for USHRT_MAX */
+#include <limits.h> /* for USHRT_MAX */
 #ifdef UNIX
-#  include <signal.h>
+#    include <signal.h>
 #endif
+#include "c_defines.h"
 /* DR_API EXPORT VERBATIM */
 #ifdef UNIX
-#  include <sys/types.h>  /* for pid_t (non-glibc, e.g. musl) */
+#    include <sys/types.h> /* for pid_t (non-glibc, e.g. musl) */
 #endif
 #ifdef WINDOWS
 /* allow nameless struct/union */
-#  pragma warning(disable: 4201)
+#    pragma warning(disable : 4201)
 /* VS2005 warns about comparison operator results being cast to bool (i#523) */
-#  if _MSC_VER >= 1400 && _MSC_VER < 1500
-#    pragma warning(disable: 4244)
-#  endif
+#    if _MSC_VER >= 1400 && _MSC_VER < 1500
+#        pragma warning(disable : 4244)
+#    endif
 #endif
 
 #ifdef WINDOWS
-#  define DR_EXPORT __declspec(dllexport)
-#  define LINK_ONCE __declspec(selectany)
-#  define ALIGN_VAR(x) __declspec(align(x))
-#  ifndef __cplusplus
-#   define inline __inline
-#  endif
-#  define INLINE_FORCED __forceinline
-#  define WEAK /* no equivalent, but .obj overrides .lib */
-#  define NOINLINE __declspec(noinline)
+#    define DR_EXPORT __declspec(dllexport)
+#    define LINK_ONCE __declspec(selectany)
+#    define ALIGN_VAR(x) __declspec(align(x))
+#    define INLINE_FORCED __forceinline
+#    define WEAK /* no equivalent, but .obj overrides .lib */
+#    define NOINLINE __declspec(noinline)
 #else
 /* We assume gcc is being used.  If the client is using -fvisibility
  * (in gcc >= 3.4) to not export symbols by default, setting
  * USE_VISIBILITY_ATTRIBUTES will properly export.
  */
-#  ifdef USE_VISIBILITY_ATTRIBUTES
-#    define DR_EXPORT __attribute__ ((visibility ("default")))
-#  else
-#    define DR_EXPORT
-#  endif
-#  define LINK_ONCE __attribute__ ((weak))
-#  define ALIGN_VAR(x) __attribute__ ((aligned (x)))
-#  ifndef __cplusplus
-#   define inline __inline__
-#  endif
-#  define INLINE_FORCED inline
-#  define WEAK __attribute__ ((weak))
-#  define NOINLINE __attribute__((noinline))
+#    ifdef USE_VISIBILITY_ATTRIBUTES
+#        define DR_EXPORT __attribute__((visibility("default")))
+#    else
+#        define DR_EXPORT
+#    endif
+#    define LINK_ONCE __attribute__((weak))
+#    define ALIGN_VAR(x) __attribute__((aligned(x)))
+#    define INLINE_FORCED inline
+#    define WEAK __attribute__((weak))
+#    define NOINLINE __attribute__((noinline))
 #endif
 
 /* DR_API EXPORT END */
@@ -184,33 +179,19 @@
  * on UNIX.
  */
 #ifdef WINDOWS
-# define MAXIMUM_PATH      260
+#    define MAXIMUM_PATH 260
 #else
-# define MAXIMUM_PATH      512
+#    define MAXIMUM_PATH 512
 #endif
 
 /* DR_API EXPORT END */
 /* DR_API EXPORT VERBATIM */
 #ifndef NULL
-#  define NULL (0)
-#endif
-
-#ifndef __cplusplus
-#  ifndef DR_DO_NOT_DEFINE_bool
-#    ifdef DR__Bool_EXISTS
-/* prefer _Bool as it avoids truncation casting non-zero to zero */
-typedef _Bool bool;
+#    ifdef __cplusplus
+#        define NULL nullptr
 #    else
-/* char-sized for compatibility with C++ */
-typedef char bool;
+#        define NULL ((void *)0)
 #    endif
-#  endif
-#  ifndef true
-#    define true  (1)
-#  endif
-#  ifndef false
-#    define false (0)
-#  endif
 #endif
 
 /* on Windows where bool is char casting can truncate non-zero to zero
@@ -230,43 +211,65 @@ typedef unsigned char byte;
 #ifndef DR_DO_NOT_DEFINE_sbyte
 typedef signed char sbyte;
 #endif
-typedef byte * app_pc;
+typedef byte *app_pc;
 
-typedef void (*generic_func_t) ();
+typedef void (*generic_func_t)();
+
+#ifdef DR_DEFINE_FOR_uint64
+#    undef DR_DO_NOT_DEFINE_uint64
+#endif
+
+#ifdef DR_DEFINE_FOR_int64
+#    undef DR_DO_NOT_DEFINE_int64
+#endif
 
 #ifdef WINDOWS
-#  ifndef DR_DO_NOT_DEFINE_uint64
-typedef unsigned __int64 uint64;
-#  endif
-#  ifndef DR_DO_NOT_DEFINE_int64
-typedef __int64 int64;
-#  endif
-#  ifdef X64
+#    ifndef DR_DEFINE_FOR_uint64
+#        define DR_DEFINE_FOR_uint64 unsigned __int64
+#    endif
+#    ifndef DR_DEFINE_FOR_int64
+#        define DR_DEFINE_FOR_int64 __int64
+#    endif
+#    ifdef X64
 typedef __int64 ssize_t;
-#  else
+#    else
 typedef int ssize_t;
-#  endif
-#  define _SSIZE_T_DEFINED
-#  define INT64_FORMAT "I64"
+#    endif
+#    define _SSIZE_T_DEFINED
+#    ifndef INT64_FORMAT
+#        define INT64_FORMAT "I64"
+#    endif
 #else /* Linux */
-#  ifdef X64
-#    ifndef DR_DO_NOT_DEFINE_uint64
-typedef unsigned long int uint64;
+#    ifdef X64
+#        ifndef DR_DEFINE_FOR_uint64
+#            define DR_DEFINE_FOR_uint64 unsigned long int
+#        endif
+#        ifndef DR_DEFINE_FOR_int64
+#            define DR_DEFINE_FOR_int64 long int
+#        endif
+#        ifndef INT64_FORMAT
+#            define INT64_FORMAT "l"
+#        endif
+#    else
+#        ifndef DR_DEFINE_FOR_uint64
+#            define DR_DEFINE_FOR_uint64 unsigned long long int
+#        endif
+#        ifndef DR_DEFINE_FOR_int64
+#            define DR_DEFINE_FOR_int64 long long int
+#        endif
+#        ifndef INT64_FORMAT
+#            define INT64_FORMAT "ll"
+#        endif
 #    endif
-#    ifndef DR_DO_NOT_DEFINE_int64
-typedef long int int64;
-#    endif
-#    define INT64_FORMAT "l"
-#  else
-#    ifndef DR_DO_NOT_DEFINE_uint64
-typedef unsigned long long int uint64;
-#    endif
-#    ifndef DR_DO_NOT_DEFINE_int64
-typedef long long int int64;
-#    endif
-#    define INT64_FORMAT "ll"
-#  endif
 #endif
+
+#ifndef DR_DO_NOT_DEFINE_int64
+typedef DR_DEFINE_FOR_int64 int64;
+#endif
+#ifndef DR_DO_NOT_DEFINE_uint64
+typedef DR_DEFINE_FOR_uint64 uint64;
+#endif
+
 /* DR_API EXPORT END */
 /* DR_API EXPORT BEGIN */
 
@@ -291,8 +294,8 @@ typedef int ptr_int_t;
  */
 typedef size_t app_rva_t;
 
-#define PTR_UINT_0       ((ptr_uint_t)0U)
-#define PTR_UINT_1       ((ptr_uint_t)1U)
+#define PTR_UINT_0 ((ptr_uint_t)0U)
+#define PTR_UINT_1 ((ptr_uint_t)1U)
 #define PTR_UINT_MINUS_1 ((ptr_uint_t)-1)
 
 #ifdef WINDOWS
@@ -309,31 +312,31 @@ typedef pid_t process_id_t;
 #define INVALID_PROCESS_ID PTR_UINT_MINUS_1
 
 #ifdef API_EXPORT_ONLY
-#ifdef WINDOWS
+#    ifdef WINDOWS
 /* since a FILE cannot be used outside of the DLL it was created in,
  * we have to use HANDLE on Windows
  * we hide the distinction behind the file_t type
  */
 typedef HANDLE file_t;
 /** The sentinel value for an invalid file_t. */
-#  define INVALID_FILE INVALID_HANDLE_VALUE
+#        define INVALID_FILE INVALID_HANDLE_VALUE
 /* dr_get_stdout_file and dr_get_stderr_file return errors as
  * INVALID_HANDLE_VALUE.  We leave INVALID_HANDLE_VALUE as is,
  * since it equals INVALID_FILE
  */
 /** The file_t value for standard output. */
-#  define STDOUT (dr_get_stdout_file())
+#        define STDOUT (dr_get_stdout_file())
 /** The file_t value for standard error. */
-#  define STDERR (dr_get_stderr_file())
+#        define STDERR (dr_get_stderr_file())
 /** The file_t value for standard input. */
-#  define STDIN  (dr_get_stdin_file())
-#endif
+#        define STDIN (dr_get_stdin_file())
+#    endif
 #endif
 
 #ifdef UNIX
 typedef int file_t;
 /** The sentinel value for an invalid file_t. */
-#  define INVALID_FILE -1
+#    define INVALID_FILE -1
 /** Allow use of stdout after the application closes it. */
 extern file_t our_stdout;
 /** Allow use of stderr after the application closes it. */
@@ -341,11 +344,11 @@ extern file_t our_stderr;
 /** Allow use of stdin after the application closes it. */
 extern file_t our_stdin;
 /** The file_t value for standard output. */
-#  define STDOUT our_stdout
+#    define STDOUT our_stdout
 /** The file_t value for standard error. */
-#  define STDERR our_stderr
+#    define STDERR our_stderr
 /** The file_t value for standard error. */
-#  define STDIN  our_stdin
+#    define STDIN our_stdin
 #endif
 
 #ifdef AVOID_API_EXPORT
@@ -363,18 +366,18 @@ extern file_t our_stdin;
 typedef uint client_id_t;
 
 #ifdef API_EXPORT_ONLY
-#ifndef DR_FAST_IR
+#    ifndef DR_FAST_IR
 /**
  * Internal structure of opnd_t is below abstraction layer.
  * But compiler needs to know field sizes to copy it around
  */
 typedef struct {
-# ifdef X64
+#        ifdef X64
     uint black_box_uint;
     uint64 black_box_uint64;
-# else
+#        else
     uint black_box_uint[3];
-# endif
+#        endif
 } opnd_t;
 
 /**
@@ -383,43 +386,43 @@ typedef struct {
  * instead of always allocated on the heap.
  */
 typedef struct {
-# ifdef X64
+#        ifdef X64
     uint black_box_uint[26];
-# else
-    uint black_box_uint[16];
-# endif
+#        else
+    uint black_box_uint[17];
+#        endif
 } instr_t;
-#else
+#    else
 struct _opnd_t;
 typedef struct _opnd_t opnd_t;
 struct _instr_t;
 typedef struct _instr_t instr_t;
-#endif /* !DR_FAST_IR */
-#endif /* API_EXPORT_ONLY */
+#    endif /* !DR_FAST_IR */
+#endif     /* API_EXPORT_ONLY */
 
 #ifndef IN
-# define IN /* marks input param */
+#    define IN /* marks input param */
 #endif
 #ifndef OUT
-# define OUT /* marks output param */
+#    define OUT /* marks output param */
 #endif
 #ifndef INOUT
-# define INOUT /* marks input+output param */
+#    define INOUT /* marks input+output param */
 #endif
 
 /* DR_API EXPORT END */
 
 #ifdef X64
-# define POINTER_MAX ULLONG_MAX
-# ifndef SSIZE_T_MAX
-#  define SSIZE_T_MAX LLONG_MAX
-# endif
-# define POINTER_MAX_32BIT ((ptr_uint_t)UINT_MAX)
+#    define POINTER_MAX ULLONG_MAX
+#    ifndef SSIZE_T_MAX
+#        define SSIZE_T_MAX LLONG_MAX
+#    endif
+#    define POINTER_MAX_32BIT ((ptr_uint_t)UINT_MAX)
 #else
-# define POINTER_MAX UINT_MAX
-# ifndef SSIZE_T_MAX
-#  define SSIZE_T_MAX INT_MAX
-# endif
+#    define POINTER_MAX UINT_MAX
+#    ifndef SSIZE_T_MAX
+#        define SSIZE_T_MAX INT_MAX
+#    endif
 #endif
 
 #define MAX_CLIENT_LIBS 16
@@ -429,8 +432,8 @@ typedef struct _instr_t instr_t;
  * separate signed and unsigned versions
  */
 #ifndef DR_DO_NOT_DEFINE_MAX_MIN
-# define MAX(x,y) ((x) >= (y) ? (x) : (y))
-# define MIN(x,y) ((x) <= (y) ? (x) : (y))
+#    define MAX(x, y) ((x) >= (y) ? (x) : (y))
+#    define MIN(x, y) ((x) <= (y) ? (x) : (y))
 #endif
 #define PTR_UINT_ABS(x) ((x) < 0 ? -(x) : (x))
 
@@ -445,428 +448,441 @@ typedef struct _instr_t instr_t;
 
 /* macros to make conditional compilation look prettier */
 #ifdef DEBUG
-# define IF_DEBUG(x) x
-# define _IF_DEBUG(x) , x
-# define IF_DEBUG_(x) x ,
-# define IF_DEBUG_ELSE(x, y) x
-# define IF_DEBUG_ELSE_0(x) (x)
-# define IF_DEBUG_ELSE_NULL(x) (x)
+#    define IF_DEBUG(x) x
+#    define _IF_DEBUG(x) , x
+#    define IF_DEBUG_(x) x,
+#    define IF_DEBUG_ELSE(x, y) x
+#    define IF_DEBUG_ELSE_0(x) (x)
+#    define IF_DEBUG_ELSE_NULL(x) (x)
 #else
-# define IF_DEBUG(x)
-# define _IF_DEBUG(x)
-# define IF_DEBUG_(x)
-# define IF_DEBUG_ELSE(x, y) y
-# define IF_DEBUG_ELSE_0(x) 0
-# define IF_DEBUG_ELSE_NULL(x) (NULL)
+#    define IF_DEBUG(x)
+#    define _IF_DEBUG(x)
+#    define IF_DEBUG_(x)
+#    define IF_DEBUG_ELSE(x, y) y
+#    define IF_DEBUG_ELSE_0(x) 0
+#    define IF_DEBUG_ELSE_NULL(x) (NULL)
 #endif
 
 #ifdef INTERNAL
-# define IF_INTERNAL(x) x
-# define IF_INTERNAL_ELSE(x,y) x
+#    define IF_INTERNAL(x) x
+#    define IF_INTERNAL_ELSE(x, y) x
 #else
-# define IF_INTERNAL(x)
-# define IF_INTERNAL_ELSE(x,y) y
+#    define IF_INTERNAL(x)
+#    define IF_INTERNAL_ELSE(x, y) y
 #endif
 
 #ifdef WINDOWS
-# define IF_WINDOWS(x) x
-# define IF_WINDOWS_(x) x,
-# define _IF_WINDOWS(x) , x
-# ifdef X64
-#  define _IF_WINDOWS_X64(x) , x
-# else
-#  define _IF_WINDOWS_X64(x)
-# endif
-# define IF_WINDOWS_ELSE_0(x) (x)
-# define IF_WINDOWS_ELSE(x,y) (x)
-# define IF_WINDOWS_ELSE_NP(x,y) x
-# define IF_UNIX(x)
-# define IF_UNIX_ELSE(x,y) y
-# define IF_UNIX_(x)
-# define _IF_UNIX(x)
+#    define IF_WINDOWS(x) x
+#    define IF_WINDOWS_(x) x,
+#    define _IF_WINDOWS(x) , x
+#    ifdef X64
+#        define _IF_WINDOWS_X64(x) , x
+#    else
+#        define _IF_WINDOWS_X64(x)
+#    endif
+#    define IF_WINDOWS_ELSE_0(x) (x)
+#    define IF_WINDOWS_ELSE(x, y) (x)
+#    define IF_WINDOWS_ELSE_NP(x, y) x
+#    define IF_UNIX(x)
+#    define IF_UNIX_ELSE(x, y) y
+#    define IF_UNIX_(x)
+#    define _IF_UNIX(x)
 #else
-# define IF_WINDOWS(x)
-# define IF_WINDOWS_(x)
-# define _IF_WINDOWS(x)
-# define _IF_WINDOWS_X64(x)
-# define IF_WINDOWS_ELSE_0(x) (0)
-# define IF_WINDOWS_ELSE(x,y) (y)
-# define IF_WINDOWS_ELSE_NP(x,y) y
-# define IF_UNIX(x) x
-# define IF_UNIX_ELSE(x,y) x
-# define IF_UNIX_(x) x,
-# define _IF_UNIX(x) , x
+#    define IF_WINDOWS(x)
+#    define IF_WINDOWS_(x)
+#    define _IF_WINDOWS(x)
+#    define _IF_WINDOWS_X64(x)
+#    define IF_WINDOWS_ELSE_0(x) (0)
+#    define IF_WINDOWS_ELSE(x, y) (y)
+#    define IF_WINDOWS_ELSE_NP(x, y) y
+#    define IF_UNIX(x) x
+#    define IF_UNIX_ELSE(x, y) x
+#    define IF_UNIX_(x) x,
+#    define _IF_UNIX(x) , x
 #endif
 
 #ifdef LINUX
-# define IF_LINUX(x) x
-# define IF_LINUX_ELSE(x,y) x
-# define IF_LINUX_(x) x,
+#    define IF_LINUX(x) x
+#    define IF_LINUX_ELSE(x, y) x
+#    define IF_LINUX_(x) x,
 #else
-# define IF_LINUX(x)
-# define IF_LINUX_ELSE(x,y) y
-# define IF_LINUX_(x)
+#    define IF_LINUX(x)
+#    define IF_LINUX_ELSE(x, y) y
+#    define IF_LINUX_(x)
 #endif
 
 #ifdef MACOS
-# define IF_MACOS(x) x
-# define IF_MACOS_ELSE(x,y) x
-# define IF_MACOS_(x) x,
+#    define IF_MACOS(x) x
+#    define IF_MACOS_ELSE(x, y) x
+#    define IF_MACOS_(x) x,
 #else
-# define IF_MACOS(x)
-# define IF_MACOS_ELSE(x,y) y
-# define IF_MACOS_(x)
+#    define IF_MACOS(x)
+#    define IF_MACOS_ELSE(x, y) y
+#    define IF_MACOS_(x)
+#endif
+
+#ifdef MACOS64
+#    define IF_MACOS64(x) x
+#    define IF_MACOS64_ELSE(x, y) x
+#else
+#    define IF_MACOS64(x)
+#    define IF_MACOS64_ELSE(x, y) y
 #endif
 
 #ifdef HAVE_MEMINFO_QUERY
-# define IF_MEMQUERY(x) x
-# define IF_MEMQUERY_(x) x,
-# define IF_MEMQUERY_ELSE(x, y) x
-# define IF_NO_MEMQUERY(x)
-# define IF_NO_MEMQUERY_(x)
+#    define IF_MEMQUERY(x) x
+#    define IF_MEMQUERY_(x) x,
+#    define IF_MEMQUERY_ELSE(x, y) x
+#    define IF_NO_MEMQUERY(x)
+#    define IF_NO_MEMQUERY_(x)
 #else
-# define IF_MEMQUERY(x)
-# define IF_MEMQUERY_(x)
-# define IF_MEMQUERY_ELSE(x, y) y
-# define IF_NO_MEMQUERY(x) x
-# define IF_NO_MEMQUERY_(x) x,
+#    define IF_MEMQUERY(x)
+#    define IF_MEMQUERY_(x)
+#    define IF_MEMQUERY_ELSE(x, y) y
+#    define IF_NO_MEMQUERY(x) x
+#    define IF_NO_MEMQUERY_(x) x,
 #endif
 
 #ifdef VMX86_SERVER
-# define IF_VMX86(x) x
-# define IF_VMX86_ELSE(x,y) x
-# define _IF_VMX86(x) , x
-# define IF_NOT_VMX86(x)
+#    define IF_VMX86(x) x
+#    define IF_VMX86_ELSE(x, y) x
+#    define _IF_VMX86(x) , x
+#    define IF_NOT_VMX86(x)
 #else
-# define IF_VMX86(x)
-# define IF_VMX86_ELSE(x,y) y
-# define _IF_VMX86(x)
-# define IF_NOT_VMX86(x) x
+#    define IF_VMX86(x)
+#    define IF_VMX86_ELSE(x, y) y
+#    define _IF_VMX86(x)
+#    define IF_NOT_VMX86(x) x
 #endif
 
 #ifdef UNIX
-# ifdef HAVE_TLS
-#  define IF_HAVE_TLS_ELSE(x, y) x
-#  define IF_NOT_HAVE_TLS(x)
-# else
-#  define IF_HAVE_TLS_ELSE(x, y) y
-#  define IF_NOT_HAVE_TLS(x) x
-# endif
+#    ifdef HAVE_TLS
+#        define IF_HAVE_TLS_ELSE(x, y) x
+#        define IF_NOT_HAVE_TLS(x)
+#    else
+#        define IF_HAVE_TLS_ELSE(x, y) y
+#        define IF_NOT_HAVE_TLS(x) x
+#    endif
 #else
 /* Windows always has TLS.  Better to generally define HAVE_TLS instead? */
-# define IF_HAVE_TLS_ELSE(x, y) x
-# define IF_NOT_HAVE_TLS(x)
+#    define IF_HAVE_TLS_ELSE(x, y) x
+#    define IF_NOT_HAVE_TLS(x)
 #endif
 
 #if defined(WINDOWS) && !defined(NOT_DYNAMORIO_CORE)
-# define IF_WINDOWS_AND_CORE(x) x
+#    define IF_WINDOWS_AND_CORE(x) x
 #else
-# define IF_WINDOWS_AND_CORE(x)
+#    define IF_WINDOWS_AND_CORE(x)
 #endif
 
 #ifdef PROGRAM_SHEPHERDING
-# define IF_PROG_SHEP(x) x
+#    define IF_PROG_SHEP(x) x
 #else
-# define IF_PROG_SHEP(x)
+#    define IF_PROG_SHEP(x)
 #endif
 
 #if defined(PROGRAM_SHEPHERDING) && defined(RCT_IND_BRANCH)
-# define IF_RCT_IND_BRANCH(x) x
+#    define IF_RCT_IND_BRANCH(x) x
 #else
-# define IF_RCT_IND_BRANCH(x)
+#    define IF_RCT_IND_BRANCH(x)
 #endif
 
 #if defined(PROGRAM_SHEPHERDING) && defined(RETURN_AFTER_CALL)
-# define IF_RETURN_AFTER_CALL(x) x
-# define IF_RETURN_AFTER_CALL_ELSE(x, y) x
+#    define IF_RETURN_AFTER_CALL(x) x
+#    define IF_RETURN_AFTER_CALL_ELSE(x, y) x
 #else
-# define IF_RETURN_AFTER_CALL(x)
-# define IF_RETURN_AFTER_CALL_ELSE(x, y) y
+#    define IF_RETURN_AFTER_CALL(x)
+#    define IF_RETURN_AFTER_CALL_ELSE(x, y) y
 #endif
 
 #ifdef HOT_PATCHING_INTERFACE
-# define IF_HOTP(x) x
+#    define IF_HOTP(x) x
 #else
-# define IF_HOTP(x)
+#    define IF_HOTP(x)
 #endif
 
 #ifdef CLIENT_INTERFACE
-# define IF_CLIENT_INTERFACE(x) x
-# define IF_NOT_CLIENT_INTERFACE(x)
-# define IF_CLIENT_INTERFACE_ELSE(x, y) x
-# define _IF_CLIENT_INTERFACE(x) , x
-# define _IF_NOT_CLIENT_INTERFACE(x)
+#    define IF_CLIENT_INTERFACE(x) x
+#    define IF_NOT_CLIENT_INTERFACE(x)
+#    define IF_CLIENT_INTERFACE_ELSE(x, y) x
+#    define _IF_CLIENT_INTERFACE(x) , x
+#    define _IF_NOT_CLIENT_INTERFACE(x)
 /* _IF_CLIENT_INTERFACE is too long */
-# define _IF_CLIENT(x) , x
+#    define _IF_CLIENT(x) , x
 #else
-# define IF_CLIENT_INTERFACE(x)
-# define IF_NOT_CLIENT_INTERFACE(x) x
-# define IF_CLIENT_INTERFACE_ELSE(x, y) y
-# define _IF_CLIENT_INTERFACE(x)
-# define _IF_NOT_CLIENT_INTERFACE(x) , x
-# define _IF_CLIENT(x)
+#    define IF_CLIENT_INTERFACE(x)
+#    define IF_NOT_CLIENT_INTERFACE(x) x
+#    define IF_CLIENT_INTERFACE_ELSE(x, y) y
+#    define _IF_CLIENT_INTERFACE(x)
+#    define _IF_NOT_CLIENT_INTERFACE(x) , x
+#    define _IF_CLIENT(x)
 #endif
 
 #ifdef CUSTOM_TRACES
-# define IF_CUSTOM_TRACES(x) x
+#    define IF_CUSTOM_TRACES(x) x
 #else
-# define IF_CUSTOM_TRACES(x)
+#    define IF_CUSTOM_TRACES(x)
 #endif
 
 #ifdef DR_APP_EXPORTS
-# define IF_APP_EXPORTS(x) x
+#    define IF_APP_EXPORTS(x) x
 #else
-# define IF_APP_EXPORTS(x)
+#    define IF_APP_EXPORTS(x)
 #endif
 
 #ifdef GBOP
-# define IF_GBOP(x) x
+#    define IF_GBOP(x) x
 #else
-# define IF_GBOP(x)
+#    define IF_GBOP(x)
 #endif
 
 #ifdef PROCESS_CONTROL
-# define IF_PROC_CTL(x) x
+#    define IF_PROC_CTL(x) x
 #else
-# define IF_PROC_CTL(x)
+#    define IF_PROC_CTL(x)
 #endif
 
 #ifdef KSTATS
-# define IF_KSTATS(x) x
+#    define IF_KSTATS(x) x
 #else
-# define IF_KSTATS(x)
+#    define IF_KSTATS(x)
 #endif
 
 #ifdef STATIC_LIBRARY
-# define IF_STATIC_LIBRARY_ELSE(x,y) x
+#    define IF_STATIC_LIBRARY_ELSE(x, y) x
 #else
-# define IF_STATIC_LIBRARY_ELSE(x,y) y
+#    define IF_STATIC_LIBRARY_ELSE(x, y) y
 #endif
 
 #ifdef STANDALONE_UNIT_TEST
-# define IF_UNIT_TEST_ELSE(x,y) x
+#    define IF_UNIT_TEST_ELSE(x, y) x
 #else
-# define IF_UNIT_TEST_ELSE(x,y) y
+#    define IF_UNIT_TEST_ELSE(x, y) y
 #endif
 
 /* DR_API EXPORT TOFILE dr_defines.h */
 /* DR_API EXPORT BEGIN */
 #ifdef X86
-# define IF_X86(x) x
-# define IF_X86_ELSE(x, y) x
-# define IF_X86_(x) x,
-# define _IF_X86(x) , x
-# define IF_NOT_X86(x)
-# define IF_NOT_X86_(x)
-# define _IF_NOT_X86(x)
+#    define IF_X86(x) x
+#    define IF_X86_ELSE(x, y) x
+#    define IF_X86_(x) x,
+#    define _IF_X86(x) , x
+#    define IF_NOT_X86(x)
+#    define IF_NOT_X86_(x)
+#    define _IF_NOT_X86(x)
 #else
-# define IF_X86(x)
-# define IF_X86_ELSE(x, y) y
-# define IF_X86_(x)
-# define _IF_X86(x)
-# define IF_NOT_X86(x) x
-# define IF_NOT_X86_(x) x,
-# define _IF_NOT_X86(x) , x
+#    define IF_X86(x)
+#    define IF_X86_ELSE(x, y) y
+#    define IF_X86_(x)
+#    define _IF_X86(x)
+#    define IF_NOT_X86(x) x
+#    define IF_NOT_X86_(x) x,
+#    define _IF_NOT_X86(x) , x
 #endif
 
 #ifdef ARM
-# define IF_ARM(x) x
-# define IF_ARM_ELSE(x, y) x
-# define IF_ARM_(x) x,
-# define _IF_ARM(x) , x
-# define IF_NOT_ARM(x)
-# define _IF_NOT_ARM(x)
+#    define IF_ARM(x) x
+#    define IF_ARM_ELSE(x, y) x
+#    define IF_ARM_(x) x,
+#    define _IF_ARM(x) , x
+#    define IF_NOT_ARM(x)
+#    define _IF_NOT_ARM(x)
 #else
-# define IF_ARM(x)
-# define IF_ARM_ELSE(x, y) y
-# define IF_ARM_(x)
-# define _IF_ARM(x)
-# define IF_NOT_ARM(x) x
-# define _IF_NOT_ARM(x) , x
+#    define IF_ARM(x)
+#    define IF_ARM_ELSE(x, y) y
+#    define IF_ARM_(x)
+#    define _IF_ARM(x)
+#    define IF_NOT_ARM(x) x
+#    define _IF_NOT_ARM(x) , x
 #endif
 
 #ifdef AARCH64
-# define IF_AARCH64(x) x
-# define IF_AARCH64_ELSE(x, y) x
-# define IF_AARCH64_(x) x,
-# define _IF_AARCH64(x) , x
-# define IF_NOT_AARCH64(x)
-# define _IF_NOT_AARCH64(x)
+#    define IF_AARCH64(x) x
+#    define IF_AARCH64_ELSE(x, y) x
+#    define IF_AARCH64_(x) x,
+#    define _IF_AARCH64(x) , x
+#    define IF_NOT_AARCH64(x)
+#    define _IF_NOT_AARCH64(x)
 #else
-# define IF_AARCH64(x)
-# define IF_AARCH64_ELSE(x, y) y
-# define IF_AARCH64_(x)
-# define _IF_AARCH64(x)
-# define IF_NOT_AARCH64(x) x
-# define _IF_NOT_AARCH64(x) , x
+#    define IF_AARCH64(x)
+#    define IF_AARCH64_ELSE(x, y) y
+#    define IF_AARCH64_(x)
+#    define _IF_AARCH64(x)
+#    define IF_NOT_AARCH64(x) x
+#    define _IF_NOT_AARCH64(x) , x
 #endif
 
 #ifdef AARCHXX
-# define IF_AARCHXX(x) x
-# define IF_AARCHXX_ELSE(x, y) x
-# define IF_AARCHXX_(x) x,
-# define _IF_AARCHXX(x) , x
-# define IF_NOT_AARCHXX(x)
-# define _IF_NOT_AARCHXX(x)
+#    define IF_AARCHXX(x) x
+#    define IF_AARCHXX_ELSE(x, y) x
+#    define IF_AARCHXX_(x) x,
+#    define _IF_AARCHXX(x) , x
+#    define IF_NOT_AARCHXX(x)
+#    define _IF_NOT_AARCHXX(x)
 #else
-# define IF_AARCHXX(x)
-# define IF_AARCHXX_ELSE(x, y) y
-# define IF_AARCHXX_(x)
-# define _IF_AARCHXX(x)
-# define IF_NOT_AARCHXX(x) x
-# define _IF_NOT_AARCHXX(x) , x
+#    define IF_AARCHXX(x)
+#    define IF_AARCHXX_ELSE(x, y) y
+#    define IF_AARCHXX_(x)
+#    define _IF_AARCHXX(x)
+#    define IF_NOT_AARCHXX(x) x
+#    define _IF_NOT_AARCHXX(x) , x
 #endif
 
 #ifdef ANDROID
-# define IF_ANDROID(x) x
-# define IF_ANDROID_ELSE(x, y) x
-# define IF_NOT_ANDROID(x)
+#    define IF_ANDROID(x) x
+#    define IF_ANDROID_ELSE(x, y) x
+#    define IF_NOT_ANDROID(x)
 #else
-# define IF_ANDROID(x)
-# define IF_ANDROID_ELSE(x, y) y
-# define IF_NOT_ANDROID(x) x
+#    define IF_ANDROID(x)
+#    define IF_ANDROID_ELSE(x, y) y
+#    define IF_NOT_ANDROID(x) x
 #endif
 
 #ifdef X64
-# define IF_X64(x) x
-# define IF_X64_ELSE(x, y) x
-# define IF_X64_(x) x,
-# define _IF_X64(x) , x
-# define IF_NOT_X64(x)
-# define _IF_NOT_X64(x)
+#    define IF_X64(x) x
+#    define IF_X64_ELSE(x, y) x
+#    define IF_X64_(x) x,
+#    define _IF_X64(x) , x
+#    define IF_NOT_X64(x)
+#    define _IF_NOT_X64(x)
 #else
-# define IF_X64(x)
-# define IF_X64_ELSE(x, y) y
-# define IF_X64_(x)
-# define _IF_X64(x)
-# define IF_NOT_X64(x) x
-# define _IF_NOT_X64(x) , x
+#    define IF_X64(x)
+#    define IF_X64_ELSE(x, y) y
+#    define IF_X64_(x)
+#    define _IF_X64(x)
+#    define IF_NOT_X64(x) x
+#    define _IF_NOT_X64(x) , x
 #endif
 
 #if defined(X86) && !defined(X64)
-# define IF_X86_32(x) x
+#    define IF_X86_32(x) x
 #else
-# define IF_X86_32(x)
+#    define IF_X86_32(x)
 #endif
 
 #if defined(X86) && defined(X64)
-# define IF_X86_64(x) x
-# define IF_X86_64_ELSE(x, y) x
-# define IF_X86_64_(x) x,
-# define _IF_X86_64(x) , x
-# define IF_NOT_X86_64(x)
-# define _IF_NOT_X86_64(x)
+#    define IF_X86_64(x) x
+#    define IF_X86_64_ELSE(x, y) x
+#    define IF_X86_64_(x) x,
+#    define _IF_X86_64(x) , x
+#    define IF_NOT_X86_64(x)
+#    define _IF_NOT_X86_64(x)
 #else
-# define IF_X86_64(x)
-# define IF_X86_64_ELSE(x, y) y
-# define IF_X86_64_(x)
-# define _IF_X86_64(x)
-# define IF_NOT_X86_64(x) x
-# define _IF_NOT_X86_64(x) , x
+#    define IF_X86_64(x)
+#    define IF_X86_64_ELSE(x, y) y
+#    define IF_X86_64_(x)
+#    define _IF_X86_64(x)
+#    define IF_NOT_X86_64(x) x
+#    define _IF_NOT_X86_64(x) , x
 #endif
 
 #if defined(X64) || defined(ARM)
-# define IF_X64_OR_ARM(x) x
-# define IF_NOT_X64_OR_ARM(x)
+#    define IF_X64_OR_ARM(x) x
+#    define IF_NOT_X64_OR_ARM(x)
 #else
-# define IF_X64_OR_ARM(x)
-# define IF_NOT_X64_OR_ARM(x) x
+#    define IF_X64_OR_ARM(x)
+#    define IF_NOT_X64_OR_ARM(x) x
 #endif
 /* DR_API EXPORT END */
 
 typedef enum {
     SYSLOG_INFORMATION = 0x1,
-    SYSLOG_WARNING     = 0x2,
-    SYSLOG_ERROR       = 0x4,
-    SYSLOG_CRITICAL    = 0x8,
-    SYSLOG_NONE        = 0x0,
-    SYSLOG_ALL         = (SYSLOG_INFORMATION | SYSLOG_WARNING | SYSLOG_ERROR |
-                          SYSLOG_CRITICAL),
+    SYSLOG_WARNING = 0x2,
+    SYSLOG_ERROR = 0x4,
+    SYSLOG_CRITICAL = 0x8,
+    SYSLOG_VERBOSE = 0x10,
+    SYSLOG_NONE = 0x0,
+    SYSLOG_ALL_NOVERBOSE =
+        (SYSLOG_INFORMATION | SYSLOG_WARNING | SYSLOG_ERROR | SYSLOG_CRITICAL),
+    SYSLOG_ALL = (SYSLOG_VERBOSE | SYSLOG_INFORMATION | SYSLOG_WARNING | SYSLOG_ERROR |
+                  SYSLOG_CRITICAL),
 } syslog_event_type_t;
 
-#define DYNAMO_OPTION(opt) (ASSERT_OWN_READWRITE_LOCK(IS_OPTION_STRING(opt), \
-                            &options_lock), dynamo_options.opt)
+#define DYNAMO_OPTION(opt) \
+    (ASSERT_OWN_READWRITE_LOCK(IS_OPTION_STRING(opt), &options_lock), dynamo_options.opt)
 /* For use where we don't want ASSERT defines. Currently only used in FATAL_USAGE_ERROR
  * so it can be used in files that require all asserts to be client asserts. */
 #define DYNAMO_OPTION_NOT_STRING(opt) (dynamo_options.opt)
 
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
-#define EXPOSE_INTERNAL_OPTIONS
+#    define EXPOSE_INTERNAL_OPTIONS
 #endif
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
-  /* Use only for experimental non-release options */
-  /* Internal option value can be set on the command line only in INTERNAL builds */
-  /* We should remove the ASSERT if we convert an internal option into non-internal */
-# define INTERNAL_OPTION(opt) ((IS_OPTION_INTERNAL(opt)) ? (DYNAMO_OPTION(opt)) : \
-                               (ASSERT_MESSAGE(CHKLVL_ASSERTS, \
-                                "non-internal option argument "#opt, false), \
-                                DYNAMO_OPTION(opt)))
+/* Use only for experimental non-release options */
+/* Internal option value can be set on the command line only in INTERNAL builds */
+/* We should remove the ASSERT if we convert an internal option into non-internal */
+#    define INTERNAL_OPTION(opt)                                                     \
+        ((IS_OPTION_INTERNAL(opt))                                                   \
+             ? (DYNAMO_OPTION(opt))                                                  \
+             : (ASSERT_MESSAGE(CHKLVL_ASSERTS, "non-internal option argument " #opt, \
+                               false),                                               \
+                DYNAMO_OPTION(opt)))
 #else
-  /* Use only for experimental non-release options,
-     default value is assumed and command line options are ignored */
-  /* We could use IS_OPTION_INTERNAL(opt) ? to determine whether an
-   * option is defined as INTERNAL in optionsx.h and have that be the
-   * only place to modify to transition between internal and external
-   * options.  The compiler should be able to eliminate the
-   * inappropriate part of the constant expression, if the specific
-   * option is no longer defined as internal so we don't have to
-   * modify the code.  Still I'd rather have explicit uses of
-   * DYNAMO_OPTION or INTERNAL_OPTION for now.
-  */
-# define INTERNAL_OPTION(opt) DEFAULT_INTERNAL_OPTION_VALUE(opt)
+/* Use only for experimental non-release options,
+   default value is assumed and command line options are ignored */
+/* We could use IS_OPTION_INTERNAL(opt) ? to determine whether an
+ * option is defined as INTERNAL in optionsx.h and have that be the
+ * only place to modify to transition between internal and external
+ * options.  The compiler should be able to eliminate the
+ * inappropriate part of the constant expression, if the specific
+ * option is no longer defined as internal so we don't have to
+ * modify the code.  Still I'd rather have explicit uses of
+ * DYNAMO_OPTION or INTERNAL_OPTION for now.
+ */
+#    define INTERNAL_OPTION(opt) DEFAULT_INTERNAL_OPTION_VALUE(opt)
 #endif /* EXPOSE_INTERNAL_OPTIONS */
 
 #ifdef UNIX
-#ifndef DR_DO_NOT_DEFINE_uint32
- typedef unsigned int uint32;
-#endif
+#    ifndef DR_DO_NOT_DEFINE_uint32
+typedef unsigned int uint32;
+#    endif
 /* Note: Linux paths are longer than the 260 limit on Windows,
    yet we can't afford the 4K of PATH_MAX from <limits.h> */
 typedef uint64 timestamp_t;
-#  define NAKED
-#  define ZHEX32_FORMAT_STRING "%08x"
-#  define HEX32_FORMAT_STRING "%x"
+#    define NAKED
+#    define ZHEX32_FORMAT_STRING "%08x"
+#    define HEX32_FORMAT_STRING "%x"
 
-#else /* WINDOWS */
+#else                    /* WINDOWS */
 /* We no longer include windows.h here, in order to more easily include
  * this file for types like reg_t in hotpatch_interface.h and not force
  * hotpatch compilation to point at windows include directories.
  * By not including it here we must define MAX_PATH and include windows.h
  * for NOT_DYNAMORIO_CORE in options.c and drmarker.c for share/ compilation.
  */
-#  define MAX_PATH 260 /* from winbase.h */
-#ifndef DR_DO_NOT_DEFINE_uint
- typedef unsigned int uint;
-#endif
-#ifndef DR_DO_NOT_DEFINE_uint32
- typedef unsigned int uint32;
-#endif
+#    define MAX_PATH 260 /* from winbase.h */
+#    ifndef DR_DO_NOT_DEFINE_uint
+typedef unsigned int uint;
+#    endif
+#    ifndef DR_DO_NOT_DEFINE_uint32
+typedef unsigned int uint32;
+#    endif
 /* NOTE : unsigned __int64 not convertible to double */
 typedef unsigned __int64 uint64;
 typedef __int64 int64;
-#  ifdef X64
+#    ifdef X64
 typedef int64 ssize_t;
-#  else
+#    else
 typedef int ssize_t;
-#  endif
+#    endif
 /* PR 232882: %I32x printf format code not supported on NT's ntdll */
-#  ifdef X64
-#    define ZHEX32_FORMAT_STRING "%08I32x"
-#    define HEX32_FORMAT_STRING "%I32x"
-#  else
-#    define ZHEX32_FORMAT_STRING "%08x"
-#    define HEX32_FORMAT_STRING "%x"
-#  endif
+#    ifdef X64
+#        define ZHEX32_FORMAT_STRING "%08I32x"
+#        define HEX32_FORMAT_STRING "%I32x"
+#    else
+#        define ZHEX32_FORMAT_STRING "%08x"
+#        define HEX32_FORMAT_STRING "%x"
+#    endif
 /* VC6 doesn't define the standard ULLONG_MAX */
-#  if _MSC_VER <= 1200 && !defined(ULLONG_MAX)
-#    define ULLONG_MAX _UI64_MAX
-#  endif
+#    if _MSC_VER <= 1200 && !defined(ULLONG_MAX)
+#        define ULLONG_MAX _UI64_MAX
+#    endif
 typedef uint64 timestamp_t;
-#  define NAKED __declspec( naked )
+#    define NAKED __declspec(naked)
 #endif
 
-#define FIXED_TIMESTAMP_FORMAT "%10" INT64_FORMAT"u"
+#define FIXED_TIMESTAMP_FORMAT "%10" INT64_FORMAT "u"
 
 /* DR_API EXPORT TOFILE dr_defines.h */
 /* DR_API EXPORT BEGIN */
@@ -877,30 +893,30 @@ typedef uint64 timestamp_t;
 #define HEX64_FORMAT_STRING "%" INT64_FORMAT "x"
 #define ZHEX64_FORMAT_STRING "%016" INT64_FORMAT "x"
 #ifdef API_EXPORT_ONLY
-#define ZHEX32_FORMAT_STRING "%08x"
-#define HEX32_FORMAT_STRING "%x"
+#    define ZHEX32_FORMAT_STRING "%08x"
+#    define HEX32_FORMAT_STRING "%x"
 /* Convenience defines for cross-platform printing */
-#ifdef X64
-# define PFMT ZHEX64_FORMAT_STRING
-# define PIFMT HEX64_FORMAT_STRING
-# define SZFMT INT64_FORMAT_STRING
-#else
-# define PFMT ZHEX32_FORMAT_STRING
-# define PIFMT HEX32_FORMAT_STRING
-# define SZFMT "%d"
-#endif
+#    ifdef X64
+#        define PFMT ZHEX64_FORMAT_STRING
+#        define PIFMT HEX64_FORMAT_STRING
+#        define SZFMT INT64_FORMAT_STRING
+#    else
+#        define PFMT ZHEX32_FORMAT_STRING
+#        define PIFMT HEX32_FORMAT_STRING
+#        define SZFMT "%d"
+#    endif
 #endif
 /* DR_API EXPORT END */
 /* workaround for lack of defines stack and assumption in genapi.pl
  * that ignored defines are outermost */
 /* DR_API EXPORT BEGIN */
 #ifdef API_EXPORT_ONLY
-#define PFX "0x" PFMT      /**< printf format code for pointers */
-#define PIFX "0x" PIFMT    /**< printf format code for pointer-sized integers */
+#    define PFX "%p"        /**< printf format code for pointers */
+#    define PIFX "0x" PIFMT /**< printf format code for pointer-sized integers */
 #endif
 
 #ifndef INFINITE
-# define INFINITE            0xFFFFFFFF
+#    define INFINITE 0xFFFFFFFF
 #endif
 /* DR_API EXPORT END */
 
@@ -917,6 +933,8 @@ typedef int stats_int_t;
 /* For printing pointers: we do not use %p as gcc prepends 0x and uses
  * lowercase while cl does not prepend, puts leading 0's, and uses uppercase.
  * Also, the C standard does not allow min width for %p.
+ * However, with our own d_r_vsnprintf, we are able to use %p and thus satisfy
+ * format string compiler warnings.
  * Two macros:
  * - PFMT == Pointer Format == with leading zeros
  * - PIFMT == Pointer Integer Format == no leading zeros
@@ -932,36 +950,38 @@ typedef int stats_int_t;
  */
 #define L_UINT64_FORMAT_STRING L"%" L_EXPAND_LEVEL(UINT64_FORMAT_CODE)
 #ifdef X64
-#  define PFMT ZHEX64_FORMAT_STRING
-#  define PIFMT HEX64_FORMAT_STRING
-#  define SZFMT UINT64_FORMAT_STRING
-#  define SSZFMT INT64_FORMAT_STRING
-#  define SZFC UINT64_FORMAT_CODE
-#  define SSZFC INT64_FORMAT_CODE
+#    define PFMT ZHEX64_FORMAT_STRING
+#    define PIFMT HEX64_FORMAT_STRING
+#    define SZFMT UINT64_FORMAT_STRING
+#    define SSZFMT INT64_FORMAT_STRING
+#    define SZFC UINT64_FORMAT_CODE
+#    define SSZFC INT64_FORMAT_CODE
 #else
-#  define PFMT ZHEX32_FORMAT_STRING
-#  define PIFMT HEX32_FORMAT_STRING
-#  define SZFMT "%u"
-#  define SSZFMT "%d"
-#  define SZFC "u"
-#  define SSZFC "d"
+#    define PFMT ZHEX32_FORMAT_STRING
+#    define PIFMT HEX32_FORMAT_STRING
+#    define SZFMT "%u"
+#    define SSZFMT "%d"
+#    define SZFC "u"
+#    define SSZFC "d"
 #endif
-#define L_PFMT L"%016" L_EXPAND_LEVEL(INT64_FORMAT)L"x"
-#define PFX "0x" PFMT
+#define L_PFMT L"%016" L_EXPAND_LEVEL(INT64_FORMAT) L"x"
+#define PFX "%p"
 #define PIFX "0x" PIFMT
 
 /* DR_API EXPORT BEGIN */
 /* printf codes for {thread,process}_id_t */
 #ifdef WINDOWS
-# define PIDFMT SZFMT /**< printf format code for process_id_t */
-# define TIDFMT SZFMT /**< printf format code for thread_id_t */
+#    define PIDFMT SZFMT /**< printf format code for process_id_t */
+#    define TIDFMT SZFMT /**< printf format code for thread_id_t */
 #else
-# define PIDFMT "%d" /**< printf format code for process_id_t */
-# ifdef MACOS
-#  define TIDFMT UINT64_FORMAT_STRING /**< printf format code for thread_id_t */
-# else
-#  define TIDFMT "%d" /**< printf format code for thread_id_t */
-# endif
+#    define PIDFMT "%d" /**< printf format code for process_id_t */
+#    ifdef MACOS
+#        define TIDFMT                                                   \
+            UINT64_FORMAT_STRING /**< printf format code for thread_id_t \
+                                  */
+#    else
+#        define TIDFMT "%d" /**< printf format code for thread_id_t */
+#    endif
 #endif
 /* DR_API EXPORT END */
 
@@ -970,8 +990,8 @@ typedef int stats_int_t;
 #define MAX_REGISTRY_PARAMETER 512
 #if defined(PARAMS_IN_REGISTRY) || !defined(CLIENT_INTERFACE)
 /* Maximum length of option string in the registry */
-# define MAX_OPTIONS_STRING     512
-# define MAX_CONFIG_VALUE       MAX_REGISTRY_PARAMETER
+#    define MAX_OPTIONS_STRING 512
+#    define MAX_CONFIG_VALUE MAX_REGISTRY_PARAMETER
 #else
 /* Maximum length of option string from config file.
  * For CLIENT_INTERFACE we need more than 512 bytes to fit multiple options
@@ -980,15 +1000,15 @@ typedef int stats_int_t;
  * unless we increase the default -stack_size even further.
  * N.B.: there is a separate define in dr_config.h, DR_MAX_OPTIONS_LENGTH.
  */
-# define MAX_OPTIONS_STRING    2048
-# define MAX_CONFIG_VALUE      MAX_OPTIONS_STRING
+#    define MAX_OPTIONS_STRING 2048
+#    define MAX_CONFIG_VALUE MAX_OPTIONS_STRING
 #endif
 /* Maximum length of any individual list option's string */
 #define MAX_LIST_OPTION_LENGTH MAX_OPTIONS_STRING
 /* Maximum length of the path secified by a path option */
 #define MAX_PATH_OPTION_LENGTH MAXIMUM_PATH
 /* Maximum length of any individual option. */
-#define MAX_OPTION_LENGTH      MAX_OPTIONS_STRING
+#define MAX_OPTION_LENGTH MAX_OPTIONS_STRING
 
 #define MAX_PARAMNAME_LENGTH 64
 
@@ -1007,10 +1027,10 @@ typedef char pathstring_t[MAX_PATH_OPTION_LENGTH];
 typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 
 /* convenience macros for secure string buffer operations */
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
+#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 #define BUFFER_ROOM_LEFT_W(wbuf) (BUFFER_SIZE_ELEMENTS(wbuf) - wcslen(wbuf) - 1)
 #define BUFFER_ROOM_LEFT(abuf) (BUFFER_SIZE_ELEMENTS(abuf) - strlen(abuf) - 1)
@@ -1018,11 +1038,11 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 /* strncat() calls require termination after each to be safe, especially if
  * cating repeatedly.  For example see hotpatch.c:hotp_load_hotp_dlls().
  */
-#define CAT_AND_TERMINATE(buf, str) do {        \
-      strncat(buf, str, BUFFER_ROOM_LEFT(buf)); \
-      NULL_TERMINATE_BUFFER(buf);               \
-  } while (0)
-
+#define CAT_AND_TERMINATE(buf, str)               \
+    do {                                          \
+        strncat(buf, str, BUFFER_ROOM_LEFT(buf)); \
+        NULL_TERMINATE_BUFFER(buf);               \
+    } while (0)
 
 /* platform-independent */
 
@@ -1031,9 +1051,9 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 
 /* Allow custom builds to specify the product name */
 #ifdef CUSTOM_PRODUCT_NAME
-#  define PRODUCT_NAME STRINGIFY(CUSTOM_PRODUCT_NAME)
+#    define PRODUCT_NAME STRINGIFY(CUSTOM_PRODUCT_NAME)
 #else
-#  define PRODUCT_NAME "DynamoRIO"
+#    define PRODUCT_NAME "DynamoRIO"
 #endif
 /* PR 323321: split eventlog from reg name so we can use longer name in reg.
  * Jim's original comment here about "alphanum only" and memories
@@ -1043,279 +1063,282 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 /* i#80: I thought about flattening the reg key but simpler to just
  * have two DynamoRIO levels
  */
-#define COMPANY_NAME "DynamoRIO" /* used for reg key */
+#define COMPANY_NAME "DynamoRIO"          /* used for reg key */
 #define COMPANY_NAME_EVENTLOG "DynamoRIO" /* used for event log */
 /* used in (c) stmt in log file and in resources */
 #define COMPANY_LONG_NAME "DynamoRIO developers"
 #define BUG_REPORT_URL "http://dynamorio.org/issues/"
 
 #ifdef BUILD_NUMBER
-#  define BUILD_NUMBER_STRING "build " STRINGIFY(BUILD_NUMBER)
+#    define BUILD_NUMBER_STRING "build " STRINGIFY(BUILD_NUMBER)
 #else
-#  define BUILD_NUMBER_STRING "custom build"
-#  define BUILD_NUMBER (0)
+#    define BUILD_NUMBER_STRING "custom build"
+#    define BUILD_NUMBER (0)
 #endif
 
 #ifdef VERSION_NUMBER
-#  define VERSION_NUMBER_STRING "version " STRINGIFY(VERSION_NUMBER)
+#    define VERSION_NUMBER_STRING "version " STRINGIFY(VERSION_NUMBER)
 #else
-#  define VERSION_NUMBER_STRING "internal version"
-#  define VERSION_NUMBER (0.0)
+#    define VERSION_NUMBER_STRING "internal version"
+#    define VERSION_NUMBER (0.0)
 #endif
 
 #ifdef HOT_PATCHING_INTERFACE
-#  define HOT_PATCHING_DLL_CACHE_PATH "\\lib\\hotp\\"
-#  define HOTP_MODES_FILENAME "ls-modes.cfg"
-#  define HOTP_POLICIES_FILENAME "ls-defs.cfg"
+#    define HOT_PATCHING_DLL_CACHE_PATH "\\lib\\hotp\\"
+#    define HOTP_MODES_FILENAME "ls-modes.cfg"
+#    define HOTP_POLICIES_FILENAME "ls-defs.cfg"
 #endif
 
-#define DYNAMORIO_VAR_CONFIGDIR_ID  DYNAMORIO_CONFIGDIR
-#define DYNAMORIO_VAR_HOME_ID       DYNAMORIO_HOME
-#define DYNAMORIO_VAR_LOGDIR_ID     DYNAMORIO_LOGDIR
-#define DYNAMORIO_VAR_OPTIONS_ID    DYNAMORIO_OPTIONS
+#define DYNAMORIO_VAR_CONFIGDIR_ID DYNAMORIO_CONFIGDIR
+#define DYNAMORIO_VAR_HOME_ID DYNAMORIO_HOME
+#define DYNAMORIO_VAR_LOGDIR_ID DYNAMORIO_LOGDIR
+#define DYNAMORIO_VAR_OPTIONS_ID DYNAMORIO_OPTIONS
 #define DYNAMORIO_VAR_AUTOINJECT_ID DYNAMORIO_AUTOINJECT
-#define DYNAMORIO_VAR_UNSUPPORTED_ID  DYNAMORIO_UNSUPPORTED
-#define DYNAMORIO_VAR_RUNUNDER_ID   DYNAMORIO_RUNUNDER
-#define DYNAMORIO_VAR_CMDLINE_ID    DYNAMORIO_CMDLINE
-#define DYNAMORIO_VAR_ONCRASH_ID    DYNAMORIO_ONCRASH
+#define DYNAMORIO_VAR_UNSUPPORTED_ID DYNAMORIO_UNSUPPORTED
+#define DYNAMORIO_VAR_RUNUNDER_ID DYNAMORIO_RUNUNDER
+#define DYNAMORIO_VAR_CMDLINE_ID DYNAMORIO_CMDLINE
+#define DYNAMORIO_VAR_ONCRASH_ID DYNAMORIO_ONCRASH
 #define DYNAMORIO_VAR_SAFEMARKER_ID DYNAMORIO_SAFEMARKER
 /* NT only, value should be all CAPS and specifies a boot option to match */
 
-#define DYNAMORIO_VAR_CACHE_ROOT_ID   DYNAMORIO_CACHE_ROOT
+#define DYNAMORIO_VAR_CACHE_ROOT_ID DYNAMORIO_CACHE_ROOT
 /* we have to create our own properly secured directory, that allows
  * only trusted producers to create DLLs, and all publishers to read
  * them.  Note that per-user directories may also be created by the trusted component
  * allowing users to safely use their own private caches.
  */
-#define DYNAMORIO_VAR_CACHE_SHARED_ID   DYNAMORIO_CACHE_SHARED
+#define DYNAMORIO_VAR_CACHE_SHARED_ID DYNAMORIO_CACHE_SHARED
 /* a directory giving full write privileges to Everyone.  Therefore
  * none of its contents can be trusted without explicit verification.
  * Expected to be a subdirectory of DYNAMORIO_CACHE_ROOT.
  */
 
 /* Location for persisted caches; FIXME: currently the same as the ASLR sharing dir */
-#define DYNAMORIO_VAR_PERSCACHE_ROOT_ID   DYNAMORIO_CACHE_ROOT
+#define DYNAMORIO_VAR_PERSCACHE_ROOT_ID DYNAMORIO_CACHE_ROOT
 /* FIXME case 9651: security model, etc. */
-#define DYNAMORIO_VAR_PERSCACHE_SHARED_ID   DYNAMORIO_CACHE_SHARED
+#define DYNAMORIO_VAR_PERSCACHE_SHARED_ID DYNAMORIO_CACHE_SHARED
 /* case 10255: use a suffix to distinguish from ASLR files in same dir
  * DR persisted cache => "dpc"
  */
 #define PERSCACHE_FILE_SUFFIX "dpc"
 
 #ifdef HOT_PATCHING_INTERFACE
-# define DYNAMORIO_VAR_HOT_PATCH_POLICES_ID  DYNAMORIO_HOT_PATCH_POLICIES
-# define DYNAMORIO_VAR_HOT_PATCH_MODES_ID  DYNAMORIO_HOT_PATCH_MODES
+#    define DYNAMORIO_VAR_HOT_PATCH_POLICES_ID DYNAMORIO_HOT_PATCH_POLICIES
+#    define DYNAMORIO_VAR_HOT_PATCH_MODES_ID DYNAMORIO_HOT_PATCH_MODES
 #endif
 #ifdef PROCESS_CONTROL
-# define DYNAMORIO_VAR_APP_PROCESS_WHITELIST_ID  DYNAMORIO_APP_PROCESS_WHITELIST
-# define DYNAMORIO_VAR_ANON_PROCESS_WHITELIST_ID  DYNAMORIO_ANON_PROCESS_WHITELIST
+#    define DYNAMORIO_VAR_APP_PROCESS_WHITELIST_ID DYNAMORIO_APP_PROCESS_WHITELIST
+#    define DYNAMORIO_VAR_ANON_PROCESS_WHITELIST_ID DYNAMORIO_ANON_PROCESS_WHITELIST
 
-# define DYNAMORIO_VAR_APP_PROCESS_BLACKLIST_ID  DYNAMORIO_APP_PROCESS_BLACKLIST
-# define DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST_ID  DYNAMORIO_ANON_PROCESS_BLACKLIST
+#    define DYNAMORIO_VAR_APP_PROCESS_BLACKLIST_ID DYNAMORIO_APP_PROCESS_BLACKLIST
+#    define DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST_ID DYNAMORIO_ANON_PROCESS_BLACKLIST
 #endif
 
-#define DYNAMORIO_VAR_CONFIGDIR  STRINGIFY(DYNAMORIO_VAR_CONFIGDIR_ID)
-#define DYNAMORIO_VAR_HOME       STRINGIFY(DYNAMORIO_VAR_HOME_ID)
-#define DYNAMORIO_VAR_LOGDIR     STRINGIFY(DYNAMORIO_VAR_LOGDIR_ID)
-#define DYNAMORIO_VAR_OPTIONS    STRINGIFY(DYNAMORIO_VAR_OPTIONS_ID)
+#define DYNAMORIO_VAR_CONFIGDIR STRINGIFY(DYNAMORIO_VAR_CONFIGDIR_ID)
+#define DYNAMORIO_VAR_HOME STRINGIFY(DYNAMORIO_VAR_HOME_ID)
+#define DYNAMORIO_VAR_LOGDIR STRINGIFY(DYNAMORIO_VAR_LOGDIR_ID)
+#define DYNAMORIO_VAR_OPTIONS STRINGIFY(DYNAMORIO_VAR_OPTIONS_ID)
 #define DYNAMORIO_VAR_AUTOINJECT STRINGIFY(DYNAMORIO_VAR_AUTOINJECT_ID)
-#define DYNAMORIO_VAR_UNSUPPORTED  STRINGIFY(DYNAMORIO_VAR_UNSUPPORTED_ID)
-#define DYNAMORIO_VAR_RUNUNDER   STRINGIFY(DYNAMORIO_VAR_RUNUNDER_ID)
-#define DYNAMORIO_VAR_CMDLINE    STRINGIFY(DYNAMORIO_VAR_CMDLINE_ID)
-#define DYNAMORIO_VAR_ONCRASH    STRINGIFY(DYNAMORIO_VAR_ONCRASH_ID)
+#define DYNAMORIO_VAR_UNSUPPORTED STRINGIFY(DYNAMORIO_VAR_UNSUPPORTED_ID)
+#define DYNAMORIO_VAR_RUNUNDER STRINGIFY(DYNAMORIO_VAR_RUNUNDER_ID)
+#define DYNAMORIO_VAR_CMDLINE STRINGIFY(DYNAMORIO_VAR_CMDLINE_ID)
+#define DYNAMORIO_VAR_ONCRASH STRINGIFY(DYNAMORIO_VAR_ONCRASH_ID)
 #define DYNAMORIO_VAR_SAFEMARKER STRINGIFY(DYNAMORIO_VAR_SAFEMARKER_ID)
-#define DYNAMORIO_VAR_CACHE_ROOT  STRINGIFY(DYNAMORIO_VAR_CACHE_ROOT_ID)
-#define DYNAMORIO_VAR_CACHE_SHARED  STRINGIFY(DYNAMORIO_VAR_CACHE_SHARED_ID)
-#define DYNAMORIO_VAR_PERSCACHE_ROOT  STRINGIFY(DYNAMORIO_VAR_PERSCACHE_ROOT_ID)
-#define DYNAMORIO_VAR_PERSCACHE_SHARED  STRINGIFY(DYNAMORIO_VAR_PERSCACHE_SHARED_ID)
+#define DYNAMORIO_VAR_CACHE_ROOT STRINGIFY(DYNAMORIO_VAR_CACHE_ROOT_ID)
+#define DYNAMORIO_VAR_CACHE_SHARED STRINGIFY(DYNAMORIO_VAR_CACHE_SHARED_ID)
+#define DYNAMORIO_VAR_PERSCACHE_ROOT STRINGIFY(DYNAMORIO_VAR_PERSCACHE_ROOT_ID)
+#define DYNAMORIO_VAR_PERSCACHE_SHARED STRINGIFY(DYNAMORIO_VAR_PERSCACHE_SHARED_ID)
 #ifdef HOT_PATCHING_INTERFACE
-# define DYNAMORIO_VAR_HOT_PATCH_POLICIES  STRINGIFY(DYNAMORIO_VAR_HOT_PATCH_POLICES_ID)
-# define DYNAMORIO_VAR_HOT_PATCH_MODES  STRINGIFY(DYNAMORIO_VAR_HOT_PATCH_MODES_ID)
+#    define DYNAMORIO_VAR_HOT_PATCH_POLICIES STRINGIFY(DYNAMORIO_VAR_HOT_PATCH_POLICES_ID)
+#    define DYNAMORIO_VAR_HOT_PATCH_MODES STRINGIFY(DYNAMORIO_VAR_HOT_PATCH_MODES_ID)
 #endif
 #ifdef PROCESS_CONTROL
-# define DYNAMORIO_VAR_APP_PROCESS_WHITELIST \
-    STRINGIFY(DYNAMORIO_VAR_APP_PROCESS_WHITELIST_ID)
-# define DYNAMORIO_VAR_ANON_PROCESS_WHITELIST \
-    STRINGIFY(DYNAMORIO_VAR_ANON_PROCESS_WHITELIST_ID)
+#    define DYNAMORIO_VAR_APP_PROCESS_WHITELIST \
+        STRINGIFY(DYNAMORIO_VAR_APP_PROCESS_WHITELIST_ID)
+#    define DYNAMORIO_VAR_ANON_PROCESS_WHITELIST \
+        STRINGIFY(DYNAMORIO_VAR_ANON_PROCESS_WHITELIST_ID)
 
-# define DYNAMORIO_VAR_APP_PROCESS_BLACKLIST \
-    STRINGIFY(DYNAMORIO_VAR_APP_PROCESS_BLACKLIST_ID)
-# define DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST \
-    STRINGIFY(DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST_ID)
+#    define DYNAMORIO_VAR_APP_PROCESS_BLACKLIST \
+        STRINGIFY(DYNAMORIO_VAR_APP_PROCESS_BLACKLIST_ID)
+#    define DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST \
+        STRINGIFY(DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST_ID)
 #endif
 
 #ifdef UNIX
-
-#  define DYNAMORIO_VAR_EXE_PATH        "DYNAMORIO_EXE_PATH"
-#  define DYNAMORIO_VAR_EXECVE          "DYNAMORIO_POST_EXECVE"
-#  define DYNAMORIO_VAR_EXECVE_LOGDIR   "DYNAMORIO_EXECVE_LOGDIR"
-#  define DYNAMORIO_VAR_NO_EMULATE_BRK  "DYNAMORIO_NO_EMULATE_BRK"
-#  define L_IF_WIN(x) x
+#    define DYNAMORIO_VAR_EXE_PATH "DYNAMORIO_EXE_PATH"
+#    define DYNAMORIO_VAR_EXECVE "DYNAMORIO_POST_EXECVE"
+#    define DYNAMORIO_VAR_EXECVE_LOGDIR "DYNAMORIO_EXECVE_LOGDIR"
+#    define DYNAMORIO_VAR_NO_EMULATE_BRK "DYNAMORIO_NO_EMULATE_BRK"
+#    define L_IF_WIN(x) x
 
 #else /* WINDOWS */
 
-#  define EXPAND_LEVEL(str) str              /* expand one level */
-#  define L_EXPAND_LEVEL(str) L(str)
-#  define L(str) L ## str
-#  define LCONCAT(wstr,str) EXPAND_LEVEL(wstr)L("\\")L(str)
-#  define L_IF_WIN(x) L_EXPAND_LEVEL(x)
+#    define EXPAND_LEVEL(str) str /* expand one level */
+#    define L_EXPAND_LEVEL(str) L(str)
+#    define L(str) L##str
+#    define LCONCAT(wstr, str) EXPAND_LEVEL(wstr) L("\\") L(str)
+#    define L_IF_WIN(x) L_EXPAND_LEVEL(x)
 
 /* unicode versions of shared names*/
-#  define L_DYNAMORIO_VAR_CONFIGDIR   L_EXPAND_LEVEL(DYNAMORIO_VAR_CONFIGDIR)
-#  define L_DYNAMORIO_VAR_HOME        L_EXPAND_LEVEL(DYNAMORIO_VAR_HOME)
-#  define L_DYNAMORIO_VAR_LOGDIR      L_EXPAND_LEVEL(DYNAMORIO_VAR_LOGDIR)
-#  define L_DYNAMORIO_VAR_OPTIONS     L_EXPAND_LEVEL(DYNAMORIO_VAR_OPTIONS)
-#  define L_DYNAMORIO_VAR_AUTOINJECT  L_EXPAND_LEVEL(DYNAMORIO_VAR_AUTOINJECT)
-#  define L_DYNAMORIO_VAR_UNSUPPORTED L_EXPAND_LEVEL(DYNAMORIO_VAR_UNSUPPORTED)
-#  define L_DYNAMORIO_VAR_RUNUNDER    L_EXPAND_LEVEL(DYNAMORIO_VAR_RUNUNDER)
-#  define L_DYNAMORIO_VAR_CMDLINE     L_EXPAND_LEVEL(DYNAMORIO_VAR_CMDLINE)
-#  define L_DYNAMORIO_VAR_ONCRASH     L_EXPAND_LEVEL(DYNAMORIO_VAR_ONCRASH)
-#  define L_DYNAMORIO_VAR_SAFEMARKER  L_EXPAND_LEVEL(DYNAMORIO_VAR_SAFEMARKER)
-#  define L_DYNAMORIO_VAR_CACHE_ROOT  L_EXPAND_LEVEL(DYNAMORIO_VAR_CACHE_ROOT)
-#  define L_DYNAMORIO_VAR_CACHE_SHARED L_EXPAND_LEVEL(DYNAMORIO_VAR_CACHE_SHARED)
-# ifdef HOT_PATCHING_INTERFACE
-#  define L_DYNAMORIO_VAR_HOT_PATCH_POLICIES \
-                                        L_EXPAND_LEVEL(DYNAMORIO_VAR_HOT_PATCH_POLICIES)
-#  define L_DYNAMORIO_VAR_HOT_PATCH_MODES  L_EXPAND_LEVEL(DYNAMORIO_VAR_HOT_PATCH_MODES)
-# endif
-# ifdef PROCESS_CONTROL
-#  define L_DYNAMORIO_VAR_APP_PROCESS_WHITELIST \
-    L_EXPAND_LEVEL(DYNAMORIO_VAR_APP_PROCESS_WHITELIST)
-#  define L_DYNAMORIO_VAR_ANON_PROCESS_WHITELIST \
-    L_EXPAND_LEVEL(DYNAMORIO_VAR_ANON_PROCESS_WHITELIST)
+#    define L_DYNAMORIO_VAR_CONFIGDIR L_EXPAND_LEVEL(DYNAMORIO_VAR_CONFIGDIR)
+#    define L_DYNAMORIO_VAR_HOME L_EXPAND_LEVEL(DYNAMORIO_VAR_HOME)
+#    define L_DYNAMORIO_VAR_LOGDIR L_EXPAND_LEVEL(DYNAMORIO_VAR_LOGDIR)
+#    define L_DYNAMORIO_VAR_OPTIONS L_EXPAND_LEVEL(DYNAMORIO_VAR_OPTIONS)
+#    define L_DYNAMORIO_VAR_AUTOINJECT L_EXPAND_LEVEL(DYNAMORIO_VAR_AUTOINJECT)
+#    define L_DYNAMORIO_VAR_UNSUPPORTED L_EXPAND_LEVEL(DYNAMORIO_VAR_UNSUPPORTED)
+#    define L_DYNAMORIO_VAR_RUNUNDER L_EXPAND_LEVEL(DYNAMORIO_VAR_RUNUNDER)
+#    define L_DYNAMORIO_VAR_CMDLINE L_EXPAND_LEVEL(DYNAMORIO_VAR_CMDLINE)
+#    define L_DYNAMORIO_VAR_ONCRASH L_EXPAND_LEVEL(DYNAMORIO_VAR_ONCRASH)
+#    define L_DYNAMORIO_VAR_SAFEMARKER L_EXPAND_LEVEL(DYNAMORIO_VAR_SAFEMARKER)
+#    define L_DYNAMORIO_VAR_CACHE_ROOT L_EXPAND_LEVEL(DYNAMORIO_VAR_CACHE_ROOT)
+#    define L_DYNAMORIO_VAR_CACHE_SHARED L_EXPAND_LEVEL(DYNAMORIO_VAR_CACHE_SHARED)
+#    ifdef HOT_PATCHING_INTERFACE
+#        define L_DYNAMORIO_VAR_HOT_PATCH_POLICIES \
+            L_EXPAND_LEVEL(DYNAMORIO_VAR_HOT_PATCH_POLICIES)
+#        define L_DYNAMORIO_VAR_HOT_PATCH_MODES \
+            L_EXPAND_LEVEL(DYNAMORIO_VAR_HOT_PATCH_MODES)
+#    endif
+#    ifdef PROCESS_CONTROL
+#        define L_DYNAMORIO_VAR_APP_PROCESS_WHITELIST \
+            L_EXPAND_LEVEL(DYNAMORIO_VAR_APP_PROCESS_WHITELIST)
+#        define L_DYNAMORIO_VAR_ANON_PROCESS_WHITELIST \
+            L_EXPAND_LEVEL(DYNAMORIO_VAR_ANON_PROCESS_WHITELIST)
 
-#  define L_DYNAMORIO_VAR_APP_PROCESS_BLACKLIST \
-    L_EXPAND_LEVEL(DYNAMORIO_VAR_APP_PROCESS_BLACKLIST)
-#  define L_DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST \
-    L_EXPAND_LEVEL(DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST)
-# endif
+#        define L_DYNAMORIO_VAR_APP_PROCESS_BLACKLIST \
+            L_EXPAND_LEVEL(DYNAMORIO_VAR_APP_PROCESS_BLACKLIST)
+#        define L_DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST \
+            L_EXPAND_LEVEL(DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST)
+#    endif
 
-#  define L_PRODUCT_NAME              L_EXPAND_LEVEL(PRODUCT_NAME)
-#  define L_COMPANY_NAME              L_EXPAND_LEVEL(COMPANY_NAME)
-#  define L_COMPANY_LONG_NAME         L_EXPAND_LEVEL(COMPANY_LONG_NAME)
+#    define L_PRODUCT_NAME L_EXPAND_LEVEL(PRODUCT_NAME)
+#    define L_COMPANY_NAME L_EXPAND_LEVEL(COMPANY_NAME)
+#    define L_COMPANY_LONG_NAME L_EXPAND_LEVEL(COMPANY_LONG_NAME)
 
 /* event log registry keys */
-#  define EVENTLOG_HIVE HKEY_LOCAL_MACHINE
-#  define EVENTLOG_NAME COMPANY_NAME_EVENTLOG
-#  define EVENTSOURCE_NAME PRODUCT_NAME /* should be different than logfile name */
+#    define EVENTLOG_HIVE HKEY_LOCAL_MACHINE
+#    define EVENTLOG_NAME COMPANY_NAME_EVENTLOG
+#    define EVENTSOURCE_NAME                                  \
+        PRODUCT_NAME /* should be different than logfile name \
+                      */
 
-#  define EVENTLOG_REGISTRY_SUBKEY "System\\CurrentControlSet\\Services\\EventLog"
-#  define L_EVENTLOG_REGISTRY_SUBKEY L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
-#  define L_EVENTLOG_REGISTRY_KEY L"\\Registry\\Machine\\" \
-                                  L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
-#  define L_EVENT_LOG_KEY LCONCAT(L_EVENTLOG_REGISTRY_KEY,EVENTLOG_NAME)
-#  define L_EVENT_LOG_SUBKEY LCONCAT(L_EVENTLOG_REGISTRY_SUBKEY,EVENTLOG_NAME)
-#  define L_EVENT_LOG_NAME L_EXPAND_LEVEL(EVENTLOG_NAME)
-#  define L_EVENT_SOURCE_NAME L_EXPAND_LEVEL(EVENTSOURCE_NAME)
-#  define L_EVENT_SOURCE_KEY LCONCAT(L_EVENT_LOG_KEY, EVENTSOURCE_NAME)
-#  define L_EVENT_SOURCE_SUBKEY LCONCAT(L_EVENT_LOG_SUBKEY, EVENTSOURCE_NAME)
+#    define EVENTLOG_REGISTRY_SUBKEY "System\\CurrentControlSet\\Services\\EventLog"
+#    define L_EVENTLOG_REGISTRY_SUBKEY L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
+#    define L_EVENTLOG_REGISTRY_KEY \
+        L"\\Registry\\Machine\\" L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
+#    define L_EVENT_LOG_KEY LCONCAT(L_EVENTLOG_REGISTRY_KEY, EVENTLOG_NAME)
+#    define L_EVENT_LOG_SUBKEY LCONCAT(L_EVENTLOG_REGISTRY_SUBKEY, EVENTLOG_NAME)
+#    define L_EVENT_LOG_NAME L_EXPAND_LEVEL(EVENTLOG_NAME)
+#    define L_EVENT_SOURCE_NAME L_EXPAND_LEVEL(EVENTSOURCE_NAME)
+#    define L_EVENT_SOURCE_KEY LCONCAT(L_EVENT_LOG_KEY, EVENTSOURCE_NAME)
+#    define L_EVENT_SOURCE_SUBKEY LCONCAT(L_EVENT_LOG_SUBKEY, EVENTSOURCE_NAME)
 
-#  define EVENT_LOG_KEY LCONCAT(L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY),EVENTLOG_NAME)
-#  define EVENT_SOURCE_KEY LCONCAT(EVENT_LOG_KEY,EVENTSOURCE_NAME)
+#    define EVENT_LOG_KEY LCONCAT(L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY), EVENTLOG_NAME)
+#    define EVENT_SOURCE_KEY LCONCAT(EVENT_LOG_KEY, EVENTSOURCE_NAME)
 /* Log key values (NOTE the values here are the values our installer uses,
  * not sure what all of them mean).  FIXME would be nice if these were
  * shared with the installer config file. Only used by DRcontrol (via
  * share/config.c) to set up new eventlogs (mainly for vista where our
  * installer doesn't work yet xref case 8482).*/
-#  define L_EVENT_FILE_VALUE_NAME L"File"
-#  define L_EVENT_FILE_NAME_PRE_VISTA \
-       L"%SystemRoot%\\system32\\config\\" L_EXPAND_LEVEL(EVENTLOG_NAME)L".evt"
-#  define L_EVENT_FILE_NAME_VISTA \
-       L"%SystemRoot%\\system32\\winevt\\logs\\" L_EXPAND_LEVEL(EVENTLOG_NAME)L".elf"
-#  define L_EVENT_MAX_SIZE_NAME L"MaxSize"
-#  define EVENT_MAX_SIZE 0x500000
-#  define L_EVENT_RETENTION_NAME L"Retention"
-#  define EVENT_RETENTION 0
+#    define L_EVENT_FILE_VALUE_NAME L"File"
+#    define L_EVENT_FILE_NAME_PRE_VISTA \
+        L"%SystemRoot%\\system32\\config\\" L_EXPAND_LEVEL(EVENTLOG_NAME) L".evt"
+#    define L_EVENT_FILE_NAME_VISTA \
+        L"%SystemRoot%\\system32\\winevt\\logs\\" L_EXPAND_LEVEL(EVENTLOG_NAME) L".elf"
+#    define L_EVENT_MAX_SIZE_NAME L"MaxSize"
+#    define EVENT_MAX_SIZE 0x500000
+#    define L_EVENT_RETENTION_NAME L"Retention"
+#    define EVENT_RETENTION 0
 /* Src key values */
-#  define L_EVENT_TYPES_SUPPORTED_NAME L"TypesSupported"
-#  define EVENT_TYPES_SUPPORTED 0x7 /* info | warning | error */
-#  define L_EVENT_CATEGORY_COUNT_NAME L"CategoryCount"
-#  define EVENT_CATEGORY_COUNT 0
-#  define L_EVENT_CATEGORY_FILE_NAME L"CategoryMessageFile"
-#  define L_EVENT_MESSAGE_FILE L"EventMessageFile"
+#    define L_EVENT_TYPES_SUPPORTED_NAME L"TypesSupported"
+#    define EVENT_TYPES_SUPPORTED 0x7 /* info | warning | error */
+#    define L_EVENT_CATEGORY_COUNT_NAME L"CategoryCount"
+#    define EVENT_CATEGORY_COUNT 0
+#    define L_EVENT_CATEGORY_FILE_NAME L"CategoryMessageFile"
+#    define L_EVENT_MESSAGE_FILE L"EventMessageFile"
 
 /* shared object directory base */
-#  define BASE_NAMED_OBJECTS L"\\BaseNamedObjects"
+#    define BASE_NAMED_OBJECTS L"\\BaseNamedObjects"
 /* base root in global object namespace, not in BaseNamedObjects or Sessions */
-#  define DYNAMORIO_SHARED_OBJECT_BASE L("\\")L_EXPAND_LEVEL(COMPANY_NAME)
+#    define DYNAMORIO_SHARED_OBJECT_BASE L("\\") L_EXPAND_LEVEL(COMPANY_NAME)
 /* shared object directory for shared DLL cache */
-#  define DYNAMORIO_SHARED_OBJECT_DIRECTORY LCONCAT(DYNAMORIO_SHARED_OBJECT_BASE,\
-                                                    "SharedCache")
+#    define DYNAMORIO_SHARED_OBJECT_DIRECTORY \
+        LCONCAT(DYNAMORIO_SHARED_OBJECT_BASE, "SharedCache")
 
 /* registry */
-#  define DYNAMORIO_REGISTRY_BASE_SUBKEY "Software\\" COMPANY_NAME "\\" PRODUCT_NAME
-#  define DYNAMORIO_REGISTRY_BASE L"\\Registry\\Machine\\Software\\" \
-                       L_EXPAND_LEVEL(COMPANY_NAME)L("\\")L_EXPAND_LEVEL(PRODUCT_NAME)
-#  define DYNAMORIO_REGISTRY_HIVE HKEY_LOCAL_MACHINE
-#  define DYNAMORIO_REGISTRY_KEY    DYNAMORIO_REGISTRY_BASE_SUBKEY
-#  define L_DYNAMORIO_REGISTRY_KEY L"Software\\" L_EXPAND_LEVEL(COMPANY_NAME)L"\\" \
-                                   L_EXPAND_LEVEL(PRODUCT_NAME)
+#    define DYNAMORIO_REGISTRY_BASE_SUBKEY "Software\\" COMPANY_NAME "\\" PRODUCT_NAME
+#    define DYNAMORIO_REGISTRY_BASE                                             \
+        L"\\Registry\\Machine\\Software\\" L_EXPAND_LEVEL(COMPANY_NAME) L("\\") \
+            L_EXPAND_LEVEL(PRODUCT_NAME)
+#    define DYNAMORIO_REGISTRY_HIVE HKEY_LOCAL_MACHINE
+#    define DYNAMORIO_REGISTRY_KEY DYNAMORIO_REGISTRY_BASE_SUBKEY
+#    define L_DYNAMORIO_REGISTRY_KEY \
+        L"Software\\" L_EXPAND_LEVEL(COMPANY_NAME) L"\\" L_EXPAND_LEVEL(PRODUCT_NAME)
 
-#  define INJECT_ALL_HIVE    HKEY_LOCAL_MACHINE
-#  define INJECT_ALL_KEY     "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows"
-#  define INJECT_ALL_SUBKEY  "AppInit_DLLs"
+#    define INJECT_ALL_HIVE HKEY_LOCAL_MACHINE
+#    define INJECT_ALL_KEY "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows"
+#    define INJECT_ALL_SUBKEY "AppInit_DLLs"
 /* introduced on Vista */
-#  define INJECT_ALL_LOAD_SUBKEY        "LoadAppInit_DLLs"
+#    define INJECT_ALL_LOAD_SUBKEY "LoadAppInit_DLLs"
 /* introduced on Windows 7/2008 R2 */
-#  define INJECT_ALL_SIGN_SUBKEY        "RequireSignedAppInit_DLLs"
+#    define INJECT_ALL_SIGN_SUBKEY "RequireSignedAppInit_DLLs"
 
-#  define INJECT_ALL_HIVE_L    L"\\Registry\\Machine\\"
-#  define INJECT_ALL_KEY_L     L_EXPAND_LEVEL(INJECT_ALL_KEY)
-#  define INJECT_ALL_SUBKEY_L  L_EXPAND_LEVEL(INJECT_ALL_SUBKEY)
-#  define INJECT_ALL_LOAD_SUBKEY_L      L_EXPAND_LEVEL(INJECT_ALL_LOAD_SUBKEY)
-#  define INJECT_ALL_SIGN_SUBKEY_L      L_EXPAND_LEVEL(INJECT_ALL_SIGN_SUBKEY)
+#    define INJECT_ALL_HIVE_L L"\\Registry\\Machine\\"
+#    define INJECT_ALL_KEY_L L_EXPAND_LEVEL(INJECT_ALL_KEY)
+#    define INJECT_ALL_SUBKEY_L L_EXPAND_LEVEL(INJECT_ALL_SUBKEY)
+#    define INJECT_ALL_LOAD_SUBKEY_L L_EXPAND_LEVEL(INJECT_ALL_LOAD_SUBKEY)
+#    define INJECT_ALL_SIGN_SUBKEY_L L_EXPAND_LEVEL(INJECT_ALL_SIGN_SUBKEY)
 
-#  define INJECT_DLL_NAME      "drpreinject.dll"
-#  define INJECT_DLL_8_3_NAME  "DRPREI~1.DLL"
+#    define INJECT_DLL_NAME "drpreinject.dll"
+#    define INJECT_DLL_8_3_NAME "DRPREI~1.DLL"
 
-#  define INJECT_HELPER_DLL1_NAME      "drearlyhelp1.dll"
-#  define INJECT_HELPER_DLL2_NAME      "drearlyhelp2.dll"
+#    define INJECT_HELPER_DLL1_NAME "drearlyhelp1.dll"
+#    define INJECT_HELPER_DLL2_NAME "drearlyhelp2.dll"
 
-#  define DEBUGGER_INJECTION_HIVE       HKEY_LOCAL_MACHINE
-#  define DEBUGGER_INJECTION_KEY \
-       "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options"
-#  define DEBUGGER_INJECTION_VALUE_NAME "Debugger"
+#    define DEBUGGER_INJECTION_HIVE HKEY_LOCAL_MACHINE
+#    define DEBUGGER_INJECTION_KEY \
+        "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options"
+#    define DEBUGGER_INJECTION_VALUE_NAME "Debugger"
 
-#  define DEBUGGER_INJECTION_HIVE_L       L"\\Registry\\Machine\\"
-#  define DEBUGGER_INJECTION_KEY_L        L_EXPAND_LEVEL(DEBUGGER_INJECTION_KEY)
-#  define DEBUGGER_INJECTION_VALUE_NAME_L L_EXPAND_LEVEL(DEBUGGER_INJECTION_VALUE_NAME)
+#    define DEBUGGER_INJECTION_HIVE_L L"\\Registry\\Machine\\"
+#    define DEBUGGER_INJECTION_KEY_L L_EXPAND_LEVEL(DEBUGGER_INJECTION_KEY)
+#    define DEBUGGER_INJECTION_VALUE_NAME_L L_EXPAND_LEVEL(DEBUGGER_INJECTION_VALUE_NAME)
 
-#  define DRINJECT_NAME                 "drinject.exe"
+#    define DRINJECT_NAME "drinject.exe"
 
 /* shared module uses SVCHOST_NAME and EXE_SUFFIX separately */
-#  define SVCHOST_NAME         "svchost"
-#  define EXE_SUFFIX           ".exe"
-#  define L_EXE_SUFFIX         L_EXPAND_LEVEL(EXE_SUFFIX)
-#  define SVCHOST_EXE_NAME     SVCHOST_NAME EXE_SUFFIX
-#  define L_SVCHOST_EXE_NAME   L_EXPAND_LEVEL(SVCHOST_NAME) L_EXPAND_LEVEL(EXE_SUFFIX)
+#    define SVCHOST_NAME "svchost"
+#    define EXE_SUFFIX ".exe"
+#    define L_EXE_SUFFIX L_EXPAND_LEVEL(EXE_SUFFIX)
+#    define SVCHOST_EXE_NAME SVCHOST_NAME EXE_SUFFIX
+#    define L_SVCHOST_EXE_NAME L_EXPAND_LEVEL(SVCHOST_NAME) L_EXPAND_LEVEL(EXE_SUFFIX)
 
 /* for processview, etc */
-#  define DYNAMORIO_LIBRARY_NAME "dynamorio.dll"
-#  define DLLPATH_RELEASE    "\\lib\\release\\" DYNAMORIO_LIBRARY_NAME
-#  define DLLPATH_DEBUG      "\\lib\\debug\\" DYNAMORIO_LIBRARY_NAME
-#  define DLLPATH_PROFILE    "\\lib\\profile\\" DYNAMORIO_LIBRARY_NAME
+#    define DYNAMORIO_LIBRARY_NAME "dynamorio.dll"
+#    define DLLPATH_RELEASE "\\lib\\release\\" DYNAMORIO_LIBRARY_NAME
+#    define DLLPATH_DEBUG "\\lib\\debug\\" DYNAMORIO_LIBRARY_NAME
+#    define DLLPATH_PROFILE "\\lib\\profile\\" DYNAMORIO_LIBRARY_NAME
 
-#  define L_DYNAMORIO_LIBRARY_NAME L_EXPAND_LEVEL(DYNAMORIO_LIBRARY_NAME)
-#  define L_DLLPATH_RELEASE    L"\\lib\\release\\" L_DYNAMORIO_LIBRARY_NAME
-#  define L_DLLPATH_DEBUG      L"\\lib\\debug\\" L_DYNAMORIO_LIBRARY_NAME
-#  define L_DLLPATH_PROFILE    L"\\lib\\profile\\" L_DYNAMORIO_LIBRARY_NAME
+#    define L_DYNAMORIO_LIBRARY_NAME L_EXPAND_LEVEL(DYNAMORIO_LIBRARY_NAME)
+#    define L_DLLPATH_RELEASE L"\\lib\\release\\" L_DYNAMORIO_LIBRARY_NAME
+#    define L_DLLPATH_DEBUG L"\\lib\\debug\\" L_DYNAMORIO_LIBRARY_NAME
+#    define L_DLLPATH_PROFILE L"\\lib\\profile\\" L_DYNAMORIO_LIBRARY_NAME
 
-#  define INJECT_ALL_DLL_SUBPATH   "\\lib\\" INJECT_DLL_8_3_NAME
-#  define L_INJECT_ALL_DLL_SUBPATH   L"\\lib\\" L_EXPAND_LEVEL(INJECT_DLL_8_3_NAME)
+#    define INJECT_ALL_DLL_SUBPATH "\\lib\\" INJECT_DLL_8_3_NAME
+#    define L_INJECT_ALL_DLL_SUBPATH L"\\lib\\" L_EXPAND_LEVEL(INJECT_DLL_8_3_NAME)
 
 enum DLL_TYPE {
-        DLL_NONE,
-        DLL_UNKNOWN,
-        DLL_RELEASE,
-        DLL_DEBUG,
-        DLL_PROFILE,
-        DLL_CUSTOM,
-        DLL_PATHHAS
+    DLL_NONE,
+    DLL_UNKNOWN,
+    DLL_RELEASE,
+    DLL_DEBUG,
+    DLL_PROFILE,
+    DLL_CUSTOM,
+    DLL_PATHHAS
 };
 #endif /* WINDOWS */
 
 #ifdef STANDALONE_UNIT_TEST
-# define UNIT_TEST_EXE_NAME ("unit_tests" IF_WINDOWS(".exe"))
+#    define UNIT_TEST_EXE_NAME ("unit_tests" IF_WINDOWS(".exe"))
 #endif
 
 /* DYNAMORIO_RUNUNDER controls the injection technique and process naming,
@@ -1367,21 +1390,21 @@ enum DLL_TYPE {
  **/
 enum {
     /* FIXME: keep in mind that we only read decimal values */
-    RUNUNDER_OFF                  = 0x00,   /* 0 */
-    RUNUNDER_ON                   = 0x01,   /* 1 */
-    RUNUNDER_ALL                  = 0x02,   /* 2 */
+    RUNUNDER_OFF = 0x00, /* 0 */
+    RUNUNDER_ON = 0x01,  /* 1 */
+    RUNUNDER_ALL = 0x02, /* 2 */
 
     /* Dummy field to keep track of which processes were RUNUNDER_EXPLICIT
      * before we moved to -follow_systemwide by default (for -early_injection)
      * (note this was the old RUNUNDER_EXPLICIT value) */
-    RUNUNDER_FORMERLY_EXPLICIT    = 0x04,   /* 4 */
+    RUNUNDER_FORMERLY_EXPLICIT = 0x04, /* 4 */
 
-    RUNUNDER_COMMANDLINE_MATCH    = 0x08,   /* 8 */
-    RUNUNDER_COMMANDLINE_DISPATCH = 0x10,  /* 16 */
-    RUNUNDER_COMMANDLINE_NO_STRIP = 0x20,  /* 32 */
-    RUNUNDER_ONCE                 = 0x40,  /* 64 */
+    RUNUNDER_COMMANDLINE_MATCH = 0x08,    /* 8 */
+    RUNUNDER_COMMANDLINE_DISPATCH = 0x10, /* 16 */
+    RUNUNDER_COMMANDLINE_NO_STRIP = 0x20, /* 32 */
+    RUNUNDER_ONCE = 0x40,                 /* 64 */
 
-    RUNUNDER_EXPLICIT             = 0x80,  /* 128 */
+    RUNUNDER_EXPLICIT = 0x80, /* 128 */
 };
 
 /* A bitmask of possible actions to take on a nudge.  Accessed via
@@ -1400,44 +1423,44 @@ enum {
  *          that are used by the nodemanager/drcontrol (thus QA).  Will lead to
  *          a lot of unwanted confusion.
  */
-#define NUDGE_DEFINITIONS()                                                     \
-    /* Control nudges */                                                        \
-    NUDGE_DEF(opt, "Synchronize dynamic options")                               \
-    NUDGE_DEF(reset, "Reset code caches") /* flush & delete */                  \
-    NUDGE_DEF(detach, "Detach")                                                 \
-    NUDGE_DEF(mode, "Liveshield mode update")                                   \
-    NUDGE_DEF(policy, "Liveshield policy update")                               \
-    NUDGE_DEF(lstats, "Liveshield statistics NYI")                              \
-    NUDGE_DEF(process_control, "Process control nudge") /* Case 8594. */        \
-    NUDGE_DEF(upgrade, "DR upgrade NYI case 4179")                              \
-    NUDGE_DEF(kstats, "Dump kstats in log or kstat file NYI")                   \
-    /* internal options */                                                      \
-    NUDGE_DEF(stats, "Dump internal stats in logfiles NYI")                     \
-    NUDGE_DEF(invalidate, "Invalidate code caches NYI") /* flush */             \
-    /* stress testing */                                                        \
-    NUDGE_DEF(recreate_pc, "Recreate PC NYI")                                   \
-    NUDGE_DEF(recreate_state, "Recreate state NYI")                             \
-    NUDGE_DEF(reattach, "Reattach - almost detach, NYI")                        \
-    /* diagnostics */                                                           \
-    NUDGE_DEF(diagnose, "Request diagnostic file NYI")                          \
-    NUDGE_DEF(ldmp, "Dump core")                                                \
-    NUDGE_DEF(freeze, "Freeze coarse units")                                    \
-    NUDGE_DEF(persist, "Persist coarse units")                                  \
-    /* client nudge */                                                          \
-    NUDGE_DEF(client, "Client nudge")                                           \
-    /* security testing */                                                      \
-    NUDGE_DEF(violation, "Simulate a security violation")                       \
-    /* ADD NEW NUDGE_DEFs only immediately above this line  */                  \
-    /* Since these are used as a bitmask only 32 types can be supported:
-     * but on Linux only 28.  If we want more we can simply use the client_arg
-     * field to multiplex.
+#define NUDGE_DEFINITIONS()                                                    \
+    /* Control nudges */                                                       \
+    NUDGE_DEF(opt, "Synchronize dynamic options")                              \
+    NUDGE_DEF(reset, "Reset code caches") /* flush & delete */                 \
+    NUDGE_DEF(detach, "Detach")                                                \
+    NUDGE_DEF(mode, "Liveshield mode update")                                  \
+    NUDGE_DEF(policy, "Liveshield policy update")                              \
+    NUDGE_DEF(lstats, "Liveshield statistics NYI")                             \
+    NUDGE_DEF(process_control, "Process control nudge") /* Case 8594. */       \
+    NUDGE_DEF(upgrade, "DR upgrade NYI case 4179")                             \
+    NUDGE_DEF(kstats, "Dump kstats in log or kstat file NYI")                  \
+    /* internal options */                                                     \
+    NUDGE_DEF(stats, "Dump internal stats in logfiles NYI")                    \
+    NUDGE_DEF(invalidate, "Invalidate code caches NYI") /* flush */            \
+    /* stress testing */                                                       \
+    NUDGE_DEF(recreate_pc, "Recreate PC NYI")                                  \
+    NUDGE_DEF(recreate_state, "Recreate state NYI")                            \
+    NUDGE_DEF(reattach, "Reattach - almost detach, NYI")                       \
+    /* diagnostics */                                                          \
+    NUDGE_DEF(diagnose, "Request diagnostic file NYI")                         \
+    NUDGE_DEF(ldmp, "Dump core")                                               \
+    NUDGE_DEF(freeze, "Freeze coarse units")                                   \
+    NUDGE_DEF(persist, "Persist coarse units")                                 \
+    /* client nudge */                                                         \
+    NUDGE_DEF(client, "Client nudge")                                          \
+    /* security testing */                                                     \
+    NUDGE_DEF(violation, "Simulate a security violation")                      \
+    /* ADD NEW NUDGE_DEFs only immediately above this line  */                 \
+    /* Since these are used as a bitmask only 32 types can be supported:       \
+     * but on Linux only 28.  If we want more we can simply use the client_arg \
+     * field to multiplex.                                                     \
      */
 
 typedef enum {
 #define NUDGE_DEF(name, comment) NUDGE_DR_##name,
     NUDGE_DEFINITIONS()
 #undef NUDGE_DEF
-    NUDGE_DR_PARAMETRIZED_END
+        NUDGE_DR_PARAMETRIZED_END
 } nudge_generic_type_t;
 
 /* note that these are bitmask values */
@@ -1451,11 +1474,11 @@ typedef enum {
  * On Linux only 2 bits for these
  */
 enum {
-    NUDGE_IS_INTERNAL       = 0x01, /* nudge is internally generated */
+    NUDGE_IS_INTERNAL = 0x01, /* nudge is internally generated */
 #ifdef WINDOWS
     NUDGE_NUDGER_FREE_STACK = 0x02, /* nudger will free the nudge thread's stack so the
                                      * nudge thread itself shouldn't */
-    NUDGE_FREE_ARG          = 0x04, /* nudge arg is in a separate allocation and should
+    NUDGE_FREE_ARG = 0x04,          /* nudge arg is in a separate allocation and should
                                      * be freed by the nudge thread */
 #endif
 };
@@ -1471,17 +1494,17 @@ typedef struct {
      * at 1, this field will never be 0 for a nudge signal, but is always
      * 0 for a libc sigqueue()-generated signal.
      */
-    uint nudge_action_mask:28;
-    uint version:2;
-    uint flags:2;
+    uint nudge_action_mask : 28;
+    uint version : 2;
+    uint flags : 2;
     int ignored2; /* siginfo_t.si_code: has meaning to kernel so we avoid using */
 #else
-    uint version; /* version number for future proofing */
+    uint version;           /* version number for future proofing */
     uint nudge_action_mask; /* drawn from NUDGE_DEFS above */
-    uint flags; /* flags drawn from above enum */
+    uint flags;             /* flags drawn from above enum */
 #endif
     client_id_t client_id; /* unique ID identifying client */
-    uint64 client_arg; /* argument for a client nudge */
+    uint64 client_arg;     /* argument for a client nudge */
 #ifdef WIN32
     /* Add future arguments for nudge actions here.
      * There is no room for more Linux arguments.
@@ -1495,7 +1518,7 @@ typedef struct {
  * the app, and for which we can distinguish synch from asynch by
  * looking at the interrupted pc.
  */
-# define NUDGESIG_SIGNUM         SIGILL
+#    define NUDGESIG_SIGNUM SIGILL
 #endif
 
 /* Define AVOID_API_EXPORT here rather than in configure.h.
@@ -1517,7 +1540,7 @@ typedef struct {
 /* All hot patch policy IDs must be of the form XXXX.XXXX; this ID is used to
  * generate the threat ID for a given hot patch violation.
  */
-#define HOTP_POLICY_ID_LENGTH 9
+#    define HOTP_POLICY_ID_LENGTH 9
 
 /* DR_API EXPORT TOFILE dr_probe.h */
 /* DR_API EXPORT BEGIN */
@@ -1597,7 +1620,7 @@ typedef enum {
     /** One or more aspects of the probe aren't supported as of now. */
     DR_PROBE_STATUS_UNSUPPORTED = 12,
 
-# ifdef AVOID_API_EXPORT
+#    ifdef AVOID_API_EXPORT
     /* DON'T CHANGE THE VALUES OF THE DR_* CONSTANTS DEFINED ABOVE.  They are
      * exported to clients, whereas constants in this ifdef aren't.  Any change
      * to those values will likely break old clients with newer versions of DR
@@ -1659,20 +1682,19 @@ typedef enum {
     HOTP_INJECT_NO_MATCH_NOT_VULNERABLE,
     */
 
-    HOTP_INJECT_OFF = 102   /* Policy has been turned off, so no injection. */
-# endif /* AVOID_API_EXPORT */
+    HOTP_INJECT_OFF = 102 /* Policy has been turned off, so no injection. */
+#    endif                /* AVOID_API_EXPORT */
 } dr_probe_status_t;
 /* DR_API EXPORT END */
 
 typedef dr_probe_status_t hotp_inject_status_t;
-
 
 /* Modes are at a policy level, not a vulnerability level, even though the
  * core organizes things at the vulnerability level.
  */
 typedef enum {
     HOTP_MODE_OFF = 0,
-    HOTP_MODE_DETECT  = 1,
+    HOTP_MODE_DETECT = 1,
     HOTP_MODE_PROTECT = 2
 } hotp_policy_mode_t;
 
@@ -1727,7 +1749,7 @@ typedef struct {
 /* These constants & macros are used by core, share and preinject, so this is
  * the only place they will build for win32 and linux! */
 /* return codes for [gs]et_parameter style functions
- * failure == 0 for compatibility with get_parameter()
+ * failure == 0 for compatibility with d_r_get_parameter()
  * if GET_PARAMETER_NOAPPSPECIFIC is returned, that means the
  *  parameter returned is from the global options, because there
  *  was no app-specific key present.
@@ -1743,8 +1765,8 @@ enum {
     SET_PARAMETER_FAILURE = GET_PARAMETER_FAILURE,
     SET_PARAMETER_SUCCESS = GET_PARAMETER_SUCCESS
 };
-#define IS_GET_PARAMETER_FAILURE(x) ((x) <= 0 )
-#define IS_GET_PARAMETER_SUCCESS(x) ((x) > 0 )
+#define IS_GET_PARAMETER_FAILURE(x) ((x) <= 0)
+#define IS_GET_PARAMETER_SUCCESS(x) ((x) > 0)
 
 /* X86 only but no ifdef since hotp builds don't set that define */
 /* User-mode machine context.
@@ -1783,9 +1805,9 @@ typedef union _dr_xmm_t {
 #ifdef X64
     uint64 u64[2]; /**< Representation as 2 64-bit integers. */
 #endif
-    uint   u32[4]; /**< Representation as 4 32-bit integers. */
-    byte   u8[16]; /**< Representation as 16 8-bit integers. */
-    reg_t  reg[IF_X64_ELSE(2,4)]; /**< Representation as 2 or 4 registers. */
+    uint u32[4];                  /**< Representation as 4 32-bit integers. */
+    byte u8[16];                  /**< Representation as 16 8-bit integers. */
+    reg_t reg[IF_X64_ELSE(2, 4)]; /**< Representation as 2 or 4 registers. */
 } dr_xmm_t;
 
 /** 256-bit YMM register. */
@@ -1804,14 +1826,34 @@ typedef union _dr_ymm_t {
      */
 #endif
 #ifdef API_EXPORT_ONLY
-#ifdef X64
+#    ifdef X64
     uint64 u64[4]; /**< Representation as 4 64-bit integers. */
+#    endif
 #endif
-#endif
-    uint   u32[8]; /**< Representation as 8 32-bit integers. */
-    byte   u8[32]; /**< Representation as 32 8-bit integers. */
-    reg_t  reg[IF_X64_ELSE(4,8)]; /**< Representation as 4 or 8 registers. */
+    uint u32[8];                  /**< Representation as 8 32-bit integers. */
+    byte u8[32];                  /**< Representation as 32 8-bit integers. */
+    reg_t reg[IF_X64_ELSE(4, 8)]; /**< Representation as 4 or 8 registers. */
 } dr_ymm_t;
+
+/** 512-bit ZMM register. */
+typedef union _dr_zmm_t {
+#ifdef API_EXPORT_ONLY
+#    ifdef X64
+    uint64 u64[8]; /**< Representation as 8 64-bit integers. */
+#    endif
+#endif
+    uint u32[16];                  /**< Representation as 16 32-bit integers. */
+    byte u8[64];                   /**< Representation as 64 8-bit integers. */
+    reg_t reg[IF_X64_ELSE(8, 16)]; /**< Representation as 8 or 16 registers. */
+} dr_zmm_t;
+
+/** AVX-512 OpMask (k-)register. */
+#ifdef AVOID_API_EXPORT
+/* The register may be only 16 bits wide on systems without AVX512BW, but can be up to
+ * MAX_KL = 64 bits.
+ */
+#endif
+typedef uint64 dr_opmask_t;
 
 #if defined(AARCHXX)
 /**
@@ -1820,60 +1862,90 @@ typedef union _dr_ymm_t {
  * In AArch32, we're not using any uint64 fields here to avoid alignment
  * padding in sensitive structs. We could alternatively use pragma pack.
  */
-# ifdef X64
+#    ifdef X64
 typedef union ALIGN_VAR(16) _dr_simd_t {
-    byte   b;      /**< Bottom  8 bits of Vn == Bn. */
-    ushort h;      /**< Bottom 16 bits of Vn == Hn. */
-    uint   s;      /**< Bottom 32 bits of Vn == Sn. */
-    uint   d[2];   /**< Bottom 64 bits of Vn == Dn as d[1]:d[0]. */
-    uint   q[4];   /**< 128-bit Qn as q[3]:q[2]:q[1]:q[0]. */
-    uint   u32[4]; /**< The full 128-bit register. */
+    byte b;      /**< Bottom  8 bits of Vn == Bn. */
+    ushort h;    /**< Bottom 16 bits of Vn == Hn. */
+    uint s;      /**< Bottom 32 bits of Vn == Sn. */
+    uint d[2];   /**< Bottom 64 bits of Vn == Dn as d[1]:d[0]. */
+    uint q[4];   /**< 128-bit Qn as q[3]:q[2]:q[1]:q[0]. */
+    uint u32[4]; /**< The full 128-bit register. */
 } dr_simd_t;
-# else
+#    else
 typedef union _dr_simd_t {
-    uint   s[4];   /**< Representation as 4 32-bit Sn elements. */
-    uint   d[4];   /**< Representation as 2 64-bit Dn elements: d[3]:d[2]; d[1]:d[0]. */
-    uint   u32[4]; /**< The full 128-bit register. */
+    uint s[4];   /**< Representation as 4 32-bit Sn elements. */
+    uint d[4];   /**< Representation as 2 64-bit Dn elements: d[3]:d[2]; d[1]:d[0]. */
+    uint u32[4]; /**< The full 128-bit register. */
 } dr_simd_t;
-# endif
-# ifdef X64
-#  define NUM_SIMD_SLOTS 32 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t */
-# else
-#  define NUM_SIMD_SLOTS 16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t */
-# endif
-# define PRE_SIMD_PADDING 0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
+#    endif
+#    ifdef X64
+#        define MCXT_NUM_SIMD_SLOTS                                  \
+            32 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
+                */
+#    else
+#        define MCXT_NUM_SIMD_SLOTS                                  \
+            16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
+                */
+#    endif
+#    define PRE_SIMD_PADDING                                       \
+        0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots \
+           */
+#    define MCXT_NUM_OPMASK_SLOTS                                    \
+        0 /**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, \
+           * if architecture supports.                               \
+           */
 
 #elif defined(X86)
 
-# ifdef AVOID_API_EXPORT
+#    ifdef AVOID_API_EXPORT
 /* If this is increased, you'll probably need to increase the size of
  * inject_into_thread's buf and INTERCEPTION_CODE_SIZE (for Windows).
- * Also, update NUM_SIMD_SLOTS in x86.asm and get_xmm_caller_saved.
+ * Also, update MCXT_NUM_SIMD_SLOTS in x86.asm and get_xmm_caller_saved.
  * i#437: YMM is an extension of XMM from 128-bit to 256-bit without
  * adding new ones, so code operating on XMM often also operates on YMM,
  * and thus some *XMM* macros also apply to *YMM*.
  */
-# endif
-# ifdef X64
-#  ifdef WINDOWS
-    /*xmm0-5*/
-#   define NUM_SIMD_SLOTS 6 /**< Number of [xy]mm reg slots in dr_mcontext_t */
-#  else
-    /*xmm0-15*/
-#   define NUM_SIMD_SLOTS 16 /**< Number of [xy]mm reg slots in dr_mcontext_t */
-#  endif
-#  define PRE_XMM_PADDING 16 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
-# else
-   /*xmm0-7*/
-#  define NUM_SIMD_SLOTS 8 /**< Number of [xy]mm reg slots in dr_mcontext_t */
-#  define PRE_XMM_PADDING 24 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
-# endif
-
-# define NUM_XMM_SLOTS NUM_SIMD_SLOTS /* for backward compatibility */
-
+#    endif
+#    ifdef X64
+#        ifdef WINDOWS
+/* TODO i#1312: support AVX-512 extended registers. */
+/**< Number of [xyz]mm0-5 reg slots in dr_mcontext_t pre AVX-512 in-use. */
+#            define MCXT_NUM_SIMD_SSE_AVX_SLOTS 6
+/**< Number of [xyz]mm0-5 reg slots in dr_mcontext_t */
+#            define MCXT_NUM_SIMD_SLOTS 6
+#        else
+/**< Number of [xyz]mm-15 reg slots in dr_mcontext_t pre AVX-512 in-use. */
+#            define MCXT_NUM_SIMD_SSE_AVX_SLOTS 16
+/**< Number of [xyz]mm0-31 reg slots in dr_mcontext_t */
+#            define MCXT_NUM_SIMD_SLOTS 32
+#        endif
+/**< Bytes of padding before simd dr_mcontext_t slots */
+#        define PRE_XMM_PADDING 48
+#    else
+/**< Number of [xyz]mm0-7 reg slots in dr_mcontext_t pre AVX-512 in-use. */
+#        define MCXT_NUM_SIMD_SSE_AVX_SLOTS 8
+/**< Number of [xyz]mm0-7 reg slots in dr_mcontext_t */
+#        define MCXT_NUM_SIMD_SLOTS 8
+/**< Bytes of padding before simd dr_mcontext_t slots */
+#        define PRE_XMM_PADDING 24
+#    endif
+/**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, if architecture supports. */
+#    define MCXT_NUM_OPMASK_SLOTS 8
 #else
-# error NYI
+#    error NYI
 #endif /* AARCHXX/X86 */
+
+#ifdef DR_NUM_SIMD_SLOTS_COMPATIBILITY
+
+#    undef NUM_SIMD_SLOTS
+/**
+ * Number of saved SIMD slots in dr_mcontext_t.
+ */
+#    define NUM_SIMD_SLOTS proc_num_simd_saved()
+
+#    define NUM_XMM_SLOTS NUM_SIMD_SLOTS /* for backward compatibility */
+
+#endif /* DR_NUM_SIMD_SLOTS_COMPATIBILITY */
 
 /** Values for the flags field of dr_mcontext_t */
 typedef enum {
@@ -1883,7 +1955,7 @@ typedef enum {
      * On ARM, selects r0-r12 and r14.
      * On AArch64, selects r0-r30.
      */
-    DR_MC_INTEGER    = 0x01,
+    DR_MC_INTEGER = 0x01,
 #ifdef AVOID_API_EXPORT
 /* XXX i#2710: The link register should be under DR_MC_CONTROL */
 #endif
@@ -1895,7 +1967,7 @@ typedef enum {
      * dr_redirect_execution(), and as an output for system call
      * events.
      */
-    DR_MC_CONTROL    = 0x02,
+    DR_MC_CONTROL = 0x02,
     /**
      * Selects the simd fields.  This flag is ignored unless
      * dr_mcontext_xmm_fields_valid() returns true.  If
@@ -1904,7 +1976,7 @@ typedef enum {
      */
     DR_MC_MULTIMEDIA = 0x04,
     /** Selects all fields */
-    DR_MC_ALL        = (DR_MC_INTEGER | DR_MC_CONTROL | DR_MC_MULTIMEDIA),
+    DR_MC_ALL = (DR_MC_INTEGER | DR_MC_CONTROL | DR_MC_MULTIMEDIA),
 } dr_mcontext_flags_t;
 
 /**
@@ -1934,27 +2006,4 @@ typedef struct _priv_mcontext_t {
 #include "mcxtx.h"
 } priv_mcontext_t;
 
-/* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
- * libc routines invoked by DR in some Linux systems (xref i#139),
- * so they should be saved in 32-bit Linux.
- */
-/* Xref i#139:
- * XMM register preservation will cause extra runtime overhead.
- * We test it over 32-bit SPEC2006 on a 64-bit Debian Linux, which shows
- * that DR with xmm preservation adds negligible overhead over DR without
- * xmm preservation.
- * It means xmm preservation would have little performance impact over
- * DR base system. This is mainly because DR's own operations' overhead
- * is much higher than the context switch overhead.
- * However, if a program is running with a DR client which performs many
- * clean calls (one or more per basic block), xmm preservation may
- * have noticable impacts, i.e. pushing bbs over the max size limit,
- * and could have a noticeable performance hit.
- */
-/* We now save everything but we keep separate NUM_SIMD_SLOTS vs NUM_SIMD_SAVED
- * in case we go back to not saving some slots in the future: e.g., w/o
- * CLIENT_INTERFACE we could control our own libs enough to avoid some saves.
- */
-#define NUM_SIMD_SAVED NUM_SIMD_SLOTS
-
-#endif /* ifndef _GLOBALS_SHARED_H_ */
+#endif /* _GLOBALS_SHARED_H_ */

@@ -37,25 +37,36 @@
 #include "drmgr.h"
 #include <string.h> /* memset */
 
-#define CHECK(x, msg) do {               \
-    if (!(x)) {                          \
-        dr_fprintf(STDERR, "%s\n", msg); \
-        dr_abort();                      \
-    }                                    \
-} while (0);
+#define CHECK(x, msg)                        \
+    do {                                     \
+        if (!(x)) {                          \
+            dr_fprintf(STDERR, "%s\n", msg); \
+            dr_abort();                      \
+        }                                    \
+    } while (0);
 
 #define DRWRAP_NATIVE_PARAM 0xdeadbeef
 
-static void event_exit(void);
-static void wrap_pre(void *wrapcxt, OUT void **user_data);
-static void wrap_post(void *wrapcxt, void *user_data);
-static void wrap_unwindtest_pre(void *wrapcxt, OUT void **user_data);
-static void wrap_unwindtest_post(void *wrapcxt, void *user_data);
-static void wrap_unwindtest_seh_pre(void *wrapcxt, OUT void **user_data);
-static void wrap_unwindtest_seh_post(void *wrapcxt, void *user_data);
-static int replacewith(int *x);
-static int replacewith2(int *x);
-static int replace_callsite(int *x);
+static void
+event_exit(void);
+static void
+wrap_pre(void *wrapcxt, OUT void **user_data);
+static void
+wrap_post(void *wrapcxt, void *user_data);
+static void
+wrap_unwindtest_pre(void *wrapcxt, OUT void **user_data);
+static void
+wrap_unwindtest_post(void *wrapcxt, void *user_data);
+static void
+wrap_unwindtest_seh_pre(void *wrapcxt, OUT void **user_data);
+static void
+wrap_unwindtest_seh_post(void *wrapcxt, void *user_data);
+static int
+replacewith(int *x);
+static int
+replacewith2(int *x);
+static int
+replace_callsite(int *x);
 
 static uint load_count;
 static bool repeated = false;
@@ -88,11 +99,11 @@ static app_pc addr_long3;
 static app_pc addr_longdone;
 
 static void
-wrap_addr(OUT app_pc *addr, const char *name, const module_data_t *mod,
-          bool pre, bool post)
+wrap_addr(OUT app_pc *addr, const char *name, const module_data_t *mod, bool pre,
+          bool post)
 {
     bool ok;
-    *addr = (app_pc) dr_get_proc_address(mod->handle, name);
+    *addr = (app_pc)dr_get_proc_address(mod->handle, name);
     CHECK(*addr != NULL, "cannot find lib export");
     ok = drwrap_wrap(*addr, pre ? wrap_pre : NULL, post ? wrap_post : NULL);
     CHECK(ok, "wrap failed");
@@ -101,8 +112,7 @@ wrap_addr(OUT app_pc *addr, const char *name, const module_data_t *mod,
 }
 
 static void
-unwrap_addr(app_pc addr, const char *name, const module_data_t *mod,
-          bool pre, bool post)
+unwrap_addr(app_pc addr, const char *name, const module_data_t *mod, bool pre, bool post)
 {
     bool ok;
     ok = drwrap_unwrap(addr, pre ? wrap_pre : NULL, post ? wrap_post : NULL);
@@ -115,7 +125,7 @@ static void
 wrap_unwindtest_addr(OUT app_pc *addr, const char *name, const module_data_t *mod)
 {
     bool ok;
-    *addr = (app_pc) dr_get_proc_address(mod->handle, name);
+    *addr = (app_pc)dr_get_proc_address(mod->handle, name);
     CHECK(*addr != NULL, "cannot find lib export");
     ok = drwrap_wrap(*addr, wrap_unwindtest_pre, wrap_unwindtest_post);
     CHECK(ok, "wrap unwindtest failed");
@@ -136,8 +146,7 @@ unwrap_unwindtest_addr(app_pc addr, const char *name, const module_data_t *mod)
 static void
 module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 {
-    if (strstr(dr_module_preferred_name(mod),
-               "client.drwrap-test.appdll.") != NULL) {
+    if (strstr(dr_module_preferred_name(mod), "client.drwrap-test.appdll.") != NULL) {
         bool ok;
         instr_t inst;
         app_pc init_pc, pc, next_pc;
@@ -148,18 +157,18 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
             drwrap_set_global_flags(DRWRAP_NO_FRILLS);
         }
 
-        addr_replace = (app_pc) dr_get_proc_address(mod->handle, "replaceme");
+        addr_replace = (app_pc)dr_get_proc_address(mod->handle, "replaceme");
         CHECK(addr_replace != NULL, "cannot find lib export");
-        ok = drwrap_replace(addr_replace, (app_pc) replacewith, false);
+        ok = drwrap_replace(addr_replace, (app_pc)replacewith, false);
         CHECK(ok, "replace failed");
 
-        addr_replace2 = (app_pc) dr_get_proc_address(mod->handle, "replaceme2");
+        addr_replace2 = (app_pc)dr_get_proc_address(mod->handle, "replaceme2");
         CHECK(addr_replace2 != NULL, "cannot find lib export");
-        ok = drwrap_replace_native(addr_replace2, (app_pc) replacewith2, true/*at entry*/,
+        ok = drwrap_replace_native(addr_replace2, (app_pc)replacewith2, true /*at entry*/,
                                    0, (void *)(ptr_int_t)DRWRAP_NATIVE_PARAM, false);
         CHECK(ok, "replace_native failed");
 
-        init_pc = (app_pc) dr_get_proc_address(mod->handle, "replace_callsite");
+        init_pc = (app_pc)dr_get_proc_address(mod->handle, "replace_callsite");
         CHECK(init_pc != NULL, "cannot find lib export");
         /* Find callsite: we assume we'll linearly hit a ret.  We take final call
          * to skip any PIC call.
@@ -179,8 +188,8 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
             pc = next_pc;
         } while (instr_valid(&inst) && !instr_is_return(&inst));
         CHECK(addr_replace_callsite != NULL, "cannot find lib export");
-        ok = drwrap_replace_native(addr_replace_callsite, (app_pc) replace_callsite,
-                                   false/*!at entry*/, 0,
+        ok = drwrap_replace_native(addr_replace_callsite, (app_pc)replace_callsite,
+                                   false /*!at entry*/, 0,
                                    (void *)(ptr_int_t)DRWRAP_NATIVE_PARAM, false);
         CHECK(ok, "replace_native failed");
         instr_free(drcontext, &inst);
@@ -207,24 +216,24 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
         /* we can't do this test for no-frills b/c only one wrap per addr */
         if (load_count == 1) {
             ok = drwrap_wrap_ex(addr_long0, wrap_unwindtest_seh_pre,
-                                wrap_unwindtest_seh_post,
-                                NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+                                wrap_unwindtest_seh_post, NULL,
+                                DRWRAP_UNWIND_ON_EXCEPTION);
             CHECK(ok, "wrap failed");
             ok = drwrap_wrap_ex(addr_long1, wrap_unwindtest_seh_pre,
-                                wrap_unwindtest_seh_post,
-                                NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+                                wrap_unwindtest_seh_post, NULL,
+                                DRWRAP_UNWIND_ON_EXCEPTION);
             CHECK(ok, "wrap failed");
             ok = drwrap_wrap_ex(addr_long2, wrap_unwindtest_seh_pre,
-                                wrap_unwindtest_seh_post,
-                                NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+                                wrap_unwindtest_seh_post, NULL,
+                                DRWRAP_UNWIND_ON_EXCEPTION);
             CHECK(ok, "wrap failed");
             ok = drwrap_wrap_ex(addr_long3, wrap_unwindtest_seh_pre,
-                                wrap_unwindtest_seh_post,
-                                NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+                                wrap_unwindtest_seh_post, NULL,
+                                DRWRAP_UNWIND_ON_EXCEPTION);
             CHECK(ok, "wrap failed");
             ok = drwrap_wrap_ex(addr_longdone, wrap_unwindtest_seh_pre,
-                                wrap_unwindtest_seh_post,
-                                NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+                                wrap_unwindtest_seh_post, NULL,
+                                DRWRAP_UNWIND_ON_EXCEPTION);
             CHECK(ok, "wrap failed");
         }
 #endif
@@ -238,8 +247,7 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 static void
 module_unload_event(void *drcontext, const module_data_t *mod)
 {
-    if (strstr(dr_module_preferred_name(mod),
-               "client.drwrap-test.appdll.") != NULL) {
+    if (strstr(dr_module_preferred_name(mod), "client.drwrap-test.appdll.") != NULL) {
         bool ok;
         ok = drwrap_replace(addr_replace, NULL, true);
         CHECK(ok, "un-replace failed");
@@ -323,17 +331,15 @@ on_clean_stack(int i, int j, int k, int l, int m, int n, int o, int p)
 static int
 replacewith2(int *x)
 {
-    ptr_int_t param = dr_read_saved_reg(dr_get_current_drcontext(),
-                                    DRWRAP_REPLACE_NATIVE_DATA_SLOT);
+    ptr_int_t param =
+        dr_read_saved_reg(dr_get_current_drcontext(), DRWRAP_REPLACE_NATIVE_DATA_SLOT);
     CHECK(param == DRWRAP_NATIVE_PARAM, "native param wrong");
     /* Test dr_call_on_clean_stack() */
-    *x = (int)(ptr_uint_t)
-        dr_call_on_clean_stack(dr_get_current_drcontext(),
-                               (void *(*)(void)) on_clean_stack,
-                               (void *)(ptr_uint_t)500, (void *)(ptr_uint_t)400,
-                               (void *)(ptr_uint_t)50, (void *)(ptr_uint_t)40,
-                               (void *)(ptr_uint_t)4, (void *)(ptr_uint_t)3,
-                               (void *)(ptr_uint_t)1, (void *)(ptr_uint_t)1);
+    *x = (int)(ptr_uint_t)dr_call_on_clean_stack(
+        dr_get_current_drcontext(), (void *(*)(void))on_clean_stack,
+        (void *)(ptr_uint_t)500, (void *)(ptr_uint_t)400, (void *)(ptr_uint_t)50,
+        (void *)(ptr_uint_t)40, (void *)(ptr_uint_t)4, (void *)(ptr_uint_t)3,
+        (void *)(ptr_uint_t)1, (void *)(ptr_uint_t)1);
     /* We must call this prior to returning, to avoid going native.
      * This also serves as a test of dr_redirect_native_target()
      * as drwrap's continuation relies on that.
@@ -351,8 +357,8 @@ replacewith2(int *x)
 static int
 replace_callsite(int *x)
 {
-    ptr_int_t param = dr_read_saved_reg(dr_get_current_drcontext(),
-                                        DRWRAP_REPLACE_NATIVE_DATA_SLOT);
+    ptr_int_t param =
+        dr_read_saved_reg(dr_get_current_drcontext(), DRWRAP_REPLACE_NATIVE_DATA_SLOT);
     CHECK(param == DRWRAP_NATIVE_PARAM, "native param wrong");
     *x = 777;
     drwrap_replace_native_fini(dr_get_current_drcontext());
@@ -365,17 +371,17 @@ wrap_pre(void *wrapcxt, OUT void **user_data)
     bool ok;
     CHECK(wrapcxt != NULL && user_data != NULL, "invalid arg");
     if (drwrap_get_func(wrapcxt) == addr_skip_flags) {
-        CHECK(drwrap_get_arg(wrapcxt, 0) == (void *) 1, "get_arg wrong");
-        CHECK(drwrap_get_arg(wrapcxt, 1) == (void *) 2, "get_arg wrong");
+        CHECK(drwrap_get_arg(wrapcxt, 0) == (void *)1, "get_arg wrong");
+        CHECK(drwrap_get_arg(wrapcxt, 1) == (void *)2, "get_arg wrong");
     } else if (drwrap_get_func(wrapcxt) == addr_level0) {
         dr_fprintf(STDERR, "  <pre-level0>\n");
-        CHECK(drwrap_get_arg(wrapcxt, 0) == (void *) 37, "get_arg wrong");
-        ok = drwrap_set_arg(wrapcxt, 0, (void *) 42);
+        CHECK(drwrap_get_arg(wrapcxt, 0) == (void *)37, "get_arg wrong");
+        ok = drwrap_set_arg(wrapcxt, 0, (void *)42);
         CHECK(ok, "set_arg error");
-        *user_data = (void *) 99;
+        *user_data = (void *)99;
     } else if (drwrap_get_func(wrapcxt) == addr_level1) {
         dr_fprintf(STDERR, "  <pre-level1>\n");
-        ok = drwrap_set_arg(wrapcxt, 1, (void *) 1111);
+        ok = drwrap_set_arg(wrapcxt, 1, (void *)1111);
         CHECK(ok, "set_arg error");
     } else if (drwrap_get_func(wrapcxt) == addr_tailcall) {
         dr_fprintf(STDERR, "  <pre-makes_tailcall>\n");
@@ -383,7 +389,7 @@ wrap_pre(void *wrapcxt, OUT void **user_data)
         dr_fprintf(STDERR, "  <pre-level2>\n");
     } else if (drwrap_get_func(wrapcxt) == addr_skipme) {
         dr_fprintf(STDERR, "  <pre-skipme>\n");
-        drwrap_skip_call(wrapcxt, (void *) 7, 0);
+        drwrap_skip_call(wrapcxt, (void *)7, 0);
     } else if (drwrap_get_func(wrapcxt) == addr_repeat) {
         dr_mcontext_t *mc = drwrap_get_mcontext(wrapcxt);
         dr_fprintf(STDERR, "  <pre-repeat#%d>\n", repeated ? 2 : 1);
@@ -412,10 +418,10 @@ wrap_post(void *wrapcxt, void *user_data)
         dr_fprintf(STDERR, "  <post-level0>\n");
         /* not preserved for no-frills */
         CHECK(load_count == 2 || user_data == (void *)99, "user_data not preserved");
-        CHECK(drwrap_get_retval(wrapcxt) == (void *) 42, "get_retval error");
+        CHECK(drwrap_get_retval(wrapcxt) == (void *)42, "get_retval error");
     } else if (drwrap_get_func(wrapcxt) == addr_level1) {
         dr_fprintf(STDERR, "  <post-level1>\n");
-        ok = drwrap_set_retval(wrapcxt, (void *) -4);
+        ok = drwrap_set_retval(wrapcxt, (void *)-4);
         CHECK(ok, "set_retval error");
     } else if (drwrap_get_func(wrapcxt) == addr_tailcall) {
         dr_fprintf(STDERR, "  <post-makes_tailcall>\n");
@@ -460,7 +466,7 @@ wrap_unwindtest_pre(void *wrapcxt, OUT void **user_data)
 {
     if (drwrap_get_func(wrapcxt) != addr_longdone) {
         void *drcontext = dr_get_current_drcontext();
-        ptr_uint_t val = (ptr_uint_t) drmgr_get_tls_field(drcontext, tls_idx);
+        ptr_uint_t val = (ptr_uint_t)drmgr_get_tls_field(drcontext, tls_idx);
         dr_fprintf(STDERR, "  <pre-long%d>\n", val);
         /* increment per level of regular calls on way up */
         val++;
@@ -472,7 +478,7 @@ static void
 wrap_unwindtest_post(void *wrapcxt, void *user_data)
 {
     void *drcontext = dr_get_current_drcontext();
-    ptr_uint_t val = (ptr_uint_t) drmgr_get_tls_field(drcontext, tls_idx);
+    ptr_uint_t val = (ptr_uint_t)drmgr_get_tls_field(drcontext, tls_idx);
     if (drwrap_get_func(wrapcxt) == addr_longdone) {
         /* ensure our post-calls were all called and we got back to 0 */
         CHECK(val == 0, "post-calls were bypassed");

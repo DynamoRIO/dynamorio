@@ -38,22 +38,31 @@
 
 #include "tools.h"
 
-#define initialize_registry_context() /* stick to a known value */      \
-     __asm { push 0 }                                                   \
-     __asm { popfd }                                                    \
-     __asm { mov  ebx, 0xbbcdcdcd }                                     \
-     __asm { mov  ecx, 0xcccdcdcd }                                     \
-     __asm { mov  edx, 0xddcdcdcd }                                     \
-     __asm { mov  edi, 0xeecdcdcd }                                     \
-     __asm { mov  esi, 0xffcdcdcd }
+#define initialize_registry_context() /* stick to a known value */ \
+    __asm { push 0 }                                               \
+    __asm                                                          \
+    {                                                              \
+        popfd                                                      \
+    }                                                              \
+    __asm { mov  ebx, 0xbbcdcdcd }                                  \
+    __asm                                                          \
+    {                                                              \
+        mov ecx, 0xcccdcdcd                                        \
+    }                                                              \
+    __asm { mov  edx, 0xddcdcdcd }                                  \
+    __asm                                                          \
+    {                                                              \
+        mov edi, 0xeecdcdcd                                        \
+    }                                                              \
+    __asm { mov  esi, 0xffcdcdcd }
 
-#define NO_DEBUG_REGISTERS      /* We shouldn't be messing with these registers,
-                                   so diffs here maybe not our fault (VMware's?) */
+#define NO_DEBUG_REGISTERS /* We shouldn't be messing with these registers, \
+                              so diffs here maybe not our fault (VMware's?) */
 
 void
 dump_context_info(CONTEXT *context, int all)
 {
-#define DUMP(r) print(#r"=0x%08x ", context->r);
+#define DUMP(r) print(#r "=0x%08x ", context->r);
     print("  ");
     DUMP(ContextFlags);
     print("\n  ");
@@ -74,7 +83,7 @@ dump_context_info(CONTEXT *context, int all)
     if (all || context->ContextFlags & CONTEXT_CONTROL) {
         DUMP(Ebp);
         DUMP(Eip);
-        DUMP(SegCs);              // MUST BE SANITIZED
+        DUMP(SegCs); // MUST BE SANITIZED
         print("\n  ");
         /* only printing low word - RF is different between SP0 & SP4 */
         DUMP(EFlags & 0xFFFF);
@@ -112,23 +121,19 @@ dump_context_info(CONTEXT *context, int all)
 }
 
 void
-dump_exception_info(EXCEPTION_RECORD* exception, CONTEXT *context)
+dump_exception_info(EXCEPTION_RECORD *exception, CONTEXT *context)
 {
     print("\texception code = 0x%08x, ExceptionFlags=0x%08x\n\trecord=%p, params=%d\n",
-           exception->ExceptionCode,
-           exception->ExceptionFlags,
-           exception->ExceptionRecord, /* follow if non NULL */
-           exception->NumberParameters);
-    if(exception->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-        print("\tPC 0x%08x tried to %s address 0x%08x\n",
-               exception->ExceptionAddress,
-               (exception->ExceptionInformation[0]==0)?"read":"write",
-               exception->ExceptionInformation[1]);
+          exception->ExceptionCode, exception->ExceptionFlags,
+          exception->ExceptionRecord, /* follow if non NULL */
+          exception->NumberParameters);
+    if (exception->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        print("\tPC 0x%08x tried to %s address 0x%08x\n", exception->ExceptionAddress,
+              (exception->ExceptionInformation[0] == 0) ? "read" : "write",
+              exception->ExceptionInformation[1]);
     }
-    print("\tpc=0x%08x eax=0x%08x\n",
-           context->Eip, context->Eax);
+    print("\tpc=0x%08x eax=0x%08x\n", context->Eip, context->Eax);
     dump_context_info(context, 0); /* existing context */
 }
-
 
 #endif

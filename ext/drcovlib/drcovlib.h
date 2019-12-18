@@ -53,13 +53,13 @@ extern "C" {
 
 /** Success code for each drcovlib operation */
 typedef enum {
-    DRCOVLIB_SUCCESS,                  /**< Operation succeeded. */
-    DRCOVLIB_ERROR,                    /**< Operation failed. */
-    DRCOVLIB_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter */
-    DRCOVLIB_ERROR_INVALID_SETUP,      /**< Operation failed: invalid DynamoRIO setup */
+    DRCOVLIB_SUCCESS,                 /**< Operation succeeded. */
+    DRCOVLIB_ERROR,                   /**< Operation failed. */
+    DRCOVLIB_ERROR_INVALID_PARAMETER, /**< Operation failed: invalid parameter */
+    DRCOVLIB_ERROR_INVALID_SETUP,     /**< Operation failed: invalid DynamoRIO setup */
     DRCOVLIB_ERROR_FEATURE_NOT_AVAILABLE, /**< Operation failed: not available */
-    DRCOVLIB_ERROR_NOT_FOUND,          /**< Operation failed: query not found. */
-    DRCOVLIB_ERROR_BUF_TOO_SMALL,      /**< Operation failed: buffer too small. */
+    DRCOVLIB_ERROR_NOT_FOUND,             /**< Operation failed: query not found. */
+    DRCOVLIB_ERROR_BUF_TOO_SMALL,         /**< Operation failed: buffer too small. */
 } drcovlib_status_t;
 
 /** Bitmask flags for use in #drcovlib_options_t.flags. */
@@ -69,7 +69,7 @@ typedef enum {
      * in binary format.  When in text format, the log file is \em not readable
      * by the post-processing tool \ref sec_drcov2lcov.
      */
-    DRCOVLIB_DUMP_AS_TEXT    = 0x0001,
+    DRCOVLIB_DUMP_AS_TEXT = 0x0001,
     /**
      * By default, coverage information is dumped in a single process-wide log
      * file.  If DynamoRIO is run with thread-private code caches (i.e.,
@@ -77,7 +77,7 @@ typedef enum {
      * then per-thread coverage information will be stored and dumped in \p
      * drcovlib's own thread exit events rather than in drcovlib_exit().
      */
-    DRCOVLIB_THREAD_PRIVATE  = 0x0002,
+    DRCOVLIB_THREAD_PRIVATE = 0x0002,
 } drcovlib_flags_t;
 
 /** Specifies the options when initializing drcovlib. */
@@ -91,6 +91,11 @@ typedef struct _drcovlib_options_t {
      * overrides that default.
      */
     const char *logdir;
+    /**
+     * By default, log file names are prefixed with "drcov".  This option overrides
+     * that default.
+     */
+    const char *logprefix;
     /**
      * This is an experimental option for running natively (i.e., not under
      * DynamoRIO control) until the nth thread, where n is the value of this
@@ -113,13 +118,13 @@ typedef struct _drcovlib_options_t {
 
 /* i#1532: drsyms can't mix arch for ELF */
 #ifdef LINUX
-# ifdef X64
-#  define DRCOV_ARCH_FLAVOR "-64"
-# else
-#  define DRCOV_ARCH_FLAVOR "-32"
-# endif
+#    ifdef X64
+#        define DRCOV_ARCH_FLAVOR "-64"
+#    else
+#        define DRCOV_ARCH_FLAVOR "-32"
+#    endif
 #else
-# define DRCOV_ARCH_FLAVOR ""
+#    define DRCOV_ARCH_FLAVOR ""
 #endif
 
 /* The bb_entry_t is used by both drcov client and post processing drcov2lcov.
@@ -132,7 +137,7 @@ typedef struct _drcovlib_options_t {
 
 /* Data structure for the coverage info itself */
 typedef struct _bb_entry_t {
-    uint   start;      /* offset of bb start from the image base */
+    uint start; /* offset of bb start from the image base */
     ushort size;
     ushort mod_id;
 } bb_entry_t;
@@ -381,9 +386,9 @@ DR_EXPORT
  * with a different value will replace the existing callbacks.
  */
 drcovlib_status_t
-drmodtrack_add_custom_data(void * (*load_cb)(module_data_t *module),
+drmodtrack_add_custom_data(void *(*load_cb)(module_data_t *module),
                            int (*print_cb)(void *data, char *dst, size_t max_len),
-                           const char * (*parse_cb)(const char *src, OUT void **data),
+                           const char *(*parse_cb)(const char *src, OUT void **data),
                            void (*free_cb)(void *data));
 
 /*@}*/ /* end doxygen group */

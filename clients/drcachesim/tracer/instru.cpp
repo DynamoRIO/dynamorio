@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,15 +39,15 @@
 #include "instru.h"
 #include "../common/trace_entry.h"
 #ifdef LINUX
-# include <sched.h>
-# ifndef _GNU_SOURCE
-#  define _GNU_SOURCE // For syscall()
-# endif
-# include <unistd.h>
-# include <sys/syscall.h>
+#    include <sched.h>
+#    ifndef _GNU_SOURCE
+#        define _GNU_SOURCE // For syscall()
+#    endif
+#    include <unistd.h>
+#    include <sys/syscall.h>
 #endif
 #ifdef WINDOWS
-# include <intrin.h>
+#    include <intrin.h>
 #endif
 
 unsigned short
@@ -73,8 +73,7 @@ instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
     // of string loops as TRACE_TYPE_INSTR_NO_FETCH, converted from this
     // TRACE_TYPE_INSTR_MAYBE_FETCH by reader_t (since online traces would need
     // extra insru to distinguish the 1st and subsequent iters).
-    if (instr_is_rep_string_op(instr) ||
-        (repstr_expanded && instr_is_string_op(instr)))
+    if (instr_is_rep_string_op(instr) || (repstr_expanded && instr_is_string_op(instr)))
         return TRACE_TYPE_INSTR_MAYBE_FETCH;
     return TRACE_TYPE_INSTR;
 }
@@ -86,25 +85,17 @@ instru_t::instr_to_prefetch_type(instr_t *instr)
     DR_ASSERT(instr_is_prefetch(instr));
     switch (opcode) {
 #ifdef X86
-    case OP_prefetcht0:
-        return TRACE_TYPE_PREFETCHT0;
-    case OP_prefetcht1:
-        return TRACE_TYPE_PREFETCHT1;
-    case OP_prefetcht2:
-        return TRACE_TYPE_PREFETCHT2;
-    case OP_prefetchnta:
-        return TRACE_TYPE_PREFETCHNTA;
+    case OP_prefetcht0: return TRACE_TYPE_PREFETCHT0;
+    case OP_prefetcht1: return TRACE_TYPE_PREFETCHT1;
+    case OP_prefetcht2: return TRACE_TYPE_PREFETCHT2;
+    case OP_prefetchnta: return TRACE_TYPE_PREFETCHNTA;
 #endif
 #ifdef ARM
-    case OP_pld:
-        return TRACE_TYPE_PREFETCH_READ;
-    case OP_pldw:
-        return TRACE_TYPE_PREFETCH_WRITE;
-    case OP_pli:
-        return TRACE_TYPE_PREFETCH_INSTR;
+    case OP_pld: return TRACE_TYPE_PREFETCH_READ;
+    case OP_pldw: return TRACE_TYPE_PREFETCH_WRITE;
+    case OP_pli: return TRACE_TYPE_PREFETCH_INSTR;
 #endif
-    default:
-        return TRACE_TYPE_PREFETCH;
+    default: return TRACE_TYPE_PREFETCH;
     }
 }
 
@@ -134,7 +125,17 @@ instru_t::insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where
         drreg_get_app_value(drcontext, ilist, where, reg_addr, reg_addr);
     ok = drutil_insert_get_mem_addr_ex(drcontext, ilist, where, ref, reg_addr,
                                        reg_scratch, scratch_used);
-    DR_ASSERT(ok);
+    if (!ok) {
+        // Provide diagnostics to make it much easier to see what the problematic
+        // operand is.
+        // XXX: Should we honor user's op_verbose or anything?  We have no current
+        // precedent for printing from instru_t.
+        dr_fprintf(STDERR, "FATAL: %s: drutil_insert_get_mem_addr failed @ " PFX ": ",
+                   __FUNCTION__, instr_get_app_pc(where));
+        instr_disassemble(drcontext, where, STDERR);
+        dr_fprintf(STDERR, "\n");
+        DR_ASSERT(ok);
+    }
     if (scratch_used != NULL && we_used_scratch)
         *scratch_used = true;
 }
@@ -152,13 +153,13 @@ instru_t::get_cpu_id()
 #endif
 #ifdef X86
     if (proc_has_feature(FEATURE_RDTSCP)) {
-# ifdef WINDOWS
+#    ifdef WINDOWS
         uint cpu;
         __rdtscp(&cpu);
-# else
+#    else
         int cpu;
         __asm__ __volatile__("rdtscp" : "=c"(cpu) : : "eax", "edx");
-# endif
+#    endif
         return cpu;
     } else {
         // We could get the processor serial # from cpuid but we just bail since

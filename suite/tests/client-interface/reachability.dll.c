@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,11 +53,11 @@ event_bb(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool translating)
         instr_t *ret_label = INSTR_CREATE_label(dc);
         dr_save_reg(dc, bb, where, DR_REG_XAX, SPILL_SLOT_1);
         dr_save_reg(dc, bb, where, DR_REG_XDX, SPILL_SLOT_2);
-        PRE(bb, where, INSTR_CREATE_mov_imm(dc, opnd_create_reg(DR_REG_XAX),
-                                            opnd_create_instr(ret_label)));
-        instrlist_insert_mov_immed_ptrsz(dc, (ptr_int_t)gencode,
-                                         opnd_create_reg(DR_REG_XDX), bb, where,
-                                         NULL, NULL);
+        PRE(bb, where,
+            INSTR_CREATE_mov_imm(dc, opnd_create_reg(DR_REG_XAX),
+                                 opnd_create_instr(ret_label)));
+        instrlist_insert_mov_immed_ptrsz(
+            dc, (ptr_int_t)gencode, opnd_create_reg(DR_REG_XDX), bb, where, NULL, NULL);
         PRE(bb, where, INSTR_CREATE_jmp_ind(dc, opnd_create_reg(DR_REG_XDX)));
         PRE(bb, where, ret_label);
         dr_restore_reg(dc, bb, where, DR_REG_XDX, SPILL_SLOT_2);
@@ -70,7 +70,7 @@ event_bb(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 static void
 event_exit(void)
 {
-    dr_nonheap_free(gencode, GENCODE_SIZE);
+    dr_raw_mem_free(gencode, GENCODE_SIZE);
 }
 
 DR_EXPORT void
@@ -80,13 +80,13 @@ dr_init(client_id_t id)
     void *dc = dr_get_current_drcontext();
     instrlist_t *ilist = instrlist_create(dc);
     dr_insert_clean_call_ex(dc, ilist, NULL, (void *)clean_call,
-                            DR_CLEANCALL_ALWAYS_OUT_OF_LINE|DR_CLEANCALL_INDIRECT, 1,
+                            DR_CLEANCALL_ALWAYS_OUT_OF_LINE | DR_CLEANCALL_INDIRECT, 1,
                             /* Pass a magic value we'll check in the template */
                             OPND_CREATE_INT32(42));
     /* Now return */
     PRE(ilist, NULL, INSTR_CREATE_jmp_ind(dc, opnd_create_reg(DR_REG_XAX)));
-    gencode = dr_raw_mem_alloc(GENCODE_SIZE,
-                               DR_MEMPROT_READ|DR_MEMPROT_WRITE|DR_MEMPROT_EXEC, NULL);
+    gencode = dr_raw_mem_alloc(
+        GENCODE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE | DR_MEMPROT_EXEC, NULL);
     instrlist_encode(dc, ilist, gencode, false /*no relative jumps*/);
     instrlist_clear_and_destroy(dc, ilist);
 

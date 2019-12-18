@@ -54,11 +54,10 @@
  */
 
 #ifdef UNIPROC
-#  define YIELD() thread_yield()    /* or do nothing on a multi processor */
+#    define YIELD() thread_yield() /* or do nothing on a multi processor */
 #else
-#  define YIELD() /* or do nothing on a multi processor */
+#    define YIELD() /* or do nothing on a multi processor */
 #endif
-
 
 /* Need to ensure we're doing the same amount of work - so we need to
  * count our races - we need edge detector whether we were in unloaded
@@ -71,17 +70,16 @@
 
 #ifdef NIGHTLY_REGRESSION
 /* don't ask to compute fact or fib too high */
-#define MAX_FACT_FIB 8
-#define NUM_TRANSITIONS 10
+#    define MAX_FACT_FIB 8
+#    define NUM_TRANSITIONS 10
 #else
 /* PERF or STRESS */
 /* very low computation here */
-#define MAX_FACT_FIB 8
-#define NUM_TRANSITIONS 100
+#    define MAX_FACT_FIB 8
+#    define NUM_TRANSITIONS 100
 #endif
 
-
-enum {LAST_OK, LAST_FAULT, LAST_START};
+enum { LAST_OK, LAST_FAULT, LAST_START };
 
 typedef int (*funptr)();
 
@@ -102,7 +100,6 @@ int transitions; /* atomic writes necessary */
 jmp_buf mark;
 int where; /* 0 = normal, 1 = segfault longjmp */
 
-
 int sum1 = 0;
 int sum2 = 0;
 int done1 = 0;
@@ -110,7 +107,7 @@ int done2 = 0;
 
 /* we create a 2nd thread to complicate DR cache flushing */
 int WINAPI
-run_func(void * arg)
+run_func(void *arg)
 {
     int last_good = LAST_START; /* so we can count proper transitions */
     int same_run = 0;
@@ -130,12 +127,12 @@ run_func(void * arg)
              * its way back from thread_yield()
              */
 
-            if(same_run % 2 == 0)
+            if (same_run % 2 == 0)
                 YIELD();
             /* .E shouldn't be seen here */
             sum1 += import1(transitions % MAX_FACT_FIB);
             done1++;
-            if(same_run % 3 == 0)
+            if (same_run % 3 == 0)
                 YIELD();
             /* .F shouldn't be seen here */
             sum2 += import2(transitions % MAX_FACT_FIB);
@@ -182,76 +179,71 @@ check_mem_usage()
     get_process_mem_stats(GetCurrentProcess(), &mem);
 #if VERBOSE
     print("Process Memory Statistics:\n");
-    print("\tPeak virtual size:         %6d KB\n",
-          mem.PeakVirtualSize/1024);
-    print("\tPeak working set size:     %6d KB\n",
-          mem.PeakWorkingSetSize/1024);
-    print("\tPeak paged pool usage:     %6d KB\n",
-          mem.QuotaPeakPagedPoolUsage/1024);
-    print("\tPeak non-paged pool usage: %6d KB\n",
-          mem.QuotaPeakNonPagedPoolUsage/1024);
-    print("\tPeak pagefile usage:       %6d KB\n",
-          mem.PeakPagefileUsage/1024);
+    print("\tPeak virtual size:         %6d KB\n", mem.PeakVirtualSize / 1024);
+    print("\tPeak working set size:     %6d KB\n", mem.PeakWorkingSetSize / 1024);
+    print("\tPeak paged pool usage:     %6d KB\n", mem.QuotaPeakPagedPoolUsage / 1024);
+    print("\tPeak non-paged pool usage: %6d KB\n", mem.QuotaPeakNonPagedPoolUsage / 1024);
+    print("\tPeak pagefile usage:       %6d KB\n", mem.PeakPagefileUsage / 1024);
 #endif
-/*
-  native:
-        Peak virtual size:           7772 KB
-        Peak working set size:        996 KB
-        Peak paged pool usage:          8 KB
-        Peak non-paged pool usage:      1 KB
-        Peak pagefile usage:          352 KB
-DR results with debug build, where library takes up more WSS (one
-reason we use pagefile usage as our discerning factor):
-  -no_shared_deletion:
-        Peak virtual size:         140388 KB
-        Peak working set size:       7948 KB
-        Peak paged pool usage:          9 KB
-        Peak non-paged pool usage:      1 KB
-        Peak pagefile usage:         6536 KB
-  -no_syscalls_synch_flush:
-        Peak virtual size:         140388 KB
-        Peak working set size:       7784 KB
-        Peak paged pool usage:          9 KB
-        Peak non-paged pool usage:      1 KB
-        Peak pagefile usage:         6368 KB
-  -no_cache_shared_free_list:
-        Peak virtual size:         140388 KB
-        Peak working set size:       5156 KB
-        Peak paged pool usage:          9 KB
-        Peak non-paged pool usage:      1 KB
-        Peak pagefile usage:         3736 KB
-  defaults:
-        Peak virtual size:         140388 KB
-        Peak working set size:       3352 KB
-        Peak paged pool usage:          9 KB
-        Peak non-paged pool usage:      1 KB
-        Peak pagefile usage:         1680 KB
-*/
+    /*
+      native:
+            Peak virtual size:           7772 KB
+            Peak working set size:        996 KB
+            Peak paged pool usage:          8 KB
+            Peak non-paged pool usage:      1 KB
+            Peak pagefile usage:          352 KB
+    DR results with debug build, where library takes up more WSS (one
+    reason we use pagefile usage as our discerning factor):
+      -no_shared_deletion:
+            Peak virtual size:         140388 KB
+            Peak working set size:       7948 KB
+            Peak paged pool usage:          9 KB
+            Peak non-paged pool usage:      1 KB
+            Peak pagefile usage:         6536 KB
+      -no_syscalls_synch_flush:
+            Peak virtual size:         140388 KB
+            Peak working set size:       7784 KB
+            Peak paged pool usage:          9 KB
+            Peak non-paged pool usage:      1 KB
+            Peak pagefile usage:         6368 KB
+      -no_cache_shared_free_list:
+            Peak virtual size:         140388 KB
+            Peak working set size:       5156 KB
+            Peak paged pool usage:          9 KB
+            Peak non-paged pool usage:      1 KB
+            Peak pagefile usage:         3736 KB
+      defaults:
+            Peak virtual size:         140388 KB
+            Peak working set size:       3352 KB
+            Peak paged pool usage:          9 KB
+            Peak non-paged pool usage:      1 KB
+            Peak pagefile usage:         1680 KB
+    */
     /* native */
 #if VERBOSE
-    print("Pagefile usage is %d KB\n", mem.PeakPagefileUsage/1024);
+    print("Pagefile usage is %d KB\n", mem.PeakPagefileUsage / 1024);
 #endif
-    if (mem.PeakPagefileUsage < 900*1024)
+    if (mem.PeakPagefileUsage < 900 * 1024)
         print("Memory check: pagefile usage is < 900 KB\n");
     /* typical DR */
-    else if (mem.PeakPagefileUsage < 2816*1024)
+    else if (mem.PeakPagefileUsage < 2816 * 1024)
         print("Memory check: pagefile usage is >= 900 KB, < 2816 KB\n");
     /* prof_pcs uses a buffer the size of DR.dll */
-    else if (mem.PeakPagefileUsage < 6000*1024)
+    else if (mem.PeakPagefileUsage < 6000 * 1024)
         print("Memory check: pagefile usage is >= 2816 KB, < 6000 KB\n");
     /* detect_dangling_fcache doesn't free fcache */
-    else if (mem.PeakPagefileUsage < 16384*1024)
+    else if (mem.PeakPagefileUsage < 16384 * 1024)
         print("Memory check: pagefile usage is >= 6000 KB, < 16384 KB\n");
     else {
         /* give actual number here so we can see how high it is */
         print("Memory check: pagefile usage is %d KB >= 16384 KB\n",
-              mem.PeakPagefileUsage/1024);
+              mem.PeakPagefileUsage / 1024);
     }
 }
 
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
 #if VERBOSE
@@ -259,14 +251,14 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 #endif
         longjmp(mark, 1);
     }
-# if VERBOSE
+#if VERBOSE
     print("Exception occurred, process about to die silently\n");
-# endif
+#endif
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
 
-
-int main(int argc, char** argv)
+int
+main(int argc, char **argv)
 {
     HANDLE lib;
     HANDLE event;
@@ -281,7 +273,7 @@ int main(int argc, char** argv)
 #else
     /* note that can't normally if we have a debugger attached this
      * will not get this executed */
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
 #endif
 
     event = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -296,12 +288,10 @@ int main(int argc, char** argv)
         } else {
             reloaded++;
 #if VERBOSE
-    print("reloaded %d times %d\n", reloaded);
+            print("reloaded %d times %d\n", reloaded);
 #endif
-            import1 = (funptr)
-                GetProcAddress(lib, (LPCSTR)"import_me1");
-            import2 = (funptr)
-                GetProcAddress(lib, (LPCSTR)"import_me2");
+            import1 = (funptr)GetProcAddress(lib, (LPCSTR) "import_me1");
+            import2 = (funptr)GetProcAddress(lib, (LPCSTR) "import_me2");
             /* may want to explicitly sleep here but that may be slower */
             if (reloaded % 2 == 0)
                 YIELD();

@@ -46,21 +46,22 @@
  *   convert a SID to string format.
  */
 
-BOOL GetTextualSid(
-    PSID pSid,            // binary SID
-    LPTSTR TextualSid,    // buffer for Textual representation of SID
-    LPDWORD lpdwBufferLen // required/provided TextualSid buffersize
-    )
+BOOL
+GetTextualSid(PSID pSid,            // binary SID
+              LPTSTR TextualSid,    // buffer for Textual representation of SID
+              LPDWORD lpdwBufferLen // required/provided TextualSid buffersize
+)
 {
     PSID_IDENTIFIER_AUTHORITY psia;
     DWORD dwSubAuthorities;
-    DWORD dwSidRev=SID_REVISION;
+    DWORD dwSidRev = SID_REVISION;
     DWORD dwCounter;
     DWORD dwSidSize;
 
     // Validate the binary SID.
 
-    if(!IsValidSid(pSid)) return FALSE;
+    if (!IsValidSid(pSid))
+        return FALSE;
 
     // Get the identifier authority value from the SID.
 
@@ -73,13 +74,12 @@ BOOL GetTextualSid(
     // Compute the buffer length.
     // S-SID_REVISION- + IdentifierAuthority- + subauthorities- + NULL
 
-    dwSidSize=(15 + 12 + (12 * dwSubAuthorities) + 1) * sizeof(TCHAR);
+    dwSidSize = (15 + 12 + (12 * dwSubAuthorities) + 1) * sizeof(TCHAR);
 
     // Check input buffer length.
     // If too small, indicate the proper size and set the last error.
 
-    if (*lpdwBufferLen < dwSidSize)
-    {
+    if (*lpdwBufferLen < dwSidSize) {
         *lpdwBufferLen = dwSidSize;
         SetLastError(ERROR_INSUFFICIENT_BUFFER);
         return FALSE;
@@ -87,37 +87,27 @@ BOOL GetTextualSid(
 
     // Add 'S' prefix and revision number to the string.
 
-    dwSidSize=wsprintf(TextualSid, TEXT("S-%lu-"), dwSidRev );
+    dwSidSize = wsprintf(TextualSid, TEXT("S-%lu-"), dwSidRev);
 
     // Add a SID identifier authority to the string.
 
-    if ( (psia->Value[0] != 0) || (psia->Value[1] != 0) )
-    {
-        dwSidSize+=wsprintf(TextualSid + lstrlen(TextualSid),
-                    TEXT("0x%02hx%02hx%02hx%02hx%02hx%02hx"),
-                    (USHORT)psia->Value[0],
-                    (USHORT)psia->Value[1],
-                    (USHORT)psia->Value[2],
-                    (USHORT)psia->Value[3],
-                    (USHORT)psia->Value[4],
-                    (USHORT)psia->Value[5]);
-    }
-    else
-    {
-        dwSidSize+=wsprintf(TextualSid + lstrlen(TextualSid),
-                    TEXT("%lu"),
-                    (ULONG)(psia->Value[5]      )   +
-                    (ULONG)(psia->Value[4] <<  8)   +
-                    (ULONG)(psia->Value[3] << 16)   +
-                    (ULONG)(psia->Value[2] << 24)   );
+    if ((psia->Value[0] != 0) || (psia->Value[1] != 0)) {
+        dwSidSize += wsprintf(
+            TextualSid + lstrlen(TextualSid), TEXT("0x%02hx%02hx%02hx%02hx%02hx%02hx"),
+            (USHORT)psia->Value[0], (USHORT)psia->Value[1], (USHORT)psia->Value[2],
+            (USHORT)psia->Value[3], (USHORT)psia->Value[4], (USHORT)psia->Value[5]);
+    } else {
+        dwSidSize +=
+            wsprintf(TextualSid + lstrlen(TextualSid), TEXT("%lu"),
+                     (ULONG)(psia->Value[5]) + (ULONG)(psia->Value[4] << 8) +
+                         (ULONG)(psia->Value[3] << 16) + (ULONG)(psia->Value[2] << 24));
     }
 
     // Add SID subauthorities to the string.
     //
-    for (dwCounter=0 ; dwCounter < dwSubAuthorities ; dwCounter++)
-    {
-        dwSidSize+=wsprintf(TextualSid + dwSidSize, TEXT("-%lu"),
-                    *GetSidSubAuthority(pSid, dwCounter) );
+    for (dwCounter = 0; dwCounter < dwSubAuthorities; dwCounter++) {
+        dwSidSize += wsprintf(TextualSid + dwSidSize, TEXT("-%lu"),
+                              *GetSidSubAuthority(pSid, dwCounter));
     }
 
     return TRUE;
@@ -140,12 +130,9 @@ test_sid(void)
 
     // Create a SID for the BUILTIN\Administrators group.
 
-    if(! AllocateAndInitializeSid( &SIDAuth, 2,
-                                   SECURITY_BUILTIN_DOMAIN_RID,
-                                   DOMAIN_ALIAS_RID_ADMINS,
-                                   0, 0, 0, 0, 0, 0,
-                                   &psid) ) {
-        print( "AllocateAndInitializeSid Error %u\n", GetLastError() );
+    if (!AllocateAndInitializeSid(&SIDAuth, 2, SECURITY_BUILTIN_DOMAIN_RID,
+                                  DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0, &psid)) {
+        print("AllocateAndInitializeSid Error %u\n", GetLastError());
         return;
     }
 
@@ -156,16 +143,12 @@ test_sid(void)
     } else {
         print("FAILED!\n", buf);
 
-        if(!IsValidSid(psid))
+        if (!IsValidSid(psid))
             print("invalid SID!\n", buf);
     }
 }
 
-
-
-int
-__declspec(dllexport)
-make_a_lib(int arg)
+int __declspec(dllexport) make_a_lib(int arg)
 {
     test_sid();
     return 0;
@@ -175,9 +158,7 @@ BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     switch (reason_for_call) {
-    case DLL_PROCESS_ATTACH:
-        print("in delay bind dll\n");
-        break;
+    case DLL_PROCESS_ATTACH: print("in delay bind dll\n"); break;
     }
     return TRUE;
 }

@@ -58,30 +58,30 @@
  */
 typedef enum {
     /* Detector status codes. */
-    HOTP_EXEC_EXPLOIT_DETECTED          = 0x00000001,
-    HOTP_EXEC_EXPLOIT_NOT_DETECTED      = 0x00000002,
-    HOTP_EXEC_DETECTOR_ERROR            = 0x00000004,
+    HOTP_EXEC_EXPLOIT_DETECTED = 0x00000001,
+    HOTP_EXEC_EXPLOIT_NOT_DETECTED = 0x00000002,
+    HOTP_EXEC_DETECTOR_ERROR = 0x00000004,
 
     /* All codes below can only be returned by a protector. */
-    HOTP_EXEC_EXPLOIT_PROTECTED         = 0x00000008,
-    HOTP_EXEC_EXPLOIT_NOT_PROTECTED     = 0x00000010,
-    HOTP_EXEC_PROTECTOR_ERROR           = 0x00000020,
+    HOTP_EXEC_EXPLOIT_PROTECTED = 0x00000008,
+    HOTP_EXEC_EXPLOIT_NOT_PROTECTED = 0x00000010,
+    HOTP_EXEC_PROTECTOR_ERROR = 0x00000020,
 
     /* These codes return both a status & request for a particular action. */
-    HOTP_EXEC_EXPLOIT_KILL_THREAD       = 0x00000040,
-    HOTP_EXEC_EXPLOIT_KILL_PROCESS      = 0x00000080,
-    HOTP_EXEC_EXPLOIT_RAISE_EXCEPTION   = 0x00000100,
-    HOTP_EXEC_CHANGE_CONTROL_FLOW       = 0x00000200,
+    HOTP_EXEC_EXPLOIT_KILL_THREAD = 0x00000040,
+    HOTP_EXEC_EXPLOIT_KILL_PROCESS = 0x00000080,
+    HOTP_EXEC_EXPLOIT_RAISE_EXCEPTION = 0x00000100,
+    HOTP_EXEC_CHANGE_CONTROL_FLOW = 0x00000200,
 
     /* This flag is orthogonal to the ones above and can be specified with
      * any of those.  This can be used both by detectors and protectors.
      */
-    HOTP_EXEC_LOG_EVENT                 = 0x00000400,
+    HOTP_EXEC_LOG_EVENT = 0x00000400,
 
     /* This status shouldn't be returned by a hot patch code.  It is used to
      * identify unexpected aborts of hot patch code, mostly due to exceptions.
      */
-    HOTP_EXEC_ABORTED                   = 0x00000800
+    HOTP_EXEC_ABORTED = 0x00000800
 } hotp_exec_status_t;
 
 typedef priv_mcontext_t hotp_context_t;
@@ -91,33 +91,33 @@ typedef priv_mcontext_t hotp_context_t;
  */
 typedef hotp_exec_status_t (*hotp_func_t)(hotp_context_t *app_reg_ptr);
 
-#define APP_XDI(x) (((hotp_context_t*)(x))->xdi)
-#define APP_XSI(x) (((hotp_context_t*)(x))->xsi)
-#define APP_XBP(x) (((hotp_context_t*)(x))->xbp)
-#define APP_XSP(x) (((hotp_context_t*)(x))->xsp)
-#define APP_XBX(x) (((hotp_context_t*)(x))->xbx)
-#define APP_XDX(x) (((hotp_context_t*)(x))->xdx)
-#define APP_XCX(x) (((hotp_context_t*)(x))->xcx)
-#define APP_XAX(x) (((hotp_context_t*)(x))->xax)
-#define APP_R8(x)  (((hotp_context_t*)(x))->r8)
-#define APP_R9(x)  (((hotp_context_t*)(x))->r9)
-#define APP_R10(x) (((hotp_context_t*)(x))->r10)
-#define APP_R11(x) (((hotp_context_t*)(x))->r11)
-#define APP_R12(x) (((hotp_context_t*)(x))->r12)
-#define APP_R13(x) (((hotp_context_t*)(x))->r13)
-#define APP_R14(x) (((hotp_context_t*)(x))->r14)
-#define APP_R15(x) (((hotp_context_t*)(x))->r15)
-#define APP_XFLAGS(x) (((hotp_context_t*)(x))->xflags)
+#define APP_XDI(x) (((hotp_context_t *)(x))->xdi)
+#define APP_XSI(x) (((hotp_context_t *)(x))->xsi)
+#define APP_XBP(x) (((hotp_context_t *)(x))->xbp)
+#define APP_XSP(x) (((hotp_context_t *)(x))->xsp)
+#define APP_XBX(x) (((hotp_context_t *)(x))->xbx)
+#define APP_XDX(x) (((hotp_context_t *)(x))->xdx)
+#define APP_XCX(x) (((hotp_context_t *)(x))->xcx)
+#define APP_XAX(x) (((hotp_context_t *)(x))->xax)
+#define APP_R8(x) (((hotp_context_t *)(x))->r8)
+#define APP_R9(x) (((hotp_context_t *)(x))->r9)
+#define APP_R10(x) (((hotp_context_t *)(x))->r10)
+#define APP_R11(x) (((hotp_context_t *)(x))->r11)
+#define APP_R12(x) (((hotp_context_t *)(x))->r12)
+#define APP_R13(x) (((hotp_context_t *)(x))->r13)
+#define APP_R14(x) (((hotp_context_t *)(x))->r14)
+#define APP_R15(x) (((hotp_context_t *)(x))->r15)
+#define APP_XFLAGS(x) (((hotp_context_t *)(x))->xflags)
 
 #ifndef X64 /* legacy support */
-#define APP_EDI APP_XDI
-#define APP_ESI APP_XSI
-#define APP_EBP APP_XBP
-#define APP_ESP APP_XSP
-#define APP_EBX APP_XBX
-#define APP_EDX APP_XDX
-#define APP_ECX APP_XCX
-#define APP_EAX APP_XAX
+#    define APP_EDI APP_XDI
+#    define APP_ESI APP_XSI
+#    define APP_EBP APP_XBP
+#    define APP_ESP APP_XSP
+#    define APP_EBX APP_XBX
+#    define APP_EDX APP_XDX
+#    define APP_ECX APP_XCX
+#    define APP_EAX APP_XAX
 #endif
 
 #endif /* _HOTPATCH_INTERFACE_H_ */

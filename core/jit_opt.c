@@ -3,19 +3,17 @@
 #include "lib/dr_annotations.h"
 #include "jit_opt.h"
 
-#define DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME \
-    "dynamorio_annotate_manage_code_area"
+#define DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME "dynamorio_annotate_manage_code_area"
 
-#define DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME \
-    "dynamorio_annotate_unmanage_code_area"
+#define DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME "dynamorio_annotate_unmanage_code_area"
 
 #ifdef ANNOTATIONS
 static void
 annotation_manage_code_area(void *start, size_t size)
 {
     LOG(GLOBAL, LOG_ANNOTATIONS, 2,
-        "Add code area "PFX"-"PFX" to JIT managed regions\n",
-        start, (app_pc) start + size);
+        "Add code area " PFX "-" PFX " to JIT managed regions\n", start,
+        (app_pc)start + size);
 
     set_region_jit_managed(start, size);
 }
@@ -29,15 +27,15 @@ annotation_unmanage_code_area(void *start, size_t size)
         return;
 
     LOG(GLOBAL, LOG_ANNOTATIONS, 2,
-        "Remove code area "PFX"-"PFX" from JIT managed regions\n",
-        start, (app_pc) start + size);
+        "Remove code area " PFX "-" PFX " from JIT managed regions\n", start,
+        (app_pc)start + size);
 
-    mutex_lock(&thread_initexit_lock);
-    flush_fragments_and_remove_region(dcontext, start, size,
-                                      true/*own initexit_lock*/, false/*keep futures*/);
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
+    flush_fragments_and_remove_region(dcontext, start, size, true /*own initexit_lock*/,
+                                      false /*keep futures*/);
+    d_r_mutex_unlock(&thread_initexit_lock);
 
-    jitopt_clear_span(start, (app_pc) start + size);
+    jitopt_clear_span(start, (app_pc)start + size);
 }
 #endif
 
@@ -74,8 +72,8 @@ typedef struct _fragment_tree_t {
 static fragment_tree_t *
 fragment_tree_create()
 {
-    fragment_tree_t *tree = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, fragment_tree_t,
-                                            ACCT_OTHER, UNPROTECTED);
+    fragment_tree_t *tree =
+        HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, fragment_tree_t, ACCT_OTHER, UNPROTECTED);
     memset(tree, 0, sizeof(fragment_tree_t));
     tree->node_heap = special_heap_init(sizeof(bb_node_t), true /* lock */,
                                         false /* -x */, true /* persistent */);
@@ -152,12 +150,12 @@ fragment_tree_rotate_left(fragment_tree_t *tree, bb_node_t *node)
 {
     bb_node_t *pivot = node->right;
 
-    node->right = pivot->left;       /* Remove the pivot from below the node;   */
-    if (node->right != tree->nil)    /* the pivot's child becomes node's child. */
+    node->right = pivot->left;    /* Remove the pivot from below the node;   */
+    if (node->right != tree->nil) /* the pivot's child becomes node's child. */
         node->right->parent = node;
 
-    pivot->parent = node->parent;    /* Insert the pivot above the node;              */
-    if (node == tree->root)          /* the node's parent becomes the pivot's parent. */
+    pivot->parent = node->parent; /* Insert the pivot above the node;              */
+    if (node == tree->root)       /* the node's parent becomes the pivot's parent. */
         tree->root = pivot;
     else if (node == node->parent->left)
         node->parent->left = pivot;
@@ -176,12 +174,12 @@ fragment_tree_rotate_right(fragment_tree_t *tree, bb_node_t *node)
 {
     bb_node_t *pivot = node->left;
 
-    node->left = pivot->right;       /* Remove the pivot from below the node;   */
-    if (node->left != tree->nil)     /* the pivot's child becomes node's child. */
+    node->left = pivot->right;   /* Remove the pivot from below the node;   */
+    if (node->left != tree->nil) /* the pivot's child becomes node's child. */
         node->left->parent = node;
 
-    pivot->parent = node->parent;    /* Insert the pivot above the node;              */
-    if (node == tree->root)          /* the node's parent becomes the pivot's parent. */
+    pivot->parent = node->parent; /* Insert the pivot above the node;              */
+    if (node == tree->root)       /* the node's parent becomes the pivot's parent. */
         tree->root = pivot;
     else if (node == node->parent->left)
         node->parent->left = pivot;
@@ -214,8 +212,7 @@ fragment_tree_insert_unbalanced(fragment_tree_t *tree, bb_node_t *new_node)
                 }
                 walk = walk->left;
             } else {
-                ASSERT(!(new_node->start == walk->start &&
-                         new_node->end == walk->end));
+                ASSERT(!(new_node->start == walk->start && new_node->end == walk->end));
                 if (walk->right == tree->nil) {
                     walk->right = new_node;
                     break;
@@ -315,7 +312,8 @@ fragment_tree_node_create(fragment_tree_t *tree, app_pc start, app_pc end)
 
 /* Destroy the node and its list of containing trace tags. */
 static void
-fragment_tree_node_destroy(fragment_tree_t *tree, bb_node_t *node) {
+fragment_tree_node_destroy(fragment_tree_t *tree, bb_node_t *node)
+{
     trace_list_t *walk = node->traces, *next;
 
     while (walk != NULL) {
@@ -556,10 +554,10 @@ jitopt_init()
 
 #ifdef ANNOTATIONS
         dr_annotation_register_call(DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME,
-                                    (void *) annotation_manage_code_area, false, 2,
+                                    (void *)annotation_manage_code_area, false, 2,
                                     DR_ANNOTATION_CALL_TYPE_FASTCALL);
         dr_annotation_register_call(DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME,
-                                    (void *) annotation_unmanage_code_area, false, 2,
+                                    (void *)annotation_unmanage_code_area, false, 2,
                                     DR_ANNOTATION_CALL_TYPE_FASTCALL);
 #endif /* ANNOTATIONS */
     }
@@ -604,7 +602,7 @@ jitopt_clear_span(app_pc start, app_pc end)
  * Fragment Tree Unit Test
  */
 
-# define FRAGMENT_TREE_TEST_NODE_COUNT 0x900
+#    define FRAGMENT_TREE_TEST_NODE_COUNT 0x900
 
 static void
 unit_test_find_node_in_list(bb_node_t **node_list, bb_node_t *lookup, uint list_length)
@@ -671,8 +669,8 @@ unit_test_lookup_all_nodes(bb_node_t **node_list, uint list_length)
 
     for (i = 0; i < list_length; i++) {
         if (node_list[i] != NULL) {
-            lookup = fragment_tree_lookup(fragment_tree,
-                                          node_list[i]->start, node_list[i]->end);
+            lookup = fragment_tree_lookup(fragment_tree, node_list[i]->start,
+                                          node_list[i]->end);
             ASSERT(lookup == node_list[i]);
             list_node_count++;
         }
@@ -715,7 +713,7 @@ unit_test_insert_random_node(bb_node_t **node_list, app_pc random_base, uint ran
         node_list[index] = fragment_tree_insert(fragment_tree, random_start, random_end);
         return true;
     } else {
-        set_random_seed((uint) query_time_millis());
+        d_r_set_random_seed((uint)query_time_millis());
         return false;
     }
 }
@@ -730,8 +728,8 @@ unit_test_insert_random_nodes(bb_node_t **node_list, uint insert_count)
 
     for (i = 0; i < insert_count; i++) {
         if (unit_test_insert_random_node(node_list, 0, 0xffffffff, i)) {
-            if ((i+1) % 20 == 0)
-                unit_test_lookup_all_nodes(node_list, i+1);
+            if ((i + 1) % 20 == 0)
+                unit_test_lookup_all_nodes(node_list, i + 1);
         } else {
             i--; /* found exact match, so rewind and try another */
         }
@@ -772,11 +770,11 @@ unit_test_remove_occupied_span(bb_node_t **node_list, uint list_length)
     /* randomly pick before, on, or after an occupied pc, to test all overlap cases */
     start = unit_test_get_random_pc(first->start == 0 ? 0 : first->start - 1, 2);
     end = unit_test_get_random_pc(second->end - 1,
-                                  (ptr_uint_t) second->end < 0xffffffff ? 2 : 1);
+                                  (ptr_uint_t)second->end < 0xffffffff ? 2 : 1);
 
     for (i = 0; i < list_length; i++) { /* walk and clear the span from the list */
-        if (node_list[i] != NULL &&
-            start < node_list[i]->end && end > node_list[i]->start) {
+        if (node_list[i] != NULL && start < node_list[i]->end &&
+            end > node_list[i]->start) {
             list_removal_count++;
             node_list[i] = NULL;
         }
@@ -804,8 +802,8 @@ unit_test_remove_random_spans(bb_node_t **node_list, uint list_length)
             end = unit_test_get_random_pc(start + 0x10, 0x40);
             overlap = false;
             for (i = 0; i < list_length; i++) {
-                if (node_list[i] != NULL &&
-                    start < node_list[i]->end && end > node_list[i]->start) {
+                if (node_list[i] != NULL && start < node_list[i]->end &&
+                    end > node_list[i]->start) {
                     overlap = true;
                     break;
                 }
@@ -832,15 +830,15 @@ static void
 unit_test_churn_narrow_span(bb_node_t **node_list, uint list_length)
 {
     uint i, j, k, node_count, random_span = list_length * 8;
-    app_pc random_base = (app_pc) get_random_offset(0xf0000000);
+    app_pc random_base = (app_pc)get_random_offset(0xf0000000);
 
     ASSERT(fragment_tree->root == fragment_tree->nil);
 
     for (i = 0; i < list_length; i++) { /* pack a small span */
-        if (unit_test_insert_random_node(node_list, (app_pc) random_base,
-                                         10 + random_span, i)) {
-            if ((i+1) % 20 == 0)
-                unit_test_lookup_all_nodes(node_list, i+1);
+        if (unit_test_insert_random_node(node_list, (app_pc)random_base, 10 + random_span,
+                                         i)) {
+            if ((i + 1) % 20 == 0)
+                unit_test_lookup_all_nodes(node_list, i + 1);
         } else {
             i--; /* found exact match, so rewind and try another */
         }
@@ -853,9 +851,9 @@ unit_test_churn_narrow_span(bb_node_t **node_list, uint list_length)
                 if (node_list[k] == NULL)
                     break;
             }
-            if (unit_test_insert_random_node(node_list, (app_pc) random_base,
+            if (unit_test_insert_random_node(node_list, (app_pc)random_base,
                                              10 + random_span, k)) {
-                if ((i+1) % 20 == 0)
+                if ((i + 1) % 20 == 0)
                     unit_test_lookup_all_nodes(node_list, list_length);
             } else {
                 j--; /* found exact match, so rewind and try another */
@@ -875,10 +873,10 @@ unit_test_jit_fragment_tree()
     dynamo_options.opt_jit = true;
 
     fragment_tree = fragment_tree_create();
-    set_random_seed((uint) query_time_millis());
+    d_r_set_random_seed((uint)query_time_millis());
 
     for (i = 0; i < 3; i++) {
-        print_file(STDERR, "pass %d... ", i+1);
+        print_file(STDERR, "pass %d... ", i + 1);
 
         unit_test_insert_random_nodes(node_list, FRAGMENT_TREE_TEST_NODE_COUNT);
         unit_test_remove_random_spans(node_list, FRAGMENT_TREE_TEST_NODE_COUNT);

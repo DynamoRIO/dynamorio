@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,20 +40,20 @@
 #include "client_tools.h"
 
 #ifdef UNIX
-# include <signal.h>
-# include <string.h>
+#    include <signal.h>
+#    include <string.h>
 #endif
 
 #ifdef WINDOWS
-# pragma warning( disable : 4100) // unreferenced formal parameter
-# pragma warning( disable : 4127) // conditional expression is constant
+#    pragma warning(disable : 4100) // unreferenced formal parameter
+#    pragma warning(disable : 4127) // conditional expression is constant
 #endif
 
 /* We compile this test as C and C++ with different target names. */
 #ifdef __cplusplus
-# define EVENTS "events_cpp"
+#    define EVENTS "events_cpp"
 #else
-# define EVENTS "events"
+#    define EVENTS "events"
 #endif
 
 void *mutex;
@@ -96,7 +96,7 @@ enum event_seq {
     EVENT_last,
 };
 
-const char * const name[EVENT_last] = {
+const char *const name[EVENT_last] = {
     "module load event 1",
     "module load event 2",
     "thread init event 1",
@@ -145,7 +145,6 @@ inc_count_first(int first, int second)
     dr_mutex_unlock(mutex);
 }
 
-
 static void
 inc_count_second(int second)
 {
@@ -153,7 +152,6 @@ inc_count_second(int second)
     counts[second]++;
     dr_mutex_unlock(mutex);
 }
-
 
 static void
 check_result(void)
@@ -171,8 +169,17 @@ check_result(void)
 }
 
 static void
+low_on_memory_event()
+{
+    /* Do nothing. Testing only register and unregister functions. */
+}
+
+static void
 exit_event1(void)
 {
+
+    if (!dr_unregister_low_on_memory_event(low_on_memory_event))
+        dr_fprintf(STDERR, "unregister failed!\n");
     dr_fprintf(STDERR, "exit event 1\n");
     dr_flush_file(STDOUT);
 
@@ -245,9 +252,8 @@ fork_init_event2(void *drcontext)
 }
 
 #endif
-static
-dr_emit_flags_t bb_event1(void *dcontext, void *tag, instrlist_t *bb,
-                           bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event1(void *dcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     inc_count_first(EVENT_BB_1, EVENT_BB_2);
     if (!dr_unregister_bb_event(bb_event1))
@@ -255,9 +261,8 @@ dr_emit_flags_t bb_event1(void *dcontext, void *tag, instrlist_t *bb,
     return DR_EMIT_DEFAULT;
 }
 
-static
-dr_emit_flags_t bb_event2(void *dcontext, void *tag, instrlist_t *bb,
-                          bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event2(void *dcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     inc_count_second(EVENT_BB_2);
     if (!dr_unregister_bb_event(bb_event2))
@@ -265,9 +270,8 @@ dr_emit_flags_t bb_event2(void *dcontext, void *tag, instrlist_t *bb,
     return DR_EMIT_DEFAULT;
 }
 
-static
-dr_emit_flags_t trace_event1(void *dcontext, void *tag, instrlist_t *trace,
-                             bool translating)
+static dr_emit_flags_t
+trace_event1(void *dcontext, void *tag, instrlist_t *trace, bool translating)
 {
     inc_count_first(EVENT_TRACE_1, EVENT_TRACE_2);
     if (!dr_unregister_trace_event(trace_event1))
@@ -275,9 +279,8 @@ dr_emit_flags_t trace_event1(void *dcontext, void *tag, instrlist_t *trace,
     return DR_EMIT_DEFAULT;
 }
 
-static
-dr_emit_flags_t trace_event2(void *dcontext, void *tag, instrlist_t *trace,
-                             bool translating)
+static dr_emit_flags_t
+trace_event2(void *dcontext, void *tag, instrlist_t *trace, bool translating)
 {
     inc_count_second(EVENT_TRACE_2);
     if (!dr_unregister_trace_event(trace_event2))
@@ -285,8 +288,8 @@ dr_emit_flags_t trace_event2(void *dcontext, void *tag, instrlist_t *trace,
     return DR_EMIT_DEFAULT;
 }
 
-static
-dr_custom_trace_action_t end_trace_event1(void *dcontext, void *trace_tag, void *next_tag)
+static dr_custom_trace_action_t
+end_trace_event1(void *dcontext, void *trace_tag, void *next_tag)
 {
     inc_count_first(EVENT_END_TRACE_1, EVENT_END_TRACE_2);
     if (!dr_unregister_end_trace_event(end_trace_event1))
@@ -294,8 +297,8 @@ dr_custom_trace_action_t end_trace_event1(void *dcontext, void *trace_tag, void 
     return CUSTOM_TRACE_DR_DECIDES;
 }
 
-static
-dr_custom_trace_action_t end_trace_event2(void *dcontext, void *trace_tag, void *next_tag)
+static dr_custom_trace_action_t
+end_trace_event2(void *dcontext, void *trace_tag, void *next_tag)
 {
     inc_count_second(EVENT_END_TRACE_2);
     if (!dr_unregister_end_trace_event(end_trace_event2))
@@ -324,11 +327,13 @@ module_load_event_perm(void *drcontext, const module_data_t *info, bool loaded)
 {
     /* Test i#138 */
     if (info->full_path == NULL || info->full_path[0] == '\0')
-        dr_fprintf(STDERR, "ERROR: full_path empty for %s\n", dr_module_preferred_name(info));
+        dr_fprintf(STDERR, "ERROR: full_path empty for %s\n",
+                   dr_module_preferred_name(info));
 #ifdef WINDOWS
     /* We do not expect \\server-style paths for this test */
     else if (info->full_path[0] == '\\' || info->full_path[1] != ':')
-        dr_fprintf(STDERR, "ERROR: full_path is not in DOS format: %s\n", info->full_path);
+        dr_fprintf(STDERR, "ERROR: full_path is not in DOS format: %s\n",
+                   info->full_path);
 #else
     else if (info->full_path[0] != '/' && strcmp(info->full_path, "[vdso]") != 0)
         dr_fprintf(STDERR, "ERROR: full_path is not absolute: %s\n", info->full_path);
@@ -442,12 +447,12 @@ kernel_xfer_event2(void *drcontext, const dr_kernel_xfer_info_t *info)
 {
     inc_count_second(EVENT_KERNEL_XFER_2);
     dr_log(drcontext, DR_LOG_ALL, 2, "%s: %d %p to %p sp=%zx\n", __FUNCTION__, info->type,
-           info->source_mcontext == NULL ? 0 : info->source_mcontext->pc,
-           info->target_pc, info->target_xsp);
+           info->source_mcontext == NULL ? 0 : info->source_mcontext->pc, info->target_pc,
+           info->target_xsp);
     if (info->type == DR_XFER_CLIENT_REDIRECT) {
         /* Test for exception event redirect. */
         ASSERT(info->source_mcontext != NULL);
-        dr_mcontext_t mc = {sizeof(mc)};
+        dr_mcontext_t mc = { sizeof(mc) };
         mc.flags = DR_MC_CONTROL;
         bool ok = dr_get_mcontext(drcontext, &mc);
         ASSERT(ok);
@@ -464,11 +469,14 @@ static bool
 exception_event_redirect(void *dcontext, dr_exception_t *excpt)
 {
     app_pc addr;
-    dr_mcontext_t mcontext = {sizeof(mcontext),DR_MC_ALL,};
-    module_data_t *data = dr_lookup_module_by_name("client." EVENTS".exe");
+    dr_mcontext_t mcontext = {
+        sizeof(mcontext),
+        DR_MC_ALL,
+    };
+    module_data_t *data = dr_lookup_module_by_name("client." EVENTS ".exe");
     dr_fprintf(STDERR, "exception event redirect\n");
     if (data == NULL) {
-        dr_fprintf(STDERR, "couldn't find " EVENTS".exe module\n");
+        dr_fprintf(STDERR, "couldn't find " EVENTS ".exe module\n");
         return true;
     }
     addr = (app_pc)dr_get_proc_address(data->handle, "redirect");
@@ -476,13 +484,13 @@ exception_event_redirect(void *dcontext, dr_exception_t *excpt)
     mcontext = *excpt->mcontext;
     mcontext.pc = addr;
     if (addr == NULL) {
-        dr_fprintf(STDERR, "Couldn't find function redirect in " EVENTS".exe\n");
+        dr_fprintf(STDERR, "Couldn't find function redirect in " EVENTS ".exe\n");
         return true;
     }
-# ifdef X86_64
+#    ifdef X86_64
     /* align properly in case redirect function relies on conventions (i#419) */
-    mcontext.xsp = ALIGN_BACKWARD(mcontext.xsp, 16) - sizeof(void*);
-# endif
+    mcontext.xsp = ALIGN_BACKWARD(mcontext.xsp, 16) - sizeof(void *);
+#    endif
     dr_redirect_execution(&mcontext);
     dr_fprintf(STDERR,
                "should not be reached, dr_redirect_execution() should not return\n");
@@ -516,35 +524,35 @@ exception_event2(void *dcontext, dr_exception_t *excpt)
     return true;
 }
 #else
-static
-dr_signal_action_t signal_event_redirect(void *dcontext, dr_siginfo_t *info)
+static dr_signal_action_t
+signal_event_redirect(void *dcontext, dr_siginfo_t *info)
 {
     if (info->sig == SIGSEGV) {
         app_pc addr;
         module_data_t *data = dr_lookup_module_by_name("client." EVENTS);
         dr_fprintf(STDERR, "signal event redirect\n");
         if (data == NULL) {
-            dr_fprintf(STDERR, "couldn't find client." EVENTS" module\n");
+            dr_fprintf(STDERR, "couldn't find client." EVENTS " module\n");
             return DR_SIGNAL_DELIVER;
         }
         addr = (app_pc)dr_get_proc_address(data->handle, "redirect");
         dr_free_module_data(data);
         if (addr == NULL) {
-            dr_fprintf(STDERR, "Couldn't find function redirect in client." EVENTS"\n");
+            dr_fprintf(STDERR, "Couldn't find function redirect in client." EVENTS "\n");
             return DR_SIGNAL_DELIVER;
         }
-# ifdef X86_64
+#    ifdef X86_64
         /* align properly in case redirect function relies on conventions (i#384) */
-        info->mcontext->xsp = ALIGN_BACKWARD(info->mcontext->xsp, 16) - sizeof(void*);
-# endif
+        info->mcontext->xsp = ALIGN_BACKWARD(info->mcontext->xsp, 16) - sizeof(void *);
+#    endif
         info->mcontext->pc = addr;
         return DR_SIGNAL_REDIRECT;
     }
     return DR_SIGNAL_DELIVER;
 }
 
-static
-dr_signal_action_t signal_event1(void *dcontext, dr_siginfo_t *info)
+static dr_signal_action_t
+signal_event1(void *dcontext, dr_siginfo_t *info)
 {
     inc_count_first(EVENT_SIGNAL_1, EVENT_SIGNAL_2);
     if (info->sig == SIGUSR2)
@@ -558,8 +566,8 @@ dr_signal_action_t signal_event1(void *dcontext, dr_siginfo_t *info)
     return DR_SIGNAL_DELIVER;
 }
 
-static
-dr_signal_action_t signal_event2(void *dcontext, dr_siginfo_t *info)
+static dr_signal_action_t
+signal_event2(void *dcontext, dr_siginfo_t *info)
 {
     inc_count_second(EVENT_SIGNAL_2);
 
@@ -597,7 +605,7 @@ restore_state_ex_event1(void *drcontext, bool restore_memory,
     /* i#488: test bool compatibility */
     bool is_trace = info->fragment_info.is_trace;
     if (sizeof(is_trace) != sizeof(info->fragment_info.is_trace))
-        dr_fprintf(STDERR, "bool size incompatibility %d!\n", is_trace/*force ref*/);
+        dr_fprintf(STDERR, "bool size incompatibility %d!\n", is_trace /*force ref*/);
 
     inc_count_first(EVENT_RESTORE_STATE_EX_1, EVENT_RESTORE_STATE_EX_2);
 
@@ -618,15 +626,14 @@ restore_state_ex_event2(void *drcontext, bool restore_memory,
 }
 
 static size_t
-event_persist_size(void *drcontext, void *perscxt, size_t file_offs,
-                   void **user_data OUT)
+event_persist_size(void *drcontext, void *perscxt, size_t file_offs, void **user_data OUT)
 {
     return 0;
 }
 
 static bool
-event_persist_patch(void *drcontext, void *perscxt,
-                    byte *bb_start, size_t bb_size, void *user_data)
+event_persist_patch(void *drcontext, void *perscxt, byte *bb_start, size_t bb_size,
+                    void *user_data)
 {
     return true;
 }
@@ -644,7 +651,8 @@ event_resurrect(void *drcontext, void *perscxt, byte **map INOUT)
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     /* FIXME: we should test the nudge events as well, but that
      * would require some extra stuff our testing infrastructure
@@ -653,7 +661,9 @@ void dr_init(client_id_t id)
     int i;
 
 #ifdef WINDOWS
-    dr_os_version_info_t info = {sizeof(info),};
+    dr_os_version_info_t info = {
+        sizeof(info),
+    };
     if (dr_is_notify_on())
         dr_enable_console_printing();
     /* a sanity check for console printing: no easy way to ensure it really
@@ -662,6 +672,8 @@ void dr_init(client_id_t id)
      */
     if (!dr_get_os_version(&info))
         dr_fprintf(STDERR, "dr_get_os_version failed!\n");
+    if (info.build_number == 0 || info.edition[0] == '\0')
+        dr_fprintf(STDERR, "dr_get_os_version failed to get new fields\n");
 #endif
 
     for (i = 0; i < EVENT_last; i++)
@@ -702,6 +714,7 @@ void dr_init(client_id_t id)
     dr_register_filter_syscall_event(filter_syscall_event2);
     dr_register_kernel_xfer_event(kernel_xfer_event1);
     dr_register_kernel_xfer_event(kernel_xfer_event2);
+    dr_register_low_on_memory_event(low_on_memory_event);
 #ifdef WINDOWS
     dr_register_exception_event(exception_event1);
     dr_register_exception_event(exception_event2);

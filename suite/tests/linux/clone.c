@@ -35,38 +35,42 @@
  * test of clone call
  */
 
-#include <sys/types.h> /* for wait and mmap */
-#include <sys/wait.h>  /* for wait */
-#include <linux/sched.h>     /* for CLONE_ flags */
-#include <time.h>      /* for nanosleep */
-#include <sys/mman.h>  /* for mmap */
+#include <sys/types.h>   /* for wait and mmap */
+#include <sys/wait.h>    /* for wait */
+#include <linux/sched.h> /* for CLONE_ flags */
+#include <time.h>        /* for nanosleep */
+#include <sys/mman.h>    /* for mmap */
 #include <assert.h>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 
-#include "tools.h"  /* for nolibc_* wrappers. */
+#include "tools.h" /* for nolibc_* wrappers. */
 
 /* i#762: Hard to get clone() from sched.h, so copy prototype. */
 extern int
-clone(int (*fn) (void *arg), void *child_stack, int flags, void *arg, ...);
+clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg, ...);
 
-#define THREAD_STACK_SIZE   (32*1024)
+#define THREAD_STACK_SIZE (32 * 1024)
 
 #ifdef X64
-# define APP_TLS_SEG "fs"
+#    define APP_TLS_SEG "fs"
 #else
-# define APP_TLS_SEG "gs"
+#    define APP_TLS_SEG "gs"
 #endif
 
 /* forward declarations */
-static pid_t create_thread(int (*fcn)(void *), void *arg, void **stack,
-                           bool share_sighand);
-static void delete_thread(pid_t pid, void *stack);
-int run(void *arg);
-static void* stack_alloc(int size);
-static void stack_free(void *p, int size);
+static pid_t
+create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand);
+static void
+delete_thread(pid_t pid, void *stack);
+int
+run(void *arg);
+static void *
+stack_alloc(int size);
+static void
+stack_free(void *p, int size);
 
 /* vars for child thread */
 static pid_t child;
@@ -103,7 +107,7 @@ int
 main()
 {
     sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 10*1000*1000; /* 10ms */
+    sleeptime.tv_nsec = 10 * 1000 * 1000; /* 10ms */
 
     /* First make a thread that shares signal handlers. */
     test_thread(true);
@@ -186,7 +190,7 @@ delete_thread(pid_t pid, void *stack)
 }
 
 /* allocate stack storage on the app's heap */
-void*
+void *
 stack_alloc(int size)
 {
     size_t sp;
@@ -195,12 +199,12 @@ stack_alloc(int size)
 
 #if STACK_OVERFLOW_PROTECT
     /* allocate an extra page and mark it non-accessible to trap stack overflow */
-    q = mmap(0, PAGE_SIZE, PROT_NONE, MAP_ANON|MAP_PRIVATE, -1, 0);
+    q = mmap(0, PAGE_SIZE, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
     assert(q);
-    stack_redzone_start = (size_t) q;
+    stack_redzone_start = (size_t)q;
 #endif
 
-    p = mmap(q, size, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
+    p = mmap(q, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
     assert(p);
 #ifdef DEBUG
     memset(p, 0xab, size);
@@ -210,7 +214,7 @@ stack_alloc(int size)
        allocated region */
     sp = (size_t)p + size;
 
-    return (void*) sp;
+    return (void *)sp;
 }
 
 /* free memory-mapped stack storage */
@@ -226,6 +230,6 @@ stack_free(void *p, int size)
 
 #if STACK_OVERFLOW_PROTECT
     sp = sp - PAGE_SIZE;
-    munmap((void*) sp, PAGE_SIZE);
+    munmap((void *)sp, PAGE_SIZE);
 #endif
 }

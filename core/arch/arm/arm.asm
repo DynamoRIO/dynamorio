@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -47,7 +47,7 @@ DECL_EXTERN(relocate_dynamorio)
 DECL_EXTERN(privload_early_inject)
 
 DECL_EXTERN(exiting_thread_count)
-DECL_EXTERN(initstack)
+DECL_EXTERN(d_r_initstack)
 DECL_EXTERN(initstack_mutex)
 
 #define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) ldr dest, PTRSZ [reg, POUND (offs)]
@@ -59,18 +59,18 @@ DECL_EXTERN(initstack_mutex)
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 
 #ifdef X64
-# define NUM_SIMD_SLOTS 32
-# define SIMD_REG_SIZE  16
-# define NUM_GPR_SLOTS  33 /* incl flags */
-# define GPR_REG_SIZE    8
+# define MCXT_NUM_SIMD_SLOTS 32
+# define SIMD_REG_SIZE       16
+# define NUM_GPR_SLOTS       33 /* incl flags */
+# define GPR_REG_SIZE         8
 #else
-# define NUM_SIMD_SLOTS 16
-# define SIMD_REG_SIZE  16
-# define NUM_GPR_SLOTS  17 /* incl flags */
-# define GPR_REG_SIZE    4
+# define MCXT_NUM_SIMD_SLOTS 16
+# define SIMD_REG_SIZE       16
+# define NUM_GPR_SLOTS       17 /* incl flags */
+# define GPR_REG_SIZE         4
 #endif
-#define PRE_SIMD_PADDING 0
-#define PRIV_MCXT_SIMD_SIZE (PRE_SIMD_PADDING + NUM_SIMD_SLOTS*SIMD_REG_SIZE)
+#define PRE_SIMD_PADDING     0
+#define PRIV_MCXT_SIMD_SIZE (PRE_SIMD_PADDING + MCXT_NUM_SIMD_SLOTS*SIMD_REG_SIZE)
 #define PRIV_MCXT_SIZE (NUM_GPR_SLOTS*GPR_REG_SIZE + PRIV_MCXT_SIMD_SIZE)
 #define PRIV_MCXT_SP_FROM_SIMD (-(4*GPR_REG_SIZE)) /* flags, pc, lr, then sp */
 #define PRIV_MCXT_PC_FROM_SIMD (-(2*GPR_REG_SIZE)) /* flags, then pc */
@@ -170,15 +170,30 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
-/* FIXME i#1551: NYI on ARM */
 /*
  * dr_app_start - Causes application to run under Dynamo control
  */
 #ifdef DR_APP_EXPORTS
         DECLARE_EXPORTED_FUNC(dr_app_start)
 GLOBAL_LABEL(dr_app_start:)
-        /* FIXME i#1551: NYI on ARM */
-        bl       GLOBAL_REF(unexpected_return)
+        push     {lr}
+        vstmdb   sp!, {d16-d31}
+        vstmdb   sp!, {d0-d15}
+        mrs      REG_R0, cpsr /* r0 is scratch */
+        push     {REG_R0}
+        /* We can't push all regs w/ writeback */
+        stmdb    sp, {REG_R0-r15}
+        str      lr, [sp, #(PRIV_MCXT_PC_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
+        /* we need the sp at function entry */
+        mov      REG_R0, sp
+        add      REG_R0, REG_R0, #(PRIV_MCXT_SIMD_SIZE + 8) /* offset simd,cpsr,lr */
+        str      REG_R0, [sp, #(PRIV_MCXT_SP_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
+        sub      sp, sp, #(PRIV_MCXT_SIZE-PRIV_MCXT_SIMD_SIZE-4) /* simd,cpsr */
+        mov      REG_R0, sp
+        CALLC1(GLOBAL_REF(dr_app_start_helper), REG_R0)
+        /* if we get here, DR is not taking over */
+        add      sp, sp, #PRIV_MCXT_SIZE
+        pop      {pc}
         END_FUNC(dr_app_start)
 
 /*
@@ -188,7 +203,6 @@ GLOBAL_LABEL(dr_app_start:)
  */
         DECLARE_EXPORTED_FUNC(dr_app_take_over)
 GLOBAL_LABEL(dr_app_take_over:)
-        /* FIXME i#1551: NYI on ARM */
         b        GLOBAL_REF(dynamorio_app_take_over)
         END_FUNC(dr_app_take_over)
 
@@ -200,9 +214,8 @@ GLOBAL_LABEL(dr_app_take_over:)
  */
         DECLARE_EXPORTED_FUNC(dr_app_running_under_dynamorio)
 GLOBAL_LABEL(dr_app_running_under_dynamorio:)
-        /* FIXME i#1551: NYI on ARM */
         mov      r0, #0
-        bl       GLOBAL_REF(unexpected_return)
+        bx       lr
         END_FUNC(dr_app_running_under_dynamorio)
 #endif /* DR_APP_EXPORTS */
 
@@ -279,7 +292,7 @@ cat_done_saving_dstack:
 cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
-        /* switch to initstack for cleanup of dstack */
+        /* switch to d_r_initstack for cleanup of dstack */
         /* we use r6, r7, and r8 here so that atomic_swap doesn't clobber them */
         mov      REG_R6, #1
         ldr      REG_R8, .Lgot1
@@ -300,12 +313,12 @@ cat_have_lock:
         /* swap stacks */
         ldr      REG_R2, .Lgot2
         add      REG_R2, REG_R2, pc
-        ldr      REG_R3, .Linitstack
+        ldr      REG_R3, .Ld_r_initstack
 .LPIC2: ldr      REG_R3, [REG_R3, REG_R2]
         ldr      sp, [REG_R3]
         /* free dstack and call the EXIT_DR_HOOK */
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), REG_R4) /* pass dstack */
-        /* give up initstack mutex */
+        /* give up initstack_mutex */
         ldr      REG_R2, .Lgot3
         add      REG_R2, REG_R2, pc
         ldr      REG_R3, .Linitstack_mutex
@@ -338,8 +351,8 @@ cat_have_lock:
         .long   _GLOBAL_OFFSET_TABLE_-.LPIC4
 .Lexiting_thread_count:
         .word   exiting_thread_count(GOT)
-.Linitstack:
-        .word   initstack(GOT)
+.Ld_r_initstack:
+        .word   d_r_initstack(GOT)
 .Linitstack_mutex:
         .word   initstack_mutex(GOT)
 #endif /* NOT_DYNAMORIO_CORE_PROPER */

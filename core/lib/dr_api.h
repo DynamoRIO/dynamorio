@@ -101,22 +101,40 @@ extern "C" {
  * set to the client library path, with the actual parameters starting
  * at index 1.
  */
-DR_EXPORT void dr_client_main(client_id_t id, int argc, const char *argv[]);
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[]);
 
 /**
  * Legacy, deprecated initialization routine.
  * \deprecated
  */
-DR_EXPORT void dr_init(client_id_t id);
+DR_EXPORT void
+dr_init(client_id_t id);
 
 /* Version checking */
 /* This equals major*100 + minor */
+/* clang-format off */
 DR_EXPORT LINK_ONCE int _USES_DR_VERSION_ = ${VERSION_NUMBER_INTEGER};
 #else
 /* We provide the version as a define but we don't want an actual symbol to avoid
  * problems when standalone-using libraries are combined with clients.
  */
 # define _USES_DR_VERSION_ ${VERSION_NUMBER_INTEGER}
+/* clang-format on */
+#endif
+
+/* AVX-512 client code detection. Compiling the client with AVX-512 will cause
+ * DynamoRIO to assume that AVX-512 code is in use when deploying DynamoRIO after
+ * the application has started.
+ */
+#ifndef DYNAMORIO_STANDALONE
+#    ifdef __AVX512F__
+DR_EXPORT LINK_ONCE bool _DR_CLIENT_AVX512_CODE_IN_USE_ = true;
+#    else
+DR_EXPORT LINK_ONCE bool _DR_CLIENT_AVX512_CODE_IN_USE_ = false;
+#    endif
+#else
+#    define _DR_CLIENT_AVX512_CODE_IN_USE_ false
 #endif
 
 /* A flag that can be used to identify whether this file was included */
@@ -131,8 +149,7 @@ DR_EXPORT LINK_ONCE int _USES_DR_VERSION_ = ${VERSION_NUMBER_INTEGER};
  * Currently, these checks are only performed in debug builds on UNIX.  This can
  * be overridden in client code by calling dr_allow_unsafe_static_behavior().
  */
-#define DR_DISALLOW_UNSAFE_STATIC \
-    DR_EXPORT LINK_ONCE int _DR_DISALLOW_UNSAFE_STATIC_ = 1;
+#define DR_DISALLOW_UNSAFE_STATIC DR_EXPORT LINK_ONCE int _DR_DISALLOW_UNSAFE_STATIC_ = 1;
 
 #ifdef __cplusplus
 }

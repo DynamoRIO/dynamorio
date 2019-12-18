@@ -1,0 +1,100 @@
+Reuse distance tool aggregated results:
+Total accesses: 108582
+Unique accesses: 89579
+Unique cache lines accessed: 413
+
+Reuse distance mean: 5.13
+Reuse distance median: 1
+Reuse distance standard deviation: 13.60
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+       0       19003   17.59%   17.59%
+       1       66078   61.17%   78.76%
+       2        3234    2.99%   81.75%
+       3         986    0.91%   82.66%
+.*
+Reuse distance threshold = 100 cache lines
+Top 10 frequently referenced cache lines
+        cache line:     #references   #distant refs
+    0x7fa8bc650280:        10422,            0
+    0x7fa8bc650240:         5004,            0
+    0x7fa8ba23be80:         4998,            0
+    0x7fa8ba23be40:         4576,            0
+    0x7fa8aa238ec0:         3014,            0
+    0x7fa8aa238e80:         3000,            0
+    0x7fa8bc650200:         2919,            0
+    0x7fa8aa238d00:         2500,            0
+    0x7fa8aa238d40:         2500,            0
+    0x7fa8aa238d80:         2500,            0
+Top 10 distant repeatedly referenced cache lines
+        cache line:     #references   #distant refs
+    0x7ffe37e11e00:          122,            3
+    0x7fa8bc5a0200:          112,            3
+    0x7ffe37e11e40:           70,            3
+    0x7fa8bc59fdc0:           64,            3
+    0x7fa8bc59fc80:           60,            3
+    0x7fa8bc59fe00:           60,            3
+    0x7ffe37e11fc0:           48,            3
+    0x7fa8bc59ff80:           40,            3
+    0x7fa8bc5a0600:           36,            3
+    0x7fa8bc59fc40:           32,            3
+
+==================================================
+Reuse distance tool results for shard [0-9]+ \(thread 10511\):
+Total accesses: 60992
+Unique accesses: 50850
+Unique cache lines accessed: 115
+
+Reuse distance mean: 4.68
+Reuse distance median: 1
+Reuse distance standard deviation: 8.94
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+       0       10142   16.66%   16.66%
+       1       37903   62.26%   78.92%
+       2        1778    2.92%   81.84%
+.*
+==================================================
+Reuse distance tool results for shard [0-9]+ \(thread 10512\):
+Total accesses: 37142
+Unique accesses: 30983
+Unique cache lines accessed: 61
+
+Reuse distance mean: 4.68
+Reuse distance median: 1
+Reuse distance standard deviation: 8.91
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+       0        6159   16.61%   16.61%
+       1       23124   62.36%   78.97%
+.*
+==================================================
+Reuse distance tool results for shard [0-9]+ \(thread 10506\):
+Total accesses: 6624
+Unique accesses: 4601
+Unique cache lines accessed: 280
+
+Reuse distance mean: 12.49
+Reuse distance median: 1
+Reuse distance standard deviation: 42.60
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+       0        2023   31.89%   31.89%
+       1        2795   44.06%   75.95%
+.*
+==================================================
+Reuse distance tool results for shard [0-9]+ \(thread [0-9]+\):
+Total accesses: 0
+Unique accesses: 0
+Unique cache lines accessed: 0
+
+Reuse distance mean: -nan
+Reuse distance standard deviation: -nan
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+
+Reuse distance threshold = 100 cache lines
+Top 10 frequently referenced cache lines
+        cache line:     #references   #distant refs
+Top 10 distant repeatedly referenced cache lines
+        cache line:     #references   #distant refs

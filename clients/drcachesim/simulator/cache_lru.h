@@ -38,11 +38,12 @@
 
 #include "cache.h"
 
-class cache_lru_t : public cache_t
-{
- protected:
-    virtual void access_update(int line_idx, int way);
-    virtual int replace_which_way(int line_idx);
+class cache_lru_t : public cache_t {
+protected:
+    virtual void
+    access_update(int line_idx, int way);
+    virtual int
+    replace_which_way(int line_idx);
 };
 
 #endif /* _CACHE_LRU_H_ */

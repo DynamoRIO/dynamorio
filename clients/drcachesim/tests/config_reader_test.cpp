@@ -30,37 +30,32 @@
  * DAMAGE.
  */
 
-
 #include <iostream>
 #include "../reader/config_reader.h"
 #include "../simulator/cache.h"
 #include "../simulator/cache_simulator_create.h"
 
 static void
-check_cache(const std::map<string, cache_params_t> &caches, string name,
-            string type, int core, uint64_t size, unsigned int assoc,
-            bool inclusive, string parent, string replace_policy,
-            string prefetcher, string miss_file) {
+check_cache(const std::map<std::string, cache_params_t> &caches, std::string name,
+            std::string type, int core, uint64_t size, unsigned int assoc, bool inclusive,
+            std::string parent, std::string replace_policy, std::string prefetcher,
+            std::string miss_file)
+{
     auto cache_it = caches.find(name);
     if (cache_it == caches.end()) {
-        std::cerr << "drcachesim config_reader_test failed (cache: "
-                  << name << " unfound)\n";
+        std::cerr << "drcachesim config_reader_test failed (cache: " << name
+                  << " unfound)\n";
         exit(1);
     }
 
     auto &cache = cache_it->second;
 
-    if (cache.type != type ||
-        cache.core != core ||
-        cache.size != size ||
-        cache.assoc != assoc ||
-        cache.inclusive != inclusive ||
-        cache.parent != parent ||
-        cache.replace_policy != replace_policy ||
-        cache.prefetcher != prefetcher ||
+    if (cache.type != type || cache.core != core || cache.size != size ||
+        cache.assoc != assoc || cache.inclusive != inclusive || cache.parent != parent ||
+        cache.replace_policy != replace_policy || cache.prefetcher != prefetcher ||
         cache.miss_file != miss_file) {
-        std::cerr << "drcachesim config_reader_test failed (cache: "
-                  << cache.name << ")\n";
+        std::cerr << "drcachesim config_reader_test failed (cache: " << cache.name
+                  << ")\n";
         exit(1);
     }
 }
@@ -69,45 +64,36 @@ int
 main(int argc, const char *argv[])
 {
     cache_simulator_knobs_t knobs;
-    std::map<string, cache_params_t> caches;
-    string file_name = "single_core.conf";
+    std::map<std::string, cache_params_t> caches;
+    std::string file_name = "single_core.conf";
 
     config_reader_t config;
     if (!config.configure(file_name, knobs, caches)) {
-       std::cerr << "drcachesim config_reader_test failed (config error)\n";
-       exit(1);
+        std::cerr << "drcachesim config_reader_test failed (config error)\n";
+        exit(1);
     }
 
-    if (knobs.num_cores != 1 ||
-        knobs.line_size != 64 ||
-        knobs.skip_refs != 1000000 ||
-        knobs.warmup_refs != 0 ||
-        knobs.warmup_fraction != 0.8 ||
-        knobs.sim_refs != 8888888 ||
-        knobs.cpu_scheduling != true ||
-        knobs.verbose != 0) {
+    if (knobs.num_cores != 1 || knobs.line_size != 64 || knobs.skip_refs != 1000000 ||
+        knobs.warmup_refs != 0 || knobs.warmup_fraction != 0.8 ||
+        knobs.sim_refs != 8888888 || knobs.cpu_scheduling != true || knobs.verbose != 0) {
         std::cerr << "drcachesim config_reader_test failed (common params)\n";
         exit(1);
     }
 
     for (auto &cache_map : caches) {
         if (cache_map.first == "P0L1I") {
-            check_cache(caches, "P0L1I", "instruction", 0, 65536, 8, false,
-                        "P0L2", "LRU", "none", "");
-        }
-        else if (cache_map.first == "P0L1D") {
-            check_cache(caches, "P0L1D", "data", 0, 65536, 8, false,
-                        "P0L2", "LRU", "none", "");
-        }
-        else if (cache_map.first == "P0L2") {
-            check_cache(caches, "P0L2", "unified", -1, 524288, 16, true,
-                        "LLC", "LRU", "none", "");
-        }
-        else if (cache_map.first == "LLC") {
-            check_cache(caches, "LLC", "unified", -1, 1048576, 16, true,
-                        "memory", "LRU", "none", "misses.txt");
-        }
-        else {
+            check_cache(caches, "P0L1I", "instruction", 0, 65536, 8, false, "P0L2", "LRU",
+                        "none", "");
+        } else if (cache_map.first == "P0L1D") {
+            check_cache(caches, "P0L1D", "data", 0, 65536, 8, false, "P0L2", "LRU",
+                        "none", "");
+        } else if (cache_map.first == "P0L2") {
+            check_cache(caches, "P0L2", "unified", -1, 524288, 16, true, "LLC", "LRU",
+                        "none", "");
+        } else if (cache_map.first == "LLC") {
+            check_cache(caches, "LLC", "unified", -1, 1048576, 16, true, "memory", "LRU",
+                        "none", "misses.txt");
+        } else {
             std::cerr << "drcachesim config_reader_test failed (unknown cache)\n";
             exit(1);
         }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,21 +43,30 @@
 #include "../common/named_pipe.h"
 #include "../common/trace_entry.h"
 
-class ipc_reader_t : public reader_t
-{
- public:
+class ipc_reader_t : public reader_t {
+public:
     ipc_reader_t();
-    explicit ipc_reader_t(const char *ipc_name);
+    ipc_reader_t(const char *ipc_name, int verbosity);
     virtual ~ipc_reader_t();
     virtual bool operator!();
     // This potentially blocks.
-    virtual bool init();
-    std::string get_pipe_name() const;
+    virtual bool
+    init();
+    std::string
+    get_pipe_name() const;
 
- protected:
-    virtual trace_entry_t * read_next_entry();
+protected:
+    virtual trace_entry_t *
+    read_next_entry();
 
- private:
+    virtual bool
+    read_next_thread_entry(size_t, trace_entry_t *, bool *)
+    {
+        // Only an interleaved stream is supported.
+        return false;
+    }
+
+private:
     named_pipe_t pipe;
     bool creation_success;
 
@@ -65,7 +74,7 @@ class ipc_reader_t : public reader_t
     // The atomic write size for a pipe on Linux is 4096 bytes but
     // we want to go ahead and read as much data as we can at one
     // time.
-    static const int BUF_SIZE = 16*1024;
+    static const int BUF_SIZE = 16 * 1024;
     trace_entry_t buf[BUF_SIZE];
     trace_entry_t *cur_buf;
     trace_entry_t *end_buf;

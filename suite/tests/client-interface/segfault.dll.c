@@ -37,22 +37,21 @@
 static void **expected_fault_address;
 
 #if defined(UNIX)
-# include <signal.h>
+#    include <signal.h>
 
 static dr_signal_action_t
 signal_event(void *dcontext, dr_siginfo_t *info)
 {
     if (info->sig == SIGABRT) {
         /* do nothing */
-    } else if (info->sig == SIGSEGV &&
-               info->access_address == *expected_fault_address) {
+    } else if (info->sig == SIGSEGV && info->access_address == *expected_fault_address) {
         dr_fprintf(STDERR, "dr handler ok\n");
     } else {
         dr_fprintf(STDERR,
-                   "dr handler got signal %d with addr "PFX
-                   ", but expected signal %d with addr "PFX"\n",
-                   info->sig, (ptr_uint_t)info->access_address,
-                   SIGSEGV, (ptr_uint_t)*expected_fault_address);
+                   "dr handler got signal %d with addr " PFX
+                   ", but expected signal %d with addr " PFX "\n",
+                   info->sig, (ptr_uint_t)info->access_address, SIGSEGV,
+                   (ptr_uint_t)*expected_fault_address);
     }
     return DR_SIGNAL_DELIVER;
 }
@@ -67,12 +66,11 @@ exception_event(void *dcontext, dr_exception_t *excpt)
         dr_fprintf(STDERR, "dr handler ok\n");
     } else {
         dr_fprintf(STDERR,
-                   "dr handler got exception %x with addr "PFX
-                   ", but expected exception %x with addr "PFX"\n",
+                   "dr handler got exception %x with addr " PFX
+                   ", but expected exception %x with addr " PFX "\n",
                    excpt->record->ExceptionCode,
                    (ptr_uint_t)excpt->record->ExceptionInformation[1],
-                   EXCEPTION_ACCESS_VIOLATION,
-                   (ptr_uint_t)*expected_fault_address);
+                   EXCEPTION_ACCESS_VIOLATION, (ptr_uint_t)*expected_fault_address);
     }
     return true;
 }

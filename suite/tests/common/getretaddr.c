@@ -32,58 +32,62 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h"
-#include <stdio.h>
+#    include "tools.h"
+#    include <stdio.h>
 
-#define VERBOSE 0
+#    define VERBOSE 0
 
-ptr_int_t get_retaddr(void);
-ptr_int_t get_retaddr_from_frameptr(void);
+ptr_int_t
+get_retaddr(void);
+ptr_int_t
+get_retaddr_from_frameptr(void);
 
-#undef NO_FRAME_POINTER
-#if (defined(X64) && defined(WINDOWS)) || defined(ARM)
-# define NO_FRAME_POINTER 1
-#endif
+#    undef NO_FRAME_POINTER
+#    if (defined(X64) && defined(WINDOWS)) || defined(ARM)
+#        define NO_FRAME_POINTER 1
+#    endif
 
-static void foo(void *retaddr)
+static void
+foo(void *retaddr)
 {
     ptr_int_t myaddr1, myaddr2;
-#ifdef NO_FRAME_POINTER
+#    ifdef NO_FRAME_POINTER
     /* no frame pointer available w/ the compiler we're using */
-#else
+#    else
     myaddr1 = get_retaddr_from_frameptr();
-# if VERBOSE
-    print("my own return address is "PFX"\n", myaddr1);
-# endif
-#endif
+#        if VERBOSE
+    print("my own return address is " PFX "\n", myaddr1);
+#        endif
+#    endif
     myaddr2 = (ptr_int_t)retaddr;
-#ifdef NO_FRAME_POINTER
+#    ifdef NO_FRAME_POINTER
     myaddr1 = myaddr2;
-#endif
+#    endif
     if (myaddr1 == myaddr2)
         print("return addresses match\n");
     else
         print("ERROR -- return addresses do not match\n");
-#if VERBOSE
-    print("my own return address is "PFX"\n", myaddr2);
-#endif
+#    if VERBOSE
+    print("my own return address is " PFX "\n", myaddr2);
+#    endif
 }
 
-int main()
+int
+main()
 {
     ptr_int_t myaddr;
     /* make sure dynamorio can handle this non-call */
     myaddr = get_retaddr();
-#if VERBOSE
-    print("my address is something like "PFX"\n", myaddr);
-#endif
-    tailcall_with_retaddr((void*)foo);
+#    if VERBOSE
+    print("my address is something like " PFX "\n", myaddr);
+#    endif
+    tailcall_with_retaddr((void *)foo);
     return 0;
 }
 
-
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #define FUNCNAME get_retaddr
@@ -132,4 +136,5 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 #endif

@@ -132,30 +132,35 @@ endif ()
 ##################################################
 # Preprocessor location and flags
 
-if (UNIX)
-  # "gcc -E" on a non-.c-extension file gives message:
-  #   "linker input file unused because linking not done"
-  # and doesn't produce any output, so we must use cpp for our .asm files.
-  # we assume it's in the same dir.
-  get_filename_component(compiler_path ${CMAKE_C_COMPILER} PATH)
-  find_program(CMAKE_CPP cpp HINTS "${compiler_path}" DOC "path to C preprocessor")
-  if (NOT CMAKE_CPP)
-    message(FATAL_ERROR "cpp is required to build")
-  endif (NOT CMAKE_CPP)
-  mark_as_advanced(CMAKE_CPP)
-
-  set(CPP_KEEP_COMMENTS -C)
-  set(CPP_NO_LINENUM -P)
-  set(CPP_KEEP_WHITESPACE -traditional-cpp)
-  set(CMAKE_CPP_FLAGS "")
-else (UNIX)
+if (MSVC)
   set(CMAKE_CPP ${CMAKE_C_COMPILER})
 
   set(CPP_KEEP_COMMENTS /C)
   set(CPP_NO_LINENUM /EP)
   set(CPP_KEEP_WHITESPACE "")
   set(CMAKE_CPP_FLAGS "/nologo")
-endif (UNIX)
+else ()
+  # "gcc -E" on a non-.c-extension file gives message:
+  #   "linker input file unused because linking not done"
+  # and doesn't produce any output, so we must use cpp for our .asm files.
+  # we assume it's in the same dir.
+  get_filename_component(compiler_path ${CMAKE_C_COMPILER} PATH)
+  # Allow user to set C pre-processor from environment variable
+  if (DEFINED ENV{CPP})
+    set(CMAKE_CPP $ENV{CPP})
+  else ()
+    find_program(CMAKE_CPP cpp HINTS "${compiler_path}" DOC "path to C preprocessor")
+    if (NOT CMAKE_CPP)
+      message(FATAL_ERROR "cpp is required to build")
+    endif (NOT CMAKE_CPP)
+  endif ()
+  mark_as_advanced(CMAKE_CPP)
+
+  set(CPP_KEEP_COMMENTS -C)
+  set(CPP_NO_LINENUM -P)
+  set(CPP_KEEP_WHITESPACE -traditional-cpp)
+  set(CMAKE_CPP_FLAGS "")
+endif (MSVC)
 
 ##################################################
 # Assembler location and flags
@@ -213,12 +218,8 @@ elseif (UNIX)
     endif (X64)
   elseif (ARM)
     # No 64-bit support yet.
-    set(ASM_FLAGS "${ASM_FLAGS} -mfpu=neon")
-    if (BUILD_TESTS)
-      # Some tests use deprecated instructions, disable warnings.
-      set(ASM_FLAGS "${ASM_FLAGS} -mno-warn-deprecated")
-    endif ()
-
+    # Some tests and libgcc/arm use deprecated instructions, disable warnings.
+    set(ASM_FLAGS "${ASM_FLAGS} -mfpu=neon -mno-warn-deprecated")
   endif ()
   set(ASM_FLAGS "${ASM_FLAGS} --noexecstack")
   if (DEBUG)
@@ -226,9 +227,17 @@ elseif (UNIX)
   endif (DEBUG)
 else ()
   if (X64)
+    # In case of NMake Makefiles CMAKE_ASM_COMPILER will find cl.exe, thus we need
+    # to do it manually for both ml.exe and ml64.exe
     find_program(CMAKE_ASM_COMPILER ml64.exe HINTS "${cl_path}" DOC "path to assembler")
+    if ("${CMAKE_GENERATOR}" MATCHES "NMake Makefiles")
+      set(CMAKE_ASM_COMPILER "ml64.exe")
+    endif()
   else (X64)
     find_program(CMAKE_ASM_COMPILER ml.exe HINTS "${cl_path}" DOC "path to assembler")
+    if ("${CMAKE_GENERATOR}" MATCHES "NMake Makefiles")
+      set(CMAKE_ASM_COMPILER "ml.exe")
+    endif()
   endif (X64)
   if (NOT CMAKE_ASM_COMPILER)
     message(FATAL_ERROR "assembler not found: required to build")

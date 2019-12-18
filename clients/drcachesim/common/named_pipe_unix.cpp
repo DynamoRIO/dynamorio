@@ -45,18 +45,18 @@
 
 #if defined(LINUX) && !defined(F_SETPIPE_SZ)
 // F_SETPIPE_SZ appeared in Linux 2.6.35.
-# define F_SETPIPE_SZ 1031
+#    define F_SETPIPE_SZ 1031
 #endif
 
 // Atomic pipe write buffer size
 #ifndef PIPE_BUF
-# ifdef LINUX
-#  define PIPE_BUF 4096
-# else
+#    ifdef LINUX
+#        define PIPE_BUF 4096
+#    else
 // XXX: on Mac, we should use fpathconf(_PC_PIPE_BUF) to find out the value.
 // It is always 512 as far as we know.
-#  define PIPE_BUF 512
-# endif
+#        define PIPE_BUF 512
+#    endif
 #endif
 
 #define PIPE_PERMS 0666
@@ -78,15 +78,15 @@ pipe_dir()
 #endif
 }
 
-named_pipe_t::named_pipe_t() :
-    fd(-1)
+named_pipe_t::named_pipe_t()
+    : fd(-1)
 {
     // empty
 }
 
 // We avoid extra string copies by constructing with the name where possible.
-named_pipe_t::named_pipe_t(const char *name) :
-    fd(-1)
+named_pipe_t::named_pipe_t(const char *name)
+    : fd(-1)
 {
     set_name(name); // guaranteed to succeed
 }

@@ -63,11 +63,12 @@ get_buf_target(byte *func)
     byte *buf = func;
     /* handle a jmp link */
     if (*func == 0xe9)
-        buf = func+(*(uint *)(func+1))+5;
-    return buf+0x10; /* arbitrary, we need to get away from the reloc */
+        buf = func + (*(uint *)(func + 1)) + 5;
+    return buf + 0x10; /* arbitrary, we need to get away from the reloc */
 }
 
-int main()
+int
+main()
 {
     byte *code;
     byte *adata_buf = (byte *)expendable_function;
@@ -84,8 +85,8 @@ int main()
 
     print("starting bad acode test\n");
     VirtualProtect(acode_buf, 1024, PAGE_EXECUTE_READWRITE, &old_prot);
-    code = copy_to_buf(acode_buf, 1024 /* section will be at least page size */,
-                       NULL, CODE_INC, COPY_NORMAL);
+    code = copy_to_buf(acode_buf, 1024 /* section will be at least page size */, NULL,
+                       CODE_INC, COPY_NORMAL);
     VirtualProtect(acode_buf, 1024, old_prot, &old_prot);
     test_print(code, 0);
 

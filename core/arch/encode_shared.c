@@ -48,25 +48,26 @@
 #ifdef DEBUG
 /* case 10450: give messages to clients */
 /* we can't undef ASSERT b/c of DYNAMO_OPTION */
-# undef ASSERT_TRUNCATE
-# undef ASSERT_BITFIELD_TRUNCATE
-# undef ASSERT_NOT_REACHED
-# define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    undef ASSERT_TRUNCATE
+#    undef ASSERT_BITFIELD_TRUNCATE
+#    undef ASSERT_NOT_REACHED
+#    define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 #endif
 
 /* In arch-specific file */
 bool
-encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii);
+encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t *ii);
 
 void
 decode_info_init_for_instr(decode_info_t *di, instr_t *instr);
 
 byte *
 instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc,
-                  bool check_reachable, bool *has_instr_opnds/*OUT OPTIONAL*/
-                  _IF_DEBUG(bool assert_reachable));
+                  bool check_reachable,
+                  bool *has_instr_opnds /*OUT OPTIONAL*/
+                      _IF_DEBUG(bool assert_reachable));
 
 #ifdef AARCH64
 /* exported
@@ -84,7 +85,7 @@ instr_is_encoding_possible(instr_t *instr)
 bool
 instr_is_encoding_possible(instr_t *instr)
 {
-    const instr_info_t * info = get_encoding_info(instr);
+    const instr_info_t *info = get_encoding_info(instr);
     return (info != NULL);
 }
 #endif
@@ -95,7 +96,7 @@ instr_is_encoding_possible(instr_t *instr)
 const instr_info_t *
 get_encoding_info(instr_t *instr)
 {
-    const instr_info_t * info = instr_get_instr_info(instr);
+    const instr_info_t *info = instr_get_instr_info(instr);
     decode_info_t di;
     decode_info_init_for_instr(&di, instr);
 
@@ -109,7 +110,6 @@ get_encoding_info(instr_t *instr)
     return info;
 }
 
-
 /* completely ignores reachability and predication failures */
 byte *
 instr_encode_ignore_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc)
@@ -120,17 +120,17 @@ instr_encode_ignore_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc)
 /* just like instr_encode but doesn't assert on reachability or predication failures */
 byte *
 instr_encode_check_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc,
-                                bool *has_instr_opnds/*OUT OPTIONAL*/)
+                                bool *has_instr_opnds /*OUT OPTIONAL*/)
 {
-    return instr_encode_arch(dcontext, instr, pc, pc, true, has_instr_opnds
-                             _IF_DEBUG(false));
+    return instr_encode_arch(dcontext, instr, pc, pc, true,
+                             has_instr_opnds _IF_DEBUG(false));
 }
 
 byte *
 instr_encode_to_copy(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc)
 {
-    return instr_encode_arch(dcontext, instr, copy_pc, final_pc, true, NULL
-                             _IF_DEBUG(true));
+    return instr_encode_arch(dcontext, instr, copy_pc, final_pc, true,
+                             NULL _IF_DEBUG(true));
 }
 
 byte *

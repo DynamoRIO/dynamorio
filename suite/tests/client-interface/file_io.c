@@ -32,19 +32,19 @@
  */
 
 #ifdef UNIX
-# define _GNU_SOURCE
-# include <unistd.h>
-# include <sys/time.h>
-# include <sys/resource.h>
-# include <stdio.h>
-# include <sys/syscall.h>
-# include <errno.h>
+#    define _GNU_SOURCE
+#    include <unistd.h>
+#    include <sys/time.h>
+#    include <sys/resource.h>
+#    include <stdio.h>
+#    include <sys/syscall.h>
+#    include <errno.h>
 struct compat_rlimit {
     unsigned int rlim_cur;
     unsigned int rlim_max;
 };
 #else
-# include <float.h>
+#    include <float.h>
 #endif
 
 #if defined(UNIX) && defined(SYS_prlimit64)
@@ -56,8 +56,8 @@ sys_prlimit(pid_t pid, int resource, const struct rlimit64 *new_limit,
 }
 #endif
 
-
-int main()
+int
+main()
 {
 #ifdef UNIX
     /* test i#357 by trying to close the client's file */
@@ -78,7 +78,8 @@ int main()
      * typical max we assume it's just a power of 2.
      */
     if ((rlimit.rlim_max & (rlimit.rlim_max - 1)) == 0) {
-        fprintf(stderr, "RLIMIT_NOFILE max is %llu but shouldn't be power of 2 "
+        fprintf(stderr,
+                "RLIMIT_NOFILE max is %llu but shouldn't be power of 2 "
                 "under DR\n",
                 /* The size of rlim_max depends on whether __USE_FILE_OFFSET64
                  * is defined. We simply cast it to 8-byte for printing.
@@ -91,15 +92,19 @@ int main()
     new_rlimit.rlim_max = rlimit.rlim_max;
     new_rlimit.rlim_cur = rlimit.rlim_cur / 2;
     if (setrlimit(RLIMIT_NOFILE, &new_rlimit) != 0) {
-        fprintf(stderr, "Error: fail(%d) to set rlimit for RLIMIT_NOFILE with "
-                "lower soft value\n", errno);
+        fprintf(stderr,
+                "Error: fail(%d) to set rlimit for RLIMIT_NOFILE with "
+                "lower soft value\n",
+                errno);
         return 1;
     }
     /* setrlimit with the same value */
     new_rlimit = rlimit;
     if (setrlimit(RLIMIT_NOFILE, &new_rlimit) != 0) {
-        fprintf(stderr, "Error: fail(%d) to set rlimit for RLIMIT_NOFILE "
-                "back to the same value\n", errno);
+        fprintf(stderr,
+                "Error: fail(%d) to set rlimit for RLIMIT_NOFILE "
+                "back to the same value\n",
+                errno);
         return 1;
     }
     /* setrlimit with higher value */
@@ -114,8 +119,10 @@ int main()
     new_rlimit.rlim_max = rlimit.rlim_max - 1;
     new_rlimit.rlim_cur = rlimit.rlim_cur / 2;
     if (setrlimit(RLIMIT_NOFILE, &new_rlimit) != 0) {
-        fprintf(stderr, "Error: fail(%d) to set rlimit for RLIMIT_NOFILE with "
-                "lower soft + hard values\n", errno);
+        fprintf(stderr,
+                "Error: fail(%d) to set rlimit for RLIMIT_NOFILE with "
+                "lower soft + hard values\n",
+                errno);
         return 1;
     }
     new_rlimit.rlim_max = rlimit.rlim_max;
@@ -131,7 +138,7 @@ int main()
         return 1;
     }
 
-# if defined(X86_32)
+#    if defined(X86_32)
     /* Same test but w/ compat struct */
     struct compat_rlimit crlimit;
     if (syscall(SYS_getrlimit, RLIMIT_NOFILE, &crlimit) != 0) {
@@ -142,9 +149,9 @@ int main()
         fprintf(stderr, "RLIMIT_NOFILE max is %d but shouldn't be power of 2 under DR\n",
                 crlimit.rlim_max);
     }
-# endif
+#    endif
 
-# ifdef SYS_prlimit64
+#    ifdef SYS_prlimit64
     /* test sys_prlimit */
     struct rlimit64 rlim64, new_rlim64;
     /* get rlimit */
@@ -158,14 +165,16 @@ int main()
     if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlim64, NULL) != 0) {
         fprintf(stderr,
                 "Error: fail(%d) to set prlimit for RLIMIT_NOFILE with "
-                "lower soft value\n", errno);
+                "lower soft value\n",
+                errno);
         return 1;
     }
     new_rlim64 = rlim64;
     if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlim64, NULL) != 0) {
         fprintf(stderr,
                 "Error: fail(%d) to set prlimit for RLIMIT_NOFILE back "
-                "to the same value\n", errno);
+                "to the same value\n",
+                errno);
         return 1;
     }
     new_rlim64.rlim_cur++;
@@ -184,13 +193,13 @@ int main()
         new_rlim64.rlim_max != rlim64.rlim_max) {
         fprintf(stderr, "Error: fail(%d) to set/get rlimit\n", errno);
     }
-# endif
+#    endif
 
 #endif
     /* Now test any floating-point printing at exit time in DR or a
-     * client by unmasking div-by-zero, which our_vsnprintf_float()
+     * client by unmasking div-by-zero, which d_r_vsnprintf_float()
      * relies on being masked (i#1213).
-     * On Linux the our_vsnprintf_float() code currently doesn't do a
+     * On Linux the d_r_vsnprintf_float() code currently doesn't do a
      * divide but we check there nonetheless.
      */
 #ifdef WINDOWS

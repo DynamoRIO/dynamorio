@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,15 +44,14 @@ static char app_handler_message[1024];
 static bool abort_on_segv = false;
 
 #if defined(UNIX)
-# include <signal.h>
+#    include <signal.h>
 
 static void
 handle_sigsegv(int signal, siginfo_t *siginfo, void *context)
 {
     void *fault_address = siginfo->si_addr;
     if (signal == SIGSEGV && fault_address == expected_fault_address) {
-        strncpy(app_handler_message,
-                "app handler ok",
+        strncpy(app_handler_message, "app handler ok",
                 BUFFER_SIZE_ELEMENTS(app_handler_message));
         NULL_TERMINATE_BUFFER(app_handler_message);
         if (abort_on_segv) {
@@ -60,19 +59,18 @@ handle_sigsegv(int signal, siginfo_t *siginfo, void *context)
             abort();
         }
     } else {
-        snprintf(app_handler_message,
-                 BUFFER_SIZE_ELEMENTS(app_handler_message),
-                 "app handler got signal %d with addr "PFX
-                 ", but expected signal %d with addr "PFX,
-                 signal, (ptr_uint_t)fault_address,
-                 SIGSEGV, (ptr_uint_t)expected_fault_address);
+        snprintf(app_handler_message, BUFFER_SIZE_ELEMENTS(app_handler_message),
+                 "app handler got signal %d with addr " PFX
+                 ", but expected signal %d with addr " PFX,
+                 signal, (ptr_uint_t)fault_address, SIGSEGV,
+                 (ptr_uint_t)expected_fault_address);
         NULL_TERMINATE_BUFFER(app_handler_message);
     }
     SIGLONGJMP(mark, 1);
 }
 
 #elif defined(WINDOWS)
-# include <windows.h>
+#    include <windows.h>
 
 static LONG WINAPI
 handle_exception(struct _EXCEPTION_POINTERS *exception_pointers)
@@ -82,8 +80,7 @@ handle_exception(struct _EXCEPTION_POINTERS *exception_pointers)
     void *fault_address = (void *)exception_record->ExceptionInformation[1];
     if (exception_code == EXCEPTION_ACCESS_VIOLATION &&
         fault_address == expected_fault_address) {
-        strncpy(app_handler_message,
-                "app handler ok",
+        strncpy(app_handler_message, "app handler ok",
                 BUFFER_SIZE_ELEMENTS(app_handler_message));
         NULL_TERMINATE_BUFFER(app_handler_message);
         if (abort_on_segv) {
@@ -91,12 +88,11 @@ handle_exception(struct _EXCEPTION_POINTERS *exception_pointers)
             return EXCEPTION_EXECUTE_HANDLER;
         }
     } else {
-        _snprintf(app_handler_message,
-                  BUFFER_SIZE_ELEMENTS(app_handler_message),
-                  "app handler got exception %x with addr "PFX
-                  ", but expected exception %x with addr "PFX,
-                  exception_code, (ptr_uint_t)fault_address,
-                  EXCEPTION_ACCESS_VIOLATION, (ptr_uint_t)expected_fault_address);
+        _snprintf(app_handler_message, BUFFER_SIZE_ELEMENTS(app_handler_message),
+                  "app handler got exception %x with addr " PFX
+                  ", but expected exception %x with addr " PFX,
+                  exception_code, (ptr_uint_t)fault_address, EXCEPTION_ACCESS_VIOLATION,
+                  (ptr_uint_t)expected_fault_address);
         NULL_TERMINATE_BUFFER(app_handler_message);
     }
     SIGLONGJMP(mark, 1);
@@ -107,8 +103,7 @@ static void
 access_memory(void *address, bool write, void *fault_address)
 {
     expected_fault_address = fault_address;
-    strncpy(app_handler_message,
-            "app handler was not called",
+    strncpy(app_handler_message, "app handler was not called",
             BUFFER_SIZE_ELEMENTS(app_handler_message));
     NULL_TERMINATE_BUFFER(app_handler_message);
     if (SIGSETJMP(mark) == 0) {
@@ -158,16 +153,16 @@ main(int argc, char *argv[])
      */
     print("accessing both pages\n");
     for (i = 1; i < sizeof(void *); i++) {
-      print("i=%d\n", i);
-      access_memory(base + i, 0, p + PAGE_SIZE);
-      access_memory(base + i, 1, p + PAGE_SIZE);
+        print("i=%d\n", i);
+        access_memory(base + i, 0, p + PAGE_SIZE);
+        access_memory(base + i, 1, p + PAGE_SIZE);
     }
 
     print("accessing the second page\n");
     for (i = sizeof(void *); i < 2 * sizeof(void *); i++) {
-      print("i=%d\n", i);
-      access_memory(base + i, 0, base + i);
-      access_memory(base + i, 1, base + i);
+        print("i=%d\n", i);
+        access_memory(base + i, 0, base + i);
+        access_memory(base + i, 1, base + i);
     }
 
     print("accessing NULL\n");

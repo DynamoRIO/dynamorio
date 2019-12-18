@@ -35,11 +35,9 @@
 
 #include <string.h>
 
-enum {
-    MODULE_PATH_LEN = 1024
-};
+enum { MODULE_PATH_LEN = 1024 };
 
-static char main_module[MODULE_PATH_LEN] = {'\0'};
+static char main_module[MODULE_PATH_LEN] = { '\0' };
 static int num_main_module_loads = 0;
 
 static void

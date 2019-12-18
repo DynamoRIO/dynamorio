@@ -50,11 +50,17 @@ extern "C" {
 
 /** Status return values from drmemtrace functions. */
 typedef enum {
-    DRMEMTRACE_SUCCESS,                  /**< Operation succeeded. */
-    DRMEMTRACE_ERROR,                    /**< Operation failed. */
-    DRMEMTRACE_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter. */
-    DRMEMTRACE_ERROR_NOT_IMPLEMENTED,    /**< Operation failed: not implemented. */
+    DRMEMTRACE_SUCCESS,                 /**< Operation succeeded. */
+    DRMEMTRACE_ERROR,                   /**< Operation failed. */
+    DRMEMTRACE_ERROR_INVALID_PARAMETER, /**< Operation failed: invalid parameter. */
+    DRMEMTRACE_ERROR_NOT_IMPLEMENTED,   /**< Operation failed: not implemented. */
 } drmemtrace_status_t;
+
+/**
+ * Name of drmgr instrumentation pass priorities for app2app, analysis, insert,
+ * and instru2instru.
+ */
+#define DRMGR_PRIORITY_NAME_MEMTRACE "memtrace"
 
 DR_EXPORT
 /**
@@ -91,9 +97,7 @@ typedef file_t (*drmemtrace_open_file_func_t)(const char *fname, uint mode_flag)
  *
  * \return the actual number of bytes read.
  */
-typedef ssize_t (*drmemtrace_read_file_func_t)(file_t file,
-                                               void *buf,
-                                               size_t count);
+typedef ssize_t (*drmemtrace_read_file_func_t)(file_t file, void *buf, size_t count);
 
 /**
  * Function for file write.
@@ -107,8 +111,7 @@ typedef ssize_t (*drmemtrace_read_file_func_t)(file_t file,
  *
  * \return the actual number of bytes written.
  */
-typedef ssize_t (*drmemtrace_write_file_func_t)(file_t file,
-                                                const void *data,
+typedef ssize_t (*drmemtrace_write_file_func_t)(file_t file, const void *data,
                                                 size_t count);
 
 /**
@@ -117,7 +120,7 @@ typedef ssize_t (*drmemtrace_write_file_func_t)(file_t file,
  *
  * @param[in] file  The file to be closed.
  */
-typedef void  (*drmemtrace_close_file_func_t)(file_t file);
+typedef void (*drmemtrace_close_file_func_t)(file_t file);
 
 /**
  * Function for directory creation.
@@ -129,7 +132,6 @@ typedef void  (*drmemtrace_close_file_func_t)(file_t file);
  */
 typedef bool (*drmemtrace_create_dir_func_t)(const char *dir);
 
-
 DR_EXPORT
 /**
  * Registers functions to replace the default file operations for offline tracing.
@@ -139,8 +141,8 @@ DR_EXPORT
  * application code.
  */
 drmemtrace_status_t
-drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
-                            drmemtrace_read_file_func_t  read_file_func,
+drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
+                            drmemtrace_read_file_func_t read_file_func,
                             drmemtrace_write_file_func_t write_file_func,
                             drmemtrace_close_file_func_t close_file_func,
                             drmemtrace_create_dir_func_t create_dir_func);
@@ -161,8 +163,8 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
  *
  * \return whether successful.  Failure is considered unrecoverable.
  */
-typedef bool (*drmemtrace_handoff_func_t)(file_t file, void *data,
-                                          size_t data_size, size_t alloc_size);
+typedef bool (*drmemtrace_handoff_func_t)(file_t file, void *data, size_t data_size,
+                                          size_t alloc_size);
 
 /**
  * Function for process exit.  This is called during the tracer shutdown, giving
@@ -204,8 +206,7 @@ DR_EXPORT
  */
 drmemtrace_status_t
 drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
-                          drmemtrace_exit_func_t exit_func,
-                          void *exit_func_arg);
+                          drmemtrace_exit_func_t exit_func, void *exit_func_arg);
 
 /**
  * The name of the file in -offline mode where module data is written.
@@ -245,7 +246,7 @@ DR_EXPORT
  * parsing and processing routines for the custom data.
  */
 drmemtrace_status_t
-drmemtrace_custom_module_data(void * (*load_cb)(module_data_t *module),
+drmemtrace_custom_module_data(void *(*load_cb)(module_data_t *module),
                               int (*print_cb)(void *data, char *dst, size_t max_len),
                               void (*free_cb)(void *data));
 
@@ -267,7 +268,19 @@ drmemtrace_filter_threads(bool (*should_trace_thread_cb)(thread_id_t tid,
                                                          void *user_data),
                           void *user_value);
 
+DR_EXPORT
+/**
+ * Fetch the timestamp from a raw trace bundle. The API checks if the bundle
+ * is a thread start or not, and fetches the timestamp from the appropriate
+ * location.
+ * Returns DRMEMTRACE_ERROR_INVALID_PARAMETER if the pointer parameters are
+ * null or if the trace is too short.
+ */
+drmemtrace_status_t
+drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
+                                            OUT uint64 *timestamp);
+
 #ifdef __cplusplus
 }
 #endif
-#endif  /* _DRMEMTRACE_H */
+#endif /* _DRMEMTRACE_H */

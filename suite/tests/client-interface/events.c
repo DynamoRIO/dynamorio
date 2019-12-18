@@ -40,20 +40,19 @@
 #include "tools.h"
 
 #ifdef WINDOWS
-# include <windows.h>
-# include <stdio.h>
+#    include <windows.h>
+#    include <stdio.h>
 #else
-# include <stdlib.h>
-# include <stdio.h>
-# include <string.h>
-# include <unistd.h>
-# include <dlfcn.h>
-# include <signal.h>
-# include <ucontext.h>
-# include <assert.h>
-# include <sys/wait.h> /* for wait */
+#    include <stdlib.h>
+#    include <stdio.h>
+#    include <string.h>
+#    include <unistd.h>
+#    include <dlfcn.h>
+#    include <signal.h>
+#    include <ucontext.h>
+#    include <assert.h>
+#    include <sys/wait.h> /* for wait */
 #endif
-
 
 #ifdef UNIX
 static void
@@ -69,7 +68,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 #endif /* UNIX */
 
 int
-main(int argc, char** argv)
+main(int argc, char **argv)
 {
 #ifdef WINDOWS
     HMODULE hmod;
@@ -79,10 +78,10 @@ main(int argc, char** argv)
      */
     __try {
         HANDLE heap = GetProcessHeap();
-        char *buf = (char *)HeapAlloc(((char *)heap)+1, HEAP_GENERATE_EXCEPTIONS, 10);
-    }
-    __except (GetExceptionCode() == STATUS_ACCESS_VIOLATION ?
-              EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+        char *buf = (char *)HeapAlloc(((char *)heap) + 1, HEAP_GENERATE_EXCEPTIONS, 10);
+    } __except (GetExceptionCode() == STATUS_ACCESS_VIOLATION
+                    ? EXCEPTION_EXECUTE_HANDLER
+                    : EXCEPTION_CONTINUE_SEARCH) {
     }
 
     /*
@@ -107,14 +106,14 @@ main(int argc, char** argv)
     /* FIXME: We used to test a module with a large .bss here.  Try to do that
      * again.
      */
-    hmod = dlopen(argv[1], RTLD_LAZY|RTLD_LOCAL);
+    hmod = dlopen(argv[1], RTLD_LAZY | RTLD_LOCAL);
     if (hmod != NULL)
         dlclose(hmod);
     else
         print("module load failed: %s\n", dlerror());
 
     /* test load of non-existent file */
-    hmod = dlopen("foo_bar_no_exist.so", RTLD_LAZY|RTLD_LOCAL);
+    hmod = dlopen("foo_bar_no_exist.so", RTLD_LAZY | RTLD_LOCAL);
     if (hmod != NULL) {
         print("ERROR - module load of %s succeeded\n", buf);
         dlclose(hmod);
@@ -135,8 +134,7 @@ main(int argc, char** argv)
      */
     if (fork() == 0) {
         abort();
-    }
-    else {
+    } else {
         wait(NULL);
     }
 #endif /* UNIX */
@@ -147,10 +145,10 @@ main(int argc, char** argv)
      */
     __try {
         HANDLE heap = GetProcessHeap();
-        char *buf = (char *)HeapAlloc(((char *)heap)+1, HEAP_GENERATE_EXCEPTIONS, 10);
-    }
-    __except (GetExceptionCode() == STATUS_ACCESS_VIOLATION ?
-              EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+        char *buf = (char *)HeapAlloc(((char *)heap) + 1, HEAP_GENERATE_EXCEPTIONS, 10);
+    } __except (GetExceptionCode() == STATUS_ACCESS_VIOLATION
+                    ? EXCEPTION_EXECUTE_HANDLER
+                    : EXCEPTION_CONTINUE_SEARCH) {
     }
 #else
     *(int *)4 = 0;
@@ -163,12 +161,11 @@ main(int argc, char** argv)
 extern "C"
 #endif
 #ifdef WINDOWS
-__declspec(dllexport)
+    __declspec(dllexport)
 #else
 __attribute__((visibility("default")))
 #endif
-void
-redirect(void)
+        void redirect(void)
 {
     print("Redirect success!\n");
     exit(0);

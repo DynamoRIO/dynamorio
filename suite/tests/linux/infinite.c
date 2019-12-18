@@ -58,7 +58,7 @@ main()
     __asm__("       svc    0             @ kernel");
     __asm__("aroundexit: bl doexit");
 #else
-# error NYI
+#    error NYI
 #endif
     return 0;
 }

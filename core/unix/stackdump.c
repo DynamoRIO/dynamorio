@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,14 +48,13 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <sys/wait.h>
-#include <string.h>
 
 #include "../globals.h"
 #include "os_private.h"
 #ifdef LINUX
-# include "include/syscall.h"
+#    include "include/syscall.h"
 #else
-# include <sys/syscall.h>
+#    include <sys/syscall.h>
 #endif
 
 #define DEBUGGER "gdb"
@@ -73,18 +72,18 @@
  */
 #define BATCH_MODE 0
 #if BATCH_MODE
-# define DEBUGGER_COMMAND "where\nquit\n"
+#    define DEBUGGER_COMMAND "where\nquit\n"
 #else
 /* FIXME: want to have some <enter>s to handle multi-page,
  * but don't want to repeat where cmd, so I use pwd, which is
  * useful.  Hopefully two pages is enough.
  */
-# define DEBUGGER_COMMAND "where\npwd\nquit\n"
+#    define DEBUGGER_COMMAND "where\npwd\nquit\n"
 #endif
 
 #ifndef WAIT_ANY
 /* WAIT_ANY is not defined in Android system */
-# define WAIT_ANY  (-1)    /* Any process.  */
+#    define WAIT_ANY (-1) /* Any process.  */
 #endif
 
 pid_t
@@ -122,12 +121,14 @@ fork_syscall(void)
      * Once figure it out, need to have dynamic check for threading version to know
      * what to do.
      */
-# if 0
+#    if 0
     /* from /usr/include/bits/sched.h ifdef __USE_MISC: */
-#  define CLONE_CHILD_CLEARTID 0x00200000 /* Register exit futex and memory
-                                            * location to clear.  */
-#  define CLONE_CHILD_SETTID 0x01000000   /* Store TID in userlevel buffer in
-                                            * the child.  */
+#        define CLONE_CHILD_CLEARTID                     \
+            0x00200000 /* Register exit futex and memory \
+                        * location to clear.  */
+#        define CLONE_CHILD_SETTID                         \
+            0x01000000 /* Store TID in userlevel buffer in \
+                        * the child.  */
     /* i386/fork.c pass a 5th arg, &THREAD_SELF->tid, is it needed for SETTID? */
     static uint tid;
     return dynamorio_syscall(SYS_clone, 4/* 5 */,
@@ -135,16 +136,16 @@ fork_syscall(void)
                               * child_tidptr, something! */
                              CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID | SIGCHLD,
                              0, NULL, NULL /*, &tid*/);
-# else
+#    else
     /* my workaround for now: just use libc -- binaries won't be back-compatible though */
     return fork();
-# endif
+#    endif
 #else
-# ifdef SYS_fork
+#    ifdef SYS_fork
     return dynamorio_syscall(SYS_fork, 0);
-# else
+#    else
     return dynamorio_syscall(SYS_clone, 5, SIGCHLD, NULL, NULL, NULL, NULL);
-# endif
+#    endif
 #endif
 }
 
@@ -159,7 +160,7 @@ fork_syscall(void)
 /*-----------------------------------------------------------------------*/
 
 void
-stackdump(void)
+d_r_stackdump(void)
 {
     int pid, core_pid;
     /* get name now -- will be same for children */
@@ -170,7 +171,7 @@ stackdump(void)
 
 #ifdef VMX86_SERVER
     if (os_in_vmkernel_userworld()) {
-       return;                     /* no local gdb, no multithreaded fork */
+        return; /* no local gdb, no multithreaded fork */
     }
 #endif
 
@@ -182,9 +183,9 @@ stackdump(void)
     pid = fork_syscall();
     if (pid == 0) { /* child */
 #if VERBOSE
-        SYSLOG_INTERNAL_ERROR("about to dump core in process %d parent %d thread "
-                              TIDFMT"",
-                              get_process_id(), get_parent_id(), get_thread_id());
+        SYSLOG_INTERNAL_ERROR("about to dump core in process %d parent %d thread " TIDFMT
+                              "",
+                              get_process_id(), get_parent_id(), d_r_get_thread_id());
 #endif
         /* We used to use abort here, but that had lots of complications with
          * pthreads and libc, so now we just dereference NULL.
@@ -198,14 +199,13 @@ stackdump(void)
         SYSLOG_INTERNAL_ERROR("about to exit process %d", get_process_id());
 #endif
         exit_process_syscall(0);
-    }
-    else if (pid == -1) {
+    } else if (pid == -1) {
         SYSLOG_INTERNAL_ERROR("ERROR: could not fork to dump core");
         exit_process_syscall(1);
     }
 #if VERBOSE
     SYSLOG_INTERNAL_ERROR("parent %d %d waiting for child %d", get_process_id(),
-                          get_thread_id(), pid);
+                          d_r_get_thread_id(), pid);
 #endif
     /* Parent continues */
     core_pid = pid;
@@ -226,7 +226,7 @@ stackdump(void)
         int execve_errno;
 
         /* Open a temporary file for the input: the "where" command */
-        fp = os_open(tmp_name, OS_OPEN_REQUIRE_NEW|OS_OPEN_WRITE);
+        fp = os_open(tmp_name, OS_OPEN_REQUIRE_NEW | OS_OPEN_WRITE);
         os_write(fp, DEBUGGER_COMMAND, strlen(DEBUGGER_COMMAND));
         os_close(fp);
 
@@ -238,13 +238,13 @@ stackdump(void)
 #if !BATCH_MODE
         /* Redirect stdin from the temporary file */
         close_syscall(0); /* close stdin */
-        dup_syscall(fd); /* replace file descriptor 0 with reference to temp file */
+        dup_syscall(fd);  /* replace file descriptor 0 with reference to temp file */
 #endif
         close_syscall(fd); /* close the other reference to temporary file */
 
         /* Find the core file */
         strncpy(core_name, CORE_NAME, 127);
-        core_name[127]  = '\0'; /* if max no null */
+        core_name[127] = '\0'; /* if max no null */
         fd = open_syscall(core_name, O_RDONLY, 0);
         if (fd < 0) {
             snprintf(core_name, 128, "%s.%d", CORE_NAME, core_pid);
@@ -264,8 +264,7 @@ stackdump(void)
 
         SYSLOG_INTERNAL_ERROR("-------------------------------------------");
         SYSLOG_INTERNAL_ERROR("stackdump: --- now running the debugger ---");
-        SYSLOG_INTERNAL_ERROR("%s %s %s %s",
-                              DEBUGGER, QUIET_MODE, exec_name, core_name);
+        SYSLOG_INTERNAL_ERROR("%s %s %s %s", DEBUGGER, QUIET_MODE, exec_name, core_name);
         SYSLOG_INTERNAL_ERROR("-------------------------------------------");
         i = 0;
         /* We rely on /usr/bin/env to do the PATH search for gdb on our behalf.
@@ -282,11 +281,9 @@ stackdump(void)
         argv[i++] = core_name;
         argv[i++] = NULL;
         execve_errno = execve_syscall("/usr/bin/env", argv, our_environ);
-        SYSLOG_INTERNAL_ERROR("ERROR: execve failed for debugger: %d",
-                              -execve_errno);
+        SYSLOG_INTERNAL_ERROR("ERROR: execve failed for debugger: %d", -execve_errno);
         exit_process_syscall(1);
-    }
-    else if (pid == -1) {
+    } else if (pid == -1) {
         SYSLOG_INTERNAL_ERROR("ERROR: could not fork to run debugger");
         exit_process_syscall(1);
     }
