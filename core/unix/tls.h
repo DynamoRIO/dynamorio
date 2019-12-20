@@ -267,7 +267,8 @@ typedef struct _os_local_state_t {
 /* FIXME i#3990: For MACOS, we use a union to save tls space. Unfortunately, this
  * results in not initialising client tls slots which are allocated using
  * dr_raw_tls_calloc. Figuring where to perform memset to clear os_seg_info is not
- * apparently clear due to interleaved thread and instrum inits.  */
+ * apparently clear due to interleaved thread and instrum inits.
+ */
 #ifdef LINUX
     os_seg_info_t os_seg_info;
     void *client_tls[MAX_NUM_CLIENT_TLS];

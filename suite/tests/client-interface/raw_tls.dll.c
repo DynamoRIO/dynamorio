@@ -49,7 +49,7 @@ get_tls_addr(int slot_idx)
 }
 
 static void
-check()
+check(void)
 {
     if (get_tls_addr(0) != NULL || get_tls_addr(1) != NULL || get_tls_addr(2) != NULL ||
         get_tls_addr(3) != NULL)
