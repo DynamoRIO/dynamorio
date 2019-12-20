@@ -43,7 +43,6 @@ static uint tls_raw_base;
 static void **
 get_tls_addr(int slot_idx)
 {
-
     byte *base = dr_get_dr_segment_base(tls_raw_reg);
     byte *addr = (byte *)(base + tls_raw_base + slot_idx * sizeof(void *));
     return *((void **)addr);
@@ -52,7 +51,6 @@ get_tls_addr(int slot_idx)
 static void
 check()
 {
-
     if (get_tls_addr(0) != NULL || get_tls_addr(1) != NULL || get_tls_addr(2) != NULL ||
         get_tls_addr(3) != NULL)
         dr_fprintf(STDERR, "raw TLS should be NULL\n");
@@ -62,7 +60,6 @@ static dr_emit_flags_t
 insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr, bool for_trace,
        bool translating, void *user_data)
 {
-
     insert_called = true;
     check();
 
@@ -82,7 +79,6 @@ event_thread_init(void *drcontext)
 static void
 event_exit()
 {
-
     if (!drmgr_unregister_thread_init_event(event_thread_init) ||
         !drmgr_unregister_bb_insertion_event(insert))
         dr_fprintf(STDERR, "error\n");
@@ -98,7 +94,6 @@ event_exit()
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-
     drmgr_init();
 
     dr_register_exit_event(event_exit);
