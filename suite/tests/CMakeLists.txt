@@ -2230,6 +2230,12 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.low_on_memory.dll drmgr)
   use_DynamoRIO_extension(client.low_on_memory.dll drwrap)
 
+  if (LINUX)
+    tobuild_ci(client.raw_tls client-interface/raw_tls.c "" "" "")
+    link_with_pthread(client.raw_tls)
+    use_DynamoRIO_extension(client.raw_tls.dll drmgr)
+  endif ()
+
   if (X86)
     if (NOT MACOS)
       # XXX i#2985: The test's asm doesn't build with MacOS's clang.
