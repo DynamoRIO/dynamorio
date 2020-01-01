@@ -1590,6 +1590,9 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "shlwapi.dll";
     } else if (str_case_prefix(name, "API-MS-Win-Power-Base-L1-1")) {
         return "powrprof.dll";
+    } else if (str_case_prefix(name, "Ext-MS-Win-NtUser-") ||
+               str_case_prefix(name, "API-MS-Win-RtCore-NtUser-")) {
+        return "user32.dll";
     } else {
         SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
         /* good guess */
@@ -1605,7 +1608,8 @@ privload_map_name(const char *impname, privmod_t *immed_dep)
 {
     /* 0) on Windows 7, the API-set pseudo-dlls map to real dlls */
     if (get_os_version() >= WINDOWS_VERSION_7 &&
-        str_case_prefix(impname, "API-MS-Win-")) {
+        (str_case_prefix(impname, "API-MS-Win-") ||
+         str_case_prefix(impname, "Ext-MS-Win-"))) {
         IF_DEBUG(const char *apiname = impname;)
         /* We need immediate dependent to avoid infinite chain when hit
          * kernel32 OpenProcessToken forwarder which needs to forward
