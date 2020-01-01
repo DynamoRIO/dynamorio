@@ -508,8 +508,11 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
             message("Env setup: setting PATH to ${newpath}")
           endif ()
           set(ENV{PATH} "${newpath}")
-          string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])" "\\1\\2\\1amd64"
-            newlib "$ENV{LIB}")
+          # VS2017 does not append so we replace first.
+          string(REGEX REPLACE "([/\\\\])x86" "\\1x64" newlib "$ENV{lib}")
+          # Now try to support pre-VS2017.
+          string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])([^/\\\\])" "\\1\\2\\1amd64\\3"
+            newlib "${newlib}")
           # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64": grrr
           string(REGEX REPLACE "(v[^/\\\\]*[/\\\\][Ll][Ii][Bb][/\\\\])[Aa][Mm][Dd]64"
             "\\1x64"
