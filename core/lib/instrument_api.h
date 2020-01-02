@@ -4543,6 +4543,8 @@ DR_API
  * in failure to initialize for certain applications.  On Linux they
  * are more plentiful and transparent but currently DR limits clients
  * to no more than 64 slots.
+ *
+ * \note On Mac OS, TLS slots may not be initialized to zero.
  */
 bool
 dr_raw_tls_calloc(OUT reg_id_t *tls_register, OUT uint *offset, IN uint num_slots,
