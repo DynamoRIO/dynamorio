@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -54,6 +54,13 @@ my_setenv(const char *var, const char *value)
 #endif
 }
 
+// Test recording large values that require two entries.
+ptr_uint_t
+return_big_value(int arg)
+{
+    return (((ptr_uint_t)1 << (8 * sizeof(ptr_uint_t) - 1)) - 1) | arg;
+}
+
 static int
 do_some_work(int arg)
 {
@@ -65,7 +72,7 @@ do_some_work(int arg)
     for (int i = 0; i < iters; ++i) {
         vals[i] = (double *)malloc(sizeof(double));
         *vals[i] = sin(*val);
-        *val += *vals[i];
+        *val += *vals[i] + (double)return_big_value(i);
     }
     for (int i = 0; i < iters; i++) {
         *val += *vals[i];
@@ -86,7 +93,8 @@ main(int argc, const char *argv[])
     if (!my_setenv("DYNAMORIO_OPTIONS",
                    "-stderr_mask 0xc -rstats_to_stderr"
                    " -client_lib ';;-offline -record_heap"
-                   " -record_function \"malloc|0|1\"'"))
+                   // Test large values that require two entries.
+                   " -record_function \"malloc|0|1&return_big_value|42|1\"'"))
         std::cerr << "failed to set env var!\n";
 
     for (int i = 0; i < 3; i++) {
