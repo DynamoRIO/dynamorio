@@ -709,7 +709,7 @@ if (UNIX)
   # Prefer the new 'override' keyword.
   CHECK_CXX_COMPILER_FLAG("-Wsuggest-override" suggest_override_avail)
   if (suggest_override_avail)
-    set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_CFLAGS} -Wsuggest-override")
+    set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -Wsuggest-override")
   endif ()
   # now that the user must set non-default -mNN we don't nec. need these:
   if (X86)
