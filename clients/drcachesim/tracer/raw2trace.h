@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -968,8 +968,8 @@ private:
             // instruction *fetches*, not instruction retirement, and we want to
             // include a faulting instruction before its raised signal.
             bool interrupted = false;
-            error = handle_kernel_interrupt(tls, &buf, cur_modoffs, instr->length(),
-                                            &interrupted);
+            error = handle_kernel_interrupt_and_markers(tls, &buf, cur_modoffs,
+                                                        instr->length(), &interrupted);
             if (!error.empty())
                 return error;
             if (interrupted) {
@@ -987,8 +987,8 @@ private:
                                           reg_vals);
                     if (!error.empty())
                         return error;
-                    error = handle_kernel_interrupt(tls, &buf, cur_modoffs,
-                                                    instr->length(), &interrupted);
+                    error = handle_kernel_interrupt_and_markers(
+                        tls, &buf, cur_modoffs, instr->length(), &interrupted);
                     if (!error.empty())
                         return error;
                     if (interrupted)
@@ -1001,8 +1001,8 @@ private:
                                           reg_vals);
                     if (!error.empty())
                         return error;
-                    error = handle_kernel_interrupt(tls, &buf, cur_modoffs,
-                                                    instr->length(), &interrupted);
+                    error = handle_kernel_interrupt_and_markers(
+                        tls, &buf, cur_modoffs, instr->length(), &interrupted);
                     if (!error.empty())
                         return error;
                     if (interrupted)
@@ -1034,46 +1034,70 @@ private:
     }
 
     // Returns true if a kernel interrupt happened at cur_modoffs.
+    // Outputs a kernel interrupt if this is the right location.
+    // Outputs any other markers observed.
     std::string
-    handle_kernel_interrupt(void *tls, INOUT trace_entry_t **buf_in, uint64_t cur_modoffs,
-                            int instr_length, OUT bool *interrupted)
+    handle_kernel_interrupt_and_markers(void *tls, INOUT trace_entry_t **buf_in,
+                                        uint64_t cur_modoffs, int instr_length,
+                                        OUT bool *interrupted)
     {
         // To avoid having to backtrack later, we read ahead to ensure we insert
         // an interrupt at the right place between memrefs or between instructions.
         *interrupted = false;
-        const offline_entry_t *in_entry = impl()->get_next_entry(tls);
-        if (in_entry == nullptr)
-            return "";
-        if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-            in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-            in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-            // A signal/exception marker in the next entry could be at any point
-            // among non-memref instrs, or it could be after this bb.
-            // We check the stored offset.
-            uint64_t int_modoffs = (uint64_t)in_entry->extended.valueA;
-            impl()->log(4,
-                        "Checking whether reached signal/exception +" PIFX
-                        " vs cur +" PIFX "\n",
-                        int_modoffs, cur_modoffs);
-            // Because we increment the instr fetch first, the signal modoffs may be
-            // less than the current for a memref fault.
-            if (int_modoffs == cur_modoffs || int_modoffs + instr_length == cur_modoffs) {
-                impl()->log(4, "Signal/exception interrupted the bb @ +" PIFX "\n",
-                            int_modoffs);
+        bool append = false;
+        do {
+            const offline_entry_t *in_entry = impl()->get_next_entry(tls);
+            if (in_entry == nullptr)
+                return "";
+            append = false;
+            if (in_entry->extended.type != OFFLINE_TYPE_EXTENDED ||
+                in_entry->extended.ext != OFFLINE_EXT_TYPE_MARKER) {
+                // Not a marker: just put it back below.
+            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+                // A signal/exception marker in the next entry could be at any point
+                // among non-memref instrs, or it could be after this bb.
+                // We check the stored offset.
+                uint64_t int_modoffs = (uint64_t)in_entry->extended.valueA;
+                impl()->log(4,
+                            "Checking whether reached signal/exception +" PIFX
+                            " vs cur +" PIFX "\n",
+                            int_modoffs, cur_modoffs);
+                // Because we increment the instr fetch first, the signal modoffs may be
+                // less than the current for a memref fault.
+                if (int_modoffs == cur_modoffs ||
+                    int_modoffs + instr_length == cur_modoffs) {
+                    impl()->log(4, "Signal/exception interrupted the bb @ +" PIFX "\n",
+                                int_modoffs);
+                    append = true;
+                    *interrupted = true;
+                } else {
+                    // Put it back. We do not have a problem with other markers
+                    // following this, because we will have to hit the correct point
+                    // for this interrupt marker before we hit a memref entry, avoiding
+                    // the danger of wanting a memref entry, seeing a marker, continuing,
+                    // and hitting a fatal error when we find the memref back in the
+                    // not-inside-a-block main loop.
+                }
+            } else {
+                // It's some other marker, such as for function tracing.  Output it now,
+                // to avoid confusion with memrefs.
+                append = true;
+            }
+            if (append) {
                 byte *buf = reinterpret_cast<byte *>(*buf_in);
                 buf += trace_metadata_writer_t::write_marker(
                     buf, (trace_marker_type_t)in_entry->extended.valueB,
-                    (uintptr_t)int_modoffs);
+                    (uintptr_t)in_entry->extended.valueA);
                 *buf_in = reinterpret_cast<trace_entry_t *>(buf);
                 impl()->log(3, "Appended marker type %u value " PIFX "\n",
                             (trace_marker_type_t)in_entry->extended.valueB,
-                            (uintptr_t)int_modoffs);
-                *interrupted = true;
-                return "";
+                            (uintptr_t)in_entry->extended.valueA);
+
+            } else {
+                // Put it back.
+                impl()->unread_last_entry(tls);
             }
-        }
-        // Put it back.
-        impl()->unread_last_entry(tls);
+        } while (append);
         return "";
     }
 
