@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -221,6 +221,7 @@ Further non-compatibility-affecting changes include:
    to get the static number of supported SIMD vectors.
  - Added drmgr_register_low_on_memory_event(), drmgr_unregister_low_on_memory_event()
    and their variants so that drmgr can support low-on-memory events.
+ - Added drmgr_is_first_nonlabel_instr() and instrlist_first_nonlabel().
 
 **************************************************
 <hr>
