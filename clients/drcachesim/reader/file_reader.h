@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -84,8 +84,8 @@ public:
     {
     }
     virtual ~file_reader_t();
-    virtual bool
-    init()
+    bool
+    init() override
     {
         at_eof = false;
         if (!open_input_files())
@@ -98,8 +98,9 @@ public:
     is_complete();
 
 protected:
-    virtual bool
-    read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry, OUT bool *eof);
+    bool
+    read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
+                           OUT bool *eof) override;
 
     virtual bool
     open_single_file(const std::string &path);
@@ -181,8 +182,8 @@ protected:
         return true;
     }
 
-    virtual trace_entry_t *
-    read_next_entry()
+    trace_entry_t *
+    read_next_entry() override
     {
         // We read the thread files simultaneously in lockstep and merge them into
         // a single interleaved stream in timestamp order.

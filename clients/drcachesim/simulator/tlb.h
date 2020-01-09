@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,12 +42,12 @@
 
 class tlb_t : public caching_device_t {
 public:
-    virtual void
-    request(const memref_t &memref);
+    void
+    request(const memref_t &memref) override;
 
 protected:
-    virtual void
-    init_blocks();
+    void
+    init_blocks() override;
 
     // Optimization: remember last pid in addition to last tag
     memref_pid_t last_pid;
