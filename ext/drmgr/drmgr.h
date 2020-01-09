@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -465,8 +465,8 @@ drmgr_current_bb_phase(void *drcontext);
 DR_EXPORT
 /**
  * Must be called during drmgr's insertion phase.  Returns whether \p instr is the
- * first instruction in the instruction list (as of immediately after the analysis
- * phase).
+ * first instruction (of any type) in the instruction list (as of immediately after
+ * the analysis phase).
  */
 bool
 drmgr_is_first_instr(void *drcontext, instr_t *instr);
@@ -474,8 +474,17 @@ drmgr_is_first_instr(void *drcontext, instr_t *instr);
 DR_EXPORT
 /**
  * Must be called during drmgr's insertion phase.  Returns whether \p instr is the
- * last instruction in the instruction list (as of immediately after the analysis
- * phase).
+ * first non-label instruction in the instruction list (as of immediately after
+ * the analysis phase).
+ */
+bool
+drmgr_is_first_nonlabel_instr(void *drcontext, instr_t *instr);
+
+DR_EXPORT
+/**
+ * Must be called during drmgr's insertion phase.  Returns whether \p instr is the
+ * last instruction (of any type) in the instruction list (as of immediately after
+ * the analysis phase).
  */
 bool
 drmgr_is_last_instr(void *drcontext, instr_t *instr);
