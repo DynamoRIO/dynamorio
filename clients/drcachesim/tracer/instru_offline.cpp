@@ -264,6 +264,7 @@ int
 offline_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val)
 {
     int extra_size = 0;
+#ifdef X64
     if ((unsigned long long)val >= 1ULL << EXT_VALUE_A_BITS) {
         // We need two entries.
         // XXX: What we should do is change these types to signed so we can avoid
@@ -274,6 +275,7 @@ offline_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr
         buf_ptr += extra_size;
         val = (uint)val;
     }
+#endif
     offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     entry->extended.valueA = val;
     DR_ASSERT(entry->extended.valueA == val);
