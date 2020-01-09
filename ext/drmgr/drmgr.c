@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -185,8 +185,9 @@ typedef struct _cb_list_t {
 /* Our own TLS data */
 typedef struct _per_thread_t {
     drmgr_bb_phase_t cur_phase;
-    instr_t *first_app;
-    instr_t *last_app;
+    instr_t *first_instr;
+    instr_t *first_nonlabel_instr;
+    instr_t *last_instr;
 } per_thread_t;
 
 /* Emulation note types */
@@ -704,8 +705,9 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 
     /* Pass 3: instru, per instr */
     pt->cur_phase = DRMGR_PHASE_INSERTION;
-    pt->first_app = instrlist_first(bb);
-    pt->last_app = instrlist_last(bb);
+    pt->first_instr = instrlist_first(bb);
+    pt->first_nonlabel_instr = instrlist_first_nonlabel(bb);
+    pt->last_instr = instrlist_last(bb);
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
         next_inst = instr_get_next(inst);
         for (quartet_idx = 0, pair_idx = 0, i = 0; i < iter_insert.num_def; i++) {
@@ -1173,7 +1175,15 @@ bool
 drmgr_is_first_instr(void *drcontext, instr_t *instr)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
-    return instr == pt->first_app;
+    return instr == pt->first_instr;
+}
+
+DR_EXPORT
+bool
+drmgr_is_first_nonlabel_instr(void *drcontext, instr_t *instr)
+{
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
+    return instr == pt->first_nonlabel_instr;
 }
 
 DR_EXPORT
@@ -1181,7 +1191,7 @@ bool
 drmgr_is_last_instr(void *drcontext, instr_t *instr)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
-    return instr == pt->last_app;
+    return instr == pt->last_instr;
 }
 
 static void

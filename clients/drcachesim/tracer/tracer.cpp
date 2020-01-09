@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -971,7 +971,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     drmgr_disable_auto_predication(drcontext, bb);
 
     if (op_L0_filter.get_value() && ud->repstr &&
-        drmgr_is_first_instr(drcontext, instr)) {
+        drmgr_is_first_nonlabel_instr(drcontext, instr)) {
         // XXX: the control flow added for repstr ends up jumping over the
         // aflags spill for the memref, yet it hits the lazily-delayed aflags
         // restore.  We don't have a great solution (repstr violates drreg's
@@ -991,7 +991,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          ud->last_app_pc == instr_get_app_pc(instr)) &&
         ud->strex == NULL &&
         // Ensure we have an instr entry for the start of the bb.
-        !drmgr_is_first_instr(drcontext, instr))
+        !drmgr_is_first_nonlabel_instr(drcontext, instr))
         return DR_EMIT_DEFAULT;
 
     // FIXME i#1698: there are constraints for code between ldrex/strex pairs.
@@ -1012,7 +1012,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     // Optimization: delay the simple instr trace instrumentation if possible.
     // For offline traces we want a single instr entry for the start of the bb.
-    if ((!op_offline.get_value() || !drmgr_is_first_instr(drcontext, instr)) &&
+    if ((!op_offline.get_value() || !drmgr_is_first_nonlabel_instr(drcontext, instr)) &&
         !(instr_reads_memory(instr) || instr_writes_memory(instr)) &&
         // Avoid dropping trailing instrs
         !drmgr_is_last_instr(drcontext, instr) &&
@@ -1024,7 +1024,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          (!op_offline.get_value() && !op_online_instr_types.get_value())) &&
         ud->strex == NULL &&
         // Don't bundle the zero-rep-string-iter instr.
-        (!ud->repstr || !drmgr_is_first_instr(drcontext, instr)) &&
+        (!ud->repstr || !drmgr_is_first_nonlabel_instr(drcontext, instr)) &&
         // We can't bundle with a filter.
         !op_L0_filter.get_value() &&
         // The delay instr buffer is not full.
@@ -1101,7 +1101,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // ifetch and not any of the expansion instrs.  We instrument the first
     // one to handle a zero-iter loop.  For offline, we just record the pc; for
     // online we have to ignore "instr" here in instru_online::instrument_instr().
-    if (!ud->repstr || drmgr_is_first_instr(drcontext, instr)) {
+    if (!ud->repstr || drmgr_is_first_nonlabel_instr(drcontext, instr)) {
         adjust = instrument_instr(drcontext, tag, ud, bb, instr, reg_ptr, adjust, instr);
     }
     ud->last_app_pc = instr_get_app_pc(instr);
@@ -1375,7 +1375,7 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
                             bool for_trace, bool translating, void *user_data)
 {
     uint num_instrs;
-    if (!drmgr_is_first_instr(drcontext, instr))
+    if (!drmgr_is_first_nonlabel_instr(drcontext, instr))
         return DR_EMIT_DEFAULT;
     num_instrs = (uint)(ptr_uint_t)user_data;
     drmgr_disable_auto_predication(drcontext, bb);
