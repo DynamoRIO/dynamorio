@@ -525,10 +525,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, OUT void **user_data)
 {
     /* point at first non-label instr */
-    instr_t *nonlabel = instrlist_first(bb);
-    while (instr_is_label(nonlabel))
-        nonlabel = instr_get_next(nonlabel);
-    *user_data = (void *)nonlabel;
+    *user_data = (void *)instrlist_first_nonlabel(bb);
     return DR_EMIT_DEFAULT;
 }
 

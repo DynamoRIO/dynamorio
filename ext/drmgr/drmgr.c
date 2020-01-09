@@ -706,9 +706,7 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     /* Pass 3: instru, per instr */
     pt->cur_phase = DRMGR_PHASE_INSERTION;
     pt->first_instr = instrlist_first(bb);
-    pt->first_nonlabel_instr = instrlist_first(bb);
-    while (instr_is_label(pt->first_nonlabel_instr))
-        pt->first_nonlabel_instr = instr_get_next(pt->first_nonlabel_instr);
+    pt->first_nonlabel_instr = instrlist_first_nonlabel(bb);
     pt->last_instr = instrlist_last(bb);
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
         next_inst = instr_get_next(inst);
