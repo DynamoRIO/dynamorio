@@ -1049,9 +1049,10 @@ private:
             const offline_entry_t *in_entry = impl()->get_next_entry(tls);
             if (in_entry == nullptr)
                 return "";
+            append = false;
             if (in_entry->extended.type != OFFLINE_TYPE_EXTENDED ||
                 in_entry->extended.ext != OFFLINE_EXT_TYPE_MARKER) {
-                append = false;
+                // Not a marker: just put it back below.
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
                 // A signal/exception marker in the next entry could be at any point
                 // among non-memref instrs, or it could be after this bb.
@@ -1069,6 +1070,13 @@ private:
                                 int_modoffs);
                     append = true;
                     *interrupted = true;
+                } else {
+                    // Put it back. We do not have a problem with other markers
+                    // following this, because we will have to hit the correct point
+                    // for this interrupt marker before we hit a memref entry, avoiding
+                    // the danger of wanting a memref entry, seeing a marker, continuing,
+                    // and hitting a fatal error when we find the memref back in the
+                    // not-inside-a-block main loop.
                 }
             } else {
                 // It's some other marker, such as for function tracing.  Output it now,
