@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, LLC  All rights reserved.
+ * Copyright (c) 2015-2020 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -81,15 +81,15 @@ public:
         return *this;
     }
 
-    virtual void
-    reset();
+    void
+    reset() override;
 
     std::vector<prefetching_recommendation_t *>
     generate_recommendations();
 
 protected:
-    virtual void
-    dump_miss(const memref_t &memref);
+    void
+    dump_miss(const memref_t &memref) override;
 
 private:
     // Two locality levels for prefetching are supported: nta and t0.
@@ -147,8 +147,8 @@ public:
     std::vector<prefetching_recommendation_t *>
     generate_recommendations();
 
-    virtual bool
-    print_results();
+    bool
+    print_results() override;
 
 private:
     cache_miss_stats_t *ll_stats;

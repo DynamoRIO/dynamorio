@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,10 +46,10 @@ class tlb_simulator_t : public simulator_t {
 public:
     tlb_simulator_t(const tlb_simulator_knobs_t &knobs);
     virtual ~tlb_simulator_t();
-    virtual bool
-    process_memref(const memref_t &memref);
-    virtual bool
-    print_results();
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
 
 protected:
     // Create a tlb_t object with a specific replacement policy.
