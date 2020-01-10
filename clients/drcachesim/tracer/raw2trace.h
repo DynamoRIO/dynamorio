@@ -629,11 +629,13 @@ protected:
                 // the ending of the current thread, etc.
                 return impl()->on_thread_end(tls);
             } else if (in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER) {
+                uintptr_t marker_val = 0;
+                std::string err = get_marker_value(tls, &in_entry, &marker_val);
+                if (!err.empty())
+                    return err;
                 buf += trace_metadata_writer_t::write_marker(
-                    buf, (trace_marker_type_t)in_entry->extended.valueB,
-                    (uintptr_t)in_entry->extended.valueA);
-                if (in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-                    in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+                    buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
+                if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
                     impl()->log(4, "Signal/exception between bbs\n");
                 }
                 impl()->log(3, "Appended marker type %u value " PIFX "\n",
@@ -1084,20 +1086,41 @@ private:
                 append = true;
             }
             if (append) {
+                uintptr_t marker_val = 0;
+                std::string err = get_marker_value(tls, &in_entry, &marker_val);
+                if (!err.empty())
+                    return err;
                 byte *buf = reinterpret_cast<byte *>(*buf_in);
                 buf += trace_metadata_writer_t::write_marker(
-                    buf, (trace_marker_type_t)in_entry->extended.valueB,
-                    (uintptr_t)in_entry->extended.valueA);
+                    buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
                 *buf_in = reinterpret_cast<trace_entry_t *>(buf);
                 impl()->log(3, "Appended marker type %u value " PIFX "\n",
-                            (trace_marker_type_t)in_entry->extended.valueB,
-                            (uintptr_t)in_entry->extended.valueA);
-
+                            (trace_marker_type_t)in_entry->extended.valueB, marker_val);
             } else {
                 // Put it back.
                 impl()->unread_last_entry(tls);
             }
         } while (append);
+        return "";
+    }
+
+    std::string
+    get_marker_value(void *tls, INOUT const offline_entry_t **entry, OUT uintptr_t *value)
+    {
+        uintptr_t marker_val = static_cast<uintptr_t>((*entry)->extended.valueA);
+        if ((*entry)->extended.valueB == TRACE_MARKER_TYPE_SPLIT_VALUE) {
+#ifdef X64
+            const offline_entry_t *next = impl()->get_next_entry(tls);
+            if (next == nullptr || next->extended.ext != OFFLINE_EXT_TYPE_MARKER)
+                return "SPLIT_VALUE marker is not adjacent to 2nd entry";
+            marker_val =
+                (marker_val << 32) | static_cast<uintptr_t>(next->extended.valueA);
+            *entry = next;
+#else
+            return "TRACE_MARKER_TYPE_SPLIT_VALUE unexpected for 32-bit";
+#endif
+        }
+        *value = marker_val;
         return "";
     }
 

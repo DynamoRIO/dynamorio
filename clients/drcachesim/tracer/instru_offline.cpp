@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -263,14 +263,27 @@ offline_instru_t::append_thread_exit(byte *buf_ptr, thread_id_t tid)
 int
 offline_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val)
 {
+    int extra_size = 0;
+#ifdef X64
+    if ((unsigned long long)val >= 1ULL << EXT_VALUE_A_BITS) {
+        // We need two entries.
+        // XXX: What we should do is change these types to signed so we can avoid
+        // two entries for small negative numbers.  That requires a version bump
+        // though which adds complexity for backward compatibility.
+        DR_ASSERT(type != TRACE_MARKER_TYPE_SPLIT_VALUE);
+        extra_size = append_marker(buf_ptr, TRACE_MARKER_TYPE_SPLIT_VALUE, val >> 32);
+        buf_ptr += extra_size;
+        val = (uint)val;
+    }
+#endif
     offline_entry_t *entry = (offline_entry_t *)buf_ptr;
+    entry->extended.valueA = val;
+    DR_ASSERT(entry->extended.valueA == val);
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_MARKER;
-    DR_ASSERT((int)type < 1 << EXT_VALUE_B_BITS);
+    DR_ASSERT((uint)type < 1 << EXT_VALUE_B_BITS);
     entry->extended.valueB = type;
-    DR_ASSERT((unsigned long long)val < 1ULL << EXT_VALUE_A_BITS);
-    entry->extended.valueA = val;
-    return sizeof(offline_entry_t);
+    return sizeof(offline_entry_t) + extra_size;
 }
 
 int
