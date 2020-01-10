@@ -226,7 +226,7 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_FUNC_RETVAL,
 
-    /* This is a non-public type only present in an offline raw trace.  To support a
+    /* This is a non-public type only present in an offline raw trace. To support a
      * full 64-bit marker value in an offline trace where
      * offline_entry_t.extended.valueA contains <64 bits, we use two consecutive
      * entries.  We rely on these being adjacent in the trace.  This entry must come
