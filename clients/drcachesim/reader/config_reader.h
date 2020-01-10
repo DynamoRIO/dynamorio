@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, LLC  All rights reserved.
+ * Copyright (c) 2018-2020 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -99,7 +99,7 @@ public:
               std::map<std::string, cache_params_t> &caches);
 
 private:
-    std::ifstream fin;
+    std::ifstream fin_;
 
     bool
     configure_cache(cache_params_t &cache);

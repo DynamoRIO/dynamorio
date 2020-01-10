@@ -283,9 +283,9 @@ _tmain(int argc, const TCHAR *targv[])
     } else {
         analyzer = new analyzer_multi_t;
         if (!*analyzer) {
-            std::string error_string = analyzer->get_error_string();
+            std::string error_string_ = analyzer->get_error_string();
             FATAL_ERROR("failed to initialize analyzer%s%s",
-                        error_string.empty() ? "" : ": ", error_string.c_str());
+                        error_string_.empty() ? "" : ": ", error_string_.c_str());
         }
     }
 
@@ -298,7 +298,7 @@ _tmain(int argc, const TCHAR *targv[])
         NOTIFY(1, "INFO", "DynamoRIO configuration directory is %s", buf);
 
 #ifdef UNIX
-        // We could try to arrange for the child to auto-exit if the parent dies via
+        // We could try to arrange for the child to auto-exit if the parent_ dies via
         // prctl(PR_SET_PDEATHSIG, SIGTERM) on Linux and kqueue on Mac, plus
         // checking for ppid changes for up front races, but that won't propagate
         // to grandchildren.
@@ -318,7 +318,7 @@ _tmain(int argc, const TCHAR *targv[])
             }
             FATAL_ERROR("failed to exec application");
         }
-        /* parent */
+        /* parent_ */
 #else
         if (!configure_application(app_name, app_argv, tracer_ops, &inject_data) ||
             !dr_inject_process_inject(inject_data, false /*!force*/, NULL)) {
@@ -330,9 +330,9 @@ _tmain(int argc, const TCHAR *targv[])
 
     if (!op_offline.get_value() || have_trace_file) {
         if (!analyzer->run()) {
-            std::string error_string = analyzer->get_error_string();
-            FATAL_ERROR("failed to run analyzer%s%s", error_string.empty() ? "" : ": ",
-                        error_string.c_str());
+            std::string error_string_ = analyzer->get_error_string();
+            FATAL_ERROR("failed to run analyzer%s%s", error_string_.empty() ? "" : ": ",
+                        error_string_.c_str());
         }
     }
 
@@ -362,9 +362,9 @@ _tmain(int argc, const TCHAR *targv[])
 
     if (analyzer != nullptr) {
         if (!analyzer->print_stats()) {
-            std::string error_string = analyzer->get_error_string();
-            FATAL_ERROR("failed to print results%s%s", error_string.empty() ? "" : ": ",
-                        error_string.c_str());
+            std::string error_string_ = analyzer->get_error_string();
+            FATAL_ERROR("failed to print results%s%s", error_string_.empty() ? "" : ": ",
+                        error_string_.c_str());
         }
         // release analyzer's space
         delete analyzer;

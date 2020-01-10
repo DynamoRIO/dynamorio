@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,24 +53,24 @@ class gzip_streambuf_t : public std::basic_streambuf<char, std::char_traits<char
 public:
     gzip_streambuf_t(const std::string &path)
     {
-        file = gzopen(path.c_str(), "wb");
-        if (file != nullptr) {
-            buf = new char[buffer_size];
+        file_ = gzopen(path.c_str(), "wb");
+        if (file_ != nullptr) {
+            buf_ = new char[buffer_size_];
             // We leave an extra slot for extra_char on overflow.
-            setp(buf, buf + buffer_size - 1);
+            setp(buf_, buf_ + buffer_size_ - 1);
         }
     }
     virtual ~gzip_streambuf_t() override
     {
         sync();
-        delete[] buf;
-        if (file != nullptr)
-            gzclose(file);
+        delete[] buf_;
+        if (file_ != nullptr)
+            gzclose(file_);
     }
     virtual int
     overflow(int extra_char) override
     {
-        if (file == nullptr)
+        if (file_ == nullptr)
             return traits_type::eof();
         if (extra_char != traits_type::eof()) {
             // Put the extra char into the buffer.  We left an extra slot for it.
@@ -79,11 +79,11 @@ public:
         }
         int res = traits_type::not_eof(extra_char);
         if (pptr() > pbase()) {
-            int len = gzwrite(file, pbase(), pptr() - pbase());
+            int len = gzwrite(file_, pbase(), pptr() - pbase());
             if (len < pptr() - pbase())
                 res = traits_type::eof();
         }
-        setp(buf, buf + buffer_size - 1);
+        setp(buf_, buf_ + buffer_size_ - 1);
         return res;
     }
     virtual int
@@ -93,9 +93,9 @@ public:
     }
 
 private:
-    static const int buffer_size = 4096;
-    gzFile file = nullptr;
-    char *buf = nullptr;
+    static const int buffer_size_ = 4096;
+    gzFile file_ = nullptr;
+    char *buf_ = nullptr;
 };
 
 class gzip_ostream_t : public std::ostream {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,40 +52,40 @@ view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
     return new view_t(module_file_path, skip_refs, sim_refs, syntax, verbose);
 }
 
-view_t::view_t(const std::string &module_file_path_in, uint64_t skip_refs,
-               uint64_t sim_refs, const std::string &syntax, unsigned int verbose)
-    : dcontext(nullptr)
-    , module_file_path(module_file_path_in)
-    , knob_verbose(verbose)
-    , instr_count(0)
-    , knob_skip_refs(skip_refs)
-    , knob_sim_refs(sim_refs)
-    , knob_syntax(syntax)
-    , num_disasm_instrs(0)
+view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
+               const std::string &syntax, unsigned int verbose)
+    : dcontext_(nullptr)
+    , module_file_path_(module_file_path)
+    , knob_verbose_(verbose)
+    , instr_count_(0)
+    , knob_skip_refs_(skip_refs)
+    , knob_sim_refs_(sim_refs)
+    , knob_syntax_(syntax)
+    , num_disasm_instrs_(0)
 {
 }
 
 std::string
 view_t::initialize()
 {
-    if (module_file_path.empty())
+    if (module_file_path_.empty())
         return "Module file path is missing";
-    dcontext = dr_standalone_init();
-    std::string error = directory.initialize_module_file(module_file_path);
+    dcontext_ = dr_standalone_init();
+    std::string error = directory_.initialize_module_file(module_file_path_);
     if (!error.empty())
         return "Failed to initialize directory: " + error;
-    module_mapper = module_mapper_t::create(directory.modfile_bytes, nullptr, nullptr,
-                                            nullptr, nullptr, knob_verbose);
-    module_mapper->get_loaded_modules();
-    error = module_mapper->get_last_error();
+    module_mapper_ = module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr,
+                                             nullptr, nullptr, knob_verbose_);
+    module_mapper_->get_loaded_modules();
+    error = module_mapper_->get_last_error();
     if (!error.empty())
         return "Failed to load binaries: " + error;
     dr_disasm_flags_t flags = DR_DISASM_ATT;
-    if (knob_syntax == "intel") {
+    if (knob_syntax_ == "intel") {
         flags = DR_DISASM_INTEL;
-    } else if (knob_syntax == "dr") {
+    } else if (knob_syntax_ == "dr") {
         flags = DR_DISASM_DR;
-    } else if (knob_syntax == "arm") {
+    } else if (knob_syntax_ == "arm") {
         flags = DR_DISASM_ARM;
     }
     disassemble_set_syntax(flags);
@@ -95,10 +95,11 @@ view_t::initialize()
 bool
 view_t::process_memref(const memref_t &memref)
 {
-    if (instr_count < knob_skip_refs || instr_count >= (knob_skip_refs + knob_sim_refs)) {
+    if (instr_count_ < knob_skip_refs_ ||
+        instr_count_ >= (knob_skip_refs_ + knob_sim_refs_)) {
         if (type_is_instr(memref.instr.type) ||
             memref.data.type == TRACE_TYPE_INSTR_NO_FETCH)
-            ++instr_count;
+            ++instr_count_;
         return true;
     }
 
@@ -132,41 +133,41 @@ view_t::process_memref(const memref_t &memref)
         memref.data.type != TRACE_TYPE_INSTR_NO_FETCH)
         return true;
 
-    ++instr_count;
+    ++instr_count_;
 
     app_pc mapped_pc;
     app_pc orig_pc = (app_pc)memref.instr.addr;
-    mapped_pc = module_mapper->find_mapped_trace_address(orig_pc);
-    if (!module_mapper->get_last_error().empty()) {
-        error_string = "Failed to find mapped address for " +
-            to_hex_string(memref.instr.addr) + ": " + module_mapper->get_last_error();
+    mapped_pc = module_mapper_->find_mapped_trace_address(orig_pc);
+    if (!module_mapper_->get_last_error().empty()) {
+        error_string_ = "Failed to find mapped address for " +
+            to_hex_string(memref.instr.addr) + ": " + module_mapper_->get_last_error();
         return false;
     }
 
     std::string disasm;
-    auto cached_disasm = disasm_cache.find(mapped_pc);
-    if (cached_disasm != disasm_cache.end()) {
+    auto cached_disasm = disasm_cache_.find(mapped_pc);
+    if (cached_disasm != disasm_cache_.end()) {
         disasm = cached_disasm->second;
     } else {
         // MAX_INSTR_DIS_SZ is set to 196 in core/arch/disassemble.h but is not
         // exported so we just use the same value here.
         char buf[196];
         byte *next_pc =
-            disassemble_to_buffer(dcontext, mapped_pc, orig_pc, /*show_pc=*/true,
+            disassemble_to_buffer(dcontext_, mapped_pc, orig_pc, /*show_pc=*/true,
                                   /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
                                   /*printed=*/nullptr);
         if (next_pc == nullptr) {
-            error_string = "Failed to disassemble " + to_hex_string(memref.instr.addr);
+            error_string_ = "Failed to disassemble " + to_hex_string(memref.instr.addr);
             return false;
         }
         disasm = buf;
-        disasm_cache.insert({ mapped_pc, disasm });
+        disasm_cache_.insert({ mapped_pc, disasm });
     }
     // XXX: For now we print the disassembly of instructions only. We should extend
     // this tool to annotate load/store operations with the entries recorded in
     // the offline trace.
     std::cerr << disasm;
-    ++num_disasm_instrs;
+    ++num_disasm_instrs_;
     return true;
 }
 
@@ -174,7 +175,7 @@ bool
 view_t::print_results()
 {
     std::cerr << TOOL_NAME << " results:\n";
-    std::cerr << std::setw(15) << num_disasm_instrs
+    std::cerr << std::setw(15) << num_disasm_instrs_
               << " : total disassembled instructions\n";
     return true;
 }

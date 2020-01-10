@@ -49,27 +49,27 @@
 
 analyzer_multi_t::analyzer_multi_t()
 {
-    worker_count = op_jobs.get_value();
+    worker_count_ = op_jobs.get_value();
     // Initial measurements show it's sometimes faster to keep the parallel model
     // of using single-file readers but use them sequentially, as opposed to
     // the every-file interleaving reader, but the user can specify -jobs 1, so
     // we still keep the serial vs parallel split for 0.
-    if (worker_count == 0)
-        parallel = false;
+    if (worker_count_ == 0)
+        parallel_ = false;
     if (!op_indir.get_value().empty() || !op_infile.get_value().empty())
         op_offline.set_value(true); // Some tools check this on post-proc runs.
     if (!create_analysis_tools()) {
-        success = false;
-        error_string = "Failed to create analysis tool: " + error_string;
+        success_ = false;
+        error_string_ = "Failed to create analysis tool: " + error_string_;
         return;
     }
     // XXX: add a "required" flag to droption to avoid needing this here
     if (op_indir.get_value().empty() && op_infile.get_value().empty() &&
         op_ipc_name.get_value().empty()) {
-        error_string =
+        error_string_ =
             "Usage error: -ipc_name or -indir or -infile is required\nUsage:\n" +
             droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
-        success = false;
+        success_ = false;
         return;
     }
     if (!op_indir.get_value().empty()) {
@@ -103,41 +103,41 @@ analyzer_multi_t::analyzer_multi_t()
             raw2trace_directory_t dir(op_verbose.get_value());
             std::string dir_err = dir.initialize(op_indir.get_value(), "");
             if (!dir_err.empty()) {
-                success = false;
-                error_string = "Directory setup failed: " + dir_err;
+                success_ = false;
+                error_string_ = "Directory setup failed: " + dir_err;
             }
-            raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, nullptr,
-                                  op_verbose.get_value(), op_jobs.get_value());
+            raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
+                                  nullptr, op_verbose.get_value(), op_jobs.get_value());
             std::string error = raw2trace.do_conversion();
             if (!error.empty()) {
-                success = false;
-                error_string = "raw2trace failed: " + error;
+                success_ = false;
+                error_string_ = "raw2trace failed: " + error;
             }
         }
         if (!init_file_reader(tracedir, op_verbose.get_value()))
-            success = false;
+            success_ = false;
     } else if (op_infile.get_value().empty()) {
         // XXX i#3323: Add parallel analysis support for online tools.
-        parallel = false;
-        serial_trace_iter = std::unique_ptr<reader_t>(
+        parallel_ = false;
+        serial_trace_iter_ = std::unique_ptr<reader_t>(
             new ipc_reader_t(op_ipc_name.get_value().c_str(), op_verbose.get_value()));
-        trace_end = std::unique_ptr<reader_t>(new ipc_reader_t());
-        if (!*serial_trace_iter) {
-            success = false;
+        trace_end_ = std::unique_ptr<reader_t>(new ipc_reader_t());
+        if (!*serial_trace_iter_) {
+            success_ = false;
 #ifdef UNIX
             // This is the most likely cause of the error.
             // XXX: Even better would be to propagate the mkfifo errno here.
-            error_string = "try removing stale pipe file " +
-                reinterpret_cast<ipc_reader_t *>(serial_trace_iter.get())
+            error_string_ = "try removing stale pipe file " +
+                reinterpret_cast<ipc_reader_t *>(serial_trace_iter_.get())
                     ->get_pipe_name();
 #endif
         }
     } else {
         // Legacy file.
         if (!init_file_reader(op_infile.get_value(), op_verbose.get_value()))
-            success = false;
+            success_ = false;
     }
-    // We can't call serial_trace_iter->init() here as it blocks for ipc_reader_t.
+    // We can't call serial_trace_iter_->init() here as it blocks for ipc_reader_t.
 }
 
 analyzer_multi_t::~analyzer_multi_t()
@@ -152,38 +152,39 @@ analyzer_multi_t::create_analysis_tools()
     /* FIXME i#2006: create a single top-level tool for multi-component
      * tools.
      */
-    tools = new analysis_tool_t *[max_num_tools];
-    tools[0] = drmemtrace_analysis_tool_create();
-    if (tools[0] == NULL)
+    tools_ = new analysis_tool_t *[max_num_tools_];
+    tools_[0] = drmemtrace_analysis_tool_create();
+    if (tools_[0] == NULL)
         return false;
     std::string tool_error;
-    if (!*tools[0]) {
-        tool_error = tools[0]->get_error_string();
+    if (!*tools_[0]) {
+        tool_error = tools_[0]->get_error_string();
         if (tool_error.empty())
             tool_error = "no error message provided.";
     } else
-        tool_error = tools[0]->initialize();
+        tool_error = tools_[0]->initialize();
     if (!tool_error.empty()) {
-        error_string = "Tool failed to initialize: " + tool_error;
-        delete tools[0];
-        tools[0] = NULL;
+        error_string_ = "Tool failed to initialize: " + tool_error;
+        delete tools_[0];
+        tools_[0] = NULL;
         return false;
     }
-    num_tools = 1;
+    num_tools_ = 1;
 #ifdef DEBUG
     if (op_test_mode.get_value()) {
-        tools[1] = new trace_invariants_t(op_offline.get_value(), op_verbose.get_value());
-        if (tools[1] == NULL)
+        tools_[1] =
+            new trace_invariants_t(op_offline.get_value(), op_verbose.get_value());
+        if (tools_[1] == NULL)
             return false;
-        if (!!*tools[1])
-            tools[1]->initialize();
-        if (!*tools[1]) {
-            error_string = tools[1]->get_error_string();
-            delete tools[1];
-            tools[1] = NULL;
+        if (!!*tools_[1])
+            tools_[1]->initialize();
+        if (!*tools_[1]) {
+            error_string_ = tools_[1]->get_error_string();
+            delete tools_[1];
+            tools_[1] = NULL;
             return false;
         }
-        num_tools = 2;
+        num_tools_ = 2;
     }
 #endif
     return true;
@@ -192,9 +193,9 @@ analyzer_multi_t::create_analysis_tools()
 void
 analyzer_multi_t::destroy_analysis_tools()
 {
-    if (!success)
+    if (!success_)
         return;
-    for (int i = 0; i < num_tools; i++)
-        delete tools[i];
-    delete[] tools;
+    for (int i = 0; i < num_tools_; i++)
+        delete tools_[i];
+    delete[] tools_;
 }
