@@ -1189,6 +1189,11 @@ function (use_DynamoRIO_extension target extname)
     target_link_libraries(${target} ${extname})
   endif (NOT DynamoRIO_EXT_${extname}_NOLIB)
 
+  if ("${extname}" MATCHES "^droption$")
+    if (NOT WIN32)
+      _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+    endif ()
+  endif ()
 endfunction (use_DynamoRIO_extension)
 
 # For clients to configure their custom annotations
@@ -1229,7 +1234,9 @@ function (use_DynamoRIO_drmemtrace target)
       _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "/MT")
     endif ()
   endif ()
-  _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+  if (NOT WIN32)
+    _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+  endif ()
 endfunction ()
 
 function (use_DynamoRIO_drmemtrace_tracer target)
