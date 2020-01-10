@@ -53,7 +53,9 @@
 
 // We are no longer supporting pre-C++11 as it complicates the code too
 // much, requiring macros for 'override', etc.
-#if __cplusplus < 201103L
+// MSVC 2013 accepts 'override' but returns 199711.
+#if (defined(UNIX) && __cplusplus < 201103L) || \
+    (defined(WINDOWS) && __cplusplus < 199711L)
 #    error This library requires C++11
 #endif
 
