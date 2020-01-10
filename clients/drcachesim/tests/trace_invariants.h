@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,10 +44,10 @@ class trace_invariants_t : public analysis_tool_t {
 public:
     trace_invariants_t(bool offline = true, unsigned int verbose = 0);
     virtual ~trace_invariants_t();
-    virtual bool
-    process_memref(const memref_t &memref);
-    virtual bool
-    print_results();
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
 
 protected:
     bool knob_offline;
