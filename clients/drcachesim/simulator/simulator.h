@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,8 +52,8 @@ public:
                 double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
                 unsigned int verbose);
     virtual ~simulator_t() = 0;
-    virtual bool
-    process_memref(const memref_t &memref);
+    bool
+    process_memref(const memref_t &memref) override;
 
 protected:
     // Initialize knobs. Success or failure is indicated by setting/resetting

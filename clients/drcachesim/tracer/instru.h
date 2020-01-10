@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -162,45 +162,45 @@ public:
                     bool memref_needs_info, drvector_t *reg_vector);
     virtual ~online_instru_t();
 
-    virtual trace_type_t
-    get_entry_type(byte *buf_ptr) const;
-    virtual size_t
-    get_entry_size(byte *buf_ptr) const;
-    virtual addr_t
-    get_entry_addr(byte *buf_ptr) const;
-    virtual void
-    set_entry_addr(byte *buf_ptr, addr_t addr);
+    trace_type_t
+    get_entry_type(byte *buf_ptr) const override;
+    size_t
+    get_entry_size(byte *buf_ptr) const override;
+    addr_t
+    get_entry_addr(byte *buf_ptr) const override;
+    void
+    set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
-    virtual int
-    append_pid(byte *buf_ptr, process_id_t pid);
-    virtual int
-    append_tid(byte *buf_ptr, thread_id_t tid);
-    virtual int
-    append_thread_exit(byte *buf_ptr, thread_id_t tid);
-    virtual int
-    append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val);
-    virtual int
-    append_iflush(byte *buf_ptr, addr_t start, size_t size);
-    virtual int
-    append_thread_header(byte *buf_ptr, thread_id_t tid);
-    virtual int
-    append_unit_header(byte *buf_ptr, thread_id_t tid);
+    int
+    append_pid(byte *buf_ptr, process_id_t pid) override;
+    int
+    append_tid(byte *buf_ptr, thread_id_t tid) override;
+    int
+    append_thread_exit(byte *buf_ptr, thread_id_t tid) override;
+    int
+    append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val) override;
+    int
+    append_iflush(byte *buf_ptr, addr_t start, size_t size) override;
+    int
+    append_thread_header(byte *buf_ptr, thread_id_t tid) override;
+    int
+    append_unit_header(byte *buf_ptr, thread_id_t tid) override;
 
-    virtual int
+    int
     instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
                       reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
-                      int ref_index, bool write, dr_pred_type_t pred);
-    virtual int
+                      int ref_index, bool write, dr_pred_type_t pred) override;
+    int
     instrument_instr(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
-                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app);
-    virtual int
+                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app) override;
+    int
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
-                       int num_delay_instrs);
+                       int num_delay_instrs) override;
 
-    virtual void
+    void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
-                bool repstr_expanded);
+                bool repstr_expanded) override;
 
 private:
     void
@@ -224,50 +224,50 @@ public:
                      file_t module_file, bool disable_optimizations = false);
     virtual ~offline_instru_t();
 
-    virtual trace_type_t
-    get_entry_type(byte *buf_ptr) const;
-    virtual size_t
-    get_entry_size(byte *buf_ptr) const;
-    virtual addr_t
-    get_entry_addr(byte *buf_ptr) const;
-    virtual void
-    set_entry_addr(byte *buf_ptr, addr_t addr);
+    trace_type_t
+    get_entry_type(byte *buf_ptr) const override;
+    size_t
+    get_entry_size(byte *buf_ptr) const override;
+    addr_t
+    get_entry_addr(byte *buf_ptr) const override;
+    void
+    set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
     uint64_t
     get_modoffs(void *drcontext, app_pc pc);
 
-    virtual int
-    append_pid(byte *buf_ptr, process_id_t pid);
-    virtual int
-    append_tid(byte *buf_ptr, thread_id_t tid);
-    virtual int
-    append_thread_exit(byte *buf_ptr, thread_id_t tid);
-    virtual int
-    append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val);
-    virtual int
-    append_iflush(byte *buf_ptr, addr_t start, size_t size);
-    virtual int
-    append_thread_header(byte *buf_ptr, thread_id_t tid);
+    int
+    append_pid(byte *buf_ptr, process_id_t pid) override;
+    int
+    append_tid(byte *buf_ptr, thread_id_t tid) override;
+    int
+    append_thread_exit(byte *buf_ptr, thread_id_t tid) override;
+    int
+    append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val) override;
+    int
+    append_iflush(byte *buf_ptr, addr_t start, size_t size) override;
+    int
+    append_thread_header(byte *buf_ptr, thread_id_t tid) override;
     virtual int
     append_thread_header(byte *buf_ptr, thread_id_t tid, offline_file_type_t file_type);
-    virtual int
-    append_unit_header(byte *buf_ptr, thread_id_t tid);
+    int
+    append_unit_header(byte *buf_ptr, thread_id_t tid) override;
 
-    virtual int
+    int
     instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
                       reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
-                      int ref_index, bool write, dr_pred_type_t pred);
-    virtual int
+                      int ref_index, bool write, dr_pred_type_t pred) override;
+    int
     instrument_instr(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
-                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app);
-    virtual int
+                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app) override;
+    int
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
-                       int num_delay_instrs);
+                       int num_delay_instrs) override;
 
-    virtual void
+    void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
-                bool repstr_expanded);
+                bool repstr_expanded) override;
 
     static bool
     custom_module_data(void *(*load_cb)(module_data_t *module),

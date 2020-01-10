@@ -143,6 +143,7 @@ changes:
    enum now completely overlaps the DR_REG_ enum.
    This is a binary compatibility change for the OPSZ_ enum.
  - Added a new encoding hint field to #instr_t.
+ - Added a requirement that a C++11-complient compiler be used with \ref page_droption.
 
 The changes between version \DR_VERSION and 7.1.0 include the following minor
 compatibility changes:
