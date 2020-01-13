@@ -1594,6 +1594,10 @@ const instr_info_t * const op_instr[] =
 
     /* Intel PT extensions */
     /* OP_ptwrite         */ &prefix_extensions[188][1],
+
+   /* AMD monitor extensions */
+   /* OP_monitorx      */   &rm_extensions[2][2],
+   /* OP_mwaitx        */   &rm_extensions[2][3],
 };
 
 
@@ -6547,7 +6551,8 @@ const instr_info_t rm_extensions[][8] = {
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
   { /* rm extension 1 */
-    {OP_monitor, 0xc80f0171, "monitor",  xx, xx, eax, ecx, edx, mrm, x, END_LIST},
+    /* XXX i#4013: Treat address in xax as IR memref? */
+    {OP_monitor, 0xc80f0171, "monitor",  xx, xx, axAX, ecx, edx, mrm, x, END_LIST},
     {OP_mwait,   0xc90f0171, "mwait",  xx, xx, eax, ecx, xx, mrm, x, END_LIST},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -6559,7 +6564,9 @@ const instr_info_t rm_extensions[][8] = {
   { /* rm extension 2 */
     {OP_swapgs, 0xf80f0177, "swapgs", xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
     {OP_rdtscp, 0xf90f0177, "rdtscp", edx, eax, xx, xx, xx, mrm|xop, x, exop[10]},/*AMD-only*/
-    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    /* XXX i#4013: Treat address in xax as IR memref? */
+    {OP_monitorx, 0xfa0f0177, "monitorx",  xx, xx, axAX, ecx, edx, mrm, x, END_LIST},/*AMD-only*/
+    {OP_mwaitx, 0xfb0f0177, "mwaitx",  xx, xx, eax, ecx, xx, mrm, x, END_LIST},/*AMD-only*/
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},

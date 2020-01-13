@@ -1591,6 +1591,10 @@ enum {
     /* Intel PT extensions */
     /* 1417 */ OP_ptwrite, /**< IA-32/AMD64 PT OP_ptwrite opcode. */
 
+    /* AMD monitor extensions */
+    /* 1418 */ OP_monitorx, /**< AMD64 monitorx opcode. */
+    /* 1419 */ OP_mwaitx,   /**< AMD64 mwaitx opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
