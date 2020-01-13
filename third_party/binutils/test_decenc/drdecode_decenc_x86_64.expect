@@ -185,6 +185,11 @@ test_x86_64_s:
  0f c7 f8             rdseed %eax
  48 0f c7 21          xsavec64 (%rcx)
  48 66 0f ae 39       data16 clflush (%rcx)
+ 0f 01 fa             monitorx
+ 67 0f 01 fa          monitorx
+ 0f 01 fa             monitorx
+ 0f 01 fb             mwaitx
+ 0f 01 fb             mwaitx
  66 0f ae 31          data16 xsaveopt (%rcx)
  66 42 0f ae b4 f0 23 data16 xsaveopt 0x00000123(%rax,%r14,8)
  01 00 00
