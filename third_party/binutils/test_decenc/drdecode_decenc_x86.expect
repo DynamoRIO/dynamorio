@@ -452,11 +452,6 @@ test_s:
  0f c7 f8             rdseed %eax
  0f c7 21             xsavec (%ecx)
  66 0f ae 39          data16 clflush (%ecx)
- 0f 01 fa             monitorx
- 67 0f 01 fa          addr16 monitorx
- 0f 01 fa             monitorx
- 0f 01 fb             mwaitx
- 0f 01 fb             mwaitx
  66 0f ae 31          data16 xsaveopt (%ecx)
  66 0f ae b4 f4 c0 1d data16 xsaveopt -0x0001e240(%esp,%esi,8)
  fe ff
@@ -81842,6 +81837,11 @@ test_s:
  a1 00 00 00 00       mov    0x00, %eax
  a1 00 00 00 00       mov    0x00, %eax
  a1 00 00 90 90       mov    -0x6f700000, %eax
+ 0f 01 fa             monitorx
+ 67 0f 01 fa          addr16 monitorx
+ 0f 01 fa             monitorx
+ 0f 01 fb             mwaitx
+ 0f 01 fb             mwaitx
  90                   nop
  90                   nop
  90                   nop
