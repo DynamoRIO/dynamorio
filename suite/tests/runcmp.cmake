@@ -69,8 +69,8 @@ if (NOT "${cmd_out}" STREQUAL "${str}")
   set(tmp2 "${cmp}-expect")
   file(WRITE "${tmp2}" "${str}")
 
-  set(DiffCMD "diff")
-  execute_process(COMMAND ${DiffCMD} ${tmp} ${tmp2}
+  set(diffcmd "diff")
+  execute_process(COMMAND ${diffcmd} ${tmp} ${tmp2}
     RESULT_VARIABLE dcmd_result
     ERROR_VARIABLE dcmd_err
     OUTPUT_VARIABLE dcmd_out)

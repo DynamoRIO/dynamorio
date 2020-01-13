@@ -924,10 +924,10 @@
     instr_create_0dst_3src((dc), OP_wrmsr, opnd_create_reg(DR_REG_EDX), \
                            opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_ECX))
 #define INSTR_CREATE_monitor(dc)                                          \
-    instr_create_0dst_3src((dc), OP_monitor, opnd_create_reg(DR_REG_EAX), \
+    instr_create_0dst_3src((dc), OP_monitor, opnd_create_reg(DR_REG_XAX), \
                            opnd_create_reg(DR_REG_ECX), opnd_create_reg(DR_REG_EDX))
 #define INSTR_CREATE_monitorx(dc)                                          \
-    instr_create_0dst_3src((dc), OP_monitorx, opnd_create_reg(DR_REG_EAX), \
+    instr_create_0dst_3src((dc), OP_monitorx, opnd_create_reg(DR_REG_XAX), \
                            opnd_create_reg(DR_REG_ECX), opnd_create_reg(DR_REG_EDX))
 #define INSTR_CREATE_xsetbv(dc)                                          \
     instr_create_0dst_3src((dc), OP_xsetbv, opnd_create_reg(DR_REG_ECX), \
