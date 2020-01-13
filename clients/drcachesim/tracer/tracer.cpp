@@ -1764,6 +1764,10 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         instru = new (placement) offline_instru_t(
             insert_load_buf_ptr, op_L0_filter.get_value(), &scratch_reserve_vec,
             file_ops_func.write_file, module_file, op_disable_optimizations.get_value());
+        if (op_use_physical.get_value()) {
+            /* TODO i#4014: Add support for this combination. */
+            FATAL("Usage error: -offline does not currently support -use_physical.");
+        }
     } else {
         void *placement;
         /* we use placement new for better isolation */
