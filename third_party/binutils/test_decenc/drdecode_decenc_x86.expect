@@ -81837,25 +81837,25 @@ test_s:
  a1 00 00 00 00       mov    0x00, %eax
  a1 00 00 00 00       mov    0x00, %eax
  a1 00 00 90 90       mov    -0x6f700000, %eax
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
+ 90                   nop
  0f 01 fa             monitorx
  67 0f 01 fa          addr16 monitorx
  0f 01 fa             monitorx
  0f 01 fb             mwaitx
  0f 01 fb             mwaitx
- 90                   nop
- 90                   nop
- 90                   nop
- 90                   nop
- 90                   nop
- 90                   nop
- 90                   nop
- 90                   nop
- 90                   nop
- 90                   nop
- 90                   nop
- 90                   nop
- 90                   nop
- 90                   nop
  90                   nop
  90                   nop
  90                   nop
