@@ -68,7 +68,6 @@ if (NOT "${cmd_out}" STREQUAL "${str}")
   file(WRITE "${tmp}" "${cmd_out}")
   set(tmp2 "${cmp}-expect")
   file(WRITE "${tmp2}" "${str}")
-  message(FATAL_ERROR "output in ${tmp} failed to match expected output in ${tmp2}")
 
   set(DiffCMD "diff")
   execute_process(COMMAND ${DiffCMD} ${tmp} ${tmp2}
@@ -77,5 +76,7 @@ if (NOT "${cmd_out}" STREQUAL "${str}")
     OUTPUT_VARIABLE dcmd_out)
 
   message(STATUS "diff: ${dcmd_out}")
+
+  message(FATAL_ERROR "output in ${tmp} failed to match expected output in ${tmp2}")
 
 endif ()
