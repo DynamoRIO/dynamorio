@@ -186,7 +186,7 @@ test_x86_64_s:
  48 0f c7 21          xsavec64 (%rcx)
  48 66 0f ae 39       data16 clflush (%rcx)
  0f 01 fa             monitorx
- 67 0f 01 fa          monitorx
+ 67 0f 01 fa          addr32 monitorx
  0f 01 fa             monitorx
  0f 01 fb             mwaitx
  0f 01 fb             mwaitx

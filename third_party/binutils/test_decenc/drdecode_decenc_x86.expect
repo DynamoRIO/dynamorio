@@ -453,7 +453,7 @@ test_s:
  0f c7 21             xsavec (%ecx)
  66 0f ae 39          data16 clflush (%ecx)
  0f 01 fa             monitorx
- 67 0f 01 fa          monitorx
+ 67 0f 01 fa          addr16 monitorx
  0f 01 fa             monitorx
  0f 01 fb             mwaitx
  0f 01 fb             mwaitx
