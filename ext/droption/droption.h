@@ -184,6 +184,11 @@ public:
                 ++i; // for last_index
                 break;
             }
+            // Also stop on a non-leading-dash token to support arguments without
+            // a separating "--".
+            if (argv[i][0] != '-') {
+                break;
+            }
             bool matched = false;
             bool swept = false;
             for (std::vector<droption_parser_t *>::iterator opi = allops().begin();

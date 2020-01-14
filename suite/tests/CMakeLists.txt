@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016      ARM Limited.    All rights reserved.
 # **********************************************************
@@ -3258,6 +3258,27 @@ endif ()
       # XXX i#1732: add more tests.  However, we don't want the suite to fail
       # b/c our tests have too-new instrs for older machines.
     endif (X86)
+
+    ###########################################################################
+    # drdisasm tests
+    # XXX: We should try to export or share the test list, filtering, matching,
+    # and other code here to support tests being declared locally rather than
+    # in one central place.
+    if (AARCH64)
+      set(drdisasm_args "f94017a0" "a9be7bfd")
+    elseif (ARM)
+      set(drdisasm_args "6813" "f243" "42c8" "b2db")
+    else ()
+      set(drdisasm_args "66" "90" "c4" "e2" "65" "90" "14" "80")
+    endif ()
+    torunonly_api(tool.drdisasm drdisasm
+      "../../clients/drdisasm/test_simple.c" "" "${drdisasm_args}" ON)
+    if (ARM)
+      torunonly_api(tool.drdisasm_thumb drdisasm
+        # Pass -thumb as a "DR op" to define it in the .template file.
+        "../../clients/drdisasm/test_simple.c" "-thumb" "-mode;thumb;${drdisasm_args}" ON)
+    endif ()
+
   endif (BUILD_CLIENTS)
 
 endif (CLIENT_INTERFACE)
