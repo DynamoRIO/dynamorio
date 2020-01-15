@@ -1106,7 +1106,7 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
                  * convert the PC operand to an instr_t pointer but that would take
                  * extra passes.)
                  */
-                instr_set_rip_rel_valid(copy, false);
+                IF_X86(instr_set_rip_rel_valid(copy, false));
                 PRE(ilist, insert_at, copy);
                 continue;
             }

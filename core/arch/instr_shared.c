@@ -2088,6 +2088,16 @@ instr_set_rip_rel_pos(instr_t *instr, uint pos)
 }
 #endif /* X86 */
 
+#ifdef X86
+static bool
+instr_has_rip_rel_instr_operand(instr_t *instr)
+{
+    /* Invariant: no instruction has 2 rip-rel immeds. */
+    return (instr_is_cti(instr) && !instr_is_mbr(instr)) ||
+        instr_get_opcode(instr) == OP_xbegin;
+}
+#endif
+
 bool
 instr_get_rel_target(instr_t *instr, /*OUT*/ app_pc *target, bool data_only)
 {
@@ -2099,7 +2109,8 @@ instr_get_rel_target(instr_t *instr, /*OUT*/ app_pc *target, bool data_only)
      */
     if (!data_only && instr_operands_valid(instr) && instr_num_srcs(instr) > 0 &&
         opnd_is_pc(instr_get_src(instr, 0))) {
-        *target = opnd_get_pc(instr_get_src(instr, 0));
+        if (target != NULL)
+            *target = opnd_get_pc(instr_get_src(instr, 0));
         return true;
     }
 
@@ -2108,20 +2119,39 @@ instr_get_rel_target(instr_t *instr, /*OUT*/ app_pc *target, bool data_only)
     if (instr_rip_rel_valid(instr)) {
         int rip_rel_pos = instr_get_rip_rel_pos(instr);
         if (rip_rel_pos > 0) {
-            if (data_only &&
-                /* Invariant: no instruction has 2 rip-rel immeds. */
-                ((instr_is_cti(instr) && !instr_is_mbr(instr)) ||
-                 instr_get_opcode(instr) == OP_xbegin))
-                return false;
+            if (data_only) {
+                /* XXX: Distinguishing data from instr is a pain here b/c it might be
+                 * during init (e.g., callback.c's copy_app_code()) and we can't
+                 * easily do an up-decode (hence the separate "local" instr_t below).
+                 * We do it partly for backward compatibility for external callers,
+                 * but also for our own mangle_rel_addr().  Would it be cleaner some
+                 * other way: breaking compat and not supporting data-only here and
+                 * having mangle call instr_set_rip_rel_valid() for all cti's (and
+                 * xbegin)?
+                 */
+                bool not_data = false;
+                if (!instr_opcode_valid(instr) && get_thread_private_dcontext() == NULL) {
+                    instr_t local;
+                    instr_init(GLOBAL_DCONTEXT, &local);
+                    if (decode_opcode(GLOBAL_DCONTEXT, instr_get_raw_bits(instr),
+                                      &local) != NULL) {
+                        not_data = instr_has_rip_rel_instr_operand(&local);
+                    }
+                    instr_free(GLOBAL_DCONTEXT, &local);
+                } else
+                    not_data = instr_has_rip_rel_instr_operand(instr);
+                if (not_data)
+                    return false;
+            }
             if (target != NULL) {
                 /* We only support non-4-byte rip-rel disps for 1-byte instr-final
                  * (jcc_short).
                  */
-                if (rip_rel_pos + 1 == instr->length) {
+                if (rip_rel_pos + 1 == (int)instr->length) {
                     *target = instr->bytes + instr->length +
                         *((char *)(instr->bytes + rip_rel_pos));
                 } else {
-                    ASSERT(rip_rel_pos + 4 <= instr->length);
+                    ASSERT(rip_rel_pos + 4 <= (int)instr->length);
                     *target = instr->bytes + instr->length +
                         *((int *)(instr->bytes + rip_rel_pos));
                 }

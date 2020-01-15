@@ -697,8 +697,6 @@ decode_sizeof_ex(dcontext_t *dcontext, byte *start_pc, int *num_prefixes,
 decode_sizeof_done:
     if (rip_rel_pos != NULL) {
         if (rip_rel_pc != NULL) {
-            CLIENT_ASSERT(X64_MODE_DC(dcontext),
-                          "decode_sizeof: invalid non-x64 rip_rel instr");
             CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(rip_rel_pc - start_pc),
                           "decode_sizeof: unknown rip_rel instr type");
             *rip_rel_pos = (uint)(rip_rel_pc - start_pc);
