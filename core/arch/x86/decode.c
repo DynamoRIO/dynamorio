@@ -2657,7 +2657,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
      * in other situations does not result in #UD so we ignore.
      */
 
-    instr_set_translation(instr, orig_pc);
+    if (orig_pc != pc)
+        instr_set_translation(instr, orig_pc);
     /* We set raw bits AFTER setting all srcs and dsts b/c setting
      * a src or dst marks instr as having invalid raw bits.
      */

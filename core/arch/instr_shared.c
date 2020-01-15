@@ -2092,7 +2092,15 @@ instr_set_rip_rel_pos(instr_t *instr, uint pos)
 static bool
 instr_has_rip_rel_instr_operand(instr_t *instr)
 {
-    /* Invariant: no instruction has 2 rip-rel immeds. */
+    /* XXX: See comment in instr_get_rel_target() about distinguishing data from
+     * instr rip-rel operands.  We don't want to go so far as adding yet more
+     * data plumbed through the decode_fast tables.
+     * Perhaps we should instead break compatibility and have all these relative
+     * target and operand index routines include instr operands, and update
+     * mangle_rel_addr() to somehow distinguish instr on its own?
+     * For now we get by with the simple check for a cti or xbegin.
+     * No instruction has 2 rip-rel immeds so a direct cti must be instr.
+     */
     return (instr_is_cti(instr) && !instr_is_mbr(instr)) ||
         instr_get_opcode(instr) == OP_xbegin;
 }
