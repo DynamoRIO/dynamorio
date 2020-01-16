@@ -714,6 +714,8 @@ enum {
     EXIT_REASON_NI_SYSCALL_INT_0x82,
     /* Single step exception needs to be forged. */
     EXIT_REASON_SINGLE_STEP,
+    /* We need to raise a kernel xfer event on an rseq-native abort. */
+    EXIT_REASON_RSEQ_ABORT,
 };
 
 /* Number of nested calls into native modules that we support.  This number

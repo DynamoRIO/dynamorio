@@ -940,6 +940,15 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                 /* Forge single step exception with right address. */
                 os_forge_exception(dcontext->next_tag, SINGLE_STEP_EXCEPTION);
                 ASSERT_NOT_REACHED();
+            } else if (dcontext->upcontext.upcontext.exit_reason ==
+                       EXIT_REASON_RSEQ_ABORT) {
+#ifdef LINUX
+                rseq_process_native_abort(dcontext);
+#else
+                ASSERT_NOT_REACHED();
+#endif
+                /* Unset the reason. */
+                dcontext->upcontext.upcontext.exit_reason = EXIT_REASON_SELFMOD;
             } else {
                 /* When adding any new reason, be sure to clear exit_reason,
                  * as selfmod exits do not bother to set the reason field to

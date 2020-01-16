@@ -1066,12 +1066,26 @@ private:
                             int_modoffs, cur_modoffs);
                 // Because we increment the instr fetch first, the signal modoffs may be
                 // less than the current for a memref fault.
-                if (int_modoffs == cur_modoffs ||
+                // It might also be 0, which means it should be on the first instruction.
+                if (int_modoffs == 0 || int_modoffs == cur_modoffs ||
                     int_modoffs + instr_length == cur_modoffs) {
                     impl()->log(4, "Signal/exception interrupted the bb @ +" PIFX "\n",
                                 int_modoffs);
                     append = true;
                     *interrupted = true;
+                    if (int_modoffs == 0) {
+                        // This happens on rseq aborts, where the trace instru includes
+                        // the rseq committing store before the native rseq execution
+                        // hits the abort.  Pretend the abort happened *before* the
+                        // committing store by walking the store backward.
+                        trace_type_t skipped_type;
+                        do {
+                            --*buf_in;
+                            skipped_type = static_cast<trace_type_t>((*buf_in)->type);
+                            DR_ASSERT(*buf_in >= impl()->get_write_buffer(tls));
+                        } while (!type_is_instr(skipped_type) &&
+                                 skipped_type != TRACE_TYPE_INSTR_NO_FETCH);
+                    }
                 } else {
                     // Put it back. We do not have a problem with other markers
                     // following this, because we will have to hit the correct point
