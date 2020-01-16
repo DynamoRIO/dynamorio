@@ -223,6 +223,8 @@ Further non-compatibility-affecting changes include:
  - Added drmgr_register_low_on_memory_event(), drmgr_unregister_low_on_memory_event()
    and their variants so that drmgr can support low-on-memory events.
  - Added drmgr_is_first_nonlabel_instr() and instrlist_first_nonlabel().
+ - Added a new standalone tool "drdisas" which disassembles raw bytes using
+   DR's decoder.
 
 **************************************************
 <hr>
