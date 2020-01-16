@@ -2370,6 +2370,8 @@ syscall_wrapper_ilist(dcontext_t *dcontext, instrlist_t *ilist, /* IN/OUT */
         instr = instr_create(dcontext);
         pc = decode(dcontext, pc, instr);
         ASSERT(instr_get_opcode(instr) == OP_jne_short);
+        /* Avoid the encoder trying to re-relativize. */
+        instr_set_rip_rel_valid(instr, false);
         instrlist_append(ilist, instr);
         instr = instr_create(dcontext);
         pc = decode(dcontext, pc, instr);

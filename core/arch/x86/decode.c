@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -500,6 +500,7 @@ read_operand(byte *pc, decode_info_t *di, byte optype, opnd_size_t opsize)
     }
     case TYPE_J: {
         byte *end_pc;
+        di->disp_abs = pc; /* For re-relativization support. */
         pc = read_immed(pc, di, opsize, &val);
         if (di->orig_pc != di->start_pc) {
             CLIENT_ASSERT(di->start_pc != NULL,
@@ -608,7 +609,10 @@ read_modrm(byte *pc, decode_info_t *di)
             /* 4-byte disp */
             di->has_disp = true;
             di->disp = *((int *)pc);
-            IF_X64(di->disp_abs = pc); /* used to set instr->rip_rel_pos */
+#ifdef X64
+            if (X64_MODE(di) && di->mod == 0 && di->rm == 5)
+                di->disp_abs = pc; /* Used to set instr->rip_rel_pos. */
+#endif
             pc += 4;
         } else if (di->mod == 1) {
             /* 1-byte disp */
@@ -955,6 +959,7 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
     di->repne_prefix = false;
     di->vex_encoded = false;
     di->evex_encoded = false;
+    di->disp_abs = 0;
     /* FIXME: set data and addr sizes to current mode
      * for now I assume always 32-bit mode (or 64 for X64_MODE(di))!
      */
@@ -2444,12 +2449,10 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
     const instr_info_t *info;
     decode_info_t di;
     int sz;
-#ifdef X64
     /* PR 251479: we need to know about all rip-relative addresses.
      * Since change/setting raw bits invalidates, we must set this
      * on every return. */
     uint rip_rel_pos;
-#endif
     IF_X64(di.x86_mode = instr_get_x86_mode(instr));
     /* when pass true to read_instruction it doesn't decode immeds,
      * so have to call decode_next_pc, but that ends up being faster
@@ -2458,7 +2461,7 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
     read_instruction(pc, pc, &info, &di,
                      true /* just opcode */
                      _IF_DEBUG(!TEST(INSTR_IGNORE_INVALID, instr->flags)));
-    sz = decode_sizeof(dcontext, pc, NULL _IF_X64(&rip_rel_pos));
+    sz = decode_sizeof_ex(dcontext, pc, NULL, &rip_rel_pos);
     IF_X64(instr_set_x86_mode(instr, get_x86_mode(dcontext)));
     instr_set_opcode(instr, info->type);
     /* read_instruction sets opcode to OP_INVALID for illegal instr.
@@ -2477,7 +2480,7 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
     /* raw bits are valid though and crucial for encoding */
     instr_set_raw_bits(instr, pc, sz);
     /* must set rip_rel_pos after setting raw bits */
-    IF_X64(instr_set_rip_rel_pos(instr, rip_rel_pos));
+    instr_set_rip_rel_pos(instr, rip_rel_pos);
     return pc + sz;
 }
 
@@ -2654,27 +2657,18 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
      * in other situations does not result in #UD so we ignore.
      */
 
-    if (orig_pc != pc) {
-        /* We do not want to copy when encoding and condone an invalid
-         * relative target
-         */
-        instr_set_raw_bits_valid(instr, false);
+    if (orig_pc != pc)
         instr_set_translation(instr, orig_pc);
-    } else {
-        /* we set raw bits AFTER setting all srcs and dsts b/c setting
-         * a src or dst marks instr as having invalid raw bits
-         */
-        IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(next_pc - pc)));
-        instr_set_raw_bits(instr, pc, (uint)(next_pc - pc));
-#ifdef X64
-        if (X64_MODE(&di) && TEST(HAS_MODRM, info->flags) && di.mod == 0 && di.rm == 5) {
-            CLIENT_ASSERT(di.disp_abs > di.start_pc, "decode: internal rip-rel error");
-            CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_int(di.disp_abs - di.start_pc),
-                          "decode: internal rip-rel error");
-            /* must do this AFTER setting raw bits to avoid being invalidated */
-            instr_set_rip_rel_pos(instr, (int)(di.disp_abs - di.start_pc));
-        }
-#endif
+    /* We set raw bits AFTER setting all srcs and dsts b/c setting
+     * a src or dst marks instr as having invalid raw bits.
+     */
+    IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(next_pc - pc)));
+    instr_set_raw_bits(instr, pc, (uint)(next_pc - pc));
+    if (di.disp_abs > di.start_pc) {
+        CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_int(di.disp_abs - di.start_pc),
+                      "decode: internal rip-rel error");
+        /* We must do this AFTER setting raw bits to avoid being invalidated. */
+        instr_set_rip_rel_pos(instr, (int)(di.disp_abs - di.start_pc));
     }
 
     return next_pc;

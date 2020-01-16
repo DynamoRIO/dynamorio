@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2168,6 +2168,98 @@ test_reg_exact_reads(void *dc)
     instr_destroy(dc, instr);
 }
 
+static void
+test_re_relativization_disp32_opc16(void *dcontext, byte opc1, byte opc2)
+{
+    byte buf_dec_enc[] = { opc1, opc2,
+                           /* disp32 of 0 which targets the next PC. */
+                           0x00, 0x00, 0x00, 0x00,
+                           /* We encode here. */
+                           0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
+    instr_t instr;
+    instr_init(dcontext, &instr);
+    byte *pc = decode_from_copy(dcontext, buf_dec_enc, buf_dec_enc + 1, &instr);
+    ASSERT(pc != NULL);
+    ASSERT(instr_raw_bits_valid(&instr)); /* i#731. */
+    ASSERT(opnd_get_pc(instr_get_src(&instr, 0)) == buf_dec_enc + 7);
+    pc = instr_encode(dcontext, &instr, buf_dec_enc + 6);
+    ASSERT(pc != NULL);
+    instr_reset(dcontext, &instr);
+    pc = decode(dcontext, buf_dec_enc + 6, &instr);
+    ASSERT(pc != NULL);
+    ASSERT(opnd_get_pc(instr_get_src(&instr, 0)) == buf_dec_enc + 7);
+    instr_free(dcontext, &instr);
+}
+
+static void
+test_re_relativization_disp8_opc8(void *dcontext, byte opc)
+{
+    byte buf_dec_enc[] = { opc,
+                           /* disp8 of 0 which targets the next PC. */
+                           0x00,
+                           /* We encode here. */ 0x90, 0x90 };
+    instr_t instr;
+    instr_init(dcontext, &instr);
+    byte *pc = decode_from_copy(dcontext, buf_dec_enc, buf_dec_enc + 1, &instr);
+    ASSERT(pc != NULL);
+    ASSERT(instr_raw_bits_valid(&instr)); /* i#731. */
+    ASSERT(opnd_get_pc(instr_get_src(&instr, 0)) == buf_dec_enc + 3);
+    pc = instr_encode(dcontext, &instr, buf_dec_enc + 2);
+    ASSERT(pc != NULL);
+    instr_reset(dcontext, &instr);
+    pc = decode(dcontext, buf_dec_enc + 2, &instr);
+    ASSERT(pc != NULL);
+    ASSERT(opnd_get_pc(instr_get_src(&instr, 0)) == buf_dec_enc + 3);
+    instr_free(dcontext, &instr);
+}
+
+/* XXX: Have DR export its raw opcodes, which overlap this list. */
+enum {
+    RAW_OPCODE_jmp_short = 0xeb,
+    RAW_OPCODE_jcc_short_start = 0x70,
+    RAW_OPCODE_jcc_short_end = 0x7f,
+    RAW_OPCODE_jcc_byte1 = 0x0f,
+    RAW_OPCODE_jcc_byte2_start = 0x80,
+    RAW_OPCODE_jcc_byte2_end = 0x8f,
+    RAW_OPCODE_loop_start = 0xe0,
+    RAW_OPCODE_loop_end = 0xe3,
+    RAW_OPCODE_xbegin_byte1 = 0xc7,
+    RAW_OPCODE_xbegin_byte2 = 0xf8,
+};
+
+static void
+test_re_relativization(void *dcontext)
+{
+    instr_t instr;
+    instr_init(dcontext, &instr);
+    byte *pc;
+
+    /* Test the i#4017 2-byte nop where re-encoding results in a 1-byte length. */
+    const byte buf_nop2[] = { 0x66, 0x90 };
+    instr_reset(dcontext, &instr);
+    pc = decode_from_copy(dcontext, (byte *)buf_nop2, (byte *)buf_nop2 + 1, &instr);
+    ASSERT(pc != NULL);
+    ASSERT(instr_length(dcontext, &instr) == sizeof(buf_nop2));
+
+    /* Test i#731 on short jumps. */
+    test_re_relativization_disp8_opc8(dcontext, RAW_OPCODE_jmp_short);
+    test_re_relativization_disp8_opc8(dcontext, RAW_OPCODE_loop_start);
+    test_re_relativization_disp8_opc8(dcontext, RAW_OPCODE_loop_end);
+    test_re_relativization_disp8_opc8(dcontext, RAW_OPCODE_jcc_short_start);
+    test_re_relativization_disp8_opc8(dcontext, RAW_OPCODE_jcc_short_end);
+
+    /* Test xbegin. */
+    test_re_relativization_disp32_opc16(dcontext, RAW_OPCODE_xbegin_byte1,
+                                        RAW_OPCODE_xbegin_byte2);
+    /* Test jcc. */
+    test_re_relativization_disp32_opc16(dcontext, RAW_OPCODE_jcc_byte1,
+                                        RAW_OPCODE_jcc_byte2_start);
+    test_re_relativization_disp32_opc16(dcontext, RAW_OPCODE_jcc_byte1,
+                                        RAW_OPCODE_jcc_byte2_end);
+
+    instr_free(dcontext, &instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2236,6 +2328,8 @@ main(int argc, char *argv[])
     test_stack_pointer_size(dcontext);
 
     test_reg_exact_reads(dcontext);
+
+    test_re_relativization(dcontext);
 
 #ifndef STANDALONE_DECODER /* speed up compilation */
     test_all_opcodes_2_avx512_vex(dcontext);
