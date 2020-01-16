@@ -3260,24 +3260,24 @@ endif ()
     endif (X86)
 
     ###########################################################################
-    # drdisasm tests
+    # drdisas tests
     # XXX: We should try to export or share the test list, filtering, matching,
     # and other code here to support tests being declared locally rather than
     # in one central place.
     if (AARCH64)
-      set(drdisasm_args "f94017a0" "a9be7bfd")
+      set(drdisas_args "f94017a0" "a9be7bfd")
     elseif (ARM)
-      set(drdisasm_args "6813" "f243" "42c8" "b2db")
+      set(drdisas_args "6813" "f243" "42c8" "b2db")
     else ()
-      set(drdisasm_args "66" "90" "c4" "e2" "65" "90" "14" "80")
+      set(drdisas_args "66" "90" "c4" "e2" "65" "90" "14" "80")
     endif ()
-    torunonly_api(tool.drdisasm drdisasm
-      "../../clients/drdisasm/test_simple.template" "" "${drdisasm_args}" ON)
+    torunonly_api(tool.drdisas drdisas
+      "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON)
     if (ARM)
-      torunonly_api(tool.drdisasm_thumb drdisasm
+      torunonly_api(tool.drdisas_thumb drdisas
         # Pass -thumb as a "DR op" to define it in the .template file.
-        "../../clients/drdisasm/test_simple.template"
-        "-thumb" "-mode;thumb;${drdisasm_args}" ON)
+        "../../clients/drdisas/test_simple.template"
+        "-thumb" "-mode;thumb;${drdisas_args}" ON)
     endif ()
 
   endif (BUILD_CLIENTS)

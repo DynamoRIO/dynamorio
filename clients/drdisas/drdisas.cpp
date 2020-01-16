@@ -88,7 +88,7 @@ main(int argc, const char *argv[])
         std::cerr << "Usage error: " << parse_err << "\nUsage:\n " << argv[0]
                   << " [options] <hexadecimal bytes to decode as args or stdin>\n"
                   << "Bytes do not need leading 0x.  Single-token multi-byte values are "
-                  << "assumed to be machine-endian words.\n"
+                  << "assumed to be little-endian words.\n"
                   << "Options:\n"
                   << droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
         return 1;

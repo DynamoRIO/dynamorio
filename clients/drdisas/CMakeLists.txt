@@ -32,12 +32,12 @@ cmake_minimum_required(VERSION 2.6)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
-add_executable(drdisasm drdisasm.cpp)
-configure_DynamoRIO_decoder(drdisasm)
-use_DynamoRIO_extension(drdisasm droption)
+add_executable(drdisas drdisas.cpp)
+configure_DynamoRIO_decoder(drdisas)
+use_DynamoRIO_extension(drdisas droption)
 
 if (WIN32)
-  append_property_string(TARGET drdisasm COMPILE_FLAGS "/EHsc")
+  append_property_string(TARGET drdisas COMPILE_FLAGS "/EHsc")
 endif ()
 
 if (DEFINED DR_INSTALL_DEPLOY_BIN_DEST)
@@ -45,4 +45,4 @@ if (DEFINED DR_INSTALL_DEPLOY_BIN_DEST)
 else ()
   set(dst "${INSTALL_BIN}")
 endif ()
-DR_target_install(TARGETS drdisasm DESTINATION ${dst})
+DR_target_install(TARGETS drdisas DESTINATION ${dst})
