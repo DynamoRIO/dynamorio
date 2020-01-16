@@ -36,6 +36,10 @@ add_executable(drdisasm drdisasm.cpp)
 configure_DynamoRIO_decoder(drdisasm)
 use_DynamoRIO_extension(drdisasm droption)
 
+if (WIN32)
+  append_property_string(TARGET drdisasm COMPILE_FLAGS "/EHsc")
+endif ()
+
 if (DEFINED DR_INSTALL_DEPLOY_BIN_DEST)
   set(dst ${DR_INSTALL_DEPLOY_BIN_DEST})
 else ()
