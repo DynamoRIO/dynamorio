@@ -2174,7 +2174,8 @@ test_re_relativization_disp32_opc16(void *dcontext, byte opc1, byte opc2)
     byte buf_dec_enc[] = { opc1, opc2,
                            /* disp32 of 0 which targets the next PC. */
                            0x00, 0x00, 0x00, 0x00,
-                           /* We encode here. */ 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
+                           /* We encode here. */
+                           0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
     instr_t instr;
     instr_init(dcontext, &instr);
     byte *pc = decode_from_copy(dcontext, buf_dec_enc, buf_dec_enc + 1, &instr);

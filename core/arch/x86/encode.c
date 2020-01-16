@@ -2723,6 +2723,7 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
             *((char *)dst_pc) = (char)new_offs;
         } else {
             ASSERT(rip_rel_pos + 4 <= instr->length);
+            ASSERT(CHECK_TRUNCATE_TYPE_int(new_offs));
             *((int *)dst_pc) = (int)new_offs;
             if (rip_rel_pos + 4U < instr->length) {
                 /* suffix byte */

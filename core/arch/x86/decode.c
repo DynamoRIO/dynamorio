@@ -2665,7 +2665,6 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(next_pc - pc)));
     instr_set_raw_bits(instr, pc, (uint)(next_pc - pc));
     if (di.disp_abs > di.start_pc) {
-        CLIENT_ASSERT(di.disp_abs > di.start_pc, "decode: internal rip-rel error");
         CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_int(di.disp_abs - di.start_pc),
                       "decode: internal rip-rel error");
         /* We must do this AFTER setting raw bits to avoid being invalidated. */
