@@ -3265,11 +3265,11 @@ endif ()
     # and other code here to support tests being declared locally rather than
     # in one central place.
     if (AARCH64)
-      set(drdisas_args "f94017a0" "a9be7bfd")
+      set(drdisas_args "f94017a0" "a9be7bfd" "88")
     elseif (ARM)
-      set(drdisas_args "6813" "f243" "42c8" "b2db")
+      set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
     else ()
-      set(drdisas_args "66" "90" "c4" "e2" "65" "90" "14" "80")
+      set(drdisas_args "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
     endif ()
     torunonly_api(tool.drdisas drdisas
       "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON)

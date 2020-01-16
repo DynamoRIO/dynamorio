@@ -57,6 +57,12 @@ droption_t<bool> op_show_bytes(DROPTION_SCOPE_FRONTEND, "show_bytes", true,
                                "Display the instruction encoding bytes.",
                                "Display the instruction encoding bytes.");
 
+#if defined(AARCH64) || defined(ARM)
+#    define MAX_INSTR_LENGTH 4
+#else
+#    define MAX_INSTR_LENGTH 17
+#endif
+
 static bool
 parse_bytes(std::string token, std::vector<byte> &bytes)
 {
@@ -153,9 +159,23 @@ main(int argc, const char *argv[])
         return 1;
     }
 
+    size_t data_size = bytes.size();
+    // Now allocate a "redzone" to avoid DR's decoder going off the end of the
+    // buffer.
+    for (int i = 0; i < MAX_INSTR_LENGTH; ++i)
+        bytes.push_back(0);
     byte *pc = &bytes[0];
-    byte *stop_pc = &bytes[bytes.size() - 1];
+    byte *stop_pc = &bytes[data_size - 1];
     while (pc <= stop_pc) {
+        // Check ahead of time to see whether this instruction enters the redzone
+        // (or, we could disassemble into a buffer and check before printing it).
+        if (pc + decode_sizeof(dcontext, pc, NULL _IF_X86_64(NULL)) > stop_pc) {
+            std::cerr << "disassembly failed: invalid instruction: not enough bytes:";
+            for (; pc <= stop_pc; ++pc)
+                std::cerr << " 0x" << std::hex << static_cast<int>(*pc);
+            std::cerr << "\n";
+            break;
+        }
         pc =
             disassemble_with_info(dcontext, pc, STDOUT, false, op_show_bytes.get_value());
         if (pc == NULL) {
