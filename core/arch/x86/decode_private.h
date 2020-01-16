@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -325,8 +325,9 @@ struct _decode_info_t {
     byte *start_pc;
     byte *final_pc;
     uint len;
-    /* This field is only used when encoding rip-relative data refs.
-     * To save space we could make it a union with disp.
+    /* This field is only used when encoding rip-relative data refs, and for
+     * re-relativizing level 1-3 relative jumps.  To save space we could make it a
+     * union with disp.
      */
     byte *disp_abs;
 #ifdef X64

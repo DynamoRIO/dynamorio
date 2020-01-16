@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2020 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -193,7 +194,7 @@ byte *
 copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst_pc,
                                  byte *final_pc)
 {
-    /* FIXME i#1569: re-relativizing is NYI */
+    /* TODO i#4016: re-relativizing is NYI */
     /* OP_ldstex is always relocatable. */
     ASSERT(instr_raw_bits_valid(instr) || instr_get_opcode(instr) == OP_ldstex);
     memcpy(dst_pc, instr->bytes, instr->length);

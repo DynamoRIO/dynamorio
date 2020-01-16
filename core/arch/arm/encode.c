@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -3099,7 +3099,7 @@ byte *
 copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst_pc,
                                  byte *final_pc)
 {
-    /* FIXME i#1551: re-relativizing is NYI */
+    /* TODO i#4016: re-relativizing is NYI */
     ASSERT(instr_raw_bits_valid(instr));
     memcpy(dst_pc, instr->bytes, instr->length);
     return dst_pc + instr->length;

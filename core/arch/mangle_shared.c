@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -1101,6 +1101,12 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
             opnd_is_pc(instr_get_target(copy))) {
             app_pc tgt = opnd_get_pc(instr_get_target(copy));
             if (tgt >= start && tgt < end) {
+                /* We do not want to use the absolute PC and re-relativize: we want
+                 * to use the same relative offset.  (An alternative would be to
+                 * convert the PC operand to an instr_t pointer but that would take
+                 * extra passes.)
+                 */
+                IF_X86(instr_set_rip_rel_valid(copy, false));
                 PRE(ilist, insert_at, copy);
                 continue;
             }

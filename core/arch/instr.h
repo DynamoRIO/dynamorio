@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -460,7 +460,7 @@ struct _instr_t {
 
     uint opcode;
 
-#    ifdef X86_64
+#    ifdef X86
     /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */
     byte rip_rel_pos;
 #    endif
@@ -1870,12 +1870,24 @@ bool
 instr_is_xsave(instr_t *instr);
 #endif
 
+DR_API
+/**
+ * If any of \p instr's operands is a rip-relative data or instruction
+ * memory reference, returns the address that reference targets.  Else
+ * returns false.  For instruction references, only PC operands are
+ * considered: not instruction pointer operands.
+ *
+ * \note Currently this is only implemented for x86.
+ */
+bool
+instr_get_rel_data_or_instr_target(instr_t *instr, /*OUT*/ app_pc *target);
+
 /* DR_API EXPORT BEGIN */
 #if defined(X64) || defined(ARM)
 /* DR_API EXPORT END */
 DR_API
 /**
- * Returns true iff any of \p instr's operands is a rip-relative memory reference.
+ * Returns true iff any of \p instr's operands is a rip-relative data memory reference.
  *
  * \note For 64-bit DR builds only.
  */
@@ -1884,7 +1896,7 @@ instr_has_rel_addr_reference(instr_t *instr);
 
 DR_API
 /**
- * If any of \p instr's operands is a rip-relative memory reference, returns the
+ * If any of \p instr's operands is a rip-relative data memory reference, returns the
  * address that reference targets.  Else returns false.
  *
  * \note For 64-bit DR builds only.
@@ -1894,7 +1906,7 @@ instr_get_rel_addr_target(instr_t *instr, /*OUT*/ app_pc *target);
 
 DR_API
 /**
- * If any of \p instr's destination operands is a rip-relative memory
+ * If any of \p instr's destination operands is a rip-relative data memory
  * reference, returns the operand position.  If there is no such
  * destination operand, returns -1.
  *
@@ -1917,7 +1929,7 @@ instr_get_rel_addr_src_idx(instr_t *instr);
 #endif /* X64 || ARM */
 /* DR_API EXPORT END */
 
-#ifdef X86_64
+#ifdef X86
 /* We're not exposing the low-level rip_rel_pos routines directly to clients,
  * who should only use this level 1-3 feature via decode_cti + encode.
  */
@@ -1949,7 +1961,7 @@ instr_get_rip_rel_pos(instr_t *instr);
  */
 void
 instr_set_rip_rel_pos(instr_t *instr, uint pos);
-#endif /* X64 */
+#endif /* X86 */
 
 /* not exported: for PR 267260 */
 bool
@@ -3007,7 +3019,7 @@ instr_create_save_to_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2);
 instr_t *
 instr_create_restore_from_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2);
 
-#ifdef X64
+#ifdef X86_64
 byte *
 instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 #endif
