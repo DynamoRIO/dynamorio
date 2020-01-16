@@ -3272,11 +3272,12 @@ endif ()
       set(drdisasm_args "66" "90" "c4" "e2" "65" "90" "14" "80")
     endif ()
     torunonly_api(tool.drdisasm drdisasm
-      "../../clients/drdisasm/test_simple.c" "" "${drdisasm_args}" ON)
+      "../../clients/drdisasm/test_simple.template" "" "${drdisasm_args}" ON)
     if (ARM)
       torunonly_api(tool.drdisasm_thumb drdisasm
         # Pass -thumb as a "DR op" to define it in the .template file.
-        "../../clients/drdisasm/test_simple.c" "-thumb" "-mode;thumb;${drdisasm_args}" ON)
+        "../../clients/drdisasm/test_simple.template"
+        "-thumb" "-mode;thumb;${drdisasm_args}" ON)
     endif ()
 
   endif (BUILD_CLIENTS)

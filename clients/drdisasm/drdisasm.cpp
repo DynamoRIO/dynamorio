@@ -49,6 +49,10 @@ droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "arm",
                                 "Decodes using the specified mode: 'arm' or 'thumb'.",
                                 "Decodes using the specified mode: 'arm' or 'thumb'.");
 #endif
+
+// TODO i#4021: Add a -syntax option for specifying the output style, and
+// add a test for each style.
+
 droption_t<bool> op_show_bytes(DROPTION_SCOPE_FRONTEND, "show_bytes", true,
                                "Display the instruction encoding bytes.",
                                "Display the instruction encoding bytes.");
@@ -56,8 +60,11 @@ droption_t<bool> op_show_bytes(DROPTION_SCOPE_FRONTEND, "show_bytes", true,
 static bool
 parse_bytes(std::string token, std::vector<byte> &bytes)
 {
-    // Assume everything is hex.
-    // Assume consecutive values should be split and endianized.
+    // Assume everything is hex even if it has no leading 0x or \x.
+    // Assume that values larger than one byte are machine words in
+    // little-endian form, which we want to split into bytes in the endian order.
+    // (This is how aarchxx encodings are always represented; for x86, this is
+    // the format for raw data obtained from od or gdb or a binary file.)
     uint64 entry;
     std::stringstream stream;
     stream << std::hex << token;
@@ -80,6 +87,8 @@ main(int argc, const char *argv[])
                                        &last_index)) {
         std::cerr << "Usage error: " << parse_err << "\nUsage:\n " << argv[0]
                   << " [options] <hexadecimal bytes to decode as args or stdin>\n"
+                  << "Bytes do not need leading 0x.  Single-token multi-byte values are "
+                  << "assumed to be machine-endian words.\n"
                   << "Options:\n"
                   << droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
         return 1;
@@ -88,6 +97,7 @@ main(int argc, const char *argv[])
     void *dcontext = GLOBAL_DCONTEXT;
 
 #if defined(X86_64) || defined(ARM)
+    // Set the ISA mode if supplied.
     if (!op_mode.get_value().empty()) {
 #    ifdef X86_64
         dr_isa_mode_t mode = DR_ISA_AMD64;

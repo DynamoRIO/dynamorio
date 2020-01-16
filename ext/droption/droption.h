@@ -163,7 +163,8 @@ public:
      * droption_t class fields.
      * On success, returns true, with the index of the start of the remaining
      * unparsed options, if any, returned in \p last_index (typically this
-     * will be options separated by "--").
+     * will be options separated by "--" or when encountering a token that
+     * does not start with a leading "-").
      * On failure, returns false, and if \p error_msg != NULL, stores a string
      * describing the error there.  On failure, \p last_index is set to the
      * index of the problematic option or option value.
