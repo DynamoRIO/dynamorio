@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1509,13 +1509,8 @@ instrlist_disassemble(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist,
              * as much about raw bytes
              */
             int extra_sz;
-            if (level == 3) {
-                print_file(outfile, " +%-4d %c%d " IF_X64_ELSE("%20s", "%12s"), offs,
-                           instr_is_app(instr) ? 'L' : 'm', level, " ");
-            } else {
-                print_file(outfile, " +%-4d %c%d @" PFX " ", offs,
-                           instr_is_app(instr) ? 'L' : 'm', level, instr);
-            }
+            print_file(outfile, " +%-4d %c%d @" PFX " ", offs,
+                       instr_is_app(instr) ? 'L' : 'm', level, instr);
             extra_sz = print_bytes_to_file(outfile, addr, addr + len, instr);
             instr_disassemble(dcontext, instr, outfile);
             print_file(outfile, "\n");
