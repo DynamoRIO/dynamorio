@@ -163,7 +163,8 @@ instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
 static inline bool
 instr_is_rseq_load(dcontext_t *dcontext, instr_t *inst)
 {
-#    ifdef LINUX
+    /* TODO i#2350: Add non-x86 support. */
+#    if defined(LINUX) && defined(X86)
     /* This won't fault but we don't want it marked as unsupported. */
     if (!instr_is_our_mangling(inst))
         return false;
