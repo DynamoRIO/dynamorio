@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -157,6 +157,31 @@ instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
             return true;
     }
 #    endif /* X86 */
+    return false;
+}
+
+static inline bool
+instr_is_rseq_load(dcontext_t *dcontext, instr_t *inst)
+{
+    /* TODO i#2350: Add non-x86 support. */
+#    if defined(LINUX) && defined(X86)
+    /* This won't fault but we don't want it marked as unsupported. */
+    if (!instr_is_our_mangling(inst))
+        return false;
+    /* XXX: Keep this consistent with mangle_rseq_* in mangle_shared.c. */
+    if (instr_get_opcode(inst) == OP_mov_ld && opnd_is_reg(instr_get_dst(inst, 0)) &&
+        opnd_is_base_disp(instr_get_src(inst, 0))) {
+        reg_id_t dst = opnd_get_reg(instr_get_dst(inst, 0));
+        opnd_t memref = instr_get_src(inst, 0);
+        int disp = opnd_get_disp(memref);
+        if (reg_is_gpr(dst) && reg_is_pointer_sized(dst) &&
+            opnd_get_index(memref) == DR_REG_NULL &&
+            disp ==
+                offsetof(dcontext_t, rseq_entry_state) +
+                    sizeof(reg_t) * (dst - DR_REG_START_GPR))
+            return true;
+    }
+#    endif
     return false;
 }
 #endif /* UNIX */
@@ -393,6 +418,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         else if (instr_is_inline_syscall_jmp(tdcontext, inst)) {
             /* nothing to do */
         } else if (instr_is_seg_ref_load(tdcontext, inst)) {
+            /* nothing to do */
+        } else if (instr_is_rseq_load(tdcontext, inst)) {
             /* nothing to do */
         }
 #endif

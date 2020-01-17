@@ -988,6 +988,7 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
         int i;
         for (i = 0; i < DR_NUM_GPR_REGS; i++) {
             if (reg_written[i]) {
+                /* XXX: Keep this consistent with instr_is_rseq_load() in translate.c. */
                 size_t offs = offsetof(dcontext_t, rseq_entry_state) + sizeof(reg_t) * i;
                 PRE(ilist, insert_at,
                     XINST_CREATE_load(dcontext,
