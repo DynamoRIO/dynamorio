@@ -3273,6 +3273,12 @@ endif ()
     endif ()
     torunonly_api(tool.drdisas drdisas
       "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON)
+    # Test intel syntax
+    if (X86)
+      set(drdisas_args "-syntax" "intel" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
+    torunonly_api(tool.drdisas drdisas
+      "../../clients/drdisas/test_syntax.template" "" "${drdisas_args}" ON)
+    endif ()
     if (ARM)
       torunonly_api(tool.drdisas_thumb drdisas
         # Pass -thumb as a "DR op" to define it in the .template file.
