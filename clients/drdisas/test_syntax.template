@@ -1,6 +1,7 @@
 #if defined(AARCH64)
  f94017a0   ldr
  a9be7bfd   stp
+disassembly failed: invalid instruction: not enough bytes: 0x88
 #elif defined(X86)
  66 90                nop
 # ifdef X64
