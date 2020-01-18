@@ -200,7 +200,7 @@ main(int argc, const char *argv[])
     while (pc <= stop_pc) {
         // Check ahead of time to see whether this instruction enters the redzone
         // (or, we could disassemble into a buffer and check before printing it).
-        if (pc + decode_sizeof(dcontext, pc, NULL _IF_X86_64(NULL)) > stop_pc) {
+        if (pc + decode_sizeof(dcontext, pc, NULL _IF_X86_64(NULL)) > stop_pc + 1) {
             std::cerr << "disassembly failed: invalid instruction: not enough bytes:";
             for (; pc <= stop_pc; ++pc)
                 std::cerr << " 0x" << std::hex << static_cast<int>(*pc);
