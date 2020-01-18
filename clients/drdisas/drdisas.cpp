@@ -113,10 +113,10 @@ main(int argc, const char *argv[])
     void *dcontext = GLOBAL_DCONTEXT;
 
     dr_disasm_flags_t syntax = DR_DISASM_DR;
-#ifdef X86
     // Set the syntax if supplied.
     if (!op_syntax.get_value().empty()) {
-        if (op_syntax.get_value() == "intel")
+    #ifdef X86
+	    if (op_syntax.get_value() == "intel")
             syntax = DR_DISASM_INTEL;
         else if (op_syntax.get_value() == "att")
             syntax = DR_DISASM_ATT;
