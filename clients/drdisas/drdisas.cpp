@@ -115,14 +115,14 @@ main(int argc, const char *argv[])
     dr_disasm_flags_t syntax = DR_DISASM_DR;
     // Set the syntax if supplied.
     if (!op_syntax.get_value().empty()) {
-    #ifdef X86
-	    if (op_syntax.get_value() == "intel")
+#ifdef X86
+        if (op_syntax.get_value() == "intel")
             syntax = DR_DISASM_INTEL;
         else if (op_syntax.get_value() == "att")
             syntax = DR_DISASM_ATT;
 #elif defined(ARM)
-    if (op_syntax.get_value() == "arm")
-        syntax = DR_DISASM_ARM;
+        if (op_syntax.get_value() == "arm")
+            syntax = DR_DISASM_ARM;
 #endif
         else if (op_syntax.get_value() == "dr_default")
             syntax = DR_DISASM_DR;
