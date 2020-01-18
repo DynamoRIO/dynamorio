@@ -50,18 +50,17 @@ droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "x64",
                                 "Decodes using the specified mode: 'x64' or 'x86'.",
                                 "Decodes using the specified mode: 'x64' or 'x86'.");
 #    endif
-#elif defined(ARM)
+#elif defined(AARCH64) || defined(ARM)
 droption_t<std::string> op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "dr_default",
                                   "Uses the specified syntax: 'dr_default'' or 'arm'.",
                                   "Uses the specified syntax: 'dr_default' or 'arm'.");
 
+#    if defined(ARM)
 droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "arm",
                                 "Decodes using the specified mode: 'arm' or 'thumb'.",
                                 "Decodes using the specified mode: 'arm' or 'thumb'.");
+#    endif
 #endif
-
-// TODO i#4021: Add a -syntax option for specifying the output style, and
-// add a test for each style.
 
 droption_t<bool> op_show_bytes(DROPTION_SCOPE_FRONTEND, "show_bytes", true,
                                "Display the instruction encoding bytes.",
@@ -120,7 +119,7 @@ main(int argc, const char *argv[])
             syntax = DR_DISASM_INTEL;
         else if (op_syntax.get_value() == "att")
             syntax = DR_DISASM_ATT;
-#elif defined(ARM)
+#elif defined(AARCH64) || defined(ARM)
         if (op_syntax.get_value() == "arm")
             syntax = DR_DISASM_ARM;
 #endif
