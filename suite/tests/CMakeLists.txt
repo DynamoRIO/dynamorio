@@ -3273,17 +3273,21 @@ endif ()
     endif ()
     torunonly_api(tool.drdisas drdisas
       "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON)
-    # Test intel syntax
-    if (X86)
-      set(drdisas_args "-syntax" "intel" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
-    torunonly_api(tool.drdisas drdisas
-      "../../clients/drdisas/test_syntax.template" "" "${drdisas_args}" ON)
-    endif ()
     if (ARM)
       torunonly_api(tool.drdisas_thumb drdisas
         # Pass -thumb as a "DR op" to define it in the .template file.
         "../../clients/drdisas/test_simple.template"
         "-thumb" "-mode;thumb;${drdisas_args}" ON)
+    endif ()
+    # Test intel syntax
+    if (X86 OR AARCH64)
+      if (X86)
+        set(drdisas_args "-syntax" "intel" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
+      elseif (AARCH64)
+        set(drdisas_args "-syntax" "arm" "f94017a0" "a9be7bfd" "88")
+      endif ()
+      torunonly_api(tool.drdisas_syntax drdisas
+      "../../clients/drdisas/test_syntax.template" "" "${drdisas_args}" ON)
     endif ()
 
   endif (BUILD_CLIENTS)
