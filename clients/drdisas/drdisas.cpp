@@ -41,25 +41,23 @@ namespace {
 // XXX i#1684: We want cross-arch decoding support so a single build can decode
 // AArchXX and x86.  For now, a separate build is needed.
 #ifdef X86
-droption_t<std::string>
-    op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "dr_default",
-              "Uses the specified syntax: 'dr_default', 'intel' or 'att'.",
-              "Uses the specified syntax: 'dr_default', 'intel' or 'att'.");
 #    ifdef X86_64
 droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "x64",
                                 "Decodes using the specified mode: 'x64' or 'x86'.",
                                 "Decodes using the specified mode: 'x64' or 'x86'.");
 #    endif
+droption_t<std::string> op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "intel",
+                                  "Uses the specified syntax: 'intel', 'att' or 'dr'.",
+                                  "Uses the specified syntax: 'intel', 'att' or 'dr'.");
 #elif defined(AARCH64) || defined(ARM)
-droption_t<std::string> op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "dr_default",
-                                  "Uses the specified syntax: 'dr_default'' or 'arm'.",
-                                  "Uses the specified syntax: 'dr_default' or 'arm'.");
-
 #    if defined(ARM)
 droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "arm",
                                 "Decodes using the specified mode: 'arm' or 'thumb'.",
                                 "Decodes using the specified mode: 'arm' or 'thumb'.");
 #    endif
+droption_t<std::string> op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "arm",
+                                  "Uses the specified syntax: 'arm' or 'dr'.",
+                                  "Uses the specified syntax: 'arm' or 'dr'.");
 #endif
 
 droption_t<bool> op_show_bytes(DROPTION_SCOPE_FRONTEND, "show_bytes", true,
@@ -111,27 +109,6 @@ main(int argc, const char *argv[])
 
     void *dcontext = GLOBAL_DCONTEXT;
 
-    dr_disasm_flags_t syntax = DR_DISASM_DR;
-    // Set the syntax if supplied.
-    if (!op_syntax.get_value().empty()) {
-#ifdef X86
-        if (op_syntax.get_value() == "intel")
-            syntax = DR_DISASM_INTEL;
-        else if (op_syntax.get_value() == "att")
-            syntax = DR_DISASM_ATT;
-#elif defined(AARCH64) || defined(ARM)
-        if (op_syntax.get_value() == "arm")
-            syntax = DR_DISASM_ARM;
-#endif
-        else if (op_syntax.get_value() == "dr_default")
-            syntax = DR_DISASM_DR;
-        else {
-            std::cerr << "Unknown syntax '" << op_syntax.get_value() << "'\n";
-            return 1;
-        }
-        disassemble_set_syntax(syntax);
-    }
-
 #if defined(X86_64) || defined(ARM)
     // Set the ISA mode if supplied.
     if (!op_mode.get_value().empty()) {
@@ -158,6 +135,27 @@ main(int argc, const char *argv[])
         }
     }
 #endif
+
+    dr_disasm_flags_t syntax = DR_DISASM_DR;
+    // Set the syntax if supplied.
+    if (!op_syntax.get_value().empty()) {
+#ifdef X86
+        if (op_syntax.get_value() == "intel")
+            syntax = DR_DISASM_INTEL;
+        else if (op_syntax.get_value() == "att")
+            syntax = DR_DISASM_ATT;
+#elif defined(AARCH64) || defined(ARM)
+        if (op_syntax.get_value() == "arm")
+            syntax = DR_DISASM_ARM;
+#endif
+        else if (op_syntax.get_value() == "dr")
+            syntax = DR_DISASM_DR;
+        else {
+            std::cerr << "Unknown syntax '" << op_syntax.get_value() << "'\n";
+            return 1;
+        }
+        disassemble_set_syntax(syntax);
+    }
 
     // Turn the arguments into a series of hex values.
     std::vector<byte> bytes;
