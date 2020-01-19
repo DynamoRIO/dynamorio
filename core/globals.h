@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -833,6 +833,8 @@ struct _dcontext_t {
     void *priv_nt_rpc;
     void *app_nls_cache;
     void *priv_nls_cache;
+    void *app_static_tls;
+    void *priv_static_tls;
 #    endif
     void *app_stack_limit;
     void *app_stack_base;

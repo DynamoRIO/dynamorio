@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1743,26 +1743,6 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool
                                                              0, ERRNO_TIB_OFFSET, OPSZ_4),
                                    opnd_create_reg(scratch32)));
         }
-        /* We also swap TEB->NlsCache.  Unlike TEB->ProcessEnvironmentBlock, which is
-         * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain
-         * both values and swap between them which is expensive.
-         */
-        PRE(ilist, next,
-            XINST_CREATE_load(dcontext, opnd_create_reg(reg_scratch),
-                              opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
-                                                        NLS_CACHE_TIB_OFFSET, OPSZ_PTR)));
-        PRE(ilist, next,
-            SAVE_TO_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
-                               to_priv ? APP_NLS_CACHE_OFFSET : PRIV_NLS_CACHE_OFFSET));
-        PRE(ilist, next,
-            RESTORE_FROM_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
-                                    to_priv ? PRIV_NLS_CACHE_OFFSET
-                                            : APP_NLS_CACHE_OFFSET));
-        PRE(ilist, next,
-            XINST_CREATE_store(dcontext,
-                               opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
-                                                         NLS_CACHE_TIB_OFFSET, OPSZ_PTR),
-                               opnd_create_reg(reg_scratch)));
         /* We also swap TEB->FlsData.  Unlike TEB->ProcessEnvironmentBlock, which is
          * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain
          * both values and swap between them which is expensive.
@@ -1799,6 +1779,45 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool
             XINST_CREATE_store(dcontext,
                                opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
                                                          NT_RPC_TIB_OFFSET, OPSZ_PTR),
+                               opnd_create_reg(reg_scratch)));
+        /* We also swap TEB->NlsCache. */
+        PRE(ilist, next,
+            XINST_CREATE_load(dcontext, opnd_create_reg(reg_scratch),
+                              opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
+                                                        NLS_CACHE_TIB_OFFSET, OPSZ_PTR)));
+        PRE(ilist, next,
+            SAVE_TO_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
+                               to_priv ? APP_NLS_CACHE_OFFSET : PRIV_NLS_CACHE_OFFSET));
+        PRE(ilist, next,
+            RESTORE_FROM_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
+                                    to_priv ? PRIV_NLS_CACHE_OFFSET
+                                            : APP_NLS_CACHE_OFFSET));
+        PRE(ilist, next,
+            XINST_CREATE_store(dcontext,
+                               opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
+                                                         NLS_CACHE_TIB_OFFSET, OPSZ_PTR),
+                               opnd_create_reg(reg_scratch)));
+        /* We also have to swap TEB->ThreadLocalStoragePointer.  Unlike the other
+         * fields, we control this private one so we never set it from the TEB field.
+         */
+        if (to_priv) {
+            PRE(ilist, next,
+                XINST_CREATE_load(dcontext, opnd_create_reg(reg_scratch),
+                                  opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL,
+                                                            0, STATIC_TLS_TIB_OFFSET,
+                                                            OPSZ_PTR)));
+            PRE(ilist, next,
+                SAVE_TO_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
+                                   APP_STATIC_TLS_OFFSET));
+        }
+        PRE(ilist, next,
+            RESTORE_FROM_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
+                                    to_priv ? PRIV_STATIC_TLS_OFFSET
+                                            : APP_STATIC_TLS_OFFSET));
+        PRE(ilist, next,
+            XINST_CREATE_store(dcontext,
+                               opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
+                                                         STATIC_TLS_TIB_OFFSET, OPSZ_PTR),
                                opnd_create_reg(reg_scratch)));
     }
 #    endif /* CLIENT_INTERFACE */

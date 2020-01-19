@@ -1,0 +1,32 @@
+#if !defined(WINDOWS) || !defined(PRE_VS2015)
+in foo_t::foo_t
+# ifdef WINDOWS
+// XXX i#4030: It is unclear why there's a 2nd one for the main thread.
+in foo_t::foo_t
+# endif
+in foo_t::foo_t
+#endif
+sum is 14
+static TLS is 0xdeadbeef
+#if !defined(WINDOWS) || !defined(PRE_VS2015)
+foo.val is 0xdeadbeef
+# ifdef WINDOWS
+vector holds 0xdeadbeef
+# endif
+in foo_t::foo_t
+#endif
+sum is 14
+static TLS is 0xdeadbeef
+#if !defined(WINDOWS) || !defined(PRE_VS2015)
+foo.val is 0xdeadbeef
+# ifdef WINDOWS
+vector holds 0xdeadbeef
+# endif
+#endif
+static TLS is 0xdeadbef0
+#if !defined(WINDOWS) || !defined(PRE_VS2015)
+foo.val is 0xdeadbeee
+# ifdef WINDOWS
+vector holds 0xdeadbeee
+# endif
+#endif
