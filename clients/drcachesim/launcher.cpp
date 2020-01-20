@@ -348,14 +348,15 @@ _tmain(int argc, const TCHAR *targv[])
     } else
         errcode = 0;
 
-    if (!analyzer->print_stats()) {
-        std::string error_string = analyzer->get_error_string();
-        FATAL_ERROR("failed to print results%s%s", error_string.empty() ? "" : ": ",
-                    error_string.c_str());
+    if (analyzer != nullptr) {
+        if (!analyzer->print_stats()) {
+            std::string error_string = analyzer->get_error_string();
+            FATAL_ERROR("failed to print results%s%s", error_string.empty() ? "" : ": ",
+                        error_string.c_str());
+        }
+        // release analyzer's space
+        delete analyzer;
     }
-
-    // release analyzer's space
-    delete analyzer;
 
     sc = drfront_cleanup_args(argv, argc);
     if (sc != DRFRONT_SUCCESS)
