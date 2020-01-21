@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2009 Derek Bruening   All rights reserved.
  * *******************************************************************************/
@@ -49,7 +49,11 @@
  * It seems no library is must in Linux, even the loader.
  * Maybe the linux-gate or we just create a fake one?
  */
+/* The order is reversed for easy unloading.  Use modlist_tail to walk "backward"
+ * and process modules in load order.
+ */
 static privmod_t *modlist;
+static privmod_t *modlist_tail;
 
 /* Recursive library load could happen:
  * Linux:   when load dependent library
@@ -78,9 +82,13 @@ uint search_paths_idx;
 /* Used for in_private_library() */
 vm_area_vector_t *modlist_areas;
 
+static bool past_initial_libs;
+
 /* forward decls */
 static bool
-privload_load_finalize(privmod_t *privmod);
+privload_load_process(privmod_t *privmod);
+static bool
+privload_load_finalize(dcontext_t *dcontext, privmod_t *privmod);
 
 static bool
 privload_has_thread_entry(void);
@@ -90,12 +98,62 @@ privload_modlist_initialized(void);
 
 /***************************************************************************/
 
-void
-loader_init(void)
+static bool
+privload_call_entry_if_not_yet(dcontext_t *dcontext, privmod_t *privmod, int reason)
 {
-    uint i;
-    privmod_t *mod;
+    switch (reason) {
+    case DLL_PROCESS_INIT:
+        if (privmod->called_proc_entry)
+            return true;
+        privmod->called_proc_entry = true;
+        break;
+    case DLL_PROCESS_EXIT:
+        if (privmod->called_proc_exit)
+            return true;
+        privmod->called_proc_exit = true;
+        break;
+    case DLL_THREAD_EXIT:
+        /* At exit we have loader_make_exit_calls(), after which we do not
+         * want to invoke any calls for the final thread.
+         */
+        if (privmod->called_proc_exit)
+            return true;
+        break;
+    }
+    return privload_call_entry(dcontext, privmod, reason);
+}
 
+static void
+privload_process_early_mods(void)
+{
+    privmod_t *next_mod = NULL;
+    /* Don't further process libs added to the list here. */
+    for (privmod_t *mod = modlist; mod != NULL; mod = next_mod) {
+        next_mod = mod->next;
+        if (mod->externally_loaded)
+            continue;
+        LOG(GLOBAL, LOG_LOADER, 1, "%s: processing imports for %s\n", __FUNCTION__,
+            mod->name);
+        /* save a copy for error msg, b/c mod will be unloaded (i#643) */
+        char name_copy[MAXIMUM_PATH];
+        snprintf(name_copy, BUFFER_SIZE_ELEMENTS(name_copy), "%s", mod->name);
+        NULL_TERMINATE_BUFFER(name_copy);
+        if (!privload_load_process(mod)) {
+            mod = NULL; /* it's been unloaded! */
+#ifdef CLIENT_INTERFACE
+            SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 5, get_application_name(),
+                   get_application_pid(), name_copy,
+                   ": unable to process imports of client library.");
+#endif
+            os_terminate(NULL, TERMINATE_PROCESS);
+            ASSERT_NOT_REACHED();
+        }
+    }
+}
+
+void
+loader_init_prologue(void)
+{
     acquire_recursive_lock(&privload_lock);
     VMVECTOR_ALLOC_VECTOR(modlist_areas, GLOBAL_DCONTEXT,
                           VECTOR_SHARED |
@@ -106,33 +164,66 @@ loader_init(void)
     /* os specific loader initialization prologue before finalize the load */
     os_loader_init_prologue();
 
-    /* Process client libs we loaded early but did not finalize */
-    for (i = 0; i < privmod_static_idx; i++) {
-        /* Transfer to real list so we can do normal processing */
-        char name_copy[MAXIMUM_PATH];
-        mod = privload_insert(NULL, privmod_static[i].base, privmod_static[i].size,
-                              privmod_static[i].name, privmod_static[i].path);
+    for (uint i = 0; i < privmod_static_idx; i++) {
+        /* Transfer to real list so we can do normal processing later. */
+#ifdef CLIENT_INTERFACE
+        privmod_t *mod =
+#endif
+            privload_insert(NULL, privmod_static[i].base, privmod_static[i].size,
+                            privmod_static[i].name, privmod_static[i].path);
 #ifdef CLIENT_INTERFACE
         mod->is_client = true;
 #endif
-        LOG(GLOBAL, LOG_LOADER, 1, "%s: processing imports for %s\n", __FUNCTION__,
+    }
+
+#ifdef WINDOWS
+    /* For Windows we want to do imports and TLS *before* thread init, so we have
+     * the TLS count to heap-allocate our TLS array in thread init.
+     */
+    privload_process_early_mods();
+#endif
+    release_recursive_lock(&privload_lock);
+}
+
+/* This is called after thread init, so we have a dcontext. */
+void
+loader_init_epilogue(dcontext_t *dcontext)
+{
+    privmod_t *mod;
+    acquire_recursive_lock(&privload_lock);
+#ifndef WINDOWS
+    /* For UNIX we want to do imports, relocs, and TLS *after* thread init when other
+     * TLS is already set up.
+     */
+    privload_process_early_mods();
+#endif
+
+    /* Now for both Windows and UNIX, call entry points (both process and thread). */
+    /* Walk "backward" for load order. */
+    for (mod = modlist_tail; mod != NULL; mod = mod->prev) {
+        if (mod->externally_loaded)
+            continue;
+        LOG(GLOBAL, LOG_LOADER, 1, "%s: calling entry points for %s\n", __FUNCTION__,
             mod->name);
         /* save a copy for error msg, b/c mod will be unloaded (i#643) */
+        char name_copy[MAXIMUM_PATH];
         snprintf(name_copy, BUFFER_SIZE_ELEMENTS(name_copy), "%s", mod->name);
         NULL_TERMINATE_BUFFER(name_copy);
-        if (!privload_load_finalize(mod)) {
-            mod = NULL; /* it's been unloaded! */
+        if (!privload_load_finalize(dcontext, mod)) {
 #ifdef CLIENT_INTERFACE
             SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 5, get_application_name(),
-                   get_application_pid(), name_copy,
-                   "\n\tUnable to locate imports of client library");
+                   get_application_pid(), name_copy, ": library initializer failed.");
 #endif
             os_terminate(NULL, TERMINATE_PROCESS);
             ASSERT_NOT_REACHED();
         }
     }
+
     /* os specific loader initialization epilogue after finalize the load */
     os_loader_init_epilogue();
+    os_loader_thread_init_epilogue(dcontext);
+    /* All future loads should call privload_load_finalize() upon loading. */
+    past_initial_libs = true;
     release_recursive_lock(&privload_lock);
 }
 
@@ -156,73 +247,77 @@ loader_exit(void)
 void
 loader_thread_init(dcontext_t *dcontext)
 {
-    privmod_t *mod;
-
     if (modlist == NULL) {
 #ifdef WINDOWS
-        /* FIXME i#338: once restore order this will become nop */
-        /* os specific thread initilization prologue for loader with no lock */
         os_loader_thread_init_prologue(dcontext);
-        /* os specific thread initilization epilogue for loader with no lock */
         os_loader_thread_init_epilogue(dcontext);
-#endif /* WINDOWS */
-    } else {
-        /* os specific thread initilization prologue for loader with no lock */
-        os_loader_thread_init_prologue(dcontext);
-        if (privload_has_thread_entry()) {
-            /* We rely on lock isolation to prevent deadlock while we're here
-             * holding privload_lock and the priv lib
-             * DllMain may acquire the same lock that another thread acquired
-             * in its app code before requesting a synchall (flush, exit).
-             * FIXME i#875: we do not have ntdll!RtlpFlsLock isolated.
-             * Living w/ it for now.  It should be unlikely for the app to
-             * hold RtlpFlsLock and then acquire privload_lock: privload_lock
-             * is used for import redirection but those don't apply within
-             * ntdll.
-             */
-            ASSERT_OWN_NO_LOCKS();
-            acquire_recursive_lock(&privload_lock);
-            /* Walk forward and call independent libs last.
-             * We do notify priv libs of client threads.
-             */
-            for (mod = modlist; mod != NULL; mod = mod->next) {
-                if (!mod->externally_loaded)
-                    privload_call_entry(mod, DLL_THREAD_INIT);
-            }
-            release_recursive_lock(&privload_lock);
-        }
-        /* os specific thread initilization epilogue for loader with no lock */
-        os_loader_thread_init_epilogue(dcontext);
+#endif
+        return;
     }
+    /* os specific thread initilization prologue for loader with no lock */
+    os_loader_thread_init_prologue(dcontext);
+    /* For the initial libs we need to call DLL_PROCESS_INIT first from
+     * loader_init_epilogue() which is called *after* this function, so we
+     * call the thread ones there too.
+     */
+    if (privload_has_thread_entry() && past_initial_libs) {
+        /* We rely on lock isolation to prevent deadlock while we're here
+         * holding privload_lock and the priv lib
+         * DllMain may acquire the same lock that another thread acquired
+         * in its app code before requesting a synchall (flush, exit).
+         * FIXME i#875: we do not have ntdll!RtlpFlsLock isolated.
+         * Living w/ it for now.  It should be unlikely for the app to
+         * hold RtlpFlsLock and then acquire privload_lock: privload_lock
+         * is used for import redirection but those don't apply within
+         * ntdll.
+         */
+        ASSERT_OWN_NO_LOCKS();
+        acquire_recursive_lock(&privload_lock);
+        /* Walk forward and call independent libs last.
+         * We do notify priv libs of client threads.
+         */
+        /* Walk "backward" for load order. */
+        for (privmod_t *mod = modlist_tail; mod != NULL; mod = mod->prev) {
+            if (!mod->externally_loaded)
+                privload_call_entry_if_not_yet(dcontext, mod, DLL_THREAD_INIT);
+        }
+        release_recursive_lock(&privload_lock);
+    }
+    /* os specific thread initilization epilogue for loader with no lock */
+    if (past_initial_libs) /* Called in loader_init_epilogue(). */
+        os_loader_thread_init_epilogue(dcontext);
 }
 
 void
 loader_thread_exit(dcontext_t *dcontext)
 {
-    privmod_t *mod;
-    /* assuming context swap have happened when entered DR */
-    if (privload_has_thread_entry() &&
-        /* Only call if we're cleaning up the currently executing thread, as
-         * that's what the entry routine is going to do!  Calling on other
-         * threads results in problems like double frees (i#969).  Exiting
-         * another thread should only happen on process exit or forced thread
-         * termination.  The former can technically continue (app could call
-         * NtTerminateProcess(0) but then keep going) but we have never seen
-         * that; and the latter doesn't do full native cleanups anyway.  Thus
-         * we're not worried about leaks from not calling DLL_THREAD_EXIT.
-         * (We can't check get_thread_private_dcontext() b/c it's already cleared.)
-         */
-        dcontext->owning_thread == d_r_get_thread_id()) {
+    /* assuming context swap happened when entered DR */
+    if (privload_has_thread_entry()) {
         acquire_recursive_lock(&privload_lock);
         /* Walk forward and call independent libs last */
-        for (mod = modlist; mod != NULL; mod = mod->next) {
+        for (privmod_t *mod = modlist; mod != NULL; mod = mod->next) {
             if (!mod->externally_loaded)
-                privload_call_entry(mod, DLL_THREAD_EXIT);
+                privload_call_entry_if_not_yet(dcontext, mod, DLL_THREAD_EXIT);
         }
         release_recursive_lock(&privload_lock);
     }
     /* os specific thread exit for loader, holding no lock */
     os_loader_thread_exit(dcontext);
+}
+
+void
+loader_make_exit_calls(dcontext_t *dcontext)
+{
+    acquire_recursive_lock(&privload_lock);
+    /* Walk forward and call independent libs last */
+    for (privmod_t *mod = modlist; mod != NULL; mod = mod->next) {
+        if (!mod->externally_loaded) {
+            if (privload_has_thread_entry())
+                privload_call_entry_if_not_yet(dcontext, mod, DLL_THREAD_EXIT);
+            privload_call_entry_if_not_yet(dcontext, mod, DLL_PROCESS_EXIT);
+        }
+    }
+    release_recursive_lock(&privload_lock);
 }
 
 /* Given a path-less name, locates and loads a private library for DR's client.
@@ -424,6 +519,8 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
 #ifdef CLIENT_INTERFACE
     mod->is_client = false; /* up to caller to set later */
 #endif
+    mod->called_proc_entry = false;
+    mod->called_proc_exit = false;
     /* do not add non-heap struct to list: in init() we'll move array to list */
     if (privload_modlist_initialized()) {
         if (after == NULL) {
@@ -434,6 +531,8 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
                 SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
             if (modlist != NULL)
                 modlist->prev = mod;
+            else
+                modlist_tail = mod;
             modlist = mod;
             if (prot)
                 SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
@@ -443,6 +542,8 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
             mod->next = after->next;
             if (after->next != NULL)
                 after->next->prev = mod;
+            else
+                modlist_tail = mod;
             after->next = mod;
         }
     }
@@ -573,9 +674,19 @@ privload_load(const char *filename, privmod_t *dependent, bool client)
     privmod = privload_insert(dependent, map, size, get_shared_lib_name(map), filename);
 
     /* If no heap yet, we'll call finalize later in loader_init() */
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    if (dcontext == NULL)
+        dcontext = GLOBAL_DCONTEXT;
     if (privmod != NULL && privload_modlist_initialized()) {
-        if (!privload_load_finalize(privmod))
+        if (!privload_load_process(privmod))
             return NULL;
+        if (past_initial_libs) {
+            /* For the initial lib set we wait until we've loaded all the imports
+             * before calling any entries, for Windows TLS setup.
+             */
+            if (!privload_load_finalize(dcontext, privmod))
+                return NULL;
+        }
     }
 #ifdef CLIENT_INTERFACE
     if (privmod->is_client)
@@ -611,8 +722,10 @@ privload_unload(privmod_t *privmod)
             privmod->prev->next = privmod->next;
         if (privmod->next != NULL)
             privmod->next->prev = privmod->prev;
+        else
+            modlist_tail = privmod->prev;
         if (!privmod->externally_loaded) {
-            privload_call_entry(privmod, DLL_PROCESS_EXIT);
+            privload_call_entry_if_not_yet(GLOBAL_DCONTEXT, privmod, DLL_PROCESS_EXIT);
             /* this routine may modify modlist, but we're done with it */
             privload_unload_imports(privmod);
             privload_remove_areas(privmod);
@@ -682,11 +795,11 @@ privload_add_drext_path(void)
     privload_add_subdir_path(DRMF_SUBDIR);
 }
 
-/* most uses should call privload_load() instead
- * if it fails, unloads
+/* Most uses should call privload_load() instead.
+ * If it fails it unloads privmod.
  */
 static bool
-privload_load_finalize(privmod_t *privmod)
+privload_load_process(privmod_t *privmod)
 {
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
 
@@ -704,11 +817,23 @@ privload_load_finalize(privmod_t *privmod)
     }
 
     privload_os_finalize(privmod);
+    return true;
+}
 
-    if (!privload_call_entry(privmod, DLL_PROCESS_INIT)) {
+/* If it fails it unloads privmod. */
+static bool
+privload_load_finalize(dcontext_t *dcontext, privmod_t *privmod)
+{
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    ASSERT(!privmod->externally_loaded);
+
+    if (!privload_call_entry_if_not_yet(dcontext, privmod, DLL_PROCESS_INIT)) {
         LOG(GLOBAL, LOG_LOADER, 1, "%s: entry routine failed\n", __FUNCTION__);
         privload_unload(privmod);
         return false;
+    }
+    if (!past_initial_libs && privload_has_thread_entry()) {
+        privload_call_entry_if_not_yet(dcontext, privmod, DLL_THREAD_INIT);
     }
 
     privload_load_finalized(privmod);

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -597,7 +597,7 @@ privload_process_imports(privmod_t *mod)
 }
 
 bool
-privload_call_entry(privmod_t *privmod, uint reason)
+privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
 {
     os_privmod_data_t *opd = (os_privmod_data_t *)privmod->os_privmod_data;
     ASSERT(os_get_priv_tls_base(NULL, TLS_REG_LIB) != NULL);
