@@ -1,5 +1,5 @@
 ;// **********************************************************
-;// Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+;// Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
 ;// Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
 ;// **********************************************************
 
@@ -684,6 +684,14 @@ Facility = DRCore
 SymbolicName = MSG_FAILED_TO_ALLOCATE_TLS
 Language=English
 Application %1!s! (%2!s!). Unable to allocate TLS slots. %3!s!
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_PRIVATE_LIBRARY_TLS_LIMIT_CROSSED
+Language=English
+Application %1!s! (%2!s!). Private library static TLS limit crossed: %3!s!
 .
 
 ;// ADD NEW MESSAGES HERE

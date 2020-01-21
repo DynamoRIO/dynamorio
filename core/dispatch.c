@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1016,6 +1016,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
         ASSERT(dcontext->app_nt_rpc == NULL ||
                dcontext->app_nt_rpc != dcontext->priv_nt_rpc);
         ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
+        ASSERT(!is_dynamo_address(dcontext->app_static_tls));
         ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
                IS_CLIENT_THREAD(dcontext));
         ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base - 1) ||
@@ -1039,6 +1040,8 @@ dispatch_exit_fcache(dcontext_t *dcontext)
              get_mcontext(dcontext)->xsp >= (reg_t)d_r_get_tls(BASE_STACK_TIB_OFFSET)));
         ASSERT(dcontext->app_nls_cache == NULL ||
                dcontext->app_nls_cache != dcontext->priv_nls_cache);
+        ASSERT(dcontext->app_static_tls == NULL ||
+               dcontext->app_static_tls != dcontext->priv_static_tls);
     }
 #endif
 
