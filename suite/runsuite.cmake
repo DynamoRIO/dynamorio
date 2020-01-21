@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -68,6 +68,8 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif ()
 endforeach (arg)
 
+set(build_tests "BUILD_TESTS:BOOL=ON")
+
 if (arg_travis)
   # XXX i#1801, i#1962: under clang we have several failing tests.  Until those are
   # fixed, our Travis clang suite only builds and does not run tests.
@@ -84,6 +86,10 @@ if (arg_travis)
     # XXX: I'd rather set this in the .yml files but I don't see a way to set
     # one env var based on another's value there.
     set(run_tests OFF)
+    # In fact we do not want to build the tests at all since they are not part
+    # of the cronbuild package.  Plus, having BUILD_TESTS set causes SHOW_RESULTS
+    # to be off, ruining the samples for interactive use.
+    set(build_tests "")
     message("Detected a cron package build: disabling running of tests")
   endif()
 endif()
@@ -94,7 +100,7 @@ if (TEST_LONG)
   # have CDash ignore them and avoid going red and sending emails.
   # We rely on our CI for a history of _FLAKY results.
   set(base_cache "${base_cache}
-    BUILD_TESTS:BOOL=ON
+    ${build_tests}
     TEST_LONG:BOOL=ON
     SKIP_FLAKY_TESTS:BOOL=ON")
 else (TEST_LONG)
@@ -275,7 +281,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   testbuild_ex("debug-internal-32" OFF "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
-    BUILD_TESTS:BOOL=ON
+    ${build_tests}
     ${install_path_cache}
     " OFF ON "${install_build_args}")
   if (last_build_dir MATCHES "-32")
@@ -286,7 +292,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   testbuild_ex("debug-internal-64" ON "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
-    BUILD_TESTS:BOOL=ON
+    ${build_tests}
     ${install_path_cache}
     ${32bit_path}
     " OFF ON "${install_build_args}")
@@ -316,7 +322,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   testbuild_ex("release-external-64" ON "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
-    BUILD_TESTS:BOOL=ON
+    ${build_tests}
     ${install_path_cache}
     ${32bit_path}
     " OFF ${arg_package} "${install_build_args}")
@@ -415,7 +421,7 @@ if (UNIX AND ARCH_IS_X86)
   testbuild_ex("arm-debug-internal-32" OFF "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
-    BUILD_TESTS:BOOL=ON
+    ${build_tests}
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
     " OFF ${arg_package} "")
   testbuild_ex("arm-release-external-32" OFF "
@@ -426,7 +432,7 @@ if (UNIX AND ARCH_IS_X86)
   testbuild_ex("arm-debug-internal-64" ON "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
-    BUILD_TESTS:BOOL=ON
+    ${build_tests}
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
     " OFF ${arg_package} "")
   testbuild_ex("arm-release-external-64" ON "
@@ -482,7 +488,7 @@ if (UNIX AND ARCH_IS_X86)
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
-    BUILD_TESTS:BOOL=ON
+    ${build_tests}
     ${android_extra_dbg}
     " OFF ${arg_package} "")
   testbuild_ex("android-release-external-32" OFF "

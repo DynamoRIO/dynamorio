@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -56,6 +56,12 @@
 #ifdef WINDOWS
 #    define _USE_MATH_DEFINES 1
 #    include <math.h> /* for M_PI, M_LN2, and M_LN10 for OP_fldpi, etc. */
+#endif
+
+#if defined(DEBUG) && defined(BUILD_TESTS)
+/* Not in the headers because it is not generally exported. */
+extern byte *
+decode_cti(void *dcontext, byte *pc, instr_t *instr);
 #endif
 
 #define VERBOSE 0
@@ -444,18 +450,44 @@ test_all_opcodes_4(void *dc)
 #    undef INCLUDE_NAME
 }
 
+/* Part A: Split in half to avoid a VS2013 compiler bug i#3992.
+ * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
+ */
 static void
-test_all_opcodes_4_avx512_evex_mask(void *dc)
+test_all_opcodes_4_avx512_evex_mask_A(void *dc)
 {
-#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask.h"
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_A.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
+/* Part B: Split in half to avoid a VS2013 compiler bug i#3992.
+ * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
+ */
 static void
-test_all_opcodes_4_avx512_evex_mask_scaled_disp8(void *dc)
+test_all_opcodes_4_avx512_evex_mask_B(void *dc)
 {
-#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask.h"
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_B.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+/* Part A: Split in half to avoid a VS2013 compiler bug i#3992. */
+static void
+test_all_opcodes_4_avx512_evex_mask_scaled_disp8_A(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_A.h"
+    memarg_disp = EVEX_SCALABLE_DISP;
+#    include "ir_x86_all_opc.h"
+    memarg_disp = DEFAULT_DISP;
+#    undef INCLUDE_NAME
+}
+
+/* Part B: Split in half to avoid a VS2013 compiler bug i#3992. */
+static void
+test_all_opcodes_4_avx512_evex_mask_scaled_disp8_B(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_B.h"
     memarg_disp = EVEX_SCALABLE_DISP;
 #    include "ir_x86_all_opc.h"
     memarg_disp = DEFAULT_DISP;
@@ -2136,6 +2168,98 @@ test_reg_exact_reads(void *dc)
     instr_destroy(dc, instr);
 }
 
+static void
+test_re_relativization_disp32_opc16(void *dcontext, byte opc1, byte opc2)
+{
+    byte buf_dec_enc[] = { opc1, opc2,
+                           /* disp32 of 0 which targets the next PC. */
+                           0x00, 0x00, 0x00, 0x00,
+                           /* We encode here. */
+                           0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
+    instr_t instr;
+    instr_init(dcontext, &instr);
+    byte *pc = decode_from_copy(dcontext, buf_dec_enc, buf_dec_enc + 1, &instr);
+    ASSERT(pc != NULL);
+    ASSERT(instr_raw_bits_valid(&instr)); /* i#731. */
+    ASSERT(opnd_get_pc(instr_get_src(&instr, 0)) == buf_dec_enc + 7);
+    pc = instr_encode(dcontext, &instr, buf_dec_enc + 6);
+    ASSERT(pc != NULL);
+    instr_reset(dcontext, &instr);
+    pc = decode(dcontext, buf_dec_enc + 6, &instr);
+    ASSERT(pc != NULL);
+    ASSERT(opnd_get_pc(instr_get_src(&instr, 0)) == buf_dec_enc + 7);
+    instr_free(dcontext, &instr);
+}
+
+static void
+test_re_relativization_disp8_opc8(void *dcontext, byte opc)
+{
+    byte buf_dec_enc[] = { opc,
+                           /* disp8 of 0 which targets the next PC. */
+                           0x00,
+                           /* We encode here. */ 0x90, 0x90 };
+    instr_t instr;
+    instr_init(dcontext, &instr);
+    byte *pc = decode_from_copy(dcontext, buf_dec_enc, buf_dec_enc + 1, &instr);
+    ASSERT(pc != NULL);
+    ASSERT(instr_raw_bits_valid(&instr)); /* i#731. */
+    ASSERT(opnd_get_pc(instr_get_src(&instr, 0)) == buf_dec_enc + 3);
+    pc = instr_encode(dcontext, &instr, buf_dec_enc + 2);
+    ASSERT(pc != NULL);
+    instr_reset(dcontext, &instr);
+    pc = decode(dcontext, buf_dec_enc + 2, &instr);
+    ASSERT(pc != NULL);
+    ASSERT(opnd_get_pc(instr_get_src(&instr, 0)) == buf_dec_enc + 3);
+    instr_free(dcontext, &instr);
+}
+
+/* XXX: Have DR export its raw opcodes, which overlap this list. */
+enum {
+    RAW_OPCODE_jmp_short = 0xeb,
+    RAW_OPCODE_jcc_short_start = 0x70,
+    RAW_OPCODE_jcc_short_end = 0x7f,
+    RAW_OPCODE_jcc_byte1 = 0x0f,
+    RAW_OPCODE_jcc_byte2_start = 0x80,
+    RAW_OPCODE_jcc_byte2_end = 0x8f,
+    RAW_OPCODE_loop_start = 0xe0,
+    RAW_OPCODE_loop_end = 0xe3,
+    RAW_OPCODE_xbegin_byte1 = 0xc7,
+    RAW_OPCODE_xbegin_byte2 = 0xf8,
+};
+
+static void
+test_re_relativization(void *dcontext)
+{
+    instr_t instr;
+    instr_init(dcontext, &instr);
+    byte *pc;
+
+    /* Test the i#4017 2-byte nop where re-encoding results in a 1-byte length. */
+    const byte buf_nop2[] = { 0x66, 0x90 };
+    instr_reset(dcontext, &instr);
+    pc = decode_from_copy(dcontext, (byte *)buf_nop2, (byte *)buf_nop2 + 1, &instr);
+    ASSERT(pc != NULL);
+    ASSERT(instr_length(dcontext, &instr) == sizeof(buf_nop2));
+
+    /* Test i#731 on short jumps. */
+    test_re_relativization_disp8_opc8(dcontext, RAW_OPCODE_jmp_short);
+    test_re_relativization_disp8_opc8(dcontext, RAW_OPCODE_loop_start);
+    test_re_relativization_disp8_opc8(dcontext, RAW_OPCODE_loop_end);
+    test_re_relativization_disp8_opc8(dcontext, RAW_OPCODE_jcc_short_start);
+    test_re_relativization_disp8_opc8(dcontext, RAW_OPCODE_jcc_short_end);
+
+    /* Test xbegin. */
+    test_re_relativization_disp32_opc16(dcontext, RAW_OPCODE_xbegin_byte1,
+                                        RAW_OPCODE_xbegin_byte2);
+    /* Test jcc. */
+    test_re_relativization_disp32_opc16(dcontext, RAW_OPCODE_jcc_byte1,
+                                        RAW_OPCODE_jcc_byte2_start);
+    test_re_relativization_disp32_opc16(dcontext, RAW_OPCODE_jcc_byte1,
+                                        RAW_OPCODE_jcc_byte2_end);
+
+    instr_free(dcontext, &instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2205,6 +2329,8 @@ main(int argc, char *argv[])
 
     test_reg_exact_reads(dcontext);
 
+    test_re_relativization(dcontext);
+
 #ifndef STANDALONE_DECODER /* speed up compilation */
     test_all_opcodes_2_avx512_vex(dcontext);
     test_all_opcodes_3_avx512_vex(dcontext);
@@ -2212,7 +2338,8 @@ main(int argc, char *argv[])
     test_all_opcodes_3_avx512_evex_mask(dcontext);
     test_disas_3_avx512_evex_mask(dcontext);
     test_all_opcodes_5_avx512_evex_mask(dcontext);
-    test_all_opcodes_4_avx512_evex_mask(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_A(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_B(dcontext);
     test_all_opcodes_4_avx512_evex(dcontext);
     test_all_opcodes_3_avx512_evex(dcontext);
     test_all_opcodes_2_avx512_evex(dcontext);
@@ -2223,7 +2350,8 @@ main(int argc, char *argv[])
      */
     test_all_opcodes_3_avx512_evex_mask_scaled_disp8(dcontext);
     test_all_opcodes_5_avx512_evex_mask_scaled_disp8(dcontext);
-    test_all_opcodes_4_avx512_evex_mask_scaled_disp8(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_scaled_disp8_A(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_scaled_disp8_B(dcontext);
     test_all_opcodes_4_avx512_evex_scaled_disp8(dcontext);
     test_all_opcodes_3_avx512_evex_scaled_disp8(dcontext);
     test_all_opcodes_2_avx512_evex_scaled_disp8(dcontext);

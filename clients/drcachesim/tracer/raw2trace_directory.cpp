@@ -89,8 +89,11 @@ raw2trace_directory_t::open_thread_files()
     if (!iter) {
         return "Failed to list directory " + indir + ": " + iter.error_string();
     }
-    for (; iter != end; ++iter)
-        open_thread_log_file((*iter).c_str());
+    for (; iter != end; ++iter) {
+        std::string error = open_thread_log_file((*iter).c_str());
+        if (!error.empty())
+            return error;
+    }
     return "";
 }
 
@@ -233,8 +236,7 @@ raw2trace_directory_t::initialize(const std::string &indir_in,
         indir + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
     read_module_file(modfilename);
 
-    open_thread_files();
-    return "";
+    return open_thread_files();
 }
 
 std::string

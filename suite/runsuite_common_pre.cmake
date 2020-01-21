@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -559,7 +559,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
             message("Env setup: setting LIBPATH to ${newlibpath}")
           endif ()
           set(ENV{LIBPATH} "${newlibpath}")
-        endif ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
+        endif ()
       endif (is64)
     else (WIN32)
       if (ARCH_IS_X86)

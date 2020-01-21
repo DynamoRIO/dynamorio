@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -51,7 +51,14 @@
 #define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 #define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
 #define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
+#define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
+
+#if defined(X64) || defined(ARM)
+#    define IF_REL_ADDRS(x) x
+#else
+#    define IF_REL_ADDRS(x)
+#endif
 
 #define ALIGN_FORWARD(x, alignment) \
     ((((ptr_uint_t)x) + ((alignment)-1)) & (~((ptr_uint_t)(alignment)-1)))
@@ -73,6 +80,13 @@
 #else
 #    define START_PACKED_STRUCTURE /* nothing */
 #    define END_PACKED_STRUCTURE __attribute__((__packed__))
+#endif
+
+/* TODO(i#2924): Remove this and others like it once we stop supporting VS2013. */
+#if defined(WINDOWS) && _MSC_VER < 1900
+#    define CONSTEXPR const /* 'constexpr' not supported */
+#else
+#    define CONSTEXPR constexpr
 #endif
 
 #ifndef __has_cpp_attribute

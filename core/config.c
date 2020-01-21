@@ -675,8 +675,11 @@ void
 d_r_config_exit(void)
 {
 #    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-    if (doing_detach)
-        memset(&config, 0, sizeof config); /* for possible re-attach */
+    if (doing_detach) {
+        /* Zero out globals for possible re-attach. */
+        memset(&config, 0, sizeof config);
+        memset(&myvals, 0, sizeof myvals);
+    }
 #    endif
     /* nothing -- so not called on fast exit (is called on detach) */
 }

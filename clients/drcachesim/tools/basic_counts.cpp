@@ -94,6 +94,7 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     counters_t *counters = reinterpret_cast<counters_t *>(shard_data);
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
+        counters->unique_pc_addrs.insert(memref.instr.addr);
     } else if (memref.data.type == TRACE_TYPE_INSTR_NO_FETCH) {
         ++counters->instrs_nofetch;
     } else if (type_is_prefetch(memref.data.type)) {
@@ -158,6 +159,8 @@ basic_counts_t::print_results()
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
     std::cerr << std::setw(12) << total.instrs << " total (fetched) instructions\n";
+    std::cerr << std::setw(12) << total.unique_pc_addrs.size()
+              << " total unique (fetched) instructions\n";
     std::cerr << std::setw(12) << total.instrs_nofetch
               << " total non-fetched instructions\n";
     std::cerr << std::setw(12) << total.prefetches << " total prefetches\n";
@@ -183,6 +186,8 @@ basic_counts_t::print_results()
         std::cerr << "Thread " << keyvals.second->tid << " counts:\n";
         std::cerr << std::setw(12) << keyvals.second->instrs
                   << " (fetched) instructions\n";
+        std::cerr << std::setw(12) << keyvals.second->unique_pc_addrs.size()
+                  << " unique (fetched) instructions\n";
         std::cerr << std::setw(12) << keyvals.second->instrs_nofetch
                   << " non-fetched instructions\n";
         std::cerr << std::setw(12) << keyvals.second->prefetches << " prefetches\n";

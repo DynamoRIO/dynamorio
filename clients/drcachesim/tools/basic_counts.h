@@ -36,6 +36,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "analysis_tool.h"
 
@@ -78,6 +79,9 @@ protected:
             func_arg_markers += rhs.func_arg_markers;
             func_retval_markers += rhs.func_retval_markers;
             other_markers += rhs.other_markers;
+            for (const uint64_t addr : rhs.unique_pc_addrs) {
+                unique_pc_addrs.insert(addr);
+            }
             return *this;
         }
         memref_tid_t tid = 0;
@@ -93,6 +97,7 @@ protected:
         int_least64_t func_arg_markers = 0;
         int_least64_t func_retval_markers = 0;
         int_least64_t other_markers = 0;
+        std::unordered_set<uint64_t> unique_pc_addrs;
         std::string error;
     };
     static bool

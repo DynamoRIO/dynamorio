@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -175,7 +175,8 @@ droption_t<bool> op_coherence(
 droption_t<bool> op_use_physical(
     DROPTION_SCOPE_CLIENT, "use_physical", false, "Use physical addresses if possible",
     "If available, the default virtual addresses will be translated to physical.  "
-    "This is not possible from user mode on all platforms.");
+    "This is not possible from user mode on all platforms.  "
+    "This is not supported with -offline at this time.");
 
 droption_t<unsigned int> op_virt2phys_freq(
     DROPTION_SCOPE_CLIENT, "virt2phys_freq", 0, "Frequency of physical mapping refresh",
@@ -293,6 +294,12 @@ droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
 droption_t<bool> op_test_mode(DROPTION_SCOPE_ALL, "test_mode", false, "Run sanity tests",
                               "Run extra analyses for sanity checks on the trace.");
 #endif
+droption_t<bool> op_disable_optimizations(
+    DROPTION_SCOPE_ALL, "disable_optimizations", false,
+    "Disable offline trace optimizations for testing",
+    "Disables various optimizations where information is omitted from offline trace "
+    "recording when it can be reconstructed during post-processing.  This is meant for "
+    "testing purposes.");
 
 droption_t<std::string> op_dr_root(DROPTION_SCOPE_FRONTEND, "dr", "",
                                    "Path to DynamoRIO root directory",

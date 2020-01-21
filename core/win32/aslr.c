@@ -417,7 +417,8 @@ aslr_init(void)
 void
 aslr_exit(void)
 {
-    if (TEST(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action))) {
+    if (TEST(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action)) &&
+        is_module_list_initialized()) {
         /* doublecheck and print entries to make sure they match */
         DOLOG(1, LOG_VMAREAS, { print_modules_safe(GLOBAL, DUMP_NOT_XML); });
         ASSERT(aslr_doublecheck_wouldbe_areas());

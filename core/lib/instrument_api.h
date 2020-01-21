@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4543,6 +4543,8 @@ DR_API
  * in failure to initialize for certain applications.  On Linux they
  * are more plentiful and transparent but currently DR limits clients
  * to no more than 64 slots.
+ *
+ * \note On Mac OS, TLS slots may not be initialized to zero.
  */
 bool
 dr_raw_tls_calloc(OUT reg_id_t *tls_register, OUT uint *offset, IN uint num_slots,
@@ -6318,7 +6320,8 @@ dr_prepopulate_indirect_targets(dr_indirect_branch_type_t branch_type, app_pc *t
 
 DR_API
 /**
- * Get the number of blocks built so far, globally. The API is not thread-safe.
+ * Retrieves various statistics exported by DR as global, process-wide values.
+ * The API is not thread-safe.
  * The caller is expected to pass a pointer to a valid, initialized dr_stats_t
  * value, with the size field set (see dr_stats_t).
  * Returns false if stats are not enabled.

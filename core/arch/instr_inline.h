@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -231,7 +231,7 @@ opnd_t
 opnd_create_reg_ex(reg_id_t r, opnd_size_t subsize, dr_opnd_flags_t flags)
 {
     opnd_t opnd = opnd_create_reg_partial(r, subsize);
-    opnd.aux.flags = flags;
+    opnd.aux.flags = (ushort)flags;
     return opnd;
 }
 

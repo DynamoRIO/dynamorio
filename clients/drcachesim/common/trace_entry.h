@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -226,6 +226,15 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_FUNC_RETVAL,
 
+    /* This is a non-public type only present in an offline raw trace. To support a
+     * full 64-bit marker value in an offline trace where
+     * offline_entry_t.extended.valueA contains <64 bits, we use two consecutive
+     * entries.  We rely on these being adjacent in the trace.  This entry must come
+     * first, and its valueA is left-shited 32 and then OR-ed with the subsequent
+     * entry's valueA to produce the final marker value.
+     */
+    TRACE_MARKER_TYPE_SPLIT_VALUE,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -318,7 +327,9 @@ typedef enum {
 // Sub-type when the primary type is OFFLINE_TYPE_EXTENDED.
 // These differ in what they store in offline_entry_t.extended.value.
 typedef enum {
-    // The initial entry in the file.  The valueA field holds the version.
+    // The initial entry in the file.  The valueA field holds the version
+    // (OFFLINE_FILE_VERSION*) while valueB holds the type
+    // (OFFLINE_FILE_TYPE*).
     OFFLINE_EXT_TYPE_HEADER,
     // The final entry in the file.  The value fields are 0.
     OFFLINE_EXT_TYPE_FOOTER,
@@ -338,7 +349,17 @@ typedef enum {
 #define PC_INSTR_COUNT_BITS 12
 #define PC_TYPE_BITS 3
 
-#define OFFLINE_FILE_VERSION 2
+#define OFFLINE_FILE_VERSION_NO_ELISION 2
+#define OFFLINE_FILE_VERSION_OLDEST_SUPPORTED OFFLINE_FILE_VERSION_NO_ELISION
+#define OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE 3
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE
+
+// Bitfields used to describe the file type.
+typedef enum {
+    OFFLINE_FILE_TYPE_DEFAULT = 0,
+    OFFLINE_FILE_TYPE_FILTERED = 1,
+    OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS = 2,
+} offline_file_type_t;
 
 START_PACKED_STRUCTURE
 struct _offline_entry_t {

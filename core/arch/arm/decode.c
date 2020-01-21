@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -2500,6 +2500,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     if (orig_pc != pc) {
         /* We do not want to copy when encoding and condone an invalid
          * relative target
+         * TODO i#4016: Add re-relativization support without having to re-encode.
          */
         instr_set_raw_bits_valid(instr, false);
         instr_set_translation(instr, orig_pc);

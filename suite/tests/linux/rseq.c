@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -190,8 +190,6 @@ test_rseq_call(void)
 static void
 test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_out)
 {
-    /* We use static to avoid stack reference issues with our extra frame inside the asm.
-     */
     __u32 id = RSEQ_CPU_ID_UNINITIALIZED;
     int completions = 0;
     int restarts = 0;
@@ -269,6 +267,71 @@ test_rseq_branches(void)
     assert(completions == 1 && sigill_count == 0);
     test_rseq_branches_once(true, &completions, &restarts);
     assert(completions == 1 && restarts > 0 && sigill_count == 1);
+}
+
+/* Tests that DR handles a signal inside its native rseq copy.
+ * Any synchronous signal is going to pretty much never happen for real, since
+ * it would happen on the instrumentation execution and never make it to the
+ * native run, but an asynchronous signal could arrive.
+ * It's complicated to set up an asynchronous signal at the right spot, so
+ * we cheat and take advantage of DR not restoring XMM state to have different
+ * behavior in the two DR executions of the rseq code.
+ */
+static void
+test_rseq_native_fault(void)
+{
+    int restarts = 0;
+    __asm__ __volatile__(
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        RSEQ_ADD_TABLE_ENTRY(fault, 2f, 3f, 4f)
+        /* clang-format on */
+
+        "6:\n\t"
+        /* Store the entry into the ptr. */
+        "leaq rseq_cs_fault(%%rip), %%rax\n\t"
+        "movq %%rax, %[rseq_tls]\n\t"
+        "pxor %%xmm0, %%xmm0\n\t"
+        "mov $1,%%rcx\n\t"
+        "movq %%rcx, %%xmm1\n\t"
+
+        /* Restartable sequence. */
+        "2:\n\t"
+        /* Increase xmm0 every time.  DR (currently) won't restore xmm inputs
+         * to rseq sequences, nor does it detect that it needs to.
+         */
+        "paddq %%xmm1,%%xmm0\n\t"
+        "movq %%xmm0, %%rax\n\t"
+        /* Only raise the signal on the 2nd run == native run. */
+        "cmp $2, %%rax\n\t"
+        "jne 11f\n\t"
+        /* Raise a signal on the native run. */
+        "ud2a\n\t"
+        "11:\n\t"
+        "nop\n\t"
+
+        /* Post-commit. */
+        "3:\n\t"
+        "jmp 5f\n\t"
+
+        /* Abort handler. */
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        ".long " STRINGIFY(RSEQ_SIG) "\n\t"
+        "4:\n\t"
+        "addl $1, %[restarts]\n\t"
+        "jmp 2b\n\t"
+
+        /* Clear the ptr. */
+        "13:\n\t"
+        "12:\n\t"
+        "5:\n\t"
+        "movq $0, %[rseq_tls]\n\t"
+        /* clang-format on */
+
+        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
+        :
+        : "rax", "rcx", "rdx", "xmm0", "xmm1", "memory");
+    /* This is expected to fail on a native run where restarts will be 0. */
+    assert(restarts > 0);
 }
 
 #ifdef RSEQ_TEST_ATTACH
@@ -356,6 +419,8 @@ main()
         test_rseq_call();
         /* Test variations inside the sequence. */
         test_rseq_branches();
+        /* Test a fault in the native run. */
+        test_rseq_native_fault();
         /* Test a trace. */
         int i;
         for (i = 0; i < 200; i++)

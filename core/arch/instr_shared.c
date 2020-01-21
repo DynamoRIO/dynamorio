@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -257,7 +257,7 @@ instr_reuse(dcontext_t *dcontext, instr_t *instr)
     bool alloc = false;
     bool mangle = instr_is_app(instr);
     dr_isa_mode_t isa_mode = instr_get_isa_mode(instr);
-#ifdef X86_64
+#ifdef X86
     uint rip_rel_pos = instr_rip_rel_valid(instr) ? instr->rip_rel_pos : 0;
 #endif
     instr_t *next = instr->next;
@@ -288,7 +288,7 @@ instr_reuse(dcontext_t *dcontext, instr_t *instr)
     }
     /* preserve across the up-decode */
     instr_set_isa_mode(instr, isa_mode);
-#ifdef X86_64
+#ifdef X86
     if (rip_rel_pos > 0)
         instr_set_rip_rel_pos(instr, rip_rel_pos);
 #endif
@@ -365,7 +365,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         ((valid_to_cache && instr_is_app(instr)) ||
          always_cache /*caller will use then invalidate*/)) {
         bool valid = instr_operands_valid(instr);
-#ifdef X86_64
+#ifdef X86
         /* we can't call instr_rip_rel_valid() b/c the raw bytes are not yet
          * set up: we rely on instr_encode() setting instr->rip_rel_pos and
          * the valid flag, even though raw bytes weren't there at the time.
@@ -384,7 +384,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
          */
         tmp = instr->bytes;
         instr->bytes = buf;
-#ifdef X86_64
+#ifdef X86
         instr_set_rip_rel_valid(instr, rip_rel_valid);
 #endif
         copy_and_re_relativize_raw_instr(dcontext, instr, tmp, tmp);
@@ -1031,7 +1031,7 @@ instr_set_raw_bits(instr_t *instr, byte *addr, uint length)
     instr->flags |= INSTR_RAW_BITS_VALID;
     instr->bytes = addr;
     instr->length = length;
-#ifdef X86_64
+#ifdef X86
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1045,7 +1045,7 @@ instr_shift_raw_bits(instr_t *instr, ssize_t offs)
 {
     if ((instr->flags & INSTR_RAW_BITS_VALID) != 0)
         instr->bytes += offs;
-#ifdef X86_64
+#ifdef X86
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1065,7 +1065,7 @@ instr_set_raw_bits_valid(instr_t *instr, bool valid)
          * addresses for exception/signal handlers
          * Also do not de-allocate allocated bits
          */
-#ifdef X86_64
+#ifdef X86
         instr_set_rip_rel_valid(instr, false);
 #endif
     }
@@ -1113,7 +1113,7 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
     instr->flags |= INSTR_RAW_BITS_ALLOCATED;
     instr->flags &= ~INSTR_OPERANDS_VALID;
     instr->flags &= ~INSTR_EFLAGS_VALID;
-#ifdef X86_64
+#ifdef X86
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1208,7 +1208,7 @@ instr_set_raw_byte(instr_t *instr, uint pos, byte val)
     CLIENT_ASSERT(pos >= 0 && pos < instr->length && instr->bytes != NULL,
                   "instr_set_raw_byte: ordinal invalid, or no raw bits");
     instr->bytes[pos] = (byte)val;
-#ifdef X86_64
+#ifdef X86
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1225,7 +1225,7 @@ instr_set_raw_bytes(instr_t *instr, byte *start, uint num_bytes)
     CLIENT_ASSERT(num_bytes <= instr->length && instr->bytes != NULL,
                   "instr_set_raw_bytes: ordinal invalid, or no raw bits");
     memcpy(instr->bytes, start, num_bytes);
-#ifdef X86_64
+#ifdef X86
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1242,7 +1242,7 @@ instr_set_raw_word(instr_t *instr, uint pos, uint word)
     CLIENT_ASSERT(pos >= 0 && pos + 3 < instr->length && instr->bytes != NULL,
                   "instr_set_raw_word: ordinal invalid, or no raw bits");
     *((uint *)(instr->bytes + pos)) = word;
-#ifdef X86_64
+#ifdef X86
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1525,7 +1525,7 @@ instr_decode_opcode(dcontext_t *dcontext, instr_t *instr)
     if (!instr_opcode_valid(instr)) {
         byte *next_pc;
         DEBUG_EXT_DECLARE(int old_len = instr->length;)
-#ifdef X86_64
+#ifdef X86
         bool rip_rel_valid = instr_rip_rel_valid(instr);
 #endif
         /* decode_opcode() will use the dcontext mode, but we want the instr mode */
@@ -1536,7 +1536,7 @@ instr_decode_opcode(dcontext_t *dcontext, instr_t *instr)
         instr_reuse(dcontext, instr);
         next_pc = decode_opcode(dcontext, instr->bytes, instr);
         dr_set_isa_mode(dcontext, old_mode, NULL);
-#ifdef X86_64
+#ifdef X86
         /* decode_opcode sets raw bits which invalidates rip_rel, but
          * it should still be valid on an up-decode of the opcode */
         if (rip_rel_valid)
@@ -1558,7 +1558,7 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
     if (!instr_operands_valid(instr)) {
         byte *next_pc;
         DEBUG_EXT_DECLARE(int old_len = instr->length;)
-#ifdef X86_64
+#ifdef X86
         bool rip_rel_valid = instr_rip_rel_valid(instr);
 #endif
         /* decode() will use the current dcontext mode, but we want the instr mode */
@@ -1572,7 +1572,7 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
             instr_set_translation(instr, instr_get_raw_bits(instr));
 #endif
         dr_set_isa_mode(dcontext, old_mode, NULL);
-#ifdef X86_64
+#ifdef X86
         /* decode sets raw bits which invalidates rip_rel, but
          * it should still be valid on an up-decode */
         if (rip_rel_valid)
@@ -2037,7 +2037,6 @@ instr_is_xsave(instr_t *instr)
 }
 #endif /* X86 */
 
-#if defined(X64) || defined(ARM)
 /* PR 251479: support general re-relativization.  If INSTR_RIP_REL_VALID is set and
  * the raw bits are valid, instr->rip_rel_pos is assumed to hold the offset into the
  * instr of a 32-bit rip-relative displacement, which is used to re-relativize during
@@ -2050,14 +2049,14 @@ instr_is_xsave(instr_t *instr)
  * raw bits: we can't rely just on the raw bits invalidation.
  * There can only be one rip-relative operand per instruction.
  */
-/* FIXME i#1551: for ARM we don't have a large displacement on every reference.
+/* TODO i#4016: for AArchXX we don't have a large displacement on every reference.
  * Some have no disp at all, others have just 12 bits or smaller.
  * We need to come up with a strategy for handling encode-time re-relativization.
  * Xref copy_and_re_relativize_raw_instr().
  * For now, we do use some of these routines, but none that use the rip_rel_pos.
  */
 
-#    ifdef X86_64
+#ifdef X86
 bool
 instr_rip_rel_valid(instr_t *instr)
 {
@@ -2087,28 +2086,92 @@ instr_set_rip_rel_pos(instr_t *instr, uint pos)
     instr->rip_rel_pos = (byte)pos;
     instr_set_rip_rel_valid(instr, true);
 }
-#    endif /* X86_64 */
+#endif /* X86 */
+
+#ifdef X86
+static bool
+instr_has_rip_rel_instr_operand(instr_t *instr)
+{
+    /* XXX: See comment in instr_get_rel_target() about distinguishing data from
+     * instr rip-rel operands.  We don't want to go so far as adding yet more
+     * data plumbed through the decode_fast tables.
+     * Perhaps we should instead break compatibility and have all these relative
+     * target and operand index routines include instr operands, and update
+     * mangle_rel_addr() to somehow distinguish instr on its own?
+     * For now we get by with the simple check for a cti or xbegin.
+     * No instruction has 2 rip-rel immeds so a direct cti must be instr.
+     */
+    return (instr_is_cti(instr) && !instr_is_mbr(instr)) ||
+        instr_get_opcode(instr) == OP_xbegin;
+}
+#endif
 
 bool
-instr_get_rel_addr_target(instr_t *instr, app_pc *target)
+instr_get_rel_target(instr_t *instr, /*OUT*/ app_pc *target, bool data_only)
 {
-    int i;
-    opnd_t curop;
     if (!instr_valid(instr))
         return false;
-#    ifdef X86_64
+
+    /* For PC operands we have to look at the high-level *before* rip_rel_pos, to
+     * support decode_from_copy().  As documented, we ignore instr_t targets.
+     */
+    if (!data_only && instr_operands_valid(instr) && instr_num_srcs(instr) > 0 &&
+        opnd_is_pc(instr_get_src(instr, 0))) {
+        if (target != NULL)
+            *target = opnd_get_pc(instr_get_src(instr, 0));
+        return true;
+    }
+
+#ifdef X86
     /* PR 251479: we support rip-rel info in level 1 instrs */
     if (instr_rip_rel_valid(instr)) {
-        if (instr_get_rip_rel_pos(instr) > 0) {
+        int rip_rel_pos = instr_get_rip_rel_pos(instr);
+        if (rip_rel_pos > 0) {
+            if (data_only) {
+                /* XXX: Distinguishing data from instr is a pain here b/c it might be
+                 * during init (e.g., callback.c's copy_app_code()) and we can't
+                 * easily do an up-decode (hence the separate "local" instr_t below).
+                 * We do it partly for backward compatibility for external callers,
+                 * but also for our own mangle_rel_addr().  Would it be cleaner some
+                 * other way: breaking compat and not supporting data-only here and
+                 * having mangle call instr_set_rip_rel_valid() for all cti's (and
+                 * xbegin)?
+                 */
+                bool not_data = false;
+                if (!instr_opcode_valid(instr) && get_thread_private_dcontext() == NULL) {
+                    instr_t local;
+                    instr_init(GLOBAL_DCONTEXT, &local);
+                    if (decode_opcode(GLOBAL_DCONTEXT, instr_get_raw_bits(instr),
+                                      &local) != NULL) {
+                        not_data = instr_has_rip_rel_instr_operand(&local);
+                    }
+                    instr_free(GLOBAL_DCONTEXT, &local);
+                } else
+                    not_data = instr_has_rip_rel_instr_operand(instr);
+                if (not_data)
+                    return false;
+            }
             if (target != NULL) {
-                *target = instr->bytes + instr->length +
-                    *((int *)(instr->bytes + instr_get_rip_rel_pos(instr)));
+                /* We only support non-4-byte rip-rel disps for 1-byte instr-final
+                 * (jcc_short).
+                 */
+                if (rip_rel_pos + 1 == (int)instr->length) {
+                    *target = instr->bytes + instr->length +
+                        *((char *)(instr->bytes + rip_rel_pos));
+                } else {
+                    ASSERT(rip_rel_pos + 4 <= (int)instr->length);
+                    *target = instr->bytes + instr->length +
+                        *((int *)(instr->bytes + rip_rel_pos));
+                }
             }
             return true;
         } else
             return false;
     }
-#    endif
+#endif
+#if defined(X64) || defined(ARM)
+    int i;
+    opnd_t curop;
     /* else go to level 3 operands */
     for (i = 0; i < instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
@@ -2156,7 +2219,21 @@ instr_get_rel_addr_target(instr_t *instr, app_pc *target)
                 }
             });
     }
+#endif
     return false;
+}
+
+bool
+instr_get_rel_data_or_instr_target(instr_t *instr, /*OUT*/ app_pc *target)
+{
+    return instr_get_rel_target(instr, target, false /*all*/);
+}
+
+#if defined(X64) || defined(ARM)
+bool
+instr_get_rel_addr_target(instr_t *instr, /*OUT*/ app_pc *target)
+{
+    return instr_get_rel_target(instr, target, true /*data-only*/);
 }
 
 bool
