@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,6 +50,14 @@
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
+
+// We are no longer supporting pre-C++11 as it complicates the code too
+// much, requiring macros for 'override', etc.
+// MSVC 2013 accepts 'override' but returns 199711.
+#if (defined(UNIX) && __cplusplus < 201103L) || \
+    (defined(WINDOWS) && __cplusplus < 199711L)
+#    error This library requires C++11
+#endif
 
 #define DROPTION_DEFAULT_VALUE_SEP " "
 
@@ -155,7 +163,8 @@ public:
      * droption_t class fields.
      * On success, returns true, with the index of the start of the remaining
      * unparsed options, if any, returned in \p last_index (typically this
-     * will be options separated by "--").
+     * will be options separated by "--" or when encountering a token that
+     * does not start with a leading "-").
      * On failure, returns false, and if \p error_msg != NULL, stores a string
      * describing the error there.  On failure, \p last_index is set to the
      * index of the problematic option or option value.
@@ -174,6 +183,11 @@ public:
             // We support the universal "--" as a separator
             if (strcmp(argv[i], "--") == 0) {
                 ++i; // for last_index
+                break;
+            }
+            // Also stop on a non-leading-dash token to support arguments without
+            // a separating "--".
+            if (argv[i][0] != '-') {
                 break;
             }
             bool matched = false;
@@ -436,7 +450,7 @@ public:
 
 protected:
     bool
-    clamp_value()
+    clamp_value() override
     {
         if (has_range) {
             if (value < minval) {
@@ -451,17 +465,17 @@ protected:
     }
 
     bool
-    option_takes_arg() const;
+    option_takes_arg() const override;
     bool
-    option_takes_2args() const;
+    option_takes_2args() const override;
     bool
-    name_match(const char *arg);
+    name_match(const char *arg) override;
     bool
-    convert_from_string(const std::string s);
+    convert_from_string(const std::string s) override;
     bool
-    convert_from_string(const std::string s1, const std::string s2);
+    convert_from_string(const std::string s1, const std::string s2) override;
     std::string
-    default_as_string() const;
+    default_as_string() const override;
 
     T value;
     T defval;

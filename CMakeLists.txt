@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -119,6 +119,7 @@ else ()
 endif ()
 
 include(CheckCCompilerFlag)
+include(CheckCXXCompilerFlag)
 
 ###########################################################################
 # utility functions
@@ -705,6 +706,11 @@ if (UNIX)
   if (no_stack_protector_avail)
     set(BASE_CFLAGS "${BASE_CFLAGS} -fno-stack-protector")
   endif (no_stack_protector_avail)
+  # Prefer the new 'override' keyword.
+  CHECK_CXX_COMPILER_FLAG("-Wsuggest-override" suggest_override_avail)
+  if (suggest_override_avail)
+    set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -Wsuggest-override")
+  endif ()
   # now that the user must set non-default -mNN we don't nec. need these:
   if (X86)
     if (X64)

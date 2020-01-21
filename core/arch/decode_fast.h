@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,14 +46,36 @@ DR_API
  * Decodes only enough of the instruction at address \p pc to determine its size.
  * Returns that size.
  * If \p num_prefixes is non-NULL, returns the number of prefix bytes.
- * If \p rip_rel_pos is non-NULL, returns the offset into the instruction
- * of a rip-relative addressing displacement (for data only: ignores
- * control-transfer relative addressing), or 0 if none.
+ *
+ * On x86, if \p rip_rel_pos is non-NULL, returns the offset into the instruction of a
+ * rip-relative addressing displacement (for data only: ignores control-transfer
+ * relative addressing; use decode_sizeof_ex() for that), or 0 if none.
+ * The \p rip_rel_pos parameter is only implemented for x86, where the displacement
+ * is always 4 bytes in size.
+ *
  * May return 0 size for certain invalid instructions.
  */
 int
 decode_sizeof(dcontext_t *dcontext, byte *pc,
               int *num_prefixes _IF_X86_64(uint *rip_rel_pos));
+
+#ifdef X86
+DR_API
+/**
+ * Decodes only enough of the instruction at address \p pc to determine its size.
+ * Returns that size.
+ * If \p num_prefixes is non-NULL, returns the number of prefix bytes.
+ *
+ * On x86, if \p rip_rel_pos is non-NULL, returns the offset into the instruction of a
+ * rip-relative addressing displacement for data or control-transfer relative
+ * addressing, or 0 if none.  This is only implemented for x86, where the displacement
+ * is always 4 bytes for data but can be 1 byte for control.
+ *
+ * May return 0 size for certain invalid instructions.
+ */
+int
+decode_sizeof_ex(dcontext_t *dcontext, byte *pc, int *num_prefixes, uint *rip_rel_pos);
+#endif
 
 DR_API
 /**
@@ -99,7 +121,7 @@ DR_UNS_EXCEPT_TESTS_API
  * Does NOT fill in any other prefix flags unless this is a cti instr
  * and the flags affect the instr.
  *
- * For x64, calls instr_set_rip_rel_pos().  Thus, if the raw bytes are
+ * For x86, calls instr_set_rip_rel_pos().  Thus, if the raw bytes are
  * not modified prior to encode time, any rip-relative offset will be
  * automatically re-relativized (though encoding will fail if the new
  * encode location cannot reach the original target).

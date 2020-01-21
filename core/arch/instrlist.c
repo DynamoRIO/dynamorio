@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -215,6 +215,15 @@ instrlist_first_app(instrlist_t *ilist)
         return first;
 
     return instr_get_next_app(first);
+}
+
+instr_t *
+instrlist_first_nonlabel(instrlist_t *ilist)
+{
+    instr_t *first = ilist->first;
+    while (first != NULL && instr_is_label(first))
+        first = instr_get_next(first);
+    return first;
 }
 
 /* returns the last inst in the list */

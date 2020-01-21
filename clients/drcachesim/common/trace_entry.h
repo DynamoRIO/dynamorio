@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -225,6 +225,15 @@ typedef enum {
      * marker entry
      */
     TRACE_MARKER_TYPE_FUNC_RETVAL,
+
+    /* This is a non-public type only present in an offline raw trace. To support a
+     * full 64-bit marker value in an offline trace where
+     * offline_entry_t.extended.valueA contains <64 bits, we use two consecutive
+     * entries.  We rely on these being adjacent in the trace.  This entry must come
+     * first, and its valueA is left-shited 32 and then OR-ed with the subsequent
+     * entry's valueA to produce the final marker value.
+     */
+    TRACE_MARKER_TYPE_SPLIT_VALUE,
 
     // ...
     // These values are reserved for future built-in marker types.

@@ -861,15 +861,7 @@ free_all_callback_lists()
 }
 
 void
-instrument_exit_post_sideline(void)
-{
-#    if defined(WINDOWS) || defined(CLIENT_SIDELINE)
-    DELETE_LOCK(client_thread_count_lock);
-#    endif
-}
-
-void
-instrument_exit(void)
+instrument_exit_event(void)
 {
     /* Note - currently own initexit lock when this is called (see PR 227619). */
 
@@ -880,6 +872,12 @@ instrument_exit(void)
              /* It seems the compiler is confused if we pass no var args
               * to the call_all macro.  Bogus NULL arg */
              NULL);
+}
+
+void
+instrument_exit(void)
+{
+    /* Note - currently own initexit lock when this is called (see PR 227619). */
 
     if (IF_DEBUG_ELSE(true, doing_detach)) {
         /* Unload all client libs and free any allocated storage */
@@ -898,6 +896,9 @@ instrument_exit(void)
     num_client_libs = 0;
 #    ifdef WINDOWS
     DELETE_LOCK(client_aux_lib64_lock);
+#    endif
+#    if defined(WINDOWS) || defined(CLIENT_SIDELINE)
+    DELETE_LOCK(client_thread_count_lock);
 #    endif
     DELETE_READWRITE_LOCK(callback_registration_lock);
 }

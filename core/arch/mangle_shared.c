@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -988,6 +988,7 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
         int i;
         for (i = 0; i < DR_NUM_GPR_REGS; i++) {
             if (reg_written[i]) {
+                /* XXX: Keep this consistent with instr_is_rseq_load() in translate.c. */
                 size_t offs = offsetof(dcontext_t, rseq_entry_state) + sizeof(reg_t) * i;
                 PRE(ilist, insert_at,
                     XINST_CREATE_load(dcontext,
@@ -1086,6 +1087,10 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
      * not stores, and restartable).
      */
     app_pc pc = start;
+    /* Store the PC values for faster conversion of intra-region targets. */
+    generic_table_t *pc2instr =
+        generic_hash_create(dcontext, 6 /*expect few entries*/, 80 /* load factor */, 0,
+                            NULL _IF_DEBUG("pc2instr"));
     PRE(ilist, insert_at, label_start);
     while (pc < end) {
         instr_t *copy = instr_create(dcontext);
@@ -1096,11 +1101,13 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
                                         "Invalid instruction inside rseq region");
             ASSERT_NOT_REACHED();
         }
+        generic_hash_add(dcontext, pc2instr, (ptr_uint_t)get_app_instr_xl8(copy), copy);
         /* Make intra-region branches meta; all others are exit ctis. */
         if ((instr_is_cbr(copy) || instr_is_ubr(copy)) &&
             opnd_is_pc(instr_get_target(copy))) {
             app_pc tgt = opnd_get_pc(instr_get_target(copy));
             if (tgt >= start && tgt < end) {
+                /* We change the target from a PC to an instr_t* at the end. */
                 PRE(ilist, insert_at, copy);
                 continue;
             }
@@ -1123,6 +1130,31 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
         }
     }
     PRE(ilist, insert_at, label_end);
+    /* Update all intra-region targets to use instr_t* operands.  We can't simply
+     * leave absolute PC's and re-relativize (that would point into the app code).
+     * Nor can we use the hardcoded relative offset by calling
+     * instr_set_rip_rel_valid(, false) because there can be subsequent mangling that
+     * changes the offsets.
+     */
+    for (instr_t *walk = label_start; walk != label_end; walk = instr_get_next(walk)) {
+        if (!instr_is_app(walk) && (instr_is_cbr(walk) || instr_is_ubr(walk))) {
+            ASSERT(opnd_is_pc(instr_get_target(walk)));
+            app_pc tgt_pc = opnd_get_pc(instr_get_target(walk));
+            instr_t *tgt_inst =
+                (instr_t *)generic_hash_lookup(dcontext, pc2instr, (ptr_uint_t)tgt_pc);
+            if (tgt_inst == NULL) {
+                LOG(THREAD, LOG_INTERP, 1,
+                    "%s: pc2instr failed for branch from " PFX " to " PFX "\n",
+                    __FUNCTION__, get_app_instr_xl8(walk), tgt_pc);
+                REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
+                                            get_application_name(), get_application_pid(),
+                                            "Rseq branch target is mid-instruction");
+                ASSERT_NOT_REACHED();
+            }
+            instr_set_target(walk, opnd_create_instr(tgt_inst));
+        }
+    }
+    generic_hash_destroy(dcontext, pc2instr);
     /* Now mangle from this point. */
     *next_instr = start_mangling;
 
