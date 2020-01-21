@@ -166,7 +166,9 @@ loader_init_prologue(void)
 
     for (uint i = 0; i < privmod_static_idx; i++) {
         /* Transfer to real list so we can do normal processing later. */
+#ifdef CLIENT_INTERFACE
         privmod_t *mod =
+#endif
             privload_insert(NULL, privmod_static[i].base, privmod_static[i].size,
                             privmod_static[i].name, privmod_static[i].path);
 #ifdef CLIENT_INTERFACE
@@ -245,7 +247,13 @@ loader_exit(void)
 void
 loader_thread_init(dcontext_t *dcontext)
 {
-    ASSERT(modlist != NULL);
+    if (modlist == NULL) {
+#ifdef WINDOWS
+        os_loader_thread_init_prologue(dcontext);
+        os_loader_thread_init_epilogue(dcontext);
+#endif
+        return;
+    }
     /* os specific thread initilization prologue for loader with no lock */
     os_loader_thread_init_prologue(dcontext);
     /* For the initial libs we need to call DLL_PROCESS_INIT first from
