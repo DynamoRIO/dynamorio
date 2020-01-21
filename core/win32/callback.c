@@ -3126,7 +3126,7 @@ intercept_new_thread(CONTEXT *cxt)
          * delaying client thread execution until after the app has
          * started (and thus after dynamo_initialized is set.
          */
-         wait_for_event(dr_app_started, 0);
+        wait_for_event(dr_app_started, 0);
     }
 #endif
     /* FIXME i#2718: we want the app_state_at_intercept_t context, which is
