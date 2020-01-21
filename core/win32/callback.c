@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -6346,7 +6346,8 @@ intercept_callback_start(app_state_at_intercept_t *state)
                 target = cbtable[*(uint *)(state->mc.xsp + IF_X64_ELSE(0x2c, 4))];
                 LOG(THREAD_GET, LOG_ASYNCH, 2,
                     "ASYNCH intercepted callback #%d: target=" PFX ", thread=" TIDFMT
-                    "\n", GLOBAL_STAT(num_callbacks) + 1, target, d_r_get_thread_id());
+                    "\n",
+                    GLOBAL_STAT(num_callbacks) + 1, target, d_r_get_thread_id());
                 DOLOG(3, LOG_ASYNCH,
                       { dump_mcontext(&state->mc, THREAD_GET, DUMP_NOT_XML); });
             }
