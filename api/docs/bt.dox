@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1315,7 +1315,8 @@ This run-twice approach is subject to the following limitations:
 - The application must use the same signature for every rseq system call.
 - Each rseq region's code must never be also executed as a non-restartable sequence.
 - Each rseq region must handle being directly restarted without its
-  abort handler being called (with the machine state restored).
+  abort handler being called (with the machine state restored: though just the
+  general-purpose registers as described in the limitation below).
 - Each memory store instruction inside an rseq region must have no other side
   effects: it must only write to memory and not to any registers.
   For example, a push instruction which both writes to memory and the
@@ -1327,9 +1328,8 @@ This run-twice approach is subject to the following limitations:
   the region targeting a point inside the region.
 - No system calls are allowed inside rseq regions.
 - No call instructions are allowed inside rseq regions.
-- The only register inputs to an rseq region must be general-purpose registers read
-  prior to any write to that register when the sequence is considered linearly without
-  regard to control flow.
+- The only register inputs to an rseq region, or registers written inside an rseq
+  region whose values are then read afterward, must be general-purpose registers.
 - The instrumented execution of the rseq region may not perfectly reflect
   the native behavior of the application.  The instrumentation will never see
   the abort handler called, and memory addresses may be wrong if they are based on
