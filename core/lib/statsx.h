@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1034,8 +1034,6 @@ STATS_DEF("-pad_jmps no shift stubs shared bb", pad_jmps_shared_bb_num_stubs_no_
 STATS_DEF("-pad_jmps inserted nops shared bb", pad_jmps_shared_bb_num_nops)
 STATS_DEF("-pad_jmps inserted nop bytes shared bb", pad_jmps_shared_bb_nop_bytes)
 STATS_DEF("-pad_jmps no pad exits shared bb", pad_jmps_shared_bb_num_no_pad_exits)
-STATS_DEF("-pad_jmps_mark_no_trace untraceable bbs", pad_jmps_mark_no_trace)
-STATS_DEF("-pad_jmps_mark_no_trace block trace on reemit", pad_jmps_block_trace_reemit)
 
 /* shtrace to avoid going over 60 columns */
 STATS_DEF("-pad_jmps body bytes shtrace", pad_jmps_shared_trace_body_bytes)

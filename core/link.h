@@ -80,7 +80,10 @@ enum {
     /* Indicates a far cti which uses a separate ibl entry */
     LINK_FAR = 0x0020,
 
-/* 0x0040 is reserved for i#4038 */
+    /* This exit cti has a preceding NOP to avoid its immediate from crossing a cache
+     * line.  This flag lets us identify NOPs which we added as opposed to the client.
+     */
+    LINK_PADDED = 0x0040,
 
 #ifdef X64
     /* PR 257963: since we don't store targets of ind branches, we need a flag

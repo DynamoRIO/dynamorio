@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -299,8 +299,7 @@
 # define DYNAMORIO_IR_EXPORTS
 # define CUSTOM_TRACES
 # define CLIENT_SIDELINE
-  /* PR 200409: not part of our current API, xref PR 215179 on -pad_jmps
-   * issues with CUSTOM_EXIT_STUBS
+  /* TODO i#4045: Remove these completely from the code base.
 # define CUSTOM_EXIT_STUBS
 # define UNSUPPORTED_API
    */
