@@ -924,6 +924,36 @@ mangle_rseq_insert_call_sequence(dcontext_t *dcontext, instrlist_t *ilist, instr
 #    endif
 }
 
+static void
+mangle_rseq_write_exit_reason(dcontext_t *dcontext, instrlist_t *ilist,
+                              instr_t *insert_at, reg_id_t scratch_reg)
+{
+    /* We use slot 1 to avoid conflict with segment mangling. */
+    if (SCRATCH_ALWAYS_TLS()) {
+        PRE(ilist, insert_at,
+            instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
+        insert_get_mcontext_base(dcontext, ilist, insert_at, scratch_reg);
+    } else {
+        PRE(ilist, insert_at,
+            instr_create_save_to_dcontext(dcontext, scratch_reg, REG1_OFFSET));
+        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)dcontext,
+                               opnd_create_reg(scratch_reg), ilist, insert_at, NULL,
+                               NULL);
+    }
+    PRE(ilist, insert_at,
+        XINST_CREATE_store(dcontext,
+                           opnd_create_dcontext_field_via_reg_sz(
+                               dcontext, scratch_reg, EXIT_REASON_OFFSET, OPSZ_2),
+                           OPND_CREATE_INT16(EXIT_REASON_RSEQ_ABORT)));
+    if (SCRATCH_ALWAYS_TLS()) {
+        PRE(ilist, insert_at,
+            instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
+    } else {
+        PRE(ilist, insert_at,
+            instr_create_restore_from_dcontext(dcontext, scratch_reg, REG1_OFFSET));
+    }
+}
+
 /* May modify next_instr. */
 static void
 mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
@@ -1028,8 +1058,14 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
 #    endif
     PRE(ilist, insert_at, abort_sig);
     PRE(ilist, insert_at, label_abort);
-    instrlist_preinsert(ilist, insert_at,
-                        XINST_CREATE_jump(dcontext, opnd_create_pc(handler)));
+    /* To raise a kernel xfer event we need to go back to DR.  Thus this exit will
+     * never be linked.  This should be quite rare, however, and should not impose
+     * a performance burden.
+     */
+    mangle_rseq_write_exit_reason(dcontext, ilist, insert_at, scratch_reg);
+    instr_t *abort_exit = XINST_CREATE_jump(dcontext, opnd_create_pc(handler));
+    instr_branch_set_special_exit(abort_exit, true);
+    instrlist_preinsert(ilist, insert_at, abort_exit);
     PRE(ilist, insert_at, skip_abort);
 
     /* Point this thread's struct rseq ptr at an rseq_cs which points at the bounds
@@ -1128,6 +1164,18 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
             instr_exit_branch_set_type(exit, exit_type);
             instrlist_preinsert(ilist, insert_at, exit);
         }
+#    if defined(DEBUG) && defined(X86)
+        /* Support for the api.rseq test with (officially unsupported) syscall in
+         * its rseq code executing before the app executes a syscall.
+         */
+        if (instr_is_syscall(copy) &&
+            get_syscall_method() == SYSCALL_METHOD_UNINITIALIZED) {
+            ASSERT(instr_get_opcode(copy) == OP_syscall &&
+                   check_filter("api.rseq", get_short_name(get_application_name())));
+            set_syscall_method(SYSCALL_METHOD_SYSCALL);
+            update_syscalls(dcontext);
+        }
+#    endif
     }
     PRE(ilist, insert_at, label_end);
     /* Update all intra-region targets to use instr_t* operands.  We can't simply
