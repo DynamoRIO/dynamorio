@@ -1074,10 +1074,14 @@ private:
                     append = true;
                     *interrupted = true;
                     if (int_modoffs == 0) {
-                        // This happens on rseq aborts, where the trace instru includes
-                        // the rseq committing store before the native rseq execution
-                        // hits the abort.  Pretend the abort happened *before* the
-                        // committing store by walking the store backward.
+                        // This happens on rseq native aborts, where the trace instru
+                        // includes the rseq committing store before the native rseq
+                        // execution hits the native abort.  Pretend the native abort
+                        // happened *before* the committing store by walking the store
+                        // backward.  We will not get here for Windows callbacks, the
+                        // other event with a 0 modoffs, because they are always between
+                        // bbs.  (Unfortunately there's no simple way to assert or check
+                        // that here or in the tracer.)
                         trace_type_t skipped_type;
                         do {
                             --*buf_in;
