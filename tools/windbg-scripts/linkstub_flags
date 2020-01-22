@@ -1,4 +1,5 @@
 $$ **********************************************************
+$$ Copyright (c) 2020 Google, Inc.  All rights reserved.
 $$ Copyright (c) 2005 VMware, Inc.  All rights reserved.
 $$ **********************************************************
 
@@ -41,7 +42,6 @@ $$ flags as of link.h 1.81
 .if ((poi(@$t1+4) & 0x000010)==0x000010) {.echo "JMP";};
 .if ((poi(@$t1+4) & 0x000020)==0x000020) {.echo "IND_JMP_PLT";};
 .if ((poi(@$t1+4) & 0x000040)==0x000040) {.echo "SELFMOD_EXIT";};
-.if ((poi(@$t1+4) & 0x000080)==0x000080) {.echo "TARGET_PREFIX";};
 .if ((poi(@$t1+4) & 0x000100)==0x000100) {.echo "*** INVALID / CUSTOM_TRACES ENDS_BLOCK";};
 .if ((poi(@$t1+4) & 0x000200)==0x000200) {.echo "CALLBACK_RETURN";};
 .if ((poi(@$t1+4) & 0x000400)==0x000400) {.echo "NI_SYSCALL";};

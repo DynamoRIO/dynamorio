@@ -708,47 +708,6 @@ instr_set_predicate(instr_t *instr, dr_pred_type_t pred)
     return instr;
 }
 
-#ifdef UNSUPPORTED_API
-/* Returns true iff instr has been marked as targeting the prefix of its
- * target fragment.
- *
- * Some code manipulations need to store a target address in a
- * register and then jump there, but need the register to be restored
- * as well.  DR provides a single-instruction prefix that is
- * placed on all fragments (basic blocks as well as traces) that
- * restores ecx.  It is on traces for internal DR use.  To have
- * it added to basic blocks as well, call
- * dr_add_prefixes_to_basic_blocks() during initialization.
- */
-bool
-instr_branch_targets_prefix(instr_t *instr)
-{
-    return ((instr->flags & INSTR_BRANCH_TARGETS_PREFIX) != 0);
-}
-
-/* If val is true, indicates that instr's target fragment should be
- *   entered through its prefix, which restores ecx.
- * If val is false, indicates that instr should target the normal entry
- *   point and not the prefix.
- *
- * Some code manipulations need to store a target address in a
- * register and then jump there, but need the register to be restored
- * as well.  DR provides a single-instruction prefix that is
- * placed on all fragments (basic blocks as well as traces) that
- * restores ecx.  It is on traces for internal DR use.  To have
- * it added to basic blocks as well, call
- * dr_add_prefixes_to_basic_blocks() during initialization.
- */
-void
-instr_branch_set_prefix_target(instr_t *instr, bool val)
-{
-    if (val)
-        instr->flags |= INSTR_BRANCH_TARGETS_PREFIX;
-    else
-        instr->flags &= ~INSTR_BRANCH_TARGETS_PREFIX;
-}
-#endif /* UNSUPPORTED_API */
-
 /* Returns true iff instr has been marked as a special exit cti */
 bool
 instr_branch_special_exit(instr_t *instr)

@@ -6385,21 +6385,6 @@ bool
 dr_trace_exists_at(void *drcontext, void *tag);
 #    endif /* CUSTOM_TRACES */
 
-#    ifdef UNSUPPORTED_API
-DR_API
-/**
- * All basic blocks created after this routine is called will have a prefix
- * that restores the ecx register.  Exit ctis can be made to target this prefix
- * instead of the normal entry point by using the
- * instr_branch_set_prefix_target() routine.
- * \warning This routine should almost always be called during client
- * initialization, since having a mixture of prefixed and non-prefixed basic
- * blocks can lead to trouble.
- */
-void
-dr_add_prefixes_to_basic_blocks(void);
-#    endif /* UNSUPPORTED_API */
-
 #endif /* CLIENT_INTERFACE */
 
 /****************************************************************************
