@@ -1236,18 +1236,20 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     case DR_XFER_SIGNAL_DELIVERY:
     case DR_XFER_EXCEPTION_DISPATCHER:
     case DR_XFER_RAISE_DISPATCHER:
-    case DR_XFER_CALLBACK_DISPATCHER: marker_type = TRACE_MARKER_TYPE_KERNEL_EVENT; break;
+    case DR_XFER_CALLBACK_DISPATCHER:
+    case DR_XFER_RSEQ_ABORT: marker_type = TRACE_MARKER_TYPE_KERNEL_EVENT; break;
     case DR_XFER_SIGNAL_RETURN:
     case DR_XFER_CALLBACK_RETURN:
     case DR_XFER_CONTINUE:
     case DR_XFER_SET_CONTEXT_THREAD: marker_type = TRACE_MARKER_TYPE_KERNEL_XFER; break;
-    default: return;
+    case DR_XFER_CLIENT_REDIRECT: return;
+    default: DR_ASSERT(false && "unknown kernel xfer type"); return;
     }
     NOTIFY(2, "%s: type %d, sig %d\n", __FUNCTION__, info->type, info->sig);
     /* TODO i3937: We need something similar to this for online too, to place signals
      * inside instr bundles.
      */
-    if (op_offline.get_value()) {
+    if (op_offline.get_value() && info->source_mcontext != nullptr) {
         /* Enable post-processing to figure out the ordering of this xfer vs
          * non-memref instrs in the bb.
          */

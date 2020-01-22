@@ -3628,9 +3628,11 @@ if (UNIX)
     append_property_string(TARGET linux.rseq_noarray
       COMPILE_FLAGS "-DRSEQ_TEST_USE_NO_ARRAY")
     # Test attaching, which has a separate lazy rseq check.
-    tobuild_api(api.rseq linux/rseq.c "" "" OFF OFF)
+    # We build with static DR to also test client interactions.
+    tobuild_api(api.rseq linux/rseq.c "" "" OFF ON)
     link_with_pthread(api.rseq)
     append_property_string(TARGET api.rseq COMPILE_FLAGS "-DRSEQ_TEST_ATTACH")
+    set(api.rseq_expectbase rseq_client)
     # Test non-compliant code with our workaround flag.
     tobuild_ops(linux.rseq_disable linux/rseq_disable.c "-disable_rseq" "")
   endif ()
