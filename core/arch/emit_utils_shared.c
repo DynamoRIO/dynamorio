@@ -465,17 +465,7 @@ link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t 
 #endif
 
     /* change jmp target to point to the passed-in target */
-#ifdef UNSUPPORTED_API
-    if ((l->flags & LINK_TARGET_PREFIX) != 0) {
-        /* want to target just the xcx restore, not the eflags restore
-         * (only ibl targets eflags restore)
-         */
-        patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l),
-                     FCACHE_PREFIX_ENTRY_PC(targetf), hot_patch);
-    } else
-#endif
-
-        if (exit_cti_reaches_target(dcontext, f, l, (cache_pc)FCACHE_ENTRY_PC(targetf))) {
+    if (exit_cti_reaches_target(dcontext, f, l, (cache_pc)FCACHE_ENTRY_PC(targetf))) {
         patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), FCACHE_ENTRY_PC(targetf),
                      hot_patch);
         return true; /* do not need stub anymore */

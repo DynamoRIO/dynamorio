@@ -1031,30 +1031,6 @@ added to the owning exit cti's.
 \endif
 
 
-\if prefixes
-********************
-\subsection sec_prefixes Prefixes
-
-Some code manipulations need to store a target address in a register and
-then jump there, but need the register to be restored as well.  DynamoRIO
-provides a single-instruction prefix that is placed on all fragments (basic
-blocks as well as traces) that restores ecx.  It is on traces for internal
-DynamoRIO use.  To have it added to basic blocks as well, call this routine
-during initialization:
-
-\code
-void dr_add_prefixes_to_basic_blocks();
-\endcode
-
-To have a cti target the prefix rather than the normal entry, use these set
-and get routines:
-
-\code
-bool instr_branch_targets_prefix(instr_t *instr);
-void instr_branch_set_prefix_target(instr_t *instr, bool val);
-\endcode
-\endif
-
 ***************************************************************************
 \htmlonly
 <table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>

@@ -147,9 +147,6 @@ enum {
     INSTR_IND_JMP_PLT_EXIT = (INSTR_JMP_EXIT | INSTR_CALL_EXIT),
     INSTR_FAR_EXIT = LINK_FAR,
     INSTR_BRANCH_SPECIAL_EXIT = LINK_SPECIAL_EXIT,
-#    ifdef UNSUPPORTED_API
-    INSTR_BRANCH_TARGETS_PREFIX = LINK_TARGET_PREFIX,
-#    endif
 #    ifdef X64
     /* PR 257963: since we don't store targets of ind branches, we need a flag
      * so we know whether this is a trace cmp exit, which has its own ibl entry
@@ -167,9 +164,6 @@ enum {
     EXIT_CTI_TYPES =
         (INSTR_DIRECT_EXIT | INSTR_INDIRECT_EXIT | INSTR_RETURN_EXIT | INSTR_CALL_EXIT |
          INSTR_JMP_EXIT | INSTR_FAR_EXIT | INSTR_BRANCH_SPECIAL_EXIT |
-#    ifdef UNSUPPORTED_API
-         INSTR_BRANCH_TARGETS_PREFIX |
-#    endif
 #    ifdef X64
          INSTR_TRACE_CMP_EXIT |
 #    endif
@@ -689,42 +683,6 @@ DR_API
 /** Return true iff \p instr's opcode is OP_int, OP_into, or OP_int3. */
 bool
 instr_is_interrupt(instr_t *instr);
-
-#ifdef UNSUPPORTED_API
-DR_API
-/**
- * Returns true iff \p instr has been marked as targeting the prefix of its
- * target fragment.
- *
- * Some code manipulations need to store a target address in a
- * register and then jump there, but need the register to be restored
- * as well.  DR provides a single-instruction prefix that is
- * placed on all fragments (basic blocks as well as traces) that
- * restores ecx.  It is on traces for internal DR use.  To have
- * it added to basic blocks as well, call
- * dr_add_prefixes_to_basic_blocks() during initialization.
- */
-bool
-instr_branch_targets_prefix(instr_t *instr);
-
-DR_API
-/**
- * If \p val is true, indicates that \p instr's target fragment should be
- *   entered through its prefix, which restores ecx.
- * If \p val is false, indicates that \p instr should target the normal entry
- *   point and not the prefix.
- *
- * Some code manipulations need to store a target address in a
- * register and then jump there, but need the register to be restored
- * as well.  DR provides a single-instruction prefix that is
- * placed on all fragments (basic blocks as well as traces) that
- * restores ecx.  It is on traces for internal DR use.  To have
- * it added to basic blocks as well, call
- * dr_add_prefixes_to_basic_blocks() during initialization.
- */
-void
-instr_branch_set_prefix_target(instr_t *instr, bool val);
-#endif /* UNSUPPORTED_API */
 
 /* Returns true iff \p instr has been marked as a special fragment
  * exit cti.
