@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -323,12 +323,6 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                            TEST(LINK_SPECIAL_EXIT, l->flags));
                 }
             });
-#ifdef UNSUPPORTED_API
-            DOCHECK(1, {
-                if (instr_branch_targets_prefix(inst))
-                    ASSERT(TEST(LINK_TARGET_PREFIX, l->flags));
-            });
-#endif
 
             if (!EXIT_HAS_STUB(l->flags, f->flags)) {
                 /* exit cti points straight at ibl routine */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -80,9 +80,8 @@ enum {
     /* Indicates a far cti which uses a separate ibl entry */
     LINK_FAR = 0x0020,
 
-#ifdef UNSUPPORTED_API
-    LINK_TARGET_PREFIX = 0x0040,
-#endif
+/* 0x0040 is reserved for i#4038 */
+
 #ifdef X64
     /* PR 257963: since we don't store targets of ind branches, we need a flag
      * so we know whether this is a trace cmp exit, which has its own ibl entry
