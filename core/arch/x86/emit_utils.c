@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -377,11 +377,13 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
         if (instr_is_exit_cti(inst)) {
             /* see if we need to be able to patch this instruction */
             if (is_exit_cti_patchable(dcontext, inst, f->flags)) {
-                /* see if we are crossing a cache line, offset is the start of
-                 * the next instr here so need to see if the dword ending at
-                 * offset crosses a cache line */
+                /* See if we are crossing a cache line.  Offset is the start of
+                 * the current instr.
+                 */
                 uint nop_length =
                     patchable_exit_cti_align_offs(dcontext, inst, starting_pc + offset);
+                LOG(THREAD, LOG_INTERP, 4, "%s: F%d @" PFX " cti shift needed: %d\n",
+                    __FUNCTION__, f->id, starting_pc + offset, nop_length);
                 if (first_patch_offset < 0)
                     first_patch_offset = offset;
                 if (nop_length > 0) {
@@ -415,10 +417,14 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
                          * -pad_jmps_mark_no_trace.  We rely on having not
                          * inserted any nops into traceable bbs in interp (so that we
                          * don't have to remove them when we build the trace).
-                         * FIXME add tracing support so we don't have to mark
-                         * CANNOT_BE_TRACE (see PR 215179). */
+                         * FIXME i#4038: add tracing support so we don't have to mark
+                         * CANNOT_BE_TRACE.
+                         */
                         if (emitting && DYNAMO_OPTION(pad_jmps_mark_no_trace) &&
                             !TEST(FRAG_IS_TRACE, f->flags)) {
+                            LOG(THREAD, LOG_INTERP, 2,
+                                "Marking F%d as cannot-be-trace for nop padding\n",
+                                f->id);
                             f->flags |= FRAG_CANNOT_BE_TRACE;
                             STATS_INC(pad_jmps_mark_no_trace);
                         } else {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -145,7 +145,7 @@ delete_private_copy(dcontext_t *dcontext)
 
 /* Returns false if f has been deleted and no copy can be made. FIXME - also returns
  * false if the emitted private fragment can't be added to a trace (for pad_jmps
- * insertion reasons xref PR 215179). */
+ * insertion reasons: i#4038. */
 static bool
 create_private_copy(dcontext_t *dcontext, fragment_t *f)
 {
@@ -201,7 +201,7 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
         disassemble_fragment(dcontext, md->last_fragment, d_r_stats->loglevel <= 3);
     });
     KSTOP(temp_private_bb);
-    /* FIXME - PR 215179, with current hack pad_jmps sometimes marks fragments as
+    /* FIXME i#4038: With current hack pad_jmps sometimes marks fragments as
      * CANNOT_BE_TRACE during emit (since we don't yet have a good way to handle
      * inserted nops during tracing). This can happen for UNIX syscall fence exits and
      * CLIENT_INTERFACE added exits.  However, it depends on the starting alignment of
@@ -214,6 +214,9 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
      * to the client.  FRAG_MUST_END_TRACE is handled in internal_extend_trace.
      */
     if (TEST(FRAG_CANNOT_BE_TRACE, md->last_fragment->flags)) {
+        LOG(THREAD, LOG_MONITOR, 4,
+            "Private copy F%d of original F%d is marked cannot-be-trace!  Aborting.\n",
+            md->last_fragment->id, f->id);
         delete_private_copy(dcontext);
         md->last_fragment = NULL;
         md->last_copy = NULL;
@@ -680,7 +683,7 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
         (dcontext_in == GLOBAL_DCONTEXT) ? get_thread_private_dcontext() : dcontext_in;
     ASSERT(dcontext != NULL);
 
-    LOG(THREAD, LOG_MONITOR, 4, "marking F%d (" PFX ") as trace head\n", f->id, f->tag);
+    LOG(THREAD, LOG_MONITOR, 3, "marking F%d (" PFX ") as trace head\n", f->id, f->tag);
     ASSERT(!TEST(FRAG_IS_TRACE, f->flags));
     ASSERT(!NEED_SHARED_LOCK(f->flags) || self_owns_recursive_lock(&change_linking_lock));
 
@@ -1914,6 +1917,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
     check_fine_to_coarse_trace_head(dcontext, f);
 
     if (md->trace_tag != NULL) { /* in trace selection mode */
+
         KSTART(trace_building);
 
         /* unprotect local heap */
@@ -2204,22 +2208,19 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                 acquire_recursive_lock(&change_linking_lock);
                 if (TEST(FRAG_TRACE_BUILDING, f->flags)) {
                     /* trace_t building w/this tag is already in-progress. */
+                    LOG(THREAD, LOG_MONITOR, 3,
+                        "Not going to start trace with already-in-trace-progress F%d "
+                        "(tag " PFX ")\n",
+                        f->id, f->tag);
                     STATS_INC(num_trace_building_race);
                 } else {
+                    LOG(THREAD, LOG_MONITOR, 3,
+                        "Going to start trace with F%d (tag " PFX ")\n", f->id, f->tag);
                     f->flags |= FRAG_TRACE_BUILDING;
                     start_trace = true;
                 }
                 release_recursive_lock(&change_linking_lock);
             }
-        }
-        if (!start_trace) {
-            /* Back up the counter by one. This ensures that the
-             * counter will be == trace_threshold if this thread is later
-             * able to start building a trace w/this tag and ensures
-             * that our one-up sentinel works for lazy clearing.
-             */
-            ctr->counter--;
-            ASSERT(ctr->counter < INTERNAL_OPTION(trace_threshold));
         }
     }
 
@@ -2252,8 +2253,29 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
             /* operate on new f from here on */
             f = md->last_fragment;
         } else {
+            /* FIXME i#4038: This avoids asserts, but it might just happen over and
+             * over if the private copy repeatedly fails!  We will finish executing
+             * the app but with a performance hit from the repeated attempts to start
+             * a trace.
+             */
+            SYSLOG_INTERNAL_WARNING_ONCE(
+                "Private trace copy marked cannot-be-trace: may incur performance hit");
             start_trace = false;
+            acquire_recursive_lock(&change_linking_lock);
+            f->flags &= ~FRAG_TRACE_BUILDING;
+            release_recursive_lock(&change_linking_lock);
         }
+    }
+    if (!start_trace && ctr->counter >= INTERNAL_OPTION(trace_threshold)) {
+        /* Back up the counter by one. This ensures that the
+         * counter will be == trace_threshold if this thread is later
+         * able to start building a trace w/this tag and ensures
+         * that our one-up sentinel works for lazy clearing.
+         */
+        LOG(THREAD, LOG_MONITOR, 3, "Backing up F%d counter from %d\n", f->id,
+            ctr->counter);
+        ctr->counter--;
+        ASSERT(ctr->counter < INTERNAL_OPTION(trace_threshold));
     }
     if (start_trace) {
         KSTART(trace_building);
