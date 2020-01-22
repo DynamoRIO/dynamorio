@@ -1164,7 +1164,7 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
             instr_exit_branch_set_type(exit, exit_type);
             instrlist_preinsert(ilist, insert_at, exit);
         }
-#    ifdef DEBUG
+#    if defined(DEBUG) && defined(X86)
         /* Support for the api.rseq test with (officially unsupported) syscall in
          * its rseq code executing before the app executes a syscall.
          */
