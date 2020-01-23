@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -126,6 +126,8 @@ trace_invariants_t::process_memref(const memref_t &memref)
                   prev_xfer_marker.marker.marker_type ==
                       TRACE_MARKER_TYPE_KERNEL_XFER)) ||
                 prev_instr.instr.type == TRACE_TYPE_INSTR_SYSENTER);
+            // XXX: If we had instr decoding we could check direct branch targets
+            // and look for gaps after branches.
         }
 #ifdef UNIX
         // Ensure signal handlers return to the interruption point.
@@ -138,6 +140,9 @@ trace_invariants_t::process_memref(const memref_t &memref)
                    // Nested signal.  XXX: This only works for our annotated test
                    // signal_invariants.
                    memref.instr.addr == app_handler_pc ||
+                   // Marker for rseq abort handler.  Not as unique as a prefetch, but
+                   // we need an instruction and not a data type.
+                   memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP ||
                    // Too hard to figure out branch targets.
                    type_is_instr_branch(pre_signal_instr.instr.type) ||
                    pre_signal_instr.instr.type == TRACE_TYPE_INSTR_SYSENTER);
@@ -166,8 +171,8 @@ trace_invariants_t::process_memref(const memref_t &memref)
         prev_xfer_marker = memref;
     }
 
-    // Look for annotations where signal_invariants.c passes info to us on what to
-    // check for.  We assume the app does not have prefetch instrs w/ low addresses.
+    // Look for annotations where signal_invariants.c and rseq.c pass info to us on what
+    // to check for.  We assume the app does not have prefetch instrs w/ low addresses.
     if (memref.data.type == TRACE_TYPE_PREFETCHT2 && memref.data.addr < 1024) {
         instrs_until_interrupt = static_cast<int>(memref.data.addr);
     }
