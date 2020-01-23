@@ -147,6 +147,7 @@ enum {
     INSTR_IND_JMP_PLT_EXIT = (INSTR_JMP_EXIT | INSTR_CALL_EXIT),
     INSTR_FAR_EXIT = LINK_FAR,
     INSTR_BRANCH_SPECIAL_EXIT = LINK_SPECIAL_EXIT,
+    INSTR_BRANCH_PADDED = LINK_PADDED,
 #    ifdef X64
     /* PR 257963: since we don't store targets of ind branches, we need a flag
      * so we know whether this is a trace cmp exit, which has its own ibl entry
@@ -161,18 +162,18 @@ enum {
     INSTR_NI_SYSCALL = LINK_NI_SYSCALL,
     INSTR_NI_SYSCALL_ALL = LINK_NI_SYSCALL_ALL,
     /* meta-flag */
-    EXIT_CTI_TYPES =
-        (INSTR_DIRECT_EXIT | INSTR_INDIRECT_EXIT | INSTR_RETURN_EXIT | INSTR_CALL_EXIT |
-         INSTR_JMP_EXIT | INSTR_FAR_EXIT | INSTR_BRANCH_SPECIAL_EXIT |
+    EXIT_CTI_TYPES = (INSTR_DIRECT_EXIT | INSTR_INDIRECT_EXIT | INSTR_RETURN_EXIT |
+                      INSTR_CALL_EXIT | INSTR_JMP_EXIT | INSTR_FAR_EXIT |
+                      INSTR_BRANCH_SPECIAL_EXIT | INSTR_BRANCH_PADDED |
 #    ifdef X64
-         INSTR_TRACE_CMP_EXIT |
+                      INSTR_TRACE_CMP_EXIT |
 #    endif
 #    ifdef WINDOWS
-         INSTR_CALLBACK_RETURN |
+                      INSTR_CALLBACK_RETURN |
 #    else
-         INSTR_NI_SYSCALL_INT |
+                      INSTR_NI_SYSCALL_INT |
 #    endif
-         INSTR_NI_SYSCALL),
+                      INSTR_NI_SYSCALL),
 
     /* instr_t-internal flags (not shared with LINK_) */
     INSTR_OPERANDS_VALID = 0x00010000,
@@ -683,6 +684,12 @@ DR_API
 /** Return true iff \p instr's opcode is OP_int, OP_into, or OP_int3. */
 bool
 instr_is_interrupt(instr_t *instr);
+
+bool
+instr_branch_is_padded(instr_t *instr);
+
+void
+instr_branch_set_padded(instr_t *instr, bool val);
 
 /* Returns true iff \p instr has been marked as a special fragment
  * exit cti.
