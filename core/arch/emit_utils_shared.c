@@ -299,7 +299,7 @@ extend_trace_pad_bytes(fragment_t *add_frag)
         ? DYNAMO_OPTION(inline_trace_ibl)
         : DYNAMO_OPTION(inline_bb_ibl);
     int num_patchables = 0;
-    for (linkstub_t *l = FRAGMENT_EXIT_STUBS(add_frag); !LINKSTUB_FINAL(l);
+    for (linkstub_t *l = FRAGMENT_EXIT_STUBS(add_frag); l != NULL;
          l = LINKSTUB_NEXT_EXIT(l)) {
         num_patchables++;
         if (LINKSTUB_INDIRECT(l->flags) && inline_ibl_head)
