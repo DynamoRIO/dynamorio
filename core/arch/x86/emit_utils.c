@@ -411,27 +411,9 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
                             instr_shrink_to_32_bits(nop_inst);
                         }
 #endif
-                        /* We expect bbs to never need this if
-                         * -pad_jmps_shift_bb except on UNIX (signal fence exit) and
-                         * CLIENT_INTERFACE (client can re-arrange fragment) where we
-                         * -pad_jmps_mark_no_trace.  We rely on having not
-                         * inserted any nops into traceable bbs in interp (so that we
-                         * don't have to remove them when we build the trace).
-                         * FIXME i#4038: add tracing support so we don't have to mark
-                         * CANNOT_BE_TRACE.
-                         */
-                        if (emitting && DYNAMO_OPTION(pad_jmps_mark_no_trace) &&
-                            !TEST(FRAG_IS_TRACE, f->flags)) {
-                            LOG(THREAD, LOG_INTERP, 2,
-                                "Marking F%d as cannot-be-trace for nop padding\n",
-                                f->id);
-                            f->flags |= FRAG_CANNOT_BE_TRACE;
-                            STATS_INC(pad_jmps_mark_no_trace);
-                        } else {
-                            ASSERT(TEST(FRAG_IS_TRACE, f->flags) ||
-                                   TEST(FRAG_CANNOT_BE_TRACE, f->flags) ||
-                                   !INTERNAL_OPTION(pad_jmps_shift_bb));
-                        }
+                        LOG(THREAD, LOG_INTERP, 4,
+                            "Marking exit branch as having nop padding\n");
+                        instr_branch_set_padded(inst, true);
                         instrlist_preinsert(ilist, inst, nop_inst);
                         /* sanity check */
                         ASSERT((int)nop_length == instr_length(dcontext, nop_inst));

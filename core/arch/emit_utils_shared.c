@@ -294,26 +294,19 @@ bytes_for_exitstub_alignment(dcontext_t *dcontext, linkstub_t *l, fragment_t *f,
 uint
 extend_trace_pad_bytes(fragment_t *add_frag)
 {
-    /* FIXME : this is a poor estimate, we could do better by looking at the
-     * linkstubs and checking if we are inlining ibl, but since this is just
-     * used by monitor.c for a max size check should be fine to overestimate
-     * we'll just end up with slightly shorter max size traces */
-    /* we don't trace through traces in normal builds, so don't worry about
-     * number of exits (FIXME this also assumes bbs don't trace through
-     * conditional or indirect branches) */
-    ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_IS_TRACE, add_frag->flags));
-    /* Also, if -pad_jmps_shift_bb we assume that we don't need to remove
-     * any nops from fragments added to traces since there shouldn't be any if
-     * we only add bbs (nop_pad_ilist has an assert that verifies we don't add
-     * any nops to bbs when -pad_jmps_shift_bb without marking as CANNOT_BE_TRACE,
-     * so here we also verify that we only add bbs) - Xref PR 215179, UNIX syscall
-     * fence exits and CLIENT_INTERFACE added/moved exits can lead to bbs with
-     * additional hot_patchable locations.  We mark such bb fragments as CANNOT_BE_TRACE
-     * in nop_pad_ilist() if -pad_jmps_mark_no_trace is set or assert otherwise to avoid
-     * various difficulties so should not see them here. */
-    /* A standard bb has at most 2 patchable locations (ends in conditional or ends
-     * in indirect that is promoted to inlined). */
-    return 2 * MAX_PAD_SIZE;
+    /* To estimate we count the number of exit ctis by counting the linkstubs. */
+    bool inline_ibl_head = TEST(FRAG_IS_TRACE, add_frag->flags)
+        ? DYNAMO_OPTION(inline_trace_ibl)
+        : DYNAMO_OPTION(inline_bb_ibl);
+    int num_patchables = 0;
+    for (linkstub_t *l = FRAGMENT_EXIT_STUBS(add_frag); l != NULL;
+         l = LINKSTUB_NEXT_EXIT(l)) {
+        num_patchables++;
+        if (LINKSTUB_INDIRECT(l->flags) && inline_ibl_head)
+            num_patchables += 2;
+        /* We ignore cbr_fallthrough: only one of them should need nops. */
+    }
+    return num_patchables * MAX_PAD_SIZE;
 }
 
 /* return startpc shifted by the necessary bytes to pad patchable jmps of the

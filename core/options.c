@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1082,9 +1082,6 @@ options_enable_code_api_dependences(options_t *options)
 
     /* Don't randomize dynamorio.dll */
     IF_WINDOWS(options->aslr_dr = false;)
-
-    /* FIXME PR 215179 on getting rid of this tracing restriction. */
-    options->pad_jmps_mark_no_trace = true;
 }
 #endif
 
@@ -1218,18 +1215,6 @@ check_option_compatibility_helper(int recurse_count)
 #    if defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
     if (DYNAMO_OPTION(pad_jmps)) {
         USAGE_ERROR("-pad_jmps not supported in this build yet");
-    }
-#    endif
-
-#    if defined(UNIX) || defined(CLIENT_INTERFACE)
-    if (DYNAMO_OPTION(pad_jmps) && !DYNAMO_OPTION(pad_jmps_mark_no_trace) &&
-        DYNAMO_OPTION(enable_traces)
-#        ifndef UNIX
-        && INTERNAL_OPTION(code_api)
-#        endif
-    ) {
-        USAGE_ERROR("-pad_jmps isn't safe with code_api or on Linux without "
-                    "-pad_jmps_mark_no_trace when traces are enabled");
     }
 #    endif
 

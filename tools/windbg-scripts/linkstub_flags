@@ -32,24 +32,20 @@ $$ DAMAGE.
 $$ usage: set $t1 to linkstub pointer
 $$ example: r $t1=@@(dcontext->last_exit)
 
-$$ flags as of link.h 1.81
-
 ? @$t1; .echo =>; ? low(poi(@$t1+4));
 .if ((poi(@$t1+4) & 0x000001)==0x000001) {.echo "DIRECT";};
 .if ((poi(@$t1+4) & 0x000002)==0x000002) {.echo "INDIRECT";};
 .if ((poi(@$t1+4) & 0x000004)==0x000004) {.echo "RETURN";};
 .if ((poi(@$t1+4) & 0x000008)==0x000008) {.echo "CALL";};
 .if ((poi(@$t1+4) & 0x000010)==0x000010) {.echo "JMP";};
-.if ((poi(@$t1+4) & 0x000020)==0x000020) {.echo "IND_JMP_PLT";};
-.if ((poi(@$t1+4) & 0x000040)==0x000040) {.echo "SELFMOD_EXIT";};
-.if ((poi(@$t1+4) & 0x000100)==0x000100) {.echo "*** INVALID / CUSTOM_TRACES ENDS_BLOCK";};
+.if ((poi(@$t1+4) & 0x000020)==0x000020) {.echo "FAR";};
+.if ((poi(@$t1+4) & 0x000040)==0x000040) {.echo "PADDED";};
+.if ((poi(@$t1+4) & 0x000080)==0x000080) {.echo "TRACE_CMP";};
+.if ((poi(@$t1+4) & 0x000100)==0x000100) {.echo "SPECIAL";};
 .if ((poi(@$t1+4) & 0x000200)==0x000200) {.echo "CALLBACK_RETURN";};
 .if ((poi(@$t1+4) & 0x000400)==0x000400) {.echo "NI_SYSCALL";};
-$$ START_OF_LIST
-$$ END_OF_LIST
-.if ((poi(@$t1+4) & 0x001000)==0x002000) {.echo "NEVER_LINKED";};
+.if ((poi(@$t1+4) & 0x000800)==0x000800) {.echo "FRAG_OFFS_AT_END";};
+.if ((poi(@$t1+4) & 0x000800)==0x001000) {.echo "END_OF_LIST";};
+.if ((poi(@$t1+4) & 0x001000)==0x002000) {.echo "FAKE";};
 .if ((poi(@$t1+4) & 0x004000)==0x004000) {.echo "LINKED";};
 .if ((poi(@$t1+4) & 0x008000)==0x008000) {.echo "SEPARATE_STUB";};
-
-.if ((poi(@$t1+4) & 0x000800)==0x000800) {.echo "START_OF_LIST";};
-.if ((poi(@$t1+4) & 0x000800)==0x001000) {.echo "END_OF_LIST";};

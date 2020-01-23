@@ -322,6 +322,9 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                     ASSERT(!LINKSTUB_INDIRECT(l->flags) &&
                            TEST(LINK_SPECIAL_EXIT, l->flags));
                 }
+                if (instr_branch_is_padded(inst)) {
+                    ASSERT(TEST(LINK_PADDED, l->flags));
+                }
             });
 
             if (!EXIT_HAS_STUB(l->flags, f->flags)) {
@@ -617,25 +620,6 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
         offset += copy_sz;
         STATS_FCACHE_ADD(flags, selfmod_copy, copy_sz);
     }
-
-    /* FIXME on linux the signal fence exit before a syscall can trigger
-     * these ASSERTS. We need some way to mark that exit always unlinked so
-     * we don't need to pad for it or figure out a better way to remove nops
-     * for tracing. Xref PR 215179, we allow additional pads for CLIENT_INTERFACE
-     * and UNIX by marking the bb untraceable and inserting nops. */
-#if !defined(UNIX) && !defined(CLIENT_INTERFACE)
-#    ifndef TRACE_HEAD_CACHE_INCR
-    /* bbs shouldn't need more than a single pad */
-    ASSERT((PAD_FRAGMENT_JMPS(flags) && TEST(FRAG_IS_TRACE, flags)) ||
-           extra_jmp_padding_body + extra_jmp_padding_stubs ==
-               (PAD_FRAGMENT_JMPS(flags) ? MAX_PAD_SIZE : 0U));
-#    else
-    /* no more than two pads should be needed for a bb with these defines */
-    ASSERT((PAD_FRAGMENT_JMPS(flags) && TEST(FRAG_IS_TRACE, flags)) ||
-           extra_jmp_padding_body + extra_jmp_padding_stubs <=
-               (PAD_FRAGMENT_JMPS(flags) ? 2 * MAX_PAD_SIZE : 0U));
-#    endif
-#endif
 
     /* create a new fragment_t, or fill in the emit wrapper for coarse-grain */
     /* FIXME : don't worry too much about whether padding should be requested in

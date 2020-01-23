@@ -708,6 +708,21 @@ instr_set_predicate(instr_t *instr, dr_pred_type_t pred)
     return instr;
 }
 
+bool
+instr_branch_is_padded(instr_t *instr)
+{
+    return TEST(INSTR_BRANCH_PADDED, instr->flags);
+}
+
+void
+instr_branch_set_padded(instr_t *instr, bool val)
+{
+    if (val)
+        instr->flags |= INSTR_BRANCH_PADDED;
+    else
+        instr->flags &= ~INSTR_BRANCH_PADDED;
+}
+
 /* Returns true iff instr has been marked as a special exit cti */
 bool
 instr_branch_special_exit(instr_t *instr)
