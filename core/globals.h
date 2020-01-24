@@ -434,6 +434,10 @@ typedef struct _client_data_t {
 #    ifdef DEBUG
     bool is_translating;
 #    endif
+#    ifdef LINUX
+    /* i#4041: Pass the real translation for signals in rseq sequences. */
+    app_pc last_special_xl8;
+#    endif
 
     /* flags for asserts on linux and for getting param base right on windows */
     bool in_pre_syscall;
