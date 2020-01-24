@@ -3033,7 +3033,7 @@ endif ()
       torunonly_drcacheoff(view ${ci_shared_app} ""
         "@-simulator_type@view" "")
 
-      if (LINUX)
+      if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
         torunonly_drcacheoff(rseq linux.rseq "" "@-test_mode" "")
       endif ()
 
