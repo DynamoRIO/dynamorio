@@ -3033,6 +3033,10 @@ endif ()
       torunonly_drcacheoff(view ${ci_shared_app} ""
         "@-simulator_type@view" "")
 
+      if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
+        torunonly_drcacheoff(rseq linux.rseq "" "@-test_mode" "")
+      endif ()
+
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
       # XXX i#1997: dynamorio_static is not supported on Mac yet
