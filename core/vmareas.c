@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -8262,7 +8262,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
              * is best done prior to drreg storing them elsewhere; plus, it makes it
              * easier to turn on full_decode for simpler mangling.
              */
-            bool entered_rseq = false;
+            bool entered_rseq = false, exited_rseq = false;
             app_pc rseq_start, next_boundary = NULL;
             if (vmvector_lookup_data(d_r_rseq_areas, pc, &rseq_start, &next_boundary,
                                      NULL)) {
@@ -8272,6 +8272,14 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                 app_pc prev_end;
                 if (vmvector_lookup_prev_next(d_r_rseq_areas, pc, NULL, &prev_end,
                                               &next_boundary, NULL)) {
+                    if (tag < prev_end) {
+                        /* Avoiding instructions after the rseq endpoint simplifies
+                         * drmemtrace and other clients when the native rseq execution
+                         * aborts, and shrinks the block with the large native rseq
+                         * mangling.
+                         */
+                        exited_rseq = true;
+                    }
                     if (prev_end == pc)
                         next_boundary = prev_end;
                 }
@@ -8279,11 +8287,11 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
             if (next_boundary != NULL && next_boundary < *stop) {
                 /* Ensure we check again before we hit a boundary. */
                 *stop = next_boundary;
-                if (xfer && (entered_rseq || pc == next_boundary)) {
-                    LOG(THREAD, LOG_VMAREAS | LOG_INTERP, 3,
-                        "Stopping bb at rseq boundary " PFX "\n", pc);
-                    result = false;
-                }
+            }
+            if (xfer && (entered_rseq || exited_rseq || pc == next_boundary)) {
+                LOG(THREAD, LOG_VMAREAS | LOG_INTERP, 3,
+                    "Stopping bb at rseq boundary " PFX "\n", pc);
+                result = false;
             }
         }
 #endif
