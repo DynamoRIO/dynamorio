@@ -121,8 +121,9 @@ trace_invariants_t::process_memref(const memref_t &memref)
                 (prev_instr.instr.addr == memref.instr.addr &&
                  memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) ||
                 // Kernel-mediated, but we can't tell if we had a thread swap.
-                (prev_xfer_marker.instr.tid != memref.instr.tid ||
-                 (prev_xfer_marker.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                (prev_xfer_marker.instr.tid != 0 &&
+                 (prev_xfer_marker.instr.tid != memref.instr.tid ||
+                  prev_xfer_marker.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
                   prev_xfer_marker.marker.marker_type ==
                       TRACE_MARKER_TYPE_KERNEL_XFER)) ||
                 prev_instr.instr.type == TRACE_TYPE_INSTR_SYSENTER);
