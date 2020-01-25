@@ -35,6 +35,7 @@ include(../../make/policies.cmake NO_POLICY_SCOPE)
 add_executable(drdisas drdisas.cpp)
 configure_DynamoRIO_decoder(drdisas)
 use_DynamoRIO_extension(drdisas droption)
+add_dependencies(drdisas api_headers)
 
 if (WIN32)
   append_property_string(TARGET drdisas COMPILE_FLAGS "/EHsc")
