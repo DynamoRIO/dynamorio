@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2987,8 +2987,6 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             /* Case 10784: Clients can confound trace building when they
              * introduce more than one exit cti; we'll just disable traces
              * for these fragments.
-             * PR 215179: we're currently later marking them no-trace for pad_jmps
-             * reasons as well.
              */
             else {
                 CLIENT_ASSERT(instr_is_near_ubr(inst) ||
@@ -7266,6 +7264,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                 prev_pc = pc;
                 pc = IF_AARCH64_ELSE(decode_cti_with_ldstex, decode_cti)(dcontext, pc,
                                                                          instr);
+                DOLOG(DF_LOGLEVEL(dcontext), LOG_INTERP,
+                      { disassemble_with_info(dcontext, prev_pc, THREAD, true, true); });
 #ifdef WINDOWS
                 /* Perform fixups for ignorable syscalls on XP & 2003. */
                 if (possible_ignorable_sysenter && instr_opcode_valid(instr) &&
@@ -7544,7 +7544,15 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                 }
             });
             ASSERT(pc == stop_pc);
-
+            cache_pc next_pc = pc;
+            if (l != NULL && TEST(LINK_PADDED, l->flags) && instr_is_nop(instr)) {
+                /* Throw away our padding nop. */
+                LOG(THREAD, LOG_MONITOR, DF_LOGLEVEL(dcontext) - 1,
+                    "%s: removing padding nop @" PFX "\n", __FUNCTION__, prev_pc);
+                pc = prev_pc;
+                if (buf != NULL)
+                    top_buf -= instr_length(dcontext, instr);
+            }
             /* create single raw instr for rest of instructions up to exit cti */
             if (pc > raw_start_pc) {
                 instr_reset(dcontext, instr);
@@ -7579,6 +7587,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                  */
                 instr_destroy(dcontext, instr);
             }
+            pc = next_pc;
         }
 
         if (l == NULL && !TEST(FRAG_FAKE, f->flags))

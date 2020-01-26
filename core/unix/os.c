@@ -3725,6 +3725,18 @@ client_thread_run(void)
     byte *xsp;
     GET_STACK_PTR(xsp);
     void *crec = get_clone_record((reg_t)xsp);
+    /* i#2335: we support setup separate from start, and we want to allow a client
+     * to create a client thread during init, but we do not support that thread
+     * executing until the app has started (b/c we have no signal handlers in place).
+     */
+    /* i#3973: in addition to _executing_ a client thread before the
+     * app has started, if we even create the thread before
+     * dynamo_initialized is set, we will not copy tls blocks.  By
+     * waiting for the app to be started before dynamo_thread_init is
+     * called, we ensure this race condition can never happen, since
+     * dynamo_initialized will always be set before the app is started.
+     */
+    wait_for_event(dr_app_started, 0);
     IF_DEBUG(int rc =)
     dynamo_thread_init(get_clone_record_dstack(crec), NULL, crec, true);
     ASSERT(rc != -1); /* this better be a new thread */
@@ -3739,11 +3751,6 @@ client_thread_run(void)
     void *arg = (void *)get_clone_record_app_xsp(crec);
     LOG(THREAD, LOG_ALL, 1, "func=" PFX ", arg=" PFX "\n", func, arg);
 
-    /* i#2335: we support setup separate from start, and we want to allow a client
-     * to create a client thread during init, but we do not support that thread
-     * executing until the app has started (b/c we have no signal handlers in place).
-     */
-    wait_for_event(dr_app_started, 0);
 
     (*func)(arg);
 

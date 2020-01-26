@@ -3033,6 +3033,10 @@ endif ()
       torunonly_drcacheoff(view ${ci_shared_app} ""
         "@-simulator_type@view" "")
 
+      if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
+        torunonly_drcacheoff(rseq linux.rseq "" "@-test_mode" "")
+      endif ()
+
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
       # XXX i#1997: dynamorio_static is not supported on Mac yet
@@ -3628,9 +3632,11 @@ if (UNIX)
     append_property_string(TARGET linux.rseq_noarray
       COMPILE_FLAGS "-DRSEQ_TEST_USE_NO_ARRAY")
     # Test attaching, which has a separate lazy rseq check.
-    tobuild_api(api.rseq linux/rseq.c "" "" OFF OFF)
+    # We build with static DR to also test client interactions.
+    tobuild_api(api.rseq linux/rseq.c "" "" OFF ON)
     link_with_pthread(api.rseq)
     append_property_string(TARGET api.rseq COMPILE_FLAGS "-DRSEQ_TEST_ATTACH")
+    set(api.rseq_expectbase rseq_client)
     # Test non-compliant code with our workaround flag.
     tobuild_ops(linux.rseq_disable linux/rseq_disable.c "-disable_rseq" "")
   endif ()

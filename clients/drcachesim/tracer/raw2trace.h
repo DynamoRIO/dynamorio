@@ -978,7 +978,6 @@ private:
                 impl()->log(3, "Stopping bb at kernel interruption point +" PIFX "\n",
                             cur_modoffs);
             }
-            cur_modoffs += instr->length();
             // We need to interleave instrs with memrefs.
             // There is no following memref for (instrs_are_separate && !skip_icache).
             if (!interrupted && (!instrs_are_separate || skip_icache) &&
@@ -1011,6 +1010,7 @@ private:
                         break;
                 }
             }
+            cur_modoffs += instr->length();
             DR_CHECK((size_t)(buf - buf_start) < WRITE_BUFFER_SIZE, "Too many entries");
             if (instr->is_cti()) {
                 // In case this is the last branch prior to a thread switch, buffer it. We
@@ -1064,14 +1064,28 @@ private:
                             "Checking whether reached signal/exception +" PIFX
                             " vs cur +" PIFX "\n",
                             int_modoffs, cur_modoffs);
-                // Because we increment the instr fetch first, the signal modoffs may be
-                // less than the current for a memref fault.
-                if (int_modoffs == cur_modoffs ||
-                    int_modoffs + instr_length == cur_modoffs) {
+                if (int_modoffs == 0 || int_modoffs == cur_modoffs) {
                     impl()->log(4, "Signal/exception interrupted the bb @ +" PIFX "\n",
                                 int_modoffs);
                     append = true;
                     *interrupted = true;
+                    if (int_modoffs == 0) {
+                        // This happens on rseq native aborts, where the trace instru
+                        // includes the rseq committing store before the native rseq
+                        // execution hits the native abort.  Pretend the native abort
+                        // happened *before* the committing store by walking the store
+                        // backward.  We will not get here for Windows callbacks, the
+                        // other event with a 0 modoffs, because they are always between
+                        // bbs.  (Unfortunately there's no simple way to assert or check
+                        // that here or in the tracer.)
+                        trace_type_t skipped_type;
+                        do {
+                            --*buf_in;
+                            skipped_type = static_cast<trace_type_t>((*buf_in)->type);
+                            DR_ASSERT(*buf_in >= impl()->get_write_buffer(tls));
+                        } while (!type_is_instr(skipped_type) &&
+                                 skipped_type != TRACE_TYPE_INSTR_NO_FETCH);
+                    }
                 } else {
                     // Put it back. We do not have a problem with other markers
                     // following this, because we will have to hit the correct point

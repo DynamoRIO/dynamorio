@@ -937,6 +937,7 @@ typedef enum {
     DR_XFER_CONTINUE,           /**< NtContinue system call. */
     DR_XFER_SET_CONTEXT_THREAD, /**< NtSetContextThread system call. */
     DR_XFER_CLIENT_REDIRECT,    /**< dr_redirect_execution() or #DR_SIGNAL_REDIRECT. */
+    DR_XFER_RSEQ_ABORT,         /**< A Linux restartable sequence was aborted. */
 } dr_kernel_xfer_type_t;
 
 /** Data structure passed for dr_register_kernel_xfer_event(). */
@@ -945,7 +946,9 @@ typedef struct _dr_kernel_xfer_info_t {
     dr_kernel_xfer_type_t type;
     /**
      * The source machine context which is about to be changed.  This may be NULL
-     * if it is unknown, which is the case for #DR_XFER_CALLBACK_DISPATCHER.
+     * if it is unknown, which is the case for #DR_XFER_CALLBACK_DISPATCHER and
+     * #DR_XFER_RSEQ_ABORT (where the PC is not known but the rest of the state
+     * matches the current state).
      */
     const dr_mcontext_t *source_mcontext;
     /**
@@ -6381,21 +6384,6 @@ DR_API
 bool
 dr_trace_exists_at(void *drcontext, void *tag);
 #    endif /* CUSTOM_TRACES */
-
-#    ifdef UNSUPPORTED_API
-DR_API
-/**
- * All basic blocks created after this routine is called will have a prefix
- * that restores the ecx register.  Exit ctis can be made to target this prefix
- * instead of the normal entry point by using the
- * instr_branch_set_prefix_target() routine.
- * \warning This routine should almost always be called during client
- * initialization, since having a mixture of prefixed and non-prefixed basic
- * blocks can lead to trouble.
- */
-void
-dr_add_prefixes_to_basic_blocks(void);
-#    endif /* UNSUPPORTED_API */
 
 #endif /* CLIENT_INTERFACE */
 

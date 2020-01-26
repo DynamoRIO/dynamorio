@@ -434,6 +434,10 @@ typedef struct _client_data_t {
 #    ifdef DEBUG
     bool is_translating;
 #    endif
+#    ifdef LINUX
+    /* i#4041: Pass the real translation for signals in rseq sequences. */
+    app_pc last_special_xl8;
+#    endif
 
     /* flags for asserts on linux and for getting param base right on windows */
     bool in_pre_syscall;
@@ -714,6 +718,8 @@ enum {
     EXIT_REASON_NI_SYSCALL_INT_0x82,
     /* Single step exception needs to be forged. */
     EXIT_REASON_SINGLE_STEP,
+    /* We need to raise a kernel xfer event on an rseq-native abort. */
+    EXIT_REASON_RSEQ_ABORT,
 };
 
 /* Number of nested calls into native modules that we support.  This number

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1031,30 +1031,6 @@ added to the owning exit cti's.
 \endif
 
 
-\if prefixes
-********************
-\subsection sec_prefixes Prefixes
-
-Some code manipulations need to store a target address in a register and
-then jump there, but need the register to be restored as well.  DynamoRIO
-provides a single-instruction prefix that is placed on all fragments (basic
-blocks as well as traces) that restores ecx.  It is on traces for internal
-DynamoRIO use.  To have it added to basic blocks as well, call this routine
-during initialization:
-
-\code
-void dr_add_prefixes_to_basic_blocks();
-\endcode
-
-To have a cti target the prefix rather than the normal entry, use these set
-and get routines:
-
-\code
-bool instr_branch_targets_prefix(instr_t *instr);
-void instr_branch_set_prefix_target(instr_t *instr, bool val);
-\endcode
-\endif
-
 ***************************************************************************
 \htmlonly
 <table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
@@ -1315,7 +1291,8 @@ This run-twice approach is subject to the following limitations:
 - The application must use the same signature for every rseq system call.
 - Each rseq region's code must never be also executed as a non-restartable sequence.
 - Each rseq region must handle being directly restarted without its
-  abort handler being called (with the machine state restored).
+  abort handler being called (with the machine state restored: though just the
+  general-purpose registers as described in the limitation below).
 - Each memory store instruction inside an rseq region must have no other side
   effects: it must only write to memory and not to any registers.
   For example, a push instruction which both writes to memory and the
@@ -1327,9 +1304,8 @@ This run-twice approach is subject to the following limitations:
   the region targeting a point inside the region.
 - No system calls are allowed inside rseq regions.
 - No call instructions are allowed inside rseq regions.
-- The only register inputs to an rseq region must be general-purpose registers read
-  prior to any write to that register when the sequence is considered linearly without
-  regard to control flow.
+- The only register inputs to an rseq region, or registers written inside an rseq
+  region whose values are then read afterward, must be general-purpose registers.
 - The instrumented execution of the rseq region may not perfectly reflect
   the native behavior of the application.  The instrumentation will never see
   the abort handler called, and memory addresses may be wrong if they are based on
