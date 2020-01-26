@@ -8721,6 +8721,7 @@ thread_attach_takeover_callee(app_state_at_intercept_t *state)
      */
     thread_attach_setup(&state->mc);
     ASSERT(standalone_library);
+    ASSERT_NOT_REACHED(); /* We cannot recover: there's no PC to go back to. */
     return AFTER_INTERCEPT_LET_GO;
 }
 
