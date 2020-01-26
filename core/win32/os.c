@@ -2110,13 +2110,11 @@ os_take_over_exit(void)
                 SYSLOG_INTERNAL_WARNING(
                     "Failed to resume attached-but-never-scheduled thread " TIDFMT,
                     data->tid);
-                ASSERT_NOT_REACHED();
             }
         } else {
             SYSLOG_INTERNAL_WARNING(
-                "Failed to suspend attached-but-never-scheduled thread" TIDFMT,
+                "Failed to suspend attached-but-never-scheduled thread " TIDFMT,
                 data->tid);
-            ASSERT_NOT_REACHED();
         }
         iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, takeover_table, iter, key);
     } while (true);
