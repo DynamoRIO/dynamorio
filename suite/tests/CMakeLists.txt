@@ -3234,6 +3234,9 @@ endif ()
       endif ()
 
       add_exe(tool.cpuid ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
+      if (WIN32)
+        append_property_string(TARGET tool.cpuid COMPILE_FLAGS "/arch:IA32")
+      endif ()
       # Debug libc seems to run newer instructions, messing up the test.
       use_MT_not_MTd(${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
       macro (add_cpusim_cpuid_test model)
