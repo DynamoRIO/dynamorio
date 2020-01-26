@@ -518,7 +518,12 @@ get_private_peb(void)
 bool
 should_swap_peb_pointer(void)
 {
+#ifdef STANDALONE_UNIT_TEST
+    /* Our drwinapi tests require FLS isolation, etc. */
+    return true;
+#else
     return (INTERNAL_OPTION(private_peb) && CLIENTS_EXIST());
+#endif
 }
 
 bool
@@ -2413,6 +2418,11 @@ privload_os_finalize(privmod_t *mod)
      */
     if (!mod->externally_loaded)
         privload_set_security_cookie(mod);
+
+#ifdef STANDALONE_UNIT_TEST
+    /* No static TLS support for later-loaded libs used in the test. */
+    return;
+#endif
 
     /* Static TLS support. */
     os_privmod_data_t *opd = (os_privmod_data_t *)mod->os_privmod_data;

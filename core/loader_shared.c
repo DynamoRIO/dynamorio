@@ -234,7 +234,6 @@ loader_init_epilogue(dcontext_t *dcontext)
 
     /* os specific loader initialization epilogue after finalize the load */
     os_loader_init_epilogue();
-    os_loader_thread_init_epilogue(dcontext);
     /* All future loads should call privload_load_finalize() upon loading. */
     past_initial_libs = true;
     release_recursive_lock(&privload_lock);
