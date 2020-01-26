@@ -151,6 +151,19 @@ privload_process_early_mods(void)
     }
 }
 
+static inline bool
+loader_should_call_entry(privmod_t *mod)
+{
+    return !mod->externally_loaded
+#if defined(STATIC_LIBRARY) && defined(WINDOWS)
+        /* For STATIC_LIBRARY, externally loaded may be a client (the executable)
+         * for which we need to handle static TLS: i#4052.
+         */
+        || mod->is_client
+#endif
+        ;
+}
+
 void
 loader_init_prologue(void)
 {
@@ -201,7 +214,7 @@ loader_init_epilogue(dcontext_t *dcontext)
     /* Now for both Windows and UNIX, call entry points (both process and thread). */
     /* Walk "backward" for load order. */
     for (mod = modlist_tail; mod != NULL; mod = mod->prev) {
-        if (mod->externally_loaded)
+        if (!loader_should_call_entry(mod))
             continue;
         LOG(GLOBAL, LOG_LOADER, 1, "%s: calling entry points for %s\n", __FUNCTION__,
             mod->name);
@@ -242,6 +255,8 @@ loader_exit(void)
     vmvector_delete_vector(GLOBAL_DCONTEXT, modlist_areas);
     release_recursive_lock(&privload_lock);
     DELETE_RECURSIVE_LOCK(privload_lock);
+    if (doing_detach)
+        past_initial_libs = false;
 }
 
 void
@@ -278,7 +293,7 @@ loader_thread_init(dcontext_t *dcontext)
          */
         /* Walk "backward" for load order. */
         for (privmod_t *mod = modlist_tail; mod != NULL; mod = mod->prev) {
-            if (!mod->externally_loaded)
+            if (loader_should_call_entry(mod))
                 privload_call_entry_if_not_yet(dcontext, mod, DLL_THREAD_INIT);
         }
         release_recursive_lock(&privload_lock);
@@ -296,7 +311,7 @@ loader_thread_exit(dcontext_t *dcontext)
         acquire_recursive_lock(&privload_lock);
         /* Walk forward and call independent libs last */
         for (privmod_t *mod = modlist; mod != NULL; mod = mod->next) {
-            if (!mod->externally_loaded)
+            if (loader_should_call_entry(mod))
                 privload_call_entry_if_not_yet(dcontext, mod, DLL_THREAD_EXIT);
         }
         release_recursive_lock(&privload_lock);
@@ -311,7 +326,7 @@ loader_make_exit_calls(dcontext_t *dcontext)
     acquire_recursive_lock(&privload_lock);
     /* Walk forward and call independent libs last */
     for (privmod_t *mod = modlist; mod != NULL; mod = mod->next) {
-        if (!mod->externally_loaded) {
+        if (loader_should_call_entry(mod)) {
             if (privload_has_thread_entry())
                 privload_call_entry_if_not_yet(dcontext, mod, DLL_THREAD_EXIT);
             privload_call_entry_if_not_yet(dcontext, mod, DLL_PROCESS_EXIT);
@@ -724,8 +739,9 @@ privload_unload(privmod_t *privmod)
             privmod->next->prev = privmod->prev;
         else
             modlist_tail = privmod->prev;
-        if (!privmod->externally_loaded) {
+        if (loader_should_call_entry(privmod))
             privload_call_entry_if_not_yet(GLOBAL_DCONTEXT, privmod, DLL_PROCESS_EXIT);
+        if (!privmod->externally_loaded) {
             /* this routine may modify modlist, but we're done with it */
             privload_unload_imports(privmod);
             privload_remove_areas(privmod);
@@ -825,18 +841,21 @@ static bool
 privload_load_finalize(dcontext_t *dcontext, privmod_t *privmod)
 {
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    ASSERT(!privmod->externally_loaded);
+    ASSERT(loader_should_call_entry(privmod));
 
     if (!privload_call_entry_if_not_yet(dcontext, privmod, DLL_PROCESS_INIT)) {
         LOG(GLOBAL, LOG_LOADER, 1, "%s: entry routine failed\n", __FUNCTION__);
-        privload_unload(privmod);
+        if (!privmod->externally_loaded)
+            privload_unload(privmod);
         return false;
     }
     if (!past_initial_libs && privload_has_thread_entry()) {
         privload_call_entry_if_not_yet(dcontext, privmod, DLL_THREAD_INIT);
     }
 
-    privload_load_finalized(privmod);
+    /* We can get here for externally_loaded for static DR. */
+    if (!privmod->externally_loaded)
+        privload_load_finalized(privmod);
 
     LOG(GLOBAL, LOG_LOADER, 1, "%s: loaded %s @ " PFX "-" PFX " from %s\n", __FUNCTION__,
         privmod->name, privmod->base, privmod->base + privmod->size, privmod->path);

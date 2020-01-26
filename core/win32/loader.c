@@ -289,6 +289,14 @@ os_loader_init_prologue(void)
         NULL, get_application_base(), get_application_end() - get_application_base() + 1,
         get_application_short_unqualified_name(), get_application_name());
     mod->externally_loaded = true;
+#ifdef STATIC_LIBRARY
+    /* Set up TLS and ensure the thread init functions are called.
+     * loader_shared will not call privload_os_finalize() for externally_loaded,
+     * but it will call privload_call_entry() for us.
+     */
+    mod->is_client = true;
+    privload_os_finalize(mod);
+#endif
 
     /* FIXME i#1299: loading a private user32.dll is problematic: it registers
      * callbacks that KiUserCallbackDispatcher invokes.  For now we do not
@@ -911,18 +919,16 @@ os_swap_context(dcontext_t *dcontext, bool to_app, dr_state_flags_t flags)
 #endif
 }
 
-void
-privload_add_areas(privmod_t *privmod)
+static void
+privload_alloc_opd(privmod_t *privmod)
 {
-    vmvector_add(modlist_areas, privmod->base, privmod->base + privmod->size,
-                 (void *)privmod);
     privmod->os_privmod_data =
         HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, os_privmod_data_t, ACCT_OTHER, PROTECTED);
     memset(privmod->os_privmod_data, 0, sizeof(os_privmod_data_t));
 }
 
-void
-privload_remove_areas(privmod_t *privmod)
+static void
+privload_free_opd(privmod_t *privmod)
 {
     os_privmod_data_t *opd = privmod->os_privmod_data;
     if (opd->tls_callbacks != NULL) {
@@ -932,6 +938,20 @@ privload_remove_areas(privmod_t *privmod)
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, privmod->os_privmod_data, os_privmod_data_t,
                    ACCT_OTHER, PROTECTED);
     privmod->os_privmod_data = NULL;
+}
+
+void
+privload_add_areas(privmod_t *privmod)
+{
+    vmvector_add(modlist_areas, privmod->base, privmod->base + privmod->size,
+                 (void *)privmod);
+    privload_alloc_opd(privmod);
+}
+
+void
+privload_remove_areas(privmod_t *privmod)
+{
+    privload_free_opd(privmod);
     vmvector_remove(modlist_areas, privmod->base, privmod->base + privmod->size);
 }
 
@@ -1394,6 +1414,8 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod, IMAGE_THUNK_DATA 
 bool
 privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
 {
+    LOG(THREAD, LOG_LOADER, 3, "%s for %s: reason=%d\n", __FUNCTION__, privmod->name,
+        reason);
     bool return_val = true;
     bool call_routines = true;
     if (reason == DLL_THREAD_EXIT) {
@@ -1447,7 +1469,11 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
     app_pc entry = get_module_entry(privmod->base);
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     /* get_module_entry adds base => returns base instead of NULL */
-    if (call_routines && entry != NULL && entry != privmod->base) {
+    if (call_routines && entry != NULL && entry != privmod->base &&
+        /* We call the TLS routines for the externally_loaded executable for
+         * static DR, but we never want to call the main entry for externally_loaded..
+         */
+        !privmod->externally_loaded) {
         dllmain_t func = (dllmain_t)convert_data_to_function(entry);
         BOOL res = FALSE;
         LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s entry " PFX " for %d\n", __FUNCTION__,
@@ -1497,6 +1523,13 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
         LOG(THREAD, LOG_LOADER, 2, "Freeing %zd bytes @" PFX " for TLS idx=%d in %s\n",
             opd->tls_size, tls_array[opd->tls_idx], opd->tls_idx, privmod->name);
         global_heap_free(tls_array[opd->tls_idx], opd->tls_size HEAPACCT(ACCT_OTHER));
+        tls_array[opd->tls_idx] = NULL;
+    }
+    if (reason == DLL_PROCESS_EXIT && privmod->externally_loaded) {
+        /* This happens for the executable for static DR, for which
+         * privload_remove_areas() will not be called.
+         */
+        privload_free_opd(privmod);
     }
     return return_val;
 }
@@ -2374,10 +2407,17 @@ privload_os_finalize(privmod_t *mod)
     /* Libraries built with /GS require us to set
      * IMAGE_LOAD_CONFIG_DIRECTORY.SecurityCookie (i#1093)
      */
-    privload_set_security_cookie(mod);
+    if (!mod->externally_loaded)
+        privload_set_security_cookie(mod);
 
     /* Static TLS support. */
     os_privmod_data_t *opd = (os_privmod_data_t *)mod->os_privmod_data;
+    if (opd == NULL) {
+        /* This happens for the executable for static DR. */
+        ASSERT(mod->externally_loaded);
+        privload_alloc_opd(mod);
+        opd = (os_privmod_data_t *)mod->os_privmod_data;
+    }
     void **callbacks;
     int *index;
     byte *data_start;
