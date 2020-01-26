@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -243,6 +243,8 @@ if (WIN32)
   # i#1344: Include a copy of a recent (> 6.0) redistributable version of dbghelp,
   # if we found one, so our drsyms works pre-Vista.
   if (dbghelp_path)
+    configure_file(${dbghelp_path} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dbghelp.dll
+      COPYONLY)
     DR_install(FILES "${dbghelp_path}" DESTINATION ${INSTALL_EXT_LIB})
   endif ()
 endif (WIN32)

@@ -1366,7 +1366,10 @@ endmacro(DR_export_target)
 # We locate it here for use in both subdirs.
 if (X64)
   set(PROGFILES "$ENV{PROGRAMW6432}") # cmake is 32-bit
-  set(PROGFILES32 "$ENV{PROGRAMFILES}")
+  set(PROGFILES32 "$ENV{ProgramFiles\(x86\)}")
+  if ("${PROGFILES32}" STREQUAL "")
+    set(PROGFILES32 "$ENV{PROGRAMFILES}")
+  endif ()
   set(ARCH_SFX "x64")
 else (X64)
   set(PROGFILES "$ENV{PROGRAMFILES}")
@@ -1374,6 +1377,7 @@ else (X64)
   set(ARCH_SFX "x86")
 endif (X64)
 set(dbghelp_paths
+  "${PROGFILES32}/Microsoft Visual Studio/*/Professional/Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
   "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
   "${PROGFILES32}/Windows Kits/*/Debuggers/${ARCH_SFX}/dbghelp.dll")
 if (X64)
