@@ -518,12 +518,12 @@ get_private_peb(void)
 bool
 should_swap_peb_pointer(void)
 {
-#ifdef STANDALONE_UNIT_TEST
+#    ifdef STANDALONE_UNIT_TEST
     /* Our drwinapi tests require FLS isolation, etc. */
     return true;
-#else
+#    else
     return (INTERNAL_OPTION(private_peb) && CLIENTS_EXIST());
-#endif
+#    endif
 }
 
 bool
