@@ -1508,7 +1508,11 @@ endif (BUILD_TOOLS)
 if (BUILD_DRSTATS)
   # i#1376: we have our own variant of the standard FindMFC.cmake
   # so we can pass -D_UNICODE, as MBCS MFC support is not part of VS2013.
-  find_package(MFCUnicode)
+  # Update: To get things going with VS2017 I'm switching to the regular one
+  # to get some version of DRstats building.  We don't really use it much
+  # anymore; only if someone notices any unicode issues is it worth more time
+  # updating make/modules/FindMFCUnicode.cmake.
+  find_package(MFC)
   if (NOT MFC_FOUND)
     message(STATUS "MFC not found: disabling DRstats")
     set(BUILD_DRSTATS OFF)
