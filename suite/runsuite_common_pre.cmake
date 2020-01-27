@@ -508,8 +508,11 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
             message("Env setup: setting PATH to ${newpath}")
           endif ()
           set(ENV{PATH} "${newpath}")
-          string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])" "\\1\\2\\1amd64"
-            newlib "$ENV{LIB}")
+          # VS2017 does not append so we replace first.
+          string(REGEX REPLACE "([/\\\\])x86" "\\1x64" newlib "$ENV{lib}")
+          # Now try to support pre-VS2017.
+          string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])([^/\\\\])" "\\1\\2\\1amd64\\3"
+            newlib "${newlib}")
           # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64": grrr
           string(REGEX REPLACE "(v[^/\\\\]*[/\\\\][Ll][Ii][Bb][/\\\\])[Aa][Mm][Dd]64"
             "\\1x64"
@@ -664,8 +667,25 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
   endif (build_success EQUAL 0 AND run_tests AND NOT arg_build_only)
 
   if (DO_SUBMIT)
-    # include any notes via set(CTEST_NOTES_FILES )?
-    ctest_submit()
+    if (CTEST_DROP_METHOD MATCHES "http")
+      # include any notes via set(CTEST_NOTES_FILES )?
+      ctest_submit()
+    else ()
+      # We used to use the "scp" (could also have used "cp") drop method
+      # to copy these xml files out for us, but cmake 3.14 dropped that.
+      # Thus we copy them ourselves.
+      file(GLOB xml_files "${CTEST_BINARY_DIRECTORY}/Testing/*/*.xml")
+      set(prefix "___${CTEST_BUILD_NAME}___${SUITE_TYPE}___XML___")
+      foreach (xml ${xml_files})
+        get_filename_component(base "${xml}" NAME)
+        # Avoid confusion with a later package buid in the same dir by
+        # renaming instead of copying.
+        file(RENAME "${xml}"
+          "${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}/${prefix}${base}")
+        message("Moving ${xml} to "
+          "${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}/${prefix}${base}")
+      endforeach ()
+    endif ()
   endif (DO_SUBMIT)
   if (NOT arg_already_built)
     set(ENV{PATH} "${pre_path}")

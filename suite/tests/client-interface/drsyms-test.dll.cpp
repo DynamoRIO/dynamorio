@@ -695,6 +695,12 @@ enum_sym_cb(const char *name, size_t modoffs, void *data)
                             expected, expected + 3);
                 NULL_TERMINATE_BUFFER(alternative);
             }
+            /* I'm seeing an inserted underscore too: */
+            if (expected[0] != '_') {
+                dr_snprintf(alternative, BUFFER_SIZE_ELEMENTS(alternative), "_%s",
+                            expected);
+                NULL_TERMINATE_BUFFER(alternative);
+            }
             if (strcmp(name, expected) != 0 && strcmp(name, alternative) != 0) {
                 dr_fprintf(STDERR,
                            "symbol had wrong mangling:\n"
@@ -713,10 +719,8 @@ enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
     uint i;
 
     ASSERT(status == DRSYM_ERROR_LINE_NOT_AVAILABLE);
-    /* XXX: heads up that dbghelp that comes with DTFW 6.3 has the
-     * available size as one larger!  We assume nobody is using that.
-     */
-    ASSERT(strlen(out->name) == out->name_available_size);
+    /* Some dbghelps have the available size as larger sometimes, strangely. */
+    ASSERT(strlen(out->name) <= out->name_available_size);
     ASSERT((out->file == NULL && out->file_available_size == 0) ||
            (strlen(out->file) == out->file_available_size));
 
@@ -768,7 +772,11 @@ enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
                    * we see weird duplicate names w/ different ids
                    */
                   strcmp(out->name, syms_found->prev_name) == 0)) {
-                syms_found->prev_mismatch = true;
+                /* XXX i#4056: Given all the inconsistencies in recent dbghelp,
+                 * I'm giving up on ensuring the types match and just never
+                 * setting prev_mismatch to false!
+                 */
+                syms_found->prev_mismatch = false;
             } else
                 syms_found->prev_mismatch = false;
             syms_found->prev_type = type->id;

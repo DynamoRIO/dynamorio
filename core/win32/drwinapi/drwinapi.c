@@ -243,5 +243,6 @@ unit_test_drwinapi(void)
     unit_test_drwinapi_kernel32_misc();
     unit_test_drwinapi_rpcrt4();
     unit_test_drwinapi_advapi32();
+    swap_peb_pointer(GLOBAL_DCONTEXT, false);
 }
 #endif

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,6 +42,9 @@
  * Processes and Threads
  */
 
+/* The max is 4096 on Win10-1909 (and probably earlier) but we do not try to emulate
+ * that maximum since we're using the limited FlsBitmapBits in the PEB still.
+ */
 #define FLS_MAX_COUNT 128
 
 void

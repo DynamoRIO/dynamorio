@@ -91,6 +91,11 @@ if (arg_travis)
     # to be off, ruining the samples for interactive use.
     set(build_tests "")
     message("Detected a cron package build: disabling running of tests")
+  else ()
+    # Disable -msgbox_mask by default to avoid hangs on cases where DR hits errors
+    # prior to option parsing.
+    set(build_tests "${build_tests}
+AUTOMATED_TESTING:BOOL=ON")
   endif()
 endif()
 

@@ -1366,7 +1366,10 @@ endmacro(DR_export_target)
 # We locate it here for use in both subdirs.
 if (X64)
   set(PROGFILES "$ENV{PROGRAMW6432}") # cmake is 32-bit
-  set(PROGFILES32 "$ENV{PROGRAMFILES}")
+  set(PROGFILES32 "$ENV{ProgramFiles\(x86\)}")
+  if ("${PROGFILES32}" STREQUAL "")
+    set(PROGFILES32 "$ENV{PROGRAMFILES}")
+  endif ()
   set(ARCH_SFX "x64")
 else (X64)
   set(PROGFILES "$ENV{PROGRAMFILES}")
@@ -1374,6 +1377,7 @@ else (X64)
   set(ARCH_SFX "x86")
 endif (X64)
 set(dbghelp_paths
+  "${PROGFILES32}/Microsoft Visual Studio/*/Professional/Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
   "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
   "${PROGFILES32}/Windows Kits/*/Debuggers/${ARCH_SFX}/dbghelp.dll")
 if (X64)
@@ -1471,6 +1475,8 @@ endif (NOT CLIENT_INTERFACE)
 # An alternative is to keep them in separate projects and only build
 # when we run them via --build-and-test.
 option(BUILD_TESTS "build tests" OFF)
+# This is to disable the default -msgbox_mask.
+option(AUTOMATED_TESTING "build for automated testing" OFF)
 if (BUILD_TESTS)
   # Tests require tools
   set(BUILD_TOOLS ON)
@@ -1502,7 +1508,11 @@ endif (BUILD_TOOLS)
 if (BUILD_DRSTATS)
   # i#1376: we have our own variant of the standard FindMFC.cmake
   # so we can pass -D_UNICODE, as MBCS MFC support is not part of VS2013.
-  find_package(MFCUnicode)
+  # Update: To get things going with VS2017 I'm switching to the regular one
+  # to get some version of DRstats building.  We don't really use it much
+  # anymore; only if someone notices any unicode issues is it worth more time
+  # updating make/modules/FindMFCUnicode.cmake.
+  find_package(MFC)
   if (NOT MFC_FOUND)
     message(STATUS "MFC not found: disabling DRstats")
     set(BUILD_DRSTATS OFF)

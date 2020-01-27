@@ -85,6 +85,7 @@
 #cmakedefine PARAMS_IN_REGISTRY
 #cmakedefine RECORD_MEMQUERY
 #cmakedefine BUILD_TESTS
+#cmakedefine AUTOMATED_TESTING
 
 /* when packaging */
 #cmakedefine VERSION_NUMBER ${VERSION_NUMBER}
