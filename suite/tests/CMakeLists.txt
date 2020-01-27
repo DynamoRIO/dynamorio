@@ -1620,6 +1620,14 @@ function(use_MT_not_MTd source_file)
   endif ()
 endfunction()
 
+function(use_MD_not_MTd source_file)
+  if (WIN32)
+    # Appending to the target flags goes in too early: we need source to
+    # override the /MTd from the top level.
+    append_property_string(SOURCE ${source_file} COMPILE_FLAGS "/MD")
+  endif ()
+endfunction()
+
 # optimize the target
 function(optimize target)
   if (UNIX)
@@ -3234,8 +3242,13 @@ endif ()
       endif ()
 
       add_exe(tool.cpuid ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
-      # Debug libc seems to run newer instructions, messing up the test.
-      use_MT_not_MTd(${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
+      if (WIN32)
+        append_property_string(TARGET tool.cpuid COMPILE_FLAGS "/arch:IA32")
+        # Debug libc seems to run newer instructions, messing up the test.
+        # Plus on VS2017 *any* libc does that even with /arch:IA32 so we
+        # separate libc out.
+        use_MD_not_MTd(${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
+      endif ()
       macro (add_cpusim_cpuid_test model)
         torunonly_ci(tool.drcpusim.cpuid-${model} tool.cpuid drcpusim
           ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid-${model}.c

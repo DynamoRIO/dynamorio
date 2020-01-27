@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+# Copyright () 2016-2020 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -123,6 +123,11 @@ for (my $i = 0; $i < $#lines; ++$i) {
             %ignore_failures_32 = ('code_api|security-common.retnonexisting' => 1,
                                    'code_api|security-win32.gbop-test' => 1, # i#2972
                                    'code_api|win32.reload-newaddr' => 1,
+                                   'code_api|win32.rsbtest' => 1, # i#4058
+                                   'code_api|client.winxfer' => 1, # i#4058
+                                   'code_api|client.drutil-test' => 1, # i#4058
+                                   'code_api|tool.drcacheoff.view' => 1, # i#4058
+                                   'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#4058
                                    'code_api|client.pcache-use' => 1,
                                    'code_api|api.detach' => 1, # i#2246
                                    'code_api|api.detach_spawn' => 1, # i#2611
@@ -131,6 +136,17 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|client.nudge_test' => 1, # i#2978
                                    'code_api|client.nudge_ex' => 1);
             %ignore_failures_64 = ('code_api|common.floatpc_xl8all' => 1,
+                                   'code_api|common.decode' => 1, # i#4058
+                                   'code_api|common.decode-stress' => 1, # i#4058
+                                   'code_api|common.nativeexec' => 1, # i#4058
+                                   'code_api|win32.mixedmode_late' => 1, # i#4058
+                                   'code_api|win32.callback' => 1, # i#4058
+                                   'code_api|client.cleancall' => 1, # i#4058
+                                   'code_api|client.loader' => 1, # i#4058
+                                   'code_api|client.pcache-use' => 1, # i#4058
+                                   'code_api|tool.drcachesim.invariants' => 1, # i#4058
+                                   'code_api|tool.drcacheoff.view' => 1, # i#4058
+                                   'code_api|tool.histogram.offline' => 1, # i#4058
                                    'code_api|win32.reload-newaddr' => 1,
                                    'code_api|client.loader' => 1,
                                    'code_api|client.drmgr-test' => 1, # i#1369

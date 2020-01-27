@@ -24,8 +24,8 @@ back to main
   flsA = 0x12345678
   flsB = 0xdeadbeef
 deleting worker fiber 0
-fls_delete val=0xdeadbeef
-fls_delete val=0x12345678
+fls_delete val=(0xdeadbeef|0x12345678)
+fls_delete val=(0x12345678|0xdeadbeef)
 creating worker fiber 1
 switching to worker fiber first time
 in worker fiber
@@ -43,11 +43,11 @@ back to main
   flsA = 0x12345678
   flsB = 0xdeadbeef
 deleting worker fiber 1
-fls_delete val=0xdeadbeef
-fls_delete val=0x12345678
+fls_delete val=(0xdeadbeef|0x12345678)
+fls_delete val=(0x12345678|0xdeadbeef)
 all done
-fls_delete val=0x12345678
-fls_delete val=0xdeadbeef
+fls_delete val=(0x12345678|0xdeadbeef)
+fls_delete val=(0xdeadbeef|0x12345678)
 exit event 2
 exit event 1
 module load event 1 is called 1 time
@@ -62,9 +62,9 @@ trace event 1 is called 1 time
 trace event 2 is called 1 time
 delete event 1 is called 1 time
 delete event 2 is called 1 time
-filter syscall event 1 is called 1 time
+(filter syscall event 1 is called 1 time
 filter syscall event 2 is called 1 time
-pre syscall event 1 is called 1 time
+)?pre syscall event 1 is called 1 time
 pre syscall event 2 is called 1 time
 post syscall event 1 is called 1 time
 post syscall event 2 is called 1 time

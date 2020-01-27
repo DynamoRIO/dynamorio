@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -658,6 +658,12 @@ typedef struct _instr_t instr_t;
 #    define IF_UNIT_TEST_ELSE(x, y) x
 #else
 #    define IF_UNIT_TEST_ELSE(x, y) y
+#endif
+
+#ifdef AUTOMATED_TESTING
+#    define IF_AUTOMATED_ELSE(x, y) x
+#else
+#    define IF_AUTOMATED_ELSE(x, y) y
 #endif
 
 /* DR_API EXPORT TOFILE dr_defines.h */

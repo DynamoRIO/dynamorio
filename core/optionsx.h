@@ -579,7 +579,8 @@ OPTION_DEFAULT(bool, opt_jit, false, "optimize translation of dynamically genera
           * we can't print to the cmd console.  The user must explicitly disable
           * for automation or running daemons.
           */
-         IF_WINDOWS_ELSE(IF_CLIENT_INTERFACE_ELSE(0xC, 0), 0),
+         IF_WINDOWS_ELSE(IF_CLIENT_INTERFACE_ELSE
+                         (IF_UNIT_TEST_ELSE(0, IF_AUTOMATED_ELSE(0, 0xC)), 0), 0),
          "show a messagebox for events")
 #ifdef WINDOWS
     OPTION_DEFAULT(uint_time, eventlog_timeout, 10000, "gives the timeout (in ms) to use for an eventlog transaction")

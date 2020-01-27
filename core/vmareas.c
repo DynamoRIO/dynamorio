@@ -5175,7 +5175,7 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
                     mark_module_exempted(addr);
                     allow = true;
                 } else {
-                    uint prot = 0;
+                    uint memprot = 0;
                     list_default_or_append_t deflist = LIST_NO_MATCH;
                     /* Xref case 10526, in the common case app_mem_prot_change() adds
                      * this region, however it can miss -> rx transitions if they
@@ -5183,8 +5183,8 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
                      * require signifigant restructuring of that routine, see comments
                      * there) so we also check here. */
                     if (DYNAMO_OPTION(executable_if_rx_text) &&
-                        get_memory_info(addr, NULL, NULL, &prot) &&
-                        (TEST(MEMPROT_EXEC, prot) && !TEST(MEMPROT_WRITE, prot))) {
+                        get_memory_info(addr, NULL, NULL, &memprot) &&
+                        (TEST(MEMPROT_EXEC, memprot) && !TEST(MEMPROT_WRITE, memprot))) {
                         /* matches -executable_if_rx_text */
                         /* case 9799: we don't mark exempted for default-on options */
                         allow = true;
@@ -5263,7 +5263,7 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
             if (is_in_dot_data_section(modbase, addr, &sec_start, &sec_end)) {
                 bool allow = false;
                 bool onlist = false;
-                uint prot = 0;
+                uint memprot = 0;
                 if (!DYNAMO_OPTION(executable_if_dot_data) &&
                     DYNAMO_OPTION(exempt_dot_data) &&
                     !IS_STRING_OPTION_EMPTY(exempt_dot_data_list)) {
@@ -5300,8 +5300,8 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
                     allow = true;
                     ;
                 }
-                if (!allow && get_memory_info(addr, NULL, NULL, &prot) &&
-                    TEST(MEMPROT_EXEC, prot)) {
+                if (!allow && get_memory_info(addr, NULL, NULL, &memprot) &&
+                    TEST(MEMPROT_EXEC, memprot)) {
                     /* check the _x versions */
                     if (!DYNAMO_OPTION(executable_if_dot_data_x) &&
                         DYNAMO_OPTION(exempt_dot_data_x) &&

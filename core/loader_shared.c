@@ -155,7 +155,7 @@ static inline bool
 loader_should_call_entry(privmod_t *mod)
 {
     return !mod->externally_loaded
-#if defined(STATIC_LIBRARY) && defined(WINDOWS)
+#if defined(STATIC_LIBRARY) && defined(WINDOWS) && defined(CLIENT_INTERFACE)
         /* For STATIC_LIBRARY, externally loaded may be a client (the executable)
          * for which we need to handle static TLS: i#4052.
          */
@@ -234,7 +234,6 @@ loader_init_epilogue(dcontext_t *dcontext)
 
     /* os specific loader initialization epilogue after finalize the load */
     os_loader_init_epilogue();
-    os_loader_thread_init_epilogue(dcontext);
     /* All future loads should call privload_load_finalize() upon loading. */
     past_initial_libs = true;
     release_recursive_lock(&privload_lock);
