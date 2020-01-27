@@ -63,12 +63,6 @@ build:
 configuration:
   - 2017
 
-environment:
-  APPVEYOR_RDP_PASSWORD: Diagnose1-HourTimeouts
-
-init:
-  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
-
 install:
   ##################################################
   # Install ninja so we have readable output.
