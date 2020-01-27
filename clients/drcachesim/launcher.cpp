@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -200,6 +200,13 @@ _tmain(int argc, const TCHAR *targv[])
     // one, there's no problem to solve like the UNIX fifo file left
     // behind.  Two, the ^c handler in a new thread is more work to
     // deal with as it races w/ the main thread.
+#    ifdef DEBUG
+    // Avoid pop-up messageboxes in tests.
+    if (!IsDebuggerPresent()) {
+        _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
+        _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+    }
+#    endif
 #endif
 
 #if defined(WINDOWS) && !defined(_UNICODE)
