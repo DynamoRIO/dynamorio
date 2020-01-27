@@ -2854,7 +2854,6 @@ client_thread_target(void *param)
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d *****\n\n", d_r_get_thread_id());
     LOG(THREAD, LOG_ALL, 1, "func=" PFX ", arg=" PFX "\n", func, arg);
 
-
     (*func)(arg);
 
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d EXITING *****\n\n",
@@ -4183,7 +4182,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
         } else {
             bool needs_processing = false;
             int num_threads = 0;
-            thread_record_t **all_threads = NULL;
+            thread_record_t **thread_table = NULL;
 
             /* For hotp_only, image processing is done in two steps.  The
              * first one is done without suspending all threads (expensive if
@@ -4202,7 +4201,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
                                dynamo_initialized ? &needs_processing : NULL, NULL, 0);
             if (needs_processing) {
                 DEBUG_DECLARE(bool ok =)
-                synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &all_threads,
+                synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &thread_table,
                                        /* Case 6821: other synch-all-thread uses that
                                         * only care about threads carrying fcache
                                         * state can ignore us
@@ -4213,9 +4212,9 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
                                         * FIXME: retry instead? */
                                        THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
                 ASSERT(ok);
-                hotp_process_image(base, add, false, false, NULL, all_threads,
+                hotp_process_image(base, add, false, false, NULL, thread_table,
                                    num_threads);
-                end_synch_with_all_threads(all_threads, num_threads, true /*resume*/);
+                end_synch_with_all_threads(thread_table, num_threads, true /*resume*/);
             }
         }
     }

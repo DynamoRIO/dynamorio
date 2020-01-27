@@ -289,7 +289,7 @@ os_loader_init_prologue(void)
         NULL, get_application_base(), get_application_end() - get_application_base() + 1,
         get_application_short_unqualified_name(), get_application_name());
     mod->externally_loaded = true;
-#ifdef STATIC_LIBRARY
+#if defined(STATIC_LIBRARY) && defined(CLIENT_INTERFACE)
     /* Set up TLS and ensure the thread init functions are called.
      * loader_shared will not call privload_os_finalize() for externally_loaded,
      * but it will call privload_call_entry() for us.
@@ -372,6 +372,7 @@ os_loader_exit(void)
 void
 os_loader_thread_init_prologue(dcontext_t *dcontext)
 {
+#ifdef CLIENT_INTERFACE
     /* XXX i#4030: We do not support libraries loaded after init time.  We'd have
      * to go through and re-allocate all the thread arrays.
      * We detect this and abort in privload_os_finalize().
@@ -389,7 +390,6 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
     } else
         dcontext->priv_static_tls = NULL;
 
-#ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb)) {
         if (!dynamo_initialized) {
             /* For first thread use cached pre-priv-lib value for app and
@@ -474,12 +474,12 @@ os_loader_thread_exit(dcontext_t *dcontext)
      * exit.
      */
     ntdll_redir_fls_thread_exit(dcontext->priv_fls_data);
-#endif
     if (tls_array_count > 0) {
         HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, dcontext->priv_static_tls, byte *,
                         tls_array_count, ACCT_OTHER, PROTECTED);
         dcontext->priv_static_tls = NULL;
     }
+#endif
 }
 
 void
@@ -1436,6 +1436,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
          */
         call_routines = dcontext->owning_thread == d_r_get_thread_id();
     }
+#ifdef CLIENT_INTERFACE
     /* First, call the static-TLS callbacks. */
     os_privmod_data_t *opd = (os_privmod_data_t *)privmod->os_privmod_data;
     /* We must set up the thread's TLS first.
@@ -1470,6 +1471,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
                                       opd->tls_callbacks[i], privmod->name);
             });
     }
+#endif
     /* Then, call the module entry point. */
     app_pc entry = get_module_entry(privmod->base);
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
@@ -1520,6 +1522,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
         }
         return_val = CAST_TO_bool(res);
     }
+#ifdef CLIENT_INTERFACE
     if (reason == DLL_THREAD_EXIT && opd->tls_size > 0) {
         /* Free the TLS. */
         ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
@@ -1536,6 +1539,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
          */
         privload_free_opd(privmod);
     }
+#endif
     return return_val;
 }
 
