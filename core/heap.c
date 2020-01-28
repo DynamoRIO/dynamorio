@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3414,6 +3414,16 @@ heap_vmareas_synch_units()
 static void *
 common_global_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
 {
+#ifdef STATIC_LIBRARY
+    if (standalone_library) {
+        /* i#3316: Use regular malloc for better multi-thread performance and better
+         * interoperability with tools like sanitizers.
+         * We limit this to static DR b/c we can have a direct call to libc malloc
+         * there and b/c that is the common use case for standalone mode these days.
+         */
+        return malloc(size);
+    }
+#endif
     void *p;
     acquire_recursive_lock(&global_alloc_lock);
     p = common_heap_alloc(tu, size HEAPACCT(which));
@@ -3437,6 +3447,17 @@ static void
 common_global_heap_free(thread_units_t *tu, void *p,
                         size_t size HEAPACCT(which_heap_t which))
 {
+#ifdef STATIC_LIBRARY
+    if (standalone_library) {
+        /* i#3316: Use regular malloc for better multi-thread performance and better
+         * interoperability with tools like sanitizers.
+         * We limit this to static DR b/c we can have a direct call to libc malloc
+         * there and b/c that is the common use case for standalone mode these days.
+         */
+        free(p);
+        return;
+    }
+#endif
     bool ok;
     if (p == NULL) {
         ASSERT(false && "attempt to free NULL");
