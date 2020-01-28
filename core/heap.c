@@ -834,7 +834,9 @@ vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
         if (!REL32_REACHABLE(app_base, (app_pc)DYNAMO_OPTION(vm_base)) ||
             !REL32_REACHABLE(app_base,
                              (app_pc)DYNAMO_OPTION(vm_base) +
-                                 DYNAMO_OPTION(vm_max_offset))) {
+                                 DYNAMO_OPTION(vm_max_offset)) ||
+            ((app_pc)DYNAMO_OPTION(vm_base) < app_end &&
+             (app_pc)DYNAMO_OPTION(vm_base) + DYNAMO_OPTION(vm_max_offset) > app_base)) {
             byte *reach_base = MAX(REACHABLE_32BIT_START(app_base, app_end),
                                    heap_allowable_region_start);
             byte *reach_end =
