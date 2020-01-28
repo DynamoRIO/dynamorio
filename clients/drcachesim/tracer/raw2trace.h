@@ -455,6 +455,10 @@ struct trace_header_t {
 // XXX: DR should export this
 #define INVALID_THREAD_ID 0
 
+/* XXX i#4062: We are no longer using this split interface.
+ * Should we refactor and merge trace_converter_t into raw2trace_t for simpler code?
+ */
+
 /**
  * #trace_converter_t is a reusable component that encapsulates raw trace conversion.
  *
@@ -766,7 +770,7 @@ private:
             app_pc next_pc = decode(dcontext, pc, inst);
             DR_ASSERT(next_pc != NULL);
             instr_set_translation(inst, pc);
-            instr_set_note(inst, reinterpret_cast<void *>(count));
+            instr_set_note(inst, reinterpret_cast<void *>(static_cast<ptr_int_t>(count)));
             pc = next_pc;
             instrlist_append(ilist, inst);
         }

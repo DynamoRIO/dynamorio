@@ -712,15 +712,10 @@ raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
     const instr_summary_t *ret =
         lookup_instr_summary(tls, modidx, modoffs, block_start, index, *pc, &block);
     if (ret == nullptr) {
-        instr_summary_t *desc = create_instr_summary(
-            tls, modidx, modoffs, block, block_start, instr_count, index, pc, orig);
-        ret = desc;
-    } else {
-        /* XXX i#3129: Log some rendering of the instruction summary that will be
-         * returned.
-         */
-        *pc = ret->next_pc();
+        return create_instr_summary(tls, modidx, modoffs, block, block_start, instr_count,
+                                    index, pc, orig);
     }
+    *pc = ret->next_pc();
     return ret;
 }
 
