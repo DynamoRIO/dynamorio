@@ -123,20 +123,13 @@ struct instr_summary_t final {
     {
     }
 
-    /* Meant for lookups when an instance of the payload is used for the key. */
-    instr_summary_t(app_pc block_start, app_pc pc)
-        : tag_(block_start)
-        , pc_(pc)
-    {
-    }
-
     /**
      * Populates a pre-allocated instr_summary_t description, from the instruction found
      * at pc. Updates pc to the next instruction. Optionally logs translation details
      * (using orig_pc and verbosity).
      */
     static bool
-    construct(void *dcontext, app_pc block_start, INOUT app_pc *pc, app_pc orig_pc,
+    construct(void *dcontext, app_pc block_pc, INOUT app_pc *pc, app_pc orig_pc,
               OUT instr_summary_t *desc, uint verbosity = 0);
 
     /**
@@ -146,12 +139,6 @@ struct instr_summary_t final {
     next_pc() const
     {
         return next_pc_;
-    }
-    /** Get the pc of the start of the block containing this instrucion. */
-    app_pc
-    tag() const
-    {
-        return tag_;
     }
     /** Get the pc of the start of this instrucion. */
     app_pc
@@ -265,7 +252,6 @@ private:
     instr_summary_t &
     operator=(instr_summary_t &&) = delete;
 
-    app_pc tag_ = 0;
     app_pc pc_ = 0;
     uint16_t type_ = 0;
     uint16_t prefetch_type_ = 0;
@@ -469,6 +455,10 @@ struct trace_header_t {
 // XXX: DR should export this
 #define INVALID_THREAD_ID 0
 
+/* XXX i#4062: We are no longer using this split interface.
+ * Should we refactor and merge trace_converter_t into raw2trace_t for simpler code?
+ */
+
 /**
  * #trace_converter_t is a reusable component that encapsulates raw trace conversion.
  *
@@ -539,24 +529,25 @@ struct trace_header_t {
  * </LI>
  *
  * <LI>const instr_summary_t *get_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
- * app_pc block_start_pc, INOUT app_pc *pc, app_pc orig)
+ * app_pc block_start_pc, int instr_count, int index, INOUT app_pc *pc, app_pc orig)
  *
- * Return the #instr_summary_t representation of the instruction at *pc inside the block
- * that begins at block_start_pc in the specified module.
- * Updates the value at pc to the PC of the next instruction. It is assumed the app
- * binaries have already been loaded using #module_mapper_t, and the values at *pc point
- * within memory mapped by the module mapper. This API provides an opportunity to cache
- * decoded instructions.</LI>
+ * Return the #instr_summary_t representation of the index-th instruction (at *pc)
+ * inside the block that begins at block_start_pc and contains instr_count
+ * instructions in the specified module.  Updates the value at pc to the PC of the
+ * next instruction. It is assumed the app binaries have already been loaded using
+ * #module_mapper_t, and the values at *pc point within memory mapped by the module
+ * mapper. This API provides an opportunity to cache decoded instructions.  </LI>
  *
  * <LI>bool set_instr_summary_flags(void *tls, uint64 modidx, uint64 modoffs,
- * app_pc block_start_pc, app_pc pc, app_pc orig, bool write, int memop_index,
- * bool use_remembered_base, bool remember_base)
+ * app_pc block_start_pc, int instr_count, int index, app_pc pc, app_pc orig,
+ * bool write, int memop_index, bool use_remembered_base, bool remember_base)
  *
- * Sets two flags stored in the memref_summary_t inside the instr_summary_t for
- * the instruction at pc inside the block that begins at block_start_pc in the specified
- * module.  The flags use_remembered_base and remember_base are set for the source
- * (write==false) or destination (write==true) operand of index memop_index.
- * The flags are OR-ed in: i.e., they are never cleared.
+ * Sets two flags stored in the memref_summary_t inside the instr_summary_t for the
+ * index-th instruction (at pc) inside the block that begins at block_start_pc and
+ * contains instr_count instructions in the specified module.  The flags
+ * use_remembered_base and remember_base are set for the source (write==false) or
+ * destination (write==true) operand of index memop_index. The flags are OR-ed in: i.e.,
+ * they are never cleared.
  * </LI>
  *
  * <LI>void set_prev_instr_rep_string(void *tls, bool value)
@@ -779,6 +770,7 @@ private:
             app_pc next_pc = decode(dcontext, pc, inst);
             DR_ASSERT(next_pc != NULL);
             instr_set_translation(inst, pc);
+            instr_set_note(inst, reinterpret_cast<void *>(static_cast<ptr_int_t>(count)));
             pc = next_pc;
             instrlist_append(ilist, inst);
         }
@@ -796,13 +788,16 @@ private:
                 meminst = instr_get_next(meminst);
             DR_ASSERT(meminst != nullptr);
             pc = instr_get_app_pc(meminst);
+            int index_in_bb =
+                static_cast<int>(reinterpret_cast<ptr_int_t>(instr_get_note(meminst)));
             app_pc orig_pc =
                 pc - modvec()[modidx_typed].map_base + modvec()[modidx_typed].orig_base;
             impl()->log(5, "Marking < " PFX ", " PFX "> %s #%d to use remembered base\n",
                         start_pc, pc, write ? "write" : "read", memop_index);
             if (!impl()->set_instr_summary_flags(
-                    tls, modidx, modoffs, start_pc, pc, orig_pc, write, memop_index,
-                    true /*use_remembered*/, false /*don't change "remember"*/))
+                    tls, modidx, modoffs, start_pc, instr_count, index_in_bb, pc, orig_pc,
+                    write, memop_index, true /*use_remembered*/,
+                    false /*don't change "remember"*/))
                 return "Failed to set flags for elided base address";
             // We still need to set the use_remember flag for rip-rel, even though it
             // does not need a prior base, because we do not elide *all* rip-rels
@@ -860,9 +855,11 @@ private:
                 app_pc pc_prev = instr_get_app_pc(prev);
                 app_pc orig_pc_prev = pc_prev - modvec()[modidx_typed].map_base +
                     modvec()[modidx_typed].orig_base;
+                int index_prev =
+                    static_cast<int>(reinterpret_cast<ptr_int_t>(instr_get_note(prev)));
                 if (!impl()->set_instr_summary_flags(
-                        tls, modidx, modoffs, start_pc, pc_prev, orig_pc_prev,
-                        remember_write, remember_index,
+                        tls, modidx, modoffs, start_pc, instr_count, index_prev, pc_prev,
+                        orig_pc_prev, remember_write, remember_index,
                         false /*don't change "use_remembered"*/, true /*remember*/))
                     return "Failed to set flags for elided base address";
                 impl()->log(5, "Asking <" PFX ", " PFX "> %s #%d to remember base\n",
@@ -914,7 +911,7 @@ private:
             instrs_are_separate = true;
         } else {
             if (!impl()->instr_summary_exists(tls, in_entry->pc.modidx,
-                                              in_entry->pc.modoffs, start_pc,
+                                              in_entry->pc.modoffs, start_pc, 0,
                                               decode_pc)) {
                 std::string res = analyze_elidable_addresses(tls, in_entry->pc.modidx,
                                                              in_entry->pc.modoffs,
@@ -934,8 +931,9 @@ private:
             // dynamic executions, we cache the decoding in a hashtable.
             pc = decode_pc;
             impl()->log_instruction(4, decode_pc, orig_pc);
-            instr = impl()->get_instr_summary(
-                tls, in_entry->pc.modidx, in_entry->pc.modoffs, start_pc, &pc, orig_pc);
+            instr =
+                impl()->get_instr_summary(tls, in_entry->pc.modidx, in_entry->pc.modoffs,
+                                          start_pc, instr_count, i, &pc, orig_pc);
             if (instr == nullptr) {
                 // We hit some error somewhere, and already reported it. Just exit the
                 // loop.
@@ -1355,6 +1353,16 @@ protected:
     virtual void
     log_instruction(uint level, app_pc decode_pc, app_pc orig_pc);
 
+    struct block_summary_t {
+        block_summary_t(app_pc start, int instr_count)
+            : start_pc(start)
+            , instrs(instr_count)
+        {
+        }
+        app_pc start_pc;
+        std::vector<instr_summary_t> instrs;
+    };
+
     // Per-traced-thread data is stored here and accessed without locks by having each
     // traced thread processed by only one processing thread.
     // This is what trace_converter_t passes as void* to our routines.
@@ -1369,9 +1377,8 @@ protected:
             , file_type(OFFLINE_FILE_TYPE_DEFAULT)
             , saw_header(false)
             , prev_instr_was_rep_string(false)
-            , last_decode_pc(nullptr)
             , last_decode_block_start(nullptr)
-            , last_summary(nullptr)
+            , last_block_summary(nullptr)
         {
         }
 
@@ -1393,9 +1400,8 @@ protected:
         offline_entry_t last_entry;
         std::array<trace_entry_t, WRITE_BUFFER_SIZE> out_buf;
         bool prev_instr_was_rep_string;
-        app_pc last_decode_pc;
         app_pc last_decode_block_start;
-        const instr_summary_t *last_summary;
+        block_summary_t *last_block_summary;
 
         // Statistics on the processing.
         uint64 count_elided = 0;
@@ -1437,17 +1443,24 @@ private:
                            const trace_entry_t *end);
     bool
     instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start,
-                         app_pc pc);
+                         int index, app_pc pc);
+    block_summary_t *
+    lookup_block_summary(void *tls, app_pc block_start);
     instr_summary_t *
     lookup_instr_summary(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start,
-                         app_pc pc);
+                         int index, app_pc pc, OUT block_summary_t **block_summary);
+    instr_summary_t *
+    create_instr_summary(void *tls, uint64 modidx, uint64 modoffs, block_summary_t *block,
+                         app_pc block_start, int instr_count, int index, INOUT app_pc *pc,
+                         app_pc orig);
     const instr_summary_t *
     get_instr_summary(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start,
-                      INOUT app_pc *pc, app_pc orig);
+                      int instr_count, int index, INOUT app_pc *pc, app_pc orig);
     bool
     set_instr_summary_flags(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start,
-                            app_pc pc, app_pc orig, bool write, int memop_index,
-                            bool use_remembered_base, bool remember_base);
+                            int instr_count, int index, app_pc pc, app_pc orig,
+                            bool write, int memop_index, bool use_remembered_base,
+                            bool remember_base);
     void
     set_prev_instr_rep_string(void *tls, bool value);
     bool
@@ -1460,11 +1473,6 @@ private:
     add_to_statistic(void *tls, raw2trace_statistic_t stat, int value);
     void
     log_instruction(app_pc decode_pc, app_pc orig_pc);
-
-    static uint
-    hash_instr_summary(void *key);
-    static bool
-    cmp_instr_summary(void *val1, void *val2);
 
     std::string
     append_delayed_branch(void *tls);
@@ -1489,6 +1497,9 @@ private:
     // hashtable_t to std::map.find, std::map.lower_bound, std::tr1::unordered_map,
     // and c++11 std::unordered_map (including tuning its load factor, initial size,
     // and hash function), and hashtable_t outperformed the others (i#2056).
+    // Update: that measurement was when we did a hashtable lookup on every
+    // instruction pc.  Now that we use block_summary_t and only look up each block,
+    // the hashtable performance matters much less.
     // We use a per-worker cache to avoid locks.
     std::vector<hashtable_t> decode_cache;
 

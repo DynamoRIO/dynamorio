@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -633,77 +633,89 @@ raw2trace_t::do_conversion()
     return "";
 }
 
-uint
-raw2trace_t::hash_instr_summary(void *key)
+raw2trace_t::block_summary_t *
+raw2trace_t::lookup_block_summary(void *tls, app_pc block_start)
 {
-    // Our key is a payload instance.
-    const instr_summary_t *instr = static_cast<const instr_summary_t *>(key);
-    // We assume tail-duplication is rare.
-    // We target x86 and use all bits of the PC.
-    // hashtable_t masks this off to the size of the table for us.
-    return static_cast<uint>(reinterpret_cast<ptr_uint_t>(instr->pc()));
-}
-
-bool
-raw2trace_t::cmp_instr_summary(void *val1, void *val2)
-{
-    const instr_summary_t *instr1 = static_cast<const instr_summary_t *>(val1);
-    const instr_summary_t *instr2 = static_cast<const instr_summary_t *>(val2);
-    return (instr1->tag() == instr2->tag() && instr1->pc() == instr2->pc());
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (block_start == tdata->last_decode_block_start) {
+        VPRINT(5, "Using last block summary " PFX " for " PFX "\n",
+               tdata->last_block_summary, tdata->last_decode_block_start);
+        return tdata->last_block_summary;
+    }
+    block_summary_t *ret = static_cast<block_summary_t *>(
+        hashtable_lookup(&decode_cache[tdata->worker], block_start));
+    if (ret != nullptr) {
+        DEBUG_ASSERT(ret->start_pc == block_start);
+        tdata->last_decode_block_start = block_start;
+        tdata->last_block_summary = ret;
+        VPRINT(5, "Caching last block summary " PFX " for " PFX "\n",
+               tdata->last_block_summary, tdata->last_decode_block_start);
+    }
+    return ret;
 }
 
 instr_summary_t *
 raw2trace_t::lookup_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
-                                  app_pc block_start, app_pc pc)
+                                  app_pc block_start, int index, app_pc pc,
+                                  OUT block_summary_t **block_summary)
 {
-    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    // To avoid an extra heap alloc for a key pair we use a payload instance.
-    instr_summary_t lookup(block_start, pc);
-    instr_summary_t *ret = static_cast<instr_summary_t *>(
-        hashtable_lookup(&decode_cache[tdata->worker], &lookup));
-    return ret;
+    block_summary_t *block = lookup_block_summary(tls, block_start);
+    if (block_summary != nullptr)
+        *block_summary = block;
+    if (block == nullptr)
+        return nullptr;
+    DEBUG_ASSERT(index >= 0 && index < static_cast<int>(block->instrs.size()));
+    if (block->instrs[index].pc() == nullptr)
+        return nullptr;
+    DEBUG_ASSERT(pc == block->instrs[index].pc());
+    return &block->instrs[index];
 }
 
 bool
 raw2trace_t::instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs,
-                                  app_pc block_start, app_pc pc)
+                                  app_pc block_start, int index, app_pc pc)
 {
-    return lookup_instr_summary(tls, modidx, modoffs, block_start, pc) != nullptr;
+    return lookup_instr_summary(tls, modidx, modoffs, block_start, index, pc, nullptr) !=
+        nullptr;
+}
+
+instr_summary_t *
+raw2trace_t::create_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
+                                  block_summary_t *block, app_pc block_start,
+                                  int instr_count, int index, INOUT app_pc *pc,
+                                  app_pc orig)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (block == nullptr) {
+        block = new block_summary_t(block_start, instr_count);
+        DEBUG_ASSERT(index >= 0 && index < static_cast<int>(block->instrs.size()));
+        hashtable_add(&decode_cache[tdata->worker], block_start, block);
+        VPRINT(5, "Created new block summary " PFX " for " PFX "\n", block, block_start);
+        tdata->last_decode_block_start = block_start;
+        tdata->last_block_summary = block;
+    }
+    instr_summary_t *desc = &block->instrs[index];
+    if (!instr_summary_t::construct(dcontext, block_start, pc, orig, desc, verbosity)) {
+        WARN("Encountered invalid/undecodable instr @ %s+" PIFX,
+             modvec()[static_cast<size_t>(modidx)].path, IF_NOT_X64((uint)) modoffs);
+        return nullptr;
+    }
+    return desc;
 }
 
 const instr_summary_t *
 raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
-                               app_pc block_start, INOUT app_pc *pc, app_pc orig)
+                               app_pc block_start, int instr_count, int index,
+                               INOUT app_pc *pc, app_pc orig)
 {
-    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    const app_pc decode_pc = *pc;
-    // For rep string loops we expect the same PC many times in a row.
-    if (decode_pc == tdata->last_decode_pc &&
-        block_start == tdata->last_decode_block_start) {
-        *pc = tdata->last_summary->next_pc();
-        return tdata->last_summary;
-    }
+    block_summary_t *block;
     const instr_summary_t *ret =
-        lookup_instr_summary(tls, modidx, modoffs, block_start, *pc);
+        lookup_instr_summary(tls, modidx, modoffs, block_start, index, *pc, &block);
     if (ret == nullptr) {
-        instr_summary_t *desc = new instr_summary_t();
-        if (!instr_summary_t::construct(dcontext, block_start, pc, orig, desc,
-                                        verbosity)) {
-            WARN("Encountered invalid/undecodable instr @ %s+" PIFX,
-                 modvec()[static_cast<size_t>(modidx)].path, IF_NOT_X64((uint)) modoffs);
-            return nullptr;
-        }
-        hashtable_add(&decode_cache[tdata->worker], desc, desc);
-        ret = desc;
-    } else {
-        /* XXX i#3129: Log some rendering of the instruction summary that will be
-         * returned.
-         */
-        *pc = ret->next_pc();
+        return create_instr_summary(tls, modidx, modoffs, block, block_start, instr_count,
+                                    index, pc, orig);
     }
-    tdata->last_decode_pc = decode_pc;
-    tdata->last_decode_block_start = block_start;
-    tdata->last_summary = ret;
+    *pc = ret->next_pc();
     return ret;
 }
 
@@ -712,18 +724,18 @@ raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
 // Instead we set after the fact.
 bool
 raw2trace_t::set_instr_summary_flags(void *tls, uint64 modidx, uint64 modoffs,
-                                     app_pc block_start, app_pc pc, app_pc orig,
-                                     bool write, int memop_index,
+                                     app_pc block_start, int instr_count, int index,
+                                     app_pc pc, app_pc orig, bool write, int memop_index,
                                      bool use_remembered_base, bool remember_base)
 {
-    if (!instr_summary_exists(tls, modidx, modoffs, block_start, pc)) {
-        // Trigger creation of the summary.
+    block_summary_t *block;
+    instr_summary_t *desc =
+        lookup_instr_summary(tls, modidx, modoffs, block_start, index, pc, &block);
+    if (desc == nullptr) {
         app_pc pc_copy = pc;
-        if (get_instr_summary(tls, modidx, modoffs, block_start, &pc_copy, orig) ==
-            nullptr)
-            return false;
+        desc = create_instr_summary(tls, modidx, modoffs, block, block_start, instr_count,
+                                    index, &pc_copy, orig);
     }
-    instr_summary_t *desc = lookup_instr_summary(tls, modidx, modoffs, block_start, pc);
     if (desc == nullptr)
         return false;
     if (write)
@@ -766,7 +778,6 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
         dr_fprintf(STDERR, "<caching for start=" PFX "> ", block_start);
         dr_print_instr(dcontext, STDERR, instr, "");
     }
-    desc->tag_ = block_start;
     desc->next_pc_ = *pc;
     DEBUG_ASSERT(desc->next_pc_ > desc->pc_);
     desc->packed_ = 0;
@@ -911,17 +922,17 @@ raw2trace_t::on_thread_end(void *tls)
 void
 raw2trace_t::log(uint level, const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
     if (verbosity >= level) {
+        va_list args;
+        va_start(args, fmt);
         VPRINT_HEADER();
         vfprintf(stderr, fmt, args);
 #ifdef WINDOWS
         // We fflush for Windows cygwin where stderr is not flushed.
         fflush(stderr);
 #endif
+        va_end(args);
     }
-    va_end(args);
 }
 
 void
@@ -1010,8 +1021,8 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
     for (int i = 0; i < cache_count; ++i) {
         // We go ahead and start with a reasonably large capacity.
         // We do not want the built-in mutex: this is per-worker so it can be lockless.
-        hashtable_init_ex(&decode_cache[i], 16, HASH_INTPTR, false, false, NULL,
-                          hash_instr_summary, cmp_instr_summary);
+        hashtable_init_ex(&decode_cache[i], 16, HASH_INTPTR, false, false, nullptr,
+                          nullptr, nullptr);
         // We pay a little memory to get a lower load factor, unless we have
         // many duplicated tables.
         hashtable_config_t config = { sizeof(config), true,
@@ -1030,7 +1041,7 @@ raw2trace_t::~raw2trace_t()
         // so we have to explicitly free the payloads.
         for (uint j = 0; j < HASHTABLE_SIZE(decode_cache[i].table_bits); j++) {
             for (hash_entry_t *e = decode_cache[i].table[j]; e != NULL; e = e->next) {
-                delete (static_cast<instr_summary_t *>(e->payload));
+                delete (static_cast<block_summary_t *>(e->payload));
             }
         }
         hashtable_delete(&decode_cache[i]);
