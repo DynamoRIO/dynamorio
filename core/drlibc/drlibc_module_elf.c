@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -397,6 +397,9 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                                (TEST(MODLOAD_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0));
     if (lib_base == NULL)
         return NULL;
+    LOG(GLOBAL, LOG_LOADER, 3,
+        "%s: initial reservation " PFX "-" PFX " vs preferred " PFX "\n", __FUNCTION__,
+        lib_base, lib_base + initial_map_size, map_base);
     if (TEST(MODLOAD_SEPARATE_BSS, flags) && initial_map_size > elf->image_size)
         elf->image_size = initial_map_size - PAGE_SIZE;
     else

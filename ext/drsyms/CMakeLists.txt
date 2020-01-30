@@ -118,9 +118,6 @@ if (WIN32)
     "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/dwarf.pdb" COPYONLY)
   configure_file("${dwarf_dir}/elftc.pdb"
     "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/elftc.pdb" COPYONLY)
-  # while private loader means preferred base is not required, more efficient
-  # to avoid rebase so we avoid conflict w/ client and other exts
-  set(PREFERRED_BASE 0x76000000)
 
 elseif (UNIX)
   set(srcs
@@ -143,6 +140,10 @@ elseif (UNIX)
   endif (APPLE)
   set(srcs_static ${srcs})
 endif (WIN32)
+
+# while private loader means preferred base is not required, more efficient
+# to avoid rebase so we avoid conflict w/ client and other exts
+set(PREFERRED_BASE 0x76000000)
 
 add_library(drsyms SHARED ${srcs})
 configure_extension(drsyms OFF)

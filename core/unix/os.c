@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -3045,17 +3045,22 @@ void
 init_emulated_brk(app_pc exe_end)
 {
     ASSERT(DYNAMO_OPTION(emulate_brk));
-    if (app_brk_map != NULL)
+    if (app_brk_map != NULL) {
         return;
-    /* i#1004: emulate brk via a separate mmap.
-     * The real brk starts out empty, but we need at least a page to have an
-     * mmap placeholder.
+    }
+    /* i#1004: emulate brk via a separate mmap.  The real brk starts out empty, but
+     * we need at least a page to have an mmap placeholder.  We also want to reserve
+     * enough memory to avoid a client lib or other mmap truncating the brk at a
+     * too-small size, which can crash the app (i#3982).
      */
-    app_brk_map = mmap_syscall(exe_end, PAGE_SIZE, PROT_READ | PROT_WRITE,
+#    define BRK_INITIAL_SIZE 4 * 1024 * 1024
+    app_brk_map = mmap_syscall(exe_end, BRK_INITIAL_SIZE, PROT_READ | PROT_WRITE,
                                MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     ASSERT(mmap_syscall_succeeded(app_brk_map));
     app_brk_cur = app_brk_map;
-    app_brk_end = app_brk_map + PAGE_SIZE;
+    app_brk_end = app_brk_map + BRK_INITIAL_SIZE;
+    LOG(GLOBAL, LOG_HEAP, 1, "%s: initial brk is " PFX "-" PFX "\n", __FUNCTION__,
+        app_brk_cur, app_brk_end);
 }
 
 static byte *
@@ -3750,7 +3755,6 @@ client_thread_run(void)
 
     void *arg = (void *)get_clone_record_app_xsp(crec);
     LOG(THREAD, LOG_ALL, 1, "func=" PFX ", arg=" PFX "\n", func, arg);
-
 
     (*func)(arg);
 
