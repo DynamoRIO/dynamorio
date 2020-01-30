@@ -1547,8 +1547,6 @@ reserve_brk(app_pc post_app)
     if (getenv(DYNAMORIO_VAR_NO_EMULATE_BRK) == NULL) {
         /* i#1004: we're going to emulate the brk via our own mmap.
          * Reserve the initial brk now before any of DR's mmaps to avoid overlap.
-         * XXX: reserve larger APP_BRK_GAP here and then unmap back to 1 page
-         * in d_r_os_init() to ensure no DR mmap limits its size?
          */
         dynamo_options.emulate_brk = true; /* not parsed yet */
         init_emulated_brk(post_app);
