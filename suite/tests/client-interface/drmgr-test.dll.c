@@ -310,6 +310,38 @@ dr_init(client_id_t id)
     CHECK(ok, "drmgr_unregister_kernel_xfer_event failed");
     ok = drmgr_register_kernel_xfer_event_ex(event_kernel_xfer, &priority);
     CHECK(ok, "drmgr_register_kernel_xfer_event_ex failed");
+
+    void *drcontext;
+    instrlist_t *bb;
+    instr_t *instr;
+    size_t size;
+
+    drcontext = dr_get_current_drcontext();
+
+    bb = instrlist_create(drcontext);
+    instrlist_init(bb);
+
+    size = drmgr_get_bb_size(bb);
+    CHECK(size == 0, "drmgr_get_bb_size should return 0");
+    size = drmgr_get_bb_app_size(bb);
+    CHECK(size == 0, "drmgr_get_bb_app_size should return 0");
+
+    instr = INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(DR_REG_XCX),
+                                OPND_CREATE_MEMPTR(DR_REG_XBP, 8));
+    instrlist_append(bb, instr);
+    instr = INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(DR_REG_XDI),
+                                OPND_CREATE_MEMPTR(DR_REG_XBP, 16));
+    instrlist_append(bb, instr);
+    instr = INSTR_CREATE_add(drcontext, opnd_create_reg(DR_REG_XDI),
+                             opnd_create_reg(DR_REG_XCX));
+    instrlist_meta_append(bb, instr);
+
+    size = drmgr_get_bb_size(bb);
+    CHECK(size == 3, "drmgr_get_bb_size should return 3");
+    size = drmgr_get_bb_app_size(bb);
+    CHECK(size == 2, "drmgr_get_bb_app_size should return 2");
+
+    instrlist_clear_and_destroy(drcontext, bb);
 }
 
 static void

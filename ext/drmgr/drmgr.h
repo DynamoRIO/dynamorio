@@ -489,6 +489,18 @@ DR_EXPORT
 bool
 drmgr_is_last_instr(void *drcontext, instr_t *instr);
 
+DR_EXPORT
+/**
+ * Returns the number of instructions (including meta-instructions) inside a basic block
+ * \p bb.
+ */
+size_t
+drmgr_get_bb_size(instrlist_t *bb);
+
+DR_EXPORT
+size_t
+drmgr_get_bb_app_size(instrlist_t *bb);
+
 /***************************************************************************
  * TLS
  */

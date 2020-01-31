@@ -111,7 +111,6 @@ static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, OUT void **user_data)
 {
-    instr_t *instr;
     int cur_size = 0;
 
     /* we use fp ops so we have to save fp state */
@@ -123,9 +122,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 
     proc_save_fpstate(fp_align);
 
-    for (instr = instrlist_first_app(bb); instr != NULL;
-         instr = instr_get_next_app(instr))
-        cur_size++;
+    cur_size = drmgr_get_bb_app_size(bb);
 
     dr_mutex_lock(stats_mutex);
 #ifdef VERBOSE_VERBOSE
