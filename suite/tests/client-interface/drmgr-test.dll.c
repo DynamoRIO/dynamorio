@@ -313,7 +313,6 @@ dr_init(client_id_t id)
 
     void *drcontext;
     instrlist_t *bb;
-    instr_t *instr;
     size_t size;
 
     drcontext = dr_get_current_drcontext();
@@ -326,6 +325,8 @@ dr_init(client_id_t id)
     size = drmgr_get_bb_app_size(bb);
     CHECK(size == 0, "drmgr_get_bb_app_size should return 0");
 
+#ifdef X86
+    instr_t *instr;
     instr = INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(DR_REG_XCX),
                                 OPND_CREATE_MEMPTR(DR_REG_XBP, 8));
     instrlist_append(bb, instr);
@@ -340,6 +341,7 @@ dr_init(client_id_t id)
     CHECK(size == 3, "drmgr_get_bb_size should return 3");
     size = drmgr_get_bb_app_size(bb);
     CHECK(size == 2, "drmgr_get_bb_app_size should return 2");
+#endif
 
     instrlist_clear_and_destroy(drcontext, bb);
 }
