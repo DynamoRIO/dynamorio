@@ -498,6 +498,10 @@ size_t
 drmgr_get_bb_size(instrlist_t *bb);
 
 DR_EXPORT
+/**
+ * Returns the number of instructions (excluding meta-instructions) inside a basic block
+ * \p bb.
+ */
 size_t
 drmgr_get_bb_app_size(instrlist_t *bb);
 
