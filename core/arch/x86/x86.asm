@@ -796,7 +796,7 @@ GLOBAL_LABEL(global_do_syscall_sygate_int:)
  */
         DECLARE_FUNC(global_do_syscall_sysenter)
 GLOBAL_LABEL(global_do_syscall_sysenter:)
-#if defined(X64) && defined(WINDOWS)
+#if defined(X64)
         syscall  /* FIXME ml64 won't take "sysenter" so half-fixing now */
 #else
         sysenter
