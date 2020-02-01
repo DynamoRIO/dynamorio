@@ -203,8 +203,13 @@ _tmain(int argc, const TCHAR *targv[])
 #    ifdef DEBUG
     // Avoid pop-up messageboxes in tests.
     if (!IsDebuggerPresent()) {
-        _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
-        _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+        /* Set for _CRT_{WARN,ERROR,ASSERT}. */
+        for (int i = 0; i < _CRT_ERRCNT; i++) {
+            _CrtSetReportMode(i, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
+            _CrtSetReportFile(i, _CRTDBG_FILE_STDERR);
+        }
+        /* This may control assert() and _wassert() in release build. */
+        _set_error_mode(_OUT_TO_STDERR);
     }
 #    endif
 #endif

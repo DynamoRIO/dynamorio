@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -249,7 +249,11 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
 
     /* Xref case 552, the nudge_target value provides a reasonable measure
      * of security against an attacker leveraging this routine. */
-    if (dcontext->nudge_target != (void *)generic_nudge_target) {
+    if (dcontext->nudge_target !=
+        (void *)generic_nudge_target
+            /* Allow a syscall for our test in debug build. */
+            IF_DEBUG(&&!check_filter("win32.tls.exe",
+                                     get_short_name(get_application_name())))) {
         /* FIXME - should we report this likely attempt to attack us? need
          * a unit test for this (though will then have to tone this down). */
         ASSERT(false && "unauthorized thread tried to nudge");
