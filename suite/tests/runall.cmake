@@ -94,7 +94,7 @@ if (UNIX)
   set(MAX_ITERS 50000)
 else ()
   # Sleeping in longer units.
-  set(MAX_ITERS 2000)
+  set(MAX_ITERS 1000)
 endif()
 
 function (do_sleep ms)
@@ -107,12 +107,46 @@ function (do_sleep ms)
   endif ()
 endfunction (do_sleep)
 
+function (kill_background_process)
+  if (UNIX)
+    find_program(KILL "kill")
+    if (NOT KILL)
+      message(FATAL_ERROR "cannot find 'kill'")
+    endif (NOT KILL)
+    execute_process(COMMAND "${KILL}" ${pid}
+      RESULT_VARIABLE kill_result
+      ERROR_VARIABLE kill_err
+      OUTPUT_VARIABLE kill_out
+      )
+    # combine out and err
+    set(kill_err "${kill_out}${kill_err}")
+    if (kill_result)
+      message(FATAL_ERROR "*** kill failed (${kill_result}): ${kill_err}***\n")
+    endif (kill_result)
+  else (UNIX)
+    # win32.infloop has a title with the pid in it so we can uniquely target it
+    # for a cleaner exit than using drkill.
+    execute_process(COMMAND "${toolbindir}/closewnd.exe" "Infloop pid=${pid}" 10
+      RESULT_VARIABLE kill_result
+      ERROR_VARIABLE kill_err
+      OUTPUT_VARIABLE kill_out)
+    set(kill_err "${kill_out}${kill_err}")
+    if (kill_result)
+      message(FATAL_ERROR "*** kill failed (${kill_result}): ${kill_err}***\n")
+    endif (kill_result)
+    # However, if infloop hung before it drew the window, it might still be up.
+    # Ensure it's not.
+    execute_process(COMMAND "${toolbindir}/drkill" -pid ${pid})
+  endif (UNIX)
+endfunction ()
+
 if (pidfile)
   set(iters 0)
   while (NOT EXISTS "${pidfile}")
     do_sleep(0.1)
     math(EXPR iters "${iters}+1")
     if (${iters} GREATER ${MAX_ITERS})
+      kill_background_process()
       message(FATAL_ERROR "Timed out waiting for ${pidfile}")
     endif ()
   endwhile ()
@@ -125,6 +159,7 @@ while (NOT EXISTS "${out}")
   do_sleep(0.1)
   math(EXPR iters "${iters}+1")
   if (${iters} GREATER ${MAX_ITERS})
+    kill_background_process()
     message(FATAL_ERROR "Timed out waiting for ${out}")
   endif ()
 endwhile ()
@@ -136,6 +171,7 @@ while (NOT "${output}" MATCHES "\n")
   file(READ "${out}" output)
   math(EXPR iters "${iters}+1")
   if (${iters} GREATER ${MAX_ITERS})
+    kill_background_process()
     message(FATAL_ERROR "Timed out waiting for newline")
   endif ()
 endwhile()
@@ -151,7 +187,8 @@ else ()
   # nudgeunix and drconfig have different syntax:
   if (WIN32)
     # XXX i#120: expand beyond -client.
-    string(REGEX REPLACE "-client" "-nudge_pid;${pid}" nudge "${nudge}")
+    string(REGEX REPLACE "-client" "-nudge_timeout;30000;-nudge_pid;${pid}"
+      nudge "${nudge}")
   else ()
     set(nudge "-pid;${pid};${nudge}")
   endif ()
@@ -163,6 +200,7 @@ else ()
   # combine out and err
   set(nudge_err "${nudge_out}${nudge_err}")
   if (nudge_result)
+    kill_background_process()
     message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
   endif (nudge_result)
 endif ()
@@ -179,6 +217,7 @@ if ("${orig_nudge}" MATCHES "-client")
     string(LENGTH "${output}" new_outlen)
     math(EXPR iters "${iters}+1")
     if (${iters} GREATER ${MAX_ITERS})
+      kill_background_process()
       message(FATAL_ERROR "Timed out waiting for more output")
     endif ()
   endwhile()
@@ -189,33 +228,7 @@ else ()
   do_sleep(0.5)
 endif ()
 
-if (UNIX)
-  find_program(KILL "kill")
-  if (NOT KILL)
-    message(FATAL_ERROR "cannot find 'kill'")
-  endif (NOT KILL)
-  execute_process(COMMAND "${KILL}" ${pid}
-    RESULT_VARIABLE kill_result
-    ERROR_VARIABLE kill_err
-    OUTPUT_VARIABLE kill_out
-    )
-  # combine out and err
-  set(kill_err "${kill_out}${kill_err}")
-  if (kill_result)
-    message(FATAL_ERROR "*** kill failed (${kill_result}): ${kill_err}***\n")
-  endif (kill_result)
-else (UNIX)
-  # win32.infloop has a title with the pid in it so we can uniquely target it
-  # for a cleaner exit than using drkill.
-  execute_process(COMMAND "${toolbindir}/closewnd.exe" "Infloop pid=${pid}" 10
-    RESULT_VARIABLE kill_result
-    ERROR_VARIABLE kill_err
-    OUTPUT_VARIABLE kill_out)
-  set(kill_err "${kill_out}${kill_err}")
-  if (kill_result)
-    message(FATAL_ERROR "*** kill failed (${kill_result}): ${kill_err}***\n")
-  endif (kill_result)
-endif (UNIX)
+kill_background_process()
 
 if (NOT "${fail_msg}" STREQUAL "")
   message(FATAL_ERROR "${fail_msg}")
