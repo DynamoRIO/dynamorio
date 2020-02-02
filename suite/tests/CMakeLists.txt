@@ -1616,7 +1616,7 @@ function(use_MT_not_MTd source_file)
   if (WIN32)
     # Appending to the target flags goes in too early: we need source to
     # override the /MTd from the top level.
-    append_property_string(SOURCE ${source_file} COMPILE_FLAGS "/MT")
+    append_property_string(SOURCE ${source_file} COMPILE_FLAGS "/MT /DNO_DBG_CRT")
   endif ()
 endfunction()
 
@@ -3740,6 +3740,11 @@ else (UNIX)
 
   tobuild_dll(win32.earlythread win32/earlythread.c "")
 
+  if (DEBUG)
+    # We have a special allowance for this test to target our nudge handler in DEBUG.
+    tobuild(win32.tls win32/tls.c)
+  endif ()
+
   if (NOT X64)
     # FIXME i#16: these tests need to be fixed to compile for x64
 
@@ -3756,7 +3761,6 @@ else (UNIX)
     tobuild(win32.rsbtest win32/rsbtest.c)
     tobuild(win32.setcxtsyscall win32/setcxtsyscall.c)
     tobuild(win32.setthreadcontext win32/setthreadcontext.c)
-    tobuild(win32.tls win32/tls.c)
 
     tobuild_dll(security-win32.aslr-ind security-win32/aslr-ind.c "")
     if (TEST_SUITE) # fails non-det so run only in suite
