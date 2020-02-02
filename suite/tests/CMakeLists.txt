@@ -653,6 +653,9 @@ endfunction (setup_test_client_dll_basics)
 function(tobuild_ci test source client_ops dr_ops exe_ops)
   string(REGEX REPLACE "\\.(c|cpp)$" ".dll.\\1" client_source "${source}")
   string(REGEX REPLACE "\\.runall$" ".dll.c" client_source "${client_source}")
+  if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${client_source}")
+    string(REGEX REPLACE "\\.c$" ".cpp" client_source "${client_source}")
+  endif ()
 
   if (NOT "${source}" MATCHES "\\.runall$")
     # Many client tests don't care about the app that's run.  To save time
@@ -1025,6 +1028,9 @@ function(template2expect outexpect template runops key)
     set(rundefs "${rundefs} -DRUNREGRESSION_WIN7")
   elseif ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.3")
     set(rundefs "${rundefs} -DRUNREGRESSION_WIN8")
+  endif ()
+  if (WIN32 AND CMAKE_C_COMPILER_VERSION VERSION_LESS 19.0)
+    set(rundefs "${rundefs} -DPRE_VS2015")
   endif ()
   if (${key}_is_cygwin)
     # i#1478 option used to avoid cygwin messes up output issue: though
@@ -1610,7 +1616,15 @@ function(use_MT_not_MTd source_file)
   if (WIN32)
     # Appending to the target flags goes in too early: we need source to
     # override the /MTd from the top level.
-    append_property_string(SOURCE ${source_file} COMPILE_FLAGS "/MT")
+    append_property_string(SOURCE ${source_file} COMPILE_FLAGS "/MT /DNO_DBG_CRT")
+  endif ()
+endfunction()
+
+function(use_MD_not_MTd source_file)
+  if (WIN32)
+    # Appending to the target flags goes in too early: we need source to
+    # override the /MTd from the top level.
+    append_property_string(SOURCE ${source_file} COMPILE_FLAGS "/MD")
   endif ()
 endfunction()
 
@@ -1864,8 +1878,12 @@ if (CLIENT_INTERFACE)
     set(DynamoRIO_USE_LIBC OFF)
     if (UNIX)
       set(annotation_test_args "libclient.annotation-concurrency.appdll.so" "A" "4")
+      set(annotation_test_args_shorter
+        "libclient.annotation-concurrency.appdll.so" "A" "4" "128" "5")
     else (UNIX)
       set(annotation_test_args "client.annotation-concurrency.appdll.dll" "A" "4")
+      set(annotation_test_args_shorter
+        "client.annotation-concurrency.appdll.dll" "A" "4" "128" "5")
     endif (UNIX)
     tobuild_ci(client.annotation-concurrency client-interface/annotation-concurrency.c
       "" "" "${annotation_test_args}")
@@ -2230,11 +2248,9 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.low_on_memory.dll drmgr)
   use_DynamoRIO_extension(client.low_on_memory.dll drwrap)
 
-  if (LINUX)
-    tobuild_ci(client.raw_tls client-interface/raw_tls.c "" "" "")
-    link_with_pthread(client.raw_tls)
-    use_DynamoRIO_extension(client.raw_tls.dll drmgr)
-  endif ()
+  tobuild_ci(client.tls client-interface/tls.c "" "" "")
+  link_with_pthread(client.tls)
+  use_DynamoRIO_extension(client.tls.dll drmgr)
 
   if (X86)
     if (NOT MACOS)
@@ -2822,23 +2838,24 @@ endif ()
         # we add some dedicated multi-thread (and multi-process) tests with
         # more deterministic output.
         # We test -cpu_scheduling on several tests with many threads.
+        # We use a smaller test (_shorter) to avoid taking multiple minutes on our
+        # CI (i#4059; xref i#2063).
         torunonly_drcachesim(threads client.annotation-concurrency "-cpu_scheduling"
-          "${annotation_test_args}")
-        set(tool.drcachesim.threads_timeout 150) # This test is long.
+          "${annotation_test_args_shorter}")
 
         # Threads test that reads the cache configuration from a config file.
         torunonly_drcachesim(threads-with-config-file client.annotation-concurrency
           "-config_file ${config_files_dir}/cores-1-levels-3-no-missfile.conf"
-          "${annotation_test_args}")
+          "${annotation_test_args_shorter}")
         set(tool.drcachesim.threads_timeout 150) # This test is long.
 
         torunonly_drcachesim(coherence client.annotation-concurrency "-coherence"
-          "${annotation_test_args}")
+          "${annotation_test_args_shorter}")
         set(tool.drcachesim.coherence_timeout 150) # This test is long.
 
         # TLB simulator's multi-thread sanity check
         torunonly_drcachesim(TLB-threads client.annotation-concurrency
-          "-simulator_type TLB -cpu_scheduling" "${annotation_test_args}")
+          "-simulator_type TLB -cpu_scheduling" "${annotation_test_args_shorter}")
         # i#2063: this test can time out.
         set(tool.drcachesim.TLB-threads_timeout 150)
       endif ()
@@ -3028,6 +3045,10 @@ endif ()
 
       torunonly_drcacheoff(view ${ci_shared_app} ""
         "@-simulator_type@view" "")
+
+      if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
+        torunonly_drcacheoff(rseq linux.rseq "" "@-test_mode" "")
+      endif ()
 
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
@@ -3226,8 +3247,13 @@ endif ()
       endif ()
 
       add_exe(tool.cpuid ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
-      # Debug libc seems to run newer instructions, messing up the test.
-      use_MT_not_MTd(${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
+      if (WIN32)
+        append_property_string(TARGET tool.cpuid COMPILE_FLAGS "/arch:IA32")
+        # Debug libc seems to run newer instructions, messing up the test.
+        # Plus on VS2017 *any* libc does that even with /arch:IA32 so we
+        # separate libc out.
+        use_MD_not_MTd(${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
+      endif ()
       macro (add_cpusim_cpuid_test model)
         torunonly_ci(tool.drcpusim.cpuid-${model} tool.cpuid drcpusim
           ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid-${model}.c
@@ -3634,9 +3660,11 @@ if (UNIX)
     append_property_string(TARGET linux.rseq_noarray
       COMPILE_FLAGS "-DRSEQ_TEST_USE_NO_ARRAY")
     # Test attaching, which has a separate lazy rseq check.
-    tobuild_api(api.rseq linux/rseq.c "" "" OFF OFF)
+    # We build with static DR to also test client interactions.
+    tobuild_api(api.rseq linux/rseq.c "" "" OFF ON)
     link_with_pthread(api.rseq)
     append_property_string(TARGET api.rseq COMPILE_FLAGS "-DRSEQ_TEST_ATTACH")
+    set(api.rseq_expectbase rseq_client)
     # Test non-compliant code with our workaround flag.
     tobuild_ops(linux.rseq_disable linux/rseq_disable.c "-disable_rseq" "")
   endif ()
@@ -3727,6 +3755,11 @@ else (UNIX)
 
   tobuild_dll(win32.earlythread win32/earlythread.c "")
 
+  if (DEBUG)
+    # We have a special allowance for this test to target our nudge handler in DEBUG.
+    tobuild(win32.tls win32/tls.c)
+  endif ()
+
   if (NOT X64)
     # FIXME i#16: these tests need to be fixed to compile for x64
 
@@ -3743,7 +3776,6 @@ else (UNIX)
     tobuild(win32.rsbtest win32/rsbtest.c)
     tobuild(win32.setcxtsyscall win32/setcxtsyscall.c)
     tobuild(win32.setthreadcontext win32/setthreadcontext.c)
-    tobuild(win32.tls win32/tls.c)
 
     tobuild_dll(security-win32.aslr-ind security-win32/aslr-ind.c "")
     if (TEST_SUITE) # fails non-det so run only in suite

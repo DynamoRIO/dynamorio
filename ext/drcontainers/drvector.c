@@ -94,8 +94,12 @@ drvector_set_entry(drvector_t *vec, uint idx, void *data)
         return false;
     if (vec->synch)
         dr_mutex_lock(vec->lock);
-    if (idx >= vec->capacity)
-        drvector_increase_size(vec, idx * 2);
+    if (idx >= vec->capacity) {
+        if (idx == 0)
+            drvector_increase_size(vec, INITIAL_CAPACITY_IF_ZERO_REQUESTED);
+        else
+            drvector_increase_size(vec, idx * 2);
+    }
     vec->array[idx] = data;
     if (idx >= vec->entries)
         vec->entries = idx + 1; /* ensure append goes beyond this entry */

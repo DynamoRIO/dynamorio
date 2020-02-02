@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -157,11 +157,14 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
         ASSERT_OWN_NO_LOCKS();
 
 #    ifdef WINDOWS
-        /* if exiting the process, os_loader_exit will swap to app, and we want to
-         * remain private during exit (esp client exit)
+        /* We want to remain private during exit (esp client exit and loader_thread_exit
+         * calling privlib entries).  Thus we do *not* call swap_peb_pointer().
+         * For exit_process, os_loader_exit will swap to app.
+         * XXX: For thread exit: somebody should swap to app later: but
+         * os_thread_not_under_dynamo() doesn't seem to (unlike UNIX) (and if we
+         * change that we should call it *after* loader_thread_exit()!).
+         * It's not that important I guess: the thread is exiting.
          */
-        if (!exit_process && dcontext != NULL)
-            swap_peb_pointer(dcontext, false /*to app*/);
 #    endif
 
         /* if freeing the app stack we must be on the dstack when we cleanup */
@@ -249,7 +252,11 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
 
     /* Xref case 552, the nudge_target value provides a reasonable measure
      * of security against an attacker leveraging this routine. */
-    if (dcontext->nudge_target != (void *)generic_nudge_target) {
+    if (dcontext->nudge_target !=
+        (void *)generic_nudge_target
+            /* Allow a syscall for our test in debug build. */
+            IF_DEBUG(&&!check_filter("win32.tls.exe",
+                                     get_short_name(get_application_name())))) {
         /* FIXME - should we report this likely attempt to attack us? need
          * a unit test for this (though will then have to tone this down). */
         ASSERT(false && "unauthorized thread tried to nudge");

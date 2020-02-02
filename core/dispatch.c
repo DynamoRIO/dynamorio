@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -940,6 +940,15 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                 /* Forge single step exception with right address. */
                 os_forge_exception(dcontext->next_tag, SINGLE_STEP_EXCEPTION);
                 ASSERT_NOT_REACHED();
+            } else if (dcontext->upcontext.upcontext.exit_reason ==
+                       EXIT_REASON_RSEQ_ABORT) {
+#ifdef LINUX
+                rseq_process_native_abort(dcontext);
+#else
+                ASSERT_NOT_REACHED();
+#endif
+                /* Unset the reason. */
+                dcontext->upcontext.upcontext.exit_reason = EXIT_REASON_SELFMOD;
             } else {
                 /* When adding any new reason, be sure to clear exit_reason,
                  * as selfmod exits do not bother to set the reason field to
@@ -1016,6 +1025,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
         ASSERT(dcontext->app_nt_rpc == NULL ||
                dcontext->app_nt_rpc != dcontext->priv_nt_rpc);
         ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
+        ASSERT(!is_dynamo_address(dcontext->app_static_tls));
         ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
                IS_CLIENT_THREAD(dcontext));
         ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base - 1) ||
@@ -1039,6 +1049,8 @@ dispatch_exit_fcache(dcontext_t *dcontext)
              get_mcontext(dcontext)->xsp >= (reg_t)d_r_get_tls(BASE_STACK_TIB_OFFSET)));
         ASSERT(dcontext->app_nls_cache == NULL ||
                dcontext->app_nls_cache != dcontext->priv_nls_cache);
+        ASSERT(dcontext->app_static_tls == NULL ||
+               dcontext->app_static_tls != dcontext->priv_static_tls);
     }
 #endif
 

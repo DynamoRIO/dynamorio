@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -73,6 +73,9 @@
 #else
 #    include <windows.h>
 #    include <process.h> /* _beginthreadex */
+#    if defined(DEBUG) && !defined(NO_DBG_CRT)
+#        include <crtdbg.h>
+#    endif
 #    include "../../core/win32/os_public.h"
 #    define NTSTATUS DWORD
 #    define NT_SUCCESS(status) (status >= 0)
@@ -682,7 +685,33 @@ signal_handler(int sig)
                 MessageBeep(0); \
         } while (0)
 
-#    define OS_INIT() set_global_filter()
+/* We can't put this in tools.c b/c we have some tests that link /MT even in
+ * debug build.
+ */
+#    if defined(DEBUG) && !defined(NO_DBG_CRT)
+#        define DISABLE_POPUPS()                                                      \
+            do {                                                                      \
+                /* Avoid pop-up messageboxes in tests. */                             \
+                if (!IsDebuggerPresent()) {                                           \
+                    /* Control CRT-internal asserts and _ASSERT, etc. */              \
+                    /* Set for _CRT_{WARN,ERROR,ASSERT}. */                           \
+                    for (int i = 0; i < _CRT_ERRCNT; i++) {                           \
+                        _CrtSetReportMode(i, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG); \
+                        _CrtSetReportFile(i, _CRTDBG_FILE_STDERR);                    \
+                    }                                                                 \
+                    /* This may control assert() and _wassert() in release build. */  \
+                    _set_error_mode(_OUT_TO_STDERR);                                  \
+                }                                                                     \
+            } while (0)
+#    else
+#        define DISABLE_POPUPS() /* Nothing. */
+#    endif
+
+#    define OS_INIT()            \
+        do {                     \
+            DISABLE_POPUPS();    \
+            set_global_filter(); \
+        } while (0)
 
 /* XXX: when updating here, update core/os_exports.h too */
 #    define WINDOWS_VERSION_10_1803 105

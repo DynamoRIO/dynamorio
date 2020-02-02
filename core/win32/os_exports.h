@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -94,6 +94,7 @@ enum {
     FLS_DATA_TIB_OFFSET = 0x17c8,
     NT_RPC_TIB_OFFSET = 0x1698,
     NLS_CACHE_TIB_OFFSET = 0x17a0,
+    STATIC_TLS_TIB_OFFSET = 0x58,
 #else
     EXCEPTION_LIST_TIB_OFFSET = 0x00,
     TOP_STACK_TIB_OFFSET = 0x04,
@@ -108,6 +109,7 @@ enum {
     FLS_DATA_TIB_OFFSET = 0xfb4,
     NT_RPC_TIB_OFFSET = 0xf1c,
     NLS_CACHE_TIB_OFFSET = 0xfa0,
+    STATIC_TLS_TIB_OFFSET = 0x2c,
 #endif
 };
 

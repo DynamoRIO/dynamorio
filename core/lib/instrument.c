@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -861,15 +861,7 @@ free_all_callback_lists()
 }
 
 void
-instrument_exit_post_sideline(void)
-{
-#    if defined(WINDOWS) || defined(CLIENT_SIDELINE)
-    DELETE_LOCK(client_thread_count_lock);
-#    endif
-}
-
-void
-instrument_exit(void)
+instrument_exit_event(void)
 {
     /* Note - currently own initexit lock when this is called (see PR 227619). */
 
@@ -880,6 +872,12 @@ instrument_exit(void)
              /* It seems the compiler is confused if we pass no var args
               * to the call_all macro.  Bogus NULL arg */
              NULL);
+}
+
+void
+instrument_exit(void)
+{
+    /* Note - currently own initexit lock when this is called (see PR 227619). */
 
     if (IF_DEBUG_ELSE(true, doing_detach)) {
         /* Unload all client libs and free any allocated storage */
@@ -898,6 +896,9 @@ instrument_exit(void)
     num_client_libs = 0;
 #    ifdef WINDOWS
     DELETE_LOCK(client_aux_lib64_lock);
+#    endif
+#    if defined(WINDOWS) || defined(CLIENT_SIDELINE)
+    DELETE_LOCK(client_thread_count_lock);
 #    endif
     DELETE_READWRITE_LOCK(callback_registration_lock);
 }
@@ -7464,33 +7465,6 @@ dr_trace_exists_at(void *drcontext, void *tag)
 #    endif
     return trace;
 }
-
-#    ifdef UNSUPPORTED_API
-DR_API
-/* All basic blocks created after this routine is called will have a prefix
- * that restores the ecx register.  Exit ctis can be made to target this prefix
- * instead of the normal entry point by using the instr_branch_set_prefix_target()
- * routine.
- * WARNING: this routine should almost always be called during client
- * initialization, since having a mixture of prefixed and non-prefixed basic
- * blocks can lead to trouble.
- */
-void
-dr_add_prefixes_to_basic_blocks(void)
-{
-    if (DYNAMO_OPTION(coarse_units)) {
-        /* coarse_units doesn't support prefixes in general.
-         * the variation by addr prefix according to processor type
-         * is also not stored in pcaches.
-         */
-        CLIENT_ASSERT(false,
-                      "dr_add_prefixes_to_basic_blocks() not supported with -opt_memory");
-    }
-    options_make_writable();
-    dynamo_options.bb_prefixes = true;
-    options_restore_readonly();
-}
-#    endif /* UNSUPPORTED_API */
 
 DR_API
 /* Insert code to get the segment base address pointed at by seg into

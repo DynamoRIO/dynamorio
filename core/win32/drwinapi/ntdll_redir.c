@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -839,6 +839,9 @@ redirect_RtlPcToFileHeader(__in PVOID PcValue, __out PVOID *BaseOfImage)
  */
 
 #ifndef FLS_MAX_COUNT
+/* The max is 4096 on Win10-1909 (and probably earlier) but we do not try to emulate
+ * that maximum since we're using the limited FlsBitmapBits in the PEB still.
+ */
 #    define FLS_MAX_COUNT 128
 #endif
 

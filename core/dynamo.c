@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -557,13 +557,11 @@ dynamorio_app_init(void)
         }
 #endif /* WINDOWS */
 
-#ifdef WINDOWS
-        /* loader initialization, finalize the private lib load.
-         * i#338: this must be before d_r_arch_init() for Windows, but Linux
-         * wants it later (i#2751).
+        /* Set up any private-loader-related data we need before generating any
+         * code, such as the private PEB on Windows.
          */
-        loader_init();
-#endif
+        loader_init_prologue();
+
         d_r_arch_init();
         synch_init();
 
@@ -632,10 +630,8 @@ dynamorio_app_init(void)
          * require changing start/stop API
          */
         dynamo_thread_init(NULL, NULL, NULL _IF_CLIENT_INTERFACE(false));
-#ifndef WINDOWS
         /* i#2751: we need TLS to be set up to relocate and call init funcs. */
-        loader_init();
-#endif
+        loader_init_epilogue(get_thread_private_dcontext());
 
         /* We move vm_areas_init() below dynamo_thread_init() so we can have
          * two things: 1) a dcontext and 2) a SIGSEGV handler, for TRY/EXCEPT
@@ -1021,7 +1017,7 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
      * fragment_deleted() callbacks (xref PR 228156). FIXME - might be issues with the
      * client trying to use api routines that depend on fragment state.
      */
-    instrument_exit();
+    instrument_exit_event();
 #    ifdef CLIENT_SIDELINE
     /* We only need do a second synch-all if there are sideline client threads. */
     if (d_r_get_num_threads() > 1)
@@ -1029,9 +1025,7 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     /* only current thread is alive */
     dynamo_exited_all_other_threads = true;
 #    endif /* CLIENT_SIDELINE */
-    /* Some lock can only be deleted if only one thread left. */
-    instrument_exit_post_sideline();
-#endif /* CLIENT_INTERFACE */
+#endif     /* CLIENT_INTERFACE */
     fragment_exit_post_sideline();
 
     /* The dynamo_exited_and_cleaned should be set after the second synch-all.
@@ -1044,9 +1038,17 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     destroy_event(dr_app_started);
     destroy_event(dr_attach_finished);
 
+    /* Make thread and process exit calls before we clean up thread data. */
+    loader_make_exit_calls(get_thread_private_dcontext());
     /* we want dcontext around for loader_exit() */
     if (get_thread_private_dcontext() != NULL)
         loader_thread_exit(get_thread_private_dcontext());
+#ifdef CLIENT_INTERFACE
+    /* This will unload client libs, which we delay until after they receive their
+     * thread exit calls in loader_thread_exit().
+     */
+    instrument_exit();
+#endif
     loader_exit();
 
     if (toexit != NULL) {
@@ -1524,7 +1526,7 @@ dynamo_process_exit(void)
          * fragment_deleted() callbacks (xref PR 228156).  FIXME - might be issues
          * with the client trying to use api routines that depend on fragment state.
          */
-        instrument_exit();
+        instrument_exit_event();
 
 #        ifdef CLIENT_SIDELINE
         /* We only need do a second synch-all if there are sideline client threads. */
@@ -1532,14 +1534,18 @@ dynamo_process_exit(void)
             synch_with_threads_at_exit(exit_synch_state(), false /*post-exit*/);
         dynamo_exited_all_other_threads = true;
 #        endif
-        /* Some lock can only be deleted if one thread left. */
-        instrument_exit_post_sideline();
 
         /* i#1617: We need to call client library fini routines for global
          * destructors, etc.
          */
         if (!INTERNAL_OPTION(nullcalls) && !DYNAMO_OPTION(skip_thread_exit_at_exit))
             loader_thread_exit(get_thread_private_dcontext());
+#        ifdef CLIENT_INTERFACE
+        /* This will unload client libs, which we delay until after they receive their
+         * thread exit calls in loader_thread_exit().
+         */
+        instrument_exit();
+#        endif
         loader_exit();
 
         /* for -private_loader we do this here to catch more exit-time crashes */
@@ -1864,6 +1870,8 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     new_dcontext->priv_nt_rpc = old_dcontext->priv_nt_rpc;
     new_dcontext->app_nls_cache = old_dcontext->app_nls_cache;
     new_dcontext->priv_nls_cache = old_dcontext->priv_nls_cache;
+    new_dcontext->app_static_tls = old_dcontext->app_static_tls;
+    new_dcontext->priv_static_tls = old_dcontext->priv_static_tls;
 #    endif
     new_dcontext->app_stack_limit = old_dcontext->app_stack_limit;
     new_dcontext->app_stack_base = old_dcontext->app_stack_base;

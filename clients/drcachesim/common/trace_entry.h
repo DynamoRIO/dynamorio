@@ -170,9 +170,12 @@ typedef enum {
 typedef enum {
     /**
      * The subsequent instruction is the start of a handler for a kernel-initiated
-     * event: a signal handler on UNIX, or an APC, exception, or callback dispatcher
-     * on Windows.  The value holds the module offset of the interruption point PC,
-     * which is used in post-processing.
+     * event: a signal handler or restartable sequence abort handler on UNIX, or an
+     * APC, exception, or callback dispatcher on Windows.
+     * The value holds the module offset of the interruption point PC,
+     * which is used in post-processing.  The value is 0 for some types, namely
+     * Windows callbacks and Linux rseq aborts, but these can be assumed to target
+     * the start of a block and so there is no loss of accuracy when post-processing.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
     /**

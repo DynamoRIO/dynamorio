@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -579,7 +579,8 @@ OPTION_DEFAULT(bool, opt_jit, false, "optimize translation of dynamically genera
           * we can't print to the cmd console.  The user must explicitly disable
           * for automation or running daemons.
           */
-         IF_WINDOWS_ELSE(IF_CLIENT_INTERFACE_ELSE(0xC, 0), 0),
+         IF_WINDOWS_ELSE(IF_CLIENT_INTERFACE_ELSE
+                         (IF_UNIT_TEST_ELSE(0, IF_AUTOMATED_ELSE(0, 0xC)), 0), 0),
          "show a messagebox for events")
 #ifdef WINDOWS
     OPTION_DEFAULT(uint_time, eventlog_timeout, 10000, "gives the timeout (in ms) to use for an eventlog transaction")
@@ -2768,7 +2769,7 @@ OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
     OPTION_DEFAULT(uint, prng_seed, 0 /* get a good seed from the OS */,
         "if non-0 allows reproducible pseudo random number generator sequences")
 
-    /* FIXME PR 215179 on enabling pad_jmps in all builds */
+    /* TODO i#4045: Remove these defines. */
 #if defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
     OPTION_DEFAULT(bool, pad_jmps, false, "nop pads jmps in the cache that we might need to patch so that the offset doesn't cross a L1 cache line boundary (necessary for atomic linking/unlinking on an mp machine)")
 #else
@@ -2777,19 +2778,6 @@ OPTION_DEFAULT(bool, pad_jmps, IF_X86_ELSE(true, false),
                "nop pads jmps in the cache that we might need to patch so that the "
                "offset doesn't cross a L1 cache line boundary (necessary for atomic "
                "linking/unlinking on an mp machine)")
-#endif
-    /* FIXME PR 215179 on getting rid of this tracing restriction. */
-#if defined(UNIX)
-    OPTION_DEFAULT(bool, pad_jmps_mark_no_trace, true, "mark bbs that require added nops "
-                   "for multiple hot patchable exits with CANNOT_BE_TRACE, since tracing "
-                   "through fragments with inserted nops isn't well supported (see PR "
-                   "215179 on fixing this)")
-#else
-OPTION_DEFAULT(bool, pad_jmps_mark_no_trace, false,
-               "mark bbs that require added nops "
-               "for multiple hot patchable exits with CANNOT_BE_TRACE, since tracing "
-               "through fragments with inserted nops isn't well supported (see PR "
-               "215179 on fixing this)")
 #endif
     OPTION_DEFAULT_INTERNAL(bool, pad_jmps_return_excess_padding, true, "if -pad_jmps returns any excess requested memory to fcache")
     OPTION_DEFAULT_INTERNAL(bool, pad_jmps_shift_bb, true,

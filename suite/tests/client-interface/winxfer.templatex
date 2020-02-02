@@ -4,16 +4,16 @@ kernel_xfer_event: type 7
 kernel_xfer_event: type 5
 kernel_xfer_event: type 6
 kernel_xfer_event: type 5
-kernel_xfer_event: type 5
+(kernel_xfer_event: type 5
 kernel_xfer_event: type 6
 kernel_xfer_event: type 5
-kernel_xfer_event: type 6
+)?kernel_xfer_event: type 6
 kernel_xfer_event: type 5
 kernel_xfer_event: type 6
-kernel_xfer_event: type 6
+(kernel_xfer_event: type 6
 kernel_xfer_event: type 5
 kernel_xfer_event: type 6
-kernel_xfer_event: type 5
+)?kernel_xfer_event: type 5
 in wnd_callback 0x0*0000024 0
 kernel_xfer_event: type 6
 kernel_xfer_event: type 5
@@ -34,7 +34,9 @@ kernel_xfer_event: type 6
 kernel_xfer_event: type 5
 kernel_xfer_event: type 6
 kernel_xfer_event: type 5
-in wnd_callback 0x0*0000083 0
+(kernel_xfer_event: type 6
+kernel_xfer_event: type 5
+)?in wnd_callback 0x0*0000083 0
 kernel_xfer_event: type 6
 kernel_xfer_event: type 5
 in wnd_callback 0x0*0000001 0

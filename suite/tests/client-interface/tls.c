@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,19 +31,27 @@
  */
 
 #include "tools.h"
-#include <pthread.h>
+#include "thread.h"
 
-static void *
-do_work(void *vargp)
+static
+#ifdef WINDOWS
+    unsigned int __stdcall
+#else
+    void *
+#endif
+    do_work(void *vargp)
 {
     print("sum is %d\n", 7 + 7);
-    return NULL;
+    return IF_WINDOWS_ELSE(0, NULL);
 }
 
 int
 main()
 {
-    pthread_t thread;
-    pthread_create(&thread, NULL, do_work, NULL);
-    pthread_join(thread, NULL);
+    /* Make some threads to help test client and private loader TLS. */
+    thread_t thread = create_thread(do_work, NULL);
+    join_thread(thread);
+    thread = create_thread(do_work, NULL);
+    join_thread(thread);
+    return 0;
 }
