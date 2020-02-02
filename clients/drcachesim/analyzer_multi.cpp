@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -56,6 +56,8 @@ analyzer_multi_t::analyzer_multi_t()
     // we still keep the serial vs parallel split for 0.
     if (worker_count == 0)
         parallel = false;
+    if (!op_indir.get_value().empty() || !op_infile.get_value().empty())
+        op_offline.set_value(true); // Some tools check this on post-proc runs.
     if (!create_analysis_tools()) {
         success = false;
         error_string = "Failed to create analysis tool: " + error_string;

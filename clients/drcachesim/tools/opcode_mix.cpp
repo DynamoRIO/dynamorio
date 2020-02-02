@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -69,7 +69,6 @@ opcode_mix_t::initialize()
     std::string error = directory.initialize_module_file(module_file_path);
     if (!error.empty())
         return "Failed to initialize directory: " + error;
-    mapper_mutex = dr_mutex_create();
     module_mapper = module_mapper_t::create(directory.modfile_bytes, nullptr, nullptr,
                                             nullptr, nullptr, knob_verbose);
     module_mapper->get_loaded_modules();
@@ -84,7 +83,6 @@ opcode_mix_t::~opcode_mix_t()
     for (auto &iter : shard_map) {
         delete iter.second;
     }
-    dr_mutex_destroy(mapper_mutex);
 }
 
 bool
@@ -143,7 +141,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         mapped_pc =
             shard->last_mapped_module_start + (trace_pc - shard->last_trace_module_start);
     } else {
-        scoped_mutex_t scoped_mutex(mapper_mutex);
+        std::lock_guard<std::mutex> guard(mapper_mutex);
         mapped_pc = module_mapper->find_mapped_trace_bounds(
             trace_pc, &shard->last_mapped_module_start, &shard->last_trace_module_size);
         if (!module_mapper->get_last_error().empty()) {

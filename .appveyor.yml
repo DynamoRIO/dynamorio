@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+# Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -53,16 +53,15 @@ branches:
 
 platform: x64
 
-image: Visual Studio 2013
+image: Visual Studio 2017
 
 build:
   verbosity: detailed
 
 # i#2406: Appveyor's global serialization makes it painful to use more than
-# one configuration.  We no longer build packages with VS2010 and are
-# dropping official support for it, meaning we only need to test VS2013 here.
+# one configuration.  We thus officially only support a single VS version.
 configuration:
-  - 2013
+  - 2017
 
 install:
   ##################################################
@@ -92,7 +91,7 @@ install:
   # XXX i#2145: point at Qt5 for testing drgui build.
 
 before_build:
-  - if "%configuration%"=="2013" call "c:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat" x86
+  - if "%configuration%"=="2017" call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat"
   - cd c:\projects\dynamorio
 
 build_script:

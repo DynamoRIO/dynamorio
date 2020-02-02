@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -897,6 +897,10 @@ section_to_file_add(HANDLE section_handle, const char *file_path);
 
 bool
 section_to_file_remove(HANDLE section_handle);
+
+bool
+module_get_tls_info(app_pc module_base, OUT void ***callbacks, OUT int **index,
+                    OUT byte **data_start, OUT byte **data_end);
 
 /* in aslr.c */
 const wchar_t *

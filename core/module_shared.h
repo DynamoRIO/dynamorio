@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -495,6 +495,8 @@ typedef struct _privmod_t {
 #ifdef CLIENT_INTERFACE
     bool is_client; /* or Extension */
 #endif
+    bool called_proc_entry;
+    bool called_proc_exit;
     struct _privmod_t *next;
     struct _privmod_t *prev;
     void *os_privmod_data;
@@ -595,7 +597,7 @@ void
 privload_os_finalize(privmod_t *privmod_t);
 
 bool
-privload_call_entry(privmod_t *privmod, uint reason);
+privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason);
 
 bool
 privload_process_imports(privmod_t *mod);
@@ -636,7 +638,7 @@ os_loader_init_prologue(void);
  * will release privload_lock.
  */
 void
-os_loader_init_epilogue(void);
+os_loader_init_epilogue();
 
 void
 os_loader_exit(void);

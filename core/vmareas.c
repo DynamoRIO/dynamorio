@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5175,7 +5175,7 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
                     mark_module_exempted(addr);
                     allow = true;
                 } else {
-                    uint prot = 0;
+                    uint memprot = 0;
                     list_default_or_append_t deflist = LIST_NO_MATCH;
                     /* Xref case 10526, in the common case app_mem_prot_change() adds
                      * this region, however it can miss -> rx transitions if they
@@ -5183,8 +5183,8 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
                      * require signifigant restructuring of that routine, see comments
                      * there) so we also check here. */
                     if (DYNAMO_OPTION(executable_if_rx_text) &&
-                        get_memory_info(addr, NULL, NULL, &prot) &&
-                        (TEST(MEMPROT_EXEC, prot) && !TEST(MEMPROT_WRITE, prot))) {
+                        get_memory_info(addr, NULL, NULL, &memprot) &&
+                        (TEST(MEMPROT_EXEC, memprot) && !TEST(MEMPROT_WRITE, memprot))) {
                         /* matches -executable_if_rx_text */
                         /* case 9799: we don't mark exempted for default-on options */
                         allow = true;
@@ -5263,7 +5263,7 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
             if (is_in_dot_data_section(modbase, addr, &sec_start, &sec_end)) {
                 bool allow = false;
                 bool onlist = false;
-                uint prot = 0;
+                uint memprot = 0;
                 if (!DYNAMO_OPTION(executable_if_dot_data) &&
                     DYNAMO_OPTION(exempt_dot_data) &&
                     !IS_STRING_OPTION_EMPTY(exempt_dot_data_list)) {
@@ -5300,8 +5300,8 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
                     allow = true;
                     ;
                 }
-                if (!allow && get_memory_info(addr, NULL, NULL, &prot) &&
-                    TEST(MEMPROT_EXEC, prot)) {
+                if (!allow && get_memory_info(addr, NULL, NULL, &memprot) &&
+                    TEST(MEMPROT_EXEC, memprot)) {
                     /* check the _x versions */
                     if (!DYNAMO_OPTION(executable_if_dot_data_x) &&
                         DYNAMO_OPTION(exempt_dot_data_x) &&
@@ -8262,7 +8262,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
              * is best done prior to drreg storing them elsewhere; plus, it makes it
              * easier to turn on full_decode for simpler mangling.
              */
-            bool entered_rseq = false;
+            bool entered_rseq = false, exited_rseq = false;
             app_pc rseq_start, next_boundary = NULL;
             if (vmvector_lookup_data(d_r_rseq_areas, pc, &rseq_start, &next_boundary,
                                      NULL)) {
@@ -8272,6 +8272,14 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                 app_pc prev_end;
                 if (vmvector_lookup_prev_next(d_r_rseq_areas, pc, NULL, &prev_end,
                                               &next_boundary, NULL)) {
+                    if (tag < prev_end) {
+                        /* Avoiding instructions after the rseq endpoint simplifies
+                         * drmemtrace and other clients when the native rseq execution
+                         * aborts, and shrinks the block with the large native rseq
+                         * mangling.
+                         */
+                        exited_rseq = true;
+                    }
                     if (prev_end == pc)
                         next_boundary = prev_end;
                 }
@@ -8279,11 +8287,11 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
             if (next_boundary != NULL && next_boundary < *stop) {
                 /* Ensure we check again before we hit a boundary. */
                 *stop = next_boundary;
-                if (xfer && (entered_rseq || pc == next_boundary)) {
-                    LOG(THREAD, LOG_VMAREAS | LOG_INTERP, 3,
-                        "Stopping bb at rseq boundary " PFX "\n", pc);
-                    result = false;
-                }
+            }
+            if (xfer && (entered_rseq || exited_rseq || pc == next_boundary)) {
+                LOG(THREAD, LOG_VMAREAS | LOG_INTERP, 3,
+                    "Stopping bb at rseq boundary " PFX "\n", pc);
+                result = false;
             }
         }
 #endif

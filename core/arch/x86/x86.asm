@@ -796,11 +796,7 @@ GLOBAL_LABEL(global_do_syscall_sygate_int:)
  */
         DECLARE_FUNC(global_do_syscall_sysenter)
 GLOBAL_LABEL(global_do_syscall_sysenter:)
-#if defined(X64) && defined(WINDOWS)
-        syscall  /* FIXME ml64 won't take "sysenter" so half-fixing now */
-#else
-        sysenter
-#endif
+        RAW(0f) RAW(34) /* sysenter */
 #ifdef DEBUG
         /* We'll never ever reach here, sysenter won't/can't return to this
          * address since it doesn't know it, but we'll put in a jmp to

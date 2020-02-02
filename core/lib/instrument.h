@@ -68,6 +68,8 @@ instrument_load_client_libs(void);
 void
 instrument_init(void);
 void
+instrument_exit_event(void);
+void
 instrument_exit(void);
 bool
 is_in_client_lib(app_pc addr);
@@ -136,9 +138,6 @@ instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
 
 void
 instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg);
-/* post instrument_event() cleanup */
-void
-instrument_exit_post_sideline(void);
 #    ifdef WINDOWS
 bool
 instrument_exception(dcontext_t *dcontext, dr_exception_t *exception);

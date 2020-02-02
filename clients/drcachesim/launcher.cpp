@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -200,6 +200,18 @@ _tmain(int argc, const TCHAR *targv[])
     // one, there's no problem to solve like the UNIX fifo file left
     // behind.  Two, the ^c handler in a new thread is more work to
     // deal with as it races w/ the main thread.
+#    ifdef DEBUG
+    // Avoid pop-up messageboxes in tests.
+    if (!IsDebuggerPresent()) {
+        /* Set for _CRT_{WARN,ERROR,ASSERT}. */
+        for (int i = 0; i < _CRT_ERRCNT; i++) {
+            _CrtSetReportMode(i, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
+            _CrtSetReportFile(i, _CRTDBG_FILE_STDERR);
+        }
+        /* This may control assert() and _wassert() in release build. */
+        _set_error_mode(_OUT_TO_STDERR);
+    }
+#    endif
 #endif
 
 #if defined(WINDOWS) && !defined(_UNICODE)
@@ -348,14 +360,15 @@ _tmain(int argc, const TCHAR *targv[])
     } else
         errcode = 0;
 
-    if (!analyzer->print_stats()) {
-        std::string error_string = analyzer->get_error_string();
-        FATAL_ERROR("failed to print results%s%s", error_string.empty() ? "" : ": ",
-                    error_string.c_str());
+    if (analyzer != nullptr) {
+        if (!analyzer->print_stats()) {
+            std::string error_string = analyzer->get_error_string();
+            FATAL_ERROR("failed to print results%s%s", error_string.empty() ? "" : ": ",
+                        error_string.c_str());
+        }
+        // release analyzer's space
+        delete analyzer;
     }
-
-    // release analyzer's space
-    delete analyzer;
 
     sc = drfront_cleanup_args(argv, argc);
     if (sc != DRFRONT_SUCCESS)

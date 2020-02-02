@@ -39,9 +39,11 @@
 
 #ifdef WINDOWS
 #    define THREAD_ARG ((void *)dr_get_process_id())
+#    define TLS_ATTR __declspec(thread)
 #else
 /* thread actually has own pid so just using a constant to test arg passing */
 #    define THREAD_ARG ((void *)37)
+#    define TLS_ATTR __thread
 #endif
 
 /* Eventually this routine will test i/o by waiting on a file */
@@ -91,6 +93,8 @@ event_timer(void *drcontext, dr_mcontext_t *mcontext)
 }
 #endif
 
+static TLS_ATTR int tls = 42;
+
 static void
 thread_func(void *arg)
 {
@@ -98,7 +102,8 @@ thread_func(void *arg)
      * ensure we're treating it as a true native thread
      */
     ASSERT(arg == THREAD_ARG);
-    dr_fprintf(STDERR, "client thread is alive\n");
+    dr_fprintf(STDERR, "client thread is alive tls=%d\n", tls);
+    tls++;
     dr_event_signal(child_alive);
 
     /* Just a sanity check that these functions operate.  We do not take the

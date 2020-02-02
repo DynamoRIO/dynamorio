@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -6357,6 +6357,41 @@ bool
 module_contains_addr(module_area_t *ma, app_pc pc)
 {
     return (pc >= ma->start && pc < ma->end);
+}
+
+bool
+module_get_tls_info(app_pc module_base, OUT void ***callbacks, OUT int **index,
+                    OUT byte **data_start, OUT byte **data_end)
+{
+    IMAGE_NT_HEADERS *nt;
+    IMAGE_DATA_DIRECTORY *data_dir;
+    IMAGE_TLS_DIRECTORY *tls_dir = NULL;
+    VERIFY_NT_HEADER(module_base);
+    ASSERT(is_readable_pe_base(module_base));
+    nt = NT_HEADER(module_base);
+    data_dir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_TLS;
+    if (data_dir->VirtualAddress == 0)
+        return false;
+    if (data_dir->Size < sizeof(*tls_dir)) {
+        SYSLOG_INTERNAL_WARNING("Module " PFX " TLS dir has invalid size %d", module_base,
+                                data_dir->Size);
+        return false;
+    }
+    tls_dir = (IMAGE_TLS_DIRECTORY *)(module_base + data_dir->VirtualAddress);
+    ASSERT(is_readable_without_exception((app_pc)tls_dir, sizeof(*tls_dir)));
+    /* We don't need RVA_TO_VA: the addresses here are all virtual and are relocated. */
+    if (callbacks != NULL)
+        *callbacks = (void **)tls_dir->AddressOfCallBacks;
+    if (index != NULL)
+        *index = (int *)tls_dir->AddressOfIndex;
+    if (data_start != NULL)
+        *data_start = (byte *)tls_dir->StartAddressOfRawData;
+    if (data_end != NULL)
+        *data_end = (byte *)tls_dir->EndAddressOfRawData;
+    /* Apparently SizeOfZeroFill is ignored by the Windows loader so we do as well.
+     * There are no Characteristics for x86 or arm.
+     */
+    return true;
 }
 
 #ifdef CLIENT_INTERFACE

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -597,7 +597,7 @@ privload_process_imports(privmod_t *mod)
 }
 
 bool
-privload_call_entry(privmod_t *privmod, uint reason)
+privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
 {
     os_privmod_data_t *opd = (os_privmod_data_t *)privmod->os_privmod_data;
     ASSERT(os_get_priv_tls_base(NULL, TLS_REG_LIB) != NULL);
@@ -1547,8 +1547,6 @@ reserve_brk(app_pc post_app)
     if (getenv(DYNAMORIO_VAR_NO_EMULATE_BRK) == NULL) {
         /* i#1004: we're going to emulate the brk via our own mmap.
          * Reserve the initial brk now before any of DR's mmaps to avoid overlap.
-         * XXX: reserve larger APP_BRK_GAP here and then unmap back to 1 page
-         * in d_r_os_init() to ensure no DR mmap limits its size?
          */
         dynamo_options.emulate_brk = true; /* not parsed yet */
         init_emulated_brk(post_app);

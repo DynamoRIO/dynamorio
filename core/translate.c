@@ -597,7 +597,7 @@ translate_restore_clean_call(dcontext_t *tdcontext, translate_walk_t *walk)
 }
 
 static app_pc
-translate_restore_special_cases(app_pc pc)
+translate_restore_special_cases(dcontext_t *dcontext, app_pc pc)
 {
 #ifdef LINUX
     app_pc handler;
@@ -605,11 +605,30 @@ translate_restore_special_cases(app_pc pc)
         LOG(THREAD_GET, LOG_INTERP, 2,
             "recreate_app: moving " PFX " inside rseq region to handler " PFX "\n", pc,
             handler);
+        /* Remember the original for translate_last_direct_translation. */
+        IF_CLIENT_INTERFACE(dcontext->client_data->last_special_xl8 = pc);
         return handler;
     }
+    IF_CLIENT_INTERFACE(dcontext->client_data->last_special_xl8 = NULL);
 #endif
     return pc;
 }
+
+#ifdef CLIENT_INTERFACE /* i#2971: Cleanup: remove this define! */
+app_pc
+translate_last_direct_translation(dcontext_t *dcontext, app_pc pc)
+{
+#    ifdef LINUX
+    app_pc handler;
+    if (dcontext->client_data->last_special_xl8 != NULL &&
+        rseq_get_region_info(dcontext->client_data->last_special_xl8, NULL, NULL,
+                             &handler, NULL, NULL) &&
+        pc == handler)
+        return dcontext->client_data->last_special_xl8;
+#    endif
+    return pc;
+}
+#endif
 
 /* Returns a success code, but makes a best effort regardless.
  * If just_pc is true, only recreates pc.
@@ -748,7 +767,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
 
     if (!just_pc)
         translate_walk_restore(tdcontext, &walk, &instr, answer);
-    answer = translate_restore_special_cases(answer);
+    answer = translate_restore_special_cases(tdcontext, answer);
     LOG(THREAD_GET, LOG_INTERP, 2, "recreate_app -- found ok pc " PFX "\n", answer);
     mc->pc = answer;
     return res;
@@ -941,7 +960,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
             }
             if (!just_pc)
                 translate_walk_restore(tdcontext, &walk, inst, answer);
-            answer = translate_restore_special_cases(answer);
+            answer = translate_restore_special_cases(tdcontext, answer);
             LOG(THREAD_GET, LOG_INTERP, 2, "recreate_app -- found ok pc " PFX "\n",
                 answer);
             mc->pc = answer;
@@ -982,7 +1001,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
     ASSERT_NOT_REACHED();
     if (just_pc) {
         /* just guess */
-        answer = translate_restore_special_cases(answer);
+        answer = translate_restore_special_cases(tdcontext, answer);
         mc->pc = answer;
     }
     return RECREATE_FAILURE;

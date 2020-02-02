@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -3045,17 +3045,22 @@ void
 init_emulated_brk(app_pc exe_end)
 {
     ASSERT(DYNAMO_OPTION(emulate_brk));
-    if (app_brk_map != NULL)
+    if (app_brk_map != NULL) {
         return;
-    /* i#1004: emulate brk via a separate mmap.
-     * The real brk starts out empty, but we need at least a page to have an
-     * mmap placeholder.
+    }
+    /* i#1004: emulate brk via a separate mmap.  The real brk starts out empty, but
+     * we need at least a page to have an mmap placeholder.  We also want to reserve
+     * enough memory to avoid a client lib or other mmap truncating the brk at a
+     * too-small size, which can crash the app (i#3982).
      */
-    app_brk_map = mmap_syscall(exe_end, PAGE_SIZE, PROT_READ | PROT_WRITE,
+#    define BRK_INITIAL_SIZE 4 * 1024 * 1024
+    app_brk_map = mmap_syscall(exe_end, BRK_INITIAL_SIZE, PROT_READ | PROT_WRITE,
                                MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     ASSERT(mmap_syscall_succeeded(app_brk_map));
     app_brk_cur = app_brk_map;
-    app_brk_end = app_brk_map + PAGE_SIZE;
+    app_brk_end = app_brk_map + BRK_INITIAL_SIZE;
+    LOG(GLOBAL, LOG_HEAP, 1, "%s: initial brk is " PFX "-" PFX "\n", __FUNCTION__,
+        app_brk_cur, app_brk_end);
 }
 
 static byte *
@@ -3725,6 +3730,18 @@ client_thread_run(void)
     byte *xsp;
     GET_STACK_PTR(xsp);
     void *crec = get_clone_record((reg_t)xsp);
+    /* i#2335: we support setup separate from start, and we want to allow a client
+     * to create a client thread during init, but we do not support that thread
+     * executing until the app has started (b/c we have no signal handlers in place).
+     */
+    /* i#3973: in addition to _executing_ a client thread before the
+     * app has started, if we even create the thread before
+     * dynamo_initialized is set, we will not copy tls blocks.  By
+     * waiting for the app to be started before dynamo_thread_init is
+     * called, we ensure this race condition can never happen, since
+     * dynamo_initialized will always be set before the app is started.
+     */
+    wait_for_event(dr_app_started, 0);
     IF_DEBUG(int rc =)
     dynamo_thread_init(get_clone_record_dstack(crec), NULL, crec, true);
     ASSERT(rc != -1); /* this better be a new thread */
@@ -3738,12 +3755,6 @@ client_thread_run(void)
 
     void *arg = (void *)get_clone_record_app_xsp(crec);
     LOG(THREAD, LOG_ALL, 1, "func=" PFX ", arg=" PFX "\n", func, arg);
-
-    /* i#2335: we support setup separate from start, and we want to allow a client
-     * to create a client thread during init, but we do not support that thread
-     * executing until the app has started (b/c we have no signal handlers in place).
-     */
-    wait_for_event(dr_app_started, 0);
 
     (*func)(arg);
 

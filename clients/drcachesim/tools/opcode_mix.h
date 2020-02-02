@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -94,24 +94,10 @@ protected:
         app_pc last_mapped_module_start;
     };
 
-    // XXX: Share this for use in other C++ code.
-    struct scoped_mutex_t {
-        scoped_mutex_t(void *mutex_in)
-            : mutex(mutex_in)
-        {
-            dr_mutex_lock(mutex);
-        }
-        ~scoped_mutex_t()
-        {
-            dr_mutex_unlock(mutex);
-        }
-        void *mutex;
-    };
-
     void *dcontext;
     std::string module_file_path;
     std::unique_ptr<module_mapper_t> module_mapper;
-    void *mapper_mutex;
+    std::mutex mapper_mutex;
     // We reference directory.modfile_bytes throughout operation, so its lifetime
     // must match ours.
     raw2trace_directory_t directory;
