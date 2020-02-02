@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2018-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -69,7 +69,8 @@ file(REMOVE ${out})
 execute_process(COMMAND ${cmd}
   RESULT_VARIABLE cmd_result
   ERROR_VARIABLE cmd_err
-  OUTPUT_VARIABLE pid OUTPUT_STRIP_TRAILING_WHITESPACE)
+  OUTPUT_VARIABLE pid OUTPUT_STRIP_TRAILING_WHITESPACE
+  TIMEOUT 90)
 if (cmd_result)
   message(FATAL_ERROR "*** ${cmd} failed (${cmd_result}): ${cmd_err}***\n")
 endif (cmd_result)
@@ -89,6 +90,13 @@ else (UNIX)
   set(nudge_cmd drconfig)
 endif (UNIX)
 
+if (UNIX)
+  set(MAX_ITERS 50000)
+else ()
+  # Sleeping in longer units.
+  set(MAX_ITERS 2000)
+endif()
+
 function (do_sleep ms)
   if (UNIX)
     execute_process(COMMAND "${SLEEP}" ${ms})
@@ -100,21 +108,36 @@ function (do_sleep ms)
 endfunction (do_sleep)
 
 if (pidfile)
+  set(iters 0)
   while (NOT EXISTS "${pidfile}")
     do_sleep(0.1)
+    math(EXPR iters "${iters}+1")
+    if (${iters} GREATER ${MAX_ITERS})
+      message(FATAL_ERROR "Timed out waiting for ${pidfile}")
+    endif ()
   endwhile ()
   file(READ "${pidfile}" pid)
   string(REGEX REPLACE "\n" "" pid ${pid})
 endif ()
 
+set(iters 0)
 while (NOT EXISTS "${out}")
   do_sleep(0.1)
+  math(EXPR iters "${iters}+1")
+  if (${iters} GREATER ${MAX_ITERS})
+    message(FATAL_ERROR "Timed out waiting for ${out}")
+  endif ()
 endwhile ()
 file(READ "${out}" output)
 # we require that all runall tests write at least one line up front
+set(iters 0)
 while (NOT "${output}" MATCHES "\n")
   do_sleep(0.1)
   file(READ "${out}" output)
+  math(EXPR iters "${iters}+1")
+  if (${iters} GREATER ${MAX_ITERS})
+    message(FATAL_ERROR "Timed out waiting for newline")
+  endif ()
 endwhile()
 
 set(orig_nudge "${nudge}")
@@ -149,10 +172,15 @@ if ("${orig_nudge}" MATCHES "-client")
   string(LENGTH "${output}" prev_outlen)
   file(READ "${out}" output)
   string(LENGTH "${output}" new_outlen)
+  set(iters 0)
   while (NOT ${new_outlen} GREATER ${prev_outlen})
     do_sleep(0.1)
     file(READ "${out}" output)
     string(LENGTH "${output}" new_outlen)
+    math(EXPR iters "${iters}+1")
+    if (${iters} GREATER ${MAX_ITERS})
+      message(FATAL_ERROR "Timed out waiting for more output")
+    endif ()
   endwhile()
 else ()
   # for reset or other DR tests there won't be further output
@@ -195,9 +223,18 @@ endif ()
 
 # we require that test print "done" as last line once done
 file(READ "${out}" output)
+set(iters 0)
 while (NOT "${output}" MATCHES "\ndone\n")
   do_sleep(0.1)
   file(READ "${out}" output)
+  if ("${output}" MATCHES "Internal Error")
+    string(REGEX MATCH "Application .*Internal Error.*\n" msg "${output}")
+    message(FATAL_ERROR "Found assert: |${msg}|")
+  endif ()
+  math(EXPR iters "${iters}+1")
+  if (${iters} GREATER ${MAX_ITERS})
+    message(FATAL_ERROR "Timed out waiting for \"done\"")
+  endif ()
 endwhile()
 
 # message() adds a newline so removing any trailing newline

@@ -157,11 +157,14 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
         ASSERT_OWN_NO_LOCKS();
 
 #    ifdef WINDOWS
-        /* if exiting the process, os_loader_exit will swap to app, and we want to
-         * remain private during exit (esp client exit)
+        /* We want to remain private during exit (esp client exit and loader_thread_exit
+         * calling privlib entries).  Thus we do *not* call swap_peb_pointer().
+         * For exit_process, os_loader_exit will swap to app.
+         * XXX: For thread exit: somebody should swap to app later: but
+         * os_thread_not_under_dynamo() doesn't seem to (unlike UNIX) (and if we
+         * change that we should call it *after* loader_thread_exit()!).
+         * It's not that important I guess: the thread is exiting.
          */
-        if (!exit_process && dcontext != NULL)
-            swap_peb_pointer(dcontext, false /*to app*/);
 #    endif
 
         /* if freeing the app stack we must be on the dstack when we cleanup */
