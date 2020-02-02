@@ -1,7 +1,4 @@
-#if defined(AARCH64)
- f94017a0   ldr
- a9be7bfd   stp
-#elif defined(X86)
+#if defined(X86)
  66 90                nop
 # ifdef X64
  c4 e2 65 90 14 80    vpgatherdd ymm2, ymm3, dword ptr [rax+ymm0*4]

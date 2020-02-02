@@ -49,15 +49,10 @@ droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "x64",
 droption_t<std::string> op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "intel",
                                   "Uses the specified syntax: 'intel', 'att' or 'dr'.",
                                   "Uses the specified syntax: 'intel', 'att' or 'dr'.");
-#elif defined(AARCH64) || defined(ARM)
-#    if defined(ARM)
+#elif defined(ARM)
 droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "arm",
                                 "Decodes using the specified mode: 'arm' or 'thumb'.",
                                 "Decodes using the specified mode: 'arm' or 'thumb'.");
-#    endif
-droption_t<std::string> op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "arm",
-                                  "Uses the specified syntax: 'arm' or 'dr'.",
-                                  "Uses the specified syntax: 'arm' or 'dr'.");
 #endif
 
 droption_t<bool> op_show_bytes(DROPTION_SCOPE_FRONTEND, "show_bytes", true,
@@ -136,18 +131,14 @@ main(int argc, const char *argv[])
     }
 #endif
 
+#ifdef X86
     dr_disasm_flags_t syntax = DR_DISASM_DR;
     // Set the syntax if supplied.
     if (!op_syntax.get_value().empty()) {
-#ifdef X86
         if (op_syntax.get_value() == "intel")
             syntax = DR_DISASM_INTEL;
         else if (op_syntax.get_value() == "att")
             syntax = DR_DISASM_ATT;
-#elif defined(AARCH64) || defined(ARM)
-        if (op_syntax.get_value() == "arm")
-            syntax = DR_DISASM_ARM;
-#endif
         else if (op_syntax.get_value() == "dr")
             syntax = DR_DISASM_DR;
         else {
@@ -156,6 +147,7 @@ main(int argc, const char *argv[])
         }
         disassemble_set_syntax(syntax);
     }
+#endif
 
     // Turn the arguments into a series of hex values.
     std::vector<byte> bytes;
