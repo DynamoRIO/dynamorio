@@ -1878,8 +1878,12 @@ if (CLIENT_INTERFACE)
     set(DynamoRIO_USE_LIBC OFF)
     if (UNIX)
       set(annotation_test_args "libclient.annotation-concurrency.appdll.so" "A" "4")
+      set(annotation_test_args_shorter
+        "libclient.annotation-concurrency.appdll.so" "A" "4" "128" "5")
     else (UNIX)
       set(annotation_test_args "client.annotation-concurrency.appdll.dll" "A" "4")
+      set(annotation_test_args_shorter
+        "client.annotation-concurrency.appdll.dll" "A" "4" "128" "5")
     endif (UNIX)
     tobuild_ci(client.annotation-concurrency client-interface/annotation-concurrency.c
       "" "" "${annotation_test_args}")
@@ -2834,23 +2838,24 @@ endif ()
         # we add some dedicated multi-thread (and multi-process) tests with
         # more deterministic output.
         # We test -cpu_scheduling on several tests with many threads.
+        # We use a smaller test (_shorter) to avoid taking multiple minutes on our
+        # CI (i#4059; xref i#2063).
         torunonly_drcachesim(threads client.annotation-concurrency "-cpu_scheduling"
-          "${annotation_test_args}")
-        set(tool.drcachesim.threads_timeout 150) # This test is long.
+          "${annotation_test_args_shorter}")
 
         # Threads test that reads the cache configuration from a config file.
         torunonly_drcachesim(threads-with-config-file client.annotation-concurrency
           "-config_file ${config_files_dir}/cores-1-levels-3-no-missfile.conf"
-          "${annotation_test_args}")
+          "${annotation_test_args_shorter}")
         set(tool.drcachesim.threads_timeout 150) # This test is long.
 
         torunonly_drcachesim(coherence client.annotation-concurrency "-coherence"
-          "${annotation_test_args}")
+          "${annotation_test_args_shorter}")
         set(tool.drcachesim.coherence_timeout 150) # This test is long.
 
         # TLB simulator's multi-thread sanity check
         torunonly_drcachesim(TLB-threads client.annotation-concurrency
-          "-simulator_type TLB -cpu_scheduling" "${annotation_test_args}")
+          "-simulator_type TLB -cpu_scheduling" "${annotation_test_args_shorter}")
         # i#2063: this test can time out.
         set(tool.drcachesim.TLB-threads_timeout 150)
       endif ()

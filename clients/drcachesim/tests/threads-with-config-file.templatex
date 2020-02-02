@@ -5,7 +5,7 @@
      Client version .*
     ...................................................................
 
-     Matrix Size :  512
+     Matrix Size :  128
      Threads     :  4
 
 
@@ -34,34 +34,9 @@
      Finished computing current solution distance in mode 0.
      Mode changed to 0.
 
-     Started iteration 6 of the computation...
-
-     Finished computing current solution distance in mode 0.
-     Mode changed to 0.
-
-     Started iteration 7 of the computation...
-
-     Finished computing current solution distance in mode 0.
-     Mode changed to 0.
-
-     Started iteration 8 of the computation...
-
-     Finished computing current solution distance in mode 0.
-     Mode changed to 0.
-
-     Started iteration 9 of the computation...
-
-     Finished computing current solution distance in mode 0.
-     Mode changed to 0.
-
-     Started iteration 10 of the computation...
-
-     Finished computing current solution distance in mode 0.
-     Mode changed to 0.
-
 
      The Jacobi Method For AX=B .........DONE
-     Total Number Of iterations   :  10
+     Total Number Of iterations   :  5
     ...................................................................
 ---- <application exited with code 0> ----
 Cache simulation results:
