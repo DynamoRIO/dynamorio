@@ -40,6 +40,7 @@ namespace {
 
 // XXX i#1684: We want cross-arch decoding support so a single build can decode
 // AArchXX and x86.  For now, a separate build is needed.
+// XXX i#4021: -syntax option not yet supported on ARM.
 #ifdef X86
 #    ifdef X86_64
 droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "x64",
@@ -131,7 +132,7 @@ main(int argc, const char *argv[])
     }
 #endif
 
-    // i#4021: arm not yet supported.
+    // XXX i#4021: arm not yet supported.
 #ifdef X86
     dr_disasm_flags_t syntax = DR_DISASM_DR;
     // Set the syntax if supplied.
