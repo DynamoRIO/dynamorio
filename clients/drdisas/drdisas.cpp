@@ -131,6 +131,7 @@ main(int argc, const char *argv[])
     }
 #endif
 
+    // i#4021: arm not yet supported.
 #ifdef X86
     dr_disasm_flags_t syntax = DR_DISASM_DR;
     // Set the syntax if supplied.

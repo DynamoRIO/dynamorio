@@ -3265,9 +3265,9 @@ endif ()
     # and other code here to support tests being declared locally rather than
     # in one central place.
     if (AARCH64)
-      set(drdisas_args "-syntax" "dr" "f94017a0" "a9be7bfd" "88")
+      set(drdisas_args "f94017a0" "a9be7bfd" "88")
     elseif (ARM)
-      set(drdisas_args "-syntax" "dr" "6813" "f243" "42c8" "b2db" "88")
+      set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
     else ()
       set(drdisas_args "-syntax" "dr" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
     endif ()
@@ -3279,15 +3279,12 @@ endif ()
         "../../clients/drdisas/test_simple.template"
         "-thumb" "-mode;thumb;${drdisas_args}" ON)
     endif ()
-    # Test syntax - no technical reason for not testing ARM
-    if (X86 OR AARCH64)
-      if (X86)
+    # Test syntax
+    # XXX i#:4021: ARM/AARCH64 not yet supported.
+    if (X86)
         set(drdisas_args "66" "90" "c4" "e2" "65" "90" "14" "80")
-      elseif (AARCH64)
-        set(drdisas_args "f94017a0" "a9be7bfd")
-      endif ()
-      torunonly_api(tool.drdisas_syntax drdisas
-        "../../clients/drdisas/test_syntax.template" "" "${drdisas_args}" ON)
+        torunonly_api(tool.drdisas_syntax drdisas
+            "../../clients/drdisas/test_syntax.template" "" "${drdisas_args}" ON)
     endif ()
 
   endif (BUILD_CLIENTS)
