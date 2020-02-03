@@ -1,0 +1,8 @@
+#if defined(X86)
+ 66 90                nop
+# ifdef X64
+ c4 e2 65 90 14 80    vpgatherdd ymm2, ymm3, dword ptr [rax+ymm0*4]
+# else
+ c4 e2 65 90 14 80    vpgatherdd ymm2, ymm3, dword ptr [eax+ymm0*4]
+# endif
+#endif
