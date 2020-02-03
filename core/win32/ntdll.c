@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3741,7 +3741,15 @@ wait_status_t
 nt_wait_event_with_timeout(HANDLE hevent, PLARGE_INTEGER timeout)
 {
     NTSTATUS res;
-    res = NtWaitForSingleObject(hevent, false /* not alertable */, timeout);
+    /* i#4075: We use a raw syscall to keep the PC in dynamorio.dll for
+     * os_take_over_all_unknown_threads() and synch_with_* routines to more
+     * easily identify a thread in DR code.  In particular this is required to
+     * avoid a double takeover on a race between intercept_new_thread() and
+     * os_take_over_all_unknown_threads().
+     */
+    GET_RAW_SYSCALL(WaitForSingleObject, IN HANDLE ObjectHandle, IN BOOLEAN Alertable,
+                    IN PLARGE_INTEGER TimeOut);
+    res = NT_SYSCALL(WaitForSingleObject, hevent, false /* not alertable */, timeout);
     if (!NT_SUCCESS(res))
         return WAIT_ERROR;
     if (res == STATUS_TIMEOUT)
