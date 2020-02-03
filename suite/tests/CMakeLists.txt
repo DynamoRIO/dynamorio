@@ -227,6 +227,16 @@ else (CALLPROF AND TEST_SUITE)
   set(run_list "")
 endif (CALLPROF AND TEST_SUITE)
 
+# i#4059: Reduce Appveyor time by reducing the # of tests run for 32-bit.
+# This assumes that 32-bit Windows is not as important these days.
+# We remove some of the less differentiated tests.
+# We still run the full set for merges to master.
+if (WIN32 AND NOT X64 AND DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
+  set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST ON)
+else ()
+  set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST OFF)
+endif ()
+
 ###########################################################################
 # BUILDING
 
@@ -4016,7 +4026,23 @@ function(is_test_enabled_by_name output name regex)
   set(enabled OFF)
   if (NOT SKIP_FLAKY_TESTS OR NOT "${name}" MATCHES "_FLAKY")
     if (NOT regex OR "${name}" MATCHES "${regex}")
-      set(enabled ON)
+      if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
+          # See above: for particular builds we skip some of the similar tests from
+          # some of the test groups.
+          (("${name}" MATCHES "tool.drcache" AND
+            NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
+          ("${name}" MATCHES "tool.drcpusim" AND
+            NOT "${name}" MATCHES "Pentium3") OR
+          ("${name}" MATCHES "tool.[^d]" AND
+            NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
+          # instrcalls is the slowest of the samples.
+          "${name}" MATCHES "sample.instrcalls" OR
+          ("${name}" MATCHES "client.annotation-" AND
+            NOT "${name}" MATCHES "(-opt|tiny-bb)")))
+        set(enabled OFF)
+      else ()
+        set(enabled ON)
+      endif ()
     endif ()
   endif ()
   set(${output} ${enabled} PARENT_SCOPE)
