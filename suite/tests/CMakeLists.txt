@@ -4029,7 +4029,7 @@ function(is_test_enabled_by_name output name regex)
       if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
           # See above: for particular builds we skip some of the similar tests from
           # some of the test groups.
-          ("${name}" MATCHES "tool.drcache" AND
+          (("${name}" MATCHES "tool.drcache" AND
             NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
           ("${name}" MATCHES "tool.drcpusim" AND
             NOT "${name}" MATCHES "Pentium3") OR
@@ -4038,7 +4038,7 @@ function(is_test_enabled_by_name output name regex)
           # instrcalls is the slowest of the samples.
           "${name}" MATCHES "sample.instrcalls" OR
           ("${name}" MATCHES "client.annotation-" AND
-            NOT "${name}" MATCHES "(-opt|tiny-bb)"))
+            NOT "${name}" MATCHES "(-opt|tiny-bb)")))
         set(enabled OFF)
       else ()
         set(enabled ON)
