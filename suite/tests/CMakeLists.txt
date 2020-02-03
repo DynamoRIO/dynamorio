@@ -3305,7 +3305,7 @@ endif ()
     elseif (ARM)
       set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
     else ()
-      set(drdisas_args "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
+      set(drdisas_args "-syntax" "dr" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
     endif ()
     torunonly_api(tool.drdisas drdisas
       "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON)
@@ -3314,6 +3314,13 @@ endif ()
         # Pass -thumb as a "DR op" to define it in the .template file.
         "../../clients/drdisas/test_simple.template"
         "-thumb" "-mode;thumb;${drdisas_args}" ON)
+    endif ()
+    # Test syntax
+    # XXX i#:4021: ARM/AARCH64 not yet supported.
+    if (X86)
+        set(drdisas_args "66" "90" "c4" "e2" "65" "90" "14" "80")
+        torunonly_api(tool.drdisas_syntax drdisas
+            "../../clients/drdisas/test_syntax.template" "" "${drdisas_args}" ON)
     endif ()
 
   endif (BUILD_CLIENTS)
