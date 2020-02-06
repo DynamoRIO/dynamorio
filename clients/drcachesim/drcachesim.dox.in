@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -55,6 +55,7 @@ online and offline.
  - \ref sec_drcachesim_core
  - \ref sec_drcachesim_extend
  - \ref sec_drcachesim_tracer
+ - \ref sec_drcachesim_funcs
  - \ref sec_drcachesim_newtool
  - \ref sec_drcachesim_ops
  - \ref sec_drcachesim_limit
@@ -509,6 +510,42 @@ Here is an example of a signal handler interrupting the regular flow:
                       00 00
 \endcode
 
+The func_view tool records function argument and return values for
+function names specified at tracing time. See \ref sec_drcachesim_funcs for
+more information.
+
+\code
+$ bin64/drrun -t drcachesim -offline -record_function 'fib|1' -- ~/test/fib 5
+Estimation of pi is 3.142425985001098
+$ bin64/drrun -t drcachesim -simulator_type func_view -indir drmemtrace.*.dir
+0x7fc06d2288eb => common.fib!fib(0x5)
+    0x7fc06d22888e => common.fib!fib(0x4)
+        0x7fc06d22888e => common.fib!fib(0x3)
+            0x7fc06d22888e => common.fib!fib(0x2)
+                0x7fc06d22888e => common.fib!fib(0x1) => 0x1
+                0x7fc06d22889d => common.fib!fib(0x0) => 0x1
+            => 0x2
+            0x7fc06d22889d => common.fib!fib(0x1) => 0x1
+        => 0x3
+        0x7fc06d22889d => common.fib!fib(0x2)
+            0x7fc06d22888e => common.fib!fib(0x1) => 0x1
+            0x7fc06d22889d => common.fib!fib(0x0) => 0x1
+        => 0x2
+    => 0x5
+    0x7fc06d22889d => common.fib!fib(0x3)
+        0x7fc06d22888e => common.fib!fib(0x2)
+            0x7fc06d22888e => common.fib!fib(0x1) => 0x1
+            0x7fc06d22889d => common.fib!fib(0x0) => 0x1
+        => 0x2
+        0x7fc06d22889d => common.fib!fib(0x1) => 0x1
+    => 0x3
+=> 0x8
+Function view tool results:
+Function id=0: common.fib!fib
+       15 calls
+       15 returns
+\endcode
+
 The top referenced cache lines are displayed by the \p histogram tool:
 
 \code
@@ -924,6 +961,31 @@ creating a custom offline trace post-processor and using the #module_mapper_t
 class.
 
 ****************************************************************************
+\section sec_drcachesim_funcs Tracing Function Calls
+
+The tracer supports recording argument and return values for specified
+functions.  This feature is currently limited to offline mode only
+(\ref sec_drcachesim_offline).  The -record_function parameter lists
+which function names to trace.  Requested names will be located per
+library and each instance traced separately.  The number of arguments
+to record is specified for each name, using a bar character to
+separate them.  An ampersand separates functions.  Here is an example:
+
+\code
+$ bin64/drrun -t drcachesim -offline -record_function 'fib|1&calloc|2'
+\endcode
+
+Within the trace, each function is identified by a numeric identifier.
+The list of recorded functions, each with its identifier, is placed
+into a file "funclist.log" in the trace directory, where the sample
+tool \p func_view uses it to provide a linear function call trace as
+well as summary statistics as shown above.
+
+The -record_heap parameter requests recording of a pre-determined set
+of functions related to heap allocation.  The -record_heap_value
+paramter controls the contents of this set.
+
+****************************************************************************
 \section sec_drcachesim_newtool Creating New Analysis Tools
 
 \p drcachesim provides a \p drmemtrace analysis tool framework to make it
@@ -985,14 +1047,15 @@ drmemtrace/ headers:
 use_DynamoRIO_drmemtrace(mytool)
 \endcode
 
-The \p drmemtrace_analyzer library exported by the DynamoRIO package is the
-main library to link when building a new tool.  The tools described above
-are also exported as the libraries \p drmemtrace_basic_counts, \p drmemtrace_view,
-\p drmemtrace_opcode_mix, \p drmemtrace_histogram, \p drmemtrace_reuse_distance, \p
-drmemtrace_reuse_time, and \p drmemtrace_simulator and can be created using
-the basic_counts_tool_create(), opcode_mix_tool_create(), histogram_tool_create(),
-reuse_distance_tool_create(), reuse_time_tool_create(), view_tool_create(),
-cache_simulator_create(), and tlb_simulator_create() functions.
+The \p drmemtrace_analyzer library exported by the DynamoRIO package is the main
+library to link when building a new tool.  The tools described above are also
+exported as the libraries \p drmemtrace_basic_counts, \p drmemtrace_view, \p
+drmemtrace_opcode_mix, \p drmemtrace_histogram, \p drmemtrace_reuse_distance, \p
+drmemtrace_reuse_time, \p drmemtrace_simulator, and \p drmemtrace_func_view and can
+be created using the basic_counts_tool_create(), opcode_mix_tool_create(),
+histogram_tool_create(), reuse_distance_tool_create(), reuse_time_tool_create(),
+view_tool_create(), cache_simulator_create(), tlb_simulator_create(), and
+func_view_create() functions.
 
 ****************************************************************************
 \section sec_drcachesim_ops Simulator Parameters

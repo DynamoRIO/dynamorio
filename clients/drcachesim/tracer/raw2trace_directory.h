@@ -62,6 +62,12 @@ public:
     // failure.
     std::string
     initialize_module_file(const std::string &module_file_path);
+    // Use this instead of initialize() to only read the funcion map file.
+    // Returns "" on success or an error message on failure.
+    // On success, pushes the parsed entries from the file into "entries".
+    std::string
+    initialize_funclist_file(const std::string &funclist_file_path,
+                             OUT std::vector<std::pair<int, std::string>> *entries);
 
     static std::string
     tracedir_from_rawdir(const std::string &rawdir);
@@ -73,6 +79,9 @@ public:
 private:
     std::string
     read_module_file(const std::string &modfilename);
+    std::string
+    read_funclist_file(const std::string &filename,
+                       OUT std::vector<std::pair<int, std::string>> *entries);
     std::string
     open_thread_files();
     std::string
