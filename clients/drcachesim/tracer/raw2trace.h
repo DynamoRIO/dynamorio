@@ -322,16 +322,15 @@ public:
      * On failure, get_last_error() is non-empty, and indicates the cause.
      */
     static std::unique_ptr<module_mapper_t>
-    create(const char *module_map_in,
+    create(const char *module_map,
            const char *(*parse_cb)(const char *src, OUT void **data) = nullptr,
            std::string (*process_cb)(drmodtrack_info_t *info, void *data,
                                      void *user_data) = nullptr,
            void *process_cb_user_data = nullptr, void (*free_cb)(void *data) = nullptr,
-           uint verbosity_in = 0)
+           uint verbosity = 0)
     {
-        return std::unique_ptr<module_mapper_t>(
-            new module_mapper_t(module_map_in, parse_cb, process_cb, process_cb_user_data,
-                                free_cb, verbosity_in));
+        return std::unique_ptr<module_mapper_t>(new module_mapper_t(
+            module_map, parse_cb, process_cb, process_cb_user_data, free_cb, verbosity));
     }
 
     /**
@@ -342,7 +341,7 @@ public:
     std::string
     get_last_error(void) const
     {
-        return last_error;
+        return last_error_;
     }
 
     /**
@@ -354,9 +353,9 @@ public:
     const std::vector<module_t> &
     get_loaded_modules()
     {
-        if (last_error.empty() && modvec.empty())
+        if (last_error_.empty() && modvec_.empty())
             read_and_map_modules();
-        return modvec;
+        return modvec_;
     }
 
     /**
@@ -366,7 +365,7 @@ public:
      * to convert an instruction program counter in a trace into an address in the
      * current process where the instruction bytes for that instruction are mapped,
      * allowing decoding for obtaining further information than is stored in the trace.
-     * Returns the mapped address. Check get_last_error() if an error occurred.
+     * Returns the mapped address. Check get_last_error_() if an error occurred.
      */
     app_pc
     find_mapped_trace_address(app_pc trace_address);
@@ -386,12 +385,12 @@ public:
     ~module_mapper_t();
 
 private:
-    module_mapper_t(const char *module_map_in,
+    module_mapper_t(const char *module_map,
                     const char *(*parse_cb)(const char *src, OUT void **data) = nullptr,
                     std::string (*process_cb)(drmodtrack_info_t *info, void *data,
                                               void *user_data) = nullptr,
                     void *process_cb_user_data = nullptr,
-                    void (*free_cb)(void *data) = nullptr, uint verbosity_in = 0);
+                    void (*free_cb)(void *data) = nullptr, uint verbosity = 0);
     module_mapper_t(const module_mapper_t &) = delete;
     module_mapper_t &
     operator=(const module_mapper_t &) = delete;
@@ -414,33 +413,33 @@ private:
     std::string
     do_module_parsing();
 
-    const char *modmap = nullptr;
-    void *modhandle = nullptr;
-    std::vector<module_t> modvec;
-    void (*const cached_user_free)(void *data) = nullptr;
+    const char *modmap_ = nullptr;
+    void *modhandle_ = nullptr;
+    std::vector<module_t> modvec_;
+    void (*const cached_user_free_)(void *data) = nullptr;
 
     // Custom module fields that use drmodtrack are global.
-    static const char *(*user_parse)(const char *src, OUT void **data);
-    static void (*user_free)(void *data);
+    static const char *(*user_parse_)(const char *src, OUT void **data);
+    static void (*user_free_)(void *data);
     static const char *
     parse_custom_module_data(const char *src, OUT void **data);
     static void
     free_custom_module_data(void *data);
-    static bool has_custom_data_global;
+    static bool has_custom_data_global_;
 
-    bool has_custom_data = false;
+    bool has_custom_data_ = false;
 
     // We store module info for do_module_parsing.
-    std::vector<drmodtrack_info_t> modlist;
-    std::string (*user_process)(drmodtrack_info_t *info, void *data,
-                                void *user_data) = nullptr;
-    void *user_process_data = nullptr;
-    app_pc last_orig_base = 0;
-    size_t last_map_size = 0;
-    byte *last_map_base = nullptr;
+    std::vector<drmodtrack_info_t> modlist_;
+    std::string (*user_process_)(drmodtrack_info_t *info, void *data,
+                                 void *user_data) = nullptr;
+    void *user_process_data_ = nullptr;
+    app_pc last_orig_base_ = 0;
+    size_t last_map_size_ = 0;
+    byte *last_map_base_ = nullptr;
 
-    uint verbosity = 0;
-    std::string last_error;
+    uint verbosity_ = 0;
+    std::string last_error_;
 };
 
 /**
@@ -589,18 +588,18 @@ public:
 
 protected:
     /**
-     * Construct a new #trace_converter_t object. If a nullptr dcontext_in is passed,
+     * Construct a new #trace_converter_t object. If a nullptr dcontext is passed,
      * creates a new DR context va dr_standalone_init().
      */
-    trace_converter_t(void *dcontext_in)
-        : dcontext(dcontext_in == nullptr ? dr_standalone_init() : dcontext_in)
+    trace_converter_t(void *dcontext)
+        : dcontext_(dcontext == nullptr ? dr_standalone_init() : dcontext)
     {
     }
 
     /**
      * Convert starting from in_entry, and reading more entries as required.
      * Sets end_of_record to true if processing hit the end of a record.
-     * set_modvec() must have been called by the implementation before calling this API.
+     * set_modvec_() must have been called by the implementation before calling this API.
      */
     std::string
     process_offline_entry(void *tls, const offline_entry_t *in_entry, thread_id_t tid,
@@ -720,24 +719,24 @@ protected:
     /**
      * The pointer to the DR context.
      */
-    void *const dcontext;
+    void *const dcontext_;
 
     /**
      * Get the module map.
      */
     const std::vector<module_t> &
-    modvec() const
+    modvec_() const
     {
-        return *modvec_ptr;
+        return *modvec_ptr_;
     }
 
     /**
      * Set the module map. Must be called before process_offline_entry() is called.
      */
     void
-    set_modvec(const std::vector<module_t> *modvec_in)
+    set_modvec_(const std::vector<module_t> *modvec)
     {
-        modvec_ptr = modvec_in;
+        modvec_ptr_ = modvec;
     }
 
 private:
@@ -763,24 +762,24 @@ private:
         size_t modidx_typed = static_cast<size_t>(modidx);
         // We build an ilist to use identify_elidable_addresses() and fill in
         // state needed to reconstruct elided addresses.
-        instrlist_t *ilist = instrlist_create(dcontext);
+        instrlist_t *ilist = instrlist_create(dcontext_);
         app_pc pc = start_pc;
         for (uint count = 0; count < instr_count; ++count) {
-            instr_t *inst = instr_create(dcontext);
-            app_pc next_pc = decode(dcontext, pc, inst);
+            instr_t *inst = instr_create(dcontext_);
+            app_pc next_pc = decode(dcontext_, pc, inst);
             DR_ASSERT(next_pc != NULL);
             instr_set_translation(inst, pc);
             instr_set_note(inst, reinterpret_cast<void *>(static_cast<ptr_int_t>(count)));
             pc = next_pc;
             instrlist_append(ilist, inst);
         }
-        instru_offline.identify_elidable_addresses(dcontext, ilist, version);
+        instru_offline_.identify_elidable_addresses(dcontext_, ilist, version);
         for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
              inst = instr_get_next(inst)) {
             int index, memop_index;
             bool write, needs_base;
-            if (!instru_offline.label_marks_elidable(inst, &index, &memop_index, &write,
-                                                     &needs_base))
+            if (!instru_offline_.label_marks_elidable(inst, &index, &memop_index, &write,
+                                                      &needs_base))
                 continue;
             // There could be multiple labels for one instr (e.g., "push (%rsp)".
             instr_t *meminst = instr_get_next(inst);
@@ -791,7 +790,7 @@ private:
             int index_in_bb =
                 static_cast<int>(reinterpret_cast<ptr_int_t>(instr_get_note(meminst)));
             app_pc orig_pc =
-                pc - modvec()[modidx_typed].map_base + modvec()[modidx_typed].orig_base;
+                pc - modvec_()[modidx_typed].map_base + modvec_()[modidx_typed].orig_base;
             impl()->log(5, "Marking < " PFX ", " PFX "> %s #%d to use remembered base\n",
                         start_pc, pc, write ? "write" : "read", memop_index);
             if (!impl()->set_instr_summary_flags(
@@ -809,7 +808,7 @@ private:
             opnd_t elided_op =
                 write ? instr_get_dst(meminst, index) : instr_get_src(meminst, index);
             reg_id_t base;
-            bool got_base = instru_offline.opnd_is_elidable(elided_op, base, version);
+            bool got_base = instru_offline_.opnd_is_elidable(elided_op, base, version);
             DR_ASSERT(got_base && base != DR_REG_NULL);
             int remember_index = -1;
             for (instr_t *prev = meminst; prev != nullptr; prev = instr_get_prev(prev)) {
@@ -824,8 +823,8 @@ private:
                     for (int i = 0; i < instr_num_srcs(prev); i++) {
                         reg_id_t prev_base;
                         if (opnd_is_memory_reference(instr_get_src(prev, i))) {
-                            if (instru_offline.opnd_is_elidable(instr_get_src(prev, i),
-                                                                prev_base, version) &&
+                            if (instru_offline_.opnd_is_elidable(instr_get_src(prev, i),
+                                                                 prev_base, version) &&
                                 prev_base == base) {
                                 remember_index = mem_count;
                                 break;
@@ -839,8 +838,8 @@ private:
                     for (int i = 0; i < instr_num_dsts(prev); i++) {
                         reg_id_t prev_base;
                         if (opnd_is_memory_reference(instr_get_dst(prev, i))) {
-                            if (instru_offline.opnd_is_elidable(instr_get_dst(prev, i),
-                                                                prev_base, version) &&
+                            if (instru_offline_.opnd_is_elidable(instr_get_dst(prev, i),
+                                                                 prev_base, version) &&
                                 prev_base == base) {
                                 remember_index = mem_count;
                                 remember_write = true;
@@ -853,8 +852,8 @@ private:
                 if (remember_index == -1)
                     continue;
                 app_pc pc_prev = instr_get_app_pc(prev);
-                app_pc orig_pc_prev = pc_prev - modvec()[modidx_typed].map_base +
-                    modvec()[modidx_typed].orig_base;
+                app_pc orig_pc_prev = pc_prev - modvec_()[modidx_typed].map_base +
+                    modvec_()[modidx_typed].orig_base;
                 int index_prev =
                     static_cast<int>(reinterpret_cast<ptr_int_t>(instr_get_note(prev)));
                 if (!impl()->set_instr_summary_flags(
@@ -870,7 +869,7 @@ private:
             if (remember_index == -1)
                 return "Failed to find the source of the elided base";
         }
-        instrlist_clear_and_destroy(dcontext, ilist);
+        instrlist_clear_and_destroy(dcontext_, ilist);
         return "";
     }
 
@@ -880,10 +879,10 @@ private:
         std::string error = "";
         uint instr_count = in_entry->pc.instr_count;
         const instr_summary_t *instr = nullptr;
-        app_pc start_pc = modvec()[in_entry->pc.modidx].map_base + in_entry->pc.modoffs;
+        app_pc start_pc = modvec_()[in_entry->pc.modidx].map_base + in_entry->pc.modoffs;
         app_pc pc, decode_pc = start_pc;
         if ((in_entry->pc.modidx == 0 && in_entry->pc.modoffs == 0) ||
-            modvec()[in_entry->pc.modidx].map_base == NULL) {
+            modvec_()[in_entry->pc.modidx].map_base == NULL) {
             // FIXME i#2062: add support for code not in a module (vsyscall, JIT, etc.).
             // Once that support is in we can remove the bool return value and handle
             // the memrefs up here.
@@ -895,7 +894,7 @@ private:
             impl()->log(3, "Appending %u instrs in bb " PFX " in mod %u +" PIFX " = %s\n",
                         instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
                         (ptr_uint_t)in_entry->pc.modoffs,
-                        modvec()[in_entry->pc.modidx].path);
+                        modvec_()[in_entry->pc.modidx].path);
         }
         bool skip_icache = false;
         // This indicates that each memref has its own PC entry and that each
@@ -925,8 +924,8 @@ private:
         for (uint i = 0; i < instr_count; ++i) {
             trace_entry_t *buf_start = impl()->get_write_buffer(tls);
             trace_entry_t *buf = buf_start;
-            app_pc orig_pc = decode_pc - modvec()[in_entry->pc.modidx].map_base +
-                modvec()[in_entry->pc.modidx].orig_base;
+            app_pc orig_pc = decode_pc - modvec_()[in_entry->pc.modidx].map_base +
+                modvec_()[in_entry->pc.modidx].orig_base;
             // To avoid repeatedly decoding the same instruction on every one of its
             // dynamic executions, we cache the decoding in a hashtable.
             pc = decode_pc;
@@ -1150,7 +1149,7 @@ private:
         if (memref.use_remembered_base) {
             DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_FILTERED, impl()->get_file_type(tls)));
             bool is_elidable =
-                instru_offline.opnd_is_elidable(memref.opnd, base, version);
+                instru_offline_.opnd_is_elidable(memref.opnd, base, version);
             DR_ASSERT(is_elidable);
             if (base == DR_REG_NULL) {
                 DR_ASSERT(IF_REL_ADDRS(opnd_is_near_rel_addr(memref.opnd) ||)
@@ -1223,13 +1222,13 @@ private:
             buf->addr = (addr_t)in_entry->combined_value;
         }
         if (memref.remember_base &&
-            instru_offline.opnd_is_elidable(memref.opnd, base, version)) {
+            instru_offline_.opnd_is_elidable(memref.opnd, base, version)) {
             impl()->log(5, "Remembering base " PFX " for %s\n", buf->addr,
                         get_register_name(base));
             reg_vals[base] = buf->addr;
         }
         if (!TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, impl()->get_file_type(tls)) &&
-            instru_offline.opnd_disp_is_elidable(memref.opnd)) {
+            instru_offline_.opnd_disp_is_elidable(memref.opnd)) {
             // We stored only the base reg, as an optimization.
             buf->addr += opnd_get_disp(memref.opnd);
         }
@@ -1239,8 +1238,8 @@ private:
         return "";
     }
 
-    offline_instru_t instru_offline;
-    const std::vector<module_t> *modvec_ptr = nullptr;
+    offline_instru_t instru_offline_;
+    const std::vector<module_t> *modvec_ptr_ = nullptr;
 
 #undef DR_CHECK
 };
@@ -1420,7 +1419,7 @@ protected:
     std::string
     write_footer(void *tls);
 
-    uint64 count_elided = 0;
+    uint64 count_elided_ = 0;
 
 private:
     friend class trace_converter_t<raw2trace_t>;
@@ -1488,10 +1487,10 @@ private:
     void
     process_tasks(std::vector<raw2trace_thread_data_t *> *tasks);
 
-    std::vector<raw2trace_thread_data_t> thread_data;
+    std::vector<raw2trace_thread_data_t> thread_data_;
 
-    int worker_count;
-    std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks;
+    int worker_count_;
+    std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;
 
     // We use a hashtable to cache decodings.  We compared the performance of
     // hashtable_t to std::map.find, std::map.lower_bound, std::tr1::unordered_map,
@@ -1501,19 +1500,19 @@ private:
     // instruction pc.  Now that we use block_summary_t and only look up each block,
     // the hashtable performance matters much less.
     // We use a per-worker cache to avoid locks.
-    std::vector<hashtable_t> decode_cache;
+    std::vector<hashtable_t> decode_cache_;
 
     // Store optional parameters for the module_mapper_t until we need to construct it.
-    const char *(*user_parse)(const char *src, OUT void **data) = nullptr;
-    void (*user_free)(void *data) = nullptr;
-    std::string (*user_process)(drmodtrack_info_t *info, void *data,
-                                void *user_data) = nullptr;
-    void *user_process_data = nullptr;
+    const char *(*user_parse_)(const char *src, OUT void **data) = nullptr;
+    void (*user_free_)(void *data) = nullptr;
+    std::string (*user_process_)(drmodtrack_info_t *info, void *data,
+                                 void *user_data) = nullptr;
+    void *user_process_data_ = nullptr;
 
-    const char *modmap;
-    std::unique_ptr<module_mapper_t> module_mapper;
+    const char *modmap_;
+    std::unique_ptr<module_mapper_t> module_mapper_;
 
-    unsigned int verbosity = 0;
+    unsigned int verbosity_ = 0;
 
     // Our decode_cache duplication will not scale forever on very large code
     // footprint traces, so we set a cap for the default.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -93,7 +93,7 @@ _tmain(int argc, const TCHAR *targv[])
     std::string dir_err = dir.initialize(op_indir.get_value(), op_outdir.get_value());
     if (!dir_err.empty())
         FATAL_ERROR("Directory parsing failed: %s", dir_err.c_str());
-    raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, NULL,
+    raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_, NULL,
                           op_verbose.get_value(), op_jobs.get_value());
     std::string error = raw2trace.do_conversion();
     if (!error.empty())

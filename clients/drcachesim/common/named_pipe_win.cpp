@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,31 +40,31 @@
 #define IN_BUFSZ OUT_BUFSZ
 
 named_pipe_t::named_pipe_t()
-    : fd(INVALID_HANDLE_VALUE)
+    : fd_(INVALID_HANDLE_VALUE)
 {
     // Empty.
 }
 
 named_pipe_t::named_pipe_t(const char *name)
-    : fd(INVALID_HANDLE_VALUE)
+    : fd_(INVALID_HANDLE_VALUE)
 {
     set_name(name);
 }
 
 named_pipe_t::~named_pipe_t()
 {
-    if (fd != INVALID_HANDLE_VALUE)
+    if (fd_ != INVALID_HANDLE_VALUE)
         close();
 }
 
 bool
 named_pipe_t::set_name(const char *name)
 {
-    if (fd == INVALID_HANDLE_VALUE) {
-        pipe_name = std::string("\\\\.\\pipe\\") + name;
+    if (fd_ == INVALID_HANDLE_VALUE) {
+        pipe_name_ = std::string("\\\\.\\pipe\\") + name;
         // The total is limited to 256 chars.
-        if (pipe_name.size() > MAX_NAME_LEN)
-            pipe_name.resize(MAX_NAME_LEN);
+        if (pipe_name_.size() > MAX_NAME_LEN)
+            pipe_name_.resize(MAX_NAME_LEN);
         return true;
     }
     return false;
@@ -73,16 +73,16 @@ named_pipe_t::set_name(const char *name)
 std::string
 named_pipe_t::get_name() const
 {
-    return pipe_name;
+    return pipe_name_;
 }
 
 bool
 named_pipe_t::create()
 {
-    fd = CreateNamedPipeA(pipe_name.c_str(), PIPE_ACCESS_INBOUND,
-                          PIPE_TYPE_BYTE | PIPE_WAIT, PIPE_UNLIMITED_INSTANCES, OUT_BUFSZ,
-                          IN_BUFSZ, 0, NULL);
-    return (fd != INVALID_HANDLE_VALUE);
+    fd_ = CreateNamedPipeA(pipe_name_.c_str(), PIPE_ACCESS_INBOUND,
+                           PIPE_TYPE_BYTE | PIPE_WAIT, PIPE_UNLIMITED_INSTANCES,
+                           OUT_BUFSZ, IN_BUFSZ, 0, NULL);
+    return (fd_ != INVALID_HANDLE_VALUE);
 }
 
 bool
@@ -94,14 +94,14 @@ named_pipe_t::destroy()
 bool
 named_pipe_t::open_for_read()
 {
-    if (fd == INVALID_HANDLE_VALUE) {
-        fd = CreateFileA(pipe_name.c_str(), GENERIC_READ,
-                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
-                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-        return (fd != INVALID_HANDLE_VALUE);
+    if (fd_ == INVALID_HANDLE_VALUE) {
+        fd_ = CreateFileA(pipe_name_.c_str(), GENERIC_READ,
+                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        return (fd_ != INVALID_HANDLE_VALUE);
     } else {
         // This may block.
-        BOOL res = ConnectNamedPipe(fd, NULL);
+        BOOL res = ConnectNamedPipe(fd_, NULL);
         return res == TRUE;
     }
 }
@@ -109,20 +109,20 @@ named_pipe_t::open_for_read()
 bool
 named_pipe_t::open_for_write()
 {
-    if (fd == INVALID_HANDLE_VALUE) {
-        fd = CreateFileA(pipe_name.c_str(), GENERIC_WRITE,
-                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
-                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (fd_ == INVALID_HANDLE_VALUE) {
+        fd_ = CreateFileA(pipe_name_.c_str(), GENERIC_WRITE,
+                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
         // FIXME i#1727: support multiple processes.  We get ERROR_PIPE_BUSY if
         // a 2nd process connects to the same pipe instance, so we need an array
         // of instances (we'll have to set a maximum) and to use overlapped i/o
         // and have read() wait on an event for each pipe instance (or, use a
         // separate thread per app process, but that significantly changes our
         // design).
-        return (fd != INVALID_HANDLE_VALUE);
+        return (fd_ != INVALID_HANDLE_VALUE);
     } else {
         // This may block.
-        BOOL res = ConnectNamedPipe(fd, NULL);
+        BOOL res = ConnectNamedPipe(fd_, NULL);
         return res == TRUE;
     }
 }
@@ -130,7 +130,7 @@ named_pipe_t::open_for_write()
 bool
 named_pipe_t::close()
 {
-    BOOL res = CloseHandle(fd);
+    BOOL res = CloseHandle(fd_);
     return res == TRUE;
 }
 
@@ -145,7 +145,7 @@ ssize_t
 named_pipe_t::read(void *buf OUT, size_t sz)
 {
     DWORD actual;
-    BOOL res = ReadFile(fd, buf, (DWORD)sz, &actual, NULL);
+    BOOL res = ReadFile(fd_, buf, (DWORD)sz, &actual, NULL);
     if (!res)
         return -1;
     else
@@ -156,7 +156,7 @@ ssize_t
 named_pipe_t::write(const void *buf IN, size_t sz)
 {
     DWORD actual;
-    BOOL res = WriteFile(fd, buf, (DWORD)sz, &actual, NULL);
+    BOOL res = WriteFile(fd_, buf, (DWORD)sz, &actual, NULL);
     if (!res)
         return -1;
     else

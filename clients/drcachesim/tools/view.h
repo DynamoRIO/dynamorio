@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -55,18 +55,18 @@ public:
     print_results() override;
 
 protected:
-    void *dcontext;
-    std::string module_file_path;
-    std::unique_ptr<module_mapper_t> module_mapper;
-    raw2trace_directory_t directory;
-    unsigned int knob_verbose;
-    uint64_t instr_count;
+    void *dcontext_;
+    std::string module_file_path_;
+    std::unique_ptr<module_mapper_t> module_mapper_;
+    raw2trace_directory_t directory_;
+    unsigned int knob_verbose_;
+    uint64_t instr_count_;
     static const std::string TOOL_NAME;
-    uint64_t knob_skip_refs;
-    uint64_t knob_sim_refs;
-    std::string knob_syntax;
-    uint64_t num_disasm_instrs;
-    std::unordered_map<app_pc, std::string> disasm_cache;
+    uint64_t knob_skip_refs_;
+    uint64_t knob_sim_refs_;
+    std::string knob_syntax_;
+    uint64_t num_disasm_instrs_;
+    std::unordered_map<app_pc, std::string> disasm_cache_;
 };
 
 #endif /* _VIEW_H_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, LLC  All rights reserved.
+ * Copyright (c) 2015-2020 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,11 +47,11 @@ cache_miss_analyzer_create(const cache_simulator_knobs_t &knobs,
                                      confidence_threshold);
 }
 
-cache_miss_stats_t::cache_miss_stats_t(bool warmup_enabled, unsigned int line_size,
+cache_miss_stats_t::cache_miss_stats_t(bool warmup_enabled_, unsigned int line_size,
                                        unsigned int miss_count_threshold,
                                        double miss_frac_threshold,
                                        double confidence_threshold)
-    : cache_stats_t("", warmup_enabled, false)
+    : cache_stats_t("", warmup_enabled_, false)
     , kLineSize(line_size)
     , kMissCountThreshold(miss_count_threshold)
     , kMissFracThreshold(miss_frac_threshold)
@@ -59,45 +59,45 @@ cache_miss_stats_t::cache_miss_stats_t(bool warmup_enabled, unsigned int line_si
 {
     // Setting this variable to true ensures that the dump_miss() function below
     // gets called during cache simulation on a cache miss.
-    dump_misses = true;
+    dump_misses_ = true;
 }
 
 void
 cache_miss_stats_t::reset()
 {
     cache_stats_t::reset();
-    pc_cache_misses.clear();
-    total_misses = 0;
+    pc_cache_misses_.clear();
+    total_misses_ = 0;
 }
 
 void
 cache_miss_stats_t::dump_miss(const memref_t &memref)
 {
     // If the operation causing the LLC miss is a memory read (load), insert
-    // the miss into the pc_cache_misses hash map and update
-    // the total_misses counter.
+    // the miss into the pc_cache_misses_ hash map and update
+    // the total_misses_ counter.
     if (memref.data.type != TRACE_TYPE_READ) {
         return;
     }
 
     const addr_t pc = memref.data.pc;
     const addr_t addr = memref.data.addr / kLineSize;
-    pc_cache_misses[pc].push_back(addr);
-    total_misses++;
+    pc_cache_misses_[pc].push_back(addr);
+    total_misses_++;
 }
 
 std::vector<prefetching_recommendation_t *>
 cache_miss_stats_t::generate_recommendations()
 {
     unsigned int miss_count_threshold =
-        static_cast<unsigned int>(kMissFracThreshold * total_misses);
+        static_cast<unsigned int>(kMissFracThreshold * total_misses_);
     if (miss_count_threshold > kMissCountThreshold) {
         miss_count_threshold = kMissCountThreshold;
     }
 
     // Find loads that should be analyzed and analyze them.
     std::vector<prefetching_recommendation_t *> recommendations;
-    for (auto &pc_cache_misses_it : pc_cache_misses) {
+    for (auto &pc_cache_misses_it : pc_cache_misses_) {
         std::vector<addr_t> &cache_misses = pc_cache_misses_it.second;
 
         if (cache_misses.size() >= miss_count_threshold) {
@@ -155,38 +155,38 @@ cache_miss_analyzer_t::cache_miss_analyzer_t(const cache_simulator_knobs_t &knob
                                              double confidence_threshold)
     : cache_simulator_t(knobs)
 {
-    if (!success) {
+    if (!success_) {
         return;
     }
-    bool warmup_enabled = (knobs.warmup_refs > 0 || knobs.warmup_fraction > 0.0);
+    bool warmup_enabled_ = (knobs.warmup_refs > 0 || knobs.warmup_fraction > 0.0);
 
-    delete llcaches["LL"]->get_stats();
-    ll_stats =
-        new cache_miss_stats_t(warmup_enabled, knobs.line_size, miss_count_threshold,
+    delete llcaches_["LL"]->get_stats();
+    ll_stats_ =
+        new cache_miss_stats_t(warmup_enabled_, knobs.line_size, miss_count_threshold,
                                miss_frac_threshold, confidence_threshold);
-    llcaches["LL"]->set_stats(ll_stats);
+    llcaches_["LL"]->set_stats(ll_stats_);
 
     if (!knobs.LL_miss_file.empty()) {
-        recommendation_file = knobs.LL_miss_file;
+        recommendation_file_ = knobs.LL_miss_file;
     }
 }
 
 std::vector<prefetching_recommendation_t *>
 cache_miss_analyzer_t::generate_recommendations()
 {
-    return ll_stats->generate_recommendations();
+    return ll_stats_->generate_recommendations();
 }
 
 bool
 cache_miss_analyzer_t::print_results()
 {
     std::vector<prefetching_recommendation_t *> recommendations =
-        ll_stats->generate_recommendations();
+        ll_stats_->generate_recommendations();
 
     FILE *file = nullptr;
-    const bool write_to_file = !recommendation_file.empty();
+    const bool write_to_file = !recommendation_file_.empty();
     if (write_to_file) {
-        file = fopen(recommendation_file.c_str(), "w");
+        file = fopen(recommendation_file_.c_str(), "w");
     }
 
     std::cerr << "Cache miss analyzer results:\n";

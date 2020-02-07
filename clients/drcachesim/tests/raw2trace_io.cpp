@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -90,7 +90,7 @@ test_raw2trace(raw2trace_directory_t *dir)
         return false;
     }
     if (pid != 0) {
-        /* parent */
+        /* parent_ */
         long res;
         int status;
         while (true) {
@@ -141,13 +141,13 @@ test_raw2trace(raw2trace_directory_t *dir)
             perror("ptrace me failed");
             return false;
         }
-        /* Force a wait until parent attaches, so we don't race on the fork. */
+        /* Force a wait until parent_ attaches, so we don't race on the fork. */
         raise(SIGSTOP);
 
         /* Sycalls below will be ptraced. We don't expect any open/close calls outside of
          * raw2trace::read_and_map_modules().
          */
-        raw2trace_t raw2trace(dir->modfile_bytes, dir->in_files, dir->out_files,
+        raw2trace_t raw2trace(dir->modfile_bytes_, dir->in_files_, dir->out_files_,
                               GLOBAL_DCONTEXT, 1);
         std::string error = raw2trace.do_conversion();
         if (!error.empty()) {
@@ -171,7 +171,7 @@ bool
 test_module_mapper(const raw2trace_directory_t *dir)
 {
     std::unique_ptr<module_mapper_t> mapper = module_mapper_t::create(
-        dir->modfile_bytes, nullptr, nullptr, nullptr, &my_user_free);
+        dir->modfile_bytes_, nullptr, nullptr, nullptr, &my_user_free);
     EXPECT(mapper->get_last_error().empty(), "Module mapper construction failed");
     REPORT("About to load modules");
     const auto &loaded_modules = mapper->get_loaded_modules();
@@ -194,7 +194,7 @@ test_module_mapper(const raw2trace_directory_t *dir)
 bool
 test_trace_timestamp_reader(const raw2trace_directory_t *dir)
 {
-    std::istream *file = dir->in_files[0];
+    std::istream *file = dir->in_files_[0];
     // Seek back to the beginning to undo raw2trace_directory_t's validation
     file->seekg(0);
     offline_entry_t buffer[4];

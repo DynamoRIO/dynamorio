@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,49 +50,50 @@ tlb_simulator_create(const tlb_simulator_knobs_t &knobs)
     return new tlb_simulator_t(knobs);
 }
 
-tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs_)
-    : simulator_t(knobs_.num_cores, knobs_.skip_refs, knobs_.warmup_refs,
-                  knobs_.warmup_fraction, knobs_.sim_refs, knobs_.cpu_scheduling,
-                  knobs_.verbose)
-    , knobs(knobs_)
+tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
+    : simulator_t(knobs.num_cores, knobs.skip_refs, knobs.warmup_refs,
+                  knobs.warmup_fraction, knobs.sim_refs, knobs.cpu_scheduling,
+                  knobs.verbose)
+    , knobs_(knobs)
 {
-    itlbs = new tlb_t *[knobs.num_cores];
-    dtlbs = new tlb_t *[knobs.num_cores];
-    lltlbs = new tlb_t *[knobs.num_cores];
-    for (unsigned int i = 0; i < knobs.num_cores; i++) {
-        itlbs[i] = NULL;
-        dtlbs[i] = NULL;
-        lltlbs[i] = NULL;
+    itlbs_ = new tlb_t *[knobs_.num_cores];
+    dtlbs_ = new tlb_t *[knobs_.num_cores];
+    lltlbs_ = new tlb_t *[knobs_.num_cores];
+    for (unsigned int i = 0; i < knobs_.num_cores; i++) {
+        itlbs_[i] = NULL;
+        dtlbs_[i] = NULL;
+        lltlbs_[i] = NULL;
     }
-    for (unsigned int i = 0; i < knobs.num_cores; i++) {
-        itlbs[i] = create_tlb(knobs.TLB_replace_policy);
-        if (itlbs[i] == NULL) {
-            error_string = "Failed to create itlbs";
-            success = false;
+    for (unsigned int i = 0; i < knobs_.num_cores; i++) {
+        itlbs_[i] = create_tlb(knobs_.TLB_replace_policy);
+        if (itlbs_[i] == NULL) {
+            error_string_ = "Failed to create itlbs_";
+            success_ = false;
             return;
         }
-        dtlbs[i] = create_tlb(knobs.TLB_replace_policy);
-        if (dtlbs[i] == NULL) {
-            error_string = "Failed to create dtlbs";
-            success = false;
+        dtlbs_[i] = create_tlb(knobs_.TLB_replace_policy);
+        if (dtlbs_[i] == NULL) {
+            error_string_ = "Failed to create dtlbs_";
+            success_ = false;
             return;
         }
-        lltlbs[i] = create_tlb(knobs.TLB_replace_policy);
-        if (lltlbs[i] == NULL) {
-            error_string = "Failed to create lltlbs";
-            success = false;
+        lltlbs_[i] = create_tlb(knobs_.TLB_replace_policy);
+        if (lltlbs_[i] == NULL) {
+            error_string_ = "Failed to create lltlbs_";
+            success_ = false;
             return;
         }
 
-        if (!itlbs[i]->init(knobs.TLB_L1I_assoc, (int)knobs.page_size,
-                            knobs.TLB_L1I_entries, lltlbs[i], new tlb_stats_t) ||
-            !dtlbs[i]->init(knobs.TLB_L1D_assoc, (int)knobs.page_size,
-                            knobs.TLB_L1D_entries, lltlbs[i], new tlb_stats_t) ||
-            !lltlbs[i]->init(knobs.TLB_L2_assoc, (int)knobs.page_size,
-                             knobs.TLB_L2_entries, NULL, new tlb_stats_t)) {
-            error_string = "Usage error: failed to initialize TLBs. Ensure entry number, "
-                           "page size and associativity are powers of 2.";
-            success = false;
+        if (!itlbs_[i]->init(knobs_.TLB_L1I_assoc, (int)knobs_.page_size,
+                             knobs_.TLB_L1I_entries, lltlbs_[i], new tlb_stats_t) ||
+            !dtlbs_[i]->init(knobs_.TLB_L1D_assoc, (int)knobs_.page_size,
+                             knobs_.TLB_L1D_entries, lltlbs_[i], new tlb_stats_t) ||
+            !lltlbs_[i]->init(knobs_.TLB_L2_assoc, (int)knobs_.page_size,
+                              knobs_.TLB_L2_entries, NULL, new tlb_stats_t)) {
+            error_string_ =
+                "Usage error: failed to initialize TLbs_. Ensure entry number, "
+                "page size and associativity are powers of 2.";
+            success_ = false;
             return;
         }
     }
@@ -100,36 +101,36 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs_)
 
 tlb_simulator_t::~tlb_simulator_t()
 {
-    for (unsigned int i = 0; i < knobs.num_cores; i++) {
+    for (unsigned int i = 0; i < knobs_.num_cores; i++) {
         // Try to handle failure during construction.
-        if (itlbs[i] == NULL)
+        if (itlbs_[i] == NULL)
             return;
-        delete itlbs[i]->get_stats();
-        delete itlbs[i];
-        if (dtlbs[i] == NULL)
+        delete itlbs_[i]->get_stats();
+        delete itlbs_[i];
+        if (dtlbs_[i] == NULL)
             return;
-        delete dtlbs[i]->get_stats();
-        delete dtlbs[i];
-        if (lltlbs[i] == NULL)
+        delete dtlbs_[i]->get_stats();
+        delete dtlbs_[i];
+        if (lltlbs_[i] == NULL)
             return;
-        delete lltlbs[i]->get_stats();
-        delete lltlbs[i];
+        delete lltlbs_[i]->get_stats();
+        delete lltlbs_[i];
     }
-    delete[] itlbs;
-    delete[] dtlbs;
-    delete[] lltlbs;
+    delete[] itlbs_;
+    delete[] dtlbs_;
+    delete[] lltlbs_;
 }
 
 bool
 tlb_simulator_t::process_memref(const memref_t &memref)
 {
-    if (knobs.skip_refs > 0) {
-        knobs.skip_refs--;
+    if (knobs_.skip_refs > 0) {
+        knobs_.skip_refs--;
         return true;
     }
 
     // The references after warmup and simulated ones are dropped.
-    if (knobs.warmup_refs == 0 && knobs.sim_refs == 0)
+    if (knobs_.warmup_refs == 0 && knobs_.sim_refs == 0)
         return true;
 
     // Both warmup and simulated references are simulated.
@@ -147,21 +148,21 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     // not practical to measure which core each thread actually
     // ran on for each memref.
     int core;
-    if (memref.data.tid == last_thread)
-        core = last_core;
+    if (memref.data.tid == last_thread_)
+        core = last_core_;
     else {
         core = core_for_thread(memref.data.tid);
-        last_thread = memref.data.tid;
-        last_core = core;
+        last_thread_ = memref.data.tid;
+        last_core_ = core;
     }
 
     if (type_is_instr(memref.instr.type))
-        itlbs[core]->request(memref);
+        itlbs_[core]->request(memref);
     else if (memref.data.type == TRACE_TYPE_READ || memref.data.type == TRACE_TYPE_WRITE)
-        dtlbs[core]->request(memref);
+        dtlbs_[core]->request(memref);
     else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         handle_thread_exit(memref.exit.tid);
-        last_thread = 0;
+        last_thread_ = 0;
     } else if (type_is_prefetch(memref.data.type) ||
                memref.flush.type == TRACE_TYPE_INSTR_FLUSH ||
                memref.flush.type == TRACE_TYPE_DATA_FLUSH ||
@@ -169,11 +170,11 @@ tlb_simulator_t::process_memref(const memref_t &memref)
                memref.marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
         // TLB simulator ignores prefetching, cache flushing, and markers
     } else {
-        error_string = "Unhandled memref type " + std::to_string(memref.data.type);
+        error_string_ = "Unhandled memref type " + std::to_string(memref.data.type);
         return false;
     }
 
-    if (knobs.verbose >= 3) {
+    if (knobs_.verbose >= 3) {
         std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
                   << " @" << (void *)memref.data.pc << " "
                   << trace_type_names[memref.data.type] << " " << (void *)memref.data.addr
@@ -181,18 +182,18 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     }
 
     // process counters for warmup and simulated references
-    if (knobs.warmup_refs > 0) { // warm tlbs up
-        knobs.warmup_refs--;
+    if (knobs_.warmup_refs > 0) { // warm tlbs up
+        knobs_.warmup_refs--;
         // reset tlb stats when warming up is completed
-        if (knobs.warmup_refs == 0) {
-            for (unsigned int i = 0; i < knobs.num_cores; i++) {
-                itlbs[i]->get_stats()->reset();
-                dtlbs[i]->get_stats()->reset();
-                lltlbs[i]->get_stats()->reset();
+        if (knobs_.warmup_refs == 0) {
+            for (unsigned int i = 0; i < knobs_.num_cores; i++) {
+                itlbs_[i]->get_stats()->reset();
+                dtlbs_[i]->get_stats()->reset();
+                lltlbs_[i]->get_stats()->reset();
             }
         }
     } else {
-        knobs.sim_refs--;
+        knobs_.sim_refs--;
     }
     return true;
 }
@@ -201,15 +202,15 @@ bool
 tlb_simulator_t::print_results()
 {
     std::cerr << "TLB simulation results:\n";
-    for (unsigned int i = 0; i < knobs.num_cores; i++) {
+    for (unsigned int i = 0; i < knobs_.num_cores; i++) {
         print_core(i);
-        if (thread_ever_counts[i] > 0) {
+        if (thread_ever_counts_[i] > 0) {
             std::cerr << "  L1I stats:" << std::endl;
-            itlbs[i]->get_stats()->print_stats("    ");
+            itlbs_[i]->get_stats()->print_stats("    ");
             std::cerr << "  L1D stats:" << std::endl;
-            dtlbs[i]->get_stats()->print_stats("    ");
+            dtlbs_[i]->get_stats()->print_stats("    ");
             std::cerr << "  LL stats:" << std::endl;
-            lltlbs[i]->get_stats()->print_stats("    ");
+            lltlbs_[i]->get_stats()->print_stats("    ");
         }
     }
     return true;

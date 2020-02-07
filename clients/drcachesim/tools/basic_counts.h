@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -105,11 +105,11 @@ protected:
                  const std::pair<memref_tid_t, counters_t *> &r);
 
     // The keys here are int for parallel, tid for serial.
-    std::unordered_map<memref_tid_t, counters_t *> shard_map;
+    std::unordered_map<memref_tid_t, counters_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
-    std::mutex shard_map_mutex;
-    unsigned int knob_verbose;
+    std::mutex shard_map_mutex_;
+    unsigned int knob_verbose_;
     static const std::string TOOL_NAME;
 };
 

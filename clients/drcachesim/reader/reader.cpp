@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,7 +41,7 @@ const memref_t &
 reader_t::operator*()
 // clang-format on
 {
-    return cur_ref;
+    return cur_ref_;
 }
 
 reader_t &
@@ -49,25 +49,25 @@ reader_t::operator++()
 {
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
-        if (bundle_idx == 0 /*not in instr bundle*/)
-            input_entry = read_next_entry();
-        if (input_entry == NULL) {
-            if (!at_eof) {
+        if (bundle_idx_ == 0 /*not in instr bundle*/)
+            input_entry_ = read_next_entry();
+        if (input_entry_ == NULL) {
+            if (!at_eof_) {
                 ERRMSG("Trace is truncated\n");
                 assert(false);
-                at_eof = true; // bail
+                at_eof_ = true; // bail
             }
             break;
         }
-        if (input_entry->type == TRACE_TYPE_FOOTER) {
+        if (input_entry_->type == TRACE_TYPE_FOOTER) {
             VPRINT(this, 2, "At thread EOF\n");
             // We've already presented the thread exit entry to the analyzer.
             continue;
         }
-        VPRINT(this, 4, "RECV: type=%d, size=%d, addr=0x%zx\n", input_entry->type,
-               input_entry->size, input_entry->addr);
+        VPRINT(this, 4, "RECV: type=%d, size=%d, addr=0x%zx\n", input_entry_->type,
+               input_entry_->size, input_entry_->addr);
         bool have_memref = false;
-        switch (input_entry->type) {
+        switch (input_entry_->type) {
         case TRACE_TYPE_READ:
         case TRACE_TYPE_WRITE:
         case TRACE_TYPE_PREFETCH:
@@ -79,24 +79,24 @@ reader_t::operator++()
         case TRACE_TYPE_PREFETCH_WRITE:
         case TRACE_TYPE_PREFETCH_INSTR:
             have_memref = true;
-            assert(cur_tid != 0 && cur_pid != 0);
-            cur_ref.data.pid = cur_pid;
-            cur_ref.data.tid = cur_tid;
-            cur_ref.data.type = (trace_type_t)input_entry->type;
-            cur_ref.data.size = input_entry->size;
-            cur_ref.data.addr = input_entry->addr;
+            assert(cur_tid_ != 0 && cur_pid_ != 0);
+            cur_ref_.data.pid = cur_pid_;
+            cur_ref_.data.tid = cur_tid_;
+            cur_ref_.data.type = (trace_type_t)input_entry_->type;
+            cur_ref_.data.size = input_entry_->size;
+            cur_ref_.data.addr = input_entry_->addr;
             // The trace stream always has the instr fetch first, which we
             // use to obtain the PC for subsequent data references.
-            cur_ref.data.pc = cur_pc;
+            cur_ref_.data.pc = cur_pc_;
             break;
         case TRACE_TYPE_INSTR_MAYBE_FETCH:
             // While offline traces can convert rep string per-iter instrs into
             // no-fetch entries, online can't w/o extra work, so we do the work
             // here:
-            if (prev_instr_addr == input_entry->addr)
-                input_entry->type = TRACE_TYPE_INSTR_NO_FETCH;
+            if (prev_instr_addr_ == input_entry_->addr)
+                input_entry_->type = TRACE_TYPE_INSTR_NO_FETCH;
             else
-                input_entry->type = TRACE_TYPE_INSTR;
+                input_entry_->type = TRACE_TYPE_INSTR;
             ANNOTATE_FALLTHROUGH;
         case TRACE_TYPE_INSTR:
         case TRACE_TYPE_INSTR_DIRECT_JUMP:
@@ -107,98 +107,98 @@ reader_t::operator++()
         case TRACE_TYPE_INSTR_RETURN:
         case TRACE_TYPE_INSTR_SYSENTER:
         case TRACE_TYPE_INSTR_NO_FETCH:
-            assert(cur_tid != 0 && cur_pid != 0);
-            if (input_entry->size == 0) {
+            assert(cur_tid_ != 0 && cur_pid_ != 0);
+            if (input_entry_->size == 0) {
                 // Just an entry to tell us the PC of the subsequent memref,
                 // used with -L0_filter where we don't reliably have icache
                 // entries prior to data entries.
-                cur_pc = input_entry->addr;
+                cur_pc_ = input_entry_->addr;
             } else {
                 have_memref = true;
-                cur_ref.instr.pid = cur_pid;
-                cur_ref.instr.tid = cur_tid;
-                cur_ref.instr.type = (trace_type_t)input_entry->type;
-                cur_ref.instr.size = input_entry->size;
-                cur_pc = input_entry->addr;
-                cur_ref.instr.addr = cur_pc;
-                next_pc = cur_pc + cur_ref.instr.size;
-                prev_instr_addr = input_entry->addr;
+                cur_ref_.instr.pid = cur_pid_;
+                cur_ref_.instr.tid = cur_tid_;
+                cur_ref_.instr.type = (trace_type_t)input_entry_->type;
+                cur_ref_.instr.size = input_entry_->size;
+                cur_pc_ = input_entry_->addr;
+                cur_ref_.instr.addr = cur_pc_;
+                next_pc_ = cur_pc_ + cur_ref_.instr.size;
+                prev_instr_addr_ = input_entry_->addr;
             }
             break;
         case TRACE_TYPE_INSTR_BUNDLE:
             have_memref = true;
             // The trace stream always has the instr fetch first, which we
             // use to compute the starting PC for the subsequent instructions.
-            if (!(type_is_instr(cur_ref.instr.type) ||
-                  cur_ref.instr.type == TRACE_TYPE_INSTR_NO_FETCH)) {
+            if (!(type_is_instr(cur_ref_.instr.type) ||
+                  cur_ref_.instr.type == TRACE_TYPE_INSTR_NO_FETCH)) {
                 // XXX i#3320: Diagnostics to track down the elusive remaining case of
                 // this assert on Appveyor.  We'll remove and replace with just the
                 // assert once we have a fix.
                 ERRMSG("Invalid trace entry type %d before a bundle\n",
-                       cur_ref.instr.type);
-                assert(type_is_instr(cur_ref.instr.type) ||
-                       cur_ref.instr.type == TRACE_TYPE_INSTR_NO_FETCH);
+                       cur_ref_.instr.type);
+                assert(type_is_instr(cur_ref_.instr.type) ||
+                       cur_ref_.instr.type == TRACE_TYPE_INSTR_NO_FETCH);
             }
-            cur_ref.instr.size = input_entry->length[bundle_idx++];
-            cur_pc = next_pc;
-            cur_ref.instr.addr = cur_pc;
-            next_pc = cur_pc + cur_ref.instr.size;
-            // input_entry->size stores the number of instrs in this bundle
-            assert(input_entry->size <= sizeof(input_entry->length));
-            if (bundle_idx == input_entry->size)
-                bundle_idx = 0;
+            cur_ref_.instr.size = input_entry_->length[bundle_idx_++];
+            cur_pc_ = next_pc_;
+            cur_ref_.instr.addr = cur_pc_;
+            next_pc_ = cur_pc_ + cur_ref_.instr.size;
+            // input_entry_->size stores the number of instrs in this bundle
+            assert(input_entry_->size <= sizeof(input_entry_->length));
+            if (bundle_idx_ == input_entry_->size)
+                bundle_idx_ = 0;
             break;
         case TRACE_TYPE_INSTR_FLUSH:
         case TRACE_TYPE_DATA_FLUSH:
-            assert(cur_tid != 0 && cur_pid != 0);
-            cur_ref.flush.pid = cur_pid;
-            cur_ref.flush.tid = cur_tid;
-            cur_ref.flush.type = (trace_type_t)input_entry->type;
-            cur_ref.flush.size = input_entry->size;
-            cur_ref.flush.addr = input_entry->addr;
-            if (cur_ref.flush.size != 0)
+            assert(cur_tid_ != 0 && cur_pid_ != 0);
+            cur_ref_.flush.pid = cur_pid_;
+            cur_ref_.flush.tid = cur_tid_;
+            cur_ref_.flush.type = (trace_type_t)input_entry_->type;
+            cur_ref_.flush.size = input_entry_->size;
+            cur_ref_.flush.addr = input_entry_->addr;
+            if (cur_ref_.flush.size != 0)
                 have_memref = true;
             break;
         case TRACE_TYPE_INSTR_FLUSH_END:
         case TRACE_TYPE_DATA_FLUSH_END:
-            cur_ref.flush.size = input_entry->addr - cur_ref.flush.addr;
+            cur_ref_.flush.size = input_entry_->addr - cur_ref_.flush.addr;
             have_memref = true;
             break;
         case TRACE_TYPE_THREAD:
-            cur_tid = (memref_tid_t)input_entry->addr;
+            cur_tid_ = (memref_tid_t)input_entry_->addr;
             // tid2pid might not be filled in yet: if so, we expect a
             // TRACE_TYPE_PID entry right after this one, and later asserts
             // will complain if it wasn't there.
-            cur_pid = tid2pid[cur_tid];
+            cur_pid_ = tid2pid_[cur_tid_];
             break;
         case TRACE_TYPE_THREAD_EXIT:
-            cur_tid = (memref_tid_t)input_entry->addr;
-            cur_pid = tid2pid[cur_tid];
-            assert(cur_tid != 0 && cur_pid != 0);
+            cur_tid_ = (memref_tid_t)input_entry_->addr;
+            cur_pid_ = tid2pid_[cur_tid_];
+            assert(cur_tid_ != 0 && cur_pid_ != 0);
             // We do pass this to the caller but only some fields are valid:
-            cur_ref.exit.pid = cur_pid;
-            cur_ref.exit.tid = cur_tid;
-            cur_ref.exit.type = (trace_type_t)input_entry->type;
+            cur_ref_.exit.pid = cur_pid_;
+            cur_ref_.exit.tid = cur_tid_;
+            cur_ref_.exit.type = (trace_type_t)input_entry_->type;
             have_memref = true;
             break;
         case TRACE_TYPE_PID:
-            cur_pid = (memref_pid_t)input_entry->addr;
+            cur_pid_ = (memref_pid_t)input_entry_->addr;
             // We do want to replace, in case of tid reuse.
-            tid2pid[cur_tid] = cur_pid;
+            tid2pid_[cur_tid_] = cur_pid_;
             break;
         case TRACE_TYPE_MARKER:
             have_memref = true;
-            cur_ref.marker.type = (trace_type_t)input_entry->type;
-            assert(cur_tid != 0 && cur_pid != 0);
-            cur_ref.marker.pid = cur_pid;
-            cur_ref.marker.tid = cur_tid;
-            cur_ref.marker.marker_type = (trace_marker_type_t)input_entry->size;
-            cur_ref.marker.marker_value = input_entry->addr;
+            cur_ref_.marker.type = (trace_type_t)input_entry_->type;
+            assert(cur_tid_ != 0 && cur_pid_ != 0);
+            cur_ref_.marker.pid = cur_pid_;
+            cur_ref_.marker.tid = cur_tid_;
+            cur_ref_.marker.marker_type = (trace_marker_type_t)input_entry_->size;
+            cur_ref_.marker.marker_value = input_entry_->addr;
             break;
         default:
-            ERRMSG("Unknown trace entry type %d\n", input_entry->type);
+            ERRMSG("Unknown trace entry type %d\n", input_entry_->type);
             assert(false);
-            at_eof = true; // bail
+            at_eof_ = true; // bail
             break;
         }
         if (have_memref)

@@ -50,7 +50,7 @@ protected:
     init_blocks() override;
 
     // Optimization: remember last pid in addition to last tag
-    memref_pid_t last_pid;
+    memref_pid_t last_pid_;
 };
 
 #endif /* _TLB_H_ */

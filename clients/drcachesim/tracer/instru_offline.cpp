@@ -47,21 +47,21 @@
 
 static const ptr_uint_t MAX_INSTR_COUNT = 64 * 1024;
 
-void *(*offline_instru_t::user_load)(module_data_t *module);
-int (*offline_instru_t::user_print)(void *data, char *dst, size_t max_len);
-void (*offline_instru_t::user_free)(void *data);
+void *(*offline_instru_t::user_load_)(module_data_t *module);
+int (*offline_instru_t::user_print_)(void *data, char *dst, size_t max_len);
+void (*offline_instru_t::user_free_)(void *data);
 
 // This constructor is for use in post-processing when we just need the
 // elision utility functions.
 offline_instru_t::offline_instru_t()
     : instru_t(nullptr, false, nullptr, sizeof(offline_entry_t))
-    , write_file_func(nullptr)
-    , modfile(INVALID_FILE)
+    , write_file_func_(nullptr)
+    , modfile_(INVALID_FILE)
 {
     // We can't use drmgr in standalone mode, but for post-processing it's just us,
     // so we just pick a note value.
-    elide_memref_note = 1;
-    standalone = true;
+    elide_memref_note_ = 1;
+    standalone_ = true;
 }
 
 offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
@@ -72,8 +72,8 @@ offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *
                                    file_t module_file, bool disable_optimizations)
     : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(offline_entry_t),
                disable_optimizations)
-    , write_file_func(write_file)
-    , modfile(module_file)
+    , write_file_func_(write_file)
+    , modfile_(module_file)
 {
     drcovlib_status_t res = drmodtrack_init();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
@@ -87,13 +87,13 @@ offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *
 
     if (!drmgr_init())
         DR_ASSERT(false);
-    elide_memref_note = drmgr_reserve_note_range(1);
-    DR_ASSERT(elide_memref_note != DRMGR_NOTE_NONE);
+    elide_memref_note_ = drmgr_reserve_note_range(1);
+    DR_ASSERT(elide_memref_note_ != DRMGR_NOTE_NONE);
 }
 
 offline_instru_t::~offline_instru_t()
 {
-    if (standalone)
+    if (standalone_)
         return;
     drcovlib_status_t res;
     size_t size = 8192;
@@ -103,7 +103,7 @@ offline_instru_t::~offline_instru_t()
         buf = (char *)dr_global_alloc(size);
         res = drmodtrack_dump_buf(buf, size, &wrote);
         if (res == DRCOVLIB_SUCCESS) {
-            ssize_t written = write_file_func(modfile, buf, wrote - 1 /*no null*/);
+            ssize_t written = write_file_func_(modfile_, buf, wrote - 1 /*no null*/);
             DR_ASSERT(written == (ssize_t)wrote - 1);
         }
         dr_global_free(buf, size);
@@ -118,8 +118,8 @@ void *
 offline_instru_t::load_custom_module_data(module_data_t *module)
 {
     void *user_data = nullptr;
-    if (user_load != nullptr)
-        user_data = (*user_load)(module);
+    if (user_load_ != nullptr)
+        user_data = (*user_load_)(module);
     const char *name = dr_module_preferred_name(module);
     // For vdso we include the entire contents so we can decode it during
     // post-processing.
@@ -159,8 +159,8 @@ offline_instru_t::print_custom_module_data(void *data, char *dst, size_t max_len
         memcpy(cur, custom->base, custom->size);
         cur += custom->size;
     }
-    if (user_print != nullptr) {
-        int res = (*user_print)(custom->user_data, cur, max_len - (cur - dst));
+    if (user_print_ != nullptr) {
+        int res = (*user_print_)(custom->user_data, cur, max_len - (cur - dst));
         if (res == -1)
             return -1;
         cur += res;
@@ -174,8 +174,8 @@ offline_instru_t::free_custom_module_data(void *data)
     custom_module_data_t *custom = (custom_module_data_t *)data;
     if (custom == nullptr)
         return;
-    if (user_free != nullptr)
-        (*user_free)(custom->user_data);
+    if (user_free_ != nullptr)
+        (*user_free_)(custom->user_data);
     custom->~custom_module_data_t();
     dr_global_free(custom, sizeof(*custom));
 }
@@ -186,9 +186,9 @@ offline_instru_t::custom_module_data(void *(*load_cb)(module_data_t *module),
                                                      size_t max_len),
                                      void (*free_cb)(void *data))
 {
-    user_load = load_cb;
-    user_print = print_cb;
-    user_free = free_cb;
+    user_load_ = load_cb;
+    user_print_ = print_cb;
+    user_free_ = free_cb;
     return true;
 }
 
@@ -426,7 +426,7 @@ offline_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
 bool
 offline_instru_t::opnd_disp_is_elidable(opnd_t memop)
 {
-    return !disable_optimizations && opnd_is_near_base_disp(memop) &&
+    return !disable_optimizations_ && opnd_is_near_base_disp(memop) &&
         opnd_get_base(memop) != DR_REG_NULL &&
         opnd_get_index(memop) == DR_REG_NULL
 #ifdef AARCH64
@@ -462,7 +462,7 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
             have_addr = true;
     }
     if (!have_addr) {
-        res = drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_addr);
+        res = drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_addr);
         DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
         reserved = true;
         bool reg_ptr_used;
@@ -470,7 +470,7 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
                            &reg_ptr_used);
         if (reg_ptr_used) {
             // Re-load because reg_ptr was clobbered.
-            insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
+            insert_load_buf_ptr_(drcontext, ilist, where, reg_ptr);
         }
         reserved = true;
     }
@@ -534,14 +534,14 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
         }
     }
     // Post-processor distinguishes read, write, prefetch, flush, and finds size.
-    if (!memref_needs_full_info) // For full info we skip this for !pred
+    if (!memref_needs_full_info_) // For full info we skip this for !pred
         instrlist_set_auto_predicate(ilist, pred);
     // We allow either 0 or all 1's as the type so no need to write anything else,
     // unless a filter is in place in which case we need a PC entry.
-    if (memref_needs_full_info) {
+    if (memref_needs_full_info_) {
         reg_id_t reg_tmp;
         drreg_status_t res =
-            drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
+            drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
         DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
         adjust += insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
                                  instr_get_app_pc(app), 0);
@@ -569,7 +569,7 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
 {
     app_pc pc;
     reg_id_t reg_tmp;
-    if (!memref_needs_full_info) {
+    if (!memref_needs_full_info_) {
         // We write just once per bb, if not filtering.
         if ((ptr_uint_t)*bb_field > MAX_INSTR_COUNT)
             return adjust;
@@ -579,11 +579,11 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
         pc = instr_get_app_pc(app);
     }
     drreg_status_t res =
-        drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
+        drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     adjust += insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, pc,
-                             memref_needs_full_info ? 1 : (uint)(ptr_uint_t)*bb_field);
-    if (!memref_needs_full_info)
+                             memref_needs_full_info_ ? 1 : (uint)(ptr_uint_t)*bb_field);
+    if (!memref_needs_full_info_)
         *(ptr_uint_t *)bb_field = MAX_INSTR_COUNT + 1;
     res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
@@ -676,7 +676,7 @@ offline_instru_t::opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr
     // we find a base that has not changed or a rip-relative operand.
     if (base == DR_REG_NULL || saw_base.find(base) != saw_base.end()) {
         instr_t *note = INSTR_CREATE_label(drcontext);
-        instr_set_note(note, (void *)elide_memref_note);
+        instr_set_note(note, (void *)elide_memref_note_);
         dr_instr_label_data_t *data = instr_get_label_data_area(note);
         data->data[LABEL_DATA_ELIDED_INDEX] = op_index;
         data->data[LABEL_DATA_ELIDED_MEMOP_INDEX] = memop_index;
@@ -694,7 +694,7 @@ offline_instru_t::label_marks_elidable(instr_t *instr, OUT int *opnd_index,
 {
     if (!instr_is_label(instr))
         return false;
-    if (instr_get_note(instr) != (void *)elide_memref_note)
+    if (instr_get_note(instr) != (void *)elide_memref_note_)
         return false;
     dr_instr_label_data_t *data = instr_get_label_data_area(instr);
     if (opnd_index != nullptr)
@@ -715,10 +715,10 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
 {
     // Analysis for eliding redundant addresses we can reconstruct during
     // post-processing.
-    if (disable_optimizations)
+    if (disable_optimizations_)
         return;
     // We can't elide when doing filtering.
-    if (memref_needs_full_info)
+    if (memref_needs_full_info_)
         return;
     reg_id_set_t saw_base;
     for (instr_t *instr = instrlist_first_app(ilist); instr != NULL;

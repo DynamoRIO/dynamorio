@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -192,7 +192,7 @@ online_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *
     insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref, &reg_ptr_used);
     if (reg_ptr_used) {
         // drutil_insert_get_mem_addr clobbered reg_ptr, so we need to reload reg_ptr.
-        insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
+        insert_load_buf_ptr_(drcontext, ilist, where, reg_ptr);
     }
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
@@ -268,11 +268,11 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
     ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, app);
     reg_id_t reg_tmp;
     drreg_status_t res =
-        drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
+        drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
-    if (!memref_needs_full_info)     // For full info we skip this for !pred
+    if (!memref_needs_full_info_)    // For full info we skip this for !pred
         instrlist_set_auto_predicate(ilist, pred);
-    if (memref_needs_full_info) {
+    if (memref_needs_full_info_) {
         // When filtering we have to insert a PC entry for every memref.
         // The 0 size indicates it's a non-icache entry.
         insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
@@ -310,7 +310,7 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     app_pc pc = repstr_expanded ? dr_fragment_app_pc(tag) : instr_get_app_pc(app);
     reg_id_t reg_tmp;
     drreg_status_t res =
-        drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
+        drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     // To handle zero-iter repstr loops this routine is called at the top of the bb
     // where "app" is jecxz so we have to hardcode the rep str type and get length
@@ -338,7 +338,7 @@ online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t
     int i;
     reg_id_t reg_tmp;
     drreg_status_t res =
-        drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
+        drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     entry.type = TRACE_TYPE_INSTR_BUNDLE;
     entry.size = 0;

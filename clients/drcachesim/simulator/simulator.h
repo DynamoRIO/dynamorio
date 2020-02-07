@@ -71,23 +71,23 @@ protected:
     virtual void
     handle_thread_exit(memref_tid_t tid);
 
-    unsigned int knob_num_cores;
-    uint64_t knob_skip_refs;
-    uint64_t knob_warmup_refs;
-    double knob_warmup_fraction;
-    uint64_t knob_sim_refs;
-    bool knob_cpu_scheduling;
-    unsigned int knob_verbose;
+    unsigned int knob_num_cores_;
+    uint64_t knob_skip_refs_;
+    uint64_t knob_warmup_refs_;
+    double knob_warmup_fraction_;
+    uint64_t knob_sim_refs_;
+    bool knob_cpu_scheduling_;
+    unsigned int knob_verbose_;
 
-    memref_tid_t last_thread;
-    int last_core;
+    memref_tid_t last_thread_;
+    int last_core_;
 
     // For thread mapping to cores:
-    std::unordered_map<int, int> cpu2core;
-    std::unordered_map<memref_tid_t, int> thread2core;
-    std::vector<int> cpu_counts;
-    std::vector<int> thread_counts;
-    std::vector<int> thread_ever_counts;
+    std::unordered_map<int, int> cpu2core_;
+    std::unordered_map<memref_tid_t, int> thread2core_;
+    std::vector<int> cpu_counts_;
+    std::vector<int> thread_counts_;
+    std::vector<int> thread_ever_counts_;
 };
 
 #endif /* _SIMULATOR_H_ */

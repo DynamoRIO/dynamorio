@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,7 +42,7 @@ class tlb_entry_t : public caching_device_block_t {
 public:
     // process ID to differentiate virtual pages
     // that have the same VPN but belong to different processes.
-    memref_pid_t pid;
+    memref_pid_t pid_;
 
     // XXX: support page privilege and MMU-related exceptions
 };
