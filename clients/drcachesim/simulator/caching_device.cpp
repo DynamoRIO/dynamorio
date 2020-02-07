@@ -269,7 +269,7 @@ caching_device_t::replace_which_way(int block_idx)
 }
 
 void
-caching_device_t::invalidate(addr_t tag, invalidation_type_t invalidation_type_)
+caching_device_t::invalidate(addr_t tag, invalidation_type_t invalidation_type)
 {
     int block_idx = compute_block_idx(tag);
 
@@ -278,25 +278,25 @@ caching_device_t::invalidate(addr_t tag, invalidation_type_t invalidation_type_)
         if (cache_block.tag_ == tag) {
             cache_block.tag_ = TAG_INVALID;
             cache_block.counter_ = 0;
-            stats_->invalidate(invalidation_type_);
+            stats_->invalidate(invalidation_type);
             // Invalidate last_tag_ if it was this tag.
             if (last_tag_ == tag) {
                 last_tag_ = TAG_INVALID;
             }
             // Invalidate the block in the children's caches.
-            if (invalidation_type_ == INVALIDATION_INCLUSIVE && inclusive_ &&
+            if (invalidation_type == INVALIDATION_INCLUSIVE && inclusive_ &&
                 !children_.empty()) {
                 for (auto &child : children_) {
-                    child->invalidate(tag, invalidation_type_);
+                    child->invalidate(tag, invalidation_type);
                 }
             }
             break;
         }
     }
     // If this is a coherence invalidation, we must invalidate children caches.
-    if (invalidation_type_ == INVALIDATION_COHERENCE && !children_.empty()) {
+    if (invalidation_type == INVALIDATION_COHERENCE && !children_.empty()) {
         for (auto &child : children_) {
-            child->invalidate(tag, invalidation_type_);
+            child->invalidate(tag, invalidation_type);
         }
     }
 }
