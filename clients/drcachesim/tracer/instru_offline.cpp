@@ -58,7 +58,7 @@ offline_instru_t::offline_instru_t()
     , write_file_func_(nullptr)
     , modfile_(INVALID_FILE)
 {
-    // We can't use drmgr in standalone_ mode, but for post-processing it's just us,
+    // We can't use drmgr in standalone mode, but for post-processing it's just us,
     // so we just pick a note value.
     elide_memref_note_ = 1;
     standalone_ = true;

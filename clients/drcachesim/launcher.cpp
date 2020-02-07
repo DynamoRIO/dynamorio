@@ -298,7 +298,7 @@ _tmain(int argc, const TCHAR *targv[])
         NOTIFY(1, "INFO", "DynamoRIO configuration directory is %s", buf);
 
 #ifdef UNIX
-        // We could try to arrange for the child to auto-exit if the parent_ dies via
+        // We could try to arrange for the child to auto-exit if the parent dies via
         // prctl(PR_SET_PDEATHSIG, SIGTERM) on Linux and kqueue on Mac, plus
         // checking for ppid changes for up front races, but that won't propagate
         // to grandchildren.

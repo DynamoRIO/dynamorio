@@ -51,7 +51,7 @@ tlb_t::request(const memref_t &memref_in)
     // to isolate them.
 
     // Unfortunately we need to make a copy for our loop so we can pass
-    // the right data struct to the parent_ and stats collectors.
+    // the right data struct to the parent and stats collectors.
     memref_t memref;
     // We support larger sizes to improve the IPC perf.
     // This means that one memref could touch multiple blocks.
@@ -98,7 +98,7 @@ tlb_t::request(const memref_t &memref_in)
             caching_device_block_t *tlb_entry = &get_caching_device_block(block_idx, way);
 
             stats_->access(memref, false /*miss*/, tlb_entry);
-            // If no parent_ we assume we get the data from main memory
+            // If no parent we assume we get the data from main memory
             if (parent_ != NULL) {
                 parent_->get_stats()->child_access(memref, false, tlb_entry);
                 parent_->request(memref);

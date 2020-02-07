@@ -92,7 +92,7 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
                               knobs_.TLB_L2_entries, NULL, new tlb_stats_t)) {
             error_string_ =
                 "Usage error: failed to initialize TLbs_. Ensure entry number, "
-                "page size and associativity_ are powers of 2.";
+                "page size and associativity are powers of 2.";
             success_ = false;
             return;
         }
@@ -182,7 +182,7 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     }
 
     // process counters for warmup and simulated references
-    if (knobs_.warmup_refs > 0) { // warm tlbs_ up
+    if (knobs_.warmup_refs > 0) { // warm tlbs up
         knobs_.warmup_refs--;
         // reset tlb stats when warming up is completed
         if (knobs_.warmup_refs == 0) {

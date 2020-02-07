@@ -231,8 +231,8 @@ struct line_ref_list_t {
 
     // Add a new cache line to the front of the list.
     // We may need to move gate_ forward if there are more cache lines
-    // than the threshold_ so that the gate_ points to the earliest
-    // referenced cache line within the threshold_.
+    // than the threshold so that the gate points to the earliest
+    // referenced cache line within the threshold.
     void
     add_to_front(line_ref_t *ref)
     {
@@ -315,7 +315,7 @@ struct line_ref_list_t {
         if (DEBUG_VERBOSE(0) && verify_skip_) {
             // Compute reuse distance with a full list walk as a sanity check.
             // This is a debug-only option, so we guard with DEBUG_VERBOSE(0).
-            // Yes, the option check branch shows noticeable overhead_ without it.
+            // Yes, the option check branch shows noticeable overhead without it.
             int_least64_t brute_dist = 0;
             for (prev = head_; prev != ref; prev = prev->next)
                 ++brute_dist;
@@ -327,7 +327,7 @@ struct line_ref_list_t {
             }
         }
 
-        // Shift skip nodes between where ref was and head_ one earlier to
+        // Shift skip nodes between where ref was and head one earlier to
         // maintain spacing.  This means their depths remain the same.
         if (skip != NULL) {
             for (; skip != NULL; skip = next) {

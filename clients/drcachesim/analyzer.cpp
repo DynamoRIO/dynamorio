@@ -155,7 +155,7 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity)
         }
         VPRINT(this, 2, "Opened serial reader for %s\n", trace_path.c_str());
     }
-    // It's ok if trace_end is a different type from serial_trace_iter_, they
+    // It's ok if trace_end_ is a different type from serial_trace_iter_, they
     // will still compare true if both at EOF.
     trace_end_ = std::unique_ptr<default_file_reader_t>(new default_file_reader_t());
     return true;
@@ -192,7 +192,7 @@ analyzer_t::analyzer_t(const std::string &trace_path)
     : success_(true)
     , num_tools_(0)
     , tools_(NULL)
-    // This external-iterator interface does not support parallel_ analysis.
+    // This external-iterator interface does not support parallel analysis.
     , parallel_(false)
     , worker_count_(0)
 {

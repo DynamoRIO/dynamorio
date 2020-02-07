@@ -251,7 +251,7 @@ config_reader_t::configure_cache(cache_params_t &cache)
                 return false;
             }
             if (cache.assoc <= 0 || !IS_POWER_OF_2(cache.assoc)) {
-                ERRMSG("Cache associativity_ (%u) must be >0 and a power of 2\n",
+                ERRMSG("Cache associativity (%u) must be >0 and a power of 2\n",
                        cache.assoc);
                 return false;
             }
@@ -268,11 +268,11 @@ config_reader_t::configure_cache(cache_params_t &cache)
             } else {
                 cache.inclusive = false;
             }
-        } else if (param == "parent_") {
-            // Name of the cache's parent_. LLC's parent_ is main memory
+        } else if (param == "parent") {
+            // Name of the cache's parent. LLC's parent is main memory
             // (CACHE_PARENT_MEMORY).
             if (!(fin_ >> cache.parent)) {
-                ERRMSG("Error reading cache parent_ from "
+                ERRMSG("Error reading cache parent from "
                        "the configuration file\n");
                 return false;
             }
@@ -357,31 +357,31 @@ config_reader_t::check_cache_config(int num_cores,
             }
         }
 
-        // Associate a cache with its parent_ and children caches.
+        // Associate a cache with its parent and children caches.
         if (cache.parent != CACHE_PARENT_MEMORY) {
             auto parent_it = caches_map.find(cache.parent);
             if (parent_it != caches_map.end()) {
-                auto &parent_ = parent_it->second;
+                auto &parent = parent_it->second;
                 // Check that the cache types are compatible.
-                if (parent_.type != CACHE_TYPE_UNIFIED && cache.type != parent_.type) {
-                    ERRMSG("Cache %s and its parent_ have incompatible types\n",
+                if (parent.type != CACHE_TYPE_UNIFIED && cache.type != parent.type) {
+                    ERRMSG("Cache %s and its parent have incompatible types\n",
                            cache_name.c_str());
                     return false;
                 }
 
-                // Add the cache to its parent_s children.
-                parent_.children.push_back(cache_name);
+                // Add the cache to its parents children.
+                parent.children.push_back(cache_name);
             } else {
-                ERRMSG("Cache %s has a listed parent_ %s that does not exist\n",
+                ERRMSG("Cache %s has a listed parent %s that does not exist\n",
                        cache_name.c_str(), cache.parent.c_str());
                 return false;
             }
 
-            // Check for cycles between the cache and its parent_.
+            // Check for cycles between the cache and its parent.
             std::string parent = cache.parent;
             while (parent != CACHE_PARENT_MEMORY) {
                 if (parent == cache_name) {
-                    ERRMSG("Cache %s & its parent_ %s have a cyclic reference\n",
+                    ERRMSG("Cache %s & its parent %s have a cyclic reference\n",
                            cache_name.c_str(), cache.parent.c_str());
                     return false;
                 }

@@ -62,17 +62,17 @@ caching_device_t::init(int associativity, int block_size, int num_blocks,
                        int id, snoop_filter_t *snoop_filter,
                        const std::vector<caching_device_t *> &children)
 {
-    if (!IS_POWER_OF_2(associativity_) || !IS_POWER_OF_2(block_size_) ||
-        !IS_POWER_OF_2(num_blocks_) ||
+    if (!IS_POWER_OF_2(associativity) || !IS_POWER_OF_2(block_size) ||
+        !IS_POWER_OF_2(num_blocks) ||
         // Assuming caching device block size is at least 4 bytes
-        block_size_ < 4)
+        block_size < 4)
         return false;
-    if (stats_ == NULL)
+    if (stats == NULL)
         return false; // A stats must be provided for perf: avoid conditional code
-    else if (!*stats_)
+    else if (!*stats)
         return false;
     associativity_ = associativity;
-    block_size = block_size;
+    block_size_ = block_size;
     num_blocks_ = num_blocks;
     loaded_blocks_ = 0;
     blocks_per_set_ = num_blocks_ / associativity;
@@ -103,7 +103,7 @@ void
 caching_device_t::request(const memref_t &memref_in)
 {
     // Unfortunately we need to make a copy for our loop so we can pass
-    // the right data struct to the parent_ and stats collectors.
+    // the right data struct to the parent and stats collectors.
     memref_t memref;
     // We support larger sizes to improve the IPC perf.
     // This means that one memref could touch multiple blocks.
@@ -156,7 +156,7 @@ caching_device_t::request(const memref_t &memref_in)
                     snoop_filter_->snoop(tag, id_,
                                          (memref.data.type == TRACE_TYPE_WRITE));
                 } else if (parent_ != NULL) {
-                    // On a miss, the parent_ access will inherently propagate the write.
+                    // On a miss, the parent access will inherently propagate the write.
                     parent_->propagate_write(tag, this);
                 }
             }
@@ -168,7 +168,7 @@ caching_device_t::request(const memref_t &memref_in)
 
             stats_->access(memref, false /*miss*/, cache_block);
             missed = true;
-            // If no parent_ we assume we get the data from main memory
+            // If no parent we assume we get the data from main memory
             if (parent_ != NULL) {
                 parent_->stats_->child_access(memref, false, cache_block);
                 parent_->request(memref);
@@ -209,7 +209,7 @@ caching_device_t::request(const memref_t &memref_in)
                             // Inform snoop filter of evicted line.
                             snoop_filter_->snoop_eviction(victim_tag, id_);
                         } else if (parent_ != NULL) {
-                            // Inform parent_ of evicted line.
+                            // Inform parent of evicted line.
                             parent_->propagate_eviction(victim_tag, this);
                         }
                     }
