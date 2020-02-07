@@ -120,10 +120,10 @@ private:
     // instructions that miss in the LLC.
     // Key is the PC of the load instruction.
     // Value is a vector of data memory cache line addresses.
-    std::unordered_map<addr_t, std::vector<addr_t>> pc_cache_misses;
+    std::unordered_map<addr_t, std::vector<addr_t>> pc_cache_misses_;
 
     // Total number of LLC misses added to the hash map above.
-    int total_misses = 0;
+    int total_misses_ = 0;
 };
 
 class cache_miss_analyzer_t : public cache_simulator_t {
@@ -151,10 +151,10 @@ public:
     print_results() override;
 
 private:
-    cache_miss_stats_t *ll_stats;
+    cache_miss_stats_t *ll_stats_;
 
     // Recommendations are written to this file for use by the LLVM compiler.
-    std::string recommendation_file = "";
+    std::string recommendation_file_ = "";
 };
 
 #endif /* _CACHE_MISS_ANALYZER_H_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -77,27 +77,27 @@ public:
     caching_device_stats_t *
     get_stats() const
     {
-        return stats;
+        return stats_;
     }
     void
-    set_stats(caching_device_stats_t *stats_)
+    set_stats(caching_device_stats_t *stats)
     {
-        stats = stats_;
+        stats_ = stats;
     }
     prefetcher_t *
     get_prefetcher() const
     {
-        return prefetcher;
+        return prefetcher_;
     }
     caching_device_t *
     get_parent() const
     {
-        return parent;
+        return parent_;
     }
     inline double
     get_loaded_fraction() const
     {
-        return double(loaded_blocks) / num_blocks;
+        return double(loaded_blocks_) / num_blocks_;
     }
 
 protected:
@@ -109,58 +109,58 @@ protected:
     inline addr_t
     compute_tag(addr_t addr)
     {
-        return addr >> block_size_bits;
+        return addr >> block_size_bits_;
     }
     inline int
     compute_block_idx(addr_t tag)
     {
-        return (tag & blocks_per_set_mask) << assoc_bits;
+        return (tag & blocks_per_set_mask_) << assoc_bits_;
     }
     inline caching_device_block_t &
     get_caching_device_block(int block_idx, int way)
     {
-        return *(blocks[block_idx + way]);
+        return *(blocks_[block_idx + way]);
     }
     // a pure virtual function for subclasses to initialize their own block array
     virtual void
     init_blocks() = 0;
 
-    int associativity;
-    int block_size;
-    int num_blocks;
-    bool coherent_cache;
+    int associativity_;
+    int block_size_;
+    int num_blocks_;
+    bool coherent_cache_;
     // This is an index into snoop filter's array of caches.
-    int id;
+    int id_;
 
     // Current valid blocks in the cache
-    int loaded_blocks;
+    int loaded_blocks_;
 
     // Pointers to the caching device's parent and children devices.
-    caching_device_t *parent;
-    std::vector<caching_device_t *> children;
+    caching_device_t *parent_;
+    std::vector<caching_device_t *> children_;
 
-    snoop_filter_t *snoop_filter;
+    snoop_filter_t *snoop_filter_;
 
     // If true, this device is inclusive of its children.
-    bool inclusive;
+    bool inclusive_;
 
     // This should be an array of caching_device_block_t pointers, otherwise
     // an extended block class which has its own member variables cannot be indexed
     // correctly by base class pointers.
-    caching_device_block_t **blocks;
-    int blocks_per_set;
+    caching_device_block_t **blocks_;
+    int blocks_per_set_;
     // Optimization fields for fast bit operations
-    int blocks_per_set_mask;
-    int assoc_bits;
-    int block_size_bits;
+    int blocks_per_set_mask_;
+    int assoc_bits_;
+    int block_size_bits_;
 
-    caching_device_stats_t *stats;
-    prefetcher_t *prefetcher;
+    caching_device_stats_t *stats_;
+    prefetcher_t *prefetcher_;
 
     // Optimization: remember last tag
-    addr_t last_tag;
-    int last_way;
-    int last_block_idx;
+    addr_t last_tag_;
+    int last_way_;
+    int last_block_idx_;
 };
 
 #endif /* _CACHING_DEVICE_H_ */

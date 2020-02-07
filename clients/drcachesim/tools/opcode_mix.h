@@ -77,8 +77,8 @@ protected:
             , instr_count(0)
         {
         }
-        shard_data_t(worker_data_t *worker_in)
-            : worker(worker_in)
+        shard_data_t(worker_data_t *worker)
+            : worker(worker)
             , instr_count(0)
             , last_trace_module_start(nullptr)
             , last_trace_module_size(0)
@@ -94,22 +94,23 @@ protected:
         app_pc last_mapped_module_start;
     };
 
-    void *dcontext;
-    std::string module_file_path;
-    std::unique_ptr<module_mapper_t> module_mapper;
-    std::mutex mapper_mutex;
+    void *dcontext_;
+    std::string module_file_path_;
+    std::unique_ptr<module_mapper_t> module_mapper_;
+    std::mutex mapper_mutex_;
+
     // We reference directory.modfile_bytes throughout operation, so its lifetime
     // must match ours.
-    raw2trace_directory_t directory;
-    std::unordered_map<memref_tid_t, shard_data_t *> shard_map;
+    raw2trace_directory_t directory_;
+    std::unordered_map<memref_tid_t, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
-    std::mutex shard_map_mutex;
-    unsigned int knob_verbose;
+    std::mutex shard_map_mutex_;
+    unsigned int knob_verbose_;
     static const std::string TOOL_NAME;
     // For serial operation.
-    worker_data_t serial_worker;
-    shard_data_t serial_shard;
+    worker_data_t serial_worker_;
+    shard_data_t serial_shard_;
 };
 
 #endif /* _OPCODE_MIX_H_ */

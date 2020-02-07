@@ -71,28 +71,28 @@ protected:
     virtual cache_t *
     create_cache(const std::string &policy);
 
-    cache_simulator_knobs_t knobs;
+    cache_simulator_knobs_t knobs_;
 
     // Implement a set of ICaches and DCaches with pointer arrays.
     // This is useful for implementing polymorphism correctly.
-    cache_t **l1_icaches;
-    cache_t **l1_dcaches;
+    cache_t **l1_icaches_;
+    cache_t **l1_dcaches_;
     // This is an array of coherent caches for the snoop filter.
     // Cache IDs index into this array.
-    cache_t **snooped_caches;
+    cache_t **snooped_caches_;
 
     // The following unordered maps map a cache's name to a pointer to it.
-    std::unordered_map<std::string, cache_t *> llcaches;     // LLC(s)
-    std::unordered_map<std::string, cache_t *> other_caches; // Non-L1, non-LLC caches
-    std::unordered_map<std::string, cache_t *> all_caches;   // All caches.
+    std::unordered_map<std::string, cache_t *> llcaches_;     // LLC(s)
+    std::unordered_map<std::string, cache_t *> other_caches_; // Non-L1, non-LLC caches
+    std::unordered_map<std::string, cache_t *> all_caches_;   // All caches.
     // This is a list of non-coherent caches for shared caches above snoop filter.
-    std::unordered_map<std::string, cache_t *> non_coherent_caches;
+    std::unordered_map<std::string, cache_t *> non_coherent_caches_;
 
     // Snoop filter tracks ownership of cache lines across private caches.
-    snoop_filter_t *snoop_filter = nullptr;
+    snoop_filter_t *snoop_filter_ = nullptr;
 
 private:
-    bool is_warmed_up;
+    bool is_warmed_up_;
 };
 
 #endif /* _CACHE_SIMULATOR_H_ */

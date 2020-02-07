@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,12 +47,12 @@
 #define OUT /* just a marker */
 
 #ifdef DEBUG
-#    define VPRINT(reader, level, ...)                           \
-        do {                                                     \
-            if ((reader)->verbosity >= (level)) {                \
-                fprintf(stderr, "%s ", (reader)->output_prefix); \
-                fprintf(stderr, __VA_ARGS__);                    \
-            }                                                    \
+#    define VPRINT(reader, level, ...)                            \
+        do {                                                      \
+            if ((reader)->verbosity_ >= (level)) {                \
+                fprintf(stderr, "%s ", (reader)->output_prefix_); \
+                fprintf(stderr, __VA_ARGS__);                     \
+            }                                                     \
         } while (0)
 #else
 #    define VPRINT(reader, level, ...) /* nothing */
@@ -63,9 +63,9 @@ public:
     reader_t()
     {
     }
-    reader_t(int verbosity_in, const char *prefix)
-        : verbosity(verbosity_in)
-        , output_prefix(prefix)
+    reader_t(int verbosity, const char *prefix)
+        : verbosity_(verbosity)
+        , output_prefix_(prefix)
     {
     }
     virtual ~reader_t()
@@ -86,12 +86,12 @@ public:
     virtual bool
     operator==(const reader_t &rhs) const
     {
-        return BOOLS_MATCH(at_eof, rhs.at_eof);
+        return BOOLS_MATCH(at_eof_, rhs.at_eof_);
     }
     virtual bool
     operator!=(const reader_t &rhs) const
     {
-        return !BOOLS_MATCH(at_eof, rhs.at_eof);
+        return !BOOLS_MATCH(at_eof_, rhs.at_eof_);
     }
 
     virtual reader_t &
@@ -125,21 +125,21 @@ protected:
     // produces an EOF object.
     // This should be set to false by subclasses in init() and set
     // back to true when actual EOF is hit.
-    bool at_eof = true;
+    bool at_eof_ = true;
 
-    int verbosity = 0;
-    const char *output_prefix = "[reader]";
+    int verbosity_ = 0;
+    const char *output_prefix_ = "[reader]";
 
 private:
-    trace_entry_t *input_entry = nullptr;
-    memref_t cur_ref;
-    memref_tid_t cur_tid = 0;
-    memref_pid_t cur_pid = 0;
-    addr_t cur_pc = 0;
-    addr_t next_pc;
-    addr_t prev_instr_addr = 0;
-    int bundle_idx = 0;
-    std::unordered_map<memref_tid_t, memref_pid_t> tid2pid;
+    trace_entry_t *input_entry_ = nullptr;
+    memref_t cur_ref_;
+    memref_tid_t cur_tid_ = 0;
+    memref_pid_t cur_pid_ = 0;
+    addr_t cur_pc_ = 0;
+    addr_t next_pc_;
+    addr_t prev_instr_addr_ = 0;
+    int bundle_idx_ = 0;
+    std::unordered_map<memref_tid_t, memref_pid_t> tid2pid_;
 };
 
 #endif /* _READER_H_ */

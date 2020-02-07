@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,8 +52,8 @@ public:
     // we expect any use of counter to only occur *after* a valid tag is put in place,
     // where for the current replacement code we also set the counter at that time.
     caching_device_block_t()
-        : tag(TAG_INVALID)
-        , counter(0)
+        : tag_(TAG_INVALID)
+        , counter_(0)
     {
     }
     // Destructor must be virtual and default is not.
@@ -61,12 +61,12 @@ public:
     {
     }
 
-    addr_t tag;
+    addr_t tag_;
 
     // XXX: using int_least64_t here results in a ~4% slowdown for 32-bit apps.
     // A 32-bit counter should be sufficient but we may want to revisit.
     // We already have stdint.h so we can reinstate int_least64_t easily.
-    int counter; // for use by replacement policies
+    int counter_; // for use by replacement policies
 };
 
 #endif /* _CACHING_DEVICE_BLOCK_H_ */

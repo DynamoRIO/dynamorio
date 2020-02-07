@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,62 +39,62 @@
 #include <assert.h>
 
 caching_device_t::caching_device_t()
-    : blocks(NULL)
-    , stats(NULL)
-    , prefetcher(NULL)
+    : blocks_(NULL)
+    , stats_(NULL)
+    , prefetcher_(NULL)
 {
     /* Empty. */
 }
 
 caching_device_t::~caching_device_t()
 {
-    if (blocks == NULL)
+    if (blocks_ == NULL)
         return;
-    for (int i = 0; i < num_blocks; i++)
-        delete blocks[i];
-    delete[] blocks;
+    for (int i = 0; i < num_blocks_; i++)
+        delete blocks_[i];
+    delete[] blocks_;
 }
 
 bool
-caching_device_t::init(int associativity_, int block_size_, int num_blocks_,
-                       caching_device_t *parent_, caching_device_stats_t *stats_,
-                       prefetcher_t *prefetcher_, bool inclusive_, bool coherent_cache_,
-                       int id_, snoop_filter_t *snoop_filter_,
-                       const std::vector<caching_device_t *> &children_)
+caching_device_t::init(int associativity, int block_size, int num_blocks,
+                       caching_device_t *parent, caching_device_stats_t *stats,
+                       prefetcher_t *prefetcher, bool inclusive, bool coherent_cache,
+                       int id, snoop_filter_t *snoop_filter,
+                       const std::vector<caching_device_t *> &children)
 {
-    if (!IS_POWER_OF_2(associativity_) || !IS_POWER_OF_2(block_size_) ||
-        !IS_POWER_OF_2(num_blocks_) ||
+    if (!IS_POWER_OF_2(associativity) || !IS_POWER_OF_2(block_size) ||
+        !IS_POWER_OF_2(num_blocks) ||
         // Assuming caching device block size is at least 4 bytes
-        block_size_ < 4)
+        block_size < 4)
         return false;
-    if (stats_ == NULL)
+    if (stats == NULL)
         return false; // A stats must be provided for perf: avoid conditional code
-    else if (!*stats_)
+    else if (!*stats)
         return false;
-    associativity = associativity_;
-    block_size = block_size_;
-    num_blocks = num_blocks_;
-    loaded_blocks = 0;
-    blocks_per_set = num_blocks / associativity;
-    assoc_bits = compute_log2(associativity);
-    block_size_bits = compute_log2(block_size);
-    blocks_per_set_mask = blocks_per_set - 1;
-    if (assoc_bits == -1 || block_size_bits == -1 || !IS_POWER_OF_2(blocks_per_set))
+    associativity_ = associativity;
+    block_size_ = block_size;
+    num_blocks_ = num_blocks;
+    loaded_blocks_ = 0;
+    blocks_per_set_ = num_blocks_ / associativity;
+    assoc_bits_ = compute_log2(associativity_);
+    block_size_bits_ = compute_log2(block_size);
+    blocks_per_set_mask_ = blocks_per_set_ - 1;
+    if (assoc_bits_ == -1 || block_size_bits_ == -1 || !IS_POWER_OF_2(blocks_per_set_))
         return false;
-    parent = parent_;
-    stats = stats_;
-    prefetcher = prefetcher_;
-    id = id_;
-    snoop_filter = snoop_filter_;
-    coherent_cache = coherent_cache_;
+    parent_ = parent;
+    stats_ = stats;
+    prefetcher_ = prefetcher;
+    id_ = id;
+    snoop_filter_ = snoop_filter;
+    coherent_cache_ = coherent_cache;
 
-    blocks = new caching_device_block_t *[num_blocks];
+    blocks_ = new caching_device_block_t *[num_blocks_];
     init_blocks();
 
-    last_tag = TAG_INVALID; // sentinel
+    last_tag_ = TAG_INVALID; // sentinel
 
-    inclusive = inclusive_;
-    children = children_;
+    inclusive_ = inclusive;
+    children_ = children;
 
     return true;
 }
@@ -113,15 +113,15 @@ caching_device_t::request(const memref_t &memref_in)
     addr_t tag = compute_tag(memref_in.data.addr);
 
     // Optimization: check last tag if single-block
-    if (tag == final_tag && tag == last_tag && memref_in.data.type != TRACE_TYPE_WRITE) {
-        // Make sure last_tag is properly in sync.
+    if (tag == final_tag && tag == last_tag_ && memref_in.data.type != TRACE_TYPE_WRITE) {
+        // Make sure last_tag_ is properly in sync.
         caching_device_block_t *cache_block =
-            &get_caching_device_block(last_block_idx, last_way);
-        assert(tag != TAG_INVALID && tag == cache_block->tag);
-        stats->access(memref_in, true /*hit*/, cache_block);
-        if (parent != NULL)
-            parent->stats->child_access(memref_in, true, cache_block);
-        access_update(last_block_idx, last_way);
+            &get_caching_device_block(last_block_idx_, last_way_);
+        assert(tag != TAG_INVALID && tag == cache_block->tag_);
+        stats_->access(memref_in, true /*hit*/, cache_block);
+        if (parent_ != NULL)
+            parent_->stats_->child_access(memref_in, true, cache_block);
+        access_update(last_block_idx_, last_way_);
         return;
     }
 
@@ -132,31 +132,32 @@ caching_device_t::request(const memref_t &memref_in)
         bool missed = false;
 
         if (tag + 1 <= final_tag)
-            memref.data.size = ((tag + 1) << block_size_bits) - memref.data.addr;
+            memref.data.size = ((tag + 1) << block_size_bits_) - memref.data.addr;
 
-        for (way = 0; way < associativity; ++way) {
+        for (way = 0; way < associativity_; ++way) {
             caching_device_block_t *cache_block =
                 &get_caching_device_block(block_idx, way);
-            if (cache_block->tag == tag) {
+            if (cache_block->tag_ == tag) {
                 break;
             }
         }
 
-        if (way != associativity) {
+        if (way != associativity_) {
             // Access is a hit.
             caching_device_block_t *cache_block =
                 &get_caching_device_block(block_idx, way);
-            stats->access(memref, true /*hit*/, cache_block);
-            if (parent != NULL)
-                parent->stats->child_access(memref, true, cache_block);
-            if (coherent_cache && memref.data.type == TRACE_TYPE_WRITE) {
+            stats_->access(memref, true /*hit*/, cache_block);
+            if (parent_ != NULL)
+                parent_->stats_->child_access(memref, true, cache_block);
+            if (coherent_cache_ && memref.data.type == TRACE_TYPE_WRITE) {
                 // On a hit, we must notify the snoop filter of the write or propagate
                 // the write to a snooped cache.
-                if (snoop_filter != NULL) {
-                    snoop_filter->snoop(tag, id, (memref.data.type == TRACE_TYPE_WRITE));
-                } else if (parent != NULL) {
+                if (snoop_filter_ != NULL) {
+                    snoop_filter_->snoop(tag, id_,
+                                         (memref.data.type == TRACE_TYPE_WRITE));
+                } else if (parent_ != NULL) {
                     // On a miss, the parent access will inherently propagate the write.
-                    parent->propagate_write(tag, this);
+                    parent_->propagate_write(tag, this);
                 }
             }
         } else {
@@ -165,38 +166,38 @@ caching_device_t::request(const memref_t &memref_in)
             caching_device_block_t *cache_block =
                 &get_caching_device_block(block_idx, way);
 
-            stats->access(memref, false /*miss*/, cache_block);
+            stats_->access(memref, false /*miss*/, cache_block);
             missed = true;
             // If no parent we assume we get the data from main memory
-            if (parent != NULL) {
-                parent->stats->child_access(memref, false, cache_block);
-                parent->request(memref);
+            if (parent_ != NULL) {
+                parent_->stats_->child_access(memref, false, cache_block);
+                parent_->request(memref);
             }
-            if (snoop_filter != NULL) {
+            if (snoop_filter_ != NULL) {
                 // Update snoop filter, other private caches invalidated on write.
-                snoop_filter->snoop(tag, id, (memref.data.type == TRACE_TYPE_WRITE));
+                snoop_filter_->snoop(tag, id_, (memref.data.type == TRACE_TYPE_WRITE));
             }
 
-            addr_t victim_tag = cache_block->tag;
+            addr_t victim_tag = cache_block->tag_;
             // Check if we are inserting a new block, if we are then increment
             // the block loaded count.
             if (victim_tag == TAG_INVALID) {
-                loaded_blocks++;
+                loaded_blocks_++;
             } else {
-                if (!children.empty() && inclusive) {
-                    for (auto &child : children) {
+                if (!children_.empty() && inclusive_) {
+                    for (auto &child : children_) {
                         child->invalidate(victim_tag, INVALIDATION_INCLUSIVE);
                     }
                 }
-                if (coherent_cache) {
+                if (coherent_cache_) {
                     bool child_holds_tag = false;
-                    if (!children.empty()) {
+                    if (!children_.empty()) {
                         /* We must check child caches to find out if the snoop filter
                          * should clear the ownership bit for this evicted tag.
                          * If any of this cache's children contain the evicted tag the
                          * snoop filter should still consider this cache an owner.
                          */
-                        for (auto &child : children) {
+                        for (auto &child : children_) {
                             if (child->contains_tag(victim_tag)) {
                                 child_holds_tag = true;
                                 break;
@@ -204,36 +205,36 @@ caching_device_t::request(const memref_t &memref_in)
                         }
                     }
                     if (!child_holds_tag) {
-                        if (snoop_filter != NULL) {
+                        if (snoop_filter_ != NULL) {
                             // Inform snoop filter of evicted line.
-                            snoop_filter->snoop_eviction(victim_tag, id);
-                        } else if (parent != NULL) {
+                            snoop_filter_->snoop_eviction(victim_tag, id_);
+                        } else if (parent_ != NULL) {
                             // Inform parent of evicted line.
-                            parent->propagate_eviction(victim_tag, this);
+                            parent_->propagate_eviction(victim_tag, this);
                         }
                     }
                 }
             }
-            cache_block->tag = tag;
+            cache_block->tag_ = tag;
         }
 
         access_update(block_idx, way);
 
         // Issue a hardware prefetch, if any, before we remember the last tag,
         // so we remember this line and not the prefetched line.
-        if (missed && !type_is_prefetch(memref.data.type) && prefetcher != nullptr)
-            prefetcher->prefetch(this, memref);
+        if (missed && !type_is_prefetch(memref.data.type) && prefetcher_ != nullptr)
+            prefetcher_->prefetch(this, memref);
 
         if (tag + 1 <= final_tag) {
-            addr_t next_addr = (tag + 1) << block_size_bits;
+            addr_t next_addr = (tag + 1) << block_size_bits_;
             memref.data.addr = next_addr;
             memref.data.size = final_addr - next_addr + 1 /*undo the -1*/;
         }
 
         // Optimization: remember last tag
-        last_tag = tag;
-        last_way = way;
-        last_block_idx = block_idx;
+        last_tag_ = tag;
+        last_way_ = way;
+        last_block_idx_ = block_idx;
     }
 }
 
@@ -241,7 +242,7 @@ void
 caching_device_t::access_update(int block_idx, int way)
 {
     // We just inc the counter for LFU.  We live with any blip on overflow.
-    get_caching_device_block(block_idx, way).counter++;
+    get_caching_device_block(block_idx, way).counter_++;
 }
 
 int
@@ -252,18 +253,18 @@ caching_device_t::replace_which_way(int block_idx)
     // some other scheme.
     int min_counter = 0; /* avoid "may be used uninitialized" with GCC 4.4.7 */
     int min_way = 0;
-    for (int way = 0; way < associativity; ++way) {
-        if (get_caching_device_block(block_idx, way).tag == TAG_INVALID) {
+    for (int way = 0; way < associativity_; ++way) {
+        if (get_caching_device_block(block_idx, way).tag_ == TAG_INVALID) {
             min_way = way;
             break;
         }
-        if (way == 0 || get_caching_device_block(block_idx, way).counter < min_counter) {
-            min_counter = get_caching_device_block(block_idx, way).counter;
+        if (way == 0 || get_caching_device_block(block_idx, way).counter_ < min_counter) {
+            min_counter = get_caching_device_block(block_idx, way).counter_;
             min_way = way;
         }
     }
     // Clear the counter for LFU.
-    get_caching_device_block(block_idx, min_way).counter = 0;
+    get_caching_device_block(block_idx, min_way).counter_ = 0;
     return min_way;
 }
 
@@ -272,20 +273,20 @@ caching_device_t::invalidate(addr_t tag, invalidation_type_t invalidation_type_)
 {
     int block_idx = compute_block_idx(tag);
 
-    for (int way = 0; way < associativity; ++way) {
+    for (int way = 0; way < associativity_; ++way) {
         auto &cache_block = get_caching_device_block(block_idx, way);
-        if (cache_block.tag == tag) {
-            cache_block.tag = TAG_INVALID;
-            cache_block.counter = 0;
-            stats->invalidate(invalidation_type_);
-            // Invalidate last_tag if it was this tag.
-            if (last_tag == tag) {
-                last_tag = TAG_INVALID;
+        if (cache_block.tag_ == tag) {
+            cache_block.tag_ = TAG_INVALID;
+            cache_block.counter_ = 0;
+            stats_->invalidate(invalidation_type_);
+            // Invalidate last_tag_ if it was this tag.
+            if (last_tag_ == tag) {
+                last_tag_ = TAG_INVALID;
             }
             // Invalidate the block in the children's caches.
-            if (invalidation_type_ == INVALIDATION_INCLUSIVE && inclusive &&
-                !children.empty()) {
-                for (auto &child : children) {
+            if (invalidation_type_ == INVALIDATION_INCLUSIVE && inclusive_ &&
+                !children_.empty()) {
+                for (auto &child : children_) {
                     child->invalidate(tag, invalidation_type_);
                 }
             }
@@ -293,8 +294,8 @@ caching_device_t::invalidate(addr_t tag, invalidation_type_t invalidation_type_)
         }
     }
     // If this is a coherence invalidation, we must invalidate children caches.
-    if (invalidation_type_ == INVALIDATION_COHERENCE && !children.empty()) {
-        for (auto &child : children) {
+    if (invalidation_type_ == INVALIDATION_COHERENCE && !children_.empty()) {
+        for (auto &child : children_) {
             child->invalidate(tag, invalidation_type_);
         }
     }
@@ -305,15 +306,15 @@ bool
 caching_device_t::contains_tag(addr_t tag)
 {
     int block_idx = compute_block_idx(tag);
-    for (int way = 0; way < associativity; way++) {
-        if (get_caching_device_block(block_idx, way).tag == tag) {
+    for (int way = 0; way < associativity_; way++) {
+        if (get_caching_device_block(block_idx, way).tag_ == tag) {
             return true;
         }
     }
-    if (children.empty()) {
+    if (children_.empty()) {
         return false;
     }
-    for (auto &child : children) {
+    for (auto &child : children_) {
         if (child->contains_tag(tag)) {
             return true;
         }
@@ -328,16 +329,16 @@ caching_device_t::propagate_eviction(addr_t tag, const caching_device_t *request
 {
     // Check our own cache for this line.
     int block_idx = compute_block_idx(tag);
-    for (int way = 0; way < associativity; way++) {
-        if (get_caching_device_block(block_idx, way).tag == tag) {
+    for (int way = 0; way < associativity_; way++) {
+        if (get_caching_device_block(block_idx, way).tag_ == tag) {
             return;
         }
     }
 
     // Check if other children contain this line.
-    if (children.size() != 1) {
+    if (children_.size() != 1) {
         // If another child contains the line, we don't need to do anything.
-        for (auto &child : children) {
+        for (auto &child : children_) {
             if (child != requester && child->contains_tag(tag)) {
                 return;
             }
@@ -346,10 +347,10 @@ caching_device_t::propagate_eviction(addr_t tag, const caching_device_t *request
 
     // Neither this cache nor its children hold line,
     // inform snoop filter or propagate eviction.
-    if (snoop_filter != NULL) {
-        snoop_filter->snoop_eviction(tag, id);
-    } else if (parent != NULL) {
-        parent->propagate_eviction(tag, this);
+    if (snoop_filter_ != NULL) {
+        snoop_filter_->snoop_eviction(tag, id_);
+    } else if (parent_ != NULL) {
+        parent_->propagate_eviction(tag, this);
     }
 }
 
@@ -361,16 +362,16 @@ void
 caching_device_t::propagate_write(addr_t tag, const caching_device_t *requester)
 {
     // Invalidate other children.
-    for (auto &child : children) {
+    for (auto &child : children_) {
         if (child != requester) {
             child->invalidate(tag, INVALIDATION_COHERENCE);
         }
     }
 
-    // Propagate write to snoop filter or to parent.
-    if (snoop_filter != NULL) {
-        snoop_filter->snoop(tag, id, true);
-    } else if (parent != NULL) {
-        parent->propagate_write(tag, this);
+    // Propagate write to snoop filter or to parent_.
+    if (snoop_filter_ != NULL) {
+        snoop_filter_->snoop(tag, id_, true);
+    } else if (parent_ != NULL) {
+        parent_->propagate_write(tag, this);
     }
 }

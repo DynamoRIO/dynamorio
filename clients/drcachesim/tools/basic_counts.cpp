@@ -47,14 +47,14 @@ basic_counts_tool_create(unsigned int verbose)
 }
 
 basic_counts_t::basic_counts_t(unsigned int verbose)
-    : knob_verbose(verbose)
+    : knob_verbose_(verbose)
 {
     // Empty.
 }
 
 basic_counts_t::~basic_counts_t()
 {
-    for (auto &iter : shard_map) {
+    for (auto &iter : shard_map_) {
         delete iter.second;
     }
 }
@@ -69,8 +69,8 @@ void *
 basic_counts_t::parallel_shard_init(int shard_index, void *worker_data)
 {
     auto counters = new counters_t;
-    std::lock_guard<std::mutex> guard(shard_map_mutex);
-    shard_map[shard_index] = counters;
+    std::lock_guard<std::mutex> guard(shard_map_mutex_);
+    shard_map_[shard_index] = counters;
     return reinterpret_cast<void *>(counters);
 }
 
@@ -129,14 +129,14 @@ bool
 basic_counts_t::process_memref(const memref_t &memref)
 {
     counters_t *counters;
-    const auto &lookup = shard_map.find(memref.data.tid);
-    if (lookup == shard_map.end()) {
+    const auto &lookup = shard_map_.find(memref.data.tid);
+    if (lookup == shard_map_.end()) {
         counters = new counters_t;
-        shard_map[memref.data.tid] = counters;
+        shard_map_[memref.data.tid] = counters;
     } else
         counters = lookup->second;
     if (!parallel_shard_memref(reinterpret_cast<void *>(counters), memref)) {
-        error_string = counters->error;
+        error_string_ = counters->error;
         return false;
     }
     return true;
@@ -153,7 +153,7 @@ bool
 basic_counts_t::print_results()
 {
     counters_t total;
-    for (const auto &shard : shard_map) {
+    for (const auto &shard : shard_map_) {
         total += *shard.second;
     }
     std::cerr << TOOL_NAME << " results:\n";
@@ -166,7 +166,7 @@ basic_counts_t::print_results()
     std::cerr << std::setw(12) << total.prefetches << " total prefetches\n";
     std::cerr << std::setw(12) << total.loads << " total data loads\n";
     std::cerr << std::setw(12) << total.stores << " total data stores\n";
-    std::cerr << std::setw(12) << shard_map.size() << " total threads\n";
+    std::cerr << std::setw(12) << shard_map_.size() << " total threads\n";
     std::cerr << std::setw(12) << total.sched_markers << " total scheduling markers\n";
     std::cerr << std::setw(12) << total.xfer_markers << " total transfer markers\n";
     std::cerr << std::setw(12) << total.func_id_markers << " total function id markers\n";
@@ -179,8 +179,8 @@ basic_counts_t::print_results()
     std::cerr << std::setw(12) << total.other_markers << " total other markers\n";
 
     // Print the threads sorted by instrs.
-    std::vector<std::pair<memref_tid_t, counters_t *>> sorted(shard_map.begin(),
-                                                              shard_map.end());
+    std::vector<std::pair<memref_tid_t, counters_t *>> sorted(shard_map_.begin(),
+                                                              shard_map_.end());
     std::sort(sorted.begin(), sorted.end(), cmp_counters);
     for (const auto &keyvals : sorted) {
         std::cerr << "Thread " << keyvals.second->tid << " counts:\n";

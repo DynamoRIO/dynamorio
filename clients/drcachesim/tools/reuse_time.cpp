@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,7 +40,7 @@
 #include "../common/utils.h"
 
 #ifdef DEBUG
-#    define DEBUG_VERBOSE(level) (knob_verbose >= (level))
+#    define DEBUG_VERBOSE(level) (knob_verbose_ >= (level))
 #else
 #    define DEBUG_VERBOSE(level) (false)
 #endif
@@ -54,15 +54,15 @@ reuse_time_tool_create(unsigned int line_size, unsigned int verbose)
 }
 
 reuse_time_t::reuse_time_t(unsigned int line_size, unsigned int verbose)
-    : knob_verbose(verbose)
-    , knob_line_size(line_size)
-    , line_size_bits(compute_log2((int)knob_line_size))
+    : knob_verbose_(verbose)
+    , knob_line_size_(line_size)
+    , line_size_bits_(compute_log2((int)knob_line_size_))
 {
 }
 
 reuse_time_t::~reuse_time_t()
 {
-    for (auto &shard : shard_map) {
+    for (auto &shard : shard_map_) {
         delete shard.second;
     }
 }
@@ -77,8 +77,8 @@ void *
 reuse_time_t::parallel_shard_init(int shard_index, void *worker_data)
 {
     auto shard = new shard_data_t();
-    std::lock_guard<std::mutex> guard(shard_map_mutex);
-    shard_map[shard_index] = shard;
+    std::lock_guard<std::mutex> guard(shard_map_mutex_);
+    shard_map_[shard_index] = shard;
     return reinterpret_cast<void *>(shard);
 }
 
@@ -131,7 +131,7 @@ reuse_time_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
 
     shard->time_stamp++;
-    addr_t line = memref.data.addr >> line_size_bits;
+    addr_t line = memref.data.addr >> line_size_bits_;
     if (shard->time_map.count(line) > 0) {
         int_least64_t reuse_time = shard->time_stamp - shard->time_map[line];
         if (DEBUG_VERBOSE(3)) {
@@ -148,14 +148,14 @@ reuse_time_t::process_memref(const memref_t &memref)
 {
     // For serial operation we index using the tid.
     shard_data_t *shard;
-    const auto &lookup = shard_map.find(memref.data.tid);
-    if (lookup == shard_map.end()) {
+    const auto &lookup = shard_map_.find(memref.data.tid);
+    if (lookup == shard_map_.end()) {
         shard = new shard_data_t();
-        shard_map[memref.data.tid] = shard;
+        shard_map_[memref.data.tid] = shard;
     } else
         shard = lookup->second;
     if (!parallel_shard_memref(reinterpret_cast<void *>(shard), memref)) {
-        error_string = shard->error;
+        error_string_ = shard->error;
         return false;
     }
     return true;
@@ -209,7 +209,7 @@ reuse_time_t::print_results()
 {
     // First, aggregate the per-shard data into whole-trace data.
     auto aggregate = std::unique_ptr<shard_data_t>(new shard_data_t());
-    for (const auto &shard : shard_map) {
+    for (const auto &shard : shard_map_) {
         aggregate->total_instructions += shard.second->total_instructions;
         // We simply sum the accesses.
         aggregate->time_stamp += shard.second->time_stamp;
@@ -222,9 +222,9 @@ reuse_time_t::print_results()
     std::cerr << TOOL_NAME << " aggregated results:\n";
     print_shard_results(aggregate.get());
 
-    if (shard_map.size() > 1) {
+    if (shard_map_.size() > 1) {
         using keyval_t = std::pair<memref_tid_t, shard_data_t *>;
-        std::vector<keyval_t> sorted(shard_map.begin(), shard_map.end());
+        std::vector<keyval_t> sorted(shard_map_.begin(), shard_map_.end());
         std::sort(sorted.begin(), sorted.end(), [](const keyval_t &l, const keyval_t &r) {
             return l.second->time_stamp > r.second->time_stamp;
         });

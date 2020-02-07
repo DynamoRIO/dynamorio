@@ -57,13 +57,13 @@ public:
     // to insert code to re-load the current trace buffer pointer into a register.
     // We require that this is passed at construction time:
     instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
-             bool memref_needs_info, drvector_t *reg_vector_in, size_t instruction_size,
+             bool memref_needs_info, drvector_t *reg_vector, size_t instruction_size,
              bool disable_opts = false)
-        : insert_load_buf_ptr(insert_load_buf)
-        , memref_needs_full_info(memref_needs_info)
-        , reg_vector(reg_vector_in)
-        , disable_optimizations(disable_opts)
-        , instr_size(instruction_size)
+        : insert_load_buf_ptr_(insert_load_buf)
+        , memref_needs_full_info_(memref_needs_info)
+        , reg_vector_(reg_vector)
+        , disable_optimizations_(disable_opts)
+        , instr_size_(instruction_size)
     {
     }
     virtual ~instru_t()
@@ -76,7 +76,7 @@ public:
     size_t
     sizeof_entry() const
     {
-        return instr_size;
+        return instr_size_;
     }
 
     virtual trace_type_t
@@ -140,20 +140,20 @@ public:
                        OUT bool *scratch_used = NULL);
 
 protected:
-    void (*insert_load_buf_ptr)(void *, instrlist_t *, instr_t *, reg_id_t);
+    void (*insert_load_buf_ptr_)(void *, instrlist_t *, instr_t *, reg_id_t);
     // Whether each data ref needs its own PC and type entry (i.e.,
     // this info cannot be inferred from surrounding icache entries).
-    bool memref_needs_full_info;
-    drvector_t *reg_vector;
-    bool disable_optimizations;
+    bool memref_needs_full_info_;
+    drvector_t *reg_vector_;
+    bool disable_optimizations_;
 
 private:
     instru_t()
-        : instr_size(0)
+        : instr_size_(0)
     {
     }
 
-    const size_t instr_size;
+    const size_t instr_size_;
 };
 
 class online_instru_t : public instru_t {
@@ -316,8 +316,8 @@ private:
     insert_save_type_and_size(void *drcontext, instrlist_t *ilist, instr_t *where,
                               reg_id_t reg_ptr, reg_id_t scratch, int adjust,
                               instr_t *app, opnd_t ref, bool write);
-    ssize_t (*write_file_func)(file_t file, const void *data, size_t count);
-    file_t modfile;
+    ssize_t (*write_file_func_)(file_t file, const void *data, size_t count);
+    file_t modfile_;
 
     void
     opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr_t *instr, opnd_t memop,
@@ -326,9 +326,9 @@ private:
 
     // Custom module fields are global (since drmodtrack's support is global, we don't
     // try to pass void* user data params through).
-    static void *(*user_load)(module_data_t *module);
-    static int (*user_print)(void *data, char *dst, size_t max_len);
-    static void (*user_free)(void *data);
+    static void *(*user_load_)(module_data_t *module);
+    static int (*user_print_)(void *data, char *dst, size_t max_len);
+    static void (*user_free_)(void *data);
     static void *
     load_custom_module_data(module_data_t *module);
     static int
@@ -341,8 +341,8 @@ private:
     static CONSTEXPR int LABEL_DATA_ELIDED_MEMOP_INDEX = 1; // Index among memory ops.
     static CONSTEXPR int LABEL_DATA_ELIDED_IS_WRITE = 2;
     static CONSTEXPR int LABEL_DATA_ELIDED_NEEDS_BASE = 3;
-    ptr_uint_t elide_memref_note;
-    bool standalone = false;
+    ptr_uint_t elide_memref_note_;
+    bool standalone_ = false;
 };
 
 #endif /* _INSTRU_H_ */

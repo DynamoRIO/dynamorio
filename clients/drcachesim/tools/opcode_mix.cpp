@@ -52,27 +52,27 @@ opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose
     return new opcode_mix_t(module_file_path, verbose);
 }
 
-opcode_mix_t::opcode_mix_t(const std::string &module_file_path_in, unsigned int verbose)
-    : dcontext(nullptr)
-    , module_file_path(module_file_path_in)
-    , knob_verbose(verbose)
+opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int verbose)
+    : dcontext_(nullptr)
+    , module_file_path_(module_file_path)
+    , knob_verbose_(verbose)
 {
 }
 
 std::string
 opcode_mix_t::initialize()
 {
-    serial_shard.worker = &serial_worker;
-    if (module_file_path.empty())
+    serial_shard_.worker = &serial_worker_;
+    if (module_file_path_.empty())
         return "Module file path is missing";
-    dcontext = dr_standalone_init();
-    std::string error = directory.initialize_module_file(module_file_path);
+    dcontext_ = dr_standalone_init();
+    std::string error = directory_.initialize_module_file(module_file_path_);
     if (!error.empty())
         return "Failed to initialize directory: " + error;
-    module_mapper = module_mapper_t::create(directory.modfile_bytes, nullptr, nullptr,
-                                            nullptr, nullptr, knob_verbose);
-    module_mapper->get_loaded_modules();
-    error = module_mapper->get_last_error();
+    module_mapper_ = module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr,
+                                             nullptr, nullptr, knob_verbose_);
+    module_mapper_->get_loaded_modules();
+    error = module_mapper_->get_last_error();
     if (!error.empty())
         return "Failed to load binaries: " + error;
     return "";
@@ -80,7 +80,7 @@ opcode_mix_t::initialize()
 
 opcode_mix_t::~opcode_mix_t()
 {
-    for (auto &iter : shard_map) {
+    for (auto &iter : shard_map_) {
         delete iter.second;
     }
 }
@@ -111,8 +111,8 @@ opcode_mix_t::parallel_shard_init(int shard_index, void *worker_data)
 {
     worker_data_t *worker = reinterpret_cast<worker_data_t *>(worker_data);
     auto shard = new shard_data_t(worker);
-    std::lock_guard<std::mutex> guard(shard_map_mutex);
-    shard_map[shard_index] = shard;
+    std::lock_guard<std::mutex> guard(shard_map_mutex_);
+    shard_map_[shard_index] = shard;
     return reinterpret_cast<void *>(shard);
 }
 
@@ -141,14 +141,15 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         mapped_pc =
             shard->last_mapped_module_start + (trace_pc - shard->last_trace_module_start);
     } else {
-        std::lock_guard<std::mutex> guard(mapper_mutex);
-        mapped_pc = module_mapper->find_mapped_trace_bounds(
+        std::lock_guard<std::mutex> guard(mapper_mutex_);
+        mapped_pc = module_mapper_->find_mapped_trace_bounds(
             trace_pc, &shard->last_mapped_module_start, &shard->last_trace_module_size);
-        if (!module_mapper->get_last_error().empty()) {
+        if (!module_mapper_->get_last_error().empty()) {
             shard->last_trace_module_start = nullptr;
             shard->last_trace_module_size = 0;
             shard->error = "Failed to find mapped address for " +
-                to_hex_string(memref.instr.addr) + ": " + module_mapper->get_last_error();
+                to_hex_string(memref.instr.addr) + ": " +
+                module_mapper_->get_last_error();
             return false;
         }
         shard->last_trace_module_start =
@@ -160,16 +161,16 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         opcode = cached_opcode->second;
     } else {
         instr_t instr;
-        instr_init(dcontext, &instr);
-        app_pc next_pc = decode(dcontext, mapped_pc, &instr);
+        instr_init(dcontext_, &instr);
+        app_pc next_pc = decode(dcontext_, mapped_pc, &instr);
         if (next_pc == NULL || !instr_valid(&instr)) {
-            error_string =
+            error_string_ =
                 "Failed to decode instruction " + to_hex_string(memref.instr.addr);
             return false;
         }
         opcode = instr_get_opcode(&instr);
         shard->worker->opcode_cache[mapped_pc] = opcode;
-        instr_free(dcontext, &instr);
+        instr_free(dcontext_, &instr);
     }
     ++shard->opcode_counts[opcode];
     return true;
@@ -185,8 +186,8 @@ opcode_mix_t::parallel_shard_error(void *shard_data)
 bool
 opcode_mix_t::process_memref(const memref_t &memref)
 {
-    if (!parallel_shard_memref(reinterpret_cast<void *>(&serial_shard), memref)) {
-        error_string = serial_shard.error;
+    if (!parallel_shard_memref(reinterpret_cast<void *>(&serial_shard_), memref)) {
+        error_string_ = serial_shard_.error;
         return false;
     }
     return true;
@@ -202,10 +203,10 @@ bool
 opcode_mix_t::print_results()
 {
     shard_data_t total(0);
-    if (shard_map.empty()) {
-        total = serial_shard;
+    if (shard_map_.empty()) {
+        total = serial_shard_;
     } else {
-        for (const auto &shard : shard_map) {
+        for (const auto &shard : shard_map_) {
             total.instr_count += shard.second->instr_count;
             for (const auto &keyvals : shard.second->opcode_counts) {
                 total.opcode_counts[keyvals.first] += keyvals.second;
