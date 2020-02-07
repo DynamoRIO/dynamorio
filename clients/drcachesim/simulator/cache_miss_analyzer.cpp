@@ -47,11 +47,11 @@ cache_miss_analyzer_create(const cache_simulator_knobs_t &knobs,
                                      confidence_threshold);
 }
 
-cache_miss_stats_t::cache_miss_stats_t(bool warmup_enabled_, unsigned int line_size,
+cache_miss_stats_t::cache_miss_stats_t(bool warmup_enabled, unsigned int line_size,
                                        unsigned int miss_count_threshold,
                                        double miss_frac_threshold,
                                        double confidence_threshold)
-    : cache_stats_t("", warmup_enabled_, false)
+    : cache_stats_t("", warmup_enabled, false)
     , kLineSize(line_size)
     , kMissCountThreshold(miss_count_threshold)
     , kMissFracThreshold(miss_frac_threshold)

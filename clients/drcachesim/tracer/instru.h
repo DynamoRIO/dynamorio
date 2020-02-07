@@ -289,10 +289,10 @@ public:
 
 private:
     struct custom_module_data_t {
-        custom_module_data_t(const char *base_, size_t size_, void *user_)
-            : base(base_)
-            , size(size_)
-            , user_data(user_)
+        custom_module_data_t(const char *base_in, size_t size_in, void *user_in)
+            : base(base_in)
+            , size(size_in)
+            , user_data(user_in)
         {
         }
         const char *base;
