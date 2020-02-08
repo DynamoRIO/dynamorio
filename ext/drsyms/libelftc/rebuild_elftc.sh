@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+# Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -81,14 +81,23 @@ set -e
 function build_for_bits() {
   bits="$1"
   ld_mode="$2"
+  # We want to directly use DR's allocator instead of relying on its private loader
+  # redirecting in order to support static usage with no loader.
+  # ld is not actually used, so we can't use its -wrap=malloc feature.
+  # Instead we rely on the preprocessor.
+  redir="-Dmalloc=__wrap_malloc -Dcalloc=__wrap_calloc -Drealloc=__wrap_realloc -Dfree=__wrap_free"
   # ${make_cmd} does not notice if you rebuild with a different configuration, so we
   # just make clean.  It builds quickly enough.
-  # XXX: pmake does not seem to clean properly, but bmake is working fine.
+  if [[ "${make_cmd}" -eq "pmake" ]]; then
+      # XXX: pmake does not seem to clean properly, but bmake is working fine.
+      rm */*.so
+      svn status | grep '?' | awk '{print $2}' | xargs rm
+  fi
   ${make_cmd} clean
-  (cd common   && ${make_cmd} COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes all)
-  (cd libelf   && ${make_cmd} COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes libelf_pic.a)
-  (cd libdwarf && ${make_cmd} COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes libdwarf_pic.a)
-  (cd libelftc && ${make_cmd} COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes libelftc_pic.a)
+  (cd common   && ${make_cmd}  COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes all)
+  (cd libelf   && ${make_cmd} COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes libelf_pic.a)
+  (cd libdwarf && ${make_cmd} COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes libdwarf_pic.a)
+  (cd libelftc && ${make_cmd} COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes libelftc_pic.a)
   cp libelf/libelf_pic.a     "${dr_libelftc_dir}/lib${bits}/libelf.a"
   cp libdwarf/libdwarf_pic.a "${dr_libelftc_dir}/lib${bits}/libdwarf.a"
   cp libelftc/libelftc_pic.a "${dr_libelftc_dir}/lib${bits}/libelftc.a"

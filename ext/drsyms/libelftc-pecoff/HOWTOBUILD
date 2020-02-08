@@ -39,14 +39,15 @@ m4 -D SRCDIR=$PWD dwarf_pubtypes.m4 > dwarf_pubtypes.c
 m4 -D SRCDIR=$PWD dwarf_types.m4 > dwarf_types.c
 m4 -D SRCDIR=$PWD dwarf_vars.m4 > dwarf_vars.c
 m4 -D SRCDIR=$PWD dwarf_weaks.m4 > dwarf_weaks.c
-for i in `ls -1 *.c | grep -vE 'libdwarf_elf'`; do cl /nologo /Zi /Fddwarf.pdb /O2 /MT /I. -I../common -I../libelf /c $i || break; done
+REDIR="/Dmalloc=__wrap_malloc /Dcalloc=__wrap_calloc /Drealloc=__wrap_realloc /Dfree=__wrap_free"
+for i in `ls -1 *.c | grep -vE 'libdwarf_elf'`; do cl /nologo /Zi /Fddwarf.pdb /O2 /MT /I. -I../common -I../libelf ${REDIR} /c $i || break; done
 lib /out:dwarf.lib /name:dwarf *.obj
 cd ..
 
 5) Build libelftc/elftc.{lib,pdb}:
 
 cd libelftc/
-for i in *.c; do cl /nologo /Zi /Fdelftc.pdb /O2 /MT /I. -I../common -I../libelf /c $i || break; done
+for i in *.c; do cl /nologo /Zi /Fdelftc.pdb /O2 /MT /I. -I../common -I../libelf ${REDIR} /c $i || break; done
 lib /out:elftc.lib /name:elftc *.obj
 cd ..
 

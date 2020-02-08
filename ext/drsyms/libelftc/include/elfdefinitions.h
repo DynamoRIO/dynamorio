@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: elfdefinitions.h 3247 2015-09-22 16:57:51Z emaste $
+ * $Id: elfdefinitions.h 3788 2020-01-11 19:37:54Z jkoshy $
  */
 
 /*
@@ -72,7 +72,39 @@ _ELF_DEFINE_DF(DF_TEXTREL,          0x4,                        \
 _ELF_DEFINE_DF(DF_BIND_NOW,         0x8,                        \
         "process relocation entries at load time")                \
 _ELF_DEFINE_DF(DF_STATIC_TLS,       0x10,                        \
-        "uses static thread-local storage")
+        "uses static thread-local storage")                        \
+_ELF_DEFINE_DF(DF_1_BIND_NOW,       0x1,                        \
+        "process relocation entries at load time")                \
+_ELF_DEFINE_DF(DF_1_GLOBAL,         0x2,                        \
+        "unused")                                                \
+_ELF_DEFINE_DF(DF_1_GROUP,          0x4,                        \
+        "object is a member of a group")                        \
+_ELF_DEFINE_DF(DF_1_NODELETE,       0x8,                        \
+        "object cannot be deleted from a process")                \
+_ELF_DEFINE_DF(DF_1_LOADFLTR,       0x10,                        \
+        "immediate load filtees")                                \
+_ELF_DEFINE_DF(DF_1_INITFIRST,      0x20,                        \
+        "initialize object first")                                \
+_ELF_DEFINE_DF(DF_1_NOOPEN,         0x40,                        \
+        "disallow dlopen()")                                        \
+_ELF_DEFINE_DF(DF_1_ORIGIN,         0x80,                        \
+        "object being loaded may refer to $ORIGIN")                \
+_ELF_DEFINE_DF(DF_1_DIRECT,         0x100,                        \
+        "direct bindings enabled")                                \
+_ELF_DEFINE_DF(DF_1_INTERPOSE,      0x400,                        \
+        "object is interposer")                                        \
+_ELF_DEFINE_DF(DF_1_NODEFLIB,       0x800,                        \
+        "ignore default library search path")                        \
+_ELF_DEFINE_DF(DF_1_NODUMP,         0x1000,                        \
+        "disallow dldump()")                                        \
+_ELF_DEFINE_DF(DF_1_CONFALT,        0x2000,                        \
+        "object is a configuration alternative")                \
+_ELF_DEFINE_DF(DF_1_ENDFILTEE,      0x4000,                        \
+        "filtee terminates filter search")                        \
+_ELF_DEFINE_DF(DF_1_DISPRELDNE,     0x8000,                        \
+        "displacement relocation done")                                \
+_ELF_DEFINE_DF(DF_1_DISPRELPND,     0x10000,                        \
+        "displacement relocation pending")
 #undef        _ELF_DEFINE_DF
 #define        _ELF_DEFINE_DF(N, V, DESCR)        N = V ,
 enum {
@@ -153,6 +185,8 @@ _ELF_DEFINE_DT(DT_SUNW_FILTER,      0x6000000FUL,                        \
         "offset of string naming standard filtees")                        \
 _ELF_DEFINE_DT(DT_SUNW_CAP,         0x60000010UL,                        \
         "address of hardware capabilities section")                        \
+_ELF_DEFINE_DT(DT_SUNW_ASLR,        0x60000023UL,                        \
+        "Address Space Layout Randomization flag")                        \
 _ELF_DEFINE_DT(DT_HIOS,             0x6FFFF000UL,                        \
         "end of OS-specific types")                                        \
 _ELF_DEFINE_DT(DT_VALRNGLO,         0x6FFFFD00UL,                        \
@@ -184,6 +218,10 @@ _ELF_DEFINE_DT(DT_ADDRRNGLO,        0x6FFFFE00UL,                        \
         "start of range using the d_ptr field")                                \
 _ELF_DEFINE_DT(DT_GNU_HASH,            0x6FFFFEF5UL,                        \
         "GNU style hash tables")                                        \
+_ELF_DEFINE_DT(DT_TLSDESC_PLT,            0x6FFFFEF6UL,                        \
+        "location of PLT entry for TLS descriptor resolver calls")        \
+_ELF_DEFINE_DT(DT_TLSDESC_GOT,            0x6FFFFEF7UL,                        \
+        "location of GOT entry used by TLS descriptor resolver PLT entry") \
 _ELF_DEFINE_DT(DT_GNU_CONFLICT,     0x6FFFFEF8UL,                        \
         "address of conflict section")                                        \
 _ELF_DEFINE_DT(DT_GNU_LIBLIST,      0x6FFFFEF9UL,                        \
@@ -269,7 +307,7 @@ _ELF_DEFINE_DT(DT_MIPS_DELTA_RELOC, 0x7000001BUL,                        \
 _ELF_DEFINE_DT(DT_MIPS_DELTA_RELOC_NO, 0x7000001CUL,                        \
         "number of entries in DT_MIPS_DELTA_RELOC")                        \
 _ELF_DEFINE_DT(DT_MIPS_DELTA_SYM,   0x7000001DUL,                        \
-        "Delta symbols refered by Delta relocations")                        \
+        "Delta symbols referred by Delta relocations")                        \
 _ELF_DEFINE_DT(DT_MIPS_DELTA_SYM_NO, 0x7000001EUL,                        \
         "number of entries in DT_MIPS_DELTA_SYM")                        \
 _ELF_DEFINE_DT(DT_MIPS_DELTA_CLASSSYM, 0x70000020UL,                        \
@@ -540,6 +578,9 @@ _ELF_DEFINE_EABI(ELFOSABI_NSK,        14,                                \
 _ELF_DEFINE_EABI(ELFOSABI_AROS,       15, "Amiga Research OS")                \
 _ELF_DEFINE_EABI(ELFOSABI_FENIXOS,    16,                                \
         "The FenixOS highly scalable multi-core OS")                        \
+_ELF_DEFINE_EABI(ELFOSABI_CLOUDABI,   17, "Nuxi CloudABI")                \
+_ELF_DEFINE_EABI(ELFOSABI_OPENVOS,    18,                                 \
+        "Stratus Technologies OpenVOS")                                        \
 _ELF_DEFINE_EABI(ELFOSABI_ARM_AEABI,  64,                                \
         "ARM specific symbol versioning extensions")                        \
 _ELF_DEFINE_EABI(ELFOSABI_ARM,        97, "ARM ABI")                        \
@@ -743,8 +784,7 @@ _ELF_DEFINE_EM(EM_TRIMEDIA,         163,                                \
 _ELF_DEFINE_EM(EM_QDSP6,            164, "QUALCOMM DSP6 Processor")        \
 _ELF_DEFINE_EM(EM_8051,             165, "Intel 8051 and variants")        \
 _ELF_DEFINE_EM(EM_STXP7X,           166,                                \
-        "STMicroelectronics STxP7x family of configurable and extensible "\
-        "RISC processors") \
+        "STMicroelectronics STxP7x family of configurable and extensible RISC processors") \
 _ELF_DEFINE_EM(EM_NDS32,            167,                                \
         "Andes Technology compact code size embedded RISC processor family") \
 _ELF_DEFINE_EM(EM_ECOG1,            168,                                \
@@ -915,6 +955,12 @@ _ELF_DEFINE_PT(PT_GNU_STACK,            0x6474E551UL,                \
         "Stack flags")                                                \
 _ELF_DEFINE_PT(PT_GNU_RELRO,            0x6474E552UL,                \
         "Segment becomes read-only after relocation")                \
+_ELF_DEFINE_PT(PT_OPENBSD_RANDOMIZE,0x65A3DBE6UL,                \
+        "Segment filled with random data")                        \
+_ELF_DEFINE_PT(PT_OPENBSD_WXNEEDED, 0x65A3DBE7UL,                \
+        "Program violates W^X")                                        \
+_ELF_DEFINE_PT(PT_OPENBSD_BOOTDATA, 0x65A41BE6UL,                \
+        "Boot data")                                                \
 _ELF_DEFINE_PT(PT_SUNWBSS,          0x6FFFFFFAUL,                \
         "A Solaris .SUNW_bss section")                                \
 _ELF_DEFINE_PT(PT_SUNWSTACK,        0x6FFFFFFBUL,                \
@@ -1194,7 +1240,7 @@ _ELF_DEFINE_SHT(SHT_MIPS_ABIFLAGS,   0x7000002AUL,                        \
         "ABI flags")                                                        \
 _ELF_DEFINE_SHT(SHT_SPARC_GOTDATA,   0x70000000UL,                        \
         "SPARC-specific data")                                                \
-_ELF_DEFINE_SHT(SHT_AMD64_UNWIND,    0x70000001UL,                        \
+_ELF_DEFINE_SHT(SHT_X86_64_UNWIND,   0x70000001UL,                        \
         "unwind tables for the AMD64")                                        \
 _ELF_DEFINE_SHT(SHT_ORDERED,         0x7FFFFFFFUL,                        \
         "sort entries in the section")                                        \
@@ -1213,6 +1259,7 @@ enum {
 };
 
 /* Aliases for section types. */
+#define        SHT_AMD64_UNWIND        SHT_X86_64_UNWIND
 #define        SHT_GNU_verdef                SHT_SUNW_verdef
 #define        SHT_GNU_verneed                SHT_SUNW_verneed
 #define        SHT_GNU_versym                SHT_SUNW_versym
@@ -1229,6 +1276,7 @@ _ELF_DEFINE_STB(STB_GLOBAL,          1,                                        \
 _ELF_DEFINE_STB(STB_WEAK,            2,                                        \
         "visible across all object files but with low precedence")        \
 _ELF_DEFINE_STB(STB_LOOS,            10, "start of OS-specific range")        \
+_ELF_DEFINE_STB(STB_GNU_UNIQUE,      10, "unique symbol (GNU)")                \
 _ELF_DEFINE_STB(STB_HIOS,            12, "end of OS-specific range")        \
 _ELF_DEFINE_STB(STB_LOPROC,          13,                                \
         "start of processor-specific range")                                \
@@ -1255,11 +1303,13 @@ _ELF_DEFINE_STT(STT_FILE,            4, "source file")                        \
 _ELF_DEFINE_STT(STT_COMMON,          5, "uninitialized common block")        \
 _ELF_DEFINE_STT(STT_TLS,             6, "thread local storage")                \
 _ELF_DEFINE_STT(STT_LOOS,            10, "start of OS-specific types")        \
+_ELF_DEFINE_STT(STT_GNU_IFUNC,       10, "indirect function")        \
 _ELF_DEFINE_STT(STT_HIOS,            12, "end of OS-specific types")        \
 _ELF_DEFINE_STT(STT_LOPROC,          13,                                \
         "start of processor-specific types")                                \
 _ELF_DEFINE_STT(STT_ARM_TFUNC,       13, "Thumb function (GNU)")        \
 _ELF_DEFINE_STT(STT_ARM_16BIT,       15, "Thumb label (GNU)")                \
+_ELF_DEFINE_STT(STT_SPARC_REGISTER,  13, "SPARC register information")        \
 _ELF_DEFINE_STT(STT_HIPROC,          15,                                \
         "end of processor-specific types")
 
@@ -1396,21 +1446,168 @@ _ELF_DEFINE_RELOC(R_386_GOT32,                3)        \
 _ELF_DEFINE_RELOC(R_386_PLT32,                4)        \
 _ELF_DEFINE_RELOC(R_386_COPY,                5)        \
 _ELF_DEFINE_RELOC(R_386_GLOB_DAT,        6)        \
-_ELF_DEFINE_RELOC(R_386_JMP_SLOT,        7)        \
+_ELF_DEFINE_RELOC(R_386_JUMP_SLOT,        7)        \
 _ELF_DEFINE_RELOC(R_386_RELATIVE,        8)        \
 _ELF_DEFINE_RELOC(R_386_GOTOFF,                9)        \
 _ELF_DEFINE_RELOC(R_386_GOTPC,                10)        \
 _ELF_DEFINE_RELOC(R_386_32PLT,                11)        \
+_ELF_DEFINE_RELOC(R_386_TLS_TPOFF,        14)        \
+_ELF_DEFINE_RELOC(R_386_TLS_IE,                15)        \
+_ELF_DEFINE_RELOC(R_386_TLS_GOTIE,        16)        \
+_ELF_DEFINE_RELOC(R_386_TLS_LE,                17)        \
+_ELF_DEFINE_RELOC(R_386_TLS_GD,                18)        \
+_ELF_DEFINE_RELOC(R_386_TLS_LDM,        19)        \
 _ELF_DEFINE_RELOC(R_386_16,                20)        \
 _ELF_DEFINE_RELOC(R_386_PC16,                21)        \
 _ELF_DEFINE_RELOC(R_386_8,                22)        \
-_ELF_DEFINE_RELOC(R_386_PC8,                23)
+_ELF_DEFINE_RELOC(R_386_PC8,                23)        \
+_ELF_DEFINE_RELOC(R_386_TLS_GD_32,        24)        \
+_ELF_DEFINE_RELOC(R_386_TLS_GD_PUSH,        25)        \
+_ELF_DEFINE_RELOC(R_386_TLS_GD_CALL,        26)        \
+_ELF_DEFINE_RELOC(R_386_TLS_GD_POP,        27)        \
+_ELF_DEFINE_RELOC(R_386_TLS_LDM_32,        28)        \
+_ELF_DEFINE_RELOC(R_386_TLS_LDM_PUSH,        29)        \
+_ELF_DEFINE_RELOC(R_386_TLS_LDM_CALL,        30)        \
+_ELF_DEFINE_RELOC(R_386_TLS_LDM_POP,        31)        \
+_ELF_DEFINE_RELOC(R_386_TLS_LDO_32,        32)        \
+_ELF_DEFINE_RELOC(R_386_TLS_IE_32,        33)        \
+_ELF_DEFINE_RELOC(R_386_TLS_LE_32,        34)        \
+_ELF_DEFINE_RELOC(R_386_TLS_DTPMOD32,        35)        \
+_ELF_DEFINE_RELOC(R_386_TLS_DTPOFF32,        36)        \
+_ELF_DEFINE_RELOC(R_386_TLS_TPOFF32,        37)        \
+_ELF_DEFINE_RELOC(R_386_SIZE32,                38)        \
+_ELF_DEFINE_RELOC(R_386_TLS_GOTDESC,        39)        \
+_ELF_DEFINE_RELOC(R_386_TLS_DESC_CALL,        40)        \
+_ELF_DEFINE_RELOC(R_386_TLS_DESC,        41)        \
+_ELF_DEFINE_RELOC(R_386_IRELATIVE,        42)        \
+_ELF_DEFINE_RELOC(R_386_GOT32X,                43)
+
 
 /*
  */
-#define        _ELF_DEFINE_AARCH64_RELOCATIONS()                \
-_ELF_DEFINE_RELOC(R_AARCH64_ABS64,                257)        \
-_ELF_DEFINE_RELOC(R_AARCH64_ABS32,                258)        \
+#define        _ELF_DEFINE_AARCH64_RELOCATIONS()                                \
+_ELF_DEFINE_RELOC(R_AARCH64_NONE,                                0)        \
+_ELF_DEFINE_RELOC(R_AARCH64_ABS64,                                257)        \
+_ELF_DEFINE_RELOC(R_AARCH64_ABS32,                                258)        \
+_ELF_DEFINE_RELOC(R_AARCH64_ABS16,                                259)        \
+_ELF_DEFINE_RELOC(R_AARCH64_PREL64,                                260)        \
+_ELF_DEFINE_RELOC(R_AARCH64_PREL32,                                261)        \
+_ELF_DEFINE_RELOC(R_AARCH64_PREL16,                                262)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_UABS_G0,                        263)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_UABS_G0_NC,                        264)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_UABS_G1,                        265)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_UABS_G1_NC,                        266)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_UABS_G2,                        267)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_UABS_G2_NC,                        268)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_UABS_G3,                        269)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_SABS_G0,                        270)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_SABS_G1,                        271)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_SABS_G2,                        272)        \
+_ELF_DEFINE_RELOC(R_AARCH64_LD_PREL_LO19,                        273)        \
+_ELF_DEFINE_RELOC(R_AARCH64_ADR_PREL_LO21,                        274)        \
+_ELF_DEFINE_RELOC(R_AARCH64_ADR_PREL_PG_HI21,                        275)        \
+_ELF_DEFINE_RELOC(R_AARCH64_ADR_PREL_PG_HI21_NC,                276)        \
+_ELF_DEFINE_RELOC(R_AARCH64_ADD_ABS_LO12_NC,                        277)        \
+_ELF_DEFINE_RELOC(R_AARCH64_LDST8_ABS_LO12_NC,                        278)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TSTBR14,                                279)        \
+_ELF_DEFINE_RELOC(R_AARCH64_CONDBR19,                                280)        \
+_ELF_DEFINE_RELOC(R_AARCH64_JUMP26,                                282)        \
+_ELF_DEFINE_RELOC(R_AARCH64_CALL26,                                283)        \
+_ELF_DEFINE_RELOC(R_AARCH64_LDST16_ABS_LO12_NC,                        284)        \
+_ELF_DEFINE_RELOC(R_AARCH64_LDST32_ABS_LO12_NC,                        285)        \
+_ELF_DEFINE_RELOC(R_AARCH64_LDST64_ABS_LO12_NC,                        286)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_PREL_G0,                        287)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_PREL_G0_NC,                        288)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_PREL_G1,                        289)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_PREL_G1_NC,                        290)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_PREL_G2,                        291)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_PREL_G2_NC,                        292)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_PREL_G3,                        293)        \
+_ELF_DEFINE_RELOC(R_AARCH64_LDST128_ABS_LO12_NC,                299)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_GOTOFF_G0,                        300)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_GOTOFF_G0_NC,                        301)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_GOTOFF_G1,                        302)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_GOTOFF_G1_NC,                        303)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_GOTOFF_G2,                        304)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_GOTOFF_G2_NC,                        305)        \
+_ELF_DEFINE_RELOC(R_AARCH64_MOVW_GOTOFF_G3,                        306)        \
+_ELF_DEFINE_RELOC(R_AARCH64_GOTREL64,                                307)        \
+_ELF_DEFINE_RELOC(R_AARCH64_GOTREL32,                                308)        \
+_ELF_DEFINE_RELOC(R_AARCH64_GOT_LD_PREL19,                        309)        \
+_ELF_DEFINE_RELOC(R_AARCH64_LD64_GOTOFF_LO15,                        310)        \
+_ELF_DEFINE_RELOC(R_AARCH64_ADR_GOT_PAGE,                        311)        \
+_ELF_DEFINE_RELOC(R_AARCH64_LD64_GOT_LO12_NC,                        312)        \
+_ELF_DEFINE_RELOC(R_AARCH64_LD64_GOTPAGE_LO15,                        313)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSGD_ADR_PREL21,                        512)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSGD_ADR_PAGE21,                        513)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSGD_ADD_LO12_NC,                        514)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSGD_MOVW_G1,                        515)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSGD_MOVW_G0_NC,                        516)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_ADR_PREL21,                        517)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_ADR_PAGE21,                        518)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_ADD_LO12_NC,                        519)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_MOVW_G1,                        520)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_MOVW_G0_NC,                        521)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_LD_PREL19,                        522)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_MOVW_DTPREL_G2,                523)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_MOVW_DTPREL_G1,                524)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_MOVW_DTPREL_G1_NC,                525)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_MOVW_DTPREL_G0,                526)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_MOVW_DTPREL_G0_NC,                527)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_ADD_DTPREL_HI12,                529)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_ADD_DTPREL_LO12_NC,                530)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_LDST8_DTPREL_LO12,                531)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_LDST8_DTPREL_LO12_NC,                532)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_LDST16_DTPREL_LO12,                533)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_LDST16_DTPREL_LO12_NC,        534)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_LDST32_DTPREL_LO12,                535)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_LDST32_DTPREL_LO12_NC,        536)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_LDST64_DTPREL_LO12,                537)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_LDST64_DTPREL_LO12_NC,        538)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSIE_MOVW_GOTTPREL_G1,                539)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSIE_MOVW_GOTTPREL_G0_NC,                540)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSIE_ADR_GOTTPREL_PAGE21,                541)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC,        542)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSIE_LD_GOTTPREL_PREL19,                543)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_MOVW_TPREL_G2,                544)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_MOVW_TPREL_G1,                545)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_MOVW_TPREL_G1_NC,                546)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_MOVW_TPREL_G0,                547)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_MOVW_TPREL_G0_NC,                548)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_ADD_TPREL_HI12,                549)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_ADD_TPREL_LO12,                550)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_ADD_TPREL_LO12_NC,                551)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_LDST8_TPREL_LO12,                552)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_LDST8_TPREL_LO12_NC,                553)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_LDST16_TPREL_LO12,                554)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_LDST16_TPREL_LO12_NC,                555)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_LDST32_TPREL_LO12,                556)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_LDST32_TPREL_LO12_NC,                557)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_LDST64_TPREL_LO12,                558)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_LDST64_TPREL_LO12_NC,                559)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSDESC_LD_PREL19,                        560)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSDESC_ADR_PREL21,                        561)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSDESC_ADR_PAGE21,                        562)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSDESC_LD64_LO12,                        563)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSDESC_ADD_LO12,                        564)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSDESC_OFF_G1,                        565)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSDESC_OFF_G0_NC,                        566)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSDESC_LDR,                        567)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSDESC_ADD,                        568)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSDESC_CALL,                        569)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_LDST128_TPREL_LO12,                570)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLE_LDST128_TPREL_LO12_NC,        571)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_LDST128_DTPREL_LO12,                572)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSLD_LDST128_DTPREL_LO12_NC,        573)        \
+_ELF_DEFINE_RELOC(R_AARCH64_COPY,                                1024)        \
+_ELF_DEFINE_RELOC(R_AARCH64_GLOB_DAT,                                1025)        \
+_ELF_DEFINE_RELOC(R_AARCH64_JUMP_SLOT,                                1026)        \
+_ELF_DEFINE_RELOC(R_AARCH64_RELATIVE,                                1027)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLS_DTPREL64,                        1028)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLS_DTPMOD64,                        1029)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLS_TPREL64,                        1030)        \
+_ELF_DEFINE_RELOC(R_AARCH64_TLSDESC,                                1031)        \
+_ELF_DEFINE_RELOC(R_AARCH64_IRELATIVE,                                1032)
 
 /*
  * These are the symbols used in the Sun ``Linkers and Loaders
@@ -1634,7 +1831,7 @@ _ELF_DEFINE_RELOC(R_IA_64_LTV32MSB,                0x74)        \
 _ELF_DEFINE_RELOC(R_IA_64_LTV32LSB,                0x75)        \
 _ELF_DEFINE_RELOC(R_IA_64_LTV64MSB,                0x76)        \
 _ELF_DEFINE_RELOC(R_IA_64_LTV64LSB,                0x77)        \
-_ELF_DEFINE_RELOC(R_IA_64_PCREL21BIa,                0x79)        \
+_ELF_DEFINE_RELOC(R_IA_64_PCREL21BI,                0x79)        \
 _ELF_DEFINE_RELOC(R_IA_64_PCREL22,                0x7A)        \
 _ELF_DEFINE_RELOC(R_IA_64_PCREL64I,                0x7B)        \
 _ELF_DEFINE_RELOC(R_IA_64_IPLTMSB,                0x80)        \
@@ -1660,25 +1857,45 @@ _ELF_DEFINE_RELOC(R_IA_64_DTPREL64MSB,                0xB6)        \
 _ELF_DEFINE_RELOC(R_IA_64_DTPREL64LSB,                0xB7)        \
 _ELF_DEFINE_RELOC(R_IA_64_LTOFF_DTPREL22,        0xBA)
 
-#define        _ELF_DEFINE_MIPS_RELOCATIONS()                \
-_ELF_DEFINE_RELOC(R_MIPS_NONE,                0)        \
-_ELF_DEFINE_RELOC(R_MIPS_16,                1)        \
-_ELF_DEFINE_RELOC(R_MIPS_32,                2)        \
-_ELF_DEFINE_RELOC(R_MIPS_REL32,                3)        \
-_ELF_DEFINE_RELOC(R_MIPS_26,                4)        \
-_ELF_DEFINE_RELOC(R_MIPS_HI16,                5)        \
-_ELF_DEFINE_RELOC(R_MIPS_LO16,                6)        \
-_ELF_DEFINE_RELOC(R_MIPS_GPREL16,        7)        \
-_ELF_DEFINE_RELOC(R_MIPS_LITERAL,         8)        \
-_ELF_DEFINE_RELOC(R_MIPS_GOT16,                9)        \
-_ELF_DEFINE_RELOC(R_MIPS_PC16,                10)        \
-_ELF_DEFINE_RELOC(R_MIPS_CALL16,        11)        \
-_ELF_DEFINE_RELOC(R_MIPS_GPREL32,        12)        \
-_ELF_DEFINE_RELOC(R_MIPS_64,                18)        \
-_ELF_DEFINE_RELOC(R_MIPS_GOTHI16,        21)        \
-_ELF_DEFINE_RELOC(R_MIPS_GOTLO16,        22)        \
-_ELF_DEFINE_RELOC(R_MIPS_CALLHI16,        30)        \
-_ELF_DEFINE_RELOC(R_MIPS_CALLLO16,        31)
+#define        _ELF_DEFINE_MIPS_RELOCATIONS()                        \
+_ELF_DEFINE_RELOC(R_MIPS_NONE,                        0)        \
+_ELF_DEFINE_RELOC(R_MIPS_16,                        1)        \
+_ELF_DEFINE_RELOC(R_MIPS_32,                        2)        \
+_ELF_DEFINE_RELOC(R_MIPS_REL32,                        3)        \
+_ELF_DEFINE_RELOC(R_MIPS_26,                        4)        \
+_ELF_DEFINE_RELOC(R_MIPS_HI16,                        5)        \
+_ELF_DEFINE_RELOC(R_MIPS_LO16,                        6)        \
+_ELF_DEFINE_RELOC(R_MIPS_GPREL16,                7)        \
+_ELF_DEFINE_RELOC(R_MIPS_LITERAL,                 8)        \
+_ELF_DEFINE_RELOC(R_MIPS_GOT16,                        9)        \
+_ELF_DEFINE_RELOC(R_MIPS_PC16,                        10)        \
+_ELF_DEFINE_RELOC(R_MIPS_CALL16,                11)        \
+_ELF_DEFINE_RELOC(R_MIPS_GPREL32,                12)        \
+_ELF_DEFINE_RELOC(R_MIPS_SHIFT5,                16)        \
+_ELF_DEFINE_RELOC(R_MIPS_SHIFT6,                17)        \
+_ELF_DEFINE_RELOC(R_MIPS_64,                        18)        \
+_ELF_DEFINE_RELOC(R_MIPS_GOT_DISP,                19)        \
+_ELF_DEFINE_RELOC(R_MIPS_GOT_PAGE,                20)        \
+_ELF_DEFINE_RELOC(R_MIPS_GOT_OFST,                21)        \
+_ELF_DEFINE_RELOC(R_MIPS_GOT_HI16,                22)        \
+_ELF_DEFINE_RELOC(R_MIPS_GOT_LO16,                23)        \
+_ELF_DEFINE_RELOC(R_MIPS_SUB,                        24)        \
+_ELF_DEFINE_RELOC(R_MIPS_CALLHI16,                30)        \
+_ELF_DEFINE_RELOC(R_MIPS_CALLLO16,                31)        \
+_ELF_DEFINE_RELOC(R_MIPS_JALR,                        37)        \
+_ELF_DEFINE_RELOC(R_MIPS_TLS_DTPMOD32,                38)        \
+_ELF_DEFINE_RELOC(R_MIPS_TLS_DTPREL32,                39)        \
+_ELF_DEFINE_RELOC(R_MIPS_TLS_DTPMOD64,                40)        \
+_ELF_DEFINE_RELOC(R_MIPS_TLS_DTPREL64,                41)        \
+_ELF_DEFINE_RELOC(R_MIPS_TLS_GD,                42)        \
+_ELF_DEFINE_RELOC(R_MIPS_TLS_LDM,                43)        \
+_ELF_DEFINE_RELOC(R_MIPS_TLS_DTPREL_HI16,        44)        \
+_ELF_DEFINE_RELOC(R_MIPS_TLS_DTPREL_LO16,        45)        \
+_ELF_DEFINE_RELOC(R_MIPS_TLS_GOTTPREL,                46)        \
+_ELF_DEFINE_RELOC(R_MIPS_TLS_TPREL32,                47)        \
+_ELF_DEFINE_RELOC(R_MIPS_TLS_TPREL64,                48)        \
+_ELF_DEFINE_RELOC(R_MIPS_TLS_TPREL_HI16,        49)        \
+_ELF_DEFINE_RELOC(R_MIPS_TLS_TPREL_LO16,        50)
 
 #define        _ELF_DEFINE_PPC32_RELOCATIONS()                \
 _ELF_DEFINE_RELOC(R_PPC_NONE,                0)        \
@@ -1711,7 +1928,7 @@ _ELF_DEFINE_RELOC(R_PPC_REL32,                26)        \
 _ELF_DEFINE_RELOC(R_PPC_PLT32,                27)        \
 _ELF_DEFINE_RELOC(R_PPC_PLTREL32,        28)        \
 _ELF_DEFINE_RELOC(R_PPC_PLT16_LO,        29)        \
-_ELF_DEFINE_RELOC(R_PPL_PLT16_HI,        30)        \
+_ELF_DEFINE_RELOC(R_PPC_PLT16_HI,        30)        \
 _ELF_DEFINE_RELOC(R_PPC_PLT16_HA,        31)        \
 _ELF_DEFINE_RELOC(R_PPC_SDAREL16,        32)        \
 _ELF_DEFINE_RELOC(R_PPC_SECTOFF,        33)        \
@@ -1914,9 +2131,12 @@ _ELF_DEFINE_RELOC(R_RISCV_SUB32,                39)        \
 _ELF_DEFINE_RELOC(R_RISCV_SUB64,                40)        \
 _ELF_DEFINE_RELOC(R_RISCV_GNU_VTINHERIT,        41)        \
 _ELF_DEFINE_RELOC(R_RISCV_GNU_VTENTRY,                42)        \
-_ELF_DEFINE_RELOC(R_RISCV_ALIGN                        43)        \
+_ELF_DEFINE_RELOC(R_RISCV_ALIGN,                43)        \
 _ELF_DEFINE_RELOC(R_RISCV_RVC_BRANCH,                44)        \
-_ELF_DEFINE_RELOC(R_RISCV_RVC_JUMP,                45)
+_ELF_DEFINE_RELOC(R_RISCV_RVC_JUMP,                45)        \
+_ELF_DEFINE_RELOC(R_RISCV_RVC_LUI,                46)        \
+_ELF_DEFINE_RELOC(R_RISCV_GPREL_I,                47)        \
+_ELF_DEFINE_RELOC(R_RISCV_GPREL_S,                48)
 
 #define        _ELF_DEFINE_SPARC_RELOCATIONS()                \
 _ELF_DEFINE_RELOC(R_SPARC_NONE,                0)        \
@@ -1961,6 +2181,7 @@ _ELF_DEFINE_RELOC(R_SPARC_PC_HM10,        38)        \
 _ELF_DEFINE_RELOC(R_SPARC_PC_LM22,        39)        \
 _ELF_DEFINE_RELOC(R_SPARC_WDISP16,        40)        \
 _ELF_DEFINE_RELOC(R_SPARC_WDISP19,        41)        \
+_ELF_DEFINE_RELOC(R_SPARC_GLOB_JMP,        42)        \
 _ELF_DEFINE_RELOC(R_SPARC_7,                43)        \
 _ELF_DEFINE_RELOC(R_SPARC_5,                44)        \
 _ELF_DEFINE_RELOC(R_SPARC_6,                45)        \
@@ -1974,6 +2195,30 @@ _ELF_DEFINE_RELOC(R_SPARC_L44,                52)        \
 _ELF_DEFINE_RELOC(R_SPARC_REGISTER,        53)        \
 _ELF_DEFINE_RELOC(R_SPARC_UA64,                54)        \
 _ELF_DEFINE_RELOC(R_SPARC_UA16,                55)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_GD_HI22,        56)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_GD_LO10,        57)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_GD_ADD,        58)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_GD_CALL,        59)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_LDM_HI22,        60)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_LDM_LO10,        61)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_LDM_ADD,        62)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_LDM_CALL,        63)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_LDO_HIX22, 64)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_LDO_LOX10, 65)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_LDO_ADD,        66)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_IE_HI22,        67)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_IE_LO10,        68)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_IE_LD,        69)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_IE_LDX,        70)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_IE_ADD,        71)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_LE_HIX22,        72)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_LE_LOX10,        73)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_DTPMOD32,        74)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_DTPMOD64,        75)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_DTPOFF32,        76)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_DTPOFF64,        77)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_TPOFF32,        78)        \
+_ELF_DEFINE_RELOC(R_SPARC_TLS_TPOFF64,        79)        \
 _ELF_DEFINE_RELOC(R_SPARC_GOTDATA_HIX22, 80)        \
 _ELF_DEFINE_RELOC(R_SPARC_GOTDATA_LOX10, 81)        \
 _ELF_DEFINE_RELOC(R_SPARC_GOTDATA_OP_HIX22, 82)        \
@@ -2019,7 +2264,10 @@ _ELF_DEFINE_RELOC(R_X86_64_SIZE64,        33)        \
 _ELF_DEFINE_RELOC(R_X86_64_GOTPC32_TLSDESC, 34)        \
 _ELF_DEFINE_RELOC(R_X86_64_TLSDESC_CALL, 35)        \
 _ELF_DEFINE_RELOC(R_X86_64_TLSDESC,        36)        \
-_ELF_DEFINE_RELOC(R_X86_64_IRELATIVE,        37)
+_ELF_DEFINE_RELOC(R_X86_64_IRELATIVE,        37)        \
+_ELF_DEFINE_RELOC(R_X86_64_RELATIVE64,        38)        \
+_ELF_DEFINE_RELOC(R_X86_64_GOTPCRELX,        41)        \
+_ELF_DEFINE_RELOC(R_X86_64_REX_GOTPCRELX, 42)
 
 #define        _ELF_DEFINE_RELOCATIONS()                \
 _ELF_DEFINE_386_RELOCATIONS()                        \
@@ -2030,6 +2278,7 @@ _ELF_DEFINE_IA64_RELOCATIONS()                        \
 _ELF_DEFINE_MIPS_RELOCATIONS()                        \
 _ELF_DEFINE_PPC32_RELOCATIONS()                        \
 _ELF_DEFINE_PPC64_RELOCATIONS()                        \
+_ELF_DEFINE_RISCV_RELOCATIONS()                        \
 _ELF_DEFINE_SPARC_RELOCATIONS()                        \
 _ELF_DEFINE_X86_64_RELOCATIONS()
 
@@ -2040,7 +2289,7 @@ enum {
         R__LAST__
 };
 
-#define        PN_XNUM                       0xFFFFU /* Use extended section numbering. */
+#define        PN_XNUM                        0xFFFFU /* Use extended section numbering. */
 
 /**
  ** ELF Types.
@@ -2233,7 +2482,10 @@ _ELF_DEFINE_NT(NT_PSTATUS,        10,        "Linux process status")            
 _ELF_DEFINE_NT(NT_FPREGS,        12,        "Linux floating point regset")        \
 _ELF_DEFINE_NT(NT_PSINFO,        13,        "Linux process information")        \
 _ELF_DEFINE_NT(NT_LWPSTATUS,        16,        "Linux lwpstatus_t type")        \
-_ELF_DEFINE_NT(NT_LWPSINFO,        17,        "Linux lwpinfo_t type")
+_ELF_DEFINE_NT(NT_LWPSINFO,        17,        "Linux lwpinfo_t type")                \
+_ELF_DEFINE_NT(NT_FREEBSD_NOINIT_TAG,        2,        "FreeBSD no .init tag")        \
+_ELF_DEFINE_NT(NT_FREEBSD_ARCH_TAG,        3,        "FreeBSD arch tag")        \
+_ELF_DEFINE_NT(NT_FREEBSD_FEATURE_CTL,        4,        "FreeBSD feature control")
 
 #undef        _ELF_DEFINE_NT
 #define        _ELF_DEFINE_NT(N, V, DESCR)        N = V ,
@@ -2289,7 +2541,7 @@ _ELF_DEFINE_ODK(ODK_HWOR,       8,      "hardware OR patch applied")        \
 _ELF_DEFINE_ODK(ODK_GP_GROUP,   9,                                        \
         "GP group to use for text/data sections")                        \
 _ELF_DEFINE_ODK(ODK_IDENT,      10,     "ID information")                \
-_ELF_DEFINE_ODK(ODK_PAGESIZE,   11,     "page size infomation")
+_ELF_DEFINE_ODK(ODK_PAGESIZE,   11,     "page size information")
 
 #undef        _ELF_DEFINE_ODK
 #define        _ELF_DEFINE_ODK(N, V, DESCR)        N = V ,
@@ -2591,7 +2843,8 @@ typedef struct {
 
 #define ELF64_R_SYM(I)                ((I) >> 32)
 #define ELF64_R_TYPE(I)                ((I) & 0xFFFFFFFFUL)
-#define ELF64_R_INFO(S,T)        (((S) << 32) + ((T) & 0xFFFFFFFFUL))
+#define ELF64_R_INFO(S,T)        \
+        (((Elf64_Xword) (S) << 32) + ((T) & 0xFFFFFFFFUL))
 
 /*
  * Symbol versioning structures.
