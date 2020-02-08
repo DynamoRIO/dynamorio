@@ -998,7 +998,10 @@ privload_call_lib_func(fp_t func)
                          :
                          : [env] "g"(our_environ), [argv] "g"(&dummy_argv[0]),
                            [callee] "g"(func)
-                         : "edi", "esp", "memory");
+                         /* We do *not* list "esp" because doing so is disallowed
+                          * (i#4086).  We do restore esp so we're fine.
+                          */
+                         : "edi", "memory");
 #endif
 }
 
