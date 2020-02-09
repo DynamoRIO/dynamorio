@@ -63,10 +63,6 @@ build:
 configuration:
   - 2017
 
-# TEMPORARY to test cron building
-environment:
-  APPVEYOR_REPO_TAG: true
-
 install:
   ##################################################
   # Install ninja so we have readable output.
