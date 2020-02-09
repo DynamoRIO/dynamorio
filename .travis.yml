@@ -50,6 +50,12 @@ dist: xenial
 language:
   - c
 
+# TEMPORARY to test cron builds.
+env:
+  global:
+    - TRAVIS_EVENT_TYPE=cron
+    - TAG_SUFFIX=A
+
 # We use a jobs include approach rather than an os, compiler, env matrix
 # with excludes so we can use conditional builds (plus it's clearer this way).
 jobs:
@@ -199,7 +205,7 @@ before_deploy:
   # We handle races among our 4 package jobs by ignoring failure here.
   # XXX: That could mask a real failure: we could try to distinguish the
   # type of error.
-  - git tag $GIT_TAG -a -m "Travis auto-generated tag for build $TRAVIS_BUILD_NUMBER." || echo "Race to create tag: must already exist"
+#TEMPORARY  - git tag $GIT_TAG -a -m "Travis auto-generated tag for build $TRAVIS_BUILD_NUMBER." || echo "Race to create tag: must already exist"
 deploy:
   provider: releases
   api_key:
@@ -208,10 +214,11 @@ deploy:
   file: "DynamoRIO*.tar.gz"
   skip_cleanup: true
   # The name must just be the tag in order to match Appveyor.
-  name: $GIT_TAG
+  name: isolated_test #TEMPORARY
+#TEMPORARY  name: $GIT_TAG
   # This body is clobbered by Appveyor.
   body: "Auto-generated periodic build (Travis build $TRAVIS_BUILD_NUMBER)."
   on:
     repo: DynamoRIO/dynamorio
-    branch: master
+#TEMPORARY    branch: master
     condition: $TRAVIS_EVENT_TYPE = cron && $DEPLOY = yes
