@@ -79,10 +79,12 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     string(REGEX REPLACE "^cacheappend=" "" entry "${arg}")
     set(arg_cacheappend "${arg_cacheappend}\n${entry}")
   endif ()
-  if (${arg} MATCHES "^no64")
+  if (${arg} MATCHES "^no64" OR
+      ${arg} MATCHES "^32_only")
     set(arg_no64 ON)
   endif ()
-  if (${arg} MATCHES "^no32")
+  if (${arg} MATCHES "^no32" OR
+      ${arg} MATCHES "^64_only")
     set(arg_no32 ON)
   endif ()
   if (${arg} MATCHES "^invoke=")
@@ -103,7 +105,7 @@ if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
     set(arg_cacheappend "${arg_cacheappend}
       CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake")
   else ()
-    message("Fatal error: package.cmake supports just one package at a time and 32-bit "
+    message(FATAL_ERROR "package.cmake supports just one package at a time and 32-bit "
       "and 64-bit AArch cannot be combined")
   endif ()
 endif()
@@ -114,7 +116,7 @@ if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
       CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
       ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
   else ()
-    message("Fatal error: Android is only supported as 32_only")
+    message(FATAL_ERROR "Android is only supported as 32_only")
   endif ()
 endif()
 
