@@ -63,7 +63,11 @@ build:
 configuration:
   - 2017
 
-install:
+# TEMPORARY to test cron building
+environment:
+  APPVEYOR_REPO_TAG: true
+
+ install:
   ##################################################
   # Install ninja so we have readable output.
   - mkdir c:\projects\install
@@ -91,14 +95,16 @@ install:
   # XXX i#2145: point at Qt5 for testing drgui build.
 
   # Include Dr. Memory in cronbuild packages.
+  # We're in C:/projects/install now while we'll be in C:/projects/dynamorio to build.
   # We do shallow clones and assume DrM will update its DR at least once
   # every 250 DR commits.
   - ps: >-
       If ($env:APPVEYOR_REPO_TAG -Match "true") {
+        cd ..\dynamorio
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
         cd drmemory
         git submodule update --init --depth 250
-        cd ..
+        cd ..\..\install
       }
 
 before_build:
