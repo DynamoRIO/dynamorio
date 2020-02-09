@@ -156,10 +156,10 @@ if (NOT APPLE AND NOT arg_no32)
 endif ()
 
 set(base_cache "
+  ${base_cache}
   BUILD_NUMBER:STRING=${arg_build}
   UNIQUE_BUILD_NUMBER:STRING=${arg_ubuild}
   ${arg_cacheappend}
-  ${base_cache}
   ")
 
 # version is optional
