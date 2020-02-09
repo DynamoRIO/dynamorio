@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+# Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -108,9 +108,14 @@ build_script:
 # We disable test running for these package builds in runsuite.cmake by
 # looking for $APPVEYOR_REPO_TAG=="true".
 artifacts:
-  - path: 'build\build_*\DynamoRIO*.zip'
+  - path: 'DynamoRIO*.zip'
     name: DR.zip
     type: zip
+before_deploy:
+  - git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
+  - cd drmemory
+  - git submodule update --init --depth 2
+  - cd ..
 deploy:
   provider: GitHub
   auth_token:
