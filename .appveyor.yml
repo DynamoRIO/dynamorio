@@ -96,12 +96,12 @@ install:
 
   # Include Dr. Memory in cronbuild packages.
   - ps: >-
-    If ($env:APPVEYOR_REPO_TAG -Match "true") {
-      git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
-      cd drmemory
-      git submodule update --init --depth 2
-      cd ..
-    }
+      If ($env:APPVEYOR_REPO_TAG -Match "true") {
+        git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
+        cd drmemory
+        git submodule update --init --depth 2
+        cd ..
+      }
 
 before_build:
   - if "%configuration%"=="2017" call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat"
@@ -112,8 +112,7 @@ build_script:
   - cd build
   - echo %PATH%
   # The perl in c:\perl can't open a pipe so we use cygwin perl.
-  # XXX i#1967: can we pass "package" only when deploying to save time?
-  - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl travis use_ninja package %EXTRA_ARGS%
+  - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl travis use_ninja %EXTRA_ARGS%
 
 # Automated deployment of builds to GitHub Releases.
 # We rely on a Travis cron job to push a tag to the repo which then
