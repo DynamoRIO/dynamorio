@@ -102,9 +102,12 @@ if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
   set(ARCH_IS_X86 OFF)
   if (arg_no32)
     set(arg_cacheappend "${arg_cacheappend}
+      PACKAGE_PLATFORM:STRING=AArch64-
       CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake")
   elseif (arg_no64)
     set(arg_cacheappend "${arg_cacheappend}
+      PACKAGE_PLATFORM:STRING=ARM-
+      PACKAGE_SUBSYS:STRING=-EABIH
       CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake")
   else ()
     message(FATAL_ERROR "package.cmake supports just one package at a time and 32-bit "
@@ -116,6 +119,8 @@ if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
   set(ARCH_IS_X86 OFF)
   if (arg_no64)
     set(arg_cacheappend "${arg_cacheappend}
+      PACKAGE_PLATFORM:STRING=ARM-
+      PACKAGE_SUBSYS:STRING=-EABI
       CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
       ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
   else ()
