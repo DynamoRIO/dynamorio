@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+# Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -55,23 +55,28 @@ language:
 jobs:
   include:
     # 32-bit Linux build with gcc and run tests:
-    - os: linux
+    - if: env(TRAVIS_EVENT_TYPE) != cron
+      os: linux
       compiler: gcc
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=yes EXTRA_ARGS="32_only package"
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="32_only"
     # 64-bit Linux build with gcc and run tests:
-    - os: linux
+    - if: env(TRAVIS_EVENT_TYPE) != cron
+      os: linux
       compiler: gcc
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=yes EXTRA_ARGS="64_only package"
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="64_only"
     # AArchXX cross-compile with gcc, no tests:
-    - os: linux
+    - if: env(TRAVIS_EVENT_TYPE) != cron
+      os: linux
       compiler: gcc
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes DEPLOY=no
     # Android ARM cross-compile with gcc, no tests:
-    - os: linux
+    - if: env(TRAVIS_EVENT_TYPE) != cron
+      os: linux
       compiler: gcc
       env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DEPLOY=no DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
     # 32-bit Linux build with clang, no tests (runsuite.cmake disables the tests):
-    - os: linux
+    - if: env(TRAVIS_EVENT_TYPE) != cron
+      os: linux
       compiler: clang
       # We need clang 9.0 to avoid a compiler bug: i#3989.
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only CC=clang-9 && CXX=clang++-9
@@ -85,7 +90,8 @@ jobs:
           - clang-9
     # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests),
     # install and require clang-format:
-    - os: linux
+    - if: env(TRAVIS_EVENT_TYPE) != cron
+      os: linux
       compiler: clang
       # We need clang 9.0 to avoid a compiler bug: i#3989.
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="64_only require_format" CC=clang-9 && CXX=clang++-9
@@ -99,11 +105,18 @@ jobs:
           - clang-9
           - clang-format-6.0
     # 32-bit OSX build with clang and run tests:
-    - os: osx
+    - if: env(TRAVIS_EVENT_TYPE) != cron
+      os: osx
       # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
       compiler: clang
       # We do not have 64-bit support on OSX yet (i#1979).
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only
+    # Package builds.
+    - if: env(TRAVIS_EVENT_TYPE) = cron
+      os: linux
+      compiler: gcc
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=yes
+    # TODO i#3002: Build packages for AArchXX.
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
@@ -138,13 +151,21 @@ install:
           ln -sf arm-linux-androideabi-ld.bfd /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
           cd -
       fi
+  # Include Dr. Memory in cronbuild packages.
+  # We do shallow clones and assume DrM will update its DR at least once
+  # every 250 DR commits.
+  - >
+      if [[ "`uname`" == "Linux" && $TRAVIS_EVENT_TYPE == cron ]]; then
+          git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
+          cd drmemory && git submodule update --init --depth 250 && cd ..
+      fi
 
 script:
   - suite/runsuite_wrapper.pl travis $EXTRA_ARGS
 
 # For now we create packages as part of each (enabled) job.
-# We disable test running for these package builds in runsuite.cmake by
-# looking for $TRAVIS_EVENT_TYPE=="cron".
+# We switch to package.cmake for these builds in runsuite_wrapper.pl by looking
+# for $TRAVIS_EVENT_TYPE=="cron".
 # Longer-term we may want to use package.cmake instead and even make official
 # builds on Travis (i#2861).
 before_deploy:
@@ -161,12 +182,12 @@ deploy:
   api_key:
     secure: V3kgcRiwijjpmcSuVio1+/oZ8cqJGaVlL42hN0w/jjO6LoELy2kknT5h80H7wMVKpZnMg+2v/yWj5hawlrwh8nCS51lYllPHN7K+ivzkyJ3R4cp1WAzL56vnYFYz1/twYpeS10Zl6JL6wt788WcibpShMOIlAnXnm1kU9BBVtYE=
   file_glob: true
-  file: "build*/DynamoRIO*.tar.gz"
+  file: "DynamoRIO*.tar.gz"
   skip_cleanup: true
   # The name must just be the tag in order to match Appveyor.
   name: $GIT_TAG
   # This body is clobbered by Appveyor.
-  body: "Auto-generated periodic build (Travis build $TRAVIS_BUILD_NUMBER).  Unlike official release builds, Dr. Memory is not included in this build, and i686 is separated from x86_64 rather than combined in one package."
+  body: "Auto-generated periodic build (Travis build $TRAVIS_BUILD_NUMBER)."
   on:
     repo: DynamoRIO/dynamorio
     branch: master

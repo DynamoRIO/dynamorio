@@ -113,7 +113,9 @@ function(add_vera_targets_for_dynamorio)
         NOT s MATCHES "/third_party/" AND
         # Somehow on Travis vera checks build-dir files.
         NOT s MATCHES "/build_" AND
-        NOT s MATCHES "/install/")
+        NOT s MATCHES "/install/" AND
+        # We check out drmemory for package builds.
+        NOT s MATCHES "/drmemory/")
       get_filename_component(d ${s} PATH)
       if(NOT "${d}" STREQUAL "${currentDir}")
         # this is a new dir - lets generate everything needed for the previous dir

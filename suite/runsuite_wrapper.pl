@@ -58,6 +58,15 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
     }
 }
 
+my $osdir = $mydir;
+if ($^O eq 'cygwin') {
+    # CMake is native Windows so pass it a Windows path.
+    # We use the full path to cygpath as git's cygpath is earlier on
+    # the PATH for AppVeyor and it fails.
+    $osdir = `/usr/bin/cygpath -wi \"$mydir\"`;
+    chomp $osdir;
+}
+
 # We tee to stdout to provide incremental output and avoid the 10-min
 # no-output timeout on Travis.
 my $res = '';
@@ -71,6 +80,13 @@ if ($child) {
         $res .= $_;
     }
     close(CHILD);
+} elsif ($ENV{'TRAVIS_EVENT_TYPE'} eq 'cron' ||
+         $ENV{'APPVEYOR_REPO_TAG'} eq 'true') {
+    # A package build.
+    my $def_args = "build=1;invoke=${osdir}/../drmemory/package.cmake;drmem_only";
+    $args =~ s/^,/;/;
+    system("ctest -VV -S \"${osdir}/../make/package.cmake,${def_args}${args}\" 2>&1");
+    exit 0;
 } else {
     # We have no way to access the log files, so we can -VV to ensure
     # we can diagnose failures, but it makes for a large online result
@@ -80,13 +96,8 @@ if ($child) {
     my $verbose = "-V";
     if ($^O eq 'cygwin') {
         $verbose = "-VV";
-        # CMake is native Windows so pass it a Windows path.
-        # We use the full path to cygpath as git's cygpath is earlier on
-        # the PATH for AppVeyor and it fails.
-        $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
-        chomp $mydir;
     }
-    system("ctest --output-on-failure ${verbose} -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
+    system("ctest --output-on-failure ${verbose} -S \"${osdir}/runsuite.cmake${args}\" 2>&1");
     exit 0;
 }
 
