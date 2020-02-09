@@ -63,6 +63,10 @@ build:
 configuration:
   - 2017
 
+# TEMPORARY to test cron building
+environment:
+  APPVEYOR_REPO_TAG: true
+
 install:
   ##################################################
   # Install ninja so we have readable output.
@@ -105,8 +109,8 @@ build_script:
 # Automated deployment of builds to GitHub Releases.
 # We rely on a Travis cron job to push a tag to the repo which then
 # triggers this deployment.
-# We disable test running for these package builds in runsuite.cmake by
-# looking for $APPVEYOR_REPO_TAG=="true".
+# We switch to package.cmake for these builds in runsuite_wrapper.pl by looking
+# for $APPVEYOR_REPO_TAG=="true".
 artifacts:
   - path: 'DynamoRIO*.zip'
     name: DR.zip
@@ -128,6 +132,6 @@ deploy:
   # Using the default "release:" name (the tag) to match Travis.
   # This description replaces the one provided by Travis.
   description: 'Auto-generated periodic build (Appveyor build $(appveyor_build_version)).  Unlike official release builds, Dr. Memory is not included in this build, and for Linux, i686 is separated from x86_64 rather than being combined in one package.'
-  on:
-    branch: master
-    appveyor_repo_tag: true
+#TEMPORARY  on:
+#TEMPORARY    branch: master
+#TEMPORARY    appveyor_repo_tag: true
