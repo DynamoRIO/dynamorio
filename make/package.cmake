@@ -99,6 +99,7 @@ endforeach (arg)
 # These are set by env var instead of arg to match Travis test jobs.
 if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
   set(cross_aarchxx_linux_only ON)
+  set(ARCH_IS_X86 OFF)
   if (arg_no32)
     set(arg_cacheappend "${arg_cacheappend}
       CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake")
@@ -112,6 +113,7 @@ if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
 endif()
 if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
   set(cross_android_only ON)
+  set(ARCH_IS_X86 OFF)
   if (arg_no64)
     set(arg_cacheappend "${arg_cacheappend}
       CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake

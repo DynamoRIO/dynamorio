@@ -220,5 +220,5 @@ deploy:
   body: "Auto-generated periodic build (Travis build $TRAVIS_BUILD_NUMBER)."
   on:
     repo: DynamoRIO/dynamorio
-#TEMPORARY    branch: master
+    branch: master
     condition: $TRAVIS_EVENT_TYPE = cron && $DEPLOY = yes
