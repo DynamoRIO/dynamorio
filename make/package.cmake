@@ -101,7 +101,7 @@ if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
   if (arg_no32)
     set(arg_cacheappend "${arg_cacheappend}
       CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake")
-  elsif (arg_no64)
+  elseif (arg_no64)
     set(arg_cacheappend "${arg_cacheappend}
       CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake")
   else ()
@@ -111,7 +111,7 @@ if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
 endif()
 if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
   set(cross_android_only ON)
-  if (arg_no32)
+  if (arg_no64)
     set(arg_cacheappend "${arg_cacheappend}
       CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
       ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
