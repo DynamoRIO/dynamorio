@@ -95,11 +95,13 @@ install:
   # XXX i#2145: point at Qt5 for testing drgui build.
 
   # Include Dr. Memory in cronbuild packages.
+  # We do shallow clones and assume DrM will update its DR at least once
+  # every 250 DR commits.
   - ps: >-
       If ($env:APPVEYOR_REPO_TAG -Match "true") {
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
         cd drmemory
-        git submodule update --init --depth 2
+        git submodule update --init --depth 250
         cd ..
       }
 
