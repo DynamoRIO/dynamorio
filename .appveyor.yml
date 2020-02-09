@@ -132,7 +132,7 @@ deploy:
   force_update: true
   # Using the default "release:" name (the tag) to match Travis.
   # This description replaces the one provided by Travis.
-  description: 'Auto-generated periodic build (Appveyor build $(appveyor_build_version)).  Unlike official release builds, Dr. Memory is not included in this build, and for Linux, i686 is separated from x86_64 rather than being combined in one package.'
+  description: 'Auto-generated periodic build.'
   on:
     branch: master
     appveyor_repo_tag: true

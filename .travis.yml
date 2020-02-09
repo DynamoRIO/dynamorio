@@ -54,6 +54,9 @@ language:
 # with excludes so we can use conditional builds (plus it's clearer this way).
 jobs:
   include:
+    #######################################################################
+    # Regular test jobs:
+
     # 32-bit Linux build with gcc and run tests:
     - if: env(TRAVIS_EVENT_TYPE) != cron
       os: linux
@@ -111,12 +114,29 @@ jobs:
       compiler: clang
       # We do not have 64-bit support on OSX yet (i#1979).
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only
-    # Package builds.
+
+    #######################################################################
+    # Package jobs
+    # Linux x86 + amd64:
     - if: env(TRAVIS_EVENT_TYPE) = cron
       os: linux
       compiler: gcc
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=yes
-    # TODO i#3002: Build packages for AArchXX.
+    # Linux AArch64:
+    - if: env(TRAVIS_EVENT_TYPE) = cron
+      os: linux
+      compiler: gcc
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes DEPLOY=yes EXTRA_ARGS=64_only
+    # Linux ARM:
+    - if: env(TRAVIS_EVENT_TYPE) = cron
+      os: linux
+      compiler: gcc
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes DEPLOY=yes EXTRA_ARGS=32_only
+    # Android ARM:
+    - if: env(TRAVIS_EVENT_TYPE) = cron
+      os: linux
+      compiler: gcc
+      env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e' DEPLOY=no EXTRA_ARGS=32_only
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
@@ -176,7 +196,10 @@ before_deploy:
   # We support setting TAG_SUFFIX on triggered builds so we can have
   # multiple unique tags in one day (the patchlevel here is the day number).
   - export GIT_TAG="cronbuild-7.91.$((`git log -n 1 --format=%ct` / (60*60*24)))${TAG_SUFFIX}"
-  - git tag $GIT_TAG -a -m "Travis auto-generated tag for build $TRAVIS_BUILD_NUMBER."
+  # We handle races among our 4 package jobs by ignoring failure here.
+  # XXX: That could mask a real failure: we could try to distinguish the
+  # type of error.
+  - git tag $GIT_TAG -a -m "Travis auto-generated tag for build $TRAVIS_BUILD_NUMBER." || echo "Race to create tag: must already exist"
 deploy:
   provider: releases
   api_key:

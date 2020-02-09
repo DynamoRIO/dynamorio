@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -58,6 +58,8 @@ set(arg_invoke "")     # sub-project package.cmake to invoke
 set(arg_preload "")    # cmake file to include prior to each 32-bit build
 set(arg_preload64 "")  # cmake file to include prior to each 64-bit build
 set(arg_cpackappend "")# string to append to CPackConfig.cmake before packaging
+set(cross_aarchxx_linux_only OFF)
+set(cross_android_only OFF)
 
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} MATCHES "^build=")
@@ -90,6 +92,31 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     string(REGEX REPLACE "^cpackappend=" "" arg_cpackappend "${arg}")
   endif ()
 endforeach (arg)
+
+# These are set by env var instead of arg to match Travis test jobs.
+if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
+  set(cross_aarchxx_linux_only ON)
+  if (arg_no32)
+    set(arg_cacheappend "${arg_cacheappend}
+      CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake")
+  elsif (arg_no64)
+    set(arg_cacheappend "${arg_cacheappend}
+      CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake")
+  else ()
+    message("Fatal error: package.cmake supports just one package at a time and 32-bit "
+      "and 64-bit AArch cannot be combined")
+  endif ()
+endif()
+if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
+  set(cross_android_only ON)
+  if (arg_no32)
+    set(arg_cacheappend "${arg_cacheappend}
+      CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
+      ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
+  else ()
+    message("Fatal error: Android is only supported as 32_only")
+  endif ()
+endif()
 
 if ("${arg_build}" STREQUAL "")
   message(FATAL_ERROR "build number not set: pass as build= arg")
