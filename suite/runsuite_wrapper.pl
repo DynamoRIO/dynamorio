@@ -71,12 +71,12 @@ if ($child) {
         $res .= $_;
     }
     close(CHILD);
-} elsif ($ENV{'TRAVIS_EVENT_TYPE'} eq 'cron' OR
+} elsif ($ENV{'TRAVIS_EVENT_TYPE'} eq 'cron' ||
          $ENV{'APPVEYOR_REPO_TAG'} eq 'true') {
     # A package build.
-    $standard_args = "invoke=${mydir}/../drmemory/package.cmake;drmem_only";
+    my $def_args = "build=1;invoke=${mydir}/../drmemory/package.cmake;drmem_only";
     $args =~ s/^,/;/;
-    system("ctest -VV -S \"${mydir}/../make/package.cmake,${standard_args}${args}\" 2>&1");
+    system("ctest -VV -S \"${mydir}/../make/package.cmake,${def_args}${args}\" 2>&1");
 } else {
     # We have no way to access the log files, so we can -VV to ensure
     # we can diagnose failures, but it makes for a large online result

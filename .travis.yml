@@ -157,6 +157,11 @@ install:
           ln -sf arm-linux-androideabi-ld.bfd /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
           cd -
       fi
+  - >
+      if [[ "`uname`" == "Linux" && $TRAVIS_EVENT_TYPE == cron ]]; then
+          git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
+          cd drmemory && git submodule update --init --depth 2 && cd ..
+      fi
 
 script:
   - suite/runsuite_wrapper.pl travis $EXTRA_ARGS
@@ -169,8 +174,6 @@ script:
 before_deploy:
   - git config --local user.name "Travis Auto-Tag"
   - git config --local user.email "dynamorio-devs@googlegroups.com"
-  - git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
-  - cd drmemory && git submodule update --init --depth 2 && cd ..
   # XXX: for now we duplicate this version number here with CMakeLists.txt.
   # We should find a way to share (xref i#1565).
   # We support setting TAG_SUFFIX on triggered builds so we can have

@@ -94,6 +94,15 @@ install:
   ##################################################
   # XXX i#2145: point at Qt5 for testing drgui build.
 
+  # Include Dr. Memory in cronbuild packages.
+  - ps: >-
+    If ($env:APPVEYOR_REPO_TAG -Match "true") {
+      git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
+      cd drmemory
+      git submodule update --init --depth 2
+      cd ..
+    }
+
 before_build:
   - if "%configuration%"=="2017" call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat"
   - cd c:\projects\dynamorio
@@ -115,11 +124,6 @@ artifacts:
   - path: 'DynamoRIO*.zip'
     name: DR.zip
     type: zip
-before_deploy:
-  - git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
-  - cd drmemory
-  - git submodule update --init --depth 2
-  - cd ..
 deploy:
   provider: GitHub
   auth_token:
