@@ -67,7 +67,7 @@ configuration:
 environment:
   APPVEYOR_REPO_TAG: true
 
- install:
+install:
   ##################################################
   # Install ninja so we have readable output.
   - mkdir c:\projects\install
