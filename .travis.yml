@@ -151,10 +151,13 @@ install:
           ln -sf arm-linux-androideabi-ld.bfd /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
           cd -
       fi
+  # Include Dr. Memory in cronbuild packages.
+  # We do shallow clones and assume DrM will update its DR at least once
+  # every 250 DR commits.
   - >
       if [[ "`uname`" == "Linux" && $TRAVIS_EVENT_TYPE == cron ]]; then
           git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
-          cd drmemory && git submodule update --init --depth 2 && cd ..
+          cd drmemory && git submodule update --init --depth 250 && cd ..
       fi
 
 script:
