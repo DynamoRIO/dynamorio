@@ -91,14 +91,16 @@ install:
   # XXX i#2145: point at Qt5 for testing drgui build.
 
   # Include Dr. Memory in cronbuild packages.
+  # We're in C:/projects/install now while we'll be in C:/projects/dynamorio to build.
   # We do shallow clones and assume DrM will update its DR at least once
   # every 250 DR commits.
   - ps: >-
       If ($env:APPVEYOR_REPO_TAG -Match "true") {
+        cd ..\dynamorio
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
         cd drmemory
         git submodule update --init --depth 250
-        cd ..
+        cd ..\..\install
       }
 
 before_build:
@@ -132,7 +134,7 @@ deploy:
   force_update: true
   # Using the default "release:" name (the tag) to match Travis.
   # This description replaces the one provided by Travis.
-  description: 'Auto-generated periodic build (Appveyor build $(appveyor_build_version)).  Unlike official release builds, Dr. Memory is not included in this build, and for Linux, i686 is separated from x86_64 rather than being combined in one package.'
+  description: 'Auto-generated periodic build.'
   on:
     branch: master
     appveyor_repo_tag: true

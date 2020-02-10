@@ -509,6 +509,8 @@ set(BUILD_NUMBER "0" CACHE STRING "Build number (must be <64K)")
 set(UNIQUE_BUILD_NUMBER "0" CACHE STRING "Unique build number")
 set(CUSTOM_PRODUCT_NAME "" CACHE STRING "Custom product name")
 set(PACKAGE_PLATFORM "" CACHE STRING "Platform for package name (should have trailing -)")
+set(PACKAGE_SUBSYS "" CACHE STRING
+  "Platform for sub-system name (should have leading -: e.g., -EABIHF")
 mark_as_advanced(
   VERSION_NUMBER
   VERSION_COMMA_DELIMITED
@@ -516,6 +518,7 @@ mark_as_advanced(
   UNIQUE_BUILD_NUMBER
   CUSTOM_PRODUCT_NAME
   PACKAGE_PLATFORM
+  PACKAGE_SUBSYS
   )
 # This is hardcoded in globals_shared.h: going to leave it that way, but
 # adding indirection within cmake files
@@ -1956,7 +1959,7 @@ DR_target_install_dst(${INSTALL_CMAKE} EXPORT ${exported_targets_name})
 # CPACK_INSTALL_CMAKE_PROJECTS variable is set to point at all 4 builds,
 # "make package" will produce a package from all 4 installs.
 
-# FIXME i#74: create source tarball via 'make package_source'
+# TODO i#74: create source tarball via 'make package_source'
 # Just need to exclude exports/ (or move exports/ to ../?) and
 # other files inside source dir (or run on untouched source dir)
 # and update package.{sh,bat}.
@@ -1973,11 +1976,12 @@ if (UNIX)
   set(CPACK_STRIP_FILES OFF)
   if (APPLE)
     set(CPACK_SYSTEM_NAME "MacOS")
+  elseif (ANDROID)
+    set(CPACK_SYSTEM_NAME "Android")
   else ()
     set(CPACK_SYSTEM_NAME "Linux")
   endif ()
 else (UNIX)
-  # FIXME: try Windows NSIS
   set(CPACK_GENERATOR "ZIP")
   set(CPACK_SOURCE_GENERATOR "ZIP")
   set(CPACK_SYSTEM_NAME "Windows")
@@ -2004,7 +2008,7 @@ string(REGEX REPLACE
 # having the full version in the base dir is a good thing, though I'm not
 # sure about the caps.
 set(CPACK_PACKAGE_FILE_NAME
-  "DynamoRIO-${PACKAGE_PLATFORM}${CPACK_SYSTEM_NAME}-${CPACK_PACKAGE_VERSION}-${BUILD_NUMBER}")
+  "DynamoRIO-${PACKAGE_PLATFORM}${CPACK_SYSTEM_NAME}${PACKAGE_SUBSYS}-${CPACK_PACKAGE_VERSION}-${BUILD_NUMBER}")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "dynamorio")
 set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "DynamoRIO")
 set(CPACK_PACKAGE_RELOCATABLE "true")
