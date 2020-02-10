@@ -2007,8 +2007,14 @@ string(REGEX REPLACE
 # CPACK_TEMPORARY_PACKAGE_FILE_NAME if I hardcode the extension: but maybe
 # having the full version in the base dir is a good thing, though I'm not
 # sure about the caps.
+# We omit the -NN suffix for the build number if it is zero.
+if ("${BUILD_NUMBER}" STREQUAL "0")
+  set(PACKAGE_SUFFIX "")
+else ()
+  set(PACKAGE_SUFFIX "-${BUILD_NUMBER}")
+endif ()
 set(CPACK_PACKAGE_FILE_NAME
-  "DynamoRIO-${PACKAGE_PLATFORM}${CPACK_SYSTEM_NAME}${PACKAGE_SUBSYS}-${CPACK_PACKAGE_VERSION}-${BUILD_NUMBER}")
+  "DynamoRIO-${PACKAGE_PLATFORM}${CPACK_SYSTEM_NAME}${PACKAGE_SUBSYS}-${CPACK_PACKAGE_VERSION}${PACKAGE_SUFFIX}")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "dynamorio")
 set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "DynamoRIO")
 set(CPACK_PACKAGE_RELOCATABLE "true")

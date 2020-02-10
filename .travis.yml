@@ -193,9 +193,16 @@ before_deploy:
   - git config --local user.email "dynamorio-devs@googlegroups.com"
   # XXX: for now we duplicate this version number here with CMakeLists.txt.
   # We should find a way to share (xref i#1565).
-  # We support setting TAG_SUFFIX on triggered builds so we can have
-  # multiple unique tags in one day (the patchlevel here is the day number).
-  - export GIT_TAG="cronbuild-7.91.$((`git log -n 1 --format=%ct` / (60*60*24)))${TAG_SUFFIX}"
+  # We support setting VERSION_NUMBER for manual builds to override all
+  # parts of the version.  If a build is included (leading dash and number
+  # at the end), it will be parsed and passed to package.cmake.  We only
+  # use a non-zero build number when making multiple manual builds in one day.
+  - >
+      if test -z "${VERSION_NUMBER}"; then
+          export GIT_TAG="cronbuild-7.91.$((`git log -n 1 --format=%ct` / (60*60*24)))"
+      else
+          export GIT_TAG="release_${VERSION_NUMBER}"
+      fi
   # We handle races among our 4 package jobs by ignoring failure here.
   # XXX: That could mask a real failure: we could try to distinguish the
   # type of error.
