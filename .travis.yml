@@ -206,7 +206,7 @@ before_deploy:
   # We handle races among our 4 package jobs by ignoring failure here.
   # XXX: That could mask a real failure: we could try to distinguish the
   # type of error.
-  - git tag $GIT_TAG -a -m "Travis auto-generated tag for build $TRAVIS_BUILD_NUMBER." || echo "Race to create tag: must already exist"
+  - (git tag $GIT_TAG -a -m "Travis auto-generated tag for build $TRAVIS_BUILD_NUMBER." || true)
 deploy:
   provider: releases
   api_key:
