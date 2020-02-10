@@ -136,7 +136,7 @@ jobs:
     - if: env(TRAVIS_EVENT_TYPE) = cron
       os: linux
       compiler: gcc
-      env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e' DEPLOY=no EXTRA_ARGS=32_only
+      env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e' DEPLOY=yes EXTRA_ARGS=32_only
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
