@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -42,6 +42,7 @@
 # ctest -V -S /my/path/to/dynamorio/src/make/package.cmake,build=1\;version=5.0.0\;invoke=/my/path/to/drmemory/src/package.cmake\;drmem_only\;cacheappend=TOOL_VERSION_NUMBER:STRING=1.6.0
 
 cmake_minimum_required (VERSION 2.6)
+set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
 
 # arguments are a ;-separated list (must escape as \; from ctest_run_script())
 # required args:
@@ -58,6 +59,8 @@ set(arg_invoke "")     # sub-project package.cmake to invoke
 set(arg_preload "")    # cmake file to include prior to each 32-bit build
 set(arg_preload64 "")  # cmake file to include prior to each 64-bit build
 set(arg_cpackappend "")# string to append to CPackConfig.cmake before packaging
+set(cross_aarchxx_linux_only OFF)
+set(cross_android_only OFF)
 
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} MATCHES "^build=")
@@ -77,10 +80,12 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     string(REGEX REPLACE "^cacheappend=" "" entry "${arg}")
     set(arg_cacheappend "${arg_cacheappend}\n${entry}")
   endif ()
-  if (${arg} MATCHES "^no64")
+  if (${arg} MATCHES "^no64" OR
+      ${arg} MATCHES "^32_only")
     set(arg_no64 ON)
   endif ()
-  if (${arg} MATCHES "^no32")
+  if (${arg} MATCHES "^no32" OR
+      ${arg} MATCHES "^64_only")
     set(arg_no32 ON)
   endif ()
   if (${arg} MATCHES "^invoke=")
@@ -90,6 +95,38 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     string(REGEX REPLACE "^cpackappend=" "" arg_cpackappend "${arg}")
   endif ()
 endforeach (arg)
+
+# These are set by env var instead of arg to match Travis test jobs.
+if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
+  set(cross_aarchxx_linux_only ON)
+  set(ARCH_IS_X86 OFF)
+  if (arg_no32)
+    set(arg_cacheappend "${arg_cacheappend}
+      PACKAGE_PLATFORM:STRING=AArch64-
+      CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake")
+  elseif (arg_no64)
+    set(arg_cacheappend "${arg_cacheappend}
+      PACKAGE_PLATFORM:STRING=ARM-
+      PACKAGE_SUBSYS:STRING=-EABIHF
+      CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake")
+  else ()
+    message(FATAL_ERROR "package.cmake supports just one package at a time and 32-bit "
+      "and 64-bit AArch cannot be combined")
+  endif ()
+endif()
+if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
+  set(cross_android_only ON)
+  set(ARCH_IS_X86 OFF)
+  if (arg_no64)
+    set(arg_cacheappend "${arg_cacheappend}
+      PACKAGE_PLATFORM:STRING=ARM-
+      PACKAGE_SUBSYS:STRING=-EABI
+      CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
+      ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
+  else ()
+    message(FATAL_ERROR "Android is only supported as 32_only")
+  endif ()
+endif()
 
 if ("${arg_build}" STREQUAL "")
   message(FATAL_ERROR "build number not set: pass as build= arg")
@@ -119,10 +156,10 @@ if (NOT APPLE AND NOT arg_no32)
 endif ()
 
 set(base_cache "
+  ${base_cache}
   BUILD_NUMBER:STRING=${arg_build}
   UNIQUE_BUILD_NUMBER:STRING=${arg_ubuild}
   ${arg_cacheappend}
-  ${base_cache}
   ")
 
 # version is optional
@@ -164,7 +201,10 @@ if (NOT arg_invoke STREQUAL "")
   set(save_last_dir ${last_package_build_dir})
   set(arg_sub_package ON)
   set(arg_sub_script ${arg_invoke})
-  include("${arg_invoke}")
+  include("${arg_invoke}" RESULT_VARIABLE invoke_res)
+  if (NOT invoke_res)
+    message(FATAL_ERROR "Failed in invoke sub-project ${arg_invoke}")
+  endif ()
   set(last_package_build_dir ${save_last_dir})
 endif ()
 

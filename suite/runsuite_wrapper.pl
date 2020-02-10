@@ -37,6 +37,12 @@
 # a Travis matrix of builds.
 # Travis only supports Linux and Mac, so we're ok relying on perl.
 
+# XXX: We currently have a patchwork of scripts and methods of passing arguments
+# (some are env vars while others are command-line parameters) and thus have
+# too many control points for the details of test builds and package builds.
+# Maybe we can clean it up and eliminate this layer of script by moving logic
+# in both directions (.{travis,appveyor}.yml and {runsuite,package}.cmake)?
+
 use strict;
 use Config;
 use Cwd 'abs_path';
@@ -83,8 +89,17 @@ if ($child) {
 } elsif ($ENV{'TRAVIS_EVENT_TYPE'} eq 'cron' ||
          $ENV{'APPVEYOR_REPO_TAG'} eq 'true') {
     # A package build.
-    my $def_args = "build=1;invoke=${osdir}/../drmemory/package.cmake;drmem_only";
     $args =~ s/^,/;/;
+    # XXX: Should we get rid of the build #?  It was useful for manual build
+    # release candidates but makes less sense for automated builds.
+    my $def_args = "build=1";
+    # Include Dr. Memory.
+    if (($is_aarchxx || $ENV{'DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY'} eq 'yes') &&
+        $args =~ /64_only/) {
+        # Dr. Memory is not ported to AArch64 yet.
+    } else {
+        $def_args = "${def_args};invoke=${osdir}/../drmemory/package.cmake;drmem_only";
+    }
     system("ctest -VV -S \"${osdir}/../make/package.cmake,${def_args}${args}\" 2>&1");
     exit 0;
 } else {
