@@ -89,18 +89,30 @@ if ($child) {
 } elsif ($ENV{'TRAVIS_EVENT_TYPE'} eq 'cron' ||
          $ENV{'APPVEYOR_REPO_TAG'} eq 'true') {
     # A package build.
-    $args =~ s/^,/;/;
-    # XXX: Should we get rid of the build #?  It was useful for manual build
-    # release candidates but makes less sense for automated builds.
-    my $def_args = "build=1";
+    my $build = "0";
+    if ($ENV{'VERSION_NUMBER'} =~ /-(\d+)$/) {
+        $build = $1;
+    }
+    if ($args eq '') {
+        $args = ",";
+    } else {
+        $args .= ";";
+    }
+    $args .= "build=${build}";
+    if ($ENV{'VERSION_NUMBER'} =~ /^(\d+\.\d+\.\d+)/) {
+        my $version = $1;
+        $args .= ";version=${version}";
+    }
     # Include Dr. Memory.
     if (($is_aarchxx || $ENV{'DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY'} eq 'yes') &&
         $args =~ /64_only/) {
         # Dr. Memory is not ported to AArch64 yet.
     } else {
-        $def_args = "${def_args};invoke=${osdir}/../drmemory/package.cmake;drmem_only";
+        $args .= ";invoke=${osdir}/../drmemory/package.cmake;drmem_only";
     }
-    system("ctest -VV -S \"${osdir}/../make/package.cmake,${def_args}${args}\" 2>&1");
+    my $cmd = "ctest -VV -S \"${osdir}/../make/package.cmake${args}\"";
+    print "Running ${cmd}\n";
+    system("${cmd} 2>&1");
     exit 0;
 } else {
     # We have no way to access the log files, so we can -VV to ensure
