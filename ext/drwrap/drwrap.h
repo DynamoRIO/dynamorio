@@ -339,6 +339,16 @@ typedef enum {
      * heuristics are not guaranteed.
      */
     DRWRAP_UNWIND_ON_EXCEPTION = 0x01,
+    /**
+     * If this flag is set, then post-call callbacks are only invoked from return
+     * sites that can be identified statically.  Static identification happens in
+     * two ways: from observing a CALL instruction, and from drwrap_mark_as_post_call().
+     * Dynamically observing return addresses from inside callees incurs overhead
+     * due to synchronization costs, with further overhead to replace existing
+     * code with instrumented code.  When this flag is set, some post-call callbacks
+     * may be missed.
+     */
+    DRWRAP_NO_DYNAMIC_RETADDRS = 0x02,
 } drwrap_wrap_flags_t;
 
 /* offset of drwrap_callconv_t in drwrap_wrap_flags_t */

@@ -1755,6 +1755,17 @@ static inline void
 drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap, drwrap_context_t *wrapcxt,
                        app_pc decorated_pc)
 {
+    if (TEST(DRWRAP_NO_DYNAMIC_RETADDRS, wrap->flags)) {
+        /* i#0470: On a large multithreaded app, using shared memory here and especially
+         * a lock (even an rwlock where the read path is always taken) causes noticeable
+         * overhead.  The postcall_cache is often not enough.  Maybe a per-thread cache
+         * could help.  For now we provide an option to completely skip the retaddr
+         * check and rely on post-call sites found for direct calls.
+         * If this ends up seeing some use we could invest in also detecting targets
+         * for PLT or IAT indirect calls.
+         */
+        return;
+    }
     app_pc retaddr = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, wrapcxt->retaddr);
     app_pc plain_pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, decorated_pc);
     int i;
@@ -2182,7 +2193,8 @@ static dr_emit_flags_t
 drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                        bool for_trace, bool translating, void *user_data)
 {
-    /* XXX: if we had dr_bbs_cross_ctis() query (i#427) we could just check 1st instr */
+    /* XXX: if we had dr_bbs_cross_ctis() query (i#427) we could just check 1st instr
+     */
     wrap_entry_t *wrap;
     /* i#1689: we store in drwrap_table as the original from the client (which
      * may have LSB=1), as well as in wrapcxt.  We then clear LSB for all other
@@ -2193,9 +2205,9 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
 
     /* Strategy: for the pre-hook, do not insert at the call site but rather wait for
      * the callee.  For the post-hook, record the post-call site when we see the
-     * call instruction, and additionally record the actual retaddr when in the callee.
-     * By doing both we minimize flushes from the return point having already been
-     * reached before the callee hook can mark it.
+     * call instruction, and additionally record the actual retaddr when in the
+     * callee. By doing both we minimize flushes from the return point having already
+     * been reached before the callee hook can mark it.
      */
     dr_recurlock_lock(wrap_lock);
     wrap = hashtable_lookup(&wrap_table, (void *)pc);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -152,6 +152,34 @@ skip_flags(int x, int y)
 
 void *level2_ptr;
 
+/* If we export these, they are called through the PLT or IAT, which we do not
+ * support for call sites (yet: i#4070).  So we have public pointers to them
+ * and leave the functions themselves non-exported to ensure we get direct calls.
+ */
+static int
+direct_call1(int x, int y)
+{
+    return x + y;
+}
+
+static int
+direct_call2(int x, int y)
+{
+    return direct_call1(y, x) + 1;
+}
+
+EXPORT int (*direct_call1_ptr)(int, int) = direct_call1;
+EXPORT int (*direct_call2_ptr)(int, int) = direct_call2;
+
+static void
+test_direct_calls(void)
+{
+    direct_call1(42, 17);
+    direct_call2(17, 42);
+    /* Now make a call where we'll miss the post when using DRWRAP_NO_DYNAMIC_RETADDRS. */
+    (*direct_call1_ptr)(42, 17);
+}
+
 /***************************************************************************
  * test longjmp
  */
@@ -235,6 +263,8 @@ run_tests(void)
 
     skipme(&x);
     postonly(&x);
+
+    test_direct_calls();
 
     /* test delayed flushing that doesn't flush until 1024 executions */
     x = 0;

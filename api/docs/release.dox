@@ -248,6 +248,8 @@ Further non-compatibility-affecting changes include:
    decoding in a signal handler, along with instr_noalloc_init() and
    instr_from_noalloc().
  - Added drwrap_get_stats().
+ - Added #DRWRAP_NO_DYNAMIC_RETADDRS for reducing drwrap overhead at the cost
+   of missing some post-call callbacks.
 
 **************************************************
 <hr>
