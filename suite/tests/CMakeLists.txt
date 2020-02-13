@@ -4155,7 +4155,6 @@ if (APPLE)
   set_tests_properties(
     samples_proj
     code_api|common.broadfun
-    code_api|common.decode-bad
     code_api|common.fib
     code_api|common.floatpc
     code_api|common.floatpc_xl8all
@@ -4174,11 +4173,9 @@ if (APPLE)
     code_api|security-common.codemod
     code_api|security-common.retexisting
     code_api|security-common.ret_noncall_trace
-    code_api|client.abort
     code_api|client.crashmsg
     code_api|client.count-ctis-noopt
     code_api|client.exception
-    code_api|client.timer
     code_api|client.syscall-mod
     code_api|client.cbr-retarget
     code_api|client.truncate
@@ -4189,7 +4186,6 @@ if (APPLE)
     code_api|client.drcontainers-test
     code_api|client.destructor
     code_api|sample.signal
-    code_api|tool.drcpusim.simple
     code_api|tool.drcpusim.cpuid-Prescott
     code_api|tool.drcpusim.cpuid-Presler
     code_api|tool.drcpusim.cpuid-Merom
