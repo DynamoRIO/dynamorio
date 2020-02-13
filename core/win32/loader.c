@@ -482,12 +482,6 @@ os_loader_thread_exit(dcontext_t *dcontext)
 #endif
 }
 
-void
-loader_allow_unsafe_static_behavior(void)
-{
-    /* XXX i#975: NYI */
-}
-
 #ifdef CLIENT_INTERFACE
 /* our copy of the PEB for isolation (i#249) */
 PEB *
@@ -1171,6 +1165,10 @@ privload_load_private_library(const char *name, bool reachable)
 void
 privload_load_finalized(privmod_t *mod)
 {
+    DODEBUG({
+        if (d_r_get_proc_address(mod->base, DR_DISALLOW_UNSAFE_STATIC_NAME) != NULL)
+            disallow_unsafe_static_calls = true;
+    });
     if (windbg_cmds_initialized) /* we added libs loaded at init time already */
         privload_add_windbg_cmds_post_init(mod);
 }

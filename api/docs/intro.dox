@@ -1375,7 +1375,7 @@ DynamoRIO's global memory pool.  Use the -Xlinker flag with gcc to replace
 the libc routines with DynamoRIO's _wrap routines, e.g.,
 
 \code
-  gcc -Xlinker -wrap=malloc -Xlinker -wrap=realloc -Xlinker -wrap=free ...
+  gcc -Xlinker -wrap=malloc -Xlinker -wrap=realloc -Xlinker -wrap=free -Xlinker -wrap=strdup ...
 \endcode
 
 The ability to override the memory allocation routines makes it

@@ -30,7 +30,9 @@
 
 # Requires pmake and 32 bit dev libraries to run.
 # On Fedora requires bmake and several patches.
-# Tested on libelftc r3248.
+# Tested on libelftc r3821 but we have to stay on r3530 until
+# https://sourceforge.net/p/elftoolchain/tickets/581/ is fixed.
+version="-r3530"
 
 set -e
 
@@ -58,10 +60,10 @@ dr_libelftc_dir=`(cd "${dr_libelftc_dir}" && pwd)`
 
 if [[ -d "${elftc_dir}" ]]
 then
-  svn up "${elftc_dir}"
+  svn up "${elftc_dir}" ${version}
 else
   mkdir -p `dirname "${elftc_dir}"`
-  svn co svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
+  svn co ${version} svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
 fi
 cd "${elftc_dir}"
 
@@ -85,13 +87,13 @@ function build_for_bits() {
   # redirecting in order to support static usage with no loader.
   # ld is not actually used, so we can't use its -wrap=malloc feature.
   # Instead we rely on the preprocessor.
-  redir="-Dmalloc=__wrap_malloc -Dcalloc=__wrap_calloc -Drealloc=__wrap_realloc -Dfree=__wrap_free"
+  redir="-Dmalloc=__wrap_malloc -Dcalloc=__wrap_calloc -Drealloc=__wrap_realloc -Dfree=__wrap_free -Dstrdup=__wrap_strdup"
   # ${make_cmd} does not notice if you rebuild with a different configuration, so we
   # just make clean.  It builds quickly enough.
   if [[ "${make_cmd}" -eq "pmake" ]]; then
       # XXX: pmake does not seem to clean properly, but bmake is working fine.
-      rm */*.so
-      svn status | grep '?' | awk '{print $2}' | xargs rm
+      rm -f */*.so
+      svn status | grep '?' | awk '{print $2}' | xargs rm -f
   fi
   ${make_cmd} clean
   (cd common   && ${make_cmd}  COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes all)
@@ -115,6 +117,4 @@ cp \
   libelftc/libelftc.h \
   "${dr_libelftc_dir}/include"
 
-# Remove tabs and trailing spaces
-perl -pi -e 's|\t|        |g' "${dr_libelftc_dir}"/include/*.h
-perl -pi -e 's| +$||' "${dr_libelftc_dir}"/include/*.h
+clang-format -i "${dr_libelftc_dir}"/include/*.h
