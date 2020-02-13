@@ -107,13 +107,12 @@ jobs:
           packages:
           - clang-9
           - clang-format-6.0
-    # 32-bit OSX build with clang and run tests:
+    # 64-bit OSX build with clang and run tests:
     - if: env(TRAVIS_EVENT_TYPE) != cron
       os: osx
       # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
       compiler: clang
-      # We do not have 64-bit support on OSX yet (i#1979).
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=64_only
 
     #######################################################################
     # Package jobs
