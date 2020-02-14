@@ -11833,8 +11833,8 @@ unit_test_vmareas(void)
     add_vm_area(&v, INT_TO_PC(1), INT_TO_PC(3), 0, 0, NULL _IF_DEBUG("A"));
     add_vm_area(&v, INT_TO_PC(4), INT_TO_PC(5), 0, 0, NULL _IF_DEBUG("B"));
     add_vm_area(&v, INT_TO_PC(7), INT_TO_PC(9), 0, 0, NULL _IF_DEBUG("C"));
-    vm_area_t *container;
-    int index;
+    vm_area_t *container = NULL;
+    int index = -1;
     bool found = binary_search(&v, INT_TO_PC(2), INT_TO_PC(3), &container, &index, true);
     EXPECT(found, true);
     EXPECT(container->start, 1);
