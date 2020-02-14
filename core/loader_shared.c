@@ -908,3 +908,150 @@ privload_print_modules(bool path, bool lock, char *buf, size_t bufsz, size_t *so
         release_recursive_lock(&privload_lock);
     return true;
 }
+
+/****************************************************************************
+ * Function Redirection
+ */
+
+#ifdef DEBUG
+/* i#975: used for debug checks for static-link-ready clients. */
+DECLARE_NEVERPROT_VAR(bool disallow_unsafe_static_calls, false);
+#endif
+
+void
+loader_allow_unsafe_static_behavior(void)
+{
+#ifdef DEBUG
+    disallow_unsafe_static_calls = false;
+#endif
+}
+
+/* This routine allocates memory from DR's global memory pool.  Unlike
+ * dr_global_alloc(), however, we store the size of the allocation in
+ * the first few bytes so redirect_free() can retrieve it.  This memory
+ * is also not guaranteed-reachable.
+ */
+void *
+redirect_malloc(size_t size)
+{
+    void *mem;
+    ASSERT(sizeof(size_t) >= HEAP_ALIGNMENT);
+    size += sizeof(size_t);
+    mem = global_heap_alloc(size HEAPACCT(ACCT_LIBDUP));
+    if (mem == NULL) {
+        CLIENT_ASSERT(false, "malloc failed: out of memory");
+        return NULL;
+    }
+    *((size_t *)mem) = size;
+    /* XXX: This is not aligned to 8 for 32-bit as some callers might expect,
+     * nor to 16 for x64.
+     */
+    return (byte *)mem + sizeof(size_t);
+}
+
+/* This routine allocates memory from DR's global memory pool. Unlike
+ * dr_global_alloc(), however, we store the size of the allocation in
+ * the first few bytes so redirect_free() can retrieve it.
+ */
+void *
+redirect_realloc(void *mem, size_t size)
+{
+    void *buf = NULL;
+    if (size > 0) {
+        buf = redirect_malloc(size);
+        if (buf != NULL && mem != NULL) {
+            size_t old_size = *((size_t *)((byte *)mem - sizeof(size_t)));
+            size_t min_size = MIN(old_size, size);
+            memcpy(buf, mem, min_size);
+        }
+    }
+    redirect_free(mem);
+    return buf;
+}
+
+/* This routine allocates memory from DR's global memory pool.
+ * It uses redirect_malloc to get the memory and then set to all 0.
+ */
+void *
+redirect_calloc(size_t nmemb, size_t size)
+{
+    void *buf = NULL;
+    size = size * nmemb;
+
+    buf = redirect_malloc(size);
+    if (buf != NULL)
+        memset(buf, 0, size);
+    return buf;
+}
+
+/* This routine frees memory allocated by redirect_malloc and expects the
+ * allocation size to be available in the few bytes before 'mem'.
+ */
+void
+redirect_free(void *mem)
+{
+    /* PR 200203: leave_call_native() is assuming this routine calls
+     * no other DR routines besides global_heap_free!
+     */
+    if (mem != NULL) {
+        mem = (byte *)mem - sizeof(size_t);
+        global_heap_free(mem, *((size_t *)mem)HEAPACCT(ACCT_LIBDUP));
+    }
+}
+
+char *
+redirect_strdup(const char *str)
+{
+    char *dup;
+    size_t str_len;
+    if (str == NULL)
+        return NULL;
+    str_len = strlen(str) + 1 /* null char */;
+    dup = (char *)redirect_malloc(str_len);
+    strncpy(dup, str, str_len);
+    dup[str_len - 1] = '\0';
+    return dup;
+}
+
+#ifdef DEBUG
+/* i#975: these help clients support static linking with the app. */
+void *
+redirect_malloc_initonly(size_t size)
+{
+    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
+                  "malloc invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
+    return redirect_malloc(size);
+}
+
+void *
+redirect_realloc_initonly(void *mem, size_t size)
+{
+    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
+                  "realloc invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
+    return redirect_realloc(mem, size);
+}
+
+void *
+redirect_calloc_initonly(size_t nmemb, size_t size)
+{
+    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
+                  "calloc invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
+    return redirect_calloc(nmemb, size);
+}
+
+void
+redirect_free_initonly(void *mem)
+{
+    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
+                  "free invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
+    redirect_free(mem);
+}
+
+char *
+redirect_strdup_initonly(const char *str)
+{
+    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
+                  "strdup invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
+    return redirect_strdup(str);
+}
+#endif
