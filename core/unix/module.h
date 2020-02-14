@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -148,33 +148,6 @@ void
 module_add_segment_data(OUT os_module_data_t *out_data, uint num_segments /*hint only*/,
                         app_pc segment_start, size_t segment_size, uint segment_prot,
                         size_t alignment, bool shared, uint64 offset);
-
-/* Redirected functions for loaded module,
- * they are also used by __wrap_* functions in instrument.c
- */
-
-void *
-redirect_calloc(size_t nmemb, size_t size);
-
-void *
-redirect_malloc(size_t size);
-
-void
-redirect_free(void *ptr);
-
-void *
-redirect_realloc(void *ptr, size_t size);
-
-#ifdef DEBUG
-void *
-redirect_malloc_initonly(size_t size);
-void *
-redirect_realloc_initonly(void *mem, size_t size);
-void *
-redirect_calloc_initonly(size_t nmemb, size_t size);
-void
-redirect_free_initonly(void *mem);
-#endif
 
 #if defined(MACOS) || defined(ANDROID)
 typedef FILE stdfile_t;
