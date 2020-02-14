@@ -46,6 +46,7 @@ branches:
 # We use Xenial.
 sudo: required
 dist: xenial
+osx_image: xcode11.3
 
 language:
   - c

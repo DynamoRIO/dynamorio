@@ -4166,7 +4166,6 @@ if (APPLE)
     code_api|linux.signal0010
     code_api|linux.signal0100
     code_api|linux.signal0110
-    code_api|linux.sigaction
     code_api|linux.app_tls
     code_api|linux.fib-conflict
     code_api|linux.fib-pie
