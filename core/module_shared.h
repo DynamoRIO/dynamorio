@@ -689,10 +689,10 @@ void *
 redirect_malloc(size_t size);
 
 void
-redirect_free(void *ptr);
+redirect_free(void *mem);
 
 void *
-redirect_realloc(void *ptr, size_t size);
+redirect_realloc(void *mem, size_t size);
 
 char *
 redirect_strdup(const char *str);
