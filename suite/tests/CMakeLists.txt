@@ -2831,7 +2831,7 @@ endif ()
       torunonly_drcachesim(filter-no-d ${ci_shared_app} "-L0_filter -L0D_size 0" "")
 
       torunonly_drcachesim(delay-simple ${ci_shared_app}
-        "-trace_after_instrs 50000 -exit_after_tracing 10000" "")
+        "-trace_after_instrs 20000 -exit_after_tracing 10000" "")
 
       # Test that "Warmup hits" and "Warmup misses" are printed out
       torunonly_drcachesim(warmup-valid ${ci_shared_app} "-warmup_refs 1" "")
