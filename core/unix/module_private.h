@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -89,12 +89,6 @@ struct _os_privmod_data_t {
     uint tls_first_byte; /* aligned addr of the first tls variable */
     app_pc tls_image;    /* tls block address in memory */
 };
-
-#ifdef DEBUG
-/* i#975: used for debug checks for static-link-ready clients. */
-#    define DR_DISALLOW_UNSAFE_STATIC_NAME "_DR_DISALLOW_UNSAFE_STATIC_"
-extern bool disallow_unsafe_static_calls;
-#endif
 
 #ifdef MACOS
 /* XXX i#1345: support mixed-mode 32-bit and 64-bit in one process.

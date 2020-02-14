@@ -3206,7 +3206,6 @@ dr_custom_free(void *drcontext, dr_alloc_flags_t flags, void *addr, size_t size)
     return res;
 }
 
-#    ifdef UNIX
 DR_API
 /* With ld's -wrap option, we can supply a replacement for malloc.
  * This routine allocates memory from DR's global memory pool.  Unlike
@@ -3253,7 +3252,13 @@ __wrap_free(void *mem)
 {
     redirect_free(mem);
 }
-#    endif
+
+DR_API
+char *
+__wrap_strdup(const char *str)
+{
+    return redirect_strdup(str);
+}
 
 DR_API
 bool

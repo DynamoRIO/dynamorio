@@ -1262,19 +1262,6 @@ privload_fill_os_module_info(app_pc base, OUT app_pc *out_base /* relative pc */
  * Function Redirection
  */
 
-#ifdef DEBUG
-/* i#975: used for debug checks for static-link-ready clients. */
-bool disallow_unsafe_static_calls;
-#endif
-
-void
-loader_allow_unsafe_static_behavior(void)
-{
-#ifdef DEBUG
-    disallow_unsafe_static_calls = false;
-#endif
-}
-
 #if defined(LINUX) && !defined(ANDROID)
 /* These are not yet supported by Android's Bionic */
 void *
@@ -1378,6 +1365,7 @@ static const redirect_import_t redirect_imports[] = {
     { "malloc", (app_pc)redirect_malloc },
     { "free", (app_pc)redirect_free },
     { "realloc", (app_pc)redirect_realloc },
+    { "strdup", (app_pc)redirect_strdup },
 /* FIXME: we should also redirect functions including:
  * malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
  * Any other functions need to be redirected?
@@ -1423,6 +1411,7 @@ static const redirect_import_t redirect_debug_imports[] = {
     { "malloc", (app_pc)redirect_malloc_initonly },
     { "free", (app_pc)redirect_free_initonly },
     { "realloc", (app_pc)redirect_realloc_initonly },
+    { "strdup", (app_pc)redirect_strdup_initonly },
 };
 #    define REDIRECT_DEBUG_IMPORTS_NUM \
         (sizeof(redirect_debug_imports) / sizeof(redirect_debug_imports[0]))

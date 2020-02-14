@@ -31,8 +31,8 @@
  * DAMAGE.
  */
 
-#ifndef MODULE_LIST_H
-#define MODULE_LIST_H
+#ifndef MODULE_SHARED_H
+#define MODULE_SHARED_H
 
 #include "heap.h" /* for HEAPACCT */
 
@@ -672,4 +672,42 @@ bool
 privload_attach_parent_console(app_pc app_kernel32);
 #endif
 
-#endif /* MODULE_LIST_H */
+/* Redirected functions for loaded module,
+ * they are also used by __wrap_* functions in instrument.c
+ */
+
+#ifdef DEBUG
+/* i#975: used for debug checks for static-link-ready clients. */
+#    define DR_DISALLOW_UNSAFE_STATIC_NAME "_DR_DISALLOW_UNSAFE_STATIC_"
+extern bool disallow_unsafe_static_calls;
+#endif
+
+void *
+redirect_calloc(size_t nmemb, size_t size);
+
+void *
+redirect_malloc(size_t size);
+
+void
+redirect_free(void *ptr);
+
+void *
+redirect_realloc(void *ptr, size_t size);
+
+char *
+redirect_strdup(const char *str);
+
+#ifdef DEBUG
+void *
+redirect_malloc_initonly(size_t size);
+void *
+redirect_realloc_initonly(void *mem, size_t size);
+void *
+redirect_calloc_initonly(size_t nmemb, size_t size);
+void
+redirect_free_initonly(void *mem);
+char *
+redirect_strdup_initonly(const char *str);
+#endif
+
+#endif /* MODULE_SHARED_H */

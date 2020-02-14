@@ -2299,7 +2299,6 @@ void *
 dr_raw_brk(void *new_address);
 #    endif
 
-#    ifdef UNIX
 DR_API
 /**
  * Allocates memory from DR's global memory pool, but mimics the
@@ -2309,7 +2308,6 @@ DR_API
  * versions that allocate memory from DR's private pool.  With -wrap,
  * clients can link to libraries that allocate heap memory without
  * interfering with application allocations.
- * \note Currently Linux only.
  */
 void *
 __wrap_malloc(size_t size);
@@ -2320,7 +2318,6 @@ DR_API
  * behavior of realloc.  Memory must be freed with __wrap_free().  The
  * __wrap routines are intended to be used with ld's -wrap option; see
  * __wrap_malloc() for more information.
- * \note Currently Linux only.
  */
 void *
 __wrap_realloc(void *mem, size_t size);
@@ -2331,7 +2328,6 @@ DR_API
  * behavior of calloc.  Memory must be freed with __wrap_free().  The
  * __wrap routines are intended to be used with ld's -wrap option; see
  * __wrap_malloc() for more information.
- * \note Currently Linux only.
  */
 void *
 __wrap_calloc(size_t nmemb, size_t size);
@@ -2342,11 +2338,20 @@ DR_API
  * allocated with __wrap_malloc(). The __wrap routines are intended to
  * be used with ld's -wrap option; see __wrap_malloc() for more
  * information.
- * \note Currently Linux only.
  */
 void
 __wrap_free(void *mem);
-#    endif /* UNIX */
+
+DR_API
+/**
+ * Allocates memory for a new string identical to 'str' and copies the
+ * contents of 'str' into the new string, including a terminating
+ * null.  Memory must be freed with __wrap_free().  The __wrap
+ * routines are intended to be used with ld's -wrap option; see
+ * __wrap_malloc() for more information.
+ */
+char *
+__wrap_strdup(const char *str);
 
 /* DR_API EXPORT BEGIN */
 

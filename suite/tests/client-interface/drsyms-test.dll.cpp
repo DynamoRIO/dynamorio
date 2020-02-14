@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -981,9 +981,12 @@ static cpp_name_t symbols_unix[] = {
       "std::vector<AutocompleteMatch::ACMatchClassification, "
       "std::allocator<AutocompleteMatch> > const)",
       "shortcuts_provider::Shortcut::Shortcut" },
-    /* FIXME: We should teach libelftc how to demangle this. */
+    /* XXX libelftc fails on this pre-r3531, but r3531 has worse bugs so we
+     * live with the failure here.  Xref i#4087.
+     */
     { "_ZN10linked_ptrIN12CrxInstaller14WhitelistEntryEE4copyIS1_EEvPKS_IT_E",
-      "_ZN10linked_ptrIN12CrxInstaller14WhitelistEntryEE4copyIS1_EEvPKS_IT_E",
+      "void linked_ptr<CrxInstaller::WhitelistEntry>::copy<CrxInstaller::"
+      "WhitelistEntry>(linked_ptr const*<CrxInstaller::WhitelistEntry>)",
       "linked_ptr<>::copy<>" },
     { "_ZN27ScopedRunnableMethodFactoryIN6webkit5ppapi18PPB_Scrollbar_ImplEED1Ev",
       "ScopedRunnableMethodFactory<webkit::ppapi::PPB_Scrollbar_Impl>::~"

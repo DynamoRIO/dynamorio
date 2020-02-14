@@ -10,9 +10,10 @@ arm-linux-androideabi-gcc (GCC) 4.9 20140827 (prerelease)
 Install required packages:
 $ sudo apt-get install bison build-essential flex libarchive-dev m4 pmake zlib1g-dev
 
-Check out the sources:
-$ svn co svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
-I have r3248.
+Check out the sources.
+We have to stick with r3530 until
+https://sourceforge.net/p/elftoolchain/tickets/581/ is fixed.
+$ svn co -r 3530 svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
 
 Apply the libelftc-android.patch.
 
@@ -21,14 +22,15 @@ $ export CC=/PATH/TO/ANDROID/NDK/TOOLCHAIN/bin/arm-linux-androideabi-gcc
 $ export LD=/PATH/TO/ANDROID/NDK/TOOLCHAIN/bin/arm-linux-androideabi-ld
 $ export AR=/PATH/TO/ANDROID/NDK/TOOLCHAIN/bin/arm-linux-androideabi-ar
 $ export RANLIB=/PATH/TO/ANDROID/NDK/TOOLCHAIN/bin/arm-linux-androideabi-ranlib
+$ REDIR="-Dmalloc=__wrap_malloc -Dcalloc=__wrap_calloc -Drealloc=__wrap_realloc -Dfree=__wrap_free -Dstrdup=__wrap_strdup"
 $ cd common
 $ cp /PATH/TO/DYNAMORIO/ext/drsyms/libelftc-android/native-elf-format.h native-elf-format.h
 $ cd ../libelf
-$ CFLAGS="-O2 -g -fPIC" pmake libelf.a
+$ CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libelf.a
 $ cd ../libdwarf
-$ CFLAGS="-O2 -g -fPIC" pmake libdwarf.a
+$ CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libdwarf.a
 $ cd ../libelftc
-$ CFLAGS="-O2 -g -fPIC" pmake libelftc.a
+$ CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libelftc.a
 
 I have not yet built or tested 64-bit.
 
