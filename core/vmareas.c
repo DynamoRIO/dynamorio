@@ -1504,6 +1504,10 @@ binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*
     int min = 0;
     int max = v->length - 1;
 
+    if (start == end) {
+        print_file(STDERR, "XXXXX hit start==end case\n");
+        return false;
+    }
     ASSERT(start < end || end == NULL /* wraparound */);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, READWRITE);
