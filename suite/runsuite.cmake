@@ -131,8 +131,8 @@ else (UNIX)
 endif (UNIX)
 
 if (APPLE)
-  # DRi#58: core DR does not yet support 64-bit Mac
-  set(arg_32_only ON)
+  # We no longer support 32-bit Mac since Apple itself does not either.
+  set(arg_64_only ON)
 endif ()
 
 ##################################################
