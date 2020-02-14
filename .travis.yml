@@ -78,22 +78,11 @@ jobs:
       os: linux
       compiler: gcc
       env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DEPLOY=no DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
-    # 32-bit Linux build with clang, no tests (runsuite.cmake disables the tests):
-    - if: env(TRAVIS_EVENT_TYPE) != cron
-      os: linux
-      compiler: clang
-      # We need clang 9.0 to avoid a compiler bug: i#3989.
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only CC=clang-9 && CXX=clang++-9
-      addons:
-        apt:
-          sources:
-          - ubuntu-toolchain-r-test
-          - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
-            key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
-          packages:
-          - clang-9
     # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests),
-    # install and require clang-format:
+    # install and require clang-format.
+    # We used to build 32-bit with clang but have decided that is not worth
+    # the Travis resources: 64-bit hits most clang-only warnings and 64-bit
+    # is the primary target these days.
     - if: env(TRAVIS_EVENT_TYPE) != cron
       os: linux
       compiler: clang
