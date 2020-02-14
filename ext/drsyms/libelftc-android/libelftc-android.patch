@@ -15,19 +15,6 @@ Index: libelftc/elftc_set_timestamps.c
  #include <sys/time.h>
  #else
 
-Index: libelf/os.Linux.mk
-===================================================================
---- libelf/os.Linux.mk	(revision 3819)
-+++ libelf/os.Linux.mk	(working copy)
-@@ -17,7 +17,6 @@
- CFLAGS+=	-Wpointer-sign
- CFLAGS+=	-Wpointer-to-int-cast
- CFLAGS+=	-Wsign-compare
--CFLAGS+=	-Wunused-const-variable
- CFLAGS+=	-Wunused-parameter
- CFLAGS+=	-Wold-style-definition
- CFLAGS+=	-Wpointer-arith
-
 Index: libelf/libelf_ar.c
 ===================================================================
 --- libelf/libelf_ar.c	(revision 3816)

@@ -33,9 +33,10 @@ I have cross compiler aarch64-linux-gnu-gcc
 $ aarch64-linux-gnu-gcc --version
 aarch64-linux-gnu-gcc (Debian 5.3.1-8) 5.3.1 20160205
 
-Check out the sources:
-$ svn co svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
-I have r3424.
+Check out the sources.
+We have to stick with r3530 until
+https://sourceforge.net/p/elftoolchain/tickets/581/ is fixed.
+$ svn co -r 3530 svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
 
 Now build:
 $ export CC=aarch64-linux-gnu-gcc
@@ -46,7 +47,7 @@ $ cd common
 $ cp /PATH/TO/DYNAMORIO/ext/drsyms/libelftc-aarch64/native-elf-format.h native-elf-format.h
 $ cd ../libelf
 $ pmake clean
-$ REDIR="-Dmalloc=__wrap_malloc -Dcalloc=__wrap_calloc -Drealloc=__wrap_realloc -Dfree=__wrap_free"
+$ REDIR="-Dmalloc=__wrap_malloc -Dcalloc=__wrap_calloc -Drealloc=__wrap_realloc -Dfree=__wrap_free -Dstrdup=__wrap_strdup"
 $ CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libelf.a
 $ cd ../libdwarf
 $ pmake clean
