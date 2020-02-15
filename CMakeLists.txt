@@ -1452,9 +1452,9 @@ option(BUILD_SAMPLES "build client samples" ON)
 
 option(BUILD_CLIENTS "build client tools" ON)
 
-if (NOT X86)
-  # FIXME i#1551: fail to install necessary package on Linux ARM
-  # XXX i#1730: if we enable this we'll need to disable for cross-compilation
+if (ANDROID)
+  # TODO i#1874: Android does not build drcachesim or drcpusim, which have
+  # references spread throughout the docs.
   option(BUILD_DOCS "build documentation" OFF)
 else ()
   option(BUILD_DOCS "build documentation" ON)
