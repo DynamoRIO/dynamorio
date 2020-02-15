@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2020 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -601,7 +601,9 @@ endif ()
 ##################################################
 # Documentation
 
-# We auto-generate the list of options in the html docs via this helper app:
+# We auto-generate the list of options in the html docs via this helper app.
+# i#1730: We cannot execute this when cross-compiling so for now we generate
+# docs without this list (better than no docs at all).
 add_executable(drcachesim_ops
   optionlist.cpp
   common/options.cpp)
@@ -629,6 +631,7 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND}
   ARGS -D src=${srcdoc}
        -D dst=${gendoc}
+       -D CMAKE_CROSSCOMPILING=${CMAKE_CROSSCOMPILING}
        -D prog=$<TARGET_FILE:drcachesim_ops>
        -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake
   VERBATIM)
