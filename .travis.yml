@@ -53,28 +53,32 @@ language:
 
 # We use a jobs include approach rather than an os, compiler, env matrix
 # with excludes so we can use conditional builds (plus it's clearer this way).
+# For packages, "type = cron" is for the real cron builds, and the env var
+# TRAVIS_EVENT_TYPE is set for manually-triggered package builds (that
+# same env var is set by Travis for "type = cron" but the env var is not
+# set during job matrix setup: only once a job starts).
 jobs:
   include:
     #######################################################################
     # Regular test jobs:
 
     # 32-bit Linux build with gcc and run tests:
-    - if: type != cron
+    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
       os: linux
       compiler: gcc
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="32_only"
     # 64-bit Linux build with gcc and run tests:
-    - if: type != cron
+    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
       os: linux
       compiler: gcc
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="64_only"
     # AArchXX cross-compile with gcc, no tests:
-    - if: type != cron
+    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
       os: linux
       compiler: gcc
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes DEPLOY=no
     # Android ARM cross-compile with gcc, no tests:
-    - if: type != cron
+    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
       os: linux
       compiler: gcc
       env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DEPLOY=no DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
@@ -83,7 +87,7 @@ jobs:
     # We used to build 32-bit with clang but have decided that is not worth
     # the Travis resources: 64-bit hits most clang-only warnings and 64-bit
     # is the primary target these days.
-    - if: type != cron
+    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
       os: linux
       compiler: clang
       # We need clang 9.0 to avoid a compiler bug: i#3989.
@@ -98,7 +102,7 @@ jobs:
           - clang-9
           - clang-format-6.0
     # 64-bit OSX build with clang and run tests:
-    - if: type != cron
+    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
       os: osx
       # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
       compiler: clang
@@ -107,22 +111,22 @@ jobs:
     #######################################################################
     # Package jobs
     # Linux x86 + amd64:
-    - if: type = cron
+    - if: type = cron OR env(TRAVIS_EVENT_TYPE) = cron
       os: linux
       compiler: gcc
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=yes
     # Linux AArch64:
-    - if: type = cron
+    - if: type = cron OR env(TRAVIS_EVENT_TYPE) = cron
       os: linux
       compiler: gcc
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes DEPLOY=yes EXTRA_ARGS=64_only
     # Linux ARM:
-    - if: type = cron
+    - if: type = cron OR env(TRAVIS_EVENT_TYPE) = cron
       os: linux
       compiler: gcc
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes DEPLOY=yes EXTRA_ARGS=32_only
     # Android ARM:
-    - if: type = cron
+    - if: type = cron OR env(TRAVIS_EVENT_TYPE) = cron
       os: linux
       compiler: gcc
       env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e' DEPLOY=yes EXTRA_ARGS=32_only
