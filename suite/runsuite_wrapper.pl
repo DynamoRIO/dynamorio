@@ -125,7 +125,7 @@ if ($child) {
     # that has to be manually downloaded.  We thus stick with -V for
     # Travis.  For Appveyor where many devs have no local Visual
     # Studio we do use -VV so build warning details are visible.
-    my $verbose = "-V";
+    my $verbose = "-VV"; #TEMPORARY
     if ($^O eq 'cygwin') {
         $verbose = "-VV";
     }
