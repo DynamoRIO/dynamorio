@@ -1452,7 +1452,13 @@ option(BUILD_SAMPLES "build client samples" ON)
 
 option(BUILD_CLIENTS "build client tools" ON)
 
-option(BUILD_DOCS "build documentation" ON)
+if (ANDROID)
+  # TODO i#1874: Android does not build drcachesim or drcpusim, which have
+  # references spread throughout the docs.
+  option(BUILD_DOCS "build documentation" OFF)
+else ()
+  option(BUILD_DOCS "build documentation" ON)
+endif ()
 
 if (VMSAFE)
   # I did not preserve VMSAFE docs building: to reactivate it, need to
