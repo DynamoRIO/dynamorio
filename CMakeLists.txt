@@ -1452,13 +1452,7 @@ option(BUILD_SAMPLES "build client samples" ON)
 
 option(BUILD_CLIENTS "build client tools" ON)
 
-if (NOT X86)
-  # FIXME i#1551: fail to install necessary package on Linux ARM
-  # XXX i#1730: if we enable this we'll need to disable for cross-compilation
-  option(BUILD_DOCS "build documentation" OFF)
-else ()
-  option(BUILD_DOCS "build documentation" ON)
-endif ()
+option(BUILD_DOCS "build documentation" ON)
 
 if (VMSAFE)
   # I did not preserve VMSAFE docs building: to reactivate it, need to
