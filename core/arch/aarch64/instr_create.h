@@ -438,7 +438,7 @@
  * from the docs until headers are added.
  */
 
-/** \cond disabled-until-i4106-is-fixed */
+/** \cond disabled_until_i4106_is_fixed */
 #define INSTR_CREATE_add(dc, rd, rn, rm_or_imm) \
     INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
 #define INSTR_CREATE_add_extend(dc, rd, rn, rm, ext, exa)                             \
@@ -457,7 +457,7 @@
          ? INSTR_CREATE_adds_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
                                    OPND_CREATE_INT(0))                       \
          : INSTR_CREATE_adds_imm(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(0)))
-/** \endcond disabled-until-i4106-is-fixed */
+/** \endcond disabled_until_i4106_is_fixed */
 
 /**
  * Creates an AND instruction with one output and two inputs.
@@ -471,12 +471,12 @@
          ? instr_create_1dst_2src((dc), OP_and, (rd), (rn), (rm_or_imm))    \
          : INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
                                   OPND_CREATE_INT(0)))
-/** \cond disabled-until-i4106-is-fixed */
+/** \cond disabled_until_i4106_is_fixed */
 #define INSTR_CREATE_and_shift(dc, rd, rn, rm, sht, sha)                             \
     instr_create_1dst_4src((dc), OP_and, (rd), (rn),                                 \
                            opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
-/** \endcond disabled-until-i4106-is-fixed */
+/** \endcond disabled_until_i4106_is_fixed */
 
 /**
  * Creates an ANDS instruction with one output and two inputs.
@@ -490,13 +490,13 @@
          ? instr_create_1dst_2src((dc), OP_ands, (rd), (rn), (rm_or_imm))    \
          : INSTR_CREATE_ands_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
                                    OPND_CREATE_INT(0)))
-/** \cond disabled-until-i4106-is-fixed */
+/** \cond disabled_until_i4106_is_fixed */
 #define INSTR_CREATE_ands_shift(dc, rd, rn, rm, sht, sha)                            \
     instr_create_1dst_4src((dc), OP_ands, (rd), (rn),                                \
                            opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
 #define INSTR_CREATE_b(dc, pc) instr_create_0dst_1src((dc), OP_b, (pc))
-/** \endcond disabled-until-i4106-is-fixed */
+/** \endcond disabled_until_i4106_is_fixed */
 /**
  * This macro creates an instr_t for a conditional branch instruction. The condition
  * can be set using INSTR_PRED macro.
@@ -512,7 +512,7 @@
 #define INSTR_CREATE_bl(dc, pc) \
     instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_X30), (pc))
 
-/** \cond disabled-until-i4106-is-fixed */
+/** \cond disabled_until_i4106_is_fixed */
 #define INSTR_CREATE_adc(dc, Rd, Rn, Rm) \
     instr_create_1dst_2src((dc), OP_adc, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_adcs(dc, Rd, Rn, Rm) \
@@ -600,7 +600,7 @@
     INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, sht, sha)
 #define INSTR_CREATE_sub_shimm(dc, rd, rn, rm_or_imm, sht, sha) \
     INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, sht, sha)
-/** \endcond disabled-until-i4106-is-fixed */
+/** \endcond disabled_until_i4106_is_fixed */
 
 /**
  * Creates an FMOV instruction to move between GPRs and floating point registers.
