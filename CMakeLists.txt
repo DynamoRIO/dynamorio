@@ -1724,25 +1724,6 @@ endif (BUILD_CLIENTS)
 
 if (CLIENT_INTERFACE OR APP_EXPORTS)
   if (BUILD_DOCS)
-    find_package(ImageMagick COMPONENTS mogrify)
-    if (NOT ImageMagick_mogrify_FOUND)
-      # cmake 2.6.0 does not set the _FOUND vars, just the exec path,
-      # and it uses all caps
-      if (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-        set(ImageMagick_mogrify_EXECUTABLE ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-      else (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-        # We require on Linux pre-commit where it's trivial to install
-        if (TEST_SUITE AND UNIX AND NOT APPLE)
-          message(FATAL_ERROR "ImageMagick is required to build the documentation")
-        else ()
-          # Non-fatal for a single, un-official build, or on Windows
-          message(WARNING "ImageMagick not found: documentation will NOT be built")
-          set(BUILD_DOCS OFF)
-        endif ()
-      endif (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-    endif (NOT ImageMagick_mogrify_FOUND)
-    mark_as_advanced(ImageMagick_EXECUTABLE_DIR)
-
     find_package(Doxygen)
     if (NOT DOXYGEN_FOUND)
       # We require on Linux pre-commit where it's trivial to install
@@ -1754,48 +1735,6 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
         set(BUILD_DOCS OFF)
       endif ()
     endif (NOT DOXYGEN_FOUND)
-
-    include(${PROJECT_SOURCE_DIR}/make/FindFig2Dev.cmake)
-    if (NOT FIG2DEV_FOUND)
-      # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX AND NOT APPLE)
-        message(FATAL_ERROR "fig2dev (from transfig) is required to build documentation")
-      else ()
-        # Non-fatal for a single, un-official build, or on Windows
-        message(WARNING "fig2dev (from transfig) not found: docs will NOT be built")
-        set(BUILD_DOCS OFF)
-      endif ()
-    endif (NOT FIG2DEV_FOUND)
-
-    # fig2dev needs ghostscript to produce tiff files (not to produce eps)
-    include(${PROJECT_SOURCE_DIR}/make/FindGhostscript.cmake)
-    if (NOT GHOSTSCRIPT_FOUND)
-      # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX AND NOT APPLE)
-        message(FATAL_ERROR "ghostscript is required to build documentation")
-      else ()
-        # Non-fatal for a single, un-official build, or on Windows
-        message(WARNING "ghostscript not found: documentation will NOT be built")
-        set(BUILD_DOCS OFF)
-      endif ()
-    else (NOT GHOSTSCRIPT_FOUND)
-      # must be on path.  we can't just literally check the path
-      # b/c of cygwin issues: c:/cygwin/bin vs /usr/bin, etc.
-      get_filename_component(gs_name ${GHOSTSCRIPT_EXECUTABLE} NAME)
-      find_program(GHOSTSCRIPT_ON_PATH ${gs_name} PATHS ENV PATH NO_DEFAULT_PATH)
-      if (NOT GHOSTSCRIPT_ON_PATH)
-        # We require on Linux pre-commit where it's trivial to install
-        if (TEST_SUITE AND UNIX AND NOT APPLE)
-          message(FATAL_ERROR
-            "ghostscript is installed, but must be on PATH for fig2dev to find it")
-        else ()
-          # Non-fatal for a single, un-official build, or on Windows
-          message(WARNING "ghostscript not on PATH: documentation will NOT be built")
-          set(BUILD_DOCS OFF)
-        endif ()
-      endif (NOT GHOSTSCRIPT_ON_PATH)
-      mark_as_advanced(GHOSTSCRIPT_ON_PATH)
-    endif (NOT GHOSTSCRIPT_FOUND)
 
     if (BUILD_DOCS)
       add_subdirectory(api/docs)

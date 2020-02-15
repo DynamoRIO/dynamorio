@@ -133,10 +133,9 @@ install:
   # FIXME: remove the "brew update" step once Travis fixes their Mac VM's
   # on 11/15/17.  Xref https://github.com/travis-ci/travis-ci/issues/8552.
   - if [[ "`uname`" == "Darwin" ]]; then brew update; brew install nasm; fi
-  # ImageMagick is present but these are not:
   - >
       if [[ "`uname`" == "Linux" ]]; then
-      sudo apt-get -y install ghostscript doxygen transfig vera++ cmake zlib1g-dev libsnappy-dev; fi
+      sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev; fi
   # Install multilib for non-cross-compiling Linux builds:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY == no ]]; then
