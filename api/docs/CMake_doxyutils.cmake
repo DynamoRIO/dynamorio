@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2020 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -73,15 +73,15 @@ function (doxygen_path_xform DOXYGEN_EXECUTABLE list_of_path_vars)
   if (WIN32)
     # We can't rely on the presence of "cygwin" in the path to indicate this
     # is a cygwin executable, as some users place native-Windows apps in
-    # c:/cygwin/usr/local/bin.
+    # c:/cygwin/usr/local/bin.  We thus try to write to a cygwin path.
+    # Doxygen will happily clobber if our temp file already exists.
     execute_process(COMMAND
-      ${DOXYGEN_EXECUTABLE} --help
-      RESULT_VARIABLE doxygen_h_result
-      ERROR_VARIABLE doxygen_h_error
-      OUTPUT_VARIABLE doxygen_h_out
+      ${DOXYGEN_EXECUTABLE} -g /tmp/_test_doxygen_.dox
+      RESULT_VARIABLE doxygen_query_result
+      ERROR_VARIABLE doxygen_query_error
+      OUTPUT_VARIABLE doxygen_query_out
       )
-    string(REGEX MATCH " /" is_cygwin "${doxygen_h_out}")
-    if (is_cygwin)
+    if (NOT doxygen_query_result)
       # Cygwin doxygen cannot handle mixed paths!
       #    *** E:/cygwin/bin/doxygen.exe failed: ***
       #    Failed to open temporary file
