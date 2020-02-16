@@ -59,6 +59,7 @@ set(arg_invoke "")     # sub-project package.cmake to invoke
 set(arg_preload "")    # cmake file to include prior to each 32-bit build
 set(arg_preload64 "")  # cmake file to include prior to each 64-bit build
 set(arg_cpackappend "")# string to append to CPackConfig.cmake before packaging
+set(arg_copy_docs OFF)  # copy html/ dir into top level
 set(cross_aarchxx_linux_only OFF)
 set(cross_android_only OFF)
 
@@ -93,6 +94,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif ()
   if (${arg} MATCHES "^cpackappend=")
     string(REGEX REPLACE "^cpackappend=" "" arg_cpackappend "${arg}")
+  endif ()
+  if (${arg} MATCHES "^copy_docs")
+    set(arg_copy_docs ON)
   endif ()
 endforeach (arg)
 
@@ -226,3 +230,23 @@ if (EXISTS "${results}")
 else (EXISTS "${results}")
   message(FATAL_ERROR "failed to create package")
 endif (EXISTS "${results}")
+
+if (arg_copy_docs)
+  # Prepare for copying the documentation to our Github Pages site by placing it
+  # in a single fixed-name location with a .nojekyll file.
+  message("Copying documentation into ${arg_outdir}/html")
+  message("Looking for ${last_package_build_dir}/_CPack_Packages/*/*/DynamoRIO-*/docs/html")
+  file(GLOB allhtml "${last_package_build_dir}/_CPack_Packages/*/*/DynamoRIO-*/docs/html")
+  # If there's a source package we'll have multiple.  Just take the first one.
+  list(GET allhtml 0 html)
+  if (EXISTS "${html}")
+    execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory "${arg_outdir}/html")
+    execute_process(COMMAND
+      ${CMAKE_COMMAND} -E copy_directory ${html} "${arg_outdir}/html")
+    # Create a .nojekyll file so Github Pages will display this as raw html.
+    execute_process(COMMAND ${CMAKE_COMMAND} -E touch "${arg_outdir}/html/.nojekyll")
+    message("Successully copied docs")
+  else ()
+    message(FATAL_ERROR "failed to find html docs")
+  endif ()
+endif ()

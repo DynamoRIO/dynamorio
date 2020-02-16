@@ -108,6 +108,9 @@ if ($child) {
         my $version = $1;
         $args .= ";version=${version}";
     }
+    if ($ENV{'DEPLOY_DOCS'} eq 'yes') {
+        $args .= ";copy_docs";
+    }
     # Include Dr. Memory.
     if (($is_aarchxx || $ENV{'DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY'} eq 'yes') &&
         $args =~ /64_only/) {
