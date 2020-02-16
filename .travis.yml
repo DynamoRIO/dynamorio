@@ -204,23 +204,23 @@ deploy:
   - provider: releases
     api_key:
       secure: V3kgcRiwijjpmcSuVio1+/oZ8cqJGaVlL42hN0w/jjO6LoELy2kknT5h80H7wMVKpZnMg+2v/yWj5hawlrwh8nCS51lYllPHN7K+ivzkyJ3R4cp1WAzL56vnYFYz1/twYpeS10Zl6JL6wt788WcibpShMOIlAnXnm1kU9BBVtYE=
-      file_glob: true
-      file: "DynamoRIO*.tar.gz"
-      skip_cleanup: true
-      # The name must just be the tag in order to match Appveyor.
-      name: $GIT_TAG
-      # This body is clobbered by Appveyor.
-      body: "Auto-generated periodic build (Travis build $TRAVIS_BUILD_NUMBER)."
-      on:
-        repo: DynamoRIO/dynamorio
-        branch: master
-        condition: $TRAVIS_EVENT_TYPE = cron && $DEPLOY = yes
+    file_glob: true
+    file: "DynamoRIO*.tar.gz"
+    skip_cleanup: true
+    # The name must just be the tag in order to match Appveyor.
+    name: $GIT_TAG
+    # This body is clobbered by Appveyor.
+    body: "Auto-generated periodic build (Travis build $TRAVIS_BUILD_NUMBER)."
+    on:
+      repo: DynamoRIO/dynamorio
+      branch: master
+      condition: $TRAVIS_EVENT_TYPE = cron && $DEPLOY = yes
   - provider: pages
     repo: DynamoRIO/dynamorio_docs
     local_dir: html
     github_token:
       secure: N8TKftuS4f2GfaZ53dIlBHrfxfmDUvXvZzZT7lcAO0Fps0TSxLZ3+VcjNj/hoTk8HpDLnSsDLu/+FthzPYnROCeR3iiIRcrtHv71Zsf0h3SJ9fMDNpEgz6y0LMhhmSSMcQtbsKWhVwamUhmaSGXZdxBm0Irc7INYajkv1xKs5a0=
-      skip_cleanup: true
-      on:
-        branch: master
-        condition: $TRAVIS_EVENT_TYPE = cron && $DEPLOY_DOCS = yes
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: $TRAVIS_EVENT_TYPE = cron && $DEPLOY_DOCS = yes
