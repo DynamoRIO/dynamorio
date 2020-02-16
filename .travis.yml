@@ -217,6 +217,7 @@ deploy:
       condition: $TRAVIS_EVENT_TYPE = cron && $DEPLOY = yes
   - provider: pages
     repo: DynamoRIO/dynamorio_docs
+    target_branch: master
     local_dir: html
     github_token:
       secure: NBkUMgYuNa8E2PG28I6I99BbZMXpA6TN67WHHwARVR02hXT2IgvSUyHLHNnp+aLiebRHrZ9ZbcO0icB2t/edZjBIUl2giJPY01FArDqB0CXKuzNzLUe7O3YJFygjroUEs4XPfyYydl+cwxPUm26Gzd36CLh8nA4KO6j+wrEA+KA=
