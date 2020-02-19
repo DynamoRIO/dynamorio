@@ -593,7 +593,18 @@ protected:
      */
     trace_converter_t(void *dcontext)
         : dcontext_(dcontext == nullptr ? dr_standalone_init() : dcontext)
+        , passed_dcontext_(dcontext != nullptr)
     {
+    }
+
+    /**
+     * Destroys this #trace_converter_t object.  If a nullptr dcontext_in was passed
+     * to the constructor, calls dr_standalone_exit().
+     */
+    ~trace_converter_t()
+    {
+        if (!passed_dcontext_)
+            dr_standalone_exit();
     }
 
     /**
@@ -720,6 +731,11 @@ protected:
      * The pointer to the DR context.
      */
     void *const dcontext_;
+
+    /**
+     * Whether a non-nullptr dcontext was passed to the constructor.
+     */
+    bool passed_dcontext_ = false;
 
     /**
      * Get the module map.

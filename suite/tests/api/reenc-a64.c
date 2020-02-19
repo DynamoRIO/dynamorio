@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2020 Google, Inc. All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -100,5 +101,6 @@ main(int argc, char *argv[])
         test1(dc, i, sizeof(uint));
     } while (i++ != b);
 
+    dr_standalone_exit();
     return 0;
 }

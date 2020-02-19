@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2020 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -208,13 +209,17 @@ main(int argc, char *argv[])
                   "  -q FILE    Run test quietly.\n"
                   "  -v FILE    Run test verbosely.\n"
                   "  -d NUMBER  Disassemble a single instruction.\n");
+        dr_standalone_exit();
         return 0;
     }
 
     if (strcmp(argv[1], "-d") == 0) {
         run_decode(dc, argv[2]);
+        dr_standalone_exit();
         return 0;
     }
 
-    return run_test(dc, argv[2], (strcmp(argv[1], "-v") == 0));
+    int res = run_test(dc, argv[2], (strcmp(argv[1], "-v") == 0));
+    dr_standalone_exit();
+    return res;
 }

@@ -4084,7 +4084,6 @@ os_open_protected(const char *fname, int os_open_flags)
     file_t res = os_open(fname, os_open_flags);
     if (res < 0)
         return res;
-
     /* we could have os_open() always switch to a private fd but it's probably
      * not worth the extra syscall for temporary open/close sequences so we
      * only use it for persistent files

@@ -2835,6 +2835,7 @@ main()
     standalone_init();
     res = unit_check_sse3();
     res = unit_check_decode_ff_opcode() && res;
+    standalone_exit();
     return res;
 }
 

@@ -3049,6 +3049,7 @@ main()
 {
     bool res = true;
     standalone_init();
+    standalone_exit();
     return res;
 }
 
