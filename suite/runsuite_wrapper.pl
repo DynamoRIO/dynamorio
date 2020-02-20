@@ -75,6 +75,7 @@ if ($^O eq 'cygwin') {
 
 # We tee to stdout to provide incremental output and avoid the 10-min
 # no-output timeout on Travis.
+print "About to fork\n"; #TEMPORARY
 my $res = '';
 my $child = open(CHILD, '-|');
 die "Failed to fork: $!" if (!defined($child));
@@ -128,10 +129,11 @@ if ($child) {
     # that has to be manually downloaded.  We thus stick with -V for
     # Travis.  For Appveyor where many devs have no local Visual
     # Studio we do use -VV so build warning details are visible.
-    my $verbose = "-V";
+    my $verbose = "-VV"; #TEMPORARY
     if ($^O eq 'cygwin') {
         $verbose = "-VV";
     }
+    print "Running ctest\n"; #TEMPORARY
     system("ctest --output-on-failure ${verbose} -S \"${osdir}/runsuite.cmake${args}\" 2>&1");
     exit 0;
 }
