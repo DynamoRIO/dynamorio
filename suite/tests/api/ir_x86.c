@@ -1200,7 +1200,7 @@ test_x86_mode(void *dc)
     ASSERT(instr_get_opcode(instr) == OP_sysexit);
     ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_ESP);
 
-    instr_free(dc, instr);
+    instr_destroy(dc, instr);
     set_x86_mode(dc, false /*64-bit*/);
 }
 
@@ -1478,8 +1478,8 @@ test_instr_opnds(void *dc)
     ASSERT(opnd_get_disp(instr_get_src(instr, 0)) == (ptr_int_t)pc + disp);
 #endif
 
-    instr_free(dc, instr);
-    instrlist_destroy(dc, ilist);
+    instr_destroy(dc, instr);
+    instrlist_clear_and_destroy(dc, ilist);
 }
 
 static void
@@ -1859,6 +1859,7 @@ test_vsib(void *dc)
         pc = decode(dc, (byte *)&b_scattergatherinv[i], &invinstr);
         ASSERT(pc == NULL);
     }
+    instr_free(dc, &invinstr);
 }
 
 static void
@@ -1940,7 +1941,7 @@ test_predication(void *dc)
     ASSERT(instr_writes_to_reg(instr, DR_REG_XMM0, DR_QUERY_INCLUDE_COND_DSTS));
     ASSERT(!instr_writes_to_reg(instr, DR_REG_XMM0, 0));
 
-    instr_reset(dc, instr);
+    instr_destroy(dc, instr);
     instr = INSTR_CREATE_cmovcc(dc, OP_cmovnle, opnd_create_reg(DR_REG_EAX),
                                 opnd_create_reg(DR_REG_ECX));
     ASSERT(instr_reads_from_reg(instr, DR_REG_ECX, DR_QUERY_DEFAULT));
@@ -1965,7 +1966,7 @@ test_predication(void *dc)
     ASSERT(!instr_writes_to_reg(instr, DR_REG_EAX, 0));
 
     /* bsf always writes to eflags */
-    instr_reset(dc, instr);
+    instr_destroy(dc, instr);
     instr =
         INSTR_CREATE_bsf(dc, opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_ECX));
     ASSERT(TESTALL(EFLAGS_WRITE_6, instr_get_eflags(instr, DR_QUERY_DEFAULT)));
@@ -2006,8 +2007,8 @@ test_xinst_create(void *dc)
     ins2 = instr_create(dc);
     decode(dc, buf, ins2);
     ASSERT(instr_same(ins1, ins2));
-    instr_reset(dc, ins1);
-    instr_reset(dc, ins2);
+    instr_destroy(dc, ins1);
+    instr_destroy(dc, ins2);
     /* load 1 byte */
     ins1 = XINST_CREATE_load_1byte(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)),
                                    MEMARG(OPSZ_1));
@@ -2016,8 +2017,8 @@ test_xinst_create(void *dc)
     ins2 = instr_create(dc);
     decode(dc, buf, ins2);
     ASSERT(instr_same(ins1, ins2));
-    instr_reset(dc, ins1);
-    instr_reset(dc, ins2);
+    instr_destroy(dc, ins1);
+    instr_destroy(dc, ins2);
     /* load 2 bytes */
     ins1 = XINST_CREATE_load_2bytes(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)),
                                     MEMARG(OPSZ_2));
@@ -2026,8 +2027,8 @@ test_xinst_create(void *dc)
     ins2 = instr_create(dc);
     decode(dc, buf, ins2);
     ASSERT(instr_same(ins1, ins2));
-    instr_reset(dc, ins1);
-    instr_reset(dc, ins2);
+    instr_destroy(dc, ins1);
+    instr_destroy(dc, ins2);
     /* store 1 byte */
     ins1 = XINST_CREATE_store_1byte(dc, MEMARG(OPSZ_1),
                                     opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)));
@@ -2036,8 +2037,8 @@ test_xinst_create(void *dc)
     ins2 = instr_create(dc);
     decode(dc, buf, ins2);
     ASSERT(instr_same(ins1, ins2));
-    instr_reset(dc, ins1);
-    instr_reset(dc, ins2);
+    instr_destroy(dc, ins1);
+    instr_destroy(dc, ins2);
     /* store 1 byte */
     ins1 = XINST_CREATE_store_2bytes(dc, MEMARG(OPSZ_2),
                                      opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)));
@@ -2046,8 +2047,8 @@ test_xinst_create(void *dc)
     ins2 = instr_create(dc);
     decode(dc, buf, ins2);
     ASSERT(instr_same(ins1, ins2));
-    instr_reset(dc, ins1);
-    instr_reset(dc, ins2);
+    instr_destroy(dc, ins1);
+    instr_destroy(dc, ins2);
 }
 
 static void
@@ -2127,7 +2128,7 @@ test_reg_exact_reads(void *dc)
     ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_AX, DR_QUERY_INCLUDE_COND_DSTS));
     ASSERT(!instr_reads_from_exact_reg(instr, DR_REG_AX, 0));
 
-    instr_reset(dc, instr);
+    instr_destroy(dc, instr);
     instr = INSTR_CREATE_mov_ld(dc, OPND_CREATE_MEM16(DR_REG_XAX, 5),
                                 opnd_create_reg(DR_REG_BX));
 
@@ -2148,7 +2149,7 @@ test_reg_exact_reads(void *dc)
     ASSERT(instr_reads_from_exact_reg(instr, DR_REG_BX, DR_QUERY_INCLUDE_COND_DSTS));
     ASSERT(instr_reads_from_exact_reg(instr, DR_REG_BX, 0));
 
-    instr_reset(dc, instr);
+    instr_destroy(dc, instr);
     instr =
         INSTR_CREATE_pxor(dc, opnd_create_reg(DR_REG_XMM0), opnd_create_reg(DR_REG_XMM1));
 
@@ -2358,5 +2359,8 @@ main(int argc, char *argv[])
 #endif
 
     print("all done\n");
+#ifndef STANDALONE_DECODER
+    dr_standalone_exit();
+#endif
     return 0;
 }

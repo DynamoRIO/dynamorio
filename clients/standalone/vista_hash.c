@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -425,6 +426,7 @@ main(int argc, char *argv[])
     while (spin_for_debugger)
         Sleep(1000);
 
+    dr_standalone_exit();
     return 0;
 }
 

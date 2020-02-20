@@ -258,4 +258,5 @@ raw2trace_directory_t::~raw2trace_directory_t()
          fo != out_files_.end(); ++fo) {
         delete *fo;
     }
+    dr_standalone_exit();
 }

@@ -54,8 +54,7 @@ view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
 
 view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
                const std::string &syntax, unsigned int verbose)
-    : dcontext_(nullptr)
-    , module_file_path_(module_file_path)
+    : module_file_path_(module_file_path)
     , knob_verbose_(verbose)
     , instr_count_(0)
     , knob_skip_refs_(skip_refs)
@@ -70,7 +69,7 @@ view_t::initialize()
 {
     if (module_file_path_.empty())
         return "Module file path is missing";
-    dcontext_ = dr_standalone_init();
+    dcontext_.dcontext = dr_standalone_init();
     std::string error = directory_.initialize_module_file(module_file_path_);
     if (!error.empty())
         return "Failed to initialize directory: " + error;
@@ -152,10 +151,10 @@ view_t::process_memref(const memref_t &memref)
         // MAX_INSTR_DIS_SZ is set to 196 in core/arch/disassemble.h but is not
         // exported so we just use the same value here.
         char buf[196];
-        byte *next_pc =
-            disassemble_to_buffer(dcontext_, mapped_pc, orig_pc, /*show_pc=*/true,
-                                  /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
-                                  /*printed=*/nullptr);
+        byte *next_pc = disassemble_to_buffer(
+            dcontext_.dcontext, mapped_pc, orig_pc, /*show_pc=*/true,
+            /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
+            /*printed=*/nullptr);
         if (next_pc == nullptr) {
             error_string_ = "Failed to disassemble " + to_hex_string(memref.instr.addr);
             return false;

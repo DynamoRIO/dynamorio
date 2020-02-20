@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -181,5 +181,6 @@ main(int argc, char *argv[])
     /* i#1702: test that a cti terminates the IT-block */
     test_dr_insert_it_instrs_cti(dcontext);
 
+    dr_standalone_exit();
     return 0;
 }

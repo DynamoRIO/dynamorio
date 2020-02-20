@@ -3495,6 +3495,7 @@ global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
     if (heapmgt == &temp_heapmgt &&
         /* We prevent recrusion by checking for a field that heap_init writes. */
         !heapmgt->global_heap_writable) {
+        /* XXX: We have no control point to call standalone_exit(). */
         standalone_init();
     }
 #endif
@@ -4773,6 +4774,7 @@ heap_reachable_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t whi
     if (heapmgt == &temp_heapmgt &&
         /* We prevent recrusion by checking for a field that heap_init writes. */
         !heapmgt->global_heap_writable) {
+        /* XXX: We have no control point to call standalone_exit(). */
         standalone_init();
     }
 #endif

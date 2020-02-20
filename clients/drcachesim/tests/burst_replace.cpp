@@ -212,6 +212,7 @@ post_process()
     assert(error.empty());
     error = raw2trace.do_conversion();
     assert(error.empty());
+    dr_standalone_exit();
 }
 
 int
