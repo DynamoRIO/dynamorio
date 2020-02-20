@@ -446,12 +446,17 @@ if (WIN32)
   DR_install(FILES "${injectlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   DynamoRIO_get_full_path(configlib_loc drconfiglib "${location_suffix}")
   DR_install(FILES "${configlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
+  DynamoRIO_get_full_path(drlib_loc dynamorio "${location_suffix}")
+  DR_install(FILES "${drlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   add_custom_command(TARGET drcachesim POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_BASE_DIRECTORY}/drinjectlib.dll
     ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/drinjectlib.dll VERBATIM)
   add_custom_command(TARGET drcachesim POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_BASE_DIRECTORY}/drconfiglib.dll
     ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/drconfiglib.dll VERBATIM)
+  add_custom_command(TARGET drcachesim POST_BUILD
+    COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
+    ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/dynamorio.dll VERBATIM)
 endif ()
 
 ##################################################

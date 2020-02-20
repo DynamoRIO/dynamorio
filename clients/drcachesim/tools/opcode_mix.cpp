@@ -53,8 +53,7 @@ opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose
 }
 
 opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int verbose)
-    : dcontext_(nullptr)
-    , module_file_path_(module_file_path)
+    : module_file_path_(module_file_path)
     , knob_verbose_(verbose)
 {
 }
@@ -65,7 +64,7 @@ opcode_mix_t::initialize()
     serial_shard_.worker = &serial_worker_;
     if (module_file_path_.empty())
         return "Module file path is missing";
-    dcontext_ = dr_standalone_init();
+    dcontext_.dcontext = dr_standalone_init();
     std::string error = directory_.initialize_module_file(module_file_path_);
     if (!error.empty())
         return "Failed to initialize directory: " + error;
@@ -161,8 +160,8 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         opcode = cached_opcode->second;
     } else {
         instr_t instr;
-        instr_init(dcontext_, &instr);
-        app_pc next_pc = decode(dcontext_, mapped_pc, &instr);
+        instr_init(dcontext_.dcontext, &instr);
+        app_pc next_pc = decode(dcontext_.dcontext, mapped_pc, &instr);
         if (next_pc == NULL || !instr_valid(&instr)) {
             error_string_ =
                 "Failed to decode instruction " + to_hex_string(memref.instr.addr);
@@ -170,7 +169,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         }
         opcode = instr_get_opcode(&instr);
         shard->worker->opcode_cache[mapped_pc] = opcode;
-        instr_free(dcontext_, &instr);
+        instr_free(dcontext_.dcontext, &instr);
     }
     ++shard->opcode_counts[opcode];
     return true;

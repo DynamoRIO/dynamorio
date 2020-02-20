@@ -140,6 +140,7 @@ DECLARE_NEVERPROT_VAR(bool dynamo_all_threads_synched, false);
 bool dynamo_resetting = false;
 #if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
 bool standalone_library = false;
+static int standalone_init_count;
 #endif
 #ifdef UNIX
 bool post_execve = false;
@@ -284,6 +285,9 @@ exit_synch_state(void);
 
 static void
 synch_with_threads_at_exit(thread_synch_state_t synch_res, bool pre_exit);
+
+static void
+delete_dynamo_context(dcontext_t *dcontext, bool free_stack);
 
 /****************************************************************************/
 #ifdef DEBUG
@@ -861,7 +865,8 @@ dcontext_t *
 standalone_init(void)
 {
     dcontext_t *dcontext;
-    if (dynamo_initialized)
+    int count = atomic_add_exchange_int(&standalone_init_count, 1);
+    if (count > 1 || dynamo_initialized)
         return GLOBAL_DCONTEXT;
     standalone_library = true;
     /* We have release-build stats now so this is not just DEBUG */
@@ -902,7 +907,7 @@ standalone_init(void)
     heap_thread_init(dcontext);
 
 #        ifdef DEBUG
-    /* FIXME: share code w/ main init routine? */
+    /* XXX: share code w/ main init routine? */
     nonshared_stats.logmask = LOG_ALL;
     options_init();
     if (d_r_stats->loglevel > 0) {
@@ -923,9 +928,9 @@ standalone_init(void)
     dcontext = GLOBAL_DCONTEXT;
 #    endif
 
-    /* since we do not export any dr_standalone_exit(), we clean up any .1config
+    /* In case standalone_exit() is omitted or there's a crash, we clean up any .1config
      * file right now.  the only loss if that we can't synch options: but that
-     * should be less important for standalone.  we disabling synching.
+     * should be less important for standalone.  We disabling synching.
      */
     /* options are never made read-only for standalone */
     dynamo_options.dynamic_options = false;
@@ -938,14 +943,31 @@ standalone_init(void)
 void
 standalone_exit(void)
 {
+    int count = atomic_add_exchange_int(&standalone_init_count, -1);
+    if (count != 0)
+        return;
     /* We support re-attach by setting doing_detach. */
     doing_detach = true;
+#    ifdef STANDALONE_UNIT_TEST
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    set_thread_private_dcontext(NULL);
+    heap_thread_exit(dcontext);
+    delete_dynamo_context(dcontext, true);
+    /* We can't call os_tls_exit() b/c we don't have safe_read support for
+     * the TLS magic read on Linux.
+     */
+#    endif
     config_heap_exit();
     os_fast_exit();
     os_slow_exit();
     dynamo_vm_areas_exit();
+#    ifndef STANDALONE_UNIT_TEST
+    /* We have a leak b/c we can't call os_tls_exit().  For now we simplify
+     * and leave it alone.
+     */
     d_r_heap_exit();
     vmm_heap_exit();
+#    endif
     options_exit();
     d_r_config_exit();
     doing_detach = false;

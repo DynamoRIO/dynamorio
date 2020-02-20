@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
@@ -588,7 +588,8 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
         ASSERT(lock != &thread_initexit_lock || !is_self_couldbelinking());
 
         if (INTERNAL_OPTION(deadlock_avoidance) &&
-            get_thread_private_dcontext() != NULL) {
+            get_thread_private_dcontext() != NULL &&
+            get_thread_private_dcontext() != GLOBAL_DCONTEXT) {
             dcontext_t *dcontext = get_thread_private_dcontext();
             if (dcontext->thread_owned_locks != NULL) {
 #    ifdef CLIENT_INTERFACE

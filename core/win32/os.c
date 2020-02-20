@@ -1224,7 +1224,7 @@ os_fast_exit(void)
      *
      * The curiosity is also relaxed if we enter DR using the API
      */
-    ASSERT_CURIOSITY(reached_image_entry_yet() ||
+    ASSERT_CURIOSITY(reached_image_entry_yet() || standalone_library ||
                      RUNNING_WITHOUT_CODE_CACHE() IF_APP_EXPORTS(|| dr_api_entry)
                      /* Clients can go native.  XXX: add var for whether client did? */
                      IF_CLIENT_INTERFACE(|| CLIENTS_EXIST()));

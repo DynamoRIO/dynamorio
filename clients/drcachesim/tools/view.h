@@ -44,9 +44,6 @@ class view_t : public analysis_tool_t {
 public:
     view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
            const std::string &syntax, unsigned int verbose);
-    virtual ~view_t()
-    {
-    }
     std::string
     initialize() override;
     bool
@@ -55,7 +52,20 @@ public:
     print_results() override;
 
 protected:
-    void *dcontext_;
+    struct dcontext_cleanup_last_t {
+    public:
+        ~dcontext_cleanup_last_t()
+        {
+            if (dcontext != nullptr)
+                dr_standalone_exit();
+        }
+        void *dcontext = nullptr;
+    };
+
+    /* We make this the first field so that dr_standalone_exit() is called after
+     * destroying the other fields which may use DR heap.
+     */
+    dcontext_cleanup_last_t dcontext_;
     std::string module_file_path_;
     std::unique_ptr<module_mapper_t> module_mapper_;
     raw2trace_directory_t directory_;

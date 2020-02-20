@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1389,5 +1389,6 @@ main(int argc, const char *argv[])
     }
     if (set_log != INVALID_FILE)
         dr_close_file(set_log);
+    dr_standalone_exit();
     return 0;
 }

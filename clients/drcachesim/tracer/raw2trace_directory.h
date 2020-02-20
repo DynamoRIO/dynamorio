@@ -48,6 +48,8 @@ public:
         , outdir_("")
         , verbosity_(verbosity)
     {
+        // We use DR API routines so we need to initialize.
+        dr_standalone_init();
     }
     ~raw2trace_directory_t();
 
