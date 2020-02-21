@@ -346,7 +346,7 @@ public:
 
     /**
      * module_t vector corresponding to the application modules. Lazily loads and caches
-     * modules. If the object is invalid, returns an empty vector. The user may check
+     * modules. If the object is invalid, returns an empty vector.  The user may check
      * get_last_error() to ensure no error has occurred, or get the applicable error
      * message.
      */
@@ -357,6 +357,33 @@ public:
             read_and_map_modules();
         return modvec_;
     }
+
+    /**
+     * Provides support for using module_mapper_t as a lookup service for the
+     * original traced modules when no access to values inside the modules is needed.
+     * The module file is parsed and the module vector is filled in without mapping
+     * any of the modules into memory.  The find_trace_module() function can then be
+     * used to translate an address into a module.  The `module_t.map_size` field
+     * holds the original size, while `module_t.map_base` is
+     * nullptr. get_loaded_modules() can also be called if desitred.  Returns whether
+     * an error occurred.  The user may check get_last_error() to obtain an error
+     * message.
+     */
+    bool
+    read_without_mapping_modules(void)
+    {
+        if (last_error_.empty() && modvec_.empty())
+            return read_modules();
+        return true;
+    }
+
+    /**
+     * Returns the module information for the module that contained trace_address
+     * during tracing.  Returns nullptr if no module is found. Check
+     * get_last_error_() to see whether an error occurred.
+     */
+    const module_t *
+    find_trace_module(app_pc trace_address);
 
     /**
      * This interface is meant to be used with a final trace rather than a raw
@@ -407,6 +434,9 @@ private:
         void *user_data;
     };
 
+    bool
+    read_modules(void);
+
     void
     read_and_map_modules(void);
 
@@ -434,9 +464,7 @@ private:
     std::string (*user_process_)(drmodtrack_info_t *info, void *data,
                                  void *user_data) = nullptr;
     void *user_process_data_ = nullptr;
-    app_pc last_orig_base_ = 0;
-    size_t last_map_size_ = 0;
-    byte *last_map_base_ = nullptr;
+    module_t *last_module_ = nullptr;
 
     uint verbosity_ = 0;
     std::string last_error_;

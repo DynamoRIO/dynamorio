@@ -168,11 +168,48 @@ my_user_free(void *data)
 }
 
 bool
+test_module_query(const raw2trace_directory_t *dir)
+{
+    // Test the load-but-don't-map interface.
+    std::unique_ptr<module_mapper_t> mapper = module_mapper_t::create(
+        dir->modfile_bytes_, nullptr, nullptr, nullptr, &my_user_free);
+    EXPECT(mapper->get_last_error().empty(), "Module mapper construction failed");
+    REPORT("About to parse modules");
+    bool ok = mapper->read_without_mapping_modules();
+    EXPECT(ok && mapper->get_last_error().empty(), "Module loading failed");
+    REPORT("Parsed modules successfully");
+    const auto &modules = mapper->get_loaded_modules();
+    EXPECT(!modules.empty(), "Expected module entries");
+    EXPECT(mapper->get_last_error().empty(), "Module loading failed");
+    bool found_simple_app = false;
+    app_pc addr_in_app = nullptr;
+    for (const module_t &m : mapper->get_loaded_modules()) {
+        EXPECT(m.map_base == nullptr, "Module should not be mapped");
+        std::string path = m.path;
+        if (path.rfind("simple_app") != std::string::npos) {
+            found_simple_app = true;
+            addr_in_app = m.orig_base + m.map_size / 2;
+            break;
+        }
+    }
+    EXPECT(found_simple_app, "Expected app entry not found in module map");
+    REPORT("Successfully found app entry");
+    const module_t *modinfo = mapper->find_trace_module(addr_in_app);
+    EXPECT(modinfo != nullptr && modinfo->orig_base <= addr_in_app &&
+               modinfo->orig_base + modinfo->map_size > addr_in_app,
+           "Failed to query app addr");
+    modinfo = mapper->find_trace_module(nullptr);
+    EXPECT(modinfo == NULL, "Query of nullptr should fail");
+    return true;
+}
+
+bool
 test_module_mapper(const raw2trace_directory_t *dir)
 {
     std::unique_ptr<module_mapper_t> mapper = module_mapper_t::create(
         dir->modfile_bytes_, nullptr, nullptr, nullptr, &my_user_free);
     EXPECT(mapper->get_last_error().empty(), "Module mapper construction failed");
+
     REPORT("About to load modules");
     const auto &loaded_modules = mapper->get_loaded_modules();
     EXPECT(!loaded_modules.empty(), "Expected module entries");
@@ -270,8 +307,9 @@ main(int argc, const char *argv[])
 
     bool test1_ret = test_raw2trace(dir);
     bool test2_ret = test_module_mapper(dir);
-    bool test3_ret = test_trace_timestamp_reader(dir);
-    if (!(test1_ret && test2_ret && test3_ret))
+    bool test3_ret = test_module_query(dir);
+    bool test4_ret = test_trace_timestamp_reader(dir);
+    if (!(test1_ret && test2_ret && test3_ret && test4_ret))
         return 1;
     return 0;
 }

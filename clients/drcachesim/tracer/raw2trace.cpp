@@ -366,6 +366,19 @@ module_mapper_t::read_and_map_modules()
     VPRINT(1, "Successfully read %zu modules\n", modlist_.size());
 }
 
+bool
+module_mapper_t::read_modules()
+{
+    if (!last_error_.empty())
+        return false;
+    for (auto it = modlist_.begin(); it != modlist_.end(); ++it) {
+        drmodtrack_info_t &info = *it;
+        modvec_.push_back(module_t(info.path, info.start, nullptr, info.size, false));
+    }
+    VPRINT(1, "Successfully read %zu modules\n", modlist_.size());
+    return true;
+}
+
 std::string
 raw2trace_t::do_module_parsing_and_mapping()
 {
@@ -382,9 +395,8 @@ raw2trace_t::find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_
     return module_mapper_->get_last_error();
 }
 
-app_pc
-module_mapper_t::find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *module_start,
-                                          OUT size_t *module_size)
+const module_t *
+module_mapper_t::find_trace_module(app_pc trace_address)
 {
     if (modhandle_ == nullptr || modlist_.empty()) {
         last_error_ = "Failed to call get_module_list() first";
@@ -392,31 +404,36 @@ module_mapper_t::find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *modu
     }
 
     // For simplicity we do a linear search, caching the prior hit.
-    if (trace_address >= last_orig_base_ &&
-        trace_address < last_orig_base_ + last_map_size_) {
-        if (module_start != nullptr)
-            *module_start = last_map_base_;
-        if (module_size != nullptr)
-            *module_size = last_map_size_;
-        return trace_address - last_orig_base_ + last_map_base_;
+    if (last_module_ != nullptr && trace_address >= last_module_->orig_base &&
+        trace_address < last_module_->orig_base + last_module_->map_size) {
+        return last_module_;
     }
     for (std::vector<module_t>::iterator mvi = modvec_.begin(); mvi != modvec_.end();
          ++mvi) {
         if (trace_address >= mvi->orig_base &&
             trace_address < mvi->orig_base + mvi->map_size) {
-            app_pc mapped_address = trace_address - mvi->orig_base + mvi->map_base;
-            last_orig_base_ = mvi->orig_base;
-            last_map_size_ = mvi->map_size;
-            last_map_base_ = mvi->map_base;
-            if (module_start != nullptr)
-                *module_start = last_map_base_;
-            if (module_size != nullptr)
-                *module_size = last_map_size_;
-            return mapped_address;
+            last_module_ = &(*mvi);
+            return last_module_;
         }
     }
     last_error_ = "Trace address not found";
     return nullptr;
+}
+
+app_pc
+module_mapper_t::find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *module_start,
+                                          OUT size_t *module_size)
+{
+    const module_t *modinfo = find_trace_module(trace_address);
+    if (modinfo == nullptr) {
+        // Leave last_error_ to what find_trace_module set.
+        return nullptr;
+    }
+    if (module_start != nullptr)
+        *module_start = last_module_->map_base;
+    if (module_size != nullptr)
+        *module_size = last_module_->map_size;
+    return trace_address - last_module_->orig_base + last_module_->map_base;
 }
 
 app_pc
