@@ -319,8 +319,9 @@ typedef enum {
     DRREG_IGNORE_CONTROL_FLOW = 0x002,
     /**
      * Turns off register restoration at the end of the block.
-     * Therefore, restoration needs to be handled by the user
-     * manually, usually via drreg_restore_all().
+     * Note that it is still required that registers have their original
+     * values at the end of a basic block. Therefore, restoration needs
+     * to be handled by the user manually, usually via drreg_restore_all().
      */
     DRREG_IGNORE_BB_END_RESTORE = 0x004,
 } drreg_bb_properties_t;
