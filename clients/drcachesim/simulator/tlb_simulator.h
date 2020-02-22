@@ -56,13 +56,13 @@ protected:
     virtual tlb_t *
     create_tlb(std::string policy);
 
-    tlb_simulator_knobs_t knobs;
+    tlb_simulator_knobs_t knobs_;
 
     // Each CPU core contains a L1 ITLB, L1 DTLB and L2 TLB.
     // All of them are private to the core.
-    tlb_t **itlbs;
-    tlb_t **dtlbs;
-    tlb_t **lltlbs;
+    tlb_t **itlbs_;
+    tlb_t **dtlbs_;
+    tlb_t **lltlbs_;
 };
 
 #endif /* _TLB_SIMULATOR_H_ */

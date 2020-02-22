@@ -40,18 +40,21 @@ namespace {
 
 // XXX i#1684: We want cross-arch decoding support so a single build can decode
 // AArchXX and x86.  For now, a separate build is needed.
-#ifdef X86_64
+// XXX i#4021: -syntax option not yet supported on ARM.
+#ifdef X86
+#    ifdef X86_64
 droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "x64",
                                 "Decodes using the specified mode: 'x64' or 'x86'.",
                                 "Decodes using the specified mode: 'x64' or 'x86'.");
+#    endif
+droption_t<std::string> op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "intel",
+                                  "Uses the specified syntax: 'intel', 'att' or 'dr'.",
+                                  "Uses the specified syntax: 'intel', 'att' or 'dr'.");
 #elif defined(ARM)
 droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "arm",
                                 "Decodes using the specified mode: 'arm' or 'thumb'.",
                                 "Decodes using the specified mode: 'arm' or 'thumb'.");
 #endif
-
-// TODO i#4021: Add a -syntax option for specifying the output style, and
-// add a test for each style.
 
 droption_t<bool> op_show_bytes(DROPTION_SCOPE_FRONTEND, "show_bytes", true,
                                "Display the instruction encoding bytes.",
@@ -129,6 +132,25 @@ main(int argc, const char *argv[])
     }
 #endif
 
+    // XXX i#4021: arm not yet supported.
+#ifdef X86
+    dr_disasm_flags_t syntax = DR_DISASM_DR;
+    // Set the syntax if supplied.
+    if (!op_syntax.get_value().empty()) {
+        if (op_syntax.get_value() == "intel")
+            syntax = DR_DISASM_INTEL;
+        else if (op_syntax.get_value() == "att")
+            syntax = DR_DISASM_ATT;
+        else if (op_syntax.get_value() == "dr")
+            syntax = DR_DISASM_DR;
+        else {
+            std::cerr << "Unknown syntax '" << op_syntax.get_value() << "'\n";
+            return 1;
+        }
+        disassemble_set_syntax(syntax);
+    }
+#endif
+
     // Turn the arguments into a series of hex values.
     std::vector<byte> bytes;
     for (int i = last_index; i < argc; ++i) {
@@ -169,7 +191,7 @@ main(int argc, const char *argv[])
     while (pc <= stop_pc) {
         // Check ahead of time to see whether this instruction enters the redzone
         // (or, we could disassemble into a buffer and check before printing it).
-        if (pc + decode_sizeof(dcontext, pc, NULL _IF_X86_64(NULL)) > stop_pc) {
+        if (pc + decode_sizeof(dcontext, pc, NULL _IF_X86_64(NULL)) > stop_pc + 1) {
             std::cerr << "disassembly failed: invalid instruction: not enough bytes:";
             for (; pc <= stop_pc; ++pc)
                 std::cerr << " 0x" << std::hex << static_cast<int>(*pc);

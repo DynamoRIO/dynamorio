@@ -66,13 +66,13 @@
     } while (0)
 
 // We fflush for Windows cygwin where stderr is not flushed.
-#define VPRINT(level, ...)                \
-    do {                                  \
-        if (this->verbosity >= (level)) { \
-            VPRINT_HEADER();              \
-            fprintf(stderr, __VA_ARGS__); \
-            fflush(stderr);               \
-        }                                 \
+#define VPRINT(level, ...)                 \
+    do {                                   \
+        if (this->verbosity_ >= (level)) { \
+            VPRINT_HEADER();               \
+            fprintf(stderr, __VA_ARGS__);  \
+            fflush(stderr);                \
+        }                                  \
     } while (0)
 
 static online_instru_t instru(NULL, false, NULL);
@@ -115,52 +115,53 @@ trace_metadata_writer_t::write_timestamp(byte *buffer, uint64 timestamp)
  * Module list
  */
 
-const char *(*module_mapper_t::user_parse)(const char *src, OUT void **data) = nullptr;
-void (*module_mapper_t::user_free)(void *data) = nullptr;
-bool module_mapper_t::has_custom_data_global = true;
+const char *(*module_mapper_t::user_parse_)(const char *src, OUT void **data) = nullptr;
+void (*module_mapper_t::user_free_)(void *data) = nullptr;
+bool module_mapper_t::has_custom_data_global_ = true;
 
 module_mapper_t::module_mapper_t(
-    const char *module_map_in, const char *(*parse_cb)(const char *src, OUT void **data),
+    const char *module_map, const char *(*parse_cb)(const char *src, OUT void **data),
     std::string (*process_cb)(drmodtrack_info_t *info, void *data, void *user_data),
-    void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity_in)
-    : modmap(module_map_in)
-    , cached_user_free(free_cb)
-    , verbosity(verbosity_in)
+    void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity)
+    : modmap_(module_map)
+    , cached_user_free_(free_cb)
+    , verbosity_(verbosity)
 {
     // We mutate global state because do_module_parsing() uses drmodtrack, which
     // wants global functions. The state isn't needed past do_module_parsing(), so
     // we make sure to reset it afterwards.
-    DR_ASSERT(user_parse == nullptr);
-    DR_ASSERT(user_free == nullptr);
+    DR_ASSERT(user_parse_ == nullptr);
+    DR_ASSERT(user_free_ == nullptr);
 
-    user_parse = parse_cb;
-    user_process = process_cb;
-    user_process_data = process_cb_user_data;
-    user_free = free_cb;
-    // has_custom_data_global is potentially mutated in parse_custom_module_data.
+    user_parse_ = parse_cb;
+    user_process_ = process_cb;
+    user_process_data_ = process_cb_user_data;
+    user_free_ = free_cb;
+    // has_custom_data_global_ is potentially mutated in parse_custom_module_data.
     // It is assumed to be set to 'true' initially.
-    has_custom_data_global = true;
+    has_custom_data_global_ = true;
 
-    last_error = do_module_parsing();
+    last_error_ = do_module_parsing();
 
-    // capture has_custom_data_global's value for this instance.
-    has_custom_data = has_custom_data_global;
+    // capture has_custom_data_global_'s value for this instance.
+    has_custom_data_ = has_custom_data_global_;
 
-    user_parse = nullptr;
-    user_free = nullptr;
+    user_parse_ = nullptr;
+    user_free_ = nullptr;
 }
 
 module_mapper_t::~module_mapper_t()
 {
-    // update user_free
-    user_free = cached_user_free;
+    // update user_free_
+    user_free_ = cached_user_free_;
     // drmodtrack_offline_exit requires the parameter to be non-null, but we
     // may not have even initialized the modhandle yet.
-    if (modhandle != nullptr && drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS) {
+    if (modhandle_ != nullptr &&
+        drmodtrack_offline_exit(modhandle_) != DRCOVLIB_SUCCESS) {
         WARN("Failed to clean up module table data");
     }
-    user_free = nullptr;
-    for (std::vector<module_t>::iterator mvi = modvec.begin(); mvi != modvec.end();
+    user_free_ = nullptr;
+    for (std::vector<module_t>::iterator mvi = modvec_.begin(); mvi != modvec_.end();
          ++mvi) {
         if (!mvi->is_external && mvi->map_base != NULL && mvi->map_size != 0) {
             bool ok = dr_unmap_executable_file(mvi->map_base, mvi->map_size);
@@ -168,8 +169,8 @@ module_mapper_t::~module_mapper_t()
                 WARN("Failed to unmap module %s", mvi->path);
         }
     }
-    modhandle = nullptr;
-    modvec.clear();
+    modhandle_ = nullptr;
+    modvec_.clear();
 }
 
 std::string
@@ -178,10 +179,10 @@ raw2trace_t::handle_custom_data(const char *(*parse_cb)(const char *src, OUT voi
                                                           void *data, void *user_data),
                                 void *process_cb_user_data, void (*free_cb)(void *data))
 {
-    user_parse = parse_cb;
-    user_process = process_cb;
-    user_process_data = process_cb_user_data;
-    user_free = free_cb;
+    user_parse_ = parse_cb;
+    user_process_ = process_cb;
+    user_process_data_ = process_cb_user_data;
+    user_free_ = free_cb;
     return "";
 }
 
@@ -196,16 +197,16 @@ module_mapper_t::parse_custom_module_data(const char *src, OUT void **data)
         version != CUSTOM_MODULE_VERSION) {
         // It's not what we expect.  We try to handle legacy formats before bailing.
         static bool warned_once;
-        has_custom_data_global = false;
+        has_custom_data_global_ = false;
         if (!warned_once) { // Race is fine: modtrack parsing is global already.
             WARN("Incorrect module field version %d: attempting to handle legacy format",
                  version);
             warned_once = true;
         }
-        // First, see if the user_parse is happy:
-        if (user_parse != nullptr) {
+        // First, see if the user_parse_ is happy:
+        if (user_parse_ != nullptr) {
             void *user_data;
-            buf = (*user_parse)(buf, &user_data);
+            buf = (*user_parse_)(buf, &user_data);
             if (buf != nullptr) {
                 // Assume legacy format w/ user data but none of our own.
                 custom_module_data_t *custom_data = new custom_module_data_t;
@@ -241,8 +242,8 @@ module_mapper_t::parse_custom_module_data(const char *src, OUT void **data)
         custom_data->contents = buf;
         buf += custom_data->contents_size;
     }
-    if (user_parse != nullptr)
-        buf = (*user_parse)(buf, &custom_data->user_data);
+    if (user_parse_ != nullptr)
+        buf = (*user_parse_)(buf, &custom_data->user_data);
     *data = custom_data;
     return buf;
 }
@@ -251,19 +252,20 @@ void
 module_mapper_t::free_custom_module_data(void *data)
 {
     custom_module_data_t *custom_data = (custom_module_data_t *)data;
-    if (user_free != nullptr)
-        (*user_free)(custom_data->user_data);
+    if (user_free_ != nullptr)
+        (*user_free_)(custom_data->user_data);
     delete custom_data;
 }
 
 std::string
 raw2trace_t::do_module_parsing()
 {
-    if (!module_mapper) {
-        module_mapper = module_mapper_t::create(modmap, user_parse, user_process,
-                                                user_process_data, user_free, verbosity);
+    if (!module_mapper_) {
+        module_mapper_ =
+            module_mapper_t::create(modmap_, user_parse_, user_process_,
+                                    user_process_data_, user_free_, verbosity_);
     }
-    return module_mapper->get_last_error();
+    return module_mapper_->get_last_error();
 }
 
 std::string
@@ -275,18 +277,18 @@ module_mapper_t::do_module_parsing()
                                    free_custom_module_data) != DRCOVLIB_SUCCESS) {
         return "Failed to set up custom module parser";
     }
-    if (drmodtrack_offline_read(INVALID_FILE, modmap, NULL, &modhandle, &num_mods) !=
+    if (drmodtrack_offline_read(INVALID_FILE, modmap_, NULL, &modhandle_, &num_mods) !=
         DRCOVLIB_SUCCESS)
         return "Failed to parse module file";
-    modlist.resize(num_mods);
+    modlist_.resize(num_mods);
     for (uint i = 0; i < num_mods; i++) {
-        modlist[i].struct_size = sizeof(modlist[i]);
-        if (drmodtrack_offline_lookup(modhandle, i, &modlist[i]) != DRCOVLIB_SUCCESS)
+        modlist_[i].struct_size = sizeof(modlist_[i]);
+        if (drmodtrack_offline_lookup(modhandle_, i, &modlist_[i]) != DRCOVLIB_SUCCESS)
             return "Failed to query module file";
-        if (user_process != nullptr) {
-            custom_module_data_t *custom = (custom_module_data_t *)modlist[i].custom;
+        if (user_process_ != nullptr) {
+            custom_module_data_t *custom = (custom_module_data_t *)modlist_[i].custom;
             std::string error =
-                (*user_process)(&modlist[i], custom->user_data, user_process_data);
+                (*user_process_)(&modlist_[i], custom->user_data, user_process_data_);
             if (!error.empty())
                 return error;
         }
@@ -297,49 +299,49 @@ module_mapper_t::do_module_parsing()
 std::string
 raw2trace_t::read_and_map_modules()
 {
-    if (!module_mapper) {
+    if (!module_mapper_) {
         auto err = do_module_parsing();
         if (!err.empty())
             return err;
     }
 
-    set_modvec(&module_mapper->get_loaded_modules());
-    return module_mapper->get_last_error();
+    set_modvec_(&module_mapper_->get_loaded_modules());
+    return module_mapper_->get_last_error();
 }
 
 void
 module_mapper_t::read_and_map_modules()
 {
-    if (!last_error.empty())
+    if (!last_error_.empty())
         return;
-    for (auto it = modlist.begin(); it != modlist.end(); ++it) {
+    for (auto it = modlist_.begin(); it != modlist_.end(); ++it) {
         drmodtrack_info_t &info = *it;
         custom_module_data_t *custom_data = (custom_module_data_t *)info.custom;
         if (custom_data != nullptr && custom_data->contents_size > 0) {
             VPRINT(1, "Using module %d %s stored %zd-byte contents @" PFX "\n",
-                   (int)modvec.size(), info.path, custom_data->contents_size,
+                   (int)modvec_.size(), info.path, custom_data->contents_size,
                    custom_data->contents);
-            modvec.push_back(
+            modvec_.push_back(
                 module_t(info.path, info.start, (byte *)custom_data->contents,
                          custom_data->contents_size, true /*external data*/));
         } else if (strcmp(info.path, "<unknown>") == 0 ||
                    // This should only happen with legacy trace data that's missing
                    // the vdso contents.
-                   (!has_custom_data && strcmp(info.path, "[vdso]") == 0)) {
+                   (!has_custom_data_ && strcmp(info.path, "[vdso]") == 0)) {
             // We won't be able to decode.
-            modvec.push_back(module_t(info.path, info.start, NULL, 0));
+            modvec_.push_back(module_t(info.path, info.start, NULL, 0));
         } else if (info.containing_index != info.index) {
             // For split segments, drmodtrack_lookup() gave the lowest base addr,
             // so our PC offsets are from that.  We assume that the single mmap of
             // the first segment thus includes the other segments and that we don't
             // need another mmap.
             VPRINT(1, "Separate segment assumed covered: module %d seg " PFX " = %s\n",
-                   (int)modvec.size(), info.start, info.path);
-            modvec.push_back(module_t(info.path,
-                                      // We want the low base not segment base.
-                                      modvec[info.containing_index].orig_base,
-                                      // 0 size indicates this is a secondary segment.
-                                      modvec[info.containing_index].map_base, 0));
+                   (int)modvec_.size(), info.start, info.path);
+            modvec_.push_back(module_t(info.path,
+                                       // We want the low base not segment base.
+                                       modvec_[info.containing_index].orig_base,
+                                       // 0 size indicates this is a secondary segment.
+                                       modvec_[info.containing_index].map_base, 0));
         } else {
             size_t map_size;
             byte *base_pc =
@@ -349,19 +351,19 @@ module_mapper_t::read_and_map_modules()
                 // is built /fixed.  (We could try to have the map succeed w/o relocs,
                 // but we expect to not care enough about code in DR).
                 if (strstr(info.path, "dynamorio") != NULL)
-                    modvec.push_back(module_t(info.path, info.start, NULL, 0));
+                    modvec_.push_back(module_t(info.path, info.start, NULL, 0));
                 else {
-                    last_error = "Failed to map module " + std::string(info.path);
+                    last_error_ = "Failed to map module " + std::string(info.path);
                     return;
                 }
             } else {
-                VPRINT(1, "Mapped module %d @" PFX " = %s\n", (int)modvec.size(), base_pc,
-                       info.path);
-                modvec.push_back(module_t(info.path, info.start, base_pc, map_size));
+                VPRINT(1, "Mapped module %d @" PFX " = %s\n", (int)modvec_.size(),
+                       base_pc, info.path);
+                modvec_.push_back(module_t(info.path, info.start, base_pc, map_size));
             }
         }
     }
-    VPRINT(1, "Successfully read %zu modules\n", modlist.size());
+    VPRINT(1, "Successfully read %zu modules\n", modlist_.size());
 }
 
 std::string
@@ -376,44 +378,44 @@ raw2trace_t::do_module_parsing_and_mapping()
 std::string
 raw2trace_t::find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address)
 {
-    *mapped_address = module_mapper->find_mapped_trace_address(trace_address);
-    return module_mapper->get_last_error();
+    *mapped_address = module_mapper_->find_mapped_trace_address(trace_address);
+    return module_mapper_->get_last_error();
 }
 
 app_pc
 module_mapper_t::find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *module_start,
                                           OUT size_t *module_size)
 {
-    if (modhandle == nullptr || modlist.empty()) {
-        last_error = "Failed to call get_module_list() first";
+    if (modhandle_ == nullptr || modlist_.empty()) {
+        last_error_ = "Failed to call get_module_list() first";
         return nullptr;
     }
 
     // For simplicity we do a linear search, caching the prior hit.
-    if (trace_address >= last_orig_base &&
-        trace_address < last_orig_base + last_map_size) {
+    if (trace_address >= last_orig_base_ &&
+        trace_address < last_orig_base_ + last_map_size_) {
         if (module_start != nullptr)
-            *module_start = last_map_base;
+            *module_start = last_map_base_;
         if (module_size != nullptr)
-            *module_size = last_map_size;
-        return trace_address - last_orig_base + last_map_base;
+            *module_size = last_map_size_;
+        return trace_address - last_orig_base_ + last_map_base_;
     }
-    for (std::vector<module_t>::iterator mvi = modvec.begin(); mvi != modvec.end();
+    for (std::vector<module_t>::iterator mvi = modvec_.begin(); mvi != modvec_.end();
          ++mvi) {
         if (trace_address >= mvi->orig_base &&
             trace_address < mvi->orig_base + mvi->map_size) {
             app_pc mapped_address = trace_address - mvi->orig_base + mvi->map_base;
-            last_orig_base = mvi->orig_base;
-            last_map_size = mvi->map_size;
-            last_map_base = mvi->map_base;
+            last_orig_base_ = mvi->orig_base;
+            last_map_size_ = mvi->map_size;
+            last_map_base_ = mvi->map_base;
             if (module_start != nullptr)
-                *module_start = last_map_base;
+                *module_start = last_map_base_;
             if (module_size != nullptr)
-                *module_size = last_map_size;
+                *module_size = last_map_size_;
             return mapped_address;
         }
     }
-    last_error = "Trace address not found";
+    last_error_ = "Trace address not found";
     return nullptr;
 }
 
@@ -601,35 +603,36 @@ raw2trace_t::do_conversion()
     std::string error = read_and_map_modules();
     if (!error.empty())
         return error;
-    if (thread_data.empty())
+    if (thread_data_.empty())
         return "No thread files found.";
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
-    if (worker_count == 0) {
-        for (size_t i = 0; i < thread_data.size(); ++i) {
-            error = process_thread_file(&thread_data[i]);
+    if (worker_count_ == 0) {
+        for (size_t i = 0; i < thread_data_.size(); ++i) {
+            error = process_thread_file(&thread_data_[i]);
             if (!error.empty())
                 return error;
-            count_elided += thread_data[i].count_elided;
+            count_elided_ += thread_data_[i].count_elided;
         }
     } else {
         // The files can be converted concurrently.
         std::vector<std::thread> threads;
-        VPRINT(1, "Creating %d worker threads\n", worker_count);
-        threads.reserve(worker_count);
-        for (int i = 0; i < worker_count; ++i) {
+        VPRINT(1, "Creating %d worker threads\n", worker_count_);
+        threads.reserve(worker_count_);
+        for (int i = 0; i < worker_count_; ++i) {
             threads.push_back(
-                std::thread(&raw2trace_t::process_tasks, this, &worker_tasks[i]));
+                std::thread(&raw2trace_t::process_tasks, this, &worker_tasks_[i]));
         }
         for (std::thread &thread : threads)
             thread.join();
-        for (auto &tdata : thread_data) {
+        for (auto &tdata : thread_data_) {
             if (!tdata.error.empty())
                 return tdata.error;
-            count_elided += tdata.count_elided;
+            count_elided_ += tdata.count_elided;
         }
     }
-    VPRINT(1, "Reconstructed " UINT64_FORMAT_STRING " elided addresses.\n", count_elided);
-    VPRINT(1, "Successfully converted %zu thread files\n", thread_data.size());
+    VPRINT(1, "Reconstructed " UINT64_FORMAT_STRING " elided addresses.\n",
+           count_elided_);
+    VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
     return "";
 }
 
@@ -643,7 +646,7 @@ raw2trace_t::lookup_block_summary(void *tls, app_pc block_start)
         return tdata->last_block_summary;
     }
     block_summary_t *ret = static_cast<block_summary_t *>(
-        hashtable_lookup(&decode_cache[tdata->worker], block_start));
+        hashtable_lookup(&decode_cache_[tdata->worker], block_start));
     if (ret != nullptr) {
         DEBUG_ASSERT(ret->start_pc == block_start);
         tdata->last_decode_block_start = block_start;
@@ -689,15 +692,15 @@ raw2trace_t::create_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
     if (block == nullptr) {
         block = new block_summary_t(block_start, instr_count);
         DEBUG_ASSERT(index >= 0 && index < static_cast<int>(block->instrs.size()));
-        hashtable_add(&decode_cache[tdata->worker], block_start, block);
+        hashtable_add(&decode_cache_[tdata->worker], block_start, block);
         VPRINT(5, "Created new block summary " PFX " for " PFX "\n", block, block_start);
         tdata->last_decode_block_start = block_start;
         tdata->last_block_summary = block;
     }
     instr_summary_t *desc = &block->instrs[index];
-    if (!instr_summary_t::construct(dcontext, block_start, pc, orig, desc, verbosity)) {
+    if (!instr_summary_t::construct(dcontext_, block_start, pc, orig, desc, verbosity_)) {
         WARN("Encountered invalid/undecodable instr @ %s+" PIFX,
-             modvec()[static_cast<size_t>(modidx)].path, IF_NOT_X64((uint)) modoffs);
+             modvec_()[static_cast<size_t>(modidx)].path, IF_NOT_X64((uint)) modoffs);
         return nullptr;
     }
     return desc;
@@ -750,9 +753,9 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
                            app_pc orig_pc, OUT instr_summary_t *desc, uint verbosity)
 {
     struct instr_destroy_t {
-        instr_destroy_t(void *dcontext_in, instr_t *instr_in)
-            : dcontext(dcontext_in)
-            , instr(instr_in)
+        instr_destroy_t(void *dcontext, instr_t *instr)
+            : dcontext(dcontext)
+            , instr(instr)
         {
         }
         void *dcontext;
@@ -922,7 +925,7 @@ raw2trace_t::on_thread_end(void *tls)
 void
 raw2trace_t::log(uint level, const char *fmt, ...)
 {
-    if (verbosity >= level) {
+    if (verbosity_ >= level) {
         va_list args;
         va_start(args, fmt);
         VPRINT_HEADER();
@@ -938,8 +941,8 @@ raw2trace_t::log(uint level, const char *fmt, ...)
 void
 raw2trace_t::log_instruction(uint level, app_pc decode_pc, app_pc orig_pc)
 {
-    if (verbosity >= level) {
-        disassemble_from_copy(dcontext, decode_pc, orig_pc, STDOUT, true /*pc*/,
+    if (verbosity_ >= level) {
+        disassemble_from_copy(dcontext_, decode_pc, orig_pc, STDOUT, true /*pc*/,
                               false /*bytes*/);
     }
 }
@@ -972,17 +975,16 @@ raw2trace_t::get_file_type(void *tls)
     return tdata->file_type;
 }
 
-raw2trace_t::raw2trace_t(const char *module_map_in,
-                         const std::vector<std::istream *> &thread_files_in,
-                         const std::vector<std::ostream *> &out_files_in,
-                         void *dcontext_in, unsigned int verbosity_in,
-                         int worker_count_in)
-    : trace_converter_t(dcontext_in)
-    , worker_count(worker_count_in)
-    , user_process(nullptr)
-    , user_process_data(nullptr)
-    , modmap(module_map_in)
-    , verbosity(verbosity_in)
+raw2trace_t::raw2trace_t(const char *module_map,
+                         const std::vector<std::istream *> &thread_files,
+                         const std::vector<std::ostream *> &out_files, void *dcontext,
+                         unsigned int verbosity, int worker_count)
+    : trace_converter_t(dcontext)
+    , worker_count_(worker_count)
+    , user_process_(nullptr)
+    , user_process_data_(nullptr)
+    , modmap_(module_map)
+    , verbosity_(verbosity)
 {
     if (dcontext == NULL) {
 #ifdef ARM
@@ -991,60 +993,60 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
         dr_set_isa_mode(dcontext, DR_ISA_ARM_A32, NULL);
 #endif
     }
-    thread_data.resize(thread_files_in.size());
-    for (size_t i = 0; i < thread_data.size(); ++i) {
-        thread_data[i].index = static_cast<int>(i);
-        thread_data[i].thread_file = thread_files_in[i];
-        thread_data[i].out_file = out_files_in[i];
+    thread_data_.resize(thread_files.size());
+    for (size_t i = 0; i < thread_data_.size(); ++i) {
+        thread_data_[i].index = static_cast<int>(i);
+        thread_data_[i].thread_file = thread_files[i];
+        thread_data_[i].out_file = out_files[i];
     }
     // Since we know the traced-thread count up front, we use a simple round-robin
     // static work assigment.  This won't be as load balanced as a dynamic work
     // queue but it is much simpler.
-    if (worker_count < 0) {
-        worker_count = std::thread::hardware_concurrency();
-        if (worker_count > kDefaultJobMax)
-            worker_count = kDefaultJobMax;
+    if (worker_count_ < 0) {
+        worker_count_ = std::thread::hardware_concurrency();
+        if (worker_count_ > kDefaultJobMax)
+            worker_count_ = kDefaultJobMax;
     }
-    int cache_count = worker_count;
-    if (worker_count > 0) {
-        worker_tasks.resize(worker_count);
+    int cache_count = worker_count_;
+    if (worker_count_ > 0) {
+        worker_tasks_.resize(worker_count_);
         int worker = 0;
-        for (size_t i = 0; i < thread_data.size(); ++i) {
+        for (size_t i = 0; i < thread_data_.size(); ++i) {
             VPRINT(2, "Worker %d assigned trace thread %zd\n", worker, i);
-            worker_tasks[worker].push_back(&thread_data[i]);
-            thread_data[i].worker = worker;
-            worker = (worker + 1) % worker_count;
+            worker_tasks_[worker].push_back(&thread_data_[i]);
+            thread_data_[i].worker = worker;
+            worker = (worker + 1) % worker_count_;
         }
     } else
         cache_count = 1;
-    decode_cache.resize(cache_count);
+    decode_cache_.resize(cache_count);
     for (int i = 0; i < cache_count; ++i) {
         // We go ahead and start with a reasonably large capacity.
         // We do not want the built-in mutex: this is per-worker so it can be lockless.
-        hashtable_init_ex(&decode_cache[i], 16, HASH_INTPTR, false, false, nullptr,
+        hashtable_init_ex(&decode_cache_[i], 16, HASH_INTPTR, false, false, nullptr,
                           nullptr, nullptr);
         // We pay a little memory to get a lower load factor, unless we have
         // many duplicated tables.
         hashtable_config_t config = { sizeof(config), true,
-                                      worker_count <= 8
+                                      worker_count_ <= 8
                                           ? 40U
-                                          : (worker_count <= 16 ? 50U : 60U) };
-        hashtable_configure(&decode_cache[i], &config);
+                                          : (worker_count_ <= 16 ? 50U : 60U) };
+        hashtable_configure(&decode_cache_[i], &config);
     }
 }
 
 raw2trace_t::~raw2trace_t()
 {
-    module_mapper.reset();
-    for (size_t i = 0; i < decode_cache.size(); ++i) {
+    module_mapper_.reset();
+    for (size_t i = 0; i < decode_cache_.size(); ++i) {
         // XXX: We can't use a free-payload function b/c we can't get the dcontext there,
         // so we have to explicitly free the payloads.
-        for (uint j = 0; j < HASHTABLE_SIZE(decode_cache[i].table_bits); j++) {
-            for (hash_entry_t *e = decode_cache[i].table[j]; e != NULL; e = e->next) {
+        for (uint j = 0; j < HASHTABLE_SIZE(decode_cache_[i].table_bits); j++) {
+            for (hash_entry_t *e = decode_cache_[i].table[j]; e != NULL; e = e->next) {
                 delete (static_cast<block_summary_t *>(e->payload));
             }
         }
-        hashtable_delete(&decode_cache[i]);
+        hashtable_delete(&decode_cache_[i]);
     }
 }
 
@@ -1131,7 +1133,7 @@ uint64
 raw2trace_t::get_statistic(raw2trace_statistic_t stat)
 {
     switch (stat) {
-    case RAW2TRACE_STAT_COUNT_ELIDED: return count_elided;
+    case RAW2TRACE_STAT_COUNT_ELIDED: return count_elided_;
     default: DR_ASSERT(false); return 0;
     }
 }

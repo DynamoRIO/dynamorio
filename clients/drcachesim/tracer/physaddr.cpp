@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -63,10 +63,10 @@ static const addr_t PAGE_INVALID = (addr_t)-1;
 
 physaddr_t::physaddr_t()
 #ifdef LINUX
-    : last_vpage(PAGE_INVALID)
-    , last_ppage(PAGE_INVALID)
-    , fd(-1)
-    , count(0)
+    : last_vpage_(PAGE_INVALID)
+    , last_ppage_(PAGE_INVALID)
+    , fd_(-1)
+    , count_(0)
 #endif
 {
     // Nothing else.
@@ -84,10 +84,10 @@ physaddr_t::init()
     // We can't read pagemap with any buffered i/o, like ifstream, as we'll
     // get EINVAL on any non-8-aligned size, and ifstream at least likes to
     // read buffers of non-aligned sizes.
-    fd = open(pagemap.c_str(), O_RDONLY);
+    fd_ = open(pagemap.c_str(), O_RDONLY);
     // Accessing /proc/pid/pagemap requires privileges on some distributions,
     // such as Fedora with recent kernels.  We have no choice but to fail there.
-    return (fd != -1);
+    return (fd_ != -1);
 #else
     // i#1727: we assume this is not possible on Windows.  If it is we
     // may want to split into physaddr_linux.cpp vs others.
@@ -101,50 +101,50 @@ physaddr_t::virtual2physical(addr_t virt)
 #ifdef LINUX
     addr_t vpage = PAGE_START(virt);
     bool use_cache = true;
-    if (op_virt2phys_freq.get_value() > 0 && ++count >= op_virt2phys_freq.get_value()) {
+    if (op_virt2phys_freq.get_value() > 0 && ++count_ >= op_virt2phys_freq.get_value()) {
         // Flush the cache and re-sync with the kernel
         use_cache = false;
-        last_vpage = PAGE_INVALID;
-        v2p.clear();
-        count = 0;
+        last_vpage_ = PAGE_INVALID;
+        v2p_.clear();
+        count_ = 0;
     }
     if (use_cache) {
         // Use cached values on the assumption that the kernel hasn't re-mapped
         // this virtual page.
-        if (vpage == last_vpage)
-            return last_ppage + PAGE_OFFS(virt);
+        if (vpage == last_vpage_)
+            return last_ppage_ + PAGE_OFFS(virt);
         // XXX i#1703: add (debug-build-only) internal stats here and
         // on cache_t::request() fastpath.
-        std::unordered_map<addr_t, addr_t>::iterator exists = v2p.find(vpage);
-        if (exists != v2p.end()) {
-            last_vpage = vpage;
-            last_ppage = exists->second;
-            return last_ppage + PAGE_OFFS(virt);
+        std::unordered_map<addr_t, addr_t>::iterator exists = v2p_.find(vpage);
+        if (exists != v2p_.end()) {
+            last_vpage_ = vpage;
+            last_ppage_ = exists->second;
+            return last_ppage_ + PAGE_OFFS(virt);
         }
     }
     // Not cached, or forced to re-sync, so we have to read from the file.
-    if (fd == -1)
+    if (fd_ == -1)
         return 0;
     // The pagemap file contains one 64-bit int per page, which we assume
     // here is 4096 bytes.
     // (XXX i#1703: handle large pages)
     // Thus we want offset:
     //   (addr / 4096 * 8) == ((addr >> 12) << 3) == addr >> 9
-    if (lseek64(fd, vpage >> 9, SEEK_SET) < 0)
+    if (lseek64(fd_, vpage >> 9, SEEK_SET) < 0)
         return 0;
     unsigned long long entry;
-    if (read(fd, (char *)&entry, sizeof(entry)) != sizeof(entry))
+    if (read(fd_, (char *)&entry, sizeof(entry)) != sizeof(entry))
         return 0;
     if (!TESTALL(PAGEMAP_VALID, entry) || TESTANY(PAGEMAP_SWAP, entry))
         return 0;
-    last_ppage = (addr_t)((entry & PAGEMAP_PFN) << PAGE_BITS);
+    last_ppage_ = (addr_t)((entry & PAGEMAP_PFN) << PAGE_BITS);
     if (op_verbose.get_value() >= 2) {
         std::cerr << "virtual " << virt << " => physical "
-                  << (last_ppage + PAGE_OFFS(virt)) << std::endl;
+                  << (last_ppage_ + PAGE_OFFS(virt)) << std::endl;
     }
-    v2p[vpage] = last_ppage;
-    last_vpage = vpage;
-    return last_ppage + PAGE_OFFS(virt);
+    v2p_[vpage] = last_ppage_;
+    last_vpage_ = vpage;
+    return last_ppage_ + PAGE_OFFS(virt);
 #else
     return 0;
 #endif

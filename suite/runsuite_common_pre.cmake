@@ -162,12 +162,14 @@ endif (arg_ssh)
 
 # Make it clear that single-bitwidth packages only contain that bitwidth
 # (and provide unique names for Travis deployment).
-if (arg_64_only)
-  set(base_cache "${base_cache}
+if (NOT "${base_cache}" MATCHES "PACKAGE_PLATFORM")
+  if (arg_64_only)
+    set(base_cache "${base_cache}
       PACKAGE_PLATFORM:STRING=x86_64-")
-elseif (arg_32_only)
-  set(base_cache "${base_cache}
+  elseif (arg_32_only)
+    set(base_cache "${base_cache}
       PACKAGE_PLATFORM:STRING=i386-")
+  endif ()
 endif ()
 if (arg_use_make)
   find_program(MAKE_COMMAND make DOC "make command")

@@ -227,6 +227,16 @@ else (CALLPROF AND TEST_SUITE)
   set(run_list "")
 endif (CALLPROF AND TEST_SUITE)
 
+# i#4059: Reduce Appveyor time by reducing the # of tests run for 32-bit.
+# This assumes that 32-bit Windows is not as important these days.
+# We remove some of the less differentiated tests.
+# We still run the full set for merges to master.
+if (WIN32 AND NOT X64 AND DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
+  set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST ON)
+else ()
+  set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST OFF)
+endif ()
+
 ###########################################################################
 # BUILDING
 
@@ -1616,7 +1626,7 @@ function(use_MT_not_MTd source_file)
   if (WIN32)
     # Appending to the target flags goes in too early: we need source to
     # override the /MTd from the top level.
-    append_property_string(SOURCE ${source_file} COMPILE_FLAGS "/MT")
+    append_property_string(SOURCE ${source_file} COMPILE_FLAGS "/MT /DNO_DBG_CRT")
   endif ()
 endfunction()
 
@@ -1878,8 +1888,12 @@ if (CLIENT_INTERFACE)
     set(DynamoRIO_USE_LIBC OFF)
     if (UNIX)
       set(annotation_test_args "libclient.annotation-concurrency.appdll.so" "A" "4")
+      set(annotation_test_args_shorter
+        "libclient.annotation-concurrency.appdll.so" "A" "4" "128" "5")
     else (UNIX)
       set(annotation_test_args "client.annotation-concurrency.appdll.dll" "A" "4")
+      set(annotation_test_args_shorter
+        "client.annotation-concurrency.appdll.dll" "A" "4" "128" "5")
     endif (UNIX)
     tobuild_ci(client.annotation-concurrency client-interface/annotation-concurrency.c
       "" "" "${annotation_test_args}")
@@ -2817,7 +2831,7 @@ endif ()
       torunonly_drcachesim(filter-no-d ${ci_shared_app} "-L0_filter -L0D_size 0" "")
 
       torunonly_drcachesim(delay-simple ${ci_shared_app}
-        "-trace_after_instrs 50000 -exit_after_tracing 10000" "")
+        "-trace_after_instrs 20000 -exit_after_tracing 10000" "")
 
       # Test that "Warmup hits" and "Warmup misses" are printed out
       torunonly_drcachesim(warmup-valid ${ci_shared_app} "-warmup_refs 1" "")
@@ -2834,23 +2848,24 @@ endif ()
         # we add some dedicated multi-thread (and multi-process) tests with
         # more deterministic output.
         # We test -cpu_scheduling on several tests with many threads.
+        # We use a smaller test (_shorter) to avoid taking multiple minutes on our
+        # CI (i#4059; xref i#2063).
         torunonly_drcachesim(threads client.annotation-concurrency "-cpu_scheduling"
-          "${annotation_test_args}")
-        set(tool.drcachesim.threads_timeout 150) # This test is long.
+          "${annotation_test_args_shorter}")
 
         # Threads test that reads the cache configuration from a config file.
         torunonly_drcachesim(threads-with-config-file client.annotation-concurrency
           "-config_file ${config_files_dir}/cores-1-levels-3-no-missfile.conf"
-          "${annotation_test_args}")
+          "${annotation_test_args_shorter}")
         set(tool.drcachesim.threads_timeout 150) # This test is long.
 
         torunonly_drcachesim(coherence client.annotation-concurrency "-coherence"
-          "${annotation_test_args}")
+          "${annotation_test_args_shorter}")
         set(tool.drcachesim.coherence_timeout 150) # This test is long.
 
         # TLB simulator's multi-thread sanity check
         torunonly_drcachesim(TLB-threads client.annotation-concurrency
-          "-simulator_type TLB -cpu_scheduling" "${annotation_test_args}")
+          "-simulator_type TLB -cpu_scheduling" "${annotation_test_args_shorter}")
         # i#2063: this test can time out.
         set(tool.drcachesim.TLB-threads_timeout 150)
       endif ()
@@ -3290,7 +3305,7 @@ endif ()
     elseif (ARM)
       set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
     else ()
-      set(drdisas_args "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
+      set(drdisas_args "-syntax" "dr" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
     endif ()
     torunonly_api(tool.drdisas drdisas
       "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON)
@@ -3299,6 +3314,13 @@ endif ()
         # Pass -thumb as a "DR op" to define it in the .template file.
         "../../clients/drdisas/test_simple.template"
         "-thumb" "-mode;thumb;${drdisas_args}" ON)
+    endif ()
+    # Test syntax
+    # XXX i#:4021: ARM/AARCH64 not yet supported.
+    if (X86)
+        set(drdisas_args "66" "90" "c4" "e2" "65" "90" "14" "80")
+        torunonly_api(tool.drdisas_syntax drdisas
+            "../../clients/drdisas/test_syntax.template" "" "${drdisas_args}" ON)
     endif ()
 
   endif (BUILD_CLIENTS)
@@ -3740,6 +3762,11 @@ else (UNIX)
 
   tobuild_dll(win32.earlythread win32/earlythread.c "")
 
+  if (DEBUG)
+    # We have a special allowance for this test to target our nudge handler in DEBUG.
+    tobuild(win32.tls win32/tls.c)
+  endif ()
+
   if (NOT X64)
     # FIXME i#16: these tests need to be fixed to compile for x64
 
@@ -3756,7 +3783,6 @@ else (UNIX)
     tobuild(win32.rsbtest win32/rsbtest.c)
     tobuild(win32.setcxtsyscall win32/setcxtsyscall.c)
     tobuild(win32.setthreadcontext win32/setthreadcontext.c)
-    tobuild(win32.tls win32/tls.c)
 
     tobuild_dll(security-win32.aslr-ind security-win32/aslr-ind.c "")
     if (TEST_SUITE) # fails non-det so run only in suite
@@ -4007,7 +4033,23 @@ function(is_test_enabled_by_name output name regex)
   set(enabled OFF)
   if (NOT SKIP_FLAKY_TESTS OR NOT "${name}" MATCHES "_FLAKY")
     if (NOT regex OR "${name}" MATCHES "${regex}")
-      set(enabled ON)
+      if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
+          # See above: for particular builds we skip some of the similar tests from
+          # some of the test groups.
+          (("${name}" MATCHES "tool.drcache" AND
+            NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
+          ("${name}" MATCHES "tool.drcpusim" AND
+            NOT "${name}" MATCHES "Pentium3") OR
+          ("${name}" MATCHES "tool.[^d]" AND
+            NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
+          # instrcalls is the slowest of the samples.
+          "${name}" MATCHES "sample.instrcalls" OR
+          ("${name}" MATCHES "client.annotation-" AND
+            NOT "${name}" MATCHES "(-opt|tiny-bb)")))
+        set(enabled OFF)
+      else ()
+        set(enabled ON)
+      endif ()
     endif ()
   endif ()
   set(${output} ${enabled} PARENT_SCOPE)
@@ -4113,7 +4155,6 @@ if (APPLE)
   set_tests_properties(
     samples_proj
     code_api|common.broadfun
-    code_api|common.decode-bad
     code_api|common.fib
     code_api|common.floatpc
     code_api|common.floatpc_xl8all
@@ -4125,18 +4166,15 @@ if (APPLE)
     code_api|linux.signal0010
     code_api|linux.signal0100
     code_api|linux.signal0110
-    code_api|linux.sigaction
     code_api|linux.app_tls
     code_api|linux.fib-conflict
     code_api|linux.fib-pie
     code_api|security-common.codemod
     code_api|security-common.retexisting
     code_api|security-common.ret_noncall_trace
-    code_api|client.abort
     code_api|client.crashmsg
     code_api|client.count-ctis-noopt
     code_api|client.exception
-    code_api|client.timer
     code_api|client.syscall-mod
     code_api|client.cbr-retarget
     code_api|client.truncate
@@ -4147,7 +4185,6 @@ if (APPLE)
     code_api|client.drcontainers-test
     code_api|client.destructor
     code_api|sample.signal
-    code_api|tool.drcpusim.simple
     code_api|tool.drcpusim.cpuid-Prescott
     code_api|tool.drcpusim.cpuid-Presler
     code_api|tool.drcpusim.cpuid-Merom

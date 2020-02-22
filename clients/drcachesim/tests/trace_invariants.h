@@ -50,17 +50,17 @@ public:
     print_results() override;
 
 protected:
-    bool knob_offline;
-    unsigned int knob_verbose;
-    memref_t prev_instr;
-    memref_t prev_xfer_marker;
-    memref_t prev_entry;
-    memref_t prev_prev_entry;
-    memref_t pre_signal_instr;
-    int instrs_until_interrupt;
-    int memrefs_until_interrupt;
-    addr_t app_handler_pc;
-    std::unordered_map<memref_tid_t, bool> thread_exited;
+    bool knob_offline_;
+    unsigned int knob_verbose_;
+    memref_t prev_instr_;
+    memref_t prev_xfer_marker_;
+    memref_t prev_entry_;
+    memref_t prev_prev_entry_;
+    memref_t pre_signal_instr_;
+    int instrs_until_interrupt_;
+    int memrefs_until_interrupt_;
+    addr_t app_handler_pc_;
+    std::unordered_map<memref_tid_t, bool> thread_exited_;
 };
 
 #endif /* _TRACE_INVARIANTS_H_ */

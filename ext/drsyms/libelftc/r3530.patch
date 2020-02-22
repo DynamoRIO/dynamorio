@@ -1,0 +1,26 @@
+Index: mk/elftoolchain.inc.mk
+===================================================================
+--- mk/elftoolchain.inc.mk	(revision 3248)
++++ mk/elftoolchain.inc.mk	(working copy)
+@@ -20,7 +20,7 @@
+ .PHONY:		incinstall
+ includes:	${INCS}	incinstall
+ .for inc in ${INCS}
+-install incinstall::	${DESTDIR}${INCSDIR}/${inc}
++install incinstall:	${DESTDIR}${INCSDIR}/${inc}
+ .PRECIOUS:	${DESTDIR}${INCSDIR}/${inc}
+ ${DESTDIR}${INCSDIR}/${inc}: ${inc}
+ 	cmp -s $> $@ > /dev/null 2>&1 || \
+Index: libdwarf/libdwarf_str.c
+===================================================================
+--- libdwarf/libdwarf_str.c	(revision 3530)
++++ libdwarf/libdwarf_str.c	(working copy)
+@@ -52,7 +52,7 @@
+ 	if (off != NULL)
+ 		*off = dbg->dbg_strtab_size;
+ 
+-	strncpy(&dbg->dbg_strtab[dbg->dbg_strtab_size], string, len - 1);
++	memcpy(&dbg->dbg_strtab[dbg->dbg_strtab_size], string, len - 1);
+ 	dbg->dbg_strtab_size += len;
+ 	dbg->dbg_strtab[dbg->dbg_strtab_size - 1] = '\0';
+ 

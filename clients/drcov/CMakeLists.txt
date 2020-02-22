@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -174,6 +174,7 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND}
   ARGS -D src=${srcdoc}
        -D dst=${gendoc}
+       -D CMAKE_CROSSCOMPILING=${CMAKE_CROSSCOMPILING}
        -D prog=$<TARGET_FILE:drcov2lcov>
        -D prog_arg=-help_html
        -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake

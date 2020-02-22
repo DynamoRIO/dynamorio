@@ -112,6 +112,14 @@ else (TEST_LONG)
   set(DO_ALL_BUILDS OFF)
 endif (TEST_LONG)
 
+# i#4059: Speed up Appveyor on PR's by not building 64-bit tests.
+# We're only running tests on Travis.
+if (DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
+  set(build_release_tests "")
+else ()
+  set(build_release_tests ${build_tests})
+endif ()
+
 if (UNIX)
   # For cross-arch execve tests we need to run from an install dir
   set(installpath "${BINARY_BASE}/install")
@@ -123,8 +131,8 @@ else (UNIX)
 endif (UNIX)
 
 if (APPLE)
-  # DRi#58: core DR does not yet support 64-bit Mac
-  set(arg_32_only ON)
+  # We no longer support 32-bit Mac since Apple itself does not either.
+  set(arg_64_only ON)
 endif ()
 
 ##################################################
@@ -327,7 +335,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   testbuild_ex("release-external-64" ON "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
-    ${build_tests}
+    ${build_release_tests}
     ${install_path_cache}
     ${32bit_path}
     " OFF ${arg_package} "${install_build_args}")

@@ -509,6 +509,8 @@ set(BUILD_NUMBER "0" CACHE STRING "Build number (must be <64K)")
 set(UNIQUE_BUILD_NUMBER "0" CACHE STRING "Unique build number")
 set(CUSTOM_PRODUCT_NAME "" CACHE STRING "Custom product name")
 set(PACKAGE_PLATFORM "" CACHE STRING "Platform for package name (should have trailing -)")
+set(PACKAGE_SUBSYS "" CACHE STRING
+  "Platform for sub-system name (should have leading -: e.g., -EABIHF")
 mark_as_advanced(
   VERSION_NUMBER
   VERSION_COMMA_DELIMITED
@@ -516,6 +518,7 @@ mark_as_advanced(
   UNIQUE_BUILD_NUMBER
   CUSTOM_PRODUCT_NAME
   PACKAGE_PLATFORM
+  PACKAGE_SUBSYS
   )
 # This is hardcoded in globals_shared.h: going to leave it that way, but
 # adding indirection within cmake files
@@ -1449,9 +1452,9 @@ option(BUILD_SAMPLES "build client samples" ON)
 
 option(BUILD_CLIENTS "build client tools" ON)
 
-if (NOT X86)
-  # FIXME i#1551: fail to install necessary package on Linux ARM
-  # XXX i#1730: if we enable this we'll need to disable for cross-compilation
+if (ANDROID)
+  # TODO i#1874: Android does not build drcachesim or drcpusim, which have
+  # references spread throughout the docs.
   option(BUILD_DOCS "build documentation" OFF)
 else ()
   option(BUILD_DOCS "build documentation" ON)
@@ -1721,25 +1724,6 @@ endif (BUILD_CLIENTS)
 
 if (CLIENT_INTERFACE OR APP_EXPORTS)
   if (BUILD_DOCS)
-    find_package(ImageMagick COMPONENTS mogrify)
-    if (NOT ImageMagick_mogrify_FOUND)
-      # cmake 2.6.0 does not set the _FOUND vars, just the exec path,
-      # and it uses all caps
-      if (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-        set(ImageMagick_mogrify_EXECUTABLE ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-      else (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-        # We require on Linux pre-commit where it's trivial to install
-        if (TEST_SUITE AND UNIX AND NOT APPLE)
-          message(FATAL_ERROR "ImageMagick is required to build the documentation")
-        else ()
-          # Non-fatal for a single, un-official build, or on Windows
-          message(WARNING "ImageMagick not found: documentation will NOT be built")
-          set(BUILD_DOCS OFF)
-        endif ()
-      endif (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-    endif (NOT ImageMagick_mogrify_FOUND)
-    mark_as_advanced(ImageMagick_EXECUTABLE_DIR)
-
     find_package(Doxygen)
     if (NOT DOXYGEN_FOUND)
       # We require on Linux pre-commit where it's trivial to install
@@ -1751,48 +1735,6 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
         set(BUILD_DOCS OFF)
       endif ()
     endif (NOT DOXYGEN_FOUND)
-
-    include(${PROJECT_SOURCE_DIR}/make/FindFig2Dev.cmake)
-    if (NOT FIG2DEV_FOUND)
-      # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX AND NOT APPLE)
-        message(FATAL_ERROR "fig2dev (from transfig) is required to build documentation")
-      else ()
-        # Non-fatal for a single, un-official build, or on Windows
-        message(WARNING "fig2dev (from transfig) not found: docs will NOT be built")
-        set(BUILD_DOCS OFF)
-      endif ()
-    endif (NOT FIG2DEV_FOUND)
-
-    # fig2dev needs ghostscript to produce tiff files (not to produce eps)
-    include(${PROJECT_SOURCE_DIR}/make/FindGhostscript.cmake)
-    if (NOT GHOSTSCRIPT_FOUND)
-      # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX AND NOT APPLE)
-        message(FATAL_ERROR "ghostscript is required to build documentation")
-      else ()
-        # Non-fatal for a single, un-official build, or on Windows
-        message(WARNING "ghostscript not found: documentation will NOT be built")
-        set(BUILD_DOCS OFF)
-      endif ()
-    else (NOT GHOSTSCRIPT_FOUND)
-      # must be on path.  we can't just literally check the path
-      # b/c of cygwin issues: c:/cygwin/bin vs /usr/bin, etc.
-      get_filename_component(gs_name ${GHOSTSCRIPT_EXECUTABLE} NAME)
-      find_program(GHOSTSCRIPT_ON_PATH ${gs_name} PATHS ENV PATH NO_DEFAULT_PATH)
-      if (NOT GHOSTSCRIPT_ON_PATH)
-        # We require on Linux pre-commit where it's trivial to install
-        if (TEST_SUITE AND UNIX AND NOT APPLE)
-          message(FATAL_ERROR
-            "ghostscript is installed, but must be on PATH for fig2dev to find it")
-        else ()
-          # Non-fatal for a single, un-official build, or on Windows
-          message(WARNING "ghostscript not on PATH: documentation will NOT be built")
-          set(BUILD_DOCS OFF)
-        endif ()
-      endif (NOT GHOSTSCRIPT_ON_PATH)
-      mark_as_advanced(GHOSTSCRIPT_ON_PATH)
-    endif (NOT GHOSTSCRIPT_FOUND)
 
     if (BUILD_DOCS)
       add_subdirectory(api/docs)
@@ -1956,7 +1898,7 @@ DR_target_install_dst(${INSTALL_CMAKE} EXPORT ${exported_targets_name})
 # CPACK_INSTALL_CMAKE_PROJECTS variable is set to point at all 4 builds,
 # "make package" will produce a package from all 4 installs.
 
-# FIXME i#74: create source tarball via 'make package_source'
+# TODO i#74: create source tarball via 'make package_source'
 # Just need to exclude exports/ (or move exports/ to ../?) and
 # other files inside source dir (or run on untouched source dir)
 # and update package.{sh,bat}.
@@ -1973,11 +1915,12 @@ if (UNIX)
   set(CPACK_STRIP_FILES OFF)
   if (APPLE)
     set(CPACK_SYSTEM_NAME "MacOS")
+  elseif (ANDROID)
+    set(CPACK_SYSTEM_NAME "Android")
   else ()
     set(CPACK_SYSTEM_NAME "Linux")
   endif ()
 else (UNIX)
-  # FIXME: try Windows NSIS
   set(CPACK_GENERATOR "ZIP")
   set(CPACK_SOURCE_GENERATOR "ZIP")
   set(CPACK_SYSTEM_NAME "Windows")
@@ -2003,8 +1946,14 @@ string(REGEX REPLACE
 # CPACK_TEMPORARY_PACKAGE_FILE_NAME if I hardcode the extension: but maybe
 # having the full version in the base dir is a good thing, though I'm not
 # sure about the caps.
+# We omit the -NN suffix for the build number if it is zero.
+if ("${BUILD_NUMBER}" STREQUAL "0")
+  set(PACKAGE_SUFFIX "")
+else ()
+  set(PACKAGE_SUFFIX "-${BUILD_NUMBER}")
+endif ()
 set(CPACK_PACKAGE_FILE_NAME
-  "DynamoRIO-${PACKAGE_PLATFORM}${CPACK_SYSTEM_NAME}-${CPACK_PACKAGE_VERSION}-${BUILD_NUMBER}")
+  "DynamoRIO-${PACKAGE_PLATFORM}${CPACK_SYSTEM_NAME}${PACKAGE_SUBSYS}-${CPACK_PACKAGE_VERSION}${PACKAGE_SUFFIX}")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "dynamorio")
 set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "DynamoRIO")
 set(CPACK_PACKAGE_RELOCATABLE "true")

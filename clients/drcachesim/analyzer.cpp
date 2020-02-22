@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,11 +53,11 @@ typedef file_reader_t<std::ifstream *> default_file_reader_t;
 #endif
 
 analyzer_t::analyzer_t()
-    : success(true)
-    , num_tools(0)
-    , tools(NULL)
-    , parallel(true)
-    , worker_count(0)
+    : success_(true)
+    , num_tools_(0)
+    , tools_(NULL)
+    , parallel_(true)
+    , worker_count_(0)
 {
     /* Nothing else: child class needs to initialize. */
 }
@@ -101,20 +101,20 @@ get_reader(const std::string &path, int verbosity)
 }
 
 bool
-analyzer_t::init_file_reader(const std::string &trace_path, int verbosity_in)
+analyzer_t::init_file_reader(const std::string &trace_path, int verbosity)
 {
-    verbosity = verbosity_in;
+    verbosity_ = verbosity;
     if (trace_path.empty()) {
         ERRMSG("Trace file name is empty\n");
         return false;
     }
-    for (int i = 0; i < num_tools; ++i) {
-        if (parallel && !tools[i]->parallel_shard_supported()) {
-            parallel = false;
+    for (int i = 0; i < num_tools_; ++i) {
+        if (parallel_ && !tools_[i]->parallel_shard_supported()) {
+            parallel_ = false;
             break;
         }
     }
-    if (parallel && directory_iterator_t::is_directory(trace_path)) {
+    if (parallel_ && directory_iterator_t::is_directory(trace_path)) {
         directory_iterator_t end;
         directory_iterator_t iter(trace_path);
         if (!iter) {
@@ -131,73 +131,73 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity_in)
             if (!reader) {
                 return false;
             }
-            thread_data.push_back(analyzer_shard_data_t(
-                static_cast<int>(thread_data.size()), std::move(reader), path));
+            thread_data_.push_back(analyzer_shard_data_t(
+                static_cast<int>(thread_data_.size()), std::move(reader), path));
             VPRINT(this, 2, "Opened reader for %s\n", path.c_str());
         }
         // Like raw2trace, we use a simple round-robin static work assigment.  This
         // could be improved later with dynamic work queue for better load balancing.
-        if (worker_count <= 0)
-            worker_count = std::thread::hardware_concurrency();
-        worker_tasks.resize(worker_count);
+        if (worker_count_ <= 0)
+            worker_count_ = std::thread::hardware_concurrency();
+        worker_tasks_.resize(worker_count_);
         int worker = 0;
-        for (size_t i = 0; i < thread_data.size(); ++i) {
+        for (size_t i = 0; i < thread_data_.size(); ++i) {
             VPRINT(this, 2, "Worker %d assigned trace shard %zd\n", worker, i);
-            worker_tasks[worker].push_back(&thread_data[i]);
-            thread_data[i].worker = worker;
-            worker = (worker + 1) % worker_count;
+            worker_tasks_[worker].push_back(&thread_data_[i]);
+            thread_data_[i].worker = worker;
+            worker = (worker + 1) % worker_count_;
         }
     } else {
-        parallel = false;
-        serial_trace_iter = get_reader(trace_path, verbosity);
-        if (!serial_trace_iter) {
+        parallel_ = false;
+        serial_trace_iter_ = get_reader(trace_path, verbosity);
+        if (!serial_trace_iter_) {
             return false;
         }
         VPRINT(this, 2, "Opened serial reader for %s\n", trace_path.c_str());
     }
-    // It's ok if trace_end is a different type from serial_trace_iter, they
+    // It's ok if trace_end_ is a different type from serial_trace_iter_, they
     // will still compare true if both at EOF.
-    trace_end = std::unique_ptr<default_file_reader_t>(new default_file_reader_t());
+    trace_end_ = std::unique_ptr<default_file_reader_t>(new default_file_reader_t());
     return true;
 }
 
-analyzer_t::analyzer_t(const std::string &trace_path, analysis_tool_t **tools_in,
-                       int num_tools_in, int worker_count_in)
-    : success(true)
-    , num_tools(num_tools_in)
-    , tools(tools_in)
-    , parallel(true)
-    , worker_count(worker_count_in)
+analyzer_t::analyzer_t(const std::string &trace_path, analysis_tool_t **tools,
+                       int num_tools, int worker_count)
+    : success_(true)
+    , num_tools_(num_tools)
+    , tools_(tools)
+    , parallel_(true)
+    , worker_count_(worker_count)
 {
     for (int i = 0; i < num_tools; ++i) {
-        if (tools[i] == NULL || !*tools[i]) {
-            success = false;
-            error_string = "Tool is not successfully initialized";
-            if (tools[i] != NULL)
-                error_string += ": " + tools[i]->get_error_string();
+        if (tools_[i] == NULL || !*tools_[i]) {
+            success_ = false;
+            error_string_ = "Tool is not successfully initialized";
+            if (tools_[i] != NULL)
+                error_string_ += ": " + tools_[i]->get_error_string();
             return;
         }
-        const std::string error = tools[i]->initialize();
+        const std::string error = tools_[i]->initialize();
         if (!error.empty()) {
-            success = false;
-            error_string = "Tool failed to initialize: " + error;
+            success_ = false;
+            error_string_ = "Tool failed to initialize: " + error;
             return;
         }
     }
     if (!init_file_reader(trace_path))
-        success = false;
+        success_ = false;
 }
 
 analyzer_t::analyzer_t(const std::string &trace_path)
-    : success(true)
-    , num_tools(0)
-    , tools(NULL)
+    : success_(true)
+    , num_tools_(0)
+    , tools_(NULL)
     // This external-iterator interface does not support parallel analysis.
-    , parallel(false)
-    , worker_count(0)
+    , parallel_(false)
+    , worker_count_(0)
 {
     if (!init_file_reader(trace_path))
-        success = false;
+        success_ = false;
 }
 
 analyzer_t::~analyzer_t()
@@ -211,20 +211,20 @@ bool
 analyzer_t::operator!()
 // clang-format on
 {
-    return !success;
+    return !success_;
 }
 
 std::string
 analyzer_t::get_error_string()
 {
-    return error_string;
+    return error_string_;
 }
 
 // Used only for serial iteration.
 bool
 analyzer_t::start_reading()
 {
-    if (!serial_trace_iter->init()) {
+    if (!serial_trace_iter_->init()) {
         ERRMSG("Failed to read from trace\n");
         return false;
     }
@@ -240,9 +240,9 @@ analyzer_t::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
     }
     VPRINT(this, 1, "Worker %d assigned %zd task(s)\n", (*tasks)[0]->worker,
            tasks->size());
-    std::vector<void *> worker_data(num_tools);
-    for (int i = 0; i < num_tools; ++i)
-        worker_data[i] = tools[i]->parallel_worker_init((*tasks)[0]->worker);
+    std::vector<void *> worker_data(num_tools_);
+    for (int i = 0; i < num_tools_; ++i)
+        worker_data[i] = tools_[i]->parallel_worker_init((*tasks)[0]->worker);
     for (analyzer_shard_data_t *tdata : *tasks) {
         VPRINT(this, 1, "Worker %d starting on trace shard %d\n", tdata->worker,
                tdata->index);
@@ -250,15 +250,15 @@ analyzer_t::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
             tdata->error = "Failed to read from trace" + tdata->trace_file;
             return;
         }
-        std::vector<void *> shard_data(num_tools);
-        for (int i = 0; i < num_tools; ++i)
-            shard_data[i] = tools[i]->parallel_shard_init(tdata->index, worker_data[i]);
+        std::vector<void *> shard_data(num_tools_);
+        for (int i = 0; i < num_tools_; ++i)
+            shard_data[i] = tools_[i]->parallel_shard_init(tdata->index, worker_data[i]);
         VPRINT(this, 1, "shard_data[0] is %p\n", shard_data[0]);
-        for (; *tdata->iter != *trace_end; ++(*tdata->iter)) {
-            for (int i = 0; i < num_tools; ++i) {
+        for (; *tdata->iter != *trace_end_; ++(*tdata->iter)) {
+            for (int i = 0; i < num_tools_; ++i) {
                 const memref_t &memref = **tdata->iter;
-                if (!tools[i]->parallel_shard_memref(shard_data[i], memref)) {
-                    tdata->error = tools[i]->parallel_shard_error(shard_data[i]);
+                if (!tools_[i]->parallel_shard_memref(shard_data[i], memref)) {
+                    tdata->error = tools_[i]->parallel_shard_error(shard_data[i]);
                     VPRINT(this, 1,
                            "Worker %d hit shard memref error %s on trace shard %d\n",
                            tdata->worker, tdata->error.c_str(), tdata->index);
@@ -268,17 +268,17 @@ analyzer_t::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
         }
         VPRINT(this, 1, "Worker %d finished trace shard %d\n", tdata->worker,
                tdata->index);
-        for (int i = 0; i < num_tools; ++i) {
-            if (!tools[i]->parallel_shard_exit(shard_data[i])) {
-                tdata->error = tools[i]->parallel_shard_error(shard_data[i]);
+        for (int i = 0; i < num_tools_; ++i) {
+            if (!tools_[i]->parallel_shard_exit(shard_data[i])) {
+                tdata->error = tools_[i]->parallel_shard_error(shard_data[i]);
                 VPRINT(this, 1, "Worker %d hit shard exit error %s on trace shard %d\n",
                        tdata->worker, tdata->error.c_str(), tdata->index);
                 return;
             }
         }
     }
-    for (int i = 0; i < num_tools; ++i) {
-        const std::string error = tools[i]->parallel_worker_exit(worker_data[i]);
+    for (int i = 0; i < num_tools_; ++i) {
+        const std::string error = tools_[i]->parallel_worker_exit(worker_data[i]);
         if (!error.empty()) {
             (*tasks)[0]->error = error;
             VPRINT(this, 1, "Worker %d hit worker exit error %s\n", (*tasks)[0]->worker,
@@ -292,38 +292,38 @@ bool
 analyzer_t::run()
 {
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
-    if (!parallel) {
+    if (!parallel_) {
         if (!start_reading())
             return false;
-        for (; *serial_trace_iter != *trace_end; ++(*serial_trace_iter)) {
-            for (int i = 0; i < num_tools; ++i) {
-                memref_t memref = **serial_trace_iter;
+        for (; *serial_trace_iter_ != *trace_end_; ++(*serial_trace_iter_)) {
+            for (int i = 0; i < num_tools_; ++i) {
+                memref_t memref = **serial_trace_iter_;
                 // We short-circuit and exit on an error to avoid confusion over
                 // the results and avoid wasted continued work.
-                if (!tools[i]->process_memref(memref)) {
-                    error_string = tools[i]->get_error_string();
+                if (!tools_[i]->process_memref(memref)) {
+                    error_string_ = tools_[i]->get_error_string();
                     return false;
                 }
             }
         }
         return true;
     }
-    if (worker_count <= 0) {
-        error_string = "Invalid worker count: must be > 0";
+    if (worker_count_ <= 0) {
+        error_string_ = "Invalid worker count: must be > 0";
         return false;
     }
     std::vector<std::thread> threads;
-    VPRINT(this, 1, "Creating %d worker threads\n", worker_count);
-    threads.reserve(worker_count);
-    for (int i = 0; i < worker_count; ++i) {
+    VPRINT(this, 1, "Creating %d worker threads\n", worker_count_);
+    threads.reserve(worker_count_);
+    for (int i = 0; i < worker_count_; ++i) {
         threads.emplace_back(
-            std::thread(&analyzer_t::process_tasks, this, &worker_tasks[i]));
+            std::thread(&analyzer_t::process_tasks, this, &worker_tasks_[i]));
     }
     for (std::thread &thread : threads)
         thread.join();
-    for (auto &tdata : thread_data) {
+    for (auto &tdata : thread_data_) {
         if (!tdata.error.empty()) {
-            error_string = tdata.error;
+            error_string_ = tdata.error;
             return false;
         }
     }
@@ -333,12 +333,12 @@ analyzer_t::run()
 bool
 analyzer_t::print_stats()
 {
-    for (int i = 0; i < num_tools; ++i) {
-        if (!tools[i]->print_results()) {
-            error_string = tools[i]->get_error_string();
+    for (int i = 0; i < num_tools_; ++i) {
+        if (!tools_[i]->print_results()) {
+            error_string_ = tools_[i]->get_error_string();
             return false;
         }
-        if (i + 1 < num_tools) {
+        if (i + 1 < num_tools_) {
             // Separate tool output.
             std::cerr << "\n=========================================================="
                          "=================\n";
@@ -353,12 +353,12 @@ reader_t &
 analyzer_t::begin()
 {
     if (!start_reading())
-        return *trace_end;
-    return *serial_trace_iter;
+        return *trace_end_;
+    return *serial_trace_iter_;
 }
 
 reader_t &
 analyzer_t::end()
 {
-    return *trace_end;
+    return *trace_end_;
 }

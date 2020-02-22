@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -313,16 +313,28 @@ drsym_macho_sort_symbols(macho_info_t *mod)
     mod->sorted_count = 0;
     for (i = 0; i < mod->num_syms; i++, sym++) {
         /* Rule out value==0 and empty names */
-        if (sym->n_value > 0 && sym->n_un.n_strx > 0 && sym->n_un.n_strx < mod->strsz) {
-            const char *name = (const char *)(mod->strtab + sym->n_un.n_strx);
-            /* There are symbols with empty strings inside strtab.
-             * We could probably rule out by checking the type or sthg
-             * but this will do as well.
+        if (sym->n_value == 0)
+            continue;
+        if (sym->n_un.n_strx == 0 || sym->n_un.n_strx >= mod->strsz)
+            continue;
+        if ((sym->n_type & N_TYPE) == N_UNDF)
+            continue;
+        if ((sym->n_type & N_TYPE) == N_INDR) {
+            /* TODO i#4081: The value for an indirect symbol is the string table
+             * index for the name of the other symbol it points to.  We should
+             * add an entry for that other name with the value of the target.
+             * Until we put in a scheme to do that, we skip them.
              */
-            if (name[0] != '\0' && hashtable_lookup(&dup_table, (void *)name) == NULL) {
-                hashtable_add(&dup_table, (void *)name, (void *)name);
-                mod->sorted_syms[mod->sorted_count++] = sym;
-            }
+            continue;
+        }
+        const char *name = (const char *)(mod->strtab + sym->n_un.n_strx);
+        /* There are symbols with empty strings inside strtab.
+         * We could probably rule out by checking the type or sthg
+         * but this will do as well.
+         */
+        if (name[0] != '\0' && hashtable_lookup(&dup_table, (void *)name) == NULL) {
+            hashtable_add(&dup_table, (void *)name, (void *)name);
+            mod->sorted_syms[mod->sorted_count++] = sym;
         }
     }
     hashtable_delete(&dup_table);

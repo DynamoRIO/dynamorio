@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -145,7 +145,8 @@ post_process(const std::string &out_subdir)
         }
         std::string dir_err = dir.initialize(raw_dir, outdir);
         assert(dir_err.empty());
-        raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, dr_context,
+        raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
+                              dr_context,
                               0
 #    ifdef WINDOWS
                               /* FIXME i#3983: Creating threads in standalone mode

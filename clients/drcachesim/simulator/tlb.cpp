@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,8 +37,8 @@
 void
 tlb_t::init_blocks()
 {
-    for (int i = 0; i < num_blocks; i++) {
-        blocks[i] = new tlb_entry_t;
+    for (int i = 0; i < num_blocks_; i++) {
+        blocks_[i] = new tlb_entry_t;
     }
 }
 
@@ -62,16 +62,16 @@ tlb_t::request(const memref_t &memref_in)
     memref_pid_t pid = memref_in.data.pid;
 
     // Optimization: check last tag and pid if single-block
-    if (tag == final_tag && tag == last_tag && pid == last_pid) {
-        // Make sure last_tag and pid are properly in sync.
+    if (tag == final_tag && tag == last_tag_ && pid == last_pid_) {
+        // Make sure last_tag_ and pid are properly in sync.
         caching_device_block_t *tlb_entry =
-            &get_caching_device_block(last_block_idx, last_way);
-        assert(tag != TAG_INVALID && tag == tlb_entry->tag &&
-               pid == ((tlb_entry_t *)tlb_entry)->pid);
-        stats->access(memref_in, true /*hit*/, tlb_entry);
-        if (parent != NULL)
-            parent->get_stats()->child_access(memref_in, true, tlb_entry);
-        access_update(last_block_idx, last_way);
+            &get_caching_device_block(last_block_idx_, last_way_);
+        assert(tag != TAG_INVALID && tag == tlb_entry->tag_ &&
+               pid == ((tlb_entry_t *)tlb_entry)->pid_);
+        stats_->access(memref_in, true /*hit*/, tlb_entry);
+        if (parent_ != NULL)
+            parent_->get_stats()->child_access(memref_in, true, tlb_entry);
+        access_update(last_block_idx_, last_way_);
         return;
     }
 
@@ -81,46 +81,46 @@ tlb_t::request(const memref_t &memref_in)
         int block_idx = compute_block_idx(tag);
 
         if (tag + 1 <= final_tag)
-            memref.data.size = ((tag + 1) << block_size_bits) - memref.data.addr;
+            memref.data.size = ((tag + 1) << block_size_bits_) - memref.data.addr;
 
-        for (way = 0; way < associativity; ++way) {
+        for (way = 0; way < associativity_; ++way) {
             caching_device_block_t *tlb_entry = &get_caching_device_block(block_idx, way);
-            if (tlb_entry->tag == tag && ((tlb_entry_t *)tlb_entry)->pid == pid) {
-                stats->access(memref, true /*hit*/, tlb_entry);
-                if (parent != NULL)
-                    parent->get_stats()->child_access(memref, true, tlb_entry);
+            if (tlb_entry->tag_ == tag && ((tlb_entry_t *)tlb_entry)->pid_ == pid) {
+                stats_->access(memref, true /*hit*/, tlb_entry);
+                if (parent_ != NULL)
+                    parent_->get_stats()->child_access(memref, true, tlb_entry);
                 break;
             }
         }
 
-        if (way == associativity) {
+        if (way == associativity_) {
             way = replace_which_way(block_idx);
             caching_device_block_t *tlb_entry = &get_caching_device_block(block_idx, way);
 
-            stats->access(memref, false /*miss*/, tlb_entry);
+            stats_->access(memref, false /*miss*/, tlb_entry);
             // If no parent we assume we get the data from main memory
-            if (parent != NULL) {
-                parent->get_stats()->child_access(memref, false, tlb_entry);
-                parent->request(memref);
+            if (parent_ != NULL) {
+                parent_->get_stats()->child_access(memref, false, tlb_entry);
+                parent_->request(memref);
             }
 
             // XXX: do we need to handle TLB coherency?
 
-            tlb_entry->tag = tag;
-            ((tlb_entry_t *)tlb_entry)->pid = pid;
+            tlb_entry->tag_ = tag;
+            ((tlb_entry_t *)tlb_entry)->pid_ = pid;
         }
 
         access_update(block_idx, way);
 
         if (tag + 1 <= final_tag) {
-            addr_t next_addr = (tag + 1) << block_size_bits;
+            addr_t next_addr = (tag + 1) << block_size_bits_;
             memref.data.addr = next_addr;
             memref.data.size = final_addr - next_addr + 1 /*undo the -1*/;
         }
         // Optimization: remember last tag and pid
-        last_tag = tag;
-        last_way = way;
-        last_block_idx = block_idx;
-        last_pid = pid;
+        last_tag_ = tag;
+        last_way_ = way;
+        last_block_idx_ = block_idx;
+        last_pid_ = pid;
     }
 }

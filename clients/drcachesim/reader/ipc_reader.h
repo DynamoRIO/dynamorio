@@ -67,17 +67,17 @@ protected:
     }
 
 private:
-    named_pipe_t pipe;
-    bool creation_success;
+    named_pipe_t pipe_;
+    bool creation_success_;
 
     // For efficiency we want to read large chunks at a time.
     // The atomic write size for a pipe on Linux is 4096 bytes but
     // we want to go ahead and read as much data as we can at one
     // time.
     static const int BUF_SIZE = 16 * 1024;
-    trace_entry_t buf[BUF_SIZE];
-    trace_entry_t *cur_buf;
-    trace_entry_t *end_buf;
+    trace_entry_t buf_[BUF_SIZE];
+    trace_entry_t *cur_buf_;
+    trace_entry_t *end_buf_;
 };
 
 #endif /* _IPC_READER_H_ */

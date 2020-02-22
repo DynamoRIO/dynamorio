@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -73,15 +73,15 @@ protected:
         std::string error;
     };
 
-    unsigned int knob_line_size;
-    unsigned int knob_report_top; /* most accessed lines */
-    size_t line_size_bits;
+    unsigned int knob_line_size_;
+    unsigned int knob_report_top_; /* most accessed lines */
+    size_t line_size_bits_;
     static const std::string TOOL_NAME;
-    std::unordered_map<memref_tid_t, shard_data_t *> shard_map;
+    std::unordered_map<memref_tid_t, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
-    std::mutex shard_map_mutex;
-    shard_data_t serial_shard;
+    std::mutex shard_map_mutex_;
+    shard_data_t serial_shard_;
 };
 
 #endif /* _HISTOGRAM_H_ */

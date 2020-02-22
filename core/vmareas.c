@@ -1504,7 +1504,11 @@ binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*
     int min = 0;
     int max = v->length - 1;
 
-    ASSERT(start < end || end == NULL /* wraparound */);
+    /* We support an empty range start==end in general but we do
+     * complain about 0..0 to catch bugs like i#4097.
+     */
+    ASSERT(start != NULL || end != NULL);
+    ASSERT(start <= end || end == NULL /* wraparound */);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, READWRITE);
     LOG(GLOBAL, LOG_VMAREAS, 7, "Binary search for " PFX "-" PFX " on this vector:\n",
@@ -1515,7 +1519,7 @@ binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*
         int i = (min + max) / 2;
         if (end != NULL && end <= v->buf[i].start)
             max = i - 1;
-        else if (start >= v->buf[i].end)
+        else if (start >= v->buf[i].end || start == end)
             min = i + 1;
         else {
             if (area != NULL || index != NULL) {
@@ -1539,7 +1543,7 @@ binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*
     /* now max < min */
     LOG(GLOBAL, LOG_VMAREAS, 7, "\tdid not find " PFX "-" PFX "!\n", start, end);
     if (index != NULL) {
-        ASSERT((max < 0 || v->buf[max].end <= start) &&
+        ASSERT((max < 0 || v->buf[max].end <= start || start == end) &&
                (min > v->length - 1 || v->buf[min].start >= end));
         *index = max;
     }
@@ -3176,6 +3180,9 @@ executable_areas_match_flags(app_pc addr_start, app_pc addr_end, bool *found_are
     vm_area_t *area;
     if (found_area != NULL)
         *found_area = false;
+    /* For flushing the whole address space make sure we don't pass 0..0. */
+    if (page_end == NULL && page_start == NULL)
+        page_start = (app_pc)1UL;
     ASSERT(page_start < page_end || page_end == NULL); /* wraparound */
     /* We have subpage regions from some of our rules, we should return true
      * if any area on the list that overlaps the pages enclosing the addr_[start,end)
@@ -11826,6 +11833,40 @@ unit_test_vmareas(void)
     check_vec(&v, 0, INT_TO_PC(1), INT_TO_PC(2), 0, 0, NULL);
     check_vec(&v, 1, INT_TO_PC(2), INT_TO_PC(3), 0, FRAG_SELFMOD_SANDBOXED, NULL);
     check_vec(&v, 2, INT_TO_PC(3), INT_TO_PC(4), 0, 0, NULL);
+    remove_vm_area(&v, INT_TO_PC(0), UNIVERSAL_REGION_END, false);
+
+    /* TEST 6: Binary search.
+     */
+    add_vm_area(&v, INT_TO_PC(1), INT_TO_PC(3), 0, 0, NULL _IF_DEBUG("A"));
+    add_vm_area(&v, INT_TO_PC(4), INT_TO_PC(5), 0, 0, NULL _IF_DEBUG("B"));
+    add_vm_area(&v, INT_TO_PC(7), INT_TO_PC(9), 0, 0, NULL _IF_DEBUG("C"));
+    vm_area_t *container = NULL;
+    int index = -1;
+    bool found = binary_search(&v, INT_TO_PC(2), INT_TO_PC(3), &container, &index, true);
+    EXPECT(found, true);
+    EXPECT(container->start, 1);
+    EXPECT(container->end, 3);
+    EXPECT(index, 0);
+    found = binary_search(&v, INT_TO_PC(6), INT_TO_PC(7), &container, &index, true);
+    EXPECT(found, false);
+    EXPECT(index, 1);
+    /* Test start==end. */
+    found = binary_search(&v, INT_TO_PC(8), INT_TO_PC(8), &container, &index, true);
+    EXPECT(found, false);
+    EXPECT(index, 2);
+    /* Test wraparound searching to NULL (i#4097). */
+    found = binary_search(&v, INT_TO_PC(1), INT_TO_PC(0), &container, &index, true);
+    EXPECT(found, true);
+    EXPECT(index, 0);
+    found = binary_search(&v, container->end, INT_TO_PC(0), &container, &index, true);
+    EXPECT(found, true);
+    EXPECT(index, 1);
+    found = binary_search(&v, container->end, INT_TO_PC(0), &container, &index, true);
+    EXPECT(found, true);
+    EXPECT(index, 2);
+    found = binary_search(&v, container->end, INT_TO_PC(0), &container, &index, true);
+    EXPECT(found, false);
+    EXPECT(index, 2);
 
     vmvector_tests();
 }

@@ -15,50 +15,25 @@ Thread model: posix
 Install bsdmake:
 $ brew install bsdmake
 
-Check out the sources:
-$ svn co svn://svn.code.sf.net/p/elftoolchain/code/trunk src
-I have r3731.
+Check out the sources.  We have to stick with r3530 until
+https://sourceforge.net/p/elftoolchain/tickets/581/ is fixed.
+$ svn co -r 3530 svn://svn.code.sf.net/p/elftoolchain/code/trunk src
 
 Apply the libelftc-macho.patch.
 $ cd src
 $ patch -p0 < <path-to-DR>/ext/drsyms/libelftc-macho/libelftc-macho.patch
 
 Now build 64-bit:
+% REDIR="-Dmalloc=__wrap_malloc -Dcalloc=__wrap_calloc -Drealloc=__wrap_realloc -Dfree=__wrap_free -Dstrdup=__wrap_strdup"
 % cd libdwarf
-% bsdmake EXTRA_CFLAGS="-O2 -g -fPIC -Wno-system-headers -mmacosx-version-min=10.9" libdwarf.a
+% bsdmake EXTRA_CFLAGS="-O2 -g -fPIC ${REDIR} -Wno-system-headers -mmacosx-version-min=10.9" libdwarf.a
 % cd ../libelftc
-% bsdmake EXTRA_CFLAGS="-O2 -g -fPIC -Wno-system-headers -mmacosx-version-min=10.9" libelftc.a
+% bsdmake EXTRA_CFLAGS="-O2 -g -fPIC ${REDIR} -Wno-system-headers -mmacosx-version-min=10.9" libelftc.a
 
 Then copy the resulting libelftc.a and libdwarf.a into the DR source tree
 in ext/drsyms/libelftc-macho/lib64/.
 
 ===========================================================================
-32-bit:
-
-I built on Mac OS X 10.7.5 (11G63b)
-
-I have XCode 4.6.3 and this version of clang:
-> cc -v
-Apple LLVM version 4.2 (clang-425.0.28) (based on LLVM 3.2svn)
-Target: x86_64-apple-darwin11.4.2
-Thread model: posix
-
-Install bsdmake:
-% sudo brew install bsdmake
-
-Check out the sources:
-% svn co svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
-I have r3248.
-
-Apply the libelftc-macho.patch.
-
-Now build 32-bit:
-% cd libdwarf
-% bsdmake EXTRA_CFLAGS="-m32 -O2 -g -fPIC" libdwarf.a
-% cd ../libelftc
-% bsdmake EXTRA_CFLAGS="-m32 -O2 -g -fPIC" libelftc.a
-
-Then copy the resulting libelftc.a and libdwarf.a into the DR source tree
-in ext/drsyms/libelftc-macho/lib32/.
+32-bit: No longer supported.
 
 ===========================================================================

@@ -38,7 +38,7 @@
 static void
 check_cache(const std::map<std::string, cache_params_t> &caches, std::string name,
             std::string type, int core, uint64_t size, unsigned int assoc, bool inclusive,
-            std::string parent, std::string replace_policy, std::string prefetcher,
+            std::string parent_, std::string replace_policy, std::string prefetcher,
             std::string miss_file)
 {
     auto cache_it = caches.find(name);
@@ -51,7 +51,7 @@ check_cache(const std::map<std::string, cache_params_t> &caches, std::string nam
     auto &cache = cache_it->second;
 
     if (cache.type != type || cache.core != core || cache.size != size ||
-        cache.assoc != assoc || cache.inclusive != inclusive || cache.parent != parent ||
+        cache.assoc != assoc || cache.inclusive != inclusive || cache.parent != parent_ ||
         cache.replace_policy != replace_policy || cache.prefetcher != prefetcher ||
         cache.miss_file != miss_file) {
         std::cerr << "drcachesim config_reader_test failed (cache: " << cache.name

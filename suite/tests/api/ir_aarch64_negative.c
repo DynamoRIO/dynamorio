@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2020 Google, Inc. All rights reserved.
  * Copyright (c) 2018 Arm Limited. All rights reserved.
  * **********************************************************/
 
@@ -167,5 +168,8 @@ main(int argc, char *argv[])
     print("test_sve_int_bin_pred_log complete\n");
 
     print("All tests complete\n");
+#ifndef STANDALONE_DECODER
+    dr_standalone_exit();
+#endif
     return 0;
 }
