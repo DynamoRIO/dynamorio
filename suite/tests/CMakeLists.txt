@@ -1889,11 +1889,11 @@ if (CLIENT_INTERFACE)
     if (UNIX)
       set(annotation_test_args "libclient.annotation-concurrency.appdll.so" "A" "4")
       set(annotation_test_args_shorter
-        "libclient.annotation-concurrency.appdll.so" "A" "4" "128" "5")
+        "libclient.annotation-concurrency.appdll.so" "A" "4" "64" "3")
     else (UNIX)
       set(annotation_test_args "client.annotation-concurrency.appdll.dll" "A" "4")
       set(annotation_test_args_shorter
-        "client.annotation-concurrency.appdll.dll" "A" "4" "128" "5")
+        "client.annotation-concurrency.appdll.dll" "A" "4" "64" "3")
     endif (UNIX)
     tobuild_ci(client.annotation-concurrency client-interface/annotation-concurrency.c
       "" "" "${annotation_test_args}")
@@ -2984,10 +2984,15 @@ endif ()
         else ()
           set(dir_prefix "${testname_full}")
         endif ()
+        set(extra_ops "")
+        if (WIN32 AND NOT ${testname_full}_full_run)
+          # Shrink test times on Appveyor.
+          set(extra_ops "-max_trace_size 1M")
+        endif ()
         torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
           "offline-${testname}.c" # for templatex basename
           # Set a test-unique prefix to avoid races removing/finding output.
-          "-offline -subdir_prefix ${testname_full} ${tracer_ops}"
+          "-offline -subdir_prefix ${testname_full} ${extra_ops} ${tracer_ops}"
           "" "${app_args}")
         set(${testname_full}_toolname "drcachesim")
         set(${testname_full}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -3045,6 +3050,9 @@ endif ()
 
       # We run common.decode-bad to test markers for faults
       if (X86) # decode-bad is x86-only
+        # Do not cap the trace size (done to shorten tests) b/c it will then miss
+        # kernel transfer events.
+        set(tool.drcacheoff.basic_counts_full_run ON)
         torunonly_drcacheoff(basic_counts common.decode-bad ""
           "@-simulator_type@basic_counts" "")
         unset(tool.drcacheoff.basic_counts_rawtemp)
@@ -3054,7 +3062,7 @@ endif ()
         "@-simulator_type@opcode_mix" "")
 
       torunonly_drcacheoff(view ${ci_shared_app} ""
-        "@-simulator_type@view" "")
+        "@-simulator_type@view@-sim_refs@16384" "")
 
       if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
         torunonly_drcacheoff(rseq linux.rseq "" "@-test_mode" "")
