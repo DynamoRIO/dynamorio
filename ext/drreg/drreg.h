@@ -323,7 +323,7 @@ typedef enum {
      * values at the end of a basic block. Therefore, restoration needs
      * to be handled by the user manually, usually via drreg_restore_all().
      */
-    DRREG_IGNORE_BB_END_RESTORE = 0x004,
+    DRREG_USER_RESTORES_AT_BB_END = 0x004,
 } drreg_bb_properties_t;
 
 DR_EXPORT
@@ -443,7 +443,7 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, op
 
 DR_EXPORT
 /**
- * Restores all unreserved registers to their app values at \p where.
+ * Restores all unreserved registers and flags to their app values at \p where.
  */
 drreg_status_t
 drreg_restore_all(void *drcontext, instrlist_t *bb, instr_t *where);

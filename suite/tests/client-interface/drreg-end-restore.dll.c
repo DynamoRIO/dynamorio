@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* Tests drreg when ignoring end of basic block restoration */
+/* Tests drreg when the user performs end of basic block restoration. */
 
 #include "dr_api.h"
 #include "drmgr.h"
@@ -54,7 +54,7 @@
 
 static int tls_idx = -1;
 
-/* No locks performed on this flag. Single-thread is assumed */
+/* No locks performed on this flag. Single-thread is assumed. */
 static bool performed_check = false;
 
 static void
@@ -72,12 +72,12 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
+    drreg_options_t ops = { sizeof(ops), 2 /*max slots needed */, false };
     drmgr_priority_t priority = { sizeof(priority), "my_priority", NULL, NULL, 0 };
     bool ok;
     drreg_status_t res;
 
-    dr_set_client_name("DynamoRIO Sample Client 'drreg-end-restor'",
+    dr_set_client_name("DynamoRIO Sample Client 'drreg-end-restore'",
                        "http://dynamorio.org/issues");
 
     drmgr_init();
@@ -110,7 +110,8 @@ static dr_emit_flags_t
 event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                  bool translating, OUT void **user_data)
 {
-    drreg_status_t res = drreg_set_bb_properties(drcontext, DRREG_IGNORE_BB_END_RESTORE);
+    drreg_status_t res =
+        drreg_set_bb_properties(drcontext, DRREG_USER_RESTORES_AT_BB_END);
     CHECK(res == DRREG_SUCCESS, "failed to set property");
     return DR_EMIT_DEFAULT;
 }
@@ -119,7 +120,8 @@ static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, void *user_data)
 {
-    drreg_status_t res = drreg_set_bb_properties(drcontext, DRREG_IGNORE_BB_END_RESTORE);
+    drreg_status_t res =
+        drreg_set_bb_properties(drcontext, DRREG_USER_RESTORES_AT_BB_END);
     CHECK(res == DRREG_SUCCESS, "failed to set property");
     return DR_EMIT_DEFAULT;
 }
@@ -162,29 +164,40 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     drvector_t allowed;
     bool is_dead;
 
-    drreg_is_register_dead(drcontext, TEST_REG, instr, &is_dead);
+    res = drreg_is_register_dead(drcontext, TEST_REG, instr, &is_dead);
+    CHECK(res == DRREG_SUCCESS, "failed to check whether reg is dead");
 
     if (!is_dead) {
-        drreg_init_and_fill_vector(&allowed, false);
-        drreg_set_vector_entry(&allowed, TEST_REG, true);
+        res = drreg_init_and_fill_vector(&allowed, false);
+        CHECK(res == DRREG_SUCCESS, "failed to init vector");
 
-        drreg_restore_all(drcontext, bb, instr);
+        res = drreg_set_vector_entry(&allowed, TEST_REG, true);
+        CHECK(res == DRREG_SUCCESS, "failed to set entry in vector");
+
+        res = drreg_restore_all(drcontext, bb, instr);
+        CHECK(res == DRREG_SUCCESS, "failed to restore all");
+
         dr_insert_clean_call(drcontext, bb, instr, set_reg_val, false, 0);
 
         res = drreg_reserve_aflags(drcontext, bb, instr);
+        CHECK(res == DRREG_SUCCESS, "failed to reserve flags");
+
         res = drreg_reserve_register(drcontext, bb, instr, &allowed, &reg);
         CHECK(res == DRREG_SUCCESS, "failed to reserve");
-
         CHECK(reg == TEST_REG, "reg reservation failed");
 
         instrlist_insert_mov_immed_ptrsz(drcontext, 0, opnd_create_reg(reg), bb, instr,
                                          NULL, NULL);
 
         res = drreg_unreserve_register(drcontext, bb, instr, reg);
-        CHECK(res == DRREG_SUCCESS, "failed to unreserve");
-        res = drreg_unreserve_aflags(drcontext, bb, instr);
+        CHECK(res == DRREG_SUCCESS, "failed to unreserve reg");
 
-        drreg_restore_all(drcontext, bb, instr);
+        res = drreg_unreserve_aflags(drcontext, bb, instr);
+        CHECK(res == DRREG_SUCCESS, "failed to unreserve flags");
+
+        res = drreg_restore_all(drcontext, bb, instr);
+        CHECK(res == DRREG_SUCCESS, "failed to restore all");
+
         dr_insert_clean_call(drcontext, bb, instr, check_reg_val, false, 0);
 
         drvector_delete(&allowed);

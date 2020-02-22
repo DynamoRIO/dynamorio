@@ -398,8 +398,8 @@ drreg_event_bb_insert_early(void *drcontext, void *tag, instrlist_t *bb, instr_t
 }
 
 static drreg_status_t
-drreg_insert_restore(void *drcontext, instrlist_t *bb, instr_t *inst, bool force_restore,
-                     OUT bool *regs_restored)
+drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
+                         bool force_restore, OUT bool *regs_restored)
 {
     per_thread_t *pt = get_tls_data(drcontext);
     reg_id_t reg;
@@ -422,7 +422,7 @@ drreg_insert_restore(void *drcontext, instrlist_t *bb, instr_t *inst, bool force
             pt->live_idx, get_where_app_pc(inst), aflags, pt->aflags.in_use);
         res = drreg_restore_aflags(drcontext, bb, inst, pt, false /*keep slot*/);
         if (res != DRREG_SUCCESS) {
-            LOG(drcontext, DR_LOG_ALL, 3,
+            LOG(drcontext, DR_LOG_ALL, 1,
                 "%s @%d." PFX ": failed to restore flags before app read\n", __FUNCTION__,
                 pt->live_idx, get_where_app_pc(inst));
             return res;
@@ -463,7 +463,7 @@ drreg_insert_restore(void *drcontext, instrlist_t *bb, instr_t *inst, bool force
                         get_register_name(reg));
                     res = drreg_restore_reg_now(drcontext, bb, inst, pt, reg);
                     if (res != DRREG_SUCCESS) {
-                        LOG(drcontext, DR_LOG_ALL, 3,
+                        LOG(drcontext, DR_LOG_ALL, 1,
                             "%s @%d." PFX ": lazy restore failed\n", __FUNCTION__,
                             pt->live_idx, get_where_app_pc(inst));
                         return res;
@@ -532,8 +532,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
      * like an app instr.
      */
     bool do_last_spill = drmgr_is_last_instr(drcontext, inst) &&
-        !TEST(DRREG_IGNORE_BB_END_RESTORE, pt->bb_props);
-    res = drreg_insert_restore(drcontext, bb, inst, do_last_spill, restored_for_read);
+        !TEST(DRREG_USER_RESTORES_AT_BB_END, pt->bb_props);
+    res = drreg_insert_restore_all(drcontext, bb, inst, do_last_spill, restored_for_read);
     if (res != DRREG_SUCCESS)
         drreg_report_error(res, "failed to restore for reads");
 
@@ -664,8 +664,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 drreg_status_t
 drreg_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst)
 {
-    return drreg_insert_restore(drcontext, bb, inst, true,
-                                NULL /* Do not need to track reg restores*/);
+    return drreg_insert_restore_all(drcontext, bb, inst, true,
+                                    NULL /* Do not need to track reg restores*/);
 }
 
 /***************************************************************************
