@@ -233,8 +233,8 @@ Further non-compatibility-affecting changes include:
    DR's decoder.
  - Added decode_sizeof_ex() and instr_get_rel_data_or_instr_target() handling
    relative instruction references.
- - Added drmgr_get_bb_size() and drmgr_get_bb_app_size() to obtain the size of a basic
-   block.
+ - Added drx_instrlist_size() and drx_instrlist_app_size() to obtain the size
+   of a basic block.
 
 **************************************************
 <hr>

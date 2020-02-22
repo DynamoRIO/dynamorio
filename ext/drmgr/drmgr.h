@@ -489,30 +489,6 @@ DR_EXPORT
 bool
 drmgr_is_last_instr(void *drcontext, instr_t *instr);
 
-DR_EXPORT
-/**
- * Returns the number of instructions (including meta-instructions) inside a basic block
- * \p bb.
- *
- * The function iterates over the bb in order to obtain the count. The result is not
- * cached. Therefore, avoid using this function during the insert stage of the
- * instrumentation process.
- */
-size_t
-drmgr_get_bb_size(instrlist_t *bb);
-
-DR_EXPORT
-/**
- * Returns the number of application instructions (excluding meta-instructions) inside
- * a basic block \p bb.
- *
- * The function iterates over the bb in order to obtain the count. The result is not
- * cached. Therefore, avoid using this function during the insert stage of the
- * instrumentation process.
- */
-size_t
-drmgr_get_bb_app_size(instrlist_t *bb);
-
 /***************************************************************************
  * TLS
  */

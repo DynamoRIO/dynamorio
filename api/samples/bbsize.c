@@ -122,7 +122,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 
     proc_save_fpstate(fp_align);
 
-    cur_size = drmgr_get_bb_app_size(bb);
+    cur_size = drx_instrlist_app_size(bb);
 
     dr_mutex_lock(stats_mutex);
 #ifdef VERBOSE_VERBOSE
