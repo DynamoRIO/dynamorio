@@ -235,9 +235,9 @@ drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code));
 DR_EXPORT
 /**
  * Returns the number of instructions (including meta-instructions) inside a basic block
- * \p bb.
+ * \p ilist.
  *
- * The function iterates over the bb in order to obtain the count. The result is not
+ * The function iterates over the ilist in order to obtain the count. The result is not
  * cached. Therefore, avoid using this function during the insert stage of the
  * instrumentation process.
  */
@@ -247,9 +247,9 @@ drx_instrlist_size(instrlist_t *ilist);
 DR_EXPORT
 /**
  * Returns the number of application instructions (excluding meta-instructions) inside
- * a basic block \p bb.
+ * a basic block \p ilist.
  *
- * The function iterates over the bb in order to obtain the count. The result is not
+ * The function iterates over the ilist in order to obtain the count. The result is not
  * cached. Therefore, avoid using this function during the insert stage of the
  * instrumentation process.
  */
