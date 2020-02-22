@@ -1194,33 +1194,6 @@ drmgr_is_last_instr(void *drcontext, instr_t *instr)
     return instr == pt->last_instr;
 }
 
-DR_EXPORT
-size_t
-drmgr_get_bb_size(instrlist_t *bb)
-{
-    instr_t *instr;
-    size_t size = 0;
-
-    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr))
-        size++;
-
-    return size;
-}
-
-DR_EXPORT
-size_t
-drmgr_get_bb_app_size(instrlist_t *bb)
-{
-    instr_t *instr;
-    size_t size = 0;
-
-    for (instr = instrlist_first_app(bb); instr != NULL;
-         instr = instr_get_next_app(instr))
-        size++;
-
-    return size;
-}
-
 static void
 our_thread_init_event(void *drcontext)
 {
