@@ -960,7 +960,10 @@ standalone_exit(void)
     config_heap_exit();
     os_fast_exit();
     os_slow_exit();
+#    if !defined(STANDALONE_UNIT_TEST) || !defined(AARCH64)
+    /* XXX: The lock setup is somehow messed up on AArch64.  Disabling cleanup. */
     dynamo_vm_areas_exit();
+#    endif
 #    ifndef STANDALONE_UNIT_TEST
     /* We have a leak b/c we can't call os_tls_exit().  For now we simplify
      * and leave it alone.
