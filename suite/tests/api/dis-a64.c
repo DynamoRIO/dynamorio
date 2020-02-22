@@ -109,6 +109,7 @@ check_inst(void *dc, uint enc, const char *dis, size_t len, bool verbose, bool *
         dr_printf("\n");
         *failed = true;
     }
+    instr_free(dc, &instr);
 }
 
 void
