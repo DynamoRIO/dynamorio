@@ -320,11 +320,15 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
       INTERNAL:BOOL=OFF
       ")
   endif ()
-  testbuild_ex("release-external-32" OFF "
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    ${install_path_cache}
-    " OFF ${arg_package} "${install_build_args}")
+  # i#4059: We skip 32-bit release build in Appveyor PR's to speed things up.
+  # The 64-bit release should cover nearly all 32-bit release-only warnings.
+  if (NOT DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
+    testbuild_ex("release-external-32" OFF "
+      DEBUG:BOOL=OFF
+      INTERNAL:BOOL=OFF
+      ${install_path_cache}
+      " OFF ${arg_package} "${install_build_args}")
+  endif ()
   if (last_build_dir MATCHES "-32")
     set(32bit_path "TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin")
   else ()
