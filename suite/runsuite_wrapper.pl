@@ -75,6 +75,7 @@ if ($^O eq 'cygwin') {
 
 # We tee to stdout to provide incremental output and avoid the 10-min
 # no-output timeout on Travis.
+print "Forking child for stdout tee\n";
 my $res = '';
 my $child = open(CHILD, '-|');
 die "Failed to fork: $!" if (!defined($child));
@@ -132,7 +133,8 @@ if ($child) {
     if ($^O eq 'cygwin') {
         $verbose = "-VV";
     }
-    system("ctest --output-on-failure ${verbose} -S \"${osdir}/runsuite.cmake${args}\" 2>&1");
+    my $cmd = "ctest --output-on-failure ${verbose} -S \"${osdir}/runsuite.cmake${args}\"";
+    system("${cmd} 2>&1");
     exit 0;
 }
 
