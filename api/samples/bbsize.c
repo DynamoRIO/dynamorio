@@ -41,6 +41,7 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drx.h"
 
 #ifdef WINDOWS
 #    define DISPLAY_STRING(msg) dr_messagebox(msg)
