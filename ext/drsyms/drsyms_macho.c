@@ -650,5 +650,5 @@ const char *
 drsym_obj_build_id(void *mod_in)
 {
     /* NYI.  Are build id-based dirs used on Mac? */
-    return nullptr;
+    return NULL;
 }
