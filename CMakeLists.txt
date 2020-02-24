@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -1210,6 +1210,7 @@ else (DEBUG)
 endif (DEBUG)
 set(INSTALL_INCLUDE include)
 set(INSTALL_DOCS docs)
+set(INSTALL_DOCS_EMBED docs_embed)
 # samples are installed via api/samples/ separate CMake project
 set(INSTALL_CMAKE cmake)
 set(BUILD_INCLUDE "${PROJECT_BINARY_DIR}/${INSTALL_INCLUDE}")
