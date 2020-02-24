@@ -189,9 +189,14 @@ read_build_id(Elf *elf, elf_info_t *mod)
             }
             char *dst = mod->build_id;
             for (int i = 0; i < size; i++) {
-                if (dst + 3 >= mod->build_id + MAX_BUILD_ID_LENGTH) {
+                /* We're writing 3 chars at a time (2 digits + newline). */
+                if (dst + 3 > mod->build_id + MAX_BUILD_ID_LENGTH) {
                     NOTIFY_ELF("build id is too long");
-                    NULL_TERMINATE_BUFFER(mod->build_id);
+                    /* It is already null-terminated from the prior write.  Return
+                     * the truncated id.  It will likely still work for buildid-dir
+                     * purposes where we only need the 1st 2 chars, and the rest
+                     * come from the debuglink name.
+                     */
                     return;
                 }
                 unsigned int val = (unsigned int)*src;
