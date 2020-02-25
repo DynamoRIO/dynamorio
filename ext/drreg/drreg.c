@@ -397,30 +397,19 @@ drreg_event_bb_insert_early(void *drcontext, void *tag, instrlist_t *bb, instr_t
     return DR_EMIT_DEFAULT;
 }
 
-static dr_emit_flags_t
-drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-                           bool for_trace, bool translating, void *user_data)
+static drreg_status_t
+drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
+                         bool force_restore, OUT bool *regs_restored)
 {
     per_thread_t *pt = get_tls_data(drcontext);
     reg_id_t reg;
     instr_t *next = instr_get_next(inst);
-    bool restored_for_read[DR_NUM_GPR_REGS];
     drreg_status_t res;
-    dr_pred_type_t pred = instrlist_get_auto_predicate(bb);
-
-    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
-    instrlist_set_auto_predicate(bb, DR_PRED_NONE);
-    /* For unreserved regs still spilled, we lazily do the restore here.  We also
-     * update reserved regs wrt app uses.
-     * The instruction list presented to us here are app instrs but may contain meta
-     * instrs if any were inserted in app2app. Any such meta instr here will be treated
-     * like an app instr.
-     */
 
     /* Before each app read, or at end of bb, restore aflags to app value */
     uint aflags = (uint)(ptr_uint_t)drvector_get_entry(&pt->aflags.live, pt->live_idx);
     if (!pt->aflags.native &&
-        (drmgr_is_last_instr(drcontext, inst) ||
+        (force_restore ||
          TESTANY(EFLAGS_READ_ARITH, instr_get_eflags(inst, DR_QUERY_DEFAULT)) ||
          /* Writing just a subset needs to combine with the original unwritten */
          (TESTANY(EFLAGS_WRITE_ARITH, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)) &&
@@ -432,8 +421,13 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
             "%s @%d." PFX " aflags=0x%x use=%d: lazily restoring aflags\n", __FUNCTION__,
             pt->live_idx, get_where_app_pc(inst), aflags, pt->aflags.in_use);
         res = drreg_restore_aflags(drcontext, bb, inst, pt, false /*keep slot*/);
-        if (res != DRREG_SUCCESS)
-            drreg_report_error(res, "failed to restore flags before app read");
+        if (res != DRREG_SUCCESS) {
+            LOG(drcontext, DR_LOG_ALL, 1,
+                "%s @%d." PFX ": failed to restore flags before app read\n", __FUNCTION__,
+                pt->live_idx, get_where_app_pc(inst));
+            return res;
+        }
+
         if (!pt->aflags.in_use) {
             pt->aflags.native = true;
             pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
@@ -442,10 +436,10 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 
     /* Before each app read, or at end of bb, restore spilled registers to app values: */
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
-        restored_for_read[GPR_IDX(reg)] = false;
+        if (regs_restored != NULL)
+            regs_restored[GPR_IDX(reg)] = false;
         if (!pt->reg[GPR_IDX(reg)].native) {
-            if (drmgr_is_last_instr(drcontext, inst) ||
-                instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_ALL) ||
+            if (force_restore || instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_ALL) ||
                 /* Treat a partial write as a read, to restore rest of reg */
                 (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                  !instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_ALL)) ||
@@ -468,8 +462,12 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                         __FUNCTION__, pt->live_idx, get_where_app_pc(inst),
                         get_register_name(reg));
                     res = drreg_restore_reg_now(drcontext, bb, inst, pt, reg);
-                    if (res != DRREG_SUCCESS)
-                        drreg_report_error(res, "lazy restore failed");
+                    if (res != DRREG_SUCCESS) {
+                        LOG(drcontext, DR_LOG_ALL, 1,
+                            "%s @%d." PFX ": lazy restore failed\n", __FUNCTION__,
+                            pt->live_idx, get_where_app_pc(inst));
+                        return res;
+                    }
                     ASSERT(pt->pending_unreserved > 0, "should not go negative");
                     pt->pending_unreserved--;
                 } else if (pt->aflags.xchg == reg) {
@@ -503,12 +501,41 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                                 false /*keep slot*/);
                     restore_reg(drcontext, pt, reg, tmp_slot, bb, next, true);
                     /* Share the tool val spill if this inst writes too */
-                    restored_for_read[GPR_IDX(reg)] = true;
+                    if (regs_restored != NULL)
+                        regs_restored[GPR_IDX(reg)] = true;
                     /* We keep .native==false */
                 }
             }
         }
     }
+
+    return DRREG_SUCCESS;
+}
+
+static dr_emit_flags_t
+drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                           bool for_trace, bool translating, void *user_data)
+{
+    per_thread_t *pt = get_tls_data(drcontext);
+    reg_id_t reg;
+    instr_t *next = instr_get_next(inst);
+    bool restored_for_read[DR_NUM_GPR_REGS];
+    drreg_status_t res;
+    dr_pred_type_t pred = instrlist_get_auto_predicate(bb);
+
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
+    instrlist_set_auto_predicate(bb, DR_PRED_NONE);
+    /* For unreserved regs still spilled, we lazily do the restore here.  We also
+     * update reserved regs wrt app uses.
+     * The instruction list presented to us here are app instrs but may contain meta
+     * instrs if any were inserted in app2app. Any such meta instr here will be treated
+     * like an app instr.
+     */
+    bool do_last_spill = drmgr_is_last_instr(drcontext, inst) &&
+        !TEST(DRREG_USER_RESTORES_AT_BB_END, pt->bb_props);
+    res = drreg_insert_restore_all(drcontext, bb, inst, do_last_spill, restored_for_read);
+    if (res != DRREG_SUCCESS)
+        drreg_report_error(res, "failed to restore for reads");
 
     /* After aflags write by app, update spilled app value */
     if (TESTANY(EFLAGS_WRITE_ARITH, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)) &&
@@ -632,6 +659,13 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 #endif
     instrlist_set_auto_predicate(bb, pred);
     return DR_EMIT_DEFAULT;
+}
+
+drreg_status_t
+drreg_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst)
+{
+    return drreg_insert_restore_all(drcontext, bb, inst, true,
+                                    NULL /* Do not need to track reg restores */);
 }
 
 /***************************************************************************
