@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -253,7 +253,19 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
     if (last_slash != NULL)
         *last_slash = '\0';
 
-    /* 1. Check $mod_dir/$debuglink */
+    /* 1. Check /usr/lib/debug/.build-id/xx/$debuglink */
+    const char *build_id = drsym_obj_build_id(mod->obj_info);
+    NOTIFY("%s: build id is %s\n", __FUNCTION__, build_id == NULL ? "<null>" : build_id);
+    if (build_id != NULL && build_id[0] != '\0') {
+        dr_snprintf(debug_modpath, MAXIMUM_PATH, "%s/.build-id/%c%c/%s",
+                    drsym_obj_debug_path(), build_id[0], build_id[1], debuglink);
+        debug_modpath[MAXIMUM_PATH - 1] = '\0';
+        NOTIFY("%s: looking for %s\n", __FUNCTION__, debug_modpath);
+        if (dr_file_exists(debug_modpath))
+            return true;
+    }
+
+    /* 2. Check $mod_dir/$debuglink */
     dr_snprintf(debug_modpath, MAXIMUM_PATH, "%s/%s", mod_dir, debuglink);
     debug_modpath[MAXIMUM_PATH - 1] = '\0';
     NOTIFY("%s: looking for %s\n", __FUNCTION__, debug_modpath);
@@ -265,14 +277,14 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
     if (dr_file_exists(debug_modpath) && !drsym_obj_same_file(modpath, debug_modpath))
         return true;
 
-    /* 2. Check $mod_dir/.debug/$debuglink */
+    /* 3. Check $mod_dir/.debug/$debuglink */
     dr_snprintf(debug_modpath, MAXIMUM_PATH, "%s/.debug/%s", mod_dir, debuglink);
     debug_modpath[MAXIMUM_PATH - 1] = '\0';
     NOTIFY("%s: looking for %s\n", __FUNCTION__, debug_modpath);
     if (dr_file_exists(debug_modpath))
         return true;
 
-    /* 3. Check /usr/lib/debug/$mod_dir/$debuglink */
+    /* 4. Check /usr/lib/debug/$mod_dir/$debuglink */
     dr_snprintf(debug_modpath, MAXIMUM_PATH, "%s/%s/%s", drsym_obj_debug_path(), mod_dir,
                 debuglink);
     debug_modpath[MAXIMUM_PATH - 1] = '\0';
