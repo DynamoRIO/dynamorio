@@ -235,6 +235,8 @@ Further non-compatibility-affecting changes include:
    relative instruction references.
  - Added drx_instrlist_size() and drx_instrlist_app_size() to obtain the size
    of a basic block.
+ - Added drreg_restore_all() to restore all unreserved registers currently
+   maintained by drreg.
 
 **************************************************
 <hr>
