@@ -665,7 +665,7 @@ drreg_status_t
 drreg_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst)
 {
     return drreg_insert_restore_all(drcontext, bb, inst, true,
-                                    NULL /* Do not need to track reg restores*/);
+                                    NULL /* Do not need to track reg restores */);
 }
 
 /***************************************************************************
