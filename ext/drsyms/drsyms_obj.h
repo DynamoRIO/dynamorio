@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -100,6 +100,9 @@ drsym_obj_same_file(const char *path1, const char *path2);
 
 const char *
 drsym_obj_debug_path(void);
+
+const char *
+drsym_obj_build_id(void *mod_in);
 
 /***************************************************************************
  * DWARF
