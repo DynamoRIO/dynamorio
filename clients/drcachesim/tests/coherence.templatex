@@ -5,7 +5,7 @@
      Client version .*
     ...................................................................
 
-     Matrix Size :  128
+     Matrix Size :  64
      Threads     :  4
 
 
@@ -24,19 +24,9 @@
      Finished computing current solution distance in mode 0.
      Mode changed to 0.
 
-     Started iteration 4 of the computation...
-
-     Finished computing current solution distance in mode 0.
-     Mode changed to 0.
-
-     Started iteration 5 of the computation...
-
-     Finished computing current solution distance in mode 0.
-     Mode changed to 0.
-
 
      The Jacobi Method For AX=B .........DONE
-     Total Number Of iterations   :  5
+     Total Number Of iterations   :  3
     ...................................................................
 ---- <application exited with code 0> ----
 Cache simulation results:
@@ -57,11 +47,11 @@ Core #1 \(.*\).*
 Core #2 \(.*\).*
 Core #3 \(.*\).*
 LL stats:
-    Hits:                    *[0-9,\.]*...
-    Misses:                  *[0-9,\.]*...
+    Hits:                    *[0-9,\.]*
+    Misses:                  *[0-9,\.]*
     Invalidations:           *0
-.*    Local miss rate:         *[0-9]*[\.,]..%
-    Child hits:              *[0-9,\.]*......
+.*    Local miss rate:        *[0-9,.]*%
+    Child hits:              *[0-9,\.]*
     Total miss rate:                  0[\.,]..%
 Coherence stats:
     Total writes:               *[0-9,\.]*

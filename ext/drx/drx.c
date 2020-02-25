@@ -1319,6 +1319,37 @@ drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code))
 }
 
 /***************************************************************************
+ * INSTRUCTION LIST
+ */
+
+DR_EXPORT
+size_t
+drx_instrlist_size(instrlist_t *ilist)
+{
+    instr_t *instr;
+    size_t size = 0;
+
+    for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr))
+        size++;
+
+    return size;
+}
+
+DR_EXPORT
+size_t
+drx_instrlist_app_size(instrlist_t *ilist)
+{
+    instr_t *instr;
+    size_t size = 0;
+
+    for (instr = instrlist_first_app(ilist); instr != NULL;
+         instr = instr_get_next_app(instr))
+        size++;
+
+    return size;
+}
+
+/***************************************************************************
  * LOGGING
  */
 #ifdef WINDOWS

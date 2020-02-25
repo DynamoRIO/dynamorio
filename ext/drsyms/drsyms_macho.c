@@ -645,3 +645,10 @@ drsym_obj_debug_path(void)
 {
     return "/usr/lib/debug";
 }
+
+const char *
+drsym_obj_build_id(void *mod_in)
+{
+    /* NYI.  Are build id-based dirs used on Mac? */
+    return NULL;
+}
