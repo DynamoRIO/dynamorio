@@ -82,6 +82,12 @@ die "Failed to fork: $!" if (!defined($child));
 if ($child) {
     # Parent
     my $output;
+    print "Parent tee-ing child stdout...\n"; #TEMPORARY
+    local $SIG{ALRM} = sub { #TEMPORARY
+        print "\nxxxxxxxxxx 30s alarm xxxxxxxxxxx\n";
+        alarm(30);
+    };
+    alarm(30); #TEMPORARY
     while (<CHILD>) {
         print STDOUT $_;
         $res .= $_;
@@ -134,7 +140,9 @@ if ($child) {
         $verbose = "-VV";
     }
     my $cmd = "ctest --output-on-failure ${verbose} -S \"${osdir}/runsuite.cmake${args}\"";
+    print "Running ${cmd}\n";
     system("${cmd} 2>&1");
+    print "Finished running ${cmd}\n"; #TEMPORARY
     exit 0;
 }
 
