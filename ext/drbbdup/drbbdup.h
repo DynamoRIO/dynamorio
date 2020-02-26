@@ -98,15 +98,15 @@ typedef uintptr_t (*drbbdup_set_up_bb_dups_t)(void *drbbdup_ctx, void *drcontext
  * @return whether a basic block copy should be dynamically generated to handle
  * the unhanlded case \p new_case.
  */
-typedef bool (*drbbdup_allow_gen_t)(void *drcontext, void *tag,
-                                    instrlist_t *ilist, uintptr_t new_case,
-                                    bool *enable_dynamic_handling, void *user_data);
+typedef bool (*drbbdup_allow_gen_t)(void *drcontext, void *tag, instrlist_t *ilist,
+                                    uintptr_t new_case, bool *enable_dynamic_handling,
+                                    void *user_data);
 
 /**
  * Inserts code responsible for encoding the current runtime
  * case. The function should store the resulting pointer-sized encoding to the memory
  * destination operand obtained via drbbdup_get_encoding_opnd(). If the user has
- * implemented the encoder via a clean call, drbbdup_set_current_encoding() should be
+ * implemented the encoder via a clean call, drbbdup_set_encoding() should be
  * used.
  *
  * @param pre_analysis_data the preliminary analysis data.

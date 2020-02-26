@@ -223,7 +223,7 @@ drbbdup_get_current_encoding()
 }
 
 drbbdup_status_t
-drbbdup_set_current_encoding(uintptr_t encoding)
+drbbdup_set_encoding(uintptr_t encoding)
 {
     drbbdup_set_tls_raw_slot_val(DRBBDUP_ENCODING_SLOT, (void *)encoding);
     return DRBBDUP_SUCCESS;
@@ -1589,8 +1589,8 @@ drbbdup_exit(void)
     if (drbbdup_ref_count == 0) {
         destroy_fp_cache(new_case_cache_pc);
 
-        if (
-            !drmgr_unregister_bb_instrumentation_ex_event(drbbdup_duplicate_phase, drbbdup_analyse_phase,
+        if (!drmgr_unregister_bb_instrumentation_ex_event(drbbdup_duplicate_phase,
+                                                          drbbdup_analyse_phase,
                                                           drbbdup_link_phase, NULL) ||
             !drmgr_unregister_thread_init_event(drbbdup_thread_init) ||
             !drmgr_unregister_thread_exit_event(drbbdup_thread_exit) ||
