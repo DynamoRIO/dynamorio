@@ -412,7 +412,8 @@ drbbdup_is_at_label(instr_t *check_instr, drbbdup_label_t label)
         return false;
 
     /* Notes are inspected to check whether the label is relevant to drbbdup. */
-    drbbdup_label_t actual_label = (drbbdup_label_t)instr_get_note(check_instr);
+    drbbdup_label_t actual_label =
+        (drbbdup_label_t)(uintptr_t)instr_get_note(check_instr);
     return actual_label == label;
 }
 
@@ -1037,8 +1038,6 @@ drbbdup_register_case_encoding(void *drbbdup_ctx, uintptr_t encoding)
         return DRBBDUP_SUCCESS;
     else
         return DRBBDUP_ERROR_CASE_LIMIT_REACHED;
-
-    return DRBBDUP_ERROR;
 }
 
 drbbdup_status_t
