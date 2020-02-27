@@ -107,8 +107,8 @@ typedef struct {
     instr_t *last_instr;  /* the last instr of the bb copy currently being considered. */
 } drbbdup_per_thread;
 
-static uint drbbdup_ref_count = 0;       /* instance count of drbbdup. */
-static hashtable_t manager_table; /* maps bbs with book-keeping data. */
+static uint drbbdup_ref_count = 0; /* instance count of drbbdup. */
+static hashtable_t manager_table;  /* maps bbs with book-keeping data. */
 static drbbdup_options_t opts;
 static void *rw_lock = NULL;
 
