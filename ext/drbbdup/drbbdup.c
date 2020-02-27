@@ -413,9 +413,11 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
      * Restoration at the end of the block is not done automatically
      * by drreg but is managed by drbbdup. Different cases could
      * have different registers spilled and therefore restoration is
-     * specific to cases.
+     * specific to cases. During the insert stage, drbbdup restores
+     * all unreserved registers upon exit of a bb copy by calling
+     * drreg_restore_all().
      */
-    drreg_set_bb_properties(drcontext, DRREG_IGNORE_BB_END_RESTORE);
+    drreg_set_bb_properties(drcontext, DRREG_USER_RESTORES_AT_BB_END);
 
     /* Create an EXIT label. */
     instr_t *exit_label = INSTR_CREATE_label(drcontext);
@@ -824,7 +826,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     opts.insert_encode(drcontext, bb, where, opts.user_data, pt->pre_analysis_data);
 
     /* Restore all unreserved registers used by the call-back. */
-    drreg_restore_all_now(drcontext, bb, where);
+    drreg_restore_all(drcontext, bb, where);
 
     /**
      * Load the encoding to the scratch register.
@@ -1091,7 +1093,7 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
                 pt->case_index =
                     DRBBDUP_IGNORE_INDEX; /* Ignore remaining instructions. */
         }
-        drreg_restore_all_now(drcontext, bb, instr);
+        drreg_restore_all(drcontext, bb, instr);
     } else if (pt->case_index == DRBBDUP_IGNORE_INDEX) {
         /* Ignore instruction. */
         ASSERT(drbbdup_is_special_instr(instr), "ignored instr should be cti or syscall");
