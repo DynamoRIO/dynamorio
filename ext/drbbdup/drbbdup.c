@@ -117,10 +117,10 @@ static reg_id_t tls_raw_reg;
 static uint tls_raw_base;
 
 static void
-drbbdup_set_tls_raw_slot_val(int slot_idx, void *val)
+drbbdup_set_tls_raw_slot_val(int slot_idx, uintptr_t *val)
 {
     ASSERT(0 <= slot_idx && slot_idx < DRBBDUP_SLOT_COUNT, "out-of-bounds slot index");
-    void **addr = (void **)(dr_get_dr_segment_base(tls_raw_reg) + tls_raw_base);
+    uintptr_t **addr = (uintptr_t **)(dr_get_dr_segment_base(tls_raw_reg) + tls_raw_base);
     *addr = val;
 }
 
@@ -851,9 +851,10 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
         /* Handle last special instruction (if present). */
         if (is_last_special) {
             drbbdup_instrument_instr(drcontext, bb, last, instr, pt, manager);
-            if (pt->case_index == DRBBDUP_DEFAULT_INDEX)
+            if (pt->case_index == DRBBDUP_DEFAULT_INDEX) {
                 pt->case_index =
                     DRBBDUP_IGNORE_INDEX; /* Ignore remaining instructions. */
+            }
         }
         drreg_restore_all(drcontext, bb, instr);
     } else if (pt->case_index == DRBBDUP_IGNORE_INDEX) {
