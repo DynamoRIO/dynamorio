@@ -134,62 +134,6 @@ static int tls_idx = -1; /* thread local storage info. */
 static reg_id_t tls_raw_reg;
 static uint tls_raw_base;
 
-#ifdef ENABLE_STATS
-static void
-drbbdup_stat_inc_bb();
-static void
-drbbdup_stat_inc_instrum_bb();
-static void
-drbbdup_stat_inc_non_applicable();
-static void
-drbbdup_stat_no_fp();
-static void
-drbbdup_stat_inc_gen();
-static void
-drbbdup_stat_inc_bb_size(uint size);
-static void
-drbbdup_stat_clean_case_entry(void *drcontext, instrlist_t *bb, instr_t *where,
-                              int case_index);
-static void
-drbbdup_stat_clean_bail_entry(void *drcontext, instrlist_t *bb, instr_t *where);
-static void
-drbbdup_stat_clean_bb_exec(void *drcontext, instrlist_t *bb, instr_t *where);
-static void
-drbbdup_stat_print_stats();
-
-static void
-sample_thread(void *arg);
-
-/** Total number of BB witnessed.**/
-static unsigned long total_bb = 0;
-/** Total number of BBs with fast path generation. **/
-static unsigned long bb_instrumented = 0;
-/** Total size of basic blocks (used for avg). **/
-static unsigned long total_size = 0;
-/** Number of non applicable bbs **/
-static unsigned long non_applicable = 0;
-/** Number of bbs with no dynamic fp **/
-static unsigned long no_fp = 0;
-/** Total number of BB executed with faths paths **/
-static unsigned long total_exec = 0;
-/** Number of fast paths generated **/
-static unsigned long gen_num = 0;
-
-/** Number of bails to slow path**/
-static unsigned long total_bails = 0;
-
-/** Number of case entries **/
-static unsigned long *case_num = NULL;
-
-static unsigned long prev_full_taint_num = 0;
-static unsigned long prev_fp_gen = 0;
-
-void *stat_mutex = NULL;
-
-#    define TIME_FILE "./OUT_FILE"
-file_t time_file;
-#endif
-
 static void
 drbbdup_set_tls_raw_slot_val(int slot_idx, void *val)
 {
@@ -332,15 +276,10 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
                             &(manager->enable_dynamic_handling), opts.user_data);
 
     /* Check whether user wants copies for this particular bb. */
-    if (!manager->enable_dup) {
-        if (manager->cases != NULL) {
-            /* Multiple cases not wanted. Destroy cases. */
-            dr_global_free(manager->cases, sizeof(drbbdup_case_t) * opts.dup_limit);
-            manager->cases = NULL;
-        }
-#ifdef ENABLE_STATS
-        drbbdup_stat_inc_non_applicable();
-#endif
+    if (!manager->enable_dup && manager->cases != NULL) {
+        /* Multiple cases not wanted. Destroy cases. */
+        dr_global_free(manager->cases, sizeof(drbbdup_case_t) * opts.dup_limit);
+        manager->cases = NULL;
     }
 
     manager->default_case.is_defined = true;
@@ -390,19 +329,6 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
         instrlist_remove(original, last);
         instr_destroy(drcontext, last);
     }
-
-#ifdef ENABLE_STATS
-    size_t bb_size = 0;
-    instr_t *first;
-    for (first = instrlist_first_app(bb); first != NULL;
-         first = instr_get_next_app(first))
-        bb_size++;
-
-    drbbdup_stat_inc_bb_size(bb_size);
-    drbbdup_stat_inc_instrum_bb();
-    if (!manager->enable_dynamic_handling)
-        drbbdup_stat_no_fp();
-#endif
 
     /**
      * Tell drreg to ignore control flow as it is ensured that all registers
@@ -470,11 +396,6 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
     if (translating)
         return DR_EMIT_DEFAULT;
 
-#ifdef ENABLE_STATS
-    if (!for_trace)
-        drbbdup_stat_inc_bb();
-#endif
-
     app_pc pc = instr_get_app_pc(instrlist_first_app(bb));
     ASSERT(pc != NULL, "pc cannot be NULL");
 
@@ -509,6 +430,14 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         /* Add the copies. */
         drbbdup_set_up_copies(drcontext, bb, manager);
     }
+
+    /**
+     * XXX i#4134: statistics -- add the following stat increments here:
+     *    1) avg bb size
+     *    2) bb instrum count
+     *    3) dups enabled
+     *    4) dynamic handling enabled
+     */
 
     dr_rwlock_write_unlock(rw_lock);
 
@@ -791,9 +720,9 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     instr_t *instr;
     opnd_t opnd;
 
-#ifdef ENABLE_STATS
-    drbbdup_stat_clean_bb_exec(drcontext, bb, where);
-#endif
+    /**
+     * XXX i#4134: statistics -- insert code that tracks the number of times the fragment is executed.
+     */
 
     /**
      * Spill scratch register and flags. We use drreg to check their liveness but
@@ -961,11 +890,10 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
             instrlist_meta_preinsert(bb, where, instr);
         }
     }
-#ifdef ENABLE_STATS
-    else {
-        drbbdup_stat_clean_bail_entry(drcontext, bb, where);
-    }
-#endif
+
+    /**
+     * XXX i#4134: statistics -- insert code that tracks the number of bails to the default case.
+     */
 
     instrlist_meta_preinsert(bb, where, done_label);
 }
@@ -1082,9 +1010,11 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
                                     next_instr /* insert after START label. */, manager,
                                     next_bb_label, drbbdup_case);
         }
-#ifdef ENABLE_STATS
-        drbbdup_stat_clean_case_entry(drcontext, bb, next_instr, pt->case_index);
-#endif
+
+        /**
+         * XXX i#4134: statistics -- insert code that tracks the number of times the current case
+         * (pt->case_index) is executed.
+         */
     } else if (drbbdup_is_at_end(instr)) {
         /* Handle last special instruction (if present). */
         if (is_last_special) {
@@ -1316,9 +1246,9 @@ drbbdup_handle_new_case()
                 manager->ref_counter++;
             }
 
-#ifdef ENABLE_STATS
-            drbbdup_stat_inc_gen();
-#endif
+            /**
+             * XXX i#4134: statistics -- track the number bbs dynamically generated.
+             */
         }
     }
     /**
@@ -1568,15 +1498,6 @@ drbbdup_init(drbbdup_options_t *ops_in)
     if (rw_lock == NULL)
         return DRBBDUP_ERROR;
 
-#ifdef ENABLE_STATS
-
-    time_file = dr_open_file(TIME_FILE, DR_FILE_WRITE_OVERWRITE);
-    case_num = dr_global_alloc(sizeof(unsigned long) * (opts.dup_limit));
-    memset(case_num, 0, sizeof(unsigned long) * (opts.dup_limit));
-    stat_mutex = dr_mutex_create();
-    dr_create_client_thread(sample_thread, NULL);
-#endif
-
     drbbdup_ref_count++;
 
     return DRBBDUP_SUCCESS;
@@ -1603,15 +1524,6 @@ drbbdup_exit(void)
 
         hashtable_delete(&manager_table);
         dr_rwlock_destroy(rw_lock);
-
-#ifdef ENABLE_STATS
-        drbbdup_stat_print_stats();
-
-        dr_mutex_destroy(stat_mutex);
-        dr_global_free(case_num, sizeof(unsigned long) * (opts.dup_limit));
-
-        dr_close_file(time_file);
-#endif
     } else {
         /* Cannot have more than one initialisation of drbbdup. */
         return DRBBDUP_ERROR;
@@ -1619,186 +1531,3 @@ drbbdup_exit(void)
 
     return DRBBDUP_SUCCESS;
 }
-
-/****************************************************************************
- * STAT Functions
- */
-
-#ifdef ENABLE_STATS
-
-/**
- * Clean Calls for tracking. I keep things simple and use clean calls.
- *
- * Of course, these clean calls are not executed in release.
- */
-
-static void
-drbbdup_stat_inc_bb()
-{
-
-    dr_mutex_lock(stat_mutex);
-    total_bb++;
-    dr_mutex_unlock(stat_mutex);
-}
-
-static void
-drbbdup_stat_inc_instrum_bb()
-{
-
-    dr_mutex_lock(stat_mutex);
-    bb_instrumented++;
-    dr_mutex_unlock(stat_mutex);
-}
-
-static void
-drbbdup_stat_inc_non_applicable()
-{
-
-    dr_mutex_lock(stat_mutex);
-    non_applicable++;
-    dr_mutex_unlock(stat_mutex);
-}
-
-static void
-drbbdup_stat_no_fp()
-{
-
-    dr_mutex_lock(stat_mutex);
-    no_fp++;
-    dr_mutex_unlock(stat_mutex);
-}
-
-static void
-drbbdup_stat_inc_gen()
-{
-
-    dr_mutex_lock(stat_mutex);
-    gen_num++;
-    dr_mutex_unlock(stat_mutex);
-}
-
-static void
-drbbdup_stat_inc_bb_size(uint size)
-{
-
-    dr_mutex_lock(stat_mutex);
-    total_size += size;
-    dr_mutex_unlock(stat_mutex);
-}
-
-static void
-clean_call_case_entry(int i)
-{
-    DR_ASSERT(i >= 0 && i < opts.dup_limit);
-
-    dr_mutex_lock(stat_mutex);
-    case_num[i]++;
-    dr_mutex_unlock(stat_mutex);
-}
-
-static void
-drbbdup_stat_clean_case_entry(void *drcontext, instrlist_t *bb, instr_t *where,
-                              int case_index)
-{
-
-    dr_insert_clean_call(drcontext, bb, where, clean_call_case_entry, false, 1,
-                         OPND_CREATE_INTPTR(case_index));
-}
-
-static void
-clean_call_bail_entry()
-{
-
-    dr_mutex_lock(stat_mutex);
-    total_bails++;
-    dr_mutex_unlock(stat_mutex);
-}
-
-static void
-drbbdup_stat_clean_bail_entry(void *drcontext, instrlist_t *bb, instr_t *where)
-{
-
-    dr_insert_clean_call(drcontext, bb, where, clean_call_bail_entry, false, 0);
-}
-
-static void
-clean_call_bb_execc()
-{
-
-    dr_mutex_lock(stat_mutex);
-    total_exec++;
-    dr_mutex_unlock(stat_mutex);
-}
-
-static void
-drbbdup_stat_clean_bb_exec(void *drcontext, instrlist_t *bb, instr_t *where)
-{
-
-    dr_insert_clean_call(drcontext, bb, where, clean_call_bb_execc, false, 0);
-}
-
-static void
-drbbdup_stat_print_stats()
-{
-
-    dr_fprintf(time_file, "---------------------------\n");
-
-    dr_fprintf(time_file, "Total BB: %lu\n", total_bb);
-    dr_fprintf(time_file, "Total Skipped: %lu\n", non_applicable);
-    dr_fprintf(time_file, "Total BB with no Dynamic FP: %lu\n", no_fp);
-    dr_fprintf(time_file, "Number of BB instrumented: %lu\n", bb_instrumented);
-
-    if (bb_instrumented != 0)
-        dr_fprintf(time_file, "Avg BB size: %lu\n\n", total_size / bb_instrumented);
-
-    dr_fprintf(time_file, "Number of fast paths generated (bb): %lu\n", gen_num);
-
-    dr_fprintf(time_file, "Total bb exec: %lu\n", total_exec);
-    dr_fprintf(time_file, "Total bails: %lu\n", total_bails);
-
-    for (int i = 0; i < opts.dup_limit; i++)
-        dr_fprintf(time_file, "Case %d: %lu\n", i, case_num[i]);
-
-    dr_fprintf(time_file, "---------------------------\n");
-}
-
-unsigned long sample_count = 0;
-
-void
-record_sample(void *drcontext, dr_mcontext_t *mcontext)
-{
-
-    dr_mutex_lock(stat_mutex);
-
-    unsigned long new_fp_taint_num = 0;
-    for (int i = 2; i < opts.dup_limit; i++)
-        new_fp_taint_num += case_num[i];
-
-    new_fp_taint_num = new_fp_taint_num - prev_full_taint_num;
-    unsigned long new_fp_gen = gen_num - prev_fp_gen;
-
-    prev_full_taint_num = 0;
-    for (int i = 2; i < opts.dup_limit; i++)
-        prev_full_taint_num += case_num[i];
-
-    prev_fp_gen = gen_num;
-
-    dr_fprintf(time_file, "(%lu,%lu) (%lu,%lu)\n", sample_count, new_fp_taint_num,
-               sample_count, new_fp_gen);
-
-    sample_count++;
-    dr_mutex_unlock(stat_mutex);
-}
-
-static void
-sample_thread(void *arg)
-{
-
-    dr_set_itimer(ITIMER_REAL, 1000, record_sample);
-
-    while (1) {
-        dr_thread_yield();
-    }
-}
-
-#endif
