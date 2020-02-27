@@ -81,7 +81,6 @@ my $child = open(CHILD, '-|');
 die "Failed to fork: $!" if (!defined($child));
 if ($child) {
     # Parent
-    my $output;
     # i#4126: We include extra printing to help diagnose hangs on Travis.
     if ($^O ne 'cygwin') {
         print "Parent tee-ing child stdout...\n";
@@ -90,10 +89,15 @@ if ($child) {
             alarm(30);
         };
         alarm(30);
-    }
-    while (<CHILD>) {
-        print STDOUT $_;
-        $res .= $_;
+        while (<CHILD>) {
+            print STDOUT $_;
+            $res .= $_;
+        }
+    } else {
+        while (<CHILD>) {
+            print STDOUT $_;
+            $res .= $_;
+        }
     }
     close(CHILD);
 } elsif ($ENV{'TRAVIS_EVENT_TYPE'} eq 'cron' ||
