@@ -107,7 +107,7 @@ typedef struct {
     instr_t *last_instr;  /* the last instr of the bb copy currently being considered. */
 } drbbdup_per_thread;
 
-uint drbbdup_ref_count = 0;       /* instance count of drbbdup. */
+static uint drbbdup_ref_count = 0;       /* instance count of drbbdup. */
 static hashtable_t manager_table; /* maps bbs with book-keeping data. */
 static drbbdup_options_t opts;
 static void *rw_lock = NULL;
@@ -120,7 +120,7 @@ static void
 drbbdup_set_tls_raw_slot_val(int slot_idx, void *val)
 {
     ASSERT(0 <= slot_idx && slot_idx < DRBBDUP_SLOT_COUNT, "out-of-bounds slot index");
-    void **addr = (void **)dr_get_dr_segment_base(tls_raw_reg) + tls_raw_base;
+    void **addr = (void **)(dr_get_dr_segment_base(tls_raw_reg) + tls_raw_base);
     *addr = val;
 }
 
@@ -1024,7 +1024,7 @@ deleted_frag(void *drcontext, void *tag)
  */
 
 drbbdup_status_t
-drbbdup_register_case_value(void *drbbdup_ctx, uintptr_t encoding)
+drbbdup_register_case_encoding(void *drbbdup_ctx, uintptr_t encoding)
 {
     drbbdup_manager_t *manager = (drbbdup_manager_t *)drbbdup_ctx;
 
@@ -1125,7 +1125,6 @@ drbbdup_check_options(drbbdup_options_t *ops_in)
 drbbdup_status_t
 drbbdup_init(drbbdup_options_t *ops_in)
 {
-
     /* Return with error if drbbdup has already been initialised. */
     if (drbbdup_ref_count != 0)
         return DRBBDUP_ERROR_ALREADY_INITIALISED;

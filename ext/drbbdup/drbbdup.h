@@ -99,6 +99,9 @@ typedef void (*drbbdup_pre_analyse_bb_t)(void *drcontext, instrlist_t *bb,
 /**
  * Destroys preliminary analysis data.
  *
+ * The function is not invoked by drbbdup if pre analysis data was set to NULL by the
+ * drbbdup_pre_analyse_bb_t function.
+ *
  * @param pre_analysis_data the preliminary analysis data to destroy.
  */
 typedef void (*drbbdup_destroy_pre_analysis_t)(void *drcontext, void *user_data,
@@ -117,6 +120,9 @@ typedef void (*drbbdup_analyse_bb_t)(void *drcontext, instrlist_t *bb, uintptr_t
 
 /**
  * Destroys analysis data \p analysis_data for the case with encoding \p encoding.
+ *
+ * The function is not invoked by drbbdup if analysis data was set to NULL by the
+ * drbbdup_analyse_bb_t function.
  *
  * @param pre_analysis_data preliminary analysis data.
  * @param encoding the case encoding that is associated with the analysis data.
