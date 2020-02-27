@@ -120,7 +120,8 @@ static void
 drbbdup_set_tls_raw_slot_val(int slot_idx, uintptr_t *val)
 {
     ASSERT(0 <= slot_idx && slot_idx < DRBBDUP_SLOT_COUNT, "out-of-bounds slot index");
-    uintptr_t **addr = (uintptr_t **)(dr_get_dr_segment_base(tls_raw_reg) + tls_raw_base);
+    byte *base = dr_get_dr_segment_base(tls_raw_reg);
+    uintptr_t **addr = (uintptr_t **)(base + tls_raw_base);
     *addr = val;
 }
 
