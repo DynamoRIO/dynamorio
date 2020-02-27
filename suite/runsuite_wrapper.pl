@@ -81,10 +81,23 @@ my $child = open(CHILD, '-|');
 die "Failed to fork: $!" if (!defined($child));
 if ($child) {
     # Parent
-    my $output;
-    while (<CHILD>) {
-        print STDOUT $_;
-        $res .= $_;
+    # i#4126: We include extra printing to help diagnose hangs on Travis.
+    if ($^O ne 'cygwin') {
+        print "Parent tee-ing child stdout...\n";
+        local $SIG{ALRM} = sub {
+            print "\nxxxxxxxxxx 30s elapsed xxxxxxxxxxx\n";
+            alarm(30);
+        };
+        alarm(30);
+        while (<CHILD>) {
+            print STDOUT $_;
+            $res .= $_;
+        }
+    } else {
+        while (<CHILD>) {
+            print STDOUT $_;
+            $res .= $_;
+        }
     }
     close(CHILD);
 } elsif ($ENV{'TRAVIS_EVENT_TYPE'} eq 'cron' ||
@@ -124,17 +137,13 @@ if ($child) {
     system("${cmd} 2>&1");
     exit 0;
 } else {
-    # We have no way to access the log files, so we can -VV to ensure
-    # we can diagnose failures, but it makes for a large online result
-    # that has to be manually downloaded.  We thus stick with -V for
-    # Travis.  For Appveyor where many devs have no local Visual
-    # Studio we do use -VV so build warning details are visible.
-    my $verbose = "-V";
-    if ($^O eq 'cygwin') {
-        $verbose = "-VV";
-    }
+    # We have no way to access the log files, so we use -VV to ensure
+    # we can diagnose failures.
+    my $verbose = "-VV";
     my $cmd = "ctest --output-on-failure ${verbose} -S \"${osdir}/runsuite.cmake${args}\"";
+    print "Running ${cmd}\n";
     system("${cmd} 2>&1");
+    print "Finished running ${cmd}\n";
     exit 0;
 }
 
