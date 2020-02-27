@@ -69,56 +69,23 @@ typedef enum {
  * A pointer-sized value indicating the default case encoding is returned.
  * The boolean value written to \p enable_dups specifies whether code duplication should
  * be done for this basic block. If false, the basic block is always executed under the
- * default case and no duplications are made. \p enable_dynamic_handling specifies whether
- * additional copies should be dynamically generated to handle new case encodings
- * identified during runtime. This option entails flushing but can lead to more efficient
- * instrumentation depending on the user's application of drbbdup.
+ * default case and no duplications are made.
  *
  * Use drbbdup_register_case_value() to register other case encodings.
  *
  * @param[in] enable_dups indicates whether basic block code is duplicated to support
  * multiple case instrumentation.
- * @param[in] enable_dynamic_handling indicates whether dynamic handling is enabled.
  * @return the default case encoding.
  */
 typedef uintptr_t (*drbbdup_set_up_bb_dups_t)(void *drbbdup_ctx, void *drcontext,
                                               void *tag, instrlist_t *bb,
-                                              bool *enable_dups,
-                                              bool *enable_dynamic_handling,
-                                              void *user_data);
+                                              bool *enable_dups, void *user_data);
 
 /**
- * When a unregistered case is identified as a candidate for dynamic handling,
- * such a call-back function is invoked to give the user the opportunity
- * to stop its generation.
- *
- * @param new_case The encoding of the unhandled case.
- * @param[out] enable_dynamic_handling sets whether dynamic generation for unhandled
- * cases should overall left on or turned off for this particular fragment.
- * @return whether a basic block copy should be dynamically generated to handle
- * the unhanlded case \p new_case.
- */
-typedef bool (*drbbdup_allow_gen_t)(void *drcontext, void *tag, instrlist_t *ilist,
-                                    uintptr_t new_case, bool *enable_dynamic_handling,
-                                    void *user_data);
-
-/**
- * Inserts code responsible for encoding the current runtime
- * case. The function should store the resulting pointer-sized encoding to the memory
- * destination operand obtained via drbbdup_get_encoding_opnd(). If the user has
- * implemented the encoder via a clean call, drbbdup_set_encoding() should be
- * used.
- *
- * @param pre_analysis_data the preliminary analysis data.
- */
-typedef void (*drbbdup_insert_encode_t)(void *drcontext, instrlist_t *bb, instr_t *where,
-                                        void *user_data, void *pre_analysis_data);
-
-/**
- * Conducts a preliminary analysis on the basic block. The call-back is not called for
+ * Conducts a preliminary analysis of the basic block. The call-back is not called for
  * each case, but once for the overall fragment. Therefore, computationally expensive
- * analysis can be done by this call-back and made available to all cases of the basic
- * block.
+ * analysis that only needs to be done once per fragment can be implemented by this
+ * call-back and made available to all cases of the basic block.
  *
  * The user can use thread allocation for storing the pre analysis result.
  *
@@ -141,7 +108,8 @@ typedef void (*drbbdup_destroy_pre_analysis_t)(void *drcontext, void *user_data,
  * Conducts an analysis on a basic block with respect to a case with encoding \p encoding.
  * The result of the analysis needs to be stored to \p analysis_data.
  *
- * @param pre_analysis_data the preliminary analysis data to destroy.
+ * @param pre_analysis_data preliminary analysis data.
+ * @param[in] analysis_data the pointer to store the result of the analysis.
  */
 typedef void (*drbbdup_analyse_bb_t)(void *drcontext, instrlist_t *bb, uintptr_t encoding,
                                      void *user_data, void *pre_analysis_data,
@@ -159,6 +127,18 @@ typedef void (*drbbdup_analyse_bb_t)(void *drcontext, instrlist_t *bb, uintptr_t
 typedef void (*drbbdup_destroy_analysis_t)(void *drcontext, void *user_data,
                                            uintptr_t encoding, void *pre_analysis_data,
                                            void *analysis_data);
+
+/**
+ * Inserts code responsible for encoding the current runtime
+ * case. The function should store the resulting pointer-sized encoding to the memory
+ * destination operand obtained via drbbdup_get_encoding_opnd(). If the user has
+ * implemented the encoder via a clean call, drbbdup_set_encoding() should be
+ * used instead.
+ *
+ * @param pre_analysis_data the preliminary analysis data.
+ */
+typedef void (*drbbdup_insert_encode_t)(void *drcontext, instrlist_t *bb, instr_t *where,
+                                        void *user_data, void *pre_analysis_data);
 
 /**
  * A user-defined call-back function that is invoked to instrument an instruction \p
@@ -182,8 +162,8 @@ typedef void (*drbbdup_instrument_instr_t)(void *drcontext, instrlist_t *bb,
  */
 
 /**
- * Specifies the options when initialising drbbdup. \p init_bb_dups and \p insert_encode
- * cannot be NULL, while \p dup_limit must be greater than zero.
+ * Specifies the options when initialising drbbdup. \p set_up_bb_dups, \p insert_encode
+ * and \p instrument_instr cannot be NULL, while \p dup_limit must be greater than zero.
  */
 typedef struct {
     /** Set this to the size of this structure. */
@@ -222,11 +202,6 @@ typedef struct {
      * particular case.
      */
     drbbdup_instrument_instr_t instrument_instr;
-    /**
-     * A user-defined call-back function that determines whether to dynamically generate
-     * a basic block to handle a new case.
-     */
-    drbbdup_allow_gen_t allow_gen;
     /* User-data made available to user-defined call-back functions that drbbdup invokes
      * to manage basic block duplication.
      */
@@ -236,17 +211,12 @@ typedef struct {
      * control is directed to the default case.
      */
     ushort dup_limit;
-    /**
-     * The number of times an unhandled case is encountered by a single thread before it
-     * becomes a candidate for dynamic generation.
-     */
-    ushort hit_threshold;
 } drbbdup_options_t;
 
 /**
  * Priorities of drmgr instrumentation passes used by drbbdup. Users
- * can perform app2app manipulations by ordering such changes before
- * DRMGR_PRIORITY_DUPLICATE_DRBBDUP.
+ * can perform app2app manipulations prior duplication
+ * by ordering such changes before DRMGR_PRIORITY_DRBBDUP.
  */
 enum {
     /** Priority of drbbdup. */
@@ -254,8 +224,7 @@ enum {
 };
 
 /**
- * Name of drbbdup priorities for analysis and insert
- * steps that are meant to take place before any tool actions.
+ * Name of drbbdup priorities for analysis and insert steps.
  */
 #define DRMGR_PRIORITY_NAME_DRBBDUP "drbbdup"
 
@@ -267,7 +236,7 @@ DR_EXPORT
  * use-case where only a one default case encoding is associated with each basic block.
  *
  * The \p ops_in parameter are options which dictate how drbbdup manages
- * bb copies. The following user-defined call-backs cannot be NULL: \p init_bb_dups
+ * basic block copies.
  *
  * @param ops_in options which dictate how drbbdup operates.
  * @return whether successful or an error code on failure.
@@ -329,6 +298,7 @@ DR_EXPORT
  * Indicates whether the instruction \p instr is the first instruction of a
  * basic block copy. The result is returned in \p is_start.
  *
+ * @param drcontext the current drcontext.
  * @param instr the instruction to check.
  * @param[out] is_start indicates whether instr is first.
  * @return whether successful or an error code on failure.
@@ -341,6 +311,7 @@ DR_EXPORT
  * Indicates whether the instruction \p instr is the last instruction of basic
  * block copy. The result is returned in \p is_last.
  *
+ * @param drcontext the current drcontext.
  * @param instr the instruction to check.
  * @param[out] is_last indicates whether instr is last.
  * @return whether successful or an error code on failure.
