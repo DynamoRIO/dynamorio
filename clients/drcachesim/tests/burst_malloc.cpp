@@ -39,8 +39,11 @@
 /* Like burst_static we deliberately do not include configure.h here */
 
 #include "dr_api.h"
+#include "drmemtrace/drmemtrace.h"
 #include <assert.h>
 #include <iostream>
+#include <fstream>
+#include <string>
 #include <math.h>
 #include <stdlib.h>
 
@@ -86,6 +89,28 @@ do_some_work(int arg)
     return (temp > 0);
 }
 
+static void
+exit_cb(void *)
+{
+    const char *funclist_path;
+    drmemtrace_status_t res = drmemtrace_get_funclist_path(&funclist_path);
+    assert(res == DRMEMTRACE_SUCCESS);
+    std::ifstream stream(funclist_path);
+    assert(stream.good());
+    std::string line;
+    bool found_malloc = false;
+    bool found_return_big_value = false;
+    while (std::getline(stream, line)) {
+        assert(line.find('!') != std::string::npos);
+        if (line.find("!return_big_value") != std::string::npos)
+            found_return_big_value = true;
+        if (line.find("!malloc") != std::string::npos)
+            found_malloc = true;
+    }
+    assert(found_malloc);
+    assert(found_return_big_value);
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -94,8 +119,11 @@ main(int argc, const char *argv[])
                    "-stderr_mask 0xc -rstats_to_stderr"
                    " -client_lib ';;-offline -record_heap"
                    // Test large values that require two entries.
-                   " -record_function \"malloc|0|1&return_big_value|42|1\"'"))
+                   " -record_function \"malloc|1&return_big_value|1\"'"))
         std::cerr << "failed to set env var!\n";
+
+    drmemtrace_status_t res = drmemtrace_buffer_handoff(nullptr, exit_cb, nullptr);
+    assert(res == DRMEMTRACE_SUCCESS);
 
     for (int i = 0; i < 3; i++) {
         std::cerr << "pre-DR init\n";
