@@ -55,16 +55,16 @@
 
 #ifndef X86
 /* TODO i#4134: ARM not yet supported. */
-#error
+#    error
 #endif
 
 #define HASH_BIT_TABLE 13
 
 typedef enum {
-	DRBBDUP_ENCODING_SLOT = 0,
-	DRBBDUP_XAX_REG_SLOT = 1,
-	DRBBDUP_FLAG_REG_SLOT = 2,
-	DRBBDUP_SLOT_COUNT = 3, /* Need to update if more slots are added. */
+    DRBBDUP_ENCODING_SLOT = 0,
+    DRBBDUP_XAX_REG_SLOT = 1,
+    DRBBDUP_FLAG_REG_SLOT = 2,
+    DRBBDUP_SLOT_COUNT = 3, /* Need to update if more slots are added. */
 } drbbdup_thread_slots;
 
 /* A scratch register used by drbbdup's dispatcher. */
