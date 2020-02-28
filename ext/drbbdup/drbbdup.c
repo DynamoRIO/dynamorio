@@ -900,15 +900,15 @@ drbbdup_destroy_all_analyses(void *drcontext, drbbdup_manager_t *manager,
             for (i = 0; i < opts.dup_limit; i++) {
                 if (pt->case_analysis_data[i] != NULL) {
                     opts.destroy_analysis(
-                        drcontext, opts.user_data, manager->cases[i].encoding,
+                        drcontext, manager->cases[i].encoding, opts.user_data,
                         pt->pre_analysis_data, pt->case_analysis_data[i]);
                     pt->case_analysis_data[i] = NULL;
                 }
             }
         }
         if (pt->default_analysis_data != NULL) {
-            opts.destroy_analysis(drcontext, opts.user_data,
-                                  manager->default_case.encoding, pt->pre_analysis_data,
+            opts.destroy_analysis(drcontext, manager->default_case.encoding, opts.user_data,
+                                   pt->pre_analysis_data,
                                   pt->default_analysis_data);
             pt->default_analysis_data = NULL;
         }

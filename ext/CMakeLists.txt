@@ -111,7 +111,7 @@ add_subdirectory(drmgr)
 add_subdirectory(drx)
 add_subdirectory(drwrap)
 add_subdirectory(drreg)
-# ARM not yet supported
+# TODO i#4134: ARM not yet supported.
 if (X86)
   add_subdirectory(drbbdup)
 endif (X86)

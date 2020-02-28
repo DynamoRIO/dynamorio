@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2013-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2013-2020 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@ cmake_minimum_required(VERSION 2.6)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
-# DynamoRIO Register Management Utilities
+# DynamoRIO Basic Block Duplicator Extension
 
 # We do not need libc, and we avoid a 10x size increase in both our
 # dll and pdb (plus we avoid stressing private library isolation) by
@@ -44,12 +44,7 @@ set(srcs
   # add more here
   )
 
-# i#1491#2: VS generators fail if static lib has resources
 set(srcs_static ${srcs})
-
-if (WIN32)
-  set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
-endif ()
 
 add_library(drbbdup SHARED ${srcs})
 configure_extension(drbbdup OFF)

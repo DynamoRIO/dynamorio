@@ -2219,7 +2219,7 @@ if (CLIENT_INTERFACE)
   target_include_directories(client.drx_buf-test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
-  # ARM not yet supported
+  # TODO i#4134: ARM not yet supported.
   if (X86)
     tobuild_ci(client.drbbdup-test client-interface/drbbdup-test.c "" "" "")
     use_DynamoRIO_extension(client.drbbdup-test.dll drmgr)
