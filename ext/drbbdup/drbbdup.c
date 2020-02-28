@@ -48,20 +48,24 @@
 #    define LOG(dc, mask, level, ...)
 #endif
 
-/**
- * DynamoRIO Basic Block Duplication Extension: a code builder that
+/* DynamoRIO Basic Block Duplication Extension: a code builder that
  * duplicates code of basic blocks and dispatches control according to runtime conditions
  * so that different instrumentation may be efficiently executed.
  */
 
+#ifndef X86
+/* TODO i#4134: ARM not yet supported. */
+#error
+#endif
+
 #define HASH_BIT_TABLE 13
 
-/* THREAD SLOTS */
-#define DRBBDUP_ENCODING_SLOT 0
-#define DRBBDUP_XAX_REG_SLOT 1
-#define DRBBDUP_FLAG_REG_SLOT 2
-#define DRBBDUP_SLOT_COUNT \
-    DRBBDUP_FLAG_REG_SLOT + 1 /* Need to update if more slots are added. */
+typedef enum {
+	DRBBDUP_ENCODING_SLOT = 0,
+	DRBBDUP_XAX_REG_SLOT = 1,
+	DRBBDUP_FLAG_REG_SLOT = 2,
+	DRBBDUP_SLOT_COUNT = 3, /* Need to update if more slots are added. */
+} drbbdup_thread_slots;
 
 /* A scratch register used by drbbdup's dispatcher. */
 #define DRBBDUP_SCRATCH_REG DR_REG_XAX
@@ -70,49 +74,43 @@
 #define DRBBDUP_DEFAULT_INDEX -1
 #define DRBBDUP_IGNORE_INDEX -2
 
-/**
- * Contains information of a case that maps to a copy of a bb.
- */
+/* Contains information of a case that maps to a copy of a bb. */
 typedef struct {
-    uintptr_t encoding; /* the encoding specific to the case. */
-    bool is_defined;    /* denotes whether the case is defined. */
+    uintptr_t encoding; /* The encoding specific to the case. */
+    bool is_defined;    /* Denotes whether the case is defined. */
 } drbbdup_case_t;
 
-/**
- * Contains per bb information required for managing bb copies.
- */
+/* Contains per bb information required for managing bb copies. */
 typedef struct {
     int ref_counter;
-    bool enable_dup;          /* denotes whether to duplicate blocks. */
-    bool are_flags_dead;      /* denotes whether flags are dead at the start of a bb. */
-    bool is_scratch_reg_dead; /* denotes whether DRBBDUP_SCRATCH_REG is dead at start */
+    bool enable_dup;          /* Denotes whether to duplicate blocks. */
+    bool are_flags_dead;      /* Denotes whether flags are dead at the start of a bb. */
+    bool is_scratch_reg_dead; /* Denotes whether DRBBDUP_SCRATCH_REG is dead at start */
     drbbdup_case_t default_case;
     drbbdup_case_t *cases; /* Is NULL if enable_dup is not set. */
 } drbbdup_manager_t;
 
-/**
- * Label types.
- */
+/* Label types. */
 typedef enum {
-    DRBBDUP_LABEL_START = 78, /* denotes the start of a bb copy. */
-    DRBBDUP_LABEL_EXIT = 79,  /* denotes the end of all bb copies. */
+    DRBBDUP_LABEL_START = 78, /* Denotes the start of a bb copy. */
+    DRBBDUP_LABEL_EXIT = 79,  /* Denotes the end of all bb copies. */
 } drbbdup_label_t;
 
 typedef struct {
-    int case_index; /* used to keep track of the current case during insertion. */
-    void *pre_analysis_data;     /* analysis data accessible for all cases. */
-    void *default_analysis_data; /* analysis data specific to default case. */
-    void **case_analysis_data;   /* analysis data specific to cases. */
-    instr_t *first_instr; /* the first instr of the bb copy currently being considered. */
-    instr_t *last_instr;  /* the last instr of the bb copy currently being considered. */
+    int case_index; /* Used to keep track of the current case during insertion. */
+    void *orig_analysis_data;    /* Analysis data accessible for all cases. */
+    void *default_analysis_data; /* Analysis data specific to default case. */
+    void **case_analysis_data;   /* Analysis data specific to cases. */
+    instr_t *first_instr; /* The first instr of the bb copy currently being considered. */
+    instr_t *last_instr;  /* The last instr of the bb copy currently being considered. */
 } drbbdup_per_thread;
 
-static uint drbbdup_ref_count = 0; /* instance count of drbbdup. */
-static hashtable_t manager_table;  /* maps bbs with book-keeping data. */
+static uint drbbdup_ref_count = 0; /* Instance count of drbbdup. */
+static hashtable_t manager_table;  /* Maps bbs with book-keeping data. */
 static drbbdup_options_t opts;
 static void *rw_lock = NULL;
 
-static int tls_idx = -1; /* thread local storage info. */
+static int tls_idx = -1; /* For thread local storage info. */
 static reg_id_t tls_raw_reg;
 static uint tls_raw_base;
 
@@ -164,8 +162,7 @@ drbbdup_restore_register(void *drcontext, instrlist_t *ilist, instr_t *where,
     instrlist_meta_preinsert(ilist, where, instr);
 }
 
-/**
- * Returns whether or not instr is a special instruction that must be the last instr in a
+/* Returns whether or not instr is a special instruction that must be the last instr in a
  * bb in accordance to DR rules.
  */
 static bool
@@ -181,9 +178,7 @@ drbbdup_is_special_instr(instr_t *instr)
  * This phase is responsible for performing the actual duplications of bbs.
  */
 
-/**
- *  Returns the number of bb copies.
- */
+/* Returns the number of bb copies. */
 static uint
 drbbdup_count(drbbdup_manager_t *manager)
 {
@@ -204,9 +199,7 @@ drbbdup_count(drbbdup_manager_t *manager)
     return count;
 }
 
-/**
- *  Clone from original instrlist, but place duplication in bb.
- */
+/* Clone from original instrlist, but place duplication in bb. */
 static void
 drbbdup_add_copy(void *drcontext, instrlist_t *bb, instrlist_t *orig_bb)
 {
@@ -258,8 +251,7 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
     ASSERT(manager->enable_dup, "bb duplication should be enabled");
     ASSERT(manager->cases != NULL, "cases should not be NULL");
 
-    /**
-     *  Example: Lets say we have the following bb:
+    /* Example: Lets say we have the following bb:
      *   mov ebx ecx
      *   mov esi eax
      *   ret
@@ -284,8 +276,7 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
     /* We create a duplication here to keep track of original bb. */
     instrlist_t *original = instrlist_clone(drcontext, bb);
 
-    /**
-     * If the last instruction is a sytem call/cti, we remove it from the original.
+    /* If the last instruction is a system call/cti, we remove it from the original.
      * This is done so that we do not copy such instructions and abide by DR rules.
      */
     instr_t *last = instrlist_last_app(original);
@@ -294,13 +285,11 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
         instr_destroy(drcontext, last);
     }
 
-    /**
-     * Tell drreg to ignore control flow as it is ensured that all registers
+    /* Tell drreg to ignore control flow as it is ensured that all registers
      * are live at the start of bb copies.
      */
     drreg_set_bb_properties(drcontext, DRREG_IGNORE_CONTROL_FLOW);
-    /**
-     * Restoration at the end of the block is not done automatically
+    /* Restoration at the end of the block is not done automatically
      * by drreg but is managed by drbbdup. Different cases could
      * have different registers spilled and therefore restoration is
      * specific to cases. During the insert stage, drbbdup restores
@@ -322,7 +311,7 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
     /* Perform duplication. */
     int num_copies = (int)drbbdup_count(manager);
     ASSERT(num_copies >= 1, "there must be at least one copy");
-    int start = num_copies - 2; /* one bb version already exists by default. */
+    int start = num_copies - 2; /* One bb version already exists by default. */
     int i;
     for (i = start; i >= 0; i--) {
         /* Prepend a jmp targeting the EXIT label. */
@@ -341,8 +330,7 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
     /* Delete original. We are done from making further copies. */
     instrlist_clear_and_destroy(drcontext, original);
 
-    /**
-     * Add the EXIT label to the last copy of the bb.
+    /* Add the EXIT label to the last copy of the bb.
      * If there is a syscall, place the exit label prior, leaving the syscall
      * last. Again, this is to abide by DR rules.
      */
@@ -382,8 +370,7 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         drbbdup_set_up_copies(drcontext, bb, manager);
     }
 
-    /**
-     * XXX i#4134: statistics -- add the following stat increments here:
+    /* XXX i#4134: statistics -- add the following stat increments here:
      *    1) avg bb size
      *    2) bb instrum count
      *    3) dups enabled
@@ -398,9 +385,7 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
  * ANALYSIS PHASE
  */
 
-/**
- * Determines whether or not we reached a special label recognisable by drbbdup.
- */
+/* Determines whether or not we reached a special label recognisable by drbbdup. */
 static bool
 drbbdup_is_at_label(instr_t *check_instr, drbbdup_label_t label)
 {
@@ -417,18 +402,14 @@ drbbdup_is_at_label(instr_t *check_instr, drbbdup_label_t label)
     return actual_label == label;
 }
 
-/**
- * Returns true if at the start of a bb version is reached.
- */
+/* Returns true if at the start of a bb version is reached. */
 static bool
 drbbdup_is_at_start(instr_t *check_instr)
 {
     return drbbdup_is_at_label(check_instr, DRBBDUP_LABEL_START);
 }
 
-/**
- * Returns true if at the end of a bb version is reached.
- */
+/* Returns true if at the end of a bb version is reached. */
 static bool
 drbbdup_is_at_end(instr_t *check_instr)
 {
@@ -443,9 +424,7 @@ drbbdup_is_at_end(instr_t *check_instr)
     return false;
 }
 
-/**
- * Iterates forward to the start of the next bb copy. Returns NULL upon failure.
- */
+/* Iterates forward to the start of the next bb copy. Returns NULL upon failure. */
 static instr_t *
 drbbdup_next_start(instr_t *instr)
 {
@@ -459,8 +438,7 @@ static instr_t *
 drbbdup_first_app(instrlist_t *bb)
 {
     instr_t *instr = instrlist_first_app(bb);
-    /**
-     * We also check for at end labels, because the jmp inserted by drbbdup is
+    /* We also check for at end labels, because the jmp inserted by drbbdup is
      * an app instr which should not be considered.
      */
     while (instr != NULL && (drbbdup_is_at_start(instr) || drbbdup_is_at_end(instr)))
@@ -469,9 +447,7 @@ drbbdup_first_app(instrlist_t *bb)
     return instr;
 }
 
-/**
- * Iterates forward to the end of the next bb copy. Returns NULL upon failure.
- */
+/* Iterates forward to the end of the next bb copy. Returns NULL upon failure. */
 static instr_t *
 drbbdup_next_end(instr_t *instr)
 {
@@ -481,8 +457,7 @@ drbbdup_next_end(instr_t *instr)
     return instr;
 }
 
-/**
- * Extracts a single bb copy from the overall bb starting from start.
+/* Extracts a single bb copy from the overall bb starting from start.
  * start is also set to the beginning of next bb copy for easy chaining.
  *  Overall, separate instr lists simplify user call-backs.
  *  The returned instr list needs to be destroyed using instrlist_clear_and_destroy().
@@ -510,8 +485,7 @@ drbbdup_extract_single_bb_copy(void *drcontext, instrlist_t *bb, instr_t *start,
     if (next != NULL)
         *next = drbbdup_next_start(instr);
 
-    /**
-     * Also include the last instruction in the bb if it is a
+    /* Also include the last instruction in the bb if it is a
      * syscall/cti instr.
      */
     instr_t *last_instr = instrlist_last(bb);
@@ -523,58 +497,55 @@ drbbdup_extract_single_bb_copy(void *drcontext, instrlist_t *bb, instr_t *start,
     return case_bb;
 }
 
-/**
- * Trigger pre analysis event. This useful to set up and share common data
+/* Trigger orig analysis event. This useful to set up and share common data
  * that transcends over different cases.
  */
 static void *
-drbbdup_handle_pre_analysis(drbbdup_manager_t *manager, void *drcontext, instrlist_t *bb,
-                            instr_t *start)
+drbbdup_do_orig_analysis(drbbdup_manager_t *manager, void *drcontext, instrlist_t *bb,
+                         instr_t *start)
 {
-    if (opts.pre_analyse_bb == NULL)
+    if (opts.analyze_orig == NULL)
         return NULL;
 
-    void *pre_analysis_data = NULL;
+    void *orig_analysis_data = NULL;
     if (manager->enable_dup) {
         instrlist_t *case_bb = drbbdup_extract_single_bb_copy(drcontext, bb, start, NULL);
-        opts.pre_analyse_bb(drcontext, case_bb, opts.user_data, &pre_analysis_data);
+        opts.analyze_orig(drcontext, case_bb, opts.user_data, &orig_analysis_data);
         instrlist_clear_and_destroy(drcontext, case_bb);
     } else {
         /* For bb with no wanted copies, simply invoke the call-back with original bb.
          */
-        opts.pre_analyse_bb(drcontext, bb, opts.user_data, &pre_analysis_data);
+        opts.analyze_orig(drcontext, bb, opts.user_data, &orig_analysis_data);
     }
 
-    return pre_analysis_data;
+    return orig_analysis_data;
 }
 
-/**
- * Performs analysis specific to a case.
- */
+/* Performs analysis specific to a case. */
 static void *
 drbbdup_handle_analysis(drbbdup_manager_t *manager, void *drcontext, instrlist_t *bb,
                         instr_t *strt, const drbbdup_case_t *case_info,
-                        void *pre_analysis_data)
+                        void *orig_analysis_data)
 {
-    if (opts.analyse_bb == NULL)
+    if (opts.analyze_case == NULL)
         return NULL;
 
-    void *analysis_data = NULL;
+    void *case_analysis_data = NULL;
     if (manager->enable_dup) {
         instrlist_t *case_bb = drbbdup_extract_single_bb_copy(drcontext, bb, strt, NULL);
         /* Let the user analyse the BB for the given case. */
-        opts.analyse_bb(drcontext, case_bb, case_info->encoding, opts.user_data,
-                        pre_analysis_data, &analysis_data);
+        opts.analyze_case(drcontext, case_bb, case_info->encoding, opts.user_data,
+                          orig_analysis_data, &case_analysis_data);
         instrlist_clear_and_destroy(drcontext, case_bb);
     } else {
         /* For bb with no wanted copies, simply invoke the call-back with the original
          * bb.
          */
-        opts.analyse_bb(drcontext, bb, case_info->encoding, opts.user_data,
-                        pre_analysis_data, &analysis_data);
+        opts.analyze_case(drcontext, bb, case_info->encoding, opts.user_data,
+                          orig_analysis_data, &case_analysis_data);
     }
 
-    return analysis_data;
+    return case_analysis_data;
 }
 
 static dr_emit_flags_t
@@ -596,17 +567,16 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
         (drbbdup_manager_t *)hashtable_lookup(&manager_table, pc);
     ASSERT(manager != NULL, "manager cannot be NULL");
 
-    /* Perform pre-analysis - only done once regardless of how many copies. */
-    pt->pre_analysis_data = drbbdup_handle_pre_analysis(manager, drcontext, bb, first);
+    /* Perform orig analysis - only done once regardless of how many copies. */
+    pt->orig_analysis_data = drbbdup_do_orig_analysis(manager, drcontext, bb, first);
 
-    /**
-     * Perform analysis for default case. Note, we do the analysis even if the manager
-     * does not have dups enables.
+    /* Perform analysis for default case. Note, we do the analysis even if the manager
+     * does not have dups enabled.
      */
     case_info = &(manager->default_case);
     ASSERT(case_info->is_defined, "default case must be defined");
-    pt->default_analysis_data = drbbdup_handle_analysis(manager, drcontext, bb, first,
-                                                        case_info, pt->pre_analysis_data);
+    pt->default_analysis_data = drbbdup_handle_analysis(
+        manager, drcontext, bb, first, case_info, pt->orig_analysis_data);
 
     /* Perform analysis for each (non-default) case. */
     if (manager->enable_dup) {
@@ -616,7 +586,7 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
             case_info = &(manager->cases[i]);
             if (case_info->is_defined) {
                 pt->case_analysis_data[i] = drbbdup_handle_analysis(
-                    manager, drcontext, bb, first, case_info, pt->pre_analysis_data);
+                    manager, drcontext, bb, first, case_info, pt->orig_analysis_data);
             }
         }
     }
@@ -633,8 +603,7 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
  * based on the case being handled. Essentially, it inserts the dispatcher.
  */
 
-/**
- * When control reaches a bb, we need to restore regs used by the dispatcher's jump.
+/* When control reaches a bb, we need to restore regs used by the dispatcher's jump.
  * This function inserts the restoration landing.
  */
 static void
@@ -650,9 +619,7 @@ drbbdup_insert_landing_restoration(void *drcontext, instrlist_t *bb, instr_t *wh
         drbbdup_restore_register(drcontext, bb, where, 1, DRBBDUP_SCRATCH_REG);
 }
 
-/**
- * Insert encoding of runtime case by invoking user call-back.
- */
+/* Insert encoding of runtime case by invoking user call-back. */
 static void
 drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
                             instrlist_t *bb, instr_t *where, drbbdup_manager_t *manager)
@@ -660,13 +627,11 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     instr_t *instr;
     opnd_t opnd;
 
-    /**
-     * XXX i#4134: statistics -- insert code that tracks the number of times the fragment
+    /* XXX i#4134: statistics -- insert code that tracks the number of times the fragment
      * is executed.
      */
 
-    /**
-     * Spill scratch register and flags. We use drreg to check their liveness but
+    /* Spill scratch register and flags. We use drreg to check their liveness but
      * manually perform the spilling for finer control across branches used by the
      * dispatcher.
      */
@@ -683,23 +648,20 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
             drbbdup_restore_register(drcontext, bb, where, 1, DRBBDUP_SCRATCH_REG);
     }
 
-    /**
-     * Encoding is application-specific and therefore we need to user to define the
+    /* Encoding is application-specific and therefore we need to user to define the
      * encoding of the runtime case. We invoke a user-defined call-back.
      */
     ASSERT(opts.insert_encode, "The encode call-back cannot be NULL");
-    /**
-     * Note, we could tell the user not to reserve flags and scratch register since
+    /* Note, we could tell the user not to reserve flags and scratch register since
      * drbbdup is doing that already. However, for flexibility/backwards compatibility
      * ease, this might not be the best approach.
      */
-    opts.insert_encode(drcontext, bb, where, opts.user_data, pt->pre_analysis_data);
+    opts.insert_encode(drcontext, bb, where, opts.user_data, pt->orig_analysis_data);
 
     /* Restore all unreserved registers used by the call-back. */
     drreg_restore_all(drcontext, bb, where);
 
-    /**
-     * Load the encoding to the scratch register.
+    /* Load the encoding to the scratch register.
      * The dispatcher could compare directly via mem, but this will
      * destroy micro-fusing (mem and immed).
      */
@@ -709,8 +671,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     instrlist_meta_preinsert(bb, where, instr);
 }
 
-/**
- * At the start of a bb copy, dispatcher code is inserted. The runtime encoding
+/* At the start of a bb copy, dispatcher code is inserted. The runtime encoding
  * is compared with the encoding of the defined case, and if they match control
  * falls-through to execute the bb. Otherwise, control  branches to the next bb
  * via next_label.
@@ -777,11 +738,10 @@ drbbdup_instrument_instr(void *drcontext, instrlist_t *bb, instr_t *instr, instr
 
     ASSERT(drbbdup_case->is_defined, "case must be defined upon instrumentation");
     opts.instrument_instr(drcontext, bb, instr, where, drbbdup_case->encoding,
-                          opts.user_data, pt->pre_analysis_data, analysis_data);
+                          opts.user_data, pt->orig_analysis_data, analysis_data);
 }
 
-/**
- * Support different instrumentation for different bb copies. Tracks which case is
+/* Support different instrumentation for different bb copies. Tracks which case is
  * currently being considered via an index (namely pt->case_index) in thread-local
  * storage, and update this index upon encountering the start/end of bb copies.
  */
@@ -845,8 +805,7 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
                                     next_bb_label, drbbdup_case);
         }
 
-        /**
-         * XXX i#4134: statistics -- insert code that tracks the number of times the
+        /* XXX i#4134: statistics -- insert code that tracks the number of times the
          * current case (pt->case_index) is executed.
          */
     } else if (drbbdup_is_at_end(instr)) {
@@ -887,37 +846,36 @@ drbbdup_instrument_without_dups(void *drcontext, instrlist_t *bb, instr_t *instr
     drbbdup_instrument_instr(drcontext, bb, instr, instr, pt, manager);
 }
 
-/**
- * Invokes user call-backs to destroy analysis data.
+/* Invokes user call-backs to destroy analysis data.
  */
 static void
 drbbdup_destroy_all_analyses(void *drcontext, drbbdup_manager_t *manager,
                              drbbdup_per_thread *pt)
 {
-    if (opts.destroy_analysis != NULL) {
+    if (opts.destroy_case_analysis != NULL) {
         if (pt->case_analysis_data != NULL) {
             int i;
             for (i = 0; i < opts.dup_limit; i++) {
                 if (pt->case_analysis_data[i] != NULL) {
-                    opts.destroy_analysis(
-                        drcontext, manager->cases[i].encoding, opts.user_data,
-                        pt->pre_analysis_data, pt->case_analysis_data[i]);
+                    opts.destroy_case_analysis(drcontext, manager->cases[i].encoding,
+                                               opts.user_data, pt->orig_analysis_data,
+                                               pt->case_analysis_data[i]);
                     pt->case_analysis_data[i] = NULL;
                 }
             }
         }
         if (pt->default_analysis_data != NULL) {
-            opts.destroy_analysis(drcontext, manager->default_case.encoding, opts.user_data,
-                                   pt->pre_analysis_data,
-                                  pt->default_analysis_data);
+            opts.destroy_case_analysis(drcontext, manager->default_case.encoding,
+                                       opts.user_data, pt->orig_analysis_data,
+                                       pt->default_analysis_data);
             pt->default_analysis_data = NULL;
         }
     }
 
-    if (opts.destroy_pre_analysis != NULL) {
-        if (pt->pre_analysis_data != NULL) {
-            opts.destroy_pre_analysis(drcontext, opts.user_data, pt->pre_analysis_data);
-            pt->pre_analysis_data = NULL;
+    if (opts.destroy_orig_analysis != NULL) {
+        if (pt->orig_analysis_data != NULL) {
+            opts.destroy_orig_analysis(drcontext, opts.user_data, pt->orig_analysis_data);
+            pt->orig_analysis_data = NULL;
         }
     }
 }
@@ -1092,7 +1050,7 @@ drbbdup_thread_init(void *drcontext)
         (drbbdup_per_thread *)dr_thread_alloc(drcontext, sizeof(drbbdup_per_thread));
 
     pt->case_index = 0;
-    pt->pre_analysis_data = NULL;
+    pt->orig_analysis_data = NULL;
     ASSERT(opts.dup_limit > 0, "dup limit should be greater than zero");
     pt->case_analysis_data = dr_thread_alloc(drcontext, sizeof(void *) * opts.dup_limit);
     memset(pt->case_analysis_data, 0, sizeof(void *) * opts.dup_limit);
@@ -1154,8 +1112,7 @@ drbbdup_init(drbbdup_options_t *ops_in)
     if (tls_idx == -1)
         return DRBBDUP_ERROR;
 
-    /**
-     * Initialise hash table that keeps track of defined cases per
+    /* Initialise hash table that keeps track of defined cases per
      * basic block.
      */
     hashtable_init_ex(&manager_table, HASH_BIT_TABLE, HASH_INTPTR, false, false,

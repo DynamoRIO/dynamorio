@@ -45,12 +45,12 @@
     } while (0);
 
 #define USER_DATA_VAL (void *)222
-#define PRE_ANALYSIS_VAL (void *)555
+#define ORIG_ANALYSIS_VAL (void *)555
 #define ANALYSIS_VAL_1 (void *)888
 #define ANALYSIS_VAL_2 (void *)999
 
-static bool pre_analysis_called = false;
-static bool pre_analysis_destroy_called = false;
+static bool orig_analysis_called = false;
+static bool orig_analysis_destroy_called = false;
 static bool default_analysis_called = false;
 static bool case1_analysis_called = false;
 static bool case1_analysis_destroy_called = false;
@@ -82,28 +82,28 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
 }
 
 static void
-pre_analyse_bb(void *drcontext, instrlist_t *bb, void *user_data,
-               void **pre_analysis_data)
+orig_analyse_bb(void *drcontext, instrlist_t *bb, void *user_data,
+                void **orig_analysis_data)
 {
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
-    *pre_analysis_data = PRE_ANALYSIS_VAL;
-    pre_analysis_called = true;
+    *orig_analysis_data = ORIG_ANALYSIS_VAL;
+    orig_analysis_called = true;
 }
 
 static void
-destroy_pre_analysis(void *drcontext, void *user_data, void *pre_analysis_data)
+destroy_orig_analysis(void *drcontext, void *user_data, void *orig_analysis_data)
 {
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
-    CHECK(pre_analysis_data == PRE_ANALYSIS_VAL, "pre analysis data does not match");
-    pre_analysis_destroy_called = true;
+    CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
+    orig_analysis_destroy_called = true;
 }
 
 static void
 analyse_bb(void *drcontext, instrlist_t *bb, uintptr_t encoding, void *user_data,
-           void *pre_analysis_data, void **analysis_data)
+           void *orig_analysis_data, void **analysis_data)
 {
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
-    CHECK(pre_analysis_data == PRE_ANALYSIS_VAL, "pre analysis data does not match");
+    CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
 
     switch (encoding) {
     case 0:
@@ -123,11 +123,11 @@ analyse_bb(void *drcontext, instrlist_t *bb, uintptr_t encoding, void *user_data
 }
 
 static void
-destroy_analysis(void *drcontext, void *user_data, uintptr_t encoding,
-                 void *pre_analysis_data, void *analysis_data)
+destroy_analysis(void *drcontext, uintptr_t encoding, void *user_data,
+                 void *orig_analysis_data, void *analysis_data)
 {
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
-    CHECK(pre_analysis_data == PRE_ANALYSIS_VAL, "pre analysis data does not match");
+    CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
 
     switch (encoding) {
     case 0: CHECK(false, "should not be called because analysis data is NULL"); break;
@@ -156,10 +156,10 @@ encode()
 
 static void
 insert_encode(void *drcontext, instrlist_t *bb, instr_t *where, void *user_data,
-              void *pre_analysis_data)
+              void *orig_analysis_data)
 {
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
-    CHECK(pre_analysis_data == PRE_ANALYSIS_VAL, "pre analysis data does not match");
+    CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
 
     dr_insert_clean_call(drcontext, bb, where, encode, false, 0);
 }
@@ -172,14 +172,14 @@ print_case(uintptr_t case_val)
 
 static void
 instrument_instr(void *drcontext, instrlist_t *bb, instr_t *instr, instr_t *where,
-                 uintptr_t encoding, void *user_data, void *pre_analysis_data,
+                 uintptr_t encoding, void *user_data, void *orig_analysis_data,
                  void *analysis_data)
 {
     bool is_start;
     drbbdup_status_t res;
 
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
-    CHECK(pre_analysis_data == PRE_ANALYSIS_VAL, "pre analysis data does not match");
+    CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
 
     switch (encoding) {
     case 0: CHECK(analysis_data == NULL, "invalid encoding for default case"); break;
@@ -206,12 +206,12 @@ event_exit(void)
     res = drbbdup_exit();
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup exit failed");
 
-    CHECK(pre_analysis_called, "pre analysis was not done");
+    CHECK(orig_analysis_called, "orig analysis was not done");
     CHECK(default_analysis_called, "default analysis was not done");
     CHECK(case1_analysis_called, "case 1 analysis was not done");
     CHECK(case2_analysis_called, "case 2 analysis was not done");
 
-    CHECK(pre_analysis_destroy_called, "pre analysis was not destroyed");
+    CHECK(orig_analysis_destroy_called, "orig analysis was not destroyed");
     CHECK(case1_analysis_destroy_called, "case 1 analysis was not destroyed");
     CHECK(case2_analysis_destroy_called, "case 2 analysis was not destroyed");
 
@@ -230,8 +230,8 @@ dr_init(client_id_t id)
     drbbdup_options_t opts = { sizeof(drbbdup_options_t),
                                set_up_bb_dups,
                                insert_encode,
-                               pre_analyse_bb,
-                               destroy_pre_analysis,
+                               orig_analyse_bb,
+                               destroy_orig_analysis,
                                analyse_bb,
                                destroy_analysis,
                                instrument_instr,
