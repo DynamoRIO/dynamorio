@@ -68,8 +68,8 @@ typedef enum {
  * Set up initial information related to managing copies of a new basic block \p bb.
  * A pointer-sized value indicating the default case encoding is returned.
  * The boolean value written to \p enable_dups specifies whether code duplication should
- * be done for this  particular basic block. If false, the basic block is always executed
- * under the default case and no duplications are made. The  user data \p user_data is
+ * be done for this particular basic block. If false, the basic block is always executed
+ * under the default case and no duplications are made. The user data \p user_data is
  * that supplied to drbbdup_init().
  *
  * Use drbbdup_register_case_value(), passing \p drbbdup_ctx, to register other case
@@ -87,7 +87,7 @@ typedef uintptr_t (*drbbdup_set_up_bb_dups_t)(void *drbbdup_ctx, void *drcontext
  * analysis that only needs to be done once per fragment can be implemented by this
  * call-back and made available to all cases of the basic block. The function should
  * store the analysis result in \p orig_analysis_data. The  user data \p user_data is
- * that supplied to drbbdup_init()
+ * that supplied to drbbdup_init().
  *
  * The user can use thread allocation for storing the analysis result.
  *
