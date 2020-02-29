@@ -105,8 +105,8 @@ typedef struct {
     instr_t *last_instr;  /* The last instr of the bb copy currently being considered. */
 } drbbdup_per_thread;
 
-static uint drbbdup_ref_count = 0; /* Instance count of drbbdup. */
-static hashtable_t manager_table;  /* Maps bbs with book-keeping data. */
+static uint ref_count = 0;        /* Instance count of drbbdup. */
+static hashtable_t manager_table; /* Maps bbs with book-keeping data. */
 static drbbdup_options_t opts;
 static void *rw_lock = NULL;
 
@@ -1085,7 +1085,7 @@ drbbdup_status_t
 drbbdup_init(drbbdup_options_t *ops_in)
 {
     /* Return with error if drbbdup has already been initialised. */
-    if (drbbdup_ref_count != 0)
+    if (ref_count != 0)
         return DRBBDUP_ERROR_ALREADY_INITIALISED;
 
     if (!drbbdup_check_options(ops_in))
@@ -1122,7 +1122,7 @@ drbbdup_init(drbbdup_options_t *ops_in)
     if (rw_lock == NULL)
         return DRBBDUP_ERROR;
 
-    drbbdup_ref_count++;
+    ref_count++;
 
     return DRBBDUP_SUCCESS;
 }
@@ -1130,10 +1130,10 @@ drbbdup_init(drbbdup_options_t *ops_in)
 drbbdup_status_t
 drbbdup_exit(void)
 {
-    DR_ASSERT(drbbdup_ref_count > 0);
-    drbbdup_ref_count--;
+    DR_ASSERT(ref_count > 0);
+    ref_count--;
 
-    if (drbbdup_ref_count == 0) {
+    if (ref_count == 0) {
         if (!drmgr_unregister_bb_instrumentation_ex_event(drbbdup_duplicate_phase,
                                                           drbbdup_analyse_phase,
                                                           drbbdup_link_phase, NULL) ||

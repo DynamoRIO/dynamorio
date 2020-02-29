@@ -182,9 +182,15 @@ instrument_instr(void *drcontext, instrlist_t *bb, instr_t *instr, instr_t *wher
     CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
 
     switch (encoding) {
-    case 0: CHECK(analysis_data == NULL, "invalid encoding for default case"); break;
-    case 1: CHECK(analysis_data == ANALYSIS_VAL_1, "invalid encoding for case 1"); break;
-    case 2: CHECK(analysis_data == ANALYSIS_VAL_2, "invalid encoding for case 2"); break;
+    case 0:
+        CHECK(analysis_data == NULL, "case analysis does not match for default case");
+        break;
+    case 1:
+        CHECK(analysis_data == ANALYSIS_VAL_1, "case analysis does not match for case 1");
+        break;
+    case 2:
+        CHECK(analysis_data == ANALYSIS_VAL_2, "case analysis does not match for case 2");
+        break;
     default: CHECK(false, "invalid encoding");
     }
 
