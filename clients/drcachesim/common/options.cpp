@@ -405,22 +405,24 @@ droption_t<std::string> op_record_function(
     "Record invocations trace for the specified function(s).",
     "Record invocations trace for the specified function(s) in the option"
     " value. Default value is empty. The value should fit this format:"
-    " function_name|function_id|func_args_num"
-    " (e.g., -record_function \"memset|10|3\"). The trace would contain"
+    " function_name|func_args_num"
+    " (e.g., -record_function \"memset|3\"). The trace would contain"
     " information for function return address, function argument value(s),"
     " and function return value. We only record pointer-sized arguments and"
-    " return value. The trace is labeled with the function_id via an ID entry"
-    " prior to each set of value entries."
+    " return values. The trace identifies which function is involved"
+    " via a numeric ID entry prior to each set of value entries."
+    " The mapping from numeric ID to library-qualified symbolic name is recorded"
+    " during tracing in a file \"funclist.log\" which lists an \"id,library!symbol\""
+    " mapping on each line."
     " If the target function is in the dynamic symbol table, then the function_name"
     " should be a mangled name (e.g. \"_Znwm\" for \"operator new\", \"_ZdlPv\" for"
     " \"operator delete\"). Otherwise, the function_name should be a demangled name."
     " Recording multiple functions can be achieved by using the separator"
     " \"" OP_RECORD_FUNC_ITEM_SEP
-    "\" (e.g., -record_function \"memset|10|3" OP_RECORD_FUNC_ITEM_SEP
-    "memcpy|11|3\"), or"
+    "\" (e.g., -record_function \"memset|3" OP_RECORD_FUNC_ITEM_SEP "memcpy|3\"), or"
     " specifying multiple -record_function options (e.g., -record_function"
-    " \"memset|10|3\" -record_function \"memcpy|11|3\")."
-    " Note that the provided function id should be unique, and not collide with"
+    " \"memset|3\" -record_function \"memcpy|3\")."
+    " Note that the provided function name should be unique, and not collide with"
     " existing heap functions (see -record_heap_value) if -record_heap"
     " option is enabled.");
 droption_t<bool> op_record_heap(
@@ -433,10 +435,10 @@ droption_t<bool> op_record_heap(
 droption_t<std::string> op_record_heap_value(
     DROPTION_SCOPE_ALL, "record_heap_value", DROPTION_FLAG_ACCUMULATE,
     OP_RECORD_FUNC_ITEM_SEP,
-    "malloc|0|1" OP_RECORD_FUNC_ITEM_SEP "free|1|1" OP_RECORD_FUNC_ITEM_SEP
-    "tc_malloc|2|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|3|1" OP_RECORD_FUNC_ITEM_SEP
-    "__libc_malloc|4|1" OP_RECORD_FUNC_ITEM_SEP "__libc_free|5|1" OP_RECORD_FUNC_ITEM_SEP
-    "calloc|6|2",
+    "malloc|1" OP_RECORD_FUNC_ITEM_SEP "free|1" OP_RECORD_FUNC_ITEM_SEP
+    "tc_malloc|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|1" OP_RECORD_FUNC_ITEM_SEP
+    "__libc_malloc|1" OP_RECORD_FUNC_ITEM_SEP "__libc_free|1" OP_RECORD_FUNC_ITEM_SEP
+    "calloc|2",
     "Functions recorded by -record_heap",
     "Functions recorded by -record_heap. The option value should fit the same"
     " format required by -record_function. These functions will not"
