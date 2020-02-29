@@ -497,7 +497,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
     /* NOTE: all but the client lib will be added to DR areas list b/c using
      * d_r_map_file()
      */
-    if (dynamo_heap_initialized) {
+    if (dynamo_heap_initialized && !standalone_library) {
         map_func = d_r_map_file;
         unmap_func = d_r_unmap_file;
         prot_func = set_protection;
