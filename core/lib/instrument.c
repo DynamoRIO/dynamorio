@@ -4179,7 +4179,10 @@ dr_map_executable_file(const char *filename, dr_map_executable_flags_t flags,
 bool
 dr_unmap_executable_file(byte *base, size_t size)
 {
-    return d_r_unmap_file(base, size);
+    if (standalone_library)
+        return os_unmap_file(base, size);
+    else
+        return d_r_unmap_file(base, size);
 }
 
 DR_API
