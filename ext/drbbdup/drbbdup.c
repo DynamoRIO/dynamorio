@@ -85,7 +85,7 @@ typedef struct {
     int ref_counter;
     bool enable_dup;          /* Denotes whether to duplicate blocks. */
     bool are_flags_dead;      /* Denotes whether flags are dead at the start of a bb. */
-    bool is_scratch_reg_dead; /* Denotes whether DRBBDUP_SCRATCH_REG is dead at start */
+    bool is_scratch_reg_dead; /* Denotes whether DRBBDUP_SCRATCH_REG is dead at start. */
     drbbdup_case_t default_case;
     drbbdup_case_t *cases; /* Is NULL if enable_dup is not set. */
 } drbbdup_manager_t;
