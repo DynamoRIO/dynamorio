@@ -662,10 +662,10 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 }
 
 drreg_status_t
-drreg_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst)
+drreg_restore_all(void *drcontext, instrlist_t *bb, instr_t *where)
 {
-    return drreg_insert_restore_all(drcontext, bb, inst, true,
-                                    NULL /* Do not need to track reg restores */);
+    return drreg_insert_restore_all(drcontext, bb, where, true,
+                                    NULL /* do not need to track reg restores */);
 }
 
 /***************************************************************************
