@@ -40,6 +40,7 @@
 #include "drwrap.h"
 #include "drmgr.h"
 #include "drvector.h"
+#include "hashtable.h"
 #include "trace_entry.h"
 #include "../common/options.h"
 #include "func_trace.h"
@@ -65,6 +66,8 @@ static void *funcs_wrapped_lock;
 /* These are protected by funcs_wrapped_lock. */
 static drvector_t funcs_wrapped;
 static int wrap_id;
+/* We store the id+1 so that 0 can mean "not present". */
+static hashtable_t pc2idplus1;
 
 static std::string funcs_str, funcs_str_sep;
 static ssize_t (*write_file_func)(file_t file, const void *data, size_t count);
@@ -190,12 +193,9 @@ get_pc_by_symbol(const module_data_t *mod, const char *symbol)
     }
 }
 
-static void
-instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
+static inline const char *
+get_module_basename(const module_data_t *mod)
 {
-    if (drcontext == NULL || mod == NULL)
-        return;
-
     const char *mod_name = dr_module_preferred_name(mod);
     if (mod_name == nullptr) {
         const char *slash = strrchr(mod->full_path, '/');
@@ -209,46 +209,61 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
     }
     if (mod_name == nullptr)
         mod_name = "<unknown>";
+    return mod_name;
+}
+
+static void
+instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
+{
+    if (drcontext == NULL || mod == NULL)
+        return;
+
+    const char *mod_name = get_module_basename(mod);
     NOTIFY(2, "instru_funcs_module_load for %s\n", mod_name);
     for (size_t i = 0; i < func_names.entries; i++) {
         func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&func_names, (uint)i);
         app_pc f_pc = get_pc_by_symbol(mod, f->name);
-        if (f_pc != NULL) {
-            dr_mutex_lock(funcs_wrapped_lock);
-            int id = wrap_id++;
+        if (f_pc == NULL)
+            continue;
+        dr_mutex_lock(funcs_wrapped_lock);
+        int id = 0;
+        int existing_id = (int)(ptr_int_t)hashtable_lookup(&pc2idplus1, (void *)f_pc);
+        if (existing_id != 0) {
+            // Another symbol mapping to the same pc is already wrapped.
+            // The number of args will be from the first one registered.
+            id = existing_id - 1 /*table stores +1*/;
+        } else {
+            id = wrap_id++;
             drvector_append(&funcs_wrapped,
                             create_func_metadata(f->name, id, f->arg_num));
-            char qual[DRMEMTRACE_MAX_QUALIFIED_FUNC_LEN];
-            int len = dr_snprintf(qual, BUFFER_SIZE_ELEMENTS(qual), "%s!%s\n", mod_name,
-                                  f->name);
-            if (len < 0 || len == BUFFER_SIZE_ELEMENTS(qual)) {
-                NOTIFY(0, "Qualified name is too long and was truncated: %s!%s\n",
-                       mod_name, f->name);
-            }
-            NULL_TERMINATE_BUFFER(qual);
-            size_t sz = strlen(qual);
-            if (write_file_func(funclist_fd, qual, sz) != static_cast<ssize_t>(sz))
-                NOTIFY(0, "Failed to write to funclist file\n");
-            dr_mutex_unlock(funcs_wrapped_lock);
-            if (drwrap_wrap_ex(f_pc, func_pre_hook, func_post_hook,
-                               (void *)(ptr_uint_t)id, 0)) {
-                NOTIFY(1, "Inserted hooks for %s!%s == id %d\n", mod_name, f->name, id);
-            } else {
-                // We could not write to the file and try to re-use the failed id (or
-                // write "symbol,id" to the file) to indicate this was not traced, but
-                // that seems like more complexity than it's worth: it seems simpler to
-                // list it as something we tried to trace and just have no data in the
-                // trace, counting on this warning to notify the user.
-                //
-                // TODO: The most likely reason to come here is two symbols mapping to
-                // the same address, which is common with sets of heap routines such as
-                // operator new[] and operator new.  Is there some simple way we can let
-                // the user know those are both traced even though only one id is
-                // recorded?  Again, if we had "symbol,id" in the file we could list
-                // both with the same id?  Though then users have to handle duplicates.
-                NOTIFY(0, "Failed to insert hooks for %s!%s == id %d\n", mod_name,
-                       f->name, id);
-            }
+            if (!hashtable_add(&pc2idplus1, (void *)f_pc, (void *)(ptr_int_t)(id + 1)))
+                DR_ASSERT(false && "Failed to maintain pc2idplus1 internal hashtable");
+        }
+        char qual[DRMEMTRACE_MAX_QUALIFIED_FUNC_LEN];
+        int len = dr_snprintf(qual, BUFFER_SIZE_ELEMENTS(qual), "%d,%s!%s\n", id,
+                              mod_name, f->name);
+        if (len < 0 || len == BUFFER_SIZE_ELEMENTS(qual)) {
+            NOTIFY(0, "Qualified name is too long and was truncated: %s!%s\n", mod_name,
+                   f->name);
+        }
+        NULL_TERMINATE_BUFFER(qual);
+        size_t sz = strlen(qual);
+        if (write_file_func(funclist_fd, qual, sz) != static_cast<ssize_t>(sz))
+            NOTIFY(0, "Failed to write to funclist file\n");
+        dr_mutex_unlock(funcs_wrapped_lock);
+        if (existing_id != 0) {
+            NOTIFY(1, "Duplicate-pc hook: %s!%s == id %d\n", mod_name, f->name, id);
+            continue;
+        }
+        if (drwrap_wrap_ex(f_pc, func_pre_hook, func_post_hook, (void *)(ptr_uint_t)id,
+                           0)) {
+            NOTIFY(1, "Inserted hooks for %s!%s @" PFX " == id %d\n", mod_name, f->name,
+                   f_pc, id);
+        } else {
+            // We've ruled out two symbols mapping to the same pc, so this is some
+            // unexpected, possibly severe error.
+            NOTIFY(0, "Failed to insert hooks for %s!%s == id %d\n", mod_name, f->name,
+                   id);
         }
     }
 }
@@ -261,12 +276,16 @@ instru_funcs_module_unload(void *drcontext, const module_data_t *mod)
     for (size_t i = 0; i < func_names.entries; i++) {
         func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&func_names, (uint)i);
         app_pc f_pc = get_pc_by_symbol(mod, f->name);
-        if (f_pc != NULL) {
-            if (drwrap_unwrap(f_pc, func_pre_hook, func_post_hook)) {
-                NOTIFY(1, "Removed hooks for function %s\n", f->name);
-            } else {
-                NOTIFY(1, "Failed to remove hooks for function %s\n", f->name);
-            }
+        if (f_pc == NULL)
+            continue;
+        // To support a different library with a to-trace symbol being mapped at the
+        // same pc, we remove from pc2idplus1.  If the same library is re-loaded, we'll
+        // give a new id to the same symbol in the new incarnation.
+        hashtable_remove(&pc2idplus1, (void *)f_pc);
+        if (drwrap_unwrap(f_pc, func_pre_hook, func_post_hook)) {
+            NOTIFY(1, "Removed hooks for function %s\n", f->name);
+        } else {
+            NOTIFY(0, "Failed to remove hooks for function %s\n", f->name);
         }
     }
 }
@@ -391,6 +410,9 @@ func_trace_init(func_trace_append_entry_vec_t append_entry_vec_,
         drvector_append(&func_names, create_func_metadata(name.c_str(), 0, arg_num));
     }
 
+    hashtable_init_ex(&pc2idplus1, 8, HASH_INTPTR, false /*!strdup*/, false /*!synch*/,
+                      nullptr, nullptr, nullptr);
+
     if (!(drsym_init(0) == DRSYM_SUCCESS)) {
         DR_ASSERT(false);
         goto failed;
@@ -437,6 +459,7 @@ func_trace_exit()
 
     if (funcs_str.empty())
         return;
+    hashtable_delete(&pc2idplus1);
     if (!drvector_delete(&funcs_wrapped) || !drvector_delete(&func_names))
         DR_ASSERT(false);
     dr_mutex_destroy(funcs_wrapped_lock);

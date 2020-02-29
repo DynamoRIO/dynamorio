@@ -244,8 +244,10 @@ DR_EXPORT
 /**
  * Retrieves the full path to the file in -offline mode where function tracing
  * information is written.  Each "library!symbol" function that was traced occupies
- * one line of the file, with the line number (starting from 0) equal to the
- * identifier recorded in the function trace entries.
+ * one line of the file, with its identifier used in trace entries prepended and
+ * separated by a comma: "id,library!symbol".  There can be multiple symbols mapping
+ * to the same address and thus to the sam identifier; each will have its own
+ * line in the file.
  */
 drmemtrace_status_t
 drmemtrace_get_funclist_path(OUT const char **path);
