@@ -178,7 +178,7 @@ drbbdup_is_special_instr(instr_t *instr)
  * This phase is responsible for performing the actual duplications of bbs.
  */
 
-/* Returns the number of bb copies. */
+/* Returns the number of bb duplications excluding the default case. */
 static uint
 drbbdup_count(drbbdup_manager_t *manager)
 {
@@ -191,10 +191,6 @@ drbbdup_count(drbbdup_manager_t *manager)
         if (manager->cases[i].is_defined)
             count++;
     }
-
-    /* Also take into account default case. */
-    if (manager->default_case.is_defined)
-        count++;
 
     return count;
 }
@@ -311,7 +307,7 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
     /* Perform duplication. */
     int num_copies = (int)drbbdup_count(manager);
     ASSERT(num_copies >= 1, "there must be at least one copy");
-    int start = num_copies - 2; /* One bb version already exists by default. */
+    int start = num_copies - 1;
     int i;
     for (i = start; i >= 0; i--) {
         /* Prepend a jmp targeting the EXIT label. */
