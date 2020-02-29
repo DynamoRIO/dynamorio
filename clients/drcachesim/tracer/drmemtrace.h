@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -213,8 +213,15 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
  * Its creation can be customized using drmemtrace_custom_module_data()
  * and then modified before passing to raw2trace via
  * drmodtrack_add_custom_data() and drmodtrack_offline_write().
+ * Use drmemtrace_get_modlist_path() to obtain the full path.
  */
 #define DRMEMTRACE_MODULE_LIST_FILENAME "modules.log"
+
+/**
+ * The name of the file in -offline mode where function tracing names
+ * are written.  Use drmemtrace_get_funclist_path() to obtain the full path.
+ */
+#define DRMEMTRACE_FUNCTION_MAP_FILENAME "funclist.log"
 
 DR_EXPORT
 /**
@@ -232,6 +239,18 @@ DR_EXPORT
  */
 drmemtrace_status_t
 drmemtrace_get_modlist_path(OUT const char **path);
+
+DR_EXPORT
+/**
+ * Retrieves the full path to the file in -offline mode where function tracing
+ * information is written.  Each "library!symbol" function that was traced occupies
+ * one line of the file, with its identifier used in trace entries prepended and
+ * separated by a comma: "id,library!symbol".  There can be multiple symbols mapping
+ * to the same address and thus to the sam identifier; each will have its own
+ * line in the file.
+ */
+drmemtrace_status_t
+drmemtrace_get_funclist_path(OUT const char **path);
 
 DR_EXPORT
 /**

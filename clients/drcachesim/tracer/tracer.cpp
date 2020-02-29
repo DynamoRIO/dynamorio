@@ -95,6 +95,7 @@ DR_DISALLOW_UNSAFE_STATIC
 static char logsubdir[MAXIMUM_PATH];
 static char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 static file_t module_file;
+static file_t funclist_file;
 
 /* Max number of entries a buffer can have. It should be big enough
  * to hold all entries between clean calls.
@@ -250,6 +251,7 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 }
 
 static char modlist_path[MAXIMUM_PATH];
+static char funclist_path[MAXIMUM_PATH];
 
 drmemtrace_status_t
 drmemtrace_get_output_path(OUT const char **path)
@@ -266,6 +268,15 @@ drmemtrace_get_modlist_path(OUT const char **path)
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
     *path = modlist_path;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_get_funclist_path(OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = funclist_path;
     return DRMEMTRACE_SUCCESS;
 }
 
@@ -1591,9 +1602,11 @@ event_exit(void)
     instru->~instru_t();
     dr_global_free(instru, MAX_INSTRU_SIZE);
 
-    if (op_offline.get_value())
+    if (op_offline.get_value()) {
         file_ops_func.close_file(module_file);
-    else
+        if (funclist_file != INVALID_FILE)
+            file_ops_func.close_file(funclist_file);
+    } else
         ipc_pipe.close();
 
     if (file_ops_func.exit_cb != NULL)
@@ -1686,7 +1699,14 @@ init_offline_dir(void)
     NULL_TERMINATE_BUFFER(modlist_path);
     module_file = file_ops_func.open_file(
         modlist_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
-    return (module_file != INVALID_FILE);
+
+    dr_snprintf(funclist_path, BUFFER_SIZE_ELEMENTS(funclist_path), "%s%s%s", logsubdir,
+                DIRSEP, DRMEMTRACE_FUNCTION_MAP_FILENAME);
+    NULL_TERMINATE_BUFFER(funclist_path);
+    funclist_file = file_ops_func.open_file(
+        funclist_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
+
+    return (module_file != INVALID_FILE && funclist_file != INVALID_FILE);
 }
 
 #ifdef UNIX
@@ -1744,9 +1764,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
     }
 
-    if (!func_trace_init(append_marker_seg_base))
-        DR_ASSERT(false);
-
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
 #ifdef X86
     if (op_L0_filter.get_value()) {
@@ -1799,6 +1816,11 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #endif
         if (!ipc_pipe.maximize_buffer())
             NOTIFY(1, "Failed to maximize pipe buffer: performance may suffer.\n");
+    }
+
+    if (!func_trace_init(append_marker_seg_base, file_ops_func.write_file,
+                         funclist_file)) {
+        FATAL("Failed to initialized function tracing.\n");
     }
 
     /* We need an extra for -L0_filter. */
