@@ -620,9 +620,6 @@ static void
 drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
                             instrlist_t *bb, instr_t *where, drbbdup_manager_t *manager)
 {
-    instr_t *instr;
-    opnd_t opnd;
-
     /* XXX i#4134: statistics -- insert code that tracks the number of times the fragment
      * is executed.
      */
@@ -663,8 +660,8 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
      * destroy micro-fusing (mem and immed).
      */
     opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
-    opnd = drbbdup_get_encoding_opnd();
-    instr = INSTR_CREATE_mov_ld(drcontext, scratch_reg_opnd, opnd);
+    opnd_t opnd = drbbdup_get_encoding_opnd();
+    instr_t *instr = INSTR_CREATE_mov_ld(drcontext, scratch_reg_opnd, opnd);
     instrlist_meta_preinsert(bb, where, instr);
 #endif
 }
