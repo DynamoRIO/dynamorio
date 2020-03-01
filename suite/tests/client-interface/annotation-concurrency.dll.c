@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -204,6 +204,15 @@ set_mode(uint context_id, uint new_mode)
             context->mode_history[context->mode_history_index++] = new_mode;
     }
     dr_mutex_unlock(context_lock);
+}
+
+static void
+get_pc(void)
+{
+    app_pc pc = (app_pc)dr_read_saved_reg(dr_get_current_drcontext(), SPILL_SLOT_2);
+    module_data_t *exe = dr_get_main_module();
+    ASSERT(pc >= exe->start && pc <= exe->end);
+    dr_free_module_data(exe);
 }
 
 #if !(defined(WINDOWS) && defined(X64))
@@ -464,6 +473,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     register_call("test_annotation_rotate_valgrind_handler",
                   (void *)rotate_valgrind_handler, 1);
 #endif
+
+    register_call("test_annotation_get_pc", (void *)get_pc, 0);
+    dr_annotation_pass_pc("test_annotation_get_pc");
 
     register_call("test_annotation_eight_args", (void *)test_eight_args_v1, 8);
     register_call("test_annotation_eight_args", (void *)test_eight_args_v2, 8);

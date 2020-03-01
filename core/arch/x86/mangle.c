@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -3404,6 +3404,12 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
             args = HEAP_ARRAY_ALLOC(dcontext, opnd_t, handler->num_args, ACCT_CLEANCALL,
                                     UNPROTECTED);
             memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
+        }
+        if (handler->pass_pc_in_slot) {
+            app_pc pc = GET_ANNOTATION_APP_PC(label_data);
+            instrlist_insert_mov_immed_ptrsz(
+                dcontext, (ptr_int_t)pc, dr_reg_spill_slot_opnd(dcontext, SPILL_SLOT_2),
+                ilist, label, NULL, NULL);
         }
         dr_insert_clean_call_ex_varg(dcontext, ilist, label,
                                      receiver->instrumentation.callback,
