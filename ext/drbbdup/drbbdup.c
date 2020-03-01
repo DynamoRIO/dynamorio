@@ -677,7 +677,6 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
                         drbbdup_case_t *current_case)
 {
     instr_t *instr;
-    opnd_t opnd;
 
     ASSERT(next_label != NULL, "the label to the next bb copy cannot be NULL");
 
@@ -689,7 +688,7 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
     instrlist_meta_preinsert(bb, where, instr);
 #elif X86_32
     /* Note, DRBBDUP_SCRATCH_REG contains the runtime case encoding. */
-    opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
+    opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
     instr = INSTR_CREATE_cmp(drcontext, opnd_create_reg(DRBBDUP_SCRATCH_REG), opnd);
     instrlist_meta_preinsert(bb, where, instr);
 #endif
