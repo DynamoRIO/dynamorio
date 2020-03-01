@@ -686,9 +686,9 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
 
 #ifdef X86_64
     opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
-    instrlist_insert_mov_immed_ptrsz(drcontext, current_case->encoding, &scratch_reg_opnd,
+    instrlist_insert_mov_immed_ptrsz(drcontext, current_case->encoding, scratch_reg_opnd,
                                      bb, where, NULL, NULL);
-    instr = INSTR_CREATE_cmp(drcontext, drbbdup_get_encoding_opnd(), opnd);
+    instr = INSTR_CREATE_cmp(drcontext, drbbdup_get_encoding_opnd(), scratch_reg_opnd);
     instrlist_meta_preinsert(bb, where, instr);
 #elif X86_32
     /* Note, DRBBDUP_SCRATCH_REG contains the runtime case encoding. */
