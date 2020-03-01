@@ -273,6 +273,18 @@ drbbdup_exit(void);
 
 DR_EXPORT
 /**
+ * Registers a non-default case encoding \p encoding. The function should only be called
+ * by a #drbbdup_set_up_bb_dups_t call-back function which provides \p drbbdup_ctx.
+ *
+ * The same encoding cannot be registered more than once.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drbbdup_status_t
+drbbdup_register_case_encoding(void *drbbdup_ctx, uintptr_t encoding);
+
+DR_EXPORT
+/**
  * Sets the runtime case encoding \p encoding.
  *
  * Must be called from a clean call inserted via a drbbdup_insert_encode_t call-back
@@ -293,16 +305,6 @@ DR_EXPORT
  */
 opnd_t
 drbbdup_get_encoding_opnd();
-
-DR_EXPORT
-/**
- * Registers a non-default case encoding \p encoding. The function should only be called
- * by a #drbbdup_set_up_bb_dups_t call-back function which provides \p drbbdup_ctx.
- *
- * @return whether successful or an error code on failure.
- */
-drbbdup_status_t
-drbbdup_register_case_encoding(void *drbbdup_ctx, uintptr_t encoding);
 
 DR_EXPORT
 /**

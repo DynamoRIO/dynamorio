@@ -657,6 +657,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     /* Restore all unreserved registers used by the call-back. */
     drreg_restore_all(drcontext, bb, where);
 
+#ifdef X86_32
     /* Load the encoding to the scratch register.
      * The dispatcher could compare directly via mem, but this will
      * destroy micro-fusing (mem and immed).
@@ -665,6 +666,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     opnd = drbbdup_get_encoding_opnd();
     instr = INSTR_CREATE_mov_ld(drcontext, scratch_reg_opnd, opnd);
     instrlist_meta_preinsert(bb, where, instr);
+#endif
 }
 
 /* At the start of a bb copy, dispatcher code is inserted. The runtime encoding
@@ -682,16 +684,25 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
 
     ASSERT(next_label != NULL, "the label to the next bb copy cannot be NULL");
 
-    opnd = opnd_create_immed_uint((uintptr_t)current_case->encoding, OPSZ_PTR);
+#ifdef X86_64
+    opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
+    instrlist_insert_mov_immed_ptrsz(drcontext, current_case->encoding, &scratch_reg_opnd,
+                                     bb, where, NULL, NULL);
+    instr = INSTR_CREATE_cmp(drcontext, drbbdup_get_encoding_opnd(), opnd);
+    instrlist_meta_preinsert(bb, where, instr);
+#elif X86_32
+    /* Note, DRBBDUP_SCRATCH_REG contains the runtime case encoding. */
+    opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
     instr = INSTR_CREATE_cmp(drcontext, opnd_create_reg(DRBBDUP_SCRATCH_REG), opnd);
     instrlist_meta_preinsert(bb, where, instr);
+#endif
 
     /* If runtime encoding not equal to encoding of current case, just jump to next.
      */
     instr = INSTR_CREATE_jcc(drcontext, OP_jnz, opnd_create_instr(next_label));
     instrlist_meta_preinsert(bb, where, instr);
 
-    /* If fall-through, restore regs back to original values. */
+    /* If fall-through, restore regs back to their original values. */
     drbbdup_insert_landing_restoration(drcontext, bb, where, manager);
 }
 
@@ -775,7 +786,7 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
         else
             pt->last_instr = instr_get_prev(end_instr); /* Update cache to last instr. */
 
-        /* Check whether we reached last bb version (namely the default case). */
+        /* Check whether we reached the last bb version (namely the default case). */
         instr_t *next_bb_label = drbbdup_next_start(end_instr);
         if (next_bb_label == NULL) {
             pt->case_index = DRBBDUP_DEFAULT_INDEX; /* Refer to default. */
@@ -956,7 +967,7 @@ drbbdup_include_encoding(drbbdup_manager_t *manager, uintptr_t new_encoding)
 static void
 deleted_frag(void *drcontext, void *tag)
 {
-    /* drcontext could be NULL during process exit. */
+    /* Note, drcontext could be NULL during process exit. */
     if (drcontext == NULL)
         return;
 
