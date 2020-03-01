@@ -64,7 +64,7 @@ public:
 
 protected:
     void
-    closeEvent(QCloseEvent *event);
+    closeEvent(QCloseEvent *event) override;
 
 private slots:
     void
