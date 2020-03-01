@@ -33,7 +33,7 @@
 /**
 ***************************************************************************
 ***************************************************************************
-\page page_drreg Multi-Instrumentation Manager
+\page page_drreg Register Management
 
 The \p drreg DynamoRIO Register Management Extension is a mediator for
 selecting, preserving, and using registers among multiple instrumentation
