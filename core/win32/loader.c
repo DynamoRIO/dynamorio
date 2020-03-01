@@ -1030,7 +1030,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
      * an app exception: FIXME: should we raise a better error message?
      */
     *size = 0; /* map at full size */
-    if (dynamo_heap_initialized) {
+    if (dynamo_heap_initialized && !standalone_library) {
         /* These hold the DR lock and update DR areas */
         map_func = d_r_map_file;
         unmap_func = d_r_unmap_file;
