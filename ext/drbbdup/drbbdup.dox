@@ -39,15 +39,15 @@ The \p drbbdup DynamoRIO Basic Block Duplicator Extension provides a mechanism
 to efficiently support different instrumentations of the same basic blocks.
 Although flushing is one viable approach to achieve this functionality,
 it unfortunately also incurs high overheads. Instead, drbbdup duplicates the
-code of the basic block to generate multiple copies and enables a client to 
-instrument these copies with different code insertions. 
+code of the basic block to generate multiple copies and enables a client to
+instrument these copies with different code insertions.
 
 \image html drbbdup_image.svg
 
 The duplication of a basic block is done at
-drmgr's app2app stage. Copies are prepended with a START label, 
-and appended with a jump instruction to direct control to the EXIT label. 
-Note that the last code version does not need this jump. 
+drmgr's app2app stage. Copies are prepended with a START label,
+and appended with a jump instruction to direct control to the EXIT label.
+Note that the last code version does not need this jump.
 Each basic block copy is set to handle a case of instrumentation. A case is
 denoted as a unique pointer-sized value that is registered by the client. The last
 basic block always handles the default case. During the insertion stage, the code
@@ -79,26 +79,26 @@ of user-defined call-back functions which dictate how drbbdup manages duplicatio
 
 \section sec_drbbdup_bb Duplication
 
-When drbbdup encounters a new basic block, it invokes the #drbbdup_set_up_bb_dups_t 
+When drbbdup encounters a new basic block, it invokes the #drbbdup_set_up_bb_dups_t
 call-back function. This enables the client to return the encoding value of the
 default case as well as register additional case encodings via
 \p drbbdup_register_case_encoding(). The client may also completely
 disable duplication for this particular basic block by falsifying a flag that is
-provided to the call-back function.  
+provided to the call-back function.
 
 \section sec_drbbdup_analysis Case Analysis
 
 There are two types of analysis call-back functions that are supported by drbbdup.
 The #drbbdup_analyze_orig_t call-back function is invoked per fragment, while the
 #drbbdup_analyze_case_t call-back function is triggered for each registered
-case. The former enables the client to derive analysis data of the basic 
+case. The former enables the client to derive analysis data of the basic
 block that is made available during the instrumentation of all cases. Usually, the
-analysis conducted is expensive and is therefore implemented in this call-back 
+analysis conducted is expensive and is therefore implemented in this call-back
 function to avoid its repetition when managing each case. Meanwhile,
 the #drbbdup_analyze_case_t call-back function is analysis done particularly
 for a given case.
 
-The client may implement #drbbdup_destroy_orig_analysis_t and 
+The client may implement #drbbdup_destroy_orig_analysis_t and
 #drbbdup_destroy_case_analysis_t call-back functions to destroy the respective
 analysis data.
 
@@ -107,13 +107,13 @@ analysis data.
 In order for drbbdup to dispatch control to the appropriate basic block copy, it
 needs to determine the current runtime case encoding value. Essentially, this process
 depends on the use-case, and therefore drbbdup invokes the # call-back function to
-obtain the encoding from the client. 
+obtain the encoding from the client.
 
 In terms of implementation, the call-back function must store the runtime case encoding
 to memory maintained by drbbdup. This can be achieved by calling
-drbbdup_get_encoding_opnd(), which returns a 
+drbbdup_get_encoding_opnd(), which returns a
 memory reference operand that acts as the destination to a store instruction. However,
-if the encoder is implemented via a clean-call, then drbbdup_set_encoding() 
+if the encoder is implemented via a clean-call, then drbbdup_set_encoding()
 should be used to set the value.
 
 \section sec_drbbdup_instrum Case Instrumentation
@@ -128,9 +128,8 @@ in order to ensure correct instrumentation.
 
 drbbdup also provides drbbdup_is_first_instr() and drbbdup_is_last_instr()
 to determine whether the passed instruction is the first
-or last instruction of a basic block copy respectively. 
+or last instruction of a basic block copy respectively.
 
 */
 
 #TODO i#4134: Explain stat gather and dynamic case handling.
-
