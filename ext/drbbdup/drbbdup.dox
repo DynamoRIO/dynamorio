@@ -106,8 +106,8 @@ analysis data.
 
 In order for drbbdup to dispatch control to the appropriate basic block copy, it
 needs to determine the current runtime case encoding value. Essentially, this process
-depends on the use-case, and therefore drbbdup invokes the # call-back function to
-obtain the encoding from the client.
+depends on the use-case, and therefore drbbdup invokes the #drbbdup_insert_encode_t
+call-back function to obtain the encoding from the client.
 
 In terms of implementation, the call-back function must store the runtime case encoding
 to memory maintained by drbbdup. This can be achieved by calling
