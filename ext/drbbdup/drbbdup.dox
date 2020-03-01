@@ -39,22 +39,23 @@ The \p drbbdup DynamoRIO Basic Block Duplicator Extension provides a mechanism
 to efficiently support different instrumentations of the same basic blocks.
 Although flushing is one viable approach to achieve this functionality,
 it unfortunately also incurs high overheads. Instead, drbbdup duplicates the
-code of the basic block to generate multiple copies and enables a client to
+code of each basic block to generate multiple copies and enables a client to
 instrument these copies with different code insertions.
 
 \image html drbbdup_image.svg
 
 The duplication of a basic block is done at
-drmgr's app2app stage. Copies are prepended with a START label,
-and appended with a jump instruction to direct control to the EXIT label.
+drmgr's app2app stage. Copies are prefixed by a START label,
+and followed by a jump instruction to direct control to the EXIT label.
 Note that the last code version does not need this jump.
-Each basic block copy is set to handle a case of instrumentation. A case is
-denoted as a unique pointer-sized value that is registered by the client. The last
-basic block always handles the default case. During the insertion stage, the code
-of the dispatcher is prepended to the fragment. The dispatcher encodes the current
-runtime case as instructed by the client, and compares the encoding with those of
-the handled cases. If a match is found, the dispatcher directs control to the appropriate
-basic block. Otherwise, the basic block handling the default case is executed.
+Each basic block copy is set to handle a particular case of instrumentation.
+A case is identified by a unique pointer-sized value that is registered by the client.
+The last basic block always handles the default case. During the insertion stage,
+the code of the dispatcher is prepended to the fragment. The dispatcher encodes
+the current runtime case as instructed by the client, and compares the encoding
+with those of the handled cases. If a match is found, the dispatcher directs
+control to the appropriate basic block. Otherwise, the basic block handling
+the default case is executed.
 
  - \ref sec_drbbdup_init
  - \ref sec_drbbdup_bb

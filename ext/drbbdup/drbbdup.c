@@ -55,7 +55,7 @@
 
 #ifndef X86
 /* TODO i#4134: ARM not yet supported. */
-#    error
+#    error ARM is not yet supported
 #endif
 
 #define HASH_BIT_TABLE 13
@@ -65,7 +65,7 @@ typedef enum {
     DRBBDUP_XAX_REG_SLOT = 1,
     DRBBDUP_FLAG_REG_SLOT = 2,
     DRBBDUP_SLOT_COUNT = 3, /* Need to update if more slots are added. */
-} drbbdup_thread_slots;
+} drbbdup_thread_slots_t;
 
 /* A scratch register used by drbbdup's dispatcher. */
 #define DRBBDUP_SCRATCH_REG DR_REG_XAX
@@ -115,7 +115,7 @@ static reg_id_t tls_raw_reg;
 static uint tls_raw_base;
 
 static void
-drbbdup_set_tls_raw_slot_val(int slot_idx, uintptr_t *val)
+drbbdup_set_tls_raw_slot_val(drbbdup_thread_slots_t slot_idx, uintptr_t *val)
 {
     ASSERT(0 <= slot_idx && slot_idx < DRBBDUP_SLOT_COUNT, "out-of-bounds slot index");
     byte *base = dr_get_dr_segment_base(tls_raw_reg);
@@ -124,7 +124,7 @@ drbbdup_set_tls_raw_slot_val(int slot_idx, uintptr_t *val)
 }
 
 static opnd_t
-drbbdup_get_tls_raw_slot_opnd(int slot_idx)
+drbbdup_get_tls_raw_slot_opnd(drbbdup_thread_slots_t slot_idx)
 {
     return opnd_create_far_base_disp_ex(tls_raw_reg, REG_NULL, REG_NULL, 1,
                                         tls_raw_base + (slot_idx * (sizeof(void *))),
