@@ -84,6 +84,7 @@ macro (add_exported_library name type)
   add_library(${name} ${type} ${ARGN})
   DR_export_target(${name})
   install_exported_target(${name} ${INSTALL_CLIENTS_LIB})
+  add_dependencies(${name} api_headers)
 endmacro ()
 
 add_exported_library(drmemtrace_reuse_distance STATIC tools/reuse_distance.cpp)

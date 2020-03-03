@@ -124,7 +124,7 @@ func_view_t::process_memref_for_markers(void *shard_data, const memref_t &memref
         return;
     switch (memref.marker.marker_type) {
     case TRACE_MARKER_TYPE_FUNC_ID:
-        shard->last_func_id = memref.marker.marker_value;
+        shard->last_func_id = static_cast<int>(memref.marker.marker_value);
         break;
     case TRACE_MARKER_TYPE_FUNC_RETADDR:
         assert(shard->last_func_id != -1);
