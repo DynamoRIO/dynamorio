@@ -43,9 +43,6 @@
 #include <vector>
 #include <assert.h>
 
-#define EXPANDSTR(x) #x
-#define STRINGIFY(x) EXPANDSTR(x)
-
 const std::string func_view_t::TOOL_NAME = "Function view tool";
 
 analysis_tool_t *
@@ -71,7 +68,7 @@ func_view_t::initialize()
     std::string error =
         directory_.initialize_funclist_file(funclist_file_path_, &entries);
     if (!error.empty())
-        return "Failed to read " + funclist_file_path_ + error;
+        return "Failed to read " + funclist_file_path_ + " " + error;
     for (const auto &entry : entries) {
         id2name_[entry.first].insert(entry.second);
     }
@@ -97,7 +94,7 @@ func_view_t::parallel_shard_init(int shard_index, void *worker_data)
     auto shard_data = new shard_data_t;
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard_map_[shard_index] = shard_data;
-    return reinterpret_cast<void *>(shard_data);
+    return shard_data;
 }
 
 bool
