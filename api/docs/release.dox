@@ -241,6 +241,7 @@ Further non-compatibility-affecting changes include:
    of a basic block.
  - Added drreg_restore_all() to restore all unreserved registers currently
    maintained by drreg.
+ - Added a func_view tool to drcachesim for analyzing function traces.
 
 **************************************************
 <hr>
