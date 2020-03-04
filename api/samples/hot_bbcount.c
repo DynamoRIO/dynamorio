@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,9 +38,11 @@
  * basic block instrumentation.
  *
  * Two cases of instrumentation are set for a basic block. The first
- * version is not instrumented with .
- * The second version is executed only when the bb is hot and has code inserted
- * to count its execution.
+ * version is executed when a basic block is cold. The basic block's hit
+ * count is recorded by performing a clean call in this instrumentation case.
+ * The second version is executed when the basic block has reached the appropriate
+ * hit count (i.e., it is not considered hot). Code is inserted to count the
+ * execution of the hot basic block similar to the bbcount client.
  */
 
 #include <stddef.h> /* for offsetof */
@@ -52,7 +54,7 @@
 #include "hashtable.h"
 
 /* Start counting once a bb has been executed at least 10 times. */
-#define HIT_THRESHOLD 10
+#define HIT_THRESHOLD 1000
 
 #ifdef WINDOWS
 #    define DISPLAY_STRING(msg) dr_messagebox(msg)
@@ -65,7 +67,7 @@
 /* we only have a global count */
 static int global_count;
 
-/* Global hash table. */
+/* Global hash table to keep track of the hit count of cold basic blocks. */
 static hashtable_t hit_count_table;
 #define HASH_BITS 13
 
@@ -77,7 +79,8 @@ event_exit(void)
     int len;
     len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
                       "Instrumentation results:\n"
-                      "%10d basic block executions\n" global_count);
+                      "%10d basic block executions\n",
+                      global_count);
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
     DISPLAY_STRING(msg);
@@ -96,9 +99,8 @@ static uintptr_t
 set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
                bool *enable_dups, void *user_data)
 {
-    /* Init hit count */
+    /* Init hit count. */
     app_pc bb_pc = instr_get_app_pc(instrlist_first_app(bb));
-    dr_fprintf(STDERR, "Set: %p\n", bb_pc);
     hashtable_lock(&hit_count_table);
     if (hashtable_lookup(&hit_count_table, bb_pc) == NULL) {
         /* If hit count is not mapped to this bb, then add a new count to the table */
@@ -119,19 +121,31 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
 }
 
 static void
+analyse_orig_bb(void *drcontext, instrlist_t *bb, void *user_data,
+                IN void **orig_analysis_data)
+{
+    /* Extract bb_pc and set store it as analysis data. */
+    app_pc *bb_pc = dr_thread_alloc(drcontext, sizeof(app_pc));
+    *bb_pc = instr_get_app_pc(instrlist_first_app(bb));
+    *orig_analysis_data = bb_pc;
+}
+
+static void
+destroy_orig_analysis(void *drcontext, void *user_data, void *bb_pc)
+{
+    /* Destroy the orig analysis data, particularly the pc of the bb. */
+    DR_ASSERT(bb_pc != NULL);
+    dr_thread_free(drcontext, bb_pc, sizeof(app_pc));
+}
+
+static void
 encode(app_pc bb_pc)
 {
     bool is_hot;
     hashtable_lock(&hit_count_table);
     uint *hit_count = hashtable_lookup(&hit_count_table, bb_pc);
-    dr_fprintf(STDERR, "Check: %p\n", bb_pc);
     DR_ASSERT_MSG(hit_count != NULL, "hit count must be present");
-    if (*hit_count == 0)
-        is_hot = true;
-    else {
-        is_hot = false;
-        (*hit_count)--;
-    }
+    is_hot = *hit_count == 0;
     hashtable_unlock(&hit_count_table);
 
     drbbdup_set_encoding((uintptr_t)is_hot);
@@ -141,9 +155,23 @@ static void
 insert_encode(void *drcontext, instrlist_t *bb, instr_t *where, void *user_data,
               void *orig_analysis_data)
 {
-    app_pc bb_pc = instr_get_app_pc(instrlist_first_app(bb));
+    app_pc *bb_pc = (app_pc *)orig_analysis_data;
     dr_insert_clean_call(drcontext, bb, where, encode, false, 1,
-                         OPND_CREATE_INTPTR(bb_pc));
+                         OPND_CREATE_INTPTR(*bb_pc));
+}
+
+static void
+register_hit(app_pc bb_pc)
+{
+    /* Decrement the hit count. Once it reaches zero,
+     * basic block is considered as hot.
+     */
+    hashtable_lock(&hit_count_table);
+    uint *hit_count = hashtable_lookup(&hit_count_table, bb_pc);
+    DR_ASSERT_MSG(hit_count != NULL, "hit count must be present");
+    DR_ASSERT_MSG(hit_count > 0, "bb cannot be hot");
+    (*hit_count)--;
+    hashtable_unlock(&hit_count_table);
 }
 
 static void
@@ -160,16 +188,25 @@ instrument_instr(void *drcontext, instrlist_t *bb, instr_t *instr, instr_t *wher
      */
     drmgr_disable_auto_predication(drcontext, bb);
 
-    /* Check if hot case */
-    if (encoding == 1) {
-        drbbdup_is_first_instr(drcontext, instr, &is_start);
-        if (is_start) {
+    /* Determine whether the instr is the first instruction in the
+     * currently considered basic block copy.
+     */
+    drbbdup_is_first_instr(drcontext, instr, &is_start);
+    if (is_start) {
+        /* Check if hot case. */
+        if (encoding == 1) {
             /* racy update on the counter for better performance */
             drx_insert_counter_update(drcontext, bb, where /*insert always at where */,
                                       /* We're using drmgr, so these slots
                                        * here won't be used: drreg's slots will be.
                                        */
                                       SPILL_SLOT_MAX + 1, &global_count, 1, 0);
+
+        } else {
+            /* Basic block is cold. Therefore insert clean call to mark the hit. */
+            app_pc *bb_pc = (app_pc *)orig_analysis_data;
+            dr_insert_clean_call(drcontext, bb, where /*insert always at where */,
+                                 register_hit, false, 1, OPND_CREATE_INTPTR(*bb_pc));
         }
     }
 }
@@ -197,12 +234,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                       false /*synchronization is external*/, destroy_hit_count, NULL,
                       NULL);
 
-    /* Initialise drbbdup. */
+    /* Initialise drbbdup. Essentially, drbbdup requires
+     * the client to pass a set of call-back functions.
+     */
     drbbdup_options_t opts = { sizeof(drbbdup_options_t),
                                set_up_bb_dups,
                                insert_encode,
-                               NULL,
-                               NULL,
+                               analyse_orig_bb,
+                               destroy_orig_analysis,
                                NULL,
                                NULL,
                                instrument_instr,
