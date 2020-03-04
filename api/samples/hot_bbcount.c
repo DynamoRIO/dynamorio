@@ -41,7 +41,7 @@
  * version is executed when a basic block is cold. The basic block's hit
  * count is recorded by performing a clean call in this instrumentation case.
  * The second version is executed when the basic block has reached the appropriate
- * hit count (i.e., it is not considered hot). Code is inserted to count the
+ * hit count (i.e., it is now considered hot). Code is inserted to count the
  * execution of the hot basic block similar to the bbcount client.
  */
 
@@ -148,6 +148,7 @@ encode(app_pc bb_pc)
     is_hot = *hit_count == 0;
     hashtable_unlock(&hit_count_table);
 
+    /* Set current runtime case encoding. */
     drbbdup_set_encoding((uintptr_t)is_hot);
 }
 
