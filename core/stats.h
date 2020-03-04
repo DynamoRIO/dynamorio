@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -129,10 +129,11 @@ typedef struct {
 
 extern timestamp_t kstat_ignore_context_switch;
 
-#    define KSTAT_THREAD_NO_PV_START(dc)                                       \
-        do {                                                                   \
-            dcontext_t *cur_dcontext = (dc);                                   \
-            if (cur_dcontext != NULL && cur_dcontext->thread_kstats != NULL) { \
+#    define KSTAT_THREAD_NO_PV_START(dc)                                   \
+        do {                                                               \
+            dcontext_t *cur_dcontext = (dc);                               \
+            if (cur_dcontext != NULL && cur_dcontext != GLOBAL_DCONTEXT && \
+                cur_dcontext->thread_kstats != NULL) {                     \
                 kstat_stack_t *ks = &cur_dcontext->thread_kstats->stack_kstats;
 
 #    define KSTAT_THREAD_NO_PV_END() \
