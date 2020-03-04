@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,26 +30,26 @@
  * DAMAGE.
  */
 
-/* view tool creation */
+/* func_view tool creation */
 
-#ifndef _VIEW_CREATE_H_
-#define _VIEW_CREATE_H_ 1
+#ifndef _FUNC_VIEW_CREATE_H_
+#define _FUNC_VIEW_CREATE_H_ 1
 
 #include "analysis_tool.h"
 
 /**
- * @file drmemtrace/view_create.h
- * @brief DrMemtrace view trace analysis tool creation.
+ * @file drmemtrace/func_view_create.h
+ * @brief DrMemtrace func_view trace analysis tool creation.
  */
 
 /**
- * Creates an analysis tool which prints out the disassembled instructions from
- * the binary in the order they are present in the trace. This tool needs access
- * to the modules.log and original libraries and binaries from the traced execution.
- * It does not support online analysis.
+ * Creates an analysis tool which prints out statistics on function calls and
+ * returns for functions enabled by the -record_heap or -record_function options
+ * when tracing.  If 'full_trace' is true, every call is printed with its arguments
+ * and return value.  Otherwise, only a summary is shown.
  */
 analysis_tool_t *
-view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
-                 uint64_t sim_refs, const std::string &syntax, unsigned int verbose = 0);
+func_view_tool_create(const std::string &funclist_file_path, bool full_trace,
+                      unsigned int verbose = 0);
 
 #endif /* _OPCODE_MIX_CREATE_H_ */

@@ -3076,6 +3076,10 @@ endif ()
       torunonly_drcacheoff(view ${ci_shared_app} ""
         "@-simulator_type@view@-sim_refs@16384" "")
 
+      set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.
+      torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
+        "@-simulator_type@func_view" "only_5")
+
       if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
         torunonly_drcacheoff(rseq linux.rseq "" "@-test_mode" "")
       endif ()
