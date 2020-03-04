@@ -121,7 +121,7 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
 }
 
 static void
-analyse_orig_bb(void *drcontext, instrlist_t *bb, void *user_data,
+analyse_orig_bb(void *drcontext, void *tag, instrlist_t *bb, void *user_data,
                 IN void **orig_analysis_data)
 {
     /* Extract bb_pc and set store it as analysis data. */
@@ -152,8 +152,8 @@ encode(app_pc bb_pc)
 }
 
 static void
-insert_encode(void *drcontext, instrlist_t *bb, instr_t *where, void *user_data,
-              void *orig_analysis_data)
+insert_encode(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
+              void *user_data, void *orig_analysis_data)
 {
     app_pc *bb_pc = (app_pc *)orig_analysis_data;
     dr_insert_clean_call(drcontext, bb, where, encode, false, 1,
@@ -175,9 +175,9 @@ register_hit(app_pc bb_pc)
 }
 
 static void
-instrument_instr(void *drcontext, instrlist_t *bb, instr_t *instr, instr_t *where,
-                 uintptr_t encoding, void *user_data, void *orig_analysis_data,
-                 void *analysis_data)
+instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                 instr_t *where, uintptr_t encoding, void *user_data,
+                 void *orig_analysis_data, void *analysis_data)
 {
     bool is_start;
 
