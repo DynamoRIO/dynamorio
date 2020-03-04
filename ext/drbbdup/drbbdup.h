@@ -95,8 +95,8 @@ typedef uintptr_t (*drbbdup_set_up_bb_dups_t)(void *drbbdup_ctx, void *drcontext
  *
  * @return whether successful or an error code on failure.
  */
-typedef void (*drbbdup_analyze_orig_t)(void *drcontext, instrlist_t *bb, void *user_data,
-                                       IN void **orig_analysis_data);
+typedef void (*drbbdup_analyze_orig_t)(void *drcontext, void *tag, instrlist_t *bb,
+                                       void *user_data, IN void **orig_analysis_data);
 
 /**
  * Destroys analysis data \p orig_analysis_data.
@@ -119,7 +119,7 @@ typedef void (*drbbdup_destroy_orig_analysis_t)(void *drcontext, void *user_data
  *
  * The analysis data is destroyed via a #drbbdup_analyze_case_t function.
  */
-typedef void (*drbbdup_analyze_case_t)(void *drcontext, instrlist_t *bb,
+typedef void (*drbbdup_analyze_case_t)(void *drcontext, void *tag, instrlist_t *bb,
                                        uintptr_t encoding, void *user_data,
                                        void *orig_analysis_data,
                                        IN void **case_analysis_data);
@@ -149,8 +149,9 @@ typedef void (*drbbdup_destroy_case_analysis_t)(void *drcontext, uintptr_t encod
  * The user data \p user_data is that supplied to drbbdup_init(). Analysis data
  * \p orig_analysis_data that was conducted on the original bb is also provided.
  */
-typedef void (*drbbdup_insert_encode_t)(void *drcontext, instrlist_t *bb, instr_t *where,
-                                        void *user_data, void *orig_analysis_data);
+typedef void (*drbbdup_insert_encode_t)(void *drcontext, void *tag, instrlist_t *bb,
+                                        instr_t *where, void *user_data,
+                                        void *orig_analysis_data);
 
 /**
  * A user-defined call-back function that is invoked to instrument an instruction \p
@@ -162,7 +163,7 @@ typedef void (*drbbdup_insert_encode_t)(void *drcontext, instrlist_t *bb, instr_
  * \p orig_analysis_data and \p case_analysis_data are also provided.
  *
  */
-typedef void (*drbbdup_instrument_instr_t)(void *drcontext, instrlist_t *bb,
+typedef void (*drbbdup_instrument_instr_t)(void *drcontext, void *tag, instrlist_t *bb,
                                            instr_t *instr, instr_t *where,
                                            uintptr_t encoding, void *user_data,
                                            void *orig_analysis_data,
