@@ -82,7 +82,7 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
 }
 
 static void
-orig_analyse_bb(void *drcontext, instrlist_t *bb, void *user_data,
+orig_analyse_bb(void *drcontext, void *tag, instrlist_t *bb, void *user_data,
                 void **orig_analysis_data)
 {
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
@@ -99,8 +99,8 @@ destroy_orig_analysis(void *drcontext, void *user_data, void *orig_analysis_data
 }
 
 static void
-analyse_bb(void *drcontext, instrlist_t *bb, uintptr_t encoding, void *user_data,
-           void *orig_analysis_data, void **analysis_data)
+analyse_bb(void *drcontext, void *tag, instrlist_t *bb, uintptr_t encoding,
+           void *user_data, void *orig_analysis_data, void **analysis_data)
 {
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
     CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
@@ -155,8 +155,8 @@ encode()
 }
 
 static void
-insert_encode(void *drcontext, instrlist_t *bb, instr_t *where, void *user_data,
-              void *orig_analysis_data)
+insert_encode(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
+              void *user_data, void *orig_analysis_data)
 {
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
     CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
@@ -171,9 +171,9 @@ print_case(uintptr_t case_val)
 }
 
 static void
-instrument_instr(void *drcontext, instrlist_t *bb, instr_t *instr, instr_t *where,
-                 uintptr_t encoding, void *user_data, void *orig_analysis_data,
-                 void *analysis_data)
+instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                 instr_t *where, uintptr_t encoding, void *user_data,
+                 void *orig_analysis_data, void *analysis_data)
 {
     bool is_start;
     drbbdup_status_t res;
