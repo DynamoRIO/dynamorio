@@ -84,6 +84,7 @@ macro (add_exported_library name type)
   add_library(${name} ${type} ${ARGN})
   DR_export_target(${name})
   install_exported_target(${name} ${INSTALL_CLIENTS_LIB})
+  add_dependencies(${name} api_headers)
 endmacro ()
 
 add_exported_library(drmemtrace_reuse_distance STATIC tools/reuse_distance.cpp)
@@ -92,6 +93,7 @@ add_exported_library(drmemtrace_reuse_time STATIC tools/reuse_time.cpp)
 add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
 add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
 add_exported_library(drmemtrace_view STATIC tools/view.cpp)
+add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
 
@@ -153,7 +155,8 @@ configure_DynamoRIO_standalone(drcachesim)
 # Link in our tools:
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
-  drmemtrace_opcode_mix drmemtrace_view drmemtrace_raw2trace directory_iterator)
+  drmemtrace_opcode_mix drmemtrace_view drmemtrace_func_view
+  drmemtrace_raw2trace directory_iterator)
 if (libsnappy)
   target_link_libraries(drcachesim snappy)
 endif ()
@@ -202,6 +205,8 @@ install_client_nonDR_header(drmemtrace tools/opcode_mix_create.h)
 install_client_nonDR_header(drmemtrace simulator/cache_simulator.h)
 install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
 install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
+install_client_nonDR_header(drmemtrace tools/view_create.h)
+install_client_nonDR_header(drmemtrace tools/func_view_create.h)
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
 
 # We show one example of how to create a standalone analyzer of trace
@@ -331,6 +336,7 @@ restore_nonclient_flags(drmemtrace_reuse_time)
 restore_nonclient_flags(drmemtrace_basic_counts)
 restore_nonclient_flags(drmemtrace_opcode_mix)
 restore_nonclient_flags(drmemtrace_view)
+restore_nonclient_flags(drmemtrace_func_view)
 restore_nonclient_flags(drmemtrace_analyzer)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
@@ -374,6 +380,7 @@ add_win32_flags(drmemtrace_reuse_time)
 add_win32_flags(drmemtrace_basic_counts)
 add_win32_flags(drmemtrace_opcode_mix)
 add_win32_flags(drmemtrace_view)
+add_win32_flags(drmemtrace_func_view)
 add_win32_flags(drmemtrace_analyzer)
 add_win32_flags(directory_iterator)
 if (WIN32 AND DEBUG)
