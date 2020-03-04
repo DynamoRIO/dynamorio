@@ -53,7 +53,7 @@
 #include "drx.h"
 #include "hashtable.h"
 
-/* Start counting once a bb has been executed at least 10 times. */
+/* Start counting once a bb has been executed at least 1000 times. */
 #define HIT_THRESHOLD 1000
 
 #ifdef WINDOWS
@@ -79,7 +79,7 @@ event_exit(void)
     int len;
     len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
                       "Instrumentation results:\n"
-                      "%10d basic block executions\n",
+                      "%10d hot basic block executions\n",
                       global_count);
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
@@ -103,7 +103,7 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     app_pc bb_pc = instr_get_app_pc(instrlist_first_app(bb));
     hashtable_lock(&hit_count_table);
     if (hashtable_lookup(&hit_count_table, bb_pc) == NULL) {
-        /* If hit count is not mapped to this bb, then add a new count to the table */
+        /* If hit count is not mapped to this bb, then add a new count to the table. */
         uint *hit_count = dr_global_alloc(sizeof(uint));
         *hit_count = HIT_THRESHOLD;
         hashtable_add(&hit_count_table, bb_pc, hit_count);
@@ -124,7 +124,7 @@ static void
 analyse_orig_bb(void *drcontext, void *tag, instrlist_t *bb, void *user_data,
                 IN void **orig_analysis_data)
 {
-    /* Extract bb_pc and set store it as analysis data. */
+    /* Extract bb_pc and store it as analysis data. */
     app_pc *bb_pc = dr_thread_alloc(drcontext, sizeof(app_pc));
     *bb_pc = instr_get_app_pc(instrlist_first_app(bb));
     *orig_analysis_data = bb_pc;
@@ -158,7 +158,7 @@ insert_encode(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
 {
     app_pc *bb_pc = (app_pc *)orig_analysis_data;
     dr_insert_clean_call(drcontext, bb, where, encode, false, 1,
-                         OPND_CREATE_INTPTR(*bb_pc));
+                         OPND_CREATE_INTPTR((intptr_t)*bb_pc));
 }
 
 static void
@@ -222,10 +222,11 @@ destroy_hit_count(void *entry)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drreg_options_t ops = { sizeof(ops), 1 /*max slots needed: aflags*/, false };
+    drreg_options_t drreg_ops = { sizeof(drreg_ops), 1 /*max slots needed: aflags*/,
+                                  false };
     dr_set_client_name("DynamoRIO Sample Client 'hot_bbcount'",
                        "http://dynamorio.org/issues");
-    if (!drmgr_init() || !drx_init() || drreg_init(&ops) != DRREG_SUCCESS)
+    if (!drmgr_init() || !drx_init() || drreg_init(&drreg_ops) != DRREG_SUCCESS)
         DR_ASSERT(false);
 
     /* register events */
@@ -238,17 +239,17 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     /* Initialise drbbdup. Essentially, drbbdup requires
      * the client to pass a set of call-back functions.
      */
-    drbbdup_options_t opts = { sizeof(drbbdup_options_t),
-                               set_up_bb_dups,
-                               insert_encode,
-                               analyse_orig_bb,
-                               destroy_orig_analysis,
-                               NULL,
-                               NULL,
-                               instrument_instr,
-                               NULL,
-                               1 /* num of additional copies. */ };
-    if (drbbdup_init(&opts) != DRBBDUP_SUCCESS)
+    drbbdup_options_t drbbdup_ops = { sizeof(drbbdup_options_t),
+                                      set_up_bb_dups,
+                                      insert_encode,
+                                      analyse_orig_bb,
+                                      destroy_orig_analysis,
+                                      NULL,
+                                      NULL,
+                                      instrument_instr,
+                                      NULL,
+                                      1 /* num of additional copies. */ };
+    if (drbbdup_init(&drbbdup_ops) != DRBBDUP_SUCCESS)
         DR_ASSERT(false);
 
     /* make it easy to tell, by looking at log file, which client executed */
