@@ -31,7 +31,7 @@
  */
 
 /* Basic Block Duplicator API Sample:
- * hotbbcount.c
+ * hot_bbcount.c
  *
  * Reports the dynamic execution count of hot basic blocks.
  * Illustrates how to use drbbdup to create different versions of
