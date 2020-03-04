@@ -95,7 +95,7 @@ DR_DISALLOW_UNSAFE_STATIC
 static char logsubdir[MAXIMUM_PATH];
 static char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 static file_t module_file;
-static file_t funclist_file;
+static file_t funclist_file = INVALID_FILE;
 
 /* Max number of entries a buffer can have. It should be big enough
  * to hold all entries between clean calls.
@@ -1757,6 +1757,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     } else if (op_offline.get_value() && op_outdir.get_value().empty()) {
         FATAL("Usage error: outdir is required\nUsage:\n%s",
               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+    } else if (!op_offline.get_value() &&
+               (op_record_heap.get_value() || !op_record_function.get_value().empty())) {
+        FATAL("Usage error: function recording is only supported for -offline\n");
     }
     if (op_L0_filter.get_value() &&
         ((!IS_POWER_OF_2(op_L0I_size.get_value()) && op_L0I_size.get_value() != 0) ||
@@ -1818,7 +1821,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
             NOTIFY(1, "Failed to maximize pipe buffer: performance may suffer.\n");
     }
 
-    if (!func_trace_init(append_marker_seg_base, file_ops_func.write_file,
+    if (op_offline.get_value() &&
+        !func_trace_init(append_marker_seg_base, file_ops_func.write_file,
                          funclist_file)) {
         FATAL("Failed to initialized function tracing.\n");
     }

@@ -497,8 +497,8 @@ drbbdup_extract_single_bb_copy(void *drcontext, instrlist_t *bb, instr_t *start,
  * that transcends over different cases.
  */
 static void *
-drbbdup_do_orig_analysis(drbbdup_manager_t *manager, void *drcontext, instrlist_t *bb,
-                         instr_t *start)
+drbbdup_do_orig_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
+                         instrlist_t *bb, instr_t *start)
 {
     if (opts.analyze_orig == NULL)
         return NULL;
@@ -506,12 +506,12 @@ drbbdup_do_orig_analysis(drbbdup_manager_t *manager, void *drcontext, instrlist_
     void *orig_analysis_data = NULL;
     if (manager->enable_dup) {
         instrlist_t *case_bb = drbbdup_extract_single_bb_copy(drcontext, bb, start, NULL);
-        opts.analyze_orig(drcontext, case_bb, opts.user_data, &orig_analysis_data);
+        opts.analyze_orig(drcontext, tag, case_bb, opts.user_data, &orig_analysis_data);
         instrlist_clear_and_destroy(drcontext, case_bb);
     } else {
         /* For bb with no wanted copies, simply invoke the call-back with original bb.
          */
-        opts.analyze_orig(drcontext, bb, opts.user_data, &orig_analysis_data);
+        opts.analyze_orig(drcontext, tag, bb, opts.user_data, &orig_analysis_data);
     }
 
     return orig_analysis_data;
@@ -519,9 +519,9 @@ drbbdup_do_orig_analysis(drbbdup_manager_t *manager, void *drcontext, instrlist_
 
 /* Performs analysis specific to a case. */
 static void *
-drbbdup_handle_analysis(drbbdup_manager_t *manager, void *drcontext, instrlist_t *bb,
-                        instr_t *strt, const drbbdup_case_t *case_info,
-                        void *orig_analysis_data)
+drbbdup_do_case_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
+                         instrlist_t *bb, instr_t *strt, const drbbdup_case_t *case_info,
+                         void *orig_analysis_data)
 {
     if (opts.analyze_case == NULL)
         return NULL;
@@ -530,14 +530,14 @@ drbbdup_handle_analysis(drbbdup_manager_t *manager, void *drcontext, instrlist_t
     if (manager->enable_dup) {
         instrlist_t *case_bb = drbbdup_extract_single_bb_copy(drcontext, bb, strt, NULL);
         /* Let the user analyse the BB for the given case. */
-        opts.analyze_case(drcontext, case_bb, case_info->encoding, opts.user_data,
+        opts.analyze_case(drcontext, tag, case_bb, case_info->encoding, opts.user_data,
                           orig_analysis_data, &case_analysis_data);
         instrlist_clear_and_destroy(drcontext, case_bb);
     } else {
         /* For bb with no wanted copies, simply invoke the call-back with the original
          * bb.
          */
-        opts.analyze_case(drcontext, bb, case_info->encoding, opts.user_data,
+        opts.analyze_case(drcontext, tag, bb, case_info->encoding, opts.user_data,
                           orig_analysis_data, &case_analysis_data);
     }
 
@@ -564,15 +564,15 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
     ASSERT(manager != NULL, "manager cannot be NULL");
 
     /* Perform orig analysis - only done once regardless of how many copies. */
-    pt->orig_analysis_data = drbbdup_do_orig_analysis(manager, drcontext, bb, first);
+    pt->orig_analysis_data = drbbdup_do_orig_analysis(manager, drcontext, tag, bb, first);
 
     /* Perform analysis for default case. Note, we do the analysis even if the manager
      * does not have dups enabled.
      */
     case_info = &(manager->default_case);
     ASSERT(case_info->is_defined, "default case must be defined");
-    pt->default_analysis_data = drbbdup_handle_analysis(
-        manager, drcontext, bb, first, case_info, pt->orig_analysis_data);
+    pt->default_analysis_data = drbbdup_do_case_analysis(
+        manager, drcontext, tag, bb, first, case_info, pt->orig_analysis_data);
 
     /* Perform analysis for each (non-default) case. */
     if (manager->enable_dup) {
@@ -581,8 +581,9 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
         for (i = 0; i < opts.dup_limit; i++) {
             case_info = &(manager->cases[i]);
             if (case_info->is_defined) {
-                pt->case_analysis_data[i] = drbbdup_handle_analysis(
-                    manager, drcontext, bb, first, case_info, pt->orig_analysis_data);
+                pt->case_analysis_data[i] =
+                    drbbdup_do_case_analysis(manager, drcontext, tag, bb, first,
+                                             case_info, pt->orig_analysis_data);
             }
         }
     }
@@ -649,7 +650,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
      * drbbdup is doing that already. However, for flexibility/backwards compatibility
      * ease, this might not be the best approach.
      */
-    opts.insert_encode(drcontext, bb, where, opts.user_data, pt->orig_analysis_data);
+    opts.insert_encode(drcontext, tag, bb, where, opts.user_data, pt->orig_analysis_data);
 
     /* Restore all unreserved registers used by the call-back. */
     drreg_restore_all(drcontext, bb, where);
@@ -715,8 +716,9 @@ drbbdup_insert_dispatch_end(void *drcontext, app_pc translation_pc, void *tag,
 }
 
 static void
-drbbdup_instrument_instr(void *drcontext, instrlist_t *bb, instr_t *instr, instr_t *where,
-                         drbbdup_per_thread *pt, drbbdup_manager_t *manager)
+drbbdup_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                         instr_t *where, drbbdup_per_thread *pt,
+                         drbbdup_manager_t *manager)
 {
     drbbdup_case_t *drbbdup_case = NULL;
     void *analysis_data = NULL;
@@ -740,7 +742,7 @@ drbbdup_instrument_instr(void *drcontext, instrlist_t *bb, instr_t *instr, instr
     }
 
     ASSERT(drbbdup_case->is_defined, "case must be defined upon instrumentation");
-    opts.instrument_instr(drcontext, bb, instr, where, drbbdup_case->encoding,
+    opts.instrument_instr(drcontext, tag, bb, instr, where, drbbdup_case->encoding,
                           opts.user_data, pt->orig_analysis_data, analysis_data);
 }
 
@@ -814,7 +816,7 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
     } else if (drbbdup_is_at_end(instr)) {
         /* Handle last special instruction (if present). */
         if (is_last_special) {
-            drbbdup_instrument_instr(drcontext, bb, last, instr, pt, manager);
+            drbbdup_instrument_instr(drcontext, tag, bb, last, instr, pt, manager);
             if (pt->case_index == DRBBDUP_DEFAULT_INDEX) {
                 pt->case_index =
                     DRBBDUP_IGNORE_INDEX; /* Ignore remaining instructions. */
@@ -826,13 +828,14 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
         ASSERT(drbbdup_is_special_instr(instr), "ignored instr should be cti or syscall");
     } else {
         /* Instrument instructions inside the bb specified by pt->case_index. */
-        drbbdup_instrument_instr(drcontext, bb, instr, instr, pt, manager);
+        drbbdup_instrument_instr(drcontext, tag, bb, instr, instr, pt, manager);
     }
 }
 
 static void
-drbbdup_instrument_without_dups(void *drcontext, instrlist_t *bb, instr_t *instr,
-                                drbbdup_per_thread *pt, drbbdup_manager_t *manager)
+drbbdup_instrument_without_dups(void *drcontext, void *tag, instrlist_t *bb,
+                                instr_t *instr, drbbdup_per_thread *pt,
+                                drbbdup_manager_t *manager)
 {
     ASSERT(manager->cases == NULL, "case info should not be needed");
     ASSERT(pt != NULL, "thread-local storage should not be NULL");
@@ -846,7 +849,7 @@ drbbdup_instrument_without_dups(void *drcontext, instrlist_t *bb, instr_t *instr
     /* No dups wanted! Just instrument normally using default case. */
     ASSERT(pt->case_index == DRBBDUP_DEFAULT_INDEX,
            "case index should direct to default case");
-    drbbdup_instrument_instr(drcontext, bb, instr, instr, pt, manager);
+    drbbdup_instrument_instr(drcontext, tag, bb, instr, instr, pt, manager);
 }
 
 /* Invokes user call-backs to destroy analysis data.
@@ -907,7 +910,7 @@ drbbdup_link_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     if (manager->enable_dup)
         drbbdup_instrument_dups(drcontext, pc, tag, bb, instr, pt, manager);
     else
-        drbbdup_instrument_without_dups(drcontext, bb, instr, pt, manager);
+        drbbdup_instrument_without_dups(drcontext, tag, bb, instr, pt, manager);
 
     if (drmgr_is_last_instr(drcontext, instr))
         drbbdup_destroy_all_analyses(drcontext, manager, pt);

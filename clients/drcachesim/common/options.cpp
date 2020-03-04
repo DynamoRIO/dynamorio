@@ -94,6 +94,15 @@ droption_t<std::string> op_module_file(
     "If the file is named modules.log and is in the same directory as the trace file, "
     "or a raw/ subdirectory below the trace file, this parameter can be omitted.");
 
+droption_t<std::string> op_funclist_file(
+    DROPTION_SCOPE_ALL, "funclist_file", "",
+    "Path to function map file for func_view tool",
+    "The func_view tool needs the mapping from function name to identifier that was "
+    "recorded during offline tracing.  This data is stored in its own separate "
+    "file in the raw/ subdirectory. If the file is named funclist.log and is in the same "
+    "directory as the trace file, or a raw/ subdirectory below the trace file, this "
+    "parameter can be omitted.");
+
 droption_t<unsigned int> op_num_cores(DROPTION_SCOPE_FRONTEND, "cores", 4,
                                       "Number of cores",
                                       "Specifies the number of cores to simulate.");
@@ -276,20 +285,23 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
-droption_t<std::string> op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type",
-                                          CPU_CACHE,
-                                          "Simulator type (" CPU_CACHE ", " MISS_ANALYZER
-                                          ", " TLB ", " REUSE_DIST ", " REUSE_TIME
-                                          ", " HISTOGRAM ", or " BASIC_COUNTS ").",
-                                          "Specifies the type of the simulator. "
-                                          "Supported types: " CPU_CACHE ", " MISS_ANALYZER
-                                          ", " TLB ", " REUSE_DIST ", " REUSE_TIME
-                                          ", " HISTOGRAM "or " BASIC_COUNTS ".");
+droption_t<std::string> op_simulator_type(
+    DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
+    "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
+    ", " REUSE_TIME ", " HISTOGRAM ", " VIEW ", " FUNC_VIEW ", or " BASIC_COUNTS ").",
+    "Specifies the type of the simulator. "
+    "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
+    ", " REUSE_TIME ", " HISTOGRAM "or " BASIC_COUNTS ".");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
                                     "Verbosity level for notifications.");
 
+droption_t<bool>
+    op_show_func_trace(DROPTION_SCOPE_FRONTEND, "show_func_trace", true,
+                       "Show every traced call in the func_trace tool",
+                       "In the func_trace tool, this controls whether every traced call "
+                       "is shown or instead only aggregate statistics are shown.");
 #ifdef DEBUG
 droption_t<bool> op_test_mode(DROPTION_SCOPE_ALL, "test_mode", false, "Run sanity tests",
                               "Run extra analyses for sanity checks on the trace.");

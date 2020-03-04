@@ -167,6 +167,27 @@ raw2trace_directory_t::read_module_file(const std::string &modfilename)
 }
 
 std::string
+raw2trace_directory_t::read_funclist_file(
+    const std::string &filename, OUT std::vector<std::pair<int, std::string>> *entries)
+{
+    std::ifstream stream(filename);
+    if (!stream.good())
+        return "Failed to open " + filename;
+    std::string line;
+    while (std::getline(stream, line)) {
+        size_t comma = line.find(',');
+        if (comma == std::string::npos)
+            return "Malformed entry contains no comma";
+        std::string id_str = line.substr(0, comma);
+        std::string sym = line.substr(comma + 1);
+        int id = strtol(id_str.c_str(), nullptr, 10);
+        VPRINT(2, "%s: parsed <%d,%s>\n", __FUNCTION__, id, sym.c_str());
+        entries->push_back(std::make_pair(id, sym));
+    }
+    return "";
+}
+
+std::string
 raw2trace_directory_t::tracedir_from_rawdir(const std::string &rawdir_in)
 {
     std::string rawdir = rawdir_in;
@@ -233,7 +254,9 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     }
     std::string modfilename =
         indir_ + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
-    read_module_file(modfilename);
+    std::string err = read_module_file(modfilename);
+    if (!err.empty())
+        return err;
 
     return open_thread_files();
 }
@@ -242,6 +265,14 @@ std::string
 raw2trace_directory_t::initialize_module_file(const std::string &module_file_path)
 {
     return read_module_file(module_file_path);
+}
+
+std::string
+raw2trace_directory_t::initialize_funclist_file(
+    const std::string &funclist_file_path,
+    OUT std::vector<std::pair<int, std::string>> *entries)
+{
+    return read_funclist_file(funclist_file_path, entries);
 }
 
 raw2trace_directory_t::~raw2trace_directory_t()
