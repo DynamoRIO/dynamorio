@@ -1507,8 +1507,6 @@ binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*
     /* We support an empty range start==end in general but we do
      * complain about 0..0 to catch bugs like i#4097.
      */
-    if (dynamo_initialized)
-        start = end + 1; // NOCHECK
     ASSERT(start != NULL || end != NULL);
     if (!(start <= end || end == NULL))
         print_file(STDERR, "%s: %p-%p\n", __FUNCTION__, start, end);
