@@ -1153,7 +1153,7 @@ else ()
   # security violations.
   set(dr_os_ops -msgbox_mask 0 -dumpcore_mask 0x7d -staged)
 endif ()
-set(dr_test_ops -stderr_mask 0xC ${dr_os_ops})
+set(dr_test_ops -stderr_mask 0xF -log_to_stderr -loglevel 4 ${dr_os_ops})
 
 function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_script)
   # assumes tools have been built: enforced at top level
@@ -4177,48 +4177,7 @@ if (APPLE)
   # XXX: can we get this to automatically happen for a local "ctest" w/o
   # the user having to pass "-L OSX"?
   set_tests_properties(
-    samples_proj
     code_api|common.broadfun
-    code_api|common.fib
-    code_api|common.floatpc
-    code_api|common.floatpc_xl8all
-    code_api|common.getretaddr
-    code_api|libutil.frontend_test
-    code_api|linux.exit
-    code_api|linux.infinite
-    code_api|linux.signal0000
-    code_api|linux.signal0010
-    code_api|linux.signal0100
-    code_api|linux.signal0110
-    code_api|linux.app_tls
-    code_api|linux.fib-conflict
-    code_api|linux.fib-pie
-    code_api|security-common.codemod
-    code_api|security-common.retexisting
-    code_api|security-common.ret_noncall_trace
-    code_api|client.crashmsg
-    code_api|client.count-ctis-noopt
-    code_api|client.exception
-    code_api|client.syscall-mod
-    code_api|client.cbr-retarget
-    code_api|client.truncate
-    code_api|client.dr_options
-    code_api|client.unregister
-    code_api|client.null_instrument
-    code_api|client.option_parse
-    code_api|client.drcontainers-test
-    code_api|client.destructor
-    code_api|sample.signal
-    code_api|tool.drcpusim.cpuid-Prescott
-    code_api|tool.drcpusim.cpuid-Presler
-    code_api|tool.drcpusim.cpuid-Merom
-    code_api|tool.drcpusim.cpuid-Penryn
-    code_api|tool.drcpusim.cpuid-Westmere
-    code_api|tool.drcpusim.cpuid-Nehalem
-    code_api|api.ir
-    code_api|api.dis
-    code_api|api.ir-static
-    code_api|api.drdecode
     PROPERTIES LABELS OSX)
   if (DEBUG) # FIXME i#1806: fails in release
     set_tests_properties(code_api|client.flush PROPERTIES LABELS OSX)
