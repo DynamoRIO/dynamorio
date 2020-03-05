@@ -45,7 +45,7 @@
 #    define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
-#define NULL_TERMINATE(buf) buf[(sizeof(buf) / sizeof(buf[0])) - 1] = '\0'
+#define NULL_TERMINATE(buf) (buf)[(sizeof((buf)) / sizeof((buf)[0])) - 1] = '\0'
 
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
