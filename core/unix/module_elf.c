@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -643,7 +643,7 @@ static app_pc
 gnu_hash_lookup(const char *name, ptr_int_t load_delta, ELF_SYM_TYPE *symtab,
                 char *strtab, Elf_Symndx *buckets, Elf_Symndx *chain, ELF_ADDR *bitmask,
                 ptr_uint_t bitidx, ptr_uint_t shift, size_t num_buckets,
-                bool *is_indirect_code)
+                size_t dynstr_size, bool *is_indirect_code)
 {
     Elf_Symndx sidx;
     Elf_Symndx hidx;
@@ -663,7 +663,17 @@ gnu_hash_lookup(const char *name, ptr_int_t load_delta, ELF_SYM_TYPE *symtab,
             do {
                 if ((((*harray) ^ hidx) >> 1) == 0) {
                     sidx = harray - chain;
-                    if (elf_sym_matches(&symtab[sidx], strtab, name, is_indirect_code)) {
+                    ELF_SYM_TYPE *sym = &symtab[sidx];
+                    if (sym->st_name >= dynstr_size) {
+                        ASSERT(false && "malformed ELF symbol entry");
+                        continue;
+                    }
+                    /* Keep this consistent with symbol_is_import() in this file and
+                     * drsym_obj_symbol_offs() in ext/drsyms/drsyms_elf.c
+                     */
+                    if (sym->st_value == 0 && ELF_ST_TYPE(sym->st_info) != STT_TLS)
+                        continue; /* no value */
+                    if (elf_sym_matches(sym, strtab, name, is_indirect_code)) {
                         res = (app_pc)(symtab[sidx].st_value + load_delta);
                         break;
                     }
@@ -722,10 +732,11 @@ get_proc_address_from_os_data(os_module_data_t *os_data, ptr_int_t load_delta,
         size_t num_buckets = os_data->num_buckets;
         if (os_data->hash_is_gnu) {
             /* The new GNU hash scheme */
-            return gnu_hash_lookup(
-                name, load_delta, symtab, strtab, buckets, chain,
-                (ELF_ADDR *)os_data->gnu_bitmask, (ptr_uint_t)os_data->gnu_bitidx,
-                (ptr_uint_t)os_data->gnu_shift, num_buckets, is_indirect_code);
+            return gnu_hash_lookup(name, load_delta, symtab, strtab, buckets, chain,
+                                   (ELF_ADDR *)os_data->gnu_bitmask,
+                                   (ptr_uint_t)os_data->gnu_bitidx,
+                                   (ptr_uint_t)os_data->gnu_shift, num_buckets,
+                                   os_data->dynstr_size, is_indirect_code);
         } else {
             /* ELF hash scheme */
             return elf_hash_lookup(name, load_delta, symtab, strtab, buckets, chain,
@@ -1271,8 +1282,8 @@ symbol_iterator_stop(elf_symbol_iterator_t *iter)
 static bool
 symbol_is_import(ELF_SYM_TYPE *sym)
 {
-    /* Keep this consistent with elf_hash_lookup() at this file and
-     * drsym_obj_symbol_offs() at ext/drsyms/drsyms_elf.c.
+    /* Keep this consistent with {elf,gnu}_hash_lookup() in this file and
+     * drsym_obj_symbol_offs() in ext/drsyms/drsyms_elf.c.
      * With some older ARM and AArch64 tool chains we have st_shndx == STN_UNDEF
      * with a non-zero st_value pointing at the PLT. See i#2008.
      */
