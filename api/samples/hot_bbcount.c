@@ -86,7 +86,7 @@ event_exit(void)
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
 
-    /* Delete hit count table */
+    /* Delete hit count table. */
     hashtable_delete(&hit_count_table);
 
     drbbdup_exit();
@@ -206,7 +206,7 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
         } else {
             /* Basic block is cold. Therefore insert clean call to mark the hit. */
             app_pc *bb_pc = (app_pc *)orig_analysis_data;
-            dr_insert_clean_call(drcontext, bb, where /*insert always at where */,
+            dr_insert_clean_call(drcontext, bb, where /* insert always at where */,
                                  register_hit, false, 1, OPND_CREATE_INTPTR(*bb_pc));
         }
     }
@@ -222,7 +222,7 @@ destroy_hit_count(void *entry)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drreg_options_t drreg_ops = { sizeof(drreg_ops), 1 /*max slots needed: aflags*/,
+    drreg_options_t drreg_ops = { sizeof(drreg_ops), 1 /* max slots needed: aflags */,
                                   false };
     dr_set_client_name("DynamoRIO Sample Client 'hot_bbcount'",
                        "http://dynamorio.org/issues");
@@ -248,7 +248,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                                       NULL,
                                       instrument_instr,
                                       NULL,
-                                      1 /* num of additional copies. */ };
+                                      1 /* Only one additional copy is needed. */ };
     if (drbbdup_init(&drbbdup_ops) != DRBBDUP_SUCCESS)
         DR_ASSERT(false);
 
