@@ -157,8 +157,8 @@ insert_encode(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
               void *user_data, void *orig_analysis_data)
 {
     app_pc *bb_pc = (app_pc *)orig_analysis_data;
-    dr_insert_clean_call(drcontext, bb, where, encode, false, 1,
-                         OPND_CREATE_INTPTR((intptr_t)(*bb_pc)));
+    dr_insert_clean_call(drcontext, bb, where, (void *)encode, false, 1,
+                         OPND_CREATE_INTPTR(*bb_pc));
 }
 
 static void
@@ -207,8 +207,8 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
             /* Basic block is cold. Therefore insert clean call to mark the hit. */
             app_pc *bb_pc = (app_pc *)orig_analysis_data;
             dr_insert_clean_call(drcontext, bb, where /* insert always at where */,
-                                 register_hit, false, 1,
-                                 OPND_CREATE_INTPTR((intptr_t)(*bb_pc)));
+                                 (void *)register_hit, false, 1,
+                                 OPND_CREATE_INTPTR(*bb_pc));
         }
     }
 }
