@@ -115,6 +115,9 @@ different libraries: memtrace_x86_text, which produces a readable,
 text-mode trace, but is much slower than memtrace_x86_binary, which
 produces a binary-format trace file.
 
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/hot_bbcount.c">hot_bbcount.c</a>
+uses the drbbdup extension to count the execution of hot basic blocks which have exceeded a given hit threshold.
+
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/modxfer.c">modxfer.c</a>
 reports the control flow transfers between modules.
 
