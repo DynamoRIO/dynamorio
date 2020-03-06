@@ -1,0 +1,132 @@
+# **********************************************************
+# Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of Google, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# AppVeyor CI configuration:
+
+notifications:
+  - provider: Email
+    to:
+      - dynamorio-devs@googlegroups.com
+    on_build_success: false
+    on_build_failure: true
+    # Unfortunately there's no way to disable emails on pull requests,
+    # like Travis does, so we try to cut down on the noise by only
+    # sending out failures.
+    on_build_status_changed: false
+
+# We don't do a shallow clone of just the source archive as we want to get
+# the diff for source file checks.
+# We do limit to the last few commits to speed things up:
+clone_depth: 10
+
+# Don't run on pushes to feature branches: pull requests cover those.
+branches:
+  only:
+    - master
+
+platform: x64
+
+image: Visual Studio 2017
+
+build:
+  verbosity: detailed
+
+# i#2406: Appveyor's global serialization makes it painful to use more than
+# one configuration.  We thus officially only support a single VS version.
+configuration:
+  - 2017
+
+install:
+  ##################################################
+  # Install ninja so we have readable output.
+  - mkdir c:\projects\install
+  - cd c:\projects\install
+  - appveyor DownloadFile https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-win.zip
+  - 7z x ninja-win.zip -oc:\projects\install\ninja > nul
+  - set PATH=c:\projects\install\ninja;%PATH%
+
+  ##################################################
+  # Install packages for docs.
+  # i#4000: choco fails to download doxygen.portable so we install ourselves:
+  - appveyor DownloadFile http://doxygen.nl/files/doxygen-1.8.17.windows.x64.bin.zip
+  - 7z x doxygen-1.8.17.windows.x64.bin.zip -oc:\projects\install\doxygen > nul
+  - set PATH=c:\projects\install\doxygen;%PATH%
+
+  ##################################################
+  # XXX i#2145: point at Qt5 for testing drgui build.
+
+  # Include Dr. Memory in cronbuild packages.
+  # We're in C:/projects/install now while we'll be in C:/projects/dynamorio to build.
+  # We do shallow clones and assume DrM will update its DR at least once
+  # every 250 DR commits.
+  - ps: >-
+      If ($env:APPVEYOR_REPO_TAG -Match "true") {
+        cd ..\dynamorio
+        git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
+        cd drmemory
+        git submodule update --init --depth 250
+        cd ..\..\install
+      }
+
+before_build:
+  - if "%configuration%"=="2017" call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat"
+  - cd c:\projects\dynamorio
+
+build_script:
+  - mkdir build
+  - cd build
+  - echo %PATH%
+  # The perl in c:\perl can't open a pipe so we use cygwin perl.
+  - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl travis use_ninja %EXTRA_ARGS%
+
+# Automated deployment of builds to GitHub Releases.
+# We rely on a Travis cron job to push a tag to the repo which then
+# triggers this deployment.
+# We switch to package.cmake for these builds in runsuite_wrapper.pl by looking
+# for $APPVEYOR_REPO_TAG=="true".
+artifacts:
+  - path: 'build\DynamoRIO*.zip'
+    name: DR.zip
+    type: zip
+deploy:
+  provider: GitHub
+  auth_token:
+    secure: mfNFJ47dV/0CNpg156CiHuK3t6VUNCVhAIYNVkJfwjwY0dbhD1kIdMPfTMdarCnz
+  artifact: DR.zip
+  draft: false
+  prerelease: false
+  # We want to use the same release as Travis.
+  force_update: true
+  # Using the default "release:" name (the tag) to match Travis.
+  # This description replaces the one provided by Travis.
+  description: 'Auto-generated periodic build.'
+  on:
+    branch: master
+    appveyor_repo_tag: true
