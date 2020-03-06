@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -125,6 +125,7 @@ typedef struct _mod_entry_t {
         void *pecoff_data;
         DWORD64 load_base; /* for dbghelp */
     } u;
+    uint64 size;
 } mod_entry_t;
 
 /* All dbghelp routines are un-synchronized so we provide our own synch.
@@ -306,7 +307,7 @@ module_image_size(void *modbase)
 }
 
 static DWORD64
-load_module(HANDLE proc, const char *path)
+load_module(HANDLE proc, const char *path, OUT uint64 *size_out)
 {
     DWORD64 base, loaded_base;
     DWORD64 size;
@@ -354,6 +355,8 @@ load_module(HANDLE proc, const char *path)
         return 0;
     }
     size = module_image_size(map);
+    if (size_out != NULL)
+        *size_out = size;
     dr_unmap_file(map, actual_size);
     dr_close_file(f);
 
@@ -429,7 +432,7 @@ lookup_or_load(const char *modpath, bool use_dbghelp)
             /* If no pecoff, use dbghelp */
             if (use_dbghelp) {
                 mod->use_pecoff_symtable = false;
-                mod->u.load_base = load_module(GetCurrentProcess(), modpath);
+                mod->u.load_base = load_module(GetCurrentProcess(), modpath, &mod->size);
             }
             if (mod->u.load_base == 0) {
                 dr_global_free(mod, sizeof(*mod));
@@ -722,9 +725,17 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol, size_t *modof
      */
     info = alloc_symbol_info();
     if (SymFromName(GetCurrentProcess(), (char *)symbol, info)) {
-        NOTIFY("0x%I64x\n", info->Address);
-        *modoffs = (size_t)(info->Address - mod->u.load_base);
-        r = DRSYM_SUCCESS;
+        /* i#4153: Sometimes SymFromName returns a bogus address outside the library! */
+        if (info->Address < mod->u.load_base ||
+            info->Address >= mod->u.load_base + mod->size) {
+            NOTIFY("SymFromName => 0x%I64x outside module bounds 0x%I64x-0x%I64x\n",
+                   info->Address, mod->u.load_base, mod->u.load_base + mod->size);
+            r = DRSYM_ERROR_SYMBOL_NOT_FOUND;
+        } else {
+            NOTIFY("%s => 0x%I64x\n", __FUNCTION__, info->Address);
+            *modoffs = (size_t)(info->Address - mod->u.load_base);
+            r = DRSYM_SUCCESS;
+        }
     } else {
         NOTIFY("SymFromName error %d %s\n", GetLastError(), symbol);
         r = DRSYM_ERROR_SYMBOL_NOT_FOUND;
