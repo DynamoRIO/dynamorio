@@ -1508,8 +1508,6 @@ binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*
      * complain about 0..0 to catch bugs like i#4097.
      */
     ASSERT(start != NULL || end != NULL);
-    if (!(start <= end || end == NULL))
-        print_file(STDERR, "%s: %p-%p\n", __FUNCTION__, start, end);
     ASSERT(start <= end || end == NULL /* wraparound */);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, READWRITE);
@@ -1568,7 +1566,6 @@ static bool
 lookup_addr(vm_area_vector_t *v, app_pc addr, vm_area_t **area)
 {
     /* binary search asserts v is protected */
-    print_file(STDERR, "%s: %p\n", __FUNCTION__, addr);
     return binary_search(v, addr, addr + 1 /*open end*/, area, NULL, false);
 }
 
@@ -1579,7 +1576,6 @@ static bool
 vm_area_overlap(vm_area_vector_t *v, app_pc start, app_pc end)
 {
     /* binary search asserts v is protected */
-    print_file(STDERR, "%s: %p-%p\n", __FUNCTION__, start, end);
     return binary_search(v, start, end, NULL, NULL, false);
 }
 
@@ -2059,7 +2055,6 @@ vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev_start
 
     LOCK_VECTOR(v, release_lock, read);
     ASSERT_OWN_READWRITE_LOCK(SHOULD_LOCK_VECTOR(v), &v->lock);
-    print_file(STDERR, "%s: %p\n", __FUNCTION__, pc);
     success = !binary_search(v, pc, pc + 1, NULL, &index, false);
     if (success) {
         if (index == -1) {
@@ -3192,7 +3187,6 @@ executable_areas_match_flags(app_pc addr_start, app_pc addr_end, bool *found_are
     /* We have subpage regions from some of our rules, we should return true
      * if any area on the list that overlaps the pages enclosing the addr_[start,end)
      * region is writable */
-    print_file(STDERR, "%s: %p-%p\n", __FUNCTION__, page_start, page_end);
     while (binary_search(executable_areas, page_start, page_end, &area, NULL, true)) {
         if (found_area != NULL)
             *found_area = true;
@@ -3343,7 +3337,6 @@ executable_area_overlap_bounds(app_pc start, app_pc end, app_pc *overlap_start /
     d_r_read_lock(&executable_areas->lock);
 
     /* Find first overlapping region */
-    print_file(STDERR, "%s\n", __FUNCTION__);
     if (!binary_search(executable_areas, start, end, NULL, &start_index, true /*first*/))
         return false;
     ASSERT(start_index >= 0);
