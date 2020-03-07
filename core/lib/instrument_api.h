@@ -779,6 +779,22 @@ DR_API
  * in failure to clean up the right resources, and at process exit
  * time it may return NULL.
  *
+ * On Linux, SYS_execve may or may not result in a thread exit event.
+ * If the client registers its thread exit callback as a pre-SYS_execve
+ * callback as well, it must ensure that the callback acts as noop
+ * if called for the second time.
+ *
+ * On Linux, the thread exit event may be invoked twice for the same thread
+ * if that thread is alive during a process fork, but doesn't call the fork
+ * itself.  The first time the event callback is executed from the fork child
+ * immediately after the fork, the second time it is executed during the
+ * regular thread exit.
+ * Clients may want to avoid touching resources shared between processes,
+ * like files, from the post-fork execution of the callback. The post-fork
+ * version of the callback can be recognized by dr_get_process_id()
+ * returning a different value than it returned during the corresponding
+ * thread init event.
+ *
  * See dr_set_process_exit_behavior() for options controlling performance
  * and whether thread exit events are invoked at process exit time in
  * release build.
