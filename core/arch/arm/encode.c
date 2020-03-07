@@ -3060,7 +3060,9 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
             return NULL;
         }
         /* We need to clear all the checking fields for each new template */
-        memset(&di.errmsg, 0, sizeof(di) - offsetof(decode_info_t, errmsg));
+        /* We avoid using "&di.errmsg" to avoid a gcc 9 warning (i#4170). */
+        memset(((char *)&di) + offsetof(decode_info_t, errmsg), 0,
+               sizeof(di) - offsetof(decode_info_t, errmsg));
     }
 
     /* Encode into di.instr_word */
