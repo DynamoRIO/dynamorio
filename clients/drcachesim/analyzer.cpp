@@ -334,6 +334,8 @@ bool
 analyzer_t::print_stats()
 {
     for (int i = 0; i < num_tools_; ++i) {
+        // Each tool should reset i/o state, but we reset the format here just in case.
+        std::cerr << std::dec;
         if (!tools_[i]->print_results()) {
             error_string_ = tools_[i]->get_error_string();
             return false;

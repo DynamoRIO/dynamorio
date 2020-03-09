@@ -205,5 +205,7 @@ cache_miss_analyzer_t::print_results()
         fclose(file);
     }
 
+    // Reset the i/o format for subsequent tool invocations.
+    std::cerr << std::dec;
     return true;
 }

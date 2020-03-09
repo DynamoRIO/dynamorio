@@ -172,5 +172,7 @@ histogram_t::print_results()
         std::cerr << std::setw(18) << std::hex << std::showbase << (it->first << 6)
                   << ": " << std::dec << it->second << "\n";
     }
+    // Reset the i/o format for subsequent tool invocations.
+    std::cerr << std::dec;
     return true;
 }
