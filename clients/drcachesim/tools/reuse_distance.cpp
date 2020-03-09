@@ -358,5 +358,7 @@ reuse_distance_t::print_results()
         }
     }
 
+    // Reset the i/o format for subsequent tool invocations.
+    std::cerr << std::dec;
     return true;
 }

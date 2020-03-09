@@ -116,6 +116,8 @@ public:
     /**
      * The heart of an analysis tool, this routine operates on a single trace entry and
      * takes whatever actions the tool needs to perform its analysis.
+     * If it prints, it should leave the i/o state in a default format
+     * (std::dec) to support multiple tools.
      * The return value indicates whether it was successful.
      * On failure, get_error_string() returns a descriptive message.
      */
@@ -123,6 +125,8 @@ public:
     process_memref(const memref_t &memref) = 0;
     /**
      * This routine reports the results of the trace analysis.
+     * It should leave the i/o state in a default format (std::dec) to support
+     * multiple tools.
      * The return value indicates whether it was successful.
      * On failure, get_error_string() returns a descriptive message.
      */
