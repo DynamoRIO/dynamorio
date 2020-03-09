@@ -197,6 +197,8 @@ func_view_t::process_memref(const memref_t &memref)
     }
     default: break;
     }
+    // Reset the i/o format for subsequent tool invocations.
+    std::cerr << std::dec;
     return true;
 }
 
@@ -231,7 +233,7 @@ bool
 func_view_t::print_results()
 {
     std::unordered_map<int, func_stats_t> func_totals = compute_totals();
-    std::cerr << TOOL_NAME << " results:\n" << std::dec;
+    std::cerr << TOOL_NAME << " results:\n";
     if (func_totals.empty()) {
         std::cerr << "No functions founds.  Did you enable function tracing?:\n";
     }
