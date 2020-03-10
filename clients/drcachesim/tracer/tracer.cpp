@@ -1701,7 +1701,7 @@ init_offline_dir(void)
         modlist_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
 
     dr_snprintf(funclist_path, BUFFER_SIZE_ELEMENTS(funclist_path), "%s%s%s", logsubdir,
-                DIRSEP, DRMEMTRACE_FUNCTION_MAP_FILENAME);
+                DIRSEP, DRMEMTRACE_FUNCTION_LIST_FILENAME);
     NULL_TERMINATE_BUFFER(funclist_path);
     funclist_file = file_ops_func.open_file(
         funclist_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));

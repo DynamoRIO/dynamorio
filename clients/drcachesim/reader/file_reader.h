@@ -127,6 +127,10 @@ protected:
                 std::string fname = *iter;
                 if (fname == "." || fname == "..")
                     continue;
+                // Skip the auxiliary files.
+                if (fname == DRMEMTRACE_MODULE_LIST_FILENAME ||
+                    fname == DRMEMTRACE_FUNCTION_LIST_FILENAME)
+                    continue;
                 VPRINT(this, 2, "Found file %s\n", fname.c_str());
                 if (!open_single_file(input_path_ + DIRSEP + fname)) {
                     ERRMSG("Failed to open %s\n", fname.c_str());

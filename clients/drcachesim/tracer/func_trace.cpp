@@ -78,22 +78,24 @@ static file_t funclist_fd;
  */
 #define DRMEMTRACE_MAX_FUNC_NAME_LEN 2048
 
-/* The maximum length of a line in #DRMEMTRACE_FUNCTION_MAP_FILENAME. */
+/* The maximum length of a line in #DRMEMTRACE_FUNCTION_LIST_FILENAME. */
 #define DRMEMTRACE_MAX_QUALIFIED_FUNC_LEN (DRMEMTRACE_MAX_FUNC_NAME_LEN + 256)
 
 typedef struct {
     char name[DRMEMTRACE_MAX_FUNC_NAME_LEN];
     int id;
     int arg_num;
+    bool noret;
 } func_metadata_t;
 
 static func_metadata_t *
-create_func_metadata(const char *name, int id, int arg_num)
+create_func_metadata(const char *name, int id, int arg_num, bool noret)
 {
     func_metadata_t *f = (func_metadata_t *)dr_global_alloc(sizeof(func_metadata_t));
     strncpy(f->name, name, BUFFER_SIZE_ELEMENTS(f->name));
     f->id = id;
     f->arg_num = arg_num;
+    f->noret = noret;
     return f;
 }
 
@@ -151,6 +153,7 @@ func_post_hook(void *wrapcxt, void *user_data)
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs_wrapped, (uint)idx);
     uintptr_t retval = (uintptr_t)drwrap_get_retval(wrapcxt);
     uintptr_t f_id = (uintptr_t)f->id;
+    DR_ASSERT(!f->noret); // Shouldn't come here if noret.
 
     v->entries[v->size++] = func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_ID, f_id);
     v->entries[v->size++] = func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
@@ -235,13 +238,14 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
         } else {
             id = wrap_id++;
             drvector_append(&funcs_wrapped,
-                            create_func_metadata(f->name, id, f->arg_num));
+                            create_func_metadata(f->name, id, f->arg_num, f->noret));
             if (!hashtable_add(&pc2idplus1, (void *)f_pc, (void *)(ptr_int_t)(id + 1)))
                 DR_ASSERT(false && "Failed to maintain pc2idplus1 internal hashtable");
         }
         char qual[DRMEMTRACE_MAX_QUALIFIED_FUNC_LEN];
-        int len = dr_snprintf(qual, BUFFER_SIZE_ELEMENTS(qual), "%d,%s!%s\n", id,
-                              mod_name, f->name);
+        int len =
+            dr_snprintf(qual, BUFFER_SIZE_ELEMENTS(qual), "%d,%d,%p,%s%s!%s\n", id,
+                        f->arg_num, f_pc, f->noret ? "noret," : "", mod_name, f->name);
         if (len < 0 || len == BUFFER_SIZE_ELEMENTS(qual)) {
             NOTIFY(0, "Qualified name is too long and was truncated: %s!%s\n", mod_name,
                    f->name);
@@ -255,8 +259,8 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
             NOTIFY(1, "Duplicate-pc hook: %s!%s == id %d\n", mod_name, f->name, id);
             continue;
         }
-        if (drwrap_wrap_ex(f_pc, func_pre_hook, func_post_hook, (void *)(ptr_uint_t)id,
-                           0)) {
+        if (drwrap_wrap_ex(f_pc, func_pre_hook, f->noret ? nullptr : func_post_hook,
+                           (void *)(ptr_uint_t)id, 0)) {
             NOTIFY(1, "Inserted hooks for %s!%s @" PFX " == id %d\n", mod_name, f->name,
                    f_pc, id);
         } else {
@@ -378,10 +382,10 @@ func_trace_init(func_trace_append_entry_vec_t append_entry_vec_,
 
     for (auto &single_op_value : op_values) {
         auto items = split_by(single_op_value, PATTERN_SEPARATOR);
-        if (items.size() != 2) {
+        if (items.size() < 2 || items.size() > 3) {
             NOTIFY(0,
-                   "Error: -record_function or -record_heap_value was not"
-                   " passed a pair: %s\n",
+                   "Error: -record_function or -record_heap_value only takes 2"
+                   " or 3 fields for each function: %s\n",
                    funcs_str.c_str());
             return false;
         }
@@ -408,11 +412,21 @@ func_trace_init(func_trace_append_entry_vec_t append_entry_vec_,
                    funcs_str.c_str(), MAX_FUNC_TRACE_ENTRY_VEC_CAP - 2);
             return false;
         }
+        bool noret = false;
+        if (items.size() == 3) {
+            if (items[2] == "noret") {
+                noret = true;
+            } else {
+                NOTIFY(0, "Unknown optional flag: %s\n", items[2].c_str());
+                return false;
+            }
+        }
 
         dr_log(NULL, DR_LOG_ALL, 1, "Trace func name=%s, arg_num=%d\n", name.c_str(),
                arg_num);
         existing_names.insert(name);
-        drvector_append(&func_names, create_func_metadata(name.c_str(), 0, arg_num));
+        drvector_append(&func_names,
+                        create_func_metadata(name.c_str(), 0, arg_num, noret));
     }
 
     hashtable_init_ex(&pc2idplus1, 8, HASH_INTPTR, false /*!strdup*/, false /*!synch*/,

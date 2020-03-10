@@ -404,4 +404,19 @@ struct _offline_entry_t {
 } END_PACKED_STRUCTURE;
 typedef struct _offline_entry_t offline_entry_t;
 
+/**
+ * The name of the file in -offline mode where module data is written.
+ * Its creation can be customized using drmemtrace_custom_module_data()
+ * and then modified before passing to raw2trace via
+ * drmodtrack_add_custom_data() and drmodtrack_offline_write().
+ * Use drmemtrace_get_modlist_path() to obtain the full path.
+ */
+#define DRMEMTRACE_MODULE_LIST_FILENAME "modules.log"
+
+/**
+ * The name of the file in -offline mode where function tracing names
+ * are written.  Use drmemtrace_get_funclist_path() to obtain the full path.
+ */
+#define DRMEMTRACE_FUNCTION_LIST_FILENAME "funclist.log"
+
 #endif /* _TRACE_ENTRY_H_ */
