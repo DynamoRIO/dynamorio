@@ -75,9 +75,14 @@ get_aux_file_path(std::string option_val, std::string default_filename)
                 trace_dir = std::string(op_infile.get_value(), 0, sep_index);
         }
         file_path = trace_dir + std::string(DIRSEP) + default_filename;
+        /* Support the aux file in either raw/ or trace/. */
         if (!std::ifstream(file_path.c_str()).good()) {
-            trace_dir += std::string(DIRSEP) + OUTFILE_SUBDIR;
-            file_path = trace_dir + std::string(DIRSEP) + default_filename;
+            file_path = trace_dir + std::string(DIRSEP) + TRACE_SUBDIR +
+                std::string(DIRSEP) + default_filename;
+        }
+        if (!std::ifstream(file_path.c_str()).good()) {
+            file_path = trace_dir + std::string(DIRSEP) + OUTFILE_SUBDIR +
+                std::string(DIRSEP) + default_filename;
         }
     }
     return file_path;
@@ -186,7 +191,7 @@ drmemtrace_analysis_tool_create()
                                 op_verbose.get_value());
     } else if (op_simulator_type.get_value() == FUNC_VIEW) {
         std::string funclist_file_path = get_aux_file_path(
-            op_funclist_file.get_value(), DRMEMTRACE_FUNCTION_MAP_FILENAME);
+            op_funclist_file.get_value(), DRMEMTRACE_FUNCTION_LIST_FILENAME);
         if (funclist_file_path.empty()) {
             ERRMSG("Usage error: the func_view tool requires offline traces.\n");
             return nullptr;

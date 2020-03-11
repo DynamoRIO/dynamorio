@@ -84,11 +84,19 @@ protected:
         std::string error;
         int last_func_id = -1;
         int nesting_level = 0;
+        int arg_idx = -1;
         bool prev_was_arg = false;
         addr_t prev_pc = 0;
         app_pc last_trace_module_start = nullptr;
         size_t last_trace_module_size = 0;
+        bool prev_noret = false;
         std::string last_trace_module_name;
+    };
+    struct traced_info_t {
+        int id = -1;
+        std::set<std::string> names;
+        int num_args = 0;
+        bool noret = false;
     };
 
     static bool
@@ -103,7 +111,7 @@ protected:
     bool knob_full_trace_;
     unsigned int knob_verbose_;
 
-    std::unordered_map<int, std::set<std::string>> id2name_;
+    std::unordered_map<int, traced_info_t> id2info_;
 
     std::string funclist_file_path_;
 

@@ -63,14 +63,30 @@ func_view_t::func_view_t(const std::string &funclist_file_path, bool full_trace,
 std::string
 func_view_t::initialize()
 {
-    std::vector<std::pair<int, std::string>> entries;
+    std::vector<std::vector<std::string>> entries;
     raw2trace_directory_t directory_;
     std::string error =
         directory_.initialize_funclist_file(funclist_file_path_, &entries);
     if (!error.empty())
         return "Failed to read " + funclist_file_path_ + " " + error;
     for (const auto &entry : entries) {
-        id2name_[entry.first].insert(entry.second);
+        if (entry.size() < 4)
+            return "Invalid funclist entry: has <4 fields.";
+        int id = strtol(entry.front().c_str(), nullptr, 10);
+        // If multiple syms have the same id, the args, noret, etc. come from
+        // the first one.
+        if (id2info_.find(id) != id2info_.end()) {
+            id2info_[id].names.insert(entry.back());
+            continue;
+        }
+        traced_info_t info;
+        info.names.insert(entry.back());
+        info.num_args = strtol(entry[1].c_str(), nullptr, 10);
+        for (size_t i = 3; i < entry.size() - 1; ++i) {
+            if (entry[i] == "noret")
+                info.noret = true;
+        }
+        id2info_[id] = info;
     }
     return "";
 }
@@ -121,6 +137,8 @@ func_view_t::process_memref_for_markers(void *shard_data, const memref_t &memref
         return;
     switch (memref.marker.marker_type) {
     case TRACE_MARKER_TYPE_FUNC_ID:
+        if (shard->last_func_id != -1)
+            shard->prev_noret = id2info_[shard->last_func_id].noret;
         shard->last_func_id = static_cast<int>(memref.marker.marker_value);
         break;
     case TRACE_MARKER_TYPE_FUNC_RETADDR:
@@ -161,36 +179,57 @@ func_view_t::process_memref(const memref_t &memref)
     if (!knob_full_trace_)
         return true;
     if (memref.data.type == TRACE_TYPE_THREAD_EXIT && shard->prev_was_arg) {
-        std::cerr << ") <no return>\n";
+        if (shard->prev_noret)
+            std::cerr << ")\n";
+        else
+            std::cerr << ") <no return>\n";
     }
     if (memref.marker.type != TRACE_TYPE_MARKER)
         return true;
     switch (memref.marker.marker_type) {
     case TRACE_MARKER_TYPE_FUNC_RETADDR: {
         assert(shard->last_func_id != -1);
+        const auto &info = id2info_[shard->last_func_id];
+        bool was_nested = shard->nesting_level > 0;
+        if (shard->prev_noret)
+            --shard->nesting_level;
         std::string indent(shard->nesting_level * 4, ' ');
-        if (shard->nesting_level > 0 && shard->prev_was_arg) {
-            indent = std::string(")\n") + indent;
-        }
+        // Print a "Tnnn" prefix so threads can be distinguished.
+        std::cerr << ((was_nested && shard->prev_was_arg) ? "\n" : "") << "T" << std::dec
+                  << std::left << std::setw(7) << memref.marker.tid
+                  << std::right /*restore*/;
         std::cerr << indent << "0x" << std::hex << memref.marker.marker_value << " => "
-                  << *id2name_[shard->last_func_id].begin() << "(";
+                  << *id2info_[shard->last_func_id].names.begin() << "(";
+        if (info.num_args == 0)
+            std::cerr << ")";
         ++shard->nesting_level;
-        shard->prev_was_arg = false;
+        shard->arg_idx = 0;
+        if (info.num_args == 0)
+            shard->prev_was_arg = true;
         break;
     }
-    case TRACE_MARKER_TYPE_FUNC_ARG:
-        std::cerr << (shard->prev_was_arg ? ", " : "") << std::hex << "0x"
+    case TRACE_MARKER_TYPE_FUNC_ARG: {
+        const auto &info = id2info_[shard->last_func_id];
+        std::cerr << (shard->arg_idx > 0 ? ", " : "") << std::hex << "0x"
                   << memref.marker.marker_value;
+        ++shard->arg_idx;
         shard->prev_was_arg = true;
+        if (shard->arg_idx == info.num_args) {
+            std::cerr << ")" << (info.noret ? "\n" : "");
+            if (info.noret)
+                shard->prev_was_arg = false;
+        }
         break;
+    }
     case TRACE_MARKER_TYPE_FUNC_RETVAL: {
         --shard->nesting_level;
         std::string indent;
-        if (shard->prev_was_arg)
-            indent = "";
-        else
-            indent = std::string(shard->nesting_level * 4, ' ');
-        std::cerr << indent << (shard->prev_was_arg ? ") =>" : "=>") << std::hex << " 0x"
+        if (!shard->prev_was_arg) {
+            std::cerr
+                << "T" << std::dec << std::left << std::setw(7) << memref.marker.tid
+                << std::right /*restore*/ << std::string(shard->nesting_level * 4, ' ');
+        }
+        std::cerr << (shard->prev_was_arg ? " =>" : "=>") << std::hex << " 0x"
                   << memref.marker.marker_value << "\n";
         shard->prev_was_arg = false;
         break;
@@ -218,7 +257,7 @@ func_view_t::compute_totals()
 {
     std::unordered_map<int, func_stats_t> func_totals;
     // Initialize all to 0 to include everything, even those we never saw.
-    for (const auto &keyval : id2name_) {
+    for (const auto &keyval : id2info_) {
         func_totals[keyval.first] = func_stats_t();
     }
     for (const auto &shard : shard_map_) {
@@ -242,10 +281,10 @@ func_view_t::print_results()
                            sorted.end(), cmp_func_stats);
     for (const auto &entry : sorted) {
         std::cerr << "Function id=" << entry.first << ": ";
-        for (auto it = id2name_[entry.first].begin(); it != id2name_[entry.first].end();
-             ++it) {
+        for (auto it = id2info_[entry.first].names.begin();
+             it != id2info_[entry.first].names.end(); ++it) {
             std::cerr << *it;
-            if (std::next(it) != id2name_[entry.first].end())
+            if (std::next(it) != id2info_[entry.first].names.end())
                 std::cerr << ", ";
         }
         std::cerr << "\n";

@@ -410,7 +410,6 @@ droption_t<bool> op_reuse_verify_skip(
 
 #define OP_RECORD_FUNC_ITEM_SEP "&"
 // XXX i#3048: replace function return address with function callstack
-// XXX i#3048: add a section to drcachesim.dox.in on function tracing
 droption_t<std::string> op_record_function(
     DROPTION_SCOPE_ALL, "record_function", DROPTION_FLAG_ACCUMULATE,
     OP_RECORD_FUNC_ITEM_SEP, "",
@@ -418,14 +417,19 @@ droption_t<std::string> op_record_function(
     "Record invocations trace for the specified function(s) in the option"
     " value. Default value is empty. The value should fit this format:"
     " function_name|func_args_num"
-    " (e.g., -record_function \"memset|3\"). The trace would contain"
-    " information for function return address, function argument value(s),"
-    " and function return value. We only record pointer-sized arguments and"
+    " (e.g., -record_function \"memset|3\") with an optional suffix \"|noret\""
+    " (e.g., -record_function \"free|1|noret\"). The trace would contain"
+    " information for each function invocation's return address, function argument"
+    " value(s), and (unless \"|noret\" is specified) function return value."
+    " (If multiple requested functions map to the same address and differ in whether"
+    " \"noret\" was specified or in the number of args, the attributes from the"
+    " first one requested will be used.)"
+    " We only record pointer-sized arguments and"
     " return values. The trace identifies which function is involved"
     " via a numeric ID entry prior to each set of value entries."
     " The mapping from numeric ID to library-qualified symbolic name is recorded"
-    " during tracing in a file \"funclist.log\" which lists an \"id,library!symbol\""
-    " mapping on each line."
+    " during tracing in a file \"funclist.log\" whose format is described by the "
+    " drmemtrace_get_funclist_path() function's documentation."
     " If the target function is in the dynamic symbol table, then the function_name"
     " should be a mangled name (e.g. \"_Znwm\" for \"operator new\", \"_ZdlPv\" for"
     " \"operator delete\"). Otherwise, the function_name should be a demangled name."
@@ -447,10 +451,10 @@ droption_t<bool> op_record_heap(
 droption_t<std::string> op_record_heap_value(
     DROPTION_SCOPE_ALL, "record_heap_value", DROPTION_FLAG_ACCUMULATE,
     OP_RECORD_FUNC_ITEM_SEP,
-    "malloc|1" OP_RECORD_FUNC_ITEM_SEP "free|1" OP_RECORD_FUNC_ITEM_SEP
-    "tc_malloc|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|1" OP_RECORD_FUNC_ITEM_SEP
-    "__libc_malloc|1" OP_RECORD_FUNC_ITEM_SEP "__libc_free|1" OP_RECORD_FUNC_ITEM_SEP
-    "calloc|2",
+    "malloc|1" OP_RECORD_FUNC_ITEM_SEP "free|1|noret" OP_RECORD_FUNC_ITEM_SEP
+    "tc_malloc|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|1|noret" OP_RECORD_FUNC_ITEM_SEP
+    "__libc_malloc|1" OP_RECORD_FUNC_ITEM_SEP
+    "__libc_free|1|noret" OP_RECORD_FUNC_ITEM_SEP "calloc|2",
     "Functions recorded by -record_heap",
     "Functions recorded by -record_heap. The option value should fit the same"
     " format required by -record_function. These functions will not"

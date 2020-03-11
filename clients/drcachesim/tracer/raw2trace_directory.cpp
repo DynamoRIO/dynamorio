@@ -103,8 +103,9 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     char path[MAXIMUM_PATH];
     CHECK(basename[0] != '/', "dir iterator entry %s should not be an absolute path\n",
           basename);
-    // Skip the module list log.
-    if (strcmp(basename, DRMEMTRACE_MODULE_LIST_FILENAME) == 0)
+    // Skip the auxiliary files.
+    if (strcmp(basename, DRMEMTRACE_MODULE_LIST_FILENAME) == 0 ||
+        strcmp(basename, DRMEMTRACE_FUNCTION_LIST_FILENAME) == 0)
         return "";
     // Skip any non-.raw in case someone put some other file in there.
     const char *basename_pre_suffix = strrchr(basename, '.');
@@ -163,27 +164,6 @@ raw2trace_directory_t::read_module_file(const std::string &modfilename)
     modfile_bytes_ = new char[modfile_size_];
     if (dr_read_file(modfile_, modfile_bytes_, modfile_size_) < (ssize_t)modfile_size_)
         return "Didn't read whole module file " + modfilename;
-    return "";
-}
-
-std::string
-raw2trace_directory_t::read_funclist_file(
-    const std::string &filename, OUT std::vector<std::pair<int, std::string>> *entries)
-{
-    std::ifstream stream(filename);
-    if (!stream.good())
-        return "Failed to open " + filename;
-    std::string line;
-    while (std::getline(stream, line)) {
-        size_t comma = line.find(',');
-        if (comma == std::string::npos)
-            return "Malformed entry contains no comma";
-        std::string id_str = line.substr(0, comma);
-        std::string sym = line.substr(comma + 1);
-        int id = strtol(id_str.c_str(), nullptr, 10);
-        VPRINT(2, "%s: parsed <%d,%s>\n", __FUNCTION__, id, sym.c_str());
-        entries->push_back(std::make_pair(id, sym));
-    }
     return "";
 }
 
@@ -270,9 +250,23 @@ raw2trace_directory_t::initialize_module_file(const std::string &module_file_pat
 std::string
 raw2trace_directory_t::initialize_funclist_file(
     const std::string &funclist_file_path,
-    OUT std::vector<std::pair<int, std::string>> *entries)
+    OUT std::vector<std::vector<std::string>> *entries)
 {
-    return read_funclist_file(funclist_file_path, entries);
+    std::ifstream stream(funclist_file_path);
+    if (!stream.good())
+        return "Failed to open " + funclist_file_path;
+    std::string line;
+    while (std::getline(stream, line)) {
+        std::vector<std::string> fields;
+        size_t comma;
+        do {
+            comma = line.find(',');
+            fields.push_back(line.substr(0, comma));
+            line.erase(0, comma + 1);
+        } while (comma != std::string::npos);
+        entries->push_back(fields);
+    }
+    return "";
 }
 
 raw2trace_directory_t::~raw2trace_directory_t()

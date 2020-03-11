@@ -144,8 +144,10 @@ changes:
    This is a binary compatibility change for the OPSZ_ enum.
  - Added a new encoding hint field to #instr_t.
  - Added a requirement that a C++11-complient compiler be used with \ref page_droption.
- - Changed the syntax of the drcachesim -record_function option.  It now takes
-   pairs instead of triples, with the identifier computed by the tracer.
+ - Changed the syntax of the drcachesim -record_function option.  It no longer takes
+   in an identifier: the identifier is computed by the tracer.  It thus takes pairs,
+   with an optional third argument for flags such as "noret" to indicate that the
+   return value should not be recorded.
    The tracer writes out a file listing functions traced and their identifiers
    with "id,library!symbol" on each line of the file.
 
