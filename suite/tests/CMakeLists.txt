@@ -3080,6 +3080,31 @@ endif ()
       torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
         "@-simulator_type@func_view" "only_5")
 
+      if (UNIX AND ZLIB_FOUND)
+        add_exe(tool.fib_plus
+          ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/fib_plus.c)
+        link_with_pthread(tool.fib_plus)
+        # We could run this like so, but with threads the output is non-deterministic:
+        #    torunonly_drcacheoff(func_view_noret tool.fib_plus
+        #      "-record_function fib|1&noret_func|2|noret&noargs|0"
+        #      "@-simulator_type@func_view" "")
+        # Thus we run this manually and check in the resulting trace.  I ran with
+        # a delay to shrink the size, since we are not interesting in the main thread's
+        # pre-main() init:
+        #     $ bin64/drrun -t drcachesim -offline -trace_after_instrs 210K \
+        #       -record_function 'fib|1&noret_func|2|noret&noargs|0' -- \
+        #       suite/tests/bin/tool.fib_plus
+        #     $ bin64/drrun -t drcachesim -simulator_type func_view -indir \
+        #       drmemtrace*.dir/
+        torunonly_api(tool.drcacheoff.func_view_noret "${drcachesim_path}"
+          "offline-func_view_noret.c" ""
+          "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-func-trace;-simulator_type;func_view"
+          OFF)
+        set(tool.drcacheoff.func_view_noret_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcacheoff.func_view_noret_rawtemp ON) # no preprocessor
+      endif ()
+
       if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
         torunonly_drcacheoff(rseq linux.rseq "" "@-test_mode" "")
       endif ()
