@@ -49,22 +49,25 @@ test_operators()
         delete int_ptr;
 
         // void *operator new[](std::size_t count);
-        int_ptr = new int[42];
+        // We use a different variable to avoid false positives in clang's check
+        // for new..delete[].
+        int *int_arr = new int[42];
         // void operator delete[](void *ptr) noexcept;
-        delete[] int_ptr;
+        delete[] int_arr;
 
         // void *operator new(std::size_t count, const std::nothrow_t &tag);
         int_ptr = new (std::nothrow) int;
         // void operator delete(void *ptr, const std::nothrow_t &tag) noexcept;
         ::operator delete(int_ptr, std::nothrow);
         // void *operator new[](std::size_t count, const std::nothrow_t &tag);
-        int_ptr = new (std::nothrow) int[42];
+        int_arr = new (std::nothrow) int[42];
         // void operator delete[](void *ptr, const std::nothrow_t &tag) noexcept;
-        ::operator delete[](int_ptr, std::nothrow);
+        ::operator delete[](int_arr, std::nothrow);
 
 #if defined(__cpp_aligned_new)
         // void *operator new(std::size_t count, std::align_val_t al);
         class alignas(64) align64 {
+        public: // Public to avoid warnings about unused field.
             int x = 0;
         };
         auto *aligned_class = new align64;
@@ -75,12 +78,12 @@ test_operators()
         ::operator delete (aligned_int, std::align_val_t{ 64 });
 
         // void *operator new[](std::size_t count, std::align_val_t al);
-        aligned_class = new align64[4];
-        aligned_int = new (std::align_val_t{ 64 }) int[42];
+        auto *class_array = new align64[4];
+        int *aligned_arr = new (std::align_val_t{ 64 }) int[42];
         // void operator delete[](void *ptr, std::align_val_t al) noexcept;
-        delete[] aligned_class;
+        delete[] class_array;
         // Some compilers (MSVC) will complain with just "delete[]".
-        ::operator delete[](aligned_int, std::align_val_t{ 64 });
+        ::operator delete[](aligned_arr, std::align_val_t{ 64 });
 
         // void *operator new(std::size_t count, std::align_val_t al,
         //                    const std::nothrow_t &);
@@ -92,20 +95,20 @@ test_operators()
         ::operator delete (aligned_int, std::align_val_t{ 64 }, std::nothrow);
         // void *operator new[](std::size_t count, std::align_val_t al,
         //                     const std::nothrow_t &);
-        aligned_class = new (std::nothrow) align64[4];
-        aligned_int = new (std::align_val_t{ 64 }, std::nothrow) int[42];
+        class_array = new (std::nothrow) align64[4];
+        aligned_arr = new (std::align_val_t{ 64 }, std::nothrow) int[42];
         // void operator delete[](void *ptr, std::align_val_t al,
         //                        const std::nothrow_t &tag) noexcept;
-        ::operator delete[](aligned_class, std::nothrow);
-        ::operator delete[](aligned_int, std::align_val_t{ 64 }, std::nothrow);
+        ::operator delete[](class_array, std::nothrow);
+        ::operator delete[](aligned_arr, std::align_val_t{ 64 }, std::nothrow);
 #endif
 #if defined(__cpp_sized_deallocation)
         // void operator delete(void *ptr, std::size_t sz) noexcept;
         int_ptr = new int;
         ::operator delete(int_ptr, sizeof(*int_ptr));
         // void operator delete[](void *ptr, std::size_t sz) noexcept;
-        int_ptr = new int[42];
-        ::operator delete(int_ptr, 42 * sizeof(*int_ptr));
+        int_arr = new int[42];
+        ::operator delete(int_arr, 42 * sizeof(*int_arr));
 #endif
 #if defined(__cpp_aligned_new) && defined(__cpp_sized_deallocation)
         aligned_class = new align64;
@@ -115,13 +118,13 @@ test_operators()
                            std::align_val_t{ alignof(*aligned_class) });
         ::operator delete (aligned_int, sizeof(*aligned_int), std::align_val_t{ 64 });
 
-        aligned_class = new align64[4];
-        aligned_int = new (std::align_val_t{ 64 }) int[42];
+        class_array = new align64[4];
+        aligned_arr = new (std::align_val_t{ 64 }) int[42];
         // void operator delete[](void *ptr, std::size_t sz, std::align_val_t al)
         // noexcept;
-        ::operator delete[](aligned_class, 4 * sizeof(*aligned_class),
-                            std::align_val_t{ alignof(*aligned_class) });
-        ::operator delete[](aligned_int, 42 * sizeof(*aligned_int),
+        ::operator delete[](class_array, 4 * sizeof(*class_array),
+                            std::align_val_t{ alignof(*class_array) });
+        ::operator delete[](aligned_arr, 42 * sizeof(*aligned_arr),
                             std::align_val_t{ 64 });
 #endif
         // void *operator new(std::size_t count, void *ptr);
@@ -132,10 +135,10 @@ test_operators()
         free(buf);
 
         // void *operator new[](std::size_t count, void *ptr);
-        buf = malloc(42 * sizeof(*int_ptr));
-        int_ptr = new (buf) int[42];
+        buf = malloc(42 * sizeof(*int_arr));
+        int_arr = new (buf) int[42];
         // void operator delete[](void *ptr, void *place) noexcept;
-        ::operator delete[](int_ptr, buf);
+        ::operator delete[](int_arr, buf);
         free(buf);
     }
 }
