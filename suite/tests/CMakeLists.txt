@@ -3105,6 +3105,21 @@ endif ()
         set(tool.drcacheoff.func_view_noret_rawtemp ON) # no preprocessor
       endif ()
 
+      if (UNIX) # i#3048: Our mangled operator new/delete tracing is UNIX-only.
+        set(heap_test_src ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/heap_test.cpp)
+        add_exe(tool.heap_test ${heap_test_src})
+        if (cxx17_available)
+          # Enable recent operator new/delete variants.
+          set_source_files_properties(${heap_test_src} PROPERTIES
+            # XXX: c++17 seems to warn more about the static functions in tools.h.
+            # We should move those to tools.c.  For now we disable the warning.
+            COMPILE_FLAGS "${ORIG_CMAKE_CXX_FLAGS} -std=c++17 -Wno-unused-function")
+        endif ()
+        torunonly_drcacheoff(func_view_heap tool.heap_test
+          "-record_heap" "@-simulator_type@func_view@-no_show_func_trace" "")
+        unset(tool.drcacheoff.func_view_heap_rawtemp) # use preprocessor
+      endif ()
+
       if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
         torunonly_drcacheoff(rseq linux.rseq "" "@-test_mode" "")
       endif ()
