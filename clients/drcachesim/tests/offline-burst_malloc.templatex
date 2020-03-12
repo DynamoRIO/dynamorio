@@ -8,7 +8,7 @@ DynamoRIO statistics:
 .*
 all done
 .*
-.* 5006 function id markers.*
-.* 3004 function return address markers.*
-.* 3005 function argument markers.*
-.* 2002 function return value markers.*
+.* 50.. function id markers.*
+.* 30.. function return address markers.*
+.* 30.. function argument markers.*
+.* 20.. function return value markers.*
