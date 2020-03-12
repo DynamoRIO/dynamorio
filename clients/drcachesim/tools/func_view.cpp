@@ -247,6 +247,10 @@ func_view_t::cmp_func_stats(const std::pair<int, func_stats_t> &l,
 {
     if (l.second.num_calls > r.second.num_calls)
         return true;
+    if (l.second.num_calls < r.second.num_calls)
+        return false;
+    if (l.second.num_returns > r.second.num_returns)
+        return true;
     if (l.second.num_returns < r.second.num_returns)
         return false;
     return l.first < r.first;
