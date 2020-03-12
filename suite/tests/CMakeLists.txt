@@ -3105,7 +3105,12 @@ endif ()
         set(tool.drcacheoff.func_view_noret_rawtemp ON) # no preprocessor
       endif ()
 
-      if (UNIX) # i#3048: Our mangled operator new/delete tracing is UNIX-only.
+      # i#3048: Our mangled operator new/delete tracing is UNIX-only.
+      # PR#4178: Despite the aligned-new code in this test being guarded by
+      # "if defined(__cpp_aligned_new)" it fails to build on Travis clang-9 and
+      # OSX presumably due to runtime vs compiler mismatches.  We just disable
+      # for clang for now and can re-enable later w/ more recent runtimes.
+      if (UNIX AND NOT CMAKE_COMPILER_IS_CLANG)
         set(heap_test_src ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/heap_test.cpp)
         add_exe(tool.heap_test ${heap_test_src})
         if (cxx17_available)
