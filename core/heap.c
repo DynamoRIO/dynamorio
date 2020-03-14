@@ -121,9 +121,6 @@ static const uint BLOCK_SIZES[] = {
 #    else
 /* release == instr_t */
 #    endif
-#elif defined(CUSTOM_EXIT_STUBS)
-#    error "FIXME i#3611: Fix build and check the heap buckets for the correct order."
-/* all other bb/trace buckets are 8 larger but in same order */
 #else
     sizeof(fragment_t) + sizeof(direct_linkstub_t) +
         sizeof(cbr_fallthrough_linkstub_t), /* 60 dbg / 56 rel */

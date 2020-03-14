@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2512,9 +2512,6 @@ fragment_recreate_with_linkstubs(dcontext_t *dcontext, fragment_t *f_src)
         if (!EXIT_HAS_LOCAL_STUB(l->flags, f_tgt->flags))
             continue; /* it's kept elsewhere */
         size += linkstub_size(dcontext, f_tgt, l);
-#ifdef CUSTOM_EXIT_STUBS
-        size += l->fixed_stub_offset;
-#endif
     }
     ASSERT_TRUNCATE(f_tgt->size, ushort, size);
     f_tgt->size = (ushort)size;

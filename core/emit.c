@@ -156,11 +156,6 @@ final_exit_shares_prev_stub(dcontext_t *dcontext, instrlist_t *ilist, uint frag_
                 /* cti_loop is fine since cti points to loop instr, enabling
                  * our disambiguation to know which state to look at */
                 && instr_is_cbr(prev_cti)
-#ifdef CUSTOM_EXIT_STUBS
-                /* no custom code */
-                && instr_exit_stub_code(prev_cti) == NULL &&
-                instr_exit_stub_code(inst) == NULL
-#endif
                 /* no separate freeing */
                 && ((TEST(FRAG_SHARED, frag_flags) &&
                      !DYNAMO_OPTION(unsafe_free_shared_stubs)) ||
@@ -295,12 +290,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                 }
             }
 
-            if (should_separate_stub(dcontext, target, f->flags)
-#ifdef CUSTOM_EXIT_STUBS
-                /* we can't separate custom stubs */
-                && instr_exit_stub_code(inst) == NULL
-#endif
-            )
+            if (should_separate_stub(dcontext, target, f->flags))
                 l->flags |= LINK_SEPARATE_STUB;
 
             /* FIXME: we don't yet support !emit ctis: need to avoid patching
@@ -399,9 +389,6 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
     uint num_direct_stubs = 0;
     uint num_indirect_stubs = 0;
     uint stub_size_total = 0; /* those in fcache w/ fragment */
-#ifdef CUSTOM_EXIT_STUBS
-    bool custom_stubs_present = false;
-#endif
     bool final_cbr_single_stub = false;
     byte *prev_stub_pc = NULL;
     uint stub_size = 0;
@@ -505,10 +492,6 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
                 } else /* ensure have cti to jmp to separate stub! */
                     ASSERT(instr_ok_to_emit(inst));
             }
-#ifdef CUSTOM_EXIT_STUBS
-            if (!custom_stubs_present && instr_exit_stub_code(inst) != NULL)
-                custom_stubs_present = true;
-#endif
         }
     }
 
@@ -557,36 +540,6 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
                               TEST(FRAG_HAS_SYSCALL, flags)) ||)(
                          num_indirect_stubs <= 1 && num_direct_stubs >= 1 &&
                          TEST(FRAG_SELFMOD_SANDBOXED, flags)));
-#endif
-
-#ifdef CUSTOM_EXIT_STUBS
-    if (custom_stubs_present) {
-        LOG(THREAD, LOG_EMIT, 3, "emit_fragment: custom stubs present\n");
-        /* separate walk just for custom exit stubs -- need to get offsets correct
-         */
-        for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
-            if (instr_is_exit_cti(inst)) {
-                /* custom exit stub code */
-                instrlist_t *custom = instr_exit_stub_code(inst);
-                if (custom != NULL) {
-                    instr_t *in;
-                    for (in = instrlist_first(custom); in; in = instr_get_next(in)) {
-                        ASSERT_NOT_IMPLEMENTED(!TEST(INSTR_HOT_PATCHABLE, inst->flags));
-                        if (!PAD_FRAGMENT_JMPS(flags)) {
-                            /* we're going to skip the 2nd pass, save this
-                             * instr's offset in the note field for use by
-                             * instr_encode */
-                            instr_set_note(in, offset);
-                        }
-                        offset += instr_length(dcontext, in);
-                    }
-                }
-                target = instr_get_branch_target_pc(inst);
-                offset += exit_stub_size(dcontext, (cache_pc)target, flags);
-            }
-        }
-        offset -= stub_size_total;
-    }
 #endif
 
     STATS_PAD_JMPS_ADD(flags, body_bytes, extra_jmp_padding_body);
@@ -660,23 +613,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
     /* pc should now be pointing to the beginning of the first exit stub */
 
     /* emit the exit stub code */
-#ifdef CUSTOM_EXIT_STUBS
-    /* need to re-walk the instrlist to get the custom code
-     * if we had another linkstub_t field we could store it there (used to
-     * put it in stub_pc but that's not available in indirect_linkstub_t anymore)
-     */
-    inst = instrlist_first(ilist);
-#endif
     for (l = FRAGMENT_EXIT_STUBS(f); l; l = LINKSTUB_NEXT_EXIT(l)) {
-#ifdef CUSTOM_EXIT_STUBS
-        byte *old_pc;
-        /* find inst corresponding to l */
-        while (!instr_is_exit_cti(inst)) {
-            inst = instr_get_next(inst);
-            ASSERT(inst != NULL);
-        }
-#endif
-
         if (TEST(FRAG_COARSE_GRAIN, flags) && LINKSTUB_DIRECT(l->flags)) {
             /* Coarse-grain fragments do not have direct exit stubs.
              * Instead they have entrance stubs, created when linking.
@@ -690,9 +627,6 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
         }
 
         if (final_cbr_single_stub && LINKSTUB_FINAL(l)) {
-#ifdef CUSTOM_EXIT_STUBS
-            ASSERT(instr_exit_stub_code(inst) == NULL);
-#endif
             no_stub = true;
             if (!TEST(LINK_SEPARATE_STUB, l->flags)) {
                 /* still need to patch the cti, so set pc back to prev stub pc */
@@ -721,64 +655,15 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
             ASSERT(linkstub_unlink_entry_offset(dcontext, f, l) == 0);
             patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l),
                          EXIT_STUB_PC(dcontext, f, l), false);
-#ifdef CUSTOM_EXIT_STUBS
-            /* we don't currently support separate custom stubs */
-            ASSERT(instr_exit_stub_code(inst) == NULL);
-#endif
             continue;
         }
 
         ASSERT(EXIT_HAS_LOCAL_STUB(l->flags, flags));
 
         if (PAD_FRAGMENT_JMPS(flags)) {
-            uint custom_exit_length = 0;
-#ifdef CUSTOM_EXIT_STUBS
-            /* need to figure out size to get right offset */
-            if (custom_stubs_present) {
-                /* inst is pointing at l's exit inst */
-                instrlist_t *custom = (instrlist_t *)instr_exit_stub_code(inst);
-                if (custom != NULL) {
-                    instr_t *in;
-                    ASSERT(!no_stub);
-                    for (in = instrlist_first(custom); in; in = instr_get_next(in)) {
-                        custom_exit_length += instr_length(dcontext, in);
-                    }
-                }
-            }
-#endif
-            pc = pad_for_exitstub_alignment(dcontext, l, f, pc + custom_exit_length);
+            pc = pad_for_exitstub_alignment(dcontext, l, f, pc);
         }
 
-#ifdef CUSTOM_EXIT_STUBS
-        old_pc = pc;
-        if (custom_stubs_present) {
-            /* inst is pointing at l's exit inst */
-            instrlist_t *custom = (instrlist_t *)instr_exit_stub_code(inst);
-            if (custom != NULL) {
-                instr_t *in;
-                ASSERT(!no_stub);
-                for (in = instrlist_first(custom); in; in = instr_get_next(in)) {
-                    pc = instr_encode_to_copy(dcontext, in,
-                                              (void *)vmcode_get_writable_addr(pc), pc);
-                    ASSERT(pc != NULL);
-                    pc = vmcode_get_executable_addr(pc);
-                }
-            }
-        }
-        /* stub_pc is start of entire stub (== start of custom stub) for
-         * patching, fixed_stub_offset is start of fixed part of stub (beyond
-         * custom part) for things like linkcount that modify that
-         */
-        if (LINKSTUB_NORMAL_DIRECT(l->flags)) {
-            direct_linkstub_t *dl = (direct_linkstub_t *)l;
-            ASSERT(!TEST(LINK_SEPARATE_STUB, l->flags));
-            dl->stub_pc = old_pc;
-        }
-        ASSERT_TRUNCATE(l->fixed_stub_offset, ushort, (pc - old_pc));
-        l->fixed_stub_offset = (ushort)(pc - old_pc);
-        /* relocate the exit branch target so it takes to the stub */
-        patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), old_pc, false);
-#else
         if (LINKSTUB_NORMAL_DIRECT(l->flags)) {
             direct_linkstub_t *dl = (direct_linkstub_t *)l;
             dl->stub_pc = pc;
@@ -792,7 +677,6 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
             "Exit cti " PFX " is targeting " PFX " + 0x%x => " PFX "\n",
             EXIT_CTI_PC(f, l), pc, linkstub_unlink_entry_offset(dcontext, f, l),
             pc + linkstub_unlink_entry_offset(dcontext, f, l));
-#endif
 
         DODEBUG({
             uint shift = bytes_for_exitstub_alignment(dcontext, l, f, pc);

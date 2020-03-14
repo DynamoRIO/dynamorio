@@ -166,11 +166,6 @@ struct _linkstub_t {
      * Do not directly access this field -- use EXIT_CTI_PC()
      */
     ushort cti_offset; /* offset from fragment start_pc of this cti */
-
-#ifdef CUSTOM_EXIT_STUBS
-    ushort fixed_stub_offset; /* offset in bytes of fixed part of exit stub from
-                               * stub_pc, which points to custom stub prefix */
-#endif
 };
 
 /* linkage info common to all direct fragment exits */
@@ -352,10 +347,6 @@ typedef struct _coarse_incoming_t {
          ? (((direct_linkstub_t *)(l))->target_tag)                                      \
          : (LINKSTUB_CBR_FALLTHROUGH((l)->flags) ? ((f)->tag + ((short)(l)->cti_offset)) \
                                                  : indirect_linkstub_target(dc, f, l)))
-
-#ifdef CUSTOM_EXIT_STUBS
-#    define EXIT_FIXED_STUB_PC(dc, f, l) (EXIT_STUB_PC(dc, f, l) + (l)->fixed_stub_offset)
-#endif
 
 #ifdef WINDOWS
 #    define EXIT_TARGETS_SHARED_SYSCALL(flags) \

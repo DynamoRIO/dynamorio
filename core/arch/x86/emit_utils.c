@@ -445,9 +445,6 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
             instr_set_note(inst, (void *)(ptr_uint_t)offset); /* used by instr_encode */
         offset += instr_length(dcontext, inst);
     }
-#ifdef CUSTOM_EXIT_STUBS
-    ASSERT_NOT_IMPLEMENTED(false);
-#endif
     return start_shift;
 }
 
@@ -757,18 +754,11 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
      * state (we do have multi-stage modifications for inlined stubs)
      */
     byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-#ifdef CUSTOM_EXIT_STUBS
-    byte *fixed_stub_pc = (byte *)EXIT_FIXED_STUB_PC(dcontext, f, l);
-#endif
 
     if (DYNAMO_OPTION(indirect_stubs)) {
         /* go to start of 5-byte jump instruction at end of exit stub */
         stub_size = exit_stub_size(dcontext, target_tag, f->flags);
-#ifdef CUSTOM_EXIT_STUBS
-        pc = fixed_stub_pc + stub_size - 5;
-#else
         pc = stub_pc + stub_size - 5;
-#endif
     } else {
         /* cti goes straight to ibl, and must be a jmp, not jcc,
          * except for -unsafe_ignore_eflags_trace stay-on-trace cmp,jne
@@ -866,11 +856,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
      * on the cti targets, we must calculate them at a consistent
      * state (we do have multi-stage modifications for inlined stubs)
      */
-#ifdef CUSTOM_EXIT_STUBS
-    byte *fixed_stub_pc = (byte *)EXIT_FIXED_STUB_PC(dcontext, f, l);
-#else
     byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-#endif
     ASSERT(!TEST(FRAG_COARSE_GRAIN, f->flags));
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_INDIRECT(l->flags));
@@ -901,11 +887,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         if (DYNAMO_OPTION(indirect_stubs)) {
             /* go to start of 5-byte jump instruction at end of exit stub */
             stub_size = exit_stub_size(dcontext, target_tag, f->flags);
-#ifdef CUSTOM_EXIT_STUBS
-            pc = fixed_stub_pc + stub_size - 5;
-#else
             pc = stub_pc + stub_size - 5;
-#endif
         } else {
             /* cti goes straight to ibl, and must be a jmp, not jcc */
             pc = EXIT_CTI_PC(f, l);
@@ -937,13 +919,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 #endif
         /* need to make branch target the unlink entry point inside exit stub */
         if (ibl_code->ibl_head_is_inlined) {
-#ifdef CUSTOM_EXIT_STUBS
-            /* FIXME: now custom code will be skipped!!! */
-            cache_pc target = fixed_stub_pc;
-#else
-        cache_pc target = stub_pc;
-#endif
-
+            cache_pc target = stub_pc;
             /* now add offset of unlinked entry */
             target += ibl_code->inline_unlink_offs;
             patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), target,

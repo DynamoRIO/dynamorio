@@ -2769,8 +2769,8 @@ OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
     OPTION_DEFAULT(uint, prng_seed, 0 /* get a good seed from the OS */,
         "if non-0 allows reproducible pseudo random number generator sequences")
 
-    /* TODO i#4045: Remove these defines. */
-#if defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
+    /* TODO i#4045: Remove this define. */
+#if defined(TRACE_HEAD_CACHE_INCR)
     OPTION_DEFAULT(bool, pad_jmps, false, "nop pads jmps in the cache that we might need to patch so that the offset doesn't cross a L1 cache line boundary (necessary for atomic linking/unlinking on an mp machine)")
 #else
 /* No need to pad on ARM with fixed-width instructions */
