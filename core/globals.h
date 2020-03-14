@@ -99,7 +99,6 @@
 #ifdef CLIENT_INTERFACE
 /* in Makefile, we define these (so that genapi.pl, etc. get them):
  *    define DYNAMORIO_IR_EXPORTS 1
- *    define CUSTOM_EXIT_STUBS 1
  *    define CUSTOM_TRACES 1
  * CUSTOM_TRACES_RET_REMOVAL is aggressive -- assumes calling convention kept
  * Only useful if custom traces are doing inlining => do not define for external

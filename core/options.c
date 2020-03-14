@@ -1212,7 +1212,7 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
 
-#    if defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
+#    if defined(TRACE_HEAD_CACHE_INCR)
     if (DYNAMO_OPTION(pad_jmps)) {
         USAGE_ERROR("-pad_jmps not supported in this build yet");
     }
@@ -1566,11 +1566,6 @@ check_option_compatibility_helper(int recurse_count)
             dynamo_options.indirect_stubs = true;
             changed_options = true;
         }
-#        endif
-#        ifdef CUSTOM_EXIT_STUBS
-        USAGE_ERROR("CUSTOM_EXIT_STUBS requires -indirect_stubs, enabling");
-        dynamo_options.indirect_stubs = true;
-        changed_options = true;
 #        endif
 #        ifdef HASHTABLE_STATISTICS
         if ((!DYNAMO_OPTION(shared_traces) && DYNAMO_OPTION(inline_trace_ibl)) ||
@@ -2131,11 +2126,6 @@ check_option_compatibility_helper(int recurse_count)
 #    endif
 
     if (DYNAMO_OPTION(coarse_units)) {
-#    ifdef CUSTOM_EXIT_STUBS
-        USAGE_ERROR("-coarse_units incompatible with CUSTOM_EXIT_STUBS: disabling");
-        dynamo_options.coarse_units = false;
-        changed_options = true;
-#    endif
 #    ifdef CLIENT_INTERFACE
         if (DYNAMO_OPTION(bb_prefixes)) {
             /* coarse_units doesn't support prefixes in general.

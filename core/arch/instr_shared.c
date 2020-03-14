@@ -132,15 +132,7 @@ instr_clone(dcontext_t *dcontext, instr_t *orig)
          */
         instr_set_label_callback(instr, NULL);
     }
-#ifdef CUSTOM_EXIT_STUBS
-    if ((orig->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
-        /* HACK: dsts is used to store list */
-        instrlist_t *existing = (instrlist_t *)orig->dsts;
-        CLIENT_ASSERT(existing != NULL, "instr_clone: src has inconsistent custom stub");
-        instr->dsts = (opnd_t *)instrlist_clone(dcontext, existing);
-    } else /* disable normal dst cloning */
-#endif
-        if (orig->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
+    if (orig->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
         instr->dsts = (opnd_t *)heap_alloc(
             dcontext, instr->num_dsts * sizeof(opnd_t) HEAPACCT(ACCT_IR));
         memcpy((void *)instr->dsts, (void *)orig->dsts, instr->num_dsts * sizeof(opnd_t));
@@ -177,15 +169,6 @@ instr_free(dcontext_t *dcontext, instr_t *instr)
     if (TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags)) {
         instr_free_raw_bits(dcontext, instr);
     }
-#ifdef CUSTOM_EXIT_STUBS
-    if ((instr->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
-        /* HACK: dsts is used to store list */
-        instrlist_t *existing = (instrlist_t *)instr->dsts;
-        CLIENT_ASSERT(existing != NULL, "instr_free: custom stubs inconsistent");
-        instrlist_clear_and_destroy(dcontext, existing);
-        instr->dsts = NULL;
-    }
-#endif
     if (instr->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
         heap_free(dcontext, instr->dsts,
                   instr->num_dsts * sizeof(opnd_t) HEAPACCT(ACCT_IR));
@@ -209,16 +192,6 @@ instr_mem_usage(instr_t *instr)
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
         usage += instr->length;
     }
-#ifdef CUSTOM_EXIT_STUBS
-    if ((instr->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
-        /* HACK: dsts is used to store list */
-        instrlist_t *il = (instrlist_t *)instr->dsts;
-        instr_t *in;
-        CLIENT_ASSERT(il != NULL, "instr_mem_usage: custom stubs inconsistent");
-        for (in = instrlist_first(il); in != NULL; in = instr_get_next(in))
-            usage += instr_mem_usage(in);
-    }
-#endif
     if (instr->dsts != NULL) {
         usage += instr->num_dsts * sizeof(opnd_t);
     }
@@ -815,57 +788,6 @@ instr_set_ok_to_emit(instr_t *instr, bool val)
     else
         instr->flags |= INSTR_DO_NOT_EMIT;
 }
-
-#ifdef CUSTOM_EXIT_STUBS
-/* If instr is not an exit cti, does nothing.
- * If instr is an exit cti, sets stub to be custom exit stub code
- * that will be inserted in the exit stub prior to the normal exit
- * stub code.  If instr already has custom exit stub code, that
- * existing instrlist_t is cleared and destroyed (using current thread's
- * context).  (If stub is NULL, any existing stub code is NOT destroyed.)
- * The creator of the instrlist_t containing instr is
- * responsible for destroying stub.
- */
-void
-instr_set_exit_stub_code(instr_t *instr, instrlist_t *stub)
-{
-    /* HACK: dsts array is NULL, so we use the dsts pointer
-     * FIXME: put checks in set_num_opnds, etc. that may overwrite this?
-     * FIXME: make separate call to clear existing stubs?
-     * having it not clear for stub==NULL a little hacky
-     */
-    CLIENT_ASSERT(instr_is_cbr(instr) || instr_is_ubr(instr),
-                  "instr_set_exit_stub_code called on non-exit");
-    CLIENT_ASSERT(instr->num_dsts == 0, "instr_set_exit_stub_code: instr invalid");
-    if (stub != NULL && (instr->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
-        /* delete existing */
-        instrlist_t *existing = (instrlist_t *)instr->dsts;
-        instrlist_clear_and_destroy(get_thread_private_dcontext(), existing);
-    }
-    if (stub == NULL) {
-        instr->flags &= ~INSTR_HAS_CUSTOM_STUB;
-        instr->dsts = NULL;
-    } else {
-        instr->flags |= INSTR_HAS_CUSTOM_STUB;
-        instr->dsts = (opnd_t *)stub;
-    }
-}
-
-/* Returns the custom exit stub code instruction list that has been
- * set for this instruction.  If none exists, returns NULL.
- */
-instrlist_t *
-instr_exit_stub_code(instr_t *instr)
-{
-    if (!instr_is_cbr(instr) && !instr_is_ubr(instr))
-        return NULL;
-    if (opnd_is_far_pc(instr_get_target(instr)))
-        return NULL;
-    if ((instr->flags & INSTR_HAS_CUSTOM_STUB) == 0)
-        return NULL;
-    return (instrlist_t *)instr->dsts;
-}
-#endif
 
 uint
 instr_eflags_conditionally(uint full_eflags, dr_pred_type_t pred,

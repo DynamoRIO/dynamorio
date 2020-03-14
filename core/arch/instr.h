@@ -186,7 +186,7 @@ enum {
     /* DR_API EXPORT BEGIN */
     INSTR_DO_NOT_MANGLE = 0x00200000,
     /* DR_API EXPORT END */
-    INSTR_HAS_CUSTOM_STUB = 0x00400000,
+    /* Available: 0x00400000, */
     /* used to indicate that an indirect call can be treated as a direct call */
     INSTR_IND_CALL_DIRECT = 0x00800000,
 #    ifdef WINDOWS
@@ -794,34 +794,6 @@ DR_API
  */
 void
 instr_set_ok_to_emit(instr_t *instr, bool val);
-
-#ifdef CUSTOM_EXIT_STUBS
-DR_API
-/**
- * If \p instr is not an exit cti, does nothing.
- * If \p instr is an exit cti, sets \p stub to be custom exit stub code
- * that will be inserted in the exit stub prior to the normal exit
- * stub code.  If \p instr already has custom exit stub code, that
- * existing instrlist_t is cleared and destroyed (using current thread's
- * context).  (If \p stub is NULL, any existing stub code is NOT destroyed.)
- * The creator of the instrlist_t containing \p instr is
- * responsible for destroying stub.
- * \note Custom exit stubs containing control transfer instructions to
- * other instructions inside a fragment besides the custom stub itself
- * are not fully supported in that they will not be decoded from the
- * cache properly as having instr_t targets.
- */
-void
-instr_set_exit_stub_code(instr_t *instr, instrlist_t *stub);
-
-DR_API
-/**
- * Returns the custom exit stub code instruction list that has been
- * set for this instruction.  If none exists, returns NULL.
- */
-instrlist_t *
-instr_exit_stub_code(instr_t *instr);
-#endif
 
 DR_API
 /**
