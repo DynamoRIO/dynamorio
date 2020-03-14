@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -124,6 +124,35 @@ test_ptrsz_imm(void)
     instrlist_clear_and_destroy(GD, ilist);
 }
 
+static void
+test_noalloc(void)
+{
+    byte buf[128];
+    byte *pc, *end;
+    instr_t *instr;
+
+    instr = XINST_CREATE_load(GD, opnd_create_reg(DR_REG_XAX),
+                              OPND_CREATE_MEMPTR(DR_REG_XAX, 42));
+    end = instr_encode(GD, instr, buf);
+    ASSERT(end - buf < BUFFER_SIZE_ELEMENTS(buf));
+    instr_destroy(GD, instr);
+
+    instr_noalloc_t noalloc;
+    instr_noalloc_init(GD, &noalloc);
+    pc = decode(GD, buf, &noalloc.instr);
+    ASSERT(pc != NULL);
+    ASSERT(opnd_get_reg(instr_get_dst(&noalloc, 0)) == DR_REG_XAX);
+
+    instr_reset(GD, &noalloc.instr);
+    pc = decode(GD, buf, &noalloc.instr);
+    ASSERT(pc != NULL);
+    ASSERT(opnd_get_reg(instr_get_dst(&noalloc, 0)) == DR_REG_XAX);
+
+    /* There should be no leak reported even w/o a reset b/c there's no
+     * extra heap.
+     */
+}
+
 int
 main()
 {
@@ -132,6 +161,8 @@ main()
     test_vendor();
 
     test_ptrsz_imm();
+
+    test_noalloc();
 
     printf("done\n");
 
