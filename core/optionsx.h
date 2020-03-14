@@ -893,9 +893,10 @@ OPTION_COMMAND(bool, thread_private, IF_HAVE_TLS_ELSE(false, true), "thread_priv
                     */
                    options->finite_bb_cache = !options->thread_private;
                    options->finite_trace_cache = !options->thread_private;
-                   if (options->thread_private && options->indirect_stubs)
+                   if (options->thread_private && options->indirect_stubs) {
                        IF_NOT_ARM(options->coarse_units =
                                       true); /* i#1575: coarse NYI on ARM */
+                   }
                    IF_NOT_X64_OR_ARM(options->private_ib_in_tls =
                                          !options->thread_private;)
                    options->atomic_inlined_linking = !options->thread_private;
