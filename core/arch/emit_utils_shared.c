@@ -433,11 +433,7 @@ link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t 
                  bool hot_patch)
 {
 #ifdef TRACE_HEAD_CACHE_INCR
-#    ifdef CUSTOM_EXIT_STUBS
-    byte *stub_pc = (byte *)(EXIT_FIXED_STUB_PC(dcontext, f, l));
-#    else
     byte *stub_pc = (byte *)(EXIT_STUB_PC(dcontext, f, l));
-#    endif
 #endif
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_DIRECT(l->flags));
@@ -487,11 +483,7 @@ unlink_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 
 #ifdef TRACE_HEAD_CACHE_INCR
     if (dl->target_fragment != NULL) { /* HACK to tell if targeted trace head */
-#    ifdef CUSTOM_EXIT_STUBS
-        byte *pc = (byte *)(EXIT_FIXED_STUB_PC(dcontext, f, l));
-#    else
         byte *pc = (byte *)(EXIT_STUB_PC(dcontext, f, l));
-#    endif
         /* FIXME: more efficient way than multiple calls to get size-5? */
         ASSERT(linkstub_size(dcontext, f, l) == DIRECT_EXIT_STUB_SIZE(f->flags));
         patch_branch(FRAG_ISA_MODE(f->flags), pc + DIRECT_EXIT_STUB_SIZE(f->flags) - 5,
@@ -521,9 +513,6 @@ link_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, bool hot_
      * state (we do have multi-stage modifications for inlined stubs)
      */
     byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-#ifdef CUSTOM_EXIT_STUBS
-    byte *fixed_stub_pc = (byte *)EXIT_FIXED_STUB_PC(dcontext, f, l);
-#endif
 
     ASSERT(!TEST(FRAG_COARSE_GRAIN, f->flags));
 
@@ -1262,11 +1251,7 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
     generated_code_t *code =
         get_emitted_routines_code(dcontext _IF_X86_64(FRAGMENT_GENCODE_MODE(f->flags)));
-#ifdef CUSTOM_EXIT_STUBS
-    byte *start_pc = (byte *)EXIT_FIXED_STUB_PC(dcontext, f, l);
-#else
     byte *start_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-#endif
     ibl_branch_type_t branch_type;
 
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));

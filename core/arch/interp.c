@@ -5557,85 +5557,6 @@ process_nops_for_trace(dcontext_t *dcontext, instrlist_t *ilist,
     }
 }
 
-#ifdef CUSTOM_EXIT_STUBS
-/*
- * Builds custom exit stub instrlist for exit_cti, whose stub is l
- * Assumes that intra-fragment cti's in the custom stub only target other
- * instructions in the same stub, never in the body of the fragment or
- * in other stubs.  FIXME: is this too restrictive?  If change this,
- * change the comment in instr_set_exit_stub_code's declaration.
- */
-static void
-regenerate_custom_exit_stub(dcontext_t *dcontext, instr_t *exit_cti, linkstub_t *l,
-                            fragment_t *f)
-{
-    /* need to decode and restore custom stub instrlist */
-    byte *cspc = EXIT_STUB_PC(dcontext, f, l);
-    byte *stop = EXIT_FIXED_STUB_PC(dcontext, f, l);
-    instr_t *in, *cti;
-    instrlist_t intra_ctis;
-    instrlist_t *cil = instrlist_create(dcontext);
-    cache_pc start_pc = FCACHE_ENTRY_PC(f);
-    ASSERT(DYNAMO_OPTION(indirect_stubs));
-
-    if (l->fixed_stub_offset == 0)
-        return; /* has no custom exit stub */
-
-    LOG(THREAD, LOG_INTERP, 3, "in regenerate_custom_exit_stub\n");
-
-    instrlist_init(&intra_ctis);
-    while (cspc < stop) {
-        in = instr_create(dcontext);
-        cspc = decode(dcontext, cspc, in);
-        ASSERT(cspc != NULL); /* our own code! */
-        if (instr_is_cti(in)) {
-            if (!instr_is_return(in) && opnd_is_near_pc(instr_get_target(in)) &&
-                (opnd_get_pc(instr_get_target(in)) < start_pc ||
-                 opnd_get_pc(instr_get_target(in)) > start_pc + f->size)) {
-                d_r_loginst(dcontext, 3, in, "\tcti has off-fragment target");
-                /* indicate that relative target must be
-                 * re-encoded, and that it is not an exit cti
-                 */
-                instr_set_meta(in);
-                instr_set_raw_bits_valid(in, false);
-            } else if (opnd_is_near_pc(instr_get_target(in))) {
-                /* intra-fragment target: we'll change its target operand
-                 * from pc to instr_t in second pass, so remember it here
-                 */
-                instr_t *clone = instr_clone(dcontext, in);
-                /* HACK: use note field! */
-                instr_set_note(clone, (void *)in);
-                instrlist_append(&intra_ctis, clone);
-            }
-        }
-        instrlist_append(cil, in);
-    }
-
-    /* must fix up intra-ilist cti's to have instr_t targets
-     * assumption: they only target other instrs in custom stub
-     * FIXME: allow targeting other instrs?
-     */
-    for (in = instrlist_first(cil); in != NULL; in = instr_get_next(in)) {
-        for (cti = instrlist_first(&intra_ctis); cti != NULL; cti = instr_get_next(cti)) {
-            if (opnd_get_pc(instr_get_target(cti)) == instr_get_raw_bits(in)) {
-                /* cti targets this instr */
-                instr_t *real_cti = (instr_t *)instr_get_note(cti);
-                /* Do not preserve raw bits just in case instrlist changes
-                 * and the instr target moves (xref PR 333691)
-                 */
-                instr_set_target(real_cti, opnd_create_instr(in));
-                d_r_loginst(dcontext, 3, real_cti, "\tthis cti: ");
-                d_r_loginst(dcontext, 3, in, "\t  targets intra-stub instr");
-                break;
-            }
-        }
-    }
-    instrlist_clear(dcontext, &intra_ctis);
-
-    instr_set_exit_stub_code(exit_cti, cil);
-}
-#endif
-
 /* Combines instrlist_preinsert to ilist and the size calculation of the addition */
 static inline int
 tracelist_add(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, instr_t *inst)
@@ -7711,10 +7632,6 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
             }
         }
         instrlist_append(ilist, instr);
-#ifdef CUSTOM_EXIT_STUBS
-        if (l != NULL && l->fixed_stub_offset > 0)
-            regenerate_custom_exit_stub(dcontext, instr, l, f);
-#endif
 
         if (TEST(FRAG_FAKE, f->flags)) {
             /* Assumption: coarse-grain bbs have 1 ind exit or 2 direct,
