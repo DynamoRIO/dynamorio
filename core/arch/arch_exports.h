@@ -1957,7 +1957,7 @@ enum {
 #elif defined(ARM)
     MAX_INSTR_LENGTH = 4,
     /* With register lists we can see quite long operand lists. */
-    MAX_SRC_OPNDS = 33 /* vstm s0-s31 */
+    MAX_SRC_OPNDS = 33, /* vstm s0-s31 */
     MAX_DST_OPNDS = MAX_SRC_OPNDS,
 #endif
 };

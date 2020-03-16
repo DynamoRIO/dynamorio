@@ -129,24 +129,24 @@ test_noalloc(void)
 {
     byte buf[128];
     byte *pc, *end;
-    instr_t *instr;
 
-    instr = XINST_CREATE_load(GD, opnd_create_reg(DR_REG_XAX),
-                              OPND_CREATE_MEMPTR(DR_REG_XAX, 42));
-    end = instr_encode(GD, instr, buf);
+    instr_t *to_encode = XINST_CREATE_load(GD, opnd_create_reg(DR_REG_XAX),
+                                           OPND_CREATE_MEMPTR(DR_REG_XAX, 42));
+    end = instr_encode(GD, to_encode, buf);
     ASSERT(end - buf < BUFFER_SIZE_ELEMENTS(buf));
-    instr_destroy(GD, instr);
+    instr_destroy(GD, to_encode);
 
     instr_noalloc_t noalloc;
     instr_noalloc_init(GD, &noalloc);
-    pc = decode(GD, buf, &noalloc.instr);
+    instr_t *instr = instr_from_noalloc(&noalloc);
+    pc = decode(GD, buf, instr);
     ASSERT(pc != NULL);
-    ASSERT(opnd_get_reg(instr_get_dst(&noalloc, 0)) == DR_REG_XAX);
+    ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_XAX);
 
-    instr_reset(GD, &noalloc.instr);
-    pc = decode(GD, buf, &noalloc.instr);
+    instr_reset(GD, instr);
+    pc = decode(GD, buf, instr);
     ASSERT(pc != NULL);
-    ASSERT(opnd_get_reg(instr_get_dst(&noalloc, 0)) == DR_REG_XAX);
+    ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_XAX);
 
     /* There should be no leak reported even w/o a reset b/c there's no
      * extra heap.

@@ -99,13 +99,6 @@
 #    define UNIX
 #endif
 
-#ifdef DR_NO_FAST_IR
-#    undef DR_FAST_IR
-#    undef INSTR_INLINE
-#else
-#    define DR_FAST_IR 1
-#endif
-
 #ifdef API_EXPORT_ONLY
 #    ifdef WINDOWS
 #        define WIN32_LEAN_AND_MEAN
@@ -118,6 +111,13 @@
 #    include <stdarg.h> /* for varargs */
 #endif
 /* DR_API EXPORT END */
+
+#ifdef DR_NO_FAST_IR
+#    undef DR_FAST_IR
+#    undef INSTR_INLINE
+#else
+#    define DR_FAST_IR 1
+#endif
 
 /* Internally, ensure these defines are set */
 #if defined(X86) && !defined(X64) && !defined(X86_32)

@@ -505,11 +505,15 @@ struct _instr_t {
  * used to point at heap-allocated structures through extension libraries or custom
  * code.
  *
- * The 'instr' field should be passed to decoding and other routines.  E.g.:
+ * The instr_from_noalloc() function should be used to obtain an #instr_t pointer for
+ * passing to API functions:
  *
  *    instr_noalloc_t noalloc;
  *    instr_noalloc_init(dcontext, &noalloc);
- *    pc = decode(dcontext, ptr, &noalloc.instr);
+ *    instr_t *instr = instr_from_noalloc(&noalloc);
+ *    pc = decode(dcontext, ptr, instr);
+ *
+ * No freeing is required.  To re-use the same structure, instr_reset() can be called.
  *
  * Some operations are not supported on this instruction format:
  * + instr_clone()
@@ -522,12 +526,11 @@ struct _instr_t {
  * heap allocation is unsafe.
  */
 typedef struct instr_noalloc_t {
-    instr_t instr;
-    opnd_t srcs[MAX_SRC_OPNDS - 1];
-    opnd_t dsts[MAX_DST_OPNDS];
-    byte encode_buf[MAX_INSTR_LENGTH];
+    instr_t instr; /**< The base instruction, valid for passing to API functions. */
+    opnd_t srcs[MAX_SRC_OPNDS - 1];    /**< Built-in storage for source operands. */
+    opnd_t dsts[MAX_DST_OPNDS];        /**< Built-in storage for destination operands. */
+    byte encode_buf[MAX_INSTR_LENGTH]; /**< Encoding space for instr_length(), etc. */
 } instr_noalloc_t;
-// NOCHECK not under DR_FAST_IR?
 
 /****************************************************************************
  * INSTR ROUTINES
@@ -562,15 +565,23 @@ DR_API
 void
 instr_init(dcontext_t *dcontext, instr_t *instr);
 
-#if 0 // def DR_FAST_IR // NOCHECK
 DR_API
 /**
- * NOCHECK Initializes \p instr.
+ * Initializes the no-heap-allocation structure \p instr.
  * Sets the x86/x64 mode of \p instr to the mode of dcontext.
  */
 void
 instr_noalloc_init(dcontext_t *dcontext, instr_noalloc_t *instr);
-#endif
+
+DR_API
+INSTR_INLINE
+/**
+ * Given an #instr_noalloc_t where all operands are included, returns
+ * an #instr_t pointer corresponding to that no-alloc structure suitable for
+ * passing to instruction API functions.
+ */
+instr_t *
+instr_from_noalloc(instr_noalloc_t *noalloc);
 
 DR_API
 /**
