@@ -244,6 +244,9 @@ Further non-compatibility-affecting changes include:
  - Added drreg_restore_all() to restore all unreserved registers currently
    maintained by drreg.
  - Added a func_view tool to drcachesim for analyzing function traces.
+ - Added a non-heap-using instruction structure #instr_noalloc_t for use when
+   decoding in a signal handler, along with instr_noalloc_init() and
+   instr_from_noalloc().
 
 **************************************************
 <hr>

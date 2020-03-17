@@ -159,9 +159,6 @@ decode_in_it_block(decode_state_t *state, app_pc pc)
     return false;
 }
 
-/* With register lists we can see quite long operand lists */
-#define MAX_OPNDS IF_X64_ELSE(8, 33 /*vstm s0-s31*/)
-
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
@@ -2426,8 +2423,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     decode_info_t di;
     byte *next_pc;
     uint num_dsts = 0, num_srcs = 0;
-    opnd_t dsts[MAX_OPNDS];
-    opnd_t srcs[MAX_OPNDS];
+    opnd_t dsts[MAX_DST_OPNDS];
+    opnd_t srcs[MAX_SRC_OPNDS];
 
     CLIENT_ASSERT(instr->opcode == OP_INVALID || instr->opcode == OP_UNDECODED,
                   "decode: instr is already decoded, may need to call instr_reset()");

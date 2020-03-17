@@ -186,7 +186,10 @@ enum {
     /* DR_API EXPORT BEGIN */
     INSTR_DO_NOT_MANGLE = 0x00200000,
     /* DR_API EXPORT END */
-    /* Available: 0x00400000, */
+    /* This flag is set by instr_noalloc_init() and used to identify the
+     * instr_noalloc_t "subclass" of instr_t.  It should not be otherwise used.
+     */
+    INSTR_IS_NOALLOC_STRUCT = 0x00400000,
     /* used to indicate that an indirect call can be treated as a direct call */
     INSTR_IND_CALL_DIRECT = 0x00800000,
 #    ifdef WINDOWS
@@ -498,6 +501,40 @@ struct _instr_t {
 };     /* instr_t */
 #endif /* DR_FAST_IR */
 
+/**
+ * A version of #instr_t which guarantees to not use heap allocation for regular
+ * decoding and encoding.  It inlines all the possible operands and encoding space
+ * inside the structure.  Some operations could still use heap if custom label data is
+ * used to point at heap-allocated structures through extension libraries or custom
+ * code.
+ *
+ * The instr_from_noalloc() function should be used to obtain an #instr_t pointer for
+ * passing to API functions:
+ *
+ *    instr_noalloc_t noalloc;
+ *    instr_noalloc_init(dcontext, &noalloc);
+ *    instr_t *instr = instr_from_noalloc(&noalloc);
+ *    pc = decode(dcontext, ptr, instr);
+ *
+ * No freeing is required.  To re-use the same structure, instr_reset() can be called.
+ *
+ * Some operations are not supported on this instruction format:
+ * + instr_clone()
+ * + instr_remove_srcs()
+ * + instr_remove_dsts()
+ * + Automated re-relativization when encoding.
+ *
+ * This format does not support caching encodings, so it is less efficient for encoding.
+ * It is intended for use when decoding in a signal handler or other locations where
+ * heap allocation is unsafe.
+ */
+typedef struct instr_noalloc_t {
+    instr_t instr; /**< The base instruction, valid for passing to API functions. */
+    opnd_t srcs[MAX_SRC_OPNDS - 1];    /**< Built-in storage for source operands. */
+    opnd_t dsts[MAX_DST_OPNDS];        /**< Built-in storage for destination operands. */
+    byte encode_buf[MAX_INSTR_LENGTH]; /**< Encoding space for instr_length(), etc. */
+} instr_noalloc_t;
+
 /****************************************************************************
  * INSTR ROUTINES
  */
@@ -530,6 +567,24 @@ DR_API
  */
 void
 instr_init(dcontext_t *dcontext, instr_t *instr);
+
+DR_API
+/**
+ * Initializes the no-heap-allocation structure \p instr.
+ * Sets the x86/x64 mode of \p instr to the mode of dcontext.
+ */
+void
+instr_noalloc_init(dcontext_t *dcontext, instr_noalloc_t *instr);
+
+DR_API
+INSTR_INLINE
+/**
+ * Given an #instr_noalloc_t where all operands are included, returns
+ * an #instr_t pointer corresponding to that no-alloc structure suitable for
+ * passing to instruction API functions.
+ */
+instr_t *
+instr_from_noalloc(instr_noalloc_t *noalloc);
 
 DR_API
 /**
@@ -815,7 +870,7 @@ void
 instr_exit_branch_set_type(instr_t *instr, uint type);
 
 DR_API
-/** Returns number of bytes of heap used by \p instr. */
+/** Returns the total number of bytes of memory used by \p instr. */
 int
 instr_mem_usage(instr_t *instr);
 

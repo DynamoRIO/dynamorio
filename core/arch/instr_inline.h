@@ -475,6 +475,13 @@ instr_set_prev(instr_t *instr, instr_t *prev)
     instr->prev = prev;
 }
 
+INSTR_INLINE
+instr_t *
+instr_from_noalloc(instr_noalloc_t *noalloc)
+{
+    return &noalloc->instr;
+}
+
 #endif /* DR_FAST_IR */
 
 /* DR_API EXPORT END */

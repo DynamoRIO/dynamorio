@@ -110,6 +110,12 @@ instr_destroy(dcontext_t *dcontext, instr_t *instr)
 instr_t *
 instr_clone(dcontext_t *dcontext, instr_t *orig)
 {
+    /* We could heap-allocate an instr_noalloc_t but it's intended for use in a
+     * signal handler or other places where we don't want any heap allocation.
+     */
+    CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, orig->flags),
+                  "Cloning an instr_noalloc_t is not supported.");
+
     instr_t *instr = (instr_t *)heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
     memcpy((void *)instr, (void *)orig, sizeof(instr_t));
     instr->next = NULL;
@@ -160,12 +166,23 @@ instr_init(dcontext_t *dcontext, instr_t *instr)
     instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
 }
 
+/* zeroes out the fields of instr */
+void
+instr_noalloc_init(dcontext_t *dcontext, instr_noalloc_t *instr)
+{
+    memset(instr, 0, sizeof(*instr));
+    instr->instr.flags |= INSTR_IS_NOALLOC_STRUCT;
+    instr_set_isa_mode(&instr->instr, dr_get_isa_mode(dcontext));
+}
+
 /* Frees all dynamically allocated storage that was allocated by instr */
 void
 instr_free(dcontext_t *dcontext, instr_t *instr)
 {
     if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
         (*instr->label_cb)(dcontext, instr);
+    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+        return;
     if (TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags)) {
         instr_free_raw_bits(dcontext, instr);
     }
@@ -184,10 +201,11 @@ instr_free(dcontext_t *dcontext, instr_t *instr)
     }
 }
 
-/* Returns number of bytes of heap used by instr */
 int
 instr_mem_usage(instr_t *instr)
 {
+    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+        return sizeof(instr_noalloc_t);
     int usage = 0;
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
         usage += instr->length;
@@ -295,10 +313,23 @@ instr_build_bits(dcontext_t *dcontext, int opcode, uint num_bytes)
 static int
 private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
 {
-    /* We cannot use a stack buffer for encoding since our stack on x64 linux
-     * can be too far to reach from our heap.  We need reachable heap.
-     */
-    byte *buf = heap_reachable_alloc(dcontext, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+    byte *buf;
+    byte stack_buf[MAX_INSTR_LENGTH];
+    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+        /* We have no choice: we live with no persistent caching if the stack is
+         * too far away, because the instr's raw bits will be on the stack.
+         * (We can't use encode_buf here bc the re-rel below does not support
+         * the same buffer; maybe it could w/ a memmove in the encode code?)
+         */
+        buf = stack_buf;
+    } else {
+        /* We cannot efficiently use a stack buffer for encoding since our stack on x64
+         * linux can be too far to reach from our heap.  We need reachable heap.
+         * Otherwise we can't keep the encoding around since re-relativization won't
+         * work.
+         */
+        buf = heap_reachable_alloc(dcontext, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+    }
     uint len;
     /* Do not cache instr opnds as they are pc-relative to final encoding location.
      * Rather than us walking all of the operands separately here, we have
@@ -316,7 +347,8 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
                                                             instr_get_isa_mode(instr)
                                                                 _IF_ARM(false))
                                         ->name);
-            heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+            if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+                heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
             return 0;
         }
         /* if unreachable, we can't cache, since re-relativization won't work */
@@ -364,7 +396,8 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         instr->bytes = tmp;
         instr_set_operands_valid(instr, valid);
     }
-    heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+    if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+        heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     return len;
 }
 
@@ -503,16 +536,26 @@ instr_set_num_opnds(dcontext_t *dcontext, instr_t *instr, int instr_num_dsts,
         CLIENT_ASSERT_TRUNCATE(instr->num_dsts, byte, instr_num_dsts,
                                "instr_set_num_opnds: too many dsts");
         instr->num_dsts = (byte)instr_num_dsts;
-        instr->dsts = (opnd_t *)heap_alloc(
-            dcontext, instr_num_dsts * sizeof(opnd_t) HEAPACCT(ACCT_IR));
+        if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+            instr_noalloc_t *noalloc = (instr_noalloc_t *)instr;
+            noalloc->instr.dsts = noalloc->dsts;
+        } else {
+            instr->dsts = (opnd_t *)heap_alloc(
+                dcontext, instr_num_dsts * sizeof(opnd_t) HEAPACCT(ACCT_IR));
+        }
     }
     if (instr_num_srcs > 0) {
         /* remember that src0 is static, rest are dynamic */
         if (instr_num_srcs > 1) {
             CLIENT_ASSERT(instr->num_srcs <= 1 && instr->srcs == NULL,
                           "instr_set_num_opnds: srcs are already set");
-            instr->srcs = (opnd_t *)heap_alloc(
-                dcontext, (instr_num_srcs - 1) * sizeof(opnd_t) HEAPACCT(ACCT_IR));
+            if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+                instr_noalloc_t *noalloc = (instr_noalloc_t *)instr;
+                noalloc->instr.srcs = noalloc->srcs;
+            } else {
+                instr->srcs = (opnd_t *)heap_alloc(
+                    dcontext, (instr_num_srcs - 1) * sizeof(opnd_t) HEAPACCT(ACCT_IR));
+            }
         }
         CLIENT_ASSERT_TRUNCATE(instr->num_srcs, byte, instr_num_srcs,
                                "instr_set_num_opnds: too many srcs");
@@ -556,6 +599,9 @@ void
 instr_remove_srcs(dcontext_t *dcontext, instr_t *instr, uint start, uint end)
 {
     opnd_t *new_srcs;
+    CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags),
+                  /* We could implement, but it does not seem an important use case. */
+                  "instr_remove_srcs not supported for instr_noalloc_t");
     CLIENT_ASSERT(start >= 0 && end <= instr->num_srcs && start < end,
                   "instr_remove_srcs: ordinals invalid");
     if (instr->num_srcs - 1 > (byte)(end - start)) {
@@ -585,6 +631,9 @@ void
 instr_remove_dsts(dcontext_t *dcontext, instr_t *instr, uint start, uint end)
 {
     opnd_t *new_dsts;
+    CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags),
+                  /* We could implement, but it does not seem an important use case. */
+                  "instr_remove_srcs not supported for instr_noalloc_t");
     CLIENT_ASSERT(start >= 0 && end <= instr->num_dsts && start < end,
                   "instr_remove_dsts: ordinals invalid");
     if (instr->num_dsts > (byte)(end - start)) {
@@ -972,7 +1021,8 @@ instr_free_raw_bits(dcontext_t *dcontext, instr_t *instr)
 {
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0)
         return;
-    heap_reachable_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
+    if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+        heap_reachable_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
     instr->bytes = NULL;
     instr->flags &= ~INSTR_RAW_BITS_VALID;
     instr->flags &= ~INSTR_RAW_BITS_ALLOCATED;
@@ -986,12 +1036,21 @@ void
 instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
 {
     byte *original_bits = NULL;
-    if ((instr->flags & INSTR_RAW_BITS_VALID) != 0)
+    if (TEST(INSTR_RAW_BITS_VALID, instr->flags))
         original_bits = instr->bytes;
-    if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0 || instr->length != num_bytes) {
-        /* We need reachable heap for rip-rel re-relativization. */
-        byte *new_bits =
-            (byte *)heap_reachable_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR));
+    if (!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags) || instr->length != num_bytes) {
+        byte *new_bits;
+        if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+            /* This may not be reachable, so re-relativization is limited. */
+            instr_noalloc_t *noalloc = (instr_noalloc_t *)instr;
+            CLIENT_ASSERT(num_bytes <= sizeof(noalloc->encode_buf),
+                          "instr_allocate_raw_bits exceeds instr_noalloc_t capacity");
+            new_bits = noalloc->encode_buf;
+        } else {
+            /* We need reachable heap for rip-rel re-relativization. */
+            new_bits =
+                (byte *)heap_reachable_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR));
+        }
         if (original_bits != NULL) {
             /* copy original bits into modified bits so can just modify
              * a few and still have all info in one place
