@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -243,14 +243,6 @@ fast_safe_read(void *base, size_t size, void *out_buf)
 /***************************************************************************
  * WRAPPING INSTRUMENTATION TRACKING
  */
-
-/* We need to know whether we've inserted instrumentation at the call site .
- * The separate post_call_table tells us whether we've set up the return site
- * for instrumentation.
- */
-#define CALL_SITE_TABLE_HASH_BITS 10
-/* i#1689: we store the aligned (LSB=0) pc here */
-static hashtable_t call_site_table;
 
 /* Hashtable so we can remember post-call pcs (since
  * post-cti-instrumentation is not supported by DR).
@@ -927,8 +919,6 @@ drwrap_init(void)
                       NULL);
     hashtable_init_ex(&wrap_table, WRAP_TABLE_HASH_BITS, HASH_INTPTR, false /*!str_dup*/,
                       false /*!synch*/, wrap_entry_free, NULL, NULL);
-    hashtable_init_ex(&call_site_table, CALL_SITE_TABLE_HASH_BITS, HASH_INTPTR,
-                      false /*!strdup*/, false /*!synch*/, NULL, NULL, NULL);
     hashtable_init_ex(&post_call_table, POST_CALL_TABLE_HASH_BITS, HASH_INTPTR,
                       false /*!str_dup*/, false /*!synch*/, post_call_entry_free, NULL,
                       NULL);
@@ -991,7 +981,6 @@ drwrap_exit(void)
     hashtable_delete(&replace_table);
     hashtable_delete(&replace_native_table);
     hashtable_delete(&wrap_table);
-    hashtable_delete(&call_site_table);
     hashtable_delete(&post_call_table);
     dr_rwlock_destroy(post_call_rwlock);
     dr_recurlock_destroy(wrap_lock);
@@ -2237,15 +2226,19 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
 static void
 drwrap_event_module_unload(void *drcontext, const module_data_t *info)
 {
-    /* XXX: should also remove from post_call_table and call_site_table
-     * on other code modifications: for now we assume no such
+    /* XXX: should also remove on other code modifications: for now we assume no such
      * changes to app code that's being targeted for wrapping.
      */
-    hashtable_remove_range(&call_site_table, (void *)info->start, (void *)info->end);
-
     dr_rwlock_write_lock(post_call_rwlock);
     hashtable_remove_range(&post_call_table, (void *)info->start, (void *)info->end);
     dr_rwlock_write_unlock(post_call_rwlock);
+
+    /* XXX: It's arguable whether we should remove from replace_table,
+     * replace_native_table, and wrap_table: we could expect the client to un-replace
+     * or un-wrap, and if they don't, and a new module is loaded at the same place
+     * and we wrap something weird, we could blame the client.  That's the current
+     * approach.
+     */
 }
 
 static void
