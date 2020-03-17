@@ -244,14 +244,6 @@ fast_safe_read(void *base, size_t size, void *out_buf)
  * WRAPPING INSTRUMENTATION TRACKING
  */
 
-/* We need to know whether we've inserted instrumentation at the call site .
- * The separate post_call_table tells us whether we've set up the return site
- * for instrumentation.
- */
-#define CALL_SITE_TABLE_HASH_BITS 10
-/* i#1689: we store the aligned (LSB=0) pc here */
-static hashtable_t call_site_table;
-
 /* Hashtable so we can remember post-call pcs (since
  * post-cti-instrumentation is not supported by DR).
  * Synchronized externally to safeguard the externally-allocated payload,
