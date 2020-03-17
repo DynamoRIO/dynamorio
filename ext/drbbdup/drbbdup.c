@@ -258,6 +258,9 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
         opts.set_up_bb_dups(manager, drcontext, tag, bb, &(manager->enable_dup),
                             &(manager->enable_dynamic_handling), opts.user_data);
 
+    DR_ASSERT_MSG(!manager->enable_dynamic_handling,
+                  "dynamic case generation is not supported");
+
     /* Check whether user wants copies for this particular bb. */
     if (!manager->enable_dup && manager->cases != NULL) {
         /* Multiple cases not wanted. Destroy cases. */
@@ -1197,6 +1200,9 @@ drbbdup_handle_new_case()
             if (do_gen)
                 drbbdup_include_encoding(manager, new_encoding);
 
+            /* Flush only if a new case needs to be generated or
+             * dynamic handling has been disabled.
+             */
             do_flush = do_gen || !manager->enable_dynamic_handling;
             if (do_flush) {
                 /* Mark that flushing is happening for drbbdup. */
