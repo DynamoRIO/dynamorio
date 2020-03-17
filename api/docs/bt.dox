@@ -757,13 +757,14 @@ formats.
 DynamoRIO's IR is designed for efficiency and a small footprint.  By
 default, space for operands is dynamically allocated from the heap.
 This can be problematic when using instructions in fragile locations
-such as signal handlers.  DR provides a separate insruction structure
+such as signal handlers.  DR provides a separate instruction structure
 for such situations: #instr_noalloc_t.  This structure contains
 built-in storage for all possible operand slots and for temporary
 encoding space, avoiding heap allocation when used for decoding or
 encoding.
 
-To use #instr_noalloc_t, declare it and then obtain a pointer to it as an #instr_t structure for use with API functions:
+To use #instr_noalloc_t, declare it and then obtain a pointer to it
+as an #instr_t structure for use with API functions:
 
 \code
 instr_noalloc_t noalloc;
