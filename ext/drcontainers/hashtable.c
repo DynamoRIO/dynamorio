@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -243,6 +243,8 @@ hashtable_configure(hashtable_t *table, hashtable_config_t *config)
         table->config.resizable = config->resizable;
     if (config->size > offsetof(hashtable_config_t, resize_threshold))
         table->config.resize_threshold = config->resize_threshold;
+    if (config->size > offsetof(hashtable_config_t, free_key_func))
+        table->config.free_key_func = config->free_key_func;
 }
 
 void
@@ -383,6 +385,8 @@ hashtable_add_replace(hashtable_t *table, void *key, void *payload)
             new_e->next = e->next;
             if (table->str_dup)
                 hash_free(e->key, strlen((const char *)e->key) + 1);
+            else if (table->config.free_key_func != NULL)
+                (table->config.free_key_func)(e->key);
             /* up to caller to free payload */
             old_payload = e->payload;
             hash_free(e, sizeof(*e));
@@ -417,6 +421,8 @@ hashtable_remove(hashtable_t *table, void *key)
                 prev_e->next = e->next;
             if (table->str_dup)
                 hash_free(e->key, strlen((const char *)e->key) + 1);
+            else if (table->config.free_key_func != NULL)
+                (table->config.free_key_func)(e->key);
             if (table->free_payload_func != NULL)
                 (table->free_payload_func)(e->payload);
             hash_free(e, sizeof(*e));
@@ -448,6 +454,8 @@ hashtable_remove_range(hashtable_t *table, void *start, void *end)
                     prev_e->next = e->next;
                 if (table->str_dup)
                     hash_free(e->key, strlen((const char *)e->key) + 1);
+                else if (table->config.free_key_func != NULL)
+                    (table->config.free_key_func)(e->key);
                 if (table->free_payload_func != NULL)
                     (table->free_payload_func)(e->payload);
                 hash_free(e, sizeof(*e));
@@ -505,6 +513,8 @@ hashtable_clear_internal(hashtable_t *table)
             hash_entry_t *nexte = e->next;
             if (table->str_dup)
                 hash_free(e->key, strlen((const char *)e->key) + 1);
+            else if (table->config.free_key_func != NULL)
+                (table->config.free_key_func)(e->key);
             if (table->free_payload_func != NULL)
                 (table->free_payload_func)(e->payload);
             hash_free(e, sizeof(*e));
