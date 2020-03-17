@@ -186,6 +186,9 @@ enum {
     /* DR_API EXPORT BEGIN */
     INSTR_DO_NOT_MANGLE = 0x00200000,
     /* DR_API EXPORT END */
+    /* This flag is set by instr_noalloc_init() and used to identify the
+     * instr_noalloc_t "subclass" of instr_t.  It should not be otherwise used.
+     */
     INSTR_IS_NOALLOC_STRUCT = 0x00400000,
     /* used to indicate that an indirect call can be treated as a direct call */
     INSTR_IND_CALL_DIRECT = 0x00800000,
