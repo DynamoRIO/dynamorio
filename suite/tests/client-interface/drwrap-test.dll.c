@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -309,6 +309,12 @@ dr_init(client_id_t id)
 static void
 event_exit(void)
 {
+    drwrap_stats_t stats = {
+        sizeof(stats),
+    };
+    bool ok = drwrap_get_stats(&stats);
+    CHECK(ok, "get_stats failed");
+    CHECK(stats.flush_count > 0, "force-replaces should result in some flushes");
     drmgr_unregister_tls_field(tls_idx);
     drwrap_exit();
     drmgr_exit();

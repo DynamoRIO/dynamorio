@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -747,6 +747,31 @@ DR_EXPORT
  */
 bool
 drwrap_is_post_wrap(app_pc pc);
+
+/**
+ * Contains statistics retrievable by drwrap_get_stats().
+ */
+typedef struct _drwrap_stats_t {
+    /** The size of this structure. Set this to sizeof(drwrap_stats_t). */
+    size_t size;
+    /**
+     * The total number of code cache flushes.  These occur due to return points
+     * already existing in the cache; replacing existing instrumentation; and
+     * removing wrap or replace instrumentation.
+     */
+    int64 flush_count;
+} drwrap_stats_t;
+
+DR_EXPORT
+/**
+ * Retrieves various statistics exported by DR as global, process-wide values.
+ * The API is not thread-safe.
+ * The caller is expected to pass a pointer to a valid, initialized dr_stats_t
+ * value, with the size field set (see dr_stats_t).
+ * Returns false if stats are not enabled.
+ */
+bool
+drwrap_get_stats(INOUT drwrap_stats_t *stats);
 
 /*@}*/ /* end doxygen group */
 
