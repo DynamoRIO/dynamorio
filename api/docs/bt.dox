@@ -129,6 +129,9 @@ scratch, decoding, encoding, and disassembling instructions.  Typically
 these instructions will be stored on the stack, using instr_init() and
 instr_free() or instr_reset(), as shown in that section.
 
+See \ref sec_IR_heap for further information on heap allocation for
+instructions and safely using instructions in signal handlers.
+
 \if level_of_detail
 ********************
 \subsection sec_IR_adaptive Adaptive Level of Detail
@@ -689,6 +692,7 @@ instr_free(dcontext, &instr);
 DynamoRIO supports decoding multiple instruction set modes.
 See \ref sec_isa for full details.
 
+********************
 \subsection sec_InstrGen Instruction Generation
 
 Clients can construct instructions from scratch in two different ways:
@@ -713,7 +717,7 @@ sizes must match the templates that DynamoRIO uses.  The
 INSTR_CREATE_ macros in dr_ir_macros.h should be consulted to
 determine the order.
 
-
+********************
 \subsection sec_Encoding Encoding
 
 DynamoRIO's encoding routines take an instruction or list of
@@ -746,6 +750,31 @@ style is DynamoRIO's custom style, which lists all operands (both implicit
 and explicit).  The sources are listed first, followed by "->", and then
 the destinations.  This provides more information than any of the other
 formats.
+
+********************
+\subsection sec_IR_heap Instruction Heap Allocation
+
+DynamoRIO's IR is designed for efficiency and a small footprint.  By
+default, space for operands is dynamically allocated from the heap.
+This can be problematic when using instructions in fragile locations
+such as signal handlers.  DR provides a separate instruction structure
+for such situations: #instr_noalloc_t.  This structure contains
+built-in storage for all possible operand slots and for temporary
+encoding space, avoiding heap allocation when used for decoding or
+encoding.
+
+To use #instr_noalloc_t, declare it and then obtain a pointer to it
+as an #instr_t structure for use with API functions:
+
+\code
+instr_noalloc_t noalloc;
+instr_noalloc_init(dcontext, &noalloc);
+instr_t *instr = instr_from_noalloc(&noalloc);
+pc = decode(dcontext, ptr, instr);
+\endcode
+
+No freeing is required.  To re-use the same no-alloc structure,
+instr_reset() can be called on its #instr_t pointer.
 
 
 ***************************************************************************
