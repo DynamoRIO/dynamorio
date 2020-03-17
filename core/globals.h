@@ -232,10 +232,6 @@ typedef byte *cache_pc; /* fragment cache pc */
 extern const char dynamorio_version_string[];
 extern const char dynamorio_buildmark[];
 
-struct _opnd_t;
-typedef struct _opnd_t opnd_t;
-struct _instr_t;
-typedef struct _instr_t instr_t;
 struct _instr_list_t;
 struct _fragment_t;
 typedef struct _fragment_t fragment_t;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1937,9 +1937,34 @@ cache_pc
 get_native_ret_ibl_xfer_entry(dcontext_t *dcontext);
 #endif
 
+/* DR_API EXPORT TOFILE dr_ir_instr.h */
+/* DR_API EXPORT BEGIN */
 enum {
 #ifdef X86
     MAX_INSTR_LENGTH = 17,
+    MAX_SRC_OPNDS = 8, /* pusha */
+    MAX_DST_OPNDS = 8, /* popa */
+#elif defined(AARCH64)
+    /* The maximum instruction length is 64 to allow for an OP_ldstex containing
+     * up to 16 real instructions. The longest such block seen so far in real
+     * code had 7 instructions so this is likely to be enough. With the current
+     * implementation, a larger value would significantly slow down the search
+     * for such blocks in the decoder: see decode_ldstex().
+     */
+    MAX_INSTR_LENGTH = 64,
+    MAX_SRC_OPNDS = 8,
+    MAX_DST_OPNDS = 8,
+#elif defined(ARM)
+    MAX_INSTR_LENGTH = 4,
+    /* With register lists we can see quite long operand lists. */
+    MAX_SRC_OPNDS = 33, /* vstm s0-s31 */
+    MAX_DST_OPNDS = MAX_SRC_OPNDS,
+#endif
+};
+/* DR_API EXPORT END */
+
+enum {
+#ifdef X86
     /* size of 32-bit-offset jcc instr, assuming it has no
      * jcc branch hint!
      */
@@ -1960,20 +1985,12 @@ enum {
     CTI_FAR_ABS_LENGTH = 7, /* 9A 1B 07 00 34 39 call 0739:3400071B            */
                             /* 07                                              */
 #elif defined(AARCH64)
-    /* The maximum instruction length is 64 to allow for an OP_ldstex containing
-     * up to 16 real instructions. The longest such block seen so far in real
-     * code had 7 instructions so this is likely to be enough. With the current
-     * implementation, a larger value would significantly slow down the search
-     * for such blocks in the decoder: see decode_ldstex().
-     */
-    MAX_INSTR_LENGTH = 64,
     CBR_LONG_LENGTH = 4,
     JMP_LONG_LENGTH = 4,
     JMP_SHORT_LENGTH = 4,
     CBR_SHORT_REWRITE_LENGTH = 4,
     SVC_LENGTH = 4,
 #elif defined(ARM)
-    MAX_INSTR_LENGTH = ARM_INSTR_SIZE,
     CBR_LONG_LENGTH = ARM_INSTR_SIZE,
     JMP_LONG_LENGTH = ARM_INSTR_SIZE,
     JMP_SHORT_LENGTH = THUMB_SHORT_INSTR_SIZE,

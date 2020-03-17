@@ -112,6 +112,13 @@
 #endif
 /* DR_API EXPORT END */
 
+#ifdef DR_NO_FAST_IR
+#    undef DR_FAST_IR
+#    undef INSTR_INLINE
+#else
+#    define DR_FAST_IR 1
+#endif
+
 /* Internally, ensure these defines are set */
 #if defined(X86) && !defined(X64) && !defined(X86_32)
 #    define X86_32
@@ -365,19 +372,18 @@ extern file_t our_stdin;
  */
 typedef uint client_id_t;
 
-#ifdef API_EXPORT_ONLY
-#    ifndef DR_FAST_IR
+#ifndef DR_FAST_IR
 /**
  * Internal structure of opnd_t is below abstraction layer.
  * But compiler needs to know field sizes to copy it around
  */
 typedef struct {
-#        ifdef X64
+#    ifdef X64
     uint black_box_uint;
     uint64 black_box_uint64;
-#        else
+#    else
     uint black_box_uint[3];
-#        endif
+#    endif
 } opnd_t;
 
 /**
@@ -386,19 +392,18 @@ typedef struct {
  * instead of always allocated on the heap.
  */
 typedef struct {
-#        ifdef X64
+#    ifdef X64
     uint black_box_uint[26];
-#        else
-    uint black_box_uint[17];
-#        endif
-} instr_t;
 #    else
+    uint black_box_uint[17];
+#    endif
+} instr_t;
+#else
 struct _opnd_t;
 typedef struct _opnd_t opnd_t;
 struct _instr_t;
 typedef struct _instr_t instr_t;
-#    endif /* !DR_FAST_IR */
-#endif     /* API_EXPORT_ONLY */
+#endif
 
 #ifndef IN
 #    define IN /* marks input param */
@@ -1246,8 +1251,9 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
  * share/config.c) to set up new eventlogs (mainly for vista where our
  * installer doesn't work yet xref case 8482).*/
 #    define L_EVENT_FILE_VALUE_NAME L"File"
-#    define L_EVENT_FILE_NAME_PRE_VISTA \
-        L"%SystemRoot%\\system32\\config\\" L_EXPAND_LEVEL(EVENTLOG_NAME) L".evt"
+#    define L_EVENT_FILE_NAME_PRE_VISTA                                          \
+        L"%SystemRoot%\\system32\\config\\" L_EXPAND_LEVEL(EVENTLOG_NAME) L".ev" \
+                                                                          L"t"
 #    define L_EVENT_FILE_NAME_VISTA \
         L"%SystemRoot%\\system32\\winevt\\logs\\" L_EXPAND_LEVEL(EVENTLOG_NAME) L".elf"
 #    define L_EVENT_MAX_SIZE_NAME L"MaxSize"
@@ -1301,8 +1307,9 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #    define INJECT_HELPER_DLL2_NAME "drearlyhelp2.dll"
 
 #    define DEBUGGER_INJECTION_HIVE HKEY_LOCAL_MACHINE
-#    define DEBUGGER_INJECTION_KEY \
-        "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options"
+#    define DEBUGGER_INJECTION_KEY                                               \
+        "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution " \
+        "Options"
 #    define DEBUGGER_INJECTION_VALUE_NAME "Debugger"
 
 #    define DEBUGGER_INJECTION_HIVE_L L"\\Registry\\Machine\\"
