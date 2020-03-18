@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -189,6 +189,17 @@ ADDRTAKEN_LABEL(replace_native_ret_imms:)
         ret      40 * ARG_SZ
 ADDRTAKEN_LABEL(replace_native_ret_imms_end:)
         nop
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+
+/* We just need a sentinel block that does not cause DR to complain about
+ * non-executable code or illegal instrutions, for DRWRAP_REPLACE_RETADDR.
+ */
+#define FUNCNAME replace_retaddr_sentinel
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        ret
         END_FUNC(FUNCNAME)
 
 

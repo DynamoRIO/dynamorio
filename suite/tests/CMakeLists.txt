@@ -711,8 +711,13 @@ function(configure_app_api_build_flags test decoder use_static_DR)
   get_target_property(pre_lflags ${test} LINK_FLAGS)
   # disable the default rpath for standalone apps
   set(DynamoRIO_RPATH OFF)
-  # to avoid changing all the REG_ constants we ask for compatibility
-  set(DynamoRIO_REG_COMPATIBILITY ON)
+  # To avoid changing all the REG_ constants we ask for compatibility.
+  if (DEFINED ${test}_no_reg_compat)
+    # We try but it's already in the flags so we unset in drwrap-test-detach.cpp.
+    set(DynamoRIO_REG_COMPATIBILITY OFF)
+  else ()
+    set(DynamoRIO_REG_COMPATIBILITY ON)
+  endif ()
   if (decoder)
     configure_DynamoRIO_decoder(${test})
     set(extra_flags "-DSTANDALONE_DECODER")
@@ -2300,12 +2305,20 @@ if (CLIENT_INTERFACE)
   tochcon(client.drwrap-test.appdll textrel_shlib_t)
   if (WIN32)
     # export from asm code
-    append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
+    append_link_flags(client.drwrap-test.appdll
+      "/export:makes_tailcall /export:tailcall_test2 /export:tailcall_tail")
   endif (WIN32)
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild_ci(client.drwrap-test-callconv client-interface/drwrap-test-callconv.cpp
       "" "" "")
     use_DynamoRIO_extension(client.drwrap-test-callconv.dll drwrap)
+  endif ()
+  if (NOT ARM AND NOT AARCH64) # FIXME i#1578: fix detach on ARM/AArch64
+    set(client.drwrap-test-detach_no_reg_compat)
+    tobuild_api(client.drwrap-test-detach client-interface/drwrap-test-detach.cpp
+      "" "" OFF ON)
+    use_DynamoRIO_extension(client.drwrap-test-detach drwrap_static)
+    link_with_pthread(client.drwrap-test-detach)
   endif ()
 
   # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
@@ -2478,7 +2491,7 @@ if (CLIENT_INTERFACE)
     endif ()
   endif (ARM)
 
-  if (NOT ARM AND NOT AARCH64) # FIXME i#1551, i#1569: fix bugs on ARM/AArch64
+  if (NOT ARM AND NOT AARCH64) # FIXME i#1578: fix detach on ARM/AArch64
     tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
     link_with_pthread(api.startstop)
     tobuild_api(api.detach api/detach.c "" "" OFF OFF)
