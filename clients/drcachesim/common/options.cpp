@@ -454,14 +454,15 @@ droption_t<std::string> op_record_heap_value(
     "malloc|1" OP_RECORD_FUNC_ITEM_SEP "free|1|noret" OP_RECORD_FUNC_ITEM_SEP
     "tc_malloc|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|1|noret" OP_RECORD_FUNC_ITEM_SEP
     "__libc_malloc|1" OP_RECORD_FUNC_ITEM_SEP
-    "__libc_free|1|noret" OP_RECORD_FUNC_ITEM_SEP "calloc|2" OP_RECORD_FUNC_ITEM_SEP
+    "__libc_free|1|noret" OP_RECORD_FUNC_ITEM_SEP "calloc|2"
 #ifdef UNIX
     // i#3048: We only have Itanium ABI manglings for now so we disable for MSVC.
     // XXX: This is getting quite long.  I would change the option to point at
     // a file, except that does not work well with some third-party uses.
     // Another option would be to support wildcards and give up on extra args like
     // alignment and nothrow: so we'd do "_Zn*|1&_Zd*|1|noret".
-    "_Znwm|1" OP_RECORD_FUNC_ITEM_SEP "_ZnwmRKSt9nothrow_t|2" OP_RECORD_FUNC_ITEM_SEP
+    OP_RECORD_FUNC_ITEM_SEP "_Znwm|1" OP_RECORD_FUNC_ITEM_SEP
+    "_ZnwmRKSt9nothrow_t|2" OP_RECORD_FUNC_ITEM_SEP
     "_ZnwmSt11align_val_t|2" OP_RECORD_FUNC_ITEM_SEP
     "_ZnwmSt11align_val_tRKSt9nothrow_t|3" OP_RECORD_FUNC_ITEM_SEP
     "_ZnwmPv|2" OP_RECORD_FUNC_ITEM_SEP "_Znam|1" OP_RECORD_FUNC_ITEM_SEP

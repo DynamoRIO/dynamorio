@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -247,14 +247,6 @@ fast_safe_read(void *base, size_t size, void *out_buf)
  * WRAPPING INSTRUMENTATION TRACKING
  */
 
-/* We need to know whether we've inserted instrumentation at the call site .
- * The separate post_call_table tells us whether we've set up the return site
- * for instrumentation.
- */
-#define CALL_SITE_TABLE_HASH_BITS 10
-/* i#1689: we store the aligned (LSB=0) pc here */
-static hashtable_t call_site_table;
-
 /* Hashtable so we can remember post-call pcs (since
  * post-cti-instrumentation is not supported by DR).
  * Synchronized externally to safeguard the externally-allocated payload,
@@ -320,7 +312,10 @@ post_call_entry_add(app_pc postcall, bool external)
         /* notify client somehow?  we'll carry on and invalidate on next bb */
         memset(e->prior, 0, sizeof(e->prior));
     }
-    hashtable_add(&post_call_table, (void *)postcall, (void *)e);
+    if (!hashtable_add(&post_call_table, (void *)postcall, (void *)e)) {
+        post_call_entry_free(e);
+        return NULL;
+    }
     if (!external && post_call_notify_list != NULL) {
         post_call_notify_t *cb = post_call_notify_list;
         while (cb != NULL) {
@@ -930,8 +925,6 @@ drwrap_init(void)
                       NULL);
     hashtable_init_ex(&wrap_table, WRAP_TABLE_HASH_BITS, HASH_INTPTR, false /*!str_dup*/,
                       false /*!synch*/, wrap_entry_free, NULL, NULL);
-    hashtable_init_ex(&call_site_table, CALL_SITE_TABLE_HASH_BITS, HASH_INTPTR,
-                      false /*!strdup*/, false /*!synch*/, NULL, NULL, NULL);
     hashtable_init_ex(&post_call_table, POST_CALL_TABLE_HASH_BITS, HASH_INTPTR,
                       false /*!str_dup*/, false /*!synch*/, post_call_entry_free, NULL,
                       NULL);
@@ -994,7 +987,6 @@ drwrap_exit(void)
     hashtable_delete(&replace_table);
     hashtable_delete(&replace_native_table);
     hashtable_delete(&wrap_table);
-    hashtable_delete(&call_site_table);
     hashtable_delete(&post_call_table);
     dr_rwlock_destroy(post_call_rwlock);
     dr_recurlock_destroy(wrap_lock);
@@ -1683,6 +1675,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc decorated_pc,
     if (e == NULL || !e->existing_instrumented) {
         if (e == NULL) {
             e = post_call_entry_add(retaddr, false);
+            ASSERT(e != NULL, "holding lock so cannot already exist");
         }
         /* now that we have an entry in the synchronized post_call_table
          * any new code coming in will be instrumented
@@ -2192,9 +2185,11 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     app_pc pc =
         dr_app_pc_as_jump_target(instr_get_isa_mode(inst), instr_get_app_pc(inst));
 
-    /* Strategy: we don't bother to look at call sites; we wait for the callee
-     * and flush, under the assumption that we won't have already seen the
-     * return point and so won't have to incur the cost of a flush very often
+    /* Strategy: for the pre-hook, do not insert at the call site but rather wait for
+     * the callee.  For the post-hook, record the post-call site when we see the
+     * call instruction, and additionally record the actual retaddr when in the callee.
+     * By doing both we minimize flushes from the return point having already been
+     * reached before the callee hook can mark it.
      */
     dr_recurlock_lock(wrap_lock);
     wrap = hashtable_lookup(&wrap_table, (void *)pc);
@@ -2226,6 +2221,7 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
          * vs other components' spill slots.
          */
         dr_cleancall_save_t flags = 0;
+        NOTIFY(2, "drwrap inserting post-call cb at " PFX "\n", pc);
         dr_insert_clean_call_ex(drcontext, bb, inst, (void *)drwrap_after_callee, flags,
                                 2,
                                 /* i#1689: retaddrs do have LSB=1 */
@@ -2234,21 +2230,41 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
                                 opnd_create_reg(DR_REG_XSP));
     }
 
+    if (instr_is_call(inst) && instr_is_app(inst) && opnd_is_pc(instr_get_target(inst))) {
+        app_pc target = dr_app_pc_as_jump_target(instr_get_isa_mode(inst),
+                                                 opnd_get_pc(instr_get_target(inst)));
+        dr_recurlock_lock(wrap_lock);
+        wrap = hashtable_lookup(&wrap_table, (void *)target);
+        bool wrapping = wrap != NULL && wrap->post_cb != NULL;
+        dr_recurlock_unlock(wrap_lock);
+        if (wrapping) {
+            /* Add the pc-as-load-target (so *not* "pc"). */
+            dr_rwlock_write_lock(post_call_rwlock);
+            post_call_entry_add(instr_get_app_pc(inst) + instr_length(drcontext, inst),
+                                false);
+            dr_rwlock_write_unlock(post_call_rwlock);
+        }
+    }
+
     return DR_EMIT_DEFAULT;
 }
 
 static void
 drwrap_event_module_unload(void *drcontext, const module_data_t *info)
 {
-    /* XXX: should also remove from post_call_table and call_site_table
-     * on other code modifications: for now we assume no such
+    /* XXX: should also remove on other code modifications: for now we assume no such
      * changes to app code that's being targeted for wrapping.
      */
-    hashtable_remove_range(&call_site_table, (void *)info->start, (void *)info->end);
-
     dr_rwlock_write_lock(post_call_rwlock);
     hashtable_remove_range(&post_call_table, (void *)info->start, (void *)info->end);
     dr_rwlock_write_unlock(post_call_rwlock);
+
+    /* XXX: It's arguable whether we should remove from replace_table,
+     * replace_native_table, and wrap_table: we could expect the client to un-replace
+     * or un-wrap, and if they don't, and a new module is loaded at the same place
+     * and we wrap something weird, we could blame the client.  That's the current
+     * approach.
+     */
 }
 
 static void

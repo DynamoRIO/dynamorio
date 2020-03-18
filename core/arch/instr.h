@@ -511,10 +511,12 @@ struct _instr_t {
  * The instr_from_noalloc() function should be used to obtain an #instr_t pointer for
  * passing to API functions:
  *
+ * \code
  *    instr_noalloc_t noalloc;
  *    instr_noalloc_init(dcontext, &noalloc);
  *    instr_t *instr = instr_from_noalloc(&noalloc);
  *    pc = decode(dcontext, ptr, instr);
+ * \endcode
  *
  * No freeing is required.  To re-use the same structure, instr_reset() can be called.
  *
