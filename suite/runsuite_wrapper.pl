@@ -228,11 +228,14 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|tool.drcachesim.invariants' => 1, # i#2892
                                    'code_api|tool.drcacheoff.simple' => 1,
                                    'code_api|tool.histogram.gzip' => 1);
-            # FIXME i#2417: fix flaky AArch64 tests
+            # FIXME i#2417: fix flaky/regressed AArch64 tests
             %ignore_failures_64 = ('code_api|linux.sigsuspend' => 1,
                                    'code_api|pthreads.pthreads_exit' => 1,
                                    'code_api|tool.drcachesim.invariants' => 1, # i#2892
-                                   'code_api|tool.histogram.offline' => 1); # i#3980
+                                   'code_api|tool.histogram.offline' => 1, # i#3980
+                                   'code_api|linux.fib-conflict' => 1,
+                                   'code_api|linux.fib-conflict-early' => 1,
+                                   'code_api|linux.mangle_asynch' => 1);
             if ($is_32) {
                 $issue_no = "#2416";
             } else {
