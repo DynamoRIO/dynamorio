@@ -257,9 +257,9 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
         opts.set_up_bb_dups(manager, drcontext, tag, bb, &(manager->enable_dup),
                             &(manager->enable_dynamic_handling), opts.user_data);
 
-    /* XXX i#3778: To remove once we support for deleting specific fragments. */
+    /* XXX i#3778: To remove once we support specific fragment deletion. */
     DR_ASSERT_MSG(!manager->enable_dynamic_handling,
-                  "dynamic case generation is not supported until");
+                  "dynamic case generation is not yet supported");
 
     /* Check whether user wants copies for this particular bb. */
     if (!manager->enable_dup && manager->cases != NULL) {
@@ -1229,7 +1229,7 @@ drbbdup_handle_new_case()
             __FUNCTION__, pc);
 
         /* No locks held upon fragment deletion. */
-        /* XXX i#3778: To include once we support for deleting specific fragments. */
+        /* XXX i#3778: To include once we support specific fragment deletion. */
         /* dr_delete_shared_fragment(tag); */
     }
 
