@@ -250,6 +250,8 @@ Further non-compatibility-affecting changes include:
  - Added drwrap_get_stats().
  - Added #DRWRAP_NO_DYNAMIC_RETADDRS for reducing drwrap overhead at the cost
    of missing some post-call callbacks.
+ - Added -record_dynsym_only to drcachesim for faster function tracing symbol
+   lookups when internal symbols are not needed.
 
 **************************************************
 <hr>
