@@ -247,6 +247,7 @@ Further non-compatibility-affecting changes include:
  - Added a non-heap-using instruction structure #instr_noalloc_t for use when
    decoding in a signal handler, along with instr_noalloc_init() and
    instr_from_noalloc().
+ - Added drwrap_get_stats().
 
 **************************************************
 <hr>
