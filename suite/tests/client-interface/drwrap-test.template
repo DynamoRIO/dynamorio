@@ -30,6 +30,13 @@ in postonly
   <post-postonly>
 in skipme
 in postonly
+  <pre-direct1>
+  <post-direct1>
+  <pre-direct2>
+  <pre-direct1>
+  <post-direct1>
+  <post-direct2>
+  <pre-direct1>
 in runlots 1024
 #ifdef UNIX
   <pre-long0>
@@ -100,6 +107,13 @@ in postonly
   <post-postonly>
 in skipme
 in postonly
+  <pre-direct1>
+  <post-direct1>
+  <pre-direct2>
+  <pre-direct1>
+  <post-direct1>
+  <post-direct2>
+  <pre-direct1>
 in runlots 1024
   <pre-long0>
 long0 A
