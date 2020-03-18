@@ -60,8 +60,7 @@
 
 #define HASH_BIT_TABLE 13
 
-/**
- * Definitions for drbbdup's hit-table that drives dynamic case handling.
+/* Definitions for drbbdup's hit-table that drives dynamic case handling.
  * Essentially, a hash-table tracks which BBs are frequently encountering
  * new unhandled cases.
  */
@@ -258,8 +257,9 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
         opts.set_up_bb_dups(manager, drcontext, tag, bb, &(manager->enable_dup),
                             &(manager->enable_dynamic_handling), opts.user_data);
 
+    /* XXX i#3778: To remove once we support for deleting specific fragments. */
     DR_ASSERT_MSG(!manager->enable_dynamic_handling,
-                  "dynamic case generation is not supported");
+                  "dynamic case generation is not supported until");
 
     /* Check whether user wants copies for this particular bb. */
     if (!manager->enable_dup && manager->cases != NULL) {
@@ -392,8 +392,7 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         ASSERT(manager != NULL, "created manager cannot be NULL");
         hashtable_add(&manager_table, pc, manager);
     } else {
-        /**
-         * A manager is already book-keeping this bb. Two scenarios are considered:
+        /* A manager is already book-keeping this bb. Two scenarios are considered:
          *   1) A new case is registered and re-instrumentation is
          *      triggered via flushing.
          *   2) The bb has been deleted by DR due to other reasons (e.g. memory)
@@ -662,9 +661,7 @@ drbbdup_insert_landing_restoration(void *drcontext, instrlist_t *bb, instr_t *wh
         drbbdup_restore_register(drcontext, bb, where, 1, DRBBDUP_SCRATCH_REG);
 }
 
-/**
- *  Calculates hash index of a particular bb to access the hit table.
- */
+/* Calculates hash index of a particular bb to access the hit table. */
 static uint
 drbbdup_get_hitcount_hash(intptr_t bb_id)
 {
@@ -760,8 +757,7 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
     drbbdup_insert_landing_restoration(drcontext, bb, where, manager);
 }
 
-/**
- * Returns whether or not additional cases should be handled poised by copy limit
+/* Returns whether or not additional cases should be handled poised by copy limit
  * defined by the user.
  */
 static bool
@@ -796,8 +792,7 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
         drbbdup_case_t *default_info = &(manager->default_case);
         ASSERT(default_info->is_defined, "default case must be defined");
 
-        /**
-         * Jump if runtime encoding matches default encoding.
+        /* Jump if runtime encoding matches default encoding.
          * Unknown encoding encountered upon fall-through.
          */
         opnd = opnd_create_immed_uint((uintptr_t)default_info->encoding, OPSZ_PTR);
@@ -809,9 +804,7 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
 
         /* Don't bother insertion if threshold limit is zero. */
         if (opts.hit_threshold > 0) {
-            /**
-             * Update hit count and check whether threshold is reached.
-             */
+            /* Update hit count and check whether threshold is reached. */
             opnd_t hit_table_opnd = drbbdup_get_tls_raw_slot_opnd(DRBBDUP_HIT_TABLE_SLOT);
 
             /* Load the hit counter table. */
@@ -839,8 +832,7 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
             instrlist_meta_preinsert(bb, where, instr);
 
         } else {
-            /**
-             * Load bb tag to register so that it can be accessed by outlined clean
+            /* Load bb tag to register so that it can be accessed by outlined clean
              * call.
              */
             instr = INSTR_CREATE_mov_imm(drcontext, mask_opnd,
@@ -864,8 +856,7 @@ static void
 drbbdup_insert_dispatch_end(void *drcontext, app_pc translation_pc, void *tag,
                             instrlist_t *bb, instr_t *where, drbbdup_manager_t *manager)
 {
-    /**
-     * Check whether dynamic case handling is enabled by the user to handle an unkown
+    /* Check whether dynamic case handling is enabled by the user to handle an unkown
      * case encoding.
      */
     if (manager->enable_dynamic_handling) {
@@ -1214,8 +1205,7 @@ drbbdup_handle_new_case()
             /* XXX i#4134: statistics -- Add increment to keep track generated cases. */
         }
     }
-    /**
-     * Regardless of whether or not flushing is going to happen, redirection will
+    /* Regardless of whether or not flushing is going to happen, redirection will
      * always be performed.
      */
     drbbdup_prepare_redirect(&mcontext, manager, pc);
@@ -1239,7 +1229,7 @@ drbbdup_handle_new_case()
             __FUNCTION__, pc);
 
         /* No locks held upon fragment deletion. */
-        /* XXX i#3778: To include when we support for deleting specific fragments. */
+        /* XXX i#3778: To include once we support for deleting specific fragments. */
         /* dr_delete_shared_fragment(tag); */
     }
 
@@ -1257,8 +1247,7 @@ init_fp_cache(void (*clean_call_func)())
 
     dr_insert_clean_call(drcontext, ilist, NULL, clean_call_func, false, 0);
 
-    /**
-     *  Allocate code cache, and set Read-Write-Execute permissions using
+    /* Allocate code cache, and set Read-Write-Execute permissions using
      * dr_nonheap_alloc function.
      */
     cache_pc = (app_pc)dr_nonheap_alloc(
