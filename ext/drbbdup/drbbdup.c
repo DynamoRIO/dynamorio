@@ -822,7 +822,8 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
             /* Load bb tag to register so that it can be accessed by outlined clean
              * call.
              */
-            instrlist_insert_mov_immed_ptrsz(drcontext, tag, mask_opnd, bb, where, NULL, NULL);
+            instrlist_insert_mov_immed_ptrsz(drcontext, tag, mask_opnd, bb, where, NULL,
+                                             NULL);
 
             /* Jump if hit reaches zero. */
             opnd = opnd_create_pc(new_case_cache_pc);
