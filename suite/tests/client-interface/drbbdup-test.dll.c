@@ -64,9 +64,12 @@ static bool enable_dups_flag = false;
 
 static uintptr_t
 set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
-               bool *enable_dups, void *user_data)
+               bool *enable_dups, bool *enable_dynamic_handling, void *user_data)
 {
     drbbdup_status_t res;
+
+    CHECK(enable_dups != NULL, "should not be NULL");
+    CHECK(enable_dynamic_handling != NULL, "should not be NULL");
 
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
 
@@ -76,7 +79,8 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     CHECK(res == DRBBDUP_SUCCESS, "failed to register case 2");
 
     *enable_dups = enable_dups_flag;
-    enable_dups_flag = !enable_dups_flag; /* alternate flag. */
+    enable_dups_flag = !enable_dups_flag; /* alternate flag */
+    *enable_dynamic_handling = false;     /* disable dynamic handling */
 
     return 0; /* return default case */
 }
@@ -241,6 +245,7 @@ dr_init(client_id_t id)
                                analyse_bb,
                                destroy_analysis,
                                instrument_instr,
+                               NULL,
                                USER_DATA_VAL,
                                2 /* num of cases. */ };
 

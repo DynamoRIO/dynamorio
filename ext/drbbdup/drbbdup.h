@@ -69,8 +69,12 @@ typedef enum {
  * A pointer-sized value indicating the default case encoding is returned.
  * The boolean value written to \p enable_dups specifies whether code duplication should
  * be done for this particular basic block. If false, the basic block is always executed
- * under the default case and no duplications are made. The user data \p user_data is
- * that supplied to drbbdup_init().
+ * under the default case and no duplications are made. The flag
+ * \p enable_dynamic_handling specifies whether additional copies should be
+ * dynamically generated to handle new case encodings identified during runtime. This
+ * option entails flushing but can lead to more efficient instrumentation depending
+ * on the user's application of drbbdup. The user data \p user_data is that supplied
+ * to drbbdup_init().
  *
  * Use drbbdup_register_case_value(), passing \p drbbdup_ctx, to register other case
  * encodings.
@@ -79,7 +83,21 @@ typedef enum {
  */
 typedef uintptr_t (*drbbdup_set_up_bb_dups_t)(void *drbbdup_ctx, void *drcontext,
                                               void *tag, instrlist_t *bb,
-                                              IN bool *enable_dups, void *user_data);
+                                              IN bool *enable_dups,
+                                              IN bool *enable_dynamic_handling,
+                                              void *user_data);
+
+/**
+ * When a unregistered case \p new_case is identified as a candidate for dynamic handling,
+ * such a call-back function is invoked to give the user the opportunity
+ * to go ahead or stop the generation of an additional basic block copy.
+ * The call-back should return true if generation should be done, and false otherwise.
+ * In addition, the call-back can also turn off dynamic handling for the considered basic
+ * block by setting \p enable_dynamic_handling.
+ */
+typedef bool (*drbbdup_allow_gen_t)(void *drcontext, void *tag, instrlist_t *ilist,
+                                    uintptr_t new_case, bool *enable_dynamic_handling,
+                                    void *user_data);
 
 /**
  * Conducts an analysis of the original basic block. The call-back is not called for
@@ -217,6 +235,13 @@ typedef struct {
      */
     drbbdup_instrument_instr_t instrument_instr;
     /**
+     * A user-defined call-back function that determines whether to dynamically generate
+     * a basic block copy to handle a new case encountered at runtime. The function may
+     * be NULL, and in this case drbbdup will always consider dynamic handling for new
+     * cases.
+     */
+    drbbdup_allow_gen_t allow_gen;
+    /**
      * User-data made available to user-defined call-back functions that drbbdup invokes
      * to manage basic block duplication.
      */
@@ -227,6 +252,11 @@ typedef struct {
      * control is directed to the default case.
      */
     ushort dup_limit;
+    /**
+     * Approximately, the number of times an unhandled case should be encountered by a
+     * thread before it becomes a candidate for dynamic generation.
+     */
+    ushort hit_threshold;
 } drbbdup_options_t;
 
 /**

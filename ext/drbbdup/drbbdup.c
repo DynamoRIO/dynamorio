@@ -49,22 +49,29 @@
 #endif
 
 /* DynamoRIO Basic Block Duplication Extension: a code builder that
- * duplicates code of basic blocks and dispatches control according to runtime conditions
- * so that different instrumentation may be efficiently executed.
+ * duplicates code of basic blocks and dispatches control according to runtime
+ * conditions so that different instrumentation may be efficiently executed.
  */
 
-#ifndef X86
 /* TODO i#4134: ARM not yet supported. */
+#ifndef X86
 #    error ARM is not yet supported
 #endif
 
 #define HASH_BIT_TABLE 13
 
+/* Definitions for drbbdup's hit-table that drives dynamic case handling.
+ * Essentially, a hash-table tracks which BBs are frequently encountering
+ * new unhandled cases.
+ */
+#define TABLE_SIZE 65536 /* Must be a power of 2 to perform efficient mod. */
+
 typedef enum {
     DRBBDUP_ENCODING_SLOT = 0,
     DRBBDUP_XAX_REG_SLOT = 1,
     DRBBDUP_FLAG_REG_SLOT = 2,
-    DRBBDUP_SLOT_COUNT = 3, /* Need to update if more slots are added. */
+    DRBBDUP_HIT_TABLE_SLOT = 3,
+    DRBBDUP_SLOT_COUNT = 4, /* Need to update if more slots are added. */
 } drbbdup_thread_slots_t;
 
 /* A scratch register used by drbbdup's dispatcher. */
@@ -83,9 +90,11 @@ typedef struct {
 /* Contains per bb information required for managing bb copies. */
 typedef struct {
     int ref_counter;
-    bool enable_dup;          /* Denotes whether to duplicate blocks. */
+    bool enable_dup;              /* Denotes whether to duplicate blocks. */
+    bool enable_dynamic_handling; /* Denotes whether to dynamically generate cases. */
     bool are_flags_dead;      /* Denotes whether flags are dead at the start of a bb. */
     bool is_scratch_reg_dead; /* Denotes whether DRBBDUP_SCRATCH_REG is dead at start. */
+    bool is_gen; /* Denotes whether a new bb copy is dynamically being generated. */
     drbbdup_case_t default_case;
     drbbdup_case_t *cases; /* Is NULL if enable_dup is not set. */
 } drbbdup_manager_t;
@@ -98,11 +107,12 @@ typedef enum {
 
 typedef struct {
     int case_index; /* Used to keep track of the current case during insertion. */
-    void *orig_analysis_data;    /* Analysis data accessible for all cases. */
-    void *default_analysis_data; /* Analysis data specific to default case. */
-    void **case_analysis_data;   /* Analysis data specific to cases. */
-    instr_t *first_instr; /* The first instr of the bb copy currently being considered. */
-    instr_t *last_instr;  /* The last instr of the bb copy currently being considered. */
+    void *orig_analysis_data;        /* Analysis data accessible for all cases. */
+    void *default_analysis_data;     /* Analysis data specific to default case. */
+    void **case_analysis_data;       /* Analysis data specific to cases. */
+    uint16_t hit_counts[TABLE_SIZE]; /* Keeps track of hit-counts of unhandled cases. */
+    instr_t *first_instr; /* The first instr of the bb copy being considered. */
+    instr_t *last_instr;  /* The last instr of the bb copy being considered. */
 } drbbdup_per_thread;
 
 static uint ref_count = 0;        /* Instance count of drbbdup. */
@@ -110,17 +120,33 @@ static hashtable_t manager_table; /* Maps bbs with book-keeping data. */
 static drbbdup_options_t opts;
 static void *rw_lock = NULL;
 
+/* An outlined code cache (storing a clean call) for dynamically generating a case. */
+static app_pc new_case_cache_pc = NULL;
+
 static int tls_idx = -1; /* For thread local storage info. */
 static reg_id_t tls_raw_reg;
 static uint tls_raw_base;
 
-static void
-drbbdup_set_tls_raw_slot_val(drbbdup_thread_slots_t slot_idx, uintptr_t *val)
+static uintptr_t *
+drbbdup_set_tls_raw_slot_addr(drbbdup_thread_slots_t slot_idx)
 {
     ASSERT(0 <= slot_idx && slot_idx < DRBBDUP_SLOT_COUNT, "out-of-bounds slot index");
     byte *base = dr_get_dr_segment_base(tls_raw_reg);
-    uintptr_t **addr = (uintptr_t **)(base + tls_raw_base);
+    return (uintptr_t *)(base + tls_raw_base);
+}
+
+static void
+drbbdup_set_tls_raw_slot_val(drbbdup_thread_slots_t slot_idx, uintptr_t val)
+{
+    uintptr_t *addr = drbbdup_set_tls_raw_slot_addr(slot_idx);
     *addr = val;
+}
+
+static uintptr_t
+drbbdup_get_tls_raw_slot_val(drbbdup_thread_slots_t slot_idx)
+{
+    uintptr_t *addr = drbbdup_set_tls_raw_slot_addr(slot_idx);
+    return *addr;
 }
 
 static opnd_t
@@ -134,7 +160,7 @@ drbbdup_get_tls_raw_slot_opnd(drbbdup_thread_slots_t slot_idx)
 drbbdup_status_t
 drbbdup_set_encoding(uintptr_t encoding)
 {
-    drbbdup_set_tls_raw_slot_val(DRBBDUP_ENCODING_SLOT, (void *)encoding);
+    drbbdup_set_tls_raw_slot_val(DRBBDUP_ENCODING_SLOT, encoding);
     return DRBBDUP_SUCCESS;
 }
 
@@ -222,11 +248,18 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
     manager->cases = dr_global_alloc(sizeof(drbbdup_case_t) * opts.dup_limit);
     memset(manager->cases, 0, sizeof(drbbdup_case_t) * opts.dup_limit);
     manager->enable_dup = true;
+    manager->enable_dynamic_handling = true;
     manager->ref_counter = 1;
+    manager->is_gen = false;
 
     ASSERT(opts.set_up_bb_dups != NULL, "set up call-back cannot be NULL");
-    manager->default_case.encoding = opts.set_up_bb_dups(
-        manager, drcontext, tag, bb, &(manager->enable_dup), opts.user_data);
+    manager->default_case.encoding =
+        opts.set_up_bb_dups(manager, drcontext, tag, bb, &manager->enable_dup,
+                            &manager->enable_dynamic_handling, opts.user_data);
+
+    /* XXX i#3778: To remove once we support specific fragment deletion. */
+    DR_ASSERT_MSG(!manager->enable_dynamic_handling,
+                  "dynamic case generation is not yet supported");
 
     /* Check whether user wants copies for this particular bb. */
     if (!manager->enable_dup && manager->cases != NULL) {
@@ -239,7 +272,7 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
     return manager;
 }
 
-/* Transforms the bb to contain additional copies (within the same fragment. */
+/* Transforms the bb to contain additional copies (within the same fragment). */
 static void
 drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manager)
 {
@@ -358,8 +391,20 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         manager = drbbdup_create_manager(drcontext, tag, bb);
         ASSERT(manager != NULL, "created manager cannot be NULL");
         hashtable_add(&manager_table, pc, manager);
-    } else
-        manager->ref_counter++;
+    } else {
+        /* A manager is already book-keeping this bb. Two scenarios are considered:
+         *   1) A new case is registered and re-instrumentation is
+         *      triggered via flushing.
+         *   2) The bb has been deleted by DR due to other reasons (e.g. memory)
+         *      and re-instrumented again.
+         *
+         * If we are handling a new case, there is no need to increment ref.
+         */
+        if (manager->is_gen)
+            manager->is_gen = false;
+        else
+            manager->ref_counter++;
+    }
 
     if (manager->enable_dup) {
         /* Add the copies. */
@@ -569,7 +614,7 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
     /* Perform analysis for default case. Note, we do the analysis even if the manager
      * does not have dups enabled.
      */
-    case_info = &(manager->default_case);
+    case_info = &manager->default_case;
     ASSERT(case_info->is_defined, "default case must be defined");
     pt->default_analysis_data = drbbdup_do_case_analysis(
         manager, drcontext, tag, bb, first, case_info, pt->orig_analysis_data);
@@ -579,7 +624,7 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
         ASSERT(manager->cases != NULL, "case information must exit");
         int i;
         for (i = 0; i < opts.dup_limit; i++) {
-            case_info = &(manager->cases[i]);
+            case_info = &manager->cases[i];
             if (case_info->is_defined) {
                 pt->case_analysis_data[i] =
                     drbbdup_do_case_analysis(manager, drcontext, tag, bb, first,
@@ -616,6 +661,15 @@ drbbdup_insert_landing_restoration(void *drcontext, instrlist_t *bb, instr_t *wh
         drbbdup_restore_register(drcontext, bb, where, 1, DRBBDUP_SCRATCH_REG);
 }
 
+/* Calculates hash index of a particular bb to access the hit table. */
+static uint
+drbbdup_get_hitcount_hash(intptr_t bb_id)
+{
+    uint hash = ((uint)bb_id) & (TABLE_SIZE - 1);
+    ASSERT(hash < TABLE_SIZE, "index to hit table should be within bounds");
+    return hash;
+}
+
 /* Insert encoding of runtime case by invoking user call-back. */
 static void
 drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
@@ -629,12 +683,12 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
      * manually perform the spilling for finer control across branches used by the
      * dispatcher.
      */
-    drreg_are_aflags_dead(drcontext, where, &(manager->are_flags_dead));
+    drreg_are_aflags_dead(drcontext, where, &manager->are_flags_dead);
     if (!manager->is_scratch_reg_dead)
         drbbdup_spill_register(drcontext, bb, where, 1, DRBBDUP_SCRATCH_REG);
 
     drreg_is_register_dead(drcontext, DRBBDUP_SCRATCH_REG, where,
-                           &(manager->is_scratch_reg_dead));
+                           &manager->is_scratch_reg_dead);
     if (!manager->are_flags_dead) {
         dr_save_arith_flags_to_xax(drcontext, bb, where);
         drbbdup_spill_register(drcontext, bb, where, 2, DRBBDUP_SCRATCH_REG);
@@ -703,13 +757,111 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
     drbbdup_insert_landing_restoration(drcontext, bb, where, manager);
 }
 
+/* Returns whether or not additional cases should be handled by checking if the
+ * copy limit, defined by the user, has been reached.
+ */
+static bool
+drbbdup_do_dynamic_handling(drbbdup_manager_t *manager)
+{
+    drbbdup_case_t *drbbdup_case;
+    int i;
+    for (i = 0; i < opts.dup_limit; i++) {
+        drbbdup_case = &manager->cases[i];
+        /* Search for empty undefined slot. */
+        if (!drbbdup_case->is_defined)
+            return true;
+    }
+
+    return false;
+}
+
+/* Insert trigger for dynamic case handling. */
+static void
+drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *tag,
+                                instrlist_t *bb, instr_t *where,
+                                drbbdup_manager_t *manager)
+{
+    instr_t *instr;
+    opnd_t opnd;
+
+    instr_t *done_label = INSTR_CREATE_label(drcontext);
+    opnd_t mask_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
+
+    /* Check whether case limit has not been reached. */
+    if (drbbdup_do_dynamic_handling(manager)) {
+        drbbdup_case_t *default_info = &manager->default_case;
+        ASSERT(default_info->is_defined, "default case must be defined");
+
+        /* Jump if runtime encoding matches default encoding.
+         * Unknown encoding encountered upon fall-through.
+         */
+        opnd = opnd_create_immed_uint((uintptr_t)default_info->encoding, OPSZ_PTR);
+        instr = INSTR_CREATE_cmp(drcontext, mask_opnd, opnd);
+        instrlist_meta_preinsert(bb, where, instr);
+
+        instr = INSTR_CREATE_jcc(drcontext, OP_jz, opnd_create_instr(done_label));
+        instrlist_meta_preinsert(bb, where, instr);
+
+        /* Don't bother insertion if threshold limit is zero. */
+        if (opts.hit_threshold > 0) {
+            /* Update hit count and check whether threshold is reached. */
+            opnd_t hit_table_opnd = drbbdup_get_tls_raw_slot_opnd(DRBBDUP_HIT_TABLE_SLOT);
+
+            /* Load the hit counter table. */
+            instr = INSTR_CREATE_mov_ld(drcontext, mask_opnd, hit_table_opnd);
+            instrlist_meta_preinsert(bb, where, instr);
+
+            /* Register hit. */
+            uint hash = drbbdup_get_hitcount_hash((intptr_t)translation_pc);
+            opnd_t hit_count_opnd =
+                OPND_CREATE_MEM16(DRBBDUP_SCRATCH_REG, hash * sizeof(ushort));
+            opnd = opnd_create_immed_uint(1, OPSZ_2);
+            instr = INSTR_CREATE_sub(drcontext, hit_count_opnd, opnd);
+            instrlist_meta_preinsert(bb, where, instr);
+
+            /* Load bb tag to register so that it can be accessed by outlined clean
+             * call.
+             */
+            instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)tag, mask_opnd, bb,
+                                             where, NULL, NULL);
+
+            /* Jump if hit reaches zero. */
+            opnd = opnd_create_pc(new_case_cache_pc);
+            instr = INSTR_CREATE_jcc(drcontext, OP_jz, opnd);
+            instrlist_meta_preinsert(bb, where, instr);
+
+        } else {
+            /* Load bb tag to register so that it can be accessed by outlined clean
+             * call.
+             */
+            instr = INSTR_CREATE_mov_imm(drcontext, mask_opnd,
+                                         opnd_create_immed_int((intptr_t)tag, OPSZ_PTR));
+            instrlist_meta_preinsert(bb, where, instr);
+
+            /* Jump to outlined clean call code for new case registration. */
+            opnd = opnd_create_pc(new_case_cache_pc);
+            instr = INSTR_CREATE_jmp(drcontext, opnd);
+            instrlist_meta_preinsert(bb, where, instr);
+        }
+    }
+    /* XXX i#4134: Insert code for dynamic handling here. */
+
+    instrlist_meta_preinsert(bb, where, done_label);
+}
+
 /* Inserts code right before the last bb copy which is used to handle the default
  * case. */
 static void
 drbbdup_insert_dispatch_end(void *drcontext, app_pc translation_pc, void *tag,
                             instrlist_t *bb, instr_t *where, drbbdup_manager_t *manager)
 {
-    /* XXX i#4134: Insert code for dynamic handling here. */
+    /* Check whether dynamic case handling is enabled by the user to handle an unkown
+     * case encoding.
+     */
+    if (manager->enable_dynamic_handling) {
+        drbbdup_insert_dynamic_handling(drcontext, translation_pc, tag, bb, where,
+                                        manager);
+    }
 
     /* Last bb version is always the default case. */
     drbbdup_insert_landing_restoration(drcontext, bb, where, manager);
@@ -728,7 +880,7 @@ drbbdup_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
 
     if (pt->case_index == DRBBDUP_DEFAULT_INDEX) {
         /* Use default case. */
-        drbbdup_case = &(manager->default_case);
+        drbbdup_case = &manager->default_case;
         analysis_data = pt->default_analysis_data;
     } else {
         ASSERT(pt->case_analysis_data != NULL,
@@ -737,7 +889,7 @@ drbbdup_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
                "case index cannot be out-of-bounds");
         ASSERT(manager->enable_dup, "bb dup must be enabled");
 
-        drbbdup_case = &(manager->cases[pt->case_index]);
+        drbbdup_case = &manager->cases[pt->case_index];
         analysis_data = pt->case_analysis_data[pt->case_index];
     }
 
@@ -794,7 +946,7 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
             bool found = false;
             int i;
             for (i = pt->case_index + 1; i < opts.dup_limit; i++) {
-                drbbdup_case = &(manager->cases[i]);
+                drbbdup_case = &manager->cases[i];
                 if (drbbdup_case->is_defined) {
                     found = true;
                     break;
@@ -927,14 +1079,14 @@ drbbdup_encoding_already_included(drbbdup_manager_t *manager, uintptr_t encoding
     if (manager->enable_dup) {
         int i;
         for (i = 0; i < opts.dup_limit; i++) {
-            drbbdup_case = &(manager->cases[i]);
+            drbbdup_case = &manager->cases[i];
             if (drbbdup_case->is_defined && drbbdup_case->encoding == encoding_check)
                 return true;
         }
     }
 
     /* Check default case. */
-    drbbdup_case = &(manager->default_case);
+    drbbdup_case = &manager->default_case;
     if (drbbdup_case->is_defined && drbbdup_case->encoding == encoding_check)
         return true;
 
@@ -946,8 +1098,9 @@ drbbdup_include_encoding(drbbdup_manager_t *manager, uintptr_t new_encoding)
 {
     if (manager->enable_dup) {
         int i;
+        drbbdup_case_t *dup_case;
         for (i = 0; i < opts.dup_limit; i++) {
-            drbbdup_case_t *dup_case = &(manager->cases[i]);
+            dup_case = &manager->cases[i];
             if (!dup_case->is_defined) {
                 dup_case->is_defined = true;
                 dup_case->encoding = new_encoding;
@@ -957,6 +1110,165 @@ drbbdup_include_encoding(drbbdup_manager_t *manager, uintptr_t new_encoding)
     }
 
     return false;
+}
+
+/****************************************************************************
+ * Dynamic case handling via flushing.
+ */
+
+static void
+drbbdup_prepare_redirect(dr_mcontext_t *mcontext, drbbdup_manager_t *manager,
+                         app_pc bb_pc)
+{
+    /* Restore flags and scratch reg to their original app values. */
+    if (!manager->are_flags_dead) {
+        reg_t val;
+        uint sahf;
+        reg_t newval = mcontext->xflags;
+        val = (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_FLAG_REG_SLOT);
+        sahf = (val & 0xff00) >> 8;
+        newval &= ~(EFLAGS_ARITH);
+        newval |= sahf;
+        if (TEST(1, val)) /* seto */
+            newval |= EFLAGS_OF;
+        mcontext->xflags = newval;
+    }
+    if (!manager->is_scratch_reg_dead) {
+        reg_set_value(DRBBDUP_SCRATCH_REG, mcontext,
+                      (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_XAX_REG_SLOT));
+    }
+
+    mcontext->pc = bb_pc; /* redirect execution to the start of the bb. */
+}
+
+static void
+drbbdup_handle_new_case()
+{
+    void *drcontext = dr_get_current_drcontext();
+
+    drbbdup_per_thread *pt =
+        (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
+
+    /* Must use DR_MC_ALL due to dr_redirect_execution. */
+    dr_mcontext_t mcontext = {
+        sizeof(mcontext),
+        DR_MC_ALL,
+    };
+    dr_get_mcontext(drcontext, &mcontext);
+
+    /* Scratch register holds the tag. */
+    void *tag = (void *)reg_get_value(DRBBDUP_SCRATCH_REG, &mcontext);
+
+    instrlist_t *ilist = decode_as_bb(drcontext, dr_fragment_app_pc(tag));
+    app_pc pc = instr_get_app_pc(drbbdup_first_app(ilist));
+    ASSERT(pc != NULL, "pc cannot be NULL");
+
+    bool do_flush = false;
+
+    /* Get the missing case. */
+    uintptr_t new_encoding = drbbdup_get_tls_raw_slot_val(DRBBDUP_ENCODING_SLOT);
+
+    dr_rwlock_write_lock(rw_lock);
+    drbbdup_manager_t *manager =
+        (drbbdup_manager_t *)hashtable_lookup(&manager_table, pc);
+    ASSERT(manager != NULL, "manager cannot be NULL");
+    ASSERT(manager->enable_dup, "duplication should be enabled");
+    ASSERT(new_encoding != manager->default_case.encoding,
+           "unhandled encoding cannot be the default case");
+
+    /* Could have been turned off potentially by another thread. */
+    if (manager->enable_dynamic_handling) {
+        /* Case already registered potentially by another thread. */
+        if (!drbbdup_encoding_already_included(manager, new_encoding)) {
+            /* By default, do case gen. */
+            bool do_gen = true;
+            if (opts.allow_gen != NULL) {
+                do_gen =
+                    opts.allow_gen(drcontext, tag, ilist, new_encoding,
+                                   &manager->enable_dynamic_handling, opts.user_data);
+            }
+            if (do_gen)
+                drbbdup_include_encoding(manager, new_encoding);
+
+            /* Flush only if a new case needs to be generated or
+             * dynamic handling has been disabled.
+             */
+            do_flush = do_gen || !manager->enable_dynamic_handling;
+            if (do_flush) {
+                /* Mark that flushing is happening for drbbdup. */
+                manager->is_gen = true;
+                /* Increment counter so manager won't get freed due to flushing. */
+                manager->ref_counter++;
+            }
+
+            /* XXX i#4134: statistics -- Add increment to keep track generated cases. */
+        }
+    }
+    /* Regardless of whether or not flushing is going to happen, redirection will
+     * always be performed.
+     */
+    drbbdup_prepare_redirect(&mcontext, manager, pc);
+
+    dr_rwlock_write_unlock(rw_lock);
+
+    instrlist_clear_and_destroy(drcontext, ilist);
+
+    /* Refresh hit counter. */
+    if (opts.hit_threshold > 0) {
+        uint hash = drbbdup_get_hitcount_hash((intptr_t)pc);
+        DR_ASSERT(pt->hit_counts[hash] == 0);
+        pt->hit_counts[hash] = opts.hit_threshold; /* Reset threshold. */
+    }
+
+    /* Delete bb fragment. */
+    if (do_flush) {
+        LOG(drcontext, DR_LOG_ALL, 2,
+            "%s Found new case! Going to flush bb with"
+            "pc %p to generate a copy to handle the new case.\n",
+            __FUNCTION__, pc);
+
+        /* No locks held upon fragment deletion. */
+        /* XXX i#3778: To include once we support specific fragment deletion. */
+#if 0
+        dr_delete_shared_fragment(tag);
+#endif
+    }
+
+    dr_redirect_execution(&mcontext);
+}
+
+static app_pc
+init_fp_cache(void (*clean_call_func)())
+{
+    app_pc cache_pc;
+    instrlist_t *ilist;
+    void *drcontext = dr_get_current_drcontext();
+    size_t size = dr_page_size();
+    ilist = instrlist_create(drcontext);
+
+    dr_insert_clean_call(drcontext, ilist, NULL, (void *)clean_call_func, false, 0);
+
+    /* Allocate code cache, and set Read-Write-Execute permissions using
+     * dr_nonheap_alloc function.
+     */
+    cache_pc = (app_pc)dr_nonheap_alloc(
+        size, DR_MEMPROT_READ | DR_MEMPROT_WRITE | DR_MEMPROT_EXEC);
+    byte *end = instrlist_encode(drcontext, ilist, cache_pc, true);
+    DR_ASSERT(end - cache_pc <= (int)size);
+
+    instrlist_clear_and_destroy(drcontext, ilist);
+
+    /* Change the permission Read-Write-Execute permissions. */
+    dr_memory_protect(cache_pc, size, DR_MEMPROT_READ | DR_MEMPROT_EXEC);
+
+    return cache_pc;
+}
+
+static void
+destroy_fp_cache(app_pc cache_pc)
+{
+    ASSERT(cache_pc, "Code cache should not be NULL");
+    dr_nonheap_free(cache_pc, dr_page_size());
 }
 
 /****************************************************************************
@@ -975,12 +1287,12 @@ deleted_frag(void *drcontext, void *tag)
     dr_rwlock_write_lock(rw_lock);
 
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(&(manager_table), bb_pc);
+        (drbbdup_manager_t *)hashtable_lookup(&manager_table, bb_pc);
     if (manager != NULL) {
         ASSERT(manager->ref_counter > 0, "ref count should be greater than zero");
         manager->ref_counter--;
         if (manager->ref_counter <= 0)
-            hashtable_remove(&(manager_table), bb_pc);
+            hashtable_remove(&manager_table, bb_pc);
     }
 
     dr_rwlock_write_unlock(rw_lock);
@@ -1036,6 +1348,10 @@ drbbdup_is_last_instr(void *drcontext, instr_t *instr, bool *is_last)
     return DRBBDUP_SUCCESS;
 }
 
+/****************************************************************************
+ * THREAD INIT AND EXIT
+ */
+
 static void
 drbbdup_destroy_manager(void *manager_opaque)
 {
@@ -1061,6 +1377,11 @@ drbbdup_thread_init(void *drcontext)
     pt->case_analysis_data = dr_thread_alloc(drcontext, sizeof(void *) * opts.dup_limit);
     memset(pt->case_analysis_data, 0, sizeof(void *) * opts.dup_limit);
 
+    /* Init hit table. */
+    for (int i = 0; i < TABLE_SIZE; i++)
+        pt->hit_counts[i] = opts.hit_threshold;
+    drbbdup_set_tls_raw_slot_val(DRBBDUP_HIT_TABLE_SLOT, (uintptr_t)pt->hit_counts);
+
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
 }
 
@@ -1075,6 +1396,10 @@ drbbdup_thread_exit(void *drcontext)
     dr_thread_free(drcontext, pt->case_analysis_data, sizeof(void *) * opts.dup_limit);
     dr_thread_free(drcontext, pt, sizeof(drbbdup_per_thread));
 }
+
+/****************************************************************************
+ * INIT AND EXIT
+ */
 
 static bool
 drbbdup_check_options(drbbdup_options_t *ops_in)
@@ -1108,7 +1433,7 @@ drbbdup_init(drbbdup_options_t *ops_in)
             &priority) ||
         !drmgr_register_thread_init_event(drbbdup_thread_init) ||
         !drmgr_register_thread_exit_event(drbbdup_thread_exit) ||
-        !dr_raw_tls_calloc(&(tls_raw_reg), &(tls_raw_base), DRBBDUP_SLOT_COUNT, 0) ||
+        !dr_raw_tls_calloc(&tls_raw_reg, &tls_raw_base, DRBBDUP_SLOT_COUNT, 0) ||
         drreg_init(&drreg_ops) != DRREG_SUCCESS)
         return DRBBDUP_ERROR;
 
@@ -1116,6 +1441,10 @@ drbbdup_init(drbbdup_options_t *ops_in)
 
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1)
+        return DRBBDUP_ERROR;
+
+    new_case_cache_pc = init_fp_cache(drbbdup_handle_new_case);
+    if (new_case_cache_pc == NULL)
         return DRBBDUP_ERROR;
 
     /* Initialise hash table that keeps track of defined cases per
@@ -1140,6 +1469,8 @@ drbbdup_exit(void)
     ref_count--;
 
     if (ref_count == 0) {
+        destroy_fp_cache(new_case_cache_pc);
+
         if (!drmgr_unregister_bb_instrumentation_ex_event(drbbdup_duplicate_phase,
                                                           drbbdup_analyse_phase,
                                                           drbbdup_link_phase, NULL) ||
