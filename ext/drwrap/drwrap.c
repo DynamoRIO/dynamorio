@@ -2427,7 +2427,7 @@ drwrap_get_stats(INOUT drwrap_stats_t *stats)
 {
     if (stats == NULL || stats->size != sizeof(*stats))
         return false;
-    stats->flush_count = drwrap_stats.flush_count;
+    stats->flush_count = dr_atomic_add64_return_sum(&drwrap_stats.flush_count, 0);
     return true;
 }
 
