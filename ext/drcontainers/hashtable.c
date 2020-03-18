@@ -226,6 +226,7 @@ hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool 
     table->config.size = sizeof(table->config);
     table->config.resizable = true;
     table->config.resize_threshold = 75;
+    table->config.free_key_func = NULL;
 }
 
 void

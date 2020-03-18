@@ -393,7 +393,7 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
         if (res != DRSYM_SUCCESS)
             break;
 
-        if (TEST(DRSYM_DEMANGLE, flags)) {
+        if (TESTANY(DRSYM_DEMANGLE | DRSYM_DEMANGLE_FULL, flags)) {
             size_t len;
             /* Resize until it's big enough. */
             while ((len = drsym_demangle_symbol(out->name, name_buf_size, mangled,
@@ -509,8 +509,7 @@ drsym_demangle_helper(const char *sym, uint flags)
         buf_size = len;
         buf = (char *)__wrap_malloc(buf_size);
     }
-    if (len == 0) {
-        __wrap_free(buf);
+    if (len <= 0) {
         return NULL;
     }
     return buf;
@@ -519,8 +518,10 @@ drsym_demangle_helper(const char *sym, uint flags)
 static bool
 drsym_add_hash_entry(dbg_module_t *mod, const char *copy, size_t modoffs)
 {
-    if (hashtable_add(&mod->symtable, (void *)copy, (void *)modoffs))
+    if (hashtable_add(&mod->symtable, (void *)copy, (void *)modoffs)) {
+        NOTIFY("%s: added %s\n", __FUNCTION__, copy);
         return true;
+    }
     drsym_free_hash_key((void *)copy);
     return false;
 }
@@ -531,7 +532,6 @@ static bool
 drsym_fill_symtable_cb(const char *sym, size_t modoffs, void *data INOUT)
 {
     dbg_module_t *mod = (dbg_module_t *)data;
-    NOTIFY("%s: adding %s\n", __FUNCTION__, sym);
     size_t len = strlen(sym);
     char *copy = __wrap_malloc(len + 1);
     dr_snprintf(copy, len, "%s", sym);
@@ -544,31 +544,25 @@ drsym_fill_symtable_cb(const char *sym, size_t modoffs, void *data INOUT)
      * particular needs to include the version name in the search target.
      */
     char *toadd = drsym_dup_string_until_char(sym, '@');
-    if (toadd != NULL) {
-        NOTIFY("%s: adding %s\n", __FUNCTION__, toadd);
+    if (toadd != NULL)
         drsym_add_hash_entry(mod, toadd, modoffs);
-    }
+
     /* Add the demanglings. */
     toadd = drsym_demangle_helper(sym, DRSYM_DEMANGLE);
     if (toadd == NULL)
         return true;
-    NOTIFY("%s: adding %s\n", __FUNCTION__, toadd);
     if (!drsym_add_hash_entry(mod, toadd, modoffs))
         return true;
 
     /* Add a version without parameters to allow the user to ignore overloads. */
     char *noparen = drsym_dup_string_until_char(toadd, '(');
-    if (noparen != NULL) {
-        NOTIFY("%s: adding %s\n", __FUNCTION__, noparen);
+    if (noparen != NULL)
         drsym_add_hash_entry(mod, noparen, modoffs);
-    }
 
 #ifdef DRSYM_HAVE_LIBELFTC
     toadd = drsym_demangle_helper(sym, DRSYM_DEMANGLE_FULL);
-    if (toadd != NULL) {
-        NOTIFY("%s: adding %s\n", __FUNCTION__, toadd);
+    if (toadd != NULL)
         drsym_add_hash_entry(mod, toadd, modoffs);
-    }
 #endif
 
     return true;
@@ -761,10 +755,13 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, ui
         proc_restore_fpstate(fp_align);
 
 #    ifdef WINDOWS
-        /* our libelftc returns the # of chars needed, and copies the truncated
-         * unmangled name
+        /* Our libelftc returns the # of chars needed, and copies the truncated
+         * unmangled name, but it returns -1 on error.
          */
-        return status;
+        if (status <= 0)
+            return 0;
+        if (status > 0)
+            return status;
 #    else
         /* XXX: let's make the same change to the libelftc we're using here */
         if (status == 0) {

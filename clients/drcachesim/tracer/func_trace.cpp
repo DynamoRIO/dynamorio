@@ -272,7 +272,8 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
         }
     }
     uint64 ms_elapsed = dr_get_milliseconds() - ms_start;
-    NOTIFY(ms_elapsed > 10 ? 1 : 2, "Symbol queries for %s took %zums\n", mod_name,
+    NOTIFY((ms_elapsed > 10U) ? 1U : 2U,
+           "Symbol queries for %s took " UINT64_FORMAT_STRING "ms\n", mod_name,
            ms_elapsed);
 }
 
