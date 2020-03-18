@@ -1245,7 +1245,7 @@ init_fp_cache(void (*clean_call_func)())
     size_t size = dr_page_size();
     ilist = instrlist_create(drcontext);
 
-    dr_insert_clean_call(drcontext, ilist, NULL, clean_call_func, false, 0);
+    dr_insert_clean_call(drcontext, ilist, NULL, (void *)clean_call_func, false, 0);
 
     /* Allocate code cache, and set Read-Write-Execute permissions using
      * dr_nonheap_alloc function.
