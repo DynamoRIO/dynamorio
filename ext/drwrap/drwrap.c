@@ -80,6 +80,12 @@ static uint verbose = 0;
 #    define CALL_POINT_SCRATCH_REG DR_REG_NULL
 #endif
 
+#ifdef X64
+#    define dr_atomic_add_stat_return_sum dr_atomic_add64_return_sum
+#else
+#    define dr_atomic_add_stat_return_sum dr_atomic_add32_return_sum
+#endif
+
 /* protected by wrap_lock */
 static drwrap_global_flags_t global_flags;
 
@@ -1185,7 +1191,7 @@ drwrap_replace_common(hashtable_t *table, app_pc original, void *payload, bool o
          * we can't use dr_unlink_flush_region() unless we require that
          * caller hold no locks and be in clean call or syscall event.
          */
-        dr_atomic_add64_return_sum(&drwrap_stats.flush_count, 1);
+        dr_atomic_add_stat_return_sum(&drwrap_stats.flush_count, 1);
         if (!dr_delay_flush_region(original, 1, 0, NULL))
             ASSERT(false, "replace update flush failed");
     }
@@ -1631,7 +1637,7 @@ drwrap_replace_native_fini(void *drcontext)
 static void
 drwrap_flush_func(app_pc func)
 {
-    dr_atomic_add64_return_sum(&drwrap_stats.flush_count, 1);
+    dr_atomic_add_stat_return_sum(&drwrap_stats.flush_count, 1);
     /* we can't flush while holding the lock.
      * we do not guarantee faster than a lazy flush.
      */
@@ -1702,7 +1708,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc decorated_pc,
                 disabled_count = DISABLED_COUNT_FLUSH_THRESHOLD + 1;
                 dr_recurlock_unlock(wrap_lock);
             }
-            dr_atomic_add64_return_sum(&drwrap_stats.flush_count, 1);
+            dr_atomic_add_stat_return_sum(&drwrap_stats.flush_count, 1);
             dr_flush_region(retaddr, 1);
             /* now we are guaranteed no thread is inside the fragment */
             /* another thread may have done a racy competing flush: should be fine */
@@ -2338,7 +2344,7 @@ drwrap_wrap_ex(app_pc func, void (*pre_func_cb)(void *wrapcxt, INOUT void **user
         hashtable_add(&wrap_table, (void *)func, (void *)wrap_new);
         /* XXX: we're assuming void* tag == pc */
         if (dr_fragment_exists_at(dr_get_current_drcontext(), func)) {
-            dr_atomic_add64_return_sum(&drwrap_stats.flush_count, 1);
+            dr_atomic_add_stat_return_sum(&drwrap_stats.flush_count, 1);
             /* we do not guarantee faster than a lazy flush */
             if (!dr_unlink_flush_region(func, 1))
                 ASSERT(false, "wrap update flush failed");
@@ -2427,7 +2433,7 @@ drwrap_get_stats(INOUT drwrap_stats_t *stats)
 {
     if (stats == NULL || stats->size != sizeof(*stats))
         return false;
-    stats->flush_count = dr_atomic_add64_return_sum(&drwrap_stats.flush_count, 0);
+    stats->flush_count = dr_atomic_add_stat_return_sum(&drwrap_stats.flush_count, 0);
     return true;
 }
 

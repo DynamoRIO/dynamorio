@@ -748,6 +748,9 @@ DR_EXPORT
 bool
 drwrap_is_post_wrap(app_pc pc);
 
+/** An integer sized for support by dr_atomic_addX_return_sum(). */
+typedef ptr_int_t atomic_int_t;
+
 /**
  * Contains statistics retrievable by drwrap_get_stats().
  */
@@ -759,7 +762,7 @@ typedef struct _drwrap_stats_t {
      * already existing in the cache; replacing existing instrumentation; and
      * removing wrap or replace instrumentation.
      */
-    int64 flush_count;
+    atomic_int_t flush_count;
 } drwrap_stats_t;
 
 DR_EXPORT
