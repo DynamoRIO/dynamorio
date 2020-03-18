@@ -97,7 +97,7 @@ event_exit(void)
 
 static uintptr_t
 set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
-               bool *enable_dups, void *user_data)
+               bool *enable_dups, bool *enable_dynamic_handling, void *user_data)
 {
     /* Init hit count. */
     app_pc bb_pc = instr_get_app_pc(instrlist_first_app(bb));
@@ -112,6 +112,9 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
 
     /* Enable duplication for all basic blocks. */
     *enable_dups = true;
+
+    /* Disable dynamic handling. */
+    *enable_dynamic_handling = false;
 
     /* Register the case encoding for counting the execution of hot basic blocks. */
     drbbdup_register_case_encoding(drbbdup_ctx, (uintptr_t) true /* hot */);
@@ -248,6 +251,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                                       NULL,
                                       NULL,
                                       instrument_instr,
+                                      NULL,
                                       NULL,
                                       1 /* Only one additional copy is needed. */ };
     if (drbbdup_init(&drbbdup_ops) != DRBBDUP_SUCCESS)
