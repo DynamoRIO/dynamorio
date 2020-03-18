@@ -237,7 +237,7 @@ typedef struct {
     /**
      * A user-defined call-back function that determines whether to dynamically generate
      * a basic block copy to handle a new case encountered at runtime. The function may
-     * be NULL, and this case drbbdup will always consider new cases for dynamic handling.
+     * be NULL, and in this case drbbdup will always consider dynamic handling for new cases.
      */
     drbbdup_allow_gen_t allow_gen;
     /**

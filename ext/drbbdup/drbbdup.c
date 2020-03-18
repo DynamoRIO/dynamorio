@@ -254,8 +254,8 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
 
     ASSERT(opts.set_up_bb_dups != NULL, "set up call-back cannot be NULL");
     manager->default_case.encoding =
-        opts.set_up_bb_dups(manager, drcontext, tag, bb, &(manager->enable_dup),
-                            &(manager->enable_dynamic_handling), opts.user_data);
+        opts.set_up_bb_dups(manager, drcontext, tag, bb, &manager->enable_dup,
+                            &manager->enable_dynamic_handling, opts.user_data);
 
     /* XXX i#3778: To remove once we support specific fragment deletion. */
     DR_ASSERT_MSG(!manager->enable_dynamic_handling,
@@ -614,7 +614,7 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
     /* Perform analysis for default case. Note, we do the analysis even if the manager
      * does not have dups enabled.
      */
-    case_info = &(manager->default_case);
+    case_info = &manager->default_case;
     ASSERT(case_info->is_defined, "default case must be defined");
     pt->default_analysis_data = drbbdup_do_case_analysis(
         manager, drcontext, tag, bb, first, case_info, pt->orig_analysis_data);
@@ -624,7 +624,7 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
         ASSERT(manager->cases != NULL, "case information must exit");
         int i;
         for (i = 0; i < opts.dup_limit; i++) {
-            case_info = &(manager->cases[i]);
+            case_info = &manager->cases[i];
             if (case_info->is_defined) {
                 pt->case_analysis_data[i] =
                     drbbdup_do_case_analysis(manager, drcontext, tag, bb, first,
@@ -683,12 +683,12 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
      * manually perform the spilling for finer control across branches used by the
      * dispatcher.
      */
-    drreg_are_aflags_dead(drcontext, where, &(manager->are_flags_dead));
+    drreg_are_aflags_dead(drcontext, where, &manager->are_flags_dead);
     if (!manager->is_scratch_reg_dead)
         drbbdup_spill_register(drcontext, bb, where, 1, DRBBDUP_SCRATCH_REG);
 
     drreg_is_register_dead(drcontext, DRBBDUP_SCRATCH_REG, where,
-                           &(manager->is_scratch_reg_dead));
+                           &manager->is_scratch_reg_dead);
     if (!manager->are_flags_dead) {
         dr_save_arith_flags_to_xax(drcontext, bb, where);
         drbbdup_spill_register(drcontext, bb, where, 2, DRBBDUP_SCRATCH_REG);
@@ -757,8 +757,8 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
     drbbdup_insert_landing_restoration(drcontext, bb, where, manager);
 }
 
-/* Returns whether or not additional cases should be handled poised by copy limit
- * defined by the user.
+/* Returns whether or not additional cases should be handled by checking if the
+ * copy limit, defined by the user, has been reached.
  */
 static bool
 drbbdup_do_dynamic_handling(drbbdup_manager_t *manager)
@@ -766,7 +766,7 @@ drbbdup_do_dynamic_handling(drbbdup_manager_t *manager)
     drbbdup_case_t *drbbdup_case;
     int i;
     for (i = 0; i < opts.dup_limit; i++) {
-        drbbdup_case = &(manager->cases[i]);
+        drbbdup_case = &manager->cases[i];
         /* Search for empty undefined slot. */
         if (!drbbdup_case->is_defined)
             return true;
@@ -787,9 +787,9 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
     instr_t *done_label = INSTR_CREATE_label(drcontext);
     opnd_t mask_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
 
-    /* Check whether case limit  has not been reached. */
+    /* Check whether case limit has not been reached. */
     if (drbbdup_do_dynamic_handling(manager)) {
-        drbbdup_case_t *default_info = &(manager->default_case);
+        drbbdup_case_t *default_info = &manager->default_case;
         ASSERT(default_info->is_defined, "default case must be defined");
 
         /* Jump if runtime encoding matches default encoding.
@@ -822,9 +822,7 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
             /* Load bb tag to register so that it can be accessed by outlined clean
              * call.
              */
-            instr = INSTR_CREATE_mov_imm(drcontext, mask_opnd,
-                                         opnd_create_immed_int((intptr_t)tag, OPSZ_PTR));
-            instrlist_meta_preinsert(bb, where, instr);
+            instrlist_insert_mov_immed_ptrsz(drcontext, tag, mask_opnd, bb, where, NULL, NULL);
 
             /* Jump if hit reaches zero. */
             opnd = opnd_create_pc(new_case_cache_pc);
@@ -881,7 +879,7 @@ drbbdup_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
 
     if (pt->case_index == DRBBDUP_DEFAULT_INDEX) {
         /* Use default case. */
-        drbbdup_case = &(manager->default_case);
+        drbbdup_case = &manager->default_case;
         analysis_data = pt->default_analysis_data;
     } else {
         ASSERT(pt->case_analysis_data != NULL,
@@ -890,7 +888,7 @@ drbbdup_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
                "case index cannot be out-of-bounds");
         ASSERT(manager->enable_dup, "bb dup must be enabled");
 
-        drbbdup_case = &(manager->cases[pt->case_index]);
+        drbbdup_case = &manager->cases[pt->case_index];
         analysis_data = pt->case_analysis_data[pt->case_index];
     }
 
@@ -947,7 +945,7 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
             bool found = false;
             int i;
             for (i = pt->case_index + 1; i < opts.dup_limit; i++) {
-                drbbdup_case = &(manager->cases[i]);
+                drbbdup_case = &manager->cases[i];
                 if (drbbdup_case->is_defined) {
                     found = true;
                     break;
@@ -1080,14 +1078,14 @@ drbbdup_encoding_already_included(drbbdup_manager_t *manager, uintptr_t encoding
     if (manager->enable_dup) {
         int i;
         for (i = 0; i < opts.dup_limit; i++) {
-            drbbdup_case = &(manager->cases[i]);
+            drbbdup_case = &manager->cases[i];
             if (drbbdup_case->is_defined && drbbdup_case->encoding == encoding_check)
                 return true;
         }
     }
 
     /* Check default case. */
-    drbbdup_case = &(manager->default_case);
+    drbbdup_case = &manager->default_case;
     if (drbbdup_case->is_defined && drbbdup_case->encoding == encoding_check)
         return true;
 
@@ -1101,7 +1099,7 @@ drbbdup_include_encoding(drbbdup_manager_t *manager, uintptr_t new_encoding)
         int i;
         drbbdup_case_t *dup_case;
         for (i = 0; i < opts.dup_limit; i++) {
-            dup_case = &(manager->cases[i]);
+            dup_case = &manager->cases[i];
             if (!dup_case->is_defined) {
                 dup_case->is_defined = true;
                 dup_case->encoding = new_encoding;
@@ -1177,16 +1175,16 @@ drbbdup_handle_new_case()
     ASSERT(new_encoding != manager->default_case.encoding,
            "unhandled encoding cannot be the default case");
 
-    /* Could have been turned off potentially by an other thread. */
+    /* Could have been turned off potentially by another thread. */
     if (manager->enable_dynamic_handling) {
-        /* Case already registered potentially by an other thread. */
+        /* Case already registered potentially by another thread. */
         if (!drbbdup_encoding_already_included(manager, new_encoding)) {
             /* By default, do case gen. */
             bool do_gen = true;
             if (opts.allow_gen != NULL) {
                 do_gen =
                     opts.allow_gen(drcontext, tag, ilist, new_encoding,
-                                   &(manager->enable_dynamic_handling), opts.user_data);
+                                   &manager->enable_dynamic_handling, opts.user_data);
             }
             if (do_gen)
                 drbbdup_include_encoding(manager, new_encoding);
@@ -1230,7 +1228,9 @@ drbbdup_handle_new_case()
 
         /* No locks held upon fragment deletion. */
         /* XXX i#3778: To include once we support specific fragment deletion. */
-        /* dr_delete_shared_fragment(tag); */
+#if 0
+        dr_delete_shared_fragment(tag);
+#endif
     }
 
     dr_redirect_execution(&mcontext);
@@ -1286,12 +1286,12 @@ deleted_frag(void *drcontext, void *tag)
     dr_rwlock_write_lock(rw_lock);
 
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(&(manager_table), bb_pc);
+        (drbbdup_manager_t *)hashtable_lookup(&manager_table, bb_pc);
     if (manager != NULL) {
         ASSERT(manager->ref_counter > 0, "ref count should be greater than zero");
         manager->ref_counter--;
         if (manager->ref_counter <= 0)
-            hashtable_remove(&(manager_table), bb_pc);
+            hashtable_remove(&manager_table, bb_pc);
     }
 
     dr_rwlock_write_unlock(rw_lock);
@@ -1432,7 +1432,7 @@ drbbdup_init(drbbdup_options_t *ops_in)
             &priority) ||
         !drmgr_register_thread_init_event(drbbdup_thread_init) ||
         !drmgr_register_thread_exit_event(drbbdup_thread_exit) ||
-        !dr_raw_tls_calloc(&(tls_raw_reg), &(tls_raw_base), DRBBDUP_SLOT_COUNT, 0) ||
+        !dr_raw_tls_calloc(&tls_raw_reg, &tls_raw_base, DRBBDUP_SLOT_COUNT, 0) ||
         drreg_init(&drreg_ops) != DRREG_SUCCESS)
         return DRBBDUP_ERROR;
 
