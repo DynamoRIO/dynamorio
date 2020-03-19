@@ -221,6 +221,7 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
     if (drcontext == NULL || mod == NULL)
         return;
 
+    uint64 ms_start = dr_get_milliseconds();
     const char *mod_name = get_module_basename(mod);
     NOTIFY(2, "instru_funcs_module_load for %s\n", mod_name);
     for (size_t i = 0; i < func_names.entries; i++) {
@@ -270,6 +271,10 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
                    id);
         }
     }
+    uint64 ms_elapsed = dr_get_milliseconds() - ms_start;
+    NOTIFY((ms_elapsed > 10U) ? 1U : 2U,
+           "Symbol queries for %s took " UINT64_FORMAT_STRING "ms\n", mod_name,
+           ms_elapsed);
 }
 
 static void
