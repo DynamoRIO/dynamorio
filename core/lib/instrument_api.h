@@ -5130,10 +5130,10 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *wh
 
 DR_API
 /**
- * A convenience routine to aid restore the arith flags when executing outlined code,
- * such as when handling restore state event. The routine takes the current value of
+ * A convenience routine to aid restore the arith flags done by outlined code,
+ * such as when handling restore state events. The routine takes the current value of
  * the flags register \p cur_xflags, as well as the saved value \p saved_xflag, in order
- * to derive the restored app value.
+ * to return the original app value.
  */
 reg_t
 dr_merge_arith_flags(reg_t cur_xflags, reg_t saved_xflag);
