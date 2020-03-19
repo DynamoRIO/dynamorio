@@ -5138,9 +5138,6 @@ DR_API
 reg_t
 dr_merge_arith_flags(reg_t cur_xflags, reg_t saved_xflag);
 
-/* FIXME PR 315333: add routine that scans ahead to see if need to save eflags.  See
- * forward_eflags_analysis(). */
-
 /* FIXME PR 315327: add routines to save, restore and access from C code xmm registers
  * from our dcontext slots.  Not clear we really need to since we can't do it all
  * that much faster than the client can already with read/write tls field (only one
