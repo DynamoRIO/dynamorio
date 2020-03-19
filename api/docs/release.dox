@@ -250,6 +250,7 @@ Further non-compatibility-affecting changes include:
  - Added drwrap_get_stats().
  - Added #DRWRAP_NO_DYNAMIC_RETADDRS for reducing drwrap overhead at the cost
    of missing some post-call callbacks.
+ - Added free_key_func to the drcontainers hashtable_configure().
 
 **************************************************
 <hr>
