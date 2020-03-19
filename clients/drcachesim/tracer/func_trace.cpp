@@ -171,6 +171,9 @@ get_pc_by_symbol(const module_data_t *mod, const char *symbol)
     if (pc != NULL) {
         NOTIFY(2, "dr_get_proc_address found symbol %s at pc=" PFX "\n", symbol, pc);
         return pc;
+    } else if (op_record_dynsym_only.get_value()) {
+        NOTIFY(2, "Failed to find symbol %s in .dynsym; not recording it\n", symbol);
+        return NULL;
     } else {
         // If failed to find the symbol in the dynamic symbol table, then we try to find
         // it in the module loaded by reading the module file in mod->full_path.
@@ -437,9 +440,11 @@ func_trace_init(func_trace_append_entry_vec_t append_entry_vec_,
     hashtable_init_ex(&pc2idplus1, 8, HASH_INTPTR, false /*!strdup*/, false /*!synch*/,
                       nullptr, nullptr, nullptr);
 
-    if (!(drsym_init(0) == DRSYM_SUCCESS)) {
-        DR_ASSERT(false);
-        goto failed;
+    if (!op_record_dynsym_only.get_value()) {
+        if (!(drsym_init(0) == DRSYM_SUCCESS)) {
+            DR_ASSERT(false);
+            goto failed;
+        }
     }
     if (!drwrap_init()) {
         DR_ASSERT(false);
@@ -490,8 +495,11 @@ func_trace_exit()
     if (!drmgr_unregister_module_load_event(instru_funcs_module_load) ||
         !drmgr_unregister_module_unload_event(instru_funcs_module_unload) ||
         !drmgr_unregister_thread_init_event(event_thread_init) ||
-        !drmgr_unregister_thread_exit_event(event_thread_exit) ||
-        !(drsym_exit() == DRSYM_SUCCESS))
+        !drmgr_unregister_thread_exit_event(event_thread_exit))
         DR_ASSERT(false);
+    if (!op_record_dynsym_only.get_value()) {
+        if (drsym_exit() != DRSYM_SUCCESS)
+            DR_ASSERT(false);
+    }
     drwrap_exit();
 }

@@ -487,6 +487,12 @@ droption_t<std::string> op_record_heap_value(
     "Functions recorded by -record_heap. The option value should fit the same"
     " format required by -record_function. These functions will not"
     " be traced unless -record_heap is specified.");
+droption_t<bool> op_record_dynsym_only(
+    DROPTION_SCOPE_ALL, "record_dynsym_only", false,
+    "Only look in .dynsym for -record_function and -record_heap.",
+    "Symbol lookup can be expensive for large applications and libraries.  This option "
+    " causes the symbol lookup for -record_function and -record_heap to look in the "
+    " dynamic symbol table *only*.");
 droption_t<unsigned int> op_miss_count_threshold(
     DROPTION_SCOPE_FRONTEND, "miss_count_threshold", 50000,
     "For cache miss analysis: minimum LLC miss count for a load to be eligible for "
