@@ -464,7 +464,8 @@ addrsearch_symtab(dbg_module_t *mod, size_t modoffs, drsym_info_t *info INOUT, u
  * Hashtable building for symbol lookup.
  *
  * We use __wrap_malloc because our demangled strings have larger capacities
- * than strlen() will find.
+ * than strlen() will find (see drsym_demangle_helper() where we start with a
+ * 1024-byte buffer).
  * XXX: Should DR export a malloc-matching heap API that does not start with
  * underscores for cleaner usage?  Most non-static-DR usage though can just
  * use malloc().  Here we want to support static DR.
@@ -554,7 +555,13 @@ drsym_fill_symtable_cb(const char *sym, size_t modoffs, void *data INOUT)
     if (!drsym_add_hash_entry(mod, toadd, modoffs))
         return true;
 
-    /* Add a version without parameters to allow the user to ignore overloads. */
+    /* Add a version without parameters to allow the user to ignore overloads.
+     * XXX: This is not a great heuristic as there are cases with parentheses for
+     * namespaces or other parts of the type, such as:
+     *   Foo::(anonymous namespace)::bar()
+     *   std::function<int(int)>::foo().
+     * If nobody is relying on this maybe we should just remove it?
+     */
     char *noparen = drsym_dup_string_until_char(toadd, '(');
     if (noparen != NULL)
         drsym_add_hash_entry(mod, noparen, modoffs);
