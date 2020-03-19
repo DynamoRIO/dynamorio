@@ -251,6 +251,8 @@ Further non-compatibility-affecting changes include:
  - Added #DRWRAP_NO_DYNAMIC_RETADDRS for reducing drwrap overhead at the cost
    of missing some post-call callbacks.
  - Added free_key_func to the drcontainers hashtable_configure().
+ - Added -record_dynsym_only to drcachesim for faster function tracing symbol
+   lookups when internal symbols are not needed.
 
 **************************************************
 <hr>
