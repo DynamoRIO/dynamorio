@@ -271,15 +271,15 @@ typedef struct {
  * Various statistics related to drbbdup.
  */
 typedef struct {
-    /** Set this to the size of this structure. */
-    size_t struct_size;
     /** Number of fragments which have case handling turned off. */
     unsigned long no_dup_cnt;
     /** Number of fragments which have dynamic case handling turned off. */
     unsigned long no_dynamic_handling_cnt;
     /** Number of cases handled via dynamic generation. */
     unsigned long gen_cnt;
-    /** Execution count of bails to the default case due to encountered unhandled cases.
+    /**
+     * Execution count of bails to the default case due to encountered unhandled
+     * cases.
      */
     unsigned long bail_cnt;
 } drbbdup_stats_t;
