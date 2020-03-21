@@ -59,8 +59,6 @@ cache_t::init_blocks()
 void
 cache_t::request(const memref_t &memref)
 {
-    // FIXME i#1726: if the request is a data write, we should check the
-    // instr cache and invalidate the cache line there if necessary on x86.
     caching_device_t::request(memref);
 }
 
