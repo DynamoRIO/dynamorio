@@ -1082,8 +1082,6 @@ these areas of missing functionality:
 
 - Multi-process online application simulation on Windows
   (https://github.com/DynamoRIO/dynamorio/issues/1727)
-- Arbitrary cache hierarchy support via an input config file
-  (https://github.com/DynamoRIO/dynamorio/issues/1715)
 - Offline traces do not currently accurately record instruction fetches in
   dynamically generated code (https://github.com/DynamoRIO/dynamorio/issues/2062).
   All data references are included, but instruction fetches may be skipped.
