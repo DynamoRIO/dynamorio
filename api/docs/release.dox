@@ -150,6 +150,11 @@ changes:
    return value should not be recorded.
    The tracer writes out a file listing functions traced and their identifiers
    with "id,library!symbol" on each line of the file.
+ - Added free_key_func to the drcontainers hashtable_configure(), which adds a field
+   to #hashtable_config_t.  Binary compatibility is maintained via the size field
+   of the struct, but users who were not zeroing the whole structure and who update
+   and recompile without setting the field may see crashes due to
+   free_key_func being uninitialized.
 
 The changes between version \DR_VERSION and 7.1.0 include the following minor
 compatibility changes:
@@ -250,7 +255,6 @@ Further non-compatibility-affecting changes include:
  - Added drwrap_get_stats().
  - Added #DRWRAP_NO_DYNAMIC_RETADDRS for reducing drwrap overhead at the cost
    of missing some post-call callbacks.
- - Added free_key_func to the drcontainers hashtable_configure().
  - Added -record_dynsym_only to drcachesim for faster function tracing symbol
    lookups when internal symbols are not needed.
 
