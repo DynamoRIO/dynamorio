@@ -84,11 +84,11 @@ if ($child) {
     # i#4126: We include extra printing to help diagnose hangs on Travis.
     if ($^O ne 'cygwin') {
         print "Parent tee-ing child stdout...\n";
-        local $SIG{ALRM} = sub {
-            print "\nxxxxxxxxxx 30s elapsed xxxxxxxxxxx\n";
-            alarm(30);
-        };
-        alarm(30);
+#        local $SIG{ALRM} = sub {
+#            print "\nxxxxxxxxxx 30s elapsed xxxxxxxxxxx\n";
+#            alarm(30);
+#        };
+#        alarm(30);
         while (<CHILD>) {
             print STDOUT $_;
             $res .= $_;
