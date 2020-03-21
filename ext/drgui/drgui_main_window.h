@@ -1,4 +1,5 @@
 /* ***************************************************************************
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2013 Branden Clark  All rights reserved.
  * ***************************************************************************/
 
@@ -48,7 +49,6 @@ class QAction;
 class QMenu;
 class QMdiArea;
 class QMdiSubWindow;
-class QSignalMapper;
 class QActionGroup;
 class QPluginLoader;
 
@@ -142,7 +142,6 @@ private:
     QDir plugins_dir;
     QStringList plugin_names;
     QTabWidget *tab_area;
-    QSignalMapper *window_mapper;
     QActionGroup *tool_action_group;
     QAction *separator_act;
 

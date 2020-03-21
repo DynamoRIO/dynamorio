@@ -38,6 +38,7 @@
 #include "drsyms.h"
 #include "drsyms_private.h"
 #include "drsyms_obj.h"
+#include "hashtable.h"
 
 #include "dwarf.h"
 #include "libdwarf.h"
@@ -73,6 +74,8 @@ typedef struct _dbg_module_t {
      * while the primary mod has symtab+strtab.
      */
     struct _dbg_module_t *mod_with_dwarf;
+#define SYMTABLE_HASH_BITS 12
+    hashtable_t symtable;
 } dbg_module_t;
 
 /******************************************************************************
@@ -84,6 +87,8 @@ unload_module(dbg_module_t *mod);
 static bool
 follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
                  char debug_modpath[MAXIMUM_PATH]);
+static void
+drsym_free_hash_key(void *key);
 
 /******************************************************************************
  * Module loading and unloading.
@@ -135,6 +140,18 @@ load_module(const char *modpath)
         NOTIFY("%s: unable to map %s\n", __FUNCTION__, modpath);
         goto error;
     }
+
+    /* We have to duplicate most of the strings we add ourselves, so we do not ask for
+     * additional duplication and use a key freeing function.
+     */
+    hashtable_init_ex(&mod->symtable, SYMTABLE_HASH_BITS, HASH_STRING, false /*strdup*/,
+                      false /*!synch*/, NULL, NULL, NULL);
+    hashtable_config_t config;
+    config.size = sizeof(config);
+    config.resizable = true;
+    config.resize_threshold = 70;
+    config.free_key_func = drsym_free_hash_key;
+    hashtable_configure(&mod->symtable, &config);
 
     /* We need to partially initialize in order to get the debug info */
     mod->obj_info = drsym_obj_mod_init_pre(mod->map_base, mod->file_size);
@@ -307,6 +324,8 @@ unload_module(dbg_module_t *mod)
         drsym_dwarf_exit(mod->dwarf_info);
     if (mod->obj_info != NULL)
         drsym_obj_mod_exit(mod->obj_info);
+    if (mod->symtable.table != NULL)
+        hashtable_delete(&mod->symtable);
     if (mod->map_base != NULL)
         dr_unmap_file(mod->map_base, mod->map_size);
     if (mod->fd != INVALID_FILE)
@@ -365,14 +384,16 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
                 drsym_obj_symbol_offs(mod->obj_info, i, &out->start_offs, &out->end_offs);
         } else
             res = drsym_obj_symbol_offs(mod->obj_info, i, &modoffs, NULL);
-        if (res == DRSYM_ERROR_SYMBOL_NOT_FOUND) { /* an import, so skip */
-            res = DRSYM_SUCCESS;                   /* if go off end of loop */
+        /* Skip imports and missing symbols. */
+        if (res == DRSYM_ERROR_SYMBOL_NOT_FOUND ||
+            (callback_ex == NULL && modoffs == 0) || mangled[0] == '\0') {
+            res = DRSYM_SUCCESS; /* if go off end of loop */
             continue;
         }
         if (res != DRSYM_SUCCESS)
             break;
 
-        if (TEST(DRSYM_DEMANGLE, flags)) {
+        if (TESTANY(DRSYM_DEMANGLE | DRSYM_DEMANGLE_FULL, flags)) {
             size_t len;
             /* Resize until it's big enough. */
             while ((len = drsym_demangle_symbol(out->name, name_buf_size, mangled,
@@ -440,6 +461,121 @@ addrsearch_symtab(dbg_module_t *mod, size_t modoffs, drsym_info_t *info INOUT, u
 }
 
 /******************************************************************************
+ * Hashtable building for symbol lookup.
+ *
+ * We use __wrap_malloc because our demangled strings have larger capacities
+ * than strlen() will find (see drsym_demangle_helper() where we start with a
+ * 1024-byte buffer).
+ * XXX: Should DR export a malloc-matching heap API that does not start with
+ * underscores for cleaner usage?  Most non-static-DR usage though can just
+ * use malloc().  Here we want to support static DR.
+ *
+ * We do not want to pay the cost of hashtable_t doing a further
+ * strdup on our just-allocated strings so we free keys ourselves.
+ */
+
+static void
+drsym_free_hash_key(void *key)
+{
+    __wrap_free(key);
+}
+
+static char *
+drsym_dup_string_until_char(const char *sym, char stop)
+{
+    /* We skip the first char to avoid empty strings. */
+    const char *found = strchr(sym + 1, stop);
+    if (found != NULL) {
+        size_t no_found_sz = found - sym;
+        char *no_found = (char *)__wrap_malloc(no_found_sz + 1);
+        dr_snprintf(no_found, no_found_sz, "%s", sym);
+        no_found[no_found_sz] = '\0';
+        return no_found;
+    }
+    return NULL;
+}
+
+static char *
+drsym_demangle_helper(const char *sym, uint flags)
+{
+    /* We look for "_Z" to avoid the copy of the same symbol for non-mangled cases. */
+    if (sym[0] != '_' || sym[1] != 'Z')
+        return NULL;
+    size_t len;
+    size_t buf_size = 1024;
+    char *buf = (char *)__wrap_malloc(buf_size);
+    /* Resize until it's big enough. */
+    while ((len = drsym_demangle_symbol(buf, buf_size, sym, flags)) > buf_size) {
+        __wrap_free(buf);
+        buf_size = len;
+        buf = (char *)__wrap_malloc(buf_size);
+    }
+    if (len <= 0) {
+        return NULL;
+    }
+    return buf;
+}
+
+static bool
+drsym_add_hash_entry(dbg_module_t *mod, const char *copy, size_t modoffs)
+{
+    if (hashtable_add(&mod->symtable, (void *)copy, (void *)modoffs)) {
+        NOTIFY("%s: added %s\n", __FUNCTION__, copy);
+        return true;
+    }
+    drsym_free_hash_key((void *)copy);
+    return false;
+}
+
+/* Symbol enumeration callback for doing a single lookup.
+ */
+static bool
+drsym_fill_symtable_cb(const char *sym, size_t modoffs, void *data INOUT)
+{
+    dbg_module_t *mod = (dbg_module_t *)data;
+    size_t len = strlen(sym);
+    char *copy = __wrap_malloc(len + 1);
+    dr_snprintf(copy, len, "%s", sym);
+    copy[len] = '\0';
+    if (!drsym_add_hash_entry(mod, copy, modoffs))
+        return true;
+
+    /* We match the name part of versioned symbols: so "foo" will match
+     * "foo@@GLIBC_2.1".  If there are multiple, a user who wants one in
+     * particular needs to include the version name in the search target.
+     */
+    char *toadd = drsym_dup_string_until_char(sym, '@');
+    if (toadd != NULL)
+        drsym_add_hash_entry(mod, toadd, modoffs);
+
+    /* Add the demanglings. */
+    toadd = drsym_demangle_helper(sym, DRSYM_DEMANGLE);
+    if (toadd == NULL)
+        return true;
+    if (!drsym_add_hash_entry(mod, toadd, modoffs))
+        return true;
+
+    /* Add a version without parameters to allow the user to ignore overloads.
+     * XXX: This is not a great heuristic as there are cases with parentheses for
+     * namespaces or other parts of the type, such as:
+     *   Foo::(anonymous namespace)::bar()
+     *   std::function<int(int)>::foo().
+     * If nobody is relying on this maybe we should just remove it?
+     */
+    char *noparen = drsym_dup_string_until_char(toadd, '(');
+    if (noparen != NULL)
+        drsym_add_hash_entry(mod, noparen, modoffs);
+
+#ifdef DRSYM_HAVE_LIBELFTC
+    toadd = drsym_demangle_helper(sym, DRSYM_DEMANGLE_FULL);
+    if (toadd != NULL)
+        drsym_add_hash_entry(mod, toadd, modoffs);
+#endif
+
+    return true;
+}
+
+/******************************************************************************
  * Exports
  */
 
@@ -479,49 +615,12 @@ drsym_unix_enumerate_symbols(void *mod_in, drsym_enumerate_cb callback,
     return symsearch_symtab(mod, callback, callback_ex, info_size, data, flags);
 }
 
-/* Params to sym_lookup_cb passed through data. */
-typedef struct _sym_lookup_params_t {
-    const char *search_sym;
-    size_t search_sym_len;
-    size_t *modoffs;
-} sym_lookup_params_t;
-
-/* Symbol enumeration callback for doing a single lookup.
- */
-static bool
-sym_lookup_cb(const char *sym, size_t modoffs, void *data INOUT)
-{
-    sym_lookup_params_t *p = (sym_lookup_params_t *)data;
-
-    if (strncmp(sym, p->search_sym, p->search_sym_len) == 0 &&
-        strlen(sym) >= p->search_sym_len &&
-        (sym[p->search_sym_len] == '\0' ||
-         /* Left paren means the beginning of the parameter list.  Since the
-          * parameter list starts where our search string ends, we assume the
-          * user doesn't care about possible overloads.
-          */
-         sym[p->search_sym_len] == '(' ||
-         /* We match the name part of versioned symbols: so "foo" will match
-          * "foo@@GLIBC_2.1".  If there are multiple, a user who wants one in
-          * particular needs to include the version name in the search target.
-          */
-         sym[p->search_sym_len] == '@')) {
-        NOTIFY("Looked up symbol: %s %s\n", p->search_sym, sym);
-        *p->modoffs = modoffs;
-        /* Stop after the first match. */
-        return false;
-    }
-    return true;
-}
-
 drsym_error_t
 drsym_unix_lookup_symbol(void *mod_in, const char *symbol, size_t *modoffs OUT,
                          uint flags)
 {
     dbg_module_t *mod = (dbg_module_t *)mod_in;
-    drsym_error_t r;
     const char *sym_no_mod;
-    sym_lookup_params_t params;
 
     if (symbol == NULL) {
         sym_no_mod = NULL;
@@ -552,13 +651,12 @@ drsym_unix_lookup_symbol(void *mod_in, const char *symbol, size_t *modoffs OUT,
     }
 
     if (*modoffs == 0) {
-        params.search_sym = sym_no_mod;
-        params.search_sym_len = strlen(sym_no_mod);
-        params.modoffs = modoffs;
-        r = drsym_unix_enumerate_symbols(mod, sym_lookup_cb, NULL, sizeof(drsym_info_t),
-                                         &params, flags);
-        if (r != DRSYM_SUCCESS)
-            return r;
+        if (mod->symtable.entries == 0) {
+            /* Initialize the hashtable. */
+            symsearch_symtab(mod, drsym_fill_symtable_cb, NULL, sizeof(drsym_info_t), mod,
+                             DRSYM_LEAVE_MANGLED);
+        }
+        *modoffs = (size_t)hashtable_lookup(&mod->symtable, (void *)sym_no_mod);
     }
     if (*modoffs == 0)
         return DRSYM_ERROR_SYMBOL_NOT_FOUND;
@@ -664,10 +762,13 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, ui
         proc_restore_fpstate(fp_align);
 
 #    ifdef WINDOWS
-        /* our libelftc returns the # of chars needed, and copies the truncated
-         * unmangled name
+        /* Our libelftc returns the # of chars needed, and copies the truncated
+         * unmangled name, but it returns -1 on error.
          */
-        return status;
+        if (status <= 0)
+            return 0;
+        if (status > 0)
+            return status;
 #    else
         /* XXX: let's make the same change to the libelftc we're using here */
         if (status == 0) {
