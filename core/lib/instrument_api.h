@@ -5128,8 +5128,15 @@ void
 dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
                                 reg_id_t reg);
 
-/* FIXME PR 315333: add routine that scans ahead to see if need to save eflags.  See
- * forward_eflags_analysis(). */
+DR_API
+/**
+ * A convenience routine to aid restoring the arith flags done by outlined code,
+ * such as when handling restore state events. The routine takes the current value of
+ * the flags register \p cur_xflags, as well as the saved value \p saved_xflag, in order
+ * to return the original app value.
+ */
+reg_t
+dr_merge_arith_flags(reg_t cur_xflags, reg_t saved_xflag);
 
 /* FIXME PR 315327: add routines to save, restore and access from C code xmm registers
  * from our dcontext slots.  Not clear we really need to since we can't do it all

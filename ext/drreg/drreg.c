@@ -1811,22 +1811,13 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
         reg_t newval = info->mcontext->xflags;
         reg_t val;
 #ifdef X86
-        uint sahf;
         if (aflags_in_xax)
             val = info->mcontext->xax;
         else
 #endif
             val = get_spilled_value(drcontext, spilled_to_aflags);
-#ifdef AARCHXX
-        newval &= ~(EFLAGS_ARITH);
-        newval |= val;
-#elif defined(X86)
-        sahf = (val & 0xff00) >> 8;
-        newval &= ~(EFLAGS_ARITH);
-        newval |= sahf;
-        if (TEST(1, val)) /* seto */
-            newval |= EFLAGS_OF;
-#endif
+
+        newval = dr_merge_arith_flags(newval, val);
         LOG(drcontext, DR_LOG_ALL, 3, "%s: restoring aflags from " PFX " to " PFX "\n",
             __FUNCTION__, info->mcontext->xflags, newval);
         info->mcontext->xflags = newval;

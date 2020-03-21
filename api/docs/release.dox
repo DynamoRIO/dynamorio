@@ -257,6 +257,8 @@ Further non-compatibility-affecting changes include:
    of missing some post-call callbacks.
  - Added -record_dynsym_only to drcachesim for faster function tracing symbol
    lookups when internal symbols are not needed.
+ - Added dr_merge_arith_flags() as a convenience routine to merge arithmetic flags
+   for restoration done by outlined code.
 
 **************************************************
 <hr>
