@@ -1123,8 +1123,7 @@ drbbdup_prepare_redirect(dr_mcontext_t *mcontext, drbbdup_manager_t *manager,
     /* Restore flags and scratch reg to their original app values. */
     if (!manager->are_flags_dead) {
         reg_t val = (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_FLAG_REG_SLOT);
-        reg_t newval = dr_merge_arith_flags(mcontext->xflags, val);
-        mcontext->xflags = newval;
+        mcontext->xflags = dr_merge_arith_flags(mcontext->xflags, val);
     }
     if (!manager->is_scratch_reg_dead) {
         reg_set_value(DRBBDUP_SCRATCH_REG, mcontext,

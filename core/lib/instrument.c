@@ -6071,8 +6071,7 @@ dr_merge_arith_flags(reg_t cur_xflags, reg_t saved_xflag)
     cur_xflags &= ~(EFLAGS_ARITH);
     cur_xflags |= saved_xflag;
 #    elif defined(X86)
-    uint sahf;
-    sahf = (saved_xflag & 0xff00) >> 8;
+    uint sahf = (saved_xflag & 0xff00) >> 8;
     cur_xflags &= ~(EFLAGS_ARITH);
     cur_xflags |= sahf;
     if (TEST(1, saved_xflag)) /* seto */
