@@ -172,13 +172,15 @@ install:
           cd drmemory && git submodule update --init --depth 250 && cd ..
       fi
 
+# i#4126: Despite the incremental output from runsuite_wrapper's stdout tee
+# and alarm prints, Travis still kills our jobs.  The workaround is to use
+# travis_wait, which ironically removes all incremental output and dumps
+# it all at the end.
 script:
-  - suite/runsuite_wrapper.pl travis $EXTRA_ARGS
+  - travis_wait 45 suite/runsuite_wrapper.pl travis $EXTRA_ARGS
 
 # We switch to package.cmake for these builds in runsuite_wrapper.pl by looking
 # for $TRAVIS_EVENT_TYPE=="cron".
-# Longer-term we may want to use package.cmake instead and even make official
-# builds on Travis (i#2861).
 # The before_deploy commands are run before each deployer, so they are also
 # run for DEPLOY_DOCS.  We'll just have a git tag failure since it exists.
 before_deploy:
