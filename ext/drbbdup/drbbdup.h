@@ -54,6 +54,7 @@ extern "C" {
 typedef enum {
     DRBBDUP_SUCCESS,                       /**< Operation succeeded. */
     DRBBDUP_ERROR_INVALID_PARAMETER,       /**< Operation failed: invalid parameter. */
+    DRBBDUP_ERROR_UNSET_FEATURE,           /**< Operation failed: feature not set. */
     DRBBDUP_ERROR_CASE_ALREADY_REGISTERED, /**< Operation failed: already registered. */
     DRBBDUP_ERROR_CASE_LIMIT_REACHED,      /**< Operation failed: case limit reached. */
     DRBBDUP_ERROR_ALREADY_INITIALISED,     /**< DRBBDUP can only be initialised once. */
@@ -257,7 +258,31 @@ typedef struct {
      * thread before it becomes a candidate for dynamic generation.
      */
     ushort hit_threshold;
+    /**
+     * Determines whether drbbdup should track a variety of statistics. Note keeping track
+     * of statistics incurs additional overhead and it is not recommended at deployment.
+     *
+     * Set to true if the client calls drbbdup_get_stats().
+     */
+    bool is_stat_enabled;
 } drbbdup_options_t;
+
+/**
+ * Various statistics related to drbbdup.
+ */
+typedef struct {
+    /** Set this to the size of this structure. */
+    size_t struct_size;
+    /** Number of fragments which have case handling turned off. */
+    unsigned long no_dup_cnt;
+    /** Number of fragments which have dynamic case handling turned off. */
+    unsigned long no_dynamic_handling_cnt;
+    /** Number of cases handled via dynamic generation. */
+    unsigned long gen_cnt;
+    /** Execution count of bails to the default case due to encountered unhandled cases.
+     */
+    unsigned long bail_cnt;
+} drbbdup_stats_t;
 
 /**
  * Priorities of drmgr instrumentation passes used by drbbdup. Users
@@ -360,6 +385,19 @@ DR_EXPORT
  */
 drbbdup_status_t
 drbbdup_is_last_instr(void *drcontext, instr_t *instr, OUT bool *is_last);
+
+DR_EXPORT
+/**
+ * Returns various statistics regarding drbbdup. In particular, the routine
+ * populates \p stats with current values.
+ *
+ * Note that the invocation of this routine is only successful if statistics gathering
+ * is set via #drbbdup_options_t when initializing drbbdup.
+ *
+ * Internally, a lock is used while gathering the statistics.
+ */
+drbbdup_status_t
+drbbdup_get_stats(OUT drbbdup_stats_t *stats);
 
 /*@}*/ /* end doxygen group */
 
