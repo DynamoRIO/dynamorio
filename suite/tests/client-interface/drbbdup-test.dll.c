@@ -221,7 +221,8 @@ event_exit(void)
     drbbdup_status_t res;
 
     drbbdup_stats_t stats;
-    drbbdup_get_stats(&stats);
+    res = drbbdup_get_stats(&stats);
+    CHECK(res == DRBBDUP_SUCCESS, "drbbdup statistics gathering failed");
 
     CHECK(stats.no_dup_cnt == no_dup_cnt, "no dup count should match");
     CHECK(stats.no_dynamic_handling_cnt == no_dynamic_handling_cnt,
@@ -264,6 +265,7 @@ dr_init(client_id_t id)
                                NULL,
                                USER_DATA_VAL,
                                2 /* num of cases */,
+                               0 /* threshold */,
                                true /* enable stats */ };
 
     res = drbbdup_init(&opts);
