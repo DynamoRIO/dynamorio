@@ -62,55 +62,51 @@ jobs:
     #######################################################################
     # Regular test jobs:
 
-    # Linux x86 + amd64 to repro i#4126:
-    - os: linux
+    # 32-bit Linux build with gcc and run tests:
+    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
+      os: linux
       compiler: gcc
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=yes DEPLOY_DOCS=yes TRAVIS_EVENT_TYPE=cron
-#DISABLED    # 32-bit Linux build with gcc and run tests:
-#DISABLED    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
-#DISABLED      os: linux
-#DISABLED      compiler: gcc
-#DISABLED      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="32_only"
-#DISABLED    # 64-bit Linux build with gcc and run tests:
-#DISABLED    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
-#DISABLED      os: linux
-#DISABLED      compiler: gcc
-#DISABLED      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="64_only"
-#DISABLED    # AArchXX cross-compile with gcc, no tests:
-#DISABLED    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
-#DISABLED      os: linux
-#DISABLED      compiler: gcc
-#DISABLED      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes DEPLOY=no
-#DISABLED    # Android ARM cross-compile with gcc, no tests:
-#DISABLED    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
-#DISABLED      os: linux
-#DISABLED      compiler: gcc
-#DISABLED      env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DEPLOY=no DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
-#DISABLED    # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests),
-#DISABLED    # install and require clang-format.
-#DISABLED    # We used to build 32-bit with clang but have decided that is not worth
-#DISABLED    # the Travis resources: 64-bit hits most clang-only warnings and 64-bit
-#DISABLED    # is the primary target these days.
-#DISABLED    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
-#DISABLED      os: linux
-#DISABLED      compiler: clang
-#DISABLED      # We need clang 9.0 to avoid a compiler bug: i#3989.
-#DISABLED      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="64_only require_format" CC=clang-9 && CXX=clang++-9
-#DISABLED      addons:
-#DISABLED        apt:
-#DISABLED          sources:
-#DISABLED          - ubuntu-toolchain-r-test
-#DISABLED          - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
-#DISABLED            key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
-#DISABLED          packages:
-#DISABLED          - clang-9
-#DISABLED          - clang-format-6.0
-#DISABLED    # 64-bit OSX build with clang and run tests:
-#DISABLED    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
-#DISABLED      os: osx
-#DISABLED      # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
-#DISABLED      compiler: clang
-#DISABLED      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=64_only
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="32_only"
+    # 64-bit Linux build with gcc and run tests:
+    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
+      os: linux
+      compiler: gcc
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="64_only"
+    # AArchXX cross-compile with gcc, no tests:
+    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
+      os: linux
+      compiler: gcc
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes DEPLOY=no
+    # Android ARM cross-compile with gcc, no tests:
+    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
+      os: linux
+      compiler: gcc
+      env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DEPLOY=no DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
+    # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests),
+    # install and require clang-format.
+    # We used to build 32-bit with clang but have decided that is not worth
+    # the Travis resources: 64-bit hits most clang-only warnings and 64-bit
+    # is the primary target these days.
+    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
+      os: linux
+      compiler: clang
+      # We need clang 9.0 to avoid a compiler bug: i#3989.
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="64_only require_format" CC=clang-9 && CXX=clang++-9
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
+            key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
+          packages:
+          - clang-9
+          - clang-format-6.0
+    # 64-bit OSX build with clang and run tests:
+    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
+      os: osx
+      # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
+      compiler: clang
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=64_only
 
     #######################################################################
     # Package jobs
@@ -176,6 +172,10 @@ install:
           cd drmemory && git submodule update --init --depth 250 && cd ..
       fi
 
+# i#4126: Despite the incremental output from runsuite_wrapper's stdout tee
+# and alarm prints, Travis still kills our jobs.  The workaround is to use
+# travis_wait, which ironically removes all incremental output and dumps
+# it all at the end.
 script:
   - travis_wait 45 suite/runsuite_wrapper.pl travis $EXTRA_ARGS
 
