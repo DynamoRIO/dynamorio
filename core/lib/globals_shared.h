@@ -1251,9 +1251,8 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
  * share/config.c) to set up new eventlogs (mainly for vista where our
  * installer doesn't work yet xref case 8482).*/
 #    define L_EVENT_FILE_VALUE_NAME L"File"
-#    define L_EVENT_FILE_NAME_PRE_VISTA                                          \
-        L"%SystemRoot%\\system32\\config\\" L_EXPAND_LEVEL(EVENTLOG_NAME) L".ev" \
-                                                                          L"t"
+#    define L_EVENT_FILE_NAME_PRE_VISTA \
+        L"%SystemRoot%\\system32\\config\\" L_EXPAND_LEVEL(EVENTLOG_NAME) L".evt"
 #    define L_EVENT_FILE_NAME_VISTA \
         L"%SystemRoot%\\system32\\winevt\\logs\\" L_EXPAND_LEVEL(EVENTLOG_NAME) L".elf"
 #    define L_EVENT_MAX_SIZE_NAME L"MaxSize"
@@ -1307,9 +1306,8 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #    define INJECT_HELPER_DLL2_NAME "drearlyhelp2.dll"
 
 #    define DEBUGGER_INJECTION_HIVE HKEY_LOCAL_MACHINE
-#    define DEBUGGER_INJECTION_KEY                                               \
-        "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution " \
-        "Options"
+#    define DEBUGGER_INJECTION_KEY \
+        "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options"
 #    define DEBUGGER_INJECTION_VALUE_NAME "Debugger"
 
 #    define DEBUGGER_INJECTION_HIVE_L L"\\Registry\\Machine\\"
