@@ -6064,6 +6064,23 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *wh
 #    endif /* X86/ARM/AARCH64 */
 }
 
+DR_API reg_t
+dr_merge_arith_flags(reg_t cur_xflags, reg_t saved_xflag)
+{
+#    ifdef AARCHXX
+    cur_xflags &= ~(EFLAGS_ARITH);
+    cur_xflags |= saved_xflag;
+#    elif defined(X86)
+    uint sahf = (saved_xflag & 0xff00) >> 8;
+    cur_xflags &= ~(EFLAGS_ARITH);
+    cur_xflags |= sahf;
+    if (TEST(1, saved_xflag)) /* seto */
+        cur_xflags |= EFLAGS_OF;
+#    endif
+
+    return cur_xflags;
+}
+
 /* providing functionality of old -instr_calls and -instr_branches flags
  *
  * NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
