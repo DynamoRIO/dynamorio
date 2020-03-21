@@ -504,7 +504,8 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
             "\\1VC\\3\\4\\3amd64;\\1VC\\3\\4"
             newpath "${newpath}")
           # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64"
-          string(REGEX REPLACE "(v[^/\\\\]*)([/\\\\])([Bb][Ii][Nn])" "\\1\\2\\3\\2x64"
+          string(REGEX REPLACE "([/\\\\]v[^/\\\\]*)([/\\\\])([Bb][Ii][Nn])"
+            "\\1\\2\\3\\2x64"
             newpath "${newpath}")
           if (arg_verbose)
             message("Env setup: setting PATH to ${newpath}")
@@ -516,7 +517,8 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
           string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])([^/\\\\])" "\\1\\2\\1amd64\\3"
             newlib "${newlib}")
           # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64": grrr
-          string(REGEX REPLACE "(v[^/\\\\]*[/\\\\][Ll][Ii][Bb][/\\\\])[Aa][Mm][Dd]64"
+          string(REGEX REPLACE
+            "([/\\\\]v[^/\\\\]*[/\\\\][Ll][Ii][Bb][/\\\\])[Aa][Mm][Dd]64"
             "\\1x64"
             newlib "${newlib}")
           # Win8 SDK uses um/x86 and um/x64 after "Lib/win{8,v6.3}/"
@@ -533,7 +535,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
             message("Env setup: setting LIBPATH to ${newlibpath}")
           endif ()
           set(ENV{LIBPATH} "${newlibpath}")
-        endif (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
+        endif ()
       else (is64)
         set(ENV{ASM} "ml")
         if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64" OR
