@@ -107,8 +107,8 @@ analysis data.
 
 In order for drbbdup to dispatch control to the appropriate basic block copy, it
 needs to determine the current runtime case encoding value. Essentially, this process
-depends on the use-case, and therefore drbbdup invokes the #drbbdup_insert_encode_t
-call-back function to obtain the encoding from the client.
+depends on the use-case, and therefore drbbdup optionally invokes the
+#drbbdup_insert_encode_t call-back function to obtain the encoding from the client.
 
 In terms of implementation, the call-back function must store the runtime case encoding
 to memory maintained by drbbdup. This can be achieved by calling
@@ -117,6 +117,13 @@ memory reference operand that acts as the destination to a store instruction. Ho
 if the encoder is implemented via a clean-call, then drbbdup_set_encoding()
 should be used to set the value.
 
+The #drbbdup_insert_encode_t callback may also be set to NULL which results in the 
+dispatcher not attempting the construction of the runtime case at every start of 
+a basic block execution. In such cases, it is expected that the client directly
+sets the runtime encoding directly, either via  drbbdup_get_encoding_opnd() or
+drbbdup_set_encoding(), and updates the value on demand. The drbbdup extension
+guarantees that it does not modify the set encoding on its own accord.
+ 
 \section sec_drbbdup_instrum Case Instrumentation
 
 drbbdup invokes the #drbbdup_instrument_instr_t call-back function to
