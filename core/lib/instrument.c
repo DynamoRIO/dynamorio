@@ -3905,6 +3905,36 @@ dr_atomic_add64_return_sum(volatile int64 *dest, int64 val)
 }
 #    endif
 
+DR_API
+int
+dr_atomic_load32(volatile int *src)
+{
+    return atomic_aligned_read_int(src);
+}
+
+DR_API
+void
+dr_atomic_store32(volatile int *dest, int val)
+{
+    ATOMIC_4BYTE_ALIGNED_WRITE(dest, val, false);
+}
+
+#    ifdef X64
+DR_API
+int64
+dr_atomic_load64(volatile int64 *src)
+{
+    return atomic_aligned_read_int64(src);
+}
+
+DR_API
+void
+dr_atomic_store64(volatile int64 *dest, int64 val)
+{
+    ATOMIC_8BYTE_ALIGNED_WRITE(dest, val, false);
+}
+#    endif
+
 /***************************************************************************
  * MODULES
  */

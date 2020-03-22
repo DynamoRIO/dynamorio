@@ -474,6 +474,24 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
                                      : "+m"(*(int *)(target)), "+r"(_myval)        \
                                      :);                                           \
             } while (0)
+#        define ATOMIC_4BYTE_ALIGNED_WRITE(target, value, hot_patch)               \
+            do {                                                                   \
+                /* allow a constant to be passed in by supplying our own lvalue */ \
+                int _myval = value;                                                \
+                ASSERT(sizeof(value) == 4);                                        \
+                ASSERT(ALIGNED(target, 4));                                        \
+                __asm__ __volatile__("movl %1, %0"                                 \
+                                     : "=m"(*(int *)(target))                      \
+                                     : "r"(_myval));                               \
+            } while (0)
+#        define ATOMIC_4BYTE_ALIGNED_READ(addr_src, addr_res)         \
+            do {                                                      \
+                ASSERT(ALIGNED(addr_src, 4));                         \
+                __asm__ __volatile__("movl %1, %%eax; movl %%eax, %0" \
+                                     : "=m"(*(int *)(addr_res))       \
+                                     : "m"(*(int *)(addr_src))        \
+                                     : "eax");                        \
+            } while (0)
 #        ifdef X64
 #            define ATOMIC_8BYTE_WRITE(target, value, hot_patch)                       \
                 do {                                                                   \
@@ -489,6 +507,26 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
                     __asm__ __volatile__("xchgq %0, %1"                                \
                                          : "+m"(*(int64 *)(target)), "+r"(_myval)      \
                                          :);                                           \
+                } while (0)
+#            define ATOMIC_8BYTE_ALIGNED_WRITE(target, value, hot_patch)               \
+                do {                                                                   \
+                    /* allow a constant to be passed in by supplying our own lvalue */ \
+                    int64 _myval = value;                                              \
+                    ASSERT(sizeof(value) == 8);                                        \
+                    /* Not currently used to write code */                             \
+                    ASSERT_CURIOSITY(!hot_patch);                                      \
+                    ASSERT(ALIGNED(target, 8));                                        \
+                    __asm__ __volatile__("movq %1, %0"                                 \
+                                         : "=m"(*(int64 *)(target))                    \
+                                         : "r"(_myval));                               \
+                } while (0)
+#            define ATOMIC_8BYTE_ALIGNED_READ(addr_src, addr_res)         \
+                do {                                                      \
+                    ASSERT(ALIGNED(addr_src, 8));                         \
+                    __asm__ __volatile__("movq %1, %%rax; movq %%rax, %0" \
+                                         : "=m"(*(int64 *)(addr_res))     \
+                                         : "m"(*(int64 *)addr_src)        \
+                                         : "rax");                        \
                 } while (0)
 #        endif /* X64 */
 #        define ATOMIC_INC_suffix(suffix, var) \
@@ -577,34 +615,55 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
                 ASSERT(sizeof(value) == 1);                    \
                 /* Not currently used to write code */         \
                 ASSERT_CURIOSITY(!hot_patch);                  \
-                __asm__ __volatile__("strb %w0, [%1]"          \
+                __asm__ __volatile__("stlrb %w0, [%1]"         \
                                      :                         \
                                      : "r"(value), "r"(target) \
                                      : "memory");              \
             } while (0)
-#        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                 \
-            do {                                                             \
-                ASSERT(sizeof(value) == 4);                                  \
-                /* Not currently used to write code */                       \
-                ASSERT_CURIOSITY(!hot_patch);                                \
-                /* Aligned load/store instructions are atomic on AArch64. */ \
-                ASSERT(ALIGNED(target, 4));                                  \
-                __asm__ __volatile__("str %w0, [%1]"                         \
-                                     :                                       \
-                                     : "r"(value), "r"(target)               \
-                                     : "memory");                            \
+#        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                    \
+            do {                                                                \
+                ASSERT(sizeof(value) == 4);                                     \
+                /* Not currently used to write code */                          \
+                ASSERT_CURIOSITY(!hot_patch);                                   \
+                /* We use "store-release" to add a barrier to make the store */ \
+                /* visible promptly and not just atomic as in untorn which */   \
+                /* alignment gives us by itself. */                             \
+                ASSERT(ALIGNED(target, 4));                                     \
+                __asm__ __volatile__("stlr %w0, [%1]"                           \
+                                     :                                          \
+                                     : "r"(value), "r"(target)                  \
+                                     : "memory");                               \
             } while (0)
-#        define ATOMIC_8BYTE_WRITE(target, value, hot_patch)                 \
-            do {                                                             \
-                ASSERT(sizeof(value) == 8);                                  \
-                /* Not currently used to write code */                       \
-                ASSERT_CURIOSITY(!hot_patch);                                \
-                /* Aligned load/store instructions are atomic on AArch64. */ \
-                ASSERT(ALIGNED(target, 8));                                  \
-                __asm__ __volatile__("str %0, [%1]"                          \
-                                     :                                       \
-                                     : "r"(value), "r"(target)               \
-                                     : "memory");                            \
+#        define ATOMIC_4BYTE_ALIGNED_WRITE ATOMIC_4BYTE_WRITE
+#        define ATOMIC_4BYTE_ALIGNED_READ(addr_src, addr_res)       \
+            do {                                                    \
+                ASSERT(ALIGNED(addr_src, 4));                       \
+                /* We use "load-acquire" to add a barrier. */       \
+                __asm__ __volatile__("ldar w0, [%0]; str w0, [%1]"  \
+                                     :                              \
+                                     : "r"(addr_src), "r"(addr_res) \
+                                     : "w0", "memory");             \
+            } while (0)
+#        define ATOMIC_8BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                ASSERT(sizeof(value) == 8);                    \
+                /* Not currently used to write code */         \
+                ASSERT_CURIOSITY(!hot_patch);                  \
+                ASSERT(ALIGNED(target, 8));                    \
+                __asm__ __volatile__("stlr %0, [%1]"           \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
+#        define ATOMIC_8BYTE_ALIGNED_WRITE ATOMIC_8BYTE_WRITE
+#        define ATOMIC_8BYTE_ALIGNED_READ(addr_src, addr_res)       \
+            do {                                                    \
+                ASSERT(ALIGNED(addr_src, 8));                       \
+                /* We use "load-acquire" to add a barrier. */       \
+                __asm__ __volatile__("ldar x0, [%0]; str x0, [%1]"  \
+                                     :                              \
+                                     : "r"(addr_src), "r"(addr_res) \
+                                     : "x0", "memory");             \
             } while (0)
 
 #        define DEF_ATOMIC_incdec(fname, type, r, op)                             \
@@ -739,7 +798,7 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
             do {                                               \
                 ASSERT(sizeof(value) == 1);                    \
-                __asm__ __volatile__("strb %0, [%1]"           \
+                __asm__ __volatile__("dmb ish; strb %0, [%1]"  \
                                      :                         \
                                      : "r"(value), "r"(target) \
                                      : "memory");              \
@@ -750,10 +809,19 @@ atomic_dec_becomes_zero(volatile int *var)
                 /* Load and store instructions are atomic on ARM if aligned. */  \
                 /* FIXME i#1551: we need patch the whole instruction instead. */ \
                 ASSERT(ALIGNED(target, 4));                                      \
-                __asm__ __volatile__("str %0, [%1]"                              \
+                __asm__ __volatile__("dmb ish; str %0, [%1]"                     \
                                      :                                           \
                                      : "r"(value), "r"(target)                   \
                                      : "memory");                                \
+            } while (0)
+#        define ATOMIC_4BYTE_ALIGNED_WRITE ATOMIC_4BYTE_WRITE
+#        define ATOMIC_4BYTE_ALIGNED_READ(addr_src, addr_res)              \
+            do {                                                           \
+                ASSERT(ALIGNED(addr_src, 4));                              \
+                __asm__ __volatile__("ldr r0, [%1]; dmb ish; str r0, [%0]" \
+                                     :                                     \
+                                     : "r"(addr_src), "r"(addr_res)        \
+                                     : "r0", "memory");                    \
             } while (0)
 
 /* OP_swp is deprecated and OP_ldrex and OP_strex are introduced in
@@ -999,6 +1067,24 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 #    endif /* !AARCH64 */
 
 #endif /* UNIX */
+
+static inline int
+atomic_aligned_read_int(volatile int *var)
+{
+    int temp;
+    ATOMIC_4BYTE_ALIGNED_READ(var, &temp);
+    return temp;
+}
+
+#ifdef X64
+static inline int64
+atomic_aligned_read_int64(volatile int64 *var)
+{
+    int64 temp;
+    ATOMIC_8BYTE_ALIGNED_READ(var, &temp);
+    return temp;
+}
+#endif
 
 #define atomic_compare_exchange atomic_compare_exchange_int
 #ifdef X64
