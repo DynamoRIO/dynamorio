@@ -272,9 +272,14 @@ enum {
 };
 
 /**
- * Name of drbbdup priorities for analysis and insert steps.
+ * Name of drbbdup app2app priority.
  */
-#define DRMGR_PRIORITY_NAME_DRBBDUP "drbbdup"
+#define DRMGR_PRIORITY_APP2APP_NAME_DRBBDUP "drbbdup_app2app"
+
+/**
+ * Name of drbbdup insert priority.
+ */
+#define DRMGR_PRIORITY_INSERT_NAME_DRBBDUP "drbbdup_insert"
 
 DR_EXPORT
 /**

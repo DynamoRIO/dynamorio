@@ -1418,10 +1418,10 @@ drbbdup_init(drbbdup_options_t *ops_in)
     drreg_options_t drreg_ops = { sizeof(drreg_ops), 0 /* no regs needed */, false, NULL,
                                   true };
     drmgr_priority_t app2app_priority = { sizeof(drmgr_priority_t),
-                                          DRMGR_PRIORITY_NAME_DRBBDUP, NULL, NULL,
+                                          DRMGR_PRIORITY_APP2APP_NAME_DRBBDUP, NULL, NULL,
                                           DRMGR_PRIORITY_APP2APP_DRBBDUP };
     drmgr_priority_t insert_priority = { sizeof(drmgr_priority_t),
-                                         DRMGR_PRIORITY_NAME_DRBBDUP, NULL, NULL,
+                                         DRMGR_PRIORITY_INSERT_NAME_DRBBDUP, NULL, NULL,
                                          DRMGR_PRIORITY_INSERT_DRBBDUP };
 
     if (!drmgr_register_bb_app2app_event(drbbdup_duplicate_phase, &app2app_priority) ||
