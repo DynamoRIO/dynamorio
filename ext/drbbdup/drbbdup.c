@@ -43,9 +43,11 @@
 #ifdef DEBUG
 #    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
 #    define LOG(dc, mask, level, ...) dr_log(dc, mask, level, __VA_ARGS__)
+#    define IF_DEBUG(x) x
 #else
-#    define ASSERT(x, msg)
+#    define ASSERT(x, msg) /* nothing */
 #    define LOG(dc, mask, level, ...)
+#    define IF_DEBUG(x)
 #endif
 
 /* DynamoRIO Basic Block Duplication Extension: a code builder that
@@ -730,10 +732,8 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
      */
     opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
     opnd_t opnd;
-#    ifdef DEBUG
-    drbbdup_status_t res =
-#    endif
-        drbbdup_get_encoding_opnd(&opnd);
+    IF_DEBUG(drbbdup_status_t res =)
+    drbbdup_get_encoding_opnd(&opnd);
     ASSERT(res == DRBBDUP_SUCCESS, "cannot get encoding opnd");
     instr_t *instr = INSTR_CREATE_mov_ld(drcontext, scratch_reg_opnd, opnd);
     instrlist_meta_preinsert(bb, where, instr);
@@ -759,10 +759,8 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
     instrlist_insert_mov_immed_ptrsz(drcontext, current_case->encoding, scratch_reg_opnd,
                                      bb, where, NULL, NULL);
     opnd_t opnd;
-#    ifdef DEBUG
-    drbbdup_status_t res =
-#    endif
-        drbbdup_get_encoding_opnd(&opnd);
+    IF_DEBUG(drbbdup_status_t res =)
+    drbbdup_get_encoding_opnd(&opnd);
     ASSERT(res == DRBBDUP_SUCCESS, "cannot get encoding opnd");
     instr = INSTR_CREATE_cmp(drcontext, opnd, scratch_reg_opnd);
     instrlist_meta_preinsert(bb, where, instr);

@@ -324,7 +324,7 @@ drbbdup_register_case_encoding(void *drbbdup_ctx, uintptr_t encoding);
 
 DR_EXPORT
 /**
- * Sets the runtime case encoding \p encoding for a given thread.
+ * Sets the runtime case encoding \p encoding for the current thread.
  *
  * For instance, it may be called from a clean call inserted via a
  * #drbbdup_insert_encode_t call-back function.
@@ -338,7 +338,7 @@ drbbdup_set_encoding(uintptr_t encoding);
 DR_EXPORT
 /**
  * Returns a memory destination operand by setting \p dst_opnd. The operand
- * should be used to set the runtime case encoding.
+ * should be used to set the runtime case encoding for the current thread.
  *
  * Typically, this routine is called from code stemming from a #drbbdup_insert_encode_t
  * call-back function.
