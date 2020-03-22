@@ -307,9 +307,10 @@ DR_EXPORT
  * Used to iterate over the instructions of a particular basic block copy during analysis.
  * It should only be called by a #drbbdup_analyze_case_t call-back function.
  *
- * Given the where instruction initially passed to #drbbdup_analyze_case_t call-back, this
- * routine will return the next instruction \p instr to be considered for analysis. Any
- * "note" labels that correspond to \p instr must be inserted prior to \p where.
+ * Starting off from the "where" instruction initially passed to #drbbdup_analyze_case_t
+ * call-back, this routine will return the next instruction \p instr to be considered
+ * for analysis. Any "note" labels that correspond to \p instr must be inserted prior
+ * to \p where.
  */
 drbbdup_status_t
 drbbdup_get_next_analysis_instr(instrlist_t *bb, INOUT instr_t **where,
