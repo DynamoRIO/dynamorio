@@ -862,7 +862,8 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
 
     if (opts.is_stat_enabled) {
         /* Insert clean call so that we can lock stat_mutex. */
-        dr_insert_clean_call(drcontext, bb, where, drbbdup_inc_bail_count, false, 0);
+        dr_insert_clean_call(drcontext, bb, where, (void *)drbbdup_inc_bail_count, false,
+                             0);
     }
 
     instrlist_meta_preinsert(bb, where, done_label);
