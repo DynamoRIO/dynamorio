@@ -161,16 +161,22 @@ drbbdup_status_t
 drbbdup_set_encoding(uintptr_t encoding)
 {
     if (ref_count == 0)
-        return DRBBDUP_ERROR;
+        return DRBBDUP_ERROR_NOT_INITIALIZED;
 
     drbbdup_set_tls_raw_slot_val(DRBBDUP_ENCODING_SLOT, encoding);
     return DRBBDUP_SUCCESS;
 }
 
-opnd_t
-drbbdup_get_encoding_opnd()
+drbbdup_status_t
+drbbdup_get_encoding_opnd(opnd_t *opnd)
 {
-    return drbbdup_get_tls_raw_slot_opnd(DRBBDUP_ENCODING_SLOT);
+    if (ref_count == 0)
+        return DRBBDUP_ERROR_NOT_INITIALIZED;
+    if (opnd == NULL)
+        return DRBBDUP_ERROR_INVALID_PARAMETER;
+
+    *opnd = drbbdup_get_tls_raw_slot_opnd(DRBBDUP_ENCODING_SLOT);
+    return DRBBDUP_SUCCESS;
 }
 
 static void
@@ -1305,6 +1311,9 @@ deleted_frag(void *drcontext, void *tag)
 drbbdup_status_t
 drbbdup_register_case_encoding(void *drbbdup_ctx, uintptr_t encoding)
 {
+    if (ref_count == 0)
+        return DRBBDUP_ERROR_NOT_INITIALIZED;
+
     drbbdup_manager_t *manager = (drbbdup_manager_t *)drbbdup_ctx;
 
     if (drbbdup_encoding_already_included(manager, encoding))

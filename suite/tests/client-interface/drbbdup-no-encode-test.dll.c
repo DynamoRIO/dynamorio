@@ -101,9 +101,7 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
 static void
 event_exit(void)
 {
-    drbbdup_status_t res;
-
-    res = drbbdup_exit();
+    drbbdup_status_t res = drbbdup_exit();
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup exit failed");
     CHECK(case_set_called, "encoding was not set");
     CHECK(instrum_called, "instrumentation was not inserted");
@@ -122,7 +120,6 @@ thread_init(void *drcontext)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    bool succ;
     drbbdup_status_t res;
 
     drmgr_init();
@@ -142,6 +139,6 @@ dr_init(client_id_t id)
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");
     dr_register_exit_event(event_exit);
 
-    succ = drmgr_register_thread_init_event(thread_init);
+    bool succ = drmgr_register_thread_init_event(thread_init);
     CHECK(succ, "thread init event failed");
 }

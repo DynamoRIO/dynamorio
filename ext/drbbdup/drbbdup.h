@@ -58,6 +58,7 @@ typedef enum {
     DRBBDUP_ERROR_CASE_LIMIT_REACHED,      /**< Operation failed: case limit reached. */
     DRBBDUP_ERROR_ALREADY_INITIALISED,     /**< DRBBDUP can only be initialised once. */
     DRBBDUP_ERROR,                         /**< Operation failed. */
+    DRBBDUP_ERROR_NOT_INITIALIZED,         /**< Operation failed: not initialized. */
 } drbbdup_status_t;
 
 /***************************************************************************
@@ -336,16 +337,14 @@ drbbdup_set_encoding(uintptr_t encoding);
 
 DR_EXPORT
 /**
- * Retrieves a memory destination operand which should be used to set the runtime case
- * encoding.
+ * Returns a memory destination operand by setting \p dst_opnd. The operand
+ * should be used to set the runtime case encoding.
  *
- * Must be called from code stemming from a drbbdup_insert_encode_t call-back function.
- *
- * @return a destination operand that refers to a memory location where the encoding
- * should be stored.
+ * Typically, this routine is called from code stemming from a #drbbdup_insert_encode_t
+ * call-back function.
  */
-opnd_t
-drbbdup_get_encoding_opnd();
+drbbdup_status_t
+drbbdup_get_encoding_opnd(OUT opnd_t *dst_opnd);
 
 DR_EXPORT
 /**
