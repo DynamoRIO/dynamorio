@@ -253,7 +253,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                                       instrument_instr,
                                       NULL,
                                       NULL,
-                                      1 /* Only one additional copy is needed. */ };
+                                      1 /* Only one additional copy is needed. */,
+                                      0 /* threshold */,
+                                      false /* No statistics gathering. */ };
     if (drbbdup_init(&drbbdup_ops) != DRBBDUP_SUCCESS)
         DR_ASSERT(false);
 
