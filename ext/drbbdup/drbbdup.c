@@ -120,6 +120,10 @@ static hashtable_t manager_table; /* Maps bbs with book-keeping data. */
 static drbbdup_options_t opts;
 static void *rw_lock = NULL;
 
+/* For tracking statistics. */
+static void *stat_mutex = NULL;
+static drbbdup_stats_t stats;
+
 /* An outlined code cache (storing a clean call) for dynamically generating a case. */
 static app_pc new_case_cache_pc = NULL;
 
@@ -391,6 +395,14 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         manager = drbbdup_create_manager(drcontext, tag, bb);
         ASSERT(manager != NULL, "created manager cannot be NULL");
         hashtable_add(&manager_table, pc, manager);
+        if (opts.is_stat_enabled) {
+            dr_mutex_lock(stat_mutex);
+            if (!manager->enable_dup)
+                stats.no_dup_count++;
+            if (!manager->enable_dynamic_handling)
+                stats.no_dynamic_handling_count++;
+            dr_mutex_unlock(stat_mutex);
+        }
     } else {
         /* A manager is already book-keeping this bb. Two scenarios are considered:
          *   1) A new case is registered and re-instrumentation is
@@ -410,12 +422,6 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         /* Add the copies. */
         drbbdup_set_up_copies(drcontext, bb, manager);
     }
-
-    /* XXX i#4134: statistics -- add the following stat increments here:
-     *    1) avg bb size
-     *    2) bb instrum count
-     *    3) dups enabled
-     */
 
     dr_rwlock_write_unlock(rw_lock);
 
@@ -775,6 +781,15 @@ drbbdup_do_dynamic_handling(drbbdup_manager_t *manager)
     return false;
 }
 
+/* Increments the execution count of bails to default case. */
+static void
+drbbdup_inc_bail_count()
+{
+    dr_mutex_lock(stat_mutex);
+    stats.bail_count++;
+    dr_mutex_unlock(stat_mutex);
+}
+
 /* Insert trigger for dynamic case handling. */
 static void
 drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *tag,
@@ -844,7 +859,15 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
             instrlist_meta_preinsert(bb, where, instr);
         }
     }
-    /* XXX i#4134: Insert code for dynamic handling here. */
+
+    /* XXX i#4215: Use atomic counter when 64-bit sized integers can be used
+     * on 32-bit platforms.
+     */
+    if (opts.is_stat_enabled) {
+        /* Insert clean call so that we can lock stat_mutex. */
+        dr_insert_clean_call(drcontext, bb, where, (void *)drbbdup_inc_bail_count, false,
+                             0);
+    }
 
     instrlist_meta_preinsert(bb, where, done_label);
 }
@@ -1193,7 +1216,14 @@ drbbdup_handle_new_case()
                 manager->ref_counter++;
             }
 
-            /* XXX i#4134: statistics -- Add increment to keep track generated cases. */
+            if (opts.is_stat_enabled) {
+                dr_mutex_lock(stat_mutex);
+                if (do_gen)
+                    stats.gen_count++;
+                if (!manager->enable_dynamic_handling)
+                    stats.no_dynamic_handling_count++;
+                dr_mutex_unlock(stat_mutex);
+            }
         }
     }
     /* Regardless of whether or not flushing is going to happen, redirection will
@@ -1340,6 +1370,21 @@ drbbdup_is_last_instr(void *drcontext, instr_t *instr, bool *is_last)
     return DRBBDUP_SUCCESS;
 }
 
+drbbdup_status_t
+drbbdup_get_stats(OUT drbbdup_stats_t *stats_in)
+{
+    if (!opts.is_stat_enabled)
+        return DRBBDUP_ERROR_UNSET_FEATURE;
+    if (stats_in == NULL || stats_in->struct_size == 0 ||
+        stats_in->struct_size > stats.struct_size)
+        return DRBBDUP_ERROR_INVALID_PARAMETER;
+
+    dr_mutex_lock(stat_mutex);
+    memcpy(stats_in, &stats, stats_in->struct_size);
+    dr_mutex_unlock(stat_mutex);
+    return DRBBDUP_SUCCESS;
+}
+
 /****************************************************************************
  * THREAD INIT AND EXIT
  */
@@ -1453,6 +1498,14 @@ drbbdup_init(drbbdup_options_t *ops_in)
     if (rw_lock == NULL)
         return DRBBDUP_ERROR;
 
+    if (opts.is_stat_enabled) {
+        memset(&stats, 0, sizeof(drbbdup_stats_t));
+        stats.struct_size = sizeof(drbbdup_stats_t);
+        stat_mutex = dr_mutex_create();
+        if (stat_mutex == NULL)
+            return DRBBDUP_ERROR;
+    }
+
     ref_count++;
 
     return DRBBDUP_SUCCESS;
@@ -1479,6 +1532,10 @@ drbbdup_exit(void)
 
         hashtable_delete(&manager_table);
         dr_rwlock_destroy(rw_lock);
+
+        if (opts.is_stat_enabled)
+            dr_mutex_destroy(stat_mutex);
+
     } else {
         /* Cannot have more than one initialisation of drbbdup. */
         return DRBBDUP_ERROR;
