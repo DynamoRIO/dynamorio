@@ -860,6 +860,9 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
         }
     }
 
+    /* XXX i#4215: Use atomic counter when 64-bit sized integers can be used
+     * on 32-bit platforms.
+     */
     if (opts.is_stat_enabled) {
         /* Insert clean call so that we can lock stat_mutex. */
         dr_insert_clean_call(drcontext, bb, where, (void *)drbbdup_inc_bail_count, false,
