@@ -62,8 +62,8 @@ static bool instrum_called = false;
 static uintptr_t encode_val = 1;
 static bool enable_dups_flag = false;
 /* Counters to test statistics provided by drbbdup. */
-static unsigned long no_dup_cnt = 0;
-static unsigned long no_dynamic_handling_cnt = 0;
+static unsigned long no_dup_count = 0;
+static unsigned long no_dynamic_handling_count = 0;
 
 static uintptr_t
 set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
@@ -82,8 +82,8 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     CHECK(res == DRBBDUP_SUCCESS, "failed to register case 2");
 
     if (!enable_dups_flag)
-        no_dup_cnt++;
-    no_dynamic_handling_cnt++;
+        no_dup_count++;
+    no_dynamic_handling_count++;
 
     *enable_dups = enable_dups_flag;
     enable_dups_flag = !enable_dups_flag; /* alternate flag */
@@ -220,15 +220,15 @@ event_exit(void)
 {
     drbbdup_status_t res;
 
-    drbbdup_stats_t stats;
+    drbbdup_stats_t stats = {sizeof(drbbdup_stats_t)};
     res = drbbdup_get_stats(&stats);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup statistics gathering failed");
 
-    CHECK(stats.no_dup_cnt == no_dup_cnt, "no dup count should match");
-    CHECK(stats.no_dynamic_handling_cnt == no_dynamic_handling_cnt,
+    CHECK(stats.no_dup_count == no_dup_count, "no dup count should match");
+    CHECK(stats.no_dynamic_handling_count == no_dynamic_handling_count,
           "no dynamic handling count should match");
-    CHECK(stats.bail_cnt == 0, "should be 0 since dynamic case gen is turned off");
-    CHECK(stats.gen_cnt == 0, "should be 0 since dynamic case gen is turned off");
+    CHECK(stats.bail_count == 0, "should be 0 since dynamic case gen is turned off");
+    CHECK(stats.gen_count == 0, "should be 0 since dynamic case gen is turned off");
 
     res = drbbdup_exit();
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup exit failed");
