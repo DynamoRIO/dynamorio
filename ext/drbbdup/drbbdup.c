@@ -1006,6 +1006,7 @@ drbbdup_instrument_without_dups(void *drcontext, void *tag, instrlist_t *bb,
 
     if (drmgr_is_first_instr(drcontext, instr)) {
         pt->first_instr = instr;
+        pt->first_nonlabel_instr = instrlist_first_nonlabel(bb);
         pt->last_instr = instrlist_last(bb);
         ASSERT(drmgr_is_last_instr(drcontext, pt->last_instr), "instr should be last");
     }
