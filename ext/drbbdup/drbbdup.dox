@@ -117,7 +117,7 @@ memory reference operand that acts as the destination to a store instruction. Ho
 if the encoder is implemented via a clean-call, then drbbdup_set_encoding()
 should be used to set the value.
 
-The #drbbdup_insert_encode_t callback may also be set to NULL which results in the 
+The #drbbdup_insert_encode_t call-back may also be set to NULL which results in the 
 dispatcher not attempting the construction of the runtime case at every start of 
 a basic block execution. In such cases, it is expected that the client directly
 sets the runtime encoding directly, either via  drbbdup_get_encoding_opnd() or
