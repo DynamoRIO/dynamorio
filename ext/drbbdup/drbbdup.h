@@ -262,17 +262,24 @@ typedef struct {
 /**
  * Priorities of drmgr instrumentation passes used by drbbdup. Users
  * can perform app2app manipulations prior to duplication
- * by ordering such changes before #DRMGR_PRIORITY_DRBBDUP.
+ * by ordering such changes before #DRMGR_PRIORITY_APP2APP_DRBBDUP.
  */
 enum {
-    /** Priority of drbbdup. */
-    DRMGR_PRIORITY_DRBBDUP = -1500
+    /** Priority of drbbdup's app2app stage. */
+    DRMGR_PRIORITY_APP2APP_DRBBDUP = 6500,
+    /** Priority of drbbdup's insert stage. */
+    DRMGR_PRIORITY_INSERT_DRBBDUP = -6500
 };
 
 /**
- * Name of drbbdup priorities for analysis and insert steps.
+ * Name of drbbdup app2app priority.
  */
-#define DRMGR_PRIORITY_NAME_DRBBDUP "drbbdup"
+#define DRMGR_PRIORITY_APP2APP_NAME_DRBBDUP "drbbdup_app2app"
+
+/**
+ * Name of drbbdup insert priority.
+ */
+#define DRMGR_PRIORITY_INSERT_NAME_DRBBDUP "drbbdup_insert"
 
 DR_EXPORT
 /**

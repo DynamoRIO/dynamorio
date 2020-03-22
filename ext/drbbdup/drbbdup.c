@@ -372,7 +372,7 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
 
 static dr_emit_flags_t
 drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                        bool translating, OUT void **user_data)
+                        bool translating)
 {
     if (translating)
         return DR_EMIT_DEFAULT;
@@ -1417,12 +1417,16 @@ drbbdup_init(drbbdup_options_t *ops_in)
 
     drreg_options_t drreg_ops = { sizeof(drreg_ops), 0 /* no regs needed */, false, NULL,
                                   true };
-    drmgr_priority_t priority = { sizeof(drmgr_priority_t), DRMGR_PRIORITY_NAME_DRBBDUP,
-                                  NULL, NULL, DRMGR_PRIORITY_DRBBDUP };
+    drmgr_priority_t app2app_priority = { sizeof(drmgr_priority_t),
+                                          DRMGR_PRIORITY_APP2APP_NAME_DRBBDUP, NULL, NULL,
+                                          DRMGR_PRIORITY_APP2APP_DRBBDUP };
+    drmgr_priority_t insert_priority = { sizeof(drmgr_priority_t),
+                                         DRMGR_PRIORITY_INSERT_NAME_DRBBDUP, NULL, NULL,
+                                         DRMGR_PRIORITY_INSERT_DRBBDUP };
 
-    if (!drmgr_register_bb_instrumentation_ex_event(
-            drbbdup_duplicate_phase, drbbdup_analyse_phase, drbbdup_link_phase, NULL,
-            &priority) ||
+    if (!drmgr_register_bb_app2app_event(drbbdup_duplicate_phase, &app2app_priority) ||
+        !drmgr_register_bb_instrumentation_ex_event(
+            NULL, drbbdup_analyse_phase, drbbdup_link_phase, NULL, &insert_priority) ||
         !drmgr_register_thread_init_event(drbbdup_thread_init) ||
         !drmgr_register_thread_exit_event(drbbdup_thread_exit) ||
         !dr_raw_tls_calloc(&tls_raw_reg, &tls_raw_base, DRBBDUP_SLOT_COUNT, 0) ||
@@ -1463,8 +1467,8 @@ drbbdup_exit(void)
     if (ref_count == 0) {
         destroy_fp_cache(new_case_cache_pc);
 
-        if (!drmgr_unregister_bb_instrumentation_ex_event(drbbdup_duplicate_phase,
-                                                          drbbdup_analyse_phase,
+        if (!drmgr_unregister_bb_app2app_event(drbbdup_duplicate_phase) ||
+            !drmgr_unregister_bb_instrumentation_ex_event(NULL, drbbdup_analyse_phase,
                                                           drbbdup_link_phase, NULL) ||
             !drmgr_unregister_thread_init_event(drbbdup_thread_init) ||
             !drmgr_unregister_thread_exit_event(drbbdup_thread_exit) ||
