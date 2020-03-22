@@ -280,12 +280,12 @@ typedef struct {
     /** Number of fragments which have dynamic case handling turned off. */
     unsigned long no_dynamic_handling_count;
     /** Number of cases handled via dynamic generation. */
-    unsigned long gen_counnt;
+    unsigned long gen_count;
     /**
      * Execution count of bails to the default case due to encountered unhandled
      * cases.
      */
-    unsigned long bail_cnt;
+    unsigned long bail_count;
 } drbbdup_stats_t;
 
 /**

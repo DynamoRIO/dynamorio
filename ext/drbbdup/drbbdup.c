@@ -398,9 +398,9 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         if (opts.is_stat_enabled) {
             dr_mutex_lock(stat_mutex);
             if (!manager->enable_dup)
-                stats.no_dup_cnt++;
+                stats.no_dup_count++;
             if (!manager->enable_dynamic_handling)
-                stats.no_dynamic_handling_cnt++;
+                stats.no_dynamic_handling_count++;
             dr_mutex_unlock(stat_mutex);
         }
     } else {
@@ -786,7 +786,7 @@ static void
 drbbdup_inc_bail_count()
 {
     dr_mutex_lock(stat_mutex);
-    stats.bail_cnt++;
+    stats.bail_count++;
     dr_mutex_unlock(stat_mutex);
 }
 
@@ -1215,9 +1215,9 @@ drbbdup_handle_new_case()
             if (opts.is_stat_enabled) {
                 dr_mutex_lock(stat_mutex);
                 if (do_gen)
-                    stats.gen_cnt++;
+                    stats.gen_count++;
                 if (!manager->enable_dynamic_handling)
-                    stats.no_dynamic_handling_cnt++;
+                    stats.no_dynamic_handling_count++;
                 dr_mutex_unlock(stat_mutex);
             }
         }
