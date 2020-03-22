@@ -128,24 +128,24 @@ static reg_id_t tls_raw_reg;
 static uint tls_raw_base;
 
 static uintptr_t *
-drbbdup_set_tls_raw_slot_addr(drbbdup_thread_slots_t slot_idx)
+drbbdup_get_tls_raw_slot_addr(drbbdup_thread_slots_t slot_idx)
 {
     ASSERT(0 <= slot_idx && slot_idx < DRBBDUP_SLOT_COUNT, "out-of-bounds slot index");
     byte *base = dr_get_dr_segment_base(tls_raw_reg);
-    return (uintptr_t *)(base + tls_raw_base);
+    return (uintptr_t *)(base + tls_raw_base + slot_idx * sizeof(uintptr_t));
 }
 
 static void
 drbbdup_set_tls_raw_slot_val(drbbdup_thread_slots_t slot_idx, uintptr_t val)
 {
-    uintptr_t *addr = drbbdup_set_tls_raw_slot_addr(slot_idx);
+    uintptr_t *addr = drbbdup_get_tls_raw_slot_addr(slot_idx);
     *addr = val;
 }
 
 static uintptr_t
 drbbdup_get_tls_raw_slot_val(drbbdup_thread_slots_t slot_idx)
 {
-    uintptr_t *addr = drbbdup_set_tls_raw_slot_addr(slot_idx);
+    uintptr_t *addr = drbbdup_get_tls_raw_slot_addr(slot_idx);
     return *addr;
 }
 
@@ -160,6 +160,9 @@ drbbdup_get_tls_raw_slot_opnd(drbbdup_thread_slots_t slot_idx)
 drbbdup_status_t
 drbbdup_set_encoding(uintptr_t encoding)
 {
+    if (ref_count == 0)
+        return DRBBDUP_ERROR;
+
     drbbdup_set_tls_raw_slot_val(DRBBDUP_ENCODING_SLOT, encoding);
     return DRBBDUP_SUCCESS;
 }
@@ -1401,8 +1404,8 @@ drbbdup_thread_exit(void *drcontext)
 static bool
 drbbdup_check_options(drbbdup_options_t *ops_in)
 {
-    if (ops_in != NULL && ops_in->set_up_bb_dups != NULL &&
-         ops_in->instrument_instr && ops_in->dup_limit > 0)
+    if (ops_in != NULL && ops_in->set_up_bb_dups != NULL && ops_in->instrument_instr &&
+        ops_in->dup_limit > 0)
         return true;
 
     return false;

@@ -30,7 +30,10 @@
  * DAMAGE.
  */
 
-/* Tests the drbbdup extension. */
+/* Tests the drbbdup extension when encoding is not inserted at the start of
+ * basic blocks. It relies on drbbdup's guarantee that it does not modify
+ * any set encoding of a thread on its own accord.
+ */
 
 #include "dr_api.h"
 #include "drmgr.h"
@@ -45,6 +48,7 @@
     } while (0);
 
 #define USER_DATA_VAL (void *)222
+static bool case_set_called = false;
 static bool instrum_called = false;
 
 static uintptr_t
@@ -68,7 +72,7 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
 static void
 print_case(uintptr_t case_val)
 {
-    dr_fprintf(STDERR, "case %u\n", case_val);
+    dr_fprintf(STDERR, "case %u %u\n", case_val);
 }
 
 static void
@@ -86,10 +90,11 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     res = drbbdup_is_first_instr(drcontext, instr, &is_start);
     CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is start");
 
-    if (is_start && encoding != 0) {
-        instrum_called = true;
+    if (is_start && encoding != 1) {
         dr_insert_clean_call(drcontext, bb, where, print_case, false, 1,
                              OPND_CREATE_INTPTR(encoding));
+    } else {
+        instrum_called = true;
     }
 }
 
@@ -100,14 +105,24 @@ event_exit(void)
 
     res = drbbdup_exit();
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup exit failed");
+    CHECK(case_set_called, "encoding was not set");
     CHECK(instrum_called, "instrumentation was not inserted");
 
     drmgr_exit();
 }
 
+static void
+thread_init(void *drcontext)
+{
+    drbbdup_status_t res = drbbdup_set_encoding(1);
+    CHECK(res == DRBBDUP_SUCCESS, "set encoding failed");
+    case_set_called = true;
+}
+
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    bool succ;
     drbbdup_status_t res;
 
     drmgr_init();
@@ -123,8 +138,10 @@ dr_init(client_id_t id)
                                NULL,
                                USER_DATA_VAL,
                                1 /* num of cases. */ };
-
     res = drbbdup_init(&opts);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");
     dr_register_exit_event(event_exit);
+
+    succ = drmgr_register_thread_init_event(thread_init);
+    CHECK(succ, "thread init event failed");
 }
