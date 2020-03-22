@@ -103,7 +103,7 @@ destroy_orig_analysis(void *drcontext, void *user_data, void *orig_analysis_data
 }
 
 static void
-analyse_bb(void *drcontext, void *tag, instrlist_t *bb, uintptr_t encoding,
+analyse_bb(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr, instr_t *where, uintptr_t encoding,
            void *user_data, void *orig_analysis_data, void **analysis_data)
 {
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
