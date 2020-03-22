@@ -729,7 +729,8 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
      * destroy micro-fusing (mem and immed).
      */
     opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
-    opnd_t opnd = drbbdup_get_encoding_opnd();
+    opnd_t opnd;
+    drbbdup_get_encoding_opnd(&opnd);
     instr_t *instr = INSTR_CREATE_mov_ld(drcontext, scratch_reg_opnd, opnd);
     instrlist_meta_preinsert(bb, where, instr);
 #endif
@@ -753,7 +754,9 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
     opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
     instrlist_insert_mov_immed_ptrsz(drcontext, current_case->encoding, scratch_reg_opnd,
                                      bb, where, NULL, NULL);
-    instr = INSTR_CREATE_cmp(drcontext, drbbdup_get_encoding_opnd(), scratch_reg_opnd);
+    opnd_t opnd;
+    drbbdup_get_encoding_opnd(&opnd);
+    instr = INSTR_CREATE_cmp(drcontext, opnd, scratch_reg_opnd);
     instrlist_meta_preinsert(bb, where, instr);
 #elif X86_32
     /* Note, DRBBDUP_SCRATCH_REG contains the runtime case encoding. */
