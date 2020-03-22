@@ -1371,11 +1371,12 @@ drbbdup_get_stats(OUT drbbdup_stats_t *stats_in)
 {
     if (!opts.is_stat_enabled)
         return DRBBDUP_ERROR_UNSET_FEATURE;
-    if (stats_in == NULL)
+    if (stats_in == NULL || stats_in->struct_size == 0 ||
+        stats_in->struct_size > stats.struct_size)
         return DRBBDUP_ERROR_INVALID_PARAMETER;
 
     dr_mutex_lock(stat_mutex);
-    memcpy(stats_in, &stats, sizeof(drbbdup_stats_t));
+    memcpy(stats_in, &stats, stats_in->struct_size);
     dr_mutex_unlock(stat_mutex);
     return DRBBDUP_SUCCESS;
 }
@@ -1491,6 +1492,7 @@ drbbdup_init(drbbdup_options_t *ops_in)
 
     if (opts.is_stat_enabled) {
         memset(&stats, 0, sizeof(drbbdup_stats_t));
+        stats.struct_size = sizeof(drbbdup_stats_t);
         stat_mutex = dr_mutex_create();
         if (stat_mutex == NULL)
             return DRBBDUP_ERROR;

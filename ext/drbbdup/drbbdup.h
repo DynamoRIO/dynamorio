@@ -54,11 +54,11 @@ extern "C" {
 typedef enum {
     DRBBDUP_SUCCESS,                       /**< Operation succeeded. */
     DRBBDUP_ERROR_INVALID_PARAMETER,       /**< Operation failed: invalid parameter. */
-    DRBBDUP_ERROR_UNSET_FEATURE,           /**< Operation failed: feature not set. */
     DRBBDUP_ERROR_CASE_ALREADY_REGISTERED, /**< Operation failed: already registered. */
     DRBBDUP_ERROR_CASE_LIMIT_REACHED,      /**< Operation failed: case limit reached. */
     DRBBDUP_ERROR_ALREADY_INITIALISED,     /**< DRBBDUP can only be initialised once. */
     DRBBDUP_ERROR,                         /**< Operation failed. */
+    DRBBDUP_ERROR_UNSET_FEATURE,           /**< Operation failed: feature not set. */
 } drbbdup_status_t;
 
 /***************************************************************************
@@ -259,10 +259,12 @@ typedef struct {
      */
     ushort hit_threshold;
     /**
-     * Determines whether drbbdup should track a variety of statistics. Note keeping track
-     * of statistics incurs additional overhead and it is not recommended at deployment.
+     * Determines whether drbbdup should track a variety of statistics. Note, keeping
+     * track of statistics incurs additional overhead and it is not recommended at
+     * deployment.
      *
-     * Set to true if the client calls drbbdup_get_stats().
+     * In order for the client to successfully call drbbdup_get_stats(), the flag must be
+     * set to true.
      */
     bool is_stat_enabled;
 } drbbdup_options_t;
@@ -271,12 +273,14 @@ typedef struct {
  * Various statistics related to drbbdup.
  */
 typedef struct {
+    /** Set this to the size of this structure. */
+    size_t struct_size;
     /** Number of fragments which have case handling turned off. */
-    unsigned long no_dup_cnt;
+    unsigned long no_dup_count;
     /** Number of fragments which have dynamic case handling turned off. */
-    unsigned long no_dynamic_handling_cnt;
+    unsigned long no_dynamic_handling_count;
     /** Number of cases handled via dynamic generation. */
-    unsigned long gen_cnt;
+    unsigned long gen_counnt;
     /**
      * Execution count of bails to the default case due to encountered unhandled
      * cases.
