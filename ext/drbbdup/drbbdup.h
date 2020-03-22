@@ -166,6 +166,7 @@ typedef void (*drbbdup_destroy_case_analysis_t)(void *drcontext, uintptr_t encod
  *
  * The user data \p user_data is that supplied to drbbdup_init(). Analysis data
  * \p orig_analysis_data that was conducted on the original bb is also provided.
+ *
  */
 typedef void (*drbbdup_insert_encode_t)(void *drcontext, void *tag, instrlist_t *bb,
                                         instr_t *where, void *user_data,
@@ -206,7 +207,13 @@ typedef struct {
     /**
      * A user-defined call-back function that inserts code to encode the runtime case.
      * The resulting encoding is used by the dispatcher to direct control to the
-     * appropriate basic block. Cannot be NULL.
+     * appropriate basic block.
+     *
+     * It can be left NULL. In such cases, it is expected that the runtime case encoding
+     * of a thread is done via outlined code and updated on demand, e.g., via
+     * \p drbbdup_set_encoding(). Essentially, drbbdup guarantees that it won't change
+     * the set encoding on its own accord, thus enabling insert_encode to perform no
+     * operation.
      */
     drbbdup_insert_encode_t insert_encode;
     /**
@@ -316,10 +323,12 @@ drbbdup_register_case_encoding(void *drbbdup_ctx, uintptr_t encoding);
 
 DR_EXPORT
 /**
- * Sets the runtime case encoding \p encoding.
+ * Sets the runtime case encoding \p encoding for a given thread.
  *
- * Must be called from a clean call inserted via a drbbdup_insert_encode_t call-back
- * function.
+ * For instance, it may be called from a clean call inserted via a #drbbdup_insert_encode_t
+ * call-back function.
+ *
+ * drbbdup guarantees that it does not modify the set encoding.
  */
 drbbdup_status_t
 drbbdup_set_encoding(uintptr_t encoding);

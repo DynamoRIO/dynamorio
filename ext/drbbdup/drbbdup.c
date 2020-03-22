@@ -697,17 +697,22 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     }
 
     /* Encoding is application-specific and therefore we need to user to define the
-     * encoding of the runtime case. We invoke a user-defined call-back.
+     * encoding of the runtime case. Therefore, we invoke a user-defined call-back.
+     *
+     * It could also be the encoding is done directly and changed on demand. Therefore,
+     * the call-back may be NULL.
      */
-    ASSERT(opts.insert_encode, "The encode call-back cannot be NULL");
-    /* Note, we could tell the user not to reserve flags and scratch register since
-     * drbbdup is doing that already. However, for flexibility/backwards compatibility
-     * ease, this might not be the best approach.
-     */
-    opts.insert_encode(drcontext, tag, bb, where, opts.user_data, pt->orig_analysis_data);
+    if (opts.insert_encode != NULL) {
+        /* Note, we could tell the user not to reserve flags and scratch register since
+         * drbbdup is doing that already. However, for flexibility/backwards compatibility
+         * ease, this might not be the best approach.
+         */
+        opts.insert_encode(drcontext, tag, bb, where, opts.user_data,
+                           pt->orig_analysis_data);
 
-    /* Restore all unreserved registers used by the call-back. */
-    drreg_restore_all(drcontext, bb, where);
+        /* Restore all unreserved registers used by the call-back. */
+        drreg_restore_all(drcontext, bb, where);
+    }
 
 #ifdef X86_32
     /* Load the encoding to the scratch register.
@@ -1397,8 +1402,7 @@ static bool
 drbbdup_check_options(drbbdup_options_t *ops_in)
 {
     if (ops_in != NULL && ops_in->set_up_bb_dups != NULL &&
-        ops_in->insert_encode != NULL && ops_in->instrument_instr &&
-        ops_in->dup_limit > 0)
+         ops_in->instrument_instr && ops_in->dup_limit > 0)
         return true;
 
     return false;
