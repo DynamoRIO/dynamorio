@@ -40,6 +40,10 @@
 #include <stdint.h>
 #include "../ext_utils.h"
 
+#undef drmgr_is_first_instr
+#undef drmgr_is_first_nonlabel_instr
+#undef drmgr_is_last_instr
+
 #ifdef DEBUG
 #    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
 #    define LOG(dc, mask, level, ...) dr_log(dc, mask, level, __VA_ARGS__)
