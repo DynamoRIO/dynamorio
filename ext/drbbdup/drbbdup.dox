@@ -127,9 +127,9 @@ considers for instrumentation, it also provides a "where" instruction.
 The client must insert code exactly prior to the "where" instruction
 in order to ensure correct instrumentation.
 
-drbbdup also provides drbbdup_is_first_instr() and drbbdup_is_last_instr()
-to determine whether the passed instruction is the first
-or last instruction of a basic block copy respectively.
+drbbdup also provides drbbdup_is_first_instr() drbbdup_is_first_nonlabel_instr()
+and drbbdup_is_last_instr() to determine whether the passed instruction
+is the first or last instruction of a basic block copy respectively.
 
 */
 

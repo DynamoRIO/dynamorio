@@ -351,6 +351,18 @@ drbbdup_is_first_instr(void *drcontext, instr_t *instr, OUT bool *is_start);
 
 DR_EXPORT
 /**
+ * Indicates whether the instruction \p instr is the first non labe; instruction of
+ * the currently considered basic block copy. The result is returned in \p is_nonlabel.
+ *
+ * Must be called via a #drbbdup_instrument_instr_t call-back function.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drbbdup_status_t
+drbbdup_is_first_nonlabel_instr(void *drcontext, instr_t *instr, bool *is_nonlabel);
+
+DR_EXPORT
+/**
  * Indicates whether the instruction \p instr is the last instruction of the currently
  * considered basic block copy. The result is returned in \p is_last.
  *
