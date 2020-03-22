@@ -325,10 +325,11 @@ DR_EXPORT
 /**
  * Sets the runtime case encoding \p encoding for a given thread.
  *
- * For instance, it may be called from a clean call inserted via a #drbbdup_insert_encode_t
- * call-back function.
+ * For instance, it may be called from a clean call inserted via a
+ * #drbbdup_insert_encode_t call-back function.
  *
- * drbbdup guarantees that it does not modify the set encoding.
+ * drbbdup guarantees that it does not modify the set encoding. Prior to ever being set,
+ * the default value of the encoding value for a thread is zero.
  */
 drbbdup_status_t
 drbbdup_set_encoding(uintptr_t encoding);
