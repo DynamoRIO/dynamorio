@@ -562,10 +562,59 @@ drbbdup_do_orig_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
     return orig_analysis_data;
 }
 
+static instr_t *
+drbbdup_get_next_where(instrlist_t *bb, IN instr_t *where)
+{
+    if (where == NULL)
+        return NULL;
+
+    instr_t *next_where = instr_get_next(where);
+    instr_t *last = instrlist_last_app(bb);
+    bool is_last_special = drbbdup_is_special_instr(last);
+
+    if (where == NULL || drbbdup_is_at_end(where) ||
+        (drbbdup_is_at_end(next_where) && !is_last_special))
+        return NULL;
+    else
+        return next_where;
+}
+
+static instr_t *
+drbbdup_get_instr_from_where(instrlist_t *bb, IN instr_t *where)
+{
+    if (where == NULL)
+        return NULL;
+
+    ASSERT(!drbbdup_is_at_start(where), "instr cannot be at start");
+
+    if (drbbdup_is_at_end(where)) {
+        instr_t *last = instrlist_last_app(bb);
+        bool is_last_special = drbbdup_is_special_instr(last);
+
+        if (is_last_special)
+            return last;
+        else
+            return NULL;
+    } else
+        return where;
+}
+
+drbbdup_status_t
+drbbdup_get_next_analysis_instr(instrlist_t *bb, INOUT instr_t **where,
+                                OUT instr_t **instr)
+{
+    if (bb == NULL || where == NULL || instr == NULL)
+        return DRBBDUP_ERROR_INVALID_PARAMETER;
+
+    *where = drbbdup_get_next_where(bb, *where);
+    *instr = drbbdup_get_instr_from_where(bb, *where);
+    return DRBBDUP_SUCCESS;
+}
+
 /* Performs analysis specific to a case. */
 static void *
 drbbdup_do_case_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
-                         instrlist_t *bb, instr_t *strt, const drbbdup_case_t *case_info,
+                         instrlist_t *bb, instr_t *start, const drbbdup_case_t *case_info,
                          void *orig_analysis_data)
 {
     if (opts.analyze_case == NULL)
@@ -573,17 +622,20 @@ drbbdup_do_case_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
 
     void *case_analysis_data = NULL;
     if (manager->enable_dup) {
-        instrlist_t *case_bb = drbbdup_extract_single_bb_copy(drcontext, bb, strt, NULL);
         /* Let the user analyse the BB for the given case. */
-        opts.analyze_case(drcontext, tag, case_bb, case_info->encoding, opts.user_data,
-                          orig_analysis_data, &case_analysis_data);
-        instrlist_clear_and_destroy(drcontext, case_bb);
+        instr_t *where = start;
+        instr_t *instr;
+        drbbdup_get_next_analysis_instr(bb, &where, &instr); /* Skip START label. */
+
+        opts.analyze_case(drcontext, tag, bb, instr, where, case_info->encoding,
+                          opts.user_data, orig_analysis_data, &case_analysis_data);
     } else {
         /* For bb with no wanted copies, simply invoke the call-back with the original
          * bb.
          */
-        opts.analyze_case(drcontext, tag, bb, case_info->encoding, opts.user_data,
-                          orig_analysis_data, &case_analysis_data);
+        instr_t *instr = instrlist_first(bb);
+        opts.analyze_case(drcontext, tag, bb, instr, instr, case_info->encoding,
+                          opts.user_data, orig_analysis_data, &case_analysis_data);
     }
 
     return case_analysis_data;
