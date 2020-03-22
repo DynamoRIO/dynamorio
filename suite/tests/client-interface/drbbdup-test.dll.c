@@ -220,7 +220,7 @@ event_exit(void)
 {
     drbbdup_status_t res;
 
-    drbbdup_stats_t stats = {sizeof(drbbdup_stats_t)};
+    drbbdup_stats_t stats = { sizeof(drbbdup_stats_t) };
     res = drbbdup_get_stats(&stats);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup statistics gathering failed");
 
