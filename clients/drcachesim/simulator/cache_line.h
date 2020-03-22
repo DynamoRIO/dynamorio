@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,8 +44,6 @@ class cache_line_t : public caching_device_block_t {
     // cache_line_t is probably to be extended to have distinct member variables
     // and functions, e.g., coherency-related ones. Therefore, it is
     // reasonable to keep two identical classes now rather than use one instead.
-
-    // FIXME i#1726: implement cache coherency protocols
 };
 
 #endif /* _CACHE_LINE_H_ */
