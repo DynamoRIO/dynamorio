@@ -730,7 +730,8 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
      */
     opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
     opnd_t opnd;
-    drbbdup_get_encoding_opnd(&opnd);
+    drbbdup_status_t res = drbbdup_get_encoding_opnd(&opnd);
+    ASSERT(res == DRBBDUP_SUCCESS, "cannot get encoding opnd");
     instr_t *instr = INSTR_CREATE_mov_ld(drcontext, scratch_reg_opnd, opnd);
     instrlist_meta_preinsert(bb, where, instr);
 #endif
@@ -755,7 +756,8 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
     instrlist_insert_mov_immed_ptrsz(drcontext, current_case->encoding, scratch_reg_opnd,
                                      bb, where, NULL, NULL);
     opnd_t opnd;
-    drbbdup_get_encoding_opnd(&opnd);
+    drbbdup_status_t res = drbbdup_get_encoding_opnd(&opnd);
+    ASSERT(res == DRBBDUP_SUCCESS, "cannot get encoding opnd");
     instr = INSTR_CREATE_cmp(drcontext, opnd, scratch_reg_opnd);
     instrlist_meta_preinsert(bb, where, instr);
 #elif X86_32
