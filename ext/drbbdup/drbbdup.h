@@ -65,6 +65,7 @@ typedef enum {
     DRBBDUP_ERROR_CASE_LIMIT_REACHED,      /**< Operation failed: case limit reached. */
     DRBBDUP_ERROR_ALREADY_INITIALISED,     /**< DRBBDUP can only be initialised once. */
     DRBBDUP_ERROR,                         /**< Operation failed. */
+    DRBBDUP_ERROR_UNSET_FEATURE,           /**< Operation failed: feature not set. */
 } drbbdup_status_t;
 
 /***************************************************************************
@@ -264,22 +265,57 @@ typedef struct {
      * thread before it becomes a candidate for dynamic generation.
      */
     ushort hit_threshold;
+    /**
+     * Determines whether drbbdup should track a variety of statistics. Note, keeping
+     * track of statistics incurs additional overhead and it is not recommended at
+     * deployment.
+     *
+     * In order for the client to successfully call drbbdup_get_stats(), the flag must be
+     * set to true.
+     */
+    bool is_stat_enabled;
 } drbbdup_options_t;
+
+/**
+ * Various statistics related to drbbdup.
+ */
+typedef struct {
+    /** Set this to the size of this structure. */
+    size_t struct_size;
+    /** Number of fragments which have case handling turned off. */
+    unsigned long no_dup_count;
+    /** Number of fragments which have dynamic case handling turned off. */
+    unsigned long no_dynamic_handling_count;
+    /** Number of cases handled via dynamic generation. */
+    unsigned long gen_count;
+    /**
+     * Execution count of bails to the default case due to encountered unhandled
+     * cases.
+     */
+    unsigned long bail_count;
+} drbbdup_stats_t;
 
 /**
  * Priorities of drmgr instrumentation passes used by drbbdup. Users
  * can perform app2app manipulations prior to duplication
- * by ordering such changes before #DRMGR_PRIORITY_DRBBDUP.
+ * by ordering such changes before #DRMGR_PRIORITY_APP2APP_DRBBDUP.
  */
 enum {
-    /** Priority of drbbdup. */
-    DRMGR_PRIORITY_DRBBDUP = -1500
+    /** Priority of drbbdup's app2app stage. */
+    DRMGR_PRIORITY_APP2APP_DRBBDUP = 6500,
+    /** Priority of drbbdup's insert stage. */
+    DRMGR_PRIORITY_INSERT_DRBBDUP = -6500
 };
 
 /**
- * Name of drbbdup priorities for analysis and insert steps.
+ * Name of drbbdup app2app priority.
  */
-#define DRMGR_PRIORITY_NAME_DRBBDUP "drbbdup"
+#define DRMGR_PRIORITY_APP2APP_NAME_DRBBDUP "drbbdup_app2app"
+
+/**
+ * Name of drbbdup insert priority.
+ */
+#define DRMGR_PRIORITY_INSERT_NAME_DRBBDUP "drbbdup_insert"
 
 DR_EXPORT
 /**
@@ -379,6 +415,19 @@ DR_EXPORT
  */
 drbbdup_status_t
 drbbdup_is_last_instr(void *drcontext, instr_t *instr, OUT bool *is_last);
+
+DR_EXPORT
+/**
+ * Returns various statistics regarding drbbdup. In particular, the routine
+ * populates \p stats with current values.
+ *
+ * Note that the invocation of this routine is only successful if statistics gathering
+ * is set via #drbbdup_options_t when initializing drbbdup.
+ *
+ * Internally, a lock is used while gathering the statistics.
+ */
+drbbdup_status_t
+drbbdup_get_stats(OUT drbbdup_stats_t *stats);
 
 /*@}*/ /* end doxygen group */
 
