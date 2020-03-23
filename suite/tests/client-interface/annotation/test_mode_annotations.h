@@ -45,8 +45,7 @@
 #define TEST_ANNOTATION_SET_MODE(context_id, mode, native_version) \
     DR_ANNOTATION_OR_NATIVE(test_annotation_set_mode, native_version, context_id, mode)
 
-#define TEST_ANNOTATION_GET_PC(context_id, mode, native_version) \
-    DR_ANNOTATION(test_annotation_get_pc)
+#define TEST_ANNOTATION_GET_PC() DR_ANNOTATION(test_annotation_get_pc)
 
 #define TEST_ANNOTATION_GET_CLIENT_VERSION() test_annotation_get_client_version()
 
