@@ -261,6 +261,8 @@ Further non-compatibility-affecting changes include:
    for restoration done by outlined code.
  - Added dr_annotation_pass_pc() to obtain the interrupted PC in an annotation
    handler.
+ - Added atomics for safe and visible aligned loads and stores on all platforms:
+   dr_atomic_load32(), dr_atomic_store32(), dr_atomic_load64() dr_atomic_store64().
 
 **************************************************
 <hr>
