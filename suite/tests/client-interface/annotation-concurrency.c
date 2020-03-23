@@ -277,6 +277,8 @@ main(int argc, char **argv)
         rhs_vector[i_row] = (double)(2 * row_sum) - (double)(i_row + 1);
     }
 
+    TEST_ANNOTATION_GET_PC();
+
     TEST_ANNOTATION_TEN_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
     /* Initailize X[i] = B[i] */
