@@ -736,11 +736,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
         drreg_restore_all(drcontext, bb, where);
     }
 
-#ifdef X86_32
-    /* Load the encoding to the scratch register.
-     * The dispatcher could compare directly via mem, but this will
-     * destroy micro-fusing (mem and immed).
-     */
+    /* Load the encoding to the scratch register. */
     opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
     opnd_t opnd;
     IF_DEBUG(drbbdup_status_t res =)
@@ -748,8 +744,34 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     ASSERT(res == DRBBDUP_SUCCESS, "cannot get encoding opnd");
     instr_t *instr = INSTR_CREATE_mov_ld(drcontext, scratch_reg_opnd, opnd);
     instrlist_meta_preinsert(bb, where, instr);
-#endif
 }
+
+#ifdef X86_64
+static void
+drbbdup_insert_compare_encoding(void *drcontext, instrlist_t *bb, instr_t *where,
+                                drbbdup_case_t *current_case, reg_id_t reg_encoding)
+{
+
+    opnd_t opnd = opnd_create_abs_addr(&current_case->encoding, OPSZ_PTR);
+    IF_DEBUG(drbbdup_status_t res =)
+    drbbdup_get_encoding_opnd(&opnd);
+    ASSERT(res == DRBBDUP_SUCCESS, "cannot get encoding opnd");
+    instr_t *instr = INSTR_CREATE_cmp(drcontext, opnd, opnd_create_reg(reg_encoding));
+    instrlist_meta_preinsert(bb, where, instr);
+}
+
+#elif X86_32
+static void
+drbbdup_insert_compare_encoding(void *drcontext, instrlist_t *bb, instr_t *where,
+                                drbbdup_case_t *current_case, reg_id_t reg_encoding)
+{
+
+    /* Note, DRBBDUP_SCRATCH_REG contains the runtime case encoding. */
+    opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
+    instr_t *instr = INSTR_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd);
+    instrlist_meta_preinsert(bb, where, instr);
+}
+#endif
 
 /* At the start of a bb copy, dispatcher code is inserted. The runtime encoding
  * is compared with the encoding of the defined case, and if they match control
@@ -761,30 +783,14 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
                         drbbdup_manager_t *manager, instr_t *next_label,
                         drbbdup_case_t *current_case)
 {
-    instr_t *instr;
-
     ASSERT(next_label != NULL, "the label to the next bb copy cannot be NULL");
 
-#ifdef X86_64
-    opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
-    instrlist_insert_mov_immed_ptrsz(drcontext, current_case->encoding, scratch_reg_opnd,
-                                     bb, where, NULL, NULL);
-    opnd_t opnd;
-    IF_DEBUG(drbbdup_status_t res =)
-    drbbdup_get_encoding_opnd(&opnd);
-    ASSERT(res == DRBBDUP_SUCCESS, "cannot get encoding opnd");
-    instr = INSTR_CREATE_cmp(drcontext, opnd, scratch_reg_opnd);
-    instrlist_meta_preinsert(bb, where, instr);
-#elif X86_32
-    /* Note, DRBBDUP_SCRATCH_REG contains the runtime case encoding. */
-    opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
-    instr = INSTR_CREATE_cmp(drcontext, opnd_create_reg(DRBBDUP_SCRATCH_REG), opnd);
-    instrlist_meta_preinsert(bb, where, instr);
-#endif
+    drbbdup_insert_compare_encoding(drcontext, bb, where, current_case,
+                                    DRBBDUP_SCRATCH_REG);
 
     /* If runtime encoding not equal to encoding of current case, just jump to next.
      */
-    instr = INSTR_CREATE_jcc(drcontext, OP_jnz, opnd_create_instr(next_label));
+    instr_t *instr = INSTR_CREATE_jcc(drcontext, OP_jnz, opnd_create_instr(next_label));
     instrlist_meta_preinsert(bb, where, instr);
 
     /* If fall-through, restore regs back to their original values. */
@@ -832,16 +838,14 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
 
     /* Check whether case limit has not been reached. */
     if (drbbdup_do_dynamic_handling(manager)) {
-        drbbdup_case_t *default_info = &manager->default_case;
-        ASSERT(default_info->is_defined, "default case must be defined");
+        drbbdup_case_t *default_case = &manager->default_case;
+        ASSERT(default_case->is_defined, "default case must be defined");
 
         /* Jump if runtime encoding matches default encoding.
          * Unknown encoding encountered upon fall-through.
          */
-        opnd = opnd_create_immed_uint((uintptr_t)default_info->encoding, OPSZ_PTR);
-        instr = INSTR_CREATE_cmp(drcontext, mask_opnd, opnd);
-        instrlist_meta_preinsert(bb, where, instr);
-
+        drbbdup_insert_compare_encoding(drcontext, bb, where, default_case,
+                                        DRBBDUP_SCRATCH_REG);
         instr = INSTR_CREATE_jcc(drcontext, OP_jz, opnd_create_instr(done_label));
         instrlist_meta_preinsert(bb, where, instr);
 
