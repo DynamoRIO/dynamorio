@@ -103,6 +103,10 @@ The client may implement #drbbdup_destroy_orig_analysis_t and
 #drbbdup_destroy_case_analysis_t call-back functions to destroy the respective
 analysis data.
 
+Furthermore, should the client perform some analysis prior to duplication during the
+app2app stage via a separate event, then such data should be stored and accessed via
+TLS.
+
 \section sec_drbbdup_encoder Encoder
 
 In order for drbbdup to dispatch control to the appropriate basic block copy, it
@@ -127,9 +131,11 @@ considers for instrumentation, it also provides a "where" instruction.
 The client must insert code exactly prior to the "where" instruction
 in order to ensure correct instrumentation.
 
-drbbdup also provides drbbdup_is_first_instr() and drbbdup_is_last_instr()
-to determine whether the passed instruction is the first
-or last instruction of a basic block copy respectively.
+drbbdup also provides drbbdup_is_first_instr(), drbbdup_is_first_nonlabel_instr()
+and drbbdup_is_last_instr() to determine whether the passed instruction
+is the first, first non label and last instruction of a basic block copy respectively.
+Note the client should not use drmgr varients such as drmgr_is_first_instr() as these
+API functions do not take into account drbbdup's internals and therefore will fail.
 
 */
 

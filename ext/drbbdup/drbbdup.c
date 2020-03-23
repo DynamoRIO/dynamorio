@@ -40,6 +40,10 @@
 #include <stdint.h>
 #include "../ext_utils.h"
 
+#undef drmgr_is_first_instr
+#undef drmgr_is_first_nonlabel_instr
+#undef drmgr_is_last_instr
+
 #ifdef DEBUG
 #    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
 #    define LOG(dc, mask, level, ...) dr_log(dc, mask, level, __VA_ARGS__)
@@ -111,8 +115,9 @@ typedef struct {
     void *default_analysis_data;     /* Analysis data specific to default case. */
     void **case_analysis_data;       /* Analysis data specific to cases. */
     uint16_t hit_counts[TABLE_SIZE]; /* Keeps track of hit-counts of unhandled cases. */
-    instr_t *first_instr; /* The first instr of the bb copy being considered. */
-    instr_t *last_instr;  /* The last instr of the bb copy being considered. */
+    instr_t *first_instr;          /* The first instr of the bb copy being considered. */
+    instr_t *first_nonlabel_instr; /* The first non label instr of the bb copy. */
+    instr_t *last_instr;           /* The last instr of the bb copy being considered. */
 } drbbdup_per_thread;
 
 static uint ref_count = 0;        /* Instance count of drbbdup. */
@@ -948,11 +953,22 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
         instr_t *end_instr = drbbdup_next_end(next_instr);
         ASSERT(end_instr != NULL, "end instruction cannot be NULL");
 
-        /* Cache first and last instructions. */
-        if (next_instr == end_instr && is_last_special)
+        /* Cache first, first nonlabel and last instructions. */
+        if (next_instr == end_instr && is_last_special) {
             pt->first_instr = last;
-        else
+            pt->first_nonlabel_instr = last;
+        } else {
             pt->first_instr = next_instr; /* Update cache to first instr. */
+            instr_t *first_non_label = next_instr;
+            while (instr_is_label(first_non_label) && first_non_label != end_instr) {
+                first_non_label = instr_get_next(first_non_label);
+            }
+            if (first_non_label == end_instr && is_last_special) {
+                pt->first_nonlabel_instr = last;
+            } else {
+                pt->first_nonlabel_instr = first_non_label;
+            }
+        }
 
         if (is_last_special)
             pt->last_instr = last;
@@ -1017,6 +1033,7 @@ drbbdup_instrument_without_dups(void *drcontext, void *tag, instrlist_t *bb,
 
     if (drmgr_is_first_instr(drcontext, instr)) {
         pt->first_instr = instr;
+        pt->first_nonlabel_instr = instrlist_first_nonlabel(bb);
         pt->last_instr = instrlist_last(bb);
         ASSERT(drmgr_is_last_instr(drcontext, pt->last_instr), "instr should be last");
     }
@@ -1350,6 +1367,22 @@ drbbdup_is_first_instr(void *drcontext, instr_t *instr, bool *is_start)
         return DRBBDUP_ERROR;
 
     *is_start = pt->first_instr == instr;
+
+    return DRBBDUP_SUCCESS;
+}
+
+drbbdup_status_t
+drbbdup_is_first_nonlabel_instr(void *drcontext, instr_t *instr, bool *is_nonlabel)
+{
+    if (instr == NULL || is_nonlabel == NULL)
+        return DRBBDUP_ERROR_INVALID_PARAMETER;
+
+    drbbdup_per_thread *pt =
+        (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (pt == NULL)
+        return DRBBDUP_ERROR;
+
+    *is_nonlabel = pt->first_nonlabel_instr == instr;
 
     return DRBBDUP_SUCCESS;
 }

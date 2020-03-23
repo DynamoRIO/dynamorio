@@ -186,7 +186,7 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                  instr_t *where, uintptr_t encoding, void *user_data,
                  void *orig_analysis_data, void *analysis_data)
 {
-    bool is_start;
+    bool is_first, is_first_nonlabel;
     drbbdup_status_t res;
 
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
@@ -205,10 +205,16 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     default: CHECK(false, "invalid encoding");
     }
 
-    res = drbbdup_is_first_instr(drcontext, instr, &is_start);
+    res = drbbdup_is_first_instr(drcontext, instr, &is_first);
     CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is start");
 
-    if (is_start && encoding != 0) {
+    if (is_first && !instr_is_label(instr)) {
+        res = drbbdup_is_first_nonlabel_instr(drcontext, instr, &is_first_nonlabel);
+        CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is first non label");
+        CHECK(is_first_nonlabel, "should be first non label");
+    }
+
+    if (is_first && encoding != 0) {
         instrum_called = true;
         dr_insert_clean_call(drcontext, bb, where, print_case, false, 1,
                              OPND_CREATE_INTPTR(encoding));
