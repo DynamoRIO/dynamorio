@@ -323,7 +323,7 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
             /* No alignment check necessary, hot_patch parameter provided for \
              * consistency.                                                   \
              */                                                               \
-            _InterlockedExchange8((volatile CHAR *)target, (CHAR)value);      \
+            _InterlockedExchange8((volatile CHAR *)(target), (CHAR)(value));  \
         } while (0)
 #    define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                    \
         do {                                                                \
@@ -331,7 +331,18 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
             /* test that we aren't crossing a cache line boundary */        \
             CHECK_JMP_TARGET_ALIGNMENT(target, 4, hot_patch);               \
             /* we use xchgl instead of mov for non-4-byte-aligned writes */ \
-            _InterlockedExchange((volatile LONG *)target, (LONG)value);     \
+            _InterlockedExchange((volatile LONG *)(target), (LONG)(value)); \
+        } while (0)
+#    define ATOMIC_4BYTE_ALIGNED_WRITE(target, value, hot_patch) \
+        do {                                                     \
+            ASSERT(sizeof(value) == 4);                          \
+            ASSERT(ALIGNED(target, 4));                          \
+            *(volatile LONG *)(target) = (LONG)(value);          \
+        } while (0)
+#    define ATOMIC_4BYTE_ALIGNED_READ(addr_src, addr_res)       \
+        do {                                                    \
+            ASSERT(ALIGNED(addr_src, 4));                       \
+            *(LONG *)(addr_res) = *(volatile LONG *)(addr_src); \
         } while (0)
 #    ifdef X64
 #        define ATOMIC_8BYTE_WRITE(target, value, hot_patch)                        \
@@ -343,6 +354,19 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
                 CHECK_JMP_TARGET_ALIGNMENT(target, 8, hot_patch);                   \
                 /* we use xchgl instead of mov for non-4-byte-aligned writes */     \
                 _InterlockedExchange64((volatile __int64 *)target, (__int64)value); \
+            } while (0)
+#        define ATOMIC_8BYTE_ALIGNED_WRITE(target, value, hot_patch) \
+            do {                                                     \
+                ASSERT(sizeof(value) == 8);                          \
+                ASSERT(ALIGNED(target, 8));                          \
+                /* Not currently used to write code */               \
+                ASSERT_CURIOSITY(!hot_patch);                        \
+                *(volatile __int64 *)(target) = (__int64)(value);    \
+            } while (0)
+#        define ATOMIC_8BYTE_ALIGNED_READ(addr_src, addr_res)             \
+            do {                                                          \
+                ASSERT(ALIGNED(addr_src, 8));                             \
+                *(__int64 *)(addr_res) = *(volatile __int64 *)(addr_src); \
             } while (0)
 #    endif
 
