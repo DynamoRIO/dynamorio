@@ -2973,9 +2973,38 @@ DR_API
 /**
  * Atomically adds \p val to \p *dest and returns the sum.
  * \p dest must not straddle two cache lines.
+ * Currently 64-bit-build only.
  */
 int64
 dr_atomic_add64_return_sum(volatile int64 *dest, int64 val);
+#    endif
+
+DR_API
+/** Atomically and visibly loads the value at \p src and returns it. */
+int
+dr_atomic_load32(volatile int *src);
+
+DR_API
+/** Atomically and visibly stores \p val to \p dest. */
+void
+dr_atomic_store32(volatile int *dest, int val);
+
+#    ifdef X64
+DR_API
+/**
+ * Atomically and visibly loads the value at \p src and returns it.
+ * Currently 64-bit-build only.
+ */
+int64
+dr_atomic_load64(volatile int64 *src);
+
+DR_API
+/**
+ * Atomically and visibly stores \p val to \p dest.
+ * Currently 64-bit-build only.
+ */
+void
+dr_atomic_store64(volatile int64 *dest, int64 val);
 #    endif
 
 /* DR_API EXPORT BEGIN */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -111,9 +111,19 @@ thread_func(void *arg)
      */
     int count = dr_atomic_add32_return_sum(&counter32, 1);
     ASSERT(count > 0 && count <= counter32);
+    int local_counter;
+    dr_atomic_store32(&local_counter, 42);
+    count = dr_atomic_load32(&local_counter);
+    ASSERT(count == 42);
+    ASSERT(local_counter == 42);
 #ifdef X64
     int64 count64 = dr_atomic_add64_return_sum(&counter64, 1);
     ASSERT(count64 > 0 && count64 <= counter64);
+    int64 local_counter64;
+    dr_atomic_store64(&local_counter64, 42);
+    count64 = dr_atomic_load64(&local_counter64);
+    ASSERT(count64 == 42);
+    ASSERT(local_counter64 == 42);
 #endif
 
 #ifdef UNIX

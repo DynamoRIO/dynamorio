@@ -80,10 +80,13 @@ static uint verbose = 0;
 #    define CALL_POINT_SCRATCH_REG DR_REG_NULL
 #endif
 
+/* XXX i#4215: DR should provide 64-bit-sized atomics for 32-bit code. */
 #ifdef X64
 #    define dr_atomic_add_stat_return_sum dr_atomic_add64_return_sum
+#    define dr_atomic_load_stat dr_atomic_load64
 #else
 #    define dr_atomic_add_stat_return_sum dr_atomic_add32_return_sum
+#    define dr_atomic_load_stat dr_atomic_load32
 #endif
 
 /* protected by wrap_lock */
@@ -2445,7 +2448,7 @@ drwrap_get_stats(INOUT drwrap_stats_t *stats)
 {
     if (stats == NULL || stats->size != sizeof(*stats))
         return false;
-    stats->flush_count = dr_atomic_add_stat_return_sum(&drwrap_stats.flush_count, 0);
+    stats->flush_count = dr_atomic_load_stat(&drwrap_stats.flush_count);
     return true;
 }
 
