@@ -818,7 +818,7 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_4BYTE_ALIGNED_READ(addr_src, addr_res)              \
             do {                                                           \
                 ASSERT(ALIGNED(addr_src, 4));                              \
-                __asm__ __volatile__("ldr r0, [%1]; dmb ish; str r0, [%0]" \
+                __asm__ __volatile__("ldr r0, [%0]; dmb ish; str r0, [%1]" \
                                      :                                     \
                                      : "r"(addr_src), "r"(addr_res)        \
                                      : "r0", "memory");                    \
