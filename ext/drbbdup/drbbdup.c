@@ -751,21 +751,15 @@ static void
 drbbdup_insert_compare_encoding(void *drcontext, instrlist_t *bb, instr_t *where,
                                 drbbdup_case_t *current_case, reg_id_t reg_encoding)
 {
-
     opnd_t opnd = opnd_create_abs_addr(&current_case->encoding, OPSZ_PTR);
-    IF_DEBUG(drbbdup_status_t res =)
-    drbbdup_get_encoding_opnd(&opnd);
-    ASSERT(res == DRBBDUP_SUCCESS, "cannot get encoding opnd");
     instr_t *instr = INSTR_CREATE_cmp(drcontext, opnd, opnd_create_reg(reg_encoding));
     instrlist_meta_preinsert(bb, where, instr);
 }
-
 #elif X86_32
 static void
 drbbdup_insert_compare_encoding(void *drcontext, instrlist_t *bb, instr_t *where,
                                 drbbdup_case_t *current_case, reg_id_t reg_encoding)
 {
-
     /* Note, DRBBDUP_SCRATCH_REG contains the runtime case encoding. */
     opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
     instr_t *instr = INSTR_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd);
