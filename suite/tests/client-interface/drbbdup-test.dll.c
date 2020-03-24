@@ -59,7 +59,7 @@ static bool case2_analysis_destroy_called = false;
 static bool instrum_called = false;
 
 /* Assume single threaded. */
-static uintptr_t encode_val = 1;
+static uintptr_t encode_val = 3;
 static bool enable_dups_flag = false;
 /* Counters to test statistics provided by drbbdup. */
 static unsigned long no_dup_count = 0;
@@ -155,14 +155,10 @@ destroy_analysis(void *drcontext, uintptr_t encoding, void *user_data,
 }
 
 static void
-encode()
+update_encoding()
 {
-    drbbdup_set_encoding(encode_val);
-
-    switch (encode_val) {
-    case 1: encode_val++; break;
-    default: encode_val = 0;
-    }
+	if (encode_val != 0)
+		encode_val--;
 }
 
 static void
@@ -172,7 +168,7 @@ insert_encode(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
     CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
 
-    dr_insert_clean_call(drcontext, bb, where, encode, false, 0);
+    dr_insert_clean_call(drcontext, bb, where, update_encoding, false, 0);
 }
 
 static void
@@ -256,10 +252,8 @@ event_exit(void)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    drbbdup_status_t res;
-
     drmgr_init();
-
+    opnd_t case_opnd = opnd_create_abs_addr(&encode_val, sizeof(OPSZ_PTR));
     drbbdup_options_t opts = { sizeof(drbbdup_options_t),
                                set_up_bb_dups,
                                insert_encode,
@@ -269,12 +263,13 @@ dr_init(client_id_t id)
                                destroy_analysis,
                                instrument_instr,
                                NULL,
+							   case_opnd,
                                USER_DATA_VAL,
                                2 /* num of cases */,
                                0 /* threshold */,
                                true /* enable stats */ };
 
-    res = drbbdup_init(&opts);
+    drbbdup_status_t res = drbbdup_init(&opts);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");
     dr_register_exit_event(event_exit);
 }

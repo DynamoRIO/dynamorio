@@ -73,7 +73,7 @@
 #define TABLE_SIZE 65536 /* Must be a power of 2 to perform efficient mod. */
 
 typedef enum {
-    DRBBDUP_ENCODING_SLOT = 0,
+    DRBBDUP_ENCODING_SLOT = 0, /* Used as a spill slot for dynamic case generation. */
     DRBBDUP_XAX_REG_SLOT = 1,
     DRBBDUP_FLAG_REG_SLOT = 2,
     DRBBDUP_HIT_TABLE_SLOT = 3,
@@ -166,28 +166,6 @@ drbbdup_get_tls_raw_slot_opnd(drbbdup_thread_slots_t slot_idx)
     return opnd_create_far_base_disp_ex(tls_raw_reg, REG_NULL, REG_NULL, 1,
                                         tls_raw_base + (slot_idx * (sizeof(void *))),
                                         OPSZ_PTR, false, true, false);
-}
-
-drbbdup_status_t
-drbbdup_set_encoding(uintptr_t encoding)
-{
-    if (ref_count == 0)
-        return DRBBDUP_ERROR_NOT_INITIALIZED;
-
-    drbbdup_set_tls_raw_slot_val(DRBBDUP_ENCODING_SLOT, encoding);
-    return DRBBDUP_SUCCESS;
-}
-
-drbbdup_status_t
-drbbdup_get_encoding_opnd(opnd_t *opnd)
-{
-    if (ref_count == 0)
-        return DRBBDUP_ERROR_NOT_INITIALIZED;
-    if (opnd == NULL)
-        return DRBBDUP_ERROR_INVALID_PARAMETER;
-
-    *opnd = drbbdup_get_tls_raw_slot_opnd(DRBBDUP_ENCODING_SLOT);
-    return DRBBDUP_SUCCESS;
 }
 
 static void
@@ -725,6 +703,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
      * the call-back may be NULL.
      */
     if (opts.insert_encode != NULL) {
+
         /* Note, we could tell the user not to reserve flags and scratch register since
          * drbbdup is doing that already. However, for flexibility/backwards compatibility
          * ease, this might not be the best approach.
@@ -738,11 +717,8 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
 
     /* Load the encoding to the scratch register. */
     opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
-    opnd_t opnd;
-    IF_DEBUG(drbbdup_status_t res =)
-    drbbdup_get_encoding_opnd(&opnd);
-    ASSERT(res == DRBBDUP_SUCCESS, "cannot get encoding opnd");
-    instr_t *instr = INSTR_CREATE_mov_ld(drcontext, scratch_reg_opnd, opnd);
+    instr_t *instr =
+        INSTR_CREATE_mov_ld(drcontext, scratch_reg_opnd, opts.runtime_case_opnd);
     instrlist_meta_preinsert(bb, where, instr);
 }
 
@@ -825,10 +801,9 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
                                 drbbdup_manager_t *manager)
 {
     instr_t *instr;
-    opnd_t opnd;
+    opnd_t drbbdup_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
 
     instr_t *done_label = INSTR_CREATE_label(drcontext);
-    opnd_t mask_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
 
     /* Check whether case limit has not been reached. */
     if (drbbdup_do_dynamic_handling(manager)) {
@@ -843,45 +818,48 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
         instr = INSTR_CREATE_jcc(drcontext, OP_jz, opnd_create_instr(done_label));
         instrlist_meta_preinsert(bb, where, instr);
 
+        /* We need DRBBDUP_SCRATCH_REG. Bail on keeping the encoding in the register. */
+        opnd_t encoding_opnd = drbbdup_get_tls_raw_slot_opnd(DRBBDUP_ENCODING_SLOT);
+        instr = INSTR_CREATE_mov_st(drcontext, drbbdup_opnd, encoding_opnd);
+        instrlist_meta_preinsert(bb, where, instr);
+
         /* Don't bother insertion if threshold limit is zero. */
         if (opts.hit_threshold > 0) {
             /* Update hit count and check whether threshold is reached. */
             opnd_t hit_table_opnd = drbbdup_get_tls_raw_slot_opnd(DRBBDUP_HIT_TABLE_SLOT);
 
             /* Load the hit counter table. */
-            instr = INSTR_CREATE_mov_ld(drcontext, mask_opnd, hit_table_opnd);
+            instr = INSTR_CREATE_mov_ld(drcontext, drbbdup_opnd, hit_table_opnd);
             instrlist_meta_preinsert(bb, where, instr);
 
             /* Register hit. */
             uint hash = drbbdup_get_hitcount_hash((intptr_t)translation_pc);
             opnd_t hit_count_opnd =
                 OPND_CREATE_MEM16(DRBBDUP_SCRATCH_REG, hash * sizeof(ushort));
-            opnd = opnd_create_immed_uint(1, OPSZ_2);
-            instr = INSTR_CREATE_sub(drcontext, hit_count_opnd, opnd);
+            instr = INSTR_CREATE_sub(drcontext, hit_count_opnd,
+                                     opnd_create_immed_uint(1, OPSZ_2));
             instrlist_meta_preinsert(bb, where, instr);
 
             /* Load bb tag to register so that it can be accessed by outlined clean
              * call.
              */
-            instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)tag, mask_opnd, bb,
+            instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)tag, drbbdup_opnd, bb,
                                              where, NULL, NULL);
 
             /* Jump if hit reaches zero. */
-            opnd = opnd_create_pc(new_case_cache_pc);
-            instr = INSTR_CREATE_jcc(drcontext, OP_jz, opnd);
+            instr = INSTR_CREATE_jcc(drcontext, OP_jz, opnd_create_pc(new_case_cache_pc));
             instrlist_meta_preinsert(bb, where, instr);
 
         } else {
             /* Load bb tag to register so that it can be accessed by outlined clean
              * call.
              */
-            instr = INSTR_CREATE_mov_imm(drcontext, mask_opnd,
+            instr = INSTR_CREATE_mov_imm(drcontext, drbbdup_opnd,
                                          opnd_create_immed_int((intptr_t)tag, OPSZ_PTR));
             instrlist_meta_preinsert(bb, where, instr);
 
             /* Jump to outlined clean call code for new case registration. */
-            opnd = opnd_create_pc(new_case_cache_pc);
-            instr = INSTR_CREATE_jmp(drcontext, opnd);
+            instr = INSTR_CREATE_jmp(drcontext, opnd_create_pc(new_case_cache_pc));
             instrlist_meta_preinsert(bb, where, instr);
         }
     }
@@ -1499,7 +1477,7 @@ static bool
 drbbdup_check_options(drbbdup_options_t *ops_in)
 {
     if (ops_in != NULL && ops_in->set_up_bb_dups != NULL && ops_in->instrument_instr &&
-        ops_in->dup_limit > 0)
+        ops_in->dup_limit > 0 && opnd_is_memory_reference(ops_in->runtime_case_opnd))
         return true;
 
     return false;

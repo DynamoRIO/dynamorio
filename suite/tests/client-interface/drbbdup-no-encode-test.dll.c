@@ -48,7 +48,7 @@
     } while (0);
 
 #define USER_DATA_VAL (void *)222
-static bool case_set_called = false;
+static uintptr_t case_encoding = 1;
 static bool instrum_called = false;
 
 static uintptr_t
@@ -103,27 +103,17 @@ event_exit(void)
 {
     drbbdup_status_t res = drbbdup_exit();
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup exit failed");
-    CHECK(case_set_called, "encoding was not set");
+    CHECK(case_encoding = 1, "encoding has be 1");
     CHECK(instrum_called, "instrumentation was not inserted");
 
     drmgr_exit();
 }
 
-static void
-thread_init(void *drcontext)
-{
-    drbbdup_status_t res = drbbdup_set_encoding(1);
-    CHECK(res == DRBBDUP_SUCCESS, "set encoding failed");
-    case_set_called = true;
-}
-
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    drbbdup_status_t res;
-
     drmgr_init();
-
+    opnd_t case_opnd = opnd_create_abs_addr(&case_encoding, sizeof(OPSZ_PTR));
     drbbdup_options_t opts = { sizeof(drbbdup_options_t),
                                set_up_bb_dups,
                                NULL,
@@ -133,12 +123,10 @@ dr_init(client_id_t id)
                                NULL,
                                instrument_instr,
                                NULL,
+							   case_opnd,
                                USER_DATA_VAL,
                                1 /* num of cases. */ };
-    res = drbbdup_init(&opts);
+    drbbdup_status_t res = drbbdup_init(&opts);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");
     dr_register_exit_event(event_exit);
-
-    bool succ = drmgr_register_thread_init_event(thread_init);
-    CHECK(succ, "thread init event failed");
 }
