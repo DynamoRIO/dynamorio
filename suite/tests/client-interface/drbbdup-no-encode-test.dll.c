@@ -123,7 +123,7 @@ dr_init(client_id_t id)
                                NULL,
                                instrument_instr,
                                NULL,
-							   case_opnd,
+                               case_opnd,
                                USER_DATA_VAL,
                                1 /* num of cases. */ };
     drbbdup_status_t res = drbbdup_init(&opts);

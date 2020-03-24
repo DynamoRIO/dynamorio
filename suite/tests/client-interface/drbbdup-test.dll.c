@@ -157,8 +157,8 @@ destroy_analysis(void *drcontext, uintptr_t encoding, void *user_data,
 static void
 update_encoding()
 {
-	if (encode_val != 0)
-		encode_val--;
+    if (encode_val != 0)
+        encode_val--;
 }
 
 static void
@@ -263,7 +263,7 @@ dr_init(client_id_t id)
                                destroy_analysis,
                                instrument_instr,
                                NULL,
-							   case_opnd,
+                               case_opnd,
                                USER_DATA_VAL,
                                2 /* num of cases */,
                                0 /* threshold */,
