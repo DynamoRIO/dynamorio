@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -45,6 +45,8 @@
 #define TEST_ANNOTATION_SET_MODE(context_id, mode, native_version) \
     DR_ANNOTATION_OR_NATIVE(test_annotation_set_mode, native_version, context_id, mode)
 
+#define TEST_ANNOTATION_GET_PC() DR_ANNOTATION(test_annotation_get_pc)
+
 #define TEST_ANNOTATION_GET_CLIENT_VERSION() test_annotation_get_client_version()
 
 #define TEST_ANNOTATION_ROTATE_VALGRIND_HANDLER(phase) \
@@ -63,6 +65,8 @@ DR_DECLARE_ANNOTATION(unsigned int, test_annotation_get_mode, (unsigned int cont
 
 DR_DECLARE_ANNOTATION(void, test_annotation_set_mode,
                       (unsigned int context_id, unsigned int mode));
+
+DR_DECLARE_ANNOTATION(void, test_annotation_get_pc, (void));
 
 DR_DECLARE_ANNOTATION(const char *, test_annotation_get_client_version, (void));
 
