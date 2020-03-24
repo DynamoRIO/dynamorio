@@ -65,8 +65,8 @@ typedef enum {
     DRBBDUP_ERROR_CASE_LIMIT_REACHED,      /**< Operation failed: case limit reached. */
     DRBBDUP_ERROR_ALREADY_INITIALISED,     /**< DRBBDUP can only be initialised once. */
     DRBBDUP_ERROR,                         /**< Operation failed. */
-    DRBBDUP_ERROR_NOT_INITIALIZED,         /**< Operation failed: not initialized. */
     DRBBDUP_ERROR_UNSET_FEATURE,           /**< Operation failed: feature not set. */
+    DRBBDUP_ERROR_NOT_INITIALIZED,         /**< Operation failed: not initialized. */
 } drbbdup_status_t;
 
 /***************************************************************************
@@ -222,7 +222,7 @@ typedef struct {
      *
      * It can be left NULL. In such cases, it is expected that the runtime case encoding
      * of a thread is done by external code and updated on demand. Essentially,
-     * drbbdup guarantees that it won't change the client't memory that stores the
+     * drbbdup guarantees that it won't change the client's memory that stores the
      * encoding, thus enabling insert_encode to perform no operation and not be needed.
      */
     drbbdup_insert_encode_t insert_encode;
@@ -260,7 +260,7 @@ typedef struct {
     drbbdup_allow_gen_t allow_gen;
     /**
      * An operand that refers to the memory containing the current runtime case encoding.
-     * During runtime, the dispatcher loads the runtime encoding via this operand,
+     * During runtime, the dispatcher loads the runtime encoding via this operand
      * in order to direct control to the appropriate basic block.
      */
     opnd_t runtime_case_opnd;

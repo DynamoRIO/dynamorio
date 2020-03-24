@@ -255,7 +255,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     /* Initialise drbbdup. Essentially, drbbdup requires
      * the client to pass a set of call-back functions and
-     * the memory operand the the dispatcher will use
+     * the memory operand that the dispatcher will use
      * to load the current runtime case encoding.
      */
     drbbdup_options_t drbbdup_ops = { sizeof(drbbdup_options_t),
@@ -272,7 +272,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                                       1 /* Only one additional copy is needed. */,
                                       0 /* threshold */,
                                       false /* No statistics gathering. */ };
-
     if (drbbdup_init(&drbbdup_ops) != DRBBDUP_SUCCESS)
         DR_ASSERT(false);
 
