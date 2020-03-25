@@ -5018,10 +5018,10 @@ master_signal_handler_C(byte *xsp)
             return;
 
         char signum_str[8];
-        dr_snprintf(signum_str, BUFFER_SIZE_ELEMENTS(signum_str), "%d", sig);
+        snprintf(signum_str, BUFFER_SIZE_ELEMENTS(signum_str), "%d", sig);
         NULL_TERMINATE_BUFFER(signum_str);
         char tid_str[16];
-        dr_snprintf(tid_str, BUFFER_SIZE_ELEMENTS(tid_str), TIDFMT, get_sys_thread_id());
+        snprintf(tid_str, BUFFER_SIZE_ELEMENTS(tid_str), TIDFMT, get_sys_thread_id());
         NULL_TERMINATE_BUFFER(tid_str);
         REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_HANDLE_SIGNAL, 4, get_application_name(),
                                     get_application_pid(), signum_str, tid_str);
