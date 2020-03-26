@@ -395,7 +395,7 @@ GLOBAL_LABEL(FUNCNAME:)
         add      sp, #12
         pop      {lr}
 # endif
-        JUMP     tailcall_tail
+        JUMP     GLOBAL_REF(tailcall_tail)
         END_FUNC(FUNCNAME)
 #  undef FUNCNAME
 

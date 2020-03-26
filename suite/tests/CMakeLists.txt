@@ -2314,11 +2314,13 @@ if (CLIENT_INTERFACE)
     use_DynamoRIO_extension(client.drwrap-test-callconv.dll drwrap)
   endif ()
   if (NOT ARM AND NOT AARCH64) # FIXME i#1578: fix detach on ARM/AArch64
-    set(client.drwrap-test-detach_no_reg_compat)
-    tobuild_api(client.drwrap-test-detach client-interface/drwrap-test-detach.cpp
-      "" "" OFF ON)
-    use_DynamoRIO_extension(client.drwrap-test-detach drwrap_static)
-    link_with_pthread(client.drwrap-test-detach)
+    if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
+      set(client.drwrap-test-detach_no_reg_compat)
+      tobuild_api(client.drwrap-test-detach client-interface/drwrap-test-detach.cpp
+        "" "" OFF ON)
+      use_DynamoRIO_extension(client.drwrap-test-detach drwrap_static)
+      link_with_pthread(client.drwrap-test-detach)
+    endif ()
   endif ()
 
   # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
