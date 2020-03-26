@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -92,6 +92,16 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      r0, sp
         bx       lr
         END_FUNC(FUNCNAME)
+#undef FUNCNAME
 
+
+/* We just need a sentinel block that does not cause DR to complain about
+ * non-executable code or illegal instrutions, for DRWRAP_REPLACE_RETADDR.
+ */
+#define FUNCNAME replace_retaddr_sentinel
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        bx       lr
+        END_FUNC(FUNCNAME)
 
 END_FILE
