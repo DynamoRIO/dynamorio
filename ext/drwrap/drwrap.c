@@ -880,9 +880,6 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
 static void
 drwrap_event_module_unload(void *drcontext, const module_data_t *info);
 
-static void
-drwrap_fragment_delete(void *dc /*may be NULL*/, void *tag);
-
 static bool
 drwrap_event_restore_state_ex(void *drcontext, bool restore_memory,
                               dr_restore_state_info_t *info);
@@ -960,7 +957,6 @@ drwrap_init(void)
     post_call_rwlock = dr_rwlock_create();
     wrap_lock = dr_recurlock_create();
     drmgr_register_module_unload_event(drwrap_event_module_unload);
-    dr_register_delete_event(drwrap_fragment_delete);
 
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1)
@@ -1005,8 +1001,7 @@ drwrap_exit(void)
         !drmgr_unregister_bb_instrumentation_event(drwrap_event_bb_analysis) ||
         !drmgr_unregister_restore_state_ex_event(drwrap_event_restore_state_ex) ||
         !drmgr_unregister_module_unload_event(drwrap_event_module_unload) ||
-        !drmgr_unregister_tls_field(tls_idx) ||
-        !dr_unregister_delete_event(drwrap_fragment_delete))
+        !drmgr_unregister_tls_field(tls_idx))
         ASSERT(false, "failed to unregister in drwrap_exit");
 
     for (int i = 0; i < POSTCALL_CACHE_SIZE; i++) {
@@ -2377,12 +2372,6 @@ drwrap_event_module_unload(void *drcontext, const module_data_t *info)
      * and we wrap something weird, we could blame the client.  That's the current
      * approach.
      */
-}
-
-static void
-drwrap_fragment_delete(void *dc /*may be NULL*/, void *tag)
-{
-    /* switched to checking consistency at lookup time (DrMemi#673) */
 }
 
 static bool
