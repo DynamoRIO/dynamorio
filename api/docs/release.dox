@@ -260,6 +260,8 @@ Further non-compatibility-affecting changes include:
    application, but reduces overhead.
  - Added -record_dynsym_only to drcachesim for faster function tracing symbol
    lookups when internal symbols are not needed.
+ - Added -record_replace_retaddrd_only to drcachesim for faster function tracing
+   wrapping for well-behaved applications.
  - Added dr_merge_arith_flags() as a convenience routine to merge arithmetic flags
    for restoration done by outlined code.
  - Added dr_annotation_pass_pc() to obtain the interrupted PC in an annotation
