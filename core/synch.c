@@ -447,6 +447,27 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext, bool restor
                 dump_mcontext(get_mcontext(trec->dcontext), THREAD_GET, DUMP_NOT_XML);
             });
             *mcontext = *get_mcontext(trec->dcontext);
+#ifdef CLIENT_INTERFACE
+            if (dr_xl8_hook_exists()) {
+                /* The client may need to translate here if it's using sentinel
+                 * addresses outside of the code cache as targets.
+                 */
+                dr_restore_state_info_t client_info;
+                dr_mcontext_t client_mcontext;
+                dr_mcontext_init(&client_mcontext);
+                priv_mcontext_to_dr_mcontext(&client_mcontext, mcontext);
+                client_info.raw_mcontext = &client_mcontext;
+                client_info.raw_mcontext_valid = true;
+                client_info.mcontext = &client_mcontext;
+                client_info.fragment_info.tag = NULL;
+                client_info.fragment_info.cache_start_pc = NULL;
+                client_info.fragment_info.is_trace = false;
+                client_info.fragment_info.app_code_consistent = true;
+                if (!instrument_restore_state(trec->dcontext, true, &client_info))
+                    return false;
+                dr_mcontext_to_priv_mcontext(mcontext, &client_mcontext);
+            }
+#endif
             return true;
         }
     }
@@ -2165,6 +2186,14 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
              * app that assumes no signals and assumes its non-auto-restart syscalls
              * don't need loops could be broken.
              */
+            LOG(GLOBAL, LOG_ALL, 3,
+                /* Having the code bytes can help diagnose post-detach where the code
+                 * cache is gone.
+                 */
+                "Detach: pre-xl8 pc=%p (%02x %02x %02x %02x %02x), xsp=%p "
+                "for thread " TIDFMT "\n",
+                mc.pc, *mc.pc, *(mc.pc + 1), *(mc.pc + 2), *(mc.pc + 3), *(mc.pc + 4),
+                mc.xsp, threads[i]->id);
             DEBUG_DECLARE(ok =)
             translate_mcontext(threads[i], &mc, true /*restore mem*/, NULL /*f*/);
             ASSERT(ok);

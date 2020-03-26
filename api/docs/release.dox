@@ -255,6 +255,9 @@ Further non-compatibility-affecting changes include:
  - Added drwrap_get_stats().
  - Added #DRWRAP_NO_DYNAMIC_RETADDRS for reducing drwrap overhead at the cost
    of missing some post-call callbacks.
+ - Added #DRWRAP_REPLACE_RETADDR for an alternative method of setting up post-call
+   control points by replacing return addresses.  This does not work for every
+   application, but reduces overhead.
  - Added -record_dynsym_only to drcachesim for faster function tracing symbol
    lookups when internal symbols are not needed.
  - Added dr_merge_arith_flags() as a convenience routine to merge arithmetic flags

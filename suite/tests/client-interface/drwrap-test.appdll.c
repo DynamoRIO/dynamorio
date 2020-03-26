@@ -239,6 +239,46 @@ longdone(void)
     print("longdone\n");
 }
 
+/***************************************************************************
+ * Test DRWRAP_REPLACE_RETADDR.
+ */
+
+void
+tailcall_test2(void);
+
+void
+print_from_asm(int val)
+{
+    print("%s %d\n", __FUNCTION__, val);
+}
+
+int EXPORT
+called_indirectly_subcall(int y)
+{
+    print("%s %d\n", __FUNCTION__, y);
+    return y + 1;
+}
+
+int EXPORT
+called_indirectly(int x)
+{
+    int z = called_indirectly_subcall(x + 1);
+    print("%s %d => %d\n", __FUNCTION__, x, z);
+    return z;
+}
+
+static void
+test_replace_retaddr(void)
+{
+    int (*indir)(int) = called_indirectly;
+    (*called_indirectly)(42);
+    tailcall_test2();
+}
+
+/***************************************************************************
+ * Top level.
+ */
+
 void
 run_tests(void)
 {
@@ -275,6 +315,8 @@ run_tests(void)
     if (setjmp(mark) == 0)
         longstart();
     longdone();
+
+    test_replace_retaddr();
 }
 
 #    ifdef WINDOWS
@@ -326,6 +368,60 @@ GLOBAL_LABEL(FUNCNAME:)
 # endif
 # ifndef ARM
         ret /* won't get here */
+# endif
+        END_FUNC(FUNCNAME)
+#  undef FUNCNAME
+
+
+DECL_EXTERN(print_from_asm)
+#  define FUNCNAME tailcall_test2
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+# ifdef X86
+        push     REG_XBP  /* Needed only to maintain 16-byte alignment. */
+# elif defined(AARCH64)
+        stp      x29, x30, [sp, #-16]!
+# elif defined(ARM)
+        push     {lr}
+        sub      sp, #12 /* Maintain 16-byte alignment. */
+# endif
+        mov      REG_SCRATCH0, HEX(1)
+        CALLC1(GLOBAL_REF(print_from_asm), REG_SCRATCH0)
+# ifdef X86
+        pop      REG_XBP
+# elif defined(AARCH64)
+        ldp      x29, x30, [sp], #16
+# elif defined(ARM)
+        add      sp, #12
+        pop      {lr}
+# endif
+        JUMP     tailcall_tail
+        END_FUNC(FUNCNAME)
+#  undef FUNCNAME
+
+
+#  define FUNCNAME tailcall_tail
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+# ifdef X86
+        push     REG_XBP  /* Needed only to maintain 16-byte alignment. */
+# elif defined(AARCH64)
+        stp      x29, x30, [sp, #-16]!
+# elif defined(ARM)
+        push     {lr}
+        sub      sp, #12 /* Maintain 16-byte alignment. */
+# endif
+        mov      REG_SCRATCH0, HEX(7)
+        CALLC1(GLOBAL_REF(print_from_asm), REG_SCRATCH0)
+# ifdef X86
+        pop      REG_XBP
+        ret
+# elif defined(AARCH64)
+        ldp      x29, x30, [sp], #16
+        ret
+# elif defined(ARM)
+        add      sp, #12
+        pop      {pc}
 # endif
         END_FUNC(FUNCNAME)
 
