@@ -488,6 +488,9 @@ func_trace_exit()
 
     if (funcs_str.empty())
         return;
+    /* Clear for re-attach. */
+    funcs_str.clear();
+    funcs_str_sep.clear();
     hashtable_delete(&pc2idplus1);
     if (!drvector_delete(&funcs_wrapped) || !drvector_delete(&func_names))
         DR_ASSERT(false);
