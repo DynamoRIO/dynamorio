@@ -83,6 +83,7 @@ static uint verbose = 0;
 #    define CALL_POINT_SCRATCH_REG DR_REG_R11
 #    define RETURN_POINT_SCRATCH_REG DR_REG_RCX
 #elif defined(X86)
+#    define CALL_POINT_SCRATCH_REG DR_REG_NULL /* Unused. */
 #    define RETURN_POINT_SCRATCH_REG DR_REG_ECX
 #else
 #    define CALL_POINT_SCRATCH_REG DR_REG_NULL
