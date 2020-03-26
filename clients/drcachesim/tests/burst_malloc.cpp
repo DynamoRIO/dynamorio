@@ -118,6 +118,8 @@ main(int argc, const char *argv[])
     if (!my_setenv("DYNAMORIO_OPTIONS",
                    "-stderr_mask 0xc -rstats_to_stderr"
                    " -client_lib ';;-offline -record_heap"
+                   // Test the low-overhead-wrapping option.
+                   " -record_replace_retaddr"
                    // Test large values that require two entries.
                    " -record_function \"malloc|1&return_big_value|1\"'"))
         std::cerr << "failed to set env var!\n";

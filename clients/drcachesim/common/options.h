@@ -125,6 +125,7 @@ extern droption_t<std::string> op_record_function;
 extern droption_t<bool> op_record_heap;
 extern droption_t<std::string> op_record_heap_value;
 extern droption_t<bool> op_record_dynsym_only;
+extern droption_t<bool> op_record_replace_retaddr;
 extern droption_t<unsigned int> op_miss_count_threshold;
 extern droption_t<double> op_miss_frac_threshold;
 extern droption_t<double> op_confidence_threshold;
