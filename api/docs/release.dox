@@ -268,6 +268,9 @@ Further non-compatibility-affecting changes include:
    handler.
  - Added atomics for safe and visible aligned loads and stores on all platforms:
    dr_atomic_load32(), dr_atomic_store32(), dr_atomic_load64() dr_atomic_store64().
+ - The state restore event (dr_register_restore_state_event()) is now called for
+   all translation attempts, even when the register state already contains
+   application values, to allow clients to restore memory.
 
 **************************************************
 <hr>

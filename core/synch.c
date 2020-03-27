@@ -449,23 +449,8 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext, bool restor
             *mcontext = *get_mcontext(trec->dcontext);
 #ifdef CLIENT_INTERFACE
             if (dr_xl8_hook_exists()) {
-                /* The client may need to translate here if it's using sentinel
-                 * addresses outside of the code cache as targets.
-                 */
-                dr_restore_state_info_t client_info;
-                dr_mcontext_t client_mcontext;
-                dr_mcontext_init(&client_mcontext);
-                priv_mcontext_to_dr_mcontext(&client_mcontext, mcontext);
-                client_info.raw_mcontext = &client_mcontext;
-                client_info.raw_mcontext_valid = true;
-                client_info.mcontext = &client_mcontext;
-                client_info.fragment_info.tag = NULL;
-                client_info.fragment_info.cache_start_pc = NULL;
-                client_info.fragment_info.is_trace = false;
-                client_info.fragment_info.app_code_consistent = true;
-                if (!instrument_restore_state(trec->dcontext, true, &client_info))
+                if (!instrument_restore_nonfcache_state(trec->dcontext, true, mcontext))
                     return false;
-                dr_mcontext_to_priv_mcontext(mcontext, &client_mcontext);
             }
 #endif
             return true;
