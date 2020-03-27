@@ -1159,6 +1159,11 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
              * the assert.
              */
             ASSERT(!TEST(FRAG_TRACE_BUILDING, f->flags));
+#    if !defined(DEBUG) && defined(CLIENT_INTERFACE)
+            if (dr_fragment_deleted_hook_exists() && !REAL_FRAGMENT(f))
+                instrument_fragment_deleted(dcontext, f->tag, f->flags);
+            continue;
+#    endif
             hashtable_fragment_remove_helper(table, i, &table->table[i]);
             if (!REAL_FRAGMENT(f))
                 continue;
