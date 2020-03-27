@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -213,9 +213,10 @@ main(int argc, const char *argv[])
     /* While the start/stop thread only runs 4 iters, the other threads end up
      * running more and their trace files get up to 65MB or more, with the
      * merged result several GB's: too much for a test.  We thus cap each thread.
+     * We run with -record_heap to ensure we test that combination.
      */
-    std::string ops =
-        std::string("-stderr_mask 0xc -client_lib ';;-offline -max_trace_size 256K ");
+    std::string ops = std::string(
+        "-stderr_mask 0xc -client_lib ';;-offline -record_heap -max_trace_size 256K ");
     /* Support passing in extra tracer options. */
     for (int i = 1; i < argc; ++i)
         ops += std::string(argv[i]) + " ";
