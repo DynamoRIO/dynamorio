@@ -1816,6 +1816,44 @@ instrument_restore_state(dcontext_t *dcontext, bool restore_memory,
     return res;
 }
 
+/* The client may need to translate memory (e.g., DRWRAP_REPLACE_RETADDR using
+ * sentinel addresses outside of the code cache as targets) even when the register
+ * state already contains application values.
+ */
+bool
+instrument_restore_nonfcache_state_prealloc(dcontext_t *dcontext, bool restore_memory,
+                                            INOUT priv_mcontext_t *mcontext,
+                                            OUT dr_mcontext_t *client_mcontext)
+{
+    if (!dr_xl8_hook_exists())
+        return true;
+    dr_restore_state_info_t client_info;
+    dr_mcontext_init(client_mcontext);
+    priv_mcontext_to_dr_mcontext(client_mcontext, mcontext);
+    client_info.raw_mcontext = client_mcontext;
+    client_info.raw_mcontext_valid = true;
+    client_info.mcontext = client_mcontext;
+    client_info.fragment_info.tag = NULL;
+    client_info.fragment_info.cache_start_pc = NULL;
+    client_info.fragment_info.is_trace = false;
+    client_info.fragment_info.app_code_consistent = true;
+    bool res = instrument_restore_state(dcontext, restore_memory, &client_info);
+    dr_mcontext_to_priv_mcontext(mcontext, client_mcontext);
+    return res;
+}
+
+/* The large dr_mcontext_t on the stack makes a difference, so we provide two
+ * versions to avoid a double alloc on the same callstack.
+ */
+bool
+instrument_restore_nonfcache_state(dcontext_t *dcontext, bool restore_memory,
+                                   INOUT priv_mcontext_t *mcontext)
+{
+    dr_mcontext_t client_mcontext;
+    return instrument_restore_nonfcache_state_prealloc(dcontext, restore_memory, mcontext,
+                                                       &client_mcontext);
+}
+
 #    ifdef CUSTOM_TRACES
 /* Ask whether to end trace prior to adding next_tag fragment.
  * Return values:
