@@ -548,7 +548,7 @@ static void
 append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    if (data->seg_base == NULL)
+    if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
     for (int i = 0; i < vec->size; i++) {
         BUF_PTR(data->seg_base) +=
