@@ -1088,8 +1088,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                 "recreate_app no translation needed (at vsyscall)\n");
 #    ifdef CLIENT_INTERFACE
             if (dr_xl8_hook_exists()) {
-                if (!instrument_restore_nonfcache_state_prealloc(dcontext, restore_memory,
-                                                                 mcontext, &xl8_mcontext))
+                if (!instrument_restore_nonfcache_state_prealloc(
+                        tdcontext, restore_memory, mcontext, &xl8_mcontext))
                     return RECREATE_FAILURE;
             }
 #    endif
