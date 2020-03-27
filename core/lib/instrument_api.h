@@ -6382,8 +6382,8 @@ DR_API
 /**
  * Retrieves various statistics exported by DR as global, process-wide values.
  * The API is not thread-safe.
- * The caller is expected to pass a pointer to a valid, initialized dr_stats_t
- * value, with the size field set (see dr_stats_t).
+ * The caller is expected to pass a pointer to a valid, initialized #dr_stats_t
+ * value, with the size field set (see #dr_stats_t).
  * Returns false if stats are not enabled.
  */
 bool

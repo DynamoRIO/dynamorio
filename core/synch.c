@@ -1064,6 +1064,8 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                     my_id);
                 res = THREAD_SYNCH_RESULT_SUCCESS;
                 break;
+            } else {
+                RSTATS_INC(synchs_not_at_safe_spot);
             }
             if (!os_thread_resume(trec)) {
                 ASSERT_NOT_REACHED();
