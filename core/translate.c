@@ -1066,6 +1066,12 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                             bool just_pc, fragment_t *owning_f, bool restore_memory)
 {
     recreate_success_t res = (just_pc ? RECREATE_SUCCESS_PC : RECREATE_SUCCESS_STATE);
+#ifdef CLIENT_INTERFACE
+    dr_mcontext_t xl8_mcontext;
+    dr_mcontext_t raw_mcontext;
+    dr_mcontext_init(&xl8_mcontext);
+    dr_mcontext_init(&raw_mcontext);
+#endif
 #ifdef WINDOWS
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
         mcontext->pc == vsyscall_after_syscall && mcontext->xsp != 0) {
@@ -1080,6 +1086,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             /* no translation needed, ignoring sysenter stack hacks */
             LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
                 "recreate_app no translation needed (at vsyscall)\n");
+#    ifdef CLIENT_INTERFACE
+            if (dr_xl8_hook_exists()) {
+                if (!instrument_restore_nonfcache_state_prealloc(
+                        tdcontext, restore_memory, mcontext, &xl8_mcontext))
+                    return RECREATE_FAILURE;
+            }
+#    endif
             return res;
         } else {
             /* this is a dynamo system call! */
@@ -1130,6 +1143,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             mcontext->xdx = tdcontext->app_xdx;
         }
 #    endif
+#    ifdef CLIENT_INTERFACE
+        if (dr_xl8_hook_exists()) {
+            if (!instrument_restore_nonfcache_state_prealloc(tdcontext, restore_memory,
+                                                             mcontext, &xl8_mcontext))
+                return RECREATE_FAILURE;
+        }
+#    endif
         return res;
     }
 #endif
@@ -1171,6 +1191,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         } else
 #endif
         mcontext->pc = POST_SYSCALL_PC(tdcontext);
+#ifdef CLIENT_INTERFACE
+        if (dr_xl8_hook_exists()) {
+            if (!instrument_restore_nonfcache_state_prealloc(tdcontext, restore_memory,
+                                                             mcontext, &xl8_mcontext))
+                return RECREATE_FAILURE;
+        }
+#endif
         return res;
     } else if (mcontext->pc == get_reset_exit_stub(tdcontext)) {
         LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
@@ -1178,6 +1205,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             tdcontext->next_tag);
         /* context is completely native except the pc */
         mcontext->pc = tdcontext->next_tag;
+#ifdef CLIENT_INTERFACE
+        if (dr_xl8_hook_exists()) {
+            if (!instrument_restore_nonfcache_state_prealloc(tdcontext, restore_memory,
+                                                             mcontext, &xl8_mcontext))
+                return RECREATE_FAILURE;
+        }
+#endif
         return res;
     } else if (in_generated_routine(tdcontext, mcontext->pc)) {
         LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
@@ -1203,10 +1237,6 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
 #endif
 #ifdef CLIENT_INTERFACE
         dr_restore_state_info_t client_info;
-        dr_mcontext_t xl8_mcontext;
-        dr_mcontext_t raw_mcontext;
-        dr_mcontext_init(&xl8_mcontext);
-        dr_mcontext_init(&raw_mcontext);
 #endif
 #ifdef WINDOWS
         /* i#889: restore private PEB/TEB for faithful recreation */

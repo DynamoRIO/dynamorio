@@ -64,7 +64,16 @@ extern "C" { /* Make it easy to get the name across platforms. */
 EXPORT void
 wrapped_subfunc(void)
 {
-    /* Empty. */
+#ifdef LINUX
+    /* Test non-fcache translation by making a syscall.
+     * Just easier to do on Linux so we do limit this to that OS.
+     * We don't want to do this on every invocation since we'll then never
+     * test the non-syscall translation.
+     */
+    static int syscall_sometimes = 0;
+    if (syscall_sometimes++ % 10 == 0 && getpid() == 0)
+        print("That's weird.\n"); /* Avoid the branch getting optimized away. */
+#endif
 }
 EXPORT void
 wrapped_func(void)

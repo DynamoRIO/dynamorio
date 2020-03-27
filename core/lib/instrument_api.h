@@ -601,6 +601,10 @@ DR_API
  * if it is false, DR may only be querying for the address (\p
  * mcontext.pc) or register state and may not relocate this thread.
  *
+ * DR will call this event for all translation attempts, even when the
+ * register state already contains application values, to allow
+ * clients to restore memory.
+ *
  * The \p app_code_consistent parameter indicates whether the original
  * application code containing the instruction being translated is
  * guaranteed to still be in the same state it was when the code was
