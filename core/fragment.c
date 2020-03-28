@@ -1139,6 +1139,18 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
         if (!dynamo_exited && !dynamo_resetting)
             ASSERT_TABLE_SYNCHRONIZED(table, WRITE);
     });
+#    if !defined(DEBUG) && defined(CLIENT_INTERFACE)
+    if (!dr_fragment_deleted_hook_exists())
+        return;
+    /* i#4226: Avoid the slow deletion code and just invoke the event. */
+    for (i = 0; i < table->capacity; i++) {
+        f = table->table[i];
+        if (!REAL_FRAGMENT(f))
+            continue;
+        instrument_fragment_deleted(dcontext, f->tag, f->flags);
+    }
+    return;
+#    endif
     /* Go in reverse order (for efficiency) since using
      * hashtable_fragment_remove_helper to keep all reachable, which is required
      * for dynamo_resetting where we unlink fragments here and need to be able to
@@ -1159,11 +1171,6 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
              * the assert.
              */
             ASSERT(!TEST(FRAG_TRACE_BUILDING, f->flags));
-#    if !defined(DEBUG) && defined(CLIENT_INTERFACE)
-            if (dr_fragment_deleted_hook_exists() && !REAL_FRAGMENT(f))
-                instrument_fragment_deleted(dcontext, f->tag, f->flags);
-            continue;
-#    endif
             hashtable_fragment_remove_helper(table, i, &table->table[i]);
             if (!REAL_FRAGMENT(f))
                 continue;
