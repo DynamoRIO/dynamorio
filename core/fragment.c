@@ -1143,10 +1143,14 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
     if (!dr_fragment_deleted_hook_exists())
         return;
     /* i#4226: Avoid the slow deletion code and just invoke the event. */
-    for (i = 0; i < table->capacity; i++) {
+    for (i = 0; i < (int)table->capacity; i++) {
         f = table->table[i];
         if (!REAL_FRAGMENT(f))
             continue;
+        /* This is a full delete (i.e., it is neither FRAGDEL_NO_HEAP nor
+         * FRAGDEL_NO_FCACHE: see the fragment_delete() call in the debug path
+         * below) so we call the event for every (real) fragment.
+         */
         instrument_fragment_deleted(dcontext, f->tag, f->flags);
     }
     return;
@@ -3086,6 +3090,10 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
         sideline_fragment_delete(f);
 #endif
 #ifdef CLIENT_INTERFACE
+    /* For exit-time deletion we invoke instrument_fragment_deleted() directly from
+     * hashtable_fragment_reset().  If we add any further conditions on when it should
+     * be invoked we should keep the two calls in synch.
+     */
     if (dr_fragment_deleted_hook_exists() &&
         (!TEST(FRAGDEL_NO_HEAP, actions) || !TEST(FRAGDEL_NO_FCACHE, actions)))
         instrument_fragment_deleted(dcontext, f->tag, f->flags);
