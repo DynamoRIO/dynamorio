@@ -53,11 +53,13 @@ main()
         return EXIT_FAILURE;
     }
 
+#ifndef MACOS
     void *new_mem = mremap(mem, 0, 0, 0);
     if (new_mem != MAP_FAILED) {
         print("zero-length mremap succeeded\n");
         return EXIT_FAILURE;
     }
+#endif
 
     int munmap_res = munmap(mem, 0);
     if (munmap_res != -1) {
