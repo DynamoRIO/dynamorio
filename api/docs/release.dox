@@ -271,6 +271,9 @@ Further non-compatibility-affecting changes include:
  - The state restore event (dr_register_restore_state_event()) is now called for
    all translation attempts, even when the register state already contains
    application values, to allow clients to restore memory.
+ - Added the function dr_get_process_id_from_drcontext() for obtaining a process ID
+   associated with the given drcontext, which may be different from the current
+   dr_get_process_id() in some contexts.
 
 **************************************************
 <hr>
