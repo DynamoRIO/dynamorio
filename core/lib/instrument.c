@@ -2790,6 +2790,21 @@ dr_get_process_id(void)
     return (process_id_t)get_process_id();
 }
 
+DR_API process_id_t
+dr_get_process_id_from_drcontext(void *drcontext)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_get_process_id_from_drcontext: drcontext cannot be NULL");
+    CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
+                  "dr_get_process_id_from_drcontext: drcontext is invalid");
+#    ifdef UNIX
+    return dcontext->owning_process;
+#    else
+    return dr_get_process_id();
+#    endif
+}
+
 #    ifdef UNIX
 DR_API
 process_id_t

@@ -796,8 +796,7 @@ DR_API
  * Clients may want to avoid touching resources shared between processes,
  * like files, from the post-fork execution of the callback. The post-fork
  * version of the callback can be recognized by dr_get_process_id()
- * returning a different value than it returned during the corresponding
- * thread init event.
+ * returning a different value than dr_get_process_id_from_drcontext().
  *
  * See dr_set_process_exit_behavior() for options controlling performance
  * and whether thread exit events are invoked at process exit time in
@@ -1811,6 +1810,15 @@ DR_API
 /** Returns the process id of the current process. */
 process_id_t
 dr_get_process_id(void);
+
+DR_API
+/**
+ * Returns the process id of the process associated with drcontext \p drcontext.
+ * The returned value may be different from dr_get_process_id() if the passed context
+ * was created in a different process, which may happen in thread exit callbacks.
+ */
+process_id_t
+dr_get_process_id_from_drcontext(void *drcontext);
 
 #    ifdef UNIX
 DR_API
