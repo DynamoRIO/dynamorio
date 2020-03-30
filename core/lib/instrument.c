@@ -2791,12 +2791,13 @@ dr_get_process_id(void)
 }
 
 DR_API process_id_t
-dr_get_process_id_ext(void *drcontext)
+dr_get_process_id_from_drcontext(void *drcontext)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
-    CLIENT_ASSERT(drcontext != NULL, "dr_get_process_id_ext: drcontext cannot be NULL");
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_get_process_id_from_drcontext: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
-                  "dr_get_process_id_ext: drcontext is invalid");
+                  "dr_get_process_id_from_drcontext: drcontext is invalid");
 #    ifdef UNIX
     return dcontext->owning_process;
 #    else
