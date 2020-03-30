@@ -919,7 +919,11 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, uint vm_flags, uint f
     DEBUG_DECLARE(uint flagignore;)
     IF_UNIX(IF_DEBUG(IF_NO_MEMQUERY(extern vm_area_vector_t * all_memory_areas;)))
 
-    ASSERT(start < end);
+    ASSERT(start != NULL || end != NULL);
+    ASSERT(start <= end);
+    if (start == end) {
+        return; /* nothing to do */
+    }
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
     LOG(GLOBAL, LOG_VMAREAS, 4, "in add_vm_area%s " PFX " " PFX " %s\n",
