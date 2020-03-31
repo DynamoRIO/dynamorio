@@ -555,6 +555,12 @@ append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
             instru->append_marker(BUF_PTR(data->seg_base), vec->entries[i].marker_type,
                                   vec->entries[i].marker_value);
     }
+    /* In a filtered data-only trace, a block with no memrefs today still has
+     * a redzone check at the end guarding a clean call to memtrace(), but to
+     * be a litte safer in case that changes we also do a redzone check here.
+     */
+    if (BUF_PTR(data->seg_base) - data->buf_base > static_cast<ssize_t>(trace_buf_size))
+        memtrace(drcontext, false);
 }
 
 static void
