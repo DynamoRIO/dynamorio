@@ -253,21 +253,20 @@ DR_EXPORT void
 dr_init(client_id_t id)
 {
     drmgr_init();
-    opnd_t case_opnd = opnd_create_abs_addr(&encode_val, sizeof(OPSZ_PTR));
-    drbbdup_options_t opts = { sizeof(drbbdup_options_t),
-                               set_up_bb_dups,
-                               insert_encode,
-                               orig_analyse_bb,
-                               destroy_orig_analysis,
-                               analyse_bb,
-                               destroy_analysis,
-                               instrument_instr,
-                               NULL,
-                               case_opnd,
-                               USER_DATA_VAL,
-                               2 /* num of cases */,
-                               0 /* threshold */,
-                               true /* enable stats */ };
+
+    drbbdup_options_t opts = { 0 };
+    opts.struct_size = sizeof(drbbdup_options_t);
+    opts.set_up_bb_dups = set_up_bb_dups;
+    opts.insert_encode = insert_encode;
+    opts.analyze_orig = orig_analyse_bb;
+    opts.destroy_orig_analysis = destroy_orig_analysis;
+    opts.analyze_case = analyse_bb;
+    opts.destroy_case_analysis = destroy_analysis;
+    opts.instrument_instr = instrument_instr;
+    opts.runtime_case_opnd = opnd_create_abs_addr(&encode_val, sizeof(OPSZ_PTR));
+    opts.user_data = USER_DATA_VAL;
+    opts.dup_limit = 2;
+    opts.is_stat_enabled = true;
 
     drbbdup_status_t res = drbbdup_init(&opts);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");

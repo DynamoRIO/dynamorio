@@ -113,19 +113,16 @@ DR_EXPORT void
 dr_init(client_id_t id)
 {
     drmgr_init();
-    opnd_t case_opnd = opnd_create_abs_addr(&case_encoding, sizeof(OPSZ_PTR));
-    drbbdup_options_t opts = { sizeof(drbbdup_options_t),
-                               set_up_bb_dups,
-                               NULL,
-                               NULL,
-                               NULL,
-                               NULL,
-                               NULL,
-                               instrument_instr,
-                               NULL,
-                               case_opnd,
-                               USER_DATA_VAL,
-                               1 /* num of cases. */ };
+
+    drbbdup_options_t opts = { 0 };
+    opts.struct_size = sizeof(drbbdup_options_t);
+    opts.set_up_bb_dups = set_up_bb_dups;
+    opts.instrument_instr = instrument_instr;
+    opts.runtime_case_opnd = opnd_create_abs_addr(&case_encoding, sizeof(OPSZ_PTR));
+    opts.do_lock = false;
+    opts.user_data = USER_DATA_VAL;
+    opts.dup_limit = 1;
+
     drbbdup_status_t res = drbbdup_init(&opts);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");
     dr_register_exit_event(event_exit);

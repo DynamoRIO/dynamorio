@@ -265,6 +265,11 @@ typedef struct {
      */
     opnd_t runtime_case_opnd;
     /**
+     * Instructs drbbdup whether or not the loading of the runtime case should be
+     * locked/atomic.
+     */
+    bool do_lock;
+    /**
      * User-data made available to user-defined call-back functions that drbbdup invokes
      * to manage basic block duplication.
      */

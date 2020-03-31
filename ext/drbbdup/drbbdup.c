@@ -696,11 +696,11 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
             drbbdup_restore_register(drcontext, bb, where, 1, DRBBDUP_SCRATCH_REG);
     }
 
-    /* Encoding is application-specific and therefore we need to user to define the
+    /* Encoding is application-specific and therefore we need the user to define the
      * encoding of the runtime case. Therefore, we invoke a user-defined call-back.
      *
-     * It could also be the encoding is done directly and changed on demand. Therefore,
-     * the call-back may be NULL.
+     * It could also be that the encoding is done directly and changed on demand.
+     * Therefore, the call-back may be NULL.
      */
     if (opts.insert_encode != NULL) {
 
@@ -716,6 +716,8 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     }
 
     /* Load the encoding to the scratch register. */
+
+    /* FIXME i#4134: Perform lock if opts.do_lock is set. */
     opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
     instr_t *instr =
         INSTR_CREATE_mov_ld(drcontext, scratch_reg_opnd, opts.runtime_case_opnd);
@@ -736,7 +738,6 @@ static void
 drbbdup_insert_compare_encoding(void *drcontext, instrlist_t *bb, instr_t *where,
                                 drbbdup_case_t *current_case, reg_id_t reg_encoding)
 {
-    /* Note, DRBBDUP_SCRATCH_REG contains the runtime case encoding. */
     opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
     instr_t *instr = INSTR_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd);
     instrlist_meta_preinsert(bb, where, instr);
