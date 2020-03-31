@@ -349,6 +349,17 @@ typedef enum {
      * may be missed.
      */
     DRWRAP_NO_DYNAMIC_RETADDRS = 0x02,
+    /**
+     * If this flag is set, then post-call points are identified by changing the
+     * application return address upon entering the callee.  This is more efficient than
+     * the default method, which requires shared storage and locks and flushing.
+     * However, this does violate transparency, and may cause some applications to fail.
+     * In particular, detaching on AArchXX requires scanning the stack to find where the
+     * return address was stored, which could conceivably replace an integer or
+     * non-pointer value that happens to match the sentinel used.  Use this at your own
+     * risk.
+     */
+    DRWRAP_REPLACE_RETADDR = 0x04,
 } drwrap_wrap_flags_t;
 
 /* offset of drwrap_callconv_t in drwrap_wrap_flags_t */

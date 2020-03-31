@@ -601,6 +601,10 @@ DR_API
  * if it is false, DR may only be querying for the address (\p
  * mcontext.pc) or register state and may not relocate this thread.
  *
+ * DR will call this event for all translation attempts, even when the
+ * register state already contains application values, to allow
+ * clients to restore memory.
+ *
  * The \p app_code_consistent parameter indicates whether the original
  * application code containing the instruction being translated is
  * guaranteed to still be in the same state it was when the code was
@@ -792,8 +796,7 @@ DR_API
  * Clients may want to avoid touching resources shared between processes,
  * like files, from the post-fork execution of the callback. The post-fork
  * version of the callback can be recognized by dr_get_process_id()
- * returning a different value than it returned during the corresponding
- * thread init event.
+ * returning a different value than dr_get_process_id_from_drcontext().
  *
  * See dr_set_process_exit_behavior() for options controlling performance
  * and whether thread exit events are invoked at process exit time in
@@ -1807,6 +1810,15 @@ DR_API
 /** Returns the process id of the current process. */
 process_id_t
 dr_get_process_id(void);
+
+DR_API
+/**
+ * Returns the process id of the process associated with drcontext \p drcontext.
+ * The returned value may be different from dr_get_process_id() if the passed context
+ * was created in a different process, which may happen in thread exit callbacks.
+ */
+process_id_t
+dr_get_process_id_from_drcontext(void *drcontext);
 
 #    ifdef UNIX
 DR_API
@@ -6382,8 +6394,8 @@ DR_API
 /**
  * Retrieves various statistics exported by DR as global, process-wide values.
  * The API is not thread-safe.
- * The caller is expected to pass a pointer to a valid, initialized dr_stats_t
- * value, with the size field set (see dr_stats_t).
+ * The caller is expected to pass a pointer to a valid, initialized #dr_stats_t
+ * value, with the size field set (see #dr_stats_t).
  * Returns false if stats are not enabled.
  */
 bool

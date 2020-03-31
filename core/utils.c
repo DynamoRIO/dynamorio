@@ -4606,5 +4606,8 @@ stats_get_snapshot(dr_stats_t *drstats)
     }
     drstats->peak_num_threads = GLOBAL_STAT(peak_num_threads);
     drstats->num_threads_created = GLOBAL_STAT(num_threads_created);
+    if (drstats->size > offsetof(dr_stats_t, synchs_not_at_safe_spot)) {
+        drstats->synchs_not_at_safe_spot = GLOBAL_STAT(synchs_not_at_safe_spot);
+    }
     return true;
 }

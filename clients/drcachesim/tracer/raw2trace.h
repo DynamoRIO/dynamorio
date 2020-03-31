@@ -983,8 +983,9 @@ private:
             // instruction *fetches*, not instruction retirement, and we want to
             // include a faulting instruction before its raised signal.
             bool interrupted = false;
-            error = handle_kernel_interrupt_and_markers(tls, &buf, cur_modoffs,
-                                                        instr->length(), &interrupted);
+            error = handle_kernel_interrupt_and_markers(
+                tls, &buf, cur_modoffs, instr->length(), instrs_are_separate,
+                &interrupted);
             if (!error.empty())
                 return error;
             if (interrupted) {
@@ -1002,7 +1003,8 @@ private:
                     if (!error.empty())
                         return error;
                     error = handle_kernel_interrupt_and_markers(
-                        tls, &buf, cur_modoffs, instr->length(), &interrupted);
+                        tls, &buf, cur_modoffs, instr->length(), instrs_are_separate,
+                        &interrupted);
                     if (!error.empty())
                         return error;
                     if (interrupted)
@@ -1016,7 +1018,8 @@ private:
                     if (!error.empty())
                         return error;
                     error = handle_kernel_interrupt_and_markers(
-                        tls, &buf, cur_modoffs, instr->length(), &interrupted);
+                        tls, &buf, cur_modoffs, instr->length(), instrs_are_separate,
+                        &interrupted);
                     if (!error.empty())
                         return error;
                     if (interrupted)
@@ -1050,16 +1053,18 @@ private:
 
     // Returns true if a kernel interrupt happened at cur_modoffs.
     // Outputs a kernel interrupt if this is the right location.
-    // Outputs any other markers observed.
+    // Outputs any other markers observed if !instrs_are_separate, since they
+    // are part of this block and need to be inserted now.
     std::string
     handle_kernel_interrupt_and_markers(void *tls, INOUT trace_entry_t **buf_in,
                                         uint64_t cur_modoffs, int instr_length,
-                                        OUT bool *interrupted)
+                                        bool instrs_are_separate, OUT bool *interrupted)
     {
         // To avoid having to backtrack later, we read ahead to ensure we insert
         // an interrupt at the right place between memrefs or between instructions.
         *interrupted = false;
         bool append = false;
+        trace_entry_t *buf_start = impl()->get_write_buffer(tls);
         do {
             const offline_entry_t *in_entry = impl()->get_next_entry(tls);
             if (in_entry == nullptr)
@@ -1095,7 +1100,7 @@ private:
                         do {
                             --*buf_in;
                             skipped_type = static_cast<trace_type_t>((*buf_in)->type);
-                            DR_ASSERT(*buf_in >= impl()->get_write_buffer(tls));
+                            DR_ASSERT(*buf_in >= buf_start);
                         } while (!type_is_instr(skipped_type) &&
                                  skipped_type != TRACE_TYPE_INSTR_NO_FETCH);
                     }
@@ -1110,7 +1115,11 @@ private:
             } else {
                 // It's some other marker, such as for function tracing.  Output it now,
                 // to avoid confusion with memrefs.
-                append = true;
+                // For instrs_are_separate, however, we're only processing a single
+                // instruction here and want to avoid dealing with a long string of
+                // markers (say, from function tracing) before the next instr overflowing
+                // our buffer.  Better to return to the main loop.
+                append = !instrs_are_separate;
             }
             if (append) {
                 uintptr_t marker_val = 0;
@@ -1123,6 +1132,15 @@ private:
                 *buf_in = reinterpret_cast<trace_entry_t *>(buf);
                 impl()->log(3, "Appended marker type %u value " PIFX "\n",
                             (trace_marker_type_t)in_entry->extended.valueB, marker_val);
+                // There can be many markers in a row, esp for function tracing on
+                // longjmp or some other xfer that skips many post-call points.
+                // But, we can't easily write the buffer out, b/c we want to defer
+                // it for branches, and roll it back for rseq.
+                // XXX i#4159: We could switch to dynamic storage (and update all uses
+                // that assume no re-allocation), but this should be pathological so for
+                // now we have a release-build failure.
+                DR_CHECK((size_t)(*buf_in - buf_start) < WRITE_BUFFER_SIZE,
+                         "Too many entries");
             } else {
                 // Put it back.
                 impl()->unread_last_entry(tls);

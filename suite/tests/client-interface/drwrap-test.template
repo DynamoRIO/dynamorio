@@ -74,6 +74,18 @@ long3 A
   <post-long0 abnormal>
 #endif
 longdone
+  <pre-called_indirectly>
+  <pre-called_indirectly_subcall>
+called_indirectly_subcall 43
+  <post-called_indirectly_subcall>
+called_indirectly 42 => 44
+  <post-called_indirectly>
+  <pre-tailcall_test2>
+print_from_asm 1
+  <pre-tailcall_tail>
+print_from_asm 7
+  <post-tailcall_tail>
+  <post-tailcall_test2>
 loaded library
 thread.appdll process init
   <pre-level0>
@@ -128,6 +140,18 @@ long3 A
   <post-long1 abnormal>
   <post-long0 abnormal>
 longdone
+  <pre-called_indirectly>
+  <pre-called_indirectly_subcall>
+called_indirectly_subcall 43
+  <post-called_indirectly_subcall>
+called_indirectly 42 => 44
+  <post-called_indirectly>
+  <pre-tailcall_test2>
+print_from_asm 1
+  <pre-tailcall_tail>
+print_from_asm 7
+  <post-tailcall_tail>
+  <post-tailcall_test2>
 loaded library
 thank you for testing the client interface
 all done
