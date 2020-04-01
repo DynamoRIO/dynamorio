@@ -268,7 +268,7 @@ typedef struct {
      * Instructs drbbdup whether or not the loading of the runtime case should be
      * locked/atomic.
      */
-    bool do_lock;
+    bool atomic_load_encoding;
     /**
      * User-data made available to user-defined call-back functions that drbbdup invokes
      * to manage basic block duplication.

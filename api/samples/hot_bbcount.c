@@ -246,7 +246,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                       NULL);
 
     /* Initialise an addressable TLS slot to contain the runtime case encoding. */
-    if (dr_raw_tls_calloc(&tls_raw_reg, &tls_raw_offset, 1 /* num of slots */, 0))
+    if (!dr_raw_tls_calloc(&tls_raw_reg, &tls_raw_offset, 1 /* num of slots */, 0))
         DR_ASSERT(false);
 
     /* Initialise drbbdup. Essentially, drbbdup requires

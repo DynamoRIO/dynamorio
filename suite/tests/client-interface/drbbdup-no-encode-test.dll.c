@@ -119,7 +119,7 @@ dr_init(client_id_t id)
     opts.set_up_bb_dups = set_up_bb_dups;
     opts.instrument_instr = instrument_instr;
     opts.runtime_case_opnd = opnd_create_abs_addr(&case_encoding, sizeof(OPSZ_PTR));
-    opts.do_lock = false;
+    opts.atomic_load_encoding = false;
     opts.user_data = USER_DATA_VAL;
     opts.dup_limit = 1;
 

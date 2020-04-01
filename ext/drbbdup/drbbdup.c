@@ -716,8 +716,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     }
 
     /* Load the encoding to the scratch register. */
-
-    /* FIXME i#4134: Perform lock if opts.do_lock is set. */
+    /* FIXME i#4134: Perform lock if opts.atomic_load_encoding is set. */
     opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
     instr_t *instr =
         INSTR_CREATE_mov_ld(drcontext, scratch_reg_opnd, opts.runtime_case_opnd);
