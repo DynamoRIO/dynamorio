@@ -8178,7 +8178,7 @@ post_system_call(dcontext_t *dcontext)
         /* We assumed in pre_system_call() that the unmap would succeed
          * and flushed fragments and removed the region from exec areas.
          * If the unmap failed, we re-add the region to exec areas.
-         * For zero-lenght unmaps we don't need to re-add anything,
+         * For zero-length unmaps we don't need to re-add anything,
          * and we hit an assert in vmareas.c if we try (i#4031).
          *
          * The same logic can be used on Windows (but isn't yet).
