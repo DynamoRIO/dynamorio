@@ -90,8 +90,8 @@ typedef struct _os_privmod_data_t {
     size_t tls_size;
 } os_privmod_data_t;
 
-static int tls_next_idx;
-static int tls_array_count;
+static volatile int tls_next_idx;
+static volatile int tls_array_count;
 /* It is complex to realloc this; it is rarely used so we have a simple max. */
 #define TLS_ARRAY_MAX_SIZE 32
 
