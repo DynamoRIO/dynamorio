@@ -8178,6 +8178,8 @@ post_system_call(dcontext_t *dcontext)
         /* We assumed in pre_system_call() that the unmap would succeed
          * and flushed fragments and removed the region from exec areas.
          * If the unmap failed, we re-add the region to exec areas.
+         * For zero-length unmaps we don't need to re-add anything,
+         * and we hit an assert in vmareas.c if we try (i#4031).
          *
          * The same logic can be used on Windows (but isn't yet).
          */
@@ -8193,7 +8195,7 @@ post_system_call(dcontext_t *dcontext)
          *
          * See case 7559 for a better approach.
          */
-        if (!success) {
+        if (!success && len != 0) {
             dr_mem_info_t info;
             /* must go to os to get real memory since we already removed */
             DEBUG_DECLARE(ok =)
