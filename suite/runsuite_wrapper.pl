@@ -192,7 +192,8 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|api.startstop' => 1, # i#2093
                                    'code_api|client.drmgr-test' => 1, # i#653
                                    'code_api|client.nudge_test' => 1, # i#2978
-                                   'code_api|client.nudge_ex' => 1);
+                                   'code_api|client.nudge_ex' => 1,
+                                   'code_api|client.drwrap-test-detach' => 1); # i#4058
             %ignore_failures_64 = ('code_api|common.floatpc_xl8all' => 1,
                                    'code_api|common.decode' => 1, # i#4058
                                    'code_api|common.decode-stress' => 1, # i#4058
