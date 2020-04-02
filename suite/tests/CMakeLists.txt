@@ -2241,6 +2241,11 @@ if (CLIENT_INTERFACE)
       ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
   endif (ARM)
 
+  if (UNIX)
+    tobuild_ci(client.process-id client-interface/process-id.c "" "" "")
+    link_with_pthread(client.process-id)
+  endif (UNIX)
+
   tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
   use_DynamoRIO_extension(client.drreg-test.dll drreg)
