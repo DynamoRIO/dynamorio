@@ -229,7 +229,12 @@ void
 instr_reset(dcontext_t *dcontext, instr_t *instr)
 {
     instr_free(dcontext, instr);
-    instr_init(dcontext, instr);
+    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+        instr_init(dcontext, instr);
+        instr->flags |= INSTR_IS_NOALLOC_STRUCT;
+    } else {
+        instr_init(dcontext, instr);
+    }
 }
 
 /* Frees all dynamically allocated storage that was allocated by instr,
