@@ -149,7 +149,8 @@ test_noalloc(void)
     ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_XAX);
 
     /* There should be no leak reported even w/o a reset b/c there's no
-     * extra heap.
+     * extra heap.  However, drdecode is used in a mode where DR does not check
+     * for leaks!  So we repeat this test inside the api.ir test.
      */
 }
 
