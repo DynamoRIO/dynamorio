@@ -2261,6 +2261,35 @@ test_re_relativization(void *dcontext)
     instr_free(dcontext, &instr);
 }
 
+static void
+test_noalloc(void *dcontext)
+{
+    byte buf[128];
+    byte *pc, *end;
+
+    instr_t *to_encode = XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_XAX),
+                                           OPND_CREATE_MEMPTR(DR_REG_XAX, 42));
+    end = instr_encode(dcontext, to_encode, buf);
+    ASSERT(end - buf < BUFFER_SIZE_ELEMENTS(buf));
+    instr_destroy(dcontext, to_encode);
+
+    instr_noalloc_t noalloc;
+    instr_noalloc_init(dcontext, &noalloc);
+    instr_t *instr = instr_from_noalloc(&noalloc);
+    pc = decode(dcontext, buf, instr);
+    ASSERT(pc != NULL);
+    ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_XAX);
+
+    instr_reset(dcontext, instr);
+    pc = decode(dcontext, buf, instr);
+    ASSERT(pc != NULL);
+    ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_XAX);
+
+    /* There should be no leak reported even w/o a reset b/c there's no
+     * extra heap.
+     */
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2331,6 +2360,8 @@ main(int argc, char *argv[])
     test_reg_exact_reads(dcontext);
 
     test_re_relativization(dcontext);
+
+    test_noalloc(dcontext);
 
 #ifndef STANDALONE_DECODER /* speed up compilation */
     test_all_opcodes_2_avx512_vex(dcontext);
