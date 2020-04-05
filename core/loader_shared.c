@@ -947,7 +947,11 @@ void *
 redirect_malloc(size_t size)
 {
     void *mem;
+    /* We need extra space to store the size and alignment bit and ensure the returned
+     * pointer is aligned.
+     */
     size_t alloc_size = size + sizeof(size_t) + STANDARD_HEAP_ALIGNMENT - HEAP_ALIGNMENT;
+    /* Our header is the size itself, with the top bit stolen to indicate alignment. */
     if (TEST(REDIRECT_HEADER_SHIFTED, alloc_size)) {
         /* We do not support the top bit being set as that conflicts with the bit in
          * our header.  This should be fine as all sytem allocators we have seen also
@@ -1013,6 +1017,21 @@ redirect_calloc(size_t nmemb, size_t size)
     return buf;
 }
 
+static inline size_t
+redirect_malloc_size_and_start(void *mem, OUT void **start_out)
+{
+    size_t *size_ptr = (size_t *)((ptr_uint_t)mem - sizeof(size_t));
+    size_t size = *((size_t *)size_ptr);
+    void *start = size_ptr;
+    if (TEST(REDIRECT_HEADER_SHIFTED, size)) {
+        start = size_ptr - 1;
+        size &= ~REDIRECT_HEADER_SHIFTED;
+    }
+    if (start_out != NULL)
+        *start_out = start;
+    return size;
+}
+
 /* This routine frees memory allocated by redirect_malloc and expects the
  * allocation size to be available in the few bytes before 'mem'.
  */
@@ -1024,14 +1043,25 @@ redirect_free(void *mem)
      */
     if (mem == NULL)
         return;
-    size_t *size_ptr = (size_t *)((ptr_uint_t)mem - sizeof(size_t));
-    size_t size = *((size_t *)size_ptr);
-    void *start = size_ptr;
-    if (TEST(REDIRECT_HEADER_SHIFTED, size)) {
-        start = size_ptr - 1;
-        size &= ~REDIRECT_HEADER_SHIFTED;
-    }
+    void *start;
+    size_t size = redirect_malloc_size_and_start(mem, &start);
     global_heap_free(start, size HEAPACCT(ACCT_LIBDUP));
+}
+
+/* Needed for Windows. */
+size_t
+redirect_malloc_requested_size(void *mem)
+{
+    if (mem == NULL)
+        return 0;
+    void *start;
+    size_t size = redirect_malloc_size_and_start(mem, &start);
+    size -= sizeof(size_t);
+    if (start != mem) {
+        /* Subtract the extra size for alignment. */
+        size -= sizeof(size_t);
+    }
+    return size;
 }
 
 char *

@@ -324,7 +324,7 @@ wrapped_dr_free(byte *ptr)
 static inline size_t
 wrapped_dr_size(byte *ptr)
 {
-    return *((size_t *)(ptr - sizeof(size_t))) - sizeof(size_t);
+    return redirect_malloc_requested_size(ptr);
 }
 
 void *WINAPI

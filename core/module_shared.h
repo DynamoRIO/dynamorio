@@ -703,6 +703,9 @@ redirect_realloc(void *mem, size_t size);
 char *
 redirect_strdup(const char *str);
 
+size_t
+redirect_malloc_requested_size(void *mem);
+
 #ifdef DEBUG
 void *
 redirect_malloc_initonly(size_t size);
