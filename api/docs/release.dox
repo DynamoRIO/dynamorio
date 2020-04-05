@@ -274,6 +274,8 @@ Further non-compatibility-affecting changes include:
  - Added the function dr_get_process_id_from_drcontext() for obtaining a process ID
    associated with the given drcontext, which may be different from the current
    dr_get_process_id() in some contexts.
+ - The private loader's malloc redirection now guarantees double-pointer-sized
+   alignment, to match what system-provided allocators use.
 
 **************************************************
 <hr>

@@ -299,32 +299,32 @@ RtlAllocateHeap(HANDLE heap, ULONG flags, SIZE_T size);
 void *
 wrapped_dr_alloc(ULONG flags, SIZE_T size)
 {
-    byte *mem;
-    ASSERT(sizeof(size_t) >= HEAP_ALIGNMENT);
-    size += sizeof(size_t);
-    mem = global_heap_alloc(size HEAPACCT(ACCT_LIBDUP));
+    /* HeapAlloc returns 16-byte-aligned for 64-bit and 8-byte-aligned for 32-bit.
+     * We use redirect_malloc() to get that alignment.
+     */
+    void *mem = redirect_malloc(size);
     if (mem == NULL) {
-        /* FIXME: support HEAP_GENERATE_EXCEPTIONS (xref PR 406742) */
+        /* TODO: support HEAP_GENERATE_EXCEPTIONS (xref PR 406742).
+         * redirect_malloc() already did a CLIENT_ASSERT too: we'd want to remove that.
+         */
         ASSERT_NOT_REACHED();
         return NULL;
     }
-    *((size_t *)mem) = size;
     if (TEST(HEAP_ZERO_MEMORY, flags))
-        memset(mem + sizeof(size_t), 0, size - sizeof(size_t));
-    return (void *)(mem + sizeof(size_t));
+        memset(mem, 0, size);
+    return mem;
 }
 
 void
 wrapped_dr_free(byte *ptr)
 {
-    ptr -= sizeof(size_t);
-    global_heap_free(ptr, *((size_t *)ptr)HEAPACCT(ACCT_LIBDUP));
+    redirect_free(ptr);
 }
 
 static inline size_t
 wrapped_dr_size(byte *ptr)
 {
-    return *((size_t *)(ptr - sizeof(size_t))) - sizeof(size_t);
+    return redirect_malloc_requested_size(ptr);
 }
 
 void *WINAPI

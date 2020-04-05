@@ -1366,9 +1366,12 @@ static const redirect_import_t redirect_imports[] = {
     { "free", (app_pc)redirect_free },
     { "realloc", (app_pc)redirect_realloc },
     { "strdup", (app_pc)redirect_strdup },
-/* FIXME: we should also redirect functions including:
- * malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
- * Any other functions need to be redirected?
+/* TODO i#4243: we should also redirect functions including:
+ * + malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
+ * + tcmalloc: tc_malloc, tc_free, etc.
+ * + __libc_malloc, __libc_free, etc.
+ * + OSX: malloc_zone_malloc, etc.?  Or just malloc_create_zone?
+ * + C++ operators in case they don't just call libc malloc?
  */
 #if defined(LINUX) && !defined(ANDROID)
     { "__tls_get_addr", (app_pc)redirect___tls_get_addr },

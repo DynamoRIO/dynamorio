@@ -2196,6 +2196,9 @@ DR_API
 /**
  * Allocates \p size bytes of memory from DR's memory pool specific to the
  * thread associated with \p drcontext.
+ * This memory is only guaranteed to be aligned to the pointer size:
+ * 8 byte alignment for 64-bit; 4-byte alignment for 32-bit.
+ * (The wrapped malloc() guarantees the more standard double-pointer-size.)
  */
 void *
 dr_thread_alloc(void *drcontext, size_t size);
@@ -2209,7 +2212,12 @@ void
 dr_thread_free(void *drcontext, void *mem, size_t size);
 
 DR_API
-/** Allocates \p size bytes of memory from DR's global memory pool. */
+/**
+ * Allocates \p size bytes of memory from DR's global memory pool.
+ * This memory is only guaranteed to be aligned to the pointer size:
+ * 8 byte alignment for 64-bit; 4-byte alignment for 32-bit.
+ * (The wrapped malloc() guarantees the more standard double-pointer-size.)
+ */
 void *
 dr_global_alloc(size_t size);
 
@@ -2336,6 +2344,8 @@ DR_API
  * versions that allocate memory from DR's private pool.  With -wrap,
  * clients can link to libraries that allocate heap memory without
  * interfering with application allocations.
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
  */
 void *
 __wrap_malloc(size_t size);
@@ -2346,6 +2356,8 @@ DR_API
  * behavior of realloc.  Memory must be freed with __wrap_free().  The
  * __wrap routines are intended to be used with ld's -wrap option; see
  * __wrap_malloc() for more information.
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
  */
 void *
 __wrap_realloc(void *mem, size_t size);
@@ -2356,6 +2368,8 @@ DR_API
  * behavior of calloc.  Memory must be freed with __wrap_free().  The
  * __wrap routines are intended to be used with ld's -wrap option; see
  * __wrap_malloc() for more information.
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
  */
 void *
 __wrap_calloc(size_t nmemb, size_t size);
@@ -2377,6 +2391,8 @@ DR_API
  * null.  Memory must be freed with __wrap_free().  The __wrap
  * routines are intended to be used with ld's -wrap option; see
  * __wrap_malloc() for more information.
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
  */
 char *
 __wrap_strdup(const char *str);
