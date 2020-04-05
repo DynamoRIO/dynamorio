@@ -926,27 +926,60 @@ loader_allow_unsafe_static_behavior(void)
 #endif
 }
 
+/* For heap redirection we need to provide alignment beyond what DR's allocator
+ * provides: DR does just pointer-sized alignment (HEAP_ALIGNMENT) while we want
+ * double-pointer-size (STANDARD_HEAP_ALIGNMENT).  We take advantage of knowing
+ * that DR's alloc is either already double-aligned or is just off by one pointer:
+ * so there are only two conditions.  We use the top bit of the size to form our
+ * header word.
+ * XXX i#4243: To support redirected memalign or C++17 aligned operator new we'll
+ * need support for more general alignment.
+ */
+#define REDIRECT_HEADER_SHIFTED (1ULL << IF_X64_ELSE(63, 31))
+
 /* This routine allocates memory from DR's global memory pool.  Unlike
  * dr_global_alloc(), however, we store the size of the allocation in
- * the first few bytes so redirect_free() can retrieve it.  This memory
+ * the first few bytes so redirect_free() can retrieve it.  We also align
+ * to the standard alignment used by most allocators.  This memory
  * is also not guaranteed-reachable.
  */
 void *
 redirect_malloc(size_t size)
 {
     void *mem;
-    ASSERT(sizeof(size_t) >= HEAP_ALIGNMENT);
-    size += sizeof(size_t);
-    mem = global_heap_alloc(size HEAPACCT(ACCT_LIBDUP));
+    /* We need extra space to store the size and alignment bit and ensure the returned
+     * pointer is aligned.
+     */
+    size_t alloc_size = size + sizeof(size_t) + STANDARD_HEAP_ALIGNMENT - HEAP_ALIGNMENT;
+    /* Our header is the size itself, with the top bit stolen to indicate alignment. */
+    if (TEST(REDIRECT_HEADER_SHIFTED, alloc_size)) {
+        /* We do not support the top bit being set as that conflicts with the bit in
+         * our header.  This should be fine as all sytem allocators we have seen also
+         * have size limits that are this size (for 32-bit) or even smaller.
+         */
+        CLIENT_ASSERT(false, "malloc failed: size requested is too large");
+        return NULL;
+    }
+    mem = global_heap_alloc(alloc_size HEAPACCT(ACCT_LIBDUP));
     if (mem == NULL) {
         CLIENT_ASSERT(false, "malloc failed: out of memory");
         return NULL;
     }
-    *((size_t *)mem) = size;
-    /* XXX: This is not aligned to 8 for 32-bit as some callers might expect,
-     * nor to 16 for x64.
-     */
-    return (byte *)mem + sizeof(size_t);
+    ptr_uint_t res =
+        ALIGN_FORWARD((ptr_uint_t)mem + sizeof(size_t), STANDARD_HEAP_ALIGNMENT);
+    size_t header = alloc_size;
+    ASSERT(HEAP_ALIGNMENT * 2 == STANDARD_HEAP_ALIGNMENT);
+    ASSERT(!TEST(REDIRECT_HEADER_SHIFTED, header));
+    if (res == (ptr_uint_t)mem + sizeof(size_t)) {
+        /* Already aligned. */
+    } else if (res == (ptr_uint_t)mem + sizeof(size_t) * 2) {
+        /* DR's alignment is "odd" for double-pointer so we're adding one pointer. */
+        header |= REDIRECT_HEADER_SHIFTED;
+    } else
+        ASSERT_NOT_REACHED();
+    *((size_t *)(res - sizeof(size_t))) = header;
+    ASSERT(res + size <= (ptr_uint_t)mem + alloc_size);
+    return (void *)res;
 }
 
 /* This routine allocates memory from DR's global memory pool. Unlike
@@ -984,6 +1017,21 @@ redirect_calloc(size_t nmemb, size_t size)
     return buf;
 }
 
+static inline size_t
+redirect_malloc_size_and_start(void *mem, OUT void **start_out)
+{
+    size_t *size_ptr = (size_t *)((ptr_uint_t)mem - sizeof(size_t));
+    size_t size = *((size_t *)size_ptr);
+    void *start = size_ptr;
+    if (TEST(REDIRECT_HEADER_SHIFTED, size)) {
+        start = size_ptr - 1;
+        size &= ~REDIRECT_HEADER_SHIFTED;
+    }
+    if (start_out != NULL)
+        *start_out = start;
+    return size;
+}
+
 /* This routine frees memory allocated by redirect_malloc and expects the
  * allocation size to be available in the few bytes before 'mem'.
  */
@@ -993,10 +1041,27 @@ redirect_free(void *mem)
     /* PR 200203: leave_call_native() is assuming this routine calls
      * no other DR routines besides global_heap_free!
      */
-    if (mem != NULL) {
-        mem = (byte *)mem - sizeof(size_t);
-        global_heap_free(mem, *((size_t *)mem)HEAPACCT(ACCT_LIBDUP));
+    if (mem == NULL)
+        return;
+    void *start;
+    size_t size = redirect_malloc_size_and_start(mem, &start);
+    global_heap_free(start, size HEAPACCT(ACCT_LIBDUP));
+}
+
+/* Needed for Windows. */
+size_t
+redirect_malloc_requested_size(void *mem)
+{
+    if (mem == NULL)
+        return 0;
+    void *start;
+    size_t size = redirect_malloc_size_and_start(mem, &start);
+    size -= sizeof(size_t);
+    if (start != mem) {
+        /* Subtract the extra size for alignment. */
+        size -= sizeof(size_t);
     }
+    return size;
 }
 
 char *
