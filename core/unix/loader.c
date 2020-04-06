@@ -977,32 +977,7 @@ privload_call_lib_func(fp_t func)
      */
     dummy_argv[0] = dummy_str;
     dummy_argv[1] = NULL;
-#if defined(X64) || !defined(X86)
     func(1, dummy_argv, our_environ);
-#else
-    /* DR x86 code has 4-byte stack alignment (-mpreferred-stack-boundary=2) but other
-     * libraries often assume 16-byte (xref i#847 and i#3966).
-     * TODO(i#3966): This can lead to problem on clean calls as well.  We should
-     * probably just abandon 4-byte alignment and switch to 16 everywhere, since
-     * enough time has passed that there are unlikely to be legacy clients using the
-     * old ABI anymore.  If we do that we could then remove this asm code.
-     */
-    __asm__ __volatile__("mov %%esp, %%edi\n"       /* Save the pre-alignment sp. */
-                         "and $0xfffffff0, %%esp\n" /* Align to 16. */
-                         "push $0\n" /* Extra push to keep alignment w/ 3 pushes. */
-                         "push %[env]\n"
-                         "push %[argv]\n"
-                         "push $1\n"
-                         "call *%[callee]\n"
-                         "mov %%edi, %%esp\n" /* Restore. */
-                         :
-                         : [env] "g"(our_environ), [argv] "g"(&dummy_argv[0]),
-                           [callee] "g"(func)
-                         /* We do *not* list "esp" because doing so is disallowed
-                          * (i#4086).  We do restore esp so we're fine.
-                          */
-                         : "edi", "memory");
-#endif
 }
 
 bool

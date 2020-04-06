@@ -596,11 +596,13 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                          instr_t *instr _IF_X86_64(gencode_mode_t mode));
 
 #ifdef X86
-#    if defined(X64) || defined(MACOS)
-#        define ABI_STACK_ALIGNMENT 16
-#    else
-/* See i#847 for discussing the stack alignment on X86. */
+#    ifdef WINDOWS
 #        define ABI_STACK_ALIGNMENT 4
+#    else
+/* See i#847 for discussion of stack alignment on 32-bit Linux.
+ * We now use 16 there to match everyone else.
+ */
+#        define ABI_STACK_ALIGNMENT 16
 #    endif
 #elif defined(AARCH64)
 #    define ABI_STACK_ALIGNMENT 16
@@ -1434,6 +1436,9 @@ move_mm_reg_opcode(bool aligned16, bool aligned32);
  */
 uint
 move_mm_avx512_reg_opcode(bool aligned64);
+
+bool
+clean_call_needs_simd(clean_call_info_t *cci);
 
 /* clean call optimization */
 /* Describes usage of a scratch slot. */
