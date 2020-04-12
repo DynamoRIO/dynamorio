@@ -820,7 +820,7 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
 
         /* We need DRBBDUP_SCRATCH_REG. Bail on keeping the encoding in the register. */
         opnd_t encoding_opnd = drbbdup_get_tls_raw_slot_opnd(DRBBDUP_ENCODING_SLOT);
-        instr = INSTR_CREATE_mov_st(drcontext, drbbdup_opnd, encoding_opnd);
+        instr = INSTR_CREATE_mov_st(drcontext, encoding_opnd, drbbdup_opnd);
         instrlist_meta_preinsert(bb, where, instr);
 
         /* Don't bother insertion if threshold limit is zero. */
@@ -1310,33 +1310,6 @@ destroy_fp_cache(app_pc cache_pc)
 }
 
 /****************************************************************************
- * Frag Deletion
- */
-
-static void
-deleted_frag(void *drcontext, void *tag)
-{
-    /* Note, drcontext could be NULL during process exit. */
-    if (drcontext == NULL)
-        return;
-
-    app_pc bb_pc = dr_fragment_app_pc(tag);
-
-    dr_rwlock_write_lock(rw_lock);
-
-    drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(&manager_table, bb_pc);
-    if (manager != NULL) {
-        ASSERT(manager->ref_counter > 0, "ref count should be greater than zero");
-        manager->ref_counter--;
-        if (manager->ref_counter <= 0)
-            hashtable_remove(&manager_table, bb_pc);
-    }
-
-    dr_rwlock_write_unlock(rw_lock);
-}
-
-/****************************************************************************
  * INTERFACE
  */
 
@@ -1512,8 +1485,6 @@ drbbdup_init(drbbdup_options_t *ops_in)
         drreg_init(&drreg_ops) != DRREG_SUCCESS)
         return DRBBDUP_ERROR;
 
-    dr_register_delete_event(deleted_frag);
-
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1)
         return DRBBDUP_ERROR;
@@ -1560,8 +1531,7 @@ drbbdup_exit(void)
             !drmgr_unregister_thread_init_event(drbbdup_thread_init) ||
             !drmgr_unregister_thread_exit_event(drbbdup_thread_exit) ||
             !dr_raw_tls_cfree(tls_raw_base, DRBBDUP_SLOT_COUNT) ||
-            !drmgr_unregister_tls_field(tls_idx) ||
-            !dr_unregister_delete_event(deleted_frag) || drreg_exit() != DRREG_SUCCESS)
+            !drmgr_unregister_tls_field(tls_idx) || drreg_exit() != DRREG_SUCCESS)
             return DRBBDUP_ERROR;
 
         hashtable_delete(&manager_table);
