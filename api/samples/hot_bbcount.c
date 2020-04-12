@@ -71,6 +71,9 @@ static int global_count;
 static hashtable_t hit_count_table;
 #define HASH_BITS 13
 
+static reg_id_t tls_raw_reg;
+static uint tls_raw_offset;
+
 static void
 event_exit(void)
 {
@@ -89,6 +92,7 @@ event_exit(void)
     /* Delete hit count table. */
     hashtable_delete(&hit_count_table);
 
+    dr_raw_tls_cfree(tls_raw_offset, 1);
     drbbdup_exit();
     drx_exit();
     drreg_exit();
@@ -151,8 +155,9 @@ encode(app_pc bb_pc)
     is_hot = *hit_count == 0;
     hashtable_unlock(&hit_count_table);
 
-    /* Set current runtime case encoding. */
-    drbbdup_set_encoding((uintptr_t)is_hot);
+    byte *base = dr_get_dr_segment_base(tls_raw_reg);
+    uintptr_t *runtime_case = (uintptr_t *)(base + tls_raw_offset);
+    *runtime_case = (uintptr_t)is_hot;
 }
 
 static void
@@ -240,22 +245,28 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                       false /*synchronization is external*/, destroy_hit_count, NULL,
                       NULL);
 
+    /* Initialise an addressable TLS slot to contain the runtime case encoding. */
+    if (!dr_raw_tls_calloc(&tls_raw_reg, &tls_raw_offset, 1 /* num of slots */, 0))
+        DR_ASSERT(false);
+
     /* Initialise drbbdup. Essentially, drbbdup requires
-     * the client to pass a set of call-back functions.
+     * the client to pass a set of call-back functions and
+     * the memory operand that the dispatcher will use
+     * to load the current runtime case encoding.
      */
-    drbbdup_options_t drbbdup_ops = { sizeof(drbbdup_options_t),
-                                      set_up_bb_dups,
-                                      insert_encode,
-                                      analyse_orig_bb,
-                                      destroy_orig_analysis,
-                                      NULL,
-                                      NULL,
-                                      instrument_instr,
-                                      NULL,
-                                      NULL,
-                                      1 /* Only one additional copy is needed. */,
-                                      0 /* threshold */,
-                                      false /* No statistics gathering. */ };
+    drbbdup_options_t drbbdup_ops = { 0 };
+    drbbdup_ops.struct_size = sizeof(drbbdup_options_t);
+    drbbdup_ops.set_up_bb_dups = set_up_bb_dups;
+    drbbdup_ops.insert_encode = insert_encode;
+    drbbdup_ops.analyze_orig = analyse_orig_bb;
+    drbbdup_ops.destroy_orig_analysis = destroy_orig_analysis;
+    drbbdup_ops.instrument_instr = instrument_instr;
+    /* The operand referring to memory storing the current runtime case encoding. */
+    drbbdup_ops.runtime_case_opnd =
+        dr_raw_tls_opnd(dr_get_current_drcontext(), tls_raw_reg, tls_raw_offset);
+    drbbdup_ops.dup_limit = 1; /* Only one additional copy is needed. */
+    drbbdup_ops.is_stat_enabled = false;
+
     if (drbbdup_init(&drbbdup_ops) != DRBBDUP_SUCCESS)
         DR_ASSERT(false);
 
