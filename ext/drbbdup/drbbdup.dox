@@ -111,15 +111,19 @@ TLS.
 
 In order for drbbdup to dispatch control to the appropriate basic block copy, it
 needs to determine the current runtime case encoding value. Essentially, this process
-depends on the use-case, and therefore drbbdup invokes the #drbbdup_insert_encode_t
-call-back function to obtain the encoding from the client.
+depends on the use-case, and therefore drbbdup optionally invokes the
+#drbbdup_insert_encode_t call-back function to obtain the encoding from the client.
 
 In terms of implementation, the call-back function must store the runtime case encoding
-to memory maintained by drbbdup. This can be achieved by calling
-drbbdup_get_encoding_opnd(), which returns a
-memory reference operand that acts as the destination to a store instruction. However,
-if the encoder is implemented via a clean-call, then drbbdup_set_encoding()
-should be used to set the value.
+to pointer-sized memory that is maintained by the client itself. By using the operand,
+which refers to the memory and is passed to drbbdup_init(), drbbdup will load the
+the current runtime case encoding and dispatch control accordingly.
+
+The #drbbdup_insert_encode_t call-back may also be set to NULL which results in the
+dispatcher not attempting the construction of the runtime case at every start of
+a basic block execution. In such cases, it is expected that the client directly
+sets the runtime encoding directly and updates the value on demand. The drbbdup extension
+guarantees that it does not modify the set encoding on its own accord.
 
 \section sec_drbbdup_instrum Case Instrumentation
 
