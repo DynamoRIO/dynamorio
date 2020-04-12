@@ -95,7 +95,6 @@ typedef struct {
 
 /* Contains per bb information required for managing bb copies. */
 typedef struct {
-    int ref_counter;
     bool enable_dup;              /* Denotes whether to duplicate blocks. */
     bool enable_dynamic_handling; /* Denotes whether to dynamically generate cases. */
     bool are_flags_dead;      /* Denotes whether flags are dead at the start of a bb. */
@@ -1218,12 +1217,9 @@ drbbdup_handle_new_case()
              * dynamic handling has been disabled.
              */
             do_flush = do_gen || !manager->enable_dynamic_handling;
-            if (do_flush) {
-                /* Mark that flushing is happening for drbbdup. */
+            /* Mark that flushing is happening for drbbdup. */
+            if (do_flush)
                 manager->is_gen = true;
-                /* Increment counter so manager won't get freed due to flushing. */
-                manager->ref_counter++;
-            }
 
             if (opts.is_stat_enabled) {
                 dr_mutex_lock(stat_mutex);
