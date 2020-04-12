@@ -263,7 +263,7 @@ dr_init(client_id_t id)
     opts.analyze_case = analyse_bb;
     opts.destroy_case_analysis = destroy_analysis;
     opts.instrument_instr = instrument_instr;
-    opts.runtime_case_opnd = opnd_create_abs_addr(&encode_val, sizeof(OPSZ_PTR));
+    opts.runtime_case_opnd = opnd_create_abs_addr(&encode_val, OPSZ_PTR);
     opts.user_data = USER_DATA_VAL;
     opts.dup_limit = 2;
     opts.is_stat_enabled = true;
