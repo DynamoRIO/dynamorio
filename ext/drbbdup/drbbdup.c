@@ -387,7 +387,7 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         manager = NULL;
     }
 
-    /* A manager is created if there does not already exit one that "book-keeps"
+    /* A manager is created if there does not already exist one that "book-keeps"
      * this basic block.
      */
     if (manager == NULL) {
