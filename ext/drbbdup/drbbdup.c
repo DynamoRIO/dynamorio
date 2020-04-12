@@ -247,7 +247,6 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
     memset(manager->cases, 0, sizeof(drbbdup_case_t) * opts.dup_limit);
     manager->enable_dup = true;
     manager->enable_dynamic_handling = true;
-    manager->ref_counter = 1;
     manager->is_gen = false;
 
     ASSERT(opts.set_up_bb_dups != NULL, "set up call-back cannot be NULL");
@@ -383,8 +382,15 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
     drbbdup_manager_t *manager =
         (drbbdup_manager_t *)hashtable_lookup(&manager_table, pc);
 
-    /* A manager is created if there does not exit one that does not already
-     * book-keeping this bb. */
+    if (manager != NULL && !manager->is_gen) {
+        /* Remove existing invalid book-keeping data. */
+        hashtable_remove(&manager_table, pc);
+        manager = NULL;
+    }
+
+    /* A manager is created if there does not already exit one that "book-keeps"
+     * this basic block.
+     */
     if (manager == NULL) {
         manager = drbbdup_create_manager(drcontext, tag, bb);
         ASSERT(manager != NULL, "created manager cannot be NULL");
@@ -397,19 +403,6 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
                 stats.no_dynamic_handling_count++;
             dr_mutex_unlock(stat_mutex);
         }
-    } else {
-        /* A manager is already book-keeping this bb. Two scenarios are considered:
-         *   1) A new case is registered and re-instrumentation is
-         *      triggered via flushing.
-         *   2) The bb has been deleted by DR due to other reasons (e.g. memory)
-         *      and re-instrumented again.
-         *
-         * If we are handling a new case, there is no need to increment ref.
-         */
-        if (manager->is_gen)
-            manager->is_gen = false;
-        else
-            manager->ref_counter++;
     }
 
     if (manager->enable_dup) {
