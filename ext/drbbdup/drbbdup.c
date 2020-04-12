@@ -381,7 +381,7 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
     drbbdup_manager_t *manager =
         (drbbdup_manager_t *)hashtable_lookup(&manager_table, pc);
 
-    if (manager != NULL && !manager->is_gen) {
+    if (!for_trace && manager != NULL && !manager->is_gen) {
         /* Remove existing invalid book-keeping data. */
         hashtable_remove(&manager_table, pc);
         manager = NULL;
