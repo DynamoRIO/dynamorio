@@ -72,7 +72,7 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
 static void
 print_case(uintptr_t case_val)
 {
-    dr_fprintf(STDERR, "case %u %u\n", case_val);
+    dr_fprintf(STDERR, "case %u\n", case_val);
 }
 
 static void
