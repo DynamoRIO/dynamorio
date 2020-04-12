@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,6 +40,7 @@
 #    include <sys/mman.h>
 #endif
 #include <limits.h>
+#include <stdlib.h>
 
 char *global;
 #define SIZE 10
@@ -528,6 +529,31 @@ memory_iteration_test(void)
     }
 }
 
+static void
+alignment_test(void)
+{
+    dr_fprintf(STDERR, "  testing alignment....");
+    /* The standard alignment guarantee is 16-byte for 64-bit, 8-byte for 32-bit: */
+#define EXPECT_ALIGN IF_X64_ELSE(16, 8)
+    /* Alloc many times since half of the new allocations will align accidentally,
+     * and if there are free list entries it could be more than half.
+     */
+#define NUM_TRIES 8
+    void *mem[NUM_TRIES];
+    /* Try several sizes since DR's bucket sizes can make one particular bucket
+     * over-align more often than others.
+     */
+    for (size_t sz = 4; sz < 64; sz += 4) {
+        for (int i = 0; i < NUM_TRIES; ++i) {
+            mem[i] = malloc(sz);
+            ASSERT(ALIGNED(mem[i], EXPECT_ALIGN));
+        }
+        for (int i = 0; i < NUM_TRIES; ++i)
+            free(mem[i]);
+    }
+    dr_fprintf(STDERR, "success\n");
+}
+
 #ifdef UNIX
 static void
 calloc_test(void)
@@ -696,6 +722,7 @@ dr_init(client_id_t id)
     custom_unix_test();
 #endif
     memory_iteration_test();
+    alignment_test();
 
     dr_register_bb_event(bb_event);
     dr_register_thread_init_event(thread_init_event);

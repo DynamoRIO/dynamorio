@@ -682,6 +682,12 @@ privload_attach_parent_console(app_pc app_kernel32);
 extern bool disallow_unsafe_static_calls;
 #endif
 
+/* For all heap allocation redirection routines:
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
+ */
+#define STANDARD_HEAP_ALIGNMENT IF_X64_ELSE(16, 8)
+
 void *
 redirect_calloc(size_t nmemb, size_t size);
 
@@ -696,6 +702,9 @@ redirect_realloc(void *mem, size_t size);
 
 char *
 redirect_strdup(const char *str);
+
+size_t
+redirect_malloc_requested_size(void *mem);
 
 #ifdef DEBUG
 void *

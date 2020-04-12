@@ -90,8 +90,8 @@ typedef struct _os_privmod_data_t {
     size_t tls_size;
 } os_privmod_data_t;
 
-static int tls_next_idx;
-static int tls_array_count;
+static volatile int tls_next_idx;
+static volatile int tls_array_count;
 /* It is complex to realloc this; it is rarely used so we have a simple max. */
 #define TLS_ARRAY_MAX_SIZE 32
 
@@ -2468,12 +2468,12 @@ privload_os_finalize(privmod_t *mod)
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     opd->tls_idx = tls_next_idx++;
     if (opd->tls_idx >= TLS_ARRAY_MAX_SIZE ||
-        (tls_array_count > 0 && opd->tls_idx > tls_array_count)) {
+        (tls_array_count > 0 && opd->tls_idx >= tls_array_count)) {
         /* XXX: It is not easy to resize for all threads.  We do not support for now. */
         REPORT_FATAL_ERROR_AND_EXIT(
             PRIVATE_LIBRARY_TLS_LIMIT_CROSSED, 3, get_application_name(),
             get_application_pid(),
-            (opd->tls_idx > tls_array_count)
+            (opd->tls_idx >= tls_array_count)
                 ? "Late-loaded libraries with static TLS not supported"
                 : "Too many libaries with static TLS");
     }
