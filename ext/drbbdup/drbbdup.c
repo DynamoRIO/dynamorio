@@ -137,6 +137,10 @@ static int tls_idx = -1; /* For thread local storage info. */
 static reg_id_t tls_raw_reg;
 static uint tls_raw_base;
 
+static bool
+drbbdup_encoding_already_included(drbbdup_manager_t *manager, uintptr_t encoding_check,
+                                  bool check_default);
+
 static uintptr_t *
 drbbdup_get_tls_raw_slot_addr(drbbdup_thread_slots_t slot_idx)
 {
@@ -252,7 +256,11 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
     manager->default_case.encoding =
         opts.set_up_bb_dups(manager, drcontext, tag, bb, &manager->enable_dup,
                             &manager->enable_dynamic_handling, opts.user_data);
-
+    /* Default case encoding should not be already registered. */
+    DR_ASSERT_MSG(
+        !drbbdup_encoding_already_included(manager, manager->default_case.encoding,
+                                           false /* don't check default case */),
+        "default case encoding cannot be already registered");
     /* XXX i#3778: To remove once we support specific fragment deletion. */
     DR_ASSERT_MSG(!manager->enable_dynamic_handling,
                   "dynamic case generation is not yet supported");
@@ -1104,7 +1112,8 @@ drbbdup_link_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
 }
 
 static bool
-drbbdup_encoding_already_included(drbbdup_manager_t *manager, uintptr_t encoding_check)
+drbbdup_encoding_already_included(drbbdup_manager_t *manager, uintptr_t encoding_check,
+                                  bool check_default)
 {
     drbbdup_case_t *drbbdup_case;
     if (manager->enable_dup) {
@@ -1117,9 +1126,11 @@ drbbdup_encoding_already_included(drbbdup_manager_t *manager, uintptr_t encoding
     }
 
     /* Check default case. */
-    drbbdup_case = &manager->default_case;
-    if (drbbdup_case->is_defined && drbbdup_case->encoding == encoding_check)
-        return true;
+    if (check_default) {
+        drbbdup_case = &manager->default_case;
+        if (drbbdup_case->is_defined && drbbdup_case->encoding == encoding_check)
+            return true;
+    }
 
     return false;
 }
@@ -1202,7 +1213,7 @@ drbbdup_handle_new_case()
     /* Could have been turned off potentially by another thread. */
     if (manager->enable_dynamic_handling) {
         /* Case already registered potentially by another thread. */
-        if (!drbbdup_encoding_already_included(manager, new_encoding)) {
+        if (!drbbdup_encoding_already_included(manager, new_encoding, true)) {
             /* By default, do case gen. */
             bool do_gen = true;
             if (opts.allow_gen != NULL) {
@@ -1310,7 +1321,8 @@ drbbdup_register_case_encoding(void *drbbdup_ctx, uintptr_t encoding)
 
     drbbdup_manager_t *manager = (drbbdup_manager_t *)drbbdup_ctx;
 
-    if (drbbdup_encoding_already_included(manager, encoding))
+    /* Don't check default case because it is not yet set. */
+    if (drbbdup_encoding_already_included(manager, encoding, false))
         return DRBBDUP_ERROR_CASE_ALREADY_REGISTERED;
 
     if (drbbdup_include_encoding(manager, encoding))
