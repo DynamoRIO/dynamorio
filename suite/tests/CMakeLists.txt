@@ -711,8 +711,13 @@ function(configure_app_api_build_flags test decoder use_static_DR)
   get_target_property(pre_lflags ${test} LINK_FLAGS)
   # disable the default rpath for standalone apps
   set(DynamoRIO_RPATH OFF)
-  # to avoid changing all the REG_ constants we ask for compatibility
-  set(DynamoRIO_REG_COMPATIBILITY ON)
+  # To avoid changing all the REG_ constants we ask for compatibility.
+  if (DEFINED ${test}_no_reg_compat)
+    # We try but it's already in the flags so we unset in drwrap-test-detach.cpp.
+    set(DynamoRIO_REG_COMPATIBILITY OFF)
+  else ()
+    set(DynamoRIO_REG_COMPATIBILITY ON)
+  endif ()
   if (decoder)
     configure_DynamoRIO_decoder(${test})
     set(extra_flags "-DSTANDALONE_DECODER")
@@ -2225,6 +2230,11 @@ if (CLIENT_INTERFACE)
     use_DynamoRIO_extension(client.drbbdup-test.dll drmgr)
     use_DynamoRIO_extension(client.drbbdup-test.dll drreg)
     use_DynamoRIO_extension(client.drbbdup-test.dll drbbdup)
+
+    tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test.c "" "" "")
+    use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
+    use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drreg)
+    use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
   endif (X86)
 
   if (ARM)
@@ -2235,6 +2245,11 @@ if (CLIENT_INTERFACE)
     target_include_directories(client.predicate-test PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
   endif (ARM)
+
+  if (UNIX)
+    tobuild_ci(client.process-id client-interface/process-id.c "" "" "")
+    link_with_pthread(client.process-id)
+  endif (UNIX)
 
   tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
@@ -2300,12 +2315,22 @@ if (CLIENT_INTERFACE)
   tochcon(client.drwrap-test.appdll textrel_shlib_t)
   if (WIN32)
     # export from asm code
-    append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
+    append_link_flags(client.drwrap-test.appdll
+      "/export:makes_tailcall /export:tailcall_test2 /export:tailcall_tail")
   endif (WIN32)
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild_ci(client.drwrap-test-callconv client-interface/drwrap-test-callconv.cpp
       "" "" "")
     use_DynamoRIO_extension(client.drwrap-test-callconv.dll drwrap)
+  endif ()
+  if (NOT ARM AND NOT AARCH64) # FIXME i#1578: fix detach on ARM/AArch64
+    if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
+      set(client.drwrap-test-detach_no_reg_compat)
+      tobuild_api(client.drwrap-test-detach client-interface/drwrap-test-detach.cpp
+        "" "" OFF ON)
+      use_DynamoRIO_extension(client.drwrap-test-detach drwrap_static)
+      link_with_pthread(client.drwrap-test-detach)
+    endif ()
   endif ()
 
   # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
@@ -2478,7 +2503,7 @@ if (CLIENT_INTERFACE)
     endif ()
   endif (ARM)
 
-  if (NOT ARM AND NOT AARCH64) # FIXME i#1551, i#1569: fix bugs on ARM/AArch64
+  if (NOT ARM AND NOT AARCH64) # FIXME i#1578: fix detach on ARM/AArch64
     tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
     link_with_pthread(api.startstop)
     tobuild_api(api.detach api/detach.c "" "" OFF OFF)
@@ -3540,6 +3565,7 @@ if (UNIX)
     tobuild(linux.prctl linux/prctl.c)
   endif ()
   tobuild(linux.mmap linux/mmap.c)
+  tobuild(linux.zero-length-mem-ranges linux/zero-length-mem-ranges.c)
   tobuild(linux.signal0000 linux/signal0000.c)
   tobuild(linux.signal0001 linux/signal0001.c)
   tobuild(linux.signal0010 linux/signal0010.c)

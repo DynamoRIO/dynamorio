@@ -301,6 +301,11 @@ typedef struct _dr_stats_t {
     uint64 peak_num_threads;
     /** Accumulated total number of threads encountered by DR. */
     uint64 num_threads_created;
+    /**
+     * Thread synchronization attempts retried due to the target thread being at
+     * an un-translatable spot.
+     */
+    uint64 synchs_not_at_safe_spot;
 } dr_stats_t;
 
 /* DR_API EXPORT END */

@@ -1,6 +1,6 @@
-/* ******************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
- * ******************************************************/
+/* **********************************************************
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * **********************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -13,14 +13,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,22 +30,42 @@
  * DAMAGE.
  */
 
-#include "test_mode_annotations.h"
+#include "tools.h"
 
-DR_DEFINE_ANNOTATION(void, test_annotation_init_mode, (unsigned int mode), )
+int
+main()
+{
+    void *bad_mem = mmap(NULL, 0, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (bad_mem != MAP_FAILED) {
+        print("zero-length mmap succeeded\n");
+        return EXIT_FAILURE;
+    }
 
-DR_DEFINE_ANNOTATION(void, test_annotation_init_context,
-                     (unsigned int id, const char *name, unsigned int initial_mode), )
+    void *mem = mmap(NULL, 1, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (mem == MAP_FAILED) {
+        print("non-zero-length mmap failed\n");
+        return EXIT_FAILURE;
+    }
 
-DR_DEFINE_ANNOTATION(unsigned int, test_annotation_get_mode, (unsigned int context_id),
-                     return 0)
+    int mprotect_res = mprotect(mem, 0, PROT_NONE);
+    if (mprotect_res == -1) {
+        print("zero-length mprotect failed\n");
+        return EXIT_FAILURE;
+    }
 
-DR_DEFINE_ANNOTATION(void, test_annotation_set_mode,
-                     (unsigned int context_id, unsigned int mode), )
+#ifndef MACOS
+    void *new_mem = mremap(mem, 0, 0, 0);
+    if (new_mem != MAP_FAILED) {
+        print("zero-length mremap succeeded\n");
+        return EXIT_FAILURE;
+    }
+#endif
 
-DR_DEFINE_ANNOTATION(void, test_annotation_get_pc, (void), )
+    int munmap_res = munmap(mem, 0);
+    if (munmap_res != -1) {
+        print("zero-length munmap succeeded\n");
+        return EXIT_FAILURE;
+    }
 
-DR_DEFINE_ANNOTATION(const char *, test_annotation_get_client_version, (void),
-                     return NULL)
-
-DR_DEFINE_ANNOTATION(void, test_annotation_rotate_valgrind_handler, (int phase), )
+    print("done\n");
+}

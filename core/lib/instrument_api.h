@@ -601,6 +601,10 @@ DR_API
  * if it is false, DR may only be querying for the address (\p
  * mcontext.pc) or register state and may not relocate this thread.
  *
+ * DR will call this event for all translation attempts, even when the
+ * register state already contains application values, to allow
+ * clients to restore memory.
+ *
  * The \p app_code_consistent parameter indicates whether the original
  * application code containing the instruction being translated is
  * guaranteed to still be in the same state it was when the code was
@@ -792,8 +796,7 @@ DR_API
  * Clients may want to avoid touching resources shared between processes,
  * like files, from the post-fork execution of the callback. The post-fork
  * version of the callback can be recognized by dr_get_process_id()
- * returning a different value than it returned during the corresponding
- * thread init event.
+ * returning a different value than dr_get_process_id_from_drcontext().
  *
  * See dr_set_process_exit_behavior() for options controlling performance
  * and whether thread exit events are invoked at process exit time in
@@ -1808,6 +1811,15 @@ DR_API
 process_id_t
 dr_get_process_id(void);
 
+DR_API
+/**
+ * Returns the process id of the process associated with drcontext \p drcontext.
+ * The returned value may be different from dr_get_process_id() if the passed context
+ * was created in a different process, which may happen in thread exit callbacks.
+ */
+process_id_t
+dr_get_process_id_from_drcontext(void *drcontext);
+
 #    ifdef UNIX
 DR_API
 /**
@@ -2184,6 +2196,9 @@ DR_API
 /**
  * Allocates \p size bytes of memory from DR's memory pool specific to the
  * thread associated with \p drcontext.
+ * This memory is only guaranteed to be aligned to the pointer size:
+ * 8 byte alignment for 64-bit; 4-byte alignment for 32-bit.
+ * (The wrapped malloc() guarantees the more standard double-pointer-size.)
  */
 void *
 dr_thread_alloc(void *drcontext, size_t size);
@@ -2197,7 +2212,12 @@ void
 dr_thread_free(void *drcontext, void *mem, size_t size);
 
 DR_API
-/** Allocates \p size bytes of memory from DR's global memory pool. */
+/**
+ * Allocates \p size bytes of memory from DR's global memory pool.
+ * This memory is only guaranteed to be aligned to the pointer size:
+ * 8 byte alignment for 64-bit; 4-byte alignment for 32-bit.
+ * (The wrapped malloc() guarantees the more standard double-pointer-size.)
+ */
 void *
 dr_global_alloc(size_t size);
 
@@ -2324,6 +2344,8 @@ DR_API
  * versions that allocate memory from DR's private pool.  With -wrap,
  * clients can link to libraries that allocate heap memory without
  * interfering with application allocations.
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
  */
 void *
 __wrap_malloc(size_t size);
@@ -2334,6 +2356,8 @@ DR_API
  * behavior of realloc.  Memory must be freed with __wrap_free().  The
  * __wrap routines are intended to be used with ld's -wrap option; see
  * __wrap_malloc() for more information.
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
  */
 void *
 __wrap_realloc(void *mem, size_t size);
@@ -2344,6 +2368,8 @@ DR_API
  * behavior of calloc.  Memory must be freed with __wrap_free().  The
  * __wrap routines are intended to be used with ld's -wrap option; see
  * __wrap_malloc() for more information.
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
  */
 void *
 __wrap_calloc(size_t nmemb, size_t size);
@@ -2365,6 +2391,8 @@ DR_API
  * null.  Memory must be freed with __wrap_free().  The __wrap
  * routines are intended to be used with ld's -wrap option; see
  * __wrap_malloc() for more information.
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
  */
 char *
 __wrap_strdup(const char *str);
@@ -2973,9 +3001,38 @@ DR_API
 /**
  * Atomically adds \p val to \p *dest and returns the sum.
  * \p dest must not straddle two cache lines.
+ * Currently 64-bit-build only.
  */
 int64
 dr_atomic_add64_return_sum(volatile int64 *dest, int64 val);
+#    endif
+
+DR_API
+/** Atomically and visibly loads the value at \p src and returns it. */
+int
+dr_atomic_load32(volatile int *src);
+
+DR_API
+/** Atomically and visibly stores \p val to \p dest. */
+void
+dr_atomic_store32(volatile int *dest, int val);
+
+#    ifdef X64
+DR_API
+/**
+ * Atomically and visibly loads the value at \p src and returns it.
+ * Currently 64-bit-build only.
+ */
+int64
+dr_atomic_load64(volatile int64 *src);
+
+DR_API
+/**
+ * Atomically and visibly stores \p val to \p dest.
+ * Currently 64-bit-build only.
+ */
+void
+dr_atomic_store64(volatile int64 *dest, int64 val);
 #    endif
 
 /* DR_API EXPORT BEGIN */
@@ -6353,8 +6410,8 @@ DR_API
 /**
  * Retrieves various statistics exported by DR as global, process-wide values.
  * The API is not thread-safe.
- * The caller is expected to pass a pointer to a valid, initialized dr_stats_t
- * value, with the size field set (see dr_stats_t).
+ * The caller is expected to pass a pointer to a valid, initialized #dr_stats_t
+ * value, with the size field set (see #dr_stats_t).
  * Returns false if stats are not enabled.
  */
 bool

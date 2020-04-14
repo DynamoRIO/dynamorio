@@ -59,8 +59,11 @@ static bool case2_analysis_destroy_called = false;
 static bool instrum_called = false;
 
 /* Assume single threaded. */
-static uintptr_t encode_val = 1;
+static uintptr_t encode_val = 3;
 static bool enable_dups_flag = false;
+/* Counters to test statistics provided by drbbdup. */
+static unsigned long no_dup_count = 0;
+static unsigned long no_dynamic_handling_count = 0;
 
 static uintptr_t
 set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
@@ -77,6 +80,10 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     CHECK(res == DRBBDUP_SUCCESS, "failed to register case 1");
     res = drbbdup_register_case_encoding(drbbdup_ctx, 2);
     CHECK(res == DRBBDUP_SUCCESS, "failed to register case 2");
+
+    if (!enable_dups_flag)
+        no_dup_count++;
+    no_dynamic_handling_count++;
 
     *enable_dups = enable_dups_flag;
     enable_dups_flag = !enable_dups_flag; /* alternate flag */
@@ -148,14 +155,10 @@ destroy_analysis(void *drcontext, uintptr_t encoding, void *user_data,
 }
 
 static void
-encode()
+update_encoding()
 {
-    drbbdup_set_encoding(encode_val);
-
-    switch (encode_val) {
-    case 1: encode_val++; break;
-    default: encode_val = 0;
-    }
+    if (encode_val != 0)
+        encode_val--;
 }
 
 static void
@@ -165,7 +168,7 @@ insert_encode(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
     CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
 
-    dr_insert_clean_call(drcontext, bb, where, encode, false, 0);
+    dr_insert_clean_call(drcontext, bb, where, update_encoding, false, 0);
 }
 
 static void
@@ -179,7 +182,7 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                  instr_t *where, uintptr_t encoding, void *user_data,
                  void *orig_analysis_data, void *analysis_data)
 {
-    bool is_start;
+    bool is_first, is_first_nonlabel;
     drbbdup_status_t res;
 
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
@@ -198,10 +201,16 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     default: CHECK(false, "invalid encoding");
     }
 
-    res = drbbdup_is_first_instr(drcontext, instr, &is_start);
+    res = drbbdup_is_first_instr(drcontext, instr, &is_first);
     CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is start");
 
-    if (is_start && encoding != 0) {
+    if (is_first && !instr_is_label(instr)) {
+        res = drbbdup_is_first_nonlabel_instr(drcontext, instr, &is_first_nonlabel);
+        CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is first non label");
+        CHECK(is_first_nonlabel, "should be first non label");
+    }
+
+    if (is_first && encoding != 0) {
         instrum_called = true;
         dr_insert_clean_call(drcontext, bb, where, print_case, false, 1,
                              OPND_CREATE_INTPTR(encoding));
@@ -212,6 +221,16 @@ static void
 event_exit(void)
 {
     drbbdup_status_t res;
+
+    drbbdup_stats_t stats = { sizeof(drbbdup_stats_t) };
+    res = drbbdup_get_stats(&stats);
+    CHECK(res == DRBBDUP_SUCCESS, "drbbdup statistics gathering failed");
+
+    CHECK(stats.no_dup_count == no_dup_count, "no dup count should match");
+    CHECK(stats.no_dynamic_handling_count == no_dynamic_handling_count,
+          "no dynamic handling count should match");
+    CHECK(stats.bail_count == 0, "should be 0 since dynamic case gen is turned off");
+    CHECK(stats.gen_count == 0, "should be 0 since dynamic case gen is turned off");
 
     res = drbbdup_exit();
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup exit failed");
@@ -233,23 +252,23 @@ event_exit(void)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    drbbdup_status_t res;
-
     drmgr_init();
 
-    drbbdup_options_t opts = { sizeof(drbbdup_options_t),
-                               set_up_bb_dups,
-                               insert_encode,
-                               orig_analyse_bb,
-                               destroy_orig_analysis,
-                               analyse_bb,
-                               destroy_analysis,
-                               instrument_instr,
-                               NULL,
-                               USER_DATA_VAL,
-                               2 /* num of cases. */ };
+    drbbdup_options_t opts = { 0 };
+    opts.struct_size = sizeof(drbbdup_options_t);
+    opts.set_up_bb_dups = set_up_bb_dups;
+    opts.insert_encode = insert_encode;
+    opts.analyze_orig = orig_analyse_bb;
+    opts.destroy_orig_analysis = destroy_orig_analysis;
+    opts.analyze_case = analyse_bb;
+    opts.destroy_case_analysis = destroy_analysis;
+    opts.instrument_instr = instrument_instr;
+    opts.runtime_case_opnd = opnd_create_abs_addr(&encode_val, OPSZ_PTR);
+    opts.user_data = USER_DATA_VAL;
+    opts.dup_limit = 2;
+    opts.is_stat_enabled = true;
 
-    res = drbbdup_init(&opts);
+    drbbdup_status_t res = drbbdup_init(&opts);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");
     dr_register_exit_event(event_exit);
 }

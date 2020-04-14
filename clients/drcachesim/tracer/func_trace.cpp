@@ -263,8 +263,11 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
             NOTIFY(1, "Duplicate-pc hook: %s!%s == id %d\n", mod_name, f->name, id);
             continue;
         }
+        uint flags = 0;
+        if (!f->noret && op_record_replace_retaddr.get_value())
+            flags = DRWRAP_REPLACE_RETADDR;
         if (drwrap_wrap_ex(f_pc, func_pre_hook, f->noret ? nullptr : func_post_hook,
-                           (void *)(ptr_uint_t)id, 0)) {
+                           (void *)(ptr_uint_t)id, flags)) {
             NOTIFY(1, "Inserted hooks for %s!%s @" PFX " == id %d\n", mod_name, f->name,
                    f_pc, id);
         } else {
@@ -488,6 +491,9 @@ func_trace_exit()
 
     if (funcs_str.empty())
         return;
+    /* Clear for re-attach. */
+    funcs_str.clear();
+    funcs_str_sep.clear();
     hashtable_delete(&pc2idplus1);
     if (!drvector_delete(&funcs_wrapped) || !drvector_delete(&func_names))
         DR_ASSERT(false);

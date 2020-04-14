@@ -108,7 +108,7 @@ protected:
     open_input_files()
     {
         if (!input_path_list_.empty()) {
-            for (std::string path : input_path_list_) {
+            for (const std::string &path : input_path_list_) {
                 if (!open_single_file(path)) {
                     ERRMSG("Failed to open %s\n", path.c_str());
                     return false;

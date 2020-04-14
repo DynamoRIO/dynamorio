@@ -45,6 +45,13 @@
 extern "C" {
 #endif
 
+#define drmgr_is_first_instr \
+    DO_NOT_USE_drmgr_is_first_instr_USE_drbbdup_is_first_instr_instead
+#define drmgr_is_first_nonlabel_instr \
+    DO_NOT_USE_drmgr_is_first_nonlabel_instr_USE_drbbdup_is_first_nonlabel_instr_instead
+#define drmgr_is_last_instr \
+    DO_NOT_USE_drmgr_is_last_instr_USE_drbbdup_is_last_instr_instead
+
 /**
  * \addtogroup drbbdup Basic Block Duplicator
  */
@@ -58,6 +65,8 @@ typedef enum {
     DRBBDUP_ERROR_CASE_LIMIT_REACHED,      /**< Operation failed: case limit reached. */
     DRBBDUP_ERROR_ALREADY_INITIALISED,     /**< DRBBDUP can only be initialised once. */
     DRBBDUP_ERROR,                         /**< Operation failed. */
+    DRBBDUP_ERROR_UNSET_FEATURE,           /**< Operation failed: feature not set. */
+    DRBBDUP_ERROR_NOT_INITIALIZED,         /**< Operation failed: not initialized. */
 } drbbdup_status_t;
 
 /***************************************************************************
@@ -93,7 +102,7 @@ typedef uintptr_t (*drbbdup_set_up_bb_dups_t)(void *drbbdup_ctx, void *drcontext
  * to go ahead or stop the generation of an additional basic block copy.
  * The call-back should return true if generation should be done, and false otherwise.
  * In addition, the call-back can also turn off dynamic handling for the considered basic
- * block by setting \p enable_dynamic_handling.
+ * block by setting \p enable_dynamic_handling to false.
  */
 typedef bool (*drbbdup_allow_gen_t)(void *drcontext, void *tag, instrlist_t *ilist,
                                     uintptr_t new_case, bool *enable_dynamic_handling,
@@ -163,13 +172,16 @@ typedef void (*drbbdup_destroy_case_analysis_t)(void *drcontext, uintptr_t encod
 
 /**
  * Inserts code responsible for encoding the current runtime
- * case. The function should store the resulting pointer-sized encoding to the memory
- * destination operand obtained via drbbdup_get_encoding_opnd(). If the user has
- * implemented the encoder via a clean call, drbbdup_set_encoding() should be
- * used instead.
+ * case at point of entry to the dispatcher. The function should
+ * store the resulting pointer-sized encoding to memory that is
+ * directly accessible via the reference operand passed to drbbdup_init().
  *
  * The user data \p user_data is that supplied to drbbdup_init(). Analysis data
- * \p orig_analysis_data that was conducted on the original bb is also provided.
+ * \p orig_analysis_data, which was conducted on the original bb, is also provided.
+ *
+ * \note This call-back is optional and if set to NULL when initializing drbbdup,
+ * the runtime case encoding is just loaded. The memory storing the runtime case
+ * encoding is not modified by drbbdup.
  */
 typedef void (*drbbdup_insert_encode_t)(void *drcontext, void *tag, instrlist_t *bb,
                                         instr_t *where, void *user_data,
@@ -196,7 +208,7 @@ typedef void (*drbbdup_instrument_instr_t)(void *drcontext, void *tag, instrlist
  */
 
 /**
- * Specifies the options when initialising drbbdup. \p set_up_bb_dups, \p insert_encode
+ * Specifies the options when initialising drbbdup. \p set_up_bb_dups
  * and \p instrument_instr cannot be NULL, while \p dup_limit must be greater than zero.
  */
 typedef struct {
@@ -210,7 +222,12 @@ typedef struct {
     /**
      * A user-defined call-back function that inserts code to encode the runtime case.
      * The resulting encoding is used by the dispatcher to direct control to the
-     * appropriate basic block. Cannot be NULL.
+     * appropriate basic block.
+     *
+     * It can be left NULL. In such cases, it is expected that the runtime case encoding
+     * of a thread is done by external code and updated on demand. Essentially,
+     * drbbdup guarantees that it won't change the client's memory that stores the
+     * encoding, thus enabling insert_encode to perform no operation and not be needed.
      */
     drbbdup_insert_encode_t insert_encode;
     /**
@@ -246,6 +263,17 @@ typedef struct {
      */
     drbbdup_allow_gen_t allow_gen;
     /**
+     * An operand that refers to the memory containing the current runtime case encoding.
+     * During runtime, the dispatcher loads the runtime encoding via this operand
+     * in order to direct control to the appropriate basic block.
+     */
+    opnd_t runtime_case_opnd;
+    /**
+     * Instructs drbbdup whether or not the loading of the runtime case should be
+     * locked/atomic.
+     */
+    bool atomic_load_encoding;
+    /**
      * User-data made available to user-defined call-back functions that drbbdup invokes
      * to manage basic block duplication.
      */
@@ -261,22 +289,57 @@ typedef struct {
      * thread before it becomes a candidate for dynamic generation.
      */
     ushort hit_threshold;
+    /**
+     * Determines whether drbbdup should track a variety of statistics. Note, keeping
+     * track of statistics incurs additional overhead and it is not recommended at
+     * deployment.
+     *
+     * In order for the client to successfully call drbbdup_get_stats(), the flag must be
+     * set to true.
+     */
+    bool is_stat_enabled;
 } drbbdup_options_t;
+
+/**
+ * Various statistics related to drbbdup.
+ */
+typedef struct {
+    /** Set this to the size of this structure. */
+    size_t struct_size;
+    /** Number of fragments which have case handling turned off. */
+    unsigned long no_dup_count;
+    /** Number of fragments which have dynamic case handling turned off. */
+    unsigned long no_dynamic_handling_count;
+    /** Number of cases handled via dynamic generation. */
+    unsigned long gen_count;
+    /**
+     * Execution count of bails to the default case due to encountered unhandled
+     * cases.
+     */
+    unsigned long bail_count;
+} drbbdup_stats_t;
 
 /**
  * Priorities of drmgr instrumentation passes used by drbbdup. Users
  * can perform app2app manipulations prior to duplication
- * by ordering such changes before #DRMGR_PRIORITY_DRBBDUP.
+ * by ordering such changes before #DRMGR_PRIORITY_APP2APP_DRBBDUP.
  */
 enum {
-    /** Priority of drbbdup. */
-    DRMGR_PRIORITY_DRBBDUP = -1500
+    /** Priority of drbbdup's app2app stage. */
+    DRMGR_PRIORITY_APP2APP_DRBBDUP = 6500,
+    /** Priority of drbbdup's insert stage. */
+    DRMGR_PRIORITY_INSERT_DRBBDUP = -6500
 };
 
 /**
- * Name of drbbdup priorities for analysis and insert steps.
+ * Name of drbbdup app2app priority.
  */
-#define DRMGR_PRIORITY_NAME_DRBBDUP "drbbdup"
+#define DRMGR_PRIORITY_APP2APP_NAME_DRBBDUP "drbbdup_app2app"
+
+/**
+ * Name of drbbdup insert priority.
+ */
+#define DRMGR_PRIORITY_INSERT_NAME_DRBBDUP "drbbdup_insert"
 
 DR_EXPORT
 /**
@@ -330,29 +393,6 @@ drbbdup_register_case_encoding(void *drbbdup_ctx, uintptr_t encoding);
 
 DR_EXPORT
 /**
- * Sets the runtime case encoding \p encoding.
- *
- * Must be called from a clean call inserted via a drbbdup_insert_encode_t call-back
- * function.
- */
-drbbdup_status_t
-drbbdup_set_encoding(uintptr_t encoding);
-
-DR_EXPORT
-/**
- * Retrieves a memory destination operand which should be used to set the runtime case
- * encoding.
- *
- * Must be called from code stemming from a drbbdup_insert_encode_t call-back function.
- *
- * @return a destination operand that refers to a memory location where the encoding
- * should be stored.
- */
-opnd_t
-drbbdup_get_encoding_opnd();
-
-DR_EXPORT
-/**
  * Indicates whether the instruction \p instr is the first instruction of
  * the currently considered basic block copy. The result is returned in \p is_start.
  *
@@ -365,6 +405,18 @@ drbbdup_is_first_instr(void *drcontext, instr_t *instr, OUT bool *is_start);
 
 DR_EXPORT
 /**
+ * Indicates whether the instruction \p instr is the first non label instruction of
+ * the currently considered basic block copy. The result is returned in \p is_nonlabel.
+ *
+ * Must be called via a #drbbdup_instrument_instr_t call-back function.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drbbdup_status_t
+drbbdup_is_first_nonlabel_instr(void *drcontext, instr_t *instr, bool *is_nonlabel);
+
+DR_EXPORT
+/**
  * Indicates whether the instruction \p instr is the last instruction of the currently
  * considered basic block copy. The result is returned in \p is_last.
  *
@@ -374,6 +426,19 @@ DR_EXPORT
  */
 drbbdup_status_t
 drbbdup_is_last_instr(void *drcontext, instr_t *instr, OUT bool *is_last);
+
+DR_EXPORT
+/**
+ * Returns various statistics regarding drbbdup. In particular, the routine
+ * populates \p stats with current values.
+ *
+ * Note that the invocation of this routine is only successful if statistics gathering
+ * is set via #drbbdup_options_t when initializing drbbdup.
+ *
+ * Internally, a lock is used while gathering the statistics.
+ */
+drbbdup_status_t
+drbbdup_get_stats(OUT drbbdup_stats_t *stats);
 
 /*@}*/ /* end doxygen group */
 

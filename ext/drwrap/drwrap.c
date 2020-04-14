@@ -71,19 +71,32 @@ static uint verbose = 0;
 
 #define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
 
-/* We rely on being able to clobber this register at call sites */
+/* We rely on being able to clobber this register at call sites. */
+/* At return, we assume we can clobber caller-saved regs not used for return values. */
 #ifdef ARM
 #    define CALL_POINT_SCRATCH_REG DR_REG_R12
+#    define RETURN_POINT_SCRATCH_REG DR_REG_R1
+#elif defined(AARCH64)
+#    define CALL_POINT_SCRATCH_REG DR_REG_X12
+#    define RETURN_POINT_SCRATCH_REG DR_REG_X1
 #elif defined(X64)
 #    define CALL_POINT_SCRATCH_REG DR_REG_R11
+#    define RETURN_POINT_SCRATCH_REG DR_REG_RCX
+#elif defined(X86)
+#    define CALL_POINT_SCRATCH_REG DR_REG_NULL /* Unused. */
+#    define RETURN_POINT_SCRATCH_REG DR_REG_ECX
 #else
 #    define CALL_POINT_SCRATCH_REG DR_REG_NULL
+#    define RETURN_POINT_SCRATCH_REG DR_REG_NULL
 #endif
 
+/* XXX i#4215: DR should provide 64-bit-sized atomics for 32-bit code. */
 #ifdef X64
 #    define dr_atomic_add_stat_return_sum dr_atomic_add64_return_sum
+#    define dr_atomic_load_stat dr_atomic_load64
 #else
 #    define dr_atomic_add_stat_return_sum dr_atomic_add32_return_sum
+#    define dr_atomic_load_stat dr_atomic_load32
 #endif
 
 /* protected by wrap_lock */
@@ -105,6 +118,9 @@ replace_native_ret_imms(void);
 
 void
 replace_native_ret_imms_end(void);
+
+void
+replace_retaddr_sentinel(void);
 
 #ifdef AARCHXX
 byte *
@@ -221,6 +237,7 @@ typedef struct _per_thread_t {
     /* did we see an exception while in a wrapped routine? */
     bool hit_exception;
 #endif
+    app_pc retaddr[MAX_WRAP_NESTING];
 } per_thread_t;
 
 /***************************************************************************
@@ -863,8 +880,9 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
 static void
 drwrap_event_module_unload(void *drcontext, const module_data_t *info);
 
-static void
-drwrap_fragment_delete(void *dc /*may be NULL*/, void *tag);
+static bool
+drwrap_event_restore_state_ex(void *drcontext, bool restore_memory,
+                              dr_restore_state_info_t *info);
 
 static inline void
 drwrap_in_callee_check_unwind(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc);
@@ -923,6 +941,8 @@ drwrap_init(void)
     if (!drmgr_register_bb_instrumentation_event(drwrap_event_bb_analysis,
                                                  drwrap_event_bb_insert, &pri_insert))
         return false;
+    if (!drmgr_register_restore_state_ex_event(drwrap_event_restore_state_ex))
+        return false;
 
     hashtable_init(&replace_table, REPLACE_TABLE_HASH_BITS, HASH_INTPTR,
                    false /*!strdup*/);
@@ -937,7 +957,6 @@ drwrap_init(void)
     post_call_rwlock = dr_rwlock_create();
     wrap_lock = dr_recurlock_create();
     drmgr_register_module_unload_event(drwrap_event_module_unload);
-    dr_register_delete_event(drwrap_fragment_delete);
 
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1)
@@ -980,9 +999,9 @@ drwrap_exit(void)
 
     if (!drmgr_unregister_bb_app2app_event(drwrap_event_bb_app2app) ||
         !drmgr_unregister_bb_instrumentation_event(drwrap_event_bb_analysis) ||
+        !drmgr_unregister_restore_state_ex_event(drwrap_event_restore_state_ex) ||
         !drmgr_unregister_module_unload_event(drwrap_event_module_unload) ||
-        !drmgr_unregister_tls_field(tls_idx) ||
-        !dr_unregister_delete_event(drwrap_fragment_delete))
+        !drmgr_unregister_tls_field(tls_idx))
         ASSERT(false, "failed to unregister in drwrap_exit");
 
     for (int i = 0; i < POSTCALL_CACHE_SIZE; i++) {
@@ -1486,6 +1505,17 @@ drwrap_event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
 {
     instr_t *inst;
     app_pc pc, replace;
+    if (dr_fragment_app_pc(tag) == (app_pc)replace_retaddr_sentinel) {
+        /* This is our sentinel.  We want this to be invisible to observation clients,
+         * so we remove our return instruction and replace with just a meta nop.
+         * The insert event will still be called by drmgr.
+         */
+        inst = instrlist_first(bb);
+        ASSERT(instr_get_next(inst) == NULL, "Must just be 1 instr");
+        instrlist_meta_preinsert(bb, inst, XINST_CREATE_nop(drcontext));
+        instrlist_remove(bb, inst);
+        instr_destroy(drcontext, inst);
+    }
     if (replace_table.entries == 0 && replace_native_table.entries == 0)
         return DR_EMIT_DEFAULT;
     /* XXX: if we had dr_bbs_cross_ctis() query (i#427) we could just check 1st instr */
@@ -1646,9 +1676,8 @@ drwrap_flush_func(app_pc func)
         ASSERT(false, "wrap update flush failed");
 }
 
-#ifdef X86
 static app_pc
-get_retaddr_at_entry(reg_t xsp)
+get_retaddr_from_stack(reg_t xsp)
 {
     app_pc retaddr = NULL;
     if (TEST(DRWRAP_SAFE_READ_RETADDR, global_flags)) {
@@ -1658,7 +1687,20 @@ get_retaddr_at_entry(reg_t xsp)
         retaddr = *(app_pc *)xsp;
     return retaddr;
 }
-#endif
+
+static bool
+set_retaddr_on_stack(reg_t xsp, app_pc value)
+{
+    bool res = true;
+    if (TEST(DRWRAP_SAFE_READ_RETADDR, global_flags)) {
+        DR_TRY_EXCEPT(dr_get_current_drcontext(), { *(app_pc *)xsp = value; },
+                      { /* EXCEPT */
+                        res = false;
+                      });
+    } else
+        *(app_pc *)xsp = value;
+    return res;
+}
 
 /* may not return */
 static void
@@ -1752,8 +1794,8 @@ wrap_table_lookup_normalized_pc(app_pc pc)
  * wrap_lock is held
  */
 static inline void
-drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap, drwrap_context_t *wrapcxt,
-                       app_pc decorated_pc)
+drwrap_ensure_postcall(void *drcontext, per_thread_t *pt, wrap_entry_t *wrap,
+                       drwrap_context_t *wrapcxt, app_pc decorated_pc)
 {
     if (TEST(DRWRAP_NO_DYNAMIC_RETADDRS, wrap->flags)) {
         /* i#0470: On a large multithreaded app, using shared memory here and especially
@@ -1768,6 +1810,19 @@ drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap, drwrap_context_t *wr
     }
     app_pc retaddr = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, wrapcxt->retaddr);
     app_pc plain_pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, decorated_pc);
+    if (TEST(DRWRAP_REPLACE_RETADDR, wrap->flags)) {
+        NOTIFY(2, "DRWRAP_REPLACE_RETADDR: saving real retaddr as [%d] " PFX "\n",
+               pt->wrap_level, retaddr);
+        pt->retaddr[pt->wrap_level] = wrapcxt->retaddr; /* Original, not load tgt. */
+#ifdef X86
+        set_retaddr_on_stack(wrapcxt->mc->xsp, (app_pc)replace_retaddr_sentinel);
+#else
+        drwrap_get_mcontext_internal(wrapcxt, DR_MC_CONTROL);
+        wrapcxt->mc->lr = (reg_t)replace_retaddr_sentinel;
+        wrapcxt->mc_modified = true;
+#endif
+        return;
+    }
     int i;
     /* avoid lock and hashtable lookup by caching prior retaddrs */
     for (i = 0; i < POSTCALL_CACHE_SIZE; i++) {
@@ -1839,7 +1894,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
     NOTIFY(2, "%s: level %d function " PFX "\n", __FUNCTION__, pt->wrap_level + 1, pc);
 
     drwrap_context_init(drcontext, &wrapcxt, pc, &mc, DRWRAP_WHERE_PRE_FUNC,
-                        IF_X86_ELSE(get_retaddr_at_entry(xsp), (app_pc)lr));
+                        IF_X86_ELSE(get_retaddr_from_stack(xsp), (app_pc)lr));
 
     drwrap_in_callee_check_unwind(drcontext, pt, &mc);
 
@@ -1853,18 +1908,6 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
     decorated_pc = pc;
     pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, pc);
 
-    /* ensure we have post-call instru */
-    if (wrap != NULL) {
-        for (e = wrap; e != NULL; e = e->next) {
-            if (e->enabled && e->post_cb != NULL) {
-                intercept_post = true;
-                break; /* we do need a post-call hook */
-            }
-        }
-        if (intercept_post && wrapcxt.retaddr != NULL)
-            drwrap_ensure_postcall(drcontext, wrap, &wrapcxt, decorated_pc);
-    }
-
     pt->wrap_level++;
     ASSERT(pt->wrap_level >= 0, "wrapping level corrupted");
     ASSERT(pt->wrap_level < MAX_WRAP_NESTING, "max wrapped nesting reached");
@@ -1874,6 +1917,21 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
         wrapcxt.where_am_i = DRWRAP_WHERE_OUTSIDE_CALLBACK;
         return; /* we'll have to skip stuff */
     }
+    /* Clear this field to make state restoration easier. */
+    pt->retaddr[pt->wrap_level] = NULL;
+
+    /* ensure we have post-call instru */
+    if (wrap != NULL) {
+        for (e = wrap; e != NULL; e = e->next) {
+            if (e->enabled && e->post_cb != NULL) {
+                intercept_post = true;
+                break; /* we do need a post-call hook */
+            }
+        }
+        if (intercept_post && wrapcxt.retaddr != NULL)
+            drwrap_ensure_postcall(drcontext, pt, wrap, &wrapcxt, decorated_pc);
+    }
+
     pt->last_wrap_func[pt->wrap_level] = decorated_pc;
     if (TEST(DRWRAP_NO_FRILLS, global_flags))
         pt->last_wrap_entry[pt->wrap_level] = wrap;
@@ -2012,6 +2070,12 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
             if (TEST(DRWRAP_NO_FRILLS, global_flags))
                 dr_recurlock_unlock(wrap_lock);
             continue;
+        }
+        if (TEST(DRWRAP_REPLACE_RETADDR, wrap->flags)) {
+            NOTIFY(2, "DRWRAP_REPLACE_RETADDR: setting real retaddr as [%d] " PFX "\n",
+                   level, pt->retaddr[level]);
+            dr_write_saved_reg(drcontext, SPILL_SLOT_REDIRECT_NATIVE_TGT,
+                               (reg_t)pt->retaddr[level]);
         }
         if (TEST(DRWRAP_NO_FRILLS, global_flags)) {
             user_data = pt->user_data_nofrills[level];
@@ -2181,6 +2245,25 @@ drwrap_after_callee(app_pc retaddr, reg_t xsp)
     }
 }
 
+static void
+drwrap_insert_post_call(void *drcontext, instrlist_t *bb, instr_t *where,
+                        app_pc pc_as_jmp_target)
+{
+    /* XXX: for DRWRAP_FAST_CLEANCALLS we must preserve state b/c
+     * our post-call points can be reached through non-return paths.
+     * We could insert an inline check for "pt->wrap_level >= 0" but
+     * that requires spilling a GPR and flags and gets messy w/o drreg
+     * vs other components' spill slots.
+     */
+    dr_cleancall_save_t flags = 0;
+    NOTIFY(2, "drwrap inserting post-call cb at " PFX "\n", pc_as_jmp_target);
+    dr_insert_clean_call_ex(drcontext, bb, where, (void *)drwrap_after_callee, flags, 2,
+                            /* i#1689: retaddrs do have LSB=1 */
+                            OPND_CREATE_INTPTR((ptr_int_t)pc_as_jmp_target),
+                            /* pass in xsp to avoid dr_get_mcontext */
+                            opnd_create_reg(DR_REG_XSP));
+}
+
 static dr_emit_flags_t
 drwrap_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                          bool translating, OUT void **user_data)
@@ -2193,6 +2276,7 @@ static dr_emit_flags_t
 drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                        bool for_trace, bool translating, void *user_data)
 {
+    dr_emit_flags_t res = DR_EMIT_DEFAULT;
     /* XXX: if we had dr_bbs_cross_ctis() query (i#427) we could just check 1st instr
      */
     wrap_entry_t *wrap;
@@ -2232,20 +2316,24 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     dr_recurlock_unlock(wrap_lock);
 
     if (post_call_lookup_for_instru(instr_get_app_pc(inst) /*normalized*/)) {
-        /* XXX: for DRWRAP_FAST_CLEANCALLS we must preserve state b/c
-         * our post-call points can be reached through non-return paths.
-         * We could insert an inline check for "pt->wrap_level >= 0" but
-         * that requires spilling a GPR and flags and gets messy w/o drreg
-         * vs other components' spill slots.
+        drwrap_insert_post_call(drcontext, bb, inst, pc);
+    }
+
+    if (dr_fragment_app_pc(tag) == (app_pc)replace_retaddr_sentinel) {
+        drwrap_insert_post_call(drcontext, bb, inst, pc);
+        /* The post-call C code put the real retaddr into the DR slot that will be
+         * used by dr_redirect_native_target().
          */
-        dr_cleancall_save_t flags = 0;
-        NOTIFY(2, "drwrap inserting post-call cb at " PFX "\n", pc);
-        dr_insert_clean_call_ex(drcontext, bb, inst, (void *)drwrap_after_callee, flags,
-                                2,
-                                /* i#1689: retaddrs do have LSB=1 */
-                                OPND_CREATE_INTPTR((ptr_int_t)pc),
-                                /* pass in xsp to avoid dr_get_mcontext */
-                                opnd_create_reg(DR_REG_XSP));
+        app_pc tgt = dr_redirect_native_target(drcontext);
+        reg_id_t scratch = RETURN_POINT_SCRATCH_REG;
+        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)tgt,
+                                         opnd_create_reg(scratch), bb, inst, NULL, NULL);
+        instrlist_meta_preinsert(
+            bb, inst, XINST_CREATE_jump_reg(drcontext, opnd_create_reg(scratch)));
+        /* This unusual transition confuses DR trying to stitch blocks together into
+         * a trace.
+         */
+        res = DR_EMIT_MUST_END_TRACE;
     }
 
     if (instr_is_call(inst) && instr_is_app(inst) && opnd_is_pc(instr_get_target(inst))) {
@@ -2253,9 +2341,10 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
                                                  opnd_get_pc(instr_get_target(inst)));
         dr_recurlock_lock(wrap_lock);
         wrap = hashtable_lookup(&wrap_table, (void *)target);
-        bool wrapping = wrap != NULL && wrap->post_cb != NULL;
+        bool add_post = wrap != NULL && wrap->post_cb != NULL &&
+            !TEST(DRWRAP_REPLACE_RETADDR, wrap->flags);
         dr_recurlock_unlock(wrap_lock);
-        if (wrapping) {
+        if (add_post) {
             /* Add the pc-as-load-target (so *not* "pc"). */
             dr_rwlock_write_lock(post_call_rwlock);
             post_call_entry_add(instr_get_app_pc(inst) + instr_length(drcontext, inst),
@@ -2264,7 +2353,7 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
         }
     }
 
-    return DR_EMIT_DEFAULT;
+    return res;
 }
 
 static void
@@ -2285,10 +2374,73 @@ drwrap_event_module_unload(void *drcontext, const module_data_t *info)
      */
 }
 
-static void
-drwrap_fragment_delete(void *dc /*may be NULL*/, void *tag)
+static bool
+drwrap_event_restore_state_ex(void *drcontext, bool restore_memory,
+                              dr_restore_state_info_t *info)
 {
-    /* switched to checking consistency at lookup time (DrMemi#673) */
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (pt->wrap_level < 0)
+        return true;
+    if (info->mcontext->pc == (app_pc)replace_retaddr_sentinel) {
+        NOTIFY(1, "%s: updating T" TIDFMT " PC to real level %d retaddr " PFX "\n",
+               __FUNCTION__, dr_get_thread_id(drcontext), pt->wrap_level,
+               pt->retaddr[pt->wrap_level]);
+        info->mcontext->pc = pt->retaddr[pt->wrap_level];
+    }
+#ifdef AARCHXX
+    if (info->mcontext->lr == (reg_t)replace_retaddr_sentinel) {
+        NOTIFY(1, "%s: updating T" TIDFMT " LR to real retaddr " PFX "\n", __FUNCTION__,
+               dr_get_thread_id(drcontext), pt->retaddr[pt->wrap_level]);
+        info->mcontext->lr = (reg_t)pt->retaddr[pt->wrap_level];
+    }
+#endif
+    if (!restore_memory)
+        return true;
+    for (int i = 0; i <= pt->wrap_level; ++i) {
+        /* We clear pt->retaddr each time, so if it's set we know it's a replaced one. */
+        if (pt->retaddr[i] != NULL && info->mcontext->xsp <= pt->app_esp[i]) {
+#ifdef X86
+            app_pc ra = get_retaddr_from_stack(pt->app_esp[i]);
+            if (ra != (app_pc)replace_retaddr_sentinel) {
+                NOTIFY(1,
+                       "%s: WARNING: T" TIDFMT " retaddr @ " PFX " is " PFX
+                       ", not sentinel!\n",
+                       __FUNCTION__, dr_get_thread_id(drcontext), pt->app_esp[i], ra);
+                continue;
+            }
+            NOTIFY(1,
+                   "%s: updating T" TIDFMT " retaddr @ " PFX " from sentinel " PFX
+                   " to real retaddr " PFX "\n",
+                   __FUNCTION__, dr_get_thread_id(drcontext), pt->app_esp[i],
+                   replace_retaddr_sentinel, pt->retaddr[i]);
+            set_retaddr_on_stack(pt->app_esp[i], pt->retaddr[i]);
+#else
+            /* Unfortunately return addresses are pushed from the link register to the
+             * stack in non-uniform ways, forcing us to scan.  This can be time-consuming
+             * for large frames, and it could incorrectly replace a integer value that
+             * happens to look like our sentinel.  We've warned the user about this
+             * risk for this flag though.
+             */
+            app_pc *scan_stop;
+            if (i < pt->wrap_level)
+                scan_stop = (app_pc *)pt->app_esp[i + 1];
+            else
+                scan_stop = (app_pc *)info->mcontext->xsp;
+            for (app_pc *scan = (app_pc *)pt->app_esp[i]; scan <= scan_stop; --scan) {
+                app_pc ra = get_retaddr_from_stack((reg_t)scan);
+                if (ra == (app_pc)replace_retaddr_sentinel) {
+                    NOTIFY(1,
+                           "%s: updating T" TIDFMT " retaddr @ " PFX " from sentinel " PFX
+                           " to real retaddr " PFX "\n",
+                           __FUNCTION__, dr_get_thread_id(drcontext), scan,
+                           replace_retaddr_sentinel, pt->retaddr[i]);
+                    set_retaddr_on_stack((reg_t)scan, pt->retaddr[i]);
+                }
+            }
+#endif
+        }
+    }
+    return true;
 }
 
 DR_EXPORT
@@ -2302,6 +2454,10 @@ drwrap_wrap_ex(app_pc func, void (*pre_func_cb)(void *wrapcxt, INOUT void **user
     /* allow one side to be NULL (i#562) */
     if (func == NULL || (pre_func_cb == NULL && post_func_cb == NULL))
         return false;
+    if (TEST(DRWRAP_REPLACE_RETADDR, flags) && post_func_cb == NULL) {
+        /* Nonsensical combination so we fail. */
+        return false;
+    }
 
     /* XXX i#1460: should drwrap auto-flush target in case called late?
      * Currently we document that the caller must do that.
@@ -2445,7 +2601,7 @@ drwrap_get_stats(INOUT drwrap_stats_t *stats)
 {
     if (stats == NULL || stats->size != sizeof(*stats))
         return false;
-    stats->flush_count = dr_atomic_add_stat_return_sum(&drwrap_stats.flush_count, 0);
+    stats->flush_count = dr_atomic_load_stat(&drwrap_stats.flush_count);
     return true;
 }
 

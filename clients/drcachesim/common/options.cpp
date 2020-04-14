@@ -493,6 +493,14 @@ droption_t<bool> op_record_dynsym_only(
     "Symbol lookup can be expensive for large applications and libraries.  This option "
     " causes the symbol lookup for -record_function and -record_heap to look in the "
     " dynamic symbol table *only*.");
+droption_t<bool> op_record_replace_retaddr(
+    DROPTION_SCOPE_ALL, "record_replace_retaddr", false,
+    "Wrap by replacing retaddr for -record_function and -record_heap.",
+    "Function wrapping can be expensive for large concurrent applications.  This option "
+    "causes the post-function control point to be located using return address "
+    "replacement, which has lower overhead, but runs the risk of breaking an "
+    "application that examines or changes its own return addresses in the recorded "
+    "functions.");
 droption_t<unsigned int> op_miss_count_threshold(
     DROPTION_SCOPE_FRONTEND, "miss_count_threshold", 50000,
     "For cache miss analysis: minimum LLC miss count for a load to be eligible for "

@@ -5017,8 +5017,14 @@ master_signal_handler_C(byte *xsp)
         if (can_always_delay[sig])
             return;
 
-        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_HANDLE_SIGNAL, 2, get_application_name(),
-                                    get_application_pid());
+        char signum_str[8];
+        snprintf(signum_str, BUFFER_SIZE_ELEMENTS(signum_str), "%d", sig);
+        NULL_TERMINATE_BUFFER(signum_str);
+        char tid_str[16];
+        snprintf(tid_str, BUFFER_SIZE_ELEMENTS(tid_str), TIDFMT, get_sys_thread_id());
+        NULL_TERMINATE_BUFFER(tid_str);
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_HANDLE_SIGNAL, 4, get_application_name(),
+                                    get_application_pid(), signum_str, tid_str);
     }
 
     /* we may be entering dynamo from code cache! */

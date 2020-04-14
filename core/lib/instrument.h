@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -105,6 +105,13 @@ instrument_fragment_deleted(dcontext_t *dcontext, app_pc tag, uint flags);
 bool
 instrument_restore_state(dcontext_t *dcontext, bool restore_memory,
                          dr_restore_state_info_t *info);
+bool
+instrument_restore_nonfcache_state(dcontext_t *dcontext, bool restore_memory,
+                                   INOUT priv_mcontext_t *mcontext);
+bool
+instrument_restore_nonfcache_state_prealloc(dcontext_t *dcontext, bool restore_memory,
+                                            INOUT priv_mcontext_t *mcontext,
+                                            OUT dr_mcontext_t *client_mcontext);
 
 module_data_t *
 copy_module_area_to_module_data(const module_area_t *area);

@@ -118,17 +118,19 @@ main(int argc, const char *argv[])
     if (!my_setenv("DYNAMORIO_OPTIONS",
                    "-stderr_mask 0xc -rstats_to_stderr"
                    " -client_lib ';;-offline -record_heap"
+                   // Test the low-overhead-wrapping option.
+                   " -record_replace_retaddr"
                    // Test large values that require two entries.
                    " -record_function \"malloc|1&return_big_value|1\"'"))
         std::cerr << "failed to set env var!\n";
-
-    drmemtrace_status_t res = drmemtrace_buffer_handoff(nullptr, exit_cb, nullptr);
-    assert(res == DRMEMTRACE_SUCCESS);
 
     for (int i = 0; i < 3; i++) {
         std::cerr << "pre-DR init\n";
         dr_app_setup();
         assert(!dr_app_running_under_dynamorio());
+
+        drmemtrace_status_t res = drmemtrace_buffer_handoff(nullptr, exit_cb, nullptr);
+        assert(res == DRMEMTRACE_SUCCESS);
 
         std::cerr << "pre-DR start\n";
         if (do_some_work(i * 1) < 0)
