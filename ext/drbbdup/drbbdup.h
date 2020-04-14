@@ -149,6 +149,17 @@ typedef void (*drbbdup_destroy_orig_analysis_t)(void *drcontext, void *user_data
  * The user can use thread allocation for storing the analysis result.
  *
  * The analysis data is destroyed via a #drbbdup_analyze_case_t function.
+ *
+ * Unlike for original basic block analysis, this call-back does not return a single
+ * and isolated basic block copy. Instead, it provides the main instruction list that
+ * contains all basic block duplications and is used internally by drbbdup. This enables
+ * users to directly insert label instructions during their analysis.
+ * In order to iterate only over the instructions pertaining to the case, the call-back
+ * provides \p instr which should be used in conjuction with
+ * drbbdup_get_next_analysis_instr(). Analysis labels pertaining to \p instr should
+ * be inserted prior to \p where. This enables, for different cases, the insertion
+ * of analysis labels for instructions such as syscalls and jumps, which cannot
+ * be duplicated in accordance to DR rules.
  */
 typedef void (*drbbdup_analyze_case_t)(void *drcontext, void *tag, instrlist_t *bb,
                                        instr_t *instr, instr_t *where, uintptr_t encoding,
