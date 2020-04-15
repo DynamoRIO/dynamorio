@@ -1014,10 +1014,9 @@ redirect_realloc(void *mem, size_t size)
          */
         buf = redirect_malloc(size);
         if (buf != NULL && mem != NULL) {
-            void *old_start;
-            size_t old_size = redirect_malloc_size_and_start(mem, &old_start);
+            size_t old_size = redirect_malloc_size_and_start(mem, NULL);
             size_t min_size = MIN(old_size, size);
-            memcpy(buf, old_start, min_size);
+            memcpy(buf, mem, min_size);
         }
     }
     redirect_free(mem);

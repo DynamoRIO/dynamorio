@@ -550,10 +550,10 @@ alignment_test(void)
             mem[i] = realloc(mem[i], sz / 2);
             ASSERT(ALIGNED(mem[i], EXPECT_ALIGN));
             /* Write a value and ensure it gets copied. */
-            ((byte *)mem[i])[sz / 2 - 1] = 0xcd;
+            ((byte *)mem[i])[sz / 2 - 1] = 0x77;
             mem[i] = realloc(mem[i], sz + 2);
             ASSERT(ALIGNED(mem[i], EXPECT_ALIGN));
-            ASSERT(((byte *)mem[i])[sz / 2 - 1] == 0xcd);
+            ASSERT(((byte *)mem[i])[sz / 2 - 1] == 0x77);
         }
         for (int i = 0; i < NUM_TRIES; ++i)
             free(mem[i]);
