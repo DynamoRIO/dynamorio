@@ -982,6 +982,9 @@ redirect_malloc(size_t size)
     return (void *)res;
 }
 
+/* Returns the underlying DR allocation's size and starting point, given a
+ * wrapped-malloc-layer pointer from a client/privlib.
+ */
 static inline size_t
 redirect_malloc_size_and_start(void *mem, OUT void **start_out)
 {
@@ -994,6 +997,21 @@ redirect_malloc_size_and_start(void *mem, OUT void **start_out)
     }
     if (start_out != NULL)
         *start_out = start;
+    return size;
+}
+
+size_t
+redirect_malloc_requested_size(void *mem)
+{
+    if (mem == NULL)
+        return 0;
+    void *start;
+    size_t size = redirect_malloc_size_and_start(mem, &start);
+    size -= sizeof(size_t);
+    if (start != mem) {
+        /* Subtract the extra size for alignment. */
+        size -= sizeof(size_t);
+    }
     return size;
 }
 
@@ -1014,7 +1032,7 @@ redirect_realloc(void *mem, size_t size)
          */
         buf = redirect_malloc(size);
         if (buf != NULL && mem != NULL) {
-            size_t old_size = redirect_malloc_size_and_start(mem, NULL);
+            size_t old_size = redirect_malloc_requested_size(mem);
             size_t min_size = MIN(old_size, size);
             memcpy(buf, mem, min_size);
         }
@@ -1052,22 +1070,6 @@ redirect_free(void *mem)
     void *start;
     size_t size = redirect_malloc_size_and_start(mem, &start);
     global_heap_free(start, size HEAPACCT(ACCT_LIBDUP));
-}
-
-/* Needed for Windows. */
-size_t
-redirect_malloc_requested_size(void *mem)
-{
-    if (mem == NULL)
-        return 0;
-    void *start;
-    size_t size = redirect_malloc_size_and_start(mem, &start);
-    size -= sizeof(size_t);
-    if (start != mem) {
-        /* Subtract the extra size for alignment. */
-        size -= sizeof(size_t);
-    }
-    return size;
 }
 
 char *
