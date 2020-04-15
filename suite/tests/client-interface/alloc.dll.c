@@ -547,6 +547,13 @@ alignment_test(void)
         for (int i = 0; i < NUM_TRIES; ++i) {
             mem[i] = malloc(sz);
             ASSERT(ALIGNED(mem[i], EXPECT_ALIGN));
+            mem[i] = realloc(mem[i], sz / 2);
+            ASSERT(ALIGNED(mem[i], EXPECT_ALIGN));
+            /* Write a value and ensure it gets copied. */
+            ((byte *)mem[i])[sz / 2 - 1] = 0xcd;
+            mem[i] = realloc(mem[i], sz + 2);
+            ASSERT(ALIGNED(mem[i], EXPECT_ALIGN));
+            ASSERT(((byte *)mem[i])[sz / 2 - 1] == 0xcd);
         }
         for (int i = 0; i < NUM_TRIES; ++i)
             free(mem[i]);

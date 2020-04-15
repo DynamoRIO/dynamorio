@@ -982,6 +982,21 @@ redirect_malloc(size_t size)
     return (void *)res;
 }
 
+static inline size_t
+redirect_malloc_size_and_start(void *mem, OUT void **start_out)
+{
+    size_t *size_ptr = (size_t *)((ptr_uint_t)mem - sizeof(size_t));
+    size_t size = *((size_t *)size_ptr);
+    void *start = size_ptr;
+    if (TEST(REDIRECT_HEADER_SHIFTED, size)) {
+        start = size_ptr - 1;
+        size &= ~REDIRECT_HEADER_SHIFTED;
+    }
+    if (start_out != NULL)
+        *start_out = start;
+    return size;
+}
+
 /* This routine allocates memory from DR's global memory pool. Unlike
  * dr_global_alloc(), however, we store the size of the allocation in
  * the first few bytes so redirect_free() can retrieve it.
@@ -991,11 +1006,18 @@ redirect_realloc(void *mem, size_t size)
 {
     void *buf = NULL;
     if (size > 0) {
+        /* XXX: This is not efficient at all.  For shrinking we should use the same
+         * object, and split off the rest for reuse: but DR's allocator was designed
+         * for DR's needs, and DR does not need that feature.  For now we do a
+         * very simple malloc+free.  In general, third-party lib code run by clients
+         * should be on slowpaths in any case.
+         */
         buf = redirect_malloc(size);
         if (buf != NULL && mem != NULL) {
-            size_t old_size = *((size_t *)((byte *)mem - sizeof(size_t)));
+            void *old_start;
+            size_t old_size = redirect_malloc_size_and_start(mem, &old_start);
             size_t min_size = MIN(old_size, size);
-            memcpy(buf, mem, min_size);
+            memcpy(buf, old_start, min_size);
         }
     }
     redirect_free(mem);
@@ -1015,21 +1037,6 @@ redirect_calloc(size_t nmemb, size_t size)
     if (buf != NULL)
         memset(buf, 0, size);
     return buf;
-}
-
-static inline size_t
-redirect_malloc_size_and_start(void *mem, OUT void **start_out)
-{
-    size_t *size_ptr = (size_t *)((ptr_uint_t)mem - sizeof(size_t));
-    size_t size = *((size_t *)size_ptr);
-    void *start = size_ptr;
-    if (TEST(REDIRECT_HEADER_SHIFTED, size)) {
-        start = size_ptr - 1;
-        size &= ~REDIRECT_HEADER_SHIFTED;
-    }
-    if (start_out != NULL)
-        *start_out = start;
-    return size;
 }
 
 /* This routine frees memory allocated by redirect_malloc and expects the
