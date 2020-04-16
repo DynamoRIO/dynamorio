@@ -233,6 +233,14 @@ instrlist_last(instrlist_t *ilist)
     return ilist->last;
 }
 
+
+void instrlist_cut(instrlist_t *ilist, instr_t *cut_point){
+	instr_t *last_instr = instr_get_prev(cut_point);
+    instr_set_next(last_instr, NULL);
+    instr_set_prev(cut_point, NULL);
+    ilist->last = last_instr;
+}
+
 instr_t *
 instrlist_last_app(instrlist_t *ilist)
 {
