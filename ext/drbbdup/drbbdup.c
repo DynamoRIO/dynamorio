@@ -510,7 +510,8 @@ drbbdup_extract_bb_copy(void *drcontext, instrlist_t *bb, instr_t *start,
     instrlist_t *case_bb = instrlist_create(drcontext);
 
     ASSERT(start != NULL, "start instruction cannot be NULL");
-    ASSERT(remainder != NULL, "remainder instr storage cannot be NULL");
+    ASSERT(prev != NULL, "prev instr storage cannot be NULL");
+    ASSERT(post != NULL, "post instr storage cannot be NULL");
     ASSERT(instr_get_note(start) == (void *)DRBBDUP_LABEL_START,
            "start instruction should be a START label");
 
