@@ -557,19 +557,19 @@ alignment_test(void)
         for (int i = 0; i < NUM_TRIES; ++i) {
             mem[i] = malloc(sz);
             ASSERT(ALIGNED(mem[i], EXPECT_ALIGN));
-            int smaller_sz = sz / 2;
-            int larger_sz = sz * 2 + 2;
+            size_t smaller_sz = sz / 2;
+            size_t larger_sz = sz * 2 + 2;
             mem[i] = realloc(mem[i], smaller_sz);
             ASSERT(ALIGNED(mem[i], EXPECT_ALIGN));
             /* Ensure the values get preserved. */
             memset(mem[i], PATTERN, smaller_sz);
             mem[i] = realloc(mem[i], larger_sz);
             ASSERT(ALIGNED(mem[i], EXPECT_ALIGN));
-            for (int j = 0; j < smaller_sz; ++j)
+            for (size_t j = 0; j < smaller_sz; ++j)
                 ASSERT(((byte *)mem[i])[j] == PATTERN);
             if (filled) {
                 /* Make sure we copied the right size and no more. */
-                for (int j = smaller_sz; j < larger_sz; ++j) {
+                for (size_t j = smaller_sz; j < larger_sz; ++j) {
                     ASSERT(((byte *)mem[i])[j] == DR_PATTERN);
                 }
             }
