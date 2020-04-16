@@ -503,19 +503,20 @@ drbbdup_next_end(instr_t *instr)
  *  Overall, separate instr lists simplify user call-backs.
  *  The returned instr list needs to be destroyed using instrlist_clear_and_destroy().
  */
-static void
-drbbdup_extract_bb_copy(void *drcontext, instrlist_t *bb, INOUT instr_t **start,
-                               OUT instr_t **remainder)
+static instrlist_t *
+drbbdup_extract_bb_copy(void *drcontext, instrlist_t *bb, instr_t *start,
+                        OUT instr_t **prev, OUT instr_t **post)
 {
-    ASSERT(start != NULL && *start != NULL, "start instruction cannot be NULL");
+    instrlist_t *case_bb = instrlist_create(drcontext);
+
+    ASSERT(start != NULL, "start instruction cannot be NULL");
     ASSERT(remainder != NULL, "remainder instr storage cannot be NULL");
-    ASSERT(instr_get_note(*start) == (void *)DRBBDUP_LABEL_START,
+    ASSERT(instr_get_note(start) == (void *)DRBBDUP_LABEL_START,
            "start instruction should be a START label");
 
-    *start = instr_get_next(*start); /* Skip START label. */
-    *remainder = drbbdup_next_end(*start);
-    ASSERT(*remainder != NULL, "end instruction cannot be NULL");
-    ASSERT(!drbbdup_is_at_start(*remainder), "end cannot be at start");
+    *post = drbbdup_next_end(start);
+    ASSERT(*post != NULL, "end instruction cannot be NULL");
+    ASSERT(!drbbdup_is_at_start(*post), "end cannot be at start");
 
     /* Also include the last instruction in the bb if it is a
      * syscall/cti instr.
@@ -523,29 +524,35 @@ drbbdup_extract_bb_copy(void *drcontext, instrlist_t *bb, INOUT instr_t **start,
     instr_t *last_instr = instrlist_last(bb);
     if (drbbdup_is_special_instr(last_instr)) {
         instr_t *instr_cpy = instr_clone(drcontext, last_instr);
-        instrlist_preinsert(bb, *remainder, instr_cpy);
+        instrlist_preinsert(bb, *post, instr_cpy);
     }
+    instrlist_cut(bb, *post);
 
+    *prev = start;
+    start = instr_get_next(start); /* Skip START label. */
+    instrlist_cut(bb, start);
 
-    instrlist_cut(bb, *remainder);
+    instrlist_append(case_bb, start);
+
+    return case_bb;
 }
 
 static void
-drbbdup_stitch_bb_copy(void *drcontext, instrlist_t *bb, instr_t *remainder,
-                               OUT instr_t **next)
+drbbdup_stitch_bb_copy(void *drcontext, instrlist_t *bb, instrlist_t *case_bb,
+                       instr_t *pre, instr_t *post)
 {
-    instr_t *last_instr = instrlist_last(bb);
+    instr_t *last_instr = instrlist_last(case_bb);
     if (drbbdup_is_special_instr(last_instr)) {
-    	instrlist_remove(bb, last_instr);
-    	instr_destroy(drcontext, last_instr);
-    	last_instr = instrlist_last(bb);
+        instrlist_remove(case_bb, last_instr);
+        instr_destroy(drcontext, last_instr);
     }
 
-    instrlist_append(bb, remainder);
+    instrlist_append(case_bb, post);
+    instr_t *instr = instrlist_first(case_bb);
+    instrlist_postinsert(bb, pre, instr);
 
-    /* Point to the next bb. */
-    if (next != NULL)
-        *next = drbbdup_next_start(remainder);
+    instrlist_init(case_bb);
+    instrlist_destroy(drcontext, case_bb);
 }
 
 /* Trigger orig analysis event. This useful to set up and share common data
@@ -555,16 +562,17 @@ static void *
 drbbdup_do_orig_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
                          instrlist_t *bb, instr_t *start)
 {
-    if (opts.analyze_orig == NULL)
+    if (opts.analyze_orig == NULL) {
         return NULL;
+    }
 
     void *orig_analysis_data = NULL;
     if (manager->enable_dup) {
-    	instr_t *remainder = NULL;
-        drbbdup_extract_bb_copy(drcontext, bb, &start, &remainder);
-        opts.analyze_orig(drcontext, tag, bb, opts.user_data, &orig_analysis_data);
-        drbbdup_stitch_bb_copy(drcontext, bb, remainder,
-                                       NULL);
+        instr_t *pre = NULL;  /* used for stitching */
+        instr_t *post = NULL; /* used for stitching */
+        instrlist_t *case_bb = drbbdup_extract_bb_copy(drcontext, bb, start, &pre, &post);
+        opts.analyze_orig(drcontext, tag, case_bb, opts.user_data, &orig_analysis_data);
+        drbbdup_stitch_bb_copy(drcontext, bb, case_bb, pre, post);
     } else {
         /* For bb with no wanted copies, just invoke the call-back with original bb. */
         opts.analyze_orig(drcontext, tag, bb, opts.user_data, &orig_analysis_data);
@@ -576,27 +584,32 @@ drbbdup_do_orig_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
 /* Performs analysis specific to a case. */
 static void *
 drbbdup_do_case_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
-                         instrlist_t *bb, instr_t *strt, const drbbdup_case_t *case_info,
+                         instrlist_t *bb, instr_t *start, const drbbdup_case_t *case_info,
                          void *orig_analysis_data, OUT instr_t **next)
 {
-    if (opts.analyze_case == NULL)
+    if (opts.analyze_case == NULL) {
         return NULL;
+    }
 
     void *case_analysis_data = NULL;
     if (manager->enable_dup) {
-    	instr_t *remainder = NULL;
-        drbbdup_extract_bb_copy(drcontext, bb, &strt, &remainder);
+        instr_t *pre = NULL;  /* used for stitching */
+        instr_t *post = NULL; /* used for stitching */
+        instrlist_t *case_bb = drbbdup_extract_bb_copy(drcontext, bb, start, &pre, &post);
         /* Let the user analyse the BB for the given case. */
-        opts.analyze_case(drcontext, tag, bb, case_info->encoding, opts.user_data,
+        opts.analyze_case(drcontext, tag, case_bb, case_info->encoding, opts.user_data,
                           orig_analysis_data, &case_analysis_data);
-        drbbdup_stitch_bb_copy(drcontext, bb, remainder,
-        		next);
+        drbbdup_stitch_bb_copy(drcontext, bb, case_bb, pre, post);
+        if (next != NULL)
+            *next = drbbdup_next_start(post);
     } else {
         /* For bb with no wanted copies, simply invoke the call-back with the original
          * bb.
          */
         opts.analyze_case(drcontext, tag, bb, case_info->encoding, opts.user_data,
                           orig_analysis_data, &case_analysis_data);
+        if (next != NULL)
+            *next = NULL;
     }
 
     return case_analysis_data;

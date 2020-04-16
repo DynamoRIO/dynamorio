@@ -116,6 +116,10 @@ typedef bool (*drbbdup_allow_gen_t)(void *drcontext, void *tag, instrlist_t *ili
  * store the analysis result in \p orig_analysis_data. The  user data \p user_data is
  * that supplied to drbbdup_init().
  *
+ * It is not possible to insert note labels via this analysis call-back function.
+ * Any labels inserted will not persist. Such functionality is only possible via a
+ * #drbbdup_analyze_case_t call-back.
+ *
  * The user can use thread allocation for storing the analysis result.
  *
  * The analysis data is destroyed via a #drbbdup_destroy_orig_analysis_t function.

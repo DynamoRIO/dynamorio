@@ -233,14 +233,6 @@ instrlist_last(instrlist_t *ilist)
     return ilist->last;
 }
 
-
-void instrlist_cut(instrlist_t *ilist, instr_t *cut_point){
-	instr_t *last_instr = instr_get_prev(cut_point);
-    instr_set_next(last_instr, NULL);
-    instr_set_prev(cut_point, NULL);
-    ilist->last = last_instr;
-}
-
 instr_t *
 instrlist_last_app(instrlist_t *ilist)
 {
@@ -250,6 +242,17 @@ instrlist_last_app(instrlist_t *ilist)
     if (instr_is_app(last))
         return last;
     return instr_get_prev_app(last);
+}
+
+void
+instrlist_cut(instrlist_t *ilist, instr_t *cut_point)
+{
+    CLIENT_ASSERT(cut_point != NULL, "instrlist_cut: instr cut point should not be NULL");
+    instr_t *last_instr = instr_get_prev(cut_point);
+    if (last_instr != NULL)
+        instr_set_next(last_instr, NULL);
+    instr_set_prev(cut_point, NULL);
+    ilist->last = last_instr;
 }
 
 static inline void

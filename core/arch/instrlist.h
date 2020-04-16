@@ -182,10 +182,6 @@ instr_t *
 instrlist_last(instrlist_t *ilist);
 
 DR_API
-/** Cuts the list */
-void instrlist_cut(instrlist_t *ilist, instr_t *cut_point);
-
-DR_API
 /**
  * Returns the last application (non-meta) instruction in the instruction list
  * \p ilist.
@@ -201,6 +197,11 @@ DR_API
  */
 instr_t *
 instrlist_last_app(instrlist_t *ilist);
+
+DR_API
+/** Cuts off subsequent instructions starting from \p instr from \p ilist. */
+void
+instrlist_cut(instrlist_t *ilist, instr_t *instr);
 
 DR_API
 /** Adds \p instr to the end of \p ilist. */
