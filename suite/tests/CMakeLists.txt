@@ -1856,8 +1856,8 @@ if (CLIENT_INTERFACE)
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     tobuild_ci(client.alloc client-interface/alloc.c ""
       # For the subtest "targeting upper 2GB of low 4GB" we move -vm_base out of the
-      # way:
-      "-no_vm_base_near_app -vm_base 0x120000000" "")
+      # way.  We also raise the checklevel so we get memory filling for client allocs.
+      "-no_vm_base_near_app -vm_base 0x120000000 -checklevel 3" "")
     # XXX i#1312, i#3504: The test doesn't currently compile with CFLAGS_AVX512 but
     # attempts to test features based on it. The compile flag needs to be added.
     tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
