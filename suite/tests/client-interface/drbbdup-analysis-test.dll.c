@@ -107,9 +107,6 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                  instr_t *where, uintptr_t encoding, void *user_data,
                  void *orig_analysis_data, void *analysis_data)
 {
-    bool is_first;
-    drbbdup_status_t res;
-
     switch (encoding) {
     case 0:
         if (is_test_label(instr))
