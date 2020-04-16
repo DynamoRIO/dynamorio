@@ -99,7 +99,6 @@ analyse_bb(void *drcontext, void *tag, instrlist_t *bb, uintptr_t encoding,
 static bool
 is_test_label(instr_t *instr)
 {
-
     return instr_is_label(instr) && instr_get_note(instr) == TEST_NOTE_VAL;
 }
 

@@ -527,11 +527,9 @@ drbbdup_extract_bb_copy(void *drcontext, instrlist_t *bb, instr_t *start,
         instrlist_preinsert(bb, *post, instr_cpy);
     }
     instrlist_cut(bb, *post);
-
     *prev = start;
     start = instr_get_next(start); /* Skip START label. */
     instrlist_cut(bb, start);
-
     instrlist_append(case_bb, start);
 
     return case_bb;
