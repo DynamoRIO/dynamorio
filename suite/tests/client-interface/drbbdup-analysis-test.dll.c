@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* A Test for the drbbdup extension. In particular, the test inserts analysis
+/* A test for the drbbdup extension. In particular, the test inserts analysis
  * labels during case analysis and checks that these labels persist during the
  * insertion stage.
  */
@@ -39,7 +39,7 @@
 #include "drmgr.h"
 #include "drbbdup.h"
 
-#define TEST_NOTE_VAL (void *)767
+#define TEST_NOTE_VAL (void *)767LL
 
 #define CHECK(x, msg)                                                                \
     do {                                                                             \
