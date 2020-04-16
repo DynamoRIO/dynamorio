@@ -2235,6 +2235,11 @@ if (CLIENT_INTERFACE)
     use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
     use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drreg)
     use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
+
+    tobuild_ci(client.drbbdup-analysis-test client-interface/drbbdup-analysis-test.c "" "" "")
+    use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drmgr)
+    use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drreg)
+    use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drbbdup)
   endif (X86)
 
   if (ARM)
