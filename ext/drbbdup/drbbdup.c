@@ -554,8 +554,7 @@ drbbdup_do_orig_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
         opts.analyze_orig(drcontext, tag, case_bb, opts.user_data, &orig_analysis_data);
         instrlist_clear_and_destroy(drcontext, case_bb);
     } else {
-        /* For bb with no wanted copies, simply invoke the call-back with original bb.
-         */
+        /* For bb with no wanted copies, just invoke the call-back with original bb. */
         opts.analyze_orig(drcontext, tag, bb, opts.user_data, &orig_analysis_data);
     }
 
