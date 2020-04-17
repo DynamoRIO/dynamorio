@@ -176,7 +176,7 @@ drbbdup_spill_register(void *drcontext, instrlist_t *ilist, instr_t *where, int 
                        reg_id_t reg_id)
 {
     opnd_t slot_opnd = drbbdup_get_tls_raw_slot_opnd(slot_idx);
-    instr_t *instr = INSTR_CREATE_mov_st(drcontext, slot_opnd, opnd_create_reg(reg_id));
+    instr_t *instr = XINST_CREATE_store(drcontext, slot_opnd, opnd_create_reg(reg_id));
     instrlist_meta_preinsert(ilist, where, instr);
 }
 
@@ -185,7 +185,7 @@ drbbdup_restore_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                          int slot_idx, reg_id_t reg_id)
 {
     opnd_t slot_opnd = drbbdup_get_tls_raw_slot_opnd(slot_idx);
-    instr_t *instr = INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(reg_id), slot_opnd);
+    instr_t *instr = XINST_CREATE_load(drcontext, opnd_create_reg(reg_id), slot_opnd);
     instrlist_meta_preinsert(ilist, where, instr);
 }
 
@@ -745,7 +745,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     /* FIXME i#4134: Perform lock if opts.atomic_load_encoding is set. */
     opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
     instr_t *instr =
-        INSTR_CREATE_mov_ld(drcontext, scratch_reg_opnd, opts.runtime_case_opnd);
+        XINST_CREATE_load(drcontext, scratch_reg_opnd, opts.runtime_case_opnd);
     instrlist_meta_preinsert(bb, where, instr);
 }
 
@@ -755,7 +755,7 @@ drbbdup_insert_compare_encoding(void *drcontext, instrlist_t *bb, instr_t *where
                                 drbbdup_case_t *current_case, reg_id_t reg_encoding)
 {
     opnd_t opnd = opnd_create_abs_addr(&current_case->encoding, OPSZ_PTR);
-    instr_t *instr = INSTR_CREATE_cmp(drcontext, opnd, opnd_create_reg(reg_encoding));
+    instr_t *instr = XINST_CREATE_cmp(drcontext, opnd, opnd_create_reg(reg_encoding));
     instrlist_meta_preinsert(bb, where, instr);
 }
 #elif X86_32
@@ -764,7 +764,7 @@ drbbdup_insert_compare_encoding(void *drcontext, instrlist_t *bb, instr_t *where
                                 drbbdup_case_t *current_case, reg_id_t reg_encoding)
 {
     opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
-    instr_t *instr = INSTR_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd);
+    instr_t *instr = XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd);
     instrlist_meta_preinsert(bb, where, instr);
 }
 #endif
@@ -846,7 +846,7 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
 
         /* We need DRBBDUP_SCRATCH_REG. Bail on keeping the encoding in the register. */
         opnd_t encoding_opnd = drbbdup_get_tls_raw_slot_opnd(DRBBDUP_ENCODING_SLOT);
-        instr = INSTR_CREATE_mov_st(drcontext, encoding_opnd, drbbdup_opnd);
+        instr = XINST_CREATE_store(drcontext, encoding_opnd, drbbdup_opnd);
         instrlist_meta_preinsert(bb, where, instr);
 
         /* Don't bother insertion if threshold limit is zero. */
@@ -855,7 +855,7 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
             opnd_t hit_table_opnd = drbbdup_get_tls_raw_slot_opnd(DRBBDUP_HIT_TABLE_SLOT);
 
             /* Load the hit counter table. */
-            instr = INSTR_CREATE_mov_ld(drcontext, drbbdup_opnd, hit_table_opnd);
+            instr = XINST_CREATE_load(drcontext, drbbdup_opnd, hit_table_opnd);
             instrlist_meta_preinsert(bb, where, instr);
 
             /* Register hit. */
@@ -880,12 +880,11 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
             /* Load bb tag to register so that it can be accessed by outlined clean
              * call.
              */
-            instr = INSTR_CREATE_mov_imm(drcontext, drbbdup_opnd,
-                                         opnd_create_immed_int((intptr_t)tag, OPSZ_PTR));
-            instrlist_meta_preinsert(bb, where, instr);
+            instrlist_insert_mov_immed_ptrsz(drcontext, (intptr_t)tag, drbbdup_opnd, bb,
+                                             instr, NULL, NULL);
 
             /* Jump to outlined clean call code for new case registration. */
-            instr = INSTR_CREATE_jmp(drcontext, opnd_create_pc(new_case_cache_pc));
+            instr = XINST_CREATE_jump(drcontext, opnd_create_pc(new_case_cache_pc));
             instrlist_meta_preinsert(bb, where, instr);
         }
     }
