@@ -695,9 +695,9 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
             {                                                                     \
                 type tmp1;                                                        \
                 int tmp2;                                                         \
-                __asm__ __volatile__("1: ldxr  %" r "0, [%x2]           \n\t"     \
+                __asm__ __volatile__("1: ldaxr  %" r "0, [%x2]           \n\t"    \
                                      "  " op "   %" r "0, %" r "0, #1       \n\t" \
-                                     "   stxr  %w1, %" r "0, [%x2]      \n\t"     \
+                                     "   stlxr  %w1, %" r "0, [%x2]      \n\t"    \
                                      "   cbnz  %w1, 1b                \n\t"       \
                                      : "=&r"(tmp1), "=&r"(tmp2)                   \
                                      : "r"(var));                                 \
@@ -716,9 +716,9 @@ DEF_ATOMIC_incdec(ATOMIC_INC_int, int, "w", "add") DEF_ATOMIC_incdec(ATOMIC_INC_
             {                                                                     \
                 type tmp1;                                                        \
                 int tmp2;                                                         \
-                __asm__ __volatile__("1: ldxr  %" r "0, [%x2]           \n\t"     \
+                __asm__ __volatile__("1: ldaxr  %" r "0, [%x2]           \n\t"    \
                                      "   add   %" r "0, %" r "0, %" r "3    \n\t" \
-                                     "   stxr  %w1, %" r "0, [%x2]      \n\t"     \
+                                     "   stlxr  %w1, %" r "0, [%x2]      \n\t"    \
                                      "   cbnz  %w1, 1b                \n\t"       \
                                      : "=&r"(tmp1), "=&r"(tmp2)                   \
                                      : "r"(var), "r"(val));                       \
@@ -734,9 +734,9 @@ DEF_ATOMIC_incdec(ATOMIC_INC_int, int, "w", "add") DEF_ATOMIC_incdec(ATOMIC_INC_
             {                                                                         \
                 type ret;                                                             \
                 int tmp;                                                              \
-                __asm__ __volatile__("1: ldxr  %" reg "1, [%x2]             \n\t"     \
+                __asm__ __volatile__("1: ldaxr  %" reg "1, [%x2]             \n\t"    \
                                      "   add   %" reg "1, %" reg "1, %" reg "3  \n\t" \
-                                     "   stxr  %w0, %" reg "1, [%x2]        \n\t"     \
+                                     "   stlxr  %w0, %" reg "1, [%x2]        \n\t"    \
                                      "   cbnz  %w0, 1b                    \n\t"       \
                                      : "=&r"(tmp), "=&r"(ret)                         \
                                      : "r"(var), "r"(val));                           \
@@ -754,10 +754,10 @@ DEF_ATOMIC_incdec(ATOMIC_INC_int, int, "w", "add") DEF_ATOMIC_incdec(ATOMIC_INC_
                 type tmp1;                                                            \
                 int tmp2;                                                             \
                 bool ret;                                                             \
-                __asm__ __volatile__("1: ldxr  %" r "0, [%x3]           \n\t"         \
+                __asm__ __volatile__("1: ldaxr  %" r "0, [%x3]           \n\t"        \
                                      "   cmp   %" r "0, %" r "4           \n\t"       \
                                      "   b.ne  2f                     \n\t"           \
-                                     "   stxr  %w1, %" r "5, [%x3]      \n\t"         \
+                                     "   stlxr  %w1, %" r "5, [%x3]      \n\t"        \
                                      "   cbnz  %w1, 1b                \n\t"           \
                                      "   cmp   %" r "0, %" r "4           \n\t"       \
                                      "2: clrex                        \n\t"           \
@@ -775,8 +775,8 @@ DEF_ATOMIC_incdec(ATOMIC_INC_int, int, "w", "add") DEF_ATOMIC_incdec(ATOMIC_INC_
                                                                       int newval)
 {
     int tmp, ret;
-    __asm__ __volatile__("1: ldxr  %w0, [%x2]             \n\t"
-                         "   stxr  %w1, %w3, [%x2]        \n\t"
+    __asm__ __volatile__("1: ldaxr  %w0, [%x2]             \n\t"
+                         "   stlxr  %w1, %w3, [%x2]        \n\t"
                          "   cbnz  %w1, 1b                \n\t"
                          : "=&r"(ret), "=&r"(tmp)
                          : "r"(var), "r"(newval));
