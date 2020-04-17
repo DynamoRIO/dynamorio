@@ -348,7 +348,7 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
     int i;
     for (i = start; i >= 0; i--) {
         /* Prepend a jmp targeting the EXIT label. */
-        instr_t *jmp_exit = INSTR_CREATE_jmp(drcontext, exit_label_opnd);
+        instr_t *jmp_exit = XINST_CREATE_jump(drcontext, exit_label_opnd);
         instrlist_preinsert(bb, instrlist_first(bb), jmp_exit);
 
         /* Prepend a copy. */
@@ -786,7 +786,8 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
 
     /* If runtime encoding not equal to encoding of current case, just jump to next.
      */
-    instr_t *instr = INSTR_CREATE_jcc(drcontext, OP_jnz, opnd_create_instr(next_label));
+    instr_t *instr =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_NE, opnd_create_instr(next_label));
     instrlist_meta_preinsert(bb, where, instr);
 
     /* If fall-through, restore regs back to their original values. */
@@ -841,7 +842,8 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
          */
         drbbdup_insert_compare_encoding(drcontext, bb, where, default_case,
                                         DRBBDUP_SCRATCH_REG);
-        instr = INSTR_CREATE_jcc(drcontext, OP_jz, opnd_create_instr(done_label));
+        instr =
+            XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(done_label));
         instrlist_meta_preinsert(bb, where, instr);
 
         /* We need DRBBDUP_SCRATCH_REG. Bail on keeping the encoding in the register. */
@@ -862,8 +864,8 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
             uint hash = drbbdup_get_hitcount_hash((intptr_t)translation_pc);
             opnd_t hit_count_opnd =
                 OPND_CREATE_MEM16(DRBBDUP_SCRATCH_REG, hash * sizeof(ushort));
-            instr = INSTR_CREATE_sub(drcontext, hit_count_opnd,
-                                     opnd_create_immed_uint(1, OPSZ_2));
+            instr = XINST_CREATE_sub_s(drcontext, hit_count_opnd,
+                                       opnd_create_immed_uint(1, OPSZ_2));
             instrlist_meta_preinsert(bb, where, instr);
 
             /* Load bb tag to register so that it can be accessed by outlined clean
@@ -873,7 +875,8 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
                                              where, NULL, NULL);
 
             /* Jump if hit reaches zero. */
-            instr = INSTR_CREATE_jcc(drcontext, OP_jz, opnd_create_pc(new_case_cache_pc));
+            instr = XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ,
+                                           opnd_create_pc(new_case_cache_pc));
             instrlist_meta_preinsert(bb, where, instr);
 
         } else {
