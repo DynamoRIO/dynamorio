@@ -880,9 +880,8 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
             /* Load bb tag to register so that it can be accessed by outlined clean
              * call.
              */
-            instr = XINST_CREATE_move(drcontext, drbbdup_opnd,
-                                      opnd_create_immed_int((intptr_t)tag, OPSZ_PTR));
-            instrlist_meta_preinsert(bb, where, instr);
+            instrlist_insert_mov_immed_ptrsz(drcontext, (intptr_t)tag, drbbdup_opnd, bb,
+                                             instr, NULL, NULL);
 
             /* Jump to outlined clean call code for new case registration. */
             instr = XINST_CREATE_jump(drcontext, opnd_create_pc(new_case_cache_pc));
