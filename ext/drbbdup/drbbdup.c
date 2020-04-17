@@ -59,11 +59,6 @@
  * conditions so that different instrumentation may be efficiently executed.
  */
 
-/* TODO i#4134: ARM not yet supported. */
-#ifndef X86
-#    error ARM is not yet supported
-#endif
-
 #define HASH_BIT_TABLE 13
 
 /* Definitions for drbbdup's hit-table that drives dynamic case handling.
@@ -74,14 +69,22 @@
 
 typedef enum {
     DRBBDUP_ENCODING_SLOT = 0, /* Used as a spill slot for dynamic case generation. */
-    DRBBDUP_XAX_REG_SLOT = 1,
+    DRBBDUP_SCRATCH_REG_SLOT = 1,
     DRBBDUP_FLAG_REG_SLOT = 2,
     DRBBDUP_HIT_TABLE_SLOT = 3,
     DRBBDUP_SLOT_COUNT = 4, /* Need to update if more slots are added. */
 } drbbdup_thread_slots_t;
 
 /* A scratch register used by drbbdup's dispatcher. */
-#define DRBBDUP_SCRATCH_REG DR_REG_XAX
+#ifdef X86
+#    define DRBBDUP_SCRATCH_REG DR_REG_XAX
+#elif defined(AARCHXX)
+#    if AARCH64
+#        define DRBBDUP_SCRATCH_REG DR_REG_X1
+#    else
+#        define DRBBDUP_SCRATCH_REG DR_REG_R1
+#    endif
+#endif
 
 /* Special index values are used to help guide case selection. */
 #define DRBBDUP_DEFAULT_INDEX -1
@@ -680,7 +683,7 @@ drbbdup_insert_landing_restoration(void *drcontext, instrlist_t *bb, instr_t *wh
 {
     if (!manager->are_flags_dead) {
         drbbdup_restore_register(drcontext, bb, where, 2, DRBBDUP_SCRATCH_REG);
-        dr_restore_arith_flags_from_xax(drcontext, bb, where);
+        dr_restore_arith_flags_from_reg(drcontext, bb, where, DRBBDUP_SCRATCH_REG);
     }
 
     if (!manager->is_scratch_reg_dead)
@@ -716,7 +719,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     drreg_is_register_dead(drcontext, DRBBDUP_SCRATCH_REG, where,
                            &manager->is_scratch_reg_dead);
     if (!manager->are_flags_dead) {
-        dr_save_arith_flags_to_xax(drcontext, bb, where);
+        dr_save_arith_flags_to_reg(drcontext, bb, where, DRBBDUP_SCRATCH_REG);
         drbbdup_spill_register(drcontext, bb, where, 2, DRBBDUP_SCRATCH_REG);
         if (!manager->is_scratch_reg_dead)
             drbbdup_restore_register(drcontext, bb, where, 1, DRBBDUP_SCRATCH_REG);
@@ -749,7 +752,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     instrlist_meta_preinsert(bb, where, instr);
 }
 
-#ifdef X86_64
+#ifdef X64
 static void
 drbbdup_insert_compare_encoding(void *drcontext, instrlist_t *bb, instr_t *where,
                                 drbbdup_case_t *current_case, reg_id_t reg_encoding)
@@ -758,7 +761,7 @@ drbbdup_insert_compare_encoding(void *drcontext, instrlist_t *bb, instr_t *where
     instr_t *instr = XINST_CREATE_cmp(drcontext, opnd, opnd_create_reg(reg_encoding));
     instrlist_meta_preinsert(bb, where, instr);
 }
-#elif X86_32
+#else
 static void
 drbbdup_insert_compare_encoding(void *drcontext, instrlist_t *bb, instr_t *where,
                                 drbbdup_case_t *current_case, reg_id_t reg_encoding)
@@ -1197,7 +1200,7 @@ drbbdup_prepare_redirect(dr_mcontext_t *mcontext, drbbdup_manager_t *manager,
     }
     if (!manager->is_scratch_reg_dead) {
         reg_set_value(DRBBDUP_SCRATCH_REG, mcontext,
-                      (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_XAX_REG_SLOT));
+                      (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_SCRATCH_REG_SLOT));
     }
 
     mcontext->pc = bb_pc; /* redirect execution to the start of the bb. */
