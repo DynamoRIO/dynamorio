@@ -999,7 +999,7 @@ opnd_get_addr(opnd_t opnd)
 bool
 opnd_is_memory_reference(opnd_t opnd)
 {
-    return (opnd_is_base_disp(opnd) IF_X86_64(|| opnd_is_abs_addr(opnd)) ||
+    return (opnd_is_base_disp(opnd) IF_X64(|| opnd_is_abs_addr(opnd)) ||
 #if defined(X64) || defined(ARM)
             opnd_is_rel_addr(opnd) ||
 #endif
