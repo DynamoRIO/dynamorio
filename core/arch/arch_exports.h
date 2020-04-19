@@ -857,7 +857,8 @@ atomic_dec_becomes_zero(volatile int *var)
  */
 /* FIXME i#1551: should we allow infinite loops for those ATOMIC ops */
 #        define ATOMIC_INC_suffix(suffix, var)                                     \
-            __asm__ __volatile__("1: ldrex" suffix " r2, %0         \n\t"          \
+            __asm__ __volatile__("   dmb ish                        \n\t"          \
+                                 "1: ldrex" suffix " r2, %0         \n\t"          \
                                  "   add" suffix " r2, r2, #1     \n\t"            \
                                  "   strex" suffix " r3, r2, %0     \n\t"          \
                                  "   cmp   r3, #0                   \n\t"          \
@@ -870,7 +871,8 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("d", var)
 #        define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
 #        define ATOMIC_DEC_suffix(suffix, var)                                     \
-            __asm__ __volatile__("1: ldrex" suffix " r2, %0         \n\t"          \
+            __asm__ __volatile__("   dmb ish                        \n\t"          \
+                                 "1: ldrex" suffix " r2, %0         \n\t"          \
                                  "   sub" suffix " r2, r2, #1     \n\t"            \
                                  "   strex" suffix " r3, r2, %0     \n\t"          \
                                  "   cmp   r3, #0                   \n\t"          \
@@ -883,7 +885,8 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("d", var)
 #        define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
 #        define ATOMIC_ADD_suffix(suffix, var, value)                              \
-            __asm__ __volatile__("1: ldrex" suffix " r2, %0         \n\t"          \
+            __asm__ __volatile__("   dmb ish                        \n\t"          \
+                                 "1: ldrex" suffix " r2, %0         \n\t"          \
                                  "   add" suffix " r2, r2, %1     \n\t"            \
                                  "   strex" suffix " r3, r2, %0     \n\t"          \
                                  "   cmp   r3, #0                   \n\t"          \
@@ -897,7 +900,8 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(var, val)
 /* Not safe for general use, just for atomic_add_exchange(), undefed below */
 #        define ATOMIC_ADD_EXCHANGE_suffix(suffix, var, value, result)    \
-            __asm__ __volatile__("1: ldrex" suffix " r2, %0         \n\t" \
+            __asm__ __volatile__("   dmb ish                        \n\t" \
+                                 "1: ldrex" suffix " r2, %0         \n\t" \
                                  "   add" suffix " r2, r2, %2     \n\t"   \
                                  "   strex" suffix " r3, r2, %0     \n\t" \
                                  "   cmp   r3, #0                   \n\t" \
@@ -912,7 +916,8 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_ADD_EXCHANGE_int64(var, val, res) \
             ATOMIC_ADD_EXCHANGE_suffix("d", var, val, res)
 #        define ATOMIC_COMPARE_EXCHANGE_suffix(suffix, var, compare, exchange)           \
-            __asm__ __volatile__("2: ldrex" suffix " r2, %0       \n\t"                  \
+            __asm__ __volatile__("   dmb ish                      \n\t"                  \
+                                 "2: ldrex" suffix " r2, %0       \n\t"                  \
                                  "   cmp" suffix " r2, %1       \n\t"                    \
                                  "   bne    1f                    \n\t"                  \
                                  "   strex" suffix " r3, %2, %0   \n\t"                  \
@@ -928,7 +933,8 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange) \
             ATOMIC_COMPARE_EXCHANGE_suffix("d", var, compare, exchange)
 #        define ATOMIC_EXCHANGE(var, newval, result)            \
-            __asm__ __volatile__("1: ldrex r2, %0         \n\t" \
+            __asm__ __volatile__("   dmb ish              \n\t" \
+                                 "1: ldrex r2, %0         \n\t" \
                                  "   strex r3, %2, %0     \n\t" \
                                  "   cmp   r3, #0         \n\t" \
                                  "   bne   1b             \n\t" \
