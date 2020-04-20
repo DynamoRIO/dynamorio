@@ -72,6 +72,20 @@ online_instru_t::get_entry_size(byte *buf_ptr) const
     return entry->size;
 }
 
+int
+online_instru_t::get_instr_count(byte *buf_ptr) const
+{
+    trace_entry_t *entry = (trace_entry_t *)buf_ptr;
+    if (!type_is_instr((trace_type_t)entry->type))
+        return 0;
+    // TODO i#3995: We should *not* count "non-fetched" instrs so we'll match
+    // hardware performance counters.
+    // Xref i#4948 and i#4915 on getting rid of "non-fetched" instrs.
+    if (entry->type == TRACE_TYPE_INSTR_BUNDLE)
+        return entry->size;
+    return 1;
+}
+
 addr_t
 online_instru_t::get_entry_addr(byte *buf_ptr) const
 {
@@ -165,7 +179,7 @@ online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
 }
 
 int
-online_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
+online_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid, intptr_t window)
 {
     byte *new_buf = buf_ptr;
     new_buf += append_tid(new_buf, tid);
@@ -174,6 +188,8 @@ online_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
                              static_cast<uintptr_t>(frozen_timestamp_ != 0
                                                         ? frozen_timestamp_
                                                         : instru_t::get_timestamp()));
+    if (window >= 0)
+        new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_WINDOW_ID, (uintptr_t)window);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
     return (int)(new_buf - buf_ptr);
 }

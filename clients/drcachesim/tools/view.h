@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -112,6 +112,8 @@ protected:
     intptr_t filetype_;
     std::unordered_set<memref_tid_t> printed_header_;
     uint64_t num_refs_;
+    std::unordered_map<memref_tid_t, uintptr_t> last_window_;
+    uintptr_t timestamp_;
 };
 
 #endif /* _VIEW_H_ */
