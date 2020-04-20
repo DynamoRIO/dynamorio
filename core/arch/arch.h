@@ -596,13 +596,11 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                          instr_t *instr _IF_X86_64(gencode_mode_t mode));
 
 #ifdef X86
-#    ifdef WINDOWS
-#        define ABI_STACK_ALIGNMENT 4
-#    else
-/* See i#847 for discussion of stack alignment on 32-bit Linux.
- * We now use 16 there to match everyone else.
- */
+#    if defined(X64) || defined(UNIX)
+/* See i#847, i#3966 for discussion of stack alignment on 32-bit Linux. */
 #        define ABI_STACK_ALIGNMENT 16
+#    else
+#        define ABI_STACK_ALIGNMENT 4
 #    endif
 #elif defined(AARCH64)
 #    define ABI_STACK_ALIGNMENT 16
