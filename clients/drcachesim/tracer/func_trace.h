@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
 #ifndef _FUNC_TRACE_
 #define _FUNC_TRACE_ 1
 
+#include "dr_api.h"
 #include "trace_entry.h"
 
 #define MAX_FUNC_TRACE_ENTRY_VEC_CAP 16
@@ -72,5 +73,15 @@ func_trace_init(func_trace_append_entry_vec_t append_entry_vec_,
 // Cleans up the func_trace module
 void
 func_trace_exit();
+
+// Needed for DRWRAP_INVERT_CONTROL.
+dr_emit_flags_t
+func_trace_enabled_instrument_event(void *drcontext, void *tag, instrlist_t *bb,
+                                    instr_t *instr, instr_t *where, bool for_trace,
+                                    bool translating, void *user_data);
+dr_emit_flags_t
+func_trace_disabled_instrument_event(void *drcontext, void *tag, instrlist_t *bb,
+                                     instr_t *instr, instr_t *where, bool for_trace,
+                                     bool translating, void *user_data);
 
 #endif /* _FUNC_TRACE_ */
