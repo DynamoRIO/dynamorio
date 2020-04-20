@@ -279,7 +279,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
 
     /* check if need adjust stack for alignment. */
     if (cci->should_align) {
-#if !(defined(X86_32) && defined(WINDOWS))
+#if defined(X86) && (defined(X64) || defined(UNIX))
         /* PR 218790: maintain 16-byte rsp alignment.
          * insert_parameter_preparation() currently assumes we leave rsp aligned.
          */
@@ -330,7 +330,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         cci = &default_clean_call_info;
         /* saved error code is currently on the top of the stack */
 
-#if !(defined(X86_32) && defined(WINDOWS))
+#if defined(X86) && (defined(X64) || defined(UNIX))
     /* PR 218790: remove the padding we added for 16-byte rsp alignment */
     if (cci->should_align) {
         int align = get_ABI_stack_alignment();
