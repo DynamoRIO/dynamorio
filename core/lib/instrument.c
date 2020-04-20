@@ -5600,13 +5600,13 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     else
         encode_pc = vmcode_get_start();
     dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, where, encode_pc);
-#ifdef X64
     /* PR 218790: we assume that dr_prepare_for_call() leaves stack 16-byte
-     * aligned, which is what insert_meta_call_vargs requires. */
+     * aligned, which is what insert_meta_call_vargs requires.
+     */
     if (cci.should_align) {
-        CLIENT_ASSERT(ALIGNED(dstack_offs, 16), "internal error: bad stack alignment");
+        CLIENT_ASSERT(ALIGNED(dstack_offs, get_ABI_stack_alignment()),
+                      "internal error: bad stack alignment");
     }
-#endif
     if (save_fpstate) {
         /* save on the stack: xref PR 202669 on clients using more stack */
         buf_sz = proc_fpstate_save_size();
