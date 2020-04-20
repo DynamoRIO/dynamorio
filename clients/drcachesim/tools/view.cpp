@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -71,6 +71,7 @@ view_t::view_t(const std::string &module_file_path, memref_tid_t thread,
     , prev_tid_(-1)
     , filetype_(-1)
     , num_refs_(0)
+    , timestamp_(0)
 {
 }
 
@@ -190,6 +191,13 @@ view_t::process_memref(const memref_t &memref)
                 return false;
             }
             return true; // Do not count toward -sim_refs yet b/c we don't have tid.
+        case TRACE_MARKER_TYPE_TIMESTAMP:
+            // Delay to see whether this is a new window.  We assume a timestamp
+            // is always followed by another marker (cpu or window).
+            // We can't easily reorder and place window markers before timestamps
+            // since memref iterators use the timestamps to order buffer units.
+            timestamp_ = memref.marker.marker_value;
+            return true;
         default: break;
         }
     }
@@ -231,7 +239,7 @@ view_t::process_memref(const memref_t &memref)
             // Handled above.
             break;
         case TRACE_MARKER_TYPE_TIMESTAMP:
-            std::cerr << "<marker: timestamp " << memref.marker.marker_value << ">\n";
+            // Handled above.
             break;
         case TRACE_MARKER_TYPE_CPU_ID:
             // We include the thread ID here under the assumption that we will always
@@ -273,10 +281,33 @@ view_t::process_memref(const memref_t &memref)
             std::cerr << "<marker: cache line size " << memref.marker.marker_value
                       << ">\n";
             break;
+        case TRACE_MARKER_TYPE_WINDOW_ID:
+            if (last_window_[memref.marker.tid] != memref.marker.marker_value) {
+                std::cerr
+                    << "------------------------------------------------------------\n";
+                print_prefix(memref);
+            }
+            if (timestamp_ > 0) {
+                if (!should_skip()) {
+                    std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+                    timestamp_ = 0;
+                    print_prefix(memref);
+                }
+            }
+            std::cerr << "<marker: window " << memref.marker.marker_value << ">\n";
+            last_window_[memref.marker.tid] = memref.marker.marker_value;
+            break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
                       << memref.marker.marker_value << ">\n";
             break;
+        }
+        if (timestamp_ > 0) {
+            if (!should_skip()) {
+                print_prefix(memref);
+                std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+                timestamp_ = 0;
+            }
         }
         return true;
     }
