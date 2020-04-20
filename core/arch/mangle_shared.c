@@ -301,7 +301,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
 #    ifndef X86_32 /* x86 uses pusha regardless of regs we could skip */
         num_slots -= cci->num_regs_skip; /* regs not saved */
 #    endif
-        uint emulate_dstack_offs = simd + num_slots * XSP_SZ;
+        IF_DEBUG(uint emulate_dstack_offs = simd + num_slots * XSP_SZ;)
         ASSERT(emulate_dstack_offs == dstack_offs || cci->out_of_line_swap);
         /* For out-of-line calls, the stack size gets aligned by
          * get_clean_call_switch_stack_size.
