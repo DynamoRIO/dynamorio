@@ -118,8 +118,8 @@ check_stack_alignment(void)
 #    define STACK_ALIGNMENT 8
     ASSERT(ALIGNED(sp, STACK_ALIGNMENT));
 #else
-    /* We could have a separate-file asm routine for Windows but for now we just test
-     * on x86 UNIX.
+    /* TODO i#4267: If we change Windows to be more than 4-byte alignment we should
+     * add a separate-file asm routine to check alignment there.
      */
 #endif
 }

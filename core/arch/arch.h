@@ -600,6 +600,13 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
 /* See i#847, i#3966 for discussion of stack alignment on 32-bit Linux. */
 #        define ABI_STACK_ALIGNMENT 16
 #    else
+/* We follow the Windows (MSVC-based) 32-bit ABI which requires only 4-byte
+ * stack alignment.
+ * XXX i#4267: Gcc/clang through MinGW/Cygwin use 16-byte by default, but
+ * for interoperating with Windows system libraries (callbacks, e.g.) they
+ * have to hande 4-byte and we expect them to use -mstackrealign or something.
+ * Thus for now we stick with just 4-byte even for them.
+ */
 #        define ABI_STACK_ALIGNMENT 4
 #    endif
 #elif defined(AARCH64)

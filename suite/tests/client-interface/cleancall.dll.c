@@ -233,13 +233,6 @@ check_zmm()
 #endif
 
 static void
-inc_counter(int count)
-{
-    static int global_counter;
-    global_counter += count;
-}
-
-static void
 ind_call(reg_t a1, reg_t a2)
 {
     dr_fprintf(STDERR, "bar " PFX " " PFX "\n", a1, a2);
@@ -366,10 +359,6 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 #    endif
 #endif
     }
-
-    /* Inlineable call (cleancall-opt does further tests there). */
-    dr_insert_clean_call(drcontext, bb, instrlist_first(bb), inc_counter, false, 1,
-                         OPND_CREATE_INT32(42));
 
     /* Look for 3 nops to indicate handler is set up */
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {

@@ -129,6 +129,26 @@ clean_call_needs_simd(clean_call_info_t *cci)
             cci->num_opmask_skip != proc_num_opmask_registers());
 }
 
+/* Number of extra slots in addition to register slots. */
+#define NUM_EXTRA_SLOTS 2 /* pc, aflags */
+
+static int
+clean_call_prepare_stack_size(clean_call_info_t *cci)
+{
+    int simd = 0;
+    if (clean_call_needs_simd(cci)) {
+        simd =
+            MCXT_TOTAL_SIMD_SLOTS_SIZE + MCXT_TOTAL_OPMASK_SLOTS_SIZE + PRE_XMM_PADDING;
+    }
+    uint num_slots = DR_NUM_GPR_REGS + NUM_EXTRA_SLOTS;
+    if (cci->skip_save_flags)
+        num_slots -= 2;
+#ifndef X86_32                       /* x86 uses pusha regardless of regs we could skip */
+    num_slots -= cci->num_regs_skip; /* regs not saved */
+#endif
+    return simd + num_slots * XSP_SZ;
+}
+
 /* prepare_for and cleanup_after assume that the stack looks the same after
  * the call to the instrumentation routine, since it stores the app state
  * on the stack.
@@ -158,8 +178,6 @@ clean_call_needs_simd(clean_call_info_t *cci)
  * dr_prepare_for_call) assumes that this routine only modifies xsp
  * and xax and no other registers.
  */
-/* number of extra slots in addition to register slots. */
-#define NUM_EXTRA_SLOTS 2 /* pc, aflags */
 uint
 prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *ilist,
                        instr_t *instr, byte *encode_pc)
@@ -290,19 +308,8 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
          * We could make the caller pass back in dstack_offs except for
          * dr_cleanup_after_call().
          */
-        int simd = 0;
-        if (clean_call_needs_simd(cci)) {
-            simd = MCXT_TOTAL_SIMD_SLOTS_SIZE + MCXT_TOTAL_OPMASK_SLOTS_SIZE +
-                PRE_XMM_PADDING;
-        }
-        uint num_slots = DR_NUM_GPR_REGS + NUM_EXTRA_SLOTS;
-        if (cci->skip_save_flags)
-            num_slots -= 2;
-#    ifndef X86_32 /* x86 uses pusha regardless of regs we could skip */
-        num_slots -= cci->num_regs_skip; /* regs not saved */
-#    endif
-        IF_DEBUG(uint emulate_dstack_offs = simd + num_slots * XSP_SZ;)
-        ASSERT(emulate_dstack_offs == dstack_offs || cci->out_of_line_swap);
+        ASSERT(clean_call_prepare_stack_size(cci) == dstack_offs ||
+               cci->out_of_line_swap);
         /* For out-of-line calls, the stack size gets aligned by
          * get_clean_call_switch_stack_size.
          */
@@ -334,18 +341,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     /* PR 218790: remove the padding we added for 16-byte rsp alignment */
     if (cci->should_align) {
         int align = get_ABI_stack_alignment();
-        int simd = 0;
-        if (clean_call_needs_simd(cci)) {
-            simd = MCXT_TOTAL_SIMD_SLOTS_SIZE + MCXT_TOTAL_OPMASK_SLOTS_SIZE +
-                PRE_XMM_PADDING;
-        }
-        uint num_slots = DR_NUM_GPR_REGS + NUM_EXTRA_SLOTS;
-        if (cci->skip_save_flags)
-            num_slots -= 2;
-#    ifndef X86_32 /* x86 uses pusha regardless of regs we could skip */
-        num_slots -= cci->num_regs_skip; /* regs not saved */
-#    endif
-        int emulate_dstack_offs = simd + num_slots * XSP_SZ;
+        int emulate_dstack_offs = clean_call_prepare_stack_size(cci);
         int off = align - (emulate_dstack_offs % align);
         /* For out-of-line calls, the stack size gets aligned by
          * get_clean_call_switch_stack_size.
