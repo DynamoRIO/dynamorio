@@ -129,11 +129,13 @@ guarantees that it does not modify the set encoding on its own accord.
 
 drbbdup invokes the #drbbdup_instrument_instr_t call-back function to
 trigger the instrumentation of an instruction. Instrumentation must be
-done with respect to the currently considered case which is provided by
+done with respect to the currently considered case which is passed as a parameter by
 drbbdup. Moreover, while drbbdup supplies the instruction which the client
 considers for instrumentation, it also provides a "where" instruction.
 The client must insert code exactly prior to the "where" instruction
-in order to ensure correct instrumentation.
+in order to ensure correct instrumentation. Internally, this approach enables
+instructions (e.g., syscall and jmp), which cannot be duplicated due to the breaking
+of basic block structure, to have different case instrumentation nonetheless.
 
 drbbdup also provides drbbdup_is_first_instr(), drbbdup_is_first_nonlabel_instr()
 and drbbdup_is_last_instr() to determine whether the passed instruction
