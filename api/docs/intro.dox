@@ -1189,13 +1189,6 @@ endif(NOT DynamoRIO_FOUND)
 configure_DynamoRIO_client(myclient)
 \endcode
 
-Note that when building a 32-bit client in Linux using \p gcc, the stack
-alignment should be 4-byte only.
-Using the function \p configure_DynamoRIO_client() will configure the
-build settings correctly.
-Otherwise, appropriate options should be passed to the compiler: e.g.,
-\p -mpreferred-stack-boundary=2.
-
 The \p samples/CMakeLists.txt file in the release package serves as another
 example.  The top of \p DynamoRIOConfig.cmake contains detailed
 instructions as well.

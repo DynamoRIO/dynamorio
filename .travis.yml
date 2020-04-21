@@ -194,7 +194,7 @@ before_deploy:
   # use a non-zero build number when making multiple manual builds in one day.
   - >
       if test -z "${VERSION_NUMBER}"; then
-          export GIT_TAG="cronbuild-7.91.$((`git log -n 1 --format=%ct` / (60*60*24)))"
+          export GIT_TAG="cronbuild-7.92.$((`git log -n 1 --format=%ct` / (60*60*24)))"
       else
           export GIT_TAG="release_${VERSION_NUMBER}"
       fi

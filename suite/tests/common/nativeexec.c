@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -222,6 +222,7 @@ main(int argc, char **argv)
 /* clang-format off */
 START_FILE
 
+/* TODO i#3966: Maintain 16-byte alignment for 32-bit too in these routines. */
         DECLARE_FUNC(call_plt)
 GLOBAL_LABEL(call_plt:)
         /* XXX: Not doing SEH prologue for test code. */

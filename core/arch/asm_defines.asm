@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -71,9 +71,8 @@
 
 #undef WEAK /* avoid conflict with C define */
 
-/* This is really the alignment needed by x64 code.  For now, when we bother to
- * align the stack pointer, we just go for 16 byte alignment.  We do *not*
- * assume 16-byte alignment across the code base.
+/* This is the alignment needed by both x64 and 32-bit code except
+ * for 32-bit Windows.
  * i#847: Investigate using aligned SSE ops (see get_xmm_caller_saved).
  */
 #define FRAME_ALIGNMENT 16
@@ -141,7 +140,8 @@
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
-# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
+# define ADD_STACK_ALIGNMENT_NOSEH sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
+# define ADD_STACK_ALIGNMENT ADD_STACK_ALIGNMENT_NOSEH
 # define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # define END_PROLOG /* nothing */
 /* PR 212290: avoid text relocations.
@@ -197,6 +197,8 @@ ASSUME fs:_DATA @N@\
 # define DECL_EXTERN(symbol) EXTERN symbol:PROC
 /* include newline so we can put multiple on one line */
 # define RAW(n) DB HEX(n) @N@
+# define ADD_STACK_ALIGNMENT_NOSEH sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
+# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # ifdef X64
 /* 64-bit SEH directives */
 /* Declare non-leaf function (adjusts stack; makes calls; saves non-volatile regs): */
@@ -205,15 +207,15 @@ ASSUME fs:_DATA @N@\
 #  define PUSH_SEH(reg) push reg @N@ .pushreg reg
 /* Push a volatile register or an immed in prolog: */
 #  define PUSH_NONCALLEE_SEH(reg) push reg @N@ .allocstack 8
-# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ @N@ .allocstack 8
-# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ @N@
+#  define ADD_STACK_ALIGNMENT \
+        ADD_STACK_ALIGNMENT_NOSEH @N@\
+        .allocstack FRAME_ALIGNMENT - ARG_SZ
 #  define END_PROLOG .endprolog
 # else
 #  define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 #  define PUSH_SEH(reg) push reg @N@ /* add a line to match x64 line count */
 #  define PUSH_NONCALLEE_SEH(reg) push reg @N@ /* add a line to match x64 line count */
-# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ @N@
-# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ @N@
+#  define ADD_STACK_ALIGNMENT ADD_STACK_ALIGNMENT_NOSEH
 #  define END_PROLOG /* nothing */
 # endif
 /****************************************************/
@@ -249,7 +251,8 @@ ASSUME fs:_DATA @N@\
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
-# define ADD_STACK_ALIGNMENT sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
+# define ADD_STACK_ALIGNMENT_NOSEH sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
+# define ADD_STACK_ALIGNMENT ADD_STACK_ALIGNMENT_NOSEH
 # define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # define END_PROLOG /* nothing */
 /****************************************************/
@@ -584,8 +587,8 @@ ASSUME fs:_DATA @N@\
 #else /* 32-bit */
 # define PUSHF   pushfd
 # define POPF    popfd
-# if defined(MACOS) || defined(CLANG)
-/* Mac or clang requires 32-bit to have 16-byte stack alignment (at call site)
+# ifndef WINDOWS
+/* Mac and Linux requires 32-bit to have 16-byte stack alignment (at call site).
  * Pass 4 instead of 0 for mod4 to avoid wasting stack space.
  */
 #  define STACK_PAD(tot, gt4, mod4) \
@@ -600,7 +603,7 @@ ASSUME fs:_DATA @N@\
 /* p cannot be a memory operand, naturally */
 #  define SETARG(argoffs, argreg, p) \
         mov      PTRSZ [ARG_SZ*argoffs + REG_XSP], p
-# else /* !MACOS && !CLANG */
+# else /* WINDOWS */
 #  define STACK_PAD(tot, gt4, mod4) /* nothing */
 #  define STACK_PAD_NOPUSH(tot, gt4, mod4) \
         lea      REG_XSP, [-ARG_SZ*tot + REG_XSP]
@@ -615,7 +618,7 @@ ASSUME fs:_DATA @N@\
  */
 #  define SETARG(argoffs, argreg, p) \
         push     p
-# endif /* !MACOS && !CLANG */
+# endif /* WINDOWS */
 #endif /* 64/32-bit */
 
 /* CALLC* are for C calling convention callees only.
