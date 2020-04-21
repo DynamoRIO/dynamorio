@@ -1157,6 +1157,18 @@ atomic_aligned_read_int64(volatile int64 *var)
         } while (0)
 #endif
 
+/* Our ATOMIC_* macros target release-acquire semantics.  ATOMIC_PTRSZ_ALIGNED_WRITE
+ * is a Store-Release and ensures prior stores in program order in this thread
+ * are not observed by another thread after this store.
+ */
+#ifdef X64
+#    define ATOMIC_PTRSZ_ALIGNED_WRITE(target, value, hot_patch) \
+        ATOMIC_8BYTE_ALIGNED_WRITE(target, value, hot_patch)
+#else
+#    define ATOMIC_PTRSZ_ALIGNED_WRITE(target, value, hot_patch) \
+        ATOMIC_4BYTE_ALIGNED_WRITE(target, value, hot_patch)
+#endif
+
 #define ATOMIC_MAX(type, maxvar, curvar) ATOMIC_MAX_##type(type, maxvar, curvar)
 
 #define DEBUGGER_INTERRUPT_BYTE 0xcc
