@@ -285,7 +285,7 @@ Further non-compatibility-affecting changes include:
    application, but reduces overhead.
  - Added -record_dynsym_only to drcachesim for faster function tracing symbol
    lookups when internal symbols are not needed.
- - Added -record_replace_retaddrd_only to drcachesim for faster function tracing
+ - Added -record_replace_retaddr_only to drcachesim for faster function tracing
    wrapping for well-behaved applications.
  - Added dr_merge_arith_flags() as a convenience routine to merge arithmetic flags
    for restoration done by outlined code.
@@ -301,7 +301,9 @@ Further non-compatibility-affecting changes include:
    dr_get_process_id() in some contexts.
  - The private loader's malloc redirection now guarantees double-pointer-sized
    alignment, to match what system-provided allocators use.
-
+ - Added a new DR extension, namely "drbbdup", which enables different case
+   instrumentation of the same basic block by duplicating code.
+   
 **************************************************
 <hr>
 
@@ -466,8 +468,6 @@ Further non-compatibility-affecting changes include:
    aggregate, and clean up in print_results().
  - Added module_mapper_t::find_mapped_trace_bounds() to allow callers to cache
    results and avoid global locks during parallel operation.
- - Added a new DR extension, namely "drbbdup", which enables different case
-   instrumentation of the same basic block by duplicating code.
 
 **************************************************
 <hr>
