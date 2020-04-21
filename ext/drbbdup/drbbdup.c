@@ -1476,7 +1476,19 @@ static bool
 drbbdup_check_options(drbbdup_options_t *ops_in)
 {
     if (ops_in != NULL && ops_in->set_up_bb_dups != NULL && ops_in->instrument_instr &&
-        ops_in->dup_limit > 0 && opnd_is_memory_reference(ops_in->runtime_case_opnd))
+        ops_in->dup_limit > 0)
+        return true;
+
+    return false;
+}
+
+static bool
+drbbdup_check_case_opnd(opnd_t case_opnd)
+{
+    /* As stated in the docs, runtime case operand must be a memory reference
+     * and pointer-sized.
+     * */
+    if (opnd_is_memory_reference(case_opnd) && opnd_get_size(case_opnd) == OPSZ_PTR)
         return true;
 
     return false;
@@ -1491,6 +1503,9 @@ drbbdup_init(drbbdup_options_t *ops_in)
 
     if (!drbbdup_check_options(ops_in))
         return DRBBDUP_ERROR_INVALID_PARAMETER;
+    if (!drbbdup_check_case_opnd(ops_in->runtime_case_opnd))
+        return DRBBDUP_ERROR_INVALID_OPND;
+
     memcpy(&opts, ops_in, sizeof(drbbdup_options_t));
 
     drreg_options_t drreg_ops = { sizeof(drreg_ops), 0 /* no regs needed */, false, NULL,
