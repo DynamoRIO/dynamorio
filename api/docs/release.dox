@@ -133,7 +133,29 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 7.1.0 include the following compatibility
+The changes between version \DR_VERSION and 8.0.0 include the following compatibility
+changes:
+
+ Nothing yet.
+
+The changes between version \DR_VERSION and 8.0.0 include the following minor
+compatibility changes:
+
+ Nothing yet.
+
+Further non-compatibility-affecting changes include:
+
+ Nothing yet.
+
+**************************************************
+<hr>
+
+Version 8.0.0 includes Dr. Memory and the
+Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
+provides the umbra, drsyscall, and drsymcache Extensions for use by
+clients.
+
+The changes between version 8.0.0 and 7.1.0 include the following compatibility
 changes:
 
  - Changed the enumeration of the DR_REG_ enum by adding x86 AVX-512 registers as well
@@ -158,7 +180,7 @@ changes:
  - Changed the 32-bit x86 stack alignment of DynamoRIO and clients built using
    DR's CMake configuration from 4 to 16 on Linux to match modern conventions.
 
-The changes between version \DR_VERSION and 7.1.0 include the following minor
+The changes between version 8.0.0 and 7.1.0 include the following minor
 compatibility changes:
 
  - Added the define #MCXT_NUM_SIMD_SLOTS that was renamed from NUM_SIMD_SLOTS.
@@ -194,6 +216,7 @@ compatibility changes:
    Previously, re-relativization for instruction references only happened when an
    instruction was re-encoded.  This auto-PC-relativization can be avoided by calling
    instr_set_rip_rel_valid() and setting the validity of the PC-relative data to false.
+ - Fixed major synchronization bugs on ARM and AArch64.
 
 Further non-compatibility-affecting changes include:
 
@@ -262,7 +285,7 @@ Further non-compatibility-affecting changes include:
    application, but reduces overhead.
  - Added -record_dynsym_only to drcachesim for faster function tracing symbol
    lookups when internal symbols are not needed.
- - Added -record_replace_retaddrd_only to drcachesim for faster function tracing
+ - Added -record_replace_retaddr_only to drcachesim for faster function tracing
    wrapping for well-behaved applications.
  - Added dr_merge_arith_flags() as a convenience routine to merge arithmetic flags
    for restoration done by outlined code.
@@ -278,6 +301,8 @@ Further non-compatibility-affecting changes include:
    dr_get_process_id() in some contexts.
  - The private loader's malloc redirection now guarantees double-pointer-sized
    alignment, to match what system-provided allocators use.
+ - Added a new DR extension, namely "drbbdup", which enables different case
+   instrumentation of the same basic block by duplicating code.
 
 **************************************************
 <hr>
@@ -443,8 +468,6 @@ Further non-compatibility-affecting changes include:
    aggregate, and clean up in print_results().
  - Added module_mapper_t::find_mapped_trace_bounds() to allow callers to cache
    results and avoid global locks during parallel operation.
- - Added a new DR extension, namely "drbbdup", which enables different case
-   instrumentation of the same basic block by duplicating code.
 
 **************************************************
 <hr>
