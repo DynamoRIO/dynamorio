@@ -264,7 +264,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     /* The operand referring to memory storing the current runtime case encoding. */
     drbbdup_ops.runtime_case_opnd =
         dr_raw_tls_opnd(dr_get_current_drcontext(), tls_raw_reg, tls_raw_offset);
-    drbbdup_ops.dup_limit = 1; /* Only one additional copy is needed. */
+    drbbdup_ops.non_default_case_limit = 1; /* Only one additional copy is needed. */
     drbbdup_ops.is_stat_enabled = false;
 
     if (drbbdup_init(&drbbdup_ops) != DRBBDUP_SUCCESS)

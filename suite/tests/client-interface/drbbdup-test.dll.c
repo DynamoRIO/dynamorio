@@ -265,7 +265,7 @@ dr_init(client_id_t id)
     opts.instrument_instr = instrument_instr;
     opts.runtime_case_opnd = opnd_create_abs_addr(&encode_val, OPSZ_PTR);
     opts.user_data = USER_DATA_VAL;
-    opts.dup_limit = 2;
+    opts.non_default_case_limit = 2;
     opts.is_stat_enabled = true;
 
     drbbdup_status_t res = drbbdup_init(&opts);
