@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,7 @@ static void
 cleancallee(app_pc pc)
 {
     /* Include enough complexity to avoid inlining. */
+    check_stack_alignment();
     if (pc == NULL) {
         dr_fprintf(STDERR, "pc is NULL\n");
     }

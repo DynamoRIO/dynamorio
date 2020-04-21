@@ -596,10 +596,17 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                          instr_t *instr _IF_X86_64(gencode_mode_t mode));
 
 #ifdef X86
-#    if defined(X64) || defined(MACOS)
+#    if defined(X64) || defined(UNIX)
+/* See i#847, i#3966 for discussion of stack alignment on 32-bit Linux. */
 #        define ABI_STACK_ALIGNMENT 16
 #    else
-/* See i#847 for discussing the stack alignment on X86. */
+/* We follow the Windows (MSVC-based) 32-bit ABI which requires only 4-byte
+ * stack alignment.
+ * XXX i#4267: Gcc/clang through MinGW/Cygwin use 16-byte by default, but
+ * for interoperating with Windows system libraries (callbacks, e.g.) they
+ * have to hande 4-byte and we expect them to use -mstackrealign or something.
+ * Thus for now we stick with just 4-byte even for them.
+ */
 #        define ABI_STACK_ALIGNMENT 4
 #    endif
 #elif defined(AARCH64)
@@ -1434,6 +1441,9 @@ move_mm_reg_opcode(bool aligned16, bool aligned32);
  */
 uint
 move_mm_avx512_reg_opcode(bool aligned64);
+
+bool
+clean_call_needs_simd(clean_call_info_t *cci);
 
 /* clean call optimization */
 /* Describes usage of a scratch slot. */
