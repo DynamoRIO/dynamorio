@@ -210,7 +210,8 @@ typedef void (*drbbdup_instrument_instr_t)(void *drcontext, void *tag, instrlist
 
 /**
  * Specifies the options when initialising drbbdup. \p set_up_bb_dups
- * and \p instrument_instr cannot be NULL, while \p dup_limit must be greater than zero.
+ * and \p instrument_instr cannot be NULL, while \p non_default_case_limit must be
+ * greater than zero.
  */
 typedef struct {
     /** Set this to the size of this structure. */
@@ -285,7 +286,7 @@ typedef struct {
      * associated with a basic block. Once the limit is reached and an unhandled case is
      * encountered, control is directed to the default case.
      */
-    ushort dup_limit;
+    ushort non_default_case_limit;
     /**
      * Approximately, the number of times an unhandled case should be encountered by a
      * thread before it becomes a candidate for dynamic generation.
