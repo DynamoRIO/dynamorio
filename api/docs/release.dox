@@ -303,7 +303,7 @@ Further non-compatibility-affecting changes include:
    alignment, to match what system-provided allocators use.
  - Added a new DR extension, namely "drbbdup", which enables different case
    instrumentation of the same basic block by duplicating code.
-   
+
 **************************************************
 <hr>
 
