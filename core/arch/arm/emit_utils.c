@@ -952,7 +952,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
      * update_lookuptable_tls() and avoid the reader here seeing a new mask with
      * an old table.
      */
-    APP(&ilist, INSTR_CREATE_dmb(dc, OPND_CREATE_INT(DR_DMB_ISH)));
+    APP(&ilist, INSTR_CREATE_dmb(dc, OPND_CREATE_INT(DR_DMB_ISHLD)));
     APP(&ilist,
         INSTR_CREATE_and(dc, OPREG(DR_REG_R1), OPREG(DR_REG_R1), OPREG(DR_REG_R2)));
     APP(&ilist,

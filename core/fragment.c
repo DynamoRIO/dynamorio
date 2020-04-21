@@ -577,7 +577,7 @@ update_lookuptable_tls(dcontext_t *dcontext, ibl_table_t *table)
      */
     state->table_space.table[table->branch_type].lookuptable = table->table;
     /* Perform a Store-Release, which when combined with a Load-Acquire of the mask
-     * in the IBL itself, ensures the prior store to lookuptable is never
+     * in the IBL itself, ensures the prior store to lookuptable is always
      * observed before this store to hash_mask on weakly ordered arches.
      */
     ATOMIC_PTRSZ_ALIGNED_WRITE(&state->table_space.table[table->branch_type].hash_mask,
