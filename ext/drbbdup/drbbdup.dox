@@ -135,7 +135,7 @@ considers for instrumentation, it also provides a "where" instruction.
 The client must insert code exactly prior to the "where" instruction
 in order to ensure correct instrumentation. Internally, this approach enables
 instructions (e.g., syscall and jmp), which cannot be duplicated due to the breaking
-of basic block structure, to have different case instrumentation nonetheless. 
+of basic block structure, to have different case instrumentation nonetheless.
 
 drbbdup also provides drbbdup_is_first_instr(), drbbdup_is_first_nonlabel_instr()
 and drbbdup_is_last_instr() to determine whether the passed instruction
