@@ -213,7 +213,7 @@ drbbdup_count(drbbdup_manager_t *manager)
 
     uint count = 0;
     int i;
-    for (i = 0; i < opts.dup_limit; i++) {
+    for (i = 0; i < opts.non_default_case_limit; i++) {
         /* If case is defined, increment the counter. */
         if (manager->cases[i].is_defined)
             count++;
@@ -245,9 +245,10 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
     memset(manager, 0, sizeof(drbbdup_manager_t));
 
     manager->cases = NULL;
-    ASSERT(opts.dup_limit > 0, "dup limit should be greater than zero");
-    manager->cases = dr_global_alloc(sizeof(drbbdup_case_t) * opts.dup_limit);
-    memset(manager->cases, 0, sizeof(drbbdup_case_t) * opts.dup_limit);
+    ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
+    manager->cases =
+        dr_global_alloc(sizeof(drbbdup_case_t) * opts.non_default_case_limit);
+    memset(manager->cases, 0, sizeof(drbbdup_case_t) * opts.non_default_case_limit);
     manager->enable_dup = true;
     manager->enable_dynamic_handling = true;
     manager->is_gen = false;
@@ -268,7 +269,8 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
     /* Check whether user wants copies for this particular bb. */
     if (!manager->enable_dup && manager->cases != NULL) {
         /* Multiple cases not wanted. Destroy cases. */
-        dr_global_free(manager->cases, sizeof(drbbdup_case_t) * opts.dup_limit);
+        dr_global_free(manager->cases,
+                       sizeof(drbbdup_case_t) * opts.non_default_case_limit);
         manager->cases = NULL;
     }
 
@@ -640,7 +642,7 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
     if (manager->enable_dup) {
         ASSERT(manager->cases != NULL, "case information must exit");
         int i;
-        for (i = 0; i < opts.dup_limit; i++) {
+        for (i = 0; i < opts.non_default_case_limit; i++) {
             case_info = &manager->cases[i];
             if (case_info->is_defined) {
                 pt->case_analysis_data[i] =
@@ -801,7 +803,7 @@ drbbdup_do_dynamic_handling(drbbdup_manager_t *manager)
 {
     drbbdup_case_t *drbbdup_case;
     int i;
-    for (i = 0; i < opts.dup_limit; i++) {
+    for (i = 0; i < opts.non_default_case_limit; i++) {
         drbbdup_case = &manager->cases[i];
         /* Search for empty undefined slot. */
         if (!drbbdup_case->is_defined)
@@ -937,7 +939,7 @@ drbbdup_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
     } else {
         ASSERT(pt->case_analysis_data != NULL,
                "container for analysis data cannot be NULL");
-        ASSERT(pt->case_index >= 0 && pt->case_index < opts.dup_limit,
+        ASSERT(pt->case_index >= 0 && pt->case_index < opts.non_default_case_limit,
                "case index cannot be out-of-bounds");
         ASSERT(manager->enable_dup, "bb dup must be enabled");
 
@@ -1008,7 +1010,7 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
             /* We have reached the start of a new bb version (not the last one). */
             bool found = false;
             int i;
-            for (i = pt->case_index + 1; i < opts.dup_limit; i++) {
+            for (i = pt->case_index + 1; i < opts.non_default_case_limit; i++) {
                 drbbdup_case = &manager->cases[i];
                 if (drbbdup_case->is_defined) {
                     found = true;
@@ -1077,7 +1079,7 @@ drbbdup_destroy_all_analyses(void *drcontext, drbbdup_manager_t *manager,
     if (opts.destroy_case_analysis != NULL) {
         if (pt->case_analysis_data != NULL) {
             int i;
-            for (i = 0; i < opts.dup_limit; i++) {
+            for (i = 0; i < opts.non_default_case_limit; i++) {
                 if (pt->case_analysis_data[i] != NULL) {
                     opts.destroy_case_analysis(drcontext, manager->cases[i].encoding,
                                                opts.user_data, pt->orig_analysis_data,
@@ -1143,7 +1145,7 @@ drbbdup_encoding_already_included(drbbdup_manager_t *manager, uintptr_t encoding
     drbbdup_case_t *drbbdup_case;
     if (manager->enable_dup) {
         int i;
-        for (i = 0; i < opts.dup_limit; i++) {
+        for (i = 0; i < opts.non_default_case_limit; i++) {
             drbbdup_case = &manager->cases[i];
             if (drbbdup_case->is_defined && drbbdup_case->encoding == encoding_check)
                 return true;
@@ -1166,7 +1168,7 @@ drbbdup_include_encoding(drbbdup_manager_t *manager, uintptr_t new_encoding)
     if (manager->enable_dup) {
         int i;
         drbbdup_case_t *dup_case;
-        for (i = 0; i < opts.dup_limit; i++) {
+        for (i = 0; i < opts.non_default_case_limit; i++) {
             dup_case = &manager->cases[i];
             if (!dup_case->is_defined) {
                 dup_case->is_defined = true;
@@ -1430,8 +1432,9 @@ drbbdup_destroy_manager(void *manager_opaque)
     ASSERT(manager != NULL, "manager should not be NULL");
 
     if (manager->enable_dup && manager->cases != NULL) {
-        ASSERT(opts.dup_limit > 0, "dup limit should be greater than zero");
-        dr_global_free(manager->cases, sizeof(drbbdup_case_t) * opts.dup_limit);
+        ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
+        dr_global_free(manager->cases,
+                       sizeof(drbbdup_case_t) * opts.non_default_case_limit);
     }
     dr_global_free(manager, sizeof(drbbdup_manager_t));
 }
@@ -1444,9 +1447,10 @@ drbbdup_thread_init(void *drcontext)
 
     pt->case_index = 0;
     pt->orig_analysis_data = NULL;
-    ASSERT(opts.dup_limit > 0, "dup limit should be greater than zero");
-    pt->case_analysis_data = dr_thread_alloc(drcontext, sizeof(void *) * opts.dup_limit);
-    memset(pt->case_analysis_data, 0, sizeof(void *) * opts.dup_limit);
+    ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
+    pt->case_analysis_data =
+        dr_thread_alloc(drcontext, sizeof(void *) * opts.non_default_case_limit);
+    memset(pt->case_analysis_data, 0, sizeof(void *) * opts.non_default_case_limit);
 
     /* Init hit table. */
     for (int i = 0; i < TABLE_SIZE; i++)
@@ -1462,9 +1466,10 @@ drbbdup_thread_exit(void *drcontext)
     drbbdup_per_thread *pt =
         (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
     ASSERT(pt != NULL, "thread-local storage should not be NULL");
-    ASSERT(opts.dup_limit > 0, "dup limit should be greater than zero");
+    ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
 
-    dr_thread_free(drcontext, pt->case_analysis_data, sizeof(void *) * opts.dup_limit);
+    dr_thread_free(drcontext, pt->case_analysis_data,
+                   sizeof(void *) * opts.non_default_case_limit);
     dr_thread_free(drcontext, pt, sizeof(drbbdup_per_thread));
 }
 
@@ -1476,7 +1481,19 @@ static bool
 drbbdup_check_options(drbbdup_options_t *ops_in)
 {
     if (ops_in != NULL && ops_in->set_up_bb_dups != NULL && ops_in->instrument_instr &&
-        ops_in->dup_limit > 0 && opnd_is_memory_reference(ops_in->runtime_case_opnd))
+        ops_in->non_default_case_limit > 0)
+        return true;
+
+    return false;
+}
+
+static bool
+drbbdup_check_case_opnd(opnd_t case_opnd)
+{
+    /* As stated in the docs, runtime case operand must be a memory reference
+     * and pointer-sized.
+     */
+    if (opnd_is_memory_reference(case_opnd) && opnd_get_size(case_opnd) == OPSZ_PTR)
         return true;
 
     return false;
@@ -1491,6 +1508,9 @@ drbbdup_init(drbbdup_options_t *ops_in)
 
     if (!drbbdup_check_options(ops_in))
         return DRBBDUP_ERROR_INVALID_PARAMETER;
+    if (!drbbdup_check_case_opnd(ops_in->runtime_case_opnd))
+        return DRBBDUP_ERROR_INVALID_OPND;
+
     memcpy(&opts, ops_in, sizeof(drbbdup_options_t));
 
     drreg_options_t drreg_ops = { sizeof(drreg_ops), 0 /* no regs needed */, false, NULL,

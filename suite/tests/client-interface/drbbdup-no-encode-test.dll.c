@@ -121,7 +121,7 @@ dr_init(client_id_t id)
     opts.runtime_case_opnd = opnd_create_abs_addr(&case_encoding, OPSZ_PTR);
     opts.atomic_load_encoding = false;
     opts.user_data = USER_DATA_VAL;
-    opts.dup_limit = 1;
+    opts.non_default_case_limit = 1;
 
     drbbdup_status_t res = drbbdup_init(&opts);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");

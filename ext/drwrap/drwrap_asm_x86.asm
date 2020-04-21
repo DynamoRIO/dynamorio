@@ -65,18 +65,14 @@ GLOBAL_LABEL(FUNCNAME:)
          *
          * XXX: what about xmm0 return reg?
          */
-#ifdef MACOS
         push     0 /* maintain 16-byte alignment for call */
-#endif
         push     REG_XAX
         push     REG_XDX
         CALLC0(GLOBAL_REF(replace_native_xfer_stack_adjust))
         mov      ecx, eax
         pop      REG_XDX
         pop      REG_XAX
-#ifdef MACOS
         lea      REG_XSP, [ ARG_SZ + REG_XSP ]
-#endif
         /* DrMem i#1217: zero out these slots as they can contain retaddrs, which
          * messes up high-performance callstack stack scans.  This is beyond TOS,
          * but these are writes so it's signal-safe.
@@ -92,7 +88,6 @@ GLOBAL_LABEL(FUNCNAME:)
         push     REG_XAX
         push     REG_XDX
 
-#ifdef MACOS
         /* We have to align the stack for our calls: o/w dyld lazy resolution
          * crashes there.  Current alignment could be anything so we save a ptr
          * and mask off esp.
@@ -100,24 +95,17 @@ GLOBAL_LABEL(FUNCNAME:)
         push     REG_XBX
         mov      REG_XBX, REG_XSP
         and      REG_XSP, -16 /* align to 16 */
-#endif
 
         /* put app retaddr into the slot we made above the 2 pushes */
         CALLC0(GLOBAL_REF(replace_native_xfer_app_retaddr))
-#ifdef MACOS
         mov      PTRSZ [3 * ARG_SZ + REG_XBX], REG_XAX
-#else
-        mov      PTRSZ [2 * ARG_SZ + REG_XSP], REG_XAX
-#endif
 
         /* now get our target */
         CALLC0(GLOBAL_REF(replace_native_xfer_target))
         mov      REG_XCX, REG_XAX
 
-#ifdef MACOS
         mov      REG_XSP, REG_XBX
         pop      REG_XBX
-#endif
 
         pop      REG_XDX
         pop      REG_XAX

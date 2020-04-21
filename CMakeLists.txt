@@ -495,7 +495,7 @@ endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
 # N.B.: when updating this, update the git tag in .travis.yml.
 # We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "7.91.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "7.92.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -722,15 +722,6 @@ if (UNIX)
       set(LD_FLAGS "-melf_x86_64")
     else (X64)
       set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
-      # i#847 keep stack boundary 4-byte aligned (except on Mac)
-      # XXX i#1800: clang does not support -mpreferred-stack-boundary=2 or
-      # an equivalent flag, so clang's build may not run legacy binaries.
-      if (NOT CMAKE_COMPILER_IS_CLANG)
-        set(BASE_CFLAGS "${BASE_CFLAGS} -mpreferred-stack-boundary=2")
-      elseif (NOT APPLE)
-        message(STATUS "WARNING: 32-bit clang lacks stack alignment control:")
-        message(STATUS "  resulting build may not run all apps correctly")
-      endif ()
       set(LD_FLAGS "-melf_i386")
     endif (X64)
   elseif (ARM)
@@ -1246,13 +1237,14 @@ math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
 # Every release since has had minor compat breakages.
+# 7.92 broke backcompat by changing 32-bit stack alignment to 16.
 # 7.91 broke backcompat by adding a field to instr_t .
 # 7.90 broke backcompat in DR_REG_ enums and OPSZ_ enums.
 # 6.0 broke backcompat in Linux injection, mod load event, etc.
 # 5.0 broke backcompat in drsyms and xmm opnd sizes
 # 4.1 broke backcompat in drsyms + 64-bit core (opcodes + reachability)
 # 4.0 broke backcompat in drmgr, drsyms, drinjectlib, and dr_get_milliseconds()
-set(OLDEST_COMPATIBLE_VERSION_DEFAULT "791")
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "792")
 set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
   "Oldest compatible version: leave empty for default")
 if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")

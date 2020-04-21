@@ -61,6 +61,7 @@ extern "C" {
 typedef enum {
     DRBBDUP_SUCCESS,                       /**< Operation succeeded. */
     DRBBDUP_ERROR_INVALID_PARAMETER,       /**< Operation failed: invalid parameter. */
+    DRBBDUP_ERROR_INVALID_OPND,            /**< Operation failed: invalid case opnd. */
     DRBBDUP_ERROR_CASE_ALREADY_REGISTERED, /**< Operation failed: already registered. */
     DRBBDUP_ERROR_CASE_LIMIT_REACHED,      /**< Operation failed: case limit reached. */
     DRBBDUP_ERROR_ALREADY_INITIALISED,     /**< DRBBDUP can only be initialised once. */
@@ -209,7 +210,8 @@ typedef void (*drbbdup_instrument_instr_t)(void *drcontext, void *tag, instrlist
 
 /**
  * Specifies the options when initialising drbbdup. \p set_up_bb_dups
- * and \p instrument_instr cannot be NULL, while \p dup_limit must be greater than zero.
+ * and \p instrument_instr cannot be NULL, while \p non_default_case_limit must be
+ * greater than zero.
  */
 typedef struct {
     /** Set this to the size of this structure. */
@@ -265,7 +267,8 @@ typedef struct {
     /**
      * An operand that refers to the memory containing the current runtime case encoding.
      * During runtime, the dispatcher loads the runtime encoding via this operand
-     * in order to direct control to the appropriate basic block.
+     * in order to direct control to the appropriate basic block. The opnd must be
+     * pointer-sized.
      */
     opnd_t runtime_case_opnd;
     /**
@@ -279,11 +282,11 @@ typedef struct {
      */
     void *user_data;
     /**
-     * The maximum number of cases, excluding the default case, that can be associated
-     * with a basic block. Once the limit is reached and an unhandled case is encountered,
-     * control is directed to the default case.
+     * The maximum number of alternative cases, excluding the default case, that can be
+     * associated with a basic block. Once the limit is reached and an unhandled case is
+     * encountered, control is directed to the default case.
      */
-    ushort dup_limit;
+    ushort non_default_case_limit;
     /**
      * Approximately, the number of times an unhandled case should be encountered by a
      * thread before it becomes a candidate for dynamic generation.

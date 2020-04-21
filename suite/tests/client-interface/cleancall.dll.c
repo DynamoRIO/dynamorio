@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,6 +57,7 @@ print_error_on_fail(bool check)
 static void
 set_gpr()
 {
+    check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mcontext = {
         sizeof(mcontext),
@@ -77,6 +78,7 @@ set_gpr()
 static void
 check_gpr()
 {
+    check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mcontext = {
         sizeof(mcontext),
@@ -95,6 +97,7 @@ check_gpr()
 static void
 set_xmm()
 {
+    check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mcontext = {
         sizeof(mcontext),
@@ -115,6 +118,7 @@ set_xmm()
 static void
 check_xmm()
 {
+    check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mcontext = {
         sizeof(mcontext),
@@ -133,6 +137,7 @@ check_xmm()
 static void
 set_ymm()
 {
+    check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mcontext = {
         sizeof(mcontext),
@@ -155,6 +160,7 @@ set_ymm()
 static void
 check_ymm()
 {
+    check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mcontext = {
         sizeof(mcontext),
@@ -176,6 +182,7 @@ check_ymm()
 static void
 set_zmm()
 {
+    check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mcontext = {
         sizeof(mcontext),
@@ -201,6 +208,7 @@ set_zmm()
 static void
 check_zmm()
 {
+    check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mcontext = {
         sizeof(mcontext),
@@ -235,6 +243,7 @@ static void (*ind_call_ptr)(reg_t a1, reg_t a2) = ind_call;
 static void
 foo(reg_t a1, reg_t a2, reg_t a3, reg_t a4, reg_t a5, reg_t a6, reg_t a7, reg_t a8)
 {
+    check_stack_alignment();
     dr_fprintf(
         STDERR,
         "foo " PFX " " PFX " " PFX " " PFX "\n    " PFX " " PFX " " PFX " " PFX "\n", a1,
@@ -245,6 +254,7 @@ foo(reg_t a1, reg_t a2, reg_t a3, reg_t a4, reg_t a5, reg_t a6, reg_t a7, reg_t 
 static void
 bar(reg_t a1, reg_t a2)
 {
+    check_stack_alignment();
     /* test indirect call handling in clean call analysis */
     ind_call_ptr(a1, a2);
 }
@@ -252,6 +262,7 @@ bar(reg_t a1, reg_t a2)
 static void
 save_test()
 {
+    check_stack_alignment();
     int i;
     void *drcontext = dr_get_current_drcontext();
     dr_fprintf(STDERR, "verifying values\n");
