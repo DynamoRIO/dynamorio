@@ -136,10 +136,16 @@ clients.
 The changes between version \DR_VERSION and 8.0.0 include the following compatibility
 changes:
 
+ Nothing yet.
+
 The changes between version \DR_VERSION and 8.0.0 include the following minor
 compatibility changes:
 
+ Nothing yet.
+
 Further non-compatibility-affecting changes include:
+
+ Nothing yet.
 
 **************************************************
 <hr>
@@ -210,6 +216,7 @@ compatibility changes:
    Previously, re-relativization for instruction references only happened when an
    instruction was re-encoded.  This auto-PC-relativization can be avoided by calling
    instr_set_rip_rel_valid() and setting the validity of the PC-relative data to false.
+ - Fixed major synchronization bugs on ARM and AArch64.
 
 Further non-compatibility-affecting changes include:
 
