@@ -133,7 +133,23 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 7.1.0 include the following compatibility
+The changes between version \DR_VERSION and 8.0.0 include the following compatibility
+changes:
+
+The changes between version \DR_VERSION and 8.0.0 include the following minor
+compatibility changes:
+
+Further non-compatibility-affecting changes include:
+
+**************************************************
+<hr>
+
+Version 8.0.0 includes Dr. Memory and the
+Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
+provides the umbra, drsyscall, and drsymcache Extensions for use by
+clients.
+
+The changes between version 8.0.0 and 7.1.0 include the following compatibility
 changes:
 
  - Changed the enumeration of the DR_REG_ enum by adding x86 AVX-512 registers as well
@@ -158,7 +174,7 @@ changes:
  - Changed the 32-bit x86 stack alignment of DynamoRIO and clients built using
    DR's CMake configuration from 4 to 16 on Linux to match modern conventions.
 
-The changes between version \DR_VERSION and 7.1.0 include the following minor
+The changes between version 8.0.0 and 7.1.0 include the following minor
 compatibility changes:
 
  - Added the define #MCXT_NUM_SIMD_SLOTS that was renamed from NUM_SIMD_SLOTS.
