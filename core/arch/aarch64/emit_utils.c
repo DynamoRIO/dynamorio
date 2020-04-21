@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -720,13 +720,22 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 
     /* Spill x0. */
     APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG3_SLOT));
-    /* Load hash mask and base. */
-    /* ldp x1, x0, [x28, hash_mask] */
+    /* Load-acquire hash mask.  We need a load-acquire to ensure we see updates
+     * properly; the corresponding store-release is in update_lookuptable_tls().
+     */
+    /* add x1, x28 + hash_mask_offs; ldar x1, [x1]    (ldar doesn't take an offs.) */
     APP(&ilist,
-        INSTR_CREATE_ldp(dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X0),
+        INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(dr_reg_stolen),
+                         OPND_CREATE_INT32(TLS_MASK_SLOT(ibl_code->branch_type))));
+    APP(&ilist,
+        INSTR_CREATE_ldar(dc, opnd_create_reg(DR_REG_X1),
+                          OPND_CREATE_MEMPTR(DR_REG_X1, 0)));
+    /* ldr x0, [x28, hash_table] */
+    APP(&ilist,
+        INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X0),
                          opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
-                                               TLS_MASK_SLOT(ibl_code->branch_type),
-                                               OPSZ_16)));
+                                               TLS_TABLE_SLOT(ibl_code->branch_type),
+                                               OPSZ_8)));
     /* and x1, x1, x2 */
     APP(&ilist,
         INSTR_CREATE_and(dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X1),

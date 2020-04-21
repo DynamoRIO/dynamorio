@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -75,6 +75,22 @@
 /** A memory opnd_t that auto-sizes at encode time to match a register list. */
 #define OPND_CREATE_MEMLIST(base) \
     opnd_create_base_disp(base, DR_REG_NULL, 0, 0, OPSZ_VAR_REGLIST)
+
+/** Immediate values for INSTR_CREATE_dmb(). */
+enum {
+    DR_DMB_OSHLD = 1, /**< DMB Outer Shareable - Loads. */
+    DR_DMB_OSHST = 2, /**< DMB Outer Shareable - Stores. */
+    DR_DMB_OSH = 3,   /**< DMB Outer Shareable - Loads and Stores. */
+    DR_DMB_NSHLD = 5, /**< DMB Non Shareable - Loads. */
+    DR_DMB_NSHST = 6, /**< DMB Non Shareable - Stores. */
+    DR_DMB_NSH = 7,   /**< DMB Non Shareable - Loads and Stores. */
+    DR_DMB_ISHLD = 9, /**< DMB Inner Shareable - Loads. */
+    DR_DMB_ISHST = 10 /**< DMB Inner Shareable - Stores. */,
+    DR_DMB_ISH = 11, /**< DMB Inner Shareable - Loads and Stores. */
+    DR_DMB_LD = 13,  /**< DMB Full System - Loads. */
+    DR_DMB_ST = 14,  /**< DMB Full System - Stores. */
+    DR_DMB_SY = 15,  /**< DMB Full System - Loads and Stores. */
+};
 
 /* Macros for building instructions, one for each opcode.
  * Each INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and

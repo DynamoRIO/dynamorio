@@ -576,7 +576,12 @@ update_lookuptable_tls(dcontext_t *dcontext, ibl_table_t *table)
      * crashing or worse.
      */
     state->table_space.table[table->branch_type].lookuptable = table->table;
-    state->table_space.table[table->branch_type].hash_mask = table->hash_mask;
+    /* Perform a Store-Release, which when combined with a Load-Acquire of the mask
+     * in the IBL itself, ensures the prior store to lookuptable is always
+     * observed before this store to hash_mask on weakly ordered arches.
+     */
+    ATOMIC_PTRSZ_ALIGNED_WRITE(&state->table_space.table[table->branch_type].hash_mask,
+                               table->hash_mask, false);
 }
 
 #ifdef DEBUG
@@ -934,6 +939,9 @@ safely_nullify_tables(dcontext_t *dcontext, ibl_table_t *new_table,
          * the cache as early. (We should leave the fragment_t* value in the
          * table untouched also so that the fragment_table_t is in a consistent
          * state.)
+         */
+        /* For weakly ordered arches: we leave this as a weak (atomic-untorn b/c it's
+         * aligned) store, which should eventually be seen by the target thread.
          */
         table[i].start_pc_fragment = target_delete;
     }
@@ -1849,7 +1857,10 @@ fragment_thread_reset_init(dcontext_t *dcontext)
      * when resetting, though, thread free & re-init is done before global free,
      * so we have to explicitly set to 0 for that case.
      */
-    pt->flushtime_last_update = (dynamo_resetting) ? 0 : flushtime_global;
+    if (dynamo_resetting)
+        pt->flushtime_last_update = 0;
+    else
+        ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &pt->flushtime_last_update);
 
     /* set initial hashtable sizes */
     hashtable_fragment_init(
@@ -5449,13 +5460,15 @@ check_flush_queue(dcontext_t *dcontext, fragment_t *was_I_flushed)
             SELF_PROTECT_LOCAL(dcontext, READONLY);
     }
     /* now check shared queue to dec ref counts */
+    uint local_flushtime_global;
+    /* No lock needed: any racy incs to global are in safe direction, and our inc
+     * is atomic so we shouldn't see any partial-word-updated values here.  This
+     * check is our shared deletion algorithm's only perf hit when there's no
+     * actual shared flushing.
+     */
+    ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &local_flushtime_global);
     if (DYNAMO_OPTION(shared_deletion) &&
-        /* No lock needed: any racy incs to global are in safe direction, and our inc
-         * is atomic so we shouldn't see any partial-word-updated values here.  This
-         * check is our shared deletion algorithm's only perf hit when there's no
-         * actual shared flushing.
-         */
-        pt->flushtime_last_update < flushtime_global) {
+        pt->flushtime_last_update < local_flushtime_global) {
 #ifdef LINUX
         rseq_shared_fragment_flushtime_update(dcontext);
 #endif
@@ -5848,17 +5861,19 @@ increment_global_flushtime()
     /* reset will turn flushtime_global back to 0, so we schedule one
      * when we're approaching overflow
      */
-    if (flushtime_global == UINT_MAX / 2) {
+    uint local_flushtime_global;
+    ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &local_flushtime_global);
+    if (local_flushtime_global == UINT_MAX / 2) {
         ASSERT_NOT_TESTED(); /* FIXME: add -stress_flushtime_global_max */
         SYSLOG_INTERNAL_WARNING("flushtime_global approaching UINT_MAX, resetting");
         schedule_reset(RESET_ALL);
     }
-    ASSERT(flushtime_global < UINT_MAX);
+    ASSERT(local_flushtime_global < UINT_MAX);
 
     /* compiler should 4-byte-align so no cache line crossing
      * (asserted in fragment_init()
      */
-    flushtime_global++;
+    atomic_add_exchange_int((volatile int *)&flushtime_global, 1);
     LOG(GLOBAL, LOG_VMAREAS, 2, "new flush timestamp: %u\n", flushtime_global);
 }
 
@@ -6730,7 +6745,10 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
              * FIXME: Does not work w/ -ignore_syscalls, but those are private
              * for now.
              */
-            DEBUG_DECLARE(uint pre_flushtime = flushtime_global;)
+#ifdef DEBUG
+            uint pre_flushtime;
+            ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &pre_flushtime);
+#endif
             vm_area_check_shared_pending(tgt_dcontext, NULL);
             /* lazy deletion may inc flushtime_global, so may have a higher
              * value than our cached one, but should never be lower
