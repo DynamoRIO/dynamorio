@@ -378,7 +378,7 @@ DECL_EXTERN(print_from_asm)
         DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 # ifdef X86
-        push     REG_XBP  /* Needed only to maintain 16-byte alignment. */
+        ADD_STACK_ALIGNMENT_NOSEH
 # elif defined(AARCH64)
         stp      x29, x30, [sp, #-16]!
 # elif defined(ARM)
@@ -388,7 +388,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      REG_SCRATCH0, HEX(1)
         CALLC1(GLOBAL_REF(print_from_asm), REG_SCRATCH0)
 # ifdef X86
-        pop      REG_XBP
+        RESTORE_STACK_ALIGNMENT
 # elif defined(AARCH64)
         ldp      x29, x30, [sp], #16
 # elif defined(ARM)
@@ -404,7 +404,7 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 # ifdef X86
-        push     REG_XBP  /* Needed only to maintain 16-byte alignment. */
+        ADD_STACK_ALIGNMENT_NOSEH
 # elif defined(AARCH64)
         stp      x29, x30, [sp, #-16]!
 # elif defined(ARM)
@@ -414,7 +414,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      REG_SCRATCH0, HEX(7)
         CALLC1(GLOBAL_REF(print_from_asm), REG_SCRATCH0)
 # ifdef X86
-        pop      REG_XBP
+        RESTORE_STACK_ALIGNMENT
         ret
 # elif defined(AARCH64)
         ldp      x29, x30, [sp], #16

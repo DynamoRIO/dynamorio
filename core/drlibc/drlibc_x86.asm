@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -95,7 +95,8 @@ syscall_ready:
         push     REG_XBP
         push     REG_XSI
         push     REG_XDI
-        /* add 16 to skip the 4 pushes
+        /* Add 16 to skip the 4 pushes.
+         * XXX: We do not align the stack to 16 b/c the kernel doesn't care.
          * XXX: rather than this dispatch, could have separate routines
          * for each #args, or could just blindly read upward on the stack.
          * for dispatch, if assume size of mov instr can do single ind jmp */
@@ -588,7 +589,7 @@ GLOBAL_LABEL(load_dynamo:)
        and invoked upon return from the injector. When it is invoked,
        it expects the app's stack to look like this:
 
-                xsp-->| &LoadLibrary  |  for x64 xsp must be 16-aligned
+                xsp-->| &LoadLibrary  |  xsp must be 16-aligned
                       | &dynamo_path  |
                       | &GetProcAddr  |
                       | &dynamo_entry |___
@@ -646,7 +647,7 @@ load_dynamo_repeatme:
         jg       load_dynamo_repeat_outer
 
 # ifdef X64
-        /* xsp is 8-aligned and our pop makes it 16-aligned */
+        /* xsp is 8-aligned and our pop makes it 16-aligned NOCHECK BAIL ON WINDOWS WHICH DOESN"T REQUIRE 16-BYTE ALIGN? */
 # endif
         /* TOS has &DebugBreak */
         pop      REG_XBX /* pop   REG_XBX = &DebugBreak */
@@ -656,7 +657,9 @@ load_dynamo_repeatme:
         pop      REG_XBX /* pop   REG_XBX = &LoadLibraryA */
         /* TOS has &dynamo_path */
         pop      REG_XAX /* for 32-bit we're doing "pop eax, push eax" */
+        sub      REG_XSP, FRAME_ALIGNMENT - ARG_SZ*2 /* Align to 16. */
         CALLWIN1(REG_XBX, REG_XAX) /* call LoadLibraryA  (in kernel32.lib) */
+        add      REG_XSP, FRAME_ALIGNMENT - ARG_SZ*2 /* Undo align. */
 
         /* check result */
         cmp      REG_XAX, 0
@@ -670,6 +673,7 @@ load_dynamo_success:
         /* dynamo_handle is now in REG_XAX (returned by call LoadLibrary) */
         /* TOS has &dynamo_entry */
         pop      REG_XDI /* for 32-bit we're doing "pop edi, push edi" */
+        /* Stack is now 16-byte aligned. */
         CALLWIN2(REG_XBX, REG_XAX, REG_XDI) /* call GetProcAddress */
         cmp      REG_XAX, 0
         je       load_dynamo_failure

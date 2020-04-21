@@ -341,8 +341,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         cci = &default_clean_call_info;
     ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS ||
            proc_num_simd_registers() == MCXT_NUM_SIMD_SSE_AVX_SLOTS);
-    if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers() ||
-        cci->num_opmask_skip != proc_num_opmask_registers()) {
+    if (clean_call_needs_simd(cci)) {
         int offs =
             MCXT_TOTAL_SIMD_SLOTS_SIZE + MCXT_TOTAL_OPMASK_SLOTS_SIZE + PRE_XMM_PADDING;
         if (cci->preserve_mcontext && cci->skip_save_flags) {
@@ -671,7 +670,7 @@ shrink_reg_for_param(reg_id_t regular, opnd_t arg)
  * properly.
  *
  * Arguments that reference REG_XSP will work for clean calls, but are not guaranteed
- * to work for non-clean, especially for 64-bit where we align, etc.  Arguments that
+ * to work for non-clean, especially in the presence of stack alignment.  Arguments that
  * reference sub-register portions of REG_XSP are not supported.
  *
  * XXX PR 307874: w/ a post optimization pass, or perhaps more clever use of
@@ -983,6 +982,12 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
              INSTR_CREATE_lea(
                  dcontext, opnd_create_reg(REG_XSP),
                  OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, -(int)total_stack)));
+    } else if (total_stack % get_ABI_stack_alignment() != 0) {
+        int off = get_ABI_stack_alignment() - (total_stack % get_ABI_stack_alignment());
+        total_stack += off;
+        POST(ilist, prev, /* before everything */
+             INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
+                              OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, -off)));
     }
     if (restore_xsp) {
         /* before restore_xax, since we're going to clobber xax */
