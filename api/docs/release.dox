@@ -443,6 +443,8 @@ Further non-compatibility-affecting changes include:
    aggregate, and clean up in print_results().
  - Added module_mapper_t::find_mapped_trace_bounds() to allow callers to cache
    results and avoid global locks during parallel operation.
+ - Added a new DR extension, namely "drbbdup", which enables different case
+   instrumentation of the same basic block by duplicating code.
 
 **************************************************
 <hr>
