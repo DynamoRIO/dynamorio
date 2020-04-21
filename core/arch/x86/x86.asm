@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -273,7 +273,7 @@ GLOBAL_LABEL(call_switch_stack:)
         mov      [3*ARG_SZ + REG_XAX], ARG3
         mov      [4*ARG_SZ + REG_XAX], ARG4
 #else
-        /* stack alignment doesn't matter */
+        /* Stack alignment doesn't matter b/c we're swapping. */
         mov      REG_XAX, REG_XSP
 #endif
         /* we need a callee-saved reg across our call so save it onto stack */
@@ -362,7 +362,7 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         mov      [3*ARG_SZ + REG_XAX], ARG3
         mov      [4*ARG_SZ + REG_XAX], ARG4
 # else
-        /* stack alignment doesn't matter */
+        /* Stack alignment doesn't matter b/c we're swapping. */
         mov      REG_XAX, REG_XSP
 # endif
 # if defined(X64) && !defined(WINDOWS)
@@ -469,7 +469,7 @@ GLOBAL_LABEL(clone_and_swap_stack:)
 #ifdef DR_APP_EXPORTS
         DECLARE_EXPORTED_FUNC(dr_app_start)
 GLOBAL_LABEL(dr_app_start:)
-        sub     REG_XSP, FRAME_ALIGNMENT - ARG_SZ  /* Maintain alignment. */
+        ADD_STACK_ALIGNMENT_NOSEH
 
         /* grab exec state and pass as param in a priv_mcontext_t struct */
         PUSH_PRIV_MCXT(PTRSZ [FRAME_ALIGNMENT - ARG_SZ + REG_XSP -\
@@ -479,8 +479,7 @@ GLOBAL_LABEL(dr_app_start:)
         lea     REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
         CALLC1(GLOBAL_REF(dr_app_start_helper), REG_XAX)
 
-        /* if we come back, then DR is not taking control so
-         * clean up stack and return */
+        /* If we come back, then DR is not taking control so clean up stack and return. */
         add      REG_XSP, PRIV_MCXT_SIZE + FRAME_ALIGNMENT - ARG_SZ
         ret
         END_FUNC(dr_app_start)
@@ -514,7 +513,7 @@ GLOBAL_LABEL(dr_app_running_under_dynamorio: )
  */
         DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
 GLOBAL_LABEL(dynamorio_app_take_over:)
-        sub     REG_XSP, FRAME_ALIGNMENT - ARG_SZ  /* Maintain alignment. */
+        ADD_STACK_ALIGNMENT_NOSEH
 
         /* grab exec state and pass as param in a priv_mcontext_t struct */
         PUSH_PRIV_MCXT(PTRSZ [FRAME_ALIGNMENT - ARG_SZ + REG_XSP -\
@@ -524,8 +523,7 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         lea      REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
         CALLC1(GLOBAL_REF(dynamorio_app_take_over_helper), REG_XAX)
 
-        /* if we come back, then DR is not taking control so
-         * clean up stack and return */
+        /* If we come back, then DR is not taking control so clean up stack and return. */
         add      REG_XSP, PRIV_MCXT_SIZE + FRAME_ALIGNMENT - ARG_SZ
         ret
         END_FUNC(dynamorio_app_take_over)
@@ -1156,7 +1154,8 @@ GLOBAL_LABEL(_start:)
          */
         cmp     REG_XDI, 0 /* if reloaded, skip for speed + preserve xdi and xsi */
         jne     reloaded_xfer
-        CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, REG_XSP)
+        mov     REG_XAX, REG_XSP /* The CALLC3 may change xsp so grab it first. */
+        CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, REG_XAX)
         mov     REG_XDI, 0 /* xdi should be callee-saved but is not always: i#2641 */
 
 reloaded_xfer:

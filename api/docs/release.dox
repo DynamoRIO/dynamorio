@@ -155,6 +155,8 @@ changes:
    of the struct, but users who were not zeroing the whole structure and who update
    and recompile without setting the field may see crashes due to
    free_key_func being uninitialized.
+ - Changed the 32-bit x86 stack alignment of DynamoRIO and clients built using
+   DR's CMake configuration from 4 to 16 on Linux to match modern conventions.
 
 The changes between version \DR_VERSION and 7.1.0 include the following minor
 compatibility changes:
