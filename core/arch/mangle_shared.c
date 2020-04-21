@@ -132,7 +132,8 @@ clean_call_needs_simd(clean_call_info_t *cci)
 /* Number of extra slots in addition to register slots. */
 #define NUM_EXTRA_SLOTS 2 /* pc, aflags */
 
-static int
+#if defined(X86) && (defined(X64) || defined(UNIX))
+static uint
 clean_call_prepare_stack_size(clean_call_info_t *cci)
 {
     int simd = 0;
@@ -143,11 +144,12 @@ clean_call_prepare_stack_size(clean_call_info_t *cci)
     uint num_slots = DR_NUM_GPR_REGS + NUM_EXTRA_SLOTS;
     if (cci->skip_save_flags)
         num_slots -= 2;
-#ifndef X86_32                       /* x86 uses pusha regardless of regs we could skip */
+#    ifndef X86_32                   /* x86 uses pusha regardless of regs we could skip */
     num_slots -= cci->num_regs_skip; /* regs not saved */
-#endif
+#    endif
     return simd + num_slots * XSP_SZ;
 }
+#endif
 
 /* prepare_for and cleanup_after assume that the stack looks the same after
  * the call to the instrumentation routine, since it stores the app state
