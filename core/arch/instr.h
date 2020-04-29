@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -147,9 +147,7 @@ enum {
     INSTR_IND_JMP_PLT_EXIT = (INSTR_JMP_EXIT | INSTR_CALL_EXIT),
     INSTR_FAR_EXIT = LINK_FAR,
     INSTR_BRANCH_SPECIAL_EXIT = LINK_SPECIAL_EXIT,
-#    ifdef UNSUPPORTED_API
-    INSTR_BRANCH_TARGETS_PREFIX = LINK_TARGET_PREFIX,
-#    endif
+    INSTR_BRANCH_PADDED = LINK_PADDED,
 #    ifdef X64
     /* PR 257963: since we don't store targets of ind branches, we need a flag
      * so we know whether this is a trace cmp exit, which has its own ibl entry
@@ -164,21 +162,18 @@ enum {
     INSTR_NI_SYSCALL = LINK_NI_SYSCALL,
     INSTR_NI_SYSCALL_ALL = LINK_NI_SYSCALL_ALL,
     /* meta-flag */
-    EXIT_CTI_TYPES =
-        (INSTR_DIRECT_EXIT | INSTR_INDIRECT_EXIT | INSTR_RETURN_EXIT | INSTR_CALL_EXIT |
-         INSTR_JMP_EXIT | INSTR_FAR_EXIT | INSTR_BRANCH_SPECIAL_EXIT |
-#    ifdef UNSUPPORTED_API
-         INSTR_BRANCH_TARGETS_PREFIX |
-#    endif
+    EXIT_CTI_TYPES = (INSTR_DIRECT_EXIT | INSTR_INDIRECT_EXIT | INSTR_RETURN_EXIT |
+                      INSTR_CALL_EXIT | INSTR_JMP_EXIT | INSTR_FAR_EXIT |
+                      INSTR_BRANCH_SPECIAL_EXIT | INSTR_BRANCH_PADDED |
 #    ifdef X64
-         INSTR_TRACE_CMP_EXIT |
+                      INSTR_TRACE_CMP_EXIT |
 #    endif
 #    ifdef WINDOWS
-         INSTR_CALLBACK_RETURN |
+                      INSTR_CALLBACK_RETURN |
 #    else
-         INSTR_NI_SYSCALL_INT |
+                      INSTR_NI_SYSCALL_INT |
 #    endif
-         INSTR_NI_SYSCALL),
+                      INSTR_NI_SYSCALL),
 
     /* instr_t-internal flags (not shared with LINK_) */
     INSTR_OPERANDS_VALID = 0x00010000,
@@ -191,7 +186,10 @@ enum {
     /* DR_API EXPORT BEGIN */
     INSTR_DO_NOT_MANGLE = 0x00200000,
     /* DR_API EXPORT END */
-    INSTR_HAS_CUSTOM_STUB = 0x00400000,
+    /* This flag is set by instr_noalloc_init() and used to identify the
+     * instr_noalloc_t "subclass" of instr_t.  It should not be otherwise used.
+     */
+    INSTR_IS_NOALLOC_STRUCT = 0x00400000,
     /* used to indicate that an indirect call can be treated as a direct call */
     INSTR_IND_CALL_DIRECT = 0x00800000,
 #    ifdef WINDOWS
@@ -460,7 +458,7 @@ struct _instr_t {
 
     uint opcode;
 
-#    ifdef X86_64
+#    ifdef X86
     /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */
     byte rip_rel_pos;
 #    endif
@@ -503,6 +501,42 @@ struct _instr_t {
 };     /* instr_t */
 #endif /* DR_FAST_IR */
 
+/**
+ * A version of #instr_t which guarantees to not use heap allocation for regular
+ * decoding and encoding.  It inlines all the possible operands and encoding space
+ * inside the structure.  Some operations could still use heap if custom label data is
+ * used to point at heap-allocated structures through extension libraries or custom
+ * code.
+ *
+ * The instr_from_noalloc() function should be used to obtain an #instr_t pointer for
+ * passing to API functions:
+ *
+ * \code
+ *    instr_noalloc_t noalloc;
+ *    instr_noalloc_init(dcontext, &noalloc);
+ *    instr_t *instr = instr_from_noalloc(&noalloc);
+ *    pc = decode(dcontext, ptr, instr);
+ * \endcode
+ *
+ * No freeing is required.  To re-use the same structure, instr_reset() can be called.
+ *
+ * Some operations are not supported on this instruction format:
+ * + instr_clone()
+ * + instr_remove_srcs()
+ * + instr_remove_dsts()
+ * + Automated re-relativization when encoding.
+ *
+ * This format does not support caching encodings, so it is less efficient for encoding.
+ * It is intended for use when decoding in a signal handler or other locations where
+ * heap allocation is unsafe.
+ */
+typedef struct instr_noalloc_t {
+    instr_t instr; /**< The base instruction, valid for passing to API functions. */
+    opnd_t srcs[MAX_SRC_OPNDS - 1];    /**< Built-in storage for source operands. */
+    opnd_t dsts[MAX_DST_OPNDS];        /**< Built-in storage for destination operands. */
+    byte encode_buf[MAX_INSTR_LENGTH]; /**< Encoding space for instr_length(), etc. */
+} instr_noalloc_t;
+
 /****************************************************************************
  * INSTR ROUTINES
  */
@@ -535,6 +569,24 @@ DR_API
  */
 void
 instr_init(dcontext_t *dcontext, instr_t *instr);
+
+DR_API
+/**
+ * Initializes the no-heap-allocation structure \p instr.
+ * Sets the x86/x64 mode of \p instr to the mode of dcontext.
+ */
+void
+instr_noalloc_init(dcontext_t *dcontext, instr_noalloc_t *instr);
+
+DR_API
+INSTR_INLINE
+/**
+ * Given an #instr_noalloc_t where all operands are included, returns
+ * an #instr_t pointer corresponding to that no-alloc structure suitable for
+ * passing to instruction API functions.
+ */
+instr_t *
+instr_from_noalloc(instr_noalloc_t *noalloc);
 
 DR_API
 /**
@@ -690,41 +742,11 @@ DR_API
 bool
 instr_is_interrupt(instr_t *instr);
 
-#ifdef UNSUPPORTED_API
-DR_API
-/**
- * Returns true iff \p instr has been marked as targeting the prefix of its
- * target fragment.
- *
- * Some code manipulations need to store a target address in a
- * register and then jump there, but need the register to be restored
- * as well.  DR provides a single-instruction prefix that is
- * placed on all fragments (basic blocks as well as traces) that
- * restores ecx.  It is on traces for internal DR use.  To have
- * it added to basic blocks as well, call
- * dr_add_prefixes_to_basic_blocks() during initialization.
- */
 bool
-instr_branch_targets_prefix(instr_t *instr);
+instr_branch_is_padded(instr_t *instr);
 
-DR_API
-/**
- * If \p val is true, indicates that \p instr's target fragment should be
- *   entered through its prefix, which restores ecx.
- * If \p val is false, indicates that \p instr should target the normal entry
- *   point and not the prefix.
- *
- * Some code manipulations need to store a target address in a
- * register and then jump there, but need the register to be restored
- * as well.  DR provides a single-instruction prefix that is
- * placed on all fragments (basic blocks as well as traces) that
- * restores ecx.  It is on traces for internal DR use.  To have
- * it added to basic blocks as well, call
- * dr_add_prefixes_to_basic_blocks() during initialization.
- */
 void
-instr_branch_set_prefix_target(instr_t *instr, bool val);
-#endif /* UNSUPPORTED_API */
+instr_branch_set_padded(instr_t *instr, bool val);
 
 /* Returns true iff \p instr has been marked as a special fragment
  * exit cti.
@@ -830,34 +852,6 @@ DR_API
 void
 instr_set_ok_to_emit(instr_t *instr, bool val);
 
-#ifdef CUSTOM_EXIT_STUBS
-DR_API
-/**
- * If \p instr is not an exit cti, does nothing.
- * If \p instr is an exit cti, sets \p stub to be custom exit stub code
- * that will be inserted in the exit stub prior to the normal exit
- * stub code.  If \p instr already has custom exit stub code, that
- * existing instrlist_t is cleared and destroyed (using current thread's
- * context).  (If \p stub is NULL, any existing stub code is NOT destroyed.)
- * The creator of the instrlist_t containing \p instr is
- * responsible for destroying stub.
- * \note Custom exit stubs containing control transfer instructions to
- * other instructions inside a fragment besides the custom stub itself
- * are not fully supported in that they will not be decoded from the
- * cache properly as having instr_t targets.
- */
-void
-instr_set_exit_stub_code(instr_t *instr, instrlist_t *stub);
-
-DR_API
-/**
- * Returns the custom exit stub code instruction list that has been
- * set for this instruction.  If none exists, returns NULL.
- */
-instrlist_t *
-instr_exit_stub_code(instr_t *instr);
-#endif
-
 DR_API
 /**
  * Returns the length of \p instr.
@@ -878,7 +872,7 @@ void
 instr_exit_branch_set_type(instr_t *instr, uint type);
 
 DR_API
-/** Returns number of bytes of heap used by \p instr. */
+/** Returns the total number of bytes of memory used by \p instr. */
 int
 instr_mem_usage(instr_t *instr);
 
@@ -886,7 +880,8 @@ DR_API
 /**
  * Returns a copy of \p orig with separately allocated memory for
  * operands and raw bytes if they were present in \p orig.
- * Only a shallow copy of the \p note field is made.
+ * Only a shallow copy of the \p note field is made. The \p label_cb
+ * field will not be copied at all if \p orig is a label instruction.
  */
 instr_t *
 instr_clone(dcontext_t *dcontext, instr_t *orig);
@@ -1869,12 +1864,24 @@ bool
 instr_is_xsave(instr_t *instr);
 #endif
 
+DR_API
+/**
+ * If any of \p instr's operands is a rip-relative data or instruction
+ * memory reference, returns the address that reference targets.  Else
+ * returns false.  For instruction references, only PC operands are
+ * considered: not instruction pointer operands.
+ *
+ * \note Currently this is only implemented for x86.
+ */
+bool
+instr_get_rel_data_or_instr_target(instr_t *instr, /*OUT*/ app_pc *target);
+
 /* DR_API EXPORT BEGIN */
 #if defined(X64) || defined(ARM)
 /* DR_API EXPORT END */
 DR_API
 /**
- * Returns true iff any of \p instr's operands is a rip-relative memory reference.
+ * Returns true iff any of \p instr's operands is a rip-relative data memory reference.
  *
  * \note For 64-bit DR builds only.
  */
@@ -1883,7 +1890,7 @@ instr_has_rel_addr_reference(instr_t *instr);
 
 DR_API
 /**
- * If any of \p instr's operands is a rip-relative memory reference, returns the
+ * If any of \p instr's operands is a rip-relative data memory reference, returns the
  * address that reference targets.  Else returns false.
  *
  * \note For 64-bit DR builds only.
@@ -1893,7 +1900,7 @@ instr_get_rel_addr_target(instr_t *instr, /*OUT*/ app_pc *target);
 
 DR_API
 /**
- * If any of \p instr's destination operands is a rip-relative memory
+ * If any of \p instr's destination operands is a rip-relative data memory
  * reference, returns the operand position.  If there is no such
  * destination operand, returns -1.
  *
@@ -1916,7 +1923,7 @@ instr_get_rel_addr_src_idx(instr_t *instr);
 #endif /* X64 || ARM */
 /* DR_API EXPORT END */
 
-#ifdef X86_64
+#ifdef X86
 /* We're not exposing the low-level rip_rel_pos routines directly to clients,
  * who should only use this level 1-3 feature via decode_cti + encode.
  */
@@ -1948,7 +1955,7 @@ instr_get_rip_rel_pos(instr_t *instr);
  */
 void
 instr_set_rip_rel_pos(instr_t *instr, uint pos);
-#endif /* X64 */
+#endif /* X86 */
 
 /* not exported: for PR 267260 */
 bool
@@ -2065,6 +2072,8 @@ DR_API
  * Set a function \p func which is called when the label instruction is freed.
  * \p instr is the label instruction allowing \p func to free the label's
  * auxiliary data.
+ * \note This data field is not copied across instr_clone(). Instead, the
+ * clone's field will be NULL (xref i#3962).
  */
 void
 instr_set_label_callback(instr_t *instr, instr_label_callback_t func);
@@ -3004,7 +3013,7 @@ instr_create_save_to_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2);
 instr_t *
 instr_create_restore_from_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2);
 
-#ifdef X64
+#ifdef X86_64
 byte *
 instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 #endif

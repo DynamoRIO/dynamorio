@@ -85,10 +85,10 @@ Index: libelftc/libelftc.h
  /*
   * Types meant to be opaque to the consumers of these APIs.
   */
-@@ -73,11 +82,15 @@
- int		elftc_copyfile(int _srcfd,  int _dstfd);
+@@ -76,11 +85,15 @@
  int		elftc_demangle(const char *_mangledname, char *_buffer,
      size_t _bufsize, unsigned int _flags);
+ const char	*elftc_reloc_type_str(unsigned int mach, unsigned int type);
 +#ifndef _WIN32
  int		elftc_set_timestamps(const char *_filename, struct stat *_sb);
 +#endif

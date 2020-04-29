@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -65,7 +65,9 @@ typedef void (*func_trace_append_entry_vec_t)(void *, func_trace_entry_vector_t 
 // Initializes the func_trace module. Each call must be paired with a
 // corresponding call to func_trace_exit().
 bool
-func_trace_init(func_trace_append_entry_vec_t append_entry_vec_);
+func_trace_init(func_trace_append_entry_vec_t append_entry_vec_,
+                ssize_t (*write_file)(file_t file, const void *data, size_t count),
+                file_t funclist_file);
 
 // Cleans up the func_trace module
 void

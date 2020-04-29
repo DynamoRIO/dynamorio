@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,17 +40,17 @@
 void
 cache_lru_t::access_update(int line_idx, int way)
 {
-    int cnt = get_caching_device_block(line_idx, way).counter;
+    int cnt = get_caching_device_block(line_idx, way).counter_;
     // Optimization: return early if it is a repeated access.
     if (cnt == 0)
         return;
     // We inc all the counters that are not larger than cnt for LRU.
-    for (int i = 0; i < associativity; ++i) {
-        if (i != way && get_caching_device_block(line_idx, i).counter <= cnt)
-            get_caching_device_block(line_idx, i).counter++;
+    for (int i = 0; i < associativity_; ++i) {
+        if (i != way && get_caching_device_block(line_idx, i).counter_ <= cnt)
+            get_caching_device_block(line_idx, i).counter_++;
     }
     // Clear the counter for LRU.
-    get_caching_device_block(line_idx, way).counter = 0;
+    get_caching_device_block(line_idx, way).counter_ = 0;
 }
 
 int
@@ -59,17 +59,17 @@ cache_lru_t::replace_which_way(int line_idx)
     // We implement LRU by picking the slot with the largest counter value.
     int max_counter = 0;
     int max_way = 0;
-    for (int way = 0; way < associativity; ++way) {
-        if (get_caching_device_block(line_idx, way).tag == TAG_INVALID) {
+    for (int way = 0; way < associativity_; ++way) {
+        if (get_caching_device_block(line_idx, way).tag_ == TAG_INVALID) {
             max_way = way;
             break;
         }
-        if (get_caching_device_block(line_idx, way).counter > max_counter) {
-            max_counter = get_caching_device_block(line_idx, way).counter;
+        if (get_caching_device_block(line_idx, way).counter_ > max_counter) {
+            max_counter = get_caching_device_block(line_idx, way).counter_;
             max_way = way;
         }
     }
     // Set to non-zero for later access_update optimization on repeated access
-    get_caching_device_block(line_idx, max_way).counter = 1;
+    get_caching_device_block(line_idx, max_way).counter_ = 1;
     return max_way;
 }

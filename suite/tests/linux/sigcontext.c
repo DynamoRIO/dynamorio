@@ -194,8 +194,11 @@ main(int argc, char *argv[])
         for (j = 0; j < INTS_PER_XMM; j++)
             buf[i * INTS_PER_XMM + j] = 0xdeadbeef << i;
     }
-#define MOVE_TO_XMM(buf, num) \
-    __asm__ __volatile__("movdqu %0, %%xmm" #num : : "m"(buf[num * INTS_PER_XMM]) :);
+#define MOVE_TO_XMM(buf, num)                           \
+    __asm__ __volatile__("movdqu %0, %%xmm" #num        \
+                         :                              \
+                         : "m"(buf[num * INTS_PER_XMM]) \
+                         : "xmm" #num);
     MOVE_TO_XMM(buf, 0)
     MOVE_TO_XMM(buf, 1)
     MOVE_TO_XMM(buf, 2)
@@ -247,7 +250,7 @@ main(int argc, char *argv[])
             __asm__ __volatile__("vmovdqu64 %0, %%zmm" #num     \
                                  :                              \
                                  : "m"(buf[num * INTS_PER_ZMM]) \
-                                 :);
+                                 : "zmm" #num);
         MOVE_TO_ZMM(buf, 0)
         MOVE_TO_ZMM(buf, 1)
         MOVE_TO_ZMM(buf, 2)
@@ -283,8 +286,11 @@ main(int argc, char *argv[])
         MOVE_TO_ZMM(buf, 31)
 #        endif
         /* Re-using INTS_PER_ZMM here to get same data patterns as above. */
-#        define MOVE_TO_OPMASK(buf, num) \
-            __asm__ __volatile__("kmovw %0, %%k" #num : : "m"(buf[num * INTS_PER_ZMM]) :);
+#        define MOVE_TO_OPMASK(buf, num)                        \
+            __asm__ __volatile__("kmovw %0, %%k" #num           \
+                                 :                              \
+                                 : "m"(buf[num * INTS_PER_ZMM]) \
+                                 : "k" #num);
         MOVE_TO_OPMASK(buf, 0)
         MOVE_TO_OPMASK(buf, 1)
         MOVE_TO_OPMASK(buf, 2)
@@ -298,7 +304,7 @@ main(int argc, char *argv[])
             __asm__ __volatile__("vmovdqu %0, %%ymm" #num       \
                                  :                              \
                                  : "m"(buf[num * INTS_PER_YMM]) \
-                                 :);
+                                 : "ymm" #num);
         MOVE_TO_YMM(buf, 0)
         MOVE_TO_YMM(buf, 1)
         MOVE_TO_YMM(buf, 2)
@@ -323,15 +329,15 @@ main(int argc, char *argv[])
 
         /* Ensure they are preserved across the sigreturn (xref i#3812). */
 #    ifdef __AVX512F__
-        /* Use a new buffer to avoid the old values.  We could do a custom memset
+        /* Use a new buffer to avoid the old values. We could do a custom memset
          * with rep movs in asm instead (regular memset may clobber SIMD regs).
          */
-        int buf2[INTS_PER_XMM * NUM_SIMD_SSE_AVX_REGS];
+        int buf2[INTS_PER_ZMM * NUM_SIMD_AVX512_REGS];
 #        define MOVE_FROM_ZMM(buf, num)                          \
             __asm__ __volatile__("vmovdqu64 %%zmm" #num ", %0"   \
                                  : "=m"(buf[num * INTS_PER_ZMM]) \
                                  :                               \
-                                 :);
+                                 : "zmm" #num);
         MOVE_FROM_ZMM(buf2, 0)
         MOVE_FROM_ZMM(buf2, 1)
         MOVE_FROM_ZMM(buf2, 2)
@@ -372,12 +378,12 @@ main(int argc, char *argv[])
             }
         }
         /* Re-using INTS_PER_ZMM here to get same data patterns as above. */
-        int buf3[INTS_PER_XMM * NUM_SIMD_SSE_AVX_REGS];
+        int buf3[INTS_PER_ZMM * NUM_OPMASK_REGS];
 #        define MOVE_FROM_OPMASK(buf, num)                       \
             __asm__ __volatile__("kmovw %%k" #num ", %0"         \
                                  : "=m"(buf[num * INTS_PER_ZMM]) \
                                  :                               \
-                                 :);
+                                 : "k" #num);
         MOVE_FROM_OPMASK(buf3, 0)
         MOVE_FROM_OPMASK(buf3, 1)
         MOVE_FROM_OPMASK(buf3, 2)
@@ -392,12 +398,12 @@ main(int argc, char *argv[])
             assert(bufval == expect);
         }
 #    else
-        int buf2[INTS_PER_XMM * NUM_SIMD_SSE_AVX_REGS];
+        int buf2[INTS_PER_YMM * NUM_SIMD_SSE_AVX_REGS];
 #        define MOVE_FROM_YMM(buf, num)                          \
             __asm__ __volatile__("vmovdqu %%ymm" #num ", %0"     \
                                  : "=m"(buf[num * INTS_PER_YMM]) \
                                  :                               \
-                                 :);
+                                 : "ymm" #num);
         MOVE_FROM_YMM(buf2, 0)
         MOVE_FROM_YMM(buf2, 1)
         MOVE_FROM_YMM(buf2, 2)

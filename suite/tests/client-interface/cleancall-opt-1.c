@@ -31,6 +31,8 @@
  * DAMAGE.
  */
 
+#include "tools.h"
+
 /* Export instrumented functions so we can easily find them in client.  */
 #ifdef WINDOWS
 #    define EXPORT __declspec(dllexport)
@@ -50,9 +52,11 @@
     LAST_FUNCTION()
 
 /* Definitions for every function. */
-#define FUNCTION(FUNCNAME)     \
-    EXPORT void FUNCNAME(void) \
-    {                          \
+volatile int val;
+#define FUNCTION(FUNCNAME)              \
+    EXPORT NOINLINE void FUNCNAME(void) \
+    {                                   \
+        val = 4;                        \
     }
 #define LAST_FUNCTION()
 FUNCTIONS()

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,6 +52,10 @@
 #ifndef HAVE_RSEQ
 #    error The linux/rseq header is required.
 #endif
+#ifndef _GNU_SOURCE
+#    define _GNU_SOURCE
+#endif
+#include <sched.h>
 #include <linux/rseq.h>
 #include <errno.h>
 #include <assert.h>
@@ -143,6 +147,11 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         /* Test a restart in the middle of the sequence via ud2a SIGILL. */
         "cmpb $0, %[force_restart]\n\t"
         "jz 7f\n\t"
+        /* For -test_mode trace_invariants: expect a signal after ud2a.
+         * (An alternative is to add decoding to trace_invariants but with
+         * i#2007 and other problems that liimts the test.)
+         */
+        "prefetcht2 1\n\t"
         "ud2a\n\t"
         "7:\n\t"
         "addl $1, %[completions]\n\t"
@@ -155,6 +164,9 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
+        /* Start with jmp to avoid trace_invariants assert on return to u2da. */
+        "jmp 42f\n\t"
+        "42:\n\t"
         "addl $1, %[restarts]\n\t"
         "movb $0, %[force_restart_write]\n\t"
         "jmp 6b\n\t"
@@ -190,8 +202,6 @@ test_rseq_call(void)
 static void
 test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_out)
 {
-    /* We use static to avoid stack reference issues with our extra frame inside the asm.
-     */
     __u32 id = RSEQ_CPU_ID_UNINITIALIZED;
     int completions = 0;
     int restarts = 0;
@@ -227,6 +237,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         /* Test a restart via ud2a SIGILL. */
         "cmpb $0, %[force_restart]\n\t"
         "jz 7f\n\t"
+        "prefetcht2 1\n\t" /* See above: annotation for trace_invariants. */
         "ud2a\n\t"
         "7:\n\t"
         "addl $1, %[completions]\n\t"
@@ -239,6 +250,9 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
+        /* Start with jmp to avoid trace_invariants assert on return to u2da. */
+        "jmp 42f\n\t"
+        "42:\n\t"
         "addl $1, %[restarts]\n\t"
         "movb $0, %[force_restart_write]\n\t"
         "jmp 6b\n\t"
@@ -269,6 +283,154 @@ test_rseq_branches(void)
     assert(completions == 1 && sigill_count == 0);
     test_rseq_branches_once(true, &completions, &restarts);
     assert(completions == 1 && restarts > 0 && sigill_count == 1);
+}
+
+/* Tests that DR handles a signal inside its native rseq copy.
+ * Any synchronous signal is going to pretty much never happen for real, since
+ * it would happen on the instrumentation execution and never make it to the
+ * native run, but an asynchronous signal could arrive.
+ * It's complicated to set up an asynchronous signal at the right spot, so
+ * we cheat and take advantage of DR not restoring XMM state to have different
+ * behavior in the two DR executions of the rseq code.
+ */
+static void
+test_rseq_native_fault(void)
+{
+    int restarts = 0;
+    __asm__ __volatile__(
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        RSEQ_ADD_TABLE_ENTRY(fault, 2f, 3f, 4f)
+        /* clang-format on */
+
+        "6:\n\t"
+        /* Store the entry into the ptr. */
+        "leaq rseq_cs_fault(%%rip), %%rax\n\t"
+        "movq %%rax, %[rseq_tls]\n\t"
+        "pxor %%xmm0, %%xmm0\n\t"
+        "mov $1,%%rcx\n\t"
+        "movq %%rcx, %%xmm1\n\t"
+
+        /* Restartable sequence. */
+        "2:\n\t"
+        /* Increase xmm0 every time.  DR (currently) won't restore xmm inputs
+         * to rseq sequences, nor does it detect that it needs to.
+         */
+        "paddq %%xmm1,%%xmm0\n\t"
+        "movq %%xmm0, %%rax\n\t"
+        /* Only raise the signal on the 2nd run == native run. */
+        "cmp $2, %%rax\n\t"
+        "jne 11f\n\t"
+        /* Raise a signal on the native run. */
+        "ud2a\n\t"
+        "11:\n\t"
+        "nop\n\t"
+
+        /* Post-commit. */
+        "3:\n\t"
+        "jmp 5f\n\t"
+
+        /* Abort handler. */
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        ".long " STRINGIFY(RSEQ_SIG) "\n\t"
+        "4:\n\t"
+        /* Start with jmp to avoid trace_invariants assert on return to u2da. */
+        "jmp 42f\n\t"
+        "42:\n\t"
+        "addl $1, %[restarts]\n\t"
+        "jmp 2b\n\t"
+
+        /* Clear the ptr. */
+        "5:\n\t"
+        "movq $0, %[rseq_tls]\n\t"
+        /* clang-format on */
+
+        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
+        :
+        : "rax", "rcx", "rdx", "xmm0", "xmm1", "memory");
+    /* This is expected to fail on a native run where restarts will be 0. */
+    assert(restarts > 0);
+}
+
+/* Tests that DR handles an rseq abort from migration or context switch (a signal
+ * is tested in test_rseq_native_fault()) in the native rseq execution.
+ * We again cheat and take advantage of DR not restoring XMM state to have different
+ * behavior in the two DR executions of the rseq code.
+ * The only reliable way we can force a context switch or migration is to use
+ * a system call, which is officially disallowed.  We have special exceptions in
+ * the code which look for the test name "linux.rseq" and are limited to DEBUG.
+ */
+static void
+test_rseq_native_abort(void)
+{
+#ifdef DEBUG /* See above: special code in core/ is DEBUG-only> */
+    int restarts = 0;
+    __asm__ __volatile__(
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        RSEQ_ADD_TABLE_ENTRY(abort, 2f, 3f, 4f)
+        /* clang-format on */
+
+        "6:\n\t"
+        /* Store the entry into the ptr. */
+        "leaq rseq_cs_abort(%%rip), %%rax\n\t"
+        "movq %%rax, %[rseq_tls]\n\t"
+        "pxor %%xmm0, %%xmm0\n\t"
+        "mov $1,%%rcx\n\t"
+        "movq %%rcx, %%xmm1\n\t"
+
+        /* Restartable sequence. */
+        "2:\n\t"
+        /* Increase xmm0 every time.  DR (currently) won't restore xmm inputs
+         * to rseq sequences, nor does it detect that it needs to.
+         */
+        "paddq %%xmm1,%%xmm0\n\t"
+        "movq %%xmm0, %%rax\n\t"
+        /* Only raise the signal on the 2nd run == native run. */
+        "cmp $2, %%rax\n\t"
+        "jne 11f\n\t"
+        /* Force a migration by setting the affinity mask to two different singleton
+         * CPU's.
+         */
+        "mov $0, %%rdi\n\t"
+        "mov %[cpu_mask_size], %%rsi\n\t"
+        "leaq sched_mask_1(%%rip), %%rdx\n\t"
+        "mov %[sysnum_setaffinity], %%eax\n\t"
+        "syscall\n\t"
+        "mov $0, %%rdi\n\t"
+        "mov %[cpu_mask_size], %%rsi\n\t"
+        "leaq sched_mask_2(%%rip), %%rdx\n\t"
+        "mov %[sysnum_setaffinity], %%eax\n\t"
+        "syscall\n\t"
+        "11:\n\t"
+        "nop\n\t"
+
+        /* Post-commit. */
+        "3:\n\t"
+        "jmp 5f\n\t"
+
+        /* Abort handler. */
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        ".long " STRINGIFY(RSEQ_SIG) "\n\t"
+        "4:\n\t"
+        "addl $1, %[restarts]\n\t"
+        "jmp 2b\n\t"
+
+        "sched_mask_1:\n\t"
+        ".long 0x1, 0, 0, 0\n\t" /* cpu #1 */
+        "sched_mask_2:\n\t"
+        ".long 0x2, 0, 0, 0\n\t" /* cpu #2 */
+
+        /* Clear the ptr. */
+        "5:\n\t"
+        "movq $0, %[rseq_tls]\n\t"
+        /* clang-format on */
+
+        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
+        : [cpu_mask_size] "i"(sizeof(cpu_set_t)),
+          [sysnum_setaffinity] "i"(SYS_sched_setaffinity)
+        : "rax", "rcx", "rdx", "xmm0", "xmm1", "memory");
+    /* This is expected to fail on a native run where restarts will be 0. */
+    assert(restarts > 0);
+#endif /* DEBUG */
 }
 
 #ifdef RSEQ_TEST_ATTACH
@@ -335,6 +497,33 @@ rseq_thread_loop(void *arg)
         : "rax", "memory");
     return NULL;
 }
+
+static void
+kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
+{
+    static bool skip_print;
+    if (!skip_print)
+        dr_fprintf(STDERR, "%s: type %d\n", __FUNCTION__, info->type);
+    /* Avoid tons of prints for the trace loop in main(). */
+    if (info->type == DR_XFER_RSEQ_ABORT)
+        skip_print = true;
+    dr_mcontext_t mc = { sizeof(mc) };
+    mc.flags = DR_MC_CONTROL;
+    bool ok = dr_get_mcontext(drcontext, &mc);
+    assert(ok);
+    assert(mc.pc == info->target_pc);
+    assert(mc.xsp == info->target_xsp);
+    mc.flags = DR_MC_ALL;
+    ok = dr_get_mcontext(drcontext, &mc);
+    assert(ok);
+}
+
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    /* Ensure DR_XFER_RSEQ_ABORT is rasied. */
+    dr_register_kernel_xfer_event(kernel_xfer_event);
+}
 #endif /* RSEQ_TEST_ATTACH */
 
 int
@@ -356,6 +545,10 @@ main()
         test_rseq_call();
         /* Test variations inside the sequence. */
         test_rseq_branches();
+        /* Test a fault in the native run. */
+        test_rseq_native_fault();
+        /* Test a non-fault abort in the native run. */
+        test_rseq_native_abort();
         /* Test a trace. */
         int i;
         for (i = 0; i < 200; i++)

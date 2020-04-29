@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -95,14 +95,12 @@ typedef HANDLE thread_t;
  * takes one argument ("arg"), for the thread to execute.
  * Returns a handle to the new thread.
  */
-#    ifndef STATIC_LIBRARY /* FIXME i#975: conflicts with DR's symbols. */
 thread_t
 create_thread(unsigned int(__stdcall *run_func)(void *), void *arg)
 {
-    int tid;
+    unsigned int tid;
     return (thread_t)_beginthreadex(NULL, 0, run_func, arg, 0, &tid);
 }
-#    endif
 
 void
 delete_thread(thread_t thread, void *stack)

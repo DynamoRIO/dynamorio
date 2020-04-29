@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -471,11 +471,11 @@ extern uint context_xstate;
 
 #define XSTATE_HEADER_SIZE 0x40 /* 512 bits */
 #define YMMH_AREA(ymmh_area, i) (((dr_xmm_t *)ymmh_area)[i])
-#define MAX_CONTEXT_64_SIZE 0x6ef /* as observed on win10-x64 */
+#define MAX_CONTEXT_64_SIZE 0xd2f /* as observed on win10-x64 */
 #ifdef X64
 #    define MAX_CONTEXT_SIZE MAX_CONTEXT_64_SIZE
 #else
-#    define MAX_CONTEXT_SIZE 0x4e3 /* as observed on win10-x64 */
+#    define MAX_CONTEXT_SIZE 0xb23 /* as observed on win10-x64 */
 #endif
 #define CONTEXT_DYNAMICALLY_LAID_OUT(flags) (TESTALL(CONTEXT_XSTATE, flags))
 
@@ -897,6 +897,10 @@ section_to_file_add(HANDLE section_handle, const char *file_path);
 
 bool
 section_to_file_remove(HANDLE section_handle);
+
+bool
+module_get_tls_info(app_pc module_base, OUT void ***callbacks, OUT int **index,
+                    OUT byte **data_start, OUT byte **data_end);
 
 /* in aslr.c */
 const wchar_t *

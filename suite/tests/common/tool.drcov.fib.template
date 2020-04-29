@@ -1,24 +1,21 @@
-DA:61,1
 DA:62,1
 DA:63,1
-DA:65,1
-DA:66,0
-DA:67,1
+DA:64,1
+DA:66,1
+DA:67,0
 DA:68,1
-DA:72,1
-DA:75,1
-#if defined(WINDOWS)
+DA:69,1
+DA:73,1
 DA:76,1
+#if defined(WINDOWS)
+DA:77,1
 #endif
-DA:78,1
 DA:79,1
 DA:81,1
-DA:84,1
+DA:82,0
+DA:83,1
 DA:85,1
-DA:86,1
-#if defined(WINDOWS)
-DA:87,1
-#endif
+DA:88,1
 DA:89,1
 DA:90,1
 #if defined(WINDOWS)
@@ -26,4 +23,9 @@ DA:91,1
 #endif
 DA:93,1
 DA:94,1
+#if defined(WINDOWS)
+DA:95,1
+#endif
+DA:97,1
+DA:98,1
 end_of_record

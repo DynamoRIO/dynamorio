@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -59,6 +59,12 @@ include(make/policies.cmake NO_POLICY_SCOPE)
 # this must be done prior to the project() command and the var
 # must be set in the cache.
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # Workaround for https://gitlab.kitware.com/cmake/cmake/issues/17992
+  set(CMAKE_SYSTEM_VERSION_TEMP $ENV{WindowsSDKVersion})
+  string(REGEX REPLACE "([0-9.]+).*" "\\1" CMAKE_SYSTEM_VERSION_TEMP "${CMAKE_SYSTEM_VERSION_TEMP}")
+  if (CMAKE_SYSTEM_VERSION_TEMP)
+    set(CMAKE_SYSTEM_VERSION ${CMAKE_SYSTEM_VERSION_TEMP} CACHE INTERNAL "")
+  endif()
   if (DEBUG)
     set(CMAKE_CONFIGURATION_TYPES "Debug" CACHE STRING "" FORCE)
   else (DEBUG)
@@ -113,6 +119,7 @@ else ()
 endif ()
 
 include(CheckCCompilerFlag)
+include(CheckCXXCompilerFlag)
 
 ###########################################################################
 # utility functions
@@ -240,11 +247,6 @@ if (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 else(CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
   set(X64 OFF)
 endif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
-
-if (APPLE AND X64)
-  # XXX #1979: 64-bit OSX is not supported.
-  message(WARNING "64-bit Mac OSX is not supported")
-endif ()
 
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 
@@ -402,6 +404,11 @@ foreach (var CMAKE_C_FLAGS;CMAKE_CXX_FLAGS)
   set(${var} " ") # if "" defaults come back
 endforeach ()
 
+if (APPLE)
+  # Enable @rpath for all shared library install names.
+  set(CMAKE_MACOSX_RPATH 1)
+endif ()
+
 ##################################################
 # resources when packaging
 
@@ -488,7 +495,7 @@ endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
 # N.B.: when updating this, update the git tag in .travis.yml.
 # We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "7.91.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "8.0.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -502,6 +509,8 @@ set(BUILD_NUMBER "0" CACHE STRING "Build number (must be <64K)")
 set(UNIQUE_BUILD_NUMBER "0" CACHE STRING "Unique build number")
 set(CUSTOM_PRODUCT_NAME "" CACHE STRING "Custom product name")
 set(PACKAGE_PLATFORM "" CACHE STRING "Platform for package name (should have trailing -)")
+set(PACKAGE_SUBSYS "" CACHE STRING
+  "Platform for sub-system name (should have leading -: e.g., -EABIHF")
 mark_as_advanced(
   VERSION_NUMBER
   VERSION_COMMA_DELIMITED
@@ -509,6 +518,7 @@ mark_as_advanced(
   UNIQUE_BUILD_NUMBER
   CUSTOM_PRODUCT_NAME
   PACKAGE_PLATFORM
+  PACKAGE_SUBSYS
   )
 # This is hardcoded in globals_shared.h: going to leave it that way, but
 # adding indirection within cmake files
@@ -685,6 +695,7 @@ endmacro()
 set(BASE_CFLAGS "")
 set(BASE_CONLY_FLAGS "")
 set(BASE_CXXONLY_FLAGS "")
+CHECK_CXX_COMPILER_FLAG("-std=c++17" cxx17_available)
 if (UNIX)
   set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++11")
   # -std=c99 doesn't quite work
@@ -699,6 +710,11 @@ if (UNIX)
   if (no_stack_protector_avail)
     set(BASE_CFLAGS "${BASE_CFLAGS} -fno-stack-protector")
   endif (no_stack_protector_avail)
+  # Prefer the new 'override' keyword.
+  CHECK_CXX_COMPILER_FLAG("-Wsuggest-override" suggest_override_avail)
+  if (suggest_override_avail)
+    set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -Wsuggest-override")
+  endif ()
   # now that the user must set non-default -mNN we don't nec. need these:
   if (X86)
     if (X64)
@@ -706,15 +722,6 @@ if (UNIX)
       set(LD_FLAGS "-melf_x86_64")
     else (X64)
       set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
-      # i#847 keep stack boundary 4-byte aligned (except on Mac)
-      # XXX i#1800: clang does not support -mpreferred-stack-boundary=2 or
-      # an equivalent flag, so clang's build may not run legacy binaries.
-      if (NOT CMAKE_COMPILER_IS_CLANG)
-        set(BASE_CFLAGS "${BASE_CFLAGS} -mpreferred-stack-boundary=2")
-      elseif (NOT APPLE)
-        message(STATUS "WARNING: 32-bit clang lacks stack alignment control:")
-        message(STATUS "  resulting build may not run all apps correctly")
-      endif ()
       set(LD_FLAGS "-melf_i386")
     endif (X64)
   elseif (ARM)
@@ -1230,13 +1237,14 @@ math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
 # Every release since has had minor compat breakages.
+# 7.92 broke backcompat by changing 32-bit stack alignment to 16.
 # 7.91 broke backcompat by adding a field to instr_t .
 # 7.90 broke backcompat in DR_REG_ enums and OPSZ_ enums.
 # 6.0 broke backcompat in Linux injection, mod load event, etc.
 # 5.0 broke backcompat in drsyms and xmm opnd sizes
 # 4.1 broke backcompat in drsyms + 64-bit core (opcodes + reachability)
 # 4.0 broke backcompat in drmgr, drsyms, drinjectlib, and dr_get_milliseconds()
-set(OLDEST_COMPATIBLE_VERSION_DEFAULT "791")
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "792")
 set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
   "Oldest compatible version: leave empty for default")
 if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")
@@ -1354,7 +1362,10 @@ endmacro(DR_export_target)
 # We locate it here for use in both subdirs.
 if (X64)
   set(PROGFILES "$ENV{PROGRAMW6432}") # cmake is 32-bit
-  set(PROGFILES32 "$ENV{PROGRAMFILES}")
+  set(PROGFILES32 "$ENV{ProgramFiles\(x86\)}")
+  if ("${PROGFILES32}" STREQUAL "")
+    set(PROGFILES32 "$ENV{PROGRAMFILES}")
+  endif ()
   set(ARCH_SFX "x64")
 else (X64)
   set(PROGFILES "$ENV{PROGRAMFILES}")
@@ -1362,6 +1373,7 @@ else (X64)
   set(ARCH_SFX "x86")
 endif (X64)
 set(dbghelp_paths
+  "${PROGFILES32}/Microsoft Visual Studio/*/Professional/Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
   "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
   "${PROGFILES32}/Windows Kits/*/Debuggers/${ARCH_SFX}/dbghelp.dll")
 if (X64)
@@ -1433,9 +1445,9 @@ option(BUILD_SAMPLES "build client samples" ON)
 
 option(BUILD_CLIENTS "build client tools" ON)
 
-if (NOT X86)
-  # FIXME i#1551: fail to install necessary package on Linux ARM
-  # XXX i#1730: if we enable this we'll need to disable for cross-compilation
+if (ANDROID)
+  # TODO i#1874: Android does not build drcachesim or drcpusim, which have
+  # references spread throughout the docs.
   option(BUILD_DOCS "build documentation" OFF)
 else ()
   option(BUILD_DOCS "build documentation" ON)
@@ -1459,6 +1471,8 @@ endif (NOT CLIENT_INTERFACE)
 # An alternative is to keep them in separate projects and only build
 # when we run them via --build-and-test.
 option(BUILD_TESTS "build tests" OFF)
+# This is to disable the default -msgbox_mask.
+option(AUTOMATED_TESTING "build for automated testing" OFF)
 if (BUILD_TESTS)
   # Tests require tools
   set(BUILD_TOOLS ON)
@@ -1490,7 +1504,11 @@ endif (BUILD_TOOLS)
 if (BUILD_DRSTATS)
   # i#1376: we have our own variant of the standard FindMFC.cmake
   # so we can pass -D_UNICODE, as MBCS MFC support is not part of VS2013.
-  find_package(MFCUnicode)
+  # Update: To get things going with VS2017 I'm switching to the regular one
+  # to get some version of DRstats building.  We don't really use it much
+  # anymore; only if someone notices any unicode issues is it worth more time
+  # updating make/modules/FindMFCUnicode.cmake.
+  find_package(MFC)
   if (NOT MFC_FOUND)
     message(STATUS "MFC not found: disabling DRstats")
     set(BUILD_DRSTATS OFF)
@@ -1699,25 +1717,6 @@ endif (BUILD_CLIENTS)
 
 if (CLIENT_INTERFACE OR APP_EXPORTS)
   if (BUILD_DOCS)
-    find_package(ImageMagick COMPONENTS mogrify)
-    if (NOT ImageMagick_mogrify_FOUND)
-      # cmake 2.6.0 does not set the _FOUND vars, just the exec path,
-      # and it uses all caps
-      if (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-        set(ImageMagick_mogrify_EXECUTABLE ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-      else (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-        # We require on Linux pre-commit where it's trivial to install
-        if (TEST_SUITE AND UNIX AND NOT APPLE)
-          message(FATAL_ERROR "ImageMagick is required to build the documentation")
-        else ()
-          # Non-fatal for a single, un-official build, or on Windows
-          message(WARNING "ImageMagick not found: documentation will NOT be built")
-          set(BUILD_DOCS OFF)
-        endif ()
-      endif (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-    endif (NOT ImageMagick_mogrify_FOUND)
-    mark_as_advanced(ImageMagick_EXECUTABLE_DIR)
-
     find_package(Doxygen)
     if (NOT DOXYGEN_FOUND)
       # We require on Linux pre-commit where it's trivial to install
@@ -1729,48 +1728,6 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
         set(BUILD_DOCS OFF)
       endif ()
     endif (NOT DOXYGEN_FOUND)
-
-    include(${PROJECT_SOURCE_DIR}/make/FindFig2Dev.cmake)
-    if (NOT FIG2DEV_FOUND)
-      # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX AND NOT APPLE)
-        message(FATAL_ERROR "fig2dev (from transfig) is required to build documentation")
-      else ()
-        # Non-fatal for a single, un-official build, or on Windows
-        message(WARNING "fig2dev (from transfig) not found: docs will NOT be built")
-        set(BUILD_DOCS OFF)
-      endif ()
-    endif (NOT FIG2DEV_FOUND)
-
-    # fig2dev needs ghostscript to produce tiff files (not to produce eps)
-    include(${PROJECT_SOURCE_DIR}/make/FindGhostscript.cmake)
-    if (NOT GHOSTSCRIPT_FOUND)
-      # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX AND NOT APPLE)
-        message(FATAL_ERROR "ghostscript is required to build documentation")
-      else ()
-        # Non-fatal for a single, un-official build, or on Windows
-        message(WARNING "ghostscript not found: documentation will NOT be built")
-        set(BUILD_DOCS OFF)
-      endif ()
-    else (NOT GHOSTSCRIPT_FOUND)
-      # must be on path.  we can't just literally check the path
-      # b/c of cygwin issues: c:/cygwin/bin vs /usr/bin, etc.
-      get_filename_component(gs_name ${GHOSTSCRIPT_EXECUTABLE} NAME)
-      find_program(GHOSTSCRIPT_ON_PATH ${gs_name} PATHS ENV PATH NO_DEFAULT_PATH)
-      if (NOT GHOSTSCRIPT_ON_PATH)
-        # We require on Linux pre-commit where it's trivial to install
-        if (TEST_SUITE AND UNIX AND NOT APPLE)
-          message(FATAL_ERROR
-            "ghostscript is installed, but must be on PATH for fig2dev to find it")
-        else ()
-          # Non-fatal for a single, un-official build, or on Windows
-          message(WARNING "ghostscript not on PATH: documentation will NOT be built")
-          set(BUILD_DOCS OFF)
-        endif ()
-      endif (NOT GHOSTSCRIPT_ON_PATH)
-      mark_as_advanced(GHOSTSCRIPT_ON_PATH)
-    endif (NOT GHOSTSCRIPT_FOUND)
 
     if (BUILD_DOCS)
       add_subdirectory(api/docs)
@@ -1934,7 +1891,7 @@ DR_target_install_dst(${INSTALL_CMAKE} EXPORT ${exported_targets_name})
 # CPACK_INSTALL_CMAKE_PROJECTS variable is set to point at all 4 builds,
 # "make package" will produce a package from all 4 installs.
 
-# FIXME i#74: create source tarball via 'make package_source'
+# TODO i#74: create source tarball via 'make package_source'
 # Just need to exclude exports/ (or move exports/ to ../?) and
 # other files inside source dir (or run on untouched source dir)
 # and update package.{sh,bat}.
@@ -1951,11 +1908,12 @@ if (UNIX)
   set(CPACK_STRIP_FILES OFF)
   if (APPLE)
     set(CPACK_SYSTEM_NAME "MacOS")
+  elseif (ANDROID)
+    set(CPACK_SYSTEM_NAME "Android")
   else ()
     set(CPACK_SYSTEM_NAME "Linux")
   endif ()
 else (UNIX)
-  # FIXME: try Windows NSIS
   set(CPACK_GENERATOR "ZIP")
   set(CPACK_SOURCE_GENERATOR "ZIP")
   set(CPACK_SYSTEM_NAME "Windows")
@@ -1981,8 +1939,14 @@ string(REGEX REPLACE
 # CPACK_TEMPORARY_PACKAGE_FILE_NAME if I hardcode the extension: but maybe
 # having the full version in the base dir is a good thing, though I'm not
 # sure about the caps.
+# We omit the -NN suffix for the build number if it is zero.
+if ("${BUILD_NUMBER}" STREQUAL "0")
+  set(PACKAGE_SUFFIX "")
+else ()
+  set(PACKAGE_SUFFIX "-${BUILD_NUMBER}")
+endif ()
 set(CPACK_PACKAGE_FILE_NAME
-  "DynamoRIO-${PACKAGE_PLATFORM}${CPACK_SYSTEM_NAME}-${CPACK_PACKAGE_VERSION}-${BUILD_NUMBER}")
+  "DynamoRIO-${PACKAGE_PLATFORM}${CPACK_SYSTEM_NAME}${PACKAGE_SUBSYS}-${CPACK_PACKAGE_VERSION}${PACKAGE_SUFFIX}")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "dynamorio")
 set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "DynamoRIO")
 set(CPACK_PACKAGE_RELOCATABLE "true")

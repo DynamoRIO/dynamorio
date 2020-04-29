@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -447,6 +447,12 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext, bool restor
                 dump_mcontext(get_mcontext(trec->dcontext), THREAD_GET, DUMP_NOT_XML);
             });
             *mcontext = *get_mcontext(trec->dcontext);
+#ifdef CLIENT_INTERFACE
+            if (dr_xl8_hook_exists()) {
+                if (!instrument_restore_nonfcache_state(trec->dcontext, true, mcontext))
+                    return false;
+            }
+#endif
             return true;
         }
     }
@@ -1043,6 +1049,8 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                     my_id);
                 res = THREAD_SYNCH_RESULT_SUCCESS;
                 break;
+            } else {
+                RSTATS_INC(synchs_not_at_safe_spot);
             }
             if (!os_thread_resume(trec)) {
                 ASSERT_NOT_REACHED();
@@ -2165,6 +2173,14 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
              * app that assumes no signals and assumes its non-auto-restart syscalls
              * don't need loops could be broken.
              */
+            LOG(GLOBAL, LOG_ALL, 3,
+                /* Having the code bytes can help diagnose post-detach where the code
+                 * cache is gone.
+                 */
+                "Detach: pre-xl8 pc=%p (%02x %02x %02x %02x %02x), xsp=%p "
+                "for thread " TIDFMT "\n",
+                mc.pc, *mc.pc, *(mc.pc + 1), *(mc.pc + 2), *(mc.pc + 3), *(mc.pc + 4),
+                mc.xsp, threads[i]->id);
             DEBUG_DECLARE(ok =)
             translate_mcontext(threads[i], &mc, true /*restore mem*/, NULL /*f*/);
             ASSERT(ok);

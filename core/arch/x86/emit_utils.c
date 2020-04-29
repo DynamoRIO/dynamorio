@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -377,11 +377,13 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
         if (instr_is_exit_cti(inst)) {
             /* see if we need to be able to patch this instruction */
             if (is_exit_cti_patchable(dcontext, inst, f->flags)) {
-                /* see if we are crossing a cache line, offset is the start of
-                 * the next instr here so need to see if the dword ending at
-                 * offset crosses a cache line */
+                /* See if we are crossing a cache line.  Offset is the start of
+                 * the current instr.
+                 */
                 uint nop_length =
                     patchable_exit_cti_align_offs(dcontext, inst, starting_pc + offset);
+                LOG(THREAD, LOG_INTERP, 4, "%s: F%d @" PFX " cti shift needed: %d\n",
+                    __FUNCTION__, f->id, starting_pc + offset, nop_length);
                 if (first_patch_offset < 0)
                     first_patch_offset = offset;
                 if (nop_length > 0) {
@@ -409,23 +411,9 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
                             instr_shrink_to_32_bits(nop_inst);
                         }
 #endif
-                        /* We expect bbs to never need this if
-                         * -pad_jmps_shift_bb except on UNIX (signal fence exit) and
-                         * CLIENT_INTERFACE (client can re-arrange fragment) where we
-                         * -pad_jmps_mark_no_trace.  We rely on having not
-                         * inserted any nops into traceable bbs in interp (so that we
-                         * don't have to remove them when we build the trace).
-                         * FIXME add tracing support so we don't have to mark
-                         * CANNOT_BE_TRACE (see PR 215179). */
-                        if (emitting && DYNAMO_OPTION(pad_jmps_mark_no_trace) &&
-                            !TEST(FRAG_IS_TRACE, f->flags)) {
-                            f->flags |= FRAG_CANNOT_BE_TRACE;
-                            STATS_INC(pad_jmps_mark_no_trace);
-                        } else {
-                            ASSERT(TEST(FRAG_IS_TRACE, f->flags) ||
-                                   TEST(FRAG_CANNOT_BE_TRACE, f->flags) ||
-                                   !INTERNAL_OPTION(pad_jmps_shift_bb));
-                        }
+                        LOG(THREAD, LOG_INTERP, 4,
+                            "Marking exit branch as having nop padding\n");
+                        instr_branch_set_padded(inst, true);
                         instrlist_preinsert(ilist, inst, nop_inst);
                         /* sanity check */
                         ASSERT((int)nop_length == instr_length(dcontext, nop_inst));
@@ -457,9 +445,6 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
             instr_set_note(inst, (void *)(ptr_uint_t)offset); /* used by instr_encode */
         offset += instr_length(dcontext, inst);
     }
-#ifdef CUSTOM_EXIT_STUBS
-    ASSERT_NOT_IMPLEMENTED(false);
-#endif
     return start_shift;
 }
 
@@ -769,18 +754,11 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
      * state (we do have multi-stage modifications for inlined stubs)
      */
     byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-#ifdef CUSTOM_EXIT_STUBS
-    byte *fixed_stub_pc = (byte *)EXIT_FIXED_STUB_PC(dcontext, f, l);
-#endif
 
     if (DYNAMO_OPTION(indirect_stubs)) {
         /* go to start of 5-byte jump instruction at end of exit stub */
         stub_size = exit_stub_size(dcontext, target_tag, f->flags);
-#ifdef CUSTOM_EXIT_STUBS
-        pc = fixed_stub_pc + stub_size - 5;
-#else
         pc = stub_pc + stub_size - 5;
-#endif
     } else {
         /* cti goes straight to ibl, and must be a jmp, not jcc,
          * except for -unsafe_ignore_eflags_trace stay-on-trace cmp,jne
@@ -878,11 +856,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
      * on the cti targets, we must calculate them at a consistent
      * state (we do have multi-stage modifications for inlined stubs)
      */
-#ifdef CUSTOM_EXIT_STUBS
-    byte *fixed_stub_pc = (byte *)EXIT_FIXED_STUB_PC(dcontext, f, l);
-#else
     byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-#endif
     ASSERT(!TEST(FRAG_COARSE_GRAIN, f->flags));
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_INDIRECT(l->flags));
@@ -913,11 +887,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         if (DYNAMO_OPTION(indirect_stubs)) {
             /* go to start of 5-byte jump instruction at end of exit stub */
             stub_size = exit_stub_size(dcontext, target_tag, f->flags);
-#ifdef CUSTOM_EXIT_STUBS
-            pc = fixed_stub_pc + stub_size - 5;
-#else
             pc = stub_pc + stub_size - 5;
-#endif
         } else {
             /* cti goes straight to ibl, and must be a jmp, not jcc */
             pc = EXIT_CTI_PC(f, l);
@@ -949,13 +919,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 #endif
         /* need to make branch target the unlink entry point inside exit stub */
         if (ibl_code->ibl_head_is_inlined) {
-#ifdef CUSTOM_EXIT_STUBS
-            /* FIXME: now custom code will be skipped!!! */
-            cache_pc target = fixed_stub_pc;
-#else
-        cache_pc target = stub_pc;
-#endif
-
+            cache_pc target = stub_pc;
             /* now add offset of unlinked entry */
             target += ibl_code->inline_unlink_offs;
             patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), target,

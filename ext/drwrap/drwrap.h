@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -339,6 +339,27 @@ typedef enum {
      * heuristics are not guaranteed.
      */
     DRWRAP_UNWIND_ON_EXCEPTION = 0x01,
+    /**
+     * If this flag is set, then post-call callbacks are only invoked from return
+     * sites that can be identified statically.  Static identification happens in
+     * two ways: from observing a CALL instruction, and from drwrap_mark_as_post_call().
+     * Dynamically observing return addresses from inside callees incurs overhead
+     * due to synchronization costs, with further overhead to replace existing
+     * code with instrumented code.  When this flag is set, some post-call callbacks
+     * may be missed.
+     */
+    DRWRAP_NO_DYNAMIC_RETADDRS = 0x02,
+    /**
+     * If this flag is set, then post-call points are identified by changing the
+     * application return address upon entering the callee.  This is more efficient than
+     * the default method, which requires shared storage and locks and flushing.
+     * However, this does violate transparency, and may cause some applications to fail.
+     * In particular, detaching on AArchXX requires scanning the stack to find where the
+     * return address was stored, which could conceivably replace an integer or
+     * non-pointer value that happens to match the sentinel used.  Use this at your own
+     * risk.
+     */
+    DRWRAP_REPLACE_RETADDR = 0x04,
 } drwrap_wrap_flags_t;
 
 /* offset of drwrap_callconv_t in drwrap_wrap_flags_t */
@@ -747,6 +768,34 @@ DR_EXPORT
  */
 bool
 drwrap_is_post_wrap(app_pc pc);
+
+/** An integer sized for support by dr_atomic_addX_return_sum(). */
+typedef ptr_int_t atomic_int_t;
+
+/**
+ * Contains statistics retrievable by drwrap_get_stats().
+ */
+typedef struct _drwrap_stats_t {
+    /** The size of this structure. Set this to sizeof(drwrap_stats_t). */
+    size_t size;
+    /**
+     * The total number of code cache flushes.  These occur due to return points
+     * already existing in the cache; replacing existing instrumentation; and
+     * removing wrap or replace instrumentation.
+     */
+    atomic_int_t flush_count;
+} drwrap_stats_t;
+
+DR_EXPORT
+/**
+ * Retrieves various statistics exported by DR as global, process-wide values.
+ * The API is not thread-safe.
+ * The caller is expected to pass a pointer to a valid, initialized dr_stats_t
+ * value, with the size field set (see dr_stats_t).
+ * Returns false if stats are not enabled.
+ */
+bool
+drwrap_get_stats(INOUT drwrap_stats_t *stats);
 
 /*@}*/ /* end doxygen group */
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2749,9 +2749,6 @@ removed_fragment_stats(dcontext_t *dcontext, fcache_t *cache, fragment_t *f)
         if (!EXIT_HAS_LOCAL_STUB(l->flags, f->flags))
             continue; /* it's kept elsewhere */
         sz = linkstub_size(dcontext, f, l);
-#    ifdef CUSTOM_EXIT_STUBS
-        sz += l->fixed_stub_offset;
-#    endif
         if (LINKSTUB_INDIRECT(l->flags))
             STATS_FCACHE_ADD(cache, indirect_stubs, -sz);
         else {

@@ -35,20 +35,6 @@
 
 #include "dr_api.h"
 
-#ifdef __AVX512F__
-#    ifdef WINDOWS
-#        define BINARY_NAME "client.avx512cleancall-opt-1.exe"
-#    else
-#        define BINARY_NAME "client.avx512cleancall-opt-1"
-#    endif
-#else
-#    ifdef WINDOWS
-#        define BINARY_NAME "client.cleancall-opt-1.exe"
-#    else
-#        define BINARY_NAME "client.cleancall-opt-1"
-#    endif
-#endif
-
 /* List of instrumentation functions. */
 #define FUNCTIONS()             \
     FUNCTION(empty)             \

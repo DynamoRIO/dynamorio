@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,7 +50,7 @@ stack_trace(void)
      * This test should pass with any page size from 1 KiB to 256 MiB.
      */
     if (page_align((char *)0x4ffffc12) != (char *)0x50000000)
-        print("page_align is wrong %p!\n");
+        print("page_align is wrong!\n");
 #endif
 }
 

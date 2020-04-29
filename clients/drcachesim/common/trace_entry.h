@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -170,8 +170,12 @@ typedef enum {
 typedef enum {
     /**
      * The subsequent instruction is the start of a handler for a kernel-initiated
-     * event: a signal handler on UNIX, or an APC, exception, or callback dispatcher
-     * on Windows.
+     * event: a signal handler or restartable sequence abort handler on UNIX, or an
+     * APC, exception, or callback dispatcher on Windows.
+     * The value holds the module offset of the interruption point PC,
+     * which is used in post-processing.  The value is 0 for some types, namely
+     * Windows callbacks and Linux rseq aborts, but these can be assumed to target
+     * the start of a block and so there is no loss of accuracy when post-processing.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
     /**
@@ -224,6 +228,15 @@ typedef enum {
      * marker entry
      */
     TRACE_MARKER_TYPE_FUNC_RETVAL,
+
+    /* This is a non-public type only present in an offline raw trace. To support a
+     * full 64-bit marker value in an offline trace where
+     * offline_entry_t.extended.valueA contains <64 bits, we use two consecutive
+     * entries.  We rely on these being adjacent in the trace.  This entry must come
+     * first, and its valueA is left-shited 32 and then OR-ed with the subsequent
+     * entry's valueA to produce the final marker value.
+     */
+    TRACE_MARKER_TYPE_SPLIT_VALUE,
 
     // ...
     // These values are reserved for future built-in marker types.
@@ -317,7 +330,9 @@ typedef enum {
 // Sub-type when the primary type is OFFLINE_TYPE_EXTENDED.
 // These differ in what they store in offline_entry_t.extended.value.
 typedef enum {
-    // The initial entry in the file.  The valueA field holds the version.
+    // The initial entry in the file.  The valueA field holds the version
+    // (OFFLINE_FILE_VERSION*) while valueB holds the type
+    // (OFFLINE_FILE_TYPE*).
     OFFLINE_EXT_TYPE_HEADER,
     // The final entry in the file.  The value fields are 0.
     OFFLINE_EXT_TYPE_FOOTER,
@@ -337,7 +352,17 @@ typedef enum {
 #define PC_INSTR_COUNT_BITS 12
 #define PC_TYPE_BITS 3
 
-#define OFFLINE_FILE_VERSION 2
+#define OFFLINE_FILE_VERSION_NO_ELISION 2
+#define OFFLINE_FILE_VERSION_OLDEST_SUPPORTED OFFLINE_FILE_VERSION_NO_ELISION
+#define OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE 3
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE
+
+// Bitfields used to describe the file type.
+typedef enum {
+    OFFLINE_FILE_TYPE_DEFAULT = 0,
+    OFFLINE_FILE_TYPE_FILTERED = 1,
+    OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS = 2,
+} offline_file_type_t;
 
 START_PACKED_STRUCTURE
 struct _offline_entry_t {
@@ -378,5 +403,20 @@ struct _offline_entry_t {
     };
 } END_PACKED_STRUCTURE;
 typedef struct _offline_entry_t offline_entry_t;
+
+/**
+ * The name of the file in -offline mode where module data is written.
+ * Its creation can be customized using drmemtrace_custom_module_data()
+ * and then modified before passing to raw2trace via
+ * drmodtrack_add_custom_data() and drmodtrack_offline_write().
+ * Use drmemtrace_get_modlist_path() to obtain the full path.
+ */
+#define DRMEMTRACE_MODULE_LIST_FILENAME "modules.log"
+
+/**
+ * The name of the file in -offline mode where function tracing names
+ * are written.  Use drmemtrace_get_funclist_path() to obtain the full path.
+ */
+#define DRMEMTRACE_FUNCTION_LIST_FILENAME "funclist.log"
 
 #endif /* _TRACE_ENTRY_H_ */

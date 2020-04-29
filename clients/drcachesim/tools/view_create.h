@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,7 +38,7 @@
 #include "analysis_tool.h"
 
 /**
- * @file drmemtrace/view.h
+ * @file drmemtrace/view_create.h
  * @brief DrMemtrace view trace analysis tool creation.
  */
 

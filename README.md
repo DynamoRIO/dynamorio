@@ -28,6 +28,7 @@ Tools built on DynamoRIO and provided in our release package include:
 - The "strace for Windows" tool [drstrace](http://drmemory.org/strace_for_windows.html)
 - The code coverage tool [drcov](http://dynamorio.org/docs/page_drcov.html)
 - The library tracing tool [drltrace](https://github.com/DynamoRIO/drmemory/tree/master/drltrace)
+- The disassembly tool [drdisas](https://github.com/DynamoRIO/dynamorio/blob/master/clients/drdisas/drdisas.cpp)
 - The memory tracing tool [memtrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memtrace_simple.c)
 - The basic block tracing tool [bbbuf](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/bbbuf.c)
 - The instruction counting tool [inscount](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/inscount.cpp)

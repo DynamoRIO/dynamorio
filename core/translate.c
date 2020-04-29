@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -157,6 +157,31 @@ instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
             return true;
     }
 #    endif /* X86 */
+    return false;
+}
+
+static inline bool
+instr_is_rseq_load(dcontext_t *dcontext, instr_t *inst)
+{
+    /* TODO i#2350: Add non-x86 support. */
+#    if defined(LINUX) && defined(X86)
+    /* This won't fault but we don't want it marked as unsupported. */
+    if (!instr_is_our_mangling(inst))
+        return false;
+    /* XXX: Keep this consistent with mangle_rseq_* in mangle_shared.c. */
+    if (instr_get_opcode(inst) == OP_mov_ld && opnd_is_reg(instr_get_dst(inst, 0)) &&
+        opnd_is_base_disp(instr_get_src(inst, 0))) {
+        reg_id_t dst = opnd_get_reg(instr_get_dst(inst, 0));
+        opnd_t memref = instr_get_src(inst, 0);
+        int disp = opnd_get_disp(memref);
+        if (reg_is_gpr(dst) && reg_is_pointer_sized(dst) &&
+            opnd_get_index(memref) == DR_REG_NULL &&
+            disp ==
+                offsetof(dcontext_t, rseq_entry_state) +
+                    sizeof(reg_t) * (dst - DR_REG_START_GPR))
+            return true;
+    }
+#    endif
     return false;
 }
 #endif /* UNIX */
@@ -394,6 +419,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             /* nothing to do */
         } else if (instr_is_seg_ref_load(tdcontext, inst)) {
             /* nothing to do */
+        } else if (instr_is_rseq_load(tdcontext, inst)) {
+            /* nothing to do */
         }
 #endif
 #ifdef ARM
@@ -557,6 +584,7 @@ translate_restore_clean_call(dcontext_t *tdcontext, translate_walk_t *walk)
     /* PR 302951: we recognize a clean call by its combination of
      * our-mangling and NULL translation.
      * We restore to the priv_mcontext_t that was pushed on the stack.
+     * FIXME i#4219: This is not safe: see comment below.
      */
     LOG(THREAD_GET, LOG_INTERP, 2, "\ttranslating clean call arg crash\n");
     dr_get_mcontext_priv(tdcontext, NULL, walk->mc);
@@ -570,7 +598,7 @@ translate_restore_clean_call(dcontext_t *tdcontext, translate_walk_t *walk)
 }
 
 static app_pc
-translate_restore_special_cases(app_pc pc)
+translate_restore_special_cases(dcontext_t *dcontext, app_pc pc)
 {
 #ifdef LINUX
     app_pc handler;
@@ -578,11 +606,30 @@ translate_restore_special_cases(app_pc pc)
         LOG(THREAD_GET, LOG_INTERP, 2,
             "recreate_app: moving " PFX " inside rseq region to handler " PFX "\n", pc,
             handler);
+        /* Remember the original for translate_last_direct_translation. */
+        IF_CLIENT_INTERFACE(dcontext->client_data->last_special_xl8 = pc);
         return handler;
     }
+    IF_CLIENT_INTERFACE(dcontext->client_data->last_special_xl8 = NULL);
 #endif
     return pc;
 }
+
+#ifdef CLIENT_INTERFACE /* i#2971: Cleanup: remove this define! */
+app_pc
+translate_last_direct_translation(dcontext_t *dcontext, app_pc pc)
+{
+#    ifdef LINUX
+    app_pc handler;
+    if (dcontext->client_data->last_special_xl8 != NULL &&
+        rseq_get_region_info(dcontext->client_data->last_special_xl8, NULL, NULL,
+                             &handler, NULL, NULL) &&
+        pc == handler)
+        return dcontext->client_data->last_special_xl8;
+#    endif
+    return pc;
+}
+#endif
 
 /* Returns a success code, but makes a best effort regardless.
  * If just_pc is true, only recreates pc.
@@ -655,6 +702,13 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
         instr_reset(tdcontext, &instr);
         prev_cpc = cpc;
         cpc = decode(tdcontext, cpc, &instr);
+        if (cpc == NULL) {
+            LOG(THREAD_GET, LOG_INTERP, 2,
+                "recreate_app -- failed to decode cache pc " PFX "\n", cpc);
+            ASSERT_NOT_REACHED();
+            instr_free(tdcontext, &instr);
+            return RECREATE_FAILURE;
+        }
         instr_set_our_mangling(&instr, ours);
         /* Sets the translation so that spilled registers can be restored. */
         instr_set_translation(&instr, answer);
@@ -680,7 +734,11 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
          * (should spend enough time at syscalls that will hit safe spot in
          * reasonable time).
          */
-        /* PR 302951: our clean calls do show up here and have full state */
+        /* PR 302951: our clean calls do show up here and have full state.
+         * FIXME i#4219: Actually we do *not* always have full state: for asynch
+         * xl8 we could be before setup or after teardown of the mcontext on the
+         * dstack, and with leaner clean calls we might not have the full mcontext.
+         */
         if (answer == NULL && ours)
             translate_restore_clean_call(tdcontext, &walk);
         else
@@ -714,7 +772,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
 
     if (!just_pc)
         translate_walk_restore(tdcontext, &walk, &instr, answer);
-    answer = translate_restore_special_cases(answer);
+    answer = translate_restore_special_cases(tdcontext, answer);
     LOG(THREAD_GET, LOG_INTERP, 2, "recreate_app -- found ok pc " PFX "\n", answer);
     mc->pc = answer;
     return res;
@@ -835,7 +893,9 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                  * in the middle of client meta code.
                  */
                 ASSERT(instr_is_meta(inst));
-                /* PR 302951: our clean calls do show up here and have full state */
+                /* PR 302951: our clean calls do show up here and have full state.
+                 * FIXME i#4219: This is not safe: see comment above.
+                 */
                 if (instr_is_our_mangling(inst))
                     translate_restore_clean_call(tdcontext, &walk);
                 else
@@ -907,7 +967,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
             }
             if (!just_pc)
                 translate_walk_restore(tdcontext, &walk, inst, answer);
-            answer = translate_restore_special_cases(answer);
+            answer = translate_restore_special_cases(tdcontext, answer);
             LOG(THREAD_GET, LOG_INTERP, 2, "recreate_app -- found ok pc " PFX "\n",
                 answer);
             mc->pc = answer;
@@ -948,7 +1008,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
     ASSERT_NOT_REACHED();
     if (just_pc) {
         /* just guess */
-        answer = translate_restore_special_cases(answer);
+        answer = translate_restore_special_cases(tdcontext, answer);
         mc->pc = answer;
     }
     return RECREATE_FAILURE;
@@ -1006,6 +1066,12 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                             bool just_pc, fragment_t *owning_f, bool restore_memory)
 {
     recreate_success_t res = (just_pc ? RECREATE_SUCCESS_PC : RECREATE_SUCCESS_STATE);
+#ifdef CLIENT_INTERFACE
+    dr_mcontext_t xl8_mcontext;
+    dr_mcontext_t raw_mcontext;
+    dr_mcontext_init(&xl8_mcontext);
+    dr_mcontext_init(&raw_mcontext);
+#endif
 #ifdef WINDOWS
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
         mcontext->pc == vsyscall_after_syscall && mcontext->xsp != 0) {
@@ -1020,6 +1086,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             /* no translation needed, ignoring sysenter stack hacks */
             LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
                 "recreate_app no translation needed (at vsyscall)\n");
+#    ifdef CLIENT_INTERFACE
+            if (dr_xl8_hook_exists()) {
+                if (!instrument_restore_nonfcache_state_prealloc(
+                        tdcontext, restore_memory, mcontext, &xl8_mcontext))
+                    return RECREATE_FAILURE;
+            }
+#    endif
             return res;
         } else {
             /* this is a dynamo system call! */
@@ -1070,6 +1143,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             mcontext->xdx = tdcontext->app_xdx;
         }
 #    endif
+#    ifdef CLIENT_INTERFACE
+        if (dr_xl8_hook_exists()) {
+            if (!instrument_restore_nonfcache_state_prealloc(tdcontext, restore_memory,
+                                                             mcontext, &xl8_mcontext))
+                return RECREATE_FAILURE;
+        }
+#    endif
         return res;
     }
 #endif
@@ -1111,6 +1191,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         } else
 #endif
         mcontext->pc = POST_SYSCALL_PC(tdcontext);
+#ifdef CLIENT_INTERFACE
+        if (dr_xl8_hook_exists()) {
+            if (!instrument_restore_nonfcache_state_prealloc(tdcontext, restore_memory,
+                                                             mcontext, &xl8_mcontext))
+                return RECREATE_FAILURE;
+        }
+#endif
         return res;
     } else if (mcontext->pc == get_reset_exit_stub(tdcontext)) {
         LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
@@ -1118,6 +1205,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             tdcontext->next_tag);
         /* context is completely native except the pc */
         mcontext->pc = tdcontext->next_tag;
+#ifdef CLIENT_INTERFACE
+        if (dr_xl8_hook_exists()) {
+            if (!instrument_restore_nonfcache_state_prealloc(tdcontext, restore_memory,
+                                                             mcontext, &xl8_mcontext))
+                return RECREATE_FAILURE;
+        }
+#endif
         return res;
     } else if (in_generated_routine(tdcontext, mcontext->pc)) {
         LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
@@ -1143,10 +1237,6 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
 #endif
 #ifdef CLIENT_INTERFACE
         dr_restore_state_info_t client_info;
-        dr_mcontext_t xl8_mcontext;
-        dr_mcontext_t raw_mcontext;
-        dr_mcontext_init(&xl8_mcontext);
-        dr_mcontext_init(&raw_mcontext);
 #endif
 #ifdef WINDOWS
         /* i#889: restore private PEB/TEB for faithful recreation */

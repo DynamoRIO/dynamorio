@@ -1,4 +1,5 @@
 /* ***************************************************************************
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2013 Branden Clark  All rights reserved.
  * ***************************************************************************/
 
@@ -42,7 +43,6 @@
 
 #include <QMenu>
 #include <QAction>
-#include <QSignalMapper>
 #include <QString>
 #include <QTabWidget>
 #include <QInputDialog>
@@ -71,7 +71,6 @@ drgui_main_window_t::drgui_main_window_t(QString tool_name, QStringList tool_arg
     , tool_to_auto_load_args(tool_args)
 {
     qDebug().nospace() << "INFO: Entering " << __CLASS__ << __FUNCTION__;
-    window_mapper = new QSignalMapper(this);
     tab_area = new QTabWidget(this);
     tab_area->setTabsClosable(true);
     tab_area->setMovable(true);
@@ -181,9 +180,8 @@ drgui_main_window_t::update_window_menu(void)
         QAction *action = window_menu->addAction(text);
         action->setCheckable(true);
         action->setChecked(tool == active_tool());
-        connect(action, SIGNAL(triggered()), window_mapper, SLOT(map()));
-        window_mapper->setMapping(action, i);
-        connect(window_mapper, SIGNAL(mapped(int)), tab_area, SLOT(setCurrentIndex(int)));
+        connect(action, &QAction::triggered,
+                [=]() { emit tab_area->setCurrentIndex(i); });
     }
 }
 

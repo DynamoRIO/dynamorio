@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -122,6 +122,35 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wher
     }
 }
 
+bool
+clean_call_needs_simd(clean_call_info_t *cci)
+{
+    return (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers() ||
+            cci->num_opmask_skip != proc_num_opmask_registers());
+}
+
+/* Number of extra slots in addition to register slots. */
+#define NUM_EXTRA_SLOTS 2 /* pc, aflags */
+
+#if defined(X86) && (defined(X64) || defined(UNIX))
+static uint
+clean_call_prepare_stack_size(clean_call_info_t *cci)
+{
+    int simd = 0;
+    if (clean_call_needs_simd(cci)) {
+        simd =
+            MCXT_TOTAL_SIMD_SLOTS_SIZE + MCXT_TOTAL_OPMASK_SLOTS_SIZE + PRE_XMM_PADDING;
+    }
+    uint num_slots = DR_NUM_GPR_REGS + NUM_EXTRA_SLOTS;
+    if (cci->skip_save_flags)
+        num_slots -= 2;
+#    ifndef X86_32                   /* x86 uses pusha regardless of regs we could skip */
+    num_slots -= cci->num_regs_skip; /* regs not saved */
+#    endif
+    return simd + num_slots * XSP_SZ;
+}
+#endif
+
 /* prepare_for and cleanup_after assume that the stack looks the same after
  * the call to the instrumentation routine, since it stores the app state
  * on the stack.
@@ -136,7 +165,7 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wher
  *   supposedly they came out in PII
  *   on balrog: fxsave 91 cycles, fxrstor 173)
  *
- * For x64, changes the stack pointer by a multiple of 16.
+ * Keeps the final stack pointer aligned to get_ABI_stack_alignment().
  *
  * NOTE: The client interface's get/set mcontext functions and the
  * hotpatching gateway rely on the app's context being available
@@ -151,8 +180,6 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wher
  * dr_prepare_for_call) assumes that this routine only modifies xsp
  * and xax and no other registers.
  */
-/* number of extra slots in addition to register slots. */
-#define NUM_EXTRA_SLOTS 2 /* pc, aflags */
 uint
 prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *ilist,
                        instr_t *instr, byte *encode_pc)
@@ -272,24 +299,27 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
 
     /* check if need adjust stack for alignment. */
     if (cci->should_align) {
-#if (defined(X86) && defined(X64)) || defined(MACOS)
+#if defined(X86) && (defined(X64) || defined(UNIX))
         /* PR 218790: maintain 16-byte rsp alignment.
          * insert_parameter_preparation() currently assumes we leave rsp aligned.
          */
-        uint num_slots = DR_NUM_GPR_REGS + NUM_EXTRA_SLOTS;
-        if (cci->skip_save_flags)
-            num_slots -= 2;
-        num_slots -= cci->num_regs_skip; /* regs that not saved */
+        int align = get_ABI_stack_alignment();
+        int off = align - (dstack_offs % align);
+        ASSERT(off % XSP_SZ == 0);
+        /* Make sure cleanup_after_clean_call() can compute the same offset.
+         * We could make the caller pass back in dstack_offs except for
+         * dr_cleanup_after_call().
+         */
+        ASSERT(clean_call_prepare_stack_size(cci) == dstack_offs ||
+               cci->out_of_line_swap);
         /* For out-of-line calls, the stack size gets aligned by
          * get_clean_call_switch_stack_size.
          */
-        if (!cci->out_of_line_swap && (num_slots % 2) == 1) {
-            ASSERT((dstack_offs % 16) == 8);
+        if (off != align && !cci->out_of_line_swap) {
             PRE(ilist, instr,
-                INSTR_CREATE_lea(
-                    dcontext, opnd_create_reg(REG_XSP),
-                    OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, -(int)XSP_SZ)));
-            dstack_offs += XSP_SZ;
+                INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
+                                 OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, -off)));
+            dstack_offs += off;
         }
 #endif
         ASSERT((dstack_offs % get_ABI_stack_alignment()) == 0);
@@ -309,20 +339,22 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         cci = &default_clean_call_info;
         /* saved error code is currently on the top of the stack */
 
-#if (defined(X86) && defined(X64)) || defined(MACOS)
+#if defined(X86) && (defined(X64) || defined(UNIX))
     /* PR 218790: remove the padding we added for 16-byte rsp alignment */
     if (cci->should_align) {
-        uint num_slots = DR_NUM_GPR_REGS + NUM_EXTRA_SLOTS;
-        if (cci->skip_save_flags)
-            num_slots += 2;
-        num_slots -= cci->num_regs_skip; /* regs that not saved */
+        int align = get_ABI_stack_alignment();
+        int emulate_dstack_offs = clean_call_prepare_stack_size(cci);
+        int off = align - (emulate_dstack_offs % align);
         /* For out-of-line calls, the stack size gets aligned by
          * get_clean_call_switch_stack_size.
          */
-        if (!cci->out_of_line_swap && (num_slots % 2) == 1) {
+        if (off != align && !cci->out_of_line_swap) {
+            /* XXX: We should optimize by combining this LEA with the LEA in
+             * insert_meta_call_vargs() which cleans up parameter space.
+             */
             PRE(ilist, instr,
                 INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
-                                 OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, XSP_SZ)));
+                                 OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, off)));
         }
     }
 #endif
@@ -402,9 +434,9 @@ parameters_stack_padded(void)
 }
 
 /* Inserts a complete call to callee with the passed-in arguments.
- * For x64, assumes the stack pointer is currently 16-byte aligned.
+ * Assumes the stack pointer is currently get_ABI_stack_alignment() aligned.
  * Clean calls ensure this by using clean base of dstack and having
- * dr_prepare_for_call pad to 16 bytes.
+ * dr_prepare_for_call pad to the ABI alignment.
  * Returns whether the call is direct.
  */
 bool
@@ -416,7 +448,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     bool direct;
     uint stack_for_params = insert_parameter_preparation(
         dcontext, ilist, instr, TEST(META_CALL_CLEAN, flags), num_args, args);
-    IF_X64(ASSERT(ALIGNED(stack_for_params, 16)));
+    ASSERT(ALIGNED(stack_for_params, get_ABI_stack_alignment()));
 
 #ifdef CLIENT_INTERFACE
     if (TEST(META_CALL_CLEAN, flags) && should_track_where_am_i()) {
@@ -468,6 +500,8 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (stack_for_params > 0) {
         /* XXX PR 245936: let user decide whether to clean up?
          * i.e., support calling a stdcall routine?
+         * XXX: Combine with the LEA in cleanup_after_clean_call() which undoes
+         * alignment padding from prepare_for_clean_call().
          */
         PRE(ilist, instr,
             XINST_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
@@ -924,6 +958,36 @@ mangle_rseq_insert_call_sequence(dcontext_t *dcontext, instrlist_t *ilist, instr
 #    endif
 }
 
+static void
+mangle_rseq_write_exit_reason(dcontext_t *dcontext, instrlist_t *ilist,
+                              instr_t *insert_at, reg_id_t scratch_reg)
+{
+    /* We use slot 1 to avoid conflict with segment mangling. */
+    if (SCRATCH_ALWAYS_TLS()) {
+        PRE(ilist, insert_at,
+            instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
+        insert_get_mcontext_base(dcontext, ilist, insert_at, scratch_reg);
+    } else {
+        PRE(ilist, insert_at,
+            instr_create_save_to_dcontext(dcontext, scratch_reg, REG1_OFFSET));
+        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)dcontext,
+                               opnd_create_reg(scratch_reg), ilist, insert_at, NULL,
+                               NULL);
+    }
+    PRE(ilist, insert_at,
+        XINST_CREATE_store(dcontext,
+                           opnd_create_dcontext_field_via_reg_sz(
+                               dcontext, scratch_reg, EXIT_REASON_OFFSET, OPSZ_2),
+                           OPND_CREATE_INT16(EXIT_REASON_RSEQ_ABORT)));
+    if (SCRATCH_ALWAYS_TLS()) {
+        PRE(ilist, insert_at,
+            instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
+    } else {
+        PRE(ilist, insert_at,
+            instr_create_restore_from_dcontext(dcontext, scratch_reg, REG1_OFFSET));
+    }
+}
+
 /* May modify next_instr. */
 static void
 mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
@@ -988,6 +1052,7 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
         int i;
         for (i = 0; i < DR_NUM_GPR_REGS; i++) {
             if (reg_written[i]) {
+                /* XXX: Keep this consistent with instr_is_rseq_load() in translate.c. */
                 size_t offs = offsetof(dcontext_t, rseq_entry_state) + sizeof(reg_t) * i;
                 PRE(ilist, insert_at,
                     XINST_CREATE_load(dcontext,
@@ -1027,8 +1092,14 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
 #    endif
     PRE(ilist, insert_at, abort_sig);
     PRE(ilist, insert_at, label_abort);
-    instrlist_preinsert(ilist, insert_at,
-                        XINST_CREATE_jump(dcontext, opnd_create_pc(handler)));
+    /* To raise a kernel xfer event we need to go back to DR.  Thus this exit will
+     * never be linked.  This should be quite rare, however, and should not impose
+     * a performance burden.
+     */
+    mangle_rseq_write_exit_reason(dcontext, ilist, insert_at, scratch_reg);
+    instr_t *abort_exit = XINST_CREATE_jump(dcontext, opnd_create_pc(handler));
+    instr_branch_set_special_exit(abort_exit, true);
+    instrlist_preinsert(ilist, insert_at, abort_exit);
     PRE(ilist, insert_at, skip_abort);
 
     /* Point this thread's struct rseq ptr at an rseq_cs which points at the bounds
@@ -1086,6 +1157,10 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
      * not stores, and restartable).
      */
     app_pc pc = start;
+    /* Store the PC values for faster conversion of intra-region targets. */
+    generic_table_t *pc2instr =
+        generic_hash_create(dcontext, 6 /*expect few entries*/, 80 /* load factor */, 0,
+                            NULL _IF_DEBUG("pc2instr"));
     PRE(ilist, insert_at, label_start);
     while (pc < end) {
         instr_t *copy = instr_create(dcontext);
@@ -1096,11 +1171,13 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
                                         "Invalid instruction inside rseq region");
             ASSERT_NOT_REACHED();
         }
+        generic_hash_add(dcontext, pc2instr, (ptr_uint_t)get_app_instr_xl8(copy), copy);
         /* Make intra-region branches meta; all others are exit ctis. */
         if ((instr_is_cbr(copy) || instr_is_ubr(copy)) &&
             opnd_is_pc(instr_get_target(copy))) {
             app_pc tgt = opnd_get_pc(instr_get_target(copy));
             if (tgt >= start && tgt < end) {
+                /* We change the target from a PC to an instr_t* at the end. */
                 PRE(ilist, insert_at, copy);
                 continue;
             }
@@ -1121,8 +1198,45 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
             instr_exit_branch_set_type(exit, exit_type);
             instrlist_preinsert(ilist, insert_at, exit);
         }
+#    if defined(DEBUG) && defined(X86)
+        /* Support for the api.rseq test with (officially unsupported) syscall in
+         * its rseq code executing before the app executes a syscall.
+         */
+        if (instr_is_syscall(copy) &&
+            get_syscall_method() == SYSCALL_METHOD_UNINITIALIZED) {
+            ASSERT(instr_get_opcode(copy) == OP_syscall &&
+                   check_filter("api.rseq", get_short_name(get_application_name())));
+            set_syscall_method(SYSCALL_METHOD_SYSCALL);
+            update_syscalls(dcontext);
+        }
+#    endif
     }
     PRE(ilist, insert_at, label_end);
+    /* Update all intra-region targets to use instr_t* operands.  We can't simply
+     * leave absolute PC's and re-relativize (that would point into the app code).
+     * Nor can we use the hardcoded relative offset by calling
+     * instr_set_rip_rel_valid(, false) because there can be subsequent mangling that
+     * changes the offsets.
+     */
+    for (instr_t *walk = label_start; walk != label_end; walk = instr_get_next(walk)) {
+        if (!instr_is_app(walk) && (instr_is_cbr(walk) || instr_is_ubr(walk))) {
+            ASSERT(opnd_is_pc(instr_get_target(walk)));
+            app_pc tgt_pc = opnd_get_pc(instr_get_target(walk));
+            instr_t *tgt_inst =
+                (instr_t *)generic_hash_lookup(dcontext, pc2instr, (ptr_uint_t)tgt_pc);
+            if (tgt_inst == NULL) {
+                LOG(THREAD, LOG_INTERP, 1,
+                    "%s: pc2instr failed for branch from " PFX " to " PFX "\n",
+                    __FUNCTION__, get_app_instr_xl8(walk), tgt_pc);
+                REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
+                                            get_application_name(), get_application_pid(),
+                                            "Rseq branch target is mid-instruction");
+                ASSERT_NOT_REACHED();
+            }
+            instr_set_target(walk, opnd_create_instr(tgt_inst));
+        }
+    }
+    generic_hash_destroy(dcontext, pc2instr);
     /* Now mangle from this point. */
     *next_instr = start_mangling;
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -99,7 +99,6 @@
 #ifdef CLIENT_INTERFACE
 /* in Makefile, we define these (so that genapi.pl, etc. get them):
  *    define DYNAMORIO_IR_EXPORTS 1
- *    define CUSTOM_EXIT_STUBS 1
  *    define CUSTOM_TRACES 1
  * CUSTOM_TRACES_RET_REMOVAL is aggressive -- assumes calling convention kept
  * Only useful if custom traces are doing inlining => do not define for external
@@ -126,6 +125,11 @@
 #    define DR_API DYNAMORIO_EXPORT
 #else
 #    define DR_API
+#endif
+#if (defined(DEBUG) && defined(BUILD_TESTS)) || defined(UNSUPPORTED_API)
+#    define DR_UNS_EXCEPT_TESTS_API DR_API
+#else
+#    define DR_UNS_EXCEPT_TESTS_API /* nothing */
 #endif
 #ifdef UNSUPPORTED_API
 #    define DR_UNS_API DR_API
@@ -228,10 +232,6 @@ typedef byte *cache_pc; /* fragment cache pc */
 extern const char dynamorio_version_string[];
 extern const char dynamorio_buildmark[];
 
-struct _opnd_t;
-typedef struct _opnd_t opnd_t;
-struct _instr_t;
-typedef struct _instr_t instr_t;
 struct _instr_list_t;
 struct _fragment_t;
 typedef struct _fragment_t fragment_t;
@@ -301,6 +301,11 @@ typedef struct _dr_stats_t {
     uint64 peak_num_threads;
     /** Accumulated total number of threads encountered by DR. */
     uint64 num_threads_created;
+    /**
+     * Thread synchronization attempts retried due to the target thread being at
+     * an un-translatable spot.
+     */
+    uint64 synchs_not_at_safe_spot;
 } dr_stats_t;
 
 /* DR_API EXPORT END */
@@ -428,6 +433,10 @@ typedef struct _client_data_t {
     void *client_grab_mutex;
 #    ifdef DEBUG
     bool is_translating;
+#    endif
+#    ifdef LINUX
+    /* i#4041: Pass the real translation for signals in rseq sequences. */
+    app_pc last_special_xl8;
 #    endif
 
     /* flags for asserts on linux and for getting param base right on windows */
@@ -709,6 +718,8 @@ enum {
     EXIT_REASON_NI_SYSCALL_INT_0x82,
     /* Single step exception needs to be forged. */
     EXIT_REASON_SINGLE_STEP,
+    /* We need to raise a kernel xfer event on an rseq-native abort. */
+    EXIT_REASON_RSEQ_ABORT,
 };
 
 /* Number of nested calls into native modules that we support.  This number
@@ -828,6 +839,8 @@ struct _dcontext_t {
     void *priv_nt_rpc;
     void *app_nls_cache;
     void *priv_nls_cache;
+    void *app_static_tls;
+    void *priv_static_tls;
 #    endif
     void *app_stack_limit;
     void *app_stack_base;

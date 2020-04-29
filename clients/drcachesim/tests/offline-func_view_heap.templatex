@@ -1,0 +1,9 @@
+All done.
+Function view tool results:
+// XXX: It is not easy to check the output in a non-flaky way as it varies completely
+// by compiler and C++ library.  What I want to check is that ifdef CXX17 then
+// we covered one of each operator (in *some* module: there will be some never-hit
+// functions due to duplication in other libraries).  The comparison is
+// order-sensitive so we cannot safely list any symbols here.
+// For now we only test that we successfully traced.
+.*

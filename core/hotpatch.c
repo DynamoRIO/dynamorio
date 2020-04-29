@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -604,7 +604,7 @@ hotp_dump_reg_state(const hotp_context_t *reg_state, const app_pc eip,
 #    endif
 static void
 hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
-                       const thread_record_t **all_threads, const int num_threads);
+                       const thread_record_t **thread_table, const int num_threads);
 static void
 hotp_only_remove_patch(dcontext_t *dcontext, const hotp_module_t *module,
                        hotp_patch_point_t *cur_ppoint);
@@ -1333,15 +1333,15 @@ hotp_read_policy_modes(hotp_policy_mode_t **old_modes)
      */
     for (i = 0; i < num_mode_update_entries; i++) {
         bool matched = false;
-        char *temp, *policy_id;
+        char *split, *policy_id;
 
         SET_STR_PTR(policy_id, start);
-        temp = strchr(policy_id, ':');
-        if (temp == NULL)
+        split = strchr(policy_id, ':');
+        if (split == NULL)
             goto error_reading_policy;
-        *temp++ = '\0'; /* TODO: during file mapping, this won't work */
+        *split++ = '\0'; /* TODO: during file mapping, this won't work */
 
-        SET_NUM(mode, uint, MODE, temp);
+        SET_NUM(mode, uint, MODE, split);
 
         /* Must set mode for all vulnerabilities with a matching policy_id, not
          * just the first one.
@@ -2043,16 +2043,16 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
 static void
 hotp_process_image_helper(const app_pc base, const bool loaded,
                           const bool own_hot_patch_lock, const bool just_check,
-                          bool *needs_processing, const thread_record_t **all_threads,
+                          bool *needs_processing, const thread_record_t **thread_table,
                           const int num_threads, const bool ldr_safety,
                           vm_area_vector_t *toflush);
 void
 hotp_process_image(const app_pc base, const bool loaded, const bool own_hot_patch_lock,
                    const bool just_check, bool *needs_processing,
-                   const thread_record_t **all_threads, const int num_threads)
+                   const thread_record_t **thread_table, const int num_threads)
 {
     hotp_process_image_helper(base, loaded, own_hot_patch_lock, just_check,
-                              needs_processing, all_threads, num_threads, false, NULL);
+                              needs_processing, thread_table, num_threads, false, NULL);
 }
 
 /* Helper routine for seeing if point is in hotp_ppoint_vec */
@@ -2138,7 +2138,7 @@ hotp_perscache_overlap(uint vul, uint set, uint module, app_pc base, size_t imag
 static void
 hotp_process_image_helper(const app_pc base, const bool loaded,
                           const bool own_hot_patch_lock, const bool just_check,
-                          bool *needs_processing, const thread_record_t **all_threads,
+                          bool *needs_processing, const thread_record_t **thread_table,
                           const int num_threads_arg, const bool ldr_safety,
                           vm_area_vector_t *toflush)
 {
@@ -2488,7 +2488,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                                     hotp_ppoint_areas_add(&ppoint_desc);
 
                                 if (DYNAMO_OPTION(hotp_only)) {
-                                    hotp_only_inject_patch(&ppoint_desc, all_threads,
+                                    hotp_only_inject_patch(&ppoint_desc, thread_table,
                                                            num_threads);
                                 }
                             }
@@ -2727,7 +2727,7 @@ hotp_policy_list_exit:
  *
  */
 static void
-hotp_walk_loader_list(thread_record_t **all_threads, const int num_threads,
+hotp_walk_loader_list(thread_record_t **thread_table, const int num_threads,
                       vm_area_vector_t *toflush, bool probe_init)
 {
     /* This routine will go away; till then need to compile on linux.  Not walking
@@ -2741,7 +2741,7 @@ hotp_walk_loader_list(thread_record_t **all_threads, const int num_threads,
     LIST_ENTRY *e, *start;
     LDR_MODULE *mod;
 
-    /* For hotp_only, all_threads can be valid, i.e., all known threads may be
+    /* For hotp_only, thread_table can be valid, i.e., all known threads may be
      * suspended.  Even if they are not, all synch locks will be held, so that
      * module processing can happen without races.  Check for that.
      * Note: for -probe_api, this routine can be called during dr init time,
@@ -2775,7 +2775,7 @@ hotp_walk_loader_list(thread_record_t **all_threads, const int num_threads,
 
         /* TODO: ASSERT that the module is loaded? */
         hotp_process_image_helper(mod->BaseAddress, true, probe_init ? false : true,
-                                  false, NULL, all_threads, num_threads, false /*!ldr*/,
+                                  false, NULL, thread_table, num_threads, false /*!ldr*/,
                                   toflush);
 
         /* TODO: make hotp_process_image() emit different log messages
@@ -2965,7 +2965,7 @@ nudge_action_read_policies(void)
     hotp_vul_t *old_vul_table = NULL, *new_vul_table = NULL;
     uint num_old_vuls = 0, num_new_vuls;
     int num_threads = 0;
-    thread_record_t **all_threads = NULL;
+    thread_record_t **thread_table = NULL;
 
     STATS_INC(hotp_num_policy_nudge);
     /* Fix for case 6090;  TODO: remove when -hotp_policy_size is removed */
@@ -3041,7 +3041,7 @@ nudge_action_read_policies(void)
         if (DYNAMO_OPTION(hotp_only)) {
 #    ifdef WINDOWS
             DEBUG_DECLARE(bool ok =)
-            synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &all_threads,
+            synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &thread_table,
                                    /* Case 6821: other synch-all-thread uses that
                                     * only care about threads carrying fcache
                                     * state can ignore us
@@ -3086,7 +3086,7 @@ nudge_action_read_policies(void)
         hotp_init_policy_status_table();
         if (!DYNAMO_OPTION(hotp_only))
             vmvector_init_vector(&toflush, 0); /* no lock init needed since not used */
-        hotp_walk_loader_list(all_threads, num_threads,
+        hotp_walk_loader_list(thread_table, num_threads,
                               DYNAMO_OPTION(hotp_only) ? NULL : &toflush,
                               false /* !probe_init */);
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
@@ -3095,7 +3095,7 @@ nudge_action_read_policies(void)
         d_r_write_unlock(&hotp_vul_table_lock);
 #    ifdef WINDOWS
         if (DYNAMO_OPTION(hotp_only)) {
-            end_synch_with_all_threads(all_threads, num_threads, true /*resume*/);
+            end_synch_with_all_threads(thread_table, num_threads, true /*resume*/);
         }
 #    endif
 
@@ -3193,7 +3193,7 @@ hotp_nudge_handler(uint nudge_action_mask)
     }
 
     if (TEST(NUDGE_GENERIC(mode), nudge_action_mask)) {
-        thread_record_t **all_threads = NULL;
+        thread_record_t **thread_table = NULL;
         int num_threads = 0;
         hotp_policy_mode_t *old_modes = NULL;
         vm_area_vector_t toflush; /* never initialized for hotp_only */
@@ -3209,7 +3209,7 @@ hotp_nudge_handler(uint nudge_action_mask)
         /* Suspend all threads (for hotp_only) and grab locks. */
         if (DYNAMO_OPTION(hotp_only)) {
             DEBUG_DECLARE(bool ok =)
-            synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &all_threads,
+            synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &thread_table,
                                    /* Case 6821: other synch-all-thread uses that
                                     * only care about threads carrying fcache
                                     * state can ignore us
@@ -3242,14 +3242,14 @@ hotp_nudge_handler(uint nudge_action_mask)
 
         if (!DYNAMO_OPTION(hotp_only))
             vmvector_init_vector(&toflush, 0); /* no lock init needed since not used */
-        hotp_walk_loader_list(all_threads, num_threads,
+        hotp_walk_loader_list(thread_table, num_threads,
                               DYNAMO_OPTION(hotp_only) ? NULL : &toflush,
                               false /* !probe_init */);
 
         /* Release all locks. */
         d_r_write_unlock(&hotp_vul_table_lock);
         if (DYNAMO_OPTION(hotp_only)) {
-            end_synch_with_all_threads(all_threads, num_threads, true /*resume*/);
+            end_synch_with_all_threads(thread_table, num_threads, true /*resume*/);
         }
 
         /* If modes did change, then we need to flush out patches that were
@@ -3971,7 +3971,7 @@ patch_cti_tgt(byte *tgt_loc, byte *new_val, bool hot_patch)
  */
 static void
 hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
-                       const thread_record_t **all_threads, const int num_threads)
+                       const thread_record_t **thread_table, const int num_threads)
 {
     hotp_vul_t *vul;
     hotp_set_t *set;
@@ -3984,13 +3984,13 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
 
     ASSERT(DYNAMO_OPTION(hotp_only));
 
-    /* At startup there should be no other thread than this, so all_threads
+    /* At startup there should be no other thread than this, so thread_table
      * won't be valid.
      */
     if (num_threads != HOTP_ONLY_NUM_THREADS_AT_INIT) {
-        ASSERT(ppoint_desc != NULL && all_threads != NULL);
+        ASSERT(ppoint_desc != NULL && thread_table != NULL);
     } else {
-        ASSERT(ppoint_desc != NULL && all_threads == NULL);
+        ASSERT(ppoint_desc != NULL && thread_table == NULL);
     }
 
     /* Check if it is safe to patch, i.e., no known threads should be running
@@ -4210,14 +4210,14 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
 
         for (i = 0; i < num_threads; i++) {
             /* Skip the current thread; nudge thread's Eip isn't relevant. */
-            if (my_tid == all_threads[i]->id)
+            if (my_tid == thread_table[i]->id)
                 continue;
 
             /* App thread can't be in the core holding a lock when suspended. */
-            ASSERT(thread_owns_no_locks(all_threads[i]->dcontext));
+            ASSERT(thread_owns_no_locks(thread_table[i]->dcontext));
 
             cxt.ContextFlags = CONTEXT_FULL; /* PR 264138: don't need xmm regs */
-            res = thread_get_context((thread_record_t *)all_threads[i], &cxt);
+            res = thread_get_context((thread_record_t *)thread_table[i], &cxt);
             ASSERT(res);
             eip = (app_pc)cxt.CXT_XIP;
 
@@ -4248,7 +4248,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
                 cxt.CXT_XIP =
                     (ptr_uint_t)(cur_ppoint->app_code_copy +
                                  (eip - (module->base_address + cur_ppoint->offset)));
-                res = thread_set_context((thread_record_t *)all_threads[i], &cxt);
+                res = thread_set_context((thread_record_t *)thread_table[i], &cxt);
                 ASSERT(res);
             }
         }
@@ -4426,7 +4426,7 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remo
     app_pc base;
     bool needs_processing = false;
     int num_threads = 0;
-    thread_record_t **all_threads = NULL;
+    thread_record_t **thread_table = NULL;
 #    ifdef WINDOWS
     DEBUG_DECLARE(bool ok;)
 #    endif
@@ -4478,7 +4478,7 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remo
 #    ifdef WINDOWS
     /* Ok, let's suspend all threads and do the injection/removal. */
     DEBUG_DECLARE(ok =)
-    synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &all_threads, &num_threads,
+    synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &thread_table, &num_threads,
                            /* Case 6821: other synch-all-thread uses that
                             * only care about threads carrying fcache
                             * state can ignore us
@@ -4502,7 +4502,7 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remo
         DODEBUG(hotp_globals->ldr_safe_hook_injection = true;); /* Case 7998. */
         DODEBUG(hotp_globals->ldr_safe_hook_removal = false;);  /* Case 7832. */
         hotp_process_image_helper(base, true, true, false, NULL,
-                                  (const thread_record_t **)all_threads, num_threads,
+                                  (const thread_record_t **)thread_table, num_threads,
                                   true, NULL);
         DODEBUG(hotp_globals->ldr_safe_hook_injection = false;);
         /* Similarly, hotp_remove_patches_from_module() is inefficient too.
@@ -4518,7 +4518,7 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remo
     }
     d_r_write_unlock(&hotp_vul_table_lock);
 #    ifdef WINDOWS
-    end_synch_with_all_threads(all_threads, num_threads, true /*resume*/);
+    end_synch_with_all_threads(thread_table, num_threads, true /*resume*/);
 #    endif
 }
 

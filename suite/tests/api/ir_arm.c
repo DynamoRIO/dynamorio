@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -182,5 +182,8 @@ main(int argc, char *argv[])
     test_flags(dcontext);
 
     print("all done\n");
+#ifndef STANDALONE_DECODER
+    dr_standalone_exit();
+#endif
     return 0;
 }

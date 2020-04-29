@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -331,12 +331,14 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
     return res;
 }
 
-/* Returned addresses out_base and out_end are relative to the actual
+/* Identifies the bounds of each segment in the ELF at base.
+ * Returned addresses out_base and out_end are relative to the actual
  * loaded module base, so the "base" param should be added to produce
  * absolute addresses.
  * If out_data != NULL, fills in the dynamic section fields and adds
  * entries to the module list vector: so the caller must be
  * os_module_area_init() if out_data != NULL!
+ * Optionally returns the first segment bounds, the max segment end, and the soname.
  */
 bool
 module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn_reloc,
@@ -350,6 +352,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
     bool found_load = false;
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
     ptr_int_t load_delta; /* delta loaded at relative to base */
+    uint last_seg_align = 0;
     ASSERT(is_elf_so_header(base, view_size));
 
     /* On adjusting virtual address in the elf headers -
@@ -380,6 +383,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                                             i * elf_hdr->e_phentsize);
             if (prog_hdr->p_type == PT_LOAD) {
                 if (out_data != NULL) {
+                    last_seg_align = prog_hdr->p_align;
                     module_add_segment_data(
                         out_data, elf_hdr->e_phnum,
                         (app_pc)prog_hdr->p_vaddr + load_delta, prog_hdr->p_memsz,
@@ -404,6 +408,29 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                     }
                 });
             }
+        }
+        if (max_end + load_delta < base + view_size) {
+            /* i#3900: in-memory-only VDSO has a "loaded" portion not in a PT_LOAD
+             * official segment.  This confuses other code which takes the endpoint
+             * of the last segment as the endpoint of the mappings.  Our solution is
+             * to create a synthetic segment.
+             */
+            LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
+                "max segment end " PFX " smaller than map size " PFX ": probably VDSO\n",
+                max_end + load_delta, base + view_size);
+            uint map_prot;
+            if (out_data != NULL &&
+                get_memory_info_from_os(max_end + load_delta, NULL, NULL, &map_prot)) {
+                LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
+                    "adding synthetic segment " PFX "-" PFX "\n", max_end + load_delta,
+                    base + view_size);
+                ASSERT_CURIOSITY(soname != NULL && strstr(soname, "vdso") != NULL);
+                module_add_segment_data(out_data, elf_hdr->e_phnum, max_end + load_delta,
+                                        base + view_size - (max_end + load_delta),
+                                        map_prot, last_seg_align, false /*!shared*/,
+                                        max_end + load_delta - base /*offset*/);
+            }
+            max_end = base + view_size;
         }
     }
     ASSERT_CURIOSITY(found_load && mod_base != (app_pc)POINTER_MAX &&
@@ -616,7 +643,7 @@ static app_pc
 gnu_hash_lookup(const char *name, ptr_int_t load_delta, ELF_SYM_TYPE *symtab,
                 char *strtab, Elf_Symndx *buckets, Elf_Symndx *chain, ELF_ADDR *bitmask,
                 ptr_uint_t bitidx, ptr_uint_t shift, size_t num_buckets,
-                bool *is_indirect_code)
+                size_t dynstr_size, bool *is_indirect_code)
 {
     Elf_Symndx sidx;
     Elf_Symndx hidx;
@@ -636,7 +663,17 @@ gnu_hash_lookup(const char *name, ptr_int_t load_delta, ELF_SYM_TYPE *symtab,
             do {
                 if ((((*harray) ^ hidx) >> 1) == 0) {
                     sidx = harray - chain;
-                    if (elf_sym_matches(&symtab[sidx], strtab, name, is_indirect_code)) {
+                    ELF_SYM_TYPE *sym = &symtab[sidx];
+                    if (sym->st_name >= dynstr_size) {
+                        ASSERT(false && "malformed ELF symbol entry");
+                        continue;
+                    }
+                    /* Keep this consistent with symbol_is_import() in this file and
+                     * drsym_obj_symbol_offs() in ext/drsyms/drsyms_elf.c
+                     */
+                    if (sym->st_value == 0 && ELF_ST_TYPE(sym->st_info) != STT_TLS)
+                        continue; /* no value */
+                    if (elf_sym_matches(sym, strtab, name, is_indirect_code)) {
                         res = (app_pc)(symtab[sidx].st_value + load_delta);
                         break;
                     }
@@ -695,10 +732,11 @@ get_proc_address_from_os_data(os_module_data_t *os_data, ptr_int_t load_delta,
         size_t num_buckets = os_data->num_buckets;
         if (os_data->hash_is_gnu) {
             /* The new GNU hash scheme */
-            return gnu_hash_lookup(
-                name, load_delta, symtab, strtab, buckets, chain,
-                (ELF_ADDR *)os_data->gnu_bitmask, (ptr_uint_t)os_data->gnu_bitidx,
-                (ptr_uint_t)os_data->gnu_shift, num_buckets, is_indirect_code);
+            return gnu_hash_lookup(name, load_delta, symtab, strtab, buckets, chain,
+                                   (ELF_ADDR *)os_data->gnu_bitmask,
+                                   (ptr_uint_t)os_data->gnu_bitidx,
+                                   (ptr_uint_t)os_data->gnu_shift, num_buckets,
+                                   os_data->dynstr_size, is_indirect_code);
         } else {
             /* ELF hash scheme */
             return elf_hash_lookup(name, load_delta, symtab, strtab, buckets, chain,
@@ -1244,8 +1282,8 @@ symbol_iterator_stop(elf_symbol_iterator_t *iter)
 static bool
 symbol_is_import(ELF_SYM_TYPE *sym)
 {
-    /* Keep this consistent with elf_hash_lookup() at this file and
-     * drsym_obj_symbol_offs() at ext/drsyms/drsyms_elf.c.
+    /* Keep this consistent with {elf,gnu}_hash_lookup() in this file and
+     * drsym_obj_symbol_offs() in ext/drsyms/drsyms_elf.c.
      * With some older ARM and AArch64 tool chains we have st_shndx == STN_UNDEF
      * with a non-zero st_value pointing at the PLT. See i#2008.
      */
