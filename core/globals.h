@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -99,7 +99,6 @@
 #ifdef CLIENT_INTERFACE
 /* in Makefile, we define these (so that genapi.pl, etc. get them):
  *    define DYNAMORIO_IR_EXPORTS 1
- *    define CUSTOM_EXIT_STUBS 1
  *    define CUSTOM_TRACES 1
  * CUSTOM_TRACES_RET_REMOVAL is aggressive -- assumes calling convention kept
  * Only useful if custom traces are doing inlining => do not define for external
@@ -126,6 +125,11 @@
 #    define DR_API DYNAMORIO_EXPORT
 #else
 #    define DR_API
+#endif
+#if (defined(DEBUG) && defined(BUILD_TESTS)) || defined(UNSUPPORTED_API)
+#    define DR_UNS_EXCEPT_TESTS_API DR_API
+#else
+#    define DR_UNS_EXCEPT_TESTS_API /* nothing */
 #endif
 #ifdef UNSUPPORTED_API
 #    define DR_UNS_API DR_API
@@ -228,10 +232,6 @@ typedef byte *cache_pc; /* fragment cache pc */
 extern const char dynamorio_version_string[];
 extern const char dynamorio_buildmark[];
 
-struct _opnd_t;
-typedef struct _opnd_t opnd_t;
-struct _instr_t;
-typedef struct _instr_t instr_t;
 struct _instr_list_t;
 struct _fragment_t;
 typedef struct _fragment_t fragment_t;
@@ -270,6 +270,7 @@ typedef struct _module_data_t module_data_t;
 #    define DR_NOTE_FIRST_RESERVED 0xfffffff0UL
 #endif
 #define DR_NOTE_ANNOTATION (DR_NOTE_FIRST_RESERVED + 1)
+#define DR_NOTE_RSEQ (DR_NOTE_FIRST_RESERVED + 2)
 
 /**
  * Structure written by dr_get_time() to specify the current time.
@@ -300,6 +301,11 @@ typedef struct _dr_stats_t {
     uint64 peak_num_threads;
     /** Accumulated total number of threads encountered by DR. */
     uint64 num_threads_created;
+    /**
+     * Thread synchronization attempts retried due to the target thread being at
+     * an un-translatable spot.
+     */
+    uint64 synchs_not_at_safe_spot;
 } dr_stats_t;
 
 /* DR_API EXPORT END */
@@ -346,7 +352,7 @@ typedef struct _thread_record_t {
 #include "options.h"
 #include "os_exports.h"
 #include "arch_exports.h"
-#include "dr_helper.h"
+#include "drlibc.h"
 #include "vmareas.h"
 #include "instrlist.h"
 #include "dispatch.h"
@@ -428,6 +434,10 @@ typedef struct _client_data_t {
 #    ifdef DEBUG
     bool is_translating;
 #    endif
+#    ifdef LINUX
+    /* i#4041: Pass the real translation for signals in rseq sequences. */
+    app_pc last_special_xl8;
+#    endif
 
     /* flags for asserts on linux and for getting param base right on windows */
     bool in_pre_syscall;
@@ -492,13 +502,13 @@ extern int num_execve_threads;
 #endif
 
 /* global instance of statistics struct */
-extern dr_statistics_t *stats;
+extern dr_statistics_t *d_r_stats;
 
 /* the process-wide logfile */
 extern file_t main_logfile;
 
 /* initial stack so we don't have to use app's */
-extern byte *initstack;
+extern byte *d_r_initstack;
 extern mutex_t initstack_mutex;
 extern byte *initstack_app_xsp;
 
@@ -571,7 +581,7 @@ remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid);
 uint
 get_thread_num(thread_id_t tid);
 int
-get_num_threads(void);
+d_r_get_num_threads(void);
 bool
 is_last_app_thread(void);
 void
@@ -671,7 +681,7 @@ extern recursive_lock_t change_linking_lock;
 typedef enum {
     DR_WHERE_APP = 0,         /**< Control is in native application code. */
     DR_WHERE_INTERP,          /**< Control is in basic block building. */
-    DR_WHERE_DISPATCH,        /**< Control is in dispatch. */
+    DR_WHERE_DISPATCH,        /**< Control is in d_r_dispatch. */
     DR_WHERE_MONITOR,         /**< Control is in trace building. */
     DR_WHERE_SYSCALL_HANDLER, /**< Control is in system call handling. */
     DR_WHERE_SIGNAL_HANDLER,  /**< Control is in signal handling. */
@@ -708,6 +718,8 @@ enum {
     EXIT_REASON_NI_SYSCALL_INT_0x82,
     /* Single step exception needs to be forged. */
     EXIT_REASON_SINGLE_STEP,
+    /* We need to raise a kernel xfer event on an rseq-native abort. */
+    EXIT_REASON_RSEQ_ABORT,
 };
 
 /* Number of nested calls into native modules that we support.  This number
@@ -751,12 +763,12 @@ typedef struct {
     /* WARNING: if you change the offsets of any of these fields,
      * you must also change the offsets in <arch>/<arch.s>
      */
-    priv_mcontext_t mcontext; /* real machine context (in arch_exports.h) */
+    priv_mcontext_t mcontext; /* real machine context (in globals_shared.h + mcxtx.h) */
 #ifdef UNIX
     int dr_errno; /* errno used for DR (no longer used for app) */
 #endif
     bool at_syscall;    /* for shared deletion syscalls_synch_flush,
-                         * as well as syscalls handled from dispatch,
+                         * as well as syscalls handled from d_r_dispatch,
                          * and for reset to identify when at syscalls
                          */
     ushort exit_reason; /* Allows multiplexing LINK_SPECIAL_EXIT */
@@ -827,6 +839,8 @@ struct _dcontext_t {
     void *priv_nt_rpc;
     void *app_nls_cache;
     void *priv_nls_cache;
+    void *app_static_tls;
+    void *priv_static_tls;
 #    endif
     void *app_stack_limit;
     void *app_stack_base;
@@ -954,7 +968,7 @@ struct _dcontext_t {
     app_pc asynch_target;
 
     /* must store post-intercepted-syscall target to allow using normal
-     * dispatch() for native_exec syscalls
+     * d_r_dispatch() for native_exec syscalls
      */
     app_pc native_exec_postsyscall;
 
@@ -1103,6 +1117,10 @@ struct _dcontext_t {
     bool currently_stopped;
     /* This is a flag requesting that this thread go native. */
     bool go_native;
+#ifdef LINUX
+    /* State for handling restartable sequences ("rseq"). */
+    rseq_entry_state_t rseq_entry_state;
+#endif
 };
 
 /* sentinel value for dcontext_t* used to indicate
@@ -1129,35 +1147,97 @@ enum { DUMP_XML = true, DUMP_NOT_XML = false };
 /* to avoid transparency problems we must have our own vnsprintf and sscanf */
 #include <stdarg.h> /* for va_list */
 int
-our_snprintf(char *s, size_t max, const char *fmt, ...);
+d_r_snprintf(char *s, size_t max, const char *fmt, ...);
 int
-our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
+d_r_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
 int
-our_snprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, ...);
+d_r_snprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, ...);
 int
-our_vsnprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, va_list ap);
+d_r_vsnprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, va_list ap);
 #undef snprintf /* defined on macos */
-#define snprintf our_snprintf
+#define snprintf d_r_snprintf
 #undef _snprintf
-#define _snprintf our_snprintf
+#define _snprintf d_r_snprintf
 #undef vsnprintf
-#define vsnprintf our_vsnprintf
-#define snwprintf our_snprintf_wide
-#define _snwprintf our_snprintf_wide
+#define vsnprintf d_r_vsnprintf
+#define snwprintf d_r_snprintf_wide
+#define _snwprintf d_r_snprintf_wide
 int
-our_sscanf(const char *str, const char *format, ...);
+d_r_sscanf(const char *str, const char *format, ...);
 int
-our_vsscanf(const char *str, const char *fmt, va_list ap);
+d_r_vsscanf(const char *str, const char *fmt, va_list ap);
 const char *
-parse_int(const char *sp, uint64 *res_out, uint base, uint width, bool is_signed);
+d_r_parse_int(const char *sp, uint64 *res_out, uint base, uint width, bool is_signed);
 ssize_t
 utf16_to_utf8_size(const wchar_t *src, size_t max_chars,
                    size_t *written /*unicode chars*/);
-#define sscanf our_sscanf
+#define sscanf d_r_sscanf
 
 /* string.c */
+#ifdef UNIX
+/* i#3348: Use unique names to avoid conflicts during static linking.  We'd
+ * prefer to just invoke the d_r_ version explicitly, but on Windows we need the
+ * regular name to use the ntdll versions.  Thus we use macro indirection.
+ */
+#    undef strlen
+#    define strlen d_r_strlen
+#    undef strlen
+#    define strlen d_r_strlen
+#    undef wcslen
+#    define wcslen d_r_wcslen
+#    undef strchr
+#    define strchr d_r_strchr
+#    undef strrchr
+#    define strrchr d_r_strrchr
+#    undef strncpy
+#    define strncpy d_r_strncpy
+#    undef strncat
+#    define strncat d_r_strncat
+#    undef memmove
+#    define memmove d_r_memmove
+#    undef strcmp
+#    define strcmp d_r_strcmp
+#    undef strncmp
+#    define strncmp d_r_strncmp
+#    undef memcmp
+#    define memcmp d_r_memcmp
+#    undef strstr
+#    define strstr d_r_strstr
+#    undef tolower
+#    define tolower d_r_tolower
+#    undef strcasecmp
+#    define strcasecmp d_r_strcasecmp
+#    undef strtoul
+#    define strtoul d_r_strtoul
+#endif
+size_t
+strlen(const char *str);
+size_t
+wcslen(const wchar_t *str);
+char *
+strchr(const char *str, int c);
+char *
+strrchr(const char *str, int c);
+char *
+strncpy(char *dst, const char *src, size_t n);
+char *
+strncat(char *dest, const char *src, size_t n);
+void *
+memmove(void *dst, const void *src, size_t n);
+int
+strcmp(const char *left, const char *right);
+int
+strncmp(const char *left, const char *right, size_t n);
+int
+memcmp(const void *left_v, const void *right_v, size_t n);
+char *
+strstr(const char *haystack, const char *needle);
 int
 tolower(int c);
+int
+strcasecmp(const char *left, const char *right);
+unsigned long
+strtoul(const char *str, char **end, int base);
 
 /* Code cleanliness rules */
 #ifdef WINDOWS

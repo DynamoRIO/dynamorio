@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -120,6 +120,9 @@
 /** Create a memory reference operand appropriately sized for OP_fxrstor32/OP_fxrstor64.*/
 #define OPND_CREATE_MEM_fxrstor(base, index, scale, disp) \
     opnd_create_base_disp(base, index, scale, disp, OPSZ_fxrstor)
+/** Create a memory reference operand appropriately sized for OP_ptwrite.*/
+#define OPND_CREATE_MEM_ptwrite(base, index, scale, disp) \
+    opnd_create_base_disp(base, index, scale, disp, OPSZ_ptwrite)
 /**
  * Create a memory reference operand appropriately sized for OP_xsave32,
  * OP_xsave64, OP_xsaveopt32, OP_xsaveopt64, OP_xsavec32, OP_xsavec64,
@@ -651,6 +654,15 @@
 #define INSTR_CREATE_ldmxcsr(dc, s) instr_create_0dst_1src((dc), OP_ldmxcsr, (s))
 #define INSTR_CREATE_vldmxcsr(dc, s) instr_create_0dst_1src((dc), OP_vldmxcsr, (s))
 #define INSTR_CREATE_nop_modrm(dc, s) instr_create_0dst_1src((dc), OP_nop_modrm, (s))
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param s The opnd_t explicit source operand for the instruction, which can be
+ * a general-purpose registers or a memory reference. The latter can be created with
+ * OPND_CREATE_MEM_ptwrite() to get the appropriate operand size.
+ */
+#define INSTR_CREATE_ptwrite(dc, s) instr_create_0dst_1src((dc), OP_ptwrite, (s))
 /* @} */ /* end doxygen group */
 /** @name Prefetch */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
@@ -684,12 +696,6 @@
  * must be an immediate integer (opnd_create_immed_int()).
  */
 #define INSTR_CREATE_int(dc, i) instr_create_0dst_1src((dc), OP_int, (i))
-
-#ifdef IA32_ON_IA64
-/* DR_API EXPORT BEGIN */
-#    define INSTR_CREATE_jmpe(dc, t) instr_create_0dst_1src((dc), OP_jmpe, (t))
-#    define INSTR_CREATE_jmpe_abs(dc, t) instr_create_0dst_1src((dc), OP_jmpe_abs, (t))
-#endif
 
 /* floating-point */
 /**
@@ -801,6 +807,51 @@
     instr_create_0dst_2src((dc), OP_invpcid, (s1), (s2))
 /* @} */ /* end doxygen group */
 
+/* no destination, 1 mask, and 1 explicit source */
+/** @name No destination, 1 mask, and 1 explicit source */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param k The opnd_t first source operand for the instruction.
+ * \param s The opnd_t second source operand for the instruction.
+ */
+/* AVX-512 EVEX */
+#define INSTR_CREATE_vgatherpf0dps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf0dps, (k), (s))
+#define INSTR_CREATE_vgatherpf0dpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf0dpd, (k), (s))
+#define INSTR_CREATE_vgatherpf0qps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf0qps, (k), (s))
+#define INSTR_CREATE_vgatherpf0qpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf0qpd, (k), (s))
+#define INSTR_CREATE_vgatherpf1dps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf1dps, (k), (s))
+#define INSTR_CREATE_vgatherpf1dpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf1dpd, (k), (s))
+#define INSTR_CREATE_vgatherpf1qps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf1qps, (k), (s))
+#define INSTR_CREATE_vgatherpf1qpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vgatherpf1qpd, (k), (s))
+#define INSTR_CREATE_vscatterpf0dps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf0dps, (k), (s))
+#define INSTR_CREATE_vscatterpf0dpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf0dpd, (k), (s))
+#define INSTR_CREATE_vscatterpf0qps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf0qps, (k), (s))
+#define INSTR_CREATE_vscatterpf0qpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf0qpd, (k), (s))
+#define INSTR_CREATE_vscatterpf1dps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf1dps, (k), (s))
+#define INSTR_CREATE_vscatterpf1dpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf1dpd, (k), (s))
+#define INSTR_CREATE_vscatterpf1qps_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf1qps, (k), (s))
+#define INSTR_CREATE_vscatterpf1qpd_mask(dc, k, s) \
+    instr_create_0dst_2src((dc), OP_vscatterpf1qpd, (k), (s))
+/* @} */ /* end doxygen group */
+
 /* no destination, 2 sources: 1 implicit */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -862,6 +913,9 @@
 #define INSTR_CREATE_mwait(dc)                                          \
     instr_create_0dst_2src((dc), OP_mwait, opnd_create_reg(DR_REG_EAX), \
                            opnd_create_reg(DR_REG_ECX))
+#define INSTR_CREATE_mwaitx(dc)                                          \
+    instr_create_0dst_2src((dc), OP_mwaitx, opnd_create_reg(DR_REG_EAX), \
+                           opnd_create_reg(DR_REG_ECX))
 #define INSTR_CREATE_invlpga(dc)                                          \
     instr_create_0dst_2src((dc), OP_invlpga, opnd_create_reg(DR_REG_XAX), \
                            opnd_create_reg(DR_REG_ECX))
@@ -870,7 +924,10 @@
     instr_create_0dst_3src((dc), OP_wrmsr, opnd_create_reg(DR_REG_EDX), \
                            opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_ECX))
 #define INSTR_CREATE_monitor(dc)                                          \
-    instr_create_0dst_3src((dc), OP_monitor, opnd_create_reg(DR_REG_EAX), \
+    instr_create_0dst_3src((dc), OP_monitor, opnd_create_reg(DR_REG_XAX), \
+                           opnd_create_reg(DR_REG_ECX), opnd_create_reg(DR_REG_EDX))
+#define INSTR_CREATE_monitorx(dc)                                          \
+    instr_create_0dst_3src((dc), OP_monitorx, opnd_create_reg(DR_REG_XAX), \
                            opnd_create_reg(DR_REG_ECX), opnd_create_reg(DR_REG_EDX))
 #define INSTR_CREATE_xsetbv(dc)                                          \
     instr_create_0dst_3src((dc), OP_xsetbv, opnd_create_reg(DR_REG_ECX), \
@@ -1056,6 +1113,9 @@
  * \param m The opnd_t explicit destination operand for the instruction, which must
  * be a memory reference (opnd_create_base_disp() or opnd_create_far_base_disp()).
  */
+#define INSTR_CREATE_fnstcw(dc, m) instr_create_1dst_0src((dc), OP_fnstcw, (m))
+#define INSTR_CREATE_fnstsw(dc, m) instr_create_1dst_0src((dc), OP_fnstsw, (m))
+/* @} */ /* end doxygen group */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
@@ -1064,7 +1124,6 @@
  * be created with OPND_CREATE_MEM_fnstenv() to get the appropriate operand size.
  */
 #define INSTR_CREATE_fnstenv(dc, m) instr_create_1dst_0src((dc), OP_fnstenv, (m))
-#define INSTR_CREATE_fnstcw(dc, m) instr_create_1dst_0src((dc), OP_fnstcw, (m))
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
@@ -1073,9 +1132,9 @@
  * be created with OPND_CREATE_MEM_fnsave() to get the appropriate operand size.
  */
 #define INSTR_CREATE_fnsave(dc, m) instr_create_1dst_0src((dc), OP_fnsave, (m))
-#define INSTR_CREATE_fnstsw(dc, m) instr_create_1dst_0src((dc), OP_fnstsw, (m))
-/* @} */ /* end doxygen group */
 
+/** @name Floating-point with float register destination, no sources */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
@@ -1085,6 +1144,7 @@
  */
 #define INSTR_CREATE_ffree(dc, f) instr_create_1dst_0src((dc), OP_ffree, (f))
 #define INSTR_CREATE_ffreep(dc, f) instr_create_1dst_0src((dc), OP_ffreep, (f))
+/* @} */ /* end doxygen group */
 
 /* 1 implicit destination, no sources */
 /** @name 1 implicit destination, no sources */
@@ -1218,7 +1278,6 @@
 #define INSTR_CREATE_movshdup(dc, d, s) \
     instr_create_1dst_1src((dc), OP_movshdup, (d), (s))
 #define INSTR_CREATE_movddup(dc, d, s) instr_create_1dst_1src((dc), OP_movddup, (d), (s))
-#define INSTR_CREATE_pshufb(dc, d, s) instr_create_1dst_1src((dc), OP_pshufb, (d), (s))
 #define INSTR_CREATE_popcnt(dc, d, s) instr_create_1dst_1src((dc), OP_popcnt, (d), (s))
 #define INSTR_CREATE_movntss(dc, d, s) instr_create_1dst_1src((dc), OP_movntss, (d), (s))
 #define INSTR_CREATE_movntsd(dc, d, s) instr_create_1dst_1src((dc), OP_movntsd, (d), (s))
@@ -1286,6 +1345,14 @@
     instr_create_1dst_1src((dc), OP_vcvtss2si, (d), (s))
 #define INSTR_CREATE_vcvtsd2si(dc, d, s) \
     instr_create_1dst_1src((dc), OP_vcvtsd2si, (d), (s))
+#define INSTR_CREATE_vcvtss2usi(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vcvtss2usi, (d), (s))
+#define INSTR_CREATE_vcvtsd2usi(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vcvtsd2usi, (d), (s))
+#define INSTR_CREATE_vcvttss2usi(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vcvttss2usi, (d), (s))
+#define INSTR_CREATE_vcvttsd2usi(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vcvttsd2usi, (d), (s))
 #define INSTR_CREATE_vmovmskps(dc, d, s) \
     instr_create_1dst_1src((dc), OP_vmovmskps, (d), (s))
 #define INSTR_CREATE_vmovmskpd(dc, d, s) \
@@ -1361,6 +1428,9 @@
     instr_create_1dst_1src((dc), OP_vbroadcastf128, (d), (s))
 #define INSTR_CREATE_movq2dq(dc, d, s) instr_create_1dst_1src((dc), OP_movq2dq, (d), (s))
 #define INSTR_CREATE_movdq2q(dc, d, s) instr_create_1dst_1src((dc), OP_movdq2q, (d), (s))
+#define INSTR_CREATE_vpabsb(dc, d, s) instr_create_1dst_1src((dc), OP_vpabsb, (d), (s))
+#define INSTR_CREATE_vpabsw(dc, d, s) instr_create_1dst_1src((dc), OP_vpabsw, (d), (s))
+#define INSTR_CREATE_vpabsd(dc, d, s) instr_create_1dst_1src((dc), OP_vpabsd, (d), (s))
 /* XOP */
 #define INSTR_CREATE_vfrczps(dc, d, s) instr_create_1dst_1src((dc), OP_vfrczps, (d), (s))
 #define INSTR_CREATE_vfrczpd(dc, d, s) instr_create_1dst_1src((dc), OP_vfrczpd, (d), (s))
@@ -1422,10 +1492,57 @@
     instr_create_1dst_1src((dc), OP_vpbroadcastd, (d), (s))
 #define INSTR_CREATE_vpbroadcastq(dc, d, s) \
     instr_create_1dst_1src((dc), OP_vpbroadcastq, (d), (s))
-/* ADX */
-#define INSTR_CREATE_adox(dc, d, s) instr_create_1dst_1src((dc), OP_adox, (d), (s))
-#define INSTR_CREATE_adcx(dc, d, s) instr_create_1dst_1src((dc), OP_adcx, (d), (s))
-
+/* AVX-512 VEX */
+#define INSTR_CREATE_kmovw(dc, d, s) instr_create_1dst_1src((dc), OP_kmovw, (d), (s))
+#define INSTR_CREATE_kmovb(dc, d, s) instr_create_1dst_1src((dc), OP_kmovb, (d), (s))
+#define INSTR_CREATE_kmovq(dc, d, s) instr_create_1dst_1src((dc), OP_kmovq, (d), (s))
+#define INSTR_CREATE_kmovd(dc, d, s) instr_create_1dst_1src((dc), OP_kmovd, (d), (s))
+#define INSTR_CREATE_knotw(dc, d, s) instr_create_1dst_1src((dc), OP_knotw, (d), (s))
+#define INSTR_CREATE_knotb(dc, d, s) instr_create_1dst_1src((dc), OP_knotb, (d), (s))
+#define INSTR_CREATE_knotq(dc, d, s) instr_create_1dst_1src((dc), OP_knotq, (d), (s))
+#define INSTR_CREATE_knotd(dc, d, s) instr_create_1dst_1src((dc), OP_knotd, (d), (s))
+#define INSTR_CREATE_kortestw(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_kortestw, (d), (s))
+#define INSTR_CREATE_kortestb(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_kortestb, (d), (s))
+#define INSTR_CREATE_kortestq(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_kortestq, (d), (s))
+#define INSTR_CREATE_kortestd(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_kortestd, (d), (s))
+#define INSTR_CREATE_ktestw(dc, d, s) instr_create_1dst_1src((dc), OP_ktestw, (d), (s))
+#define INSTR_CREATE_ktestb(dc, d, s) instr_create_1dst_1src((dc), OP_ktestb, (d), (s))
+#define INSTR_CREATE_ktestq(dc, d, s) instr_create_1dst_1src((dc), OP_ktestq, (d), (s))
+#define INSTR_CREATE_ktestd(dc, d, s) instr_create_1dst_1src((dc), OP_ktestd, (d), (s))
+/* AVX-512 EVEX */
+#define INSTR_CREATE_vmovd_mask(dc, d, s) instr_create_1dst_1src((dc), OP_vmovd, (d), (s))
+#define INSTR_CREATE_vpmovm2b(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovm2b, (d), (s))
+#define INSTR_CREATE_vpmovm2w(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovm2w, (d), (s))
+#define INSTR_CREATE_vpmovm2d(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovm2d, (d), (s))
+#define INSTR_CREATE_vpmovm2q(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovm2q, (d), (s))
+#define INSTR_CREATE_vpmovb2m(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovb2m, (d), (s))
+#define INSTR_CREATE_vpmovw2m(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovw2m, (d), (s))
+#define INSTR_CREATE_vpmovd2m(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovd2m, (d), (s))
+#define INSTR_CREATE_vpmovq2m(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpmovq2m, (d), (s))
+#define INSTR_CREATE_vpbroadcastmb2q(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpbroadcastmb2q, (d), (s))
+#define INSTR_CREATE_vpbroadcastmw2d(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_vpbroadcastmw2d, (d), (s))
+/* MPX */
+#define INSTR_CREATE_bndmov(dc, d, s) instr_create_1dst_1src((dc), OP_bndmov, (d), (s))
+#define INSTR_CREATE_bndcl(dc, d, s) instr_create_1dst_1src((dc), OP_bndcl, (d), (s))
+#define INSTR_CREATE_bndcu(dc, d, s) instr_create_1dst_1src((dc), OP_bndcu, (d), (s))
+#define INSTR_CREATE_bndcn(dc, d, s) instr_create_1dst_1src((dc), OP_bndcn, (d), (s))
+#define INSTR_CREATE_bndmk(dc, d, s) instr_create_1dst_1src((dc), OP_bndmk, (d), (s))
+#define INSTR_CREATE_bndldx(dc, d, s) instr_create_1dst_1src((dc), OP_bndldx, (d), (s))
+#define INSTR_CREATE_bndstx(dc, d, s) instr_create_1dst_1src((dc), OP_bndstx, (d), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
@@ -1730,6 +1847,48 @@
     instr_create_1dst_2src((dc), OP_aeskeygenassist, (d), (s), (i))
 /* @} */ /* end doxygen group */
 
+/* 1 destination, 2 sources */
+/** @name 1 destination, 1 mask, and 2 sources */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param k The opnd_t explicit mask source operand for the instruction.
+ * \param i The opnd_t explicit second source operand for the instruction, which
+ * must be an immediate integer (opnd_create_immed_int()).
+ * \param s The opnd_t explicit source operand for the instruction.
+ */
+/* AVX-512 EVEX */
+#define INSTR_CREATE_vpshufhw_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vpshufhw, (d), (k), (i), (s))
+#define INSTR_CREATE_vpshufd_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vpshufd, (d), (k), (i), (s))
+#define INSTR_CREATE_vpshuflw_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vpshuflw, (d), (k), (i), (s))
+#define INSTR_CREATE_vgetmantps_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vgetmantps, (d), (k), (i), (s))
+#define INSTR_CREATE_vgetmantpd_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vgetmantpd, (d), (k), (i), (s))
+#define INSTR_CREATE_vreduceps_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vreduceps, (d), (k), (i), (s))
+#define INSTR_CREATE_vreducepd_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vreducepd, (d), (k), (i), (s))
+#define INSTR_CREATE_vrndscaleps_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vrndscaleps, (d), (k), (i), (s))
+#define INSTR_CREATE_vrndscalepd_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vrndscalepd, (d), (k), (i), (s))
+#define INSTR_CREATE_vfpclassps_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vfpclassps, (d), (k), (i), (s))
+#define INSTR_CREATE_vfpclasspd_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vfpclasspd, (d), (k), (i), (s))
+#define INSTR_CREATE_vfpclassss_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vfpclassss, (d), (k), (i), (s))
+#define INSTR_CREATE_vfpclasssd_mask(dc, d, k, i, s) \
+    instr_create_1dst_3src((dc), OP_vfpclasssd, (d), (k), (i), (s))
+/* @} */ /* end doxygen group */
+
 /** @name 1 destination, 2 non-immediate sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
@@ -2000,12 +2159,6 @@
     instr_create_1dst_2src((dc), OP_vpsignd, (d), (s1), (s2))
 #define INSTR_CREATE_vpmulhrsw(dc, d, s1, s2) \
     instr_create_1dst_2src((dc), OP_vpmulhrsw, (d), (s1), (s2))
-#define INSTR_CREATE_vpabsb(dc, d, s1, s2) \
-    instr_create_1dst_2src((dc), OP_vpabsb, (d), (s1), (s2))
-#define INSTR_CREATE_vpabsw(dc, d, s1, s2) \
-    instr_create_1dst_2src((dc), OP_vpabsw, (d), (s1), (s2))
-#define INSTR_CREATE_vpabsd(dc, d, s1, s2) \
-    instr_create_1dst_2src((dc), OP_vpabsd, (d), (s1), (s2))
 #define INSTR_CREATE_vpmuldq(dc, d, s1, s2) \
     instr_create_1dst_2src((dc), OP_vpmuldq, (d), (s1), (s2))
 #define INSTR_CREATE_vpcmpeqq(dc, d, s1, s2) \
@@ -2146,6 +2299,339 @@
     instr_create_1dst_2src((dc), OP_vpsrlvd, (d), (s1), (s2))
 #define INSTR_CREATE_vpsrlvq(dc, d, s1, s2) \
     instr_create_1dst_2src((dc), OP_vpsrlvq, (d), (s1), (s2))
+/* AVX-512 VEX */
+#define INSTR_CREATE_kandw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandw, (d), (s1), (s2))
+#define INSTR_CREATE_kandb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandb, (d), (s1), (s2))
+#define INSTR_CREATE_kandq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandq, (d), (s1), (s2))
+#define INSTR_CREATE_kandd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandd, (d), (s1), (s2))
+#define INSTR_CREATE_kandnw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandnw, (d), (s1), (s2))
+#define INSTR_CREATE_kandnb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandnb, (d), (s1), (s2))
+#define INSTR_CREATE_kandnq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandnq, (d), (s1), (s2))
+#define INSTR_CREATE_kandnd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kandnd, (d), (s1), (s2))
+#define INSTR_CREATE_kunpckbw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kunpckbw, (d), (s1), (s2))
+#define INSTR_CREATE_kunpckwd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kunpckwd, (d), (s1), (s2))
+#define INSTR_CREATE_kunpckdq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kunpckdq, (d), (s1), (s2))
+#define INSTR_CREATE_korw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_korw, (d), (s1), (s2))
+#define INSTR_CREATE_korb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_korb, (d), (s1), (s2))
+#define INSTR_CREATE_korq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_korq, (d), (s1), (s2))
+#define INSTR_CREATE_kord(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kord, (d), (s1), (s2))
+#define INSTR_CREATE_kxnorw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxnorw, (d), (s1), (s2))
+#define INSTR_CREATE_kxnorb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxnorb, (d), (s1), (s2))
+#define INSTR_CREATE_kxnorq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxnorq, (d), (s1), (s2))
+#define INSTR_CREATE_kxnord(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxnord, (d), (s1), (s2))
+#define INSTR_CREATE_kxorw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxorw, (d), (s1), (s2))
+#define INSTR_CREATE_kxorb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxorb, (d), (s1), (s2))
+#define INSTR_CREATE_kxorq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxorq, (d), (s1), (s2))
+#define INSTR_CREATE_kxord(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kxord, (d), (s1), (s2))
+#define INSTR_CREATE_kaddw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kaddw, (d), (s1), (s2))
+#define INSTR_CREATE_kaddb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kaddb, (d), (s1), (s2))
+#define INSTR_CREATE_kaddq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kaddq, (d), (s1), (s2))
+#define INSTR_CREATE_kaddd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kaddd, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftlw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftlw, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftlb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftlb, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftlq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftlq, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftld(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftld, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftrw(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftrw, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftrb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftrb, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftrq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftrq, (d), (s1), (s2))
+#define INSTR_CREATE_kshiftrd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_kshiftrd, (d), (s1), (s2))
+/* AVX-512 EVEX */
+#define INSTR_CREATE_vcvtusi2ss(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_vcvtusi2ss, (d), (s1), (s2))
+#define INSTR_CREATE_vcvtusi2sd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_vcvtusi2sd, (d), (s1), (s2))
+#define INSTR_CREATE_vpextrq(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_vpextrq, (d), (s1), (s2))
+/* @} */ /* end doxygen group */
+
+/** @name 1 destination, 1 mask, and 1 non-immediate source */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx_mask macro creates an instr_t with opcode OP_xxx and the given
+ * explicit operands, automatically supplying any implicit operands. The first source
+ * operand is the instruction's mask.
+ *
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param k The opnd_t explicit mask source operand for the instruction.
+ * \param s The opnd_t explicit first source operand for the instruction
+ */
+/* AVX-512 EVEX */
+#define INSTR_CREATE_vmovups_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovups, (d), (k), (s))
+#define INSTR_CREATE_vmovupd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovupd, (d), (k), (s))
+#define INSTR_CREATE_vmovaps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovaps, (d), (k), (s))
+#define INSTR_CREATE_vmovapd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovapd, (d), (k), (s))
+#define INSTR_CREATE_vmovdqa32_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovdqa32, (d), (k), (s))
+#define INSTR_CREATE_vmovdqa64_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovdqa64, (d), (k), (s))
+#define INSTR_CREATE_vmovdqu8_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovdqu8, (d), (k), (s))
+#define INSTR_CREATE_vmovdqu16_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovdqu16, (d), (k), (s))
+#define INSTR_CREATE_vmovdqu32_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovdqu32, (d), (k), (s))
+#define INSTR_CREATE_vmovdqu64_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovdqu64, (d), (k), (s))
+#define INSTR_CREATE_vmovss_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovss, (d), (k), (s))
+#define INSTR_CREATE_vmovsd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovsd, (d), (k), (s))
+#define INSTR_CREATE_vmovsldup_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovsldup, (d), (k), (s))
+#define INSTR_CREATE_vmovddup_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovddup, (d), (k), (s))
+#define INSTR_CREATE_vmovshdup_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vmovshdup, (d), (k), (s))
+#define INSTR_CREATE_vcvtps2pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtps2pd, (d), (k), (s))
+#define INSTR_CREATE_vcvtpd2ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtpd2ps, (d), (k), (s))
+#define INSTR_CREATE_vcvtdq2ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtdq2ps, (d), (k), (s))
+#define INSTR_CREATE_vcvttps2dq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvttps2dq, (d), (k), (s))
+#define INSTR_CREATE_vcvtps2dq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtps2dq, (d), (k), (s))
+#define INSTR_CREATE_vcvtdq2pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtdq2pd, (d), (k), (s))
+#define INSTR_CREATE_vcvttpd2dq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvttpd2dq, (d), (k), (s))
+#define INSTR_CREATE_vcvtpd2dq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtpd2dq, (d), (k), (s))
+#define INSTR_CREATE_vcvtph2ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtph2ps, (d), (k), (s))
+#define INSTR_CREATE_vcvtpd2qq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtpd2qq, (d), (k), (s))
+#define INSTR_CREATE_vcvtps2udq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtps2udq, (d), (k), (s))
+#define INSTR_CREATE_vcvtpd2udq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtpd2udq, (d), (k), (s))
+#define INSTR_CREATE_vcvtps2uqq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtps2uqq, (d), (k), (s))
+#define INSTR_CREATE_vcvtpd2uqq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtpd2uqq, (d), (k), (s))
+#define INSTR_CREATE_vcvtps2qq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtps2qq, (d), (k), (s))
+#define INSTR_CREATE_vcvttps2udq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvttps2udq, (d), (k), (s))
+#define INSTR_CREATE_vcvttpd2udq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvttpd2udq, (d), (k), (s))
+#define INSTR_CREATE_vcvttps2qq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvttps2qq, (d), (k), (s))
+#define INSTR_CREATE_vcvttpd2qq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvttpd2qq, (d), (k), (s))
+#define INSTR_CREATE_vcvttps2uqq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvttps2uqq, (d), (k), (s))
+#define INSTR_CREATE_vcvttpd2uqq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvttpd2uqq, (d), (k), (s))
+#define INSTR_CREATE_vcvtqq2ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtqq2ps, (d), (k), (s))
+#define INSTR_CREATE_vcvtqq2pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtqq2pd, (d), (k), (s))
+#define INSTR_CREATE_vcvtudq2ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtudq2ps, (d), (k), (s))
+#define INSTR_CREATE_vcvtudq2pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtudq2pd, (d), (k), (s))
+#define INSTR_CREATE_vcvtuqq2ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtuqq2ps, (d), (k), (s))
+#define INSTR_CREATE_vcvtuqq2pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtuqq2pd, (d), (k), (s))
+#define INSTR_CREATE_vrcp14ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrcp14ps, (d), (k), (s))
+#define INSTR_CREATE_vrcp14pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrcp14pd, (d), (k), (s))
+#define INSTR_CREATE_vrcp28ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrcp28ps, (d), (k), (s))
+#define INSTR_CREATE_vrcp28pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrcp28pd, (d), (k), (s))
+#define INSTR_CREATE_vpmovsxbw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsxbw, (d), (k), (s))
+#define INSTR_CREATE_vpmovsxbd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsxbd, (d), (k), (s))
+#define INSTR_CREATE_vpmovsxbq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsxbq, (d), (k), (s))
+#define INSTR_CREATE_vpmovsxwd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsxwd, (d), (k), (s))
+#define INSTR_CREATE_vpmovsxwq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsxwq, (d), (k), (s))
+#define INSTR_CREATE_vpmovsxdq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsxdq, (d), (k), (s))
+#define INSTR_CREATE_vpmovzxbw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovzxbw, (d), (k), (s))
+#define INSTR_CREATE_vpmovzxbd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovzxbd, (d), (k), (s))
+#define INSTR_CREATE_vpmovzxbq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovzxbq, (d), (k), (s))
+#define INSTR_CREATE_vpmovzxwd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovzxwd, (d), (k), (s))
+#define INSTR_CREATE_vpmovzxwq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovzxwq, (d), (k), (s))
+#define INSTR_CREATE_vpmovzxdq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovzxdq, (d), (k), (s))
+#define INSTR_CREATE_vpmovqb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovqb, (d), (k), (s))
+#define INSTR_CREATE_vpmovsqb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsqb, (d), (k), (s))
+#define INSTR_CREATE_vpmovusqb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovusqb, (d), (k), (s))
+#define INSTR_CREATE_vpmovqw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovqw, (d), (k), (s))
+#define INSTR_CREATE_vpmovsqw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsqw, (d), (k), (s))
+#define INSTR_CREATE_vpmovusqw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovusqw, (d), (k), (s))
+#define INSTR_CREATE_vpmovqd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovqd, (d), (k), (s))
+#define INSTR_CREATE_vpmovsqd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsqd, (d), (k), (s))
+#define INSTR_CREATE_vpmovusqd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovusqd, (d), (k), (s))
+#define INSTR_CREATE_vpmovdb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovdb, (d), (k), (s))
+#define INSTR_CREATE_vpmovsdb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsdb, (d), (k), (s))
+#define INSTR_CREATE_vpmovusdb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovusdb, (d), (k), (s))
+#define INSTR_CREATE_vpmovdw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovdw, (d), (k), (s))
+#define INSTR_CREATE_vpmovsdw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovsdw, (d), (k), (s))
+#define INSTR_CREATE_vpmovusdw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovusdw, (d), (k), (s))
+#define INSTR_CREATE_vpmovwb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovwb, (d), (k), (s))
+#define INSTR_CREATE_vpmovswb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovswb, (d), (k), (s))
+#define INSTR_CREATE_vpmovuswb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovuswb, (d), (k), (s))
+#define INSTR_CREATE_vpmovm2b_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovm2b, (d), (k), (s))
+#define INSTR_CREATE_vpmovm2w_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovm2w, (d), (k), (s))
+#define INSTR_CREATE_vpmovm2d_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovm2d, (d), (k), (s))
+#define INSTR_CREATE_vpmovm2q_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpmovm2q, (d), (k), (s))
+#define INSTR_CREATE_vpabsb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpabsb, (d), (k), (s))
+#define INSTR_CREATE_vpabsw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpabsw, (d), (k), (s))
+#define INSTR_CREATE_vpabsd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpabsd, (d), (k), (s))
+#define INSTR_CREATE_vpabsq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpabsq, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastss_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastss, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastsd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastsd, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastf32x2_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastf32x2, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastf32x4_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastf32x4, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastf64x2_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastf64x2, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastf32x8_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastf32x8, (d), (k), (s))
+#define INSTR_CREATE_vbroadcastf64x4_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcastf64x4, (d), (k), (s))
+#define INSTR_CREATE_vpbroadcastb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpbroadcastb, (d), (k), (s))
+#define INSTR_CREATE_vpbroadcastw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpbroadcastw, (d), (k), (s))
+#define INSTR_CREATE_vpbroadcastd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpbroadcastd, (d), (k), (s))
+#define INSTR_CREATE_vpbroadcastq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpbroadcastq, (d), (k), (s))
+#define INSTR_CREATE_vbroadcasti32x2_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcasti32x2, (d), (k), (s))
+#define INSTR_CREATE_vbroadcasti32x4_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcasti32x4, (d), (k), (s))
+#define INSTR_CREATE_vbroadcasti64x2_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcasti64x2, (d), (k), (s))
+#define INSTR_CREATE_vbroadcasti32x8_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcasti32x8, (d), (k), (s))
+#define INSTR_CREATE_vbroadcasti64x4_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vbroadcasti64x4, (d), (k), (s))
+#define INSTR_CREATE_vcompressps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcompressps, (d), (k), (s))
+#define INSTR_CREATE_vcompresspd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcompresspd, (d), (k), (s))
+#define INSTR_CREATE_vexpandps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vexpandps, (d), (k), (s))
+#define INSTR_CREATE_vexpandpd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vexpandpd, (d), (k), (s))
+#define INSTR_CREATE_vgetexpps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vgetexpps, (d), (k), (s))
+#define INSTR_CREATE_vgetexppd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vgetexppd, (d), (k), (s))
+#define INSTR_CREATE_vpcompressd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpcompressd, (d), (k), (s))
+#define INSTR_CREATE_vpcompressq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpcompressq, (d), (k), (s))
+#define INSTR_CREATE_vpexpandd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpexpandd, (d), (k), (s))
+#define INSTR_CREATE_vpexpandq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpexpandq, (d), (k), (s))
+#define INSTR_CREATE_vrsqrt14ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrsqrt14ps, (d), (k), (s))
+#define INSTR_CREATE_vrsqrt14pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrsqrt14pd, (d), (k), (s))
+#define INSTR_CREATE_vrsqrt28ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrsqrt28ps, (d), (k), (s))
+#define INSTR_CREATE_vrsqrt28pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vrsqrt28pd, (d), (k), (s))
+#define INSTR_CREATE_vexp2ps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vexp2ps, (d), (k), (s))
+#define INSTR_CREATE_vexp2pd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vexp2pd, (d), (k), (s))
+#define INSTR_CREATE_vpconflictd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpconflictd, (d), (k), (s))
+#define INSTR_CREATE_vpconflictq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpconflictq, (d), (k), (s))
+#define INSTR_CREATE_vplzcntd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vplzcntd, (d), (k), (s))
+#define INSTR_CREATE_vplzcntq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vplzcntq, (d), (k), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -2380,6 +2866,8 @@
 #define INSTR_CREATE_pabsb(dc, d, s) instr_create_1dst_2src((dc), OP_pabsb, (d), (s), (d))
 #define INSTR_CREATE_pabsw(dc, d, s) instr_create_1dst_2src((dc), OP_pabsw, (d), (s), (d))
 #define INSTR_CREATE_pabsd(dc, d, s) instr_create_1dst_2src((dc), OP_pabsd, (d), (s), (d))
+#define INSTR_CREATE_pshufb(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_pshufb, (d), (s), (d))
 /* SSE4 */
 #define INSTR_CREATE_crc32(dc, d, s) instr_create_1dst_2src((dc), OP_crc32, (d), (s), (d))
 #define INSTR_CREATE_packusdw(dc, d, s) \
@@ -2416,6 +2904,20 @@
     instr_create_1dst_2src((dc), OP_aesdec, (d), (s), (d))
 #define INSTR_CREATE_aesdeclast(dc, d, s) \
     instr_create_1dst_2src((dc), OP_aesdeclast, (d), (s), (d))
+/* ADX */
+#define INSTR_CREATE_adox(dc, d, s) instr_create_1dst_2src((dc), OP_adox, (d), (s), (d))
+#define INSTR_CREATE_adcx(dc, d, s) instr_create_1dst_2src((dc), OP_adcx, (d), (s), (d))
+/* SHA */
+#define INSTR_CREATE_sha1msg1(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha1msg1, (d), (s), (d))
+#define INSTR_CREATE_sha1msg2(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha1msg2, (d), (s), (d))
+#define INSTR_CREATE_sha1nexte(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha1nexte, (d), (s), (d))
+#define INSTR_CREATE_sha256msg1(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha256msg1, (d), (s), (d))
+#define INSTR_CREATE_sha256msg2(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_sha256msg2, (d), (s), (d))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 1 explicit register-or-immediate source */
@@ -2819,6 +3321,410 @@
     instr_create_1dst_3src((dc), OP_vperm2i128, (d), (s1), (s2), (s3))
 /* @} */ /* end doxygen group */
 
+/** @name 1 destination, 1 mask, and 2 non-immediate sources */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx_mask macro creates an instr_t with opcode OP_xxx and the given
+ * explicit operands, automatically supplying any implicit operands. The first source
+ * operand is the instruction's mask.
+ *
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param k The opnd_t explicit mask source operand for the instruction.
+ * \param s1 The opnd_t explicit first source operand for the instruction
+ * \param s2 The opnd_t explicit second source operand for the instruction
+ */
+/* AVX-512 EVEX */
+#define INSTR_CREATE_vmovss_NDS_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmovss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmovsd_NDS_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmovsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vunpcklps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vunpcklps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vunpcklpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vunpcklpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vunpckhps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vunpckhps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vunpckhpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vunpckhpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vandps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vandps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vandpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vandpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vorps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vorps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vorpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vorpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vxorps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vxorps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vxorpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vxorpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vandnps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vandnps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vandnpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vandnpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpandd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpandd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpandq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpandq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpandnd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpandnd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpandnq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpandnq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpord_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpord, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vporq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vporq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpxord_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpxord, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpxorq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpxorq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vaddps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vaddps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vaddpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vaddpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vsubps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vsubps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vsubpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vsubpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vaddss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vaddss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vaddsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vaddsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vsubss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vsubss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vsubsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vsubsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddusb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddusb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddusw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddusw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddsb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddsb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpaddsw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpaddsw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubusb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubusb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubusw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubusw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubsb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubsb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsubsw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsubsw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaddwd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaddwd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaddubsw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaddubsw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmulps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmulps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmulpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmulpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmulss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmulss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmulsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmulsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmullw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmullw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmulld_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmulld, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmullq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmullq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmuldq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmuldq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmulhw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmulhw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmulhuw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmulhuw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmuludq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmuludq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmulhrsw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmulhrsw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vdivps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vdivps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vdivpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vdivpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vdivss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vdivss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vdivsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vdivsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vminps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vminps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vminpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vminpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vminss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vminss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vminsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vminsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmaxps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmaxps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmaxpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmaxpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmaxss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmaxss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vmaxsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vmaxsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vcvtss2sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vcvtss2sd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vcvtsd2ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vcvtsd2ss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vcvtps2ph_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vcvtps2ph, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermilps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermilps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermilpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermilpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermi2ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermi2ps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermi2pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermi2pd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermi2d_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermi2d, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermi2q_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermi2q, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermi2b_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermi2b, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermi2w_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermi2w, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermt2d_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermt2d, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermt2q_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermt2q, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermt2b_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermt2b, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermt2w_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermt2w, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermt2ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermt2ps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpermt2pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpermt2pd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpcklbw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpcklbw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpcklwd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpcklwd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpckldq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpckldq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpcklqdq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpcklqdq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpckhbw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpckhbw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpckhwd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpckhwd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpckhdq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpckhdq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpunpckhqdq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpunpckhqdq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpacksswb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpacksswb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpackssdw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpackssdw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpackuswb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpackuswb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpackusdw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpackusdw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextractf32x4_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextractf32x4, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextractf64x2_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextractf64x2, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextractf32x8_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextractf32x8, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextractf64x4_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextractf64x4, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextracti32x4_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextracti32x4, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextracti64x2_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextracti64x2, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextracti32x8_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextracti32x8, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vextracti64x4_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vextracti64x4, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpgtb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpgtb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpgtw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpgtw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpgtd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpgtd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpgtq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpgtq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpeqb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpeqb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpeqw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpeqw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpeqd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpeqd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpcmpeqq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpcmpeqq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminsb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminsb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminsw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminsw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminsq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminsq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxsb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxsb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxsw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxsw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxsq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxsq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminub_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminub, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminuw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminuw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminud_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminud, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpminuq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpminuq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxub_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxub, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxuw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxuw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxud_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxud, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmaxuq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmaxuq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vprolvd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vprolvd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vprold_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vprold, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vprolvq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vprolvq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vprolq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vprolq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vprorvd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vprorvd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vprord_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vprord, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vprorvq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vprorvq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vprorq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vprorq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsraw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsraw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsrad_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsrad, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsraq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsraq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsrlw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsrlw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsrld_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsrld, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsrlq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsrlq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsravw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsravw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsravd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsravd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsravq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsravq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsrlvw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsrlvw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsrlvd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsrlvd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsrlvq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsrlvq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsllw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsllw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpslld_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpslld, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpsllq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpsllq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrcp14ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrcp14ss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrcp14sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrcp14sd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrcp28ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrcp28ss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrcp28sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrcp28sd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpshufb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpshufb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpavgb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpavgb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpavgw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpavgw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vblendmps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vblendmps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vblendmpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vblendmpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vgetexpss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vgetexpss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vgetexpsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vgetexpsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpblendmb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpblendmb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpblendmw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpblendmw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpblendmd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpblendmd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpblendmq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpblendmq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vptestmb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vptestmb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vptestmw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vptestmw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vptestmd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vptestmd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vptestmq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vptestmq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vptestnmb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vptestnmb, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vptestnmw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vptestnmw, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vptestnmd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vptestnmd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vptestnmq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vptestnmq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrsqrt14ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrsqrt14ss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrsqrt14sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrsqrt14sd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrsqrt28ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrsqrt28ss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vrsqrt28sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vrsqrt28sd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vscalefps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vscalefps, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vscalefpd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vscalefpd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vscalefss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vscalefss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vscalefsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vscalefsd, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmadd52huq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmadd52huq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vpmadd52luq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmadd52luq, (d), (k), (s1), (s2))
+/* @} */ /* end doxygen group */
+
 /** @name 1 destination, 3 sources including one immediate */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
@@ -2860,6 +3766,8 @@
     instr_create_1dst_3src((dc), OP_vinsertps, (d), (s1), (s2), (i))
 #define INSTR_CREATE_vpinsrd(dc, d, s1, s2, i) \
     instr_create_1dst_3src((dc), OP_vpinsrd, (d), (s1), (s2), (i))
+#define INSTR_CREATE_vpinsrq(dc, d, s1, s2, i) \
+    instr_create_1dst_3src((dc), OP_vpinsrq, (d), (s1), (s2), (i))
 #define INSTR_CREATE_vdpps(dc, d, s1, s2, i) \
     instr_create_1dst_3src((dc), OP_vdpps, (d), (s1), (s2), (i))
 #define INSTR_CREATE_vdppd(dc, d, s1, s2, i) \
@@ -2948,6 +3856,9 @@
     instr_create_1dst_3src((dc), OP_dppd, (d), (s), (i), (d))
 #define INSTR_CREATE_mpsadbw(dc, d, s, i) \
     instr_create_1dst_3src((dc), OP_mpsadbw, (d), (s), (i), (d))
+/* SHA */
+#define INSTR_CREATE_sha1rnds4(dc, d, s, i) \
+    instr_create_1dst_3src((dc), OP_sha1rnds4, (d), (s), (i), (d))
 /* @} */ /* end doxygen group */
 
 /** @name 1 explicit destination, 2 explicit sources, dest is implicit source */
@@ -3083,6 +3994,140 @@
     instr_create_1dst_3src((dc), OP_vfnmsub231sd, (d), (s1), (s2), (d))
 /* @} */ /* end doxygen group */
 
+/** @name 1 explicit destination, 1 mask, 2 explicit sources, dest is implicit source */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param k The opnd_t explicit mask source operand for the instruction.
+ * \param s1 The opnd_t explicit first source operand for the instruction.
+ * \param s2 The opnd_t explicit second source operand for the instruction.
+ */
+/* AVX-512 FMA */
+#define INSTR_CREATE_vfmadd132ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmadd132ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmadd132pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmadd132pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmadd213ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmadd213ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmadd213pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmadd213pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmadd231ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmadd231ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmadd231pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmadd231pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmadd132ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmadd132ss, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmadd132sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmadd132sd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmadd213ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmadd213ss, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmadd213sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmadd213sd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmadd231ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmadd231ss, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmadd231sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmadd231sd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmaddsub132ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmaddsub132ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmaddsub132pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmaddsub132pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmaddsub213ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmaddsub213ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmaddsub213pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmaddsub213pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmaddsub231ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmaddsub231ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmaddsub231pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmaddsub231pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsubadd132ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsubadd132ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsubadd132pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsubadd132pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsubadd213ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsubadd213ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsubadd213pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsubadd213pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsubadd231ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsubadd231ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsubadd231pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsubadd231pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsub132ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsub132ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsub132pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsub132pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsub213ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsub213ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsub213pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsub213pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsub231ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsub231ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsub231pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsub231pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsub132ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsub132ss, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsub132sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsub132sd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsub213ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsub213ss, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsub213sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsub213sd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsub231ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsub231ss, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfmsub231sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfmsub231sd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmadd132ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmadd132ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmadd132pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmadd132pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmadd213ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmadd213ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmadd213pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmadd213pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmadd231ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmadd231ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmadd231pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmadd231pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmadd132ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmadd132ss, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmadd132sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmadd132sd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmadd213ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmadd213ss, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmadd213sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmadd213sd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmadd231ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmadd231ss, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmadd231sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmadd231sd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmsub132ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmsub132ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmsub132pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmsub132pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmsub213ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmsub213ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmsub213pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmsub213pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmsub231ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmsub231ps, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmsub231pd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmsub231pd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmsub132ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmsub132ss, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmsub132sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmsub132sd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmsub213ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmsub213ss, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmsub213sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmsub213sd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmsub231ss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmsub231ss, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vfnmsub231sd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfnmsub231sd, (d), (k), (s1), (s2), (d))
+/* @} */ /* end doxygen group */
+
 /** @name 1 explicit destination, 3 explicit sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
@@ -3199,6 +4244,110 @@
     instr_create_1dst_3src((dc), OP_vpcomuq, (d), (s1), (s2), (i))
 /* @} */ /* end doxygen group */
 
+/** @name 1 explicit destination, 1 mask, 3 sources where the final is an immediate */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param k The opnd_t explicit mask source operand for the instruction.
+ * \param i The opnd_t explicit third source operand for the instruction, which
+ * must be an immediate integer (opnd_create_immed_int()).
+ * \param s1 The opnd_t explicit first source operand for the instruction.
+ * \param s2 The opnd_t explicit second source operand for the instruction.
+ */
+/* AVX-512 EVEX */
+#define INSTR_CREATE_vinsertf32x4_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinsertf32x4, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinsertf64x2_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinsertf64x2, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinsertf32x8_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinsertf32x8, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinsertf64x4_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinsertf64x4, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinserti32x4_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinserti32x4, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinserti64x2_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinserti64x2, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinserti32x8_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinserti32x8, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vinserti64x4_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vinserti64x4, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpb_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpb, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpw_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpw, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpq_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpq, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpub_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpub, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpuw_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpuw, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpud_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpud, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpcmpuq_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpcmpuq, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vcmpps_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vcmpps, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vcmpss_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vcmpss, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vcmppd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vcmppd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vcmpsd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vcmpsd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vshufps_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vshufps, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vshufpd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vshufpd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vshuff32x4_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vshuff32x4, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vshuff64x2_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vshuff64x2, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vshufi32x4_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vshufi32x4, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vshufi64x2_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vshufi64x2, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpalignr_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpalignr, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_valignd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_valignd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_valignq_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_valignq, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vfixupimmps_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfixupimmps, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vfixupimmpd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfixupimmpd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vfixupimmss_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfixupimmss, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vfixupimmsd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vfixupimmsd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vgetmantss_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vgetmantss, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vgetmantsd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vgetmantsd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vrangeps_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vrangeps, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vrangepd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vrangepd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vrangess_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vrangess, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vrangesd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vrangesd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vreducess_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vreducess, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vreducesd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vreducesd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vdbpsadbw_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vdbpsadbw, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpternlogd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpternlogd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpternlogq_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpternlogq, (d), (k), (i), (s1), (s2))
+/* @} */ /* end doxygen group */
+
 /** @name 1 destination, 3 sources where 2 are implicit */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
@@ -3215,6 +4364,10 @@
     instr_create_1dst_3src((dc), OP_blendvps, (d), (s), opnd_create_reg(DR_REG_XMM0), (d))
 #define INSTR_CREATE_blendvpd(dc, d, s) \
     instr_create_1dst_3src((dc), OP_blendvpd, (d), (s), opnd_create_reg(DR_REG_XMM0), (d))
+/* SHA */
+#define INSTR_CREATE_sha256rnds2(dc, d, s)                                               \
+    instr_create_1dst_3src((dc), OP_sha256rnds2, (d), (s), opnd_create_reg(DR_REG_XMM0), \
+                           (d))
 /* @} */ /* end doxygen group */
 
 /* 1 implicit destination, 3 sources */
@@ -3392,6 +4545,57 @@
     instr_create_2dst_2src((dc), OP_vgatherqps, (d), (s2), (s1), (s2))
 #define INSTR_CREATE_vgatherqpd(dc, d, s1, s2) \
     instr_create_2dst_2src((dc), OP_vgatherqpd, (d), (s2), (s1), (s2))
+/* @} */ /* end doxygen group */
+
+/** @name 2 implicit destinations, 1 mask, andd 3 sources: The mask is implicit */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * supplying the mask as an implicit operand.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param k The opnd_t first source operand for the instruction.
+ * \param s The opnd_t second source operand for the instruction.
+ */
+/* AVX-512 EVEX */
+/* Technically we wouldn't have to provide a separate macro for the AVX-512 version
+ * of the instruction since the number of operands are the same. But the AVX-512
+ * derivative of vgather is distinct in taking an EVEX mask instead of an xmm mask. The
+ * EVEX mask derivatives of all opcodes have a _mask macro version, so we provide one
+ * here as well.
+ */
+#define INSTR_CREATE_vpgatherdd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpgatherdd, (d), (k), (k), (s))
+#define INSTR_CREATE_vpgatherdq_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpgatherdq, (d), (k), (k), (s))
+#define INSTR_CREATE_vpgatherqd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpgatherqd, (d), (k), (k), (s))
+#define INSTR_CREATE_vpgatherqq_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpgatherqq, (d), (k), (k), (s))
+#define INSTR_CREATE_vgatherdps_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vgatherdps, (d), (k), (k), (s))
+#define INSTR_CREATE_vgatherdpd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vgatherdpd, (d), (k), (k), (s))
+#define INSTR_CREATE_vgatherqps_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vgatherqps, (d), (k), (k), (s))
+#define INSTR_CREATE_vgatherqpd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vgatherqpd, (d), (k), (k), (s))
+#define INSTR_CREATE_vpscatterdd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpscatterdd, (d), (k), (k), (s))
+#define INSTR_CREATE_vpscatterdq_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpscatterdq, (d), (k), (k), (s))
+#define INSTR_CREATE_vpscatterqd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpscatterqd, (d), (k), (k), (s))
+#define INSTR_CREATE_vpscatterqq_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vpscatterqq, (d), (k), (k), (s))
+#define INSTR_CREATE_vscatterdps_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vscatterdps, (d), (k), (k), (s))
+#define INSTR_CREATE_vscatterdpd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vscatterdpd, (d), (k), (k), (s))
+#define INSTR_CREATE_vscatterqps_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vscatterqps, (d), (k), (k), (s))
+#define INSTR_CREATE_vscatterqpd_mask(dc, d, k, s) \
+    instr_create_2dst_2src((dc), OP_vscatterqpd, (d), (k), (k), (s))
 /* @} */ /* end doxygen group */
 
 /* 2 destinations: 1 implicit, 2 sources: 1 implicit */
@@ -3775,6 +4979,11 @@
 /* @} */ /* end doxygen group */
 
 /* 2 implicit destinations, 3 implicit sources */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ */
 #define INSTR_CREATE_leave(dc)                                                    \
     instr_create_2dst_3src(                                                       \
         (dc), OP_leave, opnd_create_reg(DR_REG_XSP), opnd_create_reg(DR_REG_XBP), \

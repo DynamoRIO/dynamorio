@@ -1,7 +1,7 @@
 PR 216931: client options are -paramx -paramy
 inside app client.thread.exe
 PR 198871 locking test......passed
-client thread is alive
+client thread is alive tls=42
 #ifdef UNIX
 event_timer fired
 #endif
@@ -12,7 +12,7 @@ thread.appdll.dll process attach
 loaded library
 #endif
 PR 210591: testing client transparency
-client thread is alive
+client thread is alive tls=42
 #ifdef UNIX
 event_timer fired
 #endif

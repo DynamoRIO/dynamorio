@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -71,6 +71,12 @@
 
 #undef WEAK /* avoid conflict with C define */
 
+/* This is the alignment needed by both x64 and 32-bit code except
+ * for 32-bit Windows.
+ * i#847: Investigate using aligned SSE ops (see get_xmm_caller_saved).
+ */
+#define FRAME_ALIGNMENT 16
+
 /****************************************************/
 #if defined(ASSEMBLE_WITH_GAS)
 # define START_FILE .text
@@ -100,6 +106,7 @@
 #  define MMWORD qword ptr
 #  define XMMWORD oword ptr
 #  define YMMWORD ymmword ptr
+#  define ZMMWORD zmmword ptr
 #  ifdef X64
 /* w/o the rip, gas won't use rip-rel and adds relocs that ld trips over */
 #   define SYMREF(sym) [rip + sym]
@@ -114,6 +121,7 @@
 #  define MMWORD /* nothing */
 #  define XMMWORD /* nothing */
 #  define YMMWORD /* nothing */
+#  define ZMMWORD /* nothing */
 /* XXX: this will NOT produce PIC code!  A multi-instr multi-local-data sequence
  * must be used.  See cleanup_and_terminate() for examples.
  */
@@ -132,6 +140,9 @@
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
+# define ADD_STACK_ALIGNMENT_NOSEH sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
+# define ADD_STACK_ALIGNMENT ADD_STACK_ALIGNMENT_NOSEH
+# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # define END_PROLOG /* nothing */
 /* PR 212290: avoid text relocations.
  * @GOT returns the address and is for extern vars; @GOTOFF gets the value.
@@ -178,6 +189,7 @@ ASSUME fs:_DATA @N@\
 # define MMWORD mmword ptr
 # define XMMWORD xmmword ptr
 # define YMMWORD ymmword ptr /* added in VS 2010 */
+# define ZMMWORD zmmword ptr /* XXX i#1312: supported by our supported version of VS? */
 /* ml64 uses rip-rel automatically */
 # define SYMREF(sym) [sym]
 # define HEX(n) 0##n##h
@@ -185,6 +197,8 @@ ASSUME fs:_DATA @N@\
 # define DECL_EXTERN(symbol) EXTERN symbol:PROC
 /* include newline so we can put multiple on one line */
 # define RAW(n) DB HEX(n) @N@
+# define ADD_STACK_ALIGNMENT_NOSEH sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
+# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # ifdef X64
 /* 64-bit SEH directives */
 /* Declare non-leaf function (adjusts stack; makes calls; saves non-volatile regs): */
@@ -193,11 +207,15 @@ ASSUME fs:_DATA @N@\
 #  define PUSH_SEH(reg) push reg @N@ .pushreg reg
 /* Push a volatile register or an immed in prolog: */
 #  define PUSH_NONCALLEE_SEH(reg) push reg @N@ .allocstack 8
+#  define ADD_STACK_ALIGNMENT \
+        ADD_STACK_ALIGNMENT_NOSEH @N@\
+        .allocstack FRAME_ALIGNMENT - ARG_SZ
 #  define END_PROLOG .endprolog
 # else
 #  define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 #  define PUSH_SEH(reg) push reg @N@ /* add a line to match x64 line count */
 #  define PUSH_NONCALLEE_SEH(reg) push reg @N@ /* add a line to match x64 line count */
+#  define ADD_STACK_ALIGNMENT ADD_STACK_ALIGNMENT_NOSEH
 #  define END_PROLOG /* nothing */
 # endif
 /****************************************************/
@@ -212,7 +230,7 @@ ASSUME fs:_DATA @N@\
 # define GLOBAL_LABEL(label) _##label
 # define ADDRTAKEN_LABEL(label) _##label
 # define GLOBAL_REF(label) _##label
-# define WEAK(name) weak name
+# define WEAK(name) /* no support */
 # define BYTE byte
 # define WORD word
 # define DWORD dword
@@ -220,6 +238,7 @@ ASSUME fs:_DATA @N@\
 # define MMWORD qword
 # define XMMWORD oword
 # define YMMWORD yword
+# define ZMMWORD zword
 # ifdef X64
 #  define SYMREF(sym) [rel GLOBAL_REF(sym)]
 # else
@@ -232,6 +251,9 @@ ASSUME fs:_DATA @N@\
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
+# define ADD_STACK_ALIGNMENT_NOSEH sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
+# define ADD_STACK_ALIGNMENT ADD_STACK_ALIGNMENT_NOSEH
+# define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # define END_PROLOG /* nothing */
 /****************************************************/
 #else
@@ -292,7 +314,7 @@ ASSUME fs:_DATA @N@\
 #  define REG_R14 r14
 #  define REG_R15 r15
 #  define SEG_TLS gs /* keep in sync w/ {unix,win32}/os_exports.h defines */
-#  ifdef UNIX
+#  if defined(UNIX) && !defined(MACOS)
 #   define LIB_SEG_TLS fs /* keep in sync w/ unix/os_exports.h defines */
 #  endif
 # else /* 32-bit */
@@ -309,6 +331,8 @@ ASSUME fs:_DATA @N@\
 #   define LIB_SEG_TLS gs /* keep in sync w/ unix/os_exports.h defines */
 #  endif
 # endif /* 64/32-bit */
+#  define REG_ZMM0 zmm0
+#  define REG_ZMM1 zmm1
 #endif /* ARM/X86 */
 
 /* calling convention */
@@ -523,9 +547,6 @@ ASSUME fs:_DATA @N@\
 # endif /* 64/32-bit */
 #endif /* ARM/X86 */
 
-/* Keep in sync with arch_exports.h. */
-#define FRAME_ALIGNMENT 16
-
 /* From globals_shared.h, but we can't include that into asm code. */
 #ifdef X64
 # define IF_X64(x) x
@@ -566,8 +587,8 @@ ASSUME fs:_DATA @N@\
 #else /* 32-bit */
 # define PUSHF   pushfd
 # define POPF    popfd
-# if defined(MACOS) || defined(CLANG)
-/* Mac or clang requires 32-bit to have 16-byte stack alignment (at call site)
+# ifndef WINDOWS
+/* Mac and Linux requires 32-bit to have 16-byte stack alignment (at call site).
  * Pass 4 instead of 0 for mod4 to avoid wasting stack space.
  */
 #  define STACK_PAD(tot, gt4, mod4) \
@@ -582,7 +603,7 @@ ASSUME fs:_DATA @N@\
 /* p cannot be a memory operand, naturally */
 #  define SETARG(argoffs, argreg, p) \
         mov      PTRSZ [ARG_SZ*argoffs + REG_XSP], p
-# else /* !MACOS && !CLANG */
+# else /* WINDOWS */
 #  define STACK_PAD(tot, gt4, mod4) /* nothing */
 #  define STACK_PAD_NOPUSH(tot, gt4, mod4) \
         lea      REG_XSP, [-ARG_SZ*tot + REG_XSP]
@@ -597,7 +618,7 @@ ASSUME fs:_DATA @N@\
  */
 #  define SETARG(argoffs, argreg, p) \
         push     p
-# endif /* !MACOS && !CLANG */
+# endif /* WINDOWS */
 #endif /* 64/32-bit */
 
 /* CALLC* are for C calling convention callees only.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -169,8 +169,17 @@ check_result(void)
 }
 
 static void
+low_on_memory_event()
+{
+    /* Do nothing. Testing only register and unregister functions. */
+}
+
+static void
 exit_event1(void)
 {
+
+    if (!dr_unregister_low_on_memory_event(low_on_memory_event))
+        dr_fprintf(STDERR, "unregister failed!\n");
     dr_fprintf(STDERR, "exit event 1\n");
     dr_flush_file(STDOUT);
 
@@ -663,6 +672,8 @@ dr_init(client_id_t id)
      */
     if (!dr_get_os_version(&info))
         dr_fprintf(STDERR, "dr_get_os_version failed!\n");
+    if (info.build_number == 0 || info.edition[0] == '\0')
+        dr_fprintf(STDERR, "dr_get_os_version failed to get new fields\n");
 #endif
 
     for (i = 0; i < EVENT_last; i++)
@@ -703,6 +714,7 @@ dr_init(client_id_t id)
     dr_register_filter_syscall_event(filter_syscall_event2);
     dr_register_kernel_xfer_event(kernel_xfer_event1);
     dr_register_kernel_xfer_event(kernel_xfer_event2);
+    dr_register_low_on_memory_event(low_on_memory_event);
 #ifdef WINDOWS
     dr_register_exception_event(exception_event1);
     dr_register_exception_event(exception_event2);

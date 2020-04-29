@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -80,30 +80,55 @@ endif ()
 add_asm_target(arch/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
   "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
 
-# i#1409: to share core code with non-core, we use the "drhelper" library.
-# XXX: we're using _shared here, and for inject_shared, etc., to mean
-# "shared between multiple libraries", while we've also started using
-# _shared on opnd_shared.c, etc. to mean 'shared between architectures":
-# perhaps we should separate the naming schemes.
-add_asm_target(arch/asm_shared.asm shared_core_asm_src shared_core_asm_tgt
-  "_core" "" "${asm_deps}")
-add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}_shared.asm shared_arch_asm_src
-  shared_arch_asm_tgt
-  "" "" "${asm_deps}")
-add_library(drhelper STATIC ${shared_core_asm_src} ${shared_arch_asm_src}
-  lib/dr_helper.c)
-# CMake on Windows fails to link unless we tell it to use the C linker:
-set_target_properties(drhelper PROPERTIES LINKER_LANGUAGE C)
-if (UNIX)
-  append_property_string(TARGET drhelper COMPILE_FLAGS "-fPIC")
+if (UNIX AND X86)
+  # i#3315: We want our own memcpy and memset for the shared-lib DR core and
+  # for drinjectlib + drfrontendlib to avoid glibc-versioned symbols in
+  # our auxiliary tools (i#1504), but we do *not* want our own memcpy and
+  # memset for static-lib DR core.  Thus we separate them out.  The i#1504
+  # glibc versioning is only an issue on x86.
+  add_asm_target(arch/x86/memfuncs.asm memfuncs_asm_src memfuncs_asm_tgt
+    "_memfuncs" "" "${asm_deps}")
+  add_library(drmemfuncs STATIC ${memfuncs_asm_src} lib/memmove.c)
+  add_gen_events_deps(drmemfuncs)
 endif ()
-add_gen_events_deps(drhelper)
+
+# i#1409: to share core libc-ish code with non-core, we use the "drlibc" library.
+add_asm_target(drlibc/drlibc_xarch.asm drlibc_xarch_asm_src drlibc_xarch_asm_tgt
+  "_core" "" "${asm_deps}")
+add_asm_target(drlibc/drlibc_${ARCH_NAME}.asm drlibc_arch_asm_src
+  drlibc_arch_asm_tgt
+  "" "" "${asm_deps}")
+set(DRLIBC_SRCS
+  ${drlibc_xarch_asm_src}
+  ${drlibc_arch_asm_src}
+  drlibc/drlibc.c
+  drlibc/drlibc_notdr_dcxt.c
+  drlibc/drlibc_notdr_logfile.c
+  drlibc/drlibc_notdr_printlog.c
+  drlibc/drlibc_notdr_report.c
+  drlibc/drlibc_notdr_saferead.c
+  drlibc/drlibc_notdr_stats.c)
+if (UNIX)
+  set(DRLIBC_SRCS ${DRLIBC_SRCS} drlibc/drlibc_unix.c)
+  if (APPLE)
+    set(DRLIBC_SRCS ${DRLIBC_SRCS} drlibc/drlibc_module_macho.c)
+  else ()
+    set(DRLIBC_SRCS ${DRLIBC_SRCS} drlibc/drlibc_module_elf.c)
+  endif ()
+endif ()
+add_library(drlibc STATIC ${DRLIBC_SRCS})
+# CMake on Windows fails to link unless we tell it to use the C linker:
+set_target_properties(drlibc PROPERTIES LINKER_LANGUAGE C)
+if (UNIX)
+  append_property_string(TARGET drlibc COMPILE_FLAGS "-fPIC")
+endif ()
+add_gen_events_deps(drlibc)
 if (AARCH64)
-  add_dependencies(drhelper gen_aarch64_codec)
+  add_dependencies(drlibc gen_aarch64_codec)
 endif (AARCH64)
 if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence
-  add_dependencies(drhelper ${shared_core_asm_tgt} ${shared_arch_asm_tgt})
+  add_dependencies(drlibc ${drlibc_xarch_asm_tgt} ${drlibc_arch_asm_tgt})
 endif ()
 
 set(CORE_SRCS
@@ -190,6 +215,11 @@ if (WIN32 AND NOT X64)
   set_source_files_properties(utils.c COMPILE_FLAGS "/QIfist")
 endif (WIN32 AND NOT X64)
 
+# XXX: Originally we used _shared (inject_shared, etc.) to mean
+# "shared between multiple libraries", while we've also started using
+# _shared on opnd_shared.c, etc. to mean 'shared between architectures":
+# perhaps we should separate the naming schemes.  "opnd_xarch.c" and
+# "inject_xlib.c"?
 set(DECODER_SRCS
   arch/opnd_shared.c
   arch/${ARCH_NAME_SHARED}/opnd.c
@@ -276,13 +306,13 @@ if (WIN32)
   install_exported_target(ntdll_imports ${INSTALL_LIB_BASE})
 endif (WIN32)
 
+_DR_get_static_libc_list(static_libc_list)
 if (WIN32)
   if (DEBUG)
     set(WIN32_C_LIB libcmtd)
   else (DEBUG)
     set(WIN32_C_LIB libcmt)
   endif (DEBUG)
-
   set(NOLIBC_DLL_ENTRY /entry:DllMain)
 endif ()
 
@@ -314,6 +344,7 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/native_elf.c)
     # XXX i#1286: should be split into nudge_linux.c and nudge_macos.c
     set(OS_SRCS ${OS_SRCS} unix/nudgesig.c)
+    set(OS_SRCS ${OS_SRCS} unix/rseq_linux.c)
   elseif (APPLE)
     set(OS_SRCS ${OS_SRCS} unix/loader_macos.c)
     set(OS_SRCS ${OS_SRCS} unix/memquery_macos.c)
@@ -338,7 +369,6 @@ if (UNIX)
   set(PRELOAD_SRCS
     unix/preload.c
     config.c
-    unix/os.c
     # i#1334: private string routines for libc independence
     string.c
     io.c
@@ -346,15 +376,10 @@ if (UNIX)
   set(INJECTOR_SRCS
     unix/injector.c
     config.c    # to read config
-    unix/os.c  # for file_t interface
     string.c
     io.c
     )
-  if (APPLE)
-    set(INJECTOR_SRCS ${INJECTOR_SRCS} unix/module_macho.c)
-  else (APPLE)
-    set(INJECTOR_SRCS ${INJECTOR_SRCS} unix/module_elf.c)
-  endif ()
+
 else (UNIX)
   set(OSNAME win32)
   set(OS_SRCS
@@ -460,7 +485,7 @@ function (configure_core_lib target)
     add_dependencies(${target} ${arch_core_asm_tgt} ${archshared_core_asm_tgt})
   endif ()
 
-  target_link_libraries(${target} drhelper)
+  target_link_libraries(${target} drlibc)
   copy_target_to_device(${target} "${location_suffix}")
 
   # rather than a separate BUILD_INCLUDES option we always build
@@ -501,13 +526,7 @@ function (configure_core_lib target)
     endif (APPLE)
 
     set_target_properties(${target} PROPERTIES
-      LINK_FLAGS "${dynamorio_link_flags}"
-      # XXX i#1375: if we move to cmake 2.8.12 we can use its built-in
-      # rpath: until then we add @rpath ourselves.  The downside is that
-      # everyone who uses this lib has to have the rpath set and can't
-      # just copy the lib to the local dir (should we document that?
-      # DynamoRIO_RPATH is only on for standalone by default).
-      INSTALL_NAME_DIR "@rpath")
+      LINK_FLAGS "${dynamorio_link_flags}")
 
     # XXX: FRAGMENT_SIZES_STUDY needs libm for sqrt but it's not supported by default
 
@@ -559,6 +578,11 @@ add_library(dynamorio SHARED
   )
 
 configure_core_lib(dynamorio)
+if (UNIX AND X86)
+  # We need our own memcpy + memset for isolation.
+  # They're separated out for sharing for i#1504.
+  target_link_libraries(dynamorio drmemfuncs)
+endif ()
 
 if (UNIX)
   # i#47: set the ELF header entry point to _start for early injection.
@@ -750,31 +774,31 @@ endif (UNIX)
 ###########################################################################
 # DynamoRIO static core library
 
-# XXX i#1997: not fully supported on Mac yet
-if (NOT APPLE)
-  add_library(dynamorio_static STATIC
+# hide_symbols is only honored for UNIX.
+function (configure_static_core_lib name hide_symbols)
+  add_library(${name} STATIC
     ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
 
-  configure_core_lib(dynamorio_static)
+  configure_core_lib(${name})
 
-  append_property_list(TARGET dynamorio_static COMPILE_DEFINITIONS "STATIC_LIBRARY")
+  append_property_list(TARGET ${name} COMPILE_DEFINITIONS "STATIC_LIBRARY")
 
   if (UNIX)
     # We build static DR as PIC in case we're linked into a .so or a PIE.
-    append_property_string(TARGET dynamorio_static COMPILE_FLAGS "-fPIC")
-    target_link_libraries(dynamorio_static dl)
+    append_property_string(TARGET ${name} COMPILE_FLAGS "-fPIC")
+    target_link_libraries(${name} dl)
 
     # We need to do extra work to hide symbols in the static library build.
     # First we do a partial link with ld -r, which makes a single libdynamorio.o
     # object file.  Then we use objcopy --localize-hidden to hide all
-    # non-exported symbols.
+    # non-exported symbols, if hide_symbols is set.
     if (NOT EXISTS ${CMAKE_OBJCOPY})
-      message( "dynamorio_static requires objcopy")
+      message( "${name} requires objcopy")
     endif ()
 
-    set(locvar_name dynamorio_static_loc)
+    set(locvar_name ${name}_loc)
     file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
-      "set(${locvar_name} \"$<TARGET_FILE:dynamorio_static>\")\n")
+      "set(${locvar_name} \"$<TARGET_FILE:${name}>\")\n")
 
     string(REPLACE " " "\;" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
 
@@ -787,17 +811,18 @@ if (NOT APPLE)
       set(disable_pie_flag "-no-pie")
     endif ()
 
-    add_custom_command(TARGET dynamorio_static
+    add_custom_command(TARGET ${name}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND}
       ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
            -D CMAKE_C_COMPILER=${CMAKE_C_COMPILER}
            -D partial_link_flags=${partial_link_flags}
            -D disable_pie_flag=${disable_pie_flag}
+           -D localize_hidden=${hide_symbols}
            -D CMAKE_OBJCOPY=${CMAKE_OBJCOPY}
            -D CMAKE_AR=${CMAKE_AR}
            -D CMAKE_RANLIB=${CMAKE_RANLIB}
-           -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_globalize_pic_thunks.cmake
+           -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_finalize_static_lib.cmake
       WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}
       VERBATIM
       )
@@ -809,9 +834,39 @@ if (NOT APPLE)
     # here to make sure things get linked in the right order to avoid duplicate
     # definitions.  See the case 4125 msvcrt comment above about why we need a C
     # library.
-    target_link_libraries(dynamorio_static ${WIN32_C_LIB} ntdll_imports)
+    target_link_libraries(${name} ${WIN32_C_LIB} ntdll_imports)
 
   endif (UNIX)
+endfunction()
+
+# XXX i#1997: not fully supported on Mac yet
+if (NOT APPLE)
+  configure_static_core_lib(dynamorio_static ON)
+  if (UNIX AND BUILD_TESTS)
+    # Create a version without hidden symbols to support that model.
+    # The symbol hiding step is complex and for some toolchains it is simpler
+    # to avoid it and count on symbol names preventing collisions (i#3348).
+    configure_static_core_lib(dynamorio_static_nohide OFF)
+
+    if (LINUX AND READELF_EXECUTABLE)
+      # We already located readelf above for the shared lib.
+      # We also already created a loc.cmake file in configure_static_core_lib.
+      set(locvar_name dynamorio_static_nohide_loc)
+      add_custom_command(TARGET dynamorio_static_nohide
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND}
+        ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
+             -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
+             -D CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
+             -D X86=${X86}
+             -D X64=${X64}
+             -D DEBUG=${DEBUG}
+             -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_symbol_check.cmake
+        VERBATIM
+        )
+    endif ()
+  endif ()
+
 endif (NOT APPLE)
 
 ###########################################################################
@@ -842,7 +897,11 @@ endif()
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   add_dependencies(${PRELOAD_NAME} ${preinject_asm_tgt})
 endif ()
-target_link_libraries(${PRELOAD_NAME} drhelper)
+target_link_libraries(${PRELOAD_NAME} drlibc)
+if (UNIX AND X86)
+  # We need our own memcpy + memset for isolation.
+  target_link_libraries(${PRELOAD_NAME} drmemfuncs)
+endif ()
 copy_target_to_device(${PRELOAD_NAME} "${location_suffix}")
 
 # drpreinject.dll doesn't link in instr_shared.c so we can't include our inline
@@ -886,7 +945,8 @@ else (UNIX)
     "${LD_FLAGS} /dll /incremental:no /base:0x14000000 /NODEFAULTLIB ${NOLIBC_DLL_ENTRY}")
   set_target_properties(${PRELOAD_NAME} PROPERTIES LINK_FLAGS "${pre_link_flags}")
   # case 4125: we link with msvcrt.lib for vc8 /O2's use of _alldvrm
-  target_link_libraries(${PRELOAD_NAME} ntdll_imports kernel32 msvcrt dynamorio)
+  target_link_libraries(${PRELOAD_NAME} ${static_libc_list} ntdll_imports
+    kernel32 dynamorio)
 endif (UNIX)
 
 ###########################################################################
@@ -898,6 +958,8 @@ add_library(drdecode
   arch/${ARCH_NAME_SHARED}/mangle.c
   arch/mangle_utils.c
   arch/decodelib.c
+  string.c
+  io.c
   )
 set_target_properties(drdecode PROPERTIES
   COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
@@ -909,7 +971,7 @@ add_gen_events_deps(drdecode)
 if (AARCH64)
   add_dependencies(drdecode gen_aarch64_codec)
 endif()
-target_link_libraries(drdecode drhelper)
+target_link_libraries(drdecode drlibc)
 
 ###########################################################################
 # Injection library
@@ -929,7 +991,11 @@ else ()
 endif ()
 add_library(drinjectlib ${inject_lib_type} ${INJECTOR_SRCS})
 add_gen_events_deps(drinjectlib)
-target_link_libraries(drinjectlib drdecode drhelper)
+target_link_libraries(drinjectlib drdecode drlibc)
+if (UNIX AND X86)
+  # We need our own memcpy + memset to avoid glibc versioning (i#1504).
+  target_link_libraries(drinjectlib drmemfuncs)
+endif ()
 set_target_properties(drinjectlib PROPERTIES
   # COMPILE_DEFINITONS isn't working for me: cmake bug?
   # Set define parameters for resources.rc
@@ -944,8 +1010,8 @@ if (WIN32)
   # ok w/ libc syms so we re-order and take the static syms first.
   set_target_properties(drinjectlib PROPERTIES LINK_FLAGS "${drinjectlib_link_flags}")
   # I'm adding libcmt to attempt to make sure we have multithreaded C lib:
-  target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB}.lib ntdll_imports
-    kernel32 advapi32 imagehlp)
+  target_link_libraries(drinjectlib drdecode ${static_libc_list}
+    ntdll_imports kernel32 advapi32 imagehlp)
   # drinject.exe needs a copy in the bin dir (i#1737 would eliminate this)
   add_custom_command(TARGET drinjectlib POST_BUILD COMMAND ${CMAKE_COMMAND}
     ARGS -E copy "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/drinjectlib.dll"
@@ -980,7 +1046,11 @@ endif ()
 
 if (BUILD_TESTS)
   add_executable(unit_tests unit_tests.c
-    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
+    # These unit tests have been moved from the x86_code module into a new x86_code
+    # test module that gets its own clang/gcc options for testing (-mno-vzeroupper).
+    # We want this option to apply only to code compiled for unit_test. Also clang
+    # specific target options break the clang build (xref i#3458).
+    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} arch/x86_code_test.c)
   add_gen_events_deps(unit_tests)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
@@ -991,6 +1061,34 @@ if (BUILD_TESTS)
   if (UNIX AND NOT DEBUG)
     # -Wno-array-bounds to work around compiler bug (i#1796)
     set(unit_tests_extra_flags "${unit_tests_extra_flags} -Wno-array-bounds")
+  endif ()
+  if (proc_supports_avx512)
+    if (UNIX)
+      # XXX i#3459: add Windows support.
+      set(unit_tests_extra_flags
+        "${unit_tests_extra_flags} ${CFLAGS_AVX512}")
+    endif ()
+  elseif (proc_supports_avx)
+    if (UNIX)
+      # XXX i#3459: add Windows support.
+      set(unit_tests_extra_flags
+        "${unit_tests_extra_flags} ${CFLAGS_AVX}")
+    endif ()
+  endif ()
+  if (proc_supports_avx OR proc_supports_avx512)
+    if (UNIX)
+      # XXX i#3459: add Windows support.
+      # Force the compiler to not apply vzeroupper HW performance optimizations
+      # that applies to most Intel processors. In the unit test, this would
+      # destroy the upper halfs of the AVX registers we want to read.
+      if (CLANG)
+        set_source_files_properties(arch/x86_code_test.c PROPERTIES COMPILE_FLAGS
+          "-mllvm -x86-use-vzeroupper=0")
+      else ()
+        set_source_files_properties(arch/x86_code_test.c PROPERTIES COMPILE_FLAGS
+          "-mno-vzeroupper")
+      endif ()
+    endif ()
   endif ()
   set_target_properties(unit_tests PROPERTIES
     COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST ${unit_tests_extra_flags}"
@@ -1008,11 +1106,11 @@ if (BUILD_TESTS)
     set_preferred_base_start_and_end(unit_tests ${preferred_base} ON)
   else (UNIX)
     # Just like drinjectlib (see above) we need libc before ntdll
-    target_link_libraries(unit_tests ${WIN32_C_LIB} ntdll_imports)
+    target_link_libraries(unit_tests ${static_libc_list} ntdll_imports)
     set_target_properties(unit_tests PROPERTIES
       LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
   endif (UNIX)
-  target_link_libraries(unit_tests drhelper)
+  target_link_libraries(unit_tests drlibc)
   get_target_path_for_execution(unit_relpath unit_tests "${location_suffix}")
   prefix_cmd_if_necessary(unit_relpath OFF ${unit_relpath})
   add_test(unit_tests ${unit_relpath})
@@ -1031,6 +1129,7 @@ include_directories(BEFORE
   ${CMAKE_CURRENT_SOURCE_DIR}/arch
   ${CMAKE_CURRENT_SOURCE_DIR}/${OSNAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/arch/${ARCH_NAME}
+  ${CMAKE_CURRENT_SOURCE_DIR}/drlibc
   )
 
 # Avoid transitive linking for imported target.
@@ -1063,6 +1162,10 @@ endif (UNIX)
 DR_export_target(drdecode)
 install_exported_target(drdecode ${INSTALL_LIB})
 
-# We have to export drhelper as static libs we're exporting depend on it.
-DR_export_target(drhelper)
-install_exported_target(drhelper ${INSTALL_LIB_BASE})
+# We have to export drlibc as static libs we're exporting depend on it.
+DR_export_target(drlibc)
+install_exported_target(drlibc ${INSTALL_LIB_BASE})
+if (UNIX AND X86)
+  DR_export_target(drmemfuncs)
+  install_exported_target(drmemfuncs ${INSTALL_LIB_BASE})
+endif ()

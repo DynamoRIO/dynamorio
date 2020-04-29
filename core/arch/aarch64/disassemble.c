@@ -35,7 +35,6 @@
 #include "instr.h"
 #include "decode.h"
 #include "disassemble.h"
-#include <string.h>
 
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 

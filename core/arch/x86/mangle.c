@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -63,8 +63,6 @@
 #ifdef UNIX
 #    include <sys/syscall.h>
 #endif
-
-#include <string.h> /* for memset */
 
 #ifdef ANNOTATIONS
 #    include "../annotations.h"
@@ -341,8 +339,11 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     int offs_beyond_xmm = 0;
     if (cci == NULL)
         cci = &default_clean_call_info;
-    if (cci->preserve_mcontext || cci->num_simd_skip != NUM_SIMD_REGS) {
-        int offs = XMM_SLOTS_SIZE + PRE_XMM_PADDING;
+    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS ||
+           proc_num_simd_registers() == MCXT_NUM_SIMD_SSE_AVX_SLOTS);
+    if (clean_call_needs_simd(cci)) {
+        int offs =
+            MCXT_TOTAL_SIMD_SLOTS_SIZE + MCXT_TOTAL_OPMASK_SLOTS_SIZE + PRE_XMM_PADDING;
         if (cci->preserve_mcontext && cci->skip_save_flags) {
             offs_beyond_xmm = 2 * XSP_SZ; /* pc and flags */
             offs += offs_beyond_xmm;
@@ -352,36 +353,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                              OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, -offs)));
         dstack_offs += offs;
     }
-    if (preserve_xmm_caller_saved()) {
-        /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel */
-        int i;
-        /* PR 266305: see discussion in emit_fcache_enter_shared on
-         * which opcode is better.  Note that the AMD optimization
-         * guide says to use movlps+movhps for unaligned stores, but
-         * for simplicity and smaller code I'm using movups anyway.
-         */
-        /* XXX i#438: once have SandyBridge processor need to measure
-         * cost of vmovdqu and whether worth arranging 32-byte alignment
-         * for all callers.  B/c we put ymm at end of priv_mcontext_t, we do
-         * currently have 32-byte alignment for clean calls.
-         */
-        uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 16), ALIGNED(alignment, 32));
-        ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < NUM_SIMD_SAVED; i++) {
-            if (!cci->simd_skip[i]) {
-                PRE(ilist, instr,
-                    instr_create_1dst_1src(
-                        dcontext, opcode,
-                        opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                              PRE_XMM_PADDING + i * XMM_SAVED_REG_SIZE +
-                                                  offs_beyond_xmm,
-                                              OPSZ_SAVED_XMM),
-                        opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
-            }
-        }
-        ASSERT(i * XMM_SAVED_REG_SIZE == XMM_SAVED_SIZE);
-        ASSERT(XMM_SAVED_SIZE <= XMM_SLOTS_SIZE);
-    }
+
     /* pc and aflags */
     if (!cci->skip_save_flags) {
         ASSERT(offs_beyond_xmm == 0);
@@ -390,11 +362,94 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         else
             PRE(ilist, instr, INSTR_CREATE_push(dcontext, push_pc));
         dstack_offs += XSP_SZ;
+        offs_beyond_xmm += XSP_SZ;
         PRE(ilist, instr, INSTR_CREATE_pushf(dcontext));
         dstack_offs += XSP_SZ;
+        offs_beyond_xmm += XSP_SZ;
     } else {
         ASSERT(offs_beyond_xmm == 2 * XSP_SZ || !cci->preserve_mcontext);
         /* for cci->preserve_mcontext we added to the lea above so we ignore push_pc */
+    }
+
+    /* No processor will support AVX-512 but no SSE/AVX. */
+    ASSERT(preserve_xmm_caller_saved() || !ZMM_ENABLED());
+
+    if (preserve_xmm_caller_saved()) {
+        /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel */
+        int i;
+        ASSERT(proc_has_feature(FEATURE_SSE));
+        ASSERT(proc_num_simd_saved() == proc_num_simd_registers() ||
+               proc_num_simd_saved() == proc_num_simd_sse_avx_registers());
+        instr_t *post_push = NULL;
+        instr_t *pre_avx512_push = NULL;
+        if (ZMM_ENABLED()) {
+            post_push = INSTR_CREATE_label(dcontext);
+            pre_avx512_push = INSTR_CREATE_label(dcontext);
+            PRE(ilist, instr,
+                INSTR_CREATE_cmp(dcontext,
+                                 OPND_CREATE_ABSMEM(vmcode_get_executable_addr(
+                                                        (byte *)d_r_avx512_code_in_use),
+                                                    OPSZ_1),
+                                 OPND_CREATE_INT8(0)));
+            PRE(ilist, instr,
+                INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(pre_avx512_push)));
+        }
+        uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 16), ALIGNED(alignment, 32));
+        for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
+            /* PR 266305: see discussion in emit_fcache_enter_shared on
+             * which opcode is better.  Note that the AMD optimization
+             * guide says to use movlps+movhps for unaligned stores, but
+             * for simplicity and smaller code I'm using movups anyway.
+             */
+            /* XXX i#438: once have SandyBridge processor need to measure
+             * cost of vmovdqu and whether worth arranging 32-byte alignment
+             * for all callers.  B/c we put ymm at end of priv_mcontext_t, we do
+             * currently have 32-byte alignment for clean calls.
+             */
+            if (!cci->simd_skip[i]) {
+                PRE(ilist, instr,
+                    instr_create_1dst_1src(
+                        dcontext, opcode,
+                        opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                              PRE_XMM_PADDING + i * MCXT_SIMD_SLOT_SIZE +
+                                                  offs_beyond_xmm,
+                                              OPSZ_SAVED_XMM),
+                        opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
+            }
+        }
+        if (ZMM_ENABLED()) {
+            PRE(ilist, instr, INSTR_CREATE_jmp(dcontext, opnd_create_instr(post_push)));
+            PRE(ilist, instr, pre_avx512_push /*label*/);
+            uint opcode_avx512 = move_mm_avx512_reg_opcode(ALIGNED(alignment, 64));
+            for (i = 0; i < proc_num_simd_registers(); i++) {
+                if (!cci->simd_skip[i]) {
+                    instr_t *simdmov = instr_create_1dst_2src(
+                        dcontext, opcode_avx512,
+                        opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                              PRE_XMM_PADDING + i * MCXT_SIMD_SLOT_SIZE +
+                                                  offs_beyond_xmm,
+                                              OPSZ_SAVED_ZMM),
+                        opnd_create_reg(DR_REG_K0),
+                        opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i));
+                    PRE(ilist, instr, simdmov);
+                }
+            }
+            for (i = 0; i < proc_num_opmask_registers(); i++) {
+                if (!cci->opmask_skip[i]) {
+                    instr_t *maskmov = instr_create_1dst_1src(
+                        dcontext,
+                        proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,
+                        opnd_create_base_disp(
+                            REG_XSP, REG_NULL, 0,
+                            PRE_XMM_PADDING + MCXT_TOTAL_SIMD_SLOTS_SIZE +
+                                i * OPMASK_AVX512BW_REG_SIZE + offs_beyond_xmm,
+                            OPSZ_SAVED_OPMASK),
+                        opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i));
+                    PRE(ilist, instr, maskmov);
+                }
+            }
+            PRE(ilist, instr, post_push /*label*/);
+        }
     }
 
 #    ifdef X64
@@ -432,12 +487,13 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_RSI)));
     if (!cci->reg_skip[REG_RDI - REG_XAX])
         PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_RDI)));
-    dstack_offs += (NUM_GP_REGS - cci->num_regs_skip) * XSP_SZ;
+    dstack_offs += (DR_NUM_GPR_REGS - cci->num_regs_skip) * XSP_SZ;
 #    else
     PRE(ilist, instr, INSTR_CREATE_pusha(dcontext));
     dstack_offs += 8 * XSP_SZ;
 #    endif
-    ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 || cci->num_regs_skip != 0 ||
+    ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 || cci->num_opmask_skip != 0 ||
+           cci->num_regs_skip != 0 ||
            dstack_offs == (uint)get_clean_call_switch_stack_size());
     return dstack_offs;
 }
@@ -494,41 +550,93 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
 #    else
     PRE(ilist, instr, INSTR_CREATE_popa(dcontext));
 #    endif
-    if (!cci->skip_save_flags) {
-        PRE(ilist, instr, INSTR_CREATE_popf(dcontext));
-        offs_beyond_xmm = XSP_SZ; /* pc */
-        ;
-    } else if (cci->preserve_mcontext) {
-        offs_beyond_xmm = 2 * XSP_SZ; /* aflags + pc */
-    }
+
+    /* aflags + pc */
+    offs_beyond_xmm = 2 * XSP_SZ;
+
+    /* No processor will support AVX-512 but no SSE/AVX. */
+    ASSERT(preserve_xmm_caller_saved() || !ZMM_ENABLED());
 
     if (preserve_xmm_caller_saved()) {
         /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel */
         int i;
         /* See discussion in emit_fcache_enter_shared on which opcode
          * is better. */
-        uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 32), ALIGNED(alignment, 16));
+        uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 16), ALIGNED(alignment, 32));
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < NUM_SIMD_SAVED; i++) {
+        ASSERT(proc_num_simd_saved() == proc_num_simd_registers() ||
+               proc_num_simd_saved() == proc_num_simd_sse_avx_registers());
+        instr_t *post_pop = NULL;
+        instr_t *pre_avx512_pop = NULL;
+        if (ZMM_ENABLED()) {
+            post_pop = INSTR_CREATE_label(dcontext);
+            pre_avx512_pop = INSTR_CREATE_label(dcontext);
+            PRE(ilist, instr,
+                INSTR_CREATE_cmp(dcontext,
+                                 OPND_CREATE_ABSMEM(vmcode_get_executable_addr(
+                                                        (byte *)d_r_avx512_code_in_use),
+                                                    OPSZ_1),
+                                 OPND_CREATE_INT8(0)));
+            PRE(ilist, instr,
+                INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(pre_avx512_pop)));
+        }
+        for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
             if (!cci->simd_skip[i]) {
                 PRE(ilist, instr,
                     instr_create_1dst_1src(
                         dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
                         opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                              PRE_XMM_PADDING + i * XMM_SAVED_REG_SIZE +
+                                              PRE_XMM_PADDING + i * MCXT_SIMD_SLOT_SIZE +
                                                   offs_beyond_xmm,
                                               OPSZ_SAVED_XMM)));
             }
         }
-        ASSERT(i * XMM_SAVED_REG_SIZE == XMM_SAVED_SIZE);
-        ASSERT(XMM_SAVED_SIZE <= XMM_SLOTS_SIZE);
+        if (ZMM_ENABLED()) {
+            PRE(ilist, instr, INSTR_CREATE_jmp(dcontext, opnd_create_instr(post_pop)));
+            PRE(ilist, instr, pre_avx512_pop /*label*/);
+            uint opcode_avx512 = move_mm_avx512_reg_opcode(ALIGNED(alignment, 64));
+            for (i = 0; i < proc_num_simd_registers(); i++) {
+                if (!cci->simd_skip[i]) {
+                    instr_t *simdmov = instr_create_1dst_2src(
+                        dcontext, opcode_avx512,
+                        opnd_create_reg(DR_REG_START_ZMM + (reg_id_t)i),
+                        opnd_create_reg(DR_REG_K0),
+                        opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                              PRE_XMM_PADDING + i * MCXT_SIMD_SLOT_SIZE +
+                                                  offs_beyond_xmm,
+                                              OPSZ_SAVED_ZMM));
+                    PRE(ilist, instr, simdmov);
+                }
+            }
+            for (i = 0; i < proc_num_opmask_registers(); i++) {
+                if (!cci->opmask_skip[i]) {
+                    instr_t *maskmov = instr_create_1dst_1src(
+                        dcontext,
+                        proc_has_feature(FEATURE_AVX512BW) ? OP_kmovq : OP_kmovw,
+                        opnd_create_reg(DR_REG_START_OPMASK + (reg_id_t)i),
+                        opnd_create_base_disp(
+                            REG_XSP, REG_NULL, 0,
+                            PRE_XMM_PADDING + MCXT_TOTAL_SIMD_SLOTS_SIZE +
+                                i * OPMASK_AVX512BW_REG_SIZE + offs_beyond_xmm,
+                            OPSZ_SAVED_OPMASK));
+                    PRE(ilist, instr, maskmov);
+                }
+            }
+            PRE(ilist, instr, post_pop /*label*/);
+        }
+    }
+
+    if (!cci->skip_save_flags) {
+        PRE(ilist, instr, INSTR_CREATE_popf(dcontext));
+        offs_beyond_xmm = XSP_SZ; /* pc */
     }
 
     PRE(ilist, instr,
         INSTR_CREATE_lea(
             dcontext, opnd_create_reg(REG_XSP),
             OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0,
-                                PRE_XMM_PADDING + XMM_SLOTS_SIZE + offs_beyond_xmm)));
+                                PRE_XMM_PADDING + MCXT_TOTAL_SIMD_SLOTS_SIZE +
+                                    MCXT_TOTAL_OPMASK_SLOTS_SIZE + offs_beyond_xmm)));
 }
 
 reg_id_t
@@ -562,7 +670,7 @@ shrink_reg_for_param(reg_id_t regular, opnd_t arg)
  * properly.
  *
  * Arguments that reference REG_XSP will work for clean calls, but are not guaranteed
- * to work for non-clean, especially for 64-bit where we align, etc.  Arguments that
+ * to work for non-clean, especially in the presence of stack alignment.  Arguments that
  * reference sub-register portions of REG_XSP are not supported.
  *
  * XXX PR 307874: w/ a post optimization pass, or perhaps more clever use of
@@ -597,9 +705,9 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 
     /* For a clean call, xax is dead (clobbered by prepare_for_clean_call()).
      * Rather than use as scratch and restore prior to each param that uses it,
-     * we restore once up front if any use it, and use regparms[0] as scratch,
-     * which is symmetric with non-clean-calls: regparms[0] is dead since we're
-     * doing args in reverse order.  However, we then can't use regparms[0]
+     * we restore once up front if any use it, and use d_r_regparms[0] as scratch,
+     * which is symmetric with non-clean-calls: d_r_regparms[0] is dead since we're
+     * doing args in reverse order.  However, we then can't use d_r_regparms[0]
      * directly if referenced in earlier params, but similarly for xax, so
      * there's no clear better way. (prepare_for_clean_call also clobbers xsp,
      * but we just disallow args that use it).
@@ -722,12 +830,12 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                              INSTR_CREATE_mov_st(dcontext,
                                                  OPND_CREATE_MEMPTR(REG_XSP, disp), arg));
                     } else {
-                        reg_id_t xsp_scratch = regparms[0];
+                        reg_id_t xsp_scratch = d_r_regparms[0];
                         /* don't want to just change size since will read extra bytes.
                          * can't do mem-to-mem so go through scratch reg */
                         if (reg_overlap(used, REG_XSP)) {
                             /* Get original xsp into scratch[0] and replace in arg */
-                            if (opnd_uses_reg(arg, regparms[0])) {
+                            if (opnd_uses_reg(arg, d_r_regparms[0])) {
                                 xsp_scratch = REG_XAX;
                                 ASSERT(!opnd_uses_reg(arg, REG_XAX)); /* can't use 3 */
                                 /* FIXME: rather than putting xsp into mcontext
@@ -742,13 +850,13 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                         POST(ilist, prev,
                              INSTR_CREATE_mov_st(dcontext,
                                                  OPND_CREATE_MEMPTR(REG_XSP, disp),
-                                                 opnd_create_reg(regparms[0])));
+                                                 opnd_create_reg(d_r_regparms[0])));
                         /* If sub-ptr-size, zero-extend is what we want so no movsxd */
                         POST(ilist, prev,
-                             INSTR_CREATE_mov_ld(
-                                 dcontext,
-                                 opnd_create_reg(shrink_reg_for_param(regparms[0], arg)),
-                                 arg));
+                             INSTR_CREATE_mov_ld(dcontext,
+                                                 opnd_create_reg(shrink_reg_for_param(
+                                                     d_r_regparms[0], arg)),
+                                                 arg));
                         if (reg_overlap(used, REG_XSP)) {
                             int xsp_disp = opnd_get_reg_dcontext_offs(REG_XSP) +
                                 clean_call_beyond_mcontext() + total_stack;
@@ -762,13 +870,13 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                                                               TLS_XAX_SLOT));
                             }
                         }
-                        if (opnd_uses_reg(arg, regparms[0])) {
+                        if (opnd_uses_reg(arg, d_r_regparms[0])) {
                             /* must restore since earlier arg might have clobbered */
-                            int mc_disp = opnd_get_reg_dcontext_offs(regparms[0]) +
+                            int mc_disp = opnd_get_reg_dcontext_offs(d_r_regparms[0]) +
                                 clean_call_beyond_mcontext() + total_stack;
                             POST(ilist, prev,
                                  INSTR_CREATE_mov_ld(
-                                     dcontext, opnd_create_reg(regparms[0]),
+                                     dcontext, opnd_create_reg(d_r_regparms[0]),
                                      OPND_CREATE_MEMPTR(REG_XSP, mc_disp)));
                         }
                     }
@@ -782,7 +890,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 #    endif
 
         if (i < NUM_REGPARM) {
-            reg_id_t regparm = shrink_reg_for_param(regparms[i], arg);
+            reg_id_t regparm = shrink_reg_for_param(d_r_regparms[i], arg);
             if (opnd_is_immed_int(arg) || opnd_is_instr(arg)) {
                 POST(ilist, mark,
                      INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(regparm), arg));
@@ -830,9 +938,9 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                     ASSERT(NUM_REGPARM > 0);
                     POST(ilist, mark,
                          INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEMPTR(REG_XSP, offs),
-                                             opnd_create_reg(regparms[0])));
+                                             opnd_create_reg(d_r_regparms[0])));
                     POST(ilist, mark,
-                         INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(regparms[0]),
+                         INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(d_r_regparms[0]),
                                               arg));
                 } else {
 #    endif
@@ -840,11 +948,11 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                         /* can't do mem-to-mem so go through scratch */
                         reg_id_t scratch;
                         if (NUM_REGPARM > 0)
-                            scratch = regparms[0];
+                            scratch = d_r_regparms[0];
                         else {
                             /* This happens on Mac.
                              * FIXME i#1370: not safe if later arg uses xax:
-                             * local spill?  Review how regparms[0] is preserved.
+                             * local spill?  Review how d_r_regparms[0] is preserved.
                              */
                             scratch = REG_XAX;
                         }
@@ -874,6 +982,12 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
              INSTR_CREATE_lea(
                  dcontext, opnd_create_reg(REG_XSP),
                  OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, -(int)total_stack)));
+    } else if (total_stack % get_ABI_stack_alignment() != 0) {
+        int off = get_ABI_stack_alignment() - (total_stack % get_ABI_stack_alignment());
+        total_stack += off;
+        POST(ilist, prev, /* before everything */
+             INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
+                              OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, -off)));
     }
     if (restore_xsp) {
         /* before restore_xax, since we're going to clobber xax */
@@ -1019,6 +1133,36 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
  *   M A N G L I N G   R O U T I N E S
  */
 
+/* Updates the immediates used by insert_mov_immed_arch() to use the value "val".
+ * The "first" and "last" from insert_mov_immed_arch() should be passed here,
+ * along with the encoded start pc of "first" as "pc".
+ * Keep this in sync with insert_mov_immed_arch().
+ * This is *not* a hot-patchable patch: i.e., it is subject to races.
+ */
+void
+patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
+                     instr_t *last)
+{
+    byte *write_pc = vmcode_get_writable_addr(pc);
+    byte *immed_pc;
+    ASSERT(first != NULL);
+#    ifdef X64
+    if (X64_MODE_DC(dcontext) && last != NULL) {
+        immed_pc = write_pc + instr_length(dcontext, first) - sizeof(int);
+        ATOMIC_4BYTE_WRITE(immed_pc, (int)val, NOT_HOT_PATCHABLE);
+        immed_pc = write_pc + instr_length(dcontext, first) +
+            instr_length(dcontext, last) - sizeof(int);
+        ATOMIC_4BYTE_WRITE(immed_pc, (int)(val >> 32), NOT_HOT_PATCHABLE);
+    } else {
+#    endif
+        immed_pc = write_pc + instr_length(dcontext, first) - sizeof(val);
+        ATOMIC_ADDR_WRITE(immed_pc, val, NOT_HOT_PATCHABLE);
+        ASSERT(last == NULL);
+#    ifdef X64
+    }
+#    endif
+}
+
 #endif /* !STANDALONE_DECODER */
 /* We export these mov/push utilities to drdecode */
 
@@ -1026,6 +1170,7 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
  * encode_estimate to determine whether > 32 bits or not: so if unsure where
  * it will be encoded, pass a high address) as the immediate; else
  * uses val.
+ * Keep this in sync with patch_mov_immed_arch().
  */
 void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
@@ -2517,9 +2662,9 @@ float_pc_update(dcontext_t *dcontext)
         }
     }
     /* We must either grab thread_initexit_lock or be couldbelinking to translate */
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     xl8_pc = recreate_app_pc(dcontext, orig_pc, NULL);
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
     LOG(THREAD, LOG_INTERP, 2, "%s: translated " PFX " to " PFX "\n", __FUNCTION__,
         orig_pc, xl8_pc);
 
@@ -2535,7 +2680,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr, uint *flags INOUT)
 {
     /* If there is a prior non-control float instr, we can inline the pc update.
-     * Otherwise, we go back to dispatch.  In the latter case we do not support
+     * Otherwise, we go back to d_r_dispatch.  In the latter case we do not support
      * building traces across the float pc save: we assume it's rare.
      */
     app_pc prior_float = NULL;
@@ -2723,7 +2868,7 @@ mangle_cpuid(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_decode(dcontext, instr);
     if (!instr_valid(instr))
         goto cpuid_give_up;
-    loginst(dcontext, 2, prev, "prior to cpuid");
+    d_r_loginst(dcontext, 2, prev, "prior to cpuid");
 
     /* FIXME: maybe should insert code to dispatch on eax, rather than
      * this hack, which is based on photoshop, which either does
@@ -2850,35 +2995,41 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
 #        endif
     if (opc == OP_lea) {
-        /* segment overrides are ignored on lea */
-        opnd_t immed;
-        dst = instr_get_dst(instr, 0);
-        src = instr_get_src(instr, 0);
-        ASSERT(opnd_is_reg(dst));
-        ASSERT(opnd_is_rel_addr(src));
-        ASSERT(opnd_get_addr(src) == tgt);
-        /* Replace w/ an absolute immed of the target app address, following Intel
-         * Table 3-59 "64-bit Mode LEA Operation with Address and Operand Size
-         * Attributes" */
-        /* FIXME PR 253446: optimization: we could leave this as rip-rel if it
-         * still reaches from the code cache. */
-        if (reg_get_size(opnd_get_reg(dst)) == OPSZ_8) {
-            /* PR 253327: there is no explicit addr32 marker; we assume
-             * that decode or the user already zeroed out the top bits
-             * if there was an addr32 prefix byte or the user wants
-             * that effect */
-            immed = OPND_CREATE_INTPTR((ptr_int_t)tgt);
-        } else if (reg_get_size(opnd_get_reg(dst)) == OPSZ_4)
-            immed = OPND_CREATE_INT32((int)(ptr_int_t)tgt);
-        else {
-            ASSERT(reg_get_size(opnd_get_reg(dst)) == OPSZ_2);
-            immed = OPND_CREATE_INT16((short)(ptr_int_t)tgt);
+        /* We leave this as rip-rel if it still reaches from the code cache. */
+        if (!rel32_reachable_from_vmcode(tgt)) {
+            /* segment overrides are ignored on lea */
+            opnd_t immed;
+            dst = instr_get_dst(instr, 0);
+            src = instr_get_src(instr, 0);
+            ASSERT(opnd_is_reg(dst));
+            ASSERT(opnd_is_rel_addr(src));
+            ASSERT(opnd_get_addr(src) == tgt);
+            /* Replace w/ an absolute immed of the target app address, following Intel
+             * Table 3-59 "64-bit Mode LEA Operation with Address and Operand Size
+             * Attributes" */
+            if (reg_get_size(opnd_get_reg(dst)) == OPSZ_8) {
+                /* PR 253327: there is no explicit addr32 marker; we assume
+                 * that decode or the user already zeroed out the top bits
+                 * if there was an addr32 prefix byte or the user wants
+                 * that effect */
+                immed = OPND_CREATE_INTPTR((ptr_int_t)tgt);
+            } else if (reg_get_size(opnd_get_reg(dst)) == OPSZ_4)
+                immed = OPND_CREATE_INT32((int)(ptr_int_t)tgt);
+            else {
+                ASSERT(reg_get_size(opnd_get_reg(dst)) == OPSZ_2);
+                immed = OPND_CREATE_INT16((short)(ptr_int_t)tgt);
+            }
+            PRE(ilist, instr, INSTR_CREATE_mov_imm(dcontext, dst, immed));
+            instrlist_remove(ilist, instr);
+            instr_destroy(dcontext, instr);
+            STATS_INC(rip_rel_lea);
+            DOSTATS({
+                if (tgt >= get_application_base() && tgt < get_application_end())
+                    STATS_INC(rip_rel_app_lea);
+            });
+            return NULL; /* == destroyed instr */
         }
-        PRE(ilist, instr, INSTR_CREATE_mov_imm(dcontext, dst, immed));
-        instrlist_remove(ilist, instr);
-        instr_destroy(dcontext, instr);
-        STATS_INC(rip_rel_lea);
-        return NULL; /* == destroyed instr */
+        return next_instr;
     } else {
         /* PR 251479 will automatically re-relativize if it reaches,
          * but if it doesn't we need to handle that here (since that
@@ -2982,6 +3133,10 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                         : restore);
             }
             STATS_INC(rip_rel_unreachable);
+            DOSTATS({
+                if (tgt >= get_application_base() && tgt < get_application_end())
+                    STATS_INC(rip_rel_app_unreachable);
+            });
         }
     }
     return next_instr;
@@ -3176,7 +3331,7 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     STATS_INC(app_seg_refs_mangled);
 
     DOLOG(3, LOG_INTERP,
-          { loginst(dcontext, 3, instr, "reference with fs/gs segment"); });
+          { d_r_loginst(dcontext, 3, instr, "reference with fs/gs segment"); });
     /* 2. decide the scratch reg */
     /* Opt: if it's a load (OP_mov_ld, or OP_movzx, etc.), use dead reg */
     if (si >= 0 && instr_num_srcs(instr) == 1 && /* src is the seg ref opnd */
@@ -3221,7 +3376,8 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* we need the whole spill...restore region to all be marked mangle */
     instr_set_our_mangling(instr, true);
     /* FIXME: i#107 we should check the bound and raise signal if out of bound. */
-    DOLOG(3, LOG_INTERP, { loginst(dcontext, 3, instr, "re-wrote app tls reference"); });
+    DOLOG(3, LOG_INTERP,
+          { d_r_loginst(dcontext, 3, instr, "re-wrote app tls reference"); });
 
     if (spill) {
         PRE(ilist, next_instr,
@@ -3254,6 +3410,14 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
                                     UNPROTECTED);
             memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
         }
+#        ifdef CLIENT_INTERFACE /* XXX i#2971: Remove this define. */
+        if (handler->pass_pc_in_slot) {
+            app_pc pc = GET_ANNOTATION_APP_PC(label_data);
+            instrlist_insert_mov_immed_ptrsz(
+                dcontext, (ptr_int_t)pc, dr_reg_spill_slot_opnd(dcontext, SPILL_SLOT_2),
+                ilist, label, NULL, NULL);
+        }
+#        endif
         dr_insert_clean_call_ex_varg(dcontext, ilist, label,
                                      receiver->instrumentation.callback,
                                      receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
@@ -3357,7 +3521,7 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
     bool use_tls = IF_X64_ELSE(true, false);
     IF_X64(bool x86_to_x64_ibl_opt = DYNAMO_OPTION(x86_to_x64_ibl_opt);)
     instr_t *next_app = next;
-    DOLOG(3, LOG_INTERP, { loginst(dcontext, 3, instr, "writes memory"); });
+    DOLOG(3, LOG_INTERP, { d_r_loginst(dcontext, 3, instr, "writes memory"); });
 
     ASSERT(!instr_is_call_indirect(instr)); /* FIXME: can you have REP on on CALL's */
 
@@ -3501,7 +3665,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     instr_t *next_app = next;
     instr_t *get_addr_at = next;
     int opcode = instr_get_opcode(instr);
-    DOLOG(3, LOG_INTERP, { loginst(dcontext, 3, instr, "writes memory"); });
+    DOLOG(3, LOG_INTERP, { d_r_loginst(dcontext, 3, instr, "writes memory"); });
 
     /* skip meta instrs to find next app instr (xref PR 472190) */
     while (next_app != NULL && instr_is_meta(next_app))
@@ -3524,7 +3688,8 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
              * CALL* already means that we're leaving the block and it cannot be a selfmod
              * instruction even though it writes to memory
              */
-            DOLOG(4, LOG_INTERP, { loginst(dcontext, 4, next_app, "next app instr"); });
+            DOLOG(4, LOG_INTERP,
+                  { d_r_loginst(dcontext, 4, next_app, "next app instr"); });
             after_write = opnd_get_pc(instr_get_target(next_app));
             LOG(THREAD, LOG_INTERP, 4, "after_write = " PFX " next should be final jmp\n",
                 after_write);
@@ -4162,14 +4327,15 @@ finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f)
              : (TEST(FRAG_WRITES_EFLAGS_OF, f->flags) ? 1 : 2));
     pc = FCACHE_ENTRY_PC(f) + selfmod_copy_start_offs[i][j] IF_X64([k]);
     /* The copy start gets updated after sandbox_top_of_bb. */
-    *((cache_pc *)pc) = copy_pc;
+    *((cache_pc *)vmcode_get_writable_addr(pc)) = copy_pc;
     if (FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) > 1) {
         pc = FCACHE_ENTRY_PC(f) + selfmod_copy_end_offs[i][j] IF_X64([k]);
         /* i#2155: The copy end gets updated.
          * This value will be used in the case where the direction flag is set.
          * It will then be the starting point for the backward repe cmps.
          */
-        *((cache_pc *)pc) = (copy_pc + FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) - 1);
+        *((cache_pc *)vmcode_get_writable_addr(pc)) =
+            (copy_pc + FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) - 1);
     } /* else, no 2nd patch point */
 }
 

@@ -60,10 +60,9 @@ main(int argc, const char *argv[])
     // Number of cache lines skipped by the stream every iteration.
     const int kStride = 7;
     // Number of 1-byte elements in the array.
-    // (200+ MiB to guarantee the array doesn't fit in Skylake caches)
-    const size_t kArraySize = 256 * 1024 * 1024;
+    const size_t kArraySize = 16 * 1024 * 1024;
     // Number of iterations in the main loop.
-    const int kIterations = 1000000;
+    const int kIterations = 20000;
     // The main vector/array used for emulating pointer chasing.
     unsigned char *buffer = new unsigned char[kArraySize];
     memset(buffer, kStride, kArraySize);

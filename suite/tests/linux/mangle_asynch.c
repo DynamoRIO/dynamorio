@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -126,6 +126,10 @@ START_FILE
 #else
 # define FRAME_PADDING 0
 #endif
+
+DECL_EXTERN(test_ready)
+DECL_EXTERN(test_done)
+DECL_EXTERN(loop_inc)
 
 #define FUNCNAME test_asm
         DECLARE_FUNC_SEH(FUNCNAME)

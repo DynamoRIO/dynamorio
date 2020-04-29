@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -118,9 +118,6 @@ if (WIN32)
     "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/dwarf.pdb" COPYONLY)
   configure_file("${dwarf_dir}/elftc.pdb"
     "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/elftc.pdb" COPYONLY)
-  # while private loader means preferred base is not required, more efficient
-  # to avoid rebase so we avoid conflict w/ client and other exts
-  set(PREFERRED_BASE 0x76000000)
 
 elseif (UNIX)
   set(srcs
@@ -143,6 +140,10 @@ elseif (UNIX)
   endif (APPLE)
   set(srcs_static ${srcs})
 endif (WIN32)
+
+# while private loader means preferred base is not required, more efficient
+# to avoid rebase so we avoid conflict w/ client and other exts
+set(PREFERRED_BASE 0x76000000)
 
 add_library(drsyms SHARED ${srcs})
 configure_extension(drsyms OFF)
@@ -188,7 +189,9 @@ endif ()
 # i#693: CMake will try to export the path to the static libs we use via
 # IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG, but they won't exist on the
 # user's machine.  Clearing this property prevents that.
-set_target_properties(drsyms PROPERTIES LINK_INTERFACE_LIBRARIES "")
+# i#3474: LINK_INTERFACE_LIBRARIES is deprecated, which is overridden by
+# INTERFACE_LINK_LIBRARIES property if policy CMP0022 is NEW.
+set_target_properties(drsyms PROPERTIES INTERFACE_LINK_LIBRARIES "")
 
 # If drsyms is built static we need to include these with an exports path
 # in DynamoRIOTarget*.cmake and not with the source path here:
@@ -241,6 +244,8 @@ if (WIN32)
   # i#1344: Include a copy of a recent (> 6.0) redistributable version of dbghelp,
   # if we found one, so our drsyms works pre-Vista.
   if (dbghelp_path)
+    configure_file(${dbghelp_path} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dbghelp.dll
+      COPYONLY)
     DR_install(FILES "${dbghelp_path}" DESTINATION ${INSTALL_EXT_LIB})
   endif ()
 endif (WIN32)

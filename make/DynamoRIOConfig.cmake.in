@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -177,14 +177,21 @@
 #
 #  set(DynamoRIO_VISATT ON)
 #
-# To request the old REG_ enum symbols (which were changed to DR_REG_ to
-# avoid conflicts with system headers) set this variable:
+# To request the old REG_ enum symbols (which were changed to DR_REG_ to avoid
+# conflicts with system headers) set this variable. The newly added x86 AVX-512
+# registers DR_REG_ZMM0 - DR_REG_ZMM31 as well as DR_REG_K0 - DR_REG_K7 will not
+# be provided a deprecated REG_ name and are only available via DR_REG_ symbol.
+#
 #
 #  set(DynamoRIO_REG_COMPATIBILITY ON)
 #
 # To request that PAGE_SIZE and PAGE_START be defined set this variable:
 #
 #  set(DynamoRIO_PAGE_SIZE_COMPATIBILITY ON)
+#
+# To request that NUM_SIMD_SLOTS and NUM_XMM_SLOTS be defined set this variable:
+#
+#  set(DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY ON)
 #
 # To request a preferred base even when not targeting 64-bit:
 # (the actual base will use PREFERRED_BASE if set)
@@ -494,10 +501,16 @@ function (configure_DynamoRIO_global is_cxx change_flags)
           if (WIN32)
             # We could limit this global var changing to Windows,
             # but it simplifies cross-platform uses to be symmetric
-            if (local_${var} MATCHES "/M[TD]")
-              string(REGEX REPLACE "/M[TD]" "/MT" local_${var} "${local_${var}}")
+            set(MT_base "/MT")
+            if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+              set(MT_flag "/MTd")
             else ()
-              set(local_${var} "${local_${var}} /MT")
+              set(MT_flag "/MT")
+            endif()
+            if (local_${var} MATCHES "/M[TD]")
+              string(REGEX REPLACE "/M[TD]" "${MT_base}" local_${var} "${local_${var}}")
+            else ()
+              set(local_${var} "${local_${var}} ${MT_flag}")
             endif ()
             string(REGEX REPLACE "/RTC." "" local_${var} "${local_${var}}")
           endif (WIN32)
@@ -573,6 +586,10 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
   if (DynamoRIO_PAGE_SIZE_COMPATIBILITY)
     set(extra_cflags "${extra_cflags} -DDR_PAGE_SIZE_COMPATIBILITY")
   endif (DynamoRIO_PAGE_SIZE_COMPATIBILITY)
+
+  if (DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY)
+    set(extra_cflags "${extra_cflags} -DDR_NUM_SIMD_SLOTS_COMPATIBILITY")
+  endif (DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY)
 
   if (DynamoRIO_LOG_COMPATIBILITY)
     set(extra_cflags "${extra_cflags} -DDR_LOG_DEFINE_COMPATIBILITY")
@@ -720,20 +737,6 @@ function (_DR_set_compile_flags target is_client extra_flags)
 
     endif (is_client)
 
-    # i#847 keep stack boundary 4-byte aligned for compatibility.
-    # The new gcc may use different stack alignment for using SSE
-    # instructions. We make both DynamoRIO and clients use 4-byte
-    # stack alignment to avoid any back compatibility issue without
-    # using extra stack space or changing performance.
-    # On Mac we have to use the ABI's 16-byte alignment, but we have
-    # no compatibility there as we're starting fresh.
-    # On ARM, '-mpreferred-stack-boundary' is unrecognized.
-    # i#1800: '-mpreferred-stack-boundary' is not supported by clang,
-    # so clang's build may not run legacy binaries.
-    if (NOT tgt_x64 AND NOT APPLE AND NOT ARM AND NOT CMAKE_COMPILER_IS_CLANG)
-      set(extra_flags "${extra_flags} -mpreferred-stack-boundary=2")
-    endif (NOT tgt_x64 AND NOT APPLE AND NOT ARM AND NOT CMAKE_COMPILER_IS_CLANG)
-
     if (NOT APPLE AND NOT ANDROID) # no .gnu.hash support on Android
       # Generate the .hash section in addition to .gnu.hash for every target, to
       # avoid SIGFPE when running binaries on old systems:
@@ -788,27 +791,7 @@ function (_DR_set_compile_flags target is_client extra_flags)
       else (tgt_cxx)
         set(tgt_link_flags "${tgt_link_flags} /nodefaultlib")
       endif (tgt_cxx)
-      if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
-        set(static_libc libcmtd)
-        if (tgt_cxx)
-          set(static_libc libcpmtd ${static_libc})
-        endif ()
-        # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
-        if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
-          set(static_libc ${static_libc} libvcruntimed.lib libucrtd.lib)
-        endif ()
-        # libcmt has symbols libcmtd does not so we need all files compiled w/ _DEBUG
-        set(extra_flags "${extra_flags} -D_DEBUG")
-      else ()
-        set(static_libc libcmt)
-        if (tgt_cxx)
-          set(static_libc libcpmt ${static_libc})
-        endif ()
-        # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
-        if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
-          set(static_libc ${static_libc} libvcruntime.lib libucrt.lib)
-        endif ()
-      endif ()
+      _DR_get_static_libc_list(static_libc)
       target_link_libraries(${target} ${static_libc})
     else ()
       set(tgt_link_flags "${tgt_link_flags} /nodefaultlib /noentry")
@@ -1082,12 +1065,16 @@ function (configure_DynamoRIO_static target)
     # should we pass -Wl,--export-dynamic here to match it?
     _DR_append_property_string(TARGET ${target} LINK_FLAGS "-Wl,--dynamic-list-data")
   endif ()
-
+  # We need libc before the ntdll_imports pulled in for DR.
+  _DR_get_static_libc_list(static_libc)
+  target_link_libraries(${target} ${static_libc})
   target_link_libraries(${target} dynamorio_static)
   if (UNIX AND NOT APPLE) # --as-needed not supported by Mac ld
     # i#2070: avoid pulling libdynamorio.so
     # Assuming LINK_FLAGS goes before target_link_libraries.
     _DR_append_property_string(TARGET ${target} LINK_FLAGS "-Wl,--as-needed")
+    # Ensure client symbols are visible to DR via dlsym.
+    _DR_append_property_string(TARGET ${target} LINK_FLAGS "-rdynamic")
   endif ()
 endfunction (configure_DynamoRIO_static)
 
@@ -1188,6 +1175,11 @@ function (use_DynamoRIO_extension target extname)
     target_link_libraries(${target} ${extname})
   endif (NOT DynamoRIO_EXT_${extname}_NOLIB)
 
+  if ("${extname}" MATCHES "^droption$")
+    if (NOT WIN32)
+      _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+    endif ()
+  endif ()
 endfunction (use_DynamoRIO_extension)
 
 # For clients to configure their custom annotations
@@ -1228,7 +1220,9 @@ function (use_DynamoRIO_drmemtrace target)
       _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "/MT")
     endif ()
   endif ()
-  _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+  if (NOT WIN32)
+    _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+  endif ()
 endfunction ()
 
 function (use_DynamoRIO_drmemtrace_tracer target)

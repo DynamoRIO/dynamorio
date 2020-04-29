@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -58,6 +58,10 @@
 #if defined(MACOS) || defined (LINUX) || defined(VMKERNEL) || defined(ANDROID)
 # define UNIX
 #endif
+#if defined(MACOS) && defined (X64)
+/* Used a lot due to the different TLS.  We thus provide a convenience define. */
+# define MACOS64
+#endif
 
 /* set by high-level VMAP/VMSAFE/VPS configurations */
 #cmakedefine PROGRAM_SHEPHERDING
@@ -79,6 +83,9 @@
 # define CALL_PROFILE
 #endif
 #cmakedefine PARAMS_IN_REGISTRY
+#cmakedefine RECORD_MEMQUERY
+#cmakedefine BUILD_TESTS
+#cmakedefine AUTOMATED_TESTING
 
 /* when packaging */
 #cmakedefine VERSION_NUMBER ${VERSION_NUMBER}
@@ -93,6 +100,7 @@
 #cmakedefine HAVE_FVISIBILITY
 #cmakedefine HAVE_TYPELIMITS_CONTROL
 #cmakedefine ANNOTATIONS
+#cmakedefine HAVE_RSEQ
 
 /* typedef conflicts */
 #cmakedefine DR_DO_NOT_DEFINE_bool
@@ -186,8 +194,6 @@
 #    $(D)ANNOTATIONS -- optional instrumentation of binary annotations
 #                       in the target program
 #    $(D)DR_APP_EXPORTS
-#    $(D)CUSTOM_EXIT_STUBS -- optional part of CLIENT_INTERFACE
-#      we may want it for our own internal use too, though
 #    $(D)CUSTOM_TRACES -- optional part of CLIENT_INTERFACE
 #      has some sub-features that are aggressive and not supported by default:
 #      $(D)CUSTOM_TRACES_RET_REMOVAL = support for removing inlined rets
@@ -219,9 +225,6 @@
 #    we're just starting to add VMKERNEL and MACOS support
 #    $(D)X86
 #    $(D)X64
-
-# support for running in x86 emulator on IA-64
-#    $(D)IA32_ON_IA64
 
 # build script provides these
 #    $(D)BUILD_NUMBER (<64K == vmware's PRODUCT_BUILD_NUMBER)
@@ -295,9 +298,7 @@
 # define DYNAMORIO_IR_EXPORTS
 # define CUSTOM_TRACES
 # define CLIENT_SIDELINE
-  /* PR 200409: not part of our current API, xref PR 215179 on -pad_jmps
-   * issues with CUSTOM_EXIT_STUBS
-# define CUSTOM_EXIT_STUBS
+  /* TODO i#4045: Remove completely from the code base.
 # define UNSUPPORTED_API
    */
 #endif

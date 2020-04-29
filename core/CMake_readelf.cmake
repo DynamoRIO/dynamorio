@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -33,7 +33,6 @@
 # + "lib_fileloc" to /absolute/path/<name> that represents a file <name>.cmake that
 #   contains a set(<name> <path>) where path is the target binary location.
 # + "READELF_EXECUTABLE" so it can be a cache variable
-# + "lib" to point to target library
 # + "check_textrel" to ON or OFF to check to text relocations
 # + "check_deps" to ON or OFF to check for zero deps
 # + "check_libc" to ON or OFF to check for too-recent libc imports

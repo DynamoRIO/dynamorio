@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -113,7 +113,12 @@ void *peb_ptr;
 static int os_version;
 static uint os_service_pack_major;
 static uint os_service_pack_minor;
+static uint os_build_number;
+#    define REGISTRY_VERSION_STRING_MAX_LEN 64
+static char os_release_id[REGISTRY_VERSION_STRING_MAX_LEN];
+static char os_edition[REGISTRY_VERSION_STRING_MAX_LEN];
 static const char *os_name;
+static char os_name_buf[MAXIMUM_PATH];
 app_pc vsyscall_page_start = NULL;
 /* pc kernel will claim app is at while in syscall */
 app_pc vsyscall_after_syscall = NULL;
@@ -196,7 +201,7 @@ get_nth_stack_frames_call_target(int num_frames, reg_t *ebp)
 
     /* walk up the stack */
     for (i = 0; i < num_frames; i++) {
-        if (!safe_read(cur_ebp, sizeof(next_frame), next_frame))
+        if (!d_r_safe_read(cur_ebp, sizeof(next_frame), next_frame))
             break;
         cur_ebp = (reg_t *)next_frame[0];
     }
@@ -207,7 +212,7 @@ get_nth_stack_frames_call_target(int num_frames, reg_t *ebp)
         /* FIXME - would be nice to get this with decode_cti, but dr might
          * not even be initialized yet and this is safer */
         byte buf[5]; /* sizeof call rel32 */
-        if (safe_read((byte *)(next_frame[1] - sizeof(buf)), sizeof(buf), &buf) &&
+        if (d_r_safe_read((byte *)(next_frame[1] - sizeof(buf)), sizeof(buf), &buf) &&
             buf[0] == CALL_REL32_OPCODE) {
             app_pc return_point = (app_pc)next_frame[1];
             return (return_point + *(int *)&buf[1]);
@@ -277,7 +282,7 @@ DllMainThreadAttach()
          * noasynch, we do it here (which is later, but better than nothing)
          */
         LOG(GLOBAL, LOG_TOP | LOG_THREADS, 1,
-            "DllMain: initializing new thread " TIDFMT "\n", get_thread_id());
+            "DllMain: initializing new thread " TIDFMT "\n", d_r_get_thread_id());
         dynamo_thread_init(NULL, NULL, NULL _IF_CLIENT_INTERFACE(false));
     }
 }
@@ -489,7 +494,7 @@ exit_global_profiles()
 
     /* we expect to be the last thread at this point.
        FIXME: we can remove the mutex_lock/unlock then */
-    mutex_lock(&profile_dump_lock);
+    d_r_mutex_lock(&profile_dump_lock);
     if (dynamo_dll_profile)
         dump_dll_profile(dynamo_dll_profile, global_sum, "dynamorio.dll");
     if (ntdll_profile)
@@ -497,7 +502,7 @@ exit_global_profiles()
 
     print_file(profile_file, "\nDumping global profile\n%d hits\n", global_sum);
     dump_profile(profile_file, global_profile);
-    mutex_unlock(&profile_dump_lock);
+    d_r_mutex_unlock(&profile_dump_lock);
     LOG(GLOBAL, LOG_PROFILE, 1, "\nDumping global profile\n%d hits\n", global_sum);
     DOLOG(1, LOG_PROFILE, dump_profile(GLOBAL, global_profile););
     free_profile(global_profile);
@@ -528,6 +533,28 @@ get_context_xstate_flag(void)
     return IF_X64_ELSE((CONTEXT_AMD64 | 0x20L), (CONTEXT_i386 | 0x40L));
 }
 
+/* Returns false and marks 'value' as an empty string when it fails. */
+static bool
+read_version_registry_value(const wchar_t *name, char *value OUT, size_t value_sz)
+{
+    reg_query_value_result_t result;
+    char buf_array[sizeof(KEY_VALUE_PARTIAL_INFORMATION) +
+                   sizeof(wchar_t) * (MAX_REGISTRY_PARAMETER + 1)];
+    KEY_VALUE_PARTIAL_INFORMATION *kvpi = (KEY_VALUE_PARTIAL_INFORMATION *)buf_array;
+    result = reg_query_value(L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\"
+                             L"Windows NT\\CurrentVersion",
+                             name, KeyValuePartialInformation, kvpi,
+                             BUFFER_SIZE_BYTES(buf_array), 0);
+    if (result == REG_QUERY_SUCCESS) {
+        snprintf(value, value_sz, "%*ls", kvpi->DataLength / sizeof(wchar_t) - 1,
+                 (wchar_t *)kvpi->Data);
+        value[value_sz - 1] = '\0';
+        return true;
+    }
+    value[0] = '\0';
+    return false;
+}
+
 /* FIXME: Right now error reporting will work here, but once we have our
  * error reporting syscalls going through wrappers and requiring this
  * init routine, we'll have to have a fallback here that dynamically
@@ -535,6 +562,8 @@ get_context_xstate_flag(void)
  * We may never be able to report errors for the non-NT OS family.
  * N.B.: this is too early for LOGs so don't do any -- any errors reported
  * will not die, they will simply skip LOG.
+ * N.B.: This is before stderr_mask has been parsed, so don't print any
+ * informational-only messages, or tests will break.
  * N.B.: this is prior to eventlog_init(), but then we've been reporting
  * usage errors prior to that for a long time now anyway.
  */
@@ -557,6 +586,24 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
     os_service_pack_major = (peb->OSCSDVersion & 0xff00) >> 8;
     os_service_pack_minor = (peb->OSCSDVersion & 0xff);
 
+    /* Get various further data needed to distinguish Win10 and other versions. */
+    char buf[64];
+    if (read_version_registry_value(L"CurrentBuild", buf, BUFFER_SIZE_ELEMENTS(buf))) {
+        if (sscanf(buf, "%u", &os_build_number) != 1) {
+            SYSLOG_INTERNAL_WARNING("Failed to parse CurrentBuild '%s'", buf);
+        }
+    } /* Else just leave it blank. */
+    read_version_registry_value(L"EditionId", os_edition,
+                                BUFFER_SIZE_ELEMENTS(os_edition));
+    read_version_registry_value(L"ReleaseId", os_release_id,
+                                BUFFER_SIZE_ELEMENTS(os_release_id));
+#    ifdef CLIENT_INTERFACE
+    ASSERT(REGISTRY_VERSION_STRING_MAX_LEN >=
+           sizeof(((dr_os_version_info_t *)0)->release_id));
+    ASSERT(REGISTRY_VERSION_STRING_MAX_LEN >=
+           sizeof(((dr_os_version_info_t *)0)->edition));
+#    endif
+
     if (peb->OSPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
         /* N.B.: when adding new versions here, update the i#1598 unknown version
@@ -566,7 +613,8 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
             /* Win10 does not provide a version number so we use the presence
              * of newly added syscalls to distinguish major updates.
              */
-            if (get_proc_address(get_ntdll_base(), "NtAllocateVirtualMemoryEx") != NULL) {
+            if (d_r_get_proc_address(get_ntdll_base(), "NtAllocateVirtualMemoryEx") !=
+                NULL) {
                 if (module_is_64bit(get_ntdll_base())) {
                     syscalls = (int *)windows_10_1803_x64_syscalls;
                     os_name = "Microsoft Windows 10-1803 x64";
@@ -578,7 +626,7 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                     os_name = "Microsoft Windows 10-1803";
                 }
                 os_version = WINDOWS_VERSION_10_1803;
-            } else if (get_proc_address(get_ntdll_base(), "NtCallEnclave") != NULL) {
+            } else if (d_r_get_proc_address(get_ntdll_base(), "NtCallEnclave") != NULL) {
                 if (module_is_64bit(get_ntdll_base())) {
                     syscalls = (int *)windows_10_1709_x64_syscalls;
                     os_name = "Microsoft Windows 10-1709 x64";
@@ -590,7 +638,7 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                     os_name = "Microsoft Windows 10-1709";
                 }
                 os_version = WINDOWS_VERSION_10_1709;
-            } else if (get_proc_address(get_ntdll_base(), "NtLoadHotPatch") != NULL) {
+            } else if (d_r_get_proc_address(get_ntdll_base(), "NtLoadHotPatch") != NULL) {
                 if (module_is_64bit(get_ntdll_base())) {
                     syscalls = (int *)windows_10_1703_x64_syscalls;
                     os_name = "Microsoft Windows 10-1703 x64";
@@ -602,8 +650,8 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                     os_name = "Microsoft Windows 10-1703";
                 }
                 os_version = WINDOWS_VERSION_10_1703;
-            } else if (get_proc_address(get_ntdll_base(),
-                                        "NtCreateRegistryTransaction") != NULL) {
+            } else if (d_r_get_proc_address(get_ntdll_base(),
+                                            "NtCreateRegistryTransaction") != NULL) {
                 if (module_is_64bit(get_ntdll_base())) {
                     syscalls = (int *)windows_10_1607_x64_syscalls;
                     os_name = "Microsoft Windows 10-1607 x64";
@@ -615,7 +663,8 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                     os_name = "Microsoft Windows 10-1607";
                 }
                 os_version = WINDOWS_VERSION_10_1607;
-            } else if (get_proc_address(get_ntdll_base(), "NtCreateEnclave") != NULL) {
+            } else if (d_r_get_proc_address(get_ntdll_base(), "NtCreateEnclave") !=
+                       NULL) {
                 if (module_is_64bit(get_ntdll_base())) {
                     syscalls = (int *)windows_10_1511_x64_syscalls;
                     os_name = "Microsoft Windows 10-1511 x64";
@@ -681,7 +730,7 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
             /* i#437: ymm/avx is supported after Win-7 SP1 */
             if (os_service_pack_major >= 1) {
                 /* Sanity check on our SP ver retrieval */
-                ASSERT(get_proc_address(ntdllh, "RtlCopyContext") != NULL);
+                ASSERT(d_r_get_proc_address(ntdllh, "RtlCopyContext") != NULL);
                 if (module_is_64bit(get_ntdll_base()) ||
                     is_wow64_process(NT_CURRENT_PROCESS)) {
                     syscalls = (int *)windows_7_x64_syscalls;
@@ -691,7 +740,7 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                     os_name = "Microsoft Windows 7 SP1";
                 }
             } else {
-                ASSERT(get_proc_address(ntdllh, "RtlCopyContext") == NULL);
+                ASSERT(d_r_get_proc_address(ntdllh, "RtlCopyContext") == NULL);
                 if (module_is_64bit(get_ntdll_base()) ||
                     is_wow64_process(NT_CURRENT_PROCESS)) {
                     syscalls = (int *)windows_7_x64_syscalls;
@@ -710,7 +759,7 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                  * for sp1 - see PR 246402.  They also differ for
                  * 32-bit vs 64-bit/wow64.
                  */
-                ASSERT(get_proc_address(ntdllh, "NtReplacePartitionUnit") != NULL);
+                ASSERT(d_r_get_proc_address(ntdllh, "NtReplacePartitionUnit") != NULL);
                 if (module_is_64bit(get_ntdll_base()) ||
                     is_wow64_process(NT_CURRENT_PROCESS)) {
                     syscalls = (int *)windows_vista_sp1_x64_syscalls;
@@ -720,7 +769,7 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                     os_name = "Microsoft Windows Vista SP1";
                 }
             } else {
-                ASSERT(get_proc_address(ntdllh, "NtReplacePartitionUnit") == NULL);
+                ASSERT(d_r_get_proc_address(ntdllh, "NtReplacePartitionUnit") == NULL);
                 if (module_is_64bit(get_ntdll_base()) ||
                     is_wow64_process(NT_CURRENT_PROCESS)) {
                     syscalls = (int *)windows_vista_sp0_x64_syscalls;
@@ -772,12 +821,12 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
              *   SP3: + Nt{Read,Write}FileScatter
              *   SP4: - NtW32Call
              */
-            if (get_proc_address(ntdllh, "NtW32Call") != NULL) {
+            if (d_r_get_proc_address(ntdllh, "NtW32Call") != NULL) {
                 /* < SP4 */
                 /* we don't know whether SP1 and SP2 fall in line w/ SP0 or w/ SP3,
                  * or possibly are different from both, but we don't support them
                  */
-                if (get_proc_address(ntdllh, "NtReadFileScatter") != NULL) {
+                if (d_r_get_proc_address(ntdllh, "NtReadFileScatter") != NULL) {
                     /* > SP0 */
                     syscalls = (int *)windows_NT_sp3_syscalls;
                     os_name = "Microsoft Windows NT SP3";
@@ -793,9 +842,23 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
         }
         if (syscalls == NULL) {
             if (peb->OSMajorVersion == 10 && peb->OSMinorVersion == 0) {
-                SYSLOG_INTERNAL_WARNING(
-                    "WARNING: Running on unsupported Windows 10+ version");
-                os_name = "Unknown Windows 10+ version";
+                if (os_release_id[0] != '\0') {
+                    snprintf(os_name_buf, BUFFER_SIZE_ELEMENTS(os_name_buf) - 1,
+                             "Microsoft Windows 10-%s%s", os_release_id,
+                             (module_is_64bit(get_ntdll_base()) ||
+                              is_wow64_process(NT_CURRENT_PROCESS))
+                                 ? " x64"
+                                 : "");
+                    NULL_TERMINATE_BUFFER(os_name_buf);
+                    os_name = os_name_buf;
+                    /* We print a notification in d_r_os_init() after stderr_mask options
+                     * have been parsed.
+                     */
+                } else {
+                    os_name = "Unknown Windows 10+ version";
+                    SYSLOG_INTERNAL_WARNING("WARNING: Running on unknown "
+                                            "Windows 10+ version");
+                }
             } else {
                 SYSLOG_INTERNAL_ERROR("Unknown Windows NT-family version: %d.%d",
                                       peb->OSMajorVersion, peb->OSMinorVersion);
@@ -891,7 +954,7 @@ print_mem_quota()
 
 /* os-specific initializations */
 void
-os_init(void)
+d_r_os_init(void)
 {
     PEB *peb = get_own_peb();
     uint alignment = 0;
@@ -903,6 +966,14 @@ os_init(void)
         peb->OSMajorVersion * 10 + peb->OSMinorVersion) {
         SYSLOG(SYSLOG_WARNING, UNSUPPORTED_OS_VERSION, 3, get_application_name(),
                get_application_pid(), os_name);
+    }
+    if (peb->OSMajorVersion == 10 && peb->OSMinorVersion == 0 &&
+        syscalls == windows_unknown_syscalls && !standalone_library && os_name != NULL) {
+        /* Not a warning since we can rely on dynamically finding DR's
+         * syscalls (in the absense of hooks, for which we might want
+         * a solution like Dr. Memory's: i#2713).
+         */
+        SYSLOG_INTERNAL_INFO("Running on newer-than-this-build \"%s\"", os_name);
     }
 
     /* make sure we create the message box title string before we are
@@ -973,9 +1044,9 @@ os_init(void)
          */
         /* initializing so get_module_handle should be safe, FIXME */
         module_handle_t ntdllh = get_ntdll_base();
-        app_pc return_point = (app_pc)get_proc_address(ntdllh, "KiFastSystemCallRet");
+        app_pc return_point = (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
         if (return_point != NULL) {
-            app_pc syscall_pc = (app_pc)get_proc_address(ntdllh, "KiFastSystemCall");
+            app_pc syscall_pc = (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCall");
             vsyscall_after_syscall = (app_pc)return_point;
             /* we'll re-set this once we see the 1st syscall, but we set an
              * initial value to what it should be for go-native scenarios
@@ -1114,12 +1185,6 @@ os_init(void)
     os_get_current_dir(cwd, BUFFER_SIZE_ELEMENTS(cwd));
 }
 
-void
-native_exec_os_init(void)
-{
-    /* Nothing yet. */
-}
-
 static void
 print_mem_stats()
 {
@@ -1159,13 +1224,15 @@ os_fast_exit(void)
      *
      * The curiosity is also relaxed if we enter DR using the API
      */
-    ASSERT_CURIOSITY(reached_image_entry_yet() ||
+    ASSERT_CURIOSITY(reached_image_entry_yet() || standalone_library ||
                      RUNNING_WITHOUT_CODE_CACHE() IF_APP_EXPORTS(|| dr_api_entry)
                      /* Clients can go native.  XXX: add var for whether client did? */
                      IF_CLIENT_INTERFACE(|| CLIENTS_EXIST()));
 
     DOLOG(1, LOG_TOP, { print_mem_quota(); });
     DOLOG(1, LOG_TOP, { print_mem_stats(); });
+
+    os_take_over_exit();
 
 #    ifdef WINDOWS_PC_SAMPLE
     if (dynamo_options.profile_pcs) {
@@ -1181,14 +1248,14 @@ os_fast_exit(void)
                 int num, i;
                 /* get surviving threads */
                 arch_profile_exit();
-                mutex_lock(&thread_initexit_lock);
+                d_r_mutex_lock(&thread_initexit_lock);
                 get_list_of_threads(&threads, &num);
                 for (i = 0; i < num; i++) {
                     arch_thread_profile_exit(threads[i]->dcontext);
                 }
                 global_heap_free(
                     threads, num * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
-                mutex_unlock(&thread_initexit_lock);
+                d_r_mutex_unlock(&thread_initexit_lock);
             }
             if (dynamo_options.prof_pcs_fcache >= 2 &&
                 dynamo_options.prof_pcs_fcache <= 32) {
@@ -1245,7 +1312,6 @@ os_slow_exit(void)
     syscall_interception_exit();
     aslr_exit();
     eventlog_slow_exit();
-    os_take_over_exit();
 
     tls_dcontext_offs = TLS_UNINITIALIZED;
 }
@@ -1458,7 +1524,7 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
                 SYSLOG_WARNING,
                 "detach on terminate failed or already started by another thread, "
                 "killing thread " TIDFMT "\n",
-                get_thread_id());
+                d_r_get_thread_id());
             /* if we get here, either we recursed or someone is already trying
              * to detach, just kill this thread so progress is made we don't
              * have anything better to do with it */
@@ -1467,7 +1533,7 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
              * remove_thread below */
             terminate_type = TERMINATE_THREAD;
         } else {
-            config_exit(); /* delete .1config file */
+            d_r_config_exit(); /* delete .1config file */
             nt_terminate_process(currentThreadOrProcess,
                                  custom_code ? exit_code : KILL_PROC_EXIT_STATUS);
             ASSERT_NOT_REACHED();
@@ -1525,7 +1591,7 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
     } else {
         /* may have decided to terminate process */
         if (exit_process) {
-            config_exit(); /* delete .1config file */
+            d_r_config_exit(); /* delete .1config file */
             nt_terminate_process(currentThreadOrProcess,
                                  custom_code ? exit_code : KILL_PROC_EXIT_STATUS);
             ASSERT_NOT_REACHED();
@@ -1536,7 +1602,7 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
              * an infinite loop with a failure in this function and detach on
              * failure */
             if (all_threads != NULL)
-                remove_thread(NULL, get_thread_id());
+                remove_thread(NULL, d_r_get_thread_id());
             nt_terminate_thread(currentThreadOrProcess, KILL_THREAD_EXIT_STATUS);
             ASSERT_NOT_REACHED();
         }
@@ -1722,7 +1788,7 @@ os_thread_under_dynamo(dcontext_t *dcontext)
     /* add cur thread to callback list */
     ASSERT_MESSAGE(CHKLVL_ASSERTS + 1 /*expensive*/, "can only act on executing thread",
                    dcontext == get_thread_private_dcontext());
-    set_asynch_interception(get_thread_id(), true);
+    set_asynch_interception(d_r_get_thread_id(), true);
 }
 
 void
@@ -1731,7 +1797,7 @@ os_thread_not_under_dynamo(dcontext_t *dcontext)
     /* remove cur thread from callback list */
     ASSERT_MESSAGE(CHKLVL_ASSERTS + 1 /*expensive*/, "can only act on executing thread",
                    dcontext == get_thread_private_dcontext());
-    set_asynch_interception(get_thread_id(), false);
+    set_asynch_interception(d_r_get_thread_id(), false);
 }
 
 void
@@ -1829,13 +1895,6 @@ os_take_over_init(void)
         GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_TAKEOVER,
         80 /* load factor: not perf-critical */, HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
         takeover_table_entry_free _IF_DEBUG("takeover table"));
-}
-
-/* Only called on slow exit */
-static void
-os_take_over_exit(void)
-{
-    generic_hash_destroy(GLOBAL_DCONTEXT, takeover_table);
 }
 
 /* We need to distinguish a thread intercepted via APC hook but that is in ntdll
@@ -1986,17 +2045,23 @@ thread_attach_translate(dcontext_t *dcontext, priv_mcontext_t *mc INOUT,
         ASSERT_NOT_REACHED(); /* translating a non-native thread! */
 }
 
+static void
+thread_attach_context_revert_from_data(CONTEXT *cxt INOUT, takeover_data_t *data)
+{
+    cxt->CXT_XIP = (ptr_uint_t)data->continuation_pc;
+    thread_attach_restore_full_state(data);
+}
+
 void
 thread_attach_context_revert(CONTEXT *cxt INOUT)
 {
     takeover_data_t *data;
     TABLE_RWLOCK(takeover_table, read, lock);
     data = (takeover_data_t *)generic_hash_lookup(GLOBAL_DCONTEXT, takeover_table,
-                                                  (ptr_uint_t)get_thread_id());
+                                                  (ptr_uint_t)d_r_get_thread_id());
     TABLE_RWLOCK(takeover_table, read, unlock);
     if (data != NULL && data != INVALID_PAYLOAD) {
-        cxt->CXT_XIP = (ptr_uint_t)data->continuation_pc;
-        thread_attach_restore_full_state(data);
+        thread_attach_context_revert_from_data(cxt, data);
         thread_attach_remove_from_table(data);
     } else
         ASSERT_NOT_REACHED(); /* translating a non-native thread! */
@@ -2010,6 +2075,52 @@ thread_attach_exit(dcontext_t *dcontext, priv_mcontext_t *mc)
     generic_hash_remove(GLOBAL_DCONTEXT, takeover_table,
                         (ptr_uint_t)dcontext->owning_thread);
     TABLE_RWLOCK(takeover_table, write, unlock);
+}
+
+static void
+os_take_over_exit(void)
+{
+    if (takeover_table == NULL)
+        return;
+    /* There may be threads we tried to attach to that were never scheduled.  We
+     * can't just check init_apc_go_native in thread_attach_takeover_callee because
+     * it can't just return to go native: it's not interception a static PC, and the
+     * continuation PC is stored in our heap which we'll free when we exit!  Just
+     * waiting for these threads prior to detach is not guaranteed, so instead we
+     * just revert the attach.
+     */
+    char buf[MAX_CONTEXT_SIZE];
+    TABLE_RWLOCK(takeover_table, write, lock);
+    int iter = 0;
+    takeover_data_t *data;
+    ptr_uint_t key;
+    do {
+        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, takeover_table, iter, &key,
+                                         (void **)&data);
+        if (iter < 0)
+            break;
+        CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+        HANDLE handle = thread_handle_from_id(data->tid);
+        LOG(GLOBAL, LOG_THREADS, 1,
+            "Reverting attached-but-never-scheduled thread " TIDFMT "\n", data->tid);
+        if (nt_thread_suspend(handle, NULL) && NT_SUCCESS(nt_get_context(handle, cxt))) {
+            thread_attach_context_revert_from_data(cxt, data);
+            if (!NT_SUCCESS(nt_set_context(handle, cxt)) ||
+                !nt_thread_resume(handle, NULL)) {
+                SYSLOG_INTERNAL_WARNING(
+                    "Failed to resume attached-but-never-scheduled thread " TIDFMT,
+                    data->tid);
+            }
+        } else {
+            SYSLOG_INTERNAL_WARNING(
+                "Failed to suspend attached-but-never-scheduled thread " TIDFMT,
+                data->tid);
+        }
+        iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, takeover_table, iter, key);
+    } while (true);
+    TABLE_RWLOCK(takeover_table, write, unlock);
+    generic_hash_destroy(GLOBAL_DCONTEXT, takeover_table);
+    takeover_table = NULL;
 }
 
 #    ifndef X64
@@ -2035,7 +2146,7 @@ thread_attach_exit(dcontext_t *dcontext, priv_mcontext_t *mc)
  * As part of this I also changed the takeover to not store the context at
  * suspend time and instead only change Eip then, capturing the context when
  * the thread resumes.  This requires an assume-nothing routine, which
- * requires initstack: but these takeover points shouldn't be perf-critical.
+ * requires d_r_initstack: but these takeover points shouldn't be perf-critical.
  * This really simplifies the wow64 entry/exit corner cases.
  */
 static bool
@@ -2073,8 +2184,8 @@ wow64_cases_pre_win10(takeover_data_t *data, CONTEXT_64 *cxt64, HANDLE hthread,
     /* Corner case #1: 1st instr on entry where retaddr is in [esp] */
     if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_ENTER_INST12,
                sizeof(WOW64_ENTER_INST12)) == 0) {
-        if (safe_read((void *)(ptr_uint_t)cxt64->Rsp, sizeof(data->memval_stack),
-                      &data->memval_stack) &&
+        if (d_r_safe_read((void *)(ptr_uint_t)cxt64->Rsp, sizeof(data->memval_stack),
+                          &data->memval_stack) &&
             safe_write((void *)(ptr_uint_t)cxt64->Rsp, sizeof(takeover), &takeover)) {
             changed_x64_cxt = true;
             LOG(GLOBAL, LOG_THREADS, 2, "\ttid %d @ wow64 enter1 => changed [esp]\n",
@@ -2121,8 +2232,8 @@ wow64_cases_pre_win10(takeover_data_t *data, CONTEXT_64 *cxt64, HANDLE hthread,
     /* Corner case #4: last instr in exit where we already copied retaddr to [r14] */
     else if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_EXIT_INST2,
                     sizeof(WOW64_EXIT_INST2)) == 0) {
-        if (safe_read((void *)(ptr_uint_t)cxt64->R14, sizeof(data->memval_r14),
-                      &data->memval_r14) &&
+        if (d_r_safe_read((void *)(ptr_uint_t)cxt64->R14, sizeof(data->memval_r14),
+                          &data->memval_r14) &&
             safe_write((void *)(ptr_uint_t)cxt64->R14, sizeof(takeover), &takeover)) {
             changed_x64_cxt = true;
             LOG(GLOBAL, LOG_THREADS, 2, "\ttid %d @ wow64 exit2 => changed [r14]\n", tid);
@@ -2181,8 +2292,8 @@ wow64_cases_win10(takeover_data_t *data, CONTEXT_64 *cxt64, HANDLE hthread,
     /* Corner case #1: 1st instr on entry where retaddr is in [esp] */
     if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_ENTER_INST12,
                sizeof(WOW64_ENTER_INST12)) == 0) {
-        if (safe_read((void *)(ptr_uint_t)cxt64->Rsp, sizeof(data->memval_stack),
-                      &data->memval_stack) &&
+        if (d_r_safe_read((void *)(ptr_uint_t)cxt64->Rsp, sizeof(data->memval_stack),
+                          &data->memval_stack) &&
             safe_write((void *)(ptr_uint_t)cxt64->Rsp, sizeof(takeover), &takeover)) {
             changed_x64_cxt = true;
             LOG(GLOBAL, LOG_THREADS, 2, "\ttid %d @ wow64 enter1 => changed [esp]\n",
@@ -2197,8 +2308,8 @@ wow64_cases_win10(takeover_data_t *data, CONTEXT_64 *cxt64, HANDLE hthread,
     /* Corner case #2: 2nd instr in entry where retaddr is in [r14] */
     else if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_ENTER_INST23,
                     sizeof(WOW64_ENTER_INST23)) == 0) {
-        if (safe_read((void *)(ptr_uint_t)cxt64->R14, sizeof(data->memval_stack),
-                      &data->memval_stack) &&
+        if (d_r_safe_read((void *)(ptr_uint_t)cxt64->R14, sizeof(data->memval_stack),
+                          &data->memval_stack) &&
             safe_write((void *)(ptr_uint_t)cxt64->R14, sizeof(takeover), &takeover)) {
             changed_x64_cxt = true;
             LOG(GLOBAL, LOG_THREADS, 2, "\ttid %d @ wow64 enter1 => changed [r14]\n",
@@ -2249,8 +2360,8 @@ wow64_cases_win10(takeover_data_t *data, CONTEXT_64 *cxt64, HANDLE hthread,
                     sizeof(WOW64_EXIT1_INST23)) == 0 ||
              memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_EXIT1_INST3,
                     sizeof(WOW64_EXIT1_INST3)) == 0) {
-        if (safe_read((void *)(ptr_uint_t)cxt64->R14, sizeof(data->memval_r14),
-                      &data->memval_r14) &&
+        if (d_r_safe_read((void *)(ptr_uint_t)cxt64->R14, sizeof(data->memval_r14),
+                          &data->memval_r14) &&
             safe_write((void *)(ptr_uint_t)cxt64->R14, sizeof(takeover), &takeover)) {
             changed_x64_cxt = true;
             LOG(GLOBAL, LOG_THREADS, 2, "\ttid %d @ wow64 exit2 => changed [r14]\n", tid);
@@ -2280,8 +2391,8 @@ wow64_cases_win10(takeover_data_t *data, CONTEXT_64 *cxt64, HANDLE hthread,
     /* Corner case #7: last instr in 2nd exit where already copied retaddr to [esp] */
     else if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_EXIT2_INST2,
                     sizeof(WOW64_EXIT2_INST2)) == 0) {
-        if (safe_read((void *)(ptr_uint_t)cxt64->Rsp, sizeof(data->memval_stack),
-                      &data->memval_stack) &&
+        if (d_r_safe_read((void *)(ptr_uint_t)cxt64->Rsp, sizeof(data->memval_stack),
+                          &data->memval_stack) &&
             safe_write((void *)(ptr_uint_t)cxt64->Rsp, sizeof(takeover), &takeover)) {
             changed_x64_cxt = true;
             LOG(GLOBAL, LOG_THREADS, 2, "\ttid %d @ wow64 exit2 => changed [rsp]\n", tid);
@@ -2536,12 +2647,12 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     const uint MAX_ITERS = 16;
     uint num_threads = 0;
     thread_list_t *threads = NULL;
-    thread_id_t my_id = get_thread_id();
+    thread_id_t my_id = d_r_get_thread_id();
     bool took_over_all = true, found_new_threads = true;
     /* ensure user_data starts out how we think it does */
     ASSERT(TAKEOVER_NEW == (ptr_uint_t)NULL);
 
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
 
     /* Need to iterate until no new threads, w/ an escape valve of max iters.
      * This ends up looking similar to synch_with_all_threads(), though it has
@@ -2630,7 +2741,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         took_over_all = false;
     }
 
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
     return !took_over_all;
 }
 
@@ -2644,13 +2755,27 @@ thread_attach_setup(priv_mcontext_t *mc)
 
     TABLE_RWLOCK(takeover_table, write, lock);
     data = (takeover_data_t *)generic_hash_lookup(GLOBAL_DCONTEXT, takeover_table,
-                                                  (ptr_uint_t)get_thread_id());
+                                                  (ptr_uint_t)d_r_get_thread_id());
     TABLE_RWLOCK(takeover_table, write, unlock);
     if (data == NULL || data == INVALID_PAYLOAD) {
+        ASSERT(standalone_library);
+        /* In release better to let thread run native than to crash.
+         * However, returning here does not just go back native: we've lost the
+         * PC to go back to and the thread will just crash.
+         */
         ASSERT_NOT_REACHED();
-        /* in release better to let thread run native than to crash */
         EXITING_DR();
         return;
+    }
+    if (init_apc_go_native) {
+        /* We can't return back through the interception routine since the return
+         * point is dynamic.  We directly do an NtContinue.  (For threads that
+         * are still not scheduled when we go to exit, os_take_over_exit()
+         * sets the context back).
+         */
+        mc->pc = data->continuation_pc;
+        thread_set_self_mcontext(mc);
+        ASSERT_NOT_REACHED();
     }
     /* Preclude double takeover if we become suspended while in ntdll */
     data->in_progress = true;
@@ -2673,7 +2798,7 @@ thread_attach_setup(priv_mcontext_t *mc)
     set_at_syscall(dcontext, false);
 
     LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: thread " TIDFMT ", start pc " PFX "\n",
-        get_thread_id(), data->continuation_pc);
+        d_r_get_thread_id(), data->continuation_pc);
 
     ASSERT(os_using_app_state(dcontext));
 
@@ -2726,19 +2851,13 @@ client_thread_target(void *param)
     void *arg = arg_buf[1];
     byte *dstack = dcontext->dstack;
     ASSERT(IS_CLIENT_THREAD(dcontext));
-    LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d *****\n\n", get_thread_id());
+    LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d *****\n\n", d_r_get_thread_id());
     LOG(THREAD, LOG_ALL, 1, "func=" PFX ", arg=" PFX "\n", func, arg);
-
-    /* i#2335: we support setup separate from start, and we want to allow a client
-     * to create a client thread during init, but we do not support that thread
-     * executing until the app has started (b/c we have no signal handlers in place).
-     */
-    wait_for_event(dr_app_started, 0);
 
     (*func)(arg);
 
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d EXITING *****\n\n",
-        get_thread_id());
+        d_r_get_thread_id());
     os_terminate(dcontext, TERMINATE_THREAD | TERMINATE_CLEANUP);
 }
 
@@ -2806,7 +2925,8 @@ get_os_version()
 
 void
 get_os_version_ex(int *version OUT, uint *service_pack_major OUT,
-                  uint *service_pack_minor OUT)
+                  uint *service_pack_minor OUT, uint *build_number OUT,
+                  const char **release_id OUT, const char **edition OUT)
 {
     if (version != NULL)
         *version = os_version;
@@ -2814,6 +2934,12 @@ get_os_version_ex(int *version OUT, uint *service_pack_major OUT,
         *service_pack_major = os_service_pack_major;
     if (service_pack_minor != NULL)
         *service_pack_minor = os_service_pack_minor;
+    if (build_number != NULL)
+        *build_number = os_build_number;
+    if (release_id != NULL)
+        *release_id = os_release_id;
+    if (edition != NULL)
+        *edition = os_edition;
 }
 
 bool
@@ -3400,7 +3526,7 @@ is_child_in_thin_client(HANDLE process_handle)
     } else {
         res = opts->thin_client;
     }
-    write_unlock(&options_lock);
+    d_r_write_unlock(&options_lock);
     return res;
 }
 
@@ -3727,7 +3853,7 @@ mem_stats_snapshot()
      * was committed and what reserved, etc., so we only do complete snapshots,
      * resetting the stats to 0 each time.
      */
-    mutex_lock(&snapshot_lock);
+    d_r_mutex_lock(&snapshot_lock);
     STATS_RESET(unaligned_allocations);
     STATS_RESET(dr_library_space);
     STATS_RESET(dr_commited_capacity);
@@ -3833,7 +3959,7 @@ mem_stats_snapshot()
     STATS_PEAK(app_exec_capacity);
     STATS_PEAK(app_ro_capacity);
     STATS_PEAK(app_rw_capacity);
-    mutex_unlock(&snapshot_lock);
+    d_r_mutex_unlock(&snapshot_lock);
 }
 #    endif /* DEBUG (MEMORY STATS) ****************************************/
 
@@ -4056,7 +4182,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
         } else {
             bool needs_processing = false;
             int num_threads = 0;
-            thread_record_t **all_threads = NULL;
+            thread_record_t **thread_table = NULL;
 
             /* For hotp_only, image processing is done in two steps.  The
              * first one is done without suspending all threads (expensive if
@@ -4075,7 +4201,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
                                dynamo_initialized ? &needs_processing : NULL, NULL, 0);
             if (needs_processing) {
                 DEBUG_DECLARE(bool ok =)
-                synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &all_threads,
+                synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &thread_table,
                                        /* Case 6821: other synch-all-thread uses that
                                         * only care about threads carrying fcache
                                         * state can ignore us
@@ -4086,9 +4212,9 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
                                         * FIXME: retry instead? */
                                        THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
                 ASSERT(ok);
-                hotp_process_image(base, add, false, false, NULL, all_threads,
+                hotp_process_image(base, add, false, false, NULL, thread_table,
                                    num_threads);
-                end_synch_with_all_threads(all_threads, num_threads, true /*resume*/);
+                end_synch_with_all_threads(thread_table, num_threads, true /*resume*/);
             }
         }
     }
@@ -4473,14 +4599,14 @@ get_thread_private_dcontext(void)
      * We don't need to check whether this thread has been initialized under us -
      * Windows sets the value to 0 for us, so we'll just return NULL.
      */
-    return (dcontext_t *)get_tls(tls_dcontext_offs);
+    return (dcontext_t *)d_r_get_tls(tls_dcontext_offs);
 }
 
 /* sets the thread-private dcontext pointer for the calling thread */
 void
 set_thread_private_dcontext(dcontext_t *dcontext)
 {
-    set_tls(tls_dcontext_offs, dcontext);
+    d_r_set_tls(tls_dcontext_offs, dcontext);
 }
 
 #    ifdef WINDOWS_PC_SAMPLE
@@ -5156,13 +5282,13 @@ debugbox(char *msg)
     /* FIXME: If we hit an assert in nt_messagebox, we'll deadlock when
      * we come back here.
      */
-    mutex_lock(&debugbox_lock);
+    d_r_mutex_lock(&debugbox_lock);
 
     snwprintf(debugbox_msg_buf, BUFFER_SIZE_ELEMENTS(debugbox_msg_buf), L"%hs", msg);
     NULL_TERMINATE_BUFFER(debugbox_msg_buf);
     res = nt_messagebox(debugbox_msg_buf, debugbox_title_buf);
 
-    mutex_unlock(&debugbox_lock);
+    d_r_mutex_unlock(&debugbox_lock);
 
     return res;
 }
@@ -5309,7 +5435,7 @@ load_shared_library(const char *name, bool client)
 shlib_routine_ptr_t
 lookup_library_routine(shlib_handle_t lib, const char *name)
 {
-    return (shlib_routine_ptr_t)get_proc_address(lib, name);
+    return (shlib_routine_ptr_t)d_r_get_proc_address(lib, name);
 }
 
 void
@@ -5699,8 +5825,8 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top)
          *   PVOID   pvStackUserBase;    // 08h Base of user stack
          * and assume fs is always a valid TIB pointer when called here
          */
-        stack_top = (byte *)get_tls(TOP_STACK_TIB_OFFSET);
-        stack_base = (byte *)get_tls(BASE_STACK_TIB_OFFSET);
+        stack_top = (byte *)d_r_get_tls(TOP_STACK_TIB_OFFSET);
+        stack_base = (byte *)d_r_get_tls(BASE_STACK_TIB_OFFSET);
         LOG(THREAD, LOG_THREADS, 1, "app stack now is " PFX "-" PFX "\n", stack_base,
             stack_top); /* NULL dcontext => nop */
         /* we only have current base, we need to find reserved base */
@@ -5754,7 +5880,7 @@ winnt.h:#define PAGE_EXECUTE_WRITECOPY 128
  * !not_readable() below.
  * FIXME : beware of multi-thread races, just because this returns true,
  * doesn't mean another thread can't make the region unreadable between the
- * check here and the actual read later.  See safe_read() as an alt.
+ * check here and the actual read later.  See d_r_safe_read() as an alt.
  */
 static bool
 query_is_readable_without_exception(byte *pc, size_t size)
@@ -5826,7 +5952,7 @@ safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read)
 
 /* FIXME - fold this together with safe_read_ex() (is a lot of places to update) */
 bool
-safe_read(const void *base, size_t size, void *out_buf)
+d_r_safe_read(const void *base, size_t size, void *out_buf)
 {
     size_t bytes_read = 0;
     return (safe_read_ex(base, size, out_buf, &bytes_read) && bytes_read == size);
@@ -7339,6 +7465,19 @@ os_unmap_file(byte *map, size_t size /*unused*/)
     return NT_SUCCESS(res);
 }
 
+file_t
+os_create_memory_file(const char *name, size_t size)
+{
+    ASSERT_NOT_IMPLEMENTED(false && "i#3556 NYI for Windows");
+    return INVALID_FILE;
+}
+
+void
+os_delete_memory_file(const char *name, file_t fd)
+{
+    ASSERT_NOT_IMPLEMENTED(false && "i#3556 NYI for Windows");
+}
+
 /* FIXME : should check context flags, what if only integer or only control! */
 /* Translates the context cxt for the given thread trec
  * Like any instance where a thread_record_t is used by a thread other than its
@@ -7559,7 +7698,7 @@ os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
     /* initialize */
     pb = NULL;
     have_all_threads_lock = false;
-    my_id = get_thread_id();
+    my_id = d_r_get_thread_id();
     my_tr = NULL;
     /* We should eventually add xmm regs to ldmp and use CONTEXT_DR_STATE here
      * (xref PR 264138) */
@@ -7599,14 +7738,14 @@ os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
     /* ref case 4174, deadlock avoidance will assert if we try to grab a lock
      * we already own, even if its only a trylock and even if the option is
      * turned off! We hack around it here */
-    if (all_threads_lock.owner == get_thread_id()) {
+    if (all_threads_lock.owner == d_r_get_thread_id()) {
         LOG(GLOBAL, LOG_ALL, 1,
             "WARNING : live dump, faulting thread already owns the all_threads lock, "
             "let's hope things are consistent\n");
     } else {
 #    endif
         for (i = 0; i < 100 /* arbitrary num */; i++) {
-            if (mutex_trylock(&all_threads_lock)) {
+            if (d_r_mutex_trylock(&all_threads_lock)) {
                 have_all_threads_lock = true;
                 break;
             } else {
@@ -7746,7 +7885,7 @@ os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
 
     /* cleanup */
     if (have_all_threads_lock)
-        mutex_unlock(&all_threads_lock);
+        d_r_mutex_unlock(&all_threads_lock);
     close_file(dmp_file);
 
     /* write an event indicating the file was created */
@@ -7785,8 +7924,8 @@ os_dump_core_external_dump()
     };
 
     /* the ONCRASH key tells us exactly what to launch, with our pid appended */
-    int retval =
-        get_parameter(PARAM_STR(DYNAMORIO_VAR_ONCRASH), oncrash_var, sizeof(oncrash_var));
+    int retval = d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_ONCRASH), oncrash_var,
+                                   sizeof(oncrash_var));
     if (IS_GET_PARAMETER_SUCCESS(retval)) {
         HANDLE child;
         /* ASSUMPTION: no spaces in exe name, should be ok since only developers will
@@ -7803,7 +7942,7 @@ os_dump_core_external_dump()
                   oncrash_var, get_application_pid());
         NULL_TERMINATE_BUFFER(oncrash_cmdline);
 
-        SYSLOG_INTERNAL_INFO("Thread %d dumping core via \"%ls\"", get_thread_id(),
+        SYSLOG_INTERNAL_INFO("Thread %d dumping core via \"%ls\"", d_r_get_thread_id(),
                              oncrash_cmdline);
 
         child = create_process(oncrash_exe, oncrash_cmdline);
@@ -7832,7 +7971,7 @@ os_dump_core_internal(const char *msg, bool live_only, char *path OUT, size_t pa
     static thread_id_t current_dumping_thread_id VAR_IN_SECTION(NEVER_PROTECTED_SECTION) =
         0;
     bool res = true;
-    thread_id_t current_id = get_thread_id();
+    thread_id_t current_id = d_r_get_thread_id();
 #    ifdef DEADLOCK_AVOIDANCE
     dcontext_t *dcontext = get_thread_private_dcontext();
     thread_locks_t *old_thread_owned_locks = NULL;
@@ -7858,7 +7997,7 @@ os_dump_core_internal(const char *msg, bool live_only, char *path OUT, size_t pa
 
     /* only allow one thread to dumpcore at a time, also protects static
      * buffers and current_dumping_thread_id */
-    mutex_lock(&dump_core_lock);
+    d_r_mutex_lock(&dump_core_lock);
     current_dumping_thread_id = current_id;
 
     if (live_only || DYNAMO_OPTION(live_dump)) {
@@ -7873,7 +8012,7 @@ os_dump_core_internal(const char *msg, bool live_only, char *path OUT, size_t pa
 #    endif
 
     current_dumping_thread_id = 0;
-    mutex_unlock(&dump_core_lock);
+    d_r_mutex_unlock(&dump_core_lock);
 
 #    ifdef DEADLOCK_AVOIDANCE
     /* restore deadlock avoidance for this thread */
@@ -8008,7 +8147,9 @@ detach_handle_callbacks(int num_threads, thread_record_t **threads,
         /* FIXME - this should (along with any do/shared syscall containing gencode) be
          * allocated outside of our vmmheap so that we can free the vmmheap reservation
          * on detach. */
-        byte *callback_buf = (byte *)heap_mmap(callback_buf_size, VMM_SPECIAL_MMAP);
+        byte *callback_buf = (byte *)heap_mmap(
+            callback_buf_size, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
+            VMM_SPECIAL_MMAP);
         detach_callback_stack_t *per_thread =
             (detach_callback_stack_t *)(callback_buf + DETACH_CALLBACK_CODE_SIZE);
         app_pc *callback_addrs = (app_pc *)(&per_thread[num_threads_with_callbacks]);
@@ -8564,7 +8705,7 @@ uint
 os_random_seed()
 {
     LARGE_INTEGER tsc_or_rtc;
-    uint seed = (uint)get_thread_id();
+    uint seed = (uint)d_r_get_thread_id();
     seed ^= (uint)query_time_millis();
 
     /* safer to use than RDTSC, since it defaults to real time clock
@@ -8764,12 +8905,12 @@ early_inject_init()
         dcontext->thread_record->under_dynamo_control = false;
         whereami_save = dcontext->whereami;
         /* FIXME - this is an ugly hack to get the kstack in a form compatible
-         * with dispatch for processing the native exec syscalls we'll hit
+         * with d_r_dispatch for processing the native exec syscalls we'll hit
          * while loading the helper dll (hotpatch has a similar issue but
          * lucks out with having a compatible stack).  Shouldn't mess things
          * up too much though.  We do have to use non-matching stops so not
          * sure how accurate these times will be (should be tiny anyways)
-         * should poke around dispatch sometime and figure out some way to
+         * should poke around d_r_dispatch sometime and figure out some way to
          * do this nicer. */
         KSTART(dispatch_num_exits);
         KSTART(dispatch_num_exits);
@@ -9101,8 +9242,9 @@ open_trusted_cache_root_directory(void)
 
     if (DYNAMO_OPTION(aslr) != 0 || DYNAMO_OPTION(aslr_cache) != 0) {
         /* only use cache config var */
-        int retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_CACHE_ROOT), base_directory,
-                                   BUFFER_SIZE_ELEMENTS(base_directory));
+        int retval =
+            d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_CACHE_ROOT), base_directory,
+                              BUFFER_SIZE_ELEMENTS(base_directory));
         param_ok = !IS_GET_PARAMETER_FAILURE(retval);
     } else {
         /* no aslr so this is just for pcache */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -66,7 +66,7 @@
 /* avoid mistake of lower-case assert */
 #    define assert assert_no_good_use_ASSERT_instead
 extern void
-internal_error(const char *file, int line, const char *msg);
+d_r_internal_error(const char *file, int line, const char *msg);
 #    ifdef DEBUG
 extern void
 display_error(char *msg);
@@ -78,11 +78,11 @@ display_error(char *msg);
 #            ifdef INTERNAL
 #                define ASSERT(x) \
                     if (!(x))     \
-                    internal_error(__FILE__, __LINE__, #x)
+                    d_r_internal_error(__FILE__, __LINE__, #x)
 #            else
 #                define ASSERT(x) \
                     if (!(x))     \
-                    internal_error(__FILE__, __LINE__, "")
+                    d_r_internal_error(__FILE__, __LINE__, "")
 #            endif /* INTERNAL */
 #        elif !defined(NOT_DYNAMORIO_CORE)
 #            define display_warning SYSLOG_INTERNAL_WARNING
@@ -760,7 +760,7 @@ get_process_qualified_name(HANDLE process_handle, wchar_t *w_exename,
     ASSERT_CURIOSITY(wcslen(w_exename) < max_exename_length - 1);
 }
 
-/* NOTE - get_own_*_name routines cache their values and are primed by os_init() since
+/* NOTE - get_own_*_name routines cache their values and are primed by d_r_os_init() since
  * it might not be safe to read the process parameters later. */
 
 /* Returns the cached full path of the image, including the command line qualifier when
@@ -920,7 +920,7 @@ get_process_parameter(HANDLE phandle, const wchar_t *name, char *value, int maxl
 
 /* get parameter for current process */
 int
-get_parameter(const wchar_t *name, char *value, int maxlen)
+d_r_get_parameter(const wchar_t *name, char *value, int maxlen)
 {
     return get_process_parameter_internal(NULL, name, value, maxlen, true /*qual*/,
                                           REGISTRY_DEFAULT);
@@ -930,7 +930,7 @@ get_parameter(const wchar_t *name, char *value, int maxlen)
 int
 get_parameter_ex(const wchar_t *name, char *value, int maxlen, bool ignore_cache)
 {
-    return get_parameter(name, value, maxlen);
+    return d_r_get_parameter(name, value, maxlen);
 }
 
 #        ifdef X64
@@ -1027,7 +1027,7 @@ get_process_parameter_ex(HANDLE phandle, const char *name, char *value, int maxl
     process_id_t pid;
     if (phandle == NULL) {
 #            if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-        return get_parameter(name, value, maxlen);
+        return d_r_get_parameter(name, value, maxlen);
 #            else
         pid = process_id_from_handle(NT_CURRENT_PROCESS);
 #            endif

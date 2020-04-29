@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -72,7 +73,7 @@ main(int argc, char **argv)
                 if (res == 0 || res == ERROR_TIMEOUT) {
                     printf("Window timed out without response\n");
                 } else {
-                    printf("Error sending close message %d\n", res);
+                    printf("Error sending close message %zd\n", res);
                 }
             }
 

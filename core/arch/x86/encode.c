@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -30,7 +30,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  */
-
 /* Copyright (c) 2003-2007 Determina Corp. */
 /* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
 /* Copyright (c) 2001 Hewlett-Packard Company */
@@ -44,8 +43,6 @@
 #include "disassemble.h"
 #include "decode_fast.h"
 #include "decode_private.h"
-
-#include <string.h> /* memcpy, memset */
 
 #ifdef DEBUG
 /* case 10450: give messages to clients */
@@ -115,65 +112,137 @@ const char *const type_names[] = {
     "TYPE_INDIR_VAR_XREG_SIZEx8",
     "TYPE_INDIR_VAR_REG_SIZEx2",
     "TYPE_INDIR_VAR_REG_SIZEx3x5",
+    "TYPE_K_MODRM",
+    "TYPE_K_MODRM_R",
+    "TYPE_K_REG",
+    "TYPE_K_VEX",
+    "TYPE_K_EVEX",
+    "TYPE_T_REG",
+    "TYPE_T_MODRM",
 };
 
 /* order corresponds to enum of REG_ and SEG_ constants */
 const char *const reg_names[] = {
-    "<NULL>", "rax",   "rcx",   "rdx",  "rbx",       "rsp",  "rbp",   "rsi",   "rdi",
-    "r8",     "r9",    "r10",   "r11",  "r12",       "r13",  "r14",   "r15",   "eax",
-    "ecx",    "edx",   "ebx",   "esp",  "ebp",       "esi",  "edi",   "r8d",   "r9d",
-    "r10d",   "r11d",  "r12d",  "r13d", "r14d",      "r15d", "ax",    "cx",    "dx",
-    "bx",     "sp",    "bp",    "si",   "di",        "r8w",  "r9w",   "r10w",  "r11w",
-    "r12w",   "r13w",  "r14w",  "r15w", "al",        "cl",   "dl",    "bl",    "ah",
-    "ch",     "dh",    "bh",    "r8l",  "r9l",       "r10l", "r11l",  "r12l",  "r13l",
-    "r14l",   "r15l",  "spl",   "bpl",  "sil",       "dil",  "mm0",   "mm1",   "mm2",
-    "mm3",    "mm4",   "mm5",   "mm6",  "mm7",       "xmm0", "xmm1",  "xmm2",  "xmm3",
-    "xmm4",   "xmm5",  "xmm6",  "xmm7", "xmm8",      "xmm9", "xmm10", "xmm11", "xmm12",
-    "xmm13",  "xmm14", "xmm15", "st0",  "st1",       "st2",  "st3",   "st4",   "st5",
-    "st6",    "st7",   "es",    "cs",   "ss",        "ds",   "fs",    "gs",    "dr0",
-    "dr1",    "dr2",   "dr3",   "dr4",  "dr5",       "dr6",  "dr7",   "dr8",   "dr9",
-    "dr10",   "dr11",  "dr12",  "dr13", "dr14",      "dr15", "cr0",   "cr1",   "cr2",
-    "cr3",    "cr4",   "cr5",   "cr6",  "cr7",       "cr8",  "cr9",   "cr10",  "cr11",
-    "cr12",   "cr13",  "cr14",  "cr15", "<invalid>", "ymm0", "ymm1",  "ymm2",  "ymm3",
-    "ymm4",   "ymm5",  "ymm6",  "ymm7", "ymm8",      "ymm9", "ymm10", "ymm11", "ymm12",
-    "ymm13",  "ymm14", "ymm15",
+    "<NULL>", "rax",   "rcx",   "rdx",   "rbx",   "rsp",   "rbp",   "rsi",       "rdi",
+    "r8",     "r9",    "r10",   "r11",   "r12",   "r13",   "r14",   "r15",       "eax",
+    "ecx",    "edx",   "ebx",   "esp",   "ebp",   "esi",   "edi",   "r8d",       "r9d",
+    "r10d",   "r11d",  "r12d",  "r13d",  "r14d",  "r15d",  "ax",    "cx",        "dx",
+    "bx",     "sp",    "bp",    "si",    "di",    "r8w",   "r9w",   "r10w",      "r11w",
+    "r12w",   "r13w",  "r14w",  "r15w",  "al",    "cl",    "dl",    "bl",        "ah",
+    "ch",     "dh",    "bh",    "r8l",   "r9l",   "r10l",  "r11l",  "r12l",      "r13l",
+    "r14l",   "r15l",  "spl",   "bpl",   "sil",   "dil",   "mm0",   "mm1",       "mm2",
+    "mm3",    "mm4",   "mm5",   "mm6",   "mm7",   "xmm0",  "xmm1",  "xmm2",      "xmm3",
+    "xmm4",   "xmm5",  "xmm6",  "xmm7",  "xmm8",  "xmm9",  "xmm10", "xmm11",     "xmm12",
+    "xmm13",  "xmm14", "xmm15", "xmm16", "xmm17", "xmm18", "xmm19", "xmm20",     "xmm21",
+    "xmm22",  "xmm23", "xmm24", "xmm25", "xmm26", "xmm27", "xmm28", "xmm29",     "xmm30",
+    "xmm31",  "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "st0",   "st1",       "st2",
+    "st3",    "st4",   "st5",   "st6",   "st7",   "es",    "cs",    "ss",        "ds",
+    "fs",     "gs",    "dr0",   "dr1",   "dr2",   "dr3",   "dr4",   "dr5",       "dr6",
+    "dr7",    "dr8",   "dr9",   "dr10",  "dr11",  "dr12",  "dr13",  "dr14",      "dr15",
+    "cr0",    "cr1",   "cr2",   "cr3",   "cr4",   "cr5",   "cr6",   "cr7",       "cr8",
+    "cr9",    "cr10",  "cr11",  "cr12",  "cr13",  "cr14",  "cr15",  "<invalid>", "ymm0",
+    "ymm1",   "ymm2",  "ymm3",  "ymm4",  "ymm5",  "ymm6",  "ymm7",  "ymm8",      "ymm9",
+    "ymm10",  "ymm11", "ymm12", "ymm13", "ymm14", "ymm15", "ymm16", "ymm17",     "ymm18",
+    "ymm19",  "ymm20", "ymm21", "ymm22", "ymm23", "ymm24", "ymm25", "ymm26",     "ymm27",
+    "ymm28",  "ymm29", "ymm30", "ymm31", "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "zmm0",   "zmm1",  "zmm2",  "zmm3",  "zmm4",  "zmm5",  "zmm6",  "zmm7",      "zmm8",
+    "zmm9",   "zmm10", "zmm11", "zmm12", "zmm13", "zmm14", "zmm15", "zmm16",     "zmm17",
+    "zmm18",  "zmm19", "zmm20", "zmm21", "zmm22", "zmm23", "zmm24", "zmm25",     "zmm26",
+    "zmm27",  "zmm28", "zmm29", "zmm30", "zmm31", "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "",      "",      "",      "",      "",      "",      "",          "",
+    "",       "k0",    "k1",    "k2",    "k3",    "k4",    "k5",    "k6",        "k7",
+    "",       "",      "",      "",      "",      "",      "",      "",          "bnd0",
+    "bnd1",   "bnd2",  "bnd3",
     /* when you update here, update dr_reg_fixer[] too */
 };
 
 /* Maps sub-registers to their containing register. */
 const reg_id_t dr_reg_fixer[] = {
-    REG_NULL,    REG_XAX,   REG_XCX,   REG_XDX,  REG_XBX,   REG_XSP,   REG_XBP,
-    REG_XSI,     REG_XDI,   REG_R8,    REG_R9,   REG_R10,   REG_R11,   REG_R12,
-    REG_R13,     REG_R14,   REG_R15,   REG_XAX,  REG_XCX,   REG_XDX,   REG_XBX,
-    REG_XSP,     REG_XBP,   REG_XSI,   REG_XDI,  REG_R8,    REG_R9,    REG_R10,
-    REG_R11,     REG_R12,   REG_R13,   REG_R14,  REG_R15,   REG_XAX,   REG_XCX,
-    REG_XDX,     REG_XBX,   REG_XSP,   REG_XBP,  REG_XSI,   REG_XDI,   REG_R8,
-    REG_R9,      REG_R10,   REG_R11,   REG_R12,  REG_R13,   REG_R14,   REG_R15,
-    REG_XAX,     REG_XCX,   REG_XDX,   REG_XBX,  REG_XAX,   REG_XCX,   REG_XDX,
-    REG_XBX,     REG_R8,    REG_R9,    REG_R10,  REG_R11,   REG_R12,   REG_R13,
-    REG_R14,     REG_R15,   REG_XSP,   REG_XBP,  REG_XSI,   REG_XDI, /* i#201 */
-    REG_MM0,     REG_MM1,   REG_MM2,   REG_MM3,  REG_MM4,   REG_MM5,   REG_MM6,
-    REG_MM7,     REG_YMM0,  REG_YMM1,  REG_YMM2, REG_YMM3,  REG_YMM4,  REG_YMM5,
-    REG_YMM6,    REG_YMM7,  REG_YMM8,  REG_YMM9, REG_YMM10, REG_YMM11, REG_YMM12,
-    REG_YMM13,   REG_YMM14, REG_YMM15, REG_ST0,  REG_ST1,   REG_ST2,   REG_ST3,
-    REG_ST4,     REG_ST5,   REG_ST6,   REG_ST7,  SEG_ES,    SEG_CS,    SEG_SS,
-    SEG_DS,      SEG_FS,    SEG_GS,    REG_DR0,  REG_DR1,   REG_DR2,   REG_DR3,
-    REG_DR4,     REG_DR5,   REG_DR6,   REG_DR7,  REG_DR8,   REG_DR9,   REG_DR10,
-    REG_DR11,    REG_DR12,  REG_DR13,  REG_DR14, REG_DR15,  REG_CR0,   REG_CR1,
-    REG_CR2,     REG_CR3,   REG_CR4,   REG_CR5,  REG_CR6,   REG_CR7,   REG_CR8,
-    REG_CR9,     REG_CR10,  REG_CR11,  REG_CR12, REG_CR13,  REG_CR14,  REG_CR15,
-    REG_INVALID, REG_YMM0,  REG_YMM1,  REG_YMM2, REG_YMM3,  REG_YMM4,  REG_YMM5,
-    REG_YMM6,    REG_YMM7,  REG_YMM8,  REG_YMM9, REG_YMM10, REG_YMM11, REG_YMM12,
-    REG_YMM13,   REG_YMM14, REG_YMM15,
+    DR_REG_NULL,    DR_REG_XAX,     DR_REG_XCX,     DR_REG_XDX,     DR_REG_XBX,
+    DR_REG_XSP,     DR_REG_XBP,     DR_REG_XSI,     DR_REG_XDI,     DR_REG_R8,
+    DR_REG_R9,      DR_REG_R10,     DR_REG_R11,     DR_REG_R12,     DR_REG_R13,
+    DR_REG_R14,     DR_REG_R15,     DR_REG_XAX,     DR_REG_XCX,     DR_REG_XDX,
+    DR_REG_XBX,     DR_REG_XSP,     DR_REG_XBP,     DR_REG_XSI,     DR_REG_XDI,
+    DR_REG_R8,      DR_REG_R9,      DR_REG_R10,     DR_REG_R11,     DR_REG_R12,
+    DR_REG_R13,     DR_REG_R14,     DR_REG_R15,     DR_REG_XAX,     DR_REG_XCX,
+    DR_REG_XDX,     DR_REG_XBX,     DR_REG_XSP,     DR_REG_XBP,     DR_REG_XSI,
+    DR_REG_XDI,     DR_REG_R8,      DR_REG_R9,      DR_REG_R10,     DR_REG_R11,
+    DR_REG_R12,     DR_REG_R13,     DR_REG_R14,     DR_REG_R15,     DR_REG_XAX,
+    DR_REG_XCX,     DR_REG_XDX,     DR_REG_XBX,     DR_REG_XAX,     DR_REG_XCX,
+    DR_REG_XDX,     DR_REG_XBX,     DR_REG_R8,      DR_REG_R9,      DR_REG_R10,
+    DR_REG_R11,     DR_REG_R12,     DR_REG_R13,     DR_REG_R14,     DR_REG_R15,
+    DR_REG_XSP,     DR_REG_XBP,     DR_REG_XSI,     DR_REG_XDI, /* i#201 */
+    DR_REG_MM0,     DR_REG_MM1,     DR_REG_MM2,     DR_REG_MM3,     DR_REG_MM4,
+    DR_REG_MM5,     DR_REG_MM6,     DR_REG_MM7,     DR_REG_ZMM0,    DR_REG_ZMM1,
+    DR_REG_ZMM2,    DR_REG_ZMM3,    DR_REG_ZMM4,    DR_REG_ZMM5,    DR_REG_ZMM6,
+    DR_REG_ZMM7,    DR_REG_ZMM8,    DR_REG_ZMM9,    DR_REG_ZMM10,   DR_REG_ZMM11,
+    DR_REG_ZMM12,   DR_REG_ZMM13,   DR_REG_ZMM14,   DR_REG_ZMM15,   DR_REG_ZMM16,
+    DR_REG_ZMM17,   DR_REG_ZMM18,   DR_REG_ZMM19,   DR_REG_ZMM20,   DR_REG_ZMM21,
+    DR_REG_ZMM22,   DR_REG_ZMM23,   DR_REG_ZMM24,   DR_REG_ZMM25,   DR_REG_ZMM26,
+    DR_REG_ZMM27,   DR_REG_ZMM28,   DR_REG_ZMM29,   DR_REG_ZMM30,   DR_REG_ZMM31,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_ST0,     DR_REG_ST1,     DR_REG_ST2,
+    DR_REG_ST3,     DR_REG_ST4,     DR_REG_ST5,     DR_REG_ST6,     DR_REG_ST7,
+    DR_SEG_ES,      DR_SEG_CS,      DR_SEG_SS,      DR_SEG_DS,      DR_SEG_FS,
+    DR_SEG_GS,      DR_REG_DR0,     DR_REG_DR1,     DR_REG_DR2,     DR_REG_DR3,
+    DR_REG_DR4,     DR_REG_DR5,     DR_REG_DR6,     DR_REG_DR7,     DR_REG_DR8,
+    DR_REG_DR9,     DR_REG_DR10,    DR_REG_DR11,    DR_REG_DR12,    DR_REG_DR13,
+    DR_REG_DR14,    DR_REG_DR15,    DR_REG_CR0,     DR_REG_CR1,     DR_REG_CR2,
+    DR_REG_CR3,     DR_REG_CR4,     DR_REG_CR5,     DR_REG_CR6,     DR_REG_CR7,
+    DR_REG_CR8,     DR_REG_CR9,     DR_REG_CR10,    DR_REG_CR11,    DR_REG_CR12,
+    DR_REG_CR13,    DR_REG_CR14,    DR_REG_CR15,    DR_REG_INVALID, DR_REG_ZMM0,
+    DR_REG_ZMM1,    DR_REG_ZMM2,    DR_REG_ZMM3,    DR_REG_ZMM4,    DR_REG_ZMM5,
+    DR_REG_ZMM6,    DR_REG_ZMM7,    DR_REG_ZMM8,    DR_REG_ZMM9,    DR_REG_ZMM10,
+    DR_REG_ZMM11,   DR_REG_ZMM12,   DR_REG_ZMM13,   DR_REG_ZMM14,   DR_REG_ZMM15,
+    DR_REG_ZMM16,   DR_REG_ZMM17,   DR_REG_ZMM18,   DR_REG_ZMM19,   DR_REG_ZMM20,
+    DR_REG_ZMM21,   DR_REG_ZMM22,   DR_REG_ZMM23,   DR_REG_ZMM24,   DR_REG_ZMM25,
+    DR_REG_ZMM26,   DR_REG_ZMM27,   DR_REG_ZMM28,   DR_REG_ZMM29,   DR_REG_ZMM30,
+    DR_REG_ZMM31,   DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_ZMM0,    DR_REG_ZMM1,
+    DR_REG_ZMM2,    DR_REG_ZMM3,    DR_REG_ZMM4,    DR_REG_ZMM5,    DR_REG_ZMM6,
+    DR_REG_ZMM7,    DR_REG_ZMM8,    DR_REG_ZMM9,    DR_REG_ZMM10,   DR_REG_ZMM11,
+    DR_REG_ZMM12,   DR_REG_ZMM13,   DR_REG_ZMM14,   DR_REG_ZMM15,   DR_REG_ZMM16,
+    DR_REG_ZMM17,   DR_REG_ZMM18,   DR_REG_ZMM19,   DR_REG_ZMM20,   DR_REG_ZMM21,
+    DR_REG_ZMM22,   DR_REG_ZMM23,   DR_REG_ZMM24,   DR_REG_ZMM25,   DR_REG_ZMM26,
+    DR_REG_ZMM27,   DR_REG_ZMM28,   DR_REG_ZMM29,   DR_REG_ZMM30,   DR_REG_ZMM31,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_K0,      DR_REG_K1,      DR_REG_K2,
+    DR_REG_K3,      DR_REG_K4,      DR_REG_K5,      DR_REG_K6,      DR_REG_K7,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID,
+    DR_REG_INVALID, DR_REG_INVALID, DR_REG_INVALID, DR_REG_BND0,    DR_REG_BND1,
+    DR_REG_BND2,    DR_REG_BND3,
 };
 
 #ifdef DEBUG
 void
 encode_debug_checks(void)
 {
-    CLIENT_ASSERT(sizeof(dr_reg_fixer) / sizeof(dr_reg_fixer[0]) == REG_LAST_ENUM + 1,
+    CLIENT_ASSERT(sizeof(dr_reg_fixer) / sizeof(dr_reg_fixer[0]) == DR_REG_LAST_ENUM + 1,
                   "internal register enum error");
-    CLIENT_ASSERT(sizeof(reg_names) / sizeof(reg_names[0]) == REG_LAST_ENUM + 1,
+    CLIENT_ASSERT(sizeof(reg_names) / sizeof(reg_names[0]) == DR_REG_LAST_ENUM + 1,
                   "reg_names missing an entry");
     CLIENT_ASSERT(sizeof(type_names) / sizeof(type_names[0]) == TYPE_BEYOND_LAST_ENUM,
                   "type_names missing an entry");
@@ -181,7 +250,10 @@ encode_debug_checks(void)
 #endif
 
 #if defined(DEBUG) && defined(INTERNAL) && !defined(STANDALONE_DECODER)
-/* These operand types store a reg_id_t as their operand "size" */
+/* These operand types store a reg_id_t as their operand "size". Therefore, this function
+ * can be used to determine whether the operand stores a REG_ enum instead of an OPSZ_
+ * enum. The operand size is then implicit.
+ */
 static bool
 template_optype_is_reg(int optype)
 {
@@ -227,7 +299,8 @@ type_instr_uses_reg_bits(int type)
     case TYPE_G:
     case TYPE_P:
     case TYPE_S:
-    case TYPE_V: return true;
+    case TYPE_V:
+    case TYPE_K_REG: return true;
     default: return false;
     }
 }
@@ -244,17 +317,29 @@ type_uses_modrm_bits(int type)
     case TYPE_INDIR_E:
     case TYPE_P_MODRM:
     case TYPE_V_MODRM:
-    case TYPE_VSIB: return true;
+    case TYPE_VSIB:
+    case TYPE_K_MODRM:
+    case TYPE_K_MODRM_R: return true;
     default: return false;
     }
 }
 
 static bool
-type_uses_vex_vvvv_bits(int type)
+type_uses_e_vex_vvvv_bits(int type)
 {
     switch (type) {
     case TYPE_B:
-    case TYPE_H: return true;
+    case TYPE_H:
+    case TYPE_K_VEX: return true;
+    default: return false;
+    }
+}
+
+static bool
+type_uses_evex_aaa_bits(int type)
+{
+    switch (type) {
+    case TYPE_K_EVEX: return true;
     default: return false;
     }
 }
@@ -406,6 +491,41 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         if (size_template == OPSZ_108 || size_template == OPSZ_94)
             return true; /* will take prefix or no prefix */
         return false;
+    case OPSZ_16_vex32_evex64:
+        if (size_template == OPSZ_16 || size_template == OPSZ_32 ||
+            size_template == OPSZ_64)
+            return true; /* will take prefix or no prefix */
+        return false;
+    case OPSZ_half_16_vex32:
+        if (size_template == OPSZ_8 || size_template == OPSZ_16)
+            return true; /* will take prefix or no prefix */
+        return false;
+    case OPSZ_quarter_16_vex32:
+        if (size_template == OPSZ_4 || size_template == OPSZ_8)
+            return true; /* will take prefix or no prefix */
+        return false;
+    case OPSZ_eighth_16_vex32:
+        if (size_template == OPSZ_2 || size_template == OPSZ_4)
+            return true; /* will take prefix or no prefix */
+        return false;
+    case OPSZ_half_16_vex32_evex64:
+        if (size_template == OPSZ_8 || size_template == OPSZ_16 ||
+            size_template == OPSZ_32)
+            return true; /* will take prefix or no prefix */
+        return false;
+    case OPSZ_quarter_16_vex32_evex64:
+        if (size_template == OPSZ_4 || size_template == OPSZ_8 ||
+            size_template == OPSZ_16)
+            return true; /* will take prefix or no prefix */
+        return false;
+    case OPSZ_eighth_16_vex32_evex64:
+        if (size_template == OPSZ_2 || size_template == OPSZ_4 || size_template == OPSZ_8)
+            return true; /* will take prefix or no prefix */
+        return false;
+    case OPSZ_vex32_evex64:
+        if (size_template == OPSZ_32 || size_template == OPSZ_64)
+            return true; /* will take prefix or no prefix */
+        return false;
     default:
         CLIENT_ASSERT(false, "size_ok_varsz() internal decoding error (invalid size)");
         break;
@@ -436,6 +556,7 @@ resolve_var_x64_size(decode_info_t *di /*x86_mode is IN*/, opnd_size_t sz,
                     ? (proc_get_vendor() == VENDOR_INTEL ? OPSZ_8 : OPSZ_8_short2)
                     : OPSZ_4_short2);
     case OPSZ_6x10: return (X64_MODE(di) ? OPSZ_10 : OPSZ_6);
+    case OPSZ_8x16: return (X64_MODE(di) ? OPSZ_16 : OPSZ_8);
     }
     return sz;
 }
@@ -454,9 +575,16 @@ collapse_subreg_size(opnd_size_t sz)
     case OPSZ_14_of_16: return OPSZ_14;
     case OPSZ_15_of_16: return OPSZ_15;
     case OPSZ_16_of_32:
-        return OPSZ_16;
-        /* OPSZ_8_of_16_vex32, OPSZ_4_rex8_of_16, and OPSZ_12_rex8_of_16 are kept */
+    case OPSZ_16_of_32_evex64: return OPSZ_16;
+    case OPSZ_32_of_64: return OPSZ_32;
+    case OPSZ_4_of_32_evex64: return OPSZ_4;
+    case OPSZ_8_of_32_evex64: return OPSZ_8;
     }
+    /* OPSZ_8_of_16_vex32, OPSZ_4_rex8_of_16, and OPSZ_12_rex8_of_16,
+     * OPSZ_half_16_vex32, OPSZ_quarter_16_vex32, OPSZ_eighth_16_vex32,
+     * OPSZ_half_16_vex32_evex64, OPSZ_quarter_16_vex32_evex64, and
+     * OPSZ_eighth_16_vex32_evex64 are kept.
+     */
     return sz;
 }
 
@@ -490,7 +618,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
      * these values will hit the default assert) */
     CLIENT_ASSERT(size_template != OPSZ_6x10 && size_template != OPSZ_4x8_short2 &&
                       size_template != OPSZ_4x8_short2xi8 &&
-                      size_template != OPSZ_4_short2xi4 && size_template != OPSZ_4x8,
+                      size_template != OPSZ_4_short2xi4 && size_template != OPSZ_4x8 &&
+                      size_template != OPSZ_8x16,
                   "internal encoding error in size_ok()");
 
     /* register size checks go through reg_size_ok, so collapse sub-reg
@@ -522,6 +651,12 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 di->prefixes |= prefix_data_addr;
                 return true;
             }
+            if (size_template == OPSZ_eighth_16_vex32)
+                return !TEST(PREFIX_VEX_L, di->prefixes);
+            if (size_template == OPSZ_eighth_16_vex32_evex64) {
+                return !TEST(PREFIX_VEX_L, di->prefixes) &&
+                    !TEST(PREFIX_EVEX_LL, di->prefixes);
+            }
             return false;
         case OPSZ_4:
             if (size_template == OPSZ_4_short2)
@@ -542,6 +677,21 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             }
             if (size_template == OPSZ_4_rex8_of_16)
                 return !TEST(PREFIX_REX_W, di->prefixes);
+            if (size_template == OPSZ_quarter_16_vex32)
+                return !TEST(PREFIX_VEX_L, di->prefixes);
+            if (size_template == OPSZ_quarter_16_vex32_evex64) {
+                return !TEST(PREFIX_VEX_L, di->prefixes) &&
+                    !TEST(PREFIX_EVEX_LL, di->prefixes);
+            }
+            if (size_template == OPSZ_eighth_16_vex32) {
+                di->prefixes |= PREFIX_VEX_L;
+                return true;
+            }
+            if (size_template == OPSZ_eighth_16_vex32_evex64) {
+                if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                    di->prefixes |= PREFIX_VEX_L;
+                return true;
+            }
             return false;
         case OPSZ_6:
             if (size_template == OPSZ_6_irex10_short4) {
@@ -566,8 +716,28 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 return !TEST(prefix_data_addr, di->prefixes);
             if (size_template == OPSZ_8_rex16 || size_template == OPSZ_8_rex16_short4)
                 return !TESTANY(prefix_data_addr | PREFIX_REX_W, di->prefixes);
-            if (size_template == OPSZ_8_of_16_vex32)
+            if (size_template == OPSZ_8_of_16_vex32 ||
+                size_template == OPSZ_half_16_vex32)
                 return !TEST(PREFIX_VEX_L, di->prefixes);
+            if (size_template == OPSZ_half_16_vex32_evex64) {
+                return !TEST(PREFIX_VEX_L, di->prefixes) &&
+                    !TEST(PREFIX_EVEX_LL, di->prefixes);
+            }
+            if (size_template == OPSZ_quarter_16_vex32) {
+                if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                    di->prefixes |= PREFIX_VEX_L;
+                return true;
+            }
+            if (size_template == OPSZ_quarter_16_vex32_evex64) {
+                if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                    di->prefixes |= PREFIX_VEX_L;
+                return true;
+            }
+            if (size_template == OPSZ_eighth_16_vex32_evex64) {
+                di->prefixes |= PREFIX_EVEX_LL;
+                di->prefixes &= ~PREFIX_VEX_L;
+                return true;
+            }
             return false;
         case OPSZ_10:
             if (X64_MODE(di) && size_template == OPSZ_6_irex10_short4 &&
@@ -594,6 +764,19 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             }
             if (size_template == OPSZ_16_vex32)
                 return !TEST(PREFIX_VEX_L, di->prefixes);
+            if (size_template == OPSZ_16_vex32_evex64)
+                return !TESTANY(PREFIX_EVEX_LL | PREFIX_VEX_L, di->prefixes);
+            if (size_template == OPSZ_half_16_vex32 ||
+                size_template == OPSZ_half_16_vex32_evex64) {
+                if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                    di->prefixes |= PREFIX_VEX_L;
+                return true;
+            }
+            if (size_template == OPSZ_quarter_16_vex32_evex64) {
+                di->prefixes |= PREFIX_EVEX_LL;
+                di->prefixes &= ~PREFIX_VEX_L;
+                return true;
+            }
             return false; /* no matching varsz, must be exact match */
         case OPSZ_14:
             if (size_template == OPSZ_28_short14) {
@@ -609,8 +792,24 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_32:
             if (size_template == OPSZ_32_short16)
                 return !TEST(prefix_data_addr, di->prefixes);
-            if (size_template == OPSZ_16_vex32 || size_template == OPSZ_8_of_16_vex32) {
-                di->prefixes |= PREFIX_VEX_L;
+            if (size_template == OPSZ_16_vex32 || size_template == OPSZ_16_vex32_evex64 ||
+                size_template == OPSZ_8_of_16_vex32 ||
+                size_template == OPSZ_vex32_evex64) {
+                if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                    di->prefixes |= PREFIX_VEX_L;
+                return true;
+            }
+            if (size_template == OPSZ_half_16_vex32_evex64) {
+                di->prefixes |= PREFIX_EVEX_LL;
+                di->prefixes &= ~PREFIX_VEX_L;
+                return true;
+            }
+            return false;
+        case OPSZ_64:
+            if (size_template == OPSZ_16_vex32_evex64 ||
+                size_template == OPSZ_vex32_evex64) {
+                di->prefixes |= PREFIX_EVEX_LL;
+                di->prefixes &= ~PREFIX_VEX_L;
                 return true;
             }
             return false;
@@ -655,6 +854,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_16_vex32:
         case OPSZ_28_short14:
         case OPSZ_108_short94:
+        case OPSZ_16_vex32_evex64:
+        case OPSZ_vex32_evex64:
             return size_ok_varsz(di, size_op, size_template, prefix_data_addr);
         case OPSZ_1_reg4:
         case OPSZ_2_reg4:
@@ -674,6 +875,12 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_15_of_16:
         case OPSZ_8_of_16_vex32:
         case OPSZ_16_of_32:
+        case OPSZ_half_16_vex32:
+        case OPSZ_half_16_vex32_evex64:
+        case OPSZ_16_of_32_evex64:
+        case OPSZ_32_of_64:
+        case OPSZ_4_of_32_evex64:
+        case OPSZ_8_of_32_evex64:
         case OPSZ_0:
             /* handled below */
             break;
@@ -718,7 +925,7 @@ immed_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
     }
 }
 
-/* prefixes that aren't set by size_ok */
+/* Prefixes that aren't set by size_ok. */
 static bool
 reg_set_ext_prefixes(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                      reg_id_t reg, uint which_rex)
@@ -733,6 +940,19 @@ reg_set_ext_prefixes(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is I
 #endif
     return true; /* for use in && series */
 }
+
+#ifdef X64
+/* AVX-512 prefixes that aren't set by size_ok. */
+static bool
+reg_set_avx512_ext_prefixes(
+    decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_id_t reg,
+    uint which_rex)
+{
+    if (reg_is_avx512_extended(reg))
+        di->prefixes |= which_rex;
+    return true; /* for use in && series */
+}
+#endif
 
 static bool
 reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_id_t reg,
@@ -754,11 +974,20 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
              optype == TYPE_H || optype == TYPE_L))
             return (reg >= REG_START_XMM && reg <= REG_STOP_XMM);
     }
-    if (opsize == OPSZ_8_of_16_vex32 || optype == TYPE_VSIB) {
+    if (opsize == OPSZ_8_of_16_vex32 || opsize == OPSZ_half_16_vex32 ||
+        opsize == OPSZ_quarter_16_vex32 || opsize == OPSZ_eighth_16_vex32 ||
+        opsize == OPSZ_half_16_vex32_evex64 || opsize == OPSZ_quarter_16_vex32_evex64 ||
+        opsize == OPSZ_eighth_16_vex32_evex64 || optype == TYPE_VSIB) {
         if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
             return !TEST(PREFIX_VEX_L, di->prefixes);
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
-            di->prefixes |= PREFIX_VEX_L;
+            if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                di->prefixes |= PREFIX_VEX_L;
+            return true;
+        }
+        if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
+            di->prefixes |= PREFIX_EVEX_LL;
+            di->prefixes &= ~PREFIX_VEX_L;
             return true;
         }
         return false;
@@ -766,10 +995,32 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
     if (opsize == OPSZ_16_of_32) {
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
             /* Set VEX.L since required for some opcodes and the rest don't care */
-            di->prefixes |= PREFIX_VEX_L;
+            if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                di->prefixes |= PREFIX_VEX_L;
             return true;
         } else
             return false;
+    }
+    if (opsize == OPSZ_16_of_32_evex64 || opsize == OPSZ_4_of_32_evex64 ||
+        opsize == OPSZ_8_of_32_evex64) {
+        if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
+            if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                di->prefixes |= PREFIX_VEX_L;
+            return true;
+        } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
+            di->prefixes |= PREFIX_EVEX_LL;
+            di->prefixes &= ~PREFIX_VEX_L;
+            return true;
+        } else
+            return false;
+    }
+    if (opsize == OPSZ_32_of_64) {
+        if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
+            di->prefixes |= PREFIX_EVEX_LL;
+            di->prefixes &= ~PREFIX_VEX_L;
+            return true;
+        }
+        return false;
     }
     /* We assume that only type p uses OPSZ_6_irex10_short4: w/ data16, even though it's
      * 4 bytes and would fit in a register, this is invalid.
@@ -779,7 +1030,15 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
     if (size_ok(di, reg_get_size(reg), resolve_var_reg_size(opsize, true), addr)) {
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
             /* Set VEX.L since required for some opcodes and the rest don't care */
-            di->prefixes |= PREFIX_VEX_L;
+            if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                di->prefixes |= PREFIX_VEX_L;
+        } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
+            di->prefixes |= PREFIX_EVEX_LL;
+            /* Some instructions encode different simd operand register classes. It seems
+             * that the largest register class prevails. If this doesn't hold, we need
+             * another register type, e.g. TYPE_W_256 or alike.
+             */
+            di->prefixes &= ~PREFIX_VEX_L;
         }
         return true;
     }
@@ -791,7 +1050,9 @@ reg_rm_selectable(reg_id_t reg)
 {
     /* assumption: GPR registers (of all sizes) and mmx and xmm are all in a row */
     return (reg >= REG_START_64 && reg <= REG_STOP_XMM) ||
-        (reg >= REG_START_YMM && reg <= REG_STOP_YMM);
+        (reg >= REG_START_YMM && reg <= REG_STOP_YMM) ||
+        (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) ||
+        (reg >= DR_REG_START_BND && reg <= DR_REG_STOP_BND);
 }
 
 static bool
@@ -816,8 +1077,24 @@ mem_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opnd
 }
 
 static bool
+opnd_needs_evex(opnd_t opnd)
+{
+    if (!opnd_is_reg(opnd))
+        return false;
+    reg_id_t reg = opnd_get_reg(opnd);
+    if (reg_is_strictly_xmm(reg)) {
+        return DR_REG_XMM16 <= reg && reg <= DR_REG_XMM31;
+    } else if (reg_is_strictly_ymm(reg)) {
+        return DR_REG_YMM16 <= reg && reg <= DR_REG_YMM31;
+    } else if (reg_is_strictly_zmm(reg)) {
+        return DR_REG_ZMM16 <= reg && reg <= DR_REG_ZMM31;
+    }
+    return false;
+}
+
+static bool
 opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opnd_t opnd,
-             int optype, opnd_size_t opsize)
+             int optype, opnd_size_t opsize, uint flags)
 {
     DOLOG(ENC_LEVEL, LOG_EMIT, {
         dcontext_t *dcontext = get_thread_private_dcontext();
@@ -926,6 +1203,13 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         if (TEST(PREFIX_ADDR, di->prefixes))
             return false; /* VSIB invalid w/ 16-bit addressing */
 #endif
+        if (TEST(REQUIRES_VSIB_YMM, flags)) {
+            if (!reg_is_strictly_ymm(opnd_get_index(opnd)))
+                return false;
+        } else if (TEST(REQUIRES_VSIB_ZMM, flags)) {
+            if (!reg_is_strictly_zmm(opnd_get_index(opnd)))
+                return false;
+        }
         /* fall through */
     case TYPE_FLOATMEM:
     case TYPE_M: return mem_size_ok(di, opnd, optype, opsize);
@@ -1004,13 +1288,6 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         return (opnd_is_near_pc(opnd) || opnd_is_near_instr(opnd));
     case TYPE_A: {
         CLIENT_ASSERT(!X64_MODE(di), "x64 has no type A instructions");
-#ifdef IA32_ON_IA64
-        if (opsize != OPSZ_6_irex10_short4) {
-            return (opnd_is_near_instr(opnd) ||
-                    (opnd_is_near_pc(opnd) &&
-                     immed_size_ok(di, (uint)opnd_get_pc(opnd), opsize)));
-        }
-#endif
         return (opnd_is_far_pc(opnd) || opnd_is_far_instr(opnd));
     }
     case TYPE_O:
@@ -1147,7 +1424,43 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
     case TYPE_L:
         return (opnd_is_reg(opnd) &&
                 reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
-                reg_is_xmm(opnd_get_reg(opnd)));
+                (reg_is_strictly_xmm(opnd_get_reg(opnd)) ||
+                 reg_is_strictly_ymm(opnd_get_reg(opnd)) ||
+                 reg_is_strictly_zmm(opnd_get_reg(opnd))));
+    case TYPE_K_REG:
+        /* TYPE_K_REG, TYPE_K_MODRM_R, TYPE_K_MODRM (can be mem addr) and TYPE_K_VEX
+         * are k registers used in AVX-512 VEX encoded instructions with implicit size
+         * given by the opcode.
+         * TODO i#1312: reg_size_ok() should consume the reg opnd, and validate its size.
+         * At the same time, the INSTR_CREATE_ macros should consume a size in addition to
+         * the mask register. Currently, mask register sizes are not checked properly and
+         * default to OPSZ_64.
+         */
+        return (opnd_is_reg(opnd) && reg_is_opmask(opnd_get_reg(opnd)));
+    case TYPE_K_MODRM:
+        if (mem_size_ok(di, opnd, optype, opsize))
+            return true;
+        /* fall through */
+    case TYPE_K_MODRM_R:
+        /* Same comment above. */
+        return (opnd_is_reg(opnd) && reg_is_opmask(opnd_get_reg(opnd)));
+    case TYPE_K_VEX:
+        /* Same comment above. */
+        return (opnd_is_reg(opnd) && reg_is_opmask(opnd_get_reg(opnd)));
+    case TYPE_K_EVEX:
+        /* Same comment above. */
+        return (opnd_is_reg(opnd) && reg_is_opmask(opnd_get_reg(opnd)));
+    case TYPE_T_MODRM:
+        return (mem_size_ok(di, opnd, optype, opsize) ||
+                (opnd_is_reg(opnd) &&
+                 reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
+                 /* implies reg_rm_selectable() */
+                 reg_is_bnd(opnd_get_reg(opnd))));
+        return false;
+    case TYPE_T_REG:
+        return (opnd_is_reg(opnd) &&
+                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
+                reg_is_bnd(opnd_get_reg(opnd)));
     default:
         CLIENT_ASSERT(false, "encode error: type ok: unknown operand type");
         return false;
@@ -1167,12 +1480,16 @@ instr_info_extra_opnds(const instr_info_t *info)
 }
 
 /* macro for speed so we don't have to pass opnds around */
-#define TEST_OPND(di, iitype, iisize, iinum, inst_num, get_op)                           \
+#define TEST_OPND(di, iitype, iisize, iinum, inst_num, get_op, flags)                    \
     if (iitype != TYPE_NONE) {                                                           \
         if (inst_num < iinum)                                                            \
             return false;                                                                \
-        if (!opnd_type_ok(di, get_op, iitype, iisize))                                   \
+        if (!opnd_type_ok(di, get_op, iitype, iisize, flags))                            \
             return false;                                                                \
+        if (opnd_needs_evex(get_op)) {                                                   \
+            if (!TEST(REQUIRES_EVEX, flags))                                             \
+                return false;                                                            \
+        }                                                                                \
         if (type_instr_uses_reg_bits(iitype)) {                                          \
             if (!opnd_is_null(using_reg_bits) && !opnd_same(using_reg_bits, get_op))     \
                 return false;                                                            \
@@ -1181,13 +1498,26 @@ instr_info_extra_opnds(const instr_info_t *info)
             if (!opnd_is_null(using_modrm_bits) && !opnd_same(using_modrm_bits, get_op)) \
                 return false;                                                            \
             using_modrm_bits = get_op;                                                   \
-        } else if (type_uses_vex_vvvv_bits(iitype)) {                                    \
+        } else if (type_uses_e_vex_vvvv_bits(iitype)) {                                  \
             if (!opnd_is_null(using_vvvv_bits) && !opnd_same(using_vvvv_bits, get_op))   \
                 return false;                                                            \
             using_vvvv_bits = get_op;                                                    \
+        } else if (type_uses_evex_aaa_bits(iitype)) {                                    \
+            if (!opnd_is_null(using_aaa_bits) && !opnd_same(using_aaa_bits, get_op))     \
+                return false;                                                            \
+            if (TEST(REQUIRES_NOT_K0, flags) && opnd_get_reg(get_op) == DR_REG_K0)       \
+                return false;                                                            \
+            using_aaa_bits = get_op;                                                     \
         }                                                                                \
     } else if (inst_num >= iinum)                                                        \
         return false;
+
+static bool
+encoding_meets_hints(instr_t *instr, const instr_info_t *info)
+{
+    return !instr_has_encoding_hint(instr, DR_ENCODING_HINT_X86_EVEX) ||
+        TEST(REQUIRES_EVEX, info->flags);
+}
 
 /* May be called a 2nd time to check size prefix consistency.
  * FIXME optimization: in 2nd pass we only need to call opnd_type_ok()
@@ -1197,19 +1527,29 @@ static bool
 encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t *ii)
 {
     DEBUG_DECLARE(dcontext_t *dcontext = get_thread_private_dcontext();)
+
+    if (!encoding_meets_hints(in, ii))
+        return false;
+
     /* make sure multiple operands aren't using same modrm bits */
     opnd_t using_reg_bits = opnd_create_null();
     opnd_t using_modrm_bits = opnd_create_null();
     opnd_t using_vvvv_bits = opnd_create_null();
+    opnd_t using_aaa_bits = opnd_create_null();
 
     /* for efficiency we separately test 2 dsts, 3 srcs */
-    TEST_OPND(di, ii->dst1_type, ii->dst1_size, 1, in->num_dsts, instr_get_dst(in, 0));
-    TEST_OPND(di, ii->dst2_type, ii->dst2_size, 2, in->num_dsts, instr_get_dst(in, 1));
-    TEST_OPND(di, ii->src1_type, ii->src1_size, 1, in->num_srcs, instr_get_src(in, 0));
-    TEST_OPND(di, ii->src2_type, ii->src2_size, 2, in->num_srcs, instr_get_src(in, 1));
-    TEST_OPND(di, ii->src3_type, ii->src3_size, 3, in->num_srcs, instr_get_src(in, 2));
+    TEST_OPND(di, ii->dst1_type, ii->dst1_size, 1, in->num_dsts, instr_get_dst(in, 0),
+              ii->flags);
+    TEST_OPND(di, ii->dst2_type, ii->dst2_size, 2, in->num_dsts, instr_get_dst(in, 1),
+              ii->flags);
+    TEST_OPND(di, ii->src1_type, ii->src1_size, 1, in->num_srcs, instr_get_src(in, 0),
+              ii->flags);
+    TEST_OPND(di, ii->src2_type, ii->src2_size, 2, in->num_srcs, instr_get_src(in, 1),
+              ii->flags);
+    TEST_OPND(di, ii->src3_type, ii->src3_size, 3, in->num_srcs, instr_get_src(in, 2),
+              ii->flags);
 
-    if ((ii->flags & HAS_EXTRA_OPERANDS) != 0) {
+    if (TEST(HAS_EXTRA_OPERANDS, ii->flags)) {
         /* extra operands to test! */
         int offs = 1;
         ii = instr_info_extra_opnds(ii);
@@ -1221,15 +1561,15 @@ encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t *ii)
                           "encode error: extra operand template mismatch");
 
             TEST_OPND(di, ii->dst1_type, ii->dst1_size, (offs * 2 + 1), in->num_dsts,
-                      instr_get_dst(in, (offs * 2 + 0)));
+                      instr_get_dst(in, (offs * 2 + 0)), ii->flags);
             TEST_OPND(di, ii->dst2_type, ii->dst2_size, (offs * 2 + 2), in->num_dsts,
-                      instr_get_dst(in, (offs * 2 + 1)));
+                      instr_get_dst(in, (offs * 2 + 1)), ii->flags);
             TEST_OPND(di, ii->src1_type, ii->src1_size, (offs * 3 + 1), in->num_srcs,
-                      instr_get_src(in, (offs * 3 + 0)));
+                      instr_get_src(in, (offs * 3 + 0)), ii->flags);
             TEST_OPND(di, ii->src2_type, ii->src2_size, (offs * 3 + 2), in->num_srcs,
-                      instr_get_src(in, (offs * 3 + 1)));
+                      instr_get_src(in, (offs * 3 + 1)), ii->flags);
             TEST_OPND(di, ii->src3_type, ii->src3_size, (offs * 3 + 3), in->num_srcs,
-                      instr_get_src(in, (offs * 3 + 2)));
+                      instr_get_src(in, (offs * 3 + 2)), ii->flags);
             offs++;
             ii = instr_info_extra_opnds(ii);
         } while (ii != NULL);
@@ -1362,8 +1702,8 @@ encode_immed(decode_info_t *di, byte *pc)
              */
             val = di->immed - (len + di->modrm);
         } else if (di->immed_pc_rel_offs) {
-            /* this code means that the immed holds not the absolute pc but
-             * the offset
+            /* This code means that the immed currently holds not the absolute pc but
+             * the offset, but wants to hold the absolute pc.
              */
             size = di->size_immed; /* TYPE_I put real size there */
             CLIENT_ASSERT((size == OPSZ_4_short2 && !TEST(PREFIX_DATA, di->prefixes)) ||
@@ -1374,11 +1714,12 @@ encode_immed(decode_info_t *di, byte *pc)
              * HACK: di->modrm was set with the number of instruction bytes
              * prior to this immed
              */
-            val = di->immed + (ptr_int_t)pc - di->modrm;
+            val = di->immed + (ptr_int_t)(pc - di->start_pc + di->final_pc) - di->modrm;
             if (di->immed_shift > 0)
                 val >>= di->immed_shift;
 #ifdef X64
-                /* we auto-truncate below to the proper size rather than complaining */
+                /* we auto-truncate below to the proper size rather than complaining
+                 */
 #endif
         } else {
             val = di->immed;
@@ -1447,6 +1788,14 @@ encode_reg_ext_prefixes(decode_info_t *di, reg_id_t reg, uint which_rex)
 {
 #ifdef X64
     reg_set_ext_prefixes(di, reg, which_rex);
+#endif
+}
+
+static void
+encode_avx512_reg_ext_prefixes(decode_info_t *di, reg_id_t reg, uint which_rex)
+{
+#ifdef X64
+    reg_set_avx512_ext_prefixes(di, reg, which_rex);
 #endif
 }
 
@@ -1552,6 +1901,9 @@ encode_base_disp(decode_info_t *di, opnd_t opnd)
             di->disp = disp;
         }
     } else {
+        int compressed_disp_scale = 0;
+        if (di->evex_encoded)
+            compressed_disp_scale = decode_get_compressed_disp_scale(di);
         if (disp == 0 &&
             /* must use 8-bit disp for 0x0(%ebp) or 0x0(%r13) */
             ((!addr16 &&
@@ -1564,7 +1916,15 @@ encode_base_disp(decode_info_t *di, opnd_t opnd)
             /* no disp */
             di->mod = 0;
             di->has_disp = false;
-        } else if (disp >= INT8_MIN && disp <= INT8_MAX &&
+        } else if (di->evex_encoded && disp % compressed_disp_scale == 0 &&
+                   disp / compressed_disp_scale >= INT8_MIN &&
+                   disp / compressed_disp_scale <= INT8_MAX &&
+                   !opnd_is_disp_force_full(opnd)) {
+            /* 8-bit compressed disp */
+            di->mod = 1;
+            di->has_disp = true;
+            di->disp = disp / compressed_disp_scale;
+        } else if (!di->evex_encoded && disp >= INT8_MIN && disp <= INT8_MAX &&
                    !opnd_is_disp_force_full(opnd)) {
             /* 8-bit disp */
             di->mod = 1;
@@ -1618,11 +1978,15 @@ encode_base_disp(decode_info_t *di, opnd_t opnd)
                 /* note that r13 can be an index register */
                 CLIENT_ASSERT(index != REG_ESP IF_X64(&&index != REG_RSP),
                               "encode error: xsp cannot be an index register");
-                CLIENT_ASSERT(reg_is_32bit(index) ||
-                                  (X64_MODE(di) && reg_is_64bit(index)) ||
-                                  reg_is_xmm(index) /* VSIB */,
-                              "encode error: index must be general-purpose register");
+                CLIENT_ASSERT(
+                    reg_is_32bit(index) || (X64_MODE(di) && reg_is_64bit(index)) ||
+                        reg_is_strictly_xmm(index) || reg_is_strictly_ymm(index) ||
+                        reg_is_strictly_zmm(index) /* VSIB */,
+                    "encode error: index must be general-purpose register or VSIB "
+                    "index "
+                    "vector register");
                 encode_reg_ext_prefixes(di, index, PREFIX_REX_X);
+                encode_avx512_reg_ext_prefixes(di, index, PREFIX_EVEX_VV);
                 if (X64_MODE(di) && reg_is_32bit(index))
                     di->prefixes |= PREFIX_ADDR;
                 di->index = reg_get_bits(index);
@@ -1727,9 +2091,12 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
     case TYPE_E:
     case TYPE_Q:
     case TYPE_W:
-    case TYPE_R:       /* we already ensured this is a reg, not memory */
-    case TYPE_P_MODRM: /* we already ensured this is a reg, not memory */
-    case TYPE_V_MODRM: /* we already ensured this is a reg, not memory */
+    case TYPE_K_MODRM:
+    case TYPE_R:         /* we already ensured this is a reg, not memory */
+    case TYPE_P_MODRM:   /* we already ensured this is a reg, not memory */
+    case TYPE_V_MODRM:   /* we already ensured this is a reg, not memory */
+    case TYPE_K_MODRM_R: /* we already ensured this is a reg, not memory */
+    case TYPE_T_MODRM:
         if (opnd_is_memory_reference(opnd)) {
             if (opnd_is_far_memory_reference(opnd)) {
                 di->seg_override = opnd_get_segment(opnd);
@@ -1771,6 +2138,8 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
             }
             di->mod = 3;
             encode_reg_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_REX_B);
+            /* X-bit is combined with EVEX.B and ModR/M.rm, when SIB/VSIB absent. */
+            encode_avx512_reg_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_REX_X);
             di->rm = reg_get_bits(opnd_get_reg(opnd));
         }
         return;
@@ -1788,6 +2157,18 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
             return;
         }
         encode_reg_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_REX_R);
+        encode_avx512_reg_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_EVEX_RR);
+        di->reg = reg_get_bits(opnd_get_reg(opnd));
+        return;
+    }
+    case TYPE_T_REG: {
+        CLIENT_ASSERT(opnd_is_reg(opnd), "encode error: operand must be a register");
+        if (di->reg < 8) {
+            /* already set (by a dst equal to src, probably) */
+            CLIENT_ASSERT(di->reg == reg_get_bits(opnd_get_reg(opnd)),
+                          "encode error: modrm mismatch");
+            return;
+        }
         di->reg = reg_get_bits(opnd_get_reg(opnd));
         return;
     }
@@ -1858,27 +2239,6 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
     }
     case TYPE_A: {
         ptr_uint_t target;
-
-#ifdef IA32_ON_IA64
-        if (opsize == OPSZ_4_short2) {
-            if (opnd_is_near_instr(opnd)) {
-                /* assume the note fields have been set with relative offsets
-                 * from some start pc
-                 */
-                instr_t *target_instr = opnd_get_instr(opnd);
-                target = (ptr_uint_t)target_instr->note;
-                /* target is absolute address of instr ready to go */
-                set_immed(di, target, opsize);
-                di->has_instr_opnds = true;
-            } else {
-                CLIENT_ASSERT(opnd_is_near_pc(opnd), "encode error: opnd not pc");
-                target = (ptr_uint_t)opnd_get_pc(opnd);
-                set_immed(di, target, opsize);
-            }
-            return;
-        }
-#endif
-
         CLIENT_ASSERT(!X64_MODE(di), "x64 has no type A instructions");
         CLIENT_ASSERT(opsize == OPSZ_6_irex10_short4 || opsize == OPSZ_6 ||
                           opsize == OPSZ_4 ||
@@ -1972,29 +2332,54 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
 
     case TYPE_L: {
         reg_id_t reg = opnd_get_reg(opnd);
+        CLIENT_ASSERT(!reg_is_strictly_zmm(reg), "FIXME i#1312: unsupported.");
         ptr_int_t immed =
-            (reg_is_ymm(reg) ? (reg - REG_START_YMM) : (reg - REG_START_XMM));
+            (reg_is_strictly_ymm(reg) ? (reg - REG_START_YMM) : (reg - REG_START_XMM));
         immed = (immed << 4);
         set_immed(di, immed, OPSZ_1);
         return;
     }
     case TYPE_H: {
         reg_id_t reg = opnd_get_reg(opnd);
-        di->vex_vvvv =
-            (byte)(reg_is_ymm(reg) ? (reg - REG_START_YMM) : (reg - REG_START_XMM));
+        encode_avx512_reg_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_EVEX_VV);
+        /* vex_vvvv abd evex_vvvv is a union. */
+        if (reg_is_strictly_zmm(reg))
+            di->evex_vvvv = (byte)(reg - DR_REG_START_ZMM);
+        else if (reg_is_strictly_ymm(reg))
+            di->vex_vvvv = (byte)(reg - DR_REG_START_YMM);
+        else
+            di->vex_vvvv = (byte)(reg - DR_REG_START_XMM);
         di->vex_vvvv = (~di->vex_vvvv) & 0xf;
         return;
     }
     case TYPE_B: {
         /* There are 4 bits in vvvv so no prefix bit is needed. */
+        /* XXX i#1312: what about evex.vvvv? */
         reg_id_t reg = opnd_get_reg(opnd);
         encode_reg_ext_prefixes(di, reg, 0);
         di->vex_vvvv = reg_get_bits(reg);
 #ifdef X64
         if (reg_is_extended(reg)) /* reg_get_bits does % 8 */
             di->vex_vvvv |= 0x8;
+        encode_avx512_reg_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_EVEX_VV);
 #endif
         di->vex_vvvv = (~di->vex_vvvv) & 0xf;
+        return;
+    }
+    case TYPE_K_REG: {
+        reg_id_t reg = opnd_get_reg(opnd);
+        di->reg = (byte)(reg - DR_REG_START_OPMASK);
+        return;
+    }
+    case TYPE_K_VEX: {
+        reg_id_t reg = opnd_get_reg(opnd);
+        di->vex_vvvv = (byte)(reg - DR_REG_START_OPMASK);
+        di->vex_vvvv = (~di->vex_vvvv) & 0xf;
+        return;
+    }
+    case TYPE_K_EVEX: {
+        reg_id_t reg = opnd_get_reg(opnd);
+        di->evex_aaa = (byte)(reg - DR_REG_START_OPMASK);
         return;
     }
 
@@ -2025,6 +2410,75 @@ encode_vex_final_prefix_byte(byte cur_byte, decode_info_t *di, const instr_info_
 }
 
 static byte *
+encode_evex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *info,
+                     bool *output_initial_opcode)
+{
+    byte val = 0;
+    CLIENT_ASSERT(output_initial_opcode != NULL, "required param");
+    *output_initial_opcode = true;
+    *field_ptr = 0x62;
+    di->evex_encoded = true;
+    field_ptr++;
+    /* second evex byte */
+    val = /* these are negated */
+        (TEST(PREFIX_REX_R, di->prefixes) ? 0x00 : 0x80) |
+        (TEST(PREFIX_REX_X, di->prefixes) ? 0x00 : 0x40) |
+        (TEST(PREFIX_REX_B, di->prefixes) ? 0x00 : 0x20) |
+        (TEST(PREFIX_EVEX_RR, di->prefixes) ? 0x00 : 0x10);
+    if (TEST(OPCODE_THREEBYTES, info->opcode)) {
+        byte op3 = (byte)((info->opcode & 0x00ff0000) >> 16);
+        if (op3 == 0x38)
+            val |= 0x02;
+        else if (op3 == 0x3a)
+            val |= 0x03;
+        else
+            CLIENT_ASSERT(false, "unknown 3-byte opcode");
+    } else {
+        byte op3 = (byte)((info->opcode & 0x00ff0000) >> 16);
+        if (op3 == 0x0f)
+            val |= 0x01;
+    }
+    *field_ptr = val;
+    field_ptr++;
+    /* third evex byte */
+    val = (TEST(PREFIX_REX_W, di->prefixes) ? 0x80 : 0x00);
+    /* we override OPCODE_MODRM for evex to mean "requires evex.W" */
+    if (TEST(OPCODE_MODRM, info->opcode))
+        val = 0x80;
+    /* evex fixed bit always 1. */
+    val |= 0x4;
+    val |= di->evex_vvvv << 3;
+    /* OPCODE_{MODRM,SUFFIX} mean something else for evex */
+    if (info->opcode > 0xffffff) {
+        byte prefix = (byte)(info->opcode >> 24);
+        if (prefix == 0x66)
+            val |= 0x1;
+        else if (prefix == 0xf3)
+            val |= 0x2;
+        else if (prefix == 0xf2)
+            val |= 0x3;
+        else
+            CLIENT_ASSERT(false, "unknown evex prefix");
+    }
+    *field_ptr = val;
+    field_ptr++;
+    /* fourth evex byte */
+    val = (TEST(PREFIX_EVEX_z, di->prefixes) ? 0x80 : 0x00) |
+        (TEST(PREFIX_EVEX_LL, di->prefixes) ? 0x40 : 0x00) |
+        (TEST(PREFIX_VEX_L, di->prefixes) ? 0x20 : 0x00) |
+        (TEST(PREFIX_EVEX_b, di->prefixes) ? 0x10 : 0x00) |
+        (TEST(PREFIX_EVEX_VV, di->prefixes) ? 0x00 : 0x08);
+    /* we override OPCODE_SUFFIX for evex to mean "requires evex.L" */
+    /* XXX i#1312: what about evex.L'? */
+    if (TEST(OPCODE_SUFFIX, info->opcode))
+        val |= 0x20;
+    val |= di->evex_aaa;
+    *field_ptr = val;
+    field_ptr++;
+    return field_ptr;
+}
+
+static byte *
 encode_vex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *info,
                     bool *output_initial_opcode)
 {
@@ -2049,8 +2503,10 @@ encode_vex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *info
         /* first vex byte */
         if (xop)
             *field_ptr = 0x8f;
-        else
+        else {
             *field_ptr = 0xc4;
+            di->vex_encoded = true;
+        }
         field_ptr++;
         /* second vex byte */
         val = /* these are negated */
@@ -2091,6 +2547,7 @@ encode_vex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *info
         /* 2-byte vex */
         /* first vex byte */
         *field_ptr = 0xc5;
+        di->vex_encoded = true;
         field_ptr++;
         /* second vex byte */
         val = (TEST(PREFIX_REX_R, di->prefixes) ? 0x00 : 0x80); /* negated */
@@ -2206,10 +2663,6 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
 {
     byte *orig_dst_pc = dst_pc;
     ASSERT(instr_raw_bits_valid(instr));
-    /* FIXME i#731: if want to support ctis as well, need
-     * instr->rip_rel_disp_sz and need to set both for non-x64 as well
-     * in decode_sizeof(): or only in decode_cti()?
-     */
     /* For PR 251646 we have special support for mangled jecxz/loop* */
     if (instr_is_cti_short_rewrite(instr, NULL)) {
         app_pc target;
@@ -2224,7 +2677,6 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
         }
         *((int *)dst_pc) = (int)(target - (final_pc + instr->length));
     }
-#ifdef X64
     /* We test the flag directly to support cases where the raw bits are
      * being set by private_instr_encode() */
     else if (instr_rip_rel_valid(instr) && instr_get_rip_rel_pos(instr) > 0) {
@@ -2233,9 +2685,9 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
         ptr_int_t new_offs;
         bool addr32 = false;
         uint rip_rel_pos = instr_get_rip_rel_pos(instr); /* disp offs within instr */
-        DEBUG_DECLARE(bool ok;)
         ASSERT(!instr_is_level_0(instr));
-        DEBUG_DECLARE(ok =) instr_get_rel_addr_target(instr, &target);
+        DEBUG_DECLARE(bool ok;)
+        DEBUG_DECLARE(ok =) instr_get_rel_data_or_instr_target(instr, &target);
         ASSERT(ok);
         new_offs = target - (final_pc + instr->length);
         /* PR 253327: we don't record whether addr32 so we have to deduce it now */
@@ -2243,7 +2695,7 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
             int num_prefixes;
             int i;
             IF_X64(bool old_mode = set_x86_mode(dcontext, instr_get_x86_mode(instr));)
-            decode_sizeof(dcontext, instr->bytes, &num_prefixes, NULL);
+            decode_sizeof(dcontext, instr->bytes, &num_prefixes _IF_X64(NULL));
             IF_X64(set_x86_mode(dcontext, old_mode));
             for (i = 0; i < num_prefixes; i++) {
                 if (*(instr->bytes + i) == ADDR_PREFIX_OPCODE) {
@@ -2265,14 +2717,21 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
         }
         memcpy(dst_pc, instr->bytes, rip_rel_pos);
         dst_pc += rip_rel_pos;
-        *((int *)dst_pc) = (int)new_offs;
-        if (rip_rel_pos + 4U < instr->length) {
-            /* suffix byte */
-            memcpy(dst_pc + 4, instr->bytes + rip_rel_pos + 4,
-                   instr->length - (rip_rel_pos + 4));
+        /* We only support non-4-byte rip-rel disps for 1-byte instr-final (jcc_short). */
+        if (rip_rel_pos + 1 == instr->length) {
+            ASSERT(CHECK_TRUNCATE_TYPE_sbyte(new_offs));
+            *((char *)dst_pc) = (char)new_offs;
+        } else {
+            ASSERT(rip_rel_pos + 4 <= instr->length);
+            ASSERT(CHECK_TRUNCATE_TYPE_int(new_offs));
+            *((int *)dst_pc) = (int)new_offs;
+            if (rip_rel_pos + 4U < instr->length) {
+                /* suffix byte */
+                memcpy(dst_pc + 4, instr->bytes + rip_rel_pos + 4,
+                       instr->length - (rip_rel_pos + 4));
+            }
         }
     } else
-#endif
         memcpy(dst_pc, instr->bytes, instr->length);
     return orig_dst_pc + instr->length;
 }
@@ -2283,12 +2742,11 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
  * N.B: if instr is a jump with an instr_t target, the caller MUST set the note
  * field in the target instr_t prior to calling instr_encode on the jump instr.
  *
- * Returns the pc after the encoded instr, or NULL if the instruction cannot be encoded.
- * Note that if instr_is_label(instr) it will be  encoded as a 0-byte instruction.
- * If a pc-relative operand cannot reach its target:
- *   If reachable == NULL, we assert and encoding fails (returning NULL);
- *   Else, encoding continues, and *reachable is set to false.
- * Else, if reachable != NULL, *reachable is set to true.
+ * Returns the pc after the encoded instr, or NULL if the instruction cannot be
+ * encoded. Note that if instr_is_label(instr) it will be  encoded as a 0-byte
+ * instruction. If a pc-relative operand cannot reach its target: If reachable ==
+ * NULL, we assert and encoding fails (returning NULL); Else, encoding continues, and
+ * *reachable is set to false. Else, if reachable != NULL, *reachable is set to true.
  */
 byte *
 instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc,
@@ -2341,7 +2799,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     /* first, walk through instr list to find format that matches
      * this instr's operands
      */
-    DOLOG(ENC_LEVEL, LOG_EMIT, { loginst(dcontext, 1, instr, "\n--- encoding"); });
+    DOLOG(ENC_LEVEL, LOG_EMIT, { d_r_loginst(dcontext, 1, instr, "\n--- encoding"); });
 
     memset(&di, 0, sizeof(decode_info_t));
     di.opcode = opc;
@@ -2352,7 +2810,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
      * in encoding_possible().
      */
     di.prefixes = instr->prefixes;
-    di.vex_vvvv = 0xf; /* 4 1's by default */
+    di.vex_vvvv = 0xf; /* 4 1's by default. This is a union with di.evex_vvvv. */
 
     /* We check predication, to help clients who are generating instrs from
      * having incorrect analysis results on their own gencode.
@@ -2404,20 +2862,48 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     /* instr_t* operand support */
     di.cur_note = (ptr_int_t)instr->note;
 
-    /* operands
-     * we can ignore extra operands here, since all extra operands
-     * are hardcoded
-     */
-    if (info->dst1_type != TYPE_NONE)
-        encode_operand(&di, info->dst1_type, info->dst1_size, instr_get_dst(instr, 0));
-    if (info->dst2_type != TYPE_NONE)
-        encode_operand(&di, info->dst2_type, info->dst2_size, instr_get_dst(instr, 1));
-    if (info->src1_type != TYPE_NONE)
-        encode_operand(&di, info->src1_type, info->src1_size, instr_get_src(instr, 0));
-    if (info->src2_type != TYPE_NONE)
-        encode_operand(&di, info->src2_type, info->src2_size, instr_get_src(instr, 1));
-    if (info->src3_type != TYPE_NONE)
-        encode_operand(&di, info->src3_type, info->src3_size, instr_get_src(instr, 2));
+    di.vex_encoded = TEST(REQUIRES_VEX, info->flags);
+    di.evex_encoded = TEST(REQUIRES_EVEX, info->flags);
+    CLIENT_ASSERT(!di.vex_encoded || !di.evex_encoded,
+                  "instr_encode error: flags can't be both vex and evex.");
+
+    if (di.evex_encoded)
+        decode_get_tuple_type_input_size(info, &di);
+    if (di.vex_encoded || di.evex_encoded) {
+        if (TEST(OPCODE_MODRM, info->opcode))
+            di.prefixes |= PREFIX_REX_W;
+    }
+
+    const instr_info_t *ii = info;
+    int offs = 0;
+    do {
+        if (ii->dst1_type != TYPE_NONE) {
+            encode_operand(&di, ii->dst1_type, ii->dst1_size,
+                           instr_get_dst(instr, offs * 2 + 0));
+        }
+        if (ii->dst2_type != TYPE_NONE) {
+            encode_operand(&di, ii->dst2_type, ii->dst2_size,
+                           instr_get_dst(instr, offs * 2 + 1));
+        }
+        if (ii->src1_type != TYPE_NONE) {
+            encode_operand(&di, ii->src1_type, ii->src1_size,
+                           instr_get_src(instr, offs * 3 + 0));
+        }
+        if (ii->src2_type != TYPE_NONE) {
+            encode_operand(&di, ii->src2_type, ii->src2_size,
+                           instr_get_src(instr, offs * 3 + 1));
+        }
+        if (ii->src3_type != TYPE_NONE) {
+            encode_operand(&di, ii->src3_type, ii->src3_size,
+                           instr_get_src(instr, offs * 3 + 2));
+        }
+        offs++;
+        if (TEST(HAS_EXTRA_OPERANDS, ii->flags))
+            ii = instr_info_extra_opnds(ii);
+        else
+            ii = NULL;
+    } while (ii != NULL);
+
     if (di.mod == 5 && di.reg < 8) { /* mod may never be set (e.g., OP_extrq) */
         /* follow lead of below where we set to all 1's */
         di.mod = 3;
@@ -2473,13 +2959,19 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         field_ptr++;
     }
 
-    /* vex prefix must be last and if present includes prefix bytes, rex flags,
-     * and some opcode bytes
+    /* vex and evex prefix must be last and if present includes prefix bytes, rex
+     * flags, and some opcode bytes.
      */
-    if (TEST(REQUIRES_VEX, info->flags)) {
+    if (di.vex_encoded) {
+        if (TEST(REQUIRES_VEX_L_1, info->flags)) {
+            di.prefixes |= PREFIX_VEX_L;
+        }
         field_ptr = encode_vex_prefixes(field_ptr, &di, info, &output_initial_opcode);
+    } else if (di.evex_encoded) {
+        field_ptr = encode_evex_prefixes(field_ptr, &di, info, &output_initial_opcode);
     } else {
         CLIENT_ASSERT(!TEST(PREFIX_VEX_L, di.prefixes), "internal encode vex error");
+        CLIENT_ASSERT(!TEST(PREFIX_EVEX_LL, di.prefixes), "internal encode evex error");
 
         /* output the opcode required prefix byte (if needed) */
         if (info->opcode > 0xffffff &&
@@ -2528,10 +3020,11 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
 
     /* second opcode byte, if there is one */
-    if (TEST(OPCODE_TWOBYTES, info->opcode)) {
+    if (TEST(OPCODE_TWOBYTES, info->opcode) || TEST(OPCODE_THREEBYTES, info->opcode)) {
         *field_ptr = (byte)((info->opcode & 0x0000ff00) >> 8);
         field_ptr++;
     }
+
     /* /n: part of opcode is in reg of modrm byte */
     if (TEST(OPCODE_REG, info->opcode)) {
         CLIENT_ASSERT(di.reg == 8,
@@ -2546,7 +3039,8 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         }
     }
     /* opcode depends on entire modrm byte */
-    if (!TEST(REQUIRES_VEX, info->flags) && TEST(OPCODE_MODRM, info->opcode)) {
+    if (!TESTANY(REQUIRES_VEX | REQUIRES_EVEX, info->flags) &&
+        TEST(OPCODE_MODRM, info->opcode)) {
         /* modrm is encoded in prefix byte */
         *field_ptr = (byte)(info->opcode >> 24);
         field_ptr++;
@@ -2604,7 +3098,8 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         field_ptr = encode_immed(&di, field_ptr);
 
     /* suffix opcode */
-    if (!TEST(REQUIRES_VEX, info->flags) && TEST(OPCODE_SUFFIX, info->opcode)) {
+    if (!TESTANY(REQUIRES_VEX | REQUIRES_EVEX, info->flags) &&
+        TEST(OPCODE_SUFFIX, info->opcode)) {
         /* none of these have immeds, currently (and presumably never will have) */
         ASSERT_CURIOSITY(di.size_immed == OPSZ_NA && di.size_immed2 == OPSZ_NA);
         /* modrm is encoded in prefix byte */
@@ -2613,7 +3108,6 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
 
     if (disp_relativize_at != NULL) {
-        CLIENT_ASSERT(X64_MODE(&di), "encode error: no rip-relative in x86 mode!");
         if (check_reachable &&
             !CHECK_TRUNCATE_TYPE_int(di.disp_abs - (field_ptr - copy_pc + final_pc)) &&
             /* PR 253327: we auto-add addr prefix for out-of-reach low tgt */
@@ -2628,11 +3122,11 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
          * private_instr_encode()), set rip_rel_pos */
         CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_byte(disp_relativize_at - di.start_pc),
                       "internal encode error: rip-relative instr pos too large");
-        IF_X64(instr_set_rip_rel_pos(instr, (byte)(disp_relativize_at - di.start_pc)));
+        instr_set_rip_rel_pos(instr, (byte)(disp_relativize_at - di.start_pc));
     }
 
 #if DEBUG_DISABLE /* turn back on if want to debug */
-    if (stats->loglevel >= 3) {
+    if (d_r_stats->loglevel >= 3) {
         byte *pc = cache_pc;
         LOG(THREAD, LOG_EMIT, 3, "instr_encode on: ");
         instr_disassemble(dcontext, instr, THREAD);

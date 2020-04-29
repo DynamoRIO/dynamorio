@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -299,32 +299,32 @@ RtlAllocateHeap(HANDLE heap, ULONG flags, SIZE_T size);
 void *
 wrapped_dr_alloc(ULONG flags, SIZE_T size)
 {
-    byte *mem;
-    ASSERT(sizeof(size_t) >= HEAP_ALIGNMENT);
-    size += sizeof(size_t);
-    mem = global_heap_alloc(size HEAPACCT(ACCT_LIBDUP));
+    /* HeapAlloc returns 16-byte-aligned for 64-bit and 8-byte-aligned for 32-bit.
+     * We use redirect_malloc() to get that alignment.
+     */
+    void *mem = redirect_malloc(size);
     if (mem == NULL) {
-        /* FIXME: support HEAP_GENERATE_EXCEPTIONS (xref PR 406742) */
+        /* TODO: support HEAP_GENERATE_EXCEPTIONS (xref PR 406742).
+         * redirect_malloc() already did a CLIENT_ASSERT too: we'd want to remove that.
+         */
         ASSERT_NOT_REACHED();
         return NULL;
     }
-    *((size_t *)mem) = size;
     if (TEST(HEAP_ZERO_MEMORY, flags))
-        memset(mem + sizeof(size_t), 0, size - sizeof(size_t));
-    return (void *)(mem + sizeof(size_t));
+        memset(mem, 0, size);
+    return mem;
 }
 
 void
 wrapped_dr_free(byte *ptr)
 {
-    ptr -= sizeof(size_t);
-    global_heap_free(ptr, *((size_t *)ptr)HEAPACCT(ACCT_LIBDUP));
+    redirect_free(ptr);
 }
 
 static inline size_t
 wrapped_dr_size(byte *ptr)
 {
-    return *((size_t *)(ptr - sizeof(size_t))) - sizeof(size_t);
+    return redirect_malloc_requested_size(ptr);
 }
 
 void *WINAPI
@@ -838,15 +838,30 @@ redirect_RtlPcToFileHeader(__in PVOID PcValue, __out PVOID *BaseOfImage)
  * i#875: FLS isolation
  */
 
+#ifndef FLS_MAX_COUNT
+/* The max is 4096 on Win10-1909 (and probably earlier) but we do not try to emulate
+ * that maximum since we're using the limited FlsBitmapBits in the PEB still.
+ */
+#    define FLS_MAX_COUNT 128
+#endif
+
 void
 ntdll_redir_fls_init(PEB *app_peb, PEB *private_peb)
 {
     /* FLS is supported in WinXP-64 or later */
     ASSERT(get_os_version() >= WINDOWS_VERSION_2003);
+
+    /* i#3633: Implement FLS isolation for Win10 1903+ where FLS data is no longer
+     * in the PEB. It is now SparePointers/Ulongs. We will use them as PEB->Fls*.
+     */
+
     /* We need a deep copy of FLS structures */
     private_peb->FlsBitmap =
         HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, RTL_BITMAP, ACCT_LIBDUP, UNPROTECTED);
-    private_peb->FlsBitmap->SizeOfBitMap = app_peb->FlsBitmap->SizeOfBitMap;
+    if (app_peb->FlsBitmap == NULL)
+        private_peb->FlsBitmap->SizeOfBitMap = FLS_MAX_COUNT;
+    else
+        private_peb->FlsBitmap->SizeOfBitMap = app_peb->FlsBitmap->SizeOfBitMap;
     private_peb->FlsBitmap->BitMapBuffer = (LPBYTE)&private_peb->FlsBitmapBits;
     memset(private_peb->FlsBitmapBits, 0, sizeof(private_peb->FlsBitmapBits));
 
@@ -876,6 +891,33 @@ ntdll_redir_fls_exit(PEB *private_peb)
                     private_peb->FlsBitmap->SizeOfBitMap, ACCT_LIBDUP, UNPROTECTED);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb->FlsBitmap, RTL_BITMAP, ACCT_LIBDUP,
                    UNPROTECTED);
+}
+
+/* i#3633: Fix Windows 1903 issue. FLS is not held inside of PEB but in private
+ * variables inside of ntdll.dll. In case that FLS slips, and priv_fls_data ends up
+ * in ntdll.dll internal struct, we will perform unlinking to prevent crashes which
+ * can happen if priv_fls_data remains inside of ntdll.dll.
+ */
+void
+ntdll_redir_fls_thread_exit(PPVOID fls_data_ptr)
+{
+    PEB *peb = IF_CLIENT_INTERFACE_ELSE(get_private_peb(), get_peb(NT_CURRENT_PROCESS));
+    LIST_ENTRY *fls_data;
+    NTSTATUS res;
+    if (fls_data_ptr == NULL)
+        return;
+
+    res = RtlEnterCriticalSection(peb->FastPebLock);
+    if (!NT_SUCCESS(res))
+        return;
+
+    fls_data = (LIST_ENTRY *)fls_data_ptr;
+
+    fls_data->Flink->Blink = fls_data->Blink;
+    fls_data->Blink->Flink = fls_data->Flink;
+
+    RtlLeaveCriticalSection(peb->FastPebLock);
+    return;
 }
 
 NTSTATUS NTAPI
@@ -931,7 +973,7 @@ redirect_RtlFlsFree(IN DWORD index)
     if (!NT_SUCCESS(res))
         return res;
 
-    bitmap_mark_freed_sequence(peb->TlsBitmap->BitMapBuffer, peb->TlsBitmap->SizeOfBitMap,
+    bitmap_mark_freed_sequence(peb->FlsBitmap->BitMapBuffer, peb->FlsBitmap->SizeOfBitMap,
                                index, 1);
     /* Call the cb, if the slot value is non-NULL */
     if (peb->FlsCallback[index] != NULL &&

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,7 +43,6 @@
  * FIXME: assumes ELF executable compiled w/ -static
  */
 
-#include <string.h>
 #include <errno.h>
 #include <bfd.h>
 /* globals.h gives us stdio, stdlib, and assert */
@@ -81,7 +81,7 @@ sort_symtab()
 
     qsort(bfd_syms, bfd_symcount, sizeof(asymbol *), compare_symbols);
 
-    if (stats->loglevel > 2) {
+    if (d_r_stats->loglevel > 2) {
         LOG(GLOBAL, LOG_ALL, 3, "\n\nSYMBOL TABLE\n");
         for (i = 0; i < bfd_symcount; i++) {
             if (bfd_syms[i]) {

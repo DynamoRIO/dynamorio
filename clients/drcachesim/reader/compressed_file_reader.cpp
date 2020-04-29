@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,9 +37,9 @@ template <>
 /* clang-format on */
 file_reader_t<gzFile>::~file_reader_t<gzFile>()
 {
-    for (auto file : input_files)
+    for (auto file : input_files_)
         gzclose(file);
-    delete[] thread_eof;
+    delete[] thread_eof_;
 }
 
 template <>
@@ -50,7 +50,7 @@ file_reader_t<gzFile>::open_single_file(const std::string &path)
     if (file == nullptr)
         return false;
     VPRINT(this, 1, "Opened input file %s\n", path.c_str());
-    input_files.push_back(file);
+    input_files_.push_back(file);
     return true;
 }
 
@@ -59,7 +59,7 @@ bool
 file_reader_t<gzFile>::read_next_thread_entry(size_t thread_index,
                                               OUT trace_entry_t *entry, OUT bool *eof)
 {
-    int len = gzread(input_files[thread_index], (char *)entry, sizeof(*entry));
+    int len = gzread(input_files_[thread_index], (char *)entry, sizeof(*entry));
     // Returns less than asked-for for end of file, or –1 for error.
     if (len < (int)sizeof(*entry)) {
         *eof = (len >= 0);

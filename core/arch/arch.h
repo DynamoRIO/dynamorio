@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -85,7 +85,9 @@ mixed_mode_enabled(void)
 
 #ifdef X86
 #    define XAX_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xax)))
+#    define REG0_OFFSET XAX_OFFSET
 #    define XBX_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xbx)))
+#    define REG1_OFFSET XBX_OFFSET
 #    define XCX_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xcx)))
 #    define XDX_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xdx)))
 #    define XSI_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xsi)))
@@ -101,7 +103,8 @@ mixed_mode_enabled(void)
 #        define R14_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r14)))
 #        define R15_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r15)))
 #    endif /* X64 */
-#    define XMM_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, ymm)))
+#    define SIMD_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, simd)))
+#    define OPMASK_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, opmask)))
 #    define SCRATCH_REG0 DR_REG_XAX
 #    define SCRATCH_REG1 DR_REG_XBX
 #    define SCRATCH_REG2 DR_REG_XCX
@@ -116,7 +119,9 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG5_OFFS XDI_OFFSET
 #elif defined(AARCHXX)
 #    define R0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r0)))
+#    define REG0_OFFSET R0_OFFSET
 #    define R1_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r1)))
+#    define REG1_OFFSET R1_OFFSET
 #    define R2_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r2)))
 #    define R3_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r3)))
 #    define R4_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r4)))
@@ -179,6 +184,9 @@ mixed_mode_enabled(void)
 #        define PRIV_RPC_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nt_rpc))
 #        define APP_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_nls_cache))
 #        define PRIV_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nls_cache))
+#        define APP_STATIC_TLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_static_tls))
+#        define PRIV_STATIC_TLS_OFFSET \
+            ((PROT_OFFS) + offsetof(dcontext_t, priv_static_tls))
 #    endif
 #    define APP_STACK_LIMIT_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_stack_limit))
 #    define APP_STACK_BASE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_stack_base))
@@ -208,10 +216,12 @@ int
 reg_spill_tls_offs(reg_id_t reg);
 
 #define OPSZ_SAVED_XMM (YMM_ENABLED() ? OPSZ_32 : OPSZ_16)
+#define OPSZ_SAVED_ZMM OPSZ_64
 #define REG_SAVED_XMM0 (YMM_ENABLED() ? REG_YMM0 : REG_XMM0)
+#define OPSZ_SAVED_OPMASK (proc_has_feature(FEATURE_AVX512BW) ? OPSZ_8 : OPSZ_2)
 
 /* Xref the partially overlapping CONTEXT_PRESERVE_XMM */
-/* This routine also determines whether ymm registers should be saved */
+/* This routine also determines whether ymm registers should be saved. */
 static inline bool
 preserve_xmm_caller_saved(void)
 {
@@ -225,6 +235,66 @@ preserve_xmm_caller_saved(void)
      */
     return proc_has_feature(FEATURE_SSE) /* do xmm registers exist? */;
 }
+
+#ifdef X86
+/* This is used for AVX-512 context switching and indicates whether AVX-512 has been seen
+ * during decode. The variable is allocated on reachable heap during initialization.
+ */
+extern bool *d_r_avx512_code_in_use;
+
+/* This flag indicates a client that had been compiled with AVX-512. In all other than
+ * "earliest" inject methods, the initial value of d_r_is_avx512_code_in_use() will be
+ * set to true, to prevent a client from clobbering potential application state.
+ */
+extern bool d_r_client_avx512_code_in_use;
+
+/* This routine determines whether zmm registers should be saved. */
+static inline bool
+d_r_is_avx512_code_in_use()
+{
+    return *d_r_avx512_code_in_use;
+}
+
+static inline void
+d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
+{
+#    if !defined(UNIX) || !defined(X64)
+    /* FIXME i#1312: we warn about unsupported AVX-512 present in the app. */
+    DO_ONCE({
+        if (pc != NULL) {
+            char pc_addr[IF_X64_ELSE(20, 12)];
+            snprintf(pc_addr, BUFFER_SIZE_ELEMENTS(pc_addr), PFX, pc);
+            NULL_TERMINATE_BUFFER(pc_addr);
+            SYSLOG(SYSLOG_ERROR, AVX_512_SUPPORT_INCOMPLETE, 2, get_application_name(),
+                   get_application_pid(), pc_addr);
+        }
+    });
+#    endif
+#    if !defined(UNIX)
+    /* All non-UNIX builds are completely unsupported. 32-bit UNIX builds are
+     * partially supported, see comment in proc.c.
+     */
+    return;
+#    endif
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    ATOMIC_1BYTE_WRITE(d_r_avx512_code_in_use, in_use, false);
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+}
+
+static inline bool
+d_r_is_client_avx512_code_in_use()
+{
+    return d_r_client_avx512_code_in_use;
+}
+
+static inline void
+d_r_set_client_avx512_code_in_use()
+{
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    ATOMIC_1BYTE_WRITE(&d_r_client_avx512_code_in_use, (bool)true, false);
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+}
+#endif
 
 typedef enum {
     IBL_UNLINKED,
@@ -323,9 +393,6 @@ typedef enum {
 #    define SHARED_GENCODE_MATCH_THREAD(dc) get_shared_gencode(dc)
 #endif
 
-#define NUM_SIMD_REGS NUM_SIMD_SAVED
-#define NUM_GP_REGS DR_NUM_GPR_REGS
-
 /* Information about each individual clean call invocation site.
  * The whole struct is set to 0 at init time.
  */
@@ -338,10 +405,12 @@ typedef struct _clean_call_info_t {
     bool save_all_regs;
     bool skip_save_flags;
     bool skip_clear_flags;
-    uint num_simd_skip;
-    bool simd_skip[NUM_SIMD_REGS];
+    int num_simd_skip;
+    bool simd_skip[MCXT_NUM_SIMD_SLOTS];
+    int num_opmask_skip;
+    bool opmask_skip[MCXT_NUM_OPMASK_SLOTS];
     uint num_regs_skip;
-    bool reg_skip[NUM_GP_REGS];
+    bool reg_skip[DR_NUM_GPR_REGS];
     bool preserve_mcontext; /* even if skip reg save, preserve mcontext shape */
     bool out_of_line_swap;  /* whether we use clean_call_{save,restore} gencode */
     void *callee_info;      /* callee information */
@@ -426,8 +495,8 @@ void
 clean_call_info_init(clean_call_info_t *cci, void *callee, bool save_fpstate,
                      uint num_args);
 void
-mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool mangle_calls,
-       bool record_translation);
+d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool mangle_calls,
+           bool record_translation);
 bool
 parameters_stack_padded(void);
 /* Inserts a complete call to callee with the passed-in arguments */
@@ -443,6 +512,9 @@ void
 insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
                        instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
                        OUT instr_t **last);
+void
+patch_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
+                      instr_t *last);
 void
 insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, instrlist_t *ilist,
                         instr_t *instr, OUT instr_t **first, OUT instr_t **last);
@@ -474,6 +546,9 @@ void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
                       OUT instr_t **first, OUT instr_t **last);
+void
+patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
+                     instr_t *last);
 void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
@@ -521,10 +596,17 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                          instr_t *instr _IF_X86_64(gencode_mode_t mode));
 
 #ifdef X86
-#    if defined(X64) || defined(MACOS)
+#    if defined(X64) || defined(UNIX)
+/* See i#847, i#3966 for discussion of stack alignment on 32-bit Linux. */
 #        define ABI_STACK_ALIGNMENT 16
 #    else
-/* See i#847 for discussing the stack alignment on X86. */
+/* We follow the Windows (MSVC-based) 32-bit ABI which requires only 4-byte
+ * stack alignment.
+ * XXX i#4267: Gcc/clang through MinGW/Cygwin use 16-byte by default, but
+ * for interoperating with Windows system libraries (callbacks, e.g.) they
+ * have to hande 4-byte and we expect them to use -mstackrealign or something.
+ * Thus for now we stick with just 4-byte even for them.
+ */
 #        define ABI_STACK_ALIGNMENT 4
 #    endif
 #elif defined(AARCH64)
@@ -1284,7 +1366,7 @@ new_bsdthread_setup(priv_mcontext_t *mc);
 #endif
 
 void
-get_xmm_vals(priv_mcontext_t *mc);
+get_simd_vals(priv_mcontext_t *mc);
 
 /* i#350: Fast safe_read without dcontext.  On success or failure, returns the
  * current source pointer.  Requires fault handling to be set up.
@@ -1325,9 +1407,13 @@ void
 global_do_syscall_syscall(void);
 #endif
 void
-get_xmm_caller_saved(dr_ymm_t *xmm_caller_saved_buf);
+get_xmm_caller_saved(dr_zmm_t *xmm_caller_saved_buf);
 void
-get_ymm_caller_saved(dr_ymm_t *ymm_caller_saved_buf);
+get_ymm_caller_saved(dr_zmm_t *ymm_caller_saved_buf);
+void
+get_zmm_caller_saved(dr_zmm_t *zmm_caller_saved_buf);
+void
+get_opmask_caller_saved(dr_opmask_t *opmask_caller_saved_buf);
 
 /* in encode.c */
 byte *
@@ -1345,9 +1431,19 @@ void
 encode_track_it_block(dcontext_t *dcontext, instr_t *instr);
 #endif
 
-/* in instr_shared.c */
+/* In instr_shared.c. */
 uint
 move_mm_reg_opcode(bool aligned16, bool aligned32);
+
+/* In instr_shared.c. We have a separate function for AVX-512, because we do not want to
+ * introduce AVX-512 code if not explicitly requested, due to DynamoRIO's lazy AVX-512
+ * context switching.
+ */
+uint
+move_mm_avx512_reg_opcode(bool aligned64);
+
+bool
+clean_call_needs_simd(clean_call_info_t *cci);
 
 /* clean call optimization */
 /* Describes usage of a scratch slot. */
@@ -1371,18 +1467,24 @@ typedef struct _slot_t {
 
 /* data structure of clean call callee information. */
 typedef struct _callee_info_t {
-    bool bailout;                  /* if we bail out on function analysis */
-    uint num_args;                 /* number of args that will passed in */
-    int num_instrs;                /* total number of instructions of a function */
-    app_pc start;                  /* entry point of a function  */
-    app_pc bwd_tgt;                /* earliest backward branch target */
-    app_pc fwd_tgt;                /* last forward branch target */
-    int num_simd_used;             /* number of SIMD registers (xmms) used by callee */
-    bool simd_used[NUM_SIMD_REGS]; /* SIMD (xmm/ymm) registers usage */
-    bool reg_used[NUM_GP_REGS];    /* general purpose registers usage */
-    int num_callee_save_regs;      /* number of regs callee saved */
-    bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */
-    bool has_locals;                    /* if reference local via stack */
+    bool bailout;        /* if we bail out on function analysis */
+    uint num_args;       /* number of args that will passed in */
+    int num_instrs;      /* total number of instructions of a function */
+    app_pc start;        /* entry point of a function  */
+    app_pc bwd_tgt;      /* earliest backward branch target */
+    app_pc fwd_tgt;      /* last forward branch target */
+    int num_simd_used;   /* number of SIMD registers (xmms) used by callee */
+    int num_opmask_used; /* number of mask registers used by callee */
+    /* SIMD ([xyz]mm) registers usage. Part of the array might be left
+     * uninitialized if proc_num_simd_registers() < MCXT_NUM_SIMD_SLOTS.
+     */
+    bool simd_used[MCXT_NUM_SIMD_SLOTS];
+    /* AVX-512 mask register usage. */
+    bool opmask_used[MCXT_NUM_OPMASK_SLOTS];
+    bool reg_used[DR_NUM_GPR_REGS];         /* general purpose registers usage */
+    int num_callee_save_regs;               /* number of regs callee saved */
+    bool callee_save_regs[DR_NUM_GPR_REGS]; /* callee-save registers */
+    bool has_locals;                        /* if reference local via stack */
     bool standard_fp;   /* if standard reg (xbp/x29) is used as frame pointer */
     bool opt_inline;    /* can be inlined or not */
     bool write_flags;   /* if the function changes flags */

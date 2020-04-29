@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -168,6 +169,14 @@ instr_t *
 instrlist_first_app(instrlist_t *ilist);
 
 DR_API
+/**
+ * Returns the first instruction in the instruction list \p ilist for which
+ * instr_is_label() returns false.
+ */
+instr_t *
+instrlist_first_nonlabel(instrlist_t *ilist);
+
+DR_API
 /** Returns the last instr_t in \p ilist. */
 instr_t *
 instrlist_last(instrlist_t *ilist);
@@ -188,6 +197,11 @@ DR_API
  */
 instr_t *
 instrlist_last_app(instrlist_t *ilist);
+
+DR_API
+/** Cuts off subsequent instructions starting from \p instr from \p ilist. */
+void
+instrlist_cut(instrlist_t *ilist, instr_t *instr);
 
 DR_API
 /** Adds \p instr to the end of \p ilist. */

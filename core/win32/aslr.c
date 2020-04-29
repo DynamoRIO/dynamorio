@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -417,7 +417,8 @@ aslr_init(void)
 void
 aslr_exit(void)
 {
-    if (TEST(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action))) {
+    if (TEST(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action)) &&
+        is_module_list_initialized()) {
         /* doublecheck and print entries to make sure they match */
         DOLOG(1, LOG_VMAREAS, { print_modules_safe(GLOBAL, DUMP_NOT_XML); });
         ASSERT(aslr_doublecheck_wouldbe_areas());
@@ -496,14 +497,14 @@ aslr_get_next_base(void)
      * rely much on this.
      */
 
-    mutex_lock(&aslr_lock);
+    d_r_mutex_lock(&aslr_lock);
     /* note that we always lose the low 16 bits of randomness of the
      * padding, so adding to last dll page-aligned doesn't matter */
     aslr_last_dll_bounds->start = aslr_last_dll_bounds->end + jitter;
     aslr_last_dll_bounds->start =
         (app_pc)ALIGN_FORWARD(aslr_last_dll_bounds->start, ASLR_MAP_GRANULARITY);
     returned_base = aslr_last_dll_bounds->start; /* for racy callers */
-    mutex_unlock(&aslr_lock);
+    d_r_mutex_unlock(&aslr_lock);
 
     LOG(THREAD_GET, LOG_SYSCALLS | LOG_VMAREAS, 1, "ASLR: next dll recommended=" PFX "\n",
         returned_base);
@@ -578,7 +579,7 @@ aslr_get_fitting_base(app_pc requested_base, size_t view_size)
     if (requested_base != current_base) {
         /* update our expectations, so that aslr_update_view_size()
          * doesn't get surprised */
-        mutex_lock(&aslr_lock);
+        d_r_mutex_lock(&aslr_lock);
         if (aslr_last_dll_bounds->start == requested_base) {
             aslr_last_dll_bounds->start = current_base;
         } else {
@@ -586,7 +587,7 @@ aslr_get_fitting_base(app_pc requested_base, size_t view_size)
             ASSERT_CURIOSITY(false && "aslr_get_fitting_base: racy ASLR mapping");
             ASSERT_NOT_TESTED();
         }
-        mutex_unlock(&aslr_lock);
+        d_r_mutex_unlock(&aslr_lock);
     }
     ASSERT(ALIGNED(current_base, ASLR_MAP_GRANULARITY));
     return current_base;
@@ -620,9 +621,9 @@ aslr_update_failed(bool request_new, app_pc requested_base, size_t needed_size)
 
     if (new_base == NULL) {
         /* update old base, currently just so we can ASSERT elsewhere */
-        mutex_lock(&aslr_lock);
+        d_r_mutex_lock(&aslr_lock);
         aslr_last_dll_bounds->start = NULL;
-        mutex_unlock(&aslr_lock);
+        d_r_mutex_unlock(&aslr_lock);
         /* just giving up, no need for new base */
     }
     return new_base;
@@ -650,7 +651,7 @@ aslr_update_view_size(app_pc view_base, size_t view_size)
     /* NOTE we don't have a lock for the actual system call so we can
      * get out of order here
      */
-    mutex_lock(&aslr_lock);
+    d_r_mutex_lock(&aslr_lock);
     if (aslr_last_dll_bounds->start == view_base) {
         aslr_last_dll_bounds->end = view_base + view_size;
     } else {
@@ -663,7 +664,7 @@ aslr_update_view_size(app_pc view_base, size_t view_size)
         aslr_last_dll_bounds->end = MAX(aslr_last_dll_bounds->end, view_base + view_size);
         ASSERT_NOT_TESTED();
     }
-    mutex_unlock(&aslr_lock);
+    d_r_mutex_unlock(&aslr_lock);
 }
 
 /* used for tracking potential violations in ASLR_TRACK_AREAS */
@@ -803,8 +804,8 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
     /* flag currently used only for MapViewOfSection */
     dcontext->aslr_context.sys_aslr_clobbered = false;
 
-    if (!safe_read(pbase_unsafe, sizeof(requested_base), &requested_base) ||
-        !safe_read(pview_size_unsafe, sizeof(requested_size), &requested_size)) {
+    if (!d_r_safe_read(pbase_unsafe, sizeof(requested_base), &requested_base) ||
+        !d_r_safe_read(pview_size_unsafe, sizeof(requested_size), &requested_size)) {
         /* we expect the system call to fail */
         DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
         return;
@@ -1179,7 +1180,7 @@ aslr_get_module_mapping_size(HANDLE section_handle, size_t *module_size, uint pr
     return true;
 }
 
-/* since always coming from dispatch now, only need to set mcontext, but we
+/* since always coming from d_r_dispatch now, only need to set mcontext, but we
  * continue to set reg_eax in case it's read later in the routine
  * FIXME: assumes local variable reg_eax
  */
@@ -2582,9 +2583,9 @@ open_relocated_dlls_filecache_directory(void)
      * DYNAMORIO_VAR_CACHE_ROOT (\cache) in addition to the a per USER
      * subdirectory \cache\SID
      */
-    retval = get_parameter((per_user ? PARAM_STR(DYNAMORIO_VAR_CACHE_ROOT)
-                                     : PARAM_STR(DYNAMORIO_VAR_CACHE_SHARED)),
-                           base_directory, sizeof(base_directory));
+    retval = d_r_get_parameter((per_user ? PARAM_STR(DYNAMORIO_VAR_CACHE_ROOT)
+                                         : PARAM_STR(DYNAMORIO_VAR_CACHE_SHARED)),
+                               base_directory, sizeof(base_directory));
     if (IS_GET_PARAMETER_FAILURE(retval) || strchr(base_directory, DIRSEP) == NULL) {
         SYSLOG_INTERNAL_ERROR(
             " %s not set!"
@@ -2813,9 +2814,9 @@ aslr_module_read_signature(HANDLE randomized_file, uint64 *randomized_file_point
      *  <metadata>  <!- not really going be in xml -->
      *    name=""
      *    <original>
-     *     <checksum md5|crc32|sha1= /> <-- staleness -->
+     *     <checksum md5|d_r_crc32|sha1= /> <-- staleness -->
      *    <rebased>
-     *     <checksum md5|crc32|sha1= /> <-- corruption -->
+     *     <checksum md5|d_r_crc32|sha1= /> <-- corruption -->
      *  </metadata>
      *  <hash>md5(metadata)</hash>
      *
@@ -2835,7 +2836,7 @@ aslr_module_read_signature(HANDLE randomized_file, uint64 *randomized_file_point
      */
 
     /* see reactos/0.2.9/lib/ntdll/ldr/utils.c for the original
-     * LdrpCheckImageChecksum, though we could produce our own crc32()
+     * LdrpCheckImageChecksum, though we could produce our own d_r_crc32()
      * checksum on original file as well and store it as checksum of
      * our generated file in some PE orifice.
      */
@@ -3869,7 +3870,7 @@ calculate_publish_name(wchar_t *generated_name /* OUT */,
     }
 
     /* name hash over the wide char as bytes (many will be 0's but OK) */
-    name_hash = crc32((char *)name_info.FileName, name_info.FileNameLength);
+    name_hash = d_r_crc32((char *)name_info.FileName, name_info.FileNameLength);
 
     /* xor over the file size as bytes */
     final_hash =
@@ -5820,7 +5821,8 @@ aslr_post_process_create_or_open_section(dcontext_t *dcontext, bool is_create,
 
     ASSERT(NT_SUCCESS(get_mcontext(dcontext)->xax));
 
-    safe_read(sysarg_section_handle, sizeof(safe_section_handle), &safe_section_handle);
+    d_r_safe_read(sysarg_section_handle, sizeof(safe_section_handle),
+                  &safe_section_handle);
 
     ASSERT(TEST(ASLR_DLL, DYNAMO_OPTION(aslr)));
     ASSERT(file_handle != NULL && file_handle != INVALID_HANDLE_VALUE);
@@ -6077,10 +6079,10 @@ gbop_exclude_filter(const gbop_hook_desc_t *gbop_hook)
         os_exclude_list = "shell32.dll!RealShellExecuteW;shell32.dll!RealShellExecuteExW";
         DODEBUG_ONCE({
             HANDLE shell_mod = get_module_handle(L"shell32.dll");
-            ASSERT(get_proc_address(shell_mod, "RealShellExecuteA") ==
-                   get_proc_address(shell_mod, "RealShellExecuteW"));
-            ASSERT(get_proc_address(shell_mod, "RealShellExecuteExA") ==
-                   get_proc_address(shell_mod, "RealShellExecuteExW"));
+            ASSERT(d_r_get_proc_address(shell_mod, "RealShellExecuteA") ==
+                   d_r_get_proc_address(shell_mod, "RealShellExecuteW"));
+            ASSERT(d_r_get_proc_address(shell_mod, "RealShellExecuteExA") ==
+                   d_r_get_proc_address(shell_mod, "RealShellExecuteExW"));
         });
     }
 
@@ -6167,7 +6169,7 @@ gbop_is_after_cti(const app_pc ret_addr)
      * Not worth doing unless this routine proves to be expensive.
      */
     for (bytes_read = CTI_MAX_LENGTH; bytes_read >= CTI_MIN_LENGTH; bytes_read--) {
-        done = safe_read(ret_addr - bytes_read, bytes_read, (void *)raw_bytes);
+        done = d_r_safe_read(ret_addr - bytes_read, bytes_read, (void *)raw_bytes);
         if (done)
             break;
         ASSERT_NOT_TESTED();

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -203,7 +203,7 @@ find_load_base(byte *map_base, size_t *load_size)
     cmd = (struct load_command *)(hdr + 1);
     cmd_stop = (struct load_command *)((byte *)cmd + hdr->sizeofcmds);
     while (cmd < cmd_stop) {
-        if (cmd->cmd == LC_SEGMENT) {
+        if (cmd->cmd == LC_SEGMENT || cmd->cmd == LC_SEGMENT_64) {
             segment_command_t *seg = (segment_command_t *)cmd;
             if (!found_seg) {
                 found_seg = true;
@@ -313,16 +313,28 @@ drsym_macho_sort_symbols(macho_info_t *mod)
     mod->sorted_count = 0;
     for (i = 0; i < mod->num_syms; i++, sym++) {
         /* Rule out value==0 and empty names */
-        if (sym->n_value > 0 && sym->n_un.n_strx > 0 && sym->n_un.n_strx < mod->strsz) {
-            const char *name = (const char *)(mod->strtab + sym->n_un.n_strx);
-            /* There are symbols with empty strings inside strtab.
-             * We could probably rule out by checking the type or sthg
-             * but this will do as well.
+        if (sym->n_value == 0)
+            continue;
+        if (sym->n_un.n_strx == 0 || sym->n_un.n_strx >= mod->strsz)
+            continue;
+        if ((sym->n_type & N_TYPE) == N_UNDF)
+            continue;
+        if ((sym->n_type & N_TYPE) == N_INDR) {
+            /* TODO i#4081: The value for an indirect symbol is the string table
+             * index for the name of the other symbol it points to.  We should
+             * add an entry for that other name with the value of the target.
+             * Until we put in a scheme to do that, we skip them.
              */
-            if (name[0] != '\0' && hashtable_lookup(&dup_table, (void *)name) == NULL) {
-                hashtable_add(&dup_table, (void *)name, (void *)name);
-                mod->sorted_syms[mod->sorted_count++] = sym;
-            }
+            continue;
+        }
+        const char *name = (const char *)(mod->strtab + sym->n_un.n_strx);
+        /* There are symbols with empty strings inside strtab.
+         * We could probably rule out by checking the type or sthg
+         * but this will do as well.
+         */
+        if (name[0] != '\0' && hashtable_lookup(&dup_table, (void *)name) == NULL) {
+            hashtable_add(&dup_table, (void *)name, (void *)name);
+            mod->sorted_syms[mod->sorted_count++] = sym;
         }
     }
     hashtable_delete(&dup_table);
@@ -371,7 +383,7 @@ drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
     cmd = (struct load_command *)(hdr + 1);
     cmd_stop = (struct load_command *)((char *)cmd + hdr->sizeofcmds);
     while (cmd < cmd_stop) {
-        if (cmd->cmd == LC_SEGMENT) {
+        if (cmd->cmd == LC_SEGMENT || cmd->cmd == LC_SEGMENT_64) {
             segment_command_t *seg = (segment_command_t *)cmd;
             section_t *sec, *sec_stop;
             sec_stop = (section_t *)((char *)seg + seg->cmdsize);
@@ -632,4 +644,11 @@ const char *
 drsym_obj_debug_path(void)
 {
     return "/usr/lib/debug";
+}
+
+const char *
+drsym_obj_build_id(void *mod_in)
+{
+    /* NYI.  Are build id-based dirs used on Mac? */
+    return NULL;
 }

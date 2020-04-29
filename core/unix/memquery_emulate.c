@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -43,7 +43,6 @@
 #include "../globals.h"
 #include "memquery.h"
 #include "os_private.h"
-#include <string.h>
 
 #ifdef HAVE_MEMINFO
 #    error Use kernel queries instead of emulation
@@ -309,8 +308,7 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
  * if the probe was successful, returns in prot the results.
  */
 static app_pc
-probe_address(dcontext_t *dcontext, app_pc pc_in, byte *our_heap_start,
-              byte *our_heap_end, OUT uint *prot)
+probe_address(dcontext_t *dcontext, app_pc pc_in, OUT uint *prot)
 {
     app_pc base;
     size_t size;
@@ -320,8 +318,9 @@ probe_address(dcontext_t *dcontext, app_pc pc_in, byte *our_heap_start,
     *prot = MEMPROT_NONE;
 
     /* skip our own vmheap */
-    if (pc >= our_heap_start && pc < our_heap_end)
-        return our_heap_end;
+    app_pc heap_end;
+    if (is_vmm_reserved_address(pc, 1, NULL, &heap_end))
+        return heap_end;
     /* if no vmheap and we probe our own stack, the SIGSEGV handler will
      * report stack overflow as it checks that prior to handling TRY
      */
@@ -423,8 +422,6 @@ find_vm_areas_via_probe(void)
     dcontext_t *dcontext = get_thread_private_dcontext();
     app_pc pc, last_start = NULL;
     uint prot, last_prot = MEMPROT_NONE;
-    byte *our_heap_start, *our_heap_end;
-    get_vmm_heap_bounds(&our_heap_start, &our_heap_end);
 
     DEBUG_DECLARE(int res =)
     dl_iterate_phdr(dl_iterate_get_areas_cb, &count);
@@ -448,8 +445,7 @@ find_vm_areas_via_probe(void)
             last_prot = MEMPROT_NONE;
             for (pc = start; pc < start + length;) {
                 prot = MEMPROT_NONE;
-                app_pc next_pc =
-                    probe_address(dcontext, pc, our_heap_start, our_heap_end, &prot);
+                app_pc next_pc = probe_address(dcontext, pc, &prot);
                 count +=
                     probe_add_region(&last_start, &last_prot, pc, prot, next_pc != pc);
                 if (next_pc != pc) {
@@ -474,7 +470,7 @@ find_vm_areas_via_probe(void)
     ASSERT(ALIGNED(USER_MAX, PAGE_SIZE));
     for (pc = (app_pc)PAGE_SIZE; pc < (app_pc)USER_MAX;) {
         prot = MEMPROT_NONE;
-        app_pc next_pc = probe_address(dcontext, pc, our_heap_start, our_heap_end, &prot);
+        app_pc next_pc = probe_address(dcontext, pc, &prot);
         count += probe_add_region(&last_start, &last_prot, pc, prot, next_pc != pc);
         if (next_pc != pc) {
             pc = next_pc;
@@ -503,13 +499,11 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
     /* don't crash if no dcontext, which happens (PR 452174) */
     if (dcontext == NULL)
         return false;
-    get_vmm_heap_bounds(&our_heap_start, &our_heap_end);
     /* FIXME PR 235433: replace w/ real query to avoid all these probes */
 
-    next_pc =
-        probe_address(dcontext, (app_pc)pc, our_heap_start, our_heap_end, &cur_prot);
+    next_pc = probe_address(dcontext, (app_pc)pc, &cur_prot);
     if (next_pc != pc) {
-        if (pc >= our_heap_start && pc < our_heap_end) {
+        if (is_vmm_reserved_address(pc, 1, &our_heap_start, &our_heap_end)) {
             /* Just making all readable for now */
             start_pc = our_heap_start;
             end_pc = our_heap_end;
@@ -522,8 +516,7 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
         for (probe_pc = (app_pc)ALIGN_BACKWARD(pc, PAGE_SIZE) - PAGE_SIZE;
              probe_pc > (app_pc)NULL; probe_pc -= PAGE_SIZE) {
             uint prot = MEMPROT_NONE;
-            next_pc =
-                probe_address(dcontext, probe_pc, our_heap_start, our_heap_end, &prot);
+            next_pc = probe_address(dcontext, probe_pc, &prot);
             if (next_pc != pc || prot != cur_prot)
                 break;
         }
@@ -532,8 +525,7 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
         for (probe_pc = (app_pc)ALIGN_FORWARD(pc, PAGE_SIZE); probe_pc < (app_pc)USER_MAX;
              probe_pc += PAGE_SIZE) {
             uint prot = MEMPROT_NONE;
-            next_pc =
-                probe_address(dcontext, probe_pc, our_heap_start, our_heap_end, &prot);
+            next_pc = probe_address(dcontext, probe_pc, &prot);
             if (next_pc != pc || prot != cur_prot)
                 break;
         }

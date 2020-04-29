@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -148,7 +148,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         dr_instr_label_data_t *data = instr_get_label_data_area(l);
         CHECK(data != NULL, "failed to get data area");
         memcpy(data, &magic_vals, sizeof(*data));
-        instr_set_note(l, (void *)MAGIC_NOTE);
+        instr_set_note(l, (void *)(ptr_uint_t)MAGIC_NOTE);
         instrlist_meta_preinsert(bb, first, l);
     }
     return DR_EMIT_DEFAULT;
@@ -164,7 +164,7 @@ check_label_data(instrlist_t *bb)
         CHECK(instr_is_label(first), "expected label");
         CHECK(memcmp(data, &magic_vals, sizeof(*data)) == 0,
               "label data was not preserved");
-        CHECK(instr_get_note(first) == (void *)MAGIC_NOTE,
+        CHECK(instr_get_note(first) == (void *)(ptr_uint_t)MAGIC_NOTE,
               "label note was not preserved");
     }
 }
@@ -204,6 +204,17 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                 dr_restore_reg(drcontext, bb, instr, reg1, SPILL_SLOT_1);
             }
         }
+#ifdef X86
+        if (instr_is_xsave(instr)) {
+            ushort size =
+                (ushort)drutil_opnd_mem_size_in_bytes(instr_get_dst(instr, 0), instr);
+            /* We're checking for a reasonable xsave area size which is at least 576
+             * bytes for the x87 + SSE user state components, or up to 2688 if AVX-512
+             * is enabled.
+             */
+            CHECK(size >= 576 && size <= 2688, "xsave area size unexpected");
+        }
+#endif
     }
     check_label_data(bb);
     return DR_EMIT_DEFAULT;

@@ -1,4 +1,5 @@
 /* *******************************************************************************
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
@@ -146,7 +147,8 @@ lookup_pcs(void)
     module_data_t *exe;
     int i;
 
-    exe = dr_lookup_module_by_name(BINARY_NAME);
+    exe = dr_lookup_module_by_name(dr_get_application_name());
+    DR_ASSERT_MSG(exe != NULL, "Could not find application binary name in modules!");
     for (i = 0; i < N_FUNCS; i++) {
         app_pc func_pc = (app_pc)dr_get_proc_address(exe->handle, func_names[i]);
         DR_ASSERT_MSG(func_pc != NULL,
@@ -247,7 +249,7 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
 {
     int i;
 #ifdef X86
-    int ymm_bytes_used;
+    int simd_bytes_used;
 #endif
     /* Check GPRs. */
     for (i = 0; i < DR_NUM_GPR_REGS; i++) {
@@ -268,13 +270,23 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
 
 #ifdef X86
     /* Only look at the initialized bits of the SSE regs. */
-    ymm_bytes_used = (proc_has_feature(FEATURE_AVX) ? 32 : 16);
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-        if (memcmp(&mc_a->ymm[i], &mc_b->ymm[i], ymm_bytes_used) != 0)
+    /* XXX i#1312: fix and extend test for AVX-512. */
+    simd_bytes_used = (proc_has_feature(FEATURE_AVX) ? 32 : 16);
+#    ifdef __AVX512F__
+    /* If the test was compiled with AVX-512, it implies that the machine supported it. */
+    simd_bytes_used = 64;
+#    endif
+    /* FIXME i#1312: this needs to be proc_num_simd_registers() once we fully support
+     * saving AVX-512 state for clean calls. The clean call test is already clobbering
+     * AVX-512 extended registers, but we can't compare and test them here until we
+     * support saving and restoring them.
+     */
+    for (i = 0; i < proc_num_simd_saved(); i++) {
+        if (memcmp(&mc_a->simd[i], &mc_b->simd[i], simd_bytes_used) != 0)
             return false;
     }
 #elif defined(AARCH64)
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+    for (i = 0; i < proc_num_simd_registers(); i++) {
         if (memcmp(&mc_a->simd[i], &mc_b->simd[i], sizeof(dr_simd_t)) != 0)
             return false;
     }
@@ -286,7 +298,7 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
 static void
 dump_diff_mcontexts(void)
 {
-    uint i;
+    int i;
     dr_fprintf(STDERR,
                "Registers clobbered by supposedly clean call!\n"
                "Printing GPRs + flags:\n");
@@ -301,11 +313,18 @@ dump_diff_mcontexts(void)
     }
 
     dr_fprintf(STDERR, "Printing XMM regs:\n");
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+    /* XXX i#1312: check if test can get extended to AVX-512. */
+    for (i = 0; i < proc_num_simd_registers(); i++) {
 #ifdef X86
-        dr_ymm_t before_reg = before_mcontext.ymm[i];
-        dr_ymm_t after_reg = after_mcontext.ymm[i];
-        size_t mmsz = proc_has_feature(FEATURE_AVX) ? sizeof(dr_xmm_t) : sizeof(dr_ymm_t);
+        dr_zmm_t before_reg = before_mcontext.simd[i];
+        dr_zmm_t after_reg = after_mcontext.simd[i];
+        size_t mmsz = proc_has_feature(FEATURE_AVX) ? sizeof(dr_ymm_t) : sizeof(dr_xmm_t);
+#    ifdef __AVX512F__
+        /* If the test was compiled with AVX-512, it implies that the machine supported
+         * it.
+         */
+        mmsz = sizeof(dr_zmm_t);
+#    endif
         const char *diff_str =
             (memcmp(&before_reg, &after_reg, mmsz) == 0 ? "" : " <- DIFFERS");
         dr_fprintf(STDERR, "xmm%2d before: %08x%08x%08x%08x", i, before_reg.u32[0],

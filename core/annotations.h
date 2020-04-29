@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -200,6 +200,19 @@ dr_annotation_register_return(const char *annotation_name, void *return_value);
 
 DR_API
 /**
+ * Can only be called on an annotation already registered with
+ * dr_annotation_register_call().  When the annotation is encountered, the PC of
+ * the annotation interruption point will be available in DR scratch slot #SPILL_SLOT_2,
+ * which can be read with dr_read_saved_reg().
+ *
+ * @param[in] annotation_name  The name of the annotation function as it appears in the
+ *                             target app's source code (unmangled).
+ */
+bool
+dr_annotation_pass_pc(const char *annotation_name);
+
+DR_API
+/**
  * Unregister the specified handler from a DR annotation. Instances of the annotation that
  * have already been substituted with a clean call to the registered callee will remain in
  * the code cache, but any newly encountered instances of the annotation will no longer be
@@ -327,6 +340,7 @@ typedef struct _dr_annotation_handler_t {
     uint num_args;
     opnd_t *args;
     bool is_void;
+    bool pass_pc_in_slot;
 } dr_annotation_handler_t;
 
 void
@@ -404,7 +418,7 @@ is_encoded_valgrind_annotation(app_pc xchg_start_pc, app_pc bb_start, app_pc pag
     if (safe_to_read) {
         word1 = *(uint64 *)(xchg_start_pc - (2 * sizeof(uint64)));
     } else {
-        if (!safe_read(xchg_start_pc - (2 * sizeof(uint64)), sizeof(uint64), &word1))
+        if (!d_r_safe_read(xchg_start_pc - (2 * sizeof(uint64)), sizeof(uint64), &word1))
             return false; /* If it's not safe to read, it must not be an annotation. */
     }
     /* This word must be safe to read because it lies directly between two pcs that are
@@ -441,7 +455,7 @@ is_encoded_valgrind_annotation(app_pc xchg_start_pc, app_pc bb_start, app_pc pag
     if (safe_to_read) {
         word1 = *(uint *)(xchg_start_pc - (3 * sizeof(uint)));
     } else {
-        if (!safe_read(xchg_start_pc - (3 * sizeof(uint)), sizeof(uint), &word1))
+        if (!d_r_safe_read(xchg_start_pc - (3 * sizeof(uint)), sizeof(uint), &word1))
             return false; /* If it's not safe to read, it must not be an annotation. */
     }
     /* These words must be safe to read because they lie directly between two pcs that are

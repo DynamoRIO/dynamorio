@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,8 +39,11 @@
 /* Like burst_static we deliberately do not include configure.h here */
 
 #include "dr_api.h"
+#include "drmemtrace/drmemtrace.h"
 #include <assert.h>
 #include <iostream>
+#include <fstream>
+#include <string>
 #include <math.h>
 #include <stdlib.h>
 
@@ -54,6 +57,13 @@ my_setenv(const char *var, const char *value)
 #endif
 }
 
+// Test recording large values that require two entries.
+ptr_uint_t
+return_big_value(int arg)
+{
+    return (((ptr_uint_t)1 << (8 * sizeof(ptr_uint_t) - 1)) - 1) | arg;
+}
+
 static int
 do_some_work(int arg)
 {
@@ -65,7 +75,7 @@ do_some_work(int arg)
     for (int i = 0; i < iters; ++i) {
         vals[i] = (double *)malloc(sizeof(double));
         *vals[i] = sin(*val);
-        *val += *vals[i];
+        *val += *vals[i] + (double)return_big_value(i);
     }
     for (int i = 0; i < iters; i++) {
         *val += *vals[i];
@@ -79,6 +89,28 @@ do_some_work(int arg)
     return (temp > 0);
 }
 
+static void
+exit_cb(void *)
+{
+    const char *funclist_path;
+    drmemtrace_status_t res = drmemtrace_get_funclist_path(&funclist_path);
+    assert(res == DRMEMTRACE_SUCCESS);
+    std::ifstream stream(funclist_path);
+    assert(stream.good());
+    std::string line;
+    bool found_malloc = false;
+    bool found_return_big_value = false;
+    while (std::getline(stream, line)) {
+        assert(line.find('!') != std::string::npos);
+        if (line.find("!return_big_value") != std::string::npos)
+            found_return_big_value = true;
+        if (line.find("!malloc") != std::string::npos)
+            found_malloc = true;
+    }
+    assert(found_malloc);
+    assert(found_return_big_value);
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -86,13 +118,19 @@ main(int argc, const char *argv[])
     if (!my_setenv("DYNAMORIO_OPTIONS",
                    "-stderr_mask 0xc -rstats_to_stderr"
                    " -client_lib ';;-offline -record_heap"
-                   " -record_function \"malloc|0|1\"'"))
+                   // Test the low-overhead-wrapping option.
+                   " -record_replace_retaddr"
+                   // Test large values that require two entries.
+                   " -record_function \"malloc|1&return_big_value|1\"'"))
         std::cerr << "failed to set env var!\n";
 
     for (int i = 0; i < 3; i++) {
         std::cerr << "pre-DR init\n";
         dr_app_setup();
         assert(!dr_app_running_under_dynamorio());
+
+        drmemtrace_status_t res = drmemtrace_buffer_handoff(nullptr, exit_cb, nullptr);
+        assert(res == DRMEMTRACE_SUCCESS);
 
         std::cerr << "pre-DR start\n";
         if (do_some_work(i * 1) < 0)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -57,6 +57,14 @@ droption_t<std::string> op_outdir(
     "For the offline analysis mode (when -offline is requested), specifies the path "
     "to a directory where per-thread trace files will be written.");
 
+droption_t<std::string> op_subdir_prefix(
+    DROPTION_SCOPE_ALL, "subdir_prefix", "drmemtrace",
+    "Prefix for output subdir for offline traces",
+    "For the offline analysis mode (when -offline is requested), specifies the prefix "
+    "for the name of the sub-directory where per-thread trace files will be written. "
+    "The sub-directory is created inside -outdir and has the form "
+    "'prefix.app-name.pid.id.dir'.");
+
 droption_t<std::string> op_indir(
     DROPTION_SCOPE_ALL, "indir", "", "Input directory of offline trace files",
     "After a trace file is produced via -offline into -outdir, it can be passed to the "
@@ -85,6 +93,15 @@ droption_t<std::string> op_module_file(
     "post-processing step in the raw/ subdirectory) in addition to the trace file. "
     "If the file is named modules.log and is in the same directory as the trace file, "
     "or a raw/ subdirectory below the trace file, this parameter can be omitted.");
+
+droption_t<std::string> op_funclist_file(
+    DROPTION_SCOPE_ALL, "funclist_file", "",
+    "Path to function map file for func_view tool",
+    "The func_view tool needs the mapping from function name to identifier that was "
+    "recorded during offline tracing.  This data is stored in its own separate "
+    "file in the raw/ subdirectory. If the file is named funclist.log and is in the same "
+    "directory as the trace file, or a raw/ subdirectory below the trace file, this "
+    "parameter can be omitted.");
 
 droption_t<unsigned int> op_num_cores(DROPTION_SCOPE_FRONTEND, "cores", 4,
                                       "Number of cores",
@@ -160,10 +177,15 @@ droption_t<bytesize_t> op_L0D_size(
     "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
     "which disables data entries from appearing in the trace.");
 
+droption_t<bool> op_coherence(
+    DROPTION_SCOPE_FRONTEND, "coherence", false, "Model coherence for private caches",
+    "Writes to cache lines will invalidate other private caches that hold that line.");
+
 droption_t<bool> op_use_physical(
     DROPTION_SCOPE_CLIENT, "use_physical", false, "Use physical addresses if possible",
     "If available, the default virtual addresses will be translated to physical.  "
-    "This is not possible from user mode on all platforms.");
+    "This is not possible from user mode on all platforms.  "
+    "This is not supported with -offline at this time.");
 
 droption_t<unsigned int> op_virt2phys_freq(
     DROPTION_SCOPE_CLIENT, "virt2phys_freq", 0, "Frequency of physical mapping refresh",
@@ -263,24 +285,33 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
-droption_t<std::string> op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type",
-                                          CPU_CACHE,
-                                          "Simulator type (" CPU_CACHE ", " MISS_ANALYZER
-                                          ", " TLB ", " REUSE_DIST ", " REUSE_TIME
-                                          ", " HISTOGRAM ", or " BASIC_COUNTS ").",
-                                          "Specifies the type of the simulator. "
-                                          "Supported types: " CPU_CACHE ", " MISS_ANALYZER
-                                          ", " TLB ", " REUSE_DIST ", " REUSE_TIME
-                                          ", " HISTOGRAM "or " BASIC_COUNTS ".");
+droption_t<std::string> op_simulator_type(
+    DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
+    "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
+    ", " REUSE_TIME ", " HISTOGRAM ", " VIEW ", " FUNC_VIEW ", or " BASIC_COUNTS ").",
+    "Specifies the type of the simulator. "
+    "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
+    ", " REUSE_TIME ", " HISTOGRAM "or " BASIC_COUNTS ".");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
                                     "Verbosity level for notifications.");
 
+droption_t<bool>
+    op_show_func_trace(DROPTION_SCOPE_FRONTEND, "show_func_trace", true,
+                       "Show every traced call in the func_trace tool",
+                       "In the func_trace tool, this controls whether every traced call "
+                       "is shown or instead only aggregate statistics are shown.");
 #ifdef DEBUG
 droption_t<bool> op_test_mode(DROPTION_SCOPE_ALL, "test_mode", false, "Run sanity tests",
                               "Run extra analyses for sanity checks on the trace.");
 #endif
+droption_t<bool> op_disable_optimizations(
+    DROPTION_SCOPE_ALL, "disable_optimizations", false,
+    "Disable offline trace optimizations for testing",
+    "Disables various optimizations where information is omitted from offline trace "
+    "recording when it can be reconstructed during post-processing.  This is meant for "
+    "testing purposes.");
 
 droption_t<std::string> op_dr_root(DROPTION_SCOPE_FRONTEND, "dr", "",
                                    "Path to DynamoRIO root directory",
@@ -379,29 +410,35 @@ droption_t<bool> op_reuse_verify_skip(
 
 #define OP_RECORD_FUNC_ITEM_SEP "&"
 // XXX i#3048: replace function return address with function callstack
-// XXX i#3048: add a section to drcachesim.dox.in on function tracing
 droption_t<std::string> op_record_function(
     DROPTION_SCOPE_ALL, "record_function", DROPTION_FLAG_ACCUMULATE,
     OP_RECORD_FUNC_ITEM_SEP, "",
     "Record invocations trace for the specified function(s).",
     "Record invocations trace for the specified function(s) in the option"
     " value. Default value is empty. The value should fit this format:"
-    " function_name|function_id|func_args_num"
-    " (e.g., -record_function \"memset|10|3\"). The trace would contain"
-    " information for function return address, function argument value(s),"
-    " and function return value. We only record pointer-sized arguments and"
-    " return value. The trace is labeled with the function_id via an ID entry"
-    " prior to each set of value entries."
+    " function_name|func_args_num"
+    " (e.g., -record_function \"memset|3\") with an optional suffix \"|noret\""
+    " (e.g., -record_function \"free|1|noret\"). The trace would contain"
+    " information for each function invocation's return address, function argument"
+    " value(s), and (unless \"|noret\" is specified) function return value."
+    " (If multiple requested functions map to the same address and differ in whether"
+    " \"noret\" was specified or in the number of args, the attributes from the"
+    " first one requested will be used.)"
+    " We only record pointer-sized arguments and"
+    " return values. The trace identifies which function is involved"
+    " via a numeric ID entry prior to each set of value entries."
+    " The mapping from numeric ID to library-qualified symbolic name is recorded"
+    " during tracing in a file \"funclist.log\" whose format is described by the "
+    " drmemtrace_get_funclist_path() function's documentation."
     " If the target function is in the dynamic symbol table, then the function_name"
     " should be a mangled name (e.g. \"_Znwm\" for \"operator new\", \"_ZdlPv\" for"
     " \"operator delete\"). Otherwise, the function_name should be a demangled name."
     " Recording multiple functions can be achieved by using the separator"
     " \"" OP_RECORD_FUNC_ITEM_SEP
-    "\" (e.g., -record_function \"memset|10|3" OP_RECORD_FUNC_ITEM_SEP
-    "memcpy|11|3\"), or"
+    "\" (e.g., -record_function \"memset|3" OP_RECORD_FUNC_ITEM_SEP "memcpy|3\"), or"
     " specifying multiple -record_function options (e.g., -record_function"
-    " \"memset|10|3\" -record_function \"memcpy|11|3\")."
-    " Note that the provided function id should be unique, and not collide with"
+    " \"memset|3\" -record_function \"memcpy|3\")."
+    " Note that the provided function name should be unique, and not collide with"
     " existing heap functions (see -record_heap_value) if -record_heap"
     " option is enabled.");
 droption_t<bool> op_record_heap(
@@ -414,14 +451,56 @@ droption_t<bool> op_record_heap(
 droption_t<std::string> op_record_heap_value(
     DROPTION_SCOPE_ALL, "record_heap_value", DROPTION_FLAG_ACCUMULATE,
     OP_RECORD_FUNC_ITEM_SEP,
-    "malloc|0|1" OP_RECORD_FUNC_ITEM_SEP "free|1|1" OP_RECORD_FUNC_ITEM_SEP
-    "tc_malloc|2|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|3|1" OP_RECORD_FUNC_ITEM_SEP
-    "__libc_malloc|4|1" OP_RECORD_FUNC_ITEM_SEP "__libc_free|5|1" OP_RECORD_FUNC_ITEM_SEP
-    "calloc|6|2",
+    "malloc|1" OP_RECORD_FUNC_ITEM_SEP "free|1|noret" OP_RECORD_FUNC_ITEM_SEP
+    "tc_malloc|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|1|noret" OP_RECORD_FUNC_ITEM_SEP
+    "__libc_malloc|1" OP_RECORD_FUNC_ITEM_SEP
+    "__libc_free|1|noret" OP_RECORD_FUNC_ITEM_SEP "calloc|2"
+#ifdef UNIX
+    // i#3048: We only have Itanium ABI manglings for now so we disable for MSVC.
+    // XXX: This is getting quite long.  I would change the option to point at
+    // a file, except that does not work well with some third-party uses.
+    // Another option would be to support wildcards and give up on extra args like
+    // alignment and nothrow: so we'd do "_Zn*|1&_Zd*|1|noret".
+    OP_RECORD_FUNC_ITEM_SEP "_Znwm|1" OP_RECORD_FUNC_ITEM_SEP
+    "_ZnwmRKSt9nothrow_t|2" OP_RECORD_FUNC_ITEM_SEP
+    "_ZnwmSt11align_val_t|2" OP_RECORD_FUNC_ITEM_SEP
+    "_ZnwmSt11align_val_tRKSt9nothrow_t|3" OP_RECORD_FUNC_ITEM_SEP
+    "_ZnwmPv|2" OP_RECORD_FUNC_ITEM_SEP "_Znam|1" OP_RECORD_FUNC_ITEM_SEP
+    "_ZnamRKSt9nothrow_t|2" OP_RECORD_FUNC_ITEM_SEP
+    "_ZnamSt11align_val_t|2" OP_RECORD_FUNC_ITEM_SEP
+    "_ZnamSt11align_val_tRKSt9nothrow_t|3" OP_RECORD_FUNC_ITEM_SEP
+    "_ZnamPv|2" OP_RECORD_FUNC_ITEM_SEP "_ZdlPv|1|noret" OP_RECORD_FUNC_ITEM_SEP
+    "_ZdlPvRKSt9nothrow_t|2|noret" OP_RECORD_FUNC_ITEM_SEP
+    "_ZdlPvSt11align_val_t|2|noret" OP_RECORD_FUNC_ITEM_SEP
+    "_ZdlPvSt11align_val_tRKSt9nothrow_t|3|noret" OP_RECORD_FUNC_ITEM_SEP
+    "_ZdlPvm|2|noret" OP_RECORD_FUNC_ITEM_SEP
+    "_ZdlPvmSt11align_val_t|3|noret" OP_RECORD_FUNC_ITEM_SEP
+    "_ZdlPvS_|2|noret" OP_RECORD_FUNC_ITEM_SEP "_ZdaPv|1|noret" OP_RECORD_FUNC_ITEM_SEP
+    "_ZdaPvRKSt9nothrow_t|2|noret" OP_RECORD_FUNC_ITEM_SEP
+    "_ZdaPvSt11align_val_t|2|noret" OP_RECORD_FUNC_ITEM_SEP
+    "_ZdaPvSt11align_val_tRKSt9nothrow_t|3|noret" OP_RECORD_FUNC_ITEM_SEP
+    "_ZdaPvm|2|noret" OP_RECORD_FUNC_ITEM_SEP
+    "_ZdaPvmSt11align_val_t|3|noret" OP_RECORD_FUNC_ITEM_SEP "_ZdaPvS_|2|noret"
+#endif
+    ,
     "Functions recorded by -record_heap",
     "Functions recorded by -record_heap. The option value should fit the same"
     " format required by -record_function. These functions will not"
     " be traced unless -record_heap is specified.");
+droption_t<bool> op_record_dynsym_only(
+    DROPTION_SCOPE_ALL, "record_dynsym_only", false,
+    "Only look in .dynsym for -record_function and -record_heap.",
+    "Symbol lookup can be expensive for large applications and libraries.  This option "
+    " causes the symbol lookup for -record_function and -record_heap to look in the "
+    " dynamic symbol table *only*.");
+droption_t<bool> op_record_replace_retaddr(
+    DROPTION_SCOPE_ALL, "record_replace_retaddr", false,
+    "Wrap by replacing retaddr for -record_function and -record_heap.",
+    "Function wrapping can be expensive for large concurrent applications.  This option "
+    "causes the post-function control point to be located using return address "
+    "replacement, which has lower overhead, but runs the risk of breaking an "
+    "application that examines or changes its own return addresses in the recorded "
+    "functions.");
 droption_t<unsigned int> op_miss_count_threshold(
     DROPTION_SCOPE_FRONTEND, "miss_count_threshold", 50000,
     "For cache miss analysis: minimum LLC miss count for a load to be eligible for "

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -1070,9 +1070,10 @@ libraries) within 32-bit reachability of its code caches.  Typically, the
 code cache region is located in the low 4GB of the address space; thus, to
 avoid relocations at client library load time, it is recommended to set a
 preferred client library base in the low 4GB.  The \ref op_reachable_client
-"-reachable_client runtime option" can be used to remove this guarantee,
-though this would normally not be done unless the client is statically
-linked with the application.
+"-reachable_client runtime option" can be used to remove this guarantee.
+The option is automatically turned off when DynamoRIO and clients are
+statically linked with the application: for such static usage, 32-bit
+reachability to the code cache by clients is not guaranteed.
 
 The net result is that any static data or code in a client library, or any
 data allocated using DynamoRIO's API routines (except dr_raw_mem_alloc() or
@@ -1187,13 +1188,6 @@ if (NOT DynamoRIO_FOUND)
 endif(NOT DynamoRIO_FOUND)
 configure_DynamoRIO_client(myclient)
 \endcode
-
-Note that when building a 32-bit client in Linux using \p gcc, the stack
-alignment should be 4-byte only.
-Using the function \p configure_DynamoRIO_client() will configure the
-build settings correctly.
-Otherwise, appropriate options should be passed to the compiler: e.g.,
-\p -mpreferred-stack-boundary=2.
 
 The \p samples/CMakeLists.txt file in the release package serves as another
 example.  The top of \p DynamoRIOConfig.cmake contains detailed
@@ -1374,7 +1368,7 @@ DynamoRIO's global memory pool.  Use the -Xlinker flag with gcc to replace
 the libc routines with DynamoRIO's _wrap routines, e.g.,
 
 \code
-  gcc -Xlinker -wrap=malloc -Xlinker -wrap=realloc -Xlinker -wrap=free ...
+  gcc -Xlinker -wrap=malloc -Xlinker -wrap=realloc -Xlinker -wrap=free -Xlinker -wrap=strdup ...
 \endcode
 
 The ability to override the memory allocation routines makes it
@@ -1653,10 +1647,11 @@ Options available only in Code Manipulation mode and Memory Firewall mode
 
  - \b -reachable_client: \anchor op_reachable_client
    By default, DynamoRIO guarantees that client libraries are reachable
-   from its code caches by a 32-bit displacement.  Disabling this option
+   from its code caches by a 32-bit displacement (except for clients
+   statically linked into the application).  Disabling this option
    removes that guarantee and allows a client to be located elsewhere.
-   This would typically be used with client that is statically-linked
-   into the application.
+   The option is automatically turned off when DynamoRIO is statically
+   linked into the application.
 
  - \b -max_bb_instrs:
    DynamoRIO stops building a basic block if it hits this application
@@ -1676,6 +1671,11 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    gateway, DynamoRIO normally hooks the vsyscall vdso page when it can.
    This option requests that DynamoRIO convert sysenter into int 0x80
    instead.  See \ref sec_extlibs.
+
+ - \b -disable_rseq: \anchor op_disable_rseq
+   This option only applies to Linux.  It returns -ENOSYS from the SYS_rseq
+   system call, forcing applications to fall back to code that does not
+   use restartable sequences.  See \ref sec_rseq for more information.
 
  - \b -multi_thread_exit:
    By default, DynamoRIO synchronizes with all remaining threads
@@ -2070,19 +2070,6 @@ headers for use with \p drdecode.
 When using DynamoRIO's CMake support, use the configure_DynamoRIO_decoder()
 function to set up include directories and to link with \p drdecode.  The
 next section describes how to link with the DynamoRIO shared library.
-
-\subsection sec_relativize Re-Relativization of Jumps and Calls
-
-When encoding a relative jump or call to a different location than it was
-decoded from while in standalone mode, a re-encode must be forced in order
-to work around an issue where DynamoRIO does not re-relativize the target:
-
-\code
-instr_set_raw_bits_valid(instr, false)
-\endcode
-
-When not in standalone mode, all branches are mangled and thus this is
-never an issue.  This should be fixed in a future release.
 
 
 \section sec_standalone_shared DynamoRIO Shared Library Issues

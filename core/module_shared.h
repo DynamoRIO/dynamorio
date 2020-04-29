@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,8 +31,8 @@
  * DAMAGE.
  */
 
-#ifndef MODULE_LIST_H
-#define MODULE_LIST_H
+#ifndef MODULE_SHARED_H
+#define MODULE_SHARED_H
 
 #include "heap.h" /* for HEAPACCT */
 
@@ -352,7 +352,7 @@ os_get_module_info_all_names(const app_pc pc,
 typedef void *module_base_t;
 
 generic_func_t
-get_proc_address(module_base_t lib, const char *name);
+d_r_get_proc_address(module_base_t lib, const char *name);
 
 #ifdef UNIX
 /* if we add any more values, switch to a globally-defined dr_export_info_t
@@ -495,6 +495,8 @@ typedef struct _privmod_t {
 #ifdef CLIENT_INTERFACE
     bool is_client; /* or Extension */
 #endif
+    bool called_proc_entry;
+    bool called_proc_exit;
     struct _privmod_t *next;
     struct _privmod_t *prev;
     void *os_privmod_data;
@@ -536,6 +538,12 @@ typedef enum {
     /* These are for use with dr_map_executable_file(): */
     MODLOAD_NOT_PRIVLIB = 0x0002,
     MODLOAD_SKIP_WRITABLE = 0x0004, /* ignored on Windows */
+    /* For use with privload_map_and_relocate() or elf_loader_map_phdrs().
+     * Places an extra no-access page after .bss.
+     */
+    MODLOAD_SEPARATE_BSS = 0x0008,
+    /* Indicates that the module is being loaded in another process. */
+    MODLOAD_SEPARATE_PROCESS = 0x0010,
 } modload_flags_t;
 
 /* This function is used for loading non-private libs as well as private. */
@@ -571,6 +579,9 @@ privmod_t *
 privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
                 const char *path);
 
+bool
+privload_search_path_exists(const char *path, size_t len);
+
 /* ************************************************************************* *
  * os specific functions in loader.c, can be called from loader_shared.c     *
  * ************************************************************************* */
@@ -586,7 +597,7 @@ void
 privload_os_finalize(privmod_t *privmod_t);
 
 bool
-privload_call_entry(privmod_t *privmod, uint reason);
+privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason);
 
 bool
 privload_process_imports(privmod_t *mod);
@@ -627,7 +638,7 @@ os_loader_init_prologue(void);
  * will release privload_lock.
  */
 void
-os_loader_init_epilogue(void);
+os_loader_init_epilogue();
 
 void
 os_loader_exit(void);
@@ -661,4 +672,51 @@ bool
 privload_attach_parent_console(app_pc app_kernel32);
 #endif
 
-#endif /* MODULE_LIST_H */
+/* Redirected functions for loaded module,
+ * they are also used by __wrap_* functions in instrument.c
+ */
+
+#ifdef DEBUG
+/* i#975: used for debug checks for static-link-ready clients. */
+#    define DR_DISALLOW_UNSAFE_STATIC_NAME "_DR_DISALLOW_UNSAFE_STATIC_"
+extern bool disallow_unsafe_static_calls;
+#endif
+
+/* For all heap allocation redirection routines:
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
+ */
+#define STANDARD_HEAP_ALIGNMENT IF_X64_ELSE(16, 8)
+
+void *
+redirect_calloc(size_t nmemb, size_t size);
+
+void *
+redirect_malloc(size_t size);
+
+void
+redirect_free(void *mem);
+
+void *
+redirect_realloc(void *mem, size_t size);
+
+char *
+redirect_strdup(const char *str);
+
+size_t
+redirect_malloc_requested_size(void *mem);
+
+#ifdef DEBUG
+void *
+redirect_malloc_initonly(size_t size);
+void *
+redirect_realloc_initonly(void *mem, size_t size);
+void *
+redirect_calloc_initonly(size_t nmemb, size_t size);
+void
+redirect_free_initonly(void *mem);
+char *
+redirect_strdup_initonly(const char *str);
+#endif
+
+#endif /* MODULE_SHARED_H */

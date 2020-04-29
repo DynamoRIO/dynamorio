@@ -72,6 +72,11 @@
  */
 #define INSTR_PRED(instr_ptr, pred) instr_set_predicate((instr_ptr), (pred))
 
+/**
+ * Set an encoding hint for an instruction.
+ */
+#define INSTR_ENCODING_HINT(instr_ptr, hint) instr_set_encoding_hint((instr_ptr), (hint))
+
 /* operand convenience routines for common cases */
 /** Create a base+disp 8-byte operand. */
 #define OPND_CREATE_MEM64(base_reg, disp) \

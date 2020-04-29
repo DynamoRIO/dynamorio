@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,8 +44,6 @@
 #    ifdef WINDOWS
 #        include "ntdll.h"
 #    endif
-
-#    include <string.h>
 
 /* DYNAMORIO_VAR_CONFIGDIR is searched first, and then these: */
 #    ifdef UNIX
@@ -104,11 +102,11 @@ display_verbose_message(char *format, ...);
 #        endif
 #        undef STDERR
 #        define STDERR stderr
-#        undef our_snprintf
+#        undef d_r_snprintf
 #        ifdef WINDOWS
-#            define our_snprintf _snprintf
+#            define d_r_snprintf _snprintf
 #        else
-#            define our_snprintf snprintf
+#            define d_r_snprintf snprintf
 #        endif
 #        undef DECLARE_NEVERPROT_VAR
 #        define DECLARE_NEVERPROT_VAR(var, val) var = (val)
@@ -621,7 +619,7 @@ get_config_val_other_arch(const char *var, char *val, size_t valsz, bool *app_sp
 }
 
 void
-config_init(void)
+d_r_config_init(void)
 {
     config.u.v = &myvals;
     config_read(&config, NULL, 0, CFG_SFX);
@@ -674,11 +672,14 @@ config_heap_exit(void)
 #    endif
 
 void
-config_exit(void)
+d_r_config_exit(void)
 {
 #    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-    if (doing_detach)
-        memset(&config, 0, sizeof config); /* for possible re-attach */
+    if (doing_detach) {
+        /* Zero out globals for possible re-attach. */
+        memset(&config, 0, sizeof config);
+        memset(&myvals, 0, sizeof myvals);
+    }
 #    endif
     /* nothing -- so not called on fast exit (is called on detach) */
 }
@@ -711,7 +712,7 @@ get_parameter_ex(const char *name, char *value, int maxlen, bool ignore_cache)
 }
 
 int
-get_parameter(const char *name, char *value, int maxlen)
+d_r_get_parameter(const char *name, char *value, int maxlen)
 {
     return get_parameter_ex(name, value, maxlen, false);
 }
@@ -720,7 +721,7 @@ int
 get_unqualified_parameter(const char *name, char *value, int maxlen)
 {
     /* we don't use qualified names w/ our config files yet */
-    return get_parameter(name, value, maxlen);
+    return d_r_get_parameter(name, value, maxlen);
 }
 
 #    ifdef UNIX
@@ -752,12 +753,12 @@ should_inject_from_rununder(const char *runstr, bool app_specific, bool from_env
 #else /* !PARAMS_IN_REGISTRY around whole file */
 
 void
-config_init(void)
+d_r_config_init(void)
 {
 }
 
 void
-config_exit(void)
+d_r_config_exit(void)
 {
 }
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -759,9 +759,9 @@ encode_reset_it_block(dcontext_t *dcontext)
 void
 encode_debug_checks(void)
 {
-    CLIENT_ASSERT(sizeof(dr_reg_fixer) / sizeof(dr_reg_fixer[0]) == REG_LAST_ENUM + 1,
+    CLIENT_ASSERT(sizeof(dr_reg_fixer) / sizeof(dr_reg_fixer[0]) == DR_REG_LAST_ENUM + 1,
                   "internal register enum error");
-    CLIENT_ASSERT(sizeof(reg_names) / sizeof(reg_names[0]) == REG_LAST_ENUM + 1,
+    CLIENT_ASSERT(sizeof(reg_names) / sizeof(reg_names[0]) == DR_REG_LAST_ENUM + 1,
                   "reg_names missing an entry");
     CLIENT_ASSERT(sizeof(type_names) / sizeof(type_names[0]) == TYPE_BEYOND_LAST_ENUM,
                   "type_names missing an entry");
@@ -3060,7 +3060,9 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
             return NULL;
         }
         /* We need to clear all the checking fields for each new template */
-        memset(&di.errmsg, 0, sizeof(di) - offsetof(decode_info_t, errmsg));
+        /* We avoid using "&di.errmsg" to avoid a gcc 9 warning (i#4170). */
+        memset(((char *)&di) + offsetof(decode_info_t, errmsg), 0,
+               sizeof(di) - offsetof(decode_info_t, errmsg));
     }
 
     /* Encode into di.instr_word */
@@ -3099,7 +3101,7 @@ byte *
 copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst_pc,
                                  byte *final_pc)
 {
-    /* FIXME i#1551: re-relativizing is NYI */
+    /* TODO i#4016: re-relativizing is NYI */
     ASSERT(instr_raw_bits_valid(instr));
     memcpy(dst_pc, instr->bytes, instr->length);
     return dst_pc + instr->length;

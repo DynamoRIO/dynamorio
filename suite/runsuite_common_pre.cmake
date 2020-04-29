@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -162,12 +162,14 @@ endif (arg_ssh)
 
 # Make it clear that single-bitwidth packages only contain that bitwidth
 # (and provide unique names for Travis deployment).
-if (arg_64_only)
-  set(base_cache "${base_cache}
+if (NOT "${base_cache}" MATCHES "PACKAGE_PLATFORM")
+  if (arg_64_only)
+    set(base_cache "${base_cache}
       PACKAGE_PLATFORM:STRING=x86_64-")
-elseif (arg_32_only)
-  set(base_cache "${base_cache}
+  elseif (arg_32_only)
+    set(base_cache "${base_cache}
       PACKAGE_PLATFORM:STRING=i386-")
+  endif ()
 endif ()
 if (arg_use_make)
   find_program(MAKE_COMMAND make DOC "make command")
@@ -482,32 +484,41 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
       set(ENV{CXX} "cl")
       # Convert env vars to run proper compiler.
       # Note that this is fragile and won't work with non-standard
-      # directory layouts: we assume standard VS2005 or SDK.
-      # FIXME: would be nice to have case-insensitive regex flag!
+      # directory layouts: we assume standard VS or SDK.
+      # XXX: would be nice to have case-insensitive regex flag!
       # For now hardcoding VC, Bin, amd64
       if (is64)
         set(ENV{ASM} "ml64")
-        if (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
+        if (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64" AND
+            NOT "$ENV{LIB}" MATCHES "[Xx]64")
           # Note that we can't set ENV{PATH} as the output var of the replace:
           # it has to be its own set().
           #
+          # VS2017 has bin/HostX{86,64}/x{86,64}/
+          string(REGEX REPLACE "((^|;)[^;]*)HostX86([/\\\\])x86" "\\1HostX64\\3x64"
+            newpath "$ENV{PATH}")
           # i#1421: VS2013 needs base VC/bin on the path (for cross-compiler
           # used by cmake) so we duplicate and put amd64 first.  Older VS needs
           # Common7/IDE instead which should already be elsewhere on path.
           string(REGEX REPLACE "((^|;)[^;]*)VC([/\\\\])([Bb][Ii][Nn])"
             "\\1VC\\3\\4\\3amd64;\\1VC\\3\\4"
-            newpath "$ENV{PATH}")
+            newpath "${newpath}")
           # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64"
-          string(REGEX REPLACE "(v[^/\\\\]*)([/\\\\])([Bb][Ii][Nn])" "\\1\\2\\3\\2x64"
+          string(REGEX REPLACE "([/\\\\]v[^/\\\\]*)([/\\\\])([Bb][Ii][Nn])"
+            "\\1\\2\\3\\2x64"
             newpath "${newpath}")
           if (arg_verbose)
             message("Env setup: setting PATH to ${newpath}")
           endif ()
           set(ENV{PATH} "${newpath}")
-          string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])" "\\1\\2\\1amd64"
-            newlib "$ENV{LIB}")
+          # VS2017 does not append so we replace first.
+          string(REGEX REPLACE "([/\\\\])x86" "\\1x64" newlib "$ENV{lib}")
+          # Now try to support pre-VS2017.
+          string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])([^/\\\\])" "\\1\\2\\1amd64\\3"
+            newlib "${newlib}")
           # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64": grrr
-          string(REGEX REPLACE "(v[^/\\\\]*[/\\\\][Ll][Ii][Bb][/\\\\])[Aa][Mm][Dd]64"
+          string(REGEX REPLACE
+            "([/\\\\]v[^/\\\\]*[/\\\\][Ll][Ii][Bb][/\\\\])[Aa][Mm][Dd]64"
             "\\1x64"
             newlib "${newlib}")
           # Win8 SDK uses um/x86 and um/x64 after "Lib/win{8,v6.3}/"
@@ -524,13 +535,17 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
             message("Env setup: setting LIBPATH to ${newlibpath}")
           endif ()
           set(ENV{LIBPATH} "${newlibpath}")
-        endif (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
+        endif ()
       else (is64)
         set(ENV{ASM} "ml")
-        if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
+        if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64" OR
+            "$ENV{LIB}" MATCHES "[Xx]64")
+          # VS2017 has bin/HostX{86,64}/x{86,64}/
+          string(REGEX REPLACE "((^|;)[^;]*)HostX64([/\\\\])x64" "\\1HostX86\\3x86"
+            newpath "$ENV{PATH}")
           # Remove the duplicate we added (see i#1421 comment above).
           string(REGEX REPLACE "((^|;)[^;]*)VC[/\\\\][Bb][Ii][Nn][/\\\\][Aa][Mm][Dd]64"
-            "" newpath "$ENV{PATH}")
+            "" newpath "{newpath}")
           if (arg_verbose)
             message("Env setup: setting PATH to ${newpath}")
           endif ()
@@ -551,7 +566,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
             message("Env setup: setting LIBPATH to ${newlibpath}")
           endif ()
           set(ENV{LIBPATH} "${newlibpath}")
-        endif ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
+        endif ()
       endif (is64)
     else (WIN32)
       if (ARCH_IS_X86)
@@ -656,8 +671,25 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
   endif (build_success EQUAL 0 AND run_tests AND NOT arg_build_only)
 
   if (DO_SUBMIT)
-    # include any notes via set(CTEST_NOTES_FILES )?
-    ctest_submit()
+    if (CTEST_DROP_METHOD MATCHES "http")
+      # include any notes via set(CTEST_NOTES_FILES )?
+      ctest_submit()
+    else ()
+      # We used to use the "scp" (could also have used "cp") drop method
+      # to copy these xml files out for us, but cmake 3.14 dropped that.
+      # Thus we copy them ourselves.
+      file(GLOB xml_files "${CTEST_BINARY_DIRECTORY}/Testing/*/*.xml")
+      set(prefix "___${CTEST_BUILD_NAME}___${SUITE_TYPE}___XML___")
+      foreach (xml ${xml_files})
+        get_filename_component(base "${xml}" NAME)
+        # Avoid confusion with a later package buid in the same dir by
+        # renaming instead of copying.
+        file(RENAME "${xml}"
+          "${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}/${prefix}${base}")
+        message("Moving ${xml} to "
+          "${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}/${prefix}${base}")
+      endforeach ()
+    endif ()
   endif (DO_SUBMIT)
   if (NOT arg_already_built)
     set(ENV{PATH} "${pre_path}")

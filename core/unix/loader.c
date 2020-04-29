@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -58,7 +58,6 @@
 #ifdef LINUX
 #    include <sys/prctl.h> /* PR_SET_NAME */
 #endif
-#include <string.h> /* strcmp */
 #include <stdlib.h> /* getenv */
 #include <dlfcn.h>  /* dlopen/dlsym */
 #include <unistd.h> /* __environ */
@@ -407,9 +406,34 @@ privload_unmap_file(privmod_t *privmod)
     os_privmod_data_t *opd = (os_privmod_data_t *)privmod->os_privmod_data;
 
     /* unmap segments */
+    IF_DEBUG(size_t size_unmapped = 0);
     for (i = 0; i < opd->os_data.num_segments; i++) {
-        unmap_file(opd->os_data.segments[i].start,
-                   opd->os_data.segments[i].end - opd->os_data.segments[i].start);
+        d_r_unmap_file(opd->os_data.segments[i].start,
+                       opd->os_data.segments[i].end - opd->os_data.segments[i].start);
+        DODEBUG({
+            size_unmapped +=
+                opd->os_data.segments[i].end - opd->os_data.segments[i].start;
+        });
+        if (i + 1 < opd->os_data.num_segments &&
+            opd->os_data.segments[i + 1].start > opd->os_data.segments[i].end) {
+            /* unmap the gap */
+            d_r_unmap_file(opd->os_data.segments[i].end,
+                           opd->os_data.segments[i + 1].start -
+                               opd->os_data.segments[i].end);
+            DODEBUG({
+                size_unmapped +=
+                    opd->os_data.segments[i + 1].start - opd->os_data.segments[i].end;
+            });
+        }
+    }
+    ASSERT(size_unmapped == privmod->size);
+    /* XXX i#3570: Better to store the MODLOAD_SEPARATE_BSS flag but there's no
+     * simple code path to do it so we check the option.
+     */
+    if (INTERNAL_OPTION(separate_private_bss)) {
+        /* unmap the extra .bss-separating page */
+        d_r_unmap_file(privmod->base + privmod->size, PAGE_SIZE);
+        DODEBUG({ size_unmapped += PAGE_SIZE; });
     }
     /* free segments */
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, opd->os_data.segments, module_segment_t,
@@ -424,6 +448,36 @@ privload_unload_imports(privmod_t *privmod)
     /* FIXME: i#474 unload dependent libraries if necessary */
     return true;
 }
+
+#ifdef LINUX
+/* Core-specific functionality for elf_loader_map_phdrs(). */
+static modload_flags_t
+privload_map_flags(modload_flags_t init_flags)
+{
+    /* XXX: Keep this condition matching the check in privload_unmap_file()
+     * (minus MODLOAD_NOT_PRIVLIB since non-privlibs don't reach our unmap).
+     */
+    if (INTERNAL_OPTION(separate_private_bss) && !TEST(MODLOAD_NOT_PRIVLIB, init_flags)) {
+        /* place an extra no-access page after .bss */
+        /* XXX: update privload_early_inject call to init_emulated_brk if this changes */
+        /* XXX: should we avoid this for -early_inject's map of the app and ld.so? */
+        return init_flags | MODLOAD_SEPARATE_BSS;
+    }
+    return init_flags;
+}
+
+/* Core-specific functionality for elf_loader_map_phdrs(). */
+static void
+privload_check_new_map_bounds(elf_loader_t *elf, byte *map_base, byte *map_end)
+{
+    /* This is only called for MAP_FIXED. */
+    if (get_dynamorio_dll_start() < map_end && get_dynamorio_dll_end() > map_base) {
+        FATAL_USAGE_ERROR(FIXED_MAP_OVERLAPS_DR, 3, get_application_name(),
+                          get_application_pid(), elf->filename);
+        ASSERT_NOT_REACHED();
+    }
+}
+#endif
 
 /* This only maps, as relocation for ELF requires processing imports first,
  * which we have to delay at init time at least.
@@ -441,11 +495,11 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
     ASSERT_OWN_RECURSIVE_LOCK(!TEST(MODLOAD_NOT_PRIVLIB, flags), &privload_lock);
     /* get appropriate function */
     /* NOTE: all but the client lib will be added to DR areas list b/c using
-     * map_file()
+     * d_r_map_file()
      */
-    if (dynamo_heap_initialized) {
-        map_func = map_file;
-        unmap_func = unmap_file;
+    if (dynamo_heap_initialized && !standalone_library) {
+        map_func = d_r_map_file;
+        unmap_func = d_r_unmap_file;
         prot_func = set_protection;
     } else {
         map_func = os_map_file;
@@ -468,9 +522,9 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
         }
         return NULL;
     }
-
-    base = elf_loader_map_phdrs(&loader, false /* fixed */, map_func, unmap_func,
-                                prot_func, flags);
+    base =
+        elf_loader_map_phdrs(&loader, false /* fixed */, map_func, unmap_func, prot_func,
+                             privload_check_new_map_bounds, privload_map_flags(flags));
     if (base != NULL) {
         if (size != NULL)
             *size = loader.image_size;
@@ -515,7 +569,10 @@ privload_process_imports(privmod_t *mod)
                 if (impmod == NULL)
                     return false;
 #    ifdef CLIENT_INTERFACE
-                /* i#852: identify all libs that import from DR as client libs */
+                /* i#852: identify all libs that import from DR as client libs.
+                 * XXX: this code seems stale as libdynamorio.so is already loaded
+                 * (xref #3850).
+                 */
                 if (impmod->base == get_dynamorio_dll_start())
                     mod->is_client = true;
 #    endif
@@ -540,7 +597,7 @@ privload_process_imports(privmod_t *mod)
 }
 
 bool
-privload_call_entry(privmod_t *privmod, uint reason)
+privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
 {
     os_privmod_data_t *opd = (os_privmod_data_t *)privmod->os_privmod_data;
     ASSERT(os_get_priv_tls_base(NULL, TLS_REG_LIB) != NULL);
@@ -658,6 +715,7 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
     os_privmod_data_t *opd;
     ELF_DYNAMIC_ENTRY_TYPE *dyn;
     ASSERT(mod != NULL && "can't look for rpath without a dependent module");
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     /* get the loading module's dir for RPATH_ORIGIN */
     opd = (os_privmod_data_t *)mod->os_privmod_data;
     /* i#460: if DT_RUNPATH exists we must ignore ignore DT_RPATH and
@@ -671,6 +729,7 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
     ASSERT(opd != NULL);
     dyn = (ELF_DYNAMIC_ENTRY_TYPE *)opd->dyn;
     strtab = (char *)opd->os_data.dynstr;
+    bool lib_found = false;
     /* support $ORIGIN expansion to lib's current directory */
     while (dyn->d_tag != DT_NULL) {
         if (dyn->d_tag == (runpath ? DT_RUNPATH : DT_RPATH)) {
@@ -687,28 +746,66 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                     len = sep - list;
                 /* support $ORIGIN expansion to lib's current directory */
                 origin = strstr(list, RPATH_ORIGIN);
+                char path[MAXIMUM_PATH];
                 if (origin != NULL && origin < list + len) {
                     size_t pre_len = origin - list;
-                    snprintf(filename, MAXIMUM_PATH, "%.*s%.*s%.*s/%s", pre_len, list,
-                             moddir_len, mod->path,
+                    snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%.*s%.*s%.*s", pre_len,
+                             list, moddir_len, mod->path,
                              /* the '/' should already be here */
                              len - strlen(RPATH_ORIGIN) - pre_len,
-                             origin + strlen(RPATH_ORIGIN), name);
+                             origin + strlen(RPATH_ORIGIN));
+                    NULL_TERMINATE_BUFFER(path);
                 } else {
-                    snprintf(filename, MAXIMUM_PATH, "%.*s/%s", len, list, name);
+                    snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%.*s", len, list);
+                    NULL_TERMINATE_BUFFER(path);
                 }
-                filename[MAXIMUM_PATH - 1] = 0;
-                LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__,
-                    filename);
-                if (os_file_exists(filename, false /*!is_dir*/) &&
-                    module_file_has_module_header(filename)) {
-                    return true;
+#    ifdef CLIENT_INTERFACE
+                if (mod->is_client) {
+                    /* We are adding a client's lib rpath to the general search path. This
+                     * is not bullet proof compliant with what the loader should really
+                     * do. The real problem is that the loader is walking library
+                     * dependencies depth-first, while it should really search
+                     * breadth-first (xref i#3850). This can lead to libraries being
+                     * unlocatable, if the original client library had the proper rpath of
+                     * the library, but a dependency later in the chain did not. In order
+                     * to avoid this, we consider adding the rpath here relatively safe.
+                     * It only affects dependent libraries of the same name in different
+                     * locations. We are only doing this for client libraries, so we are
+                     * not at risk to search for the wrong system libraries.
+                     */
+                    if (!privload_search_path_exists(path, strlen(path))) {
+                        snprintf(search_paths[search_paths_idx],
+                                 BUFFER_SIZE_ELEMENTS(search_paths[search_paths_idx]),
+                                 "%.*s", strlen(path), path);
+                        NULL_TERMINATE_BUFFER(search_paths[search_paths_idx]);
+                        LOG(GLOBAL, LOG_LOADER, 1, "%s: added search dir \"%s\"\n",
+                            __FUNCTION__, search_paths[search_paths_idx]);
+                        search_paths_idx++;
+                    }
                 }
-                list += len + 1;
+#    endif
+                if (!lib_found) {
+                    snprintf(filename, MAXIMUM_PATH, "%s/%s", path, name);
+                    filename[MAXIMUM_PATH - 1] = 0;
+                    LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__,
+                        filename);
+                    if (os_file_exists(filename, false /*!is_dir*/) &&
+                        module_file_has_module_header(filename)) {
+#    ifdef CLIENT_INTERFACE
+                        lib_found = true;
+#    else
+                        return true;
+#    endif
+                    }
+                }
+                list += len;
+                if (sep != NULL)
+                    list += 1;
             }
         }
         ++dyn;
     }
+    return lib_found;
 #else
     /* XXX i#1285: implement MacOS private loader */
 #endif
@@ -1140,19 +1237,6 @@ privload_fill_os_module_info(app_pc base, OUT app_pc *out_base /* relative pc */
  * Function Redirection
  */
 
-#ifdef DEBUG
-/* i#975: used for debug checks for static-link-ready clients. */
-bool disallow_unsafe_static_calls;
-#endif
-
-void
-loader_allow_unsafe_static_behavior(void)
-{
-#ifdef DEBUG
-    disallow_unsafe_static_calls = false;
-#endif
-}
-
 #if defined(LINUX) && !defined(ANDROID)
 /* These are not yet supported by Android's Bionic */
 void *
@@ -1256,9 +1340,13 @@ static const redirect_import_t redirect_imports[] = {
     { "malloc", (app_pc)redirect_malloc },
     { "free", (app_pc)redirect_free },
     { "realloc", (app_pc)redirect_realloc },
-/* FIXME: we should also redirect functions including:
- * malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
- * Any other functions need to be redirected?
+    { "strdup", (app_pc)redirect_strdup },
+/* TODO i#4243: we should also redirect functions including:
+ * + malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
+ * + tcmalloc: tc_malloc, tc_free, etc.
+ * + __libc_malloc, __libc_free, etc.
+ * + OSX: malloc_zone_malloc, etc.?  Or just malloc_create_zone?
+ * + C++ operators in case they don't just call libc malloc?
  */
 #if defined(LINUX) && !defined(ANDROID)
     { "__tls_get_addr", (app_pc)redirect___tls_get_addr },
@@ -1301,6 +1389,7 @@ static const redirect_import_t redirect_debug_imports[] = {
     { "malloc", (app_pc)redirect_malloc_initonly },
     { "free", (app_pc)redirect_free_initonly },
     { "realloc", (app_pc)redirect_realloc_initonly },
+    { "strdup", (app_pc)redirect_strdup_initonly },
 };
 #    define REDIRECT_DEBUG_IMPORTS_NUM \
         (sizeof(redirect_debug_imports) / sizeof(redirect_debug_imports[0]))
@@ -1428,8 +1517,6 @@ reserve_brk(app_pc post_app)
     if (getenv(DYNAMORIO_VAR_NO_EMULATE_BRK) == NULL) {
         /* i#1004: we're going to emulate the brk via our own mmap.
          * Reserve the initial brk now before any of DR's mmaps to avoid overlap.
-         * XXX: reserve larger APP_BRK_GAP here and then unmap back to 1 page
-         * in os_init() to ensure no DR mmap limits its size?
          */
         dynamo_options.emulate_brk = true; /* not parsed yet */
         init_emulated_brk(post_app);
@@ -1575,6 +1662,8 @@ dynamorio_lib_gap_empty(void)
         while (memquery_iterator_next(&iter) && iter.vm_start < dr_end) {
             if (iter.vm_start >= dr_start && iter.vm_end <= dr_end &&
                 iter.comment[0] != '\0' &&
+                /* i#3799: ignore the kernel labeling DR's .bss as "[heap]". */
+                strcmp(iter.comment, "[heap]") != 0 &&
                 strcmp(iter.comment, dynamorio_library_path) != 0) {
                 /* There's a non-anon mapping inside: probably vvar and/or vdso. */
                 res = false;
@@ -1613,7 +1702,7 @@ relocate_dynamorio(byte *dr_map, size_t dr_size, byte *sp)
     const char **env = (const char **)sp + argc + 2;
     os_privmod_data_t opd = { { 0 } };
 
-    os_page_size_init(env);
+    os_page_size_init(env, true);
 
     if (dr_map == NULL) {
         /* we do not know where dynamorio is, so check backward page by page */
@@ -1698,7 +1787,8 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
 
     /* Now load the 2nd libdynamorio.so */
     dr_map = elf_loader_map_phdrs(&dr_ld, false /*!fixed*/, os_map_file, os_unmap_file,
-                                  os_set_protection, 0 /*!reachable*/);
+                                  os_set_protection, privload_check_new_map_bounds,
+                                  privload_map_flags(0 /*!reachable*/));
     ASSERT(dr_map != NULL);
     ASSERT(is_elf_so_header(dr_map, 0));
 
@@ -1824,6 +1914,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     /* i#1227: on a conflict with the app (+ room for the brk): reload ourselves */
     if (get_dynamorio_dll_start() < exe_end + APP_BRK_GAP &&
         get_dynamorio_dll_end() > exe_map) {
+        elf_loader_destroy(&exe_ld);
         reload_dynamorio(sp, exe_map, exe_end + APP_BRK_GAP);
         ASSERT_NOT_REACHED();
     }
@@ -1834,6 +1925,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
      * very often.
      */
     if (!dynamorio_lib_gap_empty()) {
+        elf_loader_destroy(&exe_ld);
         reload_dynamorio(sp, get_dynamorio_dll_start(), get_dynamorio_dll_end());
         ASSERT_NOT_REACHED();
     }
@@ -1845,7 +1937,8 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                                    true,
                                    /* ensure there's space for the brk */
                                    map_exe_file_and_brk, os_unmap_file, os_set_protection,
-                                   0 /*!reachable*/);
+                                   privload_check_new_map_bounds,
+                                   privload_map_flags(0 /*!reachable*/));
     apicheck(exe_map != NULL,
              "Failed to load application.  "
              "Check path and architecture.");
@@ -1889,9 +1982,9 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         elf_loader_t interp_ld;
         success = elf_loader_read_headers(&interp_ld, interp);
         apicheck(success, "Failed to read ELF interpreter headers.");
-        interp_map =
-            elf_loader_map_phdrs(&interp_ld, false /* fixed */, os_map_file,
-                                 os_unmap_file, os_set_protection, 0 /*!reachable*/);
+        interp_map = elf_loader_map_phdrs(
+            &interp_ld, false /* fixed */, os_map_file, os_unmap_file, os_set_protection,
+            privload_check_new_map_bounds, privload_map_flags(0 /*!reachable*/));
         apicheck(interp_map != NULL && is_elf_so_header(interp_map, 0),
                  "Failed to map ELF interpreter.");
         /* On Android, the system loader /system/bin/linker sets itself

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -184,29 +184,28 @@ DR_export_target(drconfiglib)
 DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
 
 # drconfiglib now uses drfront_access()
-target_link_libraries(drconfiglib drfrontendlib)
+# drconfiglib needs drlibc for dr_fpu_exception_init()
+target_link_libraries(drconfiglib drfrontendlib drlibc)
+if (UNIX AND X86)
+  # We need our own memcpy + memset to avoid glibc versioning (i#1504).
+  target_link_libraries(drconfiglib drmemfuncs)
+endif ()
 
 if (WIN32)
   set(dr_frontend_srcs dr_frontend_win.c)
-else () #UNIX
-  # We need os.c for os_open(), etc. for module_*.c.
-  # XXX i#1409: create a nice isolated lib for this.
-  set(dr_frontend_srcs dr_frontend_unix.c ../core/unix/os.c)
-  if (APPLE)
-    set(dr_frontend_srcs ${dr_frontend_srcs} ../core/unix/module_macho.c)
-  else (APPLE)
-    set(dr_frontend_srcs ${dr_frontend_srcs} ../core/unix/module_elf.c)
-  endif (APPLE)
+else ()
+  set(dr_frontend_srcs dr_frontend_unix.c)
 endif ()
-
-
 set(dr_frontend_srcs ${dr_frontend_srcs} dr_frontend_common.c)
 add_library(drfrontendlib STATIC ${dr_frontend_srcs})
-if (AARCH64)
-  add_dependencies(drfrontendlib gen_aarch64_codec)
-endif()
-# We need drhelper for dynamorio_syscall for core/unix/os.c.
-target_link_libraries(drfrontendlib drhelper)
+if (UNIX)
+  # We need drlibc for module-parsing routines.
+  target_link_libraries(drfrontendlib drlibc)
+endif ()
+if (UNIX AND X86)
+  # We need our own memcpy + memset to avoid glibc versioning (i#1504).
+  target_link_libraries(drfrontendlib drmemfuncs)
+endif ()
 add_static_lib_debug_info(drfrontendlib "${INSTALL_BIN}")
 DR_export_target(drfrontendlib)
 install_exported_target(drfrontendlib ${INSTALL_BIN})

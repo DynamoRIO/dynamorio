@@ -32,6 +32,7 @@
  */
 
 #include "configure.h"
+#include "tools.h"
 
 /* Export instrumented functions so we can easily find them in client.  */
 #ifdef WINDOWS
@@ -65,9 +66,11 @@
 #endif
 
 /* Definitions for every function. */
-#define FUNCTION(FUNCNAME)     \
-    EXPORT void FUNCNAME(void) \
-    {                          \
+volatile int val;
+#define FUNCTION(FUNCNAME)              \
+    EXPORT NOINLINE void FUNCNAME(void) \
+    {                                   \
+        val = 4;                        \
     }
 #define LAST_FUNCTION()
 FUNCTIONS()
@@ -77,7 +80,7 @@ FUNCTIONS()
 /* For bbcount, do arithmetic to clobber flags so the flag saving optimization
  * kicks in.
  */
-EXPORT void
+EXPORT NOINLINE void
 bbcount(void)
 {
     static int count;

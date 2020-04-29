@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,18 +44,22 @@ class cache_t : public caching_device_t {
 public:
     // Size, line size and associativity are generally used
     // to describe a CPU cache.
-    virtual bool
+    // The id is an index into the snoop filter's array of caches for coherent caches.
+    // If this is a coherent cache, id should be in the range [0,num_snooped_caches).
+    bool
     init(int associativity, int line_size, int total_size, caching_device_t *parent,
          caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
-         bool inclusive = false, const std::vector<caching_device_t *> &children = {});
-    virtual void
-    request(const memref_t &memref);
+         bool inclusive = false, bool coherent_cache = false, int id_ = -1,
+         snoop_filter_t *snoop_filter_ = nullptr,
+         const std::vector<caching_device_t *> &children = {}) override;
+    void
+    request(const memref_t &memref) override;
     virtual void
     flush(const memref_t &memref);
 
 protected:
-    virtual void
-    init_blocks();
+    void
+    init_blocks() override;
 };
 
 #endif /* _CACHE_H_ */

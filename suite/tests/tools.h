@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,7 +43,7 @@
 
 #define _GNU_SOURCE 1 /* for REG_RIP, etc. */
 #include "configure.h"
-#include "dr_helper.h"
+#include "drlibc.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h> /* memcpy */
@@ -62,13 +62,31 @@
 #    include <ucontext.h>
 #    include <unistd.h>
 #    include "../../core/unix/os_public.h"
+#    ifdef X64
+/* XCode 10.1 (probably others too) toolchain wants _STRUCT_MCONTEXT
+ * w/o _AVX64 and has a field named uc_mcontext with no 64.
+ */
+#        undef _STRUCT_MCONTEXT_AVX64
+#        define _STRUCT_MCONTEXT_AVX64 _STRUCT_MCONTEXT64
+#        define uc_mcontext64 uc_mcontext
+#    endif
 #else
 #    include <windows.h>
 #    include <process.h> /* _beginthreadex */
+#    if defined(DEBUG) && !defined(NO_DBG_CRT)
+#        include <crtdbg.h>
+#    endif
 #    include "../../core/win32/os_public.h"
 #    define NTSTATUS DWORD
 #    define NT_SUCCESS(status) (status >= 0)
 #endif
+
+/* Ensure we get 0x, lower-case, and leading zeroes when not using DR's printf.  This
+ * is a tradeoff: we get consistent style for golden output matching, but we have
+ * reduced error detection from format string type checks by the compiler.
+ */
+#undef PFX
+#define PFX "0x" PFMT
 
 #if defined(AARCH64) && SIGSTKSZ < 16384
 /* SIGSTKSZ was incorrectly defined in Linux releases before 4.3. */
@@ -667,7 +685,33 @@ signal_handler(int sig)
                 MessageBeep(0); \
         } while (0)
 
-#    define OS_INIT() set_global_filter()
+/* We can't put this in tools.c b/c we have some tests that link /MT even in
+ * debug build.
+ */
+#    if defined(DEBUG) && !defined(NO_DBG_CRT)
+#        define DISABLE_POPUPS()                                                      \
+            do {                                                                      \
+                /* Avoid pop-up messageboxes in tests. */                             \
+                if (!IsDebuggerPresent()) {                                           \
+                    /* Control CRT-internal asserts and _ASSERT, etc. */              \
+                    /* Set for _CRT_{WARN,ERROR,ASSERT}. */                           \
+                    for (int i = 0; i < _CRT_ERRCNT; i++) {                           \
+                        _CrtSetReportMode(i, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG); \
+                        _CrtSetReportFile(i, _CRTDBG_FILE_STDERR);                    \
+                    }                                                                 \
+                    /* This may control assert() and _wassert() in release build. */  \
+                    _set_error_mode(_OUT_TO_STDERR);                                  \
+                }                                                                     \
+            } while (0)
+#    else
+#        define DISABLE_POPUPS() /* Nothing. */
+#    endif
+
+#    define OS_INIT()            \
+        do {                     \
+            DISABLE_POPUPS();    \
+            set_global_filter(); \
+        } while (0)
 
 /* XXX: when updating here, update core/os_exports.h too */
 #    define WINDOWS_VERSION_10_1803 105

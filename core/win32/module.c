@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -274,13 +274,13 @@ print_module_list(module_info_vector_t *v)
         "print_module_list(" PFX ") capacity=%d, length=%d, lock=%d, buf=" PFX, v,
         v->capacity, v->length, v->lock, v->buf);
 
-    mutex_lock(&v->lock);
+    d_r_mutex_lock(&v->lock);
     for (i = 0; i < v->length; i++) {
         LOG(GLOBAL, LOG_SYMBOLS, 3, "  " PFX "-" PFX " %s, %d exports [" SZFMT " size]\n",
             v->buf[i].start, v->buf[i].end, v->buf[i].module_name, v->buf[i].exports_num,
             v->buf[i].exports_size);
     }
-    mutex_unlock(&v->lock);
+    d_r_mutex_unlock(&v->lock);
 }
 
 /* For binary search */
@@ -354,7 +354,7 @@ module_info_create(module_info_vector_t *v, app_pc start, app_pc end, char *modu
         new_module.exports_table = NULL;
     }
 
-    mutex_lock(&v->lock);
+    d_r_mutex_lock(&v->lock);
     /* FIXME: the question is what to do when an overlap occurs.
      * If we assume that we should have removed the references from an old DLL.
      * A possibly new DLL overlapping the same range should not show up,
@@ -384,7 +384,7 @@ module_info_create(module_info_vector_t *v, app_pc start, app_pc end, char *modu
 
     v->buf[i] = new_module;
     v->length++;
-    mutex_unlock(&v->lock);
+    d_r_mutex_unlock(&v->lock);
     DOLOG(3, LOG_SYMBOLS, { print_module_list(v); });
 
     /* we can not return &v->buf[i] since buf may get realloc-ed, or buf[i] may be
@@ -402,7 +402,7 @@ remove_module_info_vector(module_info_vector_t *v, app_pc start, app_pc end)
     export_entry_t *exports_table = NULL;
     size_t exports_size = 0;
 
-    mutex_lock(&v->lock);
+    d_r_mutex_lock(&v->lock);
     /* linear search, we don't have a find_predecessor on module_info_t's to get i */
     for (i = 0; i < v->length; i++) {
         if (start == v->buf[i].start && end == v->buf[i].end) {
@@ -417,7 +417,7 @@ remove_module_info_vector(module_info_vector_t *v, app_pc start, app_pc end)
     ASSERT_CURIOSITY(exports_table); /* curiosity */
     if (!exports_table) {
         /* it could have disappeared since we last checked */
-        mutex_unlock(&v->lock);
+        d_r_mutex_unlock(&v->lock);
         return;
     }
 
@@ -425,7 +425,7 @@ remove_module_info_vector(module_info_vector_t *v, app_pc start, app_pc end)
     for (j = i + 1; j < v->length; j++)
         v->buf[j - 1] = v->buf[j];
     v->length--;
-    mutex_unlock(&v->lock);
+    d_r_mutex_unlock(&v->lock);
 
     if (exports_size > 0) {
         global_heap_free(exports_table,
@@ -443,9 +443,9 @@ int
 remove_module_info(app_pc start, size_t size)
 {
     module_info_t *pmod;
-    mutex_lock(&process_module_vector.lock);
+    d_r_mutex_lock(&process_module_vector.lock);
     pmod = lookup_module_info(&process_module_vector, start);
-    mutex_unlock(&process_module_vector.lock);
+    d_r_mutex_unlock(&process_module_vector.lock);
 
     if (!pmod) { /* FIXME: need a real overlap check */
         LOG(GLOBAL, LOG_SYMBOLS, 2,
@@ -469,7 +469,7 @@ module_cleanup(void)
     int i;
     export_entry_t *exports_table = NULL;
     size_t exports_size = 0;
-    mutex_lock(&v->lock);
+    d_r_mutex_lock(&v->lock);
     /* linear search, we don't have a find_predecessor on module_info_t's to get i */
     for (i = 0; i < v->length; i++) {
         exports_table = v->buf[i].exports_table;
@@ -487,7 +487,7 @@ module_cleanup(void)
     v->buf = NULL;
     v->capacity = 0;
     v->length = 0;
-    mutex_unlock(&v->lock);
+    d_r_mutex_unlock(&v->lock);
 }
 
 void
@@ -570,7 +570,8 @@ print_symbolic_address(app_pc tag, char *buf, int max_chars, bool exact_only)
     if (under_internal_exception()) {
         pmod = NULL;
     } else {
-        mutex_lock(&process_module_vector.lock); /* FIXME: can be a shared read lock */
+        d_r_mutex_lock(
+            &process_module_vector.lock); /* FIXME: can be a shared read lock */
         {
             pmod = lookup_module_info(&process_module_vector, tag);
             if (pmod) {
@@ -579,7 +580,7 @@ print_symbolic_address(app_pc tag, char *buf, int max_chars, bool exact_only)
                    where some other thread frees the library */
             }
         }
-        mutex_unlock(&process_module_vector.lock);
+        d_r_mutex_unlock(&process_module_vector.lock);
     }
 
     buf[0] = '\0';
@@ -769,7 +770,7 @@ add_module_info(app_pc base_addr, size_t image_size)
               sizeof(export_entry_t), export_entry_compare);
 
         /* need to remove duplicates and update entry in process_module_vector */
-        mutex_lock(&process_module_vector.lock);
+        d_r_mutex_lock(&process_module_vector.lock);
         {
             module_info_t *pmod;
             int unique_num = remove_export_duplicates(exports_table, exports_num);
@@ -779,7 +780,7 @@ add_module_info(app_pc base_addr, size_t image_size)
             ASSERT(pmod);
             pmod->exports_num = unique_num;
         }
-        mutex_unlock(&process_module_vector.lock);
+        d_r_mutex_unlock(&process_module_vector.lock);
         return 1;
     } else {
         DOLOG(SYMBOLS_LOGLEVEL, LOG_SYMBOLS, {
@@ -890,7 +891,7 @@ find_ntdll_mod_rbtree(module_handle_t ntdllh, RTL_RB_TREE *tomatch)
     instr_t inst;
     bool found_call = false;
     byte *pc;
-    byte *start = (byte *)get_proc_address(ntdllh, "LdrDisableThreadCalloutsForDll");
+    byte *start = (byte *)d_r_get_proc_address(ntdllh, "LdrDisableThreadCalloutsForDll");
     if (start == NULL)
         return NULL;
     instr_init(GLOBAL_DCONTEXT, &inst);
@@ -911,7 +912,7 @@ find_ntdll_mod_rbtree(module_handle_t ntdllh, RTL_RB_TREE *tomatch)
                 byte *addr = opnd_get_addr(src);
                 if (is_in_ntdll(addr)) {
                     RTL_RB_TREE local;
-                    if (safe_read(addr, sizeof(local), &local) &&
+                    if (d_r_safe_read(addr, sizeof(local), &local) &&
                         local.Root == tomatch->Root && local.Min == tomatch->Min) {
                         LOG(GLOBAL, LOG_ALL, 2,
                             "Found LdrpModuleBaseAddressIndex @" PFX "\n", addr);
@@ -948,7 +949,7 @@ hide_from_rbtree(LDR_MODULE *mod)
     LOG(GLOBAL, LOG_ALL, 2, "Attempting to remove dll from rbtree\n");
 
     ntdllh = get_ntdll_base();
-    RtlRbRemoveNode = (RtlRbRemoveNode_t)get_proc_address(ntdllh, "RtlRbRemoveNode");
+    RtlRbRemoveNode = (RtlRbRemoveNode_t)d_r_get_proc_address(ntdllh, "RtlRbRemoveNode");
     if (RtlRbRemoveNode == NULL) {
         SYSLOG_INTERNAL_WARNING("cannot remove dll from rbtree: no RtlRbRemoveNode");
         return;
@@ -1147,7 +1148,7 @@ print_modules_ldrlist_and_ourlist(file_t f, bool dump_xml, bool conservative)
     lock = (RTL_CRITICAL_SECTION *)peb->LoaderLock;
     owner = (thread_id_t)lock->OwningThread;
     LOG(GLOBAL, LOG_ALL, 2, "LoaderLock owned by %d\n", owner);
-    if (owner != 0 && owner != get_thread_id()) {
+    if (owner != 0 && owner != d_r_get_thread_id()) {
         LOG(GLOBAL, LOG_ALL, 1, "WARNING: print_modules called w/o holding LoaderLock\n");
         DOLOG_ONCE(2, LOG_ALL,
                    { SYSLOG_INTERNAL_WARNING("print_modules w/o holding LoaderLock"); });
@@ -1289,7 +1290,7 @@ check_for_unsupported_modules()
     const char *short_name;
     uint traversed = 0;
     int retval =
-        get_parameter(PARAM_STR(DYNAMORIO_VAR_UNSUPPORTED), filter, sizeof(filter));
+        d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_UNSUPPORTED), filter, sizeof(filter));
     if (IS_GET_PARAMETER_FAILURE(retval) || filter[0] == 0 /* empty UNSUPPORTED list */) {
         /* no unsupported list, so nothing to look for */
         return false;
@@ -1339,13 +1340,13 @@ check_for_unsupported_modules()
         ASSERT(dos->e_magic == IMAGE_DOS_SIGNATURE);             \
     }
 
-#define VERIFY_NT_HEADER(base)                                                        \
-    {                                                                                 \
-        DEBUG_DECLARE(IMAGE_NT_HEADERS *nt = NT_HEADER(base));                        \
-        VERIFY_DOS_HEADER(base);                                                      \
-        ASSERT(nt != NULL && nt->Signature == IMAGE_NT_SIGNATURE);                    \
-        ASSERT_CURIOSITY(nt->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC || \
-                         nt->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);  \
+#define VERIFY_NT_HEADER(base)                                                         \
+    {                                                                                  \
+        DEBUG_DECLARE(IMAGE_NT_HEADERS *nth = NT_HEADER(base));                        \
+        VERIFY_DOS_HEADER(base);                                                       \
+        ASSERT(nth != NULL && nth->Signature == IMAGE_NT_SIGNATURE);                   \
+        ASSERT_CURIOSITY(nth->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC || \
+                         nth->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);  \
     }
 
 /* returns true iff [start2, start2+size2] covers the same or a subset of the pages
@@ -2202,7 +2203,7 @@ get_ldr_module_by_pc(app_pc pc)
 #ifdef DEBUG
     lock = (RTL_CRITICAL_SECTION *)peb->LoaderLock;
     owner = (thread_id_t)lock->OwningThread;
-    if (owner != 0 && owner != get_thread_id()) {
+    if (owner != 0 && owner != d_r_get_thread_id()) {
         /* This will be a risky operation but we'll live with it.
            In case we walk in a list in an inconsistent state
            1) we may get trapped in an infinite loop when following a partially updated
@@ -2515,7 +2516,7 @@ is_module_patch_region(dcontext_t *dcontext, app_pc start, app_pc end, bool cons
      * Even worse, we've seen apps that create a 2nd thread prior to the entry
      * point, meaning we cannot safely walk the list.
      */
-    if ((thread_id_t)lock->OwningThread == get_thread_id()) {
+    if ((thread_id_t)lock->OwningThread == d_r_get_thread_id()) {
         /* Walk the list
          * FIXME: just look at the last entry, since it's appended to the memory-order
          * list?
@@ -2807,7 +2808,7 @@ add_SEH_to_rct_table(dcontext_t *dcontext, app_pc module_base)
                 chain_func = (PIMAGE_RUNTIME_FUNCTION_ENTRY)ptr;
             else /* inlined */
                 chain_func = (PIMAGE_RUNTIME_FUNCTION_ENTRY)UNWIND_INFO_PTR_ADDR(info);
-            if (!safe_read(&chain_func->UnwindInfoAddress, sizeof(rva), &rva)) {
+            if (!d_r_safe_read(&chain_func->UnwindInfoAddress, sizeof(rva), &rva)) {
                 ASSERT_CURIOSITY(false && "unwind_info_t corrupted/misinterpreted");
                 continue;
             }
@@ -2945,7 +2946,7 @@ rct_add_rip_rel_addr(dcontext_t *dcontext, app_pc tgt _IF_DEBUG(app_pc src))
                 print_symbolic_address(tgt, symbuf, sizeof(symbuf), true);
                 LOG(GLOBAL, LOG_SYMBOLS, 3, "\t%s\n", symbuf);
             });
-            mutex_lock(&rct_module_lock);
+            d_r_mutex_lock(&rct_module_lock);
             if (rct_add_valid_ind_branch_target(dcontext, tgt)) {
                 STATS_INC(rct_ind_branch_valid_targets);
                 STATS_INC(rct_ind_rip_rel_new);
@@ -2954,7 +2955,7 @@ rct_add_rip_rel_addr(dcontext_t *dcontext, app_pc tgt _IF_DEBUG(app_pc src))
                 STATS_INC(rct_ind_rip_rel_old);
                 ASSERT_CURIOSITY(false && "TOCTOU race");
             }
-            mutex_unlock(&rct_module_lock);
+            d_r_mutex_unlock(&rct_module_lock);
         }
     } else {
         DOSTATS({
@@ -3663,7 +3664,7 @@ rct_process_module_mmap(app_pc module_base, size_t module_size, bool add,
         /* Grab the rct_module_lock to ensure no conflicts while
          * processing entries
          */
-        mutex_lock(&rct_module_lock);
+        d_r_mutex_lock(&rct_module_lock);
         if (DYNAMO_OPTION(rct_analyze_at_load)) {
             /* should use GLOBAL_DCONTEXT since called early */
             rct_analyze_module_at_load(GLOBAL_DCONTEXT, module_base, module_size, delta);
@@ -3758,7 +3759,7 @@ rct_process_module_mmap(app_pc module_base, size_t module_size, bool add,
             }
         }
 
-        mutex_unlock(&rct_module_lock);
+        d_r_mutex_unlock(&rct_module_lock);
     } else {
         /* case 9672: we now use per-module tables, so we don't need to
          * take any explicit action here; the tables will simply be removed.
@@ -3776,7 +3777,8 @@ bool
 rct_is_exported_function(app_pc tag)
 {
     module_info_t mod = { 0 }, *pmod;
-    mutex_lock(&process_module_vector.lock); /* FIXME: this can be a shared read lock */
+    d_r_mutex_lock(
+        &process_module_vector.lock); /* FIXME: this can be a shared read lock */
     {
         pmod = lookup_module_info(&process_module_vector, tag);
         if (pmod) {
@@ -3786,7 +3788,7 @@ rct_is_exported_function(app_pc tag)
              */
         }
     }
-    mutex_unlock(&process_module_vector.lock);
+    d_r_mutex_unlock(&process_module_vector.lock);
 
     if (pmod) {
         int i = find_predecessor(mod.exports_table, mod.exports_num, tag);
@@ -3812,7 +3814,7 @@ os_modules_init(void)
 
 #ifndef STATIC_LIBRARY
     if (DYNAMO_OPTION(hide) && !dr_earliest_injected) {
-        /* retrieve path before hiding, since this is called before os_init() */
+        /* retrieve path before hiding, since this is called before d_r_os_init() */
         get_dynamorio_library_path();
         hide_from_module_lists();
     }
@@ -6243,7 +6245,7 @@ get_module_resource_version_info(app_pc mod_base, version_info_t *info_out)
             DOCHECK(1, {
                 DWORD val;
                 ASSERT_CURIOSITY(
-                    safe_read(ver_info.string_or_var_info, sizeof(val), &val) &&
+                    d_r_safe_read(ver_info.string_or_var_info, sizeof(val), &val) &&
                     val == 0 && "unknown data at end of .rsrc");
             });
 #endif
@@ -6355,6 +6357,41 @@ bool
 module_contains_addr(module_area_t *ma, app_pc pc)
 {
     return (pc >= ma->start && pc < ma->end);
+}
+
+bool
+module_get_tls_info(app_pc module_base, OUT void ***callbacks, OUT int **index,
+                    OUT byte **data_start, OUT byte **data_end)
+{
+    IMAGE_NT_HEADERS *nt;
+    IMAGE_DATA_DIRECTORY *data_dir;
+    IMAGE_TLS_DIRECTORY *tls_dir = NULL;
+    VERIFY_NT_HEADER(module_base);
+    ASSERT(is_readable_pe_base(module_base));
+    nt = NT_HEADER(module_base);
+    data_dir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_TLS;
+    if (data_dir->VirtualAddress == 0)
+        return false;
+    if (data_dir->Size < sizeof(*tls_dir)) {
+        SYSLOG_INTERNAL_WARNING("Module " PFX " TLS dir has invalid size %d", module_base,
+                                data_dir->Size);
+        return false;
+    }
+    tls_dir = (IMAGE_TLS_DIRECTORY *)(module_base + data_dir->VirtualAddress);
+    ASSERT(is_readable_without_exception((app_pc)tls_dir, sizeof(*tls_dir)));
+    /* We don't need RVA_TO_VA: the addresses here are all virtual and are relocated. */
+    if (callbacks != NULL)
+        *callbacks = (void **)tls_dir->AddressOfCallBacks;
+    if (index != NULL)
+        *index = (int *)tls_dir->AddressOfIndex;
+    if (data_start != NULL)
+        *data_start = (byte *)tls_dir->StartAddressOfRawData;
+    if (data_end != NULL)
+        *data_end = (byte *)tls_dir->EndAddressOfRawData;
+    /* Apparently SizeOfZeroFill is ignored by the Windows loader so we do as well.
+     * There are no Characteristics for x86 or arm.
+     */
+    return true;
 }
 
 #ifdef CLIENT_INTERFACE

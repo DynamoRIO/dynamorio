@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -100,8 +100,21 @@ heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
     return malloc(size);
 }
 
+void *
+heap_reachable_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
+{
+    return malloc(size);
+}
+
 void
 heap_free(dcontext_t *dcontext, void *p, size_t size HEAPACCT(which_heap_t which))
+{
+    free(p);
+}
+
+void
+heap_reachable_free(dcontext_t *dcontext, void *p,
+                    size_t size HEAPACCT(which_heap_t which))
 {
     free(p);
 }
@@ -167,7 +180,6 @@ bool
 print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, ...)
 {
     /* in io.c */
-#    undef vsnprintf
     extern int vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
     ssize_t len;
     va_list ap;
@@ -178,7 +190,7 @@ print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, .
     ok = (len > 0 && len < (ssize_t)(bufsz - *sofar));
 #    ifdef UNIX
     /* Linux vsnprintf returns what would have been written, unlike Windows
-     * or our_vsnprintf
+     * or d_r_vsnprintf
      */
     if (len >= (ssize_t)(bufsz - *sofar))
         len = -1;
@@ -207,7 +219,7 @@ print_file(file_t f, const char *fmt, ...)
 
 #    ifdef UNIX
     /* Linux vsnprintf returns what would have been written, unlike Windows
-     * or our_vsnprintf
+     * or d_r_vsnprintf
      */
     if (len >= BUFFER_SIZE_ELEMENTS(buf))
         len = BUFFER_SIZE_ELEMENTS(buf); /* don't need NULL term */

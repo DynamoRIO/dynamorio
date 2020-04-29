@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -62,7 +62,7 @@
  * and frozen.
  * Destruction is assumed to involve all-thread-synch and so reads of
  * fields do not require the struct lock.  Just like reset, we rely on
- * all-thread-synch plus redirection to dispatch (rather than resuming
+ * all-thread-synch plus redirection to d_r_dispatch (rather than resuming
  * at suspended location, which we only do for native threads) to
  * allow us to free these shared structures that are read w/o locks.
  * FIXME: what about where we lack setcontext permission

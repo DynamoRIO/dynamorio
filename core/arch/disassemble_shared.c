@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,7 +59,6 @@
 #include "decode_fast.h"
 #include "disassemble.h"
 #include "../module_shared.h"
-#include <string.h>
 
 /* these are only needed for symbolic address lookup: */
 #include "../fragment.h" /* for fragment_pclookup */
@@ -158,6 +157,12 @@ static inline bool
 dsts_first(void)
 {
     return TESTANY(DR_DISASM_INTEL | DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask));
+}
+
+static inline bool
+opmask_with_dsts(void)
+{
+    return TESTANY(DR_DISASM_INTEL | DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask));
 }
 
 static void
@@ -312,6 +317,16 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
                     print_to_buffer(buf, bufsz, sofar, "-");
                 else if (!TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
                     print_to_buffer(buf, bufsz, sofar, "+");
+            }
+        } else if (TEST(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask))) {
+            /* There seems to be a discrepency between windbg and binutils. The latter
+             * prints a '-' displacement for negative displacements both for att and
+             * intel. We are doing the same for att syntax, while we're following windbg
+             * for intel's syntax. XXX i#3574: should we do the same for intel's syntax?
+             */
+            if (disp < 0) {
+                disp = -disp;
+                print_to_buffer(buf, bufsz, sofar, "-");
             }
         }
         if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
@@ -852,6 +867,7 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     byte optype_already[3] = { 0, 0, 0 /*0 == TYPE_NONE*/ };
     opnd_t opnd;
     bool prev = false, multiple_encodings = false;
+    bool is_evex_mask_pending = false;
 
     info = instr_get_instr_info(instr);
     if (info != NULL && get_next_instr_info(info) != NULL &&
@@ -868,7 +884,7 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     });
     num = dsts_first() ? instr_num_dsts(instr) : instr_num_srcs(instr);
     for (i = 0; i < num; i++) {
-        bool printing;
+        bool printing = false;
         opnd = dsts_first() ? instr_get_dst(instr, i) : instr_get_src(instr, i);
         IF_X86_ELSE({ optype = instr_info_opnd_type(info, !dsts_first(), i); },
                     {
@@ -878,9 +894,19 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                          */
                         optype = 0;
                     });
-        printing =
-            opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype, opnd,
-                                        prev, multiple_encodings, dsts_first(), &i);
+        bool is_evex_mask = !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
+            reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts();
+        if (!is_evex_mask) {
+            print_to_buffer(buf, bufsz, sofar, "");
+            printing = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr,
+                                                   optype, opnd, prev, multiple_encodings,
+                                                   dsts_first(), &i);
+            print_to_buffer(buf, bufsz, sofar, "");
+        } else {
+            CLIENT_ASSERT(!dsts_first(), "Evex mask can only be a source.");
+            CLIENT_ASSERT(!is_evex_mask_pending, "There can only be one evex mask.");
+            is_evex_mask_pending = true;
+        }
         /* w/o the "printing" check we suppress "push esp" => "push" */
         if (printing && i < 3)
             optype_already[i] = optype;
@@ -911,11 +937,27 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                      (i == 0 && opnd_is_reg(opnd) && reg_is_fp(opnd_get_reg(opnd))));
         });
         if (print) {
+            bool is_evex_mask = !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
+                reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts();
+            print_to_buffer(buf, bufsz, sofar, is_evex_mask ? " {" : "");
             prev = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype,
-                                               opnd, prev, multiple_encodings,
-                                               !dsts_first(), &i) ||
+                                               opnd, prev && !is_evex_mask,
+                                               multiple_encodings, !dsts_first(), &i) ||
                 prev;
+            print_to_buffer(buf, bufsz, sofar, is_evex_mask ? "}" : "");
         }
+    }
+    if (is_evex_mask_pending) {
+        opnd = instr_get_src(instr, 0);
+        CLIENT_ASSERT(IF_X86_ELSE(true, false), "evex mask can only exist for x86.");
+        optype = instr_info_opnd_type(info, !dsts_first(), i);
+        CLIENT_ASSERT(!instr_is_opmask(instr) && opnd_is_reg(opnd) &&
+                          reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts(),
+                      "evex mask must always be the first source.");
+        print_to_buffer(buf, bufsz, sofar, " {");
+        opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype, opnd,
+                                    false, multiple_encodings, dsts_first(), &i);
+        print_to_buffer(buf, bufsz, sofar, "}");
     }
 }
 
@@ -1087,7 +1129,15 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         if (i > 0)
             print_to_buffer(buf, bufsz, sofar, " ");
         sign_extend_immed(instr, i, &src);
+        /* XXX i#1312: we may want to more closely resemble ATT and Intel syntax w.r.t.
+         * EVEX mask operand. Tools tend to print the mask in conjunction with the
+         * destination in {} brackets.
+         */
+        bool is_evex_mask = !instr_is_opmask(instr) && opnd_is_reg(src) &&
+            reg_is_opmask(opnd_get_reg(src));
+        print_to_buffer(buf, bufsz, sofar, is_evex_mask ? "{" : "");
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, src, use_size_sfx);
+        print_to_buffer(buf, bufsz, sofar, is_evex_mask ? "}" : "");
     }
     if (instr_num_dsts(instr) > 0) {
         print_to_buffer(buf, bufsz, sofar, " ->");
@@ -1254,7 +1304,7 @@ common_disassemble_fragment(dcontext_t *dcontext, fragment_t *f_in, file_t outfi
     if (dynamo_options.profile_times && (f->flags & FRAG_IS_TRACE) != 0) {
         int sz = profile_call_size();
         profile_end = pc + sz;
-        if (stats->loglevel < 3) {
+        if (d_r_stats->loglevel < 3) {
             /* don't print profile stuff to save space */
             print_file(outfile, "  " PFX "..." PFX " = profile code\n", pc,
                        (pc + sz - 1));
@@ -1365,7 +1415,7 @@ common_disassemble_fragment(dcontext_t *dcontext, fragment_t *f_in, file_t outfi
 void
 disassemble_fragment(dcontext_t *dcontext, fragment_t *f, bool just_header)
 {
-    if ((stats->logmask & LOG_EMIT) != 0) {
+    if ((d_r_stats->logmask & LOG_EMIT) != 0) {
         common_disassemble_fragment(dcontext, f, THREAD, true, !just_header);
         if (!just_header)
             LOG(THREAD, LOG_EMIT, 1, "\n");
@@ -1459,13 +1509,8 @@ instrlist_disassemble(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist,
              * as much about raw bytes
              */
             int extra_sz;
-            if (level == 3) {
-                print_file(outfile, " +%-4d %c%d " IF_X64_ELSE("%20s", "%12s"), offs,
-                           instr_is_app(instr) ? 'L' : 'm', level, " ");
-            } else {
-                print_file(outfile, " +%-4d %c%d @" PFX " ", offs,
-                           instr_is_app(instr) ? 'L' : 'm', level, instr);
-            }
+            print_file(outfile, " +%-4d %c%d @" PFX " ", offs,
+                       instr_is_app(instr) ? 'L' : 'm', level, instr);
             extra_sz = print_bytes_to_file(outfile, addr, addr + len, instr);
             instr_disassemble(dcontext, instr, outfile);
             print_file(outfile, "\n");
@@ -1492,18 +1537,6 @@ instrlist_disassemble(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist,
             offs += sz;
         }
         DOLOG(5, LOG_ALL, { print_file(outfile, "---- multi-instr boundary ----\n"); });
-
-#    ifdef CUSTOM_EXIT_STUBS
-        /* custom exit stub? */
-        if (instr_is_exit_cti(instr) && instr_is_app(instr)) {
-            instrlist_t *custom = instr_exit_stub_code(instr);
-            if (custom != NULL) {
-                print_file(outfile, "\t=> custom exit stub code:\n");
-                instrlist_disassemble(dcontext, instr_get_branch_target_pc(instr), custom,
-                                      outfile);
-            }
-        }
-#    endif
     }
 
     print_file(outfile, "END " PFX "\n\n", tag);
@@ -1549,7 +1582,7 @@ internal_dump_callstack_to_buffer(char *buf, size_t bufsz, size_t *sofar, app_pc
                                                        : "Thread " TIDFMT
                                                          " call stack:\n",
                         /* We avoid TLS tid to work on crashes */
-                        IF_WINDOWS_ELSE(get_thread_id(), get_sys_thread_id()));
+                        IF_WINDOWS_ELSE(d_r_get_thread_id(), get_sys_thread_id()));
     }
 
     if (cur_pc != NULL) {

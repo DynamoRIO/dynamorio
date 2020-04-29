@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -68,7 +68,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <string.h> /* for strerror */
 #include <sys/mman.h>
 #include <sys/ptrace.h>
 #if defined(LINUX) && defined(AARCH64)
@@ -171,12 +171,12 @@ get_application_short_name(void)
     return "";
 }
 
-/* Shadow DR's internal_error so assertions work in standalone mode.  DR tries
+/* Shadow DR's d_r_internal_error so assertions work in standalone mode.  DR tries
  * to use safe_read to take a stack trace, but none of its signal handlers are
  * installed, so it will segfault before it prints our error.
  */
 void
-internal_error(const char *file, int line, const char *expr)
+d_r_internal_error(const char *file, int line, const char *expr)
 {
     fprintf(stderr, "ASSERT failed: %s:%d (%s)\n", file, line, expr);
     fflush(stderr);
@@ -862,7 +862,7 @@ static const enum_name_pair_t pt_req_map[] = { { PTRACE_TRACEME, "PTRACE_TRACEME
 #    endif
                                                { PTRACE_ATTACH, "PTRACE_ATTACH" },
                                                { PTRACE_DETACH, "PTRACE_DETACH" },
-#    ifndef AARCH64
+#    if defined(PTRACE_GETFPXREGS) && defined(PTRACE_SETFPXREGS)
                                                { PTRACE_GETFPXREGS, "PTRACE_GETFPXREGS" },
                                                { PTRACE_SETFPXREGS, "PTRACE_SETFPXREGS" },
 #    endif
@@ -1430,7 +1430,8 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     injector_dr_fd = loader.fd;
     injectee_dr_fd = dr_fd;
     injected_base = elf_loader_map_phdrs(&loader, true /*fixed*/, injectee_map_file,
-                                         injectee_unmap, injectee_prot, 0 /*!reachable*/);
+                                         injectee_unmap, injectee_prot, NULL,
+                                         MODLOAD_SEPARATE_PROCESS /*!reachable*/);
     if (injected_base == NULL) {
         if (verbose)
             fprintf(stderr, "Unable to mmap libdynamorio.so in injectee\n");

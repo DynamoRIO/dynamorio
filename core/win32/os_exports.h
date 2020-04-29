@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -71,12 +71,13 @@ int
 get_os_version(void);
 void
 get_os_version_ex(int *version OUT, uint *service_pack_major OUT,
-                  uint *service_pack_minor OUT);
+                  uint *service_pack_minor OUT, uint *build_number OUT,
+                  const char **release_id OUT, const char **edition OUT);
 
 /* TEB offsets
  * we'd like to use offsetof(TEB, field) but that would require
  * everyone to include ntdll.h, and wouldn't work for inline assembly,
- * so we hardcode the fields we need here.  We check vs offsetof() in os_init().
+ * so we hardcode the fields we need here.  We check vs offsetof() in d_r_os_init().
  */
 enum {
 #ifdef X64
@@ -93,6 +94,7 @@ enum {
     FLS_DATA_TIB_OFFSET = 0x17c8,
     NT_RPC_TIB_OFFSET = 0x1698,
     NLS_CACHE_TIB_OFFSET = 0x17a0,
+    STATIC_TLS_TIB_OFFSET = 0x58,
 #else
     EXCEPTION_LIST_TIB_OFFSET = 0x00,
     TOP_STACK_TIB_OFFSET = 0x04,
@@ -107,6 +109,7 @@ enum {
     FLS_DATA_TIB_OFFSET = 0xfb4,
     NT_RPC_TIB_OFFSET = 0xf1c,
     NLS_CACHE_TIB_OFFSET = 0xfa0,
+    STATIC_TLS_TIB_OFFSET = 0x2c,
 #endif
 };
 
@@ -120,18 +123,20 @@ enum {
 
 #define DR_REG_SYSNUM REG_EAX
 
-/* even INLINE_FORCED isn't inlining this into get_thread_id() in debug build (i#655) */
-#define get_tls(/*ushort*/ tls_offs) \
+/* even INLINE_FORCED isn't inlining this into d_r_get_thread_id() in debug build (i#655)
+ */
+#define d_r_get_tls(/*ushort*/ tls_offs) \
     ((void *)IF_X64_ELSE(__readgsqword, __readfsdword)(tls_offs))
 
 static inline void
-set_tls(ushort tls_offs, void *value)
+d_r_set_tls(ushort tls_offs, void *value)
 {
     IF_X64_ELSE(__writegsqword, __writefsdword)(tls_offs, (ptr_uint_t)value);
 }
 
-/* even INLINE_FORCED isn't inlining this into get_thread_id() in debug build (i#655) */
-#define get_own_teb() ((TEB *)get_tls(SELF_TIB_OFFSET))
+/* even INLINE_FORCED isn't inlining this into d_r_get_thread_id() in debug build (i#655)
+ */
+#define get_own_teb() ((TEB *)d_r_get_tls(SELF_TIB_OFFSET))
 
 /* We need to meet these requirements:
  * + DrMi#1676: cur esp is in [StackLimit..StackBase) at all times on Win8.1.

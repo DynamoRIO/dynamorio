@@ -1,0 +1,9 @@
+Testing code cache context switch
+(<Application .*client\.avx512ctx.*AVX-512 was detected at PC 0x[0-9a-f]+. AVX-512 is not fully supported yet.>
+)?Clobbering all zmm registers
+Clobbering all mask registers
+Testing clean call context switch
+Reading application state
+Clobbering all zmm registers
+Clobbering all mask registers
+Ok

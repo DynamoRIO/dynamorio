@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -68,8 +68,20 @@
 #define AMD_ECX /* cAMD */ 0x444d4163
 
 static bool avx_enabled;
+static bool avx512_enabled;
+
+static int num_simd_saved;
+static int num_simd_registers;
+static int num_simd_sse_avx_registers;
+static int num_simd_sse_avx_saved;
+static int num_opmask_registers;
+static int xstate_area_kmask_offs;
+static int xstate_area_zmm_hi256_offs;
+static int xstate_area_hi16_zmm_offs;
+/* TODO i#3581: mpx state offsets. */
+
 /* global writable variable for debug registers value */
-DECLARE_NEVERPROT_VAR(app_pc debugRegister[DEBUG_REGISTERS_NB], { 0 });
+DECLARE_NEVERPROT_VAR(app_pc d_r_debug_register[DEBUG_REGISTERS_NB], { 0 });
 
 static void
 get_cache_sizes_amd(uint max_ext_val)
@@ -151,6 +163,33 @@ get_cache_sizes_intel(uint max_val)
         case 0x87: cpu_info.L2_cache_size = CACHE_SIZE_1_MB; break;
         default: break;
         }
+    }
+}
+
+static void
+get_xstate_area_offsets(bool has_kmask, bool has_zmm_hi256, bool has_hi16_zmm)
+{
+    int cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
+    DOLOG(1, LOG_TOP, {
+        if (has_kmask || has_zmm_hi256 || has_hi16_zmm) {
+            LOG(GLOBAL, LOG_TOP, 1, "\tExtended xstate area offsets:\n",
+                xstate_area_kmask_offs);
+        }
+    });
+    if (has_kmask) {
+        our_cpuid(cpuid_res_local, 0xd, 5);
+        xstate_area_kmask_offs = cpuid_res_local[1];
+        LOG(GLOBAL, LOG_TOP, 1, "\t\tkmask: %d\n", xstate_area_kmask_offs);
+    }
+    if (has_zmm_hi256) {
+        our_cpuid(cpuid_res_local, 0xd, 6);
+        xstate_area_zmm_hi256_offs = cpuid_res_local[1];
+        LOG(GLOBAL, LOG_TOP, 1, "\t\tzmm_hi256: %d\n", xstate_area_zmm_hi256_offs);
+    }
+    if (has_hi16_zmm) {
+        our_cpuid(cpuid_res_local, 0xd, 7);
+        xstate_area_hi16_zmm_offs = cpuid_res_local[1];
+        LOG(GLOBAL, LOG_TOP, 1, "\t\thi16_zmm: %d\n", xstate_area_hi16_zmm_offs);
     }
 }
 
@@ -273,11 +312,6 @@ get_processor_specific_info(void)
     } else if (cpu_info.vendor == VENDOR_AMD && cpu_info.family == FAMILY_ATHLON) {
         /* Athlon */
         cache_line_size = 64;
-#ifdef IA32_ON_IA64
-    } else if (cpu_info.vendor == VENDOR_INTEL && cpu_info.family == FAMILY_IA64) {
-        /* Itanium */
-        cache_line_size = 32;
-#endif
     } else {
         LOG(GLOBAL, LOG_TOP, 1, "Warning: running on unsupported processor family %d\n",
             cpu_info.family);
@@ -323,7 +357,7 @@ proc_init_arch(void)
      * care enough to add more, it would probably be best to loop
      * through a const array of feature names.
      */
-    if (stats->loglevel > 0 && (stats->logmask & LOG_TOP) != 0) {
+    if (d_r_stats->loglevel > 0 && (d_r_stats->logmask & LOG_TOP) != 0) {
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n\tedx = 0x%08x\n\tecx = 0x%08x\n",
             cpu_info.features.flags_edx, cpu_info.features.flags_ecx);
         LOG(GLOBAL, LOG_TOP, 1, "\text_edx = 0x%08x\n\text_ecx = 0x%08x\n",
@@ -344,6 +378,10 @@ proc_init_arch(void)
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has SSE3\n");
         if (proc_has_feature(FEATURE_AVX))
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX\n");
+        if (proc_has_feature(FEATURE_AVX512F))
+            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX-512F\n");
+        if (proc_has_feature(FEATURE_AVX512BW))
+            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX-512BW\n");
         if (proc_has_feature(FEATURE_OSXSAVE))
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has OSXSAVE\n");
     }
@@ -353,26 +391,77 @@ proc_init_arch(void)
                       (!proc_has_feature(FEATURE_FXSR) && !proc_has_feature(FEATURE_SSE)),
                   "Unsupported processor type: SSE and FXSR must match");
 
-    if (proc_has_feature(FEATURE_AVX) && proc_has_feature(FEATURE_OSXSAVE)) {
-        /* Even if the processor supports AVX, it will #UD on any AVX instruction
-         * if the OS hasn't enabled YMM and XMM state saving.
-         * To check that, we invoke xgetbv -- for which we need FEATURE_OSXSAVE.
-         * FEATURE_OSXSAVE is also listed as one of the 3 steps in Intel Vol 1
-         * Fig 13-1: 1) cpuid OSXSAVE; 2) xgetbv 0x6; 3) cpuid AVX.
-         * Xref i#1278, i#1030, i#437.
-         */
+    /* As part of lazy context switching of AVX-512 state, the number of saved registers
+     * is initialized excluding extended AVX-512 registers.
+     */
+    num_simd_saved = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
+    /* The number of total registers may be switched to include extended AVX-512
+     * registers if OS and processor support will be detected further below.
+     */
+    num_simd_registers = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
+    /* Please note that this constant is not assigned based on feature support. It
+     * represents the xstate/fpstate/sigcontext structure sizes for non-AVX-512 state.
+     */
+    num_simd_sse_avx_registers = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
+    num_simd_sse_avx_saved = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
+    num_opmask_registers = 0;
+
+    if (proc_has_feature(FEATURE_OSXSAVE)) {
         uint bv_high = 0, bv_low = 0;
         dr_xgetbv(&bv_high, &bv_low);
-        LOG(GLOBAL, LOG_TOP, 2, "\txgetbv => 0x%08x%08x\n", bv_high, bv_low);
-        if (TESTALL(XCR0_AVX | XCR0_SSE, bv_low)) {
-            avx_enabled = true;
-            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX\n");
-        } else {
-            LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX\n");
+        if (proc_has_feature(FEATURE_AVX)) {
+            /* Even if the processor supports AVX, it will #UD on any AVX instruction
+             * if the OS hasn't enabled YMM and XMM state saving.
+             * To check that, we invoke xgetbv -- for which we need FEATURE_OSXSAVE.
+             * FEATURE_OSXSAVE is also listed as one of the 3 steps in Intel Vol 1
+             * Fig 13-1: 1) cpuid OSXSAVE; 2) xgetbv 0x6; 3) cpuid AVX.
+             * Xref i#1278, i#1030, i#437.
+             */
+            LOG(GLOBAL, LOG_TOP, 2, "\txgetbv => 0x%08x%08x\n", bv_high, bv_low);
+            if (TESTALL(XCR0_AVX | XCR0_SSE, bv_low)) {
+                avx_enabled = true;
+                LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX\n");
+            } else {
+                LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX\n");
+            }
+        }
+        if (proc_has_feature(FEATURE_AVX512F)) {
+            if (TESTALL(XCR0_HI16_ZMM | XCR0_ZMM_HI256 | XCR0_OPMASK, bv_low)) {
+#if !defined(UNIX)
+                /* FIXME i#1312: AVX-512 is not fully supported and is untested on all
+                 * non-UNIX builds. A SYSLOG_INTERNAL_ERROR_ONCE is issued on Windows
+                 * if AVX-512 code is encountered. Setting DynamoRIO to a state that
+                 * partially supports AVX-512 is causing problems, xref i#3949. We
+                 * therefore completely disable AVX-512 support in these builds for now.
+                 */
+#else
+                /* XXX i#1312: It had been unclear whether the kernel uses CR0
+                 * bits to disable AVX-512 for its own lazy context switching
+                 * optimization. If it did, then our lazy context switch would
+                 * interfere with the kernel's and more support would be needed.
+                 * We have concluded that the Linux kernel does not do its own
+                 * lazy context switch optimization for AVX-512 at this time.
+                 *
+                 * Please note that the 32-bit UNIX build is missing support for
+                 * handling AVX-512 state with signals. A SYSLOG_INTERNAL_ERROR_ONCE
+                 * will be issued if AVX-512 code is encountered for 32-bit. 64-bit
+                 * builds are fully supported.
+                 */
+                avx512_enabled = true;
+                num_simd_registers = MCXT_NUM_SIMD_SLOTS;
+                num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;
+                LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX-512\n");
+#endif
+            } else {
+                LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX-512\n");
+            }
+            get_xstate_area_offsets(TEST(XCR0_OPMASK, bv_low),
+                                    TEST(XCR0_ZMM_HI256, bv_low),
+                                    TEST(XCR0_HI16_ZMM, bv_low));
         }
     }
     for (i = 0; i < DEBUG_REGISTERS_NB; i++) {
-        debugRegister[i] = NULL;
+        d_r_debug_register[i] = NULL;
     }
 }
 
@@ -417,6 +506,69 @@ proc_fpstate_save_size(void)
                       opnd_size_in_bytes(OPSZ_108) == 108,
                   "internal sizing discrepancy");
     return (proc_has_feature(FEATURE_FXSR) ? 512 : 108);
+}
+
+DR_API
+int
+proc_num_simd_saved(void)
+{
+    return num_simd_saved;
+}
+
+DR_API
+int
+proc_num_simd_registers(void)
+{
+    return num_simd_registers;
+}
+
+DR_API
+int
+proc_num_opmask_registers(void)
+{
+    return num_opmask_registers;
+}
+
+void
+proc_set_num_simd_saved(int num)
+{
+#if !defined(UNIX)
+    /* FIXME i#1312: support and test. */
+#else
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    ATOMIC_4BYTE_WRITE(&num_simd_saved, num, false);
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+#endif
+}
+
+int
+proc_num_simd_sse_avx_registers(void)
+{
+    return num_simd_sse_avx_registers;
+}
+
+int
+proc_num_simd_sse_avx_saved(void)
+{
+    return num_simd_sse_avx_saved;
+}
+
+int
+proc_xstate_area_kmask_offs(void)
+{
+    return xstate_area_kmask_offs;
+}
+
+int
+proc_xstate_area_zmm_hi256_offs(void)
+{
+    return xstate_area_zmm_hi256_offs;
+}
+
+int
+proc_xstate_area_hi16_zmm_offs(void)
+{
+    return xstate_area_hi16_zmm_offs;
 }
 
 DR_API
@@ -527,4 +679,10 @@ bool
 proc_avx_enabled(void)
 {
     return avx_enabled;
+}
+
+bool
+proc_avx512_enabled(void)
+{
+    return avx512_enabled;
 }

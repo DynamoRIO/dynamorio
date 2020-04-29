@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -807,7 +807,7 @@ eventlog_init()
     /* may have already been allocated for early syslogs */
     eventlog_alloc();
 
-    mutex_lock(&shared_eventlog_connection->eventlog_mutex);
+    d_r_mutex_lock(&shared_eventlog_connection->eventlog_mutex);
     if (!shared_eventlog_connection->eventlog_pipe) {
         /* initialize thread shared connection */
         res = eventlog_register(shared_eventlog_connection);
@@ -815,18 +815,18 @@ eventlog_init()
             LOG(GLOBAL, LOG_TOP, 1, "WARNING: Could not register event source.\n");
         }
     }
-    mutex_unlock(&shared_eventlog_connection->eventlog_mutex);
+    d_r_mutex_unlock(&shared_eventlog_connection->eventlog_mutex);
 }
 
 void
 eventlog_fast_exit(void)
 {
     uint res = 1; /* maybe nothing to do */
-    mutex_lock(&shared_eventlog_connection->eventlog_mutex);
+    d_r_mutex_lock(&shared_eventlog_connection->eventlog_mutex);
     if (shared_eventlog_connection->eventlog_pipe)
         res = eventlog_deregister(shared_eventlog_connection);
     shared_eventlog_connection->eventlog_pipe = 0;
-    mutex_unlock(&shared_eventlog_connection->eventlog_mutex);
+    d_r_mutex_unlock(&shared_eventlog_connection->eventlog_mutex);
     DOLOG(1, LOG_TOP, if (!res) {
         LOG(GLOBAL, LOG_TOP, 1, "WARNING: DeregisterEventSource failed.\n");
     });
@@ -873,7 +873,7 @@ os_eventlog(syslog_event_type_t priority, uint message_id, uint substitutions_nu
 
     if (shared_eventlog_connection == NULL)
         eventlog_alloc();
-    mutex_lock(&shared_eventlog_connection->eventlog_mutex);
+    d_r_mutex_lock(&shared_eventlog_connection->eventlog_mutex);
     if (!shared_eventlog_connection->eventlog_pipe) {
         /* Retry to open connection, since may have been unable
            to do that early on for system services started before EventLog */
@@ -896,7 +896,7 @@ os_eventlog(syslog_event_type_t priority, uint message_id, uint substitutions_nu
                               message_id, NULL, /* pSID */
                               (WORD)substitutions_num, size_data, arguments, raw_data);
     }
-    mutex_unlock(&shared_eventlog_connection->eventlog_mutex);
+    d_r_mutex_unlock(&shared_eventlog_connection->eventlog_mutex);
 
     DOLOG(1, LOG_TOP, if (!res) {
         LOG(GLOBAL, LOG_TOP, 1, "WARNING: Could not report event 0x%x. \n", message_id);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,7 +34,6 @@
 #include "globals.h"
 #include "instrument.h"
 #include "native_exec.h"
-#include <string.h> /* for memset */
 #ifdef WINDOWS
 #    include "ntdll.h" /* for protect_virtual_memory */
 #endif
@@ -65,7 +64,7 @@ void
 os_get_module_info_lock(void)
 {
     if (loaded_module_areas != NULL)
-        read_lock(&module_data_lock);
+        d_r_read_lock(&module_data_lock);
     /* else we assume past exit: FIXME: best to have exited bool */
 }
 
@@ -74,7 +73,7 @@ os_get_module_info_unlock(void)
 {
     if (loaded_module_areas != NULL) {
         ASSERT_OWN_READ_LOCK(true, &module_data_lock);
-        read_unlock(&module_data_lock);
+        d_r_read_unlock(&module_data_lock);
     }
 }
 
@@ -82,7 +81,7 @@ void
 os_get_module_info_write_lock(void)
 {
     if (loaded_module_areas != NULL)
-        write_lock(&module_data_lock);
+        d_r_write_lock(&module_data_lock);
     /* else we assume past exit: FIXME: best to have exited bool */
 }
 
@@ -90,7 +89,7 @@ void
 os_get_module_info_write_unlock(void)
 {
     if (loaded_module_areas != NULL)
-        write_unlock(&module_data_lock);
+        d_r_write_unlock(&module_data_lock);
     /* else we assume past exit: FIXME: best to have exited bool */
 }
 
@@ -601,7 +600,7 @@ region_intersection_MD5update(struct MD5Context *ctx, app_pc region1_start,
     if (intersection_len != 0) {
         LOG(GLOBAL, LOG_SYSCALLS, 2, "adding to short hash region " PFX "-" PFX "\n",
             intersection_start, intersection_start + intersection_len);
-        MD5Update(ctx, intersection_start, intersection_len);
+        d_r_md5_update(ctx, intersection_start, intersection_len);
     }
 }
 
@@ -617,7 +616,7 @@ module_calculate_digest_helper(struct MD5Context *md5_full_cxt /* OPTIONAL */,
     LOG(GLOBAL, LOG_VMAREAS, 2, "\t%s: segment " PFX "-" PFX "\n", __FUNCTION__,
         region_start, region_start + region_len);
     if (md5_full_cxt != NULL)
-        MD5Update(md5_full_cxt, region_start, region_len);
+        d_r_md5_update(md5_full_cxt, region_start, region_len);
     if (md5_short_cxt == NULL)
         return;
     if (len_header != 0) {
@@ -794,9 +793,9 @@ module_calculate_digest(OUT module_digest_t *digest, app_pc module_base,
     ASSERT(get_module_base(module_base) == module_base);
 
     if (short_digest)
-        MD5Init(&md5_short_cxt);
+        d_r_md5_init(&md5_short_cxt);
     if (full_digest)
-        MD5Init(&md5_full_cxt);
+        d_r_md5_init(&md5_full_cxt);
 
     /* first region to consider is module header.  on linux this is
      * usually part of 1st segment so perhaps we should skip for linux
@@ -865,9 +864,9 @@ module_calculate_digest(OUT module_digest_t *digest, app_pc module_base,
     }
 
     if (short_digest)
-        MD5Final(digest->short_MD5, &md5_short_cxt);
+        d_r_md5_final(digest->short_MD5, &md5_short_cxt);
     if (full_digest)
-        MD5Final(digest->full_MD5, &md5_full_cxt);
+        d_r_md5_final(digest->full_MD5, &md5_full_cxt);
 
     DOCHECK(1, {
         if (full_digest && short_digest &&

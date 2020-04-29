@@ -35,12 +35,6 @@
 
 #include "dr_api.h"
 
-#ifdef WINDOWS
-#    define BINARY_NAME "client.cleancall-opt-1.exe"
-#else
-#    define BINARY_NAME "client.cleancall-opt-1"
-#endif
-
 /* List of instrumentation functions. */
 #define FUNCTIONS()             \
     FUNCTION(empty)             \
@@ -125,7 +119,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool tra
 static instrlist_t *
 codegen_out_of_line(void *dc)
 {
-    uint i;
+    int i;
     instrlist_t *ilist = instrlist_create(dc);
 
     codegen_prologue(dc, ilist);
@@ -138,11 +132,23 @@ codegen_out_of_line(void *dc)
     }
     /* FIXME i#1569: FMOV support is NYI on AArch64 */
 #ifdef X86
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+    for (i = 0; i < proc_num_simd_registers(); i++) {
         reg_id_t reg = DR_REG_XMM0 + (reg_id_t)i;
+#    ifdef __AVX512F__
+        /* For the AVX-512 version, we're still using vmovq to a XMM register, but it
+         * zeroes out [MAX_VL:64] (32 for 32-bit), so the test is still working as
+         * we want.
+         */
         APP(ilist,
-            INSTR_CREATE_movd(dc, opnd_create_reg(reg),
-                              opnd_create_reg(DR_REG_START_GPR)));
+            INSTR_ENCODING_HINT(
+                IF_X64_ELSE(INSTR_CREATE_vmovq, INSTR_CREATE_vmovd)(
+                    dc, opnd_create_reg(reg), opnd_create_reg(DR_REG_START_GPR)),
+                DR_ENCODING_HINT_X86_EVEX));
+#    else
+        APP(ilist,
+            IF_X64_ELSE(INSTR_CREATE_vmovq, INSTR_CREATE_vmovd)(
+                dc, opnd_create_reg(reg), opnd_create_reg(DR_REG_START_GPR)));
+#    endif
     }
 
     /* Modify flags */

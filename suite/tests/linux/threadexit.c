@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -141,7 +141,7 @@ run(void *arg)
      * the default on x64 on returning for some reason which seems
      * like a bug in _clone() (xref i#94).
      */
-    dynamorio_syscall(SYS_exit_group, 0);
+    dynamorio_syscall(SYS_exit_group, 1, 0);
     return 0;
 }
 

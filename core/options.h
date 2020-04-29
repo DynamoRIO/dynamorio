@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -293,7 +293,7 @@ bool
 has_pcache_dynamo_options(options_t *options, op_pcache_t pcache_effect);
 
 char *
-parse_word(const char *str, const char **strpos, char *wordbuf, uint wordbuflen);
+d_r_parse_word(const char *str, const char **strpos, char *wordbuf, uint wordbuflen);
 
 void
 options_enable_code_api_dependences(options_t *options);
@@ -360,7 +360,7 @@ set_dynamo_options(options_t *options, const char *optstr);
 #        define CLIENT_OR_STANDALONE() false
 #    endif
 
-extern char option_string[];
+extern char d_r_option_string[];
 extern options_t dynamo_options;
 extern read_write_lock_t options_lock;
 
@@ -402,12 +402,12 @@ extern read_write_lock_t options_lock;
 static inline void
 string_option_read_lock()
 {
-    read_lock(&options_lock);
+    d_r_read_lock(&options_lock);
 }
 static inline void
 string_option_read_unlock()
 {
-    read_unlock(&options_lock);
+    d_r_read_unlock(&options_lock);
 }
 
 typedef enum {

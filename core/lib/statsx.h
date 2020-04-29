@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -245,6 +245,7 @@ STATS_DEF("Cache consistency flushes that flushed nothing", num_empty_flushes)
 STATS_DEF("Cache consistency flushes via synchall", flush_synchall)
 STATS_DEF("Thread not translated in synchall flush (race)", flush_synchall_races)
 STATS_DEF("Thread not synched with in synchall flush", flush_synchall_fail)
+RSTATS_DEF("Synch attempt failure b/c not at safe spot", synchs_not_at_safe_spot)
 STATS_DEF("Cache consistency coarse units flushed", flush_coarse_units)
 STATS_DEF("Cache consistency persisted units flushed", flush_persisted_units)
 STATS_DEF("Cache consistency persisted flushed at unload", flush_persisted_unload)
@@ -439,10 +440,12 @@ STATS_DEF("Indirect exit stubs created", num_indirect_exit_stubs)
 STATS_DEF("Separate stubs created", num_separate_stubs)
 STATS_DEF("Entrance stubs created", num_entrance_stubs)
 #ifdef X64
-STATS_DEF("Rip-relative instrs mangled", rip_rel_instrs)
-STATS_DEF("Rip-relative leas mangled", rip_rel_lea)
-STATS_DEF("Rip-relative instrs w/ un-reachable targets", rip_rel_unreachable)
-STATS_DEF("Rip-relative unreachable spill avoided", rip_rel_unreachable_nospill)
+STATS_DEF("Rip-relative instrs seen", rip_rel_instrs)
+STATS_DEF("Rip-relative unreachable leas", rip_rel_lea)
+STATS_DEF("Rip-relative unreachable leas in app", rip_rel_app_lea)
+STATS_DEF("Rip-relative unreachable non-leas", rip_rel_unreachable)
+STATS_DEF("Rip-relative unreachable non-leas in app", rip_rel_app_unreachable)
+STATS_DEF("Rip-relative unreachable spills avoided", rip_rel_unreachable_nospill)
 #endif
 STATS_DEF("BBs with one indirect exit", num_bb_one_indirect_exit)
 STATS_DEF("BBs with indirect exit + other exits", num_bb_indirect_extra_exits)
@@ -752,7 +755,7 @@ STATS_DEF("Fcache exits, signal delivery", num_exits_dir_signal)
 STATS_DEF("Fcache exits needing cbr disambiguation", cbr_disambiguations)
 
 STATS_DEF("Float pc state updates intra-cache", float_pc_from_cache)
-STATS_DEF("Float pc state updates from dispatch", float_pc_from_dispatch)
+STATS_DEF("Float pc state updates from d_r_dispatch", float_pc_from_dispatch)
 
 STATS_DEF("Fragments with OF restore prefix", num_oflag_prefix_restore)
 STATS_DEF("Fcache free capacity (bytes)", fcache_free_capacity)
@@ -1032,8 +1035,6 @@ STATS_DEF("-pad_jmps no shift stubs shared bb", pad_jmps_shared_bb_num_stubs_no_
 STATS_DEF("-pad_jmps inserted nops shared bb", pad_jmps_shared_bb_num_nops)
 STATS_DEF("-pad_jmps inserted nop bytes shared bb", pad_jmps_shared_bb_nop_bytes)
 STATS_DEF("-pad_jmps no pad exits shared bb", pad_jmps_shared_bb_num_no_pad_exits)
-STATS_DEF("-pad_jmps_mark_no_trace untraceable bbs", pad_jmps_mark_no_trace)
-STATS_DEF("-pad_jmps_mark_no_trace block trace on reemit", pad_jmps_block_trace_reemit)
 
 /* shtrace to avoid going over 60 columns */
 STATS_DEF("-pad_jmps body bytes shtrace", pad_jmps_shared_trace_body_bytes)
@@ -1225,7 +1226,8 @@ STATS_DEF("Doubled-up nudges", num_pending_nudges)
 STATS_DEF("Clean Call analyzed", cleancall_analyzed)
 STATS_DEF("Clean Call inserted", cleancall_inserted)
 STATS_DEF("Clean Call inlined", cleancall_inlined)
-STATS_DEF("Clean Call xmm skipped", cleancall_simd_skipped)
+STATS_DEF("Clean Call [xyz]mm skipped", cleancall_simd_skipped)
+STATS_DEF("Clean Call mask skipped", cleancall_opmask_skipped)
 STATS_DEF("Clean Call aflags save skipped", cleancall_aflags_save_skipped)
 STATS_DEF("Clean Call aflags clear skipped", cleancall_aflags_clear_skipped)
 /* i#107 handle application using same segment register */
@@ -1234,4 +1236,9 @@ STATS_DEF("App access FS/GS seg being mangled", app_mov_seg_mangled)
 #ifdef ARM
 STATS_DEF("Reg spills for non-mbr mangling", non_mbr_spills)
 STATS_DEF("Reg respill for non-mbr mangling avoided", non_mbr_respill_avoided)
+#endif
+#ifdef LINUX
+RSTATS_DEF("Rseq regions identified", num_rseq_regions)
+RSTATS_DEF("Rseq instrumented stores elided", num_rseq_stores_elided)
+RSTATS_DEF("Rseq native calls inserted", num_rseq_native_calls_inserted)
 #endif

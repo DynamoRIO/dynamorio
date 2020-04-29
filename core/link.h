@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -80,16 +80,18 @@ enum {
     /* Indicates a far cti which uses a separate ibl entry */
     LINK_FAR = 0x0020,
 
-#ifdef UNSUPPORTED_API
-    LINK_TARGET_PREFIX = 0x0040,
-#endif
+    /* This exit cti has a preceding NOP to avoid its immediate from crossing a cache
+     * line.  This flag lets us identify NOPs which we added as opposed to the client.
+     */
+    LINK_PADDED = 0x0040,
+
 #ifdef X64
     /* PR 257963: since we don't store targets of ind branches, we need a flag
      * so we know whether this is a trace cmp exit, which has its own ibl entry
      */
     LINK_TRACE_CMP = 0x0080,
 #endif
-    /* Flags that tell DR to take some action upon returning to dispatch.
+    /* Flags that tell DR to take some action upon returning to d_r_dispatch.
      * This first one is multiplexed via dcontext->upcontext.upcontext.exit_reason.
      * All uses are assumed to be unlinkable.
      */
@@ -164,11 +166,6 @@ struct _linkstub_t {
      * Do not directly access this field -- use EXIT_CTI_PC()
      */
     ushort cti_offset; /* offset from fragment start_pc of this cti */
-
-#ifdef CUSTOM_EXIT_STUBS
-    ushort fixed_stub_offset; /* offset in bytes of fixed part of exit stub from
-                               * stub_pc, which points to custom stub prefix */
-#endif
 };
 
 /* linkage info common to all direct fragment exits */
@@ -351,10 +348,6 @@ typedef struct _coarse_incoming_t {
          : (LINKSTUB_CBR_FALLTHROUGH((l)->flags) ? ((f)->tag + ((short)(l)->cti_offset)) \
                                                  : indirect_linkstub_target(dc, f, l)))
 
-#ifdef CUSTOM_EXIT_STUBS
-#    define EXIT_FIXED_STUB_PC(dc, f, l) (EXIT_STUB_PC(dc, f, l) + (l)->fixed_stub_offset)
-#endif
-
 #ifdef WINDOWS
 #    define EXIT_TARGETS_SHARED_SYSCALL(flags) \
         (DYNAMO_OPTION(shared_syscalls) &&     \
@@ -375,9 +368,9 @@ typedef struct _coarse_incoming_t {
     (EXIT_HAS_STUB(l_flags, f_flags) && !TEST(LINK_SEPARATE_STUB, (l_flags)))
 
 void
-link_init(void);
+d_r_link_init(void);
 void
-link_exit(void);
+d_r_link_exit(void);
 void
 link_reset_init(void);
 void

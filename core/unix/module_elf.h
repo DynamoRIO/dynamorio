@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -254,6 +254,12 @@ typedef struct elf_loader_t {
     byte buf[sizeof(ELF_HEADER_TYPE) + sizeof(ELF_PROGRAM_HEADER_TYPE) * 12];
 } elf_loader_t;
 
+typedef byte *(*map_fn_t)(file_t f, size_t *size INOUT, uint64 offs, app_pc addr,
+                          uint prot /*MEMPROT_*/, map_flags_t map_flags);
+typedef bool (*unmap_fn_t)(byte *map, size_t size);
+typedef bool (*prot_fn_t)(byte *map, size_t size, uint prot /*MEMPROT_*/);
+typedef void (*check_bounds_fn_t)(elf_loader_t *elf, byte *start, byte *end);
+
 /* Initialized an ELF loader for use with the given file. */
 bool
 elf_loader_init(elf_loader_t *elf, const char *filename);
@@ -285,12 +291,15 @@ elf_loader_map_file(elf_loader_t *elf, bool reachable);
  * elf_loader_read_headers() shortcut.  All image mappings are done via the
  * provided function pointers.
  *
+ * check_bounds_func is only called if fixed=true.
+ *
  * XXX: fixed is only a hint as PIEs with a base of 0 should not use MAP_FIXED,
  * should we remove it?
  */
 app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
-                     unmap_fn_t unmap_func, prot_fn_t prot_func, modload_flags_t flags);
+                     unmap_fn_t unmap_func, prot_fn_t prot_func,
+                     check_bounds_fn_t check_bounds_func, modload_flags_t flags);
 
 /* Iterate program headers of a mapped ELF image and find the string that
  * PT_INTERP points to.  Typically this comes early in the file and is always
@@ -299,5 +308,10 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
  */
 const char *
 elf_loader_find_pt_interp(elf_loader_t *elf);
+
+#ifdef LINUX
+bool
+module_init_rseq(module_area_t *ma, bool at_map);
+#endif
 
 #endif /* MODULE_ELF_H */

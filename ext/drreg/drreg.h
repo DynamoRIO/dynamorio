@@ -317,6 +317,13 @@ typedef enum {
      * scratch registers are then restored prior to each application instruction.
      */
     DRREG_IGNORE_CONTROL_FLOW = 0x002,
+    /**
+     * Turns off register restoration at the end of the block.
+     * Note that it is still required that registers have their original
+     * values at the end of a basic block. Therefore, restoration needs
+     * to be handled by the user manually, usually via drreg_restore_all().
+     */
+    DRREG_USER_RESTORES_AT_BB_END = 0x004,
 } drreg_bb_properties_t;
 
 DR_EXPORT
@@ -433,6 +440,13 @@ DR_EXPORT
 drreg_status_t
 drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t opnd,
                          INOUT reg_id_t *swap);
+
+DR_EXPORT
+/**
+ * Restores all unreserved registers and flags to their app values at \p where.
+ */
+drreg_status_t
+drreg_restore_all(void *drcontext, instrlist_t *bb, instr_t *where);
 
 DR_EXPORT
 /**

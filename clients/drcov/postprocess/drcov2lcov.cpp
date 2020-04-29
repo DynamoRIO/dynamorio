@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -407,9 +407,9 @@ line_table_create(const char *file)
     chunk->first_num = 1;
     chunk->last_num = chunk->first_num + chunk->num_lines - 1;
     chunk->next = NULL;
-    PRINT(5, "line table " PFX " added\n", (ptr_uint_t)table);
+    PRINT(5, "line table " PFX " added\n", table);
     PRINT(7, "Init chunk %u-%u (%u) for " PFX " @" PFX "\n", chunk->first_num,
-          chunk->last_num, chunk->num_lines, (ptr_uint_t)table, (ptr_uint_t)chunk);
+          chunk->last_num, chunk->num_lines, table, chunk);
     return table;
 }
 
@@ -418,7 +418,7 @@ line_table_delete(void *p)
 {
     line_table_t *table = (line_table_t *)p;
     line_chunk_t *chunk, *next;
-    PRINT(5, "line table " PFX " delete\n", (ptr_uint_t)table);
+    PRINT(5, "line table " PFX " delete\n", table);
     for (chunk = table->chunk; chunk != NULL; chunk = next) {
         next = chunk->next;
         line_chunk_free(chunk);
@@ -455,8 +455,7 @@ line_table_add(line_table_t *line_table, uint line, byte status, const char *tes
         line_table->chunk = chunk;
         line_table->num_chunks++;
         PRINT(7, "New chunk %u-%u (%u) for " PFX " @" PFX "\n", chunk->first_num,
-              chunk->last_num, chunk->num_lines, (ptr_uint_t)line_table,
-              (ptr_uint_t)chunk);
+              chunk->last_num, chunk->num_lines, line_table, chunk);
     }
 
     for (; chunk != NULL; chunk = chunk->next) {
@@ -544,7 +543,7 @@ static void
 module_table_delete(void *p)
 {
     module_table_t *table = (module_table_t *)p;
-    PRINT(3, "Delete module table " PFX "\n", (ptr_uint_t)table);
+    PRINT(3, "Delete module table " PFX "\n", table);
     if (table != MODULE_TABLE_IGNORE) {
         free(table->bb_table.bitmap);
         if (op_test_pattern.specified())
@@ -577,8 +576,8 @@ bb_bitmap_add(module_table_t *table, bb_entry_t *entry)
     if (TEST(BITMAP_MASK(offs), bm[idx]))
         return false;
     /* now we add a new bb */
-    PRINT(6, "Add " PFX "-" PFX " in table " PFX "\n", (ptr_uint_t)entry->start,
-          (ptr_uint_t)entry->start + entry->size, (ptr_uint_t)table);
+    PRINT(6, "Add 0x%x-0x%x in table " PFX "\n", entry->start, entry->start + entry->size,
+          table);
     addr_end = entry->start + entry->size - 1;
     idx_end = BITMAP_INDEX(addr_end);
     offs_end = (idx_end > idx) ? BITS_PER_BYTE - 1 : BITMAP_OFFSET(addr_end);
@@ -637,8 +636,7 @@ bb_array_add(module_table_t *table, bb_entry_t *entry)
 static int
 module_table_bb_lookup(module_table_t *table, uint addr, const char **info)
 {
-    PRINT(5, "lookup " PFX " in module table " PFX "\n", (ptr_uint_t)addr,
-          (ptr_uint_t)table);
+    PRINT(5, "lookup 0x%x in module table " PFX "\n", addr, table);
     /* We see this and it seems to be erroneous data from the pdb,
      * xref drsym_enumerate_lines() from drsyms.
      */
@@ -656,9 +654,8 @@ module_table_bb_add(module_table_t *table, bb_entry_t *entry)
     if (table == MODULE_TABLE_IGNORE)
         return false;
     if (table->size <= entry->start + entry->size) {
-        WARN(3, "Wrong range " PFX "-" PFX " or table size " PFX " for table " PFX "\n",
-             (ptr_uint_t)entry->start, (ptr_uint_t)entry->start + entry->size,
-             (ptr_uint_t)table->size, (ptr_uint_t)table);
+        WARN(3, "Wrong range 0x%x-0x%x or table size 0x%zx for table " PFX "\n",
+             entry->start, entry->start + entry->size, table->size, table);
         return false;
     }
     if (op_test_pattern.specified())
@@ -676,8 +673,7 @@ search_cb(drsym_info_t *info, drsym_error_t status, void *data)
         char *name = (char *)malloc(strlen(info->name) + 1);
         /* strdup is deprecated on Windows */
         strncpy(name, info->name, strlen(info->name) + 1);
-        PRINT(5, "function %s: " PFX "-" PFX "\n", name, (ptr_uint_t)info->start_offs,
-              (ptr_uint_t)info->end_offs);
+        PRINT(5, "function %s: 0x%zx-0x%zx\n", name, info->start_offs, info->end_offs);
         ASSERT(info->start_offs <= table->size, "wrong offset");
         hashtable_add(&table->test_htable, (void *)info->start_offs, name);
     }
@@ -770,7 +766,7 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
 
         if (drmodtrack_offline_lookup(handle, i, &info) != DRCOVLIB_SUCCESS)
             ASSERT(false, "Failed to read module table");
-        PRINT(5, "Module: %u, " PFX ", %s\n", i, (ptr_uint_t)info.size, info.path);
+        PRINT(5, "Module: %u, 0x%zx, %s\n", i, info.size, info.path);
         mod_table = (module_table_t *)hashtable_lookup(&module_htable, (void *)info.path);
         if (mod_table == NULL) {
             modpath = info.path;
@@ -805,8 +801,7 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
                 }
                 mod_table = module_table_create(modpath, info.size);
             }
-            PRINT(4, "Create module table " PFX " for module %s\n", (ptr_uint_t)mod_table,
-                  modpath);
+            PRINT(4, "Create module table " PFX " for module %s\n", mod_table, modpath);
             num_module_htable_entries++;
             if (!hashtable_add(&module_htable, (void *)modpath, mod_table))
                 ASSERT(false, "Failed to add new module");
@@ -833,8 +828,7 @@ read_bb_list(const char *buf, module_table_t **tables, uint num_mods, uint num_b
         cur_test = non_test;
     }
     for (i = 0, entry = (bb_entry_t *)buf; i < num_bbs; i++, entry++) {
-        PRINT(6, "BB: " PFX ", %u, %u\n", (ptr_uint_t)entry->start, entry->size,
-              entry->mod_id);
+        PRINT(6, "BB: 0x%x, %u, %u\n", entry->start, entry->size, entry->mod_id);
         /* we could have mod id USHRT_MAX for unknown module e.g., [vdso] */
         if (entry->mod_id < num_mods)
             add_new_bb = module_table_bb_add(tables[entry->mod_id], entry) || add_new_bb;
@@ -1138,11 +1132,11 @@ enum_line_cb(drsym_line_info_t *info, void *data)
         line_table_add(line_table, (uint)info->line, (byte)SOURCE_LINE_STATUS_SKIP,
                        test_info);
     } else {
-        WARN(2, "Invalid bb lookup, Table: " PFX ", Addr: " PFX "\n", (ptr_uint_t)table,
-             (ptr_uint_t)info->line);
+        WARN(2, "Invalid bb lookup, Table: " PFX ", Addr: " PIFX "\n", table,
+             IF_NOT_X64((uint)) info->line);
     }
-    PRINT(5, "%s, %s, %llu, " PFX "\n", info->cu_name, info->file,
-          (unsigned long long)info->line, (ptr_uint_t)info->line_addr);
+    PRINT(5, "%s, %s, %llu, 0x%zx\n", info->cu_name, info->file,
+          (unsigned long long)info->line, info->line_addr);
     return true;
 }
 
@@ -1395,5 +1389,6 @@ main(int argc, const char *argv[])
     }
     if (set_log != INVALID_FILE)
         dr_close_file(set_log);
+    dr_standalone_exit();
     return 0;
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,7 +45,6 @@
 #include "fcache.h"
 #include "emit.h"
 #include "monitor.h"
-#include <string.h> /* for memset */
 #include "instrument.h"
 #include <stddef.h> /* for offsetof */
 #include <limits.h> /* UINT_MAX */
@@ -353,7 +352,7 @@ reset_shared_block_table(shared_entry_t **table, mutex_t *lock)
     shared_entry_t *e, *nxte;
     uint i;
     uint size = HASHTABLE_SIZE(SHARED_HASH_BITS);
-    mutex_lock(lock);
+    d_r_mutex_lock(lock);
     for (i = 0; i < size; i++) {
         for (e = table[i]; e != NULL; e = nxte) {
             thread_list_t *tl = e->threads;
@@ -368,7 +367,7 @@ reset_shared_block_table(shared_entry_t **table, mutex_t *lock)
         }
     }
     global_heap_free(table, size * sizeof(shared_entry_t *) HEAPACCT(ACCT_OTHER));
-    mutex_unlock(lock);
+    d_r_mutex_unlock(lock);
 }
 
 static void
@@ -379,9 +378,9 @@ add_shared_block(shared_entry_t **table, mutex_t *lock, fragment_t *f)
     int num_direct = 0, num_indirect = 0;
     linkstub_t *l = FRAGMENT_EXIT_STUBS(f);
     /* use num to avoid thread_id_t recycling problems */
-    uint tnum = get_thread_num(get_thread_id());
+    uint tnum = get_thread_num(d_r_get_thread_id());
 
-    mutex_lock(lock);
+    d_r_mutex_lock(lock);
     e = shared_block_lookup(table, f);
     if (e != NULL) {
         thread_list_t *tl = e->threads;
@@ -391,7 +390,7 @@ add_shared_block(shared_entry_t **table, mutex_t *lock, fragment_t *f)
                 LOG(GLOBAL, LOG_ALL, 2,
                     "add_shared_block: tag " PFX ", but re-add #%d for thread #%d\n",
                     e->tag, tl->count, tnum);
-                mutex_unlock(lock);
+                d_r_mutex_unlock(lock);
                 return;
             }
         }
@@ -404,7 +403,7 @@ add_shared_block(shared_entry_t **table, mutex_t *lock, fragment_t *f)
         LOG(GLOBAL, LOG_ALL, 2,
             "add_shared_block: tag " PFX " thread #%d => %d threads\n", e->tag, tnum,
             e->num_threads);
-        mutex_unlock(lock);
+        d_r_mutex_unlock(lock);
         return;
     }
 
@@ -435,7 +434,7 @@ add_shared_block(shared_entry_t **table, mutex_t *lock, fragment_t *f)
     hindex = HASH_FUNC_BITS((ptr_uint_t)f->tag, SHARED_HASH_BITS);
     e->next = table[hindex];
     table[hindex] = e;
-    mutex_unlock(lock);
+    d_r_mutex_unlock(lock);
 }
 
 static void
@@ -446,7 +445,7 @@ print_shared_table_stats(shared_entry_t **table, mutex_t *lock, const char *name
     uint size = HASHTABLE_SIZE(SHARED_HASH_BITS);
     uint tot = 0, shared_tot = 0, shared = 0, heap = 0, cache = 0, creation_count = 0;
 
-    mutex_lock(lock);
+    d_r_mutex_lock(lock);
     for (i = 0; i < size; i++) {
         for (e = table[i]; e != NULL; e = e->next) {
             thread_list_t *tl = e->threads;
@@ -464,7 +463,7 @@ print_shared_table_stats(shared_entry_t **table, mutex_t *lock, const char *name
             }
         }
     }
-    mutex_unlock(lock);
+    d_r_mutex_unlock(lock);
     LOG(GLOBAL, LOG_ALL, 1, "Shared %s statistics:\n", name);
     LOG(GLOBAL, LOG_ALL, 1, "\ttotal blocks:   %10d\n", tot);
     LOG(GLOBAL, LOG_ALL, 1, "\tcreation count: %10d\n", creation_count);
@@ -577,7 +576,12 @@ update_lookuptable_tls(dcontext_t *dcontext, ibl_table_t *table)
      * crashing or worse.
      */
     state->table_space.table[table->branch_type].lookuptable = table->table;
-    state->table_space.table[table->branch_type].hash_mask = table->hash_mask;
+    /* Perform a Store-Release, which when combined with a Load-Acquire of the mask
+     * in the IBL itself, ensures the prior store to lookuptable is always
+     * observed before this store to hash_mask on weakly ordered arches.
+     */
+    ATOMIC_PTRSZ_ALIGNED_WRITE(&state->table_space.table[table->branch_type].hash_mask,
+                               table->hash_mask, false);
 }
 
 #ifdef DEBUG
@@ -860,7 +864,8 @@ fragment_add_to_hashtable(dcontext_t *dcontext, fragment_t *e, fragment_table_t 
      * thread in the process.
      */
     DOCHECK(1, {
-        if (TEST(FRAG_TABLE_IBL_TARGETED, table->table_flags) && get_num_threads() == 1)
+        if (TEST(FRAG_TABLE_IBL_TARGETED, table->table_flags) &&
+            d_r_get_num_threads() == 1)
             ASSERT(!TEST(FRAG_IS_TRACE_HEAD, e->flags));
     });
 
@@ -935,6 +940,9 @@ safely_nullify_tables(dcontext_t *dcontext, ibl_table_t *new_table,
          * table untouched also so that the fragment_table_t is in a consistent
          * state.)
          */
+        /* For weakly ordered arches: we leave this as a weak (atomic-untorn b/c it's
+         * aligned) store, which should eventually be seen by the target thread.
+         */
         table[i].start_pc_fragment = target_delete;
     }
     STATS_INC(num_shared_ibt_table_flushes);
@@ -964,7 +972,7 @@ add_to_dead_table_list(dcontext_t *alloc_dc, ibl_table_t *ftable, uint old_capac
      * younger tables. A FIFO will yield faster searches than, say, a
      * stack.
      */
-    mutex_lock(&dead_tables_lock);
+    d_r_mutex_lock(&dead_tables_lock);
     if (dead_lists->dead_tables == NULL) {
         ASSERT(dead_lists->dead_tables_tail == NULL);
         dead_lists->dead_tables = item;
@@ -974,7 +982,7 @@ add_to_dead_table_list(dcontext_t *alloc_dc, ibl_table_t *ftable, uint old_capac
         dead_lists->dead_tables_tail->next = item;
     }
     dead_lists->dead_tables_tail = item;
-    mutex_unlock(&dead_tables_lock);
+    d_r_mutex_unlock(&dead_tables_lock);
     STATS_ADD_PEAK(num_dead_shared_ibt_tables, 1);
     STATS_INC(num_total_dead_shared_ibt_tables);
 }
@@ -1139,6 +1147,22 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
         if (!dynamo_exited && !dynamo_resetting)
             ASSERT_TABLE_SYNCHRONIZED(table, WRITE);
     });
+#    if !defined(DEBUG) && defined(CLIENT_INTERFACE)
+    if (!dr_fragment_deleted_hook_exists())
+        return;
+    /* i#4226: Avoid the slow deletion code and just invoke the event. */
+    for (i = 0; i < (int)table->capacity; i++) {
+        f = table->table[i];
+        if (!REAL_FRAGMENT(f))
+            continue;
+        /* This is a full delete (i.e., it is neither FRAGDEL_NO_HEAP nor
+         * FRAGDEL_NO_FCACHE: see the fragment_delete() call in the debug path
+         * below) so we call the event for every (real) fragment.
+         */
+        instrument_fragment_deleted(dcontext, f->tag, f->flags);
+    }
+    return;
+#    endif
     /* Go in reverse order (for efficiency) since using
      * hashtable_fragment_remove_helper to keep all reachable, which is required
      * for dynamo_resetting where we unlink fragments here and need to be able to
@@ -1281,12 +1305,12 @@ fragment_reset_init(void)
     if (RUNNING_WITHOUT_CODE_CACHE())
         return;
 
-    mutex_lock(&shared_cache_flush_lock);
+    d_r_mutex_lock(&shared_cache_flush_lock);
     /* ASSUMPTION: a reset frees all deletions that use flushtimes, so we can
      * reset the global flushtime here
      */
     flushtime_global = 0;
-    mutex_unlock(&shared_cache_flush_lock);
+    d_r_mutex_unlock(&shared_cache_flush_lock);
 
     if (SHARED_FRAGMENTS_ENABLED()) {
         if (DYNAMO_OPTION(shared_bbs)) {
@@ -1471,7 +1495,7 @@ fragment_reset_free(void)
 
         /* Delete dead tables. */
         /* grab lock for consistency, although we expect a single thread */
-        mutex_lock(&dead_tables_lock);
+        d_r_mutex_lock(&dead_tables_lock);
         current = dead_lists->dead_tables;
         while (current != NULL) {
             DODEBUG({ table_count++; });
@@ -1493,7 +1517,7 @@ fragment_reset_free(void)
         }
         dead_lists->dead_tables = dead_lists->dead_tables_tail = NULL;
         ASSERT(table_count == dead_tables);
-        mutex_unlock(&dead_tables_lock);
+        d_r_mutex_unlock(&dead_tables_lock);
     }
 
     /* FIXME: Take in a flag "permanent" that controls whether exiting or
@@ -1755,7 +1779,7 @@ dec_table_ref_count(dcontext_t *dcontext, ibl_table_t *table, bool could_be_live
          * entry is about to be removed by another thread but the
          * dead_tables_lock hasn't been acquired yet by that thread.
          */
-        mutex_lock(&dead_tables_lock);
+        d_r_mutex_lock(&dead_tables_lock);
         for (current = dead_lists->dead_tables; current != NULL;
              prev = current, current = current->next) {
             if (current->table_unaligned == table->table_unaligned) {
@@ -1785,7 +1809,7 @@ dec_table_ref_count(dcontext_t *dcontext, ibl_table_t *table, bool could_be_live
                 break;
             }
         }
-        mutex_unlock(&dead_tables_lock);
+        d_r_mutex_unlock(&dead_tables_lock);
         ASSERT(current != NULL);
     }
 }
@@ -1833,7 +1857,10 @@ fragment_thread_reset_init(dcontext_t *dcontext)
      * when resetting, though, thread free & re-init is done before global free,
      * so we have to explicitly set to 0 for that case.
      */
-    pt->flushtime_last_update = (dynamo_resetting) ? 0 : flushtime_global;
+    if (dynamo_resetting)
+        pt->flushtime_last_update = 0;
+    else
+        ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &pt->flushtime_last_update);
 
     /* set initial hashtable sizes */
     hashtable_fragment_init(
@@ -2054,9 +2081,9 @@ fragment_thread_reset_free(dcontext_t *dcontext)
      * flushed after enter_threadexit() due to os_thread_stack_exit(),
      * so we need to check the flush queue here
      */
-    mutex_lock(&pt->linking_lock);
+    d_r_mutex_lock(&pt->linking_lock);
     check_flush_queue(dcontext, NULL);
-    mutex_unlock(&pt->linking_lock);
+    d_r_mutex_unlock(&pt->linking_lock);
 
     /* For consistency we remove entries from the IBL targets
      * tables before we remove them from the trace table.  However,
@@ -2376,7 +2403,7 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
      * release builds
      */
     DOSTATS({
-        if (stats != NULL &&
+        if (d_r_stats != NULL &&
             (uint)GLOBAL_STAT(num_fragments) ==
                 INTERNAL_OPTION(reset_at_fragment_count)) {
             ASSERT(INTERNAL_OPTION(reset_at_fragment_count) != 0);
@@ -2387,7 +2414,7 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
         if ((uint)GLOBAL_STAT(num_fragments) == INTERNAL_OPTION(log_at_fragment_count)) {
             /* we started at loglevel 1 and now we raise to the requested level */
             options_make_writable();
-            stats->loglevel = DYNAMO_OPTION(stats_loglevel);
+            d_r_stats->loglevel = DYNAMO_OPTION(stats_loglevel);
             options_restore_readonly();
             SYSLOG_INTERNAL_INFO("hit -log_at_fragment_count %d, raising loglevel to %d",
                                  INTERNAL_OPTION(log_at_fragment_count),
@@ -2446,12 +2473,12 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
         }
         if (INTERNAL_OPTION(thread_stats_interval) && INTERNAL_OPTION(thread_stats)) {
             /* FIXME: why do we need a new dcontext? */
-            dcontext_t *dcontext = get_thread_private_dcontext();
-            if (THREAD_STATS_ON(dcontext) &&
-                THREAD_STAT(dcontext, num_fragments) %
+            dcontext_t *cur_dcontext = get_thread_private_dcontext();
+            if (THREAD_STATS_ON(cur_dcontext) &&
+                THREAD_STAT(cur_dcontext, num_fragments) %
                         INTERNAL_OPTION(thread_stats_interval) ==
                     0) {
-                dump_thread_stats(dcontext, false);
+                dump_thread_stats(cur_dcontext, false);
             }
         }
     });
@@ -2512,9 +2539,6 @@ fragment_recreate_with_linkstubs(dcontext_t *dcontext, fragment_t *f_src)
         if (!EXIT_HAS_LOCAL_STUB(l->flags, f_tgt->flags))
             continue; /* it's kept elsewhere */
         size += linkstub_size(dcontext, f_tgt, l);
-#ifdef CUSTOM_EXIT_STUBS
-        size += l->fixed_stub_offset;
-#endif
     }
     ASSERT_TRUNCATE(f_tgt->size, ushort, size);
     f_tgt->size = (ushort)size;
@@ -2611,7 +2635,7 @@ fragment_get_fragment_delete_mutex(dcontext_t *dcontext)
 {
     if (dynamo_exited || dcontext == GLOBAL_DCONTEXT)
         return;
-    mutex_lock(&(((per_thread_t *)dcontext->fragment_field)->fragment_delete_mutex));
+    d_r_mutex_lock(&(((per_thread_t *)dcontext->fragment_field)->fragment_delete_mutex));
 }
 
 void
@@ -2619,7 +2643,8 @@ fragment_release_fragment_delete_mutex(dcontext_t *dcontext)
 {
     if (dynamo_exited || dcontext == GLOBAL_DCONTEXT)
         return;
-    mutex_unlock(&(((per_thread_t *)dcontext->fragment_field)->fragment_delete_mutex));
+    d_r_mutex_unlock(
+        &(((per_thread_t *)dcontext->fragment_field)->fragment_delete_mutex));
 }
 #endif
 
@@ -2656,10 +2681,10 @@ fragment_lookup_type(dcontext_t *dcontext, app_pc tag, uint lookup_flags)
                     if (DYNAMO_OPTION(shared_traces)) {
                         /* ensure private trace never shadows shared trace */
                         fragment_t *sf;
-                        read_lock(&shared_trace->rwlock);
+                        d_r_read_lock(&shared_trace->rwlock);
                         sf = hashtable_fragment_lookup(dcontext, (ptr_uint_t)tag,
                                                        shared_trace);
-                        read_unlock(&shared_trace->rwlock);
+                        d_r_read_unlock(&shared_trace->rwlock);
                         ASSERT(sf->tag == NULL);
                     }
                 });
@@ -2678,10 +2703,10 @@ fragment_lookup_type(dcontext_t *dcontext, app_pc tag, uint lookup_flags)
                          * temp privates for trace building
                          */
                         fragment_t *sf;
-                        read_lock(&shared_bb->rwlock);
+                        d_r_read_lock(&shared_bb->rwlock);
                         sf = hashtable_fragment_lookup(dcontext, (ptr_uint_t)tag,
                                                        shared_bb);
-                        read_unlock(&shared_bb->rwlock);
+                        d_r_read_unlock(&shared_bb->rwlock);
                         ASSERT(sf->tag == NULL || TEST(FRAG_TEMP_PRIVATE, f->flags));
                     }
                 });
@@ -2696,9 +2721,9 @@ fragment_lookup_type(dcontext_t *dcontext, app_pc tag, uint lookup_flags)
             /* MUST look at shared trace table before shared bb table,
              * since a shared trace can shadow a shared trace head
              */
-            read_lock(&shared_trace->rwlock);
+            d_r_read_lock(&shared_trace->rwlock);
             f = hashtable_fragment_lookup(dcontext, (ptr_uint_t)tag, shared_trace);
-            read_unlock(&shared_trace->rwlock);
+            d_r_read_unlock(&shared_trace->rwlock);
             if (f->tag != NULL) {
                 ASSERT(f->tag == tag);
                 ASSERT(!TESTANY(FRAG_FAKE | FRAG_COARSE_GRAIN, f->flags));
@@ -2710,9 +2735,9 @@ fragment_lookup_type(dcontext_t *dcontext, app_pc tag, uint lookup_flags)
             /* MUST look at private trace table before shared bb table,
              * since a private trace can shadow a shared trace head
              */
-            read_lock(&shared_bb->rwlock);
+            d_r_read_lock(&shared_bb->rwlock);
             f = hashtable_fragment_lookup(dcontext, (ptr_uint_t)tag, shared_bb);
-            read_unlock(&shared_bb->rwlock);
+            d_r_read_unlock(&shared_bb->rwlock);
             if (f->tag != NULL) {
                 ASSERT(f->tag == tag);
                 ASSERT(!TESTANY(FRAG_FAKE | FRAG_COARSE_GRAIN, f->flags));
@@ -2821,17 +2846,17 @@ fragment_pclookup_by_htable(dcontext_t *dcontext, cache_pc pc, fragment_t *wrapp
     }
     if (DYNAMO_OPTION(shared_traces)) {
         /* then shared traces */
-        read_lock(&shared_trace->rwlock);
+        d_r_read_lock(&shared_trace->rwlock);
         f = hashtable_pclookup(dcontext, shared_trace, pc);
-        read_unlock(&shared_trace->rwlock);
+        d_r_read_unlock(&shared_trace->rwlock);
         if (f != NULL)
             return f;
     }
     if (DYNAMO_OPTION(shared_bbs)) {
         /* then shared basic blocks */
-        read_lock(&shared_bb->rwlock);
+        d_r_read_lock(&shared_bb->rwlock);
         f = hashtable_pclookup(dcontext, shared_bb, pc);
-        read_unlock(&shared_bb->rwlock);
+        d_r_read_unlock(&shared_bb->rwlock);
         if (f != NULL)
             return f;
     }
@@ -3056,6 +3081,11 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
             release_recursive_lock(&change_linking_lock);
     }
 
+#ifdef LINUX
+    if (TEST(FRAG_HAS_RSEQ_ENDPOINT, f->flags))
+        rseq_remove_fragment(dcontext, f);
+#endif
+
     if (!TEST(FRAGDEL_NO_HTABLE, actions))
         fragment_remove(dcontext, f);
 
@@ -3071,6 +3101,10 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
         sideline_fragment_delete(f);
 #endif
 #ifdef CLIENT_INTERFACE
+    /* For exit-time deletion we invoke instrument_fragment_deleted() directly from
+     * hashtable_fragment_reset().  If we add any further conditions on when it should
+     * be invoked we should keep the two calls in synch.
+     */
     if (dr_fragment_deleted_hook_exists() &&
         (!TEST(FRAGDEL_NO_HEAP, actions) || !TEST(FRAGDEL_NO_FCACHE, actions)))
         instrument_fragment_deleted(dcontext, f->tag, f->flags);
@@ -3161,19 +3195,19 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
     LOG(THREAD, LOG_FRAGMENT, 3, "fragment_remove_shared_no_flush: F%d\n", f->id);
     ASSERT(TEST(FRAG_SHARED, f->flags));
     if (TEST(FRAG_IS_TRACE, f->flags)) {
-        mutex_lock(&trace_building_lock);
+        d_r_mutex_lock(&trace_building_lock);
     }
     /* grab bb building lock even for traces to further prevent link changes */
-    mutex_lock(&bb_building_lock);
+    d_r_mutex_lock(&bb_building_lock);
 
     if (TEST(FRAG_WAS_DELETED, f->flags)) {
         /* since caller can't grab locks, we can have a race where someone
          * else deletes first -- in that case nothing to do
          */
         STATS_INC(shared_delete_noflush_race);
-        mutex_unlock(&bb_building_lock);
+        d_r_mutex_unlock(&bb_building_lock);
         if (TEST(FRAG_IS_TRACE, f->flags))
-            mutex_unlock(&trace_building_lock);
+            d_r_mutex_unlock(&trace_building_lock);
         return;
     }
 
@@ -3225,9 +3259,9 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
     ASSERT(!TEST(FRAG_LINKED_OUTGOING, f->flags));
     ASSERT(!TEST(FRAG_LINKED_INCOMING, f->flags));
 
-    mutex_unlock(&bb_building_lock);
+    d_r_mutex_unlock(&bb_building_lock);
     if (TEST(FRAG_IS_TRACE, f->flags)) {
-        mutex_unlock(&trace_building_lock);
+        d_r_mutex_unlock(&trace_building_lock);
     }
 
     /* no locks can be held when calling this, but f is already unreachable,
@@ -3917,7 +3951,7 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
     DOLOG(6, LOG_FRAGMENT, { /* print after start_pc updated so get actual code */
                              LOG(THREAD, LOG_FRAGMENT, 6,
                                  "before shifting F%d (" PFX ")\n", f->id, f->tag);
-                             disassemble_fragment(dcontext, f, stats->loglevel < 3);
+                             disassemble_fragment(dcontext, f, d_r_stats->loglevel < 3);
     });
 
 #ifdef X86
@@ -3939,7 +3973,7 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
 
     DOLOG(6, LOG_FRAGMENT, {
         LOG(THREAD, LOG_FRAGMENT, 6, "after shifting F%d (" PFX ")\n", f->id, f->tag);
-        disassemble_fragment(dcontext, f, stats->loglevel < 3);
+        disassemble_fragment(dcontext, f, d_r_stats->loglevel < 3);
     });
 }
 
@@ -4126,7 +4160,7 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t bran
                     if (coarse->persisted &&
                         exists_coarse_ibl_pending_table(dcontext, coarse, branch_type)) {
                         bool in_persisted_ibl = false;
-                        mutex_lock(&coarse->lock);
+                        d_r_mutex_lock(&coarse->lock);
                         if (exists_coarse_ibl_pending_table(dcontext, coarse,
                                                             branch_type)) {
                             ibl_table_t *ibl_table =
@@ -4138,11 +4172,11 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t bran
                                 in_persisted_ibl = true;
                             TABLE_RWLOCK(ibl_table, read, unlock);
                             if (in_persisted_ibl) {
-                                mutex_unlock(&coarse->lock);
+                                d_r_mutex_unlock(&coarse->lock);
                                 return f;
                             }
                         }
-                        mutex_unlock(&coarse->lock);
+                        d_r_mutex_unlock(&coarse->lock);
                     }
                 }
 #endif /* defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH) */
@@ -4844,7 +4878,7 @@ rct_module_table_copy(dcontext_t *dcontext, app_pc modpc, rct_type_t which,
     app_pc_table_t *merged = NULL;
     rct_module_table_t *permod;
     mutex_t *lock = (which == RCT_RAC) ? &after_call_lock : &rct_module_lock;
-    mutex_lock(lock);
+    d_r_mutex_lock(lock);
     if (which == RCT_RAC) {
         ASSERT(DYNAMO_OPTION(ret_after_call));
         if (!DYNAMO_OPTION(ret_after_call))
@@ -4884,7 +4918,7 @@ rct_module_table_copy(dcontext_t *dcontext, app_pc modpc, rct_type_t which,
         }
     }
     os_get_module_info_unlock();
-    mutex_unlock(lock);
+    d_r_mutex_unlock(lock);
     return merged;
 }
 
@@ -4899,7 +4933,7 @@ rct_module_table_set(dcontext_t *dcontext, app_pc modpc, app_pc_table_t *table,
     rct_module_table_t *permod;
     bool used = false;
     mutex_t *lock = (which == RCT_RAC) ? &after_call_lock : &rct_module_lock;
-    mutex_lock(lock);
+    d_r_mutex_lock(lock);
     os_get_module_info_lock();
     permod = rct_get_table(modpc, which);
     ASSERT(permod != NULL);
@@ -4933,7 +4967,7 @@ rct_module_table_set(dcontext_t *dcontext, app_pc modpc, app_pc_table_t *table,
         STATS_RCT_ADD(which, persisted_entries, permod->persisted_table->entries);
     }
     os_get_module_info_unlock();
-    mutex_unlock(lock);
+    d_r_mutex_unlock(lock);
     return used;
 }
 
@@ -5083,21 +5117,21 @@ fragment_after_call_lookup(dcontext_t *dcontext, app_pc tag)
 void
 fragment_add_after_call(dcontext_t *dcontext, app_pc tag)
 {
-    mutex_lock(&after_call_lock);
+    d_r_mutex_lock(&after_call_lock);
     if (!rct_table_add(dcontext, tag, RCT_RAC))
         STATS_INC(num_existing_after_call);
     else
         STATS_INC(num_future_after_call);
-    mutex_unlock(&after_call_lock);
+    d_r_mutex_unlock(&after_call_lock);
 }
 
 /* flushing a fragment invalidates the after call entry */
 void
 fragment_flush_after_call(dcontext_t *dcontext, app_pc tag)
 {
-    mutex_lock(&after_call_lock);
+    d_r_mutex_lock(&after_call_lock);
     rct_table_flush_entry(dcontext, tag, RCT_RAC);
-    mutex_unlock(&after_call_lock);
+    d_r_mutex_unlock(&after_call_lock);
     STATS_INC(num_future_after_call_removed);
     STATS_DEC(num_future_after_call);
 }
@@ -5108,9 +5142,9 @@ invalidate_after_call_target_range(dcontext_t *dcontext, app_pc text_start,
                                    app_pc text_end)
 {
     uint entries_removed;
-    mutex_lock(&after_call_lock);
+    d_r_mutex_lock(&after_call_lock);
     entries_removed = rct_table_invalidate_range(dcontext, RCT_RAC, text_start, text_end);
-    mutex_unlock(&after_call_lock);
+    d_r_mutex_unlock(&after_call_lock);
 
     STATS_ADD(num_future_after_call_removed, entries_removed);
     STATS_SUB(num_future_after_call, entries_removed);
@@ -5426,13 +5460,18 @@ check_flush_queue(dcontext_t *dcontext, fragment_t *was_I_flushed)
             SELF_PROTECT_LOCAL(dcontext, READONLY);
     }
     /* now check shared queue to dec ref counts */
+    uint local_flushtime_global;
+    /* No lock needed: any racy incs to global are in safe direction, and our inc
+     * is atomic so we shouldn't see any partial-word-updated values here.  This
+     * check is our shared deletion algorithm's only perf hit when there's no
+     * actual shared flushing.
+     */
+    ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &local_flushtime_global);
     if (DYNAMO_OPTION(shared_deletion) &&
-        /* No lock needed: any racy incs to global are in safe direction, and our inc
-         * is atomic so we shouldn't see any partial-word-updated values here.  This
-         * check is our shared deletion algorithm's only perf hit when there's no
-         * actual shared flushing.
-         */
-        pt->flushtime_last_update < flushtime_global) {
+        pt->flushtime_last_update < local_flushtime_global) {
+#ifdef LINUX
+        rseq_shared_fragment_flushtime_update(dcontext);
+#endif
         /* dec ref count on any pending shared areas */
         not_flushed =
             not_flushed && vm_area_check_shared_pending(dcontext, was_I_flushed);
@@ -5538,12 +5577,12 @@ wait_for_flusher_nolinking(dcontext_t *dcontext)
             "Thread " TIDFMT " waiting for flush (flusher is %d @flushtime %d)\n",
             /* safe to deref flusher since flusher is waiting for our signal */
             dcontext->owning_thread, flusher->owning_thread, flushtime_global);
-        mutex_unlock(&pt->linking_lock);
+        d_r_mutex_unlock(&pt->linking_lock);
         STATS_INC(num_wait_flush);
         wait_for_event(pt->finished_all_unlink, 0);
         LOG(THREAD, LOG_DISPATCH | LOG_THREADS, 2,
             "Thread " TIDFMT " resuming after flush\n", dcontext->owning_thread);
-        mutex_lock(&pt->linking_lock);
+        d_r_mutex_lock(&pt->linking_lock);
     }
 }
 
@@ -5560,13 +5599,13 @@ wait_for_flusher_linking(dcontext_t *dcontext)
             "Thread " TIDFMT " waiting for flush (flusher is %d @flushtime %d)\n",
             /* safe to deref flusher since flusher is waiting for our signal */
             dcontext->owning_thread, flusher->owning_thread, flushtime_global);
-        mutex_unlock(&pt->linking_lock);
+        d_r_mutex_unlock(&pt->linking_lock);
         signal_event(pt->waiting_for_unlink);
         STATS_INC(num_wait_flush);
         wait_for_event(pt->finished_with_unlink, 0);
         LOG(THREAD, LOG_DISPATCH | LOG_THREADS, 2,
             "Thread " TIDFMT " resuming after flush\n", dcontext->owning_thread);
-        mutex_lock(&pt->linking_lock);
+        d_r_mutex_lock(&pt->linking_lock);
     }
 }
 
@@ -5637,6 +5676,12 @@ process_client_flush_requests(dcontext_t *dcontext, dcontext_t *alloc_dcontext,
 bool
 enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_transition)
 {
+
+#ifdef CLIENT_INTERFACE
+    /* Handle any pending low on memory events */
+    vmm_heap_handle_pending_low_on_memory_event_trigger();
+#endif
+
     per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
     bool not_flushed = true;
 
@@ -5649,13 +5694,13 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
     /* FIXME: once we have this working correctly, come up with scheme
      * that avoids synch in common case
      */
-    mutex_lock(&pt->linking_lock);
+    d_r_mutex_lock(&pt->linking_lock);
     ASSERT(pt->could_be_linking);
 
     wait_for_flusher_linking(dcontext);
     not_flushed = not_flushed && check_flush_queue(dcontext, was_I_flushed);
     pt->could_be_linking = false;
-    mutex_unlock(&pt->linking_lock);
+    d_r_mutex_unlock(&pt->linking_lock);
 
     if (!cache_transition)
         return not_flushed;
@@ -5667,7 +5712,7 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
      */
 
     if (reset_pending != 0) {
-        mutex_lock(&reset_pending_lock);
+        d_r_mutex_lock(&reset_pending_lock);
         if (reset_pending != 0) {
             uint target = reset_pending;
             reset_pending = 0;
@@ -5678,7 +5723,7 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
             /* fragment is gone for sure, so return false */
             return false;
         }
-        mutex_unlock(&reset_pending_lock);
+        d_r_mutex_unlock(&reset_pending_lock);
     }
 
     /* FIXME: perf opt: make global flag can check w/ making a call,
@@ -5723,10 +5768,10 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
     /* global list */
     if (client_flush_requests != NULL) { /* avoid acquiring lock every cxt switch */
         client_flush_req_t *req;
-        mutex_lock(&client_flush_request_lock);
+        d_r_mutex_lock(&client_flush_request_lock);
         req = client_flush_requests;
         client_flush_requests = NULL;
-        mutex_unlock(&client_flush_request_lock);
+        d_r_mutex_unlock(&client_flush_request_lock);
         /* NOTE - we must release the lock before doing the flush. */
         process_client_flush_requests(dcontext, GLOBAL_DCONTEXT, req, true /*flush*/);
         /* FIXME - this is an ugly, yet effective, hack.  The problem is there is no
@@ -5756,7 +5801,7 @@ enter_couldbelinking(dcontext_t *dcontext, fragment_t *was_I_flushed,
 
     DOCHECK(1, { check_safe_for_flush_synch(dcontext); });
 
-    mutex_lock(&pt->linking_lock);
+    d_r_mutex_lock(&pt->linking_lock);
     ASSERT(!pt->could_be_linking);
     /* ensure not still marked at_syscall */
     ASSERT(!DYNAMO_OPTION(syscalls_synch_flush) || !get_at_syscall(dcontext) ||
@@ -5778,7 +5823,7 @@ enter_couldbelinking(dcontext_t *dcontext, fragment_t *was_I_flushed,
 
     pt->could_be_linking = true;
     not_flushed = check_flush_queue(dcontext, was_I_flushed);
-    mutex_unlock(&pt->linking_lock);
+    d_r_mutex_unlock(&pt->linking_lock);
 
     return not_flushed;
 }
@@ -5796,7 +5841,7 @@ enter_threadexit(dcontext_t *dcontext)
     if (RUNNING_WITHOUT_CODE_CACHE() || pt == NULL /*PR 536058: no pt*/)
         return;
 
-    mutex_lock(&pt->linking_lock);
+    d_r_mutex_lock(&pt->linking_lock);
     /* must dec ref count on shared regions before we die */
     check_flush_queue(dcontext, NULL);
     pt->could_be_linking = false;
@@ -5805,7 +5850,7 @@ enter_threadexit(dcontext_t *dcontext)
         pt->about_to_exit = true;             /* let flusher know can ignore us */
         signal_event(pt->waiting_for_unlink); /* wake flusher up */
     }
-    mutex_unlock(&pt->linking_lock);
+    d_r_mutex_unlock(&pt->linking_lock);
 }
 
 /* caller must hold shared_cache_flush_lock */
@@ -5816,17 +5861,19 @@ increment_global_flushtime()
     /* reset will turn flushtime_global back to 0, so we schedule one
      * when we're approaching overflow
      */
-    if (flushtime_global == UINT_MAX / 2) {
+    uint local_flushtime_global;
+    ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &local_flushtime_global);
+    if (local_flushtime_global == UINT_MAX / 2) {
         ASSERT_NOT_TESTED(); /* FIXME: add -stress_flushtime_global_max */
         SYSLOG_INTERNAL_WARNING("flushtime_global approaching UINT_MAX, resetting");
         schedule_reset(RESET_ALL);
     }
-    ASSERT(flushtime_global < UINT_MAX);
+    ASSERT(local_flushtime_global < UINT_MAX);
 
     /* compiler should 4-byte-align so no cache line crossing
      * (asserted in fragment_init()
      */
-    flushtime_global++;
+    atomic_add_exchange_int((volatile int *)&flushtime_global, 1);
     LOG(GLOBAL, LOG_VMAREAS, 2, "new flush timestamp: %u\n", flushtime_global);
 }
 
@@ -5939,7 +5986,7 @@ flush_fragments_synchall_start(dcontext_t *ignored, app_pc base, size_t size,
     KSTART(synchall_flush);
     LOG(GLOBAL, LOG_FRAGMENT, 2,
         "\nflush_fragments_synchall_start: thread " TIDFMT " suspending all threads\n",
-        get_thread_id());
+        d_r_get_thread_id());
 
     STATS_INC(flush_synchall);
     /* suspend all DR-controlled threads at safe locations */
@@ -6035,7 +6082,7 @@ flush_fragments_synchall_start(dcontext_t *ignored, app_pc base, size_t size,
             if (dcontext == my_dcontext || thread_synch_successful(flush_threads[i])) {
                 last_exit_deleted(dcontext);
                 /* case 7394: need to abort other threads' trace building
-                 * since the reset xfer to dispatch will disrupt it.
+                 * since the reset xfer to d_r_dispatch will disrupt it.
                  * also, with PR 299808, we now have thread-shared
                  * "undeletable" trace-temp fragments, so we need to abort
                  * all traces.
@@ -6144,7 +6191,7 @@ flush_fragments_thread_unlink(dcontext_t *dcontext, int thread_index,
     per_thread_t *tgt_pt = (per_thread_t *)tgt_dcontext->fragment_field;
 
     /* if a trace-in-progress crosses this region, must squash the trace
-     * (all traces are essentially frozen now since threads stop in dispatch)
+     * (all traces are essentially frozen now since threads stop in d_r_dispatch)
      */
     if (flush_size > 0 /* else, no region to cross */ &&
         is_building_trace(tgt_dcontext)) {
@@ -6274,7 +6321,7 @@ flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
      * is grabbed, to avoid deadlocks!  we already do for a thread exiting.
      */
     if (!own_initexit_lock)
-        mutex_lock(&thread_initexit_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
     ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
     flusher = dcontext;
     get_list_of_threads(&flush_threads, &flush_num_threads);
@@ -6328,7 +6375,7 @@ flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
          * region, until sure thread is in fcache or somewhere that won't change
          * vm areas or linking state
          */
-        mutex_lock(&tgt_pt->linking_lock);
+        d_r_mutex_lock(&tgt_pt->linking_lock);
         /* Must explicitly check for self and avoid synch then, o/w will lock up
          * if ever called from a could_be_linking location (currently only
          * happens w/ app syscalls)
@@ -6340,9 +6387,9 @@ flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
             LOG(THREAD, LOG_FRAGMENT, 2, "\twaiting for thread " TIDFMT "\n",
                 tgt_dcontext->owning_thread);
             tgt_pt->wait_for_unlink = true;
-            mutex_unlock(&tgt_pt->linking_lock);
+            d_r_mutex_unlock(&tgt_pt->linking_lock);
             wait_for_event(tgt_pt->waiting_for_unlink, 0);
-            mutex_lock(&tgt_pt->linking_lock);
+            d_r_mutex_lock(&tgt_pt->linking_lock);
             tgt_pt->wait_for_unlink = false;
             LOG(THREAD, LOG_FRAGMENT, 2, "\tdone waiting for thread " TIDFMT "\n",
                 tgt_dcontext->owning_thread);
@@ -6397,7 +6444,7 @@ flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
          */
         if (tgt_dcontext != dcontext && !tgt_pt->could_be_linking)
             tgt_pt->wait_for_unlink = true; /* stop at cache exit */
-        mutex_unlock(&tgt_pt->linking_lock);
+        d_r_mutex_unlock(&tgt_pt->linking_lock);
     }
 }
 
@@ -6539,7 +6586,7 @@ flush_fragments_unlink_shared(dcontext_t *dcontext, app_pc base, size_t size,
              * flushtime_global and the adding of pending deletion fragments with
              * that flushtime, wrt other threads checking the pending list.
              */
-            mutex_lock(&shared_cache_flush_lock);
+            d_r_mutex_lock(&shared_cache_flush_lock);
         }
         /* Increment flush count for shared deletion algorithm and for list-based
          * flushing (such as for shared cache units).  We could wait
@@ -6561,7 +6608,7 @@ flush_fragments_unlink_shared(dcontext_t *dcontext, app_pc base, size_t size,
                                                            pending_delete_threads);
         }
         if (DYNAMO_OPTION(shared_deletion))
-            mutex_unlock(&shared_cache_flush_lock);
+            d_r_mutex_unlock(&shared_cache_flush_lock);
 
         DODEBUG({
             num_flushed += shared_flushed;
@@ -6678,7 +6725,7 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
         tgt_dcontext = flush_threads[i]->dcontext;
         tgt_pt = (per_thread_t *)tgt_dcontext->fragment_field;
         /* re-acquire lock */
-        mutex_lock(&tgt_pt->linking_lock);
+        d_r_mutex_lock(&tgt_pt->linking_lock);
 
         /* Optimization for shared deletion strategy: perform flush work
          * for a thread waiting at a system call, as we didn't add it to the
@@ -6691,14 +6738,17 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
              * only wrt shared fragments (we don't free private fragments here,
              * though we could -- should we?  may make flush time while holding
              * lock take too long?  FIXME)
-             * Currently this works w/ syscalls from dispatch, and w/
+             * Currently this works w/ syscalls from d_r_dispatch, and w/
              * -shared_syscalls by using unprotected storage (thus a slight hole
              * but very hard to exploit for security purposes: can get stale code
              * executed, but we already have that window, or crash us).
              * FIXME: Does not work w/ -ignore_syscalls, but those are private
              * for now.
              */
-            DEBUG_DECLARE(uint pre_flushtime = flushtime_global;)
+#ifdef DEBUG
+            uint pre_flushtime;
+            ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &pre_flushtime);
+#endif
             vm_area_check_shared_pending(tgt_dcontext, NULL);
             /* lazy deletion may inc flushtime_global, so may have a higher
              * value than our cached one, but should never be lower
@@ -6722,7 +6772,7 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
                     signal_event(tgt_pt->finished_all_unlink);
             }
         }
-        mutex_unlock(&tgt_pt->linking_lock);
+        d_r_mutex_unlock(&tgt_pt->linking_lock);
     }
 
     /* thread init/exit can proceed now */
@@ -6732,7 +6782,7 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
                          sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
     flush_threads = NULL;
     if (!keep_initexit_lock)
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
 }
 
 /* This routine performs flush stages 1 and 2 (synch_unlink_priv()
@@ -7106,7 +7156,7 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
         /* We must grab shared_vm_areas lock first to avoid rank order (i#1157) */
         if (SHARED_FRAGMENTS_ENABLED())
             locked_vmareas = acquire_vm_areas_lock_if_not_already(dcontext, FRAG_SHARED);
-        mutex_lock(&tracedump_mutex);
+        d_r_mutex_lock(&tracedump_mutex);
     }
     trace_num = tcount;
     tcount++;
@@ -7116,7 +7166,7 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
          * for ex.) caller is responsible for the necessary synchronization. */
         ASSERT(pt != shared_pt);
         if (!dynamo_resetting) {
-            mutex_unlock(&tracedump_mutex);
+            d_r_mutex_unlock(&tracedump_mutex);
             if (locked_vmareas) {
                 locked_vmareas = false;
                 release_vm_areas_lock(dcontext, FRAG_SHARED);
@@ -7156,7 +7206,7 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     print_file(pt->tracefile, "Fragment # %d\n", f->id);
 #    endif
     print_file(pt->tracefile, "Tag = " PFX "\n", f->tag);
-    print_file(pt->tracefile, "Thread = %d\n", get_thread_id());
+    print_file(pt->tracefile, "Thread = %d\n", d_r_get_thread_id());
     if (deleted_at > -1) {
         print_file(pt->tracefile, "*** Flushed from cache when top fragment id was %d\n",
                    deleted_at);
@@ -7246,7 +7296,7 @@ output_trace_done:
     dr_set_isa_mode(dcontext, old_mode, NULL);
     if (TEST(FRAG_SHARED, f->flags) && !dynamo_resetting) {
         ASSERT_OWN_MUTEX(true, &tracedump_mutex);
-        mutex_unlock(&tracedump_mutex);
+        d_r_mutex_unlock(&tracedump_mutex);
         if (locked_vmareas)
             release_vm_areas_lock(dcontext, FRAG_SHARED);
     } else {
@@ -7296,8 +7346,8 @@ profile_fragment_enter(fragment_t *f, uint64 end_time)
 
     /***********************************************************************/
 
-    /* we rely on dispatch being the only way to enter the fcache.
-     * dispatch sets prev_fragment to null prior to entry */
+    /* we rely on d_r_dispatch being the only way to enter the fcache.
+     * d_r_dispatch sets prev_fragment to null prior to entry */
     if (dcontext->prev_fragment != NULL) {
         trace_only_t *last_t = TRACE_FIELDS(dcontext->prev_fragment);
         ASSERT((dcontext->prev_fragment->flags & FRAG_IS_TRACE) != 0);
@@ -7315,7 +7365,7 @@ profile_fragment_enter(fragment_t *f, uint64 end_time)
 #    endif
 }
 
-/* this routine is called from dispatch after exiting the fcache
+/* this routine is called from d_r_dispatch after exiting the fcache
  * it finishes up the final fragment's time slot
  */
 void
@@ -8224,7 +8274,7 @@ fragment_coarse_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_pc pc,
          * it seems reasonable to simply store all lookups.
          * Then the worst case is some extra memory, not 4x slowdowns.
          */
-        mutex_lock(&info->lock);
+        d_r_mutex_lock(&info->lock);
         if (info->pclookup_last_htable == NULL) {
             /* coarse_table_t isn't quite enough b/c we need the body pc,
              * which would require an extra lookup w/ coarse_table_t
@@ -8238,7 +8288,7 @@ fragment_coarse_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_pc pc,
             /* Only when fully initialized can we set it, as we hold no lock for it */
             info->pclookup_last_htable = (void *)pc_htable;
         }
-        mutex_unlock(&info->lock);
+        d_r_mutex_unlock(&info->lock);
     }
 
     pc_htable = (generic_table_t *)info->pclookup_last_htable;
@@ -8333,7 +8383,7 @@ fragment_coarse_create_entry_pclookup_table(dcontext_t *dcontext, coarse_info_t 
     if (info->htable == NULL)
         return;
     if (info->pclookup_htable == NULL) {
-        mutex_lock(&info->lock);
+        d_r_mutex_lock(&info->lock);
         if (info->pclookup_htable == NULL) {
             /* set up reverse lookup table */
             main_htable = (coarse_table_t *)info->htable;
@@ -8394,7 +8444,7 @@ fragment_coarse_create_entry_pclookup_table(dcontext_t *dcontext, coarse_info_t 
             /* Only when fully initialized can we set it, as we hold no lock for it */
             info->pclookup_htable = (void *)pc_htable;
         }
-        mutex_unlock(&info->lock);
+        d_r_mutex_unlock(&info->lock);
     }
 }
 

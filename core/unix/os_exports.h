@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,6 +45,11 @@
 #include <stdarg.h>
 #include "../os_shared.h"
 #include "os_public.h"
+/* arch_exports.h exports opnd.h, but relies on kernel_sigset_t from this header.
+ * We thus directly include opnd.h here for reg_id_t to resolve the circular
+ * dependence (cleaner than having to use ushort instead of reg_id_t).
+ */
+#include "../arch/opnd.h"
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 #    define getpid getpid_forbidden_use_get_process_id
@@ -70,7 +75,10 @@
  * PR 205276 covers transparently stealing our segment selector.
  */
 #ifdef X86
-#    ifdef X64
+#    if defined(MACOS64)
+#        define SEG_TLS SEG_GS     /* DR is sharing the app's segment. */
+#        define LIB_SEG_TLS SEG_GS /* libc+loader tls */
+#    elif defined(X64)
 #        define SEG_TLS SEG_GS
 #        define ASM_SEG "%gs"
 #        define LIB_SEG_TLS SEG_FS /* libc+loader tls */
@@ -112,6 +120,19 @@
 #    error NYI
 #endif
 
+#ifdef MACOS64
+/* FIXME i#1568: current pthread_t struct has the first TLS entry at offset 28. We should
+ * provide a dynamic method to determine the first entry for forward compatability.
+ * Starting w/ libpthread-218.1.3 they now leave slots 6 and 11 unused to allow
+ * limited interoperability w/ code targeting the Windows x64 ABI. We steal slot 6
+ * for our own use.
+ */
+#    define SEG_TLS_BASE_OFFSET 28 /* offset from pthread_t struct to segment base */
+#    define DR_TLS_BASE_SLOT 6     /* the TLS slot for DR's TLS base */
+/* offset from pthread_t struct to slot 6 */
+#    define DR_TLS_BASE_OFFSET (SEG_TLS_BASE_OFFSET + DR_TLS_BASE_SLOT)
+#endif
+
 #ifdef AARCHXX
 #    ifdef ANDROID
 /* We have our own slot at the end of our instance of Android's
@@ -147,9 +168,9 @@ extern uint android_tls_base_offs;
 #endif
 
 void *
-get_tls(ushort tls_offs);
+d_r_get_tls(ushort tls_offs);
 void
-set_tls(ushort tls_offs, void *value);
+d_r_set_tls(ushort tls_offs, void *value);
 byte *
 os_get_dr_tls_base(dcontext_t *dcontext);
 
@@ -176,13 +197,12 @@ void
 os_signal_thread_detach(dcontext_t *dcontext);
 void
 os_tls_pre_init(int gdt_index);
-/* XXX: reg_id_t is not defined here, use ushort instead */
 ushort
-os_get_app_tls_base_offset(ushort /*reg_id_t*/ seg);
+os_get_app_tls_base_offset(reg_id_t seg);
 ushort
-os_get_app_tls_reg_offset(ushort /*reg_id_t*/ seg);
+os_get_app_tls_reg_offset(reg_id_t seg);
 void *
-os_get_app_tls_base(dcontext_t *dcontext, ushort /*reg_id_t*/ seg);
+os_get_app_tls_base(dcontext_t *dcontext, reg_id_t seg);
 void
 os_swap_context_go_native(dcontext_t *dcontext, dr_state_flags_t flags);
 
@@ -230,6 +250,8 @@ extern char **environ;
 #else
 extern char **our_environ;
 #endif
+bool
+is_our_environ_followed_by_auxv(void);
 void
 dynamorio_set_envp(char **envp);
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
@@ -503,7 +525,7 @@ pcprofile_thread_exit(dcontext_t *dcontext);
 /* in stackdump.c */
 /* fork, dump core, and use gdb for complete stack trace */
 void
-stackdump(void);
+d_r_stackdump(void);
 /* use backtrace feature of glibc for quick but sometimes incomplete trace */
 void
 glibc_stackdump(int fd);
@@ -517,4 +539,40 @@ send_nudge_signal(process_id_t pid, uint action_mask, client_id_t client_id,
 /* source_fragment is the start pc of the fragment to be run under DR */
 bool
 at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret_imm);
+
+/* rseq.c */
+#ifdef LINUX
+extern vm_area_vector_t *d_r_rseq_areas;
+
+bool
+rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT,
+                     bool **reg_written OUT, int *reg_written_size OUT);
+
+int
+rseq_get_tls_ptr_offset(void);
+
+int
+rseq_get_signature(void);
+
+int
+rseq_get_rseq_cs_alignment(void);
+
+byte *
+rseq_get_rseq_cs_alloc(byte **rseq_cs_aligned OUT);
+
+/* The first parameter is the value returned by rseq_get_rseq_cs_alloc(). */
+void
+rseq_record_rseq_cs(byte *rseq_cs_alloc, fragment_t *f, cache_pc start, cache_pc end,
+                    cache_pc abort);
+void
+rseq_remove_fragment(dcontext_t *dcontext, fragment_t *f);
+
+void
+rseq_shared_fragment_flushtime_update(dcontext_t *dcontext);
+
+void
+rseq_process_native_abort(dcontext_t *dcontext);
+
+#endif
+
 #endif /* _OS_EXPORTS_H_ */

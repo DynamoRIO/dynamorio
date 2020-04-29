@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -85,6 +85,8 @@ extern "C" {
         DO_NOT_USE_module_load_USE_drmgr_events_instead
 #    define dr_register_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
 #    define dr_unregister_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
+#    define dr_register_low_on_memory_event DO_NOT_USE_low_on_memory_USE_drmgr_instead
+#    define dr_unregister_low_on_memory_event DO_NOT_USE_low_on_memory_USE_drmgr_instead
 #    define dr_register_kernel_xfer_event DO_NOT_USE_kernel_xfer_event_USE_drmgr_instead
 #    define dr_unregister_kernel_xfer_event DO_NOT_USE_kernel_xfer_event_USE_drmgr_instead
 #    define dr_register_signal_event DO_NOT_USE_signal_event_USE_drmgr_instead
@@ -463,8 +465,8 @@ drmgr_current_bb_phase(void *drcontext);
 DR_EXPORT
 /**
  * Must be called during drmgr's insertion phase.  Returns whether \p instr is the
- * first instruction in the instruction list (as of immediately after the analysis
- * phase).
+ * first instruction (of any type) in the instruction list (as of immediately after
+ * the analysis phase).
  */
 bool
 drmgr_is_first_instr(void *drcontext, instr_t *instr);
@@ -472,8 +474,17 @@ drmgr_is_first_instr(void *drcontext, instr_t *instr);
 DR_EXPORT
 /**
  * Must be called during drmgr's insertion phase.  Returns whether \p instr is the
- * last instruction in the instruction list (as of immediately after the analysis
- * phase).
+ * first non-label instruction in the instruction list (as of immediately after
+ * the analysis phase).
+ */
+bool
+drmgr_is_first_nonlabel_instr(void *drcontext, instr_t *instr);
+
+DR_EXPORT
+/**
+ * Must be called during drmgr's insertion phase.  Returns whether \p instr is the
+ * last instruction (of any type) in the instruction list (as of immediately after
+ * the analysis phase).
  */
 bool
 drmgr_is_last_instr(void *drcontext, instr_t *instr);
@@ -755,6 +766,9 @@ typedef struct _emulated_instr_t {
  *
  * Information about the instruction being emulated can be read from the label using
  * drmgr_get_emulated_instr_data().
+ *
+ * If label callbacks are used, please note that the callback will not be cloned
+ * and its use is currently not consistent (xref i#3962).
  *
  * \return false if the caller's \p emulated_instr_t is not compatible, true otherwise.
  *
@@ -1386,6 +1400,53 @@ DR_EXPORT
 bool
 drmgr_unregister_restore_state_ex_event(bool (*func)(void *drcontext, bool restore_memory,
                                                      dr_restore_state_info_t *info));
+
+DR_EXPORT
+/**
+ * Registers a callback function \p func for the low-on-memory event. The callback
+ * provides a means for the client to free any non-critical data found on the heap, which
+ * could avoid a potential out-of-memory crash (particularly on 32-bit). \return whether
+ * successful.
+ */
+bool
+drmgr_register_low_on_memory_event(void (*func)());
+
+DR_EXPORT
+/**
+ * Registers a callback function \p func for the low-on-memory event just like
+ * drmgr_register_low_on_memory_event(), but the callback is prioritised according
+ * to \p priority.
+ * \return whether successful.
+ */
+bool
+drmgr_register_low_on_memory_event_ex(void (*func)(), drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
+ * Registers a callback function \p func for the low-on-memory event just like
+ * drmgr_register_low_on_memory_event(), but allows the passing of user data
+ * \p user_data. The callback is prioritised according to \p priority.
+ * \return whether successful.
+ */
+bool
+drmgr_register_low_on_memory_event_user_data(void (*func)(void *user_data),
+                                             drmgr_priority_t *priority, void *user_data);
+
+DR_EXPORT
+bool
+/**
+ * Unregister a callback function for the low-on-memory event.
+ * \return true if the unregistration of \p func is successful.
+ */
+drmgr_unregister_low_on_memory_event(void (*func)());
+
+DR_EXPORT
+/**
+ * Unregister a callback function that accepts user-data for the low-on-memory event.
+ * \return true if the unregistration of \p func is successful.
+ */
+bool
+drmgr_unregister_low_on_memory_event_user_data(void (*func)(void *user_data));
 
 DR_EXPORT
 /**

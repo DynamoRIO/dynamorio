@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -55,11 +55,10 @@ endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 
 project(DynamoRIO_samples)
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "3.0")
-  # XXX i#1375: if we make 2.8.12 the minimum we can remove the @rpath
-  # Mac stuff and this policy, right?
-  cmake_policy(SET CMP0042 OLD)
+if ("${CMAKE_VERSION}" VERSION_EQUAL "3.9" OR
+   "${CMAKE_VERSION}" VERSION_GREATER "3.9")
+  # i#1375: We are ok w/ the new policy of SKIP_BUILD_RPATH not affecting install names.
+  cmake_policy(SET CMP0068 NEW)
 endif ()
 
 set(output_dir "${PROJECT_BINARY_DIR}/bin")
@@ -207,7 +206,7 @@ configure_DynamoRIO_global(OFF ON)
 
 add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
 add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx")
-add_sample_client(bbsize      "bbsize.c"        "drmgr")
+add_sample_client(bbsize      "bbsize.c"        "drmgr;drx")
 add_sample_client(div         "div.c"           "drmgr")
 add_sample_client(empty       "empty.c"         "")
 add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;drutil;drx")
@@ -237,6 +236,7 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   add_sample_client(instrcalls  "instrcalls.c;utils.c"  "drmgr;drsyms;drx")
   # dr_insert_cbr_instrument_ex is NYI
   add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drmgr;drx")
+  add_sample_client(hot_bbcount "hot_bbcount.c"         "drmgr;drreg;drbbdup;drx")
 endif (X86)
 add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
 add_sample_client(signal      "signal.c"        "drmgr")

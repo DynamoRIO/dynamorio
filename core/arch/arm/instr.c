@@ -465,6 +465,12 @@ instr_is_mmx(instr_t *instr)
 }
 
 bool
+instr_is_opmask(instr_t *instr)
+{
+    return false;
+}
+
+bool
 instr_is_sse_or_sse2(instr_t *instr)
 {
     return false;
@@ -731,13 +737,49 @@ reg_is_simd(reg_id_t reg)
 }
 
 bool
+reg_is_vector_simd(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_opmask(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_bnd(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_strictly_zmm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_ymm(reg_id_t reg)
 {
     return false;
 }
 
 bool
+reg_is_strictly_ymm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_xmm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_strictly_xmm(reg_id_t reg)
 {
     return false;
 }
@@ -846,4 +888,20 @@ instr_is_exclusive_store(instr_t *instr)
     int opcode = instr_get_opcode(instr);
     return (opcode == OP_strex || opcode == OP_strexb || opcode == OP_strexd ||
             opcode == OP_strexh);
+}
+
+DR_API
+bool
+instr_is_scatter(instr_t *instr)
+{
+    /* XXX i#3837: no scatter-store on ARM? */
+    return false;
+}
+
+DR_API
+bool
+instr_is_gather(instr_t *instr)
+{
+    /* XXX i#3837: no gather-load on ARM? */
+    return false;
 }

@@ -481,6 +481,23 @@ bit    %q21 %q12 -> %q12
 bif    %d3 %d3 -> %d20
 bif    %q3 %q3 -> %q20
 test_asimdsame complete
+ld1    (%x0)[8byte] $0x00 -> %q0
+ld1    (%x0)[16byte] $0x00 -> %q0
+ld1    (%x0)[4byte] $0x01 -> %q0
+ld1    (%x0)[8byte] $0x01 -> %q0
+ld1    (%x0)[2byte] $0x02 -> %q0
+ld1    (%x0)[4byte] $0x02 -> %q0
+ld1    (%x0)[1byte] $0x03 -> %q0
+ld1    (%x0)[2byte] $0x03 -> %q0
+st1    %q0 $0x00 -> (%x0)[8byte]
+st1    %q0 $0x00 -> (%x0)[16byte]
+st1    %q0 $0x01 -> (%x0)[4byte]
+st1    %q0 $0x01 -> (%x0)[8byte]
+st1    %q0 $0x02 -> (%x0)[2byte]
+st1    %q0 $0x02 -> (%x0)[4byte]
+st1    %q0 $0x03 -> (%x0)[1byte]
+st1    %q0 $0x03 -> (%x0)[2byte]
+test_asimd_mem complete
 fmov   %d27 -> %d2
 fmov   %s27 -> %s2
 fmov   %h27 -> %h2

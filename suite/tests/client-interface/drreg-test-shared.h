@@ -32,7 +32,9 @@
 
 #ifdef X86
 #    define TEST_REG DR_REG_XDX
+#    define TEST_REG2 DR_REG_XBX
 #    define TEST_REG_ASM REG_XDX
+#    define TEST_REG2_ASM REG_XBX
 #    define TEST_REG_ASM_LSB dl
 #    define TEST_REG_CXT IF_X64_ELSE(Rdx, Edx)
 #    define TEST_XAX_CXT IF_X64_ELSE(Rax, Eax)
@@ -41,13 +43,17 @@
 
 #ifdef ARM
 #    define TEST_REG DR_REG_R12
+#    define TEST_REG2 DR_REG_R13
 #    define TEST_REG_ASM r12
+#    define TEST_REG2_ASM r13
 #    define TEST_REG_SIG arm_ip
 #endif
 
 #ifdef AARCH64
 #    define TEST_REG DR_REG_X4
+#    define TEST_REG2 DR_REG_X5
 #    define TEST_REG_ASM x4
+#    define TEST_REG2_ASM x5
 #    define TEST_REG_SIG regs[4]
 #endif
 
@@ -79,6 +85,9 @@
 #    define DRREG_TEST_AFLAGS_ASM MAKE_HEX_ASM(f0000000)
 #    define DRREG_TEST_AFLAGS_C MAKE_HEX(f0000000)
 #endif
+
+#define TEST_11_CONST MAKE_HEX_ASM(0)
+#define TEST_12_CONST MAKE_HEX_ASM(12)
 
 #define DRREG_TEST_1_ASM MAKE_HEX_ASM(DRREG_TEST_CONST(1))
 #define DRREG_TEST_1_C MAKE_HEX_C(DRREG_TEST_CONST(1))
@@ -112,3 +121,6 @@
 
 #define DRREG_TEST_11_ASM MAKE_HEX_ASM(DRREG_TEST_CONST(11))
 #define DRREG_TEST_11_C MAKE_HEX_C(DRREG_TEST_CONST(11))
+
+#define DRREG_TEST_12_ASM MAKE_HEX_ASM(DRREG_TEST_CONST(12))
+#define DRREG_TEST_12_C MAKE_HEX_C(DRREG_TEST_CONST(12))

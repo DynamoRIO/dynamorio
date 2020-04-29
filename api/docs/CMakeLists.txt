@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -29,36 +29,13 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# top-level CMakeLists.txt finds the packages we need
+# We used to transform our .fig figures from FIG format to PNG or EPS as
+# part of the build process, using fig2dev, ImageMagick's mogrify, and
+# ghostscript.  However, we have not added new figures in years, and it is
+# painful to install and work with these packages on Windows (i#3235).
+# We thus instead require figures to have a checked-in PNG or EPS file.
 
-file(GLOB figures_fig *.fig)
-
-set(genimg_dirname ${CMAKE_CURRENT_BINARY_DIR}/genimages)
-file(MAKE_DIRECTORY ${genimg_dirname})
-
-if (WIN32 AND "${ImageMagick_mogrify_EXECUTABLE}" MATCHES "cygwin")
-  # i#100: cygwin mogrify mis-parses mixed paths when the drive is a,
-  # b, c, or g (haven't tracked down why those particular letters):
-  #   % mogrify -resize 33% -format png c:/client.tiff[0]
-  #   mogrify: Must specify image size `/client.tiff'.
-  find_program(CYGPATH cygpath) # XXX: should share w/ Cmake_doxyfile.cmake
-  if (NOT CYGPATH)
-    message(FATAL_ERROR "cannot find cygpath: thus cannot use cygwin ImageMagick")
-  endif (NOT CYGPATH)
-  execute_process(COMMAND
-    ${CYGPATH} -u "${genimg_dirname}"
-    RESULT_VARIABLE cygpath_result
-    ERROR_VARIABLE cygpath_err
-    OUTPUT_VARIABLE genimg_dirname_IM
-    )
-  if (cygpath_result OR cygpath_err)
-    message(FATAL_ERROR "*** ${CYGPATH} failed: ***\n${cygpath_err}")
-  endif (cygpath_result OR cygpath_err)
-  string(REGEX REPLACE "[\r\n]" "" genimg_dirname_IM "${genimg_dirname_IM}")
-else (WIN32 AND "${ImageMagick_mogrify_EXECUTABLE}" MATCHES "cygwin")
-  set(genimg_dirname_IM "${genimg_dirname}")
-endif (WIN32 AND "${ImageMagick_mogrify_EXECUTABLE}" MATCHES "cygwin")
-
+# Notes for new FIG-based figures:
 # Because fig2dev does not perform anti-aliasing, converting directly
 # to an image format can result in very poor quality lines and text.
 # This problem is compounded if that image is subsequently resized
@@ -68,42 +45,12 @@ endif (WIN32 AND "${ImageMagick_mogrify_EXECUTABLE}" MATCHES "cygwin")
 # image manipulator resize it to the final size (cannot make
 # browser-resizable vector graphics).
 # See also http://www.burningcutlery.com/derek/bargraph/
-foreach (fig ${figures_fig})
-  get_filename_component(base ${fig} NAME_WE)
-  add_custom_command(
-    OUTPUT ${genimg_dirname}/${base}.eps
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig
-    # fig2dev doesn't quote gs output path; set working dir to avoid spaces
-    COMMAND ${FIG2DEV_EXECUTABLE}
-    ARGS -L eps ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig ${base}.eps
-    WORKING_DIRECTORY ${genimg_dirname}
-    VERBATIM # recommended: p260
-    )
-  # To avoid keeping the intermediate .tiff files around, which are quite
-  # large (50MB total, nearly half the space in a default build dir), we
-  # do not list as a separate custom command target but build inside
-  # a sequence of commands:
-  add_custom_command(
-    OUTPUT ${genimg_dirname}/${base}.png
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig
-    # First build a tiff
-    COMMAND ${FIG2DEV_EXECUTABLE}
-      ARGS -L tiff -m 4 ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig ${base}.tiff
-    # Second, build a png from the tiff
-    COMMAND ${ImageMagick_mogrify_EXECUTABLE}
-      # fig2dev produces multi-part image so ask for just 1st
-      ARGS -resize 33% -format png ${genimg_dirname_IM}/${base}.tiff[0]
-    # Third, delete the tiff
-    COMMAND ${CMAKE_COMMAND}
-      ARGS -E remove ${genimg_dirname}/${base}.tiff
-    # fig2dev doesn't quote gs output path; set working dir to avoid spaces
-    WORKING_DIRECTORY ${genimg_dirname}
-    VERBATIM # recommended: p260
-    )
-  # FYI: for VMSAFE we did: $(SED) 's|DynamoRIO|${VMSAFE_NAME}|g'
-  set(figures_png ${figures_png} ${genimg_dirname}/${base}.png)
-  set(figures_eps ${figures_eps} ${genimg_dirname}/${base}.eps)
-endforeach (fig)
+
+file(GLOB figures_fig *.fig)
+
+set(genimg_dirname ${CMAKE_CURRENT_BINARY_DIR}/genimages)
+# This will create the genimages/ subdir for us and populate it:
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/genimages DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 function (gendox_to_dox gendox_in gendox_out path master_list)
   file(GLOB dox_files "${path}/*.dox" "${path}/*.dox.in")

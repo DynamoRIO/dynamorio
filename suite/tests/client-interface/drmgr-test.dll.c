@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -524,8 +524,8 @@ static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, OUT void **user_data)
 {
-    /* point at first instr */
-    *user_data = (void *)instrlist_first(bb);
+    /* point at first non-label instr */
+    *user_data = (void *)instrlist_first_nonlabel(bb);
     return DR_EMIT_DEFAULT;
 }
 
@@ -584,10 +584,17 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
     CHECK(!drmgr_is_last_instr(drcontext, instrlist_first_app(bb)) ||
               instrlist_first_app(bb) == instrlist_last(bb),
           "last incorrect");
+    if (inst == (instr_t *)user_data) {
+        CHECK(drmgr_is_first_nonlabel_instr(drcontext, inst),
+              "first non-label incorrect");
+    } else {
+        CHECK(!drmgr_is_first_nonlabel_instr(drcontext, inst),
+              "first non-label incorrect");
+    }
 
     /* hack to instrument every nth bb.  assumes DR serializes bb events. */
     freq++;
-    if (freq % 100 == 0 && inst == (instr_t *)user_data /*first instr*/) {
+    if (freq % 100 == 0 && drmgr_is_first_instr(drcontext, inst)) {
         /* test read from cache */
         dr_save_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
         drmgr_insert_read_tls_field(drcontext, tls_idx, bb, inst, reg1);
@@ -598,7 +605,7 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                              opnd_create_reg(reg1));
         dr_restore_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
     }
-    if (freq % 300 == 0 && inst == (instr_t *)user_data /*first instr*/) {
+    if (freq % 300 == 0 && drmgr_is_first_instr(drcontext, inst)) {
         /* test write from cache */
         dr_save_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
         dr_save_reg(drcontext, bb, inst, reg2, SPILL_SLOT_2);

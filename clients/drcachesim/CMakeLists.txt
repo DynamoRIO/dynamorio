@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2020 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,8 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required(VERSION 3.2)
+# 3.7 is DR's min as well, for VS2017, GREATER_EQUAL, etc.
+cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
@@ -64,6 +65,13 @@ else ()
   set(zlib_reader "")
 endif()
 
+if (libsnappy)
+  add_definitions(-DHAS_SNAPPY)
+  set(snappy_reader reader/snappy_file_reader.cpp reader/crc32c.cpp)
+else ()
+  set(snappy_reader "")
+endif()
+
 set(client_and_sim_srcs
   common/named_pipe_${os_name}.cpp
   common/options.cpp
@@ -76,6 +84,7 @@ macro (add_exported_library name type)
   add_library(${name} ${type} ${ARGN})
   DR_export_target(${name})
   install_exported_target(${name} ${INSTALL_CLIENTS_LIB})
+  add_dependencies(${name} api_headers)
 endmacro ()
 
 add_exported_library(drmemtrace_reuse_distance STATIC tools/reuse_distance.cpp)
@@ -84,6 +93,7 @@ add_exported_library(drmemtrace_reuse_time STATIC tools/reuse_time.cpp)
 add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
 add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
 add_exported_library(drmemtrace_view STATIC tools/view.cpp)
+add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
 
@@ -99,6 +109,7 @@ add_exported_library(drmemtrace_simulator STATIC
   simulator/cache_stats.cpp
   simulator/prefetcher.cpp
   simulator/cache_simulator.cpp
+  simulator/snoop_filter.cpp
   simulator/tlb.cpp
   simulator/tlb_simulator.cpp
   )
@@ -128,6 +139,7 @@ set(drcachesim_srcs
   reader/config_reader.cpp
   reader/file_reader.cpp
   ${zlib_reader}
+  ${snappy_reader}
   reader/ipc_reader.cpp
   simulator/analyzer_interface.cpp
   tracer/instru.cpp
@@ -143,7 +155,11 @@ configure_DynamoRIO_standalone(drcachesim)
 # Link in our tools:
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
-  drmemtrace_opcode_mix drmemtrace_view drmemtrace_raw2trace directory_iterator)
+  drmemtrace_opcode_mix drmemtrace_view drmemtrace_func_view
+  drmemtrace_raw2trace directory_iterator)
+if (libsnappy)
+  target_link_libraries(drcachesim snappy)
+endif ()
 # To avoid dup symbol errors between drinjectlib and drdecode on Windows we have
 # to explicitly list drdecode up front:
 target_link_libraries(drcachesim drdecode drinjectlib drconfiglib drfrontendlib)
@@ -166,8 +182,12 @@ add_exported_library(drmemtrace_analyzer STATIC
   reader/config_reader.cpp
   reader/file_reader.cpp
   ${zlib_reader}
+  ${snappy_reader}
   )
 target_link_libraries(drmemtrace_analyzer directory_iterator)
+if (libsnappy)
+  target_link_libraries(drmemtrace_analyzer snappy)
+endif ()
 link_with_pthread(drmemtrace_analyzer)
 # We get away w/ exporting the generically-named "utils.h" by putting into a
 # drmemtrace/ subdir.
@@ -185,6 +205,8 @@ install_client_nonDR_header(drmemtrace tools/opcode_mix_create.h)
 install_client_nonDR_header(drmemtrace simulator/cache_simulator.h)
 install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
 install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
+install_client_nonDR_header(drmemtrace tools/view_create.h)
+install_client_nonDR_header(drmemtrace tools/func_view_create.h)
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
 
 # We show one example of how to create a standalone analyzer of trace
@@ -215,13 +237,7 @@ if (NOT AARCH64 AND NOT APPLE)
     tools/opcode_mix_launcher.cpp
     )
   # We hit dup symbol errors on Windows so we need libc earlier before DR:
-  if (WIN32)
-    if (DEBUG)
-      set(static_libc libcmtd)
-    else ()
-      set(static_libc libcmt)
-    endif ()
-  endif ()
+  _DR_get_static_libc_list(static_libc)
   target_link_libraries(opcode_mix_launcher drmemtrace_analyzer drmemtrace_opcode_mix
     drmemtrace_raw2trace drcovlib_static drfrontendlib ${static_libc})
   use_DynamoRIO_extension(opcode_mix_launcher droption)
@@ -320,6 +336,7 @@ restore_nonclient_flags(drmemtrace_reuse_time)
 restore_nonclient_flags(drmemtrace_basic_counts)
 restore_nonclient_flags(drmemtrace_opcode_mix)
 restore_nonclient_flags(drmemtrace_view)
+restore_nonclient_flags(drmemtrace_func_view)
 restore_nonclient_flags(drmemtrace_analyzer)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
@@ -342,12 +359,17 @@ macro(add_win32_flags target)
     if (NOT cur MATCHES "-std=")
       append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
     endif ()
+    if (APPLE)
+      # Match the core/ flags.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "-mmacosx-version-min=10.9")
+    endif ()
   endif ()
 endmacro ()
 
 add_win32_flags(drcachesim)
 add_win32_flags(drraw2trace)
 add_win32_flags(histogram_launcher)
+add_win32_flags(drmemtrace_raw2trace)
 if (NOT AARCH64 AND NOT APPLE)
   add_win32_flags(opcode_mix_launcher)
 endif ()
@@ -358,6 +380,7 @@ add_win32_flags(drmemtrace_reuse_time)
 add_win32_flags(drmemtrace_basic_counts)
 add_win32_flags(drmemtrace_opcode_mix)
 add_win32_flags(drmemtrace_view)
+add_win32_flags(drmemtrace_func_view)
 add_win32_flags(drmemtrace_analyzer)
 add_win32_flags(directory_iterator)
 if (WIN32 AND DEBUG)
@@ -430,12 +453,17 @@ if (WIN32)
   DR_install(FILES "${injectlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   DynamoRIO_get_full_path(configlib_loc drconfiglib "${location_suffix}")
   DR_install(FILES "${configlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
+  DynamoRIO_get_full_path(drlib_loc dynamorio "${location_suffix}")
+  DR_install(FILES "${drlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   add_custom_command(TARGET drcachesim POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_BASE_DIRECTORY}/drinjectlib.dll
     ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/drinjectlib.dll VERBATIM)
   add_custom_command(TARGET drcachesim POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_BASE_DIRECTORY}/drconfiglib.dll
     ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/drconfiglib.dll VERBATIM)
+  add_custom_command(TARGET drcachesim POST_BUILD
+    COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
+    ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/dynamorio.dll VERBATIM)
 endif ()
 
 ##################################################
@@ -486,11 +514,7 @@ if (BUILD_TESTS)
     if (WIN32)
       # burst_replace is unusual in cramming the tracer and post-processor into the
       # same binary and we need some massaging to avoid duplicate symbol link errors.
-      if (DEBUG)
-        target_link_libraries(tool.drcacheoff.burst_replace libcmtd)
-      else ()
-        target_link_libraries(tool.drcacheoff.burst_replace libcmt)
-      endif ()
+      target_link_libraries(tool.drcacheoff.burst_replace ${static_libc})
     endif ()
     add_win32_flags(tool.drcacheoff.burst_replace)
     use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_replace)
@@ -558,13 +582,40 @@ if (BUILD_TESTS)
       # A nop, keep it for the future Windows support.
       add_win32_flags(tool.drcacheoff.burst_client)
     endif ()
+
+    set(source_abs "${CMAKE_CURRENT_SOURCE_DIR}/tests/burst_traceopts.cpp")
+    set(asm_deps
+      "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
+      "${PROJECT_BINARY_DIR}/configure.h")
+    include_directories(${PROJECT_SOURCE_DIR}/core/arch) # asm_defines.asm
+    add_split_asm_target("${source_abs}" asm_source gen_asm_tgt
+      "_asm" "" "${asm_deps}")
+    add_executable(tool.drcacheoff.burst_traceopts ${source_abs}
+      ${asm_source})
+    configure_DynamoRIO_static(tool.drcacheoff.burst_traceopts)
+    if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+      add_dependencies(tool.drcacheoff.burst_traceopts ${gen_asm_tgt})
+    endif ()
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_traceopts drmemtrace_static)
+    target_link_libraries(tool.drcacheoff.burst_traceopts drmemtrace_raw2trace
+      drmemtrace_analyzer)
+    if (WIN32)
+      # Just like for burst_replace, linking everything together takes effort.
+      target_link_libraries(tool.drcacheoff.burst_traceopts ${static_libc})
+    endif ()
+    add_win32_flags(tool.drcacheoff.burst_traceopts)
+    use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_traceopts)
+    use_DynamoRIO_extension(tool.drcacheoff.burst_traceopts drcovlib_static)
+
   endif ()
 endif ()
 
 ##################################################
 # Documentation
 
-# We auto-generate the list of options in the html docs via this helper app:
+# We auto-generate the list of options in the html docs via this helper app.
+# i#1730: We cannot execute this when cross-compiling so for now we generate
+# docs without this list (better than no docs at all).
 add_executable(drcachesim_ops
   optionlist.cpp
   common/options.cpp)
@@ -592,6 +643,7 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND}
   ARGS -D src=${srcdoc}
        -D dst=${gendoc}
+       -D CMAKE_CROSSCOMPILING=${CMAKE_CROSSCOMPILING}
        -D prog=$<TARGET_FILE:drcachesim_ops>
        -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake
   VERBATIM)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1611,7 +1611,7 @@ static void HTNAME(hashtable_, NAME_KEY,
                    _groom_table)(dcontext_t *dcontext,
                                  HTNAME(, NAME_KEY, _table_t) * table)
 {
-    DOLOG(1, LOG_STATS, { print_timestamp(THREAD); });
+    DOLOG(1, LOG_STATS, { d_r_print_timestamp(THREAD); });
     LOG(THREAD, LOG_HTABLE, 1, "hashtable_" KEY_STRING "_groom_table %s\n", table->name);
 
     /* flush only tables caching data persistent in another table */
@@ -1835,7 +1835,7 @@ void HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext_t *dcontext,
     uint i;
     bool track_cache_lines;
     bool entry_size;
-    size_t cache_line_size = proc_get_cache_line_size();
+    size_t line_size = proc_get_cache_line_size();
     uint cache_lines_used = 0;
     bool cache_line_in_use = false;
 
@@ -1855,7 +1855,7 @@ void HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext_t *dcontext,
     /* need read lock to traverse the table */
     TABLE_RWLOCK(htable, read, lock);
     for (i = 0; i < htable->capacity; i++) {
-        if (track_cache_lines && (i * entry_size % cache_line_size == 0)) {
+        if (track_cache_lines && (i * entry_size % line_size == 0)) {
             if (cache_line_in_use)
                 cache_lines_used++;
             cache_line_in_use = false;
@@ -1894,7 +1894,7 @@ void HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext_t *dcontext,
             }
         });
         DOLOG(2, LOG_HTABLE, {
-            if (track_cache_lines && (i + 1) * entry_size % cache_line_size == 0 &&
+            if (track_cache_lines && (i + 1) * entry_size % line_size == 0 &&
                 cache_line_in_use) {
                 LOG(THREAD, LOG_HTABLE, 1, "----cache line----\n");
             }
@@ -1911,9 +1911,9 @@ void HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext_t *dcontext,
                 "%s %d%% cache density, cache_lines_used=%d "
                 "(%dKB), minimum needed %d (%dKB)\n",
                 htable->name,
-                100 * htable->entries * entry_size / (cache_lines_used * cache_line_size),
-                cache_lines_used, cache_lines_used * cache_line_size / 1024,
-                htable->entries * entry_size / cache_line_size,
+                100 * htable->entries * entry_size / (cache_lines_used * line_size),
+                cache_lines_used, cache_lines_used * line_size / 1024,
+                htable->entries * entry_size / line_size,
                 htable->entries * entry_size / 1024);
         }
     }
@@ -1943,7 +1943,7 @@ void HTNAME(hashtable_, NAME_KEY,
     /* mostly a copy of dump_table but printing only entries with non 0 stats */
     uint i;
     uint max_age = 0;
-    DOLOG(1, LOG_STATS, { print_timestamp(THREAD); });
+    DOLOG(1, LOG_STATS, { d_r_print_timestamp(THREAD); });
     LOG(THREAD, LOG_HTABLE, 1, "dump_and_clean_entry_statistics: %s\n", htable->name);
 
     DOLOG(1, LOG_HTABLE | LOG_STATS, {

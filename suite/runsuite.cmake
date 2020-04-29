@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -68,6 +68,8 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif ()
 endforeach (arg)
 
+set(build_tests "BUILD_TESTS:BOOL=ON")
+
 if (arg_travis)
   # XXX i#1801, i#1962: under clang we have several failing tests.  Until those are
   # fixed, our Travis clang suite only builds and does not run tests.
@@ -84,18 +86,39 @@ if (arg_travis)
     # XXX: I'd rather set this in the .yml files but I don't see a way to set
     # one env var based on another's value there.
     set(run_tests OFF)
+    # In fact we do not want to build the tests at all since they are not part
+    # of the cronbuild package.  Plus, having BUILD_TESTS set causes SHOW_RESULTS
+    # to be off, ruining the samples for interactive use.
+    set(build_tests "")
     message("Detected a cron package build: disabling running of tests")
+  else ()
+    # Disable -msgbox_mask by default to avoid hangs on cases where DR hits errors
+    # prior to option parsing.
+    set(build_tests "${build_tests}
+AUTOMATED_TESTING:BOOL=ON")
   endif()
 endif()
 
 if (TEST_LONG)
   set(DO_ALL_BUILDS ON)
+  # i#2974: We skip tests marked _FLAKY since we have no other mechanism to
+  # have CDash ignore them and avoid going red and sending emails.
+  # We rely on our CI for a history of _FLAKY results.
   set(base_cache "${base_cache}
-    BUILD_TESTS:BOOL=ON
-    TEST_LONG:BOOL=ON")
+    ${build_tests}
+    TEST_LONG:BOOL=ON
+    SKIP_FLAKY_TESTS:BOOL=ON")
 else (TEST_LONG)
   set(DO_ALL_BUILDS OFF)
 endif (TEST_LONG)
+
+# i#4059: Speed up Appveyor on PR's by not building 64-bit tests.
+# We're only running tests on Travis.
+if (DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
+  set(build_release_tests "")
+else ()
+  set(build_release_tests ${build_tests})
+endif ()
 
 if (UNIX)
   # For cross-arch execve tests we need to run from an install dir
@@ -108,8 +131,8 @@ else (UNIX)
 endif (UNIX)
 
 if (APPLE)
-  # DRi#58: core DR does not yet support 64-bit Mac
-  set(arg_32_only ON)
+  # We no longer support 32-bit Mac since Apple itself does not either.
+  set(arg_64_only ON)
 endif ()
 
 ##################################################
@@ -262,14 +285,16 @@ endif ()
 
 # for short suite, don't build tests for builds that don't run tests
 # (since building takes forever on windows): so we only turn
-# on BUILD_TESTS for TEST_LONG or debug-internal-{32,64}
+# on BUILD_TESTS for TEST_LONG or debug-internal-{32,64}. BUILD_TESTS is
+# also turned on for release-external-64, but ctest will run with label
+# RUN_IN_RELEASE.
 
 if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   # For cross-arch execve test we need to "make install"
   testbuild_ex("debug-internal-32" OFF "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
-    BUILD_TESTS:BOOL=ON
+    ${build_tests}
     ${install_path_cache}
     " OFF ON "${install_build_args}")
   if (last_build_dir MATCHES "-32")
@@ -280,7 +305,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   testbuild_ex("debug-internal-64" ON "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
-    BUILD_TESTS:BOOL=ON
+    ${build_tests}
     ${install_path_cache}
     ${32bit_path}
     " OFF ON "${install_build_args}")
@@ -295,22 +320,30 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
       INTERNAL:BOOL=OFF
       ")
   endif ()
-  testbuild_ex("release-external-32" OFF "
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    ${install_path_cache}
-    " OFF ${arg_package} "${install_build_args}")
+  # i#4059: We skip 32-bit release build in Appveyor PR's to speed things up.
+  # The 64-bit release should cover nearly all 32-bit release-only warnings.
+  if (NOT DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
+    testbuild_ex("release-external-32" OFF "
+      DEBUG:BOOL=OFF
+      INTERNAL:BOOL=OFF
+      ${install_path_cache}
+      " OFF ${arg_package} "${install_build_args}")
+  endif ()
   if (last_build_dir MATCHES "-32")
     set(32bit_path "TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin")
   else ()
     set(32bit_path "")
   endif ()
+  set(orig_extra_ctest_args extra_ctest_args)
+  set(extra_ctest_args INCLUDE_LABEL RUN_IN_RELEASE)
   testbuild_ex("release-external-64" ON "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
+    ${build_release_tests}
     ${install_path_cache}
     ${32bit_path}
     " OFF ${arg_package} "${install_build_args}")
+  set(extra_ctest_args orig_extra_ctest_args)
   if (DO_ALL_BUILDS)
     # we rarely use internal release builds but keep them working in long
     # suite (not much burden) in case we need to tweak internal options
@@ -324,6 +357,16 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
       INTERNAL:BOOL=ON
       ${install_path_cache}
       ")
+    if (UNIX)
+      # Ensure the code to record memquery unit test cases continues to
+      # at least compile.
+      testbuild("record-memquery-64" ON "
+        RECORD_MEMQUERY:BOOL=ON
+        DEBUG:BOOL=OFF
+        INTERNAL:BOOL=ON
+        ${install_path_cache}
+        ")
+    endif (UNIX)
   endif (DO_ALL_BUILDS)
   # Non-official-API builds but not all are in pre-commit suite, esp on Windows
   # where building is slow: we'll rely on bots to catch breakage in most of these
@@ -395,7 +438,7 @@ if (UNIX AND ARCH_IS_X86)
   testbuild_ex("arm-debug-internal-32" OFF "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
-    BUILD_TESTS:BOOL=ON
+    ${build_tests}
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
     " OFF ${arg_package} "")
   testbuild_ex("arm-release-external-32" OFF "
@@ -406,7 +449,7 @@ if (UNIX AND ARCH_IS_X86)
   testbuild_ex("arm-debug-internal-64" ON "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
-    BUILD_TESTS:BOOL=ON
+    ${build_tests}
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
     " OFF ${arg_package} "")
   testbuild_ex("arm-release-external-64" ON "
@@ -414,6 +457,7 @@ if (UNIX AND ARCH_IS_X86)
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
     " OFF ${arg_package} "")
+
   set(run_tests ${prev_run_tests})
   set(optional_cross_compile ${prev_optional_cross_compile})
 
@@ -461,7 +505,7 @@ if (UNIX AND ARCH_IS_X86)
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
-    BUILD_TESTS:BOOL=ON
+    ${build_tests}
     ${android_extra_dbg}
     " OFF ${arg_package} "")
   testbuild_ex("android-release-external-32" OFF "

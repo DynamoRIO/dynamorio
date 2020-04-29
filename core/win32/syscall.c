@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -766,7 +766,7 @@ syscall_while_native(app_state_at_intercept_t *state)
          * read-only until executed from, so in the common case we should not
          * incur any cost from cache consistency while native.
          */
-        /* Invoke normal DR syscall-handling by calling dispatch() with a
+        /* Invoke normal DR syscall-handling by calling d_r_dispatch() with a
          * linkstub_t marked just like those for fragments ending in syscalls.
          * (We cannot return to the trampoline tail for asynch_take_over() since
          * it will clobber out next_tag and last_exit and will execute the jmp
@@ -886,7 +886,8 @@ init_syscall_trampolines(void)
             fpo_adjustment = &syscall_trampoline_gbop_fpo_offset[i];
 #endif
 
-            syscall_trampoline_hook_pc[i] = (app_pc)get_proc_address(h, syscall_names[i]);
+            syscall_trampoline_hook_pc[i] =
+                (app_pc)d_r_get_proc_address(h, syscall_names[i]);
             syscall_trampoline_pc[i] =
                 /* FIXME: would like to use static references to entry points -- yet,
                  * set of those we care about varies dynamically by platform, and
@@ -898,7 +899,7 @@ init_syscall_trampolines(void)
                     &syscall_trampoline_hook_pc[i], syscall_while_native,
                     (void *)(ptr_int_t)i /* callee arg */,
                     AFTER_INTERCEPT_DYNAMIC_DECISION,
-                    /* must store the skip_pc for the new dispatch()
+                    /* must store the skip_pc for the new d_r_dispatch()
                      * to know where to go after handling from DR --
                      * this is simpler than having trampoline
                      * pass it in as an arg to syscall_while_native
@@ -981,7 +982,7 @@ check_syscall_numbers(dcontext_t *dcontext)
     for (i = 0; i < SYS_MAX; i++) {
         if (syscalls[i] == SYSCALL_NOT_PRESENT)
             continue;
-        addr = (byte *)get_proc_address(h, syscall_names[i]);
+        addr = (byte *)d_r_get_proc_address(h, syscall_names[i]);
         ASSERT(addr != NULL);
         LOG(GLOBAL, LOG_SYSCALLS, 4, "\tsyscall 0x%x %s: addr " PFX "\n", i,
             syscall_names[i], addr);
@@ -1125,7 +1126,7 @@ syscall_uses_edx_param_base()
                 ? (POST_SYSCALL_PC(dc) - CTI_FAR_ABS_LENGTH)                        \
                 : get_app_sysenter_addr()))
 
-/* since always coming from dispatch now, only need to set mcontext */
+/* since always coming from d_r_dispatch now, only need to set mcontext */
 #define SET_RETURN_VAL(dc, val) get_mcontext(dc)->xax = (reg_t)(val)
 
 /****************************************************************************
@@ -1857,7 +1858,7 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
          * w/ > 1 thread perhaps we should do the synchall.
          */
         LOG(THREAD, LOG_SYSCALLS, 2, "\tterminating process w/ %d running thread(s)\n",
-            get_num_threads());
+            d_r_get_num_threads());
         KSTOP(pre_syscall);
         KSTOP(num_exits_dir_syscall);
         if (is_thread_currently_native(dcontext->thread_record)) {
@@ -1892,7 +1893,7 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
      * equivalence, we have to get the thread id
      */
     thread_id_t tid;
-    thread_record_t *tr = thread_lookup(get_thread_id());
+    thread_record_t *tr = thread_lookup(d_r_get_thread_id());
     ASSERT(tr != NULL);
     if (thread_handle == 0)
         thread_handle = NT_CURRENT_THREAD;
@@ -1929,7 +1930,7 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
     } else {
         /* case 9347 - racy early thread, yet primary is not yet 'known' */
         /* we should evaluate dr_late_injected_primary_thread before
-         * get_num_threads()
+         * d_r_get_num_threads()
          */
         bool secondary = dr_injected_secondary_thread && !dr_late_injected_primary_thread;
 
@@ -1973,14 +1974,14 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
         "syscall: NtSetContextThread handle=" PFX " tid=%d cxt->Xip=" PFX " flags=" PFX
         "\n",
         thread_handle, tid, cxt->CXT_XIP, cxt->ContextFlags);
-    if (get_thread_id() == tid) {
+    if (d_r_get_thread_id() == tid) {
         /* Simple case when called on own thread. */
         /* FIXME i#2249 : we should handle these flags. */
         ASSERT_NOT_IMPLEMENTED(!TEST(CONTEXT_CONTROL, cxt->ContextFlags) &&
                                !TEST(CONTEXT_DEBUG_REGISTERS, cxt->ContextFlags));
         return execute_syscall;
     }
-    mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
+    d_r_mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
     if (intercept_asynch_for_thread(tid, false /*no unknown threads*/)) {
         priv_mcontext_t mcontext;
         thread_record_t *tr = thread_lookup(tid);
@@ -2089,7 +2090,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
         }
         SELF_PROTECT_LOCAL(tr->dcontext, READONLY);
     }
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
     return execute_syscall;
 }
 
@@ -2199,9 +2200,10 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
         !TEST(MEM_RESERVE, type)) {
         /* i#1175: NtAllocateVirtualMemory can modify prot on existing pages */
         size_t size;
-        if (safe_read(pbase, sizeof(base), &base) &&
-            safe_read(psize, sizeof(size), &size) && base != NULL &&
-            !app_memory_pre_alloc(dcontext, base, size, osprot_to_memprot(prot), false)) {
+        if (d_r_safe_read(pbase, sizeof(base), &base) &&
+            d_r_safe_read(psize, sizeof(size), &size) && base != NULL &&
+            !app_memory_pre_alloc(dcontext, base, size, osprot_to_memprot(prot),
+                                  false /*!hint*/, true /*update*/, false /*!image*/)) {
             SET_RETURN_VAL(dcontext, STATUS_CONFLICTING_ADDRESSES);
             return false; /* do not execute system call */
         }
@@ -2220,7 +2222,7 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
         /* unfortunately no way to avoid syscall to check readability
          * (unless have try...except)
          */
-        if (safe_read(pbase, sizeof(base), &base)) {
+        if (d_r_safe_read(pbase, sizeof(base), &base)) {
             dcontext->alloc_no_reserve =
                 (base == NULL ||
                  (TEST(MEM_RESERVE, type) && !get_memory_info(base, NULL, NULL, NULL)));
@@ -2237,7 +2239,7 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
          * their alloc to fail, but may end up eliminating any security
          * advantage anyway.
          */
-        if (safe_read(pbase, sizeof(base), &base)) {
+        if (d_r_safe_read(pbase, sizeof(base), &base)) {
             if (base == NULL) {
                 /* FIXME: make the above check stronger */
                 ASSERT_CURIOSITY(prot == PAGE_READWRITE);
@@ -2290,8 +2292,8 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
     /* check for common argument problems, apps tend to screw this call
      * up a lot (who cares about a memory leak, esp. at process exit) */
     /* ref case 3536, 545, 4046 */
-    if (!safe_read(pbase, sizeof(base), &base) || base == NULL ||
-        !safe_read(psize, sizeof(size), &size) ||
+    if (!d_r_safe_read(pbase, sizeof(base), &base) || base == NULL ||
+        !d_r_safe_read(psize, sizeof(size), &size) ||
         !(type == MEM_RELEASE || type == MEM_DECOMMIT)) {
         /* we expect the system call to fail */
         DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
@@ -2415,8 +2417,8 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
                                          * or PRETEND_APP_MEM_PROT_CHANGE */
     uint subset_memprot = MEMPROT_NONE; /* for SUBSET_APP_MEM_PROT_CHANGE */
 
-    if (!safe_read(pbase, sizeof(base), &base) ||
-        !safe_read(psize, sizeof(size), &size)) {
+    if (!d_r_safe_read(pbase, sizeof(base), &base) ||
+        !d_r_safe_read(psize, sizeof(size), &size)) {
         /* we expect the system call to fail */
         DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
         return true;
@@ -2453,8 +2455,9 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
                            DUMP_NOT_XML);
         });
 #endif
-        res = app_memory_protection_change(dcontext, base, size, osprot_to_memprot(prot),
-                                           &subset_memprot, &old_memprot);
+        res =
+            app_memory_protection_change(dcontext, base, size, osprot_to_memprot(prot),
+                                         &subset_memprot, &old_memprot, false /*!image*/);
         if (res != DO_APP_MEM_PROT_CHANGE) {
             /* from experimentation it seems to return
              * STATUS_CONFLICTING_ADDRESSES
@@ -3014,7 +3017,7 @@ pre_system_call(dcontext_t *dcontext)
         uint *pnum_pages = (uint *)sys_param(dcontext, param_base, 1);
         uint *page_frame_nums = (uint *)sys_param(dcontext, param_base, 2);
         uint num_pages;
-        if (safe_read(pnum_pages, sizeof(num_pages), &num_pages)) {
+        if (d_r_safe_read(pnum_pages, sizeof(num_pages), &num_pages)) {
             LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, IF_DGCDIAG_ELSE(1, 2),
                 "syscall: NtMapUserPhysicalPages " PFX " pages=%d\n", base, num_pages);
             base = proc_get_containing_page(base);
@@ -3083,8 +3086,8 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
     });
 
     /* Even though syscall succeeded we use safe_read to be sure */
-    if (success && safe_read(proc_handle_ptr, sizeof(proc_handle), &proc_handle) &&
-        safe_read(thread_handle_ptr, sizeof(thread_handle), &thread_handle)) {
+    if (success && d_r_safe_read(proc_handle_ptr, sizeof(proc_handle), &proc_handle) &&
+        d_r_safe_read(thread_handle_ptr, sizeof(thread_handle), &thread_handle)) {
         ACCESS_MASK rights = nt_get_handle_access_rights(proc_handle);
 
         if (TESTALL(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE |
@@ -3187,7 +3190,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
      * at the os call, but there could always be multi-thread races */
 
     /* so trec remains valid, we are !could_be_linking */
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     trec = thread_lookup(tid);
     if (trec == NULL) {
         /* this can occur if the target thread hasn't been scheduled yet
@@ -3230,7 +3233,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
             /* if asking for own context, thread_get_context() will point at
              * dynamorio_syscall_* and we'll fail to translate so we special-case
              */
-            if (tid == get_thread_id()) {
+            if (tid == d_r_get_thread_id()) {
                 /* only fields that DR might change are propagated to cxt below,
                  * so set set_cur_seg to false.
                  */
@@ -3297,18 +3300,20 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
             if (TESTALL(CONTEXT_XMM_FLAG, cxt->ContextFlags) &&
                 preserve_xmm_caller_saved()) {
                 /* PR 264138 */
-                memcpy(CXT_XMM(cxt, 0), CXT_XMM(xlate_cxt, 0), XMM_SAVED_SIZE);
+                memcpy(CXT_XMM(cxt, 0), CXT_XMM(xlate_cxt, 0),
+                       MCXT_TOTAL_SIMD_SLOTS_SIZE);
             }
             if (TESTALL(CONTEXT_YMM_FLAG, cxt->ContextFlags) &&
                 preserve_xmm_caller_saved()) {
                 byte *ymmh_area = context_ymmh_saved_area(cxt);
                 ASSERT(ymmh_area != NULL);
-                memcpy(ymmh_area, context_ymmh_saved_area(xlate_cxt), YMMH_SAVED_SIZE);
+                memcpy(ymmh_area, context_ymmh_saved_area(xlate_cxt),
+                       MCXT_YMMH_SLOTS_SIZE);
             }
         }
         SELF_PROTECT_LOCAL(trec->dcontext, READONLY);
     }
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
 }
 
 /* NtSuspendThread */
@@ -3330,7 +3335,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     /* if we suspended ourselves then skip synchronization,
      * already resumed, FIXME : what if someone else resumes the thread
      * while we are trying to synch with it */
-    if (!success || tid == get_thread_id())
+    if (!success || tid == d_r_get_thread_id())
         return;
 
     pid = thread_handle_to_pid(thread_handle, tid);
@@ -3344,7 +3349,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
 
     /* as optimization check if at good spot already before resuming for
      * synch, use trylocks in case suspended thread is holding any locks */
-    if (mutex_trylock(&thread_initexit_lock)) {
+    if (d_r_mutex_trylock(&thread_initexit_lock)) {
         if (!mutex_testlock(&all_threads_lock)) {
             char buf[MAX_CONTEXT_SIZE];
             CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
@@ -3366,7 +3371,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                 SELF_PROTECT_LOCAL(tr->dcontext, WRITABLE);
                 if (at_safe_spot(tr, &mc_thread, THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT)) {
                     /* suspended at good spot, skip synch */
-                    mutex_unlock(&thread_initexit_lock);
+                    d_r_mutex_unlock(&thread_initexit_lock);
                     LOG(THREAD, LOG_SYNCH, 2,
                         "SuspendThread suspended thread " TIDFMT " at good place\n", tid);
                     SELF_PROTECT_LOCAL(tr->dcontext, READONLY);
@@ -3380,7 +3385,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                 " at good spot without resuming\n",
                 tid);
         }
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
     } else {
         LOG(THREAD, LOG_SYNCH, 2,
             "SuspendThread couldn't get thread_initexit_lock to test if thread " TIDFMT
@@ -3403,7 +3408,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
         /* we hold the initexit lock for case 9489, see comment below in failure
          * to synch path for details why */
         if (DYNAMO_OPTION(suspend_on_synch_failure_for_app_suspend))
-            mutex_lock(&thread_initexit_lock);
+            d_r_mutex_lock(&thread_initexit_lock);
         synch_res = synch_with_thread(
             tid, true /* block */,
             /* initexit lock status */
@@ -3445,7 +3450,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
             }
         }
         if (DYNAMO_OPTION(suspend_on_synch_failure_for_app_suspend))
-            mutex_unlock(&thread_initexit_lock);
+            d_r_mutex_unlock(&thread_initexit_lock);
 
         /* FIXME - if the thread exited we should prob. change the return value to
          * the app to a failure value. Only an assert_curiosity for now to see if any
@@ -3528,8 +3533,8 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
          */
         return;
     }
-    if (!safe_read(pbase, sizeof(base), &base) ||
-        !safe_read(psize, sizeof(size), &size)) {
+    if (!d_r_safe_read(pbase, sizeof(base), &base) ||
+        !d_r_safe_read(psize, sizeof(size), &size)) {
         LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
             "syscall: NtAllocateVirtualMemory: failed to read params " PFX " " PFX "\n",
             pbase, psize);
@@ -3757,7 +3762,7 @@ postsys_create_or_open_section(dcontext_t *dcontext, HANDLE *unsafe_section_hand
 {
     HANDLE section_handle = INVALID_HANDLE_VALUE;
     if (DYNAMO_OPTION(track_module_filenames) &&
-        safe_read(unsafe_section_handle, sizeof(section_handle), &section_handle)) {
+        d_r_safe_read(unsafe_section_handle, sizeof(section_handle), &section_handle)) {
         /* Case 1272: keep file name around to use for module identification */
         FILE_NAME_INFORMATION name_info; /* note: large struct */
         wchar_t buf[MAXIMUM_PATH];
@@ -3913,8 +3918,8 @@ postsys_OpenSection(dcontext_t *dcontext, reg_t *param_base, bool success)
          * based on access_mask, although most users use
          * SECTION_ALL_ACCESS */
         HANDLE root_directory = NULL;
-        bool ok =
-            safe_read(&obj_attr->RootDirectory, sizeof(root_directory), &root_directory);
+        bool ok = d_r_safe_read(&obj_attr->RootDirectory, sizeof(root_directory),
+                                &root_directory);
         if (ok && root_directory != NULL && aslr_is_handle_KnownDlls(root_directory)) {
 
             if (aslr_recreate_known_dll_file(obj_attr, &new_file_handle)) {
@@ -4164,7 +4169,7 @@ postsys_DuplicateObject(dcontext_t *dcontext, reg_t *param_base, bool success)
             const char *file = section_to_file_lookup(src);
             if (file != NULL) {
                 HANDLE dup;
-                if (safe_read(dst, sizeof(dup), &dup)) {
+                if (d_r_safe_read(dst, sizeof(dup), &dup)) {
                     /* Should already be converted to Dos path */
                     section_to_file_add(dup, file);
                     LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
@@ -4239,8 +4244,8 @@ post_system_call(dcontext_t *dcontext)
         /* FIXME : we modified the passed in context, we should restore it
          * to app state (same for SYS_Continue though is more difficult there)
          */
-        if (tid != get_thread_id()) {
-            mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
+        if (tid != d_r_get_thread_id()) {
+            d_r_mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
             if (intercept_asynch_for_thread(tid, false /*no unknown threads*/)) {
                 /* Case 10101: we shouldn't get here since we now skip the system call,
                  * unless it should fail for permission issues */
@@ -4248,7 +4253,7 @@ post_system_call(dcontext_t *dcontext)
                 /* must wake up thread so it can go to nt_continue_dynamo_start */
                 nt_thread_resume(thread_handle, NULL);
             }
-            mutex_unlock(&thread_initexit_lock); /* need lock to lookup thread */
+            d_r_mutex_unlock(&thread_initexit_lock); /* need lock to lookup thread */
         }
     } else if (sysnum == syscalls[SYS_OpenThread]) {
         postsys_OpenThread(dcontext, param_base, success);
@@ -4295,7 +4300,7 @@ post_system_call(dcontext_t *dcontext)
             LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
                 "syscall post: NtCreateProcess section @" PFX "\n", base);
         });
-        if (success && safe_read(process_handle, sizeof(proc_handle), &proc_handle))
+        if (success && d_r_safe_read(process_handle, sizeof(proc_handle), &proc_handle))
             maybe_inject_into_process(dcontext, proc_handle, NULL);
     } else if (sysnum == syscalls[SYS_CreateProcessEx]) {
         HANDLE *process_handle = (HANDLE *)postsys_param(dcontext, param_base, 0);
@@ -4318,7 +4323,7 @@ post_system_call(dcontext_t *dcontext)
                     "syscall: NtCreateProcessEx section @" PFX "\n", base);
             }
         });
-        if (success && safe_read(process_handle, sizeof(proc_handle), &proc_handle))
+        if (success && d_r_safe_read(process_handle, sizeof(proc_handle), &proc_handle))
             maybe_inject_into_process(dcontext, proc_handle, NULL);
     } else if (sysnum == syscalls[SYS_CreateUserProcess]) {
         postsys_CreateUserProcess(dcontext, param_base, success);
@@ -4355,7 +4360,7 @@ post_system_call(dcontext_t *dcontext)
         if (thread_handle != 0) {
             thread_id_t tid = thread_handle_to_tid(thread_handle);
             process_id_t pid = thread_handle_to_pid(thread_handle, tid);
-            ASSERT(tid != get_thread_id()); /* not current thread */
+            ASSERT(tid != d_r_get_thread_id()); /* not current thread */
             /* FIXME : if is thread in this process and syscall fails then
              * no way to recover since we already cleaned up the thread */
             /* Don't allow success && handle == us since we should never get
@@ -4621,7 +4626,7 @@ dr_syscall_intercept_natively(const char *name, int sysnum, int num_args, int wo
         if (intercept_native_syscall(i) && strcmp(syscall_names[i], name) == 0)
             return true;
     }
-    if (get_proc_address(get_ntdll_base(), name) == NULL)
+    if (d_r_get_proc_address(get_ntdll_base(), name) == NULL)
         return false;
     /* no lock needed since only supported during dr_client_main */
     idx = SYS_MAX + syscall_extra_idx;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,7 +48,7 @@ static const WPARAM WP_NOP = 0;
 static const WPARAM WP_EXIT = 1;
 static const WPARAM WP_CRASH = 3;
 
-static const uint BAD_WRITE = 0x40;
+static const ptr_uint_t BAD_WRITE = 0x40;
 
 #ifndef WM_DWMNCRENDERINGCHANGED
 #    define WM_DWMNCRENDERINGCHANGED 0x031F

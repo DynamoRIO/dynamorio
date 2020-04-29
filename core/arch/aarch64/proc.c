@@ -34,9 +34,17 @@
 #include "proc.h"
 #include "instr.h"
 
+static int num_simd_saved;
+static int num_simd_registers;
+static int num_opmask_registers;
+
 void
 proc_init_arch(void)
 {
+    num_simd_saved = MCXT_NUM_SIMD_SLOTS;
+    num_simd_registers = MCXT_NUM_SIMD_SLOTS;
+    num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;
+
     /* FIXME i#1569: NYI */
 }
 
@@ -58,6 +66,73 @@ size_t
 proc_fpstate_save_size(void)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return 0;
+}
+
+DR_API
+int
+proc_num_simd_saved(void)
+{
+    return num_simd_saved;
+}
+
+void
+proc_set_num_simd_saved(int num)
+{
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    ATOMIC_4BYTE_WRITE(&num_simd_saved, num, false);
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+}
+
+DR_API
+int
+proc_num_simd_registers(void)
+{
+    return num_simd_registers;
+}
+
+DR_API
+int
+proc_num_opmask_registers(void)
+{
+    return num_opmask_registers;
+}
+
+int
+proc_num_simd_sse_avx_registers(void)
+{
+    CLIENT_ASSERT(false, "Incorrect usage for ARM/AArch64.");
+    return 0;
+}
+
+int
+proc_num_simd_sse_avx_saved(void)
+{
+    CLIENT_ASSERT(false, "Incorrect usage for ARM/AArch64.");
+    return 0;
+}
+
+int
+proc_xstate_area_kmask_offs(void)
+{
+    /* Does not apply to AArch64. */
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+int
+proc_xstate_area_zmm_hi256_offs(void)
+{
+    /* Does not apply to AArch64. */
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+int
+proc_xstate_area_hi16_zmm_offs(void)
+{
+    /* Does not apply to AArch64. */
+    ASSERT_NOT_REACHED();
     return 0;
 }
 

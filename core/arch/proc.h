@@ -102,12 +102,6 @@ enum {
  *   Intel IvyBridge           Family 6, Model 58 (0x3a)
  *   Intel Atom                Family 6, Model 28 (0x1c), 38 (0x26), 54 (0x36)
  */
-/* DR_API EXPORT END */
-#ifdef IA32_ON_IA64 /* don't export IA64 stuff! */
-/* IA-64 */
-#    define FAMILY_IA64 7
-#endif
-/* DR_API EXPORT BEGIN */
 /* Remember that we add extended family to family as Intel suggests */
 #define FAMILY_LLANO 18        /**< proc_get_family() processor family: AMD Llano */
 #define FAMILY_ITANIUM_2_DC 17 /**< proc_get_family() processor family: Itanium 2 DC */
@@ -260,14 +254,16 @@ typedef enum {
     FEATURE_FMA4 = 16 + 96,   /**< AMD FMA4 supported */
     FEATURE_TBM = 21 + 96,    /**< AMD Trailing Bit Manipulation supported */
     /* structured extended features returned in ebx */
-    FEATURE_FSGSBASE = 0 + 128, /**< #OP_rdfsbase, etc. supported */
-    FEATURE_BMI1 = 3 + 128,     /**< BMI1 instructions supported */
-    FEATURE_HLE = 4 + 128,      /**< Hardware Lock Elision supported */
-    FEATURE_AVX2 = 5 + 128,     /**< AVX2 instructions supported */
-    FEATURE_BMI2 = 8 + 128,     /**< BMI2 instructions supported */
-    FEATURE_ERMSB = 9 + 128,    /**< Enhanced rep movsb/stosb supported */
-    FEATURE_INVPCID = 10 + 128, /**< #OP_invpcid supported */
-    FEATURE_RTM = 11 + 128,     /**< Restricted Transactional Memory supported */
+    FEATURE_FSGSBASE = 0 + 128,  /**< #OP_rdfsbase, etc. supported */
+    FEATURE_BMI1 = 3 + 128,      /**< BMI1 instructions supported */
+    FEATURE_HLE = 4 + 128,       /**< Hardware Lock Elision supported */
+    FEATURE_AVX2 = 5 + 128,      /**< AVX2 instructions supported */
+    FEATURE_BMI2 = 8 + 128,      /**< BMI2 instructions supported */
+    FEATURE_ERMSB = 9 + 128,     /**< Enhanced rep movsb/stosb supported */
+    FEATURE_INVPCID = 10 + 128,  /**< #OP_invpcid supported */
+    FEATURE_RTM = 11 + 128,      /**< Restricted Transactional Memory supported */
+    FEATURE_AVX512F = 16 + 128,  /**< AVX-512F instructions supported */
+    FEATURE_AVX512BW = 30 + 128, /**< AVX-512BW instructions supported */
 } feature_bit_t;
 
 /**
@@ -298,11 +294,17 @@ extern size_t cache_line_size;
 
 #define CACHE_LINE_SIZE() cache_line_size
 
-/* xcr0 and xstate_bv feature bits */
+/* xcr0 and xstate_bv feature bits, as actually used by the processor. */
 enum {
-    XCR0_AVX = 4,
-    XCR0_SSE = 2,
-    XCR0_FP = 1,
+    /* Component for entire zmm16-zmm31 registers. */
+    XCR0_HI16_ZMM = 0x80,
+    /* Component for upper half of each of zmm0-zmm15 registers. */
+    XCR0_ZMM_HI256 = 0x40,
+    XCR0_OPMASK = 0x20,
+    /* TODO i#3581: mpx state */
+    XCR0_AVX = 0x4,
+    XCR0_SSE = 0x2,
+    XCR0_FP = 0x1,
 };
 
 /* information about a processor */
@@ -459,6 +461,116 @@ proc_fpstate_save_size(void);
 
 DR_API
 /**
+ * Returns the number of SIMD registers preserved for a context switch. DynamoRIO
+ * may decide to optimize the number of registers saved, in which case this number
+ * may be less than proc_num_simd_registers(). For x86 this only includes xmm/ymm/zmm.
+ *
+ * The number of saved SIMD registers may be variable. For example, we may decide
+ * to optimize the number of saved registers in a context switch to avoid frequency
+ * scaling (https://github.com/DynamoRIO/dynamorio/issues/3169).
+ */
+/* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
+ * libc routines invoked by DR in some Linux systems (xref i#139),
+ * so they should be saved in 32-bit Linux.
+ *
+ * Xref i#139:
+ * XMM register preservation will cause extra runtime overhead.
+ * We test it over 32-bit SPEC2006 on a 64-bit Debian Linux, which shows
+ * that DR with xmm preservation adds negligible overhead over DR without
+ * xmm preservation.
+ * It means xmm preservation would have little performance impact over
+ * DR base system. This is mainly because DR's own operations' overhead
+ * is much higher than the context switch overhead.
+ * However, if a program is running with a DR client which performs many
+ * clean calls (one or more per basic block), xmm preservation may
+ * have noticable impacts, i.e. pushing bbs over the max size limit,
+ * and could have a noticeable performance hit.
+ */
+int
+proc_num_simd_saved(void);
+
+DR_API
+/**
+ * Returns the number of SIMD registers. The number returned here depends on the
+ * processor and OS feature bits on a given machine. For x86 this only includes
+ * xmm/ymm/zmm.
+ *
+ */
+int
+proc_num_simd_registers(void);
+
+DR_API
+/**
+ * Returns the number of AVX-512 mask registers. The number returned here depends on the
+ * processor and OS feature bits on a given machine.
+ *
+ */
+int
+proc_num_opmask_registers(void);
+
+/*
+ * This function is internal only.
+ *
+ * Setter function for proc_num_simd_saved(). It should be used in order to change the
+ * number of saved SIMD registers, which currently happens once AVX-512 code has been
+ * detected.
+ */
+void
+proc_set_num_simd_saved(int num);
+
+/*
+ * This function is internal only.
+ *
+ * Returns the number of SIMD registers, but excluding AVX-512 extended registers. The
+ * function is only used internally. It shall be primarily used for xstate, fpstate,
+ * or sigcontext state access. For example, the xmm or ymmh fields are always of SSE or
+ * AVX size, while the extended AVX-512 register state is stored on top of that.
+ * proc_num_simd_registers() and proc_num_simd_saved() are not suitable to use in this
+ * case.
+ */
+int
+proc_num_simd_sse_avx_registers(void);
+
+/*
+ * This function is internal only.
+ *
+ * Returns the number of SIMD registers preserved for a context switch, but excluding
+ * AVX-512 extended registers. Its usage model is the same as
+ * proc_num_simd_sse_avx_registers(), but reflects the actual number of saved registers,
+ * the same way as proc_num_simd_saved() does.
+ */
+int
+proc_num_simd_sse_avx_saved(void);
+
+/*
+ * This function is internal only.
+ *
+ * Returns the AVX-512 kmask xstate component's offset in bytes, as reported by CPUID
+ * on the system.
+ */
+int
+proc_xstate_area_kmask_offs(void);
+
+/*
+ * This function is internal only.
+ *
+ * Returns the AVX-512 zmm_hi256 xstate component's offset in bytes, as reported by CPUID
+ * on the system.
+ */
+int
+proc_xstate_area_zmm_hi256_offs(void);
+
+/*
+ * This function is internal only.
+ *
+ * Returns the AVX-512 hi16_zmm xstate component's offset in bytes, as reported by CPUID
+ * on the system.
+ */
+int
+proc_xstate_area_hi16_zmm_offs(void);
+
+DR_API
+/**
  * Saves the floating point state into the buffer \p buf.
  *
  * On x86, the buffer must be 16-byte-aligned, and it must be
@@ -506,11 +618,21 @@ void
 proc_restore_fpstate(byte *buf);
 
 DR_API
-/** Returns whether AVX is enabled by both the processor and the operating system.
- * Even if the processor supports AVX, if the operating system does not enable
- * AVX state saving, then AVX instructions will fault.
+/**
+ * Returns whether AVX (or AVX2) is enabled by both the processor and the OS.
+ * Even if the processor supports AVX, if the OS does not enable AVX, then
+ * AVX instructions will fault.
  */
 bool
 proc_avx_enabled(void);
+
+DR_API
+/**
+ * Returns whether AVX-512 is enabled by both the processor and the OS.
+ * Even if the processor supports AVX-512, if the OS does not enable AVX-512,
+ * then AVX-512 instructions will fault.
+ */
+bool
+proc_avx512_enabled(void);
 
 #endif /* _PROC_H_ */

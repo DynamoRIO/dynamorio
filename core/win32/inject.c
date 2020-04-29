@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,14 +41,13 @@
 
 /* FIXME: Unicode support?!?! case 61 */
 #include "../globals.h"       /* for pragma warning's and assert defines */
-#include "../module_shared.h" /* for get_proc_address() */
+#include "../module_shared.h" /* for d_r_get_proc_address() */
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdio.h>
-#include <string.h>
 
-#include "ntdll.h"      /* for get/set context etc. */
+#include "ntdll.h" /* for get/set context etc. */
 
 #include "instr.h"
 #include "instr_create.h"
@@ -57,10 +56,10 @@
 /* i#1597: to prevent an IAT hooking injected library in drrun or a tool
  * front-end from redirecting kernel32!LoadLibrary and kernel32!GetProcAddress
  * to the inject lib itself, which won't be there in the child, it's best
- * to use DR's get_proc_address().  We're already linking w/ the files we need.
+ * to use DR's d_r_get_proc_address().  We're already linking w/ the files we need.
  */
-#include "os_private.h" /* for get_proc_address() and load_dynamo */
-#define GET_PROC_ADDR get_proc_address
+#include "os_private.h" /* for d_r_get_proc_address() and load_dynamo */
+#define GET_PROC_ADDR d_r_get_proc_address
 
 /* this entry point is hardcoded, FIXME : abstract */
 #define DYNAMORIO_ENTRY "dynamo_auto_start"
@@ -118,7 +117,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_pa
     LPVOID load_dynamo_code = NULL; /* = base of code allocation */
     ptr_uint_t addr;
     reg_t *bufptr;
-    char buf[MAX_PATH * 2];
+    char buf[MAX_PATH * 3];
     uint old_prot;
 
     ASSERT(cxt != NULL);
@@ -243,19 +242,23 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_pa
             int i, j;
             /* For x86, ensure we have ExtendedRegisters space (i#1223) */
             IF_NOT_X64(ASSERT(TEST(CONTEXT_XMM_FLAG, cxt->ContextFlags)));
-            for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-                for (j = 0; j < IF_X64_ELSE(2, 4); j++) {
+            /* XXX i#1312: This should be proc_num_simd_sse_avx_registers(). */
+            ASSERT(MCXT_SIMD_SLOT_SIZE == ZMM_REG_SIZE);
+            for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+                for (j = 0; j < XMM_REG_SIZE / sizeof(*bufptr); j++) {
                     *bufptr++ = CXT_XMM(cxt, i)->reg[j];
                 }
                 /* FIXME i#437: save ymm fields.  For now we assume we're
                  * not saving and we just skip the upper 128 bits.
                  */
-                bufptr += IF_X64_ELSE(2, 4);
+                bufptr += (ZMM_REG_SIZE - XMM_REG_SIZE) / sizeof(*bufptr);
             }
         } else {
             /* skip xmm slots */
-            bufptr += XMM_SLOTS_SIZE / sizeof(*bufptr);
+            bufptr += MCXT_TOTAL_SIMD_SLOTS_SIZE / sizeof(*bufptr);
         }
+        /* TODO i#1312: the zmm and mask fields need to be copied. */
+        bufptr += MCXT_TOTAL_OPMASK_SLOTS_SIZE / sizeof(*bufptr);
         ASSERT((char *)bufptr - (char *)buf == sizeof(priv_mcontext_t));
         *bufptr++ = (ptr_uint_t)load_dynamo_code;
         *bufptr++ = SIZE_OF_LOAD_DYNAMO;

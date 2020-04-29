@@ -336,9 +336,48 @@ reg_is_gpr(reg_id_t reg)
 }
 
 bool
+reg_is_simd(reg_id_t reg)
+{
+    return (DR_REG_Q0 <= reg && reg <= DR_REG_B31);
+}
+
+bool
+reg_is_vector_simd(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_opmask(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_bnd(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+reg_is_strictly_zmm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_ymm(reg_id_t reg)
 {
+    /* i#1312: check why this assertion is here and not
+     * in the other x86 related reg_is_ functions.
+     */
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return false;
+}
+
+bool
+reg_is_strictly_ymm(reg_id_t reg)
+{
     return false;
 }
 
@@ -349,7 +388,19 @@ reg_is_xmm(reg_id_t reg)
 }
 
 bool
+reg_is_strictly_xmm(reg_id_t reg)
+{
+    return false;
+}
+
+bool
 reg_is_mmx(reg_id_t reg)
+{
+    return false;
+}
+
+bool
+instr_is_opmask(instr_t *instr)
 {
     return false;
 }
@@ -410,5 +461,23 @@ instr_is_exclusive_store(instr_t *instr)
     case OP_stxrb:
     case OP_stxrh: return true;
     }
+    return false;
+}
+
+DR_API
+bool
+instr_is_scatter(instr_t *instr)
+{
+    /* FIXME i#3837: add support. */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+}
+
+DR_API
+bool
+instr_is_gather(instr_t *instr)
+{
+    /* FIXME i#3837: add support. */
+    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -100,7 +100,7 @@ hardware_perfctr_init()
     if (NUM_EVENTS > 2) {
         LOG(GLOBAL, LOG_TOP, 3, "Initializing PAPI multiplexing\n");
         if (PAPI_multiplex_init() != PAPI_OK) {
-            if (stats->loglevel > 0 && (stats->logmask & LOG_TOP) != 0)
+            if (d_r_stats->loglevel > 0 && (d_r_stats->logmask & LOG_TOP) != 0)
                 LOG(GLOBAL, LOG_TOP, 1, "Error initializing PAPI multiplexing\n");
         }
     }
@@ -135,7 +135,7 @@ hardware_perfctr_exit()
     if (dynamo_options.nullcalls) {
         val_array = vals;
     } else {
-        val_array = stats->perfctr_vals;
+        val_array = d_r_stats->perfctr_vals;
     }
     if (PAPI_stop(perfctr_eventset, val_array) != PAPI_OK) {
         LOG(GLOBAL, LOG_TOP, 1,
@@ -150,7 +150,7 @@ hardware_perfctr_exit()
 void
 perfctr_update_gui()
 {
-    if (PAPI_read(perfctr_eventset, stats->perfctr_vals) != PAPI_OK) {
+    if (PAPI_read(perfctr_eventset, d_r_stats->perfctr_vals) != PAPI_OK) {
         LOG(GLOBAL, LOG_TOP, 1,
             "Error stopping and reading hardware performance counters\n");
     }

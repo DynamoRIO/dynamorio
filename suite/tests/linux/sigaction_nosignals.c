@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -77,6 +77,11 @@ struct kernel_sigaction_t {
     kernel_sigset_t mask;
 };
 
+#ifdef X86
+#    define SA_IA32_ABI 0x02000000U
+#    define SA_X32_ABI 0x01000000U
+#endif
+
 #define SIGACTSZ sizeof(struct kernel_sigaction_t)
 
 /* This is a margin used by the test program to detect writes outside
@@ -133,6 +138,9 @@ sim_sigaction(int signum, unsigned char *act, unsigned char *oldact, size_t sigs
         memcpy(&tmp_act, act, SIGACTSZ);
         kernel_sigdelset(&tmp_act.mask, SIGKILL);
         kernel_sigdelset(&tmp_act.mask, SIGSTOP);
+#ifdef X86
+        tmp_act.flags &= ~(SA_IA32_ABI | SA_X32_ABI);
+#endif
         memcpy(sigactions[signum - 1], &tmp_act, SIGACTSZ);
     }
 
@@ -185,7 +193,8 @@ init_test_rw(void)
 }
 
 void
-test_rw(int signum, unsigned char *act, unsigned char *oldact, size_t sigsetsize)
+test_rw(int signum, unsigned char *act, unsigned char *oldact, size_t sigsetsize,
+        bool enforce_cmp)
 {
     int prot_rw = PROT_READ | PROT_WRITE;
     int ret_sys, ret_sim;
@@ -198,7 +207,7 @@ test_rw(int signum, unsigned char *act, unsigned char *oldact, size_t sigsetsize
                       oldact == NULL ? NULL : test_rw_sim + (oldact - test_rw_sys),
                       sigsetsize, prot_rw, prot_rw);
     assert(ret_sys == ret_sim);
-    assert(memcmp(test_rw_sys, test_rw_sim, sizeof(test_rw_sys)) == 0);
+    assert(memcmp(test_rw_sys, test_rw_sim, sizeof(test_rw_sys)) == 0 || !enforce_cmp);
 }
 
 void
@@ -207,31 +216,34 @@ tests_rw(void)
     unsigned char *base = init_test_rw();
     int i;
 
-    /* Read the initial handlers. */
+    /* Read the initial handlers.  They are not always all 0 for some cases of
+     * embedding DR into frameworks that link in pthreads or something so we
+     * suspend the memcmp assert.
+     */
     for (i = 1; i <= SIGMAX; i++)
-        test_rw(i, NULL, base, SIGSETSIZE);
+        test_rw(i, NULL, base, SIGSETSIZE, false /*not init yet*/);
 
     /* Try each value of sigsetsize. */
     for (i = -1; i < SIGSETSIZE * 2 + 2; i++) {
-        test_rw(SIG1, NULL, NULL, i);
-        test_rw(SIG1, base, NULL, i);
-        test_rw(SIG1, NULL, base, i);
-        test_rw(SIG1, base, base, i);
+        test_rw(SIG1, NULL, NULL, i, true);
+        test_rw(SIG1, base, NULL, i, true);
+        test_rw(SIG1, NULL, base, i, true);
+        test_rw(SIG1, base, base, i, true);
     }
 
     /* Try each value of signum. */
     for (i = 0; i < SIGMAX + 2; i++) {
-        test_rw(i, NULL, NULL, SIGSETSIZE);
-        test_rw(i, base, NULL, SIGSETSIZE);
-        test_rw(i, NULL, base, SIGSETSIZE);
-        test_rw(i, base, base, SIGSETSIZE);
+        test_rw(i, NULL, NULL, SIGSETSIZE, true);
+        test_rw(i, base, NULL, SIGSETSIZE, true);
+        test_rw(i, NULL, base, SIGSETSIZE, true);
+        test_rw(i, base, base, SIGSETSIZE, true);
     }
 
     /* Try some random values. */
     for (i = 0; i < 1000; i++) {
         test_rw(rand() % (SIGMAX + 2), rand() % 2 == 0 ? NULL : base + rand() % SIGACTSZ,
                 rand() % 2 == 0 ? NULL : base + rand() % SIGACTSZ,
-                SIGSETSIZE + (rand() % 10 == 0 ? 1 : 0));
+                SIGSETSIZE + (rand() % 10 == 0 ? 1 : 0), true);
     }
 }
 

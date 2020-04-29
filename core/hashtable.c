@@ -35,7 +35,6 @@
 
 #include "globals.h"
 #include "hashtable.h"
-#include <string.h> /* memset */
 
 /* Returns the proper number of hash bits to have a capacity with the
  * given load for the given number of entries

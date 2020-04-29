@@ -1,5 +1,5 @@
 ## **********************************************************
-## Copyright (c) 2012-2016 Google, Inc.    All rights reserved.
+## Copyright (c) 2012-2019 Google, Inc.    All rights reserved.
 ## **********************************************************
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -99,14 +99,15 @@ function (DynamoRIO_add_rel_rpaths target)
 
       # Append the new rpath element if it isn't there already.
       if (APPLE)
-        # @loader_path seems to work for executables too
+        # 10.5+ supports @rpath but I'm having trouble getting it to work properly,
+        # so I'm sticking with @loader_path for now, which works for executables too.
         set(new_lflag "-Wl,-rpath,'@loader_path/${relpath}'")
         get_target_property(lflags ${target} LINK_FLAGS)
         # We match the trailing ' to avoid matching a parent dir only
         if (NOT lflags MATCHES "@loader_path/${relpath}'")
           _DR_append_property_string(TARGET ${target} LINK_FLAGS "${new_lflag}")
         endif ()
-      else (APPLE)
+      else ()
         set(new_lflag "-Wl,-rpath='$ORIGIN/${relpath}'")
         get_target_property(lflags ${target} LINK_FLAGS)
         if (NOT lflags MATCHES "\\$ORIGIN/${relpath}")
@@ -195,7 +196,7 @@ function (DynamoRIO_get_full_path out target loc_suffix)
     endif ()
     # XXX i#3278: DR's win loader can't handle a path like that until full support has
     # been implemented in convert_to_NT_file_path.
-    string(REPLACE "/./" "/" output_dir ${output_dir})
+    string(REPLACE "/./" "/" output_dir "${output_dir}")
     if (output_name)
       set(${out} "${output_dir}/${prefix}${output_name}${suffix}" PARENT_SCOPE)
     else ()
@@ -257,3 +258,32 @@ function(DynamoRIO_force_static_link target lib)
     append_property_string(TARGET ${target} LINK_FLAGS "/include:${incname}")
   endif ()
 endfunction(DynamoRIO_force_static_link)
+
+function (_DR_get_static_libc_list liblist_out)
+  if (WIN32)
+    if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+      set(static_libc libcmtd)
+      if (tgt_cxx)
+        set(static_libc libcpmtd ${static_libc})
+      endif ()
+      # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
+      if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
+        set(static_libc ${static_libc} libvcruntimed.lib libucrtd.lib)
+      endif ()
+      # libcmt has symbols libcmtd does not so we need all files compiled w/ _DEBUG
+      set(extra_flags "${extra_flags} -D_DEBUG")
+    else ()
+      set(static_libc libcmt)
+      if (tgt_cxx)
+        set(static_libc libcpmt ${static_libc})
+      endif ()
+      # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
+      if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
+        set(static_libc ${static_libc} libvcruntime.lib libucrt.lib)
+      endif ()
+    endif ()
+    set(${liblist_out} ${static_libc} PARENT_SCOPE)
+  else ()
+    set(${liblist_out} "" PARENT_SCOPE)
+  endif ()
+endfunction ()

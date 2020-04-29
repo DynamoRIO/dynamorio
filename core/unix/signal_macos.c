@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -149,18 +149,33 @@ void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
     /* We assume that _STRUCT_X86_FLOAT_STATE* matches exactly the first
-     * half of _STRUCT_X86_AVX_STATE*.
+     * half of _STRUCT_X86_AVX_STATE*, and similarly for AVX and AVX512.
      */
     sigcontext_t *sc = sc_full->sc;
     int i;
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-        memcpy(&mc->ymm[i], &sc->__fs.__fpu_xmm0 + i, XMM_REG_SIZE);
+    for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+        memcpy(&mc->simd[i], &sc->__fs.__fpu_xmm0 + i, XMM_REG_SIZE);
     }
     if (YMM_ENABLED()) {
-        for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-            memcpy(&mc->ymm[i].u32[4], &sc->__fs.__fpu_ymmh0 + i, YMMH_REG_SIZE);
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+            memcpy(&mc->simd[i].u32[4], &sc->__fs.__fpu_ymmh0 + i, YMMH_REG_SIZE);
         }
     }
+#if DISABLED_UNTIL_AVX512_SUPPORT_ADDED
+    /* TODO i#1979/i#1312: See the comments in os_public.h: once we've resolved how
+     * to expose __darwin_mcontext_avx512_64 we'd enable the code here.
+     */
+    if (ZMM_ENABLED()) {
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+            memcpy(&mc->simd[i].u32[8], &sc->__fs.__fpu_zmmh0 + i, ZMMH_REG_SIZE);
+        }
+#    ifdef X64
+        for (i = proc_num_simd_sse_avx_registers(); i < proc_num_simd_registers(); i++) {
+            memcpy(&mc->simd[i], &sc->__fs.__fpu_zmm16 + i, ZMM_REG_SIZE);
+        }
+#    endif
+    }
+#endif
 }
 
 void
@@ -168,14 +183,29 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
     sigcontext_t *sc = sc_full->sc;
     int i;
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-        memcpy(&sc->__fs.__fpu_xmm0 + i, &mc->ymm[i], XMM_REG_SIZE);
+    for (i = 0; i < proc_num_simd_registers(); i++) {
+        memcpy(&sc->__fs.__fpu_xmm0 + i, &mc->simd[i], XMM_REG_SIZE);
     }
     if (YMM_ENABLED()) {
-        for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-            memcpy(&sc->__fs.__fpu_ymmh0 + i, &mc->ymm[i].u32[4], YMMH_REG_SIZE);
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+            memcpy(&sc->__fs.__fpu_ymmh0 + i, &mc->simd[i].u32[4], YMMH_REG_SIZE);
         }
     }
+#if DISABLED_UNTIL_AVX512_SUPPORT_ADDED
+    /* TODO i#1979/i#1312: See the comments in os_public.h: once we've resolved how
+     * to expose __darwin_mcontext_avx512_64 we'd enable the code here.
+     */
+    if (ZMM_ENABLED()) {
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+            memcpy(&sc->__fs.__fpu_zmmh0 + i, &mc->simd[i].u32[8], ZMMH_REG_SIZE);
+        }
+#    ifdef X64
+        for (i = proc_num_simd_sse_avx_registers(); i < proc_num_simd_registers(); i++) {
+            memcpy(&sc->__fs.__fpu_zmm16 + i, &mc->simd[i], ZMM_REG_SIZE);
+        }
+#    endif
+    }
+#endif
 }
 
 static void
@@ -200,7 +230,8 @@ dump_fpstate(dcontext_t *dcontext, sigcontext_t *sc)
         }
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+    /* XXX i#1312: this needs to get extended to AVX-512. */
+    for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
         LOG(THREAD, LOG_ASYNCH, 1, "\txmm%d = ", i);
         for (j = 0; j < 4; j++) {
             LOG(THREAD, LOG_ASYNCH, 1, "%08x ",
@@ -209,7 +240,7 @@ dump_fpstate(dcontext_t *dcontext, sigcontext_t *sc)
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
     if (YMM_ENABLED()) {
-        for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
             LOG(THREAD, LOG_ASYNCH, 1, "\tymmh%d = ", i);
             for (j = 0; j < 4; j++) {
                 LOG(THREAD, LOG_ASYNCH, 1, "%08x ",
@@ -218,6 +249,7 @@ dump_fpstate(dcontext_t *dcontext, sigcontext_t *sc)
             LOG(THREAD, LOG_ASYNCH, 1, "\n");
         }
     }
+    /* XXX i#1312: AVX-512 extended register copies missing yet. */
 }
 
 void
@@ -232,14 +264,14 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\txcx=" PFX "\n", sc->SC_XCX);
     LOG(THREAD, LOG_ASYNCH, 1, "\txax=" PFX "\n", sc->SC_XAX);
 #ifdef X64
-    LOG(THREAD, LOG_ASYNCH, 1, "\t r8=" PFX "\n", sc->r8);
-    LOG(THREAD, LOG_ASYNCH, 1, "\t r9=" PFX "\n", sc->r8);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr10=" PFX "\n", sc->r10);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr11=" PFX "\n", sc->r11);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr12=" PFX "\n", sc->r12);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr13=" PFX "\n", sc->r13);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr14=" PFX "\n", sc->r14);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr15=" PFX "\n", sc->r15);
+    LOG(THREAD, LOG_ASYNCH, 1, "\t r8=" PFX "\n", sc->SC_R8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\t r9=" PFX "\n", sc->SC_R8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr10=" PFX "\n", sc->SC_R10);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr11=" PFX "\n", sc->SC_R11);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr12=" PFX "\n", sc->SC_R12);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr13=" PFX "\n", sc->SC_R13);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr14=" PFX "\n", sc->SC_R14);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr15=" PFX "\n", sc->SC_R15);
 #endif
 
     LOG(THREAD, LOG_ASYNCH, 1, "\txip=" PFX "\n", sc->SC_XIP);

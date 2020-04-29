@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -254,14 +254,14 @@ redirect_LocalFree(__deref HLOCAL hMem)
     if (hMem == NULL)
         return NULL;
     hdr = local_header_from_handle(hMem);
-    mutex_lock(&localheap_lock);
+    d_r_mutex_lock(&localheap_lock);
     /* XXX: supposed to raise debug msg + bp if freeing locked object */
     if (hdr->alloc != NULL) {
         ASSERT(TEST(LMEM_MOVEABLE, hdr->flags));
         redirect_RtlFreeHeap(heap, HEAP_NO_SERIALIZE, hdr->alloc);
     }
     redirect_RtlFreeHeap(heap, HEAP_NO_SERIALIZE, hdr);
-    mutex_unlock(&localheap_lock);
+    d_r_mutex_unlock(&localheap_lock);
     return NULL;
 }
 
@@ -275,7 +275,7 @@ redirect_LocalReAlloc(__in HLOCAL hMem, __in SIZE_T uBytes, __in UINT uFlags)
     uint rtl_flags = HEAP_NO_SERIALIZE | HEAP_CREATE_ENABLE_EXECUTE;
     if (TEST(LMEM_ZEROINIT, uFlags))
         rtl_flags |= HEAP_ZERO_MEMORY;
-    mutex_lock(&localheap_lock);
+    d_r_mutex_lock(&localheap_lock);
     if (TEST(LMEM_MODIFY, uFlags)) {
         /* no realloc, just update flags */
         if ((uFlags & 0xffff0000) != 0 || /* flags should be in ushort range */
@@ -335,7 +335,7 @@ redirect_LocalReAlloc(__in HLOCAL hMem, __in SIZE_T uBytes, __in UINT uFlags)
         }
     }
 redirect_LocalReAlloc_done:
-    mutex_unlock(&localheap_lock);
+    d_r_mutex_unlock(&localheap_lock);
     return res;
 }
 
@@ -345,14 +345,14 @@ redirect_LocalLock(__in HLOCAL hMem)
 {
     LPVOID res = NULL;
     local_header_t *hdr = local_header_from_handle(hMem);
-    mutex_lock(&localheap_lock);
+    d_r_mutex_lock(&localheap_lock);
     if (TEST(LMEM_MOVEABLE, hdr->flags))
         hdr->lock_count++;
     if (hdr->alloc != NULL)
         res = (LPVOID)(hdr->alloc + 1);
     else
         res = (LPVOID)hMem;
-    mutex_unlock(&localheap_lock);
+    d_r_mutex_unlock(&localheap_lock);
     return res;
 }
 
@@ -373,7 +373,7 @@ redirect_LocalUnlock(__in HLOCAL hMem)
 {
     BOOL res = FALSE;
     local_header_t *hdr = local_header_from_handle(hMem);
-    mutex_lock(&localheap_lock);
+    d_r_mutex_lock(&localheap_lock);
     if (hdr->lock_count == 0) {
         res = FALSE;
         set_last_error(ERROR_NOT_LOCKED);
@@ -385,7 +385,7 @@ redirect_LocalUnlock(__in HLOCAL hMem)
         } else
             res = TRUE;
     }
-    mutex_unlock(&localheap_lock);
+    d_r_mutex_unlock(&localheap_lock);
     return res;
 }
 
@@ -396,7 +396,7 @@ redirect_LocalSize(__in HLOCAL hMem)
     SIZE_T res = 0;
     local_header_t *hdr = local_header_from_handle(hMem);
     HANDLE heap = redirect_GetProcessHeap();
-    mutex_lock(&localheap_lock);
+    d_r_mutex_lock(&localheap_lock);
     if (hdr->alloc != NULL) {
         ASSERT(TEST(LMEM_MOVEABLE, hdr->flags));
         res = redirect_RtlSizeHeap(heap, 0, (byte *)hdr->alloc);
@@ -406,7 +406,7 @@ redirect_LocalSize(__in HLOCAL hMem)
         ASSERT(res >= sizeof(local_header_t));
         res -= sizeof(local_header_t);
     }
-    mutex_unlock(&localheap_lock);
+    d_r_mutex_unlock(&localheap_lock);
     return res;
 }
 
@@ -416,14 +416,14 @@ redirect_LocalFlags(__in HLOCAL hMem)
     UINT res = 0;
     local_header_t *hdr = local_header_from_handle(hMem);
     HANDLE heap = redirect_GetProcessHeap();
-    mutex_lock(&localheap_lock);
+    d_r_mutex_lock(&localheap_lock);
     res |= (hdr->lock_count & LMEM_LOCKCOUNT);
     if ((hdr->alloc != NULL &&
          redirect_RtlSizeHeap(heap, 0, (byte *)hdr->alloc) == sizeof(local_header_t)) ||
         (hdr->alloc == NULL &&
          redirect_RtlSizeHeap(heap, 0, (byte *)hdr) == sizeof(local_header_t)))
         res |= LMEM_DISCARDABLE;
-    mutex_unlock(&localheap_lock);
+    d_r_mutex_unlock(&localheap_lock);
     return res;
 }
 
@@ -470,7 +470,8 @@ __bcount(dwSize) LPVOID WINAPI
         !TEST(MEM_RESERVE, flAllocationType) && lpAddress != NULL) {
         /* i#1175: NtAllocateVirtualMemory can modify prot on existing pages */
         if (!app_memory_pre_alloc(get_thread_private_dcontext(), lpAddress, dwSize,
-                                  osprot_to_memprot(flProtect), false)) {
+                                  osprot_to_memprot(flProtect), false, true /*update*/,
+                                  false /*!image*/)) {
             set_last_error(ERROR_INVALID_ADDRESS);
             return NULL;
         }
@@ -517,7 +518,8 @@ redirect_VirtualProtect(__in LPVOID lpAddress, __in SIZE_T dwSize,
         uint mod_prot = osprot_to_memprot(new_prot);
         uint old_prot;
         uint res = app_memory_protection_change(get_thread_private_dcontext(), lpAddress,
-                                                dwSize, new_prot, &mod_prot, &old_prot);
+                                                dwSize, new_prot, &mod_prot, &old_prot,
+                                                false /*!image*/);
         if (res == PRETEND_APP_MEM_PROT_CHANGE) {
             if (lpflOldProtect != NULL)
                 *lpflOldProtect = memprot_to_osprot(old_prot);

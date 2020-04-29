@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,8 +51,6 @@
 #    include "../emit.h"
 #    include "../link.h"
 
-#    include <string.h> /* for memset */
-
 #    include "loadtoconst.h"
 
 #    ifdef SIDELINE
@@ -80,7 +78,7 @@ analyze_memrefs(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     LOG(THREAD, LOG_OPTS, 3, "in analyze_memrefs\n");
 #    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "before analyze_memrefs optimization:\n");
-    if (stats->loglevel >= 3)
+    if (d_r_stats->loglevel >= 3)
         instrlist_disassemble(dcontext, 0, trace, THREAD);
 #    endif
 #    ifdef LTC_STATS
@@ -120,8 +118,8 @@ analyze_memrefs(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             basereg = opnd_get_base(mem_access);
             indexreg = opnd_get_index(mem_access);
 
-            logopnd(dcontext, 3, mem_access, "checking this operand in");
-            loginst(dcontext, 3, instr, "\tthis instruction");
+            d_r_logopnd(dcontext, 3, mem_access, "checking this operand in");
+            d_r_loginst(dcontext, 3, instr, "\tthis instruction");
 
             if (mem_access.size == OPSZ_4_short2 &&
                 !instr_get_prefix_flag(instr, PREFIX_DATA)) {
@@ -130,14 +128,14 @@ analyze_memrefs(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                 LOG(THREAD, LOG_OPTS, 3,
                     "\tthis operand is not size_v or size_d.  its %s: ",
                     size_names[mem_access.size]);
-                loginst(dcontext, 3, instr, "");
+                d_r_loginst(dcontext, 3, instr, "");
                 continue;
             }
 
             if ((basereg != REG_NULL && basereg != REG_EBP) ||
                 (indexreg != REG_NULL && indexreg != REG_EBP)) {
-                logopnd(dcontext, 3, mem_access,
-                        "\tthis mem access reads a sketch register, so forget it");
+                d_r_logopnd(dcontext, 3, mem_access,
+                            "\tthis mem access reads a sketch register, so forget it");
                 continue;
             }
 
@@ -204,7 +202,7 @@ analyze_memrefs(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                 LOG(THREAD, LOG_OPTS, 3,
                     "%d instances of addresses which could be constants",
                     instances_of_address);
-                logopnd(dcontext, 3, mem_access, "");
+                d_r_logopnd(dcontext, 3, mem_access, "");
 
                 if (has_back_arc) {
                     LOG(THREAD, LOG_OPTS, 3, "this trace loops!\n");
@@ -334,10 +332,10 @@ check_mem_refs(app_pc tag, int errno, reg_t eflags, reg_t reg_edi, reg_t reg_esi
 
 #    ifdef DEBUG
         // this block can be removed, its just printing...
-        if (stats->loglevel >= 4) {
+        if (d_r_stats->loglevel >= 4) {
             for (address = 0; address < t_curfrag->ltc.num_mem_addresses; address++) {
-                logopnd(dcontext, 3, t_curfrag->ltc.mem_refs[address].opnd,
-                        "\tgot enough values for");
+                d_r_logopnd(dcontext, 3, t_curfrag->ltc.mem_refs[address].opnd,
+                            "\tgot enough values for");
 
                 for (a = 0; a < NUM_VALUES_FOR_SPECULATION; a++)
 
@@ -352,7 +350,7 @@ check_mem_refs(app_pc tag, int errno, reg_t eflags, reg_t reg_edi, reg_t reg_esi
         if (dynamo_options.sideline) { // only use the frags_waiting list if using
                                        // sideline
             ASSERT_NOT_IMPLEMENTED(false && "this lock needs DELETE_LOCK");
-            mutex_lock(&waiting_LTC_lock);
+            d_r_mutex_lock(&waiting_LTC_lock);
             ASSERT(num_frags_waiting_LTC < MAX_TRACES_WAITING_FOR_LTC &&
                    num_frags_waiting_LTC >= 0);
 
@@ -361,20 +359,20 @@ check_mem_refs(app_pc tag, int errno, reg_t eflags, reg_t reg_edi, reg_t reg_esi
             // executing twice before sideline_optimize was able to replace the trace
             for (a = 0; a < num_frags_waiting_LTC; a++) {
                 if (frags_waiting_LTC[a] == curfrag) { // its already in the list
-                    mutex_unlock(&waiting_LTC_lock);
+                    d_r_mutex_unlock(&waiting_LTC_lock);
                     return false; // return value doesn't matter in sideline case
                 }
             }
 
             // if we get here, then the fragment isn't already in the list
             frags_waiting_LTC[num_frags_waiting_LTC++] = curfrag;
-            mutex_unlock(&waiting_LTC_lock);
+            d_r_mutex_unlock(&waiting_LTC_lock);
         } else // if not doing sideline, then do the insertion immediately!
                // (deterministically!)
 #    endif
         {
 #    ifdef DEBUG
-            if (stats->loglevel >= 3) {
+            if (d_r_stats->loglevel >= 3) {
                 LOG(THREAD, LOG_OPTS, 3,
                     "check mem refs returning true for tag " PFX "\n", tag);
                 disassemble_fragment(dcontext, curfrag, 0);
@@ -433,7 +431,7 @@ LTC_online_optimize_and_replace(dcontext_t *dcontext, app_pc tag, fragment_t *cu
     // returning true means that it should jump back to the top of trace
     // need to make sure that the exit is not linked so that
 #    ifdef DEBUG
-    if (stats->loglevel >= 3) {
+    if (d_r_stats->loglevel >= 3) {
         LOG(THREAD, LOG_OPTS, 3, "new fragment after doing ltc\n");
         disassemble_fragment(dcontext, new_f, 0);
     }
@@ -447,7 +445,7 @@ get_mem_address(dcontext_t *dcontext, opnd_t mem_access, int regs[8])
 
     int indexreg, basereg, index, base, scale, disp;
     int *address;
-    logopnd(dcontext, 3, mem_access, "getting this val");
+    d_r_logopnd(dcontext, 3, mem_access, "getting this val");
     ASSERT(opnd_is_near_base_disp(mem_access));
 
     indexreg = opnd_get_index(mem_access);
@@ -490,10 +488,10 @@ get_mem_val(dcontext_t *dcontext, opnd_t mem_access, int address)
         break;
     case OPSZ_1: val = (int)(*(char *)addrp); break;
     case OPSZ_2: val = (int)(*(short *)addrp); break;
-    default: logopnd(dcontext, 3, mem_access, "funky operand"); ASSERT_NOT_REACHED();
+    default: d_r_logopnd(dcontext, 3, mem_access, "funky operand"); ASSERT_NOT_REACHED();
     }
     LOG(THREAD, LOG_OPTS, 3, "in get_mem_val addr= %d ", address);
-    logopnd(dcontext, 3, mem_access, "");
+    d_r_logopnd(dcontext, 3, mem_access, "");
     LOG(THREAD, LOG_OPTS, 3, "value =  " PFX "\n", val);
     return val;
 }
@@ -514,8 +512,8 @@ LTC_examine_traces()
     LOG(GLOBAL, LOG_OPTS, 3, "in LTC_examine_traces, %d frags need optimizing\n",
         num_frags_waiting_LTC);
 
-    mutex_lock(&do_not_delete_lock);
-    mutex_lock(&waiting_LTC_lock);
+    d_r_mutex_lock(&do_not_delete_lock);
+    d_r_mutex_lock(&waiting_LTC_lock);
 
     curfrag = frags_waiting_LTC[0];
     t_curfrag = TRACE_FIELDS(curfrag);
@@ -524,21 +522,21 @@ LTC_examine_traces()
     memmove(frags_waiting_LTC, &frags_waiting_LTC[1],
             sizeof(fragment_t *) * num_frags_waiting_LTC);
 
-    mutex_unlock(&waiting_LTC_lock);
+    d_r_mutex_unlock(&waiting_LTC_lock);
 
     if (t_curfrag->ltc.ltc_already_optimized) {
         LOG(GLOBAL, LOG_OPTS, 3,
             "LTC_examine_traces: encountered this frag in frags_waiting, but its already "
             "optimized\n",
             curfrag->tag);
-        mutex_unlock(&do_not_delete_lock);
+        d_r_mutex_unlock(&do_not_delete_lock);
         return;
     }
 
     LOG(GLOBAL, LOG_OPTS, 3, "LTC_examine_traces: about to optimize F%d\n", curfrag->tag);
     t_curfrag->ltc.ltc_already_optimized = true;
     sideline_optimize(curfrag, remove_mem_ref_check, ltc_trace);
-    mutex_unlock(&do_not_delete_lock);
+    d_r_mutex_unlock(&do_not_delete_lock);
 }
 
 // if a fragment is ever deleted, then remove it from the list of fragments
@@ -549,7 +547,7 @@ LTC_fragment_delete(fragment_t *frag)
 {
     int a;
     // make sure this list isn't added to while we're in it
-    mutex_lock(&waiting_LTC_lock);
+    d_r_mutex_lock(&waiting_LTC_lock);
 
     for (a = 0; a < num_frags_waiting_LTC; a++) {
         if (frag == frags_waiting_LTC[a]) {
@@ -563,7 +561,7 @@ LTC_fragment_delete(fragment_t *frag)
         }
     }
 
-    mutex_unlock(&waiting_LTC_lock);
+    d_r_mutex_unlock(&waiting_LTC_lock);
 }
 #    endif
 
@@ -647,7 +645,7 @@ ltc_trace(dcontext_t *dcontext, fragment_t *frag, instrlist_t *trace)
 
     LOG(THREAD, LOG_OPTS, 3, "trace before ltc_trace\n");
 #    ifdef DEBUG
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, 0, trace, THREAD);
 #    endif
 
@@ -699,8 +697,8 @@ ltc_trace(dcontext_t *dcontext, fragment_t *frag, instrlist_t *trace)
             mem_ref = t_frag->ltc.mem_refs[a].opnd;
             valop = value_to_replace(t_frag->ltc.mem_refs[a]);
 
-            logopnd(dcontext, 3, mem_ref, "\tthis memory ref");
-            logopnd(dcontext, 3, valop, "\tgets this value");
+            d_r_logopnd(dcontext, 3, mem_ref, "\tthis memory ref");
+            d_r_logopnd(dcontext, 3, valop, "\tgets this value");
 
             do_single_LTC(dcontext, opt_trace, mem_ref, valop);
 #    ifdef LTC_STATS
@@ -730,14 +728,14 @@ ltc_trace(dcontext_t *dcontext, fragment_t *frag, instrlist_t *trace)
                 INSTR_CREATE_jcc(dcontext, OP_jne, opnd_create_instr(top_safe)));
 
         } else {
-            logopnd(dcontext, 3, t_frag->ltc.mem_refs[a].opnd,
-                    "not replacing me because of bad sampled vals");
+            d_r_logopnd(dcontext, 3, t_frag->ltc.mem_refs[a].opnd,
+                        "not replacing me because of bad sampled vals");
         }
     }
 
     LOG(THREAD, LOG_OPTS, 3, "after ltc");
 #    ifdef DEBUG
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, 0, trace, THREAD);
 #    endif
 
@@ -776,7 +774,7 @@ ltc_trace(dcontext_t *dcontext, fragment_t *frag, instrlist_t *trace)
 
 #    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "after LTC optimization:\n");
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, 0, trace, THREAD);
 #    endif
 }
@@ -794,37 +792,37 @@ do_single_LTC(dcontext_t *dcontext, instrlist_t *trace, opnd_t mem_access,
 
     while (in) {
         next = instr_get_next(in);
-        loginst(dcontext, 3, in, "in_single_LTC, examining");
+        d_r_loginst(dcontext, 3, in, "in_single_LTC, examining");
         ASSERT(instr_is_encoding_possible(in));
         if (instr_reads_memory(in)) { // could this be if (!op_lea)
             instr_mem_access = instr_get_src_mem_access(in);
             if (opnd_same_address(instr_mem_access, mem_access)) {
                 if (instr_get_opcode(in) == OP_mov_ld) {
-                    loginst(dcontext, 3, in, "\tdoing LTC on mov");
-                    logopnd(dcontext, 3, mem_access, "replacing this operand");
-                    logopnd(dcontext, 3, const_value, "with this");
+                    d_r_loginst(dcontext, 3, in, "\tdoing LTC on mov");
+                    d_r_logopnd(dcontext, 3, mem_access, "replacing this operand");
+                    d_r_logopnd(dcontext, 3, const_value, "with this");
                     instr_set_opcode(in, OP_mov_imm);
                     instr_replace_src_opnd(in, mem_access, const_value);
                 } else if (instr_get_opcode(in) == OP_cmp) {
                     opnd_t orig_op1, orig_op2;
                     orig_op1 = instr_get_src(in, 0);
                     orig_op2 = instr_get_src(in, 1);
-                    loginst(dcontext, 3, in, "\tdoing LTC on cmp");
-                    logopnd(dcontext, 3, const_value, "\tnewvalue");
+                    d_r_loginst(dcontext, 3, in, "\tdoing LTC on cmp");
+                    d_r_logopnd(dcontext, 3, const_value, "\tnewvalue");
                     instr_replace_src_opnd(in, mem_access, const_value);
-                    loginst(dcontext, 3, in, "\tafter replacing mem access");
+                    d_r_loginst(dcontext, 3, in, "\tafter replacing mem access");
 
                     next = fix_cmp_containing_constant(dcontext, trace, in, orig_op1,
                                                        orig_op2);
                 } else {
                     // try to replace and see if its encodable
-                    loginst(dcontext, 3, in, "\tdoing LTC on a non mov, cmp");
+                    d_r_loginst(dcontext, 3, in, "\tdoing LTC on a non mov, cmp");
                     instr_replace_src_opnd(in, instr_mem_access, const_value);
                     if (!instr_is_encoding_possible(in)) {
                         instr_replace_src_opnd(in, const_value, instr_mem_access);
                         ASSERT(instr_is_encoding_possible(in));
                     }
-                    loginst(dcontext, 3, in, "\tafter replacing mem access");
+                    d_r_loginst(dcontext, 3, in, "\tafter replacing mem access");
                     instr_arithmatic_simplify(dcontext, in);
                 }
             }
@@ -864,7 +862,8 @@ fix_cmp_containing_constant(dcontext_t *dcontext, instrlist_t *trace, instr_t *i
                  ((instr_get_arith_flags(jcc, DR_QUERY_DEFAULT) & EFLAGS_WRITE_6) == 0);
                  jcc = instr_get_next(jcc)) {
                 if (instr_is_cbr(jcc)) {
-                    loginst(dcontext, 3, jcc, "change_cbr_due_to_reversed_cmp called on");
+                    d_r_loginst(dcontext, 3, jcc,
+                                "change_cbr_due_to_reversed_cmp called on");
                     change_cbr_due_to_reversed_cmp(jcc);
                 }
             }
@@ -872,7 +871,7 @@ fix_cmp_containing_constant(dcontext_t *dcontext, instrlist_t *trace, instr_t *i
                  // stuff
             instr_set_src(in, 0, orig_op1);
             instr_set_src(in, 1, orig_op2);
-            loginst(
+            d_r_loginst(
                 dcontext, 3, in,
                 "wasn't swappable, even though one opnd was a reg. whats up with that?");
             ASSERT_CURIOSITY(false);
@@ -884,12 +883,12 @@ fix_cmp_containing_constant(dcontext_t *dcontext, instrlist_t *trace, instr_t *i
              safe_to_delete_cmp(dcontext, in)) { // cmp gets two constants
         int op1, op2;
         instr_t *nextjcc;
-        loginst(dcontext, 3, in, "swapping order didn't help, must be 2 constants");
+        d_r_loginst(dcontext, 3, in, "swapping order didn't help, must be 2 constants");
 
         op1 = (int)opnd_get_immed_int(instr_get_src(in, 0));
         op2 = (int)opnd_get_immed_int(instr_get_src(in, 1));
 
-        loginst(dcontext, 3, in, "got the two constants");
+        d_r_loginst(dcontext, 3, in, "got the two constants");
 
         ASSERT(instr_get_opcode(in) == OP_cmp);
 
@@ -897,26 +896,26 @@ fix_cmp_containing_constant(dcontext_t *dcontext, instrlist_t *trace, instr_t *i
              ((instr_get_arith_flags(jcc, DR_QUERY_DEFAULT) & EFLAGS_WRITE_6) == 0);
              jcc = nextjcc) {
             nextjcc = instr_get_next(jcc);
-            loginst(dcontext, 3, jcc, "walking to try to remove cmp");
+            d_r_loginst(dcontext, 3, jcc, "walking to try to remove cmp");
             if (instr_is_cbr(jcc)) {
                 if (becomes_ubr_from_cmp(jcc, op1, op2)) {
                     // the cbr becomes an unconditional jmp
-                    loginst(dcontext, 3, jcc, "becomes an unconditional jmp");
+                    d_r_loginst(dcontext, 3, jcc, "becomes an unconditional jmp");
                     instr_set_opcode(jcc, OP_jmp);
                     ASSERT(instr_is_encoding_possible(jcc));
 
                     jcc = instr_get_next(jcc);
                     while (jcc) { // removing instrs after jmp
                         nextjcc = instr_get_next(jcc);
-                        loginst(dcontext, 3, jcc,
-                                "removed because it follows an unconditional jmp");
+                        d_r_loginst(dcontext, 3, jcc,
+                                    "removed because it follows an unconditional jmp");
                         instrlist_remove(trace, jcc);
                         instr_destroy(dcontext, jcc);
                         jcc = nextjcc;
                     }
                     nextjcc = NULL;
                 } else { // otherwise never jumps, so remove
-                    loginst(dcontext, 3, jcc, "will never jmp, so removed");
+                    d_r_loginst(dcontext, 3, jcc, "will never jmp, so removed");
                     instrlist_remove(trace, jcc);
                     instr_destroy(dcontext, jcc);
                 }
@@ -925,8 +924,8 @@ fix_cmp_containing_constant(dcontext_t *dcontext, instrlist_t *trace, instr_t *i
 
         // remove the cmp instruction
         next = instr_get_next(in);
-        loginst(dcontext, 3, in, "this cmp isn't needed, so remove");
-        loginst(dcontext, 3, next, "setting next to");
+        d_r_loginst(dcontext, 3, in, "this cmp isn't needed, so remove");
+        d_r_loginst(dcontext, 3, next, "setting next to");
         instrlist_remove(trace, in);
         instr_destroy(dcontext, in);
         in = NULL;
@@ -934,14 +933,15 @@ fix_cmp_containing_constant(dcontext_t *dcontext, instrlist_t *trace, instr_t *i
     } else { // if none of that shit helped the situation, put back original cmp operands
         instr_set_src(in, 0, orig_op1);
         instr_set_src(in, 1, orig_op2);
-        loginst(dcontext, 3, in,
-                "wasn't able to fix this instr by either removing or transposing cmp, "
-                "original opnds back");
+        d_r_loginst(
+            dcontext, 3, in,
+            "wasn't able to fix this instr by either removing or transposing cmp, "
+            "original opnds back");
         ASSERT(instr_is_encoding_possible(in));
     }
 
     if (in && !instr_is_encoding_possible(in)) {
-        loginst(dcontext, 0, in, "error encoding me");
+        d_r_loginst(dcontext, 0, in, "error encoding me");
         ASSERT_NOT_REACHED();
     }
     return next;
@@ -1023,11 +1023,11 @@ safe_to_modify_cmp(dcontext_t *dcontext, instr_t *testinstr, bool transpose)
     for (in = instr_get_next(testinstr); in != NULL; in = instr_get_next(in)) {
         eflags = instr_get_arith_flags(in, DR_QUERY_DEFAULT);
 
-        loginst(dcontext, 3, in, "\texamining");
+        d_r_loginst(dcontext, 3, in, "\texamining");
 
         // if the jump is always taken
         if (instr_is_exit_cti(in)) {
-            loginst(dcontext, 3, in, "\texit cti");
+            d_r_loginst(dcontext, 3, in, "\texit cti");
             if (cmp_both_ops_immed && instr_is_cbr(in)) {
                 ASSERT(instr_get_opcode(testinstr) == OP_cmp);
 
@@ -1038,12 +1038,12 @@ safe_to_modify_cmp(dcontext_t *dcontext, instr_t *testinstr, bool transpose)
                         // if the jump is always taken
                         if (pc_reads_flags_before_writes(
                                 dcontext, opnd_get_pc(instr_get_target(in)))) {
-                            loginst(
+                            d_r_loginst(
                                 dcontext, 3, in,
                                 "jcc always taken, but dest pc depends on flags, true");
                             return false; // if dest pc depends on the flags
                         } else {
-                            loginst(
+                            d_r_loginst(
                                 dcontext, 3, in,
                                 "jcc always taken,  dest pc overwrites flag, ret false");
                             return true; // if dest pc doesn't depend on flags, then safe
@@ -1057,12 +1057,12 @@ safe_to_modify_cmp(dcontext_t *dcontext, instr_t *testinstr, bool transpose)
                         // if the jump is always taken
                         if (pc_reads_flags_before_writes(
                                 dcontext, opnd_get_pc(instr_get_target(in)))) {
-                            loginst(
+                            d_r_loginst(
                                 dcontext, 3, in,
                                 "jcc always taken, but dest pc depends on flags, true");
                             return false; // if dest pc depends on the flags
                         } else {
-                            loginst(
+                            d_r_loginst(
                                 dcontext, 3, in,
                                 "jcc always taken,  dest pc overwrites flag, ret false");
                             return true; // if dest pc doesn't depend on flags, then safe
@@ -1074,23 +1074,26 @@ safe_to_modify_cmp(dcontext_t *dcontext, instr_t *testinstr, bool transpose)
             // if not a cbr, then you have to assume the branch is taken
             else if (pc_reads_flags_before_writes(dcontext,
                                                   opnd_get_pc(instr_get_target(in)))) {
-                loginst(dcontext, 3, in,
-                        "\tin safe_to_modify_cmp, this CBR may be taken and reads flags "
-                        "before writing");
+                d_r_loginst(
+                    dcontext, 3, in,
+                    "\tin safe_to_modify_cmp, this CBR may be taken and reads flags "
+                    "before writing");
                 return false;
             } else {
-                loginst(dcontext, 3, in,
-                        "\tin safe_to_modify_cmp, this CBR may be taken but it writes "
-                        "before reads, so the cmp can be changed");
+                d_r_loginst(
+                    dcontext, 3, in,
+                    "\tin safe_to_modify_cmp, this CBR may be taken but it writes "
+                    "before reads, so the cmp can be changed");
             }
         } else {
             if ((eflags & EFLAGS_READ_6) != 0) {
-                loginst(dcontext, 3, in,
-                        "\treads the flags. cmp needed treturning false: ");
+                d_r_loginst(dcontext, 3, in,
+                            "\treads the flags. cmp needed treturning false: ");
                 return false;
             }
             if ((eflags & EFLAGS_WRITE_6) != 0) {
-                loginst(dcontext, 3, in, "\twritesthe flags. cmp not needed, ret true:");
+                d_r_loginst(dcontext, 3, in,
+                            "\twritesthe flags. cmp not needed, ret true:");
                 return true;
             }
         }
@@ -1109,7 +1112,7 @@ pc_reads_flags_before_writes(dcontext_t *dcontext, app_pc target)
     do {
         target = decode_eflags_usage(dcontext, target, &eflags, DR_QUERY_DEFAULT);
         if ((eflags & EFLAGS_READ_6) != 0) {
-            loginst(dcontext, 3, &tinst, "reads cmpflags before writing");
+            d_r_loginst(dcontext, 3, &tinst, "reads cmpflags before writing");
             return true;
         }
         /* if writes but doesn't read, ok */
@@ -1212,7 +1215,7 @@ should_replace_load(dcontext_t *dcontext, struct ltc_mem_ref_data data)
     int freq[NUM_VALUES_FOR_SPECULATION];
     int a, b, curval;
 
-    logopnd(dcontext, 3, data.opnd, "in should_replace_load on this operand");
+    d_r_logopnd(dcontext, 3, data.opnd, "in should_replace_load on this operand");
 
     for (a = 0; a < NUM_VALUES_FOR_SPECULATION; a++) {
         curval = data.vals[a];
@@ -1242,7 +1245,7 @@ should_replace_load(dcontext_t *dcontext, struct ltc_mem_ref_data data)
 
     // if it got this far, then there are no values that happen more than half the time
     // so we shouldn't replace
-    logopnd(dcontext, 3, data.opnd, "should_replace_load returning false on");
+    d_r_logopnd(dcontext, 3, data.opnd, "should_replace_load returning false on");
     return false;
 }
 
@@ -1350,7 +1353,7 @@ constant_propagate(dcontext_t *dcontext, instrlist_t *trace, app_pc tag)
     opnd_t regop, orig1, orig2;
     LOG(THREAD, LOG_OPTS, 3, "before constant_propagate\n");
 #    ifdef DEBUG
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, 0, trace, THREAD);
 #    endif
 
@@ -1362,7 +1365,7 @@ constant_propagate(dcontext_t *dcontext, instrlist_t *trace, app_pc tag)
             reg = opnd_get_reg(regop);
 
             LOG(THREAD, LOG_OPTS, 3, "reg=%s, val=" PFX " ", reg_names[reg], cons);
-            loginst(dcontext, 3, instr, "trying to remove me via constant prop");
+            d_r_loginst(dcontext, 3, instr, "trying to remove me via constant prop");
 
             conwalker = instr_get_next(instr);
             mov_immed_needed = false;
@@ -1374,7 +1377,7 @@ constant_propagate(dcontext_t *dcontext, instrlist_t *trace, app_pc tag)
                     opnd_t target = instr_get_target(conwalker);
                     if (opnd_is_near_pc(target) && (opnd_get_pc(target) == tag)) {
 
-                        loginst(dcontext, 3, conwalker, "this CTI is a self-loop");
+                        d_r_loginst(dcontext, 3, conwalker, "this CTI is a self-loop");
                         if (instrlist_depends_on_reg(dcontext, trace, reg)) {
                             LOG(THREAD, LOG_OPTS, 3,
                                 "\tsubsequent loop iteration needs the val, so keep "
@@ -1388,24 +1391,25 @@ constant_propagate(dcontext_t *dcontext, instrlist_t *trace, app_pc tag)
 
                     else {
                         instr_t *foo;
-                        loginst(dcontext, 3, conwalker,
-                                "reached cti without overwriting reg, trying to add "
-                                "instr to the pseudo exitstub");
-                        loginst(dcontext, 3, conwalker, "this CTI is NOT a self-loop");
+                        d_r_loginst(dcontext, 3, conwalker,
+                                    "reached cti without overwriting reg, trying to add "
+                                    "instr to the pseudo exitstub");
+                        d_r_loginst(dcontext, 3, conwalker,
+                                    "this CTI is NOT a self-loop");
                         instr_add_to_exitexec_list(dcontext, conwalker,
                                                    instr_clone(dcontext, instr));
 
 #    ifdef DEBUG
-                        if (stats->loglevel >= 3)
+                        if (d_r_stats->loglevel >= 3)
                             for (foo = instr; foo != conwalker->next;
                                  foo = instr_get_next(foo))
-                                loginst(dcontext, 3, foo, "\twalking\t");
+                                d_r_loginst(dcontext, 3, foo, "\twalking\t");
 #    endif
                     }
                 } else if (instr_get_opcode(conwalker) ==
                            OP_lahf /*to catch ind branch*/) {
-                    loginst(dcontext, 3, conwalker,
-                            "reached cti without overwriting reg, mov_imm needed");
+                    d_r_loginst(dcontext, 3, conwalker,
+                                "reached cti without overwriting reg, mov_imm needed");
                     mov_immed_needed = true;
                 }
 
@@ -1413,14 +1417,16 @@ constant_propagate(dcontext_t *dcontext, instrlist_t *trace, app_pc tag)
                                                          cons)) {
                     if (instr_get_opcode(conwalker) == OP_cmp) {
                         instr_t *oldnext;
-                        loginst(dcontext, 3, conwalker, "trying to optimize this cmp");
+                        d_r_loginst(dcontext, 3, conwalker,
+                                    "trying to optimize this cmp");
                         orig1 = instr_get_src(conwalker, 0);
                         orig2 = instr_get_src(conwalker, 1);
 
                         // replace the register with the constant
-                        logopnd(dcontext, 3, regop, "trying to replace this operand");
+                        d_r_logopnd(dcontext, 3, regop, "trying to replace this operand");
                         instr_replace_src_opnd(conwalker, regop, OPND_CREATE_INT32(cons));
-                        loginst(dcontext, 3, conwalker, "replaced reg with const int");
+                        d_r_loginst(dcontext, 3, conwalker,
+                                    "replaced reg with const int");
                         // if they're both immeds
                         oldnext = conwalker_next;
                         conwalker_next = fix_cmp_containing_constant(
@@ -1428,28 +1434,29 @@ constant_propagate(dcontext_t *dcontext, instrlist_t *trace, app_pc tag)
                         if (oldnext == conwalker_next)
                             mov_immed_needed = true;
                     } else { // if its not a compare
-                        loginst(dcontext, 3, conwalker,
-                                "couldn't replace reg in src, mov_immed needed");
+                        d_r_loginst(dcontext, 3, conwalker,
+                                    "couldn't replace reg in src, mov_immed needed");
                         mov_immed_needed = true;
                     }
                 }
 
                 if (!instr_replace_reg_with_const_in_dst(dcontext, conwalker, reg,
                                                          cons)) {
-                    loginst(dcontext, 3, conwalker,
-                            "couldn't replace reg in dst, mov_immed needed");
+                    d_r_loginst(dcontext, 3, conwalker,
+                                "couldn't replace reg in dst, mov_immed needed");
                     mov_immed_needed = true;
                 }
 
                 if (instr_writes_to_reg(conwalker, reg)) {
-                    loginst(dcontext, 3, conwalker, "writes to the reg, so move on");
+                    d_r_loginst(dcontext, 3, conwalker, "writes to the reg, so move on");
                     reg_overwritten = true;
                     // if it doesn't overwrite the entire register
                     // then there is still a dependancy on the full 32 bit previous value
                     // so keep the immediate... man, x86 sucks
                     if (!instr_writes_to_exact_reg(conwalker, reg)) {
                         mov_immed_needed = true;
-                        loginst(dcontext, 3, conwalker, "\tmov_imm needed because of me");
+                        d_r_loginst(dcontext, 3, conwalker,
+                                    "\tmov_imm needed because of me");
                     }
                     break;
                 }
@@ -1473,12 +1480,12 @@ constant_propagate(dcontext_t *dcontext, instrlist_t *trace, app_pc tag)
                  */
 
                 if (instr == instrlist_first(trace)) {
-                    loginst(dcontext, 3, instr,
-                            "trying to remove the first item in the trace");
+                    d_r_loginst(dcontext, 3, instr,
+                                "trying to remove the first item in the trace");
                     replace_self_loop_with_opnd(dcontext, (size_t)0, trace,
                                                 opnd_create_instr(next));
                 }
-                loginst(dcontext, 3, instr, "this mov imm isn't needed, remove");
+                d_r_loginst(dcontext, 3, instr, "this mov imm isn't needed, remove");
                 instrlist_remove(trace, instr);
                 instr_destroy(dcontext, instr);
                 instr = next;
@@ -1491,7 +1498,7 @@ constant_propagate(dcontext_t *dcontext, instrlist_t *trace, app_pc tag)
 
     LOG(THREAD, LOG_OPTS, 3, "after constant_propagate\n");
 #    ifdef DEBUG
-    if (stats->loglevel >= 3)
+    if (d_r_stats->loglevel >= 3)
         instrlist_disassemble(dcontext, 0, trace, THREAD);
 #    endif
 }
@@ -1516,7 +1523,7 @@ instr_replace_reg_with_const_in_src(dcontext_t *dcontext, instr_t *in, int reg, 
 
         if (opnd_replace_reg_with_val(&op, reg, val)) {
             instr_set_src(in, a, op);
-            loginst(dcontext, 3, in, "replaced by this in src");
+            d_r_loginst(dcontext, 3, in, "replaced by this in src");
             // THIS SHOULD BE FIXED BY FIXING is_encoding_possible so it doesn't
             // give true when there is a constant in a rep* instruction
             // when thats fixed, then the next if statement can be
@@ -1525,7 +1532,7 @@ instr_replace_reg_with_const_in_src(dcontext_t *dcontext, instr_t *in, int reg, 
             if ((instr_get_opcode(in) == OP_rep_cmps ||
                  instr_get_opcode(in) == OP_rep_movs) &&
                 (reg == REG_ECX)) {
-                loginst(dcontext, 3, in, "quirk involving rep* instructions and ECX");
+                d_r_loginst(dcontext, 3, in, "quirk involving rep* instructions and ECX");
                 instr_set_src(in, a, oldop);
                 return false;
             }
@@ -1535,7 +1542,7 @@ instr_replace_reg_with_const_in_src(dcontext_t *dcontext, instr_t *in, int reg, 
                able to do some arithmetic simplification with this case).
             */
             if (instr_reg_in_src(in, reg)) {
-                loginst(
+                d_r_loginst(
                     dcontext, 3, in,
                     "FIXME: doesn't yet handle two src instances of the same register");
                 instr_set_src(in, a, oldop);
@@ -1546,11 +1553,11 @@ instr_replace_reg_with_const_in_src(dcontext_t *dcontext, instr_t *in, int reg, 
         }
 
         if (!instr_is_encoding_possible(in)) {
-            loginst(dcontext, 3, in,
-                    "replace_reg_with_const: encoding not possible, so putting back "
-                    "original");
+            d_r_loginst(dcontext, 3, in,
+                        "replace_reg_with_const: encoding not possible, so putting back "
+                        "original");
             instr_set_src(in, a, oldop);
-            loginst(dcontext, 3, in, "original instr");
+            d_r_loginst(dcontext, 3, in, "original instr");
             ASSERT(instr_is_encoding_possible(in));
             return false;
         }
@@ -1571,13 +1578,13 @@ instr_replace_reg_with_const_in_dst(dcontext_t *dcontext, instr_t *in, int reg, 
 
             if (opnd_replace_reg_with_val(&op, reg, val)) {
                 instr_set_dst(in, a, op);
-                loginst(dcontext, 3, in, "replaced by this in dst");
+                d_r_loginst(dcontext, 3, in, "replaced by this in dst");
             }
             if (!instr_is_encoding_possible(in)) {
-                loginst(dcontext, 3, in,
-                        "encoding not possible, so putting back original");
+                d_r_loginst(dcontext, 3, in,
+                            "encoding not possible, so putting back original");
                 instr_set_dst(in, a, oldop);
-                loginst(dcontext, 3, in, "original instr");
+                d_r_loginst(dcontext, 3, in, "original instr");
                 ASSERT(instr_is_encoding_possible(in));
                 return false;
             }
@@ -1672,17 +1679,17 @@ replace_self_loop_with_opnd(dcontext_t *dcontext, app_pc tag, instrlist_t *trace
 
     while (in != NULL) {
 #    ifdef DEBUG
-        loginst(dcontext, 3, in, "examining me in replace self loop");
+        d_r_loginst(dcontext, 3, in, "examining me in replace self loop");
         LOG(THREAD, LOG_OPTS, 3, "my bytes are: " PFX "\n", in->bytes);
 #    endif
         if (instr_is_cbr(in) || instr_is_ubr(in)) {
             targetop = instr_get_target(in);
             if (opnd_is_near_pc(targetop) && opnd_get_pc(targetop) == tag) {
-                loginst(dcontext, 3, in, "self_loop (pc target==tag) fixing in");
+                d_r_loginst(dcontext, 3, in, "self_loop (pc target==tag) fixing in");
                 instr_set_target(in, desiredtarget);
             } else if (opnd_is_near_instr(targetop) && opnd_get_instr(targetop) == top) {
-                loginst(dcontext, 3, in, "self_loop (inter traget==top)fixing in");
-                logopnd(dcontext, 3, desiredtarget, "self_loop in now points to");
+                d_r_loginst(dcontext, 3, in, "self_loop (inter traget==top)fixing in");
+                d_r_logopnd(dcontext, 3, desiredtarget, "self_loop in now points to");
                 instr_set_target(in, desiredtarget);
             }
         }
@@ -1702,7 +1709,7 @@ instr_arithmatic_simplify(dcontext_t *dcontext, instr_t *in)
     instr_t *newinstr = NULL;
     int opcode;
     int newvalue;
-    loginst(dcontext, 3, in, "arithmatic simplify called on");
+    d_r_loginst(dcontext, 3, in, "arithmatic simplify called on");
 
     opcode = instr_get_opcode(in);
     if (instr_flag_write_necessary(dcontext, in))
@@ -1728,18 +1735,18 @@ instr_arithmatic_simplify(dcontext_t *dcontext, instr_t *in)
         case OP_fild:
         case OP_fld:
             if (val==0 && opnd_is_reg(dst)&& (opnd_get_reg(dst)==REG_ST0)) {
-                loginst(dcontext,3,in,"arithmatic simplify: making fload of 0 to store!");
-                newinstr=INSTR_CREATE_fldz(dcontext);
-                break;
+                d_r_loginst(dcontext,3,in,
+                            "arithmatic simplify: making fload of 0 to store!");
+                newinstr=INSTR_CREATE_fldz(dcontext); break;
             }
             */
         case OP_inc:
-            loginst(dcontext, 3, in, "arithmatic simplify: making inc to store!");
+            d_r_loginst(dcontext, 3, in, "arithmatic simplify: making inc to store!");
             newinstr = INSTR_CREATE_mov_imm(dcontext, instr_get_dst(in, 0),
                                             OPND_CREATE_INT32(val + 1));
             break;
         case OP_dec:
-            loginst(dcontext, 3, in, "arithmatic simplify: making dec to store!");
+            d_r_loginst(dcontext, 3, in, "arithmatic simplify: making dec to store!");
             newinstr = INSTR_CREATE_mov_imm(dcontext, instr_get_dst(in, 0),
                                             OPND_CREATE_INT32(val - 1));
             break;
@@ -1768,43 +1775,43 @@ instr_arithmatic_simplify(dcontext_t *dcontext, instr_t *in)
                 newvalue = val2 + val1;
                 newinstr =
                     INSTR_CREATE_mov_imm(dcontext, dst, OPND_CREATE_INT32(newvalue));
-                loginst(dcontext, 3, in, "arithmatic simplify: OP_ADD!");
+                d_r_loginst(dcontext, 3, in, "arithmatic simplify: OP_ADD!");
                 break;
             case OP_imul:
                 newvalue = val2 * val1;
                 newinstr =
                     INSTR_CREATE_mov_imm(dcontext, dst, OPND_CREATE_INT32(newvalue));
-                loginst(dcontext, 3, in, "arithmatic simplify: OP_imul!");
+                d_r_loginst(dcontext, 3, in, "arithmatic simplify: OP_imul!");
                 break;
             case OP_mul:
                 newvalue = (unsigned)val2 * (unsigned)val1;
                 newinstr =
                     INSTR_CREATE_mov_imm(dcontext, dst, OPND_CREATE_INT32(newvalue));
-                loginst(dcontext, 3, in, "arithmatic simplify: OP_mul!");
+                d_r_loginst(dcontext, 3, in, "arithmatic simplify: OP_mul!");
                 break;
             case OP_and:
                 newvalue = val2 & val1;
                 newinstr =
                     INSTR_CREATE_mov_imm(dcontext, dst, OPND_CREATE_INT32(newvalue));
-                loginst(dcontext, 3, in, "arithmatic simplify: OP_and!");
+                d_r_loginst(dcontext, 3, in, "arithmatic simplify: OP_and!");
                 break;
             case OP_or:
                 newvalue = val2 | val1;
                 newinstr =
                     INSTR_CREATE_mov_imm(dcontext, dst, OPND_CREATE_INT32(newvalue));
-                loginst(dcontext, 3, in, "arithmatic simplify: OP_or!");
+                d_r_loginst(dcontext, 3, in, "arithmatic simplify: OP_or!");
                 break;
             case OP_xor:
                 newvalue = val2 ^ val1;
                 newinstr =
                     INSTR_CREATE_mov_imm(dcontext, dst, OPND_CREATE_INT32(newvalue));
-                loginst(dcontext, 3, in, "arithmatic simplify: OP_xor!");
+                d_r_loginst(dcontext, 3, in, "arithmatic simplify: OP_xor!");
                 break;
             case OP_sub:
                 newvalue = val2 - val1;
                 newinstr =
                     INSTR_CREATE_mov_imm(dcontext, dst, OPND_CREATE_INT32(newvalue));
-                loginst(dcontext, 3, in, "arithmatic simplify: OP_sub!");
+                d_r_loginst(dcontext, 3, in, "arithmatic simplify: OP_sub!");
                 break;
             }
         } else if (opnd_is_immed_int(op1) || opnd_is_immed_int(op2)) {
@@ -1823,20 +1830,21 @@ instr_arithmatic_simplify(dcontext_t *dcontext, instr_t *in)
             case OP_and:
                 if (cons == 0xffffffff) {
                     newinstr = INSTR_CREATE_nop(dcontext);
-                    loginst(dcontext, 3, in,
-                            "arithmatic simplify: turned OP_and to OP_nop");
+                    d_r_loginst(dcontext, 3, in,
+                                "arithmatic simplify: turned OP_and to OP_nop");
                 } else if (cons == 0) {
 
                     if (opnd_is_reg(dst)) {
                         newinstr = INSTR_CREATE_xor(dcontext, dst, dst);
-                        loginst(dcontext, 3, in,
-                                "arithmatic simplify: turned OP_and to zeroing xor");
+                        d_r_loginst(dcontext, 3, in,
+                                    "arithmatic simplify: turned OP_and to zeroing xor");
                     } else {
                         ASSERT(opnd_is_memory_reference(dst));
                         newinstr =
                             INSTR_CREATE_mov_imm(dcontext, dst, OPND_CREATE_INT32(0));
-                        loginst(dcontext, 3, in,
-                                "arithmatic simplify: turned OP_and to zeroing mov_imm");
+                        d_r_loginst(
+                            dcontext, 3, in,
+                            "arithmatic simplify: turned OP_and to zeroing mov_imm");
                     }
                 }
                 break;
@@ -1845,26 +1853,27 @@ instr_arithmatic_simplify(dcontext_t *dcontext, instr_t *in)
                 if (cons == 0xffffffff) {
                     newinstr = INSTR_CREATE_mov_imm(dcontext, dst,
                                                     OPND_CREATE_INT32(0xffffffff));
-                    loginst(dcontext, 3, in,
-                            "arithmatic simplify: turned OP_or into mov 0xffffffff");
+                    d_r_loginst(dcontext, 3, in,
+                                "arithmatic simplify: turned OP_or into mov 0xffffffff");
                 } else if (cons == 0) {
                     newinstr = INSTR_CREATE_nop(dcontext);
-                    loginst(dcontext, 3, in,
-                            "arithmatic simplify: turned OP_or into nop");
+                    d_r_loginst(dcontext, 3, in,
+                                "arithmatic simplify: turned OP_or into nop");
                 }
                 break;
             case OP_add:
                 if (cons == 0) {
                     newinstr = INSTR_CREATE_nop(dcontext);
-                    loginst(dcontext, 3, in,
-                            "arithmatic simplify: turned OP_add into nop");
+                    d_r_loginst(dcontext, 3, in,
+                                "arithmatic simplify: turned OP_add into nop");
                 }
                 break;
             case OP_sub:
                 /* fixme
                 if (cons==0) {
                     newinstr=INSTR_CREATE_nop(dcontext);
-                    loginst(dcontext,3,in,"arithmatic simplify: turned OP_sub into nop");
+                    d_r_loginst(dcontext,3,in,"arithmatic simplify: turned OP_sub into
+                nop");
                 }
                 */
                 break;
@@ -1872,12 +1881,12 @@ instr_arithmatic_simplify(dcontext_t *dcontext, instr_t *in)
             case OP_imul:
                 if (cons == 1) {
                     newinstr = INSTR_CREATE_nop(dcontext);
-                    loginst(dcontext, 3, in,
-                            "arithmatic simplify: turned OP_add into nop");
+                    d_r_loginst(dcontext, 3, in,
+                                "arithmatic simplify: turned OP_add into nop");
                 } else if (cons == 0) {
                     newinstr = INSTR_CREATE_mov_imm(dcontext, dst, OPND_CREATE_INT32(0));
-                    loginst(dcontext, 3, in,
-                            "arithmatic simplify: turned OP_mul with 0 to mov_immed");
+                    d_r_loginst(dcontext, 3, in,
+                                "arithmatic simplify: turned OP_mul with 0 to mov_immed");
                 }
                 break;
             }
@@ -1885,7 +1894,7 @@ instr_arithmatic_simplify(dcontext_t *dcontext, instr_t *in)
     }
 
     if (newinstr) {
-        loginst(dcontext, 3, newinstr, "with me");
+        d_r_loginst(dcontext, 3, newinstr, "with me");
 
         ASSERT(instr_is_encoding_possible(newinstr));
 
@@ -1969,7 +1978,7 @@ instr_add_to_exitexec_list(dcontext_t *dcontext, instr_t *in, instr_t *exitinstr
         in->exitlist = instrlist_create(dcontext);
 
     instrlist_append(in->exitlist, exitinstr);
-    loginst(dcontext, 3, exitinstr, "adding this to exit list");
+    d_r_loginst(dcontext, 3, exitinstr, "adding this to exit list");
     LOG(THREAD, LOG_OPTS, 3, "exitinstr=" PFX "\n", exitinstr);
 }
 void
@@ -1985,7 +1994,7 @@ instrlist_setup_pseudo_exitstubs(dcontext_t *dcontext, instrlist_t *trace)
             ASSERT(instr_is_cti(instr));
             instrlist_append(instr->exitlist,
                              INSTR_CREATE_jmp(dcontext, instr_get_target(instr)));
-            loginst(dcontext, 3, instr, "setting up pseudo exit stub for me");
+            d_r_loginst(dcontext, 3, instr, "setting up pseudo exit stub for me");
 
             newtarget = instrlist_first(instr->exitlist);
             instrlist_append_instrlist(dcontext, exitlist, instr->exitlist);
@@ -1996,8 +2005,8 @@ instrlist_setup_pseudo_exitstubs(dcontext_t *dcontext, instrlist_t *trace)
 
             instr->exitlist = NULL;
 #    ifdef DEBUG
-            if (stats->loglevel >= 3) {
-                loginst(dcontext, 3, instr, "after setting");
+            if (d_r_stats->loglevel >= 3) {
+                d_r_loginst(dcontext, 3, instr, "after setting");
                 instrlist_disassemble(dcontext, 0, trace, THREAD);
                 instrlist_disassemble(dcontext, 0, exitlist, THREAD);
             }

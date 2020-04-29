@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -55,6 +55,10 @@
  * it is passed in memory, but we have to pick registers that don't already
  * hold other arguments.  Typically, use this order:
  *   REG_XAX, REG_XBX, REG_XDI, REG_XSI, REG_XDX, REG_XCX
+ * The suggested order for 3 parameters is:
+ *   REG_XAX = ARG1, REG_XCX = ARG3, REG_XDX = ARG2
+ * The suggested order for 2 parameters is:
+ *   REG_XAX = ARG2, REG_XDX = ARG1
  * Note that REG_XBX is by convention used on linux for PIC base: if we want
  * to try and avoid relocations (case 7852) we should avoid using it
  * to avoid confusion (though we can always pick a different register,
@@ -117,7 +121,7 @@ START_FILE
 /* Pushes a priv_mcontext_t on the stack, with an xsp value equal to the
  * xsp before the pushing.  Clobbers xax!
  * Does fill in xmm0-5, if necessary, for PR 264138.
- * Assumes that DR has been initialized (get_xmm_vals() checks proc feature bits).
+ * Assumes that DR has been initialized (get_simd_vals() checks proc feature bits).
  * Caller should ensure 16-byte stack alignment prior to the push (PR 306421).
  */
 #define PUSH_PRIV_MCXT(pc)                              \
@@ -126,7 +130,7 @@ START_FILE
         PUSHF                                          @N@\
         PUSHGPR                                        @N@\
         lea      REG_XAX, [REG_XSP]                    @N@\
-        CALLC1(GLOBAL_REF(get_xmm_vals), REG_XAX)      @N@\
+        CALLC1(GLOBAL_REF(get_simd_vals), REG_XAX)      @N@\
         lea      REG_XAX, [PRIV_MCXT_SIZE + REG_XSP]   @N@\
         mov      [PUSHGPR_XSP_OFFS + REG_XSP], REG_XAX
 
@@ -138,24 +142,17 @@ START_FILE
         POPF                                            @N@\
         lea      REG_XSP, [REG_XSP - PUSH_PRIV_MCXT_PRE_PC_SHIFT + ARG_SZ/*pc*/]
 
-/* This is really the alignment needed by x64 code.  For now, when we bother to
- * align the stack pointer, we just go for 16 byte alignment.  We do *not*
- * assume 16-byte alignment across the code base.
- * i#847: Investigate using aligned SSE ops (see get_xmm_caller_saved).
- */
-#define FRAME_ALIGNMENT 16
-
 /****************************************************************************/
 /****************************************************************************/
 
 DECL_EXTERN(unexpected_return)
 
 DECL_EXTERN(get_own_context_integer_control)
-DECL_EXTERN(get_xmm_vals)
+DECL_EXTERN(get_simd_vals)
 DECL_EXTERN(auto_setup)
 DECL_EXTERN(return_from_native)
 DECL_EXTERN(native_module_callout)
-DECL_EXTERN(dispatch)
+DECL_EXTERN(d_r_dispatch)
 #ifdef DR_APP_EXPORTS
 DECL_EXTERN(dr_app_start_helper)
 #endif
@@ -166,7 +163,7 @@ DECL_EXTERN(dynamorio_app_take_over_helper)
 DECL_EXTERN(found_modified_code)
 DECL_EXTERN(get_cleanup_and_terminate_global_do_syscall_entry)
 #ifdef INTERNAL
-DECL_EXTERN(internal_error)
+DECL_EXTERN(d_r_internal_error)
 #endif
 DECL_EXTERN(internal_exception_info)
 DECL_EXTERN(is_currently_on_dstack)
@@ -196,7 +193,7 @@ DECL_EXTERN(os_terminate_wow64_stack)
 
 /* non-functions: these make us non-PIC! (PR 212290) */
 DECL_EXTERN(exiting_thread_count)
-DECL_EXTERN(initstack)
+DECL_EXTERN(d_r_initstack)
 DECL_EXTERN(initstack_mutex)
 DECL_EXTERN(int_syscall_address)
 DECL_EXTERN(syscalls)
@@ -276,7 +273,7 @@ GLOBAL_LABEL(call_switch_stack:)
         mov      [3*ARG_SZ + REG_XAX], ARG3
         mov      [4*ARG_SZ + REG_XAX], ARG4
 #else
-        /* stack alignment doesn't matter */
+        /* Stack alignment doesn't matter b/c we're swapping. */
         mov      REG_XAX, REG_XSP
 #endif
         /* we need a callee-saved reg across our call so save it onto stack */
@@ -365,7 +362,7 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         mov      [3*ARG_SZ + REG_XAX], ARG3
         mov      [4*ARG_SZ + REG_XAX], ARG4
 # else
-        /* stack alignment doesn't matter */
+        /* Stack alignment doesn't matter b/c we're swapping. */
         mov      REG_XAX, REG_XSP
 # endif
 # if defined(X64) && !defined(WINDOWS)
@@ -472,7 +469,7 @@ GLOBAL_LABEL(clone_and_swap_stack:)
 #ifdef DR_APP_EXPORTS
         DECLARE_EXPORTED_FUNC(dr_app_start)
 GLOBAL_LABEL(dr_app_start:)
-        sub     REG_XSP, FRAME_ALIGNMENT - ARG_SZ  /* Maintain alignment. */
+        ADD_STACK_ALIGNMENT_NOSEH
 
         /* grab exec state and pass as param in a priv_mcontext_t struct */
         PUSH_PRIV_MCXT(PTRSZ [FRAME_ALIGNMENT - ARG_SZ + REG_XSP -\
@@ -482,8 +479,7 @@ GLOBAL_LABEL(dr_app_start:)
         lea     REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
         CALLC1(GLOBAL_REF(dr_app_start_helper), REG_XAX)
 
-        /* if we come back, then DR is not taking control so
-         * clean up stack and return */
+        /* If we come back, then DR is not taking control so clean up stack and return. */
         add      REG_XSP, PRIV_MCXT_SIZE + FRAME_ALIGNMENT - ARG_SZ
         ret
         END_FUNC(dr_app_start)
@@ -517,7 +513,7 @@ GLOBAL_LABEL(dr_app_running_under_dynamorio: )
  */
         DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
 GLOBAL_LABEL(dynamorio_app_take_over:)
-        sub     REG_XSP, FRAME_ALIGNMENT - ARG_SZ  /* Maintain alignment. */
+        ADD_STACK_ALIGNMENT_NOSEH
 
         /* grab exec state and pass as param in a priv_mcontext_t struct */
         PUSH_PRIV_MCXT(PTRSZ [FRAME_ALIGNMENT - ARG_SZ + REG_XSP -\
@@ -527,8 +523,7 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         lea      REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
         CALLC1(GLOBAL_REF(dynamorio_app_take_over_helper), REG_XAX)
 
-        /* if we come back, then DR is not taking control so
-         * clean up stack and return */
+        /* If we come back, then DR is not taking control so clean up stack and return. */
         add      REG_XSP, PRIV_MCXT_SIZE + FRAME_ALIGNMENT - ARG_SZ
         ret
         END_FUNC(dynamorio_app_take_over)
@@ -621,8 +616,8 @@ cat_done_saving_dstack:
 cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
-        /* now switch to initstack for cleanup of dstack
-         * could use initstack for whole thing but that's too long
+        /* now switch to d_r_initstack for cleanup of dstack
+         * could use d_r_initstack for whole thing but that's too long
          * of a time to hold global initstack_mutex */
         mov      ecx, 1
 #if !defined(X64) && defined(LINUX)
@@ -661,10 +656,10 @@ cat_have_lock:
         /* swap stacks */
 #if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
-        lea      REG_XBP, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(initstack))
+        lea      REG_XBP, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(d_r_initstack))
         mov      REG_XSP, PTRSZ [REG_XBP]
 #else
-        mov      REG_XSP, PTRSZ SYMREF(initstack) /* rip-relative on x64 */
+        mov      REG_XSP, PTRSZ SYMREF(d_r_initstack) /* rip-relative on x64 */
 #endif
         /* now save registers */
 #if defined(MACOS) && !defined(X64)
@@ -724,9 +719,9 @@ cat_no_thread2:
 #ifdef WINDOWS
         pop      REG_XSP    /* get the stack pointer we pushed earlier */
 #endif
-        /* give up initstack mutex -- potential problem here with a thread getting
-         *   an asynch event that then uses initstack, but syscall should only care
-         *   about ebx and edx */
+        /* Give up initstack_mutex -- potential problem here with a thread getting
+         * an asynch event that then uses d_r_initstack, but syscall should only care
+         * about ebx and edx. */
 #if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
         lea      REG_XBP, VAR_VIA_GOT(REG_XDI, initstack_mutex)
@@ -799,11 +794,7 @@ GLOBAL_LABEL(global_do_syscall_sygate_int:)
  */
         DECLARE_FUNC(global_do_syscall_sysenter)
 GLOBAL_LABEL(global_do_syscall_sysenter:)
-#if defined(X64) && defined(WINDOWS)
-        syscall  /* FIXME ml64 won't take "sysenter" so half-fixing now */
-#else
-        sysenter
-#endif
+        RAW(0f) RAW(34) /* sysenter */
 #ifdef DEBUG
         /* We'll never ever reach here, sysenter won't/can't return to this
          * address since it doesn't know it, but we'll put in a jmp to
@@ -1163,7 +1154,8 @@ GLOBAL_LABEL(_start:)
          */
         cmp     REG_XDI, 0 /* if reloaded, skip for speed + preserve xdi and xsi */
         jne     reloaded_xfer
-        CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, REG_XSP)
+        mov     REG_XAX, REG_XSP /* The CALLC3 may change xsp so grab it first. */
+        CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, REG_XAX)
         mov     REG_XDI, 0 /* xdi should be callee-saved but is not always: i#2641 */
 
 reloaded_xfer:
@@ -1217,7 +1209,11 @@ GLOBAL_LABEL(xfer_to_new_libdr:)
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
 #ifdef X64
+# ifdef MACOS
+        mov      eax, HEX(20000b8)
+# else
         mov      eax, HEX(f)
+# endif
         mov      r10, rcx
         syscall
 #else
@@ -1345,7 +1341,7 @@ GLOBAL_LABEL(dynamorio_condvar_wake_and_jmp:)
         * so transparency should be ok so long as the app's stack is valid.
         */
         mov      REG_XDI, REG_XCX /* save across syscall */
-        mov      REG_XAX, DWORD [REG_XAX] /* load mach_synch_t->sem */
+        mov      REG_XAX, PTRSZ [REG_XAX] /* load mach_synch_t->sem */
 #  ifdef X64
         mov      ARG1, REG_XAX
         mov      eax, MACH_semaphore_signal_all_trap
@@ -1437,11 +1433,23 @@ GLOBAL_LABEL(master_signal_handler:)
 #ifdef X64
 # ifdef LINUX
         mov      ARG4, REG_XSP /* pass as extra arg */
-# else
-        mov      ARG6, REG_XSP /* pass as extra arg */
-# endif
         jmp      GLOBAL_REF(master_signal_handler_C)
         /* master_signal_handler_C will do the ret */
+# else /* MACOS */
+        mov      rax, REG_XSP /* save for extra arg */
+        push     ARG2 /* infostyle */
+        push     ARG5 /* ucxt */
+        push     ARG6 /* token */
+        /* rsp is now aligned again */
+        mov      ARG6, rax /* pass as extra arg */
+        CALLC0(GLOBAL_REF(master_signal_handler_C))
+        /* Set up args to SYS_sigreturn */
+        pop      ARG3 /* token */
+        pop      ARG1 /* ucxt */
+        pop      ARG2 /* infostyle */
+        CALLC0(GLOBAL_REF(dynamorio_sigreturn))
+        jmp      GLOBAL_REF(unexpected_return)
+# endif
 #else
         /* We need to pass in xsp.  The easiest way is to create an
          * intermediate frame.
@@ -1586,8 +1594,6 @@ GLOBAL_LABEL(dynamorio_clone:)
 # endif
         cmp      REG_XAX, 0
         jne      dynamorio_clone_parent
-        /* avoid conflicts w/ parent's TLS by clearing our reg now */
-        mov      SEG_TLS, ax
         pop      REG_XCX
         call     REG_XCX
         /* shouldn't return */
@@ -1710,7 +1716,7 @@ GLOBAL_LABEL(back_from_native:)
 Lback_from_native:
 #endif
         /* assume valid esp
-         * FIXME: more robust if don't use app's esp -- should use initstack
+         * FIXME: more robust if don't use app's esp -- should use d_r_initstack
          */
         /* grab exec state and pass as param in a priv_mcontext_t struct */
         PUSH_PRIV_MCXT(0 /* for priv_mcontext_t.pc */)
@@ -1822,8 +1828,8 @@ GLOBAL_LABEL(dr_setjmp:)
  */
         DECLARE_FUNC(dr_longjmp)
 GLOBAL_LABEL(dr_longjmp:)
-        mov      REG_XDX, ARG1
         mov      REG_XAX, ARG2
+        mov      REG_XDX, ARG1
 
         mov      REG_XBX, [       0 + REG_XDX]
         mov      REG_XDI, [2*ARG_SZ + REG_XDX]
@@ -1893,8 +1899,11 @@ GLOBAL_LABEL(cpuid_supported:)
         DECLARE_FUNC(our_cpuid)
 GLOBAL_LABEL(our_cpuid:)
         mov      REG_XAX, ARG1
-        mov      REG_XDX, ARG2
+        /* We're clobbering REG_XCX before REG_XDX, because ARG3 is REG_XDX in
+         * UNIX 64-bit mode.
+         */
         mov      REG_XCX, ARG3
+        mov      REG_XDX, ARG2
         push     REG_XBX /* callee-saved */
         push     REG_XDI /* callee-saved */
         /* not making a call so don't bother w/ 16-byte stack alignment */
@@ -2205,25 +2214,25 @@ GLOBAL_LABEL(get_own_context_helper:)
         DECLARE_FUNC(get_xmm_caller_saved)
 GLOBAL_LABEL(get_xmm_caller_saved:)
         mov      REG_XAX, ARG1
-        movups   [REG_XAX + 0*XMM_SAVED_REG_SIZE], xmm0
-        movups   [REG_XAX + 1*XMM_SAVED_REG_SIZE], xmm1
-        movups   [REG_XAX + 2*XMM_SAVED_REG_SIZE], xmm2
-        movups   [REG_XAX + 3*XMM_SAVED_REG_SIZE], xmm3
-        movups   [REG_XAX + 4*XMM_SAVED_REG_SIZE], xmm4
-        movups   [REG_XAX + 5*XMM_SAVED_REG_SIZE], xmm5
+        movups   [REG_XAX + 0*MCXT_SIMD_SLOT_SIZE], xmm0
+        movups   [REG_XAX + 1*MCXT_SIMD_SLOT_SIZE], xmm1
+        movups   [REG_XAX + 2*MCXT_SIMD_SLOT_SIZE], xmm2
+        movups   [REG_XAX + 3*MCXT_SIMD_SLOT_SIZE], xmm3
+        movups   [REG_XAX + 4*MCXT_SIMD_SLOT_SIZE], xmm4
+        movups   [REG_XAX + 5*MCXT_SIMD_SLOT_SIZE], xmm5
 #ifdef UNIX
-        movups   [REG_XAX + 6*XMM_SAVED_REG_SIZE], xmm6
-        movups   [REG_XAX + 7*XMM_SAVED_REG_SIZE], xmm7
+        movups   [REG_XAX + 6*MCXT_SIMD_SLOT_SIZE], xmm6
+        movups   [REG_XAX + 7*MCXT_SIMD_SLOT_SIZE], xmm7
 #endif
 #if defined(UNIX) && defined(X64)
-        movups   [REG_XAX + 8*XMM_SAVED_REG_SIZE], xmm8
-        movups   [REG_XAX + 9*XMM_SAVED_REG_SIZE], xmm9
-        movups   [REG_XAX + 10*XMM_SAVED_REG_SIZE], xmm10
-        movups   [REG_XAX + 11*XMM_SAVED_REG_SIZE], xmm11
-        movups   [REG_XAX + 12*XMM_SAVED_REG_SIZE], xmm12
-        movups   [REG_XAX + 13*XMM_SAVED_REG_SIZE], xmm13
-        movups   [REG_XAX + 14*XMM_SAVED_REG_SIZE], xmm14
-        movups   [REG_XAX + 15*XMM_SAVED_REG_SIZE], xmm15
+        movups   [REG_XAX + 8*MCXT_SIMD_SLOT_SIZE], xmm8
+        movups   [REG_XAX + 9*MCXT_SIMD_SLOT_SIZE], xmm9
+        movups   [REG_XAX + 10*MCXT_SIMD_SLOT_SIZE], xmm10
+        movups   [REG_XAX + 11*MCXT_SIMD_SLOT_SIZE], xmm11
+        movups   [REG_XAX + 12*MCXT_SIMD_SLOT_SIZE], xmm12
+        movups   [REG_XAX + 13*MCXT_SIMD_SLOT_SIZE], xmm13
+        movups   [REG_XAX + 14*MCXT_SIMD_SLOT_SIZE], xmm14
+        movups   [REG_XAX + 15*MCXT_SIMD_SLOT_SIZE], xmm15
 #endif
         ret
         END_FUNC(get_xmm_caller_saved)
@@ -2232,57 +2241,173 @@ GLOBAL_LABEL(get_xmm_caller_saved:)
  *   stores the values of ymm0 through ymm5 consecutively into ymm_caller_saved_buf.
  *   ymm_caller_saved_buf need not be 32-byte aligned.
  *   for linux, also saves ymm6-15 (PR 302107).
- *   caller must ensure that the underlying processor supports SSE!
+ *   The caller must ensure that the underlying processor supports AVX!
  */
         DECLARE_FUNC(get_ymm_caller_saved)
 GLOBAL_LABEL(get_ymm_caller_saved:)
         mov      REG_XAX, ARG1
-       /* i#441: some compilers like gcc 4.3 and VS2005 do not know "vmovdqu".
-        * We just put in the raw bytes for these instrs:
+       /* i#441: Some compilers need one of the architectural flags set (e.g. -mavx or
+        * -march=skylake-avx512), which would cause DynamoRIO to be less (or un-)
+        * portable or cause frequency scaling (i#3169). We just put in the raw bytes
+        * for these instrs:
         * Note the 64/32 bit have the same encoding for either rax or eax.
         * c5 fe 7f 00               vmovdqu %ymm0,0x00(%xax)
-        * c5 fe 7f 48 20            vmovdqu %ymm1,0x20(%xax)
-        * c5 fe 7f 50 40            vmovdqu %ymm2,0x40(%xax)
-        * c5 fe 7f 58 60            vmovdqu %ymm3,0x60(%xax)
-        * c5 fe 7f a0 80 00 00 00   vmovdqu %ymm4,0x80(%xax)
-        * c5 fe 7f a8 a0 00 00 00   vmovdqu %ymm5,0xa0(%xax)
+        * c5 fe 7f 48 40            vmovdqu %ymm1,0x40(%xax)
+        * c5 fe 7f 90 80 00 00 00   vmovdqu %ymm2,0x80(%xax)
+        * c5 fe 7f 98 c0 00 00 00   vmovdqu %ymm3,0xc0(%xax)
+        * c5 fe 7f a0 00 01 00 00   vmovdqu %ymm4,0x100(%xax)
+        * c5 fe 7f a8 40 01 00 00   vmovdqu %ymm5,0x140(%xax)
         */
         RAW(c5) RAW(fe) RAW(7f) RAW(00)
-        RAW(c5) RAW(fe) RAW(7f) RAW(48) RAW(20)
-        RAW(c5) RAW(fe) RAW(7f) RAW(50) RAW(40)
-        RAW(c5) RAW(fe) RAW(7f) RAW(58) RAW(60)
-        RAW(c5) RAW(fe) RAW(7f) RAW(a0) RAW(80) RAW(00) RAW(00) RAW(00)
-        RAW(c5) RAW(fe) RAW(7f) RAW(a8) RAW(a0) RAW(00) RAW(00) RAW(00)
+        RAW(c5) RAW(fe) RAW(7f) RAW(48) RAW(40)
+        RAW(c5) RAW(fe) RAW(7f) RAW(90) RAW(80) RAW(00) RAW(00) RAW(00)
+        RAW(c5) RAW(fe) RAW(7f) RAW(98) RAW(c0) RAW(00) RAW(00) RAW(00)
+        RAW(c5) RAW(fe) RAW(7f) RAW(a0) RAW(00) RAW(01) RAW(00) RAW(00)
+        RAW(c5) RAW(fe) RAW(7f) RAW(a8) RAW(40) RAW(01) RAW(00) RAW(00)
 #ifdef UNIX
        /*
-        * c5 fe 7f b0 c0 00 00 00   vmovdqu %ymm6,0xc0(%xax)
-        * c5 fe 7f b8 e0 00 00 00   vmovdqu %ymm7,0xe0(%xax)
+        * c5 fe 7f b0 80 01 00 00   vmovdqu %ymm6,0x180(%xax)
+        * c5 fe 7f b8 c0 01 00 00   vmovdqu %ymm7,0x1c0(%xax)
         */
-        RAW(c5) RAW(fe) RAW(7f) RAW(b0) RAW(c0) RAW(00) RAW(00) RAW(00)
-        RAW(c5) RAW(fe) RAW(7f) RAW(b8) RAW(e0) RAW(00) RAW(00) RAW(00)
+        RAW(c5) RAW(fe) RAW(7f) RAW(b0) RAW(80) RAW(01) RAW(00) RAW(00)
+        RAW(c5) RAW(fe) RAW(7f) RAW(b8) RAW(c0) RAW(01) RAW(00) RAW(00)
 # ifdef X64
        /*
-        * c5 7e 7f 80 00 01 00 00   vmovdqu %ymm8, 0x100(%xax)
-        * c5 7e 7f 88 20 01 00 00   vmovdqu %ymm9, 0x120(%xax)
-        * c5 7e 7f 90 40 01 00 00   vmovdqu %ymm10,0x140(%xax)
-        * c5 7e 7f 98 60 01 00 00   vmovdqu %ymm11,0x160(%xax)
-        * c5 7e 7f a0 80 01 00 00   vmovdqu %ymm12,0x180(%xax)
-        * c5 7e 7f a8 a0 01 00 00   vmovdqu %ymm13,0x1a0(%xax)
-        * c5 7e 7f b0 c0 01 00 00   vmovdqu %ymm14,0x1c0(%xax)
-        * c5 7e 7f b8 e0 01 00 00   vmovdqu %ymm15,0x1e0(%xax)
+        * c5 7e 7f 80 00 02 00 00   vmovdqu %ymm8,0x200(%xax)
+        * c5 7e 7f 88 40 02 00 00   vmovdqu %ymm9,0x240(%xax)
+        * c5 7e 7f 90 80 02 00 00   vmovdqu %ymm10,0x280(%xax)
+        * c5 7e 7f 98 c0 02 00 00   vmovdqu %ymm11,0x2c0(%xax)
+        * c5 7e 7f a0 00 03 00 00   vmovdqu %ymm12,0x300(%xax)
+        * c5 7e 7f a8 40 03 00 00   vmovdqu %ymm13,0x340(%xax)
+        * c5 7e 7f b0 80 03 00 00   vmovdqu %ymm14,0x380(%xax)
+        * c5 7e 7f b8 c0 03 00 00   vmovdqu %ymm15,0x3c0(%xax)
         */
-        RAW(c5) RAW(7e) RAW(7f) RAW(80) RAW(00) RAW(01) RAW(00) RAW(00)
-        RAW(c5) RAW(7e) RAW(7f) RAW(88) RAW(20) RAW(01) RAW(00) RAW(00)
-        RAW(c5) RAW(7e) RAW(7f) RAW(90) RAW(40) RAW(01) RAW(00) RAW(00)
-        RAW(c5) RAW(7e) RAW(7f) RAW(98) RAW(60) RAW(01) RAW(00) RAW(00)
-        RAW(c5) RAW(7e) RAW(7f) RAW(a0) RAW(80) RAW(01) RAW(00) RAW(00)
-        RAW(c5) RAW(7e) RAW(7f) RAW(a8) RAW(a0) RAW(01) RAW(00) RAW(00)
-        RAW(c5) RAW(7e) RAW(7f) RAW(b0) RAW(c0) RAW(01) RAW(00) RAW(00)
-        RAW(c5) RAW(7e) RAW(7f) RAW(b8) RAW(e0) RAW(01) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(80) RAW(00) RAW(02) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(88) RAW(40) RAW(02) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(90) RAW(80) RAW(02) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(98) RAW(c0) RAW(02) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(a0) RAW(00) RAW(03) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(a8) RAW(40) RAW(03) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(b0) RAW(80) RAW(03) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(b8) RAW(c0) RAW(03) RAW(00) RAW(00)
 # endif
 #endif
         ret
         END_FUNC(get_ymm_caller_saved)
+
+/* void get_zmm_caller_saved(byte *zmm_caller_saved_buf)
+ *   stores the values of zmm0 through zmm31 consecutively into zmm_caller_saved_buf.
+ *   zmm_caller_saved_buf need not be 64-byte aligned.
+ *   The caller must ensure that the underlying processor supports AVX-512!
+ */
+        DECLARE_FUNC(get_zmm_caller_saved)
+GLOBAL_LABEL(get_zmm_caller_saved:)
+        mov      REG_XAX, ARG1
+       /* i#441: Some compilers need one of the architectural flags set (e.g. -mavx or
+        * -march=skylake-avx512), which would cause DynamoRIO to be less (or un-)
+        * portable or cause frequency scaling (i#3169). We just put in the raw bytes
+        * for these instrs:
+        * Note the 64/32 bit have the same encoding for either rax or eax.
+        * Note the encodings are using the EVEX scaled compressed displacement form.
+        * 62 f1 fe 48 7f 00       vmovdqu64 %zmm0,0x00(%xax)
+        * 62 f1 fe 48 7f 48 01    vmovdqu64 %zmm1,0x40(%xax)
+        * 62 f1 fe 48 7f 50 02    vmovdqu64 %zmm2,0x80(%xax)
+        * 62 f1 fe 48 7f 58 03    vmovdqu64 %zmm3,0xc0(%xax)
+        * 62 f1 fe 48 7f 60 04    vmovdqu64 %zmm4,0x100(%xax)
+        * 62 f1 fe 48 7f 68 05    vmovdqu64 %zmm5,0x140(%xax)
+        * 62 f1 fe 48 7f 70 06    vmovdqu64 %zmm6,0x180(%xax)
+        * 62 f1 fe 48 7f 78 07    vmovdqu64 %zmm7,0x1c0(%xax)
+        */
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(00)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(48) RAW(01)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(50) RAW(02)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(58) RAW(03)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(60) RAW(04)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(68) RAW(05)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(70) RAW(06)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(78) RAW(07)
+#ifdef X64
+       /* 62 71 fe 48 7f 40 08    vmovdqu64 %zmm8,0x200(%xax)
+        * 62 71 fe 48 7f 48 09    vmovdqu64 %zmm9,0x240(%xax)
+        * 62 71 fe 48 7f 50 0a    vmovdqu64 %zmm10,0x280(%xax)
+        * 62 71 fe 48 7f 58 0b    vmovdqu64 %zmm11,0x2c0(%xax)
+        * 62 71 fe 48 7f 60 0c    vmovdqu64 %zmm12,0x300(%xax)
+        * 62 71 fe 48 7f 68 0d    vmovdqu64 %zmm13,0x340(%xax)
+        * 62 71 fe 48 7f 70 0e    vmovdqu64 %zmm14,0x380(%xax)
+        * 62 71 fe 48 7f 78 0f    vmovdqu64 %zmm15,0x3c0(%xax)
+        * 62 e1 fe 48 7f 40 10    vmovdqu64 %zmm16,0x400(%xax)
+        * 62 e1 fe 48 7f 48 11    vmovdqu64 %zmm17,0x440(%xax)
+        * 62 e1 fe 48 7f 50 12    vmovdqu64 %zmm18,0x480(%xax)
+        * 62 e1 fe 48 7f 58 13    vmovdqu64 %zmm19,0x4c0(%xax)
+        * 62 e1 fe 48 7f 60 14    vmovdqu64 %zmm20,0x500(%xax)
+        * 62 e1 fe 48 7f 68 15    vmovdqu64 %zmm21,0x540(%xax)
+        * 62 e1 fe 48 7f 70 16    vmovdqu64 %zmm22,0x580(%xax)
+        * 62 e1 fe 48 7f 78 17    vmovdqu64 %zmm23,0x5c0(%xax)
+        * 62 61 fe 48 7f 40 18    vmovdqu64 %zmm24,0x600(%xax)
+        * 62 61 fe 48 7f 48 19    vmovdqu64 %zmm25,0x640(%xax)
+        * 62 61 fe 48 7f 50 1a    vmovdqu64 %zmm26,0x680(%xax)
+        * 62 61 fe 48 7f 58 1b    vmovdqu64 %zmm27,0x6c0(%xax)
+        * 62 61 fe 48 7f 60 1c    vmovdqu64 %zmm28,0x700(%xax)
+        * 62 61 fe 48 7f 68 1d    vmovdqu64 %zmm29,0x740(%xax)
+        * 62 61 fe 48 7f 70 1e    vmovdqu64 %zmm30,0x780(%xax)
+        * 62 61 fe 48 7f 78 1f    vmovdqu64 %zmm31,0x7c0(%xax)
+        */
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(40) RAW(08)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(48) RAW(09)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(50) RAW(0a)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(58) RAW(0b)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(60) RAW(0c)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(68) RAW(0d)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(70) RAW(0e)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(78) RAW(0f)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(40) RAW(10)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(48) RAW(11)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(50) RAW(12)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(58) RAW(13)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(60) RAW(14)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(68) RAW(15)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(70) RAW(16)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(78) RAW(17)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(40) RAW(18)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(48) RAW(19)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(50) RAW(1a)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(58) RAW(1b)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(60) RAW(1c)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(68) RAW(1d)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(70) RAW(1e)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(78) RAW(1f)
+#endif
+        ret
+        END_FUNC(get_zmm_caller_saved)
+
+/* void get_opmask_caller_saved(byte *opmask_caller_saved_buf)
+ *   stores the values of k0 through k7 consecutively in 8 byte slots each into
+ *   opmask_caller_saved_buf. opmask_caller_saved_buf need not be 8-byte aligned.
+ *   The caller must ensure that the underlying processor supports AVX-512.
+ */
+        DECLARE_FUNC(get_opmask_caller_saved)
+GLOBAL_LABEL(get_opmask_caller_saved:)
+        mov      REG_XAX, ARG1
+       /*
+        * c5 f8 91 00       kmovw  %k0,(%rax)
+        * c5 f8 91 48 08    kmovw  %k1,0x8(%rax)
+        * c5 f8 91 50 10    kmovw  %k2,0x10(%rax)
+        * c5 f8 91 58 18    kmovw  %k3,0x18(%rax)
+        * c5 f8 91 60 20    kmovw  %k4,0x20(%rax)
+        * c5 f8 91 68 28    kmovw  %k5,0x28(%rax)
+        * c5 f8 91 70 30    kmovw  %k6,0x30(%rax)
+        * c5 f8 91 78 38    kmovw  %k7,0x38(%rax)
+        */
+        RAW(c5) RAW(f8) RAW(91) RAW(00)
+        RAW(c5) RAW(f8) RAW(91) RAW(48) RAW(08)
+        RAW(c5) RAW(f8) RAW(91) RAW(50) RAW(10)
+        RAW(c5) RAW(f8) RAW(91) RAW(58) RAW(18)
+        RAW(c5) RAW(f8) RAW(91) RAW(60) RAW(20)
+        RAW(c5) RAW(f8) RAW(91) RAW(68) RAW(28)
+        RAW(c5) RAW(f8) RAW(91) RAW(70) RAW(30)
+        RAW(c5) RAW(f8) RAW(91) RAW(78) RAW(38)
+        ret
+        END_FUNC(get_opmask_caller_saved)
 
 /* void hashlookup_null_handler(void)
  * PR 305731: if the app targets NULL, it ends up here, which indirects

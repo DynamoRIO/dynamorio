@@ -82,6 +82,17 @@ test_vector(void)
 
     ok = drvector_delete(&vec);
     CHECK(ok, "drvector_delete failed");
+
+    ok = drvector_init(&vec, 0, false /*!synch*/, NULL);
+    CHECK(ok, "drvector_init failed");
+
+    drvector_set_entry(&vec, 0, (void *)&vec);
+    CHECK(vec.entries == 1, "should add 1");
+    CHECK(drvector_get_entry(&vec, 0) == (void *)&vec, "entries not equal");
+    CHECK(vec.array[0] == (void *)&vec, "entries not equal");
+
+    ok = drvector_delete(&vec);
+    CHECK(ok, "drvector_delete failed");
 }
 
 unsigned int c;

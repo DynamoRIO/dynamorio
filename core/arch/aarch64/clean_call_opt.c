@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2019 Google, Inc. All rights reserved.
  * Copyright (c) 2016-2018 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -161,7 +162,7 @@ find_nzcv_spill_reg(callee_info_t *ci)
 {
     int i;
     reg_id_t spill_reg = DR_REG_INVALID;
-    for (i = NUM_GP_REGS - 2; i >= 0; i--) {
+    for (i = DR_NUM_GPR_REGS - 2; i >= 0; i--) {
         reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
         ASSERT(reg != DR_REG_XSP && "hit SP starting at x30");
         if (reg == ci->spill_reg || ci->reg_used[i])
@@ -178,17 +179,19 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 {
     instrlist_t *ilist = ci->ilist;
     instr_t *instr;
-    uint i, num_regparm;
+    int i, num_regparm;
 
     /* XXX implement bitset for optimisation */
-    memset(ci->reg_used, 0, sizeof(bool) * NUM_GP_REGS);
+    memset(ci->reg_used, 0, sizeof(bool) * DR_NUM_GPR_REGS);
     ci->num_simd_used = 0;
-    memset(ci->simd_used, 0, sizeof(bool) * NUM_SIMD_REGS);
+    /* num_opmask_used is not applicable to ARM/AArch64. */
+    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+    memset(ci->simd_used, 0, sizeof(bool) * proc_num_simd_registers());
     ci->write_flags = false;
 
     num_regparm = MIN(ci->num_args, NUM_REGPARM);
     for (i = 0; i < num_regparm; i++) {
-        reg_id_t reg = regparms[i];
+        reg_id_t reg = d_r_regparms[i];
         if (!ci->reg_used[reg - DR_REG_START_GPR]) {
             LOG(THREAD, LOG_CLEANCALL, 2,
                 "CLEANCALL: callee " PFX " uses REG %s for arg passing\n", ci->start,
@@ -201,7 +204,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
 
         /* General purpose registers */
-        for (i = 0; i < NUM_GP_REGS; i++) {
+        for (i = 0; i < DR_NUM_GPR_REGS; i++) {
             reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
             if (!ci->reg_used[i] && instr_uses_reg(instr, reg)) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
@@ -213,7 +216,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
         }
 
         /* SIMD register usage */
-        for (i = 0; i < NUM_SIMD_REGS; i++) {
+        for (i = 0; i < proc_num_simd_registers(); i++) {
             if (!ci->simd_used[i] && instr_uses_reg(instr, (DR_REG_Q0 + (reg_id_t)i))) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: callee " PFX " uses VREG%d at " PFX "\n", ci->start, i,
@@ -466,7 +469,8 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
 {
     callee_info_t *ci = cci->callee_info;
     /* Don't spill anything if we don't have to. */
-    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags && !ci->has_locals) {
+    if (cci->num_regs_skip == DR_NUM_GPR_REGS && cci->skip_save_flags &&
+        !ci->has_locals) {
         return;
     }
     /* Spill a register to TLS and point it at our unprotected_context_t.*/
@@ -495,7 +499,8 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
     callee_info_t *ci = cci->callee_info;
 
     /* Don't restore regs if we don't have to. */
-    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags && !ci->has_locals) {
+    if (cci->num_regs_skip == DR_NUM_GPR_REGS && cci->skip_save_flags &&
+        !ci->has_locals) {
         return;
     }
 
@@ -523,7 +528,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
                         instr_t *where, opnd_t *args)
 {
     callee_info_t *ci = cci->callee_info;
-    reg_id_t regparm = regparms[0];
+    reg_id_t regparm = d_r_regparms[0];
     opnd_t arg;
 
     if (cci->num_args == 0)
@@ -532,7 +537,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
     /* If the arg is un-referenced, don't set it up.  This is actually necessary
      * for correctness because we will not have spilled regparm[0].
      */
-    if (!ci->reg_used[regparms[0] - DR_REG_START_GPR]) {
+    if (!ci->reg_used[d_r_regparms[0] - DR_REG_START_GPR]) {
         LOG(THREAD, LOG_CLEANCALL, 2,
             "CLEANCALL: callee " PFX " doesn't read arg, skipping arg setup.\n",
             ci->start);

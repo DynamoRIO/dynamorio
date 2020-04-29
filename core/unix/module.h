@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -149,33 +149,6 @@ module_add_segment_data(OUT os_module_data_t *out_data, uint num_segments /*hint
                         app_pc segment_start, size_t segment_size, uint segment_prot,
                         size_t alignment, bool shared, uint64 offset);
 
-/* Redirected functions for loaded module,
- * they are also used by __wrap_* functions in instrument.c
- */
-
-void *
-redirect_calloc(size_t nmemb, size_t size);
-
-void *
-redirect_malloc(size_t size);
-
-void
-redirect_free(void *ptr);
-
-void *
-redirect_realloc(void *ptr, size_t size);
-
-#ifdef DEBUG
-void *
-redirect_malloc_initonly(size_t size);
-void *
-redirect_realloc_initonly(void *mem, size_t size);
-void *
-redirect_calloc_initonly(size_t nmemb, size_t size);
-void
-redirect_free_initonly(void *mem);
-#endif
-
 #if defined(MACOS) || defined(ANDROID)
 typedef FILE stdfile_t;
 #    define STDFILE_FILENO _file
@@ -195,11 +168,6 @@ get_private_library_address(app_pc modbase, const char *name);
 
 bool
 get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end);
-
-typedef byte *(*map_fn_t)(file_t f, size_t *size INOUT, uint64 offs, app_pc addr,
-                          uint prot /*MEMPROT_*/, map_flags_t map_flags);
-typedef bool (*unmap_fn_t)(byte *map, size_t size);
-typedef bool (*prot_fn_t)(byte *map, size_t size, uint prot /*MEMPROT_*/);
 
 #ifdef MACOS
 /* module_macho.c */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,10 +40,10 @@
 
 class cache_lru_t : public cache_t {
 protected:
-    virtual void
-    access_update(int line_idx, int way);
-    virtual int
-    replace_which_way(int line_idx);
+    void
+    access_update(int line_idx, int way) override;
+    int
+    replace_which_way(int line_idx) override;
 };
 
 #endif /* _CACHE_LRU_H_ */

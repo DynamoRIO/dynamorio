@@ -92,6 +92,11 @@ typedef struct _drcovlib_options_t {
      */
     const char *logdir;
     /**
+     * By default, log file names are prefixed with "drcov".  This option overrides
+     * that default.
+     */
+    const char *logprefix;
+    /**
      * This is an experimental option for running natively (i.e., not under
      * DynamoRIO control) until the nth thread, where n is the value of this
      * option, is created.  This option only works under Windows.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -112,6 +112,13 @@
 #endif
 /* DR_API EXPORT END */
 
+#ifdef DR_NO_FAST_IR
+#    undef DR_FAST_IR
+#    undef INSTR_INLINE
+#else
+#    define DR_FAST_IR 1
+#endif
+
 /* Internally, ensure these defines are set */
 #if defined(X86) && !defined(X64) && !defined(X86_32)
 #    define X86_32
@@ -187,7 +194,11 @@
 /* DR_API EXPORT END */
 /* DR_API EXPORT VERBATIM */
 #ifndef NULL
-#    define NULL (0)
+#    ifdef __cplusplus
+#        define NULL nullptr
+#    else
+#        define NULL ((void *)0)
+#    endif
 #endif
 
 /* on Windows where bool is char casting can truncate non-zero to zero
@@ -361,19 +372,18 @@ extern file_t our_stdin;
  */
 typedef uint client_id_t;
 
-#ifdef API_EXPORT_ONLY
-#    ifndef DR_FAST_IR
+#ifndef DR_FAST_IR
 /**
  * Internal structure of opnd_t is below abstraction layer.
  * But compiler needs to know field sizes to copy it around
  */
 typedef struct {
-#        ifdef X64
+#    ifdef X64
     uint black_box_uint;
     uint64 black_box_uint64;
-#        else
+#    else
     uint black_box_uint[3];
-#        endif
+#    endif
 } opnd_t;
 
 /**
@@ -382,19 +392,18 @@ typedef struct {
  * instead of always allocated on the heap.
  */
 typedef struct {
-#        ifdef X64
+#    ifdef X64
     uint black_box_uint[26];
-#        else
-    uint black_box_uint[16];
-#        endif
-} instr_t;
 #    else
+    uint black_box_uint[17];
+#    endif
+} instr_t;
+#else
 struct _opnd_t;
 typedef struct _opnd_t opnd_t;
 struct _instr_t;
 typedef struct _instr_t instr_t;
-#    endif /* !DR_FAST_IR */
-#endif     /* API_EXPORT_ONLY */
+#endif
 
 #ifndef IN
 #    define IN /* marks input param */
@@ -515,6 +524,14 @@ typedef struct _instr_t instr_t;
 #    define IF_MACOS(x)
 #    define IF_MACOS_ELSE(x, y) y
 #    define IF_MACOS_(x)
+#endif
+
+#ifdef MACOS64
+#    define IF_MACOS64(x) x
+#    define IF_MACOS64_ELSE(x, y) x
+#else
+#    define IF_MACOS64(x)
+#    define IF_MACOS64_ELSE(x, y) y
 #endif
 
 #ifdef HAVE_MEMINFO_QUERY
@@ -648,6 +665,12 @@ typedef struct _instr_t instr_t;
 #    define IF_UNIT_TEST_ELSE(x, y) y
 #endif
 
+#ifdef AUTOMATED_TESTING
+#    define IF_AUTOMATED_ELSE(x, y) x
+#else
+#    define IF_AUTOMATED_ELSE(x, y) y
+#endif
+
 /* DR_API EXPORT TOFILE dr_defines.h */
 /* DR_API EXPORT BEGIN */
 #ifdef X86
@@ -778,8 +801,12 @@ typedef enum {
     SYSLOG_WARNING = 0x2,
     SYSLOG_ERROR = 0x4,
     SYSLOG_CRITICAL = 0x8,
+    SYSLOG_VERBOSE = 0x10,
     SYSLOG_NONE = 0x0,
-    SYSLOG_ALL = (SYSLOG_INFORMATION | SYSLOG_WARNING | SYSLOG_ERROR | SYSLOG_CRITICAL),
+    SYSLOG_ALL_NOVERBOSE =
+        (SYSLOG_INFORMATION | SYSLOG_WARNING | SYSLOG_ERROR | SYSLOG_CRITICAL),
+    SYSLOG_ALL = (SYSLOG_VERBOSE | SYSLOG_INFORMATION | SYSLOG_WARNING | SYSLOG_ERROR |
+                  SYSLOG_CRITICAL),
 } syslog_event_type_t;
 
 #define DYNAMO_OPTION(opt) \
@@ -895,7 +922,7 @@ typedef uint64 timestamp_t;
  * that ignored defines are outermost */
 /* DR_API EXPORT BEGIN */
 #ifdef API_EXPORT_ONLY
-#    define PFX "0x" PFMT   /**< printf format code for pointers */
+#    define PFX "%p"        /**< printf format code for pointers */
 #    define PIFX "0x" PIFMT /**< printf format code for pointer-sized integers */
 #endif
 
@@ -917,6 +944,8 @@ typedef int stats_int_t;
 /* For printing pointers: we do not use %p as gcc prepends 0x and uses
  * lowercase while cl does not prepend, puts leading 0's, and uses uppercase.
  * Also, the C standard does not allow min width for %p.
+ * However, with our own d_r_vsnprintf, we are able to use %p and thus satisfy
+ * format string compiler warnings.
  * Two macros:
  * - PFMT == Pointer Format == with leading zeros
  * - PIFMT == Pointer Integer Format == no leading zeros
@@ -947,7 +976,7 @@ typedef int stats_int_t;
 #    define SSZFC "d"
 #endif
 #define L_PFMT L"%016" L_EXPAND_LEVEL(INT64_FORMAT) L"x"
-#define PFX "0x" PFMT
+#define PFX "%p"
 #define PIFX "0x" PIFMT
 
 /* DR_API EXPORT BEGIN */
@@ -1731,7 +1760,7 @@ typedef struct {
 /* These constants & macros are used by core, share and preinject, so this is
  * the only place they will build for win32 and linux! */
 /* return codes for [gs]et_parameter style functions
- * failure == 0 for compatibility with get_parameter()
+ * failure == 0 for compatibility with d_r_get_parameter()
  * if GET_PARAMETER_NOAPPSPECIFIC is returned, that means the
  *  parameter returned is from the global options, because there
  *  was no app-specific key present.
@@ -1817,6 +1846,26 @@ typedef union _dr_ymm_t {
     reg_t reg[IF_X64_ELSE(4, 8)]; /**< Representation as 4 or 8 registers. */
 } dr_ymm_t;
 
+/** 512-bit ZMM register. */
+typedef union _dr_zmm_t {
+#ifdef API_EXPORT_ONLY
+#    ifdef X64
+    uint64 u64[8]; /**< Representation as 8 64-bit integers. */
+#    endif
+#endif
+    uint u32[16];                  /**< Representation as 16 32-bit integers. */
+    byte u8[64];                   /**< Representation as 64 8-bit integers. */
+    reg_t reg[IF_X64_ELSE(8, 16)]; /**< Representation as 8 or 16 registers. */
+} dr_zmm_t;
+
+/** AVX-512 OpMask (k-)register. */
+#ifdef AVOID_API_EXPORT
+/* The register may be only 16 bits wide on systems without AVX512BW, but can be up to
+ * MAX_KL = 64 bits.
+ */
+#endif
+typedef uint64 dr_opmask_t;
+
 #if defined(AARCHXX)
 /**
  * 128-bit ARM SIMD Vn register.
@@ -1841,16 +1890,20 @@ typedef union _dr_simd_t {
 } dr_simd_t;
 #    endif
 #    ifdef X64
-#        define NUM_SIMD_SLOTS                                       \
+#        define MCXT_NUM_SIMD_SLOTS                                  \
             32 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
                 */
 #    else
-#        define NUM_SIMD_SLOTS                                       \
+#        define MCXT_NUM_SIMD_SLOTS                                  \
             16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
                 */
 #    endif
 #    define PRE_SIMD_PADDING                                       \
         0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots \
+           */
+#    define MCXT_NUM_OPMASK_SLOTS                                    \
+        0 /**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, \
+           * if architecture supports.                               \
            */
 
 #elif defined(X86)
@@ -1858,7 +1911,7 @@ typedef union _dr_simd_t {
 #    ifdef AVOID_API_EXPORT
 /* If this is increased, you'll probably need to increase the size of
  * inject_into_thread's buf and INTERCEPTION_CODE_SIZE (for Windows).
- * Also, update NUM_SIMD_SLOTS in x86.asm and get_xmm_caller_saved.
+ * Also, update MCXT_NUM_SIMD_SLOTS in x86.asm and get_xmm_caller_saved.
  * i#437: YMM is an extension of XMM from 128-bit to 256-bit without
  * adding new ones, so code operating on XMM often also operates on YMM,
  * and thus some *XMM* macros also apply to *YMM*.
@@ -1866,28 +1919,44 @@ typedef union _dr_simd_t {
 #    endif
 #    ifdef X64
 #        ifdef WINDOWS
-/*xmm0-5*/
-#            define NUM_SIMD_SLOTS 6 /**< Number of [xy]mm reg slots in dr_mcontext_t */
+/* TODO i#1312: support AVX-512 extended registers. */
+/**< Number of [xyz]mm0-5 reg slots in dr_mcontext_t pre AVX-512 in-use. */
+#            define MCXT_NUM_SIMD_SSE_AVX_SLOTS 6
+/**< Number of [xyz]mm0-5 reg slots in dr_mcontext_t */
+#            define MCXT_NUM_SIMD_SLOTS 6
 #        else
-/*xmm0-15*/
-#            define NUM_SIMD_SLOTS                                  \
-                16 /**< Number of [xy]mm reg slots in dr_mcontext_t \
-                    */
+/**< Number of [xyz]mm-15 reg slots in dr_mcontext_t pre AVX-512 in-use. */
+#            define MCXT_NUM_SIMD_SSE_AVX_SLOTS 16
+/**< Number of [xyz]mm0-31 reg slots in dr_mcontext_t */
+#            define MCXT_NUM_SIMD_SLOTS 32
 #        endif
-#        define PRE_XMM_PADDING \
-            16 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
+/**< Bytes of padding before simd dr_mcontext_t slots */
+#        define PRE_XMM_PADDING 48
 #    else
-/*xmm0-7*/
-#        define NUM_SIMD_SLOTS 8 /**< Number of [xy]mm reg slots in dr_mcontext_t */
-#        define PRE_XMM_PADDING \
-            24 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
+/**< Number of [xyz]mm0-7 reg slots in dr_mcontext_t pre AVX-512 in-use. */
+#        define MCXT_NUM_SIMD_SSE_AVX_SLOTS 8
+/**< Number of [xyz]mm0-7 reg slots in dr_mcontext_t */
+#        define MCXT_NUM_SIMD_SLOTS 8
+/**< Bytes of padding before simd dr_mcontext_t slots */
+#        define PRE_XMM_PADDING 24
 #    endif
-
-#    define NUM_XMM_SLOTS NUM_SIMD_SLOTS /* for backward compatibility */
-
+/**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, if architecture supports. */
+#    define MCXT_NUM_OPMASK_SLOTS 8
 #else
 #    error NYI
 #endif /* AARCHXX/X86 */
+
+#ifdef DR_NUM_SIMD_SLOTS_COMPATIBILITY
+
+#    undef NUM_SIMD_SLOTS
+/**
+ * Number of saved SIMD slots in dr_mcontext_t.
+ */
+#    define NUM_SIMD_SLOTS proc_num_simd_saved()
+
+#    define NUM_XMM_SLOTS NUM_SIMD_SLOTS /* for backward compatibility */
+
+#endif /* DR_NUM_SIMD_SLOTS_COMPATIBILITY */
 
 /** Values for the flags field of dr_mcontext_t */
 typedef enum {
@@ -1947,28 +2016,5 @@ typedef struct _dr_mcontext_t {
 typedef struct _priv_mcontext_t {
 #include "mcxtx.h"
 } priv_mcontext_t;
-
-/* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
- * libc routines invoked by DR in some Linux systems (xref i#139),
- * so they should be saved in 32-bit Linux.
- */
-/* Xref i#139:
- * XMM register preservation will cause extra runtime overhead.
- * We test it over 32-bit SPEC2006 on a 64-bit Debian Linux, which shows
- * that DR with xmm preservation adds negligible overhead over DR without
- * xmm preservation.
- * It means xmm preservation would have little performance impact over
- * DR base system. This is mainly because DR's own operations' overhead
- * is much higher than the context switch overhead.
- * However, if a program is running with a DR client which performs many
- * clean calls (one or more per basic block), xmm preservation may
- * have noticable impacts, i.e. pushing bbs over the max size limit,
- * and could have a noticeable performance hit.
- */
-/* We now save everything but we keep separate NUM_SIMD_SLOTS vs NUM_SIMD_SAVED
- * in case we go back to not saving some slots in the future: e.g., w/o
- * CLIENT_INTERFACE we could control our own libs enough to avoid some saves.
- */
-#define NUM_SIMD_SAVED NUM_SIMD_SLOTS
 
 #endif /* _GLOBALS_SHARED_H_ */

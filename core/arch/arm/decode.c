@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,6 @@
 #include "decode_private.h"
 #include "decode_fast.h" /* ensure we export decode_next_pc, decode_sizeof */
 #include "instr_create.h"
-#include <string.h> /* for memcpy */
 #include "disassemble.h"
 
 /* ARM decoder.
@@ -160,9 +159,6 @@ decode_in_it_block(decode_state_t *state, app_pc pc)
     return false;
 }
 
-/* With register lists we can see quite long operand lists */
-#define MAX_OPNDS IF_X64_ELSE(8, 33 /*vstm s0-s31*/)
-
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
@@ -171,7 +167,7 @@ is_isa_mode_legal(dr_isa_mode_t mode)
 
 /* We need to call canonicalize_pc_target() on all next_tag-writing
  * instances in initial takeover, signal handling, ibl, etc..
- * We can't put it in dispatch() b/c with our decision to store
+ * We can't put it in d_r_dispatch() b/c with our decision to store
  * tags and addresses as LSB=0, we can easily double-mode-switch.
  */
 app_pc
@@ -2427,8 +2423,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     decode_info_t di;
     byte *next_pc;
     uint num_dsts = 0, num_srcs = 0;
-    opnd_t dsts[MAX_OPNDS];
-    opnd_t srcs[MAX_OPNDS];
+    opnd_t dsts[MAX_DST_OPNDS];
+    opnd_t srcs[MAX_SRC_OPNDS];
 
     CLIENT_ASSERT(instr->opcode == OP_INVALID || instr->opcode == OP_UNDECODED,
                   "decode: instr is already decoded, may need to call instr_reset()");
@@ -2501,6 +2497,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     if (orig_pc != pc) {
         /* We do not want to copy when encoding and condone an invalid
          * relative target
+         * TODO i#4016: Add re-relativization support without having to re-encode.
          */
         instr_set_raw_bits_valid(instr, false);
         instr_set_translation(instr, orig_pc);
@@ -3049,6 +3046,7 @@ main()
 {
     bool res = true;
     standalone_init();
+    standalone_exit();
     return res;
 }
 

@@ -280,6 +280,15 @@
 #define __NR_userfaultfd 282
 #define __NR_membarrier 283
 #define __NR_mlock2 284
+#define __NR_copy_file_range 285
+#define __NR_preadv2 286
+#define __NR_pwritev2 287
+#define __NR_pkey_mprotect 288
+#define __NR_pkey_alloc 289
+#define __NR_pkey_free 290
+#define __NR_statx 291
+#define __NR_io_pgetevents 292
+#define __NR_rseq 293
 
 #define SYS_accept __NR_accept
 #define SYS_accept4 __NR_accept4
@@ -301,6 +310,7 @@
 #define SYS_clone __NR_clone
 #define SYS_close __NR_close
 #define SYS_connect __NR_connect
+#define SYS_copy_file_range __NR_copy_file_range
 #define SYS_delete_module __NR_delete_module
 #define SYS_dup __NR_dup
 #define SYS_dup3 __NR_dup3
@@ -370,6 +380,7 @@
 #define SYS_io_cancel __NR_io_cancel
 #define SYS_io_destroy __NR_io_destroy
 #define SYS_io_getevents __NR_io_getevents
+#define SYS_io_pgetevents __NR_io_pgetevents
 #define SYS_io_setup __NR_io_setup
 #define SYS_io_submit __NR_io_submit
 #define SYS_ioctl __NR_ioctl
@@ -427,10 +438,14 @@
 #define SYS_personality __NR_personality
 #define SYS_pipe2 __NR_pipe2
 #define SYS_pivot_root __NR_pivot_root
+#define SYS_pkey_alloc __NR_pkey_alloc
+#define SYS_pkey_free __NR_pkey_free
+#define SYS_pkey_mprotect __NR_pkey_mprotect
 #define SYS_ppoll __NR_ppoll
 #define SYS_prctl __NR_prctl
 #define SYS_pread64 __NR_pread64
 #define SYS_preadv __NR_preadv
+#define SYS_preadv2 __NR_preadv2
 #define SYS_prlimit64 __NR_prlimit64
 #define SYS_process_vm_readv __NR_process_vm_readv
 #define SYS_process_vm_writev __NR_process_vm_writev
@@ -438,6 +453,7 @@
 #define SYS_ptrace __NR_ptrace
 #define SYS_pwrite64 __NR_pwrite64
 #define SYS_pwritev __NR_pwritev
+#define SYS_pwritev2 __NR_pwritev2
 #define SYS_quotactl __NR_quotactl
 #define SYS_read __NR_read
 #define SYS_readahead __NR_readahead
@@ -453,6 +469,7 @@
 #define SYS_renameat2 __NR_renameat2
 #define SYS_request_key __NR_request_key
 #define SYS_restart_syscall __NR_restart_syscall
+#define SYS_rseq __NR_rseq
 #define SYS_rt_sigaction __NR_rt_sigaction
 #define SYS_rt_sigpending __NR_rt_sigpending
 #define SYS_rt_sigprocmask __NR_rt_sigprocmask
@@ -516,6 +533,7 @@
 #define SYS_socketpair __NR_socketpair
 #define SYS_splice __NR_splice
 #define SYS_statfs __NR_statfs
+#define SYS_statx __NR_statx
 #define SYS_swapoff __NR_swapoff
 #define SYS_swapon __NR_swapon
 #define SYS_symlinkat __NR_symlinkat

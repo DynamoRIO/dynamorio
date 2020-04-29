@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,6 @@
 #    include "os_exports.h" /* for detach_helper(), get_stack_bounds() */
 #    include "drmarker.h"
 #else
-#    include <string.h>
 #endif /* WINDOWS */
 
 #ifdef HOT_PATCHING_INTERFACE
@@ -158,11 +157,14 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
         ASSERT_OWN_NO_LOCKS();
 
 #    ifdef WINDOWS
-        /* if exiting the process, os_loader_exit will swap to app, and we want to
-         * remain private during exit (esp client exit)
+        /* We want to remain private during exit (esp client exit and loader_thread_exit
+         * calling privlib entries).  Thus we do *not* call swap_peb_pointer().
+         * For exit_process, os_loader_exit will swap to app.
+         * XXX: For thread exit: somebody should swap to app later: but
+         * os_thread_not_under_dynamo() doesn't seem to (unlike UNIX) (and if we
+         * change that we should call it *after* loader_thread_exit()!).
+         * It's not that important I guess: the thread is exiting.
          */
-        if (!exit_process && dcontext != NULL)
-            swap_peb_pointer(dcontext, false /*to app*/);
 #    endif
 
         /* if freeing the app stack we must be on the dstack when we cleanup */
@@ -176,7 +178,7 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
             }
             call_switch_stack(dcontext, dcontext->dstack,
                               (void (*)(void *))nudge_terminate_on_dstack,
-                              NULL /* not on initstack */, false /* don't return */);
+                              NULL /* not on d_r_initstack */, false /* don't return */);
         } else {
             /* Already on dstack or nudge creator will free app stack. */
             if (exit_process) {
@@ -210,10 +212,10 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
         swap_peb_pointer(dcontext, true /*to priv*/);
 #    endif
 
-    /* To be extra safe we use safe_read() to access the nudge argument, though once
+    /* To be extra safe we use d_r_safe_read() to access the nudge argument, though once
      * we get past the checks below we are trusting its content. */
     ASSERT(arg_dont_use != NULL && "invalid nudge argument");
-    if (!safe_read(arg_dont_use, sizeof(nudge_arg_t), &safe_arg)) {
+    if (!d_r_safe_read(arg_dont_use, sizeof(nudge_arg_t), &safe_arg)) {
         ASSERT(false && "invalid nudge argument");
         goto nudge_finished;
     }
@@ -250,7 +252,11 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
 
     /* Xref case 552, the nudge_target value provides a reasonable measure
      * of security against an attacker leveraging this routine. */
-    if (dcontext->nudge_target != (void *)generic_nudge_target) {
+    if (dcontext->nudge_target !=
+        (void *)generic_nudge_target
+            /* Allow a syscall for our test in debug build. */
+            IF_DEBUG(&&!check_filter("win32.tls.exe",
+                                     get_short_name(get_application_name())))) {
         /* FIXME - should we report this likely attempt to attack us? need
          * a unit test for this (though will then have to tone this down). */
         ASSERT(false && "unauthorized thread tried to nudge");
@@ -275,11 +281,9 @@ nudge_finished:
 #endif /* WINDOWS */
 
 /* This routine may not return */
-#ifdef WINDOWS
-static
-#endif
-    void
-    handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
+IF_WINDOWS(static)
+void
+handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
 {
     uint nudge_action_mask = arg->nudge_action_mask;
 
@@ -421,7 +425,7 @@ static
     if (TEST(NUDGE_GENERIC(reset), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(reset);
         if (DYNAMO_OPTION(enable_reset)) {
-            mutex_lock(&reset_pending_lock);
+            d_r_mutex_lock(&reset_pending_lock);
             /* fcache_reset_all_caches_proactively() will unlock */
             fcache_reset_all_caches_proactively(RESET_ALL);
             /* NOTE - reset is safe since we won't return to the code cache below (we

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,6 +52,7 @@ following sections:
  - \ref sec_translation
  - \ref sec_predication
  - \ref sec_ldrex
+ - \ref sec_rseq
  - \ref sec_pcache
  - \ref bt_examples
  - \ref sec_startstop
@@ -127,6 +128,9 @@ See \ref sec_decode for further information on creating instructions from
 scratch, decoding, encoding, and disassembling instructions.  Typically
 these instructions will be stored on the stack, using instr_init() and
 instr_free() or instr_reset(), as shown in that section.
+
+See \ref sec_IR_heap for further information on heap allocation for
+instructions and safely using instructions in signal handlers.
 
 \if level_of_detail
 ********************
@@ -688,6 +692,7 @@ instr_free(dcontext, &instr);
 DynamoRIO supports decoding multiple instruction set modes.
 See \ref sec_isa for full details.
 
+********************
 \subsection sec_InstrGen Instruction Generation
 
 Clients can construct instructions from scratch in two different ways:
@@ -712,7 +717,7 @@ sizes must match the templates that DynamoRIO uses.  The
 INSTR_CREATE_ macros in dr_ir_macros.h should be consulted to
 determine the order.
 
-
+********************
 \subsection sec_Encoding Encoding
 
 DynamoRIO's encoding routines take an instruction or list of
@@ -745,6 +750,31 @@ style is DynamoRIO's custom style, which lists all operands (both implicit
 and explicit).  The sources are listed first, followed by "->", and then
 the destinations.  This provides more information than any of the other
 formats.
+
+********************
+\subsection sec_IR_heap Instruction Heap Allocation
+
+DynamoRIO's IR is designed for efficiency and a small footprint.  By
+default, space for operands is dynamically allocated from the heap.
+This can be problematic when using instructions in fragile locations
+such as signal handlers.  DR provides a separate instruction structure
+for such situations: #instr_noalloc_t.  This structure contains
+built-in storage for all possible operand slots and for temporary
+encoding space, avoiding heap allocation when used for decoding or
+encoding.
+
+To use #instr_noalloc_t, declare it and then obtain a pointer to it
+as an #instr_t structure for use with API functions:
+
+\code
+instr_noalloc_t noalloc;
+instr_noalloc_init(dcontext, &noalloc);
+instr_t *instr = instr_from_noalloc(&noalloc);
+pc = decode(dcontext, ptr, instr);
+\endcode
+
+No freeing is required.  To re-use the same no-alloc structure,
+instr_reset() can be called on its #instr_t pointer.
 
 
 ***************************************************************************
@@ -1030,30 +1060,6 @@ added to the owning exit cti's.
 \endif
 
 
-\if prefixes
-********************
-\subsection sec_prefixes Prefixes
-
-Some code manipulations need to store a target address in a register and
-then jump there, but need the register to be restored as well.  DynamoRIO
-provides a single-instruction prefix that is placed on all fragments (basic
-blocks as well as traces) that restores ecx.  It is on traces for internal
-DynamoRIO use.  To have it added to basic blocks as well, call this routine
-during initialization:
-
-\code
-void dr_add_prefixes_to_basic_blocks();
-\endcode
-
-To have a cti target the prefix rather than the normal entry, use these set
-and get routines:
-
-\code
-bool instr_branch_targets_prefix(instr_t *instr);
-void instr_branch_set_prefix_target(instr_t *instr, bool val);
-\endcode
-\endif
-
 ***************************************************************************
 \htmlonly
 <table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
@@ -1282,6 +1288,65 @@ tries to turn a sequence of instructions containing an exclusive
 load/store pair into a macro-instruction, which prevents any loads and
 stores from being inserted, but also prevents any of the instructions
 involved from being instrumented.
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_rseq Restartable Sequence Instrumentation Constraints
+
+The Linux kernel supports special code regions called restartable
+sequences.  This "rseq" feature is challenging to support under
+instrumentation due to the tight restrictions on operations inside the
+sequence.  Instrumentation inserted in the sequence would need to be
+designed to be restartable as well, with a single commit point.  Meeting
+such requirements is unrealistic for most instrumentation.  Instead, DR
+provides a "run twice" solution where the sequence is first executed as
+regular code with regular instrumentation up to the commit point.  Then the
+sequence is restarted and executed without instrumentation to perform the
+commit.
+
+This run-twice approach is subject to the following limitations:
+
+- Only x86 is supported for now (no arm or aarch64 support yet).
+- The application must store an rseq_cs struct for each rseq region in a
+  section of its binary named "__rseq_cs", optionally with an "__rseq_cs_ptr_array"
+  section of pointers into the __rseq_cs section, per established conventions.
+  These sections must be located in loaded segments.
+- The application must use static thread-local storage for its struct rseq registrations.
+- The application must use the same signature for every rseq system call.
+- Each rseq region's code must never be also executed as a non-restartable sequence.
+- Each rseq region must handle being directly restarted without its
+  abort handler being called (with the machine state restored: though just the
+  general-purpose registers as described in the limitation below).
+- Each memory store instruction inside an rseq region must have no other side
+  effects: it must only write to memory and not to any registers.
+  For example, a push instruction which both writes to memory and the
+  stack pointer register is not supported.
+- Each rseq region's code must end with a fall-through (non-control-flow)
+  instruction.
+- Indirect branches that do not exit the rseq region are not allowed.
+- Each rseq region must be entered only from the top, with no branches from outside
+  the region targeting a point inside the region.
+- No system calls are allowed inside rseq regions.
+- No call instructions are allowed inside rseq regions.
+- The only register inputs to an rseq region, or registers written inside an rseq
+  region whose values are then read afterward, must be general-purpose registers.
+- The instrumented execution of the rseq region may not perfectly reflect
+  the native behavior of the application.  The instrumentation will never see
+  the abort handler called, and memory addresses may be wrong if they are based on
+  the underlying cpuid and a migration occurred mid-region.  These are minor and
+  acceptable for most tools (especially given that there is no better alternative).
+
+Some of these limitations are explicitly checked, and DR will exit with an error
+message if they are not met.  However, not all are efficiently verifiable.
+If an application does not satisfy these limitations, the \ref
+op_disable_rseq "disable_rseq" runtime option may be used to return ENOSYS,
+which can provide a workaround for applications which have fallback code
+for kernels where rseq is not supported.
 
 \ifnot vmsafe
 ***************************************************************************

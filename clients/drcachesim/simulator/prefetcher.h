@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -51,7 +51,7 @@ public:
     prefetch(caching_device_t *cache, const memref_t &memref);
 
 private:
-    int block_size;
+    int block_size_;
 };
 
 #endif /* _PREFETCHER_H_ */

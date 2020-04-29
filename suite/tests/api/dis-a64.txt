@@ -74,7 +74,7 @@
 0b9f13ff : add    wzr, wzr, wzr, asr #4   : add    %wzr %wzr asr $0x04 -> %wzr
 0c0007ff : st4    {v31.4h, v0.4h, v1.4h, v2.4h}, [sp]: st4    $0x01 %d31 %d0 %d1 %d2 -> (%sp)[32byte]
 0c0067ff : st1    {v31.4h, v0.4h, v1.4h}, [sp]: st1    $0x01 %d31 %d0 %d1 -> (%sp)[24byte]
-0c0077ff : st1    {v31.4h}, [sp]          : st1    $0x01 %d31 -> (%sp)[8byte]
+0c0077ff : st1    {v31.4h}, [sp]          : st1    %d31 $0x01 -> (%sp)[8byte]
 0c00a7ff : st1    {v31.4h, v0.4h}, [sp]   : st1    $0x01 %d31 %d0 -> (%sp)[16byte]
 0c4027ff : ld1    {v31.4h, v0.4h, v1.4h, v2.4h}, [sp]: ld1    (%sp)[32byte] $0x01 -> %d31 %d0 %d1 %d2
 0c4047ff : ld3    {v31.4h, v0.4h, v1.4h}, [sp]: ld3    (%sp)[24byte] $0x01 -> %d31 %d0 %d1
@@ -1765,6 +1765,12 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 0e33cfa7 : fmla v7.2s, v29.2s, v19.2s               : fmla   %d7 %d29 %d19 $0x02 -> %d7
 4e33cfa7 : fmla v7.4s, v29.4s, v19.4s               : fmla   %q7 %q29 %q19 $0x02 -> %q7
 4e73cfa7 : fmla v7.2d, v29.2d, v19.2d               : fmla   %q7 %q29 %q19 $0x03 -> %q7
+4fd11240 : fmla v0.2d, v18.2d, v17.d[0]             : fmla   %q0 %q18 %q17 $0x00 $0x03 -> %q0
+4fc4180b : fmla v11.2d, v0.2d, v4.d[1]              : fmla   %q11 %q0 %q4 $0x01 $0x03 -> %q11
+4f981382 : fmla v2.4s, v28.4s, v24.s[0]             : fmla   %q2 %q28 %q24 $0x00 $0x02 -> %q2
+4fb81343 : fmla v3.4s, v26.4s, v24.s[1]             : fmla   %q3 %q26 %q24 $0x01 $0x02 -> %q3
+4f981b88 : fmla v8.4s, v28.4s, v24.s[2]             : fmla   %q8 %q28 %q24 $0x02 $0x02 -> %q8
+4fb81b49 : fmla v9.4s, v26.4s, v24.s[3]             : fmla   %q9 %q26 %q24 $0x03 $0x02 -> %q9
 0e2bd56a : fadd v10.2s, v11.2s, v11.2s              : fadd   %d11 %d11 $0x02 -> %d10
 4e2bd56a : fadd v10.4s, v11.4s, v11.4s              : fadd   %q11 %q11 $0x02 -> %q10
 4e6bd56a : fadd v10.2d, v11.2d, v11.2d              : fadd   %q11 %q11 $0x03 -> %q10

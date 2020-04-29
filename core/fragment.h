@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -94,7 +94,15 @@
 #define FRAG_IS_EMPTY_SLOT 0x020000
 /* used by vmarea to distinguish fragment_t from its own multi unit struct */
 #define FRAG_IS_EXTRA_VMAREA 0x040000
+/* If FRAG_IS_EXTRA_VMAREA is set, this value indicates this flag: */
 #define FRAG_IS_EXTRA_VMAREA_INIT 0x080000
+#ifdef LINUX
+/* If FRAG_IS_EXTRA_VMAREA is not set, this value indicates this flag,
+ * which labels the fragment as containing rseq data whose lifetime should
+ * match the fragment.
+ */
+#    define FRAG_HAS_RSEQ_ENDPOINT 0x080000
+#endif
 
 #ifdef PROGRAM_SHEPHERDING
 /* indicates from memory that wasn't part of code from image on disk */

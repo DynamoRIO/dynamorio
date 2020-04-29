@@ -941,6 +941,6 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
     LOG(THREAD_GET, LOG_THREADS, 2,
         "thread " TIDFMT " segment change => app lib tls base: " PFX ", "
         "alt tls base: " PFX "\n",
-        get_thread_id(), os_tls->app_lib_tls_base, os_tls->app_alt_tls_base);
+        d_r_get_thread_id(), os_tls->app_lib_tls_base, os_tls->app_alt_tls_base);
 }
 #endif /* X64 */

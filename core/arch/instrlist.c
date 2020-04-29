@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,7 +42,6 @@
 #include "instr.h"
 #include "decode.h"
 #include "arch.h"
-#include <string.h>
 
 #if defined(DEBUG) && defined(CLIENT_INTERFACE)
 /* case 10450: give messages to clients */
@@ -218,6 +217,15 @@ instrlist_first_app(instrlist_t *ilist)
     return instr_get_next_app(first);
 }
 
+instr_t *
+instrlist_first_nonlabel(instrlist_t *ilist)
+{
+    instr_t *first = ilist->first;
+    while (first != NULL && instr_is_label(first))
+        first = instr_get_next(first);
+    return first;
+}
+
 /* returns the last inst in the list */
 instr_t *
 instrlist_last(instrlist_t *ilist)
@@ -234,6 +242,17 @@ instrlist_last_app(instrlist_t *ilist)
     if (instr_is_app(last))
         return last;
     return instr_get_prev_app(last);
+}
+
+void
+instrlist_cut(instrlist_t *ilist, instr_t *cut_point)
+{
+    CLIENT_ASSERT(cut_point != NULL, "instrlist_cut: instr cut point should not be NULL");
+    instr_t *last_instr = instr_get_prev(cut_point);
+    if (last_instr != NULL)
+        instr_set_next(last_instr, NULL);
+    instr_set_prev(cut_point, NULL);
+    ilist->last = last_instr;
 }
 
 static inline void

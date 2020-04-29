@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -38,8 +38,10 @@
 #include "os_private.h"
 #include "../utils.h"
 #include "instrument.h"
-#include <string.h>
 #include <stddef.h> /* offsetof */
+#ifdef LINUX
+#    include "rseq_linux.h"
+#endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
 #    undef LOG
@@ -52,13 +54,13 @@ extern vm_area_vector_t *loaded_module_areas;
 void
 os_modules_init(void)
 {
-    /* nothing */
+    /* Nothing. */
 }
 
 void
 os_modules_exit(void)
 {
-    /* nothing */
+    /* Nothing. */
 }
 
 /* view_size can be the size of the first mapping, to handle non-contiguous
@@ -193,9 +195,13 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
     if (ma->os_data.checksum == 0 &&
         (DYNAMO_OPTION(coarse_enable_freeze) || DYNAMO_OPTION(use_persisted))) {
         /* Use something so we have usable pcache names */
-        ma->os_data.checksum = crc32((const char *)ma->start, PAGE_SIZE);
+        ma->os_data.checksum = d_r_crc32((const char *)ma->start, PAGE_SIZE);
     }
     /* Timestamp we just leave as 0 */
+
+#    ifdef LINUX
+    rseq_module_init(ma, at_map);
+#    endif
 }
 
 void
@@ -467,11 +473,14 @@ module_add_segment_data(OUT os_module_data_t *out_data, uint num_segments /*hint
                         size_t alignment, bool shared, uint64 offset)
 {
     uint seg, i;
+    LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 3, "%s: #=%d " PFX "-" PFX " 0x%x\n",
+        __FUNCTION__, out_data->num_segments, segment_start, segment_start + segment_size,
+        segment_prot);
     if (out_data->alignment == 0) {
         out_data->alignment = alignment;
     } else {
-        /* We expect all segments to have the same alignment */
-        ASSERT_CURIOSITY(out_data->alignment == alignment);
+        /* We expect all segments to have the same alignment for ELF. */
+        IF_LINUX(ASSERT_CURIOSITY(out_data->alignment == alignment));
     }
     /* Add segments to the module vector (i#160/PR 562667).
      * For !HAVE_MEMINFO we should combine w/ the segment
@@ -509,10 +518,18 @@ module_add_segment_data(OUT os_module_data_t *out_data, uint num_segments /*hint
     }
     out_data->num_segments++;
     ASSERT(out_data->num_segments <= out_data->alloc_segments);
+#    ifdef MACOS
+    /* Some libraries have sub-page segments so do not page-align.  We assume
+     * these are already aligned.
+     */
+    out_data->segments[seg].start = segment_start;
+    out_data->segments[seg].end = segment_start + segment_size;
+#    else
     /* ELF requires p_vaddr to already be aligned to p_align */
     out_data->segments[seg].start = (app_pc)ALIGN_BACKWARD(segment_start, PAGE_SIZE);
     out_data->segments[seg].end =
         (app_pc)ALIGN_FORWARD(segment_start + segment_size, PAGE_SIZE);
+#    endif
     out_data->segments[seg].prot = segment_prot;
     out_data->segments[seg].shared = shared;
     out_data->segments[seg].offset = offset;
@@ -588,113 +605,6 @@ dr_module_import_iterator_stop(dr_module_import_iterator_t *iter)
 }
 #endif
 
-#ifndef NOT_DYNAMORIO_CORE_PROPER
-
-/* This routine allocates memory from DR's global memory pool.  Unlike
- * dr_global_alloc(), however, we store the size of the allocation in
- * the first few bytes so redirect_free() can retrieve it.
- */
-void *
-redirect_malloc(size_t size)
-{
-    void *mem;
-    ASSERT(sizeof(size_t) >= HEAP_ALIGNMENT);
-    size += sizeof(size_t);
-    mem = global_heap_alloc(size HEAPACCT(ACCT_LIBDUP));
-    if (mem == NULL) {
-        CLIENT_ASSERT(false, "malloc failed: out of memory");
-        return NULL;
-    }
-    *((size_t *)mem) = size;
-    return mem + sizeof(size_t);
-}
-
-/* This routine allocates memory from DR's global memory pool. Unlike
- * dr_global_alloc(), however, we store the size of the allocation in
- * the first few bytes so redirect_free() can retrieve it.
- */
-void *
-redirect_realloc(void *mem, size_t size)
-{
-    void *buf = NULL;
-    if (size > 0) {
-        buf = redirect_malloc(size);
-        if (buf != NULL && mem != NULL) {
-            size_t old_size = *((size_t *)(mem - sizeof(size_t)));
-            size_t min_size = MIN(old_size, size);
-            memcpy(buf, mem, min_size);
-        }
-    }
-    redirect_free(mem);
-    return buf;
-}
-
-/* This routine allocates memory from DR's global memory pool.
- * It uses redirect_malloc to get the memory and then set to all 0.
- */
-void *
-redirect_calloc(size_t nmemb, size_t size)
-{
-    void *buf = NULL;
-    size = size * nmemb;
-
-    buf = redirect_malloc(size);
-    if (buf != NULL)
-        memset(buf, 0, size);
-    return buf;
-}
-
-/* This routine frees memory allocated by redirect_malloc and expects the
- * allocation size to be available in the few bytes before 'mem'.
- */
-void
-redirect_free(void *mem)
-{
-    /* PR 200203: leave_call_native() is assuming this routine calls
-     * no other DR routines besides global_heap_free!
-     */
-    if (mem != NULL) {
-        mem -= sizeof(size_t);
-        global_heap_free(mem, *((size_t *)mem)HEAPACCT(ACCT_LIBDUP));
-    }
-}
-
-#    ifdef DEBUG
-/* i#975: these help clients support static linking with the app. */
-void *
-redirect_malloc_initonly(size_t size)
-{
-    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
-                  "malloc invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
-    return redirect_malloc(size);
-}
-
-void *
-redirect_realloc_initonly(void *mem, size_t size)
-{
-    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
-                  "realloc invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
-    return redirect_realloc(mem, size);
-}
-
-void *
-redirect_calloc_initonly(size_t nmemb, size_t size)
-{
-    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
-                  "calloc invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
-    return redirect_calloc(nmemb, size);
-}
-
-void
-redirect_free_initonly(void *mem)
-{
-    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
-                  "free invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
-    redirect_free(mem);
-}
-#    endif
-#endif /* !NOT_DYNAMORIO_CORE_PROPER */
-
 bool
 at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret_imm)
 {
@@ -738,13 +648,13 @@ at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret
     byte buf[MAX(sizeof(DL_RUNTIME_RESOLVE_MAGIC_1),
                  sizeof(DL_RUNTIME_RESOLVE_MAGIC_2))] = { 0 };
 
-    if (safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1), buf) &&
+    if (d_r_safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1), buf) &&
         memcmp(buf, DL_RUNTIME_RESOLVE_MAGIC_1, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1)) ==
             0) {
         *ret_imm = 0x8;
         return true;
     }
-    if (safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2), buf) &&
+    if (d_r_safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2), buf) &&
         memcmp(buf, DL_RUNTIME_RESOLVE_MAGIC_2, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2)) ==
             0) {
         LOG(THREAD, LOG_INTERP, 1,

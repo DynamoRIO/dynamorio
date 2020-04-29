@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -116,11 +116,11 @@ public:
 
 private:
 #ifdef WINDOWS
-    HANDLE fd;
+    HANDLE fd_;
 #else
-    int fd;
+    int fd_;
 #endif
-    std::string pipe_name;
+    std::string pipe_name_;
 };
 
 #endif /* _NAMED_PIPE_H_ */

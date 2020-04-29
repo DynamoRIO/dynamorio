@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -893,5 +893,6 @@ main(int argc, char *argv[])
     }
 
     load_and_analyze(dcontext, dll);
+    dr_standalone_exit();
     return 0;
 }

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -73,8 +73,8 @@ init_android_version(void)
     uint read_ver = 0;
     if (fd != INVALID_FILE) {
         size_t sz = PAGE_SIZE;
-        byte *map = map_file(fd, &sz, 0, NULL, MEMPROT_READ | MEMPROT_WRITE,
-                             MAP_FILE_COPY_ON_WRITE);
+        byte *map = d_r_map_file(fd, &sz, 0, NULL, MEMPROT_READ | MEMPROT_WRITE,
+                                 MAP_FILE_COPY_ON_WRITE);
         if (map != NULL) {
             const char *prop;
             *(map + sz - 1) = '\0'; /* ensure our strstr stops */
@@ -83,7 +83,7 @@ init_android_version(void)
                 if (sscanf(prop + strlen(VER_PROP), "%d", &read_ver) == 1)
                     android_version = read_ver;
             }
-            unmap_file(map, sz);
+            d_r_unmap_file(map, sz);
         }
     }
     LOG(GLOBAL, LOG_LOADER, 1, "Android version %s is %d\n",
@@ -183,7 +183,7 @@ privload_tls_init(void *app_tls)
         }
     } else {
         res = heap_mmap(ALIGN_FORWARD(size_of_pthread_internal(), PAGE_SIZE),
-                        VMM_SPECIAL_MMAP);
+                        MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
         LOG(GLOBAL, LOG_LOADER, 2,
             "%s: allocated new TLS at " PFX "; copying from " PFX "\n", __FUNCTION__, res,
             app_tls);
@@ -194,7 +194,7 @@ privload_tls_init(void *app_tls)
             thrd = (android_v5_pthread_internal_t *)res;
             thrd->tls[ANDROID_TLS_SLOT_SELF] = thrd->tls;
             thrd->tls[ANDROID_TLS_SLOT_THREAD_ID] = thrd;
-            thrd->tid = get_thread_id();
+            thrd->tid = d_r_get_thread_id();
             thrd->dr_tls_base = NULL;
             res = thrd->tls[ANDROID_TLS_SLOT_SELF];
             LOG(GLOBAL, LOG_LOADER, 2, "%s: TLS set to " PFX "\n", __FUNCTION__,
@@ -204,7 +204,7 @@ privload_tls_init(void *app_tls)
             thrd = (android_v6_pthread_internal_t *)res;
             thrd->tls[ANDROID_TLS_SLOT_SELF] = thrd->tls;
             thrd->tls[ANDROID_TLS_SLOT_THREAD_ID] = thrd;
-            thrd->tid = get_thread_id();
+            thrd->tid = d_r_get_thread_id();
             thrd->dr_tls_base = NULL;
             res = thrd->tls[ANDROID_TLS_SLOT_SELF];
             LOG(GLOBAL, LOG_LOADER, 2, "%s: TLS set to " PFX "\n", __FUNCTION__,

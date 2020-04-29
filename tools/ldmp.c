@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -284,7 +284,7 @@ query_process_info(HANDLE h, PROCESS_BASIC_INFORMATION *info)
 }
 
 static bool
-set_win32_start_addr(HANDLE h, uint *start_addr)
+set_win32_start_addr(HANDLE h, void **start_addr)
 {
     NTSTATUS res;
     GET_NTDLL(NtSetInformationThread,
@@ -395,8 +395,8 @@ prot_string(DWORD prot)
 void
 dump_mbi(MEMORY_BASIC_INFORMATION *mbi)
 {
-    PRINT("BaseAddress:       %08x\n"
-          "AllocationBase:    %08x\n"
+    PRINT("BaseAddress:       %p\n"
+          "AllocationBase:    %p\n"
           "AllocationProtect: %08x %s\n"
           "RegionSize:        %08x\n"
           "State:             %08x %s\n"
@@ -486,7 +486,7 @@ read_mbi(FILE *file, MEMORY_BASIC_INFORMATION *mbi)
     char dummy_buf[128];
     memset(mbi, 0, sizeof(MEMORY_BASIC_INFORMATION));
     res = fscanf(file,
-                 "\nBaseAddress=0x%08x\nAllocationBase=0x%08x\n"
+                 "\nBaseAddress=%p\nAllocationBase=%p\n"
                  "AllocationProtect=0x%08x %*s\nRegionSize=0x%08x\n"
                  "State=0x%08x %*s\nProtect=0x%08x %*s\n",
                  &(mbi->BaseAddress), &(mbi->AllocationBase), &(mbi->AllocationProtect),
@@ -631,9 +631,9 @@ read_threads(FILE *file, bool create, HANDLE hProc)
         uint word1, word2;
         char line[64];
         long pos;
-        uint win32_start_addr = 0;
+        void *win32_start_addr = 0;
 
-        res = fscanf(file, "TEB=0x%08x\n", &teb);
+        res = fscanf(file, "TEB=%p\n", &teb);
         assert(res == 1);
 
         res = fscanf(file, "HandleRights=0x%08x\n", &handle_rights);
@@ -671,12 +671,12 @@ read_threads(FILE *file, bool create, HANDLE hProc)
 
             /* look for the win32 start address */
             pos = ftell(file);
-            res = fscanf(file, "Win32StartAddr=0x%08x\n", &win32_start_addr);
+            res = fscanf(file, "Win32StartAddr=%p\n", &win32_start_addr);
             if (res != 1) {
                 /* set start addr to 0 so we know right away if the thread
                  * doesn't have a start address in the ldmp.
                  */
-                win32_start_addr = 0;
+                win32_start_addr = NULL;
 
                 /* put file position back a line */
                 fseek(file, pos, SEEK_SET);
@@ -715,8 +715,8 @@ read_threads(FILE *file, bool create, HANDLE hProc)
             assert(res);
             new_id = (uint)thread_info.ClientId.UniqueThread;
             INFO(1,
-                 "created thread tid=0x%04x with TEB=0x%08x original tid=0x%04x with "
-                 "TEB=0x%08x\n",
+                 "created thread tid=0x%04x with TEB=%p original tid=0x%04x with "
+                 "TEB=%p\n",
                  new_id, thread_info.TebBaseAddress, thread_id, teb);
             if (valid_selectors) {
                 INFO(1, "\tcs=%04x ss=%04x ds=%04x es=%04x fs=%04x gs=%04x\n", Cs, Ss, Ds,
@@ -827,7 +827,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
 
             /* we can't handle write copy flag! remove it */
             allocation_protect = remove_writecopy(allocation_protect);
-            INFO(2, "allocation base = 0x%08x, protect = 0x%08x\n", allocation_base,
+            INFO(2, "allocation base = %p, protect = 0x%08x\n", allocation_base,
                  allocation_protect);
 
             do {
@@ -882,7 +882,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                     /* probably a TEB for a thread that wasn't in the all
                      * threads list at time of ldmp */
                     WARN("Probable TEB for unknown thread region (or x64 PEB/TEB?) "
-                         "addr 0x%08x size 0x%08x\n",
+                         "addr %p size 0x%08x\n",
                          allocation_base, allocation_size);
                 }
                 target = allocation_base;
@@ -897,7 +897,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                         MEMORY_COMMIT);
                 }
                 if (!res) {
-                    WARN("ERROR: unable to allocate memory at 0x%08x size 0x%08x, "
+                    WARN("ERROR: unable to allocate memory at %p size 0x%08x, "
                          "SKIPPING\n",
                          allocation_base, allocation_size);
                     res = fsetpos(file, &last_mbi_pos);
@@ -907,14 +907,14 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
 
                 assert(target != NULL);
                 if (target != allocation_base) {
-                    WARN("ERROR: unable to allocate memory at 0x%08x size 0x%08x\n\t "
-                         "will be copied to 0x%08x instead\n",
+                    WARN("ERROR: unable to allocate memory at %p size 0x%08x\n\t "
+                         "will be copied to %p instead\n",
                          allocation_base, allocation_size, target);
                 }
-                INFO(2, "target = 0x%08x, base = 0x%08x\n", target, allocation_base);
+                INFO(2, "target = %p, base = %p\n", target, allocation_base);
             }
             INFO(2, "size=0x%08x\n", allocation_size);
-            INFO(2, "target=0x%08x\n", target);
+            INFO(2, "target=%p\n", target);
 
             /* reset file pointer */
             res = fsetpos(file, &pos);
@@ -1022,7 +1022,7 @@ DWORD __cdecl main(DWORD argc, char *argv[], char *envp[])
     PROCESS_BASIC_INFORMATION info;
     MEMORY_BASIC_INFORMATION mbi;
     char *pb;
-    uint drbase = 0;
+    void *drbase = 0;
 
     DWORD res;
     fpos_t thread_start_pos;
@@ -1060,7 +1060,7 @@ DWORD __cdecl main(DWORD argc, char *argv[], char *envp[])
     }
 
     /* read peb (& message if there is one) */
-    res = fscanf(file, "PEB=0x%08x\n", &pb);
+    res = fscanf(file, "PEB=%p\n", &pb);
     if (res != 1) {
         uint length = 0;
         /* newer format, starts with a message prefaced with number of bytes
@@ -1085,22 +1085,22 @@ DWORD __cdecl main(DWORD argc, char *argv[], char *envp[])
              "\n**************************************************\n"
              "Message:\n%s\n**************************************************\n",
              buf);
-        res = fscanf(file, "PEB=0x%08x\n", &pb);
+        res = fscanf(file, "PEB=%p\n", &pb);
     }
     assert(res == 1);
     res = query_process_info(hProc, &info);
     assert(res);
-    INFO(1, "\ncreated dummy process pid=%d with PEB=0x%08x original PEB=0x%08x\n",
+    INFO(1, "\ncreated dummy process pid=%d with PEB=%p original PEB=%p\n",
          info.UniqueProcessId, info.PebBaseAddress, pb);
 
     /* read dynamorio.dll base, present only in format after case 5366 */
-    if (fscanf(file, "dynamorio.dll=0x%08x\n", &drbase) == 1) {
+    if (fscanf(file, "dynamorio.dll=%p\n", &drbase) == 1) {
         /* for custom scripting */
-        INFO(1, "\ndynamorio.dll=0x%08x\n", drbase);
+        INFO(1, "\ndynamorio.dll=%p\n", drbase);
         /* or more likely */
         INFO(1,
              "\nRun this command, or attach non-invasively from an existing windbg:\n"
-             "windbg -pv -p %d -c '.reload dynamorio.dll=0x%08x'\n\n",
+             "windbg -pv -p %d -c '.reload dynamorio.dll=%p'\n\n",
              info.UniqueProcessId, drbase);
     }
 
@@ -1135,10 +1135,10 @@ DWORD __cdecl main(DWORD argc, char *argv[], char *envp[])
                     }
                     pb += mbi.RegionSize;
                 } else {
-                    INFO(2, "unmapped allocation at 0x%08x\n", mbi.AllocationBase);
+                    INFO(2, "unmapped allocation at %p\n", mbi.AllocationBase);
                 }
             } else {
-                INFO(2, "freed memory at 0x%08x\n", mbi.AllocationBase);
+                INFO(2, "freed memory at %p\n", mbi.AllocationBase);
             }
         }
     }
@@ -1167,7 +1167,7 @@ DWORD __cdecl main(DWORD argc, char *argv[], char *envp[])
     if (!reached_vsyscall_page) {
         WARN("ERROR: failed to reach shared_user_data/vsyscall page, ldmp likely "
              "truncated.\n"
-             "       Memory above 0x%08x is likely unavailable or incorrect.\n\n",
+             "       Memory above %p is likely unavailable or incorrect.\n\n",
              highest_address_copied);
     }
 

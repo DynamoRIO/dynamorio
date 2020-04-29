@@ -58,11 +58,65 @@
 /* for inserting an app instruction, which must have a translation ("xl8") field */
 #define PREXL8 instrlist_preinsert
 
+#ifdef X86
+static uint drutil_xsave_area_size;
+#endif
+
 /***************************************************************************
  * INIT
  */
 
 static int drutil_init_count;
+
+#ifdef X86
+
+static inline void
+native_unix_cpuid(uint *eax, uint *ebx, uint *ecx, uint *edx)
+{
+#    ifdef UNIX
+    /* We need to do this xbx trick, because xbx might be used for fPIC,
+     * and gcc < 5 chokes on it. This can get removed and replaced by
+     * a "=b" constraint when moving to gcc-5.
+     */
+#        ifdef X64
+    /* In 64-bit, we are getting a 64-bit pointer (xref i#3478). */
+    asm volatile("xchgq\t%%rbx, %q1\n\t"
+                 "cpuid\n\t"
+                 "xchgq\t%%rbx, %q1\n\t"
+                 : "=a"(*eax), "=&r"(*ebx), "=c"(*ecx), "=d"(*edx)
+                 : "0"(*eax), "2"(*ecx));
+#        else
+    asm volatile("xchgl\t%%ebx, %k1\n\t"
+                 "cpuid\n\t"
+                 "xchgl\t%%ebx, %k1\n\t"
+                 : "=a"(*eax), "=&r"(*ebx), "=c"(*ecx), "=d"(*edx)
+                 : "0"(*eax), "2"(*ecx));
+#        endif
+#    endif
+}
+
+static inline void
+cpuid(uint op, uint subop, uint *eax, uint *ebx, uint *ecx, uint *edx)
+{
+#    ifdef WINDOWS
+    int output[4];
+    __cpuidex(output, op, subop);
+    /* XXX i#3469: On a Windows laptop, I inspected this and it returned 1088
+     * bytes, which is a rather unexpected number. Investigate whether this is
+     * correct.
+     */
+    *eax = output[0];
+    *ebx = output[1];
+    *ecx = output[2];
+    *edx = output[3];
+#    else
+    *eax = op;
+    *ecx = subop;
+    native_unix_cpuid(eax, ebx, ecx, edx);
+#    endif
+}
+
+#endif
 
 DR_EXPORT
 bool
@@ -72,6 +126,15 @@ drutil_init(void)
     int count = dr_atomic_add32_return_sum(&drutil_init_count, 1);
     if (count > 1)
         return true;
+
+#ifdef X86
+    /* XXX: we may want to re-factor and move functions like this into drx and/or
+     * using pre-existing versions in clients/drcpusim/tests/cpuid.c.
+     */
+    uint eax, ecx, edx;
+    const int proc_ext_state_main_leaf = 0xd;
+    cpuid(proc_ext_state_main_leaf, 0, &eax, &drutil_xsave_area_size, &ecx, &edx);
+#endif
 
     /* nothing yet: but putting in API up front in case need later */
 
@@ -439,6 +502,17 @@ drutil_opnd_mem_size_in_bytes(opnd_t memref, instr_t *inst)
         uint sz = opnd_size_in_bytes(opnd_get_size(instr_get_dst(inst, 1)));
         ASSERT(opnd_is_immed_int(instr_get_src(inst, 1)), "malformed OP_enter");
         return sz * extra_pushes;
+    } else if (inst != NULL && instr_is_xsave(inst)) {
+        /* See the doxygen docs. */
+        switch (instr_get_opcode(inst)) {
+        case OP_xsave32:
+        case OP_xsave64:
+        case OP_xsaveopt32:
+        case OP_xsaveopt64:
+        case OP_xsavec32:
+        case OP_xsavec64: return drutil_xsave_area_size; break;
+        default: ASSERT(false, "unknown xsave opcode"); return 0;
+        }
     } else
 #endif /* X86 */
         return opnd_size_in_bytes(opnd_get_size(memref));

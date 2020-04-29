@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -497,6 +497,16 @@ drfront_dir_exists(const char *path, OUT bool *is_dir);
  */
 drfront_status_t
 drfront_dir_try_writable(const char *path, OUT bool *is_writable);
+
+/**
+ * Sets the verbosity level for additional diagnostics from the drfrontendlib
+ * library.  The default level is 0 which is quiet.  Diagnostics are printed
+ * to stderr.
+ *
+ * @param[in] verbosity  The new verbosity level.  Typical values are 0 through 3.
+ */
+drfront_status_t
+drfront_set_verbose(int verbosity);
 
 #ifdef __cplusplus
 }

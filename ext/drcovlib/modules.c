@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -595,7 +595,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                         OUT void **handle, OUT uint *num_mods)
 {
     module_read_info_t *info = NULL;
-    uint i;
+    uint i, mods_parsed = 0;
     uint64 file_size;
     size_t map_size = 0;
     const char *buf, *map_start;
@@ -644,6 +644,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
     info->mod = (module_read_entry_t *)dr_global_alloc(*num_mods * sizeof(*info->mod));
 
     /* module lists */
+    mods_parsed = 0;
     for (i = 0; i < *num_mods; i++) {
         uint mod_id;
         if (version == 1) {
@@ -692,6 +693,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                 buf = module_parse_cb(buf, &info->mod[i].custom);
             if (buf == NULL)
                 goto read_error;
+            ++mods_parsed;
             info->mod[i].path = info->mod[i].path_buf;
             if (dr_sscanf(buf, " %[^\n\r]", info->mod[i].path) != 1)
                 goto read_error;
@@ -706,6 +708,10 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
     return DRCOVLIB_SUCCESS;
 
 read_error:
+    if (module_free_cb != NULL) {
+        for (i = 0; i < mods_parsed; i++)
+            module_free_cb(info->mod[i].custom);
+    }
     if (info != NULL) {
         dr_global_free(info->mod, *num_mods * sizeof(*info->mod));
         dr_global_free(info, sizeof(*info));
