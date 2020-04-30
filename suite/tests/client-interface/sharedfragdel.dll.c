@@ -40,9 +40,8 @@ delete_fragment(app_pc tag, app_pc pc)
 {
     if (step1_pc == NULL) {
 
-        bool succ = dr_delete_shared_fragment(tag);
+        bool succ = dr_unlink_flush_fragment(tag);
         if (succ) {
-
             dr_mcontext_t mcontext = {
                 sizeof(mcontext),
                 DR_MC_ALL,

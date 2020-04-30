@@ -127,6 +127,8 @@ fcache_remove_fragment(dcontext_t *dcontext, fragment_t *f);
 bool
 fcache_is_flush_pending(dcontext_t *dcontext);
 bool
+fcache_flush_fragment(dcontext_t *dcontext, app_pc tag);
+bool
 fcache_flush_pending_units(dcontext_t *dcontext, fragment_t *was_I_flushed);
 void
 fcache_free_pending_units(dcontext_t *dcontext, uint flushtime);
