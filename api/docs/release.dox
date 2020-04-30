@@ -145,7 +145,7 @@ compatibility changes:
 
 Further non-compatibility-affecting changes include:
 
- - Added dr_delete_shared_fragment() enabling the deletion of a specific shared fragment.
+ - Added dr_unlink_flush_fragment() enabling the deletion of a specific shared fragment.
 
 **************************************************
 <hr>

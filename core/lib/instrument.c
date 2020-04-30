@@ -7197,8 +7197,8 @@ dr_unlink_flush_region(app_pc start, size_t size)
 
 DR_API
 /* Schedules a shared fragment to be deleted. User must redirect control upon return
- * using \p dr_redirect_execution() similar to what one would do when using
- * \p dr_flush_region().
+ * using \p dr_redirect_execution(), if called from a clean call, similar to what one
+ * would do when using \p dr_flush_region().
  *
  * In particular, the function syncs threads to a safe point
  * before the fragment is deleted. Once deleted, no threads

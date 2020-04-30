@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,13 +32,18 @@
 
 #include "dr_api.h"
 
-static app_pc step1_pc = NULL;
-static app_pc step2_pc = NULL;
+/* Tests the deletion of a single fragment. We assume a single threaded app.
+ * Upon fragment deletion, execution is redirected to the same code again,
+ * which in turn should reconstruct the same fragment which was just flushed.
+ */
+
+static app_pc deleted_fragment_start_pc = NULL;
+static app_pc bb_event_after_delete_start_pc = NULL;
 
 void
 delete_fragment(app_pc tag, app_pc pc)
 {
-    if (step1_pc == NULL) {
+    if (deleted_fragment_start_pc == NULL) {
 
         bool succ = dr_unlink_flush_fragment(tag);
         if (succ) {
@@ -49,16 +54,26 @@ delete_fragment(app_pc tag, app_pc pc)
             dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
 
             mcontext.pc = pc;
-            step1_pc = pc;
+            /* This is the first step of the test. The test sets the PC of
+             * the deleted fragment and redirects execution. The next bb event should
+             * be for the same code.
+             */
+            deleted_fragment_start_pc = pc;
             dr_redirect_execution(&mcontext);
         }
     } else {
-        if (step2_pc != pc) {
+        /* This is the second step of the test. At this point,
+         * bb_event_after_delete_start_pc should be set to the same pc of the
+         * fragment that was deleted.
+         */
+        if (bb_event_after_delete_start_pc != pc) {
             dr_fprintf(STDERR, "error: Tag mismatch - step 2\n");
             DR_ASSERT(false);
         }
-        step1_pc = NULL;
-        step2_pc = NULL;
+
+        /* Re-initialize globals to test fragment deletion for the next bb. */
+        deleted_fragment_start_pc = NULL;
+        bb_event_after_delete_start_pc = NULL;
     }
 }
 
@@ -69,11 +84,15 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 
     app_pc pc = instr_get_app_pc(instr);
 
-    if (step1_pc != NULL) {
-        DR_ASSERT(step2_pc == NULL);
-        if (step1_pc != pc)
+    if (deleted_fragment_start_pc != NULL) {
+        if (bb_event_after_delete_start_pc != NULL)
+            dr_fprintf(STDERR, "error: should not be set.\n");
+
+        /* If deleted_fragment_start_pc was set, then this bb event should capture the
+         * reconstruction of the same bb. */
+        if (deleted_fragment_start_pc != pc)
             dr_fprintf(STDERR, "error: Tag mismatch - step 1\n");
-        step2_pc = step1_pc;
+        bb_event_after_delete_start_pc = deleted_fragment_start_pc;
     }
 
     dr_insert_clean_call(drcontext, bb, instr, delete_fragment, false, 2,
