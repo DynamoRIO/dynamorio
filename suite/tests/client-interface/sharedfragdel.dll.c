@@ -47,10 +47,9 @@ delete_fragment(app_pc tag, app_pc pc)
 
         bool succ = dr_unlink_flush_fragment(tag);
         if (succ) {
-            dr_mcontext_t mcontext = {
-                sizeof(mcontext),
-                DR_MC_ALL,
-            };
+            dr_mcontext_t mcontext;
+            mcontext.size = sizeof(mcontext);
+            mcontext.flags = DR_MC_ALL;
             dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
 
             mcontext.pc = pc;
