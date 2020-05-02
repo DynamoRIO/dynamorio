@@ -658,23 +658,19 @@ drmgr_init_opcode_hashtable(hashtable_t *opcode_instrum_table)
 static cb_list_t *
 drmgr_get_opcode_cb_list(hashtable_t *opcode_instrum_table, int opcode, OUT bool *is_new)
 {
-    cb_list_t *opcode_cb_list =
-        hashtable_lookup(opcode_instrum_table, (void *)(intptr_t)opcode);
-
     if (is_new != NULL)
         *is_new = false;
 
+    cb_list_t *opcode_cb_list =
+        hashtable_lookup(opcode_instrum_table, (void *)(intptr_t)opcode);
     if (opcode_cb_list == NULL) {
         opcode_cb_list = dr_global_alloc(sizeof(cb_list_t));
         cblist_init(opcode_cb_list, sizeof(generic_event_entry_t));
-        bool succ =
-            hashtable_add(opcode_instrum_table, (void *)(intptr_t)opcode, opcode_cb_list);
-        ASSERT(succ, "new opcode list should be added");
+        hashtable_add(opcode_instrum_table, (void *)(intptr_t)opcode, opcode_cb_list);
 
         if (is_new != NULL)
             *is_new = true;
     }
-
     return opcode_cb_list;
 }
 
@@ -715,7 +711,13 @@ drmgr_set_up_local_opcode_table(IN instrlist_t *bb, IN cb_list_t *insert_list,
     }
 
     /* Since both opcode and insert events are handled during stage 3, they need to be
-     * jointly organized according to their priorities.
+     * jointly organized according to their priorities. This is done now.
+     *
+     * One approach that was avoided is to do the merging upon registration of opcode
+     * events, and updating all mapped cb lists of opcodes when further bb insert events
+     * are registered/unregistered. However, in order to avoid races, this would require
+     * the dr bb event processed by drmgr to create a local copy of the entire opcode
+     * table every time.
      */
     dr_rwlock_read_lock(bb_cb_lock);
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
@@ -729,7 +731,6 @@ drmgr_set_up_local_opcode_table(IN instrlist_t *bb, IN cb_list_t *insert_list,
         if (opcode_cb_list != NULL && opcode_cb_list->num_valid != 0) {
             cb_list_t *local_opcode_cb_list =
                 drmgr_get_opcode_cb_list(local_opcode_instrum_table, opcode, &is_new_cb);
-
             if (is_new_cb) {
                 /* We have a fresh entry. Population of the new cb list, organized
                  * according to priorities, is in order!
@@ -855,6 +856,10 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     cblist_create_local(drcontext, &cblist_instru2instru, &iter_instru,
                         (byte *)local_instru, BUFFER_SIZE_ELEMENTS(local_instru));
     local_was_opcode_instrum_registered = was_opcode_instrum_registered;
+    /* We do not make a complete local copy of the opcode hashtable as this can be
+     * expensive. Instead, we create a scoped table later on that only maps the cb lists
+     * of those opcodes required by this specific bb.
+     */
     dr_rwlock_read_unlock(bb_cb_lock);
 
     /* We need per-thread user_data */
