@@ -57,6 +57,7 @@ add_library(drmgr SHARED ${srcs})
 # to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x73000000)
 configure_extension(drmgr OFF)
+use_DynamoRIO_extension(drmgr drcontainers)
 
 # Must be shared to ensure only one copy, since can be used by
 # the client and by multiple other libraries, some of which may
@@ -67,5 +68,6 @@ configure_extension(drmgr OFF)
 # we build drmgr both shared and static (i#1342).
 add_library(drmgr_static STATIC ${srcs_static})
 configure_extension(drmgr_static ON)
+use_DynamoRIO_extension(drmgr_static drcontainers)
 
 install_ext_header(drmgr.h)

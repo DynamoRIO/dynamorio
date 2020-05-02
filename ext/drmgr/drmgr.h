@@ -165,6 +165,19 @@ typedef dr_emit_flags_t (*drmgr_insertion_cb_t)(void *drcontext, void *tag,
                                                 bool for_trace, bool translating,
                                                 void *user_data);
 
+/**
+ * Callback function for opcode based instrumentation. In particular, this callback
+ * is triggered only for specific instruction opcodes. This is done during the
+ * third stage, i.e., instrumentation insertion.
+ *
+ * See #dr_emit_flags_t for an explanation of the return value.  If
+ * any instrumentation pass requests DR_EMIT_STORE_TRANSLATIONS, they
+ * will be stored.
+ */
+typedef dr_emit_flags_t (*drmgr_opcode_insertion_cb_t)(void *drcontext, void *tag,
+                                                      instrlist_t *bb, instr_t *inst,
+                                                      bool for_trace, bool translating);
+
 /** Specifies the ordering of callbacks for \p drmgr's events */
 typedef struct _drmgr_priority_t {
     /** The size of the drmgr_priority_t struct */
@@ -306,10 +319,10 @@ DR_EXPORT
  * instruction before moving to the next instruction.  Instrumentation
  * insertion passes are allowed to insert meta instructions only
  * immediately prior to the passed-in instruction: not before any
- * prior non-meta instrution nor after any subsequent non-meta
+ * prior non-meta instruction nor after any subsequent non-meta
  * instruction.  They are not allowed to insert new non-meta
  * instructions or change existing non-meta instructions.  Because
- * other components may have alread acted on the instruction list, be
+ * other components may have already acted on the instruction list, be
  * sure to ignore already existing meta instructions.
  *
  * The \p analysis_func and \p insertion_func share the same priority.
@@ -451,6 +464,52 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
                                              drmgr_ilist_ex_cb_t analysis_func,
                                              drmgr_insertion_cb_t insertion_func,
                                              drmgr_ilist_ex_cb_t instru2instru_func);
+
+DR_EXPORT
+/**
+ * Registers callback functions for the third
+ * instrumentation stage: instrumentation
+ * insertion.  drmgr will call \p func for each instruction with the
+ * specific opcode \p opcode.
+ *
+ * More than one call-back function can be mapped to the same opcode. Their
+ * execution sequence is determined by their priority \p priority if set.
+ *
+ * Since this call-back is triggered during instrumentation insertion,
+ * same usage rules apply. The call-back is allowed to insert meta
+ * instructions only immediately prior to the passed-in instruction.
+ * New non-meta instructions cannot be inserted.
+ *
+ * \return false upon failure.
+ *
+ * @param[in]  insertion_func  The opcode insertion callback to be called for the third
+ * stage for a specific opcode instructions. Cannot be NULL.
+ * @param[in]  opcode          The opcode to associate with the insertion callback.
+ *                             Cannot be NULL.
+ * @param[in]  priority        Specifies the relative ordering of both callbacks.
+ *                             Can be NULL, in which case a default priority is used.
+ *
+ * \note It is possible that this call-back will be triggered for meta instructions.
+ * Therefore, we recommend that the call-back checks for meta instructions
+ * (and ignore them, typically).
+ */
+bool
+drmgr_register_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t insertion_func,
+                                            int opcode, drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
+ * Unregisters the opcode-specific callback that
+ * was registered via drmgr_register_opcode_instrumentation_event().
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered for the passed opcode \p opcode).
+ *
+ * The recommendations for #dr_unregister_bb_event() about when it
+ * is safe to unregister apply here as well.
+ */
+bool
+drmgr_unregister_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t insertion_func,
+                                              int opcode);
 
 DR_EXPORT
 /**
