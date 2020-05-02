@@ -919,7 +919,7 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
      * in prior stages also need to be looked-up (including meta instructions) when
      * iterating over the basic block.
      *
-     * Init table only if opcode events were ever registered by the user.
+     * Initialise table only if opcode events were ever registered by the user.
      */
     if (local_was_opcode_instrum_registered) {
         drmgr_init_opcode_hashtable(&local_opcode_instrum_table);
@@ -1148,8 +1148,8 @@ drmgr_bb_cb_add(cb_list_t *list, drmgr_xform_cb_t xform_func,
             new_e->has_quartet = false;
             new_e->is_opcode_insertion = true;
             new_e->cb.opcode_insertion_cb = opcode_instrum_fuc;
-            was_opcode_instrum_registered = true; /* set the flag b/c we encountered the
-                                                     registration of an opcode event */
+            /* set the flag b/c we encountered the registration of an opcode event */
+            was_opcode_instrum_registered = true;
         } else {
             new_e->has_quartet = false;
             new_e->is_opcode_insertion = false;
