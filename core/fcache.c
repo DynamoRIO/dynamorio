@@ -3947,10 +3947,8 @@ fcache_flush_fragment(dcontext_t *dcontext, app_pc tag)
     /* Stage 2 of flushing: do the rest of the unlink and move the fragments to pending
      * del list.
      */
-    if (list_head != NULL) {
-        flush_fragments_unlink_shared(dcontext, EMPTY_REGION_BASE, EMPTY_REGION_SIZE,
-                                      list_head _IF_DGCDIAG(NULL));
-    }
+    flush_fragments_unlink_shared(dcontext, EMPTY_REGION_BASE, EMPTY_REGION_SIZE,
+                                  list_head _IF_DGCDIAG(NULL));
 
     /* Stage 3 of flushing: end synch. */
     flush_fragments_end_synch(dcontext, false /*don't keep initexit_lock*/);
