@@ -6206,7 +6206,8 @@ bool
 dr_unlink_flush_region(app_pc start, size_t size);
 
 DR_API
-/* Schedules a shared fragment to be deleted. User must redirect control upon return
+/**
+ * Schedules a shared fragment to be deleted. User must redirect control upon return
  * using \p dr_redirect_execution() similar to what one would do when using
  * \p dr_flush_region().
  *

@@ -3886,6 +3886,7 @@ chain_fragments_for_flush(dcontext_t *dcontext, fcache_unit_t *unit, fragment_t 
                 continue;
             }
         }
+        ASSERT(f != NULL);
         ASSERT(FIFO_UNIT(f) == unit);
         ASSERT(FRAG_HDR_START(f) == pc);
         chain_single_fragment(dcontext, f, &prev_f);
@@ -3923,8 +3924,9 @@ fcache_flush_fragment(dcontext_t *dcontext, app_pc tag)
     fragment_t *list_head = NULL;
     DEBUG_DECLARE(bool flushed;)
 
-    /* we pass false to flush_fragments_in_region_start() below for owning the initexit
-     * lock */
+    /* We pass false to flush_fragments_in_region_start() below for owning the initexit
+     * lock. Therefore assert that we do not own the lock.
+     */
     ASSERT_DO_NOT_OWN_MUTEX(true, &thread_initexit_lock);
 
     /* Stage 1 of flushing: do synch. */
@@ -3942,12 +3944,15 @@ fcache_flush_fragment(dcontext_t *dcontext, app_pc tag)
         did_flush = true;
     }
 
-    /* Stage 2 of flushing do the rest of the unlink and move the fragments to pending del
-     * list */
-    flush_fragments_unlink_shared(dcontext, EMPTY_REGION_BASE, EMPTY_REGION_SIZE,
-                                  list_head _IF_DGCDIAG(NULL));
+    /* Stage 2 of flushing: do the rest of the unlink and move the fragments to pending
+     * del list.
+     */
+    if (list_head != NULL) {
+        flush_fragments_unlink_shared(dcontext, EMPTY_REGION_BASE, EMPTY_REGION_SIZE,
+                                      list_head _IF_DGCDIAG(NULL));
+    }
 
-    /* Stage 3 of flushing */
+    /* Stage 3 of flushing: end synch. */
     flush_fragments_end_synch(dcontext, false /*don't keep initexit_lock*/);
 
     return did_flush;

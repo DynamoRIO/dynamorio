@@ -7165,18 +7165,20 @@ dr_unlink_flush_region(app_pc start, size_t size)
                   "dr_unlink_flush_region is not supported with -opt_memory unless "
                   "-thread_private or -enable_full_api is also specified");
 
-    /* Flush requires !couldbelinking. FIXME - not all event callbacks to the client are
-     * !couldbelinking (see PR 227619) restricting where this routine can be used. */
+    /* Flush requires !couldbelinking. XXX - not all event callbacks to the client are
+     * !couldbelinking (see PR 227619) restricting where this routine can be used.
+     */
     CLIENT_ASSERT(!is_couldbelinking(dcontext),
                   "dr_flush_region: called from an event "
                   "callback that doesn't support calling this routine, see header file "
                   "for restrictions.");
     /* Flush requires caller to hold no locks that might block a couldbelinking thread
-     * (which includes almost all dr locks).  FIXME - some event callbacks are holding
-     * dr locks (see PR 227619) so can't call this routine.  FIXME - some event callbacks
+     * (which includes almost all dr locks).  XXX - some event callbacks are holding
+     * dr locks (see PR 227619) so can't call this routine.  XXX - some event callbacks
      * are couldbelinking (see PR 227619) so can't allow the caller to hold any client
      * locks that could block threads in one of those events (otherwise we don't need
-     * to care about client locks) */
+     * to care about client locks).
+     */
     CLIENT_ASSERT(OWN_NO_LOCKS(dcontext),
                   "dr_flush_region: caller owns a client "
                   "lock or was called from an event callback that doesn't support "
@@ -7196,26 +7198,6 @@ dr_unlink_flush_region(app_pc start, size_t size)
 }
 
 DR_API
-/* Schedules a shared fragment to be deleted. User must redirect control upon return
- * using \p dr_redirect_execution(), if called from a clean call, similar to what one
- * would do when using \p dr_flush_region().
- *
- * In particular, the function syncs threads to a safe point
- * before the fragment is deleted. Once deleted, no threads
- * can enter the fragment. It is for this reason why we require the user
- * to call \p dr_redirect_execution().
- *
- * As a parameter, \p tag denotes the ID of the fragment requested for deletion.
- *
- * Only the deletion of shared fragments is supported.
- *
- * No locks can be held by the caller.
- *
- * \return false if the function fails to schedule the deletion.
- *
- * \note Unlike \p dr_delete_fragment(), this function does not require the
- * -thread_private runtime option to be set.
- */
 bool
 dr_unlink_flush_fragment(app_pc tag)
 {
@@ -7225,26 +7207,19 @@ dr_unlink_flush_fragment(app_pc tag)
 
     LOG(THREAD, LOG_FRAGMENT, 2, "%s: " PFX "\n", __FUNCTION__, tag);
 
-    /* This routine won't work with coarse_units */
+    /* This routine won't work with coarse_units. */
     CLIENT_ASSERT(!DYNAMO_OPTION(coarse_units),
-                  /* as of now, coarse_units are always disabled with -thread_private. */
+                  /* As of now, coarse_units are always disabled with -thread_private. */
                   "dr_unlink_flush_fragment is not supported with -opt_memory unless "
                   "-thread_private or -enable_full_api is also specified");
 
-    /* Flush requires !couldbelinking. FIXME - not all event callbacks to the client are
-     * !couldbelinking (see PR 227619) restricting where this routine can be used. */
+    /* See dr_unlink_flush_region() for comments explaining these asserts. */
     CLIENT_ASSERT(!is_couldbelinking(dcontext),
-                  "dr_flush_fragment: called from an event "
+                  "dr_unlink_flush_fragment: called from an event "
                   "callback that doesn't support calling this routine, see header file "
                   "for restrictions.");
-    /* Flush requires caller to hold no locks that might block a couldbelinking thread
-     * (which includes almost all dr locks).  FIXME - some event callbacks are holding
-     * dr locks (see PR 227619) so can't call this routine.  FIXME - some event callbacks
-     * are couldbelinking (see PR 227619) so can't allow the caller to hold any client
-     * locks that could block threads in one of those events (otherwise we don't need
-     * to care about client locks) */
     CLIENT_ASSERT(OWN_NO_LOCKS(dcontext),
-                  "dr_flush_fragment: caller owns a client "
+                  "dr_unlink_flush_fragment: caller owns a client "
                   "lock or was called from an event callback that doesn't support "
                   "calling this routine, see header file for restrictions.");
 
