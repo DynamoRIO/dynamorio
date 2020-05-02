@@ -175,8 +175,8 @@ typedef dr_emit_flags_t (*drmgr_insertion_cb_t)(void *drcontext, void *tag,
  * will be stored.
  */
 typedef dr_emit_flags_t (*drmgr_opcode_insertion_cb_t)(void *drcontext, void *tag,
-                                                      instrlist_t *bb, instr_t *inst,
-                                                      bool for_trace, bool translating);
+                                                       instrlist_t *bb, instr_t *inst,
+                                                       bool for_trace, bool translating);
 
 /** Specifies the ordering of callbacks for \p drmgr's events */
 typedef struct _drmgr_priority_t {
@@ -473,7 +473,8 @@ DR_EXPORT
  * specific opcode \p opcode.
  *
  * More than one call-back function can be mapped to the same opcode. Their
- * execution sequence is determined by their priority \p priority if set.
+ * execution sequence is determined by their priority \p priority if set. Ordering
+ * based on priority is also taken in to account with respect to insert bb events.
  *
  * Since this call-back is triggered during instrumentation insertion,
  * same usage rules apply. The call-back is allowed to insert meta
@@ -483,9 +484,8 @@ DR_EXPORT
  * \return false upon failure.
  *
  * @param[in]  insertion_func  The opcode insertion callback to be called for the third
- * stage for a specific opcode instructions. Cannot be NULL.
+ * stage for a specific opcode instruction. Cannot be NULL.
  * @param[in]  opcode          The opcode to associate with the insertion callback.
- *                             Cannot be NULL.
  * @param[in]  priority        Specifies the relative ordering of both callbacks.
  *                             Can be NULL, in which case a default priority is used.
  *
@@ -501,6 +501,7 @@ DR_EXPORT
 /**
  * Unregisters the opcode-specific callback that
  * was registered via drmgr_register_opcode_instrumentation_event().
+ *
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered for the passed opcode \p opcode).
  *

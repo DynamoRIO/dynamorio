@@ -640,7 +640,6 @@ cblist_delete_local(void *drcontext, cb_list_t *l, size_t local_num)
 static void
 drmgr_destroy_opcode_cb_list(void *opcode_cb_list_opaque)
 {
-
     cb_list_t *opcode_cb_list = (cb_list_t *)opcode_cb_list_opaque;
     cblist_delete(opcode_cb_list);
     dr_global_free(opcode_cb_list, sizeof(cb_list_t));
@@ -688,13 +687,12 @@ drmgr_set_up_local_opcode_table(IN instrlist_t *bb, IN cb_list_t *insert_list,
     instr_t *inst, *next_inst;
     int opcode;
     bool is_new_cb;
-
     bool is_opcode_instrum_applicable = false;
 
-    dr_rwlock_write_lock(opcode_table_lock);
+    dr_rwlock_read_lock(opcode_table_lock);
 
     /* A high-level check to avoid expensive allocation and locking bb_cb_lock.
-     * In particular, we iterates over the bb and check whether any applicable opcode
+     * In particular, we iterate over the bb and check whether any applicable opcode
      * event is registered.
      */
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
@@ -704,25 +702,22 @@ drmgr_set_up_local_opcode_table(IN instrlist_t *bb, IN cb_list_t *insert_list,
         opcode = instr_get_opcode(inst);
         cb_list_t *opcode_cb_list =
             hashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
-
         if (opcode_cb_list != NULL) {
             is_opcode_instrum_applicable = true;
             break;
         }
     }
 
-    /* If no opcode event is registered for any instruction in the BB, just return.
-     */
+    /* Just return if no opcode event is registered for any instruction in the BB. */
     if (!is_opcode_instrum_applicable) {
-        dr_rwlock_write_unlock(opcode_table_lock);
+        dr_rwlock_read_unlock(opcode_table_lock);
         return false;
     }
 
     /* Since both opcode and insert events are handled during stage 3, they need to be
      * jointly organized according to their priorities.
      */
-
-    dr_rwlock_write_lock(bb_cb_lock);
+    dr_rwlock_read_lock(bb_cb_lock);
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
         next_inst = instr_get_next(inst);
         if (!instr_opcode_valid(inst))
@@ -744,9 +739,8 @@ drmgr_set_up_local_opcode_table(IN instrlist_t *bb, IN cb_list_t *insert_list,
             }
         }
     }
-    dr_rwlock_write_unlock(bb_cb_lock);
-    dr_rwlock_write_unlock(opcode_table_lock);
-
+    dr_rwlock_read_unlock(bb_cb_lock);
+    dr_rwlock_read_unlock(opcode_table_lock);
     return true;
 }
 
@@ -821,7 +815,6 @@ drmgr_bb_event_do_insertion_per_instr(void *drcontext, void *tag, instrlist_t *b
         instrlist_set_auto_predicate(bb, DR_PRED_NONE);
         /* XXX: add checks that cb followed the rules */
     }
-
     return res;
 }
 
@@ -918,9 +911,12 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     pt->last_instr = instrlist_last(bb);
 
     /* For opcode instrumentation:
-     * We need to create a local copy of opcode insert call-backs. This is done at
-     * this here. so that, when iterating over the basic block, instructions inserted
-     * at prior stages are looked-up (including meta instructions).
+     * We need to create a local copy of the opcode map.
+     * This is done at this point because instructions inserted
+     * in prior stages also need to be looked-up (including meta instructions) when
+     * iterating over the basic block.
+     *
+     * Init table only if opcode events were ever registered by the user.
      */
     if (local_was_opcode_instrum_registered) {
         drmgr_init_opcode_hashtable(&local_opcode_instrum_table);
@@ -931,7 +927,6 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     /* Main pass for instrumentation. */
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
         next_inst = instr_get_next(inst);
-
         if (is_opcode_instrum_applicable && instr_opcode_valid(inst)) {
             opcode = instr_get_opcode(inst);
             iter_opcode_insert =
@@ -943,7 +938,6 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                 continue;
             }
         }
-
         res |= drmgr_bb_event_do_insertion_per_instr(drcontext, tag, bb, inst, for_trace,
                                                      translating, &iter_insert, pair_data,
                                                      quartet_data);
@@ -990,9 +984,9 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     cblist_delete_local(drcontext, &iter_insert, BUFFER_SIZE_ELEMENTS(local_insert));
     cblist_delete_local(drcontext, &iter_instru, BUFFER_SIZE_ELEMENTS(local_instru));
 
+    /* Delete table only if opcode events were ever registered by the user. */
     if (local_was_opcode_instrum_registered)
         hashtable_delete(&local_opcode_instrum_table);
-
     return res;
 }
 
@@ -1016,6 +1010,7 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri)
     /* if we add fields in the future this is where we decide which to use */
     if (new_pri->struct_size < sizeof(drmgr_priority_t))
         return -1; /* incorrect struct */
+
     /* check for duplicate names.
      * not expecting a very long list, so simpler to do full walk
      * here rather than more complex logic to fold into walk below.
@@ -1027,6 +1022,7 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri)
                 return -1; /* duplicate name */
         }
     }
+
     /* Keep the list sorted by numeric priority.
      * Callback priorities are not re-sorted dynamically as callbacks are registered,
      * so callbacks intending to be named in before or after requests should
