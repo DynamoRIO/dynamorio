@@ -89,8 +89,8 @@
 /* priority list entry base struct */
 typedef struct _priority_event_entry_t {
     bool valid; /* is whole entry valid (not just priority) */
-    drmgr_priority_t
-        in_priority; /* Given as input by the user. Enables reorder of cb lists. */
+    /* Given as input by the user. Enables reorder of cb lists. */
+    drmgr_priority_t in_priority;
 } priority_event_entry_t;
 
 /* bb event list entry */
@@ -224,8 +224,8 @@ static cb_list_t cblist_instru2instru;
 /* For opcode specific instrumentation. */
 static hashtable_t global_opcode_instrum_table; /* maps opcodes to cb lists */
 static void *opcode_table_lock;
-static bool was_opcode_instrum_registered; /* a flag indicating whether opcode instrum was
-                                              ever registered */
+/* a flag indicating whether opcode instrum was ever registered */
+static bool was_opcode_instrum_registered;
 
 /* Count of callbacks needing user_data, protected by bb_cb_lock */
 static uint pair_count;
@@ -594,7 +594,7 @@ static void
 cblist_insert_other(cb_list_t *l, cb_list_t *l_to_copy)
 {
     ASSERT(l->entry_sz == l_to_copy->entry_sz, "must be of the same size");
-    int i;
+    size_t i;
     for (i = 0; i < l_to_copy->num_def; i++) {
         cb_entry_t *e = &l_to_copy->cbs.bb[i];
         if (!e->pri.valid)
@@ -1398,11 +1398,10 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
 
 DR_EXPORT
 bool
-drmgr_register_opcode_instrumentation_event(
-    drmgr_opcode_insertion_cb_t opcode_insertion_func, int opcode,
-    drmgr_priority_t *priority)
+drmgr_register_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func, int opcode,
+                                            drmgr_priority_t *priority)
 {
-    if (opcode_insertion_func == NULL)
+    if (func == NULL)
         return false;
 
     dr_rwlock_write_lock(opcode_table_lock);
@@ -1417,16 +1416,16 @@ drmgr_register_opcode_instrumentation_event(
     }
     dr_rwlock_write_unlock(opcode_table_lock);
 
-    return drmgr_bb_cb_add(opcode_cb_list, NULL, NULL, NULL, NULL, NULL, NULL,
-                           opcode_insertion_func, priority);
+    return drmgr_bb_cb_add(opcode_cb_list, NULL, NULL, NULL, NULL, NULL, NULL, func,
+                           priority);
 }
 
 DR_EXPORT
 bool
-drmgr_unregister_opcode_instrumentation_event(
-    drmgr_opcode_insertion_cb_t opcode_insertion_func, int opcode)
+drmgr_unregister_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func,
+                                              int opcode)
 {
-    if (opcode_insertion_func == NULL)
+    if (func == NULL)
         return false;
 
     dr_rwlock_write_lock(opcode_table_lock);
@@ -1436,8 +1435,7 @@ drmgr_unregister_opcode_instrumentation_event(
         return false; /* there should be a cb list present in the table */
     dr_rwlock_write_unlock(opcode_table_lock);
 
-    return drmgr_bb_cb_remove(opcode_cb_list, NULL, NULL, NULL, NULL, NULL, NULL,
-                              opcode_insertion_func);
+    return drmgr_bb_cb_remove(opcode_cb_list, NULL, NULL, NULL, NULL, NULL, NULL, func);
 }
 
 DR_EXPORT

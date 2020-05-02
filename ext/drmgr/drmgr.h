@@ -151,7 +151,7 @@ typedef dr_emit_flags_t (*drmgr_ilist_ex_cb_t)(void *drcontext, void *tag,
                                                bool translating, void *user_data);
 
 /**
- * Callback function for the third stage: instrumentation insertion.
+ * Callback function for the third stage: insert instrumentation.
  *
  * The \p user_data parameter contains data passed from the second
  * stage to this stage.
@@ -494,8 +494,8 @@ DR_EXPORT
  * (and ignore them, typically).
  */
 bool
-drmgr_register_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t insertion_func,
-                                            int opcode, drmgr_priority_t *priority);
+drmgr_register_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func, int opcode,
+                                            drmgr_priority_t *priority);
 
 DR_EXPORT
 /**
@@ -509,7 +509,7 @@ DR_EXPORT
  * is safe to unregister apply here as well.
  */
 bool
-drmgr_unregister_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t insertion_func,
+drmgr_unregister_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func,
                                               int opcode);
 
 DR_EXPORT
