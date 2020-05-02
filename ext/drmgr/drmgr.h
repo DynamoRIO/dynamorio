@@ -483,7 +483,7 @@ DR_EXPORT
  *
  * \return false upon failure.
  *
- * @param[in]  insertion_func  The opcode insertion callback to be called for the third
+ * @param[in]  func  The opcode insertion callback to be called for the third
  * stage for a specific opcode instruction. Cannot be NULL.
  * @param[in]  opcode          The opcode to associate with the insertion callback.
  * @param[in]  priority        Specifies the relative ordering of both callbacks.
