@@ -593,6 +593,7 @@ cblist_shift_and_resize(cb_list_t *l, uint insert_at)
 static void
 cblist_append_copy(cb_list_t *l, cb_list_t *l_to_copy)
 {
+    ASSERT(l->entry_sz == l_to_copy->entry_sz, "must be of the same size");
     int i;
     for (i = 0; i < l_to_copy->num_def; i++) {
         cb_entry_t *e = &l_to_copy->cbs.bb[i];
@@ -606,23 +607,34 @@ cblist_append_copy(cb_list_t *l, cb_list_t *l_to_copy)
     }
 }
 
+/* A helper function to help with the copying of cb list data for
+ * cblist_create_local() and cblist_create_global().
+ */
+static void
+cblist_copy(cb_list_t *src, cb_list_t *dst)
+{
+    ASSERT(src->num_def <= dst->capacity, "dst must have large enough capacity");
+    dst->entry_sz = src->entry_sz;
+    dst->num_def = src->num_def;
+    memcpy(dst->cbs.array, src->cbs.array, src->num_def * src->entry_sz);
+}
+
 /* Creates a temporary local copy, using local if it's big enough but
- * otherwise allocating new space on the heap.
- * Caller must hold read lock.
+ * otherwise allocating new space on the heap. It does a scoped allocation
+ * for the list's array, using num_def instead of capacity for its size.
+ * Caller must hold read lock. Use cblist_delete_local() to destroy.
  */
 static void
 cblist_create_local(void *drcontext, cb_list_t *src, cb_list_t *dst, byte *local,
                     size_t local_num)
 {
-    dst->entry_sz = src->entry_sz;
-    dst->num_def = src->num_def;
     dst->capacity = src->num_def;
     if (src->num_def > local_num) {
         dst->cbs.array = dr_thread_alloc(drcontext, src->num_def * src->entry_sz);
     } else {
         dst->cbs.array = local;
     }
-    memcpy(dst->cbs.array, src->cbs.array, src->num_def * src->entry_sz);
+    cblist_copy(src, dst);
 }
 
 static void
@@ -631,6 +643,15 @@ cblist_delete_local(void *drcontext, cb_list_t *l, size_t local_num)
     if (l->num_def > local_num) {
         dr_thread_free(drcontext, l->cbs.array, l->num_def * l->entry_sz);
     } /* else nothing to do */
+}
+
+/* Creates a global copy of a cb list. Use cblist_delete() to destroy. */
+static void
+cblist_create_global(cb_list_t *src, cb_list_t *dst)
+{
+    dst->capacity = src->capacity;
+    dst->cbs.array = dr_global_alloc(src->capacity * src->entry_sz);
+    cblist_copy(src, dst);
 }
 
 /***************************************************************************
@@ -652,28 +673,6 @@ drmgr_init_opcode_hashtable(hashtable_t *opcode_instrum_table)
                       drmgr_destroy_opcode_cb_list, NULL, NULL);
 }
 
-/* Returns the cb list mapped to the passed opcode. A cb list is created if it does not
- * exist yet. If a new cb list is created and is_new is not NULL, the flag is set to true.
- */
-static cb_list_t *
-drmgr_get_opcode_cb_list(hashtable_t *opcode_instrum_table, int opcode, OUT bool *is_new)
-{
-    if (is_new != NULL)
-        *is_new = false;
-
-    cb_list_t *opcode_cb_list =
-        hashtable_lookup(opcode_instrum_table, (void *)(intptr_t)opcode);
-    if (opcode_cb_list == NULL) {
-        opcode_cb_list = dr_global_alloc(sizeof(cb_list_t));
-        cblist_init(opcode_cb_list, sizeof(generic_event_entry_t));
-        hashtable_add(opcode_instrum_table, (void *)(intptr_t)opcode, opcode_cb_list);
-
-        if (is_new != NULL)
-            *is_new = true;
-    }
-    return opcode_cb_list;
-}
-
 /* Returns false if opcode instrumentation is not applicable, i.e., no registration.
  */
 static bool
@@ -682,7 +681,6 @@ drmgr_set_up_local_opcode_table(IN instrlist_t *bb, IN cb_list_t *insert_list,
 {
     instr_t *inst, *next_inst;
     int opcode;
-    bool is_new_cb;
     bool is_opcode_instrum_applicable = false;
 
     dr_rwlock_read_lock(opcode_table_lock);
@@ -713,7 +711,7 @@ drmgr_set_up_local_opcode_table(IN instrlist_t *bb, IN cb_list_t *insert_list,
     /* Since both opcode and insert events are handled during stage 3, they need to be
      * jointly organized according to their priorities. This is done now.
      *
-     * One approach that was avoided is to do the merging upon registration of opcode
+     * An alternative approach is to do the merging upon registration of opcode
      * events, and updating all mapped cb lists of opcodes when further bb insert events
      * are registered/unregistered. However, in order to avoid races, this would require
      * the dr bb event processed by drmgr to create a local copy of the entire opcode
@@ -724,19 +722,19 @@ drmgr_set_up_local_opcode_table(IN instrlist_t *bb, IN cb_list_t *insert_list,
         next_inst = instr_get_next(inst);
         if (!instr_opcode_valid(inst))
             continue;
+
         opcode = instr_get_opcode(inst);
         cb_list_t *opcode_cb_list =
             hashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
-
         if (opcode_cb_list != NULL && opcode_cb_list->num_valid != 0) {
             cb_list_t *local_opcode_cb_list =
-                drmgr_get_opcode_cb_list(local_opcode_instrum_table, opcode, &is_new_cb);
-            if (is_new_cb) {
-                /* We have a fresh entry. Population of the new cb list, organized
-                 * according to priorities, is in order!
-                 */
-                cblist_append_copy(local_opcode_cb_list, insert_list);
+                hashtable_lookup(local_opcode_instrum_table, (void *)(intptr_t)opcode);
+            if (local_opcode_cb_list == NULL) {
+                local_opcode_cb_list = dr_global_alloc(sizeof(cb_list_t));
+                cblist_create_global(insert_list, local_opcode_cb_list);
                 cblist_append_copy(local_opcode_cb_list, opcode_cb_list);
+                hashtable_add(local_opcode_instrum_table, (void *)(intptr_t)opcode,
+                              local_opcode_cb_list);
             }
         }
     }
@@ -1408,8 +1406,15 @@ drmgr_register_opcode_instrumentation_event(
         return false;
 
     dr_rwlock_write_lock(opcode_table_lock);
-    cb_list_t *opcode_cb_list = drmgr_get_opcode_cb_list(
-        &global_opcode_instrum_table, opcode, NULL /* don't need flag */);
+    cb_list_t *opcode_cb_list =
+        hashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
+    if (opcode_cb_list == NULL) {
+        /* We need to add a new mapping. */
+        opcode_cb_list = dr_global_alloc(sizeof(cb_list_t));
+        cblist_init(opcode_cb_list, sizeof(cb_entry_t));
+        hashtable_add(&global_opcode_instrum_table, (void *)(intptr_t)opcode,
+                      opcode_cb_list);
+    }
     dr_rwlock_write_unlock(opcode_table_lock);
 
     return drmgr_bb_cb_add(opcode_cb_list, NULL, NULL, NULL, NULL, NULL, NULL,
