@@ -591,7 +591,7 @@ cblist_shift_and_resize(cb_list_t *l, uint insert_at)
 }
 
 static void
-cblist_append_copy(cb_list_t *l, cb_list_t *l_to_copy)
+cblist_insert_other(cb_list_t *l, cb_list_t *l_to_copy)
 {
     ASSERT(l->entry_sz == l_to_copy->entry_sz, "must be of the same size");
     int i;
@@ -732,7 +732,7 @@ drmgr_set_up_local_opcode_table(IN instrlist_t *bb, IN cb_list_t *insert_list,
             if (local_opcode_cb_list == NULL) {
                 local_opcode_cb_list = dr_global_alloc(sizeof(cb_list_t));
                 cblist_create_global(insert_list, local_opcode_cb_list);
-                cblist_append_copy(local_opcode_cb_list, opcode_cb_list);
+                cblist_insert_other(local_opcode_cb_list, opcode_cb_list);
                 hashtable_add(local_opcode_instrum_table, (void *)(intptr_t)opcode,
                               local_opcode_cb_list);
             }
