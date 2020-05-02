@@ -476,7 +476,7 @@ DR_EXPORT
  * execution sequence is determined by their priority \p priority if set. Ordering
  * based on priority is also taken in to account with respect to insert bb events.
  *
- * Since this call-back is triggered during instrumentation insertion,
+ * Since this call-back is triggered during insert instrumentation,
  * same usage rules apply. The call-back is allowed to insert meta
  * instructions only immediately prior to the passed-in instruction.
  * New non-meta instructions cannot be inserted.
