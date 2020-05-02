@@ -620,7 +620,7 @@ cblist_copy(cb_list_t *src, cb_list_t *dst)
 }
 
 /* Creates a temporary local copy, using local if it's big enough but
- * otherwise allocating new space on the heap. It does a scoped allocation
+ * otherwise allocating new space on the heap. It allocates just enough space
  * for the list's array, using num_def instead of capacity for its size.
  * Caller must hold read lock. Use cblist_delete_local() to destroy.
  */

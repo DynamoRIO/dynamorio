@@ -145,7 +145,7 @@ compatibility changes:
 
 Further non-compatibility-affecting changes include:
 
- - Adds drmgr_register_opcode_instrumentation_event() and
+ - Added drmgr_register_opcode_instrumentation_event() and
    drmgr_unregister_opcode_instrumentation_event() so that drmgr supports
    opcode event instrumentation.
 

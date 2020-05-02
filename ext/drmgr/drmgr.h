@@ -111,7 +111,7 @@ extern "C" {
  * transformations on the whole instruction list.
  *
  * See #dr_emit_flags_t for an explanation of the return value.  If
- * any instrumentation pass requests DR_EMIT_STORE_TRANSLATIONS, they
+ * any instrumentation pass requests #DR_EMIT_STORE_TRANSLATIONS, they
  * will be stored.
  */
 typedef dr_emit_flags_t (*drmgr_xform_cb_t)(void *drcontext, void *tag, instrlist_t *bb,
@@ -124,7 +124,7 @@ typedef dr_emit_flags_t (*drmgr_xform_cb_t)(void *drcontext, void *tag, instrlis
  * to the third stage.
  *
  * See #dr_emit_flags_t for an explanation of the return value.  If
- * any instrumentation pass requests DR_EMIT_STORE_TRANSLATIONS, they
+ * any instrumentation pass requests #DR_EMIT_STORE_TRANSLATIONS, they
  * will be stored.
  */
 typedef dr_emit_flags_t (*drmgr_analysis_cb_t)(void *drcontext, void *tag,
@@ -143,7 +143,7 @@ typedef drmgr_analysis_cb_t drmgr_app2app_ex_cb_t;
  * transformations on the whole instruction list.
  *
  * See #dr_emit_flags_t for an explanation of the return value.  If
- * any instrumentation pass requests DR_EMIT_STORE_TRANSLATIONS, they
+ * any instrumentation pass requests #DR_EMIT_STORE_TRANSLATIONS, they
  * will be stored.
  */
 typedef dr_emit_flags_t (*drmgr_ilist_ex_cb_t)(void *drcontext, void *tag,
@@ -151,13 +151,13 @@ typedef dr_emit_flags_t (*drmgr_ilist_ex_cb_t)(void *drcontext, void *tag,
                                                bool translating, void *user_data);
 
 /**
- * Callback function for the third stage: insert instrumentation.
+ * Callback function for the third stage: instrumentation insertion.
  *
  * The \p user_data parameter contains data passed from the second
  * stage to this stage.
  *
  * See #dr_emit_flags_t for an explanation of the return value.  If
- * any instrumentation pass requests DR_EMIT_STORE_TRANSLATIONS, they
+ * any instrumentation pass requests #DR_EMIT_STORE_TRANSLATIONS, they
  * will be stored.
  */
 typedef dr_emit_flags_t (*drmgr_insertion_cb_t)(void *drcontext, void *tag,
@@ -171,7 +171,7 @@ typedef dr_emit_flags_t (*drmgr_insertion_cb_t)(void *drcontext, void *tag,
  * third stage, i.e., instrumentation insertion.
  *
  * See #dr_emit_flags_t for an explanation of the return value.  If
- * any instrumentation pass requests DR_EMIT_STORE_TRANSLATIONS, they
+ * any instrumentation pass requests #DR_EMIT_STORE_TRANSLATIONS, they
  * will be stored.
  */
 typedef dr_emit_flags_t (*drmgr_opcode_insertion_cb_t)(void *drcontext, void *tag,
@@ -290,7 +290,7 @@ DR_EXPORT
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  *
- * The recommendations for #dr_unregister_bb_event() about when it
+ * The recommendations for dr_unregister_bb_event() about when it
  * is safe to unregister apply here as well.
  */
 bool
@@ -373,7 +373,7 @@ DR_EXPORT
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  *
- * The recommendations for #dr_unregister_bb_event() about when it
+ * The recommendations for dr_unregister_bb_event() about when it
  * is safe to unregister apply here as well.
  */
 bool
@@ -388,7 +388,7 @@ DR_EXPORT
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  *
- * The recommendations for #dr_unregister_bb_event() about when it
+ * The recommendations for dr_unregister_bb_event() about when it
  * is safe to unregister apply here as well.
  */
 bool
@@ -424,7 +424,7 @@ DR_EXPORT
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  *
- * The recommendations for #dr_unregister_bb_event() about when it
+ * The recommendations for dr_unregister_bb_event() about when it
  * is safe to unregister apply here as well.
  */
 bool
@@ -456,7 +456,7 @@ DR_EXPORT
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  *
- * The recommendations for #dr_unregister_bb_event() about when it
+ * The recommendations for dr_unregister_bb_event() about when it
  * is safe to unregister apply here as well.
  */
 bool
@@ -472,12 +472,12 @@ DR_EXPORT
  * insertion.  drmgr will call \p func for each instruction with the
  * specific opcode \p opcode.
  *
- * More than one call-back function can be mapped to the same opcode. Their
+ * More than one callback function can be mapped to the same opcode. Their
  * execution sequence is determined by their priority \p priority if set. Ordering
- * based on priority is also taken in to account with respect to insert bb events.
+ * based on priority is also taken into account with respect to insert bb events.
  *
- * Since this call-back is triggered during insert instrumentation,
- * same usage rules apply. The call-back is allowed to insert meta
+ * Since this callback is triggered during instrumentation insertion,
+ * same usage rules apply. The callback is allowed to insert meta
  * instructions only immediately prior to the passed-in instruction.
  * New non-meta instructions cannot be inserted.
  *
@@ -489,8 +489,8 @@ DR_EXPORT
  * @param[in]  priority        Specifies the relative ordering of both callbacks.
  *                             Can be NULL, in which case a default priority is used.
  *
- * \note It is possible that this call-back will be triggered for meta instructions.
- * Therefore, we recommend that the call-back checks for meta instructions
+ * \note It is possible that this callback will be triggered for meta instructions.
+ * Therefore, we recommend that the callback checks for meta instructions
  * (and ignore them, typically).
  */
 bool
@@ -505,7 +505,7 @@ DR_EXPORT
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered for the passed opcode \p opcode).
  *
- * The recommendations for #dr_unregister_bb_event() about when it
+ * The recommendations for dr_unregister_bb_event() about when it
  * is safe to unregister apply here as well.
  */
 bool
