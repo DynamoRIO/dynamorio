@@ -88,8 +88,9 @@
 
 /* priority list entry base struct */
 typedef struct _priority_event_entry_t {
-    bool valid;                   /* is whole entry valid (not just priority) */
-    drmgr_priority_t in_priority; /* given as input by user */
+    bool valid; /* is whole entry valid (not just priority) */
+    drmgr_priority_t
+        in_priority; /* Given as input by the user. Enables reorder of cb lists. */
 } priority_event_entry_t;
 
 /* bb event list entry */
@@ -315,12 +316,15 @@ static cb_list_t cblist_exception;
 static void *exception_event_lock;
 #endif
 
-static int
-priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri);
-
 static cb_list_t cblist_fault;
 static void *fault_event_lock;
 static bool registered_fault; /* for lazy registration */
+
+static int
+priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri);
+
+static void
+drmgr_init_opcode_hashtable(hashtable_t *opcode_instrum_table);
 
 static void
 drmgr_thread_init_event(void *drcontext);
@@ -430,8 +434,7 @@ drmgr_init(void)
     drmgr_bb_init();
     drmgr_event_init();
     drmgr_emulation_init();
-    hashtable_init_ex(&global_opcode_instrum_table, 8, HASH_INTPTR, false, false, NULL,
-                      NULL, NULL);
+    drmgr_init_opcode_hashtable(&global_opcode_instrum_table);
     was_opcode_instrum_registered = false;
 
     our_tls_idx = drmgr_register_tls_field();
@@ -595,7 +598,6 @@ cblist_append_copy(cb_list_t *l, cb_list_t *l_to_copy)
         cb_entry_t *e = &l_to_copy->cbs.bb[i];
         if (!e->pri.valid)
             continue;
-
         int idx = priority_event_add(l, &e->pri.in_priority);
         if (idx >= 0) {
             cb_entry_t *new_e = &l->cbs.bb[idx];
@@ -635,10 +637,28 @@ cblist_delete_local(void *drcontext, cb_list_t *l, size_t local_num)
  * OPCODE INSTRUM HASHTABLE
  */
 
+static void
+drmgr_destroy_opcode_cb_list(void *opcode_cb_list_opaque)
+{
+
+    cb_list_t *opcode_cb_list = (cb_list_t *)opcode_cb_list_opaque;
+    cblist_delete(opcode_cb_list);
+    dr_global_free(opcode_cb_list, sizeof(cb_list_t));
+}
+
+static void
+drmgr_init_opcode_hashtable(hashtable_t *opcode_instrum_table)
+{
+    hashtable_init_ex(opcode_instrum_table, 8, HASH_INTPTR, false, false,
+                      drmgr_destroy_opcode_cb_list, NULL, NULL);
+}
+
+/* Returns the cb list mapped to the passed opcode. A cb list is created if it does not
+ * exist yet. If a new cb list is created and is_new is not NULL, the flag is set to true.
+ */
 static cb_list_t *
 drmgr_get_opcode_cb_list(hashtable_t *opcode_instrum_table, int opcode, OUT bool *is_new)
 {
-
     cb_list_t *opcode_cb_list =
         hashtable_lookup(opcode_instrum_table, (void *)(intptr_t)opcode);
 
@@ -727,7 +747,7 @@ drmgr_set_up_local_opcode_table(IN instrlist_t *bb, IN cb_list_t *insert_list,
     dr_rwlock_write_unlock(bb_cb_lock);
     dr_rwlock_write_unlock(opcode_table_lock);
 
-    return false;
+    return true;
 }
 
 /***************************************************************************
@@ -821,13 +841,13 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     cb_list_t iter_app2app;
     cb_list_t iter_insert;
     cb_list_t iter_instru;
-    cb_list_t *opcode_insert;
+    cb_list_t *iter_opcode_insert;
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
     int opcode;
-    bool local_was_opcode_instrum_registered;  /* denotes whether opcode event was ever
-                                                  registered */
-    bool is_opcode_instrum_applicable = false; /* denotes whether opcode
-                                          instrumentation is applicable for this bb */
+    /* denotes whether opcode event was ever registered */
+    bool local_was_opcode_instrum_registered;
+    /* denotes whether opcode instrumentation is applicable for this bb */
+    bool is_opcode_instrum_applicable = false;
     hashtable_t local_opcode_instrum_table;
 
     dr_rwlock_read_lock(bb_cb_lock);
@@ -897,17 +917,13 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     pt->first_nonlabel_instr = instrlist_first_nonlabel(bb);
     pt->last_instr = instrlist_last(bb);
 
-    /* For opcode instrumentation.
-     *
+    /* For opcode instrumentation:
      * We need to create a local copy of opcode insert call-backs. This is done at
      * this here. so that, when iterating over the basic block, instructions inserted
      * at prior stages are looked-up (including meta instructions).
      */
-
     if (local_was_opcode_instrum_registered) {
-        hashtable_init_ex(&local_opcode_instrum_table, 8, HASH_INTPTR, false, false, NULL,
-                          NULL, NULL);
-
+        drmgr_init_opcode_hashtable(&local_opcode_instrum_table);
         is_opcode_instrum_applicable = drmgr_set_up_local_opcode_table(
             bb, &iter_insert, &local_opcode_instrum_table);
     }
@@ -918,16 +934,19 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 
         if (is_opcode_instrum_applicable && instr_opcode_valid(inst)) {
             opcode = instr_get_opcode(inst);
-            opcode_insert =
+            iter_opcode_insert =
                 hashtable_lookup(&local_opcode_instrum_table, (void *)(intptr_t)opcode);
-            drmgr_bb_event_do_insertion_per_instr(drcontext, tag, bb, inst, for_trace,
-                                                  translating, opcode_insert, pair_data,
-                                                  quartet_data);
-        } else {
-            drmgr_bb_event_do_insertion_per_instr(drcontext, tag, bb, inst, for_trace,
-                                                  translating, &iter_insert, pair_data,
-                                                  quartet_data);
+            if (iter_opcode_insert != NULL) {
+                res |= drmgr_bb_event_do_insertion_per_instr(
+                    drcontext, tag, bb, inst, for_trace, translating, iter_opcode_insert,
+                    pair_data, quartet_data);
+                continue;
+            }
         }
+
+        res |= drmgr_bb_event_do_insertion_per_instr(drcontext, tag, bb, inst, for_trace,
+                                                     translating, &iter_insert, pair_data,
+                                                     quartet_data);
     }
 
     /* Pass 4: final */
@@ -997,7 +1016,6 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri)
     /* if we add fields in the future this is where we decide which to use */
     if (new_pri->struct_size < sizeof(drmgr_priority_t))
         return -1; /* incorrect struct */
-
     /* check for duplicate names.
      * not expecting a very long list, so simpler to do full walk
      * here rather than more complex logic to fold into walk below.
@@ -1009,7 +1027,6 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri)
                 return -1; /* duplicate name */
         }
     }
-
     /* Keep the list sorted by numeric priority.
      * Callback priorities are not re-sorted dynamically as callbacks are registered,
      * so callbacks intending to be named in before or after requests should
@@ -1038,8 +1055,9 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri)
         /* Secondary constraint #2: must be after "after" */
         else if (!past_after) {
             ASSERT(new_pri->after != NULL, "past_after should be true");
-            if (strcmp(new_pri->after, pri->in_priority.name) == 0)
+            if (strcmp(new_pri->after, pri->in_priority.name) == 0) {
                 past_after = true;
+            }
         }
     }
     if (!past_after) {
@@ -1070,8 +1088,7 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri)
         return -1;
     pri = cblist_get_pri(list, i);
     pri->valid = true;
-    pri->in_priority.name = new_pri->name;
-    pri->in_priority.priority = new_pri->priority;
+    pri->in_priority = *new_pri;
     list->num_valid++;
     if (list->num_valid == 1 && list->lazy_register != NULL)
         (*list->lazy_register)();
@@ -1085,7 +1102,8 @@ drmgr_bb_cb_add(cb_list_t *list, drmgr_xform_cb_t xform_func,
                 drmgr_app2app_ex_cb_t app2app_ex_func,
                 drmgr_ilist_ex_cb_t analysis_ex_func,
                 drmgr_ilist_ex_cb_t instru2instru_ex_func,
-                drmgr_opcode_insertion_cb_t opcode_instrum_fuc, drmgr_priority_t *priority)
+                drmgr_opcode_insertion_cb_t opcode_instrum_fuc,
+                drmgr_priority_t *priority)
 {
     int idx;
     bool res = false;
@@ -1131,7 +1149,8 @@ drmgr_bb_cb_add(cb_list_t *list, drmgr_xform_cb_t xform_func,
             new_e->has_quartet = false;
             new_e->is_opcode_insertion = true;
             new_e->cb.opcode_insertion_cb = opcode_instrum_fuc;
-            was_opcode_instrum_registered = true; /* set the flag */
+            was_opcode_instrum_registered = true; /* set the flag b/c we encountered the
+                                                     registration of an opcode event */
         } else {
             new_e->has_quartet = false;
             new_e->is_opcode_insertion = false;
@@ -1207,8 +1226,8 @@ drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
             ok;
     }
     if (analysis_func != NULL) {
-        ok = drmgr_bb_cb_add(&cblist_instrumentation, NULL, NULL, insertion_func,
-                             NULL, analysis_func,  NULL, NULL, priority) &&
+        ok = drmgr_bb_cb_add(&cblist_instrumentation, NULL, NULL, insertion_func, NULL,
+                             analysis_func, NULL, NULL, priority) &&
             ok;
     }
     if (instru2instru_func != NULL) {
@@ -1259,7 +1278,9 @@ drmgr_bb_cb_remove(cb_list_t *list, drmgr_xform_cb_t xform_func,
             (analysis_ex_func != NULL &&
              analysis_ex_func == e->cb.pair_ex.analysis_ex_cb) ||
             (instru2instru_ex_func != NULL &&
-             instru2instru_ex_func == e->cb.instru2instru_ex_cb)) {
+             instru2instru_ex_func == e->cb.instru2instru_ex_cb) ||
+            (opcode_insertion_func != NULL &&
+             opcode_insertion_func == e->cb.opcode_insertion_cb)) {
             res = true;
             e->pri.valid = false;
             ASSERT(list->num_valid > 0, "invalid num_valid");
@@ -1386,15 +1407,8 @@ drmgr_register_opcode_instrumentation_event(
         return false;
 
     dr_rwlock_write_lock(opcode_table_lock);
-    cb_list_t *opcode_cb_list =
-        hashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
-    if (opcode_cb_list == NULL) {
-        opcode_cb_list = dr_global_alloc(sizeof(cb_list_t));
-        cblist_init(opcode_cb_list, sizeof(generic_event_entry_t));
-        bool succ = hashtable_add(&global_opcode_instrum_table, (void *)(intptr_t)opcode,
-                                  opcode_cb_list);
-        ASSERT(succ, "new opcode list should be added");
-    }
+    cb_list_t *opcode_cb_list = drmgr_get_opcode_cb_list(
+        &global_opcode_instrum_table, opcode, NULL /* don't need flag */);
     dr_rwlock_write_unlock(opcode_table_lock);
 
     return drmgr_bb_cb_add(opcode_cb_list, NULL, NULL, NULL, NULL, NULL, NULL,
