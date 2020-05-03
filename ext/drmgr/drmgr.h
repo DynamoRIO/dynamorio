@@ -176,7 +176,8 @@ typedef dr_emit_flags_t (*drmgr_insertion_cb_t)(void *drcontext, void *tag,
  */
 typedef dr_emit_flags_t (*drmgr_opcode_insertion_cb_t)(void *drcontext, void *tag,
                                                        instrlist_t *bb, instr_t *inst,
-                                                       bool for_trace, bool translating);
+                                                       bool for_trace, bool translating,
+                                                       void *user_data);
 
 /** Specifies the ordering of callbacks for \p drmgr's events */
 typedef struct _drmgr_priority_t {
@@ -473,8 +474,8 @@ DR_EXPORT
  * specific opcode \p opcode.
  *
  * More than one callback function can be mapped to the same opcode. Their
- * execution sequence is determined by their priority \p priority if set. Ordering
- * based on priority is also taken into account with respect to insert bb events.
+ * execution sequence is determined by their priority \p priority (if set). Ordering
+ * based on priority is also taken into account with respect to insert per instr events.
  *
  * Since this callback is triggered during instrumentation insertion,
  * same usage rules apply. The callback is allowed to insert meta
@@ -488,14 +489,16 @@ DR_EXPORT
  * @param[in]  opcode          The opcode to associate with the insertion callback.
  * @param[in]  priority        Specifies the relative ordering of both callbacks.
  *                             Can be NULL, in which case a default priority is used.
+ * @param[in]  user_data       User data made available when triggering the callback
+ * \p func. Can be NULL.
  *
  * \note It is possible that this callback will be triggered for meta instructions.
- * Therefore, we recommend that the callback checks for meta instructions
+ * Therefore, we recommend that the callback check for meta instructions
  * (and ignore them, typically).
  */
 bool
 drmgr_register_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func, int opcode,
-                                            drmgr_priority_t *priority);
+                                            drmgr_priority_t *priority, void *user_data);
 
 DR_EXPORT
 /**

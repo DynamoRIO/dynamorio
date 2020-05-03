@@ -145,13 +145,13 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
 
 static dr_emit_flags_t
 event_opcode_add_insert_A(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-                          bool for_trace, bool translating);
+                          bool for_trace, bool translating, void *user_data);
 static dr_emit_flags_t
 event_bb_insert_B(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                   bool for_trace, bool translating, void *user_data);
 static dr_emit_flags_t
 event_opcode_add_insert_C(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-                          bool for_trace, bool translating);
+                          bool for_trace, bool translating, void *user_data);
 
 static dr_emit_flags_t
 event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
@@ -185,6 +185,7 @@ event_null_signal(void *drcontext, dr_siginfo_t *siginfo, void *user_data);
 /* The following test values are arbitrary */
 
 static const uintptr_t thread_user_data_test = 9090;
+static const uintptr_t opcode_user_data_test = 3333;
 static const uintptr_t syscall_A_user_data_test = 7189;
 static const uintptr_t syscall_B_user_data_test = 3218;
 static const uintptr_t mod_user_data_test = 1070;
@@ -272,14 +273,14 @@ dr_init(client_id_t id)
     CHECK(ok, "drmgr register bb failed");
 
     ok = drmgr_register_opcode_instrumentation_event(event_opcode_add_insert_A, OP_add,
-                                                     &opcode_pri_A);
+                                                     &opcode_pri_A, NULL);
     CHECK(ok, "drmgr register opcode failed");
 
     ok = drmgr_register_bb_instrumentation_event(NULL, event_bb_insert_B, &insert_pri_B);
     CHECK(ok, "drmgr register bb failed");
 
-    ok = drmgr_register_opcode_instrumentation_event(event_opcode_add_insert_C, OP_add,
-                                                     &opcode_pri_C);
+    ok = drmgr_register_opcode_instrumentation_event(
+        event_opcode_add_insert_C, OP_add, &opcode_pri_C, (void *)opcode_user_data_test);
     CHECK(ok, "drmgr register opcode failed");
 
     /* check register/unregister instrumentation_ex */
@@ -667,9 +668,10 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
 
 static dr_emit_flags_t
 event_opcode_add_insert_A(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-                          bool for_trace, bool translating)
+                          bool for_trace, bool translating, void *user_data)
 {
     CHECK(instr_get_opcode(inst) == OP_add, "incorrect opcode");
+    CHECK(user_data == NULL, "incorrect user data");
 
     if (!in_opcode_A) {
         dr_mutex_lock(opcodelock);
@@ -701,9 +703,10 @@ event_bb_insert_B(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
 
 static dr_emit_flags_t
 event_opcode_add_insert_C(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-                          bool for_trace, bool translating)
+                          bool for_trace, bool translating, void *user_data)
 {
     CHECK(instr_get_opcode(inst) == OP_add, "incorrect opcode");
+    CHECK(user_data == (void *)opcode_user_data_test, "incorrect user data");
 
     if (!in_opcode_C) {
         dr_mutex_lock(opcodelock);
