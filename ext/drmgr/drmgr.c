@@ -185,7 +185,7 @@ typedef struct _cb_list_t {
 } cb_list_t;
 
 #define EVENTS_INITIAL_SZ 10
-#define EVENTS_STACK_SZ 16
+#define EVENTS_STACK_SZ 15
 
 /* Our own TLS data */
 typedef struct _per_thread_t {
