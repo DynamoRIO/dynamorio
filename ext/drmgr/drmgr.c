@@ -36,11 +36,13 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "hashtable.h"
 #include "../ext_utils.h"
 #ifdef UNIX
 #    include <string.h>
 #endif
 #include <stddef.h> /* offsetof */
+#include <stdint.h> /* intptr */
 
 #undef dr_register_bb_event
 #undef dr_unregister_bb_event
@@ -87,14 +89,16 @@
 /* priority list entry base struct */
 typedef struct _priority_event_entry_t {
     bool valid; /* is whole entry valid (not just priority) */
-    int priority;
-    const char *name;
+    /* Given as input by the user. Enables reorder of cb lists. */
+    drmgr_priority_t in_priority;
 } priority_event_entry_t;
 
 /* bb event list entry */
 typedef struct _cb_entry_t {
     priority_event_entry_t pri;
+    void *registration_user_data; /* user data passed at registration time */
     bool has_quartet;
+    bool is_opcode_insertion;
     union {
         drmgr_xform_cb_t xform_cb;
         struct {
@@ -109,6 +113,7 @@ typedef struct _cb_entry_t {
             drmgr_insertion_cb_t insertion_ex_cb;
         } pair_ex;
         drmgr_ilist_ex_cb_t instru2instru_ex_cb;
+        drmgr_opcode_insertion_cb_t opcode_insertion_cb;
     } cb;
 } cb_entry_t;
 
@@ -180,7 +185,7 @@ typedef struct _cb_list_t {
 } cb_list_t;
 
 #define EVENTS_INITIAL_SZ 10
-#define EVENTS_STACK_SZ 16
+#define EVENTS_STACK_SZ 15
 
 /* Our own TLS data */
 typedef struct _per_thread_t {
@@ -204,6 +209,8 @@ enum {
 /* Using read-write locks to protect counts and lists to allow concurrent
  * bb events and only require mutual exclusion when a cb is registered
  * or unregistered, which should be rare.
+ *
+ * We also use this lock for opcode specific instrumentation.
  */
 static void *bb_cb_lock;
 
@@ -214,6 +221,12 @@ static uint bb_event_count;
 static cb_list_t cblist_app2app;
 static cb_list_t cblist_instrumentation;
 static cb_list_t cblist_instru2instru;
+
+/* For opcode specific instrumentation. */
+static hashtable_t global_opcode_instrum_table; /* maps opcodes to cb lists */
+static void *opcode_table_lock;
+/* a flag indicating whether opcode instrum was ever registered */
+static bool was_opcode_instrum_registered;
 
 /* Count of callbacks needing user_data, protected by bb_cb_lock */
 static uint pair_count;
@@ -308,6 +321,12 @@ static cb_list_t cblist_fault;
 static void *fault_event_lock;
 static bool registered_fault; /* for lazy registration */
 
+static int
+priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri);
+
+static void
+drmgr_init_opcode_hashtable(hashtable_t *opcode_instrum_table);
+
 static void
 drmgr_thread_init_event(void *drcontext);
 
@@ -391,6 +410,7 @@ drmgr_init(void)
     modunload_event_lock = dr_rwlock_create();
     low_on_memory_event_lock = dr_rwlock_create();
     kernel_xfer_event_lock = dr_rwlock_create();
+    opcode_table_lock = dr_rwlock_create();
 #ifdef UNIX
     signal_event_lock = dr_rwlock_create();
 #endif
@@ -415,6 +435,8 @@ drmgr_init(void)
     drmgr_bb_init();
     drmgr_event_init();
     drmgr_emulation_init();
+    drmgr_init_opcode_hashtable(&global_opcode_instrum_table);
+    was_opcode_instrum_registered = false;
 
     our_tls_idx = drmgr_register_tls_field();
     if (!drmgr_register_thread_init_event(our_thread_init_event) ||
@@ -437,6 +459,7 @@ drmgr_exit(void)
     drmgr_unregister_thread_init_event(our_thread_init_event);
     drmgr_unregister_thread_exit_event(our_thread_exit_event);
 
+    hashtable_delete(&global_opcode_instrum_table);
     drmgr_bb_exit();
     drmgr_event_exit();
 
@@ -477,6 +500,7 @@ drmgr_exit(void)
 #ifdef WINDOWS
     dr_rwlock_destroy(exception_event_lock);
 #endif
+    dr_rwlock_destroy(opcode_table_lock);
     dr_rwlock_destroy(kernel_xfer_event_lock);
     dr_rwlock_destroy(low_on_memory_event_lock);
     dr_rwlock_destroy(modunload_event_lock);
@@ -567,23 +591,51 @@ cblist_shift_and_resize(cb_list_t *l, uint insert_at)
     return insert_at;
 }
 
+static void
+cblist_insert_other(cb_list_t *l, cb_list_t *l_to_copy)
+{
+    ASSERT(l->entry_sz == l_to_copy->entry_sz, "must be of the same size");
+    size_t i;
+    for (i = 0; i < l_to_copy->num_def; i++) {
+        cb_entry_t *e = &l_to_copy->cbs.bb[i];
+        if (!e->pri.valid)
+            continue;
+        int idx = priority_event_add(l, &e->pri.in_priority);
+        if (idx >= 0) {
+            cb_entry_t *new_e = &l->cbs.bb[idx];
+            *new_e = *e;
+        }
+    }
+}
+
+/* A helper function to help with the copying of cb list data for
+ * cblist_create_local() and cblist_create_global().
+ */
+static void
+cblist_copy(cb_list_t *src, cb_list_t *dst)
+{
+    ASSERT(src->num_def <= dst->capacity, "dst must have large enough capacity");
+    dst->entry_sz = src->entry_sz;
+    dst->num_def = src->num_def;
+    memcpy(dst->cbs.array, src->cbs.array, src->num_def * src->entry_sz);
+}
+
 /* Creates a temporary local copy, using local if it's big enough but
- * otherwise allocating new space on the heap.
- * Caller must hold read lock.
+ * otherwise allocating new space on the heap. It allocates just enough space
+ * for the list's array, using num_def instead of capacity for its size.
+ * Caller must hold read lock. Use cblist_delete_local() to destroy.
  */
 static void
 cblist_create_local(void *drcontext, cb_list_t *src, cb_list_t *dst, byte *local,
                     size_t local_num)
 {
-    dst->entry_sz = src->entry_sz;
-    dst->num_def = src->num_def;
     dst->capacity = src->num_def;
     if (src->num_def > local_num) {
         dst->cbs.array = dr_thread_alloc(drcontext, src->num_def * src->entry_sz);
     } else {
         dst->cbs.array = local;
     }
-    memcpy(dst->cbs.array, src->cbs.array, src->num_def * src->entry_sz);
+    cblist_copy(src, dst);
 }
 
 static void
@@ -592,6 +644,104 @@ cblist_delete_local(void *drcontext, cb_list_t *l, size_t local_num)
     if (l->num_def > local_num) {
         dr_thread_free(drcontext, l->cbs.array, l->num_def * l->entry_sz);
     } /* else nothing to do */
+}
+
+/* Creates a global copy of a cb list. Use cblist_delete() to destroy. */
+static void
+cblist_create_global(cb_list_t *src, cb_list_t *dst)
+{
+    dst->capacity = src->capacity;
+    dst->cbs.array = dr_global_alloc(src->capacity * src->entry_sz);
+    cblist_copy(src, dst);
+}
+
+/***************************************************************************
+ * OPCODE INSTRUM HASHTABLE
+ */
+
+static void
+drmgr_destroy_opcode_cb_list(void *opcode_cb_list_opaque)
+{
+    cb_list_t *opcode_cb_list = (cb_list_t *)opcode_cb_list_opaque;
+    cblist_delete(opcode_cb_list);
+    dr_global_free(opcode_cb_list, sizeof(cb_list_t));
+}
+
+static void
+drmgr_init_opcode_hashtable(hashtable_t *opcode_instrum_table)
+{
+    hashtable_init_ex(opcode_instrum_table, 8, HASH_INTPTR, false, false,
+                      drmgr_destroy_opcode_cb_list, NULL, NULL);
+}
+
+/* Returns false if opcode instrumentation is not applicable, i.e., no registration.
+ */
+static bool
+drmgr_set_up_local_opcode_table(IN instrlist_t *bb, IN cb_list_t *insert_list,
+                                INOUT hashtable_t *local_opcode_instrum_table)
+{
+    instr_t *inst, *next_inst;
+    int opcode;
+    bool is_opcode_instrum_applicable = false;
+
+    dr_rwlock_read_lock(opcode_table_lock);
+
+    /* A high-level check to avoid expensive allocation and locking bb_cb_lock.
+     * In particular, we iterate over the bb and check whether any applicable opcode
+     * event is registered.
+     */
+    for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
+        next_inst = instr_get_next(inst);
+        if (!instr_opcode_valid(inst))
+            continue;
+        opcode = instr_get_opcode(inst);
+        cb_list_t *opcode_cb_list =
+            hashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
+        if (opcode_cb_list != NULL) {
+            is_opcode_instrum_applicable = true;
+            break;
+        }
+    }
+
+    /* Just return if no opcode event is registered for any instruction in the BB. */
+    if (!is_opcode_instrum_applicable) {
+        dr_rwlock_read_unlock(opcode_table_lock);
+        return false;
+    }
+
+    /* Since both opcode and insert events are handled during stage 3, they need to be
+     * jointly organized according to their priorities. This is done now.
+     *
+     * An alternative approach is to do the merging upon registration of opcode
+     * events, and updating all mapped cb lists of opcodes when further bb insert events
+     * are registered/unregistered. However, in order to avoid races, this would require
+     * the dr bb event processed by drmgr to create a local copy of the entire opcode
+     * table every time.
+     */
+    dr_rwlock_read_lock(bb_cb_lock);
+    for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
+        next_inst = instr_get_next(inst);
+        if (!instr_opcode_valid(inst))
+            continue;
+
+        opcode = instr_get_opcode(inst);
+        cb_list_t *opcode_cb_list =
+            hashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
+        if (opcode_cb_list != NULL && opcode_cb_list->num_valid != 0) {
+            cb_list_t *local_opcode_cb_list =
+                hashtable_lookup(local_opcode_instrum_table, (void *)(intptr_t)opcode);
+            if (local_opcode_cb_list == NULL) {
+                local_opcode_cb_list = dr_global_alloc(sizeof(cb_list_t));
+                cblist_create_global(insert_list, local_opcode_cb_list);
+                cblist_insert_other(local_opcode_cb_list, opcode_cb_list);
+                hashtable_add(local_opcode_instrum_table, (void *)(intptr_t)opcode,
+                              local_opcode_cb_list);
+            }
+        }
+    }
+    dr_rwlock_read_unlock(bb_cb_lock);
+    dr_rwlock_read_unlock(opcode_table_lock);
+    return true;
 }
 
 /***************************************************************************
@@ -625,6 +775,49 @@ drmgr_fix_app_ctis(void *drcontext, instrlist_t *bb)
     }
 }
 
+/* Triggers the appropriate insert cb during stage 3. */
+static dr_emit_flags_t
+drmgr_bb_event_do_insertion_per_instr(void *drcontext, void *tag, instrlist_t *bb,
+                                      instr_t *inst, bool for_trace, bool translating,
+                                      cb_list_t *iter_insert, void **pair_data,
+                                      void **quartet_data)
+{
+    uint i;
+    cb_entry_t *e;
+    uint pair_idx, quartet_idx;
+    dr_emit_flags_t res = DR_EMIT_DEFAULT;
+
+    for (quartet_idx = 0, pair_idx = 0, i = 0; i < iter_insert->num_def; i++) {
+        e = &iter_insert->cbs.bb[i];
+        if (!e->pri.valid)
+            continue;
+        /* Most client instrumentation wants to be predicated to match the app
+         * instruction, so we do it by default (i#1723). Clients may opt-out
+         * by calling drmgr_disable_auto_predication() at the start of the
+         * insertion bb event.
+         */
+        instrlist_set_auto_predicate(bb, instr_get_predicate(inst));
+        if (e->is_opcode_insertion) {
+            res |= (*e->cb.opcode_insertion_cb)(drcontext, tag, bb, inst, for_trace,
+                                                translating, e->registration_user_data);
+        } else if (e->has_quartet) {
+            res |=
+                (*e->cb.pair_ex.insertion_ex_cb)(drcontext, tag, bb, inst, for_trace,
+                                                 translating, quartet_data[quartet_idx]);
+            quartet_idx++;
+        } else {
+            if (e->cb.pair.insertion_cb != NULL) {
+                res |= (*e->cb.pair.insertion_cb)(drcontext, tag, bb, inst, for_trace,
+                                                  translating, pair_data[pair_idx]);
+            }
+            pair_idx++;
+        }
+        instrlist_set_auto_predicate(bb, DR_PRED_NONE);
+        /* XXX: add checks that cb followed the rules */
+    }
+    return res;
+}
+
 static dr_emit_flags_t
 drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                bool translating)
@@ -641,7 +834,16 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     cb_list_t iter_app2app;
     cb_list_t iter_insert;
     cb_list_t iter_instru;
+    cb_list_t *iter_opcode_insert;
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
+    int opcode;
+    /* Denotes whether opcode event was ever registered.
+     * It is protected by bb_cb_lock.
+     */
+    bool local_was_opcode_instrum_registered;
+    /* denotes whether opcode instrumentation is applicable for this bb */
+    bool is_opcode_instrum_applicable = false;
+    hashtable_t local_opcode_instrum_table;
 
     dr_rwlock_read_lock(bb_cb_lock);
     /* We use arrays to more easily support unregistering while in an event (i#1356).
@@ -654,6 +856,11 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                         (byte *)local_insert, BUFFER_SIZE_ELEMENTS(local_insert));
     cblist_create_local(drcontext, &cblist_instru2instru, &iter_instru,
                         (byte *)local_instru, BUFFER_SIZE_ELEMENTS(local_instru));
+    local_was_opcode_instrum_registered = was_opcode_instrum_registered;
+    /* We do not make a complete local copy of the opcode hashtable as this can be
+     * expensive. Instead, we create a scoped table later on that only maps the cb lists
+     * of those opcodes required by this specific bb.
+     */
     dr_rwlock_read_unlock(bb_cb_lock);
 
     /* We need per-thread user_data */
@@ -708,33 +915,38 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     pt->first_instr = instrlist_first(bb);
     pt->first_nonlabel_instr = instrlist_first_nonlabel(bb);
     pt->last_instr = instrlist_last(bb);
+
+    /* For opcode instrumentation:
+     * We need to create a local copy of the opcode map.
+     * This is done at this point because instructions inserted
+     * in prior stages also need to be looked-up (including meta instructions) when
+     * iterating over the basic block.
+     *
+     * Initialise table only if opcode events were ever registered by the user.
+     */
+    if (local_was_opcode_instrum_registered) {
+        drmgr_init_opcode_hashtable(&local_opcode_instrum_table);
+        is_opcode_instrum_applicable = drmgr_set_up_local_opcode_table(
+            bb, &iter_insert, &local_opcode_instrum_table);
+    }
+
+    /* Main pass for instrumentation. */
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
         next_inst = instr_get_next(inst);
-        for (quartet_idx = 0, pair_idx = 0, i = 0; i < iter_insert.num_def; i++) {
-            e = &iter_insert.cbs.bb[i];
-            if (!e->pri.valid)
+        if (is_opcode_instrum_applicable && instr_opcode_valid(inst)) {
+            opcode = instr_get_opcode(inst);
+            iter_opcode_insert =
+                hashtable_lookup(&local_opcode_instrum_table, (void *)(intptr_t)opcode);
+            if (iter_opcode_insert != NULL) {
+                res |= drmgr_bb_event_do_insertion_per_instr(
+                    drcontext, tag, bb, inst, for_trace, translating, iter_opcode_insert,
+                    pair_data, quartet_data);
                 continue;
-            /* Most client instrumentation wants to be predicated to match the app
-             * instruction, so we do it by default (i#1723). Clients may opt-out
-             * by calling drmgr_disable_auto_predication() at the start of the
-             * insertion bb event.
-             */
-            instrlist_set_auto_predicate(bb, instr_get_predicate(inst));
-            if (e->has_quartet) {
-                res |= (*e->cb.pair_ex.insertion_ex_cb)(drcontext, tag, bb, inst,
-                                                        for_trace, translating,
-                                                        quartet_data[quartet_idx]);
-                quartet_idx++;
-            } else {
-                if (e->cb.pair.insertion_cb != NULL) {
-                    res |= (*e->cb.pair.insertion_cb)(drcontext, tag, bb, inst, for_trace,
-                                                      translating, pair_data[pair_idx]);
-                }
-                pair_idx++;
             }
-            instrlist_set_auto_predicate(bb, DR_PRED_NONE);
-            /* XXX: add checks that cb followed the rules */
         }
+        res |= drmgr_bb_event_do_insertion_per_instr(drcontext, tag, bb, inst, for_trace,
+                                                     translating, &iter_insert, pair_data,
+                                                     quartet_data);
     }
 
     /* Pass 4: final */
@@ -778,6 +990,9 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     cblist_delete_local(drcontext, &iter_insert, BUFFER_SIZE_ELEMENTS(local_insert));
     cblist_delete_local(drcontext, &iter_instru, BUFFER_SIZE_ELEMENTS(local_instru));
 
+    /* Delete table only if opcode events were ever registered by the user. */
+    if (local_was_opcode_instrum_registered)
+        hashtable_delete(&local_opcode_instrum_table);
     return res;
 }
 
@@ -809,7 +1024,7 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri)
     if (new_pri != &default_priority) {
         for (i = 0; i < (int)list->num_def; i++) {
             pri = cblist_get_pri(list, i);
-            if (pri->valid && strcmp(new_pri->name, pri->name) == 0)
+            if (pri->valid && strcmp(new_pri->name, pri->in_priority.name) == 0)
                 return -1; /* duplicate name */
         }
     }
@@ -827,12 +1042,13 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri)
         if (!pri->valid)
             continue;
         /* Primary sort: numeric priority.  Tie goes to 1st to register. */
-        if (pri->priority > new_pri->priority)
+        if (pri->in_priority.priority > new_pri->priority)
             break;
         /* Secondary constraint #1: must be before "before" */
-        if (new_pri->before != NULL && strcmp(new_pri->before, pri->name) == 0) {
+        if (new_pri->before != NULL &&
+            strcmp(new_pri->before, pri->in_priority.name) == 0) {
             found_before = true;
-            if (pri->priority < new_pri->priority) {
+            if (pri->in_priority.priority < new_pri->priority) {
                 /* cannot satisfy both before and numeric */
                 return -1;
             }
@@ -841,8 +1057,9 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri)
         /* Secondary constraint #2: must be after "after" */
         else if (!past_after) {
             ASSERT(new_pri->after != NULL, "past_after should be true");
-            if (strcmp(new_pri->after, pri->name) == 0)
+            if (strcmp(new_pri->after, pri->in_priority.name) == 0) {
                 past_after = true;
+            }
         }
     }
     if (!past_after) {
@@ -859,7 +1076,7 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri)
         ASSERT(new_pri->before != NULL, "found_before should be true");
         for (j = i; j < (int)list->num_def; j++) {
             pri = cblist_get_pri(list, j);
-            if (pri->valid && strcmp(new_pri->before, pri->name) == 0) {
+            if (pri->valid && strcmp(new_pri->before, pri->in_priority.name) == 0) {
                 found_before = true;
                 break;
             }
@@ -873,8 +1090,7 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri)
         return -1;
     pri = cblist_get_pri(list, i);
     pri->valid = true;
-    pri->name = new_pri->name;
-    pri->priority = new_pri->priority;
+    pri->in_priority = *new_pri;
     list->num_valid++;
     if (list->num_valid == 1 && list->lazy_register != NULL)
         (*list->lazy_register)();
@@ -887,44 +1103,60 @@ drmgr_bb_cb_add(cb_list_t *list, drmgr_xform_cb_t xform_func,
                 /* for quartet (also uses insertion_func) */
                 drmgr_app2app_ex_cb_t app2app_ex_func,
                 drmgr_ilist_ex_cb_t analysis_ex_func,
-                drmgr_ilist_ex_cb_t instru2instru_ex_func, drmgr_priority_t *priority)
+                drmgr_ilist_ex_cb_t instru2instru_ex_func,
+                drmgr_opcode_insertion_cb_t opcode_instrum_fuc,
+                drmgr_priority_t *priority, void *user_data /*passed at registration */)
 {
     int idx;
     bool res = false;
     ASSERT(list != NULL, "invalid internal params");
     ASSERT(((xform_func != NULL && analysis_func == NULL && insertion_func == NULL &&
              app2app_ex_func == NULL && analysis_ex_func == NULL &&
-             instru2instru_ex_func == NULL) ||
+             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL) ||
             (xform_func == NULL && (analysis_func != NULL || insertion_func != NULL) &&
              app2app_ex_func == NULL && analysis_ex_func == NULL &&
-             instru2instru_ex_func == NULL) ||
+             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL) ||
             (xform_func == NULL && analysis_func == NULL && insertion_func == NULL &&
              app2app_ex_func != NULL && analysis_ex_func == NULL &&
-             instru2instru_ex_func == NULL) ||
+             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL) ||
             (xform_func == NULL && analysis_func == NULL && insertion_func != NULL &&
              app2app_ex_func == NULL && analysis_ex_func != NULL &&
-             instru2instru_ex_func == NULL) ||
+             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL) ||
             (xform_func == NULL && analysis_func == NULL && insertion_func == NULL &&
              app2app_ex_func == NULL && analysis_ex_func == NULL &&
-             instru2instru_ex_func != NULL)),
+             instru2instru_ex_func != NULL && opcode_instrum_fuc == NULL) ||
+            (xform_func == NULL && analysis_func == NULL && insertion_func == NULL &&
+             app2app_ex_func == NULL && analysis_ex_func == NULL &&
+             instru2instru_ex_func == NULL && opcode_instrum_fuc != NULL)),
            "invalid internal params");
 
     dr_rwlock_write_lock(bb_cb_lock);
     idx = priority_event_add(list, priority);
     if (idx >= 0) {
         cb_entry_t *new_e = &list->cbs.bb[idx];
+        new_e->registration_user_data = user_data;
         if (app2app_ex_func != NULL) {
             new_e->has_quartet = true;
+            new_e->is_opcode_insertion = false;
             new_e->cb.app2app_ex_cb = app2app_ex_func;
         } else if (analysis_ex_func != NULL) {
             new_e->has_quartet = true;
+            new_e->is_opcode_insertion = false;
             new_e->cb.pair_ex.analysis_ex_cb = analysis_ex_func;
             new_e->cb.pair_ex.insertion_ex_cb = insertion_func;
         } else if (instru2instru_ex_func != NULL) {
             new_e->has_quartet = true;
+            new_e->is_opcode_insertion = false;
             new_e->cb.instru2instru_ex_cb = instru2instru_ex_func;
+        } else if (opcode_instrum_fuc != NULL) {
+            new_e->has_quartet = false;
+            new_e->is_opcode_insertion = true;
+            new_e->cb.opcode_insertion_cb = opcode_instrum_fuc;
+            /* set the flag b/c we encountered the registration of an opcode event */
+            was_opcode_instrum_registered = true;
         } else {
             new_e->has_quartet = false;
+            new_e->is_opcode_insertion = false;
             if (xform_func != NULL) {
                 new_e->cb.xform_cb = xform_func;
             } else {
@@ -951,7 +1183,8 @@ drmgr_register_bb_app2app_event(drmgr_xform_cb_t func, drmgr_priority_t *priorit
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_add(&cblist_app2app, func, NULL, NULL, NULL, NULL, NULL, priority);
+    return drmgr_bb_cb_add(&cblist_app2app, func, NULL, NULL, NULL, NULL, NULL, NULL,
+                           priority, NULL /* no user data */);
 }
 
 DR_EXPORT
@@ -963,7 +1196,7 @@ drmgr_register_bb_instrumentation_event(drmgr_analysis_cb_t analysis_func,
     if (analysis_func == NULL && insertion_func == NULL)
         return false; /* invalid params */
     return drmgr_bb_cb_add(&cblist_instrumentation, NULL, analysis_func, insertion_func,
-                           NULL, NULL, NULL, priority);
+                           NULL, NULL, NULL, NULL, priority, NULL /* no user data */);
 }
 
 DR_EXPORT
@@ -973,7 +1206,7 @@ drmgr_register_bb_instru2instru_event(drmgr_xform_cb_t func, drmgr_priority_t *p
     if (func == NULL)
         return false; /* invalid params */
     return drmgr_bb_cb_add(&cblist_instru2instru, func, NULL, NULL, NULL, NULL, NULL,
-                           priority);
+                           NULL, priority, NULL /* no user data */);
 }
 
 DR_EXPORT
@@ -992,17 +1225,19 @@ drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
         return false; /* invalid params */
     if (app2app_func != NULL) {
         ok = drmgr_bb_cb_add(&cblist_app2app, NULL, NULL, NULL, app2app_func, NULL, NULL,
-                             priority) &&
+                             NULL, priority, NULL /* no user data */) &&
             ok;
     }
     if (analysis_func != NULL) {
         ok = drmgr_bb_cb_add(&cblist_instrumentation, NULL, NULL, insertion_func, NULL,
-                             analysis_func, NULL, priority) &&
+                             analysis_func, NULL, NULL, priority,
+                             NULL /* no user data */) &&
             ok;
     }
     if (instru2instru_func != NULL) {
         ok = drmgr_bb_cb_add(&cblist_instru2instru, NULL, NULL, NULL, NULL, NULL,
-                             instru2instru_func, priority) &&
+                             instru2instru_func, NULL, priority,
+                             NULL /* no user data */) &&
             ok;
     }
     return ok;
@@ -1014,18 +1249,27 @@ drmgr_bb_cb_remove(cb_list_t *list, drmgr_xform_cb_t xform_func,
                    /* for quartet */
                    drmgr_app2app_ex_cb_t app2app_ex_func,
                    drmgr_ilist_ex_cb_t analysis_ex_func,
-                   drmgr_ilist_ex_cb_t instru2instru_ex_func)
+                   drmgr_ilist_ex_cb_t instru2instru_ex_func,
+                   /* for opcode instrumentation */
+                   drmgr_opcode_insertion_cb_t opcode_insertion_func)
 {
     bool res = false;
     uint i;
     ASSERT(list != NULL, "invalid internal params");
-    ASSERT((xform_func != NULL && analysis_func == NULL) ||
-               (xform_func == NULL && analysis_func != NULL) ||
-               (xform_func == NULL && analysis_func == NULL && insertion_func != NULL) ||
-               (xform_func == NULL && analysis_func == NULL &&
-                (app2app_ex_func != NULL || analysis_ex_func != NULL ||
-                 instru2instru_ex_func != NULL)),
-           "invalid internal params");
+    ASSERT(
+        (xform_func != NULL && analysis_func == NULL && opcode_insertion_func == NULL) ||
+            (xform_func == NULL && analysis_func != NULL &&
+             opcode_insertion_func == NULL) ||
+            (xform_func == NULL && analysis_func == NULL && insertion_func != NULL &&
+             opcode_insertion_func == NULL) ||
+            (xform_func == NULL && analysis_func == NULL &&
+             opcode_insertion_func == NULL &&
+             (app2app_ex_func != NULL || analysis_ex_func != NULL ||
+              instru2instru_ex_func != NULL)) ||
+            (xform_func == NULL && analysis_func == NULL && app2app_ex_func == NULL &&
+             analysis_ex_func == NULL && instru2instru_ex_func == NULL &&
+             opcode_insertion_func != NULL),
+        "invalid internal params");
 
     dr_rwlock_write_lock(bb_cb_lock);
     for (i = 0; i < list->num_def; i++) {
@@ -1039,7 +1283,9 @@ drmgr_bb_cb_remove(cb_list_t *list, drmgr_xform_cb_t xform_func,
             (analysis_ex_func != NULL &&
              analysis_ex_func == e->cb.pair_ex.analysis_ex_cb) ||
             (instru2instru_ex_func != NULL &&
-             instru2instru_ex_func == e->cb.instru2instru_ex_cb)) {
+             instru2instru_ex_func == e->cb.instru2instru_ex_cb) ||
+            (opcode_insertion_func != NULL &&
+             opcode_insertion_func == e->cb.opcode_insertion_cb)) {
             res = true;
             e->pri.valid = false;
             ASSERT(list->num_valid > 0, "invalid num_valid");
@@ -1088,7 +1334,7 @@ drmgr_unregister_bb_app2app_event(drmgr_xform_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_app2app, func, NULL, NULL, NULL, NULL, NULL);
+    return drmgr_bb_cb_remove(&cblist_app2app, func, NULL, NULL, NULL, NULL, NULL, NULL);
 }
 
 DR_EXPORT
@@ -1097,7 +1343,7 @@ drmgr_unregister_bb_instrumentation_event(drmgr_analysis_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, func, NULL, NULL, NULL,
+    return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, func, NULL, NULL, NULL, NULL,
                               NULL);
 }
 
@@ -1107,7 +1353,7 @@ drmgr_unregister_bb_insertion_event(drmgr_insertion_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, func, NULL, NULL,
+    return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, func, NULL, NULL, NULL,
                               NULL);
 }
 
@@ -1117,7 +1363,8 @@ drmgr_unregister_bb_instru2instru_event(drmgr_xform_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_instru2instru, func, NULL, NULL, NULL, NULL, NULL);
+    return drmgr_bb_cb_remove(&cblist_instru2instru, func, NULL, NULL, NULL, NULL, NULL,
+                              NULL);
 }
 
 DR_EXPORT
@@ -1135,7 +1382,7 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
         return false; /* invalid params */
     if (app2app_func != NULL) {
         ok = drmgr_bb_cb_remove(&cblist_app2app, NULL, NULL, NULL, app2app_func, NULL,
-                                NULL) &&
+                                NULL, NULL) &&
             ok;
     }
     if (analysis_func != NULL) {
@@ -1144,15 +1391,57 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
          * checks analysis_func, so we pass NULL instead of insertion_func here.
          */
         ok = drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, NULL, NULL,
-                                analysis_func, NULL) &&
+                                analysis_func, NULL, NULL) &&
             ok;
     }
     if (instru2instru_func != NULL) {
         ok = drmgr_bb_cb_remove(&cblist_instru2instru, NULL, NULL, NULL, NULL, NULL,
-                                instru2instru_func) &&
+                                instru2instru_func, NULL) &&
             ok;
     }
     return ok;
+}
+
+DR_EXPORT
+bool
+drmgr_register_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func, int opcode,
+                                            drmgr_priority_t *priority, void *user_data)
+{
+    if (func == NULL)
+        return false;
+
+    dr_rwlock_write_lock(opcode_table_lock);
+    cb_list_t *opcode_cb_list =
+        hashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
+    if (opcode_cb_list == NULL) {
+        /* We need to add a new mapping. */
+        opcode_cb_list = dr_global_alloc(sizeof(cb_list_t));
+        cblist_init(opcode_cb_list, sizeof(cb_entry_t));
+        hashtable_add(&global_opcode_instrum_table, (void *)(intptr_t)opcode,
+                      opcode_cb_list);
+    }
+    dr_rwlock_write_unlock(opcode_table_lock);
+
+    return drmgr_bb_cb_add(opcode_cb_list, NULL, NULL, NULL, NULL, NULL, NULL, func,
+                           priority, user_data);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func,
+                                              int opcode)
+{
+    if (func == NULL)
+        return false;
+
+    dr_rwlock_write_lock(opcode_table_lock);
+    cb_list_t *opcode_cb_list =
+        hashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
+    if (opcode_cb_list == NULL)
+        return false; /* there should be a cb list present in the table */
+    dr_rwlock_write_unlock(opcode_table_lock);
+
+    return drmgr_bb_cb_remove(opcode_cb_list, NULL, NULL, NULL, NULL, NULL, NULL, func);
 }
 
 DR_EXPORT
