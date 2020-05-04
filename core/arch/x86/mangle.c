@@ -2594,7 +2594,8 @@ mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_t
  */
 
 /* The offset of the last floating point PC in the saved state */
-#    define FNSAVE_PC_OFFS 12
+#    define FNSAVE_PC_OFFS_28 12
+#    define FNSAVE_PC_OFFS_14 6
 #    define FXSAVE_PC_OFFS 8
 #    define FXSAVE_SIZE 512
 
@@ -2617,7 +2618,7 @@ float_pc_update(dcontext_t *dcontext)
     }
 
     if (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_FLOAT_PC_FNSAVE) {
-        offs = FNSAVE_PC_OFFS;
+        offs = FNSAVE_PC_OFFS_28;
     } else {
         offs = FXSAVE_PC_OFFS;
     }
@@ -2723,12 +2724,18 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* Replace the stored code cache pc with the original app pc.
          * If the app memory is unwritable, instr would have already crashed.
          */
-        if (op == OP_fnsave || op == OP_fnstenv) {
-            opnd_set_disp(&memop, opnd_get_disp(memop) + FNSAVE_PC_OFFS);
+        if ((op == OP_fnsave || op == OP_fnstenv) && opnd_get_size(memop) == OPSZ_28) {
+            opnd_set_disp(&memop, opnd_get_disp(memop) + FNSAVE_PC_OFFS_28);
             opnd_set_size(&memop, OPSZ_4);
             PRE(ilist, next_instr,
                 INSTR_CREATE_mov_st(dcontext, memop,
                                     OPND_CREATE_INT32((int)(ptr_int_t)prior_float)));
+        } else if ((op == OP_fnsave || op == OP_fnstenv) && opnd_get_size(memop) == OPSZ_14) {
+            opnd_set_disp(&memop, opnd_get_disp(memop) + FNSAVE_PC_OFFS_14);
+            opnd_set_size(&memop, OPSZ_2);
+            PRE(ilist, next_instr,
+                INSTR_CREATE_mov_st(dcontext, memop,
+                                    OPND_CREATE_INT16((ushort)(ptr_int_t)prior_float)));
         } else if (op == OP_fxsave32) {
             opnd_set_disp(&memop, opnd_get_disp(memop) + FXSAVE_PC_OFFS);
             opnd_set_size(&memop, OPSZ_4);
