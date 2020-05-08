@@ -594,13 +594,22 @@ cblist_shift_and_resize(cb_list_t *l, uint insert_at)
 static void
 cblist_insert_other(cb_list_t *l, cb_list_t *l_to_copy)
 {
+    drmgr_priority_t *pri = NULL;
     ASSERT(l->entry_sz == l_to_copy->entry_sz, "must be of the same size");
     size_t i;
     for (i = 0; i < l_to_copy->num_def; i++) {
         cb_entry_t *e = &l_to_copy->cbs.bb[i];
         if (!e->pri.valid)
             continue;
-        int idx = priority_event_add(l, &e->pri.in_priority);
+
+        pri = &e->pri.in_priority;
+        if (strcmp(pri->name, default_priority.name) == 0) {
+            /* Nullify here so that we do not bypass user validation done by
+             * priority_event_add. */
+            pri = NULL;
+        }
+
+        int idx = priority_event_add(l, pri);
         if (idx >= 0) {
             cb_entry_t *new_e = &l->cbs.bb[idx];
             *new_e = *e;
@@ -617,6 +626,7 @@ cblist_copy(cb_list_t *src, cb_list_t *dst)
     ASSERT(src->num_def <= dst->capacity, "dst must have large enough capacity");
     dst->entry_sz = src->entry_sz;
     dst->num_def = src->num_def;
+    dst->num_valid = src->num_valid;
     memcpy(dst->cbs.array, src->cbs.array, src->num_def * src->entry_sz);
 }
 
@@ -650,6 +660,7 @@ cblist_delete_local(void *drcontext, cb_list_t *l, size_t local_num)
 static void
 cblist_create_global(cb_list_t *src, cb_list_t *dst)
 {
+    memset(dst, 0, sizeof(*dst));
     dst->capacity = src->capacity;
     dst->cbs.array = dr_global_alloc(src->capacity * src->entry_sz);
     cblist_copy(src, dst);

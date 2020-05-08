@@ -2774,6 +2774,9 @@ endif ()
             torunonly_ci(sample.${sample} client.memval-test ${sample}
                 client-interface/memval-test.c "" "" "")
           endif(X86 AND (NOT X64) AND UNIX)
+        elseif (sample STREQUAL "opcode_count")
+          torunonly_ci(sample.${sample} common.${control_flags} ${sample}
+            common/${control_flags}.c "-opcode 5" "" "")
         endif()
       endforeach ()
     endif (NOT ANDROID)
