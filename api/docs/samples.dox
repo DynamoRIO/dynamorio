@@ -119,7 +119,7 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 uses the drbbdup extension to count the execution of hot basic blocks which have exceeded a given hit threshold.
 
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/opcode_count.cpp">opcode_count.cpp</a>
-takes an opcode as input and uses drmgr's instrumentation events to count the number of times instruction with that opcode
+takes an opcode as input and uses drmgr's instrumentation events to count the number of times instructions with that opcode
 are executed.
 
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/modxfer.c">modxfer.c</a>
