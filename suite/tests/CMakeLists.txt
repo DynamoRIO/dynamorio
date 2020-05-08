@@ -2776,7 +2776,7 @@ endif ()
           endif(X86 AND (NOT X64) AND UNIX)
         elseif (sample STREQUAL "opcode_count")
           torunonly_ci(sample.${sample} common.${control_flags} ${sample}
-            common/${control_flags}.c "" "-opt_opcode 5" "")
+            common/${control_flags}.c "" "-opcode 5" "")
         endif()
       endforeach ()
     endif (NOT ANDROID)
