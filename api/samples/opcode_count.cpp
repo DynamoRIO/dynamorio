@@ -138,8 +138,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 #ifdef SHOW_RESULTS
         dr_fprintf(STDERR, "Error: give a valid opcode as a parameter.\n");
         dr_abort();
-#else
-        dr_abort_with_code(0); /* just exist now since no results are wanted. */
 #endif
     }
 
