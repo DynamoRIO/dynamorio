@@ -54,9 +54,10 @@
 
 #define NULL_TERMINATE(buf) (buf)[(sizeof((buf)) / sizeof((buf)[0])) - 1] = '\0'
 
-static droption_t<int> opcode(DROPTION_SCOPE_CLIENT, "opcode", -1, "The opcode to count",
-                              "The opcode to consider when counting the number of times "
-                              "the instruction is executed.");
+static droption_t<int>
+    opcode(DROPTION_SCOPE_CLIENT, "opcode", OP_add, "The opcode to count",
+           "The opcode to consider when counting the number of times "
+           "the instruction is executed. Default opcode is set to add.");
 
 static uintptr_t global_opcode_count = 0;
 static uintptr_t global_total_count = 0;
@@ -135,7 +136,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     int valid_opcode = opcode.get_value();
     if (valid_opcode < OP_FIRST || valid_opcode > OP_LAST) {
 #ifdef SHOW_RESULTS
-        dr_fprintf(STDERR, "Error: give a valid opcode as a parameter\n");
+        dr_fprintf(STDERR, "Error: give a valid opcode as a parameter.\n");
         dr_abort();
 #else
         dr_abort_with_code(0); /* just exist now since no results are wanted. */
