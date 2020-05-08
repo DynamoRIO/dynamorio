@@ -86,13 +86,15 @@ event_opcode_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
     /* Insert code to update the counter for tracking the number of executed instructions
      * having the specified opcode.
      */
-    drx_insert_counter_update(drcontext, bb, inst,
-                              /* We're using drmgr, so these slots
-                               * here won't be used: drreg's slots will be.
-                               */
-                              static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-                              IF_AARCHXX_(SPILL_SLOT_MAX + 1) & global_opcode_count, 1,
-                              DRX_COUNTER_LOCK);
+    drx_insert_counter_update(
+        drcontext, bb, inst,
+        /* We're using drmgr, so these slots
+         * here won't be used: drreg's slots will be.
+         */
+        static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
+        IF_AARCHXX_(static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1)) &
+            global_opcode_count,
+        1, DRX_COUNTER_LOCK);
 
     return DR_EMIT_DEFAULT;
 }
@@ -110,13 +112,15 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (!drmgr_is_first_instr(drcontext, inst))
         return DR_EMIT_DEFAULT;
 
-    drx_insert_counter_update(drcontext, bb, inst,
-                              /* We're using drmgr, so these slots
-                               * here won't be used: drreg's slots will be.
-                               */
-                              static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-                              IF_AARCHXX_(SPILL_SLOT_MAX + 1) & global_total_count, 1,
-                              DRX_COUNTER_LOCK);
+    drx_insert_counter_update(
+        drcontext, bb, inst,
+        /* We're using drmgr, so these slots
+         * here won't be used: drreg's slots will be.
+         */
+        static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
+        IF_AARCHXX_(static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1)) &
+            global_total_count,
+        1, DRX_COUNTER_LOCK);
 
     return DR_EMIT_DEFAULT;
 }
