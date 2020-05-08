@@ -660,7 +660,7 @@ cblist_delete_local(void *drcontext, cb_list_t *l, size_t local_num)
 static void
 cblist_create_global(cb_list_t *src, cb_list_t *dst)
 {
-    memset(dst, 0, sizeof(cb_list_t));
+    memset(dst, 0, sizeof(*dst));
     dst->capacity = src->capacity;
     dst->cbs.array = dr_global_alloc(src->capacity * src->entry_sz);
     cblist_copy(src, dst);

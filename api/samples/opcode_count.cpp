@@ -38,7 +38,7 @@
  * counter code.
  */
 
-#include <stdint.h> /* for intptr */
+#include <cstdint>  /* for intptr */
 #include <stddef.h> /* for offsetof */
 #include "dr_api.h"
 #include "drmgr.h"
@@ -54,8 +54,7 @@
 
 #define NULL_TERMINATE(buf) (buf)[(sizeof((buf)) / sizeof((buf)[0])) - 1] = '\0'
 
-static droption_t<int> opcode(DROPTION_SCOPE_CLIENT, "opcode", -1,
-                              "The opcode to consider",
+static droption_t<int> opcode(DROPTION_SCOPE_CLIENT, "opcode", -1, "The opcode to count",
                               "The opcode to consider when counting the number of times "
                               "the instruction is executed.");
 
@@ -128,38 +127,41 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    /* parse command-line options */
+    /* Parse command-line options. */
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL))
         DR_ASSERT(false);
 
-    /* get opcode and check if valid */
+    /* Get opcode and check if valid. */
     int valid_opcode = opcode.get_value();
     if (valid_opcode < OP_FIRST || valid_opcode > OP_LAST) {
+#ifdef SHOW_RESULTS
         dr_fprintf(STDERR, "Error: give a valid opcode as a parameter\n");
         dr_abort();
+#else
+        dr_abort_with_code(0); /* just exist now since no results are wanted. */
+#endif
     }
 
-    /* inits */
     drreg_options_t ops = { sizeof(ops), 1 /*max slots needed: aflags*/, false };
     dr_set_client_name("DynamoRIO Sample Client 'opcode_count'",
                        "http://dynamorio.org/issues");
     if (!drmgr_init() || !drx_init() || drreg_init(&ops) != DRREG_SUCCESS)
         DR_ASSERT(false);
 
-    /* register opcode event */
+    /* Register opcode event. */
     dr_register_exit_event(event_exit);
     if (!drmgr_register_opcode_instrumentation_event(event_opcode_instruction,
                                                      valid_opcode, NULL, NULL) ||
         !drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
         DR_ASSERT(false);
 
-    /* make it easy to tell, by looking at log file, which client executed */
+    /* Make it easy to tell, by looking at log file, which client executed. */
     dr_log(NULL, DR_LOG_ALL, 1, "Client 'opcode_count' initializing\n");
 #ifdef SHOW_RESULTS
     /* also give notification to stderr */
     if (dr_is_notify_on()) {
 #    ifdef WINDOWS
-        /* ask for best-effort printing to cmd window.  must be called at init. */
+        /* Ask for best-effort printing to cmd window. This must be called at init. */
         dr_enable_console_printing();
 #    endif
         dr_fprintf(STDERR, "Client opcode_count is running and considering opcode: %d.\n",
