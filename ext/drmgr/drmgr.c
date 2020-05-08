@@ -627,7 +627,6 @@ cblist_copy(cb_list_t *src, cb_list_t *dst)
     dst->entry_sz = src->entry_sz;
     dst->num_def = src->num_def;
     dst->num_valid = src->num_valid;
-
     memcpy(dst->cbs.array, src->cbs.array, src->num_def * src->entry_sz);
 }
 

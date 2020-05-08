@@ -34,7 +34,7 @@
  * opcode_count.c
  *
  * Reports the dynamic execution count of all instructions with a particular opcode.
- * Illustrates how to to use drmgr to register opcode events and inline atomic
+ * Illustrates how to to use drmgr to register opcode events and inline locked
  * counter code.
  */
 
@@ -45,8 +45,6 @@
 #include "drreg.h"
 #include "drx.h"
 #include "droption.h"
-
-#define SHOW_RESULTS 1
 
 #ifdef WINDOWS
 #    define DISPLAY_STRING(msg) dr_messagebox(msg)
@@ -103,7 +101,6 @@ static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                       bool for_trace, bool translating, void *user_data)
 {
-
     /* By default drmgr enables auto-predication, which predicates all instructions with
      * the predicate of the current instruction on ARM.
      * We disable it here because we want to unconditionally execute the following
@@ -113,7 +110,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (!drmgr_is_first_instr(drcontext, inst))
         return DR_EMIT_DEFAULT;
 
-    /* racy update on the counter for better performance */
     drx_insert_counter_update(drcontext, bb, inst,
                               /* We're using drmgr, so these slots
                                * here won't be used: drreg's slots will be.
@@ -128,18 +124,18 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    /* Options */
+    /* parse command-line options */
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL))
         DR_ASSERT(false);
 
     /* get opcode and check if valid */
     int valid_opcode = opcode.get_value();
-
     if (valid_opcode < OP_FIRST || valid_opcode > OP_LAST) {
         dr_fprintf(STDERR, "Error: give a valid opcode as a parameter\n");
         dr_abort();
     }
 
+    /* inits */
     drreg_options_t ops = { sizeof(ops), 1 /*max slots needed: aflags*/, false };
     dr_set_client_name("DynamoRIO Sample Client 'opcode_count'",
                        "http://dynamorio.org/issues");
