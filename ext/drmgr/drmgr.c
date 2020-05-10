@@ -206,12 +206,14 @@ enum {
  * to avoid holding a lock during the instrumentation process.
  */
 typedef struct _local_ctx_t {
-    cb_entry_t app2app[EVENTS_STACK_SZ];
-    cb_entry_t insert[EVENTS_STACK_SZ];
-    cb_entry_t instru[EVENTS_STACK_SZ];
     cb_list_t iter_app2app;
     cb_list_t iter_insert;
     cb_list_t iter_instru;
+    /* used as stack storage by the cb is large enough: */
+    cb_entry_t app2app[EVENTS_STACK_SZ];
+    cb_entry_t insert[EVENTS_STACK_SZ];
+    cb_entry_t instru[EVENTS_STACK_SZ];
+    /* for opcode instrumentation events: */
     cb_list_t *iter_opcode_insert;
     bool was_opcode_instrum_registered;
 } local_cb_info_t;
@@ -238,7 +240,7 @@ static cb_list_t cblist_instru2instru;
 
 /* For opcode specific instrumentation. */
 static hashtable_t global_opcode_instrum_table; /* maps opcodes to cb lists */
-static void *opcode_table_lock; /* Denotes whether opcode event was ever registered.
+static void *opcode_table_lock; /* Denotes whether opcode event was ever registered. */
 /* A flag indicating whether opcode instrum was ever registered. It is protected
  * by bb_cb_lock.
  */
@@ -978,9 +980,9 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
     return res;
 }
 
-static drmgr_bb_event_set_local_ctx(void *drcontext, OUT local_cb_info_t *local_info)
+static void
+drmgr_bb_event_set_local_cb_info(void *drcontext, OUT local_cb_info_t *local_info)
 {
-
     dr_rwlock_read_lock(bb_cb_lock);
     /* We use arrays to more easily support unregistering while in an event (i#1356).
      * With arrays we can make a temporary copy and avoid holding a lock while
@@ -990,7 +992,8 @@ static drmgr_bb_event_set_local_ctx(void *drcontext, OUT local_cb_info_t *local_
                         (byte *)local_info->app2app,
                         BUFFER_SIZE_ELEMENTS(local_info->app2app));
     cblist_create_local(drcontext, &cblist_instrumentation, &local_info->iter_insert,
-                        (byte *)local_info->insert, BUFFER_SIZE_ELEMENTS(insert));
+                        (byte *)local_info->insert,
+                        BUFFER_SIZE_ELEMENTS(local_info->insert));
     cblist_create_local(drcontext, &cblist_instru2instru, &local_info->iter_instru,
                         (byte *)local_info->instru,
                         BUFFER_SIZE_ELEMENTS(local_info->instru));
@@ -1002,7 +1005,8 @@ static drmgr_bb_event_set_local_ctx(void *drcontext, OUT local_cb_info_t *local_
     dr_rwlock_read_unlock(bb_cb_lock);
 }
 
-static drmgr_bb_event_set_local_ctx(void *drcontext, IN local_cb_info_t *local_info)
+static void
+drmgr_bb_event_delete_local_cb_info(void *drcontext, IN local_cb_info_t *local_info)
 {
 
     cblist_delete_local(drcontext, &local_info->iter_app2app,
@@ -1019,11 +1023,10 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 {
     dr_emit_flags_t res;
     local_cb_info_t local_info;
-    void **pair_data = NULL, **quartet_data = NULL, **dup_pair_data = NULL,
-         **dup_quartet_data = NULL;
+    void **pair_data = NULL, **quartet_data = NULL;
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
 
-    drmgr_bb_event_set_local_ctx(drcontext, &local_info);
+    drmgr_bb_event_set_local_cb_info(drcontext, &local_info);
 
     /* We need per-thread user_data */
     if (pair_count > 0)
@@ -1034,14 +1037,14 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     }
 
     res = drmgr_bb_event_do_instrum_phases(drcontext, tag, bb, for_trace, translating, pt,
-                                           local_info, pair_data, quartet_data);
+                                           &local_info, pair_data, quartet_data);
 
     if (pair_count > 0)
         dr_thread_free(drcontext, pair_data, sizeof(void *) * pair_count);
     if (quartet_count > 0)
         dr_thread_free(drcontext, quartet_data, sizeof(void *) * quartet_count);
 
-    drmgr_bb_event_set_local_ctx(drcontext, &local_info);
+    drmgr_bb_event_delete_local_cb_info(drcontext, &local_info);
 
     return res;
 }
