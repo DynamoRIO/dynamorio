@@ -864,10 +864,8 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
      * With arrays we can make a temporary copy and avoid holding a lock while
      * delivering events.
      */
-
     local_pair_count = pair_count;
     local_quartet_count = quartet_count;
-
     cblist_create_local(drcontext, &cblist_app2app, &iter_app2app, (byte *)local_app2app,
                         BUFFER_SIZE_ELEMENTS(local_app2app));
     cblist_create_local(drcontext, &cblist_instrumentation, &iter_insert,
@@ -879,7 +877,6 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
      * expensive. Instead, we create a scoped table later on that only maps the cb lists
      * of those opcodes required by this specific bb.
      */
-
     dr_rwlock_read_unlock(bb_cb_lock);
 
     /* We need per-thread user_data */
