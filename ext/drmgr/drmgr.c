@@ -884,7 +884,8 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 
     /* We need per-thread user_data */
     if (local_pair_count > 0)
-        pair_data = (void **)dr_thread_alloc(drcontext, sizeof(void *) * local_pair_count);
+        pair_data =
+            (void **)dr_thread_alloc(drcontext, sizeof(void *) * local_pair_count);
     if (local_quartet_count > 0) {
         quartet_data =
             (void **)dr_thread_alloc(drcontext, sizeof(void *) * local_quartet_count);
