@@ -216,6 +216,9 @@ typedef struct _local_ctx_t {
     /* for opcode instrumentation events: */
     cb_list_t *iter_opcode_insert;
     bool was_opcode_instrum_registered;
+    /* for user-data: */
+    int pair_count;
+    int quartet_count;
 } local_cb_info_t;
 
 /***************************************************************************
@@ -997,6 +1000,8 @@ drmgr_bb_event_set_local_cb_info(void *drcontext, OUT local_cb_info_t *local_inf
     cblist_create_local(drcontext, &cblist_instru2instru, &local_info->iter_instru,
                         (byte *)local_info->instru,
                         BUFFER_SIZE_ELEMENTS(local_info->instru));
+    local_info->pair_count = pair_count;
+    local_info->quartet_count = quartet_count;
     local_info->was_opcode_instrum_registered = was_opcode_instrum_registered;
     /* We do not make a complete local copy of the opcode hashtable as this can be
      * expensive. Instead, we create a scoped table later on that only maps the cb lists
@@ -1008,7 +1013,6 @@ drmgr_bb_event_set_local_cb_info(void *drcontext, OUT local_cb_info_t *local_inf
 static void
 drmgr_bb_event_delete_local_cb_info(void *drcontext, IN local_cb_info_t *local_info)
 {
-
     cblist_delete_local(drcontext, &local_info->iter_app2app,
                         BUFFER_SIZE_ELEMENTS(local_info->app2app));
     cblist_delete_local(drcontext, &local_info->iter_insert,
@@ -1029,20 +1033,22 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     drmgr_bb_event_set_local_cb_info(drcontext, &local_info);
 
     /* We need per-thread user_data */
-    if (pair_count > 0)
-        pair_data = (void **)dr_thread_alloc(drcontext, sizeof(void *) * pair_count);
-    if (quartet_count > 0) {
-        quartet_data =
-            (void **)dr_thread_alloc(drcontext, sizeof(void *) * quartet_count);
+    if (local_info.pair_count > 0)
+        pair_data =
+            (void **)dr_thread_alloc(drcontext, sizeof(void *) * local_info.pair_count);
+    if (local_info.quartet_count > 0) {
+        quartet_data = (void **)dr_thread_alloc(
+            drcontext, sizeof(void *) * local_info.quartet_count);
     }
 
     res = drmgr_bb_event_do_instrum_phases(drcontext, tag, bb, for_trace, translating, pt,
                                            &local_info, pair_data, quartet_data);
 
-    if (pair_count > 0)
-        dr_thread_free(drcontext, pair_data, sizeof(void *) * pair_count);
-    if (quartet_count > 0)
-        dr_thread_free(drcontext, quartet_data, sizeof(void *) * quartet_count);
+    if (local_info.pair_count > 0)
+        dr_thread_free(drcontext, pair_data, sizeof(void *) * local_info.pair_count);
+    if (local_info.quartet_count > 0)
+        dr_thread_free(drcontext, quartet_data,
+                       sizeof(void *) * local_info.quartet_count);
 
     drmgr_bb_event_delete_local_cb_info(drcontext, &local_info);
 
