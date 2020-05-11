@@ -847,6 +847,9 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     cb_list_t iter_instru;
     cb_list_t *iter_opcode_insert;
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
+    int local_pair_count;
+    int local_quartet_count;
+
     int opcode;
     /* Denotes whether opcode event was ever registered.
      * It is protected by bb_cb_lock.
@@ -861,6 +864,8 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
      * With arrays we can make a temporary copy and avoid holding a lock while
      * delivering events.
      */
+    local_pair_count = pair_count;
+    local_quartet_count = quartet_count;
     cblist_create_local(drcontext, &cblist_app2app, &iter_app2app, (byte *)local_app2app,
                         BUFFER_SIZE_ELEMENTS(local_app2app));
     cblist_create_local(drcontext, &cblist_instrumentation, &iter_insert,
@@ -875,11 +880,13 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     dr_rwlock_read_unlock(bb_cb_lock);
 
     /* We need per-thread user_data */
-    if (pair_count > 0)
-        pair_data = (void **)dr_thread_alloc(drcontext, sizeof(void *) * pair_count);
-    if (quartet_count > 0) {
+    if (local_pair_count > 0) {
+        pair_data =
+            (void **)dr_thread_alloc(drcontext, sizeof(void *) * local_pair_count);
+    }
+    if (local_quartet_count > 0) {
         quartet_data =
-            (void **)dr_thread_alloc(drcontext, sizeof(void *) * quartet_count);
+            (void **)dr_thread_alloc(drcontext, sizeof(void *) * local_quartet_count);
     }
 
     /* Pass 1: app2app */
@@ -992,10 +999,10 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 
     pt->cur_phase = DRMGR_PHASE_NONE;
 
-    if (pair_count > 0)
-        dr_thread_free(drcontext, pair_data, sizeof(void *) * pair_count);
-    if (quartet_count > 0)
-        dr_thread_free(drcontext, quartet_data, sizeof(void *) * quartet_count);
+    if (local_pair_count > 0)
+        dr_thread_free(drcontext, pair_data, sizeof(void *) * local_pair_count);
+    if (local_quartet_count > 0)
+        dr_thread_free(drcontext, quartet_data, sizeof(void *) * local_quartet_count);
 
     cblist_delete_local(drcontext, &iter_app2app, BUFFER_SIZE_ELEMENTS(local_app2app));
     cblist_delete_local(drcontext, &iter_insert, BUFFER_SIZE_ELEMENTS(local_insert));
