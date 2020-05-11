@@ -209,7 +209,7 @@ typedef struct _local_ctx_t {
     cb_list_t iter_app2app;
     cb_list_t iter_insert;
     cb_list_t iter_instru;
-    /* used as stack storage by the cb is large enough: */
+    /* used as stack storage by the cb if large enough: */
     cb_entry_t app2app[EVENTS_STACK_SZ];
     cb_entry_t insert[EVENTS_STACK_SZ];
     cb_entry_t instru[EVENTS_STACK_SZ];
