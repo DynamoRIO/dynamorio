@@ -213,10 +213,14 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
 static void
 pre_execve_ld_preload(const char *dr_path)
 {
+    char ld_preload_libs[MAX_OPTIONS_STRING];
     char ld_lib_path[MAX_OPTIONS_STRING];
     const char *last_slash = NULL;
     const char *mode_slash = NULL;
     const char *lib_slash = NULL;
+    const char *ld_preload = NULL;
+    const char *dr_ld_preload_libs = "libdynamorio.so libdrpreload.so";
+    const char *cur_preload = getenv("LD_PRELOAD");
     const char *cur_path = getenv("LD_LIBRARY_PATH");
     const char *cur = dr_path;
     /* Find last three occurrences of '/'. */
@@ -254,7 +258,17 @@ pre_execve_ld_preload(const char *dr_path)
     setenv("DYLD_FORCE_FLAT_NAMESPACE", "1", true /*overwrite*/);
 #else
     setenv("LD_LIBRARY_PATH", ld_lib_path, true /*overwrite*/);
-    setenv("LD_PRELOAD", "libdynamorio.so libdrpreload.so", true /*overwrite*/);
+
+    if (cur_preload != NULL) {
+        snprintf(ld_preload_libs, BUFFER_SIZE_ELEMENTS(ld_preload_libs), "%s %s",
+                 cur_preload, dr_ld_preload_libs);
+        NULL_TERMINATE_BUFFER(ld_preload_libs);
+        ld_preload = ld_preload_libs;
+    } else {
+        ld_preload = dr_ld_preload_libs;
+    }
+
+    setenv("LD_PRELOAD", ld_preload, true /*overwrite*/);
 #endif
     if (verbose) {
         printf("Setting LD_USE_LOAD_BIAS for PIEs so the loader will honor "
