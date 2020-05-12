@@ -958,22 +958,6 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
             res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
     }
 
-    /* Pass 5: our private pass to support multiple non-meta ctis in app2app phase */
-    drmgr_fix_app_ctis(drcontext, bb);
-
-#ifdef ARM
-    /* Pass 6: private pass to legalize conditional Thumb instrs.
-     * Xref various discussions about removing IT instrs earlier, but there's a
-     * conflict w/ tools who want to see the original instr stream and it's not
-     * clear *when* to remove them.  Thus, we live w/ an inconsistent state
-     * until this point.
-     */
-    if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_THUMB) {
-        dr_remove_it_instrs(drcontext, bb);
-        dr_insert_it_instrs(drcontext, bb);
-    }
-#endif
-
     pt->cur_phase = DRMGR_PHASE_NONE;
 
     /* Delete table only if opcode events were ever registered by the user. */
@@ -1044,11 +1028,29 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     res = drmgr_bb_event_do_instrum_phases(drcontext, tag, bb, for_trace, translating, pt,
                                            &local_info, pair_data, quartet_data);
 
+    /* Do final fix passes: */
+    /* Pass 5: our private pass to support multiple non-meta ctis in app2app phase */
+    drmgr_fix_app_ctis(drcontext, bb);
+
+#ifdef ARM
+    /* Pass 6: private pass to legalize conditional Thumb instrs.
+     * Xref various discussions about removing IT instrs earlier, but there's a
+     * conflict w/ tools who want to see the original instr stream and it's not
+     * clear *when* to remove them.  Thus, we live w/ an inconsistent state
+     * until this point.
+     */
+    if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_THUMB) {
+        dr_remove_it_instrs(drcontext, bb);
+        dr_insert_it_instrs(drcontext, bb);
+    }
+#endif
+
     if (local_info.pair_count > 0)
         dr_thread_free(drcontext, pair_data, sizeof(void *) * local_info.pair_count);
-    if (local_info.quartet_count > 0)
+    if (local_info.quartet_count > 0) {
         dr_thread_free(drcontext, quartet_data,
                        sizeof(void *) * local_info.quartet_count);
+    }
 
     drmgr_bb_event_delete_local_cb_info(drcontext, &local_info);
 
