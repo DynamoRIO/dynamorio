@@ -36,6 +36,7 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drmgr_priv.h"
 #include "hashtable.h"
 #include "../ext_utils.h"
 #ifdef UNIX
@@ -219,6 +220,11 @@ typedef struct _local_ctx_t {
     /* for user-data: */
     int pair_count;
     int quartet_count;
+    /* for bbdup events: */
+    drmgr_bbdup_duplicate_bb_cb_t bbdup_duplicate_cb;
+    drmgr_bbdup_extract_cb_t bbdup_extract_cb;
+    drmgr_bbdup_stitch_cb_t bbdup_stitch_cb;
+    drmgr_bbdup_insert_encoding_cb_t bbdup_insert_encoding_cb;
 } local_cb_info_t;
 
 /***************************************************************************
@@ -328,6 +334,12 @@ static void *low_on_memory_event_lock;
 static cb_list_t cblist_kernel_xfer;
 static void *kernel_xfer_event_lock;
 
+/* For drbbdup integration. Protected by bb_cb_lock. */
+static drmgr_bbdup_duplicate_bb_cb_t bbdup_duplicate_cb;
+static drmgr_bbdup_insert_encoding_cb_t bbdup_insert_encoding_cb;
+static drmgr_bbdup_extract_cb_t bbdup_extract_cb;
+static drmgr_bbdup_stitch_cb_t bbdup_stitch_cb;
+
 #ifdef UNIX
 static cb_list_t cblist_signal;
 static void *signal_event_lock;
@@ -404,6 +416,9 @@ our_thread_init_event(void *drcontext);
 static void
 our_thread_exit_event(void *drcontext);
 
+static bool
+is_bbdup_enabled();
+
 /***************************************************************************
  * INIT
  */
@@ -432,6 +447,13 @@ drmgr_init(void)
     low_on_memory_event_lock = dr_rwlock_create();
     kernel_xfer_event_lock = dr_rwlock_create();
     opcode_table_lock = dr_rwlock_create();
+
+    /* for drbbdup: */
+    bbdup_duplicate_cb = NULL;
+    bbdup_insert_encoding_cb = NULL;
+    bbdup_extract_cb = NULL;
+    bbdup_stitch_cb = NULL;
+
 #ifdef UNIX
     signal_event_lock = dr_rwlock_create();
 #endif
@@ -967,6 +989,41 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
     return res;
 }
 
+static bool
+drmgr_bb_event_instrument_dups(void *drcontext, void *tag, instrlist_t *bb,
+                               bool for_trace, bool translating, dr_emit_flags_t *res,
+                               per_thread_t *pt, local_cb_info_t *local_info,
+                               void **pair_data, void **quartet_data)
+{
+    void *local_dup_info;
+    /* Do the dups. */
+    bool is_dups = local_info->bbdup_duplicate_cb(drcontext, tag, bb, for_trace,
+                                                  translating, &local_dup_info);
+    if (is_dups) {
+        instrlist_t *case_bb = local_info->bbdup_extract_cb(drcontext, tag, bb, for_trace,
+                                                            translating, local_dup_info);
+        while (case_bb != NULL) {
+            /* Do an instrumentation pass for the case bb. */
+            *res |= drmgr_bb_event_do_instrum_phases(drcontext, tag, case_bb, for_trace,
+                                                     translating, pt, local_info,
+                                                     pair_data, quartet_data);
+            /* Stitch case bb back to the main bb. */
+            local_info->bbdup_stitch_cb(drcontext, tag, bb, case_bb, for_trace,
+                                        translating, local_dup_info);
+            /* Extract next duplicated bb. Returns NULL if
+             * no more dups are pending.
+             */
+            case_bb = local_info->bbdup_extract_cb(drcontext, tag, bb, for_trace,
+                                                   translating, local_dup_info);
+        }
+        /* Insert encoding at start and finalise. */
+        local_info->bbdup_insert_encoding_cb(drcontext, tag, bb, for_trace, translating,
+                                             local_dup_info);
+    }
+
+    return is_dups;
+}
+
 static void
 drmgr_bb_event_set_local_cb_info(void *drcontext, OUT local_cb_info_t *local_info)
 {
@@ -991,6 +1048,19 @@ drmgr_bb_event_set_local_cb_info(void *drcontext, OUT local_cb_info_t *local_inf
      * expensive. Instead, we create a scoped table later on that only maps the cb lists
      * of those opcodes required by this specific bb.
      */
+
+    /* Copy bbdup callbacks. */
+    if (is_bbdup_enabled()) {
+        ASSERT(bbdup_duplicate_cb != NULL, "should not be NULL");
+        ASSERT(bbdup_insert_encoding_cb != NULL, "should not be NULL");
+        ASSERT(bbdup_extract_cb != NULL, "should not be NULL");
+        ASSERT(bbdup_stitch_cb != NULL, "should not be NULL");
+
+        local_info->bbdup_duplicate_cb = bbdup_duplicate_cb;
+        local_info->bbdup_insert_encoding_cb = bbdup_insert_encoding_cb;
+        local_info->bbdup_extract_cb = bbdup_extract_cb;
+        local_info->bbdup_stitch_cb = bbdup_stitch_cb;
+    }
     dr_rwlock_read_unlock(bb_cb_lock);
 }
 
@@ -1026,8 +1096,17 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             drcontext, sizeof(void *) * local_info.quartet_count);
     }
 
-    res = drmgr_bb_event_do_instrum_phases(drcontext, tag, bb, for_trace, translating, pt,
-                                           &local_info, pair_data, quartet_data);
+    bool is_dups = false;
+    if (is_bbdup_enabled() /*only true if drbbdup is in use */) {
+        is_dups = drmgr_bb_event_instrument_dups(drcontext, tag, bb, for_trace,
+                                                 translating, &res, pt, &local_info,
+                                                 pair_data, quartet_data);
+    }
+
+    if (!is_dups) {
+        res = drmgr_bb_event_do_instrum_phases(drcontext, tag, bb, for_trace, translating,
+                                               pt, &local_info, pair_data, quartet_data);
+    }
 
     /* Do final fix passes: */
     /* Pass 5: our private pass to support multiple non-meta ctis in app2app phase */
@@ -3125,4 +3204,49 @@ drmgr_get_emulated_instr_data(instr_t *instr, emulated_instr_t *emulated)
     emulated->instr = (instr_t *)get_emul_label_data(instr, DRMGR_EMUL_INSTR);
 
     return true;
+}
+
+/***************************************************************************
+ * DRBBDUP
+ */
+
+static bool
+is_bbdup_enabled()
+{
+    return bbdup_duplicate_cb != NULL;
+}
+
+bool
+drmgr_register_bbdup_event(drmgr_bbdup_duplicate_bb_cb_t bb_dup_func,
+                           drmgr_bbdup_insert_encoding_cb_t insert_encoding,
+                           drmgr_bbdup_extract_cb_t extract_func,
+                           drmgr_bbdup_stitch_cb_t stitch_func)
+{
+    bool succ = false;
+    dr_rwlock_write_lock(bb_cb_lock);
+    if (!is_bbdup_enabled()) {
+        bbdup_duplicate_cb = bb_dup_func;
+        bbdup_insert_encoding_cb = insert_encoding;
+        bbdup_extract_cb = extract_func;
+        bbdup_stitch_cb = stitch_func;
+        succ = true;
+    }
+    dr_rwlock_write_unlock(bb_cb_lock);
+    return succ;
+}
+
+bool
+drmgr_unregister_bbdup_event()
+{
+    bool succ = false;
+    dr_rwlock_write_lock(bb_cb_lock);
+    if (is_bbdup_enabled()) {
+        bbdup_duplicate_cb = NULL;
+        bbdup_insert_encoding_cb = NULL;
+        bbdup_extract_cb = NULL;
+        bbdup_stitch_cb = NULL;
+        succ = true;
+    }
+    dr_rwlock_write_unlock(bb_cb_lock);
+    return succ;
 }
