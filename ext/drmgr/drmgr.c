@@ -1079,7 +1079,7 @@ static dr_emit_flags_t
 drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                bool translating)
 {
-    dr_emit_flags_t res;
+    dr_emit_flags_t res = DR_EMIT_DEFAULT;
     local_cb_info_t local_info;
     void **pair_data = NULL, **quartet_data = NULL;
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
@@ -3223,6 +3223,12 @@ drmgr_register_bbdup_event(drmgr_bbdup_duplicate_bb_cb_t bb_dup_func,
                            drmgr_bbdup_stitch_cb_t stitch_func)
 {
     bool succ = false;
+
+    /* None of the cbs can be NULL. */
+    if (bb_dup_func == NULL || insert_encoding == NULL || extract_func == NULL ||
+        stitch_func)
+        return succ;
+
     dr_rwlock_write_lock(bb_cb_lock);
     if (!is_bbdup_enabled()) {
         bbdup_duplicate_cb = bb_dup_func;
