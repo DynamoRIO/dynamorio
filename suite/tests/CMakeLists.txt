@@ -2690,8 +2690,7 @@ endif ()
   endif (X86)
 
   if (X86)
-    tobuild_ci(client.cl_args client-interface/cl_args.c "" "" "Test")
-    use_DynamoRIO_extension(client.cl_args.dll drmgr)
+    tobuild_ci(client.app_args client-interface/app_args.c "" "" "Test;Test2;Test3")
   endif (X86)
 
   if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64

@@ -30,19 +30,18 @@
  * DAMAGE.
  */
 
-#ifdef WINDOWS
-#include "windows.h"
-#endif
+#include "tools.h"
 
-#include <stdio.h>
-#include <string.h>
-
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
-    printf("The arg count is %d\n", argc);
+    print("The arg count is %d\n", argc);
 
-    if (argc == 2) {
-        printf("The string %s\n", argv[1]);
+    if (argc == 4) {
+        print("The first string is %s\n", argv[1]);
+        print("The second string is %s\n", argv[2]);
+        print("The third string is %s\n", argv[3]);
+
         return 0;
     }
 

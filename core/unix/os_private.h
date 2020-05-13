@@ -248,7 +248,7 @@ void
 set_executable_path(const char *);
 
 void
-set_application_cl_args(int *, char **);
+set_app_args(int *, char **);
 
 uint
 memprot_to_osprot(uint prot);

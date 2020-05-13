@@ -1810,12 +1810,14 @@ DR_API
 /**
  * Sets the passed arguments to the command-line arguments of the
  * application.
- * @param argc Pointer to place argc
- * @param argv Pointer to place argv
- * @return Returns true if successful.
+ * @param argc The pointer where to place argc.
+ * @param argv The pinter where to place argv.
+ * @return true if successful.
+ * \note Currently, this function is only available on Unix with
+ * early injection.
  */
 bool
-dr_get_application_cl_args(OUT int **argc, OUT char ***argv);
+dr_get_app_args(OUT int **argc, OUT char ***argv);
 
 DR_API
 /** Returns the process id of the current process. */

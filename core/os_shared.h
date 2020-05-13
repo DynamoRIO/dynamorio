@@ -315,7 +315,7 @@ get_application_pid(void);
 char *
 get_application_name(void);
 bool
-get_application_cl_args(int **argc, char ***argv);
+get_app_args(int **app_argc_out, char ***app_argv_out);
 const char *
 get_application_short_name(void);
 char *

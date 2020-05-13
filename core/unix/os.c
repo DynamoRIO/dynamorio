@@ -295,9 +295,9 @@ static app_pc executable_end = NULL;
 static char executable_path[MAXIMUM_PATH];
 static char *executable_basename;
 
-/* Used by get_cl_args(). */
-static int *argc = NULL;
-static char **argv = NULL;
+/* Pointers to arguments. Refers to the main stack set up by the kernel. */
+static int *app_argc = NULL;
+static char **app_argv = NULL;
 
 /* does the kernel provide tids that must be used to distinguish threads in a group? */
 static bool kernel_thread_groups;
@@ -1091,24 +1091,26 @@ get_application_name(void)
     return get_application_name_helper(false, true /* full path */);
 }
 
-/* Sets the . Used for get_cl_args, and called from privload_early_inject() */
+/* Sets pointers to the application's command-line arguments. These pointers are then used
+ * by get_application_cl_args().
+ */
 void
-set_application_cl_args(int *argc_passed, char **argv_passed)
+set_app_args(IN int *app_argc_in, IN char **app_argv_in)
 {
-    argc = argc_passed;
-    argv = argv_passed;
+    app_argc = app_argc_in;
+    app_argv = app_argv_in;
 }
 
-/* get command line arguments. Used by dr_get_cl_args() */
+/* Returns the application's command-line arguments.*/
 bool
-get_application_cl_args(OUT int **argc_out, OUT char ***argv_out)
+get_app_args(OUT int **app_argc_out, OUT char ***app_argv_out)
 {
-    if (argc != NULL) {
-        *argc_out = argc;
-        *argv_out = argv;
-        return true;
-    }
-    return false;
+    if (app_argc_out == NULL || app_argv_out == NULL)
+        return false;
+
+    *app_argc_out = app_argc;
+    *app_argv_out = app_argv;
+    return true;
 }
 
 /* Note: this is exported so that libdrpreload.so (preload.c) can use it to

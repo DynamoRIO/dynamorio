@@ -145,7 +145,8 @@ compatibility changes:
 
 Further non-compatibility-affecting changes include:
 
- Nothing yet.
+ - Added dr_get_app_args() to enable the gathering of application
+   command-line args on Unix systems.
 
 **************************************************
 <hr>
@@ -468,8 +469,6 @@ Further non-compatibility-affecting changes include:
    aggregate, and clean up in print_results().
  - Added module_mapper_t::find_mapped_trace_bounds() to allow callers to cache
    results and avoid global locks during parallel operation.
- - Added dr_get_application_cl_args() to enable the gathering of application
-   command-line args.
 
 **************************************************
 <hr>

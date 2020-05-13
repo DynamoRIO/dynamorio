@@ -35,19 +35,29 @@
 #include "client_tools.h"
 #include <string.h> /* memset */
 
-DR_EXPORT
-void dr_init(client_id_t id)
-{
+#define CHECK(x, msg)                                                                \
+    do {                                                                             \
+        if (!(x)) {                                                                  \
+            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            dr_abort();                                                              \
+        }                                                                            \
+    } while (0);
 
+DR_EXPORT
+void
+dr_init(client_id_t id)
+{
     int *app_argc;
     char **app_argv;
-    bool result = dr_get_application_cl_args(&app_argc, &app_argv);
+    bool result = dr_get_app_args(&app_argc, &app_argv);
 
 #ifdef UNIX
-    ASSERT(*app_argc == 2);
-    ASSERT(strcmp(app_argv[1], "Test") == 0);
-    ASSERT(result == true);
+    CHECK(strcmp(app_argv[1], "Test") == 0, "first arg should be Test");
+    CHECK(strcmp(app_argv[2], "Test2") == 0, "second arg should be Test2");
+    CHECK(strcmp(app_argv[3], "Test3") == 0, "third arg should be Test3");
+    CHECK(result == true, "should succeed");
 #else
-    ASSERT(result == false);
+    /* XXX i#2662: Windows not yet supported. */
+    CHECK(result == true, "should fail");
 #endif
 }

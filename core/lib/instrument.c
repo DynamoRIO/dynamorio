@@ -2777,6 +2777,7 @@ dr_set_client_version_string(const char *version)
 DR_API const char *
 dr_get_application_name(void)
 {
+
 #    ifdef UNIX
     return get_application_short_name();
 #    else
@@ -2785,13 +2786,14 @@ dr_get_application_name(void)
 }
 
 DR_API bool
-dr_get_application_cl_args(OUT int **argc, OUT char ***argv)
+dr_get_app_args(OUT int **argc, OUT char ***argv)
 {
-#ifdef UNIX
-    return get_application_cl_args(argc, argv);
-#else
+/* XXX i#2662: Add support for Windows. */
+#    ifdef UNIX
+    return get_app_args(argc, argv);
+#    else
     return false;
-#endif
+#    endif
 }
 
 DR_API process_id_t
