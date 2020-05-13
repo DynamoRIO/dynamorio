@@ -221,6 +221,7 @@ typedef struct _local_ctx_t {
     int pair_count;
     int quartet_count;
     /* for bbdup events: */
+    bool is_bbdup_enabled;
     drmgr_bbdup_duplicate_bb_cb_t bbdup_duplicate_cb;
     drmgr_bbdup_extract_cb_t bbdup_extract_cb;
     drmgr_bbdup_stitch_cb_t bbdup_stitch_cb;
@@ -1050,7 +1051,8 @@ drmgr_bb_event_set_local_cb_info(void *drcontext, OUT local_cb_info_t *local_inf
      */
 
     /* Copy bbdup callbacks. */
-    if (is_bbdup_enabled()) {
+    local_info->is_bbdup_enabled = is_bbdup_enabled();
+    if (local_info->is_bbdup_enabled) {
         ASSERT(bbdup_duplicate_cb != NULL, "should not be NULL");
         ASSERT(bbdup_insert_encoding_cb != NULL, "should not be NULL");
         ASSERT(bbdup_extract_cb != NULL, "should not be NULL");
@@ -1097,7 +1099,7 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     }
 
     bool is_dups = false;
-    if (is_bbdup_enabled() /*only true if drbbdup is in use */) {
+    if (local_info->is_bbdup_enabled /*only true if drbbdup is in use */) {
         is_dups = drmgr_bb_event_instrument_dups(drcontext, tag, bb, for_trace,
                                                  translating, &res, pt, &local_info,
                                                  pair_data, quartet_data);
