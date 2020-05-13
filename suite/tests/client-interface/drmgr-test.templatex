@@ -2,6 +2,9 @@ in event_thread_init_null_user_data
 in event_thread_init_user_data
 in event_thread_init_ex
 in event_thread_init
+in insert A
+in insert B
+in insert C
 in pre_sys_B_user_data
 in pre_sys_B
 in pre_sys_A_user_data

@@ -58,6 +58,9 @@ static int tls_idx;
 static int cls_idx;
 static thread_id_t main_thread;
 static int cb_depth;
+static volatile bool in_opcode_A;
+static volatile bool in_insert_B;
+static volatile bool in_opcode_C;
 static volatile bool in_syscall_A;
 static volatile bool in_syscall_A_user_data;
 static volatile bool in_syscall_B;
@@ -77,6 +80,7 @@ static int thread_exit_null_user_data_events;
 static int mod_load_events;
 static int mod_unload_events;
 
+static void *opcodelock;
 static void *syslock;
 static void *threadlock;
 static uint one_time_exec;
@@ -140,6 +144,16 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                 bool for_trace, bool translating, void *user_data);
 
 static dr_emit_flags_t
+event_opcode_add_insert_A(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                          bool for_trace, bool translating, void *user_data);
+static dr_emit_flags_t
+event_bb_insert_B(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                  bool for_trace, bool translating, void *user_data);
+static dr_emit_flags_t
+event_opcode_add_insert_C(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                          bool for_trace, bool translating, void *user_data);
+
+static dr_emit_flags_t
 event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, OUT void **user_data);
 static dr_emit_flags_t
@@ -171,6 +185,7 @@ event_null_signal(void *drcontext, dr_siginfo_t *siginfo, void *user_data);
 /* The following test values are arbitrary */
 
 static const uintptr_t thread_user_data_test = 9090;
+static const uintptr_t opcode_user_data_test = 3333;
 static const uintptr_t syscall_A_user_data_test = 7189;
 static const uintptr_t syscall_B_user_data_test = 3218;
 static const uintptr_t mod_user_data_test = 1070;
@@ -209,6 +224,12 @@ dr_init(client_id_t id)
     drmgr_priority_t thread_exit_null_user_data_pri = { sizeof(priority),
                                                         "drmgr-t-exit-null-usr-data-test",
                                                         NULL, NULL, 3 };
+    drmgr_priority_t opcode_pri_A = { sizeof(priority), "drmgr-opcode-test-A", NULL, NULL,
+                                      5 };
+    drmgr_priority_t insert_pri_B = { sizeof(priority), "drmgr-opcode-test-B", NULL, NULL,
+                                      6 };
+    drmgr_priority_t opcode_pri_C = { sizeof(priority), "drmgr-opcode-test-C", NULL, NULL,
+                                      7 };
 
 #ifdef UNIX
     drmgr_priority_t signal_user_data = { sizeof(priority), "drmgr-signal-usr-data-test",
@@ -250,6 +271,17 @@ dr_init(client_id_t id)
     ok = drmgr_register_bb_instrumentation_event(event_bb_analysis, event_bb_insert,
                                                  &priority);
     CHECK(ok, "drmgr register bb failed");
+
+    ok = drmgr_register_opcode_instrumentation_event(event_opcode_add_insert_A, OP_add,
+                                                     &opcode_pri_A, NULL);
+    CHECK(ok, "drmgr register opcode failed");
+
+    ok = drmgr_register_bb_instrumentation_event(NULL, event_bb_insert_B, &insert_pri_B);
+    CHECK(ok, "drmgr register bb failed");
+
+    ok = drmgr_register_opcode_instrumentation_event(
+        event_opcode_add_insert_C, OP_add, &opcode_pri_C, (void *)opcode_user_data_test);
+    CHECK(ok, "drmgr register opcode failed");
 
     /* check register/unregister instrumentation_ex */
     ok = drmgr_register_bb_instrumentation_ex_event(event_bb4_app2app, event_bb4_analysis,
@@ -298,6 +330,7 @@ dr_init(client_id_t id)
                                                     (void *)syscall_B_user_data_test);
     CHECK(ok, "drmgr register sys failed");
 
+    opcodelock = dr_mutex_create();
     syslock = dr_mutex_create();
     threadlock = dr_mutex_create();
 
@@ -315,6 +348,7 @@ dr_init(client_id_t id)
 static void
 event_exit(void)
 {
+    dr_mutex_destroy(opcodelock);
     dr_mutex_destroy(syslock);
     dr_mutex_destroy(threadlock);
     CHECK(checked_tls_from_cache, "failed to hit clean call");
@@ -351,6 +385,15 @@ event_exit(void)
             event_bb4_app2app, event_bb4_analysis, event_bb4_insert,
             event_bb4_instru2instru))
         CHECK(false, "drmgr unregistration failed");
+
+    if (!drmgr_unregister_opcode_instrumentation_event(event_opcode_add_insert_A, OP_add))
+        CHECK(false, "drmgr opcode unregistration failed");
+
+    if (!drmgr_unregister_bb_insertion_event(event_bb_insert_B))
+        CHECK(false, "drmgr opcode unregistration failed");
+
+    if (!drmgr_unregister_opcode_instrumentation_event(event_opcode_add_insert_C, OP_add))
+        CHECK(false, "drmgr opcode unregistration failed");
 
     if (!drmgr_unregister_module_load_event_user_data(event_mod_load))
         CHECK(false, "drmgr mod load unregistration failed");
@@ -620,6 +663,60 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
         dr_restore_reg(drcontext, bb, inst, reg2, SPILL_SLOT_2);
         dr_restore_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
     }
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_opcode_add_insert_A(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                          bool for_trace, bool translating, void *user_data)
+{
+    CHECK(instr_get_opcode(inst) == OP_add, "incorrect opcode");
+    CHECK(user_data == NULL, "incorrect user data");
+
+    if (!in_opcode_A) {
+        dr_mutex_lock(opcodelock);
+        if (!in_opcode_A) {
+            dr_fprintf(STDERR, "in insert A\n");
+            in_opcode_A = true;
+        }
+        dr_mutex_unlock(opcodelock);
+    }
+
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_bb_insert_B(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                  bool for_trace, bool translating, void *user_data)
+{
+    if (!in_insert_B && instr_get_opcode(inst) == OP_add) {
+        dr_mutex_lock(opcodelock);
+        if (!in_insert_B) {
+            dr_fprintf(STDERR, "in insert B\n");
+            in_insert_B = true;
+        }
+        dr_mutex_unlock(opcodelock);
+    }
+
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_opcode_add_insert_C(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                          bool for_trace, bool translating, void *user_data)
+{
+    CHECK(instr_get_opcode(inst) == OP_add, "incorrect opcode");
+    CHECK(user_data == (void *)opcode_user_data_test, "incorrect user data");
+
+    if (!in_opcode_C) {
+        dr_mutex_lock(opcodelock);
+        if (!in_opcode_C) {
+            dr_fprintf(STDERR, "in insert C\n");
+            in_opcode_C = true;
+        }
+        dr_mutex_unlock(opcodelock);
+    }
+
     return DR_EMIT_DEFAULT;
 }
 
