@@ -2777,7 +2777,6 @@ dr_set_client_version_string(const char *version)
 DR_API const char *
 dr_get_application_name(void)
 {
-
 #    ifdef UNIX
     return get_application_short_name();
 #    else

@@ -1101,7 +1101,7 @@ set_app_args(IN int *app_argc_in, IN char **app_argv_in)
     app_argv = app_argv_in;
 }
 
-/* Returns the application's command-line arguments.*/
+/* Returns the application's command-line arguments. */
 bool
 get_app_args(OUT int **app_argc_out, OUT char ***app_argv_out)
 {
