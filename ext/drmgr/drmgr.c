@@ -203,7 +203,7 @@ enum {
     DRMGR_NOTE_EMUL_COUNT,
 };
 
-/* Used to store temporary local information when handing drmgr's bb event in order
+/* Used to store temporary local information when handling drmgr's bb event in order
  * to avoid holding a lock during the instrumentation process.
  */
 typedef struct _local_ctx_t {
