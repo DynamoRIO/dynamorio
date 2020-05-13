@@ -145,6 +145,9 @@ compatibility changes:
 
 Further non-compatibility-affecting changes include:
 
+ - Added drmgr_register_opcode_instrumentation_event() and
+   drmgr_unregister_opcode_instrumentation_event() so that drmgr supports
+   opcode event instrumentation.
  - Added dr_get_app_args() to enable the gathering of application
    command-line args on Unix systems.
 

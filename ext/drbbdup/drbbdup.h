@@ -388,6 +388,7 @@ DR_EXPORT
  * Must be called via a #drbbdup_instrument_instr_t call-back function.
  *
  * @return whether successful or an error code on failure.
+ * @note when using drbbdup, do not rely on drmgr_is_first_instr().
  */
 drbbdup_status_t
 drbbdup_is_first_instr(void *drcontext, instr_t *instr, OUT bool *is_start);
@@ -400,6 +401,7 @@ DR_EXPORT
  * Must be called via a #drbbdup_instrument_instr_t call-back function.
  *
  * @return whether successful or an error code on failure.
+ * @note when using drbbdup, do not rely on drmgr_is_first_nonlabel_instr().
  */
 drbbdup_status_t
 drbbdup_is_first_nonlabel_instr(void *drcontext, instr_t *instr, bool *is_nonlabel);
@@ -412,6 +414,7 @@ DR_EXPORT
  * Must be called via a #drbbdup_instrument_instr_t call-back function.
  *
  * @return whether successful or an error code on failure.
+ * @note when using drbbdup, do not rely on drmgr_is_last_instr().
  */
 drbbdup_status_t
 drbbdup_is_last_instr(void *drcontext, instr_t *instr, OUT bool *is_last);
