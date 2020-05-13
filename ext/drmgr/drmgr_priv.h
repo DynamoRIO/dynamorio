@@ -50,25 +50,30 @@ extern "C" {
  * For DRBBDUP
  */
 
+/* Responsible for duplicating basic blocks. Returns local_info
+ * used to iterate over basic block copies.
+ */
 typedef bool (*drmgr_bbdup_duplicate_bb_cb_t)(void *drcontext, void *tag, instrlist_t *bb,
                                               bool for_trace, bool translating,
-                                              OUT void **local_dup_info_opaque);
+                                              OUT void **local_info);
 
+/* Extracts and returns the a pending basic block copy from the main basic block. Returns
+ * NULL, if no further copies are pending.
+ */
 typedef instrlist_t *(*drmgr_bbdup_extract_cb_t)(void *drcontext, void *tag,
                                                  instrlist_t *bb, bool for_trace,
-                                                 bool translating,
-                                                 void *local_dup_info_opaque);
+                                                 bool translating, void *local_info);
 
+/* Stitches an extract basic block copy back to the main basic block. */
 typedef void (*drmgr_bbdup_stitch_cb_t)(void *drcontext, void *tag, instrlist_t *bb,
                                         instrlist_t *case_bb, bool for_trace,
-                                        bool translating,
+                                        bool translating, void *local_dup_info_opaque);
 
-                                        void *local_dup_info_opaque);
-
+/* Finalises the iteration process and inserts the encoder at the top of the main basic
+ * block. */
 typedef void (*drmgr_bbdup_insert_encoding_cb_t)(void *drcontext, void *tag,
                                                  instrlist_t *bb, bool for_trace,
-                                                 bool translating,
-                                                 OUT void *local_dup_info_opaque);
+                                                 bool translating, void *local_info);
 
 DR_EXPORT
 /* Used by drbbdup so that drmgr maintains basic block duplication.
