@@ -1021,7 +1021,6 @@ drmgr_bb_event_instrument_dups(void *drcontext, void *tag, instrlist_t *bb,
         local_info->bbdup_insert_encoding_cb(drcontext, tag, bb, for_trace, translating,
                                              local_dup_info);
     }
-
     return is_dups;
 }
 
@@ -1099,7 +1098,8 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     }
 
     bool is_dups = false;
-    if (local_info->is_bbdup_enabled /*only true if drbbdup is in use */) {
+    /*only true if drbbdup is in use */
+    if (local_info.is_bbdup_enabled) {
         is_dups = drmgr_bb_event_instrument_dups(drcontext, tag, bb, for_trace,
                                                  translating, &res, pt, &local_info,
                                                  pair_data, quartet_data);
