@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -913,6 +913,9 @@
 #define INSTR_CREATE_mwait(dc)                                          \
     instr_create_0dst_2src((dc), OP_mwait, opnd_create_reg(DR_REG_EAX), \
                            opnd_create_reg(DR_REG_ECX))
+#define INSTR_CREATE_mwaitx(dc)                                          \
+    instr_create_0dst_2src((dc), OP_mwaitx, opnd_create_reg(DR_REG_EAX), \
+                           opnd_create_reg(DR_REG_ECX))
 #define INSTR_CREATE_invlpga(dc)                                          \
     instr_create_0dst_2src((dc), OP_invlpga, opnd_create_reg(DR_REG_XAX), \
                            opnd_create_reg(DR_REG_ECX))
@@ -921,7 +924,10 @@
     instr_create_0dst_3src((dc), OP_wrmsr, opnd_create_reg(DR_REG_EDX), \
                            opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_ECX))
 #define INSTR_CREATE_monitor(dc)                                          \
-    instr_create_0dst_3src((dc), OP_monitor, opnd_create_reg(DR_REG_EAX), \
+    instr_create_0dst_3src((dc), OP_monitor, opnd_create_reg(DR_REG_XAX), \
+                           opnd_create_reg(DR_REG_ECX), opnd_create_reg(DR_REG_EDX))
+#define INSTR_CREATE_monitorx(dc)                                          \
+    instr_create_0dst_3src((dc), OP_monitorx, opnd_create_reg(DR_REG_XAX), \
                            opnd_create_reg(DR_REG_ECX), opnd_create_reg(DR_REG_EDX))
 #define INSTR_CREATE_xsetbv(dc)                                          \
     instr_create_0dst_3src((dc), OP_xsetbv, opnd_create_reg(DR_REG_ECX), \
@@ -1107,6 +1113,9 @@
  * \param m The opnd_t explicit destination operand for the instruction, which must
  * be a memory reference (opnd_create_base_disp() or opnd_create_far_base_disp()).
  */
+#define INSTR_CREATE_fnstcw(dc, m) instr_create_1dst_0src((dc), OP_fnstcw, (m))
+#define INSTR_CREATE_fnstsw(dc, m) instr_create_1dst_0src((dc), OP_fnstsw, (m))
+/* @} */ /* end doxygen group */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
@@ -1115,7 +1124,6 @@
  * be created with OPND_CREATE_MEM_fnstenv() to get the appropriate operand size.
  */
 #define INSTR_CREATE_fnstenv(dc, m) instr_create_1dst_0src((dc), OP_fnstenv, (m))
-#define INSTR_CREATE_fnstcw(dc, m) instr_create_1dst_0src((dc), OP_fnstcw, (m))
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
@@ -1124,9 +1132,9 @@
  * be created with OPND_CREATE_MEM_fnsave() to get the appropriate operand size.
  */
 #define INSTR_CREATE_fnsave(dc, m) instr_create_1dst_0src((dc), OP_fnsave, (m))
-#define INSTR_CREATE_fnstsw(dc, m) instr_create_1dst_0src((dc), OP_fnstsw, (m))
-/* @} */ /* end doxygen group */
 
+/** @name Floating-point with float register destination, no sources */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
@@ -1136,6 +1144,7 @@
  */
 #define INSTR_CREATE_ffree(dc, f) instr_create_1dst_0src((dc), OP_ffree, (f))
 #define INSTR_CREATE_ffreep(dc, f) instr_create_1dst_0src((dc), OP_ffreep, (f))
+/* @} */ /* end doxygen group */
 
 /* 1 implicit destination, no sources */
 /** @name 1 implicit destination, no sources */
@@ -4970,6 +4979,11 @@
 /* @} */ /* end doxygen group */
 
 /* 2 implicit destinations, 3 implicit sources */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ */
 #define INSTR_CREATE_leave(dc)                                                    \
     instr_create_2dst_3src(                                                       \
         (dc), OP_leave, opnd_create_reg(DR_REG_XSP), opnd_create_reg(DR_REG_XBP), \

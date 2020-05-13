@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,27 +41,27 @@ snoop_filter_t::snoop_filter_t(void)
 }
 
 bool
-snoop_filter_t::init(cache_t **caches_, int num_snooped_caches_)
+snoop_filter_t::init(cache_t **caches, int num_snooped_caches)
 {
-    caches = caches_;
-    num_snooped_caches = num_snooped_caches_;
-    num_writes = 0;
-    num_writebacks = 0;
-    num_invalidates = 0;
+    caches_ = caches;
+    num_snooped_caches_ = num_snooped_caches;
+    num_writes_ = 0;
+    num_writebacks_ = 0;
+    num_invalidates_ = 0;
 
     return true;
 }
 
-/*  This function should be called for all misses in snooped caches as well as
- *  all writes to coherent caches.
+/*  This function should be called for all misses in snooped caches_ as well as
+ *  all writes to coherent caches_.
  */
 void
-snoop_filter_t::snoop(addr_t tag, int id_in, bool is_write)
+snoop_filter_t::snoop(addr_t tag, int id, bool is_write)
 {
-    coherence_table_entry_t *coherence_entry = &coherence_table[tag];
+    coherence_table_entry_t *coherence_entry = &coherence_table_[tag];
     // Initialize new snoop filter entry.
     if (coherence_entry->sharers.empty()) {
-        coherence_entry->sharers.resize(num_snooped_caches, false);
+        coherence_entry->sharers.resize(num_snooped_caches_, false);
         coherence_entry->dirty = false;
     }
 
@@ -69,56 +69,56 @@ snoop_filter_t::snoop(addr_t tag, int id_in, bool is_write)
                                   coherence_entry->sharers.end(), true);
 
     // Check that cache id is valid.
-    assert(id_in >= 0 && id_in < num_snooped_caches);
+    assert(id >= 0 && id < num_snooped_caches_);
     // Check that tag is valid.
     assert(tag != TAG_INVALID);
     // Check that any dirty line is only held in one snooped cache.
     assert(!coherence_entry->dirty || num_sharers == 1);
 
     // Check if this request causes a writeback.
-    if (!coherence_entry->sharers[id_in] && coherence_entry->dirty) {
-        num_writebacks++;
+    if (!coherence_entry->sharers[id] && coherence_entry->dirty) {
+        num_writebacks_++;
         coherence_entry->dirty = false;
     }
 
     if (is_write) {
-        num_writes++;
+        num_writes_++;
         coherence_entry->dirty = true;
         if (num_sharers > 0) {
-            // Writes will invalidate other caches.
-            for (int i = 0; i < num_snooped_caches; i++) {
-                if (coherence_entry->sharers[i] && id_in != i) {
-                    caches[i]->invalidate(tag, INVALIDATION_COHERENCE);
-                    num_invalidates++;
+            // Writes will invalidate other caches_.
+            for (int i = 0; i < num_snooped_caches_; i++) {
+                if (coherence_entry->sharers[i] && id != i) {
+                    caches_[i]->invalidate(tag, INVALIDATION_COHERENCE);
+                    num_invalidates_++;
                     coherence_entry->sharers[i] = false;
                 }
             }
         }
     }
-    coherence_entry->sharers[id_in] = true;
+    coherence_entry->sharers[id] = true;
 }
 
 /* This function is called whenever a coherent cache evicts a line. */
 void
-snoop_filter_t::snoop_eviction(addr_t tag, int id_in)
+snoop_filter_t::snoop_eviction(addr_t tag, int id)
 {
-    coherence_table_entry_t *coherence_entry = &coherence_table[tag];
+    coherence_table_entry_t *coherence_entry = &coherence_table_[tag];
 
     // Check if sharer list is initialized.
-    assert(coherence_entry->sharers.size() == (uint64_t)num_snooped_caches);
+    assert(coherence_entry->sharers.size() == (uint64_t)num_snooped_caches_);
     // Check that cache id is valid.
-    assert(id_in >= 0 && id_in < num_snooped_caches);
+    assert(id >= 0 && id < num_snooped_caches_);
     // Check that tag is valid.
     assert(tag != TAG_INVALID);
     // Check that we currently have this cache marked as a sharer.
-    assert(coherence_entry->sharers[id_in]);
+    assert(coherence_entry->sharers[id]);
 
     if (coherence_entry->dirty) {
-        num_writebacks++;
+        num_writebacks_++;
         coherence_entry->dirty = false;
     }
 
-    coherence_entry->sharers[id_in] = false;
+    coherence_entry->sharers[id] = false;
 }
 
 void
@@ -128,10 +128,10 @@ snoop_filter_t::print_stats(void)
     std::string prefix = "    ";
     std::cerr << "Coherence stats:" << std::endl;
     std::cerr << prefix << std::setw(18) << std::left << "Total writes:" << std::setw(20)
-              << std::right << num_writes << std::endl;
+              << std::right << num_writes_ << std::endl;
     std::cerr << prefix << std::setw(18) << std::left << "Invalidations:" << std::setw(20)
-              << std::right << num_invalidates << std::endl;
+              << std::right << num_invalidates_ << std::endl;
     std::cerr << prefix << std::setw(18) << std::left << "Writebacks:" << std::setw(20)
-              << std::right << num_writebacks << std::endl;
+              << std::right << num_writebacks_ << std::endl;
     std::cerr.imbue(std::locale("C")); // Reset to avoid affecting later prints.
 }

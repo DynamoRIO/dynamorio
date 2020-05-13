@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+# Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -53,16 +53,15 @@ branches:
 
 platform: x64
 
-image: Visual Studio 2013
+image: Visual Studio 2017
 
 build:
   verbosity: detailed
 
 # i#2406: Appveyor's global serialization makes it painful to use more than
-# one configuration.  We no longer build packages with VS2010 and are
-# dropping official support for it, meaning we only need to test VS2013 here.
+# one configuration.  We thus officially only support a single VS version.
 configuration:
-  - 2013
+  - 2017
 
 install:
   ##################################################
@@ -75,24 +74,29 @@ install:
 
   ##################################################
   # Install packages for docs.
-  # i#2616: internet outages have caused builds to spin for tens of minutes, only to fail
-  # due to chocolatey and fig2dev download errors. We instead ignore errors here and
-  # continue to build and test anyway.
-  - choco install --timeout 600 -y doxygen.portable imagemagick.tool ghostscript || true
-  # The ghostscript package is an install that doesn't add to PATH.
-  # FIXME i#2145: fig2dev is failing to launch ghostscript, so for now
-  # we're disabling to get the initial AppVeyor to be green.
-  #- set PATH=C:\Program Files\gs\gs9.20\bin;%PATH%
-  # Install fig2dev.
-  - appveyor DownloadFile http://www.winfig.com/WinFIG-Dateien/WinFIG75.zip || true
-  - 7z x WinFIG75.zip > nul || true
-  - set PATH=c:\projects\install\WinFig;%PATH%
+  # i#4000: choco fails to download doxygen.portable so we install ourselves:
+  - appveyor DownloadFile http://doxygen.nl/files/doxygen-1.8.17.windows.x64.bin.zip
+  - 7z x doxygen-1.8.17.windows.x64.bin.zip -oc:\projects\install\doxygen > nul
+  - set PATH=c:\projects\install\doxygen;%PATH%
 
   ##################################################
   # XXX i#2145: point at Qt5 for testing drgui build.
 
+  # Include Dr. Memory in cronbuild packages.
+  # We're in C:/projects/install now while we'll be in C:/projects/dynamorio to build.
+  # We do shallow clones and assume DrM will update its DR at least once
+  # every 250 DR commits.
+  - ps: >-
+      If ($env:APPVEYOR_REPO_TAG -Match "true") {
+        cd ..\dynamorio
+        git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
+        cd drmemory
+        git submodule update --init --depth 250
+        cd ..\..\install
+      }
+
 before_build:
-  - if "%configuration%"=="2013" call "c:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat" x86
+  - if "%configuration%"=="2017" call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat"
   - cd c:\projects\dynamorio
 
 build_script:
@@ -100,16 +104,15 @@ build_script:
   - cd build
   - echo %PATH%
   # The perl in c:\perl can't open a pipe so we use cygwin perl.
-  # XXX i#1967: can we pass "package" only when deploying to save time?
-  - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl travis use_ninja package %EXTRA_ARGS%
+  - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl travis use_ninja %EXTRA_ARGS%
 
 # Automated deployment of builds to GitHub Releases.
 # We rely on a Travis cron job to push a tag to the repo which then
 # triggers this deployment.
-# We disable test running for these package builds in runsuite.cmake by
-# looking for $APPVEYOR_REPO_TAG=="true".
+# We switch to package.cmake for these builds in runsuite_wrapper.pl by looking
+# for $APPVEYOR_REPO_TAG=="true".
 artifacts:
-  - path: 'build\build_*\DynamoRIO*.zip'
+  - path: 'build\DynamoRIO*.zip'
     name: DR.zip
     type: zip
 deploy:
@@ -123,7 +126,7 @@ deploy:
   force_update: true
   # Using the default "release:" name (the tag) to match Travis.
   # This description replaces the one provided by Travis.
-  description: 'Auto-generated periodic build (Appveyor build $(appveyor_build_version)).  Unlike official release builds, Dr. Memory is not included in this build, and for Linux, i686 is separated from x86_64 rather than being combined in one package.'
+  description: 'Auto-generated periodic build.'
   on:
     branch: master
     appveyor_repo_tag: true

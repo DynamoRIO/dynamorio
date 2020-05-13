@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -111,6 +111,13 @@
 #    include <stdarg.h> /* for varargs */
 #endif
 /* DR_API EXPORT END */
+
+#ifdef DR_NO_FAST_IR
+#    undef DR_FAST_IR
+#    undef INSTR_INLINE
+#else
+#    define DR_FAST_IR 1
+#endif
 
 /* Internally, ensure these defines are set */
 #if defined(X86) && !defined(X64) && !defined(X86_32)
@@ -365,19 +372,18 @@ extern file_t our_stdin;
  */
 typedef uint client_id_t;
 
-#ifdef API_EXPORT_ONLY
-#    ifndef DR_FAST_IR
+#ifndef DR_FAST_IR
 /**
  * Internal structure of opnd_t is below abstraction layer.
  * But compiler needs to know field sizes to copy it around
  */
 typedef struct {
-#        ifdef X64
+#    ifdef X64
     uint black_box_uint;
     uint64 black_box_uint64;
-#        else
+#    else
     uint black_box_uint[3];
-#        endif
+#    endif
 } opnd_t;
 
 /**
@@ -386,19 +392,18 @@ typedef struct {
  * instead of always allocated on the heap.
  */
 typedef struct {
-#        ifdef X64
+#    ifdef X64
     uint black_box_uint[26];
-#        else
-    uint black_box_uint[17];
-#        endif
-} instr_t;
 #    else
+    uint black_box_uint[17];
+#    endif
+} instr_t;
+#else
 struct _opnd_t;
 typedef struct _opnd_t opnd_t;
 struct _instr_t;
 typedef struct _instr_t instr_t;
-#    endif /* !DR_FAST_IR */
-#endif     /* API_EXPORT_ONLY */
+#endif
 
 #ifndef IN
 #    define IN /* marks input param */
@@ -658,6 +663,12 @@ typedef struct _instr_t instr_t;
 #    define IF_UNIT_TEST_ELSE(x, y) x
 #else
 #    define IF_UNIT_TEST_ELSE(x, y) y
+#endif
+
+#ifdef AUTOMATED_TESTING
+#    define IF_AUTOMATED_ELSE(x, y) x
+#else
+#    define IF_AUTOMATED_ELSE(x, y) y
 #endif
 
 /* DR_API EXPORT TOFILE dr_defines.h */

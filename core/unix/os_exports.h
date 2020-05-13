@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -569,6 +569,9 @@ rseq_remove_fragment(dcontext_t *dcontext, fragment_t *f);
 
 void
 rseq_shared_fragment_flushtime_update(dcontext_t *dcontext);
+
+void
+rseq_process_native_abort(dcontext_t *dcontext);
 
 #endif
 

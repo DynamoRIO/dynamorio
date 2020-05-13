@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -110,6 +110,12 @@ instr_destroy(dcontext_t *dcontext, instr_t *instr)
 instr_t *
 instr_clone(dcontext_t *dcontext, instr_t *orig)
 {
+    /* We could heap-allocate an instr_noalloc_t but it's intended for use in a
+     * signal handler or other places where we don't want any heap allocation.
+     */
+    CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, orig->flags),
+                  "Cloning an instr_noalloc_t is not supported.");
+
     instr_t *instr = (instr_t *)heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
     memcpy((void *)instr, (void *)orig, sizeof(instr_t));
     instr->next = NULL;
@@ -126,16 +132,13 @@ instr_clone(dcontext_t *dcontext, instr_t *orig)
         instr->bytes =
             (byte *)heap_reachable_alloc(dcontext, instr->length HEAPACCT(ACCT_IR));
         memcpy((void *)instr->bytes, (void *)orig->bytes, instr->length);
+    } else if (instr_is_label(orig)) {
+        /* We don't know what this callback does, we can't copy this. The caller that
+         * makes the clone needs to take care of this, xref i#3926.
+         */
+        instr_set_label_callback(instr, NULL);
     }
-#ifdef CUSTOM_EXIT_STUBS
-    if ((orig->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
-        /* HACK: dsts is used to store list */
-        instrlist_t *existing = (instrlist_t *)orig->dsts;
-        CLIENT_ASSERT(existing != NULL, "instr_clone: src has inconsistent custom stub");
-        instr->dsts = (opnd_t *)instrlist_clone(dcontext, existing);
-    } else /* disable normal dst cloning */
-#endif
-        if (orig->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
+    if (orig->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
         instr->dsts = (opnd_t *)heap_alloc(
             dcontext, instr->num_dsts * sizeof(opnd_t) HEAPACCT(ACCT_IR));
         memcpy((void *)instr->dsts, (void *)orig->dsts, instr->num_dsts * sizeof(opnd_t));
@@ -163,24 +166,26 @@ instr_init(dcontext_t *dcontext, instr_t *instr)
     instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
 }
 
+/* zeroes out the fields of instr */
+void
+instr_noalloc_init(dcontext_t *dcontext, instr_noalloc_t *instr)
+{
+    memset(instr, 0, sizeof(*instr));
+    instr->instr.flags |= INSTR_IS_NOALLOC_STRUCT;
+    instr_set_isa_mode(&instr->instr, dr_get_isa_mode(dcontext));
+}
+
 /* Frees all dynamically allocated storage that was allocated by instr */
 void
 instr_free(dcontext_t *dcontext, instr_t *instr)
 {
     if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
         (*instr->label_cb)(dcontext, instr);
+    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+        return;
     if (TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags)) {
         instr_free_raw_bits(dcontext, instr);
     }
-#ifdef CUSTOM_EXIT_STUBS
-    if ((instr->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
-        /* HACK: dsts is used to store list */
-        instrlist_t *existing = (instrlist_t *)instr->dsts;
-        CLIENT_ASSERT(existing != NULL, "instr_free: custom stubs inconsistent");
-        instrlist_clear_and_destroy(dcontext, existing);
-        instr->dsts = NULL;
-    }
-#endif
     if (instr->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
         heap_free(dcontext, instr->dsts,
                   instr->num_dsts * sizeof(opnd_t) HEAPACCT(ACCT_IR));
@@ -196,24 +201,15 @@ instr_free(dcontext_t *dcontext, instr_t *instr)
     }
 }
 
-/* Returns number of bytes of heap used by instr */
 int
 instr_mem_usage(instr_t *instr)
 {
+    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+        return sizeof(instr_noalloc_t);
     int usage = 0;
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
         usage += instr->length;
     }
-#ifdef CUSTOM_EXIT_STUBS
-    if ((instr->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
-        /* HACK: dsts is used to store list */
-        instrlist_t *il = (instrlist_t *)instr->dsts;
-        instr_t *in;
-        CLIENT_ASSERT(il != NULL, "instr_mem_usage: custom stubs inconsistent");
-        for (in = instrlist_first(il); in != NULL; in = instr_get_next(in))
-            usage += instr_mem_usage(in);
-    }
-#endif
     if (instr->dsts != NULL) {
         usage += instr->num_dsts * sizeof(opnd_t);
     }
@@ -233,7 +229,12 @@ void
 instr_reset(dcontext_t *dcontext, instr_t *instr)
 {
     instr_free(dcontext, instr);
-    instr_init(dcontext, instr);
+    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+        instr_init(dcontext, instr);
+        instr->flags |= INSTR_IS_NOALLOC_STRUCT;
+    } else {
+        instr_init(dcontext, instr);
+    }
 }
 
 /* Frees all dynamically allocated storage that was allocated by instr,
@@ -252,7 +253,7 @@ instr_reuse(dcontext_t *dcontext, instr_t *instr)
     bool alloc = false;
     bool mangle = instr_is_app(instr);
     dr_isa_mode_t isa_mode = instr_get_isa_mode(instr);
-#ifdef X86_64
+#ifdef X86
     uint rip_rel_pos = instr_rip_rel_valid(instr) ? instr->rip_rel_pos : 0;
 #endif
     instr_t *next = instr->next;
@@ -283,7 +284,7 @@ instr_reuse(dcontext_t *dcontext, instr_t *instr)
     }
     /* preserve across the up-decode */
     instr_set_isa_mode(instr, isa_mode);
-#ifdef X86_64
+#ifdef X86
     if (rip_rel_pos > 0)
         instr_set_rip_rel_pos(instr, rip_rel_pos);
 #endif
@@ -317,10 +318,23 @@ instr_build_bits(dcontext_t *dcontext, int opcode, uint num_bytes)
 static int
 private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
 {
-    /* We cannot use a stack buffer for encoding since our stack on x64 linux
-     * can be too far to reach from our heap.  We need reachable heap.
-     */
-    byte *buf = heap_reachable_alloc(dcontext, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+    byte *buf;
+    byte stack_buf[MAX_INSTR_LENGTH];
+    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+        /* We have no choice: we live with no persistent caching if the stack is
+         * too far away, because the instr's raw bits will be on the stack.
+         * (We can't use encode_buf here bc the re-rel below does not support
+         * the same buffer; maybe it could w/ a memmove in the encode code?)
+         */
+        buf = stack_buf;
+    } else {
+        /* We cannot efficiently use a stack buffer for encoding since our stack on x64
+         * linux can be too far to reach from our heap.  We need reachable heap.
+         * Otherwise we can't keep the encoding around since re-relativization won't
+         * work.
+         */
+        buf = heap_reachable_alloc(dcontext, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+    }
     uint len;
     /* Do not cache instr opnds as they are pc-relative to final encoding location.
      * Rather than us walking all of the operands separately here, we have
@@ -338,7 +352,8 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
                                                             instr_get_isa_mode(instr)
                                                                 _IF_ARM(false))
                                         ->name);
-            heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+            if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+                heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
             return 0;
         }
         /* if unreachable, we can't cache, since re-relativization won't work */
@@ -360,7 +375,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         ((valid_to_cache && instr_is_app(instr)) ||
          always_cache /*caller will use then invalidate*/)) {
         bool valid = instr_operands_valid(instr);
-#ifdef X86_64
+#ifdef X86
         /* we can't call instr_rip_rel_valid() b/c the raw bytes are not yet
          * set up: we rely on instr_encode() setting instr->rip_rel_pos and
          * the valid flag, even though raw bytes weren't there at the time.
@@ -379,14 +394,15 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
          */
         tmp = instr->bytes;
         instr->bytes = buf;
-#ifdef X86_64
+#ifdef X86
         instr_set_rip_rel_valid(instr, rip_rel_valid);
 #endif
         copy_and_re_relativize_raw_instr(dcontext, instr, tmp, tmp);
         instr->bytes = tmp;
         instr_set_operands_valid(instr, valid);
     }
-    heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
+    if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+        heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     return len;
 }
 
@@ -525,16 +541,26 @@ instr_set_num_opnds(dcontext_t *dcontext, instr_t *instr, int instr_num_dsts,
         CLIENT_ASSERT_TRUNCATE(instr->num_dsts, byte, instr_num_dsts,
                                "instr_set_num_opnds: too many dsts");
         instr->num_dsts = (byte)instr_num_dsts;
-        instr->dsts = (opnd_t *)heap_alloc(
-            dcontext, instr_num_dsts * sizeof(opnd_t) HEAPACCT(ACCT_IR));
+        if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+            instr_noalloc_t *noalloc = (instr_noalloc_t *)instr;
+            noalloc->instr.dsts = noalloc->dsts;
+        } else {
+            instr->dsts = (opnd_t *)heap_alloc(
+                dcontext, instr_num_dsts * sizeof(opnd_t) HEAPACCT(ACCT_IR));
+        }
     }
     if (instr_num_srcs > 0) {
         /* remember that src0 is static, rest are dynamic */
         if (instr_num_srcs > 1) {
             CLIENT_ASSERT(instr->num_srcs <= 1 && instr->srcs == NULL,
                           "instr_set_num_opnds: srcs are already set");
-            instr->srcs = (opnd_t *)heap_alloc(
-                dcontext, (instr_num_srcs - 1) * sizeof(opnd_t) HEAPACCT(ACCT_IR));
+            if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+                instr_noalloc_t *noalloc = (instr_noalloc_t *)instr;
+                noalloc->instr.srcs = noalloc->srcs;
+            } else {
+                instr->srcs = (opnd_t *)heap_alloc(
+                    dcontext, (instr_num_srcs - 1) * sizeof(opnd_t) HEAPACCT(ACCT_IR));
+            }
         }
         CLIENT_ASSERT_TRUNCATE(instr->num_srcs, byte, instr_num_srcs,
                                "instr_set_num_opnds: too many srcs");
@@ -578,6 +604,9 @@ void
 instr_remove_srcs(dcontext_t *dcontext, instr_t *instr, uint start, uint end)
 {
     opnd_t *new_srcs;
+    CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags),
+                  /* We could implement, but it does not seem an important use case. */
+                  "instr_remove_srcs not supported for instr_noalloc_t");
     CLIENT_ASSERT(start >= 0 && end <= instr->num_srcs && start < end,
                   "instr_remove_srcs: ordinals invalid");
     if (instr->num_srcs - 1 > (byte)(end - start)) {
@@ -607,6 +636,9 @@ void
 instr_remove_dsts(dcontext_t *dcontext, instr_t *instr, uint start, uint end)
 {
     opnd_t *new_dsts;
+    CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags),
+                  /* We could implement, but it does not seem an important use case. */
+                  "instr_remove_srcs not supported for instr_noalloc_t");
     CLIENT_ASSERT(start >= 0 && end <= instr->num_dsts && start < end,
                   "instr_remove_dsts: ordinals invalid");
     if (instr->num_dsts > (byte)(end - start)) {
@@ -703,46 +735,20 @@ instr_set_predicate(instr_t *instr, dr_pred_type_t pred)
     return instr;
 }
 
-#ifdef UNSUPPORTED_API
-/* Returns true iff instr has been marked as targeting the prefix of its
- * target fragment.
- *
- * Some code manipulations need to store a target address in a
- * register and then jump there, but need the register to be restored
- * as well.  DR provides a single-instruction prefix that is
- * placed on all fragments (basic blocks as well as traces) that
- * restores ecx.  It is on traces for internal DR use.  To have
- * it added to basic blocks as well, call
- * dr_add_prefixes_to_basic_blocks() during initialization.
- */
 bool
-instr_branch_targets_prefix(instr_t *instr)
+instr_branch_is_padded(instr_t *instr)
 {
-    return ((instr->flags & INSTR_BRANCH_TARGETS_PREFIX) != 0);
+    return TEST(INSTR_BRANCH_PADDED, instr->flags);
 }
 
-/* If val is true, indicates that instr's target fragment should be
- *   entered through its prefix, which restores ecx.
- * If val is false, indicates that instr should target the normal entry
- *   point and not the prefix.
- *
- * Some code manipulations need to store a target address in a
- * register and then jump there, but need the register to be restored
- * as well.  DR provides a single-instruction prefix that is
- * placed on all fragments (basic blocks as well as traces) that
- * restores ecx.  It is on traces for internal DR use.  To have
- * it added to basic blocks as well, call
- * dr_add_prefixes_to_basic_blocks() during initialization.
- */
 void
-instr_branch_set_prefix_target(instr_t *instr, bool val)
+instr_branch_set_padded(instr_t *instr, bool val)
 {
     if (val)
-        instr->flags |= INSTR_BRANCH_TARGETS_PREFIX;
+        instr->flags |= INSTR_BRANCH_PADDED;
     else
-        instr->flags &= ~INSTR_BRANCH_TARGETS_PREFIX;
+        instr->flags &= ~INSTR_BRANCH_PADDED;
 }
-#endif /* UNSUPPORTED_API */
 
 /* Returns true iff instr has been marked as a special exit cti */
 bool
@@ -836,57 +842,6 @@ instr_set_ok_to_emit(instr_t *instr, bool val)
     else
         instr->flags |= INSTR_DO_NOT_EMIT;
 }
-
-#ifdef CUSTOM_EXIT_STUBS
-/* If instr is not an exit cti, does nothing.
- * If instr is an exit cti, sets stub to be custom exit stub code
- * that will be inserted in the exit stub prior to the normal exit
- * stub code.  If instr already has custom exit stub code, that
- * existing instrlist_t is cleared and destroyed (using current thread's
- * context).  (If stub is NULL, any existing stub code is NOT destroyed.)
- * The creator of the instrlist_t containing instr is
- * responsible for destroying stub.
- */
-void
-instr_set_exit_stub_code(instr_t *instr, instrlist_t *stub)
-{
-    /* HACK: dsts array is NULL, so we use the dsts pointer
-     * FIXME: put checks in set_num_opnds, etc. that may overwrite this?
-     * FIXME: make separate call to clear existing stubs?
-     * having it not clear for stub==NULL a little hacky
-     */
-    CLIENT_ASSERT(instr_is_cbr(instr) || instr_is_ubr(instr),
-                  "instr_set_exit_stub_code called on non-exit");
-    CLIENT_ASSERT(instr->num_dsts == 0, "instr_set_exit_stub_code: instr invalid");
-    if (stub != NULL && (instr->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
-        /* delete existing */
-        instrlist_t *existing = (instrlist_t *)instr->dsts;
-        instrlist_clear_and_destroy(get_thread_private_dcontext(), existing);
-    }
-    if (stub == NULL) {
-        instr->flags &= ~INSTR_HAS_CUSTOM_STUB;
-        instr->dsts = NULL;
-    } else {
-        instr->flags |= INSTR_HAS_CUSTOM_STUB;
-        instr->dsts = (opnd_t *)stub;
-    }
-}
-
-/* Returns the custom exit stub code instruction list that has been
- * set for this instruction.  If none exists, returns NULL.
- */
-instrlist_t *
-instr_exit_stub_code(instr_t *instr)
-{
-    if (!instr_is_cbr(instr) && !instr_is_ubr(instr))
-        return NULL;
-    if (opnd_is_far_pc(instr_get_target(instr)))
-        return NULL;
-    if ((instr->flags & INSTR_HAS_CUSTOM_STUB) == 0)
-        return NULL;
-    return (instrlist_t *)instr->dsts;
-}
-#endif
 
 uint
 instr_eflags_conditionally(uint full_eflags, dr_pred_type_t pred,
@@ -1026,7 +981,7 @@ instr_set_raw_bits(instr_t *instr, byte *addr, uint length)
     instr->flags |= INSTR_RAW_BITS_VALID;
     instr->bytes = addr;
     instr->length = length;
-#ifdef X86_64
+#ifdef X86
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1040,7 +995,7 @@ instr_shift_raw_bits(instr_t *instr, ssize_t offs)
 {
     if ((instr->flags & INSTR_RAW_BITS_VALID) != 0)
         instr->bytes += offs;
-#ifdef X86_64
+#ifdef X86
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1060,7 +1015,7 @@ instr_set_raw_bits_valid(instr_t *instr, bool valid)
          * addresses for exception/signal handlers
          * Also do not de-allocate allocated bits
          */
-#ifdef X86_64
+#ifdef X86
         instr_set_rip_rel_valid(instr, false);
 #endif
     }
@@ -1071,7 +1026,8 @@ instr_free_raw_bits(dcontext_t *dcontext, instr_t *instr)
 {
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0)
         return;
-    heap_reachable_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
+    if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+        heap_reachable_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
     instr->bytes = NULL;
     instr->flags &= ~INSTR_RAW_BITS_VALID;
     instr->flags &= ~INSTR_RAW_BITS_ALLOCATED;
@@ -1085,12 +1041,21 @@ void
 instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
 {
     byte *original_bits = NULL;
-    if ((instr->flags & INSTR_RAW_BITS_VALID) != 0)
+    if (TEST(INSTR_RAW_BITS_VALID, instr->flags))
         original_bits = instr->bytes;
-    if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0 || instr->length != num_bytes) {
-        /* We need reachable heap for rip-rel re-relativization. */
-        byte *new_bits =
-            (byte *)heap_reachable_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR));
+    if (!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags) || instr->length != num_bytes) {
+        byte *new_bits;
+        if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+            /* This may not be reachable, so re-relativization is limited. */
+            instr_noalloc_t *noalloc = (instr_noalloc_t *)instr;
+            CLIENT_ASSERT(num_bytes <= sizeof(noalloc->encode_buf),
+                          "instr_allocate_raw_bits exceeds instr_noalloc_t capacity");
+            new_bits = noalloc->encode_buf;
+        } else {
+            /* We need reachable heap for rip-rel re-relativization. */
+            new_bits =
+                (byte *)heap_reachable_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR));
+        }
         if (original_bits != NULL) {
             /* copy original bits into modified bits so can just modify
              * a few and still have all info in one place
@@ -1108,7 +1073,7 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
     instr->flags |= INSTR_RAW_BITS_ALLOCATED;
     instr->flags &= ~INSTR_OPERANDS_VALID;
     instr->flags &= ~INSTR_EFLAGS_VALID;
-#ifdef X86_64
+#ifdef X86
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1203,7 +1168,7 @@ instr_set_raw_byte(instr_t *instr, uint pos, byte val)
     CLIENT_ASSERT(pos >= 0 && pos < instr->length && instr->bytes != NULL,
                   "instr_set_raw_byte: ordinal invalid, or no raw bits");
     instr->bytes[pos] = (byte)val;
-#ifdef X86_64
+#ifdef X86
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1220,7 +1185,7 @@ instr_set_raw_bytes(instr_t *instr, byte *start, uint num_bytes)
     CLIENT_ASSERT(num_bytes <= instr->length && instr->bytes != NULL,
                   "instr_set_raw_bytes: ordinal invalid, or no raw bits");
     memcpy(instr->bytes, start, num_bytes);
-#ifdef X86_64
+#ifdef X86
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1237,7 +1202,7 @@ instr_set_raw_word(instr_t *instr, uint pos, uint word)
     CLIENT_ASSERT(pos >= 0 && pos + 3 < instr->length && instr->bytes != NULL,
                   "instr_set_raw_word: ordinal invalid, or no raw bits");
     *((uint *)(instr->bytes + pos)) = word;
-#ifdef X86_64
+#ifdef X86
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1520,7 +1485,7 @@ instr_decode_opcode(dcontext_t *dcontext, instr_t *instr)
     if (!instr_opcode_valid(instr)) {
         byte *next_pc;
         DEBUG_EXT_DECLARE(int old_len = instr->length;)
-#ifdef X86_64
+#ifdef X86
         bool rip_rel_valid = instr_rip_rel_valid(instr);
 #endif
         /* decode_opcode() will use the dcontext mode, but we want the instr mode */
@@ -1531,7 +1496,7 @@ instr_decode_opcode(dcontext_t *dcontext, instr_t *instr)
         instr_reuse(dcontext, instr);
         next_pc = decode_opcode(dcontext, instr->bytes, instr);
         dr_set_isa_mode(dcontext, old_mode, NULL);
-#ifdef X86_64
+#ifdef X86
         /* decode_opcode sets raw bits which invalidates rip_rel, but
          * it should still be valid on an up-decode of the opcode */
         if (rip_rel_valid)
@@ -1553,7 +1518,7 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
     if (!instr_operands_valid(instr)) {
         byte *next_pc;
         DEBUG_EXT_DECLARE(int old_len = instr->length;)
-#ifdef X86_64
+#ifdef X86
         bool rip_rel_valid = instr_rip_rel_valid(instr);
 #endif
         /* decode() will use the current dcontext mode, but we want the instr mode */
@@ -1567,7 +1532,7 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
             instr_set_translation(instr, instr_get_raw_bits(instr));
 #endif
         dr_set_isa_mode(dcontext, old_mode, NULL);
-#ifdef X86_64
+#ifdef X86
         /* decode sets raw bits which invalidates rip_rel, but
          * it should still be valid on an up-decode */
         if (rip_rel_valid)
@@ -2032,7 +1997,6 @@ instr_is_xsave(instr_t *instr)
 }
 #endif /* X86 */
 
-#if defined(X64) || defined(ARM)
 /* PR 251479: support general re-relativization.  If INSTR_RIP_REL_VALID is set and
  * the raw bits are valid, instr->rip_rel_pos is assumed to hold the offset into the
  * instr of a 32-bit rip-relative displacement, which is used to re-relativize during
@@ -2045,14 +2009,14 @@ instr_is_xsave(instr_t *instr)
  * raw bits: we can't rely just on the raw bits invalidation.
  * There can only be one rip-relative operand per instruction.
  */
-/* FIXME i#1551: for ARM we don't have a large displacement on every reference.
+/* TODO i#4016: for AArchXX we don't have a large displacement on every reference.
  * Some have no disp at all, others have just 12 bits or smaller.
  * We need to come up with a strategy for handling encode-time re-relativization.
  * Xref copy_and_re_relativize_raw_instr().
  * For now, we do use some of these routines, but none that use the rip_rel_pos.
  */
 
-#    ifdef X86_64
+#ifdef X86
 bool
 instr_rip_rel_valid(instr_t *instr)
 {
@@ -2082,28 +2046,92 @@ instr_set_rip_rel_pos(instr_t *instr, uint pos)
     instr->rip_rel_pos = (byte)pos;
     instr_set_rip_rel_valid(instr, true);
 }
-#    endif /* X86_64 */
+#endif /* X86 */
+
+#ifdef X86
+static bool
+instr_has_rip_rel_instr_operand(instr_t *instr)
+{
+    /* XXX: See comment in instr_get_rel_target() about distinguishing data from
+     * instr rip-rel operands.  We don't want to go so far as adding yet more
+     * data plumbed through the decode_fast tables.
+     * Perhaps we should instead break compatibility and have all these relative
+     * target and operand index routines include instr operands, and update
+     * mangle_rel_addr() to somehow distinguish instr on its own?
+     * For now we get by with the simple check for a cti or xbegin.
+     * No instruction has 2 rip-rel immeds so a direct cti must be instr.
+     */
+    return (instr_is_cti(instr) && !instr_is_mbr(instr)) ||
+        instr_get_opcode(instr) == OP_xbegin;
+}
+#endif
 
 bool
-instr_get_rel_addr_target(instr_t *instr, app_pc *target)
+instr_get_rel_target(instr_t *instr, /*OUT*/ app_pc *target, bool data_only)
 {
-    int i;
-    opnd_t curop;
     if (!instr_valid(instr))
         return false;
-#    ifdef X86_64
+
+    /* For PC operands we have to look at the high-level *before* rip_rel_pos, to
+     * support decode_from_copy().  As documented, we ignore instr_t targets.
+     */
+    if (!data_only && instr_operands_valid(instr) && instr_num_srcs(instr) > 0 &&
+        opnd_is_pc(instr_get_src(instr, 0))) {
+        if (target != NULL)
+            *target = opnd_get_pc(instr_get_src(instr, 0));
+        return true;
+    }
+
+#ifdef X86
     /* PR 251479: we support rip-rel info in level 1 instrs */
     if (instr_rip_rel_valid(instr)) {
-        if (instr_get_rip_rel_pos(instr) > 0) {
+        int rip_rel_pos = instr_get_rip_rel_pos(instr);
+        if (rip_rel_pos > 0) {
+            if (data_only) {
+                /* XXX: Distinguishing data from instr is a pain here b/c it might be
+                 * during init (e.g., callback.c's copy_app_code()) and we can't
+                 * easily do an up-decode (hence the separate "local" instr_t below).
+                 * We do it partly for backward compatibility for external callers,
+                 * but also for our own mangle_rel_addr().  Would it be cleaner some
+                 * other way: breaking compat and not supporting data-only here and
+                 * having mangle call instr_set_rip_rel_valid() for all cti's (and
+                 * xbegin)?
+                 */
+                bool not_data = false;
+                if (!instr_opcode_valid(instr) && get_thread_private_dcontext() == NULL) {
+                    instr_t local;
+                    instr_init(GLOBAL_DCONTEXT, &local);
+                    if (decode_opcode(GLOBAL_DCONTEXT, instr_get_raw_bits(instr),
+                                      &local) != NULL) {
+                        not_data = instr_has_rip_rel_instr_operand(&local);
+                    }
+                    instr_free(GLOBAL_DCONTEXT, &local);
+                } else
+                    not_data = instr_has_rip_rel_instr_operand(instr);
+                if (not_data)
+                    return false;
+            }
             if (target != NULL) {
-                *target = instr->bytes + instr->length +
-                    *((int *)(instr->bytes + instr_get_rip_rel_pos(instr)));
+                /* We only support non-4-byte rip-rel disps for 1-byte instr-final
+                 * (jcc_short).
+                 */
+                if (rip_rel_pos + 1 == (int)instr->length) {
+                    *target = instr->bytes + instr->length +
+                        *((char *)(instr->bytes + rip_rel_pos));
+                } else {
+                    ASSERT(rip_rel_pos + 4 <= (int)instr->length);
+                    *target = instr->bytes + instr->length +
+                        *((int *)(instr->bytes + rip_rel_pos));
+                }
             }
             return true;
         } else
             return false;
     }
-#    endif
+#endif
+#if defined(X64) || defined(ARM)
+    int i;
+    opnd_t curop;
     /* else go to level 3 operands */
     for (i = 0; i < instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
@@ -2151,7 +2179,21 @@ instr_get_rel_addr_target(instr_t *instr, app_pc *target)
                 }
             });
     }
+#endif
     return false;
+}
+
+bool
+instr_get_rel_data_or_instr_target(instr_t *instr, /*OUT*/ app_pc *target)
+{
+    return instr_get_rel_target(instr, target, false /*all*/);
+}
+
+#if defined(X64) || defined(ARM)
+bool
+instr_get_rel_addr_target(instr_t *instr, /*OUT*/ app_pc *target)
+{
+    return instr_get_rel_target(instr, target, true /*data-only*/);
 }
 
 bool

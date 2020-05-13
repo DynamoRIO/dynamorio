@@ -367,6 +367,8 @@ OPCODE(lwpval, lwpval, lwpval, 0, REGARG(EAX), MEMARG(OPSZ_4), IMMARG(OPSZ_4))
 /****************************************************************************/
 /* BMI1 */
 OPCODE(andn, andn, andn, 0, REGARG(EAX), REGARG(EBX), MEMARG(OPSZ_4))
+/* Test the 2nd byte looking like a different prefix (i#3978). */
+OPCODE(andn_ext, andn, andn, X64_ONLY, REGARG(R12), REGARG(R12), REGARG(RAX))
 
 /****************************************************************************/
 /* BMI2 */

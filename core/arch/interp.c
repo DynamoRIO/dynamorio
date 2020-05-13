@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -230,10 +230,7 @@ typedef struct {
     cache_pc exit_target;              /* fall-through target of final instr */
     uint exit_type;                    /* indirect branch type  */
     ibl_branch_type_t ibl_branch_type; /* indirect branch type as an IBL selector */
-#ifdef UNIX
-    bool invalid_instr_hack;
-#endif
-    instr_t *instr; /* the current instr */
+    instr_t *instr;                    /* the current instr */
     int eflags;
     app_pc pretend_pc; /* selfmod only: decode from separate pc */
 #ifdef ARM
@@ -850,7 +847,6 @@ bb_process_single_step(dcontext_t *dcontext, build_bb_t *bb)
 static inline void
 bb_process_invalid_instr(dcontext_t *dcontext, build_bb_t *bb)
 {
-
     /* invalid instr: end bb BEFORE the instr, we'll throw exception if we
      * reach the instr itself
      */
@@ -865,57 +861,37 @@ bb_process_invalid_instr(dcontext_t *dcontext, build_bb_t *bb)
          * A benefit of being first instr is that the state is easy
          * to translate.
          */
-#ifdef WINDOWS
-        /* Copying the invalid bytes and having the processor generate
-         * the exception would be cleaner in every way except our fear
-         * of a new processor making those bytes valid and us inadvertently
-         * executing the unexamined instructions afterward, since we do not
-         * know the proper amount of bytes to copy.  Copying is cleaner
-         * since Windows splits invalid instructions into different cases,
-         * an invalid lock prefix and maybe some other distinctions
-         * (it's all interrupt 6 to the processor), and it is hard to
-         * duplicate Windows' behavior in our forged exception.
+        /* Copying the invalid bytes and having the processor generate the exception
+         * would help on Windows where the kernel splits invalid instructions into
+         * different cases (an invalid lock prefix and other distinctions, when the
+         * underlying processor has a single interrupt 6), and it is hard to
+         * duplicate Windows' behavior in our forged exception.  However, we are not
+         * certain that this instruction will raise a fault on the processor.  It
+         * might not if our decoder has a bug, or a new processor has added new
+         * opcodes, or just due to processor variations in undefined gray areas.
+         * Trying to copy without knowing the length of the instruction is a recipe
+         * for disaster: it can lead to executing junk and even missing our exit cti
+         * (i#3939).
          */
-        /* FIXME case 10672: provide a runtime option to specify new
-         * instruction formats to avoid this app exception */
+        /* TODO i#1000: Give clients a chance to see this instruction for analysis,
+         * and to change it.  That's not easy to do though when we don't know what
+         * it is.  But it's confusing for the client to get the illegal instr fault
+         * having never seen the problematic instr in a bb event.
+         */
+        /* XXX i#57: provide a runtime option to specify new instruction formats to
+         * avoid this app exception for new opcodes.
+         */
         ASSERT(dcontext->bb_build_info == bb);
         bb_build_abort(dcontext, true /*clean vm area*/, true /*unlock*/);
-        /* FIXME : we use illegal instruction here, even though we
+        /* XXX: we use illegal instruction here, even though we
          * know windows uses different exception codes for different
          * types of invalid instructions (for ex. STATUS_INVALID_LOCK
-         * _SEQUENCE for lock prefix on a jmp instruction)
+         * _SEQUENCE for lock prefix on a jmp instruction).
          */
         if (TEST(DUMPCORE_FORGE_ILLEGAL_INST, DYNAMO_OPTION(dumpcore_mask)))
             os_dump_core("Warning: Encountered Illegal Instruction");
         os_forge_exception(bb->instr_start, ILLEGAL_INSTRUCTION_EXCEPTION);
         ASSERT_NOT_REACHED();
-#else
-        /* FIXME: Linux hack until we have a real os_forge_exception implementation:
-         * copy the bytes and have the process generate the exception.
-         * Once remove this, also disable check at top of insert_selfmod_sandbox
-         * FIXME PR 307880: we now have a preliminary
-         * os_forge_exception impl, but I'm leaving this hack until
-         * we're more comfortable w/ our forging.
-         */
-        uint sz;
-        instrlist_append(bb->ilist, bb->instr);
-        /* pretend raw bits valid to get it encoded
-         * For now we just do 17 bytes, being wary of unreadable pages.
-         * FIXME: better solution is to have decoder guess at length (if
-         * ok opcode just bad lock prefix or something know length, if
-         * bad opcode just bytes up until know it's bad).
-         */
-        if (!is_readable_without_exception(bb->instr_start, MAX_INSTR_LENGTH)) {
-            app_pc nxt_page = (app_pc)ALIGN_FORWARD(bb->instr_start, PAGE_SIZE);
-            sz = nxt_page - bb->instr_start;
-        } else {
-            sz = MAX_INSTR_LENGTH;
-        }
-        bb->cur_pc += sz; /* just in case, should have a non-self target */
-        ASSERT(bb->cur_pc > bb->instr_start); /* else still a self target */
-        instr_set_raw_bits(bb->instr, bb->instr_start, sz);
-        bb->invalid_instr_hack = true;
-#endif
     } else {
         instr_destroy(dcontext, bb->instr);
         bb->instr = NULL;
@@ -3011,8 +2987,6 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             /* Case 10784: Clients can confound trace building when they
              * introduce more than one exit cti; we'll just disable traces
              * for these fragments.
-             * PR 215179: we're currently later marking them no-trace for pad_jmps
-             * reasons as well.
              */
             else {
                 CLIENT_ASSERT(instr_is_near_ubr(inst) ||
@@ -4054,16 +4028,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #endif
 
     STATS_TRACK_MAX(max_instrs_in_a_bb, total_instrs);
-
-#ifdef UNIX
-    if (bb->invalid_instr_hack) {
-        /* turn off selfmod -- we assume bb will hit exception right away */
-        if (TEST(FRAG_SELFMOD_SANDBOXED, bb->flags))
-            bb->flags &= ~FRAG_SELFMOD_SANDBOXED;
-        /* decode_fragment() can't handle invalid instrs, so store translations */
-        bb->flags |= FRAG_HAS_TRANSLATION_INFO;
-    }
-#endif
 
     if (stop_bb_on_fallthrough && TEST(FRAG_HAS_DIRECT_CTI, bb->flags)) {
         /* If we followed a direct cti to an instruction straddling a vmarea
@@ -5592,85 +5556,6 @@ process_nops_for_trace(dcontext_t *dcontext, instrlist_t *ilist,
         remove_nops_from_ilist(dcontext, ilist _IF_DEBUG(recreating));
     }
 }
-
-#ifdef CUSTOM_EXIT_STUBS
-/*
- * Builds custom exit stub instrlist for exit_cti, whose stub is l
- * Assumes that intra-fragment cti's in the custom stub only target other
- * instructions in the same stub, never in the body of the fragment or
- * in other stubs.  FIXME: is this too restrictive?  If change this,
- * change the comment in instr_set_exit_stub_code's declaration.
- */
-static void
-regenerate_custom_exit_stub(dcontext_t *dcontext, instr_t *exit_cti, linkstub_t *l,
-                            fragment_t *f)
-{
-    /* need to decode and restore custom stub instrlist */
-    byte *cspc = EXIT_STUB_PC(dcontext, f, l);
-    byte *stop = EXIT_FIXED_STUB_PC(dcontext, f, l);
-    instr_t *in, *cti;
-    instrlist_t intra_ctis;
-    instrlist_t *cil = instrlist_create(dcontext);
-    cache_pc start_pc = FCACHE_ENTRY_PC(f);
-    ASSERT(DYNAMO_OPTION(indirect_stubs));
-
-    if (l->fixed_stub_offset == 0)
-        return; /* has no custom exit stub */
-
-    LOG(THREAD, LOG_INTERP, 3, "in regenerate_custom_exit_stub\n");
-
-    instrlist_init(&intra_ctis);
-    while (cspc < stop) {
-        in = instr_create(dcontext);
-        cspc = decode(dcontext, cspc, in);
-        ASSERT(cspc != NULL); /* our own code! */
-        if (instr_is_cti(in)) {
-            if (!instr_is_return(in) && opnd_is_near_pc(instr_get_target(in)) &&
-                (opnd_get_pc(instr_get_target(in)) < start_pc ||
-                 opnd_get_pc(instr_get_target(in)) > start_pc + f->size)) {
-                d_r_loginst(dcontext, 3, in, "\tcti has off-fragment target");
-                /* indicate that relative target must be
-                 * re-encoded, and that it is not an exit cti
-                 */
-                instr_set_meta(in);
-                instr_set_raw_bits_valid(in, false);
-            } else if (opnd_is_near_pc(instr_get_target(in))) {
-                /* intra-fragment target: we'll change its target operand
-                 * from pc to instr_t in second pass, so remember it here
-                 */
-                instr_t *clone = instr_clone(dcontext, in);
-                /* HACK: use note field! */
-                instr_set_note(clone, (void *)in);
-                instrlist_append(&intra_ctis, clone);
-            }
-        }
-        instrlist_append(cil, in);
-    }
-
-    /* must fix up intra-ilist cti's to have instr_t targets
-     * assumption: they only target other instrs in custom stub
-     * FIXME: allow targeting other instrs?
-     */
-    for (in = instrlist_first(cil); in != NULL; in = instr_get_next(in)) {
-        for (cti = instrlist_first(&intra_ctis); cti != NULL; cti = instr_get_next(cti)) {
-            if (opnd_get_pc(instr_get_target(cti)) == instr_get_raw_bits(in)) {
-                /* cti targets this instr */
-                instr_t *real_cti = (instr_t *)instr_get_note(cti);
-                /* Do not preserve raw bits just in case instrlist changes
-                 * and the instr target moves (xref PR 333691)
-                 */
-                instr_set_target(real_cti, opnd_create_instr(in));
-                d_r_loginst(dcontext, 3, real_cti, "\tthis cti: ");
-                d_r_loginst(dcontext, 3, in, "\t  targets intra-stub instr");
-                break;
-            }
-        }
-    }
-    instrlist_clear(dcontext, &intra_ctis);
-
-    instr_set_exit_stub_code(exit_cti, cil);
-}
-#endif
 
 /* Combines instrlist_preinsert to ilist and the size calculation of the addition */
 static inline int
@@ -7300,6 +7185,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                 prev_pc = pc;
                 pc = IF_AARCH64_ELSE(decode_cti_with_ldstex, decode_cti)(dcontext, pc,
                                                                          instr);
+                DOLOG(DF_LOGLEVEL(dcontext), LOG_INTERP,
+                      { disassemble_with_info(dcontext, prev_pc, THREAD, true, true); });
 #ifdef WINDOWS
                 /* Perform fixups for ignorable syscalls on XP & 2003. */
                 if (possible_ignorable_sysenter && instr_opcode_valid(instr) &&
@@ -7578,7 +7465,15 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                 }
             });
             ASSERT(pc == stop_pc);
-
+            cache_pc next_pc = pc;
+            if (l != NULL && TEST(LINK_PADDED, l->flags) && instr_is_nop(instr)) {
+                /* Throw away our padding nop. */
+                LOG(THREAD, LOG_MONITOR, DF_LOGLEVEL(dcontext) - 1,
+                    "%s: removing padding nop @" PFX "\n", __FUNCTION__, prev_pc);
+                pc = prev_pc;
+                if (buf != NULL)
+                    top_buf -= instr_length(dcontext, instr);
+            }
             /* create single raw instr for rest of instructions up to exit cti */
             if (pc > raw_start_pc) {
                 instr_reset(dcontext, instr);
@@ -7613,6 +7508,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                  */
                 instr_destroy(dcontext, instr);
             }
+            pc = next_pc;
         }
 
         if (l == NULL && !TEST(FRAG_FAKE, f->flags))
@@ -7736,10 +7632,6 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
             }
         }
         instrlist_append(ilist, instr);
-#ifdef CUSTOM_EXIT_STUBS
-        if (l != NULL && l->fixed_stub_offset > 0)
-            regenerate_custom_exit_stub(dcontext, instr, l, f);
-#endif
 
         if (TEST(FRAG_FAKE, f->flags)) {
             /* Assumption: coarse-grain bbs have 1 ind exit or 2 direct,

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -737,20 +737,6 @@ function (_DR_set_compile_flags target is_client extra_flags)
 
     endif (is_client)
 
-    # i#847 keep stack boundary 4-byte aligned for compatibility.
-    # The new gcc may use different stack alignment for using SSE
-    # instructions. We make both DynamoRIO and clients use 4-byte
-    # stack alignment to avoid any back compatibility issue without
-    # using extra stack space or changing performance.
-    # On Mac we have to use the ABI's 16-byte alignment, but we have
-    # no compatibility there as we're starting fresh.
-    # On ARM, '-mpreferred-stack-boundary' is unrecognized.
-    # i#1800: '-mpreferred-stack-boundary' is not supported by clang,
-    # so clang's build may not run legacy binaries.
-    if (NOT tgt_x64 AND NOT APPLE AND NOT ARM AND NOT CMAKE_COMPILER_IS_CLANG)
-      set(extra_flags "${extra_flags} -mpreferred-stack-boundary=2")
-    endif (NOT tgt_x64 AND NOT APPLE AND NOT ARM AND NOT CMAKE_COMPILER_IS_CLANG)
-
     if (NOT APPLE AND NOT ANDROID) # no .gnu.hash support on Android
       # Generate the .hash section in addition to .gnu.hash for every target, to
       # avoid SIGFPE when running binaries on old systems:
@@ -1189,6 +1175,11 @@ function (use_DynamoRIO_extension target extname)
     target_link_libraries(${target} ${extname})
   endif (NOT DynamoRIO_EXT_${extname}_NOLIB)
 
+  if ("${extname}" MATCHES "^droption$")
+    if (NOT WIN32)
+      _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+    endif ()
+  endif ()
 endfunction (use_DynamoRIO_extension)
 
 # For clients to configure their custom annotations
@@ -1229,7 +1220,9 @@ function (use_DynamoRIO_drmemtrace target)
       _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "/MT")
     endif ()
   endif ()
-  _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+  if (NOT WIN32)
+    _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+  endif ()
 endfunction ()
 
 function (use_DynamoRIO_drmemtrace_tracer target)

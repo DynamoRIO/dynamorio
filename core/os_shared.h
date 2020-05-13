@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1339,13 +1339,17 @@ unload_private_library(app_pc modbase);
 app_pc
 locate_and_load_private_library(const char *name, bool reachable);
 void
-loader_init(void);
+loader_init_prologue(void);
+void
+loader_init_epilogue(dcontext_t *dcontext);
 void
 loader_exit(void);
 void
 loader_thread_init(dcontext_t *dcontext);
 void
 loader_thread_exit(dcontext_t *dcontext);
+void
+loader_make_exit_calls(dcontext_t *dcontext);
 bool
 in_private_library(app_pc pc);
 void

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -64,7 +64,7 @@ public:
     std::string
     error_string() const
     {
-        return error_descr;
+        return error_descr_;
     }
 
     virtual const std::string &operator*();
@@ -77,12 +77,12 @@ public:
     virtual bool
     operator==(const directory_iterator_t &rhs) const
     {
-        return BOOLS_MATCH(at_eof, rhs.at_eof);
+        return BOOLS_MATCH(at_eof_, rhs.at_eof_);
     }
     virtual bool
     operator!=(const directory_iterator_t &rhs) const
     {
-        return !BOOLS_MATCH(at_eof, rhs.at_eof);
+        return !BOOLS_MATCH(at_eof_, rhs.at_eof_);
     }
 
     virtual directory_iterator_t &
@@ -90,7 +90,7 @@ public:
 
     virtual bool operator!()
     {
-        return at_eof;
+        return at_eof_;
     }
 
     // We do not bother to support the post-increment operator.
@@ -102,17 +102,17 @@ public:
     create_directory(const std::string &path);
 
 private:
-    bool at_eof = true;
-    std::string error_descr;
-    std::string cur_file;
+    bool at_eof_ = true;
+    std::string error_descr_;
+    std::string cur_file_;
 #ifdef WINDOWS
-    HANDLE find = INVALID_HANDLE_VALUE;
-    WIN32_FIND_DATAW data;
-    TCHAR wdir[MAX_PATH];
-    char path[MAX_PATH];
+    HANDLE find_ = INVALID_HANDLE_VALUE;
+    WIN32_FIND_DATAW data_;
+    TCHAR wdir_[MAX_PATH];
+    char path_[MAX_PATH];
 #else
-    DIR *dir = nullptr;
-    struct dirent *ent = nullptr;
+    DIR *dir_ = nullptr;
+    struct dirent *ent_ = nullptr;
 #endif
 };
 

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -861,15 +861,7 @@ free_all_callback_lists()
 }
 
 void
-instrument_exit_post_sideline(void)
-{
-#    if defined(WINDOWS) || defined(CLIENT_SIDELINE)
-    DELETE_LOCK(client_thread_count_lock);
-#    endif
-}
-
-void
-instrument_exit(void)
+instrument_exit_event(void)
 {
     /* Note - currently own initexit lock when this is called (see PR 227619). */
 
@@ -880,6 +872,12 @@ instrument_exit(void)
              /* It seems the compiler is confused if we pass no var args
               * to the call_all macro.  Bogus NULL arg */
              NULL);
+}
+
+void
+instrument_exit(void)
+{
+    /* Note - currently own initexit lock when this is called (see PR 227619). */
 
     if (IF_DEBUG_ELSE(true, doing_detach)) {
         /* Unload all client libs and free any allocated storage */
@@ -898,6 +896,9 @@ instrument_exit(void)
     num_client_libs = 0;
 #    ifdef WINDOWS
     DELETE_LOCK(client_aux_lib64_lock);
+#    endif
+#    if defined(WINDOWS) || defined(CLIENT_SIDELINE)
+    DELETE_LOCK(client_thread_count_lock);
 #    endif
     DELETE_READWRITE_LOCK(callback_registration_lock);
 }
@@ -1813,6 +1814,44 @@ instrument_restore_state(dcontext_t *dcontext, bool restore_memory,
     CLIENT_ASSERT(!restore_memory || res,
                   "translation should not fail for restore_memory=true");
     return res;
+}
+
+/* The client may need to translate memory (e.g., DRWRAP_REPLACE_RETADDR using
+ * sentinel addresses outside of the code cache as targets) even when the register
+ * state already contains application values.
+ */
+bool
+instrument_restore_nonfcache_state_prealloc(dcontext_t *dcontext, bool restore_memory,
+                                            INOUT priv_mcontext_t *mcontext,
+                                            OUT dr_mcontext_t *client_mcontext)
+{
+    if (!dr_xl8_hook_exists())
+        return true;
+    dr_restore_state_info_t client_info;
+    dr_mcontext_init(client_mcontext);
+    priv_mcontext_to_dr_mcontext(client_mcontext, mcontext);
+    client_info.raw_mcontext = client_mcontext;
+    client_info.raw_mcontext_valid = true;
+    client_info.mcontext = client_mcontext;
+    client_info.fragment_info.tag = NULL;
+    client_info.fragment_info.cache_start_pc = NULL;
+    client_info.fragment_info.is_trace = false;
+    client_info.fragment_info.app_code_consistent = true;
+    bool res = instrument_restore_state(dcontext, restore_memory, &client_info);
+    dr_mcontext_to_priv_mcontext(mcontext, client_mcontext);
+    return res;
+}
+
+/* The large dr_mcontext_t on the stack makes a difference, so we provide two
+ * versions to avoid a double alloc on the same callstack.
+ */
+bool
+instrument_restore_nonfcache_state(dcontext_t *dcontext, bool restore_memory,
+                                   INOUT priv_mcontext_t *mcontext)
+{
+    dr_mcontext_t client_mcontext;
+    return instrument_restore_nonfcache_state_prealloc(dcontext, restore_memory, mcontext,
+                                                       &client_mcontext);
 }
 
 #    ifdef CUSTOM_TRACES
@@ -2751,6 +2790,21 @@ dr_get_process_id(void)
     return (process_id_t)get_process_id();
 }
 
+DR_API process_id_t
+dr_get_process_id_from_drcontext(void *drcontext)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_get_process_id_from_drcontext: drcontext cannot be NULL");
+    CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
+                  "dr_get_process_id_from_drcontext: drcontext is invalid");
+#    ifdef UNIX
+    return dcontext->owning_process;
+#    else
+    return dr_get_process_id();
+#    endif
+}
+
 #    ifdef UNIX
 DR_API
 process_id_t
@@ -3205,7 +3259,6 @@ dr_custom_free(void *drcontext, dr_alloc_flags_t flags, void *addr, size_t size)
     return res;
 }
 
-#    ifdef UNIX
 DR_API
 /* With ld's -wrap option, we can supply a replacement for malloc.
  * This routine allocates memory from DR's global memory pool.  Unlike
@@ -3252,7 +3305,13 @@ __wrap_free(void *mem)
 {
     redirect_free(mem);
 }
-#    endif
+
+DR_API
+char *
+__wrap_strdup(const char *str)
+{
+    return redirect_strdup(str);
+}
 
 DR_API
 bool
@@ -3899,6 +3958,36 @@ dr_atomic_add64_return_sum(volatile int64 *dest, int64 val)
 }
 #    endif
 
+DR_API
+int
+dr_atomic_load32(volatile int *src)
+{
+    return atomic_aligned_read_int(src);
+}
+
+DR_API
+void
+dr_atomic_store32(volatile int *dest, int val)
+{
+    ATOMIC_4BYTE_ALIGNED_WRITE(dest, val, false);
+}
+
+#    ifdef X64
+DR_API
+int64
+dr_atomic_load64(volatile int64 *src)
+{
+    return atomic_aligned_read_int64(src);
+}
+
+DR_API
+void
+dr_atomic_store64(volatile int64 *dest, int64 val)
+{
+    ATOMIC_8BYTE_ALIGNED_WRITE(dest, val, false);
+}
+#    endif
+
 /***************************************************************************
  * MODULES
  */
@@ -4173,7 +4262,10 @@ dr_map_executable_file(const char *filename, dr_map_executable_flags_t flags,
 bool
 dr_unmap_executable_file(byte *base, size_t size)
 {
-    return d_r_unmap_file(base, size);
+    if (standalone_library)
+        return os_unmap_file(base, size);
+    else
+        return d_r_unmap_file(base, size);
 }
 
 DR_API
@@ -5508,13 +5600,13 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     else
         encode_pc = vmcode_get_start();
     dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, where, encode_pc);
-#ifdef X64
     /* PR 218790: we assume that dr_prepare_for_call() leaves stack 16-byte
-     * aligned, which is what insert_meta_call_vargs requires. */
+     * aligned, which is what insert_meta_call_vargs requires.
+     */
     if (cci.should_align) {
-        CLIENT_ASSERT(ALIGNED(dstack_offs, 16), "internal error: bad stack alignment");
+        CLIENT_ASSERT(ALIGNED(dstack_offs, get_ABI_stack_alignment()),
+                      "internal error: bad stack alignment");
     }
-#endif
     if (save_fpstate) {
         /* save on the stack: xref PR 202669 on clients using more stack */
         buf_sz = proc_fpstate_save_size();
@@ -6053,6 +6145,23 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *wh
         ilist, where,
         INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_NZCV), opnd_create_reg(reg)));
 #    endif /* X86/ARM/AARCH64 */
+}
+
+DR_API reg_t
+dr_merge_arith_flags(reg_t cur_xflags, reg_t saved_xflag)
+{
+#    ifdef AARCHXX
+    cur_xflags &= ~(EFLAGS_ARITH);
+    cur_xflags |= saved_xflag;
+#    elif defined(X86)
+    uint sahf = (saved_xflag & 0xff00) >> 8;
+    cur_xflags &= ~(EFLAGS_ARITH);
+    cur_xflags |= sahf;
+    if (TEST(1, saved_xflag)) /* seto */
+        cur_xflags |= EFLAGS_OF;
+#    endif
+
+    return cur_xflags;
 }
 
 /* providing functionality of old -instr_calls and -instr_branches flags
@@ -7464,33 +7573,6 @@ dr_trace_exists_at(void *drcontext, void *tag)
 #    endif
     return trace;
 }
-
-#    ifdef UNSUPPORTED_API
-DR_API
-/* All basic blocks created after this routine is called will have a prefix
- * that restores the ecx register.  Exit ctis can be made to target this prefix
- * instead of the normal entry point by using the instr_branch_set_prefix_target()
- * routine.
- * WARNING: this routine should almost always be called during client
- * initialization, since having a mixture of prefixed and non-prefixed basic
- * blocks can lead to trouble.
- */
-void
-dr_add_prefixes_to_basic_blocks(void)
-{
-    if (DYNAMO_OPTION(coarse_units)) {
-        /* coarse_units doesn't support prefixes in general.
-         * the variation by addr prefix according to processor type
-         * is also not stored in pcaches.
-         */
-        CLIENT_ASSERT(false,
-                      "dr_add_prefixes_to_basic_blocks() not supported with -opt_memory");
-    }
-    options_make_writable();
-    dynamo_options.bb_prefixes = true;
-    options_restore_readonly();
-}
-#    endif /* UNSUPPORTED_API */
 
 DR_API
 /* Insert code to get the segment base address pointed at by seg into

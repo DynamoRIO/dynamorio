@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2663,10 +2663,6 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
 {
     byte *orig_dst_pc = dst_pc;
     ASSERT(instr_raw_bits_valid(instr));
-    /* FIXME i#731: if want to support ctis as well, need
-     * instr->rip_rel_disp_sz and need to set both for non-x64 as well
-     * in decode_sizeof(): or only in decode_cti()?
-     */
     /* For PR 251646 we have special support for mangled jecxz/loop* */
     if (instr_is_cti_short_rewrite(instr, NULL)) {
         app_pc target;
@@ -2681,7 +2677,6 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
         }
         *((int *)dst_pc) = (int)(target - (final_pc + instr->length));
     }
-#ifdef X64
     /* We test the flag directly to support cases where the raw bits are
      * being set by private_instr_encode() */
     else if (instr_rip_rel_valid(instr) && instr_get_rip_rel_pos(instr) > 0) {
@@ -2690,9 +2685,9 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
         ptr_int_t new_offs;
         bool addr32 = false;
         uint rip_rel_pos = instr_get_rip_rel_pos(instr); /* disp offs within instr */
-        DEBUG_DECLARE(bool ok;)
         ASSERT(!instr_is_level_0(instr));
-        DEBUG_DECLARE(ok =) instr_get_rel_addr_target(instr, &target);
+        DEBUG_DECLARE(bool ok;)
+        DEBUG_DECLARE(ok =) instr_get_rel_data_or_instr_target(instr, &target);
         ASSERT(ok);
         new_offs = target - (final_pc + instr->length);
         /* PR 253327: we don't record whether addr32 so we have to deduce it now */
@@ -2700,7 +2695,7 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
             int num_prefixes;
             int i;
             IF_X64(bool old_mode = set_x86_mode(dcontext, instr_get_x86_mode(instr));)
-            decode_sizeof(dcontext, instr->bytes, &num_prefixes, NULL);
+            decode_sizeof(dcontext, instr->bytes, &num_prefixes _IF_X64(NULL));
             IF_X64(set_x86_mode(dcontext, old_mode));
             for (i = 0; i < num_prefixes; i++) {
                 if (*(instr->bytes + i) == ADDR_PREFIX_OPCODE) {
@@ -2722,14 +2717,21 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
         }
         memcpy(dst_pc, instr->bytes, rip_rel_pos);
         dst_pc += rip_rel_pos;
-        *((int *)dst_pc) = (int)new_offs;
-        if (rip_rel_pos + 4U < instr->length) {
-            /* suffix byte */
-            memcpy(dst_pc + 4, instr->bytes + rip_rel_pos + 4,
-                   instr->length - (rip_rel_pos + 4));
+        /* We only support non-4-byte rip-rel disps for 1-byte instr-final (jcc_short). */
+        if (rip_rel_pos + 1 == instr->length) {
+            ASSERT(CHECK_TRUNCATE_TYPE_sbyte(new_offs));
+            *((char *)dst_pc) = (char)new_offs;
+        } else {
+            ASSERT(rip_rel_pos + 4 <= instr->length);
+            ASSERT(CHECK_TRUNCATE_TYPE_int(new_offs));
+            *((int *)dst_pc) = (int)new_offs;
+            if (rip_rel_pos + 4U < instr->length) {
+                /* suffix byte */
+                memcpy(dst_pc + 4, instr->bytes + rip_rel_pos + 4,
+                       instr->length - (rip_rel_pos + 4));
+            }
         }
     } else
-#endif
         memcpy(dst_pc, instr->bytes, instr->length);
     return orig_dst_pc + instr->length;
 }
@@ -3106,7 +3108,6 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
 
     if (disp_relativize_at != NULL) {
-        CLIENT_ASSERT(X64_MODE(&di), "encode error: no rip-relative in x86 mode!");
         if (check_reachable &&
             !CHECK_TRUNCATE_TYPE_int(di.disp_abs - (field_ptr - copy_pc + final_pc)) &&
             /* PR 253327: we auto-add addr prefix for out-of-reach low tgt */
@@ -3121,7 +3122,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
          * private_instr_encode()), set rip_rel_pos */
         CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_byte(disp_relativize_at - di.start_pc),
                       "internal encode error: rip-relative instr pos too large");
-        IF_X64(instr_set_rip_rel_pos(instr, (byte)(disp_relativize_at - di.start_pc)));
+        instr_set_rip_rel_pos(instr, (byte)(disp_relativize_at - di.start_pc));
     }
 
 #if DEBUG_DISABLE /* turn back on if want to debug */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -57,22 +57,22 @@ simulator_t::init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t war
                         double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
                         unsigned int verbose)
 {
-    knob_num_cores = num_cores;
-    knob_skip_refs = skip_refs;
-    knob_warmup_refs = warmup_refs;
-    knob_warmup_fraction = warmup_fraction;
-    knob_sim_refs = sim_refs;
-    knob_cpu_scheduling = cpu_scheduling;
-    knob_verbose = verbose;
-    last_thread = 0;
-    last_core = 0;
-    cpu_counts.resize(knob_num_cores, 0);
-    thread_counts.resize(knob_num_cores, 0);
-    thread_ever_counts.resize(knob_num_cores, 0);
+    knob_num_cores_ = num_cores;
+    knob_skip_refs_ = skip_refs;
+    knob_warmup_refs_ = warmup_refs;
+    knob_warmup_fraction_ = warmup_fraction;
+    knob_sim_refs_ = sim_refs;
+    knob_cpu_scheduling_ = cpu_scheduling;
+    knob_verbose_ = verbose;
+    last_thread_ = 0;
+    last_core_ = 0;
+    cpu_counts_.resize(knob_num_cores_, 0);
+    thread_counts_.resize(knob_num_cores_, 0);
+    thread_ever_counts_.resize(knob_num_cores_, 0);
 
-    if (knob_warmup_refs > 0 && (knob_warmup_fraction > 0.0)) {
+    if (knob_warmup_refs_ > 0 && (knob_warmup_fraction_ > 0.0)) {
         ERRMSG("Usage error: Either warmup_refs OR warmup_fraction can be set");
-        success = false;
+        success_ = false;
         return;
     }
 }
@@ -81,28 +81,28 @@ bool
 simulator_t::process_memref(const memref_t &memref)
 {
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID && knob_cpu_scheduling) {
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID && knob_cpu_scheduling_) {
         int cpu = (int)(intptr_t)memref.marker.marker_value;
         if (cpu < 0)
             return true;
         int min_core;
-        auto exists = cpu2core.find(cpu);
-        if (exists == cpu2core.end()) {
-            min_core = find_emptiest_core(cpu_counts);
-            ++cpu_counts[min_core];
-            cpu2core[cpu] = min_core;
-            if (knob_verbose >= 1) {
+        auto exists = cpu2core_.find(cpu);
+        if (exists == cpu2core_.end()) {
+            min_core = find_emptiest_core(cpu_counts_);
+            ++cpu_counts_[min_core];
+            cpu2core_[cpu] = min_core;
+            if (knob_verbose_ >= 1) {
                 std::cerr << "new cpu " << cpu << " => core " << min_core
-                          << " (count=" << cpu_counts[min_core] << ")" << std::endl;
+                          << " (count=" << cpu_counts_[min_core] << ")" << std::endl;
             }
         } else
             min_core = exists->second;
-        auto prior = thread2core.find(memref.marker.tid);
-        if (prior != thread2core.end())
-            --thread_counts[prior->second];
-        thread2core[memref.marker.tid] = min_core;
-        ++thread_counts[min_core];
-        ++thread_ever_counts[min_core];
+        auto prior = thread2core_.find(memref.marker.tid);
+        if (prior != thread2core_.end())
+            --thread_counts_[prior->second];
+        thread2core_[memref.marker.tid] = min_core;
+        ++thread_counts_[min_core];
+        ++thread_ever_counts_[min_core];
     }
     return true;
 }
@@ -116,7 +116,7 @@ simulator_t::find_emptiest_core(std::vector<int> &counts) const
     // versus maintaining some kind of sorted data structure.
     int min_count = INT_MAX;
     int min_core = 0;
-    for (unsigned int i = 0; i < knob_num_cores; i++) {
+    for (unsigned int i = 0; i < knob_num_cores_; i++) {
         if (counts[i] < min_count) {
             min_count = counts[i];
             min_core = i;
@@ -128,57 +128,57 @@ simulator_t::find_emptiest_core(std::vector<int> &counts) const
 int
 simulator_t::core_for_thread(memref_tid_t tid)
 {
-    auto exists = thread2core.find(tid);
-    if (exists != thread2core.end())
+    auto exists = thread2core_.find(tid);
+    if (exists != thread2core_.end())
         return exists->second;
-    // Either knob_cpu_scheduling is off and we're ignoring cpu
+    // Either knob_cpu_scheduling_is off and we're ignoring cpu
     // markers, or there has not yet been a cpu marker for this
     // thread.  We fall back to scheduling threads directly to cores.
-    int min_core = find_emptiest_core(thread_counts);
-    if (!knob_cpu_scheduling && knob_verbose >= 1) {
+    int min_core = find_emptiest_core(thread_counts_);
+    if (!knob_cpu_scheduling_ && knob_verbose_ >= 1) {
         std::cerr << "new thread " << tid << " => core " << min_core
-                  << " (count=" << thread_counts[min_core] << ")" << std::endl;
-    } else if (knob_cpu_scheduling && knob_verbose >= 1) {
+                  << " (count=" << thread_counts_[min_core] << ")" << std::endl;
+    } else if (knob_cpu_scheduling_ && knob_verbose_ >= 1) {
         std::cerr << "missing cpu marker, so placing thread " << tid << " => core "
-                  << min_core << " (count=" << thread_counts[min_core] << ")"
+                  << min_core << " (count=" << thread_counts_[min_core] << ")"
                   << std::endl;
     }
-    ++thread_counts[min_core];
-    ++thread_ever_counts[min_core];
-    thread2core[tid] = min_core;
+    ++thread_counts_[min_core];
+    ++thread_ever_counts_[min_core];
+    thread2core_[tid] = min_core;
     return min_core;
 }
 
 void
 simulator_t::handle_thread_exit(memref_tid_t tid)
 {
-    std::unordered_map<memref_tid_t, int>::iterator exists = thread2core.find(tid);
-    assert(exists != thread2core.end());
-    assert(thread_counts[exists->second] > 0);
-    --thread_counts[exists->second];
-    if (knob_verbose >= 1) {
+    std::unordered_map<memref_tid_t, int>::iterator exists = thread2core_.find(tid);
+    assert(exists != thread2core_.end());
+    assert(thread_counts_[exists->second] > 0);
+    --thread_counts_[exists->second];
+    if (knob_verbose_ >= 1) {
         std::cerr << "thread " << tid << " exited from core " << exists->second
-                  << " (count=" << thread_counts[exists->second] << ")" << std::endl;
+                  << " (count=" << thread_counts_[exists->second] << ")" << std::endl;
     }
-    thread2core.erase(tid);
+    thread2core_.erase(tid);
 }
 
 void
 simulator_t::print_core(int core) const
 {
-    if (!knob_cpu_scheduling) {
-        std::cerr << "Core #" << core << " (" << thread_ever_counts[core] << " thread(s))"
-                  << std::endl;
+    if (!knob_cpu_scheduling_) {
+        std::cerr << "Core #" << core << " (" << thread_ever_counts_[core]
+                  << " thread(s))" << std::endl;
     } else {
         std::cerr << "Core #" << core;
-        if (cpu_counts[core] == 0) {
+        if (cpu_counts_[core] == 0) {
             // We keep the "(s)" mainly to simplify test templates.
             std::cerr << " (0 traced CPU(s))" << std::endl;
             return;
         }
-        std::cerr << " (" << cpu_counts[core] << " traced CPU(s): ";
+        std::cerr << " (" << cpu_counts_[core] << " traced CPU(s): ";
         bool need_comma = false;
-        for (auto iter = cpu2core.begin(); iter != cpu2core.end(); ++iter) {
+        for (auto iter = cpu2core_.begin(); iter != cpu2core_.end(); ++iter) {
             if (iter->second == core) {
                 if (need_comma)
                     std::cerr << ", ";

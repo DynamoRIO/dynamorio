@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -3045,17 +3045,22 @@ void
 init_emulated_brk(app_pc exe_end)
 {
     ASSERT(DYNAMO_OPTION(emulate_brk));
-    if (app_brk_map != NULL)
+    if (app_brk_map != NULL) {
         return;
-    /* i#1004: emulate brk via a separate mmap.
-     * The real brk starts out empty, but we need at least a page to have an
-     * mmap placeholder.
+    }
+    /* i#1004: emulate brk via a separate mmap.  The real brk starts out empty, but
+     * we need at least a page to have an mmap placeholder.  We also want to reserve
+     * enough memory to avoid a client lib or other mmap truncating the brk at a
+     * too-small size, which can crash the app (i#3982).
      */
-    app_brk_map = mmap_syscall(exe_end, PAGE_SIZE, PROT_READ | PROT_WRITE,
+#    define BRK_INITIAL_SIZE 4 * 1024 * 1024
+    app_brk_map = mmap_syscall(exe_end, BRK_INITIAL_SIZE, PROT_READ | PROT_WRITE,
                                MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     ASSERT(mmap_syscall_succeeded(app_brk_map));
     app_brk_cur = app_brk_map;
-    app_brk_end = app_brk_map + PAGE_SIZE;
+    app_brk_end = app_brk_map + BRK_INITIAL_SIZE;
+    LOG(GLOBAL, LOG_HEAP, 1, "%s: initial brk is " PFX "-" PFX "\n", __FUNCTION__,
+        app_brk_cur, app_brk_end);
 }
 
 static byte *
@@ -3725,6 +3730,18 @@ client_thread_run(void)
     byte *xsp;
     GET_STACK_PTR(xsp);
     void *crec = get_clone_record((reg_t)xsp);
+    /* i#2335: we support setup separate from start, and we want to allow a client
+     * to create a client thread during init, but we do not support that thread
+     * executing until the app has started (b/c we have no signal handlers in place).
+     */
+    /* i#3973: in addition to _executing_ a client thread before the
+     * app has started, if we even create the thread before
+     * dynamo_initialized is set, we will not copy tls blocks.  By
+     * waiting for the app to be started before dynamo_thread_init is
+     * called, we ensure this race condition can never happen, since
+     * dynamo_initialized will always be set before the app is started.
+     */
+    wait_for_event(dr_app_started, 0);
     IF_DEBUG(int rc =)
     dynamo_thread_init(get_clone_record_dstack(crec), NULL, crec, true);
     ASSERT(rc != -1); /* this better be a new thread */
@@ -3738,12 +3755,6 @@ client_thread_run(void)
 
     void *arg = (void *)get_clone_record_app_xsp(crec);
     LOG(THREAD, LOG_ALL, 1, "func=" PFX ", arg=" PFX "\n", func, arg);
-
-    /* i#2335: we support setup separate from start, and we want to allow a client
-     * to create a client thread during init, but we do not support that thread
-     * executing until the app has started (b/c we have no signal handlers in place).
-     */
-    wait_for_event(dr_app_started, 0);
 
     (*func)(arg);
 
@@ -4073,7 +4084,6 @@ os_open_protected(const char *fname, int os_open_flags)
     file_t res = os_open(fname, os_open_flags);
     if (res < 0)
         return res;
-
     /* we could have os_open() always switch to a private fd but it's probably
      * not worth the extra syscall for temporary open/close sequences so we
      * only use it for persistent files
@@ -4318,8 +4328,8 @@ os_create_memory_file(const char *name, size_t size)
         return INVALID_FILE;
     }
     file_t priv_fd = fd_priv_dup(fd);
+    close_syscall(fd); /* Close the old descriptor on success *and* error. */
     if (priv_fd < 0) {
-        close_syscall(fd);
         return INVALID_FILE;
     }
     fd = priv_fd;
@@ -8168,6 +8178,8 @@ post_system_call(dcontext_t *dcontext)
         /* We assumed in pre_system_call() that the unmap would succeed
          * and flushed fragments and removed the region from exec areas.
          * If the unmap failed, we re-add the region to exec areas.
+         * For zero-length unmaps we don't need to re-add anything,
+         * and we hit an assert in vmareas.c if we try (i#4031).
          *
          * The same logic can be used on Windows (but isn't yet).
          */
@@ -8183,7 +8195,7 @@ post_system_call(dcontext_t *dcontext)
          *
          * See case 7559 for a better approach.
          */
-        if (!success) {
+        if (!success && len != 0) {
             dr_mem_info_t info;
             /* must go to os to get real memory since we already removed */
             DEBUG_DECLARE(ok =)

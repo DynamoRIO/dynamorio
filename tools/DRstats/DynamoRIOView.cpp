@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -427,9 +427,9 @@ CDynamoRIOView::PrintStat(TCHAR *c, uint i, BOOL filter)
 #endif
     }
     return _stprintf(c, _T("%*.*") ASCII_PRINTF _T(" = ") DR_STAT_PFMT _T("\r\n"),
-                     BUFFER_SIZE_ELEMENTS(m_stats->stats[i].name),
-                     BUFFER_SIZE_ELEMENTS(m_stats->stats[i].name), m_stats->stats[i].name,
-                     m_stats->stats[i].value);
+                     (int)BUFFER_SIZE_ELEMENTS(m_stats->stats[i].name),
+                     (int)BUFFER_SIZE_ELEMENTS(m_stats->stats[i].name),
+                     m_stats->stats[i].name, m_stats->stats[i].value);
 }
 
 uint
@@ -651,7 +651,7 @@ CDynamoRIOView::OnEditCopystats()
 
     if (m_selected_pid > 0) {
         if (m_stats != NULL) {
-            pos += _stprintf(pos, _T("Process id                  = %d\r\n"),
+            pos += _stprintf(pos, _T("Process id                  = " PIDFMT "\r\n"),
                              m_stats->process_id);
             pos += _stprintf(
                 pos, _T("Process name                = %") ASCII_PRINTF _T("\r\n"),

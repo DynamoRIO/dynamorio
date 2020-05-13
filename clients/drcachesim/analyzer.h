@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -112,12 +112,12 @@ protected:
     // Data for one trace shard.  Our concurrency model has each shard
     // analyzed by a single worker thread, eliminating the need for locks.
     struct analyzer_shard_data_t {
-        analyzer_shard_data_t(int index_in, std::unique_ptr<reader_t> iter_in,
-                              const std::string &trace_file_in)
-            : index(index_in)
+        analyzer_shard_data_t(int index, std::unique_ptr<reader_t> iter,
+                              const std::string &trace_file)
+            : index(index)
             , worker(0)
-            , iter(std::move(iter_in))
-            , trace_file(trace_file_in)
+            , iter(std::move(iter))
+            , trace_file(trace_file)
         {
         }
         analyzer_shard_data_t(analyzer_shard_data_t &&src)
@@ -152,18 +152,18 @@ protected:
     void
     process_tasks(std::vector<analyzer_shard_data_t *> *tasks);
 
-    bool success;
-    std::string error_string;
-    std::vector<analyzer_shard_data_t> thread_data;
-    std::unique_ptr<reader_t> serial_trace_iter;
-    std::unique_ptr<reader_t> trace_end;
-    int num_tools;
-    analysis_tool_t **tools;
-    bool parallel;
-    int worker_count;
-    std::vector<std::vector<analyzer_shard_data_t *>> worker_tasks;
-    int verbosity = 0;
-    const char *output_prefix = "[analyzer]";
+    bool success_;
+    std::string error_string_;
+    std::vector<analyzer_shard_data_t> thread_data_;
+    std::unique_ptr<reader_t> serial_trace_iter_;
+    std::unique_ptr<reader_t> trace_end_;
+    int num_tools_;
+    analysis_tool_t **tools_;
+    bool parallel_;
+    int worker_count_;
+    std::vector<std::vector<analyzer_shard_data_t *>> worker_tasks_;
+    int verbosity_ = 0;
+    const char *output_prefix_ = "[analyzer]";
 };
 
 #endif /* _ANALYZER_H_ */

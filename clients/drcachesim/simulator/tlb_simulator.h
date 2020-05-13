@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,23 +46,23 @@ class tlb_simulator_t : public simulator_t {
 public:
     tlb_simulator_t(const tlb_simulator_knobs_t &knobs);
     virtual ~tlb_simulator_t();
-    virtual bool
-    process_memref(const memref_t &memref);
-    virtual bool
-    print_results();
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
 
 protected:
     // Create a tlb_t object with a specific replacement policy.
     virtual tlb_t *
     create_tlb(std::string policy);
 
-    tlb_simulator_knobs_t knobs;
+    tlb_simulator_knobs_t knobs_;
 
     // Each CPU core contains a L1 ITLB, L1 DTLB and L2 TLB.
     // All of them are private to the core.
-    tlb_t **itlbs;
-    tlb_t **dtlbs;
-    tlb_t **lltlbs;
+    tlb_t **itlbs_;
+    tlb_t **dtlbs_;
+    tlb_t **lltlbs_;
 };
 
 #endif /* _TLB_SIMULATOR_H_ */

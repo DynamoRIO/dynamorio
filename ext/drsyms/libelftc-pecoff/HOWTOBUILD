@@ -4,17 +4,17 @@ by Derek Bruening
 To build, you will need a Cygwin installation, as I use Cygwin m4 and point
 at certain Cygwin header files.
 
-Note that if you build with VS2008, you will break the VS2005 build as the
-VS2008 pdb is not supported by VS2005.
-
 I never did set up the Makefile properly or set up CMake.
 
 My build commands are for a Cygwin shell (I'm using bash syntax) with its
 environment set up for invoking "cl" and "lib" directly.
+I built with VS2013.  VS2017 may need some tweaks to the patch file.
 
-1) Check out the subversion sources.  My patch was tested on r3248.
+1) Check out the subversion sources.  My patch was tested on r3821 but
+we have to stick with r3530 until
+https://sourceforge.net/p/elftoolchain/tickets/581/ is fixed.
 
-svn checkout http://elftoolchain.svn.sourceforge.net/svnroot/elftoolchain/trunk
+svn co -r 3530 svn://svn.code.sf.net/p/elftoolchain/code/trunk
 
 2) Apply the patch
 
@@ -39,14 +39,15 @@ m4 -D SRCDIR=$PWD dwarf_pubtypes.m4 > dwarf_pubtypes.c
 m4 -D SRCDIR=$PWD dwarf_types.m4 > dwarf_types.c
 m4 -D SRCDIR=$PWD dwarf_vars.m4 > dwarf_vars.c
 m4 -D SRCDIR=$PWD dwarf_weaks.m4 > dwarf_weaks.c
-for i in `ls -1 *.c | grep -vE 'libdwarf_elf'`; do cl /nologo /Zi /Fddwarf.pdb /O2 /MT /I. -I../common -I../libelf /c $i || break; done
+REDIR="/Dmalloc=__wrap_malloc /Dcalloc=__wrap_calloc /Drealloc=__wrap_realloc /Dfree=__wrap_free /Dstrdup=__wrap_strdup"
+for i in `ls -1 *.c | grep -vE 'libdwarf_elf'`; do cl /nologo /Zi /Fddwarf.pdb /O2 /MT /I. -I../common -I../libelf ${REDIR} /c $i || break; done
 lib /out:dwarf.lib /name:dwarf *.obj
 cd ..
 
 5) Build libelftc/elftc.{lib,pdb}:
 
 cd libelftc/
-for i in *.c; do cl /nologo /Zi /Fdelftc.pdb /O2 /MT /I. -I../common -I../libelf /c $i || break; done
+for i in *.c; do cl /nologo /Zi /Fdelftc.pdb /O2 /MT /I. -I../common -I../libelf ${REDIR} /c $i || break; done
 lib /out:elftc.lib /name:elftc *.obj
 cd ..
 

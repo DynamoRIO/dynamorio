@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -601,6 +601,10 @@ DR_API
  * if it is false, DR may only be querying for the address (\p
  * mcontext.pc) or register state and may not relocate this thread.
  *
+ * DR will call this event for all translation attempts, even when the
+ * register state already contains application values, to allow
+ * clients to restore memory.
+ *
  * The \p app_code_consistent parameter indicates whether the original
  * application code containing the instruction being translated is
  * guaranteed to still be in the same state it was when the code was
@@ -779,6 +783,21 @@ DR_API
  * in failure to clean up the right resources, and at process exit
  * time it may return NULL.
  *
+ * On Linux, SYS_execve may or may not result in a thread exit event.
+ * If the client registers its thread exit callback as a pre-SYS_execve
+ * callback as well, it must ensure that the callback acts as noop
+ * if called for the second time.
+ *
+ * On Linux, the thread exit event may be invoked twice for the same thread
+ * if that thread is alive during a process fork, but doesn't call the fork
+ * itself.  The first time the event callback is executed from the fork child
+ * immediately after the fork, the second time it is executed during the
+ * regular thread exit.
+ * Clients may want to avoid touching resources shared between processes,
+ * like files, from the post-fork execution of the callback. The post-fork
+ * version of the callback can be recognized by dr_get_process_id()
+ * returning a different value than dr_get_process_id_from_drcontext().
+ *
  * See dr_set_process_exit_behavior() for options controlling performance
  * and whether thread exit events are invoked at process exit time in
  * release build.
@@ -937,6 +956,7 @@ typedef enum {
     DR_XFER_CONTINUE,           /**< NtContinue system call. */
     DR_XFER_SET_CONTEXT_THREAD, /**< NtSetContextThread system call. */
     DR_XFER_CLIENT_REDIRECT,    /**< dr_redirect_execution() or #DR_SIGNAL_REDIRECT. */
+    DR_XFER_RSEQ_ABORT,         /**< A Linux restartable sequence was aborted. */
 } dr_kernel_xfer_type_t;
 
 /** Data structure passed for dr_register_kernel_xfer_event(). */
@@ -945,7 +965,9 @@ typedef struct _dr_kernel_xfer_info_t {
     dr_kernel_xfer_type_t type;
     /**
      * The source machine context which is about to be changed.  This may be NULL
-     * if it is unknown, which is the case for #DR_XFER_CALLBACK_DISPATCHER.
+     * if it is unknown, which is the case for #DR_XFER_CALLBACK_DISPATCHER and
+     * #DR_XFER_RSEQ_ABORT (where the PC is not known but the rest of the state
+     * matches the current state).
      */
     const dr_mcontext_t *source_mcontext;
     /**
@@ -1789,6 +1811,15 @@ DR_API
 process_id_t
 dr_get_process_id(void);
 
+DR_API
+/**
+ * Returns the process id of the process associated with drcontext \p drcontext.
+ * The returned value may be different from dr_get_process_id() if the passed context
+ * was created in a different process, which may happen in thread exit callbacks.
+ */
+process_id_t
+dr_get_process_id_from_drcontext(void *drcontext);
+
 #    ifdef UNIX
 DR_API
 /**
@@ -2165,6 +2196,9 @@ DR_API
 /**
  * Allocates \p size bytes of memory from DR's memory pool specific to the
  * thread associated with \p drcontext.
+ * This memory is only guaranteed to be aligned to the pointer size:
+ * 8 byte alignment for 64-bit; 4-byte alignment for 32-bit.
+ * (The wrapped malloc() guarantees the more standard double-pointer-size.)
  */
 void *
 dr_thread_alloc(void *drcontext, size_t size);
@@ -2178,7 +2212,12 @@ void
 dr_thread_free(void *drcontext, void *mem, size_t size);
 
 DR_API
-/** Allocates \p size bytes of memory from DR's global memory pool. */
+/**
+ * Allocates \p size bytes of memory from DR's global memory pool.
+ * This memory is only guaranteed to be aligned to the pointer size:
+ * 8 byte alignment for 64-bit; 4-byte alignment for 32-bit.
+ * (The wrapped malloc() guarantees the more standard double-pointer-size.)
+ */
 void *
 dr_global_alloc(size_t size);
 
@@ -2296,7 +2335,6 @@ void *
 dr_raw_brk(void *new_address);
 #    endif
 
-#    ifdef UNIX
 DR_API
 /**
  * Allocates memory from DR's global memory pool, but mimics the
@@ -2306,7 +2344,8 @@ DR_API
  * versions that allocate memory from DR's private pool.  With -wrap,
  * clients can link to libraries that allocate heap memory without
  * interfering with application allocations.
- * \note Currently Linux only.
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
  */
 void *
 __wrap_malloc(size_t size);
@@ -2317,7 +2356,8 @@ DR_API
  * behavior of realloc.  Memory must be freed with __wrap_free().  The
  * __wrap routines are intended to be used with ld's -wrap option; see
  * __wrap_malloc() for more information.
- * \note Currently Linux only.
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
  */
 void *
 __wrap_realloc(void *mem, size_t size);
@@ -2328,7 +2368,8 @@ DR_API
  * behavior of calloc.  Memory must be freed with __wrap_free().  The
  * __wrap routines are intended to be used with ld's -wrap option; see
  * __wrap_malloc() for more information.
- * \note Currently Linux only.
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
  */
 void *
 __wrap_calloc(size_t nmemb, size_t size);
@@ -2339,11 +2380,22 @@ DR_API
  * allocated with __wrap_malloc(). The __wrap routines are intended to
  * be used with ld's -wrap option; see __wrap_malloc() for more
  * information.
- * \note Currently Linux only.
  */
 void
 __wrap_free(void *mem);
-#    endif /* UNIX */
+
+DR_API
+/**
+ * Allocates memory for a new string identical to 'str' and copies the
+ * contents of 'str' into the new string, including a terminating
+ * null.  Memory must be freed with __wrap_free().  The __wrap
+ * routines are intended to be used with ld's -wrap option; see
+ * __wrap_malloc() for more information.
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
+ */
+char *
+__wrap_strdup(const char *str);
 
 /* DR_API EXPORT BEGIN */
 
@@ -2703,7 +2755,8 @@ DR_API
  * while application code is executing in the code cache.  Locks can
  * be used while inside client code reached from clean calls out of
  * the code cache, but they must be released before returning to the
- * cache.  Failing to follow these restrictions can lead to deadlocks.
+ * cache.  A lock must also be released by the same thread that acquired
+ * it.  Failing to follow these restrictions can lead to deadlocks.
  */
 void *
 dr_mutex_create(void);
@@ -2719,12 +2772,15 @@ void
 dr_mutex_lock(void *mutex);
 
 DR_API
-/** Unlocks \p mutex.  Asserts that mutex is currently locked. */
+/**
+ * Unlocks \p mutex.  Asserts that mutex is currently locked by the
+ * current thread.
+ */
 void
 dr_mutex_unlock(void *mutex);
 
 DR_API
-/** Tries once to lock \p mutex, returns whether or not successful. */
+/** Tries once to lock \p mutex and returns whether or not successful. */
 bool
 dr_mutex_trylock(void *mutex);
 
@@ -2945,9 +3001,38 @@ DR_API
 /**
  * Atomically adds \p val to \p *dest and returns the sum.
  * \p dest must not straddle two cache lines.
+ * Currently 64-bit-build only.
  */
 int64
 dr_atomic_add64_return_sum(volatile int64 *dest, int64 val);
+#    endif
+
+DR_API
+/** Atomically and visibly loads the value at \p src and returns it. */
+int
+dr_atomic_load32(volatile int *src);
+
+DR_API
+/** Atomically and visibly stores \p val to \p dest. */
+void
+dr_atomic_store32(volatile int *dest, int val);
+
+#    ifdef X64
+DR_API
+/**
+ * Atomically and visibly loads the value at \p src and returns it.
+ * Currently 64-bit-build only.
+ */
+int64
+dr_atomic_load64(volatile int64 *src);
+
+DR_API
+/**
+ * Atomically and visibly stores \p val to \p dest.
+ * Currently 64-bit-build only.
+ */
+void
+dr_atomic_store64(volatile int64 *dest, int64 val);
 #    endif
 
 /* DR_API EXPORT BEGIN */
@@ -4539,6 +4624,8 @@ DR_API
  * in failure to initialize for certain applications.  On Linux they
  * are more plentiful and transparent but currently DR limits clients
  * to no more than 64 slots.
+ *
+ * \note On Mac OS, TLS slots may not be initialized to zero.
  */
 bool
 dr_raw_tls_calloc(OUT reg_id_t *tls_register, OUT uint *offset, IN uint num_slots,
@@ -5098,8 +5185,15 @@ void
 dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
                                 reg_id_t reg);
 
-/* FIXME PR 315333: add routine that scans ahead to see if need to save eflags.  See
- * forward_eflags_analysis(). */
+DR_API
+/**
+ * A convenience routine to aid restoring the arith flags done by outlined code,
+ * such as when handling restore state events. The routine takes the current value of
+ * the flags register \p cur_xflags, as well as the saved value \p saved_xflag, in order
+ * to return the original app value.
+ */
+reg_t
+dr_merge_arith_flags(reg_t cur_xflags, reg_t saved_xflag);
 
 /* FIXME PR 315327: add routines to save, restore and access from C code xmm registers
  * from our dcontext slots.  Not clear we really need to since we can't do it all
@@ -6314,9 +6408,10 @@ dr_prepopulate_indirect_targets(dr_indirect_branch_type_t branch_type, app_pc *t
 
 DR_API
 /**
- * Get the number of blocks built so far, globally. The API is not thread-safe.
- * The caller is expected to pass a pointer to a valid, initialized dr_stats_t
- * value, with the size field set (see dr_stats_t).
+ * Retrieves various statistics exported by DR as global, process-wide values.
+ * The API is not thread-safe.
+ * The caller is expected to pass a pointer to a valid, initialized #dr_stats_t
+ * value, with the size field set (see #dr_stats_t).
  * Returns false if stats are not enabled.
  */
 bool
@@ -6374,21 +6469,6 @@ DR_API
 bool
 dr_trace_exists_at(void *drcontext, void *tag);
 #    endif /* CUSTOM_TRACES */
-
-#    ifdef UNSUPPORTED_API
-DR_API
-/**
- * All basic blocks created after this routine is called will have a prefix
- * that restores the ecx register.  Exit ctis can be made to target this prefix
- * instead of the normal entry point by using the
- * instr_branch_set_prefix_target() routine.
- * \warning This routine should almost always be called during client
- * initialization, since having a mixture of prefixed and non-prefixed basic
- * blocks can lead to trouble.
- */
-void
-dr_add_prefixes_to_basic_blocks(void);
-#    endif /* UNSUPPORTED_API */
 
 #endif /* CLIENT_INTERFACE */
 

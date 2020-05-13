@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -121,9 +121,6 @@ static const uint BLOCK_SIZES[] = {
 #    else
 /* release == instr_t */
 #    endif
-#elif defined(CUSTOM_EXIT_STUBS)
-#    error "FIXME i#3611: Fix build and check the heap buckets for the correct order."
-/* all other bb/trace buckets are 8 larger but in same order */
 #else
     sizeof(fragment_t) + sizeof(direct_linkstub_t) +
         sizeof(cbr_fallthrough_linkstub_t), /* 60 dbg / 56 rel */
@@ -834,7 +831,9 @@ vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
         if (!REL32_REACHABLE(app_base, (app_pc)DYNAMO_OPTION(vm_base)) ||
             !REL32_REACHABLE(app_base,
                              (app_pc)DYNAMO_OPTION(vm_base) +
-                                 DYNAMO_OPTION(vm_max_offset))) {
+                                 DYNAMO_OPTION(vm_max_offset)) ||
+            ((app_pc)DYNAMO_OPTION(vm_base) < app_end &&
+             (app_pc)DYNAMO_OPTION(vm_base) + DYNAMO_OPTION(vm_max_offset) > app_base)) {
             byte *reach_base = MAX(REACHABLE_32BIT_START(app_base, app_end),
                                    heap_allowable_region_start);
             byte *reach_end =
@@ -3414,6 +3413,16 @@ heap_vmareas_synch_units()
 static void *
 common_global_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
 {
+#ifdef STATIC_LIBRARY
+    if (standalone_library) {
+        /* i#3316: Use regular malloc for better multi-thread performance and better
+         * interoperability with tools like sanitizers.
+         * We limit this to static DR b/c we can have a direct call to libc malloc
+         * there and b/c that is the common use case for standalone mode these days.
+         */
+        return malloc(size);
+    }
+#endif
     void *p;
     acquire_recursive_lock(&global_alloc_lock);
     p = common_heap_alloc(tu, size HEAPACCT(which));
@@ -3437,6 +3446,17 @@ static void
 common_global_heap_free(thread_units_t *tu, void *p,
                         size_t size HEAPACCT(which_heap_t which))
 {
+#ifdef STATIC_LIBRARY
+    if (standalone_library) {
+        /* i#3316: Use regular malloc for better multi-thread performance and better
+         * interoperability with tools like sanitizers.
+         * We limit this to static DR b/c we can have a direct call to libc malloc
+         * there and b/c that is the common use case for standalone mode these days.
+         */
+        free(p);
+        return;
+    }
+#endif
     bool ok;
     if (p == NULL) {
         ASSERT(false && "attempt to free NULL");
@@ -3472,6 +3492,7 @@ global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
     if (heapmgt == &temp_heapmgt &&
         /* We prevent recrusion by checking for a field that heap_init writes. */
         !heapmgt->global_heap_writable) {
+        /* XXX: We have no control point to call standalone_exit(). */
         standalone_init();
     }
 #endif
@@ -4750,6 +4771,7 @@ heap_reachable_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t whi
     if (heapmgt == &temp_heapmgt &&
         /* We prevent recrusion by checking for a field that heap_init writes. */
         !heapmgt->global_heap_writable) {
+        /* XXX: We have no control point to call standalone_exit(). */
         standalone_init();
     }
 #endif

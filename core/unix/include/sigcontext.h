@@ -17,7 +17,9 @@
 
 #define FP_XSTATE_MAGIC1 0x46505853U
 #define FP_XSTATE_MAGIC2 0x46505845U
-#define FP_XSTATE_MAGIC2_SIZE sizeof(FP_XSTATE_MAGIC2)
+#ifndef FP_XSTATE_MAGIC2_SIZE
+#    define FP_XSTATE_MAGIC2_SIZE sizeof(FP_XSTATE_MAGIC2)
+#endif
 
 /*
  * bytes 464..511 in the current 512byte layout of fxsave/fxrstor frame

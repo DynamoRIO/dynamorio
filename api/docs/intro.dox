@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -1189,13 +1189,6 @@ endif(NOT DynamoRIO_FOUND)
 configure_DynamoRIO_client(myclient)
 \endcode
 
-Note that when building a 32-bit client in Linux using \p gcc, the stack
-alignment should be 4-byte only.
-Using the function \p configure_DynamoRIO_client() will configure the
-build settings correctly.
-Otherwise, appropriate options should be passed to the compiler: e.g.,
-\p -mpreferred-stack-boundary=2.
-
 The \p samples/CMakeLists.txt file in the release package serves as another
 example.  The top of \p DynamoRIOConfig.cmake contains detailed
 instructions as well.
@@ -1375,7 +1368,7 @@ DynamoRIO's global memory pool.  Use the -Xlinker flag with gcc to replace
 the libc routines with DynamoRIO's _wrap routines, e.g.,
 
 \code
-  gcc -Xlinker -wrap=malloc -Xlinker -wrap=realloc -Xlinker -wrap=free ...
+  gcc -Xlinker -wrap=malloc -Xlinker -wrap=realloc -Xlinker -wrap=free -Xlinker -wrap=strdup ...
 \endcode
 
 The ability to override the memory allocation routines makes it
@@ -2077,19 +2070,6 @@ headers for use with \p drdecode.
 When using DynamoRIO's CMake support, use the configure_DynamoRIO_decoder()
 function to set up include directories and to link with \p drdecode.  The
 next section describes how to link with the DynamoRIO shared library.
-
-\subsection sec_relativize Re-Relativization of Jumps and Calls
-
-When encoding a relative jump or call to a different location than it was
-decoded from while in standalone mode, a re-encode must be forced in order
-to work around an issue where DynamoRIO does not re-relativize the target:
-
-\code
-instr_set_raw_bits_valid(instr, false)
-\endcode
-
-When not in standalone mode, all branches are mangled and thus this is
-never an issue.  This should be fixed in a future release.
 
 
 \section sec_standalone_shared DynamoRIO Shared Library Issues

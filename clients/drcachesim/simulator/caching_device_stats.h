@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -74,15 +74,15 @@ public:
 
     virtual bool operator!()
     {
-        return !success;
+        return !success_;
     }
 
     // Process invalidations due to cache inclusions or external writes.
     virtual void
-    invalidate(invalidation_type_t invalidation_type_);
+    invalidate(invalidation_type_t invalidation_type);
 
 protected:
-    bool success;
+    bool success_;
 
     // print different groups of information, beneficial for code reuse
     virtual void
@@ -97,30 +97,30 @@ protected:
     virtual void
     dump_miss(const memref_t &memref);
 
-    int_least64_t num_hits;
-    int_least64_t num_misses;
-    int_least64_t num_child_hits;
+    int_least64_t num_hits_;
+    int_least64_t num_misses_;
+    int_least64_t num_child_hits_;
 
-    int_least64_t num_inclusive_invalidates;
-    int_least64_t num_coherence_invalidates;
+    int_least64_t num_inclusive_invalidates_;
+    int_least64_t num_coherence_invalidates_;
 
     // Stats saved when the last reset was called. This helps us get insight
     // into what the stats were when the cache was warmed up.
-    int_least64_t num_hits_at_reset;
-    int_least64_t num_misses_at_reset;
-    int_least64_t num_child_hits_at_reset;
+    int_least64_t num_hits_at_reset_;
+    int_least64_t num_misses_at_reset_;
+    int_least64_t num_child_hits_at_reset_;
     // Enabled if options warmup_refs > 0 || warmup_fraction > 0
-    bool warmup_enabled;
+    bool warmup_enabled_;
 
     // Print out write invalidations if cache is coherent.
-    bool is_coherent;
+    bool is_coherent_;
 
     // We provide a feature of dumping misses to a file.
-    bool dump_misses;
+    bool dump_misses_;
 #ifdef HAS_ZLIB
-    gzFile file;
+    gzFile file_;
 #else
-    FILE *file;
+    FILE *file_;
 #endif
 };
 

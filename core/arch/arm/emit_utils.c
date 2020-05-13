@@ -948,6 +948,11 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist,
         INSTR_CREATE_ldr(dc, OPREG(DR_REG_R1),
                          OPND_TLS_FIELD(TLS_MASK_SLOT(ibl_code->branch_type))));
+    /* We need the mask load to have Aqcuire semantics to pair with the Release in
+     * update_lookuptable_tls() and avoid the reader here seeing a new mask with
+     * an old table.
+     */
+    APP(&ilist, INSTR_CREATE_dmb(dc, OPND_CREATE_INT(DR_DMB_ISHLD)));
     APP(&ilist,
         INSTR_CREATE_and(dc, OPREG(DR_REG_R1), OPREG(DR_REG_R1), OPREG(DR_REG_R2)));
     APP(&ilist,

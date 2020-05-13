@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -71,6 +71,7 @@
 #define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
 #define ALIGN_FORWARD(x, alignment) \
     ((((ptr_uint_t)x) + (((ptr_uint_t)alignment) - 1)) & (~(((ptr_uint_t)alignment) - 1)))
+#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
 
 /* Xref i#302 */
 #define POINTER_OVERFLOW_ON_ADD(ptr, add) \
@@ -97,5 +98,30 @@
 #    define IF_WINDOWS_ELSE(x, y) y
 #    define IF_WINDOWS(x)
 #endif
+
+static inline void
+check_stack_alignment(void)
+{
+#if defined(X86) && defined(UNIX)
+    reg_t sp;
+    __asm__ __volatile__("mov %%" IF_X64_ELSE("rsp", "esp") ", %0" : "=m"(sp));
+#    define STACK_ALIGNMENT 16
+    ASSERT(ALIGNED(sp, STACK_ALIGNMENT));
+#elif defined(AARCH64)
+    reg_t sp;
+    __asm__ __volatile__("mov %0, sp" : "=r"(sp));
+#    define STACK_ALIGNMENT 16
+    ASSERT(ALIGNED(sp, STACK_ALIGNMENT));
+#elif defined(ARM)
+    reg_t sp;
+    __asm__ __volatile__("str sp, %0" : "=m"(sp));
+#    define STACK_ALIGNMENT 8
+    ASSERT(ALIGNED(sp, STACK_ALIGNMENT));
+#else
+    /* TODO i#4267: If we change Windows to be more than 4-byte alignment we should
+     * add a separate-file asm routine to check alignment there.
+     */
+#endif
+}
 
 #endif /* DR_CLIENT_TOOLS_H */

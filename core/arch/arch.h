@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -184,6 +184,9 @@ mixed_mode_enabled(void)
 #        define PRIV_RPC_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nt_rpc))
 #        define APP_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_nls_cache))
 #        define PRIV_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nls_cache))
+#        define APP_STATIC_TLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_static_tls))
+#        define PRIV_STATIC_TLS_OFFSET \
+            ((PROT_OFFS) + offsetof(dcontext_t, priv_static_tls))
 #    endif
 #    define APP_STACK_LIMIT_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_stack_limit))
 #    define APP_STACK_BASE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_stack_base))
@@ -215,7 +218,7 @@ reg_spill_tls_offs(reg_id_t reg);
 #define OPSZ_SAVED_XMM (YMM_ENABLED() ? OPSZ_32 : OPSZ_16)
 #define OPSZ_SAVED_ZMM OPSZ_64
 #define REG_SAVED_XMM0 (YMM_ENABLED() ? REG_YMM0 : REG_XMM0)
-#define OPSZ_SAVED_OPMASK OPSZ_8
+#define OPSZ_SAVED_OPMASK (proc_has_feature(FEATURE_AVX512BW) ? OPSZ_8 : OPSZ_2)
 
 /* Xref the partially overlapping CONTEXT_PRESERVE_XMM */
 /* This routine also determines whether ymm registers should be saved. */
@@ -256,7 +259,7 @@ static inline void
 d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
 {
 #    if !defined(UNIX) || !defined(X64)
-    /* We warn about unsupported AVX-512 present in the app. */
+    /* FIXME i#1312: we warn about unsupported AVX-512 present in the app. */
     DO_ONCE({
         if (pc != NULL) {
             char pc_addr[IF_X64_ELSE(20, 12)];
@@ -266,6 +269,12 @@ d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
                    get_application_pid(), pc_addr);
         }
     });
+#    endif
+#    if !defined(UNIX)
+    /* All non-UNIX builds are completely unsupported. 32-bit UNIX builds are
+     * partially supported, see comment in proc.c.
+     */
+    return;
 #    endif
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     ATOMIC_1BYTE_WRITE(d_r_avx512_code_in_use, in_use, false);
@@ -587,10 +596,17 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                          instr_t *instr _IF_X86_64(gencode_mode_t mode));
 
 #ifdef X86
-#    if defined(X64) || defined(MACOS)
+#    if defined(X64) || defined(UNIX)
+/* See i#847, i#3966 for discussion of stack alignment on 32-bit Linux. */
 #        define ABI_STACK_ALIGNMENT 16
 #    else
-/* See i#847 for discussing the stack alignment on X86. */
+/* We follow the Windows (MSVC-based) 32-bit ABI which requires only 4-byte
+ * stack alignment.
+ * XXX i#4267: Gcc/clang through MinGW/Cygwin use 16-byte by default, but
+ * for interoperating with Windows system libraries (callbacks, e.g.) they
+ * have to hande 4-byte and we expect them to use -mstackrealign or something.
+ * Thus for now we stick with just 4-byte even for them.
+ */
 #        define ABI_STACK_ALIGNMENT 4
 #    endif
 #elif defined(AARCH64)
@@ -1425,6 +1441,9 @@ move_mm_reg_opcode(bool aligned16, bool aligned32);
  */
 uint
 move_mm_avx512_reg_opcode(bool aligned64);
+
+bool
+clean_call_needs_simd(clean_call_info_t *cci);
 
 /* clean call optimization */
 /* Describes usage of a scratch slot. */

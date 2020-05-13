@@ -206,12 +206,13 @@ configure_DynamoRIO_global(OFF ON)
 
 add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
 add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx")
-add_sample_client(bbsize      "bbsize.c"        "drmgr")
+add_sample_client(bbsize      "bbsize.c"        "drmgr;drx")
 add_sample_client(div         "div.c"           "drmgr")
 add_sample_client(empty       "empty.c"         "")
 add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;drutil;drx")
 add_sample_client(memval_simple   "memval_simple.c;utils.c"   "drmgr;drreg;drutil;drx")
 add_sample_client(instrace_simple "instrace_simple.c;utils.c" "drmgr;drreg;drx")
+add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption")
 if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   add_sample_client(cbr         "cbr.c"           "drmgr")
   add_sample_client(countcalls  "countcalls.c"    "drmgr;drreg")
@@ -236,6 +237,7 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   add_sample_client(instrcalls  "instrcalls.c;utils.c"  "drmgr;drsyms;drx")
   # dr_insert_cbr_instrument_ex is NYI
   add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drmgr;drx")
+  add_sample_client(hot_bbcount "hot_bbcount.c"         "drmgr;drreg;drbbdup;drx")
 endif (X86)
 add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
 add_sample_client(signal      "signal.c"        "drmgr")

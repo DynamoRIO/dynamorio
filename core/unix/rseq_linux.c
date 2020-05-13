@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2020 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -46,6 +46,9 @@
 #include "rseq_linux.h"
 #include "../fragment.h"
 #include "decode.h"
+#ifdef CLIENT_INTERFACE
+#    include "instrument.h"
+#endif
 #include <stddef.h>
 #ifdef HAVE_RSEQ
 #    include <linux/rseq.h>
@@ -316,7 +319,11 @@ rseq_analyze_instructions(rseq_region_t *info)
                                         "Rseq sequence contains invalid instructions");
             ASSERT_NOT_REACHED();
         }
-        if (instr_is_syscall(&instr)) {
+        if (instr_is_syscall(&instr)
+            /* Allow a syscall for our test in debug build. */
+            IF_DEBUG(
+                &&!check_filter("api.rseq;linux.rseq;linux.rseq_table;linux.rseq_noarray",
+                                get_short_name(get_application_name())))) {
             REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
                                         get_application_name(), get_application_pid(),
                                         "Rseq sequence contains a system call");
@@ -718,4 +725,23 @@ rseq_module_init(module_area_t *ma, bool at_map)
     if (rseq_enabled) {
         rseq_process_module(ma, at_map);
     }
+}
+
+void
+rseq_process_native_abort(dcontext_t *dcontext)
+{
+#ifdef CLIENT_INTERFACE
+    /* Raise a transfer event. */
+    LOG(THREAD, LOG_INTERP | LOG_VMAREAS, 2, "Abort triggered in rseq native code\n");
+    get_mcontext(dcontext)->pc = dcontext->next_tag;
+    if (instrument_kernel_xfer(dcontext, DR_XFER_RSEQ_ABORT, osc_empty,
+                               /* We do not know the source PC so we do not
+                                * supply a source state.
+                                */
+                               NULL, NULL, dcontext->next_tag,
+                               get_mcontext(dcontext)->xsp, osc_empty,
+                               get_mcontext(dcontext), 0)) {
+        dcontext->next_tag = canonicalize_pc_target(dcontext, get_mcontext(dcontext)->pc);
+    }
+#endif
 }

@@ -1,0 +1,27 @@
+fib\(5\)=8
+T[0-9 ]* 0x.* => common\.fib.*!fib\(0x5\)
+T[0-9 ]*     0x.* => common\.fib.*!fib\(0x4\)
+T[0-9 ]*         0x.* => common\.fib.*!fib\(0x3\)
+T[0-9 ]*             0x.* => common\.fib.*!fib\(0x2\)
+T[0-9 ]*                 0x.* => common\.fib.*!fib\(0x1\) => 0x1
+T[0-9 ]*                 0x.* => common\.fib.*!fib\(0x0\) => 0x1
+T[0-9 ]*             => 0x2
+T[0-9 ]*             0x.* => common\.fib.*!fib\(0x1\) => 0x1
+T[0-9 ]*         => 0x3
+T[0-9 ]*         0x.* => common\.fib.*!fib\(0x2\)
+T[0-9 ]*             0x.* => common\.fib.*!fib\(0x1\) => 0x1
+T[0-9 ]*             0x.* => common\.fib.*!fib\(0x0\) => 0x1
+T[0-9 ]*         => 0x2
+T[0-9 ]*     => 0x5
+T[0-9 ]*     0x.* => common\.fib.*!fib\(0x3\)
+T[0-9 ]*         0x.* => common\.fib.*!fib\(0x2\)
+T[0-9 ]*             0x.* => common\.fib.*!fib\(0x1\) => 0x1
+T[0-9 ]*             0x.* => common\.fib.*!fib\(0x0\) => 0x1
+T[0-9 ]*         => 0x2
+T[0-9 ]*         0x.* => common\.fib.*!fib\(0x1\) => 0x1
+T[0-9 ]*     => 0x3
+T[0-9 ]* => 0x8
+Function view tool results:
+Function id=0: common\.fib.*!fib
+       15 calls
+       15 returns.*
