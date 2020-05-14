@@ -295,7 +295,10 @@ static app_pc executable_end = NULL;
 static char executable_path[MAXIMUM_PATH];
 static char *executable_basename;
 
-/* Pointers to arguments. Refers to the main stack set up by the kernel. */
+/* Pointers to arguments. Refers to the main stack set up by the kernel.
+ * these are only written once during process init and we can live with
+ * the non-guaranteed-delay until they are visible to other cores.
+ */
 static int *app_argc = NULL;
 static char **app_argv = NULL;
 
@@ -1091,8 +1094,20 @@ get_application_name(void)
     return get_application_name_helper(false, true /* full path */);
 }
 
+/* Note: this is exported so that libdrpreload.so (preload.c) can use it to
+ * get process names to do selective process following (PR 212034).  The
+ * alternative is to duplicate or compile in this code into libdrpreload.so,
+ * which is messy.  Besides, libdynamorio.so is already loaded into the process
+ * and avaiable, so cleaner to just use functions from it.
+ */
+DYNAMORIO_EXPORT const char *
+get_application_short_name(void)
+{
+    return get_application_name_helper(false, false /* short name */);
+}
+
 /* Sets pointers to the application's command-line arguments. These pointers are then used
- * by get_application_cl_args().
+ * by get_app_args().
  */
 void
 set_app_args(IN int *app_argc_in, IN char **app_argv_in)
@@ -1111,18 +1126,6 @@ get_app_args(OUT int **app_argc_out, OUT char ***app_argv_out)
     *app_argc_out = app_argc;
     *app_argv_out = app_argv;
     return true;
-}
-
-/* Note: this is exported so that libdrpreload.so (preload.c) can use it to
- * get process names to do selective process following (PR 212034).  The
- * alternative is to duplicate or compile in this code into libdrpreload.so,
- * which is messy.  Besides, libdynamorio.so is already loaded into the process
- * and avaiable, so cleaner to just use functions from it.
- */
-DYNAMORIO_EXPORT const char *
-get_application_short_name(void)
-{
-    return get_application_name_helper(false, false /* short name */);
 }
 
 /* Processor information provided by kernel */

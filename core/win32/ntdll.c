@@ -3153,6 +3153,15 @@ get_application_short_unqualified_name()
     return short_unqual_exename;
 }
 
+/* Returns the application's command-line arguments. */
+bool
+get_app_args(OUT int **app_argc_out, OUT char ***app_argv_out)
+{
+    /* XXX i#2662: Add support for Windows. */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+}
+
 /* get application pid, (cached), used for event logging */
 char *
 get_application_pid()

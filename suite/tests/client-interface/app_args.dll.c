@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,6 +58,6 @@ dr_init(client_id_t id)
     CHECK(result == true, "should succeed");
 #else
     /* XXX i#2662: Windows not yet supported. */
-    CHECK(result == true, "should fail");
+    CHECK(result == false, "should fail");
 #endif
 }

@@ -2787,12 +2787,8 @@ dr_get_application_name(void)
 DR_API bool
 dr_get_app_args(OUT int **argc, OUT char ***argv)
 {
-/* XXX i#2662: Add support for Windows. */
-#    ifdef UNIX
+    /* XXX i#2662: Add support for Windows. */
     return get_app_args(argc, argv);
-#    else
-    return false;
-#    endif
 }
 
 DR_API process_id_t

@@ -2689,9 +2689,7 @@ endif ()
     use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
   endif (X86)
 
-  if (X86)
-    tobuild_ci(client.app_args client-interface/app_args.c "" "" "Test;Test2;Test3")
-  endif (X86)
+  tobuild_ci(client.app_args client-interface/app_args.c "" "" "Test;Test2;Test3")
 
   if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
