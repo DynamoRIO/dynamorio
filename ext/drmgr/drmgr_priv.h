@@ -70,7 +70,8 @@ typedef void (*drmgr_bbdup_stitch_cb_t)(void *drcontext, void *tag, instrlist_t 
                                         bool translating, void *local_dup_info_opaque);
 
 /* Finalises the iteration process and inserts the encoder at the top of the main basic
- * block. */
+ * block.
+ */
 typedef void (*drmgr_bbdup_insert_encoding_cb_t)(void *drcontext, void *tag,
                                                  instrlist_t *bb, bool for_trace,
                                                  bool translating, void *local_info);

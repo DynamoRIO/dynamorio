@@ -1098,7 +1098,7 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     }
 
     bool is_dups = false;
-    /*only true if drbbdup is in use */
+    /* Only true if drbbdup is in use. */
     if (local_info.is_bbdup_enabled) {
         is_dups = drmgr_bb_event_instrument_dups(drcontext, tag, bb, for_trace,
                                                  translating, &res, pt, &local_info,
