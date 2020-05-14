@@ -213,16 +213,18 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
 static void
 pre_execve_ld_preload(const char *dr_path)
 {
-    char ld_preload_libs[MAX_OPTIONS_STRING];
     char ld_lib_path[MAX_OPTIONS_STRING];
     const char *last_slash = NULL;
     const char *mode_slash = NULL;
     const char *lib_slash = NULL;
+    const char *cur_path = getenv("LD_LIBRARY_PATH");
+    const char *cur = dr_path;
+#ifdef LINUX
+    char ld_preload_libs[MAX_OPTIONS_STRING];
     const char *ld_preload = NULL;
     const char *dr_ld_preload_libs = "libdynamorio.so libdrpreload.so";
     const char *cur_preload = getenv("LD_PRELOAD");
-    const char *cur_path = getenv("LD_LIBRARY_PATH");
-    const char *cur = dr_path;
+#endif
     /* Find last three occurrences of '/'. */
     while (*cur != '\0') {
         if (*cur == '/') {
