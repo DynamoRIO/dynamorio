@@ -3312,7 +3312,7 @@ const instr_info_t prefix_extensions[][12] = {
     {EVEX_W_EXT, 0xf20f2c10, "(evex_W ext 36)", xx, xx, xx, xx, xx, mrm|evex, x, 36},
   }, /* prefix extension 13 */
   {
-    {OP_cvtps2pi, 0x0f2d10, "cvtps2pi", Pq, xx, Wps, xx, xx, mrm, x, END_LIST},
+    {OP_cvtps2pi, 0x0f2d10, "cvtps2pi", Pq, xx, Wq_dq, xx, xx, mrm, x, END_LIST},
     {OP_cvtss2si, 0xf30f2d10, "cvtss2si", Gy, xx, Wss, xx, xx, mrm, x, END_LIST},
     {OP_cvtpd2pi, 0x660f2d10, "cvtpd2pi", Pq, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_cvtsd2si, 0xf20f2d10, "cvtsd2si", Gy, xx, Wsd, xx, xx, mrm, x, END_LIST},
