@@ -259,9 +259,8 @@ pre_execve_ld_preload(const char *dr_path)
     setenv("DYLD_LIBRARY_PATH", ld_lib_path, true /*overwrite*/);
     /* XXX: why does it not work w/o the full path? */
     snprintf(ld_lib_path, BUFFER_SIZE_ELEMENTS(ld_lib_path), "%s%.*s/%s:%.*s/%s",
-             preload_prefix,
-             last_slash - dr_path, dr_path, "libdrpreload.dylib", last_slash - dr_path,
-             dr_path, "libdynamorio.dylib");
+             preload_prefix, last_slash - dr_path, dr_path, "libdrpreload.dylib",
+             last_slash - dr_path, dr_path, "libdynamorio.dylib");
     NULL_TERMINATE_BUFFER(ld_lib_path);
 
     setenv("DYLD_INSERT_LIBRARIES", ld_lib_path, true /*overwrite*/);
@@ -273,8 +272,8 @@ pre_execve_ld_preload(const char *dr_path)
 #else
     setenv("LD_LIBRARY_PATH", ld_lib_path, true /*overwrite*/);
 
-    snprintf(ld_lib_path, BUFFER_SIZE_ELEMENTS(ld_lib_path), "%s%s",
-             preload_prefix, "libdynamorio.so libdrpreload.so");
+    snprintf(ld_lib_path, BUFFER_SIZE_ELEMENTS(ld_lib_path), "%s%s", preload_prefix,
+             "libdynamorio.so libdrpreload.so");
     NULL_TERMINATE_BUFFER(ld_lib_path);
 
     setenv("LD_PRELOAD", ld_lib_path, true /*overwrite*/);
