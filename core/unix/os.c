@@ -1117,15 +1117,21 @@ set_app_args(IN int *app_argc_in, IN char **app_argv_in)
 }
 
 /* Returns the application's command-line arguments. */
-bool
-get_app_args(OUT int **app_argc_out, OUT char ***app_argv_out)
+int
+get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
 {
-    if (app_argc_out == NULL || app_argv_out == NULL)
-        return false;
+    if (args_buf == NULL || buf_size < 0)
+        return -1;
 
-    *app_argc_out = app_argc;
-    *app_argv_out = app_argv;
-    return true;
+    int min = (buf_size < *app_argc) ? buf_size : *app_argc;
+
+    for (int i = 0; i < min; i++) {
+        args_buf[i].start = (void *)app_argv[i];
+        args_buf[i].size = strlen(app_argv[i]);
+        args_buf[i].encoding = APP_ARG_ASCII;
+    }
+
+    return min;
 }
 
 /* Processor information provided by kernel */

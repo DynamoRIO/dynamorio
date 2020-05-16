@@ -43,21 +43,29 @@
         }                                                                            \
     } while (0);
 
+#define ARG_BUF_SIZE 4
+#define ARG_STR_BUF_SIZE 400
+
 DR_EXPORT
 void
 dr_init(client_id_t id)
 {
-    int *app_argc;
-    char **app_argv;
-    bool result = dr_get_app_args(&app_argc, &app_argv);
-
-#ifdef UNIX
-    CHECK(strcmp(app_argv[1], "Test") == 0, "first arg should be Test");
-    CHECK(strcmp(app_argv[2], "Test2") == 0, "second arg should be Test2");
-    CHECK(strcmp(app_argv[3], "Test3") == 0, "third arg should be Test3");
-    CHECK(result == true, "should succeed");
-#else
     /* XXX i#2662: Windows not yet supported. */
-    CHECK(result == false, "should fail");
+#ifdef UNIX
+    dr_app_arg_t args_buf[ARG_BUF_SIZE];
+    char buf[ARG_STR_BUF_SIZE];
+
+    int count = dr_get_app_args(args_buf, ARG_BUF_SIZE);
+    CHECK(count == 4, "app count is incorrect");
+
+    const char *app_argv = dr_app_arg_as_utf8(&args_buf[1], buf, ARG_STR_BUF_SIZE);
+    CHECK(app_argv != NULL, "should not be NULL");
+    CHECK(strcmp(app_argv, "Test") == 0, "first arg should be Test");
+    app_argv = dr_app_arg_as_utf8(&args_buf[2], buf, ARG_STR_BUF_SIZE);
+    CHECK(app_argv != NULL, "should not be NULL");
+    CHECK(strcmp(app_argv, "Test2") == 0, "second arg should be Test2");
+    app_argv = dr_app_arg_as_utf8(&args_buf[3], buf, ARG_STR_BUF_SIZE);
+    CHECK(app_argv != NULL, "should not be NULL");
+    CHECK(strcmp(app_argv, "Test3") == 0, "third arg should be Test3");
 #endif
 }

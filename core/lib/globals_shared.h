@@ -2017,4 +2017,21 @@ typedef struct _priv_mcontext_t {
 #include "mcxtx.h"
 } priv_mcontext_t;
 
+/* DR_API EXPORT BEGIN */
+typedef enum {
+    APP_ARG_ASCII,
+    APP_ARG_UTF_8,
+    APP_ARG_UTF_16,
+} dr_app_arg_encoding_t;
+
+typedef struct _dr_app_arg_t {
+    /* The start boundary where the content of the arg begins. */
+    void *start;
+    /* The size, in bytes, of the argument. */
+    size_t size;
+    /** The encoding of the argument. */
+    dr_app_arg_encoding_t encoding;
+} dr_app_arg_t;
+/* DR_API EXPORT END */
+
 #endif /* _GLOBALS_SHARED_H_ */
