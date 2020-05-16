@@ -2018,6 +2018,9 @@ typedef struct _priv_mcontext_t {
 } priv_mcontext_t;
 
 /* DR_API EXPORT BEGIN */
+/**
+ * Encodings of an application's argument.
+ */
 typedef enum {
     APP_ARG_ASCII,
     APP_ARG_UTF_8,
@@ -2025,11 +2028,17 @@ typedef enum {
 } dr_app_arg_encoding_t;
 
 typedef struct _dr_app_arg_t {
-    /* The start boundary where the content of the arg begins. */
+    /**
+     * The start boundary where the content of the arg begins.
+     */
     void *start;
-    /* The size, in bytes, of the argument. */
+    /**
+     * The size, in bytes, of the argument.
+     */
     size_t size;
-    /** The encoding of the argument. */
+    /**
+     * The encoding of the argument.
+     */
     dr_app_arg_encoding_t encoding;
 } dr_app_arg_t;
 /* DR_API EXPORT END */
