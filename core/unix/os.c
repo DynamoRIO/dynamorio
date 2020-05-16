@@ -1124,13 +1124,11 @@ get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
         return -1;
 
     int min = (buf_size < *app_argc) ? buf_size : *app_argc;
-
     for (int i = 0; i < min; i++) {
         args_buf[i].start = (void *)app_argv[i];
         args_buf[i].size = strlen(app_argv[i]);
         args_buf[i].encoding = APP_ARG_ASCII;
     }
-
     return min;
 }
 
