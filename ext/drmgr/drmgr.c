@@ -36,6 +36,7 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drmgr_priv.h"
 #include "hashtable.h"
 #include "../ext_utils.h"
 #ifdef UNIX
@@ -202,6 +203,31 @@ enum {
     DRMGR_NOTE_EMUL_COUNT,
 };
 
+/* Used to store temporary local information when handling drmgr's bb event in order
+ * to avoid holding a lock during the instrumentation process.
+ */
+typedef struct _local_ctx_t {
+    cb_list_t iter_app2app;
+    cb_list_t iter_insert;
+    cb_list_t iter_instru;
+    /* used as stack storage by the cb if large enough: */
+    cb_entry_t app2app[EVENTS_STACK_SZ];
+    cb_entry_t insert[EVENTS_STACK_SZ];
+    cb_entry_t instru[EVENTS_STACK_SZ];
+    /* for opcode instrumentation events: */
+    cb_list_t *iter_opcode_insert;
+    bool was_opcode_instrum_registered;
+    /* for user-data: */
+    int pair_count;
+    int quartet_count;
+    /* for bbdup events: */
+    bool is_bbdup_enabled;
+    drmgr_bbdup_duplicate_bb_cb_t bbdup_duplicate_cb;
+    drmgr_bbdup_extract_cb_t bbdup_extract_cb;
+    drmgr_bbdup_stitch_cb_t bbdup_stitch_cb;
+    drmgr_bbdup_insert_encoding_cb_t bbdup_insert_encoding_cb;
+} local_cb_info_t;
+
 /***************************************************************************
  * GLOBALS
  */
@@ -224,8 +250,10 @@ static cb_list_t cblist_instru2instru;
 
 /* For opcode specific instrumentation. */
 static hashtable_t global_opcode_instrum_table; /* maps opcodes to cb lists */
-static void *opcode_table_lock;
-/* a flag indicating whether opcode instrum was ever registered */
+static void *opcode_table_lock; /* Denotes whether opcode event was ever registered. */
+/* A flag indicating whether opcode instrum was ever registered. It is protected
+ * by bb_cb_lock.
+ */
 static bool was_opcode_instrum_registered;
 
 /* Count of callbacks needing user_data, protected by bb_cb_lock */
@@ -307,6 +335,12 @@ static void *low_on_memory_event_lock;
 static cb_list_t cblist_kernel_xfer;
 static void *kernel_xfer_event_lock;
 
+/* For drbbdup integration. Protected by bb_cb_lock. */
+static drmgr_bbdup_duplicate_bb_cb_t bbdup_duplicate_cb;
+static drmgr_bbdup_insert_encoding_cb_t bbdup_insert_encoding_cb;
+static drmgr_bbdup_extract_cb_t bbdup_extract_cb;
+static drmgr_bbdup_stitch_cb_t bbdup_stitch_cb;
+
 #ifdef UNIX
 static cb_list_t cblist_signal;
 static void *signal_event_lock;
@@ -383,6 +417,9 @@ our_thread_init_event(void *drcontext);
 static void
 our_thread_exit_event(void *drcontext);
 
+static bool
+is_bbdup_enabled();
+
 /***************************************************************************
  * INIT
  */
@@ -411,6 +448,13 @@ drmgr_init(void)
     low_on_memory_event_lock = dr_rwlock_create();
     kernel_xfer_event_lock = dr_rwlock_create();
     opcode_table_lock = dr_rwlock_create();
+
+    /* for drbbdup: */
+    bbdup_duplicate_cb = NULL;
+    bbdup_insert_encoding_cb = NULL;
+    bbdup_extract_cb = NULL;
+    bbdup_stitch_cb = NULL;
+
 #ifdef UNIX
     signal_event_lock = dr_rwlock_create();
 #endif
@@ -830,65 +874,28 @@ drmgr_bb_event_do_insertion_per_instr(void *drcontext, void *tag, instrlist_t *b
 }
 
 static dr_emit_flags_t
-drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-               bool translating)
+drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
+                                 bool for_trace, bool translating, per_thread_t *pt,
+                                 local_cb_info_t *local_info, void **pair_data,
+                                 void **quartet_data)
 {
     uint i;
     cb_entry_t *e;
     dr_emit_flags_t res = DR_EMIT_DEFAULT;
     instr_t *inst, *next_inst;
-    void **pair_data = NULL, **quartet_data = NULL;
     uint pair_idx, quartet_idx;
-    cb_entry_t local_app2app[EVENTS_STACK_SZ];
-    cb_entry_t local_insert[EVENTS_STACK_SZ];
-    cb_entry_t local_instru[EVENTS_STACK_SZ];
-    cb_list_t iter_app2app;
-    cb_list_t iter_insert;
-    cb_list_t iter_instru;
-    cb_list_t *iter_opcode_insert;
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
     int opcode;
-    /* Denotes whether opcode event was ever registered.
-     * It is protected by bb_cb_lock.
-     */
-    bool local_was_opcode_instrum_registered;
     /* denotes whether opcode instrumentation is applicable for this bb */
     bool is_opcode_instrum_applicable = false;
     hashtable_t local_opcode_instrum_table;
-
-    dr_rwlock_read_lock(bb_cb_lock);
-    /* We use arrays to more easily support unregistering while in an event (i#1356).
-     * With arrays we can make a temporary copy and avoid holding a lock while
-     * delivering events.
-     */
-    cblist_create_local(drcontext, &cblist_app2app, &iter_app2app, (byte *)local_app2app,
-                        BUFFER_SIZE_ELEMENTS(local_app2app));
-    cblist_create_local(drcontext, &cblist_instrumentation, &iter_insert,
-                        (byte *)local_insert, BUFFER_SIZE_ELEMENTS(local_insert));
-    cblist_create_local(drcontext, &cblist_instru2instru, &iter_instru,
-                        (byte *)local_instru, BUFFER_SIZE_ELEMENTS(local_instru));
-    local_was_opcode_instrum_registered = was_opcode_instrum_registered;
-    /* We do not make a complete local copy of the opcode hashtable as this can be
-     * expensive. Instead, we create a scoped table later on that only maps the cb lists
-     * of those opcodes required by this specific bb.
-     */
-    dr_rwlock_read_unlock(bb_cb_lock);
-
-    /* We need per-thread user_data */
-    if (pair_count > 0)
-        pair_data = (void **)dr_thread_alloc(drcontext, sizeof(void *) * pair_count);
-    if (quartet_count > 0) {
-        quartet_data =
-            (void **)dr_thread_alloc(drcontext, sizeof(void *) * quartet_count);
-    }
 
     /* Pass 1: app2app */
     /* XXX: better to avoid all this set_tls overhead and assume DR is globally
      * synchronizing bb building anyway and use a global var + mutex?
      */
     pt->cur_phase = DRMGR_PHASE_APP2APP;
-    for (quartet_idx = 0, i = 0; i < iter_app2app.num_def; i++) {
-        e = &iter_app2app.cbs.bb[i];
+    for (quartet_idx = 0, i = 0; i < local_info->iter_app2app.num_def; i++) {
+        e = &local_info->iter_app2app.cbs.bb[i];
         if (!e->pri.valid)
             continue;
         if (e->has_quartet) {
@@ -901,8 +908,8 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 
     /* Pass 2: analysis */
     pt->cur_phase = DRMGR_PHASE_ANALYSIS;
-    for (quartet_idx = 0, pair_idx = 0, i = 0; i < iter_insert.num_def; i++) {
-        e = &iter_insert.cbs.bb[i];
+    for (quartet_idx = 0, pair_idx = 0, i = 0; i < local_info->iter_insert.num_def; i++) {
+        e = &local_info->iter_insert.cbs.bb[i];
         if (!e->pri.valid)
             continue;
         if (e->has_quartet) {
@@ -935,10 +942,10 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
      *
      * Initialise table only if opcode events were ever registered by the user.
      */
-    if (local_was_opcode_instrum_registered) {
+    if (local_info->was_opcode_instrum_registered) {
         drmgr_init_opcode_hashtable(&local_opcode_instrum_table);
         is_opcode_instrum_applicable = drmgr_set_up_local_opcode_table(
-            bb, &iter_insert, &local_opcode_instrum_table);
+            bb, &local_info->iter_insert, &local_opcode_instrum_table);
     }
 
     /* Main pass for instrumentation. */
@@ -946,24 +953,24 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         next_inst = instr_get_next(inst);
         if (is_opcode_instrum_applicable && instr_opcode_valid(inst)) {
             opcode = instr_get_opcode(inst);
-            iter_opcode_insert =
+            local_info->iter_opcode_insert =
                 hashtable_lookup(&local_opcode_instrum_table, (void *)(intptr_t)opcode);
-            if (iter_opcode_insert != NULL) {
+            if (local_info->iter_opcode_insert != NULL) {
                 res |= drmgr_bb_event_do_insertion_per_instr(
-                    drcontext, tag, bb, inst, for_trace, translating, iter_opcode_insert,
-                    pair_data, quartet_data);
+                    drcontext, tag, bb, inst, for_trace, translating,
+                    local_info->iter_opcode_insert, pair_data, quartet_data);
                 continue;
             }
         }
-        res |= drmgr_bb_event_do_insertion_per_instr(drcontext, tag, bb, inst, for_trace,
-                                                     translating, &iter_insert, pair_data,
-                                                     quartet_data);
+        res |= drmgr_bb_event_do_insertion_per_instr(
+            drcontext, tag, bb, inst, for_trace, translating, &local_info->iter_insert,
+            pair_data, quartet_data);
     }
 
     /* Pass 4: final */
     pt->cur_phase = DRMGR_PHASE_INSTRU2INSTRU;
-    for (quartet_idx = 0, i = 0; i < iter_instru.num_def; i++) {
-        e = &iter_instru.cbs.bb[i];
+    for (quartet_idx = 0, i = 0; i < local_info->iter_instru.num_def; i++) {
+        e = &local_info->iter_instru.cbs.bb[i];
         if (!e->pri.valid)
             continue;
         if (e->has_quartet) {
@@ -974,6 +981,136 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
     }
 
+    pt->cur_phase = DRMGR_PHASE_NONE;
+
+    /* Delete table only if opcode events were ever registered by the user. */
+    if (local_info->was_opcode_instrum_registered)
+        hashtable_delete(&local_opcode_instrum_table);
+
+    return res;
+}
+
+static bool
+drmgr_bb_event_instrument_dups(void *drcontext, void *tag, instrlist_t *bb,
+                               bool for_trace, bool translating, dr_emit_flags_t *res,
+                               per_thread_t *pt, local_cb_info_t *local_info,
+                               void **pair_data, void **quartet_data)
+{
+    void *local_dup_info;
+    /* Do the dups. */
+    bool is_dups = local_info->bbdup_duplicate_cb(drcontext, tag, bb, for_trace,
+                                                  translating, &local_dup_info);
+    if (is_dups) {
+        instrlist_t *case_bb = local_info->bbdup_extract_cb(drcontext, tag, bb, for_trace,
+                                                            translating, local_dup_info);
+        while (case_bb != NULL) {
+            /* Do an instrumentation pass for the case bb. */
+            *res |= drmgr_bb_event_do_instrum_phases(drcontext, tag, case_bb, for_trace,
+                                                     translating, pt, local_info,
+                                                     pair_data, quartet_data);
+            /* Stitch case bb back to the main bb. */
+            local_info->bbdup_stitch_cb(drcontext, tag, bb, case_bb, for_trace,
+                                        translating, local_dup_info);
+            /* Extract next duplicated bb. Returns NULL if
+             * no more dups are pending.
+             */
+            case_bb = local_info->bbdup_extract_cb(drcontext, tag, bb, for_trace,
+                                                   translating, local_dup_info);
+        }
+        /* Insert encoding at start and finalise. */
+        local_info->bbdup_insert_encoding_cb(drcontext, tag, bb, for_trace, translating,
+                                             local_dup_info);
+    }
+    return is_dups;
+}
+
+static void
+drmgr_bb_event_set_local_cb_info(void *drcontext, OUT local_cb_info_t *local_info)
+{
+    dr_rwlock_read_lock(bb_cb_lock);
+    /* We use arrays to more easily support unregistering while in an event (i#1356).
+     * With arrays we can make a temporary copy and avoid holding a lock while
+     * delivering events.
+     */
+    cblist_create_local(drcontext, &cblist_app2app, &local_info->iter_app2app,
+                        (byte *)local_info->app2app,
+                        BUFFER_SIZE_ELEMENTS(local_info->app2app));
+    cblist_create_local(drcontext, &cblist_instrumentation, &local_info->iter_insert,
+                        (byte *)local_info->insert,
+                        BUFFER_SIZE_ELEMENTS(local_info->insert));
+    cblist_create_local(drcontext, &cblist_instru2instru, &local_info->iter_instru,
+                        (byte *)local_info->instru,
+                        BUFFER_SIZE_ELEMENTS(local_info->instru));
+    local_info->pair_count = pair_count;
+    local_info->quartet_count = quartet_count;
+    local_info->was_opcode_instrum_registered = was_opcode_instrum_registered;
+    /* We do not make a complete local copy of the opcode hashtable as this can be
+     * expensive. Instead, we create a scoped table later on that only maps the cb lists
+     * of those opcodes required by this specific bb.
+     */
+
+    /* Copy bbdup callbacks. */
+    local_info->is_bbdup_enabled = is_bbdup_enabled();
+    if (local_info->is_bbdup_enabled) {
+        ASSERT(bbdup_duplicate_cb != NULL, "should not be NULL");
+        ASSERT(bbdup_insert_encoding_cb != NULL, "should not be NULL");
+        ASSERT(bbdup_extract_cb != NULL, "should not be NULL");
+        ASSERT(bbdup_stitch_cb != NULL, "should not be NULL");
+
+        local_info->bbdup_duplicate_cb = bbdup_duplicate_cb;
+        local_info->bbdup_insert_encoding_cb = bbdup_insert_encoding_cb;
+        local_info->bbdup_extract_cb = bbdup_extract_cb;
+        local_info->bbdup_stitch_cb = bbdup_stitch_cb;
+    }
+    dr_rwlock_read_unlock(bb_cb_lock);
+}
+
+static void
+drmgr_bb_event_delete_local_cb_info(void *drcontext, IN local_cb_info_t *local_info)
+{
+    cblist_delete_local(drcontext, &local_info->iter_app2app,
+                        BUFFER_SIZE_ELEMENTS(local_info->app2app));
+    cblist_delete_local(drcontext, &local_info->iter_insert,
+                        BUFFER_SIZE_ELEMENTS(local_info->insert));
+    cblist_delete_local(drcontext, &local_info->iter_instru,
+                        BUFFER_SIZE_ELEMENTS(local_info->instru));
+}
+
+static dr_emit_flags_t
+drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+               bool translating)
+{
+    dr_emit_flags_t res = DR_EMIT_DEFAULT;
+    local_cb_info_t local_info;
+    void **pair_data = NULL, **quartet_data = NULL;
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
+
+    drmgr_bb_event_set_local_cb_info(drcontext, &local_info);
+
+    /* We need per-thread user_data */
+    if (local_info.pair_count > 0) {
+        pair_data =
+            (void **)dr_thread_alloc(drcontext, sizeof(void *) * local_info.pair_count);
+    }
+    if (local_info.quartet_count > 0) {
+        quartet_data = (void **)dr_thread_alloc(
+            drcontext, sizeof(void *) * local_info.quartet_count);
+    }
+
+    bool is_dups = false;
+    /* Only true if drbbdup is in use. */
+    if (local_info.is_bbdup_enabled) {
+        is_dups = drmgr_bb_event_instrument_dups(drcontext, tag, bb, for_trace,
+                                                 translating, &res, pt, &local_info,
+                                                 pair_data, quartet_data);
+    }
+
+    if (!is_dups) {
+        res = drmgr_bb_event_do_instrum_phases(drcontext, tag, bb, for_trace, translating,
+                                               pt, &local_info, pair_data, quartet_data);
+    }
+
+    /* Do final fix passes: */
     /* Pass 5: our private pass to support multiple non-meta ctis in app2app phase */
     drmgr_fix_app_ctis(drcontext, bb);
 
@@ -990,20 +1127,15 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     }
 #endif
 
-    pt->cur_phase = DRMGR_PHASE_NONE;
+    if (local_info.pair_count > 0)
+        dr_thread_free(drcontext, pair_data, sizeof(void *) * local_info.pair_count);
+    if (local_info.quartet_count > 0) {
+        dr_thread_free(drcontext, quartet_data,
+                       sizeof(void *) * local_info.quartet_count);
+    }
 
-    if (pair_count > 0)
-        dr_thread_free(drcontext, pair_data, sizeof(void *) * pair_count);
-    if (quartet_count > 0)
-        dr_thread_free(drcontext, quartet_data, sizeof(void *) * quartet_count);
+    drmgr_bb_event_delete_local_cb_info(drcontext, &local_info);
 
-    cblist_delete_local(drcontext, &iter_app2app, BUFFER_SIZE_ELEMENTS(local_app2app));
-    cblist_delete_local(drcontext, &iter_insert, BUFFER_SIZE_ELEMENTS(local_insert));
-    cblist_delete_local(drcontext, &iter_instru, BUFFER_SIZE_ELEMENTS(local_instru));
-
-    /* Delete table only if opcode events were ever registered by the user. */
-    if (local_was_opcode_instrum_registered)
-        hashtable_delete(&local_opcode_instrum_table);
     return res;
 }
 
@@ -3074,4 +3206,55 @@ drmgr_get_emulated_instr_data(instr_t *instr, emulated_instr_t *emulated)
     emulated->instr = (instr_t *)get_emul_label_data(instr, DRMGR_EMUL_INSTR);
 
     return true;
+}
+
+/***************************************************************************
+ * DRBBDUP
+ */
+
+static bool
+is_bbdup_enabled()
+{
+    return bbdup_duplicate_cb != NULL;
+}
+
+bool
+drmgr_register_bbdup_event(drmgr_bbdup_duplicate_bb_cb_t bb_dup_func,
+                           drmgr_bbdup_insert_encoding_cb_t insert_encoding,
+                           drmgr_bbdup_extract_cb_t extract_func,
+                           drmgr_bbdup_stitch_cb_t stitch_func)
+{
+    bool succ = false;
+
+    /* None of the cbs can be NULL. */
+    if (bb_dup_func == NULL || insert_encoding == NULL || extract_func == NULL ||
+        stitch_func)
+        return succ;
+
+    dr_rwlock_write_lock(bb_cb_lock);
+    if (!is_bbdup_enabled()) {
+        bbdup_duplicate_cb = bb_dup_func;
+        bbdup_insert_encoding_cb = insert_encoding;
+        bbdup_extract_cb = extract_func;
+        bbdup_stitch_cb = stitch_func;
+        succ = true;
+    }
+    dr_rwlock_write_unlock(bb_cb_lock);
+    return succ;
+}
+
+bool
+drmgr_unregister_bbdup_event()
+{
+    bool succ = false;
+    dr_rwlock_write_lock(bb_cb_lock);
+    if (is_bbdup_enabled()) {
+        bbdup_duplicate_cb = NULL;
+        bbdup_insert_encoding_cb = NULL;
+        bbdup_extract_cb = NULL;
+        bbdup_stitch_cb = NULL;
+        succ = true;
+    }
+    dr_rwlock_write_unlock(bb_cb_lock);
+    return succ;
 }
