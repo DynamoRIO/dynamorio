@@ -214,11 +214,19 @@ static void
 pre_execve_ld_preload(const char *dr_path)
 {
     char ld_lib_path[MAX_OPTIONS_STRING];
+    char preload_prefix[MAX_OPTIONS_STRING];
     const char *last_slash = NULL;
     const char *mode_slash = NULL;
     const char *lib_slash = NULL;
     const char *cur_path = getenv("LD_LIBRARY_PATH");
     const char *cur = dr_path;
+#ifdef MACOS
+    const char *cur_preload = getenv("DYLD_INSERT_LIBRARIES");
+    const char preload_delimiter = ':';
+#else
+    const char *cur_preload = getenv("LD_PRELOAD");
+    const char preload_delimiter = ' ';
+#endif
     /* Find last three occurrences of '/'. */
     while (*cur != '\0') {
         if (*cur == '/') {
@@ -240,12 +248,21 @@ pre_execve_ld_preload(const char *dr_path)
              last_slash - lib_slash, lib_slash, /* libNN component */
              cur_path == NULL ? "" : ":", cur_path == NULL ? "" : cur_path);
     NULL_TERMINATE_BUFFER(ld_lib_path);
+
+    preload_prefix[0] = '\0';
+    if (cur_preload != NULL) {
+        snprintf(preload_prefix, BUFFER_SIZE_ELEMENTS(preload_prefix), "%s%c",
+                 cur_preload, preload_delimiter);
+        NULL_TERMINATE_BUFFER(preload_prefix);
+    }
 #ifdef MACOS
     setenv("DYLD_LIBRARY_PATH", ld_lib_path, true /*overwrite*/);
     /* XXX: why does it not work w/o the full path? */
-    snprintf(ld_lib_path, BUFFER_SIZE_ELEMENTS(ld_lib_path), "%.*s/%s:%.*s/%s",
-             last_slash - dr_path, dr_path, "libdrpreload.dylib", last_slash - dr_path,
-             dr_path, "libdynamorio.dylib");
+    snprintf(ld_lib_path, BUFFER_SIZE_ELEMENTS(ld_lib_path), "%s%.*s/%s:%.*s/%s",
+             preload_prefix, last_slash - dr_path, dr_path, "libdrpreload.dylib",
+             last_slash - dr_path, dr_path, "libdynamorio.dylib");
+    NULL_TERMINATE_BUFFER(ld_lib_path);
+
     setenv("DYLD_INSERT_LIBRARIES", ld_lib_path, true /*overwrite*/);
     /* This is required to use DYLD_INSERT_LIBRARIES on apps that use
      * two-level naming, but it can cause an app to run incorrectly.
@@ -254,7 +271,12 @@ pre_execve_ld_preload(const char *dr_path)
     setenv("DYLD_FORCE_FLAT_NAMESPACE", "1", true /*overwrite*/);
 #else
     setenv("LD_LIBRARY_PATH", ld_lib_path, true /*overwrite*/);
-    setenv("LD_PRELOAD", "libdynamorio.so libdrpreload.so", true /*overwrite*/);
+
+    snprintf(ld_lib_path, BUFFER_SIZE_ELEMENTS(ld_lib_path), "%s%s", preload_prefix,
+             "libdynamorio.so libdrpreload.so");
+    NULL_TERMINATE_BUFFER(ld_lib_path);
+
+    setenv("LD_PRELOAD", ld_lib_path, true /*overwrite*/);
 #endif
     if (verbose) {
         printf("Setting LD_USE_LOAD_BIAS for PIEs so the loader will honor "
