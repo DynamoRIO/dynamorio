@@ -92,7 +92,7 @@
 #    define YMM_REG_SIZE 32
 #    define ZMM_REG_SIZE 64
 #    define SIMD_REG_SIZE ZMM_REG_SIZE
-#    define _IF_SIMD_SUPPORTED(x), x
+#    define _IF_SIMD_SUPPORTED(x) , x
 #else
 #    define _IF_SIMD_SUPPORTED(x)
 /* FIXME i#3844: NYI on ARM */
@@ -472,8 +472,8 @@ get_indirectly_spilled_value(void *drcontext, reg_id_t reg, uint slot,
         } else {
             ASSERT(false, "internal error: not an applicable register.");
         }
-    }
-    ASSERT(false, "not an applicable register.");
+    } else
+        ASSERT(false, "internal error: must be a SIMD vector register.");
 }
 #endif
 
@@ -735,8 +735,9 @@ drreg_event_bb_insert_early(void *drcontext, void *tag, instrlist_t *bb, instr_t
 }
 
 static drreg_status_t
-drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
-                         bool force_restore, OUT bool *regs_restored _IF_SIMD_SUPPORTED(OUT bool *simd_regs_restored))
+drreg_insert_restore_all(
+    void *drcontext, instrlist_t *bb, instr_t *inst, bool force_restore,
+    OUT bool *regs_restored _IF_SIMD_SUPPORTED(OUT bool *simd_regs_restored))
 {
     per_thread_t *pt = get_tls_data(drcontext);
     reg_id_t reg;
@@ -775,7 +776,7 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
 #ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
         if (simd_regs_restored != NULL)
-        	simd_regs_restored[SIMD_IDX(reg)] = false;
+            simd_regs_restored[SIMD_IDX(reg)] = false;
         if (!pt->simd_reg[SIMD_IDX(reg)].native) {
             ASSERT(ops.num_spill_simd_slots > 0, "requested SIMD slots cannot be zero");
             if (drmgr_is_last_instr(drcontext, inst) ||
@@ -822,7 +823,7 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
                     /* We keep .native==false */
                     /* Share the tool val spill if this inst writes, too. */
                     if (simd_regs_restored != NULL)
-                    	simd_regs_restored[SIMD_IDX(reg)] = true;
+                        simd_regs_restored[SIMD_IDX(reg)] = true;
                 }
             }
         }
@@ -890,8 +891,8 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
                         "%s @%d." PFX ": restoring %s for app read\n", __FUNCTION__,
                         pt->live_idx, get_where_app_pc(inst), get_register_name(reg));
                     spill_reg_directly(drcontext, pt, reg, tmp_slot, bb, inst);
-                    restore_reg_directly(drcontext, pt, reg, pt->reg[GPR_IDX(reg)].slot, bb, inst,
-                                false /*keep slot*/);
+                    restore_reg_directly(drcontext, pt, reg, pt->reg[GPR_IDX(reg)].slot,
+                                         bb, inst, false /*keep slot*/);
                     restore_reg_directly(drcontext, pt, reg, tmp_slot, bb, next, true);
                     /* Share the tool val spill if this inst writes too */
                     if (regs_restored != NULL)
@@ -929,7 +930,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
      */
     bool do_last_spill = drmgr_is_last_instr(drcontext, inst) &&
         !TEST(DRREG_USER_RESTORES_AT_BB_END, pt->bb_props);
-    res = drreg_insert_restore_all(drcontext, bb, inst, do_last_spill, restored_for_read _IF_SIMD_SUPPORTED(restored_for_simd_read));
+    res = drreg_insert_restore_all(
+        drcontext, bb, inst, do_last_spill,
+        restored_for_read _IF_SIMD_SUPPORTED(restored_for_simd_read));
     if (res != DRREG_SUCCESS)
         drreg_report_error(res, "failed to restore for reads");
 
@@ -1116,8 +1119,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 drreg_status_t
 drreg_restore_all(void *drcontext, instrlist_t *bb, instr_t *where)
 {
-    return drreg_insert_restore_all(drcontext, bb, where, true,
-                                    NULL _IF_SIMD_SUPPORTED(NULL) /* do not need to track reg restores */);
+    return drreg_insert_restore_all(
+        drcontext, bb, where, true,
+        NULL _IF_SIMD_SUPPORTED(NULL) /* do not need to track reg restores */);
 }
 
 /***************************************************************************
@@ -2900,7 +2904,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
             reg_id_t actualreg = simd_slot_use[slot];
             ASSERT(actualreg != DR_REG_NULL, "internal error, register should be valid");
             if (reg_is_strictly_xmm(actualreg)) {
-                get_indirectly_spilled_value(drcontext, reg, actualreg, simd_buf,
+                get_indirectly_spilled_value(drcontext, actualreg, slot, simd_buf,
                                              XMM_REG_SIZE);
             } else if (reg_is_strictly_ymm(reg)) {
                 /* The callers should catch this when checking the spill class. */
