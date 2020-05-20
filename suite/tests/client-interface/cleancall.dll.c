@@ -596,6 +596,12 @@ thread_start(void *drcontext)
     dr_set_tls_field(drcontext, dr_thread_alloc(drcontext, 3 * sizeof(reg_t)));
 }
 
+static void
+app_exit_event(void)
+{
+    check_stack_alignment();
+}
+
 DR_EXPORT void
 dr_init(client_id_t id)
 {
@@ -603,4 +609,5 @@ dr_init(client_id_t id)
     dr_register_thread_init_event(thread_start);
     dr_register_thread_exit_event(thread_exit);
     dr_register_restore_state_event(restore_state_event);
+    dr_register_exit_event(app_exit_event);
 }
