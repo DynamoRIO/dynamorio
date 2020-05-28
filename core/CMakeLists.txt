@@ -198,7 +198,10 @@ if (UNIX)
   # These are needed for ARM per i#1566 above, but are also needed in some cases
   # for x86, such as 32-bit manipulation of 64-bit integers under clang where
   # __moddi3 is needed.
-  set(CORE_SRCS ${CORE_SRCS} ../third_party/libgcc/udivmoddi4.c)
+  if (ARM OR (X86 AND NOT X64))
+    # AArch64 or x86_64 don't not use this functionality
+    set(CORE_SRCS ${CORE_SRCS} ../third_party/libgcc/udivmoddi4.c)
+  endif()
 endif ()
 
 if (WIN32 AND NOT X64)
