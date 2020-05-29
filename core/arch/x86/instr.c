@@ -694,6 +694,9 @@ instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
                 return false;
         } else if (instr->length != CTI_SHORT_REWRITE_LENGTH)
             return false;
+    } else {
+        if (*pc == ADDR_PREFIX_OPCODE)
+            pc++;
     }
     if (instr_opcode_valid(instr)) {
         int opc = instr_get_opcode(instr);
@@ -1820,21 +1823,26 @@ instr_invert_cbr(instr_t *instr)
             cx_zero: jmp foo
             cx_nonzero:
          */
-        if (instr_get_raw_byte(instr, 1) == 2) {
-            CLIENT_ASSERT(instr_get_raw_byte(instr, 3) == 5,
+        uint disp1_pos = 1, disp2_pos = 3;
+        if (instr_get_raw_byte(instr, 0) == ADDR_PREFIX_OPCODE) {
+            disp1_pos++;
+            disp2_pos++;
+        }
+        if (instr_get_raw_byte(instr, disp1_pos) == 2) {
+            CLIENT_ASSERT(instr_get_raw_byte(instr, disp2_pos) == 5,
                           "instr_invert_cbr: cti_short_rewrite is corrupted");
             /* swap targets of the short jumps: */
-            instr_set_raw_byte(instr, 1, (byte)7); /* target cx_nonzero */
-            instr_set_raw_byte(instr, 3, (byte)0); /* target next instr, cx_zero */
+            instr_set_raw_byte(instr, disp1_pos, (byte)7); /* target cx_nonzero */
+            instr_set_raw_byte(instr, disp2_pos, (byte)0); /* target next inst, cx_zero */
             /* with inverted logic we don't need jmp-short but we keep it in
              * case we get inverted again */
         } else {
             /* re-invert */
-            CLIENT_ASSERT(instr_get_raw_byte(instr, 1) == 7 &&
-                              instr_get_raw_byte(instr, 3) == 0,
+            CLIENT_ASSERT(instr_get_raw_byte(instr, disp1_pos) == 7 &&
+                              instr_get_raw_byte(instr, disp2_pos) == 0,
                           "instr_invert_cbr: cti_short_rewrite is corrupted");
-            instr_set_raw_byte(instr, 1, (byte)2);
-            instr_set_raw_byte(instr, 3, (byte)5);
+            instr_set_raw_byte(instr, disp1_pos, (byte)2);
+            instr_set_raw_byte(instr, disp2_pos, (byte)5);
         }
     } else if ((opc >= OP_jo && opc <= OP_jnle) ||
                (opc >= OP_jo_short && opc <= OP_jnle_short)) {

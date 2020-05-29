@@ -567,7 +567,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         mov      [4*ARG_SZ + REG_XBP], ARG4
 #else
         mov      REG_XBP, REG_XSP
-# if defined(MACOS) && !defined(X64)
+# ifdef UNIX
         lea      REG_XSP, [-3*ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
 # endif
 #endif
@@ -602,7 +602,7 @@ cat_done_saving_dstack:
         /* avoid sygate sysenter version as our stack may be static const at
          * that point, caller will take care of sygate hack */
         CALLC0(GLOBAL_REF(get_cleanup_and_terminate_global_do_syscall_entry))
-#if defined(MACOS) && !defined(X64)
+#if defined(UNIX) && !defined(X64)
         lea      REG_XSP, [-2*ARG_SZ + REG_XSP] /* maintain align-16 w/ 2 pushes below */
 #endif
         push     REG_XBX /* 16-byte aligned again */
@@ -649,7 +649,7 @@ cat_have_lock:
         mov      REG_XSI, [2*ARG_SZ + REG_XBP]  /* sysnum */
         pop      REG_XAX             /* syscall */
         pop      REG_XCX             /* dstack */
-#if defined(MACOS) && !defined(X64)
+#if defined(UNIX) && !defined(X64)
         lea      REG_XSP, [2*ARG_SZ + REG_XSP] /* undo align-16 lea from above */
 #endif
         mov      REG_XBX, REG_XBP /* save for arg access after swapping stacks */
@@ -680,12 +680,12 @@ cat_no_thread2:
         push     PTRSZ [3*ARG_SZ + REG_XBX] /* sys_arg1 */
         push     REG_XAX   /* syscall */
         push     REG_XSI   /* sysnum => xsp 16-byte aligned for x64 and x86 */
-#if defined(MACOS) && !defined(X64)
+#if defined(UNIX) && !defined(X64)
         lea      REG_XSP, [-2*ARG_SZ + REG_XSP] /* align to 16 for this call */
 #endif
         /* free dstack and call the EXIT_DR_HOOK */
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), REG_XCX) /* pass dstack */
-#if defined(MACOS) && !defined(X64)
+#if defined(UNIX) && !defined(X64)
         lea      REG_XSP, [2*ARG_SZ + REG_XSP] /* undo align to 16 */
 #endif
         /* finally, execute the termination syscall */
@@ -1791,11 +1791,11 @@ GLOBAL_LABEL(dr_setjmp:)
         /* PR 206278: for try/except we need to save the signal mask */
         mov      REG_XDX, ARG1
         push     REG_XDX /* preserve */
-# if defined(MACOS) && !defined(X64)
+# ifndef X64
         lea      REG_XSP, [-2*ARG_SZ + REG_XSP] /* maintain align-16: ra + push */
 # endif
         CALLC1(GLOBAL_REF(dr_setjmp_sigmask), REG_XDX)
-# if defined(MACOS) && !defined(X64)
+# ifndef X64
         lea      REG_XSP, [2*ARG_SZ + REG_XSP] /* maintain align-16: ra + push */
 # endif
         pop      REG_XDX /* preserve */
