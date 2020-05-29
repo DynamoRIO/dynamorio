@@ -100,6 +100,23 @@ START_FILE
 DECL_EXTERN(dr_setjmp_sigmask)
 #endif
 
+DECL_EXTERN(d_r_internal_error)
+
+/* For debugging: report an error if the function called by call_switch_stack()
+ * unexpectedly returns.  Also used elsewhere.
+ */
+        DECLARE_FUNC(unexpected_return)
+GLOBAL_LABEL(unexpected_return:)
+        CALLC3(GLOBAL_REF(d_r_internal_error), HEX(0), HEX(0), HEX(0))
+        /* d_r_internal_error normally never returns */
+        /* Infinite loop is intentional.  Can we do better in release build?
+         * XXX: why not a debug instr?
+         */
+        JUMP  GLOBAL_REF(unexpected_return)
+        END_FUNC(unexpected_return)
+
+END_FILE
+
 /* All CPU ID registers are accessible only in privileged modes. */
         DECLARE_FUNC(cpuid_supported)
 GLOBAL_LABEL(cpuid_supported:)
