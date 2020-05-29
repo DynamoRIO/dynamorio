@@ -56,6 +56,6 @@ GLOBAL_LABEL(unexpected_return:)
          */
         JUMP  GLOBAL_REF(unexpected_return)
         END_FUNC(unexpected_return)
+#endif
 
 END_FILE
-#endif
