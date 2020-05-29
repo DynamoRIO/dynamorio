@@ -1811,7 +1811,7 @@ DR_API
  * Provides information about the app's arguments by setting \p args_buf up to
  * the size \p buf_size. Returns the number of args set or -1 on error.
  *
- * Use dr_app_arg_as_utf8() to get the argument as a string.
+ * Use dr_app_arg_as_cstring() to get the argument as a string.
  *
  * \note Currently, this function is only available on Unix with
  * early injection.
