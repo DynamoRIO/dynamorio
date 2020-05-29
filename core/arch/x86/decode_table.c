@@ -3312,7 +3312,7 @@ const instr_info_t prefix_extensions[][12] = {
     {EVEX_W_EXT, 0xf20f2c10, "(evex_W ext 36)", xx, xx, xx, xx, xx, mrm|evex, x, 36},
   }, /* prefix extension 13 */
   {
-    {OP_cvtps2pi, 0x0f2d10, "cvtps2pi", Pq, xx, Wps, xx, xx, mrm, x, END_LIST},
+    {OP_cvtps2pi, 0x0f2d10, "cvtps2pi", Pq, xx, Wq_dq, xx, xx, mrm, x, END_LIST},
     {OP_cvtss2si, 0xf30f2d10, "cvtss2si", Gy, xx, Wss, xx, xx, mrm, x, END_LIST},
     {OP_cvtpd2pi, 0x660f2d10, "cvtpd2pi", Pq, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_cvtsd2si, 0xf20f2d10, "cvtsd2si", Gy, xx, Wsd, xx, xx, mrm, x, END_LIST},
@@ -3494,7 +3494,7 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vmulsd, 0xf20f5950, "vmulsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, END_LIST},
   }, /* prefix extension 26 */
   {
-    {OP_cvtps2pd, 0x0f5a10, "cvtps2pd", Vpd, xx, Wps, xx, xx, mrm, x, END_LIST},
+    {OP_cvtps2pd, 0x0f5a10, "cvtps2pd", Vpd, xx, Wq_dq, xx, xx, mrm, x, END_LIST},
     {OP_cvtss2sd, 0xf30f5a10, "cvtss2sd", Vsd, xx, Wss, xx, xx, mrm, x, END_LIST},
     {OP_cvtpd2ps, 0x660f5a10, "cvtpd2ps", Vps, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_cvtsd2ss, 0xf20f5a10, "cvtsd2ss", Vss, xx, Wsd, xx, xx, mrm, x, END_LIST},
