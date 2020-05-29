@@ -2896,7 +2896,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
     }
 #ifdef SIMD_SUPPORTED
     for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD; reg++) {
-        uint slot = spilled_simd_to[SIMD_IDX(reg)];
+        slot = spilled_simd_to[SIMD_IDX(reg)];
         if (slot < MAX_SIMD_SPILLS) {
             ASSERT(slot < ops.num_spill_simd_slots, "slots is out-of-bounds");
             reg_id_t actualreg = simd_slot_use[slot];
