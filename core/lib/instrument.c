@@ -2785,6 +2785,13 @@ dr_get_application_name(void)
 }
 
 int
+dr_num_app_args()
+{
+    /* XXX i#2662: Add support for Windows. */
+    return num_app_args();
+}
+
+int
 dr_get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
 {
     /* XXX i#2662: Add support for Windows. */
@@ -2792,15 +2799,14 @@ dr_get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
 }
 
 const char *
-dr_app_arg_as_utf8(IN dr_app_arg_t *args_buf, char *buf, int buf_size)
+dr_app_arg_as_cstring(IN dr_app_arg_t *args_buf, char *buf, int buf_size)
 {
     if (args_buf == NULL)
         return NULL;
 
     switch (args_buf->encoding) {
-    case APP_ARG_ASCII: return (char *)args_buf->start;
-    case APP_ARG_UTF_8:
-    case APP_ARG_UTF_16: ASSERT_NOT_IMPLEMENTED(false); break;
+    case DR_APP_ARG_CSTR_COMPAT: return (char *)args_buf->start;
+    case DR_APP_ARG_UTF_16: ASSERT_NOT_IMPLEMENTED(false); break;
     }
 
     return NULL;

@@ -148,8 +148,9 @@ Further non-compatibility-affecting changes include:
  - Added drmgr_register_opcode_instrumentation_event() and
    drmgr_unregister_opcode_instrumentation_event() so that drmgr supports
    opcode event instrumentation.
- - Added dr_get_app_args() and dr_app_arg_as_utf8()  to enable the gathering
-   of application command-line args on Unix systems.
+ - Added dr_num_app_args(), dr_get_app_args() and dr_app_arg_as_cstring() to
+   enable the gathering of application command-line args. Currently, implemented
+   for Unix systems only.
 
 **************************************************
 <hr>

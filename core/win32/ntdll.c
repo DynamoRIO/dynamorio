@@ -3153,6 +3153,15 @@ get_application_short_unqualified_name()
     return short_unqual_exename;
 }
 
+/* Returns the number of application's command-line arguments. */
+int
+num_app_args()
+{
+    /* XXX i#2662: Add support for Windows. */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return -1;
+}
+
 /* Returns the application's command-line arguments. */
 int
 get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)

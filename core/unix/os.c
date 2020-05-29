@@ -296,7 +296,7 @@ static char executable_path[MAXIMUM_PATH];
 static char *executable_basename;
 
 /* Pointers to arguments. Refers to the main stack set up by the kernel.
- * these are only written once during process init and we can live with
+ * These are only written once during process init and we can live with
  * the non-guaranteed-delay until they are visible to other cores.
  */
 static int *app_argc = NULL;
@@ -1116,6 +1116,13 @@ set_app_args(IN int *app_argc_in, IN char **app_argv_in)
     app_argv = app_argv_in;
 }
 
+/* Returns the number of application's command-line arguments. */
+int
+num_app_args()
+{
+    return *app_argc;
+}
+
 /* Returns the application's command-line arguments. */
 int
 get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
@@ -1123,11 +1130,12 @@ get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
     if (args_buf == NULL || buf_size < 0)
         return -1;
 
-    int min = (buf_size < *app_argc) ? buf_size : *app_argc;
+    int num_args = num_app_args();
+    int min = (buf_size < num_args) ? buf_size : num_args;
     for (int i = 0; i < min; i++) {
         args_buf[i].start = (void *)app_argv[i];
         args_buf[i].size = strlen(app_argv[i]) + 1 /* consider NULL byte */;
-        args_buf[i].encoding = APP_ARG_ASCII;
+        args_buf[i].encoding = DR_APP_ARG_CSTR_COMPAT;
     }
     return min;
 }

@@ -55,16 +55,19 @@ dr_init(client_id_t id)
     dr_app_arg_t args_buf[ARG_BUF_SIZE];
     char buf[ARG_STR_BUF_SIZE];
 
+    int num_args = dr_num_app_args();
+    CHECK(num_args == 4, "number of args is incorrect");
+
     int count = dr_get_app_args(args_buf, ARG_BUF_SIZE);
     CHECK(count == 4, "app count is incorrect");
 
-    const char *app_argv = dr_app_arg_as_utf8(&args_buf[1], buf, ARG_STR_BUF_SIZE);
+    const char *app_argv = dr_app_arg_as_cstring(&args_buf[1], buf, ARG_STR_BUF_SIZE);
     CHECK(app_argv != NULL, "should not be NULL");
     CHECK(strcmp(app_argv, "Test") == 0, "first arg should be Test");
-    app_argv = dr_app_arg_as_utf8(&args_buf[2], buf, ARG_STR_BUF_SIZE);
+    app_argv = dr_app_arg_as_cstring(&args_buf[2], buf, ARG_STR_BUF_SIZE);
     CHECK(app_argv != NULL, "should not be NULL");
     CHECK(strcmp(app_argv, "Test2") == 0, "second arg should be Test2");
-    app_argv = dr_app_arg_as_utf8(&args_buf[3], buf, ARG_STR_BUF_SIZE);
+    app_argv = dr_app_arg_as_cstring(&args_buf[3], buf, ARG_STR_BUF_SIZE);
     CHECK(app_argv != NULL, "should not be NULL");
     CHECK(strcmp(app_argv, "Test3") == 0, "third arg should be Test3");
 #endif

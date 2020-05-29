@@ -1820,6 +1820,15 @@ int
 dr_get_app_args(OUT dr_app_arg_t *args_buf, int buf_size);
 
 DR_API
+/* Returns the number of command-line arguments passed to the application.
+ *
+ * \note Currently, this function is only available on Unix with
+ * early injection.
+ */
+int
+dr_num_app_args();
+
+DR_API
 /* Returns the passed argument as a string. \p buf is used only if needed, and
  * therefore the caller should not assume that the string is in the \p buf. In other
  * words, always use the returned value to refer to the string. Returns NULL on error
@@ -1830,7 +1839,7 @@ DR_API
  * early injection.
  */
 const char *
-dr_app_arg_as_utf8(IN dr_app_arg_t *args_buf, char *buf, int buf_size);
+dr_app_arg_as_cstring(IN dr_app_arg_t *args_buf, char *buf, int buf_size);
 
 DR_API
 /** Returns the process id of the current process. */
