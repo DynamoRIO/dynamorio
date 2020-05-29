@@ -98,8 +98,6 @@
 /* FIXME i#3844: NYI on ARM */
 #endif
 
-IF_ARM()
-
 #define AFLAGS_SLOT 0 /* always */
 
 /* Liveness states for gprs */
