@@ -342,7 +342,6 @@ static drmgr_bbdup_duplicate_bb_cb_t bbdup_duplicate_cb;
 static drmgr_bbdup_insert_encoding_cb_t bbdup_insert_encoding_cb;
 static drmgr_bbdup_extract_cb_t bbdup_extract_cb;
 static drmgr_bbdup_stitch_cb_t bbdup_stitch_cb;
-
 static cb_list_t cblist_pre_bbdup;
 
 #ifdef UNIX
@@ -1005,7 +1004,7 @@ drmgr_bb_event_instrument_dups(void *drcontext, void *tag, instrlist_t *bb,
 
     /* Pass pre bbdup: */
     for (i = 0; i < local_info->iter_pre_bbdup.num_def; i++) {
-        e = &local_info->iter_app2app.cbs.bb[i];
+        e = &local_info->iter_pre_bbdup.cbs.bb[i];
         if (!e->pri.valid)
             continue;
         *res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
@@ -1294,10 +1293,7 @@ drmgr_bb_cb_add(cb_list_t *list, drmgr_xform_cb_t xform_func,
              instru2instru_ex_func != NULL && opcode_instrum_fuc == NULL) ||
             (xform_func == NULL && analysis_func == NULL && insertion_func == NULL &&
              app2app_ex_func == NULL && analysis_ex_func == NULL &&
-             instru2instru_ex_func == NULL && opcode_instrum_fuc != NULL) ||
-            (xform_func == NULL && analysis_func == NULL && insertion_func == NULL &&
-             app2app_ex_func == NULL && analysis_ex_func == NULL &&
-             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL)),
+             instru2instru_ex_func == NULL && opcode_instrum_fuc != NULL)),
            "invalid internal params");
 
     dr_rwlock_write_lock(bb_cb_lock);
@@ -1438,10 +1434,7 @@ drmgr_bb_cb_remove(cb_list_t *list, drmgr_xform_cb_t xform_func,
               instru2instru_ex_func != NULL)) ||
             (xform_func == NULL && analysis_func == NULL && app2app_ex_func == NULL &&
              analysis_ex_func == NULL && instru2instru_ex_func == NULL &&
-             opcode_insertion_func != NULL) ||
-            (xform_func == NULL && analysis_func == NULL && app2app_ex_func == NULL &&
-             analysis_ex_func == NULL && instru2instru_ex_func == NULL &&
-             opcode_insertion_func == NULL),
+             opcode_insertion_func != NULL),
         "invalid internal params");
 
     dr_rwlock_write_lock(bb_cb_lock);
