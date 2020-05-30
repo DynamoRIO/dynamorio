@@ -208,7 +208,7 @@ function (check_avx2_processor_and_compiler_support out)
     message(STATUS "WARNING: Compiler or processor do not support AVX2. "
                    "Skipping tests")
   endif ()
-  set(${out} ${proc_found_avx22} PARENT_SCOPE)
+  set(${out} ${proc_found_avx2} PARENT_SCOPE)
 endfunction (check_avx2_processor_and_compiler_support)
 
 function (check_avx512_processor_and_compiler_support out)
