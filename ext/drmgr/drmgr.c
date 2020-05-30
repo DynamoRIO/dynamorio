@@ -115,7 +115,6 @@ typedef struct _cb_entry_t {
         } pair_ex;
         drmgr_ilist_ex_cb_t instru2instru_ex_cb;
         drmgr_opcode_insertion_cb_t opcode_insertion_cb;
-        drmgr_bbdup_pre_cb_t bbdup_pre_cb; /* Only if considering bbdup events. */
     } cb;
 } cb_entry_t;
 
@@ -1009,7 +1008,7 @@ drmgr_bb_event_instrument_dups(void *drcontext, void *tag, instrlist_t *bb,
         e = &local_info->iter_app2app.cbs.bb[i];
         if (!e->pri.valid)
             continue;
-        *res |= (*e->cb.bbdup_pre_cb)(drcontext, tag, bb, for_trace, translating);
+        *res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
     }
 
     void *local_dup_info;
@@ -1273,40 +1272,32 @@ drmgr_bb_cb_add(cb_list_t *list, drmgr_xform_cb_t xform_func,
                 drmgr_ilist_ex_cb_t analysis_ex_func,
                 drmgr_ilist_ex_cb_t instru2instru_ex_func,
                 drmgr_opcode_insertion_cb_t opcode_instrum_fuc,
-                drmgr_bbdup_pre_cb_t pre_bbdup_func, drmgr_priority_t *priority,
-                void *user_data /*passed at registration */)
+                drmgr_priority_t *priority, void *user_data /*passed at registration */)
 {
     int idx;
     bool res = false;
     ASSERT(list != NULL, "invalid internal params");
     ASSERT(((xform_func != NULL && analysis_func == NULL && insertion_func == NULL &&
              app2app_ex_func == NULL && analysis_ex_func == NULL &&
-             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL &&
-             pre_bbdup_func == NULL) ||
+             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL) ||
             (xform_func == NULL && (analysis_func != NULL || insertion_func != NULL) &&
              app2app_ex_func == NULL && analysis_ex_func == NULL &&
-             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL &&
-             pre_bbdup_func == NULL) ||
+             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL) ||
             (xform_func == NULL && analysis_func == NULL && insertion_func == NULL &&
              app2app_ex_func != NULL && analysis_ex_func == NULL &&
-             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL &&
-             pre_bbdup_func == NULL) ||
+             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL) ||
             (xform_func == NULL && analysis_func == NULL && insertion_func != NULL &&
              app2app_ex_func == NULL && analysis_ex_func != NULL &&
-             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL &&
-             pre_bbdup_func == NULL) ||
+             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL) ||
             (xform_func == NULL && analysis_func == NULL && insertion_func == NULL &&
              app2app_ex_func == NULL && analysis_ex_func == NULL &&
-             instru2instru_ex_func != NULL && opcode_instrum_fuc == NULL &&
-             pre_bbdup_func == NULL) ||
+             instru2instru_ex_func != NULL && opcode_instrum_fuc == NULL) ||
             (xform_func == NULL && analysis_func == NULL && insertion_func == NULL &&
              app2app_ex_func == NULL && analysis_ex_func == NULL &&
-             instru2instru_ex_func == NULL && opcode_instrum_fuc != NULL &&
-             pre_bbdup_func == NULL) ||
+             instru2instru_ex_func == NULL && opcode_instrum_fuc != NULL) ||
             (xform_func == NULL && analysis_func == NULL && insertion_func == NULL &&
              app2app_ex_func == NULL && analysis_ex_func == NULL &&
-             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL &&
-             pre_bbdup_func != NULL)),
+             instru2instru_ex_func == NULL && opcode_instrum_fuc == NULL)),
            "invalid internal params");
 
     dr_rwlock_write_lock(bb_cb_lock);
@@ -1338,9 +1329,6 @@ drmgr_bb_cb_add(cb_list_t *list, drmgr_xform_cb_t xform_func,
             new_e->is_opcode_insertion = false;
             if (xform_func != NULL) {
                 new_e->cb.xform_cb = xform_func;
-            } else if (pre_bbdup_func != NULL) {
-                ASSERT(is_bbdup_enabled(), "bbdup must be enabled");
-                new_e->cb.bbdup_pre_cb = pre_bbdup_func;
             } else {
                 new_e->cb.pair.analysis_cb = analysis_func;
                 new_e->cb.pair.insertion_cb = insertion_func;
@@ -1366,7 +1354,7 @@ drmgr_register_bb_app2app_event(drmgr_xform_cb_t func, drmgr_priority_t *priorit
     if (func == NULL)
         return false; /* invalid params */
     return drmgr_bb_cb_add(&cblist_app2app, func, NULL, NULL, NULL, NULL, NULL, NULL,
-                           NULL, priority, NULL /* no user data */);
+                           priority, NULL /* no user data */);
 }
 
 DR_EXPORT
@@ -1378,8 +1366,7 @@ drmgr_register_bb_instrumentation_event(drmgr_analysis_cb_t analysis_func,
     if (analysis_func == NULL && insertion_func == NULL)
         return false; /* invalid params */
     return drmgr_bb_cb_add(&cblist_instrumentation, NULL, analysis_func, insertion_func,
-                           NULL, NULL, NULL, NULL, NULL, priority,
-                           NULL /* no user data */);
+                           NULL, NULL, NULL, NULL, priority, NULL /* no user data */);
 }
 
 DR_EXPORT
@@ -1389,7 +1376,7 @@ drmgr_register_bb_instru2instru_event(drmgr_xform_cb_t func, drmgr_priority_t *p
     if (func == NULL)
         return false; /* invalid params */
     return drmgr_bb_cb_add(&cblist_instru2instru, func, NULL, NULL, NULL, NULL, NULL,
-                           NULL, NULL, priority, NULL /* no user data */);
+                           NULL, priority, NULL /* no user data */);
 }
 
 DR_EXPORT
@@ -1408,18 +1395,18 @@ drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
         return false; /* invalid params */
     if (app2app_func != NULL) {
         ok = drmgr_bb_cb_add(&cblist_app2app, NULL, NULL, NULL, app2app_func, NULL, NULL,
-                             NULL, NULL, priority, NULL /* no user data */) &&
+                             NULL, priority, NULL /* no user data */) &&
             ok;
     }
     if (analysis_func != NULL) {
         ok = drmgr_bb_cb_add(&cblist_instrumentation, NULL, NULL, insertion_func, NULL,
-                             analysis_func, NULL, NULL, NULL, priority,
+                             analysis_func, NULL, NULL, priority,
                              NULL /* no user data */) &&
             ok;
     }
     if (instru2instru_func != NULL) {
         ok = drmgr_bb_cb_add(&cblist_instru2instru, NULL, NULL, NULL, NULL, NULL,
-                             instru2instru_func, NULL, NULL, priority,
+                             instru2instru_func, NULL, priority,
                              NULL /* no user data */) &&
             ok;
     }
@@ -1434,9 +1421,7 @@ drmgr_bb_cb_remove(cb_list_t *list, drmgr_xform_cb_t xform_func,
                    drmgr_ilist_ex_cb_t analysis_ex_func,
                    drmgr_ilist_ex_cb_t instru2instru_ex_func,
                    /* for opcode instrumentation */
-                   drmgr_opcode_insertion_cb_t opcode_insertion_func,
-                   /* for drbbdup: */
-                   drmgr_bbdup_pre_cb_t bbdup_pre_func)
+                   drmgr_opcode_insertion_cb_t opcode_insertion_func)
 {
     bool res = false;
     uint i;
@@ -1444,19 +1429,19 @@ drmgr_bb_cb_remove(cb_list_t *list, drmgr_xform_cb_t xform_func,
     ASSERT(
         (xform_func != NULL && analysis_func == NULL && opcode_insertion_func == NULL) ||
             (xform_func == NULL && analysis_func != NULL &&
-             opcode_insertion_func == NULL && bbdup_pre_func == NULL) ||
+             opcode_insertion_func == NULL) ||
             (xform_func == NULL && analysis_func == NULL && insertion_func != NULL &&
-             opcode_insertion_func == NULL && bbdup_pre_func == NULL) ||
+             opcode_insertion_func == NULL) ||
             (xform_func == NULL && analysis_func == NULL &&
-             opcode_insertion_func == NULL && bbdup_pre_func == NULL &&
+             opcode_insertion_func == NULL &&
              (app2app_ex_func != NULL || analysis_ex_func != NULL ||
               instru2instru_ex_func != NULL)) ||
             (xform_func == NULL && analysis_func == NULL && app2app_ex_func == NULL &&
              analysis_ex_func == NULL && instru2instru_ex_func == NULL &&
-             opcode_insertion_func != NULL && bbdup_pre_func == NULL) ||
+             opcode_insertion_func != NULL) ||
             (xform_func == NULL && analysis_func == NULL && app2app_ex_func == NULL &&
              analysis_ex_func == NULL && instru2instru_ex_func == NULL &&
-             opcode_insertion_func == NULL && bbdup_pre_func != NULL),
+             opcode_insertion_func == NULL),
         "invalid internal params");
 
     dr_rwlock_write_lock(bb_cb_lock);
@@ -1522,8 +1507,7 @@ drmgr_unregister_bb_app2app_event(drmgr_xform_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_app2app, func, NULL, NULL, NULL, NULL, NULL, NULL,
-                              NULL);
+    return drmgr_bb_cb_remove(&cblist_app2app, func, NULL, NULL, NULL, NULL, NULL, NULL);
 }
 
 DR_EXPORT
@@ -1533,7 +1517,7 @@ drmgr_unregister_bb_instrumentation_event(drmgr_analysis_cb_t func)
     if (func == NULL)
         return false; /* invalid params */
     return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, func, NULL, NULL, NULL, NULL,
-                              NULL, NULL);
+                              NULL);
 }
 
 DR_EXPORT
@@ -1543,7 +1527,7 @@ drmgr_unregister_bb_insertion_event(drmgr_insertion_cb_t func)
     if (func == NULL)
         return false; /* invalid params */
     return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, func, NULL, NULL, NULL,
-                              NULL, NULL);
+                              NULL);
 }
 
 DR_EXPORT
@@ -1553,7 +1537,7 @@ drmgr_unregister_bb_instru2instru_event(drmgr_xform_cb_t func)
     if (func == NULL)
         return false; /* invalid params */
     return drmgr_bb_cb_remove(&cblist_instru2instru, func, NULL, NULL, NULL, NULL, NULL,
-                              NULL, NULL);
+                              NULL);
 }
 
 DR_EXPORT
@@ -1571,7 +1555,7 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
         return false; /* invalid params */
     if (app2app_func != NULL) {
         ok = drmgr_bb_cb_remove(&cblist_app2app, NULL, NULL, NULL, app2app_func, NULL,
-                                NULL, NULL, NULL) &&
+                                NULL, NULL) &&
             ok;
     }
     if (analysis_func != NULL) {
@@ -1580,12 +1564,12 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
          * checks analysis_func, so we pass NULL instead of insertion_func here.
          */
         ok = drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, NULL, NULL,
-                                analysis_func, NULL, NULL, NULL) &&
+                                analysis_func, NULL, NULL) &&
             ok;
     }
     if (instru2instru_func != NULL) {
         ok = drmgr_bb_cb_remove(&cblist_instru2instru, NULL, NULL, NULL, NULL, NULL,
-                                instru2instru_func, NULL, NULL) &&
+                                instru2instru_func, NULL) &&
             ok;
     }
     return ok;
@@ -1611,7 +1595,7 @@ drmgr_register_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func, in
     }
     dr_rwlock_write_unlock(opcode_table_lock);
 
-    return drmgr_bb_cb_add(opcode_cb_list, NULL, NULL, NULL, NULL, NULL, NULL, func, NULL,
+    return drmgr_bb_cb_add(opcode_cb_list, NULL, NULL, NULL, NULL, NULL, NULL, func,
                            priority, user_data);
 }
 
@@ -1630,8 +1614,7 @@ drmgr_unregister_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func,
         return false; /* there should be a cb list present in the table */
     dr_rwlock_write_unlock(opcode_table_lock);
 
-    return drmgr_bb_cb_remove(opcode_cb_list, NULL, NULL, NULL, NULL, NULL, NULL, func,
-                              NULL);
+    return drmgr_bb_cb_remove(opcode_cb_list, NULL, NULL, NULL, NULL, NULL, NULL, func);
 }
 
 DR_EXPORT
@@ -3310,25 +3293,25 @@ drmgr_unregister_bbdup_event()
 }
 
 bool
-drmgr_register_bbdup_pre_event(drmgr_bbdup_pre_cb_t func, drmgr_priority_t *priority)
+drmgr_register_bbdup_pre_event(drmgr_xform_cb_t func, drmgr_priority_t *priority)
 {
     if (!is_bbdup_enabled())
         return false;
 
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_add(&cblist_pre_bbdup, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-                           func, priority, NULL /* no user data */);
+    return drmgr_bb_cb_add(&cblist_pre_bbdup, func, NULL, NULL, NULL, NULL, NULL, NULL,
+                           priority, NULL /* no user data */);
 }
 
 bool
-drmgr_unregister_bbdup_pre_event(drmgr_bbdup_pre_cb_t func)
+drmgr_unregister_bbdup_pre_event(drmgr_xform_cb_t func)
 {
     if (!is_bbdup_enabled())
         return false;
 
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_pre_bbdup, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-                              func);
+    return drmgr_bb_cb_remove(&cblist_pre_bbdup, func, NULL, NULL, NULL, NULL, NULL,
+                              NULL);
 }
