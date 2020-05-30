@@ -65,7 +65,7 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_3_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_signal)\n");
     } else if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (((sc->TEST_FLAGS_SIG) & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
@@ -79,7 +79,7 @@ handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_7_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_signal2)\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -90,7 +90,7 @@ handle_signal3(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->SC_XAX != DRREG_TEST_9_C) {
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_signal3)\n");
             exit(1);
         }
     }
@@ -104,7 +104,7 @@ handle_signal4(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->SC_XAX != DRREG_TEST_11_C) {
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_signal4)\n");
             exit(1);
         }
     }
@@ -118,10 +118,10 @@ handle_exception(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_3_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_exception)\n");
     } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if ((ep->ContextRecord->CXT_XFLAGS & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
-            print("ERROR: spilled flags value was not preserved!\n");
+            print("ERROR: spilled flags value was not preserved! (handle_exception)\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -130,7 +130,7 @@ handle_exception2(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_7_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_exception2)\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -140,7 +140,7 @@ handle_exception3(struct _EXCEPTION_POINTERS *ep)
 #        ifdef X86
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_XAX_CXT != DRREG_TEST_9_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_exception3)\n");
     }
 #        endif
     SIGLONGJMP(mark, 1);
@@ -151,7 +151,7 @@ handle_exception4(struct _EXCEPTION_POINTERS *ep)
 #        ifdef X86
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_XAX_CXT != DRREG_TEST_11_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_exception4)\n");
     }
 #        endif
     SIGLONGJMP(mark, 1);
