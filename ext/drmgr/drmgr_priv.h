@@ -76,6 +76,14 @@ typedef void (*drmgr_bbdup_insert_encoding_cb_t)(void *drcontext, void *tag,
                                                  instrlist_t *bb, bool for_trace,
                                                  bool translating, void *local_info);
 
+/*
+ * Callback function for pre basic block duplication. Any basic block modification or
+ * analysis required before duplication should be done via such a callback.
+ */
+typedef dr_emit_flags_t (*drmgr_bbdup_pre_cb_t)(void *drcontext, void *tag,
+                                                instrlist_t *bb, bool for_trace,
+                                                bool translating);
+
 DR_EXPORT
 /* Used by drbbdup so that drmgr maintains basic block duplication.
  * BBDUP events can only be registered once at the same time.
@@ -93,6 +101,26 @@ DR_EXPORT
  */
 bool
 drmgr_unregister_bbdup_event();
+
+DR_EXPORT
+/* Registers a callback that is triggered prior basic block duplication. This gives
+ * drbbdup the opportunity to modify and analyse the basic block before proceeding with
+ * the generation of multiple copies.
+ *
+ * Note, we cannot use app2app events, because those are granular to per basic block copy.
+ *
+ * Returns true on success.
+ */
+bool
+drmgr_register_bbdup_pre_event(drmgr_bbdup_pre_cb_t func, drmgr_priority_t *priority);
+
+DR_EXPORT
+/* Unregisters a callback function triggered prior basic block duplication.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_bbdup_pre_event(drmgr_bbdup_pre_cb_t func);
 
 #ifdef __cplusplus
 }
