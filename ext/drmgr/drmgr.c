@@ -3278,7 +3278,7 @@ drmgr_unregister_bbdup_event()
         bbdup_extract_cb = NULL;
         bbdup_stitch_cb = NULL;
         cblist_delete(&cblist_pre_bbdup);
-        ASSERT(!is_bbdup_enabled(), "Should be disabled after unregistration.");
+        ASSERT(!is_bbdup_enabled(), "should be disabled after unregistration");
         succ = true;
     }
     dr_rwlock_write_unlock(bb_cb_lock);
