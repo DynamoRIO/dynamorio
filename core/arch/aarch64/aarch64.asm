@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc. All rights reserved.
+ * Copyright (c) 2019-2020 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -114,8 +114,6 @@ GLOBAL_LABEL(unexpected_return:)
          */
         JUMP  GLOBAL_REF(unexpected_return)
         END_FUNC(unexpected_return)
-
-END_FILE
 
 /* All CPU ID registers are accessible only in privileged modes. */
         DECLARE_FUNC(cpuid_supported)
