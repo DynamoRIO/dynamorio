@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,11 @@
 #include "../arch/asm_defines.asm"
 START_FILE
 
+/* For AArch64, drlibc has no references to unexpected_return, and in fact we
+ * have a relocation reachability error if we include it here (i#4304), so
+ * we limit its use in drlibc to x86 or arm.
+ */
+#ifndef AARCH64
 DECL_EXTERN(d_r_internal_error)
 
 /* For debugging: report an error if the function called by call_switch_stack()
@@ -51,5 +56,6 @@ GLOBAL_LABEL(unexpected_return:)
          */
         JUMP  GLOBAL_REF(unexpected_return)
         END_FUNC(unexpected_return)
+#endif
 
 END_FILE
