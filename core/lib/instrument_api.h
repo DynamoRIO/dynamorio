@@ -1843,7 +1843,8 @@ int
 dr_num_app_args(void);
 
 DR_API
-/* Returns the passed argument \p app_arg as a string. \p buf is used only if needed, and
+/**
+ * Returns the passed argument \p app_arg as a string. \p buf is used only if needed, and
  * therefore the caller should not assume that the string is in the \p buf. In other
  * words, always use the returned value to refer to the string. Returns NULL on error
  * such as when \p buf is needed as storage and the size of the buffer \p buf_size
