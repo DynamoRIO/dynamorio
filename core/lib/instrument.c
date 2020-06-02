@@ -2784,8 +2784,15 @@ dr_get_application_name(void)
 #    endif
 }
 
+dr_error_code_t
+dr_get_error_code(void)
+{
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    return dcontext->client_data->error_code;
+}
+
 int
-dr_num_app_args()
+dr_num_app_args(void)
 {
     /* XXX i#2662: Add support for Windows. */
     return num_app_args();
@@ -2799,14 +2806,26 @@ dr_get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
 }
 
 const char *
-dr_app_arg_as_cstring(IN dr_app_arg_t *args_buf, char *buf, int buf_size)
+dr_app_arg_as_cstring(IN dr_app_arg_t *app_arg, char *buf, int buf_size)
 {
-    if (args_buf == NULL)
-        return NULL;
+    dcontext_t *dcontext;
 
-    switch (args_buf->encoding) {
-    case DR_APP_ARG_CSTR_COMPAT: return (char *)args_buf->start;
-    case DR_APP_ARG_UTF_16: ASSERT_NOT_IMPLEMENTED(false); break;
+    if (app_arg == NULL) {
+        dcontext = get_thread_private_dcontext();
+        dcontext->client_data->error_code = DR_ERROR_INVALID_PARAM;
+        return NULL;
+    }
+
+    switch (app_arg->encoding) {
+    case DR_APP_ARG_CSTR_COMPAT: return (char *)app_arg->start;
+    case DR_APP_ARG_UTF_16:
+        ASSERT_NOT_IMPLEMENTED(false);
+        dcontext = get_thread_private_dcontext();
+        dcontext->client_data->error_code = DR_ERROR_NOT_IMPLEMENTED;
+        break;
+    default:
+        dcontext = get_thread_private_dcontext();
+        dcontext->client_data->error_code = DR_ERROR_APP_ENCODING;
     }
 
     return NULL;

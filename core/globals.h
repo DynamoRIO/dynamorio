@@ -308,6 +308,17 @@ typedef struct _dr_stats_t {
     uint64 synchs_not_at_safe_spot;
 } dr_stats_t;
 
+/**
+ * Error codes of DR API routines.
+ */
+typedef enum {
+    DR_ERROR_NONE,
+    DR_ERROR_INVALID_PARAM,
+    DR_ERROR_INSUFFICIENT_SPACE,
+    DR_ERROR_APP_ENCODING,
+    DR_ERROR_NOT_IMPLEMENTED,
+} dr_error_code_t;
+
 /* DR_API EXPORT END */
 
 #if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
@@ -450,6 +461,11 @@ typedef struct _client_data_t {
     /* 2 other ways to point at a context for dr_{g,s}et_mcontext() */
     priv_mcontext_t *cur_mc;
     os_cxt_ptr_t os_cxt;
+
+    /* The error code of last failed API routine. Not updated on successful API calls
+     * but only upon failures.
+     */
+    dr_error_code_t error_code;
 } client_data_t;
 #else
 #    define IS_CLIENT_THREAD(dcontext) false

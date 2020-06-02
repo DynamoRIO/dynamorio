@@ -58,17 +58,29 @@ dr_init(client_id_t id)
     int num_args = dr_num_app_args();
     CHECK(num_args == 4, "number of args is incorrect");
 
-    int count = dr_get_app_args(args_buf, ARG_BUF_SIZE);
+    int count = dr_get_app_args(args_buf, -1);
+    CHECK(count == -1, "routine should fail");
+    dr_error_code_t error_code = dr_get_error_code();
+    CHECK(error_code == DR_ERROR_INVALID_PARAM, "error code should be invalid param");
+
+    count = dr_get_app_args(args_buf, ARG_BUF_SIZE);
     CHECK(count == 4, "app count is incorrect");
+
+    const char *failed_argv = dr_app_arg_as_cstring(NULL, buf, ARG_STR_BUF_SIZE);
+    CHECK(failed_argv == NULL, "should be NULL");
+    error_code = dr_get_error_code();
+    CHECK(error_code == DR_ERROR_INVALID_PARAM, "error code should be invalid param");
 
     const char *app_argv = dr_app_arg_as_cstring(&args_buf[1], buf, ARG_STR_BUF_SIZE);
     CHECK(app_argv != NULL, "should not be NULL");
     CHECK(strcmp(app_argv, "Test") == 0, "first arg should be Test");
-    app_argv = dr_app_arg_as_cstring(&args_buf[2], buf, ARG_STR_BUF_SIZE);
-    CHECK(app_argv != NULL, "should not be NULL");
-    CHECK(strcmp(app_argv, "Test2") == 0, "second arg should be Test2");
-    app_argv = dr_app_arg_as_cstring(&args_buf[3], buf, ARG_STR_BUF_SIZE);
-    CHECK(app_argv != NULL, "should not be NULL");
-    CHECK(strcmp(app_argv, "Test3") == 0, "third arg should be Test3");
+
+    const char *app_argv2 = dr_app_arg_as_cstring(&args_buf[2], buf, ARG_STR_BUF_SIZE);
+    CHECK(app_argv2 != NULL, "should not be NULL");
+    CHECK(strcmp(app_argv2, "Test2") == 0, "second arg should be Test2");
+
+    const char *aapp_argv3 = dr_app_arg_as_cstring(&args_buf[3], buf, ARG_STR_BUF_SIZE);
+    CHECK(aapp_argv3 != NULL, "should not be NULL");
+    CHECK(strcmp(aapp_argv3, "Test3") == 0, "third arg should be Test3");
 #endif
 }
