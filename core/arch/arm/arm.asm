@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -410,55 +410,6 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
         mov      REG_R0, ARG2
         bx       lr
         END_FUNC(safe_read_asm)
-
-
-#ifdef UNIX
-/* i#46: Private memcpy and memset for libc isolation.  Xref comment in x86.asm.
- */
-
-/* Private memcpy.
- * FIXME i#1551: we should optimize this as it can be on the critical path.
- */
-        DECLARE_FUNC(memcpy)
-GLOBAL_LABEL(memcpy:)
-        cmp      ARG3, #0
-        mov      REG_R12/*scratch reg*/, ARG1
-1:      beq      2f
-        ldrb     REG_R3, [ARG2]
-        strb     REG_R3, [ARG1]
-        subs     ARG3, ARG3, #1
-        add      ARG2, ARG2, #1
-        add      ARG1, ARG1, #1
-        b        1b
-2:      mov      REG_R0, REG_R12
-        bx       lr
-        END_FUNC(memcpy)
-
-/* Private memset.
- * FIXME i#1551: we should optimize this as it can be on the critical path.
- */
-        DECLARE_FUNC(memset)
-GLOBAL_LABEL(memset:)
-        cmp      ARG3, #0
-        mov      REG_R12/*scratch reg*/, ARG1
-1:      beq      2f
-        strb     ARG2, [ARG1]
-        subs     ARG3, ARG3, #1
-        add      ARG1, ARG1, #1
-        b        1b
-2:      mov      REG_R0, REG_R12
-        bx       lr
-        END_FUNC(memset)
-
-/* See x86.asm notes about needing these to avoid gcc invoking *_chk */
-.global __memcpy_chk
-.hidden __memcpy_chk
-.set __memcpy_chk,memcpy
-
-.global __memset_chk
-.hidden __memset_chk
-.set __memset_chk,memset
-#endif /* UNIX */
 
 
 #ifdef CLIENT_INTERFACE
