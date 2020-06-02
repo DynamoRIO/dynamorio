@@ -904,7 +904,7 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
                   bool write, dr_pred_type_t pred)
 {
     if (op_inst_only_trace.get_value()) {
-      return adjust;
+        return adjust;
     }
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
