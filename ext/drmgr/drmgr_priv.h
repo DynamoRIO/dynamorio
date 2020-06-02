@@ -96,7 +96,7 @@ bool
 drmgr_unregister_bbdup_event();
 
 DR_EXPORT
-/* Registers a callback that is triggered prior basic block duplication. This gives
+/* Registers a callback that is triggered prior to basic block duplication. This gives
  * drbbdup the opportunity to modify and analyse the basic block before proceeding with
  * the generation of multiple copies.
  *
