@@ -903,6 +903,9 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
                   reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref, int ref_index,
                   bool write, dr_pred_type_t pred)
 {
+    if (op_inst_only_trace.get_value()) {
+      return adjust;
+    }
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
     if (op_L0_filter.get_value()) {

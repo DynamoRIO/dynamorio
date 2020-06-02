@@ -2874,6 +2874,7 @@ endif ()
       torunonly_drcachesim(filter-simple ${ci_shared_app} "-L0_filter" "")
       torunonly_drcachesim(filter-no-i ${ci_shared_app} "-L0_filter -L0I_size 0" "")
       torunonly_drcachesim(filter-no-d ${ci_shared_app} "-L0_filter -L0D_size 0" "")
+      torunonly_drcachesim(filter-inst-only ${ci_shared_app} "-inst_only_trace" "")
 
       torunonly_drcachesim(delay-simple ${ci_shared_app}
         "-trace_after_instrs 20000 -exit_after_tracing 10000" "")

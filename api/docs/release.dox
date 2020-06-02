@@ -148,6 +148,7 @@ Further non-compatibility-affecting changes include:
  - Added drmgr_register_opcode_instrumentation_event() and
    drmgr_unregister_opcode_instrumentation_event() so that drmgr supports
    opcode event instrumentation.
+ - Added -inst_only_trace option to drcachesim.
 
 **************************************************
 <hr>
