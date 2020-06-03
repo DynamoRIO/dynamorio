@@ -216,7 +216,8 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|api.detach_spawn' => 1, # i#2611
                                    'code_api|api.startstop' => 1, # i#2093
                                    'code_api|api.static_noclient' => 1,
-                                   'code_api|api.static_noinit' => 1);
+                                   'code_api|api.static_noinit' => 1,
+                                   'code_api|client.drwrap-test-detach' => 1); # i#4058
             $issue_no = "#2145";
         } elsif ($is_aarchxx) {
             # FIXME i#2416: fix flaky AArch32 tests
