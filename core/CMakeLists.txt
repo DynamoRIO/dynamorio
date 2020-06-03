@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -80,16 +80,17 @@ endif ()
 add_asm_target(arch/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
   "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
 
-if (UNIX AND X86)
+if (UNIX)
   # i#3315: We want our own memcpy and memset for the shared-lib DR core and
   # for drinjectlib + drfrontendlib to avoid glibc-versioned symbols in
   # our auxiliary tools (i#1504), but we do *not* want our own memcpy and
   # memset for static-lib DR core.  Thus we separate them out.  The i#1504
   # glibc versioning is only an issue on x86.
-  add_asm_target(arch/x86/memfuncs.asm memfuncs_asm_src memfuncs_asm_tgt
+  add_asm_target(arch/${ARCH_NAME}/memfuncs.asm memfuncs_asm_src memfuncs_asm_tgt
     "_memfuncs" "" "${asm_deps}")
   add_library(drmemfuncs STATIC ${memfuncs_asm_src} lib/memmove.c)
   add_gen_events_deps(drmemfuncs)
+  add_dependencies(drmemfuncs api_headers)
 endif ()
 
 # i#1409: to share core libc-ish code with non-core, we use the "drlibc" library.
@@ -581,7 +582,7 @@ add_library(dynamorio SHARED
   )
 
 configure_core_lib(dynamorio)
-if (UNIX AND X86)
+if (UNIX)
   # We need our own memcpy + memset for isolation.
   # They're separated out for sharing for i#1504.
   target_link_libraries(dynamorio drmemfuncs)
@@ -901,7 +902,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   add_dependencies(${PRELOAD_NAME} ${preinject_asm_tgt})
 endif ()
 target_link_libraries(${PRELOAD_NAME} drlibc)
-if (UNIX AND X86)
+if (UNIX)
   # We need our own memcpy + memset for isolation.
   target_link_libraries(${PRELOAD_NAME} drmemfuncs)
 endif ()
@@ -995,7 +996,7 @@ endif ()
 add_library(drinjectlib ${inject_lib_type} ${INJECTOR_SRCS})
 add_gen_events_deps(drinjectlib)
 target_link_libraries(drinjectlib drdecode drlibc)
-if (UNIX AND X86)
+if (UNIX)
   # We need our own memcpy + memset to avoid glibc versioning (i#1504).
   target_link_libraries(drinjectlib drmemfuncs)
 endif ()
@@ -1168,7 +1169,7 @@ install_exported_target(drdecode ${INSTALL_LIB})
 # We have to export drlibc as static libs we're exporting depend on it.
 DR_export_target(drlibc)
 install_exported_target(drlibc ${INSTALL_LIB_BASE})
-if (UNIX AND X86)
+if (UNIX)
   DR_export_target(drmemfuncs)
   install_exported_target(drmemfuncs ${INSTALL_LIB_BASE})
 endif ()
