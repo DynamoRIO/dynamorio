@@ -5803,6 +5803,10 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
 
     CLIENT_ASSERT(reg_is_pointer_sized(reg), "dr_save_reg requires pointer-sized gpr");
 
+#    ifdef AARCH64
+    CLIENT_ASSERT(reg != DR_REG_XSP, "dr_save_reg: store from XSP is not supported");
+#    endif
+
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         MINSERT(ilist, where,
@@ -5844,6 +5848,10 @@ dr_restore_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg
 
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "dr_restore_reg requires a pointer-sized gpr");
+
+#    ifdef AARCH64
+    CLIENT_ASSERT(reg != DR_REG_XSP, "dr_restore_reg: load into XSP is not supported");
+#    endif
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
