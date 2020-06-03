@@ -1127,11 +1127,9 @@ num_app_args()
 int
 get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
 {
-    dcontext_t *dcontext;
-
     if (args_buf == NULL || buf_size < 0) {
 #ifdef CLIENT_INTERFACE
-        dcontext = get_thread_private_dcontext();
+        dcontext_t *dcontext = get_thread_private_dcontext();
         dcontext->client_data->error_code = DR_ERROR_INVALID_PARAM;
 #endif
         return -1;
