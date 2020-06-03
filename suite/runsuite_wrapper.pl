@@ -164,6 +164,13 @@ for (my $i = 0; $i < $#lines; ++$i) {
         } elsif ($line =~ /(\d+) tests failed, of which (\d+)/) {
             $fail = 1 if ($2 < $1);
         }
+    } elsif ($line =~ /CMake Error.*runsuite/) {
+        # Try to catch things like failing to read a file (i#4312) in
+        # our runsuite code, but ruling out non-suite-fatal errors like
+        # missing optional cross-compilation setups.
+        $fail = 1;
+        $should_print = 1;
+        $name = "runsuite script itself";
     } elsif ($line =~ /^\s*ERROR: diff contains/) {
         $fail = 1;
         $should_print = 1;
