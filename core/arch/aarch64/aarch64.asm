@@ -423,47 +423,6 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
         ret
         END_FUNC(safe_read_asm)
 
-#ifdef UNIX
-/* i#46: Private memcpy and memset for libc isolation.  Xref comment in x86.asm.
- */
-
-/* Private memcpy.
- * FIXME i#1569: We should optimize this as it can be on the critical path.
- */
-        DECLARE_FUNC(memcpy)
-GLOBAL_LABEL(memcpy:)
-        mov      x3, ARG1
-        cbz      ARG3, 2f
-1:      ldrb     w4, [ARG2], #1
-        strb     w4, [x3], #1
-        sub      ARG3, ARG3, #1
-        cbnz     ARG3, 1b
-2:      ret
-        END_FUNC(memcpy)
-
-/* Private memset.
- * FIXME i#1569: we should optimize this as it can be on the critical path.
- */
-        DECLARE_FUNC(memset)
-GLOBAL_LABEL(memset:)
-        mov      x3, ARG1
-        cbz      ARG3, 2f
-1:      strb     w1, [x3], #1
-        sub      ARG3, ARG3, #1
-        cbnz     ARG3, 1b
-2:      ret
-        END_FUNC(memset)
-
-/* See x86.asm notes about needing these to avoid gcc invoking *_chk */
-.global __memcpy_chk
-.hidden __memcpy_chk
-.set __memcpy_chk,memcpy
-
-.global __memset_chk
-.hidden __memset_chk
-.set __memset_chk,memset
-#endif /* UNIX */
-
 #ifdef CLIENT_INTERFACE
 
 /* Xref x86.asm dr_try_start about calling dr_setjmp without a call frame.
