@@ -90,7 +90,9 @@ if (UNIX)
     "_memfuncs" "" "${asm_deps}")
   add_library(drmemfuncs STATIC ${memfuncs_asm_src} lib/memmove.c)
   add_gen_events_deps(drmemfuncs)
-  add_dependencies(drmemfuncs api_headers)
+  if (CLIENT_INTERFACE OR APP_EXPORTS)
+    add_dependencies(drmemfuncs api_headers)
+  endif ()
 endif ()
 
 # i#1409: to share core libc-ish code with non-core, we use the "drlibc" library.
