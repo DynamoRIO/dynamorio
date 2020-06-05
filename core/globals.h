@@ -313,7 +313,7 @@ typedef struct _dr_stats_t {
  */
 typedef enum {
     /**
-     * Invalid parameter passed to API routine.
+     * Invalid parameter passed to the API routine.
      */
     DR_ERROR_INVALID_PARAMETER = 1,
     /**

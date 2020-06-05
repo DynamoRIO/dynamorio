@@ -1839,7 +1839,8 @@ int
 dr_get_app_args(OUT dr_app_arg_t *args_buf, int buf_size);
 
 DR_API
-/* Returns the number of command-line arguments passed to the application.
+/**
+ * Returns the number of command-line arguments passed to the application.
  *
  * \note Currently, this function is only available on Unix with
  * early injection.
