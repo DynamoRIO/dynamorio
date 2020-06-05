@@ -1087,6 +1087,13 @@ get_application_name_helper(bool ignore_cache, bool full_path)
     return (full_path ? executable_path : executable_basename);
 }
 
+void
+set_client_error_code(dr_error_code_t error_code)
+{
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    dcontext->client_data->error_code = error_code;
+}
+
 /* get application name, (cached), used for event logging */
 char *
 get_application_name(void)
@@ -1120,6 +1127,13 @@ set_app_args(IN int *app_argc_in, IN char **app_argv_in)
 int
 num_app_args()
 {
+    if (!DYNAMO_OPTION(early_inject)) {
+#ifdef CLIENT_INTERFACE
+        set_client_error_code(DR_ERROR_NOT_IMPLEMENTED);
+#endif
+        return -1;
+    }
+
     return *app_argc;
 }
 
@@ -1129,8 +1143,14 @@ get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
 {
     if (args_buf == NULL || buf_size < 0) {
 #ifdef CLIENT_INTERFACE
-        dcontext_t *dcontext = get_thread_private_dcontext();
-        dcontext->client_data->error_code = DR_ERROR_INVALID_PARAM;
+        set_client_error_code(DR_ERROR_INVALID_PARAMETER);
+#endif
+        return -1;
+    }
+
+    if (!DYNAMO_OPTION(early_inject)) {
+#ifdef CLIENT_INTERFACE
+        set_client_error_code(DR_ERROR_NOT_IMPLEMENTED);
 #endif
         return -1;
     }

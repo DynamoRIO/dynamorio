@@ -1804,14 +1804,14 @@ dr_set_client_version_string(const char *version);
 DR_API
 /**
  * Returns the error code of the last failed API routine. Users should check whether or
- * not the API routine that they just called has failed prior to this function.
+ * not the API routine that they just called has failed prior to calling this function.
  *
  * \warning Not all API routines currently support the registering of an error code upon
  * their failure. Therefore, check the routine's documentation to see whether it supports
  * setting error codes.
  */
 dr_error_code_t
-dr_get_error_code(void);
+dr_get_error_code(void *drcontext);
 
 DR_API
 /** Returns the image name (without path) of the current application. */
@@ -1821,9 +1821,14 @@ dr_get_application_name(void);
 DR_API
 /**
  * Provides information about the app's arguments by setting \p args_buf up to
- * the size \p buf_size. Returns the number of args set or -1 on error.
+ * the count denoted by \p buf_size. Therefore, \p buf_size is not the size of the buffer
+ * in bytes but the number of #dr_app_arg_t values that \p args_buf can store.
+ * Returns the number of args set or -1 on error.
  *
  * Use dr_app_arg_as_cstring() to get the argument as a string.
+ *
+ * Use dr_num_app_args() to query the total number of command-line arguments passed to
+ * the application.
  *
  * \note Currently, this function is only available on Unix with
  * early injection.
@@ -1838,6 +1843,8 @@ DR_API
  *
  * \note Currently, this function is only available on Unix with
  * early injection.
+ *
+ * \note An error code may be obtained via dr_get_error_code() when this routine fails.
  */
 int
 dr_num_app_args(void);
@@ -1849,6 +1856,9 @@ DR_API
  * words, always use the returned value to refer to the string. Returns NULL on error
  * such as when \p buf is needed as storage and the size of the buffer \p buf_size
  * is not sufficient.
+ *
+ * To obtain a suitable upper-bound size of the string buffer, get the size of the
+ * argument from the #dr_app_arg_t value retrieved via dr_get_app_args().
  *
  * \note Currently, this function is only available on Unix with
  * early injection.

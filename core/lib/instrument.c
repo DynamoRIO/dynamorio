@@ -2785,9 +2785,9 @@ dr_get_application_name(void)
 }
 
 dr_error_code_t
-dr_get_error_code(void)
+dr_get_error_code(void *drcontext)
 {
-    dcontext_t *dcontext = get_thread_private_dcontext();
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return dcontext->client_data->error_code;
 }
 
@@ -2808,24 +2808,19 @@ dr_get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
 const char *
 dr_app_arg_as_cstring(IN dr_app_arg_t *app_arg, char *buf, int buf_size)
 {
-    dcontext_t *dcontext;
-
     if (app_arg == NULL) {
-        dcontext = get_thread_private_dcontext();
-        dcontext->client_data->error_code = DR_ERROR_INVALID_PARAM;
+        set_client_error_code(DR_ERROR_INVALID_PARAMETER);
         return NULL;
     }
 
     switch (app_arg->encoding) {
     case DR_APP_ARG_CSTR_COMPAT: return (char *)app_arg->start;
     case DR_APP_ARG_UTF_16:
+        /* XXX i#2662: To implement using utf16_to_utf8(). */
         ASSERT_NOT_IMPLEMENTED(false);
-        dcontext = get_thread_private_dcontext();
-        dcontext->client_data->error_code = DR_ERROR_NOT_IMPLEMENTED;
+        set_client_error_code(DR_ERROR_NOT_IMPLEMENTED);
         break;
-    default:
-        dcontext = get_thread_private_dcontext();
-        dcontext->client_data->error_code = DR_ERROR_APP_ENCODING;
+    default: set_client_error_code(DR_ERROR_UNKNOWN_ENCODING);
     }
 
     return NULL;

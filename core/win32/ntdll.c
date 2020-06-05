@@ -3153,12 +3153,21 @@ get_application_short_unqualified_name()
     return short_unqual_exename;
 }
 
+void
+set_client_error_code(dr_error_code_t error_code)
+{
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    dcontext->client_data->error_code = error_code;
+}
+
 /* Returns the number of application's command-line arguments. */
 int
 num_app_args()
 {
     /* XXX i#2662: Add support for Windows. */
     ASSERT_NOT_IMPLEMENTED(false);
+    set_client_error_code(DR_ERROR_NOT_IMPLEMENTED);
+
     return -1;
 }
 
@@ -3168,6 +3177,8 @@ get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
 {
     /* XXX i#2662: Add support for Windows. */
     ASSERT_NOT_IMPLEMENTED(false);
+    set_client_error_code(DR_ERROR_NOT_IMPLEMENTED);
+
     return -1;
 }
 

@@ -317,10 +317,16 @@ get_application_name(void);
 
 /* DR_API EXPORT BEGIN */
 /**
- * Encodings of an application's argument.
+ * Encodings of an application's command-line argument.
  */
 typedef enum {
+    /**
+     * C String Encoding.
+     */
     DR_APP_ARG_CSTR_COMPAT,
+    /**
+     * UTF 16 String Encoding.
+     */
     DR_APP_ARG_UTF_16,
 } dr_app_arg_encoding_t;
 
@@ -342,6 +348,9 @@ typedef struct _dr_app_arg_t {
     dr_app_arg_encoding_t encoding;
 } dr_app_arg_t;
 /* DR_API EXPORT END */
+
+void
+set_client_error_code(dr_error_code_t error_code);
 
 int
 num_app_args();

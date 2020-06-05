@@ -312,11 +312,22 @@ typedef struct _dr_stats_t {
  * Error codes of DR API routines.
  */
 typedef enum {
-    DR_ERROR_NONE,
-    DR_ERROR_INVALID_PARAM,
-    DR_ERROR_INSUFFICIENT_SPACE,
-    DR_ERROR_APP_ENCODING,
-    DR_ERROR_NOT_IMPLEMENTED,
+    /**
+     * Invalid parameter passed to API routine.
+     */
+    DR_ERROR_INVALID_PARAMETER = 1,
+    /**
+     * Insufficient size of passed buffer.
+     */
+    DR_ERROR_INSUFFICIENT_SPACE = 2,
+    /**
+     * String encoding is unknown.
+     */
+    DR_ERROR_UNKNOWN_ENCODING = 3,
+    /**
+     * Feature of API routine not yet implemented.
+     */
+    DR_ERROR_NOT_IMPLEMENTED = 4,
 } dr_error_code_t;
 
 /* DR_API EXPORT END */
