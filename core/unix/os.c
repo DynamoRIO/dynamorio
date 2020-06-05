@@ -1087,15 +1087,6 @@ get_application_name_helper(bool ignore_cache, bool full_path)
     return (full_path ? executable_path : executable_basename);
 }
 
-#ifdef CLIENT_INTERFACE
-void
-set_client_error_code(dr_error_code_t error_code)
-{
-    dcontext_t *dcontext = get_thread_private_dcontext();
-    dcontext->client_data->error_code = error_code;
-}
-#endif
-
 /* get application name, (cached), used for event logging */
 char *
 get_application_name(void)
@@ -1131,7 +1122,7 @@ num_app_args()
 {
     if (!DYNAMO_OPTION(early_inject)) {
 #ifdef CLIENT_INTERFACE
-        set_client_error_code(DR_ERROR_NOT_IMPLEMENTED);
+        set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
 #endif
         return -1;
     }
@@ -1141,28 +1132,28 @@ num_app_args()
 
 /* Returns the application's command-line arguments. */
 int
-get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
+get_app_args(OUT dr_app_arg_t *args_array, int args_count)
 {
-    if (args_buf == NULL || buf_size < 0) {
+    if (args_array == NULL || args_count < 0) {
 #ifdef CLIENT_INTERFACE
-        set_client_error_code(DR_ERROR_INVALID_PARAMETER);
+        set_client_error_code(NULL, DR_ERROR_INVALID_PARAMETER);
 #endif
         return -1;
     }
 
     if (!DYNAMO_OPTION(early_inject)) {
 #ifdef CLIENT_INTERFACE
-        set_client_error_code(DR_ERROR_NOT_IMPLEMENTED);
+        set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
 #endif
         return -1;
     }
 
     int num_args = num_app_args();
-    int min = (buf_size < num_args) ? buf_size : num_args;
+    int min = (args_count < num_args) ? args_count : num_args;
     for (int i = 0; i < min; i++) {
-        args_buf[i].start = (void *)app_argv[i];
-        args_buf[i].size = strlen(app_argv[i]) + 1 /* consider NULL byte */;
-        args_buf[i].encoding = DR_APP_ARG_CSTR_COMPAT;
+        args_array[i].start = (void *)app_argv[i];
+        args_array[i].size = strlen(app_argv[i]) + 1 /* consider NULL byte */;
+        args_array[i].encoding = DR_APP_ARG_CSTR_COMPAT;
     }
     return min;
 }

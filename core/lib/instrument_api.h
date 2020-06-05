@@ -1820,9 +1820,9 @@ dr_get_application_name(void);
 
 DR_API
 /**
- * Provides information about the app's arguments by setting \p args_buf up to
- * the count denoted by \p buf_size. Therefore, \p buf_size is not the size of the buffer
- * in bytes but the number of #dr_app_arg_t values that \p args_buf can store.
+ * Provides information about the app's arguments by setting \p args_array up to
+ * the count denoted by \p args_count. Therefore, \p args_count is not the size of the
+ * buffer in bytes but the number of #dr_app_arg_t values that \p args_array can store.
  * Returns the number of args set or -1 on error.
  *
  * Use dr_app_arg_as_cstring() to get the argument as a string.
@@ -1836,7 +1836,7 @@ DR_API
  * \note An error code may be obtained via dr_get_error_code() when this routine fails.
  */
 int
-dr_get_app_args(OUT dr_app_arg_t *args_buf, int buf_size);
+dr_get_app_args(OUT dr_app_arg_t *args_array, int args_count);
 
 DR_API
 /**

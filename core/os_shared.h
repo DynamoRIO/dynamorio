@@ -351,13 +351,13 @@ typedef struct _dr_app_arg_t {
 
 #ifdef CLIENT_INTERFACE
 void
-set_client_error_code(dr_error_code_t error_code);
+set_client_error_code(dcontext_t *dcontext, dr_error_code_t error_code);
 #endif
 
 int
 num_app_args();
 int
-get_app_args(OUT dr_app_arg_t *args_buf, int buf_size);
+get_app_args(OUT dr_app_arg_t *args_array, int args_count);
 const char *
 get_application_short_name(void);
 char *

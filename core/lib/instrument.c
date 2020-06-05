@@ -2784,6 +2784,15 @@ dr_get_application_name(void)
 #    endif
 }
 
+void
+set_client_error_code(dcontext_t *dcontext, dr_error_code_t error_code)
+{
+    if (dcontext == NULL)
+        dcontext = get_thread_private_dcontext();
+
+    dcontext->client_data->error_code = error_code;
+}
+
 dr_error_code_t
 dr_get_error_code(void *drcontext)
 {
@@ -2799,17 +2808,17 @@ dr_num_app_args(void)
 }
 
 int
-dr_get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
+dr_get_app_args(OUT dr_app_arg_t *args_array, int args_count)
 {
     /* XXX i#2662: Add support for Windows. */
-    return get_app_args(args_buf, (int)buf_size);
+    return get_app_args(args_array, (int)args_count);
 }
 
 const char *
 dr_app_arg_as_cstring(IN dr_app_arg_t *app_arg, char *buf, int buf_size)
 {
     if (app_arg == NULL) {
-        set_client_error_code(DR_ERROR_INVALID_PARAMETER);
+        set_client_error_code(NULL, DR_ERROR_INVALID_PARAMETER);
         return NULL;
     }
 
@@ -2818,9 +2827,9 @@ dr_app_arg_as_cstring(IN dr_app_arg_t *app_arg, char *buf, int buf_size)
     case DR_APP_ARG_UTF_16:
         /* XXX i#2662: To implement using utf16_to_utf8(). */
         ASSERT_NOT_IMPLEMENTED(false);
-        set_client_error_code(DR_ERROR_NOT_IMPLEMENTED);
+        set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
         break;
-    default: set_client_error_code(DR_ERROR_UNKNOWN_ENCODING);
+    default: set_client_error_code(NULL, DR_ERROR_UNKNOWN_ENCODING);
     }
 
     return NULL;
