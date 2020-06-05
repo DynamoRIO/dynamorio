@@ -3159,7 +3159,9 @@ num_app_args()
 {
     /* XXX i#2662: Add support for Windows. */
     ASSERT_NOT_IMPLEMENTED(false);
+#    ifdef CLIENT_INTERFACE
     set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+#    endif
 
     return -1;
 }
@@ -3170,7 +3172,9 @@ get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
 {
     /* XXX i#2662: Add support for Windows. */
     ASSERT_NOT_IMPLEMENTED(false);
+#    ifdef CLIENT_INTERFACE
     set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+#    endif
 
     return -1;
 }
