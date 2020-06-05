@@ -3153,12 +3153,14 @@ get_application_short_unqualified_name()
     return short_unqual_exename;
 }
 
+#    ifdef CLIENT_INTERFACE
 void
 set_client_error_code(dr_error_code_t error_code)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     dcontext->client_data->error_code = error_code;
 }
+#    endif
 
 /* Returns the number of application's command-line arguments. */
 int

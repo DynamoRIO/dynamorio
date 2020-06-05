@@ -1087,12 +1087,14 @@ get_application_name_helper(bool ignore_cache, bool full_path)
     return (full_path ? executable_path : executable_basename);
 }
 
+#ifdef CLIENT_INTERFACE
 void
 set_client_error_code(dr_error_code_t error_code)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     dcontext->client_data->error_code = error_code;
 }
+#endif
 
 /* get application name, (cached), used for event logging */
 char *
