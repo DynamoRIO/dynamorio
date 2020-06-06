@@ -186,6 +186,15 @@ typedef struct _cb_list_t {
 } cb_list_t;
 
 #define EVENTS_INITIAL_SZ 10
+
+/* Denotes the number of cb entries that are stored on the stack as
+ * used by a local_cb_info_t value. This is primarily used as an
+ * optimization to avoid head allocation usage. As a result,
+ * a local_cb_info_t value takes a lot of space on the stack, which
+ * could lead to a "__chkstk" compile time error on Windows. If such an
+ * error is being encountered, reducing EVENTS_STACK_SZ might help
+ * circumvent the issue.
+ */
 #define EVENTS_STACK_SZ 10
 
 /* Our own TLS data */
