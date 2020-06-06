@@ -164,12 +164,10 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
                               security_violation_t violation, action_type_t *action);
 #    endif
 
-#endif /* CLIENT_INTERFACE */
-
-#ifdef CLIENT_INTERFACE
 void
 set_client_error_code(dcontext_t *dcontext, dr_error_code_t error_code);
-#endif
+
+#endif /* CLIENT_INTERFACE */
 
 bool
 dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *mc);

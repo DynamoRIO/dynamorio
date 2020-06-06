@@ -2787,7 +2787,7 @@ dr_get_application_name(void)
 void
 set_client_error_code(dcontext_t *dcontext, dr_error_code_t error_code)
 {
-    if (dcontext == NULL)
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT)
         dcontext = get_thread_private_dcontext();
 
     dcontext->client_data->error_code = error_code;
@@ -2797,6 +2797,11 @@ dr_error_code_t
 dr_get_error_code(void *drcontext)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
+
+    if (dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+
+    CLIENT_ASSERT(dcontext != NULL, "invalid drcontext");
     return dcontext->client_data->error_code;
 }
 
