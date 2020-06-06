@@ -148,6 +148,12 @@ Further non-compatibility-affecting changes include:
  - Added drmgr_register_opcode_instrumentation_event() and
    drmgr_unregister_opcode_instrumentation_event() so that drmgr supports
    opcode event instrumentation.
+ - Added dr_num_app_args(), dr_get_app_args() and dr_app_arg_as_cstring() to
+   enable the gathering of application command-line args. Currently, implemented
+   for Unix systems only.
+ - Added dr_get_error_code() to obtain the error code of the last failed API routine.
+   Not all API routines support the setting of error codes. Please look at their
+   documentation to check if they do.
 
 **************************************************
 <hr>

@@ -295,6 +295,13 @@ static app_pc executable_end = NULL;
 static char executable_path[MAXIMUM_PATH];
 static char *executable_basename;
 
+/* Pointers to arguments. Refers to the main stack set up by the kernel.
+ * These are only written once during process init and we can live with
+ * the non-guaranteed-delay until they are visible to other cores.
+ */
+static int *app_argc = NULL;
+static char **app_argv = NULL;
+
 /* does the kernel provide tids that must be used to distinguish threads in a group? */
 static bool kernel_thread_groups;
 
@@ -1097,6 +1104,58 @@ DYNAMORIO_EXPORT const char *
 get_application_short_name(void)
 {
     return get_application_name_helper(false, false /* short name */);
+}
+
+/* Sets pointers to the application's command-line arguments. These pointers are then used
+ * by get_app_args().
+ */
+void
+set_app_args(IN int *app_argc_in, IN char **app_argv_in)
+{
+    app_argc = app_argc_in;
+    app_argv = app_argv_in;
+}
+
+/* Returns the number of application's command-line arguments. */
+int
+num_app_args()
+{
+    if (!DYNAMO_OPTION(early_inject)) {
+#ifdef CLIENT_INTERFACE
+        set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+#endif
+        return -1;
+    }
+
+    return *app_argc;
+}
+
+/* Returns the application's command-line arguments. */
+int
+get_app_args(OUT dr_app_arg_t *args_array, int args_count)
+{
+    if (args_array == NULL || args_count < 0) {
+#ifdef CLIENT_INTERFACE
+        set_client_error_code(NULL, DR_ERROR_INVALID_PARAMETER);
+#endif
+        return -1;
+    }
+
+    if (!DYNAMO_OPTION(early_inject)) {
+#ifdef CLIENT_INTERFACE
+        set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+#endif
+        return -1;
+    }
+
+    int num_args = num_app_args();
+    int min = (args_count < num_args) ? args_count : num_args;
+    for (int i = 0; i < min; i++) {
+        args_array[i].start = (void *)app_argv[i];
+        args_array[i].size = strlen(app_argv[i]) + 1 /* consider NULL byte */;
+        args_array[i].encoding = DR_APP_ARG_CSTR_COMPAT;
+    }
+    return min;
 }
 
 /* Processor information provided by kernel */
