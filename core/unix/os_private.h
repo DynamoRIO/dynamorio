@@ -247,6 +247,9 @@ os_get_version(void);
 void
 set_executable_path(const char *);
 
+void
+set_app_args(int *, char **);
+
 uint
 memprot_to_osprot(uint prot);
 
