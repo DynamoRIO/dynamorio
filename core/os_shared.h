@@ -349,11 +349,6 @@ typedef struct _dr_app_arg_t {
 } dr_app_arg_t;
 /* DR_API EXPORT END */
 
-#ifdef CLIENT_INTERFACE
-void
-set_client_error_code(dcontext_t *dcontext, dr_error_code_t error_code);
-#endif
-
 int
 num_app_args();
 int

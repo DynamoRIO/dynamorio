@@ -166,6 +166,11 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
 
 #endif /* CLIENT_INTERFACE */
 
+#ifdef CLIENT_INTERFACE
+void
+set_client_error_code(dcontext_t *dcontext, dr_error_code_t error_code);
+#endif
+
 bool
 dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *mc);
 bool
