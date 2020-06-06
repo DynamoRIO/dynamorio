@@ -186,7 +186,16 @@ typedef struct _cb_list_t {
 } cb_list_t;
 
 #define EVENTS_INITIAL_SZ 10
-#define EVENTS_STACK_SZ 15
+
+/* Denotes the number of cb entries that are stored on the stack as
+ * used by a local_cb_info_t value. This is primarily used as an
+ * optimization to avoid head allocation usage. As a result,
+ * a local_cb_info_t value takes a lot of space on the stack, which
+ * could lead to a "__chkstk" compile time error on Windows. If such an
+ * error is being encountered, reducing EVENTS_STACK_SZ might help
+ * circumvent the issue.
+ */
+#define EVENTS_STACK_SZ 10
 
 /* Our own TLS data */
 typedef struct _per_thread_t {
@@ -226,6 +235,8 @@ typedef struct _local_ctx_t {
     drmgr_bbdup_extract_cb_t bbdup_extract_cb;
     drmgr_bbdup_stitch_cb_t bbdup_stitch_cb;
     drmgr_bbdup_insert_encoding_cb_t bbdup_insert_encoding_cb;
+    cb_list_t iter_pre_bbdup;
+    cb_entry_t pre_bbdup[EVENTS_STACK_SZ];
 } local_cb_info_t;
 
 /***************************************************************************
@@ -340,6 +351,7 @@ static drmgr_bbdup_duplicate_bb_cb_t bbdup_duplicate_cb;
 static drmgr_bbdup_insert_encoding_cb_t bbdup_insert_encoding_cb;
 static drmgr_bbdup_extract_cb_t bbdup_extract_cb;
 static drmgr_bbdup_stitch_cb_t bbdup_stitch_cb;
+static cb_list_t cblist_pre_bbdup;
 
 #ifdef UNIX
 static cb_list_t cblist_signal;
@@ -996,6 +1008,17 @@ drmgr_bb_event_instrument_dups(void *drcontext, void *tag, instrlist_t *bb,
                                per_thread_t *pt, local_cb_info_t *local_info,
                                void **pair_data, void **quartet_data)
 {
+    uint i;
+    cb_entry_t *e;
+
+    /* Pass pre bbdup: */
+    for (i = 0; i < local_info->iter_pre_bbdup.num_def; i++) {
+        e = &local_info->iter_pre_bbdup.cbs.bb[i];
+        if (!e->pri.valid)
+            continue;
+        *res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
+    }
+
     void *local_dup_info;
     /* Do the dups. */
     bool is_dups = local_info->bbdup_duplicate_cb(drcontext, tag, bb, for_trace,
@@ -1061,6 +1084,10 @@ drmgr_bb_event_set_local_cb_info(void *drcontext, OUT local_cb_info_t *local_inf
         local_info->bbdup_insert_encoding_cb = bbdup_insert_encoding_cb;
         local_info->bbdup_extract_cb = bbdup_extract_cb;
         local_info->bbdup_stitch_cb = bbdup_stitch_cb;
+
+        cblist_create_local(drcontext, &cblist_pre_bbdup, &local_info->iter_pre_bbdup,
+                            (byte *)local_info->pre_bbdup,
+                            BUFFER_SIZE_ELEMENTS(local_info->pre_bbdup));
     }
     dr_rwlock_read_unlock(bb_cb_lock);
 }
@@ -1074,6 +1101,11 @@ drmgr_bb_event_delete_local_cb_info(void *drcontext, IN local_cb_info_t *local_i
                         BUFFER_SIZE_ELEMENTS(local_info->insert));
     cblist_delete_local(drcontext, &local_info->iter_instru,
                         BUFFER_SIZE_ELEMENTS(local_info->instru));
+
+    if (local_info->is_bbdup_enabled) {
+        cblist_delete_local(drcontext, &local_info->iter_pre_bbdup,
+                            BUFFER_SIZE_ELEMENTS(local_info->pre_bbdup));
+    }
 }
 
 static dr_emit_flags_t
@@ -3228,7 +3260,7 @@ drmgr_register_bbdup_event(drmgr_bbdup_duplicate_bb_cb_t bb_dup_func,
 
     /* None of the cbs can be NULL. */
     if (bb_dup_func == NULL || insert_encoding == NULL || extract_func == NULL ||
-        stitch_func)
+        stitch_func == NULL)
         return succ;
 
     dr_rwlock_write_lock(bb_cb_lock);
@@ -3237,6 +3269,7 @@ drmgr_register_bbdup_event(drmgr_bbdup_duplicate_bb_cb_t bb_dup_func,
         bbdup_insert_encoding_cb = insert_encoding;
         bbdup_extract_cb = extract_func;
         bbdup_stitch_cb = stitch_func;
+        cblist_init(&cblist_pre_bbdup, sizeof(cb_entry_t));
         succ = true;
     }
     dr_rwlock_write_unlock(bb_cb_lock);
@@ -3253,8 +3286,34 @@ drmgr_unregister_bbdup_event()
         bbdup_insert_encoding_cb = NULL;
         bbdup_extract_cb = NULL;
         bbdup_stitch_cb = NULL;
+        cblist_delete(&cblist_pre_bbdup);
+        ASSERT(!is_bbdup_enabled(), "should be disabled after unregistration");
         succ = true;
     }
     dr_rwlock_write_unlock(bb_cb_lock);
     return succ;
+}
+
+bool
+drmgr_register_bbdup_pre_event(drmgr_xform_cb_t func, drmgr_priority_t *priority)
+{
+    if (!is_bbdup_enabled())
+        return false;
+
+    if (func == NULL)
+        return false; /* invalid params */
+    return drmgr_bb_cb_add(&cblist_pre_bbdup, func, NULL, NULL, NULL, NULL, NULL, NULL,
+                           priority, NULL /* no user data */);
+}
+
+bool
+drmgr_unregister_bbdup_pre_event(drmgr_xform_cb_t func)
+{
+    if (!is_bbdup_enabled())
+        return false;
+
+    if (func == NULL)
+        return false; /* invalid params */
+    return drmgr_bb_cb_remove(&cblist_pre_bbdup, func, NULL, NULL, NULL, NULL, NULL,
+                              NULL);
 }
