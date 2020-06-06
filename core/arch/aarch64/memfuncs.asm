@@ -1,5 +1,6 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2020 Google, Inc. All rights reserved.
+ * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,14 +14,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Google, Inc. nor the names of its contributors may be
+ * * Neither the name of ARM Limited nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL ARM LIMITED OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -31,31 +32,53 @@
  */
 
 /*
- * cross-platform assembly and trampoline code
+ * memfuncs.asm: Contains our custom memcpy and memset routines.
+ *
+ * See the long comment at the top of x86/memfuncs.asm.
  */
 
-#include "../arch/asm_defines.asm"
+#include "../asm_defines.asm"
 START_FILE
+#ifdef UNIX
 
-/* For AArch64, drlibc has no references to unexpected_return, and in fact we
- * have a relocation reachability error if we include it here (i#4304), so
- * we limit its use in drlibc to x86 or arm.
+/* Private memcpy.
+ * FIXME i#1569: We should optimize this as it can be on the critical path.
  */
-#ifndef AARCH64
-DECL_EXTERN(d_r_internal_error)
+        DECLARE_FUNC(memcpy)
+GLOBAL_LABEL(memcpy:)
+        mov      x3, ARG1
+        cbz      ARG3, 2f
+1:      ldrb     w4, [ARG2], #1
+        strb     w4, [x3], #1
+        sub      ARG3, ARG3, #1
+        cbnz     ARG3, 1b
+2:      ret
+        END_FUNC(memcpy)
 
-/* For debugging: report an error if the function called by call_switch_stack()
- * unexpectedly returns.  Also used elsewhere.
+/* Private memset.
+ * FIXME i#1569: we should optimize this as it can be on the critical path.
  */
-        DECLARE_FUNC(unexpected_return)
-GLOBAL_LABEL(unexpected_return:)
-        CALLC3(GLOBAL_REF(d_r_internal_error), HEX(0), HEX(0), HEX(0))
-        /* d_r_internal_error normally never returns */
-        /* Infinite loop is intentional.  Can we do better in release build?
-         * XXX: why not a debug instr?
-         */
-        JUMP  GLOBAL_REF(unexpected_return)
-        END_FUNC(unexpected_return)
-#endif
+        DECLARE_FUNC(memset)
+GLOBAL_LABEL(memset:)
+        mov      x3, ARG1
+        cbz      ARG3, 2f
+1:      strb     w1, [x3], #1
+        sub      ARG3, ARG3, #1
+        cbnz     ARG3, 1b
+2:      ret
+        END_FUNC(memset)
+
+/* See x86.asm notes about needing these to avoid gcc invoking *_chk */
+.global __memcpy_chk
+.hidden __memcpy_chk
+WEAK(__memcpy_chk)
+.set __memcpy_chk,memcpy
+
+.global __memset_chk
+.hidden __memset_chk
+WEAK(__memset_chk)
+.set __memset_chk,memset
+
+#endif /* UNIX */
 
 END_FILE

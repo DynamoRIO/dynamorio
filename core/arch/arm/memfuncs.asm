@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
- * **********************************************************/
+ * ********************************************************** */
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -31,31 +31,61 @@
  */
 
 /*
- * cross-platform assembly and trampoline code
+ * memfuncs.asm: Contains our custom memcpy and memset routines.
+ *
+ * See the long comment at the top of x86/memfuncs.asm.
  */
 
-#include "../arch/asm_defines.asm"
+#include "../asm_defines.asm"
 START_FILE
 
-/* For AArch64, drlibc has no references to unexpected_return, and in fact we
- * have a relocation reachability error if we include it here (i#4304), so
- * we limit its use in drlibc to x86 or arm.
- */
-#ifndef AARCH64
-DECL_EXTERN(d_r_internal_error)
+#ifdef UNIX
 
-/* For debugging: report an error if the function called by call_switch_stack()
- * unexpectedly returns.  Also used elsewhere.
+/* Private memcpy.
+ * FIXME i#1551: we should optimize this as it can be on the critical path.
  */
-        DECLARE_FUNC(unexpected_return)
-GLOBAL_LABEL(unexpected_return:)
-        CALLC3(GLOBAL_REF(d_r_internal_error), HEX(0), HEX(0), HEX(0))
-        /* d_r_internal_error normally never returns */
-        /* Infinite loop is intentional.  Can we do better in release build?
-         * XXX: why not a debug instr?
-         */
-        JUMP  GLOBAL_REF(unexpected_return)
-        END_FUNC(unexpected_return)
-#endif
+        DECLARE_FUNC(memcpy)
+GLOBAL_LABEL(memcpy:)
+        cmp      ARG3, #0
+        mov      REG_R12/*scratch reg*/, ARG1
+1:      beq      2f
+        ldrb     REG_R3, [ARG2]
+        strb     REG_R3, [ARG1]
+        subs     ARG3, ARG3, #1
+        add      ARG2, ARG2, #1
+        add      ARG1, ARG1, #1
+        b        1b
+2:      mov      REG_R0, REG_R12
+        bx       lr
+        END_FUNC(memcpy)
+
+/* Private memset.
+ * FIXME i#1551: we should optimize this as it can be on the critical path.
+ */
+        DECLARE_FUNC(memset)
+GLOBAL_LABEL(memset:)
+        cmp      ARG3, #0
+        mov      REG_R12/*scratch reg*/, ARG1
+1:      beq      2f
+        strb     ARG2, [ARG1]
+        subs     ARG3, ARG3, #1
+        add      ARG1, ARG1, #1
+        b        1b
+2:      mov      REG_R0, REG_R12
+        bx       lr
+        END_FUNC(memset)
+
+/* See x86.asm notes about needing these to avoid gcc invoking *_chk */
+.global __memcpy_chk
+.hidden __memcpy_chk
+WEAK(__memcpy_chk)
+.set __memcpy_chk,memcpy
+
+.global __memset_chk
+.hidden __memset_chk
+WEAK(__memset_chk)
+.set __memset_chk,memset
+
+#endif /* UNIX */
 
 END_FILE

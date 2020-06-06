@@ -164,6 +164,13 @@ for (my $i = 0; $i < $#lines; ++$i) {
         } elsif ($line =~ /(\d+) tests failed, of which (\d+)/) {
             $fail = 1 if ($2 < $1);
         }
+    } elsif ($line =~ /CMake Error.*runsuite/) {
+        # Try to catch things like failing to read a file (i#4312) in
+        # our runsuite code, but ruling out non-suite-fatal errors like
+        # missing optional cross-compilation setups.
+        $fail = 1;
+        $should_print = 1;
+        $name = "runsuite script itself";
     } elsif ($line =~ /^\s*ERROR: diff contains/) {
         $fail = 1;
         $should_print = 1;
@@ -216,7 +223,8 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|api.detach_spawn' => 1, # i#2611
                                    'code_api|api.startstop' => 1, # i#2093
                                    'code_api|api.static_noclient' => 1,
-                                   'code_api|api.static_noinit' => 1);
+                                   'code_api|api.static_noinit' => 1,
+                                   'code_api|client.drwrap-test-detach' => 1); # i#4058
             $issue_no = "#2145";
         } elsif ($is_aarchxx) {
             # FIXME i#2416: fix flaky AArch32 tests

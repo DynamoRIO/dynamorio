@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2019-2020 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -93,14 +93,6 @@ foreach(line ${lines})
       line MATCHES "disassemble\n")
     # OK: an exception we allow for now.
     set(is_ok ON)
-  endif ()
-  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm" OR
-      CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
-    if (line MATCHES "memcpy\n" OR
-        line MATCHES "memset\n")
-      # XXX i#3348: We need to remove these from the aarchxx builds too.
-      set(is_ok ON)
-    endif ()
   endif ()
   if (NOT is_ok)
     message(FATAL_ERROR
