@@ -1802,9 +1802,72 @@ bool
 dr_set_client_version_string(const char *version);
 
 DR_API
+/**
+ * Returns the error code of the last failed API routine. Users should check whether or
+ * not the API routine that they just called has failed prior to calling this function.
+ *
+ * \warning Not all API routines currently support the registering of an error code upon
+ * their failure. Therefore, check the routine's documentation to see whether it supports
+ * setting error codes.
+ */
+dr_error_code_t
+dr_get_error_code(void *drcontext);
+
+DR_API
 /** Returns the image name (without path) of the current application. */
 const char *
 dr_get_application_name(void);
+
+DR_API
+/**
+ * Provides information about the app's arguments by setting \p args_array up to
+ * the count denoted by \p args_count. Therefore, \p args_count is not the size of the
+ * buffer in bytes but the number of #dr_app_arg_t values that \p args_array can store.
+ * Returns the number of args set or -1 on error.
+ *
+ * Use dr_app_arg_as_cstring() to get the argument as a string.
+ *
+ * Use dr_num_app_args() to query the total number of command-line arguments passed to
+ * the application.
+ *
+ * \note Currently, this function is only available on Unix with
+ * early injection.
+ *
+ * \note An error code may be obtained via dr_get_error_code() when this routine fails.
+ */
+int
+dr_get_app_args(OUT dr_app_arg_t *args_array, int args_count);
+
+DR_API
+/**
+ * Returns the number of command-line arguments passed to the application.
+ *
+ * \note Currently, this function is only available on Unix with
+ * early injection.
+ *
+ * \note An error code may be obtained via dr_get_error_code() when this routine fails.
+ */
+int
+dr_num_app_args(void);
+
+DR_API
+/**
+ * Returns the passed argument \p app_arg as a string. \p buf is used only if needed, and
+ * therefore the caller should not assume that the string is in the \p buf. In other
+ * words, always use the returned value to refer to the string. Returns NULL on error
+ * such as when \p buf is needed as storage and the size of the buffer \p buf_size
+ * is not sufficient.
+ *
+ * To obtain a suitable upper-bound size of the string buffer, get the size of the
+ * argument from the #dr_app_arg_t value retrieved via dr_get_app_args().
+ *
+ * \note Currently, this function is only available on Unix with
+ * early injection.
+ *
+ * \note An error code may be obtained via dr_get_error_code() when this routine fails.
+ */
+const char *
+dr_app_arg_as_cstring(IN dr_app_arg_t *app_arg, char *buf, int buf_size);
 
 DR_API
 /** Returns the process id of the current process. */

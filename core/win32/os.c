@@ -3194,6 +3194,32 @@ is_phandle_me(HANDLE phandle)
     }
 }
 
+/* Returns the number of application's command-line arguments. */
+int
+num_app_args()
+{
+    /* XXX i#2662: Add support for Windows. */
+    ASSERT_NOT_IMPLEMENTED(false);
+#    ifdef CLIENT_INTERFACE
+    set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+#    endif
+
+    return -1;
+}
+
+/* Returns the application's command-line arguments. */
+int
+get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
+{
+    /* XXX i#2662: Add support for Windows. */
+    ASSERT_NOT_IMPLEMENTED(false);
+#    ifdef CLIENT_INTERFACE
+    set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+#    endif
+
+    return -1;
+}
+
 /* used only in get_dynamorio_library_path() but file level namespace
  * so it is easily available to windbg scripts */
 static char dynamorio_library_path[MAXIMUM_PATH];
