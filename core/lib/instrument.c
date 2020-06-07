@@ -2784,6 +2784,62 @@ dr_get_application_name(void)
 #    endif
 }
 
+void
+set_client_error_code(dcontext_t *dcontext, dr_error_code_t error_code)
+{
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+
+    dcontext->client_data->error_code = error_code;
+}
+
+dr_error_code_t
+dr_get_error_code(void *drcontext)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+
+    if (dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+
+    CLIENT_ASSERT(dcontext != NULL, "invalid drcontext");
+    return dcontext->client_data->error_code;
+}
+
+int
+dr_num_app_args(void)
+{
+    /* XXX i#2662: Add support for Windows. */
+    return num_app_args();
+}
+
+int
+dr_get_app_args(OUT dr_app_arg_t *args_array, int args_count)
+{
+    /* XXX i#2662: Add support for Windows. */
+    return get_app_args(args_array, (int)args_count);
+}
+
+const char *
+dr_app_arg_as_cstring(IN dr_app_arg_t *app_arg, char *buf, int buf_size)
+{
+    if (app_arg == NULL) {
+        set_client_error_code(NULL, DR_ERROR_INVALID_PARAMETER);
+        return NULL;
+    }
+
+    switch (app_arg->encoding) {
+    case DR_APP_ARG_CSTR_COMPAT: return (char *)app_arg->start;
+    case DR_APP_ARG_UTF_16:
+        /* XXX i#2662: To implement using utf16_to_utf8(). */
+        ASSERT_NOT_IMPLEMENTED(false);
+        set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+        break;
+    default: set_client_error_code(NULL, DR_ERROR_UNKNOWN_ENCODING);
+    }
+
+    return NULL;
+}
+
 DR_API process_id_t
 dr_get_process_id(void)
 {

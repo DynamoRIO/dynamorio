@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -186,7 +186,7 @@ DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
 # drconfiglib now uses drfront_access()
 # drconfiglib needs drlibc for dr_fpu_exception_init()
 target_link_libraries(drconfiglib drfrontendlib drlibc)
-if (UNIX AND X86)
+if (UNIX)
   # We need our own memcpy + memset to avoid glibc versioning (i#1504).
   target_link_libraries(drconfiglib drmemfuncs)
 endif ()
@@ -202,7 +202,7 @@ if (UNIX)
   # We need drlibc for module-parsing routines.
   target_link_libraries(drfrontendlib drlibc)
 endif ()
-if (UNIX AND X86)
+if (UNIX)
   # We need our own memcpy + memset to avoid glibc versioning (i#1504).
   target_link_libraries(drfrontendlib drmemfuncs)
 endif ()

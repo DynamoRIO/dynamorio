@@ -334,7 +334,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   else ()
     set(32bit_path "")
   endif ()
-  set(orig_extra_ctest_args extra_ctest_args)
+  set(orig_extra_ctest_args ${extra_ctest_args})
   set(extra_ctest_args INCLUDE_LABEL RUN_IN_RELEASE)
   testbuild_ex("release-external-64" ON "
     DEBUG:BOOL=OFF
@@ -343,7 +343,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
     ${install_path_cache}
     ${32bit_path}
     " OFF ${arg_package} "${install_build_args}")
-  set(extra_ctest_args orig_extra_ctest_args)
+  set(extra_ctest_args ${orig_extra_ctest_args})
   if (DO_ALL_BUILDS)
     # we rarely use internal release builds but keep them working in long
     # suite (not much burden) in case we need to tweak internal options

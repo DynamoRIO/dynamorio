@@ -1901,6 +1901,11 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
      */
     set_executable_path(exe_path);
 
+    /* XXX i#2662: Currently, we only support getting args for early injection.
+     * Add support for late injection.
+     */
+    set_app_args((int *)argc, argv);
+
     success = elf_loader_read_headers(&exe_ld, exe_path);
     apicheck(success,
              "Failed to read app ELF headers.  Check path and "

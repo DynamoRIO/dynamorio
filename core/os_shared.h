@@ -314,6 +314,45 @@ char *
 get_application_pid(void);
 char *
 get_application_name(void);
+
+/* DR_API EXPORT BEGIN */
+/**
+ * Encodings of an application's command-line argument.
+ */
+typedef enum {
+    /**
+     * C String Encoding.
+     */
+    DR_APP_ARG_CSTR_COMPAT,
+    /**
+     * UTF 16 String Encoding.
+     */
+    DR_APP_ARG_UTF_16,
+} dr_app_arg_encoding_t;
+
+/**
+ * Contains information regarding an application's command-line argument.
+ */
+typedef struct _dr_app_arg_t {
+    /**
+     * The start boundary where the content of the arg begins.
+     */
+    void *start;
+    /**
+     * The size, in bytes, of the argument.
+     */
+    size_t size;
+    /**
+     * The encoding of the argument.
+     */
+    dr_app_arg_encoding_t encoding;
+} dr_app_arg_t;
+/* DR_API EXPORT END */
+
+int
+num_app_args();
+int
+get_app_args(OUT dr_app_arg_t *args_array, int args_count);
 const char *
 get_application_short_name(void);
 char *
