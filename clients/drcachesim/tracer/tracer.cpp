@@ -1483,7 +1483,8 @@ init_thread_in_process(void *drcontext)
         NOTIFY(2, "Created thread trace file %s\n", buf);
 
         /* Write initial headers at the top of the first buffer. */
-        offline_file_type_t file_type = op_L0_filter.get_value()
+        offline_file_type_t file_type =
+            op_L0_filter.get_value() || op_instr_only_trace.get_value()
             ? OFFLINE_FILE_TYPE_FILTERED
             : OFFLINE_FILE_TYPE_DEFAULT;
         if (op_disable_optimizations.get_value()) {

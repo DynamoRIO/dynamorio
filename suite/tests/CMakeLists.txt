@@ -3095,6 +3095,8 @@ endif ()
 
       torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter" "" "")
 
+      torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
+
       # We run common.decode-bad to test markers for faults
       if (X86) # decode-bad is x86-only
         # Do not cap the trace size (done to shorten tests) b/c it will then miss
