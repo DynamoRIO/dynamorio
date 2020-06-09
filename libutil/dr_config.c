@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -99,6 +99,7 @@ typedef struct _client_opt_t {
     TCHAR *path;
     client_id_t id;
     TCHAR *opts;
+    bool alt_bitwidth;
 } client_opt_t;
 
 typedef struct _opt_info_t {
@@ -174,7 +175,7 @@ get_next_token(TCHAR *ptr, TCHAR *token)
 
 /* Allocate a new client_opt_t */
 static client_opt_t *
-new_client_opt(const TCHAR *path, client_id_t id, const TCHAR *opts)
+new_client_opt(const TCHAR *path, client_id_t id, const TCHAR *opts, bool alt_bitwidth)
 {
     size_t len;
     client_opt_t *opt = (client_opt_t *)malloc(sizeof(client_opt_t));
@@ -183,6 +184,7 @@ new_client_opt(const TCHAR *path, client_id_t id, const TCHAR *opts)
     }
 
     opt->id = id;
+    opt->alt_bitwidth = alt_bitwidth;
 
     len = MIN(MAXIMUM_PATH - 1, _tcslen(path));
     opt->path = malloc((len + 1) * sizeof(opt->path[0]));
@@ -216,7 +218,7 @@ free_client_opt(client_opt_t *opt)
 /* Add another client to an opt_info_t struct */
 static dr_config_status_t
 add_client_lib(opt_info_t *opt_info, client_id_t id, size_t pri, const TCHAR *path,
-               const TCHAR *opts)
+               const TCHAR *opts, bool alt_bitwidth)
 {
     size_t i;
 
@@ -233,7 +235,7 @@ add_client_lib(opt_info_t *opt_info, client_id_t id, size_t pri, const TCHAR *pa
         opt_info->client_opts[i] = opt_info->client_opts[i - 1];
     }
 
-    opt_info->client_opts[pri] = new_client_opt(path, id, opts);
+    opt_info->client_opts[pri] = new_client_opt(path, id, opts, alt_bitwidth);
     opt_info->num_clients++;
 
     return DR_SUCCESS;
@@ -243,6 +245,7 @@ static dr_config_status_t
 remove_client_lib(opt_info_t *opt_info, client_id_t id)
 {
     size_t i, j;
+    dr_config_status_t status = DR_ID_INVALID;
     for (i = 0; i < opt_info->num_clients; i++) {
         if (opt_info->client_opts[i]->id == id) {
             free_client_opt(opt_info->client_opts[i]);
@@ -253,11 +256,13 @@ remove_client_lib(opt_info_t *opt_info, client_id_t id)
             }
 
             opt_info->num_clients--;
-            return DR_SUCCESS;
+            status = DR_SUCCESS;
+            /* Keep searching to also remove any alt-bitwidth for the same id. */
+            i--;
         }
     }
 
-    return DR_ID_INVALID;
+    return status;
 }
 
 /* Add an 'extra' option (non-client related option) to an opt_info_t struct */
@@ -799,7 +804,12 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
         /*
          * look for client options
          */
-        else if (_tcscmp(token, _TEXT("-client_lib")) == 0) {
+        else if (_tcscmp(token, _TEXT("-client_lib")) == 0 ||
+                 _tcscmp(token, _TEXT("-client_lib32")) == 0 ||
+                 _tcscmp(token, _TEXT("-client_lib64")) == 0) {
+            bool alt_bitwidth =
+                _tcscmp(token,
+                        IF_X64_ELSE(_TEXT("-client_lib32"), _TEXT("-client_lib64"))) == 0;
             TCHAR *path_str, *id_str, *opt_str;
             client_id_t id;
 
@@ -846,8 +856,8 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
             id = _tcstoul(id_str, NULL, 16);
 
             /* add the client info to our opt_info structure */
-            if (add_client_lib(opt_info, id, opt_info->num_clients, path_str, opt_str) !=
-                DR_SUCCESS) {
+            if (add_client_lib(opt_info, id, opt_info->num_clients, path_str, opt_str,
+                               alt_bitwidth) != DR_SUCCESS) {
                 goto error;
             }
         }
@@ -955,9 +965,13 @@ write_options(opt_info_t *opt_info, TCHAR *wbuf)
         /* no ; allowed */
         if (strchr(client_opts->path, ';') || strchr(client_opts->opts, ';'))
             return DR_CONFIG_OPTIONS_INVALID;
-        len = _sntprintf(wbuf + sofar, bufsz - sofar, _TEXT(" -client_lib %c%s;%x;%s%c"),
-                         delim, client_opts->path, client_opts->id, client_opts->opts,
-                         delim);
+        len = _sntprintf(
+            wbuf + sofar, bufsz - sofar,
+            client_opts->alt_bitwidth ? IF_X64_ELSE(_TEXT(" -client_lib32 %c%s;%x;%s%c"),
+                                                    _TEXT(" -client_lib64 %c%s;%x;%s%c"))
+                                      : IF_X64_ELSE(_TEXT(" -client_lib64 %c%s;%x;%s%c"),
+                                                    _TEXT(" -client_lib32 %c%s;%x;%s%c")),
+            delim, client_opts->path, client_opts->id, client_opts->opts, delim);
         if (len >= 0 && len <= bufsz - sofar)
             sofar += len;
     }
@@ -1214,6 +1228,8 @@ dr_unregister_process(const char *process_name, process_id_t pid, bool global,
         TCHAR wbuf[MAXIMUM_PATH];
         convert_to_tchar(wbuf, fname, BUFFER_SIZE_ELEMENTS(wbuf));
         NULL_TERMINATE_BUFFER(wbuf);
+        if (!file_exists(wbuf))
+            return DR_PROC_REG_INVALID;
         if (_wremove(wbuf) == 0)
             return DR_SUCCESS;
     }
@@ -1548,7 +1564,7 @@ dr_client_iterator_next(dr_client_iterator_t *iter, client_id_t *client_id, /* O
         *client_pri = iter->cur;
 
     if (client_path != NULL) {
-        size_t len = MIN(MAXIMUM_PATH - 1, _tcslen(client_opt->path));
+        size_t len = MIN(MAXIMUM_PATH - 1, _tcslen(client_opt->path) + 1);
         _snprintf(client_path, len, TSTR_FMT, client_opt->path);
         client_path[len] = '\0';
     }
@@ -1557,12 +1573,35 @@ dr_client_iterator_next(dr_client_iterator_t *iter, client_id_t *client_id, /* O
         *client_id = client_opt->id;
 
     if (client_options != NULL) {
-        size_t len = MIN(DR_MAX_OPTIONS_LENGTH - 1, _tcslen(client_opt->opts));
+        size_t len = MIN(DR_MAX_OPTIONS_LENGTH - 1, _tcslen(client_opt->opts) + 1);
         _snprintf(client_options, len, TSTR_FMT, client_opt->opts);
         client_options[len] = '\0';
     }
 
     iter->cur++;
+}
+
+dr_config_status_t
+dr_client_iterator_next_ex(dr_client_iterator_t *iter,
+                           dr_config_client_t *client /* IN/OUT */)
+{
+    client_opt_t *client_opt = iter->opt_info.client_opts[iter->cur];
+    if (client == NULL || client->struct_size != sizeof(dr_config_client_t))
+        return DR_CONFIG_INVALID_PARAMETER;
+    client->id = client_opt->id;
+    client->priority = iter->cur;
+    if (client->path != NULL) {
+        size_t len = MIN(MAXIMUM_PATH - 1, _tcslen(client_opt->path) + 1);
+        _snprintf(client->path, len, TSTR_FMT, client_opt->path);
+        client->path[len] = '\0';
+    }
+    if (client->options != NULL) {
+        size_t len = MIN(DR_MAX_OPTIONS_LENGTH - 1, _tcslen(client_opt->opts) + 1);
+        _snprintf(client->options, len, TSTR_FMT, client_opt->opts);
+        client->options[len] = '\0';
+    }
+    iter->cur++;
+    return DR_SUCCESS;
 }
 
 void
@@ -1606,10 +1645,11 @@ exit:
 }
 
 dr_config_status_t
-dr_get_client_info(const char *process_name, process_id_t pid, bool global,
-                   dr_platform_t dr_platform, client_id_t client_id, size_t *client_pri,
-                   char *client_path, char *client_options)
+dr_get_client_info_ex(const char *process_name, process_id_t pid, bool global,
+                      dr_platform_t dr_platform, dr_config_client_t *client)
 {
+    if (client == NULL || client->struct_size != sizeof(*client))
+        return DR_CONFIG_INVALID_PARAMETER;
     opt_info_t opt_info;
     dr_config_status_t status;
     size_t i;
@@ -1630,23 +1670,21 @@ dr_get_client_info(const char *process_name, process_id_t pid, bool global,
         goto exit;
 
     for (i = 0; i < opt_info.num_clients; i++) {
-        if (opt_info.client_opts[i]->id == client_id) {
+        if (opt_info.client_opts[i]->id == client->id) {
             client_opt_t *client_opt = opt_info.client_opts[i];
 
-            if (client_pri != NULL) {
-                *client_pri = i;
+            client->priority = i;
+            if (client->path != NULL) {
+                size_t len = MIN(MAXIMUM_PATH - 1, _tcslen(client_opt->path) + 1);
+                _snprintf(client->path, len, TSTR_FMT, client_opt->path);
+                client->path[len] = '\0';
             }
 
-            if (client_path != NULL) {
-                size_t len = MIN(MAXIMUM_PATH - 1, _tcslen(client_opt->path));
-                _snprintf(client_path, len, TSTR_FMT, client_opt->path);
-                client_path[len] = '\0';
-            }
-
-            if (client_options != NULL) {
-                size_t len = MIN(DR_MAX_OPTIONS_LENGTH - 1, _tcslen(client_opt->opts));
-                _snprintf(client_options, len, TSTR_FMT, client_opt->opts);
-                client_options[len] = '\0';
+            if (client->options != NULL) {
+                size_t len =
+                    MIN(DR_MAX_OPTIONS_LENGTH - 1, _tcslen(client_opt->opts) + 1);
+                _snprintf(client->options, len, TSTR_FMT, client_opt->opts);
+                client->options[len] = '\0';
             }
 
             status = DR_SUCCESS;
@@ -1667,10 +1705,29 @@ exit:
 }
 
 dr_config_status_t
-dr_register_client(const char *process_name, process_id_t pid, bool global,
-                   dr_platform_t dr_platform, client_id_t client_id, size_t client_pri,
-                   const char *client_path, const char *client_options)
+dr_get_client_info(const char *process_name, process_id_t pid, bool global,
+                   dr_platform_t dr_platform, client_id_t client_id, size_t *client_pri,
+                   char *client_path, char *client_options)
 {
+    dr_config_client_t client;
+    client.struct_size = sizeof(client);
+    client.id = client_id;
+    client.path = client_path;
+    client.options = client_options;
+    dr_config_status_t status =
+        dr_get_client_info_ex(process_name, pid, global, dr_platform, &client);
+    if (status == DR_SUCCESS && client_pri != NULL)
+        *client_pri = client.priority;
+    return status;
+}
+
+dr_config_status_t
+dr_register_client_ex(const char *process_name, process_id_t pid, bool global,
+                      dr_platform_t dr_platform, dr_config_client_t *client)
+{
+    if (client == NULL || client->struct_size != sizeof(*client))
+        return DR_CONFIG_INVALID_PARAMETER;
+
     TCHAR new_opts[DR_MAX_OPTIONS_LENGTH];
     TCHAR wpath[MAXIMUM_PATH], woptions[DR_MAX_OPTIONS_LENGTH];
 #ifdef PARAMS_IN_REGISTRY
@@ -1697,23 +1754,26 @@ dr_register_client(const char *process_name, process_id_t pid, bool global,
     opt_info_alloc = true;
 
     for (i = 0; i < opt_info.num_clients; i++) {
-        if (opt_info.client_opts[i]->id == client_id) {
+        if (opt_info.client_opts[i]->id == client->id &&
+            ((opt_info.client_opts[i]->alt_bitwidth && client->is_alt_bitwidth) ||
+             (!opt_info.client_opts[i]->alt_bitwidth && !client->is_alt_bitwidth))) {
             status = DR_ID_CONFLICTING;
             goto exit;
         }
     }
 
-    if (client_pri > opt_info.num_clients) {
+    if (client->priority > opt_info.num_clients) {
         status = DR_PRIORITY_INVALID;
         goto exit;
     }
 
-    convert_to_tchar(wpath, client_path, MAXIMUM_PATH);
+    convert_to_tchar(wpath, client->path, MAXIMUM_PATH);
     NULL_TERMINATE_BUFFER(wpath);
-    convert_to_tchar(woptions, client_options, DR_MAX_OPTIONS_LENGTH);
+    convert_to_tchar(woptions, client->options, DR_MAX_OPTIONS_LENGTH);
     NULL_TERMINATE_BUFFER(woptions);
 
-    status = add_client_lib(&opt_info, client_id, client_pri, wpath, woptions);
+    status = add_client_lib(&opt_info, client->id, client->priority, wpath, woptions,
+                            client->is_alt_bitwidth);
     if (status != DR_SUCCESS) {
         goto exit;
     }
@@ -1750,6 +1810,21 @@ exit:
     if (opt_info_alloc)
         free_opt_info(&opt_info);
     return status;
+}
+
+dr_config_status_t
+dr_register_client(const char *process_name, process_id_t pid, bool global,
+                   dr_platform_t dr_platform, client_id_t client_id, size_t client_pri,
+                   const char *client_path, const char *client_options)
+{
+    dr_config_client_t client;
+    client.struct_size = sizeof(client);
+    client.id = client_id;
+    client.priority = client_pri;
+    client.path = (char *)client_path;
+    client.options = (char *)client_options;
+    client.is_alt_bitwidth = false;
+    return dr_register_client_ex(process_name, pid, global, dr_platform, &client);
 }
 
 dr_config_status_t

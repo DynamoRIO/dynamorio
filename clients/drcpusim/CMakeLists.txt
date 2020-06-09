@@ -60,8 +60,20 @@ install_target(drcpusim ${INSTALL_CLIENTS_LIB})
 set(INSTALL_DRCPUSIM_CONFIG ${INSTALL_CLIENTS_BASE})
 
 function (write_config_file dst bindir libdir)
+  # We include the alternate-bitwidth path, though it won't be there for
+  # a single build dir and such a child will have a fatal error.
+  if (X64)
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+    set(CUR_BIT "64")
+    set(ALT_BIT "32")
+  else ()
+    set(CUR_BIT "32")
+    set(ALT_BIT "64")
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+  endif ()
   file(WRITE  ${dst} "# drcpusim tool config file\n")
-  file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}drcpusim${LIB_EXT}\n")
+  file(APPEND ${dst} "CLIENT${CUR_BIT}_REL=${libdir}/${LIB_PFX}drcpusim${LIB_EXT}\n")
+  file(APPEND ${dst} "CLIENT${ALT_BIT}_REL=${alt_libdir}/${LIB_PFX}drcpusim${LIB_EXT}\n")
 endfunction ()
 
 if (X64)

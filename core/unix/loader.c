@@ -516,7 +516,12 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
         ELF_ALTARCH_HEADER_TYPE *altarch = (ELF_ALTARCH_HEADER_TYPE *)elf_header;
         if (!TEST(MODLOAD_NOT_PRIVLIB, flags) && elf_header->e_version == 1 &&
             altarch->e_ehsize == sizeof(ELF_ALTARCH_HEADER_TYPE) &&
-            altarch->e_machine == IF_X64_ELSE(EM_386, EM_X86_64)) {
+            altarch->e_machine ==
+                IF_X64_ELSE(IF_AARCHXX_ELSE(EM_ARM, EM_386),
+                            IF_AARCHXX_ELSE(EM_AARCH64, EM_X86_64))) {
+            /* XXX i#147: Should we try some path substs like s/lib32/lib64/?
+             * Maybe it's better to error out to avoid loading some unintended lib.
+             */
             SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_WRONG_BITWIDTH, 3, get_application_name(),
                    get_application_pid(), filename);
         }
