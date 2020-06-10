@@ -1490,7 +1490,9 @@ init_thread_in_process(void *drcontext)
             file_type = static_cast<offline_file_type_t>(
                 file_type | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
         }
-        if (op_instr_only_trace.get_value()) {
+        if (op_instr_only_trace.get_value() ||
+            // Data entries are removed from trace if -L0_filter and -L0D_size 0
+            (op_L0_filter.get_value() && op_L0D_size.get_value() == 0)) {
             file_type = static_cast<offline_file_type_t>(
                 file_type | OFFLINE_FILE_TYPE_INSTRUCTION_ONLY);
         }
