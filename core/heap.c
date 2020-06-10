@@ -1605,8 +1605,11 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             DODEBUG({ out_of_vmheap_once = true; });
             if (!INTERNAL_OPTION(skip_out_of_vm_reserve_curiosity)) {
                 /* this maybe unsafe for early services w.r.t. case 666 */
-                SYSLOG_INTERNAL_WARNING("Out of vmheap reservation - reserving %dKB."
+                SYSLOG_INTERNAL_WARNING("Out of %s reservation - reserving %dKB. "
                                         "Falling back onto OS allocation",
+                                        (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP())
+                                            ? "vmcode"
+                                            : "vmheap",
                                         size / 1024);
                 ASSERT_CURIOSITY(false && "Out of vmheap reservation");
             }
