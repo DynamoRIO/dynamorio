@@ -177,6 +177,12 @@ droption_t<bytesize_t> op_L0D_size(
     "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
     "which disables data entries from appearing in the trace.");
 
+droption_t<bool> op_instr_only_trace(
+    DROPTION_SCOPE_CLIENT, "instr_only_trace", false,
+    "Include only instruction fetch entries in trace",
+    "If -instr_only_trace, only instruction fetch entries are included in the "
+    "trace and data entries are omitted.");
+
 droption_t<bool> op_coherence(
     DROPTION_SCOPE_FRONTEND, "coherence", false, "Model coherence for private caches",
     "Writes to cache lines will invalidate other private caches that hold that line.");

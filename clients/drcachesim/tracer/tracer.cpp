@@ -903,6 +903,9 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
                   reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref, int ref_index,
                   bool write, dr_pred_type_t pred)
 {
+    if (op_instr_only_trace.get_value()) {
+        return adjust;
+    }
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
     if (op_L0_filter.get_value()) {
@@ -1486,6 +1489,12 @@ init_thread_in_process(void *drcontext)
         if (op_disable_optimizations.get_value()) {
             file_type = static_cast<offline_file_type_t>(
                 file_type | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
+        }
+        if (op_instr_only_trace.get_value() ||
+            // Data entries are removed from trace if -L0_filter and -L0D_size 0
+            (op_L0_filter.get_value() && op_L0D_size.get_value() == 0)) {
+            file_type = static_cast<offline_file_type_t>(
+                file_type | OFFLINE_FILE_TYPE_INSTRUCTION_ONLY);
         }
         data->init_header_size =
             reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(

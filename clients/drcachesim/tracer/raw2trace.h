@@ -770,8 +770,9 @@ private:
         // Old versions have no elision.
         if (version <= OFFLINE_FILE_VERSION_NO_ELISION)
             return "";
-        // Filtered traces have no elision.
-        if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS,
+        // Filtered and instruction-only traces have no elision.
+        if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS |
+                        OFFLINE_FILE_TYPE_INSTRUCTION_ONLY,
                     impl()->get_file_type(tls)))
             return "";
         // Avoid type complaints for 32-bit.
@@ -916,6 +917,8 @@ private:
         // This indicates that each memref has its own PC entry and that each
         // icache entry does not need to be considered a memref PC entry as well.
         bool instrs_are_separate = false;
+        bool is_instr_only_trace =
+            TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls));
         uint64_t cur_modoffs = in_entry->pc.modoffs;
         std::unordered_map<reg_id_t, addr_t> reg_vals;
         if (instr_count == 0) {
@@ -996,7 +999,9 @@ private:
             // There is no following memref for (instrs_are_separate && !skip_icache).
             if (!interrupted && (!instrs_are_separate || skip_icache) &&
                 // Rule out OP_lea.
-                (instr->reads_memory() || instr->writes_memory())) {
+                (instr->reads_memory() || instr->writes_memory()) &&
+                // No following memref for instruction-only trace type.
+                !is_instr_only_trace) {
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
                     error = append_memref(tls, &buf, instr, instr->mem_src_at(j), false,
                                           reg_vals);
@@ -1174,6 +1179,8 @@ private:
                   instr_summary_t::memref_summary_t memref, bool write,
                   std::unordered_map<reg_id_t, addr_t> &reg_vals)
     {
+        DR_ASSERT(
+            !TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls)));
         trace_entry_t *buf = *buf_in;
         const offline_entry_t *in_entry = nullptr;
         bool have_addr = false;
