@@ -2877,6 +2877,8 @@ endif ()
       torunonly_drcachesim(filter-no-i ${ci_shared_app} "-L0_filter -L0I_size 0" "")
       torunonly_drcachesim(filter-no-d ${ci_shared_app} "-L0_filter -L0D_size 0" "")
 
+      torunonly_drcachesim(instr-only-trace ${ci_shared_app} "-instr_only_trace" "")
+
       torunonly_drcachesim(delay-simple ${ci_shared_app}
         "-trace_after_instrs 20000 -exit_after_tracing 10000" "")
 
@@ -3094,6 +3096,10 @@ endif ()
       endif ()
 
       torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter" "" "")
+      torunonly_drcacheoff(filter-no-d ${ci_shared_app} "-L0_filter -L0D_size 0" "" "")
+
+      torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
+      torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
 
       # We run common.decode-bad to test markers for faults
       if (X86) # decode-bad is x86-only

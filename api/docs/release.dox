@@ -154,6 +154,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_get_error_code() to obtain the error code of the last failed API routine.
    Not all API routines support the setting of error codes. Please look at their
    documentation to check if they do.
+ - Added -instr_only_trace option to drcachesim.
 
 **************************************************
 <hr>
