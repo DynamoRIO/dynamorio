@@ -3096,6 +3096,7 @@ endif ()
       endif ()
 
       torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter" "" "")
+      torunonly_drcacheoff(filter-no-i ${ci_shared_app} "-L0_filter -L0I_size 0" "" "")
       torunonly_drcacheoff(filter-no-d ${ci_shared_app} "-L0_filter -L0D_size 0" "" "")
 
       torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
