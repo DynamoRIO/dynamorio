@@ -36,7 +36,7 @@
 
 #include "../globals.h"
 #include "../module_shared.h"
-#include "os_private.h"
+#include "drlibc_unix.h"
 #include "module_private.h"
 #include "../utils.h"
 #include "instrument.h"
