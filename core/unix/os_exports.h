@@ -69,7 +69,7 @@
 /* We steal a segment register, and so use fs for x86 (where pthreads
  * uses gs) and gs for x64 (where pthreads uses fs) (presumably to
  * avoid conflicts w/ wine).
- * Keep this consistent w/ the TLS_SEG_OPCODE define in arch/instr.h
+ * Keep this consistent w/ the TLS_SEG_OPCODE define in ir/instr.h
  * and TLS_SEG in arch/asm_defines.asm
  *
  * PR 205276 covers transparently stealing our segment selector.
