@@ -1645,7 +1645,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
   file(MAKE_DIRECTORY ${BUILD_INCLUDE})
   # technically only the headers in the genapi.pl list
   file(GLOB header_files core/*.h core/*/*.h libutil/*.h core/hotpatch.c
-    core/arch/*/*.h ext/*/*.h)
+    core/arch/*/*.h core/ir/*.h core/ir/*/*.h ext/*/*.h)
   add_custom_command(
     OUTPUT ${EXTRA_HEADERS} # among other files
     DEPENDS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl

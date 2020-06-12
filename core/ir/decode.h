@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -446,7 +446,7 @@ enum {
 #    define IT_BLOCK_MAX_INSTRS 4
 #endif
 
-/* in encode.c, not exported to non-arch/ files */
+/* in encode.c, not exported to non-ir/ files */
 const instr_info_t *
 get_encoding_info(instr_t *instr);
 const instr_info_t *
