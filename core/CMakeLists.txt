@@ -238,6 +238,8 @@ set(DECODER_SRCS
   ir/${ARCH_NAME}/encode.c
   ir/disassemble_shared.c
   ir/${ARCH_NAME}/disassemble.c
+  ir/ir_utils_shared.c
+  ir/${ARCH_NAME_SHARED}/ir_utils.c
   )
 if (X86)
   set(DECODER_SRCS ${DECODER_SRCS}
@@ -268,7 +270,6 @@ set(ARCH_SRCS
   arch/proc_shared.c
   arch/${ARCH_NAME}/proc.c
   arch/mangle_shared.c
-  ir/ir_utils.c
   arch/${ARCH_NAME_SHARED}/mangle.c
   arch/clean_call_opt_shared.c
   arch/${ARCH_NAME}/clean_call_opt.c
@@ -962,8 +963,6 @@ endif (UNIX)
 # static decoding library
 add_library(drdecode
   ${DECODER_SRCS}
-  arch/${ARCH_NAME_SHARED}/mangle.c
-  ir/ir_utils.c
   ir/decodelib.c
   string.c
   io.c

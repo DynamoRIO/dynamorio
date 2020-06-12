@@ -49,6 +49,7 @@
 #include "decode.h"       /* for X64_CACHE_MODE_DC */
 #include "arch_exports.h" /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
 #include "../fragment.h"  /* IS_IBL_TARGET */
+#include "ir_utils.h"
 
 #if defined(X86) && defined(X64)
 static inline bool
@@ -509,24 +510,8 @@ mangle_init(void);
 void
 mangle_exit(void);
 void
-insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
-                       instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
-                       OUT instr_t **last);
-void
 patch_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
                       instr_t *last);
-void
-insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, instrlist_t *ilist,
-                        instr_t *instr, OUT instr_t **first, OUT instr_t **last);
-void
-insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
-                      opnd_t dst, instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
-                      OUT instr_t **last);
-void
-insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
-                       instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
-                       OUT instr_t **last);
-
 /* in mangle.c arch-specific implementation */
 #ifdef ARM
 int
@@ -543,16 +528,8 @@ uint
 insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              bool clean_call, uint num_args, opnd_t *args);
 void
-insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
-                      ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
-                      OUT instr_t **first, OUT instr_t **last);
-void
 patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
                      instr_t *last);
-void
-insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
-                       ptr_int_t val, instrlist_t *ilist, instr_t *instr,
-                       OUT instr_t **first, OUT instr_t **last);
 instr_t *
 convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 void

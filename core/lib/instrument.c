@@ -43,12 +43,12 @@
 #include "../globals.h" /* just to disable warning C4206 about an empty file */
 
 #include "instrument.h"
-#include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
 #include "instrlist.h"
 #include "decode.h"
 #include "disassemble.h"
+#include "ir_utils.h"
 #include "../fragment.h"
 #include "../fcache.h"
 #include "../emit.h"
