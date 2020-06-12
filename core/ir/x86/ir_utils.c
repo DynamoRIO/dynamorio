@@ -325,6 +325,9 @@ convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     return instr;
 }
 
+/* XXX: Best to move DR-execution-related things like this out of core/ir/ and into
+ * core/arch/, but untangling them all will take some work, so for now it lives here.
+ */
 /* For jecxz and loop*, we create 3 instructions in a single
  * instr that we treat like a single conditional branch.
  * On re-decoding our own output we need to recreate that instr.

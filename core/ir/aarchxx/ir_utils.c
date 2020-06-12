@@ -41,6 +41,9 @@
 #define POST instrlist_meta_postinsert
 #define PRE instrlist_meta_preinsert
 
+/* XXX: Best to move DR-execution-related things like this out of core/ir/ and into
+ * core/arch/, but untangling them all will take some work, so for now it lives here.
+ */
 byte *
 remangle_short_rewrite(dcontext_t *dcontext, instr_t *instr, byte *pc, app_pc target)
 {
