@@ -49,7 +49,7 @@
  * We thus directly include opnd.h here for reg_id_t to resolve the circular
  * dependence (cleaner than having to use ushort instead of reg_id_t).
  */
-#include "../arch/opnd.h"
+#include "../ir/opnd.h"
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 #    define getpid getpid_forbidden_use_get_process_id

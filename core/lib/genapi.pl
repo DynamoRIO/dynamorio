@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 
 # **********************************************************
-# Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+# Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
 # Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
 # Copyright (c) 2018 Arm Limited         All rights reserved.
 # **********************************************************
@@ -180,7 +180,7 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
 # by comments in the header files.
 @headers =
     (
-     "$core/arch/instrlist.h",
+     "$core/ir/instrlist.h",
      "$core/lib/globals_shared.h", # defs
      "$core/lib/c_defines.h", # defs
      "$core/globals.h",
@@ -189,18 +189,18 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/os_shared.h",        # before instrument_api.h
      "$core/module_shared.h",    # before instrument_api.h
      "$core/lib/instrument_api.h",
-     "$core/arch/x86/opcode.h",
-     "$core/arch/arm/opcode.h",
-     "$core/arch/opnd.h",
-     "$core/arch/instr.h",
-     "$core/arch/instr_inline.h",
-     "$core/arch/instr_create_shared.h",
-     "$core/arch/x86/instr_create.h",
-     "$core/arch/aarch64/instr_create.h",
-     "$core/arch/arm/instr_create.h",
-     "$core/arch/decode.h",       # OPSZ_ consts, decode routines
-     "$core/arch/decode_fast.h",  # decode routines
-     "$core/arch/disassemble.h",  # disassemble routines
+     "$core/ir/x86/opcode.h",
+     "$core/ir/arm/opcode.h",
+     "$core/ir/opnd.h",
+     "$core/ir/instr.h",
+     "$core/ir/instr_inline.h",
+     "$core/ir/instr_create_shared.h",
+     "$core/ir/x86/instr_create.h",
+     "$core/ir/aarch64/instr_create.h",
+     "$core/ir/arm/instr_create.h",
+     "$core/ir/decode.h",       # OPSZ_ consts, decode routines
+     "$core/ir/decode_fast.h",  # decode routines
+     "$core/ir/disassemble.h",  # disassemble routines
      "$core/fragment.h",         # binary tracedump format
      "$core/win32/os_private.h", # rsrc section walking
      "$core/hotpatch.c",         # probe api
