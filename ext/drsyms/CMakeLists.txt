@@ -132,11 +132,11 @@ elseif (UNIX)
   else (APPLE)
     set(srcs ${srcs} drsyms_elf.c)
     set(dwarf_libpath
-      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libdwarf.a")
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${DR_HOST_ARCH}/lib${BITS}/libdwarf.a")
     set(elftc_libpath
-      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelftc.a")
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${DR_HOST_ARCH}/lib${BITS}/libelftc.a")
     set(elf_libpath
-      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelf.a")
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${DR_HOST_ARCH}/lib${BITS}/libelf.a")
   endif (APPLE)
   set(srcs_static ${srcs})
 endif (WIN32)

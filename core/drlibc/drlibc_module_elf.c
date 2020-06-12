@@ -108,9 +108,14 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         if ((elf_header.e_version != 1) ||
             (memory && elf_header.e_ehsize != sizeof(ELF_HEADER_TYPE)) ||
             (memory &&
+#    ifdef DR_HOST_NOT_TARGET
+             false
+#    else
              elf_header.e_machine !=
-                 IF_X86_ELSE(IF_X64_ELSE(EM_X86_64, EM_386),
-                             IF_X64_ELSE(EM_AARCH64, EM_ARM))))
+                 IF_HOST_X86_ELSE(IF_HOST_X64_ELSE(EM_X86_64, EM_386),
+                                  IF_HOST_X64_ELSE(EM_AARCH64, EM_ARM))
+#    endif
+             ))
             return false;
 #endif
         /* FIXME - should we add any of these to the check? For real
@@ -119,10 +124,12 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         ASSERT_CURIOSITY(!memory || elf_header.e_ehsize == sizeof(ELF_HEADER_TYPE));
         ASSERT_CURIOSITY(elf_header.e_ident[EI_OSABI] == ELFOSABI_SYSV ||
                          elf_header.e_ident[EI_OSABI] == ELFOSABI_LINUX);
+#ifndef DR_HOST_NOT_TARGET
         ASSERT_CURIOSITY(!memory ||
                          elf_header.e_machine ==
-                             IF_X86_ELSE(IF_X64_ELSE(EM_X86_64, EM_386),
-                                         IF_X64_ELSE(EM_AARCH64, EM_ARM)));
+                             IF_HOST_X86_ELSE(IF_HOST_X64_ELSE(EM_X86_64, EM_386),
+                                              IF_HOST_X64_ELSE(EM_AARCH64, EM_ARM)));
+#endif
         return true;
     }
     return false;

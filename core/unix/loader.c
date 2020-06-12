@@ -1637,10 +1637,13 @@ privload_mem_is_elf_so_header(byte *mem)
     /* libdynamorio should be ET_DYN */
     if (elf_hdr->e_type != ET_DYN)
         return false;
-    /* ARM or X86 */
+        /* ARM or X86 */
+#        ifndef DR_HOST_NOT_TARGET
     if (elf_hdr->e_machine !=
-        IF_X86_ELSE(IF_X64_ELSE(EM_X86_64, EM_386), IF_X64_ELSE(EM_AARCH64, EM_ARM)))
+        IF_HOST_X86_ELSE(IF_HOST_X64_ELSE(EM_X86_64, EM_386),
+                         IF_HOST_X64_ELSE(EM_AARCH64, EM_ARM)))
         return false;
+#        endif
     if (elf_hdr->e_ehsize != sizeof(ELF_HEADER_TYPE))
         return false;
     return true;

@@ -61,6 +61,11 @@
 # define AARCHXX
 #endif
 
+//NOCHECK
+#define X86
+#undef AARCH64
+#undef AARCHXX
+
 #if (defined(ARM) && defined(X64)) || (defined(AARCH64) && !defined(X64))
 # error ARM is only 32-bit; AARCH64 is 64-bit
 #endif

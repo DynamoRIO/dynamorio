@@ -285,11 +285,11 @@ disable_env(const char *name);
         asm(".section __DATA," name);      \
         asm(".align 12"); /* 2^12 */
 #else
-#    ifdef X86
+#    ifdef DR_HOST_X86
 #        define DECLARE_DATA_SECTION(name, wx)                \
             asm(".section " name ", \"a" wx "\", @progbits"); \
             asm(".align 0x1000");
-#    elif defined(AARCHXX)
+#    elif defined(DR_HOST_AARCHXX)
 #        define DECLARE_DATA_SECTION(name, wx)     \
             asm(".section " name ", \"a" wx "\""); \
             asm(".align 12"); /* 2^12 */
@@ -308,12 +308,12 @@ disable_env(const char *name);
         asm(".align 12");                   \
         asm(".text");
 #else
-#    ifdef X86
+#    ifdef DR_HOST_X86
 #        define END_DATA_SECTION_DECLARATIONS() \
             asm(".section .data");              \
             asm(".align 0x1000");               \
             asm(".text");
-#    elif defined(AARCHXX)
+#    elif defined(DR_HOST_AARCHXX)
 #        define END_DATA_SECTION_DECLARATIONS() \
             asm(".section .data");              \
             asm(".align 12");                   \

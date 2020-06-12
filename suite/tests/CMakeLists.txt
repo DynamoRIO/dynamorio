@@ -546,6 +546,10 @@ function(add_exe test source)
   # Some files use asm code, which must be separate for x64, but it's much
   # more convenient to have it in the same source file and auto-split.
   if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
+    if (DR_HOST_NOT_TARGET)
+      # We just don't support such tests.
+      message(FATAL_ERROR "No asm-containing tests supported for host!=target")
+    endif ()
     # we rely on the asm rule doing preprocessing for us, so we just make
     # a copy and set the ASM_CODE_ONLY define
     get_filename_component(source_abs "${source}" ABSOLUTE)
@@ -743,6 +747,9 @@ function(configure_app_api_build_flags test decoder use_static_DR)
   string(REGEX REPLACE "-DCLANG" "" prop_cflags "${prop_cflags}")
   string(REGEX REPLACE "-DANDROID" "" prop_cflags "${prop_cflags}")
   string(REGEX REPLACE "-DDR_APP_EXPORTS" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DDR_HOST_ARM" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DDR_HOST_AARCH64" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DDR_HOST_X86" "" prop_cflags "${prop_cflags}")
   # FIXME: apparently moving cflags to a target property makes it show up
   # in the cpp run for asm targets, where it doesn't if in global var.
   # This causes compilation failure.  Removing -g3 manually as a workaround.
@@ -1662,6 +1669,66 @@ endfunction(optimize)
 # This step takes a while so we provide a status message:
 message(STATUS "Processing tests and generating expected output patterns")
 
+# Tests enabled when DR_HOST_NOT_TARGET go first:
+if (DR_HOST_NOT_TARGET)
+  if (CLIENT_INTERFACE)
+    if (ARM)
+      set(sfx "arm")
+    elseif (AARCH64)
+      set(sfx "aarch64")
+    else ()
+      set(sfx "x86")
+    endif ()
+    if (NOT ANDROID)
+      # XXX i#1874: get working on Android
+      tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF)
+      # XXX i#1686: add ARM's headers too once they are all created
+      if (NOT ARM AND NOT AARCH64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
+        # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
+        # and so doesn't find headers named via macros
+        # (http://www.cmake.org/Bug/view.php?id=13718)
+        set(api_ir_headers # must be full paths:
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_0args.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_1args.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_mm.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args.h
+          # The following headers are x86 specific.
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_evex.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_vex.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex_mask.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_vex.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_A.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_B.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_5args_avx512_evex_mask.h)
+        append_property_string(SOURCE api/ir_${sfx}.c OBJECT_DEPENDS "${api_ir_headers}")
+      endif ()
+
+      if (AARCH64)
+          tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF)
+      endif (AARCH64)
+    endif ()
+
+    # test static decoder library
+    tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
+
+    if (ARM)
+      if (NOT ANDROID) # XXX i#1874: get working on Android
+        tobuild_api(api.drdecode api/drdecode_arm.c "" "" ON OFF)
+      endif ()
+    elseif (AARCH64)
+      tobuild_api(api.drdecode api/drdecode_aarch64.c "" "" ON OFF)
+    else ()
+      tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
+    endif ()
+  endif ()
+
+else (DR_HOST_NOT_TARGET)
+#NOCHECK not yet willing to indent the world (and manually deal w/ long lines) until we're sure there's no simpler way: move the code at the bottom into a function up higher we can call here and at bottom, and then return() here??
+
 # Make sure we test running a path with spaces (to avoid regressions like i#2538).
 set(common.broadfun_outname "common.broadfun spaces")
 tobuild(common.broadfun common/broadfun.c)
@@ -1780,7 +1847,8 @@ endif ()
 #tobuild(common.ops common/ops.c)
 #tobuild(common.recurse common/recurse.c)
 
-if (ARM AND NOT ANDROID) # XXX i#1874: Android loader won't run our static asm apps
+# XXX i#1874: Android loader won't run our static asm apps
+if (DR_HOST_ARM AND NOT ANDROID)
   tobuild_ops(common.allasm_thumb common/allasm_thumb.asm
     # set small -max_bb_instrs to test bb_safe_to_stop()
     "-early_inject -max_bb_instrs 6" "")
@@ -1793,7 +1861,7 @@ if (ARM AND NOT ANDROID) # XXX i#1874: Android loader won't run our static asm a
   append_link_flags(common.allasm_arm "-nostartfiles -nodefaultlibs -static")
 endif ()
 
-if (AARCH64)
+if (DR_HOST_AARCH64)
   tobuild_ops(common.allasm_aarch64_isa common/allasm_aarch64_isa.asm
     "-early_inject" "") # FIXME i#1569: -enable_traces here
   set_target_properties(common.allasm_aarch64_isa PROPERTIES LINKER_LANGUAGE C)
@@ -2452,46 +2520,6 @@ if (CLIENT_INTERFACE)
   endif(ARM AND NOT ANDROID)
 
   if (ARM)
-    set(sfx "arm")
-  elseif (AARCH64)
-    set(sfx "aarch64")
-  else ()
-    set(sfx "x86")
-  endif ()
-  if (NOT ANDROID)
-    # XXX i#1874: get working on Android
-    tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF)
-    # XXX i#1686: add ARM's headers too once they are all created
-    if (NOT ARM AND NOT AARCH64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
-      # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
-      # and so doesn't find headers named via macros
-      # (http://www.cmake.org/Bug/view.php?id=13718)
-      set(api_ir_headers # must be full paths:
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_0args.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_1args.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_mm.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args.h
-        # The following headers are x86 specific.
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_evex.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_vex.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex_mask.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_vex.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_A.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_B.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_5args_avx512_evex_mask.h)
-      append_property_string(SOURCE api/ir_${sfx}.c OBJECT_DEPENDS "${api_ir_headers}")
-    endif ()
-
-    if (AARCH64)
-        tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF)
-    endif (AARCH64)
-  endif ()
-
-  if (ARM)
     if (NOT ANDROID) # XXX i#1874: get working on Android
       # Helper exe, used offline to build smaller input binary to test itself:
       add_api_exe(api.dis-create api/dis-create.c OFF OFF)
@@ -2556,18 +2584,6 @@ if (CLIENT_INTERFACE)
       link_with_pthread(${detach_spawn_quick_exit_name})
     endif ()
   endif ()
-  # test static decoder library
-  tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
-
-  if (ARM)
-    if (NOT ANDROID) # XXX i#1874: get working on Android
-      tobuild_api(api.drdecode api/drdecode_arm.c "" "" ON OFF)
-    endif ()
-  elseif (AARCH64)
-    tobuild_api(api.drdecode api/drdecode_aarch64.c "" "" ON OFF)
-  else ()
-    tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
-  endif ()
   if (X86)
     if (X64)
       tobuild_api(decenc.drdecode_decenc_x86_64
@@ -2606,7 +2622,7 @@ if (CLIENT_INTERFACE)
       get_filename_component(drname ${drpath} NAME_WE)
       append_link_flags(api.ibl-stress "${drdir}/${drname}.lib")
     endif ()
-endif ()
+  endif ()
 
   # XXX: we should expand this test of drsyms standalone to be cross-platform and
   # not just check libstdc++-6.dll.
@@ -4145,6 +4161,8 @@ if (NOT ANDROID)
   tochcon("${TestMemProtChg}" wine_exec_t)
   mark_execstack("${TestMemProtChg}")
 endif ()
+
+endif (DR_HOST_NOT_TARGET)
 
 if (vera++_FOUND)
   file(READ "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.templatex" vera_regex)

@@ -1401,7 +1401,7 @@ dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
 
 #ifndef ANDROID
 
-#    ifdef AARCH64
+#    if defined(AARCH64) && !defined(DR_HOST_NOT_TARGET)
 /* Defined in aarch64.asm. */
 ptr_int_t
 tlsdesc_resolver(struct tlsdesc_t *);

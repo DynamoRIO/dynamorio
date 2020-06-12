@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -105,7 +105,7 @@ test_cpuid()
 #    endif
 }
 
-#    ifdef __AVX__
+#    if !defined(DR_HOST_NOT_TARGET) && defined(__AVX__)
 
 static void
 unit_test_get_ymm_caller_saved()
@@ -393,7 +393,7 @@ unit_test_asm(dcontext_t *dc)
     print_file(STDERR, "testing asm\n");
     test_call_switch_stack(dc);
     test_cpuid();
-#    ifdef UNIX
+#    if defined(UNIX) && !defined(DR_HOST_NOT_TARGET)
 #        ifdef __AVX__
     unit_test_get_ymm_caller_saved();
 #        endif

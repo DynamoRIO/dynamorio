@@ -520,6 +520,19 @@ if (UNIX AND ARCH_IS_X86)
   set(ARCH_IS_X86 ON)
 endif (UNIX AND ARCH_IS_X86)
 
+#NOCHECK test Windows
+#NOCHECK test runsuite here
+#NOCHECK limit this to Windows master: only Linux PR's?  Separate Travis job there?
+if (ARCH_IS_X86)
+  # Test decoding and analyzing aarch64 traces on x86 machines.
+  testbuild_ex("aarch64-on-x86" ON "
+    TARGET_ARCH:STRING=aarch64
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    ${build_tests}
+    " OFF ${arg_package} "")
+endif ()
+
 # XXX: do we still care about these builds?
 ## defines we don't want to break -- no runs though since we don't currently use these
 #    "BUILD::NOSHORT::ADD_DEFINES=\"${D}DGC_DIAGNOSTICS\"",

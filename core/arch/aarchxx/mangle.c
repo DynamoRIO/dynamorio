@@ -2853,8 +2853,10 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, 16, OPSZ_16),
                 opnd_create_reg(xt == dr_reg_stolen ? DR_REG_X0 : xt),
                 opnd_create_reg(DR_REG_X30)));
+#    ifndef DR_HOST_NOT_TARGET
         insert_mov_immed_arch(dcontext, NULL, NULL, (ptr_int_t)icache_op_ic_ivau_asm,
                               opnd_create_reg(DR_REG_X30), ilist, instr, NULL, NULL);
+#    endif
         PRE(ilist, instr, /* mov x0, x28 */
             XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                               opnd_create_reg(dr_reg_stolen)));
@@ -2887,8 +2889,10 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 dcontext,
                 opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, 8, OPSZ_16),
                 opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2)));
+#    ifndef DR_HOST_NOT_TARGET
         insert_mov_immed_arch(dcontext, NULL, NULL, (ptr_int_t)icache_op_isb_asm,
                               opnd_create_reg(DR_REG_X2), ilist, instr, NULL, NULL);
+#    endif
         insert_mov_immed_arch(dcontext, NULL, NULL, (ptr_int_t)pc,
                               opnd_create_reg(DR_REG_X1), ilist, instr, NULL, NULL);
         PRE(ilist, instr, /* mov x0, x28 */

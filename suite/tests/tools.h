@@ -360,7 +360,14 @@ int
 code_dec(int foo);
 int
 dummy(void);
-#ifdef AARCHXX
+#ifdef DR_HOST_NOT_TARGET
+static inline void
+tools_clear_icache(void *start, void *end)
+{
+    assert(false);
+}
+#elif defined(AARCHXX)
+/* In tools.c asm code. */
 void
 tools_clear_icache(void *start, void *end);
 #endif
