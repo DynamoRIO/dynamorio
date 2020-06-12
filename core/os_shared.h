@@ -1251,7 +1251,7 @@ intercept_function_t(app_state_at_intercept_t *args);
 
 /* opcodes and encoding constants that we sometimes directly use */
 #ifdef X86
-/* FIXME: if we add more opcodes maybe should be exported by arch/ */
+/* XXX: if we add more opcodes maybe should be exported by ir/ */
 enum {
     JMP_REL32_OPCODE = 0xe9,
     JMP_REL32_SIZE = 5, /* size in bytes of 32-bit rel jmp */

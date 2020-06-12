@@ -148,7 +148,7 @@ view_t::process_memref(const memref_t &memref)
     if (cached_disasm != disasm_cache_.end()) {
         disasm = cached_disasm->second;
     } else {
-        // MAX_INSTR_DIS_SZ is set to 196 in core/arch/disassemble.h but is not
+        // MAX_INSTR_DIS_SZ is set to 196 in core/ir/disassemble.h but is not
         // exported so we just use the same value here.
         char buf[196];
         byte *next_pc = disassemble_to_buffer(

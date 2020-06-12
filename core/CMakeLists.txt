@@ -227,47 +227,48 @@ endif (WIN32 AND NOT X64)
 # perhaps we should separate the naming schemes.  "opnd_xarch.c" and
 # "inject_xlib.c"?
 set(DECODER_SRCS
-  arch/opnd_shared.c
-  arch/${ARCH_NAME_SHARED}/opnd.c
-  arch/instr_shared.c
-  arch/${ARCH_NAME}/instr.c
-  arch/instrlist.c
-  arch/decode_shared.c
-  arch/${ARCH_NAME}/decode.c
-  arch/encode_shared.c
-  arch/${ARCH_NAME}/encode.c
-  arch/disassemble_shared.c
-  arch/${ARCH_NAME}/disassemble.c
+  ir/opnd_shared.c
+  ir/${ARCH_NAME_SHARED}/opnd.c
+  ir/instr_shared.c
+  ir/${ARCH_NAME}/instr.c
+  ir/instrlist.c
+  ir/decode_shared.c
+  ir/${ARCH_NAME}/decode.c
+  ir/encode_shared.c
+  ir/${ARCH_NAME}/encode.c
+  ir/disassemble_shared.c
+  ir/${ARCH_NAME}/disassemble.c
   )
 if (X86)
   set(DECODER_SRCS ${DECODER_SRCS}
-    arch/${ARCH_NAME}/decode_table.c
-    arch/${ARCH_NAME}/decode_fast.c)
+    ir/${ARCH_NAME}/decode_table.c
+    ir/${ARCH_NAME}/decode_fast.c)
 elseif (ARM)
   set(DECODER_SRCS ${DECODER_SRCS}
-    arch/${ARCH_NAME}/table_a32_pred.c
-    arch/${ARCH_NAME}/table_a32_unpred.c
-    arch/${ARCH_NAME}/table_encode.c
-    arch/${ARCH_NAME}/table_t32_base.c
-    arch/${ARCH_NAME}/table_t32_coproc.c
-    arch/${ARCH_NAME}/table_t32_16.c
-    arch/${ARCH_NAME}/table_t32_16_it.c)
+    ir/${ARCH_NAME}/table_a32_pred.c
+    ir/${ARCH_NAME}/table_a32_unpred.c
+    ir/${ARCH_NAME}/table_encode.c
+    ir/${ARCH_NAME}/table_t32_base.c
+    ir/${ARCH_NAME}/table_t32_coproc.c
+    ir/${ARCH_NAME}/table_t32_16.c
+    ir/${ARCH_NAME}/table_t32_16_it.c)
 elseif (AARCH64)
   set(DECODER_SRCS ${DECODER_SRCS}
-    arch/${ARCH_NAME}/codec.c
-    arch/${ARCH_NAME}/build_ldstex.c)
+    ir/${ARCH_NAME}/codec.c
+    ir/${ARCH_NAME}/build_ldstex.c)
 endif ()
 
 set(ARCH_SRCS
   arch/arch.c
   arch/emit_utils_shared.c
   arch/${ARCH_NAME}/emit_utils.c
+  # TODO i#1684: Link with drdecode rather than compiling all the same files.
   ${DECODER_SRCS}
   arch/interp.c
   arch/proc_shared.c
   arch/${ARCH_NAME}/proc.c
   arch/mangle_shared.c
-  arch/mangle_utils.c
+  ir/ir_utils.c
   arch/${ARCH_NAME_SHARED}/mangle.c
   arch/clean_call_opt_shared.c
   arch/${ARCH_NAME}/clean_call_opt.c
@@ -962,8 +963,8 @@ endif (UNIX)
 add_library(drdecode
   ${DECODER_SRCS}
   arch/${ARCH_NAME_SHARED}/mangle.c
-  arch/mangle_utils.c
-  arch/decodelib.c
+  ir/ir_utils.c
+  ir/decodelib.c
   string.c
   io.c
   )
@@ -1133,8 +1134,10 @@ endif (BUILD_TESTS)
 include_directories(BEFORE
   ${CMAKE_CURRENT_SOURCE_DIR}/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/arch
+  ${CMAKE_CURRENT_SOURCE_DIR}/ir
   ${CMAKE_CURRENT_SOURCE_DIR}/${OSNAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/arch/${ARCH_NAME}
+  ${CMAKE_CURRENT_SOURCE_DIR}/ir/${ARCH_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/drlibc
   )
 

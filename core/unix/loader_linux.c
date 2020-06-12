@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -38,7 +38,7 @@
 #include "../globals.h"
 #include "../module_shared.h"
 #include "os_private.h"
-#include "../arch/instr.h" /* SEG_GS/SEG_FS */
+#include "../ir/instr.h" /* SEG_GS/SEG_FS */
 #include "module.h"
 #include "module_private.h"
 #include "../heap.h" /* HEAPACCT */
