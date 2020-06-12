@@ -1,8 +1,7 @@
-/* ******************************************************************************
+/* **********************************************************
  * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
- * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
- * ******************************************************************************/
+ * **********************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -36,42 +35,36 @@
 /* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
-/* file "ir_utils.c": multi-instruction manipulation shared between the core
- * and drdecode.
- */
+/* ir_utils.h -- IR utility functions */
 
-#include "../globals.h"
-#include "arch.h"
+#ifndef _IR_UTILS_H_
+#define _IR_UTILS_H_ 1
 
+/* Public */
 void
 insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
                        instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
-                       OUT instr_t **last)
-{
-    insert_mov_immed_arch(dcontext, NULL, NULL, val, dst, ilist, instr, first, last);
-}
-
+                       OUT instr_t **last);
+void
+insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, instrlist_t *ilist,
+                        instr_t *instr, OUT instr_t **first, OUT instr_t **last);
 void
 insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
                       opnd_t dst, instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
-                      OUT instr_t **last)
-{
-    insert_mov_immed_arch(dcontext, src, encode_estimate, 0, dst, ilist, instr, first,
-                          last);
-}
-
-void
-insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, instrlist_t *ilist,
-                        instr_t *instr, OUT instr_t **first, OUT instr_t **last)
-{
-    insert_push_immed_arch(dcontext, NULL, NULL, val, ilist, instr, first, last);
-}
-
+                      OUT instr_t **last);
 void
 insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
-                       OUT instr_t **last)
-{
-    insert_push_immed_arch(dcontext, src_inst, encode_estimate, 0, ilist, instr, first,
-                           last);
-}
+                       OUT instr_t **last);
+
+/* Private */
+void
+insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                      ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
+                      OUT instr_t **first, OUT instr_t **last);
+void
+insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                       ptr_int_t val, instrlist_t *ilist, instr_t *instr,
+                       OUT instr_t **first, OUT instr_t **last);
+
+#endif /* _IR_UTILS_H_ */
