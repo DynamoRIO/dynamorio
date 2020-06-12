@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -63,11 +63,7 @@
 #    undef errno
 #endif
 
-/* XXX: We've moved this code out of core/unix but we're still including a private
- * header from there.  We should try to separate the headers a little better
- * to make this a more isolated library.
- */
-#include "os_private.h"
+#include "drlibc_unix.h"
 
 #ifdef LINUX
 #    include "module_private.h" /* for ELF_AUXV_TYPE and AT_PAGESZ */

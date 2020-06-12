@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,20 +48,7 @@
 #include "dr_config.h" /* for dr_platform_t */
 #include "tls.h"
 #include "memquery.h"
-
-/* Cross arch syscall nums for use with struct stat64. */
-#ifdef MACOS64
-#    define SYSNUM_STAT SYS_stat64
-#    define SYSNUM_FSTAT SYS_fstat64
-#elif defined(X64)
-#    ifdef SYS_stat
-#        define SYSNUM_STAT SYS_stat
-#    endif
-#    define SYSNUM_FSTAT SYS_fstat
-#else
-#    define SYSNUM_STAT SYS_stat64
-#    define SYSNUM_FSTAT SYS_fstat64
-#endif
+#include "../drlibc/drlibc_unix.h"
 
 /* for inline asm */
 #ifdef X86
@@ -121,16 +108,6 @@
      CLONE_SETTLS | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID)
 
 #define SYSCALL_PARAM_CLONE_STACK 1
-
-/* On Mac, we use the _nocancel variant to defer app-initiated thread termination */
-#ifdef MACOS
-#    define SYSNUM_NO_CANCEL(num) num##_nocancel
-#else
-#    define SYSNUM_NO_CANCEL(num) num
-#endif
-
-/* Maximum number of arguments to Linux syscalls. */
-enum { MAX_SYSCALL_ARGS = 6 };
 
 struct _os_local_state_t;
 
@@ -252,9 +229,6 @@ set_app_args(int *, char **);
 
 uint
 memprot_to_osprot(uint prot);
-
-bool
-safe_read_if_fast(const void *base, size_t size, void *out_buf);
 
 bool
 mmap_syscall_succeeded(byte *retval);
