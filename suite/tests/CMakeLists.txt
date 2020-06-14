@@ -872,7 +872,7 @@ function(add_api_exe test source use_decoder use_static_DR)
         # libutil.drconfig_test needs drconfiglib.
         COMMAND ${CMAKE_COMMAND} ARGS
           -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/../drconfiglib.dll"
-          "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drconfiblib.dll"
+          "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drconfiglib.dll"
         # We copy drsyms.dll too, for api.symtest
         COMMAND ${CMAKE_COMMAND} ARGS
           -E copy "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}/drsyms.dll"
