@@ -1401,6 +1401,7 @@ dr_registered_process_iterator_start(dr_platform_t dr_platform, bool global)
     char dir[MAXIMUM_PATH];
     if (!get_config_dir(global, dir, BUFFER_SIZE_ELEMENTS(dir), false)) {
         iter->has_next = false;
+        iter->find_handle = INVALID_HANDLE_VALUE;
         return iter;
     }
     convert_to_tchar(iter->wdir, dir, BUFFER_SIZE_ELEMENTS(iter->wdir));
@@ -1460,8 +1461,11 @@ dr_registered_process_iterator_next(dr_registered_process_iterator_t *iter,
     }
     if (!FindNextFile(iter->find_handle, &iter->find_data))
         iter->has_next = false;
-    if (f == NULL || !ok)
+    if (f == NULL || !ok) {
+        if (f != NULL)
+            fclose(f);
         return false;
+    }
     read_process_policy(f, process_name, dr_root_dir, dr_mode, debug, dr_options);
     fclose(f);
     return true;
@@ -1539,10 +1543,24 @@ dr_client_iterator_start(const char *process_name, process_id_t pid, bool global
     iter->cur = 0;
     if (IF_REG_ELSE(proc_policy == NULL, f == NULL))
         return iter;
-    if (read_options(&iter->opt_info, IF_REG_ELSE(proc_policy, f)) != DR_SUCCESS)
+    if (read_options(&iter->opt_info, IF_REG_ELSE(proc_policy, f)) != DR_SUCCESS) {
+#ifdef PARAMS_IN_REGISTRY
+        if (policy != NULL)
+            free_config_group(policy);
+#else
+        if (f != NULL)
+            fclose(f);
+#endif
         return iter;
+    }
     iter->valid = true;
-
+#ifdef PARAMS_IN_REGISTRY
+    if (policy != NULL)
+        free_config_group(policy);
+#else
+    if (f != NULL)
+        fclose(f);
+#endif
     return iter;
 }
 
@@ -1600,6 +1618,7 @@ dr_client_iterator_next_ex(dr_client_iterator_t *iter,
         _snprintf(client->options, len, TSTR_FMT, client_opt->opts);
         client->options[len] = '\0';
     }
+    client->is_alt_bitwidth = client_opt->alt_bitwidth;
     iter->cur++;
     return DR_SUCCESS;
 }

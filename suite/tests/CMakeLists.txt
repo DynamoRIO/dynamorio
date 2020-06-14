@@ -869,6 +869,10 @@ function(add_api_exe test source use_decoder use_static_DR)
         COMMAND ${CMAKE_COMMAND} ARGS
           -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll"
+        # libutil.drconfig_test needs drconfiglib.
+        COMMAND ${CMAKE_COMMAND} ARGS
+          -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/../drconfiglib.dll"
+          "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drconfiblib.dll"
         # We copy drsyms.dll too, for api.symtest
         COMMAND ${CMAKE_COMMAND} ARGS
           -E copy "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}/drsyms.dll"
@@ -1820,6 +1824,10 @@ if (CLIENT_INTERFACE)
   # Just like frontend_test we request drdecode.
   tobuild_api(libutil.drconfig_test libutil/drconfig_test.c "" "${dr_root}" ON OFF)
   target_link_libraries(libutil.drconfig_test drconfiglib)
+  if (WIN32)
+    # We have to copy drconfiglib.dll into the bin dir.
+    add_dependencies(libutil.drconfig_test drcopy)
+  endif ()
 
   set(BUILD_TEST_ANNOTATION "${PROJECT_BINARY_DIR}/suite/tests/annotations")
   configure_file(

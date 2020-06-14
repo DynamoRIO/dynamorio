@@ -32,6 +32,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "dr_api.h"
 #include "dr_config.h"
 
@@ -148,7 +149,7 @@ test_register(const char *name, process_id_t pid, bool global, dr_platform_t dr_
 
     dr_client_iterator_t *iter = dr_client_iterator_start(name, pid, global, dr_platform);
     check(iter != NULL, "iter should instantiate");
-    int client_id;
+    unsigned int client_id;
     int count = 0;
     while (dr_client_iterator_hasnext(iter)) {
         dr_client_iterator_next(iter, &client_id, &client_pri, client_path, client_ops);
