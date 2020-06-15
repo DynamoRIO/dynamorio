@@ -141,7 +141,10 @@ changes:
 The changes between version \DR_VERSION and 8.0.0 include the following minor
 compatibility changes:
 
- Nothing yet.
+ - drconfiglib (and thus drrun and drconfig) now sets only the new client path
+   options which are added in this release to support other-bitwidth child processes.
+   This means that a drconfiglib from this version will not properly configure for a
+   DynamoRIO core library from a prior version.
 
 Further non-compatibility-affecting changes include:
 
@@ -155,6 +158,12 @@ Further non-compatibility-affecting changes include:
    Not all API routines support the setting of error codes. Please look at their
    documentation to check if they do.
  - Added -instr_only_trace option to drcachesim.
+ - Added other-bitwidth child process support, with the other client library
+   specified by "-c32" "-c64" to drrun or drdeploy, by dr_register_client_ex()
+   with #dr_config_client_t.is_alt_bitwidth=true to drconfiglib, and by
+   CLIENT{32,64}_{ABS,REL} in tool files.
+   Added dr_get_client_info_ex() and dr_client_iterator_next_ex() to support
+   querying other-bitwidth client registration.
 
 **************************************************
 <hr>

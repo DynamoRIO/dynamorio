@@ -117,7 +117,7 @@ if (WIN32)
 else () # UNIX
   # Most of it is unported.  We're just reusing some utils.c and the config
   # file writing code currently.
-  set(DRCONFIG_SRCS dr_config.c utils.c)
+  set(DRCONFIG_SRCS dr_config.c utils.c ${PROJECT_SOURCE_DIR}/core/io.c)
   if (APPLE)
     # XXX i#1286: implement nudge for MacOS
   else (APPLE)

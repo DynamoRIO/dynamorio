@@ -414,6 +414,17 @@ install_target(drraw2trace ${INSTALL_CLIENTS_BIN})
 set(INSTALL_DRCACHESIM_CONFIG ${INSTALL_CLIENTS_BASE})
 
 function (write_config_file dst bindir libdir)
+  # We include the alternate-bitwidth path, though it won't be there for
+  # a single build dir and such a child will have a fatal error.
+  if (X64)
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+    set(CUR_BIT "64")
+    set(ALT_BIT "32")
+  else ()
+    set(CUR_BIT "32")
+    set(ALT_BIT "64")
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+  endif ()
   if (DEBUG)
     set(debugopt "TOOL_OP=-dr_debug")
   else ()
@@ -426,8 +437,10 @@ TOOL_OP=-dr\n\
 TOOL_OP_DR_PATH\n\
 TOOL_OP_DR_BUNDLE=-dr_ops\n\
 TOOL_OP=-tracer\n\
-CLIENT_REL=${libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n\
-${debugopt}")
+CLIENT${CUR_BIT}_REL=${libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n\
+TOOL_OP=-tracer_alt\n\
+CLIENT${ALT_BIT}_REL=${alt_libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n\
+${debugopt}\n")
 endfunction ()
 
 if (X64)

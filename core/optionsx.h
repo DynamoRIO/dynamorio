@@ -343,14 +343,48 @@ OPTION_NAME_INTERNAL(bool, profile_times, "prof_times", "profiling via measuring
 
 #    ifdef CLIENT_INTERFACE
 /* FIXME (xref PR 215082): make these external now that our product is our API? */
-/* XXX: note that this does affect pcaches, but we don't want the
- * client option strings to matter, so we check this separately
- * from the general -persist_check_options
+/* XXX: These -client_lib* options do affect pcaches, but we don't want the
+ * client option strings to matter, so we check them separately
+ * from the general -persist_check_options.
  */
 /* This option is ignored for STATIC_LIBRARY. */
+/* XXX: We could save space by removing -client_lib and using only the {32,64}
+ * versions (or by having some kind of true alias where _lib points to the other).
+ */
 OPTION_DEFAULT_INTERNAL(liststring_t, client_lib, EMPTY_STRING,
                         ";-separated string containing client "
                         "lib paths, IDs, and options")
+#        ifdef X64
+OPTION_COMMAND_INTERNAL(liststring_t, client_lib64, EMPTY_STRING, "client_lib64",
+                        {
+                            snprintf(options->client_lib,
+                                     BUFFER_SIZE_ELEMENTS(options->client_lib), "%s",
+                                     options->client_lib64);
+                            NULL_TERMINATE_BUFFER(options->client_lib);
+                        },
+                        ";-separated string containing client "
+                        "lib paths, IDs, and options",
+                        STATIC, OP_PCACHE_NOP /* See note about pcache above. */)
+#            define ALT_CLIENT_LIB_NAME client_lib32
+#        else
+OPTION_COMMAND_INTERNAL(liststring_t, client_lib32, EMPTY_STRING, "client_lib32",
+                        {
+                            snprintf(options->client_lib,
+                                     BUFFER_SIZE_ELEMENTS(options->client_lib), "%s",
+                                     options->client_lib32);
+                            NULL_TERMINATE_BUFFER(options->client_lib);
+                        },
+                        ";-separated string containing client "
+                        "lib paths, IDs, and options",
+                        STATIC, OP_PCACHE_NOP /* See note about pcache above. */)
+#            define ALT_CLIENT_LIB_NAME client_lib64
+#        endif
+OPTION_COMMAND_INTERNAL(liststring_t, ALT_CLIENT_LIB_NAME, EMPTY_STRING,
+                        IF_X64_ELSE("client_lib32", "client_lib64"), {},
+                        ";-separated string containing client "
+                        "lib paths, IDs, and options for other-bitwidth children",
+                        STATIC, OP_PCACHE_GLOBAL)
+
 /* If we revive hotpatching should use this there as well: but for now
  * don't want to mess up any legacy tools that rely on hotp libs in
  * regular loader list
