@@ -142,9 +142,9 @@ The changes between version \DR_VERSION and 8.0.0 include the following minor
 compatibility changes:
 
  - drconfiglib (and thus drrun and drconfig) now sets only the new client path
-   options added to support other-bitwidth child processes.  This means that a
-   drconfiglib from this version will not properly configure for a DynamoRIO
-   core library from a prior version.
+   options which are added in this release to support other-bitwidth child processes.
+   This means that a drconfiglib from this version will not properly configure for a
+   DynamoRIO core library from a prior version.
 
 Further non-compatibility-affecting changes include:
 

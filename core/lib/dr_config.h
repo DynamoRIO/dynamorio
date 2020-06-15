@@ -148,6 +148,12 @@ typedef enum {
      */
     DR_CONFIG_INVALID_PARAMETER,
 
+    /**
+     * A primary client configuration was not found at the time an alternate bitwidth
+     * client was attempted to be registered.
+     */
+    DR_CONFIG_CLIENT_NOT_FOUND,
+
 } dr_config_status_t;
 
 /** Allow targeting both 32-bit and native 64-bit processes separately. */
@@ -175,21 +181,20 @@ typedef struct _dr_config_client_t {
      */
     client_id_t id;
     /**
-     * The client number, or priority. Client registration includes a value
-     * indicating the priority of a client relative to other clients. In
+     * The client number, or priority.  Client registration includes a value
+     * indicating the priority of a client relative to other clients.  In
      * multi-client settings, a client's priority influences event callback
-     * ordering.That is, higher priority clients can register their callbacks first;
+     * ordering.  That is, higher priority clients can register their callbacks first;
      * DynamoRIO then calls these routines last.  Client priorities range
      * consecutively from 0 to N-1, where N is the number of registered clients.
      * Specify priority 0 to register a client with highest priority.
      */
     size_t priority;
     /**
-     * A NULL-terminated string specifying the full path to a valid client library
-     * whose bitwidth is the opposite of that specified by dr_platform.  The string
-     * length cannot exceed #MAXIMUM_PATH.  The client path may not include any semicolons
-     * and when combined with \p client_options may not include all three quote
-     * characters (', ", `) simultaneously.
+     * A NULL-terminated string specifying the full path to a valid client library.
+     * The string length cannot exceed #MAXIMUM_PATH.  The client path may not
+     * include any semicolons and when combined with \p client_options may not
+     * include all three quote characters (', ", `) simultaneously.
      *
      * When querying via dr_get_client_info_ex() or dr_client_iterator_next_ex(), the
      * caller must either set this to NULL if that data is not needed or point at a
@@ -209,16 +214,17 @@ typedef struct _dr_config_client_t {
      */
     char *options;
     /**
-     * Specifies whether this is a regular client registeration for the target
-     * process (this field is false) or whether this is an "alternate bitwidth"
-     * registration which specifies the configuration to use if the target process
-     * creates a child process that is a different bitwidth from itself.  The regular
-     * client must first be registered on its own before the alternate client is
-     * registered.  If the target process creates a child application of a different
-     * bitwdith (e.g., the target process is 64-bit and it creates a 32-bit child),
-     * this registration allows a client of the appropriate bitwidth to be loaded
-     * into the child.  Unregistering a client with dr_unregister_client() will also
-     * unregister the alternate bitwidth client.
+     * Specifies whether this is a regular client registration for the target process
+     * (this field is false) or whether this is an "alternate bitwidth" registration
+     * which specifies the configuration to use if the target process creates a child
+     * process that is a different bitwidth from itself.  The regular client must
+     * first be registered on its own before the alternate client is registered, and
+     * the alternate must have the same client ID.  If the target process creates a
+     * child application of a different bitwdith (e.g., the target process is 64-bit
+     * and it creates a 32-bit child), this registration allows a client of the
+     * appropriate bitwidth to be loaded into the child.  Unregistering a client with
+     * dr_unregister_client() will also unregister the alternate bitwidth client with
+     * the same client ID.
      */
     bool is_alt_bitwidth;
 } dr_config_client_t;
@@ -800,7 +806,7 @@ DR_EXPORT
  *                              configurations to unset.
  *
  * \return      The number of clients registered for the given process and platform.
- *              An alternative-bitwidth client is counted as a separate client.
+ *              An alternative bitwidth client is counted as a separate client.
  */
 size_t
 dr_num_registered_clients(const char *process_name, process_id_t pid, bool global,
@@ -809,7 +815,7 @@ dr_num_registered_clients(const char *process_name, process_id_t pid, bool globa
 DR_EXPORT
 /**
  * Retrieve client registration information for a particular process for the current
- * user.  If multiple clients are registered (alternative-bitwidth clients are
+ * user.  If multiple clients are registered (alternative bitwidth clients are
  * considered separate), information on the highest-priority client is returned.
  *
  * \param[in]   process_name    A NULL-terminated string specifying the name
@@ -865,7 +871,7 @@ dr_get_client_info(const char *process_name, process_id_t pid, bool global,
 DR_EXPORT
 /**
  * Retrieve client registration information for a particular process for the current
- * user.  If multiple clients are registered (alternative-bitwidth clients are
+ * user.  If multiple clients are registered (alternative bitwidth clients are
  * considered separate), information on the highest-priority client is returned.
  *
  * \param[in]   process_name    A NULL-terminated string specifying the name

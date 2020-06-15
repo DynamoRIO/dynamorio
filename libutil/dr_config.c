@@ -41,6 +41,14 @@
 #include "our_tchar.h"
 #include "dr_frontend.h"
 
+/* We use DR's snprintf for consistent behavior when len==max.
+ * TODO: Change all of libutil by changing our_tchar.h.
+ */
+#undef _snprintf
+#define _snprintf d_r_snprintf
+int
+d_r_snprintf(char *s, size_t max, const char *fmt, ...);
+
 #ifdef WINDOWS
 #    include <windows.h>
 #    include <io.h> /* for _get_osfhandle */
@@ -55,11 +63,8 @@
 #    define LIB32_SUBDIR _TEXT("\\lib32")
 #    define PREINJECT32_DLL _TEXT("\\lib32\\drpreinject.dll")
 #    define PREINJECT64_DLL _TEXT("\\lib64\\drpreinject.dll")
-#    define _snprintf d_r_snprintf
 #    undef _sntprintf
 #    define _sntprintf d_r_snprintf_wide
-int
-d_r_snprintf(char *s, size_t max, const char *fmt, ...);
 int
 d_r_snprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, ...);
 #else
@@ -78,6 +83,10 @@ d_r_snprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, ...);
 #    define DEBUG64_DLL "/lib64/debug/libdynamorio.so"
 #    define LOG_SUBDIR "/logs"
 #    define LIB32_SUBDIR "/lib32/"
+#    undef _sntprintf
+#    define _sntprintf d_r_snprintf
+int
+d_r_snprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, ...);
 
 extern bool
 create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask, client_id_t client_id,
@@ -171,6 +180,14 @@ get_next_token(TCHAR *ptr, TCHAR *token)
 
     *token = _T('\0');
     return ptr;
+}
+
+static void
+copy_up_to_max(TCHAR *buf, size_t max, TCHAR *src)
+{
+    size_t len = MIN(max - 1, _tcslen(src));
+    _snprintf(buf, len, TSTR_FMT, src);
+    buf[len] = '\0';
 }
 
 /* Allocate a new client_opt_t */
@@ -1290,9 +1307,7 @@ read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f),
     if (process_name != NULL)
         *process_name = '\0';
     if (process_name != NULL && proc_policy->name != NULL) {
-        SIZE_T len = MIN(_tcslen(proc_policy->name), MAXIMUM_PATH - 1);
-        _snprintf(process_name, len, TSTR_FMT, proc_policy->name);
-        process_name[len] = '\0';
+        copy_up_to_max(process_name, MAXIMUM_PATH, proc_policy->name);
     }
 #else
         /* up to caller to fill in! */
@@ -1582,18 +1597,14 @@ dr_client_iterator_next(dr_client_iterator_t *iter, client_id_t *client_id, /* O
         *client_pri = iter->cur;
 
     if (client_path != NULL) {
-        size_t len = MIN(MAXIMUM_PATH - 1, _tcslen(client_opt->path) + 1);
-        _snprintf(client_path, len, TSTR_FMT, client_opt->path);
-        client_path[len] = '\0';
+        copy_up_to_max(client_path, MAXIMUM_PATH, client_opt->path);
     }
 
     if (client_id != NULL)
         *client_id = client_opt->id;
 
     if (client_options != NULL) {
-        size_t len = MIN(DR_MAX_OPTIONS_LENGTH - 1, _tcslen(client_opt->opts) + 1);
-        _snprintf(client_options, len, TSTR_FMT, client_opt->opts);
-        client_options[len] = '\0';
+        copy_up_to_max(client_options, DR_MAX_OPTIONS_LENGTH, client_opt->opts);
     }
 
     iter->cur++;
@@ -1609,14 +1620,10 @@ dr_client_iterator_next_ex(dr_client_iterator_t *iter,
     client->id = client_opt->id;
     client->priority = iter->cur;
     if (client->path != NULL) {
-        size_t len = MIN(MAXIMUM_PATH - 1, _tcslen(client_opt->path) + 1);
-        _snprintf(client->path, len, TSTR_FMT, client_opt->path);
-        client->path[len] = '\0';
+        copy_up_to_max(client->path, MAXIMUM_PATH, client_opt->path);
     }
     if (client->options != NULL) {
-        size_t len = MIN(DR_MAX_OPTIONS_LENGTH - 1, _tcslen(client_opt->opts) + 1);
-        _snprintf(client->options, len, TSTR_FMT, client_opt->opts);
-        client->options[len] = '\0';
+        copy_up_to_max(client->options, DR_MAX_OPTIONS_LENGTH, client_opt->opts);
     }
     client->is_alt_bitwidth = client_opt->alt_bitwidth;
     iter->cur++;
@@ -1694,16 +1701,11 @@ dr_get_client_info_ex(const char *process_name, process_id_t pid, bool global,
 
             client->priority = i;
             if (client->path != NULL) {
-                size_t len = MIN(MAXIMUM_PATH - 1, _tcslen(client_opt->path) + 1);
-                _snprintf(client->path, len, TSTR_FMT, client_opt->path);
-                client->path[len] = '\0';
+                copy_up_to_max(client->path, MAXIMUM_PATH, client_opt->path);
             }
 
             if (client->options != NULL) {
-                size_t len =
-                    MIN(DR_MAX_OPTIONS_LENGTH - 1, _tcslen(client_opt->opts) + 1);
-                _snprintf(client->options, len, TSTR_FMT, client_opt->opts);
-                client->options[len] = '\0';
+                copy_up_to_max(client->options, DR_MAX_OPTIONS_LENGTH, client_opt->opts);
             }
 
             status = DR_SUCCESS;
@@ -1772,13 +1774,21 @@ dr_register_client_ex(const char *process_name, process_id_t pid, bool global,
     }
     opt_info_alloc = true;
 
+    bool order_ok = !client->is_alt_bitwidth;
     for (i = 0; i < opt_info.num_clients; i++) {
-        if (opt_info.client_opts[i]->id == client->id &&
-            ((opt_info.client_opts[i]->alt_bitwidth && client->is_alt_bitwidth) ||
-             (!opt_info.client_opts[i]->alt_bitwidth && !client->is_alt_bitwidth))) {
-            status = DR_ID_CONFLICTING;
-            goto exit;
+        if (opt_info.client_opts[i]->id == client->id) {
+            if (!opt_info.client_opts[i]->alt_bitwidth && client->is_alt_bitwidth) {
+                /* OK since this is the alt for an existing primary. */
+                order_ok = true;
+            } else {
+                status = DR_ID_CONFLICTING;
+                goto exit;
+            }
         }
+    }
+    if (!order_ok) {
+        status = DR_CONFIG_CLIENT_NOT_FOUND;
+        goto exit;
     }
 
     if (client->priority > opt_info.num_clients) {

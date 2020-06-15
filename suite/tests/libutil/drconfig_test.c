@@ -112,6 +112,16 @@ test_register(const char *name, process_id_t pid, bool global, dr_platform_t dr_
     status = dr_register_client_ex(name, pid, global, dr_platform, &client);
     check(status == DR_CONFIG_INVALID_PARAMETER, "bad struct_size should fail");
     client.struct_size = sizeof(client);
+
+    client.id = my_id;
+    client.priority = my_priority;
+    client.path = (char *)my_alt_path;
+    client.options = (char *)my_ops;
+    client.is_alt_bitwidth = true;
+    client.priority = 0;
+    status = dr_register_client_ex(name, pid, global, dr_platform, &client);
+    check(status == DR_CONFIG_CLIENT_NOT_FOUND, "register alt first should fail");
+
     client.id = my_id;
     client.priority = my_priority;
     client.path = (char *)my_path;
@@ -121,6 +131,9 @@ test_register(const char *name, process_id_t pid, bool global, dr_platform_t dr_
     check(status == DR_SUCCESS, "dr_register_client_ex should succeed");
     check(dr_num_registered_clients(name, pid, global, dr_platform) == 1,
           "should be 1 client post-reg");
+
+    status = dr_register_client_ex(name, pid, global, dr_platform, &client);
+    check(status == DR_ID_CONFLICTING, "dup id should fail");
 
     client.path = (char *)my_alt_path;
     client.options = (char *)my_ops;

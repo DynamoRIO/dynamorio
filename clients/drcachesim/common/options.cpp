@@ -339,7 +339,8 @@ droption_t<std::string> op_tracer_alt(DROPTION_SCOPE_FRONTEND, "tracer_alt", "",
                                       "Path to the alternate-bitwidth tracer",
                                       "The full path to the tracer library for the other "
                                       "bitwidth, for use on child processes with a "
-                                      "different bitwidth from their parent.");
+                                      "different bitwidth from their parent.  If empty, "
+                                      "such child processes will die with fatal errors.");
 
 droption_t<std::string> op_tracer_ops(
     DROPTION_SCOPE_FRONTEND, "tracer_ops",
