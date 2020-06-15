@@ -1434,6 +1434,7 @@ _tmain(int argc, TCHAR *targv[])
                 const char *client;
                 char client_buf[MAXIMUM_PATH];
                 char alt_buf[MAXIMUM_PATH];
+                alt_buf[0] = '\0';
                 size_t client_sofar = 0;
                 bool is_alt_bitwidth = false;
                 if (i + 1 >= argc)
@@ -1464,8 +1465,6 @@ _tmain(int argc, TCHAR *targv[])
                         usage(false, "unknown %s tool \"%s\" requested",
                               platform_name(dr_platform), client);
                     client = client_buf;
-                    append_client(alt_buf, 0, single_client_ops, true, client_paths,
-                                  client_ids, client_options, alt_bitwidth, &num_clients);
                 }
 
                 /* Treat everything up to -- or end of argv as client args. */
@@ -1483,6 +1482,10 @@ _tmain(int argc, TCHAR *targv[])
                 }
                 append_client(client, 0, single_client_ops, is_alt_bitwidth, client_paths,
                               client_ids, client_options, alt_bitwidth, &num_clients);
+                if (alt_buf[0] != '\0') {
+                    append_client(alt_buf, 0, single_client_ops, true, client_paths,
+                                  client_ids, client_options, alt_bitwidth, &num_clients);
+                }
             }
             if (i < argc && strcmp(argv[i], "--") == 0 &&
                 (!expect_extra_double_dash ||
