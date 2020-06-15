@@ -183,7 +183,7 @@ get_next_token(TCHAR *ptr, TCHAR *token)
 }
 
 static void
-copy_up_to_max(TCHAR *buf, size_t max, TCHAR *src)
+copy_up_to_max(char *buf, size_t max, TCHAR *src)
 {
     size_t len = MIN(max - 1, _tcslen(src));
     _snprintf(buf, len, TSTR_FMT, src);

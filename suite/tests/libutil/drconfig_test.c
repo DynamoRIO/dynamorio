@@ -135,6 +135,16 @@ test_register(const char *name, process_id_t pid, bool global, dr_platform_t dr_
     status = dr_register_client_ex(name, pid, global, dr_platform, &client);
     check(status == DR_ID_CONFLICTING, "dup id should fail");
 
+    client.id = my_id + 1;
+    client.priority = my_priority + 1; /* Append. */
+    client.path = (char *)my_alt_path;
+    client.options = (char *)my_ops;
+    client.is_alt_bitwidth = true;
+    client.priority = 0;
+    status = dr_register_client_ex(name, pid, global, dr_platform, &client);
+    check(status == DR_CONFIG_CLIENT_NOT_FOUND, "register diff-ID alt first should fail");
+
+    client.id = my_id;
     client.path = (char *)my_alt_path;
     client.options = (char *)my_ops;
     client.is_alt_bitwidth = true;
@@ -173,7 +183,7 @@ test_register(const char *name, process_id_t pid, bool global, dr_platform_t dr_
             check(strcmp(client_ops, my_ops) == 0, "options don't match");
         } else {
             check(client_pri == my_priority + 1, "priority doesn't match");
-            check(strcmp(client_path, my_alt_path) == 0, "path doesn't match");
+            check(strcmp(client_path, my_alt_path) == 0, "alt path doesn't match");
             check(strcmp(client_ops, my_ops) == 0, "options don't match");
         }
         ++count;
@@ -196,7 +206,7 @@ test_register(const char *name, process_id_t pid, bool global, dr_platform_t dr_
             check(!client.is_alt_bitwidth, "is_alt_bitwidth doesn't match");
         } else {
             check(client.priority == my_priority + 1, "priority doesn't match");
-            check(strcmp(client.path, my_alt_path) == 0, "path doesn't match");
+            check(strcmp(client.path, my_alt_path) == 0, "alt path doesn't match");
             check(strcmp(client.options, my_ops) == 0, "options don't match");
             check(client.is_alt_bitwidth, "is_alt_bitwidth doesn't match");
         }
@@ -204,6 +214,7 @@ test_register(const char *name, process_id_t pid, bool global, dr_platform_t dr_
     }
     dr_client_iterator_stop(iter);
 
+    /* A single unregister should remove both b/c they have the same ID. */
     status = dr_unregister_client(name, pid, global, dr_platform, my_id);
     check(status == DR_SUCCESS, "dr_unregister_client should succeed");
     check(dr_num_registered_clients(name, pid, global, dr_platform) == 0,

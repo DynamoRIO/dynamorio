@@ -394,6 +394,8 @@ the first client's options:
 
 bin32/drrun.exe -c32 samples/bin32/bbsize.dll -- -c64 samples/bin64/bbsize.dll -- notepad
 
+The order matters: \c -c32 must come first.
+
 To \ref sec_comm "nudge" all instances of \c notepad.exe running under
 DynamoRIO with argument "5", use:
 \code
@@ -607,6 +609,8 @@ bitwidth (i.e., a 32-bit child created by a 64-bit parent), use the \c
 the first client's options:
 
 bin32/drrun -c32 samples/bin32/bbsize.dll -- -c64 samples/bin64/bbsize.dll -- notepad
+
+The order matters: \c -c32 must come first.
 
 \section multi_client Multiple Clients
 

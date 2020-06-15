@@ -740,6 +740,20 @@ append_client(const char *client, int id, const char *client_ops, bool is_alt_bi
               bool alt_bitwidth[MAX_CLIENT_LIBS], size_t *num_clients)
 {
     size_t index = *num_clients;
+    /* Handle "-c32 -c64" order for native 64-bit where we want to swap the 32
+     * and 64 to get the alt last.
+     */
+    if (index > 0 && id == client_ids[index - 1] && alt_bitwidth[index - 1] &&
+        !is_alt_bitwidth) {
+        /* Insert this one before the prior one by first copying the prior to index. */
+        client_ids[index] = client_ids[index - 1];
+        alt_bitwidth[index] = alt_bitwidth[index - 1];
+        _snprintf(client_paths[index], BUFFER_SIZE_ELEMENTS(client_paths[index]),
+                  client_paths[index - 1]);
+        NULL_TERMINATE_BUFFER(client_paths[index]);
+        client_options[index] = client_options[index - 1];
+        index = index - 1;
+    }
     /* We support an empty client for native -t usage */
     if (client[0] != '\0') {
         get_absolute_path(client, client_paths[index],
