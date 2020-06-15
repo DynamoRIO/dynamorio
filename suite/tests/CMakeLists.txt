@@ -869,6 +869,10 @@ function(add_api_exe test source use_decoder use_static_DR)
         COMMAND ${CMAKE_COMMAND} ARGS
           -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll"
+        # libutil.drconfig_test needs drconfiglib.
+        COMMAND ${CMAKE_COMMAND} ARGS
+          -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/../drconfiglib.dll"
+          "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drconfiglib.dll"
         # We copy drsyms.dll too, for api.symtest
         COMMAND ${CMAKE_COMMAND} ARGS
           -E copy "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}/drsyms.dll"
@@ -1816,6 +1820,15 @@ if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android
 endif ()
 
 if (CLIENT_INTERFACE)
+  set(dr_root ${PROJECT_BINARY_DIR})
+  # Just like frontend_test we request drdecode.
+  tobuild_api(libutil.drconfig_test libutil/drconfig_test.c "" "${dr_root}" ON OFF)
+  target_link_libraries(libutil.drconfig_test drconfiglib)
+  if (WIN32)
+    # We have to copy drconfiglib.dll into the bin dir.
+    add_dependencies(libutil.drconfig_test drcopy)
+  endif ()
+
   set(BUILD_TEST_ANNOTATION "${PROJECT_BINARY_DIR}/suite/tests/annotations")
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_mode_annotations.h"
@@ -3459,7 +3472,11 @@ if (UNIX)
   # Cross-arch execve test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
   # 64-bit then builds and runs both directions.
-  if (X86)
+  #
+  # i#2971: We test -c32/-c64 here since modern DR focuses on clients, and hence we
+  # have a CLIENT_INTERFACE condition.  TODO i#2971: Remove CLIENT_INTERFACE and
+  # eliminate all of its conditionals.
+  if (X86 AND CLIENT_INTERFACE)
     if (X64)
       add_exe(linux.execve-sub64 linux/execve-sub.c)
       if (TEST_SUITE AND TEST_32BIT_PATH)
@@ -3479,6 +3496,11 @@ if (UNIX)
         make_symlink(${32dir}/${INSTALL_LIB_X86}
           ${PROJECT_BINARY_DIR}/${INSTALL_LIB_X86})
         get_target_path_for_execution(drrun_path drrun "${location_suffix}")
+        # We use a client that takes some options and prints something at
+        # init and at exit to test cross-arch injection with clients.
+        get_target_path_for_execution(client64_path client.large_options.dll
+          "${location_suffix}")
+        set(client32_path ${32dir}/${test_bindir}/libclient.large_options.dll.so)
         if (DEBUG)
           set(config_type -DDEBUG=ON)
         else ()
@@ -3490,14 +3512,19 @@ if (UNIX)
           --build-target dynamorio
           --build-target linux.execve32
           --build-target linux.execve-sub32
+          --build-target client.large_options.dll
           --build-noclean # else it tries to clean between each target!
           --build-makeprogram ${CMAKE_MAKE_PROGRAM}
           --build-options ${config_type} -DBUILD_TESTS=ON -DBUILD_DOCS=OFF
           -DBUILD_SAMPLES=OFF -DBUILD_EXT=OFF -DBUILD_CLIENTS=OFF
           --test-command ${drrun_path} -32
-          -dr_home ${32dir} ${dr_test_ops} -- ${32dir}/${test_bindir}/linux.execve32
+          -dr_home ${32dir} ${dr_test_ops}
+          # We test the "-c32 -c64" syntax here.
+          -c32 ${client32_path} -paramA foo -paramB bar --
+          -c64 ${client64_path} -paramA foo -paramB bar --
+          ${32dir}/${test_bindir}/linux.execve32
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64")
-        file(READ linux/execve.expect expect)
+        file(READ linux/execve-client.expect expect)
         set_tests_properties(linux.execve32 PROPERTIES ENVIRONMENT
           "CFLAGS=-m32;CXXFLAGS=-m32"
           # We do not try to indirect this so we have to read .expect manually.
@@ -3507,7 +3534,10 @@ if (UNIX)
         # We can't get the depends property right b/c execve32 has no prefix,
         # so we do this one directly too.
         add_exe(linux.execve64 linux/execve.c)
-        add_test(linux.execve64 ${drrun_path} ${dr_test_ops} --
+        add_test(linux.execve64 ${drrun_path} ${dr_test_ops}
+          # We test the "-c32 -c64" syntax for the other direction.
+          -c32 ${client32_path} -paramA foo -paramB bar --
+          -c64 ${client64_path} -paramA foo -paramB bar --
           ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve64
           "${32dir}/${test_bindir}/linux.execve-sub32")
         set_tests_properties(linux.execve64 PROPERTIES DEPENDS linux.execve32
@@ -3517,7 +3547,7 @@ if (UNIX)
       add_exe(linux.execve-sub32 linux/execve-sub.c)
       add_exe(linux.execve32 linux/execve.c)
     endif (X64)
-  endif (X86)
+  endif ()
 
   # helper app for execve-null
   add_exe(linux.execve-sub linux/execve-sub.c)
@@ -3986,6 +4016,9 @@ else (UNIX)
   # everywhere (xref i#381, i#234, i#803).
   #
   # XXX i#829: mixed-mode stubs and abs far jmps require -heap_in_lower_4GB
+  #
+  # TODO i#803: Once cross-arch injection works on Windows, add a test of
+  # the "-c32 -c64" syntax like we have for Linux.
   if (TEST_SUITE OR TEST_32BIT_PATH OR NOT X64)
     if (X64)
       # XXX i#1636: the earliest injection tests below seem to have the child

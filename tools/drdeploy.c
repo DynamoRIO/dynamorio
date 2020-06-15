@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -133,6 +133,8 @@ const char *usage_str =
     " -- <app and args to run>\n"
     "   or: " TOOLNAME " [options] [DR options] -t <tool> [tool options]"
     " -- <app and args to run>\n"
+    "   or: " TOOLNAME " [options] [DR options] -c32 <32-bit-client> [client options]"
+    " -- -c64 <64-bit-client> [client options] -- <app and args to run>\n"
 #    endif
     ;
 #endif
@@ -214,6 +216,14 @@ const char *options_list_str =
     "                           to separate the app executable.  Neither the path nor\n"
     "                           the options may contain semicolon characters or\n"
     "                           all 3 quote characters (\", \', `).\n"
+    "\n"
+    "        -c32 <32-bit-path> <options>* -- -c64 <64-bit-path> <options>*\n"
+    "                           Registers two versions of one client to run alongside\n"
+    "                           DR.  Use this to specify two versions of a client to\n"
+    "                           handle applications which create other-bitwidth child\n"
+    "                           processes.  The options for the 32-bit client are\n"
+    "                           separated from the \"-c64\" by \"--\".  The behavior\n"
+    "                           otherwise matches \"-c\".\n"
     "\n"
     "       -client <path> <ID> \"<options>\"\n"
     "                          Use -c instead, unless you need to set the client ID.\n"
@@ -601,7 +611,7 @@ check_client_lib(const char *client_lib)
 bool
 register_client(const char *process_name, process_id_t pid, bool global,
                 dr_platform_t dr_platform, client_id_t client_id, const char *path,
-                const char *options)
+                bool is_alt_bitwidth, const char *options)
 {
     size_t priority;
     dr_config_status_t status;
@@ -618,21 +628,26 @@ register_client(const char *process_name, process_id_t pid, bool global,
     /* just append to the existing client list */
     priority = dr_num_registered_clients(process_name, pid, global, dr_platform);
 
-    info("registering client with id=%d path=|%s| ops=|%s|", client_id, path, options);
-    status = dr_register_client(process_name, pid, global, dr_platform, client_id,
-                                priority, path, options);
-
+    info("registering client with id=%d path=|%s| ops=|%s|%s", client_id, path, options,
+         is_alt_bitwidth ? " alt-bitwidth" : "");
+    dr_config_client_t info;
+    info.struct_size = sizeof(info);
+    info.id = client_id;
+    info.priority = priority;
+    info.path = (char *)path;
+    info.options = (char *)options;
+    info.is_alt_bitwidth = is_alt_bitwidth;
+    status = dr_register_client_ex(process_name, pid, global, dr_platform, &info);
     if (status != DR_SUCCESS) {
         if (status == DR_CONFIG_STRING_TOO_LONG) {
-            error("client %s registration failed: option string too long: \"%s\"",
-                  path == NULL ? "<null>" : path, options);
+            error("client %s registration failed: option string too long: \"%s\"", path,
+                  options);
         } else if (status == DR_CONFIG_OPTIONS_INVALID) {
             error("client %s registration failed: options cannot contain ';' or all "
                   "3 quote types: %s",
-                  path == NULL ? "<null>" : path, options);
+                  path, options);
         } else {
-            error("client %s registration failed with error code %d",
-                  path == NULL ? "<null>" : path, status);
+            error("client %s registration failed with error code %d", path, status);
         }
         return false;
     }
@@ -718,20 +733,37 @@ write_pid_to_file(const char *pidfile, process_id_t pid)
 
 #if defined(DRCONFIG) || defined(DRRUN)
 static void
-append_client(const char *client, int id, const char *client_ops,
+append_client(const char *client, int id, const char *client_ops, bool is_alt_bitwidth,
               char client_paths[MAX_CLIENT_LIBS][MAXIMUM_PATH],
               client_id_t client_ids[MAX_CLIENT_LIBS],
-              const char *client_options[MAX_CLIENT_LIBS], size_t *num_clients)
+              const char *client_options[MAX_CLIENT_LIBS],
+              bool alt_bitwidth[MAX_CLIENT_LIBS], size_t *num_clients)
 {
+    size_t index = *num_clients;
+    /* Handle "-c32 -c64" order for native 64-bit where we want to swap the 32
+     * and 64 to get the alt last.
+     */
+    if (index > 0 && id == client_ids[index - 1] && alt_bitwidth[index - 1] &&
+        !is_alt_bitwidth) {
+        /* Insert this one before the prior one by first copying the prior to index. */
+        client_ids[index] = client_ids[index - 1];
+        alt_bitwidth[index] = alt_bitwidth[index - 1];
+        _snprintf(client_paths[index], BUFFER_SIZE_ELEMENTS(client_paths[index]), "%s",
+                  client_paths[index - 1]);
+        NULL_TERMINATE_BUFFER(client_paths[index]);
+        client_options[index] = client_options[index - 1];
+        index = index - 1;
+    }
     /* We support an empty client for native -t usage */
     if (client[0] != '\0') {
-        get_absolute_path(client, client_paths[*num_clients],
-                          BUFFER_SIZE_ELEMENTS(client_paths[*num_clients]));
-        NULL_TERMINATE_BUFFER(client_paths[*num_clients]);
-        info("client %d path: %s", (int)*num_clients, client_paths[*num_clients]);
+        get_absolute_path(client, client_paths[index],
+                          BUFFER_SIZE_ELEMENTS(client_paths[index]));
+        NULL_TERMINATE_BUFFER(client_paths[index]);
+        info("client %d path: %s", (int)index, client_paths[index]);
     }
-    client_ids[*num_clients] = id;
-    client_options[*num_clients] = client_ops;
+    client_ids[index] = id;
+    client_options[index] = client_ops;
+    alt_bitwidth[index] = is_alt_bitwidth;
     (*num_clients)++;
 }
 #endif
@@ -764,9 +796,14 @@ add_extra_option(char *buf, size_t bufsz, size_t *sofar, const char *fmt, ...)
 
 #if defined(DRCONFIG) || defined(DRRUN)
 /* Returns the path to the client library.  Appends to extra_ops.
- * A tool config file must contain one of these line types:
+ * A tool config file must contain one of these line types, or two if
+ * they are a pair of CLIENT32_* and CLIENT64_* specifiers:
  *   CLIENT_ABS=<absolute path to client>
  *   CLIENT_REL=<path to client relative to DR root>
+ *   CLIENT32_ABS=<absolute path to 32-bit client>
+ *   CLIENT32_REL=<path to 32-bit client relative to DR root>
+ *   CLIENT64_ABS=<absolute path to 64-bit client>
+ *   CLIENT64_REL=<path to 64-bit client relative to DR root>
  * It can contain as many DR_OP= lines as desired.  Each must contain
  * one DynamoRIO option token:
  *   DR_OP=<DR option token>
@@ -794,9 +831,10 @@ add_extra_option(char *buf, size_t bufsz, size_t *sofar, const char *fmt, ...)
  */
 static bool
 read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platform,
-               char *client, size_t client_size, char *ops, size_t ops_size,
-               size_t *ops_sofar, char *tool_ops, size_t tool_ops_size,
-               size_t *tool_ops_sofar, char *native_path OUT, size_t native_path_size)
+               char *client, size_t client_size, char *alt_client, size_t alt_size,
+               char *ops, size_t ops_size, size_t *ops_sofar, char *tool_ops,
+               size_t tool_ops_size, size_t *tool_ops_sofar, char *native_path OUT,
+               size_t native_path_size)
 {
     FILE *f;
     char config_file[MAXIMUM_PATH];
@@ -835,12 +873,45 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
                 add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
                                  client);
             }
+        } else if (strstr(line, IF_X64_ELSE("CLIENT64_REL=", "CLIENT32_REL=")) == line) {
+            _snprintf(client, client_size, "%s/%s", dr_root,
+                      line + strlen(IF_X64_ELSE("CLIENT64_REL=", "CLIENT32_REL=")));
+            client[client_size - 1] = '\0';
+            found_client = true;
+            if (native_path[0] != '\0') {
+                add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
+                                 client);
+            }
+        } else if (strstr(line, IF_X64_ELSE("CLIENT32_REL=", "CLIENT64_REL=")) == line) {
+            _snprintf(alt_client, alt_size, "%s/%s", dr_root,
+                      line + strlen(IF_X64_ELSE("CLIENT32_REL=", "CLIENT64_REL=")));
+            alt_client[alt_size - 1] = '\0';
+            if (native_path[0] != '\0') {
+                add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
+                                 alt_client);
+            }
         } else if (strstr(line, "CLIENT_ABS=") == line) {
             strncpy(client, line + strlen("CLIENT_ABS="), client_size);
             found_client = true;
             if (native_path[0] != '\0') {
                 add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
                                  client);
+            }
+        } else if (strstr(line, IF_X64_ELSE("CLIENT64_ABS=", "CLIENT32_ABS=")) == line) {
+            strncpy(client, line + strlen(IF_X64_ELSE("CLIENT64_ABS=", "CLIENT32_ABS=")),
+                    client_size);
+            found_client = true;
+            if (native_path[0] != '\0') {
+                add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
+                                 client);
+            }
+        } else if (strstr(line, IF_X64_ELSE("CLIENT32_ABS=", "CLIENT64_ABS=")) == line) {
+            strncpy(alt_client,
+                    line + strlen(IF_X64_ELSE("CLIENT32_ABS=", "CLIENT64_ABS=")),
+                    alt_size);
+            if (native_path[0] != '\0') {
+                add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
+                                 alt_client);
             }
         } else if (strstr(line, "DR_OP=") == line) {
             if (strcmp(line, "DR_OP=") != 0) {
@@ -985,6 +1056,7 @@ _tmain(int argc, TCHAR *targv[])
     client_id_t client_ids[MAX_CLIENT_LIBS] = {
         0,
     };
+    bool alt_bitwidth[MAX_CLIENT_LIBS];
     size_t num_clients = 0;
     char single_client_ops[DR_MAX_OPTIONS_LENGTH];
 #endif
@@ -1315,8 +1387,8 @@ _tmain(int argc, TCHAR *targv[])
                 client = argv[++i];
                 id = strtoul(argv[++i], NULL, 16);
                 ops = argv[++i];
-                append_client(client, id, ops, client_paths, client_ids, client_options,
-                              &num_clients);
+                append_client(client, id, ops, false, client_paths, client_ids,
+                              client_options, alt_bitwidth, &num_clients);
             }
         } else if (strcmp(argv[i], "-ops") == 0) {
             /* support repeating the option (i#477) */
@@ -1359,8 +1431,10 @@ _tmain(int argc, TCHAR *targv[])
          * optionsx.h to do otherwise, or to sanity check the DR options here.
          */
         else if (argv[i][0] == '-') {
+            bool expect_extra_double_dash = false;
             while (i < argc) {
                 if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "-t") == 0 ||
+                    strcmp(argv[i], "-c32") == 0 || strcmp(argv[i], "-c64") == 0 ||
                     strcmp(argv[i], "--") == 0) {
                     break;
                 }
@@ -1368,14 +1442,24 @@ _tmain(int argc, TCHAR *targv[])
                                  &extra_ops_sofar, "\"%s\"", argv[i]);
                 i++;
             }
-            if (i < argc && (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "-c") == 0)) {
+            if (i < argc &&
+                (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "-c") == 0 ||
+                 strcmp(argv[i], "-c32") == 0 || strcmp(argv[i], "-c64") == 0)) {
                 const char *client;
                 char client_buf[MAXIMUM_PATH];
+                char alt_buf[MAXIMUM_PATH];
+                alt_buf[0] = '\0';
                 size_t client_sofar = 0;
+                bool is_alt_bitwidth = false;
                 if (i + 1 >= argc)
                     usage(false, "too few arguments to %s", argv[i]);
-                if (num_clients != 0)
+                if (num_clients != 0 &&
+                    (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "-t") == 0))
                     usage(false, "Cannot use -client with %s.", argv[i]);
+                if (strcmp(argv[i], "-c32") == 0)
+                    expect_extra_double_dash = true;
+                if (strcmp(argv[i], IF_X64_ELSE("-c32", "-c64")) == 0)
+                    is_alt_bitwidth = true;
                 client = argv[++i];
                 single_client_ops[0] = '\0';
 
@@ -1385,7 +1469,8 @@ _tmain(int argc, TCHAR *targv[])
                      * The user must use -c or -client to do that.
                      */
                     if (!read_tool_file(client, dr_root, dr_platform, client_buf,
-                                        BUFFER_SIZE_ELEMENTS(client_buf), extra_ops,
+                                        BUFFER_SIZE_ELEMENTS(client_buf), alt_buf,
+                                        BUFFER_SIZE_ELEMENTS(alt_buf), extra_ops,
                                         BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
                                         single_client_ops,
                                         BUFFER_SIZE_ELEMENTS(single_client_ops),
@@ -1409,10 +1494,16 @@ _tmain(int argc, TCHAR *targv[])
                                      &client_sofar, "\"%s\"", argv[i]);
                     i++;
                 }
-                append_client(client, 0, single_client_ops, client_paths, client_ids,
-                              client_options, &num_clients);
+                append_client(client, 0, single_client_ops, is_alt_bitwidth, client_paths,
+                              client_ids, client_options, alt_bitwidth, &num_clients);
+                if (alt_buf[0] != '\0') {
+                    append_client(alt_buf, 0, single_client_ops, true, client_paths,
+                                  client_ids, client_options, alt_bitwidth, &num_clients);
+                }
             }
-            if (i < argc && strcmp(argv[i], "--") == 0) {
+            if (i < argc && strcmp(argv[i], "--") == 0 &&
+                (!expect_extra_double_dash ||
+                 (i + 1 < argc && strcmp(argv[i + 1], "-c64") != 0))) {
                 i++;
                 goto done_with_options;
             }
@@ -1529,7 +1620,7 @@ done_with_options:
             die();
         for (j = 0; j < num_clients; j++) {
             if (!register_client(process, 0, global, dr_platform, client_ids[j],
-                                 client_paths[j], client_options[j]))
+                                 client_paths[j], alt_bitwidth[j], client_options[j]))
                 die();
         }
     } else if (action == action_unregister) {
@@ -1599,7 +1690,8 @@ done_with_options:
         /* If this is the first setting of AppInit on NT, warn about reboot */
         if (!dr_syswide_is_on(dr_platform, dr_root)) {
             if (platform == PLATFORM_WIN_NT_4) {
-                warn("on Windows NT, applications will not be taken over until reboot");
+                warn("on Windows NT, applications will not be taken over until "
+                     "reboot");
             } else if (platform >= PLATFORM_WIN_7) {
                 /* i#323 will fix this but good to warn the user */
                 warn("on Windows 7+, syswide_on relaxes system security by removing "
@@ -1712,7 +1804,7 @@ done_with_options:
         for (j = 0; j < num_clients; j++) {
             if (!register_client(process, dr_inject_get_process_id(inject_data), global,
                                  dr_platform, client_ids[j], client_paths[j],
-                                 client_options[j]))
+                                 alt_bitwidth[j], client_options[j]))
                 goto error;
         }
     }

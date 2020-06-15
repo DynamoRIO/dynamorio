@@ -167,6 +167,26 @@ configure_application(char *app_name, char **app_argv, std::string tracer_ops,
                            tracer_ops.c_str()) != DR_SUCCESS) {
         FATAL_ERROR("failed to register DynamoRIO client configuration");
     }
+    if (!op_tracer_alt.get_value().empty()) {
+        dr_config_client_t info;
+        info.struct_size = sizeof(info);
+        info.id = CLIENT_ID;
+        info.priority = 1;
+        char local_path[MAXIMUM_PATH];
+        dr_snprintf(local_path, BUFFER_SIZE_ELEMENTS(local_path), "%s",
+                    op_tracer_alt.get_value().c_str());
+        info.path = (char *)local_path;
+        char local_ops[MAXIMUM_PATH];
+        dr_snprintf(local_ops, BUFFER_SIZE_ELEMENTS(local_path), "%s",
+                    op_tracer_ops.get_value().c_str());
+        info.options = (char *)local_ops;
+        info.is_alt_bitwidth = true;
+        NOTIFY(1, "INFO", "configuring alt-bitwidth client \"%s\"",
+               op_tracer_alt.get_value().c_str());
+        if (dr_register_client_ex(process, pid, false /*local*/, DR_PLATFORM_DEFAULT,
+                                  &info) != DR_SUCCESS)
+            FATAL_ERROR("failed to register DynamoRIO client configuration");
+    }
     return true;
 }
 
@@ -269,6 +289,10 @@ _tmain(int argc, const TCHAR *targv[])
         if (!file_is_readable(op_tracer.get_value().c_str())) {
             FATAL_ERROR("tracer library %s is unreadable", op_tracer.get_value().c_str());
         }
+        // We deliberately do *not* check -tracer_alt, since we're guessing that
+        // path is available and it won't be for a single build dir.
+        // An other-bitwidth child will exit with a fatal error if the lib
+        // is not there and the user runs such an app.
         if (!file_is_readable(op_dr_root.get_value().c_str())) {
             FATAL_ERROR("invalid -dr_root %s", op_dr_root.get_value().c_str());
         }

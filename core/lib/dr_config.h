@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -143,6 +143,17 @@ typedef enum {
      */
     DR_CONFIG_DIR_NOT_FOUND,
 
+    /**
+     * A parameter was not set.
+     */
+    DR_CONFIG_INVALID_PARAMETER,
+
+    /**
+     * A primary client configuration was not found at the time an alternate bitwidth
+     * client was attempted to be registered.
+     */
+    DR_CONFIG_CLIENT_NOT_FOUND,
+
 } dr_config_status_t;
 
 /** Allow targeting both 32-bit and native 64-bit processes separately. */
@@ -152,6 +163,71 @@ typedef enum {
     DR_PLATFORM_64BIT,   /**< 64-bit settings (for native 64-bit processes). */
     DR_PLATFORM_NONE,    /**< Invalid platform. */
 } dr_platform_t;
+
+/**
+ * Information about a client library setup.
+ */
+typedef struct _dr_config_client_t {
+    /**
+     * The size of this structure.  This field must be set when passing as an input
+     * to functions like dr_get_client_info_ex().  Used for backward compatibility.
+     */
+    size_t struct_size;
+    /**
+     * This is a client_id_t uniquely identifying the client.  DynamoRIO provides the
+     * client ID as a parameter to dr_client_main().  Clients use this ID to retrieve
+     * client-specific path and option information. Outside entities also identify
+     * the target of a nudge via this ID.
+     */
+    client_id_t id;
+    /**
+     * The client number, or priority.  Client registration includes a value
+     * indicating the priority of a client relative to other clients.  In
+     * multi-client settings, a client's priority influences event callback
+     * ordering.  That is, higher priority clients can register their callbacks first;
+     * DynamoRIO then calls these routines last.  Client priorities range
+     * consecutively from 0 to N-1, where N is the number of registered clients.
+     * Specify priority 0 to register a client with highest priority.
+     */
+    size_t priority;
+    /**
+     * A NULL-terminated string specifying the full path to a valid client library.
+     * The string length cannot exceed #MAXIMUM_PATH.  The client path may not
+     * include any semicolons and when combined with \p client_options may not
+     * include all three quote characters (', ", `) simultaneously.
+     *
+     * When querying via dr_get_client_info_ex() or dr_client_iterator_next_ex(), the
+     * caller must either set this to NULL if that data is not needed or point at a
+     * caller-allocated array of length #MAXIMUM_PATH.
+     */
+    char *path;
+    /**
+     * A NULL-terminated string specifying options that are available to the client
+     * as arguments of dr_client_main() or via dr_get_option_array().  The string
+     * length cannot exceed #DR_MAX_OPTIONS_LENGTH.  The client options may not
+     * include any semicolons and when combined with \p client_path may not include
+     * all three quote characters (', ", `) simultaneously.
+     *
+     * When querying via dr_get_client_info_ex() or dr_client_iterator_next_ex(), the
+     * caller must either set this to NULL if that data is not needed or point at a
+     * caller-allocated array of length #DR_MAX_OPTIONS_LENGTH.
+     */
+    char *options;
+    /**
+     * Specifies whether this is a regular client registration for the target process
+     * (this field is false) or whether this is an "alternate bitwidth" registration
+     * which specifies the configuration to use if the target process creates a child
+     * process that is a different bitwidth from itself.  The regular client must
+     * first be registered on its own before the alternate client is registered, and
+     * the alternate must have the same client ID.  If the target process creates a
+     * child application of a different bitwdith (e.g., the target process is 64-bit
+     * and it creates a 32-bit child), this registration allows a client of the
+     * appropriate bitwidth to be loaded into the child.  Unregistering a client with
+     * dr_unregister_client() will also unregister the alternate bitwidth client with
+     * the same client ID.
+     */
+    bool is_alt_bitwidth;
+} dr_config_client_t;
 
 /* Note that we provide this as an inlined function for use by
  * dr_nudge_client and dr_nudge_client_ex without requiring drconfiglib
@@ -232,7 +308,7 @@ DR_EXPORT
  *
  * \param[in]   dr_root_dir     A NULL-terminated string specifying the full
  *                              path to a valid DynamoRIO root directory.
- *                              The string length cannot exceed MAX_PATH.
+ *                              The string length cannot exceed #MAXIMUM_PATH.
  *
  * \param[in]   dr_mode         Specifies the mode under which DynamoRIO should
  *                              operate.  See dr_operation_mode_t.
@@ -418,7 +494,7 @@ DR_EXPORT
  *                              directory provided at registration.  Callers can
  *                              pass NULL if this value is not needed.  Otherwise,
  *                              the parameter must be a caller-allocated array of
- *                              length MAX_PATH.
+ *                              length #MAXIMUM_PATH.
  *
  * \param[out]  dr_mode         If the process is registered, the mode provided
  *                              at registration.  Callers can pass NULL if this
@@ -497,12 +573,12 @@ DR_EXPORT
  * \param[out]   process_name   The name of the registered process. Callers can
  *                              pass NULL if this value is not needed. Otherwise
  *                              the parameter must be a caller-allocated array
- *                              of length MAX_PATH.
+ *                              of length #MAXIMUM_PATH.
  *
  * \param[out]  dr_root_dir     The root DynamoRIO directory provided at registration.
  *                              Callers can pass NULL if this value is not needed.
  *                              Otherwise, the parameter must be a caller-allocated
- *                              array of length MAX_PATH.
+ *                              array of length #MAXIMUM_PATH.
  *
  * \param[out]  dr_mode         If the process is registered, the mode provided
  *                              at registration.  Callers can pass NULL if this
@@ -572,7 +648,7 @@ DR_EXPORT
  * \param[in]   dr_platform     Configurations are kept separate
  *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
- *                              configurations to unset.
+ *                              configurations to set.
  *
  * \param[in]   client_id       A client_id_t uniquely identifying the client.
  *                              DynamoRIO provides the client ID as a parameter
@@ -594,7 +670,7 @@ DR_EXPORT
  *
  * \param[in]   client_path     A NULL-terminated string specifying the full path
  *                              to a valid client library.  The string length
- *                              cannot exceed MAX_PATH.  The client path may not
+ *                              cannot exceed #MAXIMUM_PATH.  The client path may not
  *                              include any semicolons and when combined with
  *                              \p client_options may not include all
  *                              three quote characters (', ", `) simultaneously.
@@ -613,6 +689,51 @@ dr_config_status_t
 dr_register_client(const char *process_name, process_id_t pid, bool global,
                    dr_platform_t dr_platform, client_id_t client_id, size_t client_pri,
                    const char *client_path, const char *client_options);
+
+DR_EXPORT
+/**
+ * Register a client for a particular process.  Note that the process must first
+ * be registered via dr_register_process() before calling this routine.
+ * The #dr_config_client_t structure allows specifying additional options beyond
+ * what dr_register_client() supports, such as an alternate bitwidth client.
+ * For an alternate bitwidth client, the main client must first be
+ * registered by an earlier call.  Unregistering a client with
+ * dr_unregister_client() will also unregister the alternate bitwidth
+ * client.
+ *
+ * \param[in]   process_name    A NULL-terminated string specifying the name
+ *                              of the target process.  The string should
+ *                              identify the base name of the process, not the
+ *                              full path of the executable (e.g., calc.exe).
+ *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, the one-time configuration for that pid
+ *                              will be modified.  If pid == 0, the general
+ *                              configuration for process_name will be modified.
+ *
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
+ *
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
+ *                              This parameter allows selecting which of those
+ *                              configurations to set.
+ *
+ * \param[in]   client          Defines the attributes of the client to be registered.
+ *
+ * \return      A dr_config_status_t code indicating the result of registration.
+ */
+dr_config_status_t
+dr_register_client_ex(const char *process_name, process_id_t pid, bool global,
+                      dr_platform_t dr_platform, IN dr_config_client_t *client);
 
 DR_EXPORT
 /**
@@ -685,6 +806,7 @@ DR_EXPORT
  *                              configurations to unset.
  *
  * \return      The number of clients registered for the given process and platform.
+ *              An alternative bitwidth client is counted as a separate client.
  */
 size_t
 dr_num_registered_clients(const char *process_name, process_id_t pid, bool global,
@@ -692,8 +814,9 @@ dr_num_registered_clients(const char *process_name, process_id_t pid, bool globa
 
 DR_EXPORT
 /**
- * Retrieve client registration information for a particular process for
- * the current user.
+ * Retrieve client registration information for a particular process for the current
+ * user.  If multiple clients are registered (alternative bitwidth clients are
+ * considered separate), information on the highest-priority client is returned.
  *
  * \param[in]   process_name    A NULL-terminated string specifying the name
  *                              of the target process.  The string should
@@ -729,7 +852,7 @@ DR_EXPORT
  * \param[out]  client_path     The client's path provided at registration.
  *                              Callers can pass NULL if this value is not needed.
  *                              Otherwise, the parameter must be a caller-allocated
- *                              array of length MAX_PATH.
+ *                              array of length #MAXIMUM_PATH.
  *
  * \param[out]  client_options  The client options provided at registration.
  *                              Callers can pass NULL if this value is not needed.
@@ -744,6 +867,53 @@ dr_get_client_info(const char *process_name, process_id_t pid, bool global,
                    size_t *client_pri, /* OUT */
                    char *client_path,  /* OUT */
                    char *client_options /* OUT */);
+
+DR_EXPORT
+/**
+ * Retrieve client registration information for a particular process for the current
+ * user.  If multiple clients are registered (alternative bitwidth clients are
+ * considered separate), information on the highest-priority client is returned.
+ *
+ * \param[in]   process_name    A NULL-terminated string specifying the name
+ *                              of the target process.  The string should
+ *                              identify the base name of the process, not the
+ *                              full path of the executable (e.g., calc.exe).
+ *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, the one-time configuration for that pid
+ *                              will be queried.  If pid == 0, the general
+ *                              configuration for process_name will be queried.
+ *
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
+ *
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
+ *                              This parameter allows selecting which of those
+ *                              configurations to unset.
+ *
+ * \param[out]  client          The returned information about the client.  On input,
+ *                              the struct_size field must be set and the client_id
+ *                              field set to the unique client ID provided at client
+ *                              registration to be queried.  Furthermore, the client_path
+ *                              and client_options fields must each either be NULL
+ *                              if that data is not needed or point at a caller-allocated
+ *                              array of length #MAXIMUM_PATH for client_path or
+ *                              #DR_MAX_OPTIONS_LENGTH for client_options.
+ *
+ * \return      A dr_config_status_t code indicating the result of the call.
+ */
+dr_config_status_t
+dr_get_client_info_ex(const char *process_name, process_id_t pid, bool global,
+                      dr_platform_t dr_platform, dr_config_client_t *client /* IN/OUT */);
 
 typedef struct _dr_client_iterator_t dr_client_iterator_t;
 
@@ -808,7 +978,7 @@ DR_EXPORT
  * \param[out]  client_path     The client's path provided at registration.
  *                              Callers can pass NULL if this value is not needed.
  *                              Otherwise, the parameter must be a caller-allocated
- *                              array of length MAX_PATH.
+ *                              array of length #MAXIMUM_PATH.
  *
  * \param[out]  client_options  The client options provided at registration.
  *                              Callers can pass NULL if this value is not needed.
@@ -820,6 +990,23 @@ dr_client_iterator_next(dr_client_iterator_t *iter, client_id_t *client_id, /* O
                         size_t *client_pri,                                 /* OUT */
                         char *client_path,                                  /* OUT */
                         char *client_options /* OUT */);
+
+DR_EXPORT
+/**
+ * Return information about a client.
+ *
+ * \param[in]   iter            A client iterator created with dr_client_iterator_start()
+ *
+ * \param[out]  client          The returned information about the client.  On input,
+ *                              the struct_size field must be set and the client_path
+ *                              and client_options fields must each either be NULL
+ *                              if that data is not needed or point at a caller-allocated
+ *                              array of length #MAXIMUM_PATH for client_path or
+ *                              #DR_MAX_OPTIONS_LENGTH for client_options.
+ */
+dr_config_status_t
+dr_client_iterator_next_ex(dr_client_iterator_t *iter, dr_config_client_t *client
+                           /* IN/OUT */);
 
 DR_EXPORT
 /**
