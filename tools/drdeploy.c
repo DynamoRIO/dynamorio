@@ -748,7 +748,7 @@ append_client(const char *client, int id, const char *client_ops, bool is_alt_bi
         /* Insert this one before the prior one by first copying the prior to index. */
         client_ids[index] = client_ids[index - 1];
         alt_bitwidth[index] = alt_bitwidth[index - 1];
-        _snprintf(client_paths[index], BUFFER_SIZE_ELEMENTS(client_paths[index]),
+        _snprintf(client_paths[index], BUFFER_SIZE_ELEMENTS(client_paths[index]), "%s",
                   client_paths[index - 1]);
         NULL_TERMINATE_BUFFER(client_paths[index]);
         client_options[index] = client_options[index - 1];
