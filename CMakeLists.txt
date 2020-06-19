@@ -237,33 +237,6 @@ else ()
   set(ARCH_NAME_SHARED ${ARCH_NAME})
 endif ()
 
-# The execution architecture, which might differ from the target for building
-# an AArch64 decoder to execute on x86 machines (i#1684).
-if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
-  set(DR_HOST_NOT_TARGET 1)
-endif ()
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
-  set(DR_HOST_ARM 1) # This means AArch32.
-  set(DR_HOST_ARCH_NAME "arm")
-  set(DR_HOST_AARCHXX 1)
-  set(DR_HOST_ARCH_NAME_SHARED aarchxx)
-elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
-  set(DR_HOST_AARCH64 1)
-  set(DR_HOST_ARCH_NAME "aarch64")
-  set(DR_HOST_AARCHXX 1)
-  set(DR_HOST_ARCH_NAME_SHARED aarchxx)
-  set(DR_HOST_X64 1)
-elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^x86_32")
-  set(DR_HOST_X86 1)
-  set(DR_HOST_ARCH_NAME "x86")
-  set(DR_HOST_ARCH_NAME_SHARED ${DR_HOST_ARCH_NAME})
-else ()
-  set(DR_HOST_X86 1)
-  set(DR_HOST_ARCH_NAME "x86")
-  set(DR_HOST_ARCH_NAME_SHARED ${DR_HOST_ARCH_NAME})
-  set(DR_HOST_X64 1)
-endif ()
-
 # The plan is to use X64 to mean 64-bit generically, whether AMD64 or AARCH64.
 # Whether 64-bit is expected to be selected by user setting up compiler
 # prior to invoking CMake: it has to be that way for Windows, and for
@@ -278,6 +251,46 @@ if (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 else(CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
   set(X64 OFF)
 endif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
+
+# The execution architecture, which might differ from the target for building
+# an AArch64 decoder to execute on x86 machines (i#1684).
+if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
+  set(DR_HOST_NOT_TARGET 1)
+endif ()
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+  set(DR_HOST_ARM 1)
+  set(DR_HOST_ARCH_NAME "arm")
+  set(DR_HOST_AARCHXX 1)
+  set(DR_HOST_ARCH_NAME_SHARED aarchxx)
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+  set(DR_HOST_AARCH64 1)
+  set(DR_HOST_ARCH_NAME "aarch64")
+  set(DR_HOST_AARCHXX 1)
+  set(DR_HOST_ARCH_NAME_SHARED aarchxx)
+  set(DR_HOST_X64 1)
+elseif (X64)
+  set(DR_HOST_X86 1)
+  set(DR_HOST_ARCH_NAME "x86")
+  set(DR_HOST_ARCH_NAME_SHARED ${DR_HOST_ARCH_NAME})
+  set(DR_HOST_X64 1)
+else ()
+  set(DR_HOST_X86 1)
+  set(DR_HOST_ARCH_NAME "x86")
+  set(DR_HOST_ARCH_NAME_SHARED ${DR_HOST_ARCH_NAME})
+endif ()
+
+if (DR_HOST_NOT_TARGET)
+  if (ARM)
+    set(X64 OFF)
+  else ()
+    set(X64 ON)
+  endif ()
+  if ((DR_HOST_X64 AND NOT X64) OR (NOT DR_HOST_X64 AND X64))
+    # XXX i#1345: We need to resolve the hardcoded ELF bitwidth types.
+    # We likely also have general C type issues if the host is 32-bit.
+    message(FATAL_ERROR "Different-bitwidth host-vs-target not supported: i#1345.")
+  endif ()
+endif ()
 
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 

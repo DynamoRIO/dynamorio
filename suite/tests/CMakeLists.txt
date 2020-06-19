@@ -750,6 +750,8 @@ function(configure_app_api_build_flags test decoder use_static_DR)
   string(REGEX REPLACE "-DDR_HOST_ARM" "" prop_cflags "${prop_cflags}")
   string(REGEX REPLACE "-DDR_HOST_AARCH64" "" prop_cflags "${prop_cflags}")
   string(REGEX REPLACE "-DDR_HOST_X86" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DDR_HOST_X64" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DDR_HOST_NOT_TARGET" "" prop_cflags "${prop_cflags}")
   # FIXME: apparently moving cflags to a target property makes it show up
   # in the cpp run for asm targets, where it doesn't if in global var.
   # This causes compilation failure.  Removing -g3 manually as a workaround.
@@ -1664,6 +1666,145 @@ function(optimize target)
 endfunction(optimize)
 
 ###########################################################################
+
+# We'll want the latest CTest (2.6.4) so we can use the -W parameter
+# for wider test name fields as ours include the runtime options and
+# app name.
+
+function(ops2testprefix prefix ops)
+  string(REGEX REPLACE " [^-][^ ]*" "" name "${ops}")
+  string(REGEX REPLACE " +-" "," name "${name}")
+  string(REGEX REPLACE "^-" "" name "${name}")
+  string(STRIP "${name}" name)
+  # want it grouped by run, not by test, and it auto-alpha-sorts
+  set(${prefix} "${name}|" PARENT_SCOPE)
+endfunction(ops2testprefix)
+
+function(run2testname testname ops test)
+  ops2testprefix(prefix "${ops}")
+  # want it grouped by run, not by test, and it auto-alpha-sorts
+  set(${testname} "${prefix}${test}" PARENT_SCOPE)
+endfunction(run2testname)
+
+function(is_test_enabled_by_name output name regex)
+  set(enabled OFF)
+  if (NOT SKIP_FLAKY_TESTS OR NOT "${name}" MATCHES "_FLAKY")
+    if (NOT regex OR "${name}" MATCHES "${regex}")
+      if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
+          # See above: for particular builds we skip some of the similar tests from
+          # some of the test groups.
+          (("${name}" MATCHES "tool.drcache" AND
+            NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
+          ("${name}" MATCHES "tool.drcpusim" AND
+            NOT "${name}" MATCHES "Pentium3") OR
+          ("${name}" MATCHES "tool.[^d]" AND
+            NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
+          # instrcalls is the slowest of the samples.
+          "${name}" MATCHES "sample.instrcalls" OR
+          ("${name}" MATCHES "client.annotation-" AND
+            NOT "${name}" MATCHES "(-opt|tiny-bb)")))
+        set(enabled OFF)
+      else ()
+        set(enabled ON)
+      endif ()
+    endif ()
+  endif ()
+  set(${output} ${enabled} PARENT_SCOPE)
+endfunction ()
+
+macro (set_up_test_lists)
+  foreach (run ${run_list})
+    set(enabled OFF)
+
+    string(REGEX MATCHALL "^SHORT::" is_short "${run}")
+    string(REGEX REPLACE "^SHORT::" "" run "${run}")
+    if (is_short OR TEST_LONG)
+      set(enabled ON)
+    endif (is_short OR TEST_LONG)
+
+    string(REGEX MATCHALL "^DEBUG::" is_debug "${run}")
+    string(REGEX REPLACE "^DEBUG::" "" run "${run}")
+    if (is_debug AND NOT DEBUG)
+      set(enabled OFF)
+    endif (is_debug AND NOT DEBUG)
+
+    string(REGEX MATCHALL "^X86::" is_x86 "${run}")
+    string(REGEX REPLACE "^X86::" "" run "${run}")
+    if (is_x86 AND NOT X86)
+      set(enabled OFF)
+    endif ()
+
+    string(REGEX MATCHALL "^X64::" is_x64 "${run}")
+    string(REGEX REPLACE "^X64::" "" run "${run}")
+    if (is_x64 AND NOT X64)
+      set(enabled OFF)
+    endif ()
+
+    string(REGEX MATCHALL "^WIN::" is_win "${run}")
+    string(REGEX REPLACE "^WIN::" "" run "${run}")
+    if (is_win AND UNIX)
+      set(enabled OFF)
+    endif (is_win AND UNIX)
+
+    string(REGEX MATCHALL "^LIN::" is_lin "${run}")
+    string(REGEX REPLACE "^LIN::" "" run "${run}")
+    if (is_lin AND WIN32)
+      set(enabled OFF)
+    endif (is_lin AND WIN32)
+
+    if (enabled)
+
+      string(REGEX MATCHALL "^ONLY::.*::" regex "${run}")
+      string(REGEX REPLACE "^ONLY::.*::" "" run "${run}")
+      string(REGEX REPLACE "^ONLY::(.*)::" "\\1" regex "${regex}")
+
+      if (NOT is_short)
+        # FIXME i#1807: fix the failing long suite tests so we can enable them once again
+        # in our nightly regression runs.  For now we disable the extra tests (but
+        # we leave the extra builds selected in runsuite.cmake) by throttling
+        # all long tests to only run ^common.
+        set(regex "^common")
+      endif ()
+
+      ops2testprefix(prefix "${run}")
+      list(FIND prior_prefixes "${prefix}" index)
+      if (${index} EQUAL -1)
+        list(APPEND prior_prefixes "${prefix}")
+      endif ()
+      foreach (test ${testlist_normal})
+        is_test_enabled_by_name(name_ok ${test} "${regex}")
+        if (name_ok)
+          run2testname(test_name "${run}" ${test})
+          torun_normal("${test_name}" ${test} "${run}")
+        endif ()
+      endforeach (test)
+      foreach (test ${testlist_ci})
+        is_test_enabled_by_name(name_ok ${test} "${regex}")
+        if (name_ok)
+          run2testname(test_name "${run}" ${test})
+          torun_ci("${test_name}" ${test} "${run}")
+        endif ()
+      endforeach (test)
+      foreach (test ${testlist_api})
+        is_test_enabled_by_name(name_ok ${test} "${regex}")
+        if (name_ok)
+          run2testname(test_name "${run}" ${test})
+          torun_api("${test_name}" ${test} "${run}")
+        endif ()
+      endforeach (test)
+      foreach (test ${testlist_runall})
+        is_test_enabled_by_name(name_ok ${test} "${regex}")
+        if (name_ok)
+          run2testname(test_name "${run}" ${test})
+          torun_runall("${test_name}" ${test} "${run}")
+        endif ()
+      endforeach (test)
+
+    endif (enabled)
+  endforeach(run)
+endmacro ()
+
+###########################################################################
 # tests
 
 # This step takes a while so we provide a status message:
@@ -1724,10 +1865,38 @@ if (DR_HOST_NOT_TARGET)
     else ()
       tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
     endif ()
+
+    # Test postprocessing and analysis with an alternate binary directory.
+    # Limited to UNIX because the checked-in modules.log is in UNIX format
+    # (Windows needs extra fields per library).
+    # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
+    if (BUILD_CLIENTS AND UNIX AND ZLIB_FOUND)
+      # We make a writable copy so we can both write the final trace there and run our
+      # analyzer in a single command line.
+      set(srcdir
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
+      set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+      file(MAKE_DIRECTORY ${locdir})
+      file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
+      get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
+      prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
+      torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
+        "offline-altbindir.c" ""
+        "-indir;${locdir};-simulator_type;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
+        OFF)
+      set(tool.drcacheoff.altbindir_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+    endif ()
+
   endif ()
 
-else (DR_HOST_NOT_TARGET)
-#NOCHECK not yet willing to indent the world (and manually deal w/ long lines) until we're sure there's no simpler way: move the code at the bottom into a function up higher we can call here and at bottom, and then return() here??
+  # The tests are not ported to build with host!=target.  Most will never work there,
+  # so rather than spend effort on making everything build when we can only enable
+  # a few tests, we simply enable the few tests here and return, skipping the rest of
+  # the file and avoiding a giant if().
+  set_up_test_lists()
+  return ()
+endif (DR_HOST_NOT_TARGET)
 
 # Make sure we test running a path with spaces (to avoid regressions like i#2538).
 set(common.broadfun_outname "common.broadfun spaces")
@@ -3361,26 +3530,6 @@ if (CLIENT_INTERFACE)
         "CFLAGS=-m32;CXXFLAGS=-m32")
     endif ()
 
-    # Test postprocessing and analysis with an alternate binary directory.
-    # Limited to UNIX because the checked-in modules.log is in UNIX format
-    # (Windows needs extra fields per library).
-    # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
-    if (UNIX AND ZLIB_FOUND)
-      # We make a writable copy so we can both write the final trace there and run our
-      # analyzer in a single command line.
-      set(srcdir
-        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
-      set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
-      file(MAKE_DIRECTORY ${locdir})
-      file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
-      torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
-        "offline-altbindir.c" ""
-        "-indir;${locdir};-simulator_type;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
-        OFF)
-      set(tool.drcacheoff.altbindir_basedir
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-    endif ()
-
     ###########################################################################
     # drcpusim tests
 
@@ -4182,8 +4331,6 @@ if (NOT ANDROID)
   mark_execstack("${TestMemProtChg}")
 endif ()
 
-endif (DR_HOST_NOT_TARGET)
-
 if (vera++_FOUND)
   file(READ "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.templatex" vera_regex)
   add_test(vera ${VERA++_EXECUTABLE} --root "${PROJECT_SOURCE_DIR}/make/style_checks"
@@ -4193,140 +4340,9 @@ endif ()
 
 ###########################################################################
 
-# We'll want the latest CTest (2.6.4) so we can use the -W parameter
-# for wider test name fields as ours include the runtime options and
-# app name.
-
-function(ops2testprefix prefix ops)
-  string(REGEX REPLACE " [^-][^ ]*" "" name "${ops}")
-  string(REGEX REPLACE " +-" "," name "${name}")
-  string(REGEX REPLACE "^-" "" name "${name}")
-  string(STRIP "${name}" name)
-  # want it grouped by run, not by test, and it auto-alpha-sorts
-  set(${prefix} "${name}|" PARENT_SCOPE)
-endfunction(ops2testprefix)
-
-function(run2testname testname ops test)
-  ops2testprefix(prefix "${ops}")
-  # want it grouped by run, not by test, and it auto-alpha-sorts
-  set(${testname} "${prefix}${test}" PARENT_SCOPE)
-endfunction(run2testname)
-
-function(is_test_enabled_by_name output name regex)
-  set(enabled OFF)
-  if (NOT SKIP_FLAKY_TESTS OR NOT "${name}" MATCHES "_FLAKY")
-    if (NOT regex OR "${name}" MATCHES "${regex}")
-      if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
-          # See above: for particular builds we skip some of the similar tests from
-          # some of the test groups.
-          (("${name}" MATCHES "tool.drcache" AND
-            NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
-          ("${name}" MATCHES "tool.drcpusim" AND
-            NOT "${name}" MATCHES "Pentium3") OR
-          ("${name}" MATCHES "tool.[^d]" AND
-            NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
-          # instrcalls is the slowest of the samples.
-          "${name}" MATCHES "sample.instrcalls" OR
-          ("${name}" MATCHES "client.annotation-" AND
-            NOT "${name}" MATCHES "(-opt|tiny-bb)")))
-        set(enabled OFF)
-      else ()
-        set(enabled ON)
-      endif ()
-    endif ()
-  endif ()
-  set(${output} ${enabled} PARENT_SCOPE)
-endfunction ()
-
-foreach (run ${run_list})
-  set(enabled OFF)
-
-  string(REGEX MATCHALL "^SHORT::" is_short "${run}")
-  string(REGEX REPLACE "^SHORT::" "" run "${run}")
-  if (is_short OR TEST_LONG)
-    set(enabled ON)
-  endif (is_short OR TEST_LONG)
-
-  string(REGEX MATCHALL "^DEBUG::" is_debug "${run}")
-  string(REGEX REPLACE "^DEBUG::" "" run "${run}")
-  if (is_debug AND NOT DEBUG)
-    set(enabled OFF)
-  endif (is_debug AND NOT DEBUG)
-
-  string(REGEX MATCHALL "^X86::" is_x86 "${run}")
-  string(REGEX REPLACE "^X86::" "" run "${run}")
-  if (is_x86 AND NOT X86)
-    set(enabled OFF)
-  endif ()
-
-  string(REGEX MATCHALL "^X64::" is_x64 "${run}")
-  string(REGEX REPLACE "^X64::" "" run "${run}")
-  if (is_x64 AND NOT X64)
-    set(enabled OFF)
-  endif ()
-
-  string(REGEX MATCHALL "^WIN::" is_win "${run}")
-  string(REGEX REPLACE "^WIN::" "" run "${run}")
-  if (is_win AND UNIX)
-    set(enabled OFF)
-  endif (is_win AND UNIX)
-
-  string(REGEX MATCHALL "^LIN::" is_lin "${run}")
-  string(REGEX REPLACE "^LIN::" "" run "${run}")
-  if (is_lin AND WIN32)
-    set(enabled OFF)
-  endif (is_lin AND WIN32)
-
-  if (enabled)
-
-    string(REGEX MATCHALL "^ONLY::.*::" regex "${run}")
-    string(REGEX REPLACE "^ONLY::.*::" "" run "${run}")
-    string(REGEX REPLACE "^ONLY::(.*)::" "\\1" regex "${regex}")
-
-    if (NOT is_short)
-      # FIXME i#1807: fix the failing long suite tests so we can enable them once again
-      # in our nightly regression runs.  For now we disable the extra tests (but
-      # we leave the extra builds selected in runsuite.cmake) by throttling
-      # all long tests to only run ^common.
-      set(regex "^common")
-    endif ()
-
-    ops2testprefix(prefix "${run}")
-    list(FIND prior_prefixes "${prefix}" index)
-    if (${index} EQUAL -1)
-      list(APPEND prior_prefixes "${prefix}")
-    endif ()
-    foreach (test ${testlist_normal})
-      is_test_enabled_by_name(name_ok ${test} "${regex}")
-      if (name_ok)
-        run2testname(test_name "${run}" ${test})
-        torun_normal("${test_name}" ${test} "${run}")
-      endif ()
-    endforeach (test)
-    foreach (test ${testlist_ci})
-      is_test_enabled_by_name(name_ok ${test} "${regex}")
-      if (name_ok)
-        run2testname(test_name "${run}" ${test})
-        torun_ci("${test_name}" ${test} "${run}")
-      endif ()
-    endforeach (test)
-    foreach (test ${testlist_api})
-      is_test_enabled_by_name(name_ok ${test} "${regex}")
-      if (name_ok)
-        run2testname(test_name "${run}" ${test})
-        torun_api("${test_name}" ${test} "${run}")
-      endif ()
-    endforeach (test)
-    foreach (test ${testlist_runall})
-      is_test_enabled_by_name(name_ok ${test} "${regex}")
-      if (name_ok)
-        run2testname(test_name "${run}" ${test})
-        torun_runall("${test_name}" ${test} "${run}")
-      endif ()
-    endforeach (test)
-
-  endif (enabled)
-endforeach(run)
+# Remember that we do not reach this point for DR_HOST_NOT_TARGET, so do not
+# place anything here that should be shared across all configurations.
+set_up_test_lists()
 
 if (APPLE)
   # Enable just the quarter of the tests that pass, to get our test suite started

@@ -1646,7 +1646,7 @@ use_addr_prefix_on_short_disp(void)
 /** Specifies which processor mode to use when decoding or encoding. */
 typedef enum _dr_isa_mode_t {
     DR_ISA_IA32,              /**< IA-32 (Intel/AMD 32-bit mode). */
-    DR_ISA_X86 = DR_ISA_IA32, /**< Alis for DR_ISA_IA32. */
+    DR_ISA_X86 = DR_ISA_IA32, /**< Alias for DR_ISA_IA32. */
     DR_ISA_AMD64,             /**< AMD64 (Intel/AMD 64-bit mode). */
     DR_ISA_ARM_A32,           /**< ARM A32 (AArch32 ARM). */
     DR_ISA_ARM_THUMB,         /**< Thumb (ARM T32). */

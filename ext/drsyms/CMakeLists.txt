@@ -41,7 +41,7 @@ else ()
   set(BITS "32")
 endif ()
 
-if (ARM)
+if (DR_HOST_ARM)
   if (ANDROID)
     set(ARCH "-android")
   else ()
@@ -58,7 +58,7 @@ if (ARM)
   endif ()
 endif()
 
-if (AARCH64)
+if (DR_HOST_AARCH64)
   set(ARCH "-aarch64")
 endif ()
 
@@ -132,11 +132,11 @@ elseif (UNIX)
   else (APPLE)
     set(srcs ${srcs} drsyms_elf.c)
     set(dwarf_libpath
-      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${DR_HOST_ARCH}/lib${BITS}/libdwarf.a")
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libdwarf.a")
     set(elftc_libpath
-      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${DR_HOST_ARCH}/lib${BITS}/libelftc.a")
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelftc.a")
     set(elf_libpath
-      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${DR_HOST_ARCH}/lib${BITS}/libelf.a")
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelf.a")
   endif (APPLE)
   set(srcs_static ${srcs})
 endif (WIN32)

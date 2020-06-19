@@ -63,7 +63,7 @@ typedef struct _kernel_fpx_sw_bytes_t {
     __u32 padding[7]; /*  for future use. */
 } kernel_fpx_sw_bytes_t;
 
-#ifdef X86_32
+#if defined(X86) && !defined(X64)
 /*
  * As documented in the iBCS2 standard..
  *
@@ -161,7 +161,7 @@ typedef struct _kernel_sigcontext_t {
     unsigned long cr2;
 } kernel_sigcontext_t;
 
-#elif defined(X86_64)
+#elif defined(X86) && defined(X64)
 
 /* FXSAVE frame */
 /* Note: reserved1/2 may someday contain valuable data. Always save/restore
@@ -222,7 +222,7 @@ typedef struct _kernel_sigcontext_t {
 
 #endif
 
-#if defined(X86_32) || defined(X86_64)
+#ifdef X86
 typedef struct _kernel_xsave_hdr_t {
     __u64 xstate_bv;
     __u64 reserved1[2];
@@ -314,7 +314,7 @@ typedef struct _kernel_iwmmxt_sigframe_t {
 /* Dummy padding block: a block with this magic should be skipped. */
 #    define DUMMY_MAGIC 0xb0d9ed01
 
-#endif
+#endif /* ARM */
 
 #ifdef AARCH64
 
@@ -328,6 +328,7 @@ typedef struct _kernel_sigcontext_t {
     unsigned char __reserved[4096] __attribute__((__aligned__(16)));
 } kernel_sigcontext_t;
 
+#    ifndef FPSIMD_MAGIC
 /*
  * Header to be used at the beginning of structures extending the user
  * context. Such structures must be placed after the rt_sigframe on the stack
@@ -339,7 +340,7 @@ struct _aarch64_ctx {
     __u32 size;
 };
 
-#    define FPSIMD_MAGIC 0x46508001
+#        define FPSIMD_MAGIC 0x46508001
 
 struct fpsimd_context {
     struct _aarch64_ctx head;
@@ -347,7 +348,8 @@ struct fpsimd_context {
     __u32 fpcr;
     __uint128_t vregs[32];
 };
+#    endif
 
-#endif
+#endif /* AARCH64 */
 
 #endif /* _SIGCONTEXT_H_ */
