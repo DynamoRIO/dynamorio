@@ -47,19 +47,23 @@ const std::string view_t::TOOL_NAME = "View tool";
 
 analysis_tool_t *
 view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
-                 uint64_t sim_refs, const std::string &syntax, unsigned int verbose)
+                 uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
+                 const std::string &alt_module_dir)
 {
-    return new view_t(module_file_path, skip_refs, sim_refs, syntax, verbose);
+    return new view_t(module_file_path, skip_refs, sim_refs, syntax, verbose,
+                      alt_module_dir);
 }
 
 view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
-               const std::string &syntax, unsigned int verbose)
+               const std::string &syntax, unsigned int verbose,
+               const std::string &alt_module_dir)
     : module_file_path_(module_file_path)
     , knob_verbose_(verbose)
     , instr_count_(0)
     , knob_skip_refs_(skip_refs)
     , knob_sim_refs_(sim_refs)
     , knob_syntax_(syntax)
+    , knob_alt_module_dir_(alt_module_dir)
     , num_disasm_instrs_(0)
 {
 }
@@ -73,8 +77,9 @@ view_t::initialize()
     std::string error = directory_.initialize_module_file(module_file_path_);
     if (!error.empty())
         return "Failed to initialize directory: " + error;
-    module_mapper_ = module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr,
-                                             nullptr, nullptr, knob_verbose_);
+    module_mapper_ =
+        module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr, nullptr,
+                                nullptr, knob_verbose_, knob_alt_module_dir_);
     module_mapper_->get_loaded_modules();
     error = module_mapper_->get_last_error();
     if (!error.empty())
