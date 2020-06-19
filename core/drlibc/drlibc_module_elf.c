@@ -104,16 +104,20 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
          * standalone mode tools like those using drsyms (i#1532) or
          * dr_map_executable_file, but we just don't support that yet until we
          * remove our hardcoded type defines in module_elf.h.
+         *
+         * i#1648: We do allow mixing arches of the same bitwidth to better support
+         * drdecode tools.  We have no standalone_library var access here to limit
+         * this relaxation to tools; we assume DR managed code will hit other
+         * problems later for the wrong arch and that recognizing an other-arch
+         * file as an ELF won't cause problems.
          */
         if ((elf_header.e_version != 1) ||
             (memory && elf_header.e_ehsize != sizeof(ELF_HEADER_TYPE)) ||
             (memory &&
-#    ifdef DR_HOST_NOT_TARGET
-             false
+#    ifdef X64
+             elf_header.e_machine != EM_X86_64 && elf_header.e_machine != EM_AARCH64
 #    else
-             elf_header.e_machine !=
-                 IF_HOST_X86_ELSE(IF_HOST_X64_ELSE(EM_X86_64, EM_386),
-                                  IF_HOST_X64_ELSE(EM_AARCH64, EM_ARM))
+             elf_header.e_machine != EM_386 && elf_header.e_machine != EM_ARM
 #    endif
              ))
             return false;
@@ -124,12 +128,14 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         ASSERT_CURIOSITY(!memory || elf_header.e_ehsize == sizeof(ELF_HEADER_TYPE));
         ASSERT_CURIOSITY(elf_header.e_ident[EI_OSABI] == ELFOSABI_SYSV ||
                          elf_header.e_ident[EI_OSABI] == ELFOSABI_LINUX);
-#ifndef DR_HOST_NOT_TARGET
         ASSERT_CURIOSITY(!memory ||
-                         elf_header.e_machine ==
-                             IF_HOST_X86_ELSE(IF_HOST_X64_ELSE(EM_X86_64, EM_386),
-                                              IF_HOST_X64_ELSE(EM_AARCH64, EM_ARM)));
+#ifdef X64
+                         elf_header.e_machine == EM_X86_64 ||
+                         elf_header.e_machine == EM_AARCH64
+#else
+                         elf_header.e_machine == EM_386 && elf_header.e_machine == EM_ARM
 #endif
+        );
         return true;
     }
     return false;
