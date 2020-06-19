@@ -43,7 +43,8 @@
 class view_t : public analysis_tool_t {
 public:
     view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
-           const std::string &syntax, unsigned int verbose);
+           const std::string &syntax, unsigned int verbose,
+           const std::string &alt_module_dir = "");
     std::string
     initialize() override;
     bool
@@ -75,6 +76,7 @@ protected:
     uint64_t knob_skip_refs_;
     uint64_t knob_sim_refs_;
     std::string knob_syntax_;
+    std::string knob_alt_module_dir_;
     uint64_t num_disasm_instrs_;
     std::unordered_map<app_pc, std::string> disasm_cache_;
 };
