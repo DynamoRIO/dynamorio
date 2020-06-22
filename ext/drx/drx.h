@@ -159,7 +159,8 @@ DR_EXPORT
  * \note The counter update is racy (i.e., not synchronized among threads)
  * unless #DRX_COUNTER_LOCK is specified in \p flags. When #DRX_COUNTER_LOCK
  * is set, the instrumentation may fail if a 64-bit counter is updated in
- * a 32-bit application or the counter crosses cache lines.
+ * a 32-bit application or the counter crosses cache lines. Currently,
+ * #DRX_COUNTER_LOCK is not yet supported on ARM.
  *
  * \note To update multiple counters at the same place, multiple
  * drx_insert_counter_update() invocations should be made in a row with the
