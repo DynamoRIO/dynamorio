@@ -32,7 +32,7 @@
 
 /* gzip_istream_t: a wrapper around zlib gzFile to match the parts of the
  * std::istream interface we use for raw2trace and file_reader_t.
- * Supports only limiting seeking within the current internal buffer.
+ * Supports only limited seeking within the current internal buffer.
  */
 
 #ifndef _GZIP_ISTREAM_H_
