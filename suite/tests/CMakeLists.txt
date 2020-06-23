@@ -3345,6 +3345,7 @@ endif ()
         "CFLAGS=-m32;CXXFLAGS=-m32")
     endif ()
 
+    # Test postprocessing and analysis with an alternate binary directory.
     # Limited to UNIX because the checked-in modules.log is in UNIX format
     # (Windows needs extra fields per library).
     if (UNIX)
