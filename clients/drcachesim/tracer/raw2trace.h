@@ -327,10 +327,11 @@ public:
            std::string (*process_cb)(drmodtrack_info_t *info, void *data,
                                      void *user_data) = nullptr,
            void *process_cb_user_data = nullptr, void (*free_cb)(void *data) = nullptr,
-           uint verbosity = 0)
+           uint verbosity = 0, const std::string &alt_module_dir = "")
     {
-        return std::unique_ptr<module_mapper_t>(new module_mapper_t(
-            module_map, parse_cb, process_cb, process_cb_user_data, free_cb, verbosity));
+        return std::unique_ptr<module_mapper_t>(
+            new module_mapper_t(module_map, parse_cb, process_cb, process_cb_user_data,
+                                free_cb, verbosity, alt_module_dir));
     }
 
     /**
@@ -390,7 +391,8 @@ private:
                     std::string (*process_cb)(drmodtrack_info_t *info, void *data,
                                               void *user_data) = nullptr,
                     void *process_cb_user_data = nullptr,
-                    void (*free_cb)(void *data) = nullptr, uint verbosity = 0);
+                    void (*free_cb)(void *data) = nullptr, uint verbosity = 0,
+                    const std::string &alt_module_dir = "");
     module_mapper_t(const module_mapper_t &) = delete;
     module_mapper_t &
     operator=(const module_mapper_t &) = delete;
@@ -439,6 +441,7 @@ private:
     byte *last_map_base_ = nullptr;
 
     uint verbosity_ = 0;
+    std::string alt_module_dir_;
     std::string last_error_;
 };
 
@@ -1296,7 +1299,8 @@ public:
     // caller.  module_map is not a string and can contain binary data.
     raw2trace_t(const char *module_map, const std::vector<std::istream *> &thread_files,
                 const std::vector<std::ostream *> &out_files, void *dcontext = NULL,
-                unsigned int verbosity = 0, int worker_count = -1);
+                unsigned int verbosity = 0, int worker_count = -1,
+                const std::string &alt_module_dir = "");
     virtual ~raw2trace_t();
 
     /**
@@ -1554,6 +1558,8 @@ private:
     std::unique_ptr<module_mapper_t> module_mapper_;
 
     unsigned int verbosity_ = 0;
+
+    std::string alt_module_dir_;
 
     // Our decode_cache duplication will not scale forever on very large code
     // footprint traces, so we set a cap for the default.

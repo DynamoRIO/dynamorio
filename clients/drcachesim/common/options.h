@@ -66,6 +66,7 @@ extern droption_t<std::string> op_subdir_prefix;
 extern droption_t<std::string> op_infile;
 extern droption_t<std::string> op_indir;
 extern droption_t<std::string> op_module_file;
+extern droption_t<std::string> op_alt_module_dir;
 extern droption_t<std::string> op_funclist_file;
 extern droption_t<unsigned int> op_num_cores;
 extern droption_t<unsigned int> op_line_size;

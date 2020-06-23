@@ -47,14 +47,17 @@
 const std::string opcode_mix_t::TOOL_NAME = "Opcode mix tool";
 
 analysis_tool_t *
-opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose)
+opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose,
+                       const std::string &alt_module_dir)
 {
-    return new opcode_mix_t(module_file_path, verbose);
+    return new opcode_mix_t(module_file_path, verbose, alt_module_dir);
 }
 
-opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int verbose)
+opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int verbose,
+                           const std::string &alt_module_dir)
     : module_file_path_(module_file_path)
     , knob_verbose_(verbose)
+    , knob_alt_module_dir_(alt_module_dir)
 {
 }
 
@@ -68,8 +71,9 @@ opcode_mix_t::initialize()
     std::string error = directory_.initialize_module_file(module_file_path_);
     if (!error.empty())
         return "Failed to initialize directory: " + error;
-    module_mapper_ = module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr,
-                                             nullptr, nullptr, knob_verbose_);
+    module_mapper_ =
+        module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr, nullptr,
+                                nullptr, knob_verbose_, knob_alt_module_dir_);
     module_mapper_->get_loaded_modules();
     error = module_mapper_->get_last_error();
     if (!error.empty())

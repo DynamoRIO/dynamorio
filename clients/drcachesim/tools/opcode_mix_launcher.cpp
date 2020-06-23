@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -62,6 +62,10 @@ static droption_t<std::string> op_module_file(
     "If the file is named modules.log and is in the same directory as the trace file, "
     "or a raw/ subdirectory below the trace file, this parameter can be omitted.");
 
+static droption_t<std::string> op_alt_module_dir(
+    DROPTION_SCOPE_FRONTEND, "alt_module_dir", "", "Alternate module search directory",
+    "Specifies a directory containing libraries referenced in -module_file.");
+
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
                                     "Verbosity level for notifications.");
@@ -84,7 +88,8 @@ _tmain(int argc, const TCHAR *targv[])
     }
 
     analysis_tool_t *tool1 =
-        opcode_mix_tool_create(op_module_file.get_value(), op_verbose.get_value());
+        opcode_mix_tool_create(op_module_file.get_value(), op_verbose.get_value(),
+                               op_alt_module_dir.get_value());
     std::vector<analysis_tool_t *> tools;
     tools.push_back(tool1);
     analyzer_t analyzer(op_trace.get_value(), &tools[0], (int)tools.size());

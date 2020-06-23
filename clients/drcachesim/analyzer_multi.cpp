@@ -107,7 +107,8 @@ analyzer_multi_t::analyzer_multi_t()
                 error_string_ = "Directory setup failed: " + dir_err;
             }
             raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
-                                  nullptr, op_verbose.get_value(), op_jobs.get_value());
+                                  nullptr, op_verbose.get_value(), op_jobs.get_value(),
+                                  op_alt_module_dir.get_value());
             std::string error = raw2trace.do_conversion();
             if (!error.empty()) {
                 success_ = false;
