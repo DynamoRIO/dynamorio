@@ -94,7 +94,7 @@ droption_t<std::string> op_module_file(
     "If the file is named modules.log and is in the same directory as the trace file, "
     "or a raw/ subdirectory below the trace file, this parameter can be omitted.");
 
-droption_t<std::string> op_alt_mod_dir(
+droption_t<std::string> op_alt_module_dir(
     DROPTION_SCOPE_FRONTEND, "alt_module_dir", "", "Alternate module search directory",
     "Specifies a directory containing libraries referenced in -module_file for "
     "analysis tools, or in the raw modules file for post-prcoessing of offline "
