@@ -111,14 +111,11 @@ view_t::process_memref(const memref_t &memref)
         switch (memref.marker.marker_type) {
         case TRACE_MARKER_TYPE_FILETYPE:
             if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
-                !TESTANY(IF_X86_ELSE(IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64,
-                                                 OFFLINE_FILE_TYPE_ARCH_X86_32),
-                                     IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64,
-                                                 OFFLINE_FILE_TYPE_ARCH_ARM32)),
-                         memref.marker.marker_value)) {
+                !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
                 error_string_ = std::string("Architecture mismatch: trace recorded on ") +
                     trace_arch_string(static_cast<offline_file_type_t>(
-                        memref.marker.marker_value));
+                        memref.marker.marker_value)) +
+                    " but tool built for " + trace_arch_string(build_target_arch_type());
                 return false;
             }
             break;
