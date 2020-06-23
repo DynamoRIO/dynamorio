@@ -39,9 +39,10 @@ notifications:
     on_failure: always
 
 # Don't run Travis on pushes to feature branches: pull requests cover those.
-branches:
-  only:
-  - master
+#TEMPORARY
+#branches:
+#  only:
+#  - master
 
 # We use Xenial.
 sudo: required
