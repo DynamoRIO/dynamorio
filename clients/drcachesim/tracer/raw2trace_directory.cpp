@@ -113,8 +113,8 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     if (basename_dot == nullptr)
         return "";
     const char *basename_pre_suffix = nullptr;
-#ifdef HAS_ZLIB
     bool is_gzipped = false;
+#ifdef HAS_ZLIB
     basename_pre_suffix = strstr(basename_dot, OUTFILE_SUFFIX_GZ);
     if (basename_pre_suffix != nullptr) {
         is_gzipped = true;
@@ -134,8 +134,8 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
 #ifdef HAS_ZLIB
     if (is_gzipped)
         ifile = new gzip_istream_t(path);
-    else
 #endif
+    if (!is_gzipped)
         ifile = new std::ifstream(path, std::ifstream::binary);
     in_files_.push_back(ifile);
     if (!(*in_files_.back()))
