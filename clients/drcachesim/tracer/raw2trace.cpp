@@ -122,10 +122,12 @@ bool module_mapper_t::has_custom_data_global_ = true;
 module_mapper_t::module_mapper_t(
     const char *module_map, const char *(*parse_cb)(const char *src, OUT void **data),
     std::string (*process_cb)(drmodtrack_info_t *info, void *data, void *user_data),
-    void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity)
+    void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity,
+    const std::string &alt_module_dir)
     : modmap_(module_map)
     , cached_user_free_(free_cb)
     , verbosity_(verbosity)
+    , alt_module_dir_(alt_module_dir)
 {
     // We mutate global state because do_module_parsing() uses drmodtrack, which
     // wants global functions. The state isn't needed past do_module_parsing(), so
@@ -261,9 +263,9 @@ std::string
 raw2trace_t::do_module_parsing()
 {
     if (!module_mapper_) {
-        module_mapper_ =
-            module_mapper_t::create(modmap_, user_parse_, user_process_,
-                                    user_process_data_, user_free_, verbosity_);
+        module_mapper_ = module_mapper_t::create(modmap_, user_parse_, user_process_,
+                                                 user_process_data_, user_free_,
+                                                 verbosity_, alt_module_dir_);
     }
     return module_mapper_->get_last_error();
 }
@@ -346,6 +348,16 @@ module_mapper_t::read_and_map_modules()
             size_t map_size;
             byte *base_pc =
                 dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE, &map_size);
+            if (base_pc == NULL && !alt_module_dir_.empty()) {
+                std::string basename(info.path);
+                size_t sep_index = basename.find_last_of(DIRSEP ALT_DIRSEP);
+                if (sep_index != std::string::npos)
+                    basename = std::string(basename, sep_index + 1, std::string::npos);
+                std::string new_path = alt_module_dir_ + DIRSEP + basename;
+                VPRINT(1, "Failed to find %s; trying %s\n", info.path, new_path.c_str());
+                base_pc = dr_map_executable_file(new_path.c_str(),
+                                                 DR_MAPEXE_SKIP_WRITABLE, &map_size);
+            }
             if (base_pc == NULL) {
                 // We expect to fail to map dynamorio.dll for x64 Windows as it
                 // is built /fixed.  (We could try to have the map succeed w/o relocs,
@@ -978,13 +990,15 @@ raw2trace_t::get_file_type(void *tls)
 raw2trace_t::raw2trace_t(const char *module_map,
                          const std::vector<std::istream *> &thread_files,
                          const std::vector<std::ostream *> &out_files, void *dcontext,
-                         unsigned int verbosity, int worker_count)
+                         unsigned int verbosity, int worker_count,
+                         const std::string &alt_module_dir)
     : trace_converter_t(dcontext)
     , worker_count_(worker_count)
     , user_process_(nullptr)
     , user_process_data_(nullptr)
     , modmap_(module_map)
     , verbosity_(verbosity)
+    , alt_module_dir_(alt_module_dir)
 {
     if (dcontext == NULL) {
 #ifdef ARM

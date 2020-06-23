@@ -179,7 +179,8 @@ drmemtrace_analysis_tool_create()
             ERRMSG("Usage error: the opcode_mix tool requires offline traces.\n");
             return nullptr;
         }
-        return opcode_mix_tool_create(module_file_path, op_verbose.get_value());
+        return opcode_mix_tool_create(module_file_path, op_verbose.get_value(),
+                                      op_alt_module_dir.get_value());
     } else if (op_simulator_type.get_value() == VIEW) {
         std::string module_file_path = get_module_file_path();
         if (module_file_path.empty()) {
@@ -188,7 +189,7 @@ drmemtrace_analysis_tool_create()
         }
         return view_tool_create(module_file_path, op_skip_refs.get_value(),
                                 op_sim_refs.get_value(), op_view_syntax.get_value(),
-                                op_verbose.get_value());
+                                op_verbose.get_value(), op_alt_module_dir.get_value());
     } else if (op_simulator_type.get_value() == FUNC_VIEW) {
         std::string funclist_file_path = get_aux_file_path(
             op_funclist_file.get_value(), DRMEMTRACE_FUNCTION_LIST_FILENAME);

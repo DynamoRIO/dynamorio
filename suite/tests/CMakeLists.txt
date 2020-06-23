@@ -3345,6 +3345,25 @@ endif ()
         "CFLAGS=-m32;CXXFLAGS=-m32")
     endif ()
 
+    # Test postprocessing and analysis with an alternate binary directory.
+    # Limited to UNIX because the checked-in modules.log is in UNIX format
+    # (Windows needs extra fields per library).
+    if (UNIX)
+      # We make a writable copy so we can both write the final trace there and run our
+      # analyzer in a single command line.
+      set(srcdir
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
+      set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+      file(MAKE_DIRECTORY ${locdir})
+      file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
+      torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
+        "offline-altbindir.c" ""
+        "-indir;${locdir};-simulator_type;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
+        OFF)
+      set(tool.drcacheoff.altbindir_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+    endif ()
+
     ###########################################################################
     # drcpusim tests
 

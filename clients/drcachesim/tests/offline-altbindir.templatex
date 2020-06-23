@@ -1,0 +1,11 @@
+#ifdef X86
+// TODO i#4318: Replace this with a message about the wrong architecture
+// once we have architecture tags to our traces.
+ERROR: failed to initialize analyzer: Failed to create analysis tool: Tool failed to initialize: Failed to load binaries: Failed to map module /tmp/nonexistent/threadsig
+#else
+Opcode mix tool results:
+         125511 : total executed instructions
+          15748 :     bcond
+          15165 :       stp
+.*
+#endif
