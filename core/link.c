@@ -479,7 +479,11 @@ linkstub_fragment(dcontext_t *dcontext, linkstub_t *l)
             return (fragment_t *)&linkstub_ibl_bb_fragment;
         if (dcontext != NULL && dcontext != GLOBAL_DCONTEXT) {
             thread_link_data_t *ldata = (thread_link_data_t *)dcontext->link_field;
-            if (l == &ldata->linkstub_deleted)
+            /* This point is reachable (via set_last_exit) from initialize_dynamo_context,
+             * which is called by dynamo_thread_init before link_thread_init. The latter
+             * initializes dcontext->link_field, so it's possible for ldata to be NULL.
+             */
+            if (ldata != NULL && l == &ldata->linkstub_deleted)
                 return &ldata->linkstub_deleted_fragment;
         }
         /* For coarse proxies, we need a fake FRAG_SHARED fragment_t for is_linkable */
