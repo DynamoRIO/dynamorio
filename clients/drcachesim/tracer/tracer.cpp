@@ -1496,6 +1496,12 @@ init_thread_in_process(void *drcontext)
             file_type = static_cast<offline_file_type_t>(
                 file_type | OFFLINE_FILE_TYPE_INSTRUCTION_ONLY);
         }
+        file_type = static_cast<offline_file_type_t>(
+            file_type |
+            IF_X86_ELSE(
+                IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64, OFFLINE_FILE_TYPE_ARCH_X86_32),
+                IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64,
+                            OFFLINE_FILE_TYPE_ARCH_ARM32)));
         data->init_header_size =
             reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
                 data->buf_base, dr_get_thread_id(drcontext), file_type);

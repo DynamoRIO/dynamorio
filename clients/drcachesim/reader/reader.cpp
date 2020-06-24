@@ -189,7 +189,8 @@ reader_t::operator++()
         case TRACE_TYPE_MARKER:
             have_memref = true;
             cur_ref_.marker.type = (trace_type_t)input_entry_->type;
-            assert(cur_tid_ != 0 && cur_pid_ != 0);
+            assert((cur_tid_ != 0 && cur_pid_ != 0) ||
+                   input_entry_->size == TRACE_MARKER_TYPE_FILETYPE);
             cur_ref_.marker.pid = cur_pid_;
             cur_ref_.marker.tid = cur_tid_;
             cur_ref_.marker.marker_type = (trace_marker_type_t)input_entry_->size;

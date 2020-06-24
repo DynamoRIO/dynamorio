@@ -105,6 +105,7 @@ analyzer_multi_t::analyzer_multi_t()
             if (!dir_err.empty()) {
                 success_ = false;
                 error_string_ = "Directory setup failed: " + dir_err;
+                return;
             }
             raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
                                   nullptr, op_verbose.get_value(), op_jobs.get_value(),
