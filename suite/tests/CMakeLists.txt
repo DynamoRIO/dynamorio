@@ -3348,7 +3348,8 @@ endif ()
     # Test postprocessing and analysis with an alternate binary directory.
     # Limited to UNIX because the checked-in modules.log is in UNIX format
     # (Windows needs extra fields per library).
-    if (UNIX)
+    # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
+    if (UNIX AND ZLIB_FOUND)
       # We make a writable copy so we can both write the final trace there and run our
       # analyzer in a single command line.
       set(srcdir
