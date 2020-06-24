@@ -238,6 +238,13 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SPLIT_VALUE,
 
+    /**
+     * The marker value contains the OFFLINE_FILE_TYPE_* bitfields of type
+     * #offline_file_type_t identifying the architecture and other key high-level
+     * attributes of the trace.
+     */
+    TRACE_MARKER_TYPE_FILETYPE,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -357,13 +364,55 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE 3
 #define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE
 
-// Bitfields used to describe the file type.
+/**
+ * Bitfields used to describe the high-level characteristics of both an
+ * offline final trace and a raw not-yet-postprocessed trace.
+ * In a final trace these are stored in a marker of type #TRACE_MARKER_TYPE_FILETYPE.
+ */
 typedef enum {
-    OFFLINE_FILE_TYPE_DEFAULT = 0,
-    OFFLINE_FILE_TYPE_FILTERED = 1,
-    OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS = 2,
-    OFFLINE_FILE_TYPE_INSTRUCTION_ONLY = 4,
+    OFFLINE_FILE_TYPE_DEFAULT = 0x00,
+    OFFLINE_FILE_TYPE_FILTERED = 0x01, /**< Addresses filtered online. */
+    OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS = 0x02,
+    OFFLINE_FILE_TYPE_INSTRUCTION_ONLY = 0x04, /**< Trace has no data references. */
+    OFFLINE_FILE_TYPE_ARCH_AARCH64 = 0x08,     /**< Recorded on AArch64. */
+    OFFLINE_FILE_TYPE_ARCH_ARM32 = 0x10,       /**< Recorded on ARM (32-bit). */
+    OFFLINE_FILE_TYPE_ARCH_X86_32 = 0x20,      /**< Recorded on x86 (32-bit). */
+    OFFLINE_FILE_TYPE_ARCH_X86_64 = 0x40,      /**< Recorded on x86 (64-bit). */
+    OFFLINE_FILE_TYPE_ARCH_ALL = OFFLINE_FILE_TYPE_ARCH_AARCH64 |
+        OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
+        OFFLINE_FILE_TYPE_ARCH_X86_64, /**< All possible architecture types. */
+    // For raw files, this is currently stored in an 8-bit field.
+    // If we run out of flags we should swap the version to be in valueB and
+    // the flags in valueA, leaving the bottom few bits of valueA for compatibility
+    // with old versions.
 } offline_file_type_t;
+
+static inline const char *
+trace_arch_string(offline_file_type_t type)
+{
+    return TESTANY(OFFLINE_FILE_TYPE_ARCH_AARCH64, type)
+        ? "aarch64"
+        : (TESTANY(OFFLINE_FILE_TYPE_ARCH_ARM32, type)
+               ? "arm"
+               : (TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_32, type)
+                      ? "i386"
+                      : (TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_64, type) ? "x86_64"
+                                                                      : "unspecified")));
+}
+
+/* We have non-client targets including this header that do not include API
+ * headers defining IF_X86_ELSE, etc.  Those don't need this function so we
+ * simply exclude them.
+ */
+#ifdef IF_X86_ELSE
+static inline offline_file_type_t
+build_target_arch_type()
+{
+    return IF_X86_ELSE(
+        IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64, OFFLINE_FILE_TYPE_ARCH_X86_32),
+        IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64, OFFLINE_FILE_TYPE_ARCH_ARM32));
+}
+#endif
 
 START_PACKED_STRUCTURE
 struct _offline_entry_t {

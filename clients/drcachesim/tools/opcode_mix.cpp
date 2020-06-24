@@ -129,11 +129,22 @@ opcode_mix_t::parallel_shard_exit(void *shard_data)
 bool
 opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
+    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
+            !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
+            shard->error = std::string("Architecture mismatch: trace recorded on ") +
+                trace_arch_string(static_cast<offline_file_type_t>(
+                    memref.marker.marker_value)) +
+                " but tool built for " + trace_arch_string(build_target_arch_type());
+            return false;
+        }
+    }
     if (!type_is_instr(memref.instr.type) &&
         memref.data.type != TRACE_TYPE_INSTR_NO_FETCH) {
         return true;
     }
-    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
     ++shard->instr_count;
 
     app_pc mapped_pc;
@@ -167,7 +178,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         instr_init(dcontext_.dcontext, &instr);
         app_pc next_pc = decode(dcontext_.dcontext, mapped_pc, &instr);
         if (next_pc == NULL || !instr_valid(&instr)) {
-            error_string_ =
+            shard->error =
                 "Failed to decode instruction " + to_hex_string(memref.instr.addr);
             return false;
         }

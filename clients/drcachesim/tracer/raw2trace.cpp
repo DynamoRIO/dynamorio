@@ -464,9 +464,11 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     process_id_t pid = header.pid;
     DR_ASSERT(tid != INVALID_THREAD_ID);
     DR_ASSERT(pid != (process_id_t)INVALID_PROCESS_ID);
-    // Write out the tid, pid, and timestamp.
     byte *buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     byte *buf = buf_base;
+    // Write the arch and other type flags.
+    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_FILETYPE, tdata->file_type);
+    // Write out the tid, pid, and timestamp.
     buf += trace_metadata_writer_t::write_tid(buf, tid);
     buf += trace_metadata_writer_t::write_pid(buf, pid);
     if (header.timestamp != 0) // Legacy traces have the timestamp in the header.
@@ -1077,12 +1079,21 @@ trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
     int ver = static_cast<int>(entry->extended.valueA);
     if (version != nullptr)
         *version = ver;
+    offline_file_type_t type = static_cast<offline_file_type_t>(entry->extended.valueB);
     if (file_type != nullptr)
-        *file_type = static_cast<offline_file_type_t>(entry->extended.valueB);
+        *file_type = type;
     if (ver < OFFLINE_FILE_VERSION_OLDEST_SUPPORTED || ver > OFFLINE_FILE_VERSION) {
         std::stringstream ss;
         ss << "Version mismatch: found " << ver << " but we require between "
            << OFFLINE_FILE_VERSION_OLDEST_SUPPORTED << " and " << OFFLINE_FILE_VERSION;
+        *error = ss.str();
+        return false;
+    }
+    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, type) &&
+        !TESTANY(build_target_arch_type(), type)) {
+        std::stringstream ss;
+        ss << "Architecture mismatch: trace recorded on " << trace_arch_string(type)
+           << " but tools built for " << trace_arch_string(build_target_arch_type());
         *error = ss.str();
         return false;
     }

@@ -104,13 +104,22 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
          * standalone mode tools like those using drsyms (i#1532) or
          * dr_map_executable_file, but we just don't support that yet until we
          * remove our hardcoded type defines in module_elf.h.
+         *
+         * i#1648: We do allow mixing arches of the same bitwidth to better support
+         * drdecode tools.  We have no standalone_library var access here to limit
+         * this relaxation to tools; we assume DR managed code will hit other
+         * problems later for the wrong arch and that recognizing an other-arch
+         * file as an ELF won't cause problems.
          */
         if ((elf_header.e_version != 1) ||
             (memory && elf_header.e_ehsize != sizeof(ELF_HEADER_TYPE)) ||
             (memory &&
-             elf_header.e_machine !=
-                 IF_X86_ELSE(IF_X64_ELSE(EM_X86_64, EM_386),
-                             IF_X64_ELSE(EM_AARCH64, EM_ARM))))
+#    ifdef X64
+             elf_header.e_machine != EM_X86_64 && elf_header.e_machine != EM_AARCH64
+#    else
+             elf_header.e_machine != EM_386 && elf_header.e_machine != EM_ARM
+#    endif
+             ))
             return false;
 #endif
         /* FIXME - should we add any of these to the check? For real
@@ -120,9 +129,13 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         ASSERT_CURIOSITY(elf_header.e_ident[EI_OSABI] == ELFOSABI_SYSV ||
                          elf_header.e_ident[EI_OSABI] == ELFOSABI_LINUX);
         ASSERT_CURIOSITY(!memory ||
-                         elf_header.e_machine ==
-                             IF_X86_ELSE(IF_X64_ELSE(EM_X86_64, EM_386),
-                                         IF_X64_ELSE(EM_AARCH64, EM_ARM)));
+#ifdef X64
+                         elf_header.e_machine == EM_X86_64 ||
+                         elf_header.e_machine == EM_AARCH64
+#else
+                         elf_header.e_machine == EM_386 || elf_header.e_machine == EM_ARM
+#endif
+        );
         return true;
     }
     return false;

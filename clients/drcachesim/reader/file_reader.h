@@ -160,21 +160,30 @@ protected:
         // First read the tid and pid entries which precede any timestamps_.
         // We hand out the tid to the output on every thread switch, and the pid
         // the very first time for the thread.
-        trace_entry_t header, pid;
+        trace_entry_t header, next, pid = {};
         for (index_ = 0; index_ < input_files_.size(); ++index_) {
             if (!read_next_thread_entry(index_, &header, &thread_eof_[index_]) ||
-                !read_next_thread_entry(index_, &tids_[index_], &thread_eof_[index_]) ||
-                !read_next_thread_entry(index_, &pid, &thread_eof_[index_])) {
-                ERRMSG("Failed to read header fields from input file #%zu\n", index_);
-                return false;
-            }
-            VPRINT(this, 2, "Read thread #%zd header: ver=%zu, pid=%zu, tid=%zu\n",
-                   index_, header.addr, pid.addr, tids_[index_].addr);
-            if (header.type != TRACE_TYPE_HEADER || header.addr != TRACE_ENTRY_VERSION ||
-                pid.type != TRACE_TYPE_PID || tids_[index_].type != TRACE_TYPE_THREAD) {
+                header.type != TRACE_TYPE_HEADER || header.addr != TRACE_ENTRY_VERSION) {
                 ERRMSG("Invalid header for input file #%zu\n", index_);
                 return false;
             }
+            // Read the meta entries until we hit the pid.
+            while (read_next_thread_entry(index_, &next, &thread_eof_[index_])) {
+                if (next.type == TRACE_TYPE_PID) {
+                    // We assume the pid entry is the last, right before the timestamp.
+                    pid = next;
+                    break;
+                } else if (next.type == TRACE_TYPE_THREAD)
+                    tids_[index_] = next;
+                else if (next.type == TRACE_TYPE_MARKER)
+                    queues_[index_].push(next);
+                else {
+                    ERRMSG("Unexpected trace sequence for input file #%zu\n", index_);
+                    return false;
+                }
+            }
+            VPRINT(this, 2, "Read thread #%zd header: ver=%zu, pid=%zu, tid=%zu\n",
+                   index_, header.addr, pid.addr, tids_[index_].addr);
             // The reader expects us to own the header and pass the tid as
             // the first entry.
             queues_[index_].push(tids_[index_]);
@@ -189,12 +198,12 @@ protected:
     read_next_entry() override
     {
         // We read the thread files simultaneously in lockstep and merge them into
-        // a single interleaved stream in times_tamp order.
+        // a single interleaved stream in timestamp order.
         // When a thread file runs out we leave its times_[] entry as 0 and its file at
         // eof.
         while (thread_count_ > 0) {
             if (index_ >= input_files_.size()) {
-                // Pick the next thread by looking for the smallest times_tamp.
+                // Pick the next thread by looking for the smallest timestamp.
                 uint64_t min_time = 0xffffffffffffffff;
                 size_t next_index = 0;
                 for (size_t i = 0; i < times_.size(); ++i) {
@@ -206,12 +215,12 @@ protected:
                         }
                         if (timestamps_[i].type != TRACE_TYPE_MARKER &&
                             timestamps_[i].size != TRACE_MARKER_TYPE_TIMESTAMP) {
-                            ERRMSG("Missing times_tamp entry in input file #%zu\n", i);
+                            ERRMSG("Missing timestamp entry in input file #%zu\n", i);
                             return nullptr;
                         }
                         times_[i] = timestamps_[i].addr;
                         VPRINT(this, 3,
-                               "Thread #%zu times_tamp is @0x" ZHEX64_FORMAT_STRING "\n",
+                               "Thread #%zu timestamp is @0x" ZHEX64_FORMAT_STRING "\n",
                                i, times_[i]);
                     }
                     if (times_[i] != 0 && times_[i] < min_time) {
@@ -220,16 +229,16 @@ protected:
                     }
                 }
                 VPRINT(this, 2,
-                       "Next thread in times_tamp order is #%zu @0x" ZHEX64_FORMAT_STRING
+                       "Next thread in timestamp order is #%zu @0x" ZHEX64_FORMAT_STRING
                        "\n",
                        next_index, times_[next_index]);
                 index_ = next_index;
-                times_[index_] = 0; // Read from file for this thread's next times_tamp.
+                times_[index_] = 0; // Read from file for this thread's next timestamp.
                 // If the queue is not empty, it should contain the initial tid;pid.
                 if ((queues_[index_].empty() ||
                      queues_[index_].front().type != TRACE_TYPE_THREAD) &&
                     // For a single thread (or already-interleaved file) we do not need
-                    // thread entries before each times_tamp.
+                    // thread entries before each timestamp.
                     input_files_.size() > 1)
                     queues_[index_].push(tids_[index_]);
                 queues_[index_].push(timestamps_[index_]);
@@ -259,7 +268,7 @@ protected:
             }
             if (entry_copy_.type == TRACE_TYPE_MARKER &&
                 entry_copy_.size == TRACE_MARKER_TYPE_TIMESTAMP) {
-                VPRINT(this, 3, "Thread #%zu times_tamp 0x" ZHEX64_FORMAT_STRING "\n",
+                VPRINT(this, 3, "Thread #%zu timestamp 0x" ZHEX64_FORMAT_STRING "\n",
                        index_, (uint64_t)entry_copy_.addr);
                 times_[index_] = entry_copy_.addr;
                 timestamps_[index_] = entry_copy_;
