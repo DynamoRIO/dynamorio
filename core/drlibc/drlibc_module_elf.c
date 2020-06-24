@@ -133,7 +133,7 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
                          elf_header.e_machine == EM_X86_64 ||
                          elf_header.e_machine == EM_AARCH64
 #else
-                         elf_header.e_machine == EM_386 && elf_header.e_machine == EM_ARM
+                         elf_header.e_machine == EM_386 || elf_header.e_machine == EM_ARM
 #endif
         );
         return true;

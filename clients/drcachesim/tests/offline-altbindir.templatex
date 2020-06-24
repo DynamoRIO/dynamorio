@@ -1,5 +1,5 @@
 #ifdef X86
-ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file /home/bruening/dr/git/build_x64_dbg_tests/drmemtrace.threadsig.aarch64/raw/drmemtrace.threadsig.44815.2323.raw: Architecture mismatch: trace recorded on aarch64 but tools built for x86_64
+ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file /home/bruening/dr/git/build_x64_dbg_tests/drmemtrace.threadsig.aarch64/raw/drmemtrace.threadsig..*.raw: Architecture mismatch: trace recorded on aarch64 but tools built for x86_64
 #else
 Opcode mix tool results:
          125442 : total executed instructions

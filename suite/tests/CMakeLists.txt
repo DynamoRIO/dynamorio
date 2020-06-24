@@ -3354,6 +3354,7 @@ endif ()
       set(srcdir
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
       set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+      file(REMOVE_RECURSE ${locdir})
       file(MAKE_DIRECTORY ${locdir})
       file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
       torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
