@@ -256,6 +256,10 @@ endif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 # an AArch64 decoder to execute on x86 machines (i#1684).
 if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
   set(DR_HOST_NOT_TARGET 1)
+  if (WIN32)
+    # TODO i#1648: Fix Windows compiler warnings for AArch64 on x86.
+    message(FATAL_ERROR "Host != target is not yet supported on Windows")
+  endif ()
 endif ()
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
   set(DR_HOST_ARM 1)
