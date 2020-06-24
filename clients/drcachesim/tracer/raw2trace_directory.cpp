@@ -49,6 +49,7 @@
 #    include <windows.h>
 #endif
 #ifdef HAS_ZLIB
+#    include "common/gzip_istream.h"
 #    include "common/gzip_ostream.h"
 #endif
 
@@ -108,9 +109,20 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
         strcmp(basename, DRMEMTRACE_FUNCTION_LIST_FILENAME) == 0)
         return "";
     // Skip any non-.raw in case someone put some other file in there.
-    const char *basename_pre_suffix = strrchr(basename, '.');
-    if (basename_pre_suffix != nullptr)
-        basename_pre_suffix = strstr(basename_pre_suffix, OUTFILE_SUFFIX);
+    const char *basename_dot = strrchr(basename, '.');
+    if (basename_dot == nullptr)
+        return "";
+    const char *basename_pre_suffix = nullptr;
+    bool is_gzipped = false;
+#ifdef HAS_ZLIB
+    basename_pre_suffix = strstr(basename_dot, OUTFILE_SUFFIX_GZ);
+    if (basename_pre_suffix != nullptr) {
+        is_gzipped = true;
+        basename_dot = strrchr(basename_pre_suffix, '.');
+    }
+#endif
+    if (basename_pre_suffix == nullptr)
+        basename_pre_suffix = strstr(basename_dot, OUTFILE_SUFFIX);
     if (basename_pre_suffix == nullptr)
         return "";
     if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s", indir_.c_str(), DIRSEP,
@@ -118,7 +130,14 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
         return "Failed to get full path of file " + std::string(basename);
     }
     NULL_TERMINATE_BUFFER(path);
-    in_files_.push_back(new std::ifstream(path, std::ifstream::binary));
+    std::istream *ifile;
+#ifdef HAS_ZLIB
+    if (is_gzipped)
+        ifile = new gzip_istream_t(path);
+#endif
+    if (!is_gzipped)
+        ifile = new std::ifstream(path, std::ifstream::binary);
+    in_files_.push_back(ifile);
     if (!(*in_files_.back()))
         return "Failed to open thread log file " + std::string(path);
     std::string error = raw2trace_t::check_thread_file(in_files_.back());
