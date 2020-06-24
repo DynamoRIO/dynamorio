@@ -94,7 +94,9 @@ event_opcode_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
         static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
         IF_AARCHXX_(static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1)) &
             global_opcode_count,
-        1, DRX_COUNTER_LOCK);
+        1,
+        /* TODO i#4215: DRX_COUNTER_LOCK is not yet supported on ARM. */
+        IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
 
     return DR_EMIT_DEFAULT;
 }
@@ -120,7 +122,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
         IF_AARCHXX_(static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1)) &
             global_total_count,
-        1, DRX_COUNTER_LOCK);
+        1,
+        /* TODO i#4215: DRX_COUNTER_LOCK is not yet supported on ARM. */
+        IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
 
     return DR_EMIT_DEFAULT;
 }

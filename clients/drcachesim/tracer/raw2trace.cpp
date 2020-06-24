@@ -1090,13 +1090,10 @@ trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
         return false;
     }
     if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, type) &&
-        !TESTANY(IF_X86_ELSE(IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64,
-                                         OFFLINE_FILE_TYPE_ARCH_X86_32),
-                             IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64,
-                                         OFFLINE_FILE_TYPE_ARCH_ARM32)),
-                 type)) {
+        !TESTANY(build_target_arch_type(), type)) {
         std::stringstream ss;
-        ss << "Architecture mismatch: trace recorded on " << trace_arch_string(type);
+        ss << "Architecture mismatch: trace recorded on " << trace_arch_string(type)
+           << " but tools built for " << trace_arch_string(build_target_arch_type());
         *error = ss.str();
         return false;
     }

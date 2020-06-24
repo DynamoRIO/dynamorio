@@ -160,7 +160,7 @@ protected:
         // First read the tid and pid entries which precede any timestamps_.
         // We hand out the tid to the output on every thread switch, and the pid
         // the very first time for the thread.
-        trace_entry_t header, next, pid;
+        trace_entry_t header, next, pid = {};
         for (index_ = 0; index_ < input_files_.size(); ++index_) {
             if (!read_next_thread_entry(index_, &header, &thread_eof_[index_]) ||
                 header.type != TRACE_TYPE_HEADER || header.addr != TRACE_ENTRY_VERSION) {

@@ -400,6 +400,20 @@ trace_arch_string(offline_file_type_t type)
                                                                       : "unspecified")));
 }
 
+/* We have non-client targets including this header that do not include API
+ * headers defining IF_X86_ELSE, etc.  Those don't need this function so we
+ * simply exclude them.
+ */
+#ifdef IF_X86_ELSE
+static inline offline_file_type_t
+build_target_arch_type()
+{
+    return IF_X86_ELSE(
+        IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64, OFFLINE_FILE_TYPE_ARCH_X86_32),
+        IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64, OFFLINE_FILE_TYPE_ARCH_ARM32));
+}
+#endif
+
 START_PACKED_STRUCTURE
 struct _offline_entry_t {
     union {
