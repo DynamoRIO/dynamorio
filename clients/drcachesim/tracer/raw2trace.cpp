@@ -127,7 +127,7 @@ module_mapper_t::module_mapper_t(
     : modmap_(module_map)
     , cached_user_free_(free_cb)
     , verbosity_(verbosity)
-    , alt_dir_(alt_module_dir)
+    , alt_module_dir_(alt_module_dir)
 {
     // We mutate global state because do_module_parsing() uses drmodtrack, which
     // wants global functions. The state isn't needed past do_module_parsing(), so
@@ -348,12 +348,12 @@ module_mapper_t::read_and_map_modules()
             size_t map_size;
             byte *base_pc =
                 dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE, &map_size);
-            if (base_pc == NULL && !alt_dir_.empty()) {
+            if (base_pc == NULL && !alt_module_dir_.empty()) {
                 std::string basename(info.path);
                 size_t sep_index = basename.find_last_of(DIRSEP ALT_DIRSEP);
                 if (sep_index != std::string::npos)
                     basename = std::string(basename, sep_index + 1, std::string::npos);
-                std::string new_path = alt_dir_ + DIRSEP + basename;
+                std::string new_path = alt_module_dir_ + DIRSEP + basename;
                 VPRINT(1, "Failed to find %s; trying %s\n", info.path, new_path.c_str());
                 base_pc = dr_map_executable_file(new_path.c_str(),
                                                  DR_MAPEXE_SKIP_WRITABLE, &map_size);
@@ -1090,13 +1090,10 @@ trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
         return false;
     }
     if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, type) &&
-        !TESTANY(IF_X86_ELSE(IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64,
-                                         OFFLINE_FILE_TYPE_ARCH_X86_32),
-                             IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64,
-                                         OFFLINE_FILE_TYPE_ARCH_ARM32)),
-                 type)) {
+        !TESTANY(build_target_arch_type(), type)) {
         std::stringstream ss;
-        ss << "Architecture mismatch: trace recorded on " << trace_arch_string(type);
+        ss << "Architecture mismatch: trace recorded on " << trace_arch_string(type)
+           << " but tools built for " << trace_arch_string(build_target_arch_type());
         *error = ss.str();
         return false;
     }

@@ -62,7 +62,7 @@ static droption_t<std::string> op_module_file(
     "If the file is named modules.log and is in the same directory as the trace file, "
     "or a raw/ subdirectory below the trace file, this parameter can be omitted.");
 
-static droption_t<std::string> op_alt_mod_dir(
+static droption_t<std::string> op_alt_module_dir(
     DROPTION_SCOPE_FRONTEND, "alt_module_dir", "", "Alternate module search directory",
     "Specifies a directory containing libraries referenced in -module_file.");
 
@@ -87,8 +87,9 @@ _tmain(int argc, const TCHAR *targv[])
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
 
-    analysis_tool_t *tool1 = opcode_mix_tool_create(
-        op_module_file.get_value(), op_verbose.get_value(), op_alt_mod_dir.get_value());
+    analysis_tool_t *tool1 =
+        opcode_mix_tool_create(op_module_file.get_value(), op_verbose.get_value(),
+                               op_alt_module_dir.get_value());
     std::vector<analysis_tool_t *> tools;
     tools.push_back(tool1);
     analyzer_t analyzer(op_trace.get_value(), &tools[0], (int)tools.size());

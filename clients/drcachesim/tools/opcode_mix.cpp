@@ -133,14 +133,11 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
         if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
-            !TESTANY(IF_X86_ELSE(IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64,
-                                             OFFLINE_FILE_TYPE_ARCH_X86_32),
-                                 IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64,
-                                             OFFLINE_FILE_TYPE_ARCH_ARM32)),
-                     memref.marker.marker_value)) {
+            !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
             shard->error = std::string("Architecture mismatch: trace recorded on ") +
                 trace_arch_string(static_cast<offline_file_type_t>(
-                    memref.marker.marker_value));
+                    memref.marker.marker_value)) +
+                " but tool built for " + trace_arch_string(build_target_arch_type());
             return false;
         }
     }

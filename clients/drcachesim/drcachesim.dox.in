@@ -353,7 +353,7 @@ Total counts:
            3 total threads
          280 total scheduling markers
            0 total transfer markers
-           0 total other markers
+           3 total other markers
 Thread 247451 counts:
       255009 (fetched) instructions
          345 non-fetched instructions
@@ -362,7 +362,7 @@ Thread 247451 counts:
        21243 data stores
          258 scheduling markers
            0 transfer markers
-           0 other markers
+           1 other markers
 Thread 247453 counts:
         9195 (fetched) instructions
            0 non-fetched instructions
@@ -371,7 +371,7 @@ Thread 247453 counts:
          937 data stores
           12 scheduling markers
            0 transfer markers
-           0 other markers
+           1 other markers
 Thread 247454 counts:
         2989 (fetched) instructions
            0 non-fetched instructions
@@ -380,7 +380,7 @@ Thread 247454 counts:
          323 data stores
           10 scheduling markers
            0 transfer markers
-           0 other markers
+           1 other markers
 \endcode
 
 The non-fetched instructions are x86 string loop instructions, where

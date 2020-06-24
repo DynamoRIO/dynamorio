@@ -444,7 +444,7 @@ private:
     byte *last_map_base_ = nullptr;
 
     uint verbosity_ = 0;
-    std::string alt_dir_;
+    std::string alt_module_dir_;
     std::string last_error_;
 };
 
