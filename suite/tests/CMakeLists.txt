@@ -1811,61 +1811,63 @@ endmacro ()
 message(STATUS "Processing tests and generating expected output patterns")
 
 # Tests enabled when DR_HOST_NOT_TARGET go first:
+if (CLIENT_INTERFACE)
+  if (ARM)
+    set(sfx "arm")
+  elseif (AARCH64)
+    set(sfx "aarch64")
+  else ()
+    set(sfx "x86")
+  endif ()
+  if (NOT ANDROID)
+    # XXX i#1874: get working on Android
+    tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF)
+    # XXX i#1686: add ARM's headers too once they are all created
+    if (NOT ARM AND NOT AARCH64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
+      # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
+      # and so doesn't find headers named via macros
+      # (http://www.cmake.org/Bug/view.php?id=13718)
+      set(api_ir_headers # must be full paths:
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_0args.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_1args.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_mm.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args.h
+        # The following headers are x86 specific.
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_evex.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_vex.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex_mask.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_vex.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_A.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_B.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_5args_avx512_evex_mask.h)
+      append_property_string(SOURCE api/ir_${sfx}.c OBJECT_DEPENDS "${api_ir_headers}")
+    endif ()
+
+    if (AARCH64)
+        tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF)
+    endif (AARCH64)
+  endif ()
+
+  # test static decoder library
+  tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
+
+  if (ARM)
+    if (NOT ANDROID) # XXX i#1874: get working on Android
+      tobuild_api(api.drdecode api/drdecode_arm.c "" "" ON OFF)
+    endif ()
+  elseif (AARCH64)
+    tobuild_api(api.drdecode api/drdecode_aarch64.c "" "" ON OFF)
+  else ()
+    tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
+  endif ()
+endif ()
+
 if (DR_HOST_NOT_TARGET)
   if (CLIENT_INTERFACE)
-    if (ARM)
-      set(sfx "arm")
-    elseif (AARCH64)
-      set(sfx "aarch64")
-    else ()
-      set(sfx "x86")
-    endif ()
-    if (NOT ANDROID)
-      # XXX i#1874: get working on Android
-      tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF)
-      # XXX i#1686: add ARM's headers too once they are all created
-      if (NOT ARM AND NOT AARCH64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
-        # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
-        # and so doesn't find headers named via macros
-        # (http://www.cmake.org/Bug/view.php?id=13718)
-        set(api_ir_headers # must be full paths:
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_0args.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_1args.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_mm.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args.h
-          # The following headers are x86 specific.
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_evex.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_vex.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex_mask.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_vex.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_A.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_B.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_5args_avx512_evex_mask.h)
-        append_property_string(SOURCE api/ir_${sfx}.c OBJECT_DEPENDS "${api_ir_headers}")
-      endif ()
-
-      if (AARCH64)
-          tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF)
-      endif (AARCH64)
-    endif ()
-
-    # test static decoder library
-    tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
-
-    if (ARM)
-      if (NOT ANDROID) # XXX i#1874: get working on Android
-        tobuild_api(api.drdecode api/drdecode_arm.c "" "" ON OFF)
-      endif ()
-    elseif (AARCH64)
-      tobuild_api(api.drdecode api/drdecode_aarch64.c "" "" ON OFF)
-    else ()
-      tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
-    endif ()
-
     # Test postprocessing and analysis with an alternate binary directory.
     # Limited to UNIX because the checked-in modules.log is in UNIX format
     # (Windows needs extra fields per library).
@@ -1887,7 +1889,6 @@ if (DR_HOST_NOT_TARGET)
       set(tool.drcacheoff.altbindir_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
     endif ()
-
   endif ()
 
   # The tests are not ported to build with host!=target.  Most will never work there,
