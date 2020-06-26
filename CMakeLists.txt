@@ -289,6 +289,10 @@ if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
     # We likely also have general C type issues if the host is 32-bit.
     message(FATAL_ERROR "Different-bitwidth host-vs-target not supported: i#1345.")
   endif ()
+  if (ARM)
+    # TODO i#1684: We don't have full support for targeting arm in i386 yet.
+    message(FATAL_ERROR "Targeting ARM on i386 is not yet supported: i#1684.")
+  endif ()
 endif ()
 
 option(VMKERNEL "target VMkernel (not officially supported yet)")
