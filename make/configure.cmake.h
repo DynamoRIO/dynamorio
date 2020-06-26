@@ -63,6 +63,14 @@
 # define MACOS64
 #endif
 
+/* host, when different */
+#cmakedefine DR_HOST_X86
+#cmakedefine DR_HOST_ARM
+#cmakedefine DR_HOST_AARCH64
+#cmakedefine DR_HOST_AARCHXX
+#cmakedefine DR_HOST_X64
+#cmakedefine DR_HOST_NOT_TARGET
+
 /* set by high-level VMAP/VMSAFE/VPS configurations */
 #cmakedefine PROGRAM_SHEPHERDING
 #cmakedefine CLIENT_INTERFACE

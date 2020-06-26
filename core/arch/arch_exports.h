@@ -468,7 +468,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 #    define atomic_add_exchange atomic_add_exchange_int
 
 #else /* UNIX */
-#    ifdef X86
+#    ifdef DR_HOST_X86
 /* IA-32 vol 3 7.1.4: processor will internally suppress the bus lock
  * if target is within cache line.
  */
@@ -632,7 +632,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 #        define SET_IF_NOT_ZERO(flag) SET_FLAG(nz, flag)
 #        define SET_IF_NOT_LESS(flag) SET_FLAG(nl, flag)
 
-#    elif defined(AARCH64)
+#    elif defined(DR_HOST_AARCH64)
 
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
             do {                                               \
@@ -817,7 +817,7 @@ atomic_dec_becomes_zero(volatile int *var)
     return atomic_add_exchange_int(var, -1) == 0;
 }
 
-#    elif defined(ARM)
+#    elif defined(DR_HOST_ARM)
 
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
             do {                                               \
@@ -979,7 +979,7 @@ proc_get_timestamp(void);
 #        define ATOMIC_COMPARE_EXCHANGE_PTR ATOMIC_COMPARE_EXCHANGE
 #    endif
 
-#    ifndef AARCH64
+#    ifndef DR_HOST_AARCH64
 /* Atomically increments *var by 1
  * Returns true if the resulting value is zero, otherwise returns false
  */
@@ -1646,7 +1646,7 @@ use_addr_prefix_on_short_disp(void)
 /** Specifies which processor mode to use when decoding or encoding. */
 typedef enum _dr_isa_mode_t {
     DR_ISA_IA32,              /**< IA-32 (Intel/AMD 32-bit mode). */
-    DR_ISA_X86 = DR_ISA_IA32, /**< Alis for DR_ISA_IA32. */
+    DR_ISA_X86 = DR_ISA_IA32, /**< Alias for DR_ISA_IA32. */
     DR_ISA_AMD64,             /**< AMD64 (Intel/AMD 64-bit mode). */
     DR_ISA_ARM_A32,           /**< ARM A32 (AArch32 ARM). */
     DR_ISA_ARM_THUMB,         /**< Thumb (ARM T32). */

@@ -107,6 +107,11 @@ jobs:
       # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
       compiler: clang
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=64_only
+    # AArch64 drdecode and drmemtrace on x86:
+    - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
+      os: linux
+      compiler: gcc
+      env: DYNAMORIO_A64_ON_X86_ONLY=yes DEPLOY=no
 
     #######################################################################
     # Package jobs

@@ -7206,7 +7206,9 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
 #ifdef MACOS
         ASSERT(sizeof(notify_var->sem) == 4);
 #endif
-#ifdef X86
+#ifdef DR_HOST_NOT_TARGET
+        ASSERT_NOT_REACHED();
+#elif defined(X86)
 #    ifndef MACOS
         /* i#2632: recent clang for 32-bit annoyingly won't do the right thing for
          * "jmp dynamorio_condvar_wake_and_jmp" and leaves relocs so we ensure it's PIC.
@@ -7234,7 +7236,9 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
 #endif
     } else {
         ksynch_set_value(notify_var, 1);
-#ifdef X86
+#ifdef DR_HOST_NOT_TARGET
+        ASSERT_NOT_REACHED();
+#elif defined(X86)
         asm("mov %0, %%" ASM_XSP : : "m"(xsp));
         asm("mov %0, %%" ASM_XAX : : "m"(continuation));
         asm("jmp *%" ASM_XAX);

@@ -70,10 +70,10 @@ endif ()
 set(asm_deps
   "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
   "${PROJECT_BINARY_DIR}/configure.h")
-add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_core_asm_src arch_core_asm_tgt
-  "_core" "" "${asm_deps}")
-if (NOT "${ARCH_NAME}" STREQUAL "${ARCH_NAME_SHARED}")
-  add_asm_target(arch/${ARCH_NAME_SHARED}/${ARCH_NAME_SHARED}.asm
+add_asm_target(arch/${DR_HOST_ARCH_NAME}/${DR_HOST_ARCH_NAME}.asm
+  arch_core_asm_src arch_core_asm_tgt "_core" "" "${asm_deps}")
+if (NOT "${DR_HOST_ARCH_NAME}" STREQUAL "${DR_HOST_ARCH_NAME_SHARED}")
+  add_asm_target(arch/${DR_HOST_ARCH_NAME_SHARED}/${DR_HOST_ARCH_NAME_SHARED}.asm
     archshared_core_asm_src archshared_core_asm_tgt
     "_core" "" "${asm_deps}")
 endif ()
@@ -86,7 +86,7 @@ if (UNIX)
   # our auxiliary tools (i#1504), but we do *not* want our own memcpy and
   # memset for static-lib DR core.  Thus we separate them out.  The i#1504
   # glibc versioning is only an issue on x86.
-  add_asm_target(arch/${ARCH_NAME}/memfuncs.asm memfuncs_asm_src memfuncs_asm_tgt
+  add_asm_target(arch/${DR_HOST_ARCH_NAME}/memfuncs.asm memfuncs_asm_src memfuncs_asm_tgt
     "_memfuncs" "" "${asm_deps}")
   add_library(drmemfuncs STATIC ${memfuncs_asm_src} lib/memmove.c)
   add_gen_events_deps(drmemfuncs)
@@ -98,7 +98,7 @@ endif ()
 # i#1409: to share core libc-ish code with non-core, we use the "drlibc" library.
 add_asm_target(drlibc/drlibc_xarch.asm drlibc_xarch_asm_src drlibc_xarch_asm_tgt
   "_core" "" "${asm_deps}")
-add_asm_target(drlibc/drlibc_${ARCH_NAME}.asm drlibc_arch_asm_src
+add_asm_target(drlibc/drlibc_${DR_HOST_ARCH_NAME}.asm drlibc_arch_asm_src
   drlibc_arch_asm_tgt
   "" "" "${asm_deps}")
 set(DRLIBC_SRCS
@@ -1050,7 +1050,10 @@ endif ()
 ###########################################################################
 # Unit tests
 
-if (BUILD_TESTS)
+# We can't run core unit tests when the target is not the host, just like we can't
+# run DR itself managing an app: DR is a same-arch system for code cache operation
+# and only supports target!=host for decoding and drmemtrace analysis (i#1684).
+if (BUILD_TESTS AND NOT DR_HOST_NOT_TARGET)
   add_executable(unit_tests unit_tests.c
     # These unit tests have been moved from the x86_code module into a new x86_code
     # test module that gets its own clang/gcc options for testing (-mno-vzeroupper).
@@ -1124,7 +1127,7 @@ if (BUILD_TESTS)
     set_tests_properties(unit_tests PROPERTIES LABELS OSX)
   endif ()
   copy_target_to_device(unit_tests "${location_suffix}")
-endif (BUILD_TESTS)
+endif ()
 
 ###########################################################################
 

@@ -129,13 +129,13 @@ typedef struct rlimit64 rlimit64_t;
  * values in xdx:xax.
  */
 #define MCXT_SYSCALL_RES(mc) ((mc)->IF_X86_ELSE(xax, r0))
-#if defined(AARCH64)
+#if defined(DR_HOST_AARCH64)
 #    define ASM_R2 "x2"
 #    define ASM_R3 "x3"
 #    define READ_TP_TO_R3_DISP_IN_R2    \
         "mrs " ASM_R3 ", tpidr_el0\n\t" \
         "ldr " ASM_R3 ", [" ASM_R3 ", " ASM_R2 "] \n\t"
-#elif defined(ARM)
+#elif defined(DR_HOST_ARM)
 #    define ASM_R2 "r2"
 #    define ASM_R3 "r3"
 #    define READ_TP_TO_R3_DISP_IN_R2                                           \
@@ -1457,7 +1457,14 @@ os_timeout(int time_in_milliseconds)
  * precise constraint, then the compiler would be able to optimize better.  See
  * glibc comments on THREAD_SELF.
  */
-#ifdef MACOS64
+#ifdef DR_HOST_NOT_TARGET
+#    define WRITE_TLS_SLOT_IMM(imm, var) var = 0, ASSERT_NOT_REACHED()
+#    define READ_TLS_SLOT_IMM(imm, var) var = 0, ASSERT_NOT_REACHED()
+#    define WRITE_TLS_INT_SLOT_IMM(imm, var) var = 0, ASSERT_NOT_REACHED()
+#    define READ_TLS_INT_SLOT_IMM(imm, var) var = 0, ASSERT_NOT_REACHED()
+#    define WRITE_TLS_SLOT(offs, var) offs = var ? 0 : 1, ASSERT_NOT_REACHED()
+#    define READ_TLS_SLOT(offs, var) var = (void *)(ptr_uint_t)offs, ASSERT_NOT_REACHED()
+#elif defined(MACOS64)
 /* For now we have both a directly-addressable os_local_state_t and a pointer to
  * it in slot 6.  If we settle on always doing the full os_local_state_t in slots,
  * we would probably get rid of the indirection here and directly access slot fields.
