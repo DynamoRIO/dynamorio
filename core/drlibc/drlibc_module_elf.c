@@ -105,7 +105,7 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
          * dr_map_executable_file, but we just don't support that yet until we
          * remove our hardcoded type defines in module_elf.h.
          *
-         * i#1648: We do allow mixing arches of the same bitwidth to better support
+         * i#1684: We do allow mixing arches of the same bitwidth to better support
          * drdecode tools.  We have no standalone_library var access here to limit
          * this relaxation to tools; we assume DR managed code will hit other
          * problems later for the wrong arch and that recognizing an other-arch

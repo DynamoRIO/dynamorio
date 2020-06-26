@@ -1637,13 +1637,18 @@ privload_mem_is_elf_so_header(byte *mem)
     /* libdynamorio should be ET_DYN */
     if (elf_hdr->e_type != ET_DYN)
         return false;
-        /* ARM or X86 */
-#        ifndef DR_HOST_NOT_TARGET
-    if (elf_hdr->e_machine !=
-        IF_HOST_X86_ELSE(IF_HOST_X64_ELSE(EM_X86_64, EM_386),
-                         IF_HOST_X64_ELSE(EM_AARCH64, EM_ARM)))
-        return false;
+    /* ARM or X86 */
+    /* i#1684: We do allow mixing arches of the same bitwidth. See the i#1684
+     * comment in is_elf_so_header_common().
+     */
+    if (
+#        ifdef X64
+        elf_hdr->e_machine != EM_X86_64 && elf_hdr->e_machine != EM_AARCH64
+#        else
+        elf_hdr->e_machine != EM_386 && elf_hdr->e_machine != EM_ARM
 #        endif
+    )
+        return false;
     if (elf_hdr->e_ehsize != sizeof(ELF_HEADER_TYPE))
         return false;
     return true;

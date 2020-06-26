@@ -523,7 +523,7 @@ if (UNIX AND ARCH_IS_X86)
   set(ARCH_IS_X86 ON)
 endif (UNIX AND ARCH_IS_X86)
 
-# TODO i#1648: Fix Windows compiler warnings for AArch64 on x86 and then enable
+# TODO i#1684: Fix Windows compiler warnings for AArch64 on x86 and then enable
 # this, but perhaps on master merges only to avoid slowing down PR builds.
 if (ARCH_IS_X86 AND UNIX AND (a64_on_x86_only OR NOT arg_travis))
   # Test decoding and analyzing aarch64 traces on x86 machines.

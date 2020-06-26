@@ -328,6 +328,11 @@ typedef struct _kernel_sigcontext_t {
     unsigned char __reserved[4096] __attribute__((__aligned__(16)));
 } kernel_sigcontext_t;
 
+/* XXX: These defines come from the system include files for a regular
+ * build (signal.h is included), but for DR_HOST_NOT_TARGET we need
+ * them defined here.  Probably what we should do is rename them so
+ * they can always come from here and not rely on the system header.
+ */
 #    ifndef FPSIMD_MAGIC
 /*
  * Header to be used at the beginning of structures extending the user

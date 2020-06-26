@@ -1864,11 +1864,41 @@ if (CLIENT_INTERFACE)
   else ()
     tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
   endif ()
+
+  if (BUILD_CLIENTS)
+    ###########################################################################
+    # drdisas tests
+    # XXX: We should try to export or share the test list, filtering, matching,
+    # and other code here to support tests being declared locally rather than
+    # in one central place.
+    if (AARCH64)
+      set(drdisas_args "f94017a0" "a9be7bfd" "88")
+    elseif (ARM)
+      set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
+    else ()
+      set(drdisas_args "-syntax" "dr" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
+    endif ()
+    torunonly_api(tool.drdisas drdisas
+      "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON)
+    if (ARM)
+      torunonly_api(tool.drdisas_thumb drdisas
+        # Pass -thumb as a "DR op" to define it in the .template file.
+        "../../clients/drdisas/test_simple.template"
+        "-thumb" "-mode;thumb;${drdisas_args}" ON)
+    endif ()
+    # Test syntax
+    # XXX i#:4021: ARM/AARCH64 not yet supported.
+    if (X86)
+        set(drdisas_args "66" "90" "c4" "e2" "65" "90" "14" "80")
+        torunonly_api(tool.drdisas_syntax drdisas
+            "../../clients/drdisas/test_syntax.template" "" "${drdisas_args}" ON)
+    endif ()
+  endif ()
 endif ()
 
 if (DR_HOST_NOT_TARGET)
   if (CLIENT_INTERFACE)
-    # Test postprocessing and analysis with an alternate binary directory.
+    # i#1684,i#4318: Test postprocessing and analysis with an alternate binary directory.
     # Limited to UNIX because the checked-in modules.log is in UNIX format
     # (Windows needs extra fields per library).
     # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
@@ -3625,34 +3655,6 @@ if (CLIENT_INTERFACE)
       # XXX i#1732: add more tests.  However, we don't want the suite to fail
       # b/c our tests have too-new instrs for older machines.
     endif (X86)
-
-    ###########################################################################
-    # drdisas tests
-    # XXX: We should try to export or share the test list, filtering, matching,
-    # and other code here to support tests being declared locally rather than
-    # in one central place.
-    if (AARCH64)
-      set(drdisas_args "f94017a0" "a9be7bfd" "88")
-    elseif (ARM)
-      set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
-    else ()
-      set(drdisas_args "-syntax" "dr" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
-    endif ()
-    torunonly_api(tool.drdisas drdisas
-      "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON)
-    if (ARM)
-      torunonly_api(tool.drdisas_thumb drdisas
-        # Pass -thumb as a "DR op" to define it in the .template file.
-        "../../clients/drdisas/test_simple.template"
-        "-thumb" "-mode;thumb;${drdisas_args}" ON)
-    endif ()
-    # Test syntax
-    # XXX i#:4021: ARM/AARCH64 not yet supported.
-    if (X86)
-        set(drdisas_args "66" "90" "c4" "e2" "65" "90" "14" "80")
-        torunonly_api(tool.drdisas_syntax drdisas
-            "../../clients/drdisas/test_syntax.template" "" "${drdisas_args}" ON)
-    endif ()
 
   endif (BUILD_CLIENTS)
 

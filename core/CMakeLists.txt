@@ -1050,6 +1050,9 @@ endif ()
 ###########################################################################
 # Unit tests
 
+# We can't run core unit tests when the target is not the host, just like we can't
+# run DR itself managing an app: DR is a same-arch system for code cache operation
+# and only supports target!=host for decoding and drmemtrace analysis (i#1684).
 if (BUILD_TESTS AND NOT DR_HOST_NOT_TARGET)
   add_executable(unit_tests unit_tests.c
     # These unit tests have been moved from the x86_code module into a new x86_code
