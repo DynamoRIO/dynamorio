@@ -208,12 +208,34 @@ endif ()
 
 # The target architecture.
 # For cross-compilation this should still work as you're supposed to set this var.
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+# X64 mean 64-bit generically, whether AMD64 or AARCH64.
+set(TARGET_ARCH "${CMAKE_SYSTEM_PROCESSOR}" CACHE STRING "Target architecture")
+if (TARGET_ARCH MATCHES "^arm")
   set(ARM 1) # This means AArch32.
-elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+  set(X64 OFF)
+  message(STATUS "Building for ARM")
+elseif (TARGET_ARCH MATCHES "^aarch64")
   set(AARCH64 1)
+  set(X64 1)
+  message(STATUS "Building for AArch64")
 else ()
   set(X86 1) # This means IA-32 or AMD64
+  message(STATUS "Building for x86")
+  # Whether 64-bit is expected to be selected by user setting up compiler
+  # prior to invoking CMake: it has to be that way for Windows, and for
+  # Linux the user should set CFLAGS to -m32 or -m64
+  # to override gcc's default.  To simplify matters we only look at
+  # CMAKE_C_SIZEOF_DATA_PTR, controlled by CFLAGS, so the user doesn't
+  # have to also set CXXFLAGS (CMAKE_SIZEOF_VOID_P happens
+  # to come from CXXFLAGS).  (CMAKE_C_SIZEOF_DATA_PTR can be relied on
+  # to be set in all CMake versions we support.)
+  # For target!=host, we still need the host compiler to match the target,
+  # so we do not support differing bitwidths.
+  if (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
+    set(X64 ON)
+  else ()
+    set(X64 OFF)
+  endif ()
 endif ()
 
 if (X86)
@@ -233,20 +255,45 @@ else ()
   set(ARCH_NAME_SHARED ${ARCH_NAME})
 endif ()
 
-# The plan is to use X64 to mean 64-bit generically, whether AMD64 or AARCH64.
-# Whether 64-bit is expected to be selected by user setting up compiler
-# prior to invoking CMake: it has to be that way for Windows, and for
-# Linux the user should set CFLAGS to -m32 or -m64
-# to override gcc's default.  To simplify matters we only look at
-# CMAKE_C_SIZEOF_DATA_PTR, controlled by CFLAGS, so the user doesn't
-# have to also set CXXFLAGS (CMAKE_SIZEOF_VOID_P happens
-# to come from CXXFLAGS).  (CMAKE_C_SIZEOF_DATA_PTR can be relied on
-# to be set in all CMake versions we support.)
-if (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
-  set(X64 ON)
-else(CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
-  set(X64 OFF)
-endif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
+# The execution architecture, which might differ from the target for building
+# an AArch64 decoder to execute on x86 machines (i#1684).
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+  set(DR_HOST_ARM 1)
+  set(DR_HOST_ARCH_NAME "arm")
+  set(DR_HOST_AARCHXX 1)
+  set(DR_HOST_ARCH_NAME_SHARED aarchxx)
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+  set(DR_HOST_AARCH64 1)
+  set(DR_HOST_ARCH_NAME "aarch64")
+  set(DR_HOST_AARCHXX 1)
+  set(DR_HOST_ARCH_NAME_SHARED aarchxx)
+  set(DR_HOST_X64 1)
+elseif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
+  set(DR_HOST_X86 1)
+  set(DR_HOST_ARCH_NAME "x86")
+  set(DR_HOST_ARCH_NAME_SHARED ${DR_HOST_ARCH_NAME})
+  set(DR_HOST_X64 1)
+else ()
+  set(DR_HOST_X86 1)
+  set(DR_HOST_ARCH_NAME "x86")
+  set(DR_HOST_ARCH_NAME_SHARED ${DR_HOST_ARCH_NAME})
+endif ()
+if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
+  set(DR_HOST_NOT_TARGET 1)
+  if (WIN32)
+    # TODO i#1684: Fix Windows compiler warnings for AArch64 on x86.
+    message(FATAL_ERROR "Host != target is not yet supported on Windows")
+  endif ()
+  if ((DR_HOST_X64 AND NOT X64) OR (NOT DR_HOST_X64 AND X64))
+    # XXX i#1345: We need to resolve the hardcoded ELF bitwidth types.
+    # We likely also have general C type issues if the host is 32-bit.
+    message(FATAL_ERROR "Different-bitwidth host-vs-target not supported: i#1345.")
+  endif ()
+  if (ARM)
+    # TODO i#1684: We don't have full support for targeting arm in i386 yet.
+    message(FATAL_ERROR "Targeting ARM on i386 is not yet supported: i#1684.")
+  endif ()
+endif ()
 
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 

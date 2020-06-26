@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -821,12 +821,12 @@ dr_inject_process_exit(void *data, bool terminate)
 
 enum { MAX_SHELL_CODE = 4096 };
 
-#    ifdef X86
+#    ifdef DR_HOST_X86
 #        define USER_REGS_TYPE user_regs_struct
 #        define REG_PC_FIELD IF_X64_ELSE(rip, eip)
 #        define REG_SP_FIELD IF_X64_ELSE(rsp, esp)
 #        define REG_RETVAL_FIELD IF_X64_ELSE(rax, eax)
-#    elif defined(ARM)
+#    elif defined(DR_HOST_ARM)
 /* On AArch32, glibc uses user_regs instead of user_regs_struct.
  * struct user_regs {
  *   unsigned long int uregs[18];
@@ -840,7 +840,7 @@ enum { MAX_SHELL_CODE = 4096 };
 #        define REG_SP_FIELD uregs[13]    /* r13 in user_regs */
 /* On ARM, all reg args are also reg retvals. */
 #        define REG_RETVAL_FIELD uregs[0] /* r0 in user_regs */
-#    elif defined(AARCH64)
+#    elif defined(DR_HOST_AARCH64)
 #        define USER_REGS_TYPE user_pt_regs
 #        define REG_PC_FIELD pc
 #        define REG_SP_FIELD sp
@@ -876,7 +876,7 @@ static const enum_name_pair_t pt_req_map[] = { { PTRACE_TRACEME, "PTRACE_TRACEME
                                                { PTRACE_CONT, "PTRACE_CONT" },
                                                { PTRACE_KILL, "PTRACE_KILL" },
                                                { PTRACE_SINGLESTEP, "PTRACE_SINGLESTEP" },
-#    ifndef AARCH64
+#    ifndef DR_HOST_AARCH64
                                                { PTRACE_GETREGS, "PTRACE_GETREGS" },
                                                { PTRACE_SETREGS, "PTRACE_SETREGS" },
                                                { PTRACE_GETFPREGS, "PTRACE_GETFPREGS" },

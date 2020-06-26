@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -52,9 +52,9 @@ get_DynamoRIO_defines(DR_DEFINES OFF)
 string(REPLACE " " ";" DR_DEFINES "${DR_DEFINES}")
 set(asm_flags ${asm_defs} ${DR_DEFINES} -I "${DynamoRIO_DIR}")
 set(asm_deps "${DynamoRIO_DIR}/cpp2asm_defines.h")
-if (ARM)
+if (DR_HOST_ARM)
   set(asm_file "drwrap_asm_arm.asm")
-elseif (AARCH64)
+elseif (DR_HOST_AARCH64)
   set(asm_file "drwrap_asm_aarch64.asm")
 else ()
   set(asm_file "drwrap_asm_x86.asm")

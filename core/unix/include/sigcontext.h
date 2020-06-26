@@ -63,7 +63,7 @@ typedef struct _kernel_fpx_sw_bytes_t {
     __u32 padding[7]; /*  for future use. */
 } kernel_fpx_sw_bytes_t;
 
-#ifdef __i386__
+#if defined(X86) && !defined(X64)
 /*
  * As documented in the iBCS2 standard..
  *
@@ -161,7 +161,7 @@ typedef struct _kernel_sigcontext_t {
     unsigned long cr2;
 } kernel_sigcontext_t;
 
-#elif defined(__amd64__)
+#elif defined(X86) && defined(X64)
 
 /* FXSAVE frame */
 /* Note: reserved1/2 may someday contain valuable data. Always save/restore
@@ -220,9 +220,9 @@ typedef struct _kernel_sigcontext_t {
     unsigned long reserved1[8];
 } kernel_sigcontext_t;
 
-#endif /* !__i386__ */
+#endif
 
-#if defined(__i386__) || defined(__amd64__)
+#ifdef X86
 typedef struct _kernel_xsave_hdr_t {
     __u64 xstate_bv;
     __u64 reserved1[2];
@@ -246,9 +246,9 @@ typedef struct _kernel_xstate_t {
     kernel_ymmh_state_t ymmh;
     /* new processor state extensions go here */
 } kernel_xstate_t;
-#endif /* __i386__ || __amd64__ */
+#endif
 
-#ifdef __arm__
+#ifdef ARM
 /*
  * Signal context structure - contains all info to do with the state
  * before the signal handler was invoked.  Note: only add new entries
@@ -314,9 +314,9 @@ typedef struct _kernel_iwmmxt_sigframe_t {
 /* Dummy padding block: a block with this magic should be skipped. */
 #    define DUMMY_MAGIC 0xb0d9ed01
 
-#endif /* __arm__ */
+#endif /* ARM */
 
-#ifdef __aarch64__
+#ifdef AARCH64
 
 typedef struct _kernel_sigcontext_t {
     unsigned long long fault_address;
@@ -328,6 +328,33 @@ typedef struct _kernel_sigcontext_t {
     unsigned char __reserved[4096] __attribute__((__aligned__(16)));
 } kernel_sigcontext_t;
 
-#endif /* __aarch64__ */
+/* XXX: These defines come from the system include files for a regular
+ * build (signal.h is included), but for DR_HOST_NOT_TARGET we need
+ * them defined here.  Probably what we should do is rename them so
+ * they can always come from here and not rely on the system header.
+ */
+#    ifndef FPSIMD_MAGIC
+/*
+ * Header to be used at the beginning of structures extending the user
+ * context. Such structures must be placed after the rt_sigframe on the stack
+ * and be 16-byte aligned. The last structure must be a dummy one with the
+ * magic and size set to 0.
+ */
+struct _aarch64_ctx {
+    __u32 magic;
+    __u32 size;
+};
+
+#        define FPSIMD_MAGIC 0x46508001
+
+struct fpsimd_context {
+    struct _aarch64_ctx head;
+    __u32 fpsr;
+    __u32 fpcr;
+    __uint128_t vregs[32];
+};
+#    endif
+
+#endif /* AARCH64 */
 
 #endif /* _SIGCONTEXT_H_ */

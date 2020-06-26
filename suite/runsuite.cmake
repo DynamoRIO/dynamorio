@@ -58,6 +58,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
       set(cross_android_only ON)
     endif()
+    if ($ENV{DYNAMORIO_A64_ON_X86_ONLY} MATCHES "yes")
+      set(a64_on_x86_only ON)
+    endif()
   elseif (${arg} STREQUAL "package")
     # This builds a package out of *all* build dirs.  That will result in
     # conflicts if different architectures are being built: e.g., ARM
@@ -289,7 +292,7 @@ endif ()
 # also turned on for release-external-64, but ctest will run with label
 # RUN_IN_RELEASE.
 
-if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
+if (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_only)
   # For cross-arch execve test we need to "make install"
   testbuild_ex("debug-internal-32" OFF "
     DEBUG:BOOL=ON
@@ -419,7 +422,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
         ")
     endif (DO_ALL_BUILDS)
   endif (ARCH_IS_X86 AND NOT APPLE)
-endif (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
+endif (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_only)
 
 if (UNIX AND ARCH_IS_X86)
   # Optional cross-compilation for ARM/Linux and ARM/Android if the cross
@@ -519,6 +522,18 @@ if (UNIX AND ARCH_IS_X86)
   set(optional_cross_compile ${prev_optional_cross_compile})
   set(ARCH_IS_X86 ON)
 endif (UNIX AND ARCH_IS_X86)
+
+# TODO i#1684: Fix Windows compiler warnings for AArch64 on x86 and then enable
+# this, but perhaps on master merges only to avoid slowing down PR builds.
+if (ARCH_IS_X86 AND UNIX AND (a64_on_x86_only OR NOT arg_travis))
+  # Test decoding and analyzing aarch64 traces on x86 machines.
+  testbuild_ex("aarch64-on-x86" ON "
+    TARGET_ARCH:STRING=aarch64
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    ${build_tests}
+    " OFF ${arg_package} "")
+endif ()
 
 # XXX: do we still care about these builds?
 ## defines we don't want to break -- no runs though since we don't currently use these

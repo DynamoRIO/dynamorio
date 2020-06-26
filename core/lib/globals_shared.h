@@ -796,6 +796,17 @@ typedef struct _instr_t instr_t;
 #endif
 /* DR_API EXPORT END */
 
+#ifdef DR_HOST_X86
+#    define IF_HOST_X86_ELSE(x, y) x
+#else
+#    define IF_HOST_X86_ELSE(x, y) y
+#endif
+#ifdef DR_HOST_X64
+#    define IF_HOST_X64_ELSE(x, y) x
+#else
+#    define IF_HOST_X64_ELSE(x, y) y
+#endif
+
 typedef enum {
     SYSLOG_INFORMATION = 0x1,
     SYSLOG_WARNING = 0x2,

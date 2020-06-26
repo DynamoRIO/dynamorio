@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -129,7 +129,10 @@ typedef struct _our_modify_ldt_t {
 static inline ptr_uint_t
 read_thread_register(reg_id_t reg)
 {
-#if defined(MACOS64)
+#ifdef DR_HOST_NOT_TARGET
+    ptr_uint_t sel = 0;
+    ASSERT_NOT_REACHED();
+#elif defined(MACOS64)
     ptr_uint_t sel;
     if (reg == SEG_GS) {
         asm volatile("mov %%gs:%1, %0" : "=r"(sel) : "m"(*(void **)0));
@@ -191,7 +194,10 @@ read_thread_register(reg_id_t reg)
 static inline bool
 write_thread_register(void *val)
 {
-#    ifdef AARCH64
+#    ifdef DR_HOST_NOT_TARGET
+    ASSERT_NOT_REACHED();
+    return false;
+#    elif defined(AARCH64)
     asm volatile("msr tpidr_el0, %0" : : "r"(val));
     return true;
 #    else
