@@ -1034,7 +1034,7 @@
 
 /* 1 destination, no sources */
 /**
- * Creats an instr_t for a conditional set instruction with the given opcode
+ * Creates an instr_t for a conditional set instruction with the given opcode
  * and destination operand.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param op The OP_xxx opcode for the instruction, which should be in the range
@@ -1640,7 +1640,7 @@
 
 /* floating-point */
 /**
- * Creats an instr_t for a conditional move instruction with the given opcode
+ * Creates an instr_t for a conditional move instruction with the given opcode
  * and destination operand.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param op The OP_xxx opcode for the instruction, which should be in the range
@@ -2936,7 +2936,7 @@
 /* @} */ /* end doxygen group */
 
 /**
- * Creats an instr_t for a conditional move instruction with the given opcode
+ * Creates an instr_t for a conditional move instruction with the given opcode
  * and destination operand.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param op The OP_xxx opcode for the instruction, which should be in the range
